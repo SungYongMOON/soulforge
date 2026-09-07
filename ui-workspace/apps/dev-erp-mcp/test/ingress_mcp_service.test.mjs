@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -235,6 +236,140 @@ test("authentication, project scopes, capabilities, account isolation, and revoc
     await f.cleanup();
   }
 });
+
+test("finalize resumes after submission persists but before the ticket commits, without another submission", async () => {
+  const f = await fixture();
+  try {
+    const bytes = Buffer.from("synthetic-finalize-crash-candidate");
+    let submissionPath;
+    let faultArmed = false;
+    const service = await createIngressMcpService({ configPath: f.configPath, now: () => {
+      if (faultArmed && submissionPath && existsSync(submissionPath)) {
+        faultArmed = false;
+        throw new Error("synthetic_crash_after_submission");
+      }
+      return NOW;
+    } });
+    const principal = await service.authenticate(f.primaryToken);
+    const prepared = await service.prepareUpload(principal, uploadInput(bytes));
+    const submissionId = `sfigsub_${digest(`upload\0${prepared.ticket_id}`).slice(0, 32)}`;
+    submissionPath = resolve(f.submissionRoot, `${submissionId}.json`);
+    await service.appendChunk(principal, prepared.ticket_id, 0, bytes);
+    faultArmed = true;
+    await assert.rejects(service.finalizeUpload(principal, prepared.ticket_id), /synthetic_crash_after_submission/);
+    const stored = await readFile(submissionPath);
+    const ticketPath = resolve(f.stateRoot, "tickets", `${prepared.ticket_id}.json`);
+    const incompleteTicket = JSON.parse(await readFile(ticketPath));
+    assert.equal(incompleteTicket.status, "pending");
+    assert.equal(incompleteTicket.submission_id, null);
+    const restarted = await createIngressMcpService({ configPath: f.configPath, now: () => NOW + 1000 });
+    const current = await restarted.authenticate(f.primaryToken);
+    const stableRecord = JSON.parse(stored);
+    for (const [field, value] of [
+      ["account_id", "other_account"], ["device_id", "other_device"], ["agent_id", "other_agent"],
+      ["project_hint", "PRJ_B"], ["occurrence_id", "other_occurrence"], ["sha256", "0".repeat(64)],
+      ["size", bytes.length + 1], ["official_completion", true], ["received_at", "not-a-time"],
+    ]) {
+      await json(submissionPath, { ...stableRecord, [field]: value });
+      const corruptBytes = await readFile(submissionPath);
+      await assert.rejects(restarted.finalizeUpload(current, prepared.ticket_id), /submission_conflict/);
+      assert.deepEqual(await readFile(submissionPath), corruptBytes);
+      assert.equal(JSON.parse(await readFile(ticketPath)).status, "pending");
+    }
+    await writeFile(submissionPath, stored);
+    const indexPath = resolve(f.stateRoot, "indexes", `${digest("upload\0cred_primary\0upload:file:0001")}.json`);
+    const indexBytes = await readFile(indexPath);
+    await json(indexPath, { ...JSON.parse(indexBytes), input_digest: "0".repeat(64) });
+    await assert.rejects(restarted.finalizeUpload(current, prepared.ticket_id), /submission_conflict/);
+    assert.equal(JSON.parse(await readFile(ticketPath)).status, "pending");
+    await writeFile(indexPath, indexBytes);
+    const registryBytes = await readFile(f.registryPath);
+    const revoked = JSON.parse(registryBytes);
+    revoked.tokens[0].capabilities = ["receipt:read"];
+    await json(f.registryPath, revoked);
+    await assert.rejects(restarted.finalizeUpload(current, prepared.ticket_id), /capability_forbidden/);
+    assert.deepEqual(await readFile(submissionPath), stored);
+    assert.equal(JSON.parse(await readFile(ticketPath)).status, "pending");
+    await writeFile(f.registryPath, registryBytes);
+    const result = await restarted.finalizeUpload(current, prepared.ticket_id);
+    assert.equal(result.submission_id, submissionId);
+    assert.equal(result.status, "pending_server_ack");
+    assert.deepEqual(await readFile(submissionPath), stored);
+    assert.equal((await readdir(f.submissionRoot)).length, 1);
+    assert.deepEqual(await readFile(resolve(f.outboxRoot, "team_files", "mcp_cred_primary_file_0001.payload")), bytes);
+    assert.equal(JSON.parse(await readFile(ticketPath)).status, "finalized");
+    assert.equal(result.official_history_written, false);
+    assert.equal(result.source_deleted, false);
+  } finally { await f.cleanup(); }
+});
+
+for (const grant of [
+  {
+    name: "upload capability",
+    code: "capability_forbidden",
+    revoke: (token) => ({ ...token, capabilities: token.capabilities.filter((value) => value !== "upload:team_files") }),
+  },
+  {
+    name: "ticket project scope",
+    code: "project_scope_forbidden",
+    revoke: (token) => ({ ...token, project_scopes: token.project_scopes.filter((value) => value !== "PRJ_A") }),
+  },
+]) {
+  for (const operation of ["appendChunk", "finalizeUpload"]) {
+    test(`${operation} rejects a removed ${grant.name} without changing the upload and resumes after restoration`, async () => {
+      const f = await fixture();
+      try {
+        const service = await createIngressMcpService({ configPath: f.configPath, now: () => NOW });
+        const principal = await service.authenticate(f.primaryToken);
+        const bytes = Buffer.from("synthetic-upload-current-grant-check");
+        const prepared = await service.prepareUpload(principal, uploadInput(bytes));
+        const offset = operation === "appendChunk" ? 7 : bytes.length;
+        await service.appendChunk(principal, prepared.ticket_id, 0, bytes.subarray(0, offset));
+        const uploadPath = resolve(f.stateRoot, "uploads", `${prepared.ticket_id}.partial`);
+        const ticketPath = resolve(f.stateRoot, "tickets", `${prepared.ticket_id}.json`);
+        const beforeBytes = await readFile(uploadPath);
+        const beforeTicket = await readFile(ticketPath, "utf8");
+        const beforeSubmissions = await readdir(f.submissionRoot);
+        const beforeOutbox = await readdir(resolve(f.outboxRoot, "team_files"));
+        const beforeReceipts = await readdir(resolve(f.outboxRoot, "state", "receipts", "team_files"));
+        await json(f.registryPath, {
+          schema_version: INGRESS_MCP_AUTH_SCHEMA,
+          revision: "rev_grant_removed",
+          tokens: f.tokens.map((token) => token.credential_id === principal.credentialId ? grant.revoke(token) : token),
+        });
+
+        await assert.rejects(
+          operation === "appendChunk"
+            ? service.appendChunk(principal, prepared.ticket_id, offset, bytes.subarray(offset))
+            : service.finalizeUpload(principal, prepared.ticket_id),
+          (error) => error.code === grant.code && error.status === 403,
+        );
+        assert.deepEqual(await readFile(uploadPath), beforeBytes);
+        assert.equal(await readFile(ticketPath, "utf8"), beforeTicket);
+        assert.deepEqual(await readdir(f.submissionRoot), beforeSubmissions);
+        assert.deepEqual(await readdir(resolve(f.outboxRoot, "team_files")), beforeOutbox);
+        assert.deepEqual(await readdir(resolve(f.outboxRoot, "state", "receipts", "team_files")), beforeReceipts);
+
+        await json(f.registryPath, {
+          schema_version: INGRESS_MCP_AUTH_SCHEMA,
+          revision: "rev_grant_restored",
+          tokens: f.tokens,
+        });
+        if (operation === "appendChunk") {
+          const progress = await service.appendChunk(principal, prepared.ticket_id, offset, bytes.subarray(offset));
+          assert.equal(progress.received_size, bytes.length);
+        }
+        const submitted = await service.finalizeUpload(principal, prepared.ticket_id);
+        assert.equal(submitted.status, "pending_server_ack");
+        assert.equal((await readdir(f.submissionRoot)).length, 1);
+        assert.deepEqual(await readFile(uploadPath), bytes);
+        assert.deepEqual(await readFile(resolve(f.outboxRoot, "team_files", "mcp_cred_primary_file_0001.payload")), bytes);
+      } finally {
+        await f.cleanup();
+      }
+    });
+  }
+}
 
 test("bounded events reject transcripts, surveillance, unknown fields, and idempotency conflicts", async () => {
   const f = await fixture();
