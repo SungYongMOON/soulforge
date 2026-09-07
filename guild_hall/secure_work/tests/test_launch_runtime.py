@@ -103,7 +103,9 @@ assert value.path.name == 'config.json'
 assert kit.bind(value.kit_root).name == 'src'
 assert launch_runtime.is_launched()
 bridge = adapters.TongsCustodyAdapter(None, '', '', None, False)
-assert bridge._bridge_call({'operation': 'authorize'}) == {'synthetic_bridge': True}
+try: bridge._bridge_call({'operation': 'authorize'})
+except RuntimeError as error: assert str(error) == 'CUSTODY_SESSION_REQUIRED'
+else: raise AssertionError('controller started inherited custody bridge')
 worker = adapters.ScriptedWorkerTransport('caller-value-ignored', value.path.parent, value.path.parent)
 try: worker.send_exact(b'synthetic-released', value.path.parent)
 except RuntimeError as error: assert str(error) == 'CHANNEL_SCOPE_REQUIRED'

@@ -202,3 +202,50 @@ test("IPC missing binding, replayed scope, renamed pipe, launcher drift and same
     assert.throws(() => f.authority.channelContract({ ...f.scope(), [field]: "stale" }));
   }
 });
+
+function custodyFixture(t) {
+  const f = channelFixture(t), root = path.dirname(f.runtime.launcherPath);
+  const registration = { task_path: "\\SyntheticCustodySender", xml_sha256: "d".repeat(64),
+    launcher_path: path.join(root, "custody", "sfx.mjs"), node_path: f.runtime.binding.node_executable.path,
+    working_directory: root };
+  f.policy.custody_channel = { pipe: "soulforge-secure-synthetic-custody-01", registration };
+  f.pinned.add(registration.launcher_path);
+  f.tasks[registration.task_path] = { ...structuredClone(f.task), task_path: registration.task_path,
+    xml_sha256: registration.xml_sha256, principal_sid: f.policy.roles.sender.sid,
+    actions: [{ type: 0, execute: registration.node_path, arguments: `"${registration.launcher_path}" --custody-sender`, cwd: root }] };
+  f.seal();
+  f.custodyConfig = () => {
+    f.peerConfig("sender");
+    f.runtime.installationRole.purpose = "custody.deposit";
+    f.config.execution_purpose = "custody.deposit";
+    f.config.custody_authority = { policy_path: path.join(root, "custody-policy"), policy_sha256: "e".repeat(64), approval_root: path.join(root, "approvals") };
+    f.config.adapters = { custody: { enabled: true, live_enabled: true, ingress_url: "http://127.0.0.1:1",
+      token_file: path.join(root, "synthetic-material"), token_sha256: "f".repeat(64) } };
+  };
+  return f;
+}
+
+test("M10 controller and custody-purpose sender bind independently of minimal M06 configuration", t => {
+  const f = custodyFixture(t);
+  assert.equal(f.authority.custodyChannelContract(f.scope()).role, "controller");
+  f.custodyConfig();
+  const result = f.authority.custodyChannelContract(f.scope());
+  assert.equal(result.role, "sender");
+  assert.equal(result.purpose, "custody.deposit");
+  assert.equal(JSON.stringify(result).includes("token"), false);
+  assert.throws(() => f.authority.channelContract(f.scope()));
+});
+
+test("wrong purpose, worker role, shared endpoint, config widening and stale assignment cannot dispatch custody", t => {
+  for (const mutate of [f => { delete f.runtime.installationRole.purpose; },
+    f => { f.runtime.installationRole.purpose = "model.dispatch"; }, f => { f.config.execution_purpose = "model.dispatch"; },
+    f => { f.evidence.sid = f.policy.roles.worker.sid; }, f => { f.config.pilot_root = "forbidden"; },
+    f => { f.config.adapters.transport = {}; }, f => { delete f.config.adapters.custody.token_sha256; },
+    f => { f.policy.custody_channel.pipe = f.policy.ipc.sender_pipe; f.seal(); },
+    f => { f.tasks[f.policy.custody_channel.registration.task_path].actions[0].arguments += " --config caller"; }]) {
+    const f = custodyFixture(t); f.custodyConfig(); mutate(f);
+    assert.throws(() => f.authority.custodyChannelContract(f.scope()));
+  }
+  const f = custodyFixture(t);
+  assert.throws(() => f.authority.custodyChannelContract({ ...f.scope(), assignment_epoch: 99 }));
+});

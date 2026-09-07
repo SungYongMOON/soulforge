@@ -89,7 +89,8 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
     if (hash(raw) !== pin.policy_sha256) fail();
     const policy = JSON.parse(raw);
     exact(policy, ["epoch", "expires_at", "revoked", "roles", "context", "issuer_key_id", "public_key_sha256", "worker_registration",
-      ...(Object.hasOwn(policy, "ipc") ? ["ipc", "sender_registration"] : [])]);
+      ...(Object.hasOwn(policy, "ipc") ? ["ipc", "sender_registration"] : []),
+      ...(Object.hasOwn(policy, "custody_channel") ? ["custody_channel"] : [])]);
     if (!Number.isSafeInteger(policy.epoch) || policy.epoch < 1 || policy.revoked !== false
       || !Number.isSafeInteger(policy.expires_at) || now() >= policy.expires_at
       || !REF.test(policy.issuer_key_id) || !SHA.test(policy.public_key_sha256)) fail();
@@ -158,8 +159,9 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
   function channelContract(scope = null) {
     const value = current(), { policy, roleName } = value;
     if (!["controller", "sender", "worker"].includes(roleName)) fail();
-    exact(runtime.installationRole, ["name", "sid"]);
+    exact(runtime.installationRole, ["name", "sid", ...(runtime.installationRole?.purpose ? ["purpose"] : [])]);
     if (runtime.installationRole.name !== roleName || runtime.installationRole.sid !== value.sid) fail();
+    if (runtime.installationRole.purpose && runtime.installationRole.purpose !== "model.dispatch") fail();
     if (scope !== null) scopeMatches(scope, policy);
     if (roleName === "controller") authorize("jobs.advance", { ...policy.context, policy_epoch: policy.epoch });
     if (roleName === "sender") authorize("model.dispatch", { ...policy.context, policy_epoch: policy.epoch });
@@ -183,8 +185,33 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
       sids: Object.fromEntries(["controller", "sender", "worker"].map(role => [role, policy.roles[role].sid])),
       ...policy.ipc, expires_at: policy.expires_at };
   }
-  function registeredContract(role, value, requireChannel = false) {
-    const expected = value.policy[role + "_registration"];
+  function custodyChannelContract(scope = null) {
+    const value = current(), { policy, roleName } = value;
+    if (!["controller", "sender"].includes(roleName) || runtime.installationRole?.name !== roleName
+      || runtime.installationRole.sid !== value.sid) fail();
+    if (scope !== null) scopeMatches(scope, policy);
+    exact(policy.custody_channel, ["pipe", "registration"]);
+    if (!/^soulforge-secure-[a-z0-9-]{16,80}$/.test(policy.custody_channel.pipe)
+      || Object.values(policy.ipc || {}).includes(policy.custody_channel.pipe)) fail();
+    if (roleName === "controller") authorize("jobs.advance", { ...policy.context, policy_epoch: policy.epoch });
+    else {
+      if (runtime.installationRole.purpose !== "custody.deposit") fail();
+      exact(runtime.config, ["schema", "execution_role", "execution_purpose", "runtime", "kit_root", "recipe_root",
+        "execution_authority", "custody_authority", "adapters"]);
+      if (runtime.config.execution_role !== "sender" || runtime.config.execution_purpose !== "custody.deposit") fail();
+      exact(runtime.config.runtime, ["python_executable"]);
+      exact(runtime.config.adapters, ["custody"]);
+      exact(runtime.config.adapters.custody, ["enabled", "live_enabled", "ingress_url", "token_file", "token_sha256"]);
+      if (!SHA.test(runtime.config.adapters.custody.token_sha256)) fail();
+    }
+    registeredContract("sender", value, true, policy.custody_channel.registration, "custody-sender");
+    if (current().sid !== value.sid) fail();
+    return { role: roleName, purpose: "custody.deposit", scope: { ...policy.context, policy_epoch: policy.epoch },
+      controller_sid: policy.roles.controller.sid, sender_sid: policy.roles.sender.sid,
+      pipe: policy.custody_channel.pipe, expires_at: policy.expires_at };
+  }
+  function registeredContract(role, value, requireChannel = false, registration = null, entry = role) {
+    const expected = registration || value.policy[role + "_registration"];
     const extended = expected && Object.hasOwn(expected, "launcher_path");
     exact(expected, ["task_path", "xml_sha256", ...(extended ? ["launcher_path", "node_path", "working_directory"] : [])]);
     if (requireChannel && !extended) fail();
@@ -204,7 +231,7 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
       || ![1, 2].includes(task.logon_type) || !Array.isArray(task.actions) || task.actions.length !== 1
       || ![anchor.trust_owner_sid, ...SYSTEM].includes(task.owner_sid) || !Array.isArray(task.allow)) fail();
     const action = task.actions[0];
-    if (action.type !== 0 || !same(action.execute, node) || action.arguments !== `"${launcher}" --${role}`
+    if (action.type !== 0 || !same(action.execute, node) || action.arguments !== `"${launcher}" --${entry}`
       || !same(action.cwd, cwd) || !same(cwd, path.dirname(node))) fail();
     for (const ace of task.allow) {
       if (!SID.test(ace.sid) || !Number.isSafeInteger(ace.rights)) fail();
@@ -217,6 +244,7 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
     requireRole,
     authorize,
     channelContract,
+    custodyChannelContract,
     entry(operation) {
       const value = current();
       return authorize(operation, { ...value.policy.context, policy_epoch: value.policy.epoch });

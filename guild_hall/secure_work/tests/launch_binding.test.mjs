@@ -207,6 +207,51 @@ test("three role generations can be sealed leaf-to-controller without circular m
   }
 });
 
+test("custody-purpose sender and controller seal real generation bytes without an upstream pin or controller token", t => {
+  const sender = fixture(t), controller = fixture(t);
+  const policy = JSON.parse(readFileSync(path.join(controller.temp, "execution-policy.json")));
+  const registration = { task_path: "\\SyntheticCustodySender", xml_sha256: "d".repeat(64),
+    launcher_path: sender.launcher, node_path: sender.node, working_directory: sender.runtime };
+  policy.custody_channel = { pipe: "soulforge-secure-synthetic-custody-01", registration };
+  const task = { task_path: registration.task_path, enabled: true, xml_sha256: registration.xml_sha256,
+    principal_sid: policy.roles.sender.sid, run_level: 0, logon_type: 2, owner_sid: OWNER,
+    allow: [{ sid: OWNER, rights: 2032127 }], actions: [{ type: 0, execute: sender.node,
+      arguments: `"${sender.launcher}" --custody-sender`, cwd: sender.runtime }] };
+  let downstream = [];
+  for (const [role, f] of [["sender", sender], ["controller", controller]]) {
+    f.evidence.sid = policy.roles[role].sid;
+    f.anchor.role = { name: role, sid: f.evidence.sid, ...(role === "sender" ? { purpose: "custody.deposit" } : {}) };
+    const policyPath = path.join(f.temp, "execution-policy.json");
+    f.put(policyPath, JSON.stringify(policy));
+    let config = JSON.parse(readFileSync(f.configPath));
+    if (role === "sender") config = { schema: config.schema, execution_role: "sender", execution_purpose: "custody.deposit",
+      runtime: config.runtime, kit_root: config.kit_root, recipe_root: config.recipe_root, execution_authority: config.execution_authority,
+      custody_authority: { policy_path: path.join(f.temp, "custody-policy"), policy_sha256: "e".repeat(64), approval_root: path.join(f.temp, "approvals") },
+      adapters: { custody: { enabled: true, live_enabled: true, ingress_url: "http://127.0.0.1:1",
+        token_file: path.join(f.temp, "synthetic-material"), token_sha256: "f".repeat(64) } } };
+    config.execution_authority.policy_sha256 = pin(policyPath).sha256;
+    f.put(f.configPath, JSON.stringify(config));
+    f.binding.config_sha256 = pin(f.configPath).sha256;
+    const local = structuredClone(f.binding.launch.roots);
+    f.binding.launch.roots.push(...downstream);
+    f.saveBinding();
+    f.put(f.launcher, renderInstalledLauncher(readFileSync(f.launcher, "utf8"), f.anchor));
+    const runtime = f.verify();
+    const authority = loadExecutionAuthority(runtime, { inspectTask: () => task });
+    assert.equal(authority.custodyChannelContract().role, role);
+    if (role === "sender") {
+      assert.throws(() => authority.channelContract());
+      const packet = JSON.parse(pythonInvocation(runtime, "custody_sender").inputPrefix);
+      assert.equal(Object.hasOwn(packet, "config_path"), false);
+      assert.equal(JSON.stringify(packet).includes(config.adapters.custody.token_file), false);
+    } else assert.equal(Object.hasOwn(config.adapters, "custody"), false);
+    local[0].files.push({ relative_path: "guild_hall/secure_work/sfx.mjs", sha256: pin(f.launcher).sha256 },
+      { relative_path: "guild_hall/secure_work/custody_runtime_binding.json", sha256: pin(f.bindingPath).sha256 });
+    downstream = local;
+  }
+  for (const f of [sender, controller]) assert.ok(f.verify());
+});
+
 function directSyntheticEntry(f, argv, input = "") {
   // Only the copied test launcher substitutes synthetic OS evidence and its
   // fake executable pin. Keep the real main/executeVerified/import graph and
@@ -246,7 +291,7 @@ test("read-only role entry uses installed context and rejects caller-supplied sc
   }
 });
 
-test("direct custody entrypoint resolves its authority module before a normal unbound denial", t => {
+test("legacy direct custody bridge cannot replace the purpose-bound byte session", t => {
   const f = fixture(t);
   // Isolate the second back-import: no real OS task, policy or credential
   // authorization is claimed by this deliberately synthetic role stub.
@@ -262,7 +307,7 @@ test("direct custody entrypoint resolves its authority module before a normal un
   assert.equal(result.error, undefined);
   assert.equal(result.status, 2, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { ok: false, code: "SECURE_WORK_LAUNCH_HOLD" });
-  assert.equal(result.stderr, "synthetic-custody-imported\n");
+  assert.equal(result.stderr, "");
 });
 
 test("a main promise left pending without live handles cannot exit with false success", t => {

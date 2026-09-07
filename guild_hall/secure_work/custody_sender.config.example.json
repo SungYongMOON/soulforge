@@ -1,0 +1,26 @@
+{
+  "schema": "soulforge.secure_work.config.v0",
+  "execution_role": "sender",
+  "execution_purpose": "custody.deposit",
+  "runtime": { "python_executable": "<TOOL_ROOT>/secure-work-python/python.exe" },
+  "kit_root": "<TOOL_ROOT>/secure-work-kit/<E14 contract kit>/soulforge_e14_system",
+  "recipe_root": "<TOOL_ROOT>/secure-work-kit/<E13 handoff>/recipes",
+  "execution_authority": {
+    "policy_path": "<private_root>/config/secure_work/execution-policy.json",
+    "policy_sha256": "<owner-pinned-sha256>"
+  },
+  "custody_authority": {
+    "policy_path": "<private_root>/config/secure_work/custody-policy.json",
+    "policy_sha256": "<owner-pinned-sha256>",
+    "approval_root": "<private_root>/config/secure_work/custody-approvals"
+  },
+  "adapters": {
+    "custody": {
+      "enabled": false,
+      "live_enabled": false,
+      "ingress_url": "<owner-approved-ingress-url>",
+      "token_file": "<private_root>/config/secure_work/credentials/tongs_ingress.bearer",
+      "token_sha256": "<owner-pinned-exact-file-sha256>"
+    }
+  }
+}

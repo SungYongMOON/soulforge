@@ -356,8 +356,20 @@ class TongsCustodyAdapter:
         self.live_enabled = live_enabled
         self.authorization = authorization or (self._runtime_authorize if use_runtime_authority else None)
         self.executor = executor
+        self.use_runtime_authority = use_runtime_authority
+        self._session = None
 
     def probe(self) -> Probe:
+        if self.use_runtime_authority:
+            if not self.live_enabled:
+                return Probe(self.module, self.name, "DISABLED", "custody upload not enabled")
+            try:
+                from .custody_ipc import contract
+                if contract()["role"] != "controller":
+                    raise RuntimeError()
+            except (RuntimeError, OSError, ValueError):
+                return Probe(self.module, self.name, "UNAVAILABLE", "CUSTODY_CHANNEL_AUTHORITY_HOLD")
+            return Probe(self.module, self.name, "AVAILABLE", "purpose-bound custody sender; credential stays at sender")
         if self.client_cli is None or not self.client_cli.is_file():
             return Probe(self.module, self.name, "UNAVAILABLE", "ingress client not found")
         if self.token_file is None:
@@ -373,11 +385,31 @@ class TongsCustodyAdapter:
 
     def deposit(self, candidate_path: Path, project_hint: str, occurrence_id: str,
                 idempotency_key: str, *, input_revision: str | None = None,
-                expected_sha256: str | None = None, expected_size: int | None = None) -> dict:
+                expected_sha256: str | None = None, expected_size: int | None = None,
+                execution_scope=None, current=None) -> dict:
         from .custody import deposit
-        return deposit(self, candidate_path, project_hint, occurrence_id, idempotency_key,
-                       input_revision=input_revision, expected_sha256=expected_sha256,
-                       expected_size=expected_size)
+        def execute():
+            return deposit(self, candidate_path, project_hint, occurrence_id, idempotency_key,
+                           input_revision=input_revision, expected_sha256=expected_sha256,
+                           expected_size=expected_size)
+        if not self.use_runtime_authority:
+            return execute()  # explicit synthetic verifier/executor contract seam
+        from .custody_ipc import CustodySession
+        if not self.live_enabled or self._session is not None or not callable(current):
+            raise AdapterUnavailable("M10", "CUSTODY_CHANNEL_AUTHORITY_HOLD")
+        def fresh():
+            current()
+            with Path(candidate_path).open("rb") as source:
+                body = source.read(1048577)
+            if len(body) != expected_size or hashlib.sha256(body).hexdigest() != expected_sha256:
+                raise AdapterUnavailable("M10", "CUSTODY_CANDIDATE_CHANGED")
+        fresh()
+        with CustodySession(execution_scope, fresh) as session:
+            self._session = session
+            try:
+                return execute()
+            finally:
+                self._session = None
 
     def _execute(self, request: dict) -> dict:
         if self.executor is not None:
@@ -394,11 +426,16 @@ class TongsCustodyAdapter:
             raise AdapterUnavailable(self.module, "CUSTODY_RUNTIME_AUTHORITY_HOLD") from None
 
     def _bridge_call(self, request: dict) -> dict:
-        from .launch_runtime import call_launcher
-        completed = call_launcher(["--custody-bridge"], body=json.dumps(request).encode(), timeout=60)
-        if completed.returncode or len(completed.stdout) > 32768:
-            raise RuntimeError("CUSTODY_BRIDGE_FAILED")
-        return json.loads(completed.stdout)
+        if self._session is None:
+            raise RuntimeError("CUSTODY_SESSION_REQUIRED")
+        body = b"."
+        if request.get("action") == "upload":
+            with Path(request["candidate_path"]).open("rb") as source:
+                body = source.read(1048577)
+            binding = request["binding"]
+            if len(body) != binding["size"] or hashlib.sha256(body).hexdigest() != binding["sha256"]:
+                raise RuntimeError("CUSTODY_CANDIDATE_CHANGED")
+        return self._session.request(request, body)
 
 
 def endpoint_probe(url: str, module: str, name: str, timeout_s: int = 3) -> Probe:
