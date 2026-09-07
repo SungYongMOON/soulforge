@@ -117,7 +117,7 @@ summary: Add one missing field to the daily work packet report.
 branch_slug: daily-packet-field
 allowed_write_paths:
   - guild_hall/night_watch/**
-  - guild_hall/dev_worker/**
+  - guild_hall/dev_worker/feedback_note.mjs
 acceptance_checks:
   - npm run validate:dev-worker
 stop_conditions:
@@ -205,13 +205,19 @@ To be auto-approved, a candidate must:
 5. include all required task packet fields;
 6. limit `allowed_write_paths` to the current safe set:
    - `docs/architecture/guild_hall/**`
-   - `guild_hall/dev_worker/**`
+   - ordinary exact files under `guild_hall/dev_worker/`, excluding its authority policy and prompt/schedule files
    - `guild_hall/night_watch/**`
    - `CHANGELOG.md`
    Safe-path checks reject raw path strings containing control characters
    (`U+0000` through `U+001F` or `U+007F`), reject parent directory segments
    (`..`), and compare normalized paths against the allowed boundary as whole
    path units.
+   The shared deny check applies before promotion as well as claim, including
+   already approved candidates. It rejects root scopes, case aliases, ambiguous
+   filesystem spellings and globs whose containing directory reaches a protected
+   entry. Enumerate exact ordinary files instead of `guild_hall/dev_worker/**`.
+   `_workspaces/`, `_workmeta/` and `.git/` are not source-repair targets. The
+   guard prevents accidental scope widening; it is not an OS sandbox.
 7. limit `acceptance_checks` to the current safe command set:
    - `git diff --check`
    - `npm run validate*`
