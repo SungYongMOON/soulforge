@@ -94,6 +94,7 @@ export function readPackSourceIdentity(startDir, { verify = "all", selfPath = nu
     fail("pack_source_manifest_unreadable");
   }
   if (manifest.schema !== PACK_MANIFEST_SCHEMA
+    || (manifest.sbom_policy !== undefined && manifest.sbom_policy !== "required_cyclonedx_1_6")
     || typeof manifest.pack_digest !== "string"
     || !SHA256_HEX.test(manifest.pack_digest)
     || !Array.isArray(manifest.files)
@@ -159,5 +160,7 @@ export function readPackSourceIdentity(startDir, { verify = "all", selfPath = nu
     pack_version: manifest.version,
     pack_digest: manifest.pack_digest,
     verified_files: verifiedFiles,
+    // Source identity is not the separate full payload/SBOM verification.
+    sbom_verification: "NOT_VERIFIED",
   });
 }

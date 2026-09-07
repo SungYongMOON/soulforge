@@ -34,6 +34,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { recomputePackDigest, verifyInstalledCopy } from "./build_pack.mjs";
+import { assertGenerationWriteTarget, clearGenerationMetadata, readPackGeneration, verifyGenerationPayload, writeGenerationMetadata } from "../src/pack_sbom_artifact.mjs";
+import { SBOM_POLICY } from "../src/pack_sbom.mjs";
 
 const PACK_MANIFEST_SCHEMA = "soulforge.deployment_pack_manifest.v0";
 const SHA256_HEX = /^[a-f0-9]{64}$/;
@@ -62,6 +64,7 @@ export function parseVerifiedManifest(manifestPath, code) {
     fail(code, "manifest_unreadable");
   }
   if (manifest.schema !== PACK_MANIFEST_SCHEMA
+    || (manifest.sbom_policy !== undefined && manifest.sbom_policy !== SBOM_POLICY)
     || typeof manifest.pack_digest !== "string"
     || !SHA256_HEX.test(manifest.pack_digest)
     || !Array.isArray(manifest.files)
@@ -83,11 +86,9 @@ export function readVerifiedManifest(dir, code) {
 
 // Full generation verification: validated manifest + two-way byte walk
 // (missing/mismatched AND unmanifested extras) over payloadDir.
-function verifyGeneration(dir, payloadDir, code) {
-  const manifest = readVerifiedManifest(dir, code);
-  const verdict = verifyInstalledCopy(manifest, payloadDir);
-  if (!verdict.ok) fail(code, verdict.mismatches.slice(0, 5).join(","));
-  return manifest;
+function verifyGeneration(dir, code, previous = false) {
+  try { return readPackGeneration({ packDir: dir, previous }); }
+  catch (error) { fail(code, error.code?.startsWith("sbom_") ? error.code : "generation_unreadable"); }
 }
 
 function writeReceipt(dir, op, body) {
@@ -103,7 +104,9 @@ function clearReceipt(dir, op) {
 // Verified copy of the target's CURRENT generation into backupDir.
 export function backupPack({ targetDir, backupDir, clock }) {
   if (typeof clock !== "function") fail("clock_required");
-  const manifest = verifyGeneration(targetDir, join(targetDir, "payload"), "backup_source_invalid");
+  assertGenerationWriteTarget(backupDir);
+  const generation = verifyGeneration(targetDir, "backup_source_invalid");
+  const { manifest } = generation;
   if (existsSync(join(backupDir, "payload"))) fail("backup_dir_occupied");
   // The stale-receipt clear comes AFTER the refusal gates: an occupied-dir
   // refusal protects an EXISTING backup, and must not destroy that
@@ -111,7 +114,6 @@ export function backupPack({ targetDir, backupDir, clock }) {
   clearReceipt(backupDir, "backup");
   mkdirSync(backupDir, { recursive: true });
   cpSync(join(targetDir, "payload"), join(backupDir, "payload"), { recursive: true });
-  writeFileSync(join(backupDir, "pack.manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   const copyVerdict = verifyInstalledCopy(manifest, join(backupDir, "payload"));
   if (!copyVerdict.ok) {
     // A failed copy leaves NO backup-shaped bytes behind.
@@ -119,8 +121,11 @@ export function backupPack({ targetDir, backupDir, clock }) {
     rmSync(join(backupDir, "pack.manifest.json"), { force: true });
     fail("backup_copy_failed", copyVerdict.mismatches.slice(0, 5).join(","));
   }
+  const sbom = verifyGenerationPayload(generation, resolve(join(backupDir, "payload")));
+  writeGenerationMetadata(backupDir, generation);
   writeReceipt(backupDir, "backup", {
     pack_digest: manifest.pack_digest, files: manifest.files.length, backed_up_at: clock(),
+    sbom,
   });
   return { pack_digest: manifest.pack_digest, files: manifest.files.length };
 }
@@ -131,7 +136,8 @@ export function backupPack({ targetDir, backupDir, clock }) {
 // target): the payload is still retained aside, but WITHOUT a prev
 // manifest, so rollbackPack will refuse it — correct, because rolling
 // back to a generation nobody can verify would be a false promise.
-function stageAndSwap({ targetDir, sourcePayload, sourceManifest, outgoingManifest, failCode }) {
+function stageAndSwap({ targetDir, sourcePayload, sourceGeneration, outgoingGeneration, failCode }) {
+  const sourceManifest = sourceGeneration.manifest;
   const nextDir = join(targetDir, "payload.next");
   rmSync(nextDir, { recursive: true, force: true });
   mkdirSync(targetDir, { recursive: true });
@@ -141,40 +147,44 @@ function stageAndSwap({ targetDir, sourcePayload, sourceManifest, outgoingManife
     rmSync(nextDir, { recursive: true, force: true });
     fail(failCode, staged.mismatches.slice(0, 5).join(","));
   }
+  verifyGenerationPayload(sourceGeneration, resolve(nextDir));
   // Make room: exactly one retained generation.
   rmSync(join(targetDir, "payload.prev"), { recursive: true, force: true });
-  rmSync(join(targetDir, "pack.manifest.prev.json"), { force: true });
+  clearGenerationMetadata(targetDir, true);
   if (existsSync(join(targetDir, "payload"))) {
     renameSync(join(targetDir, "payload"), join(targetDir, "payload.prev"));
-    if (outgoingManifest !== null) {
-      writeFileSync(join(targetDir, "pack.manifest.prev.json"), `${JSON.stringify(outgoingManifest, null, 2)}\n`);
+    if (outgoingGeneration !== null) {
+      writeGenerationMetadata(targetDir, outgoingGeneration, true);
     }
   }
   renameSync(nextDir, join(targetDir, "payload"));
-  writeFileSync(join(targetDir, "pack.manifest.json"), `${JSON.stringify(sourceManifest, null, 2)}\n`);
+  writeGenerationMetadata(targetDir, sourceGeneration);
   // Post-swap paranoia: the now-current generation re-verifies in place.
   const post = verifyInstalledCopy(sourceManifest, join(targetDir, "payload"));
   if (!post.ok) fail(failCode, `postswap:${post.mismatches.slice(0, 3).join(",")}`);
+  verifyGeneration(targetDir, failCode);
 }
 
 // Upgrade the target's current generation to the pack in packDir.
 export function upgradePack({ packDir, targetDir, clock }) {
   if (typeof clock !== "function") fail("clock_required");
+  assertGenerationWriteTarget(targetDir);
   clearReceipt(targetDir, "upgrade");
-  const current = verifyGeneration(targetDir, join(targetDir, "payload"), "upgrade_target_state_invalid");
-  const incoming = verifyGeneration(packDir, join(packDir, "payload"), "upgrade_pack_invalid");
+  const current = verifyGeneration(targetDir, "upgrade_target_state_invalid");
+  const incoming = verifyGeneration(packDir, "upgrade_pack_invalid");
   stageAndSwap({
     targetDir,
     sourcePayload: join(packDir, "payload"),
-    sourceManifest: incoming,
-    outgoingManifest: current,
+    sourceGeneration: incoming,
+    outgoingGeneration: current,
     failCode: "upgrade_integrity_failed",
   });
   writeReceipt(targetDir, "upgrade", {
-    from_digest: current.pack_digest, to_digest: incoming.pack_digest,
-    files: incoming.files.length, previous_retained: true, upgraded_at: clock(),
+    from_digest: current.manifest.pack_digest, to_digest: incoming.manifest.pack_digest,
+    files: incoming.manifest.files.length, previous_retained: true, upgraded_at: clock(),
+    sbom: incoming.evidence, previous_sbom: current.evidence,
   });
-  return { from_digest: current.pack_digest, to_digest: incoming.pack_digest };
+  return { from_digest: current.manifest.pack_digest, to_digest: incoming.manifest.pack_digest };
 }
 
 // Swap the current generation with the retained previous one. The
@@ -187,6 +197,7 @@ export function upgradePack({ packDir, targetDir, clock }) {
 // it — a generation nobody can verify is not a rollback promise.
 export function rollbackPack({ targetDir, clock }) {
   if (typeof clock !== "function") fail("clock_required");
+  assertGenerationWriteTarget(targetDir);
   clearReceipt(targetDir, "rollback");
   const prevPayload = join(targetDir, "payload.prev");
   const prevManifestPath = join(targetDir, "pack.manifest.prev.json");
@@ -195,7 +206,8 @@ export function rollbackPack({ targetDir, clock }) {
   // run's outgoing generation: refuse with a code instead of renaming over
   // it — recovery is manual inspection or restore from a backup.
   if (existsSync(join(targetDir, "payload.swap"))) fail("rollback_half_swap_residue");
-  const prevManifest = parseVerifiedManifest(prevManifestPath, "rollback_previous_invalid");
+  const previous = verifyGeneration(targetDir, "rollback_previous_invalid", true);
+  const prevManifest = previous.manifest;
   const prevVerdict = verifyInstalledCopy(prevManifest, prevPayload);
   if (!prevVerdict.ok) fail("rollback_previous_invalid", prevVerdict.mismatches.slice(0, 5).join(","));
   if (!existsSync(join(targetDir, "payload"))) fail("rollback_target_payload_missing");
@@ -205,8 +217,7 @@ export function rollbackPack({ targetDir, clock }) {
   // is retained manifest-less.
   let current = null;
   try {
-    const candidate = readVerifiedManifest(targetDir, "rollback_current_unverifiable");
-    current = verifyInstalledCopy(candidate, join(targetDir, "payload")).ok ? candidate : null;
+    current = verifyGeneration(targetDir, "rollback_current_unverifiable");
   } catch {
     current = null;
   }
@@ -214,22 +225,24 @@ export function rollbackPack({ targetDir, clock }) {
   renameSync(join(targetDir, "payload"), join(targetDir, "payload.swap"));
   renameSync(prevPayload, join(targetDir, "payload"));
   renameSync(join(targetDir, "payload.swap"), prevPayload);
-  writeFileSync(join(targetDir, "pack.manifest.json"), `${JSON.stringify(prevManifest, null, 2)}\n`);
+  writeGenerationMetadata(targetDir, previous);
   if (current !== null) {
-    writeFileSync(prevManifestPath, `${JSON.stringify(current, null, 2)}\n`);
+    writeGenerationMetadata(targetDir, current, true);
   } else {
-    rmSync(prevManifestPath, { force: true });
+    clearGenerationMetadata(targetDir, true);
   }
   const post = verifyInstalledCopy(prevManifest, join(targetDir, "payload"));
   if (!post.ok) fail("rollback_integrity_failed", `postswap:${post.mismatches.slice(0, 3).join(",")}`);
+  verifyGeneration(targetDir, "rollback_integrity_failed");
   writeReceipt(targetDir, "rollback", {
-    from_digest: current === null ? null : current.pack_digest,
+    from_digest: current === null ? null : current.manifest.pack_digest,
     from_generation_verified: current !== null,
     to_digest: prevManifest.pack_digest,
     files: prevManifest.files.length,
     previous_retained: true, rolled_back_at: clock(),
+    sbom: previous.evidence, previous_sbom: current?.evidence ?? { status: "NOT_VERIFIED", reason: "damaged_previous_generation" },
   });
-  return { from_digest: current === null ? null : current.pack_digest, to_digest: prevManifest.pack_digest };
+  return { from_digest: current === null ? null : current.manifest.pack_digest, to_digest: prevManifest.pack_digest };
 }
 
 // Restore a (possibly damaged) target from a verified backup. The backup
@@ -239,30 +252,32 @@ export function rollbackPack({ targetDir, clock }) {
 // generation is retained payload-only, which rollbackPack refuses).
 export function restorePack({ backupDir, targetDir, clock }) {
   if (typeof clock !== "function") fail("clock_required");
+  assertGenerationWriteTarget(targetDir);
   clearReceipt(targetDir, "restore");
-  const backup = verifyGeneration(backupDir, join(backupDir, "payload"), "restore_backup_invalid");
+  const backup = verifyGeneration(backupDir, "restore_backup_invalid");
   // Best-effort outgoing verification — manifest AND payload bytes, so the
   // receipt's damaged_previous_retained and the prev-manifest retention
   // both reflect an OBSERVED verification, never an assumed one.
   let outgoing = null;
   try {
-    outgoing = verifyGeneration(targetDir, join(targetDir, "payload"), "restore_outgoing_unverifiable");
+    outgoing = verifyGeneration(targetDir, "restore_outgoing_unverifiable");
   } catch {
     outgoing = null;
   }
   stageAndSwap({
     targetDir,
     sourcePayload: join(backupDir, "payload"),
-    sourceManifest: backup,
-    outgoingManifest: outgoing,
+    sourceGeneration: backup,
+    outgoingGeneration: outgoing,
     failCode: "restore_integrity_failed",
   });
   writeReceipt(targetDir, "restore", {
-    restored_digest: backup.pack_digest, files: backup.files.length,
+    restored_digest: backup.manifest.pack_digest, files: backup.manifest.files.length,
     damaged_previous_retained: outgoing === null && existsSync(join(targetDir, "payload.prev")),
     restored_at: clock(),
+    sbom: backup.evidence, previous_sbom: outgoing?.evidence ?? { status: "NOT_VERIFIED", reason: "damaged_previous_generation" },
   });
-  return { restored_digest: backup.pack_digest, files: backup.files.length };
+  return { restored_digest: backup.manifest.pack_digest, files: backup.manifest.files.length };
 }
 
 function cliMain() {

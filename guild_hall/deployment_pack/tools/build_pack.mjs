@@ -3,7 +3,7 @@
 // Builds ONE pack from a tracked spec into an untracked dist/ directory, and
 // proves exactly what it can prove: the build/unit/contract gates. The
 // emitted release candidate claims `contract` and nothing higher — the
-// integration/e2e/package/sbom/start gates are not defined for a pack yet,
+// integration/e2e/package/full dependency-audit/start gates remain unclaimed,
 // so install/smoke runs are recorded as OUT-OF-LADDER receipts, never as
 // claimed gates. "A release is not a folder or artifact existing" stays
 // true: this tool produces a draft candidate, receipts, and bytes — no
@@ -29,6 +29,8 @@ import { fileURLToPath } from "node:url";
 
 import { recomputePackDigest } from "../../shared/pack_digest_recipe.mjs";
 import { PACK_CATALOG, validatePackReleaseManifest } from "../src/deployment_pack_contract.mjs";
+import { createPackSbom, readSbomFile, SBOM_LIMITS, SBOM_POLICY } from "../src/pack_sbom.mjs";
+import { assertGenerationWriteTarget, readPackGeneration, verifyGenerationPayload, writeGenerationMetadata, writeSbomArtifacts } from "../src/pack_sbom_artifact.mjs";
 
 export const PACK_SPEC_SCHEMA = "soulforge.deployment_pack_spec.v0";
 export const PACK_MANIFEST_SCHEMA = "soulforge.deployment_pack_manifest.v0";
@@ -198,7 +200,7 @@ function prepare(spec, { rootDir, runner }) {
       const absolute = resolve(rootDir, relPath);
       if (!absolute.startsWith(resolve(rootDir) + sep)) fail("spec_path_escapes_root", relPath);
       if (!existsSync(absolute)) fail("spec_file_missing", relPath);
-      const bytes = readFileSync(absolute);
+      const bytes = readSbomFile(absolute, SBOM_LIMITS.file);
       const digest = sha256(bytes);
       if (spec.host_effect_policy.reboot === "forbidden"
         && /\.(?:ps1|bat|cmd|vbs|mjs|js)$/i.test(relPath)
@@ -241,6 +243,7 @@ function prepare(spec, { rootDir, runner }) {
     content_roles: Object.fromEntries(Object.entries(spec.content_roles).map(([role, rolePaths]) => [role, [...rolePaths].sort()])),
     host_effect_policy: { ...spec.host_effect_policy },
     pack_digest: packDigest,
+    sbom_policy: SBOM_POLICY,
     claim: "pack_build_artifact_not_a_release",
   };
 
@@ -294,10 +297,17 @@ export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestR
     writeFileSync(target, file.content);
   }
   const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
-  writeFileSync(join(packDir, "pack.manifest.json"), stableJson(prepared.manifest));
+  const manifestBytes = Buffer.from(stableJson(prepared.manifest));
+  writeFileSync(join(packDir, "pack.manifest.json"), manifestBytes);
+  // Completed copied payload, exact manifest bytes, no alternate metadata root.
+  // Sidecars are outside payload/, preserving the existing pack digest recipe.
+  const sbom = createPackSbom({ manifestBytes, expectedManifestSha256: sha256(manifestBytes), payloadRoot: resolve(payloadDir) });
+  writeSbomArtifacts(packDir, sbom);
   writeFileSync(join(packDir, "release.candidate.json"), stableJson(prepared.candidate));
   writeFileSync(join(receiptsDir, "build.receipt.json"), stableJson({
     receipt: "build", pack_digest: prepared.manifest.pack_digest,
+    manifest_sha256: sha256(manifestBytes), sbom_sha256: sbom.evidence.sbom_sha256,
+    sbom: sbom.evidence,
     file_count: prepared.files.length,
     // The scan-review ledger is VISIBLE in the receipt: how many packed
     // files carry secret-regex hits accepted under exact reviewed pins.
@@ -310,7 +320,7 @@ export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestR
   writeFileSync(join(receiptsDir, "contract.receipt.json"), stableJson({
     receipt: "contract", verdict: "ok", claimed_gate: "contract", checked_at: clock(),
   }));
-  return { packDir, manifest: prepared.manifest, candidate: prepared.candidate };
+  return { packDir, manifest: prepared.manifest, candidate: prepared.candidate, sbom: sbom.evidence };
 }
 
 // Integrity check of an installed copy against the manifest — BOTH ways.
@@ -345,14 +355,22 @@ export function verifyInstalledCopy(manifest, installedPayloadDir) {
 // OUT-OF-LADDER evidence: nothing here claims the install ladder gate.
 export function installPack({ packDir, targetDir, clock }) {
   if (typeof clock !== "function") fail("clock_required");
-  const manifest = JSON.parse(readFileSync(join(packDir, "pack.manifest.json"), "utf8"));
+  assertGenerationWriteTarget(targetDir);
+  // A failed reattempt must not leave the previous operation's green receipt.
+  rmSync(join(targetDir, "install.receipt.json"), { force: true });
+  // Refuse a stripped/mixed/tampered source before copying any bytes.
+  let generation;
+  try { generation = readPackGeneration({ packDir }); }
+  catch (error) {
+    if (error.code === "sbom_payload_integrity" || error.code === "sbom_payload_file_set") fail("install_integrity_failed", error.code);
+    throw error;
+  }
+  const { manifest } = generation;
   const payloadTarget = join(targetDir, "payload");
   cpSync(join(packDir, "payload"), payloadTarget, { recursive: true });
   // The manifest travels INTO the installed target (beside payload/): it is
   // the installed copy's source identity, and git-free source attestation
   // (pack_source_identity) self-verifies against exactly this file.
-  writeFileSync(join(targetDir, "pack.manifest.json"), `${JSON.stringify(manifest, null, 2)}
-`);
   const verdict = verifyInstalledCopy(manifest, payloadTarget);
   if (!verdict.ok) {
     // A failed install leaves NO copied bytes behind: an unverified payload
@@ -360,10 +378,13 @@ export function installPack({ packDir, targetDir, clock }) {
     rmSync(payloadTarget, { recursive: true, force: true });
     fail("install_integrity_failed", verdict.mismatches.join(","));
   }
+  const sbom = verifyGenerationPayload(generation, resolve(payloadTarget));
+  writeGenerationMetadata(targetDir, generation);
   writeFileSync(join(targetDir, "install.receipt.json"), `${JSON.stringify({
     receipt: "install", pack_digest: manifest.pack_digest,
+    manifest_sha256: sbom.manifest_sha256, sbom_sha256: sbom.sbom_sha256, sbom,
     verified_files: manifest.files.length, installed_at: clock(),
-    ladder_note: "out_of_ladder_evidence: the install ladder gate is not claimed (integration/e2e/package/sbom/start gates are not defined for this pack yet)",
+    ladder_note: "out_of_ladder_evidence: file SBOM verification does not claim the full dependency-audit sbom gate or any higher release gate",
   }, null, 2)}\n`);
   return { payloadTarget, manifest };
 }

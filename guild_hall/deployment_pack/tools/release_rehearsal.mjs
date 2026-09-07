@@ -7,6 +7,8 @@ import { closeSync, cpSync, existsSync, fstatSync, lstatSync, mkdirSync, mkdtemp
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createPackSbom } from "../src/pack_sbom.mjs";
+import { readPackGeneration, writeSbomArtifacts } from "../src/pack_sbom_artifact.mjs";
 import { buildPack, installPack, loadPackSpec, nodeTestRunner, recomputePackDigest, runInstalledSmoke, verifyInstalledCopy } from "./build_pack.mjs";
 import { backupPack, parseVerifiedManifest, restorePack, rollbackPack, upgradePack } from "./pack_lifecycle.mjs";
 
@@ -108,7 +110,8 @@ export function verifyReleaseGeneration(targetDir, previous = false) {
   const manifest = parseVerifiedManifest(manifestPath, "rehearsal_manifest_invalid");
   const verdict = verifyInstalledCopy(manifest, payload);
   if (!verdict.ok) throw Object.assign(new Error("rehearsal_generation_mismatch"), { code: "rehearsal_generation_mismatch", mismatches: verdict.mismatches });
-  return { pack_digest: manifest.pack_digest, files: manifest.files.length, manifest_sha256: sha(readFileSync(manifestPath)) };
+  const generation = readPackGeneration({ packDir: targetDir, previous });
+  return { pack_digest: manifest.pack_digest, files: manifest.files.length, manifest_sha256: sha(generation.manifestBytes), sbom_sha256: generation.evidence.sbom_sha256, sbom: generation.evidence };
 }
 
 export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
@@ -134,10 +137,13 @@ export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
   file.sha256 = sha(fixtureBytes); file.bytes = fixtureBytes.length;
   priorManifest.pack_digest = recomputePackDigest(priorManifest.files);
   writeJson(join(priorDir, "pack.manifest.json"), priorManifest);
+  const priorManifestBytes = readFileSync(join(priorDir, "pack.manifest.json"));
+  writeSbomArtifacts(priorDir, createPackSbom({ manifestBytes: priorManifestBytes, expectedManifestSha256: sha(priorManifestBytes), payloadRoot: join(priorDir, "payload") }));
   // Do not copy candidate/build receipts: those describe the original bytes.
   writeJson(join(priorDir, "release.candidate.json"), { status: "synthetic_fixture_only", derived_from_digest: current.pack_digest });
   writeJson(join(priorDir, "fixture.receipt.json"), { kind: "synthetic_previous_generation", derived_from_digest: current.pack_digest, changed_path: file.path, changed_sha256: file.sha256 });
   const prior = verifyReleaseGeneration(priorDir);
+  const sameGeneration = (left, right) => ["pack_digest", "manifest_sha256", "sbom_sha256"].every((key) => left[key] === right[key]);
   if (prior.pack_digest === current.pack_digest) fail("rehearsal_generations_not_distinct");
   installPack({ packDir: priorDir, targetDir, clock });
   backupPack({ targetDir, backupDir, clock });
@@ -145,17 +151,17 @@ export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
   upgradePack({ packDir, targetDir, clock });
   const upgraded = verifyReleaseGeneration(targetDir);
   const retainedAfterUpgrade = verifyReleaseGeneration(targetDir, true);
-  if (upgraded.pack_digest !== current.pack_digest || retainedAfterUpgrade.pack_digest !== prior.pack_digest) fail("rehearsal_upgrade_readback_failed");
+  if (!sameGeneration(upgraded, current) || !sameGeneration(retainedAfterUpgrade, prior)) fail("rehearsal_upgrade_readback_failed");
   rollbackPack({ targetDir, clock });
   const rolledBack = verifyReleaseGeneration(targetDir);
   const retainedAfterRollback = verifyReleaseGeneration(targetDir, true);
-  if (rolledBack.pack_digest !== prior.pack_digest || retainedAfterRollback.pack_digest !== current.pack_digest) fail("rehearsal_rollback_readback_failed");
+  if (!sameGeneration(rolledBack, prior) || !sameGeneration(retainedAfterRollback, current)) fail("rehearsal_rollback_readback_failed");
   writeFileSync(join(targetDir, "payload", ...file.path.split("/")), "deliberately damaged isolated fixture\n");
   writeFileSync(join(targetDir, "pack.manifest.json"), "invalid isolated fixture\n");
   restorePack({ targetDir, backupDir, clock });
   const restored = verifyReleaseGeneration(targetDir);
-  if (restored.pack_digest !== backup.pack_digest || existsSync(join(targetDir, "pack.manifest.prev.json"))) fail("rehearsal_restore_readback_failed");
-  if (verifyReleaseGeneration(packDir).pack_digest !== current.pack_digest || verifyReleaseGeneration(backupDir).pack_digest !== backup.pack_digest) fail("rehearsal_source_mutated");
+  if (!sameGeneration(restored, backup) || existsSync(join(targetDir, "pack.manifest.prev.json"))) fail("rehearsal_restore_readback_failed");
+  if (!sameGeneration(verifyReleaseGeneration(packDir), current) || !sameGeneration(verifyReleaseGeneration(backupDir), backup)) fail("rehearsal_source_mutated");
   const damagedRetained = readFileSync(join(targetDir, "payload.prev", ...file.path.split("/")), "utf8") === "deliberately damaged isolated fixture\n";
   if (!damagedRetained) fail("rehearsal_damaged_previous_missing");
   return { ok: true, baseline_kind: "synthetic_previous_from_current_candidate", current, prior, backup, upgraded, retained_after_upgrade: retainedAfterUpgrade, rolled_back: rolledBack, retained_after_rollback: retainedAfterRollback, restored, damaged_previous_retained_without_manifest: true };
@@ -211,7 +217,7 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
         return run;
       };
       const built = buildPack(specPath, { rootDir, outDir: join(packRoot, "build"), clock, runner: observedRunner("source_unit") });
-      result.candidate = { pack_digest: built.manifest.pack_digest, files: built.manifest.files.length, status: built.candidate.status, claimed_gate: built.candidate.claimed_gate, manifest_sha256: sha(readFileSync(join(built.packDir, "pack.manifest.json"))) };
+      result.candidate = { pack_digest: built.manifest.pack_digest, files: built.manifest.files.length, status: built.candidate.status, claimed_gate: built.candidate.claimed_gate, manifest_sha256: sha(readFileSync(join(built.packDir, "pack.manifest.json"))), sbom_sha256: built.sbom.sbom_sha256, sbom: built.sbom };
       if (result.candidate.files !== result.spec.files || result.spec.sha256 !== sha(readFileSync(specPath)) || built.manifest.files.some((file) => sha(readFileSync(join(rootDir, ...file.path.split("/")))) !== file.sha256)) fail("rehearsal_source_changed_during_build");
       const targetDir = join(packRoot, "installed");
       installPack({ packDir: built.packDir, targetDir, clock });
