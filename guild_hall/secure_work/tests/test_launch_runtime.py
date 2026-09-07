@@ -30,9 +30,13 @@ class LaunchRuntimeTests(unittest.TestCase):
     def setUpClass(cls):
         # Windows is the supported installed launch platform. POSIX still runs
         # the pure module tests when stdlib paths can be stated explicitly.
-        cls.python = Path(sys.executable)
-        cls.node = Path(shutil.which("node"))
-        cls.runtime = Path(sys.base_prefix)
+        # uv/venv may expose a version-alias junction as base_prefix. Run the
+        # declared base test interpreter through its canonical path so its
+        # startup module filenames match the exact, alias-free test inventory.
+        # This does not permit venv/junction paths in the installed launcher.
+        cls.python = Path(getattr(sys, "_base_executable", sys.executable)).resolve()
+        cls.node = Path(shutil.which("node")).resolve()
+        cls.runtime = Path(sys.base_prefix).resolve()
         cls.stdlib = cls.runtime / ("Lib" if os.name == "nt" else f"lib/python{sys.version_info.major}.{sys.version_info.minor}")
         cls.runtime_paths = [cls.stdlib]
         dlls = cls.runtime / "DLLs" if os.name == "nt" else cls.stdlib / "lib-dynload"
