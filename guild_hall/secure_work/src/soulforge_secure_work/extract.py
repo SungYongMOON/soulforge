@@ -26,11 +26,21 @@ EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 LABELLED_ENTITY_RE = re.compile(r"(?<=고객: )[^.]+|(?<=과제: )[^.]+")
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
-UNKNOWN_MARKERS = ("없다", "없음", "미확정", "미상", "NOT_RUN", "UNKNOWN", "별도 합의")
+UNKNOWN_MARKERS = ("미확정", "미정", "미상", "별도 합의")
+UNKNOWN_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_])(?:NOT_RUN|UNKNOWN|TBD)(?![A-Za-z0-9_])", re.I)
+# Absence of evidence is unknown; absence of a defect is a factual assertion.
+# These are bounded language rules, not general Korean semantic inference.
+MISSING_EVIDENCE_RE = re.compile(
+    r"(?:결과|자료|근거|정보|기록|일정|담당자|합의|측정값|시험값)(?:은|는|이|가)?\s*없(?:다|음|지만|어)"
+)
+NO_DEFECT_RE = re.compile(r"(?:이상|오류|결함|고장|문제)(?:이|가)?\s*없(?:다|음)(?=[.!]|\s*$)")
+WITHDRAWN_PROPOSAL_RE = re.compile(
+    r"(?:제안|후보)(?:은|는|이|가)?\s*(?:철회|취소)(?:되었다|됐다|됨|되었음|되었으나|됐지만)"
+)
 PROPOSAL_MARKERS = ("제안", "요청이 있다", "바꾸자", "정하자", "후보")
 ACTION_MARKERS = ("필요하다", "결정이 필요", "수행한다", "제출한다")
 IMPACT_MARKERS = ("동시 충족 불가능", "충족 불가", "상한보다 크다", "영향")
-CHANGE_FILE_PREFIXES = ("06_change_request",)
+CHANGE_FILE_RE = re.compile(r"^(?:\d+_)?change_request(?:_|$)", re.I)
 
 # One statement lands in exactly one section. Higher priority wins, so a change
 # request never also inflates the facts section.
@@ -58,22 +68,35 @@ def digest_bytes(raw: bytes) -> str:
 
 
 def status_for(text: str) -> str:
-    if any(marker in text for marker in PROPOSAL_MARKERS):
+    # Remove only affirmative completed withdrawals from proposal detection;
+    # an additional live proposal in the same sentence still wins.
+    active_text = WITHDRAWN_PROPOSAL_RE.sub("", text)
+    if any(marker in active_text for marker in PROPOSAL_MARKERS):
         return "PROPOSAL"
-    if any(marker in text for marker in UNKNOWN_MARKERS):
+    if is_unknown(text):
         return "UNKNOWN"
     return "FACT"
 
 
+def is_unknown(text: str) -> bool:
+    # Preserve the older conservative absence behavior outside the explicitly
+    # supported no-defect assertions. Unknown language must not become FACT
+    # merely because it did not match the evidence noun list.
+    remaining = NO_DEFECT_RE.sub("", text)
+    return bool(UNKNOWN_TOKEN_RE.search(text) or MISSING_EVIDENCE_RE.search(text)
+                or any(marker in text for marker in UNKNOWN_MARKERS)
+                or "없다" in remaining or "없음" in remaining)
+
+
 def section_for(stem: str, text: str) -> str:
     candidates: set[str] = set()
-    if stem.startswith(CHANGE_FILE_PREFIXES):
+    if CHANGE_FILE_RE.match(stem):
         candidates.add("changes")
     if any(marker in text for marker in ACTION_MARKERS):
         candidates.add("actions")
     if any(marker in text for marker in IMPACT_MARKERS):
         candidates.add("impacts")
-    if any(marker in text for marker in UNKNOWN_MARKERS):
+    if is_unknown(text):
         candidates.add("unknowns")
     for section in SECTION_PRIORITY:
         if section in candidates:

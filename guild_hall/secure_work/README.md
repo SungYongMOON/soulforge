@@ -216,6 +216,48 @@ Windows 자기 관측 시험은 새 임시 합성 파일의 token/ACL 메타데�
 그 kit에 의존하는 시험만 skip한다. 기존 ingress의 제출 저장 후 티켓 갱신 전 중단 복구도
 실제 서비스 fault injection으로 검사하며, identity·bytes·멱등 색인이 다르면 복구하지 않는다.
 
+## JSON 표기·원문 상태·로컬 유용성 보완
+
+`guard.scan_released_bytes`는 원래 전송 bytes를 바꾸지 않고, 일반 텍스트 검사와 함께 JSON을
+한 번 해석해 문자열 key/value를 검사한다. UTF-8, Unicode escape·surrogate pair·일반 escape와
+NFC 정규화까지가 범위다. JSON 문자열 안의 escape를 다시 풀거나 값을 이어 붙이지 않는다.
+최대 1 MiB·중첩 32·노드 16,384를 넘거나 JSON 형태 입력이 잘못되면 raw 값을 출력하지 않는
+`RELEASE_SCAN_*` finding으로 차단한다. 일반 텍스트 입력은 기존 검사로 남는다. 이 검사는
+이미 정한 비공개 문자열과 경로만 찾으며 일반적인 비공개 보장이나 공개 승인이 아니다.
+
+추출기는 제한된 문장 규칙으로 결함 부재와 근거 부재를 구분하고, 완료형 제안 철회·취소,
+영문 `TBD`와 `미정`, 숫자 접두사에 무관한 `change_request` 파일명을 지원한다. 원문과 byte
+span은 그대로다. 복합 부정·가정·인용·지원하지 않는 언어 전체의 의미 정확성을 보증하지 않는다.
+
+`utility.check_evidence_preservation(packet, document)`는 기존 E14 구조 검사 뒤 같은 문서의
+fact 인용·의존성·status·literal/slot 순서를 대조한다. 같은 근거를 보존한 단락 재조립은
+`PASS_IN_SCOPE`, 슬롯 교환·새 문장·상태 변경·지원 밖 재서술은 `HOLD`다. engine은 구조 확인,
+복원, 검증 경계에서 이를 실행해 변경된 근거를 `SEMANTIC_EVIDENCE_HOLD`로 멈춘다.
+JSON key 순서와 절/독립 단락의 배치 순서는 의미 근거를 바꾸지 않는다. 통과는 **근거 보존만**
+뜻하며 원문 사실성·일반 의미·기술적 수락을 승인하지 않는다.
+
+`utility.evaluate_local_comparisons(source_dir, source_bundle_sha256=..., project_ref=...,
+assignment_ref=..., assignment_epoch=...)`는 현재 source를 재추출하고 E14 bundle digest가
+정확히 일치할 때만 계산한다. 파일마다 하나씩의 `측정값`·`허용 상한` 선언문, 동일한 지원 단위,
+FACT 상태와 실제 quantity field를 확인해 Decimal로 `측정값 <= 상한`을 판단한다. 숫자·역할·
+operator를 caller가 지정하지 않는다. 누락·중복·단위/형식 불일치·source 변경은 `HOLD`이며,
+대상 문장이 없으면 `NOT_APPLICABLE`이다. 단위 환산과 일반 수학/공학 판단은 지원하지 않는다.
+
+engine의 검증 단계는 비교 결론·근거 digest를 로컬 `local_validation.json`에만 보존한다.
+값 원문은 넣지 않고, packet·outbox·이벤트·영수증에는 비교 결론도 자동 복사하지 않는다.
+로컬 계산은 `COMPUTED_IN_SCOPE`가 될 수 있지만 `disclosure: HOLD`, `semantic_accepted: false`,
+기존 ValidationReport의 `utility: REVIEW_REQUIRED`는 유지된다. 외부 공개와 전체 업무 의미
+승인은 별도 문제다. kit 자체, E14 DTO와 상태기계는 수정하지 않았다.
+
+순수 계약 시험은 테스트 전용 `SOULFORGE_SECURE_WORK_KIT_ROOT`로 read-only kit를 지정할 수
+있다. 운영 config를 읽지 않으며 production 설정 loader의 동작은 바꾸지 않는다.
+
+```sh
+python -B -m pytest -q guild_hall/secure_work/tests/test_source_guards.py
+SOULFORGE_SECURE_WORK_KIT_ROOT=<TOOL_ROOT>/secure-work-kit \
+  python -B -m pytest -q guild_hall/secure_work/tests/test_utility_contract.py
+```
+
 ## 지금 못 하는 것
 
 - 외부 모델 호출. provider 키 파일이 없고 `live_enabled`가 꺼져 있다. 사이클 1호의 작업자는

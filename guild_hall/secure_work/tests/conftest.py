@@ -20,6 +20,12 @@ if str(PACKAGE_SRC) not in sys.path:
 
 
 def _kit_src() -> Path | None:
+    # Pure contract tests can bind the read-only kit without loading runtime
+    # configuration, credentials, a pilot, or a worker executable.
+    explicit = os.environ.get("SOULFORGE_SECURE_WORK_KIT_ROOT")
+    if explicit:
+        src = Path(explicit) / "src"
+        return src if (src / "sf_sewe" / "models.py").is_file() else None
     raw = os.environ.get("SOULFORGE_SECURE_WORK_CONFIG")
     if not raw or not Path(raw).is_file():
         return None

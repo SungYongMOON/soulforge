@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import adapters as adapters_module
-from . import authority, extract, guard, plan as plan_module
+from . import authority, extract, guard, utility, plan as plan_module
 from .config import Config
 
 STATUS_SCHEMA = "soulforge.secure_work.status.v0"
@@ -582,6 +582,7 @@ class Lane:
             raise EngineStop("NEEDS_CONTEXT", "worker asked for more context")
         verdict = self.artifacts.validate_document(self.models.CheckResultInput(
             packet=packet, result=reply.result, current_base=job.data["base_candidate_rev"]))
+        self._check_evidence(job, packet, reply.result)
         job.path("verdict.json").write_bytes(self.codec.canonical(verdict) + b"\n")
         job.data["structure_state"] = verdict.state
         job.data["required_complete"] = verdict.required_complete
@@ -596,6 +597,7 @@ class Lane:
         packet = self.models.WorkPacket.model_validate_json(job.path("packet.json").read_bytes())
         reply = self.models.WorkerReply.model_validate_json(
             job.path("quarantine", "reply.json").read_bytes())
+        self._check_evidence(job, packet, reply.result)
         index = json.loads(job.path("bindings_digest.json").read_text(encoding="utf-8"))
         vault, connection = self.vault.open(job.job_id)
         try:
@@ -628,6 +630,15 @@ class Lane:
             job.path("quarantine", "reply.json").read_bytes())
         verdict = self.models.StructureVerdict.model_validate_json(
             job.path("verdict.json").read_bytes())
+        packet = self.models.WorkPacket.model_validate_json(job.path("packet.json").read_bytes())
+        self._check_evidence(job, packet, reply.result)
+        local = utility.evaluate_local_comparisons(
+            self.config.source_root, source_bundle_sha256=job.data["source_bundle_sha256"],
+            project_ref=job.data["project_ref"], assignment_ref=job.data["assignment_ref"],
+            assignment_epoch=job.data["assignment_epoch"])
+        # Private local evidence stays beside the job, never in packet/outbox,
+        # receipts or events. No derived decision gains disclosure authority.
+        job.path("local_validation.json").write_bytes(self.codec.canonical(local) + b"\n")
         findings = [
             self.models.CheckFinding(code="SEMANTIC_REVIEW_NOT_PERFORMED", severity="REVIEW",
                                      location_ref=None, evidence_ref=None),
@@ -658,6 +669,13 @@ class Lane:
             facts={"privacy": report.privacy, "utility": report.utility,
                    "integrity": report.integrity, "enforcement": report.enforcement,
                    "findings": len(findings)})
+
+    def _check_evidence(self, job: Job, packet, result) -> dict:
+        evidence = utility.check_evidence_preservation(packet, result)
+        job.path("semantic_evidence.json").write_bytes(self.codec.canonical(evidence) + b"\n")
+        if evidence["state"] != "PASS_IN_SCOPE":
+            raise EngineStop("SEMANTIC_EVIDENCE_HOLD", evidence["code"])
+        return evidence
 
     def step_candidate(self, job: Job) -> tuple[str, str]:
         markdown = job.path("candidate.md").read_bytes()
