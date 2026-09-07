@@ -79,3 +79,23 @@ test("모든 항목에 사유가 있다", () => {
     assert.ok(typeof entry.why === "string" && entry.why.length > 0, `${entry.path} 사유 없음`);
   }
 });
+
+test("packet gate also rejects root scopes, glob parents and case aliases", () => {
+  for (const scope of ['.', './', '**', 'guild_hall/dev_worker/**', 'guild_hall/dev_worker/*.mjs',
+    'guild_hall/watchtower/alert_*.mjs', 'guild_hall/*/candidate_queue.mjs', 'agents.md',
+    'GUILD_HALL/DEV_WORKER/CANDIDATE_QUEUE.MJS']) {
+    assert.ok(isDeniedAgentWritePath(scope), scope);
+    assert.ok(findDeniedAgentWritePaths([scope]).length > 0, `${scope}: packet denial must agree with single-path denial`);
+  }
+  for (const scope of ['guild_hall/example/**', 'ui-workspace/apps/example/*.mjs', 'docs/architecture/guild_hall/*.md']) {
+    assert.deepEqual(findDeniedAgentWritePaths([scope]), [], scope);
+  }
+});
+
+test("ambiguous filesystem spellings and protected data/metadata cannot become automated write scopes", () => {
+  for (const scope of ['guild_hall/x/../dev_worker/candidate_queue.mjs', 'guild_hall//dev_worker/candidate_queue.mjs',
+    'AGENTS.md.', 'AGENTS.md:stream', 'C:/outside', '../outside', 'safe/CON', 'safe/part\u0000',
+    '_workspaces/**', '_workmeta/system/**', '.git/config']) {
+    assert.ok(findDeniedAgentWritePaths([scope]).length > 0, scope);
+  }
+});

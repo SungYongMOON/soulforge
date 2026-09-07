@@ -355,13 +355,17 @@ function normalizeCandidate(raw, source) {
     },
   };
   const autoApproval = evaluateAutoApproval(raw, candidateBase, missing);
-  const promotable = missing.length === 0 && PROMOTABLE_CANDIDATE_STATUSES.has(status) && approvalApproved;
+  const deniedWritePaths = findDeniedAgentWritePaths(allowedWritePaths);
+  const promotable = missing.length === 0 && deniedWritePaths.length === 0
+    && PROMOTABLE_CANDIDATE_STATUSES.has(status) && approvalApproved;
   const ineligibleReason = promotable
     ? null
     : missing.length > 0
       ? `missing_required_fields:${missing.join(",")}`
       : isClosedCandidateStatus(status)
         ? `status_closed:${status}`
+        : deniedWritePaths.length > 0
+          ? `denied_write_paths:${[...new Set(deniedWritePaths.map(hit => hit.denied))].sort().join(",")}`
         : !PROMOTABLE_CANDIDATE_STATUSES.has(status)
         ? `status_not_promotable:${status || "missing"}`
         : "owner_approval_not_approved";
@@ -466,10 +470,8 @@ function evaluateAutoApproval(raw, candidate, missing) {
   // happens to sit under a safe prefix.
   const deniedHits = findDeniedAgentWritePaths(candidate.allowed_write_paths);
   if (deniedHits.length > 0) {
-    return {
-      approved: false,
-      reason: `denied_write_paths:${[...new Set(deniedHits.map((hit) => hit.denied))].sort().join(",")}`,
-    };
+    return autoApprovalResult(false,
+      `denied_write_paths:${[...new Set(deniedHits.map((hit) => hit.denied))].sort().join(",")}`, riskLevel);
   }
   const unsafePath = findUnsafeAutoApprovalPath(raw?.allowed_write_paths, candidate.allowed_write_paths);
   if (unsafePath) {

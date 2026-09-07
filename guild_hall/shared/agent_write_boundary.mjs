@@ -69,11 +69,31 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
 
   // 비밀·private 평면. 애초에 열람도 금지지만 명시해 둔다.
   { path: "private-state/", why: "cross-project protected state" },
+  { path: "_workspaces/", why: "canonical or legacy working data is not automated source repair" },
+  { path: "_workmeta/", why: "metadata lineage is not automated source repair" },
+  { path: ".git/", why: "repository control metadata and hooks" },
   { path: ".github/workflows/", why: "CI that runs with repository credentials" },
 ]);
 
 function normalize(value) {
-  return typeof value === "string" ? value.trim().replaceAll("\\", "/").replace(/^\.\//u, "") : "";
+  if (typeof value !== "string" || !value.trim()) return "";
+  return value.trim().replaceAll("\\", "/").replace(/^\.\//u, "") || ".";
+}
+
+function comparisonScope(value) {
+  const normalized = normalize(value);
+  if (!normalized) return "";
+  if (normalized === "." || normalized === "/") return ".";
+  // A cross-platform scope cannot silently normalize into another file/root.
+  // An invalid scope conservatively intersects every protected entry.
+  if (normalized.startsWith("/") || /[\u0000-\u001f\u007f:]/u.test(normalized)
+    || normalized.includes("//") || normalized.split("/").some(segment => segment === "." || segment === ".."
+      || /[. ]$/u.test(segment) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(segment))) return ".";
+  // Globs under a protected parent are intentionally conservative: enumerate
+  // exact allowed files instead of letting a packet include its own guards.
+  const wildcard = normalized.search(/[*?\[\]{}()!]/u);
+  const prefix = wildcard < 0 ? normalized : normalized.slice(0, normalized.lastIndexOf("/", wildcard) + 1);
+  return prefix.replace(/\/$/u, "").toLowerCase() || ".";
 }
 
 /**
@@ -83,20 +103,7 @@ function normalize(value) {
  * file below it.
  */
 export function isDeniedAgentWritePath(candidate) {
-  const value = normalize(candidate);
-  if (value === "") return false;
-  // The repository root contains every denied entry, so naming it is the widest
-  // possible way to ask for them. A blank entry is noise and stays allowed; `.`
-  // is a deliberate request for everything and is not.
-  if (value === "." || value === "/") return true;
-  return AGENT_DENIED_WRITE_PATHS.some(({ path: denied }) => {
-    if (denied.endsWith("/")) {
-      return value === denied || value.startsWith(denied) || `${value}/`.startsWith(denied)
-        || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
-    }
-    return value === denied
-      || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
-  });
+  return AGENT_DENIED_WRITE_PATHS.some(({ path: denied }) => matches(candidate, denied));
 }
 
 /**
@@ -110,7 +117,7 @@ export function findDeniedAgentWritePaths(allowedWritePaths = []) {
     const value = normalize(entry);
     if (value === "") continue;
     for (const denied of AGENT_DENIED_WRITE_PATHS) {
-      if (isDeniedAgentWritePath(value) && matches(value, denied.path)) {
+      if (matches(value, denied.path)) {
         hits.push({ requested: value, denied: denied.path, why: denied.why });
       }
     }
@@ -119,9 +126,9 @@ export function findDeniedAgentWritePaths(allowedWritePaths = []) {
 }
 
 function matches(value, denied) {
-  if (denied.endsWith("/")) {
-    return value === denied || value.startsWith(denied) || `${value}/`.startsWith(denied)
-      || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
-  }
-  return value === denied || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
+  const scope = comparisonScope(value);
+  if (!scope) return false;
+  const target = denied.replace(/\/$/u, "").toLowerCase();
+  return scope === "." || scope === target || target.startsWith(`${scope}/`)
+    || (denied.endsWith("/") && scope.startsWith(`${target}/`));
 }
