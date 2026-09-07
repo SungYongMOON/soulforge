@@ -22,6 +22,37 @@ async function context(t) {
   return { root, open };
 }
 
+function claimInChild(root, basis) {
+  const moduleUrl = new URL('../src/workbench_execution_store.mjs', import.meta.url).href;
+  const childCode = `try { const {createWorkbenchExecutionStore}=await import(process.argv[1]); const store=createWorkbenchExecutionStore({root:process.argv[2]}); const result=store.claim(JSON.parse(process.argv[3])); console.log(JSON.stringify({status:result.status,run:result.run?.run_id})); store.close(); } catch(error) { console.log(JSON.stringify({error_code:/^[A-Z][A-Z0-9_]{2,63}$/.test(error.workbenchCode ?? error.code) ? error.workbenchCode ?? error.code : 'UNKNOWN',sqlite_code:Number.isInteger(error.errcode) ? error.errcode : null})); process.exitCode=1; }`;
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', childCode, moduleUrl, root, JSON.stringify(basis)],
+      { windowsHide: true, env: { SystemRoot: process.env.SystemRoot }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 });
+    let output = ''; child.stdout.on('data', bytes => { output += bytes; }); child.stderr.resume(); child.once('error', reject);
+    child.once('close', code => {
+      try {
+        const result = JSON.parse(output);
+        if (code !== 0) reject(new Error(`Synthetic claim child failed: exit=${code} code=${result.error_code} sqlite=${result.sqlite_code}`));
+        else resolve(result);
+      } catch { reject(new Error(`Synthetic claim child output invalid: exit=${code}`)); }
+    });
+  });
+}
+
+async function exclusiveLockInChild(t, root) {
+  const childCode = `import {DatabaseSync} from 'node:sqlite'; const db=new DatabaseSync(process.argv[1]); db.exec('BEGIN EXCLUSIVE'); process.send('locked'); process.once('message', delay => setTimeout(() => { db.exec('ROLLBACK'); db.close(); process.disconnect(); }, delay));`;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', childCode, join(root, 'execution.sqlite')],
+    { windowsHide: true, env: { SystemRoot: process.env.SystemRoot }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'], timeout: 15000 });
+  child.stderr.resume();
+  const closed = new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+  t.after(async () => { if (child.exitCode === null) child.kill(); await closed; });
+  await new Promise((resolve, reject) => {
+    child.once('message', message => message === 'locked' ? resolve() : reject(new Error('Synthetic lock child protocol invalid')));
+    child.once('error', reject); child.once('close', code => reject(new Error(`Synthetic lock child exited before ready: exit=${code}`)));
+  });
+  return { releaseAfter: delay => child.send(delay), closed };
+}
+
 test('execution storage requires its own existing explicit isolated root', () => {
   assert.throws(() => createWorkbenchExecutionStore());
 });
@@ -43,17 +74,47 @@ test('durable claim, committed candidate and replay survive closing and reopenin
 
 test('two independent processes cannot claim the same natural work twice', async t => {
   const fixture = await context(t); fixture.open().close();
-  const moduleUrl = new URL('../src/workbench_execution_store.mjs', import.meta.url).href;
-  const childCode = `const {createWorkbenchExecutionStore}=await import(process.argv[1]); const store=createWorkbenchExecutionStore({root:process.argv[2]}); const result=store.claim(JSON.parse(process.argv[3])); console.log(JSON.stringify({status:result.status,run:result.run?.run_id})); store.close();`;
-  const run = basis => new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--input-type=module', '-e', childCode, moduleUrl, fixture.root, JSON.stringify(basis)],
-      { windowsHide: true, env: { SystemRoot: process.env.SystemRoot }, stdio: ['ignore', 'pipe', 'pipe'] });
-    let output = ''; child.stdout.on('data', bytes => { output += bytes; }); child.once('error', reject);
-    child.once('exit', code => code === 0 ? resolve(JSON.parse(output)) : reject(new Error('Synthetic claim child failed')));
-  });
-  const rows = await Promise.all([run(input()), run(input({ request_id: `w_${'b'.repeat(32)}` }))]);
+  const outcomes = await Promise.allSettled([claimInChild(fixture.root, input()), claimInChild(fixture.root, input({ request_id: `w_${'b'.repeat(32)}` }))]);
+  const rows = outcomes.map(outcome => { if (outcome.status === 'rejected') throw outcome.reason; return outcome.value; });
   assert.deepEqual(rows.map(row => row.status).sort(), ['CLAIMED', 'REPLAY']);
   assert.equal(rows[0].run, rows[1].run);
+});
+
+test('opening an existing ledger waits for a short independent writer lock before validating its format', async t => {
+  const fixture = await context(t); fixture.open().close();
+  const lock = await exclusiveLockInChild(t, fixture.root);
+  lock.releaseAfter(200);
+  try { assert.equal(fixture.open().claim(input()).status, 'CLAIMED'); }
+  finally { await lock.closed; }
+  assert.equal(await lock.closed, 0);
+});
+
+test('startup lock exhaustion is retryable without mistaking a valid ledger for a foreign database', async t => {
+  const fixture = await context(t); fixture.open().close();
+  const before = await readFile(join(fixture.root, 'execution.sqlite'));
+  const lock = await exclusiveLockInChild(t, fixture.root);
+  const started = performance.now();
+  try {
+    assert.throws(() => fixture.open(), { workbenchCode: 'EXECUTION_STORE_BUSY' });
+    const elapsed = performance.now() - started;
+    assert.ok(elapsed >= 900 && elapsed < 5000, 'startup must use the existing bounded busy wait');
+  } finally { lock.releaseAfter(0); await lock.closed; }
+  assert.equal(await lock.closed, 0);
+  assert.deepEqual(await readFile(join(fixture.root, 'execution.sqlite')), before);
+  assert.equal(fixture.open().claim(input()).status, 'CLAIMED');
+});
+
+test('waiting for a lock never admits or changes foreign metadata', async t => {
+  const fixture = await context(t);
+  const file = join(fixture.root, 'execution.sqlite');
+  const foreign = new DatabaseSync(file);
+  foreign.exec("CREATE TABLE wb_meta(id INTEGER PRIMARY KEY, format INTEGER, backup_class TEXT); INSERT INTO wb_meta VALUES(1,2,'synthetic-only');");
+  foreign.close(); const before = await readFile(file);
+  const lock = await exclusiveLockInChild(t, fixture.root);
+  lock.releaseAfter(200);
+  try { assert.throws(() => fixture.open(), { workbenchCode: 'EXECUTION_FORMAT_INVALID' }); }
+  finally { await lock.closed; }
+  assert.deepEqual(await readFile(file), before);
 });
 
 test('one agent slot blocks another claim and changed replay basis fails closed', async t => {
