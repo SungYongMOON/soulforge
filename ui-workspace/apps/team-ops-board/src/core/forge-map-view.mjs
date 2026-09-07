@@ -315,7 +315,9 @@ function buildTopologyNodeRows(topology) {
       nodeState,
       state: forgeStateFromNodeState(nodeState),
       reasons: Object.freeze(normalizeReasons(node?.health?.reasons)),
-      componentId: FORGE_NODE_COMPONENT_INDEX[id] ?? FORGE_OTHER_COMPONENT_ID,
+      componentId: Object.hasOwn(FORGE_NODE_COMPONENT_INDEX, id)
+        ? FORGE_NODE_COMPONENT_INDEX[id]
+        : FORGE_OTHER_COMPONENT_ID,
     }));
   }
   return {
