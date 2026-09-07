@@ -15,6 +15,7 @@ import { createHermesNativeAttemptStore } from '../src/hermes_native_attempt_sto
 import { readHermesNativeSessionMetadata } from '../src/hermes_native_session_metadata.mjs';
 import { digestOf } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
 import { runHermesNativeCli } from '../src/hermes_native_cli.mjs';
+import { admitForgeLinearExecutionPacket } from '../src/forge_linear_execution_packet_admission.mjs';
 import { verifyAgentWorkforceAuthorityClaim, AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA,
   AGENT_AUTHORITY_CURRENT_STATE_SCHEMA } from '../../../../guild_hall/agent_observation/agent_authority_verification.mjs';
 
@@ -346,3 +347,59 @@ test('CLI rejects caller pin flags and unsupported current capability before ope
   assert.equal((await runHermesNativeCli(['execute', '--request-ref', files.entry.request_ref, '--pin', 'caller-pin'])).exit_code, 2);
   await assert.rejects(readFile(path.join(f.home, 'started.txt')));
 });
+
+async function expiryScenario(t, expiresAt, advanceAt = null) {
+  const f = await fixture(t);
+  const source = structuredClone(f.forge_request);
+  const oldDigest = source.execution_binding.work_brief_content_sha256;
+  source.forge_issued_work_brief.expires_at = expiresAt;
+  source.forge_assignment.expires_at = expiresAt;
+  const newDigest = digestOf(source.forge_issued_work_brief);
+  source.execution_binding.work_brief_content_sha256 = newDigest;
+  const authority = JSON.parse(JSON.stringify(f.authority_request).replaceAll(oldDigest, newDigest));
+  const admission = admitForgeLinearExecutionPacket(source);
+  assert.equal(admission.status, 'ADMITTED', 'upstream permits text expiry; native transport must validate time');
+  const brief = projectHermesNativeBriefBinding(admission);
+  const input = JSON.parse(JSON.stringify(f.input).replaceAll(oldDigest, newDigest));
+  let clock = NOW;
+  let reads = 0;
+  let checks = 0;
+  Object.assign(f.settings, { authority_request: authority, brief_binding: brief, now: () => clock,
+    resolveWorkBrief: async () => { reads += 1; return structuredClone(source); },
+    resolveCurrentState: async (request) => {
+      checks += 1;
+      if (advanceAt === 'current' && checks === 2) clock = NOW + 2;
+      return { authority_request: structuredClone(authority), brief_binding: brief,
+        runtime_capability: { ...structuredClone(request.runtime_capability),
+          evaluated_at: new Date(NOW).toISOString(), expires_at: new Date(NOW + 60_000).toISOString() } };
+    },
+    onStdinRelease: async () => { if (advanceAt === 'release') clock = NOW + 2; return true; },
+  });
+  return { ...f, input, briefReads: () => reads };
+}
+
+for (const expiry of ['not-a-date', '2026-09-15', '2027-02-30T01:03:00.000Z']) {
+  test(`noncanonical issued expiry ${expiry} never starts a child`, async (t) => {
+    const f = await expiryScenario(t, expiry);
+    const result = await f.bind().executor.execute(f.input);
+    assert.equal(result.reason_code, 'HERMES_NATIVE_ISSUED_BRIEF_UNAVAILABLE');
+    assert.equal(f.briefReads(), 1);
+    await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+    await assert.rejects(readFile(path.join(f.home, 'input-digest.txt')));
+  });
+}
+
+for (const advanceAt of ['current', 'release']) {
+  test(`issued brief expiry during ${advanceAt} prevents stdin release and remains consumed`, async (t) => {
+    const f = await expiryScenario(t, new Date(NOW + 1).toISOString(), advanceAt);
+    const result = await f.bind().executor.execute(f.input);
+    assert.equal(result.reason_code, 'HERMES_NATIVE_PRE_RELEASE_DRIFT');
+    assert.equal(f.briefReads(), 1);
+    await assert.rejects(readFile(path.join(f.home, 'input-digest.txt')));
+    const successor = await f.bind().executor.execute({ ...f.input, operation_id: 'expiry-successor', attempt_no: 2, fencing_epoch: 2 });
+    assert.equal(successor.reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+    assert.equal(f.briefReads(), 1);
+    const receiptFile = (await readdir(f.attempts)).find((name) => name.startsWith('receipt-'));
+    assert.equal(JSON.parse(await readFile(path.join(f.attempts, receiptFile), 'utf8')).receipt.stdin_released, false);
+  });
+}
