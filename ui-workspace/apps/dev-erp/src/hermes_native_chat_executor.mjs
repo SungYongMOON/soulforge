@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, open, realpath } from 'node:fs/promises';
 import path from 'node:path';
+import { homedir } from 'node:os';
 import { readHermesNativeSessionMetadata } from './hermes_native_session_metadata.mjs';
 import { deepFreeze, digestOf, isSafeRef } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
 
@@ -15,6 +16,16 @@ const samePath = (a, b) => process.platform === 'win32'
 const absolute = (value) => typeof value === 'string' && path.isAbsolute(value)
   && path.normalize(value) === value && path.parse(value).root !== value;
 const hash = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+function exactDefaultHome(home) {
+  if (path.basename(path.dirname(home)) === 'profiles') return false;
+  // Hermes treats a custom external home as its root, but a directory nested
+  // inside the platform home is not the default profile (it reports "custom").
+  const platformHome = process.platform === 'win32'
+    ? path.join(process.env.LOCALAPPDATA?.trim() || path.join(homedir(), 'AppData', 'Local'), 'hermes')
+    : path.join(homedir(), '.hermes');
+  const relative = path.relative(platformHome, home);
+  return relative === '' || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+}
 const bounded = async (fn, ms) => {
   let timer;
   try {
@@ -43,7 +54,7 @@ function validBinding(binding) {
     && ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(binding.expected_effort)
     && ['executable_path', 'HERMES_HOME', 'working_directory'].every((key) => absolute(binding[key]))
     && (binding.profile_name === 'default'
-      ? path.basename(path.dirname(binding.HERMES_HOME)) !== 'profiles'
+      ? exactDefaultHome(binding.HERMES_HOME)
       : path.basename(path.dirname(binding.HERMES_HOME)) === 'profiles'
         && path.basename(binding.HERMES_HOME) === binding.profile_name)
     && SHA.test(binding.executable_sha256) && SHA.test(binding.deployment_digest)
@@ -83,7 +94,10 @@ function validSession(snapshot, binding) {
     && typeof snapshot.actual_session_id === 'string'
     && Number.isSafeInteger(snapshot.watermark) && snapshot.watermark >= 0
     && Array.isArray(snapshot.lineage) && snapshot.lineage.length > 0
-    && snapshot.lineage.every((row) => row.profile_name === binding.profile_name
+    // Official default sessions (including compression children) persist NULL.
+    // Normalize it only under an already validated exact default-home binding.
+    && snapshot.lineage.every((row) => (row.profile_name === binding.profile_name
+      || (binding.profile_name === 'default' && row.profile_name === null))
       && row.model === binding.expected_model && row.billing_provider === binding.provider
       && row.source !== 'tool' && row.archived === 0 && row.hidden === 0
       && row.rewind_count === 0 && row.yolo_enabled === 0)
@@ -283,7 +297,9 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
       || active.filter((row) => row.role === 'user').length !== 1
       || terminal?.session_id !== after.actual_session_id || terminal?.role !== 'assistant'
       || terminal?.finish_reason !== 'stop' || terminal?.has_tool_calls !== 0) {
-      return finish('HERMES_NATIVE_SESSION_READBACK_UNKNOWN');
+      return finish(after.actual_session_id !== before.actual_session_id
+        && active.filter((row) => row.role === 'user').length !== 1
+        ? 'HERMES_NATIVE_COMPRESSION_READBACK_UNPROVEN' : 'HERMES_NATIVE_SESSION_READBACK_UNKNOWN');
     }
     // A native turn was observed. This is not candidate custody, review,
     // acceptance, measured side effects, observed reasoning effort, or Task Done.

@@ -29,6 +29,12 @@ It never goes into argv, error output or the metadata receipt. No `-z`, `--yolo`
 `--accept-hooks`, title lookup, `latest`, create-if-missing, implicit/default toolsets or
 invented `none` toolset is used. Named profile homes must be the exact existing
 `<hermes-root>/profiles/<canonical-profile>` directory, matching Hermes profile resolution.
+The existing default profile is also supported: its pinned `HERMES_HOME` is the exact root,
+not a named-profile directory or an arbitrary subdirectory of the platform home. Hermes
+stores default `sessions.profile_name` as SQL `NULL`; only this validated default binding
+normalizes that value. Named profiles with NULL and foreign named values still hold. The
+CLI and actual Workbench HTTP fixtures exercise default-profile execution without creating
+or inspecting any real profile.
 
 The trusted caller supplies an initial authority request and the metadata projection from
 `projectHermesNativeBriefBinding(admitForgeLinearExecutionPacket(...))`. At execute time,
@@ -76,6 +82,20 @@ children and holds on ambiguity. A nonempty plain stdout reply is insufficient: 
 metadata delta must contain exactly one new user row and finish with an assistant row whose
 `finish_reason` is `stop` and whose `tool_calls` is absent. Unknown/fallback/partial endings,
 wrong session, multiple users, abnormal exit and unreadable DB are `HOLD/UNKNOWN`.
+
+Known long-session gap: official rotation can flush the current input into the parent and
+publish a child containing a handoff, surviving user tail and cloned concurrent appends.
+It therefore can produce multiple new physical user rows for one request. The official
+deduplication requires canonical live **content** plus timestamp; summary markers and
+`display_kind=hidden` alone do not prove whether a carrier also contains a human ask.
+Under the no-history-body-read boundary, this adapter cannot safely infer that deduplication.
+Such observed compression transitions return `HERMES_NATIVE_COMPRESSION_READBACK_UNPROVEN`
+and keep the attempt consumed; they do not create a new session or resend. Simple verified
+compression chains remain supported, including default-profile NULL inheritance. This is
+an explicit remaining compatibility gap for long-running canonical sessions, not a change
+to the goal of supporting them. Closing it requires an official metadata-only, content-bound
+turn/clone lineage receipt or separately authorized runtime evidence; accepting all extra
+user rows or dropping every summary marker is not equivalent evidence.
 
 Successful transport means a native turn and response were observed in the selected
 session lineage. It does **not** establish exact output artifact custody, review, human
@@ -129,6 +149,19 @@ Relevant source anchors: `main.py:3229` stdin, `_parser.py:352` flags,
 `hermes_state.py:9726` compression relation and `:8149` restored YOLO,
 `hermes_state_common.py:369` session/message columns. Toolsets can be extended by installed
 plugins; source SHA alone is therefore not current effective-tool authorization.
+
+Additional public-source inspection for default and compression compatibility:
+
+| Source | SHA-256 | Relevant evidence |
+| --- | --- | --- |
+| `run_agent.py` | `7c1d726472187667c3068afbd3605248393e1f059e1d7306bba778d2b2f1c5a3` | `:655–658` default → SQL NULL |
+| `hermes_constants.py` | `f66f664638ebbb108e58970d31266d6542d761ee81b0701b776643921dacc074` | `:53`, `:183` platform/custom root interpretation |
+| `agent/conversation_compression.py` | `fafd962dcbdc445ab45ba7bdb09ffda73536a3f8a911c159149f9d2825b026d2` | `:3731–3780` parent flush, default child stamp and atomic publish |
+| `agent/context_compressor.py` | `b9cce6d3a8ec7b441a524a1bfc15d6ef3b7e87bc444207361364913bad9e30b8` | `:8190`, `:8404` composite handoff/live-user distinction |
+
+`hermes_state.py:6710` describes the concurrent clone/ceiling contract; `:12278–12336`
+requires content for exact clone and composite-user deduplication. These added files were
+read as public code only; no installed profile, configuration, session body or real DB was read.
 
 ## Validation and integration boundary
 

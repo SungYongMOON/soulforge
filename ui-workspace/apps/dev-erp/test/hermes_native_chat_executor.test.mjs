@@ -27,7 +27,10 @@ const sha = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex'
 async function fixture(t, mode = 'ok', options = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-native-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const home = path.join(root, 'profiles', 'synthetic-profile');
+  const profileName = options.profileName ?? 'synthetic-profile';
+  const profileMetadata = Object.hasOwn(options, 'profileMetadata') ? options.profileMetadata
+    : profileName === 'default' ? null : profileName;
+  const home = profileName === 'default' ? path.join(root, 'hermes-default') : path.join(root, 'profiles', profileName);
   const attempts = path.join(root, 'attempts');
   await mkdir(home, { recursive: true }); await mkdir(attempts);
   await writeFile(path.join(home, 'mode.txt'), mode);
@@ -37,7 +40,7 @@ async function fixture(t, mode = 'ok', options = {}) {
     ...Object.fromEntries(['performing_agent_id', 'bot_ref', 'executor_ref', 'profile_ref',
       'session_ref', 'deployment_ref', 'deployment_digest'].map((key) => [key, selected[key]])),
     expected_model: selected.requested_model, expected_effort: selected.requested_effort,
-    profile_name: 'synthetic-profile', session_id: 'session-existing', provider: 'synthetic-provider',
+    profile_name: profileName, session_id: 'session-existing', provider: 'synthetic-provider',
     toolsets: ['synthetic-approved'], executable_path: process.execPath,
     executable_sha256: sha(await readFile(process.execPath)), executable_argv_prefix: [CHILD],
     HERMES_HOME: home, working_directory: root,
@@ -53,7 +56,7 @@ async function fixture(t, mode = 'ok', options = {}) {
     effect_disposition TEXT,tool_calls TEXT,display_metadata TEXT);`);
   db.prepare(`INSERT INTO sessions (id,source,started_at,model,billing_provider,profile_name,model_config,
     system_prompt,last_activity_description) VALUES (?,'cli',1,?,?,?,'{}',?,?)`).run(runtime.session_id,
-    runtime.expected_model, runtime.provider, runtime.profile_name, 'Never select system prompt body', 'Never select description');
+    runtime.expected_model, runtime.provider, profileMetadata, 'Never select system prompt body', 'Never select description');
   db.prepare("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?,'user',?,1)")
     .run(runtime.session_id, 'Never select historical content');
   db.close();
@@ -346,6 +349,56 @@ test('CLI rejects caller pin flags and unsupported current capability before ope
   assert.equal(JSON.parse(result.output).hold_code, 'HERMES_NATIVE_CURRENT_BINDING_REQUIRED');
   assert.equal((await runHermesNativeCli(['execute', '--request-ref', files.entry.request_ref, '--pin', 'caller-pin'])).exit_code, 2);
   await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+});
+
+for (const mode of ['ok', 'compression']) {
+  test(`product CLI supports exact default home with official NULL profile metadata (${mode})`, async (t) => {
+    const f = await fixture(t, mode, { profileName: 'default' });
+    const files = await fileOwnedCliFixture(f);
+    const result = await runHermesNativeCli(['execute', '--request-ref', files.entry.request_ref],
+      { environment: files.environment, now: () => NOW });
+    assert.equal(result.exit_code, 0, result.output);
+    assert.equal(JSON.parse(result.output).status, 'NATIVE_TURN_OBSERVED');
+    const argv = JSON.parse(await readFile(path.join(f.home, 'argv.json'), 'utf8'));
+    assert.equal(argv[argv.indexOf('-p') + 1], 'default');
+    const snapshot = await readHermesNativeSessionMetadata({ database_path: path.join(f.home, 'state.db'),
+      session_id: 'session-existing', since_id: null });
+    assert.equal(snapshot.lineage.every((row) => row.profile_name === null), true);
+  });
+}
+
+for (const options of [
+  { profileName: 'synthetic-profile', profileMetadata: null },
+  { profileName: 'default', profileMetadata: 'foreign-profile' },
+]) {
+  test(`profile metadata cannot cross bindings ${JSON.stringify(options)}`, async (t) => {
+    const f = await fixture(t, 'ok', options);
+    const result = await f.bind().executor.execute(f.input);
+    assert.equal(result.reason_code, 'HERMES_NATIVE_SESSION_MISMATCH');
+    assert.equal(f.reads(), 0);
+    await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+  });
+}
+
+test('default refuses both named-profile homes and nonprofile subdirectories of the platform home before I/O', async (t) => {
+  const f = await fixture(t, 'ok', { profileName: 'default' });
+  const platformHome = process.platform === 'win32'
+    ? path.join(process.env.LOCALAPPDATA?.trim() || path.join(os.homedir(), 'AppData', 'Local'), 'hermes')
+    : path.join(os.homedir(), '.hermes');
+  for (const home of [path.join(f.root, 'profiles', 'foreign'), path.join(platformHome, 'not-a-profile')]) {
+    f.settings.runtime_binding.HERMES_HOME = home;
+    assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_CONFIG_INVALID');
+  }
+  assert.equal(f.reads(), 0);
+});
+
+test('official-shaped compression handoff with multiple user rows remains unproven without body-based deduplication', async (t) => {
+  const f = await fixture(t, 'compression-handoff', { profileName: 'default' });
+  const result = await f.bind().executor.execute(f.input);
+  assert.equal(result.reason_code, 'HERMES_NATIVE_COMPRESSION_READBACK_UNPROVEN');
+  const successor = await f.bind().executor.execute({ ...f.input, operation_id: 'compression-successor', attempt_no: 2, fencing_epoch: 2 });
+  assert.equal(successor.reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+  assert.equal(f.reads(), 1);
 });
 
 async function expiryScenario(t, expiresAt, advanceAt = null) {

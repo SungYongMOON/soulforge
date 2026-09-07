@@ -13,7 +13,8 @@ import { projectHermesNativeBriefBinding } from '../src/hermes_native_runtime.mj
 import { workbenchExecutionRequestBasis } from '../src/workbench_execution_sources.mjs';
 
 const hash = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true, timeoutMs = 4000 } = {}) {
+export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true, timeoutMs = 4000,
+  profileName = 'workbench-synthetic' } = {}) {
   const f = await makeWorkbenchExecutionFixture();
   const d = f.documents;
   const executorRef = 'executor.hermes.native-chat';
@@ -31,8 +32,8 @@ export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true
   const authority = { candidate_packet: forge.candidate_packet, task_packet: forge.task_packet,
     assignment_packet: assignment, role_capability_match: match, verified_active_binding: verified,
     trusted_current_evaluation: d.executor_current, executor_binding: d.executor_binding };
-  const profileName = 'workbench-synthetic';
-  const home = path.join(f.root, 'hermes-profiles', 'profiles', profileName);
+  const home = profileName === 'default' ? path.join(f.root, 'hermes-default')
+    : path.join(f.root, 'hermes-profiles', 'profiles', profileName);
   const attempts = path.join(f.root, 'native-attempts');
   const bodies = path.join(f.root, 'native-issued');
   await mkdir(home, { recursive: true }); await mkdir(attempts); await mkdir(bodies);
@@ -53,7 +54,8 @@ export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true
     timestamp REAL,active INTEGER DEFAULT 1,compacted INTEGER DEFAULT 0,finish_reason TEXT,
     effect_disposition TEXT,tool_calls TEXT);`);
   db.prepare(`INSERT INTO sessions (id,source,started_at,model,billing_provider,profile_name,model_config)
-    VALUES (?,'cli',1,?,?,?,'{}')`).run(runtime.session_id, runtime.expected_model, runtime.provider, profileName);
+    VALUES (?,'cli',1,?,?,?,'{}')`).run(runtime.session_id, runtime.expected_model, runtime.provider,
+    profileName === 'default' ? null : profileName);
   db.prepare("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?,'user','Existing synthetic session',1)").run(runtime.session_id);
   db.close();
   await writeFile(path.join(home, 'mode.txt'), mode);
