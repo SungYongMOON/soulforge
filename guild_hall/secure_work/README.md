@@ -26,6 +26,8 @@
   아직 없다 — 사이클 1호에서 실제 경계는 "신뢰 서명키·job 저장소에 쓸 수 있는가"다. 사이클 1호의
   필드 검토 46건과 전송 허가는 합성 자료에 대해 lane 작성자 본인(`operator.cycle1.builder`)이
   수행했고 사람의 별도 결정이 아니다 — 합성 한정이며, 승인자와 작성자를 분리하는 것은 BIND06에서다.
+  설치 경로에는 아래의 현재 OS 역할·과제 정책 검증을 추가했다. 실제 설치 결속과
+  별도 principal 사이 통신은 아직 없으며, 이 추가 검사를 전체 BIND09 완료로 세지 않는다.
 - **숨은 추론은 읽지 않는다.** 로컬 모델의 `reasoning_content`류 필드는 읽지도 저장하지도 않는다.
 
 ## 배치
@@ -71,8 +73,8 @@ node guild_hall/secure_work/sfx.mjs doctor
 node guild_hall/secure_work/sfx.mjs request --recipe R1-07 --source <PILOT_ROOT>/source \
     --requester <ref> --mission "<미션명>"
 node guild_hall/secure_work/sfx.mjs advance --job <job> --max-steps 10
-node guild_hall/secure_work/sfx.mjs permit approve --job <job> --actor <ref>
-node guild_hall/secure_work/sfx.mjs permit deny --job <job> --actor <ref>
+node guild_hall/secure_work/sfx.mjs permit approve --job <job>
+node guild_hall/secure_work/sfx.mjs permit deny --job <job>
 node guild_hall/secure_work/sfx.mjs status [--job <job>]
 node guild_hall/secure_work/sfx.mjs events --job <job>
 node guild_hall/secure_work/sfx.mjs keys init-pilot --out <pilot 밖 디렉터리>
@@ -87,6 +89,8 @@ node guild_hall/secure_work/sfx.mjs keys init-pilot --out <pilot 밖 디렉터�
   Owner 배치)로만 하며, 이 CLI가 매번 새 키쌍을 만들어 자기 자신을 검증하지 않는다 — 그 키가
   없으면 `PERMIT_SIGNER_UNBOUND`로 거부한다. 검증도 같은 짝의 공개키(`permit_trust_pubkey_path`)
   를 설정에서만 읽으며, permit 파일이 자칭하는 공개키는 절대 신뢰하지 않는다.
+  설치 CLI의 actor는 현재 OS 신원과 고정 역할 정책에서만 얻는다. `--actor`, `--role`,
+  `--principal`로 caller가 신원을 지정할 수 없다. 기존 모듈 직접 호출은 합성 시험의 seam이다.
 - `status` / `events` — 상태 투영과 이벤트 원장.
 - `keys init-pilot --out <dir>` — 합성 파일럿용 임시 permit 신뢰 키쌍을 **pilot root 밖**
   지정 디렉터리에만 만든다(이미 있으면 거부, pilot root 안이면 거부). stdout과 옆의
@@ -113,7 +117,7 @@ RECEIVED → SOURCE_PINNED → G2_PREPARED → RELEASE_REVIEW → READY → RUNN
 | M03 projection | kit 참조 구현 | 동작 |
 | M04 vault | kit SQLite vault + 로컬 파일 키 래퍼 | 동작, **키 래퍼는 시험 전용** |
 | M05 release authority | 필드 검토 원장 + 1회용 permit CLI 승인 | 동작, 자동 승인 없음 |
-| M06 transport | scripted worker(별도 프로세스) / OpenRouter 뼈대 | scripted 동작, 외부 route는 키 부재로 미바인딩 |
+| M06 transport | scripted worker / OpenRouter 뼈대 | 합성 계약 동작, 설치 실행은 별도 principal 채널 미구현으로 보류 |
 | M07 state engine | kit journal(SQLite CAS) | 동작 |
 | M08·M09 result | kit 구조검사 + Markdown 복원 + ValidationReport | 동작 |
 | M10 custody | 로컬 outbox + 기존 IngressClient를 쓰는 합성 검증 포트 | 합성 loopback 검증, 실제 승인·자격증명 연결 미바인딩 |
@@ -189,14 +193,16 @@ Allow ACE는 Deny가 가리는 경우에도 보수적으로 거부할 수 있다
 Node의 권한원이 아니며 Node가 매 송신 경계에서 다시 확인한다. bearer 값은 이 검증 뒤
 고정 credential 경로에서만 읽고 프로세스 환경·stdout·영수증으로 전달하지 않는다.
 
-이번 범위는 **M10 sender 측 부분 검증**이다. Python과 Node는 같은 sender SID를 상속하며
-이를 역할 분리로 주장하지 않는다. 실제 Owner 설치/launcher 결속·분리 계정 증거는 아직 없고,
+이번 범위는 **M10 sender 측 부분 검증**이다. 기존 합성 Python/Node 포트는 계정을 상속했다.
+설치 진입점의 sender 역할 검사를 추가했지만 controller에서 그 sender로 전달하는 별도
+principal 채널은 아직 없어 기존 상속 호출은 거부한다. 실제 Owner 설치/launcher 결속·분리 계정 증거는 없고,
 M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 실제 token/접근 시험과
 전체 BIND09 신원 경계는 후속 구현·검증 대상이다. M07의 file-owned 1회 소비·재시작
 보강은 아래 절의 범위에서 검증됐으며, 실제 키 배치만으로 전체 경계가 닫히지 않는다.
 
 불변 launcher의 코드 연결과 전체 전이 의존성 검사는 아래 범위로 구현했다. 남은 **코드
-작업**은 M06 worker의 별도 principal 격리와 전체 BIND09 신원/정책 authority 연결이다. M07의
+작업**은 M06의 principal 간 byte/journal 전달과 접근 격리, 기존 TrustedContext owner와
+전체 BIND09 정책의 통합이다. 현재 역할 정책 consumer는 아래 범위로 검증했다. M07의
 파일 소유 기반 합성 1회 소비·재시작 검증 범위는 아래와 같다. **Owner 입력/설치 작업**은
 실제 역할 SID·승인 정책·route·binding 값 확정과 해당 계정/ACL 배치다. 두 종류의 공백을
 구분하며, Owner 값만 채우면 남은 코드가 자동으로 완성된다고 주장하지 않는다.
@@ -328,6 +334,55 @@ OS 신뢰 기반이며, Windows 관측 실행본의 WinSxS hardlink는 그 pin/O
 ```sh
 node --test guild_hall/secure_work/tests/launch_binding.test.mjs
 python -I -S -B guild_hall/secure_work/tests/test_launch_runtime.py
+npm run validate:secure-work
+```
+
+## 현재 역할·과제 정책과 worker 등록 사전 검사
+
+`execution_authority.mjs`는 E14 `ports.TrustedContext`와 기존 `release.issue`/`model.dispatch`
+규칙을 따르는 **설치 입력 consumer**다. config에 고정한 `execution_authority.policy_path`와
+`policy_sha256`를 현재 설치 무결성과 OS owner/ACL 관측 뒤 읽는다. 별도 정책 발행기·신원
+등록소·schema·소비 원장·승인 영수증은 만들지 않는다. 정책과 key 경로를 caller의 env/argv/job로
+지정할 수 없으며, 저장소의 실제 설치 anchor/binding은 계속 `null`이다.
+
+내부 입력의 `roles`는 controller/sender/worker/reviewer 각각의 SID·principal ref·purpose·
+capability를 고정한다. 네 SID와 ref는 서로 달라야 하고 설치 trust owner도 실행 역할과
+달라야 한다. 관리자/위험 privilege·미등록 SID·잘못된 purpose·빠진 capability·동일 역할
+alias는 거부한다. `context`는 project·assignment와 epoch·task ref·route digest·audience를,
+정책은 현재 epoch·만료·폐기 여부와 permit 공개키 digest/issuer를 묶는다. 역할 명칭을
+요청에 적었다는 사실은 권한이 아니다. 실제 token SID와 현재 파일·정책 검사는 매번 다시 한다.
+
+| 실행 지점 | 필수 역할·검사 |
+| --- | --- |
+| controller CLI·요청·advance | controller / SOURCE, 해당 `jobs.*` capability와 현재 과제 scope |
+| permit approve/deny | reviewer / KEY_SERVICE, 현재 과제·route·epoch, 외부 고정 서명키 custody |
+| READY의 permit 신원 결속 | 승인 actor/ref와 내부 E14 `key_id`가 고정 reviewer/issuer와 일치 |
+| permit 소비 전 | sender / G3_PROVIDER 검사 뒤 미구현 controller/sender 채널에서 보류. lock·job read·소비 전에 차단 |
+| `--worker` | worker / G3_PROVIDER와 고정 등록 검사 뒤 byte 채널 미구현으로 보류. 상속 token으로 실행하지 않음 |
+
+서명키 metadata 검사에서 controller/sender/worker·광범위 그룹·미등록 principal에 읽기를
+허용한 키는 거부한다. 검증기는 private key bytes를 읽지 않는다. 서명 함수는 현재 역할의
+principal·purpose·route·epoch·audience와 발급 인자를 **키 접근 전에 직접 대조**하고,
+permit 만료를 역할 정책 만료 이내로 제한한다. 실제 서명키 fingerprint도 일치해야 하며
+서명 뒤 현재 역할/만료를 다시 확인한다. 기존 E14 서명 검증·1회 소비 journal을 대체하거나
+기존 필드/분류 검토를 자동 승인하지 않는다.
+
+`--worker-preflight`는 설치에 고정한 단일 등록 작업의 XML digest·worker principal·제한된
+실행 수준·logon 유형·고정 Node/launcher/인자/cwd·task owner/Allow ACL을 읽어 대조한다.
+`Schedule.Service`에서 읽기만 하며 task 등록·Start·Run·계정·ACL·credential 변경은 없다.
+구문 검사는 실행 경로의 문법만 확인했고, 등록 metadata 검증 시험은 주입한 합성 값이다.
+실제 등록 작업이나 별도 worker token의 접근 거부를 관측한 결과가 아니다.
+
+이 사전 검사의 결과는 항상 `execution_enabled: false`, `WORKER_BYTE_CHANNEL_UNBOUND`다.
+등록 조건이 맞아도 worker 실행 성공으로 해석하지 않는다. controller와 sender 사이에는
+`SENDER_CONTROLLER_CHANNEL_UNBOUND`를 유지한다. **IPC/broker·서로 다른 principal의
+E14 journal 접근·released bytes와 응답 전달·worker의 source/vault/job/key 접근 거부는
+후속 필수 기술 작업**이다. 실제 SID·정책·계정·ACL의 Owner 배치는 별도 입력/설치 작업이며,
+그 준비만으로 미구현 채널이 완성되지 않는다. 이 조각은 M06 또는 전체 33포트 완료가 아니다.
+
+```sh
+node --test guild_hall/secure_work/tests/execution_authority.test.mjs
+python -I -S -B guild_hall/secure_work/tests/test_execution_roles.py
 npm run validate:secure-work
 ```
 

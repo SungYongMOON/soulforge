@@ -28,6 +28,7 @@ function fixture(t) {
   const unusedPython = put(path.join(lane, "src/soulforge_secure_work/unused.py"), "# unopened Python module\n");
   const engine = put(path.join(lane, "src/soulforge_secure_work/engine.py"), "# synthetic engine\n");
   put(path.join(lane, "custody_bridge.mjs"), readFileSync(path.join(MODULE, "custody_bridge.mjs")));
+  put(path.join(lane, "execution_authority.mjs"), readFileSync(path.join(MODULE, "execution_authority.mjs")));
   const sdk = path.join(install, "node_modules/@synthetic/sdk");
   put(path.join(sdk, "package.json"), JSON.stringify({ type: "module", exports: "./index.mjs" }));
   const sdkEntry = put(path.join(sdk, "index.mjs"), "globalThis.__secureImportMarker = 'sdk'; export class IngressClient {}\n");
@@ -47,7 +48,21 @@ function fixture(t) {
   put(path.join(recipes, "synthetic.json"), "{}");
   const pythonPaths = [stdlib, path.join(lane, "src"), path.join(kit, "src")];
   const startup = put(path.join(runtime, "python._pth"), pythonPaths.join("\n") + "\n");
+  const publicKey = put(path.join(temp, "synthetic-public-material"), "synthetic public verification bytes\n");
+  const policyPath = put(path.join(temp, "execution-policy.json"), JSON.stringify({
+    epoch: 1, expires_at: Date.now() + 60000, revoked: false, issuer_key_id: "trust.synthetic",
+    public_key_sha256: pin(publicKey).sha256,
+    roles: {
+      controller: { sid: SENDER, principal_ref: "synthetic.controller", purpose: "SOURCE", capabilities: ["jobs.get", "jobs.submit", "jobs.advance"] },
+      sender: { sid: "S-1-5-21-111-222-333-1003", principal_ref: "synthetic.sender", purpose: "G3_PROVIDER", capabilities: ["model.dispatch"] },
+      worker: { sid: "S-1-5-21-111-222-333-1004", principal_ref: "synthetic.worker", purpose: "G3_PROVIDER", capabilities: [] },
+      reviewer: { sid: "S-1-5-21-111-222-333-1005", principal_ref: "synthetic.reviewer", purpose: "KEY_SERVICE", capabilities: ["release.issue", "release.review"] },
+    }, context: { project_ref: "synthetic.project", assignment_ref: "synthetic.assignment", assignment_epoch: 1,
+      task_ref: "synthetic.task", route_sha256: "a".repeat(64), audience: "scripted.subprocess" },
+    worker_registration: { task_path: "\\SyntheticWorker", xml_sha256: "a".repeat(64) },
+  }));
   const configPath = put(path.join(temp, "config.json"), JSON.stringify({ schema: "soulforge.secure_work.config.v0",
+    permit_trust_pubkey_path: publicKey, execution_authority: { policy_path: policyPath, policy_sha256: pin(policyPath).sha256 },
     kit_root: kit, recipe_root: recipes, pilot_root: path.join(temp, "working"), status_path: path.join(temp, "status.json"),
     runtime: { python_executable: python }, adapters: { transport: { python_executable: python } } }));
   const bindingPath = path.join(lane, "custody_runtime_binding.json");
@@ -99,6 +114,78 @@ test("a fixed whole generation verifies and the actual execution function uses o
   assert.equal(calls, 1);
   assert.throws(() => pythonInvocation(verified, "cli", ["--config", f.configPath]));
   assert.throws(() => pythonInvocation(verified, "cli", ["--config=anything"]));
+  assert.throws(() => pythonInvocation(verified, "cli", ["permit", "approve", "--actor", "caller"]));
+});
+
+test("controller SID cannot enter the worker and missing identity policy never falls back to inherited spawn", async t => {
+  const f = fixture(t);
+  let spawns = 0;
+  await assert.rejects(executeVerified(f.verify(), ["--worker"], { spawn() { spawns++; return { status: 0 }; } }));
+  assert.equal(spawns, 0);
+  const config = JSON.parse(readFileSync(f.configPath));
+  delete config.execution_authority;
+  f.put(f.configPath, JSON.stringify(config));
+  f.binding.config_sha256 = pin(f.configPath).sha256; f.saveBinding();
+  await assert.rejects(executeVerified(f.verify(), ["doctor"], { spawn() { spawns++; return { status: 0 }; } }));
+  assert.equal(spawns, 0);
+});
+
+function directSyntheticEntry(f, argv, input = "") {
+  // Only the copied test launcher substitutes synthetic OS evidence and its
+  // fake executable pin. Keep the real main/executeVerified/import graph and
+  // complete fixture verification, rather than importing sfx into the test.
+  const source = readFileSync(f.launcher, "utf8");
+  const marker = "const runtime = verifyInstallation(INSTALLATION_ANCHOR);";
+  assert.equal(source.split(marker).length, 2);
+  const replacement = `const runtime = verifyInstallation(${JSON.stringify(f.anchor)}, {
+    launcherPath: fileURLToPath(import.meta.url), executablePath: ${JSON.stringify(f.node)},
+    observe: paths => ({ sid: ${JSON.stringify(SENDER)}, groups: [], privileges: [], elevated: false,
+      paths: paths.map(p => ({ path: p, owner_sid: ${JSON.stringify(OWNER)}, reparse: false,
+        allow: [{ sid: ${JSON.stringify(OWNER)}, rights: 2032127 }, { sid: ${JSON.stringify(SENDER)}, rights: 1179785 }] })) }),
+  });`;
+  f.put(f.launcher, source.replace(marker, replacement));
+  return spawnSync(process.execPath, [f.launcher, ...argv], { encoding: "utf8", input,
+    env: { SYSTEMROOT: process.env.SYSTEMROOT, WINDIR: process.env.WINDIR }, timeout: 5000, windowsHide: true });
+}
+
+test("direct launcher entrypoint resolves the real execution-authority import and emits its bounded result", t => {
+  const f = fixture(t);
+  const result = directSyntheticEntry(f, ["--role-check"], JSON.stringify({ operation: "jobs.get", scope: null }));
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).principal_ref, "synthetic.controller");
+});
+
+test("direct custody entrypoint resolves its authority module before a normal unbound denial", t => {
+  const f = fixture(t);
+  // Isolate the second back-import: no real OS task, policy or credential
+  // authorization is claimed by this deliberately synthetic role stub.
+  const roles = f.put(path.join(f.lane, "execution_authority.mjs"),
+    "export const loadExecutionAuthority = () => ({ requireRole() {} });\n");
+  const custody = f.put(path.join(f.lane, "custody_authority.mjs"),
+    readFileSync(path.join(MODULE, "custody_authority.mjs"), "utf8") + '\nprocess.stderr.write("synthetic-custody-imported\\n");\n');
+  const files = f.binding.launch.roots[0].files;
+  files.find(item => item.relative_path === "guild_hall/secure_work/execution_authority.mjs").sha256 = pin(roles).sha256;
+  files.push({ relative_path: "guild_hall/secure_work/custody_authority.mjs", sha256: pin(custody).sha256 });
+  f.saveBinding();
+  const result = directSyntheticEntry(f, ["--custody-bridge"], "{}");
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 2, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { ok: false, code: "SECURE_WORK_LAUNCH_HOLD" });
+  assert.equal(result.stderr, "synthetic-custody-imported\n");
+});
+
+test("a main promise left pending without live handles cannot exit with false success", t => {
+  const f = fixture(t);
+  const roles = f.put(path.join(f.lane, "execution_authority.mjs"),
+    "export const loadExecutionAuthority = () => new Promise(() => {});\n");
+  f.binding.launch.roots[0].files.find(item => item.relative_path === "guild_hall/secure_work/execution_authority.mjs").sha256 = pin(roles).sha256;
+  f.saveBinding();
+  const result = directSyntheticEntry(f, ["--role-check"], JSON.stringify({ operation: "jobs.get", scope: null }));
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 2, result.stderr);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, "");
 });
 
 for (const field of ["unusedSdk", "sdkEntry", "unusedPython", "engine", "unusedKit", "kitModule", "startupModule", "dll", "configPath"]) {

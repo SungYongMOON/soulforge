@@ -7,6 +7,10 @@
   "status_path": "<STATE_ROOT>/ops-lane/operations/secure_work/status.json",
   "permit_trust_pubkey_path": "<private_root>/config/secure_work/permit_trust.pub",
   "permit_trust_signing_key_path": "<private_root>/config/secure_work/credentials/permit_trust.key",
+  "execution_authority": {
+    "policy_path": "<private_root>/config/secure_work/execution-policy.json",
+    "policy_sha256": "<owner-pinned-sha256>"
+  },
   "runtime": {
     "python_executable": "<TOOL_ROOT>/secure-work-python/python.exe"
   },

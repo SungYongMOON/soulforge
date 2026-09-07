@@ -56,7 +56,7 @@ def _parser() -> argparse.ArgumentParser:
     permit = sub.add_parser("permit", help="release authority decision")
     permit.add_argument("decision", choices=["approve", "deny"])
     permit.add_argument("--job", required=True)
-    permit.add_argument("--actor", required=True)
+    permit.add_argument("--actor", help="legacy synthetic caller; rejected by the installed launcher")
 
     events = sub.add_parser("events", help="the job's event ledger")
     events.add_argument("--job", required=True)

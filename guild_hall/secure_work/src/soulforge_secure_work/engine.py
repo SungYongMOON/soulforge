@@ -21,7 +21,7 @@ from pathlib import Path
 from . import adapters as adapters_module
 from . import authority, dispatch as dispatch_module, extract, guard, utility, plan as plan_module
 from .config import Config
-from .launch_runtime import recheck_if_launched
+from .launch_runtime import recheck_if_launched, role_check, job_scope, require_sender_channel
 
 STATUS_SCHEMA = "soulforge.secure_work.status.v0"
 JOB_SCHEMA = "soulforge.secure_work.job.v0"
@@ -307,6 +307,9 @@ class Lane:
     def request(self, recipe_id: str, source_dir: Path, requester: str,
                 mission_name: str) -> Job:
         recheck_if_launched()
+        identity = role_check("jobs.submit")
+        if identity is not None and requester != identity["principal_ref"]:
+            raise EngineStop("REQUESTER_IDENTITY_MISMATCH")
         probe = self.source.probe()
         if probe.state != "AVAILABLE":
             raise EngineStop("ADAPTER_UNAVAILABLE", f"M01 {probe.detail}")
@@ -329,6 +332,11 @@ class Lane:
             "created_utc": _now(),
             "data_class": "SYNTHETIC_ONLY",
         })
+        if identity is not None:
+            for key in ("project_ref", "assignment_ref", "assignment_epoch", "task_ref", "policy_epoch"):
+                job.data[key] = identity[key]
+            job.data["route_sha256"] = identity["route_sha256"]
+            job.data["transport_id"] = identity["audience"]
         job.root.mkdir(parents=True, exist_ok=True)
         job.save()
         handle = self.open_journal(job)
@@ -527,6 +535,7 @@ class Lane:
             raise EngineStop("PERMIT_REQUIRED", "sfx permit approve <job>")
         if record.get("decision") != "ALLOW":
             raise EngineStop("PERMIT_DENIED", record.get("decision", "UNKNOWN"))
+        role_check("permit.identity", job_scope(job), record)
         return self.transition(
             job, "READY", "release.issue",
             f"evidence.permit.{record['permit']['claims']['permit_id'][2:14]}",
@@ -535,6 +544,10 @@ class Lane:
                    "authority": record["authority"]})
 
     def step_dispatch(self, job: Job) -> tuple[str, str]:
+        try:
+            require_sender_channel(job_scope(job))
+        except RuntimeError as error:
+            raise EngineStop("SENDER_CONTROLLER_CHANNEL_UNBOUND") from error
         try:
             with dispatch_module.controller_lock(job.root):
                 return self._dispatch_locked(job)
@@ -630,6 +643,10 @@ class Lane:
                           running_revision: int | None = None) -> dict:
         """Fresh file-owned authority evidence; not full BIND09 identity policy."""
         try:
+            require_sender_channel(job_scope(job))
+        except RuntimeError as error:
+            raise EngineStop("SENDER_CONTROLLER_CHANNEL_UNBOUND") from error
+        try:
             recheck_if_launched()
             fresh = self.load_job(job.job_id)
             record = self._permit_record(fresh)
@@ -637,6 +654,7 @@ class Lane:
                 raise EngineStop("PERMIT_REQUIRED")
             if record.get("decision") != "ALLOW":
                 raise EngineStop("PERMIT_DENIED")
+            role_check("permit.identity", job_scope(fresh), record)
             if fresh.data["policy_epoch"] != POLICY_EPOCH:
                 raise EngineStop("POLICY_EPOCH_CHANGED")
             fingerprint, key = self._trusted_permit_key(record)
@@ -888,6 +906,7 @@ class Lane:
         results: list[dict] = []
         for _ in range(max_steps):
             recheck_if_launched()
+            role_check("jobs.advance", job_scope(job))
             phase = self.phase(job)
             if phase == "HOLD":
                 phase = self._retry_hold(job, results)
@@ -952,6 +971,11 @@ class Lane:
     # -- permits -----------------------------------------------------------
 
     def approve_permit(self, job: Job, actor_ref: str) -> dict:
+        identity = role_check("release.issue", job_scope(job))
+        if identity is not None:
+            if actor_ref is not None:
+                raise EngineStop("CALLER_ACTOR_FORBIDDEN")
+            actor_ref = identity["principal_ref"]
         if not job.path("body.bin").is_file():
             raise EngineStop("PACKET_NOT_PREPARED", "advance to RELEASE_REVIEW first")
         body = job.path("body.bin").read_bytes()
@@ -964,7 +988,8 @@ class Lane:
                 policy_epoch=job.data["policy_epoch"],
                 audience=job.data.get("transport_id", self.scripted.name),
                 lifetime_seconds=PERMIT_LIFETIME_SECONDS, actor_ref=actor_ref,
-                trust_signing_key_path=self.config.permit_trust_signing_key_path)
+                trust_signing_key_path=self.config.permit_trust_signing_key_path,
+                execution_scope=job_scope(job))
         except authority.PermitAuthorityError as error:
             raise EngineStop(error.code, error.detail) from error
         job.path("permit.json").write_text(
@@ -980,6 +1005,11 @@ class Lane:
         return record
 
     def deny_permit(self, job: Job, actor_ref: str) -> dict:
+        identity = role_check("release.review", job_scope(job))
+        if identity is not None:
+            if actor_ref is not None:
+                raise EngineStop("CALLER_ACTOR_FORBIDDEN")
+            actor_ref = identity["principal_ref"]
         record = {"schema": "soulforge.secure_work.permit.v0", "decision": "DENY",
                   "actor_ref": actor_ref, "denied_utc": _now()}
         job.path("permit.json").write_text(

@@ -189,14 +189,35 @@ def generate_pilot_trust_keypair(out_dir: Path, pilot_root: Path) -> dict:
 def issue_permit(models, permits, canonical, digest, *, job_id: str, mission_id: str,
                  round_index: int, body: bytes, route_digest: str, review_ref: str,
                  policy_epoch: int, audience: str, lifetime_seconds: int,
-                 actor_ref: str, trust_signing_key_path: Path | None) -> tuple[dict, str]:
+                 actor_ref: str, trust_signing_key_path: Path | None,
+                 execution_scope: dict | None = None) -> tuple[dict, str]:
     """Sign a one-use permit with the pinned trust key. Returns (stored record, fingerprint).
 
     Raises `PermitAuthorityError(PERMIT_SIGNER_UNBOUND)` if no trust signing key
     is configured or the file it names is absent -- this function never falls
     back to generating its own key pair.
     """
+    from .launch_runtime import role_check
+    identity = role_check("release.issue", execution_scope)
+    if identity is not None and actor_ref != identity["principal_ref"]:
+        raise PermitAuthorityError("PERMIT_SIGNER_IDENTITY_MISMATCH")
+    permit_expires_at = None
+    if identity is not None:
+        if (identity.get("purpose") != "KEY_SERVICE" or type(policy_epoch) is not int
+                or policy_epoch != identity.get("policy_epoch")
+                or route_digest != identity.get("route_sha256") or audience != identity.get("audience")
+                or type(lifetime_seconds) is not int or not 1 <= lifetime_seconds <= 300):
+            raise PermitAuthorityError("PERMIT_ROLE_SCOPE_MISMATCH")
+        now = datetime.now(timezone.utc)
+        if type(identity.get("expires_at")) is not int:
+            raise PermitAuthorityError("PERMIT_SIGNER_EXPIRED")
+        permit_expires_at = min(now + timedelta(seconds=lifetime_seconds),
+            datetime.fromtimestamp(identity["expires_at"] / 1000, timezone.utc)).replace(microsecond=0)
+        if permit_expires_at <= now:
+            raise PermitAuthorityError("PERMIT_SIGNER_EXPIRED")
     fingerprint, private_key = load_trust_signing_key(trust_signing_key_path)
+    if identity is not None and fingerprint != identity["issuer_key_id"]:
+        raise PermitAuthorityError("PERMIT_SIGNER_IDENTITY_MISMATCH")
     claims = models.PermitClaims(
         protocol="sf.sewe.permit/1.0",
         permit_id="o_" + digest(body)[:32],
@@ -209,11 +230,15 @@ def issue_permit(models, permits, canonical, digest, *, job_id: str, mission_id:
         policy_epoch=policy_epoch,
         audience=audience,
         issued_utc=utc_now(-1),
-        expires_utc=utc_now(lifetime_seconds),
+        expires_utc=permit_expires_at.strftime("%Y-%m-%dT%H:%M:%SZ") if permit_expires_at else utc_now(lifetime_seconds),
         max_uses=1,
     )
     permit = permits.sign_for_test(claims, private_key, fingerprint)
     del private_key
+    if identity is not None and role_check("release.issue", execution_scope) != identity:
+        raise PermitAuthorityError("PERMIT_SIGNER_IDENTITY_CHANGED")
+    if permit_expires_at is not None and datetime.now(timezone.utc) >= permit_expires_at:
+        raise PermitAuthorityError("PERMIT_SIGNER_EXPIRED")
     record = {
         "schema": "soulforge.secure_work.permit.v0",
         "decision": "ALLOW",

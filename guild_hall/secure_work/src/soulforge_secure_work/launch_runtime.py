@@ -118,6 +118,38 @@ def recheck_if_launched():
         recheck()
 
 
+def role_check(operation, scope=None, record=None):
+    if not is_launched():
+        return None  # Explicit in-process synthetic contract fixtures only.
+    request = {"operation": operation, "scope": scope}
+    if operation == "permit.identity":
+        request["record"] = record
+    result = call_launcher(["--role-check"], body=json.dumps(request).encode("utf-8"))
+    if result.returncode or len(result.stdout) > 32768:
+        _fail()
+    proof = json.loads(result.stdout)
+    if (not isinstance(proof, dict) or set(proof) != {"project_ref", "assignment_ref", "assignment_epoch",
+            "task_ref", "route_sha256", "audience", "policy_epoch", "principal_ref", "purpose", "issuer_key_id", "expires_at"}):
+        _fail()
+    return proof
+
+
+def job_scope(job):
+    return {"project_ref": job.data.get("project_ref"), "assignment_ref": job.data.get("assignment_ref"),
+            "assignment_epoch": job.data.get("assignment_epoch"), "task_ref": job.data.get("task_ref"),
+            "policy_epoch": job.data.get("policy_epoch"), "route_sha256": job.data.get("route_sha256"),
+            "audience": job.data.get("transport_id")}
+
+
+def require_sender_channel(scope):
+    if is_launched():
+        role_check("model.dispatch", scope)
+        # The controller still owns source/vault and the journal call stack.
+        # Until the scoped metadata/byte channel exists, no live role may use
+        # that stack as a substitute sender or consume its permit.
+        raise RuntimeError("SENDER_CONTROLLER_CHANNEL_UNBOUND")
+
+
 def checked_config(path=None):
     state = context()
     if path is not None and _norm(path) != _norm(state["config_path"]):
