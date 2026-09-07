@@ -13,20 +13,24 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sqlite3
 import tempfile
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 from . import adapters as adapters_module
 from . import authority, dispatch as dispatch_module, extract, guard, utility, plan as plan_module
+from . import storage
 from .config import Config
-from .launch_runtime import recheck_if_launched, role_check, job_scope, require_sender_channel
+from .launch_runtime import recheck_if_launched, role_check, role_entry, job_scope, require_sender_channel
 
 STATUS_SCHEMA = "soulforge.secure_work.status.v0"
 JOB_SCHEMA = "soulforge.secure_work.job.v0"
 POLICY_EPOCH = 1
 PERMIT_LIFETIME_SECONDS = 300
+JOB_MAXIMUM_BYTES = 262144
 
 
 class EngineStop(RuntimeError):
@@ -59,25 +63,44 @@ class Job:
     config: Config
     job_id: str
     data: dict
+    _stored_bytes: bytes | None = field(default=None, repr=False)
+    _operation: str = field(default="jobs.get", repr=False)
+
+    def _path(self, root: Path, *parts: str) -> Path:
+        role_check(self._operation, job_scope(self))
+        try:
+            return storage.checked_path(root, self.job_id, *parts, missing=True)
+        except storage.StorageHold:
+            raise EngineStop("JOB_STORE_HOLD") from None
 
     @property
     def root(self) -> Path:
-        return self.config.jobs_root / self.job_id
+        return self._path(self.config.jobs_root)
 
     @property
     def receipts(self) -> Path:
-        return self.config.receipts_root / self.job_id
+        return self._path(self.config.receipts_root)
 
     @property
     def outbox(self) -> Path:
-        return self.config.outbox_root / self.job_id
+        return self._path(self.config.outbox_root)
 
     def path(self, *parts: str) -> Path:
-        return self.root.joinpath(*parts)
+        return self._path(self.config.jobs_root, *parts)
 
     def save(self) -> None:
-        self.path("job.json").write_text(
-            json.dumps(self.data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        role_check(self._operation, job_scope(self))
+        if self.data.get("job_id", self.job_id) != self.job_id:
+            raise EngineStop("JOB_STORE_HOLD")
+        try:
+            body = (json.dumps(self.data, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
+            if len(body) > JOB_MAXIMUM_BYTES:
+                raise storage.StorageHold("STORE_SIZE_HOLD")
+            storage.write_bytes(self.config.jobs_root, self.job_id, "job.json",
+                                body=body, previous=self._stored_bytes)
+        except (storage.StorageHold, ValueError, RecursionError):
+            raise EngineStop("JOB_STORE_HOLD") from None
+        self._stored_bytes = body
 
 
 class Lane:
@@ -135,24 +158,120 @@ class Lane:
 
     # -- job store ---------------------------------------------------------
 
-    def load_job(self, job_id: str) -> Job:
-        path = self.config.jobs_root / job_id / "job.json"
-        if not path.is_file():
-            raise EngineStop("JOB_NOT_FOUND", job_id)
-        return Job(self.config, job_id, json.loads(path.read_text(encoding="utf-8")))
+    def load_job(self, job_id: str, *, operation: str = "jobs.get") -> Job:
+        try:
+            storage.identifier(job_id)
+        except storage.StorageHold:
+            raise EngineStop("JOB_ID_HOLD") from None
+        if operation not in {"jobs.get", "jobs.advance", "release.issue", "release.review"}:
+            raise EngineStop("JOB_SCOPE_HOLD")
+        # The current role gate precedes metadata access. Reviewer operations
+        # need a scope even on entry; derive it from the current trusted proof,
+        # never caller/job values (the CLI has already checked its entry role).
+        identity = self._read_identity(operation)
+        try:
+            raw = storage.read_bytes(self.config.jobs_root, job_id, "job.json", maximum=JOB_MAXIMUM_BYTES)
+            data = storage.decode_object(raw)
+            if data.get("schema") != JOB_SCHEMA or data.get("job_id") != job_id:
+                raise storage.StorageHold("STORE_JSON_HOLD")
+            storage.identifier(data.get("recipe_id"))
+            for key in ("mission_id", "project_ref", "assignment_ref"):
+                if not isinstance(data.get(key), str) or not data[key] or len(data[key]) > 128:
+                    raise storage.StorageHold("STORE_JSON_HOLD")
+            if (type(data.get("assignment_epoch")) is not int or data["assignment_epoch"] < 1
+                    or type(data.get("policy_epoch")) is not int or data["policy_epoch"] < 1
+                    or type(data.get("round")) is not int or data["round"] < 0):
+                raise storage.StorageHold("STORE_JSON_HOLD")
+        except storage.StorageHold:
+            raise EngineStop("JOB_STORE_HOLD") from None
+        job = Job(self.config, job_id, data, raw, operation)
+        self._check_read_scope(job, operation, identity)
+        try:
+            journal_path = storage.checked_path(self.config.jobs_root, job_id, "journal.db")
+            if not journal_path.is_file() or journal_path.stat().st_size == 0:
+                raise storage.StorageHold("STORE_FILE_HOLD")
+        except (storage.StorageHold, OSError):
+            raise EngineStop("JOB_STORE_HOLD") from None
+        return job
+
+    def _read_identity(self, operation):
+        # role_entry is the installation consumer, including its synthetic-only
+        # unlaunched seam. It never accepts an identity from this working store.
+        try:
+            return role_entry(operation)
+        except (RuntimeError, ValueError):
+            raise EngineStop("JOB_SCOPE_HOLD") from None
+
+    def _check_read_scope(self, job, operation, identity):
+        scope = job_scope(job)
+        if identity is not None and any(identity.get(key) != value or value is None
+                                        for key, value in scope.items()):
+            raise EngineStop("JOB_SCOPE_HOLD")
+        try:
+            current = role_check(operation, scope)
+        except (RuntimeError, ValueError):
+            raise EngineStop("JOB_SCOPE_HOLD") from None
+        if identity is not None and current != identity:
+            raise EngineStop("JOB_SCOPE_HOLD")
 
     def list_jobs(self) -> list[Job]:
+        identity = self._read_identity("jobs.get")
         jobs = []
-        for path in sorted(self.config.jobs_root.glob("*/job.json")):
-            jobs.append(Job(self.config, path.parent.name,
-                            json.loads(path.read_text(encoding="utf-8"))))
+        try:
+            root = storage.checked_path(self.config.jobs_root)
+            entries = sorted(root.iterdir())
+        except (storage.StorageHold, OSError):
+            raise EngineStop("JOB_STORE_HOLD") from None
+        # Every entry is a job; a partial/corrupt/foreign entry holds the whole
+        # result. Never turn an unreadable store into an empty successful list.
+        for path in entries:
+            jobs.append(self.load_job(path.name))
+        for job in jobs:
+            self._check_read_scope(job, "jobs.get", identity)
+        if self._read_identity("jobs.get") != identity:
+            raise EngineStop("JOB_SCOPE_HOLD")
         return jobs
 
-    def open_journal(self, job: Job):
-        return self.journal.Journal(str(job.path("journal.db")))
+    def open_journal(self, job: Job, *, create: bool = False, read_only: bool = False):
+        path = job.path("journal.db")
+        # SQLite must not create/repair a missing journal during a status read.
+        # Its neighboring sidecars are also possible link destinations.
+        for suffix in ("-wal", "-shm", "-journal"):
+            job.path("journal.db" + suffix)
+        try:
+            if create:
+                if path.exists():
+                    raise EngineStop("JOB_EXISTS_HOLD")
+                return self.journal.Journal(str(path))
+            elif not path.is_file() or path.stat().st_size == 0:
+                raise EngineStop("JOB_STORE_HOLD")
+            # The reference constructor installs tables. Reopening must never
+            # repair a partial store: bind its existing db interface directly,
+            # preserving the reference get/transition/attempt implementations.
+            handle = self.journal.Journal.__new__(self.journal.Journal)
+            handle.db = sqlite3.connect(path.as_uri() + ("?mode=ro" if read_only else "?mode=rw"),
+                                        uri=True, isolation_level=None, timeout=5)
+            try:
+                handle.db.execute("PRAGMA foreign_keys=ON")
+                handle.db.execute("PRAGMA trusted_schema=OFF")
+                handle.db.execute("PRAGMA synchronous=FULL")
+                tables = handle.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                if {row[0] for row in tables} != {"jobs", "events", "commands", "attempts"}:
+                    raise EngineStop("JOB_STORE_HOLD")
+                if handle.db.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger','view') LIMIT 1").fetchone():
+                    raise EngineStop("JOB_STORE_HOLD")
+                view = handle.get(job.job_id, job.data["project_ref"])
+                if view.work_type != job.data["recipe_id"]:
+                    raise EngineStop("JOB_STORE_HOLD")
+                return handle
+            except Exception:
+                handle.close()
+                raise EngineStop("JOB_STORE_HOLD") from None
+        except (OSError, sqlite3.Error):
+            raise EngineStop("JOB_STORE_HOLD") from None
 
     def phase(self, job: Job) -> str:
-        handle = self.open_journal(job)
+        handle = self.open_journal(job, read_only=True)
         try:
             return handle.get(job.job_id, job.data["project_ref"]).phase
         finally:
@@ -239,24 +358,42 @@ class Lane:
     def refresh_status(self, last_job: str | None = None,
                        last_receipt_ref: str | None = None) -> dict:
         counts: dict[str, int] = {}
-        for job in self.list_jobs():
+        jobs = self.list_jobs()
+        by_id = {job.job_id: job for job in jobs}
+        for job in jobs:
             try:
                 phase = self.phase(job)
             except Exception:
-                phase = "UNKNOWN"
+                raise EngineStop("JOB_STATUS_HOLD") from None
             counts[phase] = counts.get(phase, 0) + 1
         # A plain status read refreshes the counts without erasing what the last
         # advance recorded.
-        previous: dict = {}
-        if self.config.status_path.is_file():
-            try:
-                previous = json.loads(self.config.status_path.read_text(encoding="utf-8"))
-            except ValueError:
-                previous = {}
+        previous, previous_bytes = {}, None
+        try:
+            path = storage.checked_path(self.config.status_path.parent, self.config.status_path.name, missing=True)
+            if path.exists():
+                previous_bytes = storage.read_bytes(path.parent, path.name, maximum=65536)
+                previous = storage.decode_object(previous_bytes)
+                if previous.get("schema") != STATUS_SCHEMA:
+                    raise storage.StorageHold("STORE_JSON_HOLD")
+        except storage.StorageHold:
+            raise EngineStop("JOB_STATUS_HOLD") from None
         resolved_job = last_job or previous.get("last_job")
         resolved_receipt = last_receipt_ref or previous.get("last_receipt_ref")
+        # Status is a projection, never an authority source. Old foreign refs
+        # cannot escape through the aggregate status even when jobs are empty.
+        if not isinstance(resolved_job, str) or resolved_job not in by_id:
+            resolved_job, resolved_receipt = None, None
+        if resolved_receipt is not None:
+            if (not isinstance(resolved_receipt, str) or resolved_receipt.count("/") != 1
+                    or resolved_receipt.split("/")[0] != resolved_job):
+                raise EngineStop("JOB_STATUS_HOLD")
+            try:
+                storage.checked_path(by_id[resolved_job].receipts, resolved_receipt.split("/")[1])
+            except storage.StorageHold:
+                raise EngineStop("JOB_STATUS_HOLD") from None
         if not resolved_receipt:
-            newest = self._newest_receipt()
+            newest = self._newest_receipt(jobs)
             if newest:
                 resolved_job, resolved_receipt = newest
         status = {
@@ -266,17 +403,35 @@ class Lane:
             "last_job": resolved_job,
             "last_receipt_ref": resolved_receipt,
         }
-        self.config.status_path.parent.mkdir(parents=True, exist_ok=True)
-        self.config.status_path.write_text(
-            json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        identity = self._read_identity("jobs.get")
+        for job in jobs:
+            self._check_read_scope(job, "jobs.get", identity)
+        try:
+            storage.write_bytes(path.parent, path.name,
+                                body=(json.dumps(status, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+                                previous=previous_bytes)
+        except storage.StorageHold:
+            raise EngineStop("JOB_STATUS_HOLD") from None
+        if self._read_identity("jobs.get") != identity:
+            raise EngineStop("JOB_SCOPE_HOLD")
         return status
 
-    def _newest_receipt(self) -> tuple[str, str] | None:
+    def _newest_receipt(self, jobs: list[Job]) -> tuple[str, str] | None:
         newest: tuple[float, str, str] | None = None
-        for path in self.config.receipts_root.glob("*/*.json"):
-            stamp = path.stat().st_mtime
-            if newest is None or stamp > newest[0]:
-                newest = (stamp, path.parent.name, f"{path.parent.name}/{path.name}")
+        try:
+            for job in jobs:
+                root = job.receipts
+                if not root.exists():
+                    continue
+                for entry in root.iterdir():
+                    path = storage.checked_path(root, entry.name)
+                    if path.suffix != ".json" or not path.is_file():
+                        raise storage.StorageHold("STORE_FILE_HOLD")
+                    stamp = path.stat().st_mtime
+                    if newest is None or stamp > newest[0]:
+                        newest = (stamp, job.job_id, f"{job.job_id}/{path.name}")
+        except (storage.StorageHold, OSError):
+            raise EngineStop("JOB_STATUS_HOLD") from None
         return (newest[1], newest[2]) if newest else None
 
     # -- transitions -------------------------------------------------------
@@ -313,7 +468,12 @@ class Lane:
         probe = self.source.probe()
         if probe.state != "AVAILABLE":
             raise EngineStop("ADAPTER_UNAVAILABLE", f"M01 {probe.detail}")
-        job_id = _opaque(mission_name, requester, _now())
+        try:
+            storage.identifier(recipe_id)
+            storage.checked_path(self.config.jobs_root)
+        except storage.StorageHold:
+            raise EngineStop("JOB_STORE_HOLD") from None
+        job_id = "o_" + uuid.uuid4().hex
         mission_id = _opaque("mission", mission_name, job_id)
         job = Job(self.config, job_id, {
             "schema": JOB_SCHEMA,
@@ -331,15 +491,20 @@ class Lane:
             "source_dir_ref": "pilot.source",
             "created_utc": _now(),
             "data_class": "SYNTHETIC_ONLY",
-        })
+        }, _operation="jobs.submit")
         if identity is not None:
             for key in ("project_ref", "assignment_ref", "assignment_epoch", "task_ref", "policy_epoch"):
                 job.data[key] = identity[key]
             job.data["route_sha256"] = identity["route_sha256"]
             job.data["transport_id"] = identity["audience"]
-        job.root.mkdir(parents=True, exist_ok=True)
+        try:
+            job.root.mkdir(exist_ok=False)
+        except FileExistsError:
+            raise EngineStop("JOB_EXISTS_HOLD") from None
+        except OSError:
+            raise EngineStop("JOB_STORE_HOLD") from None
         job.save()
-        handle = self.open_journal(job)
+        handle = self.open_journal(job, create=True)
         try:
             handle.create(job_id, job.data["project_ref"], job.data["recipe_id"])
         finally:
@@ -356,8 +521,9 @@ class Lane:
     # -- steps -------------------------------------------------------------
 
     def step_pin_source(self, job: Job) -> tuple[str, str]:
-        pins, parts = extract.read_exact(self.config.source_root)
+        role_check("jobs.advance", job_scope(job))
         recipe = plan_module.load_recipe(self.config.recipe_root, job.data["recipe_id"])
+        pins, parts = extract.read_exact(self.config.source_root)
         work = plan_module.work_definition(self.models, recipe)
         bundle = plan_module.source_bundle(
             self.models, pins, parts, job.data["project_ref"],
@@ -907,6 +1073,7 @@ class Lane:
         for _ in range(max_steps):
             recheck_if_launched()
             role_check("jobs.advance", job_scope(job))
+            job._operation = "jobs.advance"
             phase = self.phase(job)
             if phase == "HOLD":
                 phase = self._retry_hold(job, results)

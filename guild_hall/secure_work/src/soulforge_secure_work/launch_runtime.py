@@ -118,13 +118,10 @@ def recheck_if_launched():
         recheck()
 
 
-def role_check(operation, scope=None, record=None):
+def _role_proof(arguments, request):
     if not is_launched():
         return None  # Explicit in-process synthetic contract fixtures only.
-    request = {"operation": operation, "scope": scope}
-    if operation == "permit.identity":
-        request["record"] = record
-    result = call_launcher(["--role-check"], body=json.dumps(request).encode("utf-8"))
+    result = call_launcher(arguments, body=json.dumps(request).encode("utf-8"))
     if result.returncode or len(result.stdout) > 32768:
         _fail()
     proof = json.loads(result.stdout)
@@ -132,6 +129,22 @@ def role_check(operation, scope=None, record=None):
             "task_ref", "route_sha256", "audience", "policy_epoch", "principal_ref", "purpose", "issuer_key_id", "expires_at"}):
         _fail()
     return proof
+
+
+def role_entry(operation):
+    """Read the current installed role/context before opening job metadata.
+
+    This invokes the consumer's existing entry check. It does not authorize
+    any job-specific action; that still requires role_check(operation, scope).
+    """
+    return _role_proof(["--role-entry"], {"operation": operation})
+
+
+def role_check(operation, scope=None, record=None):
+    request = {"operation": operation, "scope": scope}
+    if operation == "permit.identity":
+        request["record"] = record
+    return _role_proof(["--role-check"], request)
 
 
 def job_scope(job):

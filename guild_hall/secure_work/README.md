@@ -428,6 +428,42 @@ SOULFORGE_SECURE_WORK_KIT_ROOT=<TOOL_ROOT>/secure-work-kit \
   python -B -m pytest -q guild_hall/secure_work/tests/test_utility_contract.py
 ```
 
+## 작업·recipe 저장 경계
+
+job/recipe ID는 경로를 만들기 전에 안전한 ASCII 단일 이름인지 검사한다. 기존 생성형
+`o_`+32자리 hex와 `job.synthetic`, `R1-07` 같은 안전한 이름은 유지하고, 구분자·드라이브·
+ADS·Windows 예약 장치명·끝점·대소문자/짧은 경로 alias는 거부한다. root와 상위 경로의
+symlink·junction·reparse point, 파일 hardlink와 비정규 파일을 읽기 전에 확인한다.
+job metadata는 256 KiB, recipe는 64 KiB, 상태 투영은 64 KiB로 읽기를 제한하며,
+중복 JSON key·잘못된 UTF-8·JSON 형태·job ID/schema 불일치는 원문 없는 HOLD로 반환한다.
+
+작업 읽기는 고정 역할 consumer의 현재 entry 검사 → 제한된 `job.json` metadata 읽기 →
+과제·할당·epoch·task·route·audience의 정확한 대조 → 현재 권한 재검사 순서다. 과제 범위를
+확인하려면 그 metadata는 읽어야 하며, foreign 작업의 payload나 metadata를 성공 결과로
+돌려주지 않는다. 승인 CLI는 `release.issue`/`release.review`를 사용하고 `jobs.get`으로
+승인자를 가장하지 않는다. `--role-entry`는 기존 `entry(operation)`의 읽기 전용 연결이며,
+scope 없는 permit authorization이나 새 권한 발행을 허용하지 않는다.
+
+목록은 모든 job의 범위를 검사하고, 누락·부분 생성·손상·foreign 작업이 하나라도 있으면
+전체를 보류한다. 상태 읽기는 journal이 없을 때 SQLite 파일을 새로 만들지 않는다.
+현재 허용된 작업 밖의 과거 상태 포인터·영수증 폴더는 상태 결과로 복사하지 않는다.
+
+새 요청은 매번 `o_`+UUID hex를 발급하고 폴더·첫 metadata 파일을 배타적으로 생성한다.
+같은 초·미션·요청자여도 기존 job을 재사용하지 않으며, 강제 ID 충돌은 기존 bytes를
+보존한 채 HOLD다. 저장 시 이미 읽은 bytes와 현재 파일을 비교하고 손상·링크·변경을
+확인하면 덮어쓰지 않는다. 실패 중 남은 부분 파일/폴더는 자동 삭제·복구하지 않는다.
+기존 부분 상태가 있으면 후속 목록도 HOLD이며 명시적 검토가 필요하다.
+
+이 검사는 안정적으로 보호된 OS 상위 디렉터리를 전제로 한다. 관찰된 alias·파일 교체를
+거부하지만 적대적 동시 writer에 대한 OS 격리, 전체 mission의 atomic/CAS, 여러 파일의
+단일 commit, M07 상태기계·기존 controller 잠금의 완성을 새로 주장하지 않는다.
+합성 회귀는 저장 경계·정상 재열기·현재 역할·부분 상태와 기존 재시작 동작을 검사한다.
+
+```sh
+node guild_hall/validate/run_secure_work_python.mjs --kit-root <READ_ONLY_TEST_KIT>
+npm run validate:secure-work
+```
+
 ## 지금 못 하는 것
 
 - 외부 모델 호출. provider 키 파일이 없고 `live_enabled`가 꺼져 있다. 사이클 1호의 작업자는
