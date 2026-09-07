@@ -79,8 +79,6 @@ import {
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
 import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.mjs";
-import { projectHermesBotsSnapshot } from "./core/hermes-bots-adapter.mjs";
-import { formatUsage as formatHermesBotUsage, formatHeartbeat as formatHermesBotHeartbeat } from "./core/hermes-bot-harness.mjs";
 import { buildErpPendingReviewViewModel } from "./core/erp-pending-review-view.mjs";
 import { createReceiptExpiryLoader } from "./core/receipt-expiry-load.mjs";
 import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
@@ -1117,7 +1115,6 @@ function App() {
           )}
           {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} providers={providerSnapshots} pending={aiUsagePending} />}
           {surface === "owner" && <FleetStatusRows projection={topologyProjection} />}
-          {surface === "owner" && <HermesBotPanel />}
           {surface === "owner" && <ErpPendingReviewPanel />}
           {surface === "owner" && (
             <RealtimeDashboard
@@ -1584,109 +1581,6 @@ function RealtimeMeterHealth({ projection }: { projection: any }) {
       <span>{health}</span>
       <small>측정 {coverage.measured_turns ?? 0}/{coverage.total_turns ?? 0} · {measurementState}</small>
     </section>
-  );
-}
-
-// Hermes Bot 관찰 패널(Stage 3). Agent Runtime read projection만 소비한다.
-// Public botId는 UI/runtime identity일 뿐 route, project, authority 또는 장기 context가 아니다.
-// 제품 총괄만 Owner 승인 identity를 가지며 local runtime/session binding과 나머지 두 역할은 미바인딩이다.
-const HERMES_BOT_IDENTITY_ROSTER = Object.freeze({
-  bots: [
-    { botId: "bot-hermes-default", botName: "제품 총괄" },
-    { botId: "bot-hermes-msh-vds2093-core3-prestart-manager", botName: "MSH 음탐기 핵심부품 3종 착수준비 팀장" },
-    { botId: null, botName: "Ox 제작자" },
-    { botId: null, botName: "Ox 검토자" },
-  ],
-});
-
-function HermesBotPanel() {
-  const panel = usePersistentPanelCollapse("owner.hermes_bots");
-  const [hermesRuntimeSnapshot, setHermesRuntimeSnapshot] = useState<any>(null);
-  useEffect(() => {
-    let cancelled = false;
-    let generation = 0;
-    let controller: AbortController | null = null;
-    const load = async () => {
-      const requestGeneration = ++generation;
-      controller?.abort();
-      controller = new AbortController();
-      if (!cancelled) setHermesRuntimeSnapshot(null);
-      try {
-        const response = await fetch("/agent-runtime.snapshot.json?read_only=1", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("agent_runtime_snapshot_unavailable");
-        const nextSnapshot = await response.json();
-        if (!cancelled && requestGeneration === generation) setHermesRuntimeSnapshot(nextSnapshot);
-      } catch {
-        if (!cancelled && requestGeneration === generation) setHermesRuntimeSnapshot(null);
-      }
-    };
-    void load();
-    const timer = window.setInterval(() => { void load(); }, 10_000);
-    return () => {
-      cancelled = true;
-      generation += 1;
-      controller?.abort();
-      window.clearInterval(timer);
-    };
-  }, []);
-  const rows = useMemo(
-    () => projectHermesBotsSnapshot(hermesRuntimeSnapshot, HERMES_BOT_IDENTITY_ROSTER),
-    [hermesRuntimeSnapshot]
-  );
-  return (
-    <section className={`hermes-bot-surface${panel.collapsed ? " is-collapsed" : ""}`} aria-labelledby="hermes-bot-heading" data-testid="hermes-bot-panel" data-collapsed={panel.collapsed || undefined}>
-      <header className="realtime-headline">
-        <div>
-          <span>HERMES BOT OBSERVATION</span>
-          <h2 id="hermes-bot-heading">Hermes Bot 상태판</h2>
-          <p>식별된 Bot의 자기 보고 상태만 표시합니다 · 관측되지 않은 값은 알 수 없음으로 남깁니다</p>
-        </div>
-        <PanelCollapseButton panelId="owner.hermes_bots" label="Hermes Bot 상태판" collapsed={panel.collapsed} onToggle={panel.toggle} />
-      </header>
-      <CollapsiblePanelBody panelId="owner.hermes_bots" collapsed={panel.collapsed}>
-        <div className="hermes-bot-grid">
-          {rows.map((row) => (
-            <HermesBotCard key={row.botName} row={row} />
-          ))}
-        </div>
-      </CollapsiblePanelBody>
-    </section>
-  );
-}
-
-function HermesBotCard({ row }: { row: any }) {
-  const resultStatus = row.result?.status ?? "unknown";
-  const resultText =
-    resultStatus === "available" ? "결과 확인 가능"
-    : resultStatus === "missing" ? "결과 없음"
-    : "결과 알 수 없음";
-  return (
-    <article className={`hermes-bot-card is-${row.state}`} data-state={row.state}>
-      <header className="hermes-bot-card-head">
-        <h3>{row.botName}</h3>
-        <span className="hermes-bot-state-chip">{row.stateLabel ?? "보류(HOLD)"}</span>
-      </header>
-      <dl className="hermes-bot-meta">
-        <div><dt>목표</dt><dd>{row.goalLabel ?? "목표 없음"}</dd></div>
-        <div><dt>단계</dt><dd>{row.stageLabel ?? "단계 없음"}</dd></div>
-        <div><dt>모델</dt><dd>{row.model ?? "모델 알 수 없음"}</dd></div>
-        <div><dt>공급자</dt><dd>{row.provider ?? "공급자 알 수 없음"}</dd></div>
-        <div><dt>결과</dt><dd>{resultText}</dd></div>
-        <div><dt>사용량</dt><dd>{formatHermesBotUsage(row.usage)}</dd></div>
-        <div><dt>신호</dt><dd>{formatHermesBotHeartbeat(row.heartbeat)}</dd></div>
-      </dl>
-      <p className="hermes-bot-chip-row">
-        {row.hold && <span className="hermes-bot-suppressed-chip">표시 보류</span>}
-      </p>
-      <div className="hermes-bot-open-actions">
-        {row.open && row.open.supported
-          ? <a className="hermes-bot-open" href={row.open.url}>Desktop에서 대화 열기</a>
-          : row.open && row.open.reason
-            ? <span className="hermes-bot-open hermes-bot-open-missing">열기 경로 없음</span>
-            : null}
-        <span className="hermes-bot-open-mobile-note">모바일에서는 열기 미지원</span>
-      </div>
-    </article>
   );
 }
 
