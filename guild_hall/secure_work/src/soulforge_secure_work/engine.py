@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import adapters as adapters_module
-from . import authority, extract, guard, utility, plan as plan_module
+from . import authority, dispatch as dispatch_module, extract, guard, utility, plan as plan_module
 from .config import Config
 
 STATUS_SCHEMA = "soulforge.secure_work.status.v0"
@@ -280,10 +280,13 @@ class Lane:
     # -- transitions -------------------------------------------------------
 
     def transition(self, job: Job, target: str, action: str, evidence_ref: str,
-                   codes: list[str] | None = None, facts: dict | None = None) -> tuple[str, str]:
+                   codes: list[str] | None = None, facts: dict | None = None,
+                   expected_revision: int | None = None) -> tuple[str, str]:
         handle = self.open_journal(job)
         try:
             view = handle.get(job.job_id, job.data["project_ref"])
+            if expected_revision is not None and view.revision != expected_revision:
+                raise EngineStop("DISPATCH_FENCED")
             before = view.phase
             command_key = _opaque(job.job_id, target, str(view.revision), action)
             handle.transition(job.job_id, job.data["project_ref"], view.revision, target,
@@ -528,24 +531,67 @@ class Lane:
                    "authority": record["authority"]})
 
     def step_dispatch(self, job: Job) -> tuple[str, str]:
-        record = self._permit_record(job)
-        if record is None:
-            raise EngineStop("PERMIT_REQUIRED", "sfx permit approve <job>")
-        fingerprint, trust_pubkey = self._trusted_permit_key(record)
-        body = job.path("body.bin").read_bytes()
-        permit = self.models.SignedPermit.model_validate(record["permit"])
-        # The verification key always comes from the pinned trust file, never
-        # from the permit record being checked -- see BIND09 / authority.py.
-        public_keys = {fingerprint: trust_pubkey}
-        transport_id = job.data.get("transport_id", self.scripted.name)
-        self.transition(job, "RUNNING", "model.dispatch.begin",
-                        f"evidence.attempt.{job.data['request_sha256'][:12]}",
-                        facts={"transport": transport_id})
-        handle = self.open_journal(job)
-        attempt_id = _opaque(job.job_id, "attempt", job.data["request_sha256"])
         try:
+            with dispatch_module.controller_lock(job.root):
+                return self._dispatch_locked(job)
+        except dispatch_module.DispatchUnavailable as error:
+            raise EngineStop(str(error)) from None
+
+    def _dispatch_locked(self, job: Job) -> tuple[str, str]:
+        # Reuse E14's durable UNIQUE permit/attempt reservation. The local OS
+        # lock excludes another live controller and lets a restarted controller
+        # distinguish an orphaned IN_FLIGHT from an active sender.
+        context = self._current_dispatch(job)
+        job.data = context["job"].data
+        body, permit, public_keys = context["body"], context["permit"], context["public_keys"]
+        transport_id = job.data["transport_id"]
+        binding = context["binding_sha256"]
+        attempt_id = _opaque(job.job_id, "attempt", job.data["request_sha256"])
+        handle = self.open_journal(job)
+        try:
+            view = handle.get(job.job_id, job.data["project_ref"])
+            rows = handle.db.execute("SELECT attempt_id,permit_id,request_sha256,state FROM attempts WHERE job_id=?", (job.job_id,)).fetchall()
+            if view.phase not in {"READY", "RUNNING"}:
+                raise EngineStop("DISPATCH_FENCED")
+            if rows:
+                if rows != [(attempt_id, permit.claims.permit_id, self.codec.digest(body), rows[0][3])]:
+                    raise EngineStop("PERMIT_REPLAY")
+                state = rows[0][3]
+                if state == "RESERVED":
+                    # This reference transport cannot be called before the
+                    # durable IN_FLIGHT write. Never refund this reservation.
+                    handle.mark_attempt(attempt_id, "NOT_SENT")
+                    raise EngineStop("DISPATCH_NOT_SENT", "new reviewed job required")
+                if state == "IN_FLIGHT":
+                    handle.recover()
+                    raise EngineStop("DELIVERY_UNKNOWN", "no automatic resend")
+                if state != "RESPONSE_RECEIVED":
+                    raise EngineStop("DISPATCH_NOT_SENT" if state == "NOT_SENT" else "DELIVERY_UNKNOWN")
+                reply = dispatch_module.saved_response(job, binding, attempt_id, self.codec)
+                self._current_dispatch(job, binding, view.revision)
+                return self._finish_dispatch(job, reply, view.revision)
+            if view.phase == "READY":
+                self.transition(job, "RUNNING", "model.dispatch.begin",
+                                f"evidence.attempt.{job.data['request_sha256'][:12]}",
+                                facts={"transport": transport_id}, expected_revision=view.revision)
+            running = handle.get(job.job_id, job.data["project_ref"])
+            self._current_dispatch(job, binding, running.revision)
+            # RUNNING with no durable reservation is resumable: the existing
+            # transport protocol cannot have sent any bytes in that state.
+            def before_send():
+                self._current_dispatch(job, binding, running.revision)
+
+            def after_send(reply):
+                if not isinstance(reply, bytes) or len(reply) > 1048576:
+                    raise EngineStop("RESPONSE_SHAPE")
+                self._current_dispatch(job, binding, running.revision)
+                dispatch_module.durable_write(job.path("quarantine", "reply.json"), reply)
+                dispatch_module.durable_write(job.path("dispatch_result.json"), self.codec.canonical({
+                    "binding_sha256": binding, "attempt_id": attempt_id,
+                    "reply_sha256": self.codec.digest(reply), "reply_size": len(reply)}))
+
             with tempfile.TemporaryDirectory(prefix="sfx_worker_") as workdir:
-                transport = _BoundTransport(self.scripted, Path(workdir))
+                transport = _BoundTransport(self.scripted, Path(workdir), before_send, after_send)
                 dispatch = self.runtime.DispatchReference(handle, transport, public_keys)
                 try:
                     state, reply = dispatch.send(
@@ -557,22 +603,90 @@ class Lane:
         finally:
             handle.close()
         if state != "RESPONSE_RECEIVED" or reply is None:
-            job.data["dispatch_state"] = state
-            job.save()
+            # The E14 attempt is the durable truth. Do not overwrite fresh
+            # revocation/epoch edits with this controller's stale job snapshot.
             raise EngineStop("DELIVERY_UNKNOWN", state)
-        job.path("quarantine").mkdir(parents=True, exist_ok=True)
-        job.path("quarantine", "reply.json").write_bytes(reply)
-        job.data["dispatch_state"] = state
+        self._current_dispatch(job, binding, running.revision)
+        return self._finish_dispatch(job, reply, running.revision)
+
+    def _finish_dispatch(self, job: Job, reply: bytes, expected_revision: int) -> tuple[str, str]:
+        job.data["dispatch_state"] = "RESPONSE_RECEIVED"
         job.data["reply_sha256"] = self.codec.digest(reply)
-        job.data["transport_calls"] = transport.calls
+        job.data["transport_calls"] = 1
         job.data["external_network_calls"] = 0
         job.save()
         return self.transition(
             job, "RESULT_QUARANTINED", "model.dispatch",
             f"evidence.reply.{job.data['reply_sha256'][:12]}",
-            facts={"state": state, "reply_sha256": job.data["reply_sha256"],
-                   "transport_calls": transport.calls, "external_network_calls": 0,
-                   "worker": "SCRIPTED_NOT_LLM"})
+            facts={"state": "RESPONSE_RECEIVED", "reply_sha256": job.data["reply_sha256"],
+                   "transport_calls": 1, "external_network_calls": 0,
+                   "worker": "SCRIPTED_NOT_LLM"}, expected_revision=expected_revision)
+
+    def _current_dispatch(self, job: Job, expected_binding: str | None = None,
+                          running_revision: int | None = None) -> dict:
+        """Fresh file-owned authority evidence; not full BIND09 identity policy."""
+        try:
+            fresh = self.load_job(job.job_id)
+            record = self._permit_record(fresh)
+            if record is None:
+                raise EngineStop("PERMIT_REQUIRED")
+            if record.get("decision") != "ALLOW":
+                raise EngineStop("PERMIT_DENIED")
+            if fresh.data["policy_epoch"] != POLICY_EPOCH:
+                raise EngineStop("POLICY_EPOCH_CHANGED")
+            fingerprint, key = self._trusted_permit_key(record)
+            permit = self.models.SignedPermit.model_validate(record["permit"])
+            packet = self.models.WorkPacket.model_validate_json(fresh.path("packet.json").read_bytes())
+            body = fresh.path("body.bin").read_bytes()
+            expected_body, route, route_digest, prepared, review_ref = self._prepare_wire(fresh, packet)
+            if (body != expected_body or self.codec.digest(body) != fresh.data["request_sha256"]
+                or self.codec.digest(packet) != fresh.data["packet_sha256"]
+                or route_digest != fresh.data["route_sha256"] or review_ref != fresh.data["review_ref"]
+                or self.models.RouteProfile.model_validate_json(fresh.path("route.json").read_bytes()) != route
+                or self.models.PreparedRequest.model_validate_json(fresh.path("prepared.json").read_bytes()) != prepared):
+                raise EngineStop("DISPATCH_BINDING_CHANGED")
+            pins, parts = extract.read_exact(self.config.source_root)
+            bundle = plan_module.source_bundle(self.models, pins, parts, fresh.data["project_ref"],
+                                                fresh.data["assignment_ref"], fresh.data["assignment_epoch"])
+            work = self.models.WorkDefinition.model_validate_json(fresh.path("work.json").read_bytes())
+            expected_plan = plan_module.projection_plan(self.models, self.codec.digest, bundle, work, parts,
+                fresh.data["mission_id"], set(fresh.data["selected_field_ids"]), fresh.data["policy_epoch"],
+                fresh.data["base_candidate_rev"], fresh.data["round"])
+            stored_bundle = self.models.SourceBundle.model_validate_json(fresh.path("bundle.json").read_bytes())
+            stored_plan = self.models.ProjectionPlan.model_validate_json(fresh.path("plan.json").read_bytes())
+            if (self.codec.digest(bundle) != fresh.data["source_bundle_sha256"] or stored_bundle != bundle
+                or self.codec.digest(work) != fresh.data["work_definition_sha256"] or stored_plan != expected_plan):
+                raise EngineStop("DISPATCH_SOURCE_CHANGED")
+            ledger = authority.FieldReviewLedger(self.config.field_review_path)
+            fields = {field.field_id: field for field in bundle.fields}
+            for rule in stored_plan.rules:
+                if rule.action == "KEEP_REVIEWED" and not ledger.verify(
+                    rule.review_ref, self.codec.digest(fields[rule.field_id]), fresh.data["policy_epoch"]):
+                    raise EngineStop("FIELD_REVIEW_REQUIRED")
+            public_keys = {fingerprint: key}
+            self.permits.verify_permit(permit, public_keys, body, route_digest, fresh.job_id,
+                fresh.data["mission_id"], fresh.data["round"], review_ref, fresh.data["policy_epoch"],
+                self.scripted.name, authority.utc_now())
+            binding = self.codec.digest({"permit": permit.model_dump(mode="json"),
+                "source": self.codec.digest(bundle), "work": self.codec.digest(work),
+                "plan": self.codec.digest(stored_plan), "prepared": prepared.model_dump(mode="json"),
+                "base": fresh.data["base_candidate_rev"], "issuer": fingerprint})
+            if expected_binding is not None and binding != expected_binding:
+                raise EngineStop("DISPATCH_AUTHORITY_CHANGED")
+            if running_revision is not None:
+                handle = self.open_journal(fresh)
+                try:
+                    view = handle.get(fresh.job_id, fresh.data["project_ref"])
+                    if view.phase != "RUNNING" or view.revision != running_revision or view.round != fresh.data["round"]:
+                        raise EngineStop("DISPATCH_FENCED")
+                finally:
+                    handle.close()
+            return {"job": fresh, "body": body, "permit": permit, "public_keys": public_keys,
+                    "binding_sha256": binding}
+        except self.codec.ContractViolation as error:
+            raise EngineStop("PERMIT_INVALID", error.code) from None
+        except (OSError, ValueError, KeyError, TypeError):
+            raise EngineStop("DISPATCH_EVIDENCE_UNAVAILABLE") from None
 
     def step_structure_check(self, job: Job) -> tuple[str, str]:
         packet = self.models.WorkPacket.model_validate_json(job.path("packet.json").read_bytes())
@@ -756,6 +870,7 @@ class Lane:
         "G2_PREPARED": ("step_project", "M03/M04"),
         "RELEASE_REVIEW": ("step_ready", "M05"),
         "READY": ("step_dispatch", "M06"),
+        "RUNNING": ("step_dispatch", "M07"),
         "RESULT_QUARANTINED": ("step_structure_check", "M08"),
         "STRUCTURE_CHECKED": ("step_bind", "M08"),
         "BOUND": ("step_validate", "M09"),
@@ -797,6 +912,15 @@ class Lane:
 
     def _retry_hold(self, job: Job, results: list[dict]) -> str:
         """A HOLD clears only when the blocking condition is actually gone."""
+        handle = self.open_journal(job)
+        try:
+            consumed = handle.db.execute("SELECT 1 FROM attempts WHERE job_id=? LIMIT 1", (job.job_id,)).fetchone()
+        finally:
+            handle.close()
+        if consumed:
+            results.append({"phase": "HOLD", "action": None, "state": "STOPPED",
+                            "code": "DISPATCH_REVIEW_REQUIRED", "detail": "new reviewed job required"})
+            return "HOLD"
         ledger = authority.FieldReviewLedger(self.config.field_review_path)
         if not ledger.loaded:
             results.append({"phase": "HOLD", "action": None, "state": "STOPPED",
@@ -885,7 +1009,7 @@ class Lane:
         except authority.PermitAuthorityError as error:
             raise EngineStop(error.code, error.detail) from error
         if record.get("issuer_key_id") != fingerprint:
-            raise EngineStop("PERMIT_ISSUER_UNKNOWN", record.get("issuer_key_id") or "MISSING")
+            raise EngineStop("PERMIT_ISSUER_UNKNOWN", "issuer mismatch")
         return fingerprint, trust_pubkey
 
     # -- helpers -----------------------------------------------------------
@@ -996,11 +1120,18 @@ class Lane:
 class _BoundTransport:
     """Adapts a workdir-bound transport to the kit's ByteTransport protocol."""
 
-    def __init__(self, transport, workdir: Path) -> None:
+    def __init__(self, transport, workdir: Path, before_send=None, after_send=None) -> None:
         self.transport = transport
         self.workdir = workdir
         self.calls = 0
+        self.before_send = before_send
+        self.after_send = after_send
 
     def send_exact(self, body: bytes) -> bytes:
+        if self.before_send:
+            self.before_send()
         self.calls += 1
-        return self.transport.send_exact(body, self.workdir)
+        response = self.transport.send_exact(body, self.workdir)
+        if self.after_send:
+            self.after_send(response)
+        return response
