@@ -153,7 +153,7 @@ export function commitVerifiedCandidate(queue,{lease,now,verifyAndPublish}) {
     const artifact = verifyAndPublish();
     exactKeys(artifact,['sha256','size_bytes','format','binding_digest','validator_ref','artifact_ref',...(expected.format==='pptx'?['template_sha256','render_manifest_digest','render_count']:[])]);
     if (!DIGEST.test(artifact.sha256) || !DIGEST.test(artifact.binding_digest) || !Number.isSafeInteger(artifact.size_bytes) || artifact.size_bytes < 1 || artifact.format !== expected.format || artifact.validator_ref !== expected.validator || artifact.artifact_ref !== `artifact.sha256:${artifact.sha256}`) reject('artifact_metadata_invalid');
-    if(expected.format==='pptx' && (!DIGEST.test(artifact.template_sha256) || !DIGEST.test(artifact.render_manifest_digest) || artifact.render_count!==2)) reject('render_evidence_required');
+    if(expected.format==='pptx' && (!DIGEST.test(artifact.template_sha256) || !DIGEST.test(artifact.render_manifest_digest) || !Number.isInteger(artifact.render_count) || artifact.render_count<2 || artifact.render_count>20)) reject('render_evidence_required');
     if (artifact.binding_digest !== bindings.get(job.workshop_id)) reject('binding_drift');
     core.assertCurrentLease(lease,now());
     return append('candidate',[{lease_id:lease.lease_id,fencing_token:lease.fencing_token,now:now(),validator_result:'pass',output_bundle_manifest_digest:sha256(JSON.stringify(artifact)),evidence_refs:[artifact.validator_ref]},artifact]);
