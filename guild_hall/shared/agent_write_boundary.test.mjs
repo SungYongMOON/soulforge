@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { win32 } from "node:path";
 
 import {
   AGENT_DENIED_WRITE_PATHS,
@@ -93,8 +94,10 @@ test("packet gate also rejects root scopes, glob parents and case aliases", () =
 });
 
 test("ambiguous filesystem spellings and protected data/metadata cannot become automated write scopes", () => {
+  const syntheticAbsolute = win32.join('C:', '/outside');
+  assert.equal(win32.isAbsolute(syntheticAbsolute), true);
   for (const scope of ['guild_hall/x/../dev_worker/candidate_queue.mjs', 'guild_hall//dev_worker/candidate_queue.mjs',
-    'AGENTS.md.', 'AGENTS.md:stream', 'C:/outside', '../outside', 'safe/CON', 'safe/part\u0000',
+    'AGENTS.md.', 'AGENTS.md:stream', syntheticAbsolute, '../outside', 'safe/CON', 'safe/part\u0000',
     '_workspaces/**', '_workmeta/system/**', '.git/config']) {
     assert.ok(findDeniedAgentWritePaths([scope]).length > 0, scope);
   }
