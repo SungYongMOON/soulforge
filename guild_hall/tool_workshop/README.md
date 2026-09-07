@@ -1,6 +1,6 @@
-# Tool Workshop — durable queue and isolated XLSX execution
+# Tool Workshop — durable queue and isolated XLSX/PPTX execution
 
-Owner: `guild_hall/tool_workshop`. `CURRENT = isolated synthetic XLSX candidate execution + durable replay`. Default OFF. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by this module. Presentation, HWPX, CAD and PCB execution remain subsequent work in the same program goal.
+Owner: `guild_hall/tool_workshop`. `CURRENT = isolated synthetic XLSX/PPTX candidate execution + durable replay`. Default OFF. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by this module. HWPX, CAD and PCB execution remain subsequent work in the same program goal.
 
 The original pure core remains the single queue/lease/retry state machine. The local durable adapter adds SQLite transaction boundaries and replays sanitized commands into that core. The first real tool path reuses `ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs` unchanged: an approved structured metadata packet becomes an actual one-sheet OOXML XLSX candidate.
 
@@ -19,7 +19,7 @@ The original pure core remains the single queue/lease/retry state machine. The l
 
 ## API and runtime
 
-- `createDurableToolWorkshop({stateRoot})`: register, submit, acquire, cancel, inspect and replay. Caller creates the direct local state directory. Node **24+** is required; Node 24.15.0 was exercised. The standalone pure core remains compatible with Node 20.
+- `createDurableToolWorkshop({stateRoot,mode})`: register, submit, acquire, cancel, inspect and replay. Use `create_new` only for deliberate bootstrap and `open_existing` for restart; strict restart refuses a missing DB even if its marker is also missing. The legacy `open_or_create` default remains for API compatibility and cannot distinguish a truly new root from a root whose DB and marker were both deleted. Caller creates the direct local state directory. Node **24+** is required; Node 24.15.0 was exercised. The standalone pure core remains compatible with Node 20.
 - `createXlsxWorkshopRunner({queue,binding,projectRef,inputRoot,workRoot,outputRoot}).runNext()`: run at most one queued XLSX job and return its candidate/failure/cancellation state, or `null` when no eligible lease exists. The trusted configuration binds these roots to one project. A different job project is not leased or read. All four directories must already exist and be mutually disjoint from the code root.
 - XLSX profile: `workshop.xlsx`, `resource.xlsx_node`, `tool.project_history_xlsx:v1`. Other resources need their own exact profile and lease; this profile does not confer a general Office/EDA capability.
 - Input location: `<inputRoot>/<input_bundle_manifest_digest>.json`. Packet SHA-256 and `project_id === project_ref` must match; `approval_ref` is required for a bound workshop. Output location: `<outputRoot>/<actual_sha256>.xlsx`. Actual root paths and binding values stay local.
@@ -38,9 +38,32 @@ The optional Python readback requires `openpyxl` in an existing or bundled runti
 
 Tests cover real XLSX generation/readback and restart, duplicate/shape/version/hash/root rejection, four-process queue contention, expiry, real child cancellation, retry exhaustion, corrupted journal, and crash rollback followed by zombie fencing. Native third-party readback was additionally exercised with bundled `openpyxl 3.1.5`: 3 rows including header × 18 columns, no formulas/external links/hidden sheets, 6,693 bytes, SHA-256 `864add1036956ccde4ba8622c20570871c09a434bd15c9557e9572ae92421fd1`. This is native file evidence; Excel desktop round-trip, printing and physical tool isolation are not claimed.
 
+An intermittent child-process failure was observed in the earlier four-process test under combined load. Its exact cause remains unconfirmed. Child-exit diagnostics and the transient-sidecar check were improved, and subsequent scoped/independent repeated tests passed; those passes do not prove the original failure's cause.
+
 ## State, recovery and packaging
 
-`workshop.sqlite` is the metadata journal in the explicit local state root. Input packets, attempts and candidate bytes stay in their separate roots. On restart reuse the same roots and pinned binding. Never infer a lease release from a missing process. After expiry, the next acquire performs fenced takeover. Preserve failed attempts for inspection; do not treat an orphan file as accepted output.
+### PPTX bounded template path
+
+`createPptxWorkshopRunner({queue,binding,projectRef,inputRoot,workRoot,outputRoot})` uses the same queue, candidate transaction and bounded process driver as XLSX. Its exact resource is `resource.pptx_node_python`, workshop `workshop.pptx`, version `tool.template_pptx:v1`. Different tools retain separate exclusive leases.
+
+The existing `.workflow/presentation_artifact_render_v0` owns the approved-content/template/fidelity contract. The adapter reuses `.registry/skills/pptx_autofill_conversion/codex/scripts/replace_text_runs.py::replace_exact_text()` after its own bounded ZIP admission, without invoking that script's unrestricted `extractall()` or overwriting entrypoint. A source template is pinned by family `workshop.two_slide_text`, revision `template:v1` and actual SHA-256. This first profile supports exactly two slides, each with one editable title and body textbox, printable ASCII text, title at most 24 characters and body at most 35 characters. Unsupported content fails before authoring instead of being shortened.
+
+`pinPptxRunnerBinding({artifactRoot,pythonExecutable,templatePath,templateApprovalRef,templateProvenance})` is trusted bootstrap only. Packet source/ref/revision/approval and both content/template `synthetic_fixture | owner_approved` provenance are explicit caller inputs, not inferred from filenames. The observed backend is bundled Artifact Tool 2.8.59 and Python 3.12.14. Binding covers Node/Python executables, Python version and the probed stdlib/bytecode/native DLL file set, the complete installed Artifact Tool package tree, exact source closure and template hash. Pinned Python files are checked before the isolated version/import probe runs. Source and Artifact Tool bytes are snapshotted per attempt; Python runs `-I -S -B` from its pinned installed runtime. This excludes user site/PYTHONPATH and bytecode writes. OS libraries and fonts remain host dependencies; no OS sandbox or PowerPoint desktop compatibility is claimed.
+
+The native validator checks actual ZIP relationships/CRCs, rejects traversal/macros/external relationships, verifies two editable textboxes per slide, exact text parity and unchanged XML geometry/styles plus all non-slide template parts. A separate Node process imports the resulting PPTX and renders both actual slides to PNG. A separate Python pass checks native bytes again and verifies PNG CRCs, dimensions, bounded decompression, nonblank title/body regions and ink inside the approved layout. The synthetic canary additionally receives visual inspection of both full-size slides. These are render/native QA observations, not human acceptance of a business artifact.
+
+PPTX custody includes template hash, two render hashes through a content-addressed JSON manifest and candidate byte hash/size. The actual PPTX, PNGs and manifest are immutable content-addressed files in the isolated output root; no raw slide text enters the state journal.
+
+```powershell
+node guild_hall/tool_workshop/src/synthetic_pptx_canary.mjs --output-root <empty-isolated-directory> --artifact-root <bundled-artifact-tool-directory> --python-executable <bundled-python>
+python -I -S -B guild_hall/tool_workshop/tests/pptx_native_negative_test.py
+```
+
+The native integration test requires `SOULFORGE_PPTX_TEST_CONFIG` pointing to a local JSON object with `artifactRoot`, `pythonExecutable`, `templatePath`, `templateApprovalRef`, `templateProvenance` from the trusted synthetic template setup. Run `node --test guild_hall/tool_workshop/tests/*.test.mjs` with that configuration to exercise actual authoring/rendering, restart, drift, cancellation and failure. Without it, the optional runtime test reports skipped, and the remaining tests do not establish PPTX execution capability. Actual runtime paths are never committed. Rebuild a fresh canary directory after code or binding changes; preserve prior evidence.
+
+The pack for this capability must also include the fixed PPTX child sources and existing replacement function, and resolve the declared bundled runtime separately. The ordinary source pack does not itself contain or activate a physical Office installation.
+
+`workshop.sqlite` is the metadata journal in the explicit local state root. `workshop.initialized` is a metadata-only presence marker: an already-open instance or retained marker prevents silently resetting a missing main DB. The marker alone cannot detect deletion of both files; restart callers must use `open_existing`. Existing databases gain the marker after successful replay, which is compatibility initialization rather than evidence of detecting earlier deletion. Only SQLite's transient `-wal`, `-shm`, and `-journal` sidecars may disappear during concurrent transactions; missing main state, input, template or approval-bound packet files are not exempted. Include the marker with a quiesced state copy. Input packets, attempts and candidate bytes stay in their separate roots. On restart reuse the same roots and pinned binding. Never infer a lease release from a missing process. After expiry, the next acquire performs fenced takeover. Preserve failed attempts for inspection; do not treat an orphan file as accepted output.
 
 This first synthetic adapter creates no new operational state root or backup authority. Operational adoption must use the existing Path Registry, deployment and Backup/Recovery owner contracts. A quiesced copy of this synthetic state can be replayed; operational disaster recovery and live database-copy guarantees are unclaimed. The pack must include the fixed source dependency closure above and the existing writer/envelope sources before advertising this execution capability.
 

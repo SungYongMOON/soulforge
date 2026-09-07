@@ -13,7 +13,7 @@ try {
     if(process.argv.length!==4 || process.argv[2]!=='--output-root') reject('arguments_invalid');
     const root=directPath(process.argv[3],true);
     const roots=Object.fromEntries(['stateRoot','inputRoot','workRoot','outputRoot'].map(key=>{const dir=path.join(root,key);if(existsSync(dir))reject('canary_target_exists');mkdirSync(dir);return[key,dir];}));
-    const binding=pinXlsxRunnerBinding(),queue=createDurableToolWorkshop(roots);
+    const binding=pinXlsxRunnerBinding(),queue=createDurableToolWorkshop({...roots,mode:'create_new'});
     writeFileSync(path.join(root,'runner-binding.json'),JSON.stringify(binding,null,2)+'\n',{flag:'wx'});
     queue.registerWorkshop({...XLSX_WORKSHOP_PROFILE,binding_digest:xlsxBindingDigest(binding)});
     const input=Buffer.from(JSON.stringify(syntheticXlsxPacket())),digest=sha256(input);

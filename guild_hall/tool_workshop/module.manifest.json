@@ -1,15 +1,15 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "tool_workshop_core",
-  "module_version": "0.2.0",
+  "module_version": "0.3.0",
   "interface_version": "tool_workshop.v0",
   "schema_versions": ["soulforge.tool_workshop_core.v0"],
   "owner": "guild_hall/tool_workshop",
-  "capabilities_provided": ["workshop.capacity_one_lease_fence.v0", "workshop.bounded_run_candidate_receipt.v0", "workshop.durable_replay.v0", "workshop.isolated_xlsx_candidate.v0"],
+  "capabilities_provided": ["workshop.capacity_one_lease_fence.v0", "workshop.bounded_run_candidate_receipt.v0", "workshop.durable_replay.v0", "workshop.isolated_xlsx_candidate.v0", "workshop.isolated_pptx_candidate.v0"],
   "capabilities_required": [],
   "required_dependencies": [],
   "optional_dependencies": [],
-  "compatible_version_ranges": { "node": ">=24" },
+  "compatible_version_ranges": { "node": ">=24", "pptx_python": ">=3.12 <3.13", "pptx_artifact_tool": "=2.8.59" },
   "startup_order": null,
   "feature_flag": null,
   "default_state": "off_isolated_synthetic_only",
@@ -21,8 +21,8 @@
   "backup_class": "isolated_synthetic_replay_only_no_operational_dr_claim",
   "migration_version": "sqlite_journal_v1",
   "rollback_version": "stop_runner_preserve_state_and_attempts_no_automatic_downgrade",
-  "validators": ["node --test guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs", "node --test guild_hall/tool_workshop/tests/tool_workshop_durable.test.mjs", "node --test guild_hall/tool_workshop/tests/xlsx_workshop_runner.test.mjs"],
+  "validators": ["node --test guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs", "node --test guild_hall/tool_workshop/tests/tool_workshop_durable.test.mjs", "node --test guild_hall/tool_workshop/tests/xlsx_workshop_runner.test.mjs", "node --test guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs"],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Default-off isolated Node XLSX execution reuses the existing project-history XLSX writer. SQLite transactions replay the original capacity-one core and serialize fence checks, metadata-only journal updates and candidate registration. Trusted local binding pins exact Node executable/version/hash and fixed source dependency hashes. Separate bounded renderer and validator child processes produce a hash/size candidate receipt only; no acceptance, OfficialDone, external upload, operating lane, Office application, physical Tool PC or license activation is implied. Other tool profiles remain later execution work in the same program goal."
+  "authority_notes": "Default-off isolated XLSX and template-bound PPTX execution reuse existing writer/text-replacement code and the same SQLite queue/fencing core. Trusted local bindings pin exact resources, executables, versions, source hashes, template and rendering package; PPTX native and rendered-PNG validation precede candidate registration. Receipts bind exact bytes and render evidence only. No acceptance, OfficialDone, external upload, operating lane, Office application, physical Tool PC or license activation is implied. Other tool profiles remain later execution work in the same program goal."
 }
