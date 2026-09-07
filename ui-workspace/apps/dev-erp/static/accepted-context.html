@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>수락된 맥락 조회 · World Tree</title>
+  <link rel="stylesheet" href="/accepted-context.css">
+  <script type="module" src="/accepted-context.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <header class="topbar">
+    <a class="brand" href="/">SOULFORGE <span>WORLD TREE</span></a>
+    <a class="back" href="/">World Tree로 돌아가기 <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="main">
+    <div class="eyebrow">CONTEXT <span>수락된 참조 확인</span></div>
+    <div class="intro">
+      <div><h1>수락된 맥락 조회</h1><p>허용된 범위에서 수락 메타데이터와 출처 참조를 확인합니다.</p></div>
+      <div class="boundaries"><span class="tag">합성 검증용 조회</span><span class="tag muted-tag">운영 기본 비활성</span></div>
+    </div>
+    <div class="notice" id="notice" role="status" aria-live="polite" aria-atomic="true">조회 가능한 범위를 확인하고 있습니다.</div>
+    <p id="login-help" class="login-help" hidden><a href="/">World Tree에서 로그인</a>한 뒤 돌아와 조회 범위를 다시 확인하세요.</p>
+    <div class="workspace">
+      <section class="panel filters" aria-labelledby="filters-title">
+        <div class="panel-heading"><h2 id="filters-title">조회 조건</h2><button type="button" id="reload" class="text-button">목록 다시 확인</button></div>
+        <p class="helper">현재 계정에 허용된 선택지만 표시합니다.</p>
+        <form id="query-form" novalidate>
+          <label for="scope">보기</label>
+          <select id="scope" name="scope" disabled><option value="">확인 중</option></select>
+          <label for="selection">과제</label>
+          <select id="selection" name="selection" disabled><option value="">확인 중</option></select>
+          <label for="as-of">기준 시각</label>
+          <input id="as-of" name="as-of" type="datetime-local" step="0.001" required disabled aria-describedby="time-help">
+          <p class="helper time-help" id="time-help">이 기기의 시간대를 사용합니다.</p>
+          <button id="query" class="primary" type="submit" disabled>조회하기 <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+      <section class="panel results-panel" id="results-panel" aria-labelledby="results-title" aria-busy="false">
+        <div class="panel-heading"><h2 id="results-title">조회 결과</h2><span id="page-label" class="page-label"></span></div>
+        <p class="helper" id="result-context">원문 없이 수락 메타데이터만 표시합니다.</p>
+        <div class="empty" id="empty"><span aria-hidden="true">◎</span><h3 id="empty-title">조건을 선택하고 조회하세요</h3><p>조회한 참조가 여기에 표시됩니다.</p></div>
+        <div id="results" class="results"></div>
+        <div class="pagination" id="pagination" hidden><p>같은 조건의 다음 결과를 확인합니다.</p><button id="next-page" class="secondary" type="button" disabled>다음 페이지 <span aria-hidden="true">→</span></button></div>
+      </section>
+    </div>
+    <footer>World Tree와 같은 로그인을 사용합니다. 이 화면은 수락된 참조를 조회하며 원문을 열거나 새로운 수락을 만들지 않습니다.</footer>
+    <noscript><p class="notice">조회하려면 브라우저에서 JavaScript를 사용할 수 있어야 합니다.</p></noscript>
+  </main>
+</body>
+</html>
