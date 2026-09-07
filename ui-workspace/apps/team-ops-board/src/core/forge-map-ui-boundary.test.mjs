@@ -36,7 +36,7 @@ test("대장간이 첫 탭이고 기본 진입 표면이다", () => {
 test("에이전트 조직도와 Codex 스레드 판은 첫 화면이 아니라 기존 탭에 그대로 남는다", () => {
   const source = appSource();
   assert.match(source, /surface === "organization" && \(\n\s+<OrganizationWorkspace/u);
-  assert.match(source, /surface === "owner" && <HermesBotPanel/u);
+  assert.doesNotMatch(source, /<HermesBotPanel/u);
   const block = forgeSurfaceBlock(source);
   for (const forbidden of ["OrganizationWorkspace", "HermesBotPanel", "RealtimeDashboard", "LiveThreadCard", "thread_id"]) {
     assert.equal(block.includes(forbidden), false, `첫 화면에 ${forbidden} 이 오면 안 된다`);
