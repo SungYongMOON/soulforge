@@ -82,6 +82,7 @@ import { readCollapsedPanelIds, setPanelCollapsed } from "./core/panel-collapse.
 import { projectHermesBotsSnapshot } from "./core/hermes-bots-adapter.mjs";
 import { formatUsage as formatHermesBotUsage, formatHeartbeat as formatHermesBotHeartbeat } from "./core/hermes-bot-harness.mjs";
 import { buildErpPendingReviewViewModel } from "./core/erp-pending-review-view.mjs";
+import { createReceiptExpiryLoader } from "./core/receipt-expiry-load.mjs";
 import { buildTopologyConnectionDiagnostic, isTopologyDiagnosticNode } from "./core/topology-connection-diagnostics.mjs";
 import {
   buildTopologyRecoverySupervision,
@@ -1741,9 +1742,9 @@ function ErpPendingReviewPanel() {
       <CollapsiblePanelBody panelId="owner.erp_pending_reviews" collapsed={panel.collapsed}>
         {/* 건수·상태 분포뿐이다: 이름·제목·항목 ID·과제 ID는 이 패널에 오지 않는다(M1). 세부 내용은 ERP 필터에서. */}
         <div className="erp-review-counts" role="status">
-          <span className="erp-review-count">검사 중 {model.counts.pending}건</span>
-          <span>제안 {model.counts.proposals}</span>
-          <span>제출 {model.counts.sessionsUnaccepted}</span>
+          <span className="erp-review-count">검사 중 {model.state === "ready" ? `${model.counts.pending}건` : "미확인"}</span>
+          <span>제안 {model.state === "ready" ? model.counts.proposals : "—"}</span>
+          <span>제출 {model.state === "ready" ? model.counts.sessionsUnaccepted : "—"}</span>
           {model.counts.sessionsUnknown > 0 && <span>상태 미확인 {model.counts.sessionsUnknown}</span>}
           <span>{model.state === "ready" ? `${formatRefreshTime(model.observedAt)} 관측` : "읽기 보류"}</span>
         </div>
@@ -4636,22 +4637,14 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
   const [inspectorView, setInspectorView] = useState<"evidence" | "direct" | "all">("evidence");
   const [trackingInteraction, setTrackingInteraction] = useState<any>(null);
   const [connectionDiagnosis, setConnectionDiagnosis] = useState<any>(null);
-  const [receiptExpiry, setReceiptExpiry] = useState<any>(null);
+  const [receiptExpiryLoad, setReceiptExpiryLoad] = useState<any>({ state: "loading", snapshot: null });
+  const receiptExpiry = receiptExpiryLoad.snapshot;
   const [codexRetention, setCodexRetention] = useState<any>(null);
   const fittedLayoutRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    async function loadReceiptExpiry() {
-      try {
-        const response = await fetch("/receipt-expiry.snapshot.json", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = await response.json();
-        if (active) setReceiptExpiry(data);
-      } catch {
-        // fail closed
-      }
-    }
+    const receiptExpiryLoader = createReceiptExpiryLoader(setReceiptExpiryLoad);
     async function loadCodexRetention() {
       try {
         const response = await fetch("/codex-retention.snapshot.json", { cache: "no-store" });
@@ -4665,14 +4658,15 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
         if (active) setCodexRetention(null);
       }
     }
-    void loadReceiptExpiry();
+    void receiptExpiryLoader.load();
     void loadCodexRetention();
     const interval = setInterval(() => {
-      void loadReceiptExpiry();
+      void receiptExpiryLoader.load();
       void loadCodexRetention();
     }, 300_000);
     return () => {
       active = false;
+      receiptExpiryLoader.dispose();
       clearInterval(interval);
     };
   }, []);
@@ -4989,16 +4983,18 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
         <PanelCollapseButton panelId="system.watchtower" label="Watchtower 시스템 토폴로지" collapsed={panel.collapsed} onToggle={panel.toggle} />
       </header>
       <CollapsiblePanelBody panelId="system.watchtower" collapsed={panel.collapsed}>
-        <div className="watchtower-observation-notice" role="status" data-testid="receipt-expiry-warning-card" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div className="watchtower-observation-notice" role="status" data-testid="receipt-expiry-warning-card" data-load-state={receiptExpiryLoad.state} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px" }}>
               <Clock3 size={15} aria-hidden="true" />
               <strong>내부 영수증 만료 상태</strong>
               <span style={{ opacity: 0.8 }}>(읽기 전용 · runtime_authority=false)</span>
             </div>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <span className="watchtower-chip">전체 {receiptExpiry?.summary?.total !== undefined ? receiptExpiry.summary.total : "-"}</span>
-              <span className="watchtower-chip is-ok">정상 {receiptExpiry?.summary?.current ?? 0}</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              <span className="watchtower-chip">전체 {receiptExpiry?.summary?.total ?? "—"}</span>
+              {receiptExpiry && receiptExpiry.status !== "unavailable"
+                ? <span className="watchtower-chip is-ok">정상 {receiptExpiry.summary.current}</span>
+                : <span className="watchtower-chip is-unmonitored">{receiptExpiryLoad.state === "loading" ? "확인 중" : "상태 미확인"}</span>}
               {(receiptExpiry?.summary?.warning ?? 0) > 0 && <span className="watchtower-chip is-degraded">주의 {receiptExpiry.summary.warning}</span>}
               {(receiptExpiry?.summary?.critical ?? 0) > 0 && <span className="watchtower-chip is-stale">심각 {receiptExpiry.summary.critical}</span>}
               {(receiptExpiry?.summary?.expired ?? 0) > 0 && <span className="watchtower-chip is-down">만료 {receiptExpiry.summary.expired}</span>}
@@ -5006,9 +5002,14 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
               {(receiptExpiry?.summary?.unknown ?? 0) > 0 && <span className="watchtower-chip is-unmonitored">미확인 {receiptExpiry.summary.unknown}</span>}
             </div>
           </div>
-          {!receiptExpiry && (
+          {receiptExpiryLoad.state === "loading" && (
             <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
               <span>영수증 감시 엔드포인트 연결 중...</span>
+            </div>
+          )}
+          {receiptExpiryLoad.state === "unavailable" && (
+            <div style={{ fontSize: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "4px" }}>
+              <span>영수증 상태 읽기 실패 · 현재 만료 상태 미확인 · 다음 주기 재조회</span>
             </div>
           )}
           {receiptExpiry?.status === "unavailable" && (
