@@ -75,6 +75,15 @@ The pack for this capability must also include the fixed PPTX child sources and 
 
 This first synthetic adapter creates no new operational state root or backup authority. Operational adoption must use the existing Path Registry, deployment and Backup/Recovery owner contracts. A quiesced copy of this synthetic state can be replayed; operational disaster recovery and live database-copy guarantees are unclaimed. The pack must include the fixed source dependency closure above and the existing writer/envelope sources before advertising this execution capability.
 
+## Scoped bot harness
+
+The optional [scoped Claude ACP adapter](CLAUDE_ACP_SCOPE.md) uses Buzz's existing
+custom harness registration and a pinned, job-bound workspace MCP. It disables
+ambient tool discovery and exposes only bounded working-text operations. Its
+synthetic process tests do not establish actual Buzz registration, Claude model
+execution, complete PPT tool capability or physical host isolation. The runtime
+contract lists the required integration measurements and remaining queue/tool work.
+
 ## Related owners
 
 - `docs/architecture/foundation/team_member_engineering_program/11_TOOL_WORKSHOPS_AND_JOB_SHOP.md`
