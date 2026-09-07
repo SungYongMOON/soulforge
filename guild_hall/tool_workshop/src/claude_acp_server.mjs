@@ -40,6 +40,10 @@ function helpProbe(spec) {
 // Each ACP session owns one in-memory Claude process. No resume, shared history or disk transcript.
 export function createClaudeAcp(binding, send) {
   const sessions = new Map(); let initialized = false; let active = false; let probePassed = false; let closed = false;
+  const fixedModel = () => ({
+    models: { currentModelId: binding.model, availableModels: [{ modelId: binding.model, name: binding.model }] },
+    configOptions: [{ id: 'model', name: 'Model', category: 'model', type: 'select', currentValue: binding.model, options: [{ value: binding.model, name: binding.model }] }],
+  });
   const sendUpdate = (id, text) => send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: id, update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } } } });
   const failSession = (session, code) => {
     session.child?.kill(); session.child = null; session.failed = true;
@@ -153,21 +157,32 @@ export function createClaudeAcp(binding, send) {
     if (closed) refuse('SESSION_CLOSED');
     assertCurrent(binding);
     if (method === 'initialize') {
-      if (initialized || params.protocolVersion !== 1) refuse('ACP_VERSION');
+      // ACP negotiation returns our latest supported version for newer clients.
+      if (initialized || !Number.isSafeInteger(params?.protocolVersion) || params.protocolVersion < 1) refuse('ACP_VERSION');
       initialized = true;
-      return { protocolVersion: 1, agentInfo: { name: 'soulforge-scoped-claude', version: '0.1.0' }, agentCapabilities: { loadSession: false, promptCapabilities: { image: false, audio: false, embeddedContext: false }, mcpCapabilities: { http: false, sse: false } }, authMethods: [], _meta: { authority: 'fixed_binding', configured: true, runtimeObserved: false } };
+      return { protocolVersion: 1, agentInfo: { name: 'soulforge-scoped-claude', version: '0.1.0' }, agentCapabilities: { loadSession: false, promptCapabilities: { image: false, audio: false, embeddedContext: false }, mcpCapabilities: { http: false, sse: false } }, authMethods: [], _meta: { requestedProtocolVersion: params.protocolVersion, authority: 'fixed_binding', configured: true, runtimeObserved: false } };
     }
     if (!initialized) refuse('ACP_NOT_INITIALIZED');
     if (method === 'session/new') {
       if (sessions.size >= 8) refuse('SESSION_LIMIT');
-      if ((params.mcpServers?.length ?? 0) !== 0 || (params.additionalDirectories?.length ?? 0) !== 0 || params._meta?.claudeCode || params._meta?.additionalRoots) refuse('CLIENT_SCOPE_OVERRIDE');
+      if (['mcpServers', 'additionalDirectories'].some(key => params[key] !== undefined && (!Array.isArray(params[key]) || params[key].length !== 0)) || params._meta?.claudeCode || params._meta?.additionalRoots) refuse('CLIENT_SCOPE_OVERRIDE');
       // Buzz's default home cwd and display/system-prompt metadata are not authority.
       const id = randomUUID(); sessions.set(id, { id, child: null, observed: false, failed: false, pending: null, controls: new Map() });
-      return { sessionId: id, _meta: { effectiveCwd: binding.jobRoot, configuredTools: binding.tools, runtimeObserved: false } };
+      return { sessionId: id, ...fixedModel(), _meta: { effectiveCwd: binding.jobRoot, configuredTools: binding.tools, runtimeObserved: false } };
     }
     const session = sessions.get(params.sessionId);
     if (!session || session.failed) refuse('SESSION_UNKNOWN');
     if (method === 'session/cancel') { failSession(session, 'TURN_CANCELLED'); return {}; }
+    // Buzz reasserts the configured model after session/new. Acknowledge only
+    // the pinned value without forwarding any configuration or authority change.
+    if (method === 'session/set_model') {
+      if (params.modelId !== binding.model || Object.keys(params).some(key => !['sessionId', 'modelId'].includes(key))) refuse('ACP_METHOD_UNSUPPORTED');
+      return fixedModel();
+    }
+    if (method === 'session/set_config_option') {
+      if (params.configId !== 'model' || params.value !== binding.model || Object.keys(params).some(key => !['sessionId', 'configId', 'value'].includes(key))) refuse('ACP_METHOD_UNSUPPORTED');
+      return fixedModel();
+    }
     if (method !== 'session/prompt') refuse('ACP_METHOD_UNSUPPORTED');
     if (active) refuse('TURN_BUSY');
     if (!Array.isArray(params.prompt) || !params.prompt.length || params.prompt.length > 16 || params.prompt.some(block => !block || block.type !== 'text' || typeof block.text !== 'string' || Object.keys(block).some(key => !['type', 'text', 'annotations'].includes(key)))) refuse('PROMPT_TYPE');
