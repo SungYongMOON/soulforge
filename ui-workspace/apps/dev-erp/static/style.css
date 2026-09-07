@@ -134,6 +134,9 @@ input[type="email"], input[type="password"], input[type="time"], input:not([type
   border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 12.5px; }
 .util-bar .fav-bar { flex: 1 1 auto; justify-content: flex-start; max-width: none; min-width: 0; gap: 2px; }
 .util-bar .freshness { margin-left: 4px; flex: 0 0 auto; }
+.surface-links { display: flex; flex: 0 0 auto; gap: 4px; }
+.surface-links a { padding: 5px 8px; border-radius: 5px; color: var(--text); font-size: 12px; text-decoration: none; }
+.surface-links a:hover, .surface-links a:focus-visible { color: var(--accent); background: var(--chip); }
 /* Row 0 바로가기 = ECount 실측: 텍스트 링크(알약칩 아님) — 보더·radius·bg 없음, 회색, 더 많이 들어감 */
 #favBar .fav-chip { border: none; background: transparent; border-radius: 0; color: #495057;
   padding: 3px 10px; font-size: 12.5px; font-weight: 400; }

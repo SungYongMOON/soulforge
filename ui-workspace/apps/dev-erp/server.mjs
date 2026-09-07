@@ -26,6 +26,7 @@ import {
 } from "./src/workflow_job_contract.mjs";
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
+import { createForgeWorldHttpController } from "./src/forge_world_http.mjs";
 import { createWorkbenchCurrentSources } from "./src/workbench_current_sources.mjs";
 import { createLinearReadEvidenceReader } from "../../../guild_hall/linear_history/linear_read_evidence_reader.mjs";
 import { WorkflowJobPayloadStore } from "./src/workflow_job_payload_store.mjs";
@@ -2424,6 +2425,14 @@ const workbenchHttpController = createWorkbenchHttpController({
   canAccessProject,
 });
 
+const forgeWorldHttpController = createForgeWorldHttpController({
+  allowedOrigin: `${TLS_ENABLED ? "https" : "http"}://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  stateRoot: process.env.DEV_ERP_WORLD_COVERAGE_ROOT,
+  currentAccount,
+  sessionKey: req => readCookie(req, SID),
+  canAccessProject,
+});
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
@@ -2480,6 +2489,7 @@ const server = createServer(async (req, res) => {
     }
     if (await workflowHttpController(req, res, url)) return;
     if (await workbenchHttpController(req, res, url)) return;
+    if (await forgeWorldHttpController(req, res, url)) return;
 
     // Personal Codex integration: browser cookie manages credentials; MCP calls use
     // a distinct per-account bearer. Upload bytes travel over a one-time raw PUT,

@@ -6,6 +6,9 @@ const sites = [
   {id:'SOULFORGE',title:'Soulforge 개발',subtitle:'소프트웨어 · 통합 · 출시 준비',x:495,y:360},
   {id:'P26-014',title:'P26-014',subtitle:'프로젝트 자료 · 산출물 · 검토',x:930,y:530},
 ];
+const inWorldTree = document.body.dataset.worldHost === 'world-tree';
+if(!inWorldTree)document.querySelector('nav a[href="/workbench.html"]')?.remove();
+const visibleSites = () => inWorldTree ? sites.filter(site => snapshot.projects.some(project => project.project_code === site.id)) : sites;
 let selected = sites[0].id;
 let snapshot = {projects:[]};
 let scale = 1;
@@ -55,7 +58,7 @@ function drawScene() {
   viewport.append(poly('1040,657 1132,614 1264,670 1171,713','#86978c'),poly('1171,713 1264,670 1264,683 1171,726','#435f61'));
   viewport.append(svg('path',{d:'M1200 746l115-47 58 24-113 47Z',fill:'#6d8c88',opacity:'.6'}));
   viewport.append(svg('text',{x:1150,y:800,class:'svg-caption','text-anchor':'middle'},'해양 시험 · 인도 근거 미연결'));
-  for(const site of sites){
+  for(const site of visibleSites()){
     const project=snapshot.projects.find(row=>row.project_code===site.id);
     const group=svg('g',{class:'plot',tabindex:0,role:'button','aria-label':`${site.title} 부지 선택`,'aria-pressed':site.id===selected,'data-site':site.id,transform:`translate(${site.x} ${site.y})`});
     group.append(poly('-100,15 100,-69 315,21 115,105',site.id===selected?'#72887a':'#5c7369',{'class':'plot-edge',stroke:site.id===selected?'#d1dfb7':'#9aae96','stroke-width':2,'stroke-dasharray':project?.slots?.length?'':'9 7'}));
@@ -81,6 +84,7 @@ function renderDetail() {
   const site=sites.find(row=>row.id===selected);
   const project=snapshot.projects.find(row=>row.project_code===selected);
   const detail=$('#project-detail');detail.replaceChildren(textNode('h2','산출물과 관측 근거'));
+  if(inWorldTree && !visibleSites().length){detail.append(textNode('p','로그인한 계정의 과제 자료가 연결되면 부지와 근거를 표시합니다.'));return;}
   const counts=textNode('div','','counts');
   for(const [label,value] of [['관측 슬롯',project?.observed_slots??0],['신선한 충족·부재',project?.qualifying_observed_slots??0],['견본',project?.sample_slots??0]]){
     const count=textNode('span',label);count.prepend(textNode('strong',String(value)));counts.append(count);
@@ -104,7 +108,9 @@ function renderDetail() {
 function render(){
   const focusedSite=document.activeElement?.getAttribute('data-site');
   const container=$('#sites');container.replaceChildren();
-  for(const site of sites){const button=textNode('button','','site-button');button.type='button';
+  const shown = visibleSites();
+  if(!shown.some(site => site.id === selected)) selected = shown[0]?.id ?? null;
+  for(const site of shown){const button=textNode('button','','site-button');button.type='button';
     button.dataset.site=site.id;button.setAttribute('aria-pressed',String(site.id===selected));
     if(site.id===selected)button.classList.add('selected');button.append(textNode('strong',site.title),textNode('small',site.subtitle));
     button.addEventListener('click',()=>{selected=site.id;render();});container.append(button);}
@@ -113,13 +119,13 @@ function render(){
 }
 async function refresh(){
   $('#refresh').disabled=true;
-  try{const response=await fetch('/project-coverage.snapshot.json',{cache:'no-store',credentials:'same-origin'});
-    if(!response.ok)throw new Error('unavailable');const data=await response.json();
+  try{const response=await fetch(inWorldTree ? '/api/forge-world/coverage' : '/project-coverage.snapshot.json',{cache:'no-store',credentials:'same-origin'});
+    if(!response.ok)throw new Error(response.status === 401 ? 'login_required' : 'unavailable');const data=await response.json();
     if(data.schema_version!=='soulforge.forge_world.projects.v1'||!Array.isArray(data.projects))throw new Error('unavailable');
     snapshot=data;$('#read-time').textContent=`읽은 시각 ${new Date(data.read_at).toLocaleString('ko-KR')}`;
     const available=data.projects.filter(project=>project.state==='available').length;
-    $('#coverage-summary').textContent=`${available}개 과제 자료 연결 · 미연결 ${Math.max(0,sites.length-available)}개. 관측의 신선도는 원천 시각으로 판단합니다.`;
-  }catch{snapshot={projects:[]};$('#read-time').textContent='관측 자료를 읽을 수 없음';$('#coverage-summary').textContent='연결 실패 · 새로 읽기로 다시 확인할 수 있습니다.';}
+    $('#coverage-summary').textContent=`${available}개 과제 자료 연결 · 미연결 ${Math.max(0,visibleSites().length-available)}개. 관측의 신선도는 원천 시각으로 판단합니다.`;
+  }catch(error){snapshot={projects:[]};$('#read-time').textContent=error.message==='login_required'?'로그인이 필요합니다':'관측 자료를 읽을 수 없음';$('#coverage-summary').textContent=error.message==='login_required'?'자료·검토 화면에서 로그인한 뒤 새로 읽어 주세요.':'연결 실패 · 새로 읽기로 다시 확인할 수 있습니다.';}
   finally{$('#refresh').disabled=false;render();}
 }
 function zoom(delta){scale=Math.max(1,Math.min(1.6,scale+delta));$('#world').setAttribute('viewBox',`${720-720/scale} ${450-450/scale} ${1440/scale} ${900/scale}`);}
