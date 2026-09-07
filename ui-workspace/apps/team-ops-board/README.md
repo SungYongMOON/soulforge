@@ -1283,6 +1283,15 @@ account surface and no deployed consumer receipt, so it stays `해당 없음` wi
 `runtime_not_deployed`. Unknown or malformed node IDs fail closed, and missing
 evidence stays `확인 불가` instead of becoming a pass or a fault.
 
+## World Tree host adapter
+
+The existing world HTML, CSS and page module are shared with World Tree's
+`forge_world_http.mjs` adapter. In that host the page reads the authenticated,
+project-filtered `/api/forge-world/coverage` endpoint and links to the same-origin
+workbench. The standalone Board retains its own read-only snapshot endpoint and
+does not advertise an unavailable workbench link. No copy of the world renderer,
+coverage policy, project truth or acceptance authority is introduced.
+
 ## Codex Lifecycle Retention Phase 3 Read-only Projection
 
 The Board exposes `GET /codex-retention.snapshot.json` exclusively to loopback clients (`127.0.0.1`, `::1`).

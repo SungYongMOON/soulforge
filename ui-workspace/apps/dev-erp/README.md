@@ -1,5 +1,24 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## 세계와 작업대의 같은 서버 연결
+
+`/forge-world.html`은 Board가 소유한 세계 HTML·CSS·JS를 그대로 재사용하는 World Tree
+읽기 화면이다. `/workbench.html`과 같은 서버·같은 로그인으로 이동하며 접수 기능과
+실행·수락 권한을 새로 만들지 않는다. 별도 Board 실행면에서는 연결되지 않은 작업대
+링크를 표시하지 않는다.
+
+`DEV_ERP_WORLD_COVERAGE_ROOT`는 기존 coverage reader의 명시적 상태 root다.
+그 아래 `operations/forge_world/coverage/<project_code>.json`만 읽는다. 이 화면의
+대표 부지는 `SOULFORGE`와 `P26-014`이며 전체 과제 목록이라고 주장하지 않는다.
+`GET /api/forge-world/coverage`는 정확한 loopback Host/Origin, 현재 계정·세션과
+기존 과제 ACL을 검사하고 파일 IO 뒤에도 재확인한다. 허용되지 않은 과제 파일은
+열지 않는다. root가 없으면 미연결, 관측이 없으면 미확인, 견본은 기존 정책대로
+숨김이며 읽은 시각으로 원천의 관측 시각을 갱신하지 않는다.
+
+설치본에는 공유 Board 자산 3개와 coverage reader의 의존 파일도 포함해야 한다.
+`node --test test/forge_world_http.test.mjs test/forge_world_server.test.mjs`는 로그인·
+철회·scope·같은 서버의 실제 페이지/API 연결을 격리된 합성 서버에서 검증한다.
+
 `product.manifest.json` is the no-move `product.erp` composition contract. It
 pins the current ERP-owned Modules and Shared Interface dependencies without
 moving source, changing Linear Official Task ownership, activating a writer, or
