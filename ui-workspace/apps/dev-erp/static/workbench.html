@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>작업대 · Soulforge</title>
+  <link rel="stylesheet" href="/workbench.css">
+  <script type="module" src="/workbench.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <header class="topbar"><a class="brand" href="/">SOULFORGE <span>ENGINEERING WORKSPACE</span></a><a class="back" href="/">World Tree로 돌아가기 <span aria-hidden="true">↗</span></a></header>
+  <main id="main">
+    <div class="eyebrow">WORKBENCH <span>업무 요청</span></div>
+    <div class="intro"><div><h1>업무를 준비하는 작업대</h1><p>확인된 업무와 입력 판본을 선택하고, 요청을 남기세요.</p></div><span class="boundary">접수 전용</span></div>
+    <ol class="steps" aria-label="요청 순서"><li><b>01</b> 업무 선택</li><li><b>02</b> 범위 확인</li><li><b>03</b> 요청 접수</li></ol>
+    <div id="notice" class="notice" role="status" aria-live="polite">업무 목록을 확인하고 있습니다.</div>
+    <div class="workspace">
+      <section class="catalogue panel" aria-labelledby="catalogue-title"><div class="panel-heading"><h2 id="catalogue-title">선택 가능한 업무</h2><button id="reload" class="text-button" type="button">새로 확인</button></div><p class="helper">현재 계정에 허용된 범위만 표시합니다.</p><div id="entries" class="entries"></div><div id="source-holds" class="source-holds"></div></section>
+      <section class="preview panel" aria-labelledby="preview-title"><div class="panel-heading"><h2 id="preview-title">요청 미리보기</h2><span class="muted">범위와 판본</span></div><div id="empty-preview" class="empty"><span aria-hidden="true">↖</span><h3>업무를 선택하세요</h3><p>대상과 준비 상태를 여기에서 확인할 수 있습니다.</p></div>
+        <form id="request-form" hidden>
+          <div class="selection-heading"><h3 id="selection-title"></h3><span id="mapping-status" class="tag"></span></div>
+          <dl id="scope" class="scope"></dl>
+          <fieldset><legend>작성 방향 <span class="muted">선택 사항</span></legend><div class="directives"><label><input type="checkbox" name="directive" value="TIGHTEN">더 명확하게</label><label><input type="checkbox" name="directive" value="SHORTEN">간결하게</label><label><input type="checkbox" name="directive" value="ADD_EVIDENCE_REFS">근거 참조 보강</label><label><input type="checkbox" name="directive" value="FIX_TERMS">용어 정리</label></div></fieldset>
+          <details class="source-details"><summary>입력 판본과 절차 근거</summary><dl id="source-details"></dl></details>
+          <div class="submit-area"><p>접수 뒤 실행 연결과 결과 검토는 별도로 진행됩니다.</p><button id="submit-request" class="primary" type="submit">요청 접수 <span aria-hidden="true">→</span></button></div>
+        </form>
+      </section>
+    </div>
+    <section id="receipt-panel" class="receipt panel" aria-labelledby="receipt-title" hidden><div class="panel-heading"><h2 id="receipt-title">접수 기록</h2><button id="refresh-receipt" class="text-button" type="button">저장 상태 확인</button></div><div id="receipt-content" role="status" aria-live="polite"></div></section>
+    <footer>요청 접수는 실행 시작·외부 발송·결과 수락을 뜻하지 않습니다. 상태는 확인된 근거가 있을 때만 표시합니다.</footer>
+  </main>
+</body>
+</html>

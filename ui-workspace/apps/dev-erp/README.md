@@ -5,6 +5,76 @@ pins the current ERP-owned Modules and Shared Interface dependencies without
 moving source, changing Linear Official Task ownership, activating a writer, or
 claiming a product release. Validate through `npm.cmd run validate:product-composition`.
 
+## 작업대: 인증된 요청 접수
+
+`/workbench.html`은 서버가 현재 계정에 허용한 업무를 선택하고 범위·입력 판본을 확인한 뒤
+요청을 접수하는 정적 화면이다. `/api/workbench/catalogue` → 기존 Board 접수기의
+`POST /api/workbench/requests` → 자기 요청의 `GET /api/workbench/requests/<id>`를
+실제 World Tree 개발 서버에 연결한다. 기본 OFF이며 Vigil read-only pilot은 바꾸지 않는다.
+저장은 기존 create-only·멱등·판본 계보 검사를 사용한다. `RECORDED`와 `MAPPED`는
+메타데이터 접수·업무 대응이며 실행 claim, 모델 호출, 외부 송신, Task 변경, 수락이 아니다.
+실행 조정기 연결과 운영 활성화는 별도 단계다.
+
+서버가 읽는 배치 설정은 아래 값이며, 빠지거나 잘못되면 추정 경로로 대체하지 않고 `HOLD`한다.
+
+| 설정 | 의미 |
+| --- | --- |
+| `DEV_ERP_WORKBENCH_INTAKE` | 값이 정확히 `1`일 때만 요청 접수 허용; 기본 OFF |
+| `DEV_ERP_WORKBENCH_INTAKE_ROOT` | 사전에 준비한 절대경로의 격리 접수 디렉터리. 자동 생성·이전 없음 |
+| `DEV_ERP_WORKBENCH_SOURCE_ROOT` | 승인된 메타데이터 bundle 디렉터리의 절대경로 |
+| `DEV_ERP_WORKBENCH_BINDING_ID` | 별도 승인된 bundle 결속 ID |
+| `DEV_ERP_WORKBENCH_REALM_ID` | 설치·계정 영역의 고정 ID |
+| `DEV_ERP_WORKBENCH_BINDING_SHA256` | 별도 승인된 `binding.json` 원본 bytes의 `sha256:<64hex>` |
+
+이 경로들은 private 배치 설정이 소유한다. 미래 target workspace나 `_workmeta`를 기본값으로
+사용하지 않는다. 실제 승인 파일이나 운영 키를 만드는 UI·자동 writer는 없다. 현재 HTTP
+loopback 서버의 exact Host·Origin·동일 출처 fetch만 지원한다. TLS·프록시·팀 공개는 이
+접수 연결에서 허용되지 않는다.
+
+`src/workbench_current_sources.mjs`의 로컬 bundle 소비 계약:
+
+- `binding.json`: `binding_id`, `realm_id`, `generation`, `state: current`,
+  `observed_at`, `valid_until`, `authority`, `catalogue`. 두 파일 참조는
+  `{path: bundle-relative path, content_sha256}`이며 자기 파일의 선언은 승인 근거가 아니다.
+- `authority`: 같은 결속·영역·세대, 관측·만료 시각과 `grants`. 각 grant는 요청자와
+  전체 과제·제품·WP·단계·산출물 범위, `state`, 정수 `epoch`, `receipt_ref`를 별도로 갖는다.
+  `canAccessProject`는 매번 함께 검사하지만 epoch나 승인 영수증을 만들지 않는다.
+- `catalogue`: 같은 결속·영역·세대와 최대 64개 `entries`. 항목은 `id`, 표시 `label`,
+  닫힌 `request`, `sources`, `linear`, 명시적 `applicability`를 갖는다. 요청자·멱등키는
+  서버가 생성하고 자유문·권한 JSON 입력은 받지 않는다. 합성 모드는 `SYN-*`/`SFX-*` 범위만 허용한다.
+- `sources`는 compiler의 `policy`, Rune `hierarchy`, 판본 집합 메타데이터 `input`,
+  `recipe`, 실제 `blueprint` JSON 정의와 `code` 파일의 bytes 해시 참조다. 정책 슬롯,
+  schema-valid Task의 전체 범위·WP·order, hierarchy 영수증의 node digest, 같은 Task에
+  결속된 Blueprint source provenance와 실제 정의 bytes를 대조한다. `input`의 `revisions`
+  (`source_ref`, `content_sha256`) 집합 digest를 입력 판본으로 삼고 본문은 따라 읽지 않는다.
+- `recipe`는 ID·kind·전체 범위·Rune/Linear 참조·입력 판본·세대·Blueprint/code 해시를
+  정확히 대조한다. 코드 파일은 해시만 확인하며 import하거나 실행하지 않는다.
+- 실과제의 `linear`는 별도 승인된 root·identity pins와 issue UUID를 갖는다.
+  `guild_hall/linear_history/linear_read_evidence_reader.mjs`가 committed index, read evidence,
+  최신 run receipt, 세대·신선도·gap을 검증한다. issue 본문을 읽지 않으며 polling의 삭제
+  관측 한계는 실행 권한으로 바꾸지 않는다. 세계 coverage는 어느 승인도 대신하지 않는다.
+
+모든 요청에서 파일 bytes·실제 파일 경로·현재 권한과 만료를 다시 검사한다. 누락·변경·상충은
+숨기지 않고 보류하거나 업무 미연결로 표시한다. 휴대 가능한 Node 경로 검사는 OS의 적대적
+경합 격리를 대신하지 않으므로 bundle과 접수 디렉터리의 OS custody는 별도 배치 책임이다.
+계정은 고정 domain + realm + `account.id`의 SHA-256 앞 16자리 `member.*`로 결속한다.
+관리자도 같은 규칙이며 `owner.local`로 바꾸지 않는다. 전체 계정 명부와 기존 매핑에서
+충돌을 확인하고, CSRF는 로그인 세션마다 분리한다. 로그아웃·계정 철회 후 재사용할 수 없다.
+서버가 내는 멱등키에는 승인된 전체 bundle digest를 포함한다. 동일 recipe ID라도 코드나
+정의 bytes가 바뀐 새 bundle로 재시작하면 구판 요청을 새 절차로 해석하지 않고 보류한다.
+
+격리 합성 검증과 화면 점검:
+
+```sh
+node --test ui-workspace/apps/dev-erp/test/workbench_current_sources.test.mjs ui-workspace/apps/dev-erp/test/workbench_http.test.mjs guild_hall/linear_history/linear_read_evidence_reader.test.mjs
+node ui-workspace/apps/dev-erp/test/workbench_preview.mjs
+```
+
+HTTP 시험은 실제 `server.mjs`, 임시 SQLite, 합성 계정 두 개, compiler/Rune/Blueprint
+fixture로 접수·재시도·개별 조회·과제 접근 철회·로그아웃·CSRF·자료 손상을 검증한다.
+preview는 출력된 임시 loopback 주소와 합성 계정만 쓰며 종료 시 자기 임시 자료를 정리한다.
+운영 4300/4192, 실제 DB·과제 본문·운영 lane·예약작업은 사용하지 않는다.
+
 ## Task Execution Core 최소 POC
 
 `src/task_execution_core.mjs`는 Linear Official Task를 변경하지 않고 합성 fixture에서만
