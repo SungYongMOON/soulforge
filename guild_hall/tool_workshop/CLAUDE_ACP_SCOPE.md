@@ -14,6 +14,46 @@ after persona environment merging. This adapter uses a distinct custom harness
 identity and direct CLI execution; it does not wrap or patch the installed global
 ACP package. No additional npm dependency is required.
 
+## Buzz compatibility
+
+The adapter supports ACP protocol 1. Initialization follows version negotiation:
+a positive safe-integer request for a newer version receives the latest supported
+version, `1`; missing, zero, negative, fractional and wrongly typed versions are
+refused. `_meta.requestedProtocolVersion` records only the requested version for
+readback. It does not grant client filesystem, terminal or other capabilities.
+The Buzz log's `agent=0` is a pool index, not evidence of protocol 0 support.
+
+The referenced Buzz source temporarily requests protocol 2 and chooses its legacy
+prompt handling for an agent that responds with protocol 1. A separate installed
+Buzz ACP metadata-only `models` probe also observed a protocol 2 request with
+`clientInfo` name `buzz-acp`, version `0.1.0`, followed by `session/new` and a clean
+exit after a synthetic peer responded with protocol 1. That probe used no relay,
+credentials, work prompt or actual model. It confirms this negotiation path only;
+it does not establish the full bot pool or installed scoped adapter's work-turn
+behavior. The synthetic sequence uses the referenced source's `auth`/`_meta`
+capabilities; an additional broad filesystem/terminal capability case verifies
+that client capabilities do not become inner Claude authority.
+
+`session/new` returns a single fixed model in both `models` and `configOptions`.
+`session/set_model` and `session/set_config_option` with `configId: "model"`
+acknowledge only that exact binding model and return the same complete catalog.
+They neither launch Claude nor change configuration. Other models, modes, effort
+options and extra setter keys are refused. In particular, an outer Buzz
+`bypassPermissions` request remains refused; a subsequent valid model selection
+and prompt can continue with inner Claude's `default` mode and fixed tools.
+
+Buzz's `sessionTitle`, cwd and system-prompt metadata do not replace binding
+instructions. Legacy `[SYSTEM]` standing context inside a prompt remains user
+text; it is never appended to the inner instruction packet. Client-supplied MCP
+servers, including Buzz's optional global MCP with environment entries, remain
+refused. This compatibility work does not complete the M05 input-release bridge,
+shared job tracing, protected original-input/output capture or the workshop chain.
+
+The `tool-workshop-claude-acp-v2` source-lane specification carries the same four
+production source paths and no prior runtime state. Its `v2` is a packaging revision,
+not ACP protocol 2 support. The earlier v1 specification and installed lane remain
+separate; building this source revision does not install or activate it.
+
 ## Runtime contract
 
 `src/claude_acp_cli.mjs` accepts only:
@@ -99,8 +139,9 @@ still required; a runtime declaration cannot promote a bot's `capability_ready`.
   installed native version must still be measured; help text is not proof of it.
 - Client-supplied MCP servers, additional roots and Claude options are refused.
   Buzz's default cwd and prompt metadata are untrusted hints and do not replace the
-  fixed binding. Model switching, session loading/resume and slash commands are
-  unsupported. Typed ACP text blocks are accepted; embedded resources are refused.
+  fixed binding. Changing the fixed model, session loading/resume and slash commands
+  are unsupported. Acknowledging the already bound model is supported as described
+  above. Typed ACP text blocks are accepted; embedded resources are refused.
 - Before sending the first work prompt, the host sends correlated native
   `control_request` frames for `initialize`, `mcp_status` and `get_context_usage`.
   It checks default permission mode, no slash commands, the exact connected MCP
@@ -152,6 +193,7 @@ separate measurement.
 
 ```text
 node --test guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs
+node --test guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs
 node guild_hall/tool_workshop/src/claude_acp_cli.mjs --help
 ```
 
@@ -162,6 +204,15 @@ hardlink/junction access, concurrency and cancellation. Windows uses its existin
 .NET Framework compiler to build a tiny synthetic CLI; POSIX uses a standard Node
 executable fixture. Neither fixture calls Claude, a model or an external service.
 No fallback test executable is silently substituted when compilation fails.
+
+The Buzz compatibility suite invokes the actual adapter stdio CLI with the same
+synthetic Claude executable. It covers initialization, session creation, both
+pinned model selectors, two prompt text blocks, streamed reply and stop, plus a
+refused outer permission request followed by a successful scoped turn. Invalid
+negotiation, model/config widening, global MCP requests, malformed scope arrays,
+and standalone CLI preflight failures are checked without real model/network use.
+The existing scope suite retains the full assistant-frame and native metadata
+gates. This fixture execution is not a real Buzz bot-pool conversation.
 
 An isolated metadata-only `--help`/`--version` probe against native Claude Code
 `2.1.226` confirmed the needed public option names. The actual adapter also completed
@@ -179,8 +230,8 @@ This native version does not emit `system/init` before a user prompt. Its metada
 context also omits the optional `systemTools` inventory, so preflight reports
 `builtinInventoryObserved:false`; the fixed `--tools ""` enforcement is not relabeled
 as pre-prompt builtin readback. After a permitted work prompt, the separate full-init
-gate remains required. Actual authentication, model execution, post-prompt native
-inventory, Buzz registration and user work were not exercised. Those measurements
+gate remains required. That native preflight did not exercise actual authentication,
+model execution, post-prompt native inventory, Buzz registration or user work. Those measurements
 remain necessary before calling the new bot's isolation verified. A user-facing
 instruction file alone did not prevent global MCP inheritance in the earlier
 native-harness observation.
@@ -198,4 +249,8 @@ Official source references:
 - [SDK configuration boundaries](https://code.claude.com/docs/en/agent-sdk/claude-code-features)
 - [Claude account-linked MCP controls](https://code.claude.com/docs/en/mcp)
 - [MCP initialization contract](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle)
+- [ACP version negotiation](https://agentclientprotocol.com/protocol/v1/initialization)
+- [ACP session configuration](https://agentclientprotocol.com/protocol/v1/session-config-options)
+- [Buzz ACP initialization and model contract](https://github.com/block/buzz/blob/95154bee4034ca7a40b33095c2ddbde8c9aa1614/crates/buzz-acp/src/acp.rs)
+- [Buzz pool protocol and permission handling](https://github.com/block/buzz/blob/95154bee4034ca7a40b33095c2ddbde8c9aa1614/crates/buzz-acp/src/pool.rs)
 - [Buzz custom harness source](https://github.com/block/buzz/blob/95154bee4034ca7a40b33095c2ddbde8c9aa1614/desktop/src-tauri/src/managed_agents/custom_harnesses.rs)
