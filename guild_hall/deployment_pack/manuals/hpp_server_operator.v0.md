@@ -23,7 +23,9 @@ Build and inspect the HPP Server Pack in an approved isolated one-seat canary. T
 
 ```powershell
 npm.cmd run validate:deployment-pack
+npm.cmd run validate:pack-sbom
 node guild_hall/deployment_pack/tools/build_pack.mjs --spec guild_hall/deployment_pack/packs/hpp_server_pack.spec.json --out APPROVED_STAGING_OUTPUT --install-verify APPROVED_ISOLATED_TARGET --smoke
+node guild_hall/deployment_pack/tools/pack_sbom.mjs --pack APPROVED_ISOLATED_TARGET --manifest-sha256 EXPECTED_MANIFEST_SHA256
 node guild_hall/deployment_pack/tools/prove_start_stop.mjs --target APPROVED_ISOLATED_TARGET
 node guild_hall/deployment_pack/tools/pack_lifecycle.mjs backup --target APPROVED_ISOLATED_TARGET --backup APPROVED_ISOLATED_BACKUP
 ```
@@ -37,6 +39,16 @@ Do not supply a real target to a lifecycle command until the exact Owner-PC cana
 ## Expected readback and evidence
 
 - Pack manifest digest and installed-copy verification agree.
+- The independently retained expected manifest hash matches the manifest bytes.
+  New packs declare `sbom_policy: required_cyclonedx_1_6`; the verifier checks the
+  complete payload against the file SBOM and pinned offline CycloneDX 1.6 schema.
+  `pack.sbom.cdx.json` and `pack.sbom.receipt.json` stay beside the manifest and
+  must follow the same generation through backup, upgrade, rollback and restore.
+- Missing, changed or mixed-generation required sidecars are a HOLD. A legacy
+  manifest without the policy remains `NOT_VERIFIED`, even with valid sidecars;
+  do not use `--create` to silently upgrade that policy. File verification is
+  separate from runtime dependency completeness, vulnerability/license audits,
+  signature authentication, human acceptance and release promotion.
 - Smoke and start/stop receipts show the requested pack digest, without any release or production claim.
 - A lifecycle rehearsal, if separately approved, reports a retained previous generation or a bounded restore result.
 - Record only opaque receipt references and digests in the release packet.

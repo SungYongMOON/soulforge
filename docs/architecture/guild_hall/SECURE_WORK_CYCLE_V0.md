@@ -4,6 +4,14 @@
 > 운영 승인이 아니고, 실자료 canary도 아니며, 결과는 후보다.
 > 실행 표면은 [`guild_hall/secure_work/README.md`](../../../guild_hall/secure_work/README.md)가 소유한다.
 
+> 2026-09-08 CURRENT (역할·작업 저장): 고정 principal·목적·과제·할당·전송 판본과
+> 만료를 읽기·허가 발급 전후에 대조한다. 작업 ID 경로 탈출·alias·링크·손상 metadata를
+> 거부하고 새 작업을 배타적으로 생성해 동일 시각 요청의 기존 작업 덮어쓰기를 막았다.
+> 직접 launcher 실행의 import 순환 실패도 재현·수정했다. 독립 검토는 Python176 PASS,
+> 5 SKIP, 15 subtests 및 Node54 PASS다. 실제 계정 사이의 IPC/journal/released-byte
+> 채널은 아직 미구현이며 사전 검사 성공을 실행·OS 격리 성공으로 해석하지 않는다.
+> 이 코드의 검증과 과거 설치 lane에서 수행한 실제 Hermes 호출은 서로 다른 증거다.
+
 > 2026-09-08 CURRENT: 고정 launcher의 사전 전체 의존성 검증, Python 격리 bootstrap,
 > 늦은 import와 bridge/worker/엔진 전이 재검사를 구현했다. 작업·정본·자격증명 경로는
 > inventory 열람·읽기 전에 거부하며 43개 Node 시험과 독립 검토를 통과했다.

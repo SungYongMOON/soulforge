@@ -7,7 +7,7 @@
       "semantic_role": "hpp_server_operator",
       "state": "candidate",
       "artifact_ref": "artifact.manual.hpp_server_operator.v0_1_0",
-      "content_digest": "sha256:b46ab874c25f61b00f21f364ad2b101a5b86fdbff12cf8adbd8cdea64af2807e",
+      "content_digest": "sha256:4b5b029d86965a20cc7d8e35f1a9d0fe8b1d6c006458c6703659cca53b40f2d2",
       "compatibility_range": ">=0.1.0 <1.0.0",
       "last_verified_release": null,
       "stale_state": "current",

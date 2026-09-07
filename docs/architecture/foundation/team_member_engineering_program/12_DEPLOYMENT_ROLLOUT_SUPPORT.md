@@ -58,6 +58,19 @@ Every pack and every contained Module publishes a manifest describing owner, sem
 
 ## Current state
 
+The file SBOM implementation verifies the exact manifest pin and complete
+payload, then emits deterministic CycloneDX 1.6 with pinned offline official
+schemas. New pack manifests require the corresponding sidecars. Install,
+backup, upgrade, rollback and restore preserve and recheck the same manifest,
+payload and SBOM generation. A legacy manifest lacking that policy remains
+`NOT_VERIFIED`, including when its sidecars are intact. Source-identity readback
+alone also makes no SBOM claim. The implementation passed independent review,
+the revised 50-test impact slice and a Team Client source/installed rehearsal
+of 26 tests each with no skips. This is file inventory evidence: runtime
+dependency completeness is `UNKNOWN`, vulnerability/license approval is
+`NOT_RUN`, and the release-ladder `sbom` audit gate is not promoted. New HPP and
+Tool candidate evidence must be measured on their exact integrated bytes.
+
 The Project AI Team Pack still has no tracked spec, but its input-admission
 contract now exists. A separately trusted Project Mark approval/current state
 and one current verified Agent binding per required

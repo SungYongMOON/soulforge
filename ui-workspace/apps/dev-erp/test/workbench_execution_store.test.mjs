@@ -131,6 +131,10 @@ test('crash recovery is held, deadline fences late completion, and only a subseq
   const restarted = fixture.open({ now: () => time });
   assert.equal(restarted.read(basis.request_id, 'synthetic.instance.b').observed_reason, 'RUN_RECOVERY_REQUIRED');
   time += 101;
+  const pendingExpiry = restarted.read(basis.request_id, basis.instance_ref);
+  assert.equal(pendingExpiry.state, 'running');
+  assert.equal(pendingExpiry.observed_state, 'hold');
+  assert.equal(pendingExpiry.observed_reason, 'RUN_RECOVERY_REQUIRED');
   assert.equal(restarted.settle({ ...claimed.run, state: 'succeeded', reason_code: null,
     receipt: { result_ref: 'late.synthetic' }, candidate_bytes: Buffer.from('late') }).hold_code, 'RUN_FENCED_OUT');
   assert.equal(restarted.claim({ ...basis, deadline_at: new Date(time + 1000).toISOString() }).status, 'REPLAY');

@@ -19,7 +19,10 @@ async function terminal(fixture, requestId = fixture.record.request_id) {
   let state;
   for (let i = 0; i < 80; i++) {
     state = await fixture.service.status(requestId, fixture.access);
-    if (state.execution_state !== 'running') return state;
+    // An expired read projects HOLD before the timer commits terminal state.
+    // Wait for the durable transition; the projection is not a settled run.
+    if (state.execution_state !== 'running'
+      && fixture.store.read(requestId, 'test-terminal-reader')?.state !== 'running') return state;
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   assert.fail(`Synthetic run did not settle: ${JSON.stringify(state)}`);
@@ -78,12 +81,12 @@ test('cancel fences the real worker; an explicitly recorded subsequent revision 
 });
 
 test('real worker timeout leaves durable HOLD and no candidate', async t => {
-  const fixture = await context(t, { delayMs: 1000, timeoutMs: 400 });
+  const fixture = await context(t, { delayMs: 3000, timeoutMs: 1500 });
   await fixture.service.start(fixture.record.request_id, fixture.access);
   const result = await terminal(fixture);
   assert.equal(result.execution_state, 'hold'); assert.equal(result.local_candidate_stored, false);
   assert.equal(result.execution_started, true);
-  assert.ok(['RUN_DEADLINE_EXPIRED', 'EXECUTION_TIMEOUT'].includes(result.hold_code));
+  assert.ok(['RUN_DEADLINE_EXPIRED', 'EXECUTION_TIMEOUT'].includes(result.hold_code), JSON.stringify(result));
 });
 
 test('authority revoked while the worker runs prevents final candidate publication', async t => {
