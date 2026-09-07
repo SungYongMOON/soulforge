@@ -22,6 +22,9 @@ hermes -p <exact-profile> chat --cli --resume <exact-session-id>
 
 The issued WorkBrief is serialized only to UTF-8 stdin. Its full source object, including
 brief ID and expiry, must pass Forge admission and match the current revision digest.
+Expiry must be a valid canonical UTC timestamp (`YYYY-MM-DDTHH:mm:ss.sssZ`); date-only,
+unparseable and normalized-invalid dates hold. The bound expiry and current authority/capability
+window are checked again synchronously immediately before stdin release, after awaited callbacks.
 It never goes into argv, error output or the metadata receipt. No `-z`, `--yolo`,
 `--accept-hooks`, title lookup, `latest`, create-if-missing, implicit/default toolsets or
 invented `none` toolset is used. Named profile homes must be the exact existing

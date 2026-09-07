@@ -72,7 +72,7 @@ async function forgeOutputs() {
     actor_ref: "actor:kvds-se",
     authority_ref: "authority.kvds-task.v1",
     assignment_epoch: 11,
-    expires_at: "2026-09-15",
+    expires_at: "2026-09-15T00:00:00.000Z",
   });
   const brief = core.issueWorkBrief({
     brief_id: "brief.kvds-001",

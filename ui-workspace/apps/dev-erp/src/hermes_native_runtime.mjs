@@ -7,6 +7,11 @@ import { digestOf, deepFreeze, guardEntry } from '../../../../guild_hall/agent_o
 
 const hold = (code) => Object.freeze({ status: 'HOLD', hold_code: code });
 const same = (a, b) => digestOf(a) === digestOf(b);
+const utcTime = (value) => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) && new Date(time).toISOString() === value ? time : null;
+};
 const CODES = Object.fromEntries(['tooDeep', 'accessor', 'tooLarge', 'hostileInput',
   'unknownField', 'secret', 'localPath'].map((key) => [key, 'HERMES_NATIVE_METADATA_INVALID']));
 
@@ -101,7 +106,16 @@ export function bindHermesNativeRuntime({
       tool_policy_digest: initial.tool_authority.policy_digest,
     });
     const store = createHermesNativeAttemptStore({ directory: attempt_directory });
+    let issuedExpiresAt = null;
+    let releaseWindow = null;
+    const verifyReleaseClock = () => {
+      const clock = now();
+      return Number.isSafeInteger(clock) && issuedExpiresAt !== null && releaseWindow !== null
+        && clock < issuedExpiresAt && clock >= releaseWindow.not_before
+        && clock <= releaseWindow.valid_through && clock < releaseWindow.expires_at;
+    };
     const current = async () => {
+      releaseWindow = null;
       const value = await resolveCurrentState(deepFreeze({ brief_binding: brief, runtime_capability: capability }));
       const guarded = guardEntry(value, ['authority_request', 'brief_binding', 'runtime_capability'], CODES);
       if (guarded.status !== 'OK') return false;
@@ -114,29 +128,39 @@ export function bindHermesNativeRuntime({
       const proof = state.runtime_capability;
       const { evaluated_at, expires_at, ...evidence } = proof ?? {};
       const clock = now();
-      const evaluated = Date.parse(evaluated_at);
-      const expires = Date.parse(expires_at);
-      const authorityTime = Date.parse(admission.trusted_current_evaluated_at);
-      return Number.isSafeInteger(clock) && Number.isFinite(evaluated) && Number.isFinite(expires)
+      const evaluated = utcTime(evaluated_at);
+      const expires = utcTime(expires_at);
+      const authorityTime = utcTime(admission.trusted_current_evaluated_at);
+      const authorityExpires = utcTime(state.authority_request.verified_active_binding.expires_at);
+      const valid = Number.isSafeInteger(clock) && [evaluated, expires, authorityTime, authorityExpires].every((time) => time !== null)
         && clock >= evaluated && clock - evaluated <= max_current_age_ms && clock < expires
         && clock >= authorityTime && clock - authorityTime <= max_current_age_ms
-        && clock < Date.parse(state.authority_request.verified_active_binding.expires_at)
+        && clock < authorityExpires && (issuedExpiresAt === null || clock < issuedExpiresAt)
         && same(evidence, capability);
+      if (valid) releaseWindow = Object.freeze({ not_before: Math.max(evaluated, authorityTime),
+        valid_through: Math.min(evaluated, authorityTime) + max_current_age_ms,
+        expires_at: Math.min(expires, authorityExpires) });
+      return valid;
     };
     const readIssuedBrief = async () => {
       const source = await resolveWorkBrief(brief.work_brief_revision_ref);
       const admitted = admitForgeLinearExecutionPacket(source);
+      const expires = utcTime(source?.forge_issued_work_brief?.expires_at);
+      const clock = now();
       if (admitted.status !== 'ADMITTED' || !same(projectHermesNativeBriefBinding(admitted), brief)
         || !same(admitted.task_packet, issued.task_packet)
-        || now() >= Date.parse(source.forge_issued_work_brief.expires_at)) {
+        || expires === null || !Number.isSafeInteger(clock) || clock >= expires) {
         throw new Error('issued brief changed');
       }
+      // This expiry is part of the already matched issued revision digest. Keep
+      // it through current-state checks and the final synchronous stdin gate.
+      issuedExpiresAt = expires;
       // The source digest binds all issued fields, including id and expiry;
       // render those exact fields instead of trusting an unrelated prompt string.
       return JSON.stringify(source.forge_issued_work_brief);
     };
     const executor = createHermesNativeChatExecutor({ ...executorOptions, feature_enabled,
-      runtime_binding: runtime, issued, verifyCurrent: current, resolveWorkBrief: readIssuedBrief,
+      runtime_binding: runtime, issued, verifyCurrent: current, verifyReleaseClock, resolveWorkBrief: readIssuedBrief,
       attemptStore: store, now });
     return Object.freeze({ status: 'BOUND', executor_ref: HERMES_NATIVE_EXECUTOR_REF,
       executor, database_path: path.join(runtime.HERMES_HOME, 'state.db') });

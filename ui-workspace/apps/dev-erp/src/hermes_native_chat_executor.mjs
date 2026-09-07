@@ -92,7 +92,7 @@ function validSession(snapshot, binding) {
 
 // Uses the real child-process path in both product and synthetic tests. Output
 // remains plain Hermes text; it is NEVER interpreted as hermes.bot_submit.v1.
-function runNativeChild(command, { verifyBeforeRelease, timeoutMs, maxOutputBytes, signal, onStdinRelease }) {
+function runNativeChild(command, { verifyBeforeRelease, verifyReleaseClock, timeoutMs, maxOutputBytes, signal, onStdinRelease }) {
   return new Promise((resolve) => {
     let child;
     let settled = false;
@@ -138,6 +138,10 @@ function runNativeChild(command, { verifyBeforeRelease, timeoutMs, maxOutputByte
         if (onStdinRelease && await onStdinRelease() !== true) { finish('pre_release_drift'); return; }
       } catch { finish('pre_release_drift'); return; }
       if (settled || signal?.aborted) return;
+      // No awaited operation may separate this time-window check from the pipe
+      // write: metadata/readiness callbacks can cross the issued brief's expiry.
+      try { if (verifyReleaseClock() !== true) { finish('pre_release_drift'); return; } }
+      catch { finish('pre_release_drift'); return; }
       // Mark uncertainty before writing: even a partial pipe write consumes the
       // durable attempt. There is no inferred safe retry on EPIPE or timeout.
       released = true;
@@ -149,7 +153,7 @@ function runNativeChild(command, { verifyBeforeRelease, timeoutMs, maxOutputByte
 // Internal transport seam. Product callers use bindHermesNativeRuntime, which
 // invokes the unchanged authority/Forge admission gates and supplies issued data.
 export function createHermesNativeChatExecutor({ feature_enabled = false, runtime_binding,
-  issued, verifyCurrent, resolveWorkBrief, attemptStore, now = Date.now,
+  issued, verifyCurrent, verifyReleaseClock, resolveWorkBrief, attemptStore, now = Date.now,
   signal, onStdinRelease,
   hard_timeout_ms = 65_000, preflight_timeout_ms = 5000, max_output_bytes = 1024 * 1024,
   max_input_bytes = 64 * 1024, max_turns = 32,
@@ -164,7 +168,7 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
     catch { return outcome('HERMES_NATIVE_INPUT_INVALID'); }
     if (feature_enabled !== true) return outcome('HERMES_NATIVE_FEATURE_OFF');
     if (signal?.aborted) return outcome('HERMES_NATIVE_CANCELLED_UNKNOWN');
-    if (!validBinding(runtime) || typeof verifyCurrent !== 'function' || typeof resolveWorkBrief !== 'function'
+    if (!validBinding(runtime) || typeof verifyCurrent !== 'function' || typeof verifyReleaseClock !== 'function' || typeof resolveWorkBrief !== 'function'
       || typeof attemptStore?.reserve !== 'function' || typeof attemptStore?.complete !== 'function'
       || typeof attemptStore?.checkConsumed !== 'function'
       || typeof now !== 'function' || !Number.isSafeInteger(hard_timeout_ms)
@@ -251,7 +255,7 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
     try {
       command = await runNativeChild({ executable: runtime.executable_path, argv,
         cwd: runtime.working_directory, env, stdin: Buffer.from(prompt, 'utf8') },
-      { verifyBeforeRelease, timeoutMs: hard_timeout_ms, maxOutputBytes: max_output_bytes, signal, onStdinRelease });
+      { verifyBeforeRelease, verifyReleaseClock, timeoutMs: hard_timeout_ms, maxOutputBytes: max_output_bytes, signal, onStdinRelease });
     } catch { return finish('HERMES_NATIVE_EXECUTION_UNKNOWN'); }
     receipt.stdin_released = command.released;
     receipt.cli_exit_code = Number.isSafeInteger(command.code) ? command.code : null;
