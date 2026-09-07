@@ -287,18 +287,10 @@ class ScriptedWorkerTransport:
         return Probe(self.module, self.name, "AVAILABLE", "scripted worker, no network")
 
     def send_exact(self, body: bytes, workdir: Path) -> bytes:
-        environment = {
-            "PATH": os.environ.get("PATH", ""),
-            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
-            "PYTHONUTF8": "1",
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONPATH": os.pathsep.join([str(self.package_root), str(self.kit_src)]),
-        }
-        completed = subprocess.run(
-            [self.python_executable, "-m", "soulforge_secure_work.worker"],
-            input=body, capture_output=True, cwd=str(workdir), env=environment, timeout=120,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
+        from .launch_runtime import call_launcher
+        # The launcher rechecks the same full generation and selects the fixed
+        # interpreter/worker. No job cwd or caller Python search path is used.
+        completed = call_launcher(["--worker"], body=body, timeout=120)
         if completed.returncode != 0:
             raise RuntimeError("WORKER_FAILED")
         return completed.stdout
@@ -400,36 +392,8 @@ class TongsCustodyAdapter:
             raise AdapterUnavailable(self.module, "CUSTODY_RUNTIME_AUTHORITY_HOLD") from None
 
     def _bridge_call(self, request: dict) -> dict:
-        # Node gets its trust anchor from immutable installation-owned code,
-        # never a Python proof, token environment variable or caller config.
-        bridge = Path(__file__).resolve().parents[2] / "custody_bridge.mjs"
-        anchor_path = bridge.with_name("custody_runtime_binding.json")
-        # The immutable launcher pins this installation-owned file independently.
-        # Its path is fixed in code; caller config/env cannot nominate an anchor.
-        with anchor_path.open("rb") as anchor_file:
-            raw_anchor = anchor_file.read(32769)
-        if len(raw_anchor) > 32768:
-            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
-        anchor = json.loads(raw_anchor)
-        if not isinstance(anchor, dict) or not isinstance(anchor.get("node_executable"), dict):
-            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
-        node_pin = anchor["node_executable"]
-        node_executable = Path(node_pin.get("path", ""))
-        if not node_executable.is_absolute() or not node_executable.is_file():
-            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
-        digest = hashlib.sha256()
-        with node_executable.open("rb") as executable:
-            for chunk in iter(lambda: executable.read(1048576), b""):
-                digest.update(chunk)
-        if digest.hexdigest() != node_pin.get("sha256"):
-            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
-        environment = {key: os.environ[key] for key in
-                       ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP")
-                       if key in os.environ}
-        completed = subprocess.run(
-            [str(node_executable), str(bridge)], input=json.dumps(request).encode(),
-            capture_output=True, env=environment, timeout=60,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+        from .launch_runtime import call_launcher
+        completed = call_launcher(["--custody-bridge"], body=json.dumps(request).encode(), timeout=60)
         if completed.returncode or len(completed.stdout) > 32768:
             raise RuntimeError("CUSTODY_BRIDGE_FAILED")
         return json.loads(completed.stdout)

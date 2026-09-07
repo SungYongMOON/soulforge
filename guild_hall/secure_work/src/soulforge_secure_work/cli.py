@@ -13,6 +13,12 @@ are a JSON object with a code, never a stack trace with a payload in it.
 """
 from __future__ import annotations
 
+import sys
+
+if __name__ == "__main__" and "soulforge_secure_work.launch_runtime" not in sys.modules:
+    sys.stdout.write('{"ok":false,"code":"SECURE_WORK_LAUNCH_HOLD"}\n')
+    raise SystemExit(2)
+
 import argparse
 import json
 import sys

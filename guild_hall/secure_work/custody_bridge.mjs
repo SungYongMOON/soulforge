@@ -5,9 +5,6 @@ import { mkdtemp, open, unlink, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { IngressClient } from "../../ui-workspace/apps/dev-erp-mcp/src/ingress_client.mjs";
-import { loadCustodyAuthority } from "./custody_authority.mjs";
-import CUSTODY_RUNTIME_BINDING from "./custody_runtime_binding.json" with { type: "json" };
 
 const MAX_BYTES = 1048576;
 const MAX_REPLY = 32768;
@@ -28,7 +25,8 @@ export function checkedStatus(value, binding, submissionId = null) {
   return value;
 }
 
-export async function runCustody(request, { token, fetchImpl = globalThis.fetch, authorize = null } = {}) {
+export async function runCustody(request, { token, fetchImpl = globalThis.fetch, authorize = null,
+  integrity = null } = {}) {
   // Only a separately supplied verifier may authorize this module. JSON fields
   // are not an authority source. The CLI builds its callback only through the
   // independently pinned installation loader; a missing binding denies use.
@@ -49,6 +47,7 @@ export async function runCustody(request, { token, fetchImpl = globalThis.fetch,
   let principalExpiresAt = 0;
   const deadline = Date.now() + 45000;
   function current() {
+    if (integrity) integrity();
     if (Date.now() >= deadline || !Number.isFinite(request.authorization_expires_at)
       || Date.now() >= request.authorization_expires_at * 1000
       || authorize(structuredClone(request)) !== true) fail();
@@ -106,6 +105,12 @@ export async function runCustody(request, { token, fetchImpl = globalThis.fetch,
     } finally { await reader.cancel().catch(() => {}); }
     return new Response(Buffer.concat(chunks), { status: response.status, headers: response.headers });
   }
+  // No SDK executes before the caller's authority/integrity check. The fixed
+  // launcher also installs a resolver/load guard over the complete dependency
+  // tree before it imports this bridge. Test callers own their synthetic seam.
+  current();
+  const { IngressClient } = await import("../../ui-workspace/apps/dev-erp-mcp/src/ingress_client.mjs");
+  current();
   client = new IngressClient({ baseUrl: request.ingress_url, token, fetchImpl: boundedFetch, timeoutMs: 10000 });
   let directory;
   let snapshot;
@@ -155,8 +160,9 @@ export async function runCustody(request, { token, fetchImpl = globalThis.fetch,
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
+export async function custodyMain(authority, integrity) {
+    if (!authority || typeof integrity !== "function") fail();
+    integrity();
     let size = 0;
     const chunks = [];
     for await (const chunk of process.stdin) {
@@ -167,15 +173,17 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const request = JSON.parse(Buffer.concat(chunks));
     // The immutable runtime binding comes from installation-owned code, never
     // request/env/argv. The sender independently rechecks OS and policy state.
-    const authority = loadCustodyAuthority(CUSTODY_RUNTIME_BINDING);
     const proof = authority.authorize(request.binding);
     const result = request.operation === "authorize"
       ? { binding_sha256: proof.binding_sha256, ...proof.principal, expires_at: proof.expires_at }
       : await runCustody({ ...request, principal: proof.principal, authorization_expires_at: proof.expires_at },
-        { token: authority.token(request.binding), authorize: value => authority.authorizeRequest(value) });
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-  } catch {
+        { token: authority.token(request.binding), authorize: value => authority.authorizeRequest(value), integrity });
+    integrity();
+    return result;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    // Direct bridge execution has no independently fixed launcher authority.
     process.stderr.write('{"code":"CUSTODY_BRIDGE_DENIED"}\n');
     process.exitCode = 1;
-  }
 }

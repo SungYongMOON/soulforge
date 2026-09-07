@@ -16,6 +16,11 @@ _BOUND: Path | None = None
 def bind(kit_root: Path) -> Path:
     """Make `sf_sewe` importable from the configured kit root."""
     global _BOUND
+    from . import launch_runtime
+    if launch_runtime.is_launched():
+        if Path(kit_root).resolve() != Path(launch_runtime.context()["kit_root"]).resolve():
+            raise RuntimeError("SECURE_WORK_LAUNCH_HOLD")
+        launch_runtime.recheck()
     src = Path(kit_root) / "src"
     if not (src / "sf_sewe" / "models.py").is_file():
         raise RuntimeError("KIT_ROOT_NOT_FOUND")

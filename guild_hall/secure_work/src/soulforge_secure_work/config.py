@@ -2,8 +2,8 @@
 
 Every host path is injected, never literal. The repository carries only
 placeholders (`<TOOL_ROOT>`, `<PILOT_ROOT>`, `<private_root>`); the real values
-live in a JSON file outside the repository, named by
-`SOULFORGE_SECURE_WORK_CONFIG`.
+live in a JSON file outside the repository, pinned by the fixed installation
+launcher. Environment variables and CLI arguments cannot nominate its authority.
 
 No credential value is ever read, logged or returned by this module. Adapter
 probes check presence and shape only.
@@ -130,16 +130,12 @@ def _optional_abs(raw: object, key: str) -> Path | None:
 
 
 def load(path: str | os.PathLike[str] | None = None) -> Config:
-    raw_path = path or os.environ.get(CONFIG_ENV)
-    if not raw_path:
-        raise ConfigError("CONFIG_NOT_BOUND", CONFIG_ENV)
-    config_path = Path(raw_path)
-    if not config_path.is_file():
-        raise ConfigError("CONFIG_FILE_MISSING")
+    from .launch_runtime import checked_config
     try:
-        data = json.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        raise ConfigError("CONFIG_FILE_INVALID") from None
+        config_path, config_bytes = checked_config(path)
+        data = json.loads(config_bytes)
+    except (OSError, ValueError, RuntimeError):
+        raise ConfigError("SECURE_WORK_LAUNCH_HOLD") from None
     if data.get("schema") != CONFIG_SCHEMA:
         raise ConfigError("CONFIG_SCHEMA_MISMATCH")
 
