@@ -1,5 +1,19 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-07 CURRENT (accepted-context synthetic read journey): the server now
+> offers a default-OFF, synthetic-only catalogue/query reader using the existing
+> acceptance and query contracts. Each request verifies current ACL, accepted
+> pointer/manifest/receipt and source revision metadata before and after IO.
+> A source correction makes G1 unavailable until a separately reviewed G2 is
+> accepted; old cursors and revoked access remain unavailable. The candidate
+> builder preserves superseded predecessor timeline/source/membership with an
+> exact corrected successor rather than rejecting valid correction lineage.
+> Existing and new tests passed 54 with independent review; an actual isolated
+> browser journey passed on desktop and mobile. This does not activate D36 live
+> persistence, a canonical writer, migration, MCP or operating ports. Historical
+> working-space metadata is not current canonical input; current canonical data
+> requires its own accepted revision lineage and storage binding.
+
 > 2026-09-07 CURRENT (isolated candidate implementation): World Tree workbench
 > now wires catalogue, durable intake POST and own-request GET to the real server
 > account/session/CSRF/project ACL and independently pinned source/authority epoch.

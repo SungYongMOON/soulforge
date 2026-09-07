@@ -191,7 +191,10 @@
       "ui-workspace/apps/dev-erp/ops/dev-erp-lan-https-proxy.mjs",
       "ui-workspace/apps/dev-erp/ops/register-dev-erp-scheduled-task.ps1",
       "ui-workspace/apps/dev-erp/server.mjs",
+      "ui-workspace/apps/dev-erp/src/accepted_context_http.mjs",
       "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
+      "ui-workspace/apps/dev-erp/src/accepted_context_reader.mjs",
+      "ui-workspace/apps/dev-erp/src/accepted_context_synthetic_runtime.mjs",
       "ui-workspace/apps/dev-erp/src/adapter.mjs",
       "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
       "ui-workspace/apps/dev-erp/src/autosync.mjs",
@@ -264,6 +267,9 @@
       "ui-workspace/apps/dev-erp/src/workflow_job_runner_bridge.mjs",
       "ui-workspace/apps/dev-erp/src/workflow_job_service.mjs",
       "ui-workspace/apps/dev-erp/start-tailscale-windows.bat",
+      "ui-workspace/apps/dev-erp/static/accepted-context.css",
+      "ui-workspace/apps/dev-erp/static/accepted-context.html",
+      "ui-workspace/apps/dev-erp/static/accepted-context.js",
       "ui-workspace/apps/dev-erp/static/app.js",
       "ui-workspace/apps/dev-erp/static/index.html",
       "ui-workspace/apps/dev-erp/static/skins/README.md",
@@ -273,6 +279,8 @@
       "ui-workspace/apps/dev-erp/static/workbench.css",
       "ui-workspace/apps/dev-erp/static/workbench.html",
       "ui-workspace/apps/dev-erp/static/workbench.js",
+      "ui-workspace/apps/dev-erp/test/helpers/accepted_context_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_execution_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
@@ -376,7 +384,9 @@
     ],
     "validators": [
       "ui-workspace/apps/dev-erp/test/a8_synth_secure_access.test.mjs",
+      "ui-workspace/apps/dev-erp/test/accepted_context_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/accepted_context_query.test.mjs",
+      "ui-workspace/apps/dev-erp/test/accepted_context_reader.test.mjs",
       "ui-workspace/apps/dev-erp/test/actor_overlay_import.test.mjs",
       "ui-workspace/apps/dev-erp/test/adapter_snapshot.test.mjs",
       "ui-workspace/apps/dev-erp/test/app_localstorage_safety.test.mjs",
@@ -1143,7 +1153,9 @@
   "test_concurrency": 4,
   "smoke_test_entries": [
     "test/a8_synth_secure_access.test.mjs",
+    "test/accepted_context_http.test.mjs",
     "test/accepted_context_query.test.mjs",
+    "test/accepted_context_reader.test.mjs",
     "test/actor_overlay_import.test.mjs",
     "test/adapter_snapshot.test.mjs",
     "test/app_localstorage_safety.test.mjs",
@@ -1249,7 +1261,9 @@
   ],
   "installed_smoke_entries": [
     "test/a8_synth_secure_access.test.mjs",
+    "test/accepted_context_http.test.mjs",
     "test/accepted_context_query.test.mjs",
+    "test/accepted_context_reader.test.mjs",
     "test/actor_overlay_import.test.mjs",
     "test/adapter_snapshot.test.mjs",
     "test/app_localstorage_safety.test.mjs",
@@ -2091,7 +2105,7 @@
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
-      "sha256": "5b86c004005859c8b7daa6356a3f179cf56a04d42c8322b5d713355b3630795d"
+      "sha256": "f70d26e18fdd6420d7e307a1d7541f6b90424587befc7ea449fa40275fdee5cf"
     },
     {
       "path": "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
@@ -2143,7 +2157,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "fb975d9ce707c60f21310482713c0c59fc278ba5dde9873927dafb8c8c11c469"
+      "sha256": "491d0227010806b2287f2318291e1bd65bcc338d9540ad1e1b13d15a55c90e94"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2159,11 +2173,11 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "b82c47e8d736e0acf676c9f6ff7b978a302d4ab9185e78419cfb0cf284fd0d06"
+      "sha256": "d5154e3bdccf609336e846f24a034e33d1d0f53a24efee9d12c55f8774af8e02"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
-      "sha256": "9b953f0021f3393a108598c5a63add015cd6a47b8ca0244014a8cd727630777d"
+      "sha256": "ee1aa4cca02d2a8b52f70a9129f300c9284879684a8a219b522936973b66934d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
@@ -2248,6 +2262,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/static/style.css",
       "sha256": "fa6683a5c307990d17b13a91f29b36a03f01de1aef4d13ce9dfe07846e7e1d4e"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/accepted_context_http.test.mjs",
+      "sha256": "137ccac4bb91c1c2fb819a0f6fbfb1963edc76c09568d96094cb6194b0d74c8e"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
