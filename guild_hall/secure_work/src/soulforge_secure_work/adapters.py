@@ -183,9 +183,14 @@ class LocalFileKeyWrapper:
         if not self.path.exists():
             self.path.parent.mkdir(parents=True, exist_ok=True)
             material = AESGCM.generate_key(bit_length=256)
-            handle = os.open(str(self.path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            # Windows CRT text mode translates LF bytes even through os.write.
+            # A wrapping key is opaque binary; never normalize or repair it.
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0)
+            handle = os.open(str(self.path), flags, 0o600)
             try:
-                os.write(handle, material)
+                if os.write(handle, material) != len(material):
+                    raise AdapterUnavailable("M04", "key_wrapper_write_incomplete")
+                os.fsync(handle)
             finally:
                 os.close(handle)
             del material
