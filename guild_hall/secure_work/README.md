@@ -193,9 +193,10 @@ Allow ACE는 Deny가 가리는 경우에도 보수적으로 거부할 수 있다
 Node의 권한원이 아니며 Node가 매 송신 경계에서 다시 확인한다. bearer 값은 이 검증 뒤
 고정 credential 경로에서만 읽고 프로세스 환경·stdout·영수증으로 전달하지 않는다.
 
-이번 범위는 **M10 sender 측 부분 검증**이다. 기존 합성 Python/Node 포트는 계정을 상속했다.
-설치 진입점의 sender 역할 검사를 추가했다. 아래 M06 byte broker는 공개 packet만 전달하며
-M10의 별도 custody 승인/호출을 대신하지 않는다. 기존 상속 custody 호출은 거부한다.
+기존 합성 Python/Node 포트는 계정을 상속했다. 현재 M10은 아래 목적별 custody sender로
+controller의 승인 조회·candidate byte 전달·ACK 재확인을 연결한다. M06 byte broker는
+공개 packet만 전달하며 별도 M10 승인/호출을 대신하지 않는다. 구형 `--custody-bridge`의
+상속 호출은 제거했다. 합성 종단과 실제 역할 설치는 별개의 검증이다.
 실제 Owner 설치/launcher 결속·분리 계정 증거는 없고,
 M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 실제 token/접근 시험과
 전체 BIND09 신원 경계는 후속 구현·검증 대상이다. M07의 file-owned 1회 소비·재시작
@@ -203,8 +204,8 @@ M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 �
 
 불변 launcher의 코드 연결과 전체 전이 의존성 검사, M06 공개 byte 전달은 아래 범위로 구현했다.
 M07 journal은 controller에만 두어 별도 principal에 원장/저장 경로를 배포하지 않는다.
-남은 **통합 작업**은 실제 역할 설치·접근 격리 입증, M10 승인 포트의 역할 전달,
-기존 TrustedContext owner와 전체 BIND09 정책의 통합이다. 현재 역할 정책 consumer와 M07의
+M10 승인 포트의 역할 전달도 아래 범위로 구현했다. 남은 **통합 작업**은 실제 역할
+설치·접근 격리 입증, 기존 TrustedContext owner와 전체 BIND09 정책의 통합이다. 현재 역할 정책 consumer와 M07의
 파일 소유 기반 합성 1회 소비·재시작 검증 범위는 아래와 같다. **Owner 입력/설치 작업**은
 실제 역할 SID·승인 정책·route·binding 값 확정과 해당 계정/ACL 배치다. 두 종류의 공백을
 구분하며, Owner 값만 채우면 남은 코드가 자동으로 완성된다고 주장하지 않는다.
@@ -466,7 +467,81 @@ node --test guild_hall/secure_work/tests/execution_authority.test.mjs guild_hall
 실제 pipe 시험은 Windows에서 실행하며 다른 OS에서는 명시적으로 skip한다. protocol fixture는
 생산 runtime authority를 대체하지 않는 test-only 진입점을 사용한다. 기존 테스트 wrapper는
 운영 config·키·외부 route를 상속하지 않는다. broker 구현·프로토콜 검증과 실제 역할 배치·접근
-검증은 별개이며 M10와 전체 BIND09의 남은 통합도 별개다.
+검증은 별개이며 전체 BIND09의 남은 통합도 별개다.
+
+## M10 controller → custody sender 인계
+
+controller의 `step_deposit`는 기존 job OS lock을 잡고 현재 source bundle·assignment·epoch·
+route·candidate/outbox digest·CUSTODY_PENDING journal revision을 확인한다. 검토/전송 허가는
+M06 permit을 전용하지 않고 기존 `loadCustodyAuthority`의 exact candidate·input revision·
+route·principal에 묶인 M10 승인으로 검증한다. controller의 outbox/SQLite는 controller에만
+남고 sender에는 식별자·digest·승인 대상 bytes만 전송한다. 원문 디렉터리·job/vault·candidate
+경로, signer/credential 경로는 controller와 sender 사이 wire에 넣지 않는다.
+
+`CustodySession`은 실제 Windows pipe 한 연결에서 최대 6개의 순차 승인/실행 요청을 처리한다.
+매 요청은 기존 새 challenge·scope·digest framing에 결속되며 요청별 현재 확인은 최대 256회다.
+`custody_sender`는 `--custody-operation`으로 **같은 custody sender 계정**의 Node bridge를
+호출한다. 이것은 다른 역할을 상속 실행하는 fallback이 아니다. Node는 기존 승인 검증기와
+IngressClient를 실행하고, 전송/응답 경계의 확인 요청을 pipe의 controller까지 중계한다.
+복원된 candidate는 sender에서 hash를 확인한 임시 snapshot으로 기존 chunk/finalize/status
+호출에 전달된다. source path를 sender에 넘겨 파일을 열도록 하지 않는다.
+
+controller에는 custody token/SDK CLI 경로가 필요 없다. [`config.example.json`](config.example.json)은
+controller 입력이며, 별도 [`custody_sender.config.example.json`](custody_sender.config.example.json)은
+custody sender 입력이다. 예제는 placeholder·disabled 상태로 운영 권한을 만들지 않는다.
+
+| 설치 입력 | 결속 |
+| --- | --- |
+| sender anchor `role.purpose` | `custody.deposit` 고정. M06 `--sender`/`--worker` 채널에 사용할 수 없음 |
+| sender config | 기존 최소 runtime/code 입력에 `execution_purpose`, `custody_authority`, 정확한 `adapters.custody`만 추가 |
+| custody adapter 입력 | `enabled`, `live_enabled`, `ingress_url`, `token_file`, exact-file `token_sha256`. source/job/vault와 다른 adapter는 금지 |
+| 실행 정책 `custody_channel` | 서로 구분되는 고정 `pipe`와 기존 shape의 `registration`. exact sender SID·Node·launcher·cwd·`--custody-sender` 인자 검증 |
+| 봉인 순서 | custody sender → controller. sender가 upstream controller launcher/config를 pin하지 않아 순환이 없음 |
+
+M06 최소 sender/worker config에는 custody 필드를 계속 금지한다. M10은 기존 controller/sender
+SID 정책을 재사용하고 목적별 launcher/config/등록 작업을 분리한다. 같은 sender SID의 목적
+구분은 코드·불변 실행면의 결속이며 별도 OS 계정의 접근 격리를 새로 주장하지 않는다.
+
+자격증명 값은 승인된 custody sender의 기존 token loader 안에만 머문다. `token_sha256`는
+정확한 파일 bytes에 결속하며 승인 확인 이후 매 전송 경계와 ACK용 승인 조회에서 다시 검사한다.
+파일이 바뀌면 같은 principal로 보이는 새 credential이어도 거부한다. Node 작업 도중에는 읽은
+credential fingerprint도 유지해 변경된 토큰으로 조용히 바꾸지 않는다. 값은 Python·stdout·
+영수증·controller에 전달하지 않는다.
+
+M10의 기존 SQLite durable intent를 유지한다. submission ID가 있으면 다음 실행은
+status-only이며 후보 bytes를 재업로드하지 않는다. ID가 없는 응답 유실/중단은 같은 ingress
+idempotency key로 재조정한다. 실제 server가 이미 받은 chunk나 제출을 같은 key로 재사용하며,
+새 key를 만들거나 무조건 새 업로드를 시작하지 않는다. ACK 뒤 현재 source/권한을 잃으면
+로컬 ACK를 기록하지 않고 intent를 남긴다. 이미 이루어진 원격 custody를 취소했다는 뜻은 아니다.
+M05/M07의 1회 소비 규칙은 바꾸지 않았으며 M10의 idempotent 재조정과 혼동하지 않는다.
+`server_acknowledged`는 접수 증거이며 `review_state: NOT_OBSERVED`, `accepted: false`를 유지한다.
+
+### 실제 보장하는 기한과 검증 범위
+
+pipe 교환에는 최대 120초의 monotonic I/O 기한을 사용한다. Node의 ingress 작업은 45초
+검사를 사용하며 개별 HTTP 호출은 최대 10초다. Python은 Node 자식의 stdin 쓰기와 stdout
+읽기를 별도 스레드로 수행해 정체 시 남은 pipe 기한에 중단하고 자식을 종료한다. 종료 정리에는
+최대 5초 wait와 1초 thread join이 추가될 수 있다. 설치 launcher의 broker 자식 제한은 150초다.
+동기 OS/전체 generation/source 검사와 시작 지연을 포함하는 **controller 전체 hard deadline을
+보장한다는 주장은 하지 않는다**. 기한 확인은 이 검사 전후에 적용되며 기한 이후 bytes/ACK를
+성공으로 수락하지 않는다. 실제 설치 규모의 검사 시간과 다른 SID token 조회권한은 미측정이다.
+
+실제 합성 시험은 Windows kernel identity 검사와 named pipe, Python adapter/SQLite,
+실제 M10 서명 검증, 기존 IngressClient/server의 2-chunk upload/finalize/status를 함께 실행한다.
+새 controller의 status-only ACK, source/승인/credential 변경, ACK 직후 권한 상실과 sender
+강제 종료 후 같은 제출 재개를 확인한다. E14 source·assignment·epoch·route·candidate·
+journal 취소 gate도 별도 실제 journal 시험을 사용한다. Node의 OS/등록 관측은 합성 값이고
+프로세스는 같은 SID다. **ISOLATED_SAME_SID_PROTOCOL_TEST**이며 실제 다른 SID 접근 격리,
+계정/ACL/task 설치, credential 배치, 운영 활성화, 실과제 전송은 모두 `NOT_RUN`이다.
+
+```sh
+node --test guild_hall/secure_work/tests/custody_handoff.test.mjs
+node guild_hall/validate/run_secure_work_python.mjs --kit-root <READ_ONLY_TEST_KIT>
+npm run validate:secure-work
+```
+
+전체 BIND09의 기존 TrustedContext/신원 owner 및 운영 키 서비스 통합을 이 모듈의 파일 정책
+consumer와 동일시하지 않는다. 이 잔여 통합과 실제 계정·권한·승인·credential 배치는 별도 항목이다.
 
 ## JSON 표기·원문 상태·로컬 유용성 보완
 

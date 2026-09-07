@@ -10,6 +10,7 @@ export { observeWindowsSecurity } from "./sfx.mjs";
 const ROOT = dirname(fileURLToPath(import.meta.url));
 export const RUNTIME_FILES = Object.freeze([
   "custody_authority.mjs", "custody_bridge.mjs",
+  "custody_operation.mjs", "src/soulforge_secure_work/custody_ipc.py",
   "src/soulforge_secure_work/custody.py", "src/soulforge_secure_work/adapters.py",
   "../../ui-workspace/apps/dev-erp-mcp/src/ingress_client.mjs",
 ].map(path => resolve(ROOT, path)));
@@ -53,6 +54,7 @@ export function loadCustodyAuthority(runtimeBinding, { observe = null, now = () 
     || !SHA.test(anchor.node_executable.sha256)
     || hash(bytes(process.execPath, 268435456)) !== anchor.node_executable.sha256) fail();
   const query = observe || (paths => observeWindowsSecurity(paths, anchor.os_observer));
+  let credentialHash = null;
 
   function protectedPaths(paths, { owner = anchor.trust_owner_sid, denyRead = false } = {}) {
     return assertProtectedPaths(paths, owner, query, { denyRead });
@@ -111,6 +113,15 @@ export function loadCustodyAuthority(runtimeBinding, { observe = null, now = () 
       // Re-observe after reading: changed process identity/trust ACLs cannot be
       // hidden behind an earlier successful inspection.
       if (protectedPaths([anchor.config_path, pin.policy_path, approvalPath]) !== senderSid) fail();
+      if (config.execution_purpose === "custody.deposit") {
+        // Exact credential bytes are installation-bound only at this custody
+        // sender. A changed file is rejected before each ingress boundary and
+        // before an authorization proof can permit the controller's ACK write.
+        const tokenPath = config.adapters.custody.token_file;
+        if (!SHA.test(config.adapters.custody.token_sha256)) fail();
+        protectedPaths([tokenPath]);
+        if (hash(bytes(tokenPath, 4096)) !== config.adapters.custody.token_sha256) fail();
+      }
       return { binding_sha256: bindingHash, principal: policy.ingress_principal,
         expires_at: Math.min(claims.expires_at, policy.expires_at) / 1000 };
     } catch { fail(); }
@@ -118,7 +129,15 @@ export function loadCustodyAuthority(runtimeBinding, { observe = null, now = () 
   return Object.freeze({
     authorize,
     authorizeRequest(request) {
-      try { return canonical(authorize(request.binding).principal) === canonical(request.principal); }
+      try {
+        const samePrincipal = canonical(authorize(request.binding).principal) === canonical(request.principal);
+        if (credentialHash !== null) {
+          const config = JSON.parse(bytes(anchor.config_path));
+          protectedPaths([config.adapters.custody.token_file]);
+          if (hash(bytes(config.adapters.custody.token_file, 4096)) !== credentialHash) fail();
+        }
+        return samePrincipal;
+      }
       catch { return false; }
     },
     token(binding) {
@@ -126,10 +145,14 @@ export function loadCustodyAuthority(runtimeBinding, { observe = null, now = () 
         authorize(binding);
         const configBytes = bytes(anchor.config_path);
         if (hash(configBytes) !== anchor.config_sha256) fail();
-        const path = JSON.parse(configBytes).adapters.custody.token_file;
+        const config = JSON.parse(configBytes);
+        const path = config.adapters.custody.token_file;
         protectedPaths([path]);
-        const value = bytes(path, 4096).toString("utf8");
+        const raw = bytes(path, 4096);
+        if (config.execution_purpose === "custody.deposit" && hash(raw) !== config.adapters.custody.token_sha256) fail();
+        const value = raw.toString("utf8");
         if (!/^sfig_v1_[A-Za-z0-9_-]{43}\r?\n?$/.test(value)) fail();
+        credentialHash = hash(raw);
         return value.trim();
       } catch { fail(); }
     },

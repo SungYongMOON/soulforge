@@ -26,7 +26,7 @@ export function checkedStatus(value, binding, submissionId = null) {
 }
 
 export async function runCustody(request, { token, fetchImpl = globalThis.fetch, authorize = null,
-  integrity = null } = {}) {
+  integrity = null, candidateBytes = null } = {}) {
   // Only a separately supplied verifier may authorize this module. JSON fields
   // are not an authority source. The CLI builds its callback only through the
   // independently pinned installation loader; a missing binding denies use.
@@ -129,16 +129,21 @@ export async function runCustody(request, { token, fetchImpl = globalThis.fetch,
       if (!/^sfigsub_[a-f0-9]{32}$/.test(request.submission_id)) fail();
       return await currentStatus(request.submission_id);
     }
-    const input = await open(request.candidate_path, "r");
-    try {
-      const info = await input.stat();
-      if (!info.isFile() || info.size !== b.size) fail();
-      source = Buffer.alloc(b.size + 1);
-      const { bytesRead } = await input.read(source, 0, source.length, 0);
-      if (bytesRead !== b.size) fail();
-      source = source.subarray(0, bytesRead);
-      if (digest(source) !== b.sha256) fail();
-    } finally { await input.close(); }
+    if (candidateBytes !== null) {
+      if (!Buffer.isBuffer(candidateBytes) || candidateBytes.length !== b.size || digest(candidateBytes) !== b.sha256) fail();
+      source = Buffer.from(candidateBytes);
+    } else {
+      const input = await open(request.candidate_path, "r");
+      try {
+        const info = await input.stat();
+        if (!info.isFile() || info.size !== b.size) fail();
+        source = Buffer.alloc(b.size + 1);
+        const { bytesRead } = await input.read(source, 0, source.length, 0);
+        if (bytesRead !== b.size) fail();
+        source = source.subarray(0, bytesRead);
+        if (digest(source) !== b.sha256) fail();
+      } finally { await input.close(); }
+    }
     directory = await mkdtemp(resolve(tmpdir(), "secure-work-custody-"));
     snapshot = resolve(directory, "candidate.md");
     const output = await open(snapshot, "wx", 0o600);

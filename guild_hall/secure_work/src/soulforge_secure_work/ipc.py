@@ -95,7 +95,7 @@ def _control(value, kind, nonce, fields=()):
         raise ChannelError("CHANNEL_REPLAY_OR_ORDER")
 
 
-def exchange(pipe, scope, attempt, body, current):
+def exchange(pipe, scope, attempt, body, current, *, max_checks=12):
     """No retries. current is controller-local logic, never a wire callback.
 
     A nested sender exchange relays each current check over the authenticated
@@ -121,7 +121,7 @@ def exchange(pipe, scope, attempt, body, current):
         if value.get("kind") == "check":
             _control(value, "check", nonce, {"sequence"})
             checks += 1
-            if type(value["sequence"]) is not int or value["sequence"] != checks or checks > 12:
+            if type(value["sequence"]) is not int or value["sequence"] != checks or checks > max_checks:
                 raise ChannelError("CHANNEL_REPLAY_OR_ORDER")
             current()
             remaining(pipe.deadline)
@@ -143,11 +143,15 @@ def exchange(pipe, scope, attempt, body, current):
             remaining(pipe.deadline)
             wire.send({"kind": "received", "nonce": nonce})
             return response
+        elif value.get("kind") == "failed":
+            exact(value, {"kind"})
+            wire.send({"kind": "failed_received"})
+            raise ChannelError("CHANNEL_REMOTE_FAILED")
         else:
             raise ChannelError("CHANNEL_REPLAY_OR_ORDER")
 
 
-def serve_connection(pipe, scope, current, handler):
+def serve_connection(pipe, scope, current, handler, *, max_checks=12):
     """Serve one authenticated connection. handler receives only released bytes.
 
     Handler/current injection is a local protocol seam for tests and the fixed
@@ -170,7 +174,7 @@ def serve_connection(pipe, scope, current, handler):
         current()
         remaining(pipe.deadline)
         sequence += 1
-        if sequence > 12:
+        if sequence > max_checks:
             raise ChannelError("CHANNEL_REPLAY_OR_ORDER")
         wire.send({"kind": "check", "nonce": nonce, "sequence": sequence})
         value = wire.receive()

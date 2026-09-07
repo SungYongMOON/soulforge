@@ -1031,15 +1031,31 @@ class Lane:
                    "files": 4})
 
     def step_deposit(self, job: Job) -> tuple[str, str]:
+        if self.custody.use_runtime_authority:
+            with dispatch_module.controller_lock(job.root):
+                return self._deposit_locked(job)
+        return self._deposit_locked(job)  # pure M10 contract fixtures
+
+    def _deposit_locked(self, job: Job) -> tuple[str, str]:
         # The runtime verifier is callable, but the source checkout carries no
         # installation trust binding. Job fields/live_enabled cannot supply it.
+        revision = None
+        if self.custody.use_runtime_authority:
+            handle = self.open_journal(job)
+            try:
+                revision = handle.get(job.job_id, job.data["project_ref"]).revision
+            finally:
+                handle.close()
         input_revision = _opaque(job.data["source_bundle_sha256"],
                                  job.data["base_candidate_rev"], str(job.data["round"]))
         result = self.custody.deposit(
             job.outbox / "candidate.md", job.data["project_ref"],
             _opaque(job.job_id, "custody.occurrence"), _opaque(job.job_id, "custody.idempotency"),
             input_revision=input_revision, expected_sha256=job.data["candidate_sha256"],
-            expected_size=job.data["candidate_bytes"])
+            expected_size=job.data["candidate_bytes"], execution_scope=job_scope(job),
+            current=lambda: self._current_custody(job, revision))
+        if self.custody.use_runtime_authority:
+            self._current_custody(job, revision)
         job.data["custody"] = result
         job.save()
         summary_path = job.outbox / "summary.json"
@@ -1052,7 +1068,34 @@ class Lane:
             raise EngineStop("CUSTODY_ACK_PENDING", "submission received; server ACK not observed")
         return self.transition(
             job, "CUSTODY_ACKNOWLEDGED", "custody.deposit",
-            f"evidence.custody.{result['binding_sha256'][:16]}", facts=result)
+            f"evidence.custody.{result['binding_sha256'][:16]}", facts=result, expected_revision=revision)
+
+    def _current_custody(self, job: Job, revision=None):
+        """Current local source and candidate lineage, not M06 permit reuse."""
+        role_check("jobs.advance", job_scope(job))
+        recheck_if_launched()
+        fresh = self.load_job(job.job_id, operation="jobs.advance")
+        keys = ("source_bundle_sha256", "candidate_sha256", "candidate_bytes", "base_candidate_rev", "round",
+                "project_ref", "assignment_ref", "assignment_epoch", "task_ref", "policy_epoch", "route_sha256", "transport_id")
+        if any(fresh.data.get(key) != job.data.get(key) for key in keys):
+            raise EngineStop("CUSTODY_SOURCE_CHANGED")
+        pins, parts = extract.read_exact(self.config.source_root)
+        bundle = plan_module.source_bundle(self.models, pins, parts, fresh.data["project_ref"],
+            fresh.data["assignment_ref"], fresh.data["assignment_epoch"])
+        if self.codec.digest(bundle) != fresh.data["source_bundle_sha256"] or self.phase(fresh) != "CUSTODY_PENDING":
+            raise EngineStop("CUSTODY_SOURCE_CHANGED")
+        if revision is not None:
+            handle = self.open_journal(fresh)
+            try:
+                if handle.get(job.job_id, fresh.data["project_ref"]).revision != revision:
+                    raise EngineStop("CUSTODY_SOURCE_CHANGED")
+            finally:
+                handle.close()
+        for path in [fresh.path("candidate.md"), fresh.outbox / "candidate.md"]:
+            with path.open("rb") as source:
+                body = source.read(1048577)
+            if len(body) != fresh.data["candidate_bytes"] or self.codec.digest(body) != fresh.data["candidate_sha256"]:
+                raise EngineStop("CUSTODY_CANDIDATE_CHANGED")
 
     STEPS = {
         "RECEIVED": ("step_pin_source", "M01"),

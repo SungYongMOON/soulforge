@@ -34,12 +34,10 @@
     "custody": {
       "kind": "tongs.ingress_client",
       "enabled": false,
-      "ingress_client_cli": "<REPO_ROOT>/ui-workspace/apps/dev-erp-mcp/ingress_client_cli.mjs",
       "ingress_url": "http://127.0.0.1:4312",
       "ingress_health_url": "http://127.0.0.1:4312/health",
       "control_url": "http://127.0.0.1:4311",
       "control_health_url": "http://127.0.0.1:4311/health",
-      "token_file": "<private_root>/config/secure_work/credentials/tongs_ingress.bearer",
       "live_enabled": false
     }
   }

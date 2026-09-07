@@ -198,8 +198,9 @@ export function renderInstalledLauncher(source, anchor) {
   return source.replace(marker, `const INSTALLATION_ANCHOR = ${JSON.stringify(anchor)}; // INSTALLER_FIXED_ANCHOR`);
 }
 function validateRolePin(role, owner) {
-  exact(role, ["name", "sid"]);
+  exact(role, ["name", "sid", ...(role && Object.hasOwn(role, "purpose") ? ["purpose"] : [])]);
   if (!["controller", "sender", "worker", "reviewer"].includes(role.name) || !SID.test(role.sid) || role.sid === owner) fail();
+  if (Object.hasOwn(role, "purpose") && (role.name !== "sender" || !["model.dispatch", "custody.deposit"].includes(role.purpose))) fail();
 }
 // Kept as non-executing compatibility helpers. Neither selects launch authority.
 export function resolveConfigPath(argv, env) {
@@ -377,7 +378,7 @@ export function guardNodeImports(runtime) {
   });
 }
 export function pythonInvocation(runtime, mode, argv = []) {
-  if (!["cli", "worker", "sender"].includes(mode) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
+  if (!["cli", "worker", "sender", "custody_sender"].includes(mode) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
     flag => a === flag || a.startsWith(`${flag}=`)))) fail();
   const launch = runtime.binding.launch;
   const packet = { mode, argv, config_path: runtime.binding.config_path, config_sha256: runtime.binding.config_sha256,
@@ -440,21 +441,31 @@ export async function executeVerified(runtime, argv, { spawn = spawnSync } = {})
     exact(request, ["scope"]);
     return roles.channelContract(request.scope);
   }
-  if (argv[0] === "--custody-bridge" && argv.length === 1) {
+  if (argv[0] === "--custody-channel-contract" && argv.length === 1) {
+    const request = JSON.parse(readWorkerInput());
+    exact(request, ["scope"]);
+    return roles.custodyChannelContract(request.scope);
+  }
+  if (argv[0] === "--custody-operation" && argv.length === 1) {
     roles.requireRole("sender");
+    roles.custodyChannelContract();
     const hooks = guardNodeImports(runtime);
     try {
       runtime.recheck();
       const { loadCustodyAuthority } = await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath), "custody_authority.mjs")).href);
       const { launch, ...custodyBinding } = runtime.binding;
       const authority = loadCustodyAuthority(custodyBinding);
-      const { custodyMain } = await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath), "custody_bridge.mjs")).href);
-      return await custodyMain(authority, () => runtime.recheck());
+      const { custodyOperation } = await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath), "custody_operation.mjs")).href);
+      return await custodyOperation(authority, runtime);
     } finally { hooks.deregister(); }
   }
   const worker = argv[0] === "--worker" && argv.length === 1;
   const sender = argv[0] === "--sender" && argv.length === 1;
-  if (worker || sender) {
+  const custodySender = argv[0] === "--custody-sender" && argv.length === 1;
+  if (custodySender) {
+    roles.requireRole("sender");
+    roles.custodyChannelContract();
+  } else if (worker || sender) {
     roles.requireRole(worker ? "worker" : "sender");
     roles.channelContract();
   } else {
@@ -464,9 +475,10 @@ export async function executeVerified(runtime, argv, { spawn = spawnSync } = {})
     else roles.entry(argv[0] === "request" ? "jobs.submit" : argv[0] === "advance" ? "jobs.advance" : "jobs.get");
   }
   runtime.recheck();
-  const command = pythonInvocation(runtime, worker ? "worker" : sender ? "sender" : "cli", worker || sender ? [] : argv);
+  const command = pythonInvocation(runtime, custodySender ? "custody_sender" : worker ? "worker" : sender ? "sender" : "cli",
+    worker || sender || custodySender ? [] : argv);
   const result = spawn(command.executable, command.args, { ...command.options,
-    stdio: ["pipe", "inherit", "inherit"], input: command.inputPrefix, timeout: worker || sender ? 150000 : undefined });
+    stdio: ["pipe", "inherit", "inherit"], input: command.inputPrefix, timeout: worker || sender || custodySender ? 150000 : undefined });
   if (result.error) fail();
   return { exitCode: result.status ?? 1 };
 }

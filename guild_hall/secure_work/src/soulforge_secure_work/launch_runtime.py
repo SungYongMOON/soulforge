@@ -200,6 +200,9 @@ def main(packet):
     if packet["mode"] == "sender":
         from soulforge_secure_work.ipc import serve_runtime
         return serve_runtime("sender")
+    if packet["mode"] == "custody_sender":
+        from soulforge_secure_work.custody_ipc import serve_runtime
+        return serve_runtime()
     if packet["mode"] == "cli":
         from soulforge_secure_work.cli import main as entry
         return entry(packet["argv"])
