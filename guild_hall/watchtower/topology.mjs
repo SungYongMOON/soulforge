@@ -210,14 +210,14 @@ export function edgeDeliveryVerdict(edge, { receipts = {}, windows = {}, now = D
       proves_delivery: false,
     };
   }
-  const window = windows[edge.receipt];
+  const window = Object.hasOwn(windows, edge.receipt) ? windows[edge.receipt] : undefined;
   if (window === undefined) topologyFail("edge_delivery_window_absent", edge.receipt);
   for (const field of ["period_seconds", "grace_seconds"]) {
     if (!Number.isInteger(window[field]) || window[field] < 0) topologyFail("edge_delivery_window_invalid", `${edge.receipt}.${field}`);
   }
   if (window.period_seconds === 0) topologyFail("edge_delivery_window_invalid", `${edge.receipt}.period_seconds`);
 
-  const receipt = receipts[edge.receipt];
+  const receipt = Object.hasOwn(receipts, edge.receipt) ? receipts[edge.receipt] : undefined;
   if (receipt === undefined || receipt === null) {
     // 채널은 등록됐지만 아직 한 번도 전달되지 않았다. 미등록과 구별되는 상태다.
     return { state: "registered_no_delivery", reason: "no_receipt_observed", proves_delivery: false };

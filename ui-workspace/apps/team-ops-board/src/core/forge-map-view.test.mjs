@@ -117,6 +117,32 @@ test("매핑되지 않은 노드는 숨지 않고 기타로 세어진다", () =>
   assert.equal(model.attention.some((row) => row.id === "brand_new_collector" && row.componentName === "기타"), true);
 });
 
+test("합법 constructor 노드도 기타와 주의 목록에 보존된다", async () => {
+  const { TOPOLOGY_NODES, validateTopologyDefinition } = await import(pathToFileURL(TOPOLOGY_MODULE_PATH).href);
+  const definition = TOPOLOGY_NODES.find((entry) => entry.id === "mail_forwarder");
+  assert.doesNotThrow(() => validateTopologyDefinition({
+    nodes: [...TOPOLOGY_NODES, { ...definition, id: "constructor", probe: "constructor" }],
+  }));
+  const model = buildForgeMapViewModel({
+    topology: snapshot([
+      node("store_mail_events", "ok"),
+      node("constructor", "down", ["status_error"]),
+      node("ordinary_unknown_node", "degraded"),
+    ]),
+  });
+  assert.equal(model.summary.observedNodeTotal, 3);
+  assert.equal(model.summary.unmappedNodeCount, 2);
+  assert.equal(model.other.observedNodeCount, 2);
+  assert.equal(model.other.state, "down");
+  assert.deepEqual(model.other.nodes.map((row) => row.id), ["constructor", "ordinary_unknown_node"]);
+  assert.deepEqual(model.attention.map((row) => [row.id, row.componentId]), [
+    ["constructor", "other"], ["ordinary_unknown_node", "other"],
+  ]);
+  assert.deepEqual(model.components.find((component) => component.id === "heartwood").nodes.map((row) => row.id), ["store_mail_events"]);
+  const displayed = [...model.components, model.other].flatMap((component) => component.nodes);
+  assert.equal(displayed.length, model.summary.observedNodeTotal);
+});
+
 test("어댑터 봉투와 스냅샷 두 모양을 모두 받고 refresh_state 를 그대로 보여 준다", () => {
   const plain = buildForgeMapViewModel({ topology: snapshot([node("consumer_board", "ok")]) });
   const wrapped = buildForgeMapViewModel({

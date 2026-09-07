@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-09-07 - Vigil 등록 사전의 상속 속성 오인 수정
+
+- 날짜: 2026-09-07. Revision: 이 항목을 담은 Git commit이 수정 판본을 정한다.
+- 무엇: 전달 영수증·시간 창과 부품 지도 ID 조회는 사전에 직접 등록된 값만 사용한다.
+  합법 ID `constructor`의 누락 영수증은 미전달로 남고, 미매핑 지도 노드는 기타·주의
+  목록에서 보존된다. 일반 ID, 직접 등록한 영수증과 시간 창은 기존 판정을 유지한다.
+- 운영 영향: 순수 판정과 표시 모델의 수정이다. 운영 설치본·route·서비스·예약작업·
+  실제 복구를 바꾸지 않으며, 이 변경으로 건강 상태나 전달 증거를 새로 만들지 않는다.
+- 검증: 상속키 반례의 수정 전 실패와 수정 후 통과를 기록하고, 독립 검토 및 관련
+  검증은 정확한 수정 판본에서 수행한다. 새 순수 topology 회귀는 기존
+  `validate:watchtower` 시험 목록에 포함한다.
+- 관련 경로: `guild_hall/watchtower/topology.mjs`, `guild_hall/watchtower/topology.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/forge-map-view.mjs`, 같은 경로의 회귀 시험.
+
 ## 2026-09-07 - 통합 출시 후보 개발: 업무 결속·Rune 투영·해안 기지·설치 검증
 
 - 날짜: 2026-09-07. Revision: 이 항목을 담은 Git commit이 개발 판본을 정한다.

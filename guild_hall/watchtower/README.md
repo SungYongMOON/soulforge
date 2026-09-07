@@ -12,6 +12,8 @@
   (local binding 소유 — 추적되지 않는 로컬 파일).
 - 정적 간선은 구조만 나타낸다. source나 collector가 `ok`여도 연결된 provider·공통
   meter·원장·Board의 health로 전파하거나 합성하지 않는다.
+- 전달 영수증과 시간 창은 사전에 직접 등록된 값만 읽는다. 합법 ID `constructor`도
+  상속 속성을 영수증으로 해석하지 않으며, 미등록 값은 기존 부재 상태로 판정한다.
 - 원문·secret·절대경로는 스냅샷에 들어가지 않는다(`assertSnapshotPathFree`가
   기계 검증).
 
