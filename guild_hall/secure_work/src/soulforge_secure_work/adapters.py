@@ -10,6 +10,7 @@ or returns a credential value.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import secrets
 import sqlite3
@@ -337,8 +338,7 @@ class OpenRouterTransport:
 # --- M10 custody ------------------------------------------------------------
 
 class TongsCustodyAdapter:
-    """Client skeleton for Tongs (`dev-erp-mcp` ingress, `포트 4311` control /
-    `포트 4312` ingress). Cycle 1 uploads nothing.
+    """M10 port using the existing IngressClient through a bounded Node bridge.
 
     The bearer is an Owner-issued one-line file; this adapter only checks that it
     exists. Without it, and without an explicit `live_enabled`, deposit is
@@ -349,12 +349,15 @@ class TongsCustodyAdapter:
     name = "tongs.ingress_client"
 
     def __init__(self, client_cli: str | None, ingress_url: str, control_url: str,
-                 token_file: str | None, live_enabled: bool) -> None:
+                 token_file: str | None, live_enabled: bool, *,
+                 authorization=None, executor=None, use_runtime_authority: bool = False) -> None:
         self.client_cli = Path(client_cli) if client_cli else None
         self.ingress_url = ingress_url
         self.control_url = control_url
         self.token_file = Path(token_file) if token_file else None
         self.live_enabled = live_enabled
+        self.authorization = authorization or (self._runtime_authorize if use_runtime_authority else None)
+        self.executor = executor
 
     def probe(self) -> Probe:
         if self.client_cli is None or not self.client_cli.is_file():
@@ -366,14 +369,66 @@ class TongsCustodyAdapter:
             return Probe(self.module, self.name, "UNAVAILABLE", f"bearer file {shape}")
         if not self.live_enabled:
             return Probe(self.module, self.name, "DISABLED", "bearer present, upload not enabled")
+        if self.authorization is None:
+            return Probe(self.module, self.name, "UNAVAILABLE", "CUSTODY_AUTHORIZATION_UNBOUND")
         return Probe(self.module, self.name, "AVAILABLE", "bearer present, upload enabled")
 
     def deposit(self, candidate_path: Path, project_hint: str, occurrence_id: str,
-                idempotency_key: str) -> dict:
-        probe = self.probe()
-        if probe.state != "AVAILABLE":
-            raise AdapterUnavailable(self.module, probe.detail)
-        raise AdapterUnavailable(self.module, "live_upload_not_implemented_in_cycle_1")
+                idempotency_key: str, *, input_revision: str | None = None,
+                expected_sha256: str | None = None, expected_size: int | None = None) -> dict:
+        from .custody import deposit
+        return deposit(self, candidate_path, project_hint, occurrence_id, idempotency_key,
+                       input_revision=input_revision, expected_sha256=expected_sha256,
+                       expected_size=expected_size)
+
+    def _execute(self, request: dict) -> dict:
+        if self.executor is not None:
+            return self.executor(request)
+        return self._bridge_call(request)
+
+    def _runtime_authorize(self, binding: dict):
+        from .custody import CustodyAuthorization
+        try:
+            proof = self._bridge_call({"operation": "authorize", "binding": binding})
+            return CustodyAuthorization(proof["binding_sha256"], proof["account_id"],
+                                        proof["device_id"], proof["agent_id"], proof["expires_at"])
+        except Exception:
+            raise AdapterUnavailable(self.module, "CUSTODY_RUNTIME_AUTHORITY_HOLD") from None
+
+    def _bridge_call(self, request: dict) -> dict:
+        # Node gets its trust anchor from immutable installation-owned code,
+        # never a Python proof, token environment variable or caller config.
+        bridge = Path(__file__).resolve().parents[2] / "custody_bridge.mjs"
+        anchor_path = bridge.with_name("custody_runtime_binding.json")
+        # The immutable launcher pins this installation-owned file independently.
+        # Its path is fixed in code; caller config/env cannot nominate an anchor.
+        with anchor_path.open("rb") as anchor_file:
+            raw_anchor = anchor_file.read(32769)
+        if len(raw_anchor) > 32768:
+            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
+        anchor = json.loads(raw_anchor)
+        if not isinstance(anchor, dict) or not isinstance(anchor.get("node_executable"), dict):
+            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
+        node_pin = anchor["node_executable"]
+        node_executable = Path(node_pin.get("path", ""))
+        if not node_executable.is_absolute() or not node_executable.is_file():
+            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
+        digest = hashlib.sha256()
+        with node_executable.open("rb") as executable:
+            for chunk in iter(lambda: executable.read(1048576), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != node_pin.get("sha256"):
+            raise RuntimeError("CUSTODY_RUNTIME_BINDING_UNBOUND")
+        environment = {key: os.environ[key] for key in
+                       ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP")
+                       if key in os.environ}
+        completed = subprocess.run(
+            [str(node_executable), str(bridge)], input=json.dumps(request).encode(),
+            capture_output=True, env=environment, timeout=60,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+        if completed.returncode or len(completed.stdout) > 32768:
+            raise RuntimeError("CUSTODY_BRIDGE_FAILED")
+        return json.loads(completed.stdout)
 
 
 def endpoint_probe(url: str, module: str, name: str, timeout_s: int = 3) -> Probe:

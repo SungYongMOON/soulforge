@@ -128,6 +128,7 @@ class Lane:
             control_url=custody_config.values.get("control_url", "http://127.0.0.1:4311"),
             token_file=custody_config.values.get("token_file"),
             live_enabled=bool(custody_config.values.get("live_enabled", False)),
+            use_runtime_authority=True,
         )
 
     # -- job store ---------------------------------------------------------
@@ -708,8 +709,28 @@ class Lane:
                    "files": 4})
 
     def step_deposit(self, job: Job) -> tuple[str, str]:
-        probe = self.custody.probe()
-        raise EngineStop("ADAPTER_UNAVAILABLE", f"M10 {probe.detail}")
+        # The runtime verifier is callable, but the source checkout carries no
+        # installation trust binding. Job fields/live_enabled cannot supply it.
+        input_revision = _opaque(job.data["source_bundle_sha256"],
+                                 job.data["base_candidate_rev"], str(job.data["round"]))
+        result = self.custody.deposit(
+            job.outbox / "candidate.md", job.data["project_ref"],
+            _opaque(job.job_id, "custody.occurrence"), _opaque(job.job_id, "custody.idempotency"),
+            input_revision=input_revision, expected_sha256=job.data["candidate_sha256"],
+            expected_size=job.data["candidate_bytes"])
+        job.data["custody"] = result
+        job.save()
+        summary_path = job.outbox / "summary.json"
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        summary.update({"custody_state": "SERVER_ACKNOWLEDGED" if result["server_acknowledged"]
+                        else "PENDING_SERVER_ACK", "server_acknowledged": result["server_acknowledged"],
+                        "submission_id": result["submission_id"], "accepted": False})
+        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        if not result["server_acknowledged"]:
+            raise EngineStop("CUSTODY_ACK_PENDING", "submission received; server ACK not observed")
+        return self.transition(
+            job, "CUSTODY_ACKNOWLEDGED", "custody.deposit",
+            f"evidence.custody.{result['binding_sha256'][:16]}", facts=result)
 
     STEPS = {
         "RECEIVED": ("step_pin_source", "M01"),

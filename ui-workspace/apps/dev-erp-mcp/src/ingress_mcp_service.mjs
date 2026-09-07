@@ -625,6 +625,8 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
     if (ticket.credential_id !== principal.credentialId || ticket.account_id !== principal.accountId
       || ticket.device_id !== principal.deviceId || ticket.agent_id !== principal.agentId
       || (ticket.status === "pending" && Date.parse(ticket.expires_at) <= now())) fail("upload_ticket_invalid", 401);
+    requireCapability(principal, "upload:team_files");
+    requireProject(principal, ticket.project_hint);
     return { principal, ticket };
   }
 
@@ -691,15 +693,8 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
     const source = uploadPath(ticketId);
     if (await hashFile(source) !== ticket.expected_sha256) fail("upload_sha256_mismatch", 409);
     const outboxOccurrenceId = `mcp_${principal.credentialId}_${ticket.occurrence_id}`;
-    const staged = await enqueueLocalOutboxFile({
-      bindingPath: config.localOutboxBindingPath,
-      lane: "team_files",
-      source,
-      occurrenceId: outboxOccurrenceId,
-      apply: true,
-    });
     const submissionId = `sfigsub_${sha256(`upload\0${ticket.ticket_id}`).slice(0, 32)}`;
-    const submission = {
+    const stableSubmission = {
       schema_version: INGRESS_MCP_SUBMISSION_SCHEMA,
       submission_id: submissionId,
       lane: "team_files",
@@ -716,15 +711,47 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
       sha256: ticket.expected_sha256,
       size: ticket.expected_size,
       source_kind: "authenticated_chunked_upload",
-      received_at: new Date(now()).toISOString(),
-      local_outbox_status: staged.status,
       official_completion: false,
       official_history_written: false,
       project_promoted: false,
       source_deleted: false,
       source_overwritten: false,
     };
-    await immutableJson(config.submissionRoot, submissionPath(submissionId), submission, "submission_conflict");
+    let submission = null;
+    if (await exists(submissionPath(submissionId))) {
+      // A previous attempt may have durably written the submission and stopped
+      // before the ticket update. Only that exact immutable submission can be
+      // recovered; a new timestamp/outbox replay status is not another result.
+      submission = await readSubmission(submissionId);
+      const { received_at, local_outbox_status, ...storedStable } = submission;
+      const inputDigest = sha256(canonical({ project_hint: ticket.project_hint,
+        occurrence_id: ticket.occurrence_id, idempotency_key: ticket.idempotency_key,
+        filename: ticket.filename, size: ticket.expected_size, sha256: ticket.expected_sha256,
+        media_type: ticket.media_type }));
+      const index = await readJson(indexPath(principal, "upload", ticket.idempotency_key), "upload_idempotency_index_invalid");
+      if (canonical(storedStable) !== canonical(stableSubmission)
+        || !Number.isFinite(Date.parse(received_at)) || new Date(received_at).toISOString() !== received_at
+        || !["enqueued", "unchanged"].includes(local_outbox_status)
+        || inputDigest !== ticket.input_digest || index.input_digest !== inputDigest
+        || index.ticket_id !== ticket.ticket_id || index.credential_id !== principal.credentialId
+        || index.kind !== "upload" || index.schema_version !== "soulforge.ingress.mcp_idempotency_index.v1") {
+        fail("submission_conflict", 409);
+      }
+    }
+    const staged = await enqueueLocalOutboxFile({
+      bindingPath: config.localOutboxBindingPath,
+      lane: "team_files",
+      source,
+      occurrenceId: outboxOccurrenceId,
+      apply: true,
+    });
+    if (staged.sha256 !== ticket.expected_sha256 || staged.size !== ticket.expected_size) fail("upload_sha256_mismatch", 409);
+    if (!submission) {
+      submission = { ...stableSubmission, received_at: new Date(now()).toISOString(), local_outbox_status: staged.status };
+      await immutableJson(config.submissionRoot, submissionPath(submissionId), submission, "submission_conflict");
+    }
+    const durableSubmission = await open(submissionPath(submissionId), "r+");
+    try { await durableSubmission.sync(); } finally { await durableSubmission.close(); }
     await atomicJson(config.stateRoot, ticketPath(ticketId), {
       ...ticket,
       status: "finalized",
