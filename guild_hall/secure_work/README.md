@@ -34,14 +34,15 @@
 | --- | --- | --- |
 | 이 lane의 코드 | `guild_hall/secure_work/` | 저장소 안, public-safe |
 | E14 계약 kit / E13 recipe | `<TOOL_ROOT>/secure-work-kit/**` | 저장소 밖, 읽기 전용 원본 |
-| Python 환경 | `<TOOL_ROOT>/secure-work-venv` | kit의 고정 버전만 설치 |
+| Python 환경 | `<TOOL_ROOT>/secure-work-python` | 전체 runtime과 `_pth` 시작 경로를 고정한 별도 설치 입력 |
 | 작업 루트(합성 자료·매핑·영수증) | `<PILOT_ROOT>` | 저장소 밖 |
 | 상태 요약 1파일 | `<STATE_ROOT>/ops-lane/operations/secure_work/status.json` | Vigil(포트 4192) probe용, 원문·매핑 없음 |
 | 외부 provider 키 / Tongs(MCP 문) bearer | `<private_root>/config/secure_work/credentials/` | Owner만 배치, 이 lane은 존부만 확인 |
 | permit 신뢰 공개키 / 서명키(BIND09) | `<private_root>/config/secure_work/permit_trust.pub` / `.../credentials/permit_trust.key` | 파일 없으면 `PERMIT_TRUST_UNBOUND`/`PERMIT_SIGNER_UNBOUND`로 거부, 어떤 permit도 수락 안 함 |
 
 저장소 안의 파일에는 실제 host 경로를 쓰지 않는다. 실제 값은 `config.example.json` 형태의
-JSON 한 장에 담아 저장소 밖에 두고 `SOULFORGE_SECURE_WORK_CONFIG`로 가리킨다.
+JSON 한 장에 담아 저장소 밖에 두고 설치 launcher가 exact 경로·SHA를 고정한다.
+`SOULFORGE_SECURE_WORK_CONFIG`나 `--config`는 실행 결속을 선택할 수 없다.
 
 이 lane에는 아직 `module.manifest.json`이 없다. `module_operability` preflight는 미등재
 guild_hall 디렉터리를 위반이 아니라 카운트로만 다루므로 게이트는 초록이지만, 등재를 미룬
@@ -56,10 +57,14 @@ pilot을 벗어나면 등록한다.
 - 엔진은 Python이어야 한다. E14 kit의 참조 코어(`sf_sewe`: projection, vault, permits,
   journal, artifacts)가 Python이고, 그 계약을 Node로 다시 구현하는 것은 kit의 구현 계약이
   명시적으로 금지한 재발명이다.
-- 그래서 `sfx.mjs`는 로직을 갖지 않는다. 설정을 읽고, 거기 적힌 인터프리터를 찾고, 인자와
-  종료 코드를 그대로 통과시킨다. 설정이 없거나 인터프리터가 없으면 코드 하나로 실패한다.
+- `sfx.mjs`는 Node builtin만으로 설치 신뢰점·현재 OS custody·전체 runtime 파일 집합을
+  검사한 뒤 Python 또는 보관 bridge를 실행한다. 설치 결속이 없으면
+  `SECURE_WORK_LAUNCH_HOLD`로 실패하며 Python/SDK를 먼저 실행하지 않는다.
 
 ## 명령
+
+아래 명령은 독립적으로 고정된 설치본의 명령 표면이다. 저장소의 launcher anchor와
+`custody_runtime_binding.json`은 `null`이므로 소스 checkout 실행은 보류된다.
 
 ```sh
 node guild_hall/secure_work/sfx.mjs doctor
@@ -190,8 +195,8 @@ M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 �
 전체 BIND09 신원 경계는 후속 구현·검증 대상이다. M07의 file-owned 1회 소비·재시작
 보강은 아래 절의 범위에서 검증됐으며, 실제 키 배치만으로 전체 경계가 닫히지 않는다.
 
-남은 **코드 작업**은 불변 launcher의 신뢰점 등록/실행 연결과 전체 전이 의존성 무결성 검사,
-M06 worker의 별도 principal 격리와 전체 BIND09 신원/정책 authority 연결이다. M07의
+불변 launcher의 코드 연결과 전체 전이 의존성 검사는 아래 범위로 구현했다. 남은 **코드
+작업**은 M06 worker의 별도 principal 격리와 전체 BIND09 신원/정책 authority 연결이다. M07의
 파일 소유 기반 합성 1회 소비·재시작 검증 범위는 아래와 같다. **Owner 입력/설치 작업**은
 실제 역할 SID·승인 정책·route·binding 값 확정과 해당 계정/ACL 배치다. 두 종류의 공백을
 구분하며, Owner 값만 채우면 남은 코드가 자동으로 완성된다고 주장하지 않는다.
@@ -256,8 +261,9 @@ field review 파일이 있다는 이유만으로 자동 재개되지 않는다. 
 이미 보낸 요청 취소를 주장하지 않으며, 결과의 `accepted: false`는 그대로다.
 
 이번 현재 권한 검사는 기존 **파일 소유 기반 합성 경계**다. 별도 승인자 신원 등록소·동적
-정책 authority·M06 OS principal 격리·불변 launcher·전체 전이 의존성 무결성을 대신하지 않는다.
-이들은 남은 구현과 실제 분리 접근 시험이 필요하며 Owner 값/키 배치만으로 완성되지 않는다.
+정책 authority·M06 OS principal 격리를 대신하지 않는다. 불변 launcher의 코드 연결과
+의존성 검사는 아래 합성 범위이고, 실제 설치/분리 접근 증거는 없다. 전체 BIND09와 M06은
+남은 구현과 실제 분리 접근 시험이 필요하며 Owner 값/키 배치만으로 완성되지 않는다.
 
 ```sh
 python -I -B guild_hall/secure_work/tests/test_dispatch_lock.py
@@ -269,6 +275,61 @@ OS 잠금 시험은 stdlib만 필요하다. E14 통합 시험은 runtime config�
 없이 합성 자료와 프로세스 메모리 안의 공개된 시험용 서명값만 사용한다. 실제 child에서
 예약/호출/응답 저장 전후 강제 종료, 동시 controller, 응답 유실/변조, 호출 직전 회수,
 응답 대기 중 회수·epoch/source 변경·취소와 새 프로세스의 재개를 확인한다.
+
+## 고정 launcher와 전체 실행 의존성
+
+`sfx.mjs`의 `INSTALLATION_ANCHOR`와 기존 `custody_runtime_binding.json`은 저장소에서
+`null`이다. 기존 installer가 `renderInstalledLauncher(source, anchor)`로 생성할 수 있는 것은
+고정 소스 bytes뿐이다. 이 함수는 등록·ACL·계정·예약작업·활성화를 수행하지 않는다.
+설치 anchor는 설치 root, trust owner SID, binding SHA, Node와 OS 관측 실행본 pin을 고정한다.
+caller argv/env/job는 이 값이나 검증자를 바꾸지 못한다. binding은 기존 M10 입력에 내부
+`launch` 필드를 더하며, 별도 schema/정본/승인 발행 체계를 만들지 않는다.
+
+`launch.roots`는 각각 exact `path`와 전체 `files[{relative_path,sha256}]`다. 기존 source-lane
+전체 목록 방식으로 추가·누락·변조·중복·symlink/junction·사용자 코드 hardlink를 거부한다.
+고정 launcher와 자신을 가리키는 binding은 순환 hash를 만들지 않도록 설치 root 목록에서만
+제외하며 독립 설치 anchor/OS custody가 소유한다. config는 별도 고정 경로·SHA로 확인한다.
+Node 실행 디렉터리·Python 실행 디렉터리와 stdlib/native 파일·모든 Python source·E14 kit·
+recipe·IngressClient·전이 SDK와 package metadata를 전체 root 목록으로 묶는다. 한 실행에서
+관찰된 import만 수집한 목록은 사용하지 않는다. 외부 kit/runtime은 복사·재배포하지 않고
+명시된 read-only 설치 root를 결속한다. 업무 source·vault·job/outbox·상태·credential/key
+경로와 겹치는 root는 inventory 전에 거부하며, 목록 자체도 credential형 이름을 거부한다.
+root 자체·모든 상위 경로 성분·재귀 entry에서 `working`, `_workspaces`, `_workmeta`,
+`canonical` 및 대소문자·`working-data`/`canonical_bytes`/`workspace`/`workmeta` 같은
+표기 변형을 폴더 열람이나 파일 읽기 전에 거부한다. 이름 검사는 추가 방어일 뿐, 일반 이름의
+폴더에 업무 데이터가 없다는 증명이 아니다. config에 명시된 금지 경로와의 겹침 검사 및
+installer가 root를 코드·runtime 전용으로 확정할 의무는 그대로다.
+
+Python은 고정 `python.exe` 옆의 정확한 `python._pth`가 `python_paths`와 일치해야 한다.
+다른 `_pth`·`import site`·임의 시작 경로를 거부하고, `-I -S -B -X utf8`로 시작해 상속 환경과
+cwd를 검색 경로에서 뺀다. 지원 범위는 명시된 normal directory와 source/native module이다.
+venv의 외부 base runtime, zip stdlib, sourceless/custom loader를 조용히 허용하지 않는다.
+Python 초기 encodings/stdlib/DLL은 Python hook 전에 실행되므로 Node 전체 검사가 먼저다.
+이후 Python source는 확인한 bytes를 직접 compile해 기존 `.pyc`를 선택하지 않으며, Node
+resolve/load hook은 승인 목록 밖 파일과 변경된 동적 import를 거부한다.
+
+config load·kit bind·engine 요청/각 step/전이·송신 현재 결속 검사, scripted worker와 M10
+bridge 재실행은 고정 launcher를 다시 통과한다. bridge는 검증 후 SDK를 동적으로 import하며
+각 송신 경계의 기존 권한 재검사에 현재 전체 generation 검사도 묶는다. 직접 bridge/CLI 실행은
+거부한다. 전체 root의 byte/metadata 재검사는 비용이 있으므로 실제 runtime 크기에서 성능을
+측정해야 하며, 합성 시험의 짧은 실행 시간을 설치 SLA로 확대하지 않는다.
+
+**신뢰의 시작은 이 JavaScript보다 앞의 installer/OS다.** 승인된 비패키지 OS 실행면이
+고정 Node·launcher·cwd와 깨끗한 환경으로 실행하고 generation 및 상위 경로를 sender에게
+불변으로 유지해야 한다. `NODE_OPTIONS`의 preload와 OS DLL loader는 JavaScript 시작보다
+앞서므로 뒤의 검사만으로 안전해지지 않는다. Node와 OS 관측기의 시스템 DLL/Windows는
+OS 신뢰 기반이며, Windows 관측 실행본의 WinSxS hardlink는 그 pin/OS custody 범위에서만
+허용한다. 실제 설치·계정·ACL·launcher 등록 증거는 아직 없고, 자기 선언 hash나 생성 파일
+존재만으로 준비 완료를 주장하지 않는다. 같은 sender SID를 상속하는 worker는 M06 격리가 아니다.
+
+검증은 합성 root/fake role metadata와 명시적 test runtime만 사용한다. 실제 설치/키/config,
+운영 서비스 또는 E14 원본은 이 시험의 입력이 아니다.
+
+```sh
+node --test guild_hall/secure_work/tests/launch_binding.test.mjs
+python -I -S -B guild_hall/secure_work/tests/test_launch_runtime.py
+npm run validate:secure-work
+```
 
 ## JSON 표기·원문 상태·로컬 유용성 보완
 

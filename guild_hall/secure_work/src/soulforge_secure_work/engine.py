@@ -21,6 +21,7 @@ from pathlib import Path
 from . import adapters as adapters_module
 from . import authority, dispatch as dispatch_module, extract, guard, utility, plan as plan_module
 from .config import Config
+from .launch_runtime import recheck_if_launched
 
 STATUS_SCHEMA = "soulforge.secure_work.status.v0"
 JOB_SCHEMA = "soulforge.secure_work.job.v0"
@@ -83,6 +84,7 @@ class Lane:
     """Everything bound for one run of the lane."""
 
     def __init__(self, config: Config) -> None:
+        recheck_if_launched()
         self.config = config
         config.ensure_dirs()
         from . import kit as kit_module
@@ -282,6 +284,7 @@ class Lane:
     def transition(self, job: Job, target: str, action: str, evidence_ref: str,
                    codes: list[str] | None = None, facts: dict | None = None,
                    expected_revision: int | None = None) -> tuple[str, str]:
+        recheck_if_launched()
         handle = self.open_journal(job)
         try:
             view = handle.get(job.job_id, job.data["project_ref"])
@@ -303,6 +306,7 @@ class Lane:
 
     def request(self, recipe_id: str, source_dir: Path, requester: str,
                 mission_name: str) -> Job:
+        recheck_if_launched()
         probe = self.source.probe()
         if probe.state != "AVAILABLE":
             raise EngineStop("ADAPTER_UNAVAILABLE", f"M01 {probe.detail}")
@@ -626,6 +630,7 @@ class Lane:
                           running_revision: int | None = None) -> dict:
         """Fresh file-owned authority evidence; not full BIND09 identity policy."""
         try:
+            recheck_if_launched()
             fresh = self.load_job(job.job_id)
             record = self._permit_record(fresh)
             if record is None:
@@ -882,6 +887,7 @@ class Lane:
     def advance(self, job: Job, max_steps: int = 1) -> list[dict]:
         results: list[dict] = []
         for _ in range(max_steps):
+            recheck_if_launched()
             phase = self.phase(job)
             if phase == "HOLD":
                 phase = self._retry_hold(job, results)
