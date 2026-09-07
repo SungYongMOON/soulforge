@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import { mkdtemp, readFile, writeFile, readdir, mkdir, symlink, rename, link, rm } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
@@ -14,6 +16,14 @@ async function workspace(t) {
   return { parent, root };
 }
 const meta = evidence => ({ trusted_evidence: evidence, request_id: `w_${"1".repeat(32)}`, created_at: "2026-09-07T00:00:00.000Z" });
+
+async function withFilesystemMocks(t, overrides, run) {
+  for (const [name, implementation] of Object.entries(overrides)) t.mock.method(fs, name, implementation);
+  syncBuiltinESMExports();
+  try { return await run(); }
+  finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+}
+const permissionError = syscall => Object.assign(new Error("synthetic permission failure"), { code: "EPERM", syscall });
 
 test("durable receipt survives store restart and exact retry does not append", async t => {
   const { root } = await workspace(t);
@@ -83,6 +93,157 @@ test("overlapping retry fan-in across store instances never returns transient pa
   assert.ok(results.every(result => result.status === "RECORDED"), JSON.stringify(results.map(result => result.hold_code)));
   assert.equal(results.filter(result => !result.replayed).length, 1);
   assert.equal((await readdir(root)).length, 1);
+});
+
+test("Windows delete-pending lock open replays an exact committed retry without another lock", { skip: process.platform !== "win32", timeout: 5000 }, async t => {
+  const { root } = await workspace(t);
+  const { request, evidence } = makeWorkBindingFixture();
+  const original = { open: fs.open, lstat: fs.lstat, unlink: fs.unlink };
+  const locked = Promise.withResolvers();
+  const observed = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  const lockPath = join(root, ".intake.lock");
+  let contended = false, injected = 0, successfulLocks = 0;
+  await withFilesystemMocks(t, {
+    async open(path, ...args) {
+      if (path === lockPath && contended) {
+        await released.promise;
+        injected++;
+        throw permissionError("open");
+      }
+      if (String(path).startsWith(join(root, ".pending."))) await observed.promise;
+      try {
+        const handle = await original.open(path, ...args);
+        if (path === lockPath) { successfulLocks++; locked.resolve(); }
+        return handle;
+      } catch (error) {
+        if (path === lockPath && error.code === "EEXIST") contended = true;
+        throw error;
+      }
+    },
+    async lstat(path, ...args) {
+      const stat = await original.lstat(path, ...args);
+      if (path === lockPath && contended) observed.resolve();
+      return stat;
+    },
+    async unlink(path, ...args) {
+      const result = await original.unlink(path, ...args);
+      if (path === lockPath) released.resolve();
+      return result;
+    },
+  }, async () => {
+    const first = createWorkbenchIntakeStore({ root }).record(request, meta(evidence));
+    await locked.promise;
+    const retry = createWorkbenchIntakeStore({ root }).record(request, { ...meta(evidence), request_id: `w_${"2".repeat(32)}` });
+    const results = await Promise.all([first, retry]);
+    assert.deepEqual(results.map(row => row.status), ["RECORDED", "RECORDED"]);
+    assert.deepEqual(results.map(row => row.replayed), [false, true]);
+    assert.equal(results[1].record.request_id, results[0].record.request_id);
+    assert.equal(injected, 1);
+    assert.equal(successfulLocks, 1);
+    assert.deepEqual(await readdir(root), [`${results[0].record.request_id}.json`]);
+  });
+});
+
+test("lock open permission failure cannot append or accept a different whole request", async t => {
+  for (const existing of [false, true]) {
+    await t.test(existing ? "existing conflicting key" : "empty store", async child => {
+      const { root } = await workspace(child);
+      const { request, evidence } = makeWorkBindingFixture();
+      if (existing) await createWorkbenchIntakeStore({ root }).record(request, meta(evidence));
+      const original = { open: fs.open, readdir: fs.readdir };
+      let listings = 0, denied = 0;
+      await withFilesystemMocks(child, {
+        async readdir(path, ...args) {
+          const names = await original.readdir(path, ...args);
+          // Reproduce publication after this caller's initial snapshot.
+          return path === root && ++listings === 1 ? [] : names;
+        },
+        async open(path, ...args) {
+          if (path === join(root, ".intake.lock")) { denied++; throw permissionError("open"); }
+          return original.open(path, ...args);
+        },
+      }, async () => {
+        const changed = existing ? { ...request, directives: ["SHORTEN"] } : request;
+        const result = await createWorkbenchIntakeStore({ root }).record(changed, meta(evidence));
+        assert.equal(result.hold_code, "STORE_IO_UNAVAILABLE");
+        assert.equal(result.persisted, false);
+        assert.equal(result.record, undefined);
+        assert.equal(denied, 1);
+        assert.equal((await original.readdir(root)).length, existing ? 1 : 0);
+      });
+    });
+  }
+});
+
+test("lock open failure recovery preserves canonical and partial-state guards", { skip: process.platform !== "win32" }, async t => {
+  for (const defect of ["missing", "permission", "outside-hardlink", "partial-stage"]) {
+    await t.test(defect, async child => {
+      const { parent, root } = await workspace(child);
+      const { request, evidence } = makeWorkBindingFixture();
+      const first = await createWorkbenchIntakeStore({ root }).record(request, meta(evidence));
+      const recordPath = join(root, `${first.record.request_id}.json`);
+      const before = await readFile(recordPath, "utf8");
+      const original = { open: fs.open, readdir: fs.readdir, lstat: fs.lstat };
+      let listings = 0, denied = 0;
+      await withFilesystemMocks(child, {
+        async readdir(path, ...args) {
+          const names = await original.readdir(path, ...args);
+          return path === root && ++listings === 1 ? [] : names;
+        },
+        async open(path, ...args) {
+          if (path === join(root, ".intake.lock")) {
+            denied++;
+            if (defect === "outside-hardlink") await link(recordPath, join(parent, "external-copy.json"));
+            if (defect === "partial-stage") await writeFile(join(root, `.pending.${"a".repeat(32)}.json`), '{"partial":');
+            throw permissionError("open");
+          }
+          if (path === recordPath && defect === "permission") throw permissionError("open");
+          return original.open(path, ...args);
+        },
+        async lstat(path, ...args) {
+          if (path === recordPath && defect === "missing") throw Object.assign(new Error("synthetic disappearance"), { code: "ENOENT", syscall: "lstat" });
+          return original.lstat(path, ...args);
+        },
+      }, async () => {
+        const result = await createWorkbenchIntakeStore({ root }).record(request, meta(evidence));
+        assert.equal(result.hold_code, defect === "outside-hardlink" ? "STORE_FILE_UNSAFE" : defect === "partial-stage" ? "STORE_INCOMPLETE" : "STORE_IO_UNAVAILABLE");
+        assert.equal(result.persisted, false);
+        assert.equal(result.record, undefined);
+        assert.equal(denied, 1);
+        assert.equal((await original.readdir(root)).length, defect === "partial-stage" ? 2 : 1);
+        assert.equal(await readFile(recordPath, "utf8"), before);
+        if (defect === "partial-stage") assert.equal(await readFile(join(root, `.pending.${"a".repeat(32)}.json`), "utf8"), '{"partial":');
+      });
+    });
+  }
+});
+
+test("permission failure during published staging or lock cleanup stays commit-uncertain", async t => {
+  for (const target of ["stage", "lock"]) {
+    await t.test(target, async child => {
+      const { root } = await workspace(child);
+      const { request, evidence } = makeWorkBindingFixture();
+      const originalUnlink = fs.unlink;
+      let denied = 0;
+      await withFilesystemMocks(child, {
+        async unlink(path, ...args) {
+          if (target === "lock" ? path === join(root, ".intake.lock") : String(path).startsWith(join(root, ".pending."))) {
+            denied++;
+            throw permissionError("unlink");
+          }
+          return originalUnlink(path, ...args);
+        },
+      }, async () => {
+        const result = await createWorkbenchIntakeStore({ root }).record(request, meta(evidence));
+        assert.equal(result.hold_code, "STORE_COMMIT_UNCERTAIN");
+        assert.equal(result.persisted, false);
+        assert.equal(result.record, undefined);
+        assert.equal(denied, 1);
+        assert.equal((await readdir(root)).length, 2);
+      });
+    });
+  }
 });
 
 test("restart preserves whole-request scope and requester in the idempotency conflict", async t => {
