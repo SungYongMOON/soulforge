@@ -713,7 +713,7 @@ class Lane:
         try:
             require_sender_channel(job_scope(job))
         except RuntimeError as error:
-            raise EngineStop("SENDER_CONTROLLER_CHANNEL_UNBOUND") from error
+            raise EngineStop("CHANNEL_AUTHORITY_HOLD") from error
         try:
             with dispatch_module.controller_lock(job.root):
                 return self._dispatch_locked(job)
@@ -774,7 +774,8 @@ class Lane:
                     "reply_sha256": self.codec.digest(reply), "reply_size": len(reply)}))
 
             with tempfile.TemporaryDirectory(prefix="sfx_worker_") as workdir:
-                transport = _BoundTransport(self.scripted, Path(workdir), before_send, after_send)
+                transport = _BoundTransport(self.scripted, Path(workdir), before_send, after_send,
+                    scope=job_scope(job), attempt=self.codec.digest(attempt_id))
                 dispatch = self.runtime.DispatchReference(handle, transport, public_keys)
                 try:
                     state, reply = dispatch.send(
@@ -811,7 +812,7 @@ class Lane:
         try:
             require_sender_channel(job_scope(job))
         except RuntimeError as error:
-            raise EngineStop("SENDER_CONTROLLER_CHANNEL_UNBOUND") from error
+            raise EngineStop("CHANNEL_AUTHORITY_HOLD") from error
         try:
             recheck_if_launched()
             fresh = self.load_job(job.job_id)
@@ -1323,18 +1324,23 @@ class Lane:
 class _BoundTransport:
     """Adapts a workdir-bound transport to the kit's ByteTransport protocol."""
 
-    def __init__(self, transport, workdir: Path, before_send=None, after_send=None) -> None:
+    def __init__(self, transport, workdir: Path, before_send=None, after_send=None, *, scope=None, attempt=None) -> None:
         self.transport = transport
         self.workdir = workdir
         self.calls = 0
         self.before_send = before_send
         self.after_send = after_send
+        self.scope, self.attempt = scope, attempt
 
     def send_exact(self, body: bytes) -> bytes:
         if self.before_send:
             self.before_send()
         self.calls += 1
-        response = self.transport.send_exact(body, self.workdir)
+        if isinstance(self.transport, adapters_module.ScriptedWorkerTransport):
+            response = self.transport.send_released(body, self.scope, self.attempt, self.before_send)
+        else:
+            # Explicit synthetic transports retain the E14 ByteTransport seam.
+            response = self.transport.send_exact(body, self.workdir)
         if self.after_send:
             self.after_send(response)
         return response

@@ -130,3 +130,75 @@ test("worker registration is exact read-only metadata and never a working byte-c
     assert.throws(() => g.authority.workerContract());
   }
 });
+
+function channelFixture(t) {
+  const f = fixture(t), root = path.dirname(f.runtime.launcherPath);
+  f.runtime.installationRole = { name: "controller", sid: f.evidence.sid };
+  f.policy.ipc = { sender_pipe: "soulforge-secure-synthetic-sender-01", worker_pipe: "soulforge-secure-synthetic-worker-01" };
+  const tasks = {};
+  for (const role of ["sender", "worker"]) {
+    const launcher = path.join(root, role, "sfx.mjs");
+    const registration = { task_path: `\\Synthetic${role}`, xml_sha256: "b".repeat(64), launcher_path: launcher,
+      node_path: f.runtime.binding.node_executable.path, working_directory: root };
+    f.policy[role + "_registration"] = registration;
+    tasks[registration.task_path] = { ...structuredClone(f.task), task_path: registration.task_path,
+      principal_sid: f.policy.roles[role].sid,
+      actions: [{ type: 0, execute: registration.node_path, arguments: `"${launcher}" --${role}`, cwd: root }] };
+  }
+  f.seal();
+  const pinned = new Set([f.runtime.binding.node_executable.path, ...["sender", "worker"].map(role => f.policy[role + "_registration"].launcher_path)]);
+  f.runtime.checkFile = filename => { if (!pinned.has(filename)) throw new Error("unlisted public code"); };
+  f.authority = loadExecutionAuthority(f.runtime, { now: () => 1000, inspectTask: filename => tasks[filename] });
+  f.peerConfig = role => {
+    for (const key of Object.keys(f.config)) if (key !== "execution_authority") delete f.config[key];
+    Object.assign(f.config, { schema: "soulforge.secure_work.config.v0", execution_role: role,
+      runtime: { python_executable: path.join(root, "python.exe") }, kit_root: path.join(root, "kit"), recipe_root: path.join(root, "recipe") });
+    f.evidence.sid = f.policy.roles[role].sid;
+    f.runtime.installationRole = { name: role, sid: f.evidence.sid };
+  };
+  return { ...f, tasks, pinned };
+}
+
+test("bound IPC contract uses exact registered public code and OS role; readiness remains inactive", t => {
+  const f = channelFixture(t);
+  const contract = f.authority.channelContract(f.scope());
+  assert.equal(contract.role, "controller");
+  assert.deepEqual(contract.scope, f.scope());
+  assert.equal(new Set(Object.values(contract.sids)).size, 3);
+  assert.equal(f.authority.workerContract().code, "WORKER_CHANNEL_BOUND_INACTIVE");
+  assert.equal(f.authority.workerContract().execution_enabled, false);
+  assert.equal(JSON.stringify(contract).includes("path"), false);
+  f.peerConfig("worker");
+  assert.equal(f.authority.channelContract(f.scope()).role, "worker");
+  f.peerConfig("sender");
+  assert.equal(f.authority.channelContract(f.scope()).role, "sender");
+});
+
+test("peer configuration cannot carry any source, job, vault, key or controller config locations", t => {
+  for (const field of ["pilot_root", "source_root", "jobs_root", "vault_root", "permit_trust_pubkey_path",
+    "permit_trust_signing_key_path", "controller_config", "adapters", "status_path"]) {
+    const f = channelFixture(t);
+    f.peerConfig("worker");
+    f.config[field] = "forbidden-private-location";
+    assert.throws(() => f.authority.channelContract(f.scope()));
+  }
+  const f = channelFixture(t);
+  f.evidence.sid = f.policy.roles.worker.sid;
+  assert.throws(() => f.authority.channelContract(f.scope())); // old full config
+});
+
+test("IPC missing binding, replayed scope, renamed pipe, launcher drift and same SID all fail closed", t => {
+  for (const mutate of [f => { delete f.policy.ipc; }, f => { f.policy.ipc.sender_pipe = f.policy.ipc.worker_pipe; },
+    f => { f.policy.roles.worker.sid = f.policy.roles.sender.sid; },
+    f => { f.policy.worker_registration.launcher_path += "-changed"; },
+    f => { f.tasks[f.policy.sender_registration.task_path].actions[0].arguments += " --config attacker"; },
+    f => { f.policy.sender_registration = { task_path: "\\OldSender", xml_sha256: "b".repeat(64) }; }]) {
+    const f = channelFixture(t);
+    mutate(f); f.seal();
+    assert.throws(() => f.authority.channelContract(f.scope()));
+  }
+  for (const field of Object.keys(channelFixture(t).scope())) {
+    const f = channelFixture(t);
+    assert.throws(() => f.authority.channelContract({ ...f.scope(), [field]: "stale" }));
+  }
+});

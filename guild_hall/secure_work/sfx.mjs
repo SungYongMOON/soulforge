@@ -185,7 +185,9 @@ function assertRuntimePath(value) {
 export function renderInstalledLauncher(source, anchor) {
   // Pure source generation for the existing installer, no write/registration,
   // key generation or activation. Owner/OS custody remains a separate gate.
-  exact(anchor, ["install_root", "trust_owner_sid", "binding_sha256", "node_executable", "os_observer"]);
+  exact(anchor, ["install_root", "trust_owner_sid", "binding_sha256", "node_executable", "os_observer",
+    ...(anchor && Object.hasOwn(anchor, "role") ? ["role"] : [])]);
+  if (anchor.role) validateRolePin(anchor.role, anchor.trust_owner_sid);
   if (!path.isAbsolute(anchor.install_root) || !SID.test(anchor.trust_owner_sid) || !SHA.test(anchor.binding_sha256)) fail();
   for (const value of [anchor.node_executable, anchor.os_observer]) {
     exact(value, ["path", "sha256"]);
@@ -194,6 +196,10 @@ export function renderInstalledLauncher(source, anchor) {
   const marker = "const INSTALLATION_ANCHOR = " + "null; // INSTALLER_FIXED_ANCHOR";
   if (typeof source !== "string" || source.split(marker).length !== 2) fail();
   return source.replace(marker, `const INSTALLATION_ANCHOR = ${JSON.stringify(anchor)}; // INSTALLER_FIXED_ANCHOR`);
+}
+function validateRolePin(role, owner) {
+  exact(role, ["name", "sid"]);
+  if (!["controller", "sender", "worker", "reviewer"].includes(role.name) || !SID.test(role.sid) || role.sid === owner) fail();
 }
 // Kept as non-executing compatibility helpers. Neither selects launch authority.
 export function resolveConfigPath(argv, env) {
@@ -241,7 +247,9 @@ export function verifyInstallation(anchor, { observe = null, launcherPath = file
   executablePath = process.execPath } = {}) {
   // anchor is supplied by installed code; the CLI never accepts it as input.
   anchor = structuredClone(anchor);
-  exact(anchor, ["install_root", "trust_owner_sid", "binding_sha256", "node_executable", "os_observer"]);
+  exact(anchor, ["install_root", "trust_owner_sid", "binding_sha256", "node_executable", "os_observer",
+    ...(anchor && Object.hasOwn(anchor, "role") ? ["role"] : [])]);
+  if (Object.hasOwn(anchor, "role")) validateRolePin(anchor.role, anchor.trust_owner_sid);
   if (!SID.test(anchor.trust_owner_sid) || !SHA.test(anchor.binding_sha256)
     || !same(launcherPath, path.join(anchor.install_root, "guild_hall/secure_work/sfx.mjs"))
     || !same(executablePath, anchor.node_executable?.path)) fail();
@@ -253,6 +261,10 @@ export function verifyInstallation(anchor, { observe = null, launcherPath = file
   const bindingPath = path.join(path.dirname(launcherPath), "custody_runtime_binding.json");
   const sender = assertProtectedPaths([launcherPath, bindingPath, executablePath, anchor.os_observer.path],
     anchor.trust_owner_sid, query);
+  // The immutable launcher selects its OS role BEFORE reading any binding or
+  // config contents. A worker token entering a controller launcher sees no
+  // controller configuration, including its private data locations.
+  if (anchor.role && sender !== anchor.role.sid) fail();
   const raw = bytes(bindingPath, 16777216);
   if (hash(raw) !== anchor.binding_sha256) fail();
   const binding = JSON.parse(raw);
@@ -341,6 +353,7 @@ export function verifyInstallation(anchor, { observe = null, launcherPath = file
     if (!expected.has(norm(p)) || hash(bytes(p)) !== expected.get(norm(p))) fail();
   };
   return Object.freeze({ binding, config, expected, roots, launcherPath, checkFile, observeSecurity: query,
+    installationRole: anchor.role ? Object.freeze({ ...anchor.role }) : null,
     recheck: () => verifyInstallation(anchor, { observe, launcherPath, executablePath }),
     environment: Object.freeze({ SYSTEMROOT: path.dirname(path.dirname(path.dirname(path.dirname(anchor.os_observer.path)))),
       WINDIR: path.dirname(path.dirname(path.dirname(path.dirname(anchor.os_observer.path)))) }) });
@@ -364,12 +377,16 @@ export function guardNodeImports(runtime) {
   });
 }
 export function pythonInvocation(runtime, mode, argv = []) {
-  if (!["cli", "worker"].includes(mode) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
+  if (!["cli", "worker", "sender"].includes(mode) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
     flag => a === flag || a.startsWith(`${flag}=`)))) fail();
   const launch = runtime.binding.launch;
   const packet = { mode, argv, config_path: runtime.binding.config_path, config_sha256: runtime.binding.config_sha256,
     kit_root: launch.kit_root, node: runtime.binding.node_executable.path, launcher: runtime.launcherPath,
     python_paths: launch.python_paths, files: Object.fromEntries(runtime.expected), environment: runtime.environment };
+  if (mode !== "cli") {
+    delete packet.config_path;
+    delete packet.config_sha256;
+  }
   const bootstrap = path.join(path.dirname(runtime.launcherPath), "src/soulforge_secure_work/launch_runtime.py");
   // sys is builtin. No PYTHONPATH, site, user site, cwd, .pth, startup script or
   // inherited environment participates in application import resolution.
@@ -418,6 +435,11 @@ export async function executeVerified(runtime, argv, { spawn = spawnSync } = {})
     return roles.authorize(request.operation, request.scope);
   }
   if (argv[0] === "--worker-preflight" && argv.length === 1) return roles.workerContract();
+  if (argv[0] === "--channel-contract" && argv.length === 1) {
+    const request = JSON.parse(readWorkerInput());
+    exact(request, ["scope"]);
+    return roles.channelContract(request.scope);
+  }
   if (argv[0] === "--custody-bridge" && argv.length === 1) {
     roles.requireRole("sender");
     const hooks = guardNodeImports(runtime);
@@ -431,21 +453,20 @@ export async function executeVerified(runtime, argv, { spawn = spawnSync } = {})
     } finally { hooks.deregister(); }
   }
   const worker = argv[0] === "--worker" && argv.length === 1;
-  if (worker) {
-    roles.requireRole("worker");
-    roles.workerContract();
-    // No inherited-token fallback. The separate-principal byte/journal channel
-    // is still an implementation dependency, not an Owner key/config input.
-    throw new Error("WORKER_BYTE_CHANNEL_UNBOUND");
+  const sender = argv[0] === "--sender" && argv.length === 1;
+  if (worker || sender) {
+    roles.requireRole(worker ? "worker" : "sender");
+    roles.channelContract();
+  } else {
+    if (argv.some(a => a.startsWith("--preflight") || a.startsWith("--custody") || a.startsWith("--worker")
+      || a.startsWith("--sender") || a.startsWith("--channel"))) fail();
+    if (argv[0] === "permit") roles.entry(argv[1] === "approve" ? "release.issue" : "release.review");
+    else roles.entry(argv[0] === "request" ? "jobs.submit" : argv[0] === "advance" ? "jobs.advance" : "jobs.get");
   }
-  if (!worker && argv.some(a => a.startsWith("--preflight") || a.startsWith("--custody") || a.startsWith("--worker"))) fail();
-  if (argv[0] === "permit") roles.entry(argv[1] === "approve" ? "release.issue" : "release.review");
-  else roles.entry(argv[0] === "request" ? "jobs.submit" : argv[0] === "advance" ? "jobs.advance" : "jobs.get");
   runtime.recheck();
-  const command = pythonInvocation(runtime, worker ? "worker" : "cli", worker ? [] : argv);
-  const workerInput = worker ? readWorkerInput() : Buffer.alloc(0);
+  const command = pythonInvocation(runtime, worker ? "worker" : sender ? "sender" : "cli", worker || sender ? [] : argv);
   const result = spawn(command.executable, command.args, { ...command.options,
-    stdio: ["pipe", "inherit", "inherit"], input: Buffer.concat([command.inputPrefix, workerInput]) });
+    stdio: ["pipe", "inherit", "inherit"], input: command.inputPrefix, timeout: worker || sender ? 150000 : undefined });
   if (result.error) fail();
   return { exitCode: result.status ?? 1 };
 }

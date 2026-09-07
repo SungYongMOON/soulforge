@@ -271,11 +271,10 @@ class VaultAdapter:
 # --- M06 provider transport -------------------------------------------------
 
 class ScriptedWorkerTransport:
-    """Cycle-1 child gets released bytes through stdin and a narrow environment.
+    """Controller-side adapter for the installed sender/worker byte brokers.
 
-    Its temporary cwd is not OS isolation: it still inherits the sender's
-    principal. Denying source/vault/job/key access requires the pending M06
-    separate-principal implementation and actual access tests.
+    Brokers are started independently by the registered OS role launchers.
+    The controller never starts a worker with its own inherited principal.
     """
 
     module = "M06"
@@ -292,13 +291,11 @@ class ScriptedWorkerTransport:
         return Probe(self.module, self.name, "AVAILABLE", "scripted worker, no network")
 
     def send_exact(self, body: bytes, workdir: Path) -> bytes:
-        from .launch_runtime import call_launcher
-        # The launcher rechecks the same full generation and selects the fixed
-        # interpreter/worker. No job cwd or caller Python search path is used.
-        completed = call_launcher(["--worker"], body=body, timeout=120)
-        if completed.returncode != 0:
-            raise RuntimeError("WORKER_FAILED")
-        return completed.stdout
+        raise RuntimeError("CHANNEL_SCOPE_REQUIRED")
+
+    def send_released(self, body: bytes, scope: dict, attempt: str, current) -> bytes:
+        from .ipc import send_released
+        return send_released(body, scope, attempt, current)
 
 
 class OpenRouterTransport:

@@ -88,7 +88,8 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
     const raw = bytes(pin.policy_path);
     if (hash(raw) !== pin.policy_sha256) fail();
     const policy = JSON.parse(raw);
-    exact(policy, ["epoch", "expires_at", "revoked", "roles", "context", "issuer_key_id", "public_key_sha256", "worker_registration"]);
+    exact(policy, ["epoch", "expires_at", "revoked", "roles", "context", "issuer_key_id", "public_key_sha256", "worker_registration",
+      ...(Object.hasOwn(policy, "ipc") ? ["ipc", "sender_registration"] : [])]);
     if (!Number.isSafeInteger(policy.epoch) || policy.epoch < 1 || policy.revoked !== false
       || !Number.isSafeInteger(policy.expires_at) || now() >= policy.expires_at
       || !REF.test(policy.issuer_key_id) || !SHA.test(policy.public_key_sha256)) fail();
@@ -107,11 +108,15 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
     exact(context, ["project_ref", "assignment_ref", "assignment_epoch", "task_ref", "route_sha256", "audience"]);
     if (![context.project_ref, context.assignment_ref, context.task_ref, context.audience].every(value => REF.test(value))
       || !SHA.test(context.route_sha256) || !Number.isSafeInteger(context.assignment_epoch) || context.assignment_epoch < 1) fail();
-    // The public verification material is separate from private signing bytes.
-    const keyPath = runtime.config.permit_trust_pubkey_path;
-    protect([keyPath]);
-    if (hash(bytes(keyPath, 1024)) !== policy.public_key_sha256) fail();
-    if (protect([pin.policy_path, keyPath]) !== sid || now() >= policy.expires_at) fail();
+    // Peer configs contain no key locations or bytes, even public-key bytes.
+    // M05 verification stays with the controller that owns the M07 journal.
+    if (!["sender", "worker"].includes(roleName)) {
+      const keyPath = runtime.config.permit_trust_pubkey_path;
+      protect([keyPath]);
+      if (hash(bytes(keyPath, 1024)) !== policy.public_key_sha256) fail();
+      if (protect([pin.policy_path, keyPath]) !== sid) fail();
+    }
+    if (now() >= policy.expires_at) fail();
     return { policy, roleName, sid };
   }
   function scopeMatches(scope, policy) {
@@ -150,9 +155,68 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
     if (expectedRole === "reviewer") signingBoundary(value);
     return proof(value);
   }
+  function channelContract(scope = null) {
+    const value = current(), { policy, roleName } = value;
+    if (!["controller", "sender", "worker"].includes(roleName)) fail();
+    exact(runtime.installationRole, ["name", "sid"]);
+    if (runtime.installationRole.name !== roleName || runtime.installationRole.sid !== value.sid) fail();
+    if (scope !== null) scopeMatches(scope, policy);
+    if (roleName === "controller") authorize("jobs.advance", { ...policy.context, policy_epoch: policy.epoch });
+    if (roleName === "sender") authorize("model.dispatch", { ...policy.context, policy_epoch: policy.epoch });
+    exact(policy.ipc, ["sender_pipe", "worker_pipe"]);
+    if (!Object.values(policy.ipc).every(p => typeof p === "string" && /^soulforge-secure-[a-z0-9-]{16,80}$/.test(p))
+      || policy.ipc.sender_pipe === policy.ipc.worker_pipe) fail();
+    if (roleName !== "controller") {
+      // Each peer has its OWN immutable installation/config. A worker never
+      // reads a controller config to discover which private paths to avoid.
+      exact(runtime.config, ["schema", "execution_role", "runtime", "kit_root", "recipe_root", "execution_authority"]);
+      if (runtime.config.execution_role !== roleName) fail();
+      exact(runtime.config.runtime, ["python_executable"]);
+    }
+    // Pin only self/downstream launchers. A worker pinning its upstream sender
+    // would create mutually recursive binding/launcher hashes that no real
+    // installer could seal. Kernel identity authenticates the upstream peer.
+    if (roleName !== "worker") registeredContract("sender", value, true);
+    registeredContract("worker", value, true);
+    if (current().sid !== value.sid) fail();
+    return { role: roleName, scope: { ...policy.context, policy_epoch: policy.epoch },
+      sids: Object.fromEntries(["controller", "sender", "worker"].map(role => [role, policy.roles[role].sid])),
+      ...policy.ipc, expires_at: policy.expires_at };
+  }
+  function registeredContract(role, value, requireChannel = false) {
+    const expected = value.policy[role + "_registration"];
+    const extended = expected && Object.hasOwn(expected, "launcher_path");
+    exact(expected, ["task_path", "xml_sha256", ...(extended ? ["launcher_path", "node_path", "working_directory"] : [])]);
+    if (requireChannel && !extended) fail();
+    if (!/^\\[A-Za-z0-9_. -]+$/.test(expected.task_path) || !SHA.test(expected.xml_sha256)) fail();
+    const launcher = extended ? expected.launcher_path : runtime.launcherPath;
+    const node = extended ? expected.node_path : anchor.node_executable.path;
+    const cwd = extended ? expected.working_directory : path.dirname(node);
+    if (![launcher, node, cwd].every(p => typeof p === "string" && path.isAbsolute(p)) || launcher.includes('"')) fail();
+    if (extended) {
+      // Other role launchers are public code pins in the closed generation,
+      // never their role config/binding or controller private-data paths.
+      runtime.checkFile(launcher); runtime.checkFile(node);
+    }
+    const task = (inspectTask || (p => observeRegisteredWorkerTask(p, runtime)))(expected.task_path);
+    if (task?.task_path !== expected.task_path || task.enabled !== true || task.xml_sha256 !== expected.xml_sha256
+      || task.principal_sid !== value.policy.roles[role].sid || task.run_level !== 0
+      || ![1, 2].includes(task.logon_type) || !Array.isArray(task.actions) || task.actions.length !== 1
+      || ![anchor.trust_owner_sid, ...SYSTEM].includes(task.owner_sid) || !Array.isArray(task.allow)) fail();
+    const action = task.actions[0];
+    if (action.type !== 0 || !same(action.execute, node) || action.arguments !== `"${launcher}" --${role}`
+      || !same(action.cwd, cwd) || !same(cwd, path.dirname(node))) fail();
+    for (const ace of task.allow) {
+      if (!SID.test(ace.sid) || !Number.isSafeInteger(ace.rights)) fail();
+      if ((ace.rights & (2 | 4 | 16 | 64 | 256 | 65536 | 262144 | 524288 | 0x40000000 | 0x10000000))
+        && ![anchor.trust_owner_sid, ...SYSTEM].includes(ace.sid)) fail();
+    }
+    return true;
+  }
   return Object.freeze({
     requireRole,
     authorize,
+    channelContract,
     entry(operation) {
       const value = current();
       return authorize(operation, { ...value.policy.context, policy_epoch: value.policy.epoch });
@@ -167,24 +231,14 @@ export function loadExecutionAuthority(runtime, { now = () => Date.now(), inspec
       return proof(value);
     },
     workerContract() {
-      const value = current(), expected = value.policy.worker_registration;
-      exact(expected, ["task_path", "xml_sha256"]);
-      if (!/^\\[A-Za-z0-9_. -]+$/.test(expected.task_path) || !SHA.test(expected.xml_sha256)) fail();
-      const task = (inspectTask || (p => observeRegisteredWorkerTask(p, runtime)))(expected.task_path);
-      if (task?.task_path !== expected.task_path || task.enabled !== true || task.xml_sha256 !== expected.xml_sha256
-        || task.principal_sid !== value.policy.roles.worker.sid || task.run_level !== 0
-        || ![1, 2].includes(task.logon_type) || !Array.isArray(task.actions) || task.actions.length !== 1
-        || ![anchor.trust_owner_sid, ...SYSTEM].includes(task.owner_sid) || !Array.isArray(task.allow)) fail();
-      const action = task.actions[0];
-      const args = `"${runtime.launcherPath}" --worker`;
-      if (runtime.launcherPath.includes('"') || action.type !== 0 || !same(action.execute, anchor.node_executable.path)
-        || action.arguments !== args || !same(action.cwd, path.dirname(anchor.node_executable.path))) fail();
-      for (const ace of task.allow) {
-        if (!SID.test(ace.sid) || !Number.isSafeInteger(ace.rights)) fail();
-        if ((ace.rights & (2 | 4 | 16 | 64 | 256 | 65536 | 262144 | 524288 | 0x40000000 | 0x10000000))
-          && ![anchor.trust_owner_sid, ...SYSTEM].includes(ace.sid)) fail();
-      }
+      const value = current();
+      registeredContract("worker", value);
       if (current().sid !== value.sid) fail();
+      if (value.policy.ipc) {
+        channelContract();
+        return { registration_checked: true, execution_enabled: false,
+          code: "WORKER_CHANNEL_BOUND_INACTIVE", role: "worker", purpose: PURPOSE.worker };
+      }
       return { registration_checked: true, execution_enabled: false,
         code: "WORKER_BYTE_CHANNEL_UNBOUND", role: "worker", purpose: PURPOSE.worker };
     },

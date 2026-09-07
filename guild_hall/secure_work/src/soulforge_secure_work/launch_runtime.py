@@ -156,11 +156,10 @@ def job_scope(job):
 
 def require_sender_channel(scope):
     if is_launched():
-        role_check("model.dispatch", scope)
-        # The controller still owns source/vault and the journal call stack.
-        # Until the scoped metadata/byte channel exists, no live role may use
-        # that stack as a substitute sender or consume its permit.
-        raise RuntimeError("SENDER_CONTROLLER_CHANNEL_UNBOUND")
+        from .ipc import runtime_contract
+        role_check("jobs.advance", scope)
+        if runtime_contract(scope)["role"] != "controller":
+            raise RuntimeError("CHANNEL_AUTHORITY_HOLD")
 
 
 def checked_config(path=None):
@@ -196,8 +195,11 @@ def initialize(packet):
 def main(packet):
     initialize(packet)
     if packet["mode"] == "worker":
-        from soulforge_secure_work.worker import main as entry
-        return entry()
+        from soulforge_secure_work.ipc import serve_runtime
+        return serve_runtime("worker")
+    if packet["mode"] == "sender":
+        from soulforge_secure_work.ipc import serve_runtime
+        return serve_runtime("sender")
     if packet["mode"] == "cli":
         from soulforge_secure_work.cli import main as entry
         return entry(packet["argv"])
