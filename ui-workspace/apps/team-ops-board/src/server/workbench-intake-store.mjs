@@ -113,7 +113,12 @@ export function createWorkbenchIntakeStore({ root, maxRecordBytes = 32768, lockR
     for (let attempt = 0; attempt <= lockRetries; attempt++) {
       await checkRoot();
       try {
-        const handle = await open(join(rootPath, ".intake.lock"), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | NOFOLLOW, 0o600);
+        let handle;
+        try { handle = await open(join(rootPath, ".intake.lock"), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | NOFOLLOW, 0o600); }
+        catch (error) {
+          if (process.platform === "win32" && error.code === "EPERM") error.intakeLockOpenDenied = true;
+          throw error;
+        }
         const identity = await handle.stat();
         try {
           await checkRoot();
@@ -173,7 +178,16 @@ export function createWorkbenchIntakeStore({ root, maxRecordBytes = 32768, lockR
         } catch (error) {
           if (error.intakeCode !== "STORE_INCOMPLETE") throw error;
         }
-        lock = await acquireLock();
+        try { lock = await acquireLock(); }
+        catch (error) {
+          if (error.intakeLockOpenDenied !== true) throw error;
+          // Windows can deny an exclusive open while another writer deletes its lock.
+          // Recheck only the existing immutable replay; never retry permission errors or
+          // append without a lock. Real IO failures and non-identical requests stay closed.
+          const replay = evaluateWorkbenchIntakeRecord(request, { ...metadata, existing_records: await records() });
+          if (replay.status !== "RECORDED" || !replay.replayed) throw error;
+          return deepFreeze({ ...replay, persisted: true });
+        }
         const existing = await records();
         const next = evaluateWorkbenchIntakeRecord(request, { ...metadata, existing_records: existing });
         if (next.status !== "RECORDED") outcome = { ...next, persisted: false };
