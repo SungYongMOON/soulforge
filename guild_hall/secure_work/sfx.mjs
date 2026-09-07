@@ -403,6 +403,11 @@ async function executionAuthority(runtime) {
 export async function executeVerified(runtime, argv, { spawn = spawnSync } = {}) {
   if (argv[0] === "--preflight" && argv.length === 1) return { ok: true, code: "SECURE_WORK_LAUNCH_VERIFIED" };
   const roles = await executionAuthority(runtime);
+  if (argv[0] === "--role-entry" && argv.length === 1) {
+    const request = JSON.parse(readWorkerInput());
+    exact(request, ["operation"]);
+    return roles.entry(request.operation);
+  }
   if (argv[0] === "--role-check" && argv.length === 1) {
     const request = JSON.parse(readWorkerInput());
     if (request.operation === "permit.identity") {

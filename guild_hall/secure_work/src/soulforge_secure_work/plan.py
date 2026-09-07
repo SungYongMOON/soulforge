@@ -6,10 +6,10 @@ mismatch or a missing field review is an error, never a silent KEEP.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from .extract import Part
+from . import storage
 
 SECTION_TITLES = {
     "facts": "확인된 사실",
@@ -36,13 +36,20 @@ DEFAULT_ACTION = {
 
 
 def load_recipe(recipe_root: Path, recipe_id: str) -> dict:
-    path = Path(recipe_root) / f"{recipe_id}.json"
-    if not path.is_file():
-        raise RuntimeError("RECIPE_NOT_FOUND")
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("recipe_id") != recipe_id:
-        raise RuntimeError("RECIPE_ID_MISMATCH")
-    return data
+    try:
+        storage.identifier(recipe_id)
+        raw = storage.read_bytes(recipe_root, f"{recipe_id}.json", maximum=65536)
+        data = storage.decode_object(raw)
+        if data.get("recipe_id") != recipe_id:
+            raise storage.StorageHold("RECIPE_ID_MISMATCH")
+        sections = data.get("required_sections")
+        if (not isinstance(sections, list) or not sections
+                or any(not isinstance(value, str) or value not in SECTION_TITLES for value in sections)
+                or len(sections) != len(set(sections))):
+            raise storage.StorageHold("RECIPE_SECTION_UNSUPPORTED")
+        return data
+    except storage.StorageHold:
+        raise RuntimeError("RECIPE_STORE_HOLD") from None
 
 
 def work_definition(models, recipe: dict):

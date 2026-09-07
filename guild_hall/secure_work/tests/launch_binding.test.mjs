@@ -156,6 +156,19 @@ test("direct launcher entrypoint resolves the real execution-authority import an
   assert.equal(JSON.parse(result.stdout).principal_ref, "synthetic.controller");
 });
 
+test("read-only role entry uses installed context and rejects caller-supplied scope", t => {
+  for (const request of [{ operation: "jobs.get" }, { operation: "jobs.get", scope: { task_ref: "foreign" } }]) {
+    const f = fixture(t);
+    const result = directSyntheticEntry(f, ["--role-entry"], JSON.stringify(request));
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, request.scope ? 2 : 0);
+    if (!request.scope) {
+      assert.equal(JSON.parse(result.stdout).task_ref, "synthetic.task");
+      assert.equal(JSON.parse(result.stdout).principal_ref, "synthetic.controller");
+    }
+  }
+});
+
 test("direct custody entrypoint resolves its authority module before a normal unbound denial", t => {
   const f = fixture(t);
   // Isolate the second back-import: no real OS task, policy or credential

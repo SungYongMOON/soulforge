@@ -104,6 +104,19 @@ test("reviewer gate checks signer custody and actor/key identity without reading
   assert.throws(() => f.authority.authorize("release.issue", f.scope()));
 });
 
+test("reviewer read entry derives current scope but never relaxes scope-required authorization", t => {
+  const f = fixture(t); f.evidence.sid = f.policy.roles.reviewer.sid;
+  for (const operation of ["release.issue", "release.review"]) {
+    const current = f.authority.entry(operation);
+    assert.equal(current.principal_ref, "principal.reviewer");
+    assert.equal(current.task_ref, f.policy.context.task_ref);
+    assert.throws(() => f.authority.authorize(operation, null));
+    assert.throws(() => f.authority.authorize(operation, { ...f.scope(), task_ref: "task.foreign" }));
+    assert.equal(f.authority.authorize(operation, f.scope()).principal_ref, current.principal_ref);
+  }
+  assert.throws(() => f.authority.entry("jobs.get"));
+});
+
 test("worker registration is exact read-only metadata and never a working byte-channel claim", t => {
   const f = fixture(t);
   assert.deepEqual(f.authority.workerContract(), { registration_checked: true, execution_enabled: false,

@@ -45,6 +45,7 @@ def prepare(root):
     bundle = plan.source_bundle(models, pins, parts, "p", "a", 1)
     work = plan.work_definition(models, {"recipe_id": "TEST", "required_sections": ["facts"]})
     job = Job(lane.config, "o_" + "a" * 32, {
+        "schema": "soulforge.secure_work.job.v0", "job_id": "o_" + "a" * 32,
         "mission_id": "o_" + "b" * 32, "project_ref": "p", "assignment_ref": "a", "assignment_epoch": 1,
         "round": 0, "policy_epoch": 1, "base_candidate_rev": "none", "recipe_id": "TEST",
         "source_bundle_sha256": codec.digest(bundle), "work_definition_sha256": codec.digest(work),
@@ -67,8 +68,8 @@ def prepare(root):
     job.path("permit.json").write_bytes(codec.canonical({"decision": "ALLOW", "authority": "SYNTHETIC",
         "issuer_key_id": "synthetic.test", "permit": permits.sign_for_test(claims, test_key(), "synthetic.test").model_dump(mode="json")}))
     job.save()
-    handle = lane.open_journal(job)
-    handle.create(job.job_id, "p", "test")
+    handle = lane.open_journal(job, create=True)
+    handle.create(job.job_id, "p", job.data["recipe_id"])
     for phase in ("SOURCE_PINNED", "G2_PREPARED", "RELEASE_REVIEW", "READY"):
         current = handle.get(job.job_id, "p")
         handle.transition(job.job_id, "p", current.revision, phase, _opaque(phase), "synthetic.evidence")
@@ -98,8 +99,8 @@ def main(root, mode):
         dispatch.durable_write = write
     if mode.startswith("crash_") or mode == "revoke_before_call":
         original_open = lane.open_journal
-        def opened(job):
-            handle = original_open(job)
+        def opened(job, **options):
+            handle = original_open(job, **options)
             if mode == "crash_reserved":
                 original_reserve = handle.reserve_attempt
                 def reserve(*args):

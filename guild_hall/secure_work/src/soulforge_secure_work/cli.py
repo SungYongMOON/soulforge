@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "advance":
-            job = lane.load_job(args.job)
+            job = lane.load_job(args.job, operation="jobs.advance")
             steps = lane.advance(job, max_steps=max(1, args.max_steps))
             _emit({"ok": all(step.get("state") == "ADVANCED" for step in steps),
                    "command": "advance", "job_id": job.job_id,
@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "permit":
-            job = lane.load_job(args.job)
+            job = lane.load_job(args.job, operation="release.issue" if args.decision == "approve" else "release.review")
             if args.decision == "approve":
                 record = lane.approve_permit(job, args.actor)
                 _emit({"ok": True, "command": "permit", "decision": "ALLOW",
