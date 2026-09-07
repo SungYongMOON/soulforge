@@ -10,8 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { openStore } from '../src/store.mjs';
 import { makeNativeWorkbenchFixture } from './hermes_native_workbench_fixture.mjs';
 
-async function serve(t, { executionEnabled = true, executionRoot, delayMs = 0, catalogueStatus = 200, nativeMode = 'ok', supported = true } = {}) {
-  const fixture = await makeNativeWorkbenchFixture({ mode: nativeMode, supported, timeoutMs: nativeMode === 'timeout' ? 2000 : 4000 });
+async function serve(t, { executionEnabled = true, executionRoot, delayMs = 0, catalogueStatus = 200,
+  nativeMode = 'ok', supported = true, nativeProfile = 'workbench-synthetic' } = {}) {
+  const fixture = await makeNativeWorkbenchFixture({ mode: nativeMode, supported, profileName: nativeProfile,
+    timeoutMs: nativeMode === 'timeout' ? 2000 : 4000 });
   const dbPath = join(fixture.root, 'synthetic-http.db');
   const seed = openStore(dbPath);
   seed.createAccount({ id: 'account.a', username: 'alpha', password: 'synthetic-pass-a', roles: ['member'] });
@@ -96,6 +98,16 @@ test('actual native HTTP user flow observes a response without candidate custody
   assert.equal((await app.get('/candidate')).status, 404);
   assert.equal((await app.post('/execution')).body.replayed, true);
   assert.equal((await readFile(join(app.fixture.nativeHome, 'started.txt'), 'utf8')).trim().split('\n').length, 1);
+});
+
+test('actual native HTTP supports the existing default profile with official NULL session metadata', { timeout: 20000 }, async t => {
+  const app = await serve(t, { nativeProfile: 'default' });
+  assert.equal((await app.post('/execution')).status, 202);
+  const result = await settled(app.get);
+  assert.equal(result.execution_state, 'response_observed', JSON.stringify(result));
+  assert.equal(result.local_candidate_stored, false);
+  const argv = JSON.parse(await readFile(join(app.fixture.nativeHome, 'argv.json'), 'utf8'));
+  assert.equal(argv[argv.indexOf('-p') + 1], 'default');
 });
 
 test('native HTTP retains current ownership, same-origin and CSRF on every execution route', { timeout: 20000 }, async t => {
