@@ -42,7 +42,9 @@ node guild_hall/deployment_pack/tools/release_rehearsal.mjs --pack tool_workshop
   `python guild_hall/tool_workshop/tests/native_xlsx_canary_readback.py --root SAME_CANARY_DIRECTORY`
   in an existing runtime containing openpyxl. It checks the exact receipt bytes and
   cells, and rejects formulas, external links and hidden sheets.
-- The PPTX profile reuses an approved two-slide text template. It requires an
+- The original PPTX profile reuses an approved two-slide text template. The
+  optional approved text profile supports 2–20 slides and 1–4 textboxes per slide,
+  with exact geometry, font, placeholder and content checks. It requires an
   explicitly installed Python 3.12 runtime and licensed `@oai/artifact-tool`
   2.8.59 renderer, each hash-pinned locally. Those external runtime bytes are
   not redistributed in this source pack. The command is portable Node/Python;
@@ -51,15 +53,23 @@ node guild_hall/deployment_pack/tools/release_rehearsal.mjs --pack tool_workshop
   `node guild_hall/tool_workshop/src/synthetic_pptx_canary.mjs --output-root ABSOLUTE_EMPTY_DIRECTORY --artifact-root APPROVED_RENDERER_DIRECTORY --python-executable APPROVED_PYTHON_EXECUTABLE`.
   It creates the synthetic template, runs author/independent native validation,
   reimports the actual PPTX to PNG, and preserves hashes in the candidate receipt.
-  Inspect both PNGs and the editable text before treating this exercise as passed.
+  Inspect every PNG and the editable text before treating this exercise as passed.
+  Add `--korean-text` in a different fresh directory to exercise the four-slide
+  Korean fixture, then run
+  `python guild_hall/tool_workshop/tests/native_pptx_canary_readback.py --root SAME_CANARY_DIRECTORY`
+  with an existing python-pptx verification runtime for independent native readback.
 - To include the actual PPTX path in both source and installed smoke, provide a
   JSON file with exactly `artifactRoot`, `templatePath`, `pythonExecutable`,
   `templateProvenance: "synthetic_fixture"`, and the synthetic `templateApprovalRef`.
   The rehearsal copies and hashes this limited input in its fresh private root.
-  Without it, the real PPTX test is explicitly skipped and the strict rehearsal
-  stays HOLD; the packet and XLSX tests still run. General slides, Korean text,
-  images/charts and other templates are outside this first PPTX profile and remain
-  tool development, not an operator approval task.
+  Without it, three real PPTX tests are explicitly skipped and the strict rehearsal
+  stays HOLD; the packet and XLSX tests still run. The configured suite includes
+  the Korean fixture and the 20-slide/80-textbox maximum profile. Text is never
+  shrunk, normalized or truncated to pass: invalid Unicode or an exceeded layout
+  budget requires corrected approved input/template. Images/charts, arbitrary
+  template structures and other specialist adapters remain development work.
+  Host font coverage and renderer-internal clipping are not fully proved by the
+  pixel guard; inspect every new business template's actual rendered pages.
 - `guild_hall/agent_observation/resource_job_shop.mjs` is the adjacent host/resource observation contract; it is not a physical tool controller.
 - `guild_hall/vault_revision/` owns the separate review/acceptance route for any ArtifactRevision candidate.
 

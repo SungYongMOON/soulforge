@@ -52,21 +52,30 @@ Each future Workshop module contains an owner README, module manifest, interface
 
 ## Current status
 
-2026-09-07 CURRENT: the isolated XLSX workshop now uses a durable SQLite journal
+2026-09-08 CURRENT: the isolated XLSX workshop uses a durable SQLite journal
 with transaction-bound leases, fencing, cancellation and restart replay. The
 fixed Node writer and separate validation child produce exact hash/size candidate
 receipts; both reuse the existing project-history XLSX implementation. The bounded
 PPTX adapter reuses the existing template text-replacement code, separately verifies
 native contents, and reimports the actual candidate for PNG review. Its configured
-27 tests and independent review cover resource/profile mismatch, database-lock
+33 tests and independent review cover resource/profile mismatch, database-lock
 expiry, strict existing-state reopening, drift and candidate validation. Native
 openpyxl and python-pptx readback confirm the isolated samples. Without the explicit
-synthetic PPTX runtime binding, 26 tests pass and one actual rendering test is skipped.
+synthetic PPTX runtime binding, three actual rendering tests are skipped.
 The Tool Workshop Pack carries the actual source dependency closure and the same
 source/installed smoke suite. Node 24+ is required for the durable runtime.
 
-The PPTX profile is currently two ASCII text slides only; general/Korean presentation
-profiles and HWPX/CAD/PCB adapters remain implementation, rather than Owner approval.
+2026-09-08 text-profile extension: the original two-slide ASCII input is preserved.
+An optional trusted profile supports 2–20 slides with 1–4 editable textboxes per
+slide, exact approved template geometry/font/text and conservative Unicode/fit
+admission. Configured tests pass 33 with no skips, native adversarial tests pass
+10, and independent review covered an actual four-slide Korean candidate and
+the original v1 canary. The 20-slide/80-textbox path was authored and rendered
+in the test suite. Without the explicit runtime config, three rendering tests
+are skipped. Every actual page of a new business template still requires visual
+inspection; arbitrary glyph/font coverage and internal renderer clipping are not
+fully established by pixel checks. General charts/images and HWPX/CAD/PCB adapters
+remain implementation, rather than Owner approval.
 This evidence does not establish a physical Tool PC, Office round-trip/printing,
 operational disaster recovery, upstream execution authorization, artifact
 acceptance or the remaining specialist adapters. Those implementation and

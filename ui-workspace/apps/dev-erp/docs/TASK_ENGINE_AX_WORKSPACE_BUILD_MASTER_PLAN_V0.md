@@ -1,5 +1,15 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-08 CURRENT (execution store startup lock): the existing one-second
+> SQLite busy timeout is set before the first metadata read. A real lock timeout
+> is EXECUTION_STORE_BUSY rather than foreign-format rejection; foreign bytes,
+> bounded claims, replay and fencing remain protected. The initial failure was
+> reproduced on Windows/Linux; focused 12 tests and 100 independent claim pairs
+> per OS passed with separate review. Windows full wiring and Linux serial full
+> wiring passed 92 each. Different short-deadline failures in WSL default-parallel
+> runs remain recorded, so those runs are not called green. No live store or
+> operating route was changed by this synthetic development correction.
+
 > 2026-09-08 CURRENT (Hermes compatibility boundary): default runtime capability
 > is unknown and blocks before Work Brief reading or command launch. A trusted
 > current resolver must match the assignment capability snapshot, executable
