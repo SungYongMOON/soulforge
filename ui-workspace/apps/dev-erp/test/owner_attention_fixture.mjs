@@ -30,10 +30,10 @@ export function makeAttentionFixture(t, options = {}) {
     publish(overrides = {}, account = bot) {
       return erp.publishWorkSession(account, { item_id:item.id, idempotency_key:`attention-synthetic-${++counter}`,
         client_session_ref:'oa1:review_document:1:none', request_kind:'owner_attention/request',
-        summary:'표지의 제목을 어느 표현으로 확정할까요?', knowledge:'내용 검토는 끝났으며 표지의 대외 표기만 결정하면 됩니다.',
+        summary:'외부 제출 후보의 공개 범위를 확인해 주세요.', knowledge:'내부 작성과 검증을 마쳤습니다. 외부 반출만 검토를 기다립니다.',
         outputs:['artifact:synthetic-document-r1'], verification:'합성 문서의 구조와 내용 검증을 통과했습니다.',
-        next_actions:['Buzz에서 확정할 제목을 한 줄로 알려 주세요.'],
-        stop_conditions:['표지 제목 확정을 기다리는 문서 최종본 작업'], ...overrides }).session;
+        next_actions:['Buzz에서 외부 반출 승인 여부와 변경할 공개 범위를 알려 주세요.'],
+        stop_conditions:['외부 반출만 보류합니다. 독립적인 내부 개발과 수정은 계속합니다.'], ...overrides }).session;
     },
     reopen() {
       store.db.close(); store = openStore(join(root, 'erp.db'));

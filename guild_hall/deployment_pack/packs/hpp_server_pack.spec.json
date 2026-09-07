@@ -233,6 +233,12 @@
       "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
       "ui-workspace/apps/dev-erp/src/modules.mjs",
       "ui-workspace/apps/dev-erp/src/morning_brief.mjs",
+      "ui-workspace/apps/dev-erp/src/owner_attention_buzz_link.mjs",
+      "ui-workspace/apps/dev-erp/src/owner_attention_http.mjs",
+      "ui-workspace/apps/dev-erp/src/owner_attention_load.mjs",
+      "ui-workspace/apps/dev-erp/src/owner_attention_page.mjs",
+      "ui-workspace/apps/dev-erp/src/owner_attention_service.mjs",
+      "ui-workspace/apps/dev-erp/src/owner_attention_source.mjs",
       "ui-workspace/apps/dev-erp/src/pack_source_identity.mjs",
       "ui-workspace/apps/dev-erp/src/party_match.mjs",
       "ui-workspace/apps/dev-erp/src/portfolio_decision_projection.mjs",
@@ -272,6 +278,8 @@
       "ui-workspace/apps/dev-erp/static/accepted-context.js",
       "ui-workspace/apps/dev-erp/static/app.js",
       "ui-workspace/apps/dev-erp/static/index.html",
+      "ui-workspace/apps/dev-erp/static/owner-attention.css",
+      "ui-workspace/apps/dev-erp/static/owner-attention.html",
       "ui-workspace/apps/dev-erp/static/skins/README.md",
       "ui-workspace/apps/dev-erp/static/skins/regions/forest.svg",
       "ui-workspace/apps/dev-erp/static/skins/regions/guild.svg",
@@ -283,6 +291,7 @@
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_execution_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",
       "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
       "ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs",
       "ui-workspace/apps/dev-erp/tools/auto_intake_cycle.mjs",
@@ -446,6 +455,11 @@
       "ui-workspace/apps/dev-erp/test/mail_thread_key.test.mjs",
       "ui-workspace/apps/dev-erp/test/memory_project_isolation.test.mjs",
       "ui-workspace/apps/dev-erp/test/npm_test_discovery.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_buzz_link.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_http.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_load.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_service.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_source.test.mjs",
       "ui-workspace/apps/dev-erp/test/pack_source_identity.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_adapter_v2.test.mjs",
       "ui-workspace/apps/dev-erp/test/project_history_copy_binding.test.mjs",
@@ -1215,6 +1229,11 @@
     "test/mail_thread_key.test.mjs",
     "test/memory_project_isolation.test.mjs",
     "test/npm_test_discovery.test.mjs",
+    "test/owner_attention_buzz_link.test.mjs",
+    "test/owner_attention_http.test.mjs",
+    "test/owner_attention_load.test.mjs",
+    "test/owner_attention_service.test.mjs",
+    "test/owner_attention_source.test.mjs",
     "test/pack_source_identity.test.mjs",
     "test/project_history_copy_adapter_v2.test.mjs",
     "test/project_history_copy_binding.test.mjs",
@@ -1323,6 +1342,11 @@
     "test/mail_thread_key.test.mjs",
     "test/memory_project_isolation.test.mjs",
     "test/npm_test_discovery.test.mjs",
+    "test/owner_attention_buzz_link.test.mjs",
+    "test/owner_attention_http.test.mjs",
+    "test/owner_attention_load.test.mjs",
+    "test/owner_attention_service.test.mjs",
+    "test/owner_attention_source.test.mjs",
     "test/pack_source_identity.test.mjs",
     "test/project_history_copy_adapter_v2.test.mjs",
     "test/project_history_copy_binding.test.mjs",
@@ -2157,7 +2181,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "491d0227010806b2287f2318291e1bd65bcc338d9540ad1e1b13d15a55c90e94"
+      "sha256": "abe15de29fc59842d5ea32c5216067671af377c81d212f8cd7f02e14c74da2c3"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2173,7 +2197,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "d5154e3bdccf609336e846f24a034e33d1d0f53a24efee9d12c55f8774af8e02"
+      "sha256": "46dd4a395c0412327f36bf31b7fef08c4f661c7d077867db477447707fad8720"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2234,6 +2258,14 @@
     {
       "path": "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
       "sha256": "9e1a0023a62f0a576aea847811fa1270c31823fedc655a0f8dcf04108e17902d"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/owner_attention_buzz_link.mjs",
+      "sha256": "bc911b36132002be99c32c3b05716db303ea98d1e5fa6b6d881d62e4f963c175"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/owner_attention_service.mjs",
+      "sha256": "485b8e30aab7df3ea34c2dfec39f790e486db6a27b2211fb628c796d0cea3009"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/role_capability_matcher.mjs",
@@ -2302,6 +2334,14 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/forge_world_server.test.mjs",
       "sha256": "b118fdd764109ecb11aa40d424219b1c8d159aea4c782ba4c24331f2a8e2ca5c"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",
+      "sha256": "56fc53c0ba18d81848429bf4e385fc34026ec933d98021fe8c6a70b61c04cbbe"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/owner_attention_http.test.mjs",
+      "sha256": "0e75314e53a4e4583dcb01ece3ec93a9f6d1bae23dd143826bffda0ec806908a"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",

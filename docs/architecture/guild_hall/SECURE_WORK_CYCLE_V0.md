@@ -4,12 +4,22 @@
 > 운영 승인이 아니고, 실자료 canary도 아니며, 결과는 후보다.
 > 실행 표면은 [`guild_hall/secure_work/README.md`](../../../guild_hall/secure_work/README.md)가 소유한다.
 
-> 2026-09-08 CURRENT (역할·작업 저장): 고정 principal·목적·과제·할당·전송 판본과
+> 2026-09-08 CURRENT (M06 IPC): controller 소유 원장·source·vault를 sender/worker
+> 설정으로 전달하지 않고, Windows named pipe의 OS peer identity와 고정된 일회
+> launcher를 통해 released bytes를 전달한다. worker→sender→controller 순서의
+> 단방향 파일 고정으로 상호 digest 순환을 없앴다. 독립 검토 후 통합 Node60 PASS,
+> Python192 PASS(5 SKIP,19 subtests), 실제 same-SID 두 child 종료를 확인했다.
+> 서로 다른 SID·OS ACL·app-control은 미실행이며 M10 보관의 별도 역할 배선과
+> 전체 BIND09는 계속 구현한다. pipe I/O 제한120초와 권한 launcher 제한60초는
+> 별도 제한이며 전체 controller가120초 내 종료된다는 보장이 아니다.
+> worker 사전 검사 `WORKER_CHANNEL_BOUND_INACTIVE`는 실행 활성화가 아니다.
+>
+> 이전 역할·작업 저장 근거: 고정 principal·목적·과제·할당·전송 판본과
 > 만료를 읽기·허가 발급 전후에 대조한다. 작업 ID 경로 탈출·alias·링크·손상 metadata를
 > 거부하고 새 작업을 배타적으로 생성해 동일 시각 요청의 기존 작업 덮어쓰기를 막았다.
 > 직접 launcher 실행의 import 순환 실패도 재현·수정했다. 독립 검토는 Python176 PASS,
-> 5 SKIP, 15 subtests 및 Node54 PASS다. 실제 계정 사이의 IPC/journal/released-byte
-> 채널은 아직 미구현이며 사전 검사 성공을 실행·OS 격리 성공으로 해석하지 않는다.
+> 5 SKIP, 15 subtests 및 Node54 PASS다. 위 최신 IPC 구현과 별개로, 실제 서로 다른
+> 계정 격리는 미검증이며 사전 검사 성공을 실행·OS 격리 성공으로 해석하지 않는다.
 > 이 코드의 검증과 과거 설치 lane에서 수행한 실제 Hermes 호출은 서로 다른 증거다.
 
 > 2026-09-08 CURRENT: 고정 launcher의 사전 전체 의존성 검증, Python 격리 bootstrap,

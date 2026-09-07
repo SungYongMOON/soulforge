@@ -7,6 +7,7 @@ const ASSETS = new Map([
   ['/owner-attention.html', ['text/html; charset=utf-8', new URL('../static/owner-attention.html', import.meta.url)]],
   ['/owner-attention/page.mjs', ['text/javascript; charset=utf-8', new URL('./owner_attention_page.mjs', import.meta.url)]],
   ['/owner-attention/owner_attention_load.mjs', ['text/javascript; charset=utf-8', new URL('./owner_attention_load.mjs', import.meta.url)]],
+  ['/owner-attention/owner_attention_buzz_link.mjs', ['text/javascript; charset=utf-8', new URL('./owner_attention_buzz_link.mjs', import.meta.url)]],
   ['/owner-attention/style.css', ['text/css; charset=utf-8', new URL('../static/owner-attention.css', import.meta.url)]],
 ]);
 function send(res, status, body, type = 'application/json; charset=utf-8') {

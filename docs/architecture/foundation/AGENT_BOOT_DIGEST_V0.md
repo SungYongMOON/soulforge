@@ -18,16 +18,16 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 
 `.registry`(canon store) `.unit`(subject) `.workflow`(orchestration)
 `.party`(template) `.mission`(mission plan) `guild_hall`(cross-project ops)
-`_workspaces`(local-only worksite) + `docs/architecture/`(canon docs),
+`_workspaces`(현재 legacy와 미래 정본 target의 의미를 구분) + `docs/architecture/`(canon docs),
 `ui-workspace/`(derived UI consumer).
 
 ## 3. 저장 경계 (어기면 안 됨)
 
 - public repo: 기능 코드/구조 문서/public-safe example 만.
-- `_workmeta/<project>/`(nested private): **메타데이터만** — 포인터/크기/
-  해시/출처/사용 상태. HWP·Office·PDF·압축·메일 원문/첨부 저장 금지.
-- `_workspaces/`: 실자료(local-only, tracked 금지). `private-state/`:
-  cross-project 보호 데이터. 애매하면 private 쪽으로 해석.
+- current legacy `_workmeta/<project>/`는 private metadata-only 포인터·해시·상태, current legacy `_workspaces`는 과거 작업자료다. reference-in-place로 보존하며 과거 metadata를 현재 정본 lineage로 이식하지 않는다.
+- future target `_workspaces`에는 사람이 수락한 정확한 정본 bytes만, target `_workmeta`에는 그 bytes의 lineage만 둔다. W-AUTH·빈 정본 시작·해당 legacy freeze 채택 전 target binding/write/materialization은 금지다.
+- run·task·수집·worklog는 target에 쓰지 않고 명시된 비정본 control/사람·봇 작업 root를 쓴다. `_workmeta` 생성 전 write guard를 실행하며 문서·메일·첨부 원문 저장은 금지다.
+- `private-state/`는 cross-project 보호 데이터이며 애매하면 private으로 해석한다.
 - 지식 ontology package 정본은 승인 manifest/hash/revision을 갖춘 Google
   Drive release만, `.registry/knowledge`는 Git 실행 투영, NotebookLM은
   advisory 책장, NAS는 owner-approved 단방향 재해복구 사본으로 분리한다.
@@ -74,6 +74,10 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 ## 6. 개발 예정 저장 규칙 (DEVELOPMENT_ROADMAP_V0)
 
 2026-09-07 전체 Goal: 현재 합의된 SW 로드맵의 구현·통합·검증·패키징·매뉴얼을 실사용 가능한 통합 출시 후보까지 이어간다. Goal1/2·한 화면·한 업무는 중간 이정표. 기술 미완성을 Owner Gate로 바꾸지 않으며 실제 권한·원천·운영 전환·사람 수락 경계는 유지한다.
+
+2026-09-08 추가: 후보24의 할일 내부 흡수와29의 지속 개선은 현재 Goal의 필수 개발이다. 내부 가역 작업은 선실행·후보고, 외부 반출은 Owner 검토 후 수행한다.
+현재 원천·위임·packet, 자기 댓글/동일 판본 재실행 억제, 실패 재진입·예산·독립 감시와 worktree 수정→검증→fresh 검토→결과 회수까지 구현한다. 알림/접수함만으로 완료하지 않는다.
+아래 기존 장부 규칙은 target 정본으로 옛 기록을 옮길 권한이 아니다.
 
 아이디어 계단: 불명확 → 로드맵 한 줄 / 개발 후보·실행 항목 →
 단일 개발 작업 장부 `_workmeta/<project>/dev_worker_queue/*.yaml`

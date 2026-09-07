@@ -10,7 +10,7 @@ Operate an isolated XLSX or bounded template PPTX job: check the pack, submit to
 
 ## Prerequisites
 
-- The Owner has approved one isolated tool-workshop canary, exact workshop profile/tool-version reference, bounded job scope, and independent reviewer.
+- Reuse the existing authorization for internal, reversible development and synthetic canaries. The dispatcher resolves the exact workshop profile/tool-version reference, bounded job scope, and independent reviewer; routine implementation choices do not require another Owner question. External disclosure requires its separate exact review before execution.
 - The requested tool capability exactly matches the workshop profile. No general terminal, fallback tool, or inferred capability is permitted.
 - A candidate output can be retained as a safe reference; physical bytes, project source, and credentials are outside this manual.
 
@@ -96,6 +96,34 @@ until the child is observed closed. After expiry the next acquisition fences the
 old worker; files without a committed receipt are unregistered output. The pack
 rehearsal exercises code-generation backup/upgrade/rollback/damaged-copy restore;
 it does not back up a running workshop database or approve operational recovery.
+
+## Optional scoped Claude text adapter
+
+The pack includes `guild_hall/tool_workshop/CLAUDE_ACP_SCOPE.md` and its four
+production modules. The same modules can be built as the separate versioned
+`tool-workshop-claude-acp-v1` source lane using the repository-owned
+`tool_workshop_claude_acp_lane.spec.json`. This tracked-only first build omits
+`--previous-lane`; it contains no inherited workspace metadata, profile, native
+runtime, credentials, instructions or job data. Verify the resulting manifest
+before registering its exact installed entrypoint as a Buzz custom harness.
+
+The trusted dispatcher prepares the fixed local binding outside the mutable job
+folder and pins the instruction/input/runtime bytes and three workspace tool
+names. Use the installed entrypoint's `--preflight` mode before sending work. It
+checks native metadata, model and MCP names with no user prompt. The ordinary
+entrypoint supports ACP text jobs with manifest-bound reads and create-only text
+drafts. It retains official CLI authentication in its normal host location and
+does not copy credentials into a new home. Never run the production adapter from
+a Git checkout or inherit arbitrary client MCP servers, shell tools or settings.
+
+After actual custom-harness selection, read the bot configuration back and run a
+short public/synthetic canary. Registration, metadata preflight, actual inference,
+PPTX queue execution, native/render validation and artifact custody are distinct
+results. A successful text draft does not prove the latter steps. Follow the
+scope document for exact binding fields, current CLI checks and limitations;
+do not treat file hashes or this adapter as OS principal isolation. Working files
+stay in the approved bot work folder. Only accepted canonical bytes and their
+lineage may later enter canonical storage through its existing authority.
 
 ## Known issues
 

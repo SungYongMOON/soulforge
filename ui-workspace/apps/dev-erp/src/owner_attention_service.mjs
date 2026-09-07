@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { attentionFail, attentionHash } from './owner_attention_source.mjs';
+import { safeOwnerAttentionBuzzUrl } from './owner_attention_buzz_link.mjs';
 
 const OPEN = new Set(['awaiting', 'response_unverified']);
 const DDL = `
@@ -48,16 +49,12 @@ export function createOwnerAttentionService({ store, source, now = () => Date.no
     const resolved = resolveBuzzLink({ source_ref: row.source_ref, source_sha256: row.source_sha256,
       sender_account_id: row.sender_account_id, owner_account_id: row.owner_account_id, item_id: row.item_id });
     // Only a server-owned exact resolver may supply a link. A URL in bot prose
-    // or a guessed name/id is never used as a route. Only web links, no scripts.
+    // or a guessed name/id is never used as a route. Native links need the same binding.
     if (resolved?.source_ref === row.source_ref && resolved.source_sha256 === row.source_sha256
       && resolved.owner_account_id === row.owner_account_id && resolved.sender_account_id === row.sender_account_id
       && resolved.item_id === row.item_id && resolved.active === true
       && Number.isFinite(Date.parse(resolved.expires_at)) && Date.parse(resolved.expires_at) > now()) {
-      try {
-        const url = new URL(resolved.url);
-        if (!url.username && !url.password && (url.protocol === 'https:'
-          || (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)))) link = url.href;
-      } catch { /* Missing or invalid routes remain visibly unavailable. */ }
+      link = safeOwnerAttentionBuzzUrl(resolved.url);
     }
     return { ...row, view_version: state?.version ?? 0, seen_at: state?.seen_at ?? null,
       snooze_until: state?.snooze_until ?? null, snoozed: OPEN.has(row.source_state) && snoozed,

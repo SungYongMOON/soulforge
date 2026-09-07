@@ -63,6 +63,8 @@ test('source text cannot supply a Buzz route; a trusted exact resolver can, unsa
   assert.equal(f.service.snapshot(f.access).items[0].buzz_url,null);
   link = 'javascript:alert(1)'; assert.equal(f.service.snapshot(f.access).items[0].buzz_url,null);
   link = 'https://buzz.example.invalid/conversations/exact-synthetic'; assert.equal(f.service.snapshot(f.access).items[0].buzz_url,link);
+  link = 'buzz://channel/11111111-2222-3333-8444-555555555555'; assert.equal(f.service.snapshot(f.access).items[0].buzz_url,link);
+  link += '?command=run'; assert.equal(f.service.snapshot(f.access).items[0].buzz_url,null);
 });
 
 test('missing notification route sends nothing; one exact Owner-only delivery aggregates and never repeats', async t => {
@@ -72,7 +74,7 @@ test('missing notification route sends nothing; one exact Owner-only delivery ag
   await assert.rejects(() => f.service.dispatch(f.access),/NOTIFICATION_ROUTE_UNAVAILABLE/); assert.equal(sends.length,0);
   f.state.route = route(f); const result = await f.service.dispatch(f.access);
   assert.equal(result.status,'delivered'); assert.equal(sends.length,1); assert.equal(sends[0].request_count,1);
-  assert.equal(JSON.stringify(sends).includes('표지'),false); assert.equal(Object.hasOwn(sends[0],'summary'),false);
+  assert.equal(JSON.stringify(sends).includes('외부 제출'),false); assert.equal(Object.hasOwn(sends[0],'summary'),false);
   f.clock.value+=61000; assert.equal((await f.service.dispatch(f.access)).status,'idle');
 });
 

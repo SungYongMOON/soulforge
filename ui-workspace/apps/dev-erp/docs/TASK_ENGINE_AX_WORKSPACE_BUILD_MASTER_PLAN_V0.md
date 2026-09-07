@@ -1,5 +1,16 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-08 CURRENT (Owner response attention): explicit work-session requests
+> now feed an Owner-only inbox with seen/snooze/revision handling. Only verified
+> Owner response evidence closes a request; idle bots and technical failures do
+> not imply Owner decisions. A durable aggregate notification outbox suppresses
+> unchanged polls and uncertain resend. B38 and independent V16 passed, including
+> actual synthetic desktop/mobile flows; the subsequent strict Buzz-link and
+> internal-work wording changes passed31 affected tests. Internal reversible work
+> proceeds under existing delegation with later reporting; external disclosure
+> retains exact prior review. Live notification transport, current response reader
+> and periodic execution remain required technical integration, not completion.
+
 > 2026-09-08 CURRENT (execution store startup lock): the existing one-second
 > SQLite busy timeout is set before the first metadata read. A real lock timeout
 > is EXECUTION_STORE_BUSY rather than foreign-format rejection; foreign bytes,

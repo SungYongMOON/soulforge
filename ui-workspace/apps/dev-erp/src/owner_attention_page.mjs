@@ -1,4 +1,5 @@
 import { createOwnerAttentionLoader } from './owner_attention_load.mjs';
+import { safeOwnerAttentionBuzzUrl } from './owner_attention_buzz_link.mjs';
 const OPEN = new Set(['awaiting', 'response_unverified']);
 let snapshot = null, filter = 'active', generation = 0, mutating = false;
 const $ = s => document.querySelector(s);
@@ -36,7 +37,7 @@ function card(row) {
   top.append(el('span', status, `badge${row.overdue ? ' warn' : ''}`)); node.append(top, el('h2', row.question));
   const dl = el('dl', null, 'facts'); fact(dl, '다음 행동', row.next_actions); fact(dl, '기다리는 일', row.blocked_work); fact(dl, '관련 업무', row.item_title); fact(dl, '응답 기한', date(row.due_at)); node.append(dl);
   const actions = el('div', null, 'actions');
-  if (row.buzz_url) { const a = el('a', OPEN.has(row.source_state) ? 'Buzz에서 답변하기' : 'Buzz 대화 보기', 'button primary'); a.href = row.buzz_url; a.rel = 'noopener noreferrer'; actions.append(a); }
+  if (row.buzz_url) { const a = el('a', OPEN.has(row.source_state) ? 'Buzz에서 답변하기' : 'Buzz 대화 보기', 'button primary'); a.href = row.buzz_url; a.rel = 'noopener noreferrer'; if (row.buzz_url.startsWith('buzz:')) a.title = 'Buzz 앱에서 대화를 엽니다. 이 기기에 앱 연결이 필요합니다.'; actions.append(a); }
   else actions.append(el('span', '이 요청의 Buzz 대화 연결을 아직 확인하지 못했습니다.', 'route-missing'));
   if (OPEN.has(row.source_state)) {
     if (!row.seen_at) actions.append(button('확인했어요', () => act(row, 'seen', null, node)));
@@ -74,8 +75,7 @@ function render() {
   $('#connection').className = 'connection'; $('#connection').textContent = `최근 확인 ${date(snapshot.observed_at)} · 읽음과 업무 완료는 별도로 관리합니다.`;
 }
 function valid(data) {
-  const linkSafe = value => { if (value === null) return true; try { const u = new URL(value); return !u.username && !u.password
-    && (u.protocol === 'https:' || (u.protocol === 'http:' && ['127.0.0.1','localhost','[::1]'].includes(u.hostname))); } catch { return false; } };
+  const linkSafe = value => value === null || safeOwnerAttentionBuzzUrl(value) !== null;
   return data?.status === 'available' && /^[a-f0-9]{64}$/u.test(data.csrf_token || '') && Number.isFinite(Date.parse(data.observed_at))
     && Array.isArray(data.items) && data.items.every(row => typeof row.question === 'string' && typeof row.sender_label === 'string'
       && typeof row.item_title === 'string' && Array.isArray(row.next_actions) && Array.isArray(row.blocked_work) && Array.isArray(row.refs)

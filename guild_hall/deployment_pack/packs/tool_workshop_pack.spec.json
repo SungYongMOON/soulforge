@@ -20,6 +20,10 @@
       "docs/architecture/workspace/examples/tool_workshop/synthetic_xlsx_packet.mjs",
       "guild_hall/shared/project_history_envelope.mjs",
       "guild_hall/tool_workshop/src/bounded_tool_process.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_cli.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_policy.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_server.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_workspace.mjs",
       "guild_hall/tool_workshop/src/pptx_render_child.mjs",
       "guild_hall/tool_workshop/src/pptx_tool_child.py",
       "guild_hall/tool_workshop/src/pptx_workshop_runner.mjs",
@@ -27,9 +31,11 @@
       "guild_hall/tool_workshop/src/synthetic_xlsx_canary.mjs",
       "guild_hall/tool_workshop/src/xlsx_tool_child.mjs",
       "guild_hall/tool_workshop/src/xlsx_workshop_runner.mjs",
+      "guild_hall/tool_workshop/tests/claude_acp_fixture.mjs",
       "ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs"
     ],
     "validators": [
+      "guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs",
       "guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs",
       "guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs",
       "guild_hall/tool_workshop/tests/tool_workshop_durable.test.mjs",
@@ -37,6 +43,7 @@
     ],
     "workshop_docs": [
       "guild_hall/tool_workshop/README.md",
+      "guild_hall/tool_workshop/CLAUDE_ACP_SCOPE.md",
       "guild_hall/tool_workshop/module.manifest.json",
       "guild_hall/tool_workshop/tests/native_pptx_canary_readback.py",
       "guild_hall/tool_workshop/tests/native_xlsx_canary_readback.py",
@@ -45,6 +52,7 @@
     ]
   },
   "smoke_test_entries": [
+    "guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs",
     "guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs",
     "guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs",
     "guild_hall/tool_workshop/tests/tool_workshop_durable.test.mjs",
@@ -56,5 +64,15 @@
   "rollback_manual_ref": "manual.rollback.tool_workshop_pack",
   "support_owner_ref": "owner.platform_support",
   "secret_refs": [],
+  "content_scan_reviewed_files": [
+    {
+      "path": "guild_hall/tool_workshop/tests/claude_acp_fixture.mjs",
+      "sha256": "65e7602a1cf4961ac565c55ea0d07fd5b4edf9e1cff42bce669be9fc1258c0f8"
+    },
+    {
+      "path": "guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs",
+      "sha256": "ceeca9d683a6085a3ea15936e66ab90400a86f9c6b94a66c92f5830d649921a1"
+    }
+  ],
   "test_concurrency": 1
 }
