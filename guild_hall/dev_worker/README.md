@@ -49,6 +49,12 @@ Agent-generated ready packets also require `owner_approval.approved: true`.
 Candidate packets are for agent-discovered work. Once `owner_approval.approved: true` is recorded on an active candidate, the next ACTIVE dev-worker automation trigger may promote it into `dev_worker_queue` and execute it. The owner controls that automatic execution by turning the local Codex automation on or off.
 Low-risk candidates may request `auto_approval.requested: true`; the candidate helper approves only those that pass the tracked safe-path, safe-check, and risk-level policy before promotion.
 The safe-path check rejects control characters and parent directory segments (`..`) before comparing normalized path boundaries for approval.
+The shared deny check also covers root scopes, case aliases and wildcard scopes.
+A wildcard is conservatively checked against its containing directory; when that
+directory contains an authority guard, list the exact ordinary files instead.
+For example, use `guild_hall/dev_worker/README.md`, not `guild_hall/dev_worker/**`.
+Repository control metadata and both canonical/legacy workspace metadata planes
+are excluded from automated source repair. This does not create an OS sandbox.
 The safe-check gate rejects acceptance check strings that contain control characters before matching the command allowlist.
 Use `--details` when auditing stalled development work; it prints status counts, active/closed candidate counts, each candidate's packet ref, project, promotion blocker, owner-approval state, and auto-approval blocker without reading raw project payloads. Listing candidates is still read-only; `--promote-approved` or `--auto-promote` is what writes ready packets into `dev_worker_queue`.
 

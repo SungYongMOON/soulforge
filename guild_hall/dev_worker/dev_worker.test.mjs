@@ -10,6 +10,38 @@ import { normalizeTaskPacket, selectTask } from "./claim_task.mjs";
 import { autoApproveCandidates, formatCandidateQueueText, listCandidatePackets, promoteApprovedCandidates } from "./candidate_queue.mjs";
 import { DEFAULT_DOCTOR_COMMAND } from "./preflight_repo_sync.mjs";
 
+test('approved packets cannot reach protected files through root, glob, case or traversal spelling', () => {
+  for (const scope of ['.', '**', 'guild_hall/dev_worker/**', 'guild_hall/dev_worker/*.mjs',
+    'agents.md', 'guild_hall/x/../dev_worker/candidate_queue.mjs', '_workspaces/**', '_workmeta/**', '.git/config']) {
+    const task = normalizeTaskPacket({ schema_version: 'soulforge.dev_worker_request.v0', task_id: 'guard_probe',
+      status: 'ready', summary: 'Synthetic boundary probe', allowed_write_paths: [scope],
+      acceptance_checks: ['npm run validate:dev-worker'], origin: { kind: 'agent_generated' },
+      owner_approval: { required: true, approved: true } }, { packet_path: 'synthetic.yaml', packet_ref: 'synthetic.yaml' });
+    assert.equal(task.eligible, false, scope);
+    assert.match(task.ineligible_reason, /^denied_write_paths:/u, scope);
+  }
+});
+
+test('an already approved wildcard candidate is not promoted and its source bytes are preserved', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-scope-promotion-'));
+  const workmetaRoot = path.join(root, '_workmeta');
+  try {
+    const directory = path.join(workmetaRoot, 'system', 'dev_worker_candidate_queue');
+    await mkdir(directory, { recursive: true });
+    const file = path.join(directory, 'protected.yaml');
+    const bytes = JSON.stringify({ schema_version: 'soulforge.dev_worker_request.v0', task_id: 'protected_scope',
+      status: 'approved', summary: 'Synthetic protected candidate', project_code: 'system',
+      allowed_write_paths: ['guild_hall/dev_worker/**'], acceptance_checks: ['npm run validate:dev-worker'],
+      origin: { kind: 'agent_generated' }, owner_approval: { required: true, approved: true } });
+    await writeFile(file, bytes);
+    const result = await promoteApprovedCandidates({ localRoot: root, workmetaRoot });
+    assert.equal(result.promoted_count, 0);
+    assert.match(result.skipped[0].reason, /^denied_write_paths:/u);
+    assert.equal(await readFile(file, 'utf8'), bytes);
+    assert.equal(await pathIsPresent(path.join(workmetaRoot, 'system', 'dev_worker_queue')), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 const execFileAsync = promisify(execFile);
 const CLAIM_TASK_CLI = fileURLToPath(new URL("./claim_task.mjs", import.meta.url));
 const CANDIDATE_QUEUE_CLI = fileURLToPath(new URL("./candidate_queue.mjs", import.meta.url));
@@ -309,7 +341,7 @@ test("selectTask picks the first eligible mission packet and suggests a branch",
         "summary: This should be selected.",
         "branch_slug: ready-task-branch",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "",
@@ -362,7 +394,7 @@ test("selectTask returns no task when all packets are ineligible", async () => {
         "status: ready",
         "summary: Agent generated task without owner approval.",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "origin:",
@@ -444,7 +476,7 @@ test("dev_worker_cli_readonly_audit_smoke_v0 candidate_queue --details shows own
         "project_code: system",
         "summary: Owner approval is present, so the next automation trigger may promote it.",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "origin:",
@@ -524,7 +556,7 @@ test("candidate queue promotes owner-approved active candidates into ready queue
         "status: proposed",
         "summary: Owner approved this candidate, so it should promote on the next automation trigger.",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "origin:",
@@ -548,7 +580,7 @@ test("candidate queue promotes owner-approved active candidates into ready queue
         "summary: Promote this approved candidate.",
         "branch_slug: approved-task",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "origin:",
@@ -629,7 +661,7 @@ test("candidate queue summary separates closed candidates from active candidates
         "project_code: system",
         "summary: Already completed candidate.",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "owner_approval:",
@@ -674,7 +706,7 @@ test("dev_worker_closed_candidate_auto_approval_guard_v0 rejects closed auto-app
           `summary: Closed ${status} candidates must not be auto-approved.`,
           "risk_level: low",
           "allowed_write_paths:",
-          "  - guild_hall/dev_worker/**",
+          "  - guild_hall/dev_worker/README.md",
           "acceptance_checks:",
           "  - npm run validate:dev-worker",
           "origin:",
@@ -739,7 +771,7 @@ test("candidate queue auto-approves low-risk safe candidates only", async () => 
         "branch_slug: safe-auto-task",
         "risk_level: low",
         "allowed_write_paths:",
-        "  - guild_hall/dev_worker/**",
+        "  - guild_hall/dev_worker/README.md",
         "acceptance_checks:",
         "  - npm run validate:dev-worker",
         "origin:",
@@ -787,7 +819,8 @@ test("candidate queue auto-approves low-risk safe candidates only", async () => 
     const approved = await autoApproveCandidates({ localRoot: root, workmetaRoot });
     assert.equal(approved.auto_approved_count, 1);
     assert.equal(approved.auto_approved[0].task_id, "safe_auto_task");
-    assert.equal(approved.skipped.some((item) => item.reason === "write_path_not_allowed:docs/architecture/foundation/**"), true);
+    assert.equal(approved.skipped.some((item) => item.reason.startsWith("denied_write_paths:")
+      && item.reason.includes("docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md")), true);
 
     const promoted = await promoteApprovedCandidates({ localRoot: root, workmetaRoot });
     assert.equal(promoted.promoted_count, 1);
@@ -818,15 +851,15 @@ test("candidate queue auto-approval scans raw control characters before the 40-e
         file: "overflow-control-path.yaml",
         taskId: "overflow_control_path_auto_task",
         summary: "Try to hide a control write path after forty safe write paths.",
-        allowedWritePaths: [...safeWritePaths, "guild_hall/dev_worker/**\n"],
+        allowedWritePaths: [...safeWritePaths, "guild_hall/dev_worker/README.md\n"],
         acceptanceChecks: ["npm run validate:dev-worker"],
-        expectedReason: "write_path_not_allowed:guild_hall/dev_worker/**\\n",
+        expectedReason: "write_path_not_allowed:guild_hall/dev_worker/README.md\\n",
       },
       {
         file: "overflow-control-check.yaml",
         taskId: "overflow_control_check_auto_task",
         summary: "Try to hide a control acceptance check after forty safe checks.",
-        allowedWritePaths: ["guild_hall/dev_worker/**"],
+        allowedWritePaths: ["guild_hall/dev_worker/README.md"],
         acceptanceChecks: [
           ...safeAcceptanceChecks,
           "npm run validate:dev-worker\nnode --check guild_hall/dev_worker/candidate_queue.mjs",
@@ -838,7 +871,7 @@ test("candidate queue auto-approval scans raw control characters before the 40-e
         file: "overflow-newline-only-check.yaml",
         taskId: "overflow_newline_only_check_auto_task",
         summary: "Try to hide a newline-only acceptance check after forty safe checks.",
-        allowedWritePaths: ["guild_hall/dev_worker/**"],
+        allowedWritePaths: ["guild_hall/dev_worker/README.md"],
         acceptanceChecks: [...safeAcceptanceChecks, "\n"],
         expectedReason: "acceptance_check_not_allowed:\\n",
       },
@@ -846,7 +879,7 @@ test("candidate queue auto-approval scans raw control characters before the 40-e
         file: "safe-baseline.yaml",
         taskId: "safe_baseline_auto_task",
         summary: "Keep a normal low-risk safe candidate eligible.",
-        allowedWritePaths: ["guild_hall/dev_worker/**"],
+        allowedWritePaths: ["guild_hall/dev_worker/README.md"],
         acceptanceChecks: ["npm run validate:dev-worker"],
         expectedReason: "eligible",
       },
@@ -922,7 +955,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         summary: "Try to escape the safe path prefix with traversal.",
         allowedWritePath: "guild_hall/dev_worker/../gateway/**",
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: "write_path_not_allowed:guild_hall/dev_worker/../gateway/**",
+        reason: /^denied_write_paths:/u,
       },
       {
         file: "direct-broad-gateway.yaml",
@@ -938,7 +971,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         summary: "Try to escape the safe path prefix with a trailing parent segment.",
         allowedWritePath: "guild_hall/dev_worker/..",
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: "write_path_not_allowed:guild_hall/dev_worker/..",
+        reason: /^denied_write_paths:/u,
       },
       {
         file: "absolute-path.yaml",
@@ -946,45 +979,45 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         summary: "Try to use an absolute write path.",
         allowedWritePath: absoluteWritePath,
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: `write_path_not_allowed:${absoluteWritePath}`,
+        reason: /^denied_write_paths:/u,
       },
       {
         file: "newline-control-path.yaml",
         taskId: "newline_control_path_auto_task",
         summary: "Try to hide a safe write path suffix behind a newline.",
-        allowedWritePath: "guild_hall/dev_worker/**\n",
+        allowedWritePath: "guild_hall/dev_worker/README.md\n",
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: "write_path_not_allowed:guild_hall/dev_worker/**\\n",
+        reason: "write_path_not_allowed:guild_hall/dev_worker/README.md\\n",
       },
       {
         file: "tab-control-path.yaml",
         taskId: "tab_control_path_auto_task",
         summary: "Try to hide a safe write path suffix behind a tab.",
-        allowedWritePath: "guild_hall/dev_worker/**\t",
+        allowedWritePath: "guild_hall/dev_worker/README.md\t",
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: "write_path_not_allowed:guild_hall/dev_worker/**\\t",
+        reason: "write_path_not_allowed:guild_hall/dev_worker/README.md\\t",
       },
       {
         file: "nul-control-path.yaml",
         taskId: "nul_control_path_auto_task",
         summary: "Try to hide a safe write path suffix behind a NUL.",
-        allowedWritePath: "guild_hall/dev_worker/**\u0000",
+        allowedWritePath: "guild_hall/dev_worker/README.md\u0000",
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: "write_path_not_allowed:guild_hall/dev_worker/**\\u0000",
+        reason: /^denied_write_paths:/u,
       },
       {
         file: "del-control-path.yaml",
         taskId: "del_control_path_auto_task",
         summary: "Try to hide a safe write path suffix behind a DEL.",
-        allowedWritePath: "guild_hall/dev_worker/**\u007F",
+        allowedWritePath: "guild_hall/dev_worker/README.md\u007F",
         acceptanceCheck: "npm run validate:dev-worker",
-        reason: "write_path_not_allowed:guild_hall/dev_worker/**\\u007F",
+        reason: /^denied_write_paths:/u,
       },
       {
         file: "shell-metachar-check.yaml",
         taskId: "shell_metachar_auto_task",
         summary: "Try to add a shell metacharacter to an acceptance check.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceCheck: "npm run validate:dev-worker; echo unsafe",
         reason: "acceptance_check_not_allowed:npm run validate:dev-worker; echo unsafe",
       },
@@ -992,7 +1025,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "newline-control-check.yaml",
         taskId: "newline_control_auto_task",
         summary: "Try to split an acceptance check with a newline.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceCheck: "npm run validate:dev-worker\nnode --test guild_hall/dev_worker/dev_worker.test.mjs",
         reason: "acceptance_check_not_allowed:npm run validate:dev-worker\\nnode --test guild_hall/dev_worker/dev_worker.test.mjs",
       },
@@ -1000,7 +1033,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "tab-control-check.yaml",
         taskId: "tab_control_auto_task",
         summary: "Try to hide acceptance check arguments behind a tab.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceCheck: "npm run validate:dev-worker\t--filter unsafe",
         reason: "acceptance_check_not_allowed:npm run validate:dev-worker\\t--filter unsafe",
       },
@@ -1008,7 +1041,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "nul-control-check.yaml",
         taskId: "nul_control_auto_task",
         summary: "Try to hide acceptance check content behind a NUL.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceCheck: "npm run validate:dev-worker\u0000node --test guild_hall/dev_worker/dev_worker.test.mjs",
         reason: "acceptance_check_not_allowed:npm run validate:dev-worker\\u0000node --test guild_hall/dev_worker/dev_worker.test.mjs",
       },
@@ -1016,7 +1049,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "del-control-check.yaml",
         taskId: "del_control_auto_task",
         summary: "Try to hide acceptance check content behind a DEL.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceCheck: "npm run validate:dev-worker\u007Fnode --test guild_hall/dev_worker/dev_worker.test.mjs",
         reason: "acceptance_check_not_allowed:npm run validate:dev-worker\\u007Fnode --test guild_hall/dev_worker/dev_worker.test.mjs",
       },
@@ -1024,7 +1057,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "newline-only-control-check.yaml",
         taskId: "newline_only_control_auto_task",
         summary: "Try to include a newline-only acceptance check before a safe check.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceChecks: ["\n", "npm run validate:dev-worker"],
         reason: "acceptance_check_not_allowed:\\n",
       },
@@ -1032,7 +1065,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "tab-only-control-check.yaml",
         taskId: "tab_only_control_auto_task",
         summary: "Try to include a tab-only acceptance check before a safe check.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceChecks: ["\t", "npm run validate:dev-worker"],
         reason: "acceptance_check_not_allowed:\\t",
       },
@@ -1040,7 +1073,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "nul-only-control-check.yaml",
         taskId: "nul_only_control_auto_task",
         summary: "Try to include a NUL-only acceptance check before a safe check.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceChecks: ["\u0000", "npm run validate:dev-worker"],
         reason: "acceptance_check_not_allowed:\\u0000",
       },
@@ -1048,7 +1081,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
         file: "del-only-control-check.yaml",
         taskId: "del_only_control_auto_task",
         summary: "Try to include a DEL-only acceptance check before a safe check.",
-        allowedWritePath: "guild_hall/dev_worker/**",
+        allowedWritePath: "guild_hall/dev_worker/README.md",
         acceptanceChecks: ["\u007F", "npm run validate:dev-worker"],
         reason: "acceptance_check_not_allowed:\\u007F",
       },
@@ -1087,10 +1120,11 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
     const listed = await listCandidatePackets({ localRoot: root, workmetaRoot });
     assert.equal(listed.scanned_count, candidates.length);
     assert.equal(listed.auto_approvable_count, 0);
-    assert.deepEqual(
-      listed.candidates.map((candidate) => candidate.auto_approval.reason).sort(),
-      candidates.map((candidate) => candidate.reason).sort(),
-    );
+    for (const expected of candidates) {
+      const actual = listed.candidates.find(candidate => candidate.task_id === expected.taskId)?.auto_approval.reason;
+      if (expected.reason instanceof RegExp) assert.match(actual, expected.reason, expected.taskId);
+      else assert.equal(actual, expected.reason, expected.taskId);
+    }
     const directBroadGateway = listed.candidates.find((candidate) => candidate.task_id === "direct_broad_gateway_auto_task");
     assert.equal(directBroadGateway?.auto_approval.eligible, false);
     assert.equal(directBroadGateway?.auto_approval.reason, "write_path_not_allowed:guild_hall/gateway/**");
@@ -1098,7 +1132,7 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
       assert.equal(/[\u0000-\u001F\u007F]/u.test(candidate.auto_approval.reason), false);
     }
     const newlinePathReason = listed.candidates.find((candidate) => candidate.task_id === "newline_control_path_auto_task")?.auto_approval.reason;
-    assert.equal(newlinePathReason, "write_path_not_allowed:guild_hall/dev_worker/**\\n");
+    assert.equal(newlinePathReason, "write_path_not_allowed:guild_hall/dev_worker/README.md\\n");
     assert.equal(newlinePathReason.includes("\n"), false);
     assert.equal(newlinePathReason.includes("\\n"), true);
 
@@ -1112,11 +1146,11 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
 
     const textSummary = formatCandidateQueueText(listed, { details: true });
     assert.equal(
-      textSummary.includes("write_path_not_allowed:guild_hall/dev_worker/**\n"),
+      textSummary.includes("write_path_not_allowed:guild_hall/dev_worker/README.md\n"),
       false,
     );
     assert.equal(
-      textSummary.includes("write_path_not_allowed:guild_hall/dev_worker/**\\n"),
+      textSummary.includes("write_path_not_allowed:guild_hall/dev_worker/README.md\\n"),
       true,
     );
     assert.equal(
@@ -1130,10 +1164,12 @@ test("candidate queue auto-approval rejects boundary-bypass candidates", async (
 
     const approved = await autoApproveCandidates({ localRoot: root, workmetaRoot });
     assert.equal(approved.auto_approved_count, 0);
-    assert.deepEqual(
-      approved.skipped.map((item) => item.reason).sort(),
-      candidates.map((candidate) => candidate.reason).sort(),
-    );
+    assert.equal(approved.skipped.length, candidates.length);
+    for (const expected of candidates) {
+      const actual = approved.skipped.find(item => item.packet_ref.endsWith(`/${expected.file}`))?.reason;
+      if (expected.reason instanceof RegExp) assert.match(actual, expected.reason, expected.taskId);
+      else assert.equal(actual, expected.reason, expected.taskId);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }
