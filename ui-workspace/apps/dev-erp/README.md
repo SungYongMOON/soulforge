@@ -1,5 +1,58 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## 수락 맥락: 기본 비활성 읽기 경로
+
+`/accepted-context.html`은 기존 World Tree 로그인으로 서버가 허용한 과제·보기와
+기준 시각을 선택하고 수락된 메타데이터를 페이지별로 조회한다. 원문과 actor/ref JSON
+입력을 노출하지 않는다. catalogue가 제공한 선택값은 수락 세대·권한 판본에 묶이며
+서버가 actor, exact project/generation, purpose와 page budget을 다시 결정한다.
+조회 실패나 조건 변경은 이전 결과와 cursor를 지운다.
+
+- `GET /api/context/accepted/catalogue`: 현재 계정에 허용된 선택지.
+- `POST /api/context/accepted/query`: `selection_id`, `as_of`, `cursor`만 받는다.
+- 모든 거부는 동일한 HTTP `404` + 기존 `P5_QUERY_NOT_AVAILABLE` 빈 결과다.
+  비로그인, 기본 OFF, 권한 회수, 다른 과제, 오래된 세대·cursor, 원천 누락,
+  provider 실패와 receipt 불일치를 구분해 노출하지 않는다. 응답은 `no-store`다.
+
+`src/accepted_context_reader.mjs`는 기존 accepted query와 manifest/receipt 검증을
+재사용한다. 바인딩은 정확한 `project_ref`, `producer_binding_ref`이고 provider는
+`currentPointer`, `currentSourceRevisions`, `currentAclPolicy`,
+`readAcceptedGeneration`이다. 처음 세 메서드는 현재 상태를 **동기적으로** 관찰한다.
+마지막 메서드는 비동기 read-only IO를 할 수 있다. 요청마다 ACL을 새로 읽으며,
+IO 전후와 반환 직전에 pointer·source·ACL 전체를 다시 비교한다. provider가 값을
+확인할 수 없거나 동기 관찰을 제공하지 못하면 `NOT_AVAILABLE`이다.
+
+Source observer는 명시된 producer의 현재 revision metadata만 공급한다. 결과의
+`producer_refs`는 기존 candidate의 P4/M2/timeline output ref·digest field에,
+`source_revision_refs`는 owner source crosswalk와 membership의 정확한
+`scope`·`source_revision_ref`에 결속된다. 수락 manifest의 기존 exported source
+revision set digest와 전체가 같아야 한다. 정정의 이전 revision도 계보로 보존한다.
+`COUNT`, `MAX`, 수집 가용성, 조회 시각 또는 client 입력으로 revision을 합성하지
+않는다. 정정 관찰만으로 G2를 생성하거나 수락하지 않으며 G1은 조회 불가가 된다.
+명시된 별도 human review와 기존 acceptance gate를 통과한 G2만 다시 조회된다.
+
+현재 server 연결은 **합성 검증 전용**이다. 기본 생성에는 runtime이 없으며 운영
+enable flag나 actual producer reader를 제공하지 않는다. 검증 시에만
+`--accepted-context-synthetic`, `--accepted-context-synthetic-root`,
+`--accepted-context-synthetic-binding-sha256`를 함께 지정한다. root는 OS 임시
+디렉터리 바로 아래 `accepted-context-synthetic-*` 디렉터리여야 하며 정확한
+`binding.json` bytes의 SHA-256을 별도로 pin한다. binding은 `synthetic_only`,
+exact project/producer refs, 계정 ID→actor의 명시 대응, 과제 표시명과 page size만
+갖는다. 이는 synthetic fixture 배선이며 운영 권한·human approval을 발급하지 않는다.
+
+Runtime은 해당 root의 고정 파일 `pointer.json`, `accepted-generation.json`,
+`source-revisions.json`, `acl.json`만 읽는다. pointer/manifest/receipt는 기존
+acceptance gate 출력 그대로다. symlink·hardlink·root 이탈·크기 초과·binding 변경은
+차단하고, 부작용이 있는 accept/write 메서드는 runtime에 없다. 실제 개발 서버 시험은
+격리된 합성 계정·DB·임시 port만 쓰며 4192/4300과 운영 checkout에서는 이 연결을
+허용하지 않는다. 실제 private persistence, DB migration, HPP writer, MCP read
+activation 및 P5D 운영 parity 수락은 D36의 별도 gate로 남는다.
+
+검증: `node --test test/accepted_context_reader.test.mjs test/accepted_context_http.test.mjs`.
+실제 서버/login/query/readback 및 source 정정→G1 차단→별도 합성 human review→G2
+읽기를 포함한다. fixture는 candidate builder와 in-memory acceptance gate를 시험
+안에서만 호출하며 runtime에서 가져오지 않는다.
+
 ## 세계와 작업대의 같은 서버 연결
 
 `/forge-world.html`은 Board가 소유한 세계 HTML·CSS·JS를 그대로 재사용하는 World Tree

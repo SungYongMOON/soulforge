@@ -293,7 +293,7 @@ function emptyResult(status, blockerCodes) {
   });
 }
 
-function makeUniformNotAvailable() { return emptyResult('NOT_AVAILABLE', [C.NOT_AVAILABLE]); }
+export function makeUniformNotAvailable() { return emptyResult('NOT_AVAILABLE', [C.NOT_AVAILABLE]); }
 function makeHold(blockerCodes) { return emptyResult('HOLD', blockerCodes.slice().sort(compareCodePoints)); }
 
 export function createAcceptedContextQuery({ store, readModel, aclPolicy } = {}) {

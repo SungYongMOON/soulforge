@@ -533,12 +533,23 @@ function bind(outer, p4, m2, timeline, owner, blockers) {
   if (m2ProjectRows.length !== m2.projectMaterialCount
       || m2ProjectRows.some(function (row) { return row.scope !== 'project' || row.inclusion !== 'included'; })) blockers.add(C.CROSSWALK_MISMATCH);
   timeline.entries.forEach(function (entry) {
-    const rows = owner.sources.rows.filter(function (row) { return row.kind === 'timeline' && row.entryId === entry.id && row.opaqueRef === entry.opaqueRef && row.inclusion === 'included'; });
+    const rows = owner.sources.rows.filter(function (row) {
+      const retained = row.inclusion === 'superseded'
+        && owner.sources.rows.some(function (next) { return next.correction === 'corrected' && sameExactRef(next.predecessor, row.ref); })
+        && owner.memberships.rows.some(function (member) { return member.state === 'superseded' && sameExactRef(member.ref, row.ref); });
+      return row.kind === 'timeline' && row.entryId === entry.id && row.opaqueRef === entry.opaqueRef && (row.inclusion === 'included' || retained);
+    });
     if (rows.length !== 1) blockers.add(C.CROSSWALK_MISMATCH);
   });
   owner.memberships.rows.forEach(function (member) {
     const source = owner.sources.byRef.get(exactRefIdentityKey(member.ref));
-    if (!source || source.inclusion !== 'included') { blockers.add(C.SOURCE_NOT_INCLUDED); return; }
+    const retained = source && member.state === 'superseded' && source.inclusion === 'superseded'
+      && owner.memberships.rows.some(function (next) {
+        const nextSource = owner.sources.byRef.get(exactRefIdentityKey(next.ref));
+        return next.correction === 'corrected' && next.predecessor === member.span
+          && nextSource && nextSource.correction === 'corrected' && sameExactRef(nextSource.predecessor, source.ref);
+      });
+    if (!source || (member.state === 'active' ? source.inclusion !== 'included' : !retained)) { blockers.add(C.SOURCE_NOT_INCLUDED); return; }
     if (member.project !== owner.cross.projectContext) blockers.add(C.CROSSWALK_MISMATCH);
     if (LANES.indexOf(member.lane) >= 0) {
       const entry = timeline.entries.find(function (item) { return item.id === member.entryId; });

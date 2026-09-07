@@ -27,6 +27,8 @@ import {
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
 import { createForgeWorldHttpController } from "./src/forge_world_http.mjs";
+import { createAcceptedContextHttpController } from "./src/accepted_context_http.mjs";
+import { createSyntheticAcceptedContextRuntime } from "./src/accepted_context_synthetic_runtime.mjs";
 import { createWorkbenchCurrentSources } from "./src/workbench_current_sources.mjs";
 import { createWorkbenchExecutionSources } from "./src/workbench_execution_sources.mjs";
 import { createWorkbenchExecutionStore } from "./src/workbench_execution_store.mjs";
@@ -2456,6 +2458,18 @@ const forgeWorldHttpController = createForgeWorldHttpController({
   canAccessProject,
 });
 
+// Synthetic verification only: no operational enable flag, source discovery,
+// writer, migration, or target persistence. Normal server construction stays OFF.
+const acceptedContextHttpController = createAcceptedContextHttpController({
+  runtime: !IS_RUNTIME_CHECKOUT && !TLS_ENABLED && ![4192, 4300].includes(PORT)
+    && HOST === "127.0.0.1" && args.includes("--accepted-context-synthetic")
+    ? createSyntheticAcceptedContextRuntime({ syntheticOnly: true,
+      root: flag("accepted-context-synthetic-root", ""),
+      bindingSha256: flag("accepted-context-synthetic-binding-sha256", "") }) : null,
+  currentAccount,
+  allowedOrigin: `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+});
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
@@ -2463,6 +2477,7 @@ const server = createServer(async (req, res) => {
   // 작업 행위자 = 로그인 세션 사용자(없으면 익명 'anon'). event_log·created_by 출처를 실제 사용자로 기록(BE-2).
   const actor = currentAccount(req)?.username ?? "anon";
   try {
+    if (await acceptedContextHttpController(req, res, url)) return;
     if (!ERP_MCP_ENABLED
         && (path.startsWith("/api/mcp/") || path.startsWith("/api/integrations/mcp/"))) {
       return send(res, 404, { error: "not_found" });
