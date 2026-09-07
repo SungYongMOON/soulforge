@@ -21,14 +21,17 @@ const held = hold_code => ({ status: 'HOLD', hold_code });
 const sqliteBusy = error => error?.code === 'ERR_SQLITE_ERROR' && Number.isInteger(error.errcode) && (error.errcode & 255) === 5;
 
 /**
- * Synthetic-only execution ledger in an independently supplied directory. SQLite transactions
+ * Execution ledger in an independently supplied directory. Its mode is pinned
+ * by the file's existing backup_class; a mode switch never reinterprets old rows. SQLite transactions
  * own multi-process claims, active-agent slots and final compare-and-swap. This neither changes
  * the in-memory CEC/Core nor supplies execution authority. No automatic orphan rerun or deletion.
  * OS directory custody remains required; portable path checks do not sandbox hostile OS races.
  */
-export function createWorkbenchExecutionStore({ root, now = () => Date.now() } = {}) {
+export function createWorkbenchExecutionStore({ root, now = () => Date.now(), mode = 'synthetic_fixed' } = {}) {
+  assert(['synthetic_fixed', 'native_chat'].includes(mode), 'EXECUTION_MODE_INVALID');
+  const backupClass = mode === 'native_chat' ? 'native-execution-metadata' : 'synthetic-only';
   if (typeof root !== 'string' || !isAbsolute(root) || resolve(root) === parse(resolve(root)).root) {
-    throw new TypeError('Explicit existing synthetic execution root required');
+    throw new TypeError('Explicit existing execution root required');
   }
   const rootPath = resolve(root);
   let rootIdentity;
@@ -63,12 +66,11 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
       let metadata;
       try { metadata = db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get(); }
       catch (error) { if (sqliteBusy(error)) throw error; fail('EXECUTION_FORMAT_INVALID'); }
-      assert(metadata?.format === 1 && metadata?.backup_class === 'synthetic-only', 'EXECUTION_FORMAT_INVALID');
+      assert(metadata?.format === 1 && metadata?.backup_class === backupClass, 'EXECUTION_FORMAT_INVALID');
     }
     db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;');
     db.exec(`
     CREATE TABLE IF NOT EXISTS wb_meta (id INTEGER PRIMARY KEY CHECK(id=1), format INTEGER NOT NULL, backup_class TEXT NOT NULL);
-    INSERT OR IGNORE INTO wb_meta VALUES(1,1,'synthetic-only');
     CREATE TABLE IF NOT EXISTS wb_epoch (agent_id TEXT PRIMARY KEY, epoch INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS wb_run (
       run_id TEXT PRIMARY KEY, claim_key TEXT NOT NULL, basis_digest TEXT NOT NULL,
@@ -84,7 +86,8 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
     CREATE UNIQUE INDEX IF NOT EXISTS wb_active_agent ON wb_run(agent_id) WHERE state='running';
     CREATE TABLE IF NOT EXISTS wb_link (request_id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES wb_run(run_id), revision_no INTEGER NOT NULL);
     `);
-    assert(db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get()?.backup_class === 'synthetic-only'
+    db.prepare('INSERT OR IGNORE INTO wb_meta VALUES(1,1,?)').run(backupClass);
+    assert(db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get()?.backup_class === backupClass
       && db.prepare('SELECT format FROM wb_meta WHERE id=1').get()?.format === 1, 'EXECUTION_FORMAT_INVALID');
     checkRoot();
   } catch (error) {
@@ -111,8 +114,15 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
     }
     if (candidate_bytes !== null) assert(sha(candidate_bytes) === value.candidate_sha256, 'EXECUTION_CANDIDATE_CORRUPT');
     const recover = value.state === 'running' && (value.instance_ref !== instanceRef || value.deadline_at <= instant());
-    return { ...metadata, receipt, candidate_present: candidate_bytes !== null,
-      observed_state: recover ? 'hold' : value.state, observed_reason: recover ? 'RUN_RECOVERY_REQUIRED' : value.reason_code };
+    // Preserve format-1 SQL compatibility: the terminal response observation is
+    // represented by a reserved HOLD reason + receipt, never by candidate success.
+    const responseObserved = mode === 'native_chat' && value.state === 'hold'
+      && value.reason_code === 'NATIVE_RESPONSE_OBSERVED' && receipt?.response_observed === true;
+    return { ...metadata, receipt, candidate_present: candidate_bytes !== null, response_observed: responseObserved,
+      execution_mode: mode,
+      state: responseObserved ? 'response_observed' : value.state,
+      observed_state: recover ? 'hold' : responseObserved ? 'response_observed' : value.state,
+      observed_reason: recover ? 'RUN_RECOVERY_REQUIRED' : responseObserved ? null : value.reason_code };
   }
   function expire() {
     // Deadline expiration only fences a run. It never creates a successor or calls an executor.
@@ -120,7 +130,7 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
   }
 
   return Object.freeze({
-    backupClass: 'synthetic-only',
+    backupClass,
     claim(rawInput) {
       const checked = guardEntry(rawInput, CLAIM_FIELDS, { unknownField: 'EXECUTION_CLAIM_INVALID', secret: 'EXECUTION_CLAIM_INVALID',
         localPath: 'EXECUTION_CLAIM_INVALID', tooDeep: 'EXECUTION_CLAIM_INVALID', tooLarge: 'EXECUTION_CLAIM_INVALID', hostileInput: 'EXECUTION_CLAIM_INVALID', accessor: 'EXECUTION_CLAIM_INVALID' });
@@ -128,7 +138,8 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
       const value = checked.value;
       assert([value.claim_key, value.basis_digest, value.binding_digest].every(digest => SHA.test(digest))
         && REQUEST.test(value.request_id) && /^member\.[a-f0-9]{16}$/u.test(value.requester)
-        && /^(?:SYN|SFX)(?:-|_)[A-Z0-9_-]+$/u.test(value.project_code)
+        && (mode === 'native_chat' ? /^[A-Z0-9][A-Z0-9_-]{2,23}$/u.test(value.project_code)
+          : /^(?:SYN|SFX)(?:-|_)[A-Z0-9_-]+$/u.test(value.project_code))
         && [value.agent_id, value.instance_ref].every(id => ID.test(id))
         && Number.isSafeInteger(value.revision_no) && value.revision_no >= 1
         && (value.revision_of === null || REQUEST.test(value.revision_of))
@@ -170,10 +181,17 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
       });
     },
     settle({ run_id, fencing_epoch, instance_ref, state, reason_code, receipt = null, candidate_bytes = null }) {
-      assert(RUN.test(run_id) && Number.isSafeInteger(fencing_epoch) && ['succeeded', 'failed', 'hold', 'cancelled'].includes(state)
+      const responseObserved = mode === 'native_chat' && state === 'response_observed';
+      assert(RUN.test(run_id) && Number.isSafeInteger(fencing_epoch) && (responseObserved || ['succeeded', 'failed', 'hold', 'cancelled'].includes(state))
         && (reason_code === null || /^[A-Z][A-Z0-9_]{2,63}$/u.test(reason_code)), 'EXECUTION_SETTLE_INVALID');
       assert(state === 'succeeded' ? reason_code === null && Buffer.isBuffer(candidate_bytes) && candidate_bytes.length > 0
         && candidate_bytes.length <= 65536 && receipt !== null : candidate_bytes === null, 'EXECUTION_CANDIDATE_INVALID');
+      if (mode === 'native_chat') {
+        assert(state !== 'succeeded' && (receipt === null || (receipt.local_candidate_stored === false
+          && receipt.official_task_done === false && receipt.acceptance_authority === false)), 'NATIVE_CUSTODY_NOT_ESTABLISHED');
+        assert(!responseObserved || (receipt?.response_observed === true && reason_code === null), 'NATIVE_RESPONSE_RECEIPT_REQUIRED');
+        if (responseObserved) { state = 'hold'; reason_code = 'NATIVE_RESPONSE_OBSERVED'; }
+      }
       const receiptJson = receipt === null ? null : JSON.stringify(receipt);
       assert(receiptJson === null || Buffer.byteLength(receiptJson) <= 32768, 'EXECUTION_RECEIPT_INVALID');
       return transaction(() => {
