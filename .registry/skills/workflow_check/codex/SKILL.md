@@ -7,6 +7,11 @@ description: Use when a Soulforge task needs a dedicated workflow-check wrapper 
 
 Use this as the global workflow review/closeout wrapper for Soulforge work. It is the runtime-facing checker that pairs naturally with `$soulforge-workflow-generator` for creation/evolution and `$soulforge-post-development-review-gate` for final review.
 
+This wrapper is not triggered by merely reading, comparing, or editing instruction
+files. Apply the execution contract's skill-inspection boundary first. If the user
+excludes this wrapper or a downstream review workflow, do not invoke it through
+another skill, a runner, or a purported fallback.
+
 Read [references/mapping.md](references/mapping.md) only when you need canon linkage, output shape, or owner-boundary details.
 
 ## When To Use
@@ -38,7 +43,7 @@ Read [references/mapping.md](references/mapping.md) only when you need canon lin
 5. Apply `$soulforge-post-development-review-gate` logic to close the work.
 - Choose the review level that matches the risk.
 - Check public/private boundary, source/support posture, registration/default-route posture, and whether evidence is strong enough for the claimed state.
-- Invoke the installed skill when available. If it is unavailable, mirror its checklist manually and state that fallback explicitly.
+- Invoke the installed skill only when applicable and not excluded by the user. If an applicable skill is unavailable, direct checks may cover its essential requirements; state the actual method and limits. User exclusion is not an availability failure and must not trigger that fallback.
 - Run the end-of-task knowledge trigger check instead of silently skipping it.
 
 6. Report exact state labels rather than vague success words.

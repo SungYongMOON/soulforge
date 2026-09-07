@@ -118,9 +118,9 @@ behavior:
     - Codex returns `not_applicable` to the direct task-tool and route-canon path for one-off existing-task or route-check requests, without worker creation or Board enrollment
     - On `applicable`, Codex reads `.workflow/codex_thread_manager_v0/workflow.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`
     - Codex binds the goal, workspace scope, success criteria, stop conditions, public/private boundary, and claim ceiling before creating or continuing threads
-    - Codex refreshes `NIGHT_WORK_HANDOFF` before thread creation, manager rollover, compact, clear, or substantial closeout
+    - Codex assesses continuity before thread creation, manager rollover, compact, clear, or substantial closeout and refreshes `NIGHT_WORK_HANDOFF` only for unrecorded forward-state crossing a context boundary or an explicit checkpoint request
     - Codex treats explicit skill invocation with an actionable lifecycle or orchestration goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
-    - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
+    - Codex reuses sufficient commits, validation, activity records, or task history instead of creating a redundant handoff
     - Codex reads the public project organization contract before classifying project work
     - Codex reads the public company/team common-work contract before classifying COMMON work
     - Codex reads the approved two-company organization contract before CEO coordination

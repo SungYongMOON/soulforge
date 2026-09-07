@@ -14,8 +14,8 @@ rules:
       - workspace_board_exact_thread_id_local_only
   - from: checkpoint_curator
     to: surface_router
-    condition: night_work_handoff_refreshed
-    summary: Pass the durable checkpoint, request relationship, project or common-team work assignment, four logical TASK roles, new-or-existing TASK decision, gate state, active worker refs, target refs, compact/clear/rollover posture, and known risks needed to choose a continuation surface.
+    condition: continuity_need_resolved_with_refreshed_checkpoint_or_sufficient_existing_evidence
+    summary: Pass the refreshed checkpoint when unrecorded forward-state crosses a context boundary or the user requested one; otherwise pass sufficient existing evidence refs without creating a handoff. Include the request relationship, project or common-team work assignment, four logical TASK roles, new-or-existing TASK decision, gate state, active worker refs, target refs, compact/clear/rollover posture, and known risks needed to choose a continuation surface.
   - from: surface_router
     to: worker_packet_author
     condition: continuation_surface_selected

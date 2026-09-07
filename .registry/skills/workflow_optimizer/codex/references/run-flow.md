@@ -2,7 +2,7 @@
 
 ## Goal Declaration
 
-For actual optimizer runs, first call `get_goal` if available. If there is no existing active goal for this optimization, call `create_goal` with this objective shape:
+For actual optimizer runs, first inspect an active goal if the read tool is available. Reuse matching tracking. Call `create_goal` only when goal creation was explicitly requested or authorized by higher-priority instructions and the tool contract allows it; otherwise retain the objective in the existing run notes and continue without an approval question. An authorized new goal can use this objective shape:
 
 `Validate or optimize the <workflow_id> Soulforge workflow execution profile using public-safe runner-verified candidates; compare against the incumbent; archive the tested and untested scope under .workflow/<workflow_id>/calibrations/<calibration_id>/; update .workflow/<workflow_id>/profile_policy.yaml when supported; select the lowest-cost passing profile among tested candidates.`
 
@@ -10,9 +10,9 @@ Replace `<workflow_id>` when known. If the workflow id is not known yet, use `ta
 
 Only set `token_budget` when the user explicitly gives a budget. Do not include golden output, private input text, secret material, candidate answers, or evaluator-only criteria in the goal objective.
 
-If `create_goal` fails because the thread already has a goal, report that and continue under the existing thread without inventing a second goal.
+Do not attempt goal creation when an unfinished goal already exists. Preserve the existing objective; if it conflicts with a dependent action, clarify that conflict while continuing independent work. Never mark unfinished work complete to free the goal slot.
 
-When the recommendation is complete and no required work remains, call `update_goal(status="complete")` and report final token/time usage.
+Call `update_goal(status="complete")` only when the full active objective is achieved, not merely this optimization subtask. Report measured usage only when the tool provides it and the user requested or set a budget.
 
 ## Runner And Capability Preflight
 
@@ -62,4 +62,4 @@ Do not regenerate the gate solely from an unvalidated new-model golden. Any gold
 8. Re-run finalists only when the decision depends on an unstable small difference.
 9. Archive public-safe runner capability, candidates, tested/untested dimensions, evidence sources, and selection claim.
 10. Retain or replace the incumbent; update policy only when the evidence supports the decision.
-11. Complete the goal if one was started.
+11. Complete an app goal only when its full objective is achieved; otherwise keep it active.

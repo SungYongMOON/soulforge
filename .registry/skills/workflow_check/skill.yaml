@@ -16,6 +16,8 @@ behavior:
     - a post-smoke review must name validator results, public/private boundary posture, and registration/default-route safety
     - Drive, NotebookLM, Obsidian, `_workmeta`, or source packets might be mistaken for canon authority
   avoid_when:
+    - the user excludes this wrapper or its downstream review workflow for the current task
+    - the task audits instruction files without requesting the review workflow's execution
     - the task is pure skill package authoring with no workflow, party, router, or registration question
     - the task is a simple command output request with no repo judgment
     - the user explicitly asks to register or switch a default route without the required owner intent

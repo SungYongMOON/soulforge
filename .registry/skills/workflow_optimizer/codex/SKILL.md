@@ -12,7 +12,7 @@ Use this skill to validate a model-family migration against the incumbent or to 
 1. If working inside the Soulforge repo on code, docs, structure, or skill work, read `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md` first.
 2. Decide whether dedicated LLM optimization is applicable. Use `optimization_not_applicable` for deterministic/script-backed workflows whose authoritative outcome is owned by validators and model choice only formats a non-authoritative report. Use `deferred_inactive` for inactive or unused workflows without a concrete risk, quality, or usage trigger.
 3. Otherwise classify the intent as `migration_validation`, `profile_search`, a smoke/comparison, or skill/design discussion. Default model availability or pricing changes to `migration_validation`.
-4. For actual optimizer runs, use the Codex App goal feature when available. See [run-flow.md](references/run-flow.md).
+4. For actual optimizer runs, reuse matching app goal tracking when permitted. Create a new goal only when explicitly requested or authorized by higher-priority instructions and allowed by the tool; otherwise track the objective in the existing run notes. See [run-flow.md](references/run-flow.md).
 5. Resolve the target workflow, incumbent policy, and creator handoff files.
 6. Preflight the exact executable runner and resolve supported efforts per model before building candidates. A cache entry or visible catalog row is not proof of execution support.
 7. Keep candidate prompts free of golden output and golden-derived criteria.
@@ -67,7 +67,7 @@ Short form:
 5. Evaluate quality first, then probe telemetry for passing candidates.
 6. Archive capability, tested/untested scope, comparator, evidence sources, and selection claim.
 7. Retain or replace the incumbent and update policy only when evidence supports it.
-8. Complete the goal if one was started.
+8. Complete an app goal only when its full objective is achieved; completing this optimization alone does not close a broader thread goal.
 
 ## Detailed References
 

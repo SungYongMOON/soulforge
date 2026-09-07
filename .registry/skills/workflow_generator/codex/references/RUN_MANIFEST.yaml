@@ -20,7 +20,7 @@ storage:
   original_inputs_modified: false
 
 objective:
-codex_goal_status: created|existing_matching|unavailable|blocked_conflicting_goal
+codex_goal_status: created|existing_matching|not_requested|unavailable|blocked_conflicting_goal
 codex_goal_objective:
 codex_goal_success_condition:
 codex_goal_stop_conditions:

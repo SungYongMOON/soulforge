@@ -33,6 +33,7 @@
 - `execution_requirements` 는 required/preferred capability 와 MCP/tool hint 를 가질 수 있으며, local runtime execution profile 이 이를 참고해 model, attached skill, MCP/tool set 을 고를 수 있다.
 - 필요하면 execution-specific package 를 같은 skill 아래 별도 하위 폴더로 둘 수 있지만, canonical behavior 설명과 runtime execution prompt 는 구분해서 관리한다.
 - `codex/SKILL.md` 는 lean bridge 로 유지하고, detailed mapping 과 output shape 는 `codex/references/` 로 분리한다.
+- 스킬·지침을 조사하거나 수정할 때는 실행 계약의 감사 경계를 따른다. 검토 대상의 workflow·종료·기록 절차를 자동 호출하지 않으며, 질문·검증은 실제 변경과 미해결 조건에 맞춘다. 앱 goal의 생성·종료와 task/subagent 호출은 현재 도구 계약을 따른다.
 - Codex-facing package 를 둘 때는 `codex/SKILL.md` 와 `codex/agents/openai.yaml` 조합으로 UI metadata 와 dependency hint 를 함께 둔다.
 - 다른 PC 에서 실제 Codex installed mirror 가 필요하면 tracked `codex/` bridge 를 local `~/.codex/skills/` 로 sync 한다. bootstrap/doctor 기본 목표는 sync 가능한 `codex/` bridge 전체를 local 에 materialize 하는 것이다.
 - `codex/SKILL.md` 가 없는 skill folder 는 canon-only 또는 test package 로 둘 수 있고, local install mirror 기본 대상에 넣지 않는다.
@@ -50,7 +51,7 @@
 - `pptx_autofill_conversion/` 는 user-provided template PPTX 를 runtime input 으로 받고, bundled helper scripts 와 XML guardrails 를 통해 bounded text replacement 를 수행하는 presentation skill sample 이다.
 - `se_foldertree_generate/` 는 bundled `assets/`, `scripts/`, `references/`, `requirements.txt` 를 함께 sync 해서 SE 프로젝트 폴더 트리와 plan bootstrap 을 수행하는 scaffolding skill sample 이며, `assets/schedule_rules.yaml` 은 ERP 일정 힌트만 제공한다.
 - `workflow_optimizer/` 는 workflow profile calibration 을 수행하고, 결과를 대상 `.workflow/<workflow_id>/profile_policy.yaml` 및 `calibrations/` 아래에 남기도록 돕는 Codex bridge 포함 skill package 다.
-- `post_development_review_gate/` 는 등록된 `.workflow/post_development_review_gate_v0/` 를 Codex 작업 종료 시 호출하게 하는 bridge skill package 다.
+- `post_development_review_gate/` 는 적용 가능한 개발 결과의 종료 또는 명시적 실행 요청에 `.workflow/post_development_review_gate_v0/` 를 연결하는 bridge다. 스킬·지침 감사와 사용자 제외에는 자동 호출하지 않는다.
 - `workflow_check/` is the tracked Codex bridge for reviewing workflow, party, router, registration, and default-route posture before closeout.
 - `party_launcher_skill_author/` is the tracked Codex bridge for generating party launcher skills that resolve workflow-owned profile policy at execution time.
 - `workflow_launcher_skill_author/` is the tracked Codex bridge for generating workflow launcher skills that resolve workflow-owned profile policy at execution time.

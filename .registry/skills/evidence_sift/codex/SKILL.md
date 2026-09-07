@@ -9,7 +9,7 @@ Use this skill when the unit lens or workflow step calls for `evidence_sift` or 
 
 ## Core Rules
 
-- Start the final answer with `Applied skill: soulforge-evidence-sift`.
+- Mention use of this skill briefly when it changes the work; lead the final answer with the result in the user's language.
 - Identify the target artifact or decision that depends on evidence confidence.
 - Separate claims into confirmed/source-supported, observed but not confirmed, speculative, contradicted, and missing-source buckets.
 - Use the weakest supported claim ceiling. Do not promote advisory output, NotebookLM/LLM summaries, access ledgers, or analysis labels into source truth.
@@ -17,4 +17,4 @@ Use this skill when the unit lens or workflow step calls for `evidence_sift` or 
 
 ## Stop Conditions
 
-Stop and report the blocker when source access, source approval, private payload handling, or owner judgment is required before a stronger claim can be made.
+Stop the unsupported claim or dependent action when source access, source approval, private payload handling, or owner judgment is required. Report that limit and continue independent work using supported evidence within the authorized scope.

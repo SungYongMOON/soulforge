@@ -444,7 +444,7 @@ codex_thread_manager_contract:
     fork_rollover_and_continuation_are_same_role_continuity_not_independence: true
     keep_manager_across_worker_phase_changes: true
     rollover_before_overnight_cross_pc_or_24h_span: true
-    clear_requires_checkpoint_and_accepted_handoff: true
+    clear_requires_sufficient_continuity_evidence: true
     worker_threads_are_not_cleared_for_reuse: true
     stable_route_identity_is_separate_from_runtime_binding: true
     registered_manager_binding_events:
@@ -477,6 +477,10 @@ codex_thread_manager_contract:
     execution_surface_runtime_agent_history_or_thread_api_inheritance_not_assumed: true
   context_lifecycle:
     night_work_handoff_is_team_continuity_object: true
+    continuity_evidence_refs_may_reference_existing_commits_validation_activity_or_task_history: true
+    night_work_handoff_may_be_null_when_existing_evidence_suffices: true
+    refresh_requirements_apply_only_to_unrecorded_forward_state_crossing_context_boundary_or_explicit_checkpoint_request: true
+    sufficient_existing_evidence_is_reused_without_new_handoff: true
     refresh_before_worker_creation_compact_clear_rollover_or_phase_closeout: true
     compact_same_goal_when_context_pressure_drift_or_unit_boundary_justifies: true
     clear_or_fresh_session_at_phase_boundary_when_old_context_distracts: true

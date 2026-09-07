@@ -40,14 +40,14 @@ If a path is inside the Soulforge project, derive the portable form by making it
 
 ## Goal Declaration
 
-For a non-trivial `$soulforge-workflow-generator` run, Codex goal tracking is the live execution goal and `run_evidence/GOAL_DECLARATION.yaml` is the persistent evidence lock.
+For a non-trivial `$soulforge-workflow-generator` execution, `run_evidence/GOAL_DECLARATION.yaml` is the persistent evidence lock. Codex app goal tracking is used only when the current tool contract and authorization permit it. An instruction audit or edit is not, by itself, a workflow execution.
 
 At run start:
 
 1. Check the active Codex goal state when tools are available.
-2. If no active goal exists, create a goal matching the latest workflow objective.
+2. If no active goal exists, create one only when explicitly requested or authorized by higher-priority instructions and permitted by the goal tool. Otherwise record `not_requested` and proceed with the file-based declaration without a new approval question.
 3. If an active goal matches, continue and record it.
-4. If an active goal conflicts, stop before material stages and ask whether to finish, replace, or keep the existing goal.
+4. If an active goal conflicts, preserve it. Continue work independent of that conflict; clarify before a dependent stage would change or abandon the existing objective. Do not mark an unfinished goal complete to replace it.
 
 For concrete artifact discovery, the Codex goal must include the full lifecycle: same-run candidate versions as needed, fresh subagent stage logs, workflow extraction from logs, and cold replay from the original baseline. Do not reduce the goal to only "make a candidate" or only "compare with REF".
 
@@ -75,7 +75,7 @@ Minimum shape:
 
 ```yaml
 goal_lock_status: declared
-codex_goal_status: created|existing_matching|unavailable|blocked_conflicting_goal
+codex_goal_status: created|existing_matching|not_requested|unavailable|blocked_conflicting_goal
 codex_goal_objective:
 codex_goal_success_condition:
 codex_goal_stop_conditions:
@@ -115,7 +115,7 @@ stage_log_root:
 stop_or_block_conditions:
 ```
 
-If Codex goal tools are unavailable, record `codex_goal_status: unavailable` and continue with file-based evidence. If a material stage already ran before this file existed, the run is not valid workflow-generation evidence; stop as `missing_pre_stage_goal_declaration` and restart only when safe.
+If Codex goal tools are unavailable, record `codex_goal_status: unavailable` and continue with file-based evidence. If tools exist but goal creation was not requested or is not authorized, record `not_requested`; tool availability alone is not authorization. If a material stage already ran before this file existed, the run is not valid workflow-generation evidence; stop as `missing_pre_stage_goal_declaration` and restart only when safe.
 
 ## Run Manifest Fields
 
@@ -125,7 +125,7 @@ Maintain a run manifest with enough state to replay the controller decision:
 objective:
 goal_declaration_path:
 goal_lock_status: declared|missing|invalid
-codex_goal_status: created|existing_matching|unavailable|blocked_conflicting_goal
+codex_goal_status: created|existing_matching|not_requested|unavailable|blocked_conflicting_goal
 codex_goal_objective:
 codex_goal_lifecycle:
   candidate_chain_required: true|false
@@ -280,7 +280,7 @@ Allowed `next_action_type` values:
 - `request_human_decision`
 - `blocked`
 
-Autonomous next actions are allowed only inside the approved write boundary and only when the next step does not require public repo changes, protected contract changes, project-code ownership, secrets/raw data, external side effects, canon promotion, or high hardcoding risk.
+Autonomous next actions are allowed inside the scope and write boundaries already authorized by the user or applicable owner policy. An already authorized public repo or contract edit does not require repeated approval. Stop a dependent action when it needs additional project ownership, protected-data access, external side effects, canon promotion authority, or an unresolved safety decision; continue independent preparation where permitted.
 
 Selection rules:
 
@@ -297,7 +297,7 @@ Selection rules:
 - Choose `switch_to_goal_reconstruction` only when solving the case is still desired and benchmark evidence must be reclassified because oracle material enters construction.
 - Choose `extract_skill_candidate` only after a successful reconstruction or workflow step exposes a repeatable bounded procedure.
 - Choose `run_final_clean` only when evidence suggests the strict pass bar should pass and all repair/context artifacts can be hidden from B.
-- Choose `request_human_decision` when the next step depends on owner judgment, taste, ambiguous domain facts, or accepted risk.
+- Choose `request_human_decision` when an unresolved owner judgment, material domain ambiguity, or accepted-risk decision changes the result. Use stated assumptions for routine reversible preferences; reuse choices already supplied.
 - Choose `blocked` when required files, tools, permissions, or safe boundaries are unavailable after applicable source-bootstrap paths have been attempted or ruled out.
 
 `goal not achieved` is not itself permission to continue. If budget is exhausted, authorization is needed, or the remaining blocker is target-scope/minimization without new non-oracle evidence, set `human_decision_required: true` and choose `request_human_decision` or `blocked`.

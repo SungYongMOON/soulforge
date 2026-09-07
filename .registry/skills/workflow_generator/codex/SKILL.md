@@ -40,11 +40,11 @@ Use bundled scripts without loading their source unless debugging them:
 
 ## Start Gate
 
-For any non-trivial workflow run, declare the goal before material stages. If Codex goal tools are available, check the active goal, create or reuse a matching goal, and stop on a conflicting active goal. Also write `run_evidence/GOAL_DECLARATION.yaml` before run manifests, source stages, B/S/V prompts, candidate construction, reference comparison, or registration decisions. See `references/run-governance.md`.
+For any non-trivial workflow execution, declare the objective before material stages. Reuse a matching active Codex goal when goal tools permit it; create an app goal only when explicitly requested or authorized by higher-priority instructions and allowed by the tool contract. Otherwise record `codex_goal_status: not_requested` and continue with file-based goal evidence. Do not ask for permission merely to add optional app goal tracking. Write `run_evidence/GOAL_DECLARATION.yaml` before run manifests, source stages, B/S/V prompts, candidate construction, reference comparison, or registration decisions. See `references/run-governance.md`. Inspecting or editing this skill's instructions does not itself start a workflow run.
 
 The goal must include the lifecycle, not only the next artifact: same-run candidate versions when needed, fresh subagent stage logs, workflow extraction from logs, and baseline replay. Success and stop conditions must both be explicit.
 
-If subagent authorization is absent and a real B/V run is required, stop with the exact authorization needed. Do not convert the task to `design_only` merely because fresh execution is blocked.
+If a required B/V stage lacks subagent authorization, continue independent source discovery, request preparation, and safe deterministic checks within the authorized scope. Stop only the dependent stage, explain the exact missing condition, and do not claim B/V execution or completion. Do not convert the task to `design_only` merely because fresh execution is blocked.
 
 ## Path Portability
 

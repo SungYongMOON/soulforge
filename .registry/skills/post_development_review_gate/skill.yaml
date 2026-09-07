@@ -14,6 +14,8 @@ behavior:
     - a result needs inspector, judge, supervisor, or B/V gate routing before acceptance
     - a review packet should be written under `_workmeta/<project_code>/` or `_workmeta/system/`
   avoid_when:
+    - the user excludes this workflow for the current task, including its closeout
+    - the task inspects or edits skills or instructions rather than requesting this workflow's execution
     - the task is a simple command output request with no repo judgment
     - the task has no bounded development result to close
     - the required private owner scope is unknown and cannot be safely inferred

@@ -9,7 +9,7 @@ Use this skill when the unit lens or workflow step calls for `charge_breaker` or
 
 ## Core Rules
 
-- Start the final answer with `Applied skill: soulforge-charge-breaker`.
+- Mention use of this skill briefly when it changes the work; lead the final answer with the result in the user's language.
 - Confirm the blocker is localized and the next direct change is already clear.
 - Move through the opening with the smallest direct action that removes the immediate blocker.
 - Keep scope fixed. If requirements, owner boundary, or safety posture become unclear, stop and switch to a boundary or clarification path instead of pushing wider.

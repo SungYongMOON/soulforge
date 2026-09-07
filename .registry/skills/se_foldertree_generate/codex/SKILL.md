@@ -9,7 +9,7 @@ Scaffold SE project folders in owner order: confirm inputs first, prefer dry-run
 
 ## Core rules
 
-- Ask for missing inputs before generation. The minimum input set is `layout mode`, `business type`, `prime contractor`, `quality grade`, `start`, project name, profile, and output root.
+- Resolve `layout mode`, `business type`, `prime contractor`, `quality grade`, `start`, project name, profile, and output root from the current request, established project bindings, and supported spec defaults. Ask only for unresolved values that affect the generated structure or its destination; do not re-ask supplied values or invent project identity, dates, contracts, or authority. Independent spec inspection and dry-run preparation can continue while awaiting essential inputs.
 - Default to the bundled spec bound to the validated supported variant unless the task already has an adjusted spec copy.
 - Use bundled assets, scripts, and references via paths relative to the skill root. Do not hard-code host-local absolute paths into the tracked skill package.
 - Keep dependency assumptions minimal: Python 3 + `requirements.txt` only.

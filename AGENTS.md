@@ -10,6 +10,7 @@
 - 전체 항법은 `docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`(M0–M16)를 먼저 읽고, 정본 구조와 owner는 `README.md`, `docs/architecture/foundation/TARGET_TREE.md`, `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`를 따른다.
 - 큰 개발 방향, active slice, 우선순위와 backlog 저장 판단은 `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`를, 팀 파일럿 접속 모델·출시 사다리·봇 명부 규칙은 `docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md`를 먼저 확인한다.
 - 작업에 필요한 owner 문서와 skill만 단계적으로 읽고 관련 없는 문서를 선적재하지 않는다.
+- 스킬·지침 자체의 조사·비교·수정에서는 실행 계약의 `작업 의도와 스킬 검토 경계`를 먼저 적용한다. 검토 대상의 절차를 자동 실행하지 않으며 사용자에게 제외된 workflow를 종료 시 우회 호출하지 않는다.
 
 ## 작업 위치와 실행면 (2026-09-02 D: 이관 이후)
 
@@ -72,7 +73,7 @@
 
 ## 완료·Git
 
-- bounded AI 작업은 완료 전 `.workflow/five_field_session_capture_v0`의 capture CLI로 입력·판단·출력·검증·중단조건을 원문 없이 기록한다. worktree나 D: checkout에서는 `--repo-root <legacy checkout>`으로 legacy `_workmeta` 장부를 지정한다.
+- bounded AI 작업은 완료 전 `.workflow/five_field_session_capture_v0`의 capture CLI로 입력·판단·출력·검증·중단조건을 원문 없이 기록한다. 단, 스킬·지침 감사는 diff와 직접 검증 결과로 기록을 갈음하며 별도 요청 없는 capture·종료 workflow를 실행하지 않는다. worktree나 D: checkout에서 capture가 적용되면 `--repo-root <legacy checkout>`으로 legacy `_workmeta` 장부를 지정한다.
 - 완료 보고 전 실행 계약의 knowledge trigger check를 수행하고, 대화에서 드러난 반복 실수·미정 규칙·자동 guard 후보를 `규칙 강화 체크:`로 닫는다.
 - skill 생성·수정은 실행 계약의 first-build verification gate 전에는 production-ready로 보고하지 않는다.
 - public 변경, current legacy project metadata, cross-project 보호 상태는 각각 public repo, current legacy `_workmeta`, `private-state`에 분리하고 원문·secret을 commit하지 않는다. GitHub remote는 기존 하나(`origin`)를 유지하며 checkout 위치가 바뀌어도 새 repo를 만들지 않는다.

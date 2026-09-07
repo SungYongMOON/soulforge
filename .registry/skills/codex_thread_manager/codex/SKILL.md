@@ -73,7 +73,7 @@ Apply this gate before reading the registered workflow files, refreshing
 - Act as the main team lead in the declared/current Codex thread by default.
   Own goal declaration, context lifecycle, worker-thread assignment,
   inter-thread routing, integration, validation, and final reporting.
-- After goal, boundary, and `NIGHT_WORK_HANDOFF` binding, create actual Codex
+- After goal, boundary, and any required continuity evidence binding, create actual Codex
   worker threads for role lanes such as research, synthesis, verification, and
   coding when thread tools are available.
 - Do not create a fresh manager thread by default. Use a fresh manager only for
@@ -186,10 +186,12 @@ organizations as direct recipients.
 
 ## Context Lifecycle
 
-- Keep `NIGHT_WORK_HANDOFF` as the structured continuity object for the manager
-  and worker team.
-- Refresh handoff before worker creation, compacting, clearing, manager
+- Use `NIGHT_WORK_HANDOFF` only when unresolved forward-state not already
+  captured in commits, validation, activity records, or task history must cross
+  a context boundary, or the user explicitly requests a checkpoint.
+- Assess that need before worker creation, compacting, clearing, manager
   rollover, cross-PC/overnight continuation, and substantial phase closeout.
+  Reuse sufficient existing evidence; do not create a ceremonial handoff.
 - Compact when continuing the same large goal and context pressure, drift, or a
   meaningful unit boundary makes preservation useful. Name the fields that must
   survive: goal, decisions, constraints, changed files, validators, blockers,
@@ -384,15 +386,17 @@ available and must not rely only on worker narrative.
    check the start gate.
    For a governed create or fork, resolve the role profile and require
    `role_profile_guard.mjs` PASS before proceeding.
-6. Refresh `NIGHT_WORK_HANDOFF` before creating threads, compacting, clearing,
-   rolling over a manager, or ending a substantial phase.
+6. Assess continuity before creating threads, compacting, clearing, rolling
+   over a manager, or ending a substantial phase. Refresh `NIGHT_WORK_HANDOFF`
+   only when the Context Lifecycle condition requires it.
 7. Choose the team topology: manager thread plus role worker threads by default
    for substantial actionable invocations, worktree worker thread for isolated
    file mutation, fresh manager thread for rollover, same thread for trivial
    preflight or blocked cases, or subagent for non-durable side checks.
 8. After an `applicable` decision, use thread tools only when an explicit
-   lifecycle/orchestration request or durable worker/worktree need authorizes
-   an actual task lane and the runtime tools are available. For governed
+   lifecycle/orchestration request authorizes an actual task lane and the
+   runtime tool contract permits it. Durable history being useful is not by
+   itself permission to create a new user-owned task. For governed
    `create_thread`, send the exact approved `model` and `thinking`; do not omit
    them or inherit the configured default.
 9. For worker threads, provide the Delegation Packet Minimum: title, objective,

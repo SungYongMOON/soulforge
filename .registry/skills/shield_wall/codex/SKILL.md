@@ -9,7 +9,7 @@ Use this skill when the unit lens or workflow step calls for `shield_wall`.
 
 ## Core rules
 
-- Start the final answer with `Applied skill: soulforge-shield-wall`.
+- Mention use of this skill briefly when it changes the work; lead the final answer with the result in the user's language.
 - First decide whether one unresolved boundary actually blocks safe action. If not, say Shield Wall is unnecessary and continue through the normal task path without extra review.
 - Name one active boundary question and inspect only the files or evidence needed to answer it; do not expand the task into a general audit.
 - Localize risk before editing. If no edit is required, say so; if a change is authorized, take only the smallest safe action and explain why.

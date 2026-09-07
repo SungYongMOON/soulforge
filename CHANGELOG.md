@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-09-07 - Astra 지침 적용성: 감사·실행 구분과 불필요한 중단 조건 정리
+
+- 날짜: 2026-09-07. Revision: 이 항목을 담은 Git commit이 정확한 revision을 정한다.
+- 무엇: 스킬·지침 감사에서 검토 대상의 workflow·종료·capture 절차를 자동 실행하지 않도록
+  공통 실행 계약과 루트 라우터를 정리했다. 이미 받은 답·권한을 재사용하고, 중요한 미정 사항만
+  질문하며, 변경에 맞는 필수 검증 통과 뒤 이유 없는 반복을 멈추도록 했다.
+  workflow generator·optimizer·long-thread bridge의 앱 goal 생성을 실제 도구 계약에 맞췄고,
+  최적화 하위 작업 완료가 전체 목표 종료로 이어지지 않게 했다. thread manager의 인계는
+  미기록 forward-state가 맥락 경계를 넘거나 사용자가 요청할 때만 새로 만들며, 기존 근거를
+  재사용하는 경로를 workflow 입력에도 반영했다. 보조 스킬의 강제 영문 머리말과 불필요한
+  입력 재질문을 정리하고, skill metadata의 invocation policy 지원을 문서에 반영했다.
+- 운영 영향: 모델·추론 기본값, 기존 검토 프로필, secret/외부 행위/정본 수락 권한은 바꾸지 않는다.
+  수정한 Codex bridge는 해당 skill ID를 지정해 기존 `skills:sync`로 설치본에 반영한다.
+  사용자별 일반 스킬과 플러그인 설정은 이 public 변경에 포함하지 않는다.
+- 검증: 실제 수행한 구조·경로·정본 검사와 문서 기반 독립 forward-check 결과는 작업 결과에
+  기록한다. 이 변경은 업무별 외부 서비스 실행이나 workflow production-ready를 주장하지 않는다.
+  전체 검증에서 발견한 사용량 수집기 common-root 테스트 2건은 호스트의 공유 상태 root 환경변수를
+  상속하고 있었다. 두 fixture에서 해당 override를 제거해 임시 저장소·폴더만 검사하도록 했다.
+  운영 코드의 root 우선순위와 검증 assertion은 유지한다.
+- 관련 경로: `AGENTS.md`, `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`,
+  `AGENT_BOOT_DIGEST_V0.md`, `.registry/skills/**`, `.workflow/codex_thread_manager_v0/**`.
+
 ## 2026-09-07 - README 어디서 도는가 정정(관측 대조) + 정본 로드맵에 대장간 세계·세 창 등록
 
 - 날짜: 2026-09-07. Revision: the Git commit containing this entry owns the exact revision.

@@ -136,11 +136,17 @@ steps:
       - validation_command_refs
     outputs:
       - night_work_handoff
+      - handoff_need_decision
+      - continuity_evidence_refs
       - compact_clear_or_rollover_checkpoint
       - project_work_assignment_checkpoint
       - workspace_board_enrollment_checkpoint
     rules:
       project_extension_inputs_accept_not_applicable_for_non_project_work: true
+      refresh_requirements_apply_only_to_unrecorded_forward_state_crossing_context_boundary_or_explicit_checkpoint_request: true
+      sufficient_existing_evidence_is_reused_without_new_handoff: true
+      night_work_handoff_output_may_be_null_when_existing_evidence_suffices: true
+      continuity_evidence_refs_must_cover_goal_state_decisions_constraints_and_next_actions: true
       required_before_thread_creation: true
       required_before_manager_rollover: true
       required_before_compact_or_clear: true
@@ -156,13 +162,15 @@ steps:
     action:
       kind: same_thread_manager_worker_worktree_or_subagent_selection
     inputs:
-      - night_work_handoff
+      - handoff_need_decision
+      - continuity_evidence_refs
       - boundary_constraints
       - project_work_assignment_decision
       - task_thread_routing_decision
       - task_gate_state
       - workspace_board_enrollment_decision
     optional_inputs:
+      - night_work_handoff
       - manager_thread_ref
       - active_worker_thread_refs
       - context_pressure_signal
@@ -210,10 +218,11 @@ steps:
       role_profile_preflight_ref: role_profile_guard.mjs
     inputs:
       - continuation_surface_decision
-      - night_work_handoff
+      - continuity_evidence_refs
       - worker_lane_plan
       - workspace_board_enrollment_decision
     optional_inputs:
+      - night_work_handoff
       - active_worker_thread_refs
       - target_file_refs
       - validation_command_refs

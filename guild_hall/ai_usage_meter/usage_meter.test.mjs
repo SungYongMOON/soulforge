@@ -1593,6 +1593,9 @@ test("linked worktree hooks share the canonical common-checkout state root and e
   const explicitState = path.join(fixture, "explicit-override-state");
   const hookEnv = { ...process.env, CODEX_HOME: codexHome };
   delete hookEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT;
+  // Exercise Git/common-root discovery inside the fixture, not this PC's shared state.
+  delete hookEnv.SOULFORGE_STATE_ROOT;
+  delete hookEnv.SOULFORGE_OWNER_ROOT;
   try {
     await mkdir(main, { recursive: true });
     await runGit(main, ["init"]);
@@ -1676,6 +1679,8 @@ test("hook common-root resolution falls back locally with an explicit health rea
   const codexHome = path.join(fixture, "codex-home");
   const hookEnv = { ...process.env, CODEX_HOME: codexHome };
   delete hookEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT;
+  delete hookEnv.SOULFORGE_STATE_ROOT;
+  delete hookEnv.SOULFORGE_OWNER_ROOT;
   try {
     const result = await runCli(["hook"], JSON.stringify({
       hook_event_name: "SessionStart",

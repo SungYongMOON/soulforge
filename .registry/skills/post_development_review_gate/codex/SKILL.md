@@ -1,11 +1,17 @@
 ---
 name: soulforge-post-development-review-gate
-description: Use when a Soulforge task is ending and must run the registered post-development review gate, choose Level 0-3, run or record validators, check public/private boundaries, route Inspector/Judge/BV review, and write a private review packet before final acceptance.
+description: Apply the Soulforge post-development review workflow when explicitly requested or required for an actual development result. Do not invoke for questions about skills, instruction audits, or work where the user has excluded this workflow.
 ---
 
 # Soulforge Post-development Review Gate
 
 Use this skill to close bounded Soulforge work through `.workflow/post_development_review_gate_v0`.
+
+Confirm that the requested task actually calls for this workflow before following
+the steps below. Reading, comparing, or editing skills and instructions does not
+automatically invoke their closeout procedures. Respect the execution contract's
+skill-inspection boundary and any user exclusion through the end of the task;
+do not substitute a direct runner call for an excluded skill.
 
 This skill is a Codex runtime bridge. The workflow remains the source of truth:
 

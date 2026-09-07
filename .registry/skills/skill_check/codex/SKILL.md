@@ -12,7 +12,7 @@ Review the skill package in owner order: `skill.yaml`, optional `codex/` bridge,
 - Treat `skill.yaml` as the canon source of behavior and keep executor-neutral rules there.
 - Allow `execution_requirements` to carry capability-level and hint-level guidance, including preferred MCP/tool hints, as long as they are not final runtime-bound values.
 - Keep `codex/SKILL.md` lean; read [`references/mapping.md`](references/mapping.md) for mapping, output shape, and executor-specific notes.
-- Keep `agents/openai.yaml` limited to UI metadata and dependency hints.
+- Keep `agents/openai.yaml` limited to supported UI metadata, invocation policy, and dependency hints; it does not grant execution authority.
 - If a missing value belongs to local runtime bindings, stop at the boundary and name that owner instead of materializing it in tracked files.
 
 ## Load on demand
