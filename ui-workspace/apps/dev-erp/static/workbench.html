@@ -13,7 +13,7 @@
   <header class="topbar"><a class="brand" href="/">SOULFORGE <span>ENGINEERING WORKSPACE</span></a><a class="back" href="/">World Tree로 돌아가기 <span aria-hidden="true">↗</span></a></header>
   <main id="main">
     <div class="eyebrow">WORKBENCH <span>업무 요청</span></div>
-    <div class="intro"><div><h1>업무를 준비하는 작업대</h1><p>확인된 업무와 입력 판본을 선택하고, 요청을 남기세요.</p></div><span class="boundary">접수 전용</span></div>
+    <div class="intro"><div><h1>업무를 준비하는 작업대</h1><p>확인된 업무와 입력 판본을 선택하고, 요청을 남기세요.</p></div><span id="boundary-label" class="boundary">접수 전용</span></div>
     <ol class="steps" aria-label="요청 순서"><li><b>01</b> 업무 선택</li><li><b>02</b> 범위 확인</li><li><b>03</b> 요청 접수</li></ol>
     <div id="notice" class="notice" role="status" aria-live="polite">업무 목록을 확인하고 있습니다.</div>
     <div class="workspace">
@@ -28,7 +28,17 @@
         </form>
       </section>
     </div>
-    <section id="receipt-panel" class="receipt panel" aria-labelledby="receipt-title" hidden><div class="panel-heading"><h2 id="receipt-title">접수 기록</h2><button id="refresh-receipt" class="text-button" type="button">저장 상태 확인</button></div><div id="receipt-content" role="status" aria-live="polite"></div></section>
+    <section id="receipt-panel" class="receipt panel" aria-labelledby="receipt-title" hidden>
+      <div class="panel-heading"><h2 id="receipt-title">접수 기록</h2><button id="refresh-receipt" class="text-button" type="button">저장 상태 확인</button></div>
+      <div id="receipt-content" role="status" aria-live="polite"></div>
+      <section id="execution-panel" class="execution-panel" aria-labelledby="execution-title" hidden>
+        <div class="panel-heading"><h3 id="execution-title">합성 실행 체험</h3><span class="tag">로컬 시험</span></div>
+        <p class="helper">고정된 합성 작업자가 시험용 파일을 만듭니다. 외부 제출과 공식 업무 완료는 이루어지지 않습니다.</p>
+        <div id="execution-content" role="status" aria-live="polite"></div>
+        <div class="execution-actions"><button id="start-execution" class="primary" type="button">합성 실행 체험</button><button id="cancel-execution" class="secondary" type="button" hidden>실행 취소</button><button id="refresh-execution" class="text-button" type="button">실행 상태 확인</button><a id="candidate-download" class="candidate-download" hidden>로컬 후보 파일 받기 <span aria-hidden="true">↓</span></a></div>
+      </section>
+      <div class="revision-area"><p>다시 시도할 때는 같은 대상과 입력 판본으로 다음 접수 기록을 만듭니다.</p><button id="revision-request" class="secondary" type="button">이 요청의 다음 판본 접수</button></div>
+    </section>
     <footer>요청 접수는 실행 시작·외부 발송·결과 수락을 뜻하지 않습니다. 상태는 확인된 근거가 있을 때만 표시합니다.</footer>
   </main>
 </body>

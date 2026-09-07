@@ -223,6 +223,10 @@ export function createWorkbenchCurrentSources({ root, expectedBinding, now = () 
 
   return Object.freeze({
     realmId: pins.realm_id,
+    approvedBundleDigest: pins.content_sha256,
+    // Server-only companion reader. Descriptors must come from an independently pinned
+    // deployment document; no HTTP route accepts descriptors or exposes this method.
+    readPinnedMetadata: json,
     async catalogue({ requester, canAccessProject }) {
       const current = await snapshot();
       const entries = [];

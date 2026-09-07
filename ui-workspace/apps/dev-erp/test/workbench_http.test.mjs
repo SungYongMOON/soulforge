@@ -122,6 +122,23 @@ test('same key with changed instructions conflicts and a proper parent revision 
   assert.equal((await call(fixture.controller, post(foreign))).statusCode, 409);
 });
 
+test('execution status and candidate responses recheck session and project access after service IO', async t => {
+  for (const operation of ['execution', 'candidate']) for (const boundary of ['session', 'project']) {
+    let fixture;
+    const finish = async (_requestId, access) => {
+      assert.equal(await access.canAccessProject('SYN-001'), true);
+      if (boundary === 'session') fixture.state.account = null;
+      else fixture.state.access = false;
+      return operation === 'candidate' ? { bytes: Buffer.from('synthetic result') }
+        : { status: 'EXECUTION_RECORDED', run_id: 'synthetic.run' };
+    };
+    fixture = await context(t, { executionService: { enabled: true, status: finish, candidate: finish } });
+    const result = await call(fixture.controller, request(`/api/workbench/requests/w_${'a'.repeat(32)}/${operation}`));
+    assert.equal(result.statusCode, boundary === 'session' ? 403 : 404);
+    assert.equal(result.body.run_id, undefined);
+  }
+});
+
 async function ephemeralPort() {
   const server = createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const port = server.address().port; await new Promise(resolve => server.close(resolve)); return port;
