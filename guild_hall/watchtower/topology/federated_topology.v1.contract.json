@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.watchtower.federated_topology_contract.v1",
   "artifact": "guild_hall/watchtower/topology/federated_topology.v1.json",
-  "artifact_sha256": "a43718c6da78d7283929fd64195a665aa8f2f46ee2aeb7ed33130a5c532b67b8",
+  "artifact_sha256": "9d876c1c2e54a61099d6e8207d9a996606247dd80fc36397ac4b5a6afb1fb0e7",
   "summary": {
     "provider_count": 4,
     "node_count": 304,
