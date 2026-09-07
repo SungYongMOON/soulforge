@@ -18,6 +18,10 @@ import { fileURLToPath } from "node:url";
 import { openStore } from "../src/store.mjs";
 import { collectAllNews } from "../src/collectors/news_rss.mjs";
 import { collectArxiv } from "../src/collectors/arxiv.mjs";
+import { SOURCE_IDS, sourceContract, digest } from "../src/collectors/source_contract.mjs";
+import { collectionError } from "../src/collectors/diagnostics.mjs";
+import { collectPapers } from "../src/collectors/papers.mjs";
+import { openBudgetJournal } from "../src/collectors/budget_journal.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
@@ -83,8 +87,8 @@ async function main() {
     }
     sourceReports.push({ id: "news_rss", fetched: records.length, stored, deduped, feeds: perFeedTallies });
   } catch (error) {
-    console.error(`[collect_once] news_rss FAILED: ${error?.message ?? error}`);
-    sourceReports.push({ id: "news_rss", fetched: 0, stored: 0, deduped: 0, error: String(error?.message ?? error) });
+    console.error(`[collect_once] news_rss FAILED: ${collectionError(error)}`);
+    sourceReports.push({ id: "news_rss", fetched: 0, stored: 0, deduped: 0, error: collectionError(error) });
   }
 
   // --- arxiv --------------------------------------------------------------
@@ -92,11 +96,27 @@ async function main() {
     const { records, searchQuery, url } = await collectArxiv({ sourcesConfig, keywordsConfig, maxResults });
     const { stored, deduped } = applyRecords("arxiv", records);
     console.log(`[collect_once] arxiv: fetched=${records.length} stored=${stored} deduped=${deduped}`);
-    if (url) console.log(`[collect_once]   query url=${url}`);
-    sourceReports.push({ id: "arxiv", fetched: records.length, stored, deduped, searchQuery, url });
+    sourceReports.push({ id: "arxiv", fetched: records.length, stored, deduped, queryDigest: searchQuery ? digest(searchQuery) : null });
   } catch (error) {
-    console.error(`[collect_once] arxiv FAILED: ${error?.message ?? error}`);
-    sourceReports.push({ id: "arxiv", fetched: 0, stored: 0, deduped: 0, error: String(error?.message ?? error) });
+    console.error(`[collect_once] arxiv FAILED: ${collectionError(error)}`);
+    sourceReports.push({ id: "arxiv", fetched: 0, stored: 0, deduped: 0, error: collectionError(error) });
+  }
+
+  // New sources have no implicit account, credential or allowance defaults.
+  // KIPRIS/EPO remain explicitly unimplemented; paper clients fail closed until
+  // an exact authorization plus durable budget observation is supplied.
+  for (const source of SOURCE_IDS) {
+    let budget;
+    try {
+      const config = sourcesConfig[source] ?? {};
+      const contract = sourceContract(source, config);
+      if (contract.executable && config.budgetObservation) budget = openBudgetJournal(path.join(dataDir, `budget-${source}.json`), config.budgetObservation);
+      const query = (keywordsConfig.categories ?? []).flatMap((category) => category.terms ?? []).slice(0, 8).join(" ");
+      const { receipt } = await collectPapers({ source, config, query, budget, store });
+      sourceReports.push({ id: source, ...receipt });
+      totals.fetched += receipt.fetched ?? 0; totals.stored += receipt.stored ?? 0; totals.deduped += receipt.deduped ?? 0;
+    } catch { sourceReports.push({ id: source, state: "collection_failed", error: "source_setup_failed", fetched: null, stored: null, deduped: null }); }
+    finally { budget?.close(); }
   }
 
   const finishedAt = new Date().toISOString();
@@ -110,6 +130,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[collect_once] fatal", error);
+  console.error("[collect_once] fatal", collectionError(error));
   process.exit(1);
 });

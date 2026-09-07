@@ -42,7 +42,10 @@ test("empty, undated and disabled sources stay unavailable, never a zero score",
     assert.equal(report.weekly.currentCount, null);
     assert.equal(report.weekly.delta, null);
     assert.equal(report.graphs[7].documentCount, null);
-    assert.deepEqual(report.coverage.find((row) => row.source === "openalex"), { source: "openalex", enabled: false, state: "off", observedDocuments: null, datedDocuments: null, latestFetchedAt: null, recentCollection: "unknown" });
+    const coverage = report.coverage.find((row) => row.source === "openalex");
+    assert.equal(coverage.state, "rights_unconfirmed"); assert.equal(coverage.enabled, false);
+    assert.equal(coverage.observedDocuments, null); assert.equal(coverage.datedDocuments, null);
+    assert.equal(coverage.contract.account.state, "unknown"); assert.equal(coverage.contract.collector, "implemented");
   }
 });
 

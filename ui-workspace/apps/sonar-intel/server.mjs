@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
 import { LIMITS, RULE_VERSION, isoDate, safeSourceUrl, selectRelations } from "./src/analysis/index.mjs";
+import { SOURCE_IDS, sourceContract, validateProvenance } from "./src/collectors/source_contract.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -121,6 +122,7 @@ export function createSonarServer({ store, sourcesConfig, keywordsConfig, analys
           app: "sonar-intel",
           backend: store.backendName,
           sources: enabledSources,
+          sourceContracts: SOURCE_IDS.map((source) => sourceContract(source, sourcesConfig[source])),
           collection: store.summarize(),
           totalItems: store.countItems(),
           lastRun: currentRun,
@@ -134,8 +136,8 @@ export function createSonarServer({ store, sourcesConfig, keywordsConfig, analys
         const type = url.searchParams.get("type") || undefined;
         const source = url.searchParams.get("source") || undefined;
         const limit = Number(url.searchParams.get("limit") ?? 50);
-        if (!Number.isInteger(limit) || limit < 1 || limit > 200 || (type && !["news", "arxiv"].includes(type))) { sendJson(res, 400, { error: "invalid_filter" }); return; }
-        const items = store.listItems({ type, source, limit }).map((row) => ({ id: row.id, type: row.type, source: row.source, title: row.title, url: safeSourceUrl(row.url), publishedAt: row.publishedAt, fetchedAt: row.fetchedAt, keywordsMatched: Array.isArray(row.keywordsMatched) ? row.keywordsMatched.filter((term) => typeof term === "string") : [] }));
+        if (!Number.isInteger(limit) || limit < 1 || limit > 200 || (type && !["news", "arxiv", "paper"].includes(type))) { sendJson(res, 400, { error: "invalid_filter" }); return; }
+        const items = store.listItems({ type, source, limit }).map((row) => ({ id: row.id, type: row.type, source: row.source, title: row.title, url: safeSourceUrl(row.url), publishedAt: row.publishedAt, fetchedAt: row.fetchedAt, provenance: validateProvenance(row) ?? { accountState: "legacy_unverified", acceptance: "not_canonical_acceptance" }, keywordsMatched: Array.isArray(row.keywordsMatched) ? row.keywordsMatched.filter((term) => typeof term === "string") : [] }));
         sendJson(res, 200, { count: items.length, items });
         return;
       }

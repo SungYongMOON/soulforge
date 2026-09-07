@@ -44,6 +44,7 @@
     <h2>수집 현황</h2>
     <div class="grid" id="status-cards"><div class="empty">불러오는 중…</div></div>
     <div id="last-run" class="sub"></div>
+    <details><summary>신규 출처의 수집 준비·이용 범위</summary><div id="source-contracts" class="muted"></div></details>
   </section>
 
   <section aria-labelledby="observation-heading">
@@ -81,7 +82,7 @@
 
   <section>
     <h2>논문·뉴스 (최근 수집 50건)</h2>
-    <div class="controls"><label>자료 유형 <select id="feed-type"><option value="">전체</option><option value="arxiv">논문</option><option value="news">뉴스</option></select></label></div>
+    <div class="controls"><label>자료 유형 <select id="feed-type"><option value="">전체</option><option value="arxiv">arXiv 논문</option><option value="paper">OpenAlex·Semantic Scholar 논문</option><option value="news">뉴스</option></select></label></div>
     <div class="scroll"><table>
       <thead><tr><th>유형</th><th>소스</th><th>제목</th><th>검색어 이력</th><th>수집시각</th></tr></thead>
       <tbody id="feed-body"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody>
@@ -93,6 +94,7 @@ async function loadStatus() {
   const res = await fetch("/api/status");
   const data = await res.json();
   document.getElementById("backend").textContent = data.backend + " (" + data.totalItems + " items)";
+  document.getElementById("source-contracts").innerHTML = (data.sourceContracts || []).map((contract) => '<article class="evidence"><strong>' + escapeHtml(contract.source) + '</strong><p>' + (contract.collector === "implemented" ? '수집 코드 구현' : '수집기 미구현') + ' · ' + (contract.enabled ? '설정 켜짐' : '설정 꺼짐') + ' · 계정/상품 권리 ' + (contract.account.state === 'verified' ? '제공된 증거 확인' : contract.account.state === 'revoked' ? '회수됨' : '미확인') + '</p><p>' + escapeHtml(budgetLabels[contract.source]) + '</p><p>' + escapeHtml(rightsLabels[contract.source]) + '</p><p>문서 확인은 계정 승인이나 정본 수락이 아닙니다. 실제 실행에는 현재 권리·사용량 증거가 필요합니다.</p>' + contract.terms.map((ref) => '<a target="_blank" rel="noopener noreferrer" href="' + escapeHtml(ref.url) + '">공식 조건</a> · 판본 ' + escapeHtml(ref.revision === 'publisher_revision_not_stated' ? '발행자 미표기' : ref.revision) + ' · 확인 ' + escapeHtml(ref.reviewedOn)).join('<br>') + '</article>').join('');
 
   const cardsEl = document.getElementById("status-cards");
   if (!data.collection.length) {
@@ -140,7 +142,9 @@ async function loadFeed() {
   }).join("");
 }
 
-const stateLabels = { off: "꺼짐 · 현재 미관측", collection_failed: "최근 수집 일부 실패", observed_partial: "수집 자료 일부 관측", unobserved: "미관측", unavailable: "확인 불가" };
+const stateLabels = { off: "꺼짐 · 현재 미관측", rights_unconfirmed: "계정/상품 권리 미확인 · 수집 OFF", not_implemented: "수집기 미구현 · 권리 별도 확인 필요", no_data: "성공한 제한 수집에 결과 없음", collection_failed: "최근 수집 일부 실패", observed_partial: "수집 자료 일부 관측", unobserved: "미관측", unavailable: "확인 불가" };
+const budgetLabels = { openalex: "요청 종류별 일일 예산 · UTC 자정 초기화 · 응답의 잔액/초기화까지 남은 초를 확인합니다. 실제 계정 잔액은 미확인입니다.", semantic_scholar: "계정별 호출 한도와 사용량 확인이 필요합니다. 일·월 예산이나 초기화 시각을 임의로 가정하지 않습니다.", epo_ops: "무료 공개 한도 4 GB/주 · GMT 월요일 00:00부터 일요일 24:00 · 동적 제한도 적용됩니다. 실제 상품과 잔액은 미확인입니다.", kipris: "무료 공개 한도 월 1,000회 · 매월 1일 초기화 · 정확한 시각과 시간대는 미확인입니다." };
+const rightsLabels = { openalex: "메타데이터는 CC0입니다. 논문 전문·PDF의 권리는 별도입니다.", semantic_scholar: "업무 인텔 목적은 별도 확대 이용허가를 확인해야 합니다. 기본 API 키가 상업 이용·제3자 공유를 허용하지 않습니다.", epo_ops: "자체 제품에 편입해 그 일부로 배포하는 조건과 원자료 자체의 복사·배포 제한을 구분합니다.", kipris: "신청 목적 외 이용, 원본 정보의 제3자 제공·재판매, 인증키 공유 제한을 확인해야 합니다." };
 let analysisPin = null;
 const countText = (value) => Number.isSafeInteger(value) ? String(value) : "확인 불가";
 function showError(error) { document.getElementById("load-error").textContent = error?.message === "analysis_snapshot_changed" ? "분석본이 바뀌었습니다. 최신 결과 다시 읽기를 눌러 같은 분석본의 근거를 확인하세요." : "자료를 불러오지 못했습니다. 연결과 분석 결과를 확인한 뒤 최신 결과 다시 읽기를 누르세요."; }
@@ -154,9 +158,9 @@ async function loadAnalysis() {
   if (!data.corpusDigest) { document.getElementById("analysis-state").textContent = "분석 결과가 아직 없거나 읽을 수 없습니다. 관측 범위·관계·주간 차이를 확인할 수 없습니다."; document.getElementById("weekly-state").textContent = "분석 결과 없음"; return; }
   analysisPin = { corpus: data.corpusDigest, asOf: data.asOf };
   document.getElementById("analysis-state").textContent = (stateLabels[data.state] || "확인 불가") + " · 기준 시각 " + data.asOf + " · 자료 " + data.scope.uniqueDocuments + "건 / 날짜 확인 " + data.scope.datedDocuments + "건. 마지막 조회 때 읽은 분석본입니다. 새 배치 결과는 최신 결과 다시 읽기로 반영됩니다.";
-  document.getElementById("coverage-body").innerHTML = data.coverage.map((row) => '<tr><td>' + escapeHtml(row.source) + '</td><td>' + escapeHtml(stateLabels[row.state] || "확인 불가") + '</td><td>' + countText(row.observedDocuments) + '</td><td>' + countText(row.datedDocuments) + '</td><td>' + escapeHtml(row.latestFetchedAt || "확인 불가") + '</td></tr>').join("");
+  document.getElementById("coverage-body").innerHTML = data.coverage.map((row) => '<tr><td>' + escapeHtml(row.source) + '</td><td>' + escapeHtml(stateLabels[row.state] || "확인 불가") + (row.recentCollection === 'failed' ? '<br>최근 수집 실패 기록 있음' : '') + '</td><td>' + countText(row.observedDocuments) + '</td><td>' + countText(row.datedDocuments) + '</td><td>' + escapeHtml(row.latestFetchedAt || "확인 불가") + '</td></tr>').join("");
   const ex = data.exclusions;
-  document.getElementById("analysis-rules").textContent = "자료 판본 " + data.corpusDigest + " · 규칙 " + data.ruleVersion + ". URL의 추적 매개변수와 arXiv 버전을 정리해 중복을 묶습니다. 제목만으로는 합치지 않으며 중계 URL과 출판사 URL의 같은 사건 여부는 확인하지 못합니다. 합쳐진 중복 " + ex.duplicateRows + "행, 충돌 " + ex.conflictingRows + "행, 형식/출처 오류 " + ex.malformed + "행, 수집일 누락 " + ex.missingFetchedAt + "행, 기준 이후 수집 " + ex.afterCutoff + "행, 발행일 누락 " + ex.missingPublishedAt + "건, 미래 발행일 " + ex.futurePublishedAt + "건, 용어 상한 제외 " + ex.excessiveTerms + "행. 과거 시점 검증은 제공하지 않습니다.";
+  document.getElementById("analysis-rules").textContent = "자료·계약 판본 " + data.corpusDigest + " · 규칙 " + data.ruleVersion + ". 검증된 논문 DOI, URL의 추적 매개변수, arXiv 버전으로 중복을 묶습니다. 제목만으로는 합치지 않으며 중계 URL과 출판사 URL의 같은 사건 여부는 확인하지 못합니다. 합쳐진 중복 " + ex.duplicateRows + "행, 충돌 " + ex.conflictingRows + "행, 형식/출처 오류 " + ex.malformed + "행, 권리/출처 메타데이터 검증 불가 " + ex.provenanceUnverified + "행, 수집일 누락 " + ex.missingFetchedAt + "행, 기준 이후 수집 " + ex.afterCutoff + "행, 발행일 누락 " + ex.missingPublishedAt + "건, 미래 발행일 " + ex.futurePublishedAt + "건, 용어 상한 제외 " + ex.excessiveTerms + "행. 출처 메타데이터 검증은 정본 수락이 아닙니다. 과거 시점 검증은 제공하지 않습니다.";
   document.getElementById("keyword").innerHTML = data.terms.map((term) => '<option>' + escapeHtml(term) + '</option>').join("");
   document.getElementById("keyword").disabled = !data.terms.length;
   document.getElementById("relation-load").disabled = !data.terms.length;
@@ -179,7 +183,7 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-evidence]"); if (!button) return;
   try {
     const data = await json("/api/evidence?" + new URLSearchParams({ ...analysisPin, id: button.dataset.evidence }));
-    document.getElementById("evidence-detail").innerHTML = data.items.map((row) => '<article class="evidence"><strong>' + escapeHtml(row.title) + '</strong><p>' + escapeHtml(row.summary) + '</p><p>발행 ' + escapeHtml(row.publishedAt || "확인 불가") + ' · 수집 ' + escapeHtml(row.fetchedAt) + '</p><p>직접 일치: ' + escapeHtml(row.terms.join(", ")) + '</p>' + row.references.map((ref) => '<a href="' + escapeHtml(ref.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(ref.source) + ' 원문</a> · ' + escapeHtml(ref.id)).join('<br>') + '</article>').join("");
+    document.getElementById("evidence-detail").innerHTML = data.items.map((row) => '<article class="evidence"><strong>' + escapeHtml(row.title) + '</strong><p>' + escapeHtml(row.summary) + '</p><p>발행 ' + escapeHtml(row.publishedAt || "확인 불가") + ' · 수집 ' + escapeHtml(row.fetchedAt) + '</p><p>직접 일치: ' + escapeHtml(row.terms.join(", ")) + '</p>' + row.references.map((ref) => '<a href="' + escapeHtml(ref.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(ref.source) + ' 원문</a> · ' + escapeHtml(ref.id) + '<p>' + (ref.provenance?.contractDigest ? '수집 당시 계약 판본 ' + escapeHtml(ref.provenance.contractDigest) + ' · ' + escapeHtml(rightsLabels[ref.source]) + (ref.provenance.evidenceScope === 'synthetic_fixture' ? ' · 합성 시험 자료' : '') : '기존 자료의 권리 provenance 미확인') + ' · 정본 수락 아님</p>').join('<br>') + '</article>').join("");
     document.getElementById("evidence-detail").scrollIntoView({ block: "nearest" });
   } catch (error) { showError(error); }
 });
