@@ -68,6 +68,29 @@ function makeRepo() {
   return root;
 }
 
+test('a tracked-only first lane needs no previous lane and makes no inheritance claim', () => {
+  const repo = makeRepo(), out = tempDir('source-only');
+  try {
+    const spec = baseSpec({ carried_forward_prefixes: [] });
+    assert.deepEqual(verifyCarriedForward(null, spec), []);
+    throwsCode(() => buildSourceLane({ repoRoot: repo, spec, outRoot: out, previousLaneRoot: repo }), 'previous_lane_not_applicable');
+    const result = buildSourceLane({ repoRoot: repo, spec, outRoot: out });
+    assert.equal(result.previous_lane_manifest_sha256, null);
+    assert.equal(result.totals.carried_forward, 0);
+    assert.equal(result.claims.carried_forward_verified_against_previous_lane, null);
+    assert.equal(result.claims.tracked_content_pinned_to_commit, true);
+    assert.equal(verifyLane(out).failures.length, 0);
+  } finally { rmSync(repo, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
+});
+
+test('a lane that inherits bytes still refuses an absent previous lane before writing', () => {
+  const repo = makeRepo(), out = tempDir('missing-previous');
+  try {
+    throwsCode(() => buildSourceLane({ repoRoot: repo, spec: baseSpec(), outRoot: out }), 'previous_lane_required');
+    assert.equal(existsSync(join(out, MANIFEST_SHA256_NAME)), false);
+  } finally { rmSync(repo, { recursive: true, force: true }); rmSync(out, { recursive: true, force: true }); }
+});
+
 // A "previous lane" is only ever read through its own manifest, so the fixture
 // is just files plus the manifest that names them.
 function makePreviousLane(entries) {

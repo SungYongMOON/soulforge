@@ -22,6 +22,14 @@ Main Node profile이 Tool Workshop Cell을 포함해 두 역할의 결합을 명
 
 ## Source-lane builder (`tools/build_source_lane.mjs`)
 
+새 lane에 추적 코드만 필요하면 `carried_forward_prefixes: []`와 함께 이전 lane 없이
+조립할 수 있다. 이때 이전 manifest digest와 이전 lane 검증 주장은 `null`이며, 기존
+작업·프로필·메타데이터를 상속했다고 기록하지 않는다. 상속 prefix가 하나라도 있으면
+기존처럼 `--previous-lane`과 그 manifest 검증이 필수다. 예시는
+`lanes/tool_workshop_claude_acp_lane.spec.json`의 고정 코드 네 파일이며, 실제 봇 등록·
+반출 허가·Node/Claude 설치와 별개다.
+추적 코드 전용 spec에 불필요한 `--previous-lane`을 함께 지정하면 명시적으로 거부한다.
+
 **Pack과 lane은 다른 물건이다.** Pack은 spec의 파일 목록과 byte pin을 입력으로 재현되며 HPP는 이미 명시된 vendored npm 의존성을 포함한다. Lane은 예약 작업이 실제로 실행하는 저장소 사본이고, tracked 파일 외에 **미추적 의존 closure**(`ui-workspace/node_modules/`, `node_modules/yaml/`)와 **gitignore된 빌드 산출물**(Board의 vite `dist/`)을 함께 담는다. Board의 전체 빌드 입력과 산출물 provenance는 아직 Pack spec에 선언되지 않았다.
 
 운영 lane(`operations-lane-v2`, 2026-09-02 구축)은 `scratchpad/`의 스크립트로 조립되었고 그 스크립트는 D: 이관 과정에서 사라졌다. 결과: **아무도 lane을 다시 만들 수 없었고, 그 뒤 저장소에 들어온 수정은 전부 저장소에만 남았다.** 감시 시스템(watchtower·Board·usage meter)은 lane에만 존재하므로 release train이 아예 없는 상태였다. 이 도구는 그 구멍을 메운다.

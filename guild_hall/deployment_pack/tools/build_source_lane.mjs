@@ -186,6 +186,7 @@ export function parseLaneManifest(text) {
 // just slower, it opens a window in which the bytes verified and the bytes
 // copied are not the same bytes.
 export function verifyCarriedForward(previousLaneRoot, spec, { keepBytes = false } = {}) {
+  if (spec.carried_forward_prefixes.length === 0) return [];
   const manifestPath = join(previousLaneRoot, MANIFEST_SHA256_NAME);
   if (!existsSync(manifestPath)) fail("previous_lane_manifest_absent", manifestPath);
   const all = parseLaneManifest(readFileSync(manifestPath, "utf8"));
@@ -240,7 +241,9 @@ export function buildSourceLane({ repoRoot, spec, previousLaneRoot, outRoot, now
   validateSpec(spec);
   const repo = resolve(repoRoot);
   const out = resolve(outRoot);
-  const previous = resolve(previousLaneRoot);
+  const previous = previousLaneRoot == null ? null : resolve(previousLaneRoot);
+  if (previous === null && spec.carried_forward_prefixes.length > 0) fail("previous_lane_required", spec.lane_id);
+  if (previous !== null && spec.carried_forward_prefixes.length === 0) fail("previous_lane_not_applicable", spec.lane_id);
   if (out === previous || out === repo) fail("out_root_conflict", out);
   // Refusing a populated output directory is deliberate: an in-place overwrite
   // is how a stale file survives a rebuild and how a half-written lane becomes
@@ -249,7 +252,7 @@ export function buildSourceLane({ repoRoot, spec, previousLaneRoot, outRoot, now
 
   const commit = requireCleanTree(repo);
   const tracked = selectTrackedFiles(repo, commit, spec);
-  const carried = verifyCarriedForward(previous, spec, { keepBytes: true });
+  const carried = previous === null ? [] : verifyCarriedForward(previous, spec, { keepBytes: true });
 
   const trackedPaths = new Set(tracked.map((r) => r.path));
   const overlap = carried.filter((r) => trackedPaths.has(r.path)).map((r) => r.path);
@@ -307,14 +310,14 @@ export function buildSourceLane({ repoRoot, spec, previousLaneRoot, outRoot, now
     lane_id: spec.lane_id,
     built_at: now().toISOString(),
     source_commit: commit,
-    previous_lane_manifest_sha256: sha256(readFileSync(join(previous, MANIFEST_SHA256_NAME))),
+    previous_lane_manifest_sha256: previous === null ? null : sha256(readFileSync(join(previous, MANIFEST_SHA256_NAME))),
     manifest_sha256: sha256(Buffer.from(manifestText, "utf8")),
     totals,
     entry_point_digests: entryDigests,
     claims: {
       // Said out loud so a reader never has to infer it from silence.
       tracked_content_pinned_to_commit: true,
-      carried_forward_verified_against_previous_lane: true,
+      carried_forward_verified_against_previous_lane: previous === null ? null : true,
       post_write_reverified: true,
       release_gate_claimed: null,
       scheduled_task_touched: false,
@@ -338,7 +341,7 @@ export function renderManifestMarkdown(receipt, spec) {
     `| Files | ${receipt.totals.files} (${receipt.totals.tracked} tracked, ${receipt.totals.carried_forward} carried forward) |`,
     `| Bytes | ${receipt.totals.bytes} |`,
     `| Manifest digest | \`${receipt.manifest_sha256}\` |`,
-    `| Previous lane manifest digest | \`${receipt.previous_lane_manifest_sha256}\` |`,
+    `| Previous lane manifest digest | \`${receipt.previous_lane_manifest_sha256 ?? "not_applicable_tracked_only"}\` |`,
     "",
     "## What each origin means",
     "",
@@ -391,13 +394,13 @@ async function main(argv) {
   const outRoot = optionValue(argv, "--out");
   const previousLaneRoot = optionValue(argv, "--previous-lane");
   const repoRoot = optionValue(argv, "--repo") ?? process.cwd();
-  if (specPath === null || outRoot === null || previousLaneRoot === null) {
+  if (specPath === null || outRoot === null) {
     process.stdout.write(
       [
         "build_source_lane — assemble a runnable source lane from a commit.",
         "",
         "  --spec <spec.json>        lane spec (tracked paths, carried-forward prefixes, entry points)",
-        "  --previous-lane <dir>     lane to inherit the untracked closure from, verified against its manifest",
+        "  --previous-lane <dir>     required only when inheriting untracked closure; verified against its manifest",
         "  --out <dir>               output lane root (must be empty or absent)",
         "  --repo <dir>              repository root (default: cwd); its worktree must be clean",
         "",
