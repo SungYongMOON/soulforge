@@ -266,9 +266,12 @@ class VaultAdapter:
 # --- M06 provider transport -------------------------------------------------
 
 class ScriptedWorkerTransport:
-    """Cycle-1 worker. Runs in a separate process whose working directory holds
-    nothing but the released body, so it cannot reach the source directory, the
-    vault or the job store even by accident."""
+    """Cycle-1 child gets released bytes through stdin and a narrow environment.
+
+    Its temporary cwd is not OS isolation: it still inherits the sender's
+    principal. Denying source/vault/job/key access requires the pending M06
+    separate-principal implementation and actual access tests.
+    """
 
     module = "M06"
     name = "scripted.subprocess"
@@ -294,6 +297,7 @@ class ScriptedWorkerTransport:
         completed = subprocess.run(
             [self.python_executable, "-m", "soulforge_secure_work.worker"],
             input=body, capture_output=True, cwd=str(workdir), env=environment, timeout=120,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
         if completed.returncode != 0:
             raise RuntimeError("WORKER_FAILED")

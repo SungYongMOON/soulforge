@@ -190,7 +190,8 @@ M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 �
 전체 BIND09·M07 1회 소비 경계는 후속 구현·검증 대상이다. 실제 키 배치만으로 닫히지 않는다.
 
 남은 **코드 작업**은 불변 launcher의 신뢰점 등록/실행 연결과 전체 전이 의존성 무결성 검사,
-M06 worker의 별도 principal 격리, M07의 durable 1회 소비 통합이다. **Owner 입력/설치 작업**은
+M06 worker의 별도 principal 격리와 전체 BIND09 신원/정책 authority 연결이다. M07의
+파일 소유 기반 합성 1회 소비·재시작 검증 범위는 아래와 같다. **Owner 입력/설치 작업**은
 실제 역할 SID·승인 정책·route·binding 값 확정과 해당 계정/ACL 배치다. 두 종류의 공백을
 구분하며, Owner 값만 채우면 남은 코드가 자동으로 완성된다고 주장하지 않는다.
 
@@ -215,6 +216,58 @@ Windows 자기 관측 시험은 새 임시 합성 파일의 token/ACL 메타데�
 실행할 수 있으며, pytest 부재를 Owner 승인 문제로 취급하지 않는다. E14 kit 미바인딩 시
 그 kit에 의존하는 시험만 skip한다. 기존 ingress의 제출 저장 후 티켓 갱신 전 중단 복구도
 실제 서비스 fault injection으로 검사하며, identity·bytes·멱등 색인이 다르면 복구하지 않는다.
+
+## M07 1회 소비와 재시작
+
+기존 E14 `Journal`의 SQLite `synchronous=FULL`, permit/attempt UNIQUE 예약과
+`RESERVED → IN_FLIGHT → RESPONSE_RECEIVED | DELIVERY_UNKNOWN`을 그대로 사용한다.
+송신 전에 예약과 IN_FLIGHT가 durable하게 기록되며 별도 소비 장부·새 상태기계를 만들지 않는다.
+`dispatch.controller_lock`은 job별 로컬 OS 잠금으로 협력하는 controller를 배제한다.
+Windows byte-range lock과 POSIX flock은 controller 종료 때 해제되지만 소비 기록은 남는다.
+잠긴 동안 다른 advance는 `DISPATCH_BUSY`이고, SQLite transaction을 I/O 동안 잡지 않는다.
+
+engine은 RUNNING 진입 전, 실제 transport 호출 직전, 응답 후, 최종 전이 직전에 현재
+permit 결정·신뢰 공개키·서명/만료·code policy epoch·job/mission/round·review·exact body/route와
+source/assignment/work/plan을 다시 확인한다. source는 현재 bytes를 재추출해 고정 bundle과
+대조하고 literal field review도 다시 읽는다. journal revision과 RUNNING 상태를 CAS로
+결속하므로 취소·구버전 전이 뒤의 늦은 응답은 후보로 진행하지 않는다. 실패 경로가 오래된
+job snapshot으로 현재 정책 변경을 덮어쓰지 않는다. 오류에는 원문·provider 오류·issuer 값을
+출력하지 않는다.
+
+재시작은 `advance`의 RUNNING 경로에서 같은 잠금을 얻은 뒤 처리한다.
+
+| durable 증거 | 처리 |
+| --- | --- |
+| RUNNING, attempt 없음 | 기존 protocol상 transport 호출 전이다. 현재 binding/권한을 다시 검증해 1회 예약부터 재개 |
+| RESERVED | IN_FLIGHT 전에 끝난 증거이므로 NOT_SENT로 기록. 소비는 환불하지 않음 |
+| IN_FLIGHT | DELIVERY_UNKNOWN으로 복구. 응답 파일이 있어도 임의 수락/재송신하지 않음 |
+| RESPONSE_RECEIVED + exact reply/marker + 현재 binding/권한 | 송신 없이 RESULT_QUARANTINED로 재개 |
+| NOT_SENT, DELIVERY_UNKNOWN, 응답/marker 손실·변조 | STOP 유지. 같은 permit 자동 재사용 없음 |
+
+응답은 transport 복귀 전에 file fsync와 원자 교체로 저장하고 digest·크기·attempt·binding
+marker를 기록한다. E14가 RESPONSE_RECEIVED를 기록한 뒤에만 복구 대상으로 삼는다.
+파일 교체와 SQLite를 하나의 분산 transaction이라고 주장하지 않는다. 중간 crash나
+전원 손실로 marker/bytes가 불완전하면 DELIVERY_UNKNOWN이며, 부분 파일은 결과가 아니다.
+
+미송신·불명 상태의 재시도는 독립 확인과 새 검토를 거친 **새 job**으로만 수행한다. 이 버전은
+같은 job의 소비를 초기화하는 CLI나 provider 조회·재전송을 만들지 않는다. 소비가 있는 HOLD는
+field review 파일이 있다는 이유만으로 자동 재개되지 않는다. end-to-end exactly-once나
+이미 보낸 요청 취소를 주장하지 않으며, 결과의 `accepted: false`는 그대로다.
+
+이번 현재 권한 검사는 기존 **파일 소유 기반 합성 경계**다. 별도 승인자 신원 등록소·동적
+정책 authority·M06 OS principal 격리·불변 launcher·전체 전이 의존성 무결성을 대신하지 않는다.
+이들은 남은 구현과 실제 분리 접근 시험이 필요하며 Owner 값/키 배치만으로 완성되지 않는다.
+
+```sh
+python -I -B guild_hall/secure_work/tests/test_dispatch_lock.py
+SOULFORGE_SECURE_WORK_KIT_ROOT=<TOOL_ROOT>/secure-work-kit \
+  python -I -B -m pytest -q guild_hall/secure_work/tests/test_dispatch_restart.py
+```
+
+OS 잠금 시험은 stdlib만 필요하다. E14 통합 시험은 runtime config·vault·키 파일·ACL·network
+없이 합성 자료와 프로세스 메모리 안의 공개된 시험용 서명값만 사용한다. 실제 child에서
+예약/호출/응답 저장 전후 강제 종료, 동시 controller, 응답 유실/변조, 호출 직전 회수,
+응답 대기 중 회수·epoch/source 변경·취소와 새 프로세스의 재개를 확인한다.
 
 ## JSON 표기·원문 상태·로컬 유용성 보완
 
