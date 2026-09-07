@@ -16,3 +16,10 @@ test('explicit interpreter and read-only test kit are the sole opt-ins',()=>{
   assert.deepEqual(command.args.slice(0,4),['-I','-B','-m','pytest']);
   assert.throws(()=>secureWorkPythonCommand({kitRoot:'relative'}),/secure_python_path_invalid/);
 });
+test('explicit kit uses its tested contract dependencies without inheriting a runtime config',()=>{
+  const invocation=secureWorkPythonCommand({kitRoot:tmpdir(),environment:{SOULFORGE_SECURE_WORK_CONFIG:'must-not-read'}});
+  assert.deepEqual(invocation.env,{SOULFORGE_SECURE_WORK_KIT_ROOT:tmpdir(),PYTEST_DISABLE_PLUGIN_AUTOLOAD:'1'});
+  assert.ok(invocation.args.includes('pydantic==2.13.4'));
+  assert.ok(invocation.args.includes('jsonschema==4.26.0'));
+  assert.equal(secureWorkPythonCommand({environment:{}}).args.some(arg=>/pydantic|jsonschema/.test(arg)),false);
+});

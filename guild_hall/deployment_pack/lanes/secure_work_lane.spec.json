@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
   "lane_id": "secure-work-lane-v1",
-  "description": "Candidate source lane for the on-demand secure-work cycle CLI, Python engine and fixed M10 custody bridge. M10 carries the existing IngressClient and its pinned SDK dependency closure; custody_runtime_binding.json remains null until independently bound installation authority exists. E14/E13 kit, Python venv, job/vault/outbox state, actual bindings and credentials remain external. This spec does not activate or register a lane.",
+  "description": "Candidate source lane for the fixed secure-work launcher, isolated Python bootstrap and M10 custody bridge. Source anchor and custody_runtime_binding.json remain null. The full secure_work prefix includes the import guards and their tests; licensed runtime, E14/E13 kit, working/canonical data, actual bindings and credentials remain external. Installer integration and OS role separation are not completed by this spec. No lane is activated or registered.",
   "tracked_paths": [
     "guild_hall/secure_work/",
     "ui-workspace/apps/dev-erp-mcp/src/ingress_client.mjs",
@@ -13,7 +13,7 @@
     "ui-workspace/node_modules/"
   ],
   "carried_forward_rationale": {
-    "ui-workspace/node_modules/": "custody_bridge.mjs imports the existing dev-erp-mcp IngressClient, which imports @modelcontextprotocol/sdk client/index.js and client/streamableHttp.js. Reuse the version-pinned Tongs dependency staging procedure: a separately prepared dependency-only directory with its own LANE_MANIFEST.sha256 must contain the complete SDK runtime closure resolved by the committed ui-workspace package lock. Do not inherit arbitrary installed lanes or their credentials. The previous placeholder is no longer a runtime-closure claim. Source-lane generation verifies inherited bytes; Python/kit and immutable launcher/transitive integrity remain separate uncompleted installation contracts."
+    "ui-workspace/node_modules/": "After fixed launch/current-authority checks, custody_bridge.mjs dynamically imports the existing dev-erp-mcp IngressClient and its SDK closure. Reuse the version-pinned Tongs dependency staging procedure: a separately prepared dependency-only directory with its own LANE_MANIFEST.sha256 must contain the complete SDK runtime closure resolved by the committed ui-workspace package lock. Do not inherit arbitrary installed lanes or their credentials. Source-lane generation verifies inherited bytes; the installed launch binding must separately cover full Node/Python/kit/source dependency roots. This spec neither creates a private anchor nor validates a physical installation."
   },
   "entry_points": [
     "guild_hall/secure_work/sfx.mjs",

@@ -2213,7 +2213,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/hermes_bot_submit_executor.mjs",
-      "sha256": "67968a1157808aee77481aed53aceb868d00a40dedc9c4f90b700fb55ce19611"
+      "sha256": "69f349cba5599b62aa00a2a30e562e671a308b5adedb2f7d9784b866fe2b78fa"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/hourly_shadow_cycle_contract.mjs",

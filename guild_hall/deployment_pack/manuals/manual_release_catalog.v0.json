@@ -87,7 +87,7 @@
       "semantic_role": "buzz_hermes_operations_recovery",
       "state": "candidate",
       "artifact_ref": "artifact.manual.buzz_hermes_operations_recovery.v0_1_0",
-      "content_digest": "sha256:88a66632aa58fae72e69b58f4b9f6846dd507729129808c8c614c6ab21b22248",
+      "content_digest": "sha256:aad7409f780aa3eb7540f1d839a73b7070021de0f5d8a424dc01a45bcb0c5e6f",
       "compatibility_range": ">=0.1.0 <1.0.0",
       "last_verified_release": null,
       "stale_state": "current",

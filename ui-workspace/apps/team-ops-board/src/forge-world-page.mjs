@@ -94,14 +94,19 @@ function renderDetail() {
   detail.append(textNode('p',`기준 시각 ${project.observed_at}. 오래된 근거는 미확인으로 표시합니다.`));
   const list=textNode('ul','','slot-list');
   for(const slot of project.slots){
-    const li=document.createElement('li');const button=textNode('button',slot.artifact_family_id);button.type='button';
+    const li=document.createElement('li');const button=textNode('button',slot.artifact_family_id);button.type='button';button.setAttribute('aria-expanded','false');
     button.append(textNode('small',`${slot.stage_code} · ${slot.display.label}`));
     button.addEventListener('click',()=>{
       detail.querySelector('.slot-evidence')?.remove();const evidence=textNode('div','','slot-evidence');
+      list.querySelector('[aria-expanded="true"]')?.setAttribute('aria-expanded','false');
+      button.setAttribute('aria-expanded','true');
+      evidence.tabIndex=-1;evidence.setAttribute('role','region');evidence.setAttribute('aria-label',`${slot.artifact_family_id} 근거 상세`);
       evidence.append(textNode('h2',`${site.title} / ${slot.artifact_family_id}`),textNode('p',`${slot.display.label} · ${slot.display.acceptance_label}`),
         textNode('p',`근거 셀 ${slot.cell_count} · 관측 ${slot.observation_count} · ${slot.source_observed_at}`));
       for(const ref of slot.evidence_refs??[])evidence.append(textNode('p',ref));
-      detail.append(evidence);
+      // Keep details beside the selected slot, within the scrollable panel.
+      li.append(evidence);evidence.scrollIntoView({block:'nearest',inline:'nearest'});evidence.focus({preventScroll:true});
+      evidence.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();button.focus();}});
     });li.append(button);list.append(li);
   }detail.append(list);
 }

@@ -48,6 +48,11 @@ Do not repair a failed proof by changing runtime configuration or restoring an u
 
 ## Known issues
 
+- The executor's default current-capability resolver returns unsupported before
+  reading a Work Brief. Its JSONL protocol tests use explicit synthetic support
+  and a copied Node fixture; they do not establish support in installed Hermes.
+  An actual text-CLI adapter and its protected deployment/current-capability
+  binding remain development work. Recovery does not supply that authority.
 - The tracked contracts are metadata-only/pure validation; no live Buzz or Hermes backup, restore, service health, or route is proven by this candidate.
 - A backup-generation acceptance does not prove end-user message delivery, consumer acknowledgement, Bot result acceptance, or task completion.
 - This candidate has no `last_verified_release` and no exercise receipt, so it cannot release a Buzz/Hermes recovery workflow.

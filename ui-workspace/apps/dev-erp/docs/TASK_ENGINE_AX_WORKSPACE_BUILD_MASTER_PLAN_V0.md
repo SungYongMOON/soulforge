@@ -1,5 +1,15 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-08 CURRENT (Hermes compatibility boundary): default runtime capability
+> is unknown and blocks before Work Brief reading or command launch. A trusted
+> current resolver must match the assignment capability snapshot, executable
+> digest and exact JSONL consumption protocol. It is checked again before launch
+> and before default-runner stdin release after spawn. Executor 32 and combined
+> Coordinator 44 tests passed with independent review. Synthetic Node fixtures
+> do not prove installed Hermes support; the actual text CLI adapter and its
+> protected current binding remain implementation work. No operating route or
+> canonical data writer was activated.
+
 > 2026-09-07 CURRENT (accepted-context synthetic read journey): the server now
 > offers a default-OFF, synthetic-only catalogue/query reader using the existing
 > acceptance and query contracts. Each request verifies current ACL, accepted

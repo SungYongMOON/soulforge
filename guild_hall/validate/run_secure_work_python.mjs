@@ -12,7 +12,10 @@ export function secureWorkPythonCommand({ pythonExecutable, kitRoot, environment
   env.PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1';
   if (kitRoot) env.SOULFORGE_SECURE_WORK_KIT_ROOT = kitRoot;
   const args = ['-I','-B','-m','pytest','-q','-ra','--tb=short','-p','no:cacheprovider','guild_hall/secure_work/tests'];
-  return {command: pythonExecutable ?? 'uv', args: pythonExecutable ? args : ['--no-config','run','--no-project','--with','pytest==9.0.2','--with','cryptography==46.0.4','python',...args], env};
+  // E14 requirements-tested.txt pins these optional contract dependencies.
+  // Bind the kit explicitly; do not discover its path or read runtime config.
+  const kitDependencies = kitRoot ? ['--with','pydantic==2.13.4','--with','jsonschema==4.26.0'] : [];
+  return {command: pythonExecutable ?? 'uv', args: pythonExecutable ? args : ['--no-config','run','--no-project','--with','pytest==9.0.2','--with','cryptography==46.0.4',...kitDependencies,'python',...args], env};
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

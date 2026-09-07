@@ -4,6 +4,12 @@
 > 운영 승인이 아니고, 실자료 canary도 아니며, 결과는 후보다.
 > 실행 표면은 [`guild_hall/secure_work/README.md`](../../../guild_hall/secure_work/README.md)가 소유한다.
 
+> 2026-09-08 CURRENT: 고정 launcher의 사전 전체 의존성 검증, Python 격리 bootstrap,
+> 늦은 import와 bridge/worker/엔진 전이 재검사를 구현했다. 작업·정본·자격증명 경로는
+> inventory 열람·읽기 전에 거부하며 43개 Node 시험과 독립 검토를 통과했다.
+> source anchor와 보관 binding은 비어 있다. 실제 installer 배선·불변 OS 실행면,
+> M06 별도 principal·전체 BIND09와 실제 설치 성능은 이 합성 증거로 완료하지 않는다.
+
 > 2026-09-07 CURRENT: M10 후보 보관은 기존 IngressClient와 연결된 durable outbox,
 > exact candidate/revision/route/principal 결속 및 현재 권한 검증기를 구현했다.
 > 합성 loopback에서 실제 chunk/finalize/status, 중단 뒤 같은 제출 복구와 ACK 직전
@@ -70,7 +76,7 @@
 | BIND04 | 실제 분류·공개 권한자 | 사이클 1호의 승인자는 합성 자료에 대한 운영자이며 분류 권한자가 아니다 |
 | BIND05 | 외부 provider route | Owner가 키 한 줄 파일을 배치하고 route를 명시적으로 켜야 한다. **이번 lane 호출 0회.** BIND09가 닫히기 전에는 켜지 않는다 |
 | BIND06 | 독립 의미 검토자 | 구조 통과는 의미 통과가 아니다. 작성자와 분리된 검토가 필요하다. 사람 승인자와 lane 작성자의 분리도 여기서 닫는다 |
-| BIND07 | Tongs(MCP 문) 보관 | 합성 보관 포트는 검증됐다. 불변 launcher 신뢰점/전체 의존 코드 검증은 남은 기술 개발이며, 실제 역할 SID·정책·route·ACL·credential 배치는 Owner 입력이다. **실자료 업로드 0회** |
+| BIND07 | Tongs(MCP 문) 보관 | 합성 보관 포트와 고정 launcher/전체 의존성 검증 코드는 독립 검토됐다. 실제 installer 배선과 분리 실행 검증은 기술 잔여이며, 실제 역할 SID·정책·route·ACL·credential 배치는 Owner 입력이다. **실자료 업로드 0회** |
 | BIND08 | Vigil(포트 4192) 화면 노출 | 상태 파일은 있고, 화면에 띄우는 것은 Vigil 쪽 결정이다 |
 | BIND09 | 허가 주체의 신원 결속(신뢰 키 등록소 또는 OS 사용자 결속) | permit은 이제 설정에 고정된 신뢰 공개키로만 검증되어 자기 서명은 막혔지만, 그 신뢰 키를 누가 쥐고 있는지에 대한 신원 등록소는 아직 없다. 지금은 신뢰 서명키·job store 쓰기 권한이 곧 전송 허가다. BIND05를 켜기 전에 닫혀야 한다 |
 | BIND10 | 누적 공개 원장(security 요약 B8) | `released_history`가 매 job `[]`로 고정돼 있다. 같은 승인된 문장이 새 mission_id로 반복 재공개돼도 누적 기록이 없다. requester·mission family 단위로 살아남는 저장소와 "무엇을 공개로 친다"의 정의(패킷 필드? candidate bytes? 어느 round?)를 Owner가 정해야 닫힌다 |
@@ -116,8 +122,9 @@
 
 M10의 고정 설치 결속은 저장소에서 `null`이다. 코드가 임의 config·argv·환경변수로
 이 신뢰점을 대체하지 않는다. 실제 키만 배치해도 전체 개발이 닫히는 구조가 아니다.
-불변 launcher와 전체 전이 의존성 검증, M06 별도 principal 격리와 전체 BIND09 통합은
-계속 구현·검증할 기술 항목이다. M07의 file-owned 현재 권한·1회 소비·재시작 보강과
+불변 launcher와 전체 전이 의존성 검사 코드는 합성 범위에서 구현했으나 실제 installer
+배선, M06 별도 principal 격리와 전체 BIND09 통합은 계속 구현·검증할 기술 항목이다.
+M07의 file-owned 현재 권한·1회 소비·재시작 보강과
 구분하며 아래 사람 입력만으로 이 기술 공백이 닫힌다고 주장하지 않는다.
 
 | 항목 | 무엇을 하나 | 없으면 |
