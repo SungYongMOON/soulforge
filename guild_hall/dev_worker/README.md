@@ -23,7 +23,64 @@ The lane is intentionally narrower than a general autonomous developer. It selec
 - automatic merge-to-main logic
 - broad self-directed backlog mining
 
-## Command Surface
+## Continuous internal feedback candidate
+
+The continuous feedback implementation uses the existing control database and
+explicit current delegation. It does not run the legacy `_workmeta` discovery
+commands below. Internal reversible development proceeds under the existing
+delegation with results available for later review. External disclosure and
+canonical acceptance retain their separate exact authority.
+
+- `feedback_linear_source.mjs` selects only explicitly delegated issue UUIDs
+  through the committed Linear metadata reader. Receipt-generation changes alone
+  do not reopen work. The provider's whole issue hash includes status and update
+  time; this adapter is not a semantic-intent classifier or an echo detector.
+- `feedback_request_provider.mjs` reuses a currently issued bounded request and
+  checks live authority against its exact source, scope and packet digest. A
+  packet's own approval flag does not replace that live decision. Every stage
+  after preparation compares the same packet digest again.
+- `feedback_cycle.mjs` serializes claims in SQLite, deduplicates observed
+  revisions, supersedes absent/changed sources, and enforces daily and per-revision
+  budgets. Execution, validation, independent review and result reporting are
+  separate trusted ports. An uncertain worker or notification outcome is held
+  without automatic resend. An internal retry requires current authority and an
+  independently verified stopped process with resolved side effects.
+- `feedback_worktree_runner.mjs` creates a sparse branch candidate from exact
+  public source bytes and a separately pinned validator dependency set. A trusted
+  proposer and independent patch reviewer precede the fixed Git application;
+  validators run against the patched code. Generated commands, additional files,
+  renamed/binary/mode patches and edits to the validator or supervision policy
+  are refused. Native executable pins allow stable installer hardlinks; source,
+  candidate and validator files require one link. Handle and parent checks detect
+  changes around reads. This is not OS or descendant-process isolation, and a
+  restarted process must inspect preserved candidates before reusing them.
+- `feedback_watchdog.mjs` can read worker health through a separate read-only DB
+  connection even after the worker stops. Its own notice ledger informs the
+  management route only on a meaningful problem or recovery. It never renews
+  worker leases, runs a model or creates Owner approval requests. Confirmed
+  non-delivery permits bounded retries; an unknown outcome remains unknown.
+- `feedback_polling.mjs` provides serial fixed-delay scheduling for bound ports.
+  The worker and watchdog must be installed in separate host processes. This
+  module does not register tasks or activate an operating route.
+
+The installer and dispatcher own current role/assignment, issue delegation,
+issued packets, executable/validator pins and exact report/notification routes.
+Do not substitute provider text, a matching label, creator identity, or a boolean
+`is_bot_echo` for these sources. Only the exact successfully emitted output refs
+and receipt can identify an application echo. Canonical workspace bytes and old
+working metadata are not inputs or outputs of this control ledger.
+
+These are implementation components of the current roadmap's internal task
+absorption and continuous improvement work. Actual source-to-code execution,
+independent review, reporting/echo collection and installed scheduling must all
+be connected and exercised before calling the continuous workflow usable.
+
+`npm run validate:dev-worker` includes `validate:dev-feedback`: all six feedback
+modules and their six test files, including actual sparse Git execution and the
+cycle/request-provider recovery composition. The existing packet tools remain
+covered in the same canonical validation entry.
+
+## Existing task-packet command surface
 
 ```bash
 npm run guild-hall:dev-worker:preflight -- --local-root <Soulforge root>

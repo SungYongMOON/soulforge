@@ -55,6 +55,11 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
   { path: "guild_hall/dev_worker/candidate_queue.mjs", why: "auto-approval policy" },
   { path: "guild_hall/dev_worker/claim_task.mjs", why: "packet eligibility gate" },
   { path: "guild_hall/dev_worker/automations/", why: "the agent's own prompt and schedule" },
+  ...["feedback_cycle", "feedback_linear_source", "feedback_request_provider", "feedback_worktree_runner",
+    "feedback_watchdog", "feedback_polling"].flatMap(name => [
+    { path: `guild_hall/dev_worker/${name}.mjs`, why: "continuous developer authority, execution, budget or independent supervision" },
+    { path: `guild_hall/dev_worker/${name}.test.mjs`, why: "continuous developer authority regression proof" },
+  ]),
 
   // 무엇이 위반인지 판정하는 검사기. 이것을 고칠 수 있으면 위반이 사라진다.
   { path: "guild_hall/validate/", why: "the validators that decide what counts as a violation" },
