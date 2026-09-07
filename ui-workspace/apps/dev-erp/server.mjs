@@ -25,6 +25,9 @@ import {
   evaluateWorkflowDeploymentAttestation,
 } from "./src/workflow_job_contract.mjs";
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
+import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
+import { createWorkbenchCurrentSources } from "./src/workbench_current_sources.mjs";
+import { createLinearReadEvidenceReader } from "../../../guild_hall/linear_history/linear_read_evidence_reader.mjs";
 import { WorkflowJobPayloadStore } from "./src/workflow_job_payload_store.mjs";
 import { WorkflowJobRunnerBridge } from "./src/workflow_job_runner_bridge.mjs";
 import { WorkflowJobService } from "./src/workflow_job_service.mjs";
@@ -2394,6 +2397,33 @@ const workflowHttpController = createWorkflowJobHttpController({
   isAuditAllowed: (_req, principal) => store.isAdmin(principal.accountId),
 });
 
+// Workbench is a separately opted-in metadata intake surface on the authenticated
+// loopback server. Missing deployment pins remain HOLD; no default state root or
+// authority epoch is synthesized from the account role or project-access boolean.
+const workbenchSources = (() => {
+  try {
+    return createWorkbenchCurrentSources({
+      root: process.env.DEV_ERP_WORKBENCH_SOURCE_ROOT,
+      expectedBinding: {
+        binding_id: process.env.DEV_ERP_WORKBENCH_BINDING_ID,
+        realm_id: process.env.DEV_ERP_WORKBENCH_REALM_ID,
+        content_sha256: process.env.DEV_ERP_WORKBENCH_BINDING_SHA256,
+      },
+      linearReaderFactory: createLinearReadEvidenceReader,
+    });
+  } catch { return null; }
+})();
+const workbenchHttpController = createWorkbenchHttpController({
+  enabled: process.env.DEV_ERP_WORKBENCH_INTAKE === "1",
+  allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  intakeRoot: process.env.DEV_ERP_WORKBENCH_INTAKE_ROOT,
+  sources: workbenchSources,
+  currentAccount,
+  sessionKey: req => readCookie(req, SID),
+  accountIds: () => store.db.prepare("SELECT id FROM core_account ORDER BY id").all().map(row => row.id),
+  canAccessProject,
+});
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
@@ -2449,6 +2479,7 @@ const server = createServer(async (req, res) => {
       }
     }
     if (await workflowHttpController(req, res, url)) return;
+    if (await workbenchHttpController(req, res, url)) return;
 
     // Personal Codex integration: browser cookie manages credentials; MCP calls use
     // a distinct per-account bearer. Upload bytes travel over a one-time raw PUT,
