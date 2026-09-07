@@ -1,7 +1,7 @@
 // A local SQLite transaction serializes replay + mutation. The pure core is the
 // only queue/lease state machine; the journal carries no packet or process text.
 import { createRequire } from 'node:module';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createToolWorkshopCore } from './tool_workshop_core.mjs';
 import { directPath, exactKeys, reject, sha256 } from './workshop_files.mjs';
@@ -17,12 +17,33 @@ const fields = {
 const DIGEST = /^[a-f0-9]{64}$/;
 const REF = /^[a-z][a-z0-9_.:-]{1,120}$/;
 
-export function createDurableToolWorkshop({ stateRoot }) {
+export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create' }) {
   const root = directPath(stateRoot, true);
   const file = path.join(root,'workshop.sqlite');
+  const marker = path.join(root,'workshop.initialized');
+  if (!['create_new','open_existing','open_or_create'].includes(mode)) reject('state_open_mode_invalid');
+  if (mode === 'create_new' && (existsSync(file) || existsSync(marker))) reject('state_already_exists');
+  if (mode === 'open_existing' && !existsSync(file)) reject('state_database_missing');
+  const markerBytes = 'soulforge.tool_workshop_state.v1\n';
+  let initialized = existsSync(marker);
+  let mayCreateDatabase = !initialized && !existsSync(file);
+  function assertMarker() {
+    directPath(marker);
+    if (readFileSync(marker,'utf8') !== markerBytes) reject('state_marker_invalid');
+  }
+  if (initialized) assertMarker();
   function transaction(action) {
     directPath(root,true);
-    for (const suffix of ['', '-wal', '-shm', '-journal']) if (existsSync(file+suffix)) directPath(file+suffix);
+    if (initialized) assertMarker();
+    if (!mayCreateDatabase || existsSync(file)) {
+      try { directPath(file); } catch(error) { if(error.code==='ENOENT')reject('state_database_missing');throw error; }
+    }
+    // SQLite creates/removes its journal between transactions. A vanished
+    // optional file is normal; links and every other filesystem error remain
+    // fail-closed. Avoid exists() followed by a racy lstat()/realpath().
+    for (const suffix of ['-wal', '-shm', '-journal']) {
+      try { directPath(file+suffix); } catch(error) { if(error.code!=='ENOENT')throw error; }
+    }
     const db = new DatabaseSync(file);
     try {
       db.exec('PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL; BEGIN IMMEDIATE;');
@@ -107,6 +128,13 @@ export function createDurableToolWorkshop({ stateRoot }) {
   internals.set(api,{transaction,root});
   // Opening performs an integrity replay, so corrupt state fails before use.
   transaction(() => null);
+  mayCreateDatabase = false;
+  // Existing v1 databases gain only this metadata presence marker after a
+  // successful replay. A missing established DB is never a new empty queue.
+  if (!existsSync(marker)) {
+    try { writeFileSync(marker,markerBytes,{flag:'wx'}); } catch(error) { if(error.code!=='EEXIST')throw error; }
+  }
+  assertMarker();initialized = true;
   return api;
 }
 
@@ -119,10 +147,13 @@ export function commitVerifiedCandidate(queue,{lease,now,verifyAndPublish}) {
   return runtime.transaction(({core,append,bindings,approvals}) => {
     const currentLease=core.assertCurrentLease(lease,now());
     const job=core.getJob(currentLease.job_id);
-    if (!approvals.get(job.job_id) || job.required_tool_version !== 'tool.project_history_xlsx:v1' || !bindings.get(job.workshop_id)) reject('candidate_binding_required');
+    const candidateTools={'tool.project_history_xlsx:v1':{format:'xlsx',validator:'validator.xlsx_native_readback:v1'},'tool.template_pptx:v1':{format:'pptx',validator:'validator.pptx_native_render:v1'}};
+    const expected=candidateTools[job.required_tool_version];
+    if (!approvals.get(job.job_id) || !expected || !bindings.get(job.workshop_id)) reject('candidate_binding_required');
     const artifact = verifyAndPublish();
-    exactKeys(artifact,['sha256','size_bytes','format','binding_digest','validator_ref','artifact_ref']);
-    if (!DIGEST.test(artifact.sha256) || !DIGEST.test(artifact.binding_digest) || !Number.isSafeInteger(artifact.size_bytes) || artifact.size_bytes < 1 || artifact.format !== 'xlsx' || artifact.validator_ref !== 'validator.xlsx_native_readback:v1' || artifact.artifact_ref !== `artifact.sha256:${artifact.sha256}`) reject('artifact_metadata_invalid');
+    exactKeys(artifact,['sha256','size_bytes','format','binding_digest','validator_ref','artifact_ref',...(expected.format==='pptx'?['template_sha256','render_manifest_digest','render_count']:[])]);
+    if (!DIGEST.test(artifact.sha256) || !DIGEST.test(artifact.binding_digest) || !Number.isSafeInteger(artifact.size_bytes) || artifact.size_bytes < 1 || artifact.format !== expected.format || artifact.validator_ref !== expected.validator || artifact.artifact_ref !== `artifact.sha256:${artifact.sha256}`) reject('artifact_metadata_invalid');
+    if(expected.format==='pptx' && (!DIGEST.test(artifact.template_sha256) || !DIGEST.test(artifact.render_manifest_digest) || artifact.render_count!==2)) reject('render_evidence_required');
     if (artifact.binding_digest !== bindings.get(job.workshop_id)) reject('binding_drift');
     core.assertCurrentLease(lease,now());
     return append('candidate',[{lease_id:lease.lease_id,fencing_token:lease.fencing_token,now:now(),validator_result:'pass',output_bundle_manifest_digest:sha256(JSON.stringify(artifact)),evidence_refs:[artifact.validator_ref]},artifact]);

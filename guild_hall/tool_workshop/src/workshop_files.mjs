@@ -21,10 +21,10 @@ export function directPath(value, directory = false) {
   if (realpathSync(resolved).toLowerCase() !== resolved.toLowerCase()) reject('path_alias_forbidden');
   return resolved;
 }
-export function boundedRead(file, maxBytes) {
+export function boundedRead(file, maxBytes, allowEmpty = false) {
   directPath(file);
   const entry = lstatSync(file);
-  if (entry.size < 1 || entry.size > maxBytes) reject('file_size_invalid');
+  if ((!allowEmpty && entry.size < 1) || entry.size > maxBytes) reject('file_size_invalid');
   const bytes = readFileSync(file);
   if (bytes.length !== entry.size) reject('file_changed');
   return bytes;

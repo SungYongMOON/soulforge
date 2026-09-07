@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, unlinkSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
@@ -15,7 +15,7 @@ test('durable journal replays queue and monotonically fences an expired runner',
   queue.registerWorkshop(DOCUMENT_WORKSHOP_PROFILE);
   queue.submitJob(input());
   const stale = queue.acquireLease('workshop.document',{now:'2026-09-07T00:00:00Z',lease_id:'lease.one'});
-  queue = createDurableToolWorkshop({stateRoot});
+  queue = createDurableToolWorkshop({stateRoot,mode:'open_existing'});
   assert.equal(queue.getJob('job.one').state,'leased');
   queue.submitJob(input('job.two'));
   const fresh = queue.acquireLease('workshop.document',{now:'2026-09-07T00:02:00Z',lease_id:'lease.two'});
@@ -43,8 +43,8 @@ test('four processes contend on one queue: one submission and one lease, no doub
   assert.equal(submissions.filter(entry=>entry.stdout.trim()==='ok').length,1);
   assert.equal(submissions.filter(entry=>entry.stdout.trim()==='job_duplicate').length,3);
   const acquisitions=await Promise.all(Array.from({length:4},(_,index)=>child(`import {createDurableToolWorkshop} from ${JSON.stringify(source)};const q=createDurableToolWorkshop({stateRoot:process.argv[1]});console.log(JSON.stringify(q.acquireLease('workshop.document',{now:'2026-09-07T00:00:00Z',lease_id:process.argv[2]})));`,[stateRoot,`lease.concurrent.${index}`])));
+  assert(acquisitions.every(entry=>entry.code===0),JSON.stringify(acquisitions));
   assert.equal(acquisitions.filter(entry=>entry.stdout.trim()!=='null').length,1);
-  assert(acquisitions.every(entry=>entry.code===0));
   assert.equal(queue.eventLog().filter(entry=>entry.kind==='lease_acquired').length,1);
 });
 
@@ -65,4 +65,22 @@ test('clock expiry rejects completion even before another runner takes over',()=
   const lease=queue.acquireLease('workshop.document',{now:'2026-09-07T00:00:00Z',lease_id:'lease.one'});
   assert.throws(()=>queue.assertCurrentLease(lease,'2026-09-07T00:01:00Z'),{code:'lease_expired'});
   assert.equal(queue.getCustodyReceipt('job.one'),null);
+});
+
+test('an established missing main database or marker is never silently recreated',()=>{
+  const stateRoot=mkdtempSync(path.join(tmpdir(),'workshop-missing-state-'));
+  const queue=createDurableToolWorkshop({stateRoot});queue.registerWorkshop(DOCUMENT_WORKSHOP_PROFILE);queue.submitJob(input());
+  const file=path.join(stateRoot,'workshop.sqlite');
+  unlinkSync(file);
+  assert.throws(()=>queue.getJob('job.one'),{code:'state_database_missing'});
+  assert.throws(()=>createDurableToolWorkshop({stateRoot}),{code:'state_database_missing'});
+  assert.equal(existsSync(file),false);
+  unlinkSync(path.join(stateRoot,'workshop.initialized'));
+  assert.throws(()=>createDurableToolWorkshop({stateRoot,mode:'open_existing'}),{code:'state_database_missing'});
+  assert.equal(existsSync(file),false);
+  const separate=mkdtempSync(path.join(tmpdir(),'workshop-missing-marker-'));
+  const other=createDurableToolWorkshop({stateRoot:separate});
+  unlinkSync(path.join(separate,'workshop.initialized'));
+  assert.throws(()=>other.getJob('job.one'),{code:'ENOENT'});
+  assert.throws(()=>createDurableToolWorkshop({stateRoot:separate,mode:'create_new'}),{code:'state_already_exists'});
 });

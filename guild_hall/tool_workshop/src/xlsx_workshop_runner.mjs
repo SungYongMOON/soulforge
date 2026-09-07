@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { commitVerifiedCandidate } from './tool_workshop_durable.mjs';
+import { runBoundedToolProcess } from './bounded_tool_process.mjs';
 import { boundedRead, directPath, disjointRoots, exactKeys, reject, sha256 } from './workshop_files.mjs';
 import { readProjectHistoryCopyXlsx, validateProjectHistoryCopyXlsxInput, verifyProjectHistoryCopyXlsxReadback } from '../../../ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs';
 
 export const XLSX_WORKSHOP_PROFILE = Object.freeze({workshop_id:'workshop.xlsx',workshop_class:'data_excel',resource_id:'resource.xlsx_node',tool_versions:['tool.project_history_xlsx:v1']});
 const CODE_ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
 const CHILD='guild_hall/tool_workshop/src/xlsx_tool_child.mjs';
-const SOURCES=Object.freeze([CHILD,'ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs','guild_hall/shared/project_history_envelope.mjs','guild_hall/tool_workshop/src/xlsx_workshop_runner.mjs','guild_hall/tool_workshop/src/tool_workshop_durable.mjs','guild_hall/tool_workshop/src/tool_workshop_core.mjs','guild_hall/tool_workshop/src/workshop_files.mjs']);
+const SOURCES=Object.freeze([CHILD,'ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs','guild_hall/shared/project_history_envelope.mjs','guild_hall/tool_workshop/src/xlsx_workshop_runner.mjs','guild_hall/tool_workshop/src/tool_workshop_durable.mjs','guild_hall/tool_workshop/src/tool_workshop_core.mjs','guild_hall/tool_workshop/src/workshop_files.mjs','guild_hall/tool_workshop/src/bounded_tool_process.mjs']);
 const INPUT_MAX=1024*1024, OUTPUT_MAX=8*1024*1024;
 
 // Bootstrap is a trusted operator action. Persist its returned object in local
@@ -33,29 +33,7 @@ export function verifyXlsxRunnerBinding(binding) {
 }
 
 function childRun({binding,runRoot,mode,input,output,lease,queue,deadline}) {
-  return new Promise((resolve,rejectPromise)=>{
-    const remaining=Math.min(Date.parse(lease.expires_at)-Date.now(),deadline-performance.now());
-    if(remaining<=0) return rejectPromise(Object.assign(new Error('runner_timeout'),{code:'runner_timeout'}));
-    const env={TEMP:runRoot,TMP:runRoot,HOME:runRoot,USERPROFILE:runRoot};
-    if(process.platform==='win32') env.SystemRoot=process.env.SystemRoot;
-    const child=spawn(binding.executable,['--disable-warning=ExperimentalWarning',path.join(runRoot,CHILD),mode,input,output],{cwd:runRoot,env,shell:false,windowsHide:true,stdio:['ignore','pipe','pipe']});
-    let stdout='',count=0,stopCode=null;
-    const stop=code=>{if(!stopCode){stopCode=code;child.kill();}};
-    const timeout=setTimeout(()=>stop('runner_timeout'),remaining);
-    const poll=setInterval(()=>{
-      try {queue.assertCurrentLease(lease,new Date().toISOString());}
-      catch(error){stop(error.code==='job_cancel_requested'?'cancelled':error.code==='lease_expired'?'runner_timeout':'fence_stale');}
-    },50);
-    child.stdout.on('data',chunk=>{count+=chunk.length;if(count>4096)stop('runner_failed');else stdout+=chunk;});
-    child.stderr.on('data',chunk=>{count+=chunk.length;if(count>4096)stop('runner_failed');});
-    child.on('error',()=>{stopCode='runner_failed';});
-    // 'close' means our exact child and its pipe handles are observed closed.
-    child.on('close',code=>{
-      clearTimeout(timeout);clearInterval(poll);
-      if(stopCode || code!==0) return rejectPromise(Object.assign(new Error(stopCode??'runner_failed'),{code:stopCode??'runner_failed'}));
-      try {resolve(JSON.parse(stdout));} catch {rejectPromise(Object.assign(new Error('validator_failed'),{code:'validator_failed'}));}
-    });
-  });
+  return runBoundedToolProcess({executable:binding.executable,args:['--disable-warning=ExperimentalWarning',path.join(runRoot,CHILD),mode,input,output],runRoot,lease,queue,deadline});
 }
 
 export function createXlsxWorkshopRunner({queue,binding,projectRef,inputRoot,workRoot,outputRoot}) {
