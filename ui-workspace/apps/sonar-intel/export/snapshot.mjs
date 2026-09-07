@@ -9,6 +9,13 @@
 
 import { writeFileSync } from "node:fs";
 import path from "node:path";
+import { SOURCE_IDS } from "../src/collectors/source_contract.mjs";
+
+function assertExportScope(records) {
+  // New source grants cover app-owned internal analysis only. The existing
+  // CSV/ERP exchange has no rights-carrying acceptance contract for them.
+  if (records.some((record) => SOURCE_IDS.includes(record.source))) throw new Error("source_export_scope_unconfirmed");
+}
 
 const CSV_COLUMNS = [
   "id",
@@ -42,6 +49,7 @@ function csvEscape(value) {
 
 /** Build CSV text (RFC 4180-ish, LF line endings) from a list of store records. */
 export function buildCsvSnapshot(records) {
+  assertExportScope(records);
   const lines = [CSV_COLUMNS.join(",")];
   for (const record of records) {
     const row = CSV_COLUMNS.map((column) => {
@@ -55,6 +63,7 @@ export function buildCsvSnapshot(records) {
 
 /** Build a JSON snapshot document (array wrapped with export metadata). */
 export function buildJsonSnapshot(records, { generatedAt = new Date().toISOString() } = {}) {
+  assertExportScope(records);
   return {
     schema: "soulforge.sonar_intel.export_snapshot.v1",
     generatedAt,

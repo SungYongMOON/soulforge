@@ -16,6 +16,7 @@
 import { createRateGate } from "../rate_gate.mjs";
 import { computeStableId } from "../store.mjs";
 import { decodeXmlText } from "../xml_text.mjs";
+import { assertCredentialFreeUrl, collectionError } from "./diagnostics.mjs";
 
 export const ARXIV_BASE_URL = "https://export.arxiv.org/api/query";
 export const ARXIV_MIN_REQUEST_INTERVAL_MS = 3000;
@@ -166,6 +167,7 @@ export async function fetchArxivPage({
   timeoutMs = 30000,
 }) {
   const url = buildArxivUrl({ searchQuery, start, maxResults, sortBy, sortOrder });
+  assertCredentialFreeUrl(url);
   return rateGate.schedule(async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -173,12 +175,16 @@ export async function fetchArxivPage({
       const response = await fetchImpl(url, {
         headers: { "User-Agent": userAgent, Accept: "application/atom+xml, application/xml, text/xml" },
         signal: controller.signal,
+        redirect: "manual",
       });
+      if (response.status >= 300 && response.status < 400) throw new Error("redirect_denied");
       if (!response.ok) {
-        throw new Error(`arxiv: HTTP ${response.status} for ${url}`);
+        throw new Error(`HTTP_${response.status}`);
       }
       const xml = await response.text();
       return { entries: parseArxivAtom(xml), url };
+    } catch (error) {
+      throw new Error(controller.signal.aborted ? "request_timeout" : collectionError(error));
     } finally {
       clearTimeout(timer);
     }

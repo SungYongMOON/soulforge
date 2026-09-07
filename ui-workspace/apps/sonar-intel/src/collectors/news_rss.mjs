@@ -11,6 +11,7 @@
 
 import { computeStableId } from "../store.mjs";
 import { decodeXmlText } from "../xml_text.mjs";
+import { assertCredentialFreeUrl, collectionError } from "./diagnostics.mjs";
 
 export const DEFAULT_USER_AGENT =
   "sonar-intel-collector/0.1 (+Soulforge internal research pipeline; non-commercial; no public contact)";
@@ -85,6 +86,7 @@ export function rssItemToRecord(item, { source, keyword = null, fetchedAt } = {}
 
 /** fetch() wrapper with timeout + descriptive User-Agent. No retry logic (Goal #1 scope). */
 export async function fetchFeedText(url, { userAgent = DEFAULT_USER_AGENT, fetchImpl = fetch, timeoutMs = 15000 } = {}) {
+  assertCredentialFreeUrl(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -94,11 +96,15 @@ export async function fetchFeedText(url, { userAgent = DEFAULT_USER_AGENT, fetch
         Accept: "application/rss+xml, application/xml, text/xml, */*",
       },
       signal: controller.signal,
+      redirect: "manual",
     });
+    if (response.status >= 300 && response.status < 400) throw new Error("redirect_denied");
     if (!response.ok) {
-      throw new Error(`news_rss: HTTP ${response.status} for ${url}`);
+      throw new Error(`HTTP_${response.status}`);
     }
     return await response.text();
+  } catch (error) {
+    throw new Error(controller.signal.aborted ? "request_timeout" : collectionError(error));
   } finally {
     clearTimeout(timer);
   }
@@ -164,8 +170,8 @@ export async function collectAllNews({
           records.push(...feedRecords);
           perFeed.push({ feedId: feed.id, keyword, fetched: feedRecords.length, error: null });
         } catch (error) {
-          perFeed.push({ feedId: feed.id, keyword, fetched: 0, error: String(error?.message ?? error) });
-          onFeedError?.(feed.id, keyword, error);
+          perFeed.push({ feedId: feed.id, keyword, fetched: 0, error: collectionError(error) });
+          onFeedError?.(feed.id, keyword, new Error(collectionError(error)));
         }
       }
     } else {
@@ -174,8 +180,8 @@ export async function collectAllNews({
         records.push(...feedRecords);
         perFeed.push({ feedId: feed.id, keyword: null, fetched: feedRecords.length, error: null });
       } catch (error) {
-        perFeed.push({ feedId: feed.id, keyword: null, fetched: 0, error: String(error?.message ?? error) });
-        onFeedError?.(feed.id, null, error);
+        perFeed.push({ feedId: feed.id, keyword: null, fetched: 0, error: collectionError(error) });
+        onFeedError?.(feed.id, null, new Error(collectionError(error)));
       }
     }
   }

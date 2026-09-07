@@ -37,18 +37,22 @@
   },
   "openalex": {
     "enabled": false,
-    "note": "OFF: 현재 계정·요청 종류별 예산·공식 권리 범위를 고정한 뒤 Goal #2 수집기 연결. 초기 polite-pool 가정은 활성화 근거가 아님."
+    "authorization": { "state": "unknown" },
+    "note": "수집 코드 구현 · OFF: 실제 계정/상품·저장/분석 권리·예산 증거 미확인. 공식 문서 확인은 실행 승인이 아님."
   },
   "semantic_scholar": {
     "enabled": false,
-    "note": "OFF: 현재 API 권한·예산·권리 범위를 고정한 뒤 Goal #2 수집기 연결."
+    "authorization": { "state": "unknown" },
+    "note": "수집 코드 구현 · OFF: 업무 인텔 목적의 확대 이용허가·계정별 예산 증거 미확인. API 키만으로 권리를 추정하지 않음."
   },
   "epo_ops": {
     "enabled": false,
-    "note": "OFF: Goal #3. OAuth 권한·공식 주간 경계/동적 제한·원자료 이용 범위 확정 필요."
+    "authorization": { "state": "unknown" },
+    "note": "수집기 미구현 · OFF: OAuth/상품·GMT 주간 예산/동적 제한·제품 편입 및 원자료 배포 제한 확인 필요."
   },
   "kipris": {
     "enabled": false,
-    "note": "v1 Goal #3 - 회원가입·상품신청·관리자 승인 완료(2026-08-24), ServiceKey 발급 대기"
+    "authorization": { "state": "unknown" },
+    "note": "수집기 미구현 · OFF: 과거 신청 이력은 현행 상품/계정 권리 증거가 아님. 월초 초기화 시각/시간대·제3자 제공 및 키 공유 제한 확인 필요."
   }
 }
