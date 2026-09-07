@@ -105,7 +105,9 @@ assert launch_runtime.is_launched()
 bridge = adapters.TongsCustodyAdapter(None, '', '', None, False)
 assert bridge._bridge_call({'operation': 'authorize'}) == {'synthetic_bridge': True}
 worker = adapters.ScriptedWorkerTransport('caller-value-ignored', value.path.parent, value.path.parent)
-assert worker.send_exact(b'synthetic-released', value.path.parent) == b'synthetic-released'
+try: worker.send_exact(b'synthetic-released', value.path.parent)
+except RuntimeError as error: assert str(error) == 'CHANNEL_SCOPE_REQUIRED'
+else: raise AssertionError('unscoped worker call accepted')
 lane = engine.Lane.__new__(engine.Lane)
 def stop(): raise RuntimeError('synthetic-integrity-stop')
 engine.recheck_if_launched = stop
@@ -140,12 +142,12 @@ return 0""")
         self.assertEqual(result.returncode, 2)
         self.assertEqual(json.loads(result.stdout)["code"], "SECURE_WORK_LAUNCH_HOLD")
 
-    def test_worker_reads_only_released_bytes_after_large_installation_packet(self):
-        (self.package / "worker.py").write_text("import sys\ndef main():\n    sys.stdout.write(sys.stdin.read())\n    return 0\n")
+    def test_worker_entry_selects_byte_broker_and_never_accepts_stdin_as_work(self):
+        (self.package / "ipc.py").write_text("def serve_runtime(role):\n    assert role == 'worker'\n    print('BROKER_SELECTED')\n    return 0\n")
         body = '{"caller_claims_authority":true}\nsynthetic released data\n'
         result = self.run_bootstrap("return 0", mode="worker", body=body)
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-        self.assertEqual(result.stdout, body)
+        self.assertEqual(result.stdout.strip(), "BROKER_SELECTED")
 
 
 if __name__ == "__main__":

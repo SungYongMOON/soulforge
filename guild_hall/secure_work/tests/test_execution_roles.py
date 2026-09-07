@@ -34,12 +34,13 @@ class ExecutionRoleTests(unittest.TestCase):
         self.lane.load_job.assert_not_called()
         self.lane.open_journal.assert_not_called()
 
-    def test_even_an_authorized_sender_cannot_bypass_the_missing_separate_principal_channel(self):
+    def test_controller_gate_requires_an_installed_channel_and_rejects_sender_call_stack(self):
         with patch.object(launch_runtime, "is_launched", return_value=True), \
-             patch.object(launch_runtime, "role_check", return_value={"principal_ref": "sender.synthetic"}) as current:
-            with self.assertRaisesRegex(RuntimeError, "SENDER_CONTROLLER_CHANNEL_UNBOUND"):
+             patch.object(launch_runtime, "role_check", return_value={"principal_ref": "controller.synthetic"}) as current, \
+             patch("soulforge_secure_work.ipc.runtime_contract", return_value={"role": "sender"}):
+            with self.assertRaisesRegex(RuntimeError, "CHANNEL_AUTHORITY_HOLD"):
                 launch_runtime.require_sender_channel(launch_runtime.job_scope(self.job))
-        current.assert_called_once_with("model.dispatch", launch_runtime.job_scope(self.job))
+        current.assert_called_once_with("jobs.advance", launch_runtime.job_scope(self.job))
 
     def test_reviewer_scope_is_checked_before_job_bytes_and_caller_actor_is_not_authority(self):
         with patch.object(engine, "role_check", side_effect=RuntimeError("SECURE_WORK_ROLE_HOLD")) as gate:

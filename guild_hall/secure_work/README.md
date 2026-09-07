@@ -26,8 +26,8 @@
   아직 없다 — 사이클 1호에서 실제 경계는 "신뢰 서명키·job 저장소에 쓸 수 있는가"다. 사이클 1호의
   필드 검토 46건과 전송 허가는 합성 자료에 대해 lane 작성자 본인(`operator.cycle1.builder`)이
   수행했고 사람의 별도 결정이 아니다 — 합성 한정이며, 승인자와 작성자를 분리하는 것은 BIND06에서다.
-  설치 경로에는 아래의 현재 OS 역할·과제 정책 검증을 추가했다. 실제 설치 결속과
-  별도 principal 사이 통신은 아직 없으며, 이 추가 검사를 전체 BIND09 완료로 세지 않는다.
+  설치 경로에는 아래의 현재 OS 역할·과제 정책 검증과 OS 신원 결속 byte broker를
+  추가했다. 실제 설치·다른 SID 사이 접근 격리 증거는 아직 없으며 전체 BIND09 완료로 세지 않는다.
 - **숨은 추론은 읽지 않는다.** 로컬 모델의 `reasoning_content`류 필드는 읽지도 저장하지도 않는다.
 
 ## 배치
@@ -117,7 +117,7 @@ RECEIVED → SOURCE_PINNED → G2_PREPARED → RELEASE_REVIEW → READY → RUNN
 | M03 projection | kit 참조 구현 | 동작 |
 | M04 vault | kit SQLite vault + 로컬 파일 키 래퍼 | 동작, **키 래퍼는 시험 전용** |
 | M05 release authority | 필드 검토 원장 + 1회용 permit CLI 승인 | 동작, 자동 승인 없음 |
-| M06 transport | scripted worker / OpenRouter 뼈대 | 합성 계약 동작, 설치 실행은 별도 principal 채널 미구현으로 보류 |
+| M06 transport | OS named-pipe sender/worker broker / OpenRouter 뼈대 | 실제 local pipe 합성 프로토콜 검증, 다른 SID 설치·접근 격리 NOT_RUN |
 | M07 state engine | kit journal(SQLite CAS) | 동작 |
 | M08·M09 result | kit 구조검사 + Markdown 복원 + ValidationReport | 동작 |
 | M10 custody | 로컬 outbox + 기존 IngressClient를 쓰는 합성 검증 포트 | 합성 loopback 검증, 실제 승인·자격증명 연결 미바인딩 |
@@ -194,15 +194,17 @@ Node의 권한원이 아니며 Node가 매 송신 경계에서 다시 확인한�
 고정 credential 경로에서만 읽고 프로세스 환경·stdout·영수증으로 전달하지 않는다.
 
 이번 범위는 **M10 sender 측 부분 검증**이다. 기존 합성 Python/Node 포트는 계정을 상속했다.
-설치 진입점의 sender 역할 검사를 추가했지만 controller에서 그 sender로 전달하는 별도
-principal 채널은 아직 없어 기존 상속 호출은 거부한다. 실제 Owner 설치/launcher 결속·분리 계정 증거는 없고,
+설치 진입점의 sender 역할 검사를 추가했다. 아래 M06 byte broker는 공개 packet만 전달하며
+M10의 별도 custody 승인/호출을 대신하지 않는다. 기존 상속 custody 호출은 거부한다.
+실제 Owner 설치/launcher 결속·분리 계정 증거는 없고,
 M06 worker가 source·vault·job store·서명키에 접근하지 못한다는 실제 token/접근 시험과
 전체 BIND09 신원 경계는 후속 구현·검증 대상이다. M07의 file-owned 1회 소비·재시작
 보강은 아래 절의 범위에서 검증됐으며, 실제 키 배치만으로 전체 경계가 닫히지 않는다.
 
-불변 launcher의 코드 연결과 전체 전이 의존성 검사는 아래 범위로 구현했다. 남은 **코드
-작업**은 M06의 principal 간 byte/journal 전달과 접근 격리, 기존 TrustedContext owner와
-전체 BIND09 정책의 통합이다. 현재 역할 정책 consumer는 아래 범위로 검증했다. M07의
+불변 launcher의 코드 연결과 전체 전이 의존성 검사, M06 공개 byte 전달은 아래 범위로 구현했다.
+M07 journal은 controller에만 두어 별도 principal에 원장/저장 경로를 배포하지 않는다.
+남은 **통합 작업**은 실제 역할 설치·접근 격리 입증, M10 승인 포트의 역할 전달,
+기존 TrustedContext owner와 전체 BIND09 정책의 통합이다. 현재 역할 정책 consumer와 M07의
 파일 소유 기반 합성 1회 소비·재시작 검증 범위는 아래와 같다. **Owner 입력/설치 작업**은
 실제 역할 SID·승인 정책·route·binding 값 확정과 해당 계정/ACL 배치다. 두 종류의 공백을
 구분하며, Owner 값만 채우면 남은 코드가 자동으로 완성된다고 주장하지 않는다.
@@ -357,8 +359,9 @@ alias는 거부한다. `context`는 project·assignment와 epoch·task ref·rout
 | controller CLI·요청·advance | controller / SOURCE, 해당 `jobs.*` capability와 현재 과제 scope |
 | permit approve/deny | reviewer / KEY_SERVICE, 현재 과제·route·epoch, 외부 고정 서명키 custody |
 | READY의 permit 신원 결속 | 승인 actor/ref와 내부 E14 `key_id`가 고정 reviewer/issuer와 일치 |
-| permit 소비 전 | sender / G3_PROVIDER 검사 뒤 미구현 controller/sender 채널에서 보류. lock·job read·소비 전에 차단 |
-| `--worker` | worker / G3_PROVIDER와 고정 등록 검사 뒤 byte 채널 미구현으로 보류. 상속 token으로 실행하지 않음 |
+| permit 소비 전 | controller / SOURCE·현재 jobs.advance와 설치 byte-channel 계약 검사. OS lock·M05 검증·M07 예약/IN_FLIGHT는 controller 소유 |
+| `--sender` | 별도 sender / G3_PROVIDER·model.dispatch와 고정 등록 검사 뒤 1회 byte relay 대기 |
+| `--worker` | 별도 worker / G3_PROVIDER와 고정 등록 검사 뒤 1회 byte 처리 대기. controller가 상속 token으로 시작하지 않음 |
 
 서명키 metadata 검사에서 controller/sender/worker·광범위 그룹·미등록 principal에 읽기를
 허용한 키는 거부한다. 검증기는 private key bytes를 읽지 않는다. 서명 함수는 현재 역할의
@@ -373,18 +376,97 @@ permit 만료를 역할 정책 만료 이내로 제한한다. 실제 서명키 f
 구문 검사는 실행 경로의 문법만 확인했고, 등록 metadata 검증 시험은 주입한 합성 값이다.
 실제 등록 작업이나 별도 worker token의 접근 거부를 관측한 결과가 아니다.
 
-이 사전 검사의 결과는 항상 `execution_enabled: false`, `WORKER_BYTE_CHANNEL_UNBOUND`다.
-등록 조건이 맞아도 worker 실행 성공으로 해석하지 않는다. controller와 sender 사이에는
-`SENDER_CONTROLLER_CHANNEL_UNBOUND`를 유지한다. **IPC/broker·서로 다른 principal의
-E14 journal 접근·released bytes와 응답 전달·worker의 source/vault/job/key 접근 거부는
-후속 필수 기술 작업**이다. 실제 SID·정책·계정·ACL의 Owner 배치는 별도 입력/설치 작업이며,
-그 준비만으로 미구현 채널이 완성되지 않는다. 이 조각은 M06 또는 전체 33포트 완료가 아니다.
+등록만 있는 구형 입력의 사전 검사 결과는 `WORKER_BYTE_CHANNEL_UNBOUND`다. 아래 채널
+계약까지 현재 검증한 입력은 `WORKER_CHANNEL_BOUND_INACTIVE`이며 두 경우 모두
+`execution_enabled: false`다. 등록 readback은 실행 성공이나 접근 격리 증거가 아니다.
+저장소의 launcher anchor/binding은 계속 `null`이며 IPC 설치 실행도 거부한다.
+실제 SID·정책·계정·설치 ACL의 Owner 배치와 다른 SID 접근 시험은 미수행이다.
+이 조각은 전체 M06/provider·M10/custody 또는 전체 33포트 완료가 아니다.
 
 ```sh
 node --test guild_hall/secure_work/tests/execution_authority.test.mjs
 python -I -S -B guild_hall/secure_work/tests/test_execution_roles.py
 npm run validate:secure-work
 ```
+
+## Controller → sender → worker byte broker
+
+`ipc_pipe.py`는 Windows 로컬 named pipe만 사용한다. client는 OS가 반환한 server PID의
+process token SID를 조회하고, server는 pipe client의 identification token을 OS로 조회한
+뒤 즉시 revert한다. JSON의 SID·역할 필드는 인증에 쓰지 않는다. 신원 조회가 불가능하거나
+고정 expected SID와 다르면 첫 업무 frame 전에 거부한다. server token 조회를 허용하는
+실제 Windows 접근 권한도 설치의 검증 대상이며 오류를 같은 SID 실행으로 우회하지 않는다.
+
+pipe 생성 시 현재 역할과 exact 상대 SID에만 read/write를 허용하는 임시 객체 DACL,
+remote-client 거부와 first-instance 제한을 함께 지정한다. 파일·계정·기존 ACL·등록 작업은
+변경하지 않는다. 읽기/쓰기는 nonblocking이며 최대 120초의 한 monotonic 기한을 공유한다.
+각 broker는 한 연결만 처리하고 종료하며 launcher의 프로세스 제한은 150초다.
+reconnect/retry/서비스 자동 기동은 없다.
+
+`ipc.py`는 5-byte type/length framing, control 8 KiB·깊이 3·노드 64, 요청/응답 각각
+1 MiB 제한을 읽기 전에 적용한다. control은 중복 key·미등록 필드·형식·순서를 거부하는 JSON,
+업무 bytes는 별도 binary frame이다. pickle/object 역직렬화는 없다. 연결마다 256-bit 새
+challenge, 순차 확인 번호, exact scope·attempt digest·body digest/size가 결속된다.
+old challenge, 바뀐 과제/할당/epoch/route/audience와 잘못된 bytes는 처리 전에 거부한다.
+
+controller는 기존 M05와 M07 `DispatchReference`의 reserve/IN_FLIGHT를 먼저 durable하게
+기록한다. 기존 OS controller lock은 전체 교환과 응답 저장까지 유지한다. sender/worker는
+journal을 열거나 별도 소비 원장을 만들지 않는다. sender 전달과 worker 실행 전에 upstream
+확인 요청을 중계하여 controller의 **현재** 원천·permit·scope·epoch·journal revision을 다시
+검사한다. 각 역할의 고정 launcher도 현재 코드/정책/OS 신원을 확인한다. 응답은 controller가
+기존 hash/fsync/marker 규칙으로 저장한 뒤에만 M07 `RESPONSE_RECEIVED`가 된다.
+중단·부분 응답·기한 초과·확인 실패는 E14 `DELIVERY_UNKNOWN`으로 남아 자동 재송신하지 않는다.
+검사 이후의 동시 권한 회수와 이미 실행된 작업을 취소하거나 외부 exactly-once를 보장하지 않는다.
+
+### Installer가 고정하는 입력
+
+기존 설치 anchor에 `role: {name, sid}`를 고정한다. 이름은 controller/sender/worker/reviewer
+중 하나이며 trust owner와 별개다. OS SID가 이 pin과 다르면 **binding/config 내용을 읽기 전**
+거부한다. 구형 anchor는 기존 비채널 검사만 가능하며 IPC 권한은 얻지 못한다.
+
+controller, sender, worker는 각자 별도 불변 launcher/binding/config를 갖는다. sender/worker
+config의 허용 필드는 `schema`, `execution_role`, `runtime.python_executable`, `kit_root`,
+`recipe_root`, `execution_authority.{policy_path,policy_sha256}`뿐이다. source/pilot/job/vault,
+상태·adapter·controller 설정·공개키/서명키 위치를 넣으면 거부한다. peer는 키 bytes도 읽지 않는다.
+Python peer 시작 packet에는 config 경로/내용을 싣지 않고 고정 public code/runtime 경로만 싣는다.
+기존 full-config/상속 stdin worker는 이 경계를 만족하지 않아 scoped broker로 대체했다.
+
+기존 실행 정책 내부에 다음 항목을 추가한다. 새 정책 발행기·schema owner·계정 생성기가 아니다.
+
+| 입력 | 내용 |
+| --- | --- |
+| `ipc.sender_pipe`, `ipc.worker_pipe` | 서로 다른 `soulforge-secure-` 접두사의 고정 로컬 endpoint 이름. host/경로/동적 route 불허 |
+| `sender_registration`, `worker_registration` | `task_path`, `xml_sha256`, `launcher_path`, `node_path`, `working_directory` |
+| 등록 검증 | exact 역할 SID·제한 실행 수준·logon type·task owner/ACL·고정 launcher/Node/cwd·`--sender` 또는 `--worker` 인자 |
+| 실행본 검증 | controller는 sender/worker, sender는 자신/worker, worker는 자신만 코드 pin/등록을 검사. 역방향 launcher pin은 순환 hash를 만들므로 금지 |
+
+등록은 읽기만 하며 등록 작업을 시작하지 않는다. 승인된 비패키지 OS 실행면이 각 broker를
+해당 다른 SID로 시작해야 한다. 실제 설치, 계정/파일 ACL, app-control·불변 실행면, worker의
+source/vault/job/key 접근 거부와 설치 규모의 실행 시간 증거는 `NOT_RUN`이다.
+설치물은 worker → sender → controller 순으로 봉인한다. downstream launcher/binding의
+public code metadata는 부모 generation의 전체 목록에 포함하고, upstream generation과
+controller 설정·업무·키 경로는 peer 목록에 넣지 않는다. 생성한 세 역할의 실제 file hash와
+전체 목록을 재검증하는 합성 설치 시험으로 순환 없는 봉인 가능성을 확인한다.
+
+### 검증 주장 범위
+
+| 시험 | 실제 실행한 면 | 주장 범위 |
+| --- | --- | --- |
+| Python protocol | 실제 Windows named pipe, sender/worker 자식 프로세스, kernel SID 조회, 임시 객체 DACL | 동일 SID의 **격리된 프로토콜 시험**; 다른 SID 접근 격리 증거 아님 |
+| OS identity 거부 | server expected SID 불일치, client expected SID 불일치 | 업무 handler 호출 0 확인; 같은 계정으로 허용하는 production fallback 없음 |
+| E14 통합 | 실제 read-only kit M05/M07 + 두 실제 pipe + scripted WorkerReply | 1회 예약·정상 응답·worker crash·중계 중 permit 회수/assignment epoch/취소·재전송 거부 |
+| Node 설치 계약 | 합성 OS/등록 metadata | full peer config·누락 identity·같은 SID·구형 등록·scope/launcher drift 거부; 실설치 입증 아님 |
+| 실제 다른 SID 설치 | 미실행 | `NOT_RUN`; production-ready 주장 없음 |
+
+```sh
+node guild_hall/validate/run_secure_work_python.mjs --kit-root <READ_ONLY_TEST_KIT>
+node --test guild_hall/secure_work/tests/execution_authority.test.mjs guild_hall/secure_work/tests/launch_binding.test.mjs
+```
+
+실제 pipe 시험은 Windows에서 실행하며 다른 OS에서는 명시적으로 skip한다. protocol fixture는
+생산 runtime authority를 대체하지 않는 test-only 진입점을 사용한다. 기존 테스트 wrapper는
+운영 config·키·외부 route를 상속하지 않는다. broker 구현·프로토콜 검증과 실제 역할 배치·접근
+검증은 별개이며 M10와 전체 BIND09의 남은 통합도 별개다.
 
 ## JSON 표기·원문 상태·로컬 유용성 보완
 

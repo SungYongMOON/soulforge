@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { executeVerified, guardNodeImports, pythonInvocation, renderInstalledLauncher,
   verifyInstallation } from "../sfx.mjs";
+import { loadExecutionAuthority } from "../execution_authority.mjs";
 
 const MODULE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OWNER = "S-1-5-21-111-222-333-1001";
@@ -128,6 +129,82 @@ test("controller SID cannot enter the worker and missing identity policy never f
   f.binding.config_sha256 = pin(f.configPath).sha256; f.saveBinding();
   await assert.rejects(executeVerified(f.verify(), ["doctor"], { spawn() { spawns++; return { status: 0 }; } }));
   assert.equal(spawns, 0);
+});
+
+test("peer bootstrap packet omits controller configuration and caller bytes", t => {
+  const f = fixture(t);
+  for (const mode of ["sender", "worker"]) {
+    const invocation = pythonInvocation(f.verify(), mode);
+    const packet = JSON.parse(invocation.inputPrefix);
+    assert.equal(packet.mode, mode);
+    assert.equal(Object.hasOwn(packet, "config_path"), false);
+    assert.equal(Object.hasOwn(packet, "config_sha256"), false);
+    assert.equal(invocation.inputPrefix.includes(Buffer.from(f.configPath)), false);
+  }
+});
+
+test("immutable role SID pin rejects a different account before binding or config contents are read", t => {
+  const f = fixture(t);
+  f.anchor.role = { name: "controller", sid: SENDER };
+  assert.equal(f.verify().installationRole.name, "controller");
+  f.evidence.sid = "S-1-5-21-111-222-333-1004";
+  const original = fs.openSync;
+  let protectedReads = 0;
+  fs.openSync = (filename, ...args) => {
+    if ([f.configPath, f.bindingPath].includes(String(filename))) protectedReads++;
+    return original(filename, ...args);
+  };
+  syncBuiltinESMExports();
+  try { assert.throws(() => f.verify()); }
+  finally { fs.openSync = original; syncBuiltinESMExports(); }
+  assert.equal(protectedReads, 0);
+});
+
+test("three role generations can be sealed leaf-to-controller without circular manifest hashes", t => {
+  // Real generated launcher/config/binding bytes and real full inventories;
+  // only OS/task observations are synthetic. No installed services are run.
+  const roles = Object.fromEntries(["worker", "sender", "controller"].map(role => [role, fixture(t)]));
+  const policy = JSON.parse(readFileSync(path.join(roles.controller.temp, "execution-policy.json")));
+  policy.ipc = { sender_pipe: "soulforge-secure-synthetic-sender-01", worker_pipe: "soulforge-secure-synthetic-worker-01" };
+  const tasks = {};
+  for (const role of ["sender", "worker"]) {
+    const f = roles[role];
+    const registration = { task_path: `\\Synthetic${role}`, xml_sha256: "b".repeat(64), launcher_path: f.launcher,
+      node_path: f.node, working_directory: f.runtime };
+    policy[role + "_registration"] = registration;
+    tasks[registration.task_path] = { task_path: registration.task_path, enabled: true,
+      xml_sha256: registration.xml_sha256, principal_sid: policy.roles[role].sid, run_level: 0, logon_type: 2,
+      owner_sid: OWNER, allow: [{ sid: OWNER, rights: 2032127 }],
+      actions: [{ type: 0, execute: f.node, arguments: `"${f.launcher}" --${role}`, cwd: f.runtime }] };
+  }
+  const sealedRoots = [];
+  for (const role of ["worker", "sender", "controller"]) {
+    const f = roles[role];
+    f.evidence.sid = policy.roles[role].sid;
+    f.anchor.role = { name: role, sid: f.evidence.sid };
+    const policyPath = path.join(f.temp, "execution-policy.json");
+    f.put(policyPath, JSON.stringify(policy));
+    let config = JSON.parse(readFileSync(f.configPath));
+    if (role !== "controller") config = { schema: config.schema, execution_role: role, runtime: config.runtime,
+      kit_root: config.kit_root, recipe_root: config.recipe_root, execution_authority: config.execution_authority };
+    config.execution_authority.policy_sha256 = pin(policyPath).sha256;
+    f.put(f.configPath, JSON.stringify(config));
+    f.binding.config_sha256 = pin(f.configPath).sha256;
+    const localRoots = structuredClone(f.binding.launch.roots);
+    f.binding.launch.roots.push(...structuredClone(sealedRoots));
+    f.saveBinding();
+    f.put(f.launcher, renderInstalledLauncher(readFileSync(f.launcher, "utf8"), f.anchor));
+    const runtime = f.verify();
+    assert.equal(loadExecutionAuthority(runtime, { inspectTask: p => tasks[p] }).channelContract().role, role);
+    // A downstream install's independently sealed launcher/binding are normal
+    // public code metadata for its parent inventory, never upstream config.
+    localRoots[0].files.push({ relative_path: "guild_hall/secure_work/sfx.mjs", sha256: pin(f.launcher).sha256 },
+      { relative_path: "guild_hall/secure_work/custody_runtime_binding.json", sha256: pin(f.bindingPath).sha256 });
+    sealedRoots.push(...localRoots);
+  }
+  for (const [role, f] of Object.entries(roles)) {
+    assert.equal(loadExecutionAuthority(f.verify(), { inspectTask: p => tasks[p] }).channelContract().role, role);
+  }
 });
 
 function directSyntheticEntry(f, argv, input = "") {

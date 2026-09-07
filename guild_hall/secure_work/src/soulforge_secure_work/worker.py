@@ -1,9 +1,8 @@
-"""Cycle-1 scripted worker. Reads one released body, returns one WorkerReply.
+"""Cycle-1 scripted worker. Composes released bytes into one WorkerReply.
 
-This process stands in for the external worker (G3). It runs with a working
-directory that holds only the released body, and it is given nothing else: no
-source directory, no vault, no job store, no binding map. Its whole input is the
-bytes on stdin.
+The installed role broker owns framing, authentication and delivery. The pure
+build_reply function remains available for synthetic E14 contract tests; direct
+execution requires the same installed broker and cannot accept stdin as work.
 
 It is scripted, not a model. It composes the facts it was given back into the
 sections it was told about; it invents no value and fills no slot. That is the
@@ -93,10 +92,13 @@ def build_reply(body: bytes):
 
 
 def main() -> int:
-    body = sys.stdin.buffer.read()
-    sys.stdout.buffer.write(build_reply(body))
-    return 0
+    from .ipc import serve_runtime
+    return serve_runtime("worker")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (RuntimeError, OSError, ValueError, ImportError):
+        sys.stdout.write('{"ok":false,"code":"SECURE_WORK_CHANNEL_HOLD"}\n')
+        raise SystemExit(2) from None
