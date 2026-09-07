@@ -17,6 +17,8 @@ const samePath = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const utc = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 const held = hold_code => ({ status: 'HOLD', hold_code });
+// Extended SQLite result codes retain the primary SQLITE_BUSY (5) in the low byte.
+const sqliteBusy = error => error?.code === 'ERR_SQLITE_ERROR' && Number.isInteger(error.errcode) && (error.errcode & 255) === 5;
 
 /**
  * Synthetic-only execution ledger in an independently supplied directory. SQLite transactions
@@ -53,15 +55,18 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
   }
   checkRoot();
   const db = new DatabaseSync(join(rootPath, 'execution.sqlite'));
-  // An existing foreign SQLite file must not receive DDL or journal settings.
-  if (databaseIdentity) {
-    let metadata;
-    try { metadata = db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get(); }
-    catch { db.close(); fail('EXECUTION_FORMAT_INVALID'); }
-    if (metadata?.format !== 1 || metadata?.backup_class !== 'synthetic-only') { db.close(); fail('EXECUTION_FORMAT_INVALID'); }
-  }
-  db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON;');
-  db.exec(`
+  try {
+    // This connection-local wait must precede even the first format read. It does not modify a foreign file.
+    db.exec('PRAGMA busy_timeout=1000;');
+    // An existing foreign SQLite file must not receive DDL or journal settings.
+    if (databaseIdentity) {
+      let metadata;
+      try { metadata = db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get(); }
+      catch (error) { if (sqliteBusy(error)) throw error; fail('EXECUTION_FORMAT_INVALID'); }
+      assert(metadata?.format === 1 && metadata?.backup_class === 'synthetic-only', 'EXECUTION_FORMAT_INVALID');
+    }
+    db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;');
+    db.exec(`
     CREATE TABLE IF NOT EXISTS wb_meta (id INTEGER PRIMARY KEY CHECK(id=1), format INTEGER NOT NULL, backup_class TEXT NOT NULL);
     INSERT OR IGNORE INTO wb_meta VALUES(1,1,'synthetic-only');
     CREATE TABLE IF NOT EXISTS wb_epoch (agent_id TEXT PRIMARY KEY, epoch INTEGER NOT NULL);
@@ -78,10 +83,15 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now() } =
     );
     CREATE UNIQUE INDEX IF NOT EXISTS wb_active_agent ON wb_run(agent_id) WHERE state='running';
     CREATE TABLE IF NOT EXISTS wb_link (request_id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES wb_run(run_id), revision_no INTEGER NOT NULL);
-  `);
-  assert(db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get()?.backup_class === 'synthetic-only'
-    && db.prepare('SELECT format FROM wb_meta WHERE id=1').get()?.format === 1, 'EXECUTION_FORMAT_INVALID');
-  checkRoot();
+    `);
+    assert(db.prepare('SELECT format,backup_class FROM wb_meta WHERE id=1').get()?.backup_class === 'synthetic-only'
+      && db.prepare('SELECT format FROM wb_meta WHERE id=1').get()?.format === 1, 'EXECUTION_FORMAT_INVALID');
+    checkRoot();
+  } catch (error) {
+    db.close();
+    if (sqliteBusy(error)) fail('EXECUTION_STORE_BUSY');
+    throw error;
+  }
   function instant() {
     const time = new Date(now()); assert(Number.isFinite(time.getTime()), 'EXECUTION_CLOCK_INVALID'); return time.toISOString();
   }
