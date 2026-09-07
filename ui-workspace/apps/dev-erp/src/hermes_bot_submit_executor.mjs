@@ -541,7 +541,12 @@ async function defaultRunCommand(
       });
     });
     child.stdin.on("error", () => {});
-    child.stdin.end(stdin);
+    // Do not release the prompt until the post-spawn identity/current-support
+    // check finishes. A rejected check may already have started a child.
+    spawnVerification.then((verified) => {
+      if (verified && !signal.aborted && !settled) child.stdin.end(stdin);
+      else child.stdin.destroy();
+    });
   });
 }
 
@@ -552,6 +557,7 @@ export function createHermesBotSubmitExecutor({
   runtime_binding,
   wait_seconds = 60,
   resolveWorkBrief,
+  resolveRuntimeCapability = async () => null,
   inspectFile = defaultInspectFile,
   hashFile = defaultHashFile,
   runCommand = defaultRunCommand,
@@ -575,6 +581,7 @@ export function createHermesBotSubmitExecutor({
       || !Number.isSafeInteger(hard_timeout_ms) || hard_timeout_ms < 1
       || hard_timeout_ms > ((MAX_WAIT_SECONDS + 60) * 1_000)
       || typeof resolveWorkBrief !== "function" || typeof inspectFile !== "function"
+      || typeof resolveRuntimeCapability !== "function"
       || typeof hashFile !== "function" || typeof runCommand !== "function"
       || typeof now !== "function") {
       return outcome("hold", "HERMES_EXECUTOR_CONFIG_INVALID");
@@ -630,6 +637,32 @@ export function createHermesBotSubmitExecutor({
       return attemptOutcome("hold", "HERMES_EXECUTABLE_HASH_MISMATCH");
     }
 
+    // This is a trusted current-source resolver, not a CLI self-declaration or
+    // a version-string inference. No current installed Hermes support is built
+    // in. Missing support fails before reading any Work Brief.
+    const capabilityRequest = deepFreeze({
+      executor_ref: HERMES_EXECUTOR_REF,
+      capability_snapshot_ref: structuredClone(assignmentBinding.capability_snapshot_ref),
+      executable_sha256: binding.executable_sha256,
+      protocol: HERMES_JSONL_SCHEMA,
+    });
+    const hasCurrentCapability = async () => {
+      try {
+        const proof = snapshotDataObject(await resolveRuntimeCapability(capabilityRequest));
+        const ref = snapshotDataObject(proof?.capability_snapshot_ref);
+        return exactKeys(proof, [...Object.keys(capabilityRequest), "supported"])
+          && proof.supported === true && proof.executor_ref === capabilityRequest.executor_ref
+          && proof.protocol === capabilityRequest.protocol
+          && proof.executable_sha256 === capabilityRequest.executable_sha256
+          && validSnapshotRef(ref)
+          && ref.revision_id === capabilityRequest.capability_snapshot_ref.revision_id
+          && ref.content_sha256 === capabilityRequest.capability_snapshot_ref.content_sha256;
+      } catch { return false; }
+    };
+    if (!await hasCurrentCapability()) {
+      return attemptOutcome("hold", "HERMES_RUNTIME_CAPABILITY_UNSUPPORTED");
+    }
+
     let workBrief;
     try {
       workBrief = await resolveWorkBrief(
@@ -666,14 +699,22 @@ export function createHermesBotSubmitExecutor({
     } catch {
       return attemptOutcome("hold", "HERMES_EXECUTABLE_INSPECTION_FAILED");
     }
+    if (!await hasCurrentCapability()) {
+      return attemptOutcome("hold", "HERMES_RUNTIME_CAPABILITY_CHANGED");
+    }
     const abortController = new AbortController();
     let spawnVerificationCalled = false;
     let spawnVerificationPassed = null;
+    let spawnRejectionReason = "HERMES_EXECUTABLE_DRIFT";
     const verifyExecutableAfterSpawn = async () => {
       if (spawnVerificationCalled) return spawnVerificationPassed;
       spawnVerificationCalled = true;
       try {
         spawnVerificationPassed = (await inspectExecutable(initialExecutable.identity_ref)).state === "ready";
+        if (spawnVerificationPassed && !await hasCurrentCapability()) {
+          spawnVerificationPassed = false;
+          spawnRejectionReason = "HERMES_RUNTIME_CAPABILITY_CHANGED";
+        }
       } catch {
         spawnVerificationPassed = false;
       }
@@ -707,7 +748,7 @@ export function createHermesBotSubmitExecutor({
     }
     if (!spawnVerificationCalled) await verifyExecutableAfterSpawn();
     if (spawnVerificationPassed !== true) {
-      return attemptOutcome("hold", "HERMES_EXECUTABLE_DRIFT");
+      return attemptOutcome("hold", spawnRejectionReason);
     }
     const commandResult = attempt.value;
     return withExternalEffectReceipt(

@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { assignCandidate } from "../src/assignment_policy.mjs";
 import { createCandidateExecutionCoordinator } from "../src/candidate_execution_coordinator.mjs";
-import { createHermesBotSubmitExecutor } from "../src/hermes_bot_submit_executor.mjs";
+import { createHermesBotSubmitExecutor as createUnverifiedHermesExecutor } from "../src/hermes_bot_submit_executor.mjs";
 import { matchRoleCapabilities } from "../src/role_capability_matcher.mjs";
 
 const SHA_A = `sha256:${"a".repeat(64)}`;
@@ -17,6 +17,81 @@ const SHA_C = `sha256:${"c".repeat(64)}`;
 const EXECUTABLE_PATH = path.resolve("synthetic-hermes-fixture", "hermes");
 const HERMES_HOME = path.resolve("synthetic-hermes-fixture", "hermes-home");
 const WORKING_DIRECTORY = path.resolve("synthetic-hermes-fixture", "work");
+
+// The legacy JSONL cases below exercise a synthetic protocol fixture. This
+// explicit test-only proof does not establish support in installed Hermes.
+function createHermesBotSubmitExecutor(options) {
+  return createUnverifiedHermesExecutor({
+    resolveRuntimeCapability: async (expected) => ({ ...expected, supported: true }),
+    ...options,
+  });
+}
+
+test("unknown installed capability holds before Work Brief read or command launch", async () => {
+  let briefReads = 0, commands = 0;
+  const executor = createUnverifiedHermesExecutor({
+    feature_enabled: true, runtime_binding: runtimeBinding(),
+    inspectFile: async () => ({ is_file: true, is_reparse_point: false }),
+    hashFile: async () => SHA_C,
+    resolveWorkBrief: async () => { briefReads += 1; return "must not read"; },
+    runCommand: async () => { commands += 1; return {}; },
+  });
+  const result = await executor.execute(executeInput(taskPacket("TASK-UNSUPPORTED")));
+  assert.equal(result.status, "hold");
+  assert.equal(result.reason_code, "HERMES_RUNTIME_CAPABILITY_UNSUPPORTED");
+  assert.equal(briefReads, 0);
+  assert.equal(commands, 0);
+});
+
+test("capability must match exact current assignment snapshot, executable and protocol", async t => {
+  const variants = {
+    unavailable: () => null,
+    exception: () => { throw new Error("private diagnostic must not escape"); },
+    unknown: expected => ({ ...expected, supported: "UNKNOWN" }),
+    stringTrue: expected => ({ ...expected, supported: "true" }),
+    revoked: expected => ({ ...expected, supported: false }),
+    wrongExecutor: expected => ({ ...expected, supported: true, executor_ref: "executor.other" }),
+    wrongHash: expected => ({ ...expected, supported: true, executable_sha256: SHA_A }),
+    wrongProtocol: expected => ({ ...expected, supported: true, protocol: "hermes.chat.text" }),
+    staleRevision: expected => ({ ...expected, supported: true, capability_snapshot_ref: { ...expected.capability_snapshot_ref, revision_id: "stale" } }),
+    staleContent: expected => ({ ...expected, supported: true, capability_snapshot_ref: { ...expected.capability_snapshot_ref, content_sha256: SHA_A } }),
+    extraField: expected => ({ ...expected, supported: true, version: "0.20.5" }),
+    getter: expected => Object.defineProperty({ ...expected }, "supported", { enumerable: true, get() { throw new Error("getter must not run"); } }),
+  };
+  for (const [name, proof] of Object.entries(variants)) await t.test(name, async () => {
+    let briefReads = 0, commands = 0;
+    const executor = createHermesBotSubmitExecutor({
+      feature_enabled: true, runtime_binding: runtimeBinding(),
+      inspectFile: async () => ({ is_file: true, is_reparse_point: false }), hashFile: async () => SHA_C,
+      resolveRuntimeCapability: async expected => {
+        assert.equal(Object.isFrozen(expected), true);
+        assert.equal(Object.isFrozen(expected.capability_snapshot_ref), true);
+        assert.deepEqual(Object.keys(expected).sort(), ["capability_snapshot_ref", "executable_sha256", "executor_ref", "protocol"]);
+        return proof(expected);
+      },
+      resolveWorkBrief: async () => { briefReads += 1; return "must not read"; },
+      runCommand: async () => { commands += 1; return {}; },
+    });
+    const result = await executor.execute(executeInput(taskPacket("TASK-CAPABILITY")));
+    assert.equal(result.reason_code, "HERMES_RUNTIME_CAPABILITY_UNSUPPORTED");
+    assert.equal(briefReads, 0); assert.equal(commands, 0);
+    assert.equal(JSON.stringify(result).includes("private diagnostic"), false);
+  });
+});
+
+test("capability revoked while resolving Work Brief prevents launch", async () => {
+  let revoked = false, commands = 0, capabilityReads = 0;
+  const executor = createHermesBotSubmitExecutor({
+    feature_enabled: true, runtime_binding: runtimeBinding(),
+    inspectFile: async () => ({ is_file: true, is_reparse_point: false }), hashFile: async () => SHA_C,
+    resolveRuntimeCapability: async expected => { capabilityReads += 1; return { ...expected, supported: !revoked }; },
+    resolveWorkBrief: async () => { revoked = true; return "synthetic brief"; },
+    runCommand: async () => { commands += 1; return {}; },
+  });
+  const result = await executor.execute(executeInput(taskPacket("TASK-REVOKED")));
+  assert.equal(result.reason_code, "HERMES_RUNTIME_CAPABILITY_CHANGED");
+  assert.equal(capabilityReads, 2); assert.equal(commands, 0);
+});
 
 function taskRef(taskId) {
   return { provider: "linear", task_id: taskId };
@@ -546,6 +621,41 @@ test("default runner performs pre-launch and post-spawn executable identity chec
     assert.equal(hashCalls, 2);
     assert.equal(result.status, "hold");
     assert.equal(result.reason_code, "HERMES_EXECUTABLE_DRIFT");
+  });
+});
+
+test("default runner withholds stdin until post-spawn current capability resolves", async () => {
+  const script = `
+const fs = require("node:fs"), path = require("node:path");
+fs.writeFileSync(path.join(process.env.HERMES_HOME, "started"), "started");
+process.stdin.on("data", bytes => fs.appendFileSync(path.join(process.env.HERMES_HOME, "received"), bytes));
+process.stdin.resume();
+`;
+  await withDefaultRunnerFixture(script, async fixture => {
+    let capabilityReads = 0;
+    const executor = createHermesBotSubmitExecutor({
+      feature_enabled: true, runtime_binding: defaultRunnerBinding(fixture),
+      resolveWorkBrief: async () => "public synthetic prompt withheld on revocation",
+      resolveRuntimeCapability: async expected => {
+        capabilityReads += 1;
+        if (capabilityReads === 3) {
+          let started = false;
+          for (let attempt = 0; attempt < 200; attempt += 1) {
+            try { await access(path.join(fixture.hermesHome, "started")); started = true; break; }
+            catch (error) { if (error.code !== "ENOENT") throw error; }
+            await delay(10);
+          }
+          assert.equal(started, true, "real child reached the input listener before revocation");
+          return { ...expected, supported: false };
+        }
+        return { ...expected, supported: true };
+      },
+    });
+    const result = await executor.execute(executeInput(taskPacket("TASK-POST-SPAWN-REVOKE")));
+    assert.equal(capabilityReads, 3);
+    await access(path.join(fixture.hermesHome, "started"));
+    assert.equal(result.reason_code, "HERMES_RUNTIME_CAPABILITY_CHANGED");
+    await assert.rejects(access(path.join(fixture.hermesHome, "received")), { code: "ENOENT" });
   });
 });
 

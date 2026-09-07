@@ -336,6 +336,23 @@ Synthetic Executor는 관찰된 0을, Hermes Adapter는 측정하지 못한 coun
 
 ### 11.3 Adapter와 현재 HOLD
 
+2026-09-08 현재 호환 경계: 이 Adapter의 `hermes.bot_submit.v1`은 제품 소비 계약이며
+현재 설치 Hermes의 지원을 뜻하지 않는다. 기본 `resolveRuntimeCapability`는 지원 없음으로
+판정한다. 설치 버전·도움말 추측·caller의 `feature_enabled`만으로 이를 해제하지 않는다.
+현재 권한 소유자가 제공하는 trusted resolver는 exact `executor_ref`, 배정의
+`capability_snapshot_ref`, 실행 파일 SHA, `protocol`을 받아 같은 필드와 literal
+`supported: true`만 반환해야 한다. 이 callback은 현재 승인된 호환 근거를 해석하는
+내부 결속 지점이며 새 승인권·sandbox·실행기 자체 진술을 신뢰하는 장치가 아니다.
+제품에 실제 resolver/지원 shim/설치 증거는 아직 결속되지 않았다.
+
+호환 근거가 없거나 오래되면 Work Brief resolver와 command runner를 호출하지 않는다.
+본문 읽기 뒤 실행 직전에도 다시 확인하며, default runner는 post-spawn identity/호환
+확인이 끝나기 전 stdin을 넘기지 않는다. post-spawn 차단은 이미 생긴 child의 모든
+부작용이 0이라는 증거가 아니다. capability 철회는 재시도 없이 HOLD로 남긴다.
+기존 JSONL 및 default child 시험은 명시적 synthetic capability와 Node fixture의
+검증이다. 설치 Hermes나 별도 local-only text CLI가 JSONL을 지원한다는 증거가 아니다.
+실제 text CLI adapter·고정 실행 결속·반환 session 검증은 계속 기술 개발 잔여다.
+
 첫 임시 canary adapter는 (1) 별도 승인된 Codex Linear connector로 marker/합성 issue를
 create/read하는 transport와 (2) feature-OFF `HermesBotSubmitExecutor`다. Hermes Adapter는 exact
 binding과 executable identity/digest를 검사하고 Work Brief를 승인 resolver에서 일시적으로 받아
