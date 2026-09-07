@@ -62,6 +62,18 @@ test("an installed pack resolves its identity from the delivered manifest with f
   ]));
   assert.equal(identity.verified_files, 2);
   assert.equal(identity.pack_id, "hpp_server_pack");
+  assert.equal(identity.sbom_verification, "NOT_VERIFIED");
+});
+
+test("known optional SBOM policy preserves source identity without claiming SBOM verification; unknown policy refuses", () => {
+  const known = installedFixture({ mutateManifest: (manifest) => { manifest.sbom_policy = "required_cyclonedx_1_6"; } });
+  const identity = readPackSourceIdentity(known.moduleDir, { verify: "all" });
+  assert.equal(identity.verified_files, 2);
+  assert.equal(identity.sbom_verification, "NOT_VERIFIED", "SBOM sidecar consistency is owned by the separate pack verifier");
+  for (const policy of ["unknown_future_policy", null, true]) {
+    const unknown = installedFixture({ mutateManifest: (manifest) => { manifest.sbom_policy = policy; } });
+    assert.throws(() => readPackSourceIdentity(unknown.moduleDir), (error) => error.code === "pack_source_manifest_invalid");
+  }
 });
 
 test("tamper fails closed: an edited or truncated manifest-listed file throws, never a degraded identity", () => {
