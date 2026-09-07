@@ -111,7 +111,10 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
         for (const row of catalogue.entries) if (await canAccessProject(req, row.request.project_code) !== true) {
           reject(res, 403, 'SCOPE_VIOLATION'); return true;
         }
-        send(res, 200, { ...catalogue, enabled: true, synthetic_execution_enabled: executionEnabled,
+        send(res, 200, { ...catalogue, enabled: true,
+          execution_enabled: executionEnabled, execution_mode: executionEnabled ? executionService.mode ?? 'synthetic_fixed' : null,
+          synthetic_execution_enabled: executionEnabled && executionService.mode !== 'native_chat',
+          native_execution_enabled: executionEnabled && executionService.mode === 'native_chat',
           csrf_token: csrfFor(session), claim_created: false, execution_started: false });
       } catch (error) { reject(res, 503, error.workbenchCode ?? 'CURRENT_SOURCE_UNAVAILABLE'); }
       return true;

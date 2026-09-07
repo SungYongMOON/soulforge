@@ -12,7 +12,8 @@ const exact = (value, fields) => value && typeof value === 'object' && Object.ke
   && fields.every(field => Object.hasOwn(value, field));
 
 /** Durable outer admission/commit boundary around the unchanged CEC algorithm. Only the
- * fixed synthetic worker is registered. Arbitrary executors and real mode stay unavailable. */
+ * fixed synthetic worker or the separately pinned native Hermes binder is registered.
+ * Native response observation never enters the synthetic candidate-byte path. */
 export function createWorkbenchExecutionService({ enabled = false, intakeStore, intakeSources, executionSources, executionStore, now = () => Date.now() } = {}) {
   const instanceRef = `workbench.instance.${randomBytes(16).toString('hex')}`;
   const active = new Map();
@@ -28,10 +29,11 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
     if (await access.checkSession() !== true || await access.canAccessProject(result.record.request.project_code) !== true) fail('AUTH_REQUIRED');
     return result.record;
   }
-  async function authorize(record, access) {
+  async function authorize(record, access, { signal, onStdinRelease } = {}) {
     if (!enabled || closed || !executionSources || !executionStore) fail('SYNTHETIC_EXECUTION_DISABLED');
     if (await access.checkSession() !== true || await access.canAccessProject(record.request.project_code) !== true) fail('AUTH_REQUIRED');
-    const approval = await executionSources.authorize({ record, requester: access.requester, canAccessProject: access.canAccessProject });
+    const approval = await executionSources.authorize({ record, requester: access.requester,
+      canAccessProject: access.canAccessProject, checkSession: access.checkSession, signal, onStdinRelease });
     if (await access.checkSession() !== true || await access.canAccessProject(record.request.project_code) !== true) fail('AUTH_REQUIRED');
     return approval;
   }
@@ -40,20 +42,44 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
       execution_state: run?.observed_state ?? null, hold_code: currentHold ?? run?.observed_reason ?? null,
       attempt_no: run?.attempt_no ?? null, fencing_epoch: run?.fencing_epoch ?? null,
       execution_started: !!run?.worker_started_at, local_candidate_stored: run?.candidate_present ?? false,
+      execution_mode: run?.execution_mode ?? executionSources?.mode ?? 'synthetic_fixed', response_observed: run?.response_observed === true,
       candidate_sha256: run?.candidate_sha256 ?? null, remote_submission_ack: false,
-      official_task_done: false, acceptance_authority: false, backup_class: 'synthetic-only' };
+      official_task_done: false, acceptance_authority: false, backup_class: executionStore?.backupClass ?? 'synthetic-only' };
   }
   const stopOutcome = code => ({ status: 'hold', reason_code: code, result_ref: null, artifact_refs: [], evidence_refs: [],
     external_effect_evidence: { source: 'workbench.synthetic.executor', receipt_ref: 'receipt.workbench.synthetic.stopped',
       linear_writes: 0, network_calls: 0, filesystem_writes: 0, shell_commands: 0 } });
   async function perform(run, record, approval, access) {
     let worker = null; let timeout = null; let cancelled = null; let finished = false;
-    const controller = { stop: code => { cancelled = code; worker?.terminate(); } };
+    const nativeAbort = new AbortController();
+    const controller = { stop: code => { cancelled = code; worker?.terminate(); nativeAbort.abort(); } };
     active.set(run.run_id, controller);
     try {
-      const latest = await authorize(record, access);
+      const latest = await authorize(record, access, { signal: nativeAbort.signal,
+        onStdinRelease: () => executionStore.markWorkerStarted(run) });
       if (latest.basis_digest !== approval.basis_digest) fail('EXECUTION_BASIS_CHANGED');
       if (cancelled) fail(cancelled);
+      if (latest.mode === 'native_chat') {
+        const native = latest.native_executor;
+        const cec = createCandidateExecutionCoordinator({ feature_enabled: true,
+          executors: new Map([[latest.assignment_packet.performer_binding.executor_ref, native]]) });
+        const result = await cec.dispatch({ candidate_packet: latest.candidate_packet, task_packet: latest.task_packet,
+          assignment_packet: latest.assignment_packet, idempotency_key: `dispatch.${run.run_id}` });
+        if (cancelled) {
+          executionStore.settle({ ...run, state: cancelled === 'USER_CANCELLED' ? 'cancelled' : 'hold', reason_code: cancelled });
+          return;
+        }
+        const final = await authorize(record, access);
+        if (final.basis_digest !== approval.basis_digest) fail('EXECUTION_BASIS_CHANGED');
+        const observed = result.status === 'succeeded';
+        executionStore.settle({ ...run, state: observed ? 'response_observed' : 'hold',
+          reason_code: observed ? null : result.execution_receipt?.reason_code ?? result.hold_code ?? 'HERMES_NATIVE_EXECUTION_UNKNOWN',
+          receipt: { durable_run_id: run.run_id, attempt_no: run.attempt_no, fencing_epoch: run.fencing_epoch,
+            cec_receipt: result.execution_receipt ?? null, execution_binding_digest: final.binding_digest,
+            current_authority_epoch: final.authority_epoch, response_observed: observed,
+            local_candidate_stored: false, remote_submission_ack: false, official_task_done: false, acceptance_authority: false } });
+        return;
+      }
       let candidateBytes = null;
       const executor = { execute: async cecInput => {
         if (digestOf(cecInput.task_packet) !== digestOf(approval.task_packet)
@@ -119,6 +145,7 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
   }
   return Object.freeze({
     enabled: enabled && !!executionSources && !!executionStore,
+    mode: executionSources?.mode ?? 'synthetic_fixed',
     async start(requestId, access) {
       const record = await recordFor(requestId, access);
       const approval = await authorize(record, access);

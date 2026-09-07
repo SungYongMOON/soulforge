@@ -2424,8 +2424,11 @@ const workbenchSources = (() => {
   } catch { return null; }
 })();
 const workbenchExecutionService = (() => {
-  if (process.env.DEV_ERP_WORKBENCH_INTAKE !== "1" || process.env.DEV_ERP_WORKBENCH_SYNTHETIC_EXECUTION !== "1"
+  const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1";
+  const synthetic = process.env.DEV_ERP_WORKBENCH_SYNTHETIC_EXECUTION === "1";
+  if (process.env.DEV_ERP_WORKBENCH_INTAKE !== "1" || native === synthetic
     || !workbenchSources || TLS_ENABLED) return null;
+  const mode = native ? 'native_chat' : 'synthetic_fixed';
   let executionStore = null;
   try {
     const roots = [process.env.DEV_ERP_WORKBENCH_EXECUTION_ROOT, process.env.DEV_ERP_WORKBENCH_SOURCE_ROOT,
@@ -2434,10 +2437,14 @@ const workbenchExecutionService = (() => {
     const canonical = roots.map(root => realpathSync(root)).map(root => process.platform === "win32" ? root.toLowerCase() : root);
     const overlaps = (left, right) => left === right || left.startsWith(`${right}${sep}`) || right.startsWith(`${left}${sep}`);
     if (overlaps(canonical[0], canonical[1]) || overlaps(canonical[0], canonical[2])) return null;
-    const executionSources = createWorkbenchExecutionSources({ intakeSources: workbenchSources,
-      bindingDigest: process.env.DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256 });
+    const executionSources = createWorkbenchExecutionSources({ intakeSources: workbenchSources, mode,
+      bindingDigest: process.env.DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256,
+      nativeDeployment: native ? { enabled: true, source_root: roots[1],
+        expected_binding: { binding_id: process.env.DEV_ERP_WORKBENCH_BINDING_ID,
+          realm_id: process.env.DEV_ERP_WORKBENCH_REALM_ID, content_sha256: process.env.DEV_ERP_WORKBENCH_BINDING_SHA256 },
+        native_binding_sha256: process.env.DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256 } : undefined });
     const intakeStore = createWorkbenchIntakeStore({ root: roots[2] });
-    executionStore = createWorkbenchExecutionStore({ root: roots[0] });
+    executionStore = createWorkbenchExecutionStore({ root: roots[0], mode });
     return createWorkbenchExecutionService({ enabled: true, intakeStore, intakeSources: workbenchSources, executionSources, executionStore });
   } catch { executionStore?.close(); return null; }
 })();

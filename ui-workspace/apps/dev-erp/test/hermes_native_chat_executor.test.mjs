@@ -1,0 +1,348 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, readdir, writeFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import test from 'node:test';
+import { nativeAuthorityFixture } from './hermes_native_fixtures.mjs';
+import { bindHermesNativeRuntime, projectHermesNativeBriefBinding } from '../src/hermes_native_runtime.mjs';
+import { createCandidateExecutionCoordinator } from '../src/candidate_execution_coordinator.mjs';
+import { createHermesNativeAttemptStore } from '../src/hermes_native_attempt_store.mjs';
+import { readHermesNativeSessionMetadata } from '../src/hermes_native_session_metadata.mjs';
+import { digestOf } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
+import { runHermesNativeCli } from '../src/hermes_native_cli.mjs';
+import { verifyAgentWorkforceAuthorityClaim, AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA,
+  AGENT_AUTHORITY_CURRENT_STATE_SCHEMA } from '../../../../guild_hall/agent_observation/agent_authority_verification.mjs';
+
+const CHILD = fileURLToPath(new URL('./hermes_native_child_fixture.mjs', import.meta.url));
+const RESTART = fileURLToPath(new URL('./hermes_native_restart_fixture.mjs', import.meta.url));
+const NOW = Date.parse('2026-09-08T01:03:00.000Z');
+const sha = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+
+async function fixture(t, mode = 'ok', options = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-native-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const home = path.join(root, 'profiles', 'synthetic-profile');
+  const attempts = path.join(root, 'attempts');
+  await mkdir(home, { recursive: true }); await mkdir(attempts);
+  await writeFile(path.join(home, 'mode.txt'), mode);
+  const f = await nativeAuthorityFixture();
+  const selected = f.authority_request.executor_binding;
+  const runtime = {
+    ...Object.fromEntries(['performing_agent_id', 'bot_ref', 'executor_ref', 'profile_ref',
+      'session_ref', 'deployment_ref', 'deployment_digest'].map((key) => [key, selected[key]])),
+    expected_model: selected.requested_model, expected_effort: selected.requested_effort,
+    profile_name: 'synthetic-profile', session_id: 'session-existing', provider: 'synthetic-provider',
+    toolsets: ['synthetic-approved'], executable_path: process.execPath,
+    executable_sha256: sha(await readFile(process.execPath)), executable_argv_prefix: [CHILD],
+    HERMES_HOME: home, working_directory: root,
+    source_pins: [{ path: CHILD, sha256: sha(await readFile(CHILD)) }],
+  };
+  const db = new DatabaseSync(path.join(home, 'state.db'));
+  db.exec(`CREATE TABLE sessions (id TEXT PRIMARY KEY,source TEXT,parent_session_id TEXT,
+    started_at REAL,ended_at REAL,end_reason TEXT,model TEXT,billing_provider TEXT,profile_name TEXT,
+    rewind_count INTEGER DEFAULT 0,archived INTEGER DEFAULT 0,hidden INTEGER DEFAULT 0,model_config TEXT,
+    system_prompt TEXT,last_activity_description TEXT);
+    CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT,session_id TEXT,role TEXT,content TEXT,
+    timestamp REAL,active INTEGER DEFAULT 1,compacted INTEGER DEFAULT 0,finish_reason TEXT,
+    effect_disposition TEXT,tool_calls TEXT,display_metadata TEXT);`);
+  db.prepare(`INSERT INTO sessions (id,source,started_at,model,billing_provider,profile_name,model_config,
+    system_prompt,last_activity_description) VALUES (?,'cli',1,?,?,?,'{}',?,?)`).run(runtime.session_id,
+    runtime.expected_model, runtime.provider, runtime.profile_name, 'Never select system prompt body', 'Never select description');
+  db.prepare("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?,'user',?,1)")
+    .run(runtime.session_id, 'Never select historical content');
+  db.close();
+  const briefBinding = projectHermesNativeBriefBinding(f.forge_admission);
+  let reads = 0;
+  let checks = 0;
+  const settings = {
+    feature_enabled: true, authority_request: f.authority_request, brief_binding: briefBinding,
+    runtime_binding: runtime, attempt_directory: attempts, now: () => NOW,
+    hard_timeout_ms: 4000,
+    resolveCurrentState: async (request) => {
+      checks += 1;
+      const state = { authority_request: structuredClone(f.authority_request), brief_binding: briefBinding,
+        runtime_capability: { ...structuredClone(request.runtime_capability), evaluated_at: new Date(NOW).toISOString(),
+          expires_at: new Date(NOW + 60_000).toISOString() } };
+      if (options.changeCurrent) await options.changeCurrent(state, checks);
+      return state;
+    },
+    resolveWorkBrief: async () => {
+      reads += 1;
+      if (options.readBrief) return options.readBrief(f);
+      return structuredClone(f.forge_request);
+    },
+    ...options.settings,
+  };
+  const input = { operation_id: 'operation-native-1', fencing_epoch: 1, attempt_no: 1,
+    claim: { task_ref: f.authority_request.task_packet.task_ref,
+      work_brief_revision_ref: f.authority_request.task_packet.work_brief_revision_ref,
+      action_ref: f.authority_request.task_packet.action_ref },
+    task_packet: f.authority_request.task_packet, assignment_packet: f.authority_request.assignment_packet };
+  const bind = () => bindHermesNativeRuntime(settings);
+  return { ...f, root, home, attempts, runtime, settings, input, bind,
+    reads: () => reads, checks: () => checks };
+}
+
+test('product binder runs the actual child path with native flags and records metadata only', async (t) => {
+  const f = await fixture(t);
+  const bound = f.bind();
+  assert.equal(bound.status, 'BOUND');
+  const result = await bound.executor.execute(f.input);
+  assert.equal(result.status, 'succeeded', JSON.stringify(result));
+  const argv = JSON.parse(await readFile(path.join(f.home, 'argv.json'), 'utf8'));
+  assert.equal(argv[argv.indexOf('--resume') + 1], 'session-existing');
+  assert.equal(argv[argv.indexOf('--query-file') + 1], '-');
+  assert.equal(argv.includes('--jsonl'), false);
+  assert.equal(argv.includes(f.forge_request.forge_issued_work_brief.problem), false);
+  const inputHash = await readFile(path.join(f.home, 'input-digest.txt'), 'utf8');
+  assert.equal(inputHash, sha(JSON.stringify(f.forge_request.forge_issued_work_brief)).slice(7));
+  const receiptFile = (await readdir(f.attempts)).find((name) => name.startsWith('receipt-'));
+  const rawReceipt = await readFile(path.join(f.attempts, receiptFile), 'utf8');
+  const receipt = JSON.parse(rawReceipt).receipt;
+  assert.equal(receipt.brief_binding.brief_ref, f.forge_request.forge_issued_work_brief.brief_id);
+  assert.equal(receipt.input_sha256, `sha256:${inputHash}`);
+  assert.equal(receipt.cli_exit_code, 0);
+  assert.equal(receipt.candidate_custody, false);
+  assert.equal(receipt.human_accepted, false);
+  assert.equal(receipt.observed_effort, 'UNKNOWN');
+  assert.equal(rawReceipt.includes('Synthetic result'), false);
+  assert.equal(rawReceipt.includes(f.forge_request.forge_issued_work_brief.problem), false);
+  assert.equal(result.external_effect_evidence.network_calls, 'UNKNOWN');
+  assert.equal(f.checks(), 2);
+});
+
+for (const mode of ['plain-only', 'wrong-session', 'branch', 'null-stop', 'multiple-users', 'nonzero', 'oversized', 'timeout']) {
+  test(`native ${mode} holds and remains consumed after restart and successor`, async (t) => {
+    const f = await fixture(t, mode, { settings: mode === 'timeout' ? { hard_timeout_ms: 800 } : {} });
+    const first = await f.bind().executor.execute(f.input);
+    assert.equal(first.status, 'hold', JSON.stringify(first));
+    const successor = await f.bind().executor.execute({ ...f.input, operation_id: 'operation-successor',
+      fencing_epoch: 2, attempt_no: 2 });
+    assert.equal(successor.reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+    assert.equal((await readFile(path.join(f.home, 'started.txt'), 'utf8')).trim().split('\n').length, 1);
+    assert.equal(f.reads(), 1);
+  });
+}
+
+test('official compression lineage is observed; stdout fake session is ignored', async (t) => {
+  const f = await fixture(t, 'compression');
+  const result = await f.bind().executor.execute(f.input);
+  assert.equal(result.status, 'succeeded', JSON.stringify(result));
+  const snapshot = await readHermesNativeSessionMetadata({ database_path: path.join(f.home, 'state.db'),
+    session_id: 'session-existing', since_id: null });
+  assert.equal(snapshot.actual_session_id, 'session-continued');
+  assert.equal(snapshot.lineage.length, 2);
+  const text = JSON.stringify(snapshot);
+  assert.equal(text.includes('Never select'), false);
+  assert.equal(text.includes('content'), false);
+  assert.equal(text.includes('system_prompt'), false);
+});
+
+for (const [label, mutate] of [
+  ['capability unsupported', (state) => { state.runtime_capability.supported = false; }],
+  ['profile drift', (state) => { state.runtime_capability.profile_name = 'wrong-profile'; }],
+  ['tool expansion', (state) => { state.runtime_capability.effective_tool_refs.push('tool:extra'); }],
+  ['brief revision drift', (state) => { state.brief_binding = { ...state.brief_binding, brief_ref: 'other-brief' }; }],
+  ['assignment revoked', (state) => { state.authority_request.trusted_current_evaluation.current_assignment_epoch += 1; }],
+  ['stale proof', (state) => { state.runtime_capability.evaluated_at = '2026-09-07T01:03:00.000Z'; }],
+]) {
+  test(`${label} prevents reading the WorkBrief`, async (t) => {
+    const f = await fixture(t, 'ok', { changeCurrent: mutate });
+    assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_CURRENT_BINDING_REQUIRED');
+    assert.equal(f.reads(), 0);
+    assert.deepEqual(await readdir(f.attempts), []);
+  });
+}
+
+test('post-spawn authority drift prevents stdin release and stays durably consumed', async (t) => {
+  const f = await fixture(t, 'ok', { changeCurrent: (state, count) => {
+    if (count === 2) state.runtime_capability.supported = false;
+  } });
+  const first = await f.bind().executor.execute(f.input);
+  assert.equal(first.reason_code, 'HERMES_NATIVE_PRE_RELEASE_DRIFT');
+  await assert.rejects(readFile(path.join(f.home, 'input-digest.txt')));
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+});
+
+test('modified issued bytes fail Forge admission after current preflight without child', async (t) => {
+  const f = await fixture(t, 'ok', { readBrief: (source) => {
+    const changed = structuredClone(source.forge_request);
+    changed.forge_issued_work_brief.problem += ' Changed.';
+    return changed;
+  } });
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_ISSUED_BRIEF_UNAVAILABLE');
+  await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+});
+
+test('durable claim wins concurrent binders and prevents coordinator HOLD successor resend', async (t) => {
+  const f = await fixture(t, 'plain-only');
+  const coordinator = () => createCandidateExecutionCoordinator({ feature_enabled: true,
+    executors: new Map([[f.runtime.executor_ref, f.bind().executor]]) });
+  const request = { idempotency_key: 'native-dispatch-1', candidate_packet: f.authority_request.candidate_packet,
+    task_packet: f.authority_request.task_packet, assignment_packet: f.authority_request.assignment_packet,
+    successor_of_receipt_id: null };
+  const engine = coordinator();
+  const first = await engine.dispatch(request);
+  assert.equal(first.status, 'hold', JSON.stringify(first));
+  const successor = await engine.dispatch({ ...request, idempotency_key: 'native-dispatch-2',
+    successor_of_receipt_id: first.execution_receipt.receipt_id });
+  assert.equal(successor.execution_receipt.reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED', JSON.stringify(successor));
+  const restarted = await coordinator().dispatch({ ...request, idempotency_key: 'native-dispatch-3' });
+  assert.equal(restarted.execution_receipt.reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+  assert.equal((await readFile(path.join(f.home, 'started.txt'), 'utf8')).trim().split('\n').length, 1);
+});
+
+test('store exclusive write survives concurrency and a torn claim', async (t) => {
+  const f = await fixture(t);
+  const data = { claim: f.input.claim, session_key: digestOf('synthetic-session').slice(7),
+    attempt: { operation_id: 'store-attempt', fencing_epoch: 1, attempt_no: 1 } };
+  const first = createHermesNativeAttemptStore({ directory: f.attempts });
+  const second = createHermesNativeAttemptStore({ directory: f.attempts });
+  const both = await Promise.all([first.reserve(data), second.reserve(data)]);
+  assert.equal(both.filter((value) => value.status === 'RESERVED').length, 1);
+  const claimFile = (await readdir(f.attempts)).find((name) => name.startsWith('claim-'));
+  await writeFile(path.join(f.attempts, claimFile), '{');
+  assert.equal((await createHermesNativeAttemptStore({ directory: f.attempts }).reserve(data)).hold_code,
+    'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+});
+
+test('separate process crash after durable reservation cannot resend from a restarted product binder', async (t) => {
+  const f = await fixture(t);
+  const config = path.join(f.root, 'restart-synthetic.json');
+  const { resolveWorkBrief, resolveCurrentState, now, ...settings } = f.settings;
+  await writeFile(config, JSON.stringify({ ...settings, clock: NOW, input: f.input, forge_request: f.forge_request }));
+  const run = (extra = []) => promisify(execFile)(process.execPath, [RESTART, config, ...extra],
+    { timeout: 8000, windowsHide: true });
+  const first = JSON.parse((await run(['reserve-only'])).stdout);
+  assert.equal(first.status, 'RESERVED');
+  const restarted = JSON.parse((await run()).stdout);
+  assert.equal(restarted.outcome.reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+  assert.equal(restarted.brief_reads, 0);
+  await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+});
+
+test('executable hash drift and unsupported empty toolsets hold before source read', async (t) => {
+  const f = await fixture(t);
+  f.settings.runtime_binding.executable_sha256 = `sha256:${'0'.repeat(64)}`;
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_PREFLIGHT_HOLD');
+  f.settings.runtime_binding.toolsets = [];
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_CONFIG_INVALID');
+  assert.equal(f.reads(), 0);
+});
+
+test('store rejects nested raw claim payloads before creating any file', async (t) => {
+  const f = await fixture(t);
+  const store = createHermesNativeAttemptStore({ directory: f.attempts });
+  const value = await store.reserve({ claim: { ...f.input.claim,
+    task_ref: { ...f.input.claim.task_ref, content: 'Raw data should never be stored' } },
+  session_key: digestOf('slot').slice(7), attempt: { operation_id: 'raw-test', fencing_epoch: 1, attempt_no: 1 } });
+  assert.equal(value.hold_code, 'HERMES_NATIVE_ATTEMPT_INVALID');
+  assert.deepEqual(await readdir(f.attempts), []);
+});
+
+test('profile path reinterpretation and restored YOLO hold before any WorkBrief read', async (t) => {
+  const f = await fixture(t);
+  const initialHome = f.settings.runtime_binding.HERMES_HOME;
+  f.settings.runtime_binding.HERMES_HOME = f.root;
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_CONFIG_INVALID');
+  f.settings.runtime_binding.HERMES_HOME = initialHome;
+  const db = new DatabaseSync(path.join(f.home, 'state.db'));
+  db.exec(`UPDATE sessions SET model_config='{"yolo_mode":true}'`);
+  db.close();
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_SESSION_MISMATCH');
+  assert.equal(f.reads(), 0);
+});
+
+async function fileOwnedCliFixture(f, { capabilitySupported = true } = {}) {
+  const root = path.join(f.root, 'metadata-source');
+  const bodies = path.join(f.root, 'issued-bodies');
+  await mkdir(root); await mkdir(bodies);
+  const write = async (name, value, directory = root) => {
+    const bytes = JSON.stringify(value);
+    await writeFile(path.join(directory, name), bytes);
+    return { path: name, content_sha256: sha(bytes) };
+  };
+  const r = f.authority_request.verified_active_binding;
+  const projectionFields = ['project_scope_ref', 'lineage_digest', 'family_ref', 'family_digest',
+    'mark_ref', 'mark_digest', 'deployment_ref', 'deployment_digest', 'memory_generation_ref',
+    'memory_digest', 'authority_receipt_ref'];
+  const projection = { ...Object.fromEntries(projectionFields.map((key) => [key, r[key]])),
+    project_scope_refs: [r.project_scope_ref], authority_receipt_verified: false };
+  const pinFields = ['verification_receipt_ref', 'owner_ref', 'authority_ref', 'verifier_ref',
+    ...projectionFields, 'approval_claim_digest', 'authority_receipt_digest', 'claim_ceiling',
+    'issued_at', 'verified_at', 'expires_at', 'receipt_epoch', 'trusted_authority_epoch'];
+  const pin = { schema_version: AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA,
+    pin_ref: r.trusted_pin_ref, ...Object.fromEntries(pinFields.map((key) => [key, r[key]])), revoked: false };
+  const authorityCurrent = { schema_version: AGENT_AUTHORITY_CURRENT_STATE_SCHEMA,
+    evaluation_ref: r.authority_state_evaluation_ref, evaluated_at: r.authority_evaluated_at,
+    authority_ref: r.authority_ref, current_authority_epoch: r.current_authority_epoch,
+    revoked_pin_refs: [], claim_ceiling: r.claim_ceiling };
+  assert.deepEqual(verifyAgentWorkforceAuthorityClaim(projection, pin, authorityCurrent), r);
+  const brief = f.settings.brief_binding;
+  const runtime = f.runtime;
+  const capability = { protocol: 'hermes.native_chat.v1', supported: capabilitySupported,
+    executor_ref: runtime.executor_ref, capability_snapshot_ref: f.authority_request.executor_binding.capability_snapshot_ref,
+    profile_ref: runtime.profile_ref, profile_name: runtime.profile_name, session_ref: runtime.session_ref,
+    session_id: runtime.session_id, hermes_home_digest: digestOf(runtime.HERMES_HOME), executable_sha256: runtime.executable_sha256,
+    source_manifest_digest: digestOf(runtime.source_pins), model: runtime.expected_model, effort: runtime.expected_effort,
+    provider: runtime.provider, toolsets: runtime.toolsets,
+    effective_tool_refs: f.authority_request.executor_binding.authorized_tool_refs,
+    tool_policy_digest: f.authority_request.executor_binding.tool_policy_digest,
+    evaluated_at: new Date(NOW).toISOString(), expires_at: new Date(NOW + 60_000).toISOString() };
+  const taskAuthorization = { approval_ref: 'native-task-approval', state: 'approved', task_ref: brief.task_ref,
+    project_scope_ref: brief.project_scope_ref, authority_ref: brief.authority_ref, assignment_epoch: brief.assignment_epoch,
+    approved_task_status: 'Todo', work_brief_content_sha256: brief.work_brief_revision_ref.content_sha256,
+    observed_at: new Date(NOW).toISOString(), valid_until: new Date(NOW + 60_000).toISOString() };
+  const descriptors = {};
+  for (const [key, value] of Object.entries({ authority_request: f.authority_request, brief_binding: brief,
+    runtime_binding: runtime, runtime_capability: capability, agent_projection: projection, authority_pin: pin,
+    authority_current: authorityCurrent, task_authorization: taskAuthorization })) {
+    descriptors[key] = await write(`${key}.json`, value);
+  }
+  const base = { binding_id: 'native-base', realm_id: 'native-realm', generation: 'native-g1', state: 'current',
+    observed_at: new Date(NOW).toISOString(), valid_until: new Date(NOW + 60_000).toISOString(),
+    authority: { path: 'unused.json', content_sha256: sha('unused') }, catalogue: { path: 'unused.json', content_sha256: sha('unused') } };
+  const baseDescriptor = await write('binding.json', base);
+  const body = await write('forge-packet.json', f.forge_request, bodies);
+  const entry = { request_ref: 'native-approved-request', workbench_request_basis_digest: null, ...descriptors, forge_packet: body,
+    work_brief_root: bodies, attempt_directory: f.attempts, hard_timeout_ms: 4000 };
+  const native = { binding_id: 'native-execution', realm_id: base.realm_id, intake_binding_sha256: baseDescriptor.content_sha256,
+    mode: 'native_chat', generation: base.generation, observed_at: base.observed_at, valid_until: base.valid_until, requests: [entry] };
+  const nativeDescriptor = await write('native-chat-binding.json', native);
+  return { root, bodies, entry, environment: { SOULFORGE_HERMES_NATIVE_ENABLED: '1',
+    SOULFORGE_HERMES_NATIVE_SOURCE_ROOT: root, SOULFORGE_HERMES_NATIVE_BINDING_ID: base.binding_id,
+    SOULFORGE_HERMES_NATIVE_REALM_ID: base.realm_id, SOULFORGE_HERMES_NATIVE_BINDING_SHA256: baseDescriptor.content_sha256,
+    SOULFORGE_HERMES_NATIVE_EXECUTION_BINDING_SHA256: nativeDescriptor.content_sha256 } };
+}
+
+test('explicit product CLI reads independently pinned owner/current files and executes actual synthetic child', async (t) => {
+  const f = await fixture(t);
+  const files = await fileOwnedCliFixture(f);
+  const run = () => runHermesNativeCli(['execute', '--request-ref', files.entry.request_ref],
+    { environment: files.environment, now: () => NOW });
+  const first = await run();
+  assert.equal(first.exit_code, 0, first.output);
+  const result = JSON.parse(first.output);
+  assert.equal(result.status, 'NATIVE_TURN_OBSERVED');
+  assert.equal(result.local_candidate_stored, false);
+  assert.equal(result.official_task_done, false);
+  const second = JSON.parse((await run()).output);
+  assert.equal(second.hold_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+  assert.equal((await readFile(path.join(f.home, 'started.txt'), 'utf8')).trim().split('\n').length, 1);
+});
+
+test('CLI rejects caller pin flags and unsupported current capability before opening the body', async (t) => {
+  const f = await fixture(t);
+  const files = await fileOwnedCliFixture(f, { capabilitySupported: false });
+  await rm(path.join(files.bodies, 'forge-packet.json'));
+  const result = await runHermesNativeCli(['execute', '--request-ref', files.entry.request_ref],
+    { environment: files.environment, now: () => NOW });
+  assert.equal(JSON.parse(result.output).hold_code, 'HERMES_NATIVE_CURRENT_BINDING_REQUIRED');
+  assert.equal((await runHermesNativeCli(['execute', '--request-ref', files.entry.request_ref, '--pin', 'caller-pin'])).exit_code, 2);
+  await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+});

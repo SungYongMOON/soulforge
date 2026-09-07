@@ -8,6 +8,7 @@ import { admitForgeLinearExecutionPacket } from './forge_linear_execution_packet
 import { matchRoleCapabilities } from './role_capability_matcher.mjs';
 import { assignCandidate } from './assignment_policy.mjs';
 import { admitCandidateExecutorAuthority } from './candidate_execution_authority_adapter.mjs';
+import { prepareHermesNativeRequest } from './hermes_native_cli.mjs';
 
 export const SYNTHETIC_WORKER_URL = new URL('./workbench_synthetic_worker.mjs', import.meta.url);
 const SHA = /^sha256:[a-f0-9]{64}$/u;
@@ -25,7 +26,48 @@ export function workbenchExecutionRequestBasis(request) {
 
 /** Separate synthetic execution authorization. A catalogue, a click and polling evidence
  * cannot approve execution. Every approval is resolved from a separately pinned document. */
-export function createWorkbenchExecutionSources({ intakeSources, bindingDigest, now = () => Date.now() } = {}) {
+export function createWorkbenchExecutionSources({ intakeSources, bindingDigest, now = () => Date.now(),
+  mode = 'synthetic_fixed', nativeDeployment } = {}) {
+  if (mode === 'native_chat') {
+    assert(nativeDeployment?.enabled === true && nativeDeployment.native_binding_sha256 === bindingDigest,
+      'HERMES_NATIVE_DEPLOYMENT_BINDING_REQUIRED');
+    return Object.freeze({ mode,
+      async authorize({ record, requester, canAccessProject, checkSession = async () => true, signal, onStdinRelease }) {
+        const request = record.request;
+        let currentEvidence;
+        const verifyAccess = async () => {
+          if (request.requester !== requester || await checkSession() !== true
+            || await canAccessProject(request.project_code) !== true) return false;
+          const evidence = await intakeSources.evidence({ request, requester, canAccessProject });
+          currentEvidence = evidence;
+          return evidence.linear_task?.state === 'current' && evidence.linear_task.task_status === 'Todo'
+            && same(evidence.linear_task.task_ref, request.policy_refs.task_ref)
+            && evaluateWorkClaimEligibility(request, { recorded_binding: record.binding, current_evidence: evidence }).status === 'CLAIM_ELIGIBLE';
+        };
+        assert(await verifyAccess(), 'AUTH_REQUIRED');
+        const prepared = await prepareHermesNativeRequest({ workbench_request_basis_digest: workbenchExecutionRequestBasis(request),
+          deployment: nativeDeployment, now, signal, onStdinRelease, verifyAccess });
+        assert(prepared.status === 'BOUND', prepared.hold_code ?? 'HERMES_NATIVE_BINDING_UNAVAILABLE');
+        const task = prepared.authority_request.task_packet;
+        assert(same(task.task_ref, request.policy_refs.task_ref) && same(task.task_ref, currentEvidence.linear_task.task_ref),
+          'TASK_BINDING_MISMATCH');
+        assert(`sha256:${prepared.brief_binding.input_bundle_manifest_digest}` === request.input_revision,
+          'WORK_BRIEF_INPUT_REVISION_MISMATCH');
+        assert(await verifyAccess(), 'AUTH_REQUIRED');
+        return { mode, native_executor: prepared.executor, binding_digest: bindingDigest,
+          basis_digest: digestOf({ request_basis: workbenchExecutionRequestBasis(request), native_basis: prepared.basis_digest }),
+          claim_key: digestOf({ task_ref: task.task_ref, work_brief_revision_ref: task.work_brief_revision_ref, action_ref: task.action_ref }),
+          candidate_packet: prepared.authority_request.candidate_packet, task_packet: task,
+          assignment_packet: prepared.authority_request.assignment_packet,
+          authority_epoch: prepared.authority_request.verified_active_binding.current_authority_epoch,
+          // The durable outer deadline includes bounded preflight/readback IO;
+          // the child keeps its own exact, shorter native execution budget.
+          timeout_ms: prepared.timeout_ms + 30_000,
+          work_brief_digest: task.work_brief_revision_ref.content_sha256 };
+      },
+    });
+  }
+  assert(mode === 'synthetic_fixed', 'EXECUTION_MODE_INVALID');
   assert(typeof intakeSources?.readPinnedMetadata === 'function' && SHA.test(bindingDigest), 'EXECUTION_BINDING_UNAVAILABLE');
   const read = descriptor => intakeSources.readPinnedMetadata(descriptor);
   const readers = new Map();
@@ -137,5 +179,5 @@ export function createWorkbenchExecutionSources({ intakeSources, bindingDigest, 
       executor_code_sha256: codeHash, generation: current.generation, linear_read_receipt_digest: linear.read_receipt_digest,
       work_brief_digest: forge.work_brief_revision_ref.content_sha256 };
   }
-  return Object.freeze({ authorize });
+  return Object.freeze({ mode, authorize });
 }

@@ -900,6 +900,8 @@ test("KVDS full contract holds drift, executes Hermes once, and accepts only rev
   const boundRuntime = bindAuthorizedHermesRuntime(authorized, configuredRuntime, {
     feature_enabled: true,
     wait_seconds: 45,
+    // Synthetic bot-submit protocol fixture only; this is not installed Hermes support.
+    async resolveRuntimeCapability(request) { return { ...request, supported: true }; },
     async resolveWorkBrief(ref) {
       assert.deepEqual(ref, forge.admitted.task_packet.work_brief_revision_ref);
       return workBriefText;
