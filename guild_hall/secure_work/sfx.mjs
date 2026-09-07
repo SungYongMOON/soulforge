@@ -340,7 +340,7 @@ export function verifyInstallation(anchor, { observe = null, launcherPath = file
   const checkFile = p => {
     if (!expected.has(norm(p)) || hash(bytes(p)) !== expected.get(norm(p))) fail();
   };
-  return Object.freeze({ binding, config, expected, roots, launcherPath, checkFile,
+  return Object.freeze({ binding, config, expected, roots, launcherPath, checkFile, observeSecurity: query,
     recheck: () => verifyInstallation(anchor, { observe, launcherPath, executablePath }),
     environment: Object.freeze({ SYSTEMROOT: path.dirname(path.dirname(path.dirname(path.dirname(anchor.os_observer.path)))),
       WINDIR: path.dirname(path.dirname(path.dirname(path.dirname(anchor.os_observer.path)))) }) });
@@ -364,7 +364,8 @@ export function guardNodeImports(runtime) {
   });
 }
 export function pythonInvocation(runtime, mode, argv = []) {
-  if (!["cli", "worker"].includes(mode) || argv.some(a => a === "--config" || a.startsWith("--config="))) fail();
+  if (!["cli", "worker"].includes(mode) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
+    flag => a === flag || a.startsWith(`${flag}=`)))) fail();
   const launch = runtime.binding.launch;
   const packet = { mode, argv, config_path: runtime.binding.config_path, config_sha256: runtime.binding.config_sha256,
     kit_root: launch.kit_root, node: runtime.binding.node_executable.path, launcher: runtime.launcherPath,
@@ -392,9 +393,28 @@ function readWorkerInput() {
   }
   fail();
 }
+async function executionAuthority(runtime) {
+  const hooks = guardNodeImports(runtime);
+  try {
+    const { loadExecutionAuthority } = await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath), "execution_authority.mjs")).href);
+    return loadExecutionAuthority(runtime);
+  } finally { hooks.deregister(); }
+}
 export async function executeVerified(runtime, argv, { spawn = spawnSync } = {}) {
   if (argv[0] === "--preflight" && argv.length === 1) return { ok: true, code: "SECURE_WORK_LAUNCH_VERIFIED" };
+  const roles = await executionAuthority(runtime);
+  if (argv[0] === "--role-check" && argv.length === 1) {
+    const request = JSON.parse(readWorkerInput());
+    if (request.operation === "permit.identity") {
+      exact(request, ["operation", "scope", "record"]);
+      return roles.verifyPermitIdentity(request.scope, request.record);
+    }
+    exact(request, ["operation", "scope"]);
+    return roles.authorize(request.operation, request.scope);
+  }
+  if (argv[0] === "--worker-preflight" && argv.length === 1) return roles.workerContract();
   if (argv[0] === "--custody-bridge" && argv.length === 1) {
+    roles.requireRole("sender");
     const hooks = guardNodeImports(runtime);
     try {
       runtime.recheck();
@@ -406,7 +426,16 @@ export async function executeVerified(runtime, argv, { spawn = spawnSync } = {})
     } finally { hooks.deregister(); }
   }
   const worker = argv[0] === "--worker" && argv.length === 1;
+  if (worker) {
+    roles.requireRole("worker");
+    roles.workerContract();
+    // No inherited-token fallback. The separate-principal byte/journal channel
+    // is still an implementation dependency, not an Owner key/config input.
+    throw new Error("WORKER_BYTE_CHANNEL_UNBOUND");
+  }
   if (!worker && argv.some(a => a.startsWith("--preflight") || a.startsWith("--custody") || a.startsWith("--worker"))) fail();
+  if (argv[0] === "permit") roles.entry(argv[1] === "approve" ? "release.issue" : "release.review");
+  else roles.entry(argv[0] === "request" ? "jobs.submit" : argv[0] === "advance" ? "jobs.advance" : "jobs.get");
   runtime.recheck();
   const command = pythonInvocation(runtime, worker ? "worker" : "cli", worker ? [] : argv);
   const workerInput = worker ? readWorkerInput() : Buffer.alloc(0);
@@ -432,4 +461,11 @@ async function main() {
     return 2;
   }
 }
-if (process.argv[1] && same(process.argv[1], fileURLToPath(import.meta.url))) process.exitCode = await main();
+if (process.argv[1] && same(process.argv[1], fileURLToPath(import.meta.url))) {
+  // Finish this builtin-only module's evaluation before verified authority
+  // modules import its helpers back. Awaiting main at module scope deadlocks
+  // that dynamic-import cycle; main still owns all validation and exit results.
+  // An unsettled promise without live handles must not become exit 0.
+  process.exitCode = 2;
+  void main().then(code => { process.exitCode = code; });
+}
