@@ -1,0 +1,195 @@
+--- a/gateway/run.py
++++ b/gateway/run.py
+@@ -5449,0 +5450,7 @@
++        # One explicitly bound pilot uses the normal final-send path so its
++        # public final text and actual SendResult can be captured separately.
++        import sys as _pilot_sys
++        _pilot_module = _pilot_sys.modules.get("tools.hermes_buzz_pilot_hook")
++        if _pilot_module and _pilot_module.for_session(ctx.session_key):
++            _want_stream_deltas = False
++            _want_interim_messages = False
+@@ -5839,0 +5847,4 @@
++        import sys as _pilot_sys
++        _pilot_module = _pilot_sys.modules.get("tools.hermes_buzz_pilot_hook")
++        if _pilot_module:
++            _pilot_module.bind_agent_callbacks(agent, ctx.session_key, ctx.session_id)
+@@ -5972,0 +5984,7 @@
++            import sys as _pilot_sys
++            _pilot_module = _pilot_sys.modules.get("tools.hermes_buzz_pilot_hook")
++            _pilot = _pilot_module.for_session(ctx.session_key) if _pilot_module else None
++            if _pilot is not None:
++                _pilot.question_registered(
++                    clarify_id, question, list(choices) if choices else [], bool(multi_select),
++                )
+@@ -6019 +6037 @@
+-            return _clarify_send_then_wait(
++            _clarify_reply = _clarify_send_then_wait(
+@@ -6024,0 +6043,3 @@
++            if _pilot is not None:
++                _pilot.resumed(clarify_id, _clarify_reply if _pilot.accepted else None)
++            return _clarify_reply
+@@ -17097,0 +17119,7 @@
++                import sys as _pilot_sys
++                _pilot_module = _pilot_sys.modules.get("tools.hermes_buzz_pilot_hook")
++                _pilot = _pilot_module.for_session(_quick_key) if _pilot_module else None
++                if _pilot is not None:
++                    _pilot.answer_received(
++                        _pending_clarify.clarify_id, event.message_id, event.text, source.user_id,
++                    )
+--- a/plugins/platforms/buzz/adapter.py
++++ b/plugins/platforms/buzz/adapter.py
+@@ -360,0 +361,78 @@
++    def set_message_handler(self, handler):
++        async def observed_handler(event):
++            response = await handler(event)
++            pilot = getattr(event, "_buzz_pilot_observation", None)
++            if pilot is not None and event.message_id == pilot.instruction_message_id:
++                from tools.hermes_buzz_pilot_hook import PilotCaptureAbort
++                if pilot.terminal:
++                    return None
++                if not isinstance(response, str) or not response.strip():
++                    pilot.failed("pilot_final_unobserved")
++                    raise PilotCaptureAbort("pilot_final_unobserved")
++                pilot.final_response(response)
++            return response
++        super().set_message_handler(observed_handler)
++
++    async def _send_with_retry(self, chat_id, content, reply_to=None, metadata=None,
++                               max_retries=2, base_delay=2.0):
++        pilot = getattr(self, "_buzz_pilot_observation", None)
++        is_final = (pilot is not None and not getattr(pilot, "terminal", False)
++                    and str(chat_id) == pilot.chat_id and pilot.matches_final(content))
++        previous_final = getattr(self, "_buzz_pilot_final_send", None)
++        if is_final:
++            from tools.hermes_buzz_pilot_hook import PilotCaptureAbort
++            if self._self_pubkey != pilot.bot_pubkey:
++                raise PilotCaptureAbort("pilot_sender_changed")
++            self._buzz_pilot_final_send = content
++        try:
++            result = await super()._send_with_retry(
++                chat_id, content, reply_to=reply_to, metadata=metadata,
++                max_retries=max_retries, base_delay=base_delay,
++            )
++        finally:
++            if is_final:
++                self._buzz_pilot_final_send = previous_final
++        if is_final:
++            observed_result = result
++            if getattr(result, "success", None) is True and not getattr(result, "_buzz_pilot_full_final", False):
++                # Native formatting fallback may clip at 3500 characters.
++                # Its transport ACK is not proof that the full final was sent.
++                from types import SimpleNamespace
++                observed_result = SimpleNamespace(success=None, message_id=getattr(result, "message_id", None))
++            pilot.final_delivery(observed_result)
++        return result
++
++    async def send_clarify(self, chat_id, question, choices, clarify_id, session_key, metadata=None):
++        import sys
++        module = sys.modules.get("tools.hermes_buzz_pilot_hook")
++        pilot = module.for_session(session_key) if module else None
++        try:
++            result = await super().send_clarify(
++                chat_id, question, choices, clarify_id, session_key, metadata=metadata,
++            )
++        except Exception:
++            if pilot is not None:
++                from types import SimpleNamespace
++                pilot.question_delivery(clarify_id, SimpleNamespace(success=None, message_id=None))
++            raise
++        if pilot is not None:
++            pilot.question_delivery(clarify_id, result)
++        return result
++
++    async def on_processing_complete(self, event, outcome):
++        pilot = getattr(event, "_buzz_pilot_observation", None)
++        if pilot is not None and event.message_id == pilot.instruction_message_id:
++            try:
++                if not pilot.terminal:
++                    if getattr(outcome, "value", outcome) == "cancelled":
++                        pilot.cancelled("pilot_cancelled")
++                    else:
++                        pilot.failed("pilot_final_delivery_unobserved")
++            finally:
++                from tools.clarify_gateway import clear_session
++                clear_session(pilot.session_key)
++                pilot.processing_complete(outcome)
++                if getattr(self, "_buzz_pilot_observation", None) is pilot:
++                    self._buzz_pilot_observation = None
++        await super().on_processing_complete(event, outcome)
++
+@@ -517,0 +596,16 @@
++
++        if os.getenv("HERMES_BUZZ_PILOT_BINDING"):
++            from tools import hermes_buzz_pilot_hook as pilot_module
++            from hermes_cli.profiles import get_active_profile_name
++            from hermes_constants import get_hermes_home
++            try:
++                pilot_module.recover_startup(
++                    get_active_profile_name(), self._self_pubkey,
++                    actual_hermes_home=str(get_hermes_home()),
++                )
++            except pilot_module.PilotCaptureAbort:
++                self._set_fatal_error(
++                    "pilot_capture_failed", "Bound pilot recovery could not be recorded", retryable=False,
++                )
++                await self.disconnect()
++                return False
+@@ -644 +738 @@
+-        return SendResult(
++        result = SendResult(
+@@ -648,0 +743,4 @@
++        expected_final = getattr(self, "_buzz_pilot_final_send", None)
++        if expected_final is not None:
++            result._buzz_pilot_full_final = content == expected_final
++        return result
+@@ -1381 +1479,39 @@
+-        await self.handle_message(event)
++        # Optional, exact issued-job observation. Inactive profiles/chats keep
++        # the existing dispatcher; refused/replayed instructions never run twice.
++        pilot_module = None
++        pilot_session_key = None
++        try:
++            if os.environ.get("HERMES_BUZZ_PILOT_BINDING") or os.environ.get("HERMES_BUZZ_PILOT_BINDING_SHA256"):
++                from tools import hermes_buzz_pilot_hook as pilot_module
++                from hermes_cli.profiles import get_active_profile_name
++                from hermes_constants import get_hermes_home
++                from gateway.session import build_session_key
++                from datetime import timezone
++                pilot_session_key = build_session_key(
++                    source,
++                    group_sessions_per_user=self.config.extra.get("group_sessions_per_user", True),
++                    thread_sessions_per_user=self.config.extra.get("thread_sessions_per_user", False),
++                    profile=self._session_key_profile(source),
++                )
++                pilot = pilot_module.for_message(
++                    get_active_profile_name(), self._self_pubkey, chat_id, user_id,
++                    pilot_session_key, message_id, text,
++                    datetime.fromtimestamp(created_at, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z") if created_at else None,
++                    actual_hermes_home=str(get_hermes_home()),
++                )
++                if pilot is not None:
++                    if not pilot.should_dispatch:
++                        return
++                    event._buzz_pilot_observation = pilot
++                    self._buzz_pilot_observation = pilot
++
++            await self.handle_message(event)
++        except BaseException as exc:
++            if pilot_module is None or not isinstance(exc, pilot_module.PilotCaptureAbort):
++                raise
++            # Contain this pilot failure instead of killing the Buzz receive loop.
++            # Clear only its pending wait; cleanup is never an accepted answer.
++            from tools.clarify_gateway import clear_session
++            clear_session(pilot_session_key)
++            pilot_module.finish_session(pilot_session_key)
++            return
+--- a/tools/clarify_gateway.py
++++ b/tools/clarify_gateway.py
+@@ -173,0 +174,7 @@
++        # A pilot answer must be durably captured and accepted before the
++        # actual event releases its waiting agent. Other sessions are inert.
++        import sys
++        pilot_module = sys.modules.get("tools.hermes_buzz_pilot_hook")
++        pilot = pilot_module.for_session(entry.session_key) if pilot_module else None
++        if pilot is not None:
++            pilot.answer_accepted(clarify_id, str(response) if response is not None else "")
