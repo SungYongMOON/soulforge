@@ -1,0 +1,418 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createProtectedWorkingBytes } from '../../../../guild_hall/shared/protected_working_bytes.mjs';
+import { BUZZ_PILOT_ROLES, createBuzzPilotJob } from '../src/buzz_pilot_job.mjs';
+
+const repositoryRoot = path.resolve(fileURLToPath(new URL('../../../..', import.meta.url)));
+const hash = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+const iso = value => new Date(value).toISOString();
+const OWNER = '1'.repeat(64), BOT = '2'.repeat(64), CHAT = '00000000-0000-4000-8000-000000000001';
+const message = number => number.toString(16).padStart(64, '0');
+const instruction = Buffer.from('  Review the synthetic note and clarify its audience.\n');
+const question = 'Who should read this synthetic note?';
+const choices = ['Engineering', 'Management'];
+const input = { question, choices, multi_select: false };
+const access = { accountId: 'owner.synthetic', checkSession: async () => true,
+  canAccessProject: async projectId => projectId === 'project.synthetic' };
+
+async function fixture(t, options = {}) {
+  const parent = await mkdtemp(path.join(os.tmpdir(), 'buzz-pilot-ledger-'));
+  const root = path.join(parent, 'protected'); await mkdir(root);
+  const f = { parent, root, time: Date.parse('2026-09-08T00:00:01.000Z'), permit: true, calls: [] };
+  const binding = { version: 1, job_id: 'job.synthetic', project_id: 'project.synthetic',
+    owner_account_id: access.accountId, expected_owner_pubkey: OWNER, expected_bot_pubkey: BOT,
+    chat_id: CHAT, profile_ref: 'profile.synthetic', instruction_sha256: hash(instruction),
+    issued_at: '2026-09-08T00:00:00.000Z', expires_at: '2026-09-08T01:00:00.000Z' };
+  const port = createProtectedWorkingBytes({ root, repositoryRoot, storageClass: 'owner_approved_shared_worksite',
+    ownerApprovalRef: 'approval.synthetic-buzz', roles: BUZZ_PILOT_ROLES });
+  f.binding = binding; f.port = port; f.dbPath = path.join(parent, 'control.sqlite');
+  f.db = new DatabaseSync(f.dbPath);
+  f.authorize = async (action, context, actor) => {
+    f.calls.push({ action, context });
+    if (!f.permit) return false;
+    if (action === 'append') return actor.job_id === context.job_id;
+    return actor?.accountId === context.owner_account_id && await actor?.checkSession?.() === true
+      && await actor?.canAccessProject?.(context.project_id) === true;
+  };
+  f.make = (overrides = {}) => createBuzzPilotJob({ db: f.db, workingBytes: port, binding,
+    authorize: f.authorize, now: () => f.time, ...overrides });
+  f.core = f.make(options);
+  f.event = (type, payload, overrides = {}) => ({ version: 1, observation_id: `event.${++f.counter}`,
+    job_id: binding.job_id, event_type: type, profile_ref: binding.profile_ref, chat_id: CHAT, bot_pubkey: BOT,
+    actor_pubkey: ['instruction_received', 'answer_received', 'answer_accepted'].includes(type) ? OWNER : BOT,
+    session_key: 'session:synthetic', session_id: 'session.actual-1', observed_at: iso(f.time), payload, ...overrides });
+  f.counter = 0;
+  f.issue = () => f.core.issue({ instructionBytes: instruction }, access);
+  f.append = (type, payload, overrides) => f.core.append(f.event(type, payload, overrides));
+  t.after(async () => { f.db.close(); await rm(parent, { recursive: true, force: true }); });
+  return f;
+}
+async function started(f) {
+  await f.issue();
+  await f.append('instruction_received', { message_id: message(1), text: instruction.toString().trim() }, { session_id: null });
+  await f.append('tool_started', { tool_call_id: 'call.actual-1', tool_name: 'clarify', input });
+}
+async function registered(f) {
+  await started(f);
+  await f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input });
+}
+async function waiting(f) {
+  await registered(f);
+  await f.append('question_delivery', { clarify_id: 'clarify.actual-1', delivery_status: 'sent', message_id: message(2) });
+}
+async function answered(f) {
+  await waiting(f);
+  await f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(3), text: 'Engineering' });
+  await f.append('answer_accepted', { clarify_id: 'clarify.actual-1', message_id: message(3) });
+  await f.append('resumed', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1' });
+}
+async function finished(f) {
+  await answered(f);
+  await f.append('tool_completed', { tool_call_id: 'call.actual-1', tool_name: 'clarify', output: 'Engineering', outcome: 'completed' });
+  await f.append('final_response', { text: 'Synthetic public review: the note needs an engineering audience.' });
+  await f.append('final_delivery', { delivery_status: 'sent', message_id: message(4) });
+}
+const code = expected => error => { assert.equal(error.code, expected); return true; };
+
+test('full text flow uses actual SQLite and protected bytes, with separate production/delivery/acceptance facts', async t => {
+  const f = await fixture(t); await finished(f);
+  const view = await f.core.snapshot(access);
+  assert.equal(view.state, 'delivered'); assert.equal(view.sequence, 10);
+  assert.equal(view.actual_tool_starts, 1); assert.equal(view.actual_tool_completions, 1);
+  assert.equal(view.final_produced, true); assert.equal(view.final_delivered, true);
+  assert.equal(view.result_verification, 'not_verified'); assert.equal(view.human_accepted, false);
+  assert.equal(view.official_done, false); assert.equal(view.canonical, false);
+  assert.equal(view.buzz_url, `buzz://message?channel=${CHAT}&id=${message(2)}`);
+  assert.equal(view.evidence_refs.length, 7);
+  const original = await f.core.readEvidence({ role: 'instruction' }, access);
+  assert.deepEqual(original.bytes, instruction); assert.equal(original.sha256, hash(instruction));
+  for (const event of view.event_refs) for (const ref of event.evidence_refs) {
+    const read = await f.core.readEvidence({ observation_id: event.observation_id, role: ref.role }, access);
+    assert.equal(read.ref, ref.ref); assert.equal(hash(read.bytes), ref.sha256); assert.equal(read.size, ref.size);
+  }
+  const dbText = JSON.stringify(f.db.prepare('SELECT * FROM buzz_pilot_jobs').all())
+    + JSON.stringify(f.db.prepare('SELECT * FROM buzz_pilot_events').all());
+  for (const raw of [instruction.toString().trim(), question, 'Engineering', 'Synthetic public review']) assert.equal(dbText.includes(raw), false);
+  assert.equal(JSON.stringify(view).includes(f.root), false);
+});
+
+test('only a sent, current pending question exposes Owner action and wallclock wait', async t => {
+  const f = await fixture(t); await waiting(f); f.time += 5000;
+  const view = await f.core.snapshot(access);
+  assert.equal(view.state, 'waiting_owner'); assert.equal(view.wait_elapsed_ms, 5000);
+  assert.equal(view.owner_action_required, true); assert.equal(view.operations_attention, false);
+  assert.deepEqual(view.expected_responder, { account_id: access.accountId, pubkey: OWNER });
+  assert.ok(view.question_ref); assert.equal(view.actual_tool_starts, 1); assert.equal(view.actual_tool_completions, 0);
+});
+
+for (const status of ['unknown', 'failed']) test(`question send ${status} remains operations attention and cannot accept an answer`, async t => {
+  const f = await fixture(t); await registered(f);
+  await f.append('question_delivery', { clarify_id: 'clarify.actual-1', delivery_status: status, message_id: null });
+  const view = await f.core.snapshot(access);
+  assert.equal(view.state, `question_delivery_${status}`); assert.equal(view.owner_action_required, false);
+  assert.equal(view.operations_attention, true); assert.equal(view.expected_responder, null); assert.equal(view.wait_started_at, null);
+  await assert.rejects(f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(3), text: 'Engineering' }), code('buzz_pilot_event_order'));
+});
+
+test('final produced, uncertain delivery and failed/cancelled outcomes remain distinct', async t => {
+  const f = await fixture(t); await f.issue();
+  await f.append('instruction_received', { message_id: message(1), text: instruction.toString() });
+  await f.append('final_response', { text: 'A synthetic review.' });
+  let view = await f.core.snapshot(access);
+  assert.equal(view.final_produced, true); assert.equal(view.final_delivered, false); assert.equal(view.state, 'final_produced');
+  await f.append('final_delivery', { delivery_status: 'unknown', message_id: null });
+  view = await f.core.snapshot(access); assert.equal(view.state, 'final_delivery_unknown');
+  assert.equal(view.final_delivered, false); assert.equal(view.operations_attention, true);
+  await assert.rejects(f.append('failed', { reason_code: 'later_error' }), code('buzz_pilot_terminal'));
+});
+
+for (const outcome of ['cancelled', 'failed']) test(`actual early tool ${outcome} needs no fabricated answer or resume`, async t => {
+  const f = await fixture(t); await started(f);
+  await f.append('tool_completed', { tool_call_id: 'call.actual-1', tool_name: 'clarify', output: 'No answer was accepted.', outcome });
+  const view = await f.core.snapshot(access);
+  assert.equal(view.state, outcome); assert.equal(view.actual_tool_completions, 1); assert.equal(view.answer_ref, null);
+  assert.equal(view.event_refs.some(event => event.event_type === 'resumed'), false);
+});
+
+test('binding requires exact core shape, typed pins and mandatory trusted authorization', async t => {
+  const f = await fixture(t);
+  for (const delta of [{ other: true }, { version: 2 }, { chat_id: 'display-name' }, { expected_bot_pubkey: OWNER },
+    { instruction_sha256: 'approval.valid' }, { issued_at: '2026-02-30T00:00:00.000Z' }, { issued_at: '2026-09-08T00:00:00Z' }]) {
+    assert.throws(() => f.make({ binding: { ...f.binding, ...delta } }));
+  }
+  assert.throws(() => f.make({ authorize: undefined }), code('buzz_pilot_ports_required'));
+  f.permit = false; await assert.rejects(f.issue(), code('buzz_pilot_not_authorized'));
+  const authRef = f.make({ authorize: () => 'approval.valid' });
+  await assert.rejects(authRef.issue({ instructionBytes: instruction }, access), code('buzz_pilot_not_authorized'));
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM buzz_pilot_jobs').get().n, 0);
+});
+
+test('instruction bytes are pinned UTF-8 and preserve documented edge trimming only', async t => {
+  const f = await fixture(t);
+  await assert.rejects(f.core.issue({ instructionBytes: Buffer.from('changed') }, access), code('buzz_pilot_instruction_mismatch'));
+  await f.issue();
+  await assert.rejects(f.append('instruction_received', { message_id: message(1), text: 'Review something else' }), code('buzz_pilot_instruction_mismatch'));
+  await f.append('instruction_received', { message_id: message(1), text: instruction.toString().trim() });
+  const huge = Buffer.alloc(65537, 97);
+  const oversized = f.make({ binding: { ...f.binding, instruction_sha256: hash(huge) } });
+  await assert.rejects(oversized.issue({ instructionBytes: huge }, access));
+  const badUtf8 = Buffer.from([0xc0, 0xaf]);
+  const invalid = f.make({ binding: { ...f.binding, instruction_sha256: hash(badUtf8) } });
+  await assert.rejects(invalid.issue({ instructionBytes: badUtf8 }, access));
+});
+
+test('wrong actor/source/project/chat/profile/key and unknown/thinking fields are refused before capture', async t => {
+  const f = await fixture(t); await f.issue();
+  const event = f.event('instruction_received', { message_id: message(1), text: instruction.toString() });
+  for (const delta of [{ actor_pubkey: BOT }, { bot_pubkey: OWNER }, { chat_id: '00000000-0000-4000-8000-000000000009' },
+    { profile_ref: 'profile.other' }, { job_id: 'job.other' }, { session_key: null }, { reasoning: 'hidden' }]) {
+    await assert.rejects(f.core.append({ ...event, ...delta }));
+  }
+  await assert.rejects(f.core.append({ ...event, payload: { ...event.payload, thinking: 'hidden' } }), code('buzz_pilot_unknown_field'));
+  const hidden = { ...event }; Object.defineProperty(hidden, 'hidden', { value: 1 });
+  await assert.rejects(f.core.append(hidden), code('buzz_pilot_input_invalid'));
+  let getterCalls = 0; const getter = { ...event }; Object.defineProperty(getter, 'payload', { get() { getterCalls++; } });
+  await assert.rejects(f.core.append(getter)); assert.equal(getterCalls, 0);
+  await assert.rejects(f.core.append({ ...event, payload: { ...event.payload, text: '<think>hidden</think>' } }), code('buzz_pilot_reasoning_forbidden'));
+  assert.equal((await f.core.snapshot(access)).sequence, 0);
+});
+
+test('current reader/issuer scope is checked and historical reads do not require live source or execution expiry', async t => {
+  const f = await fixture(t); await waiting(f);
+  for (const wrong of [{ ...access, accountId: 'owner.other' }, { ...access, canAccessProject: async () => false },
+    { ...access, checkSession: async () => false }, { ref: 'approval.valid' }]) {
+    await assert.rejects(f.core.snapshot(wrong), code('buzz_pilot_not_authorized'));
+    await assert.rejects(f.core.readEvidence({ role: 'instruction' }, wrong), code('buzz_pilot_not_authorized'));
+  }
+  f.time = Date.parse(f.binding.expires_at);
+  assert.equal((await f.core.snapshot(access)).state, 'expired');
+  assert.equal((await f.core.snapshot(access)).owner_action_required, false);
+  assert.deepEqual((await f.core.readEvidence({ role: 'instruction' }, access)).bytes, instruction);
+  const otherCurrent = f.make({ binding: { ...f.binding, project_id: 'project.current-but-unrelated',
+    instruction_sha256: hash('changed'), issued_at: '2026-09-08T01:00:00.000Z', expires_at: '2026-09-08T02:00:00.000Z' } });
+  assert.equal((await otherCurrent.snapshot(access)).project_id, 'project.synthetic');
+  assert.deepEqual((await otherCurrent.readEvidence({ role: 'instruction' }, access)).bytes, instruction);
+  await assert.rejects(otherCurrent.append(f.event('failed', { reason_code: 'source_changed' })), code('buzz_pilot_stale_source'));
+  await assert.rejects(f.append('failed', { reason_code: 'expired' }));
+});
+
+test('authorization revoked during awaited protected reads or writes cannot return bytes or commit', async t => {
+  const f = await fixture(t); await f.issue();
+  const wrapped = { ...f.port, async readRole(args) { const result = await f.port.readRole(args); f.permit = false; return result; } };
+  const revokedRead = f.make({ workingBytes: wrapped });
+  await assert.rejects(revokedRead.readEvidence({ role: 'instruction' }, access), code('buzz_pilot_not_authorized'));
+  f.permit = true;
+  const event = f.event('instruction_received', { message_id: message(1), text: instruction.toString() });
+  await assert.rejects(revokedRead.append(event), code('buzz_pilot_not_authorized'));
+  f.permit = true;
+  const view = await f.core.snapshot(access);
+  assert.equal(view.state, 'capture_incomplete'); assert.equal(view.sequence, 0); assert.equal(view.recorded_state, 'issued');
+  assert.equal((await f.core.append(event)).status, 'recorded');
+});
+
+test('exact duplicate replay is durable across database reopen; conflicting content is refused', async t => {
+  const f = await fixture(t); await f.issue();
+  const event = f.event('instruction_received', { message_id: message(1), text: instruction.toString() });
+  const first = await f.core.append(event), replay = await f.core.append(event);
+  assert.equal(replay.status, 'replayed'); assert.deepEqual({ ...replay, status: 'recorded' }, first);
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make();
+  assert.deepEqual(await f.core.append(event), replay); assert.equal((await f.core.snapshot(access)).sequence, 1);
+  await assert.rejects(f.core.append({ ...event, payload: { ...event.payload, text: `${event.payload.text} ` } }), code('buzz_pilot_conflicting_replay'));
+});
+
+test('unfinished write claims survive restart and allow only exact safe create-only recovery', async t => {
+  const f = await fixture(t); await f.issue();
+  let failOnce = true;
+  f.core = f.make({ workingBytes: { ...f.port, async writeRole(args) {
+    const result = await f.port.writeRole(args);
+    if (failOnce) { failOnce = false; throw Object.assign(new Error('synthetic_interruption'), { code: 'synthetic_interruption' }); }
+    return result;
+  } } });
+  const event = f.event('instruction_received', { message_id: message(1), text: instruction.toString() });
+  await assert.rejects(f.core.append(event), code('synthetic_interruption'));
+  assert.equal((await f.core.snapshot(access)).state, 'capture_incomplete');
+  await assert.rejects(f.append('failed', { reason_code: 'other_event' }), code('buzz_pilot_capture_incomplete'));
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make();
+  const ack = await f.core.append(event); assert.equal(ack.seq, 1); assert.equal(ack.state, 'running');
+  assert.equal((await f.core.snapshot(access)).state, 'running');
+});
+
+test('instruction write interruption is recoverable and does not advertise readable evidence before commit', async t => {
+  const f = await fixture(t);
+  let first = true;
+  f.core = f.make({ workingBytes: { ...f.port, async writeRole(args) {
+    const result = await f.port.writeRole(args); if (first) { first = false; throw new Error('synthetic crash'); } return result;
+  } } });
+  await assert.rejects(f.issue());
+  const view = await f.core.snapshot(access); assert.equal(view.state, 'capture_incomplete'); assert.equal(view.evidence_refs.length, 0);
+  f.core = f.make(); await f.issue();
+  assert.equal((await f.core.snapshot(access)).state, 'issued');
+});
+
+test('changed or missing protected evidence fails pin verification and is never overwritten', async t => {
+  const f = await fixture(t); await f.issue();
+  const ref = JSON.parse(f.db.prepare('SELECT instruction_json FROM buzz_pilot_jobs').get().instruction_json);
+  const file = path.join(f.root, ref.groupId, 'instruction.txt');
+  await chmod(file, 0o600); await writeFile(file, 'corrupted synthetic text');
+  await assert.rejects(f.core.readEvidence({ role: 'instruction' }, access), code('protected_bytes_digest_mismatch'));
+  await assert.rejects(f.issue(), code('protected_bytes_digest_mismatch'));
+  assert.equal(await readFile(file, 'utf8'), 'corrupted synthetic text');
+  await rm(file);
+  await assert.rejects(f.core.readEvidence({ role: 'instruction' }, access));
+});
+
+test('evidence query is role-pinned and cannot accept caller paths, refs or another event role', async t => {
+  const f = await fixture(t); await waiting(f);
+  for (const query of [{ role: 'question' }, { role: 'thinking' }, { role: 'instruction', ref: 'bp:any' },
+    { role: 'instruction', path: f.root }, { role: 'instruction', observation_id: 'event.3' },
+    { role: 'question', observation_id: 'event.missing' }]) await assert.rejects(f.core.readEvidence(query, access));
+  const dbRef = JSON.parse(f.db.prepare('SELECT instruction_json FROM buzz_pilot_jobs').get().instruction_json);
+  f.db.prepare('UPDATE buzz_pilot_jobs SET instruction_json = ?').run(JSON.stringify({ ...dbRef, groupId: `bp-${'3'.repeat(64)}` }));
+  await assert.rejects(f.core.readEvidence({ role: 'instruction' }, access), code('buzz_pilot_evidence_scope'));
+});
+
+test('out-of-order callbacks, wrong question/reply IDs and session drift never advance state', async t => {
+  const f = await fixture(t); await started(f);
+  await assert.rejects(f.append('tool_completed', { tool_call_id: 'call.actual-1', tool_name: 'clarify', output: 'x', outcome: 'completed' }), code('buzz_pilot_event_order'));
+  await assert.rejects(f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.other', ...input }), code('buzz_pilot_tool_mismatch'));
+  await assert.rejects(f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input, question: 'Different?' }), code('buzz_pilot_question_mismatch'));
+  await assert.rejects(f.append('failed', { reason_code: 'drift' }, { session_id: 'session.other' }), code('buzz_pilot_session_drift'));
+  await assert.rejects(f.append('failed', { reason_code: 'drift' }, { session_id: null }), code('buzz_pilot_session_drift'));
+  await assert.rejects(f.append('failed', { reason_code: 'drift' }, { session_key: 'session:other' }), code('buzz_pilot_session_drift'));
+  await assert.rejects(f.append('failed', { reason_code: 'backward' }, { observed_at: f.binding.issued_at }), code('buzz_pilot_event_order'));
+  assert.equal((await f.core.snapshot(access)).sequence, 2);
+});
+
+test('one accepted answer and exactly one actual resumed event bind the captured response', async t => {
+  const f = await fixture(t); await waiting(f);
+  await assert.rejects(f.append('answer_received', { clarify_id: 'clarify.other', message_id: message(3), text: 'x' }), code('buzz_pilot_question_mismatch'));
+  await assert.rejects(f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(2), text: 'x' }), code('buzz_pilot_answer_mismatch'));
+  await f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(3), text: 'Engineering' });
+  await assert.rejects(f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(5), text: 'Management' }), code('buzz_pilot_event_order'));
+  await assert.rejects(f.append('answer_accepted', { clarify_id: 'clarify.actual-1', message_id: message(5) }), code('buzz_pilot_answer_mismatch'));
+  await f.append('answer_accepted', { clarify_id: 'clarify.actual-1', message_id: message(3) });
+  const resume = f.event('resumed', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1' });
+  await f.core.append(resume); assert.equal((await f.core.append(resume)).status, 'replayed');
+  await assert.rejects(f.append('resumed', resume.payload), code('buzz_pilot_event_order'));
+  assert.equal((await f.core.snapshot(access)).event_refs.filter(event => event.event_type === 'resumed').length, 1);
+});
+
+test('one active job per profile/chat is durable and expiry releases only the active guard', async t => {
+  const f = await fixture(t); await f.issue();
+  const nextBinding = { ...f.binding, job_id: 'job.synthetic-next' };
+  const next = f.make({ binding: nextBinding });
+  await assert.rejects(next.issue({ instructionBytes: instruction }, access), code('buzz_pilot_active_job_exists'));
+  f.time = Date.parse(f.binding.expires_at);
+  const future = f.make({ binding: { ...nextBinding, issued_at: iso(f.time), expires_at: iso(f.time + 3600000) } });
+  assert.equal((await future.issue({ instructionBytes: instruction }, access)).status, 'issued');
+  assert.equal((await f.core.snapshot(access)).state, 'expired');
+  assert.deepEqual((await f.core.readEvidence({ role: 'instruction' }, access)).bytes, instruction);
+});
+
+test('concurrent instances cannot commit a second event while a protected write is pending', async t => {
+  const f = await fixture(t); await f.issue();
+  let release, entered;
+  const enteredPromise = new Promise(resolve => { entered = resolve; });
+  const pause = new Promise(resolve => { release = resolve; });
+  const first = f.make({ workingBytes: { ...f.port, async writeRole(args) { entered(); await pause; return f.port.writeRole(args); } } });
+  const append = first.append(f.event('instruction_received', { message_id: message(1), text: instruction.toString() }));
+  await enteredPromise;
+  await assert.rejects(f.append('failed', { reason_code: 'concurrent' }), code('buzz_pilot_capture_incomplete'));
+  release(); await append;
+  assert.equal((await f.core.snapshot(access)).sequence, 1);
+});
+
+test('fixed clarify scope rejects other tools, extra input fields and forged produced output order', async t => {
+  const f = await fixture(t); await f.issue();
+  await assert.rejects(f.append('final_response', { text: 'never executed' }), code('buzz_pilot_event_order'));
+  await f.append('instruction_received', { message_id: message(1), text: instruction.toString() });
+  await assert.rejects(f.append('tool_started', { tool_call_id: 'call.x', tool_name: 'shell', input }), code('buzz_pilot_tool_forbidden'));
+  await assert.rejects(f.append('tool_started', { tool_call_id: 'call.x', tool_name: 'clarify', input: { ...input, chain_of_thought: 'hidden' } }), code('buzz_pilot_unknown_field'));
+  await assert.rejects(f.append('tool_started', { tool_call_id: 'call.x', tool_name: 'clarify', input: { ...input, choices: ['x'.repeat(2049)] } }), code('buzz_pilot_choices_invalid'));
+  assert.equal((await f.core.snapshot(access)).actual_tool_starts, 0);
+});
+
+test('revocation during asynchronous authorization closes snapshot and claimed issue paths', async t => {
+  const f = await fixture(t); await f.issue();
+  let calls = 0;
+  const viewer = f.make({ authorize: async () => ++calls === 1 });
+  await assert.rejects(viewer.snapshot(access), code('buzz_pilot_not_authorized'));
+  assert.equal(calls, 2);
+  calls = 0;
+  const other = f.make({ binding: { ...f.binding, job_id: 'job.uncommitted', chat_id: '00000000-0000-4000-8000-000000000002' },
+    authorize: async () => ++calls === 1 });
+  await assert.rejects(other.issue({ instructionBytes: instruction }), code('buzz_pilot_not_authorized'));
+  const row = f.db.prepare('SELECT * FROM buzz_pilot_jobs WHERE job_id = ?').get('job.uncommitted');
+  assert.equal(row.issued, 0); assert.equal(row.sequence, 0);
+});
+
+test('bounded queue refuses overload while admitted operations retain durable dedupe', async t => {
+  const f = await fixture(t); await f.issue();
+  let release;
+  const blocked = new Promise(resolve => { release = resolve; });
+  let entered;
+  const ready = new Promise(resolve => { entered = resolve; });
+  const core = f.make({ authorize: async (action, context, actor) => {
+    if (action === 'append') { entered(); await blocked; }
+    return f.authorize(action, context, actor);
+  } });
+  const event = f.event('instruction_received', { message_id: message(1), text: instruction.toString() });
+  const jobs = Array.from({ length: 32 }, () => core.append(event));
+  await ready;
+  await assert.rejects(core.append(event), code('buzz_pilot_queue_limit'));
+  release(); const results = await Promise.all(jobs);
+  assert.equal(results.filter(result => result.status === 'recorded').length, 1);
+  assert.equal(results.filter(result => result.status === 'replayed').length, 31);
+  assert.equal((await core.snapshot(access)).sequence, 1);
+});
+
+test('a waiting cancellation ends the measured wait without recording an Owner answer', async t => {
+  const f = await fixture(t); await waiting(f); f.time += 3000;
+  await f.append('cancelled', { reason_code: 'gateway_cancelled' }); f.time += 9000;
+  const view = await f.core.snapshot(access);
+  assert.equal(view.wait_elapsed_ms, 3000); assert.equal(view.state, 'cancelled');
+  assert.equal(view.owner_action_required, false); assert.equal(view.answer_ref, null);
+});
+
+test('readOnly actual file database reads existing evidence and refuses every mutation without creating files', async t => {
+  const f = await fixture(t); await waiting(f);
+  const beforeFiles = await readdir(f.parent), beforeBytes = await readFile(f.dbPath);
+  const readDb = new DatabaseSync(f.dbPath, { readOnly: true });
+  try {
+    let ddlCalls = 0, writeCalls = 0;
+    readDb.exec = () => { ddlCalls++; throw new Error('read-only DDL forbidden'); };
+    const reader = f.make({ db: readDb, readOnly: true, workingBytes: { ...f.port,
+      createGroup: async () => { writeCalls++; throw new Error('write forbidden'); },
+      writeRole: async () => { writeCalls++; throw new Error('write forbidden'); } } });
+    assert.equal((await reader.snapshot(access)).state, 'waiting_owner');
+    assert.deepEqual((await reader.readEvidence({ role: 'instruction' }, access)).bytes, instruction);
+    assert.equal((await reader.readEvidence({ role: 'question', observation_id: 'event.3' }, access)).bytes.toString(), question);
+    await assert.rejects(reader.issue({ instructionBytes: instruction }, access), code('buzz_pilot_read_only'));
+    await assert.rejects(reader.append(f.event('failed', { reason_code: 'read_only_attempt' })), code('buzz_pilot_read_only'));
+    assert.equal(ddlCalls, 0); assert.equal(writeCalls, 0);
+  } finally { readDb.close(); }
+  assert.deepEqual(await readdir(f.parent), beforeFiles); assert.deepEqual(await readFile(f.dbPath), beforeBytes);
+});
+
+test('readOnly constructor rejects missing or foreign schema without bootstrapping tables', async t => {
+  const f = await fixture(t);
+  for (const foreign of [false, true]) {
+    const dbPath = path.join(f.parent, foreign ? 'foreign.sqlite' : 'empty.sqlite');
+    const setup = new DatabaseSync(dbPath);
+    if (foreign) setup.exec('CREATE TABLE buzz_pilot_jobs (job_id TEXT PRIMARY KEY, body TEXT)');
+    setup.close();
+    const before = await readFile(dbPath), files = await readdir(f.parent);
+    const readDb = new DatabaseSync(dbPath, { readOnly: true });
+    try {
+      assert.throws(() => f.make({ db: readDb, readOnly: true }), code('buzz_pilot_schema_required'));
+      assert.equal(readDb.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE name = 'buzz_pilot_events'").get().n, 0);
+    } finally { readDb.close(); }
+    assert.deepEqual(await readFile(dbPath), before); assert.deepEqual(await readdir(f.parent), files);
+  }
+});
