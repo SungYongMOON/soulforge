@@ -1,0 +1,1 @@
+export const syntheticHwpxPacket = template_sha256 => ({kind:'hwpx_text_packet',project_ref:'project.synthetic',source_ref:'source.synthetic',revision:'revision:v1',approval_ref:'approval.synthetic',provenance:'synthetic_fixture',template_sha256,title:'합성 검토 기록',body:'조건 확인 완료'});
