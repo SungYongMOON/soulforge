@@ -226,7 +226,10 @@ test('active-WAL Buzz issued and pending-question snapshots restore exact protec
       const res = { statusCode: 200, headers: {}, setHeader(key, value) { this.headers[key] = value; }, end(body) { this.body = body; } };
       assert.equal(await controller(req, res, new URL(url, base)), true); return res;
     };
-    assert.deepEqual(JSON.parse((await request(route)).body), expected);
+    const { recovery_metadata: observerRecovery, ...ownerView } = expected;
+    const restoredView = JSON.parse((await request(route)).body);
+    assert.deepEqual(restoredView, ownerView);
+    assert.equal(Object.hasOwn(restoredView, 'recovery_metadata'), false);
     const queries = [{ role: 'instruction' }, ...expected.event_refs.flatMap(event => event.evidence_refs
       .map(ref => ({ role: ref.role, observation_id: event.observation_id })))];
     const queryLinks = [];

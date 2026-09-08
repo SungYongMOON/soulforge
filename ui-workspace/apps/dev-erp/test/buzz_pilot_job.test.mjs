@@ -416,3 +416,26 @@ test('readOnly constructor rejects missing or foreign schema without bootstrappi
     assert.deepEqual(await readFile(dbPath), before); assert.deepEqual(await readdir(f.parent), files);
   }
 });
+
+test('an authorized restarted observer can retire a lost gateway wait using only recorded session metadata', async t => {
+  const f = await fixture(t); await f.issue();
+  assert.deepEqual((await f.core.snapshot(access)).recovery_metadata, { session_key: null, session_id: null });
+  await f.append('instruction_received', { message_id: message(1), text: instruction.toString().trim() }, { session_id: null });
+  assert.deepEqual((await f.core.snapshot(access)).recovery_metadata, { session_key: 'session:synthetic', session_id: null });
+  await f.append('tool_started', { tool_call_id: 'call.actual-1', tool_name: 'clarify', input });
+  await f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input });
+  await f.append('question_delivery', { clarify_id: 'clarify.actual-1', delivery_status: 'sent', message_id: message(2) });
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make();
+  await assert.rejects(f.core.snapshot({ ...access, accountId: 'unrelated.synthetic' }), code('buzz_pilot_not_authorized'));
+  const waiting = await f.core.snapshot(access);
+  assert.equal(waiting.owner_action_required, true);
+  assert.deepEqual(waiting.recovery_metadata, { session_key: 'session:synthetic', session_id: 'session.actual-1' });
+  const event = f.event('failed', { reason_code: 'gateway_wait_lost' }, waiting.recovery_metadata);
+  await f.core.append(event);
+  const retired = await f.core.snapshot(access);
+  assert.equal(retired.state, 'failed'); assert.equal(retired.owner_action_required, false);
+  assert.equal(retired.operations_attention, true); assert.equal(retired.sequence, 5);
+  assert.equal(retired.event_refs.some(row => row.event_type === 'resumed'), false);
+  assert.equal((await f.core.append(event)).status, 'replayed');
+  assert.equal((await f.core.snapshot(access)).sequence, 5);
+});

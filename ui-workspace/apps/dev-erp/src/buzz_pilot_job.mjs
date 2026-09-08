@@ -391,6 +391,8 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
       const source = storedBinding(row); await allowed('snapshot', source, access);
       row = jobRow(); check(row.binding_json === canonical(source), 'buzz_pilot_ledger_corrupt');
       const state = JSON.parse(row.state_json), time = currentTime();
+      check((state.session_key === null || isId(state.session_key))
+        && (state.session_id === null || isId(state.session_id)), 'buzz_pilot_ledger_corrupt');
       const pending = db.prepare('SELECT observation_id FROM buzz_pilot_events WHERE job_id = ? AND committed = 0').get(binding.job_id);
       const events = db.prepare('SELECT * FROM buzz_pilot_events WHERE job_id = ? AND committed = 1 ORDER BY sequence').all(binding.job_id);
       const expired = time >= clock(source.expires_at) && !TERMINAL.has(state.status);
@@ -410,6 +412,9 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
         wait_started_at: state.wait_started_at ?? null,
         wait_elapsed_ms: state.wait_started_at ? Math.max(0, (state.wait_ended_at ? clock(state.wait_ended_at) : time) - clock(state.wait_started_at)) : null,
         pending_observation_id: pending?.observation_id ?? null,
+        // A restarted trusted observer may report a lost gateway wait against
+        // the recorded session. These identifiers never authorize a new run.
+        recovery_metadata: { session_key: state.session_key, session_id: state.session_id },
         instruction_ref: state.instruction_ref, original_message_ref: state.original_message_ref ?? null,
         question_ref: state.question_ref ?? null, answer_ref: state.answer_ref ?? null,
         output_ref: state.final_response_ref ?? null, evidence_refs: row.issued ? refs.map(publicPin) : [],

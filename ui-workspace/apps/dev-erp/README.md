@@ -96,7 +96,8 @@ claiming a product release. Validate through `npm.cmd run validate:product-compo
 메타데이터 접수·업무 대응이며 실행 claim, 모델 호출, 외부 송신, Task 변경, 수락이 아니다.
 실행 조정기 연결과 운영 활성화는 별도 단계다.
 
-첫 Buzz 파일럿의 지시·대화는 Buzz 한 곳에서 진행한다. `DEV_ERP_BUZZ_PILOT_READ=1`과
+첫 Buzz 파일럿의 지시·대화는 Buzz 한 곳에서 진행한다. 사용 흐름·보존·실패 처리는
+[첫 업무 파일럿 안내](docs/slices/BUZZ-FIRST-PILOT-V0.md)를 따른다. `DEV_ERP_BUZZ_PILOT_READ=1`과
 명시적인 `DEV_ERP_BUZZ_PILOT_BINDING` 절대경로 및 `DEV_ERP_BUZZ_PILOT_BINDING_SHA256`
 원본 64자리 SHA-256을 함께 설정하면 작업대는 발행된 한 업무의 조회 화면을 제공한다.
 이 설정은 기본 OFF이며 설치·운영 활성화나 업무 발행 권한을 만들지 않는다.

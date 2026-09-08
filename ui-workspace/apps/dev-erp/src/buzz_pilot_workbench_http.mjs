@@ -62,7 +62,12 @@ export function createBuzzPilotWorkbenchHttpController({ service = null, enabled
       const result = query ? await service.readEvidence(query, access) : await service.snapshot(access);
       if (!await access.checkSession()) fail(401, 'AUTH_REQUIRED');
       for (const project of checkedProjects) if (await canAccessProject(req, project) !== true) fail(403, 'BUZZ_PILOT_ACCESS_REQUIRED');
-      if (!query) send(res, 200, result);
+      if (!query) {
+        // Session recovery identifiers belong to the trusted local observer.
+        // Owner-facing status needs the job state and evidence, not that seam.
+        const { recovery_metadata: ignoredRecovery, ...view } = result;
+        send(res, 200, view);
+      }
       else {
         if (!Buffer.isBuffer(result.bytes) || result.bytes.length > 65536
           || result.bytes.length !== result.size || !['text/plain', 'application/json'].includes(result.mediaType)) fail(503, 'BUZZ_PILOT_UNAVAILABLE');

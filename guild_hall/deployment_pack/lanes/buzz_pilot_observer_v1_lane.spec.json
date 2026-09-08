@@ -1,0 +1,15 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "buzz-pilot-observer-v1",
+  "description": "Tracked-only local observation and authenticated readback code for one issued Buzz text-review job. No model, gateway or tool dispatch, credentials, profile configuration, messages, working evidence, database or canonical metadata is inherited. Native Node and the exact Hermes source patch remain separately pinned. Assembly does not issue a job, install or activate a gateway, deliver a message, grant authority or accept work.",
+  "tracked_paths": [
+    "ui-workspace/apps/dev-erp/tools/buzz_pilot_job_cli.mjs",
+    "ui-workspace/apps/dev-erp/src/buzz_pilot_job.mjs",
+    "guild_hall/shared/protected_working_bytes.mjs",
+    "guild_hall/agent_observation/guard_primitives.mjs"
+  ],
+  "tracked_excludes": [],
+  "carried_forward_prefixes": [],
+  "carried_forward_rationale": {},
+  "entry_points": ["ui-workspace/apps/dev-erp/tools/buzz_pilot_job_cli.mjs"]
+}

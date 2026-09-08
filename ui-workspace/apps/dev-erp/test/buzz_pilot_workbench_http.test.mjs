@@ -24,7 +24,8 @@ function fixture() {
     if (access.accountId !== 'owner.synthetic' || !await access.checkSession()
       || !await access.canAccessProject('SYN-001')) throw Object.assign(new Error(), { code: 'buzz_pilot_not_authorized' });
   };
-  const service = { snapshot: async access => { await authorize(access); return { version: 1, job_id: 'synthetic.job', state: 'issued' }; },
+  const service = { snapshot: async access => { await authorize(access); return { version: 1, job_id: 'synthetic.job', state: 'issued',
+    recovery_metadata: { session_key: 'session:synthetic', session_id: 'session.synthetic' } }; },
     readEvidence: async (query, access) => { await authorize(access); state.query = query;
       return { bytes: Buffer.from('synthetic evidence'), size: 18, mediaType: 'text/plain' }; } };
   const controller = createBuzzPilotWorkbenchHttpController({ service, allowedOrigin: base,
@@ -44,6 +45,8 @@ test('Buzz HTTP exposes the current authenticated snapshot and exact observed ev
   const snapshot = await f.request();
   assert.equal(snapshot.statusCode, 200);
   assert.equal(JSON.parse(snapshot.body).job_id, 'synthetic.job');
+  assert.equal(Object.hasOwn(JSON.parse(snapshot.body), 'recovery_metadata'), false);
+  assert.equal(snapshot.body.includes('session:synthetic'), false);
   const evidence = await f.request('/api/workbench/buzz-pilot/evidence?role=question&observation_id=event.1');
   assert.equal(evidence.statusCode, 200); assert.equal(evidence.body.toString(), 'synthetic evidence');
   assert.deepEqual(f.state.query, { role: 'question', observation_id: 'event.1' });
