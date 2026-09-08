@@ -80,9 +80,119 @@ async function finished(f) {
   await f.append('final_delivery', { delivery_status: 'sent', message_id: message(4) });
 }
 const code = expected => error => { assert.equal(error.code, expected); return true; };
+const healthPacket = (f, delta = {}) => ({ version: 1, observer_instance_id: '00000000-0000-4000-8000-000000000010',
+  phase: 'started', observed_at: iso(f.time), pending_operations: 0, recorded_operations: 0, gap_reason: null, ...delta });
+
+test('capture health stays separate from recorded events and suppresses uncertain current owner waits', async t => {
+  const f = await fixture(t); await f.issue();
+  assert.equal((await f.core.snapshot(access)).capture_health.state, 'unknown');
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE name='buzz_pilot_capture_health'").get().n, 0);
+  const start = healthPacket(f); await f.core.captureHealth(start, access);
+  await waiting(f);
+  const before = f.db.prepare('SELECT state_json, sequence FROM buzz_pilot_jobs').get();
+  let view = await f.core.snapshot(access); assert.equal(view.owner_action_required, true);
+  f.time += 15_000;
+  const syncing = healthPacket(f, { phase: 'heartbeat', pending_operations: 1 });
+  await f.core.captureHealth(syncing, access);
+  view = await f.core.snapshot(access); assert.equal(view.state, 'capture_syncing');
+  assert.equal(view.recorded_state, 'waiting_owner'); assert.equal(view.owner_action_required, false);
+  assert.equal(view.operations_attention, true); assert.equal(view.failure_reason_code, null);
+  f.time += 15_000;
+  await f.core.captureHealth(healthPacket(f, { phase: 'heartbeat', recorded_operations: 1 }), access);
+  assert.equal((await f.core.snapshot(access)).owner_action_required, true);
+  const ack = await f.core.captureHealth(start, access); assert.equal(ack.status, 'replayed');
+  f.time += 45_001;
+  view = await f.core.snapshot(access); assert.equal(view.state, 'capture_unconfirmed');
+  assert.equal(view.capture_health.gap_reason, 'observer_stale_gap'); assert.equal(view.owner_action_required, false);
+  await f.core.captureHealth(healthPacket(f, { phase: 'heartbeat', recorded_operations: 1 }), access);
+  assert.equal((await f.core.snapshot(access)).capture_health.state, 'unconfirmed');
+  assert.deepEqual(f.db.prepare('SELECT state_json, sequence FROM buzz_pilot_jobs').get(), before);
+});
+
+test('capture health validates phase, instance, times, counts, scope, rate and durable unresolved gaps', async t => {
+  const f = await fixture(t); await f.issue();
+  await assert.rejects(f.core.captureHealth(healthPacket(f, { phase: 'heartbeat' }), access), code('buzz_pilot_capture_instance_conflict'));
+  await assert.rejects(f.core.captureHealth(healthPacket(f), { ...access, accountId: 'wrong' }), code('buzz_pilot_not_authorized'));
+  await assert.rejects(f.make({ readOnly: true }).captureHealth(healthPacket(f), access), code('buzz_pilot_read_only'));
+  await assert.rejects(f.make({ binding: { ...f.binding, instruction_sha256: hash('other') } })
+    .captureHealth(healthPacket(f), access), code('buzz_pilot_stale_source'));
+  for (const delta of [{ gap_reason: 'private_free_text' }, { pending_operations: -1 }, { recorded_operations: 1.5 },
+    { observer_instance_id: 'bad' }, { observed_at: iso(f.time + 1) }, { extra: true }])
+    await assert.rejects(f.core.captureHealth(healthPacket(f, delta), access));
+  const start = healthPacket(f, { pending_operations: 1 }); await f.core.captureHealth(start, access);
+  f.time += 15_000;
+  await assert.rejects(f.core.captureHealth(healthPacket(f, { phase: 'heartbeat' }), access), code('buzz_pilot_capture_count_invalid'));
+  const beat = healthPacket(f, { phase: 'heartbeat', recorded_operations: 1 }); await f.core.captureHealth(beat, access);
+  f.time += 1;
+  await assert.rejects(f.core.captureHealth(healthPacket(f, { phase: 'heartbeat', recorded_operations: 1 }), access), code('buzz_pilot_capture_rate_limit'));
+  await assert.rejects(f.core.captureHealth({ ...beat, pending_operations: 2 }, access), code('buzz_pilot_event_order'));
+  await assert.rejects(f.core.captureHealth({ ...beat, observed_at: iso(f.time - 10) }, access), code('buzz_pilot_event_order'));
+  await assert.rejects(f.core.captureHealth(healthPacket(f, { phase: 'heartbeat', recorded_operations: 0, gap_reason: 'observer_capture_gap' }), access), code('buzz_pilot_capture_count_invalid'));
+  await f.core.captureHealth(healthPacket(f, { observer_instance_id: '00000000-0000-4000-8000-000000000011' }), access);
+  assert.equal((await f.core.snapshot(access)).capture_health.gap_reason, 'observer_replaced_unclosed');
+  await assert.rejects(f.core.captureHealth(healthPacket(f, { phase: 'closed', recorded_operations: 1 }), access), code('buzz_pilot_capture_instance_conflict'));
+  f.time += 1;
+  await f.core.captureHealth(healthPacket(f, { observer_instance_id: '00000000-0000-4000-8000-000000000011', phase: 'closed' }), access);
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make();
+  assert.equal((await f.core.snapshot(access)).capture_health.state, 'unconfirmed');
+  await assert.rejects(f.core.captureHealth(healthPacket(f), access), code('buzz_pilot_capture_instance_conflict'));
+});
+
+test('capture health commits during awaited event bytes without lost updates or false execution failure', async t => {
+  const f = await fixture(t); await f.issue();
+  await f.core.captureHealth(healthPacket(f), access);
+  await started(f, { inputContract: 'prepared_v2' });
+  let release, entered;
+  const ready = new Promise(resolve => { entered = resolve; });
+  const hold = new Promise(resolve => { release = resolve; });
+  f.core = f.make({ workingBytes: { ...f.port, async writeRole(args) { entered(); await hold; return f.port.writeRole(args); } } });
+  const event = f.event('tool_input_prepared', { tool_call_id: 'call.actual-1', tool_name: 'clarify',
+    tool_input_ref: JSON.parse(f.db.prepare('SELECT state_json FROM buzz_pilot_jobs').get().state_json).tool_input_ref, input });
+  const append = f.core.append(event); await ready;
+  f.time += 1;
+  await f.core.captureHealth(healthPacket(f, { phase: 'heartbeat', pending_operations: 1, gap_reason: 'observer_capture_gap' }), access);
+  assert.equal((await f.core.snapshot(access)).state, 'capture_incomplete');
+  release(); await append;
+  const view = await f.core.snapshot(access);
+  assert.equal(view.sequence, 3); assert.equal(view.recorded_state, 'tool_running');
+  assert.equal(view.capture_health.gap_reason, 'observer_capture_gap'); assert.equal(view.failure_reason_code, null);
+  assert.equal(view.event_refs.some(row => row.event_type === 'failed'), false);
+});
+
+test('closed capture preserves delivered or failed facts without inventing a current owner wait', async t => {
+  for (const state of ['waiting_owner', 'delivered', 'failed']) {
+    const f = await fixture(t); await f.issue(); await f.core.captureHealth(healthPacket(f), access);
+    if (state === 'delivered') await finished(f); else {
+      await waiting(f); if (state === 'failed') await f.append('failed', { reason_code: 'observed_failure' });
+    }
+    f.time += 1;
+    await f.core.captureHealth(healthPacket(f, { phase: 'closed' }), access);
+    const view = await f.core.snapshot(access);
+    assert.equal(view.recorded_state, state); assert.equal(view.owner_action_required, false);
+    assert.equal(view.state, state === 'waiting_owner' ? 'capture_unconfirmed' : state);
+    assert.equal(view.final_delivered, state === 'delivered');
+    assert.equal(view.failure_reason_code, state === 'failed' ? 'observed_failure' : null);
+    if (state === 'waiting_owner') {
+      f.time += 1;
+      await f.core.captureHealth(healthPacket(f, { observer_instance_id: '00000000-0000-4000-8000-000000000011' }), access);
+      assert.equal((await f.core.snapshot(access)).owner_action_required, false);
+    }
+    await assert.rejects(f.core.captureHealth(healthPacket(f, { phase: 'heartbeat' }), access), code('buzz_pilot_capture_instance_conflict'));
+  }
+});
+
+test('first observer attached to existing nonterminal v2 records cannot revive a historical owner wait', async t => {
+  const f = await fixture(t); await started(f, { inputContract: 'prepared_v2' });
+  let view = await f.core.snapshot(access); assert.equal(view.state, 'capture_unconfirmed');
+  assert.equal(view.capture_health.state, 'unknown'); assert.equal(view.operations_attention, true);
+  await f.core.captureHealth(healthPacket(f), access);
+  view = await f.core.snapshot(access); assert.equal(view.capture_health.gap_reason, 'observer_startup_gap');
+  assert.equal(view.owner_action_required, false); assert.equal(view.recorded_state, 'tool_running');
+});
 
 test('v2 preserves raw input separately and registers only the exact actual prepared JSON SHA', async t => {
   const f = await fixture(t);
+  await f.issue(); await f.core.captureHealth(healthPacket(f), access);
   const raw = { question: '  Who is this for?  ', choices: ['Engineering (recommended)', 'Management'] };
   const effective = { question: 'Who is this for?', choices: ['⭐ Engineering (recommended)', 'Management'], multi_select: false };
   const start = await started(f, { rawInput: raw, inputContract: 'prepared_v2' });

@@ -265,7 +265,10 @@ const buzzStates = { issued: 'Buzz 수신 확인 전', running: '업무 진행 �
   final_produced: '최종 응답 생성됨 · 전달 확인 전', delivered: '최종 응답 전달됨',
   question_delivery_failed: '질문 전달 실패', question_delivery_unknown: '질문 전달 여부 미확인',
   final_delivery_failed: '최종 응답 전달 실패', final_delivery_unknown: '최종 응답 전달 여부 미확인',
-  failed: '실행 실패', cancelled: '실행 중지됨', capture_incomplete: '실행 기록 보존 확인 필요', expired: '업무 연결 기한 지남' };
+  failed: '실행 실패', cancelled: '실행 중지됨', capture_incomplete: '실행 기록 보존 확인 필요', expired: '업무 연결 기한 지남',
+  capture_syncing: '실행 기록 동기화 중', capture_unconfirmed: '현재 실행 기록 확인 필요' };
+const captureStates = { unknown: '관측 기록 없음', current: '최근 관측 기록 확인', syncing: '기록 동기화 중',
+  unconfirmed: '현재 기록 미확인', closed: '관측 종료 기록 확인' };
 const buzzEvents = { instruction_received: 'Buzz에서 지시 수신', tool_started: '질문 도구 시작',
   tool_input_prepared: '실제 질문 입력 준비됨',
   question_registered: '질문 등록', question_delivery: '질문 전달 기록', answer_received: '답변 수신',
@@ -297,7 +300,11 @@ function showBuzzPilot(value) {
     ['최종 응답', value.final_produced === true ? '생성 기록 있음' : '아직 생성 확인 전'],
     ['응답 전달', value.final_delivered === true ? '전달 기록 있음' : value.delivery_status === 'failed' ? '전달 실패' : '전달 확인 전'],
     ['결과 검증', '미검증'], ['사람 수락', '미수락'], ['공식 업무 완료', '미완료']];
-  if (value.operations_attention === true || value.failure_reason_code) rows.splice(4, 0,
+  if (value.capture_health) rows.splice(4, 0,
+    ['관측 기록 상태', captureStates[value.capture_health.state] ?? '현재 기록 미확인'],
+    ['마지막 기록된 실행 단계', buzzStates[value.recorded_state] ?? '단계 미확인'],
+    ['마지막 관측', displayTime(value.capture_health.last_observed_at)]);
+  if (value.failure_reason_code || value.state === 'failed') rows.splice(4, 0,
     ['마지막 실패 이유', buzzFailureReasons[value.failure_reason_code]
       ?? (/^[a-z][a-z0-9_]{0,63}$/u.test(value.failure_reason_code ?? '')
         ? `확인 코드: ${value.failure_reason_code}` : '원인 코드가 기록되지 않았습니다.')]);
