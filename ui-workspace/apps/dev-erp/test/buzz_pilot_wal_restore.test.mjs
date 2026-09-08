@@ -157,6 +157,8 @@ for (const inputContract of [undefined, 'prepared_v2']) test(`active-WAL Buzz ${
     // exported ledger, never from an enumeration of the now-newer evidence root.
     if (state === 'issued') {
       const question = { question: 'Who reads this synthetic note?', choices: ['Engineering', 'Management'], multi_select: false };
+      if (inputContract) await producer.captureHealth({ version: 1, observer_instance_id: '00000000-0000-4000-8000-000000000010',
+        phase: 'started', observed_at: new Date(now).toISOString(), pending_operations: 0, recorded_operations: 0, gap_reason: null }, access);
       await append('instruction_received', { message_id: message(1), text: f.instruction.toString().trim() });
       const started = await append('tool_started', { tool_call_id: 'call.synthetic-wal', tool_name: 'clarify', input: structuredClone(question),
         ...(inputContract ? { input_contract: inputContract } : {}) });

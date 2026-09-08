@@ -5,6 +5,10 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/u;
 const KEY = /^[a-f0-9]{64}$/u;
 const SHA = /^sha256:[a-f0-9]{64}$/u;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
+const CAPTURE_GAPS = new Set(['observer_startup_gap', 'observer_shutdown_incomplete', 'observer_capture_gap']);
+const CAPTURE_STALE_MS = 45_000;
+const CAPTURE_COLUMNS = ['job_id:TEXT:1', 'sequence:INTEGER:2', 'binding_sha256:TEXT:0',
+  'instance_id:TEXT:0', 'digest:TEXT:0', 'metadata_json:TEXT:0', 'gap_reason:TEXT:0'];
 const CORE = ['version', 'job_id', 'project_id', 'owner_account_id', 'expected_owner_pubkey',
   'expected_bot_pubkey', 'chat_id', 'profile_ref', 'instruction_sha256', 'issued_at', 'expires_at'];
 const COMMON = ['version', 'observation_id', 'job_id', 'event_type', 'profile_ref', 'chat_id',
@@ -83,6 +87,18 @@ function validateBinding(value) {
     && UUID.test(binding.chat_id) && SHA.test(binding.instruction_sha256), 'buzz_pilot_binding_invalid');
   check(clock(binding.expires_at) > clock(binding.issued_at), 'buzz_pilot_time_invalid');
   return frozen(binding);
+}
+function capturePacket(raw) {
+  const value = copyJson(raw);
+  exact(value, ['version', 'observer_instance_id', 'phase', 'observed_at',
+    'pending_operations', 'recorded_operations', 'gap_reason']);
+  check(value.version === 1 && typeof value.observer_instance_id === 'string' && UUID.test(value.observer_instance_id)
+    && ['started', 'heartbeat', 'closed'].includes(value.phase), 'buzz_pilot_capture_invalid');
+  for (const key of ['pending_operations', 'recorded_operations'])
+    check(Number.isSafeInteger(value[key]) && value[key] >= 0 && value[key] <= 1_000_000, 'buzz_pilot_capture_count_invalid');
+  check(value.gap_reason === null || CAPTURE_GAPS.has(value.gap_reason), 'buzz_pilot_capture_gap_invalid');
+  clock(value.observed_at);
+  return frozen(value);
 }
 export { validateBinding as validateBuzzPilotBinding };
 
@@ -163,6 +179,37 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
   }
   function currentTime() {
     const value = now(); check(Number.isSafeInteger(value) && value >= 0, 'buzz_pilot_clock_invalid'); return value;
+  }
+  function captureTable() {
+    const found = db.prepare('SELECT type FROM sqlite_schema WHERE name = ?').get('buzz_pilot_capture_health');
+    if (!found) return false;
+    const columns = db.prepare('PRAGMA table_info(buzz_pilot_capture_health)').all()
+      .map(column => `${column.name}:${column.type}:${column.pk}`);
+    check(found.type === 'table' && canonical(columns) === canonical(CAPTURE_COLUMNS), 'buzz_pilot_schema_required');
+    return true;
+  }
+  function latestCapture() {
+    if (!captureTable()) return null;
+    const row = db.prepare('SELECT * FROM buzz_pilot_capture_health WHERE job_id = ? ORDER BY sequence DESC LIMIT 1').get(binding.job_id);
+    if (!row) return null;
+    const packet = capturePacket(JSON.parse(row.metadata_json));
+    check(row.digest === sha(canonical(packet)) && row.instance_id === packet.observer_instance_id
+      && (row.gap_reason === null || CAPTURE_GAPS.has(row.gap_reason)
+        || ['observer_replaced_unclosed', 'observer_stale_gap'].includes(row.gap_reason)), 'buzz_pilot_ledger_corrupt');
+    return { ...row, packet };
+  }
+  function captureView(sourceHash, executionState, time) {
+    const row = latestCapture();
+    if (!row) return { state: 'unknown', phase: null, last_observed_at: null,
+      pending_operations: null, recorded_operations: null, gap_reason: null };
+    check(row.binding_sha256 === sourceHash, 'buzz_pilot_stale_source');
+    const p = row.packet;
+    const stale = p.phase !== 'closed' && time - clock(p.observed_at) > CAPTURE_STALE_MS;
+    const gap = row.gap_reason ?? (stale ? 'observer_stale_gap' : null);
+    const state = gap ? 'unconfirmed' : p.pending_operations > 0 ? 'syncing'
+      : p.phase === 'closed' ? (TERMINAL.has(executionState) ? 'closed' : 'unconfirmed') : 'current';
+    return { state, phase: p.phase, last_observed_at: p.observed_at,
+      pending_operations: p.pending_operations, recorded_operations: p.recorded_operations, gap_reason: gap };
   }
   function live() {
     const time = currentTime();
@@ -328,6 +375,55 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
   }
 
   return Object.freeze({
+    async captureHealth(raw, access) {
+      check(!readOnly, 'buzz_pilot_read_only');
+      const packet = capturePacket(raw);
+      live(); await allowed('captureHealth', binding, access); live();
+      return transaction(() => {
+        const row = jobRow(); currentSource(row); check(row.issued === 1, 'buzz_pilot_instruction_incomplete');
+        const time = clock(packet.observed_at);
+        check(time >= clock(binding.issued_at) && time < clock(binding.expires_at)
+          && time <= currentTime(), 'buzz_pilot_event_time');
+        const prior = latestCapture();
+        if (!captureTable()) db.exec(`CREATE TABLE buzz_pilot_capture_health (
+          job_id TEXT NOT NULL, sequence INTEGER NOT NULL, binding_sha256 TEXT NOT NULL,
+          instance_id TEXT NOT NULL, digest TEXT NOT NULL, metadata_json TEXT NOT NULL, gap_reason TEXT,
+          PRIMARY KEY(job_id, sequence), UNIQUE(job_id, digest));`);
+        const digest = sha(canonical(packet));
+        const duplicate = db.prepare('SELECT sequence FROM buzz_pilot_capture_health WHERE job_id = ? AND digest = ?').get(binding.job_id, digest);
+        const ack = (status, sequence) => ({ version: 1, status, job_id: binding.job_id,
+          observer_instance_id: packet.observer_instance_id, phase: packet.phase, health_sequence: sequence });
+        check(!prior || prior.binding_sha256 === bindingHash, 'buzz_pilot_stale_source');
+        if (duplicate) return frozen(ack('replayed', duplicate.sequence));
+        let gap = prior?.gap_reason ?? packet.gap_reason;
+        if (packet.phase === 'started') {
+          check(!db.prepare('SELECT 1 FROM buzz_pilot_capture_health WHERE job_id = ? AND instance_id = ? LIMIT 1')
+            .get(binding.job_id, packet.observer_instance_id), 'buzz_pilot_capture_instance_conflict');
+          if (prior) {
+            check(time >= clock(prior.packet.observed_at), 'buzz_pilot_event_order');
+            if (prior.packet.phase !== 'closed') gap ??= 'observer_replaced_unclosed';
+          } else if (row.sequence > 0 && !TERMINAL.has(JSON.parse(row.state_json).status)) gap ??= 'observer_startup_gap';
+        } else {
+          check(prior && prior.packet.observer_instance_id === packet.observer_instance_id
+            && prior.packet.phase !== 'closed', 'buzz_pilot_capture_instance_conflict');
+          const prev = prior.packet, elapsed = time - clock(prev.observed_at);
+          check(elapsed >= 0 && (elapsed !== 0 || prev.phase !== packet.phase), 'buzz_pilot_event_order');
+          check(packet.recorded_operations >= prev.recorded_operations
+            && packet.recorded_operations + packet.pending_operations
+              >= prev.recorded_operations + prev.pending_operations, 'buzz_pilot_capture_count_invalid');
+          if (elapsed > CAPTURE_STALE_MS) gap ??= 'observer_stale_gap';
+          if (packet.phase === 'heartbeat') check(elapsed >= 15_000
+            || packet.gap_reason !== prev.gap_reason, 'buzz_pilot_capture_rate_limit');
+        }
+        if (packet.phase === 'closed' && (packet.pending_operations > 0
+          || !TERMINAL.has(JSON.parse(row.state_json).status))) gap ??= 'observer_shutdown_incomplete';
+        const sequence = (prior?.sequence ?? 0) + 1;
+        check(sequence <= 4096, 'buzz_pilot_capture_limit');
+        db.prepare('INSERT INTO buzz_pilot_capture_health VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(binding.job_id, sequence, bindingHash, packet.observer_instance_id, digest, canonical(packet), gap);
+        return frozen(ack('recorded', sequence));
+      });
+    },
     issue(input, access) {
       if (readOnly) return Promise.reject(Object.assign(new Error('buzz_pilot_read_only'), { code: 'buzz_pilot_read_only' }));
       let bytes;
@@ -419,10 +515,15 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
       const pending = db.prepare('SELECT observation_id FROM buzz_pilot_events WHERE job_id = ? AND committed = 0').get(binding.job_id);
       const events = db.prepare('SELECT * FROM buzz_pilot_events WHERE job_id = ? AND committed = 1 ORDER BY sequence').all(binding.job_id);
       const expired = time >= clock(source.expires_at) && !TERMINAL.has(state.status);
-      const status = !row.issued || pending ? 'capture_incomplete' : expired ? 'expired' : state.status;
+      const recordedStatus = !row.issued || pending ? 'capture_incomplete' : expired ? 'expired' : state.status;
+      const capture = captureView(row.binding_sha256, state.status, time);
+      const managedCapture = state.input_contract === 'prepared_v2' || capture.phase !== null;
+      const captureAttention = managedCapture && !['current', 'closed'].includes(capture.state);
+      const status = captureAttention && !TERMINAL.has(recordedStatus) && recordedStatus !== 'capture_incomplete'
+        ? capture.state === 'syncing' ? 'capture_syncing' : 'capture_unconfirmed' : recordedStatus;
       const waiting = status === 'waiting_owner';
       const attention = ['capture_incomplete', 'expired', 'failed', 'question_delivery_failed',
-        'question_delivery_unknown', 'final_delivery_failed', 'final_delivery_unknown'].includes(status);
+        'question_delivery_unknown', 'final_delivery_failed', 'final_delivery_unknown'].includes(status) || captureAttention;
       const refs = [JSON.parse(row.instruction_json), ...events.flatMap(event => JSON.parse(event.evidence_json))];
       const result = { version: 1, job_id: source.job_id, task_id: source.job_id, project_id: source.project_id,
         profile_ref: source.profile_ref, state: status, recorded_state: state.status, sequence: row.sequence,
@@ -433,6 +534,7 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
         expected_responder: waiting ? { account_id: source.owner_account_id, pubkey: source.expected_owner_pubkey } : null,
         owner_action_required: waiting, operations_attention: attention,
         failure_reason_code: state.reason_code ?? null,
+        capture_health: capture,
         wait_started_at: state.wait_started_at ?? null,
         wait_elapsed_ms: state.wait_started_at ? Math.max(0, (state.wait_ended_at ? clock(state.wait_ended_at) : time) - clock(state.wait_started_at)) : null,
         pending_observation_id: pending?.observation_id ?? null,

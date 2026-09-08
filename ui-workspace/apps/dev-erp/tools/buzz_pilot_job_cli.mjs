@@ -153,9 +153,9 @@ async function stdinBytes(input){
  */
 export async function runBuzzPilotCli(args,{input=process.stdin,output=process.stdout}={}){
   if(args.length===1&&args[0]==='--help'){
-    output.write('Buzz pilot observer: --binding ABSOLUTE_JSON --binding-sha256 SHA256 issue --instruction-file ABSOLUTE_UTF8 | append | status | doctor\n');return;
+    output.write('Buzz pilot observer: --binding ABSOLUTE_JSON --binding-sha256 SHA256 issue --instruction-file ABSOLUTE_UTF8 | append | capture-health | status | doctor\n');return;
   }
-  if(args[0]!=='--binding'||args[2]!=='--binding-sha256'||!['issue','append','status','doctor'].includes(args[4])
+  if(args[0]!=='--binding'||args[2]!=='--binding-sha256'||!['issue','append','capture-health','status','doctor'].includes(args[4])
     ||(args[4]==='issue'?(args.length!==7||args[5]!=='--instruction-file'):args.length!==5))fail('BUZZ_PILOT_ARGUMENTS');
   const [,_bindingPath,,bindingSha256,action]=args;
   const bindingPath=path.resolve(_bindingPath);
@@ -170,7 +170,7 @@ export async function runBuzzPilotCli(args,{input=process.stdin,output=process.s
     instruction=(await pinnedFile(path.resolve(args[6]),64*1024)).bytes;
     if(`sha256:${hash(instruction)}`!==binding.instruction_sha256)fail('BUZZ_PILOT_INSTRUCTION_MISMATCH');
   }
-  if(action==='append'){
+  if(action==='append'||action==='capture-health'){
     try{event=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(await stdinBytes(input)));}catch(error){if(error.code)throw error;fail('BUZZ_PILOT_EVENT_INVALID');}
   }
   await assertDatabase(binding.control_db_path,{required:action!=='issue'});
@@ -190,7 +190,7 @@ export async function runBuzzPilotCli(args,{input=process.stdin,output=process.s
     }});
     const access={accountId:binding.owner_account_id};
     const result=action==='issue'?await job.issue({instructionBytes:instruction},access)
-      :action==='append'?await job.append(event):await job.snapshot(access);
+      :action==='append'?await job.append(event):action==='capture-health'?await job.captureHealth(event,access):await job.snapshot(access);
     output.write(JSON.stringify({ok:true,...result})+'\n');
   }finally{db.close();}
 }

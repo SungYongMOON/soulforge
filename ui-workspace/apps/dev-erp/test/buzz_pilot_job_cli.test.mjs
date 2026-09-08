@@ -123,9 +123,29 @@ test('installed CLI rejection is not a failure receipt; a separate observed fail
 });
 
 test('missing DB is not created by append, status or reader startup',async t=>{
-  const f=await fixture(t);for(const action of ['append','status']){const result=f.invoke(action,action==='append'?{}:undefined);assert.equal(result.status,2);assert.equal(result.value.code,'BUZZ_PILOT_DB_MISSING');}
+  const f=await fixture(t);for(const action of ['append','capture-health','status']){const result=f.invoke(action,action==='status'?undefined:{});assert.equal(result.status,2);assert.equal(result.value.code,'BUZZ_PILOT_DB_MISSING');}
   await assert.rejects(openBuzzPilotReader({bindingPath:f.bindingPath,bindingSha256:f.pin(),authorize}),{code:'BUZZ_PILOT_DB_MISSING'});
   assert.deepEqual(await readdir(f.control),[]);
+});
+
+test('pinned CLI capture-health is durable metadata only with explicit lifecycle and current binding fence',async t=>{
+  const f=await fixture(t);assert.equal(f.invoke('issue',undefined,['--instruction-file',f.input]).status,0);
+  const status=f.invoke('status');assert.equal(status.value.capture_health.state,'unknown');
+  const packet={version:1,observer_instance_id:'00000000-0000-4000-8000-000000000010',phase:'started',
+    observed_at:new Date().toISOString(),pending_operations:1,recorded_operations:0,gap_reason:null};
+  const started=f.invoke('capture-health',packet);assert.equal(started.status,0);
+  assert.equal(started.value.observer_instance_id,packet.observer_instance_id);assert.equal(started.value.phase,'started');
+  assert.equal(f.invoke('capture-health',packet).value.status,'replayed');
+  let view=f.invoke('status').value;assert.equal(view.sequence,0);assert.equal(view.recorded_state,'issued');
+  assert.equal(view.state,'capture_syncing');assert.equal(view.operations_attention,true);
+  const closed={...packet,phase:'closed',observed_at:new Date().toISOString(),pending_operations:0,recorded_operations:1};
+  assert.equal(f.invoke('capture-health',closed).status,0);
+  view=f.invoke('status').value;assert.equal(view.state,'capture_unconfirmed');assert.equal(view.failure_reason_code,null);
+  assert.equal(view.event_refs.length,0);assert.equal(JSON.stringify(view.capture_health).includes(packet.observer_instance_id),false);
+  const reader=await openBuzzPilotReader({bindingPath:f.bindingPath,bindingSha256:f.pin(),authorize});f.closers.push(reader.close);
+  assert.equal(reader.reader.captureHealth,undefined);assert.equal((await reader.reader.snapshot(access)).capture_health.phase,'closed');
+  f.binding.instruction_sha256=`sha256:${digest('other')}`;await f.save();
+  assert.equal(f.invoke('capture-health',{...packet,observer_instance_id:'00000000-0000-4000-8000-000000000011'}).value.code,'BUZZ_PILOT_STALE_SOURCE');
 });
 
 test('changed source pins or wrong instruction reject before issuing a control database',async t=>{
