@@ -1207,6 +1207,13 @@ Start condition:
 | 28 | 슬라이드 형태 보존 외부 저작·내부 결속(Owner 2026-09-05 아이디어): PPT를 Computer Use로 정밀 조작할 수 있음을 확인. 슬라이드별 형태(글자 수·그림 수·자리)만 담은 더미 자료를 외부 Hearth에 주고, 외부가 슬라이드별 간격·배치를 조정해 돌려주면 내부 로컬 Hearth가 스타일은 두고 글·그림만 실제 값으로 교체한다. 실제 내용은 밖으로 나가지 않는다. E05 v0.2 WA03(PPT 경로)·AF08(긴 명칭 결속 뒤 품질)의 대안이자 plan 11 PPT 봇 적격 시험 후보 | Tool Workshop PPT 봇 자리와 E05 첫 적격 패키지(G2 WA03)가 열림. 실행 예약 없음, 아이디어 단계 | `EXECUTION_EXAMPLES_V0.md` EX-001, `docs/architecture/foundation/team_member_engineering_program/11_TOOL_WORKSHOPS_AND_JOB_SHOP.md`, `docs/reviews/` §7 |
 | 29 | **현재 전체 RC Goal 필수 개발(Owner 2026-09-08)** — Soulforge 관리·개발 조직이 Linear의 팀원 AI 기능 요구·버그·개선을 주기적으로 식별해 작은 worktree 변경·검증·fresh 검토·결과 회수까지 잇는다. 같은 원천 판본·자기 로그/봇 댓글의 재트리거 억제, 실패 재진입 조건·예산·독립 감시를 포함한다. 내부 가역 작업은 선실행·후보고, 외부 반출은 Owner 검토를 따른다 | 기존 24의 할일 내부 흡수·Linear 수집·forge_intent·dev_worker를 연결하는 구현 진행. 응답 대기함은 일부이며 TODO/알림만으로 완료하지 않는다. 실제 자동개선 실행·운영 전환·정본/OfficialDone 수락은 미검증 | `guild_hall/dev_worker`, `guild_hall/forge_intent`, `docs/architecture/guild_hall/DEV_WORKER_AUTOMATION_V0.md`, 현재 명시된 비정본 control/작업 root(옛 메타데이터 이식 금지) |
 
+후보 29 구현 현황(2026-09-08): concrete runtime·standing-scope issuer·G1 ACP·검사
+원출력 capture·stage를 결속하고 합성 subprocess/SQLite/Git 관통을 확인했다.
+World Tree의 관리자 readbox는 현재 로그인·과제·관리자 권한으로 결과와 로컬 기록,
+Buzz 전달 상태를 구분해 조회한다. G2 SOURCE custody 조회는 기존 설치 진입점에
+연결했다. 실제 G2 공개 투영 발행·현재 권한 writer·provider·운영 반복·live ACK와
+사람 수락은 이 합성 검증에 포함되지 않으며 전체 자동 개선 완료로 세지 않는다.
+
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_queue/` 에 `status: proposed`
 로 두며, owner 승인 전에는 `approved` 또는 `queued` 상태로 승격하지 않는다. 기존 `dev_worker_candidate_queue` 참조는 legacy path 로 이관 대상이다.

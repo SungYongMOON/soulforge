@@ -236,7 +236,7 @@ for (const inputContract of [undefined, 'prepared_v2']) test(`active-WAL Buzz ${
     };
     const { recovery_metadata: observerRecovery, ...ownerView } = expected;
     const restoredView = JSON.parse((await request(route)).body);
-    assert.deepEqual(restoredView, ownerView);
+    assert.deepEqual(restoredView, { ...ownerView, home_url: new URL(base).href });
     assert.equal(Object.hasOwn(restoredView, 'recovery_metadata'), false);
     const queries = [{ role: 'instruction' }, ...expected.event_refs.flatMap(event => event.evidence_refs
       .map(ref => ({ role: ref.role, observation_id: event.observation_id })))];

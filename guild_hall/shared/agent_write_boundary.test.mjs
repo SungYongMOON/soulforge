@@ -24,12 +24,12 @@ test("정확한 파일과 하위 트리를 모두 막는다", () => {
 test("넓은 경로로 금지 항목을 삼키는 것을 막는다", () => {
   // `guild_hall/` 을 통째로 허용하면 그 아래 금지 항목이 전부 열린다.
   // 부모 경로도 막지 않으면 이 목록은 한 줄로 우회된다.
-  for (const wide of ["guild_hall/", "guild_hall", "guild_hall/watchtower/", "."]) {
+  for (const wide of ["guild_hall/", "guild_hall", "guild_hall/watchtower/", "ui-workspace/", "."]) {
     assert.ok(isDeniedAgentWritePath(wide), `${wide} 는 금지 항목을 포함한다`);
   }
   // 금지 항목을 포함하지 않는 넓은 경로는 통과한다.
   assert.ok(!isDeniedAgentWritePath("docs/architecture/guild_hall/"));
-  assert.ok(!isDeniedAgentWritePath("ui-workspace/"));
+  assert.ok(!isDeniedAgentWritePath("ui-workspace/apps/dev-erp/src/calendar.mjs"));
 });
 
 test("경로 표기 차이로 우회되지 않는다", () => {
@@ -83,6 +83,8 @@ test("모든 항목에 사유가 있다", () => {
 
 test("packet gate also rejects root scopes, glob parents and case aliases", () => {
   for (const scope of ['.', './', '**', 'guild_hall/dev_worker/**', 'guild_hall/dev_worker/*.mjs',
+    'guild_hall/dev_worker/feedback_runtime.mjs', 'guild_hall/dev_worker/feedback_runtime_stage.mjs',
+    'guild_hall/dev_worker/feedback_runtime_review.test.mjs', 'guild_hall/dev_worker/FEEDBACK_RUNTIME.md',
     'guild_hall/watchtower/alert_*.mjs', 'guild_hall/*/candidate_queue.mjs', 'agents.md',
     'GUILD_HALL/DEV_WORKER/CANDIDATE_QUEUE.MJS']) {
     assert.ok(isDeniedAgentWritePath(scope), scope);

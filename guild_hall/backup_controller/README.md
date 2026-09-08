@@ -387,6 +387,48 @@ Operational restoration must therefore verify all manifest members before
 activation. This synthetic gate is not NAS/operational DR or human acceptance;
 existing declared backup stages continue.
 
+### Feedback runtime protected restore classification
+
+Feedback runtime/control SQLite, watchdog SQLite, protected execution evidence,
+closed candidate worktree contents and their file hashes, and durable dispatch
+and native delivery ledgers are **included in protected backup/restore**.
+Candidate directories are not a rebuildable exclusion: runtime recovery reads
+the saved candidate path and every declared file hash. Dispatch consumption and
+native acknowledgement are separate durable facts; neither can be inferred from
+a report or human acceptance. Include exact non-secret deployment/readbox/route
+descriptor bytes with their pinned references. Live credentials, ephemeral locks
+and process handles are forbidden from this generation. An unresolved execution
+must retain its recovery fence; restoring bytes does not authorize a retry.
+
+`guild_hall/dev_worker/feedback_restore.test.mjs` is a test-level synthetic gate
+using the existing `backupRuntimeDb` logical exporter, `readRuntimeBytes` pin
+checks, and actual feedback readbox/dispatch and cycle APIs. Its three live WAL
+databases have fresh committed runtime, watchdog and consumed `DELIVERY_UNKNOWN`
+rows outside the unchanged main DB files. A bounded 15-member create-only
+generation includes those logical snapshots, four protected evidence records,
+seven synthetic authority descriptors and one candidate file. All manifest
+members must pass exact-byte readback before a restored reader opens. Fourteen
+missing/mixed-byte cases cover each database, report, candidate evidence/content
+and deployment descriptor; a metadata `CURRENT` view is not completeness proof.
+
+Only owned synthetic handles are stopped. The original synthetic tree is
+renamed to a verified sibling and remains byte-identical during the test;
+restoration creates files exclusively at the **same original synthetic paths**.
+Readbox metadata and candidate pins survive, revoked manager reads fail, and
+`prepare`/`send`/`tick` cannot retransmit consumed UNKNOWN rows. The loopback stub
+counts three initial attempts and no restored attempts; it invokes no native
+transport, real profile or model. Reopening the restored cycle with a newer
+source revision returns `RECOVERY_REQUIRED` with zero execution/model-port calls.
+Successful tests remove only their own temporary namespace; failures retain it.
+
+This is not operational recovery-service integration, a native delivery-ledger
+schema test, process-closure verification, NAS DR or human restore acceptance.
+The full runtime recovery verifier and native ledger still need their own
+bounded restore evidence. Cross-path relocation remains incomplete: dispatch
+scope includes the runtime-deployment descriptor path and hash, while runtime
+and candidate references bind their original paths. Do not rewrite restored DB
+scope digests or infer relocation authority from this same-location gate.
+
 Every new top-level HPP data surface is classified in the same development
 slice as one of:
 

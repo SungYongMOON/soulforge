@@ -482,7 +482,7 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
   const target = tempDir("targetHpp");
   try {
     const specPath = join(REPO_ROOT, "guild_hall", "deployment_pack", "packs", "hpp_server_pack.spec.json");
-    // This test proves mechanics plus one installed smoke entry. Full-suite
+    // This test proves mechanics plus focused installed integration. Full-suite
     // evidence belongs to release_rehearsal.mjs and its actual run receipts.
     const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: out, clock: fixedClock, runner: okRunner });
     assert.equal(built.manifest.pack_id, "hpp_server_pack");
@@ -508,6 +508,12 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
       "the service-only watchdog travels after its PC-reboot surface is removed");
     assert.equal(built.manifest.files.some((entry) => entry.path.endsWith("runtime-path-contract.ps1")), true,
       "the shared installed-root and mutable-control-root contract travels with every launcher");
+    for (const required of ["guild_hall/dev_worker/feedback_runtime_cli.mjs", "guild_hall/dev_worker/feedback_buzz_bridge.py",
+      "guild_hall/secure_work/g2_linear_custody_cli.mjs", "guild_hall/secure_work/execution_authority.mjs",
+      "guild_hall/secure_work/src/soulforge_secure_work/adapters.py",
+      "guild_hall/dev_worker/FEEDBACK_READBOX.md", "guild_hall/dev_worker/feedback_restore.test.mjs"]) {
+      assert.ok(built.manifest.files.some(entry => entry.path === required), `installed feedback closure: ${required}`);
+    }
     // The installed-smoke declaration PARTITIONS the full suite: runnable
     // subset + evidence-backed exclusion ledger, nothing silent.
     const spec = loadPackSpec(specPath);
@@ -520,13 +526,16 @@ test("end to end against the REAL tracked hpp_server_pack spec: build, install, 
     let observedSmoke;
     const smoke = runInstalledSmoke({
       payloadDir: installed.payloadTarget,
-      entries: ["test/five_field_capture.test.mjs", "test/workflow_job_core_contract.test.mjs"],
+      entries: ["test/five_field_capture.test.mjs", "test/workflow_job_core_contract.test.mjs",
+        "test/feedback_readbox_server.test.mjs", "test/feedback_recovery.test.mjs",
+        "test/secure_work_local_transport_pack.test.mjs"],
       testCwd: "ui-workspace/apps/dev-erp",
       clock: fixedClock,
       runner: (entries, options) => { observedSmoke = nodeTestRunner(entries, options); return observedSmoke; },
     });
     assert.equal(smoke.ok, true, `real subset smoke inside the installed copy: ${smoke.summary}`);
     assert.equal(observedSmoke.counts.skipped, 0, "the actual installed workflow core tests execute instead of skipping");
+    console.log(JSON.stringify({ hpp_installed_subset: observedSmoke.counts }));
   } finally {
     rmSync(out, { recursive: true, force: true });
     rmSync(target, { recursive: true, force: true });

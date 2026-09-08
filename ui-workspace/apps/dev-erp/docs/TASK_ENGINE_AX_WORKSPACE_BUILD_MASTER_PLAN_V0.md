@@ -1,5 +1,14 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-08 CURRENT (feedback runtime integration): concrete runtime, standing-scope
+> issuer, serial G1 ACP, validator capture and isolated stage now join the existing
+> six-core loop. World Tree mounts the GET-only manager readbox using its own
+> current login/project checks and pinned install settings; it cannot initialize
+> delivery or send notices. Current SOURCE custody inspection is connected to the
+> existing secure-work launcher. Synthetic execution/reader evidence is separate
+> from real G2 publication, permission-writer binding, live gateway ACK, people
+> accepting work and operating activation. Those connections remain incomplete.
+
 > 2026-09-08 CURRENT (Owner response attention): explicit work-session requests
 > now feed an Owner-only inbox with seen/snooze/revision handling. Only verified
 > Owner response evidence closes a request; idle bots and technical failures do

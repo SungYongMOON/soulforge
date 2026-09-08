@@ -60,8 +60,30 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
     { path: `guild_hall/dev_worker/${name}.mjs`, why: "continuous developer authority, execution, budget or independent supervision" },
     { path: `guild_hall/dev_worker/${name}.test.mjs`, why: "continuous developer authority regression proof" },
   ]),
+  ...["feedback_runtime.mjs", "feedback_runtime_cli.mjs", "feedback_runtime_io.mjs",
+    "feedback_runtime_source.mjs", "feedback_runtime_model.mjs", "feedback_runtime_acp.mjs",
+    "feedback_runtime_validator.mjs", "feedback_runtime_stage.mjs", "feedback_runtime.test.mjs",
+    "feedback_runtime_model.test.mjs", "feedback_runtime_acp.test.mjs", "feedback_runtime_validator.test.mjs",
+    "feedback_runtime_stage.test.mjs", "feedback_runtime_review.test.mjs", "FEEDBACK_RUNTIME.md"].map(name => ({
+    path: `guild_hall/dev_worker/${name}`, why: "continuous developer runtime authority and its verification contract",
+  })),
 
   // 무엇이 위반인지 판정하는 검사기. 이것을 고칠 수 있으면 위반이 사라진다.
+  ...["feedback_readbox.mjs", "feedback_dispatch.mjs", "feedback_readbox_cli.mjs", "feedback_readbox_stage.mjs",
+    "feedback_buzz_bridge.py", "feedback_buzz_bridge_install.py", "FEEDBACK_READBOX.md",
+    "feedback_readbox.test.mjs", "feedback_dispatch.test.mjs", "feedback_readbox_fixture.mjs",
+    "feedback_readbox_native_fixture.py", "feedback_readbox_native_integration.test.mjs", "test_feedback_buzz_bridge.py",
+    "feedback_restore.test.mjs", "feedback_readbox_history.test.mjs"].map(name => ({
+    path: `guild_hall/dev_worker/${name}`, why: "manager read authority and independent delivery proof",
+  })),
+  ...["src/feedback_readbox_http.mjs", "src/feedback_readbox_view.mjs",
+    "test/feedback_readbox_http.test.mjs", "test/feedback_readbox_server.test.mjs", "test/feedback_recovery.test.mjs"].map(name => ({
+    path: `ui-workspace/apps/dev-erp/${name}`, why: "manager read authority and server integration proof",
+  })),
+  ...["g2_linear_custody_reader.mjs", "g2_linear_custody_cli.mjs", "G2_LINEAR_CUSTODY.md",
+    "tests/g2_linear_custody.test.mjs"].map(name => ({
+    path: `guild_hall/secure_work/${name}`, why: "current SOURCE custody authority and its proof",
+  })),
   { path: "guild_hall/validate/", why: "the validators that decide what counts as a violation" },
 
   // 어떤 바이트가 운영에 도달하는지 정하는 조립 도구. 저장소 안의 코드는

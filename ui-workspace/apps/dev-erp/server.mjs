@@ -29,6 +29,9 @@ import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
 import { createBuzzPilotWorkbenchHttpController } from "./src/buzz_pilot_workbench_http.mjs";
 import { openBuzzPilotReader } from "./tools/buzz_pilot_job_cli.mjs";
 import { openBuzzPilotAuthSource } from "./src/buzz_pilot_auth_source.mjs";
+import { openFeedbackReadbox } from "../../../guild_hall/dev_worker/feedback_readbox.mjs";
+import { openFeedbackDispatch } from "../../../guild_hall/dev_worker/feedback_dispatch.mjs";
+import { createFeedbackReadboxHttpController } from "./src/feedback_readbox_http.mjs";
 import { createOwnerAttentionSource } from "./src/owner_attention_source.mjs";
 import { createOwnerAttentionService } from "./src/owner_attention_service.mjs";
 import { createOwnerAttentionHttpController } from "./src/owner_attention_http.mjs";
@@ -2460,6 +2463,24 @@ const buzzPilotWorkbenchHttpController = createBuzzPilotWorkbenchHttpController(
     sessionKey: unavailableBuzzPilotAuthSource, canAccessProject: unavailableBuzzPilotAuthSource }
     : { currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject }),
 });
+// Optional installed read surface. Configuration is host supplied and hash pinned;
+// neither an HTTP request nor a worker/model selects a deployment or enables sends.
+const feedbackReadEnabled = process.env.DEV_ERP_FEEDBACK_READBOX_READ === "1";
+const feedbackReadService = await (async () => {
+  if (!feedbackReadEnabled || TLS_ENABLED) return null;
+  try {
+    const options = { configPath: process.env.DEV_ERP_FEEDBACK_READBOX_CONFIG,
+      configSha256: process.env.DEV_ERP_FEEDBACK_READBOX_CONFIG_SHA256 };
+    return process.env.DEV_ERP_FEEDBACK_READBOX_DELIVERY_READ === "1"
+      ? await openFeedbackDispatch({ ...options, readOnly: true })
+      : await openFeedbackReadbox(options);
+  } catch { return null; }
+})();
+const feedbackReadHttp = createFeedbackReadboxHttpController({
+  enabled: feedbackReadEnabled, service: feedbackReadService,
+  allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
+});
 const workbenchExecutionService = (() => {
   const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1"
     || process.env.DEV_ERP_WORKBENCH_NATIVE_AUDIT_READ === "1";
@@ -2594,6 +2615,7 @@ const server = createServer(async (req, res) => {
     }
     if (await workflowHttpController(req, res, url)) return;
     if (await buzzPilotWorkbenchHttpController(req, res, url)) return;
+    if (await feedbackReadHttp(req, res, url)) return;
     if (await workbenchHttpController(req, res, url)) return;
     if (await forgeWorldHttpController(req, res, url)) return;
     if (await ownerAttentionHttpController(req, res, url)) return;
@@ -4812,6 +4834,7 @@ async function shutdownDevErp(signalName) {
   try { runtimeListener?.close?.(); } catch {}
   try { await workbenchHttpController.close(); } catch {}
   try { await buzzPilotReader?.close(); } catch {}
+  try { await feedbackReadService?.close?.(); } catch {}
   try { buzzPilotAuthSource?.close(); } catch {}
   for (const active of activeCodexTurns.values()) active.controller.abort();
   const deadline = Date.now() + 5000;

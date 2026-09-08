@@ -70,6 +70,19 @@ Use `pack_lifecycle.mjs rollback` only for the approved isolated target with a v
 
 ## Known issues
 
+### 개발 관리 조회 사용
+
+설치된 조회 설정이 준비되면 현재 World Tree 계정으로 로그인하고 상단 **개발 관리**를
+연다. 화면은 관리자로 지정된 과제의 개선 작업 결과·검토 기록·운영 알림을 보여준다.
+로컬에 기록된 결과, Buzz 전달 확인, 사람의 수락은 서로 다른 상태다. 결과가 있다는
+이유로 업무가 공식 완료되거나 사람이 답해야 할 요청이 자동 생성되지는 않는다.
+
+전달 여부가 불명확하면 운영 담당자가 보존된 전달 영수증을 확인한다. 전달 DB를
+지우거나 같은 알림을 다시 보내서 불확실성을 해소하지 않는다. 권한 철회·만료는
+새 조회부터 적용된다. 설치자는 [서버의 개발 관리 조회 설정](../../../ui-workspace/apps/dev-erp/README.md)을
+따르며 설정이 없거나 잘못되면 비활성/조회 불가를 표시한다. 이 화면을 여는 것만으로
+작업자·전달기가 실행되거나 새 저장소가 만들어지지 않는다.
+
 - Existing evidence is isolated and synthetic; it is not an Owner-PC installation or user acceptance.
 - On Windows, stop observation is not a graceful-stop claim.
 - This candidate has no `last_verified_release` and no exercise receipt, so it cannot release a pack.

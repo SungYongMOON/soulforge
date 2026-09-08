@@ -14,6 +14,18 @@
 
 ## 경계 (먼저 읽을 것)
 
+### G2 Linear custody 조회 후보
+
+기존 설치 진입점의 `--g2-custody-inspect`는 현재 SOURCE 권한과 수집 영수증에
+결속된 자료를 읽고 메타데이터만 반환한다. 설치 복사본의 합성 검사를 통과했으며
+실제 권한·배치·G1 공개 투영 발행은 별개다. 결속 값과 주장 한계는
+[G2_LINEAR_CUSTODY.md](G2_LINEAR_CUSTODY.md)를 따른다.
+
+M02 `LocalManagerAdapter`는 각 요청에서 숫자로 된 loopback 주소를 다시 검사하며
+환경 proxy와 HTTP redirect를 사용하지 않는다. 잘못된 주소·절단 응답 등은 사용 불가로
+반환한다. HPP에는 이 Python 패키지의 소스도 포함하지만 외부 E14 kit·Python runtime·
+모델 배치·실제 권한은 별도 결속 대상이며 소스 전달이 운영 검증은 아니다.
+
 - **합성 자료만.** 실제 회사 자료는 이 lane에 넣지 않는다. 실자료 canary는 별도 Owner 결정이다.
 - **허가 없이 나가지 않는다.** 외부로 보낼 bytes는 승인된 permit이 정확히 그 bytes에 묶여
   있을 때만 전송된다. permit이 없으면 엔진은 `RELEASE_REVIEW`에서 멈춘다.

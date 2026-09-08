@@ -88,6 +88,23 @@ claiming a product release. Validate through `npm.cmd run validate:product-compo
 
 ## 작업대: 인증된 요청 접수
 
+### 개발 관리 조회
+
+`/workbench/feedback-readbox`는 현재 관리자에게 자동 개선 결과·검토·운영 알림의
+메타데이터를 보여준다. `DEV_ERP_FEEDBACK_READBOX_READ=1`, 설치자가 지정한
+`DEV_ERP_FEEDBACK_READBOX_CONFIG` 절대경로와 `DEV_ERP_FEEDBACK_READBOX_CONFIG_SHA256`
+64자리 hash가 모두 필요하다. 기본 OFF이며 설정 오류는 503으로 남는다.
+선택 설정 `DEV_ERP_FEEDBACK_READBOX_DELIVERY_READ=1`은 독립 전달기가 이미 만든
+전달 DB를 읽기 전용으로 연다. 누락된 DB를 생성하거나 전달기를 시작하지 않는다.
+미설정이면 알림 전달은 미관측으로 표시한다.
+
+인증은 이 서버의 현재 계정·세션·과제 접근과 별도 current manager 권한을 함께
+확인한다. 별도 Buzz 원본 인증 DB 우회 경로를 이 화면에 적용하지 않는다.
+지시/모델 원문·실행 출력·파일 경로는 API에 없으며 읽기 요청으로 작업이나 알림을
+발행할 수 없다. 로컬 기록·Buzz ACK·사람 수락을 구분하며 Official Done을 만들지 않는다.
+설치 설정의 전체 계약은 [FEEDBACK_READBOX.md](../../../guild_hall/dev_worker/FEEDBACK_READBOX.md),
+검사는 `npm run validate:dev-feedback-readbox`와 해당 문서의 Python 시험을 따른다.
+
 `/workbench.html`은 서버가 현재 계정에 허용한 업무를 선택하고 범위·입력 판본을 확인한 뒤
 요청을 접수하는 정적 화면이다. `/api/workbench/catalogue` → 기존 Board 접수기의
 `POST /api/workbench/requests` → 자기 요청의 `GET /api/workbench/requests/<id>`를

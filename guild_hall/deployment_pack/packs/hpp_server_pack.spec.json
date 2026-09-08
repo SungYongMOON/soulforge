@@ -52,6 +52,7 @@
       ".workflow/report_authoring_v0/workflow.yaml",
       "docs/architecture/workspace/examples/se_stage_rules/stage_work_order_synthetic_v0.json",
       "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
+      "guild_hall/activity/activity_log.mjs",
       "guild_hall/agent_observation/agent_authority_verification.mjs",
       "guild_hall/agent_observation/agent_mark_lineage.mjs",
       "guild_hall/agent_observation/agent_observation.mjs",
@@ -65,6 +66,32 @@
       "guild_hall/ai_usage_meter/evidence_ledger.mjs",
       "guild_hall/backup_controller/source_backup_generation_contract.mjs",
       "guild_hall/battle_log/battle_log.mjs",
+      "guild_hall/codex_work_directory/directory.mjs",
+      "guild_hall/codex_work_directory/schema/live_bindings.v1.schema.json",
+      "guild_hall/codex_work_directory/schema/route_catalog.v1.schema.json",
+      "guild_hall/dev_worker/claim_task.mjs",
+      "guild_hall/dev_worker/feedback_buzz_bridge.py",
+      "guild_hall/dev_worker/feedback_buzz_bridge_install.py",
+      "guild_hall/dev_worker/feedback_cycle.mjs",
+      "guild_hall/dev_worker/feedback_dispatch.mjs",
+      "guild_hall/dev_worker/feedback_linear_source.mjs",
+      "guild_hall/dev_worker/feedback_polling.mjs",
+      "guild_hall/dev_worker/feedback_readbox.mjs",
+      "guild_hall/dev_worker/feedback_readbox_cli.mjs",
+      "guild_hall/dev_worker/feedback_readbox_fixture.mjs",
+      "guild_hall/dev_worker/feedback_readbox_stage.mjs",
+      "guild_hall/dev_worker/feedback_request_provider.mjs",
+      "guild_hall/dev_worker/feedback_restore.test.mjs",
+      "guild_hall/dev_worker/feedback_runtime.mjs",
+      "guild_hall/dev_worker/feedback_runtime_acp.mjs",
+      "guild_hall/dev_worker/feedback_runtime_cli.mjs",
+      "guild_hall/dev_worker/feedback_runtime_io.mjs",
+      "guild_hall/dev_worker/feedback_runtime_model.mjs",
+      "guild_hall/dev_worker/feedback_runtime_source.mjs",
+      "guild_hall/dev_worker/feedback_runtime_stage.mjs",
+      "guild_hall/dev_worker/feedback_runtime_validator.mjs",
+      "guild_hall/dev_worker/feedback_watchdog.mjs",
+      "guild_hall/dev_worker/feedback_worktree_runner.mjs",
       "guild_hall/doctor/platform_binary_check.mjs",
       "guild_hall/engineering_engine/core/validators/authority.mjs",
       "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -122,6 +149,31 @@
       "guild_hall/rag/project_pdf_knowledge_projection.mjs",
       "guild_hall/requirement_trace/forge_world_coverage.mjs",
       "guild_hall/requirement_trace/requirement_coverage.mjs",
+      "guild_hall/secure_work/execution_authority.mjs",
+      "guild_hall/secure_work/g2_linear_custody_cli.mjs",
+      "guild_hall/secure_work/g2_linear_custody_reader.mjs",
+      "guild_hall/secure_work/sfx.mjs",
+      "guild_hall/secure_work/src/soulforge_secure_work/__init__.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/adapters.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/authority.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/cli.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/config.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/custody.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/custody_ipc.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/dispatch.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/engine.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/extract.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/guard.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/ipc.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/ipc_pipe.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/kit.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/launch_runtime.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/plan.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/storage.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/utility.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/winsec.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/worker.py",
+      "guild_hall/shared/agent_write_boundary.mjs",
       "guild_hall/shared/ai_work_record_event.v1.schema.json",
       "guild_hall/shared/io.mjs",
       "guild_hall/shared/physical_path_identity.mjs",
@@ -136,10 +188,15 @@
       "guild_hall/shared/protected_working_bytes.mjs",
       "guild_hall/shared/python_bin.mjs",
       "guild_hall/shared/scope_timeline_binding.v1.schema.json",
+      "guild_hall/shared/soulforge_state_root.mjs",
       "guild_hall/shared/source_timeline_annotation.mjs",
       "guild_hall/shared/source_timeline_annotation.v1.schema.json",
       "guild_hall/shared/work_binding.mjs",
       "guild_hall/snapshot/producer.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_cli.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_policy.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_server.mjs",
+      "guild_hall/tool_workshop/src/claude_acp_workspace.mjs",
       "guild_hall/town_crier/runtime.mjs",
       "guild_hall/voice_capture/bounded_strong_asr_request.schema.json",
       "guild_hall/voice_capture/bounded_strong_asr_revision.schema.json",
@@ -223,6 +280,8 @@
       "ui-workspace/apps/dev-erp/src/context_graph.mjs",
       "ui-workspace/apps/dev-erp/src/context_life_tree.mjs",
       "ui-workspace/apps/dev-erp/src/erp_mcp_service.mjs",
+      "ui-workspace/apps/dev-erp/src/feedback_readbox_http.mjs",
+      "ui-workspace/apps/dev-erp/src/feedback_readbox_view.mjs",
       "ui-workspace/apps/dev-erp/src/file_activity_life_tree_projection.mjs",
       "ui-workspace/apps/dev-erp/src/filevault.mjs",
       "ui-workspace/apps/dev-erp/src/five_field.mjs",
@@ -468,6 +527,9 @@
       "guild_hall/deployment_pack/manuals/vault_artifact_revision_promotion.v0.md",
       "guild_hall/deployment_pack/manuals/watch_4192_incident_response.v0.md",
       "guild_hall/deployment_pack/manuals/watch_4192_storage_backup_map.v0.md",
+      "guild_hall/dev_worker/FEEDBACK_READBOX.md",
+      "guild_hall/dev_worker/FEEDBACK_RUNTIME.md",
+      "guild_hall/secure_work/G2_LINEAR_CUSTODY.md",
       "ui-workspace/apps/dev-erp/README.md",
       "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",
       "ui-workspace/apps/dev-erp/docs/DESIGN.md",
@@ -512,6 +574,9 @@
       "ui-workspace/apps/dev-erp/test/doctor.test.mjs",
       "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
       "ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs",
+      "ui-workspace/apps/dev-erp/test/feedback_readbox_http.test.mjs",
+      "ui-workspace/apps/dev-erp/test/feedback_readbox_server.test.mjs",
+      "ui-workspace/apps/dev-erp/test/feedback_recovery.test.mjs",
       "ui-workspace/apps/dev-erp/test/five_field_capture.test.mjs",
       "ui-workspace/apps/dev-erp/test/followup_scan.test.mjs",
       "ui-workspace/apps/dev-erp/test/forge_linear_execution_packet_admission.test.mjs",
@@ -568,6 +633,7 @@
       "ui-workspace/apps/dev-erp/test/runtime_path_contract.test.mjs",
       "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
       "ui-workspace/apps/dev-erp/test/scheduled_task_registration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/secure_work_local_transport_pack.test.mjs",
       "ui-workspace/apps/dev-erp/test/sonar_intel_pack_smoke.test.mjs",
       "ui-workspace/apps/dev-erp/test/stem_reattach.test.mjs",
       "ui-workspace/apps/dev-erp/test/task_engine_inventory.test.mjs",
@@ -1303,6 +1369,9 @@
     "test/doctor.test.mjs",
     "test/erp_mcp_server.test.mjs",
     "test/erp_mcp_service.test.mjs",
+    "test/feedback_readbox_http.test.mjs",
+    "test/feedback_readbox_server.test.mjs",
+    "test/feedback_recovery.test.mjs",
     "test/five_field_capture.test.mjs",
     "test/followup_scan.test.mjs",
     "test/forge_linear_execution_packet_admission.test.mjs",
@@ -1359,6 +1428,7 @@
     "test/runtime_path_contract.test.mjs",
     "test/runtime_release_audit_worker.test.mjs",
     "test/scheduled_task_registration.test.mjs",
+    "test/secure_work_local_transport_pack.test.mjs",
     "test/sonar_intel_pack_smoke.test.mjs",
     "test/stem_reattach.test.mjs",
     "test/task_engine_inventory.test.mjs",
@@ -1433,6 +1503,9 @@
     "test/doctor.test.mjs",
     "test/erp_mcp_server.test.mjs",
     "test/erp_mcp_service.test.mjs",
+    "test/feedback_readbox_http.test.mjs",
+    "test/feedback_readbox_server.test.mjs",
+    "test/feedback_recovery.test.mjs",
     "test/five_field_capture.test.mjs",
     "test/followup_scan.test.mjs",
     "test/forge_linear_execution_packet_admission.test.mjs",
@@ -1489,6 +1562,7 @@
     "test/runtime_path_contract.test.mjs",
     "test/runtime_release_audit_worker.test.mjs",
     "test/scheduled_task_registration.test.mjs",
+    "test/secure_work_local_transport_pack.test.mjs",
     "test/sonar_intel_pack_smoke.test.mjs",
     "test/stem_reattach.test.mjs",
     "test/task_engine_inventory.test.mjs",
@@ -2235,6 +2309,10 @@
       "sha256": "7131398f93a81d7510d501a055230d4bce1ce84d99245acbfc9d0c03fb4b0055"
     },
     {
+      "path": "guild_hall/activity/activity_log.mjs",
+      "sha256": "f4ac131c8c47e0fde1732f1f80c7997eed9914ed413dc75b1be5864905eabac5"
+    },
+    {
       "path": "guild_hall/agent_observation/agent_authority_verification.mjs",
       "sha256": "adab76dacde97831f32959722c3936efea070a479abb372fa052c430efff9131"
     },
@@ -2261,6 +2339,34 @@
     {
       "path": "guild_hall/battle_log/battle_log.mjs",
       "sha256": "9ebf6764a932922ff566373be8c4610eb538fcc2b87c26498e285a43dd4f9d9a"
+    },
+    {
+      "path": "guild_hall/codex_work_directory/directory.mjs",
+      "sha256": "9330f2d1f3b664b9ded3373cb93d66825aa6b43fcf92520f18a8cf21a8b91f8e"
+    },
+    {
+      "path": "guild_hall/dev_worker/feedback_dispatch.mjs",
+      "sha256": "2255501f9af6eef89e213fc1a0fe1989db58b51c995a33a8c2e3e25e2f019dd0"
+    },
+    {
+      "path": "guild_hall/dev_worker/feedback_runtime_io.mjs",
+      "sha256": "1470dfded302cac03f54183a75a455dd32aa0c0b9fbd3500d7a19eb0c2ea4309"
+    },
+    {
+      "path": "guild_hall/dev_worker/feedback_runtime_model.mjs",
+      "sha256": "6d8ac706d8f4c311a5da1577ca9317b80fd44924c303747cb8541cff52b71c3e"
+    },
+    {
+      "path": "guild_hall/dev_worker/feedback_runtime_stage.mjs",
+      "sha256": "a43dd90b6b5aeb8a8f01d9656a5c0185107d50d82a00f81fee5254bbacf4ec52"
+    },
+    {
+      "path": "guild_hall/dev_worker/feedback_runtime_validator.mjs",
+      "sha256": "33eedb6f8a2ac1ef3972f6bee7ac2030610bbd203df3671de7d199cedae4f5ad"
+    },
+    {
+      "path": "guild_hall/dev_worker/feedback_worktree_runner.mjs",
+      "sha256": "404a747de4ffea82c409726e2223b708789dc1e7d9acef88c814b6835b68fc5e"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
@@ -2291,6 +2397,14 @@
       "sha256": "9e8df9d44468ab52a1994bcc1903f961a6d80873c809eb0e9d426593ff6c44f5"
     },
     {
+      "path": "guild_hall/secure_work/execution_authority.mjs",
+      "sha256": "e83269b33043e1769a7b25e9e51c36cfedcbba2df1edb18077d7232801e619dd"
+    },
+    {
+      "path": "guild_hall/secure_work/src/soulforge_secure_work/authority.py",
+      "sha256": "3e10dc1f9996fdbe91748fb598d62575d722d5e7899555a91a5c88ac9a1f6c81"
+    },
+    {
       "path": "guild_hall/shared/ai_work_record_event.v1.schema.json",
       "sha256": "a2553d76b11ad3703b70185123ab2f1ee21078f1276e8d3bab1cff61b4c8632c"
     },
@@ -2301,6 +2415,10 @@
     {
       "path": "guild_hall/shared/source_timeline_annotation.mjs",
       "sha256": "20dbcff9ff1aa87e1d132d2e57a69ee267e0cf42683f0b56b89decc27cd4ef6e"
+    },
+    {
+      "path": "guild_hall/tool_workshop/src/claude_acp_server.mjs",
+      "sha256": "4daacac7270b18f17918c8bee4e69a9fa52cfeb894e3366d0abe798ab18e372a"
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.mjs",
@@ -2320,7 +2438,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "32901d96a09ad77b2ead4c40e736254fdd50f0b61320d03bd6468eb46e52fa08"
+      "sha256": "427f6d1cd1cd082950a0af4e4c615a50a335dafddc63b2587097d372a9e2f660"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2336,7 +2454,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "6cc9b837b65c81b0b003afbea80dfc84da69f675863f7282542b4cb201e9fb68"
+      "sha256": "50d4ef4b7ec895869579e5f2398f86ce7e78d35ee434746a306074475317923d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2348,7 +2466,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/buzz_pilot_workbench_http.mjs",
-      "sha256": "2749a2070e3dfb481f7a0c8accdfefa276d77a567dbd9768cd5a509a1bc71308"
+      "sha256": "655c899600ab36fa8139c55766463efa7b4dfa1125fd15127f35ecca7339e21d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
@@ -2373,6 +2491,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/src/codex_workspace_root_isolation_child.cjs",
       "sha256": "63cfc09a516de9068ede9657d3a9a886f5abecfee68b2e399e70afb76da0b1d8"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/feedback_readbox_http.mjs",
+      "sha256": "b31467b572f484d1ae470bc05e5d0e37c96daf923710a13398b750fba4dd0538"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/file_activity_life_tree_projection.mjs",
@@ -2440,7 +2562,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/workbench.js",
-      "sha256": "b125d1efd8700b5a2a8b5ffecea6ed8e7f95259bb179cac96574f32be1731f41"
+      "sha256": "f62a1f8255977a6e9c12c7a30cec22def891a66633c15bd732c9b1fdd130216b"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/accepted_context_http.test.mjs",
@@ -2452,7 +2574,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
-      "sha256": "d50228215fdb394f65542708035f4a2d5e1fa442503b8678811771f95bb9460c"
+      "sha256": "a7278bc5aedadf90d068a25e15e1ec7ca2c4b9d48b9cb1cc3d05bda25cd306f3"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
@@ -2485,6 +2607,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs",
       "sha256": "d82ee924bed2cb8f580d84228a95cece60172d1ca8468f14e25c83e2e4290113"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/feedback_readbox_server.test.mjs",
+      "sha256": "4a670a2b17e59c4555f95334fccd58325c4c65dcb804ac74357cc968a86eace2"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/forge_world_server.test.mjs",
