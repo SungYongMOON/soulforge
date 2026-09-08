@@ -283,6 +283,16 @@
       "rejected_duplicate_source_paths": []
     },
     {
+      "module_id": "sonar_intel",
+      "interface_version": "sonar_intel.v1",
+      "module_manifest_ref": "ui-workspace/apps/sonar-intel/module.manifest.json",
+      "implementation_owner": "ui-workspace/apps/sonar-intel",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
       "module_id": "team_ops_board",
       "interface_version": "team_ops_board.v0",
       "module_manifest_ref": "ui-workspace/apps/team-ops-board/module.manifest.json",

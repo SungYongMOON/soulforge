@@ -606,6 +606,13 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
 - 상세 출발 자료는 Owner가 지정한 로컬 handoff의 최신 시작 문서·제작 패킷·시각 합의·
   통합 로드맵이다. 구현 상세는 기존 모듈 owner, 실행 영수증은 허용된 private 기록면에 둔다.
 
+현재 통합 델타(2026-09-08): 검토된 HWPX 고정 구조 후보, 합성 업무 발견·관계/비용
+평가, 기존 로그인 이동 수정과 소나 인텔의 설치·외부 작업자료·복구 구현을 다음
+후보에 합쳤다. HPP 0.1.11은 소나의 선택 실행 모듈을 포함하고 공방 팩에는 HWPX
+실행·검증의 파일 의존성을 포함한다. 전체 후보의 설치·복구 검증과 매뉴얼 판본
+결속은 아직 진행 중이다. 실제 일반 HWPX 렌더, 실제 업무 발견 모델·자료 공급,
+자동 개선 전체 실행과 첫 Buzz 질문→답변→결과 관통은 별도 기술 잔여로 유지한다.
+
 ## SE assistant program direction
 
 Current structural target:

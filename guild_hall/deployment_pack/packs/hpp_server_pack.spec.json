@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -54,10 +54,14 @@
       "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
       "guild_hall/agent_observation/agent_authority_verification.mjs",
       "guild_hall/agent_observation/agent_mark_lineage.mjs",
+      "guild_hall/agent_observation/agent_observation.mjs",
       "guild_hall/agent_observation/agent_registry.mjs",
       "guild_hall/agent_observation/agent_workforce_revision_catalog.mjs",
+      "guild_hall/agent_observation/delivery_evidence.mjs",
       "guild_hall/agent_observation/guard_primitives.mjs",
       "guild_hall/agent_observation/observation_internals.mjs",
+      "guild_hall/agent_observation/run_observation.mjs",
+      "guild_hall/agent_observation/usage_ledger.mjs",
       "guild_hall/ai_usage_meter/evidence_ledger.mjs",
       "guild_hall/backup_controller/source_backup_generation_contract.mjs",
       "guild_hall/battle_log/battle_log.mjs",
@@ -267,6 +271,11 @@
       "ui-workspace/apps/dev-erp/src/voice_first_mutation_canary_gate.mjs",
       "ui-workspace/apps/dev-erp/src/voice_first_worker_comparison.mjs",
       "ui-workspace/apps/dev-erp/src/win_system_exe.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_adapter.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_cost_evaluation.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_documents.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_evaluation.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_store.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_outbox.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_source_inventory.mjs",
@@ -309,6 +318,8 @@
       "ui-workspace/apps/dev-erp/test/hermes_native_restart_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/hermes_native_workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_relation_fixtures.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_test_helpers.mjs",
       "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
       "ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs",
       "ui-workspace/apps/dev-erp/tools/auto_intake_cycle.mjs",
@@ -376,6 +387,44 @@
       "ui-workspace/apps/dev-erp/tools/team_preflight.mjs",
       "ui-workspace/apps/dev-erp/tools/verify_gate.mjs",
       "ui-workspace/apps/dev-erp/tools/voice_to_task_candidates.mjs",
+      "ui-workspace/apps/sonar-intel/config/keywords.json",
+      "ui-workspace/apps/sonar-intel/config/sources.json",
+      "ui-workspace/apps/sonar-intel/export/snapshot.mjs",
+      "ui-workspace/apps/sonar-intel/server.mjs",
+      "ui-workspace/apps/sonar-intel/src/analysis/index.mjs",
+      "ui-workspace/apps/sonar-intel/src/collectors/arxiv.mjs",
+      "ui-workspace/apps/sonar-intel/src/collectors/budget_journal.mjs",
+      "ui-workspace/apps/sonar-intel/src/collectors/diagnostics.mjs",
+      "ui-workspace/apps/sonar-intel/src/collectors/news_rss.mjs",
+      "ui-workspace/apps/sonar-intel/src/collectors/papers.mjs",
+      "ui-workspace/apps/sonar-intel/src/collectors/source_contract.mjs",
+      "ui-workspace/apps/sonar-intel/src/data_recovery.mjs",
+      "ui-workspace/apps/sonar-intel/src/rate_gate.mjs",
+      "ui-workspace/apps/sonar-intel/src/runtime_paths.mjs",
+      "ui-workspace/apps/sonar-intel/src/store.mjs",
+      "ui-workspace/apps/sonar-intel/src/xml_text.mjs",
+      "ui-workspace/apps/sonar-intel/static/index.html",
+      "ui-workspace/apps/sonar-intel/test/analysis.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/analysis_server.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/arxiv.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/data_recovery.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/fixtures/analysis_sample.mjs",
+      "ui-workspace/apps/sonar-intel/test/fixtures/arxiv_sample_atom.xml",
+      "ui-workspace/apps/sonar-intel/test/fixtures/defense_news_sample.xml",
+      "ui-workspace/apps/sonar-intel/test/fixtures/google_news_sample.xml",
+      "ui-workspace/apps/sonar-intel/test/fixtures/paper_sample.mjs",
+      "ui-workspace/apps/sonar-intel/test/network_live.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/news_rss.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/papers.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/rate_gate.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/runtime_paths.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/snapshot.test.mjs",
+      "ui-workspace/apps/sonar-intel/test/store.test.mjs",
+      "ui-workspace/apps/sonar-intel/tools/analyze_once.mjs",
+      "ui-workspace/apps/sonar-intel/tools/browser_fixture.mjs",
+      "ui-workspace/apps/sonar-intel/tools/collect_once.mjs",
+      "ui-workspace/apps/sonar-intel/tools/data_recovery.mjs",
+      "ui-workspace/apps/sonar-intel/tools/export_snapshot.mjs",
       "ui-workspace/apps/team-ops-board/forge-world.html",
       "ui-workspace/apps/team-ops-board/src/core/forge-world-state.mjs",
       "ui-workspace/apps/team-ops-board/src/core/workbench-intake-record.mjs",
@@ -402,13 +451,18 @@
       "guild_hall/voice_capture/ops/run-continuous-label-supervisor.ps1"
     ],
     "manifests": [
-      "ui-workspace/apps/dev-erp/package.json"
+      "ui-workspace/apps/dev-erp/package.json",
+      "ui-workspace/apps/sonar-intel/module.manifest.json",
+      "ui-workspace/apps/sonar-intel/package.json"
     ],
     "operator_docs": [
+      "guild_hall/deployment_pack/manuals/sonar_intel_install_recovery.v0.md",
       "ui-workspace/apps/dev-erp/README.md",
-      "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
+      "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",
       "ui-workspace/apps/dev-erp/docs/DESIGN.md",
-      "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md"
+      "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
+      "ui-workspace/apps/sonar-intel/README.md",
+      "ui-workspace/apps/sonar-intel/docs/SONAR_INTEL_MASTER_PLAN_V1.md"
     ],
     "validators": [
       "ui-workspace/apps/dev-erp/test/a8_synth_secure_access.test.mjs",
@@ -503,6 +557,7 @@
       "ui-workspace/apps/dev-erp/test/runtime_path_contract.test.mjs",
       "ui-workspace/apps/dev-erp/test/runtime_release_audit_worker.test.mjs",
       "ui-workspace/apps/dev-erp/test/scheduled_task_registration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/sonar_intel_pack_smoke.test.mjs",
       "ui-workspace/apps/dev-erp/test/stem_reattach.test.mjs",
       "ui-workspace/apps/dev-erp/test/task_engine_inventory.test.mjs",
       "ui-workspace/apps/dev-erp/test/task_engine_inventory_c00b_binding_producer.test.mjs",
@@ -517,6 +572,13 @@
       "ui-workspace/apps/dev-erp/test/voice_first_worker_comparison.test.mjs",
       "ui-workspace/apps/dev-erp/test/voice_to_task_candidates.test.mjs",
       "ui-workspace/apps/dev-erp/test/win_system_exe.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_adapter.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_cost_evaluation.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_documents.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_evaluation.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_integration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_relations.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_store.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_inventory.test.mjs",
       "ui-workspace/apps/dev-erp/test/workbench_current_sources.test.mjs",
@@ -1286,6 +1348,7 @@
     "test/runtime_path_contract.test.mjs",
     "test/runtime_release_audit_worker.test.mjs",
     "test/scheduled_task_registration.test.mjs",
+    "test/sonar_intel_pack_smoke.test.mjs",
     "test/stem_reattach.test.mjs",
     "test/task_engine_inventory.test.mjs",
     "test/task_engine_inventory_c00b_binding_producer.test.mjs",
@@ -1300,6 +1363,13 @@
     "test/voice_first_worker_comparison.test.mjs",
     "test/voice_to_task_candidates.test.mjs",
     "test/win_system_exe.test.mjs",
+    "test/work_intake_adapter.test.mjs",
+    "test/work_intake_cost_evaluation.test.mjs",
+    "test/work_intake_documents.test.mjs",
+    "test/work_intake_evaluation.test.mjs",
+    "test/work_intake_integration.test.mjs",
+    "test/work_intake_relations.test.mjs",
+    "test/work_intake_store.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
     "test/workbench_current_sources.test.mjs",
@@ -1408,6 +1478,7 @@
     "test/runtime_path_contract.test.mjs",
     "test/runtime_release_audit_worker.test.mjs",
     "test/scheduled_task_registration.test.mjs",
+    "test/sonar_intel_pack_smoke.test.mjs",
     "test/stem_reattach.test.mjs",
     "test/task_engine_inventory.test.mjs",
     "test/task_engine_inventory_c00b_binding_producer.test.mjs",
@@ -1422,6 +1493,13 @@
     "test/voice_first_worker_comparison.test.mjs",
     "test/voice_to_task_candidates.test.mjs",
     "test/win_system_exe.test.mjs",
+    "test/work_intake_adapter.test.mjs",
+    "test/work_intake_cost_evaluation.test.mjs",
+    "test/work_intake_documents.test.mjs",
+    "test/work_intake_evaluation.test.mjs",
+    "test/work_intake_integration.test.mjs",
+    "test/work_intake_relations.test.mjs",
+    "test/work_intake_store.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
     "test/workbench_current_sources.test.mjs",
@@ -2231,7 +2309,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "da76cb470b007e210695e0be95f76bc738aeccc972708b7cf8d9fcefe9387edb"
+      "sha256": "47dbe5b7a9a322ab119615057d141ecd1e7c4a39e215f2e0f73c9293a73c4e9d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2247,7 +2325,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "a781160d09030a7edac9d5066cb80029d3da28734b7241b37e5693208af05dbb"
+      "sha256": "6cc9b837b65c81b0b003afbea80dfc84da69f675863f7282542b4cb201e9fb68"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2259,7 +2337,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/buzz_pilot_workbench_http.mjs",
-      "sha256": "de467842bfc16d2c8e382faae9bf8ac05cf5734015d9a0fe0ef82b6b2d72cc48"
+      "sha256": "b7b0072ad63b3d47554c0b766bb414702e17965f0837f937749c6578cd0ab416"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
@@ -2350,16 +2428,20 @@
       "sha256": "fa6683a5c307990d17b13a91f29b36a03f01de1aef4d13ce9dfe07846e7e1d4e"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/static/workbench.js",
+      "sha256": "3029b94a0f71ce69be3976cc909c0f194364aaa5ef990a1661e546577362adb5"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/accepted_context_http.test.mjs",
       "sha256": "137ccac4bb91c1c2fb819a0f6fbfb1963edc76c09568d96094cb6194b0d74c8e"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_auth_source.test.mjs",
-      "sha256": "42f9bf5507fdec7d95f5ac445be669925556eeaf3cc640dea41e6feed15a4c34"
+      "sha256": "18fa1fbb98a100176d8fef6a2fc043520843882e30d615f38d2c0704e587749d"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
-      "sha256": "b8715366238d98d573c89d2dbb2366eca39a1f5a5ccafa1819bcca594c33c101"
+      "sha256": "477caaf7b0297432c214e035eeb8e4f25756d2d583f064c83e51fda898279f70"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
@@ -2500,6 +2582,26 @@
     {
       "path": "ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs",
       "sha256": "6b810c77b021986bbbc15c285183394901d589572df8186cc1a0d9425608600f"
+    },
+    {
+      "path": "ui-workspace/apps/sonar-intel/src/analysis/index.mjs",
+      "sha256": "0c20b3c24b3894d3ddce5b94e72d71b31260c9df694dd553b0996109568194e6"
+    },
+    {
+      "path": "ui-workspace/apps/sonar-intel/src/collectors/diagnostics.mjs",
+      "sha256": "5584a315990df2660f12ef493bb24950bbbd283563ff81c31de2552609b322af"
+    },
+    {
+      "path": "ui-workspace/apps/sonar-intel/src/collectors/papers.mjs",
+      "sha256": "3a9270de9bc61ed85fc0fa19b004946968f8620e97741fe22cc3c43c07534097"
+    },
+    {
+      "path": "ui-workspace/apps/sonar-intel/test/analysis.test.mjs",
+      "sha256": "953c38be6c378917debc53be10bad6112e3a7b3520f70739f4a5b9529572ce69"
+    },
+    {
+      "path": "ui-workspace/apps/sonar-intel/test/papers.test.mjs",
+      "sha256": "6de822f33de6f1686782812b6b48db50bf8523efb00e6c85754509295dc50322"
     }
   ]
 }

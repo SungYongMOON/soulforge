@@ -1,6 +1,31 @@
-# Tool Workshop — durable queue and isolated XLSX/PPTX execution
+# Tool Workshop — durable queue and bounded document candidates
 
-Owner: `guild_hall/tool_workshop`. `CURRENT = isolated synthetic XLSX/PPTX candidate execution + durable replay`. Default OFF. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by this module. HWPX, CAD and PCB execution remain subsequent work in the same program goal.
+Owner: `guild_hall/tool_workshop`. `CURRENT = isolated synthetic XLSX/PPTX candidates + fixed HWPX structural candidates + durable replay`. Default OFF. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by this module. Hancom rendering, general HWPX templates, CAD and PCB execution remain subsequent work in the same program goal.
+
+## Fixed HWPX structural candidate
+
+`hwpx_workshop_runner.mjs` reuses the durable queue, current lease/fence and bounded
+child process. The profile is `workshop.hwpx`, resource `resource.hwpx_python`,
+tool `tool.template_hwpx:v1` and validator `validator.hwpx_structural_readback:v1`.
+Its pinned template family has one section, an exact base header, a 2×2 table,
+two editable text nodes and no preview parts. Title/body admit only bounded NFC
+Hangul syllables and printable ASCII. This profile does not accept arbitrary HWPX.
+
+Separate Python child invocations author and validate actual HWPX bytes before
+candidate registration. Every other ZIP entry payload stays unchanged. Unsafe
+entry names, links, duplicate entries, excess expansion, XML declarations that
+permit external entities, archive comments and per-entry extra/comment metadata
+are rejected. The validator checks the fixed structure and exact text changes.
+Input/candidate bodies stay outside the metadata journal; restart reads the same
+candidate receipt. Rejection produces no candidate custody, including after reopen.
+
+Node 24 and a trusted local Python 3.12 binding are required. Native tests run
+only when `SOULFORGE_HWPX_TEST_PYTHON` explicitly selects that runtime; absence is
+reported as a skip. The executable and actual Python runtime files are pinned,
+and the child uses `-I -S -B`. The test fixture reads the five declared registry
+base files; packaging must carry those exact source files and the fixture helper.
+Structural verification and independent XML readback do not establish Hancom
+rendering, page count, font coverage, printing, human acceptance or production use.
 
 The original pure core remains the single queue/lease/retry state machine. The local durable adapter adds SQLite transaction boundaries and replays sanitized commands into that core. The first real tool path reuses `ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs` unchanged: an approved structured metadata packet becomes an actual one-sheet OOXML XLSX candidate.
 

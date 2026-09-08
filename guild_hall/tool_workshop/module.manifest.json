@@ -1,15 +1,15 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "tool_workshop_core",
-  "module_version": "0.4.2",
+  "module_version": "0.4.3",
   "interface_version": "tool_workshop.v0",
   "schema_versions": ["soulforge.tool_workshop_core.v0"],
   "owner": "guild_hall/tool_workshop",
-  "capabilities_provided": ["workshop.capacity_one_lease_fence.v0", "workshop.bounded_run_candidate_receipt.v0", "workshop.durable_replay.v0", "workshop.isolated_xlsx_candidate.v0", "workshop.isolated_pptx_candidate.v0", "workshop.scoped_claude_acp_text.v0"],
+  "capabilities_provided": ["workshop.capacity_one_lease_fence.v0", "workshop.bounded_run_candidate_receipt.v0", "workshop.durable_replay.v0", "workshop.isolated_xlsx_candidate.v0", "workshop.isolated_pptx_candidate.v0", "workshop.isolated_hwpx_structural_candidate.v0", "workshop.scoped_claude_acp_text.v0"],
   "capabilities_required": [],
   "required_dependencies": [],
   "optional_dependencies": [],
-  "compatible_version_ranges": { "node": ">=24", "pptx_python": ">=3.12 <3.13", "pptx_artifact_tool": "=2.8.59" },
+  "compatible_version_ranges": { "node": ">=24", "pptx_python": ">=3.12 <3.13", "pptx_artifact_tool": "=2.8.59", "hwpx_python": ">=3.12 <3.13" },
   "startup_order": null,
   "feature_flag": null,
   "default_state": "off_isolated_synthetic_only",
@@ -21,8 +21,8 @@
   "backup_class": "isolated_synthetic_replay_only_no_operational_dr_claim",
   "migration_version": "sqlite_journal_v1",
   "rollback_version": "stop_runner_preserve_state_and_attempts_no_automatic_downgrade",
-  "validators": ["node --test guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs", "node --test guild_hall/tool_workshop/tests/tool_workshop_durable.test.mjs", "node --test guild_hall/tool_workshop/tests/xlsx_workshop_runner.test.mjs", "node --test guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs", "node --test guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs", "node --test guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs", "node --test guild_hall/tool_workshop/tests/claude_acp_failure.test.mjs"],
+  "validators": ["node --test guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs", "node --test guild_hall/tool_workshop/tests/tool_workshop_durable.test.mjs", "node --test guild_hall/tool_workshop/tests/xlsx_workshop_runner.test.mjs", "node --test guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs", "node --test guild_hall/tool_workshop/tests/hwpx_workshop_runner.test.mjs", "node --test guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs", "node --test guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs", "node --test guild_hall/tool_workshop/tests/claude_acp_failure.test.mjs"],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Default-off isolated XLSX and template-bound PPTX execution reuse existing writer/text-replacement code and the same SQLite queue/fencing core. Trusted local bindings pin exact resources, executables, versions, source hashes, template and rendering package; PPTX native and rendered-PNG validation precede candidate registration. Optional scoped Claude ACP performs metadata preflight, observes typed native authentication before each work prompt, and exposes only manifest-bound text reads and create-only drafts. Terminal operational failures retain typed failure metadata and replay without another attempt; end_turn or a Buzz transport label does not prove work success, Bot Chat delivery or acceptance. It adds no OS sandbox, job dispatch, rendered artifact or automatic acceptance claim. Receipts bind exact bytes and render evidence only. No acceptance, OfficialDone, external upload, operating lane, Office application, physical Tool PC or license activation is implied. Other tool profiles remain required execution work in the same program goal."
+  "authority_notes": "Default-off isolated XLSX and template-bound PPTX execution reuse existing writer/text-replacement code and the same SQLite queue/fencing core. Trusted local bindings pin exact resources, executables, versions, source hashes, template and rendering package; PPTX native and rendered-PNG validation precede candidate registration. Optional scoped Claude ACP performs metadata preflight, observes typed native authentication before each work prompt, and exposes only manifest-bound text reads and create-only drafts. Terminal operational failures retain typed failure metadata and replay without another attempt; end_turn or a Buzz transport label does not prove work success, Bot Chat delivery or acceptance. It adds no OS sandbox, job dispatch, rendered artifact or automatic acceptance claim. HWPX preserves a fixed two-text-node template as a structural candidate through separate author/verifier children; it provides no Hancom render, page-count, font or preview proof. Receipts bind exact bytes and the format-specific evidence actually observed. No acceptance, OfficialDone, external upload, operating lane, Office application, physical Tool PC or license activation is implied. Other tool profiles remain required execution work in the same program goal."
 }

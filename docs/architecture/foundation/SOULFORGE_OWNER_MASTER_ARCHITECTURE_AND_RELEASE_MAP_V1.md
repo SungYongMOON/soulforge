@@ -388,6 +388,11 @@ Module 삭제 시 복잡성이 여러 caller로 다시 퍼진다면 깊은 Modul
 각 Pack은 manifest, semantic version, dependency/SBOM, install/start/stop/smoke,
 upgrade/rollback/restore, manual과 support lifecycle을 가진다. Pack 존재는 Release가 아니다.
 
+2026-09-08 다음 후보: HPP 0.1.11에 소나 인텔의 선택 실행 앱·오프라인 검사·자료 복구
+안내를 포함하고, Tool Workshop에는 고정 HWPX 구조 후보와 실행·검증 파일 의존성을
+포함한다. 소나는 기존 구현 owner를 유지하는 Shared 모듈이다. 전체 설치판의 검증은
+진행 중이며 운영 수집·서비스 전환·Hancom 렌더·사람 수락을 완료로 간주하지 않는다.
+
 ## M6. 물리 작업공간·Buzz Git
 
 ```text

@@ -10,6 +10,13 @@ Build and inspect the HPP Server Pack in an approved isolated one-seat canary. T
 
 ## Prerequisites
 
+The pack also carries Sonar Intel as an optional Main Node application. Follow
+[its installation and data recovery procedure](sonar_intel_install_recovery.v0.md)
+for an explicit loopback start with a separate working-data directory. Installing
+the pack does not start Sonar, schedule collection or authorize external sources.
+Code rollback and Sonar data-generation restore are separate operations; a
+restored collection stays disabled until its budget and source state are reconciled.
+
 - The Owner has approved the exact one-seat canary and supplied an isolated target and backup destination outside this manual.
 - The requested pack version is compatible with the catalog range and the HPP pack specification is unchanged for the run.
 - The operator has the approved role and can read the resulting receipts. Credential material, production service activation, and external connector authority are out of scope.

@@ -15,10 +15,17 @@ const sources = listFiles(ROOT, `${WORKSHOP}/src`, ".mjs");
 const helper = [`${WORKSHOP}/src/tool_workshop_core.mjs`, `${WORKSHOP}/src/tool_workshop_durable.mjs`, `${WORKSHOP}/src/workshop_files.mjs`];
 const closure = moduleClosure(ROOT, [...sources, ...validators]);
 const nativeSources = [...listFiles(ROOT, `${WORKSHOP}/src`, ".py"), ".registry/skills/pptx_autofill_conversion/codex/scripts/replace_text_runs.py"];
+// The HWPX synthetic helper opens these fixed template parts rather than
+// importing them. They belong to the installed smoke's actual data closure.
+const hwpxFixtureReads = [
+  "docs/architecture/workspace/examples/tool_workshop/synthetic_hwpx_fixture.py",
+  ...["Contents/header.xml", "Contents/section0.xml", "Contents/content.hpf", "settings.xml", "version.xml"]
+    .map(file => `.registry/skills/hwpx_document/codex/templates/base/${file}`),
+];
 const spec = JSON.parse(readFileSync(resolve(ROOT, SPEC), "utf8"));
 spec.content_roles = {
   resource_lease_helper: helper,
-  tool_adapter: [...closure.filter((file) => !helper.includes(file) && !validators.includes(file)), ...nativeSources].sort(),
+  tool_adapter: [...closure.filter((file) => !helper.includes(file) && !validators.includes(file)), ...nativeSources, ...hwpxFixtureReads].sort(),
   validators,
   workshop_docs: [`${WORKSHOP}/README.md`, `${WORKSHOP}/CLAUDE_ACP_SCOPE.md`, `${WORKSHOP}/module.manifest.json`, ...listFiles(ROOT, `${WORKSHOP}/tests`, ".py"), "guild_hall/deployment_pack/manuals/workshop_operator.v0.md",
     // The compatibility/failure smoke suites read these JSON files directly.

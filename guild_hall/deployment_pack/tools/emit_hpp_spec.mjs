@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import { SECRET_MATERIAL } from "./build_pack.mjs";
 import { listReleaseStaticAssets } from "./release_static_assets.mjs";
+import { sonarIntelPackMembers } from "./sonar_intel_pack_members.mjs";
 import { computeBundleDigest, validateRuntimeBinding } from "../../workflow_runner/catalog.mjs";
 import {
   listFiles as libListFiles,
@@ -190,6 +191,15 @@ const contentRoles = {
   vendored_dependencies: vendoredFiles,
 };
 
+const sonarMembers = sonarIntelPackMembers(ROOT);
+contentRoles.server_modules = [...new Set([
+  ...contentRoles.server_modules,
+  ...sonarMembers.server_modules,
+  ...sonarMembers.validators,
+])].sort();
+contentRoles.manifests = [...new Set([...contentRoles.manifests, ...sonarMembers.manifests])].sort();
+contentRoles.operator_docs = [...new Set([...contentRoles.operator_docs, ...sonarMembers.operator_docs])].sort();
+
 const reviewed = [];
 for (const rolePaths of Object.values(contentRoles)) {
   for (const relPath of rolePaths) {
@@ -204,7 +214,7 @@ reviewed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "hpp_server_pack",
-  version: "0.1.10",
+  version: "0.1.11",
   host_effect_policy: {
     reboot: "forbidden",
     driver_change: "forbidden",

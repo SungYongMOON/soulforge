@@ -15,6 +15,10 @@ Hermes/agent-runtime **coarse aggregate 경계**는 Board 쪽 테스트가 고�
 
 ## 검증
 
+소나 인텔은 기존 구현 owner를 유지하는 Shared 선택 앱으로 두 검사기의 등재
+집합과 분류 catalog에 포함한다. HPP 포장은 앱의 소스·검사·자료 복구 안내를
+참조하며 서버·수집기 자동 기동이나 제품 소유권 이전을 만들지 않는다.
+
 ```powershell
 npm.cmd run validate:module-operability
 npm.cmd run validate:product-composition

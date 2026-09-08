@@ -6,7 +6,18 @@
 
 ## Purpose
 
-Operate an isolated XLSX or bounded template PPTX job: check the pack, submit to its durable queue, run the fixed writer and independent validator, and preserve the candidate receipt for the separate ArtifactRevision review path. The runtime requires Node 24+. This procedure does not operate a physical CAD, Office, HWPX, or other specialist tool PC.
+Operate an isolated XLSX, bounded template PPTX, or fixed HWPX structural job: check the pack, submit to its durable queue, run the fixed writer and independent validator, and preserve the candidate receipt for the separate ArtifactRevision review path. The runtime requires Node 24+. This procedure does not operate a physical CAD, Office, Hancom, or other specialist tool PC.
+
+The HWPX profile is limited to one section, a fixed base header, a 2×2 table and
+two short text replacements. It admits no preview parts. Both author and verifier
+run as separate bounded Python 3.12 children, and all other ZIP entry payloads
+must remain unchanged. Extra/comment metadata, unsafe entries, XML external
+references and out-of-profile structures are refused before candidate custody.
+Use `SOULFORGE_HWPX_TEST_PYTHON` only to select an existing trusted runtime for the
+synthetic native tests. The fixture and its five pinned registry base files must
+travel with the installed tests. A passed structural result still needs actual
+Hancom render verification; it is not proof of page count, fonts, printing or
+human acceptance. That render connection remains development work.
 
 ## Prerequisites
 
