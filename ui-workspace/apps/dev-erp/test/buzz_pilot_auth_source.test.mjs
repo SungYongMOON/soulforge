@@ -120,7 +120,9 @@ test('actual source login cookie authorizes only exact Buzz GETs on a separate c
   assert.equal(login.status, 200); const cookie = login.headers.get('set-cookie')?.split(';')[0];
   assert.ok(cookie?.startsWith(`dev_erp_sid_${f.sourceServer.port}=`));
   const before = await readFile(f.sourceDb), target = f.candidateServer.origin;
-  assert.equal((await http(target, '/api/workbench/buzz-pilot')).status, 401);
+  const unauthenticated = await http(target, '/api/workbench/buzz-pilot');
+  assert.equal(unauthenticated.status, 401);
+  assert.equal(JSON.parse(unauthenticated.text).login_url, `${f.sourceServer.origin}/`);
   const view = await http(target, '/api/workbench/buzz-pilot', { cookie });
   assert.equal(view.status, 200, view.text); assert.equal(JSON.parse(view.text).state, 'waiting_owner');
   const evidence = await http(target, '/api/workbench/buzz-pilot/evidence?role=instruction', { cookie });
@@ -147,6 +149,8 @@ test('configured broken source does not fall back to an authenticated local cand
   assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie')?.split(';')[0];
   const result = await fetch(`${f.candidateServer.origin}/api/workbench/buzz-pilot`, { headers: { cookie, 'sec-fetch-site': 'same-origin' } });
-  assert.equal(result.status, 503); assert.equal((await result.json()).hold_code, 'BUZZ_PILOT_AUTH_SOURCE_UNAVAILABLE');
+  assert.equal(result.status, 503); const failure = await result.json();
+  assert.equal(failure.hold_code, 'BUZZ_PILOT_AUTH_SOURCE_UNAVAILABLE');
+  assert.equal(Object.hasOwn(failure, 'login_url'), false);
   await assert.rejects(readFile(join(f.root, 'missing.sqlite')), { code: 'ENOENT' });
 });

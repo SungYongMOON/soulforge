@@ -140,18 +140,31 @@ function syncControls() {
     : '다시 시도할 때는 같은 대상과 입력 판본으로 다음 접수 기록을 만듭니다.';
 }
 
-function notice(message, warning = false, login = false) {
+function safeLoginUrl(value) {
+  try {
+    if (typeof value !== 'string') return null;
+    const url = new URL(value);
+    return url.protocol === 'http:' && location.protocol === 'http:' && url.hostname === location.hostname
+      && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) && !url.username && !url.password
+      && url.pathname === '/' && !url.search && !url.hash ? url.href : null;
+  } catch { return null; }
+}
+function notice(message, warning = false, login = false, loginUrl = null) {
   $('notice').textContent = message;
   $('notice').classList.toggle('warning', warning);
-  if (login) { const link = document.createElement('a'); link.href = '/'; link.textContent = '로그인 화면으로'; $('notice').append(link); }
+  if (login) {
+    const source = safeLoginUrl(loginUrl), link = document.createElement('a');
+    link.href = source ?? '/'; link.textContent = source ? '기존 서버에서 로그인' : '로그인 화면으로'; $('notice').append(link);
+  }
 }
 async function api(path, options = {}) {
   const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...options });
   const data = await response.json();
-  if (!response.ok) throw { status: response.status, code: data.hold_code ?? (response.status === 401 ? 'AUTH_REQUIRED' : 'CURRENT_EVIDENCE_OR_STORE_UNAVAILABLE') };
+  if (!response.ok) throw { status: response.status, code: data.hold_code ?? (response.status === 401 ? 'AUTH_REQUIRED' : 'CURRENT_EVIDENCE_OR_STORE_UNAVAILABLE'),
+    login_url: response.status === 401 ? data.login_url : undefined };
   return data;
 }
-function reportError(error) { const code = error?.code; notice(reasons[code] ?? '현재 상태를 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.', true, code === 'AUTH_REQUIRED'); }
+function reportError(error) { const code = error?.code; notice(reasons[code] ?? '현재 상태를 확인할 수 없습니다. 잠시 후 다시 확인해 주세요.', true, code === 'AUTH_REQUIRED', error?.login_url); }
 function addText(parent, tag, text, className) {
   const element = document.createElement(tag); element.textContent = text;
   if (className) element.className = className;

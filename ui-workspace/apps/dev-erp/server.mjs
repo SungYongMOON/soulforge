@@ -2455,6 +2455,7 @@ const unavailableBuzzPilotAuthSource = () => { throw Object.assign(new Error('Bu
 const buzzPilotWorkbenchHttpController = createBuzzPilotWorkbenchHttpController({
   enabled: buzzPilotReadEnabled, service: buzzPilotReader?.reader ?? null,
   allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  authSourcePort: buzzPilotAuthSource ? process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_PORT : null,
   ...(buzzPilotAuthSourceRequested ? buzzPilotAuthSource ?? { currentAccount: unavailableBuzzPilotAuthSource,
     sessionKey: unavailableBuzzPilotAuthSource, canAccessProject: unavailableBuzzPilotAuthSource }
     : { currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject }),
