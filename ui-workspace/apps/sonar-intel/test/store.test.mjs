@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -197,10 +198,37 @@ for (const backend of backendsToTest) {
   });
 }
 
-test("openStore throws if backend 'sqlite' is forced but unavailable", { skip: hasSqlite }, async () => {
+test("openStore throws if backend 'sqlite' is forced but unavailable", async () => {
   const dataDir = tmpDataDir();
   try {
-    await assert.rejects(() => openStore({ dataDir, backend: "sqlite" }));
+    if (hasSqlite) {
+      // Exercise actual module unavailability without changing the host runtime.
+      // Resolve against this test so the same check works in an installed pack.
+      const storeUrl = new URL("../src/store.mjs", import.meta.url).href;
+      const script = `
+        import assert from "node:assert/strict";
+        import { openStore } from ${JSON.stringify(storeUrl)};
+        await assert.rejects(import("node:sqlite"), { code: "ERR_UNKNOWN_BUILTIN_MODULE" });
+        await assert.rejects(() => openStore({ dataDir: process.argv[1], backend: "sqlite" }),
+          { message: "sqlite_backend_unavailable" });
+        process.stdout.write("SQLITE_UNAVAILABLE_VERIFIED\\n");
+      `;
+      const env = {};
+      for (const key of ["SystemRoot", "WINDIR"]) {
+        if (process.env[key] !== undefined) env[key] = process.env[key];
+      }
+      const child = spawnSync(process.execPath,
+        ["--no-experimental-sqlite", "--input-type=module", "--eval", script, "--", dataDir],
+        { encoding: "utf8", timeout: 10000, windowsHide: true, env });
+      assert.ifError(child.error);
+      assert.equal(child.signal, null);
+      assert.equal(child.status, 0, child.stderr);
+      assert.equal(child.stdout, "SQLITE_UNAVAILABLE_VERIFIED\n");
+    } else {
+      await assert.rejects(() => openStore({ dataDir, backend: "sqlite" }),
+        { message: "sqlite_backend_unavailable" });
+    }
+    assert.deepEqual(readdirSync(dataDir), [], "failure must not create a CORE or retain its lease");
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
