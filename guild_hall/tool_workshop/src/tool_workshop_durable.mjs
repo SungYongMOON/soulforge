@@ -147,7 +147,7 @@ export function commitVerifiedCandidate(queue,{lease,now,verifyAndPublish}) {
   return runtime.transaction(({core,append,bindings,approvals}) => {
     const currentLease=core.assertCurrentLease(lease,now());
     const job=core.getJob(currentLease.job_id);
-    const candidateTools={'tool.project_history_xlsx:v1':{format:'xlsx',validator:'validator.xlsx_native_readback:v1'},'tool.template_pptx:v1':{format:'pptx',validator:'validator.pptx_native_render:v1'}};
+    const candidateTools={'tool.project_history_xlsx:v1':{format:'xlsx',validator:'validator.xlsx_native_readback:v1'},'tool.template_pptx:v1':{format:'pptx',validator:'validator.pptx_native_render:v1'},'tool.template_hwpx:v1':{format:'hwpx',validator:'validator.hwpx_structural_readback:v1'}};
     const expected=candidateTools[job.required_tool_version];
     if (!approvals.get(job.job_id) || !expected || !bindings.get(job.workshop_id)) reject('candidate_binding_required');
     const artifact = verifyAndPublish();
