@@ -216,9 +216,11 @@ test("ERP MCP HTTP pilot stores a completed file and completion hook consumes th
         artifact_ids: [],
       },
       duringBody: async () => {
+        const connections = await fetch(`${base}/api/integrations/mcp/tokens`, { headers: { Cookie: cookie } });
+        const { csrf_token } = await connections.json();
         const response = await fetch(`${base}/api/integrations/mcp/tokens/revoke`, {
           method: "POST",
-          headers: { Cookie: cookie, "Content-Type": "application/json" },
+          headers: { Cookie: cookie, "Content-Type": "application/json", Origin: base, "x-csrf-token": csrf_token },
           body: JSON.stringify({ token_id: revokedDuringBody.token_id }),
         });
         assert.equal(response.status, 200);
