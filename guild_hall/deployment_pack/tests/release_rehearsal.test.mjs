@@ -2,14 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildPack, nodeTestRunner } from "../tools/build_pack.mjs";
-import { buildReleaseTestEnv, createReleaseWorkspace, exerciseReleaseLifecycle, readWorkshopTestConfig, readIntakeTestConfig, runReleaseRehearsal, releaseSmokeVerdict, verifyReleaseGeneration } from "../tools/release_rehearsal.mjs";
+import { assertReleaseScratchVolume, buildReleaseTestEnv, createReleaseWorkspace, exerciseReleaseLifecycle, readWorkshopTestConfig, readIntakeTestConfig, runReleaseRehearsal, releaseSmokeVerdict, verifyReleaseGeneration } from "../tools/release_rehearsal.mjs";
 import { listReleaseStaticAssets } from "../tools/release_static_assets.mjs";
 
 const clock = () => "2026-09-07T00:00:00.000Z";
 const temp = (t) => { const dir = mkdtempSync(join(tmpdir(), "release-rehearsal-test-")); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
+
+test('HPP scratch rejects live-volume fixtures before running while other packs and platforms keep their paths', () => {
+  const systemRoot=win32.join('C'+':'+win32.sep,'Windows'), foreign=win32.join('D'+':'+win32.sep,'synthetic-rehearsal');
+  const base={packIds:['hpp_server_pack'],platform:'win32',systemRoot,tempRoot:win32.join('C'+':'+win32.sep,'synthetic-tmp')};
+  assert.doesNotThrow(()=>assertReleaseScratchVolume(base));
+  assert.throws(()=>assertReleaseScratchVolume({...base,workDir:foreign}),{code:'rehearsal_hpp_system_volume_scratch_required'});
+  assert.throws(()=>assertReleaseScratchVolume({...base,tempRoot:foreign}),{code:'rehearsal_hpp_system_volume_scratch_required'});
+  assert.doesNotThrow(()=>assertReleaseScratchVolume({...base,packIds:['tool_workshop_pack'],workDir:foreign}));
+  assert.doesNotThrow(()=>assertReleaseScratchVolume({...base,platform:'linux',workDir:foreign}));
+});
 
 test('company intake dependencies reach real HPP source and installed children only through explicit synthetic config', async t => {
   const root=temp(t), source=join(root,'source'), file=join(root,'intake-test.json');

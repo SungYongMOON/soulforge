@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { closeSync, cpSync, existsSync, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPackSbom } from "../src/pack_sbom.mjs";
 import { readPackGeneration, writeSbomArtifacts } from "../src/pack_sbom_artifact.mjs";
@@ -15,6 +15,17 @@ import { boundedRead, directPath } from "../../tool_workshop/src/workshop_files.
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const RELEASE_PACKS = Object.freeze(["hpp_server_pack", "team_client_pack", "backup_recovery_extension", "tool_workshop_pack"]);
+
+// HPP copy fixtures intentionally reject databases on non-system volumes.
+// Check the scratch location before spending time on a full test run. This
+// limits test scratch only; installed product and artifact destinations differ.
+export function assertReleaseScratchVolume({packIds, workDir = null, platform = process.platform,
+  systemRoot = process.env.SystemRoot, tempRoot = tmpdir()} = {}) {
+  if (platform !== 'win32' || !packIds.includes('hpp_server_pack')) return;
+  const systemVolume = win32.parse(systemRoot ?? '').root;
+  const scratchVolume = win32.parse(win32.resolve(workDir ?? tempRoot)).root;
+  if (!systemVolume || scratchVolume.toLowerCase() !== systemVolume.toLowerCase()) fail('rehearsal_hpp_system_volume_scratch_required');
+}
 const EMITTERS = { hpp_server_pack: "emit_hpp_spec.mjs", team_client_pack: "emit_team_client_spec.mjs", backup_recovery_extension: "emit_backup_recovery_spec.mjs", tool_workshop_pack: "emit_tool_workshop_spec.mjs" };
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const writeJson = (path, value) => writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -184,6 +195,7 @@ export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
 
 export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, workshopTestConfig = null, workshopPdfRenderer = null, intakeTestConfig = null, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
   if (!packIds.length || new Set(packIds).size !== packIds.length || packIds.some((id) => !RELEASE_PACKS.includes(id))) fail("rehearsal_pack_selection_invalid");
+  assertReleaseScratchVolume({packIds,workDir});
   if (workshopTestConfig !== null && !packIds.includes("tool_workshop_pack")) fail("rehearsal_workshop_config_without_pack");
   if (intakeTestConfig !== null && !packIds.includes('hpp_server_pack')) fail('rehearsal_intake_config_without_pack');
   const intakeConfig = intakeTestConfig === null ? null : readIntakeTestConfig(intakeTestConfig);
@@ -292,7 +304,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (args.includes("--help")) {
     process.stdout.write("Optional company-intake checks: --intake-test-config <synthetic-three-field-json> supplies only pythonExecutable, kitRoot and provenance=synthetic_fixture to HPP tests.\n");
     process.stdout.write("Optional PDF checks: --workshop-pdf-renderer <absolute-pdftoppm-executable>, together with --workshop-test-config. The renderer hash is recorded; no environment passthrough or native desktop launch is enabled.\n");
-    process.stdout.write("usage: node release_rehearsal.mjs [--work-dir <nonexistent-directory>] [--pack hpp_server_pack|team_client_pack|backup_recovery_extension|tool_workshop_pack] [--workshop-test-config <synthetic-five-field-json>]\nDefault: all four current specs, real source and installed suites, candidate-only receipts in a retained temporary directory. A skipped test or file exclusion makes the rehearsal fail.\n");
+    process.stdout.write("usage: node release_rehearsal.mjs [--work-dir <nonexistent-directory>] [--pack hpp_server_pack|team_client_pack|backup_recovery_extension|tool_workshop_pack] [--workshop-test-config <synthetic-five-field-json>] [--intake-test-config <synthetic-three-field-json>]\nDefault: all four current specs, real source and installed suites, candidate-only receipts in a retained temporary directory. Windows HPP scratch must be on the system volume; leave --work-dir unset and archive verified output afterward. A skipped test or file exclusion makes the rehearsal fail.\n");
   } else {
     let workDir = null, workshopTestConfig = null, workshopPdfRenderer = null, intakeTestConfig = null; const packIds = [];
     try {
