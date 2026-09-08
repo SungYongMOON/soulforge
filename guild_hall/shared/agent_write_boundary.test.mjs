@@ -21,6 +21,14 @@ test("정확한 파일과 하위 트리를 모두 막는다", () => {
   assert.ok(!isDeniedAgentWritePath(null));
 });
 
+test("자동 개선은 native 질문의 수신자와 응답 대기 검증을 바꾸지 못한다", () => {
+  for (const file of ["src/buzz_pilot_owner_attention.mjs", "src/buzz_pilot_auth_source.mjs",
+    "src/owner_attention_source.mjs", "src/owner_attention_service.mjs", "src/owner_attention_http.mjs",
+    "test/buzz_pilot_owner_attention.test.mjs", "test/buzz_pilot_owner_attention_server.test.mjs"]) {
+    assert.ok(isDeniedAgentWritePath(`ui-workspace/apps/dev-erp/${file}`), file);
+  }
+});
+
 test("넓은 경로로 금지 항목을 삼키는 것을 막는다", () => {
   // `guild_hall/` 을 통째로 허용하면 그 아래 금지 항목이 전부 열린다.
   // 부모 경로도 막지 않으면 이 목록은 한 줄로 우회된다.

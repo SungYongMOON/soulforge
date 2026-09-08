@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { openStore } from '../../src/store.mjs';
 import { makeBuzzPilotWorkbenchFixture } from './buzz_pilot_workbench_fixture.mjs';
 
-export async function makeBuzzPilotAuthHttpFixture({ brokenSource = false } = {}) {
-  const f = await makeBuzzPilotWorkbenchFixture();
+export async function makeBuzzPilotAuthHttpFixture({ brokenSource = false, state = 'waiting_owner' } = {}) {
+  const f = await makeBuzzPilotWorkbenchFixture({ state });
   const sourceDb = join(f.root, 'synthetic-auth-source.sqlite'), candidateDb = join(f.root, 'synthetic-candidate.sqlite');
   const source = openStore(sourceDb);
   source.createAccount({ id: 'account.a', username: 'source-owner', password: 'synthetic-source-only', roles: ['admin'] });

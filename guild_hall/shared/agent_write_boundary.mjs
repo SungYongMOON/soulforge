@@ -80,6 +80,13 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
     "test/feedback_readbox_http.test.mjs", "test/feedback_readbox_server.test.mjs", "test/feedback_recovery.test.mjs"].map(name => ({
     path: `ui-workspace/apps/dev-erp/${name}`, why: "manager read authority and server integration proof",
   })),
+  ...["src/buzz_pilot_owner_attention.mjs", "src/buzz_pilot_auth_source.mjs",
+    "src/owner_attention_source.mjs", "src/owner_attention_service.mjs", "src/owner_attention_http.mjs",
+    "src/owner_attention_buzz_link.mjs", "test/buzz_pilot_owner_attention.test.mjs",
+    "test/buzz_pilot_owner_attention_server.test.mjs", "test/buzz_pilot_auth_source.test.mjs",
+    "test/owner_attention_source.test.mjs", "test/owner_attention_service.test.mjs", "test/owner_attention_http.test.mjs"].map(name => ({
+    path: `ui-workspace/apps/dev-erp/${name}`, why: "exact Owner question authority, reversible preferences and delivery evidence",
+  })),
   ...["g2_linear_custody_reader.mjs", "g2_linear_custody_cli.mjs", "G2_LINEAR_CUSTODY.md",
     "g2_feedback_publisher.mjs", "feedback_currentness_contract.mjs", "feedback_currentness_transport.mjs",
     "sfx.mjs", "execution_authority.mjs", "src/soulforge_secure_work/launch_runtime.py", "src/soulforge_secure_work/ipc_pipe.py",

@@ -8,6 +8,18 @@
 
 Build and inspect the HPP Server Pack in an approved isolated one-seat canary. This runbook produces only bounded build, install, smoke, start/stop, lifecycle, and escalation evidence. It does not declare a released service.
 
+### 응답 대기 관리
+
+발행된 Buzz 업무 reader가 연결된 서버에서는 작업대의 “응답 대기함”으로 이동한다.
+실제로 전달된 질문과 응답할 사람·대기 시간·Buzz 링크를 확인하고 읽음이나 미루기를
+설정한다. 미루기는 보기 설정이며 업무 일시정지·답변·재개가 아니다. 답변은 같은 Buzz
+대화에서 하고 실제 답변 관측으로 대기가 해제되는지 확인한다.
+
+별도 viewer도 기존 Owner 세션을 재확인한다. 상단 복귀·로그인 링크는 연결된 원본
+서버를 가리킨다. 보기 선호는 viewer의 기존 ERP DB 백업에 포함하고 원본 인증 DB와
+native control DB를 변경하지 않는다. 상태 미확인은 완료나 Owner 응답 대기로 판단하지
+않는다. “Buzz 질문 전달 확인”은 원래 질문의 전송 근거이며 추가 알림 설치를 뜻하지 않는다.
+
 ## Prerequisites
 
 The pack also carries Sonar Intel as an optional Main Node application. Follow

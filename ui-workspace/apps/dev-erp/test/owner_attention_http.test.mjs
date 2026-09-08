@@ -67,6 +67,19 @@ test('logout while receiving a POST body prevents mutation; closed or oversized 
   assert.equal((await call(f.http,request('/api/owner-attention/actions',{junk:'x'.repeat(3000)},{'x-csrf-token':snap.csrf_token}))).statusCode,413);
 });
 
+test('async native projection is awaited and session revocation hides late reads and actions',async t=>{
+  const f=fixture(t);let revoke=false;
+  const http=createOwnerAttentionHttpController({allowedOrigin:origin,ownerAccountId:f.owner.id,
+    currentAccount:()=>f.session.account,sessionKey:()=>f.session.key,canAccessProject:()=>true,
+    service:{async snapshot(access){await Promise.resolve();const result=f.service.snapshot(access);if(revoke)f.session.account=null;return result;},
+      async act(access,input){await Promise.resolve();const result=f.service.act(access,input);if(revoke)f.session.account=null;return result;}}});
+  const snap=await call(http,request());assert.equal(snap.statusCode,200);assert.equal(snap.body.items.length,1);
+  revoke=true;
+  assert.equal((await call(http,request())).statusCode,401);
+  f.session.account=f.owner;
+  assert.equal((await call(http,request('/api/owner-attention/actions',action(snap.body.items[0]),{'x-csrf-token':snap.body.csrf_token}))).statusCode,401);
+});
+
 test('real ERP server cookie login → explicitly published request → seen → restart persists; false Owner and default route reject',async t=>{
   const f=makeAttentionFixture(t,{persistent:true});const published=f.publish();
   const portServer=createServer();portServer.listen(0,'127.0.0.1');await once(portServer,'listening');

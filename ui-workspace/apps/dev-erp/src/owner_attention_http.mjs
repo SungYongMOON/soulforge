@@ -32,10 +32,14 @@ async function body(req) {
 /** Existing cookie authentication, current project ACL and session-bound CSRF.
  * No anonymous single-user fallback. All dependencies are server-owned. */
 export function createOwnerAttentionHttpController({ service = null, allowedOrigin, currentAccount, sessionKey,
-  canAccessProject, ownerAccountId, now = () => Date.now(), syntheticPreview = false } = {}) {
+  canAccessProject, ownerAccountId, now = () => Date.now(), syntheticPreview = false, authSourcePort = null } = {}) {
   if (![currentAccount, sessionKey, canAccessProject].every(v => typeof v === 'function')) throw new TypeError('server_auth_required');
   let origin = null;
   try { const u = new URL(allowedOrigin); if (/^https?:$/u.test(u.protocol) && ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)) origin = u; } catch {}
+  let sourceHome = null;
+  if (origin?.protocol === 'http:' && /^[1-9][0-9]{0,4}$/u.test(String(authSourcePort)) && Number(authSourcePort) <= 65535) {
+    const home = new URL(origin.origin); home.port = String(authSourcePort); sourceHome = home.href;
+  }
   const csrf = new Map();
   function principal(req) {
     const account = currentAccount(req), session = sessionKey(req);
@@ -64,6 +68,7 @@ export function createOwnerAttentionHttpController({ service = null, allowedOrig
       // be shown. No request data is embedded in public assets.
       if (asset) {
         let bytes = await readFile(asset[1], 'utf8');
+        if (sourceHome && url.pathname === '/owner-attention.html') bytes = bytes.replaceAll('data-world-home href="/"', `data-world-home href="${sourceHome}"`);
         if (syntheticPreview && url.pathname === '/owner-attention.html') bytes = bytes.replace('<body>', '<body><aside class="synthetic-banner">합성 체험 화면 · 실제 회사 질문과 실제 Buzz에는 연결되지 않았습니다.</aside>');
         send(res, 200, bytes, asset[0]); return true;
       }
@@ -79,9 +84,11 @@ export function createOwnerAttentionHttpController({ service = null, allowedOrig
           || !/^[a-f0-9]{64}$/u.test(given) || !timingSafeEqual(Buffer.from(given, 'hex'), Buffer.from(entry.value, 'hex'))) { fail(403, 'CSRF_REQUIRED'); return true; }
         const input = await body(req);
         if (!access.checkSession()) { fail(401, 'LOGIN_REQUIRED'); return true; }
-        send(res, 200, service.act(access, input));
+        const result = await service.act(access, input);
+        if (!access.checkSession()) { fail(401, 'LOGIN_REQUIRED'); return true; }
+        send(res, 200, result);
       } else {
-        const result = service.snapshot(access);
+        const result = await service.snapshot(access);
         if (!access.checkSession()) { fail(401, 'LOGIN_REQUIRED'); return true; }
         send(res, 200, { ...result, csrf_token: token(p) });
       }

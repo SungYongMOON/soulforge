@@ -27,6 +27,7 @@ import {
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
 import { createBuzzPilotWorkbenchHttpController } from "./src/buzz_pilot_workbench_http.mjs";
+import { createBuzzPilotOwnerAttentionService } from "./src/buzz_pilot_owner_attention.mjs";
 import { openBuzzPilotReader } from "./tools/buzz_pilot_job_cli.mjs";
 import { openBuzzPilotAuthSource } from "./src/buzz_pilot_auth_source.mjs";
 import { openFeedbackReadbox } from "../../../guild_hall/dev_worker/feedback_readbox.mjs";
@@ -2550,14 +2551,30 @@ const forgeWorldHttpController = createForgeWorldHttpController({
 
 // Opt-in reversible Owner view state in the existing ERP runtime DB. This does
 // not create bots, import historical metadata, change canon or send messages.
-const ownerAttentionAccountId = process.env.DEV_ERP_OWNER_ATTENTION_ACCOUNT_ID || null;
-const ownerAttentionService = process.env.DEV_ERP_OWNER_ATTENTION === "1" && ERP_MCP_ENABLED && ownerAttentionAccountId
+const ownerAttentionAccountId = process.env.DEV_ERP_OWNER_ATTENTION_ACCOUNT_ID
+  || (buzzPilotReadEnabled ? buzzPilotReader?.binding.owner_account_id : null) || null;
+const legacyOwnerAttentionService = process.env.DEV_ERP_OWNER_ATTENTION === "1" && ERP_MCP_ENABLED
+  && ownerAttentionAccountId && !buzzPilotAuthSourceRequested
   ? createOwnerAttentionService({ store, source: createOwnerAttentionSource({ store,
     ownerAccountId: ownerAttentionAccountId, enabled: true }) }) : null;
+const ownerAttentionService = (() => {
+  if (!buzzPilotReadEnabled) return legacyOwnerAttentionService;
+  if (!buzzPilotReader || ownerAttentionAccountId !== buzzPilotReader.binding.owner_account_id
+    || (buzzPilotAuthSourceRequested && !buzzPilotAuthSource)) return null;
+  const coreBinding = Object.fromEntries(["version", "job_id", "project_id", "owner_account_id",
+    "expected_owner_pubkey", "expected_bot_pubkey", "chat_id", "profile_ref", "instruction_sha256",
+    "issued_at", "expires_at"].map(key => [key, buzzPilotReader.binding[key]]));
+  return createBuzzPilotOwnerAttentionService({ store, pilotReader: buzzPilotReader.reader,
+    binding: coreBinding, legacyService: legacyOwnerAttentionService });
+})();
 const ownerAttentionHttpController = createOwnerAttentionHttpController({
   service: ownerAttentionService, ownerAccountId: ownerAttentionAccountId,
+  authSourcePort: buzzPilotAuthSource ? process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_PORT : null,
   allowedOrigin: `${TLS_ENABLED ? "https" : "http"}://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
-  currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
+  ...(buzzPilotReadEnabled && buzzPilotAuthSourceRequested
+    ? buzzPilotAuthSource ?? { currentAccount: unavailableBuzzPilotAuthSource,
+      sessionKey: unavailableBuzzPilotAuthSource, canAccessProject: unavailableBuzzPilotAuthSource }
+    : { currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject }),
 });
 
 // Synthetic verification only: no operational enable flag, source discovery,
@@ -2585,6 +2602,12 @@ const server = createServer(async (req, res) => {
     if (buzzPilotReadEnabled && buzzPilotAuthSourceRequested && req.method === "GET"
       && ["/api/workbench/buzz-pilot", "/api/workbench/buzz-pilot/evidence"].includes(path)
       && await buzzPilotWorkbenchHttpController(req, res, url)) return;
+    // The source Owner session also controls local reader view preferences.
+    // This exact controller enforces current Owner/project checks and CSRF;
+    // it exposes no native job mutation or writes to the source auth DB.
+    if (buzzPilotReadEnabled && buzzPilotAuthSourceRequested
+      && ["/api/owner-attention", "/api/owner-attention/actions"].includes(path)
+      && await ownerAttentionHttpController(req, res, url)) return;
     if (!ERP_MCP_ENABLED
         && (path.startsWith("/api/mcp/") || path.startsWith("/api/integrations/mcp/"))) {
       return send(res, 404, { error: "not_found" });

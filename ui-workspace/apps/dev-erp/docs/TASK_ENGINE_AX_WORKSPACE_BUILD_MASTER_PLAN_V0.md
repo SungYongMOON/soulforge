@@ -1,5 +1,14 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-09 CURRENT (native Owner attention): the existing bound Buzz reader now
+> supplies native questions to the Owner inbox. Exact Owner/session/project
+> checks and CSRF protect reversible seen/snooze preferences in the viewer ERP
+> DB; native events and source authentication remain read-only. Actual answer
+> evidence closes the same question, while unconfirmed active capture blocks
+> preference actions and keeps completed history intact. Existing Buzz question
+> delivery is displayed without creating another notifier. Source/installed
+> candidate verification is separate from operating rollout and human acceptance.
+
 > 2026-09-08 CURRENT (feedback runtime integration): concrete runtime, standing-scope
 > issuer, serial G1 ACP, validator capture and isolated stage now join the existing
 > six-core loop. World Tree mounts the GET-only manager readbox using its own

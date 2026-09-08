@@ -40,11 +40,12 @@ function card(row) {
   const node = el('article', null, 'card');
   const top = el('div', null, 'card-top');
   top.append(el('span', `${row.sender_label} · ${row.project_id} · 요청 ${row.revision}판`, 'identity'));
-  const status = row.source_state === 'responded' ? '오너 응답 확인' : row.source_state === 'withdrawn' ? '요청 철회'
+  const status = row.source_state === 'unconfirmed' ? '진행 상태 확인 필요'
+    : row.source_state === 'responded' ? '오너 응답 확인' : row.source_state === 'withdrawn' ? '요청 철회'
     : row.source_state === 'superseded' ? '새 판본으로 교체' : row.source_state === 'response_unverified' ? '답변 기록 확인 대기'
       : row.snoozed ? `${date(row.snooze_until)} 다시 보기` : row.overdue ? '기한 지남' : row.seen_at ? '확인함 · 응답 필요' : '새 응답 요청';
   top.append(el('span', status, `badge${row.overdue ? ' warn' : ''}`)); node.append(top, el('h2', row.question));
-  const dl = el('dl', null, 'facts'); fact(dl, '응답할 사람', '오너'); fact(dl, '다음 행동', row.next_actions); fact(dl, '기다리는 일', row.blocked_work); fact(dl, '관련 업무', row.item_title);
+  const dl = el('dl', null, 'facts'); fact(dl, row.source_state === 'unconfirmed' ? '확인 담당' : '응답할 사람', row.source_state === 'unconfirmed' ? '운영 담당' : '오너'); fact(dl, '다음 행동', row.next_actions); fact(dl, '기다리는 일', row.blocked_work); fact(dl, '관련 업무', row.item_title);
   fact(dl, '요청 등록', date(row.created_at));
   if (OPEN.has(row.source_state)) fact(dl, '등록 후 경과', elapsedSinceRegistration(row.created_at));
   fact(dl, '응답 기한', date(row.due_at)); node.append(dl);
@@ -70,7 +71,7 @@ function unknown(message = '현재 상태를 확인하지 못했습니다. 목�
   for (const id of ['active-count','overdue-count','snoozed-count']) $(`#${id}`).textContent = '—';
   $('#notification').textContent = '알림 상태 미확인';
   const box = el('div', null, 'empty'); box.append(el('strong', '현재 요청 상태 미확인'), el('span', '이전 목록으로 판단하지 않도록 잠시 비웠습니다. '));
-  const link = el('a', '로그인 확인'); link.href = '/'; box.append(link); $('#requests').replaceChildren(box); $('#requests').setAttribute('aria-busy','false');
+  const link = el('a', '로그인 확인'); link.href = document.querySelector('[data-world-home]')?.getAttribute('href') || '/'; box.append(link); $('#requests').replaceChildren(box); $('#requests').setAttribute('aria-busy','false');
 }
 function render() {
   if (!snapshot) return;
@@ -79,21 +80,35 @@ function render() {
   $('#overdue-count').textContent = String(active.filter(r => r.overdue).length);
   $('#snoozed-count').textContent = String(active.filter(r => r.snoozed).length);
   $('#notification').textContent = snapshot.notification.capability === 'configured' ? '오너 알림 연결됨' : '오너 알림 연결 준비 중';
+  const nativeDelivered = snapshot.notification.native_delivery?.confirmed_request_count ?? 0;
+  if (nativeDelivered > 0) $('#notification').textContent = `Buzz 질문 전달 확인 ${nativeDelivered}건`
+    + (snapshot.notification.capability === 'configured' ? ' · 추가 알림 연결됨' : ' · 이 화면은 별도 알림을 다시 보내지 않습니다');
+  else if (snapshot.native_source_state) $('#notification').textContent = 'Buzz 질문 전달을 아직 확인하지 못했습니다'
+    + (snapshot.notification.capability === 'configured' ? ' · 추가 알림 연결됨' : '');
   const unknownDeliveries = snapshot.notification.counts.delivery_unknown || 0;
   if (unknownDeliveries) $('#notification').textContent += ` · 전달 확인 필요 ${unknownDeliveries}건`;
-  const items = snapshot.items.filter(r => filter === 'closed' ? !OPEN.has(r.source_state) : OPEN.has(r.source_state) && (filter === 'snoozed' ? r.snoozed : !r.snoozed));
+  const unconfirmed = snapshot.items.filter(r => r.source_state === 'unconfirmed').length;
+  const items = snapshot.items.filter(r => filter === 'closed' ? !OPEN.has(r.source_state) && r.source_state !== 'unconfirmed'
+    : filter === 'active' && r.source_state === 'unconfirmed' || OPEN.has(r.source_state) && (filter === 'snoozed' ? r.snoozed : !r.snoozed));
   const area = $('#requests'); area.replaceChildren(...items.map(card)); area.setAttribute('aria-busy','false');
   if (!items.length) { const empty = el('div', null, 'empty'); empty.append(el('strong', filter === 'active' ? '지금 응답할 요청이 없습니다' : '아직 이 목록에 기록이 없습니다'), el('span', filter === 'active' ? '명시적으로 등록된 요청을 기준으로 확인했습니다.' : '요청의 상태가 바뀌면 여기에 표시됩니다.')); area.append(empty); }
   $('#connection').className = 'connection'; $('#connection').textContent = `최근 확인 ${date(snapshot.observed_at)} · 읽음과 업무 완료는 별도로 관리합니다.`;
+  if (unconfirmed) {
+    $('#connection').className = 'connection error';
+    $('#connection').textContent = `${unconfirmed}건의 진행 상태를 확인해야 합니다. 응답 대기나 완료로 판정하지 않았습니다.`;
+  }
 }
 function valid(data) {
   const linkSafe = value => value === null || safeOwnerAttentionBuzzUrl(value) !== null;
   return data?.status === 'available' && /^[a-f0-9]{64}$/u.test(data.csrf_token || '') && Number.isFinite(Date.parse(data.observed_at))
     && Array.isArray(data.items) && data.items.every(row => typeof row.question === 'string' && typeof row.sender_label === 'string'
       && typeof row.item_title === 'string' && Array.isArray(row.next_actions) && Array.isArray(row.blocked_work) && Array.isArray(row.refs)
-      && ['awaiting','response_unverified','responded','withdrawn','superseded'].includes(row.source_state)
+      && ['awaiting','response_unverified','responded','withdrawn','superseded','unconfirmed'].includes(row.source_state)
       && linkSafe(row.buzz_url) && (row.due_at === null || Number.isFinite(Date.parse(row.due_at))) && Number.isFinite(Date.parse(row.created_at)))
-    && data.notification && ['configured','unavailable'].includes(data.notification.capability) && typeof data.notification.counts === 'object';
+    && data.notification && ['configured','unavailable'].includes(data.notification.capability) && typeof data.notification.counts === 'object'
+    && (data.notification.native_delivery === undefined || (data.notification.native_delivery?.source === 'buzz_pilot_question_delivery'
+      && Number.isSafeInteger(data.notification.native_delivery.confirmed_request_count)
+      && data.notification.native_delivery.confirmed_request_count >= 0));
 }
 const loader = createOwnerAttentionLoader({
   async read(signal) {
