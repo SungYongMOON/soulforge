@@ -54,6 +54,73 @@ production source paths and no prior runtime state. Its `v2` is a packaging revi
 not ACP protocol 2 support. The earlier v1 specification and installed lane remain
 separate; building this source revision does not install or activate it.
 
+The source-only `tool-workshop-claude-acp-v3` revision retains the same four-file
+closure and preserves v1/v2. It adds per-prompt native authentication observation
+and terminal failure handling; it carries no authentication, prior profile or work
+state. These Claude repairs are optional follow-up capability, not a prerequisite
+for the first pilot's already-working single-task bot route.
+
+## Authentication and terminal failures
+
+Before every work prompt, including later turns in an existing in-memory session,
+the adapter invokes the pinned executable with exactly `auth status --json`. It
+uses the same fixed cwd and environment snapshot as that session's work process.
+The probe sends no work prompt, stores at most 16 KiB of stdout, drains stderr
+without retaining or forwarding it, and has a 15-second deadline. The adapter does
+not read authentication files, copy credentials, log in or change settings.
+
+Only the `loggedIn` boolean and allowlisted `authMethod` (`claude.ai`, `api_key`,
+`none`) are interpreted. A positive observation requires exit 0 and a non-`none`
+method. `false`/`none` with exit 0 or 1 yields `AUTH_REQUIRED`; malformed, excessive,
+inconsistent, unknown-method or unavailable output yields `AUTH_STATE_UNAVAILABLE`
+with unknown boolean/method values. Email, account identifiers, tokens, arbitrary
+properties and error prose are never exposed or persisted. The observation includes
+an allowlisted class, timestamp, a maximum 30-second expiry capped by the binding,
+and exact CLI/binding/source hashes. Binding, runtime and source pins are checked
+again after the probe. The observation must remain current after metadata checks,
+and no earlier positive result is reused for a later prompt. It proves only that
+the CLI reported this local authentication state, not that a model request will
+succeed. `--preflight` remains metadata-only and does not perform this auth probe.
+
+Operational failures terminate the ACP request with one fixed failure message,
+`stopReason: "end_turn"`, `_meta.accepted: false` and an explicit
+`_meta.failure_meta` containing `status: "failed"`, a fixed adapter code and
+`retryable: false`. `end_turn` means message processing ended; it does not represent
+work success, artifact completion, candidate acceptance or a provider refusal.
+Actual `session/cancel` produces `cancelled` and no failure message. Foreign models,
+MCP/tool inventories, permission widening and revoked binding/scope still reject
+through their existing safety gates. No error message is used to infer auth or
+quota. Native failure classification uses only recognized result subtypes and
+typed error codes; all unknown values become unknown metadata. Assistant error
+frames still undergo the full tool inventory check before their text is discarded.
+
+For the referenced Buzz source, `acp.rs::parse_prompt_response` reads the standard
+stop reason and optional usage, while `pool.rs` returns an `Ok` turn without a
+retry batch. A JSON-RPC agent error instead retains a batch for `queue.rs` retry.
+That is why the adapter uses terminal transport completion for operational
+failure. Buzz currently ignores the custom failure metadata and may still label
+the turn `ok`/`end_turn` in its own transport metrics. The fixed failure message is
+emitted through `agent_message_chunk`, which this Buzz source logs as `acp::stream`.
+Delivery of that notice to actual Bot Chat and business-status propagation are
+unverified; a stream/log notice must not be reported as a delivered chat message.
+This revision does not change Buzz or add a relay publisher.
+
+The failed session retains its terminal result. Repeating a valid prompt against
+that session returns the same result without another notice, auth probe or native
+work-process spawn. A new, explicitly created ACP session is required for another
+attempt; this adapter does not automatically retry a model request. The normal
+binding and scope checks still apply to session operations.
+
+Failure/cancellation kills the directly owned children and waits up to two seconds
+for their actual `close` events before releasing the active turn. The failure
+metadata reports `directChildClosed: false` if closure is unconfirmed, and another
+session cannot start while a failed session still has an observed live child.
+This records direct-child closure only; it does not guarantee OS descendant-tree
+termination or undo partial, unaccepted draft files. Authentication observation in
+the actual Buzz child context, real model work, installed v3 operation and Bot Chat
+delivery remain separate measurements. No real model or credential experiment is
+part of this change.
+
 ## Runtime contract
 
 `src/claude_acp_cli.mjs` accepts only:
@@ -194,6 +261,7 @@ separate measurement.
 ```text
 node --test guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs
 node --test guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs
+node --test guild_hall/tool_workshop/tests/claude_acp_failure.test.mjs
 node guild_hall/tool_workshop/src/claude_acp_cli.mjs --help
 ```
 
@@ -213,6 +281,13 @@ negotiation, model/config widening, global MCP requests, malformed scope arrays,
 and standalone CLI preflight failures are checked without real model/network use.
 The existing scope suite retains the full assistant-frame and native metadata
 gates. This fixture execution is not a real Buzz bot-pool conversation.
+
+The failure suite exercises the actual synthetic CLI and adapter stdio entrypoint:
+auth false, wrong shapes/methods/exit codes, output limits, expiring observations,
+per-prompt checks, pin revocation, typed and unknown native failures, cancellation,
+unconfirmed direct-child closure, one-attempt replay and the failure-notice/terminal
+response sequence. Synthetic fields containing private-looking sentinels verify
+that raw auth/error fields do not escape. No real credential is read by the tests.
 
 An isolated metadata-only `--help`/`--version` probe against native Claude Code
 `2.1.226` confirmed the needed public option names. The actual adapter also completed
@@ -247,6 +322,7 @@ Official source references:
 
 - [Claude CLI reference](https://code.claude.com/docs/en/cli-usage)
 - [SDK configuration boundaries](https://code.claude.com/docs/en/agent-sdk/claude-code-features)
+- [SDK typed result and assistant error reference](https://code.claude.com/docs/en/agent-sdk/typescript)
 - [Claude account-linked MCP controls](https://code.claude.com/docs/en/mcp)
 - [MCP initialization contract](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle)
 - [ACP version negotiation](https://agentclientprotocol.com/protocol/v1/initialization)
