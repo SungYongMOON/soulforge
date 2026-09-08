@@ -378,13 +378,14 @@ export function guardNodeImports(runtime) {
   });
 }
 export function pythonInvocation(runtime, mode, argv = []) {
-  if (!["cli", "worker", "sender", "custody_sender"].includes(mode) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
+  if (!["cli", "worker", "sender", "custody_sender", "feedback_prepare", "feedback_verify"].includes(mode)
+    || (mode.startsWith("feedback_") && argv.length !== 0) || argv.some(a => ["--config", "--actor", "--role", "--principal"].some(
     flag => a === flag || a.startsWith(`${flag}=`)))) fail();
   const launch = runtime.binding.launch;
   const packet = { mode, argv, config_path: runtime.binding.config_path, config_sha256: runtime.binding.config_sha256,
     kit_root: launch.kit_root, node: runtime.binding.node_executable.path, launcher: runtime.launcherPath,
     python_paths: launch.python_paths, files: Object.fromEntries(runtime.expected), environment: runtime.environment };
-  if (mode !== "cli") {
+  if (!["cli", "feedback_prepare", "feedback_verify"].includes(mode)) {
     delete packet.config_path;
     delete packet.config_sha256;
   }
@@ -421,6 +422,19 @@ async function executionAuthority(runtime) {
 export async function executeVerified(runtime, argv, { spawn = spawnSync } = {}) {
   if (argv[0] === "--preflight" && argv.length === 1) return { ok: true, code: "SECURE_WORK_LAUNCH_VERIFIED" };
   const roles = await executionAuthority(runtime);
+  if (["--g2-feedback-prepare", "--g2-feedback-publish"].includes(argv[0]) && argv.length === 1) {
+    const mode = argv[0] === "--g2-feedback-prepare" ? "prepare" : "publish";
+    roles.entry(mode === "prepare" ? "jobs.advance" : "model.dispatch");
+    const hooks = guardNodeImports(runtime);
+    try {
+      runtime.recheck();
+      const { executeFeedbackAdapter } = await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath), "g2_feedback_publisher.mjs")).href);
+      const result = await executeFeedbackAdapter(runtime, mode);
+      runtime.recheck();
+      return result;
+    } finally { hooks.deregister(); }
+  }
+  if (argv.some(a => a.startsWith("--g2-feedback"))) fail();
   if (argv[0] === "--g2-custody-inspect" && argv.length === 1) {
     roles.entry("jobs.advance");
     const hooks = guardNodeImports(runtime);
