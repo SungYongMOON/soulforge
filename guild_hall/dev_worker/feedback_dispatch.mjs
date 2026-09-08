@@ -8,6 +8,7 @@ import { openFeedbackReadbox, readboxHash as hash, readboxPin } from './feedback
 import { readRuntimeJson, runtimeOrdinary, runtimeInside, runtimeRef as ref, runtimeCheck as check } from './feedback_runtime_io.mjs';
 
 const PURPOSE = 'manager_feedback_notice';
+const active = signal => check(!signal?.aborted, 'FEEDBACK_DISPATCH_TICK_BUDGET');
 export async function openFeedbackDispatch(options) {
   const readOnly = options.readOnly === true;
   const readbox = await openFeedbackReadbox(options), { config, deployment } = readbox;
@@ -31,13 +32,17 @@ export async function openFeedbackDispatch(options) {
     CREATE TABLE IF NOT EXISTS feedback_dispatch(dispatch_ref TEXT PRIMARY KEY,event_key TEXT NOT NULL UNIQUE,
       notice_ref TEXT NOT NULL,notice_sha256 TEXT NOT NULL,envelope_sha256 TEXT NOT NULL,envelope_json TEXT NOT NULL,
       state TEXT NOT NULL CHECK(state IN ('PREPARED','DELIVERY_UNKNOWN','ACKNOWLEDGED')),message_id TEXT,
-      created_at TEXT NOT NULL,updated_at TEXT NOT NULL);`);
+      created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS feedback_dispatch_locator(dispatch_ref TEXT PRIMARY KEY,locator TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS feedback_dispatch_scan(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,
+      cursor TEXT,pending_json TEXT NOT NULL);
+    INSERT OR IGNORE INTO feedback_dispatch_scan VALUES(1,0,NULL,'[]');`);
   const scope = hash({ project: config.project_id, runtime: config.runtime_deployment, service: config.dispatch_service_ref });
   if (!readOnly) db.prepare('INSERT OR IGNORE INTO feedback_dispatch_binding VALUES(1,?)').run(scope);
   try { check(db.prepare('SELECT digest FROM feedback_dispatch_binding WHERE id=1').get().digest === scope, 'FEEDBACK_DISPATCH_SCOPE_MISMATCH'); }
   catch (e) { db.close(); throw e; }
   function row(reference) { return db.prepare('SELECT * FROM feedback_dispatch WHERE dispatch_ref=?').get(reference); }
-  async function authority() {
+  async function currentAuthority() {
     await readbox.authorizeService();
     const policy = await readRuntimeJson(delivery.policy), current = await readRuntimeJson(delivery.route_current), now = Date.now();
     check(policy.version === 1 && policy.approved === true && policy.project_ref === config.project_id
@@ -64,25 +69,36 @@ export async function openFeedbackDispatch(options) {
     const route_sha256 = hash({ catalog: current.catalog.sha256, bindings: current.bindings.sha256, policy: delivery.policy.sha256 });
     return { policy, route_sha256, expires_at: new Date(Math.min(Date.parse(policy.expires_at), Date.parse(current.expires_at))).toISOString() };
   }
+  async function authority() {
+    let timer;
+    try { return await Promise.race([currentAuthority(), new Promise((_, reject) => { timer = setTimeout(() =>
+      reject(Object.assign(new Error('FEEDBACK_DISPATCH_AUTHORITY_TIMEOUT'), { feedbackCode: 'FEEDBACK_DISPATCH_AUTHORITY_TIMEOUT' })), 5000); })]); }
+    finally { clearTimeout(timer); }
+  }
   function publicRow(value) { return { dispatch_ref: value.dispatch_ref, event_key: value.event_key,
     notice_ref: value.notice_ref, notice_sha256: value.notice_sha256, envelope_sha256: value.envelope_sha256,
     state: value.state, message_id: value.message_id, human_acceptance: 'UNKNOWN', official_done: false }; }
-  async function prepare(pin) {
+  async function prepare(pin, signal) {
+    active(signal);
     check(!readOnly, 'FEEDBACK_DISPATCH_READ_ONLY');
     const item = await readbox.serviceDetail(pin), auth = await authority();
+    active(signal);
     check(item.state !== 'running', 'FEEDBACK_DISPATCH_NON_ACTIONABLE');
+    const dispatch_ref = `feedback.dispatch.${hash([config.project_id, item.event_key]).slice(0, 32)}`;
+    db.prepare('INSERT INTO feedback_dispatch_locator VALUES(?,?) ON CONFLICT(dispatch_ref) DO UPDATE SET locator=excluded.locator')
+      .run(dispatch_ref, item.locator);
     const old = db.prepare('SELECT * FROM feedback_dispatch WHERE event_key=?').get(item.event_key);
     if (old) {
       const prior = JSON.parse(old.envelope_json);
       if (old.state !== 'PREPARED' || prior.route_sha256 === auth.route_sha256 && Date.parse(prior.expires_at) > Date.now()) return publicRow(old);
     }
-    const dispatch_ref = `feedback.dispatch.${hash([config.project_id, item.event_key]).slice(0, 32)}`;
     const envelope = { version: 1, dispatch_ref, project_ref: config.project_id, event_key: item.event_key,
       notice_ref: item.ref, notice_sha256: item.sha256, state: item.state, manager_route_id: auth.policy.manager_route_id,
       route_sha256: auth.route_sha256, profile_ref: auth.policy.profile_ref, bot_chat_id: auth.policy.bot_chat_id,
       sender_ref: auth.policy.sender_ref, purpose: PURPOSE, issued_at: new Date().toISOString(), expires_at: auth.expires_at,
       text: `Feedback ${item.state}; project=${config.project_id}; evidence=${item.ref}; sha256=${item.sha256}; review=${item.review.status}; local_recorded=true; human_acceptance=UNKNOWN; official_done=false` };
     const fresh = await readbox.serviceDetail(pin), reauth = await authority();
+    active(signal);
     check(fresh.event_key === item.event_key && hash(reauth) === hash(auth), 'FEEDBACK_DISPATCH_CURRENT_CHANGED');
     const at = new Date().toISOString();
     if (old) db.prepare(`UPDATE feedback_dispatch SET notice_sha256=?,envelope_sha256=?,envelope_json=?,updated_at=?
@@ -103,12 +119,14 @@ export async function openFeedbackDispatch(options) {
       && envelope.bot_chat_id === auth.policy.bot_chat_id && envelope.profile_ref === auth.policy.profile_ref
       && envelope.sender_ref === auth.policy.sender_ref && envelope.purpose === PURPOSE
       && Date.parse(envelope.expires_at) > Date.now(), 'FEEDBACK_DISPATCH_ENVELOPE_STALE');
-    const item = await readbox.serviceDetail({ ref: saved.notice_ref, sha256: saved.notice_sha256 });
+    const locator = db.prepare('SELECT locator FROM feedback_dispatch_locator WHERE dispatch_ref=?').get(reference)?.locator;
+    const item = await readbox.serviceDetail({ ref: saved.notice_ref, sha256: saved.notice_sha256, ...(locator ? { locator } : {}) });
     check(item.event_key === envelope.event_key && item.state === envelope.state, 'FEEDBACK_DISPATCH_EVENT_CHANGED');
     await authority();
     return { status: 'AUTHORIZED', envelope };
   }
-  async function native(reference, receiptOnly = false) {
+  async function native(reference, receiptOnly = false, signal) {
+    active(signal);
     check(!readOnly, 'FEEDBACK_DISPATCH_READ_ONLY');
     const saved = row(reference);
     check(saved, 'FEEDBACK_DISPATCH_NOT_FOUND');
@@ -118,6 +136,7 @@ export async function openFeedbackDispatch(options) {
         'FEEDBACK_DISPATCH_ENVELOPE_STALE');
       await authority();
     } else await authorize(reference, saved.envelope_sha256);
+    active(signal);
     if (saved.state === 'ACKNOWLEDGED' || !receiptOnly && saved.state !== 'PREPARED') return publicRow(saved);
     const endpoint = new URL(delivery.native_origin);
     check(endpoint.protocol === 'http:' && endpoint.hostname === '127.0.0.1' && endpoint.port
@@ -133,7 +152,7 @@ export async function openFeedbackDispatch(options) {
     try {
       const response = await fetch(new URL(receiptOnly ? '/receipt' : '/send', endpoint), { method: 'POST', redirect: 'error',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dispatch_ref: reference, envelope_sha256: saved.envelope_sha256 }),
-        signal: AbortSignal.timeout(15000) });
+        signal: AbortSignal.any([AbortSignal.timeout(15000), ...(signal ? [signal] : [])]) });
       check(response.ok, 'FEEDBACK_DISPATCH_NATIVE_RESPONSE');
       const reader = response.body.getReader(), chunks = []; let size = 0;
       try { for (;;) { const next = await reader.read(); if (next.done) break;
@@ -144,10 +163,12 @@ export async function openFeedbackDispatch(options) {
       if (value.dispatch_ref === reference && value.envelope_sha256 === saved.envelope_sha256 && value.status === 'ACKNOWLEDGED'
         && typeof value.message_id === 'string' && value.message_id.trim().length > 0 && value.message_id.length <= 512) {
         await authority();
+        active(signal);
         db.prepare("UPDATE feedback_dispatch SET state='ACKNOWLEDGED',message_id=?,updated_at=? WHERE dispatch_ref=? AND state='DELIVERY_UNKNOWN'")
           .run(value.message_id, new Date().toISOString(), reference);
       }
     } catch { /* Only exact native receipt readback may resolve unknown. */ }
+    active(signal);
     return publicRow(row(reference));
   }
   async function snapshot(query, access) {
@@ -160,14 +181,57 @@ export async function openFeedbackDispatch(options) {
     item.buzz_delivery = db.prepare('SELECT state FROM feedback_dispatch WHERE event_key=?').get(item.event_key)?.state ?? 'NOT_OBSERVED';
     return item;
   }
+  let inFlight = null;
+  async function tick(signal) {
+    check(!readOnly, 'FEEDBACK_DISPATCH_READ_ONLY');
+    await readbox.authorizeService();
+    active(signal);
+    const results = [];
+    let scan = db.prepare('SELECT * FROM feedback_dispatch_scan WHERE id=1').get();
+    check(scan && scan.pending_json.length <= 50000, 'FEEDBACK_DISPATCH_SCAN_INVALID');
+    let pending = JSON.parse(scan.pending_json);
+    check(Array.isArray(pending) && pending.length <= 20 && pending.every(item => ref(item.ref) && /^[a-f0-9]{64}$/u.test(item.sha256)
+      && /^[rn]:[1-9][0-9]{0,15}$/u.test(item.locator) && ref(item.event_key)), 'FEEDBACK_DISPATCH_SCAN_INVALID');
+    const advance = (cursor, items) => {
+      active(signal);
+      const updated = db.prepare('UPDATE feedback_dispatch_scan SET revision=revision+1,cursor=?,pending_json=? WHERE id=1 AND revision=?')
+        .run(cursor, JSON.stringify(items), scan.revision);
+      if (!updated.changes) return false;
+      scan = { ...scan, revision: scan.revision + 1, cursor }; return true;
+    };
+    if (!pending.length) {
+      const view = await readbox.serviceSnapshot({ limit: 20, cursor: scan.cursor });
+      pending = view.items.filter(item => item.state !== 'running' && !['DELIVERY_UNKNOWN', 'ACKNOWLEDGED'].includes(
+        db.prepare('SELECT state FROM feedback_dispatch WHERE event_key=?').get(item.event_key)?.state))
+        .map(({ ref, sha256, locator, event_key }) => ({ ref, sha256, locator, event_key }));
+      await readbox.authorizeService();
+      if (!advance(view.next_cursor, pending)) return results;
+    }
+    // One durable bounded page, at most three attempts per tick. The remainder
+    // survives restart. A completed sweep starts again from a fresh high-water
+    // mark so old rows changing state behind the cursor are discovered again.
+    for (let count = 0; pending.length && count < 3; count++) {
+      active(signal);
+      const item = pending[0];
+      const consumed = db.prepare('SELECT state FROM feedback_dispatch WHERE event_key=?').get(item.event_key)?.state;
+      if (!['DELIVERY_UNKNOWN', 'ACKNOWLEDGED'].includes(consumed)) {
+        try { const prepared = await prepare(item, signal);
+          results.push(prepared.state === 'PREPARED' ? await native(prepared.dispatch_ref, false, signal) : prepared);
+        } catch { active(signal); results.push({ event_key: item.event_key, state: 'HELD', code: 'CURRENT_AUTHORITY_OR_SOURCE_UNAVAILABLE' }); }
+      }
+      await readbox.authorizeService();
+      pending = pending.slice(1);
+      if (!advance(scan.cursor, pending)) break;
+    }
+    return results;
+  }
+  async function boundedTick() {
+    const controller = new AbortController(); let timer;
+    try { return await Promise.race([tick(controller.signal), new Promise((_, reject) => { timer = setTimeout(() => {
+      controller.abort(); reject(Object.assign(new Error('FEEDBACK_DISPATCH_TICK_BUDGET'), { feedbackCode: 'FEEDBACK_DISPATCH_TICK_BUDGET' }));
+    }, 60000); })]); } finally { clearTimeout(timer); }
+  }
   return { prepare, authorize, authorizeNative: (reference, digest) => authorize(reference, digest, true),
     send: reference => native(reference), reconcile: reference => native(reference, true), snapshot, detail,
-    async tick() { const view = await readbox.serviceSnapshot(); const results = [];
-    const pending = view.items.filter(item => item.state !== 'running' && !['DELIVERY_UNKNOWN', 'ACKNOWLEDGED'].includes(
-      db.prepare('SELECT state FROM feedback_dispatch WHERE event_key=?').get(item.event_key)?.state)).reverse().slice(0, 20);
-    for (const item of pending) {
-      try { const prepared = await prepare({ ref: item.ref, sha256: item.sha256 });
-        results.push(prepared.state === 'PREPARED' ? await native(prepared.dispatch_ref) : prepared);
-      } catch { results.push({ event_key: item.event_key, state: 'HELD', code: 'CURRENT_AUTHORITY_OR_SOURCE_UNAVAILABLE' }); }
-    } return results; }, close() { db.close(); } };
+    tick() { if (!inFlight) inFlight = boundedTick().finally(() => { inFlight = null; }); return inFlight; }, close() { db.close(); } };
 }
