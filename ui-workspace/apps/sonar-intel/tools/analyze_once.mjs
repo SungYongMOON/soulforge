@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { openStore } from "../src/store.mjs";
 import { buildAnalysis, LIMITS } from "../src/analysis/index.mjs";
+import { acquireDataLease, resolveDataDirectory } from "../src/runtime_paths.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -13,11 +14,12 @@ function flag(name, fallback) { const index = args.indexOf(`--${name}`); return 
 
 async function main() {
   if (args.includes("--help")) { console.log("Usage: node tools/analyze_once.mjs [--data-dir <existing directory>] --as-of <UTC ISO timestamp>\nWrites derived analysis.json only; reads existing CORE; no collection."); return; }
-  const dataDir = path.resolve(flag("data-dir", process.env.SONAR_INTEL_DATA_DIR || path.join(appRoot, "data")));
-  if (!existsSync(dataDir)) throw new Error("data_directory_missing");
+  const dataDir = resolveDataDirectory(args, process.env, { required: true });
   const started = performance.now();
-  const store = await openStore({ dataDir, readOnly: true, maxBytes: LIMITS.bytes });
+  const release = acquireDataLease(dataDir);
+  let store;
   try {
+    store = await openStore({ dataDir, readOnly: true, maxBytes: LIMITS.bytes });
     if (store.countItems() > LIMITS.records) throw new Error("record_limit_exceeded");
     const records = store.listItems({ limit: LIMITS.records + 1 });
     const lastRunPath = path.join(dataDir, "last_run.json");
@@ -36,6 +38,10 @@ async function main() {
     writeFileSync(temporary, payload, { flag: "wx" });
     renameSync(temporary, output);
     console.log(JSON.stringify({ state: report.state, uniqueDocuments: report.scope.uniqueDocuments, corpusDigest: report.corpusDigest, asOf: report.asOf }));
-  } finally { store.close(); }
+  } finally { store?.close(); release(); }
 }
-main().catch((error) => { console.error(`[analyze_once] ${error.message}`); process.exitCode = 1; });
+main().catch((error) => {
+  const code = error.code ?? error.message;
+  console.error(`[analyze_once] ${typeof code === "string" && /^[a-zA-Z0-9_]+$/.test(code) ? code : "analysis_failed"}`);
+  process.exitCode = 1;
+});

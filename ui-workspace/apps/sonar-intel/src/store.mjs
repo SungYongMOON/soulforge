@@ -17,14 +17,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, appendFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-// The app's own root (this file lives at <app>/src/store.mjs), not the caller's
-// process.cwd() — server.mjs, tools/collect_once.mjs and every test import this
-// module from different working directories, and the default store location
-// must not silently move (or fragment into several data/ folders) depending on
-// where the process happened to be launched from.
-const APP_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+import { acquireDataLease, externalDirectory } from "./runtime_paths.mjs";
 
 /** Namespaced stable id: sha256(naturalKey) truncated, prefixed by namespace. */
 export function computeStableId(namespace, naturalKey) {
@@ -105,19 +98,26 @@ async function detectSqliteModule() {
 
 /**
  * @param {object} [options]
- * @param {string} [options.dataDir] directory holding the store file(s). Defaults to `<app>/data`.
+ * @param {string} options.dataDir explicit external directory holding the store file(s).
  * @param {"auto"|"sqlite"|"jsonl"} [options.backend] force a backend; "auto" (default) tries
  *   sqlite first and falls back to JSONL.
  * @param {string} [options.dbFileName] sqlite filename. Default "intel.db".
  * @param {string} [options.jsonlFileName] JSONL filename. Default "intel.jsonl".
  */
 export async function openStore(options = {}) {
-  const dataDir = options.dataDir ?? path.join(APP_ROOT, "data");
+  const dataDir = externalDirectory(options.dataDir);
   if (!existsSync(dataDir) && !options.readOnly) {
     mkdirSync(dataDir, { recursive: true });
   }
 
-  const requestedBackend = options.backend ?? "auto";
+  const release = options.readOnly ? () => {} : acquireDataLease(dataDir);
+  try {
+  const hasSqlite = existsSync(path.join(dataDir, options.dbFileName ?? "intel.db"));
+  const hasJsonl = existsSync(path.join(dataDir, options.jsonlFileName ?? "intel.jsonl"));
+  if (hasSqlite && hasJsonl) throw new Error("core_backend_ambiguous");
+  // Restoring a JSONL generation on a newer Node must not silently fork CORE
+  // into a new SQLite database on its next write.
+  const requestedBackend = (options.backend ?? "auto") === "auto" && hasJsonl ? "jsonl" : options.backend ?? "auto";
   let sqliteModule = null;
   if (requestedBackend !== "jsonl") {
     sqliteModule = await detectSqliteModule();
@@ -126,10 +126,13 @@ export async function openStore(options = {}) {
     }
   }
 
-  if (sqliteModule && (!options.readOnly || existsSync(path.join(dataDir, options.dbFileName ?? "intel.db")))) {
-    return openSqliteStore(sqliteModule, dataDir, options.dbFileName ?? "intel.db", options.readOnly);
-  }
-  return openJsonlStore(dataDir, options.jsonlFileName ?? "intel.jsonl", options);
+  const store = sqliteModule && (!options.readOnly || existsSync(path.join(dataDir, options.dbFileName ?? "intel.db")))
+    ? openSqliteStore(sqliteModule, dataDir, options.dbFileName ?? "intel.db", options.readOnly)
+    : openJsonlStore(dataDir, options.jsonlFileName ?? "intel.jsonl", options);
+  const close = store.close.bind(store);
+  store.close = () => { try { close(); } finally { release(); } };
+  return store;
+  } catch (error) { release(); throw error; }
 }
 
 // ---------------------------------------------------------------------------

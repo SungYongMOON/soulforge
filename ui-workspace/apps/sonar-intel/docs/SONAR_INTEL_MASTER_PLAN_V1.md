@@ -75,9 +75,14 @@ ui-workspace/apps/sonar-intel/          ← 본 앱 (dev-erp의 형제 앱, 동�
 ├── export/                             ← ERP 내보내기 스냅샷 (CSV/JSON, ERP가 흡수)
 └── test/
 
-데이터 위치: intel.db는 본 앱 안(data/) — SW와 데이터 한 몸,
-ERP 연동은 DB 병합이 아니라 export/ 스냅샷 교환으로 (결합 없음, dev-erp P1 read-only 철학 유지)
+데이터 위치: 명시적 외부 앱 작업 자료 폴더(--data-dir 또는 SONAR_INTEL_DATA_DIR).
+설치 코드는 HPP Server Pack의 불변 payload, 자료는 코드 판본과 분리한다.
+ERP 연동은 DB 병합이 아니라 외부 자료 폴더의 export/ 스냅샷 교환으로 (결합 없음)
 ```
+
+설치 후 실행·자료 복구는 [소나 인텔 운영 안내](../../../../guild_hall/deployment_pack/manuals/sonar_intel_install_recovery.v0.md)가 소유한다.
+앱 내부 data/ 자동 생성·자동 이관·자동 수집 기동은 하지 않는다. source와 설치본 모두
+명시 외부 경로를 사용하고, 자료 복원 뒤 수집은 예산·권리 재확인 전까지 중지한다.
 
 ### 설계 원칙 (변경 금지급)
 1. **자체 스키마 단일 진실원본**: ERP 형식에 맞추지 않는다. 모든 엔티티에 안정 ID(part_id 등),
