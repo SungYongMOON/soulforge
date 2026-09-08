@@ -1,0 +1,15 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "hermes-buzz-pilot-hook-v1",
+  "description": "Reviewed generic Python observer, portable tests and minimal exact-baseline vendor patch for one issued Buzz pilot. Contains no whole vendor source, private apply kit, launcher, binding, account, profile state, credentials, messages or work evidence. Python and Hermes remain external runtimes. Assembly does not apply the patch, control a gateway, grant authority, send a message or accept work.",
+  "tracked_paths": [
+    "ui-workspace/apps/dev-erp/tools/hermes_buzz_pilot_hook.py",
+    "ui-workspace/apps/dev-erp/test/test_hermes_buzz_pilot_hook.py",
+    "ui-workspace/apps/dev-erp/ops/hermes_buzz_pilot_v1/hermes-vendor.patch",
+    "ui-workspace/apps/dev-erp/ops/hermes_buzz_pilot_v1/README.md"
+  ],
+  "tracked_excludes": [],
+  "carried_forward_prefixes": [],
+  "carried_forward_rationale": {},
+  "entry_points": ["ui-workspace/apps/dev-erp/tools/hermes_buzz_pilot_hook.py"]
+}
