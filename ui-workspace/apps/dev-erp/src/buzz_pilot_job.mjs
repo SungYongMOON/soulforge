@@ -63,13 +63,14 @@ function textBytes(value, empty = false) {
   check(!/<\/?(?:think|thinking|analysis|reasoning)>/iu.test(value), 'buzz_pilot_reasoning_forbidden');
   return bytes;
 }
-function question(input) {
-  exact(input, ['question'], ['choices', 'multi_select']);
+function question(input, prepared = false) {
+  exact(input, prepared ? ['question', 'choices', 'multi_select'] : ['question'],
+    prepared ? [] : ['choices', 'multi_select']);
   textBytes(input.question);
-  const choices = input.choices ?? [];
+  const choices = prepared ? input.choices : input.choices ?? [];
   check(Array.isArray(choices) && choices.length <= 16, 'buzz_pilot_choices_invalid');
   for (const choice of choices) check(textBytes(choice).length <= 2048, 'buzz_pilot_choices_invalid');
-  check(input.multi_select === undefined || typeof input.multi_select === 'boolean', 'buzz_pilot_choices_invalid');
+  check(!prepared && input.multi_select === undefined || typeof input.multi_select === 'boolean', 'buzz_pilot_choices_invalid');
   const normalized = { question: input.question, choices, multi_select: input.multi_select ?? false };
   check(Buffer.byteLength(canonical(normalized)) <= LIMIT, 'buzz_pilot_input_limit');
   return normalized;
@@ -87,9 +88,9 @@ export { validateBinding as validateBuzzPilotBinding };
 
 /** Callers construct the protected port with this fixed allowlist. No arbitrary role/path writes. */
 export const BUZZ_PILOT_ROLES = frozen(Object.fromEntries([
-  'instruction', 'original_message', 'question', 'answer', 'tool_input', 'tool_output', 'final_response',
-].map(role => [role, { filename: `${role}.${role === 'tool_input' ? 'json' : 'txt'}`,
-  maxBytes: LIMIT, mediaType: role === 'tool_input' ? 'application/json' : 'text/plain' }])));
+  'instruction', 'original_message', 'question', 'answer', 'tool_input', 'tool_input_effective', 'tool_output', 'final_response',
+].map(role => [role, { filename: `${role}.${['tool_input', 'tool_input_effective'].includes(role) ? 'json' : 'txt'}`,
+  maxBytes: LIMIT, mediaType: ['tool_input', 'tool_input_effective'].includes(role) ? 'application/json' : 'text/plain' }])));
 
 /** Observations only: no model, tool, network, root provisioning or canonical writer.
  * authorize(action, context, accessOrEvent) is a mandatory current trusted server
@@ -245,16 +246,35 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
         check(sha(Buffer.from(p.text.trim())) === row.instruction_trim_sha256, 'buzz_pilot_instruction_mismatch');
         state.original_message_id = p.message_id; facts = { message_id: p.message_id }; state.status = 'running'; break;
       case 'tool_started': {
-        exact(p, ['tool_call_id', 'tool_name', 'input']); ids('tool_call_id'); at('running');
+        exact(p, ['tool_call_id', 'tool_name', 'input'], ['input_contract']); ids('tool_call_id'); at('running');
         check(p.tool_name === 'clarify' && !state.tool_call_id, 'buzz_pilot_tool_forbidden');
+        check(p.input_contract === undefined || p.input_contract === 'prepared_v2', 'buzz_pilot_input_contract_invalid');
         const normalized = question(p.input);
         bytes = Buffer.from(canonical(p.input)); role = 'tool_input';
         state.question_shape_sha256 = sha(canonical(normalized)); state.tool_call_id = p.tool_call_id;
-        facts = { tool_call_id: p.tool_call_id, tool_name: 'clarify' }; state.status = 'tool_running'; break;
+        // An absent marker retains the v1 plan bytes, including pending replay.
+        if (p.input_contract !== undefined) state.input_contract = p.input_contract;
+        facts = { tool_call_id: p.tool_call_id, tool_name: 'clarify',
+          ...(p.input_contract === undefined ? {} : { input_contract: p.input_contract }) };
+        state.status = 'tool_running'; break;
+      }
+      case 'tool_input_prepared': {
+        exact(p, ['tool_call_id', 'tool_name', 'tool_input_ref', 'input']); tool(); at('tool_running');
+        check(state.input_contract === 'prepared_v2' && p.tool_name === 'clarify' && p.tool_input_ref === state.tool_input_ref
+          && !state.tool_input_effective_ref, 'buzz_pilot_prepared_input_mismatch');
+        question(p.input, true);
+        // The trusted native callback observes its actual effective arguments.
+        // Keep the model's original arguments intact, then bind registration to
+        // this separately preserved input instead of duplicating tool semantics.
+        bytes = Buffer.from(canonical(p.input)); role = 'tool_input_effective';
+        state.question_shape_sha256 = sha(bytes);
+        facts = { tool_call_id: p.tool_call_id, tool_name: 'clarify', tool_input_ref: p.tool_input_ref };
+        break;
       }
       case 'question_registered':
         exact(p, ['clarify_id', 'tool_call_id', 'question', 'choices', 'multi_select']); ids('clarify_id'); tool(); at('tool_running');
-        check(sha(canonical(question({ question: p.question, choices: p.choices, multi_select: p.multi_select })))
+        check(state.input_contract !== 'prepared_v2' || state.tool_input_effective_ref, 'buzz_pilot_prepared_input_required');
+        check(sha(canonical(question({ question: p.question, choices: p.choices, multi_select: p.multi_select }, true)))
           === state.question_shape_sha256, 'buzz_pilot_question_mismatch');
         role = 'question'; bytes = textBytes(p.question); state.clarify_id = p.clarify_id;
         facts = { clarify_id: p.clarify_id, tool_call_id: p.tool_call_id, choices_count: p.choices.length, multi_select: p.multi_select };
@@ -393,6 +413,8 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
       const state = JSON.parse(row.state_json), time = currentTime();
       check((state.session_key === null || isId(state.session_key))
         && (state.session_id === null || isId(state.session_id)), 'buzz_pilot_ledger_corrupt');
+      check(state.reason_code === undefined || typeof state.reason_code === 'string'
+        && /^[a-z][a-z0-9_]{0,63}$/u.test(state.reason_code), 'buzz_pilot_ledger_corrupt');
       const pending = db.prepare('SELECT observation_id FROM buzz_pilot_events WHERE job_id = ? AND committed = 0').get(binding.job_id);
       const events = db.prepare('SELECT * FROM buzz_pilot_events WHERE job_id = ? AND committed = 1 ORDER BY sequence').all(binding.job_id);
       const expired = time >= clock(source.expires_at) && !TERMINAL.has(state.status);
@@ -409,6 +431,7 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
           ? `buzz://message?channel=${source.chat_id}&id=${state.question_message_id}` : `buzz://channel/${source.chat_id}`,
         expected_responder: waiting ? { account_id: source.owner_account_id, pubkey: source.expected_owner_pubkey } : null,
         owner_action_required: waiting, operations_attention: attention,
+        failure_reason_code: state.reason_code ?? null,
         wait_started_at: state.wait_started_at ?? null,
         wait_elapsed_ms: state.wait_started_at ? Math.max(0, (state.wait_ended_at ? clock(state.wait_ended_at) : time) - clock(state.wait_started_at)) : null,
         pending_observation_id: pending?.observation_id ?? null,

@@ -77,7 +77,7 @@ function technicalReceipt(manifest, state, times) {
   return result.receipt;
 }
 
-test('active-WAL Buzz issued and pending-question snapshots restore exact protected roles, queries and replay fences', async t => {
+for (const inputContract of [undefined, 'prepared_v2']) test(`active-WAL Buzz ${inputContract ?? 'legacy v1'} issued and pending-question snapshots restore exact protected roles, queries and replay fences`, async t => {
   // ASSUMPTIONS: synthetic authoring may rebind local storage paths, never grant
   // real Owner approval. The fixture supplies reviewed code/Node pins; the real
   // producer below creates a NEW ledger with its writer held open throughout.
@@ -152,13 +152,19 @@ test('active-WAL Buzz issued and pending-question snapshots restore exact protec
     const pins = [JSON.parse(snapshotDb.prepare('SELECT instruction_json FROM buzz_pilot_jobs').get().instruction_json),
       ...snapshotDb.prepare('SELECT evidence_json FROM buzz_pilot_events WHERE committed = 1 ORDER BY sequence').all()
         .flatMap(row => JSON.parse(row.evidence_json))];
-    assert.equal(pins.length, state === 'issued' ? 1 : 4);
+    assert.equal(pins.length, state === 'issued' ? 1 : inputContract ? 5 : 4);
     // Advance the still-open source AFTER export. Membership must come from the
     // exported ledger, never from an enumeration of the now-newer evidence root.
     if (state === 'issued') {
       const question = { question: 'Who reads this synthetic note?', choices: ['Engineering', 'Management'], multi_select: false };
       await append('instruction_received', { message_id: message(1), text: f.instruction.toString().trim() });
-      await append('tool_started', { tool_call_id: 'call.synthetic-wal', tool_name: 'clarify', input: question });
+      const started = await append('tool_started', { tool_call_id: 'call.synthetic-wal', tool_name: 'clarify', input: structuredClone(question),
+        ...(inputContract ? { input_contract: inputContract } : {}) });
+      if (inputContract) {
+        question.choices[0] = '⭐ Engineering (recommended)';
+        await append('tool_input_prepared', { tool_call_id: 'call.synthetic-wal', tool_name: 'clarify',
+          tool_input_ref: started.evidence_refs[0].ref, input: question });
+      }
       await append('question_registered', { clarify_id: 'clarify.synthetic-wal', tool_call_id: 'call.synthetic-wal', ...question });
       await append('question_delivery', { clarify_id: 'clarify.synthetic-wal', delivery_status: 'sent', message_id: message(2) });
     } else await append('answer_received', { clarify_id: 'clarify.synthetic-wal', message_id: message(3), text: 'Engineering' });
