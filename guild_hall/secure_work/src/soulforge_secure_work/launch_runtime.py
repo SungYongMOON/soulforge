@@ -194,6 +194,9 @@ def initialize(packet):
 
 def main(packet):
     initialize(packet)
+    if packet["mode"] in {"feedback_prepare", "feedback_verify"}:
+        from soulforge_secure_work.g2_feedback_adapter import main as feedback_entry
+        return feedback_entry(packet["mode"])
     if packet["mode"] == "worker":
         from soulforge_secure_work.ipc import serve_runtime
         return serve_runtime("worker")
