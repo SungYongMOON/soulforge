@@ -25,7 +25,8 @@ function fixture(options = {}) {
       || !await access.canAccessProject('SYN-001')) throw Object.assign(new Error(), { code: 'buzz_pilot_not_authorized' });
   };
   const service = { snapshot: async access => { await authorize(access); return { version: 1, job_id: 'synthetic.job', state: 'issued',
-    recovery_metadata: { session_key: 'session:synthetic', session_id: 'session.synthetic' } }; },
+    recovery_metadata: { session_key: 'session:synthetic', session_id: 'session.synthetic',
+      instruction_trim_sha256: `sha256:${'a'.repeat(64)}` } }; },
     readEvidence: async (query, access) => { await authorize(access); state.query = query;
       return { bytes: Buffer.from('synthetic evidence'), size: 18, mediaType: 'text/plain' }; } };
   const controller = createBuzzPilotWorkbenchHttpController({ service, allowedOrigin: base,
@@ -83,6 +84,8 @@ test('Buzz HTTP exposes the current authenticated snapshot and exact observed ev
   assert.equal(JSON.parse(snapshot.body).job_id, 'synthetic.job');
   assert.equal(Object.hasOwn(JSON.parse(snapshot.body), 'recovery_metadata'), false);
   assert.equal(snapshot.body.includes('session:synthetic'), false);
+  assert.equal(snapshot.body.includes('instruction_trim_sha256'), false);
+  assert.equal(snapshot.body.includes('a'.repeat(64)), false);
   const evidence = await f.request('/api/workbench/buzz-pilot/evidence?role=question&observation_id=event.1');
   assert.equal(evidence.statusCode, 200); assert.equal(evidence.body.toString(), 'synthetic evidence');
   assert.deepEqual(f.state.query, { role: 'question', observation_id: 'event.1' });
@@ -94,7 +97,8 @@ test('Buzz HTTP exposes the current authenticated snapshot and exact observed ev
 test('Buzz HTTP refuses every mutation and arbitrary evidence/path query before calling the reader', async () => {
   const f = fixture();
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']) assert.equal((await f.request(undefined, { method })).statusCode, 405);
-  for (const path of ['/api/workbench/buzz-pilot?job_id=other', '/api/workbench/buzz-pilot/evidence?role=question',
+  for (const path of ['/api/workbench/buzz-pilot?job_id=other', '/api/workbench/buzz-pilot?recovery_metadata=1',
+    '/api/workbench/buzz-pilot/evidence?role=instruction_trim_sha256', '/api/workbench/buzz-pilot/evidence?role=question',
     '/api/workbench/buzz-pilot/evidence?role=instruction&path=private.txt',
     '/api/workbench/buzz-pilot/evidence?role=instruction&role=answer',
     '/api/workbench/buzz-pilot/evidence?role=answer&observation_id=../other',

@@ -82,6 +82,17 @@ marker가 없는 v1은 기존 raw 입력과의 정확 비교만 유지한다(생
 함께 사용해야 하며 raw 비교로 내려가지 않는다. 미완료 보존 claim은 같은 사건의 정확 재전달만
 복구할 수 있고 다른 실패 사건으로 덮거나 도구를 다시 실행하지 않는다.
 
+trusted pinned CLI `status`의 `recovery_metadata.instruction_trim_sha256`는 발행 시 저장한
+지시 비교용 SHA를 반환한다. 정확히 같은 binding의 발행 완료 행에서만 문자열이며,
+미완료 발행이나 다른 binding의 이력 조회에서는 `null`이다. 행 부재나 SHA 형식 손상은
+오류로 거부한다. 이 값은 배경 관측 대상 선정용 메타데이터이며 실행 허가가 아니다.
+일반 Workbench HTTP는 기존처럼 `recovery_metadata` 전체를 제외하고 이를 요청하는
+별도 query/role도 허용하지 않는다. 원문과 raw `instruction_sha256`는 바꾸지 않는다.
+비교 정의는 기존 JavaScript `String.prototype.trim()` 결과의 UTF-8 SHA-256이며
+`sha256:` 접두사를 붙인다. 양끝의 ECMAScript 공백·줄끝만 제거한다. 내부 공백·CRLF는
+보존하고 U+FEFF/U+00A0는 양끝에서 제거하지만 U+0085/U+200B는 제거하지 않는다.
+다른 언어의 기본 `strip` 동작으로 동일하다고 가정하지 않는다.
+
 DB와 역할 파일은 같은 백업 세대로 보존해야 한다. DB 파일만 복사하거나 원문 없이 해시만
 남긴 것은 업무 복구가 아니다. 질문 대기 중 WAL snapshot, 격리 복원, 동일 사건 재전달의
 중복 억제, 원문 변조 거부를 실제로 측정한 영수증이 있어야 복구 검증을 주장한다.

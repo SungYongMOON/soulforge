@@ -410,6 +410,7 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
       let row = jobRow(); check(row, 'buzz_pilot_job_missing');
       const source = storedBinding(row); await allowed('snapshot', source, access);
       row = jobRow(); check(row.binding_json === canonical(source), 'buzz_pilot_ledger_corrupt');
+      check(typeof row.instruction_trim_sha256 === 'string' && SHA.test(row.instruction_trim_sha256), 'buzz_pilot_ledger_corrupt');
       const state = JSON.parse(row.state_json), time = currentTime();
       check((state.session_key === null || isId(state.session_key))
         && (state.session_id === null || isId(state.session_id)), 'buzz_pilot_ledger_corrupt');
@@ -435,9 +436,12 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
         wait_started_at: state.wait_started_at ?? null,
         wait_elapsed_ms: state.wait_started_at ? Math.max(0, (state.wait_ended_at ? clock(state.wait_ended_at) : time) - clock(state.wait_started_at)) : null,
         pending_observation_id: pending?.observation_id ?? null,
-        // A restarted trusted observer may report a lost gateway wait against
-        // the recorded session. These identifiers never authorize a new run.
-        recovery_metadata: { session_key: state.session_key, session_id: state.session_id },
+        // Trusted observers use this stored comparison digest to select capture
+        // targets; historical/unfinished records are not current capture targets.
+        // This metadata never authorizes execution and is stripped from HTTP.
+        recovery_metadata: { session_key: state.session_key, session_id: state.session_id,
+          instruction_trim_sha256: row.issued === 1 && row.binding_json === bindingJson && row.binding_sha256 === bindingHash
+            ? row.instruction_trim_sha256 : null },
         instruction_ref: state.instruction_ref, original_message_ref: state.original_message_ref ?? null,
         question_ref: state.question_ref ?? null, answer_ref: state.answer_ref ?? null,
         output_ref: state.final_response_ref ?? null, evidence_refs: row.issued ? refs.map(publicPin) : [],
