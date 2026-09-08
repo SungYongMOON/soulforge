@@ -1,5 +1,171 @@
 # Development Roadmap v0
 
+## Current continuation checkpoint — 2026-09-09
+
+This checkpoint corrects the product interpretation for the integrated code at
+`d8e8a3b66b087208c42e8d7bceeb9a7913fdd9f4`. It takes precedence over older
+completion claims below; it does not replace the [M0–M16 master map](SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md)
+or individual module contracts. Whole-product completion remains unproven.
+
+The objective is the work behind the existing Buzz conversation:
+source/event → current context and authorized knowledge → work discovery and
+assignment → agent/skill/tool execution → evidence and review → authorized
+acceptance → canonical records, recovery and subsequent improvement. A chat
+round trip or single-job execution viewer does not establish this whole chain.
+
+| Connection | Implemented / evidence ceiling | Remaining integration or evidence |
+| --- | --- | --- |
+| Source/context → work candidates | Integrated work_intake adapters, context, judgment, storage and HTTP; synthetic and isolated installation evidence | Current company-source ingestion and sustained real discovery are not established |
+| Protected context → execution | Publisher, reader and currentness contracts with synthetic transport/expiry/denial evidence | Actual distinct OS-principal deployment, positive currentness and latency remain unverified |
+| Issued job → question → answer → resume → delivery | One real Buzz/Hermes run with synthetic input recorded 11 correlated events and one resume | Does not establish real company MCP reads, general assignment or organizational acceptance; bare-JSON formatting was not met |
+| Claude Hancom work | One representative synthetic HWPX/PDF document authored, corrected and visually checked | Not all templates, model identity, accepted canon or the full discovery-to-acceptance chain |
+| Observation → owner attention | Native question reader, view preferences, answer closure and unknown-state handling integrated and tested | All-bot continuous operational aggregation and complete cross-session handoff are not established |
+| Result → acceptance → canon/knowledge | Contracts and partial storage/read surfaces distinguish evidence, verification and acceptance | No complete real business case proves authorized promotion and downstream task/knowledge reconciliation |
+| Connector / authority management | Own MCP connection listing/revocation and specific guards implemented | M9 general lifecycle and M12 durable policy writer plus Console/Bastion enforcement chain incomplete |
+| Packaging / recovery | Isolated server installation, integrity, start/stop, update, rollback and damaged restore evidence | Operating rollout, actual company-data disaster recovery and human acceptance remain separate |
+
+Validation binding: the prior server pack has 1,674 passing tests and four
+Windows environment skips for each of source and installed copies. The d8e8a3b6
+pack reuses that exact baseline evidence and adds 26 passing changed-scope tests
+for each copy; its full suite was not rerun. Assembly receipt digest:
+`d5634039374caeeb03e13275cad55153c3b57ef142c712c579252f64c0c08d1b`.
+The four skips remain unresolved. Public CI also has an unresolved approved
+E14 test-kit dependency; local private kit availability is not republication
+permission. These results are not whole-product or production acceptance.
+
+Continuation order: inspect existing producer/consumer call paths and reuse
+their evidence; distinguish missing code, missing wiring, synthetic validation,
+physical validation and activation. Close broken backend connections before
+adding a replacement chat surface or treating a viewer as a workbench. Basic
+operations and Hancom stay in scope; other specialist workshops follow release.
+Owner attention should expose actionable exceptions from those connections.
+Do not rerun unchanged passing suites without a new change, failure or risk.
+
+Preserve the current workspace authority model: human and bot working folders
+are separate, while target canonical workspace metadata describes accepted
+canonical bytes only. Do not import legacy working metadata into target canon.
+Reversible internal development proceeds autonomously; actual grants, operating
+switches, outbound disclosure and canonical acceptance retain their exact
+authority boundaries. Technical incompleteness is not an Owner approval gate.
+Private raw evidence and host bindings remain in their private stores; this
+portable summary lets another developer or ChatGPT inspect the public state
+without treating access to those private stores as implicit.
+
+
+## Stopped development / complete worktree reading index — 2026-09-09
+
+Owner requested publication and a fresh start, then cessation of development in
+this session. Do not interpret this checkpoint as completion or permission to
+resume feature work automatically. Read this document on the PR branch
+`codex/rc-completion-20260907`; the default branch does not contain this handoff.
+
+The inventory covers all 73 registered worktrees of this public repository,
+with 68 distinct committed tips and three additional bounded WIP snapshots.
+Each distinct tip has an archive branch so even patch-equivalent original
+commits can be read from GitHub. Archives preserve code, not release approval.
+No archive functional suite was rerun during publication. Fourteen worktree
+tips have commits with different patch IDs from the integrated candidate;
+these are marked `COMPARE`, not automatically classified as missing features.
+They include older alternatives and changes whose later integration differs.
+Compare current code before bringing any of them forward. `REPRESENTED` means
+Git ancestry or patch equivalence, not that every historical behavior remains
+active. The integrated candidate remains the starting implementation.
+
+Private raw documents, credentials, host bindings, local runtime databases and
+private metadata ledgers are excluded from this public inventory. Their
+existence or a digest does not grant ChatGPT access. The accidental Python
+installation/cache directory is not authored development and is excluded.
+Original worktrees, indexes and dirty files are preserved; the three WIP
+snapshots below use separate temporary indexes and do not overwrite them.
+
+| WIP snapshot | Why separate | GitHub source |
+| --- | --- | --- |
+| pack-test-count | Old fixed pack file-count test edit; current candidate uses the declared manifest, so do not restore the old count | [ade59fbb](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-pack-test-count) |
+| early-buzz-reader | Early untracked reader/CLI copies; current reader has later fixes. Preserve for comparison only | [74c72586](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-early-buzz-reader) |
+| world-policy-candidate | Unfinished pure policy candidate and synthetic fixture; deferred, not activated or accepted | [5ee61ec7](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-world-policy-candidate) |
+
+<details>
+<summary>All 73 worktree checkpoints (paths omitted; original Git refs retained)</summary>
+
+| # | Original ref or detached tip | Disposition | GitHub preserved source |
+| --- | --- | --- | --- |
+| 1 | main | REPRESENTED | [d3a0d5d9](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d3a0d5d9) |
+| 2 | detached d3a0d5d9 | REPRESENTED | [d3a0d5d9](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d3a0d5d9) |
+| 3 | codex/work-intake-development-20260908 | REPRESENTED | [6e3bc87e](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-6e3bc87e) |
+| 4 | detached d3a0d5d9 | REPRESENTED | [d3a0d5d9](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d3a0d5d9) |
+| 5 | detached d3a0d5d9 | REPRESENTED | [d3a0d5d9](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d3a0d5d9) |
+| 6 | detached 35092955 | REPRESENTED | [35092955](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-35092955) |
+| 7 | detached d3a0d5d9 | REPRESENTED | [d3a0d5d9](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d3a0d5d9) |
+| 8 | external/gemini37-topology-hardening | COMPARE | [054b251e](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-054b251e) |
+| 9 | detached 572e655d | REPRESENTED | [572e655d](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-572e655d) |
+| 10 | detached 9e7cf302 | REPRESENTED | [9e7cf302](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-9e7cf302) |
+| 11 | codex/vigil-constructor-fix-20260907 | REPRESENTED | [491555b5](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-491555b5) |
+| 12 | detached 44a00dbb | REPRESENTED | [44a00dbb](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-44a00dbb) |
+| 13 | detached 8ca60363 | COMPARE | [8ca60363](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-8ca60363) |
+| 14 | claude/awesome-curie-a43c1f | COMPARE | [c004a98b](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-c004a98b) |
+| 15 | claude/blissful-bhaskara-6668ba | COMPARE | [084561eb](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-084561eb) |
+| 16 | claude/festive-cannon-5168bf | REPRESENTED | [d08faf96](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d08faf96) |
+| 17 | claude/festive-hypatia-97775e | COMPARE | [93214a15](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-93214a15) |
+| 18 | claude/infallible-wing-936468 | COMPARE | [b8424fe8](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-b8424fe8) |
+| 19 | claude/intelligent-jennings-979337 | COMPARE | [fc47b0d2](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-fc47b0d2) |
+| 20 | claude/optimistic-napier-eec3ff | COMPARE | [1d034047](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-1d034047) |
+| 21 | claude/quirky-lalande-1e5240 | COMPARE | [4eceea7c](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-4eceea7c) |
+| 22 | detached aefdbca6 | COMPARE | [aefdbca6](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-aefdbca6) |
+| 23 | claude/xenodochial-ptolemy-53d716 | COMPARE | [8d6d1c05](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-8d6d1c05) |
+| 24 | codex/accepted-context-read-20260907 | REPRESENTED | [55ceedd7](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-55ceedd7) |
+| 25 | codex/buzz-claude-scope-20260908 | REPRESENTED | [77098256](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-77098256) |
+| 26 | codex/buzz-observer-freeze-20260908 | REPRESENTED | [ca913c1c](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-ca913c1c) |
+| 27 | codex/buzz-pilot-producer-20260908 | REPRESENTED | [eb5b1e0b](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-eb5b1e0b) |
+| 28 | codex/buzz-source-login-link-20260908 | REPRESENTED | [194f540f](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-194f540f) |
+| 29 | codex/claude-acp-buzz-compat-20260908 | REPRESENTED | [cc5cab6d](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-cc5cab6d) |
+| 30 | codex/claude-acp-terminal-failure-20260908 | REPRESENTED | [867e0757](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-867e0757) |
+| 31 | codex/company-work-discovery-20260908 | REPRESENTED | [47118d92](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-47118d92) |
+| 32 | codex/continuous-improvement-20260908 | REPRESENTED | [d30b0cd6](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d30b0cd6) |
+| 33 | codex/dev-worker-scope-20260908 | REPRESENTED | [d3e77405](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d3e77405) |
+| 34 | codex/dynamic-bot-roster-20260908 | REPRESENTED | [d79521c7](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d79521c7) |
+| 35 | codex/feedback-readbox-20260908 | REPRESENTED | [62b2ad30](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-62b2ad30) |
+| 36 | codex/feedback-runtime-20260908 | REPRESENTED | [3335f83c](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-3335f83c) |
+| 37 | codex/g2-feedback-publisher-20260908 | REPRESENTED | [30ede8ac](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-30ede8ac) |
+| 38 | codex/g2-local-transport-20260908 | REPRESENTED | [7aea0a96](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-7aea0a96) |
+| 39 | codex/hermes-capability-20260908 | REPRESENTED | [50a032ee](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-50a032ee) |
+| 40 | codex/hermes-canonical-chat-20260908 | REPRESENTED | [89d71ccb](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-89d71ccb) |
+| 41 | codex/hermes-observation-background-20260908 | COMPARE | [8f80501c](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-8f80501c) |
+| 42 | codex/hwpx-workshop-20260908 | REPRESENTED | [8471c6db](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-8471c6db) |
+| 43 | codex/intake-race-fix-20260907 | REPRESENTED | [853caf9d](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-853caf9d) |
+| 44 | codex/owner-attention-20260908 | REPRESENTED | [81f062b5](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-81f062b5) |
+| 45 | codex/pack-sbom-20260908 | REPRESENTED | [71533db6](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-71533db6) |
+| 46 | codex/rc-ops-integration-20260909 | REPRESENTED | [5438a6bf](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-5438a6bf) |
+| 47 | detached 621ffb88 | REPRESENTED | [621ffb88](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-621ffb88) |
+| 48 | codex/buzz-pilot-auth-read-20260908 | REPRESENTED | [0036df21](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-0036df21) |
+| 49 | codex/pilot-clarify-effective-20260908 | COMPARE | [10aac66e](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-10aac66e) |
+| 50 | codex/pilot-login-link-20260908 | REPRESENTED | [b831797c](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-b831797c) |
+| 51 | codex/buzz-pilot-read-integration-20260908 | REPRESENTED | [728b6702](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-728b6702) |
+| 52 | codex/buzz-pilot-wal-restore-20260908 | REPRESENTED | [69b92134](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-69b92134) |
+| 53 | codex/post-release-workshops-20260908 | REPRESENTED | [5f862985](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-5f862985) |
+| 54 | codex/qs-security-update-20260908 | REPRESENTED | [d2d25017](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d2d25017) |
+| 55 | codex/rc-completion-20260907 | REPRESENTED | [b831797c](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-b831797c) |
+| 56 | codex/rc-next-20260908 | REPRESENTED | [d8e8a3b6](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d8e8a3b6) |
+| 57 | codex/rc-ops-access-20260909 | REPRESENTED | [8cd69591](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-8cd69591) |
+| 58 | codex/rc-surfaces-20260907 | COMPARE | [d817cf06](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-d817cf06) |
+| 59 | codex/secure-custody-handoff-20260908 | REPRESENTED | [09993e8d](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-09993e8d) |
+| 60 | codex/secure-cycle2-20260907 | REPRESENTED | [61905e11](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-61905e11) |
+| 61 | codex/secure-job-store-20260908 | REPRESENTED | [bade12c9](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-bade12c9) |
+| 62 | codex/secure-key-binary-20260908 | REPRESENTED | [911a77ef](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-911a77ef) |
+| 63 | codex/secure-launch-binding-20260908 | REPRESENTED | [a6b69e56](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-a6b69e56) |
+| 64 | codex/sonar-contracts-20260907 | REPRESENTED | [e149f909](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-e149f909) |
+| 65 | codex/sonar-intel-install-20260908 | REPRESENTED | [de7f4787](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-de7f4787) |
+| 66 | codex/source-only-lane-20260908 | REPRESENTED | [1aaeda98](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-1aaeda98) |
+| 67 | codex/sqlite-unavailable-gate-20260908 | REPRESENTED | [714d2b36](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-714d2b36) |
+| 68 | codex/tool-text-profiles-20260908 | REPRESENTED | [3b295db4](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-3b295db4) |
+| 69 | codex/tool-workshop-20260907 | REPRESENTED | [3f4e8169](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-3f4e8169) |
+| 70 | codex/vigil-receipt-state-20260908 | REPRESENTED | [7b269147](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-7b269147) |
+| 71 | codex/workbench-claim-race-20260908 | REPRESENTED | [adc23808](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-adc23808) |
+| 72 | codex/workbench-wiring-20260907 | REPRESENTED | [87cfff40](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-87cfff40) |
+| 73 | codex/world-policy-candidate-20260907 | REPRESENTED | [a56995dd](https://github.com/SungYongMOON/soulforge/tree/codex/archive-20260909-a56995dd) |
+
+</details>
+
+
 ## 2026-09-08 Owner release priority — basic operations and HWPX
 
 기본 운영의 실제 업무 지시·수행·질문/응답 후 재개·결과/이력 조회·장애 복구·
