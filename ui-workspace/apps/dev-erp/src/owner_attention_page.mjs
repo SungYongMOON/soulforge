@@ -5,6 +5,15 @@ let snapshot = null, filter = 'active', generation = 0, mutating = false;
 const $ = s => document.querySelector(s);
 const el = (tag, text, cls) => { const node = document.createElement(tag); if (text != null) node.textContent = text; if (cls) node.className = cls; return node; };
 const date = value => value ? new Intl.DateTimeFormat('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }).format(new Date(value)) : '지정하지 않음';
+function elapsedSinceRegistration(value) {
+  const started = Date.parse(value), observed = Date.parse(snapshot?.observed_at);
+  if (!Number.isFinite(started) || !Number.isFinite(observed) || started > observed) return '확인하지 못함';
+  const minutes = Math.floor((observed - started) / 60000);
+  if (minutes < 1) return '1분 미만';
+  if (minutes < 60) return `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours}시간 ${minutes % 60}분` : `${Math.floor(hours / 24)}일 ${hours % 24}시간`;
+}
 function fact(dl, label, value) { dl.append(el('dt', label)); const dd = el('dd'); if (Array.isArray(value)) { const ul = el('ul'); for (const line of value) ul.append(el('li', line)); dd.append(ul); } else dd.textContent = value; dl.append(dd); }
 function button(label, action) { const b = el('button', label); b.type = 'button'; b.addEventListener('click', action); return b; }
 async function act(row, action, minutes, card) {
@@ -35,7 +44,10 @@ function card(row) {
     : row.source_state === 'superseded' ? '새 판본으로 교체' : row.source_state === 'response_unverified' ? '답변 기록 확인 대기'
       : row.snoozed ? `${date(row.snooze_until)} 다시 보기` : row.overdue ? '기한 지남' : row.seen_at ? '확인함 · 응답 필요' : '새 응답 요청';
   top.append(el('span', status, `badge${row.overdue ? ' warn' : ''}`)); node.append(top, el('h2', row.question));
-  const dl = el('dl', null, 'facts'); fact(dl, '다음 행동', row.next_actions); fact(dl, '기다리는 일', row.blocked_work); fact(dl, '관련 업무', row.item_title); fact(dl, '응답 기한', date(row.due_at)); node.append(dl);
+  const dl = el('dl', null, 'facts'); fact(dl, '응답할 사람', '오너'); fact(dl, '다음 행동', row.next_actions); fact(dl, '기다리는 일', row.blocked_work); fact(dl, '관련 업무', row.item_title);
+  fact(dl, '요청 등록', date(row.created_at));
+  if (OPEN.has(row.source_state)) fact(dl, '등록 후 경과', elapsedSinceRegistration(row.created_at));
+  fact(dl, '응답 기한', date(row.due_at)); node.append(dl);
   const actions = el('div', null, 'actions');
   if (row.buzz_url) { const a = el('a', OPEN.has(row.source_state) ? 'Buzz에서 답변하기' : 'Buzz 대화 보기', 'button primary'); a.href = row.buzz_url; a.rel = 'noopener noreferrer'; if (row.buzz_url.startsWith('buzz:')) a.title = 'Buzz 앱에서 대화를 엽니다. 이 기기에 앱 연결이 필요합니다.'; actions.append(a); }
   else actions.append(el('span', '이 요청의 Buzz 대화 연결을 아직 확인하지 못했습니다.', 'route-missing'));

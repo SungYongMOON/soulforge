@@ -75,6 +75,20 @@ Ontology/knowledge canon, workflow canon, 또는 public documentation canon과 �
 
 ### noncanonical history routing과 attribution guard
 
+- 2026-09-08 Owner 실행 추적 요구: Buzz와 Owner 작업대의 요청은 같은 업무 ID·현재
+  권한·중복방지·attempt 계보로 연결한다. 원문 지시와 사용한 입력 판본, 실제 실행 도구/
+  변경, 공개된 출력·검증·실패·재시도·취소를 보호된 비정본 작업영역에서 추적할 수 있어야 한다.
+  모델의 thinking/reasoning은 이 원문 작업 기록에 포함하지 않는다.
+  메타 장부에는 역할별 원문 ref·정확한 hash·크기·요약과 현재 조회 권한을 연결한다.
+- 원지시/작업 출력은 새로 승인된 작업에 대해 create-only로 보존하며 기존 역사 자료를
+  새 정본으로 이식하지 않는다. 원문이 사라지고 hash만 남은 기록은 이 추적 요구의
+  완료가 아니다. 모델이 설명한 도구 사용과 실제 실행기가 관측한 도구 이벤트를 구별한다.
+  후자를 관측하지 못하면 `UNKNOWN`으로 표시하고 근거를 꾸미지 않는다.
+- 이 원문과 제어 기록은 재구성 불가능한 작업 증거이므로 허용된 보호 백업의 대상이다.
+  원문 객체와 metadata를 동일 업무/attempt·역할·판본·hash 집합으로 복원하고 현재
+  계정/과제/기록 소유권으로 조회 권한을 다시 검사한다. 코드 팩이나 future canonical
+  stores에 포함하지 않는다. 백업 분류·복원 gate는 `guild_hall/backup_controller/README.md`가 소유한다.
+
 - future target에서 project/task/file-observation/decision/worklog/collector event는 Organization
   World Tree, Event Timeline, Analytics의 work-event route가 소유한다. 이 writer가 실제로
   존재하고 acceptance를 받기 전까지 current legacy source가 해당 history의 authoritative

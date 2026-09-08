@@ -59,6 +59,7 @@
       "guild_hall/agent_observation/guard_primitives.mjs",
       "guild_hall/agent_observation/observation_internals.mjs",
       "guild_hall/ai_usage_meter/evidence_ledger.mjs",
+      "guild_hall/backup_controller/source_backup_generation_contract.mjs",
       "guild_hall/battle_log/battle_log.mjs",
       "guild_hall/doctor/platform_binary_check.mjs",
       "guild_hall/engineering_engine/core/validators/authority.mjs",
@@ -128,6 +129,7 @@
       "guild_hall/shared/project_history_receipt_adapter_request.v2.schema.json",
       "guild_hall/shared/project_history_receipt_adapter_v2.mjs",
       "guild_hall/shared/project_timeline_projection.v1.schema.json",
+      "guild_hall/shared/protected_working_bytes.mjs",
       "guild_hall/shared/python_bin.mjs",
       "guild_hall/shared/scope_timeline_binding.v1.schema.json",
       "guild_hall/shared/source_timeline_annotation.mjs",
@@ -198,6 +200,8 @@
       "ui-workspace/apps/dev-erp/src/adapter.mjs",
       "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
       "ui-workspace/apps/dev-erp/src/autosync.mjs",
+      "ui-workspace/apps/dev-erp/src/buzz_pilot_job.mjs",
+      "ui-workspace/apps/dev-erp/src/buzz_pilot_workbench_http.mjs",
       "ui-workspace/apps/dev-erp/src/calendar.mjs",
       "ui-workspace/apps/dev-erp/src/candidate_execution_authority_adapter.mjs",
       "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
@@ -222,6 +226,12 @@
       "ui-workspace/apps/dev-erp/src/forge_world_http.mjs",
       "ui-workspace/apps/dev-erp/src/guide.mjs",
       "ui-workspace/apps/dev-erp/src/hermes_bot_submit_executor.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_native_attempt_store.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_native_audit_store.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_native_chat_executor.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_native_cli.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_native_runtime.mjs",
+      "ui-workspace/apps/dev-erp/src/hermes_native_session_metadata.mjs",
       "ui-workspace/apps/dev-erp/src/hourly_shadow_cycle_contract.mjs",
       "ui-workspace/apps/dev-erp/src/knowledge_overview.mjs",
       "ui-workspace/apps/dev-erp/src/knowledge_registry.mjs",
@@ -289,14 +299,20 @@
       "ui-workspace/apps/dev-erp/static/workbench.js",
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_execution_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_child_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_fixtures.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_restart_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",
       "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
       "ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs",
       "ui-workspace/apps/dev-erp/tools/auto_intake_cycle.mjs",
       "ui-workspace/apps/dev-erp/tools/backup_db.mjs",
       "ui-workspace/apps/dev-erp/tools/build_real_meta.mjs",
+      "ui-workspace/apps/dev-erp/tools/buzz_pilot_job_cli.mjs",
       "ui-workspace/apps/dev-erp/tools/chatbot_ollama_smoke.mjs",
       "ui-workspace/apps/dev-erp/tools/codex_dedicated_worker.mjs",
       "ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs",
@@ -388,6 +404,7 @@
     ],
     "operator_docs": [
       "ui-workspace/apps/dev-erp/README.md",
+      "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
       "ui-workspace/apps/dev-erp/docs/DESIGN.md",
       "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md"
     ],
@@ -403,6 +420,10 @@
       "ui-workspace/apps/dev-erp/test/auto_intake_cycle.test.mjs",
       "ui-workspace/apps/dev-erp/test/autosync_idempotency.test.mjs",
       "ui-workspace/apps/dev-erp/test/branch_story.test.mjs",
+      "ui-workspace/apps/dev-erp/test/buzz_pilot_job.test.mjs",
+      "ui-workspace/apps/dev-erp/test/buzz_pilot_job_cli.test.mjs",
+      "ui-workspace/apps/dev-erp/test/buzz_pilot_wal_restore.test.mjs",
+      "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/calendar.test.mjs",
       "ui-workspace/apps/dev-erp/test/candidate_execution_authority_adapter.test.mjs",
       "ui-workspace/apps/dev-erp/test/candidate_execution_coordinator.test.mjs",
@@ -441,6 +462,10 @@
       "ui-workspace/apps/dev-erp/test/haengbogwan_snapshot.test.mjs",
       "ui-workspace/apps/dev-erp/test/haengbogwan_task_decisions.test.mjs",
       "ui-workspace/apps/dev-erp/test/hermes_bot_submit_executor.test.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_audit_restore.test.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_chat_executor.test.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
+      "ui-workspace/apps/dev-erp/test/hermes_native_workbench_store.test.mjs",
       "ui-workspace/apps/dev-erp/test/knowledge_grounding.test.mjs",
       "ui-workspace/apps/dev-erp/test/knowledge_loop.test.mjs",
       "ui-workspace/apps/dev-erp/test/lan_https_proxy.test.mjs",
@@ -1177,6 +1202,10 @@
     "test/auto_intake_cycle.test.mjs",
     "test/autosync_idempotency.test.mjs",
     "test/branch_story.test.mjs",
+    "test/buzz_pilot_job.test.mjs",
+    "test/buzz_pilot_job_cli.test.mjs",
+    "test/buzz_pilot_wal_restore.test.mjs",
+    "test/buzz_pilot_workbench_http.test.mjs",
     "test/calendar.test.mjs",
     "test/candidate_execution_authority_adapter.test.mjs",
     "test/candidate_execution_coordinator.test.mjs",
@@ -1215,6 +1244,10 @@
     "test/haengbogwan_snapshot.test.mjs",
     "test/haengbogwan_task_decisions.test.mjs",
     "test/hermes_bot_submit_executor.test.mjs",
+    "test/hermes_native_audit_restore.test.mjs",
+    "test/hermes_native_chat_executor.test.mjs",
+    "test/hermes_native_workbench_http.test.mjs",
+    "test/hermes_native_workbench_store.test.mjs",
     "test/knowledge_grounding.test.mjs",
     "test/knowledge_loop.test.mjs",
     "test/lan_https_proxy.test.mjs",
@@ -1290,6 +1323,10 @@
     "test/auto_intake_cycle.test.mjs",
     "test/autosync_idempotency.test.mjs",
     "test/branch_story.test.mjs",
+    "test/buzz_pilot_job.test.mjs",
+    "test/buzz_pilot_job_cli.test.mjs",
+    "test/buzz_pilot_wal_restore.test.mjs",
+    "test/buzz_pilot_workbench_http.test.mjs",
     "test/calendar.test.mjs",
     "test/candidate_execution_authority_adapter.test.mjs",
     "test/candidate_execution_coordinator.test.mjs",
@@ -1328,6 +1365,10 @@
     "test/haengbogwan_snapshot.test.mjs",
     "test/haengbogwan_task_decisions.test.mjs",
     "test/hermes_bot_submit_executor.test.mjs",
+    "test/hermes_native_audit_restore.test.mjs",
+    "test/hermes_native_chat_executor.test.mjs",
+    "test/hermes_native_workbench_http.test.mjs",
+    "test/hermes_native_workbench_store.test.mjs",
     "test/knowledge_grounding.test.mjs",
     "test/knowledge_loop.test.mjs",
     "test/lan_https_proxy.test.mjs",
@@ -2120,6 +2161,10 @@
       "sha256": "582f84cb8d84f6f7404f513f995a3d815c8c7f7e84c85d66f27a942ba55b4dbb"
     },
     {
+      "path": "guild_hall/backup_controller/source_backup_generation_contract.mjs",
+      "sha256": "2463599cfbd11c78fd1143656f503d8a4d16b7e21c99949021287141fe4214ed"
+    },
+    {
       "path": "guild_hall/battle_log/battle_log.mjs",
       "sha256": "9ebf6764a932922ff566373be8c4610eb538fcc2b87c26498e285a43dd4f9d9a"
     },
@@ -2181,7 +2226,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "abe15de29fc59842d5ea32c5216067671af377c81d212f8cd7f02e14c74da2c3"
+      "sha256": "25e398bd9bbf90c08bfdf75fe64adf7b6cc2d56d5e2666b2bc7ab489121e4e41"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2197,7 +2242,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "46dd4a395c0412327f36bf31b7fef08c4f661c7d077867db477447707fad8720"
+      "sha256": "d6057fda7273d0e90da8bc928c93e5a6969bf36787c0a404530dbb63251d9842"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2206,6 +2251,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
       "sha256": "b2fc370e1e31e0476f068dc58dfccc1427770edc6b86919b77f16793b17a3ff5"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/src/buzz_pilot_workbench_http.mjs",
+      "sha256": "de467842bfc16d2c8e382faae9bf8ac05cf5734015d9a0fe0ef82b6b2d72cc48"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
@@ -2300,6 +2349,10 @@
       "sha256": "137ccac4bb91c1c2fb819a0f6fbfb1963edc76c09568d96094cb6194b0d74c8e"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
+      "sha256": "b8715366238d98d573c89d2dbb2366eca39a1f5a5ccafa1819bcca594c33c101"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
       "sha256": "d614b0770889bb1762353a11b05b31d0f1d408dd53b5c5c6b0eef67fa7262f08"
     },
@@ -2334,6 +2387,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/forge_world_server.test.mjs",
       "sha256": "b118fdd764109ecb11aa40d424219b1c8d159aea4c782ba4c24331f2a8e2ca5c"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
+      "sha256": "0e155e42e1439a9bd4f418a92bed8d18aef8086299b0ea30ae883dbd6f75afce"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",

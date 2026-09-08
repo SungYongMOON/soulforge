@@ -20,7 +20,9 @@ spec.content_roles = {
   resource_lease_helper: helper,
   tool_adapter: [...closure.filter((file) => !helper.includes(file) && !validators.includes(file)), ...nativeSources].sort(),
   validators,
-  workshop_docs: [`${WORKSHOP}/README.md`, `${WORKSHOP}/CLAUDE_ACP_SCOPE.md`, `${WORKSHOP}/module.manifest.json`, ...listFiles(ROOT, `${WORKSHOP}/tests`, ".py"), "guild_hall/deployment_pack/manuals/workshop_operator.v0.md"],
+  workshop_docs: [`${WORKSHOP}/README.md`, `${WORKSHOP}/CLAUDE_ACP_SCOPE.md`, `${WORKSHOP}/module.manifest.json`, ...listFiles(ROOT, `${WORKSHOP}/tests`, ".py"), "guild_hall/deployment_pack/manuals/workshop_operator.v0.md",
+    // The compatibility/failure smoke suites read these JSON files directly.
+    "guild_hall/deployment_pack/lanes/tool_workshop_claude_acp_lane.spec.json", "guild_hall/deployment_pack/lanes/tool_workshop_claude_acp_v2_lane.spec.json", "guild_hall/deployment_pack/lanes/tool_workshop_claude_acp_v3_lane.spec.json"],
 };
 spec.smoke_test_entries = validators;
 // Real lock/expiry and child process tests own bounded timing windows.

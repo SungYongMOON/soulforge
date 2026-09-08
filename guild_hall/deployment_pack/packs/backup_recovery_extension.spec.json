@@ -1223,7 +1223,7 @@
     },
     {
       "path": "guild_hall/backup_controller/README.md",
-      "sha256": "f52205499dda0dd074b473deebc3ecba1a5d9a824d83e4d774d6a02cfcecb566"
+      "sha256": "cf210a7c9443d9eb170e7a96d927a9d84dd872330b9f84b17c80cecf0743f180"
     },
     {
       "path": "guild_hall/backup_controller/buzz_backup_generation_index.mjs",

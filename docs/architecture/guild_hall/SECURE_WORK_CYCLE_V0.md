@@ -4,12 +4,20 @@
 > 운영 승인이 아니고, 실자료 canary도 아니며, 결과는 후보다.
 > 실행 표면은 [`guild_hall/secure_work/README.md`](../../../guild_hall/secure_work/README.md)가 소유한다.
 
+> 2026-09-08 CURRENT (M10 역할 전달): controller가 보관용 서명/연결 설정을
+> 직접 보유하는 경로 대신, `custody.deposit` 목적에 고정된 sender와 별도 launcher로
+> 후보 bytes를 전달한다. 원본 독립 검토는 Node70/Python203 PASS(5 SKIP,19 subtests),
+> 통합 영향 검사는 Node61/Python203 PASS(동일5 SKIP,19 subtests)다. 합성 same-SID
+> IPC와 임시 Ingress에서 70,001 bytes·2 chunks·1 submission 후 새 controller의
+> status-only ACK 복구를 확인했다. 일부 OS/실행파일 결속은 합성 seam이며, 실제
+> 다른 SID·전체 설치 lane/BIND09·운영 키/서비스·자료 전송·사람 수락은 미검증이다.
+>
 > 2026-09-08 CURRENT (M06 IPC): controller 소유 원장·source·vault를 sender/worker
 > 설정으로 전달하지 않고, Windows named pipe의 OS peer identity와 고정된 일회
 > launcher를 통해 released bytes를 전달한다. worker→sender→controller 순서의
 > 단방향 파일 고정으로 상호 digest 순환을 없앴다. 독립 검토 후 통합 Node60 PASS,
 > Python192 PASS(5 SKIP,19 subtests), 실제 same-SID 두 child 종료를 확인했다.
-> 서로 다른 SID·OS ACL·app-control은 미실행이며 M10 보관의 별도 역할 배선과
+> 서로 다른 SID·OS ACL·app-control은 미실행이며 M10 배선은 위 후속 구현으로 잇는다.
 > 전체 BIND09는 계속 구현한다. pipe I/O 제한120초와 권한 launcher 제한60초는
 > 별도 제한이며 전체 controller가120초 내 종료된다는 보장이 아니다.
 > worker 사전 검사 `WORKER_CHANNEL_BOUND_INACTIVE`는 실행 활성화가 아니다.

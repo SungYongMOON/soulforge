@@ -101,8 +101,15 @@ it does not back up a running workshop database or approve operational recovery.
 
 The pack includes `guild_hall/tool_workshop/CLAUDE_ACP_SCOPE.md` and its four
 production modules. The same modules can be built as the separate versioned
-`tool-workshop-claude-acp-v1` source lane using the repository-owned
-`tool_workshop_claude_acp_lane.spec.json`. This tracked-only first build omits
+`tool-workshop-claude-acp-v3` source lane using the repository-owned
+`tool_workshop_claude_acp_v3_lane.spec.json`; the earlier v1/v2 specs and lanes are
+preserved. V3 retains the v2 negotiation of Buzz's newer request to supported ACP1
+and acknowledges only the
+pinned model. Foreign model/permission settings and extra MCP servers remain
+refused. The v3 identifier is a packaging revision, not ACP protocol 3 support.
+Version agreement is not full bot or tool-chain acceptance. These optional Claude
+repairs are not a prerequisite for the first pilot's existing single-task bot route.
+This tracked-only first build omits
 `--previous-lane`; it contains no inherited workspace metadata, profile, native
 runtime, credentials, instructions or job data. Verify the resulting manifest
 before registering its exact installed entrypoint as a Buzz custom harness.
@@ -115,6 +122,38 @@ entrypoint supports ACP text jobs with manifest-bound reads and create-only text
 drafts. It retains official CLI authentication in its normal host location and
 does not copy credentials into a new home. Never run the production adapter from
 a Git checkout or inherit arbitrary client MCP servers, shell tools or settings.
+
+Before each actual work prompt, including later turns, v3 separately invokes the
+pinned CLI's `auth status --json` in that session's fixed cwd and environment.
+`--preflight` does not perform this auth observation. Only the typed `loggedIn`
+boolean and allowlisted authentication method are interpreted; raw auth fields,
+account identifiers and stderr are discarded. The probe is bounded to 16 KiB and
+15 seconds, and its positive observation expires within 30 seconds and the binding
+expiry. It is never reused for a later prompt. `AUTH_REQUIRED` means the CLI
+reported no authentication; `AUTH_STATE_UNAVAILABLE` means that observation could
+not be established. Neither outcome authorizes reading credentials, logging in,
+changing settings, or inferring provider quota from error prose.
+
+An operational failure sends one fixed notice and a terminal ACP response with
+`stopReason: "end_turn"`, `_meta.accepted: false`, and typed
+`_meta.failure_meta` (`status: "failed"`, fixed code, `retryable: false`). Only
+recognized native result subtypes/error codes classify a failure; unknown values
+remain unknown. Actual cancellation returns `cancelled`. Failed-session replay
+returns the retained result with no new notice, auth probe or work-process spawn;
+another attempt requires a newly created session and the usual binding checks.
+`directChildClosed: false` means direct-child closure was not confirmed, and a new
+session cannot run while an observed prior child remains live. This is not a
+descendant-process termination guarantee or rollback of partial draft files.
+
+Buzz's referenced transport may label that terminal response `ok`/`end_turn` and
+ignore the custom failure metadata. Such labels mean transport processing ended,
+not work success or acceptance. A failure notice observed in an ACP stream/log
+does not prove delivery to actual Bot Chat or propagation to a business status.
+Read those outcomes separately; this adapter has no relay publisher. Actual Buzz
+child-context authentication, real model work and installed-v3 operation require
+their own measurements. The packed scope, Buzz-compatibility and failure suites
+use synthetic CLI fixtures and run as both source and installed smoke, including
+direct reads of the preserved v1/v2/v3 source-lane specifications.
 
 After actual custom-harness selection, read the bot configuration back and run a
 short public/synthetic canary. Registration, metadata preflight, actual inference,

@@ -1,5 +1,37 @@
 # DEV_WORKER_AUTOMATION_V0
 
+## Current continuous-feedback candidate
+
+The current roadmap's internal task absorption and continuous improvement are
+required development. Internal reversible work proceeds under current standing
+delegation and is reported for later review; external disclosure retains its
+exact prior review. Buzz and the Owner workbench may provide useful entry points,
+but they must share task identity, authority, deduplication and execution evidence.
+
+`guild_hall/dev_worker/feedback_*.mjs` now implements explicit current Linear
+metadata selection, independently authorized issued requests, durable serial
+claims and retry budgets, sparse Git patch candidates, pinned validators,
+independent review/report ports, and a separate model-free watchdog/poller.
+The canonical `validate:dev-worker` delegates to `validate:dev-feedback`.
+Independent review accepted the code candidate after fixing scoped recovery
+composition; existing35 and feedback84 tests passed, including real Git and child
+process execution. This does not establish real-model or installed workflow use.
+
+The continuous path uses an explicitly supplied noncanonical control database
+and approved working roots. It does not discover or import old `_workmeta`
+packets. The historical paths in the one-packet automation below refer to their
+existing legacy owners and never authorize writes to future canonical storage.
+The issue metadata reader is not a comment classifier, an echo proof or execution
+authority; its whole issue hash also changes on provider status/time revisions.
+
+Remaining integration is explicit: current source/role/assignment and request
+issuance, actual proposer/reviewer/report routes, exact outbound echo collection,
+installed separate worker/watchdog scheduling, and the shared protected work log.
+Original instructions/inputs and actual tool outputs must remain readable through
+protected working references. Hash-only metadata and model self-reports are not
+a substitute for those records. The current runner's metadata logs do not yet
+fulfill that whole trace requirement. These are technical tasks, not Owner gates.
+
 ## Purpose
 
 - This document defines the bounded development worker lane for Soulforge.

@@ -129,6 +129,10 @@ const dataReads = [
   `${APP}/ops/register-dev-erp-scheduled-task.ps1`,
   `${APP}/.gitignore`,
   `${APP}/docs/checklist_phase1.json`,
+  // Native executor tests spawn these files through fixed URL paths rather
+  // than importing them; installed smoke needs the same reviewed fixtures.
+  `${APP}/test/hermes_native_child_fixture.mjs`,
+  `${APP}/test/hermes_native_restart_fixture.mjs`,
   "docs/architecture/workspace/examples/task_execution_core_poc/task_execution_core.synthetic.json",
   "docs/architecture/workspace/examples/se_stage_rules/stage_work_order_synthetic_v0.json",
   // World Tree serves the shared Board renderer from fixed URLs (fs-read closure).
@@ -177,6 +181,7 @@ const contentRoles = {
   manifests: ["ui-workspace/apps/dev-erp/package.json"],
   operator_docs: [
     "ui-workspace/apps/dev-erp/README.md",
+    "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
     // The verify gate's docs_present check demands these two.
     "ui-workspace/apps/dev-erp/docs/DESIGN.md",
     "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",

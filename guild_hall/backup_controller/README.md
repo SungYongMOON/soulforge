@@ -361,6 +361,32 @@ arbitrary command, executable, or environment value.
 
 ## New HPP data surfaces
 
+Protected execution evidence is durable working data, not a rebuildable cache or
+canonical artifact. Original instructions, admitted input revisions and captured
+tool/output bytes must remain paired with the metadata ledger by task, attempt,
+fixed role, generation and hash. Model-reported tool use is not an observed tool
+event. The working-store boundary is owned by
+`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`; it grants no migration
+of legacy metadata or raw work logs into canonical targets.
+
+Classify the explicitly bound working-evidence root as included in protected
+backup/restore, with its current source owner and read authority. For an external
+bot working root, bind that owner explicitly instead of copying it into HPP or a
+canonical tree to make the existing snapshot pass. Restore must preserve exact
+role bytes and references together, reject a missing/mixed generation and deny
+reads by a revoked or unrelated requester. No automatic deletion or operational
+backup activation follows from this classification. The Buzz first-pilot gate
+`ui-workspace/apps/dev-erp/test/buzz_pilot_wal_restore.test.mjs` uses the existing
+logical SQLite exporter with a live, uncheckpointed WAL writer. It binds the
+frozen DB and its exact protected roles into one create-only generation, restores
+them in isolation, and checks current read authority and observed-event replay.
+It covers issued and question-waiting records; it does not restore the gateway's
+in-memory question or authorize a model retry. Role reads reject damaged or
+missing bytes, while a metadata-only status snapshot does not verify every role.
+Operational restoration must therefore verify all manifest members before
+activation. This synthetic gate is not NAS/operational DR or human acceptance;
+existing declared backup stages continue.
+
 Every new top-level HPP data surface is classified in the same development
 slice as one of:
 

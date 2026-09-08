@@ -35,6 +35,8 @@
       "ui-workspace/apps/dev-erp/tools/project_history_copy_xlsx.mjs"
     ],
     "validators": [
+      "guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs",
+      "guild_hall/tool_workshop/tests/claude_acp_failure.test.mjs",
       "guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs",
       "guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs",
       "guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs",
@@ -48,10 +50,15 @@
       "guild_hall/tool_workshop/tests/native_pptx_canary_readback.py",
       "guild_hall/tool_workshop/tests/native_xlsx_canary_readback.py",
       "guild_hall/tool_workshop/tests/pptx_native_negative_test.py",
-      "guild_hall/deployment_pack/manuals/workshop_operator.v0.md"
+      "guild_hall/deployment_pack/manuals/workshop_operator.v0.md",
+      "guild_hall/deployment_pack/lanes/tool_workshop_claude_acp_lane.spec.json",
+      "guild_hall/deployment_pack/lanes/tool_workshop_claude_acp_v2_lane.spec.json",
+      "guild_hall/deployment_pack/lanes/tool_workshop_claude_acp_v3_lane.spec.json"
     ]
   },
   "smoke_test_entries": [
+    "guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs",
+    "guild_hall/tool_workshop/tests/claude_acp_failure.test.mjs",
     "guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs",
     "guild_hall/tool_workshop/tests/pptx_workshop_runner.test.mjs",
     "guild_hall/tool_workshop/tests/tool_workshop_core.test.mjs",
@@ -66,12 +73,24 @@
   "secret_refs": [],
   "content_scan_reviewed_files": [
     {
+      "path": "guild_hall/tool_workshop/CLAUDE_ACP_SCOPE.md",
+      "sha256": "ac0011c2252e3d9f23c2faf784996b987c1b64a4f009460c28f91e6b2f9092ab"
+    },
+    {
+      "path": "guild_hall/tool_workshop/src/claude_acp_server.mjs",
+      "sha256": "4daacac7270b18f17918c8bee4e69a9fa52cfeb894e3366d0abe798ab18e372a"
+    },
+    {
+      "path": "guild_hall/tool_workshop/tests/claude_acp_buzz_compat.test.mjs",
+      "sha256": "3582dbaa8e48ceb6184a0239b435560cb85f3788cdb3ac4b011a4b218e7f4ce5"
+    },
+    {
       "path": "guild_hall/tool_workshop/tests/claude_acp_fixture.mjs",
-      "sha256": "65e7602a1cf4961ac565c55ea0d07fd5b4edf9e1cff42bce669be9fc1258c0f8"
+      "sha256": "c1affcca324ee34b1c4e7e755d46fd04fcb09943547ff3b7748fcb6d2c1cf89d"
     },
     {
       "path": "guild_hall/tool_workshop/tests/claude_acp_scope.test.mjs",
-      "sha256": "ceeca9d683a6085a3ea15936e66ab90400a86f9c6b94a66c92f5830d649921a1"
+      "sha256": "a8b63130799a5a10984317d2aea313d2265e77e41b4cbda22c0ec6a004705439"
     }
   ],
   "test_concurrency": 1
