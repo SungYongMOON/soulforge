@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "backup_recovery_extension",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -65,7 +65,10 @@
       "guild_hall/backup_controller/topology_v2_private_binding.schema.json",
       "guild_hall/backup_controller/windows_task_bridge.ps1",
       "guild_hall/backup_controller/writer_quiesce.mjs",
-      "guild_hall/backup_controller/writer_quiesce.schema.json"
+      "guild_hall/backup_controller/writer_quiesce.schema.json",
+      "guild_hall/deployment_pack/manuals/external_connector_backup_restore.v0.md",
+      "guild_hall/deployment_pack/manuals/path_registry_resolver.v0.md",
+      "guild_hall/deployment_pack/manuals/watch_4192_storage_backup_map.v0.md"
     ],
     "shared_modules": [
       "guild_hall/agent_observation/guard_primitives.mjs",
@@ -678,7 +681,7 @@
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.backup_recovery_extension.v0_1_2",
+  "release_notes_ref": "release_notes.backup_recovery_extension.v0_1_3",
   "install_manual_ref": "manual.install.backup_recovery_extension",
   "upgrade_manual_ref": "manual.upgrade.backup_recovery_extension",
   "rollback_manual_ref": "manual.rollback.backup_recovery_extension",

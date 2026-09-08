@@ -42,6 +42,9 @@ const contentRoles = {
   ],
   learning_material: [
     `${APP}/README.md`,
+    ...["team_client_install_use_revoke_recovery", "new_hire_training",
+      "experienced_hire_training", "manager_training"]
+      .map(role => `guild_hall/deployment_pack/manuals/${role}.v0.md`),
   ],
   safe_diagnostics: [
     "guild_hall/doctor/deployment_readiness.mjs",
@@ -75,7 +78,7 @@ const validators = contentRoles.validators;
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "team_client_pack",
-  version: "0.2.0",
+  version: "0.2.1",
   host_effect_policy: {
     reboot: "forbidden",
     driver_change: "forbidden",
@@ -87,7 +90,7 @@ const spec = {
   smoke_test_entries: validators,
   installed_smoke_entries: validators,
   installed_smoke_excluded: [],
-  release_notes_ref: "release_notes.team_client_pack.v0_2_0",
+  release_notes_ref: "release_notes.team_client_pack.v0_2_1",
   install_manual_ref: "manual.install.team_client_pack",
   upgrade_manual_ref: "manual.upgrade.team_client_pack",
   rollback_manual_ref: "manual.rollback.team_client_pack",

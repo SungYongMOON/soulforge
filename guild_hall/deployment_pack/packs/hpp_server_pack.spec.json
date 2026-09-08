@@ -456,7 +456,18 @@
       "ui-workspace/apps/sonar-intel/package.json"
     ],
     "operator_docs": [
+      "guild_hall/deployment_pack/manuals/agent_mark_deployment_run.v0.md",
+      "guild_hall/deployment_pack/manuals/buzz_hermes_operations_recovery.v0.md",
+      "guild_hall/deployment_pack/manuals/external_connector_backup_restore.v0.md",
+      "guild_hall/deployment_pack/manuals/forge_work_generation_review.v0.md",
+      "guild_hall/deployment_pack/manuals/hpp_server_operator.v0.md",
+      "guild_hall/deployment_pack/manuals/mcp_material_receive_result_submit.v0.md",
+      "guild_hall/deployment_pack/manuals/path_registry_resolver.v0.md",
       "guild_hall/deployment_pack/manuals/sonar_intel_install_recovery.v0.md",
+      "guild_hall/deployment_pack/manuals/target_folder_materializer.v0.md",
+      "guild_hall/deployment_pack/manuals/vault_artifact_revision_promotion.v0.md",
+      "guild_hall/deployment_pack/manuals/watch_4192_incident_response.v0.md",
+      "guild_hall/deployment_pack/manuals/watch_4192_storage_backup_map.v0.md",
       "ui-workspace/apps/dev-erp/README.md",
       "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",
       "ui-workspace/apps/dev-erp/docs/DESIGN.md",
@@ -2309,7 +2320,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "47dbe5b7a9a322ab119615057d141ecd1e7c4a39e215f2e0f73c9293a73c4e9d"
+      "sha256": "32901d96a09ad77b2ead4c40e736254fdd50f0b61320d03bd6468eb46e52fa08"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2337,7 +2348,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/buzz_pilot_workbench_http.mjs",
-      "sha256": "b7b0072ad63b3d47554c0b766bb414702e17965f0837f937749c6578cd0ab416"
+      "sha256": "2749a2070e3dfb481f7a0c8accdfefa276d77a567dbd9768cd5a509a1bc71308"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/candidate_execution_coordinator.mjs",
@@ -2429,7 +2440,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/workbench.js",
-      "sha256": "3029b94a0f71ce69be3976cc909c0f194364aaa5ef990a1661e546577362adb5"
+      "sha256": "b125d1efd8700b5a2a8b5ffecea6ed8e7f95259bb179cac96574f32be1731f41"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/accepted_context_http.test.mjs",
@@ -2441,7 +2452,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
-      "sha256": "477caaf7b0297432c214e035eeb8e4f25756d2d583f064c83e51fda898279f70"
+      "sha256": "d50228215fdb394f65542708035f4a2d5e1fa442503b8678811771f95bb9460c"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",

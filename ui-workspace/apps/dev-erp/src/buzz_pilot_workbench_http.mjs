@@ -71,7 +71,7 @@ export function createBuzzPilotWorkbenchHttpController({ service = null, enabled
         // Session recovery identifiers belong to the trusted local observer.
         // Owner-facing status needs the job state and evidence, not that seam.
         const { recovery_metadata: ignoredRecovery, ...view } = result;
-        send(res, 200, view);
+        send(res, 200, { ...view, home_url: loginUrl ?? origin.href });
       }
       else {
         if (!Buffer.isBuffer(result.bytes) || result.bytes.length > 65536

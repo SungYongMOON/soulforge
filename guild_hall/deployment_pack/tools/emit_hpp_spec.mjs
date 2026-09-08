@@ -181,6 +181,14 @@ const contentRoles = {
   ],
   manifests: ["ui-workspace/apps/dev-erp/package.json"],
   operator_docs: [
+    ...[
+      "hpp_server_operator", "mcp_material_receive_result_submit",
+      "vault_artifact_revision_promotion", "forge_work_generation_review",
+      "agent_mark_deployment_run", "buzz_hermes_operations_recovery",
+      "watch_4192_incident_response", "external_connector_backup_restore",
+      "path_registry_resolver", "target_folder_materializer",
+      "watch_4192_storage_backup_map",
+    ].map(role => `guild_hall/deployment_pack/manuals/${role}.v0.md`),
     "ui-workspace/apps/dev-erp/README.md",
     "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
     // The verify gate's docs_present check demands these two.

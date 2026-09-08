@@ -222,8 +222,8 @@ test("the real team_client_pack spec builds the Universal Client source set with
   const built = buildPack(specPath, { rootDir: REPO_ROOT, outDir: tempDir("outTeamClient"), clock: fixedClock, runner: okRunner });
   assert.equal(built.manifest.pack_id, "team_client_pack");
   // Pinned so growth is a conscious re-emit (the emitter's --check gates it).
-  assert.equal(built.manifest.files.length, 19);
-  assert.equal(built.manifest.version, "0.2.0");
+  assert.equal(built.manifest.files.length, 23);
+  assert.equal(built.manifest.version, "0.2.1");
   assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("ui-workspace/apps/soulforge-universal-client/")), true);
   assert.equal(built.manifest.files.some((entry) => entry.path.startsWith("ui-workspace/apps/team-ops-board/")), false,
     "4192 server code does not travel to client seats");
@@ -235,6 +235,47 @@ test("the real team_client_pack spec builds the Universal Client source set with
     "the declared installed smoke is the FULL suite");
   assert.deepEqual(spec.installed_smoke_excluded, []);
   assert.equal(spec.test_cwd, undefined);
+});
+
+test("installable packs deliver their operator manuals and cover the current manual catalog", (t) => {
+  const catalog = JSON.parse(readFileSync(join(REPO_ROOT, "guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json"), "utf8"));
+  const delivered = new Set();
+  const missing = [];
+  const specs = [];
+  for (const packId of ["hpp_server_pack", "team_client_pack", "backup_recovery_extension", "tool_workshop_pack"]) {
+    const spec = loadPackSpec(join(REPO_ROOT, "guild_hall/deployment_pack/packs", `${packId}.spec.json`));
+    specs.push({packId, spec});
+    const files = new Set(Object.values(spec.content_roles).flat());
+    for (const file of files) delivered.add(file);
+    for (const row of catalog.procedure_mappings.filter(row => row.pack_id === packId)) {
+      const manual = `guild_hall/deployment_pack/manuals/${row.semantic_role}.v0.md`;
+      if (!files.has(manual)) missing.push(`${packId}:${row.semantic_role}`);
+    }
+  }
+  for (const row of catalog.manuals) {
+    const manual = `guild_hall/deployment_pack/manuals/${row.semantic_role}.v0.md`;
+    if (!delivered.has(manual)) missing.push(`no_delivery:${row.semantic_role}`);
+    assert.equal(`sha256:${createHash("sha256").update(readFileSync(join(REPO_ROOT, manual))).digest("hex")}`, row.content_digest);
+  }
+  assert.deepEqual([...new Set(missing)], [], "manual refs must resolve to delivered bytes, not just repository files");
+  const root = tempDir("manual-delivery");
+  t.after(() => rmSync(root, {recursive: true, force: true, maxRetries: 5, retryDelay: 100}));
+  for (const {packId, spec} of specs) {
+    // This is a real byte-delivery contract check with synthetic unit results,
+    // not a replacement for the independent source/installed execution suites.
+    const built = buildPack(join(REPO_ROOT, "guild_hall/deployment_pack/packs", `${packId}.spec.json`),
+      {rootDir: REPO_ROOT, outDir: join(root, `${packId}-build`), clock: fixedClock, runner: okRunner});
+    const targetDir = join(root, `${packId}-installed`);
+    installPack({packDir: built.packDir, targetDir, clock: fixedClock});
+    const files = new Set(Object.values(spec.content_roles).flat());
+    for (const row of catalog.manuals) {
+      const manual = `guild_hall/deployment_pack/manuals/${row.semantic_role}.v0.md`;
+      if (!files.has(manual)) continue;
+      const installed = readFileSync(join(targetDir, "payload", manual));
+      assert.equal(`sha256:${createHash("sha256").update(installed).digest("hex")}`, row.content_digest,
+        `${packId}:${row.semantic_role} installed manual bytes`);
+    }
+  }
 });
 
 test("the real backup_recovery_extension spec builds: module pack with full-suite smoke, feature-OFF only", () => {

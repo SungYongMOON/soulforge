@@ -149,11 +149,16 @@ function safeLoginUrl(value) {
       && url.pathname === '/' && !url.search && !url.hash ? url.href : null;
   } catch { return null; }
 }
+function syncWorldHome(value) {
+  const target = safeLoginUrl(value) ?? '/';
+  for (const link of document.querySelectorAll('[data-world-home]')) link.href = target;
+}
 function notice(message, warning = false, login = false, loginUrl = null) {
   $('notice').textContent = message;
   $('notice').classList.toggle('warning', warning);
   if (login) {
     const source = safeLoginUrl(loginUrl), link = document.createElement('a');
+    if (source) syncWorldHome(source);
     link.href = source ?? '/'; link.textContent = source ? '기존 서버에서 로그인' : '로그인 화면으로'; $('notice').append(link);
   }
 }
@@ -287,6 +292,7 @@ const buzzRoles = { instruction: '발행한 지시', original_message: 'Buzz 수
   tool_input: '질문 도구 입력', tool_output: '질문 도구 출력', final_response: '최종 응답' };
 function showBuzzPilot(value) {
   buzzPilot = value;
+  syncWorldHome(value.home_url);
   if (!recordId) { clearExecution(); $('receipt-panel').hidden = true; }
   $('legacy-workspace').hidden = true;
   $('buzz-pilot-panel').hidden = false;

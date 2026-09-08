@@ -63,6 +63,19 @@ test('Host/query input and malformed source ports cannot redirect the login hint
   }
 });
 
+test('authenticated reader navigation uses only the configured same-host source home', async () => {
+  const f = fixture({authSourcePort: 47820});
+  const snapshot = f.service.snapshot;
+  f.service.snapshot = async access => ({...await snapshot(access), home_url: 'https://attacker.example/'});
+  assert.equal(JSON.parse((await f.request()).body).home_url, 'http://127.0.0.1:47820/');
+  assert.equal(JSON.parse((await fixture().request()).body).home_url, `${base}/`);
+  const invalid = fixture({authSourcePort: '47820@attacker.example'});
+  assert.equal(JSON.parse((await invalid.request()).body).home_url, `${base}/`);
+  const query = await f.request('/api/workbench/buzz-pilot?home_url=https://attacker.example/');
+  assert.equal(query.statusCode, 400);
+  assert.equal(Object.hasOwn(JSON.parse(query.body), 'home_url'), false);
+});
+
 test('Buzz HTTP exposes the current authenticated snapshot and exact observed evidence', async () => {
   const f = fixture();
   const snapshot = await f.request();

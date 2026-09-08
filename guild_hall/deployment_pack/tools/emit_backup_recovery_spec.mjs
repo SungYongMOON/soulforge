@@ -47,6 +47,8 @@ const sharedModules = closure.filter((rel) => !inModule(rel));
 const moduleRunnable = closure.filter((rel) => inModule(rel) && !isTest(rel));
 const adapterFiles = [...new Set([
   ...moduleRunnable,
+  ...["external_connector_backup_restore", "path_registry_resolver", "watch_4192_storage_backup_map"]
+    .map(role => `guild_hall/deployment_pack/manuals/${role}.v0.md`),
   // Non-mjs module files the import walker cannot see: schemas, docs, and
   // the Windows task bridge ps1 that writer_quiesce references as an
   // INSTALLED SIBLING (review finding: it must travel, or the installed
@@ -108,7 +110,7 @@ reviewed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "backup_recovery_extension",
-  version: "0.1.2",
+  version: "0.1.3",
   host_effect_policy: {
     reboot: "forbidden",
     driver_change: "forbidden",
@@ -123,7 +125,7 @@ const spec = {
   installed_smoke_entries: validators
     .filter((entry) => !INSTALLED_SMOKE_EXCLUDED.some((exclusion) => exclusion.path === entry)),
   installed_smoke_excluded: INSTALLED_SMOKE_EXCLUDED,
-  release_notes_ref: "release_notes.backup_recovery_extension.v0_1_2",
+  release_notes_ref: "release_notes.backup_recovery_extension.v0_1_3",
   install_manual_ref: "manual.install.backup_recovery_extension",
   upgrade_manual_ref: "manual.upgrade.backup_recovery_extension",
   rollback_manual_ref: "manual.rollback.backup_recovery_extension",
