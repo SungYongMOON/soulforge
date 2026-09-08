@@ -62,6 +62,16 @@ function bytes(p, limit = 536870912, osComponent = false) {
     return body.subarray(0, count);
   } finally { closeSync(fd); }
 }
+// Small installed JSON descriptors may be checked by a local listener's tick.
+// This does no OS observation, dependency walk, account lookup or role grant.
+export function readCurrentnessDescriptor(descriptor, limit = 65536) {
+  exact(descriptor,["path","sha256"]);
+  if(typeof descriptor.path!=="string" || !descriptor.path.endsWith(".json") || !SHA.test(descriptor.sha256)
+    || !Number.isSafeInteger(limit) || limit<1 || limit>65536)fail();
+  const body=bytes(descriptor.path,limit);
+  if(hash(body)!==descriptor.sha256)fail();
+  return body;
+}
 // Same metadata-only observer used by the M10 authority module.
 const OBSERVER = String.raw`
 $ErrorActionPreference = 'Stop'
@@ -422,6 +432,25 @@ async function executionAuthority(runtime) {
 export async function executeVerified(runtime, argv, { spawn = spawnSync } = {}) {
   if (argv[0] === "--preflight" && argv.length === 1) return { ok: true, code: "SECURE_WORK_LAUNCH_VERIFIED" };
   const roles = await executionAuthority(runtime);
+  if(argv[0]==="--g2-feedback-currentness" && argv.length===1){
+    roles.entry("model.dispatch");
+    const hooks=guardNodeImports(runtime);let server,stopRequested=false;
+    const stop=()=>{stopRequested=true;void server?.close().catch(()=>{});};
+    process.once("SIGINT",stop);process.once("SIGTERM",stop);
+    try{
+      runtime.recheck();
+      const {startInstalledFeedbackCurrentness}=await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath),"g2_feedback_publisher.mjs")).href);
+      server=await startInstalledFeedbackCurrentness(runtime);
+      if(stopRequested)await server.close();
+      await server.closed;
+      return {ok:true,code:"G2_FEEDBACK_CURRENTNESS_STOPPED",read_only:true,warmup:server.startup.warmup,execution_authority:false};
+    }finally{
+      // Pipe closure does not prove the trusted request callback has stopped.
+      // Never deregister import guards or report success while it is unresolved.
+      try{if(server){try{await server.close();}finally{await server.drained;}}}
+      finally{process.removeListener("SIGINT",stop);process.removeListener("SIGTERM",stop);hooks.deregister();}
+    }
+  }
   if (["--g2-feedback-prepare", "--g2-feedback-publish"].includes(argv[0]) && argv.length === 1) {
     const mode = argv[0] === "--g2-feedback-prepare" ? "prepare" : "publish";
     roles.entry(mode === "prepare" ? "jobs.advance" : "model.dispatch");

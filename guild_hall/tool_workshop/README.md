@@ -1,6 +1,20 @@
 # Tool Workshop — durable queue and bounded document candidates
 
-Owner: `guild_hall/tool_workshop`. `CURRENT = isolated XLSX/PPTX and reference HWPX structural candidates + durable replay`. Default OFF. Existing HWPX skill-authored files can enter the reference profile below. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by the automated suite. Actual Hancom output, end-to-end authoring integration, CAD and PCB execution remain work in the same program goal.
+Owner: `guild_hall/tool_workshop`. `CURRENT = isolated XLSX/PPTX and reference HWPX structural candidates + durable replay`. Default OFF. Existing HWPX skill-authored files can enter the reference profile below. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance require separate evidence from the automated suite.
+
+The current HWPX user path is the existing Buzz builtin Claude workflow with the
+owner-selected skill and working folder. A representative synthetic document has
+separate native authoring/export and all-page visual evidence. The scoped ACP,
+document-job manager and broker below remain optional candidates, not prerequisites
+for using that workflow or releasing basic operations. Other specialist workshops
+are post-release expansion. No builtin instruction or document test proves OS/MCP
+isolation, every document type, licensing or human acceptance.
+
+Text edits can invalidate a paragraph's saved line-layout cache. Follow the
+selected master skill's targeted removal of only the edited paragraph's direct
+`linesegarray`, preserve untouched nested/table caches, and inspect the actual
+render. Structural equality and complete PDF text extraction can both pass while
+body text overlaps. Such a render must not be accepted as a usable document.
 
 ## Existing-skill HWPX reference candidates
 
@@ -37,11 +51,23 @@ section count, reference hash and preview status. A stale preview remains marked
 `done_candidate` means a preserved structural candidate, not accepted work.
 
 The Hancom adapter has a read-only pin preflight and a separately authorized
-same-user non-packaged, temporary-task export path. Export source/fixture review
-does not prove native execution. The PDF helper currently checks one A4 page with
-explicit text/raster readback; it is not yet a general multipage HWPX verifier.
+same-user non-packaged export path. The existing-session variant verifies the
+already registered FilePathCheckerModule and creates neither a scheduled task
+nor a registry alias. The older temporary-task path remains separate. Export
+source/fixture review does not prove native execution. The PDF helper checks
+one to 64 A4 portrait pages, expected text in order and with multiplicity, and
+every page's raster evidence. Its manifest still requires visual review; this
+is not an unrestricted document renderer or automatic layout acceptance.
 Tests use `SOULFORGE_HWPX_TEST_PYTHON` for Python/lxml and, for the independent PDF
 fixture, `SOULFORGE_PDF_TEST_PYTHON` plus `SOULFORGE_PDF_TEST_POPPLER`.
+
+Binding version 2 of the scoped Claude adapter connects `hwpx_build_candidate`
+to the existing canonical `pack.py`, reference queue and optional native/PDF
+pair. The model writes only its draft JSON inside the exact job folder. Trusted
+reference, author control and sealed output roots remain outside that folder.
+Structural and rendered candidates are separate results, neither accepted work.
+See [CLAUDE_ACP_SCOPE.md](CLAUDE_ACP_SCOPE.md) for the fixed source/authority pins
+and the distinction between one-document execution and a continuing workshop.
 
 ## Fixed HWPX structural candidate
 

@@ -6,6 +6,49 @@
 
 ## Purpose
 
+### Claude 한글 공방
+
+실사용은 기존 Buzz의 기본 Claude Code 연결을 우선한다. 기존 봇 신원과 대화를
+유지하고, 과제별 승인 작업폴더에서 문서를 작성한다. 별도 scoped 연결기나 새 job
+발급기를 사용 전에 요구하지 않는다. 봇의 지침·도구 선택을 강제 OS/MCP 격리로
+표현하지 않으며, 실제 실행 모델과 저장된 모델 선호도도 구분한다.
+
+한글 양식 편집에는 사용자가 지정한 `new-hwpx-master-v5-1-20260720`의 절차를 따른다.
+XML 문단·부모 구조를 파악하고 내용이 바뀐 최소 문단의 **직계 linesegarray만**
+제거해 줄 배치를 다시 계산한다. 미수정 표·장식 문단의 캐시는 보존한다. 구조와
+문자 검사 후 실제 한글 출력의 모든 페이지를 확인한다. 기준본 자체가 겹쳐 보이면
+그 배치 캐시를 그대로 보존한 결과를 성공으로 삼지 않는다. 원본·실패본은 보존하고
+교정본을 별도 파일로 전달한다.
+
+전체 문서 작업의 충분한 시간과 짧은 초기화·인증 검사를 구분한다. 해당 봇에서
+idle 제한은 전체 제한보다 짧아야 한다. 저장 화면뿐 아니라 실제 시작 결과에서
+설정을 확인하고, 다른 봇의 전역 설정은 바꾸지 않는다. PDF 파일 존재나 문자
+추출 성공은 가독성을 증명하지 않는다. 실제 한글/PDF 확인과 사람 수락은 구분한다.
+
+### 선택적인 scoped HWPX 후보
+
+명시적인 v2 한글 binding은 기존 Claude 연결에 `hwpx_build_candidate` 도구 하나를
+추가한다. 모델은 허용된 `input.json`을 읽고 `workspace_write_text`로 section 초안을
+작성한다. 고정 도구는 기존 HWPX 스킬의 포장·검사 코드를 사용해 문서 후보를 만들고,
+기존 세션 출력 binding이 있으면 한글 PDF 출력과 모든 페이지 검사를 이어간다.
+실행 파일·양식·권한·출력 경로를 모델 초안에서 선택하지 않는다.
+
+공방의 `workRoot`와 그 아래 `JOBS/jobRef`를 명시한다. Claude 자식의 실제 cwd는
+`jobRoot`로 지정하며 Buzz 부모 프로세스의 기본 cwd와 구분해 확인한다. 설정·큐·봉인
+출력은 모델 쓰기 범위 밖에서 관리하고, 검증된 배달 사본을 해당 JOBS에 보관한다.
+한 번의 binding은 지정 작업 하나에 결속된다. 다음 작업에는 새 작업 binding이 필요하며
+불확실한 이전 실행을 같은 작업 ID로 재실행하지 않는다.
+
+native 연결은 비패키지 실행면과 이미 등록된 `FilePathCheckerModule`을 읽기 검증해
+재사용한다. 이 경로는 예약작업이나 registry alias를 새로 만들지 않는다. MSIX에서의
+설치 경로 관측을 실제 사용자 경로와 혼동하지 말고 실제 실행면에서 확인한다.
+권한 철회·취소·실행 사본 변경·불완전한 페이지 증거는 성공으로 반환하지 않는다.
+
+결과의 HWPX/PDF hash, 실제 페이지 수와 모든 페이지 이미지 영수증을 확인한다.
+`rendered_candidate`도 사람이 문서 내용을 수락했다는 뜻은 아니다. 구조 검사만 한
+`structural_candidate`에는 `render_required:true`가 남는다. 오래된 미리보기와
+실제 페이지·시각 검증을 구분한다. 기존 고정 HWPX v1과 참조형 v1은 별도 큐로 유지한다.
+
 Operate an isolated XLSX, bounded template PPTX, or fixed HWPX structural job: check the pack, submit to its durable queue, run the fixed writer and independent validator, and preserve the candidate receipt for the separate ArtifactRevision review path. The runtime requires Node 24+. This procedure does not operate a physical CAD, Office, Hancom, or other specialist tool PC.
 
 The HWPX profile is limited to one section, a fixed base header, a 2×2 table and
@@ -14,10 +57,10 @@ run as separate bounded Python 3.12 children, and all other ZIP entry payloads
 must remain unchanged. Extra/comment metadata, unsafe entries, XML external
 references and out-of-profile structures are refused before candidate custody.
 Use `SOULFORGE_HWPX_TEST_PYTHON` only to select an existing trusted runtime for the
-synthetic native tests. The fixture and its five pinned registry base files must
+synthetic native tests. The fixture and all eleven registry base files must
 travel with the installed tests. A passed structural result still needs actual
 Hancom render verification; it is not proof of page count, fonts, printing or
-human acceptance. That render connection remains development work.
+human acceptance. Its evidence is separate from the builtin Claude document workflow.
 
 For the standard isolated release rehearsal, pass the existing five-field
 synthetic configuration with `--workshop-test-config`. Its `pythonExecutable`

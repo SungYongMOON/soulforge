@@ -26,7 +26,13 @@ G2가 준비하고 별도 권한으로 공개한 WorkPacket + 최근 사건 메�
 - `tools/work_intake_stage.mjs <source-root> <empty-external-target> <dependency-root>`: 명시된 실행 코드와 JSON 자산을 복사하고 바이트 해시를 남긴다. 실제로 runtime이 해시 검증하는 ACP CLI/workspace 파일도 포함한다.
 - `src/work_intake_http.mjs`: 기존 서버의 currentAccount/sessionKey/canAccessProject를 받는 독립 controller. `/workbench/work-intake`, `/api/workbench/work-intake`, `/api/workbench/work-intake/result`만 GET으로 제공한다.
 
-공통 server·Pack·package 등록은 제품 sole writer가 수행한다. E14 원본 kit은 복사하거나 다시 구현하지 않는다. 설치 manifest가 요구하는 외부 E14 원본과 호환 Python을 명시적으로 연결한다. 기존 sanitized Python runner와 호환 환경을 재사용하며 운영 설정을 찾아 읽거나 새 환경·키를 설치하지 않는다.
+공통 서버는 `DEV_ERP_WORK_INTAKE_READ=1`, 설치자가 고정한
+`DEV_ERP_WORK_INTAKE_DEPLOYMENT`와 `DEV_ERP_WORK_INTAKE_DEPLOYMENT_SHA256`으로
+읽기 전용 실행면을 연다. 미설정·잘못된 pin·DB 부재는 503이며 서버가 새 DB를 만들거나
+judge를 시작하지 않는다. 일반 서버 로그인·과제 권한을 사용하고 Buzz 원본 인증 예외를
+이 화면에 적용하지 않는다. 종료 시 reader를 닫는다.
+
+E14 원본 kit은 복사하거나 다시 구현하지 않는다. 설치 manifest가 요구하는 외부 E14 원본과 호환 Python을 명시적으로 연결한다. 기존 sanitized Python runner와 호환 환경을 재사용하며 운영 설정을 찾아 읽거나 새 환경·키를 설치하지 않는다.
 
 ## 입력과 권한을 공급하는 쪽
 
@@ -95,5 +101,10 @@ P0–P3의 입력 검증·브랜드·의미/원본 식별·정정·cursor CAS를
 ## 검증
 
 Node의 work_intake_context/rule_profile/judge/linear/runtime/http tests 및 기존 adapter/store 회귀를 실행한다. Python packet reader tests에는 명시적인 기존 E14 kit와 호환 Python을 제공한다. 설치 검증은 별도 새 copy에서 CLI·실제 HTTP·native synthetic executable·기존 Rune/Forge를 관통한다. 공개 RFC 8032 시험 벡터는 테스트의 메모리에서만 사용하며 운영 키를 생성하거나 읽지 않는다.
+
+`work_intake_server.test.mjs`는 실제 서버의 app/Buzz 인증 분리, 과제 권한과 철회,
+읽기 전용 DB 및 미설정 상태를 확인한다. `work_intake_recovery.test.mjs`는 합성 closed
+DB·근거 세대를 복원하고 누락·혼합·UNKNOWN 재실행 및 과거 권한 복원에 의한 철회 우회를
+거부한다. 실제 운영 백업이나 모델 종료 증거의 복구는 이 검사에 포함하지 않는다.
 
 시험의 source_bound 표시는 검증된 연결 방식을 뜻한다. 별도의 data_provenance:synthetic과 native test model 이름을 유지한다. 시험 결과를 실제 고객 규정의 정합성·실제 모델 성능·실사용 효과·제품 전체 출시·운영 전환으로 확대하지 않는다.

@@ -73,6 +73,12 @@ local consumer 입력이다. 새 common schema나 authority canon이 아니다.
   model/G2 projection writer가 이 경로에 쓸 수 있어서는 안 된다.
 - G2 `current.json`의 producer/scope/유효기간/generation과 각 issue projection의 파일명·SHA.
   projection은 exact issue hash/scope, 공개 안전 summary/kind, grant보다 좁은 path/check를 갖는다.
+- `g1_acp`는 `publicationCurrentness`가 필수다. 설치자가 고정한 `transport:{path,sha256}`와
+  `expected:{path,mode:"current_metadata"}`를 받는다. 서로 다른 SENDER/G1 SID의 Windows
+  named pipe에서 새 challenge로 현재 발행을 확인한다. 모델 응답이나 JSON 파일만으로
+  SENDER 신원을 만들지 않는다. issuer는 공개 index의 exact bytes와 scope/issue/generation을
+  응답 전후로 묶고, 철회·만료·혼합·연결 실패에서는 새 모델 작업을 시작하지 않는다.
+  기대 metadata에는 기존 현재성 계약의 9필드만 있고 원문·field ledger·permit·키가 없다.
 - 기존 runner의 base commit, Git/Node SHA, 허용 파일, validator closure pins.
   argv는 고정 capture wrapper와 original validator/hash/evidence root/source repo를 묶는다.
 - 세 G1 actor의 기존 승인 ACP binding과 SHA. role/model이 맞아야 하며 추가 inputFiles나 쓰기 tool은 허용하지 않는다.
@@ -126,3 +132,7 @@ npm run validate:dev-worker
 fake CLI를 사용한다. fake model의 제안/검토는 합성 대조다. 실제 사용자 자료·credentials·원대화·
 provider 추론·GPU 부하·운영 scheduler는 시험하지 않는다. 실제 G2 공급·현재 권한 writer·ACP
 binding·모델 효용·운영 설치 수락은 각각 현재 증거가 필요하다. 합성 관통을 전체 출시 완료로 바꾸지 않는다.
+
+현재성 전송의 실제 Windows 검사는 kernel peer SID·새 challenge·기대 hash·응답 만료와
+종료를 확인한다. consumer 관통은 동일한 합성 사용자와 metadata handler를 사용했으며,
+실제 SENDER/E14 handler의 서로 다른 계정 설치 및 운영 응답시간 검증은 별도 미완료다.

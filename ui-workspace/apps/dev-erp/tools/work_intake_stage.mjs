@@ -4,9 +4,10 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { isBuiltin, createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { HWPX_SOURCE_FILES } from '../../../../guild_hall/tool_workshop/src/claude_acp_policy.mjs';
 import { intakeOrdinary, intakeBytes, intakeHash, intakeCheck as check, intakeInside } from '../src/work_intake_io.mjs';
 
-const SEEDS = ['ui-workspace/apps/dev-erp/tools/work_intake_cli.mjs', 'ui-workspace/apps/dev-erp/tools/work_intake_stage.mjs',
+const SEEDS = [...HWPX_SOURCE_FILES, 'ui-workspace/apps/dev-erp/tools/work_intake_cli.mjs', 'ui-workspace/apps/dev-erp/tools/work_intake_stage.mjs',
   'ui-workspace/apps/dev-erp/tools/work_intake_packet_reader.py', 'ui-workspace/apps/dev-erp/src/work_intake_http.mjs',
   'guild_hall/tool_workshop/src/claude_acp_cli.mjs', 'guild_hall/tool_workshop/src/claude_acp_workspace.mjs',
   'ui-workspace/apps/dev-erp/docs/WORK_INTAKE_RUNTIME.md', 'ui-workspace/apps/dev-erp/docs/WORK_INTAKE_SHADOW_ADAPTER.md'];

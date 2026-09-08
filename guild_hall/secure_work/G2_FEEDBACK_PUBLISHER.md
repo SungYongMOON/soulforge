@@ -101,10 +101,23 @@ G1의 `validateAuthenticatedCurrentnessMetadata`는 **이미 인증된 SENDER �
 actor, task/release/hash/generation/freshness를 비교하는 함수다. 인증기를 대신하지 않으며
 모델이 만든 JSON에 적용해 권한을 만들면 안 된다.
 
-**제품 통합 HOLD:** 기존 3335 issuer의 `assertDeployment`에 이 SENDER 검증 포트를
-연결해야 read-side revoke fence가 생긴다. 현재 consumer 파일은 변경하지 않았다.
-테스트의 직접 port 조합은 transport/실제 cross-SID 인증의 적격화가 아니다. 실제 연결 전에
-제품 전체에서 즉시 review revocation이 작동한다고 주장하지 않는다.
+발행 완료 후 `currentness.json`에는 현재성 계약의 기존 9필드만 기록한다. 이 파일은 G1의
+기대값이며 인증된 응답을 대신하지 않는다. stale 파일이 남아도 current index·journal·현재
+권한 검사가 실패하면 사용할 수 없다. issuer의 `assertDeployment`에는 named-pipe
+consumer를 연결했고 `g1_acp`는 해당 설치 설정을 필수로 요구한다. 전송 테스트의 same-user
+kernel 인증과 합성 handler는 실제 SENDER/E14의 cross-SID 설치 적격화를 대신하지 않는다.
+설치된 SENDER에는 `--g2-feedback-currentness` 읽기 전용 진입점이 있다.
+`g2_feedback.currentness_transport`의 exact path/hash가 고정한 로컬 파이프를 사용한다.
+server SID는 설치 SENDER와 같고 client SID는 달라야 하며 Python·helper 코드도 설치
+pin과 일치해야 한다. 이 진입점은 publish나 index 철회를 호출하지 않는다.
+
+파이프를 열기 전에 읽기 전용 워밍업을 수행한다. 요청 중에는 현재 source·grant·role·
+review·journal·파일 검사를 유지하면서 같은 요청의 중복 설치/ACL 관측만 재사용한다.
+요청 시작과 끝의 전체 설치 검증·새 ACL 관측·파일 identity 대조가 모두 같아야 응답한다.
+다른 요청으로 권한을 재사용하지 않는다. 작은 idle 검사는 descriptor·만료만 확인한다.
+응답 만료는 자료·권한·profile·transport의 가장 이른 기한을 넘지 않는다. 종료에서는
+파이프와 원본 callback이 모두 끝난 뒤 import 보호를 해제한다. 불명 callback은 종료
+성공으로 보고하지 않는다. 실제 계정 간 정상 연결과 5초 응답 성능은 아직 미검증이다.
 
 ## 검증과 backup 인계
 

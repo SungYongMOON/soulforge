@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Preflight', 'Dispatch', 'Worker')][string]$Mode = 'Preflight',
+    [ValidateSet('Preflight', 'Dispatch', 'Worker', 'ExistingPreflight', 'ExistingSession')][string]$Mode = 'Preflight',
     [string]$RequestPath,
     [string]$RequestSha256
 )
@@ -84,6 +84,156 @@ function Write-New([string]$File, [string]$Text) {
     $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Text)
     $stream = [IO.File]::Open($File, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
     try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+}
+
+function New-ExistingNativeApi {
+    # In-memory P/Invoke only: unlike Add-Type this creates no compiler files.
+    # Package identity uses the documented 15700 = APPMODEL_ERROR_NO_PACKAGE.
+    $assembly = [AppDomain]::CurrentDomain.DefineDynamicAssembly([Reflection.AssemblyName]::new('SoulforgeHwpxExistingNative'), [Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $module = $assembly.DefineDynamicModule('ReadOnlyNative')
+    $type = $module.DefineType('ExistingNative', [Reflection.TypeAttributes]'Public,Abstract,Sealed')
+    $methods = @(
+        @{Name='GetCurrentPackageFullName'; Return=[int]; Params=@([uint32].MakeByRefType(),[IntPtr])},
+        @{Name='GetPackageFullName'; Return=[int]; Params=@([IntPtr],[uint32].MakeByRefType(),[IntPtr])},
+        @{Name='OpenProcess'; Return=[IntPtr]; Params=@([uint32],[bool],[uint32])},
+        @{Name='CloseHandle'; Return=[bool]; Params=@([IntPtr])},
+        @{Name='GetFileInformationByHandle'; Return=[bool]; Params=@([IntPtr],[IntPtr])}
+    )
+    foreach ($spec in $methods) {
+        $method = $type.DefineMethod($spec.Name,[Reflection.MethodAttributes]'Public,Static,PinvokeImpl',$spec.Return,[Type[]]$spec.Params)
+        $importType=[Runtime.InteropServices.DllImportAttribute]
+        $exact=[Reflection.Emit.CustomAttributeBuilder]::new($importType.GetConstructor([Type[]]@([string])),[object[]]@('kernel32.dll'),[Reflection.FieldInfo[]]@($importType.GetField('ExactSpelling'),$importType.GetField('EntryPoint')),[object[]]@($true,$spec.Name))
+        $method.SetCustomAttribute($exact)
+        $method.SetImplementationFlags([Reflection.MethodImplAttributes]::PreserveSig)
+    }
+    return $type.CreateType()
+}
+function Invoke-ExistingNative([string]$Name, [object[]]$Parameters) {
+    return $script:existingNative.GetMethod($Name).Invoke($null,$Parameters)
+}
+function Assert-ExistingIdentity($Is64Bit, $Elevated, $CurrentSid, $CallerSid, $ExpectedSid, $ParentMatches, $CurrentPackageCode, $CallerPackageCode) {
+    Assert-True (-not $Is64Bit -and -not $Elevated -and $CurrentSid -ceq $ExpectedSid -and $CallerSid -ceq $ExpectedSid -and $ParentMatches -and $CurrentPackageCode -eq 15700 -and $CallerPackageCode -eq 15700)
+}
+function Assert-ExistingCaller($Binding, $CallerPid) {
+    Assert-True ($CallerPid -is [int] -or $CallerPid -is [long])
+    Assert-True ($CallerPid -gt 0)
+    $self = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID)
+    $caller = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $CallerPid)
+    $owner = Invoke-CimMethod -InputObject $caller -MethodName GetOwnerSid
+    Assert-True ($owner.ReturnValue -eq 0)
+    $handle = Invoke-ExistingNative 'OpenProcess' @([uint32]0x1000,$false,[uint32]$CallerPid)
+    Assert-True ($handle -ne [IntPtr]::Zero)
+    try {
+        $currentCode = Invoke-ExistingNative 'GetCurrentPackageFullName' @([uint32]0,[IntPtr]::Zero)
+        $callerCode = Invoke-ExistingNative 'GetPackageFullName' @($handle,[uint32]0,[IntPtr]::Zero)
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $elevated = ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        Assert-ExistingIdentity ([Environment]::Is64BitProcess) $elevated $identity.User.Value $owner.Sid $Binding.user_sid ($self.ParentProcessId -eq $CallerPid) $currentCode $callerCode
+    } finally { Assert-True (Invoke-ExistingNative 'CloseHandle' @($handle)) }
+}
+function Assert-ExistingLocal([string]$File, [bool]$Directory = $false) {
+    [void](Assert-Local $File $Directory $false)
+    if (-not $Directory) {
+        $stream = [IO.File]::Open($File,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        $buffer = [Runtime.InteropServices.Marshal]::AllocHGlobal(52)
+        try {
+            Assert-True (Invoke-ExistingNative 'GetFileInformationByHandle' @($stream.SafeFileHandle.DangerousGetHandle(),$buffer))
+            Assert-True ([Runtime.InteropServices.Marshal]::ReadInt32($buffer,40) -eq 1)
+        } finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($buffer); $stream.Dispose() }
+    }
+}
+function Assert-ExistingAlias($Key, [string]$Name, [string]$Dll) {
+    Assert-True ($Name -ceq 'FilePathCheckerModule' -and $null -ne $Key)
+    Assert-True ($Key.GetValueNames() -contains $Name -and $Key.GetValueKind($Name) -eq [Microsoft.Win32.RegistryValueKind]::String)
+    Assert-True ($Key.GetValue($Name,$null,[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) -ceq $Dll)
+}
+function Assert-ExistingHwpBinding($Binding) {
+    $classes = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::ClassesRoot,[Microsoft.Win32.RegistryView]::Registry32)
+    try {
+        $clsidKey = $classes.OpenSubKey('HWPFrame.HwpObject\CLSID')
+        try { $clsid = $clsidKey.GetValue('') } finally { if ($clsidKey) { $clsidKey.Dispose() } }
+        $serverKey = $classes.OpenSubKey("CLSID\$clsid\LocalServer32")
+        try { $server = [string]$serverKey.GetValue('') } finally { if ($serverKey) { $serverKey.Dispose() } }
+        Assert-HwpLocalServer $server $Binding.hwp_executable
+    } finally { $classes.Dispose() }
+}
+function Invoke-ExistingSession([bool]$ReadOnly) {
+    $key=$null; $source=$null; $copy=$null; $com=$null; $win=$null; $wins=$null
+    $gate=$null; $locked=$false; $aliasValidated=$false; $comCreated=$false
+    $success=$false; $clean=$true; $code='renderer_failed'
+    try {
+        [Console]::InputEncoding=[Text.UTF8Encoding]::new($false,$true)
+        $json=[Console]::In.ReadToEnd(); Assert-True ($json.Length -le 32768)
+        $r=$json | ConvertFrom-Json; $b=$r.binding
+        $keys=@('enabled','renderer_ref','input_root','output_root','work_root','powershell_executable','powershell_sha256','hwp_executable','hwp_sha256','security_module_dll','security_module_sha256','script_path','script_sha256','user_sid','existing_module_name')
+        Assert-True (@($b.PSObject.Properties.Name).Count -eq $keys.Count)
+        foreach($name in $b.PSObject.Properties.Name){Assert-True ($keys -ccontains $name)}
+        Assert-True ($b.enabled -is [bool] -and $b.enabled -and $b.renderer_ref -ceq $rendererRef -and $b.security_module_sha256 -ceq $officialDllHash)
+        $code='existing_session_required'
+        $script:existingNative=New-ExistingNativeApi
+        Assert-ExistingCaller $b $r.caller_pid
+        Assert-SystemPowerShell $b.powershell_executable $b.powershell_sha256
+        Assert-True ($PSCommandPath -ceq $b.script_path -and (Get-Process -Id $PID).Path -ieq $b.powershell_executable)
+        $code='renderer_failed'
+        foreach($pin in @(@($b.hwp_executable,$b.hwp_sha256),@($b.security_module_dll,$b.security_module_sha256),@($b.script_path,$b.script_sha256))){Assert-ExistingLocal $pin[0]; Assert-True ($pin[1] -cmatch '^[a-f0-9]{64}$' -and (Get-Hash $pin[0]) -ceq $pin[1])}
+        Assert-True ($r.run_id -cmatch '^[a-z0-9][a-z0-9-]{7,63}$' -and $r.input_sha256 -cmatch '^[a-f0-9]{64}$' -and $r.execution_mode -ceq 'existing_session')
+        $roots=@($b.input_root,$b.output_root,$b.work_root)
+        Assert-True (@($roots|Select-Object -Unique).Count -eq 3)
+        $codeRoot=Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSCommandPath)))
+        foreach($root in $roots){
+            Assert-ExistingLocal $root $true
+            Assert-True ($root -notmatch '(?i)(^|\\)(_workmeta|_workspaces)(\\|$)' -and $root -ine $codeRoot)
+            foreach($other in @($roots)+@($codeRoot)){if($root -cne $other){Assert-True (-not $root.StartsWith($other.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase) -and -not $other.StartsWith($root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase))}}
+        }
+        Assert-True ($r.output_root -ceq $b.output_root -and $r.run_root -ceq (Join-Path $b.work_root $r.run_id) -and $r.pdf_path -ceq (Join-Path $b.output_root "$($r.run_id).pdf"))
+        Assert-True (-not (Test-Path -LiteralPath $r.pdf_path) -and [long]$r.expires_at -le [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()+120000)
+        Assert-Live; Assert-ExistingLocal $r.input_path; Assert-Inside $b.input_root $r.input_path
+        Assert-True ([IO.Path]::GetExtension($r.input_path) -ieq '.hwpx' -and (Get-Item -LiteralPath $r.input_path).Length -le 67108864 -and (Get-Hash $r.input_path) -ceq $r.input_sha256)
+        if($ReadOnly){Assert-True (-not (Test-Path -LiteralPath $r.run_root))}else{Assert-ExistingLocal $r.run_root $true;Assert-True (@(Get-ChildItem -LiteralPath $r.run_root -Force).Count -eq 0)}
+        $code='existing_session_busy'; Assert-NoHwp
+        if(-not $ReadOnly){$gate=[Threading.Mutex]::new($false,"Local\SoulforgeHwpx-$($b.user_sid)");$locked=$gate.WaitOne(0);Assert-True $locked;Assert-NoHwp}
+        $code='existing_alias_invalid'
+        $base=[Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser,[Microsoft.Win32.RegistryView]::Registry32)
+        try{$key=$base.OpenSubKey($moduleKey,$false)}finally{$base.Dispose()}
+        Assert-ExistingAlias $key $b.existing_module_name $b.security_module_dll; $aliasValidated=$true
+        $code='renderer_failed'; Assert-ExistingHwpBinding $b
+        if(-not $ReadOnly){
+            $source=[IO.File]::Open($r.input_path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+            $copyPath=Join-Path $r.run_root 'source.hwpx';$pending=Join-Path $r.run_root 'export.pending.pdf'
+            $writer=[IO.File]::Open($copyPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+            try{$source.CopyTo($writer);$writer.Flush($true)}finally{$writer.Dispose()}
+            [IO.File]::SetAttributes($copyPath,[IO.FileAttributes]::ReadOnly)
+            $copy=[IO.File]::Open($copyPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+            Assert-True ((Get-Hash $copyPath) -ceq $r.input_sha256)
+            Assert-Live;Assert-NoHwp;Assert-ExistingAlias $key $b.existing_module_name $b.security_module_dll
+            $com=New-Object -ComObject 'HWPFrame.HwpObject';$comCreated=$true
+            $wins=$com.XHwpWindows;$win=$wins.Item(0);$win.Visible=$false
+            Assert-True ($com.RegisterModule('FilePathCheckDLL',$b.existing_module_name) -eq $true)
+            Assert-Live;Assert-True ($com.Open($copyPath,'HWPX','suspendpassword:true;forceopen:true;versionwarning:false') -eq $true)
+            $processes=Get-HwpProcesses
+            Assert-True ($processes.Count -eq 1 -and $processes[0].Path -ieq $b.hwp_executable -and $processes[0].MainWindowHandle -eq [IntPtr]::Zero)
+            Assert-Live;Assert-True (-not (Test-Path -LiteralPath $pending));Assert-True ($com.SaveAs($pending,'PDF','') -eq $true)
+            Assert-Live;Assert-True ((Get-Hash $copyPath) -ceq $r.input_sha256 -and (Get-Hash $r.input_path) -ceq $r.input_sha256)
+            Assert-ExistingLocal $pending
+            Assert-True ((Get-Item -LiteralPath $pending).Length -ge 8 -and (Get-Item -LiteralPath $pending).Length -le 67108864)
+        }
+        $success=$true
+    }catch{$success=$false}finally{
+        if($comCreated){
+            try{[void]$com.Clear(1)}catch{$clean=$false};try{[void]$com.Quit()}catch{$clean=$false}
+            foreach($item in @($win,$wins,$com)){try{Release-Com $item}catch{$clean=$false}}
+            try{for($i=0;$i -lt 10 -and (Get-HwpProcesses).Count -gt 0;$i++){Start-Sleep -Milliseconds 100};Assert-NoHwp}catch{$clean=$false}
+        }
+        if($aliasValidated){try{Assert-ExistingAlias $key $b.existing_module_name $b.security_module_dll;Assert-True ((Get-Hash $b.security_module_dll) -ceq $officialDllHash)}catch{$clean=$false}}
+        if($null -ne $key){$key.Dispose()}
+        foreach($stream in @($copy,$source)){if($null -ne $stream){$stream.Dispose()}}
+        if($locked){$gate.ReleaseMutex()};if($null -ne $gate){$gate.Dispose()}
+    }
+    [Console]::Out.Write((@{ok=($success -and $clean);cleanup_verified=$clean;code=$(if($success -and $clean){'ok'}else{$code})}|ConvertTo-Json -Compress))
+    return ($success -and $clean)
+}
+if($Mode -in @('ExistingPreflight','ExistingSession')) {
+    if(Invoke-ExistingSession ($Mode -eq 'ExistingPreflight')){exit 0}else{exit 1}
 }
 
 try {

@@ -75,6 +75,11 @@ export function createToolWorkshopCore() {
   function view(job) {
     return deepFreeze({ ...job });
   }
+  function nextQueued(workshopId, projectRef) {
+    return [...jobs.values()]
+      .filter((job) => job.workshop_id === workshopId && job.state === "queued" && (projectRef === undefined || job.project_ref === projectRef))
+      .sort((left, right) => left.priority - right.priority || left.submitted_seq - right.submitted_seq)[0];
+  }
 
   return Object.freeze({
     schema: TOOL_WORKSHOP_SCHEMA,
@@ -134,14 +139,25 @@ export function createToolWorkshopCore() {
       return view(job);
     },
 
+    // Pure queue-head inspection. Active/expired lease transitions remain owned
+    // by acquireLease; looking at a head cannot reclaim or consume a lease.
+    peekNextQueuedJob(workshopId, { project_ref } = {}) {
+      assertRef(workshopId, "workshop_id");
+      if (!workshops.has(workshopId)) fail("workshop_unknown", workshopId);
+      if (project_ref !== undefined) assertRef(project_ref, "project_ref");
+      const next = nextQueued(workshopId, project_ref);
+      return next ? view(next) : null;
+    },
+
     // Exclusive lease: highest priority first, then submission order. Returns
     // null when the resource is busy (callers wait; idle UIs never release).
-    acquireLease(workshopId, { now, lease_id, project_ref } = {}) {
+    acquireLease(workshopId, { now, lease_id, project_ref, expected_job_id } = {}) {
       const workshop = workshops.get(assertRef(workshopId, "workshop_id"));
       if (!workshop) fail("workshop_unknown", workshopId);
       const nowClock = assertClock(now, "now");
       const leaseId = assertRef(lease_id, "lease_id");
       if (project_ref !== undefined) assertRef(project_ref, "project_ref");
+      if (expected_job_id !== undefined) assertRef(expected_job_id, "expected_job_id");
       if (leases.has(leaseId)) fail("lease_duplicate", leaseId);
       if (workshop.active_lease_id !== null) {
         const active = leases.get(workshop.active_lease_id);
@@ -156,10 +172,11 @@ export function createToolWorkshopCore() {
         workshop.active_lease_id = null;
         append("lease_expired", { lease_id: active.lease_id, job_id: active.job_id });
       }
-      const next = [...jobs.values()]
-        .filter((job) => job.workshop_id === workshop.workshop_id && job.state === "queued" && (project_ref === undefined || job.project_ref === project_ref))
-        .sort((left, right) => left.priority - right.priority || left.submitted_seq - right.submitted_seq)[0];
+      const next = nextQueued(workshop.workshop_id, project_ref);
       if (!next) return null;
+      // A fixed consumer may refuse a different queue head, but cannot skip it
+      // or lease another job under the fixed consumer's authority.
+      if (expected_job_id !== undefined && next.job_id !== expected_job_id) return null;
       workshop.fencing_counter += 1;
       const lease = deepFreeze({
         lease_id: leaseId,

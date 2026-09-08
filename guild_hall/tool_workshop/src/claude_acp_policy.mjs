@@ -74,12 +74,58 @@ export function readPinnedFile(target, expected, limit = 128 * 1024) {
 const loadedBindings = new WeakSet();
 const selfDir = path.dirname(fileURLToPath(import.meta.url));
 export const SOURCE_FILES = Object.freeze(['claude_acp_policy.mjs', 'claude_acp_workspace.mjs', 'claude_acp_server.mjs', 'claude_acp_cli.mjs']);
+const repositoryRoot=path.resolve(selfDir,'../../..');
+export const HWPX_SOURCE_FILES=Object.freeze([
+  ...SOURCE_FILES.map(file=>`guild_hall/tool_workshop/src/${file}`),
+  ...['claude_hwpx_tools.mjs','hwpx_skill_author.mjs','hwpx_skill_author.py','hwpx_reference_runner.mjs','hwpx_reference_child.py',
+    'tool_workshop_core.mjs','tool_workshop_durable.mjs','workshop_files.mjs','bounded_tool_process.mjs','hancom_hwpx_render.mjs',
+    'hancom_hwpx_export.ps1','hwpx_pdf_verifier.mjs','hwpx_pdf_readback.py'].map(file=>`guild_hall/tool_workshop/src/${file}`),
+  ...['validate.py','page_guard.py','office/pack.py'].map(file=>`.registry/skills/hwpx_document/codex/scripts/${file}`),
+]);
+function verifySources(binding) {
+  const names=binding.version===2?HWPX_SOURCE_FILES:SOURCE_FILES;
+  exactKeys(binding.sourceHashes,[...names]);
+  for(const file of names)readPinnedFile(path.join(binding.version===2?repositoryRoot:selfDir,file),binding.sourceHashes[file],binding.version===2?2*1024*1024:128*1024);
+}
+function readHwpxConfiguration(raw) {
+  exactKeys(raw.hwpx,['author','native','pdf']);
+  if((raw.hwpx.native===null)!==(raw.hwpx.pdf===null))refuse('HWPX_RENDER_BINDING');
+  const read=descriptor=>{
+    exactKeys(descriptor,['path','sha256']);
+    if(contained(raw.workRoot,descriptor.path))refuse('AUTHORITY_IN_WORK_ROOT');
+    return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(readPinnedFile(descriptor.path,descriptor.sha256,2*1024*1024)));
+  };
+  const author=read(raw.hwpx.author);
+  exactKeys(author,['version','project_ref','job_ref','source_ref','revision','approval_ref','provenance','input_root','work_root','output_root','queue_root','reference_binding','pack_sha256']);
+  if(author.version!==1 || author.project_ref!==raw.projectRef || author.job_ref!==raw.jobRef)refuse('HWPX_JOB_BINDING');
+  for(const root of ['input_root','work_root','output_root','queue_root'].map(key=>author[key])){
+    regularPath(root,'directory');if(contained(raw.workRoot,root)||contained(root,raw.workRoot))refuse('HWPX_WRITABLE_AUTHORITY');
+  }
+  const reference=read(author.reference_binding);
+  if(contained(raw.workRoot,reference.template_path))refuse('HWPX_WRITABLE_AUTHORITY');
+  readPinnedFile(reference.template_path,reference.template_sha256,32*1024*1024);
+  let native=null,pdf=null;
+  if(raw.hwpx.native!==null){
+    native=read(raw.hwpx.native);pdf=read(raw.hwpx.pdf);
+    exactKeys(native,['enabled','renderer_ref','input_root','output_root','work_root','powershell_executable','powershell_sha256','hwp_executable','hwp_sha256','security_module_dll','security_module_sha256','script_path','script_sha256','user_sid','existing_module_name']);
+    exactKeys(pdf,['code_root','pdf_root','python_executable','python_sha256','python_version','python_files','libraries','library_files','pypdf_version','pillow_version','poppler_executable','poppler_files','sources']);
+    if(native.enabled!==true || native.existing_module_name!=='FilePathCheckerModule' || native.input_root!==author.output_root || pdf.pdf_root!==native.output_root)refuse('HWPX_RENDER_BINDING');
+    for(const root of [native.input_root,native.output_root,native.work_root,pdf.pdf_root]){
+      regularPath(root,'directory');if(contained(raw.workRoot,root)||contained(root,raw.workRoot))refuse('HWPX_WRITABLE_AUTHORITY');
+    }
+  }
+  return {author,native,pdf};
+}
 export function loadBinding(bindingPath, bindingSha256) {
   const bytes = readPinnedFile(bindingPath, bindingSha256, 32 * 1024);
   let raw;
   try { raw = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { refuse('BINDING_JSON'); }
-  exactKeys(raw, ['version', 'botRef', 'roleRef', 'projectRef', 'jobRef', 'inputFiles', 'workRoot', 'jobRoot', 'model', 'cliPath', 'cliSha256', 'nodeSha256', 'instructions', 'skills', 'tools', 'sourceHashes', 'expiresAt']);
-  if (raw.version !== 1) refuse('BINDING_VERSION');
+  if (![1,2].includes(raw.version)) refuse('BINDING_VERSION');
+  exactKeys(raw, ['version', 'botRef', 'roleRef', 'projectRef', 'jobRef', 'inputFiles', 'workRoot', 'jobRoot', 'model', 'cliPath', 'cliSha256', 'nodeSha256', 'instructions', 'skills', 'tools', 'sourceHashes', 'expiresAt',...(raw.version===2?['hwpx',...(Object.hasOwn(raw,'turnTimeoutMs')?['turnTimeoutMs']:[])]:[])]);
+  // Only the pinned v2 installer binding may choose a document work-turn
+  // budget. Probe/control/closure deadlines remain independent and short.
+  const requestedTurnTimeoutMs=raw.version===2?(Object.hasOwn(raw,'turnTimeoutMs')?raw.turnTimeoutMs:1800000):120000;
+  if(!Number.isSafeInteger(requestedTurnTimeoutMs)||requestedTurnTimeoutMs<60000||requestedTurnTimeoutMs>7200000)refuse('TURN_TIMEOUT_BINDING');
   for (const key of ['botRef', 'roleRef', 'projectRef', 'jobRef', 'model']) safeRef(raw[key]);
   if (!Array.isArray(raw.inputFiles) || raw.inputFiles.length > 200) refuse('INPUT_MANIFEST');
   for (const entry of raw.inputFiles) {
@@ -98,9 +144,10 @@ export function loadBinding(bindingPath, bindingSha256) {
   // This reader never writes runtime bytes. Installer links do not imply OS write protection.
   readPinnedBytes(raw.cliPath, raw.cliSha256, 512 * 1024 * 1024, true);
   readPinnedFile(process.execPath, raw.nodeSha256, 256 * 1024 * 1024);
-  exactKeys(raw.sourceHashes, [...SOURCE_FILES]);
-  for (const file of SOURCE_FILES) readPinnedFile(path.join(selfDir, file), raw.sourceHashes[file], 128 * 1024);
-  if (!Array.isArray(raw.tools) || !raw.tools.length || raw.tools.some(name => !TOOL_NAMES.includes(name)) || new Set(raw.tools).size !== raw.tools.length) refuse('TOOL_ALLOWLIST');
+  verifySources(raw);
+  const allowedTools=raw.version===2?[...TOOL_NAMES,'hwpx_build_candidate']:TOOL_NAMES;
+  if (!Array.isArray(raw.tools) || !raw.tools.length || raw.tools.some(name => !allowedTools.includes(name)) || new Set(raw.tools).size !== raw.tools.length) refuse('TOOL_ALLOWLIST');
+  const hwpxConfiguration=raw.version===2?readHwpxConfiguration(raw):null;
   if (!Array.isArray(raw.skills) || raw.skills.length > 8) refuse('SKILL_ALLOWLIST');
   const readInstruction = entry => {
     exactKeys(entry, ['ref', 'path', 'sha256']); safeRef(entry.ref);
@@ -109,7 +156,9 @@ export function loadBinding(bindingPath, bindingSha256) {
   };
   const instructionText = [readInstruction(raw.instructions), ...raw.skills.map(readInstruction)].join('\n\n');
   if (Buffer.byteLength(instructionText) > 64 * 1024) refuse('INSTRUCTIONS_TOO_LARGE');
-  const state = { ...raw, instructionText, bindingPath, bindingSha256, rootIdentity: fingerprint(regularPath(raw.jobRoot, 'directory')), sourceDir: selfDir };
+  const remainingAuthorityMs=raw.expiresAt-Date.now();
+  if(remainingAuthorityMs<=0)refuse('BINDING_EXPIRED');
+  const state = { ...raw, turnTimeoutMs:Math.min(requestedTurnTimeoutMs,remainingAuthorityMs), instructionText, bindingPath, bindingSha256, rootIdentity: fingerprint(regularPath(raw.jobRoot, 'directory')), sourceDir: selfDir,...(raw.version===2?{hwpxConfiguration}:{}) };
   loadedBindings.add(state);
   return freezeTree(state);
 }
@@ -119,6 +168,7 @@ export function assertCurrent(binding) {
   if (binding.expiresAt <= Date.now()) refuse('BINDING_EXPIRED');
   if (fingerprint(regularPath(binding.jobRoot, 'directory')) !== binding.rootIdentity) refuse('ROOT_CHANGED');
   for (const entry of [binding.instructions, ...binding.skills]) readPinnedFile(entry.path, entry.sha256, 32 * 1024);
+  if(binding.version===2){verifySources(binding);readHwpxConfiguration(binding);}
 }
 export function verifyCurrentCli(binding) {
   assertCurrent(binding);
@@ -136,7 +186,7 @@ export function launchSpec(binding) {
   assertCurrent(binding);
   verifyCurrentCli(binding);
   readPinnedFile(process.execPath, binding.nodeSha256, 256 * 1024 * 1024);
-  for (const file of SOURCE_FILES) readPinnedFile(path.join(selfDir, file), binding.sourceHashes[file]);
+  verifySources(binding);
   const tools = binding.tools.map(name => `mcp__soulforge_workspace__${name}`);
   const mcp = { mcpServers: { soulforge_workspace: { type: 'stdio', command: process.execPath, args: [path.join(selfDir, 'claude_acp_cli.mjs'), '--workspace-mcp', '--binding', binding.bindingPath, '--binding-sha256', binding.bindingSha256], env: {} } } };
   const settings = { disableAllHooks: true, autoMemoryEnabled: false, disableClaudeAiConnectors: true, enabledPlugins: {}, permissions: { defaultMode: 'default', allow: tools, deny: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Agent', 'Task', 'Skill', 'WebFetch', 'WebSearch'] } };

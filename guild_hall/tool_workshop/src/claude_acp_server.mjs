@@ -233,6 +233,7 @@ export function createClaudeAcp(binding, send) {
   async function dispatch(method, params = {}) {
     if (closed) refuse('SESSION_CLOSED');
     assertCurrent(binding);
+    if(params&&(Object.hasOwn(params,'turnTimeoutMs')||params._meta&&Object.hasOwn(params._meta,'turnTimeoutMs')))refuse('CLIENT_SCOPE_OVERRIDE');
     if (method === 'initialize') {
       // ACP negotiation returns our latest supported version for newer clients.
       if (initialized || !Number.isSafeInteger(params?.protocolVersion) || params.protocolVersion < 1) refuse('ACP_VERSION');
@@ -289,8 +290,11 @@ export function createClaudeAcp(binding, send) {
       }
       if (!session.preflight || session.failed || !session.child) refuse('CLI_PREFLIGHT_REQUIRED');
       if (session.auth.expiresAt <= Date.now()) refuse('AUTH_STATE_UNAVAILABLE');
+      assertCurrent(binding);
+      const turnTimeoutMs=Math.min(binding.turnTimeoutMs,binding.expiresAt-Date.now());
+      if(turnTimeoutMs<=0)refuse('BINDING_EXPIRED');
       return await new Promise((resolve, reject) => {
-        session.pending = { resolve, reject, outputBytes: 0, timer: setTimeout(() => failSession(session, 'TURN_TIMEOUT'), 120000) };
+        session.pending = { resolve, reject, outputBytes: 0, timer: setTimeout(() => failSession(session, 'TURN_TIMEOUT'), turnTimeoutMs) };
         session.child.stdin.write(`${JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } })}\n`);
       });
     } catch (error) { return await terminalFailure(session, error); }

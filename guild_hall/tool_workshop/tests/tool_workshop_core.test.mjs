@@ -83,6 +83,37 @@ test("priority then submission order drives the queue", () => {
   assert.equal(lease.job_id, "job.high", "priority first, then submission order");
 });
 
+test("fixed job acquisition cannot skip or lease a different priority head", () => {
+  const core = createToolWorkshopCore();
+  seedWorkshop(core);
+  core.submitJob(jobInput("job.fixed", { priority: 3 }));
+  core.submitJob(jobInput("job.head", { priority: 1 }));
+  const before = core.eventLog();
+  assert.equal(core.acquireLease("workshop.document", { now: T0, lease_id: "lease.fixed", expected_job_id: "job.fixed" }), null);
+  assert.deepEqual(core.eventLog(), before);
+  assert.equal(core.getJob("job.fixed").state, "queued");
+  assert.equal(core.getJob("job.head").state, "queued");
+  assert.throws(() => core.acquireLease("workshop.document", { now: T0, lease_id: "lease.invalid", expected_job_id: "../wrong" }), { code: "ref_invalid" });
+  assert.equal(core.acquireLease("workshop.document", { now: T0, lease_id: "lease.head", expected_job_id: "job.head" }).job_id, "job.head");
+});
+
+test("queue-head inspection shares priority selection and never transitions active or expired leases", () => {
+  const core = createToolWorkshopCore();
+  seedWorkshop(core);
+  core.submitJob(jobInput("job.active", { timeout_seconds: 60, priority: 1 }));
+  core.submitJob(jobInput("job.next", { priority: 2 }));
+  core.submitJob(jobInput("job.foreign", { priority: 1, project_ref: "other_project" }));
+  const active = core.acquireLease("workshop.document", { now: T0, lease_id: "lease.active", project_ref: "demo_project" });
+  const before = core.eventLog();
+  assert.equal(core.peekNextQueuedJob("workshop.document", { project_ref: "demo_project" }).job_id, "job.next");
+  assert.equal(core.peekNextQueuedJob("workshop.document").job_id, "job.foreign");
+  assert.deepEqual(core.eventLog(), before);
+  assert.equal(core.getJob(active.job_id).state, "leased");
+  const next = core.acquireLease("workshop.document", { now: T_LATER, lease_id: "lease.next", project_ref: "demo_project" });
+  assert.equal(next.job_id, "job.next");
+  assert.equal(core.getJob(active.job_id).state, "failed_terminal");
+});
+
 test("expiry takeover bumps the fencing token and a late writer with the old token is rejected", () => {
   const core = createToolWorkshopCore();
   seedWorkshop(core);

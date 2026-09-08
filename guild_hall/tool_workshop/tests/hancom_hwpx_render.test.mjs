@@ -24,7 +24,8 @@ if (!process.execArgv.includes('--experimental-test-module-mocks')) {
 } else {
   const official='9ac5b97c47ac8aed1e8bca27a3eef39411361d8f68c262509f0c40a8f9d21bb6';
   const dll=Buffer.from('synthetic-approved-dll-identity');
-  let behavior='success',spawns=0,abortAtPublication=null,abortAfterDispatch=null,runtimeReparse=false,runtimeLinks=null;
+  let behavior='success',spawns=0,abortAtPublication=null,abortAfterDispatch=null,runtimeReparse=false,runtimeLinks=null,existingStarted=null;
+  const modes=[];
   mock.module('node:fs',{namedExports:{...realFs,
     lstatSync:(file,...args)=>{
       const entry=realFs.lstatSync(file,...args);
@@ -44,25 +45,32 @@ if (!process.execArgv.includes('--experimental-test-module-mocks')) {
     }
   }});
   mock.module('../src/workshop_files.mjs',{namedExports:{...realFiles,sha256:bytes=>Buffer.isBuffer(bytes)&&bytes.equals(dll)?official:realFiles.sha256(bytes)}});
-  mock.module('node:child_process',{namedExports:{spawn:()=>{
+  mock.module('node:child_process',{namedExports:{spawn:(_executable,args)=>{
     spawns++;
+    const mode=args[args.indexOf('-Mode')+1];modes.push(mode);
     const child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.stderr=new PassThrough();
     let text='';child.stdin.on('data',chunk=>text+=chunk);
     child.kill=()=>{child.emit('close',1);};
     child.stdin.on('finish',()=>{
       const r=JSON.parse(text);
+      if(mode==='ExistingPreflight') {
+        const code={msix:'existing_session_required',wrong_sid:'existing_session_required',hwp_busy:'existing_session_busy',missing_alias:'existing_alias_invalid'}[behavior];
+        setTimeout(()=>{child.stdout.end(JSON.stringify({ok:!code,cleanup_verified:true,code:code??'ok'}));child.emit('close',code?1:0);},2);
+        return;
+      }
+      if(mode==='ExistingSession')existingStarted?.();
       setTimeout(()=>{
         if (behavior==='input_change')writeFileSync(r.input_path,Buffer.from('changed'));
         if (behavior==='occupied_output')writeFileSync(r.pdf_path,'outsider');
         writeFileSync(path.join(r.run_root,'export.pending.pdf'),behavior==='invalid_pdf'?'not pdf':'%PDF-1.4\nsynthetic only\n%%EOF\n',{flag:'wx'});
         abortAfterDispatch?.();
-        child.stdout.end(JSON.stringify({ok:true,cleanup_verified:behavior!=='cleanup_failure'}));
+        child.stdout.end(JSON.stringify({ok:true,cleanup_verified:!['cleanup_failure','rebound_alias'].includes(behavior),...(mode==='ExistingSession'?{code:'ok'}:{})}));
         child.emit('close',0);
       },behavior==='slow'?80:2);
     });
     return child;
   }}});
-  const {renderHwpxToPdf,preflightHwpxToPdf,HANCOM_RENDERER_REF}=await import('../src/hancom_hwpx_render.mjs');
+  const {renderHwpxToPdf,preflightHwpxToPdf,preflightHwpxInExistingSession,renderHwpxInExistingSession,HANCOM_RENDERER_REF}=await import('../src/hancom_hwpx_render.mjs');
   function fixture() {
     const root=mkdtempSync(path.join(tmpdir(),'hancom-synthetic-'));
     const [input,output,work]=['input','output','work'].map(name=>{const dir=path.join(root,name);mkdirSync(dir);return dir;});
@@ -181,6 +189,8 @@ if (!process.execArgv.includes('--experimental-test-module-mocks')) {
 $ErrorActionPreference='Stop'
 function Get-ChildItem { param($LiteralPath,[switch]$Force); for($i=0;$i -lt $script:entries;$i++){[pscustomobject]@{Name='synthetic'}} }
 function Assert-True($Condition) { if(-not $Condition){throw 'native_check_failed'} }
+function Assert-ExistingLocal($Value,$Directory) { if($Value -ne 'SYNTHETIC_IN_MEMORY_DIRECTORY' -or -not $Directory){throw 'wrong_fixture_directory'} }
+$ReadOnly=$false
 $r=[pscustomobject]@{run_root='SYNTHETIC_IN_MEMORY_DIRECTORY'}
 $gate=[scriptblock]::Create('${gate.replaceAll("'","''")}')
 foreach($entries in @(0,1,3)) {
@@ -255,5 +265,84 @@ if($script:lookups -ne $count -or $count -lt 1){throw 'prefix_probe_boundary_fai
 [Console]::Out.Write('eight-outcomes-pass')`;
     const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',timeout:5000,windowsHide:true});
     assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'eight-outcomes-pass');
+  });
+  const existingFixture=()=>{const a=fixture();a.binding.existing_module_name='FilePathCheckerModule';return a;};
+  test('existing-session preflight is read-only and rejects unknown alias, missing alias, MSIX, SID and busy Hwp before run files',{skip:process.platform!=='win32'},async()=>{
+    behavior='success';const a=existingFixture(),start=modes.length;
+    assert.equal((await preflightHwpxInExistingSession(a)).native_checks,'passed_readonly');
+    assert.deepEqual(modes.slice(start),['ExistingPreflight']);assert.deepEqual(readdirSync(a.binding.work_root),[]);assert.deepEqual(readdirSync(a.outputRoot),[]);
+    const before=spawns;
+    await assert.rejects(preflightHwpxInExistingSession({...a,binding:{...a.binding,existing_module_name:'Unknown'}}),{code:'existing_alias_invalid'});assert.equal(spawns,before);
+    for(const [mode,code] of [['missing_alias','existing_alias_invalid'],['msix','existing_session_required'],['wrong_sid','existing_session_required'],['hwp_busy','existing_session_busy']]) {
+      behavior=mode;await assert.rejects(renderHwpxInExistingSession(a),{code});assert.deepEqual(readdirSync(a.binding.work_root),[]);assert.deepEqual(readdirSync(a.outputRoot),[]);
+    }
+    behavior='success';
+  });
+  test('existing-session emits the same narrow PDF metadata and legacy Dispatch remains compatible',{skip:process.platform!=='win32'},async()=>{
+    behavior='success';const start=modes.length,a=existingFixture();
+    const result=await renderHwpxInExistingSession(a);
+    assert.deepEqual(Object.keys(result),['pdf_path','pdf_sha256','pdf_size_bytes','input_sha256','renderer_ref','cleanup_verified']);
+    assert.equal(result.input_sha256,a.expectedInputSha256);assert.equal(result.cleanup_verified,true);
+    assert.deepEqual(modes.slice(start),['ExistingPreflight','ExistingSession']);
+    const legacy=modes.length;await renderHwpxToPdf(fixture());assert.deepEqual(modes.slice(legacy),['Dispatch']);
+  });
+  test('existing-session cancellation, invalid PDF and changed alias never publish a final PDF',{skip:process.platform!=='win32'},async()=>{
+    for(const [mode,code] of [['invalid_pdf','pdf_invalid'],['cleanup_failure','cleanup_unverified'],['rebound_alias','cleanup_unverified']]) {
+      behavior=mode;const a=existingFixture();await assert.rejects(renderHwpxInExistingSession(a),{code});assert.deepEqual(readdirSync(a.outputRoot),[]);
+    }
+    behavior='slow';const a=existingFixture(),controller=new AbortController();existingStarted=()=>setTimeout(()=>controller.abort(),10);
+    try{await assert.rejects(renderHwpxInExistingSession({...a,signal:controller.signal}),{code:'cancelled'});assert.deepEqual(readdirSync(a.outputRoot),[]);}finally{existingStarted=null;behavior='success';}
+  });
+  test('existing-session alias helper only reads exact REG_SZ and never changes missing or rebound aliases',{skip:process.platform!=='win32'},()=>{
+    const source=readFileSync(fileURLToPath(new URL('../src/hancom_hwpx_export.ps1',import.meta.url)),'utf8');
+    const helper=source.match(/function Assert-ExistingAlias\([^]*?\n\}/)?.[0];assert.ok(helper);
+    const script=`Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+function Assert-True($Condition){if(-not $Condition){throw 'native_check_failed'}}
+${helper}
+$key=[pscustomobject]@{Present=$true;Kind=[Microsoft.Win32.RegistryValueKind]::String;Value='synthetic.dll';Writes=0}
+$key|Add-Member ScriptMethod GetValueNames {if($this.Present){return ,@('FilePathCheckerModule')}else{return ,@()}}
+$key|Add-Member ScriptMethod GetValueKind {param($Name);return $this.Kind}
+$key|Add-Member ScriptMethod GetValue {param($Name,$Default,$Options);return $this.Value}
+$key|Add-Member ScriptMethod SetValue {$this.Writes++;throw 'mutation_forbidden'}
+$key|Add-Member ScriptMethod DeleteValue {$this.Writes++;throw 'mutation_forbidden'}
+Assert-ExistingAlias $key 'FilePathCheckerModule' 'synthetic.dll'
+foreach($case in @('missing','unknown','kind','rebound')) {
+ $key.Present=$true;$key.Kind=[Microsoft.Win32.RegistryValueKind]::String;$key.Value='synthetic.dll';$name='FilePathCheckerModule'
+ switch($case){missing{$key.Present=$false}unknown{$name='unknown'}kind{$key.Kind=[Microsoft.Win32.RegistryValueKind]::ExpandString}rebound{$key.Value='foreign.dll'}}
+ $before=$key.Value;$rejected=$false;try{Assert-ExistingAlias $key $name 'synthetic.dll'}catch{if($_.Exception.Message -ne 'native_check_failed'){throw};$rejected=$true}
+ if(-not $rejected -or $key.Writes -ne 0 -or $key.Value -cne $before){throw 'alias_boundary_failed'}
+}
+[Console]::Out.Write('readonly-alias-pass')`;
+    const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',timeout:5000,windowsHide:true});
+    assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'readonly-alias-pass');
+  });
+  test('existing-session identity rejects packaged caller, wrong SID, elevation, bitness and unrelated parent',{skip:process.platform!=='win32'},()=>{
+    const source=readFileSync(fileURLToPath(new URL('../src/hancom_hwpx_export.ps1',import.meta.url)),'utf8');
+    const helper=source.match(/function Assert-ExistingIdentity\([^]*?\n\}/)?.[0];assert.ok(helper);
+    const script=`Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+function Assert-True($Condition){if(-not $Condition){throw 'native_check_failed'}}
+${helper}
+Assert-ExistingIdentity $false $false 'same' 'same' 'same' $true 15700 15700
+foreach($case in @('self-package','caller-package','sid','elevated','bits','parent')) {
+ $caseArgs=@($false,$false,'same','same','same',$true,15700,15700)
+ switch($case){self-package{$caseArgs[6]=122}caller-package{$caseArgs[7]=122}sid{$caseArgs[3]='other'}elevated{$caseArgs[1]=$true}bits{$caseArgs[0]=$true}parent{$caseArgs[5]=$false}}
+ $rejected=$false;try{Assert-ExistingIdentity @caseArgs}catch{if($_.Exception.Message -ne 'native_check_failed'){throw};$rejected=$true};if(-not $rejected){throw 'identity_boundary_failed'}
+}
+[Console]::Out.Write('identity-pass')`;
+    const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',timeout:5000,windowsHide:true});
+    assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'identity-pass');
+  });
+  test('existing-session branch has no task or alias writer and builds its native query type in memory only',{skip:process.platform!=='win32'},()=>{
+    const source=readFileSync(fileURLToPath(new URL('../src/hancom_hwpx_export.ps1',import.meta.url)),'utf8');
+    const branch=source.match(/function Invoke-ExistingSession\([^]*?\n\}/)?.[0],helper=source.match(/function New-ExistingNativeApi\s*\{[^]*?\n\}/)?.[0];assert.ok(branch && helper);
+    assert.doesNotMatch(branch,/Schedule\.Service|RegisterTask|DeleteTask|SetValue|DeleteValue|CreateSubKey|Add-Type/);
+    assert.match(branch,/OpenSubKey\(\$moduleKey,\$false\)/);assert.match(branch,/if\(-not \$ReadOnly\)/);
+    assert.ok(branch.indexOf('Assert-ExistingCaller')<branch.indexOf('FileMode]::CreateNew'));
+    assert.ok(source.indexOf("if($Mode -in @('ExistingPreflight','ExistingSession'))")<source.indexOf('Add-Type -TypeDefinition'));
+    const script=`$ErrorActionPreference='Stop';${helper};$type=New-ExistingNativeApi;$methods=@($type.GetMethods()|Where-Object {$_.Attributes -band [Reflection.MethodAttributes]::PinvokeImpl});if($methods.Count -ne 5){throw 'wrong_native_surface'};foreach($method in $methods){if(-not $method.GetCustomAttributes([Runtime.InteropServices.DllImportAttribute],$false)[0].ExactSpelling){throw 'native_name_not_exact'}};[Console]::Out.Write('memory-type-only')`;
+    const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{encoding:'utf8',timeout:5000,windowsHide:true});
+    assert.equal(result.status,0,result.stderr);assert.equal(result.stdout,'memory-type-only');
   });
 }

@@ -127,13 +127,29 @@ export function createHwpxReferenceRunner({queue,binding,projectRef,inputRoot,wo
   if(queue.getBinding('workshop.hwpx')!==bindingDigest)reject('binding_drift');
   verifyHwpxReferenceBinding(binding);
   if(!profile || profile.resource_id!=='resource.hwpx_python' || profile.workshop_class!=='hwpx' || profile.capacity!==1 || JSON.stringify(profile.tool_versions)!==JSON.stringify(HWPX_REFERENCE_PROFILE.tool_versions))reject('workshop_profile_drift');
-  return Object.freeze({async runNext(){
+  return Object.freeze({async runNext({expectedJobId,assertCurrent,signal}={}){
+    if(expectedJobId!==undefined && !REF.test(expectedJobId))reject('job_binding_invalid');
+    if(assertCurrent!==undefined && typeof assertCurrent!=='function')reject('current_guard_invalid');
+    function current(){
+      if(signal?.aborted)reject('job_cancel_requested');
+      const value=assertCurrent?.();
+      if(value===false || value && typeof value.then==='function')reject('binding_drift');
+      if(signal?.aborted)reject('job_cancel_requested');
+    }
+    current();
     verifyHwpxReferenceBinding(binding);
-    const lease=queue.acquireLease('workshop.hwpx',{lease_id:`lease.${randomUUID()}`,project_ref:projectRef});
+    const lease=queue.acquireLease('workshop.hwpx',{lease_id:`lease.${randomUUID()}`,project_ref:projectRef,...(expectedJobId===undefined?{}:{expected_job_id:expectedJobId})});
     if(!lease)return null;
+    const cancelOwned=()=>{
+      try{const profile=queue.getWorkshop('workshop.hwpx');
+        if(profile.active_lease_id===lease.lease_id && profile.fencing_counter===lease.fencing_token && queue.getJob(lease.job_id)?.state==='leased')queue.cancelJob(lease.job_id);
+      }catch{/* Never cancel a replacement lease or conceal its own fence. */}
+    };
+    signal?.addEventListener('abort',cancelOwned,{once:true});if(signal?.aborted)cancelOwned();
     const job=queue.getJob(lease.job_id),deadline=performance.now()+job.timeout_seconds*1000;
     let stage='input_invalid';
     try {
+      current();
       workingRoot(inputRoot);workingRoot(workRoot);workingRoot(outputRoot);
       const packetPath=path.join(inputRoot,`${job.input_bundle_manifest_digest}.json`),packetBytes=boundedRead(packetPath,2*1024*1024);
       if(sha256(packetBytes)!==job.input_bundle_manifest_digest)reject('input_invalid');
@@ -152,27 +168,31 @@ export function createHwpxReferenceRunner({queue,binding,projectRef,inputRoot,wo
       writeFileSync(request,JSON.stringify({reference_sha256:binding.template_sha256,candidate_sha256:packet.candidate_sha256,allowed_parts:packet.allowed_parts,expected_text:packet.expected_text}),{flag:'wx'});
       const bootstrap="import sys; runtime,libraries,child,*args=sys.argv[1:];sys.path[:]=[libraries,runtime+'/Lib',runtime+'/DLLs',runtime];import runpy;sys.argv=[child,*args];runpy.run_path(child,run_name='__main__')";
       stage='validator_failed';
-      const result=await runBoundedToolProcess({executable:binding.python_executable,args:['-I','-S','-B','-X',`pycache_prefix=${path.join(runRoot,'cache')}`,'-c',bootstrap,runtime,libraries,path.join(runRoot,CHILD),'verify',request,path.join(runRoot,SCRIPTS),runRoot],runRoot,queue,lease,deadline});
+      const guardedQueue={assertCurrentLease(...args){current();return queue.assertCurrentLease(...args);}};
+      const result=await runBoundedToolProcess({executable:binding.python_executable,args:['-I','-S','-B','-X',`pycache_prefix=${path.join(runRoot,'cache')}`,'-c',bootstrap,runtime,libraries,path.join(runRoot,CHILD),'verify',request,path.join(runRoot,SCRIPTS),runRoot],runRoot,queue:guardedQueue,lease,deadline});
       exactKeys(result,['ok','reference_sha256','candidate_sha256','candidate_size_bytes','section_count','changed_section_count','text_node_count','canonical_validation','page_guard','page_count_verified','preview_status','render_required','validation_level']);
       if(result.ok!==true || result.reference_sha256!==binding.template_sha256 || result.candidate_sha256!==packet.candidate_sha256 || result.candidate_size_bytes!==candidate.length || !Number.isInteger(result.section_count) || result.section_count<1 || result.section_count>64 || !Number.isInteger(result.changed_section_count) || result.changed_section_count<0 || result.changed_section_count>result.section_count || result.text_node_count!==packet.expected_text.length || result.canonical_validation!=='passed' || result.page_guard!=='passed_all_sections' || result.page_count_verified!==false || !['preview_stale','present_unverified','absent'].includes(result.preview_status) || result.render_required!==true || result.validation_level!=='structural_reference_only')reject('validator_failed');
-      stage='binding_drift';verifyHwpxReferenceBinding(binding);
+      stage='binding_drift';current();verifyHwpxReferenceBinding(binding);
       verifySnapshot(runRoot,binding.sources);verifySnapshot(runtime,binding.python_files);verifySnapshot(path.join(libraries,'lxml'),binding.lxml_files);
       stage='input_invalid';
       if(!boundedRead(packetPath,2*1024*1024).equals(packetBytes) || !boundedRead(candidatePath,MAX).equals(candidate) || !boundedRead(path.join(runRoot,'candidate.hwpx'),MAX).equals(candidate))reject('input_invalid');
       stage='output_invalid';
       const receipt=commitVerifiedCandidate(queue,{lease,now:()=>new Date().toISOString(),verifyAndPublish:()=>{
+        current();
         if(performance.now()>=deadline)reject('runner_timeout');
         workingRoot(outputRoot);
         const target=path.join(outputRoot,`${packet.candidate_sha256}.hwpx`);
         writeFileSync(target,candidate,{flag:'wx'});
         if(sha256(boundedRead(target,MAX))!==packet.candidate_sha256)reject('output_invalid');
+        current();
         return {sha256:packet.candidate_sha256,size_bytes:candidate.length,format:'hwpx',binding_digest:bindingDigest,validator_ref:'validator.hwpx_reference_readback:v1',artifact_ref:`artifact.sha256:${packet.candidate_sha256}`,template_sha256:binding.template_sha256,section_count:result.section_count,preview_status:result.preview_status,render_required:true,page_count_verified:false};
       }});
       return {state:'done_candidate',receipt};
     } catch(error) {
+      if(signal?.aborted)cancelOwned();
       if(queue.getJob(job.job_id).state==='cancel_requested'){queue.finishCancellation(lease);return {state:'cancelled'};}
       if(error.code==='fence_stale')return {state:'fenced',code:error.code};
       try{return queue.failRun(lease,['runner_timeout','lease_expired'].includes(error.code)?'runner_timeout':stage);}catch(fenced){if(fenced.code==='fence_stale')return {state:'fenced',code:'fence_stale'};throw fenced;}
-    }
+    } finally {signal?.removeEventListener('abort',cancelOwned);}
   }});
 }

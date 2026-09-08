@@ -6,11 +6,15 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { isBuiltin } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { HWPX_SOURCE_FILES } from '../tool_workshop/src/claude_acp_policy.mjs';
 
 const ENTRY = 'guild_hall/dev_worker/feedback_runtime_cli.mjs';
 const STAGER = 'guild_hall/dev_worker/feedback_runtime_stage.mjs';
 const ACP = 'guild_hall/tool_workshop/src/claude_acp_cli.mjs';
-const SEEDS = [ENTRY, ACP, STAGER];
+const DATA = [...HWPX_SOURCE_FILES.filter(file => !file.endsWith('.mjs')),
+  'guild_hall/secure_work/src/soulforge_secure_work/feedback_currentness_pipe.py',
+  'guild_hall/secure_work/src/soulforge_secure_work/ipc_pipe.py'];
+const SEEDS = [ENTRY, ACP, STAGER, ...DATA];
 const RECEIPT = 'feedback-runtime-stage.json';
 const RESERVATION = '.feedback-runtime-stage-reservation';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -81,10 +85,11 @@ async function closure(root) {
   while (pending.length) {
     const relative = relativeFile(pending.shift());
     if (files.has(relative)) continue;
-    if (!relative.endsWith('.mjs') || files.size >= 256) fail('STAGE_CLOSURE_INVALID');
+    if ((!relative.endsWith('.mjs') && !DATA.includes(relative)) || files.size >= 256) fail('STAGE_CLOSURE_INVALID');
     const bytes = await read(path.join(root, relative)); total += bytes.length;
     if (total > 20_000_000) fail('STAGE_CLOSURE_TOO_LARGE');
     files.set(relative, bytes);
+    if (!relative.endsWith('.mjs')) continue;
     for (const specifier of imports(bytes)) {
       if (specifier.startsWith('node:') && isBuiltin(specifier)) continue;
       if (specifier === 'yaml') continue;

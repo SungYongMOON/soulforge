@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync,mkdirSync,mkdtempSync,readFileSync,readdirSync,writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
+import {DatabaseSync} from 'node:sqlite';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createDurableToolWorkshop} from '../src/tool_workshop_durable.mjs';
+import {createToolWorkshopCore} from '../src/tool_workshop_core.mjs';
 import {HWPX_REFERENCE_PROFILE,pinHwpxReferenceBinding,verifyHwpxReferenceBinding,hwpxReferenceBindingDigest,createHwpxReferenceRunner,validateHwpxReferencePacket} from '../src/hwpx_reference_runner.mjs';
 import {sha256} from '../src/workshop_files.mjs';
 
@@ -49,6 +51,69 @@ test('reference packets have exact authority fields and allow full Korean text w
 });
 if(!available)test('queue reference outcomes need configured Python/lxml',{skip:'SOULFORGE_HWPX_TEST_PYTHON is not configured or does not exist'},()=>{});
 else {
+  test('fixed reference mismatch writes no journal and matched legacy-form acquisition replays identically',async()=>{
+    const f=setup();f.submit(f.packet,'job.head');f.submit(f.packet,'job.fixed');
+    const journal=()=>{const db=new DatabaseSync(path.join(f.roots.stateRoot,'workshop.sqlite'),{readOnly:true});
+      try{return db.prepare('SELECT seq,command,digest FROM journal ORDER BY seq').all();}finally{db.close();}};
+    const before=journal();
+    const runner=createHwpxReferenceRunner(f.env);
+    assert.equal(await runner.runNext({expectedJobId:'job.fixed',assertCurrent:()=>undefined}),null);
+    assert.deepEqual(journal(),before);
+    assert.equal(f.queue.getJob('job.head').state,'queued');assert.equal(f.queue.getJob('job.fixed').state,'queued');
+    assert.equal(f.queue.eventLog().some(event=>event.kind==='lease_acquired'),false);
+    const reopened=createDurableToolWorkshop({stateRoot:f.roots.stateRoot,mode:'open_existing'});
+    assert.equal(await createHwpxReferenceRunner({...f.env,queue:reopened}).runNext({expectedJobId:'job.fixed'}),null);
+    assert.deepEqual(journal(),before);
+    assert.equal(reopened.getWorkshop('workshop.hwpx').active_lease_id,null);assert.deepEqual(readdirSync(f.roots.workRoot),[]);
+    const acquired=reopened.acquireLease('workshop.hwpx',{lease_id:'lease.exact',project_ref:'project.synthetic',expected_job_id:'job.head'});
+    assert.equal(acquired.job_id,'job.head');
+    const records=journal();assert.equal(records.length,before.length+1);
+    const command=JSON.parse(records.at(-1).command);
+    assert.equal(command.method,'acquireLease');
+    assert.deepEqual(Object.keys(command.args[1]).sort(),['lease_id','now','project_ref']);
+    assert.equal(JSON.stringify(records).includes('expected_job_id'),false);
+    // Feed the stored legacy-shaped commands through the unchanged unfiltered
+    // core interface. No new option is ignored or reinterpreted during replay.
+    const legacyFormReplay=createToolWorkshopCore();
+    for(const record of records){const entry=JSON.parse(record.command);legacyFormReplay[entry.method](...entry.args);}
+    assert.deepEqual(legacyFormReplay.eventLog(),reopened.eventLog());
+    for(const id of ['job.head','job.fixed']){
+      const {approval_ref,...persisted}=reopened.getJob(id);assert.deepEqual(legacyFormReplay.getJob(id),persisted);
+    }
+    assert.equal(createDurableToolWorkshop({stateRoot:f.roots.stateRoot,mode:'open_existing'}).getJob('job.head').state,'leased');
+    const expiredAt=new Date(Date.parse(acquired.expires_at)+1000).toISOString();
+    assert.equal(reopened.acquireLease('workshop.hwpx',{lease_id:'lease.denied.expired',now:expiredAt,project_ref:'project.synthetic',expected_job_id:'job.head'}),null);
+    assert.deepEqual(journal(),records);assert.equal(reopened.getJob('job.head').state,'leased','a denied peek cannot expire another lease');
+    const afterExpiry=reopened.acquireLease('workshop.hwpx',{lease_id:'lease.fixed',now:expiredAt,project_ref:'project.synthetic',expected_job_id:'job.fixed'});
+    assert.equal(afterExpiry.job_id,'job.fixed');assert.equal(reopened.getJob('job.head').state,'failed_terminal');
+    const finalReplay=createToolWorkshopCore();
+    for(const record of journal()){
+      const entry=JSON.parse(record.command);assert.equal(Object.hasOwn(entry.args[1]??{},'expected_job_id'),false);
+      finalReplay[entry.method](...entry.args);
+    }
+    assert.deepEqual(finalReplay.eventLog(),reopened.eventLog());
+  });
+  test('reference current guard refuses false and asynchronous authority before leasing',async()=>{
+    const f=setup();f.submit();const runner=createHwpxReferenceRunner(f.env);
+    for(const assertCurrent of [()=>false,()=>Promise.resolve(true)])await assert.rejects(runner.runNext({expectedJobId:'job.reference',assertCurrent}),{code:'binding_drift'});
+    assert.equal(f.queue.getJob('job.reference').state,'queued');noCustody(f,'job.reference');
+  });
+  test('current revocation inside synchronous publication leaves an orphan and never commits custody',async()=>{
+    const f=setup();f.submit();let afterWrite=false;
+    const result=await createHwpxReferenceRunner(f.env).runNext({expectedJobId:'job.reference',assertCurrent:()=>{
+      if(readdirSync(f.roots.outputRoot).length){afterWrite=true;return false;}
+    }});
+    assert.equal(afterWrite,true);assert.equal(result.state,'failed_terminal');assert.equal(f.queue.getCustodyReceipt('job.reference'),null);
+    assert.deepEqual(readFileSync(path.join(f.roots.outputRoot,`${f.packet.candidate_sha256}.hwpx`)),f.candidate);
+  });
+  test('AbortSignal stops only its own reference job and removes the listener before a later job',async()=>{
+    const f=setup();f.submit(f.packet,'job.reference');f.submit(f.packet,'job.later');const controller=new AbortController();
+    const pending=createHwpxReferenceRunner(f.env).runNext({expectedJobId:'job.reference',assertCurrent:()=>undefined,signal:controller.signal});
+    controller.abort();assert.equal((await pending).state,'cancelled');noCustody(f,'job.reference');
+    assert.equal(f.queue.getJob('job.later').state,'queued');
+    const next=f.queue.acquireLease('workshop.hwpx',{lease_id:'lease.later',project_ref:'project.synthetic',expected_job_id:'job.later'});
+    controller.abort();assert.equal(f.queue.getJob(next.job_id).state,'leased');
+  });
   test('actual snapshot validator commits exact skill candidate and SQLite reopen preserves the same structural receipt',async()=>{
     const f=setup();f.submit();const result=await createHwpxReferenceRunner(f.env).runNext();
     assert.equal(result.state,'done_candidate');const artifact=result.receipt.artifact;

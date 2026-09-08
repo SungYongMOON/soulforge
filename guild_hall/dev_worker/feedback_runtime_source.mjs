@@ -7,7 +7,7 @@ import { verifyAgentWorkforceAuthorityClaim } from '../agent_observation/agent_a
 import { createLinearFeedbackSource } from './feedback_linear_source.mjs';
 import { createFeedbackRequestProvider } from './feedback_request_provider.mjs';
 import { normalizeTaskPacket } from './claim_task.mjs';
-import { readRuntimeJson, runtimeCheck as check, runtimeHash as hash, runtimeRef as ref, runtimeExact as exact, writeRuntimeEvidence } from './feedback_runtime_io.mjs';
+import { readRuntimeJson, readRuntimeBytes, runtimeCheck as check, runtimeHash as hash, runtimeRef as ref, runtimeExact as exact, writeRuntimeEvidence } from './feedback_runtime_io.mjs';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const current = (v, now) => Number.isFinite(Date.parse(v.valid_from)) && Number.isFinite(Date.parse(v.valid_until))
@@ -28,6 +28,7 @@ export function createFeedbackRuntimeIssuer({ db, deployment, evidenceRoot, asse
     expectedBinding: deployment.linear.expectedBinding, maxAgeMs: deployment.linear.maxAgeMs, now });
   let selections = new Map(), prepared = new Map(), source;
   let selectionState = { observed: 0, eligible: 0, prepared: 0, preparation_pending: 0 };
+  const indexDigests = new WeakMap();
   async function authority() {
     await assertDeployment();
     const currentDescriptor = deployment.workforce.current.mode === 'current_state'
@@ -84,12 +85,14 @@ export function createFeedbackRuntimeIssuer({ db, deployment, evidenceRoot, asse
     return observed;
   }
   async function projectionIndex(grant) {
-    const index = await readRuntimeJson({ path: path.join(deployment.projectionRoot, 'current.json'), sha256: null });
+    const bytes = await readRuntimeBytes(path.join(deployment.projectionRoot, 'current.json'));
+    const index = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     check(exact(index, ['producer_ref', 'scope_ref', 'valid_from', 'valid_until', 'generation', 'projections'])
       && index.producer_ref === grant.g2_leader_ref && index.scope_ref === grant.scope_ref && current(index, now())
       && Number.isInteger(index.generation) && index.generation > 0 && Array.isArray(index.projections)
       && index.projections.length <= grant.maximum_issues, 'FEEDBACK_G2_PROJECTION_INDEX_INVALID');
     check(new Set(index.projections.map(p => p.issue_id)).size === index.projections.length, 'FEEDBACK_G2_PROJECTION_DUPLICATE');
+    indexDigests.set(index, hash(bytes));
     return index;
   }
   async function loadProjection(grant, observed, index) {
@@ -107,6 +110,9 @@ export function createFeedbackRuntimeIssuer({ db, deployment, evidenceRoot, asse
       && [p.allowed_write_paths, p.acceptance_checks].every(a => Array.isArray(a) && a.length > 0 && new Set(a).size === a.length)
       && p.allowed_write_paths.every(v => grant.allowed_write_paths.includes(v) && deployment.runner.allowedFiles.includes(v))
       && p.acceptance_checks.every(v => grant.acceptance_checks.includes(v) && deployment.runner.validationCatalog.some(c => c.check_id === v)), 'FEEDBACK_G2_PROJECTION_UNBOUND');
+    await assertDeployment({ projection: { producer_ref: p.producer_ref, scope_ref: p.scope_ref,
+      issue_id: p.issue_id, issue_content_sha256: p.issue_content_sha256, body_sha256: descriptor.sha256,
+      generation: index.generation, index_sha256: indexDigests.get(index) } });
     return { projection: p, projection_sha256: descriptor.sha256 };
   }
   async function listDelegations() {

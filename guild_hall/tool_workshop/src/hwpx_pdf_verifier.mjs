@@ -108,18 +108,37 @@ export function verifyHwpxPdfVerifierBinding(binding) {
   return sha256(JSON.stringify(binding));
 }
 
-export async function verifyRenderedHwpxPdf({pdfPath, pdfSha256, hwpxSha256, title, body, runRoot, binding, queue, lease, deadline}) {
+export async function verifyRenderedHwpxPdf({pdfPath, pdfSha256, hwpxSha256, title, body, expectedText, expectedPageCount,
+  runRoot, binding, queue, lease, deadline}) {
+  const multi = expectedText !== undefined;
+  if (multi && (!Array.isArray(expectedText) || expectedText.length < 1 || expectedText.length > 4096
+    || expectedText.some(value => typeof value !== 'string' || !value.trim() || value.length > 32768)
+    || expectedText.reduce((sum, value) => sum + value.length, 0) > 262144)
+    || expectedPageCount !== undefined && (!multi || !Number.isInteger(expectedPageCount) || expectedPageCount < 1 || expectedPageCount > 64)) reject('pdf_input_invalid');
+  let checkSnapshot = () => {};
+  const guardedQueue = {assertCurrentLease(...args) {
+    queue.assertCurrentLease(...args);
+    // A lease callback can change local files. Check after that callback,
+    // including the bounded child's last lease check before spawning.
+    checkSnapshot();
+  }};
+  const assertActive = () => {
+    guardedQueue.assertCurrentLease(lease, new Date().toISOString());
+    if (!Number.isFinite(deadline) || performance.now() >= deadline || Date.parse(lease.expires_at) <= Date.now()) reject('runner_timeout');
+  };
+  assertActive();
   binding = structuredClone(binding);
   verifyHwpxPdfVerifierBinding(binding);
   workingRoot(runRoot); disjointRoots([runRoot, binding.pdf_root, ROOT]);
   if (!DIGEST.test(pdfSha256) || !DIGEST.test(hwpxSha256) || !inside(binding.pdf_root, path.resolve(pdfPath))
     || path.extname(pdfPath).toLowerCase() !== '.pdf') reject('pdf_input_invalid');
-  queue.assertCurrentLease(lease, new Date().toISOString());
+  assertActive();
   const pdf = boundedRead(pdfPath, MAX);
   if (sha256(pdf) !== pdfSha256) reject('pdf_input_invalid');
   const qaRoot = mkdtempSync(path.join(runRoot, 'pdf-qa-'));
   const libraries = path.join(qaRoot, 'runtime'); mkdirSync(libraries);
   for (const entry of binding.library_files) {
+    assertActive();
     const bytes = boundedRead(path.join(binding.libraries[entry.package], entry.relative_path), 128 * 1024 * 1024, true);
     if (sha256(bytes) !== entry.sha256) reject('binding_drift');
     const target = path.join(libraries, entry.package, entry.relative_path);
@@ -128,27 +147,81 @@ export async function verifyRenderedHwpxPdf({pdfPath, pdfSha256, hwpxSha256, tit
   const script = path.join(qaRoot, 'hwpx_pdf_readback.py');
   writeFileSync(script, boundedRead(path.join(ROOT, SCRIPT), MAX), {flag: 'wx'});
   writeFileSync(path.join(qaRoot, 'rendered.pdf'), pdf, {flag: 'wx'});
-  writeFileSync(path.join(qaRoot, 'pdf-readback-request.json'), JSON.stringify({pdf_sha256: pdfSha256, hwpx_sha256: hwpxSha256, title, body}), {flag: 'wx'});
+  const request = {pdf_sha256: pdfSha256, hwpx_sha256: hwpxSha256,
+    ...(multi ? {expected_text: expectedText, ...(expectedPageCount === undefined ? {} : {expected_page_count: expectedPageCount})} : {title, body})};
+  const requestBytes = Buffer.from(JSON.stringify(request));
+  writeFileSync(path.join(qaRoot, 'pdf-readback-request.json'), requestBytes, {flag: 'wx'});
+  const snapshotFiles = new Map(binding.library_files.map(entry => [`${entry.package}/${entry.relative_path}`, entry.sha256]));
+  const snapshotDirectories = new Set();
+  for (const file of snapshotFiles.keys()) {
+    const parts = file.split('/');
+    for (let size = 1; size < parts.length; size++) snapshotDirectories.add(parts.slice(0, size).join('/'));
+  }
+  checkSnapshot = () => {
+    if (sha256(boundedRead(script, MAX)) !== binding.sources[0].sha256
+      || sha256(boundedRead(path.join(qaRoot, 'pdf-readback-request.json'), 2 * 1024 * 1024)) !== sha256(requestBytes)) reject('binding_drift');
+    const seen = new Set(), directories = new Set();
+    const walk = (directory, prefix = '') => {
+      directPath(directory, true);
+      for (const entry of readdirSync(directory, {withFileTypes: true})) {
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name, file = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          if (!snapshotDirectories.has(relative)) reject('binding_drift');
+          directories.add(relative); walk(file, relative);
+        } else {
+          if (!snapshotFiles.has(relative) || sha256(boundedRead(file, 128 * 1024 * 1024, true)) !== snapshotFiles.get(relative)) reject('binding_drift');
+          seen.add(relative);
+        }
+      }
+    };
+    walk(libraries);
+    if (seen.size !== snapshotFiles.size || directories.size !== snapshotDirectories.size) reject('binding_drift');
+  };
   const readback = mode => runBoundedToolProcess({executable: binding.python_executable,
     args: ['-I', '-S', '-B', '-X', `pycache_prefix=${path.join(qaRoot, 'cache')}`, script, mode, qaRoot, libraries],
-    runRoot: qaRoot, queue, lease, deadline});
+    runRoot: qaRoot, queue: guardedQueue, lease, deadline});
   const inspected = await readback('inspect');
-  if (inspected.pdf_sha256 !== pdfSha256 || inspected.hwpx_sha256 !== hwpxSha256 || inspected.page_count !== 1) reject('validator_failed');
-  const pngPath = path.join(qaRoot, 'page-1.png'), fd = openSync(pngPath, 'wx');
-  try {
-    await runBoundedToolProcess({executable: binding.poppler_executable,
-      args: ['-png', '-singlefile', '-f', '1', '-l', '1', '-scale-to-x', '794', '-scale-to-y', '1123', path.join(qaRoot, 'rendered.pdf')],
-      runRoot: qaRoot, queue, lease, deadline, resultFormat: 'exit_code', stdoutFd: fd});
-    fsyncSync(fd);
-  } finally {closeSync(fd);}
-  const checked = await readback('validate'), png = boundedRead(pngPath, MAX);
-  if (checked.pdf_sha256 !== pdfSha256 || checked.hwpx_sha256 !== hwpxSha256 || checked.page_count !== 1
-    || checked.renders?.length !== 1 || checked.renders[0].sha256 !== sha256(png)
-    || checked.renders[0].size_bytes !== png.length || !checked.text_readback || !checked.restricted_features_absent) reject('validator_failed');
+  const pageCount = inspected.page_count, expectedCount = multi ? expectedPageCount : 1;
+  if (inspected.pdf_sha256 !== pdfSha256 || inspected.hwpx_sha256 !== hwpxSha256
+    || !Number.isInteger(pageCount) || pageCount < 1 || pageCount > 64
+    || expectedCount !== undefined && pageCount !== expectedCount) reject('validator_failed');
+  const imagePaths = [];
+  for (let page = 1; page <= pageCount; page++) {
+    assertActive();
+    const pngPath = path.join(qaRoot, `page-${page}.png`), fd = openSync(pngPath, 'wx');
+    try {
+      await runBoundedToolProcess({executable: binding.poppler_executable,
+        args: ['-png', '-singlefile', '-f', String(page), '-l', String(page), '-scale-to-x', '794', '-scale-to-y', '1123', path.join(qaRoot, 'rendered.pdf')],
+        runRoot: qaRoot, queue: guardedQueue, lease, deadline, resultFormat: 'exit_code', stdoutFd: fd});
+      fsyncSync(fd);
+    } finally {closeSync(fd);}
+    boundedRead(pngPath, MAX);
+    imagePaths.push(pngPath);
+  }
+  const checked = await readback('validate');
+  assertActive();
+  const manifestPath = path.join(qaRoot, 'pdf-render-manifest.json'), manifestBytes = boundedRead(manifestPath, 32768);
+  if (checked.pdf_sha256 !== pdfSha256 || checked.hwpx_sha256 !== hwpxSha256 || checked.page_count !== pageCount
+    || checked.manifest_sha256 !== sha256(manifestBytes) || checked.manifest_size_bytes !== manifestBytes.length
+    || checked.text_readback !== true || checked.restricted_features_absent !== true || checked.visual_review_required !== true) reject('validator_failed');
+  let manifest;
+  try {manifest = JSON.parse(manifestBytes);} catch {reject('validator_failed');}
+  exactKeys(manifest, ['page_count', 'renders']);
+  if (manifest.page_count !== pageCount || !Array.isArray(manifest.renders) || manifest.renders.length !== pageCount) reject('validator_failed');
+  const pngNames = readdirSync(qaRoot).filter(name => /\.png$/iu.test(name)).sort();
+  if (JSON.stringify(pngNames) !== JSON.stringify(imagePaths.map(file => path.basename(file)).sort())) reject('validator_failed');
+  for (const [index, render] of manifest.renders.entries()) {
+    assertActive();
+    exactKeys(render, ['sha256', 'size_bytes', 'width', 'height']);
+    const png = boundedRead(imagePaths[index], MAX);
+    if (render.sha256 !== sha256(png) || render.size_bytes !== png.length || render.width !== 794 || render.height !== 1123) reject('validator_failed');
+  }
   verifyHwpxPdfVerifierBinding(binding);
-  queue.assertCurrentLease(lease, new Date().toISOString());
-  if (sha256(boundedRead(pdfPath, MAX)) !== pdfSha256) reject('pdf_input_changed');
+  assertActive();
+  if (sha256(boundedRead(pdfPath, MAX)) !== pdfSha256 || sha256(boundedRead(path.join(qaRoot, 'rendered.pdf'), MAX)) !== pdfSha256) reject('pdf_input_changed');
+  assertActive();
   return {pdf_path: path.join(qaRoot, 'rendered.pdf'), pdf_sha256: pdfSha256, pdf_size_bytes: pdf.length,
-    hwpx_sha256: hwpxSha256, page_count: 1, image_paths: [pngPath], renders: checked.renders,
-    render_manifest_digest: sha256(JSON.stringify(checked.renders)), visual_review_required: true};
+    hwpx_sha256: hwpxSha256, page_count: pageCount, page_count_basis: expectedCount === undefined ? 'observed' : 'expected_match',
+    image_paths: imagePaths, renders: manifest.renders, render_manifest_path: manifestPath,
+    render_manifest_sha256: sha256(manifestBytes), render_manifest_digest: sha256(JSON.stringify(manifest.renders)), visual_review_required: true};
 }

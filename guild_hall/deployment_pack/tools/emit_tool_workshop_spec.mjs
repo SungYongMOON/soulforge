@@ -16,13 +16,19 @@ const helper = [`${WORKSHOP}/src/tool_workshop_core.mjs`, `${WORKSHOP}/src/tool_
 const closure = moduleClosure(ROOT, [...sources, ...validators]);
 const nativeSources = [...listFiles(ROOT, `${WORKSHOP}/src`, ".py"), ...listFiles(ROOT, `${WORKSHOP}/src`, ".ps1"),
   ".registry/skills/pptx_autofill_conversion/codex/scripts/replace_text_runs.py",
-  ".registry/skills/hwpx_document/codex/scripts/validate.py", ".registry/skills/hwpx_document/codex/scripts/page_guard.py"];
+  ".registry/skills/hwpx_document/codex/scripts/validate.py", ".registry/skills/hwpx_document/codex/scripts/page_guard.py",
+  ".registry/skills/hwpx_document/codex/scripts/build_hwpx.py",
+  ".registry/skills/hwpx_document/codex/scripts/office/pack.py"];
 // The HWPX synthetic helper opens these fixed template parts rather than
 // importing them. They belong to the installed smoke's actual data closure.
 const hwpxFixtureReads = [
   "docs/architecture/workspace/examples/tool_workshop/synthetic_hwpx_fixture.py",
-  ...["Contents/header.xml", "Contents/section0.xml", "Contents/content.hpf", "settings.xml", "version.xml"]
+  ...["Contents/header.xml", "Contents/section0.xml", "Contents/content.hpf", "settings.xml", "version.xml",
+    "mimetype", "META-INF/container.xml", "META-INF/container.rdf", "META-INF/manifest.xml",
+    "Preview/PrvText.txt", "Preview/PrvImage.png"]
     .map(file => `.registry/skills/hwpx_document/codex/templates/base/${file}`),
+  ...["report", "minutes"].flatMap(form => ["header.xml", "section0.xml"]
+    .map(file => `.registry/skills/hwpx_document/codex/templates/${form}/${file}`)),
 ];
 const spec = JSON.parse(readFileSync(resolve(ROOT, SPEC), "utf8"));
 spec.content_roles = {

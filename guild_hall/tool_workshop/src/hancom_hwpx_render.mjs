@@ -73,16 +73,18 @@ export function preflightHwpxToPdf({inputPath, expectedInputSha256, outputRoot, 
 // This is a narrowly scoped dispatcher, not the generic bounded process helper:
 // killing a COM host at deadline would skip native cleanup. The dispatcher has
 // its own deadline and a fixed cleanup grace; only it may stop its owned task.
-function dispatch(binding, request, signal, deadline) {
+function dispatch(binding, request, signal, deadline, mode='Dispatch') {
   return new Promise((resolve, fail) => {
+    const readOnly=mode==='ExistingPreflight';
     let child, stopCode = null, stdout = '', count = 0;
     const cancelPath = path.join(request.run_root,'cancel');
     const cancel = code => {
       stopCode ??= code;
+      if(readOnly){child.kill();return;}
       try { writeFileSync(cancelPath,'cancel',{flag:'wx'}); } catch (error) { if (error.code !== 'EEXIST') stopCode = 'cleanup_unverified'; }
     };
     const onAbort = () => cancel('cancelled');
-    child = spawn(binding.powershell_executable,['-NoProfile','-NonInteractive','-WindowStyle','Hidden','-File',binding.script_path,'-Mode','Dispatch'],{windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
+    child = spawn(binding.powershell_executable,['-NoProfile','-NonInteractive','-WindowStyle','Hidden','-File',binding.script_path,'-Mode',mode],{windowsHide:true,shell:false,stdio:['pipe','pipe','pipe']});
     const timeout = setTimeout(() => cancel('runner_timeout'),Math.max(1,deadline-performance.now()));
     const hardStop = setTimeout(() => { stopCode='cleanup_unverified';child.kill(); },Math.max(1,deadline-performance.now())+15000);
     signal?.addEventListener('abort',onAbort,{once:true});
@@ -94,8 +96,9 @@ function dispatch(binding, request, signal, deadline) {
     child.on('close',code=>{
       clearTimeout(timeout);clearTimeout(hardStop);signal?.removeEventListener('abort',onAbort);
       try {
-        const receipt=JSON.parse(stdout); exactKeys(receipt,['ok','cleanup_verified']);
+        const receipt=JSON.parse(stdout); exactKeys(receipt,['ok','cleanup_verified',...(mode==='Dispatch'?[]:['code'])]);
         if (receipt.cleanup_verified !== true) reject('cleanup_unverified');
+        if(mode!=='Dispatch' && receipt.ok!==true && ['existing_session_required','existing_alias_invalid','existing_session_busy'].includes(receipt.code))reject(receipt.code);
         if (stopCode || code !== 0 || receipt.ok !== true) reject(stopCode ?? 'renderer_failed');
         resolve(receipt);
       } catch(error) { fail(Object.assign(new Error(error.code ?? 'cleanup_unverified'),{code:error.code ?? 'cleanup_unverified'})); }
@@ -115,6 +118,37 @@ export async function renderHwpxToPdf(args) {
   mkdirSync(plan.run_root);
   const request={...plan,input_path:inputPath,output_root:outputRoot,run_id:runId,binding,expires_at:Date.now()+Math.floor(deadline-performance.now())};
   await dispatch(binding,request,signal,deadline);
+  return finishPdf(args,plan);
+}
+
+function existingPlan(args) {
+  if(args.binding?.enabled!==true)reject('renderer_disabled');
+  exactKeys(args.binding,[...KEYS,'existing_module_name']);
+  if(args.binding.existing_module_name!=='FilePathCheckerModule')reject('existing_alias_invalid');
+  const {existing_module_name,...binding}=args.binding;
+  const {task_name,...plan}=preflightHwpxToPdf({...args,binding});
+  return Object.freeze({...plan,module_name:existing_module_name,execution_mode:'existing_session'});
+}
+function existingRequest(args,plan) {
+  return {...plan,input_path:args.inputPath,output_root:args.outputRoot,run_id:args.runId,binding:structuredClone(args.binding),caller_pid:process.pid,expires_at:Date.now()+Math.floor(args.deadline-performance.now())};
+}
+// Unlike the legacy file-only preflight, this read-only native preflight checks
+// the actual parent process identity and existing alias before any run directory.
+export async function preflightHwpxInExistingSession(args) {
+  const plan=existingPlan(args);
+  if(process.platform!=='win32')reject('windows_required');
+  await dispatch(args.binding,existingRequest(args,plan),args.signal,args.deadline,'ExistingPreflight');
+  return Object.freeze({...plan,native_checks:'passed_readonly'});
+}
+export async function renderHwpxInExistingSession(args) {
+  const plan=await preflightHwpxInExistingSession(args);
+  existingPlan(args);live(args.signal,args.deadline);
+  mkdirSync(plan.run_root);
+  await dispatch(args.binding,existingRequest(args,plan),args.signal,args.deadline,'ExistingSession');
+  return finishPdf(args,plan);
+}
+function finishPdf(args,plan) {
+  const {inputPath,expectedInputSha256,outputRoot,signal,deadline}=args;
   live(signal,deadline);
   if (sha256(boundedRead(local(inputPath),MAX)) !== expectedInputSha256) reject('input_changed');
   const bytes=boundedRead(local(path.join(plan.run_root,'export.pending.pdf')),MAX);

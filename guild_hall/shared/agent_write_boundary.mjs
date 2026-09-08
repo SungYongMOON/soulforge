@@ -61,7 +61,7 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
     { path: `guild_hall/dev_worker/${name}.test.mjs`, why: "continuous developer authority regression proof" },
   ]),
   ...["feedback_runtime.mjs", "feedback_runtime_cli.mjs", "feedback_runtime_io.mjs",
-    "feedback_runtime_source.mjs", "feedback_runtime_model.mjs", "feedback_runtime_acp.mjs",
+    "feedback_runtime_source.mjs", "feedback_publication_currentness.mjs", "feedback_runtime_model.mjs", "feedback_runtime_acp.mjs",
     "feedback_runtime_validator.mjs", "feedback_runtime_stage.mjs", "feedback_runtime.test.mjs",
     "feedback_runtime_model.test.mjs", "feedback_runtime_acp.test.mjs", "feedback_runtime_validator.test.mjs",
     "feedback_runtime_stage.test.mjs", "feedback_runtime_review.test.mjs", "FEEDBACK_RUNTIME.md"].map(name => ({
@@ -81,8 +81,22 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
     path: `ui-workspace/apps/dev-erp/${name}`, why: "manager read authority and server integration proof",
   })),
   ...["g2_linear_custody_reader.mjs", "g2_linear_custody_cli.mjs", "G2_LINEAR_CUSTODY.md",
+    "g2_feedback_publisher.mjs", "feedback_currentness_contract.mjs", "feedback_currentness_transport.mjs",
+    "sfx.mjs", "execution_authority.mjs", "src/soulforge_secure_work/launch_runtime.py", "src/soulforge_secure_work/ipc_pipe.py",
+    "src/soulforge_secure_work/feedback_currentness_pipe.py", "src/soulforge_secure_work/feedback_prepare.py",
+    "src/soulforge_secure_work/feedback_verify.py", "tests/g2_feedback_publisher.test.mjs",
+    "tests/feedback_currentness_transport.test.mjs", "G2_FEEDBACK_PUBLISHER.md",
     "tests/g2_linear_custody.test.mjs"].map(name => ({
     path: `guild_hall/secure_work/${name}`, why: "current SOURCE custody authority and its proof",
+  })),
+  ...["adapter", "context", "documents", "evaluation", "http", "io", "judge", "linear", "rule_profile", "runtime", "source", "store"].flatMap(name => [
+    { path: `ui-workspace/apps/dev-erp/src/work_intake_${name}.mjs`, why: "released input, current project authority and work candidate evidence" },
+    { path: `ui-workspace/apps/dev-erp/test/work_intake_${name}.test.mjs`, why: "work candidate authority regression proof" },
+  ]),
+  ...["tools/work_intake_cli.mjs", "tools/work_intake_stage.mjs", "tools/work_intake_packet_reader.py",
+    "test/test_work_intake_packet_reader.py", "test/work_intake_server.test.mjs", "test/work_intake_recovery.test.mjs",
+    "docs/WORK_INTAKE_RUNTIME.md", "docs/WORK_INTAKE_SHADOW_ADAPTER.md"].map(name => ({
+    path: `ui-workspace/apps/dev-erp/${name}`, why: "work intake launch, release verification and installation contract",
   })),
   { path: "guild_hall/validate/", why: "the validators that decide what counts as a violation" },
 

@@ -49,6 +49,20 @@ export function readWorkshopTestConfig(path) {
   return {bytes, sha256: sha(bytes), pythonExecutable: value.pythonExecutable};
 }
 
+// Only the two externally installed test dependencies needed by the company
+// intake fixtures. This cannot pass arbitrary environment or operating config.
+export function readIntakeTestConfig(filename) {
+  const bytes = boundedRead(directPath(filename), 4096);
+  let value; try { value = JSON.parse(new TextDecoder('utf-8', {fatal:true}).decode(bytes)); }
+  catch { fail('rehearsal_intake_config_invalid'); }
+  const fields = ['pythonExecutable', 'kitRoot', 'provenance'];
+  if (!value || Array.isArray(value) || Object.keys(value).length !== fields.length
+    || fields.some(key => !Object.hasOwn(value, key)) || value.provenance !== 'synthetic_fixture'
+    || ![value.pythonExecutable, value.kitRoot].every(item => typeof item === 'string' && isAbsolute(item)))
+    fail('rehearsal_intake_config_invalid');
+  return {bytes, sha256:sha(bytes), pythonExecutable:value.pythonExecutable, kitRoot:value.kitRoot};
+}
+
 function assertNoLinks(path) {
   if (lstatSync(path).isSymbolicLink()) fail("rehearsal_link_refused");
   if (lstatSync(path).isDirectory()) for (const name of readdirSync(path)) assertNoLinks(join(path, name));
@@ -168,9 +182,11 @@ export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
   return { ok: true, baseline_kind: "synthetic_previous_from_current_candidate", current, prior, backup, upgraded, retained_after_upgrade: retainedAfterUpgrade, rolled_back: rolledBack, retained_after_rollback: retainedAfterRollback, restored, damaged_previous_retained_without_manifest: true };
 }
 
-export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, workshopTestConfig = null, workshopPdfRenderer = null, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
+export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, workshopTestConfig = null, workshopPdfRenderer = null, intakeTestConfig = null, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
   if (!packIds.length || new Set(packIds).size !== packIds.length || packIds.some((id) => !RELEASE_PACKS.includes(id))) fail("rehearsal_pack_selection_invalid");
   if (workshopTestConfig !== null && !packIds.includes("tool_workshop_pack")) fail("rehearsal_workshop_config_without_pack");
+  if (intakeTestConfig !== null && !packIds.includes('hpp_server_pack')) fail('rehearsal_intake_config_without_pack');
+  const intakeConfig = intakeTestConfig === null ? null : readIntakeTestConfig(intakeTestConfig);
   const workshopConfig = workshopTestConfig === null ? null : readWorkshopTestConfig(workshopTestConfig);
   if (workshopPdfRenderer !== null && !workshopConfig) fail("rehearsal_pdf_renderer_without_workshop_config");
   const pdfRenderer = workshopPdfRenderer === null ? null : {
@@ -204,7 +220,13 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
       SOULFORGE_HWPX_TEST_PYTHON: workshopConfig.pythonExecutable,
       ...(pdfRenderer ? { SOULFORGE_PDF_TEST_PYTHON: workshopConfig.pythonExecutable,
         SOULFORGE_PDF_TEST_POPPLER: pdfRenderer.path } : {}),
+    } : packId === 'hpp_server_pack' && intakeConfig ? { ...env,
+      WORK_INTAKE_TEST_PYTHON:intakeConfig.pythonExecutable, WORK_INTAKE_TEST_KIT_ROOT:intakeConfig.kitRoot,
+      SOULFORGE_SECURE_WORK_TEST_PYTHON:intakeConfig.pythonExecutable,
     } : env;
+    if (packId === 'hpp_server_pack' && intakeConfig) result.test_runtime = {
+      synthetic_intake_config_sha256:intakeConfig.sha256, external_runtime_redistributed:false,
+    };
     if (packId === "tool_workshop_pack") result.test_runtime = {synthetic_config_sha256: workshopConfig?.sha256 ?? null,
       pdf_renderer_sha256: pdfRenderer?.sha256 ?? null, external_runtime_redistributed: false};
     receipt.packs.push(result);
@@ -268,19 +290,21 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
+    process.stdout.write("Optional company-intake checks: --intake-test-config <synthetic-three-field-json> supplies only pythonExecutable, kitRoot and provenance=synthetic_fixture to HPP tests.\n");
     process.stdout.write("Optional PDF checks: --workshop-pdf-renderer <absolute-pdftoppm-executable>, together with --workshop-test-config. The renderer hash is recorded; no environment passthrough or native desktop launch is enabled.\n");
     process.stdout.write("usage: node release_rehearsal.mjs [--work-dir <nonexistent-directory>] [--pack hpp_server_pack|team_client_pack|backup_recovery_extension|tool_workshop_pack] [--workshop-test-config <synthetic-five-field-json>]\nDefault: all four current specs, real source and installed suites, candidate-only receipts in a retained temporary directory. A skipped test or file exclusion makes the rehearsal fail.\n");
   } else {
-    let workDir = null, workshopTestConfig = null, workshopPdfRenderer = null; const packIds = [];
+    let workDir = null, workshopTestConfig = null, workshopPdfRenderer = null, intakeTestConfig = null; const packIds = [];
     try {
       for (let index = 0; index < args.length; index += 2) {
-        if (!args[index + 1] || !["--work-dir", "--pack", "--workshop-test-config", "--workshop-pdf-renderer"].includes(args[index])) fail("rehearsal_arguments_invalid");
+        if (!args[index + 1] || !["--work-dir", "--pack", "--workshop-test-config", "--workshop-pdf-renderer", "--intake-test-config"].includes(args[index])) fail("rehearsal_arguments_invalid");
         if (args[index] === "--work-dir") { if (workDir !== null) fail("rehearsal_arguments_invalid"); workDir = args[index + 1]; }
         else if (args[index] === "--workshop-test-config") { if (workshopTestConfig !== null) fail("rehearsal_arguments_invalid"); workshopTestConfig = args[index + 1]; }
         else if (args[index] === "--workshop-pdf-renderer") { if (workshopPdfRenderer !== null) fail("rehearsal_arguments_invalid"); workshopPdfRenderer = args[index + 1]; }
+        else if (args[index] === '--intake-test-config') { if (intakeTestConfig !== null) fail('rehearsal_arguments_invalid'); intakeTestConfig = args[index + 1]; }
         else packIds.push(args[index + 1]);
       }
-      const out = await runReleaseRehearsal({ workDir, workshopTestConfig, workshopPdfRenderer, ...(packIds.length ? { packIds } : {}), onProgress: (message) => process.stdout.write(`${message}\n`) });
+      const out = await runReleaseRehearsal({ workDir, workshopTestConfig, workshopPdfRenderer, intakeTestConfig, ...(packIds.length ? { packIds } : {}), onProgress: (message) => process.stdout.write(`${message}\n`) });
       process.stdout.write(`${out.ok ? "PASS" : "HOLD"}: ${out.receiptPath}\n`);
       process.exitCode = out.ok ? 0 : 1;
     } catch (error) { process.stderr.write(`${error.code ?? "rehearsal_failed"}\n`); process.exitCode = 1; }

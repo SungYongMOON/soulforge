@@ -389,6 +389,31 @@ existing declared backup stages continue.
 
 ### Feedback runtime protected restore classification
 
+The G2 publisher's prepared packet/evidence bytes and manifest are protected
+candidate custody. Its control root (consumed permit/attempt journal and pending/
+current publication receipts) is required runtime state. Preserve those together
+with exact reviewed projection bytes. `current.json` and `currentness.json` are
+rebuildable locators/expected metadata, never release authority. Restoring either
+without the completed journal and fresh authenticated SENDER check cannot enable
+a G1 run. Preserve public verification/config pins with their existing owner;
+do not collect a signing key, pipe handle or helper snapshot into this generation.
+`guild_hall/secure_work/tests/g2_feedback_journal.test.mjs` verifies the existing
+completed-attempt consistency gate; actual cross-account operational restore
+remains unverified.
+
+Company work intake includes its runtime SQLite, candidate-store SQLite,
+protected result/input evidence and the non-secret deployment/authority
+descriptors in one closed generation. A read-only server must not initialize a
+missing store. Restored candidate state is not an official task or acceptance,
+and `MODEL_UNKNOWN` cannot authorize a new model attempt. The current authority
+pointer remains live; a historical snapshot must not restore revoked access.
+`ui-workspace/apps/dev-erp/test/work_intake_recovery.test.mjs` uses the existing
+logical SQLite exporter for ten members total (two closed synthetic databases
+and eight evidence/authority files), exact generation readback, missing/mixed-byte rejection,
+read-only query and UNKNOWN/current-revocation checks. Its runtime rows are
+explicit fixtures. It does not prove a live model's closure, source-bound release
+restoration, active WAL recovery, operating backup activation or human acceptance.
+
 Feedback runtime/control SQLite, watchdog SQLite, protected execution evidence,
 closed candidate worktree contents and their file hashes, and durable dispatch
 and native delivery ledgers are **included in protected backup/restore**.

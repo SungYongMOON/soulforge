@@ -7,19 +7,21 @@ import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pythonBin } from '../../../../guild_hall/shared/python_bin.mjs';
 
 // The same test resolves the checkout or installed payload containing itself.
 // No installed settings, kit, credential, provider or real model is discovered.
 const payloadRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const packageRoot = path.join(payloadRoot, 'guild_hall/secure_work/src');
-const python = process.env.SOULFORGE_SECURE_WORK_TEST_PYTHON || pythonBin();
+// Never execute an unqualified Windows install-manager alias while probing
+// inside an immutable installed payload. The rehearsal supplies this binding.
+const python = process.env.SOULFORGE_SECURE_WORK_TEST_PYTHON;
 const baseEnv = Object.fromEntries(['SystemRoot', 'WINDIR', 'PATH', 'PATHEXT']
   .filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
 const flags = ['-I', '-S', '-B'];
-const probe = spawnSync(python, [...flags, '-c', 'import sys; assert sys.version_info >= (3, 10); print("ready")'],
-  { encoding: 'utf8', env: baseEnv, windowsHide: true, timeout: 5000, maxBuffer: 4096 });
-const availablePython = probe.status === 0 && probe.stdout.trim() === 'ready';
+const probe = typeof python === 'string' && path.isAbsolute(python)
+  ? spawnSync(python, [...flags, '-c', 'import sys; assert sys.version_info >= (3, 10); print("ready")'],
+    { cwd: tmpdir(), encoding: 'utf8', env: baseEnv, windowsHide: true, timeout: 5000, maxBuffer: 4096 }) : null;
+const availablePython = probe?.status === 0 && probe.stdout.trim() === 'ready';
 const options = { skip: availablePython ? false : 'Python 3.10+ unavailable; configure SOULFORGE_SECURE_WORK_TEST_PYTHON', timeout: 20000 };
 const bootstrap = String.raw`
 import json, pathlib, sys

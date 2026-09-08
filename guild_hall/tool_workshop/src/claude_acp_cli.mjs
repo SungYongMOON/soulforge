@@ -7,8 +7,10 @@ import { createClaudeAcp, readJsonLines } from './claude_acp_server.mjs';
 export function runProtocol(binding, { mcp = false, input = process.stdin, output = process.stdout } = {}) {
   const send = value => output.write(`${JSON.stringify(value)}\n`);
   const agent = mcp ? null : createClaudeAcp(binding, send);
+  const lifecycle=new AbortController();
+  const close=()=>{lifecycle.abort();agent?.close();};
   let initialized = false;
-  const fatal = () => { agent?.close(); input.destroy(); process.exitCode = 2; };
+  const fatal = () => { close(); input.destroy(); process.exitCode = 2; };
   readJsonLines(input, message => {
     const hasId = Object.hasOwn(message ?? {}, 'id');
     if (!message || message.jsonrpc !== '2.0' || typeof message.method !== 'string' || (hasId && typeof message.id !== 'string' && !Number.isSafeInteger(message.id))) { fatal(); return; }
@@ -16,7 +18,7 @@ export function runProtocol(binding, { mcp = false, input = process.stdin, outpu
       if (message.method === 'session/cancel') agent?.dispatch(message.method, message.params).catch(() => {});
       return;
     }
-    Promise.resolve().then(() => {
+    Promise.resolve().then(async () => {
       if (!mcp) return agent.dispatch(message.method, message.params);
       if (message.method === 'initialize') {
         if (initialized || !['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25'].includes(message.params?.protocolVersion)) refuse('MCP_VERSION');
@@ -27,14 +29,14 @@ export function runProtocol(binding, { mcp = false, input = process.stdin, outpu
       if (message.method === 'ping') return {};
       if (message.method === 'tools/list') return { tools: workspaceTools(binding) };
       if (message.method === 'tools/call') {
-        try { return { content: [{ type: 'text', text: JSON.stringify(callWorkspaceTool(binding, message.params?.name, message.params?.arguments ?? {})) }], isError: false }; }
+        try { const result=await callWorkspaceTool(binding, message.params?.name, message.params?.arguments ?? {},{signal:lifecycle.signal});return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: false }; }
         catch (error) { return { content: [{ type: 'text', text: /^[A-Z_]+$/.test(error.code ?? '') ? error.code : 'WORKSPACE_REFUSED' }], isError: true }; }
       }
       refuse('MCP_METHOD_UNSUPPORTED');
     }).then(result => send({ jsonrpc: '2.0', id: message.id, result }), error => send({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: /^[A-Z_]+$/.test(error.code ?? error.message ?? '') ? error.code ?? error.message : 'REQUEST_REFUSED' } }));
   }, fatal);
-  input.on('end', () => agent?.close());
-  return { close: () => agent?.close() };
+  input.on('end',close);input.on('close',close);
+  return { close };
 }
 export async function main(args = process.argv.slice(2)) {
   if (args.length === 1 && args[0] === '--help') {

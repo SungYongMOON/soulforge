@@ -15,6 +15,7 @@ import { computeUnverifiedAgentApprovalClaimDigest, AGENT_AUTHORITY_TRUSTED_PIN_
 import { LINEAR_READ_OPERATIONS } from '../linear_history/linear_graphql_client.mjs';
 import { LINEAR_COLLECT_OBJECT_KINDS } from '../linear_history/linear_collect_receipt.mjs';
 import { identityDigestForBinding, readEvidenceRecordForIssue } from '../linear_history/linear_collect_runner.mjs';
+import { startFeedbackCurrentnessServer } from '../secure_work/feedback_currentness_transport.mjs';
 
 const CLI = fileURLToPath(new URL('./feedback_runtime_cli.mjs', import.meta.url));
 const WRAPPER = 'guild_hall/dev_worker/feedback_runtime_validator.mjs';
@@ -23,6 +24,50 @@ const gitExe = process.platform === 'win32' ? execFileSync('where.exe', ['git.ex
 const ISSUE = 'f8091a2b-3c4d-4859-aa6b-465768798a9b', SECOND = 'b8091a2b-3c4d-4859-aa6b-465768798a9b';
 const SHA = `sha256:${'a'.repeat(64)}`;
 const patch = 'diff --git a/src/value.mjs b/src/value.mjs\n--- a/src/value.mjs\n+++ b/src/value.mjs\n@@ -1 +1 @@\n-export const answer = 1;\n+export const answer = 2;\n';
+
+test('authenticated currentness reaches the real issuer and sender revocation stops further work', {
+  skip: process.platform !== 'win32' || !process.env.SOULFORGE_SECURE_WORK_TEST_PYTHON,
+  timeout: 60000,
+}, async t => {
+  const f = await runtimeFixture(t), python = process.env.SOULFORGE_SECURE_WORK_TEST_PYTHON;
+  let server, runtime;
+  try {
+  const src = fileURLToPath(new URL('../secure_work/src/soulforge_secure_work/', import.meta.url));
+  const sid = execFileSync(python, ['-I', '-S', '-B', '-c',
+    'import sys;sys.path.insert(0,sys.argv[1]);from ipc_pipe import current_sid;print(current_sid())', src],
+    {encoding: 'utf8', windowsHide: true, timeout: 5000}).trim();
+  const indexBytes = await fs.readFile(path.join(f.projections, 'current.json')), index = JSON.parse(indexBytes);
+  const entry = index.projections[0], projection = JSON.parse(await fs.readFile(path.join(f.projections, entry.file)));
+  const expected = {publisher_ref: 'sender:synthetic', producer_ref: index.producer_ref, scope_ref: index.scope_ref,
+    issue_id: projection.issue_id, issue_content_sha256: projection.issue_content_sha256, body_sha256: entry.sha256,
+    generation: index.generation, review_ref: 'review:synthetic', index_sha256: hash(indexBytes)};
+  const transport = {pipe_name: `soulforge-secure-${hash(f.root).slice(0, 32)}`, server_sid: sid, client_sid: sid,
+    python_executable: python, python_sha256: hash(readFileSync(python)),
+    bridge_sha256: hash(readFileSync(path.join(src, 'feedback_currentness_pipe.py'))),
+    ipc_pipe_sha256: hash(readFileSync(path.join(src, 'ipc_pipe.py'))), timeout_ms: 5000,
+    valid_until: new Date(Date.now() + 120000).toISOString()};
+  let active = true, requests = 0;
+  server = await startFeedbackCurrentnessServer({binding: transport, assertCurrent: () => true,
+    assertCurrentPublication: challenge => {
+      requests++; if (!active) throw new Error('synthetic_review_revoked');
+      return {...expected, challenge, observed_at: new Date().toISOString(),
+        valid_until: transport.valid_until, execution_authority: false};
+    }});
+  const expectedPath = path.join(f.projections, 'currentness.json'); await save(expectedPath, expected);
+  f.deployment.publicationCurrentness = {transport: await save(path.join(f.config, 'transport.json'), transport),
+    expected: {path: expectedPath, mode: 'current_metadata'}};
+  await f.reseal();
+  runtime = await f.open();
+  const first = await runtime.runOnce();
+  assert.equal(first.status, 'CANDIDATE_REPORTED'); assert.ok(requests > 0); assert.equal(f.calls.length, 3);
+  active = false; const modelCalls = f.calls.length;
+  await assert.rejects(runtime.runOnce()); assert.equal(f.calls.length, modelCalls);
+  active = true; const priorRequests = requests;
+  await save(expectedPath, {...expected, body_sha256: '0'.repeat(64)});
+  await assert.rejects(runtime.runOnce()); assert.equal(requests, priorRequests); assert.equal(f.calls.length, modelCalls);
+  t.diagnostic('Synthetic same-user kernel channel + real issuer/cycle; actual SENDER/E14 and cross-SID installations are separate qualification.');
+  } finally { await runtime?.close(); await server?.close(); }
+});
 async function save(file, value) { await fs.mkdir(path.dirname(file), { recursive: true }); const bytes = JSON.stringify(value); await fs.writeFile(file, bytes); return { path: file, sha256: hash(bytes) }; }
 
 export async function runtimeFixture(t, { root: suppliedRoot = null, keep = false } = {}) {
@@ -291,4 +336,26 @@ test('standing configuration cannot authorize this runtime to rewrite its own gu
     f.deployment.runner.allowedFiles = [file]; const descriptor = await save(path.join(f.config, 'self-edit.json'), f.deployment);
     await assert.rejects(loadFeedbackDeployment(descriptor.path, descriptor.sha256), { feedbackCode: 'FEEDBACK_RUNTIME_SELF_EDIT_FORBIDDEN' });
   }
+});
+
+test('G1 deployment requires an independent authenticated currentness binding outside its writable roots', async t => {
+  const f = await runtimeFixture(t);
+  f.deployment.mode = 'g1_acp';
+  f.deployment.model.provider = 'g1_acp'; f.deployment.model.group = 'G1';
+  await f.reseal();
+  await assert.rejects(loadFeedbackDeployment(f.descriptor.path, f.descriptor.sha256),
+    { feedbackCode: 'FEEDBACK_AUTHENTICATED_CURRENTNESS_REQUIRED' });
+  const transport = await save(path.join(f.config, 'currentness-transport.json'),
+    { server_sid: 'S-1-5-21-111-222-333-1001', client_sid: 'S-1-5-21-111-222-333-1001' });
+  const expected = await save(path.join(f.config, 'currentness-metadata.json'), {});
+  f.deployment.publicationCurrentness = { transport, expected: { path: expected.path, mode: 'current_metadata' } };
+  await f.reseal();
+  await assert.rejects(loadFeedbackDeployment(f.descriptor.path, f.descriptor.sha256),
+    { feedbackCode: 'FEEDBACK_ROLE_SEPARATION_REQUIRED' });
+  f.deployment.publicationCurrentness.transport = await save(path.join(f.deployment.controlRoot, 'writable-transport.json'),
+    { server_sid: 'S-1-5-21-111-222-333-1001', client_sid: 'S-1-5-21-111-222-333-1002' });
+  await f.reseal();
+  await assert.rejects(loadFeedbackDeployment(f.descriptor.path, f.descriptor.sha256),
+    { feedbackCode: 'FEEDBACK_CURRENTNESS_AUTHORITY_WRITABLE' });
+  assert.equal(f.calls.length, 0);
 });

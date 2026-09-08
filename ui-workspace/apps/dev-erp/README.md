@@ -105,6 +105,13 @@ claiming a product release. Validate through `npm.cmd run validate:product-compo
 설치 설정의 전체 계약은 [FEEDBACK_READBOX.md](../../../guild_hall/dev_worker/FEEDBACK_READBOX.md),
 검사는 `npm run validate:dev-feedback-readbox`와 해당 문서의 Python 시험을 따른다.
 
+`/workbench/work-intake`는 새 업무·후속 조치·자료 보강 후보와 근거를 읽는 과제 업무
+발견 화면이다. 설치자가 `DEV_ERP_WORK_INTAKE_READ=1`,
+`DEV_ERP_WORK_INTAKE_DEPLOYMENT` 절대경로와 `DEV_ERP_WORK_INTAKE_DEPLOYMENT_SHA256`을
+고정해야 한다. 기존 로그인·과제 권한을 사용하며 Buzz 전용 인증 예외는 적용하지 않는다.
+DB가 없거나 설정이 잘못되면 503이며, 읽기 서버가 저장소나 모델을 시작하지 않는다.
+별도 후보 생성 CLI와 공개 입력 계약은 [WORK_INTAKE_RUNTIME.md](docs/WORK_INTAKE_RUNTIME.md)에 있다.
+
 `/workbench.html`은 서버가 현재 계정에 허용한 업무를 선택하고 범위·입력 판본을 확인한 뒤
 요청을 접수하는 정적 화면이다. `/api/workbench/catalogue` → 기존 Board 접수기의
 `POST /api/workbench/requests` → 자기 요청의 `GET /api/workbench/requests/<id>`를

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
 import { stageFeedbackRuntime, verifyFeedbackRuntimeStage } from './feedback_runtime_stage.mjs';
+import { HWPX_SOURCE_FILES } from '../tool_workshop/src/claude_acp_policy.mjs';
 
 const entry = 'guild_hall/dev_worker/feedback_runtime_cli.mjs';
 const stager = 'guild_hall/dev_worker/feedback_runtime_stage.mjs';
@@ -25,15 +26,21 @@ async function fixture(t) {
   await put('guild_hall/dev_worker/runtime.mjs', "import yaml from 'yaml';\nexport const mode=typeof yaml;\nexport async function adapter(){return import('./adapter.mjs');}\n");
   await put('guild_hall/dev_worker/adapter.mjs', 'export const adapter = true;\n');
   await put(acp, 'export const acp = true;\n');
+  await put('guild_hall/tool_workshop/src/claude_acp_policy.mjs',
+    `export const HWPX_SOURCE_FILES=${JSON.stringify(HWPX_SOURCE_FILES)};\n`);
+  const dataFiles = [...HWPX_SOURCE_FILES.filter(file => !file.endsWith('.mjs')),
+    'guild_hall/secure_work/src/soulforge_secure_work/feedback_currentness_pipe.py',
+    'guild_hall/secure_work/src/soulforge_secure_work/ipc_pipe.py'];
+  for (const file of dataFiles) await put(file, '# synthetic data closure; never executed\n');
   await fs.writeFile(path.join(dependencyRoot, 'yaml/package.json'), JSON.stringify({ name: 'yaml', version: '0.0.0-synthetic', main: 'index.js' }));
   await fs.writeFile(path.join(dependencyRoot, 'yaml/index.js'), 'module.exports={};\n');
-  return { root, sourceRoot, targetRoot, dependencyRoot, put };
+  return { root, sourceRoot, targetRoot, dependencyRoot, put, dataFiles };
 }
 
 test('stages closure and literal dynamic dependency, then installed worker/watchdog help and verify CLI run', async t => {
   const f = await fixture(t), result = await stageFeedbackRuntime(f);
   assert.equal(result.status, 'VERIFIED_STAGE_ONLY'); assert.equal(result.activation, false);
-  assert.equal(result.file_count, 5);
+  assert.equal(result.file_count, 6 + f.dataFiles.length);
   const help = spawnSync(process.execPath, [path.join(f.targetRoot, entry), '--help'], { cwd: f.targetRoot, encoding: 'utf8', timeout: 5000, windowsHide: true });
   assert.equal(help.status, 0, help.stderr); assert.match(help.stdout, /worker\|watchdog/u);
   const verify = spawnSync(process.execPath, [path.join(f.targetRoot, stager), 'verify', '--target-root', f.targetRoot], { cwd: f.targetRoot, encoding: 'utf8', timeout: 5000, windowsHide: true });

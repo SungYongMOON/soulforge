@@ -1,7 +1,8 @@
 # G2 Linear exact-custody reader
 
 이 조각은 현재 committed Linear revision을 기존 `SOURCE` controller에게만 읽어 주는
-내부 어댑터다. feedback projection publisher는 **구현 완료가 아니며 HOLD**다.
+내부 어댑터다. 별도 [G2 feedback publisher](G2_FEEDBACK_PUBLISHER.md)가 exact released
+bytes 발행을 담당한다. 이 reader 자체는 발행하거나 G1 실행 권한을 만들지 않는다.
 실자료·모델·네트워크·설치·운영 활성화 시험은 수행하지 않았다.
 
 ## 구현 범위
@@ -54,9 +55,9 @@ selection descriptor는 source 권한 자체가 아니며 별도 현재 controll
 WorkPacket request 승인 뒤 feedback JSON으로 바꾸면 승인된 bytes가 바뀐다.
 `public_safe_code`라는 model label은 이 간극을 메우지 않는다.
 
-현재 코드에는 승인된 WorkPacket→feedback mapping, G1 recipient audience, final feedback
-bytes의 release binding이 없다. 따라서 projection/index 생성·기존 index 갱신·무효화는
-전혀 수행하지 않는다. 기존 G1 consumer의 source-currentness 검증은 그대로 유지된다.
+이 reader에는 승인된 WorkPacket→feedback mapping, G1 recipient audience, final feedback
+bytes의 release binding이 없다. 별도 publisher가 승인 전 exact feedback codec과 receiver를
+결속한다. reader의 inspect는 계속 projection/index 생성·갱신·무효화를 수행하지 않는다.
 이 reader의 통과는 source 접근 이외의 권한, G1 execution 또는 publication을 만들지 않는다.
 
 ## 검증 및 통합 인계

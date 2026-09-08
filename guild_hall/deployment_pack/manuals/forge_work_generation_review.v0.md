@@ -32,6 +32,21 @@ npm.cmd run validate:forge-linear-execution-packet-admission
 
 ## Expected readback and evidence
 
+### 과제 업무 발견 화면에서 먼저 확인하기
+
+World Tree에 로그인한 뒤 메뉴의 **과제 업무 발견**을 연다. 현재 접근 가능한 과제의
+신규 업무·기존 업무 후속·자료 보강·무조치·보류 후보를 확인하고, **업무 후보·근거 보기**로
+판단 이유와 관련 업무를 읽는다. 참조·판본·검증 기록은 접힌 상세에서 확인할 수 있다.
+**이어보기**는 다음 기록을 읽고 **새로고침**은 현재 권한으로 다시 조회한다.
+
+가벼운 업무 발견에는 전체 공학 규칙 준비를 기다리지 않는다. 공학 근거가 필요한 후보는
+현재 수락 자료와 Rune 결과가 있어야 하며, 미확인은 누락 확정으로 표시하지 않는다.
+화면에 준비된 후보와 저장 성공은 공식 업무 등록·사람 수락·완료를 뜻하지 않는다.
+
+미준비 표시가 나오면 운영 담당자가 설치 설정·공개 입력·현재 권한과 기존 저장소를
+확인한다. 조회 서버는 모델을 시작하거나 빈 DB를 만들어 복구하지 않는다. 종료 확인이
+필요한 작업은 재실행 전에 독립 실행 증거로 확인하고, 기존 기록·권한을 지우지 않는다.
+
 - Exact accepted-context, finding, candidate, intent, intent-digest, approval, assignment, and Work Brief references.
 - For a draft, the complete `missing_bindings` view; a draft is not issuable material.
 - For an issued brief, all eight required bindings, one primary role, assignment authority/epoch/expiry, and the required review role.

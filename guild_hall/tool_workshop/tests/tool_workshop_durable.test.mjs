@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, unlinkSync, existsSync } from 'node:fs';
+import { mkdtempSync, unlinkSync, existsSync, writeFileSync, readFileSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,30 @@ import { createDurableToolWorkshop } from '../src/tool_workshop_durable.mjs';
 import { DOCUMENT_WORKSHOP_PROFILE } from '../src/tool_workshop_core.mjs';
 
 const input = (id = 'job.one') => ({job_id:id, workshop_id:'workshop.document', task_ref:'task.synthetic', work_brief_ref:'brief.synthetic', project_ref:'project.synthetic', priority:2, required_tool_version:'tool.docx_renderer:v1', input_bundle_manifest_digest:'a'.repeat(64), timeout_seconds:60,max_retries:1});
+
+test('read-only custody lookup neither repairs empty state nor exposes writer operations',()=>{
+  const stateRoot=mkdtempSync(path.join(tmpdir(),'workshop-read-only-'));
+  const queue=createDurableToolWorkshop({stateRoot,mode:'create_new'});
+  queue.registerWorkshop(DOCUMENT_WORKSHOP_PROFILE); queue.submitJob(input());
+  const file=path.join(stateRoot,'workshop.sqlite'),before=readFileSync(file);
+  const reader=createDurableToolWorkshop({stateRoot,mode:'open_existing',readOnly:true});
+  assert.equal(reader.getJob('job.one').job_id,'job.one');
+  assert.equal(reader.registerWorkshop,undefined);assert.equal(reader.acquireLease,undefined);
+  assert.deepEqual(readFileSync(file),before);
+  const wal=new DatabaseSync(file);wal.exec('PRAGMA journal_mode=WAL');wal.close();
+  const walBytes=readFileSync(file);
+  assert.equal(existsSync(file+'-wal'),false);assert.equal(existsSync(file+'-shm'),false);
+  assert.throws(()=>createDurableToolWorkshop({stateRoot,mode:'open_existing',readOnly:true}),{code:'state_read_only_wal_unsupported'});
+  assert.deepEqual(readFileSync(file),walBytes);
+  assert.equal(existsSync(file+'-wal'),false);assert.equal(existsSync(file+'-shm'),false);
+  writeFileSync(file,Buffer.alloc(0));
+  assert.throws(()=>createDurableToolWorkshop({stateRoot,mode:'open_existing',readOnly:true}),{code:'state_read_only_schema'});
+  assert.equal(statSync(file).size,0);
+  unlinkSync(path.join(stateRoot,'workshop.initialized'));
+  assert.throws(()=>createDurableToolWorkshop({stateRoot,mode:'open_existing',readOnly:true}),{code:'state_marker_missing'});
+  assert.equal(existsSync(path.join(stateRoot,'workshop.initialized')),false);
+  assert.throws(()=>createDurableToolWorkshop({stateRoot,readOnly:true}),{code:'state_read_only_mode'});
+});
 test('durable journal replays queue and monotonically fences an expired runner', () => {
   const stateRoot = mkdtempSync(path.join(tmpdir(),'workshop-durable-'));
   let queue = createDurableToolWorkshop({stateRoot});

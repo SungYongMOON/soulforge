@@ -18,11 +18,25 @@ function sameFile(before, after) {
   if (fingerprint(before) !== fingerprint(after) || before.mtimeMs !== after.mtimeMs || before.size !== after.size || after.nlink !== 1) refuse('FILE_CHANGED');
 }
 export function workspaceTools(binding) {
-  return binding.tools.map(name => ({ name, description: name === 'workspace_write_text' ? 'Create a new work draft in this assigned job. Never overwrites or accepts a canonical artifact.' : 'Inspect only this assigned job working folder.', inputSchema: name === 'workspace_list' ? { type: 'object', properties: {}, additionalProperties: false } : { type: 'object', properties: { path: { type: 'string' }, ...(name === 'workspace_write_text' ? { text: { type: 'string' }, purpose: { const: 'work_draft' }, jobRef: { type: 'string' } } : {}) }, required: name === 'workspace_write_text' ? ['path', 'text', 'purpose', 'jobRef'] : ['path'], additionalProperties: false } }));
+  return binding.tools.map(name => name==='hwpx_build_candidate'?{name,description:'Build the fixed approved HWPX candidate from an admitted section draft. No shell, model selection or acceptance.',inputSchema:{type:'object',properties:{draft_path:{type:'string'},draft_sha256:{type:'string'},jobRef:{type:'string'}},required:['draft_path','draft_sha256','jobRef'],additionalProperties:false}}:({ name, description: name === 'workspace_write_text' ? 'Create a new work draft in this assigned job. Never overwrites or accepts a canonical artifact.' : 'Inspect only this assigned job working folder.', inputSchema: name === 'workspace_list' ? { type: 'object', properties: {}, additionalProperties: false } : { type: 'object', properties: { path: { type: 'string' }, ...(name === 'workspace_write_text' ? { text: { type: 'string' }, purpose: { const: 'work_draft' }, jobRef: { type: 'string' } } : {}) }, required: name === 'workspace_write_text' ? ['path', 'text', 'purpose', 'jobRef'] : ['path'], additionalProperties: false } }));
 }
-export function callWorkspaceTool(binding, name, args) {
+export function callWorkspaceTool(binding, name, args, {signal}={}) {
   assertCurrent(binding);
   if (!binding.tools.includes(name)) refuse('TOOL_DENIED');
+  if(name==='hwpx_build_candidate'){
+    if(binding.version!==2)refuse('TOOL_DENIED');
+    exactKeys(args,['draft_path','draft_sha256','jobRef']);
+    if(args.jobRef!==binding.jobRef || !/^[a-f0-9]{64}$/.test(args.draft_sha256??''))refuse('HWPX_JOB_BINDING');
+    const target=targetPath(binding,args.draft_path),expected=permittedFiles(binding).get(args.draft_path);
+    if(expected && expected!==args.draft_sha256)refuse('INPUT_BYTES_CHANGED');
+    // An unadopted post-restart file is never opened. Only exact already-durable
+    // output may replay through the protected pipeline ledger.
+    return import('./claude_hwpx_tools.mjs').then(async({runClaudeHwpxTool})=>{
+      assertCurrent(binding);
+      const value=await runClaudeHwpxTool({binding,draftPath:target,draftSha256:args.draft_sha256,jobRef:args.jobRef,signal,replayOnly:!expected});
+      assertCurrent(binding);return value;
+    });
+  }
   if (name === 'workspace_list') {
     exactKeys(args, []);
     const entries = [...permittedFiles(binding).keys()];

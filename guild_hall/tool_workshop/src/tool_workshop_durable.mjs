@@ -1,7 +1,7 @@
 // A local SQLite transaction serializes replay + mutation. The pure core is the
 // only queue/lease state machine; the journal carries no packet or process text.
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, openSync, readSync, closeSync } from 'node:fs';
 import path from 'node:path';
 import { createToolWorkshopCore } from './tool_workshop_core.mjs';
 import { directPath, exactKeys, reject, sha256 } from './workshop_files.mjs';
@@ -17,15 +17,17 @@ const fields = {
 const DIGEST = /^[a-f0-9]{64}$/;
 const REF = /^[a-z][a-z0-9_.:-]{1,120}$/;
 
-export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create' }) {
+export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create', readOnly = false }) {
   const root = directPath(stateRoot, true);
   const file = path.join(root,'workshop.sqlite');
   const marker = path.join(root,'workshop.initialized');
   if (!['create_new','open_existing','open_or_create'].includes(mode)) reject('state_open_mode_invalid');
+  if (typeof readOnly !== 'boolean' || (readOnly && mode !== 'open_existing')) reject('state_read_only_mode');
   if (mode === 'create_new' && (existsSync(file) || existsSync(marker))) reject('state_already_exists');
   if (mode === 'open_existing' && !existsSync(file)) reject('state_database_missing');
   const markerBytes = 'soulforge.tool_workshop_state.v1\n';
   let initialized = existsSync(marker);
+  if (readOnly && !initialized) reject('state_marker_missing');
   let mayCreateDatabase = !initialized && !existsSync(file);
   function assertMarker() {
     directPath(marker);
@@ -44,10 +46,26 @@ export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create' }
     for (const suffix of ['-wal', '-shm', '-journal']) {
       try { directPath(file+suffix); } catch(error) { if(error.code!=='ENOENT')throw error; }
     }
-    const db = new DatabaseSync(file);
+    if (readOnly) {
+      // Even SQLITE_OPEN_READONLY can create WAL/SHM sidecars. This queue's
+      // writer uses rollback journals; refuse other formats before SQLite opens.
+      const header=Buffer.alloc(20), handle=openSync(file,'r');
+      try {
+        if(readSync(handle,header,0,20,0)!==20 || !header.subarray(0,16).equals(Buffer.from('SQLite format 3\0')))
+          reject('state_read_only_schema');
+        if(header[18]!==1 || header[19]!==1) reject('state_read_only_wal_unsupported');
+      } finally {closeSync(handle);}
+    }
+    const db = new DatabaseSync(file, {readOnly});
     try {
-      db.exec('PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL; BEGIN IMMEDIATE;');
-      db.exec('CREATE TABLE IF NOT EXISTS journal (seq INTEGER PRIMARY KEY, command TEXT NOT NULL, digest TEXT NOT NULL)');
+      if (readOnly) {
+        db.exec('PRAGMA busy_timeout=5000; PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; BEGIN;');
+        const objects=db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").all();
+        if(objects.length!==1 || objects[0].name!=='journal' || objects[0].type!=='table') reject('state_read_only_schema');
+      } else {
+        db.exec('PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL; BEGIN IMMEDIATE;');
+        db.exec('CREATE TABLE IF NOT EXISTS journal (seq INTEGER PRIMARY KEY, command TEXT NOT NULL, digest TEXT NOT NULL)');
+      }
       const core = createToolWorkshopCore();
       const bindings = new Map();
       const artifacts = new Map();
@@ -71,6 +89,7 @@ export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create' }
         apply(JSON.parse(row.command)); previous = row.digest;
       }
       function append(method,args) {
+        if (readOnly) reject('state_read_only');
         const command = JSON.stringify({method,args});
         const digest = sha256(previous+command);
         const result = apply(JSON.parse(command));
@@ -101,8 +120,16 @@ export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create' }
       });
     },
     acquireLease(workshopId,input) {
-      exactKeys(input,['now','lease_id','project_ref']);
-      return transaction(({append}) => append('acquireLease',[workshopId,{...input,now:input.now??new Date().toISOString()}]));
+      exactKeys(input,['now','lease_id','project_ref','expected_job_id']);
+      const {expected_job_id,...leaseInput}=input;
+      if(expected_job_id!==undefined && !REF.test(expected_job_id))reject('ref_invalid');
+      return transaction(({append,core}) => {
+        // The fixed-job filter is a transaction-local admission check, never a
+        // journal command. A mismatch writes no record; a match appends exactly
+        // the legacy acquire options, so older cores replay the same decision.
+        if(expected_job_id!==undefined && core.peekNextQueuedJob(workshopId,{project_ref:input.project_ref})?.job_id!==expected_job_id)return null;
+        return append('acquireLease',[workshopId,{...leaseInput,now:input.now??new Date().toISOString()}]);
+      });
     },
     releaseLease(input) {
       exactKeys(input,['lease_id','fencing_token']);
@@ -125,9 +152,10 @@ export function createDurableToolWorkshop({ stateRoot, mode = 'open_or_create' }
     getCustodyReceipt(id) { return transaction(({core,artifacts}) => {const receipt=core.getCustodyReceipt(id);return receipt?{...receipt,artifact:artifacts.get(id)}:null;}); },
     eventLog() { return transaction(({core}) => core.eventLog()); },
   });
-  internals.set(api,{transaction,root});
+  if (!readOnly) internals.set(api,{transaction,root});
   // Opening performs an integrity replay, so corrupt state fails before use.
   transaction(() => null);
+  if (readOnly) return Object.freeze(Object.fromEntries(['stateRoot','getJob','getBinding','getWorkshop','getCustodyReceipt','eventLog'].map(key=>[key,api[key]])));
   mayCreateDatabase = false;
   // Existing v1 databases gain only this metadata presence marker after a
   // successful replay. A missing established DB is never a new empty queue.

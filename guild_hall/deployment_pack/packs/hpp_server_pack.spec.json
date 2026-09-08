@@ -16,6 +16,9 @@
       ".party/knowledge_wiki_cell/party.yaml",
       ".party/pcb_revision_library_cell/party.yaml",
       ".party/systems_engineering_cell/party.yaml",
+      ".registry/skills/hwpx_document/codex/scripts/office/pack.py",
+      ".registry/skills/hwpx_document/codex/scripts/page_guard.py",
+      ".registry/skills/hwpx_document/codex/scripts/validate.py",
       ".workflow/report_authoring_v0/contracts/editorial_pass_record.v1.schema.json",
       ".workflow/report_authoring_v0/contracts/identity_authority_record.v1.schema.json",
       ".workflow/report_authoring_v0/contracts/report_document.v1.schema.json",
@@ -76,6 +79,7 @@
       "guild_hall/dev_worker/feedback_dispatch.mjs",
       "guild_hall/dev_worker/feedback_linear_source.mjs",
       "guild_hall/dev_worker/feedback_polling.mjs",
+      "guild_hall/dev_worker/feedback_publication_currentness.mjs",
       "guild_hall/dev_worker/feedback_readbox.mjs",
       "guild_hall/dev_worker/feedback_readbox_cli.mjs",
       "guild_hall/dev_worker/feedback_readbox_fixture.mjs",
@@ -93,6 +97,9 @@
       "guild_hall/dev_worker/feedback_watchdog.mjs",
       "guild_hall/dev_worker/feedback_worktree_runner.mjs",
       "guild_hall/doctor/platform_binary_check.mjs",
+      "guild_hall/engineering_engine/core/interfaces/domain_engine_adapter.mjs",
+      "guild_hall/engineering_engine/core/interfaces/profile_operation_canon.mjs",
+      "guild_hall/engineering_engine/core/runtime/engine_pass.mjs",
       "guild_hall/engineering_engine/core/validators/authority.mjs",
       "guild_hall/engineering_engine/core/validators/canonical.mjs",
       "guild_hall/engineering_engine/core/validators/ceilings.mjs",
@@ -101,9 +108,12 @@
       "guild_hall/engineering_engine/core/validators/errors.mjs",
       "guild_hall/engineering_engine/core/validators/fingerprint.mjs",
       "guild_hall/engineering_engine/core/validators/identity.mjs",
+      "guild_hall/engineering_engine/core/validators/mcp_contract.mjs",
       "guild_hall/engineering_engine/core/validators/minting.mjs",
+      "guild_hall/engineering_engine/core/validators/pipeline.mjs",
       "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
       "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
+      "guild_hall/engineering_engine/core/validators/registration.mjs",
       "guild_hall/engineering_engine/core/validators/snapshot.mjs",
       "guild_hall/engineering_engine/engines/systems_engineering/guidance/guide_cards.mjs",
       "guild_hall/engineering_engine/engines/systems_engineering/rules/artifact_vocabulary.mjs",
@@ -146,10 +156,14 @@
       "guild_hall/local_activity/cli.mjs",
       "guild_hall/local_activity/local_activity.mjs",
       "guild_hall/local_activity/store_validity_cli.mjs",
+      "guild_hall/path_registry/src/source_lane_index.mjs",
       "guild_hall/rag/project_pdf_knowledge_projection.mjs",
       "guild_hall/requirement_trace/forge_world_coverage.mjs",
       "guild_hall/requirement_trace/requirement_coverage.mjs",
       "guild_hall/secure_work/execution_authority.mjs",
+      "guild_hall/secure_work/feedback_currentness_contract.mjs",
+      "guild_hall/secure_work/feedback_currentness_transport.mjs",
+      "guild_hall/secure_work/g2_feedback_publisher.mjs",
       "guild_hall/secure_work/g2_linear_custody_cli.mjs",
       "guild_hall/secure_work/g2_linear_custody_reader.mjs",
       "guild_hall/secure_work/sfx.mjs",
@@ -163,6 +177,8 @@
       "guild_hall/secure_work/src/soulforge_secure_work/dispatch.py",
       "guild_hall/secure_work/src/soulforge_secure_work/engine.py",
       "guild_hall/secure_work/src/soulforge_secure_work/extract.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/feedback_currentness_pipe.py",
+      "guild_hall/secure_work/src/soulforge_secure_work/g2_feedback_adapter.py",
       "guild_hall/secure_work/src/soulforge_secure_work/guard.py",
       "guild_hall/secure_work/src/soulforge_secure_work/ipc.py",
       "guild_hall/secure_work/src/soulforge_secure_work/ipc_pipe.py",
@@ -193,10 +209,24 @@
       "guild_hall/shared/source_timeline_annotation.v1.schema.json",
       "guild_hall/shared/work_binding.mjs",
       "guild_hall/snapshot/producer.mjs",
+      "guild_hall/tool_workshop/src/bounded_tool_process.mjs",
       "guild_hall/tool_workshop/src/claude_acp_cli.mjs",
       "guild_hall/tool_workshop/src/claude_acp_policy.mjs",
       "guild_hall/tool_workshop/src/claude_acp_server.mjs",
       "guild_hall/tool_workshop/src/claude_acp_workspace.mjs",
+      "guild_hall/tool_workshop/src/claude_hwpx_tools.mjs",
+      "guild_hall/tool_workshop/src/hancom_hwpx_export.ps1",
+      "guild_hall/tool_workshop/src/hancom_hwpx_render.mjs",
+      "guild_hall/tool_workshop/src/hwpx_pdf_readback.py",
+      "guild_hall/tool_workshop/src/hwpx_pdf_verifier.mjs",
+      "guild_hall/tool_workshop/src/hwpx_reference_child.py",
+      "guild_hall/tool_workshop/src/hwpx_reference_runner.mjs",
+      "guild_hall/tool_workshop/src/hwpx_skill_author.mjs",
+      "guild_hall/tool_workshop/src/hwpx_skill_author.py",
+      "guild_hall/tool_workshop/src/tool_workshop_core.mjs",
+      "guild_hall/tool_workshop/src/tool_workshop_durable.mjs",
+      "guild_hall/tool_workshop/src/workshop_files.mjs",
+      "guild_hall/tool_workshop/tests/claude_acp_fixture.mjs",
       "guild_hall/town_crier/runtime.mjs",
       "guild_hall/voice_capture/bounded_strong_asr_request.schema.json",
       "guild_hall/voice_capture/bounded_strong_asr_revision.schema.json",
@@ -331,9 +361,17 @@
       "ui-workspace/apps/dev-erp/src/voice_first_worker_comparison.mjs",
       "ui-workspace/apps/dev-erp/src/win_system_exe.mjs",
       "ui-workspace/apps/dev-erp/src/work_intake_adapter.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_context.mjs",
       "ui-workspace/apps/dev-erp/src/work_intake_cost_evaluation.mjs",
       "ui-workspace/apps/dev-erp/src/work_intake_documents.mjs",
       "ui-workspace/apps/dev-erp/src/work_intake_evaluation.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_http.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_io.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_judge.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_linear.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_rule_profile.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_runtime.mjs",
+      "ui-workspace/apps/dev-erp/src/work_intake_source.mjs",
       "ui-workspace/apps/dev-erp/src/work_intake_store.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs",
       "ui-workspace/apps/dev-erp/src/work_session_outbox.mjs",
@@ -370,6 +408,10 @@
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_workbench_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/work_intake_context_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/work_intake_linear_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/work_intake_packet_fixture.py",
+      "ui-workspace/apps/dev-erp/test/helpers/work_intake_runtime_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_execution_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/hermes_native_child_fixture.mjs",
@@ -377,6 +419,7 @@
       "ui-workspace/apps/dev-erp/test/hermes_native_restart_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/hermes_native_workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/test_work_intake_packet_reader.py",
       "ui-workspace/apps/dev-erp/test/work_intake_relation_fixtures.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_test_helpers.mjs",
       "ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs",
@@ -446,6 +489,9 @@
       "ui-workspace/apps/dev-erp/tools/team_preflight.mjs",
       "ui-workspace/apps/dev-erp/tools/verify_gate.mjs",
       "ui-workspace/apps/dev-erp/tools/voice_to_task_candidates.mjs",
+      "ui-workspace/apps/dev-erp/tools/work_intake_cli.mjs",
+      "ui-workspace/apps/dev-erp/tools/work_intake_packet_reader.py",
+      "ui-workspace/apps/dev-erp/tools/work_intake_stage.mjs",
       "ui-workspace/apps/sonar-intel/config/keywords.json",
       "ui-workspace/apps/sonar-intel/config/sources.json",
       "ui-workspace/apps/sonar-intel/export/snapshot.mjs",
@@ -529,10 +575,13 @@
       "guild_hall/deployment_pack/manuals/watch_4192_storage_backup_map.v0.md",
       "guild_hall/dev_worker/FEEDBACK_READBOX.md",
       "guild_hall/dev_worker/FEEDBACK_RUNTIME.md",
+      "guild_hall/secure_work/G2_FEEDBACK_PUBLISHER.md",
       "guild_hall/secure_work/G2_LINEAR_CUSTODY.md",
       "ui-workspace/apps/dev-erp/README.md",
       "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",
       "ui-workspace/apps/dev-erp/docs/DESIGN.md",
+      "ui-workspace/apps/dev-erp/docs/WORK_INTAKE_RUNTIME.md",
+      "ui-workspace/apps/dev-erp/docs/WORK_INTAKE_SHADOW_ADAPTER.md",
       "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
       "ui-workspace/apps/sonar-intel/README.md",
       "ui-workspace/apps/sonar-intel/docs/SONAR_INTEL_MASTER_PLAN_V1.md"
@@ -650,11 +699,19 @@
       "ui-workspace/apps/dev-erp/test/voice_to_task_candidates.test.mjs",
       "ui-workspace/apps/dev-erp/test/win_system_exe.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_adapter.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_context.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_cost_evaluation.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_documents.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_evaluation.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_integration.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_judge.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_linear.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_recovery.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_relations.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_rule_profile.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_runtime.test.mjs",
+      "ui-workspace/apps/dev-erp/test/work_intake_server.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_intake_store.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",
       "ui-workspace/apps/dev-erp/test/work_session_source_inventory.test.mjs",
@@ -1445,11 +1502,19 @@
     "test/voice_to_task_candidates.test.mjs",
     "test/win_system_exe.test.mjs",
     "test/work_intake_adapter.test.mjs",
+    "test/work_intake_context.test.mjs",
     "test/work_intake_cost_evaluation.test.mjs",
     "test/work_intake_documents.test.mjs",
     "test/work_intake_evaluation.test.mjs",
+    "test/work_intake_http.test.mjs",
     "test/work_intake_integration.test.mjs",
+    "test/work_intake_judge.test.mjs",
+    "test/work_intake_linear.test.mjs",
+    "test/work_intake_recovery.test.mjs",
     "test/work_intake_relations.test.mjs",
+    "test/work_intake_rule_profile.test.mjs",
+    "test/work_intake_runtime.test.mjs",
+    "test/work_intake_server.test.mjs",
     "test/work_intake_store.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
@@ -1579,11 +1644,19 @@
     "test/voice_to_task_candidates.test.mjs",
     "test/win_system_exe.test.mjs",
     "test/work_intake_adapter.test.mjs",
+    "test/work_intake_context.test.mjs",
     "test/work_intake_cost_evaluation.test.mjs",
     "test/work_intake_documents.test.mjs",
     "test/work_intake_evaluation.test.mjs",
+    "test/work_intake_http.test.mjs",
     "test/work_intake_integration.test.mjs",
+    "test/work_intake_judge.test.mjs",
+    "test/work_intake_linear.test.mjs",
+    "test/work_intake_recovery.test.mjs",
     "test/work_intake_relations.test.mjs",
+    "test/work_intake_rule_profile.test.mjs",
+    "test/work_intake_runtime.test.mjs",
+    "test/work_intake_server.test.mjs",
     "test/work_intake_store.test.mjs",
     "test/work_session_source_foundation.test.mjs",
     "test/work_session_source_inventory.test.mjs",
@@ -2358,7 +2431,7 @@
     },
     {
       "path": "guild_hall/dev_worker/feedback_runtime_stage.mjs",
-      "sha256": "a43dd90b6b5aeb8a8f01d9656a5c0185107d50d82a00f81fee5254bbacf4ec52"
+      "sha256": "9ea548422dd58bb7f3e0a6166c86da53e1729ea6a7f6fab8fa8a3eaf0ec9fab9"
     },
     {
       "path": "guild_hall/dev_worker/feedback_runtime_validator.mjs",
@@ -2367,6 +2440,10 @@
     {
       "path": "guild_hall/dev_worker/feedback_worktree_runner.mjs",
       "sha256": "404a747de4ffea82c409726e2223b708789dc1e7d9acef88c814b6835b68fc5e"
+    },
+    {
+      "path": "guild_hall/engineering_engine/core/interfaces/domain_engine_adapter.mjs",
+      "sha256": "bf4808a34175b51473064efe0d04045f3d41f58ea02cbcd192a936352031f622"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
@@ -2397,8 +2474,16 @@
       "sha256": "9e8df9d44468ab52a1994bcc1903f961a6d80873c809eb0e9d426593ff6c44f5"
     },
     {
+      "path": "guild_hall/path_registry/src/source_lane_index.mjs",
+      "sha256": "0ea1e235623afaca4a0993f2046e89da83fb147cf5066a3827db36cc92fb9d3c"
+    },
+    {
       "path": "guild_hall/secure_work/execution_authority.mjs",
       "sha256": "e83269b33043e1769a7b25e9e51c36cfedcbba2df1edb18077d7232801e619dd"
+    },
+    {
+      "path": "guild_hall/secure_work/g2_feedback_publisher.mjs",
+      "sha256": "e80da1482758afa57c74656f69e56cebd6cd39191ab115e5bcc977822a7c0a51"
     },
     {
       "path": "guild_hall/secure_work/src/soulforge_secure_work/authority.py",
@@ -2418,7 +2503,15 @@
     },
     {
       "path": "guild_hall/tool_workshop/src/claude_acp_server.mjs",
-      "sha256": "4daacac7270b18f17918c8bee4e69a9fa52cfeb894e3366d0abe798ab18e372a"
+      "sha256": "3329c860e6139019fbb30f8afacf911729644aa7064cd58ab7dd8a125ba9c8ef"
+    },
+    {
+      "path": "guild_hall/tool_workshop/src/hancom_hwpx_export.ps1",
+      "sha256": "797b29118a2c46c161a93b2311b3197b1ef3c4f08ae66359d20de8b26da83029"
+    },
+    {
+      "path": "guild_hall/tool_workshop/tests/claude_acp_fixture.mjs",
+      "sha256": "c1affcca324ee34b1c4e7e755d46fd04fcb09943547ff3b7748fcb6d2c1cf89d"
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.mjs",
@@ -2438,7 +2531,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "427f6d1cd1cd082950a0af4e4c615a50a335dafddc63b2587097d372a9e2f660"
+      "sha256": "33e599e4a41a03f23dcd80cc8b1a0b70e67b885786cb2d64ed72f19a4e848960"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2454,7 +2547,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "50d4ef4b7ec895869579e5f2398f86ce7e78d35ee434746a306074475317923d"
+      "sha256": "66eebe54829605c69d9e49c5b22853adbe55b38d45ff95664b879557a0952f6e"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2553,6 +2646,10 @@
       "sha256": "1a4f62d251b0735ffa838baa71484a82edf215e617e27f89724416b60fc26416"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/src/work_intake_http.mjs",
+      "sha256": "ef2fa5b274909270039f108f6689bd4cf9551d8bc46b9e9d227bcc3b800ca611"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/static/app.js",
       "sha256": "486bde3e14d4f9ac4c5eaeab7f5a0eb47d3d3e38107a158bc3e222012a6db335"
     },
@@ -2641,8 +2738,16 @@
       "sha256": "0b11ee293ff050d0265f4c7223cfe9710f0ffa03217a25f4d81f55c42644f769"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/test_work_intake_packet_reader.py",
+      "sha256": "a8da0a62b44f3cb239c64d1539f4ac8b3606ad28a8e31fcbd0b79159d44b8a4a"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/voice_first_shadow.test.mjs",
       "sha256": "6e66f0c57a771244744b387b5944bd2d08cc0c456f8cadc79a870df02a71985c"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/work_intake_server.test.mjs",
+      "sha256": "81ef954910b598af20137a3e41ca3503457f4da54ebb68880a9a76df6cedb20a"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/work_session_source_foundation.test.mjs",

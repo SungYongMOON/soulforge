@@ -32,6 +32,8 @@ import { openBuzzPilotAuthSource } from "./src/buzz_pilot_auth_source.mjs";
 import { openFeedbackReadbox } from "../../../guild_hall/dev_worker/feedback_readbox.mjs";
 import { openFeedbackDispatch } from "../../../guild_hall/dev_worker/feedback_dispatch.mjs";
 import { createFeedbackReadboxHttpController } from "./src/feedback_readbox_http.mjs";
+import { openWorkIntakeRuntime } from "./src/work_intake_runtime.mjs";
+import { createWorkIntakeHttpController } from "./src/work_intake_http.mjs";
 import { createOwnerAttentionSource } from "./src/owner_attention_source.mjs";
 import { createOwnerAttentionService } from "./src/owner_attention_service.mjs";
 import { createOwnerAttentionHttpController } from "./src/owner_attention_http.mjs";
@@ -2481,6 +2483,23 @@ const feedbackReadHttp = createFeedbackReadboxHttpController({
   allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
   currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
 });
+// Installer-pinned review only: never initialize an intake DB or start a judge.
+const workIntakeLoopback = !TLS_ENABLED && ["127.0.0.1", "localhost", "::1"].includes(HOST);
+const workIntakeRuntime = await (async () => {
+  if (process.env.DEV_ERP_WORK_INTAKE_READ !== "1" || !workIntakeLoopback) return null;
+  try {
+    return await openWorkIntakeRuntime({ deploymentPath: process.env.DEV_ERP_WORK_INTAKE_DEPLOYMENT,
+      deploymentSha256: process.env.DEV_ERP_WORK_INTAKE_DEPLOYMENT_SHA256, readOnly: true });
+  } catch { return null; }
+})();
+const workIntakeHttpController = workIntakeLoopback ? createWorkIntakeHttpController({
+  service: workIntakeRuntime, allowedOrigin: `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
+}) : (_req, res, url) => {
+  if (!["/workbench/work-intake", "/api/workbench/work-intake", "/api/workbench/work-intake/result"].includes(url.pathname)) return false;
+  send(res, 503, { status: "UNAVAILABLE", code: "INTAKE_UNAVAILABLE" });
+  return true;
+};
 const workbenchExecutionService = (() => {
   const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1"
     || process.env.DEV_ERP_WORKBENCH_NATIVE_AUDIT_READ === "1";
@@ -2616,6 +2635,7 @@ const server = createServer(async (req, res) => {
     if (await workflowHttpController(req, res, url)) return;
     if (await buzzPilotWorkbenchHttpController(req, res, url)) return;
     if (await feedbackReadHttp(req, res, url)) return;
+    if (await workIntakeHttpController(req, res, url)) return;
     if (await workbenchHttpController(req, res, url)) return;
     if (await forgeWorldHttpController(req, res, url)) return;
     if (await ownerAttentionHttpController(req, res, url)) return;
@@ -4835,6 +4855,7 @@ async function shutdownDevErp(signalName) {
   try { await workbenchHttpController.close(); } catch {}
   try { await buzzPilotReader?.close(); } catch {}
   try { await feedbackReadService?.close?.(); } catch {}
+  try { workIntakeRuntime?.close(); } catch {}
   try { buzzPilotAuthSource?.close(); } catch {}
   for (const active of activeCodexTurns.values()) active.controller.abort();
   const deadline = Date.now() + 5000;

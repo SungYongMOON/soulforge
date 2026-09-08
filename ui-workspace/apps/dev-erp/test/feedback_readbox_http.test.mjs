@@ -198,30 +198,128 @@ test('HTML contains no evidence and permits only the exact static fetch script',
   assert.match(response.headers['content-security-policy'], /frame-ancestors 'none'/u);
 });
 
-test('browser script uses safe text nodes and exact same-origin metadata fetches', async () => {
+function browserFixture(fetch) {
   const nodes = [];
-  const node = () => {
-    const value = { children: [], listeners: {}, textContent: '', append(child) { this.children.push(child); },
-      replaceChildren() { this.children = []; }, addEventListener(event, fn) { this.listeners[event] = fn; } };
+  const scrollEvents = [];
+  let focused = null, scrolled = null;
+  const node = tagName => {
+    const value = { tagName, children: [], listeners: {}, attributes: {}, textContent: '', append(child) { this.children.push(child); },
+      replaceChildren() { this.children = []; }, addEventListener(event, fn) { this.listeners[event] = fn; },
+      setAttribute(name, content) { this.attributes[name] = content; },
+      focus() { focused = this; }, scrollIntoView() {
+        scrolled = this; scrollEvents.push({ text: textOf(this), busy: this.attributes['aria-busy'] });
+      } };
     Object.defineProperty(value, 'innerHTML', { set() { assert.fail('No HTML interpolation is permitted'); } });
     nodes.push(value); return value;
   };
   const elements = Object.fromEntries(['status', 'items', 'detail', 'refresh', 'next'].map(id => [id, node()]));
+  runInNewContext(feedbackReadboxScript, {
+    document: { getElementById: id => elements[id], createElement: node }, URLSearchParams, fetch,
+  });
+  return { nodes, elements, scrollEvents, focus: () => focused, scroll: () => scrolled };
+}
+const settled = () => new Promise(resolve => setImmediate(resolve));
+const textOf = node => [node.textContent, ...node.children.map(textOf)].join('\n');
+
+test('browser script uses safe text nodes, accessible detail and exact same-origin metadata fetches', async () => {
   const malicious = '<img src=x onerror=alert(1)>', item = { ...record(), reason: malicious };
   const calls = [];
-  runInNewContext(feedbackReadboxScript, {
-    document: { getElementById: id => elements[id], createElement: node }, URLSearchParams,
-    fetch: async (path, options) => { calls.push({ path, options }); return { ok: true, json: async () =>
-      calls.length === 1 ? { project_id: 'SYN-001', items: [item], has_more: false } : { project_id: 'SYN-001', ...item } }; },
+  const browser = browserFixture(async (path, options) => {
+    calls.push({ path, options }); return { ok: true, json: async () =>
+      calls.length === 1 ? { project_id: 'SYN-001', items: [item], has_more: false } : { project_id: 'SYN-001', ...item } };
   });
-  await new Promise(resolve => setImmediate(resolve));
-  assert.ok(nodes.some(value => value.textContent === malicious));
-  const detailButton = nodes.find(value => value.textContent === '근거 메타데이터 보기');
+  const { nodes, elements } = browser;
+  await settled();
+  assert.equal(elements.detail.hidden, true);
+  assert.match(textOf(elements.items), /결과 후보 보고됨/u);
+  assert.match(textOf(elements.items), /검토 결과: 검토 통과/u);
+  assert.equal(textOf(elements.items).includes(malicious), false);
+  const detailButton = nodes.find(value => value.textContent === '상세 근거 보기');
   await detailButton.listeners.click();
+  assert.equal(detailButton.attributes['aria-controls'], 'detail');
+  assert.equal(detailButton.attributes['aria-expanded'], 'true');
+  assert.equal(elements.detail.hidden, false);
+  assert.equal(elements.detail.attributes['aria-busy'], 'false');
+  assert.equal(browser.focus(), elements.detail); assert.equal(browser.scroll(), elements.detail);
+  assert.equal(browser.scrollEvents.length, 2);
+  assert.match(browser.scrollEvents[0].text, /불러오는 중/u);
+  assert.ok(browser.scrollEvents[1].text.includes(HASH), 'final scroll runs after the full detail is rendered');
+  assert.equal(browser.scrollEvents[1].busy, 'false');
   assert.equal(calls[0].path, `${BASE}?limit=50`); assert.equal(calls[1].path, pinQuery);
   for (const call of calls) {
     assert.equal(call.options.credentials, 'same-origin'); assert.equal(call.options.cache, 'no-store');
     assert.equal(call.options.redirect, 'error'); assert.equal(call.options.method, undefined);
   }
-  assert.ok(elements.detail.children.some(value => value.textContent.includes(malicious)));
+  const technical = elements.detail.children.find(value => value.tagName === 'details');
+  assert.ok(technical); assert.notEqual(technical.open, true);
+  assert.ok(textOf(technical).includes(malicious), 'API metadata remains text inside a collapsed disclosure');
+  assert.ok(textOf(elements.detail.children.find(value => value.tagName === 'dl')).includes(HASH));
+  assert.match(textOf(elements.detail), /실제 사람 수락: 확인 안 됨 · 공식 완료: 확인하지 않음/u);
+});
+
+test('browser labels execution uncertainty and Buzz ACK separately without promoting acceptance', async () => {
+  const item = { ...record(), state: 'execution_unknown', buzz_delivery: 'ACKNOWLEDGED', review: { status: 'HOLD' } };
+  const browser = browserFixture(async () => ({ ok: true, json: async () => ({ project_id: 'SYN-001', items: [item], has_more: false }) }));
+  await settled();
+  const text = textOf(browser.elements.items);
+  assert.match(text, /실행 상태 확인 안 됨/u); assert.match(text, /검토 결과: 검토 보류/u);
+  assert.match(text, /로컬 기록: 저장됨 · Buzz 전달: 전달 확인됨\(ACK\)/u);
+  assert.match(text, /실제 사람 수락: 확인 안 됨 · 공식 완료: 확인하지 않음/u);
+  assert.doesNotMatch(text, /책임자 판단 필요|EXECUTION_UNKNOWN|ACKNOWLEDGED|HOLD|UNKNOWN/u);
+});
+
+test('browser paging clears detail and refresh rejection cannot be replaced by stale evidence', async () => {
+  let respondDetail, rejected = false;
+  const calls = [], cursor = 'a'.repeat(40), item = { ...record(), locator: 'r:1' };
+  const browser = browserFixture(async path => {
+    calls.push(path);
+    if (path.includes('/evidence?')) return new Promise(resolve => { respondDetail = resolve; });
+    if (rejected) return { ok: false, status: 403 };
+    return { ok: true, json: async () => ({ project_id: 'SYN-001', items: path.includes('cursor=') ? [] : [item],
+      has_more: !path.includes('cursor='), next_cursor: path.includes('cursor=') ? null : cursor }) };
+  });
+  const { elements } = browser;
+  await settled();
+  assert.equal(elements.next.disabled, false);
+  const click = browser.nodes.find(value => value.textContent === '상세 근거 보기').listeners.click();
+  assert.equal(elements.detail.hidden, false); assert.match(textOf(elements.detail), /불러오는 중/u);
+  assert.equal(elements.detail.attributes['aria-busy'], 'true');
+  assert.equal(calls[1], `${pinQuery}&locator=r%3A1`);
+  rejected = true;
+  await elements.refresh.listeners.click();
+  assert.equal(elements.status.textContent, '현재 과제 접근 권한이 없습니다.');
+  assert.equal(elements.items.children.length, 0); assert.equal(elements.detail.children.length, 0);
+  assert.equal(elements.detail.hidden, true); assert.equal(elements.next.disabled, true);
+  respondDetail({ ok: true, json: async () => ({ project_id: 'SYN-001', ...item }) });
+  await click;
+  assert.equal(elements.detail.children.length, 0, 'obsolete evidence cannot reappear after refresh');
+  assert.equal(browser.scrollEvents.length, 1, 'obsolete evidence must not move the refreshed page');
+  rejected = false;
+  await elements.refresh.listeners.click();
+  await elements.next.listeners.click();
+  assert.equal(calls.at(-1), `${BASE}?limit=50&cursor=${cursor}`);
+  assert.match(textOf(elements.items), /현재 표시할 기록이 없습니다/u);
+  assert.equal(elements.next.disabled, true); assert.equal(elements.detail.hidden, true);
+});
+
+test('browser aligns a current detail error once after rendering without scrolling for stale errors', async () => {
+  let respondDetail;
+  const browser = browserFixture(async path => path.includes('/evidence?')
+    ? new Promise(resolve => { respondDetail = resolve; })
+    : { ok: true, json: async () => ({ project_id: 'SYN-001', items: [record()], has_more: false }) });
+  await settled();
+  const button = browser.nodes.find(value => value.textContent === '상세 근거 보기');
+  const first = button.listeners.click();
+  assert.equal(browser.scrollEvents.length, 1);
+  respondDetail({ ok: false, status: 403 });
+  await first;
+  assert.equal(browser.scrollEvents.length, 2);
+  assert.match(browser.scrollEvents[1].text, /현재 과제 접근 권한이 없습니다/u);
+  assert.equal(browser.scrollEvents[1].busy, 'false');
+  const stale = button.listeners.click();
+  await browser.elements.refresh.listeners.click();
+  respondDetail({ ok: false, status: 401 });
+  await stale;
+  assert.equal(browser.scrollEvents.length, 3, 'only the stale request loading state may scroll');
+  assert.equal(browser.elements.detail.hidden, true);
 });

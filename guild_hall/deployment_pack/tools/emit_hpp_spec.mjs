@@ -19,6 +19,7 @@ import { SECRET_MATERIAL } from "./build_pack.mjs";
 import { listReleaseStaticAssets } from "./release_static_assets.mjs";
 import { sonarIntelPackMembers } from "./sonar_intel_pack_members.mjs";
 import { READBOX_STAGE_FILES } from "../../dev_worker/feedback_readbox_stage.mjs";
+import { HWPX_SOURCE_FILES } from "../../tool_workshop/src/claude_acp_policy.mjs";
 import { computeBundleDigest, validateRuntimeBinding } from "../../workflow_runner/catalog.mjs";
 import {
   listFiles as libListFiles,
@@ -65,6 +66,8 @@ const operationalEntrypoints = [
   "guild_hall/secure_work/sfx.mjs",
   // sfx resolves this installed handler through a verified absolute URL.
   "guild_hall/secure_work/g2_linear_custody_cli.mjs",
+  "guild_hall/secure_work/g2_feedback_publisher.mjs",
+  ...HWPX_SOURCE_FILES,
   ...READBOX_STAGE_FILES,
 ];
 const closure = moduleClosure([...appEntrypoints, ...operationalEntrypoints, ...workflowFiles.filter((rel) => rel.endsWith(".mjs"))]);
@@ -130,6 +133,9 @@ const dataReads = [
   // The installed secure-work launcher loads this owned Python package through
   // its trusted binding. The external E14 kit/runtime/config are not vendored.
   ...listFiles("guild_hall/secure_work/src/soulforge_secure_work", ".py"),
+  `${APP}/tools/work_intake_packet_reader.py`,
+  `${APP}/test/helpers/work_intake_packet_fixture.py`,
+  `${APP}/test/test_work_intake_packet_reader.py`,
   ...workflowFiles,
   ...listFiles(`${APP}/docs/contracts`, ".schema.json"),
   ...listFiles("guild_hall/ingress", ".schema.json"),
@@ -195,6 +201,9 @@ const contentRoles = {
     "guild_hall/dev_worker/FEEDBACK_RUNTIME.md",
     "guild_hall/dev_worker/FEEDBACK_READBOX.md",
     "guild_hall/secure_work/G2_LINEAR_CUSTODY.md",
+    "guild_hall/secure_work/G2_FEEDBACK_PUBLISHER.md",
+    `${APP}/docs/WORK_INTAKE_RUNTIME.md`,
+    `${APP}/docs/WORK_INTAKE_SHADOW_ADAPTER.md`,
     ...[
       "hpp_server_operator", "mcp_material_receive_result_submit",
       "vault_artifact_revision_promotion", "forge_work_generation_review",

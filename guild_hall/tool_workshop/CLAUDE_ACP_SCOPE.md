@@ -311,12 +311,35 @@ remain necessary before calling the new bot's isolation verified. A user-facing
 instruction file alone did not prevent global MCP inheritance in the earlier
 native-harness observation.
 
-This initial tool surface produces working text drafts only. Connecting the existing
+The version 1 binding produces working text drafts only. Connecting the existing
 Tool Workshop queue, rendering and artifact validators remains required for a PPT
 bot's complete capability. Safely scoped edits/test runners for development roles
 also remain required; this adapter does not silently expose Bash to fill that gap.
 Candidate receipt, external delivery, human acceptance and official completion
 remain distinct. Follow-up technical work must not be mislabeled as Owner setup.
+
+### HWPX binding version 2
+
+This is distinct from the four-file source-lane packaging revision named v2.
+The HWPX binding pins the 20 paths in `HWPX_SOURCE_FILES` and adds only
+`hwpx_build_candidate` to the bounded workspace tools. It does not enable a
+builtin shell, arbitrary MCP servers, or a model-selected script. Its `hwpx`
+descriptors pin the author config and either both native/PDF configs or neither.
+All authority/reference/control/output paths stay outside model-writable work.
+
+The tool admits an exact job's draft path/hash, uses the canonical skill packer
+and reference queue, and reports a structural or rendered candidate. Repeating
+the identical completed job returns its existing result; changing that job's
+draft is refused. Native execution is recorded before starting, and an unknown
+attempt requires recovery instead of automatic retry. Cancellation and current
+binding checks apply across every asynchronous operation. PDF evidence covers
+all observed pages within the bound and keeps visual review explicitly pending.
+
+One binding still fixes a single job, reference, cwd and expiry. `loadSession`
+is false and prompt attachments are not automatically admitted. A continuing
+Buzz workshop therefore needs separate trusted document/revision job issuance,
+observed attachment admission and current-authority result retrieval. A single
+successful canary does not establish those capabilities or human acceptance.
 
 Official source references:
 

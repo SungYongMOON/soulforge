@@ -8,6 +8,7 @@ import { createFeedbackWorktreeRunner } from './feedback_worktree_runner.mjs';
 import { createFeedbackWatchdog, readFeedbackWatchState } from './feedback_watchdog.mjs';
 import { startFeedbackPolling } from './feedback_polling.mjs';
 import { createFeedbackRuntimeIssuer } from './feedback_runtime_source.mjs';
+import { createFeedbackPublicationCurrentness } from './feedback_publication_currentness.mjs';
 import { createFeedbackRuntimeModel } from './feedback_runtime_model.mjs';
 import { deriveValidatorCaptureId } from './feedback_runtime_validator.mjs';
 import { readRuntimeJson, readRuntimeBytes, writeRuntimeEvidence, runtimeOrdinary, runtimeCheck as check,
@@ -35,7 +36,7 @@ export async function loadFeedbackDeployment(deploymentPath, deploymentSha256) {
   check(typeof deploymentSha256 === 'string' && /^[a-f0-9]{64}$/u.test(deploymentSha256), 'FEEDBACK_DEPLOYMENT_PIN_REQUIRED');
   const deployment = await readRuntimeJson({ path: deploymentPath, sha256: deploymentSha256 });
   check(exact(deployment, ['enabled', 'mode', 'controlRoot', 'evidenceRoot', 'projectionRoot', 'g2LeaderRef', 'grant', 'workforce', 'linear',
-    'authorityMaxAgeMs', 'runner', 'model', 'polling', 'budget']) && deployment.enabled === true
+    'authorityMaxAgeMs', 'runner', 'model', 'polling', 'budget', ...(Object.hasOwn(deployment, 'publicationCurrentness') ? ['publicationCurrentness'] : [])]) && deployment.enabled === true
     && ['synthetic_rehearsal', 'g1_acp'].includes(deployment.mode) && ref(deployment.g2LeaderRef)
     && Number.isInteger(deployment.authorityMaxAgeMs) && deployment.authorityMaxAgeMs > 0 && deployment.authorityMaxAgeMs <= 300000,
   'FEEDBACK_DEPLOYMENT_INVALID');
@@ -71,8 +72,24 @@ export async function loadFeedbackDeployment(deploymentPath, deploymentSha256) {
       && command.file_pins.some(p => p.path === WRAPPER && p.sha256 === wrapperSha)
       && command.file_pins.some(p => p.path === command.argv[2] && p.sha256 === command.argv[4]), 'FEEDBACK_CAPTURE_CATALOG_REQUIRED');
   }
+  if (deployment.publicationCurrentness !== undefined) {
+    const value = deployment.publicationCurrentness;
+    check(exact(value, ['transport', 'expected']) && exact(value.transport, ['path', 'sha256'])
+      && /^[a-f0-9]{64}$/u.test(value.transport.sha256) && exact(value.expected, ['path', 'mode'])
+      && value.expected.mode === 'current_metadata', 'FEEDBACK_CURRENTNESS_CONFIG');
+    for (const descriptor of [value.transport, value.expected]) {
+      await runtimeOrdinary(descriptor.path);
+      check([deployment.controlRoot, deployment.evidenceRoot, deployment.runner.repoRoot, deployment.runner.worktreeRoot]
+        .every(root => !inside(root, descriptor.path)), 'FEEDBACK_CURRENTNESS_AUTHORITY_WRITABLE');
+    }
+  }
   if (deployment.mode === 'synthetic_rehearsal') check(deployment.model.purpose === 'synthetic_harness', 'FEEDBACK_MODEL_HARNESS_ONLY');
-  else check(deployment.model.provider === 'g1_acp' && deployment.model.group === 'G1', 'FEEDBACK_G1_ACTOR_REQUIRED');
+  else {
+    check(deployment.model.provider === 'g1_acp' && deployment.model.group === 'G1', 'FEEDBACK_G1_ACTOR_REQUIRED');
+    check(deployment.publicationCurrentness !== undefined, 'FEEDBACK_AUTHENTICATED_CURRENTNESS_REQUIRED');
+    const transport = await readRuntimeJson(deployment.publicationCurrentness.transport);
+    check(transport.server_sid !== transport.client_sid, 'FEEDBACK_ROLE_SEPARATION_REQUIRED');
+  }
   return deployment;
 }
 
@@ -91,7 +108,11 @@ async function controlDatabase(root, name, readOnly = false) {
 export async function openFeedbackRuntime({ deploymentPath, deploymentSha256, role = 'worker' }) {
   check(['worker', 'watchdog', 'inspect'].includes(role), 'FEEDBACK_RUNTIME_ROLE_INVALID');
   const deployment = await loadFeedbackDeployment(deploymentPath, deploymentSha256);
-  const assertDeployment = async () => { await readRuntimeJson({ path: deploymentPath, sha256: deploymentSha256 }); };
+  let publicationGuard;
+  const assertDeployment = async ({ projection } = {}) => {
+    await readRuntimeJson({ path: deploymentPath, sha256: deploymentSha256 });
+    if (projection && publicationGuard) await publicationGuard.assertProjection(projection);
+  };
   const workerDb = await controlDatabase(deployment.controlRoot, 'feedback.sqlite', role !== 'worker');
   let watchDb;
   try {
@@ -121,6 +142,7 @@ export async function openFeedbackRuntime({ deploymentPath, deploymentSha256, ro
     return { role, intervalMs: deployment.polling.watchdogMs, runOnce: watchdog.watchOnce,
       async close() { watchDb.close(); workerDb.close(); } };
   }
+  if (deployment.publicationCurrentness) publicationGuard = createFeedbackPublicationCurrentness({ deploymentPath, deploymentSha256, deployment });
   const instanceRef = `feedback.worker.${randomUUID()}`, issued = createFeedbackRuntimeIssuer({ db: workerDb, deployment,
     evidenceRoot: deployment.evidenceRoot, assertDeployment });
   const modelEvidence = new Map(), modelRequests = new Map(), candidateRecords = new Map();
@@ -259,8 +281,8 @@ export async function openFeedbackRuntime({ deploymentPath, deploymentSha256, ro
       try { await issued.source.snapshot(); return retry ? await cycle.retry(runRef) : await cycle.recover(runRef); }
       finally { recoveryDescriptor = null; }
     },
-    async close() { await cycle.stop(); workerDb.close(); } };
-  } catch (error) { watchDb?.close(); workerDb.close(); throw error; }
+    async close() { await cycle.stop(); await publicationGuard?.close(); workerDb.close(); } };
+  } catch (error) { await publicationGuard?.close(); watchDb?.close(); workerDb.close(); throw error; }
 }
 
 export function pollFeedbackRuntime(runtime, { maxCycles = null, onStatus = () => {} } = {}) {

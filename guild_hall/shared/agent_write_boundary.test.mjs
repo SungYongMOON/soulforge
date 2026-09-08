@@ -86,6 +86,15 @@ test("packet gate also rejects root scopes, glob parents and case aliases", () =
     'guild_hall/dev_worker/feedback_runtime.mjs', 'guild_hall/dev_worker/feedback_runtime_stage.mjs',
     'guild_hall/dev_worker/feedback_runtime_review.test.mjs', 'guild_hall/dev_worker/FEEDBACK_RUNTIME.md',
     'ui-workspace/apps/dev-erp/server.mjs', 'UI-WORKSPACE/APPS/DEV-ERP/SERVER.MJS',
+    'guild_hall/dev_worker/feedback_publication_currentness.mjs',
+    'guild_hall/secure_work/feedback_currentness_transport.mjs',
+    'guild_hall/secure_work/src/soulforge_secure_work/feedback_currentness_pipe.py',
+    'ui-workspace/apps/dev-erp/src/work_intake_judge.mjs',
+    'ui-workspace/apps/dev-erp/src/work_intake_documents.mjs',
+    'ui-workspace/apps/dev-erp/src/work_intake_evaluation.mjs',
+    'ui-workspace/apps/dev-erp/test/work_intake_documents.test.mjs',
+    'ui-workspace/apps/dev-erp/test/work_intake_evaluation.test.mjs',
+    'ui-workspace/apps/dev-erp/tools/work_intake_packet_reader.py',
     'guild_hall/watchtower/alert_*.mjs', 'guild_hall/*/candidate_queue.mjs', 'agents.md',
     'GUILD_HALL/DEV_WORKER/CANDIDATE_QUEUE.MJS']) {
     assert.ok(isDeniedAgentWritePath(scope), scope);

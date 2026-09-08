@@ -5,11 +5,54 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildPack, nodeTestRunner } from "../tools/build_pack.mjs";
-import { buildReleaseTestEnv, createReleaseWorkspace, exerciseReleaseLifecycle, readWorkshopTestConfig, runReleaseRehearsal, releaseSmokeVerdict, verifyReleaseGeneration } from "../tools/release_rehearsal.mjs";
+import { buildReleaseTestEnv, createReleaseWorkspace, exerciseReleaseLifecycle, readWorkshopTestConfig, readIntakeTestConfig, runReleaseRehearsal, releaseSmokeVerdict, verifyReleaseGeneration } from "../tools/release_rehearsal.mjs";
 import { listReleaseStaticAssets } from "../tools/release_static_assets.mjs";
 
 const clock = () => "2026-09-07T00:00:00.000Z";
 const temp = (t) => { const dir = mkdtempSync(join(tmpdir(), "release-rehearsal-test-")); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
+
+test('company intake dependencies reach real HPP source and installed children only through explicit synthetic config', async t => {
+  const root=temp(t), source=join(root,'source'), file=join(root,'intake-test.json');
+  const config={pythonExecutable:process.execPath,kitRoot:join(root,'synthetic-kit'),provenance:'synthetic_fixture'};
+  writeFileSync(file,JSON.stringify(config));
+  const pin=readIntakeTestConfig(file); assert.deepEqual(JSON.parse(pin.bytes),config);
+  for(const bad of [{...config,env:{}},{...config,provenance:'released'},{...config,kitRoot:'relative'}]) {
+    writeFileSync(file,JSON.stringify(bad));
+    assert.throws(()=>readIntakeTestConfig(file),{code:'rehearsal_intake_config_invalid'});
+  }
+  writeFileSync(file,JSON.stringify(config));
+  await assert.rejects(runReleaseRehearsal({packIds:['tool_workshop_pack'],intakeTestConfig:file}),{code:'rehearsal_intake_config_without_pack'});
+  mkdirSync(join(source,'guild_hall/deployment_pack/tools'),{recursive:true});
+  mkdirSync(join(source,'guild_hall/deployment_pack/packs'),{recursive:true});
+  writeFileSync(join(source,'guild_hall/deployment_pack/tools/emit_hpp_spec.mjs'),'// synthetic spec check\n');
+  // This case exercises dependency transport, not the real server start gate.
+  writeFileSync(join(source,'guild_hall/deployment_pack/tools/prove_start_stop.mjs'),
+    'import {writeFileSync} from "node:fs";import {join} from "node:path";writeFileSync(join(process.argv[3],"start_stop.receipt.json"),JSON.stringify({ok:true,synthetic:true}));\n');
+  writeFileSync(join(source,'core.mjs'),'export const value=1;\n');
+  writeFileSync(join(source,'runtime.test.mjs'),`
+    import test from 'node:test'; import assert from 'node:assert/strict';
+    test('bounded intake runtime selection',()=>{
+      assert.equal(process.env.WORK_INTAKE_TEST_PYTHON,process.execPath);
+      assert.equal(process.env.SOULFORGE_SECURE_WORK_TEST_PYTHON,process.execPath);
+      assert.equal(process.env.WORK_INTAKE_TEST_KIT_ROOT,${JSON.stringify(config.kitRoot)});
+      assert.equal(process.env.SOULFORGE_PPTX_TEST_CONFIG,undefined);
+      assert.equal(process.env.SOULFORGE_SECURE_WORK_CONFIG,undefined);
+    });
+  `);
+  writeFileSync(join(source,'guild_hall/deployment_pack/packs/hpp_server_pack.spec.json'),JSON.stringify({
+    schema:'soulforge.deployment_pack_spec.v0',pack_id:'hpp_server_pack',version:'0.1.0',
+    host_effect_policy:{reboot:'forbidden',driver_change:'forbidden',system_update:'forbidden',service_restart_scope:'pack_services_only'},
+    content_roles:{server_modules:['core.mjs'],validators:['runtime.test.mjs']},smoke_test_entries:['runtime.test.mjs'],
+    release_notes_ref:'release_notes.hpp_server_pack.v0_1_0',install_manual_ref:'manual.install.hpp_server_pack',
+    upgrade_manual_ref:'manual.upgrade.hpp_server_pack',rollback_manual_ref:'manual.rollback.hpp_server_pack',
+    support_owner_ref:'owner.platform_support',secret_refs:[],
+  }));
+  const result=await runReleaseRehearsal({rootDir:source,workDir:join(root,'rehearsal'),packIds:['hpp_server_pack'],intakeTestConfig:file,clock});
+  assert.equal(result.ok,true,JSON.stringify(result.receipt.packs.map(p=>({failure:p.failure,stages:p.stages}))));
+  const pack=result.receipt.packs[0];
+  assert.equal(pack.stages.source_unit.counts.pass,1); assert.equal(pack.stages.installed_smoke.counts.pass,1);
+  assert.equal(pack.test_runtime.synthetic_intake_config_sha256,pin.sha256);
+});
 
 test("only explicit bounded synthetic workshop runtime fields can reach the tool rehearsal", async t => {
   const root = temp(t), file = join(root, "synthetic-runtime.json");
