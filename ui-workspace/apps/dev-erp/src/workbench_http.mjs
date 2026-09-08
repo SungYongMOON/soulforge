@@ -40,7 +40,7 @@ async function emptyJson(req) {
 }
 
 /** Authenticated intake with an independently opted-in, server-owned synthetic executor. */
-export function createWorkbenchHttpController({ enabled = false, allowedOrigin, intakeRoot, sources,
+export function createWorkbenchHttpController({ enabled = false, readOnly = false, allowedOrigin, intakeRoot, sources,
   executionService = null, currentAccount, sessionKey, accountIds, canAccessProject, now = () => Date.now() } = {}) {
   if (![currentAccount, sessionKey, accountIds, canAccessProject].every(value => typeof value === 'function')) {
     throw new TypeError('Server-owned session, account inventory and project access required');
@@ -84,10 +84,11 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
       && timingSafeEqual(Buffer.from(entry.token, 'hex'), Buffer.from(token, 'hex'));
   }
   const executionEnabled = enabled === true && !!configured && executionService?.enabled === true;
-  const dispatchEnabled = executionEnabled && executionService.dispatchEnabled !== false;
+  const dispatchEnabled = !readOnly && executionEnabled && executionService.dispatchEnabled !== false;
   const handleWorkbench = async function (req, res, url) {
     if (!url.pathname.startsWith('/api/workbench/')) return false;
     if (url.search || req.url !== url.pathname) { reject(res, 404, 'ROUTE_NOT_FOUND'); return true; }
+    if (readOnly && req.method === 'POST') { reject(res, 405, 'NATIVE_BUZZ_ENTRY_REQUIRED'); return true; }
     if (url.pathname === '/api/workbench/catalogue') {
       if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); reject(res, 405, 'METHOD_NOT_ALLOWED'); return true; }
       if (!LOOPBACK.has(req.socket?.remoteAddress) || req.headers.host !== host

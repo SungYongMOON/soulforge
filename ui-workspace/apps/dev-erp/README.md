@@ -96,6 +96,24 @@ claiming a product release. Validate through `npm.cmd run validate:product-compo
 메타데이터 접수·업무 대응이며 실행 claim, 모델 호출, 외부 송신, Task 변경, 수락이 아니다.
 실행 조정기 연결과 운영 활성화는 별도 단계다.
 
+첫 Buzz 파일럿의 지시·대화는 Buzz 한 곳에서 진행한다. `DEV_ERP_BUZZ_PILOT_READ=1`과
+명시적인 `DEV_ERP_BUZZ_PILOT_BINDING` 절대경로 및 `DEV_ERP_BUZZ_PILOT_BINDING_SHA256`
+원본 64자리 SHA-256을 함께 설정하면 작업대는 발행된 한 업무의 조회 화면을 제공한다.
+이 설정은 기본 OFF이며 설치·운영 활성화나 업무 발행 권한을 만들지 않는다.
+`GET /api/workbench/buzz-pilot`은 현재 로그인·Owner·과제 권한으로 사건 투영을 읽고,
+`GET /api/workbench/buzz-pilot/evidence?role=<role>&observation_id=<exact-id>`는 같은 권한을
+다시 확인하여 보존본을 내려준다. `instruction`만 관측 ID를 생략할 수 있으며 임의 경로는 받지 않는다.
+reader 설정 오류는 조회 불가로 남으며 다른 DB를 찾거나 만들지 않는다.
+
+Buzz 조회가 켜지면 기존 작업대의 모든 POST가 차단된다. 기존에 명시적으로 설정된 과거
+접수·native 상태·지시/출력 GET은 현재 권한 검사와 함께 유지되며 `#request=<id>` 링크로 볼 수 있다.
+`waiting_owner`와 `owner_action_required=true`가 함께 있을 때만 사람의 답변 대기를 표시하고,
+전달 불명·실패·불완전 보존은 운영 확인으로 구분한다. 응답 생성·전달은 검증·사람 수락·공식 완료와 별개다.
+직접 호출 이력은 해당 출처로 표시하며 Buzz 관측으로 바꾸어 표시하지 않는다.
+격리 합성 검증은 `node test/workbench_preview.mjs --buzz`로 답변 대기를,
+`--buzz --delivery-unknown`으로 전달 불명을, `--buzz --delivered`로 전달 이후를 조회한다.
+이 preview는 합성 사건을 실제 producer에 기록하고 조회하며 실제 gateway·모델·도구를 실행하지 않는다.
+
 서버가 읽는 배치 설정은 아래 값이며, 빠지거나 잘못되면 추정 경로로 대체하지 않고 `HOLD`한다.
 
 | 설정 | 의미 |
