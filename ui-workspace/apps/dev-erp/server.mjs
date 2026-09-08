@@ -2424,7 +2424,8 @@ const workbenchSources = (() => {
   } catch { return null; }
 })();
 const workbenchExecutionService = (() => {
-  const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1";
+  const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1"
+    || process.env.DEV_ERP_WORKBENCH_NATIVE_AUDIT_READ === "1";
   const synthetic = process.env.DEV_ERP_WORKBENCH_SYNTHETIC_EXECUTION === "1";
   if (process.env.DEV_ERP_WORKBENCH_INTAKE !== "1" || native === synthetic
     || !workbenchSources || TLS_ENABLED) return null;
@@ -2445,7 +2446,9 @@ const workbenchExecutionService = (() => {
         native_binding_sha256: process.env.DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256 } : undefined });
     const intakeStore = createWorkbenchIntakeStore({ root: roots[2] });
     executionStore = createWorkbenchExecutionStore({ root: roots[0], mode });
-    return createWorkbenchExecutionService({ enabled: true, intakeStore, intakeSources: workbenchSources, executionSources, executionStore });
+    return createWorkbenchExecutionService({ enabled: true, intakeStore, intakeSources: workbenchSources, executionSources, executionStore,
+      nativeDispatchMode: native && process.env.DEV_ERP_WORKBENCH_NATIVE_TEST_DISPATCH === "1"
+        && process.env.DEV_ERP_NO_REAL_META === "1" ? 'synthetic_verification' : 'buzz_only' });
   } catch { executionStore?.close(); return null; }
 })();
 const workbenchHttpController = createWorkbenchHttpController({

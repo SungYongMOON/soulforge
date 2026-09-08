@@ -1,6 +1,6 @@
 # Native Hermes chat adapter
 
-Status: product CLI and authenticated Workbench route implemented with synthetic child-process evidence; installed Hermes execution,
+Status: internal product CLI, protected request audit and authenticated Workbench read routes implemented with synthetic child-process evidence; installed Hermes execution,
 provider inference, runtime activation and candidate custody are `NOT_RUN`.
 
 `src/hermes_native_runtime.mjs` exports `bindHermesNativeRuntime`. It calls the existing
@@ -20,7 +20,7 @@ hermes -p <exact-profile> chat --cli --resume <exact-session-id>
   --toolsets <explicit-approved-toolsets> --max-turns <limit> --run-budget <seconds>
 ```
 
-The issued WorkBrief is serialized only to UTF-8 stdin. Its full source object, including
+For native transport, the issued WorkBrief is serialized to UTF-8 stdin. Its full source object, including
 brief ID and expiry, must pass Forge admission and match the current revision digest.
 Expiry must be a valid canonical UTC timestamp (`YYYY-MM-DDTHH:mm:ss.sssZ`); date-only,
 unparseable and normalized-invalid dates hold. The bound expiry and current authority/capability
@@ -64,7 +64,7 @@ contains pinned descriptors for authority request, brief metadata, runtime bindi
 capability, Agent projection, authority pin/current state, and task authorization. It reruns
 the existing Agent authority verifier, compares the resulting receipt and reruns admission.
 The full Forge packet is read later from a separate explicitly bound WorkBrief root, with
-its own bounded exact-byte reader. Metadata, body, attempt and Hermes-home roots cannot overlap.
+its own bounded exact-byte reader. Metadata, body, attempt, audit and Hermes-home roots cannot overlap.
 The CLI file route accepts authority/capability evidence at most 60 seconds old and within
 its explicit expiry; the transport binder's configurable default is 5 seconds.
 
@@ -98,7 +98,8 @@ turn/clone lineage receipt or separately authorized runtime evidence; accepting 
 user rows or dropping every summary marker is not equivalent evidence.
 
 Successful transport means a native turn and response were observed in the selected
-session lineage. It does **not** establish exact output artifact custody, review, human
+session lineage. Protected snapshots establish only the custody of working evidence bytes.
+They do **not** establish registered candidate artifact custody, review, human
 acceptance, Task Done, model reasoning-effort measurement or zero side effects. The receipt
 binds the submitted stdin hash, issued brief metadata, executable/source pins, output hashes,
 session-metadata digests and attempt. It does not hash historical message bodies or establish
@@ -183,7 +184,12 @@ candidate-byte success contract must not be substituted with native plain-text s
 ## Workbench route and storage compatibility
 
 The authenticated Workbench now has an explicit native mode through the existing execution
-HTTP endpoints. `DEV_ERP_WORKBENCH_NATIVE_EXECUTION=1` and the existing synthetic flag are
+HTTP endpoints. For the first release, Buzz is the single instruction/conversation entrance;
+native Workbench is read-only. Native POST intake, execution, cancel and revision requests
+return `NATIVE_BUZZ_ENTRY_REQUIRED`. The internal CLI/executor remain available to the
+authorized producer and synthetic verification, without making a second public entrance.
+`DEV_ERP_WORKBENCH_NATIVE_AUDIT_READ=1` (or the retained native configuration flag)
+assembles the read service. `DEV_ERP_WORKBENCH_NATIVE_EXECUTION=1` and the existing synthetic flag are
 mutually exclusive; both set, neither set, missing pins, overlapping roots and TLS mode stay
 disabled. No deployment environment, service installation or running production port was changed.
 
@@ -222,3 +228,93 @@ candidate-download rejection, authority/CSRF failures, timeout successors and st
 The existing synthetic HTTP/service/store suites remain part of compatibility verification.
 Package scripts, Pack composition and shared release/roadmap/CHANGELOG registration remain
 the product integration owner's changes; no runtime activation follows from these code tests.
+
+## One-request audit and historical read contract
+
+Each native request now requires an independently pinned `audit_storage` in its approved
+entry and an exact `requester_ref`. `audit_storage` selects an existing, non-linked external
+owner-approved working directory, repository boundary, storage approval ref, backup policy
+ref and `capability.native-execution-log.read`. No public repository, `_workmeta`, `_workspaces`
+or future canonical target is used for these logs. None of these ref strings is self-approval;
+the trusted deployment and current scope/authority gates remain the authorizing surfaces.
+
+The byte operations are shared through `guild_hall/shared/protected_working_bytes.mjs`:
+`createProtectedWorkingBytes({root, repositoryRoot, storageClass, ownerApprovalRef, roles})`
+exposes `createGroup(groupId)`, `writeRole({groupId, role, bytes})` and
+`readRole({groupId, role, expectedSha256, expectedSize?})`. Each caller fixes its own role
+filenames, bounds and media types. Native fixes instruction/output and its two metadata
+receipts; feedback callers may supply their own fixed roles. The primitive owns only I/O,
+path confinement and immutability, not content policy, a common ledger, execution or acceptance.
+Writes return `{sha256, size, mediaType}`; reads return the same metadata plus bytes.
+
+The stable business ID is `native-work.<claim-key>`. Its create-only layout contains:
+
+| File role | Bound | Meaning |
+| --- | --- | --- |
+| `instruction.utf8` | 64 KiB | Exact serialized bytes submitted for this issued WorkBrief |
+| `visible-output.utf8` | 4 MiB | This invocation's captured visible stdout; completeness/state is in the receipt |
+| `instruction-receipt.json` | 128 KiB | Requester/entrance/time, task+brief+input revision, Agent/model/tool authority, instruction ref/hash |
+| `execution-receipt.json` | 128 KiB | Attempt/time/outcome/error, delivery observations, visible-output ref/hash, session/tool/verification refs |
+
+The instruction file and its receipt are synced and read back before spawning/releasing
+the query. The snapshot is checked again after awaited release callbacks. A preparation or
+ledger-link failure cannot send stdin. After execution, output/receipt/link failure is
+`HERMES_NATIVE_AUDIT_FINALIZE_UNKNOWN`; the consumed attempt is preserved and never resent.
+The ledger keeps refs, hashes and states, not body bytes. Missing final receipt means
+`INCOMPLETE_UNKNOWN`; an uncommitted or substituted output is not served.
+
+The evidence distinguishes exact instruction snapshot SHA, stdin release intent, observed
+pipe-write completion, program input receipt, model input receipt and response observation.
+Pipe-write completion is not an acknowledgment of the exact input bytes from Hermes or
+the model. Both input receipt fields are currently `UNCONFIRMED`. This is not described as
+a model-confirmed instruction log.
+The child has fixed UTF-8 pipe settings at process startup; no environment dump is collected.
+
+Only explicit tool IDs/names and result-row presence from the selected Hermes session
+delta are projected. Tool arguments, tool-result content, stderr body, full conversation,
+system prompts and reasoning are not collected. Each observation has exact session/row/call
+refs and `request_observed` or `result_row_observed`; actual success/effects remain `UNKNOWN`.
+No fabricated `ai_tool_event` success/timeout value is published to the global usage ledger.
+Existing personal work-session publishing requires an independently bound account/item/node
+assignment and is not invented here: absent linked receipts say `NO_LINKED_RECEIPT`.
+
+The authenticated fixed-role read endpoints are:
+
+```text
+GET /api/workbench/requests/<request-id>/execution-log
+GET /api/workbench/requests/<request-id>/execution-log/instruction
+GET /api/workbench/requests/<request-id>/execution-log/output
+```
+
+Historical reads recheck record ownership, current session/project access, the existing
+current scope grant and the pinned read capability. They intentionally do not require an
+unchanged upstream WorkBrief/recipe or a still-live execution approval. Client paths, role
+extensions, foreign records, invalid pins and revoked/stale read scope are rejected. Bytes
+are served as no-store, nosniff plain text with a sandbox policy. Related attempts are joined
+under the same claim so retries, cancellation, response observations and uncertain attempts
+remain visible without creating new execution authority.
+
+Catalogue separates `execution_read_enabled`/`execution_log_enabled` from command enablement
+and reports `native_instruction_entry=buzz`. Native HTTP execution exists only in the
+explicit synthetic verification lane (`DEV_ERP_WORKBENCH_NATIVE_TEST_DISPATCH=1`,
+`DEV_ERP_NO_REAL_META=1`, SYN/SFX project). First-release POST command routes remain off.
+
+The actual Buzz producer is not connected by this slice. Its future handoff must bind the
+accepted Buzz message/delivery ref and exact source bytes to the requester, canonical Bot
+Chat and business request ID before invoking this existing protected transport. A native
+CLI stdin hash cannot be relabeled as a Buzz message receipt or full real-task work log.
+
+Recovery verification reuses `backupRuntimeDb` for a WAL-safe logical ledger export and
+`bindSourceBackupGeneration` for the metadata-only technical receipt. The synthetic restore
+gate preserves the same instruction/output role bytes, task/brief/attempt refs, tool row
+refs and consumed markers, rejects corruption and leaves human acceptance pending:
+
+```text
+node --test ui-workspace/apps/dev-erp/test/hermes_native_audit_restore.test.mjs
+node --test guild_hall/shared/protected_working_bytes.test.mjs
+```
+
+Audit working bytes and consumed-attempt metadata belong to the existing `runtime_state`
+class as a coherent closed generation; the Workbench SQLite uses `wal_safe_logical_export`.
+They are not accepted canonical payload or canonical lineage. Operational backup enrollment,
+retention/RPO and actual DR remain separate, unmeasured owner-controlled states.

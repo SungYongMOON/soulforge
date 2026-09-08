@@ -36,7 +36,8 @@ export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true
     : path.join(f.root, 'hermes-profiles', 'profiles', profileName);
   const attempts = path.join(f.root, 'native-attempts');
   const bodies = path.join(f.root, 'native-issued');
-  await mkdir(home, { recursive: true }); await mkdir(attempts); await mkdir(bodies);
+  const auditRoot = path.join(f.root, 'native-audit');
+  await mkdir(home, { recursive: true }); await mkdir(attempts); await mkdir(bodies); await mkdir(auditRoot);
   const child = fileURLToPath(new URL('./hermes_native_child_fixture.mjs', import.meta.url));
   const selected = d.executor_binding;
   const runtime = { ...Object.fromEntries(['performing_agent_id', 'bot_ref', 'executor_ref', 'profile_ref',
@@ -52,7 +53,7 @@ export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true
     rewind_count INTEGER DEFAULT 0,archived INTEGER DEFAULT 0,hidden INTEGER DEFAULT 0,model_config TEXT);
     CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT,session_id TEXT,role TEXT,content TEXT,
     timestamp REAL,active INTEGER DEFAULT 1,compacted INTEGER DEFAULT 0,finish_reason TEXT,
-    effect_disposition TEXT,tool_calls TEXT);`);
+    effect_disposition TEXT,tool_calls TEXT,tool_call_id TEXT,tool_name TEXT);`);
   db.prepare(`INSERT INTO sessions (id,source,started_at,model,billing_provider,profile_name,model_config)
     VALUES (?,'cli',1,?,?,?,'{}')`).run(runtime.session_id, runtime.expected_model, runtime.provider,
     profileName === 'default' ? null : profileName);
@@ -70,6 +71,10 @@ export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true
     evaluated_at: d.executor_current.evaluated_at, expires_at: d.authority_pin.expires_at };
   const { read_receipt_digest, ...taskAuthorization } = d.task_authorization;
   const entry = { request_ref: 'native.workbench.approved', workbench_request_basis_digest: workbenchExecutionRequestBasis(f.request),
+    requester_ref: f.request.requester,
+    audit_storage: { root: auditRoot, storage_class: 'owner_approved_shared_worksite', owner_approval_ref: 'approval.synthetic-audit',
+      repository_root: path.resolve(fileURLToPath(new URL('../../../..', import.meta.url))),
+      backup_policy_ref: 'policy.native-execution-working-audit', read_capability_ref: 'capability.native-execution-log.read' },
     attempt_directory: attempts, work_brief_root: bodies, hard_timeout_ms: timeoutMs };
   for (const [key, value] of Object.entries({ authority_request: authority, brief_binding: brief,
     runtime_binding: runtime, runtime_capability: capability, agent_projection: d.agent_projection,
@@ -84,5 +89,5 @@ export async function makeNativeWorkbenchFixture({ mode = 'ok', supported = true
     observed_at: d.task_authorization.observed_at, valid_until: d.task_authorization.valid_until, requests: [entry] };
   const nativeDescriptor = await f.write('native-chat-binding.json', nativeManifest);
   return { ...f, executionDigest: nativeDescriptor.content_sha256, nativeManifest, nativeEntry: entry,
-    nativeHome: home, nativeAttempts: attempts, nativeBodies: bodies, nativeCapability: capability };
+    nativeHome: home, nativeAttempts: attempts, nativeBodies: bodies, nativeAuditRoot: auditRoot, nativeCapability: capability };
 }

@@ -35,9 +35,12 @@ const bounded = async (fn, ms) => {
   } finally { clearTimeout(timer); }
 };
 
-function outcome(reason, receiptRef = 'hermes-native-attempt.unknown', resultRef = null) {
+function outcome(reason, receiptRef = 'hermes-native-attempt.unknown', resultRef = null, audit = null) {
+  const artifacts = audit ? [audit.instruction_snapshot?.artifact_ref, audit.output_snapshot?.artifact_ref].filter(Boolean) : [];
+  const evidence = audit ? [receiptRef, audit.audit_ref, `native-audit-header.sha256.${audit.header_digest.slice(7)}`,
+    ...(audit.audit_digest ? [`native-audit-final.sha256.${audit.audit_digest.slice(7)}`] : [])] : resultRef ? [receiptRef] : [];
   return deepFreeze({ status: resultRef ? 'succeeded' : 'hold', reason_code: reason,
-    result_ref: resultRef, artifact_refs: [], evidence_refs: resultRef ? [receiptRef] : [],
+    result_ref: resultRef, artifact_refs: artifacts, evidence_refs: evidence,
     external_effect_evidence: { source: HERMES_NATIVE_EXECUTOR_REF, receipt_ref: receiptRef,
       linear_writes: 'UNKNOWN', network_calls: 'UNKNOWN', filesystem_writes: 'UNKNOWN',
       shell_commands: 'UNKNOWN' } });
@@ -106,12 +109,13 @@ function validSession(snapshot, binding) {
 
 // Uses the real child-process path in both product and synthetic tests. Output
 // remains plain Hermes text; it is NEVER interpreted as hermes.bot_submit.v1.
-function runNativeChild(command, { verifyBeforeRelease, verifyReleaseClock, timeoutMs, maxOutputBytes, signal, onStdinRelease }) {
+function runNativeChild(command, { verifyBeforeRelease, verifyAuditBeforeRelease, verifyReleaseClock, timeoutMs, maxOutputBytes, signal, onStdinRelease }) {
   return new Promise((resolve) => {
     let child;
     let settled = false;
     let released = false;
     let verified = false;
+    let pipeWritten = false;
     let outputBytes = 0;
     let timer;
     const stdout = [];
@@ -123,7 +127,7 @@ function runNativeChild(command, { verifyBeforeRelease, verifyReleaseClock, time
       clearTimeout(timer);
       signal?.removeEventListener('abort', abort);
       if (state !== 'closed') { try { child?.kill(); } catch {} }
-      resolve({ state, code, released, verified, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) });
+      resolve({ state, code, released, pipe_written: pipeWritten, verified, stdout: Buffer.concat(stdout), stderr: Buffer.concat(stderr) });
     };
     if (signal?.aborted) { finish('cancelled'); return; }
     try {
@@ -152,6 +156,9 @@ function runNativeChild(command, { verifyBeforeRelease, verifyReleaseClock, time
         if (onStdinRelease && await onStdinRelease() !== true) { finish('pre_release_drift'); return; }
       } catch { finish('pre_release_drift'); return; }
       if (settled || signal?.aborted) return;
+      try { if (await verifyAuditBeforeRelease() !== true) { finish('pre_release_drift'); return; } }
+      catch { finish('pre_release_drift'); return; }
+      if (settled || signal?.aborted) return;
       // No awaited operation may separate this time-window check from the pipe
       // write: metadata/readiness callbacks can cross the issued brief's expiry.
       try { if (verifyReleaseClock() !== true) { finish('pre_release_drift'); return; } }
@@ -159,7 +166,7 @@ function runNativeChild(command, { verifyBeforeRelease, verifyReleaseClock, time
       // Mark uncertainty before writing: even a partial pipe write consumes the
       // durable attempt. There is no inferred safe retry on EPIPE or timeout.
       released = true;
-      child.stdin.end(command.stdin);
+      child.stdin.end(command.stdin, () => { if (!settled) pipeWritten = true; });
     });
   });
 }
@@ -168,6 +175,7 @@ function runNativeChild(command, { verifyBeforeRelease, verifyReleaseClock, time
 // invokes the unchanged authority/Forge admission gates and supplies issued data.
 export function createHermesNativeChatExecutor({ feature_enabled = false, runtime_binding,
   issued, verifyCurrent, verifyReleaseClock, resolveWorkBrief, attemptStore, now = Date.now,
+  auditStore, traceContext, onAuditPrepared, onAuditRecorded,
   signal, onStdinRelease,
   hard_timeout_ms = 65_000, preflight_timeout_ms = 5000, max_output_bytes = 1024 * 1024,
   max_input_bytes = 64 * 1024, max_turns = 32,
@@ -185,6 +193,7 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
     if (!validBinding(runtime) || typeof verifyCurrent !== 'function' || typeof verifyReleaseClock !== 'function' || typeof resolveWorkBrief !== 'function'
       || typeof attemptStore?.reserve !== 'function' || typeof attemptStore?.complete !== 'function'
       || typeof attemptStore?.checkConsumed !== 'function'
+      || typeof auditStore?.begin !== 'function' || typeof auditStore?.finalize !== 'function' || !traceContext
       || typeof now !== 'function' || !Number.isSafeInteger(hard_timeout_ms)
       || hard_timeout_ms < 100 || hard_timeout_ms > 3_600_000
       || !Number.isSafeInteger(preflight_timeout_ms) || preflight_timeout_ms < 100 || preflight_timeout_ms > 60_000
@@ -225,6 +234,11 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
       attempt: { operation_id: input.operation_id, fencing_epoch: input.fencing_epoch, attempt_no: input.attempt_no } });
     if (reservation.status !== 'RESERVED') return outcome(reservation.hold_code);
     const receiptRef = reservation.receipt_ref;
+    const workId = `native-work.${reservation.token.claim_key}`;
+    let audit = null;
+    let visibleOutput = Buffer.alloc(0);
+    let commandEvidence = null;
+    let sessionEvidence = null;
     const receipt = { operation_id: input.operation_id, attempt_no: input.attempt_no, fencing_epoch: input.fencing_epoch,
       brief_binding: expected.brief_binding, requested_session_ref: runtime.session_ref,
       profile_ref: runtime.profile_ref, executable_sha256: runtime.executable_sha256,
@@ -234,11 +248,37 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
       candidate_custody: false, reviewed: false, human_accepted: false,
       observed_effort: 'UNKNOWN', external_effects: 'UNKNOWN' };
     const finish = async (reason, resultRef = null) => {
-      const value = outcome(reason, receiptRef, resultRef);
+      let finalReason = reason;
+      let finalRef = resultRef;
+      if (audit) {
+        try {
+          const final = await auditStore.finalize({ work_id: workId, expected_header_digest: audit.header_digest, output: visibleOutput,
+            evidence: { completed_at: new Date(now()).toISOString(), outcome: resultRef ? 'response_observed' : 'hold',
+              reason_code: reason, attempt_no: input.attempt_no, fencing_epoch: input.fencing_epoch,
+              operation_id: input.operation_id, instruction_sha256: receipt.input_sha256,
+              stdin_release_intent: receipt.stdin_released, pipe_write_completed: commandEvidence?.pipe_written ?? false,
+              program_input_receipt: 'UNCONFIRMED', model_input_receipt: 'UNCONFIRMED',
+              stdout_sha256: receipt.stdout_sha256, stderr_sha256: receipt.stderr_sha256,
+              cli_exit_code: receipt.cli_exit_code, capture_state: commandEvidence?.state ?? 'NOT_STARTED',
+              observed_effort: 'UNKNOWN', external_effects: 'UNKNOWN',
+              session_recorded_model: sessionEvidence?.lineage.at(-1)?.model ?? null,
+              session_recorded_provider: sessionEvidence?.lineage.at(-1)?.billing_provider ?? null,
+              model_execution_receipt: 'UNCONFIRMED',
+              session_metadata_digest: sessionEvidence?.metadata_digest ?? null,
+              tool_observation: sessionEvidence ? 'SESSION_METADATA_ONLY' : 'UNKNOWN',
+              tool_records: sessionEvidence?.tool_records ?? null,
+              verification_refs: [receiptRef], candidate_custody: false, human_accepted: false } });
+          audit = { ...audit, ...final };
+          if (onAuditRecorded && await onAuditRecorded(audit) !== true) throw new Error('audit link failed');
+        } catch {
+          finalReason = 'HERMES_NATIVE_AUDIT_FINALIZE_UNKNOWN'; finalRef = null;
+        }
+      }
+      const value = outcome(finalReason, receiptRef, finalRef, audit);
       const persisted = await attemptStore.complete(reservation.token, { ...receipt,
-        status: value.status, reason_code: reason, result_ref: resultRef });
+        status: value.status, reason_code: finalReason, result_ref: finalRef });
       return persisted.status === 'RECORDED' ? value
-        : outcome('HERMES_NATIVE_RECEIPT_PERSISTENCE_UNKNOWN', receiptRef);
+        : outcome('HERMES_NATIVE_RECEIPT_PERSISTENCE_UNKNOWN', receiptRef, null, audit);
     };
     let prompt;
     try { prompt = await bounded(resolveWorkBrief, preflight_timeout_ms); }
@@ -246,11 +286,22 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
     if (typeof prompt !== 'string' || prompt.length === 0 || Buffer.byteLength(prompt) > max_input_bytes
       || /\u0000/u.test(prompt)) return finish('HERMES_NATIVE_INPUT_OVERSIZED_OR_INVALID');
     receipt.input_sha256 = hash(prompt);
+    try {
+      audit = await auditStore.begin({ work_id: workId, instruction: Buffer.from(prompt, 'utf8'),
+        context: { ...traceContext, recorded_at: new Date(now()).toISOString(),
+          operation_id: input.operation_id, attempt_no: input.attempt_no, fencing_epoch: input.fencing_epoch,
+          executable_sha256: runtime.executable_sha256, source_manifest_digest: digestOf(runtime.source_pins) } });
+      if (onAuditPrepared && await onAuditPrepared(audit) !== true) throw new Error('audit link failed');
+    } catch { return finish('HERMES_NATIVE_AUDIT_PREPARE_FAILED'); }
     let preRelease;
     const verifyBeforeRelease = async () => {
       if (!same(await inspect(), identities) || !await current()) return false;
       preRelease = await readMetadata();
       return validSession(preRelease, runtime) && same(preRelease, before);
+    };
+    const verifyAuditBeforeRelease = async () => {
+      const recorded = await auditStore.read({ work_id: workId, expected_header_digest: audit.header_digest, role: 'instruction' });
+      return recorded.bytes.equals(Buffer.from(prompt, 'utf8'));
     };
     // Native profile resolution receives the already selected profile directory.
     // Keep only OS process essentials; do not inherit arbitrary runtime overrides,
@@ -259,6 +310,10 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
       'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'LANG']
       .filter((key) => typeof process.env[key] === 'string').map((key) => [key, process.env[key]]));
     env.HERMES_HOME = runtime.HERMES_HOME;
+    // Fix the native Python pipe encoding at process startup. A later console
+    // repair in Hermes is not an acknowledgment of our UTF-8 stdin bytes.
+    env.PYTHONUTF8 = '1';
+    env.PYTHONIOENCODING = 'utf-8';
     const argv = [...runtime.executable_argv_prefix, '-p', runtime.profile_name, 'chat', '--cli',
       '--resume', before.actual_session_id, '--query-file', '-', '--quiet',
       '--in', runtime.working_directory,
@@ -269,21 +324,28 @@ export function createHermesNativeChatExecutor({ feature_enabled = false, runtim
     try {
       command = await runNativeChild({ executable: runtime.executable_path, argv,
         cwd: runtime.working_directory, env, stdin: Buffer.from(prompt, 'utf8') },
-      { verifyBeforeRelease, verifyReleaseClock, timeoutMs: hard_timeout_ms, maxOutputBytes: max_output_bytes, signal, onStdinRelease });
+      { verifyBeforeRelease, verifyAuditBeforeRelease, verifyReleaseClock, timeoutMs: hard_timeout_ms, maxOutputBytes: max_output_bytes, signal, onStdinRelease });
     } catch { return finish('HERMES_NATIVE_EXECUTION_UNKNOWN'); }
     receipt.stdin_released = command.released;
+    commandEvidence = command;
+    visibleOutput = command.stdout;
     receipt.cli_exit_code = Number.isSafeInteger(command.code) ? command.code : null;
     receipt.stdout_sha256 = hash(command.stdout);
     receipt.stderr_sha256 = hash(command.stderr);
+    if (command.released) {
+      try { sessionEvidence = await readMetadata(before.watermark); }
+      catch { /* The bounded visible output can still be preserved; tool/session evidence stays UNKNOWN. */ }
+    }
     if (command.state !== 'closed' || !command.verified || !command.released || command.code !== 0) {
       return finish(command.state === 'pre_release_drift' ? 'HERMES_NATIVE_PRE_RELEASE_DRIFT'
         : command.state === 'oversized' ? 'HERMES_NATIVE_OUTPUT_OVERSIZED_UNKNOWN'
           : command.state === 'timeout' ? 'HERMES_NATIVE_TIMEOUT_UNKNOWN' : 'HERMES_NATIVE_EXECUTION_UNKNOWN');
     }
     let after;
-    try { after = await readMetadata(before.watermark); }
+    try { after = sessionEvidence ?? await readMetadata(before.watermark); }
     catch { return finish('HERMES_NATIVE_SESSION_READBACK_UNKNOWN'); }
     receipt.after_metadata_digest = after.metadata_digest;
+    sessionEvidence = after;
     receipt.actual_session_id_digest = digestOf(after.actual_session_id);
     let stderr;
     try { stderr = new TextDecoder('utf-8', { fatal: true }).decode(command.stderr); }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, writeFile, rm, chmod } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ import { createHermesNativeAttemptStore } from '../src/hermes_native_attempt_sto
 import { readHermesNativeSessionMetadata } from '../src/hermes_native_session_metadata.mjs';
 import { digestOf } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
 import { runHermesNativeCli } from '../src/hermes_native_cli.mjs';
+import { createHermesNativeAuditStore } from '../src/hermes_native_audit_store.mjs';
 import { admitForgeLinearExecutionPacket } from '../src/forge_linear_execution_packet_admission.mjs';
 import { verifyAgentWorkforceAuthorityClaim, AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA,
   AGENT_AUTHORITY_CURRENT_STATE_SCHEMA } from '../../../../guild_hall/agent_observation/agent_authority_verification.mjs';
@@ -32,7 +33,8 @@ async function fixture(t, mode = 'ok', options = {}) {
     : profileName === 'default' ? null : profileName;
   const home = profileName === 'default' ? path.join(root, 'hermes-default') : path.join(root, 'profiles', profileName);
   const attempts = path.join(root, 'attempts');
-  await mkdir(home, { recursive: true }); await mkdir(attempts);
+  const auditRoot = path.join(root, 'protected-audit');
+  await mkdir(home, { recursive: true }); await mkdir(attempts); await mkdir(auditRoot);
   await writeFile(path.join(home, 'mode.txt'), mode);
   const f = await nativeAuthorityFixture();
   const selected = f.authority_request.executor_binding;
@@ -53,7 +55,7 @@ async function fixture(t, mode = 'ok', options = {}) {
     system_prompt TEXT,last_activity_description TEXT);
     CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT,session_id TEXT,role TEXT,content TEXT,
     timestamp REAL,active INTEGER DEFAULT 1,compacted INTEGER DEFAULT 0,finish_reason TEXT,
-    effect_disposition TEXT,tool_calls TEXT,display_metadata TEXT);`);
+    effect_disposition TEXT,tool_calls TEXT,display_metadata TEXT,tool_call_id TEXT,tool_name TEXT);`);
   db.prepare(`INSERT INTO sessions (id,source,started_at,model,billing_provider,profile_name,model_config,
     system_prompt,last_activity_description) VALUES (?,'cli',1,?,?,?,'{}',?,?)`).run(runtime.session_id,
     runtime.expected_model, runtime.provider, profileMetadata, 'Never select system prompt body', 'Never select description');
@@ -66,6 +68,10 @@ async function fixture(t, mode = 'ok', options = {}) {
   const settings = {
     feature_enabled: true, authority_request: f.authority_request, brief_binding: briefBinding,
     runtime_binding: runtime, attempt_directory: attempts, now: () => NOW,
+    audit_storage: { root: auditRoot, storage_class: 'owner_approved_shared_worksite', owner_approval_ref: 'approval.synthetic-audit',
+      repository_root: path.resolve(fileURLToPath(new URL('../../../..', import.meta.url))),
+      backup_policy_ref: 'policy.native-execution-working-audit', read_capability_ref: 'capability.native-execution-log.read' },
+    trace_identity: { request_ref: 'request.synthetic-native', requester_ref: 'requester.synthetic-owner', entrypoint: 'native_cli' },
     hard_timeout_ms: 4000,
     resolveCurrentState: async (request) => {
       checks += 1;
@@ -88,7 +94,7 @@ async function fixture(t, mode = 'ok', options = {}) {
       action_ref: f.authority_request.task_packet.action_ref },
     task_packet: f.authority_request.task_packet, assignment_packet: f.authority_request.assignment_packet };
   const bind = () => bindHermesNativeRuntime(settings);
-  return { ...f, root, home, attempts, runtime, settings, input, bind,
+  return { ...f, root, home, attempts, auditRoot, runtime, settings, input, bind,
     reads: () => reads, checks: () => checks };
 }
 
@@ -313,7 +319,8 @@ async function fileOwnedCliFixture(f, { capabilitySupported = true } = {}) {
     authority: { path: 'unused.json', content_sha256: sha('unused') }, catalogue: { path: 'unused.json', content_sha256: sha('unused') } };
   const baseDescriptor = await write('binding.json', base);
   const body = await write('forge-packet.json', f.forge_request, bodies);
-  const entry = { request_ref: 'native-approved-request', workbench_request_basis_digest: null, ...descriptors, forge_packet: body,
+  const entry = { request_ref: 'native-approved-request', requester_ref: f.settings.trace_identity.requester_ref,
+    audit_storage: f.settings.audit_storage, workbench_request_basis_digest: null, ...descriptors, forge_packet: body,
     work_brief_root: bodies, attempt_directory: f.attempts, hard_timeout_ms: 4000 };
   const native = { binding_id: 'native-execution', realm_id: base.realm_id, intake_binding_sha256: baseDescriptor.content_sha256,
     mode: 'native_chat', generation: base.generation, observed_at: base.observed_at, valid_until: base.valid_until, requests: [entry] };
@@ -456,3 +463,81 @@ for (const advanceAt of ['current', 'release']) {
     assert.equal(JSON.parse(await readFile(path.join(f.attempts, receiptFile), 'utf8')).receipt.stdin_released, false);
   });
 }
+
+function auditQuery(result) {
+  return { work_id: result.evidence_refs.find((ref) => /^native-work\.[a-f0-9]{64}$/u.test(ref)),
+    expected_header_digest: `sha256:${result.evidence_refs.find((ref) => ref.startsWith('native-audit-header.sha256.')).split('.').at(-1)}`,
+    expected_audit_digest: result.evidence_refs.some((ref) => ref.startsWith('native-audit-final.sha256.'))
+      ? `sha256:${result.evidence_refs.find((ref) => ref.startsWith('native-audit-final.sha256.')).split('.').at(-1)}` : null };
+}
+
+test('one request links original input, visible output and actual agent tool metadata without payload or success invention', async (t) => {
+  const f = await fixture(t, 'tools');
+  const result = await f.bind().executor.execute(f.input);
+  assert.equal(result.status, 'succeeded', JSON.stringify(result));
+  const store = createHermesNativeAuditStore(f.settings.audit_storage);
+  const query = auditQuery(result);
+  const record = await store.read(query);
+  const instruction = await store.read({ ...query, role: 'instruction' });
+  const output = await store.read({ ...query, role: 'output' });
+  assert.equal(instruction.bytes.toString(), JSON.stringify(f.forge_request.forge_issued_work_brief));
+  assert.equal(output.bytes.toString(), 'Synthetic result. session_id: fabricated-model-text\n');
+  assert.equal(record.header.context.requester_ref, f.settings.trace_identity.requester_ref);
+  assert.equal(record.final.evidence.tool_records.length, 2);
+  const [request, response] = record.final.evidence.tool_records;
+  assert.equal(request.phase, 'request_observed');
+  assert.equal(response.phase, 'result_row_observed');
+  assert.equal(request.tool_name, 'synthetic_read');
+  assert.equal(request.tool_call_ref, response.tool_call_ref);
+  assert.equal(response.actual_success, 'UNKNOWN');
+  assert.equal(response.output_payload_digest, null);
+  assert.equal(JSON.stringify(record).includes('DO_NOT_CAPTURE'), false);
+  assert.equal(record.final.evidence.program_input_receipt, 'UNCONFIRMED');
+  assert.equal(record.final.evidence.model_input_receipt, 'UNCONFIRMED');
+  assert.equal(record.final.evidence.pipe_write_completed, true);
+  assert.equal(record.header.context.work_session_evidence, 'NO_LINKED_RECEIPT');
+  await assert.rejects(store.read({ ...query, role: '../outside' }));
+  await assert.rejects(store.read({ ...query, work_id: `native-work.${'0'.repeat(64)}` }));
+});
+
+test('snapshot recording failure prevents child invocation and remains consumed', async (t) => {
+  const f = await fixture(t);
+  f.settings.audit_storage.root = path.join(f.root, 'missing-protected-worksite');
+  const result = await f.bind().executor.execute(f.input);
+  assert.equal(result.reason_code, 'HERMES_NATIVE_AUDIT_PREPARE_FAILED');
+  await assert.rejects(readFile(path.join(f.home, 'started.txt')));
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+});
+
+test('visible-output recording failure after a call is UNKNOWN, never overwrites and never resends', async (t) => {
+  const f = await fixture(t);
+  let occupied;
+  f.settings.onAuditPrepared = async (trace) => {
+    occupied = path.join(f.auditRoot, trace.audit_ref, 'visible-output.utf8');
+    await writeFile(occupied, 'preexisting bytes', { flag: 'wx' });
+    return true;
+  };
+  const result = await f.bind().executor.execute(f.input);
+  assert.equal(result.reason_code, 'HERMES_NATIVE_AUDIT_FINALIZE_UNKNOWN');
+  assert.equal(result.result_ref, null);
+  assert.equal(await readFile(occupied, 'utf8'), 'preexisting bytes');
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+  assert.equal((await readFile(path.join(f.home, 'started.txt'), 'utf8')).trim().split('\n').length, 1);
+  const record = await createHermesNativeAuditStore(f.settings.audit_storage).read(auditQuery(result));
+  assert.equal(record.state, 'INCOMPLETE_UNKNOWN');
+});
+
+test('an instruction snapshot changed during the final release callback cannot be sent', async (t) => {
+  const f = await fixture(t);
+  let snapshotPath;
+  f.settings.onAuditPrepared = async (trace) => {
+    snapshotPath = path.join(f.auditRoot, trace.audit_ref, 'instruction.utf8'); return true;
+  };
+  f.settings.onStdinRelease = async () => {
+    await chmod(snapshotPath, 0o600); await writeFile(snapshotPath, 'changed snapshot'); return true;
+  };
+  const result = await f.bind().executor.execute(f.input);
+  assert.equal(result.reason_code, 'HERMES_NATIVE_PRE_RELEASE_DRIFT');
+  await assert.rejects(readFile(path.join(f.home, 'input-digest.txt')));
+  assert.equal((await f.bind().executor.execute(f.input)).reason_code, 'HERMES_NATIVE_ATTEMPT_ALREADY_CONSUMED');
+});

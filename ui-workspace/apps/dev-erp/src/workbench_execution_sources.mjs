@@ -8,7 +8,7 @@ import { admitForgeLinearExecutionPacket } from './forge_linear_execution_packet
 import { matchRoleCapabilities } from './role_capability_matcher.mjs';
 import { assignCandidate } from './assignment_policy.mjs';
 import { admitCandidateExecutorAuthority } from './candidate_execution_authority_adapter.mjs';
-import { prepareHermesNativeRequest } from './hermes_native_cli.mjs';
+import { prepareHermesNativeRequest, readHermesNativeAudit } from './hermes_native_cli.mjs';
 
 export const SYNTHETIC_WORKER_URL = new URL('./workbench_synthetic_worker.mjs', import.meta.url);
 const SHA = /^sha256:[a-f0-9]{64}$/u;
@@ -32,7 +32,8 @@ export function createWorkbenchExecutionSources({ intakeSources, bindingDigest, 
     assert(nativeDeployment?.enabled === true && nativeDeployment.native_binding_sha256 === bindingDigest,
       'HERMES_NATIVE_DEPLOYMENT_BINDING_REQUIRED');
     return Object.freeze({ mode,
-      async authorize({ record, requester, canAccessProject, checkSession = async () => true, signal, onStdinRelease }) {
+      async authorize({ record, requester, canAccessProject, checkSession = async () => true, signal, onStdinRelease,
+        onAuditPrepared, onAuditRecorded }) {
         const request = record.request;
         let currentEvidence;
         const verifyAccess = async () => {
@@ -46,7 +47,8 @@ export function createWorkbenchExecutionSources({ intakeSources, bindingDigest, 
         };
         assert(await verifyAccess(), 'AUTH_REQUIRED');
         const prepared = await prepareHermesNativeRequest({ workbench_request_basis_digest: workbenchExecutionRequestBasis(request),
-          deployment: nativeDeployment, now, signal, onStdinRelease, verifyAccess });
+          deployment: nativeDeployment, now, signal, onStdinRelease, onAuditPrepared, onAuditRecorded,
+          requester_ref: requester, trace_request_ref: record.request_id, verifyAccess });
         assert(prepared.status === 'BOUND', prepared.hold_code ?? 'HERMES_NATIVE_BINDING_UNAVAILABLE');
         const task = prepared.authority_request.task_packet;
         assert(same(task.task_ref, request.policy_refs.task_ref) && same(task.task_ref, currentEvidence.linear_task.task_ref),
@@ -64,6 +66,23 @@ export function createWorkbenchExecutionSources({ intakeSources, bindingDigest, 
           // the child keeps its own exact, shorter native execution budget.
           timeout_ms: prepared.timeout_ms + 30_000,
           work_brief_digest: task.work_brief_revision_ref.content_sha256 };
+      },
+      async readAudit({ record, recordedRequestRef, requester, canAccessProject, checkSession, trace, role = null }) {
+        assert(requester === record.request.requester && await checkSession() === true, 'AUTH_REQUIRED');
+        assert(typeof intakeSources.authorizeRecordedScope === 'function', 'NATIVE_AUDIT_SCOPE_UNAVAILABLE');
+        await intakeSources.authorizeRecordedScope({ request: record.request, requester, canAccessProject });
+        let result;
+        try {
+          result = await readHermesNativeAudit({ deployment: nativeDeployment,
+            request_basis_digest: workbenchExecutionRequestBasis(record.request), requester_ref: requester,
+            recorded_request_ref: recordedRequestRef, trace, role });
+        } catch (error) {
+          if (error.workbenchCode) throw error;
+          fail('NATIVE_AUDIT_INTEGRITY_UNKNOWN');
+        }
+        await intakeSources.authorizeRecordedScope({ request: record.request, requester, canAccessProject });
+        assert(await checkSession() === true, 'AUTH_REQUIRED');
+        return result;
       },
     });
   }
