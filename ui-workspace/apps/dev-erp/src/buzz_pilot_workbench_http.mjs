@@ -20,7 +20,7 @@ function send(res, status, value) {
  * The producer's authorize callback owns the exact current Owner decision.
  * No issue, append, model or tool operation is exposed by this controller. */
 export function createBuzzPilotWorkbenchHttpController({ service = null, enabled = service !== null, allowedOrigin,
-  currentAccount, sessionKey, canAccessProject } = {}) {
+  currentAccount, sessionKey, canAccessProject, authSourcePort = null } = {}) {
   if (![currentAccount, sessionKey, canAccessProject].every(value => typeof value === 'function')) throw new TypeError('server_auth_required');
   let origin;
   try {
@@ -28,6 +28,11 @@ export function createBuzzPilotWorkbenchHttpController({ service = null, enabled
     if (candidate.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(candidate.hostname)
       && !candidate.username && !candidate.password && candidate.pathname === '/' && !candidate.search && !candidate.hash) origin = candidate;
   } catch { /* Missing exact loopback binding stays unavailable. */ }
+  let loginUrl = null;
+  if (origin && /^[1-9][0-9]{0,4}$/u.test(String(authSourcePort)) && Number(authSourcePort) <= 65535) {
+    const source = new URL(origin.origin); source.port = String(authSourcePort);
+    loginUrl = source.href;
+  }
   async function principal(req) {
     const account = await currentAccount(req), session = await sessionKey(req);
     if (!account?.id || !session) fail(401, 'AUTH_REQUIRED');
@@ -80,7 +85,8 @@ export function createBuzzPilotWorkbenchHttpController({ service = null, enabled
         : ['buzz_pilot_job_missing', 'buzz_pilot_evidence_missing'].includes(error.code) ? 404 : 503);
       const code = error.status ? error.code : status === 403 ? 'BUZZ_PILOT_ACCESS_REQUIRED'
         : status === 404 ? 'BUZZ_PILOT_RECORD_NOT_FOUND' : 'BUZZ_PILOT_UNAVAILABLE';
-      send(res, status, { hold_code: code });
+      send(res, status, { hold_code: code,
+        ...(status === 401 && code === 'AUTH_REQUIRED' && service && loginUrl ? { login_url: loginUrl } : {}) });
     }
     return true;
   };

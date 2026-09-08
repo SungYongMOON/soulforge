@@ -17,7 +17,7 @@ import { createWorkbenchExecutionStore } from '../src/workbench_execution_store.
 import { createWorkbenchExecutionService } from '../src/workbench_execution_service.mjs';
 
 const base = 'http://127.0.0.1:47821';
-function fixture() {
+function fixture(options = {}) {
   const state = { account: { id: 'owner.synthetic' }, session: 'synthetic-session', projectAllowed: true, calls: 0 };
   const authorize = async access => {
     state.calls += 1;
@@ -29,7 +29,7 @@ function fixture() {
     readEvidence: async (query, access) => { await authorize(access); state.query = query;
       return { bytes: Buffer.from('synthetic evidence'), size: 18, mediaType: 'text/plain' }; } };
   const controller = createBuzzPilotWorkbenchHttpController({ service, allowedOrigin: base,
-    currentAccount: () => state.account, sessionKey: () => state.session, canAccessProject: () => state.projectAllowed });
+    currentAccount: () => state.account, sessionKey: () => state.session, canAccessProject: () => state.projectAllowed, ...options });
   async function request(path = '/api/workbench/buzz-pilot', options = {}) {
     const req = { method: 'GET', url: path, socket: { remoteAddress: '127.0.0.1' },
       headers: { host: '127.0.0.1:47821', 'sec-fetch-site': 'same-origin' }, ...options };
@@ -39,6 +39,29 @@ function fixture() {
   }
   return { state, service, request };
 }
+
+test('only unauthenticated reads receive the configured same-host source login hint', async () => {
+  const f = fixture({ authSourcePort: 47820 }); f.state.account = null;
+  assert.deepEqual(JSON.parse((await f.request()).body), { hold_code: 'AUTH_REQUIRED', login_url: 'http://127.0.0.1:47820/' });
+  const legacy = fixture(); legacy.state.account = null;
+  assert.deepEqual(JSON.parse((await legacy.request()).body), { hold_code: 'AUTH_REQUIRED' });
+  const broken = fixture({ authSourcePort: 47820, currentAccount: () => { throw Object.assign(new Error(),
+    { status: 503, code: 'BUZZ_PILOT_AUTH_SOURCE_UNAVAILABLE' }); } });
+  const result = await broken.request(); assert.equal(result.statusCode, 503);
+  assert.deepEqual(JSON.parse(result.body), { hold_code: 'BUZZ_PILOT_AUTH_SOURCE_UNAVAILABLE' });
+});
+
+test('Host/query input and malformed source ports cannot redirect the login hint', async () => {
+  const f = fixture({ authSourcePort: 47820 }); f.state.account = null;
+  const forgedHost = await f.request(undefined, { headers: { host: 'attacker.example', 'sec-fetch-site': 'same-origin' } });
+  assert.equal(forgedHost.statusCode, 403); assert.equal(Object.hasOwn(JSON.parse(forgedHost.body), 'login_url'), false);
+  const query = await f.request('/api/workbench/buzz-pilot?login_url=https://attacker.example');
+  assert.equal(query.statusCode, 400); assert.equal(Object.hasOwn(JSON.parse(query.body), 'login_url'), false);
+  for (const authSourcePort of ['47820@attacker.example', '47820/?token=synthetic', 0, 65536]) {
+    const invalid = fixture({ authSourcePort }); invalid.state.account = null;
+    assert.deepEqual(JSON.parse((await invalid.request()).body), { hold_code: 'AUTH_REQUIRED' });
+  }
+});
 
 test('Buzz HTTP exposes the current authenticated snapshot and exact observed evidence', async () => {
   const f = fixture();
