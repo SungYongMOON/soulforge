@@ -4,7 +4,7 @@ import { openFeedbackDispatch } from './feedback_dispatch.mjs';
 
 export async function runFeedbackReadboxCli(argv) {
   const [command, ...args] = argv;
-  if (command === '--help') return { usage: 'feedback_readbox_cli.mjs prepare|send|receipt|authorize|tick|poll --config ABS.json --config-sha256 SHA [--ref REF --sha256 SHA | --dispatch-ref REF --envelope-sha256 SHA]',
+  if (command === '--help') return { usage: 'feedback_readbox_cli.mjs prepare|send|receipt|authorize|tick|poll --config ABS.json --config-sha256 SHA [--ref REF --sha256 SHA [--locator r:N|n:N] | --dispatch-ref REF --envelope-sha256 SHA]',
     boundary: 'Independent candidate; no credential loading, model startup, service registration or human acceptance.' };
   const flags = {};
   for (let i = 0; i < args.length; i += 2) {
@@ -14,10 +14,11 @@ export async function runFeedbackReadboxCli(argv) {
   const required = ['--config', '--config-sha256'];
   const extra = { prepare: ['--ref', '--sha256'], send: ['--dispatch-ref'], receipt: ['--dispatch-ref'],
     authorize: ['--dispatch-ref', '--envelope-sha256'], tick: [], poll: ['--interval-ms'] }[command];
-  if (!extra || Object.keys(flags).length !== required.length + extra.length || [...required, ...extra].some(k => !flags[k])) throw new Error('INVALID_ARGUMENTS');
+  const optional = command === 'prepare' && flags['--locator'] !== undefined ? ['--locator'] : [];
+  if (!extra || Object.keys(flags).length !== required.length + extra.length + optional.length || [...required, ...extra].some(k => !flags[k])) throw new Error('INVALID_ARGUMENTS');
   const dispatch = await openFeedbackDispatch({ configPath: flags['--config'], configSha256: flags['--config-sha256'], readOnly: command === 'authorize' });
   try {
-    if (command === 'prepare') return await dispatch.prepare({ ref: flags['--ref'], sha256: flags['--sha256'] });
+    if (command === 'prepare') return await dispatch.prepare({ ref: flags['--ref'], sha256: flags['--sha256'], ...(flags['--locator'] ? { locator: flags['--locator'] } : {}) });
     if (command === 'send') return await dispatch.send(flags['--dispatch-ref']);
     if (command === 'receipt') return await dispatch.reconcile(flags['--dispatch-ref']);
     if (command === 'authorize') return await dispatch.authorizeNative(flags['--dispatch-ref'], flags['--envelope-sha256']);

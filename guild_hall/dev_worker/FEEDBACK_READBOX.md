@@ -62,12 +62,23 @@ Issue text and model output cannot choose these fields.
 
 ## Metadata and delivery semantics
 
-Lists contain at most 100 entries and source history is capped at 1000 runs plus
-1000 notices. An exceeded source cap returns unavailable; archival/paging is
-not silently invented. Only report, run-result and manager-notice families are
+Lists scan at most 100 producer rows per request using existing run `rowid` and
+notice `revision` indexes; history length is not capped. `next_cursor` encodes
+the project-bound seek positions and fixed high-water marks for that sweep.
+Pass it as `cursor` to continue; a completed sweep returns null. New rows above
+those marks appear in the next sweep, and old rows are revisited then. The view
+replaces its page (at most 50 records) when the manager chooses 이어보기.
+No producer indexes, records, archival rules or schema are changed. Only
+report, run-result and manager-notice families are
 read; each file is capped at 2 MB. Model request/exchange and validator stream
 files are never opened. Detail is also metadata-only and requires the exact
-reference and SHA obtained from the list. Summary text, stdout, model input,
+reference and SHA obtained from the list. Include the list's `locator` (`r:N`
+or `n:N`) as an indexed seek hint. Every located row is checked against the
+actual ref, hash and current project permission; the hint is not authority.
+Run refs can also be resolved directly from the bounded evidence file through
+the existing run primary key. Legacy notice requests without a locator check
+only the latest 100 notice rows, then require a locator from paged discovery.
+CLI `prepare` accepts optional `--locator`. Summary text, stdout, model input,
 source payload, candidate filesystem paths and arbitrary links are excluded.
 Current control rows and evidence pins are rechecked before returning data.
 
@@ -83,8 +94,22 @@ PREPARED envelope may refresh after expiry or a current approved route renewal;
 a compare-and-swap protects it from a concurrent sender. The native CLI refuses
 an envelope until the dispatcher has durably consumed its attempt. Attempted
 envelopes are immutable. Repeated observations reuse that row; recovery has its
-own event. The dispatcher scans the bounded full metadata set, skips consumed
-events and handles at most 20 pending events per tick, including older events.
+own event. The dispatcher persists a page cursor and at most 20 pending
+metadata pins in its own SQLite store, protected by a revision compare-and-swap.
+Each tick reads at most one 20-row source page and handles at most three pending
+events. Unattempted remainder survives restart. Completed sweeps wrap to fresh
+high-water marks, discovering old rows that changed behind the cursor. Failed
+items are revisited on subsequent sweeps; consumed ACK/UNKNOWN events are skipped.
+Growing history therefore increases revisit latency, not request memory or the
+amount read per tick. Reader and authority operations have five-second response
+budgets; ticks have a 60-second abort budget, and each native request retains its
+15-second timeout. On tick expiry, fetch is cancelled, future mutations/sends
+are guarded by the abort signal, and the uncompleted pending item is retained.
+An already consumed attempt remains UNKNOWN for later exact receipt recovery.
+These are normal event-loop deadlines, not hard real-time operating-system
+guarantees. The bounded SQLite operations use existing indexes and short lock
+waits, avoiding full-history sorts/scans. At most one bounded file read may
+finish after a read timeout; it cannot return data or advance a dispatch cursor.
 `PREPARED` means no sender attempt has yet been consumed. The dispatcher commits
 `DELIVERY_UNKNOWN` before HTTP and makes one call. Timeout, lost response,
 malformed receipt and rejection never cause an automatic resend. A separate
@@ -124,7 +149,10 @@ binding before any separately authorized installation.
 
 Run the `feedback_readbox.test.mjs`, `feedback_dispatch.test.mjs`,
 `feedback_readbox_native_integration.test.mjs` and HTTP leaf tests with Node;
-run `test_feedback_buzz_bridge.py` with Python unittest. Fixtures are synthetic,
+run `test_feedback_buzz_bridge.py` with Python unittest. The history follow-up
+`feedback_readbox_history.test.mjs` covers 1100+ run/notice records, real paged
+HTTP, durable pending/restart, revocation, old state changes, no resend, and a
+synthetic timer-triggered tick cancellation. Fixtures are synthetic,
 use real SQLite, subprocesses, loopback HTTP and staged copies, and do not prove
 live gateway availability or real delivery.
 

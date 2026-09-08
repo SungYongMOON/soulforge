@@ -6,12 +6,18 @@ const PAGE = '/workbench/feedback-readbox';
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const REF = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,159}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
+const CURSOR = /^[A-Za-z0-9_-]{40,1024}$/u;
+const LOCATOR = /^[rn]:[1-9][0-9]{0,15}$/u;
 const DELIVERY = new Set(['NOT_OBSERVED', 'PREPARED', 'DELIVERY_UNKNOWN', 'ACKNOWLEDGED']);
 const fail = (status, code) => { throw Object.assign(new Error(code), { readboxStatus: status, readboxCode: code }); };
 const validRef = value => typeof value === 'string' && REF.test(value);
 function metadata(item) {
   if (!item || !validRef(item.ref) || !HASH.test(item.sha256) || !['result', 'manager_notice'].includes(item.kind)) fail(503, 'FEEDBACK_READBOX_UNAVAILABLE');
   const output = { ref: item.ref, sha256: item.sha256 };
+  if (item.locator !== undefined) {
+    if (!LOCATOR.test(item.locator)) fail(503, 'FEEDBACK_READBOX_UNAVAILABLE');
+    output.locator = item.locator;
+  }
   for (const key of ['kind', 'event_key', 'state', 'run_ref', 'reason']) {
     if (item[key] === null) output[key] = null;
     else if (item[key] !== undefined) {
@@ -78,15 +84,16 @@ export function createFeedbackReadboxHttpController({ service = null, enabled = 
       const keys = [...url.searchParams.keys()], evidence = url.pathname === `${BASE}/evidence`;
       let query;
       if (evidence) {
-        const ref = url.searchParams.get('ref'), sha256 = url.searchParams.get('sha256');
-        if (keys.length !== 2 || new Set(keys).size !== keys.length || !keys.every(key => ['ref', 'sha256'].includes(key))
-          || !validRef(ref) || !HASH.test(sha256)) fail(400, 'INVALID_QUERY');
-        query = { ref, sha256 };
+        const ref = url.searchParams.get('ref'), sha256 = url.searchParams.get('sha256'), locator = url.searchParams.get('locator');
+        if (keys.length !== (locator === null ? 2 : 3) || new Set(keys).size !== keys.length || !keys.every(key => ['ref', 'sha256', 'locator'].includes(key))
+          || !validRef(ref) || !HASH.test(sha256) || locator !== null && !LOCATOR.test(locator)) fail(400, 'INVALID_QUERY');
+        query = { ref, sha256, ...(locator === null ? {} : { locator }) };
       } else {
-        const limit = url.searchParams.get('limit');
-        if ((page && url.search) || keys.some(key => key !== 'limit') || keys.length > 1
+        const limit = url.searchParams.get('limit'), cursor = url.searchParams.get('cursor');
+        if ((page && url.search) || keys.some(key => !['limit', 'cursor'].includes(key)) || keys.length !== new Set(keys).size
+          || cursor !== null && !CURSOR.test(cursor)
           || (limit !== null && (!/^[1-9][0-9]{0,2}$/u.test(limit) || Number(limit) > 100))) fail(400, 'INVALID_QUERY');
-        query = { limit: limit === null ? 50 : Number(limit) };
+        query = { limit: limit === null ? 50 : Number(limit), ...(cursor === null ? {} : { cursor }) };
       }
       if (!enabled) fail(404, 'FEEDBACK_READBOX_DISABLED');
       const p = await principal(req);
@@ -109,11 +116,14 @@ export function createFeedbackReadboxHttpController({ service = null, enabled = 
       else {
         if (result.state !== 'CURRENT' || !Array.isArray(result.items) || result.items.length > query.limit
           || typeof result.has_more !== 'boolean') fail(503, 'FEEDBACK_READBOX_UNAVAILABLE');
-        send(res, 200, { state: 'CURRENT', project_id: result.project_id, items: result.items.map(metadata), has_more: result.has_more });
+        if (result.has_more && !CURSOR.test(result.next_cursor)) fail(503, 'FEEDBACK_READBOX_UNAVAILABLE');
+        send(res, 200, { state: 'CURRENT', project_id: result.project_id, items: result.items.map(metadata), has_more: result.has_more,
+          next_cursor: result.has_more ? result.next_cursor : null });
       }
     } catch (error) {
       const known = { FEEDBACK_READBOX_ACCESS_REQUIRED: 403, FEEDBACK_READBOX_AUTH_REQUIRED: 401,
-        FEEDBACK_READBOX_RECORD_NOT_FOUND: 404, FEEDBACK_READBOX_PIN_CHANGED: 409 };
+        FEEDBACK_READBOX_RECORD_NOT_FOUND: 404, FEEDBACK_READBOX_PIN_CHANGED: 409,
+        FEEDBACK_READBOX_CURSOR_INVALID: 400, FEEDBACK_READBOX_LOCATOR_INVALID: 400, FEEDBACK_READBOX_LOCATOR_REQUIRED: 400 };
       const code = error.readboxCode ?? (Object.hasOwn(known, error.feedbackCode) ? error.feedbackCode : 'FEEDBACK_READBOX_UNAVAILABLE');
       send(res, error.readboxStatus ?? known[code] ?? 503, { hold_code: code });
     }

@@ -66,7 +66,7 @@ test('real loopback HTTP returns only current manager metadata and immutable det
   const f = await fixture(t);
   const result = await f.request(`${BASE}?limit=1`);
   assert.equal(result.status, 200); assert.deepEqual(f.state.query, { limit: 1 });
-  assert.deepEqual(result.json(), { state: 'CURRENT', project_id: 'SYN-001', items: [record()], has_more: false });
+  assert.deepEqual(result.json(), { state: 'CURRENT', project_id: 'SYN-001', items: [record()], has_more: false, next_cursor: null });
   assert.equal(result.headers['cache-control'], 'no-store');
   assert.equal(result.headers['x-content-type-options'], 'nosniff');
   assert.match(result.headers['content-security-policy'], /sandbox/u);
@@ -206,7 +206,7 @@ test('browser script uses safe text nodes and exact same-origin metadata fetches
     Object.defineProperty(value, 'innerHTML', { set() { assert.fail('No HTML interpolation is permitted'); } });
     nodes.push(value); return value;
   };
-  const elements = Object.fromEntries(['status', 'items', 'detail', 'refresh'].map(id => [id, node()]));
+  const elements = Object.fromEntries(['status', 'items', 'detail', 'refresh', 'next'].map(id => [id, node()]));
   const malicious = '<img src=x onerror=alert(1)>', item = { ...record(), reason: malicious };
   const calls = [];
   runInNewContext(feedbackReadboxScript, {
