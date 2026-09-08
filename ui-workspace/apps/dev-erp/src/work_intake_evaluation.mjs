@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { isWorkIntakeResult, WORK_INTAKE_CLASSIFICATIONS } from "./work_intake_adapter.mjs";
+import { hashWorkIntakeFacts, isWorkIntakeResult, runWorkIntake, WORK_INTAKE_CLASSIFICATIONS } from "./work_intake_adapter.mjs";
 import { isValidatedHourlyShadowCycle } from "./hourly_shadow_cycle_contract.mjs";
 import { evaluateShadowCycle } from "./shadow_evaluator.mjs";
 
@@ -197,5 +197,133 @@ export function compareWorkIntakeEvaluations(values, options = { vary_dimensions
     winner: "NOT_INFERRED", token_savings: "UNKNOWN" });
   } catch {
     return hold("INVALID_COMPARISON_REPORTS");
+  }
+}
+
+// A different experiment from same-snapshot A/B comparison: bind both complete
+// inputs before either judge runs, then check a separately authored relation.
+// The brand keeps arbitrary adapter results from being paired with other facts.
+const RELATION_PAIRS = new WeakMap();
+const RELATION_DIMENSIONS = ["run_id", "event_revision", "event_facts", "linear_tasks", "source_reads"];
+const relationHash = hashWorkIntakeFacts;
+
+function relationSnapshot(input) {
+  const inputHash = relationHash(input); // Reject exotic/unbounded graphs first.
+  const copy = structuredClone(input);
+  copy.document_validation = input.document_validation; // Retain validation brand.
+  if (copy.provenance !== "synthetic" || !Array.isArray(copy.events) || copy.events.length !== 1
+    || !Array.isArray(copy.echo_receipts) || copy.echo_receipts.length !== 0) throw new Error("relation_scope");
+  return { input: freeze(copy), inputHash };
+}
+
+export async function runWorkIntakeRelationPair(inputs, judges) {
+  try {
+    if (!exact(inputs, ["before", "after"]) || !exact(judges, ["before", "after"])
+      || typeof judges.before !== "function" || typeof judges.after !== "function") return hold("INVALID_RELATION_INPUT");
+    const captured = { before: relationSnapshot(inputs.before), after: relationSnapshot(inputs.after) };
+    for (const side of ["before", "after"]) {
+      const state = captured[side];
+      state.judge_calls = 0; state.judge_failed = false; state.judge_input_sha256 = null;
+      state.run = await runWorkIntake(state.input, { judge: async (request) => {
+        state.judge_calls++; state.judge_input_sha256 = request.input_sha256;
+        try { return await judges[side](request); }
+        catch (error) { state.judge_failed = true; throw error; }
+      } });
+    }
+    const value = freeze({ status: "RELATION_PAIR_READY", provenance: "synthetic",
+      before: captured.before.run, after: captured.after.run });
+    RELATION_PAIRS.set(value, captured);
+    return value;
+  } catch {
+    return hold("INVALID_RELATION_INPUT");
+  }
+}
+
+function relationDimensions(input) {
+  const rest = structuredClone(input), event = rest.events[0];
+  const dimensions = {
+    run_id: rest.run_id,
+    event_revision: { revision_ref: event.revision_ref, revision_sha256: event.revision_sha256, evidence_refs: event.evidence_refs },
+    event_facts: { facts: event.facts, facts_sha256: event.facts_sha256 },
+    linear_tasks: rest.linear_view.tasks,
+    source_reads: rest.source_reads.map((read) => read.status),
+  };
+  delete rest.run_id; delete rest.linear_view.tasks;
+  rest.source_reads.forEach((read) => { delete read.status; });
+  for (const key of ["revision_ref", "revision_sha256", "evidence_refs", "facts", "facts_sha256"]) delete event[key];
+  return { dimensions, rest };
+}
+
+function relationInvariantPins(input, changed) {
+  const { source, scope_ref, event_ref } = input.events[0];
+  return { project_ref: input.project_ref, event_identity: { source, scope_ref, event_ref },
+    window: input.window, observed_at: input.observed_at, permission_refs: input.permission_refs,
+    ...(!changed.includes("event_revision") ? { event_revision_sha256: input.events[0].revision_sha256 } : {}),
+    ...(!changed.includes("event_facts") ? { event_facts_sha256: input.events[0].facts_sha256 } : {}) };
+}
+
+export function evaluateWorkIntakeRelationPair(pair, contract, trustedContractSha256) {
+  try {
+    const captured = record(pair) && RELATION_PAIRS.get(pair);
+    if (!captured || !isWorkIntakeResult(pair.before) || !isWorkIntakeResult(pair.after)) return hold("INVALID_RELATION_PAIR");
+    if (typeof trustedContractSha256 !== "string" || !HASH.test(trustedContractSha256)
+      || relationHash(contract) !== trustedContractSha256) return hold("RELATION_CONTRACT_DIGEST_MISMATCH");
+    if (!exact(contract, ["contract_ref", "pair_id", "provenance", "fixture_revision_sha256", "before_input_sha256", "after_input_sha256",
+      "expected_before", "expected_after", "relation", "semantic_relation", "changed_dimensions", "invariant_pins"])
+      || !token(contract.contract_ref) || !token(contract.pair_id) || !HASH.test(contract.fixture_revision_sha256)
+      || !["PRESERVE", "CHANGE"].includes(contract.relation)
+      || ![contract.expected_before, contract.expected_after].every((value) => WORK_INTAKE_CLASSIFICATIONS.includes(value) && value !== "HOLD")
+      || (contract.relation === "PRESERVE") !== (contract.expected_before === contract.expected_after)
+      || !exact(contract.semantic_relation, ["task", "action"])
+      || !Object.values(contract.semantic_relation).every((value) => ["SAME", "DIFFERENT", "UNCHECKED"].includes(value))
+      || (contract.relation === "PRESERVE" && Object.values(contract.semantic_relation).some((value) => value !== "SAME"))
+      || !Array.isArray(contract.changed_dimensions) || contract.changed_dimensions.length === 0
+      || new Set(contract.changed_dimensions).size !== contract.changed_dimensions.length
+      || contract.changed_dimensions.some((value) => !RELATION_DIMENSIONS.includes(value))) return hold("INVALID_RELATION_CONTRACT");
+    const provenance = contract.provenance;
+    if (!exact(provenance, ["kind", "author_ref", "producer_author_ref", "frozen_at"])
+      || provenance.kind !== "independent_synthetic_fixture" || !token(provenance.author_ref) || !token(provenance.producer_author_ref)
+      || provenance.author_ref === provenance.producer_author_ref || !timestamp(provenance.frozen_at)
+      || [captured.before, captured.after].some(({ input }) => !timestamp(input.observed_at)
+        || Date.parse(provenance.frozen_at) > Date.parse(input.observed_at))) return hold("INVALID_INDEPENDENT_RELATION_PROVENANCE");
+    for (const side of ["before", "after"]) {
+      const state = captured[side];
+      if (contract[`${side}_input_sha256`] !== state.inputHash || state.run.input_sha256 !== state.inputHash) return hold("RELATION_INPUT_BINDING_MISMATCH");
+      if (relationHash(contract.invariant_pins) !== relationHash(relationInvariantPins(state.input, contract.changed_dimensions))) return hold("RELATION_INVARIANT_MISMATCH");
+    }
+    const before = relationDimensions(captured.before.input), after = relationDimensions(captured.after.input);
+    if (relationHash(before.rest) !== relationHash(after.rest)) return hold("RELATION_INVARIANT_MISMATCH");
+    const changed = RELATION_DIMENSIONS.filter((key) => relationHash(before.dimensions[key]) !== relationHash(after.dimensions[key]));
+    if (changed.length !== contract.changed_dimensions.length || changed.some((key) => !contract.changed_dimensions.includes(key))) return hold("RELATION_DIMENSIONS_MISMATCH");
+    const rows = ["before", "after"].map((side) => {
+      const state = captured[side], run = state.run;
+      const events = run.attempts.filter((attempt) => attempt.kind === "event"), attempt = events[0];
+      const inputValid = state.judge_calls === 1 && events.length === 1 && !run.attempts.some((entry) => entry.kind === "input"
+        || (entry.kind === "source_read" && entry.status === "HOLD"));
+      const outputValid = inputValid && !state.judge_failed && !!attempt.model_receipt_ref && isValidatedHourlyShadowCycle(attempt.shadow_cycle);
+      return { side, run_id: run.run_id, input_sha256: state.inputHash, snapshot_sha256: run.snapshot_sha256,
+        judge_input_sha256: state.judge_input_sha256, input_valid: inputValid, output_valid: outputValid,
+        judge_failed: state.judge_failed, classification: attempt?.classification ?? "HOLD",
+        expected_classification: contract[`expected_${side}`], reason_codes: attempt?.reason_codes ?? run.hold_codes,
+        task_semantic_sha256: attempt?.task_semantic_sha256 ?? null, action_semantic_sha256: attempt?.action_semantic_sha256 ?? null };
+    });
+    if (rows.some((row) => !row.input_valid)) return hold("RELATION_INPUT_NOT_VALID");
+    const outputValid = rows.every((row) => row.output_valid);
+    // A changed prompt/policy is a second intervention, outside these input
+    // relations. Failed outputs keep their explicit failure, not UNKNOWN pins.
+    if (outputValid && relationHash(pair.before.comparison_dimensions) !== relationHash(pair.after.comparison_dimensions)) return hold("RELATION_JUDGE_DIMENSIONS_MISMATCH");
+    const checks = { classification: outputValid ? rows.every((row) => row.classification === row.expected_classification) : null };
+    for (const [name, relation] of Object.entries(contract.semantic_relation)) {
+      checks[name] = !outputValid || relation === "UNCHECKED" ? null
+        : (rows[0][`${name}_semantic_sha256`] === rows[1][`${name}_semantic_sha256`]) === (relation === "SAME");
+    }
+    const outcome = !outputValid ? (rows.some((row) => row.judge_failed) ? "JUDGE_EXECUTION_FAILED" : "OUTPUT_VALIDATION_FAILED")
+      : Object.values(checks).some((value) => value === false) ? "SEMANTIC_MISMATCH" : "PASS";
+    return freeze({ status: "RELATION_EVALUATED", hold_codes: [], provenance: "synthetic", claim: "contract_fixture_only",
+      measured_model_utility: false, pair_id: contract.pair_id, contract_ref: contract.contract_ref,
+      contract_sha256: trustedContractSha256, fixture_revision_sha256: contract.fixture_revision_sha256, verdict_provenance: structuredClone(provenance),
+      changed_dimensions: changed, relation: contract.relation, outcome, passed: outcome === "PASS", checks, rows });
+  } catch {
+    return hold("INVALID_RELATION_INPUT");
   }
 }
