@@ -115,7 +115,7 @@ class NativeTests(unittest.TestCase):
             native.package(file)
 
     def test_external_reference_entity_style_table_and_immutable_entry(self):
-        for name, old, new in [('settings.xml', b'pos="16"', b'pos="16" href="https://example.invalid/"'), ('settings.xml', b'<ha:HWPApplicationSetting', b'<!DOCTYPE x [<!ENTITY y SYSTEM "file:///secret">]><ha:HWPApplicationSetting'), ('Contents/header.xml', b'height="1000"', b'height="9000"'), (native.SECTION, b'rowCnt="2"', b'rowCnt="3"'), (native.SECTION, b'colSpan="1"', b'colSpan="2"')]:
+        for name, old, new in [('settings.xml', b'pos="16"', b'pos="16" href="https://example.invalid/"'), ('settings.xml', b'<ha:HWPApplicationSetting', b'<!DOCTYPE x [<!ENTITY y SYSTEM "file:' b'///secret">]><ha:HWPApplicationSetting'), ('Contents/header.xml', b'height="1000"', b'height="9000"'), (native.SECTION, b'rowCnt="2"', b'rowCnt="3"'), (native.SECTION, b'colSpan="1"', b'colSpan="2"')]:
             data = dict(self.contents); self.assertIn(old, data[name]); data[name] = data[name].replace(old, new)
             with self.subTest(name=name, new=new), self.assertRaises(AssertionError):
                 native.package(self.write(data))

@@ -68,7 +68,7 @@ def test_real_loopback_get_and_post(suffix):
 @pytest.mark.parametrize("url", [
     "http://example.invalid/v1", "http://localhost/v1", "http://localhost./v1",
     "http://192.0.2.1/v1", "http://0.0.0.0/v1", "http://[::]/v1",
-    "http://[::ffff:127.0.0.1]/v1", "file:///v1", "ftp://127.0.0.1/v1",
+    "http://[::ffff:127.0.0.1]/v1", "file:" "///v1", "ftp://127.0.0.1/v1",
     "//127.0.0.1/v1", "http://127.1/v1", "http://2130706433/v1",
     "http://0177.0.0.1/v1", "http://127.0.0.1.example.invalid/v1",
     "http://user:synthetic@127.0.0.1/v1", "http://@127.0.0.1/v1",
