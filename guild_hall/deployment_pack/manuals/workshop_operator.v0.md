@@ -19,6 +19,12 @@ travel with the installed tests. A passed structural result still needs actual
 Hancom render verification; it is not proof of page count, fonts, printing or
 human acceptance. That render connection remains development work.
 
+For the standard isolated release rehearsal, pass the existing five-field
+synthetic configuration with `--workshop-test-config`. Its `pythonExecutable`
+selects the HWPX test runtime as well as the PPTX runtime. Both source and
+installed children receive that explicit selection; ambient tool settings are
+not inherited. Missing configuration still leaves native tests unexecuted.
+
 ## Prerequisites
 
 - Reuse the existing authorization for internal, reversible development and synthetic canaries. The dispatcher resolves the exact workshop profile/tool-version reference, bounded job scope, and independent reviewer; routine implementation choices do not require another Owner question. External disclosure requires its separate exact review before execution.

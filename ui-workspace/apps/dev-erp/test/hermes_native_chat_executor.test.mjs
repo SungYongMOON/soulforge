@@ -27,7 +27,9 @@ const sha = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex'
 
 async function fixture(t, mode = 'ok', options = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-native-test-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  // A killed Windows child can briefly retain its cwd. Retry only fixture
+  // cleanup; persistent locks still fail the hook and no result is suppressed.
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const profileName = options.profileName ?? 'synthetic-profile';
   const profileMetadata = Object.hasOwn(options, 'profileMetadata') ? options.profileMetadata
     : profileName === 'default' ? null : profileName;

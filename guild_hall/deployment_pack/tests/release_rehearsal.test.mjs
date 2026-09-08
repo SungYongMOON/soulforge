@@ -25,6 +25,45 @@ test("only explicit bounded synthetic workshop runtime fields can reach the tool
   await assert.rejects(runReleaseRehearsal({packIds: ["team_client_pack"], workshopTestConfig: file}), {code: "rehearsal_workshop_config_without_pack"});
 });
 
+test("the real tool rehearsal forwards its explicit Python binding to source and installed HWPX tests", async t => {
+  const root = temp(t), source = join(root, "source"), file = join(root, "synthetic-runtime.json");
+  mkdirSync(join(source, "guild_hall/deployment_pack/tools"), {recursive: true});
+  mkdirSync(join(source, "guild_hall/deployment_pack/packs"), {recursive: true});
+  writeFileSync(join(source, "guild_hall/deployment_pack/tools/emit_tool_workshop_spec.mjs"), "// fixed synthetic emitter\n");
+  writeFileSync(join(source, "core.mjs"), "export const value = 1;\n");
+  // The child is a real Node test process; it verifies transport of the
+  // declared runtime selection. Actual HWPX authorship remains the native suite.
+  writeFileSync(join(source, "runtime.test.mjs"), `
+    import test from 'node:test';
+    import assert from 'node:assert/strict';
+    import {readFileSync} from 'node:fs';
+    test('explicit runtime reaches the real child', () => {
+      const config = JSON.parse(readFileSync(process.env.SOULFORGE_PPTX_TEST_CONFIG, 'utf8'));
+      assert.equal(process.env.SOULFORGE_HWPX_TEST_PYTHON, config.pythonExecutable);
+      assert.equal(config.pythonExecutable, process.execPath);
+    });
+  `);
+  const config = {artifactRoot: root, templatePath: join(root, "fixture.pptx"), pythonExecutable: process.execPath,
+    templateProvenance: "synthetic_fixture", templateApprovalRef: "approval.synthetic_runtime_transport"};
+  writeFileSync(file, JSON.stringify(config));
+  writeFileSync(join(source, "guild_hall/deployment_pack/packs/tool_workshop_pack.spec.json"), JSON.stringify({
+    schema: "soulforge.deployment_pack_spec.v0", pack_id: "tool_workshop_pack", version: "0.1.0",
+    host_effect_policy: {reboot: "forbidden", driver_change: "forbidden", system_update: "forbidden", service_restart_scope: "pack_services_only"},
+    content_roles: {resource_lease_helper: ["core.mjs"], validators: ["runtime.test.mjs"]},
+    smoke_test_entries: ["runtime.test.mjs"],
+    release_notes_ref: "release_notes.tool_workshop_pack.v0_1_0", install_manual_ref: "manual.install.tool_workshop_pack",
+    upgrade_manual_ref: "manual.upgrade.tool_workshop_pack", rollback_manual_ref: "manual.rollback.tool_workshop_pack",
+    support_owner_ref: "owner.platform_support", secret_refs: [],
+  }));
+  const result = await runReleaseRehearsal({rootDir: source, workDir: join(root, "rehearsal"),
+    packIds: ["tool_workshop_pack"], workshopTestConfig: file, clock});
+  assert.equal(result.ok, true, JSON.stringify(result.receipt.packs.map(pack => ({failure: pack.failure, source: pack.stages.source_unit}))));
+  const pack = result.receipt.packs[0];
+  assert.equal(pack.stages.source_unit.counts.pass, 1);
+  assert.equal(pack.stages.installed_smoke.counts.pass, 1);
+  assert.equal(pack.test_runtime.synthetic_config_sha256, readWorkshopTestConfig(file).sha256);
+});
+
 test("isolated Windows profile gives real PowerShell native AppData paths inside the fixture", { skip: process.platform !== "win32" }, (t) => {
   const root = temp(t);
   const env = buildReleaseTestEnv(root);

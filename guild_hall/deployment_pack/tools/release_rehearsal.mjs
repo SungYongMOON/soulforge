@@ -45,7 +45,7 @@ export function readWorkshopTestConfig(path) {
   if (!value || Array.isArray(value) || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))
     || ![value.artifactRoot, value.templatePath, value.pythonExecutable].every(item => typeof item === "string" && isAbsolute(item))
     || value.templateProvenance !== "synthetic_fixture" || !/^approval\.[a-z0-9_.:-]{1,120}$/.test(value.templateApprovalRef)) fail("rehearsal_workshop_config_invalid");
-  return {bytes, sha256: sha(bytes)};
+  return {bytes, sha256: sha(bytes), pythonExecutable: value.pythonExecutable};
 }
 
 function assertNoLinks(path) {
@@ -193,7 +193,11 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
   writeJson(receiptPath, receipt);
   for (const packId of packIds) {
     const result = { pack_id: packId, ok: false, stages: {} };
-    const packEnv = packId === "tool_workshop_pack" && workshopConfigCopy ? {...env, SOULFORGE_PPTX_TEST_CONFIG: workshopConfigCopy} : env;
+    const packEnv = packId === "tool_workshop_pack" && workshopConfigCopy ? {
+      ...env,
+      SOULFORGE_PPTX_TEST_CONFIG: workshopConfigCopy,
+      SOULFORGE_HWPX_TEST_PYTHON: workshopConfig.pythonExecutable,
+    } : env;
     if (packId === "tool_workshop_pack") result.test_runtime = {synthetic_config_sha256: workshopConfig?.sha256 ?? null, external_runtime_redistributed: false};
     receipt.packs.push(result);
     const packRoot = join(workspace, packId); mkdirSync(packRoot);
