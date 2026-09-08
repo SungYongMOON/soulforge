@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 const BASE = '/api/workbench/buzz-pilot';
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-const ROLES = new Set(['instruction', 'original_message', 'question', 'answer', 'tool_input', 'tool_output', 'final_response']);
+const ROLES = new Set(['instruction', 'original_message', 'question', 'answer', 'tool_input', 'tool_input_effective', 'tool_output', 'final_response']);
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/u;
 const fail = (status, code) => { throw Object.assign(new Error(code), { status, code }); };
 function headers(res, type = 'application/json; charset=utf-8') {

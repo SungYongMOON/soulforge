@@ -43,9 +43,44 @@ binding의 문자열이나 모델이 작성한 사건은 독립적인 권한 증
 실제 지시와 받은 지시는 별도로 보존하여 transport의 가장자리 공백 제거를 추적한다.
 
 보존 역할은 `instruction`, `original_message`, `question`, `answer`, `tool_input`,
-`tool_output`, `final_response`다. 각 역할은 최대 64 KiB이고 임의 파일 경로를 받지 않는다.
+`tool_input_effective`, `tool_output`, `final_response`다. 각 역할은 최대 64 KiB이고 임의 파일 경로를 받지 않는다.
 첫 `clarify`의 `tool_output`은 실제 도구 반환값의 공개 `user_response` 문자열 투영이다.
 전체 원시 도구 반환 JSON을 보존했다고 주장하지 않는다. 내부 추론은 수집하지 않는다.
+
+### 질문 입력의 관측 계약
+
+v2 hook은 `tool_started.payload.input_contract: "prepared_v2"`로 시작한다. 이 표시는
+입력 관측 방식을 구별하며 도구 실행이나 권한을 추가하지 않는다. `tool_started`는
+허용된 모델 입력 필드(`question`, `choices`, `multi_select`)를 `tool_input`에 보존한다.
+실제 Python `clarify` callback 입구에서 준비된 세 값을 한 번 관측하고 다음 사건으로 보낸다.
+
+```json
+{
+  "event_type": "tool_input_prepared",
+  "payload": {
+    "tool_call_id": "call.synthetic",
+    "tool_name": "clarify",
+    "tool_input_ref": "<exact tool_started ACK tool_input ref>",
+    "input": { "question": "Who?", "choices": ["Engineering"], "multi_select": false }
+  }
+}
+```
+
+이는 기존 version 1 사건 envelope 안의 새 사건이다. `input` 세 필드는 모두 필수이며
+`choices`는 문자열 배열, `multi_select`는 boolean이다. Node는 정규화나 추천 label 코드를
+복제하지 않는다. 키를 정렬한 compact UTF-8 JSON bytes를 별도 `tool_input_effective.json`에
+보존하며, 원래 `tool_input`을 덮어쓰지 않는다. 이 JSON 형식의 보존은 원래 transport JSON의
+공백·키 순서까지 보존했다는 뜻이 아니다. 준비 입력 SHA와 `question_registered`의 세 값을
+같은 JSON 형식으로 만든 SHA가 정확히 같아야 등록한다. 문자열의 공백·추천 표시·선택지 순서를
+느슨하게 비교하지 않는다.
+
+준비 사건은 시작 ACK의 raw ref와 실제 call ID에 결속한다. 다른 call/ref, 알 수 없는 계약,
+중간 계약 변경, 새 observation ID로 보낸 두 번째 준비 사건, 준비 전 등록과 이후 입력 변경은
+거부한다. 같은 observation ID와 같은 사건의 재전달만 멱등 기록 재시도로 인정한다.
+marker가 없는 v1은 기존 raw 입력과의 정확 비교만 유지한다(생략된 choices/multi_select의
+기존 기본값은 `[]`/`false`). v1은 새 준비 사건을 받지 않는다. v2 hook은 marker와 준비 관측을
+함께 사용해야 하며 raw 비교로 내려가지 않는다. 미완료 보존 claim은 같은 사건의 정확 재전달만
+복구할 수 있고 다른 실패 사건으로 덮거나 도구를 다시 실행하지 않는다.
 
 DB와 역할 파일은 같은 백업 세대로 보존해야 한다. DB 파일만 복사하거나 원문 없이 해시만
 남긴 것은 업무 복구가 아니다. 질문 대기 중 WAL snapshot, 격리 복원, 동일 사건 재전달의
@@ -59,6 +94,10 @@ DB와 역할 파일은 같은 백업 세대로 보존해야 한다. DB 파일만
   같은 observation ID를 사용하며 업무·모델 호출 재시도와 구별한다.
 - 기록 실패 후 기술 복구가 필요한 일은 개발·운영 담당자가 처리한다. 오너에게 기술 승인을
   요청하거나 응답 대기 건수를 늘려 문제를 넘기지 않는다.
+- 거부된 append 응답 자체는 `failed` 사건이 아니다. native 실패가 실제 관측되면 관측자가
+  별도 `failed(reason_code)` 사건을 기록한다. 보존 결과가 불명확하거나 미완료 claim이 있으면
+  성공·재전송으로 바꾸지 않는다. 조회의 `failure_reason_code`는 마지막 기록된 사유 코드이며
+  미관측 원인을 추정하지 않는다. 실패 상태는 운영 확인을 요구하고 답변 대기로 표시하지 않는다.
 - 실제 운영 전환은 exact 소스 패치·현재 binding·launcher·되돌리기 묶음을 별도 확인한다.
   조립·합성 시험·내부 후보의 검토가 운영 활성화나 사람 수락을 대신하지 않는다.
 
@@ -66,5 +105,7 @@ DB와 역할 파일은 같은 백업 세대로 보존해야 한다. DB 파일만
 
 `node --test --test-concurrency=1 test/buzz_pilot_job.test.mjs test/buzz_pilot_job_cli.test.mjs
 test/buzz_pilot_workbench_http.test.mjs`를 앱 디렉터리에서 실행한다.
+`node --test test/buzz_pilot_wal_restore.test.mjs`는 v1과 prepared v2 각각의 발행·질문 대기
+WAL 내보내기와 보호 원문 복원, 현재 권한 조회와 재전달 불변을 합성 격리 환경에서 확인한다.
 조회 체험은 `node test/workbench_preview.mjs --buzz`이며 실제 모델이나 회사 자료를
 사용하지 않는다. 실제 운영 사례의 결과는 private 시험 영수증에서 별도로 확인한다.

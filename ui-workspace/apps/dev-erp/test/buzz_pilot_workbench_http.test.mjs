@@ -66,6 +66,27 @@ test('Buzz HTTP refuses every mutation and arbitrary evidence/path query before 
   assert.equal(f.state.calls, 0);
 });
 
+test('Buzz HTTP exposes prepared JSON and metadata-only failure reason under the same current authority', async () => {
+  const f = fixture(), raw = Buffer.from('{"choices":["Engineering"],"multi_select":false,"question":"Who?"}');
+  const original = f.service.readEvidence;
+  f.service.readEvidence = async (...args) => { await original(...args); return { bytes: raw, size: raw.length, mediaType: 'application/json' }; };
+  const route = '/api/workbench/buzz-pilot/evidence?role=tool_input_effective&observation_id=event.prepared';
+  let response = await f.request(route); assert.equal(response.statusCode, 200); assert.deepEqual(response.body, raw);
+  assert.deepEqual(f.state.query, { role: 'tool_input_effective', observation_id: 'event.prepared' });
+  assert.equal(response.headers['Content-Disposition'], 'attachment; filename="buzz-tool_input_effective.json"');
+  const snapshot = f.service.snapshot;
+  f.service.snapshot = async access => ({ ...await snapshot(access), state: 'failed', operations_attention: true,
+    owner_action_required: false, failure_reason_code: 'pilot_append_rejected' });
+  response = await f.request(); const view = JSON.parse(response.body);
+  assert.equal(view.failure_reason_code, 'pilot_append_rejected'); assert.equal(view.operations_attention, true);
+  assert.equal(view.owner_action_required, false); assert.equal(response.body.includes('session.synthetic'), false);
+  f.state.projectAllowed = false; response = await f.request(route); assert.equal(response.statusCode, 403);
+  assert.equal(response.body.includes('Engineering'), false);
+  f.state.projectAllowed = true;
+  f.service.readEvidence = async (...args) => { await original(...args); f.state.session = 'rotated'; return { bytes: raw, size: raw.length, mediaType: 'application/json' }; };
+  response = await f.request(route); assert.equal(response.statusCode, 401); assert.equal(response.body.includes('Engineering'), false);
+});
+
 test('Buzz HTTP refuses absent login, other Owner, withdrawn project access and cross-origin reads', async () => {
   const f = fixture();
   f.state.account = null; assert.equal((await f.request()).statusCode, 401);

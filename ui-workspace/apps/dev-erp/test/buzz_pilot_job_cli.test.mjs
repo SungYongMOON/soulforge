@@ -68,6 +68,54 @@ test('authenticated reader opens a distinct observer code root and Node path wit
   await assert.rejects(reader.reader.readEvidence({role:'instruction'},{...access,accountId:'unrelated'}));
 });
 
+test('installed-copy CLI enforces prepared v2 across processes and exposes exact effective bytes through read-only authority',async t=>{
+  const f=await fixture(t);assert.equal(f.invoke('issue',undefined,['--instruction-file',f.input]).status,0);
+  let counter=0;
+  const event=(event_type,payload)=>({version:1,observation_id:`observation.${++counter}`,job_id:f.binding.job_id,event_type,
+    profile_ref:'default',chat_id:chat,bot_pubkey:bot,actor_pubkey:event_type==='instruction_received'?owner:bot,
+    session_key:'session.synthetic',session_id:'session.actual',observed_at:new Date().toISOString(),payload});
+  assert.equal(f.invoke('append',event('instruction_received',{message_id:'a'.repeat(64),text:instruction.trim()})).status,0);
+  const raw={question:'Who reads it?',choices:['Engineering (recommended)','Management']};
+  const start=f.invoke('append',event('tool_started',{tool_call_id:'call.actual',tool_name:'clarify',input:raw,input_contract:'prepared_v2'}));
+  assert.equal(start.status,0);
+  const effective={question:raw.question,choices:['⭐ Engineering (recommended)','Management'],multi_select:false};
+  const registration=()=>event('question_registered',{clarify_id:'clarify.actual',tool_call_id:'call.actual',...effective});
+  assert.equal(f.invoke('append',registration()).value.code,'BUZZ_PILOT_PREPARED_INPUT_REQUIRED');
+  const prepared=event('tool_input_prepared',{tool_call_id:'call.actual',tool_name:'clarify',tool_input_ref:start.value.evidence_refs[0].ref,input:effective});
+  const ack=f.invoke('append',prepared);assert.equal(ack.status,0);assert.equal(ack.value.seq,3);
+  assert.equal(f.invoke('append',prepared).value.status,'replayed');
+  assert.equal(f.invoke('append',event('tool_input_prepared',prepared.payload)).value.code,'BUZZ_PILOT_PREPARED_INPUT_MISMATCH');
+  assert.equal(f.invoke('append',registration()).status,0);
+  const reader=await openBuzzPilotReader({bindingPath:f.bindingPath,bindingSha256:f.pin(),authorize});f.closers.push(reader.close);
+  const before=await readFile(f.binding.control_db_path);
+  const query={role:'tool_input_effective',observation_id:prepared.observation_id};
+  const bytes=await reader.reader.readEvidence(query,access);assert.deepEqual(JSON.parse(bytes.bytes),effective);
+  assert.equal(bytes.sha256,ack.value.evidence_refs[0].sha256);
+  await assert.rejects(reader.reader.readEvidence(query,{...access,canAccessProject:async()=>false}));
+  const status=f.invoke('status');assert.equal(status.status,0);assert.equal(status.value.sequence,4);
+  assert.equal(status.value.failure_reason_code,null);assert.equal(JSON.stringify(status.value).includes('Engineering'),false);
+  assert.deepEqual(await readFile(f.binding.control_db_path),before);
+});
+
+test('installed CLI rejection is not a failure receipt; a separate observed failure exposes only its reason code',async t=>{
+  const f=await fixture(t);assert.equal(f.invoke('issue',undefined,['--instruction-file',f.input]).status,0);
+  let counter=0;
+  const event=(event_type,payload)=>({version:1,observation_id:`observation.${++counter}`,job_id:f.binding.job_id,event_type,
+    profile_ref:'default',chat_id:chat,bot_pubkey:bot,actor_pubkey:event_type==='instruction_received'?owner:bot,
+    session_key:'session.synthetic',session_id:'session.actual',observed_at:new Date().toISOString(),payload});
+  assert.equal(f.invoke('append',event('instruction_received',{message_id:'a'.repeat(64),text:instruction.trim()})).status,0);
+  assert.equal(f.invoke('append',event('tool_started',{tool_call_id:'call.actual',tool_name:'clarify',input:{question:'Who?'}})).status,0);
+  const rejected=f.invoke('append',event('question_registered',{clarify_id:'clarify.actual',tool_call_id:'call.actual',question:'Changed?',choices:[],multi_select:false}));
+  assert.equal(rejected.status,2);assert.equal(rejected.value.code,'BUZZ_PILOT_QUESTION_MISMATCH');
+  let view=f.invoke('status').value;assert.equal(view.sequence,2);assert.equal(view.state,'tool_running');assert.equal(view.failure_reason_code,null);
+  const failed=event('failed',{reason_code:'pilot_append_rejected'});assert.equal(f.invoke('append',failed).status,0);
+  assert.equal(f.invoke('append',failed).value.status,'replayed');
+  view=f.invoke('status').value;assert.equal(view.sequence,3);assert.equal(view.state,'failed');
+  assert.equal(view.failure_reason_code,'pilot_append_rejected');assert.equal(view.operations_attention,true);
+  assert.equal(view.owner_action_required,false);assert.equal(view.question_ref,null);assert.equal(view.answer_ref,null);
+  assert.equal(JSON.stringify(view).includes('Changed?'),false);
+});
+
 test('missing DB is not created by append, status or reader startup',async t=>{
   const f=await fixture(t);for(const action of ['append','status']){const result=f.invoke(action,action==='append'?{}:undefined);assert.equal(result.status,2);assert.equal(result.value.code,'BUZZ_PILOT_DB_MISSING');}
   await assert.rejects(openBuzzPilotReader({bindingPath:f.bindingPath,bindingSha256:f.pin(),authorize}),{code:'BUZZ_PILOT_DB_MISSING'});

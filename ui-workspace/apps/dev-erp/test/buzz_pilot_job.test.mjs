@@ -53,10 +53,11 @@ async function fixture(t, options = {}) {
   t.after(async () => { f.db.close(); await rm(parent, { recursive: true, force: true }); });
   return f;
 }
-async function started(f) {
+async function started(f, { rawInput = input, inputContract } = {}) {
   await f.issue();
   await f.append('instruction_received', { message_id: message(1), text: instruction.toString().trim() }, { session_id: null });
-  await f.append('tool_started', { tool_call_id: 'call.actual-1', tool_name: 'clarify', input });
+  return f.append('tool_started', { tool_call_id: 'call.actual-1', tool_name: 'clarify', input: rawInput,
+    ...(inputContract === undefined ? {} : { input_contract: inputContract }) });
 }
 async function registered(f) {
   await started(f);
@@ -79,6 +80,127 @@ async function finished(f) {
   await f.append('final_delivery', { delivery_status: 'sent', message_id: message(4) });
 }
 const code = expected => error => { assert.equal(error.code, expected); return true; };
+
+test('v2 preserves raw input separately and registers only the exact actual prepared JSON SHA', async t => {
+  const f = await fixture(t);
+  const raw = { question: '  Who is this for?  ', choices: ['Engineering (recommended)', 'Management'] };
+  const effective = { question: 'Who is this for?', choices: ['⭐ Engineering (recommended)', 'Management'], multi_select: false };
+  const start = await started(f, { rawInput: raw, inputContract: 'prepared_v2' });
+  const prepared = await f.append('tool_input_prepared', { tool_call_id: 'call.actual-1', tool_name: 'clarify',
+    tool_input_ref: start.evidence_refs[0].ref, input: effective });
+  const ref = prepared.evidence_refs[0]; assert.equal(ref.role, 'tool_input_effective');
+  const rawRead = await f.core.readEvidence({ role: 'tool_input', observation_id: start.observation_id }, access);
+  const effectiveRead = await f.core.readEvidence({ role: 'tool_input_effective', observation_id: prepared.observation_id }, access);
+  assert.deepEqual(JSON.parse(rawRead.bytes), raw); assert.deepEqual(JSON.parse(effectiveRead.bytes), effective);
+  assert.equal(effectiveRead.bytes.toString(), JSON.stringify({ choices: effective.choices, multi_select: false, question: effective.question }));
+  assert.notEqual(rawRead.sha256, ref.sha256); assert.equal(hash(effectiveRead.bytes), ref.sha256);
+  assert.equal(JSON.parse(f.db.prepare('SELECT state_json FROM buzz_pilot_jobs').get().state_json).question_shape_sha256, ref.sha256);
+  await f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...effective });
+  await f.append('question_delivery', { clarify_id: 'clarify.actual-1', delivery_status: 'sent', message_id: message(2) });
+  const view = await f.core.snapshot(access); assert.equal(view.state, 'waiting_owner'); assert.equal(view.sequence, 5);
+  assert.equal(view.evidence_refs.length, 5); assert.equal(view.actual_tool_starts, 1);
+  const metadata = JSON.stringify(view) + JSON.stringify(f.db.prepare('SELECT * FROM buzz_pilot_events').all());
+  for (const text of [raw.question, effective.question, effective.choices[0]]) assert.equal(metadata.includes(text), false);
+  await f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(3), text: 'Engineering' });
+  await f.append('answer_accepted', { clarify_id: 'clarify.actual-1', message_id: message(3) });
+  await f.append('resumed', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1' });
+  await f.append('tool_completed', { tool_call_id: 'call.actual-1', tool_name: 'clarify', output: 'Engineering', outcome: 'completed' });
+  await f.append('final_response', { text: 'The synthetic note is for engineering.' });
+  await f.append('final_delivery', { delivery_status: 'sent', message_id: message(4) });
+  const final = await f.core.snapshot(access); assert.equal(final.state, 'delivered'); assert.equal(final.sequence, 11);
+  assert.equal(final.evidence_refs.length, 8); assert.equal(final.actual_tool_completions, 1);
+  assert.equal(final.event_refs.filter(row => row.event_type === 'resumed').length, 1);
+  assert.equal(final.official_done, false); assert.equal(final.human_accepted, false); assert.equal(final.canonical, false);
+});
+
+test('v2 marker requires preparation; unknown markers and legacy preparation are refused', async t => {
+  const f = await fixture(t); await f.issue();
+  await f.append('instruction_received', { message_id: message(1), text: instruction.toString() });
+  for (const input_contract of ['raw_v1', 'prepared_v3', null, true]) await assert.rejects(f.append('tool_started', {
+    tool_call_id: 'call.actual-1', tool_name: 'clarify', input, input_contract }), code('buzz_pilot_input_contract_invalid'));
+  await f.append('tool_started', { tool_call_id: 'call.actual-1', tool_name: 'clarify', input, input_contract: 'prepared_v2' });
+  await assert.rejects(f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input }),
+    code('buzz_pilot_prepared_input_required'));
+  assert.equal((await f.core.snapshot(access)).sequence, 2);
+  const legacy = await fixture(t); const start = await started(legacy);
+  await assert.rejects(legacy.append('tool_input_prepared', { tool_call_id: 'call.actual-1', tool_name: 'clarify',
+    tool_input_ref: start.evidence_refs[0].ref, input }), code('buzz_pilot_prepared_input_mismatch'));
+  await legacy.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input });
+});
+
+test('prepared input rejects wrong call, raw ref, tool, contract change and malformed callback values', async t => {
+  const f = await fixture(t); const start = await started(f, { inputContract: 'prepared_v2' });
+  const payload = { tool_call_id: 'call.actual-1', tool_name: 'clarify', tool_input_ref: start.evidence_refs[0].ref, input };
+  for (const delta of [{ tool_call_id: 'call.other' }, { tool_input_ref: `${start.evidence_refs[0].ref}x` },
+    { tool_input_ref: start.evidence_refs[0] }, { tool_name: 'other' }, { input_contract: 'raw_v1' },
+    { input: { question } }, { input: { ...input, choices: null } }, { input: { ...input, multi_select: null } },
+    { input: { ...input, choices: 'Engineering' } }, { input: { ...input, extra: true } }]) {
+    await assert.rejects(f.append('tool_input_prepared', { ...payload, ...delta }));
+  }
+  assert.equal((await f.core.snapshot(access)).sequence, 2);
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM buzz_pilot_events WHERE committed = 0').get().n, 0);
+});
+
+test('prepared replay survives reopen; duplicate preparation and later question mutation cannot advance', async t => {
+  const f = await fixture(t); const start = await started(f, { inputContract: 'prepared_v2' });
+  const effective = { ...input, choices: ['⭐ Engineering (recommended)', 'Management'] };
+  const event = f.event('tool_input_prepared', { tool_call_id: 'call.actual-1', tool_name: 'clarify',
+    tool_input_ref: start.evidence_refs[0].ref, input: effective });
+  const first = await f.core.append(event);
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make();
+  assert.deepEqual(await f.core.append(event), { ...first, status: 'replayed' });
+  await assert.rejects(f.core.append({ ...event, payload: { ...event.payload, input } }), code('buzz_pilot_conflicting_replay'));
+  await assert.rejects(f.append('tool_input_prepared', event.payload), code('buzz_pilot_prepared_input_mismatch'));
+  for (const delta of [{ question: `${question} ` }, { choices }, { choices: [...effective.choices].reverse() },
+    { choices: ['⭐ Engineering (recommended) ', 'Management'] }, { multi_select: true }]) {
+    await assert.rejects(f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1',
+      ...effective, ...delta }), code('buzz_pilot_question_mismatch'));
+  }
+  assert.equal((await f.core.snapshot(access)).sequence, 3);
+  await f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...effective });
+  await assert.rejects(f.append('tool_input_prepared', event.payload), code('buzz_pilot_event_order'));
+  assert.equal((await f.core.snapshot(access)).sequence, 4);
+});
+
+test('prepared capture interruption needs exact recovery and keeps current read authority and immutable bytes', async t => {
+  const f = await fixture(t); const start = await started(f, { inputContract: 'prepared_v2' });
+  const event = f.event('tool_input_prepared', { tool_call_id: 'call.actual-1', tool_name: 'clarify',
+    tool_input_ref: start.evidence_refs[0].ref, input });
+  f.core = f.make({ workingBytes: { ...f.port, async writeRole(args) {
+    await f.port.writeRole(args); throw Object.assign(new Error('synthetic_interruption'), { code: 'synthetic_interruption' });
+  } } });
+  await assert.rejects(f.core.append(event), code('synthetic_interruption'));
+  let view = await f.core.snapshot(access); assert.equal(view.state, 'capture_incomplete'); assert.equal(view.sequence, 2);
+  assert.equal(view.operations_attention, true); assert.equal(view.owner_action_required, false);
+  await assert.rejects(f.append('failed', { reason_code: 'pilot_append_unknown' }), code('buzz_pilot_capture_incomplete'));
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make();
+  const ack = await f.core.append(event); assert.equal(ack.seq, 3);
+  const query = { role: 'tool_input_effective', observation_id: event.observation_id };
+  const before = await readFile(f.dbPath), reader = f.make({ readOnly: true });
+  assert.equal((await reader.readEvidence(query, access)).sha256, ack.evidence_refs[0].sha256);
+  await assert.rejects(reader.append(event), code('buzz_pilot_read_only'));
+  assert.deepEqual(await readFile(f.dbPath), before);
+  f.permit = false; await assert.rejects(reader.readEvidence(query, access), code('buzz_pilot_not_authorized')); f.permit = true;
+  const ref = JSON.parse(f.db.prepare('SELECT evidence_json FROM buzz_pilot_events WHERE observation_id = ?').get(event.observation_id).evidence_json)[0];
+  const filename = path.join(f.root, ref.groupId, 'tool_input_effective.json');
+  await chmod(filename, 0o600); await writeFile(filename, '{}');
+  await assert.rejects(reader.readEvidence(query, access), code('protected_bytes_digest_mismatch'));
+  assert.equal(await readFile(filename, 'utf8'), '{}');
+});
+
+test('a rejected registration remains unrecorded until an observed native failure is appended separately', async t => {
+  const f = await fixture(t); await started(f);
+  await assert.rejects(f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1',
+    ...input, choices: ['⭐ Engineering (recommended)', 'Management'] }), code('buzz_pilot_question_mismatch'));
+  let view = await f.core.snapshot(access); assert.equal(view.state, 'tool_running'); assert.equal(view.sequence, 2);
+  assert.equal(view.failure_reason_code, null); assert.equal(view.owner_action_required, false);
+  const failed = f.event('failed', { reason_code: 'pilot_append_rejected' }); await f.core.append(failed);
+  f.db.close(); f.db = new DatabaseSync(f.dbPath); f.core = f.make({ readOnly: true });
+  view = await f.core.snapshot(access); assert.equal(view.state, 'failed'); assert.equal(view.sequence, 3);
+  assert.equal(view.operations_attention, true); assert.equal(view.failure_reason_code, 'pilot_append_rejected');
+  assert.equal(view.question_ref, null); assert.equal(view.answer_ref, null); assert.equal(view.final_produced, false);
+  assert.deepEqual(view.event_refs.map(row => row.event_type), ['instruction_received', 'tool_started', 'failed']);
+});
 
 test('full text flow uses actual SQLite and protected bytes, with separate production/delivery/acceptance facts', async t => {
   const f = await fixture(t); await finished(f);

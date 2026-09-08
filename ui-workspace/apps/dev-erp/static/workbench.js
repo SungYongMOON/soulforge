@@ -267,11 +267,18 @@ const buzzStates = { issued: 'Buzz 수신 확인 전', running: '업무 진행 �
   final_delivery_failed: '최종 응답 전달 실패', final_delivery_unknown: '최종 응답 전달 여부 미확인',
   failed: '실행 실패', cancelled: '실행 중지됨', capture_incomplete: '실행 기록 보존 확인 필요', expired: '업무 연결 기한 지남' };
 const buzzEvents = { instruction_received: 'Buzz에서 지시 수신', tool_started: '질문 도구 시작',
+  tool_input_prepared: '실제 질문 입력 준비됨',
   question_registered: '질문 등록', question_delivery: '질문 전달 기록', answer_received: '답변 수신',
   answer_accepted: '답변 연결 확인', resumed: '업무 재개', tool_completed: '질문 도구 종료',
   final_response: '최종 응답 생성', final_delivery: '최종 응답 전달 기록', failed: '실패 기록', cancelled: '중지 기록' };
 const buzzRoles = { instruction: '발행한 지시', original_message: 'Buzz 수신 지시', question: '질문', answer: '답변',
-  tool_input: '질문 도구 입력', tool_output: '질문 도구 출력', final_response: '최종 응답' };
+  tool_input: '모델이 요청한 질문 입력', tool_input_effective: '실제 질문에 사용한 입력',
+  tool_output: '질문 도구 출력', final_response: '최종 응답' };
+const buzzFailureReasons = { pilot_append_rejected: '실행 사건 기록이 거부되었습니다.',
+  pilot_append_unknown: '실행 사건 기록 여부를 확인하지 못했습니다.',
+  gateway_wait_lost: '질문 대기 연결을 복구하지 못했습니다.',
+  pilot_batch_unsupported: '여러 질문을 함께 처리하는 요청은 지원 범위를 벗어났습니다.',
+  pilot_multi_select_unsupported: '복수 선택 요청은 지원 범위를 벗어났습니다.' };
 function showBuzzPilot(value) {
   buzzPilot = value;
   if (!recordId) { clearExecution(); $('receipt-panel').hidden = true; }
@@ -290,6 +297,10 @@ function showBuzzPilot(value) {
     ['최종 응답', value.final_produced === true ? '생성 기록 있음' : '아직 생성 확인 전'],
     ['응답 전달', value.final_delivered === true ? '전달 기록 있음' : value.delivery_status === 'failed' ? '전달 실패' : '전달 확인 전'],
     ['결과 검증', '미검증'], ['사람 수락', '미수락'], ['공식 업무 완료', '미완료']];
+  if (value.operations_attention === true || value.failure_reason_code) rows.splice(4, 0,
+    ['마지막 실패 이유', buzzFailureReasons[value.failure_reason_code]
+      ?? (/^[a-z][a-z0-9_]{0,63}$/u.test(value.failure_reason_code ?? '')
+        ? `확인 코드: ${value.failure_reason_code}` : '원인 코드가 기록되지 않았습니다.')]);
   if (waiting) rows.splice(4, 0, ['답변 담당자', value.expected_responder?.account_id ?? '미확인'],
     ['대기 시작', displayTime(value.wait_started_at)], ['대기 시간', Number.isFinite(value.wait_elapsed_ms)
       ? `${Math.floor(Math.max(0, value.wait_elapsed_ms) / 60000)}분` : '미확인']);
