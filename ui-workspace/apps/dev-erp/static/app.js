@@ -287,6 +287,11 @@ function renderAuth() {
         api("/api/accounts/readiness").then((r) => { state._teamReady = r; renderAuth(); }).catch(() => {});
       }
     }
+    const connectionsBtn = document.createElement("button");
+    connectionsBtn.id = "myConnectionsBtn"; connectionsBtn.className = "fav-chip";
+    connectionsBtn.textContent = L.mcp_connections;
+    connectionsBtn.addEventListener("click", openMyConnections);
+    box.insertBefore(connectionsBtn, $("#pwBtn"));
     $("#myMemBtn")?.addEventListener("click", openMyMemory);
     $("#pwBtn").addEventListener("click", openPasswordChange);
     $("#logoutBtn").addEventListener("click", async () => {
@@ -301,6 +306,138 @@ function renderAuth() {
     box.innerHTML = `<button id="bootstrapBtn" class="fav-chip">${L.acct_create_admin}</button>`;
     $("#bootstrapBtn").addEventListener("click", openBootstrap);
   }
+}
+
+// My MCP connections: existing account authority only; never issue a bearer.
+async function loadMyConnections(accountId) {
+  const res = await request("/api/integrations/mcp/tokens", { acceptHttpError: true });
+  if (res.status === 401) return { state: "login" };
+  if (res.status === 403) return { state: "denied" };
+  if (res.status === 404) return { state: "off" };
+  if (!res.ok) return { state: "load_failed" };
+  const value = await res.json();
+  if (value.account_id !== accountId || state.account?.id !== accountId) return { state: "login" };
+  if (value.access_scope !== "account_current_permissions" || value.project_binding !== "not_token_scoped"
+    || !/^[a-f0-9]{64}$/u.test(value.csrf_token || "") || !Number.isFinite(Date.parse(value.observed_at))
+    || !Array.isArray(value.tokens) || !value.tokens.every(row => /^mcp_tok_[a-f0-9]{16}$/u.test(row.token_id)
+      && ["active", "revoked", "expired", "unknown"].includes(row.state))) return { state: "load_failed" };
+  return { state: "ready", snapshot: value };
+}
+function myConnectionIdentity(row) {
+  return JSON.stringify([row.token_id, row.label, row.created_at, row.expires_at, row.revoked, row.state]);
+}
+async function revokeMyConnection(accountId, snapshot, selected) {
+  // Refresh before mutation: a rotated login or changed selection requires a
+  // new human confirmation. Last-used audit timestamps do not widen authority.
+  const before = await loadMyConnections(accountId);
+  if (before.state !== "ready") return before;
+  const row = before.snapshot.tokens.find(row => row.token_id === selected.token_id);
+  if (before.snapshot.csrf_token !== snapshot.csrf_token || !row
+    || myConnectionIdentity(row) !== myConnectionIdentity(selected)) return { state: "changed" };
+  const res = await request("/api/integrations/mcp/tokens/revoke", { method: "POST", acceptHttpError: true,
+    headers: { "content-type": "application/json", "x-csrf-token": before.snapshot.csrf_token },
+    body: JSON.stringify({ token_id: selected.token_id }) });
+  if (res.status === 401) return { state: "login" };
+  if (res.status === 403) return { state: "denied" };
+  if (res.status === 404) {
+    const error = await res.json().catch(() => ({}));
+    return { state: error.error === "not_found" ? "off" : "changed" };
+  }
+  if (res.status === 409) return { state: "changed" };
+  if (!res.ok) return { state: "revoke_failed" };
+  // A successful POST is not readback. Never paint the cached row revoked.
+  const after = await loadMyConnections(accountId);
+  if (after.state !== "ready") return after;
+  if (after.snapshot.csrf_token !== before.snapshot.csrf_token) return { state: "changed" };
+  const confirmed = after.snapshot.tokens.find(row => row.token_id === selected.token_id);
+  return confirmed?.revoked === true && confirmed.state === "revoked"
+    ? { ...after, verified: true } : { state: "revoke_failed" };
+}
+function myConnectionTime(value, L) {
+  if (typeof value !== "string" || !value) return L.mcp_connections_unknown;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZoneName: "long",
+  }).format(date) : L.mcp_connections_unknown;
+}
+function myConnectionConfirmationHtml(selected, L) {
+  return `<div role="group" aria-label="${esc(L.mcp_connections_confirm)}">
+    <h3>${esc(L.mcp_connections_confirm)}</h3>
+    <p style="overflow-wrap:anywhere"><strong>${esc(selected.label || L.mcp_connections_unnamed)}</strong><br>
+    ${esc(L.mcp_connections_id)}: ${esc(selected.token_id)}</p>
+    <p>${esc(L.mcp_connections_effect)}</p>
+    <div class="ui-confirm-btns"><button data-connection-cancel>${esc(L.btn_cancel)}</button>
+    <button data-connection-confirm>${esc(L.mcp_connections_revoke)}</button></div></div>`;
+}
+function myConnectionsHtml(result, L) {
+  if (result.state !== "ready") return `<p role="status">${esc(L[`mcp_connections_${result.state}`] || L.mcp_connections_load_failed)}</p>`;
+  const snapshot = result.snapshot;
+  const rows = snapshot.tokens.map(row => `<li style="margin:12px 0;overflow-wrap:anywhere">
+    <strong>${esc(row.label || L.mcp_connections_unnamed)}</strong> — ${esc(L[`mcp_connections_${row.state}`])}
+    <div>${esc(L.mcp_connections_id)}: ${esc(row.token_id)}</div>
+    <div>${esc(L.mcp_connections_expires)}: ${esc(myConnectionTime(row.expires_at, L))} · ${esc(L.mcp_connections_last_used)}: ${esc(row.last_used_at ? myConnectionTime(row.last_used_at, L) : L.mcp_connections_never_used)}</div>
+    ${row.state === "active" || row.state === "expired" ? `<button class="fav-chip" data-revoke-connection="${esc(row.token_id)}">${esc(L.mcp_connections_revoke)}</button>` : ""}</li>`).join("");
+  return `${result.verified ? `<p role="status">${esc(L.mcp_connections_verified)}</p>` : ""}
+    <p>${esc(L.mcp_connections_scope)}</p><p>${esc(L.mcp_connections_project)}</p>
+    <p>${esc(L.mcp_connections_observed)}: ${esc(myConnectionTime(snapshot.observed_at, L))}</p>
+    ${rows ? `<ul style="padding-left:20px">${rows}</ul>` : `<p role="status">${esc(L.mcp_connections_empty)}</p>`}`;
+}
+function openMyConnections() {
+  const accountId = state.account?.id; if (!accountId) return;
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div"); ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<section class="ui-confirm" role="dialog" aria-modal="true" aria-label="${esc(L.mcp_connections)}" style="width:min(720px,95vw);max-height:85vh;overflow:auto">
+    <h2>${esc(L.mcp_connections)}</h2><p>${esc(L.mcp_connections_hint)}</p>
+    <div data-my-connections aria-live="polite"></div>
+    <div class="ui-confirm-btns"><button data-connections-refresh>${esc(L.mcp_connections_refresh)}</button><button data-connections-close>${esc(L.mcp_connections_close)}</button></div></section>`;
+  document.body.appendChild(ov);
+  const body = ov.querySelector("[data-my-connections]"), refresh = ov.querySelector("[data-connections-refresh]");
+  let busy = false, generation = 0, confirmation = null;
+  const close = () => { generation++; ov.remove(); };
+  ov.querySelector("[data-connections-close]").addEventListener("click", close);
+  ov.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); if (confirmation) cancelConfirmation(); else close(); }
+  });
+  ov.addEventListener("click", event => { if (event.target === ov) close(); });
+  const cancelConfirmation = () => {
+    const previous = confirmation; if (!previous) return;
+    confirmation = null; show(previous.result); refresh.disabled = false;
+    const selectedButton = [...body.querySelectorAll("[data-revoke-connection]")]
+      .find(button => button.dataset.revokeConnection === previous.selected.token_id);
+    (selectedButton || refresh).focus();
+  };
+  const show = result => {
+    body.innerHTML = myConnectionsHtml(result, L);
+    body.querySelectorAll("[data-revoke-connection]").forEach(button => button.addEventListener("click", async () => {
+      if (busy || state.account?.id !== accountId) return;
+      const selected = result.snapshot.tokens.find(row => row.token_id === button.dataset.revokeConnection);
+      if (!selected) return;
+      confirmation = { result, selected }; refresh.disabled = true;
+      body.innerHTML = myConnectionConfirmationHtml(selected, L);
+      const cancel = body.querySelector("[data-connection-cancel]");
+      cancel.addEventListener("click", cancelConfirmation);
+      body.querySelector("[data-connection-confirm]").addEventListener("click", async () => {
+        if (busy || !confirmation) return;
+        confirmation = null;
+        await run(() => revokeMyConnection(accountId, result.snapshot, selected), "revoke_failed");
+      });
+      cancel.focus();
+    }));
+  };
+  const run = async (operation, failure = "load_failed") => {
+    if (busy) return; busy = true; refresh.disabled = true;
+    const turn = ++generation; show({ state: "loading" });
+    let result;
+    try { result = await operation(); } catch { result = { state: failure }; }
+    if (turn === generation && ov.isConnected) {
+      show(state.account?.id === accountId ? result : { state: "login" }); refresh.disabled = false; refresh.focus();
+    }
+    busy = false;
+  };
+  refresh.addEventListener("click", () => run(() => loadMyConnections(accountId)));
+  refresh.focus(); void run(() => loadMyConnections(accountId));
 }
 
 // 로그인 모달(화면 정중앙). 비밀번호는 사용자가 직접 입력(에이전트 자동입력 아님).

@@ -149,6 +149,29 @@ binding receipt+strict office LAN+explicit owner approval+Level 3 live gate 전�
 
 ## 토큰과 비용
 
+### 내 연결 화면
+
+기존 로그인 계정 메뉴의 `내 연결`은 본인 연결의 목록·철회만 제공한다. 발급과 평문
+연결키 표시는 하지 않는다. 목록의 프로젝트·scope 안내는 **계정의 현재 권한을 따름,
+연결별 고정 프로젝트 없음**이며 존재하지 않는 프로젝트 grant를 만들지 않는다.
+`사용 가능`은 만료/철회 기준이며 기기가 실제 접속 중이라는 뜻은 아니다.
+
+- `GET /api/integrations/mcp/tokens`: 기존 `tokens`에 `state`를 추가하고 `account_id`,
+  `observed_at`, `access_scope: account_current_permissions`, `project_binding: not_token_scoped`,
+  세션에 묶인 `csrf_token`을 반환한다. bearer·token hash는 반환하지 않는다. 쿼리로 타인 계정을 선택할 수 없다.
+- `POST /api/integrations/mcp/tokens/revoke`: 정확한 `{token_id}`만 받고 같은 Origin과
+  `X-CSRF-Token`을 요구한다. body를 기다리는 전후에 동일한 현재 세션을 확인한다.
+  기존 cookie API 호출자도 먼저 GET에서 CSRF를 받아야 한다. 직접 service를 호출하는
+  기존 관리자 CLI의 계약은 바뀌지 않는다.
+- 화면에서 대상 식별자·영향 확인 → 현재 목록 재조회 → 철회 → 서버 목록 재조회 순서다.
+  선택/세션 변경과 조회 실패는 새 확인을 요구하며 철회 성공을 추측하거나 자동 재시도하지 않는다.
+- 철회는 해당 연결키와 계정의 미사용 upload ticket에만 기존 정책을 적용한다. ERP
+  로그인, 기존 자료, 타인 연결, 일반 AuthorityPolicy grant/revoke를 변경하지 않는다.
+
+합성 HTTP 검사 `test/mcp_connections.test.mjs`는 두 계정 분리, 타인 식별자 거부,
+CSRF·세션 변경 거부, 기존 MCP API의 철회 후 거부, OFF 상태 및 UI 재조회/오류 처리를
+확인한다. 실제 운영 연결·브라우저 조작·모델 호출의 근거는 아니다.
+
 - 자연어 추론과 문서 작성 토큰: 팀원 개인 Codex 계정/구독에서 소비된다.
 - ERP MCP sidecar: LLM API를 호출하지 않으므로 별도 LLM 토큰을 소비하지 않는다.
 - ERP 서버: SQLite/HTTP/파일 저장 CPU·네트워크·디스크만 사용한다.

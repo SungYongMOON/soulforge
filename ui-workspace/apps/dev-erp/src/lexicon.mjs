@@ -1,7 +1,38 @@
 // 이중 사전 (INFRA-004): 화면 라벨은 하드코딩하지 않고 이 사전을 거친다.
 // fantasy 용어는 SHARED_GLOSSARY 의 게임↔업무 대조표를 따른다.
+const MCP_CONNECTION_LABELS = {
+  mcp_connections: "내 연결",
+  mcp_connections_hint: "내 계정으로 업무를 조회·제출하는 MCP 연결입니다. 비밀 연결키는 표시하지 않습니다.",
+  mcp_connections_scope: "범위: 계정의 현재 접근권한을 따릅니다. 업무 조회·파일 제출 등 각 요청에서 권한을 다시 검사합니다.",
+  mcp_connections_project: "프로젝트: 연결별로 고정되지 않습니다. 현재 계정에 허용된 업무 범위만 사용할 수 있습니다.",
+  mcp_connections_effect: "철회하면 이 연결키로 ERP를 더 이상 사용할 수 없습니다. 내 계정의 아직 사용하지 않은 파일 업로드 예약도 모두 취소됩니다. 이미 등록된 자료와 ERP 로그인은 유지됩니다.",
+  mcp_connections_loading: "서버에서 현재 연결을 확인하고 있습니다.",
+  mcp_connections_empty: "내 계정에 등록된 연결이 없습니다.",
+  mcp_connections_login: "로그인이 만료되었거나 계정이 바뀌었습니다. 다시 로그인한 뒤 내 연결을 여세요.",
+  mcp_connections_denied: "현재 이 연결을 확인하거나 철회할 권한이 없습니다.",
+  mcp_connections_off: "이 서버의 MCP 연결 기능이 꺼져 있습니다. 운영담당에게 확인해 주세요.",
+  mcp_connections_load_failed: "현재 연결을 조회하지 못했습니다. 연결 없음으로 판단하지 마세요. 다시 조회해 주세요.",
+  mcp_connections_changed: "연결 또는 로그인 상태가 바뀌었습니다. 다시 조회한 뒤 대상을 확인해 주세요.",
+  mcp_connections_revoke_failed: "철회 결과를 확인하지 못했습니다. 자동으로 다시 요청하지 않습니다. 새로 조회해 현재 상태를 확인해 주세요.",
+  mcp_connections_verified: "서버 재조회로 선택한 연결의 철회를 확인했습니다.",
+  mcp_connections_confirm: "이 연결을 철회할까요?",
+  mcp_connections_revoke: "이 연결 철회",
+  mcp_connections_refresh: "다시 조회",
+  mcp_connections_close: "닫기",
+  mcp_connections_id: "연결 식별자",
+  mcp_connections_expires: "만료",
+  mcp_connections_last_used: "마지막 사용",
+  mcp_connections_observed: "서버 확인 시각",
+  mcp_connections_unnamed: "이름 없는 연결",
+  mcp_connections_never_used: "사용 이력 없음",
+  mcp_connections_active: "사용 가능 · 기기 접속 여부는 별도",
+  mcp_connections_revoked: "철회됨",
+  mcp_connections_expired: "만료됨",
+  mcp_connections_unknown: "상태 확인 필요",
+};
 export const LEXICON = {
   business: {
+    ...MCP_CONNECTION_LABELS,
     app_title: "개발팀 운영 콕핏",
     app_version_label: "UI",
     browser_version_label: "브라우저",
@@ -1158,6 +1189,7 @@ export const LEXICON = {
     widget_del_confirm: "이 저장 배치를 삭제할까요?"
   },
   fantasy: {
+    ...MCP_CONNECTION_LABELS,
     app_title: "길드 작전판",
     app_version_label: "UI",
     browser_version_label: "브라우저",
