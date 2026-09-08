@@ -55,6 +55,12 @@ test('installed-copy CLI issues and appends once, and restart replay returns no 
   const replay=f.invoke('append',event);assert.equal(replay.status,0);assert.equal(replay.value.status,'replayed');
   assert.equal(replay.value.seq,appended.value.seq);assert.equal(JSON.stringify(replay.value).includes('Review this'),false);
   const status=f.invoke('status');assert.equal(status.status,0);assert.equal(status.value.sequence,1);assert.equal(status.value.canonical,false);
+  assert.equal(status.value.recovery_metadata.instruction_trim_sha256,`sha256:${digest(instruction.trim())}`);
+  assert.notEqual(status.value.recovery_metadata.instruction_trim_sha256,f.binding.instruction_sha256);
+  assert.equal(JSON.stringify(status.value).includes(instruction.trim()),false);
+  f.binding.instruction_sha256=`sha256:${digest('other instruction')}`;await f.save();
+  const historical=f.invoke('status');assert.equal(historical.status,0);
+  assert.equal(historical.value.recovery_metadata.instruction_trim_sha256,null);
 });
 
 test('authenticated reader opens a distinct observer code root and Node path without writes',async t=>{

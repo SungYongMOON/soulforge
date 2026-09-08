@@ -289,6 +289,43 @@ test('instruction bytes are pinned UTF-8 and preserve documented edge trimming o
   await assert.rejects(invalid.issue({ instructionBytes: badUtf8 }, access));
 });
 
+test('trusted snapshot exposes only the stored current issued instruction comparison digest', async t => {
+  const f = await fixture(t);
+  await assert.rejects(f.core.snapshot(access), code('buzz_pilot_job_missing'));
+  await f.issue();
+  const stored = f.db.prepare('SELECT instruction_trim_sha256 FROM buzz_pilot_jobs').get().instruction_trim_sha256;
+  const before = await readFile(f.dbPath);
+  const view = await f.core.snapshot(access);
+  assert.equal(view.recovery_metadata.instruction_trim_sha256, stored);
+  assert.equal(stored, hash(instruction.toString().trim()));
+  assert.notEqual(stored, f.binding.instruction_sha256);
+  assert.equal(view.evidence_refs[0].sha256, f.binding.instruction_sha256);
+  assert.equal(JSON.stringify(view).includes(instruction.toString().trim()), false);
+  assert.deepEqual(await readFile(f.dbPath), before);
+  await assert.rejects(f.core.snapshot({ ...access, accountId: 'wrong.owner' }), code('buzz_pilot_not_authorized'));
+  const historical = f.make({ binding: { ...f.binding, instruction_sha256: hash('other instruction') } });
+  assert.equal((await historical.snapshot(access)).recovery_metadata.instruction_trim_sha256, null);
+  f.db.prepare('UPDATE buzz_pilot_jobs SET issued = 0').run();
+  assert.equal((await f.core.snapshot(access)).state, 'capture_incomplete');
+  assert.equal((await f.core.snapshot(access)).recovery_metadata.instruction_trim_sha256, null);
+  for (const invalid of ['', 'SHA256:' + 'a'.repeat(64), 'sha256:missing']) {
+    f.db.prepare('UPDATE buzz_pilot_jobs SET instruction_trim_sha256 = ?').run(invalid);
+    await assert.rejects(f.core.snapshot(access), code('buzz_pilot_ledger_corrupt'));
+  }
+});
+
+test('instruction comparison digest keeps ECMAScript trim semantics and interior UTF-8 bytes', async t => {
+  for (const [raw, trimmed] of [['\uFEFF\u00A0\t A  B\r\nC \u2028\u2029', 'A  B\r\nC'],
+    ['\u0085A\u0085', '\u0085A\u0085'], ['\u200BA\u200B', '\u200BA\u200B']]) {
+    const f = await fixture(t), bytes = Buffer.from(raw);
+    f.core = f.make({ binding: { ...f.binding, instruction_sha256: hash(bytes) } });
+    await f.core.issue({ instructionBytes: bytes }, access);
+    assert.equal((await f.core.snapshot(access)).recovery_metadata.instruction_trim_sha256, hash(trimmed));
+    await f.append('instruction_received', { message_id: message(1), text: trimmed });
+    assert.deepEqual((await f.core.readEvidence({ role: 'instruction' }, access)).bytes, bytes);
+  }
+});
+
 test('wrong actor/source/project/chat/profile/key and unknown/thinking fields are refused before capture', async t => {
   const f = await fixture(t); await f.issue();
   const event = f.event('instruction_received', { message_id: message(1), text: instruction.toString() });
@@ -541,9 +578,10 @@ test('readOnly constructor rejects missing or foreign schema without bootstrappi
 
 test('an authorized restarted observer can retire a lost gateway wait using only recorded session metadata', async t => {
   const f = await fixture(t); await f.issue();
-  assert.deepEqual((await f.core.snapshot(access)).recovery_metadata, { session_key: null, session_id: null });
+  const instruction_trim_sha256 = hash(instruction.toString().trim());
+  assert.deepEqual((await f.core.snapshot(access)).recovery_metadata, { session_key: null, session_id: null, instruction_trim_sha256 });
   await f.append('instruction_received', { message_id: message(1), text: instruction.toString().trim() }, { session_id: null });
-  assert.deepEqual((await f.core.snapshot(access)).recovery_metadata, { session_key: 'session:synthetic', session_id: null });
+  assert.deepEqual((await f.core.snapshot(access)).recovery_metadata, { session_key: 'session:synthetic', session_id: null, instruction_trim_sha256 });
   await f.append('tool_started', { tool_call_id: 'call.actual-1', tool_name: 'clarify', input });
   await f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input });
   await f.append('question_delivery', { clarify_id: 'clarify.actual-1', delivery_status: 'sent', message_id: message(2) });
@@ -551,8 +589,9 @@ test('an authorized restarted observer can retire a lost gateway wait using only
   await assert.rejects(f.core.snapshot({ ...access, accountId: 'unrelated.synthetic' }), code('buzz_pilot_not_authorized'));
   const waiting = await f.core.snapshot(access);
   assert.equal(waiting.owner_action_required, true);
-  assert.deepEqual(waiting.recovery_metadata, { session_key: 'session:synthetic', session_id: 'session.actual-1' });
-  const event = f.event('failed', { reason_code: 'gateway_wait_lost' }, waiting.recovery_metadata);
+  assert.deepEqual(waiting.recovery_metadata, { session_key: 'session:synthetic', session_id: 'session.actual-1', instruction_trim_sha256 });
+  const { session_key, session_id } = waiting.recovery_metadata;
+  const event = f.event('failed', { reason_code: 'gateway_wait_lost' }, { session_key, session_id });
   await f.core.append(event);
   const retired = await f.core.snapshot(access);
   assert.equal(retired.state, 'failed'); assert.equal(retired.owner_action_required, false);
