@@ -1,0 +1,15 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "tool-workshop-claude-acp-v3",
+  "description": "Tracked-only scoped Claude ACP adapter with per-prompt native auth-state observation and explicit terminal failure metadata. ACP end_turn ends transport processing and does not mean work/artifact success or acceptance. The v3 identifier is a packaging revision, not ACP protocol 3 support. No credentials, profile data, instructions, work data, runtime state or canonical metadata is inherited. Native Node and Claude remain external SHA-pinned runtimes. Assembly does not install, register or activate a bot, deliver a Bot Chat notice, or complete the workshop tool chain.",
+  "tracked_paths": [
+    "guild_hall/tool_workshop/src/claude_acp_cli.mjs",
+    "guild_hall/tool_workshop/src/claude_acp_policy.mjs",
+    "guild_hall/tool_workshop/src/claude_acp_server.mjs",
+    "guild_hall/tool_workshop/src/claude_acp_workspace.mjs"
+  ],
+  "tracked_excludes": [],
+  "carried_forward_prefixes": [],
+  "carried_forward_rationale": {},
+  "entry_points": ["guild_hall/tool_workshop/src/claude_acp_cli.mjs"]
+}

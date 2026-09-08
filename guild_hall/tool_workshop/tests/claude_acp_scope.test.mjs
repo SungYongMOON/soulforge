@@ -183,11 +183,13 @@ test('one in-flight turn and cancellation closes its process without automatic r
   try {
     await agent.dispatch('initialize', { protocolVersion: 1 }); const s = await agent.dispatch('session/new', {});
     const pending = agent.dispatch('session/prompt', { sessionId: s.sessionId, prompt: [{ type: 'text', text: 'wait' }] });
-    const cancelled = assert.rejects(pending, /TURN_CANCELLED/);
     await assert.rejects(agent.dispatch('session/prompt', { sessionId: s.sessionId, prompt: [{ type: 'text', text: 'parallel denied' }] }), /TURN_BUSY/);
     for (let i = 0; i < 100 && !fs.existsSync(path.join(f.jobRoot, 'child-argv.json')); i++) await new Promise(resolve => setTimeout(resolve, 20));
-    await agent.dispatch('session/cancel', { sessionId: s.sessionId }); await cancelled;
-    await assert.rejects(agent.dispatch('session/prompt', { sessionId: s.sessionId, prompt: [{ type: 'text', text: 'no replay' }] }), /SESSION_UNKNOWN/);
+    await agent.dispatch('session/cancel', { sessionId: s.sessionId });
+    const cancelled = await pending;
+    assert.equal(cancelled.stopReason, 'cancelled'); assert.equal(cancelled._meta.failure_meta.code, 'TURN_CANCELLED');
+    assert.equal(cancelled._meta.failure_meta.directChildClosed, true);
+    assert.deepEqual(await agent.dispatch('session/prompt', { sessionId: s.sessionId, prompt: [{ type: 'text', text: 'no replay' }] }), cancelled);
   } finally { agent.close(); }
 });
 test('bounded JSON lines handles split UTF8 and rejects oversized or truncated frames', () => {
