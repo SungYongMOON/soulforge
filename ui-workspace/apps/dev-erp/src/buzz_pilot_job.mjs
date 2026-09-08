@@ -353,7 +353,11 @@ export function createBuzzPilotJob({ db, workingBytes, binding: suppliedBinding,
           'question_delivery_unknown', 'answer_received', 'answer_accepted', 'resumed');
         role = 'tool_output'; bytes = textBytes(p.output, true);
         facts = { tool_call_id: p.tool_call_id, tool_name: 'clarify', outcome: p.outcome };
-        state.tool_outcome = p.outcome; state.status = p.outcome === 'completed' ? 'tool_completed' : p.outcome; break;
+        // In the observation-only v2 contract, ending a clarify tool does not
+        // terminate the native job. Only an explicit job failed/cancelled event
+        // has that meaning; preserve v1's terminal projection for replay.
+        state.tool_outcome = p.outcome;
+        state.status = p.outcome === 'completed' || state.input_contract === 'prepared_v2' ? 'tool_completed' : p.outcome; break;
       case 'final_response':
         exact(p, ['text']); at('running', 'tool_completed');
         role = 'final_response'; bytes = textBytes(p.text); state.status = 'final_produced'; state.final_produced = true; break;
