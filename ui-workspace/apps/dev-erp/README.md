@@ -106,6 +106,18 @@ claiming a product release. Validate through `npm.cmd run validate:product-compo
 다시 확인하여 보존본을 내려준다. `instruction`만 관측 ID를 생략할 수 있으며 임의 경로는 받지 않는다.
 reader 설정 오류는 조회 불가로 남으며 다른 DB를 찾거나 만들지 않는다.
 
+별도 후보 서버에서 기존 서버의 Owner 로그인을 읽기 전용으로 재사용할 때만
+`DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_DB`(기존 인증 DB 절대경로)와
+`DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_PORT`(기존 로그인 서버 포트)를 함께 명시한다.
+Owner와 과제는 기존 검증된 pilot binding에서 가져오며, 현재 유효한 정확한 세션,
+활성 계정, 관리자 역할, 과제 존재를 최소 SELECT로 다시 확인한다. 원본 DB는
+`readOnly`/`query_only`로 열며 세션 발급·만료 행 삭제·계정 생성·마이그레이션을 하지 않는다.
+이 선택은 정확한 Buzz GET 두 경로에만 적용되고 다른 API·쓰기·로그인 권한은 바꾸지 않는다.
+미설정 시 기존 후보 서버의 인증을 유지하며, 일부 설정만 있거나 소스가 깨졌으면 대체 인증 없이 조회를 거부한다.
+브라우저는 기존 로그인 서버와 후보 서버에 같은 호스트 이름을 사용해야 한다.
+기존 로그인 세션이 없으면 사람이 기존 서버에서 먼저 로그인한 뒤 후보의 작업대를 연다.
+쿠키·비밀번호를 복사하거나 후보 계정을 새로 만들어 이 절차를 대신하지 않는다.
+
 Buzz 조회가 켜지면 기존 작업대의 모든 POST가 차단된다. 기존에 명시적으로 설정된 과거
 접수·native 상태·지시/출력 GET은 현재 권한 검사와 함께 유지되며 `#request=<id>` 링크로 볼 수 있다.
 `waiting_owner`와 `owner_action_required=true`가 함께 있을 때만 사람의 답변 대기를 표시하고,

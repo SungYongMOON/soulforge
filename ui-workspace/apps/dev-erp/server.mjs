@@ -28,6 +28,7 @@ import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
 import { createBuzzPilotWorkbenchHttpController } from "./src/buzz_pilot_workbench_http.mjs";
 import { openBuzzPilotReader } from "./tools/buzz_pilot_job_cli.mjs";
+import { openBuzzPilotAuthSource } from "./src/buzz_pilot_auth_source.mjs";
 import { createOwnerAttentionSource } from "./src/owner_attention_source.mjs";
 import { createOwnerAttentionService } from "./src/owner_attention_service.mjs";
 import { createOwnerAttentionHttpController } from "./src/owner_attention_http.mjs";
@@ -2439,10 +2440,24 @@ const buzzPilotReader = await (async () => {
       } });
   } catch { return null; }
 })();
+const buzzPilotAuthSourceRequested = process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_DB !== undefined
+  || process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_PORT !== undefined;
+const buzzPilotAuthSource = (() => {
+  if (!buzzPilotReadEnabled || !buzzPilotAuthSourceRequested || !buzzPilotReader) return null;
+  try {
+    return openBuzzPilotAuthSource({ dbPath: process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_DB,
+      sourcePort: process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_PORT,
+      expectedOwnerId: buzzPilotReader.binding.owner_account_id, projectId: buzzPilotReader.binding.project_id });
+  } catch { return null; }
+})();
+const unavailableBuzzPilotAuthSource = () => { throw Object.assign(new Error('Buzz authentication source unavailable'),
+  { status: 503, code: 'BUZZ_PILOT_AUTH_SOURCE_UNAVAILABLE' }); };
 const buzzPilotWorkbenchHttpController = createBuzzPilotWorkbenchHttpController({
   enabled: buzzPilotReadEnabled, service: buzzPilotReader?.reader ?? null,
   allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
-  currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
+  ...(buzzPilotAuthSourceRequested ? buzzPilotAuthSource ?? { currentAccount: unavailableBuzzPilotAuthSource,
+    sessionKey: unavailableBuzzPilotAuthSource, canAccessProject: unavailableBuzzPilotAuthSource }
+    : { currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject }),
 });
 const workbenchExecutionService = (() => {
   const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1"
@@ -2524,6 +2539,11 @@ const server = createServer(async (req, res) => {
   const actor = currentAccount(req)?.username ?? "anon";
   try {
     if (await acceptedContextHttpController(req, res, url)) return;
+    // Only these authenticated Buzz reads may use the explicitly configured
+    // source server's current session. Other APIs keep the local auth guard.
+    if (buzzPilotReadEnabled && buzzPilotAuthSourceRequested && req.method === "GET"
+      && ["/api/workbench/buzz-pilot", "/api/workbench/buzz-pilot/evidence"].includes(path)
+      && await buzzPilotWorkbenchHttpController(req, res, url)) return;
     if (!ERP_MCP_ENABLED
         && (path.startsWith("/api/mcp/") || path.startsWith("/api/integrations/mcp/"))) {
       return send(res, 404, { error: "not_found" });
@@ -4791,6 +4811,7 @@ async function shutdownDevErp(signalName) {
   try { runtimeListener?.close?.(); } catch {}
   try { await workbenchHttpController.close(); } catch {}
   try { await buzzPilotReader?.close(); } catch {}
+  try { buzzPilotAuthSource?.close(); } catch {}
   for (const active of activeCodexTurns.values()) active.controller.abort();
   const deadline = Date.now() + 5000;
   while (activeCodexTurns.size && Date.now() < deadline) {
