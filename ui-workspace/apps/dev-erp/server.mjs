@@ -6,7 +6,7 @@
 import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { createServer as createNetServer } from "node:net";
-import { createHash, randomBytes, randomUUID, X509Certificate } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual, X509Certificate } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import {
@@ -746,6 +746,34 @@ function readCookie(req, name) {
 // 현재 로그인 계정(없으면 null=익명). 익명이면 앱은 현행대로 동작.
 function currentAccount(req) {
   return store.sessionAccount(readCookie(req, SID));
+}
+// Same session-bound random-CSRF pattern as the Owner attention controller.
+// This map grants no MCP access and stores no bearer. A restart requires a GET.
+const mcpConnectionCsrf = new Map();
+function mcpConnectionPrincipal(req) {
+  const account = currentAccount(req), session = readCookie(req, SID);
+  if (!account || !session) return null;
+  return { account, key: createHash("sha256").update(JSON.stringify([account.id, session])).digest("hex") };
+}
+function mcpConnectionToken(key) {
+  for (const [k, value] of mcpConnectionCsrf) if (value.until <= Date.now()) mcpConnectionCsrf.delete(k);
+  if (!mcpConnectionCsrf.has(key)) {
+    if (mcpConnectionCsrf.size >= 128) throw new ErpMcpError("connection_session_limit", 503);
+    mcpConnectionCsrf.set(key, { value: randomBytes(32).toString("hex"), until: Date.now() + 12 * 3600000 });
+  }
+  return mcpConnectionCsrf.get(key).value;
+}
+function validMcpConnectionCsrf(req, key) {
+  const entry = mcpConnectionCsrf.get(key), given = req.headers["x-csrf-token"];
+  let sameOrigin = false;
+  try {
+    const origin = new URL(req.headers.origin);
+    sameOrigin = origin.protocol === (COOKIE_SECURE ? "https:" : "http:") && origin.origin === req.headers.origin
+      && origin.host === req.headers.host;
+  } catch { /* No browser-origin proof. */ }
+  return sameOrigin && !["cross-site", "same-site"].includes(req.headers["sec-fetch-site"])
+    && entry && entry.until > Date.now() && typeof given === "string" && /^[a-f0-9]{64}$/u.test(given)
+    && timingSafeEqual(Buffer.from(given, "hex"), Buffer.from(entry.value, "hex"));
 }
 // 로그인 브루트포스 방지: IP+아이디별 인메모리 실패 카운트. 5회 연속 실패 시 60초 차단, 성공 시 초기화.
 // 사내망 전제라 인메모리로 충분(서버 재시작 시 리셋 — 영속 잠금은 과잉).
@@ -2667,9 +2695,17 @@ const server = createServer(async (req, res) => {
     // a distinct per-account bearer. Upload bytes travel over a one-time raw PUT,
     // never through MCP JSON/model context.
     if (path === "/api/integrations/mcp/tokens" && req.method === "GET") {
-      const me = currentAccount(req);
-      if (!me) return send(res, 401, { error: "login_required" });
-      return send(res, 200, { tokens: erpMcp.listTokens(me.id) });
+      const principal = mcpConnectionPrincipal(req);
+      if (!principal) return send(res, 401, { error: "login_required" });
+      if (url.search) return send(res, 400, { error: "invalid_query" });
+      const observedAt = new Date().toISOString();
+      const tokens = erpMcp.listTokens(principal.account.id).map(row => ({ ...row,
+        state: row.revoked ? "revoked" : Number.isFinite(Date.parse(row.expires_at))
+          ? Date.parse(row.expires_at) <= Date.parse(observedAt) ? "expired" : "active" : "unknown" }));
+      res.setHeader("Cache-Control", "no-store");
+      return send(res, 200, { account_id: principal.account.id, observed_at: observedAt,
+        access_scope: "account_current_permissions", project_binding: "not_token_scoped",
+        tokens, csrf_token: mcpConnectionToken(principal.key) });
     }
     if (path === "/api/integrations/mcp/tokens" && req.method === "POST") {
       const body = await readJson(req, 16 * 1024);
@@ -2687,9 +2723,16 @@ const server = createServer(async (req, res) => {
       return send(res, 201, issued);
     }
     if (path === "/api/integrations/mcp/tokens/revoke" && req.method === "POST") {
-      const body = await readJson(req, 16 * 1024);
-      const me = currentAccount(req);
-      if (!me) return send(res, 401, { error: "login_required" });
+      const principal = mcpConnectionPrincipal(req);
+      if (!principal) return send(res, 401, { error: "login_required" });
+      if (!validMcpConnectionCsrf(req, principal.key)) return send(res, 403, { error: "csrf_required" });
+      if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/iu.test(req.headers["content-type"] || "")) return send(res, 415, { error: "content_type_required" });
+      const body = await readJson(req, 2048);
+      const current = mcpConnectionPrincipal(req);
+      if (!current || current.key !== principal.key) return send(res, 401, { error: "login_required" });
+      if (!validMcpConnectionCsrf(req, current.key)) return send(res, 403, { error: "csrf_required" });
+      if (!body || Object.keys(body).length !== 1 || !/^mcp_tok_[a-f0-9]{16}$/u.test(body.token_id || "")) return send(res, 400, { error: "invalid_connection" });
+      const me = current.account;
       const result = erpMcp.revokeToken({ accountId: me.id, tokenId: body.token_id });
       store.appendEvent({
         actor_ref: me.username, actor_kind: "human", kind: "mcp_token_revoked",

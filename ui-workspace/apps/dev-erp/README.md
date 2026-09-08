@@ -654,6 +654,20 @@ Codex runtime aggregate hash는 app-server/model discovery/turn 전후에 다시
 Codex CLI 업데이트 시 worker를 중지하고 fingerprint와 probe를 재승인하기 전에는 새
 실행 파일로 turn을 시작하지 않는다.
 
+### 내 MCP 연결 조회·철회
+
+로그인한 사용자는 상단 계정 메뉴의 **내 연결**에서 자신의 연결 이름·식별자·만료·마지막
+사용·사용 가능/만료/철회 상태를 조회한다. 연결키는 표시하거나 발급하지 않는다.
+현재 MCP 연결은 프로젝트별 고정 grant가 아니며 계정의 현재 업무 접근권한을 따른다.
+UI는 이를 명시하고 개별 업무 API의 권한 검사를 대체하지 않는다.
+
+**이 연결 철회**는 대상 식별자와 영향을 확인받고, 최신 목록과 같은 세션인지 검사한 뒤
+기존 철회 API를 호출한다. 같은 계정의 미사용 업로드 예약도 취소되지만 기존 등록 자료와
+로그인은 유지된다. 철회 POST 성공만으로 완료를 표시하지 않고 서버 재조회로 확인한다.
+기능 OFF, 로그인 변경, 접근 거부, 목록 없음, 실패·결과 불명을 구분하며 자동 재시도하지 않는다.
+새 기능 활성화, 타인 계정 관리, 전체 Connector lifecycle/AuthorityPolicy writer는 포함하지 않는다.
+검사: `node --test test/mcp_connections.test.mjs` (합성 두 계정·HTTP·UI 함수, 실제 모델/GUI 없음).
+
 ### 개인 Codex ERP MCP 파일럿
 
 팀원 각자의 Codex를 ERP에 연결하는 별도 Streamable HTTP sidecar가
