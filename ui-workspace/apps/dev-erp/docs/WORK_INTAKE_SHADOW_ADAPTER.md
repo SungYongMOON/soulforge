@@ -112,3 +112,65 @@ Forge의 `accepted_context_ref`/`engine_finding_refs` 필수 조건도 바꾸지
 기존 core 회귀는 `npm --prefix ui-workspace/apps/dev-erp run validate:voice-first-shadow`,
 UI 필수 검사는 `npm run ui:done:check`다. Node의 내장 SQLite를 사용하며 기존 앱과 같은
 Node 실행 환경을 따른다. 실제 source/model/cost/utility/배포 검증으로 확대하지 않는다.
+
+## 후속: 유효 입력 관계 검사
+
+`runWorkIntakeRelationPair({before, after}, {before: judge, after: judge})`는 두 입력을
+judge 호출 전에 함께 고정하고 실제 adapter를 통과시킨다.
+`evaluateWorkIntakeRelationPair(pair, contract, trustedContractSha256)`는 별도 작성자가
+먼저 고정한 계약·입력 hash·변경 차원·불변조건·기대 분류와 의미 식별자 관계를 검사한다.
+이 추가 경로는 서로 다른 유효 입력의 관계 실험이며 기존 동일 snapshot A/B 조건을 낮추지 않는다.
+
+독립 합성 fixture의 세 쌍은 표현만 변경(NEW 유지), 명시 철회(NEW→NO_ACTION),
+기존 업무 없음→열린 업무 있음(NEW→FOLLOW_UP)이다. 완료된 업무 관측도 보조 검사한다.
+각 source revision은 합성 canonical UTF-8 bytes의 실제 hash이고 facts hash도 갱신한다.
+잘못된 hash로 입력을 거부시키는 실험으로 관계 민감도를 대신하지 않는다.
+
+기존 test helper의 `scriptedJudge`는 입력 내용과 무관한 상수 NEW다. 올바른 합성 대조답은
+세 쌍을 통과하지만 이 상수는 철회와 업무 맥락 변화에서 `SEMANTIC_MISMATCH`가 된다.
+근거 없는 출력은 `OUTPUT_VALIDATION_FAILED`, judge 예외는 `JUDGE_EXECUTION_FAILED`,
+입력 자체의 불량은 HOLD로 구별한다. 이런 변별력은 실제 모델의 의미 이해 능력을 뜻하지 않는다.
+fixture 작성자·freeze 시각·hash 선언만으로 실제 사람 gold의 독립성을 인증하지 않는다.
+
+## 후속: 고유 업무당 비용·검수 결합
+
+`work_intake_cost_evaluation.mjs::evaluateWorkIntakeCostCohort(input,
+{observationStore, resolveEvidence})`는 별도 저장이나 writer 없이 app-local 보고서를 만든다.
+현재 `synthetic` cohort만 허용한다. 실제 source/모델 청구·가격·사람시간 조회는 하지 않는다.
+
+| 소비 근거 | 역할 |
+|---|---|
+| 기존 Agent Observation `listUsageEvents` / `listRuns` | genuine store의 direct 사용량과 run/project/work 결속 |
+| 기존 `projectUsageRollup` / `listDescendantRunIds` | 부모 subtree를 직접 event ID 집합으로 펼침; 합계는 다시 더하지 않음 |
+| 기존 `validateAiWorkRun` | work/run·execution/coordination/verification/rework·usage refs·coverage |
+| 기존 `validateAiQualityResult` | 정확 result ID·revision·hash·criterion과 독립 검토 관계 |
+| 기존 `validateAiToolEvent` | 실패/timeout/retry tool 사건을 해당 비용/attempt에 결속 |
+| 주입된 합성 evidence resolver | billing·tool/infra charge·active human time/rate·cohort coverage metadata |
+
+입력은 고정 cohort/project/work 목록, work-run refs, 모든 attempt, review bindings,
+direct/subtree 선택, expense/human/coverage refs를 받는다. 정확 필드 목록은 소비기 코드가 소유하며
+새 공통 schema·장부·billing 정본이 아니다. 공통 persistence 함수는 호출하지 않는다.
+참조 입력 hash와 실제 읽은 evidence별 digest/availability, direct usage/run snapshot digest를
+따로 반환한다. 같은 ref의 내용이 달라져도 동일한 비용 근거로 오인하지 않는다.
+
+직접 usage event, provider+call, charge, human time-entry를 각각 고유 ID로 중복 제거한다.
+동일 ID의 충돌은 HOLD이고 같은 업무의 재시도·실패·취소·조정·검수·재작업 비용은 모두 포함한다.
+retry는 이미 포함된 실제 호출의 분류이므로 비용 multiplier로 다시 더하지 않는다.
+다른 run의 usage ref를 빌리거나 실패 run의 관측된 호출을 생략해 coverage를 완성할 수 없다.
+
+검수 분모는 고유 work ID다. 같은 업무의 여러 통과 판본은 여러 업무가 아니다.
+현재 cohort에서 시작시각이 가장 늦은 result-bearing attempt의 정확 판본을 기준으로 하며,
+그 판본이 독립 검수를 통과해야 해당 업무를 센다. 동시시각의 상충 결과는 HOLD한다.
+같은 판본의 후속 fail은 이전 pass를 대체한다. deterministic PASS·독립 model/human review와
+실제 사람 수락·사용은 서로 다른 증거다. 이 소비기는 공식 완료/사람 수락을 만들지 않는다.
+
+금액은 USD의 백만분의1 단위 정수로 합산하고 사람비용은 명시된 active 시간×단가를
+동일 단위로 반올림한다. 대기시간은 별도 표시한다. provider 청구가 아닌 token proxy/추정 요율,
+누락된 tool/infra/human 증거, 사람시간 또는 단가 미관측, 검수 통과 업무0이면 총비용과
+업무당 비용은 UNKNOWN이다. 관측 부분 합계는 따로 보존한다. ROI는 benefit/실사용이 없어 항상 UNKNOWN이다.
+이 값은 고정 cohort 비용이며 별도 fixture/oracle 실험비를 포함한 전체 실험비라고 주장하지 않는다.
+
+독립 산술 fixture는 3업무·8직접 청구에서 model16+tool3+infra1+active human30=50 USD,
+통과 판본3개지만 고유 검수 업무2개여서 업무당25 USD다. 이는 발명한 검증용 금액이며
+현재 모델 가격이나 실제 청구·절감 성과가 아니다. 후속 tests도 기존 `work_intake_*.test.mjs`
+검증과 앱의 `test/*.test.mjs` 범위에 포함된다.
