@@ -40,6 +40,9 @@ test("the real tool rehearsal forwards its explicit Python binding to source and
     test('explicit runtime reaches the real child', () => {
       const config = JSON.parse(readFileSync(process.env.SOULFORGE_PPTX_TEST_CONFIG, 'utf8'));
       assert.equal(process.env.SOULFORGE_HWPX_TEST_PYTHON, config.pythonExecutable);
+      assert.equal(process.env.SOULFORGE_PDF_TEST_PYTHON, config.pythonExecutable);
+      assert.equal(process.env.SOULFORGE_PDF_TEST_POPPLER, process.execPath);
+      assert.equal(Object.keys(config).length, 5, 'PPTX keeps its original five-field contract');
       assert.equal(config.pythonExecutable, process.execPath);
     });
   `);
@@ -56,12 +59,15 @@ test("the real tool rehearsal forwards its explicit Python binding to source and
     support_owner_ref: "owner.platform_support", secret_refs: [],
   }));
   const result = await runReleaseRehearsal({rootDir: source, workDir: join(root, "rehearsal"),
-    packIds: ["tool_workshop_pack"], workshopTestConfig: file, clock});
+    packIds: ["tool_workshop_pack"], workshopTestConfig: file, workshopPdfRenderer: process.execPath, clock});
   assert.equal(result.ok, true, JSON.stringify(result.receipt.packs.map(pack => ({failure: pack.failure, source: pack.stages.source_unit}))));
   const pack = result.receipt.packs[0];
   assert.equal(pack.stages.source_unit.counts.pass, 1);
   assert.equal(pack.stages.installed_smoke.counts.pass, 1);
   assert.equal(pack.test_runtime.synthetic_config_sha256, readWorkshopTestConfig(file).sha256);
+  assert.match(pack.test_runtime.pdf_renderer_sha256, /^[a-f0-9]{64}$/);
+  await assert.rejects(runReleaseRehearsal({rootDir: source, packIds: ['tool_workshop_pack'], workshopPdfRenderer: process.execPath}),
+    {code: 'rehearsal_pdf_renderer_without_workshop_config'});
 });
 
 test("isolated Windows profile gives real PowerShell native AppData paths inside the fixture", { skip: process.platform !== "win32" }, (t) => {

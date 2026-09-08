@@ -14,7 +14,9 @@ const validators = listFiles(ROOT, `${WORKSHOP}/tests`, ".test.mjs");
 const sources = listFiles(ROOT, `${WORKSHOP}/src`, ".mjs");
 const helper = [`${WORKSHOP}/src/tool_workshop_core.mjs`, `${WORKSHOP}/src/tool_workshop_durable.mjs`, `${WORKSHOP}/src/workshop_files.mjs`];
 const closure = moduleClosure(ROOT, [...sources, ...validators]);
-const nativeSources = [...listFiles(ROOT, `${WORKSHOP}/src`, ".py"), ".registry/skills/pptx_autofill_conversion/codex/scripts/replace_text_runs.py"];
+const nativeSources = [...listFiles(ROOT, `${WORKSHOP}/src`, ".py"), ...listFiles(ROOT, `${WORKSHOP}/src`, ".ps1"),
+  ".registry/skills/pptx_autofill_conversion/codex/scripts/replace_text_runs.py",
+  ".registry/skills/hwpx_document/codex/scripts/validate.py", ".registry/skills/hwpx_document/codex/scripts/page_guard.py"];
 // The HWPX synthetic helper opens these fixed template parts rather than
 // importing them. They belong to the installed smoke's actual data closure.
 const hwpxFixtureReads = [
