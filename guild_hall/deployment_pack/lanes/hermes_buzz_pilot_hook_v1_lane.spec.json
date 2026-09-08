@@ -5,6 +5,8 @@
   "tracked_paths": [
     "ui-workspace/apps/dev-erp/tools/hermes_buzz_pilot_hook.py",
     "ui-workspace/apps/dev-erp/test/test_hermes_buzz_pilot_hook.py",
+    "ui-workspace/apps/dev-erp/test/test_hermes_buzz_pilot_background.py",
+    "ui-workspace/apps/dev-erp/test/test_hermes_buzz_pilot_health.py",
     "ui-workspace/apps/dev-erp/ops/hermes_buzz_pilot_v1/hermes-vendor.patch",
     "ui-workspace/apps/dev-erp/ops/hermes_buzz_pilot_v1/README.md"
   ],

@@ -13,7 +13,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.hermes_buzz_pilot_hook import ObserverClient, PilotCaptureAbort, SubprocessTransport
 
-PEER = '''import sys,json,pathlib
+PEER = '''import sys,json,pathlib,hashlib
 p=pathlib.Path(sys.argv[1])
 if sys.argv[1]=='--binding':
  b=json.loads(pathlib.Path(sys.argv[2]).read_text());p=pathlib.Path(b['evidence_root'])/'events.jsonl'
@@ -25,14 +25,17 @@ if len(sys.argv)>2 and sys.argv[2] in ('status-other','status-nostate'):
  value={'ok':True,'job_id':'job-1','project_id':'project-1','profile_ref':'profile-1'}
  if sys.argv[2]=='status-other':value.update(job_id='other-job',state='waiting_owner')
  print(json.dumps(value));sys.exit()
-if len(sys.argv)>2 and sys.argv[2] in ('status-retry','status-ready'):
+if len(sys.argv)>2 and sys.argv[2] in ('status-retry','status-ready','status-tool-running'):
  count=p.with_suffix('.status-count')
  if sys.argv[2]=='status-retry' and not count.exists():
   count.write_text('1');print(json.dumps({'ok':False,'code':'BUZZ_PILOT_STATUS_UNAVAILABLE','retryable':False}));sys.exit(2)
+ state='tool_running' if sys.argv[2]=='status-tool-running' else 'waiting_owner'
  print(json.dumps({'ok':True,'job_id':'job-1','project_id':'project-1','profile_ref':'profile-1',
-  'state':'waiting_owner','recorded_state':'waiting_owner',
+  'state':state,'recorded_state':state,'pending_observation_id':None,
   'recovery_metadata':{'session_key':'session-key','session_id':'actual-session'}}));sys.exit()
 raw=sys.stdin.buffer.read();event=json.loads(raw)
+if len(sys.argv)>2 and sys.argv[2]=='reject-prepared' and event['event_type']=='tool_input_prepared':
+ print(json.dumps({'ok':False,'code':'BUZZ_PILOT_QUESTION_MISMATCH','retryable':False}));sys.exit(2)
 if event['event_type']=='instruction_received' and event['payload']['text']!='review this':
  print(json.dumps({'ok':False,'code':'BUZZ_PILOT_INSTRUCTION_MISMATCH','retryable':False}));sys.exit(2)
 with p.open('ab') as f:f.write(raw+b'\\n')
@@ -41,7 +44,14 @@ if len(sys.argv)>2 and sys.argv[2]=='lose-first' and len(p.read_bytes().splitlin
 if len(sys.argv)>2 and sys.argv[2]=='lose-all':sys.exit(0)
 if len(sys.argv)>2 and sys.argv[2]=='permanent':
  print(json.dumps({'ok':False,'code':'BUZZ_PILOT_REJECTED','retryable':False}));sys.exit(2)
-print(json.dumps({'ok':True,'status':'recorded','job_id':event['job_id'],
+refs=[]
+role={'tool_started':'tool_input','tool_input_prepared':'tool_input_effective'}.get(event['event_type'])
+if role:
+ payload=json.dumps(event['payload']['input'],ensure_ascii=False,separators=(',',':'),sort_keys=True).encode()
+ group=hashlib.sha256(json.dumps([event['job_id'],'event',event['observation_id']],separators=(',',':')).encode()).hexdigest()
+ refs=[{'ref':'bp:bp-'+group+':'+role,'role':role,'sha256':'sha256:'+hashlib.sha256(payload).hexdigest(),
+  'size':len(payload),'mediaType':'application/json'}]
+print(json.dumps({'ok':True,'status':'recorded','job_id':event['job_id'],'evidence_refs':refs,
  'event_type':event['event_type'],'observation_id':event['observation_id']}))
 '''
 
@@ -105,6 +115,7 @@ class ObserverTests(unittest.TestCase):
         job.bind_session('actual-session')
         args = dict(question='Which section?', choices=['First','Last'], multi_select=False)
         job.tool_started('actual-call', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('actual-question', **args)
         job.question_delivery('actual-question', SimpleNamespace(success=True, message_id='sent-question', raw_response={'accepted':True}))
         job.answer_received('actual-question', 'actual-answer', 'First', 'owner-key')
@@ -116,11 +127,11 @@ class ObserverTests(unittest.TestCase):
         job.final_delivery(SimpleNamespace(success=True, message_id='sent-final', raw_response={'accepted':True}))
         events = self.observed()
         self.assertEqual([e['event_type'] for e in events], ['instruction_received','tool_started',
-            'question_registered','question_delivery','answer_received','answer_accepted',
+            'tool_input_prepared','question_registered','question_delivery','answer_received','answer_accepted',
             'resumed','tool_completed','final_response','final_delivery'])
-        self.assertEqual(events[5]['payload'], {'clarify_id':'actual-question','message_id':'actual-answer'})
-        self.assertEqual(events[6]['payload'], {'clarify_id':'actual-question','tool_call_id':'actual-call'})
-        self.assertEqual(events[4]['actor_pubkey'], 'owner-key')
+        self.assertEqual(events[6]['payload'], {'clarify_id':'actual-question','message_id':'actual-answer'})
+        self.assertEqual(events[7]['payload'], {'clarify_id':'actual-question','tool_call_id':'actual-call'})
+        self.assertEqual(events[5]['actor_pubkey'], 'owner-key')
         self.assertTrue(all(e['session_id']=='actual-session' for e in events[1:]))
 
     def test_lost_ack_retries_identical_observation_bytes(self):
@@ -144,6 +155,7 @@ class ObserverTests(unittest.TestCase):
         job.bind_session('actual-session')
         args = dict(question='Choose?', choices=[], multi_select=False)
         job.tool_started('call-1', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('question-1', **args)
         job.resumed('question-1', None)
         job.tool_completed('call-1', 'clarify', args,
@@ -184,6 +196,7 @@ class ObserverTests(unittest.TestCase):
         job.bind_session('actual-session')
         args = dict(question='Choose?', choices=['First'], multi_select=False)
         job.tool_started('call-1', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('question-1', **args)
         self.assertIsNone(self.message(client, message_id='answer-1', text='1'))
         job.answer_received('question-1', 'answer-1', '1', 'owner-key')
@@ -197,6 +210,7 @@ class ObserverTests(unittest.TestCase):
         job.bind_session('actual-session')
         args = dict(question='Choose?', choices=['First'], multi_select=False)
         job.tool_started('call-1', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('question-1', **args)
         job.answer_received('question-1', 'answer-1', '1', 'owner-key')
         self.assertFalse(self.message(client, message_id='answer-1', text='1').should_dispatch)
@@ -225,6 +239,7 @@ class ObserverTests(unittest.TestCase):
         job.bind_session('actual-session')
         args = dict(question='Choose?', choices=['First'], multi_select=False)
         job.tool_started('call-1', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('question-1', **args)
         with self.assertRaises(PilotCaptureAbort):
             job.answer_accepted('question-1', 'invented')
@@ -232,6 +247,7 @@ class ObserverTests(unittest.TestCase):
         job = self.message(self.client())
         job.bind_session('another-session')
         job.tool_started('call-1', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('question-1', **args)
         job.answer_received('question-1', 'answer-1', '1', 'owner-key')
         job.answer_accepted('question-1', 'First')
@@ -245,6 +261,7 @@ class ObserverTests(unittest.TestCase):
         job.bind_session('actual-session')
         args = dict(question='Choose?', choices=['First'], multi_select=False)
         job.tool_started('call-1', 'clarify', args)
+        job.tool_input_prepared(**args)
         job.question_registered('question-1', **args)
         job.answer_received('question-1', 'answer-1', '1', 'owner-key')
         job.answer_accepted('question-1', 'First')
@@ -264,8 +281,36 @@ class ObserverTests(unittest.TestCase):
             job.tool_started('call-1','clarify',dict(question='Choose?',choices=['First'],multi_select=True))
         self.assertEqual(raised.exception.reason_code,'pilot_multi_select_unsupported')
         events = self.observed()
-        self.assertEqual([event['event_type'] for event in events],['instruction_received','failed'])
-        self.assertEqual(events[-1]['payload'],{'reason_code':'pilot_multi_select_unsupported'})
+        self.assertEqual([event['event_type'] for event in events],['instruction_received'])
+
+    def test_prepared_input_keeps_raw_input_and_actual_callback_values_separate(self):
+        job=self.message(self.client());job.bind_session('actual-session')
+        raw={'question':' Which? ','choices':['First','Last'],'multi_select':False}
+        job.tool_started('call-1','clarify',raw)
+        job.tool_input_prepared('Which?',['First (Recommended)','Last'],False)
+        events=self.observed()
+        self.assertEqual(events[1]['payload']['input'],raw)
+        self.assertEqual(events[2]['event_type'],'tool_input_prepared')
+        self.assertEqual(events[2]['payload']['input'],{
+            'question':'Which?','choices':['First (Recommended)','Last'],'multi_select':False})
+        self.assertEqual(events[2]['payload']['tool_call_id'],'call-1')
+        self.assertEqual(events[2]['payload']['tool_input_ref'],job.tool_input_ref)
+        with self.assertRaises(PilotCaptureAbort):
+            job.tool_input_prepared('Which?',['First (Recommended)','Last'],False)
+
+    def test_permanent_rejection_completion_records_one_scoped_failure(self):
+        transport=SubprocessTransport([sys.executable,str(self.peer),str(self.events),'reject-prepared'],
+            status_argv=[sys.executable,str(self.peer),str(self.events),'status-tool-running'])
+        job=self.message(ObserverClient(self.path,self.sha,transport=transport))
+        job.bind_session('actual-session')
+        job.tool_started('call-1','clarify',{'question':'Which?','choices':['First','Last'],'multi_select':False})
+        with self.assertRaises(PilotCaptureAbort):job.tool_input_prepared('Which?',['First (Recommended)','Last'],False)
+        self.assertTrue(job.close_capture_failure())
+        self.assertFalse(job.close_capture_failure())
+        events=self.observed()
+        self.assertEqual([event['event_type'] for event in events],['instruction_received','tool_started','failed'])
+        self.assertEqual(events[-1]['payload'],{'reason_code':'gateway_capture_rejected'})
+        self.assertEqual(job.rejection_code,'BUZZ_PILOT_QUESTION_MISMATCH')
 
     def test_positive_ack_and_actual_message_id_are_required_for_sent(self):
         cases = [
@@ -356,11 +401,13 @@ def previous(label,event_type,*args):
  seen.append([label,list(args)])
 agent=SimpleNamespace(tool_start_callback=lambda *a:previous('start','tool_started',*a),
  tool_complete_callback=lambda *a:previous('complete','tool_completed',*a))
-job=hook.for_message('profile-1','bot-key','chat-1','owner-key','session-key','msg-1',
+hook._singleton=hook.ObserverClient(sys.argv[2],sys.argv[3],actual_hermes_home=sys.argv[4])
+job=hook._singleton.for_message('profile-1','bot-key','chat-1','owner-key','session-key','msg-1',
  'review this',datetime.now(timezone.utc).isoformat(),actual_hermes_home=sys.argv[4])
 assert hook.bind_agent_callbacks(agent,'session-key','actual-session') is job
 args={'question':'Choose?','choices':['First'],'multi_select':False}
 agent.tool_start_callback('call-1','clarify',args)
+job.tool_input_prepared(**args)
 job.question_registered('question-1',**args)
 job.answer_received('question-1','answer-1','1','owner-key')
 job.answer_accepted('question-1','First')
@@ -386,11 +433,13 @@ from tools import hermes_buzz_pilot_hook as hook
 seen=[]
 agent=SimpleNamespace(tool_start_callback=lambda *a:seen.append('start'),
  tool_complete_callback=lambda *a:seen.append('complete'))
-job=hook.for_message('profile-1','bot-key','chat-1','owner-key','session-key','msg-1',
+hook._singleton=hook.ObserverClient(sys.argv[2],sys.argv[3],actual_hermes_home=sys.argv[4])
+job=hook._singleton.for_message('profile-1','bot-key','chat-1','owner-key','session-key','msg-1',
  'review this',datetime.now(timezone.utc).isoformat(),actual_hermes_home=sys.argv[4])
 hook.bind_agent_callbacks(agent,'session-key','actual-session')
 args={'question':'Choose?','choices':['First'],'multi_select':False}
 agent.tool_start_callback('call-1','clarify',args)
+job.tool_input_prepared(**args)
 job.question_registered('question-1',**args)
 job.resumed('question-1',None)
 try:
