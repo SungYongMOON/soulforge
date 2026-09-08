@@ -7,8 +7,9 @@
 // experimental flag (checked at build time — see README "구현 메모"), so that is
 // the primary backend. If a future Node runtime in CI or on a contributor
 // machine does NOT expose `node:sqlite` (older Node 22.x had it behind
-// --experimental-sqlite), this module falls back automatically to an
-// append-only JSONL store that implements the exact same interface. Callers
+// --experimental-sqlite), an empty data directory starts an append-only JSONL
+// store with the same interface. Existing CORE format is never replaced by
+// fallback: a SQLite CORE requires a SQLite-capable runtime. Callers
 // never need to know which backend is active; `store.backendName` reports it
 // for diagnostics/receipts.
 //
@@ -99,12 +100,18 @@ async function detectSqliteModule() {
 /**
  * @param {object} [options]
  * @param {string} options.dataDir explicit external directory holding the store file(s).
- * @param {"auto"|"sqlite"|"jsonl"} [options.backend] force a backend; "auto" (default) tries
- *   sqlite first and falls back to JSONL.
- * @param {string} [options.dbFileName] sqlite filename. Default "intel.db".
- * @param {string} [options.jsonlFileName] JSONL filename. Default "intel.jsonl".
+ * @param {"auto"|"sqlite"|"jsonl"} [options.backend] "auto" preserves existing CORE format;
+ *   an empty directory tries sqlite first and falls back to JSONL.
+ * @param {"intel.db"} [options.dbFileName] only the canonical SQLite filename is accepted.
+ * @param {"intel.jsonl"} [options.jsonlFileName] only the canonical JSONL filename is accepted.
  */
 export async function openStore(options = {}) {
+  // Validate before any directory creation, file access or lease acquisition.
+  // A second filename would evade the one-CORE backup and lease contract.
+  if ((options.dbFileName !== undefined && options.dbFileName !== "intel.db")
+    || (options.jsonlFileName !== undefined && options.jsonlFileName !== "intel.jsonl")) throw new Error("store_filename_not_canonical");
+  const requestedBackend = options.backend ?? "auto";
+  if (!["auto", "sqlite", "jsonl"].includes(requestedBackend)) throw new Error("store_backend_invalid");
   const dataDir = externalDirectory(options.dataDir);
   if (!existsSync(dataDir) && !options.readOnly) {
     mkdirSync(dataDir, { recursive: true });
@@ -112,23 +119,23 @@ export async function openStore(options = {}) {
 
   const release = options.readOnly ? () => {} : acquireDataLease(dataDir);
   try {
-  const hasSqlite = existsSync(path.join(dataDir, options.dbFileName ?? "intel.db"));
-  const hasJsonl = existsSync(path.join(dataDir, options.jsonlFileName ?? "intel.jsonl"));
+  const hasSqlite = existsSync(path.join(dataDir, "intel.db"));
+  const hasJsonl = existsSync(path.join(dataDir, "intel.jsonl"));
   if (hasSqlite && hasJsonl) throw new Error("core_backend_ambiguous");
-  // Restoring a JSONL generation on a newer Node must not silently fork CORE
-  // into a new SQLite database on its next write.
-  const requestedBackend = (options.backend ?? "auto") === "auto" && hasJsonl ? "jsonl" : options.backend ?? "auto";
+  const existingBackend = hasSqlite ? "sqlite" : hasJsonl ? "jsonl" : null;
+  if (existingBackend && requestedBackend !== "auto" && requestedBackend !== existingBackend) throw new Error("core_backend_mismatch");
+  const selectedBackend = requestedBackend === "auto" ? existingBackend ?? "auto" : requestedBackend;
   let sqliteModule = null;
-  if (requestedBackend !== "jsonl") {
+  if (selectedBackend !== "jsonl") {
     sqliteModule = await detectSqliteModule();
-    if (requestedBackend === "sqlite" && !sqliteModule) {
-      throw new Error("openStore: backend 'sqlite' was requested but node:sqlite is unavailable in this runtime");
+    if (selectedBackend === "sqlite" && !sqliteModule) {
+      throw new Error("sqlite_backend_unavailable");
     }
   }
 
-  const store = sqliteModule && (!options.readOnly || existsSync(path.join(dataDir, options.dbFileName ?? "intel.db")))
-    ? openSqliteStore(sqliteModule, dataDir, options.dbFileName ?? "intel.db", options.readOnly)
-    : openJsonlStore(dataDir, options.jsonlFileName ?? "intel.jsonl", options);
+  const store = sqliteModule && (!options.readOnly || hasSqlite)
+    ? openSqliteStore(sqliteModule, dataDir, "intel.db", options.readOnly)
+    : openJsonlStore(dataDir, "intel.jsonl", options);
   const close = store.close.bind(store);
   store.close = () => { try { close(); } finally { release(); } };
   return store;
