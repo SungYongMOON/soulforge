@@ -370,6 +370,52 @@ for (const outcome of ['cancelled', 'failed']) test(`actual early tool ${outcome
   const view = await f.core.snapshot(access);
   assert.equal(view.state, outcome); assert.equal(view.actual_tool_completions, 1); assert.equal(view.answer_ref, null);
   assert.equal(view.event_refs.some(event => event.event_type === 'resumed'), false);
+  assert.equal(f.db.prepare('SELECT active FROM buzz_pilot_jobs').get().active, 0);
+  await assert.rejects(f.append('final_response', { text: 'Legacy final after terminal' }), code('buzz_pilot_terminal'));
+});
+
+async function v2Waiting(f) {
+  await f.issue(); await f.core.captureHealth(healthPacket(f), access);
+  const start = await started(f, { inputContract: 'prepared_v2' });
+  await f.append('tool_input_prepared', { tool_call_id: 'call.actual-1', tool_name: 'clarify', tool_input_ref: start.evidence_refs[0].ref, input });
+  await f.append('question_registered', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1', ...input });
+  await f.append('question_delivery', { clarify_id: 'clarify.actual-1', delivery_status: 'sent', message_id: message(2) });
+}
+
+for (const outcome of ['cancelled', 'failed']) test(`v2 tool ${outcome} preserves the active job and records native final continuation`, async t => {
+  const f = await fixture(t); await v2Waiting(f); f.time += 5000;
+  const ended = f.event('tool_completed', { tool_call_id: 'call.actual-1', tool_name: 'clarify', output: 'No response received.', outcome });
+  await f.core.append(ended);
+  let view = await f.core.snapshot(access);
+  assert.equal(view.recorded_state, 'tool_completed'); assert.equal(view.state, 'tool_completed');
+  assert.equal(f.db.prepare('SELECT active FROM buzz_pilot_jobs').get().active, 1);
+  const stored = JSON.parse(f.db.prepare('SELECT state_json FROM buzz_pilot_jobs').get().state_json);
+  assert.equal(stored.tool_outcome, outcome); assert.equal(view.wait_elapsed_ms, 5000);
+  assert.equal(view.owner_action_required, false); assert.equal(view.answer_ref, null); assert.equal(view.failure_reason_code, null);
+  const competing = f.make({ binding: { ...f.binding, job_id: 'job.competing' } });
+  await assert.rejects(competing.issue({ instructionBytes: instruction }, access), code('buzz_pilot_active_job_exists'));
+  assert.equal((await f.core.append(ended)).status, 'replayed');
+  await assert.rejects(f.append('tool_completed', ended.payload), code('buzz_pilot_event_order'));
+  await assert.rejects(f.append('resumed', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1' }), code('buzz_pilot_event_order'));
+  await assert.rejects(f.append('answer_received', { clarify_id: 'clarify.actual-1', message_id: message(3), text: 'Late answer' }), code('buzz_pilot_event_order'));
+  await f.append('final_response', { text: 'Continuing with an explicitly stated assumption.' });
+  await f.append('final_delivery', { delivery_status: 'sent', message_id: message(4) });
+  view = await f.core.snapshot(access); assert.equal(view.state, 'delivered'); assert.equal(view.sequence, 8);
+  assert.equal(view.final_delivered, true); assert.equal(view.actual_tool_completions, 1);
+  assert.equal(view.event_refs.some(event => event.event_type === 'resumed'), false);
+  assert.equal(f.db.prepare('SELECT active FROM buzz_pilot_jobs').get().active, 0);
+  assert.equal((await f.core.readEvidence({ role: 'tool_output', observation_id: ended.observation_id }, access)).bytes.toString(), 'No response received.');
+});
+
+for (const terminal of ['cancelled', 'failed']) test(`v2 actual job ${terminal} remains terminal after a tool timeout`, async t => {
+  const f = await fixture(t); await v2Waiting(f);
+  await f.append('tool_completed', { tool_call_id: 'call.actual-1', tool_name: 'clarify', output: '', outcome: 'cancelled' });
+  await f.append(terminal, { reason_code: 'observed_job_termination' });
+  const view = await f.core.snapshot(access); assert.equal(view.recorded_state, terminal);
+  assert.equal(view.failure_reason_code, 'observed_job_termination');
+  assert.equal(f.db.prepare('SELECT active FROM buzz_pilot_jobs').get().active, 0);
+  await assert.rejects(f.append('final_response', { text: 'Not a permitted continuation' }), code('buzz_pilot_terminal'));
+  await assert.rejects(f.append('resumed', { clarify_id: 'clarify.actual-1', tool_call_id: 'call.actual-1' }), code('buzz_pilot_terminal'));
 });
 
 test('binding requires exact core shape, typed pins and mandatory trusted authorization', async t => {

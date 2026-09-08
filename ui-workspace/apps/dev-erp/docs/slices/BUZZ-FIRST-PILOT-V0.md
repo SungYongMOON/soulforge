@@ -82,6 +82,13 @@ marker가 없는 v1은 기존 raw 입력과의 정확 비교만 유지한다(생
 함께 사용해야 하며 raw 비교로 내려가지 않는다. 미완료 보존 claim은 같은 사건의 정확 재전달만
 복구할 수 있고 다른 실패 사건으로 덮거나 도구를 다시 실행하지 않는다.
 
+prepared v2의 `tool_completed.outcome`은 도구의 종료 결과다. `cancelled`(질문 응답 시간초과
+포함)나 `failed`도 `tool_outcome`에 그대로 보존하고 업무는 `tool_completed` 단계로 둔다.
+이때 active-job 관문을 유지하며 실제 후속 `final_response`·`final_delivery`를 기록할 수 있다.
+답변·재개를 꾸며 만들거나 새 도구 실행을 허용하지 않는다. `completed`의 기존 답변/재개
+선행조건은 유지한다. 업무 전체 `cancelled`·`failed` 사건은 여전히 terminal이며 이후 결과를
+받지 않는다. marker 없는 v1의 도구 종료 → 전체 terminal 투영은 기존 재전달 호환을 유지한다.
+
 trusted pinned CLI `status`의 `recovery_metadata.instruction_trim_sha256`는 발행 시 저장한
 지시 비교용 SHA를 반환한다. 정확히 같은 binding의 발행 완료 행에서만 문자열이며,
 미완료 발행이나 다른 binding의 이력 조회에서는 `null`이다. 행 부재나 SHA 형식 손상은
