@@ -16,14 +16,21 @@ class HealthTransport(background_fixture.ControlledTransport):
         if not block_health:self.health_release.set()
         self.reject_health=reject_health
         self.checkpoints=[]
+        self.health_calls=[]
+        self.ack_mutator=lambda ack:ack
 
     def capture_health(self,raw):
         self.health_entered.set()
         if not self.health_release.wait(3):raise TimeoutError()
         if self.reject_health:raise OSError('synthetic health storage unavailable')
         packet=json.loads(raw)
-        self.checkpoints.append(packet)
-        return dict(ok=True,observer_instance_id=packet['observer_instance_id'],phase=packet['phase'])
+        self.health_calls.append(raw)
+        replayed=packet in self.checkpoints
+        if not replayed:self.checkpoints.append(packet)
+        ack=dict(ok=True,version=1,status='replayed' if replayed else 'recorded',job_id='job-1',
+            observer_instance_id=packet['observer_instance_id'],phase=packet['phase'],
+            health_sequence=self.checkpoints.index(packet)+1)
+        return self.ack_mutator(ack)
 
 
 class CaptureHealthTests(unittest.TestCase):
@@ -90,6 +97,36 @@ class CaptureHealthTests(unittest.TestCase):
         while len(transport.checkpoints)<2 and time.monotonic()<deadline:time.sleep(.005)
         self.assertEqual(transport.checkpoints[1]['phase'],'heartbeat')
         self.assertEqual(transport.events,[])
+
+    def test_health_ack_missing_contradictory_and_cross_job_are_capture_gaps(self):
+        mutations=[lambda a:{k:v for k,v in a.items() if k not in ('version','status','job_id','health_sequence')},
+            lambda a:{**a,'version':999,'status':'rejected','job_id':'other','health_sequence':-1},
+            lambda a:{**a,'version':True},lambda a:{**a,'job_id':'other'},
+            lambda a:{**a,'status':'rejected'},lambda a:{**a,'health_sequence':0},
+            lambda a:{**a,'health_sequence':True},lambda a:{**a,'health_sequence':1.5},
+            lambda a:{**a,'health_sequence':4097}]
+        for index,mutate in enumerate(mutations):
+            with self.subTest(index=index):
+                transport=HealthTransport()
+                transport.ack_mutator=mutate
+                client=self.live_client(transport)
+                try:
+                    deadline=time.monotonic()+2
+                    while not client.capture_ready and client.reason is None and time.monotonic()<deadline:time.sleep(.005)
+                    self.assertFalse(client.capture_ready)
+                    self.assertEqual(client.reason,'observer_checkpoint_unavailable')
+                    self.assertEqual(len(transport.health_calls),2)
+                    self.assertEqual(transport.health_calls[0],transport.health_calls[1])
+                    self.assertIsNone(self.message(client))
+                    self.assertEqual(transport.events,[])
+                finally:client.close(2)
+
+    def test_complete_replayed_health_receipt_is_accepted(self):
+        transport=HealthTransport()
+        transport.ack_mutator=lambda ack:{**ack,'status':'replayed'}
+        client=self.live_client(transport)
+        self.ready(client)
+        self.assertIsNone(client.reason)
 
 
 if __name__=='__main__':unittest.main()

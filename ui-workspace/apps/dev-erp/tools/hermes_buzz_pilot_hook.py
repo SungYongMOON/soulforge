@@ -581,6 +581,7 @@ class BackgroundObserverClient:
         self._capture_last_time = 0
         self._capture_last_reason = None
         self._capture_last_recorded = -1
+        self._capture_last_sequence = 0
         self._capture_transport_failed = False
         self._processing_finished = False
         self.worker = threading.Thread(target=self._run, name='buzz-pilot-observer', daemon=True)
@@ -679,13 +680,19 @@ class BackgroundObserverClient:
             try:
                 self.recorder._verify_current()
                 ack = self.recorder.transport.capture_health(raw)
-                if (not isinstance(ack,dict) or ack.get('ok') is not True
+                if (not isinstance(ack,dict) or set(ack) != {'ok','version','status','job_id',
+                        'observer_instance_id','phase','health_sequence'}
+                        or ack.get('ok') is not True or type(ack.get('version')) is not int or ack['version'] != 1
+                        or ack.get('status') not in ('recorded','replayed') or ack.get('job_id') != self.binding['job_id']
+                        or type(ack.get('health_sequence')) is not int
+                        or not self._capture_last_sequence < ack['health_sequence'] <= 4096
                         or ack.get('observer_instance_id') != self.observer_instance_id
                         or ack.get('phase') != phase):
                     raise ValueError('capture_health_ack_invalid')
                 self._capture_last_time = time.monotonic()
                 self._capture_last_reason = gap
                 self._capture_last_recorded = packet['recorded_operations']
+                self._capture_last_sequence = ack['health_sequence']
                 return True
             except PilotCaptureAbort:
                 break
