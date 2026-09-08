@@ -25,6 +25,7 @@ function fixture(options = {}) {
       || !await access.canAccessProject('SYN-001')) throw Object.assign(new Error(), { code: 'buzz_pilot_not_authorized' });
   };
   const service = { snapshot: async access => { await authorize(access); return { version: 1, job_id: 'synthetic.job', state: 'issued',
+    capture_health: { state: 'unknown', phase: null, last_observed_at: null, pending_operations: null, recorded_operations: null, gap_reason: null },
     recovery_metadata: { session_key: 'session:synthetic', session_id: 'session.synthetic',
       instruction_trim_sha256: `sha256:${'a'.repeat(64)}` } }; },
     readEvidence: async (query, access) => { await authorize(access); state.query = query;
@@ -86,6 +87,7 @@ test('Buzz HTTP exposes the current authenticated snapshot and exact observed ev
   assert.equal(snapshot.body.includes('session:synthetic'), false);
   assert.equal(snapshot.body.includes('instruction_trim_sha256'), false);
   assert.equal(snapshot.body.includes('a'.repeat(64)), false);
+  assert.equal(JSON.parse(snapshot.body).capture_health.state, 'unknown');
   const evidence = await f.request('/api/workbench/buzz-pilot/evidence?role=question&observation_id=event.1');
   assert.equal(evidence.statusCode, 200); assert.equal(evidence.body.toString(), 'synthetic evidence');
   assert.deepEqual(f.state.query, { role: 'question', observation_id: 'event.1' });

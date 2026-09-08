@@ -93,6 +93,42 @@ trusted pinned CLI `status`의 `recovery_metadata.instruction_trim_sha256`는 �
 보존하고 U+FEFF/U+00A0는 양끝에서 제거하지만 U+0085/U+200B는 제거하지 않는다.
 다른 언어의 기본 `strip` 동작으로 동일하다고 가정하지 않는다.
 
+### 비동기 관측 상태
+
+일반 에이전트 대화 실행과 관측 기록은 분리한다. 관측 ACK는 대화 실행 허가가 아니며,
+기록 지연·장애를 새 `failed` 실행 사건으로 바꾸지 않는다. 기존 pinned CLI의 별도
+`capture-health` action이 다음 metadata-only stdin을 받아 발행된 exact binding에 기록한다.
+
+```json
+{"version":1,"observer_instance_id":"00000000-0000-4000-8000-000000000010","phase":"started","observed_at":"2026-09-08T00:00:00.000Z","pending_operations":0,"recorded_operations":0,"gap_reason":null}
+```
+
+- 모든 필드는 필수다. `phase`는 `started` → `heartbeat` → `closed`이며 UUID는 소문자다.
+  gap은 `null` 또는 `observer_startup_gap`, `observer_shutdown_incomplete`, `observer_capture_gap`만 받는다.
+- `recorded_operations`는 같은 instance 안에서 단조 증가하는 ACK 성공 누계다.
+  `pending_operations`는 대기·미확인 수이며 성공 ACK로 옮겨갈 때 감소할 수 있지만
+  두 수의 합은 감소할 수 없다. gap 뒤 버린 기록도 미확인 수에서 빼지 않는다.
+  각 수는 0–1,000,000의 정수다.
+- 현재 시각 이후·binding 시간 밖·역행 시각은 거부한다. 같은 phase/시각의 다른 값도 거부한다.
+  같은 입력의 재전달은 멱등이며 과거 ACK만 반환하고 신선도를 늘리지 않는다.
+  heartbeat는 15초 이상 간격을 두며 실제 gap 변화와 `closed`만 즉시 반영한다.
+- 미종료 instance 뒤 다른 `started`는 이전 미종료 gap을 남긴다. 종료·대체된 instance의
+  새 갱신은 거부한다. 열린 관측이 45초 넘게 갱신되지 않으면 현재 기록 미확인으로 표시하며,
+  늦은 heartbeat도 gap을 남긴다. 명시 gap·미종료 교체·종료 시 pending은 이후 건강 기록으로 지우지 않는다.
+  기존 비종료 실행 사건이 있는 업무에 관측자를 처음 붙일 때도 시작 공백을 남긴다.
+- `closed`는 관측자의 종료 기록이지 업무 성공이 아니다. 마지막 실행 상태가 비종료인 채
+  관측을 닫으면 미완료 종료 gap을 남기고 현재 대기로 표시하지 않는다. 기록된 실패·전달 완료
+  사실은 유지한다. 건강 회복은 추론·재전송을 실행하지 않는다.
+
+저장은 같은 control DB 안 별도 `buzz_pilot_capture_health` append-only 표를 사용한다.
+실행 `state_json`·사건 sequence·원문과 별개라 원문 저장 중 관측 갱신이 덮이지 않는다.
+표는 권한 확인된 첫 `capture-health` 쓰기에서만 생성하고 기존/읽기 전용 DB 열기에서는
+암묵 생성하지 않는다. 표나 행이 없으면 `capture_health.state: "unknown"`이며 건강으로 추정하지 않는다.
+일반 HTTP에는 비밀·본문·instance ID 없는 `capture_health` 상태·시각·수·gap만 표시한다.
+기존 `recovery_metadata` 필터는 유지한다. prepared v2 또는 관측 상태가 등록된 업무의 기록이
+미확인/동기화 중이면 `owner_action_required`는 false, `operations_attention`은 true이며
+`recorded_state`로 마지막 기록 사실을 구분한다. 건강 표가 없는 v1 이력의 기존 조회 계약은 유지한다.
+
 DB와 역할 파일은 같은 백업 세대로 보존해야 한다. DB 파일만 복사하거나 원문 없이 해시만
 남긴 것은 업무 복구가 아니다. 질문 대기 중 WAL snapshot, 격리 복원, 동일 사건 재전달의
 중복 억제, 원문 변조 거부를 실제로 측정한 영수증이 있어야 복구 검증을 주장한다.
