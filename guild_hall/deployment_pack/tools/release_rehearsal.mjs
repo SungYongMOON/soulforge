@@ -11,6 +11,7 @@ import { createPackSbom } from "../src/pack_sbom.mjs";
 import { readPackGeneration, writeSbomArtifacts } from "../src/pack_sbom_artifact.mjs";
 import { buildPack, installPack, loadPackSpec, nodeTestRunner, recomputePackDigest, runInstalledSmoke, verifyInstalledCopy } from "./build_pack.mjs";
 import { backupPack, parseVerifiedManifest, restorePack, rollbackPack, upgradePack } from "./pack_lifecycle.mjs";
+import { boundedRead, directPath } from "../../tool_workshop/src/workshop_files.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const RELEASE_PACKS = Object.freeze(["hpp_server_pack", "team_client_pack", "backup_recovery_extension", "tool_workshop_pack"]);
@@ -167,10 +168,14 @@ export function exerciseReleaseLifecycle({ packDir, workDir, clock }) {
   return { ok: true, baseline_kind: "synthetic_previous_from_current_candidate", current, prior, backup, upgraded, retained_after_upgrade: retainedAfterUpgrade, rolled_back: rolledBack, retained_after_rollback: retainedAfterRollback, restored, damaged_previous_retained_without_manifest: true };
 }
 
-export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, workshopTestConfig = null, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
+export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, packIds = RELEASE_PACKS, workshopTestConfig = null, workshopPdfRenderer = null, clock = () => new Date().toISOString(), onProgress = () => {} } = {}) {
   if (!packIds.length || new Set(packIds).size !== packIds.length || packIds.some((id) => !RELEASE_PACKS.includes(id))) fail("rehearsal_pack_selection_invalid");
   if (workshopTestConfig !== null && !packIds.includes("tool_workshop_pack")) fail("rehearsal_workshop_config_without_pack");
   const workshopConfig = workshopTestConfig === null ? null : readWorkshopTestConfig(workshopTestConfig);
+  if (workshopPdfRenderer !== null && !workshopConfig) fail("rehearsal_pdf_renderer_without_workshop_config");
+  const pdfRenderer = workshopPdfRenderer === null ? null : {
+    path: directPath(workshopPdfRenderer), sha256: sha(boundedRead(workshopPdfRenderer, 128 * 1024 * 1024)),
+  };
   const workspace = createReleaseWorkspace({ rootDir, workDir });
   const env = buildReleaseTestEnv(workspace);
   let workshopConfigCopy = null;
@@ -197,8 +202,11 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
       ...env,
       SOULFORGE_PPTX_TEST_CONFIG: workshopConfigCopy,
       SOULFORGE_HWPX_TEST_PYTHON: workshopConfig.pythonExecutable,
+      ...(pdfRenderer ? { SOULFORGE_PDF_TEST_PYTHON: workshopConfig.pythonExecutable,
+        SOULFORGE_PDF_TEST_POPPLER: pdfRenderer.path } : {}),
     } : env;
-    if (packId === "tool_workshop_pack") result.test_runtime = {synthetic_config_sha256: workshopConfig?.sha256 ?? null, external_runtime_redistributed: false};
+    if (packId === "tool_workshop_pack") result.test_runtime = {synthetic_config_sha256: workshopConfig?.sha256 ?? null,
+      pdf_renderer_sha256: pdfRenderer?.sha256 ?? null, external_runtime_redistributed: false};
     receipt.packs.push(result);
     const packRoot = join(workspace, packId); mkdirSync(packRoot);
     try {
@@ -260,17 +268,19 @@ export async function runReleaseRehearsal({ rootDir = ROOT, workDir = null, pack
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
+    process.stdout.write("Optional PDF checks: --workshop-pdf-renderer <absolute-pdftoppm-executable>, together with --workshop-test-config. The renderer hash is recorded; no environment passthrough or native desktop launch is enabled.\n");
     process.stdout.write("usage: node release_rehearsal.mjs [--work-dir <nonexistent-directory>] [--pack hpp_server_pack|team_client_pack|backup_recovery_extension|tool_workshop_pack] [--workshop-test-config <synthetic-five-field-json>]\nDefault: all four current specs, real source and installed suites, candidate-only receipts in a retained temporary directory. A skipped test or file exclusion makes the rehearsal fail.\n");
   } else {
-    let workDir = null, workshopTestConfig = null; const packIds = [];
+    let workDir = null, workshopTestConfig = null, workshopPdfRenderer = null; const packIds = [];
     try {
       for (let index = 0; index < args.length; index += 2) {
-        if (!args[index + 1] || !["--work-dir", "--pack", "--workshop-test-config"].includes(args[index])) fail("rehearsal_arguments_invalid");
+        if (!args[index + 1] || !["--work-dir", "--pack", "--workshop-test-config", "--workshop-pdf-renderer"].includes(args[index])) fail("rehearsal_arguments_invalid");
         if (args[index] === "--work-dir") { if (workDir !== null) fail("rehearsal_arguments_invalid"); workDir = args[index + 1]; }
         else if (args[index] === "--workshop-test-config") { if (workshopTestConfig !== null) fail("rehearsal_arguments_invalid"); workshopTestConfig = args[index + 1]; }
+        else if (args[index] === "--workshop-pdf-renderer") { if (workshopPdfRenderer !== null) fail("rehearsal_arguments_invalid"); workshopPdfRenderer = args[index + 1]; }
         else packIds.push(args[index + 1]);
       }
-      const out = await runReleaseRehearsal({ workDir, workshopTestConfig, ...(packIds.length ? { packIds } : {}), onProgress: (message) => process.stdout.write(`${message}\n`) });
+      const out = await runReleaseRehearsal({ workDir, workshopTestConfig, workshopPdfRenderer, ...(packIds.length ? { packIds } : {}), onProgress: (message) => process.stdout.write(`${message}\n`) });
       process.stdout.write(`${out.ok ? "PASS" : "HOLD"}: ${out.receiptPath}\n`);
       process.exitCode = out.ok ? 0 : 1;
     } catch (error) { process.stderr.write(`${error.code ?? "rehearsal_failed"}\n`); process.exitCode = 1; }

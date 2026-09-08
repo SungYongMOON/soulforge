@@ -1,6 +1,47 @@
 # Tool Workshop — durable queue and bounded document candidates
 
-Owner: `guild_hall/tool_workshop`. `CURRENT = isolated synthetic XLSX/PPTX candidates + fixed HWPX structural candidates + durable replay`. Default OFF. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by this module. Hancom rendering, general HWPX templates, CAD and PCB execution remain subsequent work in the same program goal.
+Owner: `guild_hall/tool_workshop`. `CURRENT = isolated XLSX/PPTX and reference HWPX structural candidates + durable replay`. Default OFF. Existing HWPX skill-authored files can enter the reference profile below. Native desktop applications, physical Tool PCs, licenses, operational lanes and final acceptance are not exercised by the automated suite. Actual Hancom output, end-to-end authoring integration, CAD and PCB execution remain work in the same program goal.
+
+## Existing-skill HWPX reference candidates
+
+Use the existing `.registry/skills/hwpx_document/codex/SKILL.md` to author a candidate
+from a reference document. The skill's authoring/model step stays upstream; this
+adapter does not invent a new document writer or call a language model. Preserve
+both original reference and authored candidate. The trusted bootstrap calls
+`pinHwpxReferenceBinding` with the selected Python, reference, approval/provenance
+and allowed section parts; `createHwpxReferenceRunner` uses the existing queue.
+
+The job's digest-named JSON is `hwpx_reference_packet` with `project_ref`,
+`source_ref`, `revision`, `approval_ref`, `provenance`, `template_sha256`,
+`candidate_sha256`, `allowed_parts` and `expected_text`. The candidate is
+`<inputRoot>/<candidate_sha256>.hwpx`; no job chooses an executable or arbitrary
+path. The expected text is the full ordered list of text nodes across sections.
+Allowed parts must exactly match the bootstrap's section allowlist. Untouched
+parts and section membership retain their bytes, including supported image parts.
+
+`hwpx_reference_child.py` first bounds ZIP/XML input, then calls the existing
+`validate.py` and `page_guard.py` functions. It applies the latter's metrics to
+every section, rather than checking only section0. The existing default text
+growth and layout-change limits still apply; intentional layout/paragraph
+expansion and new-document authoring are not automatically accepted by this
+reference-preservation profile. Passing it is not a page-count or visual proof.
+Its snapshot uses the pinned Python import closure, lxml and canonical scripts;
+verification compares bytes without re-importing live packages.
+
+The profile is `tool.reference_hwpx:v1`. Use its own isolated queue; do not mix
+different HWPX tool versions in one workshop, whose binding and lease are single.
+Existing `tool.template_hwpx:v1` queues retain their original behavior. Cross-queue
+operating resource scheduling is not supplied by these isolated adapters.
+The durable receipt preserves `render_required:true`, `page_count_verified:false`,
+section count, reference hash and preview status. A stale preview remains marked.
+`done_candidate` means a preserved structural candidate, not accepted work.
+
+The Hancom adapter has a read-only pin preflight and a separately authorized
+same-user non-packaged, temporary-task export path. Export source/fixture review
+does not prove native execution. The PDF helper currently checks one A4 page with
+explicit text/raster readback; it is not yet a general multipage HWPX verifier.
+Tests use `SOULFORGE_HWPX_TEST_PYTHON` for Python/lxml and, for the independent PDF
+fixture, `SOULFORGE_PDF_TEST_PYTHON` plus `SOULFORGE_PDF_TEST_POPPLER`.
 
 ## Fixed HWPX structural candidate
 

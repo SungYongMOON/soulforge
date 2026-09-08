@@ -107,6 +107,11 @@ fixture·기본 양식 파일을 함께 포장하며 실제 Hancom 렌더는 별
 표준 리허설의 `--workshop-test-config`는 기존 합성 5필드를 유지한다. 그 안의
 `pythonExecutable`을 PPTX와 HWPX의 source/installed 시험에 함께 전달한다.
 부모 환경에서 임의 도구 설정을 가져오지 않으며 설정 부재는 계속 SKIP/HOLD다.
+PDF 파일·페이지 검사도 실행할 때는 `--workshop-pdf-renderer <pdftoppm 절대경로>`를
+같이 지정한다. 기존 5필드 JSON은 그대로 전달하며 별도 PDF selector만 전달하고
+renderer 실행파일 hash를 영수증에 남긴다. Python의 lxml/pypdf/Pillow와 Poppler는
+미리 준비된 외부 실행 자원이며 Pack에 재배포하지 않는다. 이 검사는 합성 PDF를
+사용하며 실제 한글 기동이나 임시 예약작업·registry 변경을 자동 승인하지 않는다.
 
 운영·교육 매뉴얼은 설치본의 `payload/guild_hall/deployment_pack/manuals/`에도
 들어간다. HPP는 서버·업무·봇 운영 안내, Team Client는 설치·사용과 세 교육 안내,

@@ -147,13 +147,16 @@ export function commitVerifiedCandidate(queue,{lease,now,verifyAndPublish}) {
   return runtime.transaction(({core,append,bindings,approvals}) => {
     const currentLease=core.assertCurrentLease(lease,now());
     const job=core.getJob(currentLease.job_id);
-    const candidateTools={'tool.project_history_xlsx:v1':{format:'xlsx',validator:'validator.xlsx_native_readback:v1'},'tool.template_pptx:v1':{format:'pptx',validator:'validator.pptx_native_render:v1'},'tool.template_hwpx:v1':{format:'hwpx',validator:'validator.hwpx_structural_readback:v1'}};
+    const candidateTools={'tool.project_history_xlsx:v1':{format:'xlsx',validator:'validator.xlsx_native_readback:v1'},'tool.template_pptx:v1':{format:'pptx',validator:'validator.pptx_native_render:v1'},'tool.template_hwpx:v1':{format:'hwpx',validator:'validator.hwpx_structural_readback:v1'},'tool.reference_hwpx:v1':{format:'hwpx',validator:'validator.hwpx_reference_readback:v1',reference:true}};
     const expected=candidateTools[job.required_tool_version];
     if (!approvals.get(job.job_id) || !expected || !bindings.get(job.workshop_id)) reject('candidate_binding_required');
     const artifact = verifyAndPublish();
-    exactKeys(artifact,['sha256','size_bytes','format','binding_digest','validator_ref','artifact_ref',...(expected.format==='pptx'?['template_sha256','render_manifest_digest','render_count']:[])]);
+    exactKeys(artifact,['sha256','size_bytes','format','binding_digest','validator_ref','artifact_ref',...(expected.format==='pptx'?['template_sha256','render_manifest_digest','render_count']:[]),...(expected.reference?['template_sha256','section_count','preview_status','render_required','page_count_verified']:[])]);
     if (!DIGEST.test(artifact.sha256) || !DIGEST.test(artifact.binding_digest) || !Number.isSafeInteger(artifact.size_bytes) || artifact.size_bytes < 1 || artifact.format !== expected.format || artifact.validator_ref !== expected.validator || artifact.artifact_ref !== `artifact.sha256:${artifact.sha256}`) reject('artifact_metadata_invalid');
     if(expected.format==='pptx' && (!DIGEST.test(artifact.template_sha256) || !DIGEST.test(artifact.render_manifest_digest) || !Number.isInteger(artifact.render_count) || artifact.render_count<2 || artifact.render_count>20)) reject('render_evidence_required');
+    if(expected.reference && (!DIGEST.test(artifact.template_sha256) || !Number.isInteger(artifact.section_count)
+      || artifact.section_count<1 || artifact.section_count>64 || !['preview_stale','present_unverified','absent'].includes(artifact.preview_status)
+      || artifact.render_required!==true || artifact.page_count_verified!==false)) reject('reference_evidence_required');
     if (artifact.binding_digest !== bindings.get(job.workshop_id)) reject('binding_drift');
     core.assertCurrentLease(lease,now());
     return append('candidate',[{lease_id:lease.lease_id,fencing_token:lease.fencing_token,now:now(),validator_result:'pass',output_bundle_manifest_digest:sha256(JSON.stringify(artifact)),evidence_refs:[artifact.validator_ref]},artifact]);
