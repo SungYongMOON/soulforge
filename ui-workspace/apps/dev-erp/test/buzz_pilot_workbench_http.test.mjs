@@ -172,9 +172,13 @@ test('Buzz read configuration failure stays unavailable while a disabled reader 
   }
 });
 
-test('actual server reads produced Buzz evidence with current Owner access and no second execution entry', { timeout: 20000 }, async t => {
-  const f = await makeBuzzPilotWorkbenchFixture({ state: 'delivered' });
-  const historical = await makeNativeWorkbenchFixture();
+async function actualServerScenario({ signal, onFixtureReady = () => {} }) {
+  let f, historical, child;
+  try {
+  f = await makeBuzzPilotWorkbenchFixture({ state: 'delivered' });
+  onFixtureReady(f); signal.throwIfAborted();
+  historical = await makeNativeWorkbenchFixture();
+  signal.throwIfAborted();
   const historicalSources = createWorkbenchExecutionSources({ intakeSources: historical.intakeSources, mode: 'native_chat',
     bindingDigest: historical.executionDigest, nativeDeployment: { enabled: true, source_root: historical.sourceRoot,
       expected_binding: historical.expectedBinding, native_binding_sha256: historical.executionDigest } });
@@ -185,11 +189,13 @@ test('actual server reads produced Buzz evidence with current Owner access and n
     await historicalService.start(historical.record.request_id, historical.access);
     const until = Date.now() + 10000;
     for (;;) {
+      signal.throwIfAborted();
       const status = await historicalService.status(historical.record.request_id, historical.access);
       if (status.execution_state !== 'running') { assert.equal(status.execution_state, 'response_observed'); break; }
       assert.ok(Date.now() < until); await new Promise(resolve => setTimeout(resolve, 25));
     }
   } finally { await historicalService.close(); }
+  signal.throwIfAborted();
   const dbPath = join(f.root, 'synthetic-server.sqlite');
   const seed = openStore(dbPath);
   seed.createAccount({ id: 'account.a', username: 'alpha', password: 'synthetic-only-a', roles: ['member'] });
@@ -209,26 +215,20 @@ test('actual server reads produced Buzz evidence with current Owner access and n
     DEV_ERP_WORKBENCH_BINDING_ID: historical.expectedBinding.binding_id, DEV_ERP_WORKBENCH_REALM_ID: historical.expectedBinding.realm_id,
     DEV_ERP_WORKBENCH_BINDING_SHA256: historical.expectedBinding.content_sha256,
     DEV_ERP_WORKBENCH_EXECUTION_ROOT: historical.executionRoot, DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256: historical.executionDigest };
-  const child = spawn(process.execPath, ['server.mjs', '--port', String(port), '--db', dbPath, '--no-fixture', '--no-real-meta', '--no-tls',
+  signal.throwIfAborted();
+  child = spawn(process.execPath, ['server.mjs', '--port', String(port), '--db', dbPath, '--no-fixture', '--no-real-meta', '--no-tls',
     '--knowledge_shell_root', f.root, '--knowledge_dir', f.root], { cwd: fileURLToPath(new URL('..', import.meta.url)),
     env, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] });
-  t.after(async () => {
-    if (child.exitCode === null) { child.kill(); await once(child, 'exit'); }
-    for (const root of [f.root, historical.root]) {
-      const resolved = await realpath(root), within = relative(await realpath(tmpdir()), resolved);
-      assert.ok(within && !within.startsWith('..') && !isAbsolute(within));
-      await rm(resolved, { recursive: true, force: true });
-    }
-  });
   const deadline = Date.now() + 10000;
   while (true) {
+    signal.throwIfAborted();
     assert.equal(child.exitCode, null, 'Synthetic HTTP server exited');
-    try { if ((await fetch(`${origin}/api/health`)).ok) break; } catch { /* Local startup only. */ }
+    try { if ((await fetch(`${origin}/api/health`, {signal})).ok) break; } catch { /* Local startup only. */ }
     assert.ok(Date.now() < deadline, 'Synthetic server startup timeout');
     await new Promise(resolve => setTimeout(resolve, 25));
   }
   async function http(path, { cookie, method = 'GET', body } = {}) {
-    const response = await fetch(`${origin}${path}`, { method, headers: { 'sec-fetch-site': 'same-origin',
+    const response = await fetch(`${origin}${path}`, { method, signal, headers: { 'sec-fetch-site': 'same-origin',
       ...(cookie ? { cookie } : {}), ...(body ? { origin, 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, headers: response.headers, bytes: Buffer.from(await response.arrayBuffer()) };
   }
@@ -266,4 +266,26 @@ test('actual server reads produced Buzz evidence with current Owner access and n
     assert.equal((await http(path, { cookie: alpha, method: 'POST', body: {} })).status, 405, path);
   }
   assert.deepEqual(await readFile(f.binding.control_db_path), dbBefore, 'Read-only HTTP must not mutate the producer database');
+  } finally {
+    if (child?.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit'); child.kill(); await exited;
+    }
+    for (const root of [f?.root, historical?.root].filter(Boolean)) {
+      const resolved = await realpath(root), within = relative(await realpath(tmpdir()), resolved);
+      assert.ok(within && !within.startsWith('..') && !isAbsolute(within));
+      await rm(resolved, { recursive: true, force: true });
+    }
+  }
+}
+
+test('actual server reads produced Buzz evidence with current Owner access and no second execution entry', { timeout: 60000 }, async t => {
+  await actualServerScenario({signal:t.signal});
+});
+
+test('cancelled HTTP integration setup cleans its allocated fixture before any server launch', async () => {
+  const controller = new AbortController(); let root;
+  await assert.rejects(actualServerScenario({signal:controller.signal,onFixtureReady:f=>{
+    root=f.root; controller.abort();
+  }}), {name:'AbortError'});
+  assert.ok(root); await assert.rejects(realpath(root), {code:'ENOENT'});
 });

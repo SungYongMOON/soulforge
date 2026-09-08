@@ -2682,7 +2682,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
-      "sha256": "a7278bc5aedadf90d068a25e15e1ec7ca2c4b9d48b9cb1cc3d05bda25cd306f3"
+      "sha256": "91b844bdca9697a16365f84dc64c618e4b9baffd42db7442813ba1b8eb8d0eb6"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/codex_bridge_process.test.mjs",
