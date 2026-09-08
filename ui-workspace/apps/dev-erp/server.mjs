@@ -26,6 +26,8 @@ import {
 } from "./src/workflow_job_contract.mjs";
 import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
 import { createWorkbenchHttpController } from "./src/workbench_http.mjs";
+import { createBuzzPilotWorkbenchHttpController } from "./src/buzz_pilot_workbench_http.mjs";
+import { openBuzzPilotReader } from "./tools/buzz_pilot_job_cli.mjs";
 import { createOwnerAttentionSource } from "./src/owner_attention_source.mjs";
 import { createOwnerAttentionService } from "./src/owner_attention_service.mjs";
 import { createOwnerAttentionHttpController } from "./src/owner_attention_http.mjs";
@@ -2423,6 +2425,25 @@ const workbenchSources = (() => {
     });
   } catch { return null; }
 })();
+const buzzPilotReadEnabled = process.env.DEV_ERP_BUZZ_PILOT_READ === "1";
+const buzzPilotReader = await (async () => {
+  if (!buzzPilotReadEnabled || TLS_ENABLED) return null;
+  try {
+    return await openBuzzPilotReader({ bindingPath: process.env.DEV_ERP_BUZZ_PILOT_BINDING,
+      bindingSha256: process.env.DEV_ERP_BUZZ_PILOT_BINDING_SHA256,
+      authorize: async (action, context, access) => {
+        if (!["snapshot", "readEvidence"].includes(action) || access?.accountId !== context.owner_account_id
+          || typeof access.checkSession !== "function" || typeof access.canAccessProject !== "function") return false;
+        return await access.checkSession() === true && await access.canAccessProject(context.project_id) === true
+          && await access.checkSession() === true;
+      } });
+  } catch { return null; }
+})();
+const buzzPilotWorkbenchHttpController = createBuzzPilotWorkbenchHttpController({
+  enabled: buzzPilotReadEnabled, service: buzzPilotReader?.reader ?? null,
+  allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
+  currentAccount, sessionKey: req => readCookie(req, SID), canAccessProject,
+});
 const workbenchExecutionService = (() => {
   const native = process.env.DEV_ERP_WORKBENCH_NATIVE_EXECUTION === "1"
     || process.env.DEV_ERP_WORKBENCH_NATIVE_AUDIT_READ === "1";
@@ -2452,7 +2473,7 @@ const workbenchExecutionService = (() => {
   } catch { executionStore?.close(); return null; }
 })();
 const workbenchHttpController = createWorkbenchHttpController({
-  enabled: process.env.DEV_ERP_WORKBENCH_INTAKE === "1",
+  enabled: process.env.DEV_ERP_WORKBENCH_INTAKE === "1", readOnly: buzzPilotReadEnabled,
   allowedOrigin: TLS_ENABLED ? undefined : `http://${HOST === "::1" ? "[::1]" : HOST}:${PORT}`,
   intakeRoot: process.env.DEV_ERP_WORKBENCH_INTAKE_ROOT,
   sources: workbenchSources,
@@ -2551,6 +2572,7 @@ const server = createServer(async (req, res) => {
       }
     }
     if (await workflowHttpController(req, res, url)) return;
+    if (await buzzPilotWorkbenchHttpController(req, res, url)) return;
     if (await workbenchHttpController(req, res, url)) return;
     if (await forgeWorldHttpController(req, res, url)) return;
     if (await ownerAttentionHttpController(req, res, url)) return;
@@ -4768,6 +4790,7 @@ async function shutdownDevErp(signalName) {
   shutdownStarted = true;
   try { runtimeListener?.close?.(); } catch {}
   try { await workbenchHttpController.close(); } catch {}
+  try { await buzzPilotReader?.close(); } catch {}
   for (const active of activeCodexTurns.values()) active.controller.abort();
   const deadline = Date.now() + 5000;
   while (activeCodexTurns.size && Date.now() < deadline) {
