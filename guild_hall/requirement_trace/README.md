@@ -10,6 +10,12 @@
 
 ## 구성
 
+- `forge_world_policy_candidate.mjs`: 이미 허용된 분류 메타데이터와 명시된 단계·산출물 결속을
+  기존 정책에 대조하는 순수 준비 함수다. 분류 번호·파일 수·빈 폴더는 관측이나 충족으로 바꾸지 않고,
+  미조인·충돌·제외·후보 사유를 모두 남긴다. caller가 제공한 결정의 과제·메타데이터 digest·정책 digest·
+  exact policy/Needs revision·입력 digest가 결속되고 별도 R1 입력이 있을 때만 기존
+  `buildForgeWorldCoverage`를 호출한다. 결정 ref는 caller의 증빙이며 이 함수가 권한을 발급하지 않는다.
+  실제 경로·파일명·정책 원문을 반환하지 않으며, 공개 fixture는 합성 번호 충돌·범위 제한 사례다.
 - `forge_world_coverage.mjs`: 기존 R1 입력을 다시 검증·계산하고, 컴파일된 기대 산출물 정책의
   `(project_code, stage_code, artifact_family_id)`마다 세계 표시용 슬롯 하나를 만든다.
   입력·정책 digest와 과제를 결속하고 원천 관측 시각·상태별 개수·미선언/미매핑 수를 보존한다.

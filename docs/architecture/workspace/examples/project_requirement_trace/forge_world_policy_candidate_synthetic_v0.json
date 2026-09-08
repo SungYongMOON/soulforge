@@ -1,0 +1,35 @@
+{
+  "project_code": "SYNTHETIC-CANDIDATE",
+  "metadata": {
+    "source_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "observed_at": "2026-08-01T00:00:00Z",
+    "categories": [
+      { "category_id": "group_42_presentation", "stage_code": "SYNTH_STAGE", "selection": "selected", "file_count": 400, "helper_name_count": 2, "excluded_count": 0, "error_count": 0 },
+      { "category_id": "empty_group", "stage_code": "SYNTH_STAGE", "selection": "zero", "file_count": 0, "helper_name_count": 0, "excluded_count": 0, "error_count": 0 },
+      { "category_id": "other_stage_group", "stage_code": "OTHER_STAGE", "selection": "zero", "file_count": 0, "helper_name_count": 0, "excluded_count": 0, "error_count": 0 }
+    ]
+  },
+  "expected_artifact_policy": {
+    "schema_version": "se_stage_expected_artifact_policy_v0",
+    "stage_family_defaults": [{ "stage_code": "SYNTH_STAGE", "required_artifact_families": [
+      { "artifact_family_id": "audit_record", "minimum_presence_rule": "present" },
+      { "artifact_family_id": "design_record", "minimum_presence_rule": "present_or_not_applicable" }
+    ] }]
+  },
+  "policy_binding": {
+    "project_code": "SYNTHETIC-CANDIDATE",
+    "metadata_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policy_digest": null,
+    "expected_policy_ref": null,
+    "needs_extends_ref": null,
+    "needs_policy_ref": null,
+    "state": "candidate",
+    "decision_ref": null,
+    "coverage_input_revision": null
+  },
+  "category_bindings": [
+    { "category_id": "group_42_presentation", "stage_code": "SYNTH_STAGE", "artifact_family_id": "audit_record", "state": "conflict", "evidence_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    { "category_id": "empty_group", "stage_code": "SYNTH_STAGE", "artifact_family_id": "design_record", "state": "candidate", "evidence_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  ],
+  "coverage_request": null
+}
