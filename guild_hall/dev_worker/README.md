@@ -70,6 +70,12 @@ Do not substitute provider text, a matching label, creator identity, or a boolea
 and receipt can identify an application echo. Canonical workspace bytes and old
 working metadata are not inputs or outputs of this control ledger.
 
+The concrete runtime CLI, standing-scope issuer, G1 ACP transport, full validator
+evidence capture and stage-only installer are documented in
+[FEEDBACK_RUNTIME.md](FEEDBACK_RUNTIME.md). They consume the six modules above;
+actual source/model/authority binding and operating activation remain separately
+evidenced. Local HTTP model calls are explicitly synthetic harness traffic.
+
 These are implementation components of the current roadmap's internal task
 absorption and continuous improvement work. Actual source-to-code execution,
 independent review, reporting/echo collection and installed scheduling must all
