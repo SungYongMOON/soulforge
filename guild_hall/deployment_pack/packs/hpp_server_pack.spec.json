@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -200,6 +200,7 @@
       "ui-workspace/apps/dev-erp/src/adapter.mjs",
       "ui-workspace/apps/dev-erp/src/assignment_policy.mjs",
       "ui-workspace/apps/dev-erp/src/autosync.mjs",
+      "ui-workspace/apps/dev-erp/src/buzz_pilot_auth_source.mjs",
       "ui-workspace/apps/dev-erp/src/buzz_pilot_job.mjs",
       "ui-workspace/apps/dev-erp/src/buzz_pilot_workbench_http.mjs",
       "ui-workspace/apps/dev-erp/src/calendar.mjs",
@@ -299,6 +300,7 @@
       "ui-workspace/apps/dev-erp/static/workbench.js",
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_execution_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/workbench_fixture.mjs",
@@ -420,6 +422,7 @@
       "ui-workspace/apps/dev-erp/test/auto_intake_cycle.test.mjs",
       "ui-workspace/apps/dev-erp/test/autosync_idempotency.test.mjs",
       "ui-workspace/apps/dev-erp/test/branch_story.test.mjs",
+      "ui-workspace/apps/dev-erp/test/buzz_pilot_auth_source.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_job.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_job_cli.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_wal_restore.test.mjs",
@@ -1202,6 +1205,7 @@
     "test/auto_intake_cycle.test.mjs",
     "test/autosync_idempotency.test.mjs",
     "test/branch_story.test.mjs",
+    "test/buzz_pilot_auth_source.test.mjs",
     "test/buzz_pilot_job.test.mjs",
     "test/buzz_pilot_job_cli.test.mjs",
     "test/buzz_pilot_wal_restore.test.mjs",
@@ -1323,6 +1327,7 @@
     "test/auto_intake_cycle.test.mjs",
     "test/autosync_idempotency.test.mjs",
     "test/branch_story.test.mjs",
+    "test/buzz_pilot_auth_source.test.mjs",
     "test/buzz_pilot_job.test.mjs",
     "test/buzz_pilot_job_cli.test.mjs",
     "test/buzz_pilot_wal_restore.test.mjs",
@@ -1433,7 +1438,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_9",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_10",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2226,7 +2231,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "25e398bd9bbf90c08bfdf75fe64adf7b6cc2d56d5e2666b2bc7ab489121e4e41"
+      "sha256": "da76cb470b007e210695e0be95f76bc738aeccc972708b7cf8d9fcefe9387edb"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2242,7 +2247,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "d6057fda7273d0e90da8bc928c93e5a6969bf36787c0a404530dbb63251d9842"
+      "sha256": "a781160d09030a7edac9d5066cb80029d3da28734b7241b37e5693208af05dbb"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2349,6 +2354,10 @@
       "sha256": "137ccac4bb91c1c2fb819a0f6fbfb1963edc76c09568d96094cb6194b0d74c8e"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_auth_source.test.mjs",
+      "sha256": "42f9bf5507fdec7d95f5ac445be669925556eeaf3cc640dea41e6feed15a4c34"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
       "sha256": "b8715366238d98d573c89d2dbb2366eca39a1f5a5ccafa1819bcca594c33c101"
     },
@@ -2387,6 +2396,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/forge_world_server.test.mjs",
       "sha256": "b118fdd764109ecb11aa40d424219b1c8d159aea4c782ba4c24331f2a8e2ca5c"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
+      "sha256": "a59727ea6b5c8348123e32918f0968b6b94c0b75d8866aed9b9c91ade0fff7ec"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
