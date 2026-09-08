@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import json
 import hashlib
+import http.client
+import ipaddress
 import os
 import secrets
 import sqlite3
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -74,6 +77,11 @@ class FileSystemSource:
 
 # --- M02 local manager (G2) -------------------------------------------------
 
+class _NoLocalModelRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "local_model_redirect_blocked", headers, fp)
+
+
 class LocalManagerAdapter:
     """OpenAI-compatible local endpoint. Local inference only, never a fallback
     to an external provider."""
@@ -83,7 +91,7 @@ class LocalManagerAdapter:
 
     def __init__(self, base_url: str, model: str | None, timeout_s: int, enabled: bool,
                  chat_template_kwargs: dict | None = None, max_tokens: int = 3000) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url
         self.model = model
         self.timeout_s = timeout_s
         self.enabled = enabled
@@ -93,18 +101,62 @@ class LocalManagerAdapter:
         self.chat_template_kwargs = chat_template_kwargs or {"enable_thinking": False}
         self.max_tokens = max_tokens
 
+    def _endpoint(self, path: str) -> str:
+        """Validate every dispatch; DNS names and URL ambiguity are not local authority."""
+        try:
+            raw = self.base_url
+            if (not isinstance(raw, str) or not raw or
+                    any(ord(char) <= 32 or ord(char) >= 127 for char in raw) or
+                    any(char in raw for char in "\\%?#@")):
+                raise ValueError
+            url = urllib.parse.urlsplit(raw)
+            if url.scheme not in {"http", "https"} or url.path not in {"", "/", "/v1", "/v1/"}:
+                raise ValueError
+            host = url.hostname
+            address = ipaddress.ip_address(host)
+            if not (address.version == 4 and address.is_loopback or str(address) == "::1"):
+                raise ValueError
+            # Canonical literal spelling avoids legacy numeric/DNS reinterpretation.
+            authority = f"[{address}]" if address.version == 6 else str(address)
+            port = url.port
+            if port is not None:
+                if not 1 <= port <= 65535:
+                    raise ValueError
+                authority += f":{port}"
+            if url.netloc != authority or path not in {"/models", "/chat/completions"}:
+                raise ValueError
+            return f"{url.scheme}://{authority}{url.path.rstrip('/')}{path}"
+        except (ValueError, TypeError, AttributeError):
+            raise AdapterUnavailable(self.module, "invalid_local_endpoint") from None
+
+    def _request(self, path: str, body: bytes | None = None) -> dict:
+        if not self.enabled:
+            raise AdapterUnavailable(self.module, "disabled")
+        endpoint = self._endpoint(path)
+        # A private opener ignores both environment proxies and the global opener.
+        # TLS uses urllib's verified default context; no remote fallback is installed.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoLocalModelRedirect())
+        request = urllib.request.Request(endpoint, data=body, method="POST" if body is not None else "GET",
+                                         headers={"content-type": "application/json"} if body is not None else {})
+        try:
+            with opener.open(request, timeout=self.timeout_s if body is not None else min(self.timeout_s, 10)) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError
+            return payload
+        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError, TimeoutError) as error:
+            raise AdapterUnavailable(self.module, type(error).__name__) from None
+
     def _get(self, path: str) -> dict:
-        request = urllib.request.Request(f"{self.base_url}{path}", method="GET")
-        with urllib.request.urlopen(request, timeout=min(self.timeout_s, 10)) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return self._request(path)
 
     def probe(self) -> Probe:
         if not self.enabled:
             return Probe(self.module, self.name, "DISABLED", "adapter disabled in config")
         try:
             payload = self._get("/models")
-        except (urllib.error.URLError, OSError, ValueError, TimeoutError):
-            return Probe(self.module, self.name, "UNAVAILABLE", f"no response at {self.base_url}")
+        except AdapterUnavailable as error:
+            return Probe(self.module, self.name, "UNAVAILABLE", error.reason)
         models = [item.get("id", "") for item in payload.get("data", []) if isinstance(item, dict)]
         return Probe(self.module, self.name, "AVAILABLE", f"{len(models)} local model(s)")
 
@@ -139,12 +191,7 @@ class LocalManagerAdapter:
                 "stream": False,
                 "chat_template_kwargs": self.chat_template_kwargs,
             }).encode("utf-8")
-            request = urllib.request.Request(
-                f"{self.base_url}/chat/completions", data=body, method="POST",
-                headers={"content-type": "application/json"},
-            )
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+            payload = self._request("/chat/completions", body)
         except (urllib.error.URLError, OSError, ValueError, TimeoutError, KeyError) as error:
             raise AdapterUnavailable(self.module, type(error).__name__) from None
         choices = payload.get("choices") or []
