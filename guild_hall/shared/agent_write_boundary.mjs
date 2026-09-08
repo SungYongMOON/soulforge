@@ -76,7 +76,7 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
     "feedback_restore.test.mjs", "feedback_readbox_history.test.mjs"].map(name => ({
     path: `guild_hall/dev_worker/${name}`, why: "manager read authority and independent delivery proof",
   })),
-  ...["src/feedback_readbox_http.mjs", "src/feedback_readbox_view.mjs",
+  ...["server.mjs", "src/feedback_readbox_http.mjs", "src/feedback_readbox_view.mjs",
     "test/feedback_readbox_http.test.mjs", "test/feedback_readbox_server.test.mjs", "test/feedback_recovery.test.mjs"].map(name => ({
     path: `ui-workspace/apps/dev-erp/${name}`, why: "manager read authority and server integration proof",
   })),

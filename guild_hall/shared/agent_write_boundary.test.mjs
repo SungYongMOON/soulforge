@@ -85,6 +85,7 @@ test("packet gate also rejects root scopes, glob parents and case aliases", () =
   for (const scope of ['.', './', '**', 'guild_hall/dev_worker/**', 'guild_hall/dev_worker/*.mjs',
     'guild_hall/dev_worker/feedback_runtime.mjs', 'guild_hall/dev_worker/feedback_runtime_stage.mjs',
     'guild_hall/dev_worker/feedback_runtime_review.test.mjs', 'guild_hall/dev_worker/FEEDBACK_RUNTIME.md',
+    'ui-workspace/apps/dev-erp/server.mjs', 'UI-WORKSPACE/APPS/DEV-ERP/SERVER.MJS',
     'guild_hall/watchtower/alert_*.mjs', 'guild_hall/*/candidate_queue.mjs', 'agents.md',
     'GUILD_HALL/DEV_WORKER/CANDIDATE_QUEUE.MJS']) {
     assert.ok(isDeniedAgentWritePath(scope), scope);
