@@ -3,7 +3,8 @@ import { admitCandidateExecutorAuthority } from './candidate_execution_authority
 import { admitForgeLinearExecutionPacket } from './forge_linear_execution_packet_admission.mjs';
 import { createHermesNativeChatExecutor, HERMES_NATIVE_EXECUTOR_REF } from './hermes_native_chat_executor.mjs';
 import { createHermesNativeAttemptStore } from './hermes_native_attempt_store.mjs';
-import { digestOf, deepFreeze, guardEntry } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
+import { createHermesNativeAuditStore } from './hermes_native_audit_store.mjs';
+import { digestOf, deepFreeze, guardEntry, isSafeRef } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
 
 const hold = (code) => Object.freeze({ status: 'HOLD', hold_code: code });
 const same = (a, b) => digestOf(a) === digestOf(b);
@@ -61,6 +62,7 @@ const authorityBasis = (admitted) => ({
 export function bindHermesNativeRuntime({
   feature_enabled = false, authority_request, brief_binding, runtime_binding,
   resolveCurrentState, resolveWorkBrief, attempt_directory, now = Date.now,
+  audit_storage, trace_identity,
   max_current_age_ms = 5000, ...executorOptions
 } = {}) {
   try {
@@ -106,6 +108,18 @@ export function bindHermesNativeRuntime({
       tool_policy_digest: initial.tool_authority.policy_digest,
     });
     const store = createHermesNativeAttemptStore({ directory: attempt_directory });
+    const auditStore = createHermesNativeAuditStore(audit_storage);
+    const traceIdentity = guardEntry(trace_identity, ['request_ref', 'requester_ref', 'entrypoint'], CODES);
+    if (traceIdentity.status !== 'OK' || Object.keys(traceIdentity.value).length !== 3
+      || !isSafeRef(traceIdentity.value.request_ref) || !isSafeRef(traceIdentity.value.requester_ref)
+      || !['native_cli', 'workbench'].includes(traceIdentity.value.entrypoint)) return hold('HERMES_NATIVE_TRACE_IDENTITY_REQUIRED');
+    const traceContext = deepFreeze({ ...traceIdentity.value, brief_binding: brief,
+      performer: initial.executor_binding, assignment_epoch: initial.assignment_epoch,
+      authority_ref: initial.authority_ref, tool_authority: initial.tool_authority,
+      capability_snapshot_ref: initial.capability_snapshot_ref,
+      verification_refs: [initial.verified_active_binding_receipt_ref],
+      work_session_refs: [], work_session_evidence: 'NO_LINKED_RECEIPT',
+      requested_toolsets: runtime.toolsets, provider: runtime.provider });
     let issuedExpiresAt = null;
     let releaseWindow = null;
     const verifyReleaseClock = () => {
@@ -161,7 +175,7 @@ export function bindHermesNativeRuntime({
     };
     const executor = createHermesNativeChatExecutor({ ...executorOptions, feature_enabled,
       runtime_binding: runtime, issued, verifyCurrent: current, verifyReleaseClock, resolveWorkBrief: readIssuedBrief,
-      attemptStore: store, now });
+      attemptStore: store, auditStore, traceContext, now });
     return Object.freeze({ status: 'BOUND', executor_ref: HERMES_NATIVE_EXECUTOR_REF,
       executor, database_path: path.join(runtime.HERMES_HOME, 'state.db') });
   } catch { return hold('HERMES_NATIVE_RUNTIME_BINDING_INVALID'); }

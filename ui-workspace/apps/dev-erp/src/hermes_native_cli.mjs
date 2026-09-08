@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { createHermesNativeAuditStore } from './hermes_native_audit_store.mjs';
 import { createWorkbenchCurrentSources } from './workbench_current_sources.mjs';
 import { bindHermesNativeRuntime } from './hermes_native_runtime.mjs';
 import { createCandidateExecutionCoordinator } from './candidate_execution_coordinator.mjs';
@@ -51,7 +52,8 @@ async function readIssuedPacket(root, descriptor) {
  * neither a task packet nor its own JSON can establish these independent pins.
  * No body is read until the product binder invokes resolveWorkBrief. */
 export async function prepareHermesNativeRequest({ request_ref, workbench_request_basis_digest,
-  deployment, now = Date.now, signal, onStdinRelease, verifyAccess = async () => true } = {}) {
+  deployment, now = Date.now, signal, onStdinRelease, onAuditPrepared, onAuditRecorded,
+  requester_ref, trace_request_ref, verifyAccess = async () => true } = {}) {
   try {
     check((isSafeRef(request_ref) && workbench_request_basis_digest === undefined)
       || (request_ref === undefined && /^sha256:[a-f0-9]{64}$/u.test(workbench_request_basis_digest)),
@@ -79,13 +81,15 @@ export async function prepareHermesNativeRequest({ request_ref, workbench_reques
       const entry = selected[0];
       check(exact(entry, ['request_ref', 'workbench_request_basis_digest', 'authority_request', 'brief_binding', 'runtime_binding',
         'runtime_capability', 'agent_projection', 'authority_pin', 'authority_current', 'task_authorization',
-        'forge_packet', 'work_brief_root', 'attempt_directory', 'hard_timeout_ms']), 'HERMES_NATIVE_REQUEST_BINDING_INVALID');
+        'forge_packet', 'work_brief_root', 'attempt_directory', 'hard_timeout_ms', 'audit_storage', 'requester_ref'])
+        && isSafeRef(entry.requester_ref) && (requester_ref === undefined || requester_ref === entry.requester_ref),
+      'HERMES_NATIVE_REQUEST_BINDING_INVALID');
       return entry;
     }
     const entry = await manifest();
     const runtime = await read(entry.runtime_binding);
     const brief = await read(entry.brief_binding);
-    const roots = [deployment.source_root, entry.work_brief_root, entry.attempt_directory, runtime.HERMES_HOME];
+    const roots = [deployment.source_root, entry.work_brief_root, entry.attempt_directory, runtime.HERMES_HOME, entry.audit_storage?.root];
     check(roots.every((root) => typeof root === 'string' && path.isAbsolute(root)), 'HERMES_NATIVE_ROOTS_INVALID');
     const canonicalRoots = (await Promise.all(roots.map((root) => realpath(root))))
       .map((root) => process.platform === 'win32' ? root.toLowerCase() : root);
@@ -122,8 +126,10 @@ export async function prepareHermesNativeRequest({ request_ref, workbench_reques
     const initial = await currentState();
     const bound = bindHermesNativeRuntime({ feature_enabled: true, authority_request: initial.authority_request,
       brief_binding: brief, runtime_binding: runtime, attempt_directory: entry.attempt_directory,
+      audit_storage: entry.audit_storage, trace_identity: { request_ref: trace_request_ref ?? entry.request_ref,
+        requester_ref: entry.requester_ref, entrypoint: workbench_request_basis_digest === undefined ? 'native_cli' : 'workbench' },
       hard_timeout_ms: entry.hard_timeout_ms, max_current_age_ms: 60_000,
-      now, signal, onStdinRelease, resolveCurrentState: currentState,
+      now, signal, onStdinRelease, onAuditPrepared, onAuditRecorded, resolveCurrentState: currentState,
       resolveWorkBrief: async () => {
         await currentState();
         const packet = await readIssuedPacket(entry.work_brief_root, entry.forge_packet);
@@ -137,6 +143,27 @@ export async function prepareHermesNativeRequest({ request_ref, workbench_reques
   } catch (error) {
     return { status: 'HOLD', hold_code: error.nativeCode ?? 'HERMES_NATIVE_FILE_SOURCE_UNAVAILABLE' };
   }
+}
+
+// Read authorization is performed by the owning Workbench scope gate. The
+// independently pinned storage capability is reusable after execution/input
+// expiry; no source WorkBrief or runtime session is opened for historical reads.
+export async function readHermesNativeAudit({ deployment, request_basis_digest, requester_ref,
+  recorded_request_ref, trace, role = null } = {}) {
+  const sources = createWorkbenchCurrentSources({ root: deployment.source_root, expectedBinding: deployment.expected_binding });
+  const manifest = await sources.readPinnedMetadata({ path: 'native-chat-binding.json', content_sha256: deployment.native_binding_sha256 });
+  check(manifest.mode === 'native_chat' && manifest.realm_id === sources.realmId
+    && manifest.intake_binding_sha256 === sources.approvedBundleDigest, 'HERMES_NATIVE_AUDIT_CAPABILITY_REQUIRED');
+  const matches = manifest.requests?.filter((entry) => entry.workbench_request_basis_digest === request_basis_digest
+    && entry.requester_ref === requester_ref) ?? [];
+  check(matches.length === 1, 'HERMES_NATIVE_AUDIT_CAPABILITY_REQUIRED');
+  const store = createHermesNativeAuditStore(matches[0].audit_storage);
+  const query = { work_id: trace.audit_ref, expected_header_digest: trace.header_digest,
+    expected_audit_digest: trace.audit_digest ?? null };
+  const record = await store.read(query);
+  check(record.header.context.requester_ref === requester_ref && record.header.context.request_ref === recorded_request_ref
+    && record.header.context.entrypoint === 'workbench', 'HERMES_NATIVE_AUDIT_OWNER_MISMATCH');
+  return role === null ? record : store.read({ ...query, role });
 }
 
 export async function executeHermesNativeRequest(options = {}) {

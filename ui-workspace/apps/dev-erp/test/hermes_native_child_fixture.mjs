@@ -11,6 +11,7 @@ const mode = readFileSync(path.join(root, 'mode.txt'), 'utf8');
 appendFileSync(path.join(root, 'started.txt'), 'started\n');
 writeFileSync(path.join(root, 'argv.json'), JSON.stringify(args));
 if (!args.includes('chat') || !args.includes('--cli') || value('--query-file') !== '-'
+  || process.env.PYTHONUTF8 !== '1' || process.env.PYTHONIOENCODING !== 'utf-8'
   || args.some((arg) => ['--jsonl', 'bot-submit', '--yolo', '--accept-hooks', '--create-if-missing'].includes(arg))) {
   process.exit(2);
 }
@@ -43,6 +44,13 @@ if (mode !== 'plain-only') {
   const insert = db.prepare(`INSERT INTO messages (session_id,role,content,timestamp,finish_reason)
     VALUES (?,?,?,102,?)`);
   insert.run(id, 'user', prompt.toString('utf8'), null);
+  if (mode === 'tools') {
+    db.prepare(`INSERT INTO messages (session_id,role,content,timestamp,tool_calls)
+      VALUES (?,'assistant','',103,?)`).run(id, JSON.stringify([{ id: 'call-synthetic', type: 'function',
+      function: { name: 'synthetic_read', arguments: 'DO_NOT_CAPTURE_TOOL_ARGUMENTS' } }]));
+    db.prepare(`INSERT INTO messages (session_id,role,content,timestamp,tool_call_id,tool_name)
+      VALUES (?,'tool','DO_NOT_CAPTURE_TOOL_RESULT',104,'call-synthetic','synthetic_read')`).run(id);
+  }
   if (mode === 'multiple-users') insert.run(id, 'user', 'Unrelated message', null);
   insert.run(id, 'assistant', 'Synthetic reply only', mode === 'null-stop' ? null : 'stop');
 }

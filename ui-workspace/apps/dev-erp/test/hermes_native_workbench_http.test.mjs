@@ -11,7 +11,7 @@ import { openStore } from '../src/store.mjs';
 import { makeNativeWorkbenchFixture } from './hermes_native_workbench_fixture.mjs';
 
 async function serve(t, { executionEnabled = true, executionRoot, delayMs = 0, catalogueStatus = 200,
-  nativeMode = 'ok', supported = true, nativeProfile = 'workbench-synthetic' } = {}) {
+  nativeMode = 'ok', supported = true, nativeProfile = 'workbench-synthetic', nativeTestDispatch = true } = {}) {
   const fixture = await makeNativeWorkbenchFixture({ mode: nativeMode, supported, profileName: nativeProfile,
     timeoutMs: nativeMode === 'timeout' ? 2000 : 4000 });
   const dbPath = join(fixture.root, 'synthetic-http.db');
@@ -32,6 +32,7 @@ async function serve(t, { executionEnabled = true, executionRoot, delayMs = 0, c
     DEV_ERP_WORKBENCH_SOURCE_ROOT: fixture.sourceRoot, DEV_ERP_WORKBENCH_BINDING_ID: fixture.expectedBinding.binding_id,
     DEV_ERP_WORKBENCH_REALM_ID: fixture.expectedBinding.realm_id, DEV_ERP_WORKBENCH_BINDING_SHA256: fixture.expectedBinding.content_sha256,
     DEV_ERP_WORKBENCH_SYNTHETIC_EXECUTION: '0', DEV_ERP_WORKBENCH_NATIVE_EXECUTION: executionEnabled ? '1' : '0',
+    DEV_ERP_WORKBENCH_NATIVE_TEST_DISPATCH: nativeTestDispatch ? '1' : '0',
     DEV_ERP_WORKBENCH_EXECUTION_ROOT: configuredExecutionRoot,
     DEV_ERP_WORKBENCH_EXECUTION_BINDING_SHA256: fixture.executionDigest };
   const child = spawn(process.execPath, ['server.mjs', '--port', String(port), '--db', dbPath, '--no-fixture', '--no-real-meta', '--no-tls',
@@ -94,10 +95,59 @@ test('actual native HTTP user flow observes a response without candidate custody
   assert.equal(result.response_observed, true);
   assert.equal(result.execution_started, true);
   assert.equal(result.local_candidate_stored, false);
+  assert.equal(result.execution_log_available, true);
   assert.equal(result.official_task_done, false);
   assert.equal((await app.get('/candidate')).status, 404);
   assert.equal((await app.post('/execution')).body.replayed, true);
   assert.equal((await readFile(join(app.fixture.nativeHome, 'started.txt'), 'utf8')).trim().split('\n').length, 1);
+});
+
+test('first-release native Workbench is read-only and directs instruction entry to Buzz', { timeout: 20000 }, async t => {
+  const app = await serve(t, { nativeTestDispatch: false });
+  assert.equal(app.catalogue.execution_enabled, false);
+  assert.equal(app.catalogue.native_execution_enabled, false);
+  assert.equal(app.catalogue.execution_read_enabled, true);
+  assert.equal(app.catalogue.execution_log_enabled, true);
+  assert.equal(app.catalogue.native_instruction_entry, 'buzz');
+  assert.equal((await app.get('/execution')).status, 200);
+  assert.equal((await app.http('/api/workbench/requests', { method: 'POST', cookie: app.a.cookie,
+    csrf: app.catalogue.csrf_token, body: app.fixture.request })).body.hold_code, 'NATIVE_BUZZ_ENTRY_REQUIRED');
+  for (const operation of ['/execution', '/execution/cancel', '/revision']) {
+    const result = await app.post(operation);
+    assert.equal(result.status, 405);
+    assert.equal(result.body.hold_code, 'NATIVE_BUZZ_ENTRY_REQUIRED');
+  }
+  await assert.rejects(readFile(join(app.fixture.nativeHome, 'started.txt')));
+});
+
+test('native HTTP preserves exact instructions and visible output after source changes, with current read ownership', { timeout: 20000 }, async t => {
+  const app = await serve(t);
+  assert.equal((await app.post('/execution')).status, 202);
+  assert.equal((await settled(app.get)).execution_state, 'response_observed');
+  const original = JSON.stringify(app.fixture.documents.packet.forge_issued_work_brief);
+  const before = await app.get('/execution-log');
+  assert.equal(before.status, 200, JSON.stringify(before.body));
+  assert.equal(before.body.trace.state, 'RECORDED');
+  assert.equal(before.body.trace.header.context.request_ref, app.fixture.record.request_id);
+  assert.equal(before.body.trace.header.context.requester_ref, app.fixture.request.requester);
+  assert.equal(before.body.trace.final.evidence.program_input_receipt, 'UNCONFIRMED');
+  assert.equal(before.body.trace.final.evidence.model_input_receipt, 'UNCONFIRMED');
+  assert.equal(before.body.trace.final.evidence.pipe_write_completed, true);
+  assert.equal(JSON.stringify(before.body).includes(app.fixture.documents.packet.forge_issued_work_brief.problem), false);
+  await writeFile(join(app.fixture.nativeBodies, 'forge-packet.json'), 'Changed upstream instruction');
+  await writeFile(join(app.fixture.sourceRoot, 'blueprint.json'), 'Changed upstream recipe');
+  const instruction = await app.get('/execution-log/instruction');
+  assert.equal(instruction.status, 200);
+  assert.equal(instruction.body, original);
+  assert.equal(instruction.headers.get('content-type'), 'text/plain; charset=utf-8');
+  assert.equal((await app.get('/execution-log/output')).body, 'Synthetic result. session_id: fabricated-model-text\n');
+  assert.equal((await app.get('/execution-log')).body.work_id, before.body.work_id);
+  assert.equal((await app.http(app.path + '/execution-log/instruction', { cookie: app.b.cookie })).status, 404);
+  assert.equal((await app.get('/execution-log/instruction?path=foreign')).status, 404);
+  assert.equal((await app.get('/execution-log/foreign')).status, 404);
+  assert.equal((await app.post('/execution-log')).status, 405);
+  await writeFile(join(app.fixture.sourceRoot, 'authority.json'), 'Revoked current authority');
+  assert.notEqual((await app.get('/execution-log/instruction')).status, 200);
 });
 
 test('actual native HTTP supports the existing default profile with official NULL session metadata', { timeout: 20000 }, async t => {

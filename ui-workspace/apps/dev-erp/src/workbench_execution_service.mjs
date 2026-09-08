@@ -14,26 +14,29 @@ const exact = (value, fields) => value && typeof value === 'object' && Object.ke
 /** Durable outer admission/commit boundary around the unchanged CEC algorithm. Only the
  * fixed synthetic worker or the separately pinned native Hermes binder is registered.
  * Native response observation never enters the synthetic candidate-byte path. */
-export function createWorkbenchExecutionService({ enabled = false, intakeStore, intakeSources, executionSources, executionStore, now = () => Date.now() } = {}) {
+export function createWorkbenchExecutionService({ enabled = false, intakeStore, intakeSources, executionSources, executionStore,
+  nativeDispatchMode = 'buzz_only', now = () => Date.now() } = {}) {
+  const native = executionSources?.mode === 'native_chat';
+  const dispatchEnabled = !native || nativeDispatchMode === 'synthetic_verification';
   const instanceRef = `workbench.instance.${randomBytes(16).toString('hex')}`;
   const active = new Map();
   let closed = false;
   let closePromise;
-  async function recordFor(requestId, access) {
+  async function recordFor(requestId, access, { checkExecutionEvidence = true } = {}) {
     if (await access.checkSession() !== true) fail('AUTH_REQUIRED');
     const result = await intakeStore.read(requestId);
     if (result.status !== 'FOUND' || !isWorkbenchIntakeRecord(result.record)
       || result.record.request.requester !== access.requester
       || await access.canAccessProject(result.record.request.project_code) !== true) fail('REQUEST_NOT_FOUND');
-    await intakeSources.evidence({ request: result.record.request, requester: access.requester, canAccessProject: access.canAccessProject });
+    if (checkExecutionEvidence) await intakeSources.evidence({ request: result.record.request, requester: access.requester, canAccessProject: access.canAccessProject });
     if (await access.checkSession() !== true || await access.canAccessProject(result.record.request.project_code) !== true) fail('AUTH_REQUIRED');
     return result.record;
   }
-  async function authorize(record, access, { signal, onStdinRelease } = {}) {
+  async function authorize(record, access, { signal, onStdinRelease, onAuditPrepared, onAuditRecorded } = {}) {
     if (!enabled || closed || !executionSources || !executionStore) fail('SYNTHETIC_EXECUTION_DISABLED');
     if (await access.checkSession() !== true || await access.canAccessProject(record.request.project_code) !== true) fail('AUTH_REQUIRED');
     const approval = await executionSources.authorize({ record, requester: access.requester,
-      canAccessProject: access.canAccessProject, checkSession: access.checkSession, signal, onStdinRelease });
+      canAccessProject: access.canAccessProject, checkSession: access.checkSession, signal, onStdinRelease, onAuditPrepared, onAuditRecorded });
     if (await access.checkSession() !== true || await access.canAccessProject(record.request.project_code) !== true) fail('AUTH_REQUIRED');
     return approval;
   }
@@ -43,6 +46,7 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
       attempt_no: run?.attempt_no ?? null, fencing_epoch: run?.fencing_epoch ?? null,
       execution_started: !!run?.worker_started_at, local_candidate_stored: run?.candidate_present ?? false,
       execution_mode: run?.execution_mode ?? executionSources?.mode ?? 'synthetic_fixed', response_observed: run?.response_observed === true,
+      execution_log_available: !!run?.receipt?.trace,
       candidate_sha256: run?.candidate_sha256 ?? null, remote_submission_ack: false,
       official_task_done: false, acceptance_authority: false, backup_class: executionStore?.backupClass ?? 'synthetic-only' };
   }
@@ -56,7 +60,9 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
     active.set(run.run_id, controller);
     try {
       const latest = await authorize(record, access, { signal: nativeAbort.signal,
-        onStdinRelease: () => executionStore.markWorkerStarted(run) });
+        onStdinRelease: () => executionStore.markWorkerStarted(run),
+        onAuditPrepared: trace => executionStore.attachTrace(run, trace),
+        onAuditRecorded: trace => executionStore.attachTrace(run, trace) });
       if (latest.basis_digest !== approval.basis_digest) fail('EXECUTION_BASIS_CHANGED');
       if (cancelled) fail(cancelled);
       if (latest.mode === 'native_chat') {
@@ -145,9 +151,13 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
   }
   return Object.freeze({
     enabled: enabled && !!executionSources && !!executionStore,
+    dispatchEnabled,
+    executionLogEnabled: native,
     mode: executionSources?.mode ?? 'synthetic_fixed',
     async start(requestId, access) {
+      if (!dispatchEnabled) fail('NATIVE_BUZZ_ENTRY_REQUIRED');
       const record = await recordFor(requestId, access);
+      if (native && !/^(?:SYN|SFX)[-_][A-Z0-9_-]+$/u.test(record.request.project_code)) fail('NATIVE_SYNTHETIC_VERIFICATION_ONLY');
       const approval = await authorize(record, access);
       const claimed = executionStore.claim({ claim_key: approval.claim_key, basis_digest: approval.basis_digest,
         request_id: requestId, requester: access.requester, project_code: record.request.project_code,
@@ -175,7 +185,26 @@ export function createWorkbenchExecutionService({ enabled = false, intakeStore, 
       const candidate = executionStore.candidate(requestId, instanceRef);
       if (!candidate) fail('CANDIDATE_NOT_AVAILABLE'); return candidate;
     },
+    async executionLog(requestId, access, role = null) {
+      const record = await recordFor(requestId, access, { checkExecutionEvidence: false });
+      if (executionSources?.mode !== 'native_chat' || typeof executionSources.readAudit !== 'function') fail('NATIVE_AUDIT_UNAVAILABLE');
+      const history = executionStore.history(requestId, instanceRef);
+      const recorded = [...history].reverse().find(entry => entry.receipt?.trace);
+      if (!recorded) fail('NATIVE_AUDIT_UNAVAILABLE');
+      const audit = await executionSources.readAudit({ record, recordedRequestRef: recorded.request_id,
+        requester: access.requester, canAccessProject: access.canAccessProject, checkSession: access.checkSession,
+        trace: recorded.receipt.trace, role });
+      if (await access.checkSession() !== true || await access.canAccessProject(record.request.project_code) !== true) fail('AUTH_REQUIRED');
+      if (role !== null) return audit;
+      return { status: 'EXECUTION_LOG', work_id: recorded.receipt.trace.audit_ref,
+        request_id: requestId, recorded_request_id: recorded.request_id, trace: audit,
+        attempts: history.map(entry => ({ run_id: entry.run_id, request_id: entry.request_id,
+          attempt_no: entry.attempt_no, fencing_epoch: entry.fencing_epoch, state: entry.observed_state,
+          reason_code: entry.observed_reason, started_at: entry.started_at, completed_at: entry.completed_at })),
+        official_task_done: false, candidate_custody: false, model_input_receipt: 'UNCONFIRMED' };
+    },
     async cancel(requestId, access) {
+      if (!dispatchEnabled) fail('NATIVE_BUZZ_ENTRY_REQUIRED');
       await recordFor(requestId, access);
       const run = executionStore?.read(requestId, instanceRef);
       if (!run) fail('EXECUTION_NOT_FOUND');

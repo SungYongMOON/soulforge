@@ -227,6 +227,22 @@ export function createWorkbenchCurrentSources({ root, expectedBinding, now = () 
     // Server-only companion reader. Descriptors must come from an independently pinned
     // deployment document; no HTTP route accepts descriptors or exposes this method.
     readPinnedMetadata: json,
+    async authorizeRecordedScope({ request, requester, canAccessProject }) {
+      const normalized = normalizeWorkBindingRequest(request);
+      assert(normalized.status === 'NORMALIZED' && normalized.request.requester === requester,
+        'SCOPE_VIOLATION');
+      assert(await canAccessProject(normalized.request.project_code) === true, 'SCOPE_VIOLATION');
+      const granted = current => current.authority.grants.filter(grant => grant.requester === requester
+        && grant.state === 'current' && sameScope(grant, normalized.request));
+      const first = granted(await snapshot());
+      assert(first.length === 1, 'SCOPE_VIOLATION');
+      assert(await canAccessProject(normalized.request.project_code) === true, 'SCOPE_VIOLATION');
+      const last = granted(await snapshot());
+      assert(last.length === 1 && same(first[0], last[0]), 'SCOPE_VIOLATION');
+      // Historical snapshot reads need current scope authority, not a fresh
+      // execution approval or the still-unchanged source body/recipe.
+      return { status: 'SCOPE_READ_AUTHORIZED', authority_receipt_ref: last[0].receipt_ref, acl_epoch: last[0].epoch };
+    },
     async catalogue({ requester, canAccessProject }) {
       const current = await snapshot();
       const entries = [];

@@ -3,6 +3,7 @@ import { lstatSync, realpathSync, readdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, parse, resolve } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { digestOf, guardEntry } from '../../../../guild_hall/agent_observation/guard_primitives.mjs';
+import { validateHermesNativeTrace } from './hermes_native_audit_store.mjs';
 
 const SHA = /^sha256:[a-f0-9]{64}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/u;
@@ -197,11 +198,42 @@ export function createWorkbenchExecutionStore({ root, now = () => Date.now(), mo
       return transaction(() => {
         expire(); const current = row(run_id);
         if (!current || current.state !== 'running' || current.fencing_epoch !== fencing_epoch || current.instance_ref !== instance_ref) return held('RUN_FENCED_OUT');
+        const existingReceipt = current.receipt_json ? JSON.parse(current.receipt_json) : null;
+        const retainedReceipt = receipt === null ? existingReceipt
+          : existingReceipt?.trace ? { ...receipt, trace: existingReceipt.trace } : receipt;
+        const retainedJson = retainedReceipt === null ? null : JSON.stringify(retainedReceipt);
         db.prepare(`UPDATE wb_run SET state=?,reason_code=?,completed_at=?,receipt_json=?,receipt_digest=?,candidate_bytes=?,candidate_sha256=?
-          WHERE run_id=? AND fencing_epoch=? AND state='running'`).run(state, reason_code, instant(), receiptJson,
-          receipt === null ? null : digestOf(receipt), candidate_bytes, candidate_bytes === null ? null : sha(candidate_bytes), run_id, fencing_epoch);
+          WHERE run_id=? AND fencing_epoch=? AND state='running'`).run(state, reason_code, instant(), retainedJson,
+          retainedReceipt === null ? null : digestOf(retainedReceipt), candidate_bytes, candidate_bytes === null ? null : sha(candidate_bytes), run_id, fencing_epoch);
         return { status: 'SETTLED', run: view(row(run_id), instance_ref) };
       });
+    },
+    attachTrace({ run_id, fencing_epoch, instance_ref }, rawTrace) {
+      assert(mode === 'native_chat', 'NATIVE_AUDIT_ONLY');
+      const trace = validateHermesNativeTrace(rawTrace);
+      return transaction(() => {
+        const current = row(run_id);
+        if (!current || current.fencing_epoch !== fencing_epoch || current.instance_ref !== instance_ref) return false;
+        const previous = current.receipt_json ? JSON.parse(current.receipt_json) : null;
+        if (previous?.trace) {
+          assert(previous.trace.audit_ref === trace.audit_ref && previous.trace.header_digest === trace.header_digest
+            && digestOf(previous.trace.instruction_snapshot) === digestOf(trace.instruction_snapshot)
+            && (!previous.trace.audit_digest || previous.trace.audit_digest === trace.audit_digest), 'NATIVE_AUDIT_LINK_CONFLICT');
+        }
+        const receipt = { ...(previous ?? { local_candidate_stored: false, official_task_done: false,
+          acceptance_authority: false, response_observed: false }), trace };
+        const bytes = JSON.stringify(receipt);
+        assert(Buffer.byteLength(bytes) <= 32768, 'EXECUTION_RECEIPT_INVALID');
+        db.prepare('UPDATE wb_run SET receipt_json=?,receipt_digest=? WHERE run_id=? AND fencing_epoch=?')
+          .run(bytes, digestOf(receipt), run_id, fencing_epoch);
+        return true;
+      });
+    },
+    history(requestId, instanceRef) {
+      const selected = this.read(requestId, instanceRef);
+      if (!selected) return [];
+      return db.prepare('SELECT * FROM wb_run WHERE claim_key=? AND requester=? ORDER BY attempt_no').all(selected.claim_key, selected.requester)
+        .map((entry) => view(entry, instanceRef));
     },
     markWorkerStarted({ run_id, fencing_epoch, instance_ref }) {
       return transaction(() => {

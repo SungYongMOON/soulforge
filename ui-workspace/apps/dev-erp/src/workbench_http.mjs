@@ -6,7 +6,7 @@ import { isWorkbenchIntakeRecord } from '../../team-ops-board/src/core/workbench
 import { requesterForAccount } from './workbench_current_sources.mjs';
 
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-const EXECUTION_ROUTE = /^\/api\/workbench\/requests\/(w_[a-f0-9]{32})\/(execution(?:\/cancel)?|candidate)$/u;
+const EXECUTION_ROUTE = /^\/api\/workbench\/requests\/(w_[a-f0-9]{32})\/(execution(?:\/cancel)?|candidate|execution-log(?:\/(?:instruction|output))?)$/u;
 const REVISION_ROUTE = /^\/api\/workbench\/requests\/(w_[a-f0-9]{32})\/revision$/u;
 const send = (res, status, body) => {
   res.statusCode = status;
@@ -84,6 +84,7 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
       && timingSafeEqual(Buffer.from(entry.token, 'hex'), Buffer.from(token, 'hex'));
   }
   const executionEnabled = enabled === true && !!configured && executionService?.enabled === true;
+  const dispatchEnabled = executionEnabled && executionService.dispatchEnabled !== false;
   const handleWorkbench = async function (req, res, url) {
     if (!url.pathname.startsWith('/api/workbench/')) return false;
     if (url.search || req.url !== url.pathname) { reject(res, 404, 'ROUTE_NOT_FOUND'); return true; }
@@ -112,19 +113,28 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
           reject(res, 403, 'SCOPE_VIOLATION'); return true;
         }
         send(res, 200, { ...catalogue, enabled: true,
-          execution_enabled: executionEnabled, execution_mode: executionEnabled ? executionService.mode ?? 'synthetic_fixed' : null,
-          synthetic_execution_enabled: executionEnabled && executionService.mode !== 'native_chat',
-          native_execution_enabled: executionEnabled && executionService.mode === 'native_chat',
+          execution_enabled: dispatchEnabled, execution_read_enabled: executionEnabled,
+          execution_log_enabled: executionEnabled && executionService.executionLogEnabled === true,
+          execution_mode: executionEnabled ? executionService.mode ?? 'synthetic_fixed' : null,
+          synthetic_execution_enabled: dispatchEnabled && executionService.mode !== 'native_chat',
+          native_execution_enabled: dispatchEnabled && executionService.mode === 'native_chat',
+          native_instruction_entry: executionService?.mode === 'native_chat' ? 'buzz' : null,
           csrf_token: csrfFor(session), claim_created: false, execution_started: false });
       } catch (error) { reject(res, 503, error.workbenchCode ?? 'CURRENT_SOURCE_UNAVAILABLE'); }
       return true;
     }
+    if (executionService?.mode === 'native_chat' && !dispatchEnabled && req.method === 'POST'
+      && /^\/api\/workbench\/requests(?:\/|$)/u.test(url.pathname)) {
+      reject(res, 405, 'NATIVE_BUZZ_ENTRY_REQUIRED'); return true;
+    }
     const executionRoute = EXECUTION_ROUTE.exec(url.pathname);
     if (executionRoute) {
       const [, requestId, operation] = executionRoute;
-      const methods = operation === 'execution' ? ['GET', 'POST'] : [operation === 'candidate' ? 'GET' : 'POST'];
+      const isExecutionLog = operation.startsWith('execution-log');
+      const methods = operation === 'execution' ? ['GET', 'POST'] : [operation === 'candidate' || isExecutionLog ? 'GET' : 'POST'];
       if (!methods.includes(req.method)) { res.setHeader('Allow', methods.join(', ')); reject(res, 405, 'METHOD_NOT_ALLOWED'); return true; }
       if (!executionEnabled) { reject(res, 405, 'SYNTHETIC_EXECUTION_DISABLED'); return true; }
+      if (req.method === 'POST' && !dispatchEnabled) { reject(res, 405, 'NATIVE_BUZZ_ENTRY_REQUIRED'); return true; }
       if (!LOOPBACK.has(req.socket?.remoteAddress) || req.headers.host !== host
         || req.headers['sec-fetch-site'] !== 'same-origin'
         || (req.method === 'POST' ? req.headers.origin !== allowedOrigin
@@ -150,7 +160,21 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
             throw Object.assign(new Error('Current project access required'), { workbenchCode: 'REQUEST_NOT_FOUND' });
           }
         };
-        if (operation === 'candidate') {
+        if (isExecutionLog) {
+          const role = operation.includes('/') ? operation.split('/')[1] : null;
+          const result = await executionService.executionLog(requestId, access, role);
+          await recheck();
+          if (role === null) send(res, 200, result);
+          else {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="native-${role}-${requestId}.txt"`);
+            res.setHeader('Cache-Control', 'no-store');
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
+            res.end(result.bytes);
+          }
+        } else if (operation === 'candidate') {
           const candidate = await executionService.candidate(requestId, access);
           await recheck();
           res.statusCode = 200;
@@ -167,7 +191,7 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
         }
       } catch (error) {
         const code = error.workbenchCode ?? 'EXECUTION_UNAVAILABLE';
-        const status = ['REQUEST_NOT_FOUND', 'EXECUTION_NOT_FOUND', 'CANDIDATE_NOT_AVAILABLE'].includes(code) ? 404
+        const status = ['REQUEST_NOT_FOUND', 'EXECUTION_NOT_FOUND', 'CANDIDATE_NOT_AVAILABLE', 'NATIVE_AUDIT_UNAVAILABLE'].includes(code) ? 404
           : ['AUTH_REQUIRED', 'SCOPE_VIOLATION'].includes(code) ? 403
             : ['RUN_STILL_ACTIVE', 'EXECUTION_REPLAY_CONFLICT'].includes(code) ? 409 : 503;
         reject(res, status, code);
@@ -195,6 +219,9 @@ export function createWorkbenchHttpController({ enabled = false, allowedOrigin, 
     });
     const revisionRoute = REVISION_ROUTE.exec(url.pathname);
     if (revisionRoute) {
+      if (executionService?.mode === 'native_chat' && !dispatchEnabled) {
+        reject(res, 405, 'NATIVE_BUZZ_ENTRY_REQUIRED'); return true;
+      }
       if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); reject(res, 405, 'METHOD_NOT_ALLOWED'); return true; }
       if (!enabled) { reject(res, 405, 'INTAKE_DISABLED'); return true; }
       if (!configured) { reject(res, 503, 'SERVER_BINDING_UNAVAILABLE'); return true; }
