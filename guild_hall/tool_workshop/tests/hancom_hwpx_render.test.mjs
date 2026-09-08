@@ -8,6 +8,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, linkS
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import * as realFiles from '../src/workshop_files.mjs';
 
 const file = fileURLToPath(import.meta.url);
@@ -26,7 +27,10 @@ if (!process.execArgv.includes('--experimental-test-module-mocks')) {
   const dll=Buffer.from('synthetic-approved-dll-identity');
   let behavior='success',spawns=0,abortAtPublication=null,abortAfterDispatch=null,runtimeReparse=false,runtimeLinks=null,existingStarted=null;
   const modes=[];
-  mock.module('node:fs',{namedExports:{...realFs,
+  // The namespace default is the real CommonJS fs object. Copy only named
+  // exports so the mock loader does not redefine its non-configurable fields.
+  const fsNamedExports={...realFs};delete fsNamedExports.default;
+  mock.module('node:fs',{namedExports:{...fsNamedExports,
     lstatSync:(file,...args)=>{
       const entry=realFs.lstatSync(file,...args);
       if(typeof file==='string' && file.toLowerCase().endsWith(path.join('SysWOW64','WindowsPowerShell','v1.0','powershell.exe').toLowerCase())) {
@@ -71,6 +75,13 @@ if (!process.execArgv.includes('--experimental-test-module-mocks')) {
     return child;
   }}});
   const {renderHwpxToPdf,preflightHwpxToPdf,preflightHwpxInExistingSession,renderHwpxInExistingSession,HANCOM_RENDERER_REF}=await import('../src/hancom_hwpx_render.mjs');
+  test('filesystem mock isolates ESM and CommonJS consumers from the real fs object',async()=>{
+    const esmFs=await import('node:fs'),cjsFs=createRequire(import.meta.url)('node:fs');
+    assert.notEqual(esmFs.lstatSync,realFs.lstatSync);
+    assert.equal(cjsFs.lstatSync,esmFs.lstatSync);
+    assert.equal(cjsFs.constants,realFs.constants);
+    assert.equal(realFs.default.lstatSync,realFs.lstatSync);
+  });
   function fixture() {
     const root=mkdtempSync(path.join(tmpdir(),'hancom-synthetic-'));
     const [input,output,work]=['input','output','work'].map(name=>{const dir=path.join(root,name);mkdirSync(dir);return dir;});
