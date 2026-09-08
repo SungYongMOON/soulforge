@@ -22,6 +22,7 @@ import { SOURCE_IDS, sourceContract, digest } from "../src/collectors/source_con
 import { collectionError } from "../src/collectors/diagnostics.mjs";
 import { collectPapers } from "../src/collectors/papers.mjs";
 import { openBudgetJournal } from "../src/collectors/budget_journal.mjs";
+import { resolveDataDirectory } from "../src/runtime_paths.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
@@ -49,7 +50,9 @@ function tallyNews(perFeed) {
 }
 
 async function main() {
-  const dataDir = path.resolve(flag("data-dir", process.env.SONAR_INTEL_DATA_DIR || path.join(APP_ROOT, "data")));
+  if (args.includes("--help")) { console.log("Usage: node tools/collect_once.mjs --data-dir <external absolute directory> [--max-results 50]\nExplicit collection of configured sources; no scheduled task."); return; }
+  const dataDir = resolveDataDirectory(args);
+  if (existsSync(path.join(dataDir, "collection-disabled-after-restore"))) throw new Error("collection_reconciliation_required");
   const maxResults = Number(flag("max-results", 50));
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
@@ -130,6 +133,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[collect_once] fatal", collectionError(error));
+  const message = error?.message;
+  console.error("[collect_once] fatal", /^(?:data_directory_[a-z_]+|data_file_link_forbidden|data_dir_required|runtime_data_overlap|canonical_data_directory_forbidden|collection_reconciliation_required)$/.test(message) ? message : collectionError(error));
   process.exit(1);
 });

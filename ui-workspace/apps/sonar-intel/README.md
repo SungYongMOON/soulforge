@@ -33,21 +33,23 @@ vanilla JS, World Tree(코드 dev-erp, 포트 4300, `ui-workspace/apps/dev-erp`)
 
 ```bash
 # 의존성 없음 - npm install 불필요
-node ui-workspace/apps/sonar-intel/server.mjs
+node <installed_payload>/ui-workspace/apps/sonar-intel/server.mjs --data-dir <external_data_dir>
 # 또는
-npm --prefix ui-workspace/apps/sonar-intel start
+npm --prefix <installed_payload>/ui-workspace/apps/sonar-intel start -- --data-dir <external_data_dir>
 ```
 
 브라우저에서 `http://127.0.0.1:4420` 접속(대시보드).
 
-위 기동은 설치 lane의 운영 계약을 따른다. checkout의 개발 검증은 `--port 0`
+이 앱은 기존 HPP Server Pack에 포함하는 선택 실행 모듈이며 자동 기동·예약 등록은 없다.
+설치·자료 복구 순서는 [운영 안내](../../../guild_hall/deployment_pack/manuals/sonar_intel_install_recovery.v0.md)를 따른다.
+checkout의 개발 검증은 `--port 0`
 (자동 임시 포트)와 synthetic `--data-dir`를 지정한다. 테스트는 운영 4420을 사용하지 않는다.
 
 수집은 서버가 아니라 별도 CLI로 수동 실행한다(스케줄러 미등록 — 아래 "스케줄 없음" 참고):
 
 ```bash
-npm --prefix ui-workspace/apps/sonar-intel run collect
-npm --prefix ui-workspace/apps/sonar-intel run export:snapshot   # export/*.csv, *.json
+npm --prefix <installed_payload>/ui-workspace/apps/sonar-intel run collect -- --data-dir <external_data_dir>
+npm --prefix <installed_payload>/ui-workspace/apps/sonar-intel run export:snapshot -- --data-dir <external_data_dir>
 ```
 
 ## 포트
@@ -84,9 +86,16 @@ PDF·저자 정보는 이 수집 단위에서 가져오지 않는다.
 
 ## 데이터 위치
 
-`data/`(이 앱 폴더 안, gitignore 처리) — SW와 데이터가 한 몸이라는 계획서 설계다.
-`data/intel.db`(sqlite 백엔드) 또는 `data/intel.jsonl`(JSONL 폴백), 수집 실행마다
-`data/last_run.json`에 최근 실행 요약(소스별 fetched/stored/deduped, 시각)을 남긴다.
+`--data-dir <absolute_path>` 또는 `SONAR_INTEL_DATA_DIR`로 지정한 **설치 payload 밖의
+앱 전용 작업 자료 폴더**를 사용한다. flag가 env보다 우선하며 기본값은 없다. 상대 경로,
+소스/설치 payload와의 겹침, `_workspaces`/`_workmeta`, 링크·정션 경로는 거부한다.
+`intel.db`(sqlite 백엔드) 또는 `intel.jsonl`(JSONL 폴백), 수집 실행마다
+`last_run.json`에 최근 실행 요약(소스별 fetched/stored/deduped, 시각)을 남긴다.
+코드는 불변 payload로 판본 관리하며 자료는 코드 업데이트/되돌리기의 대상이 아니다.
+기존 앱 내부 자료의 자동 이동은 없다. 기존 자료 전환은 별도의 정확한 복사·검증이 필요하다.
+내보내기는 기본 `<external_data_dir>/export`에 쓰고 CORE는 읽기 전용으로 연다.
+CORE 쓰기·분석·자료 백업은 같은 `data-operation.lock`으로 직렬화한다. 남은 lock은
+자동 탈취하지 않으며, 담당자가 실제 writer 종료를 확인한 뒤 복구한다.
 공개 저장소에는 실제 경로 대신 `<TARGET_SOULFORGE_ROOT>` 같은 자리표시자만 쓴다.
 수집/분석/usage 영수증은 app-owned working 상태이며 accepted canonical bytes나 그 lineage가
 아니다. legacy workspace·current canonical workspace·프로젝트 metadata로 이식하지 않는다.
@@ -189,6 +198,10 @@ SONAR_INTEL_NETWORK=1 npm --prefix ui-workspace/apps/sonar-intel test
 ```
 
 루트 게이트: `npm run validate:sonar-intel`.
+
+설치 구성 요소의 격리 게이트: `node --test guild_hall/deployment_pack/tests/sonar_intel_install.test.mjs`.
+이 검사는 기존 HPP builder/lifecycle으로 소나 구성 요소만 묶은 임시 설치본을 시험한다.
+전체 HPP 통합, 운영 활성화, 사람 수락 또는 출시 승격을 대신하지 않는다.
 
 ## 남은 것 (Goal #2/#3)
 

@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
+import { resolveDataDirectory } from "./src/runtime_paths.mjs";
 import { LIMITS, RULE_VERSION, isoDate, safeSourceUrl, selectRelations } from "./src/analysis/index.mjs";
 import { SOURCE_IDS, sourceContract, validateProvenance } from "./src/collectors/source_contract.mjs";
 
@@ -32,7 +33,6 @@ function flag(name, fallback) {
 const DEFAULT_PORT = 4420;
 const PORT = Number(flag("port", process.env.SONAR_INTEL_PORT || DEFAULT_PORT));
 const HOST = "127.0.0.1";
-const DATA_DIR = path.resolve(flag("data-dir", process.env.SONAR_INTEL_DATA_DIR || path.join(HERE, "data")));
 const CONFIG_DIR = path.join(HERE, "config");
 const STATIC_DIR = path.join(HERE, "static");
 
@@ -190,10 +190,12 @@ function readAnalysis(dataDir) {
 }
 
 async function main() {
+  if (args.includes("--help")) { console.log("Usage: node server.mjs --data-dir <external absolute directory> [--port 4420]\nRead-only loopback; no collection or scheduling."); return; }
+  const dataDir = resolveDataDirectory(args);
   const sourcesConfig = loadJsonConfig("sources.json");
   const keywordsConfig = loadJsonConfig("keywords.json");
-  const store = await openStore({ dataDir: DATA_DIR, readOnly: true, maxBytes: LIMITS.bytes });
-  const server = createSonarServer({ store, sourcesConfig, keywordsConfig, dataDir: DATA_DIR });
+  const store = await openStore({ dataDir, readOnly: true, maxBytes: LIMITS.bytes });
+  const server = createSonarServer({ store, sourcesConfig, keywordsConfig, dataDir });
 
   server.listen(PORT, HOST, () => {
     console.log(`[sonar-intel] http://${HOST}:${server.address().port} (read-only)`);
@@ -222,6 +224,6 @@ function summarizeEnabledSources(sourcesConfig) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
-  console.error("[sonar-intel] fatal", error);
+  console.error("[sonar-intel] fatal", error.code ?? error.message);
   process.exit(1);
 });
