@@ -421,6 +421,18 @@ async function executionAuthority(runtime) {
 export async function executeVerified(runtime, argv, { spawn = spawnSync } = {}) {
   if (argv[0] === "--preflight" && argv.length === 1) return { ok: true, code: "SECURE_WORK_LAUNCH_VERIFIED" };
   const roles = await executionAuthority(runtime);
+  if (argv[0] === "--g2-custody-inspect" && argv.length === 1) {
+    roles.entry("jobs.advance");
+    const hooks = guardNodeImports(runtime);
+    try {
+      runtime.recheck();
+      const { inspectG2Custody } = await import(pathToFileURL(path.join(path.dirname(runtime.launcherPath), "g2_linear_custody_cli.mjs")).href);
+      const result = await inspectG2Custody(runtime);
+      runtime.recheck();
+      return result;
+    } finally { hooks.deregister(); }
+  }
+  if (argv.some(a => a.startsWith("--g2-custody"))) fail();
   if (argv[0] === "--role-entry" && argv.length === 1) {
     const request = JSON.parse(readWorkerInput());
     exact(request, ["operation"]);
