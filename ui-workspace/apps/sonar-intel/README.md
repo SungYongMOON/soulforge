@@ -96,6 +96,11 @@ PDF·저자 정보는 이 수집 단위에서 가져오지 않는다.
 내보내기는 기본 `<external_data_dir>/export`에 쓰고 CORE는 읽기 전용으로 연다.
 CORE 쓰기·분석·자료 백업은 같은 `data-operation.lock`으로 직렬화한다. 남은 lock은
 자동 탈취하지 않으며, 담당자가 실제 writer 종료를 확인한 뒤 복구한다.
+CORE 파일명은 `intel.db`/`intel.jsonl`로 고정한다. 저장소 API의 파일명 옵션도 이 두
+정규 이름만 허용하며 다른 이름·경로·Windows 별칭은 자료 폴더 생성 전에 거부한다.
+기존 CORE 형식은 auto로 열어도 유지한다. 기존 SQLite 자료가 있는데 런타임이 SQLite를
+지원하지 않으면 `sqlite_backend_unavailable`로 종료하며, 다른 백엔드를 명시하면
+`core_backend_mismatch`로 거부한다. JSONL fallback은 CORE가 없는 새 자료 폴더에만 적용한다.
 공개 저장소에는 실제 경로 대신 `<TARGET_SOULFORGE_ROOT>` 같은 자리표시자만 쓴다.
 수집/분석/usage 영수증은 app-owned working 상태이며 accepted canonical bytes나 그 lineage가
 아니다. legacy workspace·current canonical workspace·프로젝트 metadata로 이식하지 않는다.
@@ -169,7 +174,8 @@ arXiv API 공식 약관(info.arxiv.org/help/api/tou.html): 요청 간 최소 3�
 - `node:sqlite`는 이 앱 개발 시점의 저장소 Node(24.15.0, `node --version`으로 확인)에서
   플래그 없이 정상 동작해 `store.mjs`의 1순위 백엔드다. Node 22.x 일부 버전은 이 모듈이
   `--experimental-sqlite` 플래그 뒤에 있었으므로, `store.mjs`는 기동 시 `node:sqlite` import를
-  시도하고 실패하면 자동으로 JSONL 백엔드로 대체한다(코드 경로 하나, 별도 설정 불필요).
+  시도하고 실패하면 CORE가 없는 새 자료 폴더에서만 JSONL 백엔드로 대체한다.
+  기존 SQLite 자료를 JSONL의 빈 자료로 바꾸지 않는다.
   `store.backendName`으로 현재 사용 중인 백엔드를 확인할 수 있다(대시보드 상단에도 표시).
 - RSS(뉴스)와 Atom(arXiv) 파서는 정규식 기반 최소 구현이다 — `feedparser`/`xml2js`류
   외부 라이브러리를 쓰지 않기 위한 선택이며, 두 표준 피드 형식의 정규 태그 구조에서만

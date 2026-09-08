@@ -9,6 +9,10 @@
 요소 목록은 `tools/sonar_intel_pack_members.mjs`, 실행면은 아래 모듈이 소유한다.
 Node >=22.5가 필요하고 소나 자체 npm 의존성은 없다. SQLite 자료 복구는 `node:sqlite`를
 사용할 수 있는 동일 Node 환경이 필요하다. SQLite가 없는 환경은 JSONL 자료만 지원한다.
+기존 SQLite 자료를 이 환경에서 열면 읽기·쓰기 모두 `sqlite_backend_unavailable`로
+종료한다. 자동 대체나 빈 자료 표시로 처리하지 않는다. 기존 자료와 다른 backend를
+명시하는 것도 거부한다. CORE 파일명은 `intel.db` 또는 `intel.jsonl`로 고정되며
+저장소 API에서도 다른 경로나 이름을 지정할 수 없다.
 
 ```text
 node <payload>/ui-workspace/apps/sonar-intel/server.mjs --data-dir <external_data_dir> --port <port>
