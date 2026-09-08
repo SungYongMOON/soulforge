@@ -214,6 +214,8 @@ const contentRoles = {
     ].map(role => `guild_hall/deployment_pack/manuals/${role}.v0.md`),
     "ui-workspace/apps/dev-erp/README.md",
     "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
+    "ui-workspace/apps/dev-erp/docs/slices/OWNER-ATTENTION-V0.md",
+    "ui-workspace/apps/dev-erp/docs/slices/ERP-MCP-V0.md",
     // The verify gate's docs_present check demands these two.
     "ui-workspace/apps/dev-erp/docs/DESIGN.md",
     "ui-workspace/apps/dev-erp/docs/BROWSER_QA_PROCEDURE.md",

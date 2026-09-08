@@ -584,6 +584,8 @@
       "ui-workspace/apps/dev-erp/docs/WORK_INTAKE_RUNTIME.md",
       "ui-workspace/apps/dev-erp/docs/WORK_INTAKE_SHADOW_ADAPTER.md",
       "ui-workspace/apps/dev-erp/docs/slices/BUZZ-FIRST-PILOT-V0.md",
+      "ui-workspace/apps/dev-erp/docs/slices/ERP-MCP-V0.md",
+      "ui-workspace/apps/dev-erp/docs/slices/OWNER-ATTENTION-V0.md",
       "ui-workspace/apps/sonar-intel/README.md",
       "ui-workspace/apps/sonar-intel/docs/SONAR_INTEL_MASTER_PLAN_V1.md"
     ],
@@ -663,6 +665,7 @@
       "ui-workspace/apps/dev-erp/test/mail_project_route_backfill.test.mjs",
       "ui-workspace/apps/dev-erp/test/mail_project_rule_candidates.test.mjs",
       "ui-workspace/apps/dev-erp/test/mail_thread_key.test.mjs",
+      "ui-workspace/apps/dev-erp/test/mcp_connections.test.mjs",
       "ui-workspace/apps/dev-erp/test/memory_project_isolation.test.mjs",
       "ui-workspace/apps/dev-erp/test/npm_test_discovery.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_buzz_link.test.mjs",
@@ -1468,6 +1471,7 @@
     "test/mail_project_route_backfill.test.mjs",
     "test/mail_project_rule_candidates.test.mjs",
     "test/mail_thread_key.test.mjs",
+    "test/mcp_connections.test.mjs",
     "test/memory_project_isolation.test.mjs",
     "test/npm_test_discovery.test.mjs",
     "test/owner_attention_buzz_link.test.mjs",
@@ -1612,6 +1616,7 @@
     "test/mail_project_route_backfill.test.mjs",
     "test/mail_project_rule_candidates.test.mjs",
     "test/mail_thread_key.test.mjs",
+    "test/mcp_connections.test.mjs",
     "test/memory_project_isolation.test.mjs",
     "test/npm_test_discovery.test.mjs",
     "test/owner_attention_buzz_link.test.mjs",
@@ -2538,7 +2543,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/README.md",
-      "sha256": "852eb429518a81536748d428df56083a1a694785606929684dd40c382b3f3731"
+      "sha256": "7e6cd86275b7a4e491762e6b523d68ee671ef73ea8c9fa5fa08c99d7d12a8b90"
     },
     {
       "path": "ui-workspace/apps/dev-erp/docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md",
@@ -2554,7 +2559,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "586d0a87bbc0ac9f1f9e231d11655adabed2747eac20b6f3a05859db56da59d2"
+      "sha256": "63fae581176a1537618791d0485b0036084740ada5e0a59cf5c52fe45a0d4bc9"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2618,7 +2623,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/lexicon.mjs",
-      "sha256": "1c9955245f9c589bf5a7b5ecd4111a747b0feb9c935e9758b34957c7df21a8f7"
+      "sha256": "094cf48bbf68a4a5e50443eb294117332bc7445a622dd2ab9a815d221d7fe6fb"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/mailbox_env.mjs",
@@ -2658,7 +2663,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/app.js",
-      "sha256": "486bde3e14d4f9ac4c5eaeab7f5a0eb47d3d3e38107a158bc3e222012a6db335"
+      "sha256": "21737886ddec7a2968cba89f1bdc507df18a1a084b0d0f4af3035a9934439048"
     },
     {
       "path": "ui-workspace/apps/dev-erp/static/style.css",
@@ -2710,7 +2715,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_server.test.mjs",
-      "sha256": "2ab07dda95368619b214913caf4a85dfcc436f4a4b94983d3de07e8be5e3189f"
+      "sha256": "232fd30665fb50d7885e0b969166b0a5e77f7a10da379d5ea18cdc9bbf08df23"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/erp_mcp_service.test.mjs",
@@ -2731,6 +2736,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
       "sha256": "0e155e42e1439a9bd4f418a92bed8d18aef8086299b0ea30ae883dbd6f75afce"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/mcp_connections.test.mjs",
+      "sha256": "80f37a6f5f48f64f7fbd4fbeff1d058bff21474b1d6603352c929479ab003e12"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/owner_attention_fixture.mjs",
