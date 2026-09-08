@@ -9,6 +9,7 @@ import {
   validateHourlyShadowCycle,
 } from "./hourly_shadow_cycle_contract.mjs";
 import { isValidatedWorkIntakeDocuments } from "./work_intake_documents.mjs";
+import { isWorkIntakeProviderJudge, verifyWorkIntakeJudgeReceipt } from "./work_intake_judge.mjs";
 
 // This adapter has no source readers, model client, writer, or scheduler. A scripted
 // synthetic judge exercises plumbing only. Live bindings and historical replay
@@ -19,13 +20,14 @@ const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@/_-]{0,127}$/;
 const PROJECT = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const HASH = /^[a-f0-9]{64}$/;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const SOURCES = new Set(["gmail", "linear", "slack"]);
+const SOURCES = new Set(["gmail", "linear", "slack", "buzz", "file_change", "voice"]);
 const REASONS = new Set(["NEW_REQUEST", "EXISTING_TASK", "SUPPORTING_EVIDENCE", "ALREADY_COMPLETED", "NO_NEW_REQUEST", "INSUFFICIENT_EVIDENCE", "UNKNOWN"]);
 const INPUT_KEYS = ["run_id", "provenance", "project_ref", "window", "observed_at", "permission_refs", "source_reads", "events", "linear_view", "echo_receipts", "document_validation"];
 const READ_KEYS = ["source", "scope_ref", "status", "window", "cursor_before", "cursor_after", "observed_at", "permission_ref", "evidence_refs"];
 const EVENT_KEYS = ["source", "scope_ref", "event_ref", "revision_ref", "revision_sha256", "occurred_at", "observed_at", "project_ref", "project_binding_ref", "revision_state", "parse_state", "evidence_refs", "facts", "facts_sha256", "correction"];
 const LINEAR_KEYS = ["scope_ref", "as_of", "status", "coverage", "evidence_refs", "tasks"];
 const TASK_KEYS = ["task_ref", "project_ref", "status", "task_semantic_sha256", "evidence_refs"];
+const TASK_FACT_KEYS = [...TASK_KEYS, 'facts', 'facts_sha256'];
 const ECHO_KEYS = ["source", "scope_ref", "event_ref", "revision_sha256", "evidence_ref", "result_ref"];
 const JUDGMENT_KEYS = ["classification", "reason_code", "matched_task_ref", "task_semantic_sha256", "action_semantic_sha256", "evidence_refs", "model_receipt"];
 const RECEIPT_KEYS = ["kind", "model_ref", "receipt_ref", "input_sha256", "prompt_sha256_ref"];
@@ -159,9 +161,13 @@ function validateLinear(view, input, read) {
     || !["complete", "partial", "unavailable"].includes(view.coverage)
     || !refs(view.evidence_refs) || view.evidence_refs.length === 0
     || !Array.isArray(view.tasks) || view.tasks.length > 128
-    || !view.tasks.every((task) => exact(task, TASK_KEYS) && token(task.task_ref) && projectRef(task.project_ref)
+    || !view.tasks.every((task) => (exact(task, TASK_KEYS) || exact(task, TASK_FACT_KEYS)) && token(task.task_ref) && projectRef(task.project_ref)
       && ["open", "completed", "cancelled"].includes(task.status) && digest(task.task_semantic_sha256)
-      && refs(task.evidence_refs) && task.evidence_refs.length > 0)) return ["INVALID_LINEAR_VIEW"];
+      && refs(task.evidence_refs) && task.evidence_refs.length > 0
+      && (task.facts === undefined || Array.isArray(task.facts) && task.facts.length > 0 && task.facts.length <= 8
+        && task.facts.every(fact => exact(fact, ['fact_ref', 'text']) && token(fact.fact_ref) && task.evidence_refs.includes(fact.fact_ref)
+          && typeof fact.text === 'string' && fact.text.length > 0 && fact.text.length <= 2400)
+        && task.facts_sha256 === sha(task.facts)))) return ["INVALID_LINEAR_VIEW"];
   const codes = [];
   if (!read || view.scope_ref !== read.scope_ref) codes.push("LINEAR_SCOPE_MISMATCH");
   if (Date.parse(view.as_of) < Date.parse(input.window.end) || Date.parse(view.as_of) > Date.parse(input.observed_at)
@@ -174,7 +180,7 @@ function validateLinear(view, input, read) {
   return codes;
 }
 
-function validateJudgment(value, request, event, input) {
+function validateJudgment(value, request, event, input, judge) {
   if (!exact(value, JUDGMENT_KEYS) || !WORK_INTAKE_CLASSIFICATIONS.includes(value.classification)
     || !REASONS.has(value.reason_code) || !nullableToken(value.matched_task_ref)
     || !(value.task_semantic_sha256 === null || digest(value.task_semantic_sha256))
@@ -183,7 +189,8 @@ function validateJudgment(value, request, event, input) {
     || !exact(value.model_receipt, RECEIPT_KEYS)) return ["INVALID_JUDGE_OUTPUT"];
   const codes = [];
   const receipt = value.model_receipt;
-  if (receipt.kind !== "scripted" || receipt.model_ref !== "SCRIPTED_SYNTHETIC"
+  const providerReceipt = isWorkIntakeProviderJudge(judge) && verifyWorkIntakeJudgeReceipt(judge, receipt, request, value);
+  if ((!providerReceipt && (input.provenance !== 'synthetic' || receipt.kind !== "scripted" || receipt.model_ref !== "SCRIPTED_SYNTHETIC"))
     || !token(receipt.receipt_ref) || receipt.input_sha256 !== request.input_sha256
     || !digest(receipt.prompt_sha256_ref)) codes.push("JUDGE_RECEIPT_UNBOUND");
   const allowed = new Set([...event.evidence_refs, ...input.linear_view.evidence_refs, ...input.linear_view.tasks.flatMap((task) => task.evidence_refs)]);
@@ -287,7 +294,7 @@ function finish(input, inputSha, snapshotSha, attempts, holdCodes, sourceReads =
     run_id: token(input?.run_id) ? input.run_id : null,
     project_ref: projectRef(input?.project_ref) ? input.project_ref : null,
     observed_at: timestamp(input?.observed_at) ? input.observed_at : null,
-    provenance: ["synthetic", "live", "replay"].includes(input?.provenance) ? input.provenance : "unknown",
+    provenance: ["synthetic", "source_bound", "live", "replay"].includes(input?.provenance) ? input.provenance : "unknown",
     input_sha256: inputSha, snapshot_sha256: snapshotSha,
     comparison_dimensions: { policy_ref: HOURLY_SHADOW_POLICY_REVISION,
       model_ref: models.length === 1 ? models[0] : "UNKNOWN",
@@ -318,7 +325,7 @@ function finish(input, inputSha, snapshotSha, attempts, holdCodes, sourceReads =
  * classifications, semantic hashes, bound locator refs and a scripted receipt.
  * The outer provenance MUST accompany shadow_cycle in persistence/evaluation.
  */
-export async function runWorkIntake(input, { judge } = {}) {
+export async function runWorkIntake(input, { judge, eventGate } = {}) {
   let data;
   let inputSha = null;
   let snapshotSha = null;
@@ -337,10 +344,11 @@ export async function runWorkIntake(input, { judge } = {}) {
   if (!exact(data, INPUT_KEYS) || !token(data.run_id) || !projectRef(data.project_ref)
     || !validWindow(data.window) || !timestamp(data.observed_at) || Date.parse(data.observed_at) < Date.parse(data.window.end)
     || !refs(data.permission_refs, 16) || data.permission_refs.length === 0
-    || !Array.isArray(data.source_reads) || data.source_reads.length > 3
+    || !Array.isArray(data.source_reads) || data.source_reads.length > 6
     || !Array.isArray(data.events) || data.events.length > 64
     || !Array.isArray(data.echo_receipts) || data.echo_receipts.length > 64) invalid.push("INVALID_INPUT");
-  if (data.provenance !== "synthetic") invalid.push(data.provenance === "replay" ? "HISTORICAL_REPLAY_NOT_SUPPORTED" : data.provenance === "live" ? "LIVE_BINDING_NOT_IMPLEMENTED" : "PROVENANCE_REQUIRED");
+  if (data.provenance !== "synthetic" && !(data.provenance === 'source_bound' && isWorkIntakeProviderJudge(judge)))
+    invalid.push(data.provenance === "replay" ? "HISTORICAL_REPLAY_NOT_SUPPORTED" : data.provenance === "live" ? "LIVE_BINDING_NOT_IMPLEMENTED" : "PROVENANCE_REQUIRED");
   if (!documentsValid) invalid.push("DOCUMENT_VALIDATION_REQUIRED");
   if (invalid.length) return finish(data, inputSha, snapshotSha, [{ ...initialAttempt(data, "input", 0), reason_codes: invalid }], invalid);
 
@@ -396,6 +404,14 @@ export async function runWorkIntake(input, { judge } = {}) {
     attempt.reason_codes = unique(codes);
     attempts.push(attempt);
     if (codes.length) continue;
+    if (typeof eventGate === 'function') {
+      let gate;
+      try { gate = await eventGate(freeze(snapshot(event))); } catch { gate = null; }
+      if (gate?.status !== 'READY') {
+        attempt.reason_codes = refs(gate?.reason_codes) && gate.reason_codes.length ? gate.reason_codes : ['ENGINEERING_CONTEXT_REQUIRED'];
+        continue;
+      }
+    }
     attempt.evidence_refs = [...event.evidence_refs];
     const echo = data.echo_receipts.find((receipt) => receipt.source === event.source && receipt.scope_ref === event.scope_ref
       && receipt.event_ref === event.event_ref && receipt.revision_sha256 === event.revision_sha256);
@@ -417,7 +433,8 @@ export async function runWorkIntake(input, { judge } = {}) {
       attempt.reason_codes = ["SEMANTIC_JUDGE_UNAVAILABLE"];
       continue;
     }
-    const requestData = { schema: "soulforge.work_intake.synthetic_judge.v1", provenance: "synthetic", project_ref: data.project_ref,
+    const requestData = { schema: data.provenance === 'synthetic' ? "soulforge.work_intake.synthetic_judge.v1" : 'soulforge.work_intake.provider_judge.v1',
+      provenance: data.provenance, project_ref: data.project_ref,
       window: data.window, permission_refs: data.permission_refs, event, linear_view: data.linear_view };
     const request = freeze({ ...snapshot(requestData), input_sha256: sha(requestData) });
     let judgment;
@@ -427,7 +444,7 @@ export async function runWorkIntake(input, { judge } = {}) {
       attempt.reason_codes = ["SEMANTIC_JUDGE_FAILED"];
       continue;
     }
-    const judgmentCodes = validateJudgment(judgment, request, event, data);
+    const judgmentCodes = validateJudgment(judgment, request, event, data, judge);
     if (judgmentCodes.length) {
       attempt.reason_codes = judgmentCodes;
       continue;

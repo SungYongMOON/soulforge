@@ -1,5 +1,10 @@
 # 업무 발견 Shadow 합성 어댑터
 
+후속 실행 연결은 [WORK_INTAKE_RUNTIME.md](WORK_INTAKE_RUNTIME.md)가 소유한다.
+아래는 기존 synthetic API와 평가 계약의 설명이다. 추가된 source_bound runtime은
+실제 release/Linear/context/Rune/native judge 소비를 연결하며, 합성 자료 여부는
+별도 data_provenance로 표시한다. 기존 합성 평가를 실제 모델 능력으로 바꾸지 않는다.
+
 이 app-local 조각은 범위가 고정된 Gmail 사건과 현재 Linear 관측을 받아 비정본 후보,
 판단·노출 기록, 비교용 평가를 연결한다. 실제 reader·모델·발송·Forge·서버·예약에는
 연결하지 않았다. 모든 호출과 저장의 provenance는 `synthetic`이다.
@@ -37,8 +42,9 @@ JSON으로 조작하면 in-process brand가 사라지므로 신규 저장/평가
   outer `synthetic`을 떼어 실제 live 관측으로 주장할 수 없다. `live`와 `replay` 입력은 보류한다.
 - source/scope/event/revision, 원본 SHA256, 발생·관찰시각, project 결속 ref, 검색창과
   source coverage, Linear 현재 상태/범위를 명시한다. 수신이 늦은 자료는 관찰창으로 선택하고 발생시각을 보존한다.
-- 의미 분류는 주입된 judge에 맡긴다. 키워드 분류기는 없다. 현재 허용되는 receipt는
-  `SCRIPTED_SYNTHETIC`뿐이다. 실제 provider/model 판본·읽기권한·원본 bytes hash 증명 포트는 미결속이다.
+- 기존 합성 의미 분류는 주입 judge의 `SCRIPTED_SYNTHETIC` receipt를 사용한다.
+  후속 runtime의 genuine G1 provider는 별도 관찰 receipt와 현재 source/release 권한을
+  결속하며 source_bound 모드는 그 genuine provider만 허용한다. 키워드 분류기는 없다.
 - NEW는 새 목표 후보, FOLLOW_UP은 열린 공식 업무의 후속, EVIDENCE는 기존 업무의 근거,
   NO_ACTION은 새 행동 없음, HOLD는 불충분/실패다. 기존 업무와 일치하는 NEW,
   존재하지 않는 업무의 후속, 완료된 업무의 FOLLOW_UP, 범위 밖 근거를 거부한다.
