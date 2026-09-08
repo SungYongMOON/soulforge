@@ -27,10 +27,10 @@ const identity = (s) => `${s.dev}:${s.ino}:${s.birthtimeMs}`;
 
 // A separate caller-provisioned synthetic control directory is mandatory. This
 // module is not installed, scheduled, or connected to any source or delivery port.
-export function createWorkIntakeStore({ directory, repositoryRoot, project_ref } = {}) {
+export function createWorkIntakeStore({ directory, repositoryRoot, project_ref, provenance = 'synthetic' } = {}) {
   if (typeof directory !== 'string' || !path.isAbsolute(directory)
     || typeof repositoryRoot !== 'string' || !path.isAbsolute(repositoryRoot)
-    || path.parse(directory).root === path.normalize(directory) || !token(project_ref)) {
+    || path.parse(directory).root === path.normalize(directory) || !token(project_ref) || !['synthetic', 'source_bound'].includes(provenance)) {
     return hold('STORE_BINDING_REQUIRED');
   }
   directory = path.normalize(directory); repositoryRoot = path.normalize(repositoryRoot);
@@ -38,7 +38,7 @@ export function createWorkIntakeStore({ directory, repositoryRoot, project_ref }
     || directory.split(path.sep).some((p) => ['_workmeta', '_workspaces', '.git', '.workflow', '.registry', 'guild_hall'].includes(p.toLowerCase()))) {
     return hold('STORE_ROOT_FORBIDDEN');
   }
-  const filename = path.join(directory, 'work-intake.synthetic.sqlite');
+  const filename = path.join(directory, provenance === 'synthetic' ? 'work-intake.synthetic.sqlite' : 'work-intake.source-bound.sqlite');
   let db; let rootIdentity; let fileIdentity; let closed = false;
   function checkBinding() {
     if (closed) fail('STORE_CLOSED');
@@ -101,7 +101,7 @@ export function createWorkIntakeStore({ directory, repositoryRoot, project_ref }
       let receipt;
       try { receipt = JSON.parse(row.receipt); } catch { fail('STORE_INTEGRITY_FAILED'); }
       if (digest({ result, receipt }) !== row.payload_digest || result.project_ref !== project_ref
-        || result.provenance !== 'synthetic' || result.run_id !== row.run_id || result.input_sha256 !== row.input_digest) {
+        || result.provenance !== provenance || result.run_id !== row.run_id || result.input_sha256 !== row.input_digest) {
         fail('STORE_INTEGRITY_FAILED');
       }
       return { result, receipt };
@@ -121,7 +121,7 @@ export function createWorkIntakeStore({ directory, repositoryRoot, project_ref }
     return ledger;
   }
   function commitResult(result) {
-    if (!isWorkIntakeResult(result) || result.provenance !== 'synthetic'
+    if (!isWorkIntakeResult(result) || result.provenance !== provenance
       || result.project_ref !== project_ref || !token(result.run_id)) return hold('STORE_RESULT_INVALID');
     return transaction(() => {
       const runs = readRuns();
@@ -167,7 +167,7 @@ export function createWorkIntakeStore({ directory, repositoryRoot, project_ref }
         decision.status = 'ROLLED_BACK'; decision.receipt = null;
       }
       const receipt = { run_id: result.run_id, input_sha256: result.input_sha256,
-        provenance: 'synthetic', decision_status: decisionStatus, cursor_status: cursorStatus,
+        provenance, decision_status: decisionStatus, cursor_status: cursorStatus,
         decisions, sequence: runs.length + 1, external_effects: 0 };
       db.prepare('INSERT INTO intake_runs VALUES (?,?,?,?,?,?)').run(runs.length + 1, result.run_id,
         result.input_sha256, JSON.stringify(result), digest({ result, receipt }), JSON.stringify(receipt));
@@ -251,7 +251,7 @@ export function createWorkIntakeStore({ directory, repositoryRoot, project_ref }
     });
   }
   function commitEvaluation(evaluation) {
-    if (!isWorkIntakeEvaluation(evaluation) || evaluation.report.provenance !== 'synthetic') return hold('STORE_EVALUATION_INVALID');
+    if (provenance !== 'synthetic' || !isWorkIntakeEvaluation(evaluation) || evaluation.report.provenance !== 'synthetic') return hold('STORE_EVALUATION_INVALID');
     return transaction(() => {
       const report = evaluation.report;
       const run = readRuns().find((r) => r.result.run_id === report.run_id);
@@ -276,7 +276,7 @@ export function createWorkIntakeStore({ directory, repositoryRoot, project_ref }
         if (digest(report) !== row.payload_digest || !run || report.input_sha256 !== run.result.input_sha256) fail('STORE_INTEGRITY_FAILED');
         return { evaluation_key: row.evaluation_key, report, decision_status: run.receipt.decision_status, cursor_status: run.receipt.cursor_status };
       });
-      return { status: 'INSPECTED', provenance: 'synthetic', project_ref,
+      return { status: 'INSPECTED', provenance, project_ref,
         run_count: runs.length, attempt_count: runs.reduce((n, r) => n + r.result.attempts.length, 0),
         failed_attempts: runs.reduce((n, r) => n + r.result.attempts.filter((a) => a.classification === 'HOLD').length, 0),
         cursors: db.prepare('SELECT source,scope,cursor FROM intake_cursors ORDER BY source,scope').all(),
