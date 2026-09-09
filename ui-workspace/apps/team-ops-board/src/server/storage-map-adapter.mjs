@@ -9,7 +9,9 @@ import {
   STORAGE_MAP_ROW_KINDS,
   aggregateStorageMapState,
 } from "../../../../../guild_hall/path_registry/src/storage_map_projection.mjs";
+import { PANEL_STATES } from "../../../../../guild_hall/watch_panel_contract/src/watch_panel_contract.mjs";
 import { readStableFile } from "./receipt-expiry-adapter.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const STORAGE_MAP_PATH = "/storage-map.snapshot.json";
 export const STORAGE_MAP_BINDING_SCHEMA = "soulforge.team_ops_board.storage_map_binding.v1";
@@ -17,7 +19,7 @@ export const STORAGE_MAP_SCHEMA = "soulforge.watch_storage_map.v0";
 
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,191}$/u;
-const WATCH_STATES = new Set(["healthy", "degraded", "stale", "unavailable", "unknown", "hold"]);
+const WATCH_STATES = new Set(PANEL_STATES);
 const ROW_KINDS = new Set(STORAGE_MAP_ROW_KINDS);
 const ROOT_CLASSES = new Set(PHYSICAL_ROOT_CLASSES);
 const MIGRATION_STATES = new Set(CURRENT_STATES);
@@ -106,10 +108,6 @@ function fixedUnavailable(reason, nowMs) {
       repair_authority: false,
     },
   };
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function writeJson(response, body) {
@@ -303,7 +301,7 @@ export function createStorageMapServerAdapter(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

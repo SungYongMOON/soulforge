@@ -48,6 +48,7 @@ import {
 import {
   collectExactSubagentStartReceiptLineage
 } from "./live-thread-subagent-receipt-enrollment.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const LIVE_THREAD_SNAPSHOT_PATH = "/codex-threads.snapshot.json";
 
@@ -571,10 +572,6 @@ function lifecycleHoldSource() {
   return { status: "hold", snapshot: null, identity_count: 0 };
 }
 
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
-
 export function createLiveThreadAdapter({
   registryPath = process.env.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY || defaultThreadEnrollmentRegistryPath(),
   organizationCatalogPath = null,
@@ -886,7 +883,7 @@ export function createLiveThreadAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

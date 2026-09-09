@@ -30,6 +30,7 @@ import { statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 import { resolveSoulforgeStateRoot, validateOverride } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
 import {
@@ -92,13 +93,6 @@ export function resolveTongsStateRoot(env = process.env) {
 export function defaultTongsHeartbeatPath(env = process.env) {
   const stateRoot = resolveTongsStateRoot(env);
   return tongsHeartbeatPath(stateRoot, TONGS_ALWAYS_MANAGED_SERVICE);
-}
-
-function isLoopbackAddress(remoteAddress) {
-  if (!remoteAddress) return false;
-  return remoteAddress === "127.0.0.1"
-    || remoteAddress === "::1"
-    || remoteAddress === "::ffff:127.0.0.1";
 }
 
 function envelope({
@@ -274,7 +268,7 @@ export function createTongsHeartbeatAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

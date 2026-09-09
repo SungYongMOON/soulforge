@@ -45,6 +45,7 @@
 
 import { spawn } from "node:child_process";
 import process from "node:process";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const SCHEDULED_TASKS_SNAPSHOT_PATH = "/scheduled-tasks.snapshot.json";
 export const SCHEDULED_TASKS_PROJECTION_SCHEMA = "soulforge.team_ops_board.scheduled_tasks_projection.v1";
@@ -85,13 +86,6 @@ const STATUS_BY_LOCALE_FORM = Object.freeze({
 // 타입 불일치) 그 행 하나를 건너뛰지 않고 투영 전체를 닫는다 — 파서가 없어도
 // 배달 계약(JSON 모양)이 깨지면 나머지 행이 맞다는 보장도 없기 때문이다.
 const ROW_KEYS = Object.freeze(["last_result", "last_run_at", "name", "next_run_at", "state"]);
-
-function isLoopbackAddress(remoteAddress) {
-  if (!remoteAddress) return false;
-  return remoteAddress === "127.0.0.1"
-    || remoteAddress === "::1"
-    || remoteAddress === "::ffff:127.0.0.1";
-}
 
 // `2026-09-06 오전 2:00:01` / `2026-09-06 2:00:01 AM` / `N/A` 를 로캘 없는
 // `YYYY-MM-DD HH:MM` 으로 접는다. 읽히지 않으면 원문을 흘리지 않고 null 을 낸다.
@@ -465,7 +459,7 @@ export function createScheduledTasksAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

@@ -11,6 +11,7 @@ import {
   readThreadEnrollmentRegistry
 } from "../core/live-thread-enrollment.mjs";
 import { AI_USAGE_PROJECTION_ENVELOPE_SCHEMA } from "../core/ai-usage-history-snapshot.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const AI_USAGE_SNAPSHOT_PATH = "/ai-usage-meter.snapshot.json";
 export const AI_USAGE_READ_ONLY_QUERY_KEY = "read_only";
@@ -36,10 +37,6 @@ function exactThreadIds(threadIds) {
     ids.add(threadId);
   }
   return [...ids].sort((left, right) => left.localeCompare(right, "en"));
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function unavailableProjection(refreshState = "hold") {
@@ -185,7 +182,7 @@ export function createAiUsageAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;
