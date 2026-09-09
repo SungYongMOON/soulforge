@@ -23,6 +23,19 @@ Owner에게 남은 결정만 명시적으로 등록한다. 읽음·미루기·�
 root를 만들지 않는다. 예전 C: 작업 메타데이터를 가져오지 않는다. 사람·봇 작업
 폴더를 일반 검색하거나 생성하지 않는다. 상태표는 기존 ERP DB 백업/복원 범위에 포함된다.
 
+## 현재 연결 범위 — 되는 것과 남은 것
+
+이 함은 **요청 등록과 조회까지**다. 대기를 한곳에 모으는 문제가 끝났다는 뜻이 아니다.
+
+| 구간 | 현재 | 근거·남은 일 |
+|---|---|---|
+| 여러 봇의 요청 **등록** | 연결됨 | 기존 MCP `erp_publish_work_session`의 `owner_attention/*` 어휘. 새 연결기 없이 어느 봇이든 등록한다. |
+| Owner **조회**·읽음·미루기 | 연결됨 | 기존 로그인·project ACL·CSRF. 낙관적 판본 검사로 오래된 창을 거부한다. |
+| 한 소스가 끊겼을 때의 표시 | 연결됨 | 아래 `한 소스가 끊겼을 때`. |
+| 실제 **알림 전달** | **미연결** | `dispatch`와 loopback adapter는 구현·시험됐지만 서버가 `resolveNotificationRoute`·`adapter`를 넘기지 않는다. 따라서 실제 서버의 `notification.capability`는 항상 `unavailable`이며 outbox는 발송으로 이어지지 않는다. |
+| **답변 확인**의 종결 | 부분 | 정확한 Owner 작성 work-session이나 별도 신뢰 Buzz reader 증명이 있어야 닫힌다. 그 verified response reader는 미구현이라 봇 자기보고만으로는 열린 상태로 남는다. |
+| 답변 뒤 **업무 재개** | 미연결 | 이 함은 재개를 트리거하지 않는다. native 파일럿 경로에서만 별도로 관측됐다. |
+
 ## Buzz 파일럿 질문 연결
 
 기존 `DEV_ERP_BUZZ_PILOT_READ`와 정확한 reader binding이 설정된 서버는 해당 업무의

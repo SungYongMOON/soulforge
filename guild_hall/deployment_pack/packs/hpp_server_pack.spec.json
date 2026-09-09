@@ -408,6 +408,7 @@
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_combined_attention_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_workbench_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_context_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_linear_fixture.mjs",
@@ -606,6 +607,7 @@
       "ui-workspace/apps/dev-erp/test/buzz_pilot_job.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_job_cli.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_owner_attention.test.mjs",
+      "ui-workspace/apps/dev-erp/test/buzz_pilot_owner_attention_combined.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_owner_attention_server.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_wal_restore.test.mjs",
       "ui-workspace/apps/dev-erp/test/buzz_pilot_workbench_http.test.mjs",
@@ -1412,6 +1414,7 @@
     "test/buzz_pilot_job.test.mjs",
     "test/buzz_pilot_job_cli.test.mjs",
     "test/buzz_pilot_owner_attention.test.mjs",
+    "test/buzz_pilot_owner_attention_combined.test.mjs",
     "test/buzz_pilot_owner_attention_server.test.mjs",
     "test/buzz_pilot_wal_restore.test.mjs",
     "test/buzz_pilot_workbench_http.test.mjs",
@@ -1557,6 +1560,7 @@
     "test/buzz_pilot_job.test.mjs",
     "test/buzz_pilot_job_cli.test.mjs",
     "test/buzz_pilot_owner_attention.test.mjs",
+    "test/buzz_pilot_owner_attention_combined.test.mjs",
     "test/buzz_pilot_owner_attention_server.test.mjs",
     "test/buzz_pilot_wal_restore.test.mjs",
     "test/buzz_pilot_workbench_http.test.mjs",
@@ -2683,6 +2687,10 @@
       "sha256": "18fa1fbb98a100176d8fef6a2fc043520843882e30d615f38d2c0704e587749d"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_owner_attention_combined.test.mjs",
+      "sha256": "e2db994e734946d0a7bb49c056997c28fe4fb157aca13cbf39ea4e1501c5441e"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/buzz_pilot_owner_attention_server.test.mjs",
       "sha256": "a81c365d3681dd48f667f04973434523863c7e325b125484d30a5d6985023b46"
     },
@@ -2733,6 +2741,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
       "sha256": "63cfb2c795bca4ef2be3b38a3d293555afb4ff4e62052388bbae44b931d96f2a"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_combined_attention_fixture.mjs",
+      "sha256": "1bc4527c762391e567996a24510b265ed31245819a9b23c4fba86f6341f329a0"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
