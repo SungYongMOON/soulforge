@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -19,6 +20,7 @@ import {
 } from "../tools/runtime_release_audit.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const PROTECTED_RUNTIME_PORT = 4300;
 
 test("UNC share receipt binds the exact registry, worker, v4 projection probe, and mutation control", () => {
   const workerIdentity = "a".repeat(64);
@@ -62,6 +64,25 @@ test("UNC share receipt binds the exact registry, worker, v4 projection probe, a
   assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, permission_probe_source: "codex_sandbox_exact_path_probe_v3" }, context).error, "receipt_binding_mismatch");
   assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, raw_root: "forbidden" }, context).error, "receipt_schema_invalid");
 });
+
+// "Nothing listens here" sentinel for require-live audits: a just-released
+// loopback port, never the protected runtime port 4300 and never a port the
+// caller's fixture already holds. The former literal 65534 sat inside the
+// Windows dynamic range that listen(0) draws from, so any concurrent listener
+// could turn the fail-closed live probe into a real health read.
+async function reservePort(excluded = new Set()) {
+  while (true) {
+    const port = await new Promise((fulfill, reject) => {
+      const server = createNetServer();
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        server.close((error) => error ? reject(error) : fulfill(address.port));
+      });
+    });
+    if (port !== PROTECTED_RUNTIME_PORT && !excluded.has(port)) return port;
+  }
+}
 
 async function withHealthServer(bodyFactory, run) {
   const server = createServer((request, response) => {
@@ -441,7 +462,7 @@ test("runtime release audit blocks active ERP grants outside the registry static
       codexTrustDomain: "write-ceiling-domain",
       nasRoot: false,
       requireLive: true,
-      port: 65534,
+      port: await reservePort(),
     });
     const issue = result.blockers.find((entry) => entry.code === "codex_active_write_grant_outside_static_policy");
     assert.ok(issue);

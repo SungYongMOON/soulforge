@@ -16,6 +16,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -48,6 +49,26 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const TOOL = resolve(HERE, "..", "tools", "codex_payload_backup.mjs");
 const MESSAGE_TEXT = "private message body that must never enter backup reports";
 const ATTACHMENT_NAME = "private-source-name.txt";
+const PROTECTED_RUNTIME_PORT = 4300;
+
+// "Nothing listens here" sentinel for require-live audits: a just-released
+// loopback port, never the protected runtime port 4300 and never a port the
+// caller's fixture already holds. The former literal 65534 sat inside the
+// Windows dynamic range that listen(0) draws from, so any concurrent listener
+// could turn the fail-closed live probe into a real health read.
+async function reservePort(excluded = new Set()) {
+  while (true) {
+    const port = await new Promise((fulfill, reject) => {
+      const server = createNetServer();
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        server.close((error) => error ? reject(error) : fulfill(address.port));
+      });
+    });
+    if (port !== PROTECTED_RUNTIME_PORT && !excluded.has(port)) return port;
+  }
+}
 
 test("post-read verification tolerates unstable NAS file IDs without relaxing pre-open identity", () => {
   const first = { size: 32, dev: 41, ino: 73, mtimeMs: 1000 };
@@ -302,7 +323,7 @@ test("runtime release audit makes missing matching payload restore evidence a li
     workspacesDir: join(fixture.root, "_workspaces"),
     nasRoot: fixture.nasRoot,
     requireLive: true,
-    port: 65534,
+    port: await reservePort(),
   });
   const issue = audit.blockers.find((entry) => entry.code === "codex_payload_restore_verification_invalid");
   assert.equal(issue?.generation_id, generationId);

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-09 - 병합 정리와 문서 검토값 동기화
+
+- 인수 로드맵 변경 뒤 누락된 bootstrap 요약·검토값을 동기화하고, 같은 누락을
+  검출하는 기존 boot 검사를 그대로 통과시킨다.
+- 실제 서버가 없음을 가정하는 시험의 고정 포트를 운영 포트와 겹치지 않는
+  임시 포트로 바꾼다. 포트 해제 뒤 재점유 가능성까지 제거한 것으로 주장하지 않는다.
+- 예전 모바일 운영 논의 문서는 비정본 아이디어 기록으로 보존하고,
+  이미 반영된 Python bytecode 제거 PR은 중복으로 정리한다.
+- 관련 경로: `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
+  `docs/mobile-notes/2026-05-05-ipad-operation-discussion.md`, ERP runtime audit tests.
+
 ## 2026-09-09 - 개발 인수 기준과 실제 연결 범위 정정
 
 - Revision 기준: `d8e8a3b6`의 통합 코드와 후속 로드맵 정정.
