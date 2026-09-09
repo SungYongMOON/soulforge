@@ -42,6 +42,21 @@ jobs:
           WORK_INTAKE_TEST_KIT_ROOT: ${{ github.workspace }}/ui-workspace/apps/dev-erp/test/fixtures/e14_contract_v1
         run: python -I -B -m unittest discover -s ui-workspace/apps/dev-erp/test -p test_work_intake_packet_reader.py -v
 
+      - name: Verify isolated packet-reader interpreter
+        env:
+          WORK_INTAKE_TEST_PYTHON: ${{ steps.python_runtime.outputs.python-path }}
+        run: |
+          node --input-type=module <<'JS'
+          import { realpathSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          import { intakeOrdinary } from './ui-workspace/apps/dev-erp/src/work_intake_io.mjs';
+          const selected = process.env.WORK_INTAKE_TEST_PYTHON;
+          const executable = realpathSync(selected);
+          await intakeOrdinary(executable);
+          console.log(`Interpreter alias resolved: ${selected !== executable}`);
+          execFileSync(executable, ['-I', '-B', '-c', 'import pydantic, cryptography; print("Isolated packet-reader interpreter ready")'], { env: {}, stdio: 'inherit', timeout: 15000 });
+          JS
+
       - name: Run root done check
         env:
           SOULFORGE_SECURE_WORK_TEST_PYTHON: ${{ steps.python_runtime.outputs.python-path }}

@@ -1,5 +1,5 @@
 // Test-only whole-runtime inputs: real source-bound gates, synthetic bytes and ACP.
-import { promises as fs, readFileSync, writeFileSync } from 'node:fs';
+import { promises as fs, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,9 @@ export async function createCompanyIntakeFixture({ engineering = 'none', classif
   pythonExecutable = process.env.WORK_INTAKE_TEST_PYTHON, kitRoot = process.env.WORK_INTAKE_TEST_KIT_ROOT } = {}) {
   if (!['none', 'missing', 'unknown', 'layers'].includes(engineering) || !['NEW', 'FOLLOW_UP', 'EVIDENCE', 'NO_ACTION', 'HOLD'].includes(classification)) throw new Error('synthetic_scenario_invalid');
   if (![pythonExecutable, kitRoot].every(value => typeof value === 'string' && path.isAbsolute(value))) throw new Error('explicit_synthetic_python_and_kit_required');
+  // Test installation pins the explicitly selected physical interpreter, not
+  // setup-python's alias. The runtime's ordinary-file gate remains unchanged.
+  pythonExecutable = realpathSync(pythonExecutable);
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'company-intake-'));
   const paths = Object.fromEntries(['trusted', 'control', 'evidence', 'compiled'].map(name => [name, path.join(root, name)]));
   await Promise.all(Object.values(paths).map(value => fs.mkdir(value)));

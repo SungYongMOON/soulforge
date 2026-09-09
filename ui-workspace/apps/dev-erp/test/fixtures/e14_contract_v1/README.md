@@ -26,6 +26,9 @@ configuration, vault, journal or other kit modules are included. CI explicitly
 binds WORK_INTAKE_TEST_PYTHON and WORK_INTAKE_TEST_KIT_ROOT to its selected Python
 and this directory. The Python packet-reader suite is also run directly; the
 Node glob alone would not execute those nine tests.
+The fixture resolves the explicitly selected interpreter to a physical file
+before hashing it. It does not relax the runtime's link rejection or isolated
+environment. CI probes imports with that same empty interpreter environment.
 
 Install the two pinned dependencies in requirements.txt for that interpreter.
 The tests use synthetic data and a published RFC 8032 vector, never operational

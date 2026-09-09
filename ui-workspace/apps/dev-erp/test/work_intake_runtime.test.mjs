@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
@@ -17,6 +18,19 @@ async function setup(t, options) {
   t.after(async () => { runtime?.close(); await f.close(); });
   return { f, async open(readOnly = false) { runtime?.close(); runtime = await openWorkIntakeRuntime({ ...f.options, readOnly }); return runtime; } };
 }
+test('explicit Python alias is resolved before the fixture pins the real packet-reader executable', async t => {
+  const selected = process.env.WORK_INTAKE_TEST_PYTHON;
+  assert.ok(selected && path.isAbsolute(selected), 'explicit test Python is required');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'intake-python-alias-'));
+  const alias = path.join(root, 'selected-python');
+  t.after(async () => { await fs.unlink(alias).catch(error => { if (error.code !== 'ENOENT') throw error; }); await fs.rmdir(root); });
+  await fs.symlink(path.dirname(path.dirname(selected)), alias, process.platform === 'win32' ? 'junction' : 'dir');
+  const { f, open } = await setup(t, { pythonExecutable: path.join(alias, path.basename(path.dirname(selected)), path.basename(selected)) });
+  const result = await (await open()).runOnce();
+  assert.equal(result.status, 'COMPLETED', JSON.stringify(result));
+  assert.equal(f.deployment.packet_reader.executable.path, await fs.realpath(selected));
+});
+
 test('real executable composes signed released facts, current Linear, genuine native judge, P0-P3 store and restart readback', async t => {
   const { f, open } = await setup(t);
   const invoke = () => JSON.parse(execFileSync(process.execPath, [CLI, 'run', '--deployment', f.options.deploymentPath, '--sha256', f.options.deploymentSha256],
