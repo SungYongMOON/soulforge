@@ -175,6 +175,24 @@ test('current source/evidence failures and a changed source during read never re
   await assert.rejects(raced.snapshot(f.access), /ATTENTION_REQUEST_CHANGED/);
 });
 
+test('with another readable source an unreadable native source is reported, never removing the other requests', async t => {
+  const f = await fixture(t, { legacy: true }); await f.deliver(); f.erp.publish();
+  const unreadable = { snapshot: () => { throw new Error('synthetic_db_unavailable'); }, readEvidence() {} };
+  const degraded = f.make({ pilotReader: unreadable });
+  const snap = await degraded.snapshot(f.access);
+  assert.equal(snap.status, 'available');
+  assert.equal(snap.native_source_state, 'unavailable');
+  assert.equal(snap.operations_attention, true);
+  assert.equal(snap.native_source_error, 'BUZZ_ATTENTION_SOURCE_UNAVAILABLE');
+  assert.equal(snap.items.filter(row => row.source_kind === 'buzz_pilot').length, 0);
+  assert.deepEqual(snap.items.map(row => row.source_state), ['awaiting']);
+  // Alone, the same failure still fails closed instead of looking healthy.
+  await assert.rejects(f.make({ pilotReader: unreadable, legacyService: null }).snapshot(f.access), /synthetic_db_unavailable/);
+  await assert.rejects(degraded.act(f.access, { request_key: 'a'.repeat(64), source_sha256: 'b'.repeat(64),
+    view_version: 0, action: 'seen' }), /ATTENTION_REQUEST_NOT_FOUND/);
+  assert.equal(f.erp.store.db.prepare('SELECT count(*) n FROM owner_attention_view').get().n, 0);
+});
+
 test('legacy and native sources merge under separate keys; only the selected source preference changes', async t => {
   const f = await fixture(t, { legacy: true }); await f.deliver(); f.erp.publish();
   const source = await f.sourceBytes();
