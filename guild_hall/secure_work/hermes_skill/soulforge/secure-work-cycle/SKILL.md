@@ -1,6 +1,6 @@
 ---
 name: soulforge-secure-work-cycle
-description: Run a Soulforge secure-work cycle test and report job status.
+description: 강도담(G2) 보안 작업 사이클을 sfx 명령으로 실행하고 job 단계와 다음 필요 사항을 보고한다. "사이클 시험", "secure-work 사이클 시험 한 번 돌려줘", "업무 요청 R1-07 …", "그 job 어떻게 됐어?" 같은 요청에 쓴다. 명령을 실제로 실행하므로 terminal 도구가 있는 창구에서만 동작한다.
 version: 1.0.0
 author: Soulforge 창구 lane B (Claude Sonnet 5), 2026-09-06 KST
 license: Soulforge internal
@@ -9,7 +9,7 @@ metadata:
   hermes:
     tags: [soulforge, secure-work, cli, buzz, pilot]
     category: soulforge
-    requires_toolsets: []
+    requires_toolsets: [terminal]
 prerequisites:
   commands: [node]
 ---
@@ -35,6 +35,9 @@ Buzz DM에서 다음과 같은 문구를 받았을 때 쓴다.
 
 ## Prerequisites
 
+- `terminal` 도구. 이 스킬은 명령을 실제로 실행해야만 뜻이 있다. 그 도구가 없는 창구에서는
+  **첫 응답에서 "이 창구에는 명령 실행 도구가 없어 실행할 수 없다"고 밝히고 멈춘다.** 되묻기로
+  대신하지 않는다. 되물어도 실행 수단이 생기지 않으므로 사용자를 기다리게 만들 뿐이다.
 - `node`(CLI 진입점 실행)와, 실행 시점에 lane 설정 JSON 경로 — 환경변수
   `SOULFORGE_SECURE_WORK_CONFIG` 또는 `--config <path>`로 넘긴다. 이 스킬은 그 경로의
   실제 값을 대화나 로그에 적지 않는다(host 절대경로이기 때문).
