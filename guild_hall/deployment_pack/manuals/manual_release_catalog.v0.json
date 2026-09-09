@@ -127,7 +127,7 @@
       "semantic_role": "workshop_operator",
       "state": "candidate",
       "artifact_ref": "artifact.manual.workshop_operator.v0_1_0",
-      "content_digest": "sha256:252381655e83edd8bc51aa8273e6901a0d6a9bbee02178bbfc7be4125e5ca089",
+      "content_digest": "sha256:d86cbba3703c12a86fe66bb5a0fef1ba5604d97dfe84ad1121604d143b3e3d9f",
       "compatibility_range": ">=0.1.0 <1.0.0",
       "last_verified_release": null,
       "stale_state": "current",
