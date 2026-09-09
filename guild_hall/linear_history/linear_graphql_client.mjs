@@ -393,8 +393,9 @@ export function commentsWindowDocument({ lower, upper }) {
   comments(first: $first, after: $after, includeArchived: true, orderBy: updatedAt,
     filter: { updatedAt: { gte: ${windowLiteral(lower, "lower")}, lte: ${windowLiteral(upper, "upper")} } }) {
     nodes {
-      id body createdAt updatedAt editedAt archivedAt resolvedAt url
+      id body quotedText createdAt updatedAt editedAt archivedAt resolvedAt url
       user { id }
+      onBehalfOf { id }
       issue { id identifier }
       parent { id }
     }
@@ -671,6 +672,9 @@ export function normalizeComment(node) {
   return {
     id: uuid(node.id, "comment.id"),
     body: nullableText(node.body, "comment.body"),
+    // An inline comment answers a specific sentence of the issue description.
+    // Without the quoted anchor the stored comment loses what it is about.
+    quoted_text: nullableText(node.quotedText, "comment.quotedText"),
     created_at: iso(node.createdAt, "comment.createdAt"),
     updated_at: iso(node.updatedAt, "comment.updatedAt"),
     edited_at: nullableIso(node.editedAt, "comment.editedAt"),
@@ -678,6 +682,9 @@ export function normalizeComment(node) {
     resolved_at: nullableIso(node.resolvedAt, "comment.resolvedAt"),
     url: nullableText(node.url, "comment.url", 2048),
     user_id: refId(node.user, "comment.user"),
+    // The author of record is not always the person the comment speaks for.
+    // This stays a bare reference; the acting identity is not inferred from it.
+    on_behalf_of_id: refId(node.onBehalfOf, "comment.onBehalfOf"),
     issue_id: uuid(issue.id, "comment.issue.id"),
     issue_identifier: nullableText(issue.identifier, "comment.issue.identifier", 64),
     parent_id: refId(node.parent, "comment.parent"),

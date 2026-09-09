@@ -406,6 +406,7 @@
     {
       "id": "c0a1b2c3-d4e5-4f60-8172-839405162738",
       "body": "Synthetic comment one",
+      "quotedText": null,
       "createdAt": "2026-09-01T00:11:00.000Z",
       "updatedAt": "2026-09-01T00:11:00.000Z",
       "editedAt": null,
@@ -413,12 +414,14 @@
       "resolvedAt": null,
       "url": "https://linear.app/synthetic-forge/issue/SYN-1#comment-c0a1b2c3",
       "user": { "id": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f" },
+      "onBehalfOf": null,
       "issue": { "id": "f8091a2b-3c4d-4859-aa6b-465768798a9b", "identifier": "SYN-1" },
       "parent": null
     },
     {
       "id": "d1b2c3d4-e5f6-4071-9283-940516273849",
       "body": "Synthetic reply to comment one",
+      "quotedText": null,
       "createdAt": "2026-09-01T00:12:00.000Z",
       "updatedAt": "2026-09-01T00:15:00.000Z",
       "editedAt": "2026-09-01T00:15:00.000Z",
@@ -426,12 +429,14 @@
       "resolvedAt": null,
       "url": "https://linear.app/synthetic-forge/issue/SYN-1#comment-d1b2c3d4",
       "user": { "id": "0b1c2d3e-4f50-4a61-8b72-93a4b5c6d7e8" },
+      "onBehalfOf": null,
       "issue": { "id": "f8091a2b-3c4d-4859-aa6b-465768798a9b", "identifier": "SYN-1" },
       "parent": { "id": "c0a1b2c3-d4e5-4f60-8172-839405162738" }
     },
     {
       "id": "e2c3d4e5-f607-4182-a394-05162738495a",
       "body": "Synthetic comment on issue two",
+      "quotedText": "Synthetic issue two description",
       "createdAt": "2026-09-01T00:25:00.000Z",
       "updatedAt": "2026-09-01T00:25:00.000Z",
       "editedAt": null,
@@ -439,12 +444,14 @@
       "resolvedAt": null,
       "url": "https://linear.app/synthetic-forge/issue/SYN-2#comment-e2c3d4e5",
       "user": { "id": "4d5e6f70-8192-4dae-bfc0-3b4c5d6e7f80" },
+      "onBehalfOf": null,
       "issue": { "id": "091a2b3c-4d5e-496a-8b7c-5768798a9bac", "identifier": "SYN-2" },
       "parent": null
     },
     {
       "id": "f3d4e5f6-0718-4293-b4a5-162738495a6b",
       "body": "Synthetic resolved comment",
+      "quotedText": null,
       "createdAt": "2026-09-01T00:31:00.000Z",
       "updatedAt": "2026-09-01T00:35:00.000Z",
       "editedAt": null,
@@ -452,12 +459,14 @@
       "resolvedAt": "2026-09-01T00:35:00.000Z",
       "url": "https://linear.app/synthetic-forge/issue/SYN-3#comment-f3d4e5f6",
       "user": { "id": "0b1c2d3e-4f50-4a61-8b72-93a4b5c6d7e8" },
+      "onBehalfOf": { "id": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f" },
       "issue": { "id": "2b3c4d5e-6f70-4b8c-ad9e-798a9bacbdce", "identifier": "SYN-3" },
       "parent": null
     },
     {
       "id": "04e5f607-1829-43a4-85b6-2738495a6b7c",
       "body": "Synthetic comment on operations issue",
+      "quotedText": null,
       "createdAt": "2026-09-01T00:45:00.000Z",
       "updatedAt": "2026-09-01T00:45:00.000Z",
       "editedAt": null,
@@ -465,6 +474,7 @@
       "resolvedAt": null,
       "url": "https://linear.app/synthetic-forge/issue/OPS-1#comment-04e5f607",
       "user": { "id": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f" },
+      "onBehalfOf": null,
       "issue": { "id": "3c4d5e6f-7081-4c9d-be0f-8a9bacbdcedf", "identifier": "OPS-1" },
       "parent": null
     }

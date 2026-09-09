@@ -54,6 +54,7 @@ import {
   assertReadOnlyDocument,
   commentsWindowDocument,
   createLinearGraphqlCall,
+  normalizeComment,
   normalizeIssue,
   issuesWindowDocument,
   loadLinearApiKey,
@@ -1039,6 +1040,43 @@ test("provider text is stored in NFC so custody digests stay canonical", () => {
   assert.equal(issue.title, "Caf\u00e9");
   assert.equal(issue.description, "Caf\u00e9 body");
   assert.equal(issue.title.normalize("NFC"), issue.title);
+});
+
+test("a comment keeps the description text it answers and the user it was written for", () => {
+  const base = {
+    id: "44444444-4444-4444-8444-444444444444",
+    body: "The 64-channel layout needs a decision.",
+    createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    editedAt: null, archivedAt: null, resolvedAt: null, url: null, user: null,
+    issue: { id: "55555555-5555-4555-8555-555555555555", identifier: "SYN-1" }, parent: null,
+  };
+  // An inline comment is anchored to one sentence. Dropping the anchor turns a
+  // remark about a specific line into a remark about the whole issue.
+  const anchored = normalizeComment({ ...base, quotedText: "64채널 수신모듈",
+    onBehalfOf: { id: "66666666-6666-4666-8666-666666666666" } });
+  assert.equal(anchored.quoted_text, "64채널 수신모듈");
+  assert.equal(anchored.on_behalf_of_id, "66666666-6666-4666-8666-666666666666");
+
+  // A standard comment declares both as absent rather than omitting the keys,
+  // so one custody shape covers anchored and unanchored comments alike.
+  const plainComment = normalizeComment({ ...base, quotedText: null, onBehalfOf: null });
+  assert.equal(plainComment.quoted_text, null);
+  assert.equal(plainComment.on_behalf_of_id, null);
+  assert.deepEqual(Object.keys(anchored), Object.keys(plainComment));
+  assert.ok(Object.keys(plainComment).includes("quoted_text"));
+  assert.ok(Object.keys(plainComment).includes("on_behalf_of_id"));
+
+  // A provider that answers with the wrong shape closes the lane instead of
+  // storing a comment whose anchor silently became empty.
+  for (const bad of [{ quotedText: 7 }, { onBehalfOf: { id: "not-a-uuid" } }, { onBehalfOf: 3 }]) {
+    assert.throws(() => normalizeComment({ ...base, quotedText: null, onBehalfOf: null, ...bad }),
+      (error) => error instanceof LinearClientError && error.code === "provider_shape_invalid");
+  }
+
+  const document = commentsWindowDocument({ lower: "2026-01-01T00:00:00.000Z", upper: "2026-01-02T00:00:00.000Z" });
+  assert.match(document, /quotedText/u);
+  assert.match(document, /onBehalfOf \{ id \}/u);
+  assert.doesNotThrow(() => assertReadOnlyDocument(document));
 });
 
 test("the GraphQL call is read-only, bounded, and redacts the credential in every failure", async () => {
