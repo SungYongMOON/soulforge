@@ -83,6 +83,8 @@ function render() {
   const nativeDelivered = snapshot.notification.native_delivery?.confirmed_request_count ?? 0;
   if (nativeDelivered > 0) $('#notification').textContent = `Buzz 질문 전달 확인 ${nativeDelivered}건`
     + (snapshot.notification.capability === 'configured' ? ' · 추가 알림 연결됨' : ' · 이 화면은 별도 알림을 다시 보내지 않습니다');
+  else if (snapshot.native_source_state === 'unavailable') $('#notification').textContent = 'Buzz 질문 원본을 읽지 못했습니다'
+    + (snapshot.notification.capability === 'configured' ? ' · 추가 알림 연결됨' : '');
   else if (snapshot.native_source_state) $('#notification').textContent = 'Buzz 질문 전달을 아직 확인하지 못했습니다'
     + (snapshot.notification.capability === 'configured' ? ' · 추가 알림 연결됨' : '');
   const unknownDeliveries = snapshot.notification.counts.delivery_unknown || 0;
@@ -97,6 +99,11 @@ function render() {
     $('#connection').className = 'connection error';
     $('#connection').textContent = `${unconfirmed}건의 진행 상태를 확인해야 합니다. 응답 대기나 완료로 판정하지 않았습니다.`;
   }
+  // A source we cannot read is stated, not shown as an empty or complete list.
+  if (snapshot.native_source_state === 'unavailable') {
+    $('#connection').className = 'connection error';
+    $('#connection').textContent = 'Buzz 질문 원본을 읽지 못해 이 목록에서 빠졌습니다. 운영 담당이 확인해야 하며, 남은 요청이 없다는 뜻이 아닙니다.';
+  }
 }
 function valid(data) {
   const linkSafe = value => value === null || safeOwnerAttentionBuzzUrl(value) !== null;
@@ -106,6 +113,7 @@ function valid(data) {
       && ['awaiting','response_unverified','responded','withdrawn','superseded','unconfirmed'].includes(row.source_state)
       && linkSafe(row.buzz_url) && (row.due_at === null || Number.isFinite(Date.parse(row.due_at))) && Number.isFinite(Date.parse(row.created_at)))
     && data.notification && ['configured','unavailable'].includes(data.notification.capability) && typeof data.notification.counts === 'object'
+    && (data.native_source_error === undefined || data.native_source_error === null || typeof data.native_source_error === 'string')
     && (data.notification.native_delivery === undefined || (data.notification.native_delivery?.source === 'buzz_pilot_question_delivery'
       && Number.isSafeInteger(data.notification.native_delivery.confirmed_request_count)
       && data.notification.native_delivery.confirmed_request_count >= 0));

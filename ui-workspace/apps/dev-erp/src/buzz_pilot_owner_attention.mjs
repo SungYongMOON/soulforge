@@ -9,6 +9,9 @@ const id = value => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
 const check = (value, code, status = 503) => { if (!value) attentionFail(code, status); };
 const same = (a, b) => attentionHash(a) === attentionHash(b);
 const fence = view => [view.source_sha256, view.question_ref, view.sequence, view.state, view.capture_health];
+// An unestablished Owner and a moving native view are never degraded: the first
+// is served no list at all, the second is a transient the client refreshes.
+const NATIVE_HARD = new Set(['OWNER_ACCESS_REQUIRED', 'BUZZ_ATTENTION_PORTS_REQUIRED', 'ATTENTION_REQUEST_CHANGED']);
 
 /** A view-preference writer, never a native event writer or notification sender.
  * The trusted reader owns current native authorization and protected evidence.
@@ -114,18 +117,35 @@ export function createBuzzPilotOwnerAttentionService({ store, pilotReader, bindi
       native_delivery_confirmed: delivered, notification_source: 'buzz_pilot_question_delivery' });
     return { view, item };
   }
+  /** One unreadable source is an operations condition for that source only. It
+   * never removes the requests another bot is already waiting on, and it is
+   * reported explicitly instead of being answered with an empty list. Without
+   * another readable source this service *is* the native source, so a failure
+   * stays a failure rather than becoming a healthy-looking empty snapshot. */
+  async function nativeOrUnavailable(access) {
+    try { return { ...(await native(access)), error: null }; }
+    catch (error) {
+      if (!legacyService || NATIVE_HARD.has(error?.attentionCode)) throw error;
+      return { view: null, item: null, error: error?.attentionCode ?? 'BUZZ_ATTENTION_SOURCE_UNAVAILABLE' };
+    }
+  }
   async function snapshot(access) {
-    const result = await native(access);
+    const result = await nativeOrUnavailable(access);
     const legacy = legacyService ? await legacyService.snapshot(access) : null;
-    const latest = await current(access);
-    check(same(fence(result.view), fence(latest)), 'ATTENTION_REQUEST_CHANGED', 409);
+    let nativeState = 'unavailable', operations = true;
+    if (!result.error) {
+      const latest = await current(access);
+      check(same(fence(result.view), fence(latest)), 'ATTENTION_REQUEST_CHANGED', 409);
+      nativeState = latest.state; operations = latest.operations_attention === true;
+    }
     const items = [...(legacy?.items ?? []), ...(result.item ? [result.item] : [])];
     check(new Set(items.map(row => row.request_key)).size === items.length, 'ATTENTION_REQUEST_KEY_CONFLICT');
     return { status: 'available', observed_at: iso(now()), items,
       notification: { ...(legacy?.notification ?? { capability: 'unavailable', counts: {} }),
         native_delivery: { confirmed_request_count: result.item?.native_delivery_confirmed ? 1 : 0,
           source: 'buzz_pilot_question_delivery' } },
-      native_source_state: latest.state, operations_attention: latest.operations_attention === true,
+      native_source_state: nativeState, native_source_error: result.error,
+      operations_attention: operations,
       acceptance_changed: false, official_done_changed: false };
   }
   async function act(access, input) {
@@ -134,7 +154,9 @@ export function createBuzzPilotOwnerAttentionService({ store, pilotReader, bindi
       && ['seen', 'snooze', 'unsnooze'].includes(input.action)
       && (input.action === 'snooze' ? [30, 120, 1440].includes(input.minutes) : input.minutes === undefined),
     'ATTENTION_ACTION_INVALID', 400);
-    const { item } = await native(access);
+    const { item } = await nativeOrUnavailable(access);
+    // An unreadable native question cannot be marked seen or snoozed here; the
+    // request key simply is not present, so a legacy reader answers not found.
     if (!item || item.request_key !== input.request_key) {
       if (legacyService) return legacyService.act(access, input);
       attentionFail('ATTENTION_REQUEST_NOT_FOUND', 404);
@@ -157,7 +179,7 @@ export function createBuzzPilotOwnerAttentionService({ store, pilotReader, bindi
   // Native delivery already occurred. This port only preserves a separately
   // configured legacy notifier; it never sends a second native-question ping.
   async function dispatch(access) {
-    await native(access);
+    await nativeOrUnavailable(access);
     return legacyService ? legacyService.dispatch(access) : { status: 'idle', sent: false };
   }
   return { snapshot, act, dispatch };

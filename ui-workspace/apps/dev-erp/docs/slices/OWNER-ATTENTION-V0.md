@@ -23,6 +23,19 @@ Owner에게 남은 결정만 명시적으로 등록한다. 읽음·미루기·�
 root를 만들지 않는다. 예전 C: 작업 메타데이터를 가져오지 않는다. 사람·봇 작업
 폴더를 일반 검색하거나 생성하지 않는다. 상태표는 기존 ERP DB 백업/복원 범위에 포함된다.
 
+## 현재 연결 범위 — 되는 것과 남은 것
+
+이 함은 **요청 등록과 조회까지**다. 대기를 한곳에 모으는 문제가 끝났다는 뜻이 아니다.
+
+| 구간 | 현재 | 근거·남은 일 |
+|---|---|---|
+| 여러 봇의 요청 **등록** | 연결됨 | 기존 MCP `erp_publish_work_session`의 `owner_attention/*` 어휘. 새 연결기 없이 어느 봇이든 등록한다. |
+| Owner **조회**·읽음·미루기 | 연결됨 | 기존 로그인·project ACL·CSRF. 낙관적 판본 검사로 오래된 창을 거부한다. |
+| 한 소스가 끊겼을 때의 표시 | 연결됨 | 아래 `한 소스가 끊겼을 때`. |
+| 실제 **알림 전달** | **미연결** | `dispatch`와 loopback adapter는 구현·시험됐지만 서버가 `resolveNotificationRoute`·`adapter`를 넘기지 않는다. 따라서 실제 서버의 `notification.capability`는 항상 `unavailable`이며 outbox는 발송으로 이어지지 않는다. |
+| **답변 확인**의 종결 | 부분 | 정확한 Owner 작성 work-session이나 별도 신뢰 Buzz reader 증명이 있어야 닫힌다. 그 verified response reader는 미구현이라 봇 자기보고만으로는 열린 상태로 남는다. |
+| 답변 뒤 **업무 재개** | 미연결 | 이 함은 재개를 트리거하지 않는다. native 파일럿 경로에서만 별도로 관측됐다. |
+
 ## Buzz 파일럿 질문 연결
 
 기존 `DEV_ERP_BUZZ_PILOT_READ`와 정확한 reader binding이 설정된 서버는 해당 업무의
@@ -156,12 +169,34 @@ fence를 덮지 못한다. 이 결과는 Buzz 메시지의 실제 읽음이나 �
 기본 서버는 dispatcher 주기·예약작업·외부 발송을 활성화하지 않는다. 관리봇의
 실제 transport 연결과 verified response reader는 아직 필요한 구현/통합 작업이다.
 
+## 한 소스가 끊겼을 때
+
+이 함은 여러 소스를 합친다. **한 소스를 읽지 못하는 것은 그 소스의 운영 조건이지
+다른 봇이 이미 기다리는 요청을 지울 이유가 아니다.** native Buzz 질문을 읽지 못하면
+읽을 수 있는 요청은 그대로 보여 주고, 응답에 `native_source_state: "unavailable"`,
+`operations_attention: true`, `native_source_error`를 명시한다. 화면은 목록이 비어
+있다는 뜻이 아니라 운영 담당의 확인이 필요하다고 표시한다. 읽지 못한 native 질문은
+목록에 넣지 않으며 읽음·미루기 대상도 되지 않는다.
+
+거부를 유지하는 경우는 둘이다. 로그인·세션으로 Owner를 확정하지 못하면 어떤 목록도
+주지 않는다. native 관측이 읽는 중 바뀌면 그대로 409로 돌려 클라이언트가 다시 읽게
+한다. **다른 읽을 수 있는 소스가 없으면 이 서비스 자체가 native 소스이므로 실패를
+빈 정상 목록으로 바꾸지 않는다.**
+
+관측된 유발 조건은 lane이 실행 중 binding을 재발행해 viewer가 고정한 digest와
+어긋나는 경우다. 이 경우 이전에는 함 전체가 503이 되어 다른 과제의 요청까지 사라졌다.
+
 ## 재현과 검증
 
 ```text
 node --test test/owner_attention_source.test.mjs test/owner_attention_service.test.mjs test/owner_attention_http.test.mjs test/owner_attention_load.test.mjs
+node --test test/buzz_pilot_owner_attention.test.mjs test/buzz_pilot_owner_attention_combined.test.mjs
 node test/owner_attention_preview.mjs
 ```
+
+`buzz_pilot_owner_attention_combined.test.mjs`는 두 소스를 한 실제 서버에 함께
+구성해 native binding 재발행 뒤에도 다른 과제(SYN-002)의 요청이 남는지 확인한다.
+합성 자료·임시 port만 쓰고 4192/4300과 실제 Buzz 전송은 사용하지 않는다.
 
 preview는 격리된 합성 ERP DB, 실제 화면/controller, 합성 로그인 버튼과 합성 Buzz
 응답 페이지다. 회사 질문·실제 Buzz에 연결하지 않았다는 배너를 표시한다. 로컬

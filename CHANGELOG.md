@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-09-09 - 한 소스가 끊겨도 남은 응답 대기 요청을 계속 보여준다
+
+- Owner 응답 대기함이 native Buzz 질문과 기존 MCP 등록 요청을 함께 쓰는 구성에서,
+  native 원본을 읽지 못하면 다른 봇이 이미 기다리는 요청까지 함께 사라지던 문제를
+  고친다. 이제 읽을 수 있는 요청은 그대로 보여주고, 읽지 못한 소스는
+  `native_source_state: unavailable`·`operations_attention`·`native_source_error`로
+  명시하며 화면에도 운영 확인이 필요하다고 표시한다.
+- 로그인·세션을 확인하지 못한 경우와 native 관측이 읽는 중 바뀐 경우는 그대로
+  거부한다. 다른 읽을 수 있는 소스가 없을 때도 종전처럼 실패로 닫으며 빈 정상
+  목록으로 바꾸지 않는다. 읽지 못한 native 질문은 읽음·미루기 대상이 되지 않는다.
+- 두 소스를 한 서버에 함께 구성한 실제 경로 시험을 추가한다. 합성 자료만 사용하고
+  운영 포트·키·실제 Buzz 전송은 사용하지 않는다.
+- 관련 경로: `ui-workspace/apps/dev-erp/src/buzz_pilot_owner_attention.mjs`,
+  `ui-workspace/apps/dev-erp/src/owner_attention_page.mjs`,
+  `ui-workspace/apps/dev-erp/docs/slices/OWNER-ATTENTION-V0.md`.
 ## 2026-09-09 - 문서 공방 봇의 Buzz Claude 설정 절차 기록
 
 - Tool Workshop operator 매뉴얼에 기본 Claude 연결기로 문서 공방 봇을 세우고

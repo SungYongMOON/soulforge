@@ -23,6 +23,23 @@
   - `npm run guild-hall:doctor -- --profile operator`
   - `npm run guild-hall:doctor -- --profile owner-with-state`
 
+### `done:check` 전제 (worktree에서 실행할 때)
+
+관측된 전제 두 가지다. 어느 쪽이 빠져도 이 변경과 무관한 실패로 멈춘다.
+
+- **`node_modules`를 정션으로 연결하지 않는다.** 정션이면 esbuild가 실제 경로를
+  주석에 박아 Universal Client 번들이 실제로는 같은데도
+  `Universal Client transport bundle drifted`로 실패한다. 실제 복사본을 쓴다.
+- **`SOULFORGE_SECURE_WORK_TEST_PYTHON`에 Python 3.10+ 실행 파일을 지정한다.**
+  없으면 secure-work 전송 시험 3건이 건너뛰고, HPP 팩 subset-smoke의
+  `skipped === 0` 단언이 깨져 `deployment-pack`에서 멈춘다(수정 없는 main에서도 동일).
+  지정값은 심볼릭 링크가 아니고 `nlink === 1`이어야 한다. 하드링크로 설치된
+  런타임은 `FEEDBACK_RUNTIME_PATH_UNSAFE`로 거부된다.
+
+`ui-workspace/apps/dev-erp` 아래 시험 파일을 추가하면 HPP 서버 팩 파일 집합이
+바뀐다. `hpp_server_pack.spec.json`은 손으로 고치지 말고
+`node guild_hall/deployment_pack/tools/emit_hpp_spec.mjs`로 재발행한다.
+
 ## 문서 동기화 체크
 
 - `package.json`, `guild_hall/**`, `.workflow/**`, `.party/**`, `.mission/**`, `.unit/**`, `.registry/**` 구조를 바꾸면 관련 `README.md` 와 architecture 문서를 같이 본다.
