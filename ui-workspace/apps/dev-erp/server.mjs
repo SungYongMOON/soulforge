@@ -36,7 +36,7 @@ import { createFeedbackReadboxHttpController } from "./src/feedback_readbox_http
 import { openWorkIntakeRuntime } from "./src/work_intake_runtime.mjs";
 import { createWorkIntakeHttpController } from "./src/work_intake_http.mjs";
 import { createOwnerAttentionSource } from "./src/owner_attention_source.mjs";
-import { createOwnerAttentionService } from "./src/owner_attention_service.mjs";
+import { createOwnerAttentionLoopbackAdapter, createOwnerAttentionService } from "./src/owner_attention_service.mjs";
 import { createOwnerAttentionHttpController } from "./src/owner_attention_http.mjs";
 import { createForgeWorldHttpController } from "./src/forge_world_http.mjs";
 import { createAcceptedContextHttpController } from "./src/accepted_context_http.mjs";
@@ -2581,10 +2581,37 @@ const forgeWorldHttpController = createForgeWorldHttpController({
 // not create bots, import historical metadata, change canon or send messages.
 const ownerAttentionAccountId = process.env.DEV_ERP_OWNER_ATTENTION_ACCOUNT_ID
   || (buzzPilotReadEnabled ? buzzPilotReader?.binding.owner_account_id : null) || null;
+// Owner-placed local notifier binding. Absent, malformed or expired leaves the
+// server exactly as before: no route, no adapter, nothing sent. It never widens
+// the destination and never carries request prose; the adapter stays loopback.
+const ownerAttentionNotifier = (() => {
+  const configPath = process.env.DEV_ERP_OWNER_ATTENTION_NOTIFY_CONFIG;
+  if (!configPath || !ownerAttentionAccountId) return null;
+  try {
+    const raw = JSON.parse(readFileSync(configPath, "utf8"));
+    const route = {
+      owner_account_id: String(raw.owner_account_id || ""),
+      purpose: String(raw.purpose || ""),
+      destination_ref: String(raw.destination_ref || ""),
+      binding_sha256: String(raw.binding_sha256 || ""),
+      expires_at: String(raw.expires_at || ""),
+    };
+    if (route.owner_account_id !== ownerAttentionAccountId || route.purpose !== "owner_attention"
+      || !/^[a-f0-9]{64}$/u.test(route.binding_sha256)
+      || !/^[A-Za-z][A-Za-z0-9:._-]{1,199}$/u.test(route.destination_ref)
+      || !Number.isFinite(Date.parse(route.expires_at))) return null;
+    const adapter = createOwnerAttentionLoopbackAdapter({ endpoint: String(raw.endpoint || ""),
+      binding: { ...route, active: true } });
+    return { route: { ...route, active: true }, adapter };
+  } catch { return null; }
+})();
 const legacyOwnerAttentionService = process.env.DEV_ERP_OWNER_ATTENTION === "1" && ERP_MCP_ENABLED
   && ownerAttentionAccountId && !buzzPilotAuthSourceRequested
   ? createOwnerAttentionService({ store, source: createOwnerAttentionSource({ store,
-    ownerAccountId: ownerAttentionAccountId, enabled: true }) }) : null;
+    ownerAccountId: ownerAttentionAccountId, enabled: true }),
+  resolveNotificationRoute: accountId => (ownerAttentionNotifier
+    && accountId === ownerAttentionAccountId ? ownerAttentionNotifier.route : null),
+  adapter: ownerAttentionNotifier?.adapter ?? null }) : null;
 const ownerAttentionService = (() => {
   if (!buzzPilotReadEnabled) return legacyOwnerAttentionService;
   if (!buzzPilotReader || ownerAttentionAccountId !== buzzPilotReader.binding.owner_account_id
@@ -2595,6 +2622,64 @@ const ownerAttentionService = (() => {
   return createBuzzPilotOwnerAttentionService({ store, pilotReader: buzzPilotReader.reader,
     binding: coreBinding, legacyService: legacyOwnerAttentionService });
 })();
+// The bot's existing publish is the caller; the Owner does not open the inbox.
+// This adds no schedule, no periodic drain and no new route. The Owner's own
+// live session row and admin scope are read from the same tables the request
+// path uses, so nothing is sent to an account that could not read it anyway:
+// canAccessProject already returns true for an admin. A missing session, a
+// non-admin Owner or an absent notifier refuses instead of sending.
+let ownerAttentionDispatchInFlight = false, ownerAttentionDispatchRerun = false;
+let ownerAttentionDispatchTimer = null;
+// Every attempt re-reads the Owner's own account status, live session row and
+// admin scope. A logged-out or demoted Owner refuses instead of sending, and no
+// follow-up is armed, so a lost session parks the work instead of spinning.
+function ownerAttentionOwnerAccess() {
+  const owner = store.db.prepare("SELECT id,status FROM core_account WHERE id=?").get(ownerAttentionAccountId);
+  if (!owner || owner.status !== "active" || !store.isAdmin(owner.id)) return null;
+  const checkSession = () => !!store.db
+    .prepare("SELECT 1 FROM auth_session WHERE account_id=? AND expires_at>? LIMIT 1")
+    .get(ownerAttentionAccountId, new Date().toISOString());
+  return checkSession() ? { accountId: ownerAttentionAccountId, checkSession, canAccessProject: () => true } : null;
+}
+// Not a periodic drain: one shot, armed only while an outbox row is actually
+// pending, at the moment the existing interval limit and per-event availability
+// already allow. It disarms itself as soon as nothing is left.
+function ownerAttentionArmFollowUp() {
+  if (ownerAttentionDispatchTimer || !ownerAttentionNotifier) return;
+  const pending = store.db.prepare(
+    "SELECT MIN(available_at) AS at FROM owner_attention_outbox WHERE owner_account_id=? AND status='pending'")
+    .get(ownerAttentionAccountId);
+  if (!pending?.at) return;
+  const fence = store.db.prepare(
+    "SELECT lease_until FROM owner_attention_outbox WHERE owner_account_id=? AND attempt_id IS NOT NULL ORDER BY lease_until DESC LIMIT 1")
+    .get(ownerAttentionAccountId);
+  const at = Math.max(Date.parse(pending.at) || 0, fence?.lease_until ? Date.parse(fence.lease_until) : 0);
+  ownerAttentionDispatchTimer = setTimeout(() => {
+    ownerAttentionDispatchTimer = null;
+    runOwnerAttentionDispatch();
+  }, Math.min(70000, Math.max(1000, at - Date.now() + 250)));
+  ownerAttentionDispatchTimer.unref?.();
+}
+function runOwnerAttentionDispatch() {
+  if (!ownerAttentionNotifier || !legacyOwnerAttentionService) return;
+  // A registration during a send is not dropped: it is coalesced into one rerun.
+  if (ownerAttentionDispatchInFlight) { ownerAttentionDispatchRerun = true; return; }
+  const access = ownerAttentionOwnerAccess();
+  if (!access) return;
+  ownerAttentionDispatchInFlight = true;
+  // Never blocks or fails the bot's publish; delivery outcome lives in the outbox.
+  Promise.resolve()
+    .then(() => legacyOwnerAttentionService.dispatch(access))
+    .catch(() => {})
+    .finally(() => {
+      ownerAttentionDispatchInFlight = false;
+      const rerun = ownerAttentionDispatchRerun; ownerAttentionDispatchRerun = false;
+      if (rerun) runOwnerAttentionDispatch(); else ownerAttentionArmFollowUp();
+    });
+}
+function dispatchOwnerAttentionAfterPublish(requestKind) {
+  if (String(requestKind || "").startsWith("owner_attention/")) runOwnerAttentionDispatch();
+}
 const ownerAttentionHttpController = createOwnerAttentionHttpController({
   service: ownerAttentionService, ownerAccountId: ownerAttentionAccountId,
   authSourcePort: buzzPilotAuthSource ? process.env.DEV_ERP_BUZZ_PILOT_AUTH_SOURCE_PORT : null,
@@ -2816,6 +2901,7 @@ const server = createServer(async (req, res) => {
         projectId: item?.project_id ?? null,
         to: result.replayed ? "replayed" : "created",
       });
+      dispatchOwnerAttentionAfterPublish(result.session.request_kind);
       return send(res, result.replayed ? 200 : 201, result);
     }
     // 검토자 조회 pilot(read-only). flag 미설정이면 라우트를 등록하지 않아 기존 404 로 남는다.

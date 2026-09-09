@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-09-09 - 응답 대기 알림이 실제로 수신기까지 도달한다
+
+- Owner 응답 대기함의 전달 계층은 구현·시험돼 있었지만 서버가 route와 adapter를
+  넘기지 않아 어떤 구성에서도 도달할 수 없었다. Owner가 놓는 로컬 결속 파일
+  (`DEV_ERP_OWNER_ATTENTION_NOTIFY_CONFIG`)이 유효할 때만 연결한다. 파일이 없거나
+  어긋나면 route·adapter를 만들지 않고 이전과 동일하게 아무것도 보내지 않는다.
+- 보내는 계기는 새 진입점이 아니라 기존 호출 주체다. 봇이 기존 MCP
+  `POST /api/mcp/work-sessions`로 `owner_attention/*`를 등록할 때 outbox를 한 번
+  비운다. Owner는 화면을 열지 않으며 주기 실행·예약작업·새 라우트는 만들지 않는다.
+  봇의 등록 응답을 막거나 실패시키지 않는다.
+- 권한 경계는 그대로다. Owner 계정 active, 유효한 자기 세션 행, admin scope가 모두
+  만족될 때만 보낸다. payload에는 고정 건수와 event 식별자만 들어가고 요청 원문은
+  어댑터를 넘지 않는다. 어댑터는 기존과 같이 loopback 전용이다.
+- 발송 중에 들어온 등록은 재실행 하나로 합치고, 1분 간격 제한 안에 들어온 등록은
+  제한이 풀리는 시점에 한 번만 실행이 예약된다. 그래서 **추가 등록이나 화면 열기가
+  없어도 대기 요청이 처리된다.** 이 예약은 `pending` 행이 있을 때만 잡히고 남은 것이
+  없으면 사라지는 일회성이며, 주기 실행·예약작업을 만들지 않고 프로세스를 붙잡지도
+  않는다. 매 시도마다 Owner 계정·세션·admin scope를 다시 읽는다.
+- 봇의 실제 MCP 등록에서 실제 로컬 수신기까지 도달하는 경로 시험, 발송 중·간격 제한
+  안의 등록이 스스로 전달되는 시험, 설정이 없을 때 아무것도 보내지 않는 시험을
+  추가한다. 합성 자료·임시 port만 쓴다.
+- 관련 경로: `ui-workspace/apps/dev-erp/server.mjs`,
+  `ui-workspace/apps/dev-erp/docs/slices/OWNER-ATTENTION-V0.md`.
 ## 2026-09-09 - 문서 공방 봇의 Buzz Claude 설정 절차 기록
 
 - Tool Workshop operator 매뉴얼에 기본 Claude 연결기로 문서 공방 봇을 세우고

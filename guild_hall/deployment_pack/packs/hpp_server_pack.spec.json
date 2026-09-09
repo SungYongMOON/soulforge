@@ -409,6 +409,7 @@
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_workbench_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/owner_attention_notify_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_context_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_linear_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_packet_fixture.py",
@@ -672,6 +673,7 @@
       "ui-workspace/apps/dev-erp/test/owner_attention_buzz_link.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_load.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_notify_path.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_service.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_source.test.mjs",
       "ui-workspace/apps/dev-erp/test/pack_source_identity.test.mjs",
@@ -1478,6 +1480,7 @@
     "test/owner_attention_buzz_link.test.mjs",
     "test/owner_attention_http.test.mjs",
     "test/owner_attention_load.test.mjs",
+    "test/owner_attention_notify_path.test.mjs",
     "test/owner_attention_service.test.mjs",
     "test/owner_attention_source.test.mjs",
     "test/pack_source_identity.test.mjs",
@@ -1623,6 +1626,7 @@
     "test/owner_attention_buzz_link.test.mjs",
     "test/owner_attention_http.test.mjs",
     "test/owner_attention_load.test.mjs",
+    "test/owner_attention_notify_path.test.mjs",
     "test/owner_attention_service.test.mjs",
     "test/owner_attention_source.test.mjs",
     "test/pack_source_identity.test.mjs",
@@ -2480,7 +2484,7 @@
     },
     {
       "path": "guild_hall/linear_history/linear_collect_runner.mjs",
-      "sha256": "b88d8a49dd0dc10af1f2ca3cca398b3b710311db788ed4dd317df1f72e5a86a1"
+      "sha256": "797af0f8dbafc182717ad180c72a9c0c05eaf4e7951997cd973e10d86d353682"
     },
     {
       "path": "guild_hall/linear_history/linear_graphql_client.mjs",
@@ -2560,7 +2564,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "63fae581176a1537618791d0485b0036084740ada5e0a59cf5c52fe45a0d4bc9"
+      "sha256": "e671f439cf5e44891f89cd02ed8a127fc2f93de7855209b5c043be8156bf4ba9"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2735,6 +2739,10 @@
       "sha256": "63cfb2c795bca4ef2be3b38a3d293555afb4ff4e62052388bbae44b931d96f2a"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/helpers/owner_attention_notify_fixture.mjs",
+      "sha256": "179b0316f894ddfa5453a1cb7aced5a79726ae46ad5885380342486767303d62"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
       "sha256": "0e155e42e1439a9bd4f418a92bed8d18aef8086299b0ea30ae883dbd6f75afce"
     },
@@ -2749,6 +2757,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/owner_attention_http.test.mjs",
       "sha256": "937eb0c87e416544dd40c257cc18bd84f10136642672d0677987d81867b7e046"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/owner_attention_notify_path.test.mjs",
+      "sha256": "f5afb43248784f84a9c3565652e2891aa25073d40af5f83bfb43fc63011c52ce"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
