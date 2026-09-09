@@ -23,8 +23,11 @@ the earlier preservation snapshot; a different patch ID is not a missing feature
 
 The earlier handoff missed the boot digest refresh after editing this roadmap;
 the digest summary was reviewed and its existing drift tests passed after
-refresh. E14 test source publication remains unresolved; distribution authority
-has not been established and no private kit bytes have been included.
+refresh. The Owner subsequently authorized publishing the reviewed four-file E14
+test dependency. Its semantically unchanged reference code is now under
+`ui-workspace/apps/dev-erp/test/fixtures/e14_contract_v1/`, with explicit Python
+and kit-root bindings in hosted CI and a direct Python packet-reader test step.
+No other private kit files, operational configuration or keys are included.
 Current remote CI success and main merge must be verified
 separately; do not infer them from the scoped results above.
 The integrated cleanup passed local `npm run done:check` on Windows using the

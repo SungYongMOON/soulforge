@@ -34,7 +34,17 @@ jobs:
       - name: Install ui-workspace dependencies
         run: npm ci --prefix ui-workspace
 
+      - name: Install contract-test dependencies
+        run: python -m pip install -r ui-workspace/apps/dev-erp/test/fixtures/e14_contract_v1/requirements.txt
+
+      - name: Verify signed work-intake packets
+        env:
+          WORK_INTAKE_TEST_KIT_ROOT: ${{ github.workspace }}/ui-workspace/apps/dev-erp/test/fixtures/e14_contract_v1
+        run: python -I -B -m unittest discover -s ui-workspace/apps/dev-erp/test -p test_work_intake_packet_reader.py -v
+
       - name: Run root done check
         env:
           SOULFORGE_SECURE_WORK_TEST_PYTHON: ${{ steps.python_runtime.outputs.python-path }}
+          WORK_INTAKE_TEST_PYTHON: ${{ steps.python_runtime.outputs.python-path }}
+          WORK_INTAKE_TEST_KIT_ROOT: ${{ github.workspace }}/ui-workspace/apps/dev-erp/test/fixtures/e14_contract_v1
         run: npm run done:check
