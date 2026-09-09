@@ -35,7 +35,7 @@ explicit existing Python and private test kit. Existing environment-dependent
 skips remain; this is not a hosted-CI or production acceptance claim. Independent
 source review accepted the bounded cleanup and the local full gate completed.
 
-## Current continuation checkpoint — 2026-09-09
+## Preserved continuation checkpoint — 2026-09-09 before merge cleanup
 
 This checkpoint corrects the product interpretation for the integrated code at
 `d8e8a3b66b087208c42e8d7bceeb9a7913fdd9f4`. It takes precedence over older
@@ -92,7 +92,8 @@ without treating access to those private stores as implicit.
 Owner requested publication and a fresh start, then cessation of development in
 this session. Do not interpret this checkpoint as completion or permission to
 resume feature work automatically. Read this document on the PR branch
-`codex/rc-completion-20260907`; the default branch does not contain this handoff.
+`codex/rc-completion-20260907`, or on main after that branch has been merged.
+At the preservation snapshot, the default branch did not yet contain this handoff.
 
 The inventory covers all 73 registered worktrees of this public repository,
 with 68 distinct committed tips and three additional bounded WIP snapshots.
