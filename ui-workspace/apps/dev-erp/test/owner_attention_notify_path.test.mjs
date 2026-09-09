@@ -80,6 +80,48 @@ test('a bot publishing through the existing MCP route reaches the notifier witho
     assert.equal(body.items.length, 1);
   });
 
+test('registrations during a send and inside the interval limit are still delivered without another publish or the inbox being opened',
+  { timeout: 240000 }, async t => {
+    const f = await makeOwnerAttentionNotifyFixture({ firstResponseDelayMs: 1500 }); t.after(f.close);
+    const origin = f.server.origin;
+    const ownerCookie = await login(origin, 'notify-owner', f.ownerPassword);
+    const token = await mintToken(origin, await login(origin, 'notify-bot', f.botPassword));
+    const ask = (correlation, key) => publish(origin, token, { ...REQUEST, item_id: f.item.id,
+      idempotency_key: key, client_session_ref: `oa1:${correlation}:1:none` });
+
+    assert.equal((await ask('review_document', 'window-r1')).status, 201);
+    await settle(f.received, 1, 4000);
+    assert.equal(f.received.length, 1, 'the first registration sends immediately');
+    assert.equal(f.received[0].payload.request_count, 1);
+
+    // One registration lands while that send is still in flight, the next lands
+    // inside the interval limit that follows it.
+    const during = ask('second_topic', 'window-r2');
+    await new Promise(r => setTimeout(r, 400));
+    assert.equal((await during).status, 201);
+    assert.equal((await ask('third_topic', 'window-r3')).status, 201);
+
+    // From here the test publishes nothing more and never opens the inbox.
+    const second = await settle(f.received, 2, 150000);
+    assert.equal(second.length >= 2, true, `the parked requests must be delivered on their own: ${JSON.stringify(second.map(r => r.payload?.request_count))}`);
+    const follow = second[1];
+    assert.ok(follow.at - second[0].at >= 60000, 'the existing interval limit is preserved');
+    assert.equal(follow.payload.purpose, 'owner_attention');
+    assert.equal(follow.payload.destination_ref, f.destinationRef);
+    assert.equal(follow.payload.request_count, 2, JSON.stringify(follow.payload));
+    assert.equal(JSON.stringify(follow.payload).includes(REQUEST.summary), false);
+    const keys = new Set(follow.payload.events.map(event => event.request_key));
+    assert.equal(keys.size, 2, 'both parked requests are covered exactly once');
+
+    // Read afterwards only to confirm; this is not what triggered the delivery.
+    const body = await (await fetch(`${origin}/api/owner-attention`,
+      { headers: { cookie: ownerCookie, 'sec-fetch-site': 'same-origin' } })).json();
+    assert.equal(body.notification.capability, 'configured');
+    assert.equal(body.notification.counts.delivered, 3);
+    assert.equal(body.notification.counts.pending, undefined);
+    assert.equal(body.items.length, 3);
+  });
+
 test('with no Owner-placed notifier configuration nothing is sent and the server behaves as before',
   { timeout: 60000 }, async t => {
     const f = await makeOwnerAttentionNotifyFixture({ configured: false }); t.after(f.close);

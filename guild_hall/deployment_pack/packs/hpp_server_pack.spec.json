@@ -2564,7 +2564,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "984f3cebaecff3e0f8465226bcd0b4ec1acc32c6c08d7d08d34a9fe30589be54"
+      "sha256": "e671f439cf5e44891f89cd02ed8a127fc2f93de7855209b5c043be8156bf4ba9"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2740,7 +2740,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/helpers/owner_attention_notify_fixture.mjs",
-      "sha256": "2260faf5497866e204329115b62acbc00c6ae2638962b38eeed45715352b1ce2"
+      "sha256": "179b0316f894ddfa5453a1cb7aced5a79726ae46ad5885380342486767303d62"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
@@ -2760,7 +2760,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/owner_attention_notify_path.test.mjs",
-      "sha256": "c3cd8d83df50cd66c604f04f640e7616c66974f2efd4daf25204b429fd4bdd28"
+      "sha256": "f5afb43248784f84a9c3565652e2891aa25073d40af5f83bfb43fc63011c52ce"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",

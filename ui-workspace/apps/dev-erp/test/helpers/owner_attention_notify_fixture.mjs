@@ -22,7 +22,7 @@ async function freePort() {
   return port;
 }
 
-export async function makeOwnerAttentionNotifyFixture({ configured = true } = {}) {
+export async function makeOwnerAttentionNotifyFixture({ configured = true, firstResponseDelayMs = 0 } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'sf-attn-notify-'));
   const dbPath = join(root, 'synthetic-notify.sqlite');
   const store = openStore(dbPath);
@@ -44,10 +44,17 @@ export async function makeOwnerAttentionNotifyFixture({ configured = true } = {}
     req.on('end', () => {
       let payload = null;
       try { payload = JSON.parse(body); } catch { /* recorded as null */ }
-      received.push({ url: req.url, payload });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'delivered', attempt_id: payload?.attempt_id ?? null,
-        receipt_ref: `synthetic-receipt:${randomBytes(8).toString('hex')}` }));
+      const first = received.length === 0;
+      received.push({ url: req.url, payload, at: Date.now() });
+      const reply = () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'delivered', attempt_id: payload?.attempt_id ?? null,
+          receipt_ref: `synthetic-receipt:${randomBytes(8).toString('hex')}` }));
+      };
+      // A slow first reply keeps one send genuinely in flight while the next
+      // registration arrives, without changing anything in the product.
+      if (first && firstResponseDelayMs > 0) setTimeout(reply, firstResponseDelayMs).unref?.();
+      else reply();
     });
   });
   const receiverPort = await freePort();

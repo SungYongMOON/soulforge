@@ -2628,23 +2628,57 @@ const ownerAttentionService = (() => {
 // path uses, so nothing is sent to an account that could not read it anyway:
 // canAccessProject already returns true for an admin. A missing session, a
 // non-admin Owner or an absent notifier refuses instead of sending.
-let ownerAttentionDispatchInFlight = false;
-function dispatchOwnerAttentionAfterPublish(requestKind) {
-  if (!ownerAttentionNotifier || !legacyOwnerAttentionService || ownerAttentionDispatchInFlight) return;
-  if (!String(requestKind || "").startsWith("owner_attention/")) return;
+let ownerAttentionDispatchInFlight = false, ownerAttentionDispatchRerun = false;
+let ownerAttentionDispatchTimer = null;
+// Every attempt re-reads the Owner's own account status, live session row and
+// admin scope. A logged-out or demoted Owner refuses instead of sending, and no
+// follow-up is armed, so a lost session parks the work instead of spinning.
+function ownerAttentionOwnerAccess() {
   const owner = store.db.prepare("SELECT id,status FROM core_account WHERE id=?").get(ownerAttentionAccountId);
-  if (!owner || owner.status !== "active" || !store.isAdmin(owner.id)) return;
-  const liveSession = () => !!store.db
+  if (!owner || owner.status !== "active" || !store.isAdmin(owner.id)) return null;
+  const checkSession = () => !!store.db
     .prepare("SELECT 1 FROM auth_session WHERE account_id=? AND expires_at>? LIMIT 1")
     .get(ownerAttentionAccountId, new Date().toISOString());
-  if (!liveSession()) return;
+  return checkSession() ? { accountId: ownerAttentionAccountId, checkSession, canAccessProject: () => true } : null;
+}
+// Not a periodic drain: one shot, armed only while an outbox row is actually
+// pending, at the moment the existing interval limit and per-event availability
+// already allow. It disarms itself as soon as nothing is left.
+function ownerAttentionArmFollowUp() {
+  if (ownerAttentionDispatchTimer || !ownerAttentionNotifier) return;
+  const pending = store.db.prepare(
+    "SELECT MIN(available_at) AS at FROM owner_attention_outbox WHERE owner_account_id=? AND status='pending'")
+    .get(ownerAttentionAccountId);
+  if (!pending?.at) return;
+  const fence = store.db.prepare(
+    "SELECT lease_until FROM owner_attention_outbox WHERE owner_account_id=? AND attempt_id IS NOT NULL ORDER BY lease_until DESC LIMIT 1")
+    .get(ownerAttentionAccountId);
+  const at = Math.max(Date.parse(pending.at) || 0, fence?.lease_until ? Date.parse(fence.lease_until) : 0);
+  ownerAttentionDispatchTimer = setTimeout(() => {
+    ownerAttentionDispatchTimer = null;
+    runOwnerAttentionDispatch();
+  }, Math.min(70000, Math.max(1000, at - Date.now() + 250)));
+  ownerAttentionDispatchTimer.unref?.();
+}
+function runOwnerAttentionDispatch() {
+  if (!ownerAttentionNotifier || !legacyOwnerAttentionService) return;
+  // A registration during a send is not dropped: it is coalesced into one rerun.
+  if (ownerAttentionDispatchInFlight) { ownerAttentionDispatchRerun = true; return; }
+  const access = ownerAttentionOwnerAccess();
+  if (!access) return;
   ownerAttentionDispatchInFlight = true;
   // Never blocks or fails the bot's publish; delivery outcome lives in the outbox.
   Promise.resolve()
-    .then(() => legacyOwnerAttentionService.dispatch({ accountId: ownerAttentionAccountId,
-      checkSession: liveSession, canAccessProject: () => true }))
+    .then(() => legacyOwnerAttentionService.dispatch(access))
     .catch(() => {})
-    .finally(() => { ownerAttentionDispatchInFlight = false; });
+    .finally(() => {
+      ownerAttentionDispatchInFlight = false;
+      const rerun = ownerAttentionDispatchRerun; ownerAttentionDispatchRerun = false;
+      if (rerun) runOwnerAttentionDispatch(); else ownerAttentionArmFollowUp();
+    });
+}
+function dispatchOwnerAttentionAfterPublish(requestKind) {
+  if (String(requestKind || "").startsWith("owner_attention/")) runOwnerAttentionDispatch();
 }
 const ownerAttentionHttpController = createOwnerAttentionHttpController({
   service: ownerAttentionService, ownerAccountId: ownerAttentionAccountId,
