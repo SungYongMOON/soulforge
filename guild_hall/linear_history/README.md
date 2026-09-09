@@ -216,6 +216,29 @@ ledger without `linear.read.issue_history`. The version a receipt declares fixes
 its own shape, so those receipts stay valid exactly as issued and a consumer
 reading them is unaffected by the new kind or the new read operation.
 
+## Recovering ground the lane already passed
+
+Delta capture only ever asks for what changed since the watermark, so committed
+material stays as the lane first read it even when the rule underneath it
+changes: a renamed workflow state, a field the query did not used to request, a
+window some incident left unread. The provider still holds all of it; the lane
+simply never asks again.
+
+`--schedule-backfill --backfill-lower <ISO>` (optionally `--backfill-upper`,
+defaulting to the current watermark) writes one backfill window into the cursor
+and stops. It collects nothing, uses no network, writes no receipt, and does not
+advance the generation. The scheduled lane then executes that window on its own
+next run under every existing bound -- lease, page cap, run deadline,
+continuation -- and returns to delta capture at `resume_watermark` when the
+window is finished, so recovery is the same code path as ordinary collection.
+
+It is fail-closed on its own terms: no state, no watermark, an upper bound past
+the watermark, an inverted window, or a non-canonical timestamp all reject
+without touching the cursor, and a window already pending is refused rather than
+overwritten, since that window is another run's unfinished work. Re-reading
+committed ground creates nothing -- custody is create-only and identical bytes
+are a no-op -- so a recovery run is safe to repeat.
+
 ## Delta capture
 
 - Window: `[watermark - overlap_seconds, run_start]` filtered on Linear

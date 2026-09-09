@@ -14,6 +14,7 @@ import {
   LinearCollectError,
   preflightLinearCollect,
   runLinearCollect,
+  scheduleLinearCollectBackfill,
 } from "./linear_collect_runner.mjs";
 
 function fail(code) {
@@ -34,6 +35,7 @@ export function parseLinearCollectArguments(argv) {
   const modeFlags = new Map([
     ["--preflight", "preflight"],
     ["--apply", "apply"],
+    ["--schedule-backfill", "schedule-backfill"],
   ]);
   const valueFlags = new Map([
     ["--repository-root", "repository_root"],
@@ -41,6 +43,12 @@ export function parseLinearCollectArguments(argv) {
     ["--binding", "binding_path"],
     ["--expected-binding-sha256", "expected_binding_sha256"],
     ["--state-root", "state_root"],
+  ]);
+  // Only the backfill mode accepts a window, and it requires a lower bound.
+  // Every other mode rejects these outright rather than ignoring them.
+  const backfillFlags = new Map([
+    ["--backfill-lower", "backfill_lower"],
+    ["--backfill-upper", "backfill_upper"],
   ]);
   const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
@@ -50,18 +58,27 @@ export function parseLinearCollectArguments(argv) {
       request.mode = modeFlags.get(flag);
       continue;
     }
-    if (!valueFlags.has(flag) || seen.has(flag) || index + 1 >= argv.length) {
+    const isBackfillFlag = backfillFlags.has(flag);
+    if ((!valueFlags.has(flag) && !isBackfillFlag) || seen.has(flag) || index + 1 >= argv.length) {
       fail("cli_argument_invalid");
     }
     seen.add(flag);
-    request[valueFlags.get(flag)] = argv[index + 1];
+    request[isBackfillFlag ? backfillFlags.get(flag) : valueFlags.get(flag)] = argv[index + 1];
     index += 1;
   }
+  const window = Object.fromEntries([...backfillFlags.values()]
+    .filter((key) => key in request).map((key) => [key, request[key]]));
+  for (const key of backfillFlags.values()) delete request[key];
   if (request.mode === null
     || Object.entries(request).some(([key, value]) => key !== "mode" && value === null)) {
     fail("cli_argument_missing");
   }
-  return request;
+  if (request.mode !== "schedule-backfill") {
+    if (Object.keys(window).length > 0) fail("cli_argument_invalid");
+    return request;
+  }
+  if (typeof window.backfill_lower !== "string") fail("cli_argument_missing");
+  return { ...request, backfill_lower: window.backfill_lower, backfill_upper: window.backfill_upper ?? null };
 }
 
 function assertRuntimeAttestation(runtimeRoot) {
@@ -83,9 +100,12 @@ async function main() {
   try {
     const request = parseLinearCollectArguments(process.argv.slice(2));
     assertRuntimeAttestation(request.runtime_root);
-    const result = request.mode === "preflight"
-      ? await preflightLinearCollect(request)
-      : await runLinearCollect(request);
+    const run = {
+      preflight: preflightLinearCollect,
+      apply: runLinearCollect,
+      "schedule-backfill": scheduleLinearCollectBackfill,
+    }[request.mode];
+    const result = await run(request);
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
     const candidate = error instanceof LinearCollectError

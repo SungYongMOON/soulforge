@@ -927,6 +927,82 @@ export async function preflightLinearCollect(options) {
 }
 
 // ---------------------------------------------------------------------------
+// Backfill scheduling.
+//
+// Delta capture only ever asks for what changed since the watermark, so an
+// operator has no way to reach material that was already committed when a
+// rule changed underneath it: a renamed workflow state, a field the lane did
+// not used to request, a window some incident left unread. The provider still
+// holds all of it; the lane simply never asks again.
+//
+// This mode does not collect. It writes one backfill window into the cursor
+// and stops. The scheduled lane then executes that window on its own next run
+// under every existing bound -- lease, page cap, run deadline, continuation --
+// so recovering the past is the same code path as ordinary collection, not a
+// second one with its own failure modes.
+// ---------------------------------------------------------------------------
+
+export async function scheduleLinearCollectBackfill(options) {
+  const { backfill_lower: lower, backfill_upper: upper = null, ...rest } = options ?? {};
+  const context = await resolveLaneContext(rest);
+  assertIso(lower, "$backfill_lower");
+  if (upper !== null) assertIso(upper, "$backfill_upper");
+  const lease = await acquireExclusiveLease({
+    state_root: context.state_root,
+    lease_name: LINEAR_COLLECT_LEASE_NAME,
+    payload: {
+      schema_version: LINEAR_COLLECT_STATE_SCHEMA_VERSION,
+      binding_sha256: context.binding_sha256,
+      writer_authority_id: context.binding.writer.authority_id,
+      writer_epoch: context.binding.writer.epoch,
+    },
+  });
+  try {
+    const loaded = await readPrivateJson(context.state_root, ["state", "linear-collect.json"]);
+    if (loaded === null) fail("backfill_state_absent", "$state", "The lane has not collected yet");
+    const state = validateLinearCollectState(loaded, context);
+    // A pending window is another operator's or a continuation in progress.
+    // Overwriting it would silently drop whatever it had left to read.
+    if (state.cursor.backfill !== null) {
+      fail("backfill_already_pending", "$cursor.backfill", "A backfill window is already pending");
+    }
+    if (state.cursor.watermark === null) {
+      fail("backfill_watermark_absent", "$cursor.watermark", "The lane has no watermark to resume from");
+    }
+    // The window may not reach past the watermark: everything after it belongs
+    // to delta capture, and resume_watermark is what the lane returns to.
+    const resolvedUpper = upper ?? state.cursor.watermark;
+    if (Date.parse(resolvedUpper) > Date.parse(state.cursor.watermark)) {
+      fail("backfill_window_invalid", "$backfill_upper", "Backfill upper bound is past the watermark");
+    }
+    if (Date.parse(lower) > Date.parse(resolvedUpper)) {
+      fail("backfill_window_invalid", "$backfill_lower", "Backfill lower bound is after its upper bound");
+    }
+    const cursor = {
+      schema_version: LINEAR_COLLECT_CURSOR_SCHEMA_VERSION,
+      watermark: state.cursor.watermark,
+      backfill: { lower, upper: resolvedUpper, resume_watermark: state.cursor.watermark, stall_count: 0 },
+      generation_seq: state.cursor.generation_seq,
+    };
+    validateLinearCollectCursor(cursor, "$cursor");
+    await atomicWritePrivateJson(context.state_root, ["state", "linear-collect.json"], { ...state, cursor });
+    return {
+      mode: "schedule-backfill",
+      scheduled: true,
+      window_lower: lower,
+      window_upper: resolvedUpper,
+      resume_watermark: state.cursor.watermark,
+      generation_seq: state.cursor.generation_seq,
+      repository_writes: 0,
+      private_writes: 1,
+      network_used: false,
+    };
+  } finally {
+    await lease.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Apply.
 // ---------------------------------------------------------------------------
 

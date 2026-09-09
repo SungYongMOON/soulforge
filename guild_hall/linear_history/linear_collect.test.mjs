@@ -46,6 +46,7 @@ import {
   readEvidenceRecordForIssue,
   runDeadlineMsFor,
   runLinearCollect,
+  scheduleLinearCollectBackfill,
   validateLinearCollectBinding,
 } from "./linear_collect_runner.mjs";
 import { writeCreateOnlyJson } from "./linear_custody.mjs";
@@ -1572,6 +1573,105 @@ test("importing the CLI module performs no work: main runs only when the CLI is 
       state_root: "x",
     },
   );
+  const base = ["--repository-root", "r", "--runtime-root", "t", "--binding", "b",
+    "--expected-binding-sha256", "s", "--state-root", "x"];
+  assert.deepEqual(
+    cli.parseLinearCollectArguments(["--schedule-backfill", ...base,
+      "--backfill-lower", "2026-08-01T00:00:00.000Z"]),
+    { mode: "schedule-backfill", repository_root: "r", runtime_root: "t", binding_path: "b",
+      expected_binding_sha256: "s", state_root: "x",
+      backfill_lower: "2026-08-01T00:00:00.000Z", backfill_upper: null },
+  );
+  // A window is meaningless outside the backfill mode and is refused, not
+  // ignored; the backfill mode without a lower bound is refused too.
+  assert.throws(
+    () => cli.parseLinearCollectArguments(["--apply", ...base, "--backfill-lower", "2026-08-01T00:00:00.000Z"]),
+    (error) => error?.code === "cli_argument_invalid",
+  );
+  assert.throws(
+    () => cli.parseLinearCollectArguments(["--schedule-backfill", ...base]),
+    (error) => error?.code === "cli_argument_missing",
+  );
+});
+
+test("an operator can put the lane back over ground it already passed", async () => {
+  const lane = await createLaneFixture();
+  const fixture = await loadSyntheticLinearFixture(FIXTURE_PATH);
+  const clock = fixedClock("2026-09-01T02:00:00.000Z");
+  const collect = (runId) => runLinearCollect({
+    ...lane.options, transport_factory: syntheticFactory(fixture), clock: clock.clock, run_id: runId,
+  });
+  await collect("run-b001");
+  const settled = await readJson(path.join(lane.stateRoot, "state", "linear-collect.json"));
+  assert.equal(settled.cursor.backfill, null);
+
+  // Scheduling writes one window and collects nothing: no network, no receipt,
+  // no generation. The watermark is left where delta capture will resume.
+  const scheduled = await scheduleLinearCollectBackfill({
+    ...lane.options, backfill_lower: "2026-08-01T00:00:00.000Z",
+  });
+  assert.equal(scheduled.network_used, false);
+  assert.equal(scheduled.repository_writes, 0);
+  assert.equal(scheduled.window_upper, settled.cursor.watermark);
+  assert.equal(scheduled.resume_watermark, settled.cursor.watermark);
+  assert.equal(scheduled.generation_seq, settled.cursor.generation_seq);
+  const armed = await readJson(path.join(lane.stateRoot, "state", "linear-collect.json"));
+  assert.deepEqual(armed.cursor.backfill, {
+    lower: "2026-08-01T00:00:00.000Z", upper: settled.cursor.watermark,
+    resume_watermark: settled.cursor.watermark, stall_count: 0,
+  });
+  assert.equal(armed.cursor.generation_seq, settled.cursor.generation_seq);
+  assert.deepEqual(armed.object_index, settled.object_index);
+  assert.equal((await readdir(path.join(lane.stateRoot, "receipts"))).length,
+    (await readdir(path.join(lane.stateRoot, "receipts"))).length);
+
+  // The scheduled lane executes the window on its own next run, and returns to
+  // delta capture from exactly where it left off when the window is finished.
+  clock.set("2026-09-01T02:15:00.000Z");
+  const replay = await collect("run-b002");
+  assert.equal(replay.status, "ok");
+  assert.equal(replay.window_phase, "backfill");
+  const after = await readJson(path.join(lane.stateRoot, "state", "linear-collect.json"));
+  assert.equal(after.cursor.backfill, null);
+  assert.equal(after.cursor.watermark, settled.cursor.watermark);
+  // Re-reading committed ground creates nothing: custody is create-only and a
+  // history entry never changes, so recovery is safe to run more than once.
+  assert.equal(replay.objects_created, 0);
+
+  // A window already pending is another run's unfinished work, not ours.
+  await scheduleLinearCollectBackfill({ ...lane.options, backfill_lower: "2026-08-01T00:00:00.000Z" });
+  await assert.rejects(
+    scheduleLinearCollectBackfill({ ...lane.options, backfill_lower: "2026-08-01T00:00:00.000Z" }),
+    (error) => error instanceof LinearCollectError && error.code === "backfill_already_pending",
+  );
+});
+
+test("a backfill window may not reach past the watermark or invert itself", async () => {
+  const lane = await createLaneFixture();
+  const fixture = await loadSyntheticLinearFixture(FIXTURE_PATH);
+  // Nothing collected yet: there is no watermark to resume from.
+  await assert.rejects(
+    scheduleLinearCollectBackfill({ ...lane.options, backfill_lower: "2026-08-01T00:00:00.000Z" }),
+    (error) => error instanceof LinearCollectError && error.code === "backfill_state_absent",
+  );
+  await runLinearCollect({
+    ...lane.options, transport_factory: syntheticFactory(fixture),
+    clock: fixedClock("2026-09-01T02:00:00.000Z").clock, run_id: "run-b010",
+  });
+  for (const [request, code] of [
+    [{ backfill_lower: "2026-08-01T00:00:00.000Z", backfill_upper: "2026-09-30T00:00:00.000Z" }, "backfill_window_invalid"],
+    [{ backfill_lower: "2026-09-01T00:00:00.000Z", backfill_upper: "2026-08-01T00:00:00.000Z" }, "backfill_window_invalid"],
+    [{ backfill_lower: "not-a-time" }, "clock_invalid"],
+    [{ backfill_lower: "2026-08-01T00:00:00.000Z", backfill_upper: "2026-08-01" }, "clock_invalid"],
+  ]) {
+    await assert.rejects(
+      scheduleLinearCollectBackfill({ ...lane.options, ...request }),
+      (error) => error instanceof LinearCollectError && error.code === code,
+      JSON.stringify(request),
+    );
+  }
+  const untouched = await readJson(path.join(lane.stateRoot, "state", "linear-collect.json"));
+  assert.equal(untouched.cursor.backfill, null);
 });
 
 test("PowerShell registrar dry-run is deterministic and performs no task mutation", {
