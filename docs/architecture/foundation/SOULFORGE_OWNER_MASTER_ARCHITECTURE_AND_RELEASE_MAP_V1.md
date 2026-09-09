@@ -422,8 +422,15 @@ ERP `_workspaces`에 materialize될 때 시작한다.
 `bot_work_root` current shape:
 
 ```text
-COMMON/  MFG/  PJT/<year>/<project>/<role>/{RULES,WORK,...}  TOOL/
+PJT/<year>/<project>/<role>/{RULES,WORK,...}   TOOL/<tool>/   COMMON/   PLATFORM/<role>/   MFG/
 ```
+
+이 아래 폴더는 두 종류다. `PJT/`·`TOOL/`·`COMMON/`·`PLATFORM/`은 계획 18 §13이 정한 봇 조직
+그룹(프로젝트별 → 전문 툴 공방 → 공통 → 플랫폼)의 자리이고, `MFG/`는 제작 사업 자료 자리로
+봇 조직 그룹이 아니다(현재 비어 있음). `PLATFORM/`은 2026-09-09에 개발 보조 자리를 세우며
+추가했다. 그룹별 자리 하나가 담는 것(컨텍스트 파일과 그 포인터, 작업 폴더의 입력·작업·출력·
+검증 4분할, 작업 id 형식, 지난 사본 보관 위치)은 아직 owner 문서가 없으며 로드맵 후보로
+둔다.
 
 Buzz Project Git의 project shared integration clone과 role별 isolated Agent worktree는
 `bot_work_root` 아래에 둔다. `_workspaces`나 사람 작업폴더에는 두지 않는다. 이 결정은
