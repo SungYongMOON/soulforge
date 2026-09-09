@@ -153,8 +153,29 @@ fence를 덮지 못한다. 이 결과는 Buzz 메시지의 실제 읽음이나 �
 
 설치 조립에 필요한 환경: 기존 `DEV_ERP_MCP_ENABLED=1`에 더해
 `DEV_ERP_OWNER_ATTENTION=1`과 exact `DEV_ERP_OWNER_ATTENTION_ACCOUNT_ID`.
-기본 서버는 dispatcher 주기·예약작업·외부 발송을 활성화하지 않는다. 관리봇의
-실제 transport 연결과 verified response reader는 아직 필요한 구현/통합 작업이다.
+기본 서버는 dispatcher 주기·예약작업을 활성화하지 않는다. verified response
+reader는 아직 필요한 구현/통합 작업이다.
+
+## 알림 도달 경로
+
+전달 계층은 구현돼 있었지만 서버가 route와 adapter를 넘기지 않아 **어떤 구성에서도
+도달할 수 없었다**. 지금은 Owner가 놓는 로컬 결속 파일이 있을 때만 연결된다.
+
+`DEV_ERP_OWNER_ATTENTION_NOTIFY_CONFIG`가 가리키는 JSON은 정확한
+`owner_account_id`, `purpose: "owner_attention"`, Owner 전용 `destination_ref`,
+64자리 `binding_sha256`, `expires_at`, loopback `endpoint`를 모두 만족해야 한다.
+파일이 없거나 하나라도 어긋나면 route와 adapter를 만들지 않고 이전과 똑같이
+아무것도 보내지 않는다(`capability: unavailable`). 이것이 기본값이다.
+
+보내는 계기는 **새 진입점이 아니라 기존 호출 주체**다. 봇이 기존 MCP
+`POST /api/mcp/work-sessions`로 `owner_attention/*`를 등록하면 그 시점에 outbox를
+한 번 비운다. Owner는 응답 대기함 화면을 열지 않는다. 주기 실행·예약작업·새 라우트는
+만들지 않으며, 봇의 등록 응답을 막거나 실패시키지 않는다.
+
+권한은 넓히지 않는다. Owner 계정이 active이고 **자신의 유효한 세션 행이 남아 있고**
+admin scope일 때만 보낸다. 셋 중 하나라도 아니면 보내지 않는다. `canAccessProject`가
+admin에 대해 이미 true이므로 읽을 수 없는 자료가 새로 열리지는 않는다. payload에는
+고정된 건수와 event 식별자만 들어가고 요청 원문은 어댑터를 넘지 않는다.
 
 ## 재현과 검증
 

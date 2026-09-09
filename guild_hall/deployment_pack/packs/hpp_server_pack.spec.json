@@ -409,6 +409,7 @@
       "ui-workspace/apps/dev-erp/test/helpers/accepted_context_read_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_auth_http_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/buzz_pilot_workbench_fixture.mjs",
+      "ui-workspace/apps/dev-erp/test/helpers/owner_attention_notify_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_context_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_linear_fixture.mjs",
       "ui-workspace/apps/dev-erp/test/helpers/work_intake_packet_fixture.py",
@@ -672,6 +673,7 @@
       "ui-workspace/apps/dev-erp/test/owner_attention_buzz_link.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_load.test.mjs",
+      "ui-workspace/apps/dev-erp/test/owner_attention_notify_path.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_service.test.mjs",
       "ui-workspace/apps/dev-erp/test/owner_attention_source.test.mjs",
       "ui-workspace/apps/dev-erp/test/pack_source_identity.test.mjs",
@@ -1478,6 +1480,7 @@
     "test/owner_attention_buzz_link.test.mjs",
     "test/owner_attention_http.test.mjs",
     "test/owner_attention_load.test.mjs",
+    "test/owner_attention_notify_path.test.mjs",
     "test/owner_attention_service.test.mjs",
     "test/owner_attention_source.test.mjs",
     "test/pack_source_identity.test.mjs",
@@ -1623,6 +1626,7 @@
     "test/owner_attention_buzz_link.test.mjs",
     "test/owner_attention_http.test.mjs",
     "test/owner_attention_load.test.mjs",
+    "test/owner_attention_notify_path.test.mjs",
     "test/owner_attention_service.test.mjs",
     "test/owner_attention_source.test.mjs",
     "test/pack_source_identity.test.mjs",
@@ -2560,7 +2564,7 @@
     },
     {
       "path": "ui-workspace/apps/dev-erp/server.mjs",
-      "sha256": "63fae581176a1537618791d0485b0036084740ada5e0a59cf5c52fe45a0d4bc9"
+      "sha256": "984f3cebaecff3e0f8465226bcd0b4ec1acc32c6c08d7d08d34a9fe30589be54"
     },
     {
       "path": "ui-workspace/apps/dev-erp/src/accepted_context_query.mjs",
@@ -2735,6 +2739,10 @@
       "sha256": "63cfb2c795bca4ef2be3b38a3d293555afb4ff4e62052388bbae44b931d96f2a"
     },
     {
+      "path": "ui-workspace/apps/dev-erp/test/helpers/owner_attention_notify_fixture.mjs",
+      "sha256": "2260faf5497866e204329115b62acbc00c6ae2638962b38eeed45715352b1ce2"
+    },
+    {
       "path": "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
       "sha256": "0e155e42e1439a9bd4f418a92bed8d18aef8086299b0ea30ae883dbd6f75afce"
     },
@@ -2749,6 +2757,10 @@
     {
       "path": "ui-workspace/apps/dev-erp/test/owner_attention_http.test.mjs",
       "sha256": "937eb0c87e416544dd40c257cc18bd84f10136642672d0677987d81867b7e046"
+    },
+    {
+      "path": "ui-workspace/apps/dev-erp/test/owner_attention_notify_path.test.mjs",
+      "sha256": "c3cd8d83df50cd66c604f04f640e7616c66974f2efd4daf25204b429fd4bdd28"
     },
     {
       "path": "ui-workspace/apps/dev-erp/test/run_dev_erp_background_launcher.test.mjs",
