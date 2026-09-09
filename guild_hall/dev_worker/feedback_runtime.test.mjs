@@ -8,13 +8,14 @@ import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { openFeedbackRuntime, loadFeedbackDeployment } from './feedback_runtime.mjs';
+import { createFeedbackRuntimeIssuer } from './feedback_runtime_source.mjs';
 import { stageFeedbackRuntime, verifyFeedbackRuntimeStage } from './feedback_runtime_stage.mjs';
 import { runtimeHash as hash } from './feedback_runtime_io.mjs';
 import { sha256Canonical } from '../shared/project_history_envelope.mjs';
 import { computeUnverifiedAgentApprovalClaimDigest, AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA, AGENT_AUTHORITY_CURRENT_STATE_SCHEMA } from '../agent_observation/agent_authority_verification.mjs';
 import { LINEAR_READ_OPERATIONS } from '../linear_history/linear_graphql_client.mjs';
 import { LINEAR_COLLECT_OBJECT_KINDS } from '../linear_history/linear_collect_receipt.mjs';
-import { identityDigestForBinding, readEvidenceRecordForIssue } from '../linear_history/linear_collect_runner.mjs';
+import { identityDigestForBinding, readEvidenceRecordForIssue, taskStatusTokenForWorkflowState } from '../linear_history/linear_collect_runner.mjs';
 import { startFeedbackCurrentnessServer } from '../secure_work/feedback_currentness_transport.mjs';
 
 const CLI = fileURLToPath(new URL('./feedback_runtime_cli.mjs', import.meta.url));
@@ -241,6 +242,36 @@ test('revocation, foreign project projection and source hash drift never reach p
     else assert.equal(result.code, 2, result.out);
     assert.equal((await fs.readdir(f.trees)).length, 0);
   }
+});
+
+test('deployment.linear.workflowStatusMap wiring lets the issuer resolve a workflow state outside the built-in four', async t => {
+  const f = await runtimeFixture(t);
+  const baseline = await createFeedbackRuntimeIssuer({ db: new DatabaseSync(':memory:'), deployment: f.deployment, evidenceRoot: f.evidence }).source.snapshot();
+  assert.equal(baseline.status, 'CURRENT'); assert.equal(baseline.items.length, 1);
+  const STATE_ID = 'wf-waiting-1', STATE_NAME = 'Waiting'; // Not one of the reader's built-in Todo/In Progress/Done/Cancelled tokens.
+  const TOKEN = taskStatusTokenForWorkflowState(STATE_NAME, undefined);
+  f.issues.set(SECOND, { ...f.issues.get(ISSUE), id: SECOND, identifier: 'SYN-2', updated_at: new Date(Date.now() - 1000).toISOString(), state_name: STATE_NAME });
+  await f.publish();
+  // Without a map, enumerate() sees a HOLD (not LINEAR_PROJECT_SCOPE_MISMATCH) for the second
+  // issue and throws FEEDBACK_ENUMERATION_INCOMPLETE; the source swallows it into a bare HOLD.
+  const unmapped = await createFeedbackRuntimeIssuer({ db: new DatabaseSync(':memory:'), deployment: f.deployment, evidenceRoot: f.evidence }).source.snapshot();
+  assert.equal(unmapped.status, 'HOLD');
+  const stateFile = path.join(f.deployment.linear.expectedBinding.state_root, 'state', 'linear-collect.json');
+  const workflowState = { id: STATE_ID, name: STATE_NAME, type: 'unstarted', updated_at: new Date().toISOString() };
+  const contentSha256 = sha256Canonical(workflowState);
+  await save(path.join(f.deployment.linear.expectedBinding.custody_root, 'states', STATE_ID, `${contentSha256.slice(7)}.json`),
+    { schema_version: 'soulforge.linear_collect.custody_object.v1', kind: 'states', object_id: STATE_ID, content_sha256: contentSha256, object: workflowState });
+  const state = JSON.parse(await fs.readFile(stateFile));
+  state.object_index[`states:${STATE_ID}`] = { content_sha256: contentSha256, updated_at: workflowState.updated_at };
+  await save(stateFile, state); // Same generation/receipt; only a new committed states: object is added.
+  f.deployment.linear.workflowStatusMap = { [TOKEN]: 'Todo' };
+  const issuer = createFeedbackRuntimeIssuer({ db: new DatabaseSync(':memory:'), deployment: f.deployment, evidenceRoot: f.evidence });
+  const mapped = await issuer.source.snapshot();
+  assert.equal(mapped.status, 'CURRENT');
+  assert.deepEqual(mapped.items.map(item => item.source_ref).sort(), [`linear.issue:${ISSUE}`, `linear.issue:${SECOND}`].sort());
+  // grant.allowed_states is ['Todo', 'In Progress']: the mapped canonical status made the
+  // second issue eligible and preparable exactly like the first.
+  assert.deepEqual(issuer.selectionState(), { observed: 2, eligible: 2, prepared: 2, preparation_pending: 0 });
 });
 
 test('cancellation persists execution unknown and a restarted worker does not rerun it', async t => {

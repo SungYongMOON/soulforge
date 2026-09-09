@@ -686,9 +686,21 @@ async function writeCustodyObject(custodyRoot, kind, objectId, object) {
   return { ...result, content_sha256: contentSha256 };
 }
 
-function normalizeTaskStatus(stateName) {
-  const compact = String(stateName ?? "").replace(/[^A-Za-z0-9_.:-]/gu, "");
-  return /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/u.test(compact) ? compact : "Unknown";
+// Workflow state names are free text the workspace owns. The stored token must
+// stay an admission-safe id, but compaction must never merge two different
+// workflow states into one token: a consumer cannot tell those states apart
+// afterwards, and one of them may be the state that authorizes execution.
+// Whenever compaction drops more than whitespace, the exact state identity is
+// carried alongside the readable remainder.
+export function taskStatusTokenForWorkflowState(stateName, stateId) {
+  const name = String(stateName ?? "");
+  const compact = name.replace(/[^A-Za-z0-9_.:-]/gu, "");
+  if (compact === name.replace(/\s+/gu, "") && ADMISSION_SAFE_ID.test(compact)) return compact;
+  const identity = UUID_PATTERN.test(String(stateId ?? ""))
+    ? String(stateId)
+    : sha256Canonical(name).slice("sha256:".length, "sha256:".length + 32);
+  const prefix = compact.slice(0, 32);
+  return `${ADMISSION_SAFE_ID.test(prefix) ? prefix : "state"}.${identity}`;
 }
 
 export function projectScopeRefFor(binding, projectId) {
@@ -712,7 +724,7 @@ export function readEvidenceRecordForIssue(binding, issue) {
     provider: "linear",
     task_id: identifier,
     forge_task_ref: `linear.task:${lowered}`,
-    task_status: normalizeTaskStatus(issue.state_name),
+    task_status: taskStatusTokenForWorkflowState(issue.state_name, issue.state_id),
     project_scope_ref: projectScopeRefFor(binding, issue.project_id),
     read_receipt_ref: readReceiptRef,
     source_receipt_refs: [readReceiptRef, `receipt:linear-issue-snapshot:${shortHex}`].sort(),
