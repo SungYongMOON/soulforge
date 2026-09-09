@@ -190,11 +190,14 @@ scores about 18,000. So each issue the window returned has its own
 while the issues window itself is unchanged at about 3,985.
 
 Entries are stored under their own kind, never inside the issue object, so a
-growing change log does not move an issue's custody digest. Each entry is
-immutable, so create-only custody stores it exactly once and re-reading a log
-costs nothing after the first time. In steady state only the few issues that
-changed in the window are read; the first run after a lane switch reads every
-issue's log once and recovers the history back to issue creation.
+growing change log does not move an issue's custody digest. Entries are
+near-immutable but not strictly so: the provider folds a change and its
+reversal into a single entry, leaving `from_*`/`to_*` empty and moving
+`updated_at`, so a net-zero edit appears as one entry with no change rather
+than two. Create-only custody versions such a re-read like any other object.
+In steady state only the issues that changed in the window are read; reaching
+material committed before the change log was collected takes a backfill
+window (below), which recovers each issue's log back to its creation.
 
 An entry records who (`actor_id`, or `bot_actor` when a bot made the change),
 when (`created_at`), and what moved to what (`from_state_id`/`to_state_id`,

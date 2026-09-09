@@ -1158,9 +1158,12 @@ export async function runLinearCollect({
         const evidence = readEvidenceRecordForIssue(binding, issue);
         await recordObject("read_evidence", issue.id, evidence.envelope, issue.updated_at);
         // The change log is stored beside the issue, never inside it, so an
-        // issue's custody digest does not move when its history grows. Each
-        // entry is immutable, so re-reading a log costs nothing after the
-        // first time. Paged to the end under the same caps as any collection.
+        // issue's custody digest does not move when its history grows. Entries
+        // are near-immutable but not strictly so: the provider folds a change
+        // and its reversal into one entry, leaving from/to empty and moving
+        // `updated_at`, so a re-read can produce a new revision of an entry
+        // already held. Create-only custody versions that like any other object
+        // rather than overwriting. Paged to the end under the usual caps.
         const history = await collectPages({
           policy: binding.cursor,
           readPage: (after) => observed.readIssueHistoryPage({ issueId: issue.id, after }),
