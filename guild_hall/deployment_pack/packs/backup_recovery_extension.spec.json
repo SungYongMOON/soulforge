@@ -112,6 +112,7 @@
       "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
       "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
       "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
+      "guild_hall/backup_controller/topology_v2_cli.test.mjs",
       "guild_hall/backup_controller/writer_quiesce.test.mjs"
     ],
     "vendored_dependencies": [
@@ -646,6 +647,7 @@
     "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
     "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
     "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
+    "guild_hall/backup_controller/topology_v2_cli.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_entries": [
@@ -678,6 +680,7 @@
     "guild_hall/backup_controller/synthetic_recovery_canary_fixture.test.mjs",
     "guild_hall/backup_controller/synthetic_recovery_canary_runner.test.mjs",
     "guild_hall/backup_controller/topology_v2_actual_reader.test.mjs",
+    "guild_hall/backup_controller/topology_v2_cli.test.mjs",
     "guild_hall/backup_controller/writer_quiesce.test.mjs"
   ],
   "installed_smoke_excluded": [],
@@ -1226,7 +1229,7 @@
     },
     {
       "path": "guild_hall/backup_controller/README.md",
-      "sha256": "0528daac14748dc375a11e0f5c4b24d50ef6b5125b93197d5fcdb813df71ca83"
+      "sha256": "05d4bf8e81c1fdb5c456bf4059cdfc53ee1a53c2fa16c5a135f8822e317cbeb9"
     },
     {
       "path": "guild_hall/backup_controller/buzz_backup_generation_index.mjs",

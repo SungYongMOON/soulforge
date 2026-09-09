@@ -8,6 +8,12 @@
   임시 포트로 바꾼다. 포트 해제 뒤 재점유 가능성까지 제거한 것으로 주장하지 않는다.
 - 예전 모바일 운영 논의 문서는 비정본 아이디어 기록으로 보존하고,
   이미 반영된 Python bytecode 제거 PR은 중복으로 정리한다.
+- 여러 읽기 화면의 프록시 요청을 하나의 guard로 차단하고 정본 상태 enum 및
+  보호 노드 회귀 검사를 복구한다. 거부된 요청은 실제 조회를 실행하지 않는다.
+- 배포 팩의 현재 명세 재계산 검사와 광고된 세대·실제 상주 세대를 비교하는
+  읽기 전용 진단을 복구한다. 기존 SBOM·설치·복구 검증은 유지한다.
+- 백업 manifest의 경로·중복·읽기 전 해시 검사를 보강하고, 출력 게시가 이미
+  존재하는 파일을 덮어쓰지 않도록 한다. 실행 중 부모 경로 교체의 한계는 유지한다.
 - 관련 경로: `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
   `docs/mobile-notes/2026-05-05-ipad-operation-discussion.md`, ERP runtime audit tests.
 

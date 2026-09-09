@@ -1,5 +1,37 @@
 # Development Roadmap v0
 
+## Merge cleanup follow-up — 2026-09-09
+
+Owner authorized finishing the existing merge backlog, without restarting broad
+feature development or changing operating services. The archive index below is
+the earlier preservation snapshot; a different patch ID is not a missing feature.
+
+| Archived work | Current disposition |
+| --- | --- |
+| c004a98b heartbeat alternative | Superseded by the current shared heartbeat contract, dedicated state-root binding and later freshness rules; do not restore the older policy |
+| 8f80501c / 10aac66e Buzz observation and clarify | Core behavior already present; no duplicate merge |
+| d817cf06 world navigation | Controller and tests already present; no duplicate merge |
+| 084561eb / 1d034047 / aefdbca6 proxy guards | Consolidated into one guard across the current 19 read adapters; denied requests do not invoke readers; existing unsupported-method responses preserved |
+| 8ca60363 / fc47b0d2 Board regressions and enum imports | Recovered with the shared guard change; Board tests 943 passed, typecheck and build passed |
+| 93214a15 runtime generation diagnosis | Recovered read-only comparison of advertised versus resident generation; not an operating switch |
+| 4eceea7c pack freshness | Recovered catalog-bound emitter comparison before build; later SBOM, installation and recovery behavior preserved |
+| 8d6d1c05 runtime audit ports | Recovered dynamic test ports; 14 scoped audit tests passed; port reoccupation remains possible |
+| 054b251e backup paths | Recovered reader validation and hardened CLI publication with physical-parent checks and no-replace hard links; 33 scoped tests passed. Active parent replacement is not fully confined |
+| ade59fbb fixed file count / 74c72586 early reader | Superseded by current manifest-derived assertions and later reader implementation |
+| 5ee61ec7 world policy WIP | Preserve as unfinished, unconnected candidate; outside merge-only cleanup |
+| b8424fe8 Windows ACL candidate | Not adopted: foreign explicit ACEs may survive, callers continue after warning-only failure, and sidecar evidence is not bound to the protected file. This needs engineering correction, not an Owner approval gate |
+
+The earlier handoff missed the boot digest refresh after editing this roadmap;
+the digest summary was reviewed and its existing drift tests passed after
+refresh. E14 test source publication remains unresolved; distribution authority
+has not been established and no private kit bytes have been included.
+Current remote CI success and main merge must be verified
+separately; do not infer them from the scoped results above.
+The integrated cleanup passed local `npm run done:check` on Windows using the
+explicit existing Python and private test kit. Existing environment-dependent
+skips remain; this is not a hosted-CI or production acceptance claim. Independent
+source review accepted the bounded cleanup and the local full gate completed.
+
 ## Current continuation checkpoint — 2026-09-09
 
 This checkpoint corrects the product interpretation for the integrated code at
