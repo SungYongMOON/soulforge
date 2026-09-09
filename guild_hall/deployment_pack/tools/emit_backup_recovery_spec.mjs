@@ -4,7 +4,8 @@
 // after reviewing that the hits are identifiers/synthetic fixtures only —
 // emitting the spec IS recording that review, so never run it blind.
 //
-//   node guild_hall/deployment_pack/tools/emit_backup_recovery_spec.mjs [--check]
+//   node guild_hall/deployment_pack/tools/emit_backup_recovery_spec.mjs [--check|--print]
+// --print recomputes the spec to stdout without writing it (build preflight).
 //
 // Pack shape: the backup_controller module (recovery policy adapter code +
 // schemas + README + its freshly enrolled manifest), the cross-root
@@ -137,7 +138,9 @@ const spec = {
 };
 
 const emitted = `${JSON.stringify(spec, null, 2)}\n`;
-if (process.argv.includes("--check")) {
+if (process.argv.includes("--print")) {
+  process.stdout.write(emitted);
+} else if (process.argv.includes("--check")) {
   const tracked = existsSync(SPEC_PATH) ? readFileSync(SPEC_PATH, "utf8") : "";
   if (tracked !== emitted) {
     process.stderr.write("backup_recovery_extension.spec.json drifts from the live tree (file set or scan pins). Re-review and re-emit.\n");

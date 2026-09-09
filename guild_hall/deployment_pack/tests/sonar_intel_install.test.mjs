@@ -43,6 +43,15 @@ function componentSpec(rootDir, version = "0.1.0") {
     content_scan_reviewed_files: Object.entries(REVIEW).map(([file, sha256]) => ({ path: `${SONAR_APP}/${file}`, sha256 })),
   };
 }
+// This isolated component fixture is not the full HPP release spec. Recompute
+// its source closure through the test-only emitter seam, never by echoing the
+// spec under audit; the real builder CLI still uses the catalog's HPP emitter.
+function componentEmitter(version = "0.1.0") {
+  return (emitterPath, { rootDir }) => {
+    assert.equal(emitterPath, "guild_hall/deployment_pack/tools/emit_hpp_spec.mjs");
+    return { ok: true, emitted: JSON.stringify(componentSpec(rootDir, version)), summary: "synthetic component closure recomputed" };
+  };
+}
 function env() {
   const result = { ...process.env };
   for (const key of Object.keys(result)) if (/^(SONAR_|NODE_OPTIONS$)/.test(key)) delete result[key];
@@ -99,7 +108,7 @@ test("HPP sonar component installs and preserves external data through CLI/HTTP 
     assert.deepEqual(validateModuleManifest(JSON.parse(readFileSync(path.join(sourceApp, "module.manifest.json")))), { ok: true, problems: [] });
     const spec = componentSpec(ROOT), specPath = path.join(temp, "sonar-component.spec.json");
     writeFileSync(specPath, JSON.stringify(spec));
-    const built = buildPack(specPath, { rootDir: ROOT, outDir: path.join(temp, "build"), clock });
+    const built = buildPack(specPath, { rootDir: ROOT, outDir: path.join(temp, "build"), clock, emitter: componentEmitter() });
     assert.deepEqual(built.manifest.files.map((file) => file.path).sort(), [...new Set(Object.values(spec.content_roles).flat())].sort());
     const installed = installPack({ packDir: built.packDir, targetDir: target, clock });
     const app = path.join(installed.payloadTarget, SONAR_APP);
@@ -161,7 +170,7 @@ test("HPP sonar component installs and preserves external data through CLI/HTTP 
     const pkg = JSON.parse(readFileSync(packagePath)); pkg.version = "0.1.1"; writeFileSync(packagePath, JSON.stringify(pkg));
     const nextSpec = componentSpec(nextRoot, "0.1.1"), nextSpecPath = path.join(temp, "next.spec.json");
     writeFileSync(nextSpecPath, JSON.stringify(nextSpec));
-    const next = buildPack(nextSpecPath, { rootDir: nextRoot, outDir: path.join(temp, "build-next"), clock });
+    const next = buildPack(nextSpecPath, { rootDir: nextRoot, outDir: path.join(temp, "build-next"), clock, emitter: componentEmitter("0.1.1") });
     assert.notEqual(next.manifest.pack_digest, built.manifest.pack_digest);
     upgradePack({ packDir: next.packDir, targetDir: target, clock });
     assert.equal(readPackGeneration({ packDir: target }).manifest.version, "0.1.1");

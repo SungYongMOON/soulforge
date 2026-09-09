@@ -5,7 +5,8 @@
 // identifiers/synthetic fixtures only — emitting the spec IS recording that
 // review, so never run it blind.
 //
-//   node guild_hall/deployment_pack/tools/emit_hpp_spec.mjs [--check]
+//   node guild_hall/deployment_pack/tools/emit_hpp_spec.mjs [--check|--print]
+// --print recomputes the spec to stdout without writing it (build preflight).
 //
 // --check: recompute and diff against the tracked spec; exit 1 on drift.
 
@@ -278,7 +279,9 @@ const spec = {
 };
 
 const emitted = `${JSON.stringify(spec, null, 2)}\n`;
-if (process.argv.includes("--check")) {
+if (process.argv.includes("--print")) {
+  process.stdout.write(emitted);
+} else if (process.argv.includes("--check")) {
   const tracked = existsSync(SPEC_PATH) ? readFileSync(SPEC_PATH, "utf8") : "";
   if (tracked !== emitted) {
     process.stderr.write("hpp_server_pack.spec.json drifts from the live tree (file set or scan pins). Re-review and re-emit.\n");

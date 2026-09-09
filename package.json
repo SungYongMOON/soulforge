@@ -85,6 +85,8 @@
     "validate:pack-sbom": "node --test guild_hall/deployment_pack/tests/pack_sbom.test.mjs",
     "pack:sbom": "node guild_hall/deployment_pack/tools/pack_sbom.mjs",
     "validate:source-lane": "node --check guild_hall/deployment_pack/tools/build_source_lane.mjs && node --test guild_hall/deployment_pack/tests/build_source_lane.test.mjs",
+    "validate:runtime-lane-drift": "node --check guild_hall/deployment_pack/tools/detect_runtime_lane_drift.mjs && node --test guild_hall/deployment_pack/tests/detect_runtime_lane_drift.test.mjs",
+    "guild-hall:runtime-lane-drift": "node guild_hall/deployment_pack/tools/detect_runtime_lane_drift.mjs",
     "validate:project-ai-team-pack-admission": "node --check guild_hall/deployment_pack/src/project_ai_team_pack_admission.mjs && node --test guild_hall/deployment_pack/tests/project_ai_team_pack_admission.test.mjs",
     "validate:candidate-execution-authority-adapter": "npm --prefix ui-workspace/apps/dev-erp run validate:candidate-execution-authority-adapter",
     "validate:forge-linear-execution-packet-admission": "npm --prefix ui-workspace/apps/dev-erp run validate:forge-linear-execution-packet-admission",

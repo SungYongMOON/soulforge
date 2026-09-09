@@ -21,6 +21,12 @@ export const PACK_CATALOG = Object.freeze([
     contains: Object.freeze(["server_modules", "control_data_plane_services", "manifests", "operator_docs", "supported_migrations", "validators", "vendored_dependencies"]),
     must_not_contain: Object.freeze(["project_payload", "plaintext_secrets", "team_client_private_keys"]),
     initial_release_gate: "isolated install/start/stop/smoke/upgrade/rollback/restore proof",
+    // The emitter that regenerates this pack's tracked spec from the live
+    // tree; build_pack.mjs recomputes the spec through it before building
+    // and refuses a stale one. Bound HERE, not in the spec, so the artifact
+    // under audit cannot name or drop its own auditor. Absent = the spec is
+    // hand-maintained and nothing is recomputed.
+    spec_emitter: "guild_hall/deployment_pack/tools/emit_hpp_spec.mjs",
   }),
   Object.freeze({
     pack_id: "team_client_pack",
@@ -31,18 +37,23 @@ export const PACK_CATALOG = Object.freeze([
     contains: Object.freeze(["mcp_client_config_templates", "ui", "shared_modules", "local_helper_outbox", "learning_material", "safe_diagnostics", "manifests", "validators"]),
     must_not_contain: Object.freeze(["embedded_credential", "raw_project_data", "implicit_project_grant"]),
     initial_release_gate: "one-seat install, identity/revoke/recovery, exact work/bundle/submission loop",
+    spec_emitter: "guild_hall/deployment_pack/tools/emit_team_client_spec.mjs",
   }),
   Object.freeze({
     pack_id: "tool_workshop_pack",
     contains: Object.freeze(["tool_adapter", "resource_lease_helper", "workshop_docs", "validators"]),
     must_not_contain: Object.freeze(["license_secret", "customer_libraries", "default_project_context"]),
     initial_release_gate: "one workstation/tool low-risk canary and output validation",
+    // Hand-maintained spec: no emitter, so build_pack recomputes nothing and
+    // says so in its receipt. Every catalog row declares this key.
+    spec_emitter: null,
   }),
   Object.freeze({
     pack_id: "project_ai_team_pack",
     contains: Object.freeze(["approved_project_mark_deployment_bindings", "runtime_references"]),
     must_not_contain: Object.freeze(["cross_project_memory", "plaintext_secret", "global_task_authority"]),
     initial_release_gate: "one project isolated deployment/run/rollback proof",
+    spec_emitter: null,
   }),
   Object.freeze({
     pack_id: "backup_recovery_extension",
@@ -53,6 +64,7 @@ export const PACK_CATALOG = Object.freeze([
     contains: Object.freeze(["recovery_policy_adapter", "test_fixtures", "shared_modules", "manifests", "validators", "vendored_dependencies"]),
     must_not_contain: Object.freeze(["secret_backup", "unapproved_source_bytes"]),
     initial_release_gate: "capture + isolated restore + human restore acceptance",
+    spec_emitter: "guild_hall/deployment_pack/tools/emit_backup_recovery_spec.mjs",
   }),
 ]);
 

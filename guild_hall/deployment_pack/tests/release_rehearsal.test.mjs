@@ -34,7 +34,6 @@ test('company intake dependencies reach real HPP source and installed children o
   await assert.rejects(runReleaseRehearsal({packIds:['tool_workshop_pack'],intakeTestConfig:file}),{code:'rehearsal_intake_config_without_pack'});
   mkdirSync(join(source,'guild_hall/deployment_pack/tools'),{recursive:true});
   mkdirSync(join(source,'guild_hall/deployment_pack/packs'),{recursive:true});
-  writeFileSync(join(source,'guild_hall/deployment_pack/tools/emit_hpp_spec.mjs'),'// synthetic spec check\n');
   // This case exercises dependency transport, not the real server start gate.
   writeFileSync(join(source,'guild_hall/deployment_pack/tools/prove_start_stop.mjs'),
     'import {writeFileSync} from "node:fs";import {join} from "node:path";writeFileSync(join(process.argv[3],"start_stop.receipt.json"),JSON.stringify({ok:true,synthetic:true}));\n');
@@ -49,14 +48,19 @@ test('company intake dependencies reach real HPP source and installed children o
       assert.equal(process.env.SOULFORGE_SECURE_WORK_CONFIG,undefined);
     });
   `);
-  writeFileSync(join(source,'guild_hall/deployment_pack/packs/hpp_server_pack.spec.json'),JSON.stringify({
+  const syntheticSpecBytes=JSON.stringify({
     schema:'soulforge.deployment_pack_spec.v0',pack_id:'hpp_server_pack',version:'0.1.0',
     host_effect_policy:{reboot:'forbidden',driver_change:'forbidden',system_update:'forbidden',service_restart_scope:'pack_services_only'},
     content_roles:{server_modules:['core.mjs'],validators:['runtime.test.mjs']},smoke_test_entries:['runtime.test.mjs'],
     release_notes_ref:'release_notes.hpp_server_pack.v0_1_0',install_manual_ref:'manual.install.hpp_server_pack',
     upgrade_manual_ref:'manual.upgrade.hpp_server_pack',rollback_manual_ref:'manual.rollback.hpp_server_pack',
     support_owner_ref:'owner.platform_support',secret_refs:[],
-  }));
+  });
+  writeFileSync(join(source,'guild_hall/deployment_pack/packs/hpp_server_pack.spec.json'),syntheticSpecBytes);
+  // Independent fixed fixture output implements the catalog emitter contract;
+  // it does not read the spec being audited or bypass the builder preflight.
+  writeFileSync(join(source,'guild_hall/deployment_pack/tools/emit_hpp_spec.mjs'),
+    `if(process.argv.includes('--print'))process.stdout.write(${JSON.stringify(syntheticSpecBytes)});\n`);
   const result=await runReleaseRehearsal({rootDir:source,workDir:join(root,'rehearsal'),packIds:['hpp_server_pack'],intakeTestConfig:file,clock});
   assert.equal(result.ok,true,JSON.stringify(result.receipt.packs.map(p=>({failure:p.failure,stages:p.stages}))));
   const pack=result.receipt.packs[0];
