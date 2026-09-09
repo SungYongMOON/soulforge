@@ -18,13 +18,16 @@ const equal = (a, b) => sha256Canonical(a) === sha256Canonical(b);
  * bytes never enter stdout, a receipt, or the G1 feedback runtime.
  */
 export function createG2LinearCustodyReader({ expectedBinding, authority, producerRef,
-  maxAgeMs = 300000, maximumBytes = 1048576, now = Date.now } = {}) {
+  workflowStatusMap = null, maxAgeMs = 300000, maximumBytes = 1048576, now = Date.now } = {}) {
   check(authority && typeof authority.entry === 'function' && typeof authority.authorize === 'function'
     && REF.test(producerRef) && Number.isSafeInteger(maximumBytes) && maximumBytes > 0
     && maximumBytes <= 8388608, 'G2_CUSTODY_CONFIG_HOLD');
   const pins = structuredClone(expectedBinding);
+  // The workspace runs workflow states outside the reader's built-in four, and
+  // the state an owner designates for agent work is one of them. Without the
+  // installer-pinned translation this port holds on exactly those issues.
   const reader = createLinearReadEvidenceReader({ root: pins?.custody_root,
-    expectedBinding: pins, maxAgeMs, now });
+    expectedBinding: pins, workflowStatusMap, maxAgeMs, now });
 
   function identity() {
     const proof = authority.entry('jobs.advance');

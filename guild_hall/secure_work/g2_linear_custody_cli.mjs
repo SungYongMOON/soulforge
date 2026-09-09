@@ -15,7 +15,8 @@ export async function inspectG2Custody(runtime) {
     // This fixed descriptor belongs to the protected installation config.
     // A CLI flag or source document cannot substitute a selection or scope.
     const fixed = runtime.config.g2_linear_custody;
-    if (!runtimeExact(fixed, ['expectedBinding', 'producerRef', 'maxAgeMs', 'maximumBytes', 'selection']))
+    if (!runtimeExact(fixed, ['expectedBinding', 'producerRef', 'maxAgeMs', 'maximumBytes',
+      'selection', 'workflowStatusMap']))
       throw new Error('G2_CUSTODY_CONFIG_HOLD');
     const selection = await readRuntimeJson(fixed.selection);
     if (!/^[a-f0-9]{64}$/u.test(fixed.selection.sha256)) throw new Error('G2_CUSTODY_CONFIG_HOLD');

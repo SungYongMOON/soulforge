@@ -21,7 +21,7 @@ const NOW = Date.now(), TIME = new Date(NOW).toISOString();
 const SHA = `sha256:${'a'.repeat(64)}`;
 async function save(file, body) { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, JSON.stringify(body)); }
 
-async function fixture(t) {
+async function fixture(t, { stateName = 'Todo' } = {}) {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'g2-linear-custody-'));
   t.after(async () => {
     assert.equal(path.dirname(temp), path.resolve(os.tmpdir()));
@@ -35,7 +35,7 @@ async function fixture(t) {
     identity_digest: identityDigestForBinding(binding), writer_authority_id: binding.writer.authority_id,
     writer_epoch: 1, binding_sha256: SHA, workspace_url_key: 'synthetic-forge',
     organization_id: 'a8091a2b-3c4d-4859-aa6b-465768798a9b', project_scope_ref: 'project:SYN', project_code: 'SYN' };
-  const issue = { id: ISSUE, identifier: 'SYN-1', updated_at: TIME, state_name: 'Todo', project_id: 'project-1',
+  const issue = { id: ISSUE, identifier: 'SYN-1', updated_at: TIME, state_name: stateName, project_id: 'project-1',
     description: 'Synthetic private input. Never a source permission or release decision.' };
   const envelope = readEvidenceRecordForIssue(binding, issue).envelope, digest = sha256Canonical(envelope);
   const cursor = { schema_version: 'soulforge.linear_collect.cursor.v1', watermark: TIME, backfill: null, generation_seq: 2 };
@@ -244,7 +244,7 @@ test('installed sfx branch runs the actual reader through verified copied closur
     runtime: { python_executable: python }, permit_trust_pubkey_path: publicKey,
     execution_authority: { policy_path: policyPath, policy_sha256: pin(policyPath).sha256 },
     g2_linear_custody: { expectedBinding: f.options.expectedBinding, producerRef: 'leader:G2', maxAgeMs: 300000,
-      maximumBytes: 1048576, selection: pin(selectionPath) } }));
+      maximumBytes: 1048576, selection: pin(selectionPath), workflowStatusMap: null } }));
   const bindingPath = path.join(lane, 'custody_runtime_binding.json');
   async function members(root) {
     const values = [];
@@ -276,4 +276,43 @@ test('installed sfx branch runs the actual reader through verified copied closur
   assert.equal(spawned, false);
   await fs.appendFile(path.join(lane, 'g2_linear_custody_reader.mjs'), '\n// tampered');
   await assert.rejects(run(['--g2-custody-inspect']));
+});
+
+// --- workspace workflow states outside the reader's built-in four ------------
+
+async function commitWorkflowState(f, id, name) {
+  const object = { id, name, type: 'started', updated_at: TIME };
+  const digest = sha256Canonical(object);
+  await save(path.join(f.root, 'states', id, `${digest.slice(7)}.json`), {
+    schema_version: 'soulforge.linear_collect.custody_object.v1', kind: 'states',
+    object_id: id, content_sha256: digest, object });
+  f.state.object_index[`states:${id}`] = { content_sha256: digest, updated_at: TIME };
+  await save(f.stateFile, f.state);
+}
+
+test('a workspace state outside the built-in four reaches custody only through the pinned translation', async t => {
+  const f = await fixture(t, { stateName: 'Waiting' });
+  await commitWorkflowState(f, '17a61409-4594-4ad0-944d-31e11f241bc4', 'Waiting');
+  // Without the translation the port holds on exactly the states an owner uses
+  // to hand work to an agent, and no custody byte is opened.
+  const unmapped = await f.reader.current(f.selection);
+  assert.equal(unmapped.status, 'HOLD');
+  assert.equal(unmapped.code, 'LINEAR_TASK_STATUS_UNSUPPORTED');
+  await assert.rejects(f.reader.read(f.selection), error => error.g2Code === 'LINEAR_TASK_STATUS_UNSUPPORTED');
+
+  const mapped = createG2LinearCustodyReader({ ...f.options, workflowStatusMap: { Waiting: 'In Progress' } });
+  assert.equal((await mapped.current(f.selection)).status, 'CURRENT');
+  const value = await mapped.read(f.selection);
+  assert.deepEqual(value.bytes, await fs.readFile(f.rawFile));
+  assert.equal(value.execution_authority, false);
+  value.bytes.fill(0);
+});
+
+test('a translation the committed workflow states do not produce stays held', async t => {
+  const f = await fixture(t, { stateName: 'Waiting' });
+  await commitWorkflowState(f, '17a61409-4594-4ad0-944d-31e11f241bc4', 'AI 실행대기');
+  const mapped = createG2LinearCustodyReader({ ...f.options, workflowStatusMap: { Waiting: 'Todo' } });
+  const held = await mapped.current(f.selection);
+  assert.equal(held.status, 'HOLD');
+  assert.equal(held.code, 'LINEAR_TASK_STATUS_UNRESOLVED');
 });
