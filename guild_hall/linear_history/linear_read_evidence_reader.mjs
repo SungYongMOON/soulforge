@@ -220,6 +220,15 @@ export function createLinearReadEvidenceReader({ root, expectedBinding, workflow
       return { status: "CURRENT", hold_code: null, issue_id: issueId,
         linear_task: { task_ref: { provider: "linear", task_id: evidence.task_id }, project_code: pins.project_code,
           state: "current", task_status: taskStatus, read_receipt_ref: evidence.read_receipt_ref },
+        // `linear_task.task_status` is the canonical word downstream understands
+        // and the work-binding seam admits exactly those five keys, so the
+        // committed token rides outside it. The translation that produces
+        // `task_status` is lossy: a column an owner created to mean something
+        // specific arrives there as one of four, indistinguishable from every
+        // other column mapped onto the same word. A caller that needs to know
+        // which column an issue actually sits in reads this instead of guessing.
+        // It carries no authority: it is what was collected, not a permission.
+        source_task_status: evidence.task_status,
         read_receipt_digest: readDigest, issue_content_sha256: envelope.issue_content_sha256,
         project_scope_ref: evidence.project_scope_ref, run_receipt_ref: laneRecordFromReceipt(receipt, receiptDigest).capture_ref,
         run_receipt_digest: receiptDigest, generation_seq: receipt.generation_seq,

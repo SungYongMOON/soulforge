@@ -390,6 +390,39 @@ test("a workspace state outside the built-in four stays unsupported until it is 
   assert.equal(mapped.execution_authority, false);
 });
 
+test("the committed column survives the translation that makes a status canonical", async () => {
+  // Two issues an owner keeps apart: one in a column meaning "an agent may take
+  // this", one in the ordinary queue. Both map onto Todo, so the canonical
+  // status cannot tell them apart and the committed token has to.
+  const designated = await fixture({ stateName: "AI Ready" });
+  await commitWorkflowStates(designated, [workflowState(STATE_A, "AI Ready")]);
+  const ordinary = await fixture({ stateName: "Todo" });
+  const read = (f, map) => createLinearReadEvidenceReader({ ...f.options, workflowStatusMap: map })
+    .resolve({ issueId: ISSUE });
+  const marked = await read(designated, { AIReady: "Todo" });
+  const plain = await read(ordinary, null);
+  assert.equal(marked.status, "CURRENT");
+  assert.equal(plain.status, "CURRENT");
+  assert.equal(marked.linear_task.task_status, "Todo");
+  assert.equal(plain.linear_task.task_status, "Todo");
+  assert.notEqual(marked.source_task_status, plain.source_task_status);
+  assert.equal(marked.source_task_status, "AIReady");
+  assert.equal(plain.source_task_status, "Todo");
+
+  // The work-binding seam admits exactly five keys under linear_task, so the
+  // token rides outside it and that shape stays untouched.
+  assert.deepEqual(Object.keys(marked.linear_task).sort(),
+    ["project_code", "read_receipt_ref", "state", "task_ref", "task_status"]);
+
+  // It is an observation, not a permission: nothing here grants execution.
+  assert.equal(marked.execution_authority, false);
+  // A held observation offers no column at all rather than a stale one.
+  const held = await createLinearReadEvidenceReader(designated.options).resolve({ issueId: ISSUE });
+  assert.equal(held.status, "HOLD");
+  assert.equal(held.hold_code, "LINEAR_TASK_STATUS_UNSUPPORTED");
+  assert.equal(held.source_task_status, undefined);
+});
+
 test("a mapped token backed by two committed workflow states cannot be read as either of them", async () => {
   const f = await fixture({ stateName: "Waiting" });
   await commitWorkflowStates(f, [workflowState(STATE_A, "Waiting"), workflowState(STATE_B, " Waiting")]);
