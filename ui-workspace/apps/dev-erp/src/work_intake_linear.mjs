@@ -44,8 +44,8 @@ async function metadata(root, segments, maxBytes) {
   } finally { await handle?.close(); }
 }
 
-export function createWorkIntakeLinearReader({ root, expectedBinding, maxAgeMs = 30 * 60 * 1000, maximumIssues = 128,
-  maximumEnumeratedIssues = 4096, now = () => new Date() } = {}) {
+export function createWorkIntakeLinearReader({ root, expectedBinding, workflowStatusMap = null,
+  maxAgeMs = 30 * 60 * 1000, maximumIssues = 128, maximumEnumeratedIssues = 4096, now = () => new Date() } = {}) {
   let pins, context, reader;
   try {
     pins = structuredClone(expectedBinding);
@@ -63,7 +63,7 @@ export function createWorkIntakeLinearReader({ root, expectedBinding, maxAgeMs =
     const binding = { lane_id: pins.lane_id, writer: { authority_id: pins.writer_authority_id, epoch: pins.writer_epoch }, workspace: { url_key: pins.workspace_url_key } };
     require(identityDigestForBinding(binding) === pins.identity_digest, 'WORK_INTAKE_LINEAR_BINDING_INVALID');
     context = { binding, identity_digest: pins.identity_digest };
-    reader = createLinearReadEvidenceReader({ root, expectedBinding: pins, maxAgeMs, now });
+    reader = createLinearReadEvidenceReader({ root, expectedBinding: pins, workflowStatusMap, maxAgeMs, now });
     freeze(pins);
   } catch { pins = null; }
   function fresh(state, receipt) {
