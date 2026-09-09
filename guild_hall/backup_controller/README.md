@@ -70,16 +70,34 @@ observed state and compares:
 The one declared containment pair is the ERP database inside its owning
 directory. Every other containment between bound resources is an overlap.
 
+The reader rejects unsafe manifest/controller relative paths, Windows device
+names and trailing-dot aliases. Duplicate manifest paths (case-folded on
+Windows) and a declared manifest digest that disagrees with its file recipe
+are refused before payload hashing. This validates path syntax and declared
+identity; it is not a sandbox for a concurrently replaced installed payload.
+
 ```
-node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path>
+node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path> [--evidence-out <absolute-path>]
 node guild_hall/backup_controller/topology_v2_cli.mjs generate --draft <absolute-path> --out <absolute-path>
 ```
 
 `generate` is the author-time leg that derives the frozen binding from observed
 state; freezing its output is what gives every later `check` something to fail
 against. A first `check` immediately after a `generate` therefore proves
-coherence, not drift. Neither mode prints an absolute path, and a green `check`
-is still `feature_state: off`: it authorizes no activation and no backup.
+coherence, not drift. Optional evidence and generated bindings must stay below
+the input file's existing control directory and outside declared protected
+roots. The CLI refuses observed directory links/resolution drift, checks
+protected-root aliases, and publishes through a create-only hard link with
+readback. A destination that appears during publication is preserved. It
+creates no parent directories and overwrites no existing output.
+
+The control directory must already be owner-protected and remain stable for
+the operation. These pathname checks cannot prevent an active ancestor swap
+between filesystem calls, and file mode alone is not Windows ACL protection.
+This is bounded path and publication hardening, not strict adversarial
+confinement or a durability claim against power loss. Neither mode prints an
+absolute path, and a green `check` is still `feature_state: off`: it authorizes
+no activation and no backup.
 
 ## NAS disaster-recovery binding (default OFF)
 
