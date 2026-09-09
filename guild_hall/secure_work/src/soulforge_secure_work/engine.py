@@ -23,7 +23,7 @@ from pathlib import Path
 from . import adapters as adapters_module
 from . import authority, dispatch as dispatch_module, extract, guard, utility, plan as plan_module
 from . import storage
-from .config import Config
+from .config import Config, ConfigError, SOURCE_DATA_CLASSES
 from .launch_runtime import recheck_if_launched, role_check, role_entry, job_scope, require_sender_channel
 
 STATUS_SCHEMA = "soulforge.secure_work.status.v0"
@@ -465,6 +465,12 @@ class Lane:
         identity = role_check("jobs.submit")
         if identity is not None and requester != identity["principal_ref"]:
             raise EngineStop("REQUESTER_IDENTITY_MISMATCH")
+        # Whoever placed the source declares what it holds. Refuse before a job
+        # exists rather than stamp an undeclared source with a default class.
+        try:
+            data_class = self.config.required_source_data_class()
+        except ConfigError as error:
+            raise EngineStop(error.code) from None
         probe = self.source.probe()
         if probe.state != "AVAILABLE":
             raise EngineStop("ADAPTER_UNAVAILABLE", f"M01 {probe.detail}")
@@ -490,7 +496,7 @@ class Lane:
             "round": 0,
             "source_dir_ref": "pilot.source",
             "created_utc": _now(),
-            "data_class": "SYNTHETIC_ONLY",
+            "data_class": data_class,
         }, _operation="jobs.submit")
         if identity is not None:
             for key in ("project_ref", "assignment_ref", "assignment_epoch", "task_ref", "policy_epoch"):
@@ -514,7 +520,7 @@ class Lane:
         receipt = self.write_receipt(job, seq, "jobs.submit", {
             "before_phase": "NONE", "after_phase": "RECEIVED",
             "facts": {"recipe_id": recipe_id, "requester_ref": requester,
-                      "data_class": "SYNTHETIC_ONLY"}})
+                      "data_class": data_class}})
         self.refresh_status(job_id, receipt)
         return job
 
@@ -1007,6 +1013,9 @@ class Lane:
                    "is_accepted_revision": False})
 
     def step_stage(self, job: Job) -> tuple[str, str]:
+        data_class = job.data.get("data_class")
+        if data_class not in SOURCE_DATA_CLASSES:
+            raise EngineStop("SOURCE_DATA_CLASS_UNDECLARED")
         job.outbox.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(job.path("candidate.md"), job.outbox / "candidate.md")
         shutil.copyfile(job.path("candidate_manifest.json"),
@@ -1022,7 +1031,7 @@ class Lane:
             "custody_state": "LOCAL_OUTBOX_ONLY",
             "server_acknowledged": False,
             "accepted": False,
-            "data_class": "SYNTHETIC_ONLY",
+            "data_class": data_class,
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return self.transition(
             job, "CUSTODY_PENDING", "custody.stage",

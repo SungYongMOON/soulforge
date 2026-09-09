@@ -18,6 +18,13 @@ from pathlib import Path
 CONFIG_SCHEMA = "soulforge.secure_work.config.v0"
 CONFIG_ENV = "SOULFORGE_SECURE_WORK_CONFIG"
 
+# What the pinned source directory actually holds. The lane records this on the
+# job and on every receipt, so it must be declared by whoever placed the source
+# -- never inferred from the bytes and never defaulted. A wrong or missing
+# declaration marks real material as a rehearsal, and a later reader trusts that
+# mark. Fail closed instead: an undeclared source cannot start a job.
+SOURCE_DATA_CLASSES = ("SYNTHETIC_ONLY", "REAL_RESTRICTED")
+
 
 class ConfigError(RuntimeError):
     """Fail-closed configuration error. Carries a code, never a payload."""
@@ -52,6 +59,10 @@ class Config:
     # The matching private half. Only `sfx permit approve` touches this, and
     # only to sign; the engine's verification path never reads it.
     permit_trust_signing_key_path: Path | None = None
+    # Declared class of the pinned source directory. Optional at parse time so a
+    # config that predates this field still loads; `required_source_data_class`
+    # fails closed for every path that has to stamp it.
+    source_data_class: str | None = None
 
     # Directories under the pilot root. All synthetic in cycle 1.
     @property
@@ -85,6 +96,12 @@ class Config:
     @property
     def field_review_path(self) -> Path:
         return self.reviews_root / "field_reviews.json"
+
+    def required_source_data_class(self) -> str:
+        """The declared class, or a fail-closed error. Never guesses a default."""
+        if self.source_data_class not in SOURCE_DATA_CLASSES:
+            raise ConfigError("SOURCE_DATA_CLASS_UNDECLARED")
+        return self.source_data_class
 
     def adapter(self, name: str) -> AdapterConfig:
         raw = self.adapters.get(name)
@@ -152,6 +169,9 @@ def load(path: str | os.PathLike[str] | None = None) -> Config:
         data.get("permit_trust_pubkey_path"), "permit_trust_pubkey_path")
     permit_trust_signing_key_path = _optional_abs(
         data.get("permit_trust_signing_key_path"), "permit_trust_signing_key_path")
+    source_data_class = data.get("source_data_class")
+    if source_data_class is not None and source_data_class not in SOURCE_DATA_CLASSES:
+        raise ConfigError("SOURCE_DATA_CLASS_INVALID")
     return Config(
         path=config_path,
         kit_root=kit_root,
@@ -161,4 +181,5 @@ def load(path: str | os.PathLike[str] | None = None) -> Config:
         adapters=adapters,
         permit_trust_pubkey_path=permit_trust_pubkey_path,
         permit_trust_signing_key_path=permit_trust_signing_key_path,
+        source_data_class=source_data_class,
     )
