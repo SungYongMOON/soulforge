@@ -24,8 +24,12 @@ export function createFeedbackRuntimeIssuer({ db, deployment, evidenceRoot, asse
     request_ref TEXT PRIMARY KEY, source_ref TEXT NOT NULL, semantic_sha256 TEXT NOT NULL,
     projection_sha256 TEXT NOT NULL, grant_sha256 TEXT NOT NULL, packet_sha256 TEXT NOT NULL,
     issued_json TEXT NOT NULL, UNIQUE(source_ref,semantic_sha256));`);
+  // The workspace may run workflow states outside the reader's built-in four.
+  // The installer-pinned translation is the only way one of them becomes a
+  // selectable status here; the reader still refuses an ambiguous one.
   const reader = createLinearReadEvidenceReader({ root: deployment.linear.expectedBinding.custody_root,
-    expectedBinding: deployment.linear.expectedBinding, maxAgeMs: deployment.linear.maxAgeMs, now });
+    expectedBinding: deployment.linear.expectedBinding, workflowStatusMap: deployment.linear.workflowStatusMap ?? null,
+    maxAgeMs: deployment.linear.maxAgeMs, now });
   let selections = new Map(), prepared = new Map(), source;
   let selectionState = { observed: 0, eligible: 0, prepared: 0, preparation_pending: 0 };
   const indexDigests = new WeakMap();

@@ -313,3 +313,62 @@ test("committed state changed during evidence IO is rejected by the final state 
   assert.equal(result.hold_code, "LINEAR_METADATA_CHANGED");
   assert.equal(result.linear_task, null);
 });
+
+// ---------------------------------------------------------------------------
+// Workspace workflow states outside the built-in four.
+// ---------------------------------------------------------------------------
+
+async function commitWorkflowStates(f, states) {
+  for (const value of states) {
+    const digest = sha256Canonical(value);
+    await save(path.join(f.root, "states", value.id, `${digest.slice(7)}.json`),
+      { schema_version: "soulforge.linear_collect.custody_object.v1", kind: "states",
+        object_id: value.id, content_sha256: digest, object: value });
+    f.state.object_index[`states:${value.id}`] = { content_sha256: digest, updated_at: value.updated_at };
+  }
+  await save(f.stateFile, f.state);
+}
+const workflowState = (id, name) => ({ id, name, type: "started", updated_at: "2026-08-01T00:00:00.000Z" });
+const STATE_A = "17a61409-4594-4ad0-944d-31e11f241bc4";
+const STATE_B = "27a61409-4594-4ad0-944d-31e11f241bc4";
+
+test("a workspace state outside the built-in four stays unsupported until it is explicitly mapped", async () => {
+  const f = await fixture({ stateName: "Waiting" });
+  await commitWorkflowStates(f, [workflowState(STATE_A, "Waiting")]);
+  const unmapped = await createLinearReadEvidenceReader(f.options).resolve({ issueId: ISSUE });
+  assert.equal(unmapped.hold_code, "LINEAR_TASK_STATUS_UNSUPPORTED");
+  assert.equal(unmapped.linear_task, null);
+  const mapped = await createLinearReadEvidenceReader({ ...f.options, workflowStatusMap: { Waiting: "In Progress" } })
+    .resolve({ issueId: ISSUE });
+  assert.equal(mapped.status, "CURRENT");
+  assert.equal(mapped.linear_task.task_status, "In Progress");
+  assert.equal(mapped.execution_authority, false);
+});
+
+test("a mapped token backed by two committed workflow states cannot be read as either of them", async () => {
+  const f = await fixture({ stateName: "Waiting" });
+  await commitWorkflowStates(f, [workflowState(STATE_A, "Waiting"), workflowState(STATE_B, " Waiting")]);
+  const result = await createLinearReadEvidenceReader({ ...f.options, workflowStatusMap: { Waiting: "Todo" } })
+    .resolve({ issueId: ISSUE });
+  assert.equal(result.hold_code, "LINEAR_TASK_STATUS_AMBIGUOUS");
+  assert.equal(result.linear_task, null);
+});
+
+test("a mapped token no committed workflow state produces is never resolved from the mapping alone", async () => {
+  const f = await fixture({ stateName: "Waiting" });
+  await commitWorkflowStates(f, [workflowState(STATE_A, "AI 실행대기")]);
+  const result = await createLinearReadEvidenceReader({ ...f.options, workflowStatusMap: { Waiting: "Todo" } })
+    .resolve({ issueId: ISSUE });
+  assert.equal(result.hold_code, "LINEAR_TASK_STATUS_UNRESOLVED");
+  assert.equal(result.linear_task, null);
+});
+
+test("a mapping can neither restate a built-in status nor invent one outside the four", async () => {
+  const f = await fixture({ stateName: "Waiting" });
+  await commitWorkflowStates(f, [workflowState(STATE_A, "Waiting")]);
+  for (const map of [{ Done: "Todo" }, { InProgress: "Todo" }, { "In Progress": "Done" },
+    { Waiting: "Waiting" }, { Waiting: "InProgress" }, { "": "Todo" }, {}, [], "Waiting"]) {
+    const result = await createLinearReadEvidenceReader({ ...f.options, workflowStatusMap: map }).resolve({ issueId: ISSUE });
+    assert.equal(result.hold_code, "LINEAR_BINDING_INVALID", JSON.stringify(map));
+  }
+});

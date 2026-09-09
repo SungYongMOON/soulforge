@@ -9,7 +9,7 @@ import { validateLinearCollectRunReceipt } from "./linear_collect_receipt.mjs";
 import {
   identityDigestForBinding, laneRecordFromReceipt, LINEAR_CUSTODY_OBJECT_SCHEMA_VERSION,
   LINEAR_READ_EVIDENCE_ENVELOPE_SCHEMA_VERSION, LINEAR_READ_EVIDENCE_SCHEMA_VERSION,
-  readEvidenceDigest, validateLinearCollectState,
+  readEvidenceDigest, taskStatusTokenForWorkflowState, validateLinearCollectState,
 } from "./linear_collect_runner.mjs";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/u;
@@ -17,6 +17,11 @@ const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const SHA = /^sha256:[a-f0-9]{64}$/u;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const POLLING_GAP = "polling_cannot_prove_hard_deletes";
+// The task statuses every consumer of this reader already understands. A
+// workspace may name its workflow states anything; only these four carry
+// meaning downstream, and only "Todo"/"In Progress" are treated as live work.
+const CANONICAL_TASK_STATUS = ["Todo", "In Progress", "Done", "Cancelled"];
+const BUILTIN_TASK_STATUS_TOKEN = ["Todo", "InProgress", "In Progress", "Done", "Cancelled"];
 const PIN_FIELDS = ["custody_root", "state_root", "lane_id", "identity_digest", "writer_authority_id",
   "writer_epoch", "binding_sha256", "workspace_url_key", "organization_id", "project_scope_ref", "project_code"];
 const EVIDENCE_FIELDS = ["schema_version", "evidence_state", "provider", "task_id", "forge_task_ref",
@@ -83,6 +88,42 @@ function validatedPins(root, value, maxAgeMs) {
   return { pins: structuredClone(value), context: { binding, identity_digest: value.identity_digest } };
 }
 
+// An installer-pinned translation from this workspace's committed workflow
+// state tokens to the four statuses every consumer understands. It may only
+// add states the built-in vocabulary does not already cover, so a mapping can
+// never restate "Done" as live work.
+function validatedWorkflowStatusMap(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "object" || Array.isArray(value)) fail("LINEAR_WORKFLOW_STATUS_MAP_INVALID");
+  const entries = Object.entries(value);
+  if (entries.length === 0 || entries.length > 32
+    || !entries.every(([token, status]) => safe(token, ID) && !BUILTIN_TASK_STATUS_TOKEN.includes(token)
+      && CANONICAL_TASK_STATUS.includes(status))) fail("LINEAR_WORKFLOW_STATUS_MAP_INVALID");
+  return Object.freeze({ ...value });
+}
+
+// A mapped token carries meaning only while exactly one committed workflow
+// state produces it. Two states behind one token cannot be told apart from the
+// evidence, and one of them may be the state that authorizes execution.
+async function committedWorkflowStatesFor(custodyRoot, state, token) {
+  const keys = Object.keys(state.object_index).filter(key => key.startsWith("states:"));
+  if (keys.length > 512) fail("LINEAR_WORKFLOW_STATE_LIMIT");
+  let matches = 0;
+  for (const key of keys) {
+    const stateId = key.slice("states:".length);
+    const entry = state.object_index[key];
+    if (!safe(stateId, SEGMENT) || !safe(entry?.content_sha256, SHA)) fail("LINEAR_WORKFLOW_STATE_INVALID");
+    const wrapper = await readMetadata(custodyRoot, ["states", stateId, `${entry.content_sha256.slice(7)}.json`],
+      "LINEAR_WORKFLOW_STATE_MISSING", 32 * 1024);
+    if (!exact(wrapper, ["schema_version", "kind", "object_id", "content_sha256", "object"])
+      || wrapper.schema_version !== LINEAR_CUSTODY_OBJECT_SCHEMA_VERSION || wrapper.kind !== "states"
+      || wrapper.object_id !== stateId || wrapper.content_sha256 !== entry.content_sha256
+      || sha256Canonical(wrapper.object) !== entry.content_sha256) fail("LINEAR_WORKFLOW_STATE_DIGEST_MISMATCH");
+    if (taskStatusTokenForWorkflowState(wrapper.object?.name, wrapper.object?.id) === token && ++matches > 1) break;
+  }
+  return matches;
+}
+
 function assertFresh(state, receipt, now, maxAgeMs) {
   const current = now();
   const nowMs = current instanceof Date ? current.getTime() : typeof current === "number" ? current : Date.parse(current);
@@ -97,13 +138,16 @@ function assertFresh(state, receipt, now, maxAgeMs) {
  * server descriptor with PIN_FIELDS, including the accepted project scope/code.
  * resolve uses the issue custody ID; linear_task.task_ref uses its Linear identifier.
  */
-export function createLinearReadEvidenceReader({ root, expectedBinding, now = () => new Date(), maxAgeMs = 30 * 60 * 1000 } = {}) {
+export function createLinearReadEvidenceReader({ root, expectedBinding, workflowStatusMap = null,
+  now = () => new Date(), maxAgeMs = 30 * 60 * 1000 } = {}) {
   let config;
-  try { config = validatedPins(root, expectedBinding, maxAgeMs); } catch { /* Configuration remains held. */ }
+  try {
+    config = { ...validatedPins(root, expectedBinding, maxAgeMs), statusMap: validatedWorkflowStatusMap(workflowStatusMap) };
+  } catch { /* Configuration remains held. */ }
   return Object.freeze({ async resolve({ issueId } = {}) {
     if (!config) return hold("LINEAR_BINDING_INVALID");
     if (!safe(issueId, SEGMENT)) return hold("LINEAR_ISSUE_ID_INVALID");
-    const { pins, context } = config;
+    const { pins, context, statusMap } = config;
     try {
       const state = await readMetadata(pins.state_root, ["state", "linear-collect.json"], "LINEAR_STATE_MISSING", 8 * 1024 * 1024);
       try { validateLinearCollectState(state, context); } catch { fail("LINEAR_STATE_INVALID"); }
@@ -151,8 +195,15 @@ export function createLinearReadEvidenceReader({ root, expectedBinding, now = ()
         fail("LINEAR_READ_RECEIPT_REF_MISMATCH");
       }
       if (evidence.project_scope_ref !== pins.project_scope_ref) fail("LINEAR_PROJECT_SCOPE_MISMATCH");
-      const taskStatus = evidence.task_status === "InProgress" ? "In Progress" : evidence.task_status;
-      if (!["Todo", "In Progress", "Done", "Cancelled"].includes(taskStatus)) fail("LINEAR_TASK_STATUS_UNSUPPORTED");
+      let taskStatus = evidence.task_status === "InProgress" ? "In Progress" : evidence.task_status;
+      if (!CANONICAL_TASK_STATUS.includes(taskStatus)) {
+        const mapped = statusMap?.[evidence.task_status];
+        if (mapped === undefined) fail("LINEAR_TASK_STATUS_UNSUPPORTED");
+        const matches = await committedWorkflowStatesFor(pins.custody_root, state, evidence.task_status);
+        if (matches === 0) fail("LINEAR_TASK_STATUS_UNRESOLVED");
+        if (matches > 1) fail("LINEAR_TASK_STATUS_AMBIGUOUS");
+        taskStatus = mapped;
+      }
       // Recheck the immutable receipt and committed generation after evidence IO.
       const receiptDigest = sha256Canonical(receipt);
       const receiptRechecked = await readMetadata(pins.state_root, ["receipts", `${state.last_run_id}.json`],

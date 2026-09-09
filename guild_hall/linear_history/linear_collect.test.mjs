@@ -830,7 +830,9 @@ test("read evidence is a pure function of the issue snapshot and the binding sco
   const first = readEvidenceRecordForIssue(binding, issue);
   const second = readEvidenceRecordForIssue(binding, structuredClone(issue));
   assert.deepEqual(first, second);
-  assert.equal(first.envelope.evidence.task_status, "InReview");
+  // Compaction dropped a non-space character, so the readable remainder alone
+  // is not a faithful identity and the exact state is carried with it.
+  assert.match(first.envelope.evidence.task_status, /^InReview\.[a-f0-9]{32}$/u);
   assert.equal(first.envelope.evidence.read_receipt_digest, digestOf((({ read_receipt_digest, ...body }) => body)(first.envelope.evidence)));
   for (const sample of [
     null, 1, "x", [1, "a", null, { z: 1, a: [true] }], { b: { d: 2, c: [1, 2] }, a: "é😀" },
@@ -840,6 +842,38 @@ test("read evidence is a pure function of the issue snapshot and the binding sco
     () => readEvidenceRecordForIssue(binding, { ...issue, identifier: "SYN 1" }),
     (error) => error.code === "issue_identifier_unsafe",
   );
+});
+
+test("workflow states that share an ASCII remainder keep distinct stored task statuses", () => {
+  const binding = laneBinding({ privateRoot: path.join(os.tmpdir(), "p"), runtimeRoot: path.join(os.tmpdir(), "r") });
+  const base = {
+    id: "f8091a2b-3c4d-4859-aa6b-465768798a9b",
+    identifier: "SYN-1",
+    project_id: ALPHA_PROJECT_ID,
+    updated_at: "2026-09-01T00:10:00.000Z",
+  };
+  // Three different workspace states whose ASCII remainder is the same "AI".
+  const states = [
+    { state_name: "AI 실행대기", state_id: "8e9fc958-6293-4f8f-92e9-94182333775f" },
+    { state_name: "AI 수행중", state_id: "e47c3598-b97b-43c3-b353-96916a9eb498" },
+    { state_name: "AI 수행완료", state_id: "bb66c002-7c39-4a0f-8faf-adc2a3b591ba" },
+  ];
+  const stored = states.map((state) => readEvidenceRecordForIssue(binding, { ...base, ...state }).envelope.evidence.task_status);
+  assert.equal(new Set(stored).size, states.length);
+  for (const [index, value] of stored.entries()) {
+    assert.equal(value, `AI.${states[index].state_id}`);
+    assert.match(value, /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/u);
+  }
+  // Missing state identity still separates the names instead of merging them.
+  const withoutIds = states.map((state) => readEvidenceRecordForIssue(binding, { ...base, state_name: state.state_name }).envelope.evidence.task_status);
+  assert.equal(new Set(withoutIds).size, states.length);
+  // Names the collector could already store faithfully are left untouched.
+  for (const name of ["Todo", "In Progress", "Done", "Canceled", "Backlog", "Waiting", "Duplicate"]) {
+    assert.equal(
+      readEvidenceRecordForIssue(binding, { ...base, state_name: name, state_id: "ce36ca59-a6e4-44fc-ae36-b9b6f7aecccb" }).envelope.evidence.task_status,
+      name.replace(/\s+/gu, ""),
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------
