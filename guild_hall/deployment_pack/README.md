@@ -4,6 +4,23 @@ Owner: `guild_hall/deployment_pack`. Status: `CURRENT = 계약 데이터 + valid
 
 Program plan 12·16의 배포 규율을 코드로 고정한다: **"release는 폴더나 artifact가 존재한다는 뜻이 아니다."**
 
+Pack builder는 HPP·Team Client·Backup-Recovery의 명세를 카탈로그에 고정된
+emitter의 `--print` 결과와 비교한 뒤 빌드를 시작한다. 파일 목록·검토 pin·vendored
+hash 등이 현재 트리와 다르면 `spec_drifted_from_tree`로 산출물을 쓰기 전에 거부한다.
+명세 자체는 검사기를 바꾸거나 검사를 끌 수 없다. 직접 관리하는 나머지 Pack은
+`not_recomputed_no_emitter`로 기록한다. 변경 내용을 검토한 뒤 현행 emitter로
+재생성하며, 기존 SBOM·source/installed 검사·생애주기 검증은 그대로 적용한다.
+
+`tools/detect_runtime_lane_drift.mjs`는 예약작업 action이 가리키는 Pack/source-lane
+세대와 실제 상주 프로세스 세대를 읽기 전용으로 대조한다. 싱글턴 런처가 이전
+세대를 유지한 채 `LastTaskResult=0`을 보고하는 경우도 구분하며 자동 재시작이나
+재등록은 하지 않는다. 결과는 `drift`, `consistent`, `no_resident`, `unknown`이고
+종료 코드는 차이 관찰 2, 차이 미관찰 0, 질의 실패 1이다. 0은 모든 lane 정상이나
+release 수락을 뜻하지 않는다. `--observation <file>`로 저장된 관측을 재검토하고
+`--json`은 원래 관측도 포함하므로 로컬 운영 자료로 취급한다.
+실행은 `npm run guild-hall:runtime-lane-drift -- --help`, 합성 검증은
+`npm run validate:runtime-lane-drift`이며 루트 validate·done-check에 연결된다.
+
 `main_node`는 이 물리 PC의 **배포 topology 역할**이고, 기존 local bootstrap
 identity `tool_pc`는 CAD/Office/EDA 작업과 Local Activity cadence를 위한 **작업
 capability 역할**이다. 현행 단일값 bootstrap schema를 억지로 덮어쓰지 않으며,

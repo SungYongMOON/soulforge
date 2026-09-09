@@ -18,6 +18,11 @@
 //   Timestamps live only in receipts (injected clock).
 // - fail-closed: a secret-material match, a path outside the repo shape, a
 //   missing file, or a failing unit run refuses the whole build.
+// - fresh-spec preflight: a pack whose PACK_CATALOG entry names an emitter
+//   (`spec_emitter`) is recomputed from the live tree through that emitter
+//   before any other gate runs; a tracked spec the tree has moved past (file
+//   set, scan pins, vendored hashes) refuses the build
+//   (spec_drifted_from_tree) instead of quietly packing a stale file list.
 // - the secret scan decodes bytes as UTF-8 and is therefore TEXT-ONLY: for a
 //   future pack carrying binary payloads it is best-effort, not proof.
 
@@ -45,6 +50,9 @@ const HOST_EFFECT_POLICY_FIELDS = ["reboot", "driver_change", "system_update", "
 function fail(code, detail) {
   const error = new Error(detail ? `${code}:${detail}` : code);
   error.code = code;
+  // Marks a deliberate refusal (as opposed to a Node system error, which
+  // also carries a .code): the CLI prints refusals without a stack.
+  error.refusal = true;
   throw error;
 }
 
@@ -182,6 +190,125 @@ export function nodeTestRunner(entries, { cwd, concurrency, env, timeoutMs = 600
   };
 }
 
+/// Default spec recompute for the fresh-spec preflight: run the pack's
+// emitter (emit_*_spec.mjs, bound per pack_id in PACK_CATALOG) as a child
+// process in --print mode — it emits the spec it would write for the live
+// tree to stdout and, by the emitter contract, writes nothing. A child
+// process rather than an import because the emitters are top-level scripts
+// that themselves import SECRET_MATERIAL from this module. Tests inject a
+// synthetic emitter instead; the CLI uses this one.
+export function nodeSpecEmitter(emitterRelPath, { rootDir }) {
+  const emitterPath = resolve(rootDir, ...emitterRelPath.split("/"));
+  if (!existsSync(emitterPath)) return { ok: false, emitted: null, summary: "emitter_missing" };
+  const result = spawnSync(process.execPath, [emitterPath, "--print"], {
+    cwd: rootDir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, windowsHide: true, timeout: 60_000,
+  });
+  if (result.error || result.status !== 0) {
+    // One stderr line only, capped: an emitter's own guard message is one
+    // line, and anything longer (a stack, a parser echo) could carry file
+    // content into the refusal — paths only, never content. A throwing
+    // emitter dumps a frame header first, so prefer its "Error:" line.
+    const lines = (result.stderr ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const line = lines.find((candidate) => /^\w*(?:Error|Exception)\b/.test(candidate)) ?? lines[0] ?? "";
+    const detail = result.error ? result.error.message : line.slice(0, 200);
+    return { ok: false, emitted: null, summary: `emitter exited ${result.status}${detail ? `: ${detail}` : ""}` };
+  }
+  return { ok: true, emitted: result.stdout, summary: "emitter exited 0" };
+}
+
+const DRIFT_SAMPLE = 3;
+
+// Human-readable drift summary: WHAT moved between the tracked spec and the
+// recomputed one (both parsed), so the operator knows what to re-review
+// before re-emitting (emitting records a review of the scan hits — it must
+// never be blind). Paths, counts and field names only, never content.
+function describeSpecDrift(tracked, emitted) {
+  const sample = (list) => (list.length <= DRIFT_SAMPLE
+    ? list.join(", ")
+    : `${list.slice(0, DRIFT_SAMPLE).join(", ")} +${list.length - DRIFT_SAMPLE} more`);
+  // Tolerant readers: the emitted object is untrusted shape-wise, and this
+  // function only describes a refusal that has already been decided.
+  const rolesIn = (spec) => (spec.content_roles && typeof spec.content_roles === "object" && !Array.isArray(spec.content_roles)
+    ? spec.content_roles : {});
+  const listOf = (value) => (Array.isArray(value) ? value.filter((item) => typeof item === "string") : []);
+  const filesOf = (spec) => new Set(Object.values(rolesIn(spec)).flatMap(listOf));
+  const rolesOf = (spec) => JSON.stringify(Object.keys(rolesIn(spec)).sort()
+    .map((role) => [role, listOf(rolesIn(spec)[role]).sort()]));
+  const pinsOf = (spec) => new Map((Array.isArray(spec.content_scan_reviewed_files) ? spec.content_scan_reviewed_files : [])
+    .filter((entry) => entry && typeof entry === "object" && typeof entry.path === "string")
+    .map((entry) => [entry.path, entry.sha256]));
+  const trackedFiles = filesOf(tracked);
+  const emittedFiles = filesOf(emitted);
+  const trackedPins = pinsOf(tracked);
+  const emittedPins = pinsOf(emitted);
+  const added = [...emittedFiles].filter((path) => !trackedFiles.has(path)).sort();
+  const removed = [...trackedFiles].filter((path) => !emittedFiles.has(path)).sort();
+  const stale = [...emittedPins].filter(([path, sha]) => trackedPins.has(path) && trackedPins.get(path) !== sha).map(([path]) => path).sort();
+  const unpinned = [...emittedPins.keys()].filter((path) => !trackedPins.has(path)).sort();
+  const gone = [...trackedPins.keys()].filter((path) => !emittedPins.has(path)).sort();
+  const trackedVendored = tracked.vendored_file_sha256 ?? {};
+  const vendoredChanged = Object.entries(emitted.vendored_file_sha256 ?? {}).filter(([path, sha]) => trackedVendored[path] !== sha).length;
+  const structural = new Set(["content_roles", "content_scan_reviewed_files", "vendored_file_sha256"]);
+  const otherKeys = [...new Set([...Object.keys(tracked), ...Object.keys(emitted)])]
+    .filter((key) => !structural.has(key) && JSON.stringify(tracked[key]) !== JSON.stringify(emitted[key])).sort();
+  const parts = [];
+  if (added.length) parts.push(`${added.length} file(s) in the tree but not in the spec: ${sample(added)}`);
+  if (removed.length) parts.push(`${removed.length} file(s) in the spec but not in the tree: ${sample(removed)}`);
+  if (!added.length && !removed.length && rolesOf(tracked) !== rolesOf(emitted)) {
+    parts.push("content_roles assignment differs (same files, different roles)");
+  }
+  if (stale.length) parts.push(`${stale.length} scan pin(s) stale (pinned bytes changed): ${sample(stale)}`);
+  if (unpinned.length) parts.push(`${unpinned.length} new scan hit(s) not yet pinned: ${sample(unpinned)}`);
+  if (gone.length) parts.push(`${gone.length} scan pin(s) no longer hit: ${sample(gone)}`);
+  if (vendoredChanged) parts.push(`${vendoredChanged} vendored file hash(es) changed`);
+  if (otherKeys.length) parts.push(`other field(s) differ: ${otherKeys.join(", ")}`);
+  if (parts.length === 0) parts.push("byte difference outside the compared fields (key order, line endings or whitespace)");
+  return `spec drifted from the live tree: ${parts.join("; ")}`;
+}
+
+// Phase 0 (no writes by this builder): a pack whose catalog entry names an
+// emitter must build from EXACTLY what that emitter emits for the live tree
+// now — the same byte comparison the emitters' own --check performs, run
+// here so a build can never quietly pack a stale file list (files added
+// after the last emit would be omitted, new tests would never run, vendored
+// byte pins would be bypassed). The binding lives in PACK_CATALOG, not in
+// the spec: the artifact under audit cannot name (or drop) its own auditor.
+// A pack whose catalog row binds spec_emitter: null is hand-maintained —
+// nothing to recompute against — and the receipt says so instead of
+// implying a check that never happened; every row must declare the key.
+function assertSpecFresh(spec, specPath, { rootDir, emitter }) {
+  const pack = PACK_CATALOG.find((entry) => entry.pack_id === spec.pack_id);
+  if (!pack) fail("pack_id_unknown", String(spec.pack_id));
+  const emitterRel = pack.spec_emitter;
+  if (emitterRel === null || emitterRel === undefined) return { verdict: "not_recomputed_no_emitter", emitter: null };
+  const result = emitter(emitterRel, { rootDir });
+  if (!result || result.ok !== true || typeof result.emitted !== "string") {
+    fail("spec_emitter_failed", `${emitterRel}:${result ? result.summary : "emitter_returned_nothing"}`);
+  }
+  let emittedSpec = null;
+  try {
+    emittedSpec = JSON.parse(result.emitted);
+  } catch {
+    emittedSpec = null;
+  }
+  if (!emittedSpec || typeof emittedSpec !== "object" || Array.isArray(emittedSpec)) {
+    fail("spec_emitter_failed", `${emitterRel}:emitter output is not a spec object`);
+  }
+  const tracked = readFileSync(specPath, "utf8");
+  if (tracked !== result.emitted) {
+    let description;
+    try {
+      description = describeSpecDrift(spec, emittedSpec);
+    } catch {
+      // The refusal is already decided; a describer crash must not turn it
+      // into an uncoded exception.
+      description = "spec drifted from the live tree: emitter output has an unexpected shape";
+    }
+    fail("spec_drifted_from_tree", `${description} -- re-review the scan hits, then re-emit: node ${emitterRel}`);
+  }
+  return { verdict: "matches_live_tree", emitter: emitterRel };
+}
+
 // Phase 1 (pure, no writes): resolve + scan + hash every file, run the unit
 // gate on the SOURCE tree, and assemble the deterministic manifest.
 function prepare(spec, { rootDir, runner }) {
@@ -277,9 +404,10 @@ function prepare(spec, { rootDir, runner }) {
   };
 }
 
-export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestRunner }) {
+export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestRunner, emitter = nodeSpecEmitter }) {
   if (typeof clock !== "function") fail("clock_required");
   const spec = loadPackSpec(specPath);
+  const specFreshness = assertSpecFresh(spec, specPath, { rootDir, emitter });
   const prepared = prepare(spec, { rootDir, runner });
 
   // Phase 2: only after every gate passed, write the artifact. The pack dir
@@ -312,6 +440,9 @@ export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestR
     // The scan-review ledger is VISIBLE in the receipt: how many packed
     // files carry secret-regex hits accepted under exact reviewed pins.
     content_scan: prepared.scan,
+    // Whether this spec was recomputed from the live tree before building: a
+    // hand-maintained spec is marked NOT recomputed rather than passing silently.
+    spec_freshness: specFreshness,
     built_at: clock(),
   }));
   writeFileSync(join(receiptsDir, "unit.receipt.json"), stableJson({
@@ -320,7 +451,7 @@ export function buildPack(specPath, { rootDir, outDir, clock, runner = nodeTestR
   writeFileSync(join(receiptsDir, "contract.receipt.json"), stableJson({
     receipt: "contract", verdict: "ok", claimed_gate: "contract", checked_at: clock(),
   }));
-  return { packDir, manifest: prepared.manifest, candidate: prepared.candidate, sbom: sbom.evidence };
+  return { packDir, manifest: prepared.manifest, candidate: prepared.candidate, sbom: sbom.evidence, specFreshness };
 }
 
 // Integrity check of an installed copy against the manifest — BOTH ways.
@@ -422,8 +553,18 @@ function cliMain() {
   }
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
   const clock = () => new Date().toISOString();
-  const built = buildPack(specPath, { rootDir, outDir, clock });
-  process.stdout.write(`built ${built.manifest.pack_id}@${built.manifest.version} pack_digest=${built.manifest.pack_digest}\n`);
+  let built;
+  try {
+    built = buildPack(specPath, { rootDir, outDir, clock });
+  } catch (error) {
+    // Deliberate refusals carry a code: print the reason without a stack so
+    // the operator reads what to do (spec_drifted_from_tree names the drift
+    // and the emitter to re-run), then exit non-zero.
+    if (!error || error.refusal !== true) throw error;
+    process.stderr.write(`build refused: ${error.message}\n`);
+    process.exit(1);
+  }
+  process.stdout.write(`built ${built.manifest.pack_id}@${built.manifest.version} pack_digest=${built.manifest.pack_digest} spec_freshness=${built.specFreshness.verdict}\n`);
   const installTarget = value("--install-verify");
   if (installTarget) {
     const installed = installPack({ packDir: built.packDir, targetDir: installTarget, clock });
