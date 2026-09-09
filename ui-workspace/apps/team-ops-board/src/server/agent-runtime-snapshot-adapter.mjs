@@ -2,6 +2,7 @@ import { loadAgentRuntimeBindings } from "./agent-runtime-binding-loader.mjs";
 import { createAgentRuntimeReadModule } from "./agent-runtime-read-module.mjs";
 import { createHermesLoopbackReadTransport } from "./hermes-loopback-read-transport.mjs";
 import { createHermesTuiGatewayReadAdapter } from "./hermes-tui-gateway-read-adapter.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const AGENT_RUNTIME_SNAPSHOT_PATH = "/agent-runtime.snapshot.json";
 export const HERMES_AGENT_RUNTIME_URL_ENV = "TEAM_OPS_HERMES_AGENT_RUNTIME_URL";
@@ -31,10 +32,6 @@ function writeJson(response, projection) {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.end(JSON.stringify(projection));
-}
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
 function fixedError(code, message) {
@@ -115,7 +112,7 @@ export function createAgentRuntimeSnapshotAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket?.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

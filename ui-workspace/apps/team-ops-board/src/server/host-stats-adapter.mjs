@@ -7,6 +7,7 @@ import { promises as fsPromises } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { HOST_STATS_SCHEMA_VERSION, cpuPercentFromSamples } from "../core/host-stats.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const HOST_STATS_SNAPSHOT_PATH = "/host-stats.snapshot.json";
 export const DEFAULT_HOST_STATS_SAMPLE_TTL_MS = 5_000;
@@ -31,10 +32,6 @@ function candidateDriveRoots(env = process.env) {
 }
 
 const DEFAULT_DISK_ROOTS = Object.freeze(candidateDriveRoots());
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 function roundPercent(value) {
   return Math.round(Math.min(100, Math.max(0, value)) * 10) / 10;
@@ -191,7 +188,7 @@ export function createHostStatsAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;

@@ -5,6 +5,7 @@ import { resolve, join, relative, isAbsolute, dirname } from 'node:path';
 import { worldCoverageDigest } from '../../../../../guild_hall/requirement_trace/forge_world_coverage.mjs';
 import { REQUIREMENT_COVERAGE_REASON_CODES } from '../../../../../guild_hall/requirement_trace/requirement_coverage.mjs';
 import { projectWorldCoverage } from '../core/forge-world-state.mjs';
+import { isDirectLoopbackRequest } from './loopback-request-guard.mjs';
 
 export const WORLD_COVERAGE_PATH = '/project-coverage.snapshot.json';
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -92,7 +93,7 @@ export function createWorldCoverageAdapterPlugin(options) {
   const configure = server => { server.middlewares.use((request, response, next) => {
     if ((request.url ?? '').split('?')[0] !== WORLD_COVERAGE_PATH) { next(); return; }
     if (request.method !== 'GET') { response.statusCode = 405; response.setHeader('Allow', 'GET'); response.end(); return; }
-    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket?.remoteAddress)) {
+    if (!isDirectLoopbackRequest(request)) {
       response.statusCode = 403; response.end(); return;
     }
     if (request.url.includes('?')) { response.statusCode = 400; response.end(); return; }

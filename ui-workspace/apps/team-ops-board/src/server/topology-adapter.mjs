@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 
 import { resolveSoulforgeStateRoot } from "../../../../../guild_hall/shared/soulforge_state_root.mjs";
+import { EDGE_DELIVERY_STATES } from "../../../../../guild_hall/watchtower/topology.mjs";
+import { isDirectLoopbackRequest } from "./loopback-request-guard.mjs";
 
 export const TOPOLOGY_SNAPSHOT_PATH = "/topology-health.snapshot.json";
 export const TOPOLOGY_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board.topology_projection.v1";
@@ -59,9 +61,7 @@ const EDGE_KEYS = new Set([...EDGE_REQUIRED_KEYS, "scope", "receipt", "unreceipt
 const EDGE_UNRECEIPTED_REASON_SET = new Set([
   "receipt_channel_absent", "probe_observation_only", "structural_only",
 ]);
-const EDGE_DELIVERY_STATE_SET = new Set([
-  "delivering", "late", "stale", "failed", "registered_no_delivery", "unreceipted",
-]);
+const EDGE_DELIVERY_STATE_SET = new Set(EDGE_DELIVERY_STATES);
 const EDGE_DELIVERY_SUMMARY_KEYS = new Set([
   "counts", "total", "delivery_proven", "delivery_unproven", "claim",
 ]);
@@ -185,10 +185,6 @@ const SUPPORTED_KIND_FLOWS = new Set([
   "control:supervisor>gate",
 ]);
 const PRIVACY_KEY_SENTINEL = /(?:^|_)(?:raw|body|html|source_quote|attachment|secret|token|password|passwd|cookie|session|credential|authorization|binding_path|provider_id|email)(?:_|$)/iu;
-
-function isLoopbackAddress(address) {
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-}
 
 function ageSeconds(timestamp, observedNow) {
   return timestamp === null ? null : Math.max(0, Math.floor((observedNow - timestamp) / 1000));
@@ -744,7 +740,7 @@ export function createTopologyAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (!isLoopbackAddress(request.socket.remoteAddress)) {
+      if (!isDirectLoopbackRequest(request)) {
         response.statusCode = 403;
         response.end();
         return;
