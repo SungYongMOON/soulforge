@@ -232,83 +232,6 @@
     {
       "id": "f8091a2b-3c4d-4859-aa6b-465768798a9b",
       "identifier": "SYN-1",
-      "history": {
-        "nodes": [
-          {
-            "id": "aa000001-0000-4000-8000-000000000001",
-            "createdAt": "2026-08-20T00:00:00.000Z",
-            "updatedAt": "2026-08-20T00:00:00.000Z",
-            "actorId": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f",
-            "botActor": null,
-            "fromStateId": null,
-            "toStateId": "a3b4c5d6-e7f8-4304-9526-910213243546",
-            "fromAssigneeId": null,
-            "toAssigneeId": null,
-            "fromCycleId": null,
-            "toCycleId": null,
-            "fromProjectId": null,
-            "toProjectId": null,
-            "fromParentId": null,
-            "toParentId": null,
-            "fromTeamId": null,
-            "toTeamId": null,
-            "fromPriority": null,
-            "toPriority": null,
-            "fromTitle": null,
-            "toTitle": null,
-            "fromDueDate": null,
-            "toDueDate": null,
-            "fromEstimate": null,
-            "toEstimate": null,
-            "addedLabelIds": [],
-            "removedLabelIds": [],
-            "relationChanges": [],
-            "archived": null,
-            "autoArchived": null,
-            "autoClosed": null,
-            "trashed": null,
-            "updatedDescription": null
-          },
-          {
-            "id": "aa000001-0000-4000-8000-000000000002",
-            "createdAt": "2026-09-01T00:10:00.000Z",
-            "updatedAt": "2026-09-01T00:10:00.000Z",
-            "actorId": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f",
-            "botActor": null,
-            "fromStateId": "a3b4c5d6-e7f8-4304-9526-910213243546",
-            "toStateId": "b4c5d6e7-f809-4415-a637-021324354657",
-            "fromAssigneeId": null,
-            "toAssigneeId": null,
-            "fromCycleId": null,
-            "toCycleId": null,
-            "fromProjectId": null,
-            "toProjectId": null,
-            "fromParentId": null,
-            "toParentId": null,
-            "fromTeamId": null,
-            "toTeamId": null,
-            "fromPriority": 0,
-            "toPriority": 2,
-            "fromTitle": null,
-            "toTitle": null,
-            "fromDueDate": null,
-            "toDueDate": null,
-            "fromEstimate": null,
-            "toEstimate": null,
-            "addedLabelIds": [],
-            "removedLabelIds": [],
-            "relationChanges": [],
-            "archived": null,
-            "autoArchived": null,
-            "autoClosed": null,
-            "trashed": null,
-            "updatedDescription": null
-          }
-        ],
-        "pageInfo": {
-          "hasNextPage": false
-        }
-      },
       "number": 1,
       "title": "Synthetic issue one (Cafe\u0301)",
       "description": "Synthetic body one",
@@ -337,60 +260,6 @@
     {
       "id": "091a2b3c-4d5e-496a-8b7c-5768798a9bac",
       "identifier": "SYN-2",
-      "history": {
-        "nodes": [
-          {
-            "id": "aa000002-0000-4000-8000-000000000001",
-            "createdAt": "2026-09-01T00:20:00.000Z",
-            "updatedAt": "2026-09-01T00:20:00.000Z",
-            "actorId": null,
-            "botActor": {
-              "id": "bot-relay",
-              "name": "Forge relay",
-              "type": "workflow",
-              "subType": null
-            },
-            "fromStateId": "a3b4c5d6-e7f8-4304-9526-910213243546",
-            "toStateId": "b4c5d6e7-f809-4415-a637-021324354657",
-            "fromAssigneeId": null,
-            "toAssigneeId": null,
-            "fromCycleId": null,
-            "toCycleId": null,
-            "fromProjectId": null,
-            "toProjectId": null,
-            "fromParentId": null,
-            "toParentId": null,
-            "fromTeamId": null,
-            "toTeamId": null,
-            "fromPriority": null,
-            "toPriority": null,
-            "fromTitle": null,
-            "toTitle": null,
-            "fromDueDate": null,
-            "toDueDate": null,
-            "fromEstimate": null,
-            "toEstimate": null,
-            "addedLabelIds": [
-              "8192a3b4-c5d6-41e2-b304-7f8091021324"
-            ],
-            "removedLabelIds": [],
-            "relationChanges": [
-              {
-                "identifier": "SYN-3",
-                "type": "related"
-              }
-            ],
-            "archived": null,
-            "autoArchived": null,
-            "autoClosed": null,
-            "trashed": null,
-            "updatedDescription": null
-          }
-        ],
-        "pageInfo": {
-          "hasNextPage": false
-        }
-      },
       "number": 2,
       "title": "Synthetic issue two",
       "description": null,
@@ -423,48 +292,6 @@
     {
       "id": "2b3c4d5e-6f70-4b8c-ad9e-798a9bacbdce",
       "identifier": "SYN-3",
-      "history": {
-        "nodes": [
-          {
-            "id": "aa000003-0000-4000-8000-000000000001",
-            "createdAt": "2026-09-01T00:30:00.000Z",
-            "updatedAt": "2026-09-01T00:30:00.000Z",
-            "actorId": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f",
-            "botActor": null,
-            "fromStateId": null,
-            "toStateId": null,
-            "fromAssigneeId": null,
-            "toAssigneeId": null,
-            "fromCycleId": null,
-            "toCycleId": null,
-            "fromProjectId": null,
-            "toProjectId": null,
-            "fromParentId": null,
-            "toParentId": null,
-            "fromTeamId": null,
-            "toTeamId": null,
-            "fromPriority": null,
-            "toPriority": null,
-            "fromTitle": null,
-            "toTitle": null,
-            "fromDueDate": null,
-            "toDueDate": null,
-            "fromEstimate": null,
-            "toEstimate": null,
-            "addedLabelIds": [],
-            "removedLabelIds": [],
-            "relationChanges": [],
-            "archived": null,
-            "autoArchived": null,
-            "autoClosed": null,
-            "trashed": null,
-            "updatedDescription": true
-          }
-        ],
-        "pageInfo": {
-          "hasNextPage": false
-        }
-      },
       "number": 3,
       "title": "Synthetic issue three",
       "description": "Completed synthetic body",
@@ -493,12 +320,6 @@
     {
       "id": "3c4d5e6f-7081-4c9d-be0f-8a9bacbdcedf",
       "identifier": "OPS-1",
-      "history": {
-        "nodes": [],
-        "pageInfo": {
-          "hasNextPage": false
-        }
-      },
       "number": 1,
       "title": "Synthetic operations issue",
       "description": null,
@@ -527,12 +348,6 @@
     {
       "id": "4d5e6f70-8192-4dae-8f10-9bacbdcedfe0",
       "identifier": "SYN-4",
-      "history": {
-        "nodes": [],
-        "pageInfo": {
-          "hasNextPage": false
-        }
-      },
       "number": 4,
       "title": "Synthetic archived issue",
       "description": null,
@@ -561,12 +376,6 @@
     {
       "id": "5e6f7081-92a3-4ebf-9021-acbdcedfe0f1",
       "identifier": "SYN-5",
-      "history": {
-        "nodes": [],
-        "pageInfo": {
-          "hasNextPage": false
-        }
-      },
       "number": 5,
       "title": "Synthetic child issue",
       "description": "Child of synthetic issue one",
@@ -668,6 +477,172 @@
       "onBehalfOf": null,
       "issue": { "id": "3c4d5e6f-7081-4c9d-be0f-8a9bacbdcedf", "identifier": "OPS-1" },
       "parent": null
+    }
+  ],
+  "issue_history": [
+    {
+      "id": "aa000001-0000-4000-8000-000000000001",
+      "createdAt": "2026-08-20T00:00:00.000Z",
+      "updatedAt": "2026-08-20T00:00:00.000Z",
+      "actorId": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f",
+      "botActor": null,
+      "fromStateId": null,
+      "toStateId": "a3b4c5d6-e7f8-4304-9526-910213243546",
+      "fromAssigneeId": null,
+      "toAssigneeId": null,
+      "fromCycleId": null,
+      "toCycleId": null,
+      "fromProjectId": null,
+      "toProjectId": null,
+      "fromParentId": null,
+      "toParentId": null,
+      "fromTeamId": null,
+      "toTeamId": null,
+      "fromPriority": null,
+      "toPriority": null,
+      "fromTitle": null,
+      "toTitle": null,
+      "fromDueDate": null,
+      "toDueDate": null,
+      "fromEstimate": null,
+      "toEstimate": null,
+      "addedLabelIds": [],
+      "removedLabelIds": [],
+      "relationChanges": [],
+      "archived": null,
+      "autoArchived": null,
+      "autoClosed": null,
+      "trashed": null,
+      "updatedDescription": null,
+      "issue": {
+        "id": "f8091a2b-3c4d-4859-aa6b-465768798a9b"
+      }
+    },
+    {
+      "id": "aa000001-0000-4000-8000-000000000002",
+      "createdAt": "2026-09-01T00:10:00.000Z",
+      "updatedAt": "2026-09-01T00:10:00.000Z",
+      "actorId": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f",
+      "botActor": null,
+      "fromStateId": "a3b4c5d6-e7f8-4304-9526-910213243546",
+      "toStateId": "b4c5d6e7-f809-4415-a637-021324354657",
+      "fromAssigneeId": null,
+      "toAssigneeId": null,
+      "fromCycleId": null,
+      "toCycleId": null,
+      "fromProjectId": null,
+      "toProjectId": null,
+      "fromParentId": null,
+      "toParentId": null,
+      "fromTeamId": null,
+      "toTeamId": null,
+      "fromPriority": 0,
+      "toPriority": 2,
+      "fromTitle": null,
+      "toTitle": null,
+      "fromDueDate": null,
+      "toDueDate": null,
+      "fromEstimate": null,
+      "toEstimate": null,
+      "addedLabelIds": [],
+      "removedLabelIds": [],
+      "relationChanges": [],
+      "archived": null,
+      "autoArchived": null,
+      "autoClosed": null,
+      "trashed": null,
+      "updatedDescription": null,
+      "issue": {
+        "id": "f8091a2b-3c4d-4859-aa6b-465768798a9b"
+      }
+    },
+    {
+      "id": "aa000002-0000-4000-8000-000000000001",
+      "createdAt": "2026-09-01T00:20:00.000Z",
+      "updatedAt": "2026-09-01T00:20:00.000Z",
+      "actorId": null,
+      "botActor": {
+        "id": "bot-relay",
+        "name": "Forge relay",
+        "type": "workflow",
+        "subType": null
+      },
+      "fromStateId": "a3b4c5d6-e7f8-4304-9526-910213243546",
+      "toStateId": "b4c5d6e7-f809-4415-a637-021324354657",
+      "fromAssigneeId": null,
+      "toAssigneeId": null,
+      "fromCycleId": null,
+      "toCycleId": null,
+      "fromProjectId": null,
+      "toProjectId": null,
+      "fromParentId": null,
+      "toParentId": null,
+      "fromTeamId": null,
+      "toTeamId": null,
+      "fromPriority": null,
+      "toPriority": null,
+      "fromTitle": null,
+      "toTitle": null,
+      "fromDueDate": null,
+      "toDueDate": null,
+      "fromEstimate": null,
+      "toEstimate": null,
+      "addedLabelIds": [
+        "8192a3b4-c5d6-41e2-b304-7f8091021324"
+      ],
+      "removedLabelIds": [],
+      "relationChanges": [
+        {
+          "identifier": "SYN-3",
+          "type": "related"
+        }
+      ],
+      "archived": null,
+      "autoArchived": null,
+      "autoClosed": null,
+      "trashed": null,
+      "updatedDescription": null,
+      "issue": {
+        "id": "091a2b3c-4d5e-496a-8b7c-5768798a9bac"
+      }
+    },
+    {
+      "id": "aa000003-0000-4000-8000-000000000001",
+      "createdAt": "2026-09-01T00:30:00.000Z",
+      "updatedAt": "2026-09-01T00:30:00.000Z",
+      "actorId": "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f",
+      "botActor": null,
+      "fromStateId": null,
+      "toStateId": null,
+      "fromAssigneeId": null,
+      "toAssigneeId": null,
+      "fromCycleId": null,
+      "toCycleId": null,
+      "fromProjectId": null,
+      "toProjectId": null,
+      "fromParentId": null,
+      "toParentId": null,
+      "fromTeamId": null,
+      "toTeamId": null,
+      "fromPriority": null,
+      "toPriority": null,
+      "fromTitle": null,
+      "toTitle": null,
+      "fromDueDate": null,
+      "toDueDate": null,
+      "fromEstimate": null,
+      "toEstimate": null,
+      "addedLabelIds": [],
+      "removedLabelIds": [],
+      "relationChanges": [],
+      "archived": null,
+      "autoArchived": null,
+      "autoClosed": null,
+      "trashed": null,
+      "updatedDescription": true,
+      "issue": {
+        "id": "2b3c4d5e-6f70-4b8c-ad9e-798a9bacbdce"
+      }
     }
   ]
 }

@@ -858,7 +858,8 @@ function observeTransport(transport) {
     || typeof transport.readWorkspace !== "function"
     || typeof transport.readCatalogPage !== "function"
     || typeof transport.readIssuesPage !== "function"
-    || typeof transport.readCommentsPage !== "function") {
+    || typeof transport.readCommentsPage !== "function"
+    || typeof transport.readIssueHistoryPage !== "function") {
     fail("transport_invalid", "$transport", "Expected a Linear read transport");
   }
   const byOperation = Object.fromEntries(LINEAR_READ_OPERATIONS.map((operation) => [operation, 0]));
@@ -885,6 +886,10 @@ function observeTransport(transport) {
     async readCommentsPage(request) {
       count("linear.read.comments_window");
       return transport.readCommentsPage(request);
+    },
+    async readIssueHistoryPage(request) {
+      count("linear.read.issue_history");
+      return transport.readIssueHistoryPage(request);
     },
     readCalls() {
       return { total, by_operation: { ...byOperation } };
@@ -1072,17 +1077,23 @@ export async function runLinearCollect({
     const issues = await collectPages({
       policy: binding.cursor,
       readPage: (after) => observed.readIssuesPage({ lower: window.lower, upper: window.upper, after }),
-      onNode: async (node) => {
-        // History travels beside the issue, never inside it: destructuring here
-        // is what keeps the stored issue object at its established shape.
-        const { history = { entries: [], truncated: false }, ...issue } = node;
+      onNode: async (issue) => {
         await recordObject("issues", issue.id, issue, issue.updated_at);
         const evidence = readEvidenceRecordForIssue(binding, issue);
         await recordObject("read_evidence", issue.id, evidence.envelope, issue.updated_at);
-        for (const entry of history.entries) {
-          await recordObject("issue_history", entry.id, entry, entry.created_at);
-        }
-        if (history.truncated) gaps.add("issue_history_continuation_pending");
+        // The change log is stored beside the issue, never inside it, so an
+        // issue's custody digest does not move when its history grows. Each
+        // entry is immutable, so re-reading a log costs nothing after the
+        // first time. Paged to the end under the same caps as any collection.
+        const history = await collectPages({
+          policy: binding.cursor,
+          readPage: (after) => observed.readIssueHistoryPage({ issueId: issue.id, after }),
+          onNode: (entry) => recordObject("issue_history", entry.id, entry, entry.created_at),
+          timestamps: [],
+          deadlineReached,
+        });
+        if (history.capped) gaps.add("issue_history_continuation_pending");
+        if (history.deadline) gaps.add("run_deadline_reached");
       },
       timestamps: issueTimestamps,
       deadlineReached,

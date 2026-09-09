@@ -10,7 +10,7 @@
 
 import { canonicalJson, sha256Canonical } from "../shared/project_history_envelope.mjs";
 
-import { LINEAR_READ_OPERATIONS } from "./linear_graphql_client.mjs";
+import { LINEAR_READ_OPERATIONS, readOperationsForReceiptVersion } from "./linear_graphql_client.mjs";
 
 export const LINEAR_COLLECT_RUN_RECEIPT_SCHEMA_VERSION = "soulforge.linear_collect.run_receipt.v2";
 export const LINEAR_COLLECT_CURSOR_SCHEMA_VERSION = "soulforge.linear_collect.cursor.v1";
@@ -236,9 +236,10 @@ export function validateLinearCollectRunReceipt(receipt) {
   validateLinearCollectCursor(receipt.cursor_after, "$receipt.cursor_after");
   exactKeys(receipt.read_calls, READ_CALL_FIELDS, "$receipt.read_calls");
   assertNonnegativeInteger(receipt.read_calls.total, "$receipt.read_calls.total");
-  exactKeys(receipt.read_calls.by_operation, LINEAR_READ_OPERATIONS, "$receipt.read_calls.by_operation");
+  const readOperations = readOperationsForReceiptVersion(receipt.schema_version);
+  exactKeys(receipt.read_calls.by_operation, readOperations, "$receipt.read_calls.by_operation");
   let operationTotal = 0;
-  for (const operation of LINEAR_READ_OPERATIONS) {
+  for (const operation of readOperations) {
     operationTotal += assertNonnegativeInteger(
       receipt.read_calls.by_operation[operation],
       `$receipt.read_calls.by_operation.${operation}`,

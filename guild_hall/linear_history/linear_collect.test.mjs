@@ -50,6 +50,7 @@ import {
 } from "./linear_collect_runner.mjs";
 import { writeCreateOnlyJson } from "./linear_custody.mjs";
 import {
+  LINEAR_ISSUE_HISTORY_DOCUMENT,
   LINEAR_ISSUE_HISTORY_PAGE_SIZE,
   LINEAR_QUERY_DOCUMENTS,
   LINEAR_READ_OPERATIONS,
@@ -400,7 +401,11 @@ test("apply captures the synthetic workspace, re-runs idempotently, and only new
   assert.equal(receipt.cursor_before.watermark, null);
   assert.equal(receipt.cursor_after.watermark, "2026-09-01T02:00:00.000Z");
   assert.equal(receipt.cursor_after.backfill, null);
-  assert.equal(receipt.read_calls.total, 1 + 6 + 1 + 1);
+  // 1 workspace + 6 catalog pages + 1 issues page + 1 comments page, plus one
+  // change-log read for each of the 6 issues the window returned. No issue in
+  // the fixture has a log longer than one page, so none needs a continuation.
+  assert.equal(receipt.read_calls.total, 1 + 6 + 1 + 1 + 6);
+  assert.equal(receipt.read_calls.by_operation["linear.read.issue_history"], 6);
   assert.equal(receipt.organization_id, "8f0a2c1e-4b6d-4c2a-9e3f-1a2b3c4d5e6f");
   const receiptText = JSON.stringify(receipt);
   for (const forbidden of ["Synthetic issue", "example.invalid", lane.privateRoot, SYNTHETIC_API_KEY]) {
@@ -557,6 +562,7 @@ test("the in-process run deadline caps a run under a fake clock, records run_dea
       async readCatalogPage(kind, after) { tick(); return inner.readCatalogPage(kind, after); },
       async readIssuesPage(request) { tick(); return inner.readIssuesPage(request); },
       async readCommentsPage(request) { tick(); return inner.readCommentsPage(request); },
+      async readIssueHistoryPage(request) { tick(); return inner.readIssueHistoryPage(request); },
     };
   };
   const first = await runLinearCollect({
@@ -1134,31 +1140,37 @@ test("an issue's change log is stored beside the issue, never inside it", async 
   assert.deepEqual(again.objects.issue_history, { observed: 0, created: 0, unchanged: 0 });
 });
 
-test("a change log longer than one nested page is declared, not silently shortened", async () => {
-  const lane = await createLaneFixture();
+test("a change log the run could not finish reading is declared, not silently shortened", async () => {
+  // One page per collection, one entry per page: an issue whose log is longer
+  // than that cannot be finished in this run.
+  const lane = await createLaneFixture({ cursor: { max_pages_per_run: 1 } });
   const fixture = await loadSyntheticLinearFixture(FIXTURE_PATH);
-  fixture.issues[2].history.pageInfo.hasNextPage = true;
   const result = await runLinearCollect({
-    ...lane.options, transport_factory: syntheticFactory(fixture),
+    ...lane.options, transport_factory: syntheticFactory(fixture, { page_size: 1, order: "ascending" }),
     clock: fixedClock("2026-09-01T02:00:00.000Z").clock, run_id: "run-h003",
   });
   assert.equal(result.status, "ok");
-  assert.deepEqual(result.coverage_gaps,
-    ["issue_history_continuation_pending", "polling_cannot_prove_hard_deletes"]);
+  assert.ok(result.coverage_gaps.includes("issue_history_continuation_pending"));
   const receipt = await readJson(path.join(lane.stateRoot, "receipts", "run-h003.json"));
   validateLinearCollectRunReceipt(receipt);
   assert.ok(receipt.coverage_gaps.includes("issue_history_continuation_pending"));
 });
 
-test("the change log is read in the issues window, adding no read call of its own", () => {
-  const document = issuesWindowDocument({ lower: "2026-01-01T00:00:00.000Z", upper: "2026-01-02T00:00:00.000Z" });
-  assert.match(document, new RegExp(`history\\(first: ${LINEAR_ISSUE_HISTORY_PAGE_SIZE}, orderBy: createdAt\\)`, "u"));
+test("the change log is read per issue, where it can be continued to its end", () => {
+  // Nesting the log inside the issues window cannot be continued -- a nested
+  // connection takes no per-issue cursor -- and the provider's published cost
+  // rule puts a 50x50 nest far above its single-query ceiling.
+  const window = issuesWindowDocument({ lower: "2026-01-01T00:00:00.000Z", upper: "2026-01-02T00:00:00.000Z" });
+  assert.equal(/history/u.test(window), false);
+
+  const document = LINEAR_ISSUE_HISTORY_DOCUMENT;
+  assert.match(document, /history\(first: \$first, after: \$after, orderBy: createdAt\)/u);
+  assert.match(document, /pageInfo \{ hasNextPage endCursor \}/u);
   assert.match(document, /fromStateId toStateId/u);
   assert.match(document, /botActor \{ id name type subType \}/u);
   assert.doesNotThrow(() => assertReadOnlyDocument(document));
-  // The provider exposes no workspace-wide history connection, so no new read
-  // operation exists to declare; the receipt's call ledger keeps its shape.
-  assert.equal(LINEAR_READ_OPERATIONS.includes("linear.read.issue_history_window"), false);
+  assert.ok(LINEAR_READ_OPERATIONS.includes("linear.read.issue_history"));
+  assert.equal(LINEAR_ISSUE_HISTORY_PAGE_SIZE, 100);
 
   // A provider answering with the wrong shape closes the lane.
   for (const bad of [{ id: "x" }, { createdAt: 5 }, { addedLabelIds: ["nope"] },

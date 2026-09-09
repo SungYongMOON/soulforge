@@ -22,7 +22,19 @@ export const LINEAR_READ_OPERATIONS = Object.freeze([
   "linear.read.cycles",
   "linear.read.issues_window",
   "linear.read.comments_window",
+  "linear.read.issue_history",
 ]);
+// The call ledger a receipt reports is fixed by the version it declares, exactly
+// as its object kinds are. Receipts issued before the change log was collected
+// stay valid without the operation that did not exist when they were written.
+const READ_OPERATIONS_BEFORE_ISSUE_HISTORY = Object.freeze(
+  LINEAR_READ_OPERATIONS.filter((operation) => operation !== "linear.read.issue_history"),
+);
+export function readOperationsForReceiptVersion(schemaVersion) {
+  if (schemaVersion === "soulforge.linear_collect.run_receipt.v1") return READ_OPERATIONS_BEFORE_ISSUE_HISTORY;
+  if (schemaVersion === "soulforge.linear_collect.run_receipt.v2") return LINEAR_READ_OPERATIONS;
+  return null;
+}
 export const LINEAR_CATALOG_KINDS = Object.freeze([
   "teams",
   "users",
@@ -367,13 +379,15 @@ function windowLiteral(value, field) {
 }
 
 // Issue history is reachable only through the issue that owns it: the provider
-// exposes no workspace-wide history connection. It therefore rides inside the
-// issues window rather than costing one extra call per issue. The nested page
-// is bounded; an issue whose history exceeds it is reported as a coverage gap
-// instead of being silently shortened.
-export const LINEAR_ISSUE_HISTORY_PAGE_SIZE = 50;
+// exposes no workspace-wide history connection. Nesting it inside the issues
+// window is possible but cannot be continued -- a nested connection takes no
+// per-issue cursor -- and the provider's published cost rule puts a 50x50 nest
+// at roughly 18,000 points against a 10,000 ceiling for a single query. So the
+// history of each issue the window returned is read on its own, where it can be
+// paged to the end and stays near 600 points a page.
+export const LINEAR_ISSUE_HISTORY_PAGE_SIZE = 100;
 
-const ISSUE_HISTORY_SELECTION = `history(first: ${LINEAR_ISSUE_HISTORY_PAGE_SIZE}, orderBy: createdAt) {
+const ISSUE_HISTORY_SELECTION = `history(first: $first, after: $after, orderBy: createdAt) {
         nodes {
           id createdAt updatedAt actorId
           botActor { id name type subType }
@@ -391,8 +405,15 @@ const ISSUE_HISTORY_SELECTION = `history(first: ${LINEAR_ISSUE_HISTORY_PAGE_SIZE
           relationChanges { identifier type }
           archived autoArchived autoClosed trashed updatedDescription
         }
-        pageInfo { hasNextPage }
+        ${PAGE_INFO}
       }`;
+
+export const LINEAR_ISSUE_HISTORY_DOCUMENT = `query SoulforgeLinearIssueHistory($issueId: String!, $first: Int!, $after: String) {
+  issue(id: $issueId) {
+    id
+    ${ISSUE_HISTORY_SELECTION}
+  }
+}`;
 
 export function issuesWindowDocument({ lower, upper }) {
   return `query SoulforgeLinearIssuesWindow($first: Int!, $after: String) {
@@ -410,7 +431,6 @@ export function issuesWindowDocument({ lower, upper }) {
       parent { id }
       labels { nodes { id } }
       relations { nodes { id type relatedIssue { id } } }
-      ${ISSUE_HISTORY_SELECTION}
     }
     ${PAGE_INFO}
   }
@@ -766,29 +786,29 @@ export function normalizeIssueHistoryEntry(node, issueId) {
 
 // `truncated` is the honest answer when the bounded nested page did not reach
 // the end of an issue's history. The caller turns it into a coverage gap.
-export function normalizeIssueHistoryPage(node, issueId) {
-  const connection = node.history ?? null;
-  if (connection === null || connection === undefined) return { entries: [], truncated: false };
-  plain(connection, "issue.history");
+// One continuation page of a single issue's change log, in the same page shape
+// the runner's pager already consumes for every other collection.
+export function normalizeIssueHistoryPage(data, issueId) {
+  const issue = data?.issue ?? null;
+  // A window issue the credential can no longer resolve is not an error here:
+  // the run reports an empty final page and the issue keeps whatever history
+  // custody already holds.
+  if (issue === null || issue === undefined) return { nodes: [], has_next_page: false, end_cursor: null };
+  plain(issue, "issue");
+  if (uuid(issue.id, "issue.id") !== issueId) fail("provider_shape_invalid", "issue.history is not the requested issue");
+  const connection = plain(issue.history ?? {}, "issue.history");
   if (!Array.isArray(connection.nodes)) fail("provider_shape_invalid", "Expected issue.history nodes");
   const info = plain(connection.pageInfo ?? {}, "issue.history.pageInfo");
   if (info.hasNextPage !== undefined && typeof info.hasNextPage !== "boolean") {
     fail("provider_shape_invalid", "Expected a boolean for issue.history.pageInfo.hasNextPage");
   }
   return {
-    entries: connection.nodes
+    nodes: connection.nodes
       .map((entry) => normalizeIssueHistoryEntry(entry, issueId))
       .sort((left, right) => left.id.localeCompare(right.id)),
-    truncated: info.hasNextPage === true,
+    has_next_page: info.hasNextPage === true,
+    end_cursor: info.endCursor ?? null,
   };
-}
-
-// The window node the runner consumes. `history` is a sibling of the issue, not
-// a field of it: the stored issue object keeps the exact shape it always had,
-// so an issue's custody digest does not move when its history grows.
-export function normalizeIssueWindowNode(node) {
-  const issue = normalizeIssue(node);
-  return { ...issue, history: normalizeIssueHistoryPage(node, issue.id) };
 }
 
 export function normalizeComment(node) {
@@ -877,7 +897,7 @@ export function createLinearGraphqlTransport({
         first: pageSize,
         after,
       });
-      return normalizeConnectionPage(data.issues, normalizeIssueWindowNode, "issues");
+      return normalizeConnectionPage(data.issues, normalizeIssue, "issues");
     },
     async readCommentsPage({ lower, upper, after = null }) {
       const data = await call("linear.read.comments_window", commentsWindowDocument({ lower, upper }), {
@@ -885,6 +905,14 @@ export function createLinearGraphqlTransport({
         after,
       });
       return normalizeConnectionPage(data.comments, normalizeComment, "comments");
+    },
+    async readIssueHistoryPage({ issueId, after = null }) {
+      const data = await call("linear.read.issue_history", LINEAR_ISSUE_HISTORY_DOCUMENT, {
+        issueId,
+        first: LINEAR_ISSUE_HISTORY_PAGE_SIZE,
+        after,
+      });
+      return normalizeIssueHistoryPage(data, issueId);
     },
   });
 }

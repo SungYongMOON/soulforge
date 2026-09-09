@@ -4,11 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 import { sha256Canonical } from '../shared/project_history_envelope.mjs';
-import { LINEAR_READ_OPERATIONS } from '../linear_history/linear_graphql_client.mjs';
 import { runReceiptObjectKinds, validateLinearCollectRunReceipt } from '../linear_history/linear_collect_receipt.mjs';
 import { identityDigestForBinding, readEvidenceRecordForIssue } from '../linear_history/linear_collect_runner.mjs';
 import { createLinearReadEvidenceReader } from '../linear_history/linear_read_evidence_reader.mjs';
 import { createLinearFeedbackSource } from './feedback_linear_source.mjs';
+import { readOperationsForReceiptVersion } from '../linear_history/linear_graphql_client.mjs';
 
 const ISSUE = 'f8091a2b-3c4d-4859-aa6b-465768798a9b';
 const COMPLETED = '2026-09-07T00:00:00.000Z';
@@ -62,7 +62,7 @@ async function fixture() {
     organization_id: expectedBinding.organization_id, started_at: COMPLETED, completed_at: COMPLETED, duration_ms: 0,
     window: { lower: '2026-09-06T23:45:00.000Z', upper: COMPLETED, phase: 'delta', order_observed: 'ascending' },
     cursor_before: { ...cursor, generation_seq: 1 }, cursor_after: cursor,
-    read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(key => [key, 0])) },
+    read_calls: { total: 0, by_operation: Object.fromEntries(readOperationsForReceiptVersion('soulforge.linear_collect.run_receipt.v1').map(key => [key, 0])) },
     objects: Object.fromEntries(runReceiptObjectKinds('soulforge.linear_collect.run_receipt.v1').map(key => [key, { observed: 0, created: 0, unchanged: 0 }])),
     custody_manifest_digest: DIGEST, coverage_gaps: ['polling_cannot_prove_hard_deletes'], error_codes: [],
     repository_writes: 0, private_writes: 3, network_used: false };

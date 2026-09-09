@@ -15,9 +15,9 @@ import { createFeedbackRuntimeIssuer } from '../../dev_worker/feedback_runtime_s
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 import { identityDigestForBinding, readEvidenceRecordForIssue } from '../../linear_history/linear_collect_runner.mjs';
 import { canonicalBytes } from '../../linear_history/linear_custody.mjs';
-import { LINEAR_READ_OPERATIONS } from '../../linear_history/linear_graphql_client.mjs';
 import { runReceiptObjectKinds } from '../../linear_history/linear_collect_receipt.mjs';
 import { computeUnverifiedAgentApprovalClaimDigest, AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA, AGENT_AUTHORITY_CURRENT_STATE_SCHEMA } from '../../agent_observation/agent_authority_verification.mjs';
+import { readOperationsForReceiptVersion } from '../../linear_history/linear_graphql_client.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const KIT = process.env.SOULFORGE_SECURE_WORK_KIT_ROOT;
@@ -128,7 +128,7 @@ async function fixture(t) {
   await save(path.join(stateRoot, 'receipts/run-1.json'), { schema_version: 'soulforge.linear_collect.run_receipt.v1', lane_id: binding.lane_id, run_id: 'run-1', generation_seq: 1,
     mode: 'apply', status: 'ok', writer_authority_id: pins.writer_authority_id, writer_epoch: 1, binding_sha256: SHA, workspace_url_key: pins.workspace_url_key,
     organization_id: pins.organization_id, started_at: completed, completed_at: completed, duration_ms: 0, window: { lower: from, upper: completed, phase: 'delta', order_observed: 'ascending' },
-    cursor_before: { ...cursor, generation_seq: 0 }, cursor_after: cursor, read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(k => [k, 0])) },
+    cursor_before: { ...cursor, generation_seq: 0 }, cursor_after: cursor, read_calls: { total: 0, by_operation: Object.fromEntries(readOperationsForReceiptVersion('soulforge.linear_collect.run_receipt.v1').map(k => [k, 0])) },
     objects: Object.fromEntries(runReceiptObjectKinds('soulforge.linear_collect.run_receipt.v1').map(k => [k, { observed: 0, created: 0, unchanged: 0 }])), custody_manifest_digest: SHA,
     coverage_gaps: ['polling_cannot_prove_hard_deletes'], error_codes: [], repository_writes: 0, private_writes: 3, network_used: false });
   let profilePin = await save(path.join(root, 'profile.json'), profile);

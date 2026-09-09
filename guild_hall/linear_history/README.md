@@ -179,12 +179,22 @@ and tampered records HOLD.
 
 ## Issue change log
 
-Linear exposes no workspace-wide history connection, so an issue's change log
-is read as a bounded nested page inside the issues window: it costs no extra
-read call and adds no read operation to the receipt's call ledger. Entries are
-stored under their own kind, never inside the issue object, so a growing change
-log does not move an issue's custody digest. Each entry is immutable, so
-create-only custody stores it exactly once.
+Linear exposes no workspace-wide history connection: a change log is reachable
+only through the issue that owns it. Nesting it inside the issues window was
+rejected on two grounds. A nested connection takes no per-issue cursor, so it
+could never be continued past its first page; and under the provider's
+published cost rule (a property 0.1, an object 1, a connection multiplying its
+children by its pagination argument, ceiling 10,000 for one query) a 50x50 nest
+scores about 18,000. So each issue the window returned has its own
+`linear.read.issue_history` read, paged to the end at about 573 points a page,
+while the issues window itself is unchanged at about 3,985.
+
+Entries are stored under their own kind, never inside the issue object, so a
+growing change log does not move an issue's custody digest. Each entry is
+immutable, so create-only custody stores it exactly once and re-reading a log
+costs nothing after the first time. In steady state only the few issues that
+changed in the window are read; the first run after a lane switch reads every
+issue's log once and recovers the history back to issue creation.
 
 An entry records who (`actor_id`, or `bot_actor` when a bot made the change),
 when (`created_at`), and what moved to what (`from_state_id`/`to_state_id`,
@@ -194,17 +204,17 @@ assignee, cycle, project, parent, team, priority, title, due date, estimate,
 flags). The provider's free-form `changes` blob is deliberately not stored: it
 is unbounded and its shape is not contracted.
 
-If an issue's change log is longer than the nested page the run records the
-coverage gap `issue_history_continuation_pending` rather than storing a
-silently shortened log. That gap does not bear on whether an issue's status is
+If a run cannot finish reading a change log within `max_pages_per_run` or the
+run deadline it records the coverage gap `issue_history_continuation_pending`
+rather than storing a silently shortened log; a later run continues it. That gap does not bear on whether an issue's status is
 current -- the run still observed every issue in its window -- so the
 read-evidence reader keeps serving tasks and passes the gap through on the
 observation instead of closing the whole projection.
 
-Receipts already on disk declare `run_receipt.v1` and report the ten kinds that
-existed before the change log was collected. The version a receipt declares
-fixes its own shape, so those receipts stay valid exactly as issued and a
-consumer reading them is unaffected by the new kind.
+Receipts already on disk declare `run_receipt.v1`: ten object kinds and a call
+ledger without `linear.read.issue_history`. The version a receipt declares fixes
+its own shape, so those receipts stay valid exactly as issued and a consumer
+reading them is unaffected by the new kind or the new read operation.
 
 ## Delta capture
 

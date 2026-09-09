@@ -12,9 +12,9 @@ import { verifyInstallation, executeVerified } from '../sfx.mjs';
 import { readFileSync } from 'node:fs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 import { readEvidenceRecordForIssue, identityDigestForBinding } from '../../linear_history/linear_collect_runner.mjs';
-import { LINEAR_READ_OPERATIONS } from '../../linear_history/linear_graphql_client.mjs';
 import { runReceiptObjectKinds } from '../../linear_history/linear_collect_receipt.mjs';
 import { canonicalBytes } from '../../linear_history/linear_custody.mjs';
+import { readOperationsForReceiptVersion } from '../../linear_history/linear_graphql_client.mjs';
 
 const ISSUE = 'f8091a2b-3c4d-4859-aa6b-465768798a9b', OTHER = 'b8091a2b-3c4d-4859-aa6b-465768798a9b';
 const NOW = Date.now(), TIME = new Date(NOW).toISOString();
@@ -53,7 +53,7 @@ async function fixture(t, { stateName = 'Todo' } = {}) {
     organization_id: expectedBinding.organization_id, started_at: TIME, completed_at: TIME, duration_ms: 0,
     window: { lower: TIME, upper: TIME, phase: 'delta', order_observed: 'ascending' },
     cursor_before: { ...cursor, generation_seq: 1 }, cursor_after: cursor,
-    read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(k => [k, 0])) },
+    read_calls: { total: 0, by_operation: Object.fromEntries(readOperationsForReceiptVersion('soulforge.linear_collect.run_receipt.v1').map(k => [k, 0])) },
     objects: Object.fromEntries(runReceiptObjectKinds(receiptSchemaVersion).map(k => [k, { observed: 0, created: 0, unchanged: 0 }])),
     custody_manifest_digest: SHA, coverage_gaps: ['polling_cannot_prove_hard_deletes'], error_codes: [],
     repository_writes: 0, private_writes: 3, network_used: false };
