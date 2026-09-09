@@ -1072,10 +1072,17 @@ export async function runLinearCollect({
     const issues = await collectPages({
       policy: binding.cursor,
       readPage: (after) => observed.readIssuesPage({ lower: window.lower, upper: window.upper, after }),
-      onNode: async (issue) => {
+      onNode: async (node) => {
+        // History travels beside the issue, never inside it: destructuring here
+        // is what keeps the stored issue object at its established shape.
+        const { history = { entries: [], truncated: false }, ...issue } = node;
         await recordObject("issues", issue.id, issue, issue.updated_at);
         const evidence = readEvidenceRecordForIssue(binding, issue);
         await recordObject("read_evidence", issue.id, evidence.envelope, issue.updated_at);
+        for (const entry of history.entries) {
+          await recordObject("issue_history", entry.id, entry, entry.created_at);
+        }
+        if (history.truncated) gaps.add("issue_history_continuation_pending");
       },
       timestamps: issueTimestamps,
       deadlineReached,

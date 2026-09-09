@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 import { readEvidenceRecordForIssue, identityDigestForBinding } from '../../linear_history/linear_collect_runner.mjs';
 import { LINEAR_READ_OPERATIONS } from '../../linear_history/linear_graphql_client.mjs';
-import { LINEAR_COLLECT_OBJECT_KINDS } from '../../linear_history/linear_collect_receipt.mjs';
+import { runReceiptObjectKinds } from '../../linear_history/linear_collect_receipt.mjs';
 import { canonicalBytes } from '../../linear_history/linear_custody.mjs';
 
 const ISSUE = 'f8091a2b-3c4d-4859-aa6b-465768798a9b', OTHER = 'b8091a2b-3c4d-4859-aa6b-465768798a9b';
@@ -44,14 +44,17 @@ async function fixture(t, { stateName = 'Todo' } = {}) {
       [`issues:${ISSUE}`]: { content_sha256: envelope.issue_content_sha256, updated_at: TIME },
       [`read_evidence:${ISSUE}`]: { content_sha256: digest, updated_at: TIME },
     }, last_run_id: 'run-synthetic', last_completed_at: TIME };
-  const receipt = { schema_version: 'soulforge.linear_collect.run_receipt.v1', lane_id: binding.lane_id,
+  // The receipt version fixes which object kinds the run reports. This one
+  // matches what is on disk in front of the running collector today.
+  const receiptSchemaVersion = 'soulforge.linear_collect.run_receipt.v1';
+  const receipt = { schema_version: receiptSchemaVersion, lane_id: binding.lane_id,
     run_id: state.last_run_id, generation_seq: 2, mode: 'apply', status: 'ok', writer_authority_id: binding.writer.authority_id,
     writer_epoch: 1, binding_sha256: SHA, workspace_url_key: expectedBinding.workspace_url_key,
     organization_id: expectedBinding.organization_id, started_at: TIME, completed_at: TIME, duration_ms: 0,
     window: { lower: TIME, upper: TIME, phase: 'delta', order_observed: 'ascending' },
     cursor_before: { ...cursor, generation_seq: 1 }, cursor_after: cursor,
     read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(k => [k, 0])) },
-    objects: Object.fromEntries(LINEAR_COLLECT_OBJECT_KINDS.map(k => [k, { observed: 0, created: 0, unchanged: 0 }])),
+    objects: Object.fromEntries(runReceiptObjectKinds(receiptSchemaVersion).map(k => [k, { observed: 0, created: 0, unchanged: 0 }])),
     custody_manifest_digest: SHA, coverage_gaps: ['polling_cannot_prove_hard_deletes'], error_codes: [],
     repository_writes: 0, private_writes: 3, network_used: false };
   const rawFile = path.join(root, 'issues', ISSUE, `${envelope.issue_content_sha256.slice(7)}.json`);

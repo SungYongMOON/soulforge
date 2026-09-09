@@ -14,7 +14,7 @@ import { runtimeHash as hash } from './feedback_runtime_io.mjs';
 import { sha256Canonical } from '../shared/project_history_envelope.mjs';
 import { computeUnverifiedAgentApprovalClaimDigest, AGENT_AUTHORITY_TRUSTED_PIN_SCHEMA, AGENT_AUTHORITY_CURRENT_STATE_SCHEMA } from '../agent_observation/agent_authority_verification.mjs';
 import { LINEAR_READ_OPERATIONS } from '../linear_history/linear_graphql_client.mjs';
-import { LINEAR_COLLECT_OBJECT_KINDS } from '../linear_history/linear_collect_receipt.mjs';
+import { runReceiptObjectKinds } from '../linear_history/linear_collect_receipt.mjs';
 import { identityDigestForBinding, readEvidenceRecordForIssue, taskStatusTokenForWorkflowState } from '../linear_history/linear_collect_runner.mjs';
 import { startFeedbackCurrentnessServer } from '../secure_work/feedback_currentness_transport.mjs';
 
@@ -138,7 +138,7 @@ export async function runtimeFixture(t, { root: suppliedRoot = null, keep = fals
       started_at: completed, completed_at: completed, duration_ms: 0, window: { lower: from, upper: completed, phase: 'delta', order_observed: 'ascending' },
       cursor_before: { ...cursor, generation_seq: generation - 1 }, cursor_after: cursor,
       read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(k => [k, 0])) },
-      objects: Object.fromEntries(LINEAR_COLLECT_OBJECT_KINDS.map(k => [k, { observed: 0, created: 0, unchanged: 0 }])),
+      objects: Object.fromEntries(runReceiptObjectKinds('soulforge.linear_collect.run_receipt.v1').map(k => [k, { observed: 0, created: 0, unchanged: 0 }])),
       custody_manifest_digest: SHA, coverage_gaps: ['polling_cannot_prove_hard_deletes'], error_codes: [], repository_writes: 0, private_writes: 3, network_used: false };
     await save(path.join(stateRoot, 'receipts', `${state.last_run_id}.json`), receipt);
     await save(path.join(stateRoot, 'state', 'linear-collect.json'), state);

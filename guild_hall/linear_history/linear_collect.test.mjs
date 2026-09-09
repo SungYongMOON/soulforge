@@ -29,6 +29,8 @@ import {
 } from "./linear_collect_launcher.mjs";
 import {
   LINEAR_COLLECT_COVERAGE_GAPS,
+  LINEAR_COLLECT_OBJECT_KINDS,
+  runReceiptObjectKinds,
   validateLinearCollectRunReceipt,
 } from "./linear_collect_receipt.mjs";
 import {
@@ -48,6 +50,7 @@ import {
 } from "./linear_collect_runner.mjs";
 import { writeCreateOnlyJson } from "./linear_custody.mjs";
 import {
+  LINEAR_ISSUE_HISTORY_PAGE_SIZE,
   LINEAR_QUERY_DOCUMENTS,
   LINEAR_READ_OPERATIONS,
   LinearClientError,
@@ -56,6 +59,7 @@ import {
   createLinearGraphqlCall,
   normalizeComment,
   normalizeIssue,
+  normalizeIssueHistoryEntry,
   issuesWindowDocument,
   loadLinearApiKey,
 } from "./linear_graphql_client.mjs";
@@ -377,9 +381,11 @@ test("apply captures the synthetic workspace, re-runs idempotently, and only new
   assert.deepEqual(first.objects.read_evidence, { observed: 6, created: 6, unchanged: 0 });
   assert.deepEqual(first.objects.workspace, { observed: 1, created: 1, unchanged: 0 });
   assert.deepEqual(first.objects.projects, { observed: 3, created: 3, unchanged: 0 });
+  // Two changes on SYN-1, one on SYN-2, one on SYN-3; the other issues have none.
+  assert.deepEqual(first.objects.issue_history, { observed: 4, created: 4, unchanged: 0 });
   assert.deepEqual(first.coverage_gaps, ["polling_cannot_prove_hard_deletes"]);
   const custodyFiles = await listFilesRecursively(lane.custodyRoot);
-  assert.equal(custodyFiles.length, 1 + 2 + 3 + 3 + 2 + 4 + 1 + 6 + 5 + 6);
+  assert.equal(custodyFiles.length, 1 + 2 + 3 + 3 + 2 + 4 + 1 + 6 + 5 + 6 + 4);
   assert.ok(custodyFiles.every((entry) => /^[a-z_]+\/[0-9a-f-]{36}\/[0-9a-f]{64}\.json$/u.test(entry)), custodyFiles.join("\n"));
   const serialized = JSON.stringify(first);
   for (const forbidden of [lane.privateRoot, lane.runtimeRoot, SYNTHETIC_API_KEY, "Synthetic issue one"]) {
@@ -403,7 +409,7 @@ test("apply captures the synthetic workspace, re-runs idempotently, and only new
   const health = await healthOf(lane);
   assert.equal(health.status, "ok");
   assert.equal(health.cursor_watermark, "2026-09-01T02:00:00.000Z");
-  assert.equal(health.objects_created, 33);
+  assert.equal(health.objects_created, 37);
 
   clock.set("2026-09-01T02:15:00.000Z");
   const second = await runLinearCollect({
@@ -441,7 +447,7 @@ test("apply captures the synthetic workspace, re-runs idempotently, and only new
   const state = await readJson(path.join(lane.stateRoot, "state", "linear-collect.json"));
   assert.equal(state.cursor.watermark, "2026-09-01T02:30:00.000Z");
   assert.equal(state.last_run_id, "run-0003");
-  assert.equal(Object.keys(state.object_index).length, 33);
+  assert.equal(Object.keys(state.object_index).length, 37);
 
   clock.set("2026-09-01T02:45:00.000Z");
   const fourth = await runLinearCollect({
@@ -1077,6 +1083,100 @@ test("a comment keeps the description text it answers and the user it was writte
   assert.match(document, /quotedText/u);
   assert.match(document, /onBehalfOf \{ id \}/u);
   assert.doesNotThrow(() => assertReadOnlyDocument(document));
+});
+
+test("an issue's change log is stored beside the issue, never inside it", async () => {
+  const lane = await createLaneFixture();
+  const fixture = await loadSyntheticLinearFixture(FIXTURE_PATH);
+  const clock = fixedClock("2026-09-01T02:00:00.000Z");
+  const result = await runLinearCollect({
+    ...lane.options, transport_factory: syntheticFactory(fixture), clock: clock.clock, run_id: "run-h001",
+  });
+  assert.deepEqual(result.objects.issue_history, { observed: 4, created: 4, unchanged: 0 });
+
+  // The stored issue keeps its established shape. A growing change log must not
+  // move an issue's custody digest, or every consumer pinned to it would break.
+  const issueOne = fixture.issues[0];
+  const issueDirectory = path.join(lane.custodyRoot, "issues", issueOne.id);
+  const [issueFile] = await readdir(issueDirectory);
+  const storedIssue = await readJson(path.join(issueDirectory, issueFile));
+  assert.equal("history" in storedIssue.object, false);
+  assert.deepEqual(Object.keys(storedIssue.object).sort(),
+    Object.keys(normalizeIssue(issueOne)).sort());
+
+  // Who, when, and what moved to what.
+  const historyRoot = path.join(lane.custodyRoot, "issue_history");
+  const entryIds = (await readdir(historyRoot)).sort();
+  assert.equal(entryIds.length, 4);
+  const move = await readJson(path.join(historyRoot, "aa000001-0000-4000-8000-000000000002",
+    (await readdir(path.join(historyRoot, "aa000001-0000-4000-8000-000000000002")))[0]));
+  assert.equal(move.object.issue_id, issueOne.id);
+  assert.equal(move.object.actor_id, "3c4d5e6f-7081-4c9d-aebf-2a3b4c5d6e7f");
+  assert.equal(move.object.from_state_id, "a3b4c5d6-e7f8-4304-9526-910213243546");
+  assert.equal(move.object.to_state_id, "b4c5d6e7-f809-4415-a637-021324354657");
+  assert.equal(move.object.created_at, "2026-09-01T00:10:00.000Z");
+  assert.equal(move.object.bot_actor, null);
+
+  // A change made by a bot names the bot instead of inventing a human actor.
+  const byBot = await readJson(path.join(historyRoot, "aa000002-0000-4000-8000-000000000001",
+    (await readdir(path.join(historyRoot, "aa000002-0000-4000-8000-000000000001")))[0]));
+  assert.equal(byBot.object.actor_id, null);
+  assert.deepEqual(byBot.object.bot_actor,
+    { id: "bot-relay", name: "Forge relay", type: "workflow", sub_type: null });
+  assert.deepEqual(byBot.object.added_label_ids, ["8192a3b4-c5d6-41e2-b304-7f8091021324"]);
+  assert.deepEqual(byBot.object.relation_changes, [{ identifier: "SYN-3", type: "related" }]);
+
+  // History entries are immutable, so a second run creates nothing new.
+  clock.set("2026-09-01T02:15:00.000Z");
+  const again = await runLinearCollect({
+    ...lane.options, transport_factory: syntheticFactory(fixture), clock: clock.clock, run_id: "run-h002",
+  });
+  assert.deepEqual(again.objects.issue_history, { observed: 0, created: 0, unchanged: 0 });
+});
+
+test("a change log longer than one nested page is declared, not silently shortened", async () => {
+  const lane = await createLaneFixture();
+  const fixture = await loadSyntheticLinearFixture(FIXTURE_PATH);
+  fixture.issues[2].history.pageInfo.hasNextPage = true;
+  const result = await runLinearCollect({
+    ...lane.options, transport_factory: syntheticFactory(fixture),
+    clock: fixedClock("2026-09-01T02:00:00.000Z").clock, run_id: "run-h003",
+  });
+  assert.equal(result.status, "ok");
+  assert.deepEqual(result.coverage_gaps,
+    ["issue_history_continuation_pending", "polling_cannot_prove_hard_deletes"]);
+  const receipt = await readJson(path.join(lane.stateRoot, "receipts", "run-h003.json"));
+  validateLinearCollectRunReceipt(receipt);
+  assert.ok(receipt.coverage_gaps.includes("issue_history_continuation_pending"));
+});
+
+test("the change log is read in the issues window, adding no read call of its own", () => {
+  const document = issuesWindowDocument({ lower: "2026-01-01T00:00:00.000Z", upper: "2026-01-02T00:00:00.000Z" });
+  assert.match(document, new RegExp(`history\\(first: ${LINEAR_ISSUE_HISTORY_PAGE_SIZE}, orderBy: createdAt\\)`, "u"));
+  assert.match(document, /fromStateId toStateId/u);
+  assert.match(document, /botActor \{ id name type subType \}/u);
+  assert.doesNotThrow(() => assertReadOnlyDocument(document));
+  // The provider exposes no workspace-wide history connection, so no new read
+  // operation exists to declare; the receipt's call ledger keeps its shape.
+  assert.equal(LINEAR_READ_OPERATIONS.includes("linear.read.issue_history_window"), false);
+
+  // A provider answering with the wrong shape closes the lane.
+  for (const bad of [{ id: "x" }, { createdAt: 5 }, { addedLabelIds: ["nope"] },
+    { relationChanges: [{ identifier: "SYN-1" }] }, { archived: "yes" }]) {
+    assert.throws(() => normalizeIssueHistoryEntry({
+      id: "aa000001-0000-4000-8000-000000000001", createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z", ...bad,
+    }, "f8091a2b-3c4d-4859-aa6b-465768798a9b"),
+    (error) => error instanceof LinearClientError && error.code === "provider_shape_invalid");
+  }
+});
+
+test("receipts written before the change log was collected stay valid as issued", () => {
+  const kinds = runReceiptObjectKinds("soulforge.linear_collect.run_receipt.v1");
+  assert.ok(Array.isArray(kinds));
+  assert.equal(kinds.includes("issue_history"), false);
+  assert.ok(LINEAR_COLLECT_OBJECT_KINDS.includes("issue_history"));
+  assert.equal(runReceiptObjectKinds("soulforge.linear_collect.run_receipt.v0"), null);
 });
 
 test("the GraphQL call is read-only, bounded, and redacts the credential in every failure", async () => {

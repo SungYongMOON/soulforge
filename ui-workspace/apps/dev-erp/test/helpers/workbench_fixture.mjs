@@ -9,7 +9,7 @@ import { mapTaskHierarchy, taskHierarchyDataDigest } from '../../../../../guild_
 import { requesterForAccount } from '../../src/workbench_current_sources.mjs';
 import { sha256Canonical } from '../../../../../guild_hall/shared/project_history_envelope.mjs';
 import { LINEAR_READ_OPERATIONS } from '../../../../../guild_hall/linear_history/linear_graphql_client.mjs';
-import { LINEAR_COLLECT_OBJECT_KINDS, validateLinearCollectRunReceipt } from '../../../../../guild_hall/linear_history/linear_collect_receipt.mjs';
+import { runReceiptObjectKinds, validateLinearCollectRunReceipt } from '../../../../../guild_hall/linear_history/linear_collect_receipt.mjs';
 import { identityDigestForBinding, readEvidenceRecordForIssue } from '../../../../../guild_hall/linear_history/linear_collect_runner.mjs';
 
 export const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -111,7 +111,7 @@ export async function addSyntheticLinearEvidence(fixture, { stateName = 'In Prog
     window: { lower: new Date(Date.parse(completed) - 900000).toISOString(), upper: completed, phase: 'delta', order_observed: 'ascending' },
     cursor_before: { ...cursor, generation_seq: 1 }, cursor_after: cursor,
     read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(key => [key, 0])) },
-    objects: Object.fromEntries(LINEAR_COLLECT_OBJECT_KINDS.map(key => [key, { observed: 0, created: 0, unchanged: 0 }])),
+    objects: Object.fromEntries(runReceiptObjectKinds('soulforge.linear_collect.run_receipt.v1').map(key => [key, { observed: 0, created: 0, unchanged: 0 }])),
     custody_manifest_digest: expectedBinding.binding_sha256, coverage_gaps: ['polling_cannot_prove_hard_deletes'], error_codes: [],
     repository_writes: 0, private_writes: 3, network_used: false };
   validateLinearCollectRunReceipt(receipt);

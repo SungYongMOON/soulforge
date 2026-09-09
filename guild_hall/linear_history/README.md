@@ -141,13 +141,14 @@ it with the narrowest scope Linear offers.
   leases/linear-collect.lock            # fail-closed writer lease (never auto-removed)
   state/linear-collect.json             # cursor, generation_seq, object index; fenced to lane identity + writer
   health/linear_collect.json            # soulforge.linear_collect.health.v1, written first on every run
-  receipts/<run_id>.json                # soulforge.linear_collect.run_receipt.v1 (refs-only, create-only)
+  receipts/<run_id>.json                # soulforge.linear_collect.run_receipt.v2 (refs-only, create-only)
   receipts/<run_id>.lane_record.json    # nine-key capture_generation for source.linear
 <private_root>/ingress/linear/<url_key>/
   workspace/<organization_id>/<sha256>.json
   teams|users|projects|labels|states|cycles/<id>/<sha256>.json
   issues/<issue_id>/<sha256>.json       # one file per observed issue revision
   comments/<comment_id>/<sha256>.json
+  issue_history/<history_entry_id>/<sha256>.json  # one immutable change-log entry
   read_evidence/<issue_id>/<sha256>.json  # official_task_read_evidence.v0 envelope per issue snapshot
 ```
 
@@ -175,6 +176,35 @@ observation; a consumer must take the newest snapshot for an issue from
 older snapshots as stale. The lane test admits an emitted `Todo` envelope
 through `forge_linear_execution_packet_admission.mjs` and confirms non-`Todo`
 and tampered records HOLD.
+
+## Issue change log
+
+Linear exposes no workspace-wide history connection, so an issue's change log
+is read as a bounded nested page inside the issues window: it costs no extra
+read call and adds no read operation to the receipt's call ledger. Entries are
+stored under their own kind, never inside the issue object, so a growing change
+log does not move an issue's custody digest. Each entry is immutable, so
+create-only custody stores it exactly once.
+
+An entry records who (`actor_id`, or `bot_actor` when a bot made the change),
+when (`created_at`), and what moved to what (`from_state_id`/`to_state_id`,
+assignee, cycle, project, parent, team, priority, title, due date, estimate,
+`added_label_ids`/`removed_label_ids`, `relation_changes`, and the
+`archived`/`auto_archived`/`auto_closed`/`trashed`/`updated_description`
+flags). The provider's free-form `changes` blob is deliberately not stored: it
+is unbounded and its shape is not contracted.
+
+If an issue's change log is longer than the nested page the run records the
+coverage gap `issue_history_continuation_pending` rather than storing a
+silently shortened log. That gap does not bear on whether an issue's status is
+current -- the run still observed every issue in its window -- so the
+read-evidence reader keeps serving tasks and passes the gap through on the
+observation instead of closing the whole projection.
+
+Receipts already on disk declare `run_receipt.v1` and report the ten kinds that
+existed before the change log was collected. The version a receipt declares
+fixes its own shape, so those receipts stay valid exactly as issued and a
+consumer reading them is unaffected by the new kind.
 
 ## Delta capture
 

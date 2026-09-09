@@ -366,6 +366,34 @@ function windowLiteral(value, field) {
   return JSON.stringify(assertIso(value, field));
 }
 
+// Issue history is reachable only through the issue that owns it: the provider
+// exposes no workspace-wide history connection. It therefore rides inside the
+// issues window rather than costing one extra call per issue. The nested page
+// is bounded; an issue whose history exceeds it is reported as a coverage gap
+// instead of being silently shortened.
+export const LINEAR_ISSUE_HISTORY_PAGE_SIZE = 50;
+
+const ISSUE_HISTORY_SELECTION = `history(first: ${LINEAR_ISSUE_HISTORY_PAGE_SIZE}, orderBy: createdAt) {
+        nodes {
+          id createdAt updatedAt actorId
+          botActor { id name type subType }
+          fromStateId toStateId
+          fromAssigneeId toAssigneeId
+          fromCycleId toCycleId
+          fromProjectId toProjectId
+          fromParentId toParentId
+          fromTeamId toTeamId
+          fromPriority toPriority
+          fromTitle toTitle
+          fromDueDate toDueDate
+          fromEstimate toEstimate
+          addedLabelIds removedLabelIds
+          relationChanges { identifier type }
+          archived autoArchived autoClosed trashed updatedDescription
+        }
+        pageInfo { hasNextPage }
+      }`;
+
 export function issuesWindowDocument({ lower, upper }) {
   return `query SoulforgeLinearIssuesWindow($first: Int!, $after: String) {
   issues(first: $first, after: $after, includeArchived: true, orderBy: updatedAt,
@@ -382,6 +410,7 @@ export function issuesWindowDocument({ lower, upper }) {
       parent { id }
       labels { nodes { id } }
       relations { nodes { id type relatedIssue { id } } }
+      ${ISSUE_HISTORY_SELECTION}
     }
     ${PAGE_INFO}
   }
@@ -666,6 +695,102 @@ export function normalizeIssue(node) {
   };
 }
 
+function uuidList(value, field) {
+  if (value === null || value === undefined) return [];
+  if (!Array.isArray(value)) fail("provider_shape_invalid", `Expected a list for ${field}`);
+  return value.map((entry, index) => uuid(entry, `${field}[${index}]`)).sort();
+}
+
+// A history entry is immutable once written, so create-only custody keeps every
+// one of them. It records who changed what and when; it is not authority to act.
+export function normalizeIssueHistoryEntry(node, issueId) {
+  plain(node, "issue.history.node");
+  const bot = node.botActor === null || node.botActor === undefined ? null : {
+    id: nullableText(node.botActor.id, "issue.history.node.botActor.id", 128),
+    name: nullableText(node.botActor.name, "issue.history.node.botActor.name", 256),
+    type: text(node.botActor.type, "issue.history.node.botActor.type", { max: 64 }),
+    sub_type: nullableText(node.botActor.subType, "issue.history.node.botActor.subType", 64),
+  };
+  const changes = (node.relationChanges ?? []);
+  if (!Array.isArray(changes)) fail("provider_shape_invalid", "Expected issue.history.node.relationChanges list");
+  const relationChanges = changes.map((entry, index) => {
+    plain(entry, `issue.history.node.relationChanges[${index}]`);
+    return {
+      identifier: text(entry.identifier, `issue.history.node.relationChanges[${index}].identifier`, { max: 64 }),
+      type: text(entry.type, `issue.history.node.relationChanges[${index}].type`, { max: 64 }),
+    };
+  }).sort((left, right) => `${left.identifier} ${left.type}`.localeCompare(`${right.identifier} ${right.type}`));
+  const flag = (value, field) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value !== "boolean") fail("provider_shape_invalid", `Expected a boolean for ${field}`);
+    return value;
+  };
+  const day = (value, field) => nullableText(value, field, 32);
+  return {
+    id: uuid(node.id, "issue.history.node.id"),
+    issue_id: uuid(issueId, "issue.history.node.issue_id"),
+    created_at: iso(node.createdAt, "issue.history.node.createdAt"),
+    updated_at: iso(node.updatedAt, "issue.history.node.updatedAt"),
+    actor_id: nullableUuid(node.actorId, "issue.history.node.actorId"),
+    bot_actor: bot,
+    from_state_id: nullableUuid(node.fromStateId, "issue.history.node.fromStateId"),
+    to_state_id: nullableUuid(node.toStateId, "issue.history.node.toStateId"),
+    from_assignee_id: nullableUuid(node.fromAssigneeId, "issue.history.node.fromAssigneeId"),
+    to_assignee_id: nullableUuid(node.toAssigneeId, "issue.history.node.toAssigneeId"),
+    from_cycle_id: nullableUuid(node.fromCycleId, "issue.history.node.fromCycleId"),
+    to_cycle_id: nullableUuid(node.toCycleId, "issue.history.node.toCycleId"),
+    from_project_id: nullableUuid(node.fromProjectId, "issue.history.node.fromProjectId"),
+    to_project_id: nullableUuid(node.toProjectId, "issue.history.node.toProjectId"),
+    from_parent_id: nullableUuid(node.fromParentId, "issue.history.node.fromParentId"),
+    to_parent_id: nullableUuid(node.toParentId, "issue.history.node.toParentId"),
+    from_team_id: nullableUuid(node.fromTeamId, "issue.history.node.fromTeamId"),
+    to_team_id: nullableUuid(node.toTeamId, "issue.history.node.toTeamId"),
+    from_priority: nullableNumber(node.fromPriority, "issue.history.node.fromPriority"),
+    to_priority: nullableNumber(node.toPriority, "issue.history.node.toPriority"),
+    from_title: nullableText(node.fromTitle, "issue.history.node.fromTitle"),
+    to_title: nullableText(node.toTitle, "issue.history.node.toTitle"),
+    from_due_date: day(node.fromDueDate, "issue.history.node.fromDueDate"),
+    to_due_date: day(node.toDueDate, "issue.history.node.toDueDate"),
+    from_estimate: nullableNumber(node.fromEstimate, "issue.history.node.fromEstimate"),
+    to_estimate: nullableNumber(node.toEstimate, "issue.history.node.toEstimate"),
+    added_label_ids: uuidList(node.addedLabelIds, "issue.history.node.addedLabelIds"),
+    removed_label_ids: uuidList(node.removedLabelIds, "issue.history.node.removedLabelIds"),
+    relation_changes: relationChanges,
+    archived: flag(node.archived, "issue.history.node.archived"),
+    auto_archived: flag(node.autoArchived, "issue.history.node.autoArchived"),
+    auto_closed: flag(node.autoClosed, "issue.history.node.autoClosed"),
+    trashed: flag(node.trashed, "issue.history.node.trashed"),
+    updated_description: flag(node.updatedDescription, "issue.history.node.updatedDescription"),
+  };
+}
+
+// `truncated` is the honest answer when the bounded nested page did not reach
+// the end of an issue's history. The caller turns it into a coverage gap.
+export function normalizeIssueHistoryPage(node, issueId) {
+  const connection = node.history ?? null;
+  if (connection === null || connection === undefined) return { entries: [], truncated: false };
+  plain(connection, "issue.history");
+  if (!Array.isArray(connection.nodes)) fail("provider_shape_invalid", "Expected issue.history nodes");
+  const info = plain(connection.pageInfo ?? {}, "issue.history.pageInfo");
+  if (info.hasNextPage !== undefined && typeof info.hasNextPage !== "boolean") {
+    fail("provider_shape_invalid", "Expected a boolean for issue.history.pageInfo.hasNextPage");
+  }
+  return {
+    entries: connection.nodes
+      .map((entry) => normalizeIssueHistoryEntry(entry, issueId))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    truncated: info.hasNextPage === true,
+  };
+}
+
+// The window node the runner consumes. `history` is a sibling of the issue, not
+// a field of it: the stored issue object keeps the exact shape it always had,
+// so an issue's custody digest does not move when its history grows.
+export function normalizeIssueWindowNode(node) {
+  const issue = normalizeIssue(node);
+  return { ...issue, history: normalizeIssueHistoryPage(node, issue.id) };
+}
+
 export function normalizeComment(node) {
   plain(node, "comment");
   const issue = plain(node.issue, "comment.issue");
@@ -752,7 +877,7 @@ export function createLinearGraphqlTransport({
         first: pageSize,
         after,
       });
-      return normalizeConnectionPage(data.issues, normalizeIssue, "issues");
+      return normalizeConnectionPage(data.issues, normalizeIssueWindowNode, "issues");
     },
     async readCommentsPage({ lower, upper, after = null }) {
       const data = await call("linear.read.comments_window", commentsWindowDocument({ lower, upper }), {

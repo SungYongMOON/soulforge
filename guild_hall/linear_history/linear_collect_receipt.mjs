@@ -12,9 +12,9 @@ import { canonicalJson, sha256Canonical } from "../shared/project_history_envelo
 
 import { LINEAR_READ_OPERATIONS } from "./linear_graphql_client.mjs";
 
-export const LINEAR_COLLECT_RUN_RECEIPT_SCHEMA_VERSION = "soulforge.linear_collect.run_receipt.v1";
+export const LINEAR_COLLECT_RUN_RECEIPT_SCHEMA_VERSION = "soulforge.linear_collect.run_receipt.v2";
 export const LINEAR_COLLECT_CURSOR_SCHEMA_VERSION = "soulforge.linear_collect.cursor.v1";
-export const LINEAR_COLLECT_OBJECT_KINDS = Object.freeze([
+const RUN_RECEIPT_OBJECT_KINDS_V1 = Object.freeze([
   "workspace",
   "teams",
   "users",
@@ -26,12 +26,28 @@ export const LINEAR_COLLECT_OBJECT_KINDS = Object.freeze([
   "comments",
   "read_evidence",
 ]);
+export const LINEAR_COLLECT_OBJECT_KINDS = Object.freeze([
+  ...RUN_RECEIPT_OBJECT_KINDS_V1,
+  "issue_history",
+]);
+// Receipts already on disk were written before issue history was collected.
+// They stay readable exactly as issued: a run's own shape is fixed by the
+// version it declares, so adding a kind does not retroactively invalidate the
+// record a consumer already accepted.
+const RUN_RECEIPT_OBJECT_KINDS_BY_VERSION = Object.freeze({
+  "soulforge.linear_collect.run_receipt.v1": RUN_RECEIPT_OBJECT_KINDS_V1,
+  "soulforge.linear_collect.run_receipt.v2": LINEAR_COLLECT_OBJECT_KINDS,
+});
+export function runReceiptObjectKinds(schemaVersion) {
+  return RUN_RECEIPT_OBJECT_KINDS_BY_VERSION[schemaVersion] ?? null;
+}
 export const LINEAR_COLLECT_COVERAGE_GAPS = Object.freeze([
   "max_pages_continuation_pending",
   "backfill_stalled_window_advanced",
   "polling_cannot_prove_hard_deletes",
   "catalog_continuation_pending",
   "run_deadline_reached",
+  "issue_history_continuation_pending",
 ]);
 
 const RECEIPT_FIELDS = Object.freeze([
@@ -181,9 +197,8 @@ export function validateLinearCollectCursor(cursor, target = "$cursor") {
 export function validateLinearCollectRunReceipt(receipt) {
   exactKeys(receipt, RECEIPT_FIELDS, "$receipt");
   inspectSafeValue(receipt, "$receipt");
-  if (receipt.schema_version !== LINEAR_COLLECT_RUN_RECEIPT_SCHEMA_VERSION) {
-    fail("receipt_schema_invalid", "$receipt.schema_version");
-  }
+  const objectKinds = runReceiptObjectKinds(receipt.schema_version);
+  if (objectKinds === null) fail("receipt_schema_invalid", "$receipt.schema_version");
   assertSafeRef(receipt.lane_id, "$receipt.lane_id");
   if (typeof receipt.run_id !== "string" || !RUN_ID.test(receipt.run_id)) {
     fail("receipt_run_id_invalid", "$receipt.run_id");
@@ -230,8 +245,8 @@ export function validateLinearCollectRunReceipt(receipt) {
     );
   }
   if (operationTotal !== receipt.read_calls.total) fail("receipt_read_calls_inconsistent", "$receipt.read_calls");
-  exactKeys(receipt.objects, LINEAR_COLLECT_OBJECT_KINDS, "$receipt.objects");
-  for (const kind of LINEAR_COLLECT_OBJECT_KINDS) {
+  exactKeys(receipt.objects, objectKinds, "$receipt.objects");
+  for (const kind of objectKinds) {
     const target = `$receipt.objects.${kind}`;
     exactKeys(receipt.objects[kind], OBJECT_COUNT_FIELDS, target);
     const observed = assertNonnegativeInteger(receipt.objects[kind].observed, `${target}.observed`);
@@ -275,7 +290,10 @@ export function digestLinearCollectRunReceipt(receipt) {
 }
 
 export function observedObjectTotal(receipt) {
-  return LINEAR_COLLECT_OBJECT_KINDS
-    .filter((kind) => kind !== "read_evidence")
+  // read_evidence is derived from an issue already counted, and a history entry
+  // is a record about one, so neither adds a distinct collected object.
+  const derived = new Set(["read_evidence", "issue_history"]);
+  return (runReceiptObjectKinds(receipt.schema_version) ?? LINEAR_COLLECT_OBJECT_KINDS)
+    .filter((kind) => !derived.has(kind))
     .reduce((total, kind) => total + receipt.objects[kind].observed, 0);
 }

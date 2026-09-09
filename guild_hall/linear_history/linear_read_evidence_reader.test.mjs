@@ -8,7 +8,7 @@ import { sha256Canonical } from "../shared/project_history_envelope.mjs";
 import { evaluateWorkBinding } from "../shared/work_binding.mjs";
 import { makeWorkBindingFixture } from "../../docs/architecture/workspace/examples/work_binding/synthetic.mjs";
 import { LINEAR_READ_OPERATIONS } from "./linear_graphql_client.mjs";
-import { LINEAR_COLLECT_OBJECT_KINDS, validateLinearCollectRunReceipt } from "./linear_collect_receipt.mjs";
+import { runReceiptObjectKinds, validateLinearCollectRunReceipt } from "./linear_collect_receipt.mjs";
 import { identityDigestForBinding, readEvidenceDigest, readEvidenceRecordForIssue } from "./linear_collect_runner.mjs";
 import { createLinearReadEvidenceReader } from "./linear_read_evidence_reader.mjs";
 
@@ -29,7 +29,9 @@ async function save(file, value) {
   await writeFile(file, JSON.stringify(value), "utf8");
 }
 
-async function fixture({ stateName = "In Progress", identifier = "SYN-1" } = {}) {
+async function fixture({ stateName = "In Progress", identifier = "SYN-1",
+  receiptSchemaVersion = "soulforge.linear_collect.run_receipt.v1",
+  coverageGaps = ["polling_cannot_prove_hard_deletes"] } = {}) {
   const temporary = await mkdtemp(path.join(os.tmpdir(), "linear-evidence-reader-"));
   fixtureRoots.add(path.resolve(temporary));
   const root = path.join(temporary, "custody", "synthetic-forge");
@@ -52,15 +54,19 @@ async function fixture({ stateName = "In Progress", identifier = "SYN-1" } = {})
       [`issues:${ISSUE}`]: { content_sha256: envelope.issue_content_sha256, updated_at: issue.updated_at },
       [`read_evidence:${ISSUE}`]: { content_sha256: evidenceDigest, updated_at: issue.updated_at },
     }, last_run_id: "run-synthetic", last_completed_at: COMPLETED };
-  const receipt = { schema_version: "soulforge.linear_collect.run_receipt.v1", lane_id: expectedBinding.lane_id,
+  // A receipt declares its own shape. The default is the version already on
+  // disk in front of the running lane, so the suite proves the reader still
+  // accepts receipts written before the change log was collected.
+  const receiptKinds = runReceiptObjectKinds(receiptSchemaVersion);
+  const receipt = { schema_version: receiptSchemaVersion, lane_id: expectedBinding.lane_id,
     run_id: state.last_run_id, generation_seq: 2, mode: "apply", status: "ok", writer_authority_id: expectedBinding.writer_authority_id,
     writer_epoch: 1, binding_sha256: DIGEST, workspace_url_key: expectedBinding.workspace_url_key,
     organization_id: expectedBinding.organization_id, started_at: COMPLETED, completed_at: COMPLETED, duration_ms: 0,
     window: { lower: "2026-09-06T23:45:00.000Z", upper: COMPLETED, phase: "delta", order_observed: "ascending" },
     cursor_before: { ...cursor, generation_seq: 1 }, cursor_after: cursor,
     read_calls: { total: 0, by_operation: Object.fromEntries(LINEAR_READ_OPERATIONS.map(key => [key, 0])) },
-    objects: Object.fromEntries(LINEAR_COLLECT_OBJECT_KINDS.map(key => [key, { observed: 0, created: 0, unchanged: 0 }])),
-    custody_manifest_digest: DIGEST, coverage_gaps: ["polling_cannot_prove_hard_deletes"], error_codes: [],
+    objects: Object.fromEntries(receiptKinds.map(key => [key, { observed: 0, created: 0, unchanged: 0 }])),
+    custody_manifest_digest: DIGEST, coverage_gaps: [...coverageGaps].sort(), error_codes: [],
     repository_writes: 0, private_writes: 3, network_used: false };
   validateLinearCollectRunReceipt(receipt);
   const stateFile = path.join(stateRoot, "state", "linear-collect.json");
@@ -76,6 +82,45 @@ async function fixture({ stateName = "In Progress", identifier = "SYN-1" } = {})
   return { root, temporary, state, receipt, wrapper, expectedBinding, stateFile, receiptFile, evidenceFile,
     options: { root, expectedBinding, now: () => new Date(NOW) } };
 }
+
+test("a run that collected the change log reads exactly like one that did not", async () => {
+  const before = await fixture();
+  const after = await fixture({ receiptSchemaVersion: "soulforge.linear_collect.run_receipt.v2" });
+  const read = (f) => createLinearReadEvidenceReader(f.options).resolve({ issueId: ISSUE });
+  const [older, newer] = [await read(before), await read(after)];
+  assert.equal(older.status, "CURRENT");
+  assert.equal(newer.status, "CURRENT");
+  assert.deepEqual(newer.linear_task, older.linear_task);
+  assert.deepEqual(newer.coverage_gaps, older.coverage_gaps);
+});
+
+test("an unread tail of some issue's change log does not make a task's status uncertain", async () => {
+  // A run that could not reach the end of one issue's change log still observed
+  // every issue in its window. Task currency is a different question from
+  // history depth, and conflating them would close the whole board.
+  const f = await fixture({
+    receiptSchemaVersion: "soulforge.linear_collect.run_receipt.v2",
+    coverageGaps: ["issue_history_continuation_pending", "polling_cannot_prove_hard_deletes"],
+  });
+  const result = await createLinearReadEvidenceReader(f.options).resolve({ issueId: ISSUE });
+  assert.equal(result.status, "CURRENT");
+  assert.equal(result.linear_task.task_status, "In Progress");
+  // The gap still travels with the observation; it is reported, not swallowed.
+  assert.deepEqual(result.coverage_gaps,
+    ["issue_history_continuation_pending", "polling_cannot_prove_hard_deletes"]);
+});
+
+test("a gap that does bear on currency still closes the reader", async () => {
+  for (const gap of ["catalog_continuation_pending", "run_deadline_reached", "max_pages_continuation_pending"]) {
+    const f = await fixture({
+      receiptSchemaVersion: "soulforge.linear_collect.run_receipt.v2",
+      coverageGaps: [gap, "polling_cannot_prove_hard_deletes"],
+    });
+    const result = await createLinearReadEvidenceReader(f.options).resolve({ issueId: ISSUE });
+    assert.equal(result.status, "HOLD", gap);
+    assert.equal(result.hold_code, "LINEAR_COVERAGE_INCOMPLETE", gap);
+  }
+});
 
 test("committed metadata yields the Board projection, with hard-delete uncertainty and no execution authority", async () => {
   const f = await fixture();

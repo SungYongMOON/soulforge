@@ -17,6 +17,11 @@ const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const SHA = /^sha256:[a-f0-9]{64}$/u;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const POLLING_GAP = "polling_cannot_prove_hard_deletes";
+// Gaps that do not bear on whether this issue's status is the current one.
+// A run that could not reach the end of some issue's change log still observed
+// every issue in its window, so task currency is unaffected; the gap stays on
+// the returned observation so a caller reading history is not misled.
+const NON_CURRENCY_GAPS = new Set([POLLING_GAP, "issue_history_continuation_pending"]);
 // The task statuses every consumer of this reader already understands. A
 // workspace may name its workflow states anything; only these four carry
 // meaning downstream, and only "Todo"/"In Progress" are treated as live work.
@@ -163,7 +168,7 @@ export function createLinearReadEvidenceReader({ root, expectedBinding, workflow
         || sha256Canonical(receipt.cursor_after) !== sha256Canonical(state.cursor)
         || receipt.completed_at !== state.last_completed_at) fail("LINEAR_GENERATION_MISMATCH");
       assertFresh(state, receipt, now, maxAgeMs);
-      if (state.cursor.backfill !== null || receipt.coverage_gaps.some(gap => gap !== POLLING_GAP)) fail("LINEAR_COVERAGE_INCOMPLETE");
+      if (state.cursor.backfill !== null || receipt.coverage_gaps.some(gap => !NON_CURRENCY_GAPS.has(gap))) fail("LINEAR_COVERAGE_INCOMPLETE");
       const entry = state.object_index[`read_evidence:${issueId}`];
       const issueEntry = state.object_index[`issues:${issueId}`];
       if (!entry || !issueEntry) fail("LINEAR_ISSUE_NOT_COMMITTED");

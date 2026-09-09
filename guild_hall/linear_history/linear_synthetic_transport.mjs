@@ -9,6 +9,7 @@ import { readFile } from "node:fs/promises";
 import {
   LINEAR_CATALOG_KINDS,
   LINEAR_NORMALIZERS,
+  normalizeIssueWindowNode,
   normalizeWorkspace,
 } from "./linear_graphql_client.mjs";
 
@@ -94,7 +95,9 @@ export function createSyntheticLinearTransport(fixture, {
     },
     async readIssuesPage({ lower, upper, after = null }) {
       calls.push({ operation: "linear.read.issues_window", lower, upper, after });
-      const rows = windowed(working.issues.map((node) => LINEAR_NORMALIZERS.issues(node)), { lower, upper }, order);
+      // The same node shape the live transport serves, history included, so a
+      // synthetic run exercises the history path instead of stepping around it.
+      const rows = windowed(working.issues.map((node) => normalizeIssueWindowNode(node)), { lower, upper }, order);
       return paginate(rows, after, pageSize);
     },
     async readCommentsPage({ lower, upper, after = null }) {
