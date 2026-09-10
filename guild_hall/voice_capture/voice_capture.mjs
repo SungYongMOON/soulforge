@@ -650,10 +650,12 @@ export async function buildRecordingLibraryEntry(options = {}) {
     throw new Error("recording_library_root_mismatch");
   }
   const sessionDir = path.resolve(options.sessionDir);
-  if (voiceRootRef === "ingress/plaud") {
+  if (voiceRootRef) {
     const sessionRef = path.relative(repoRoot, sessionDir).split(path.sep).join("/");
-    if (!sessionRef.startsWith(`${voiceRootRef}/sessions/`)) throw new Error("recording_library_session_outside_direct_root");
-    await assertDeliveryArtifactRef(repoRoot, `${sessionRef}/session_manifest.json`, { voiceRootRef, mustExist: true });
+    if (!sessionRef.startsWith(`${voiceRootRef}/sessions/`)) throw new Error("recording_library_session_outside_selected_root");
+    if (voiceRootRef === "ingress/plaud") {
+      await assertDeliveryArtifactRef(repoRoot, `${sessionRef}/session_manifest.json`, { voiceRootRef, mustExist: true });
+    }
   }
   const status = await buildSessionStatus(sessionDir);
   const manifestPath = path.join(sessionDir, "session_manifest.json");

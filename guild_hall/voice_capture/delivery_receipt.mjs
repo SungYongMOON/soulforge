@@ -588,9 +588,21 @@ async function readJson(filePath, label) {
 
 async function writeJsonIfChanged(repoRoot, ref, value, beforeWrite, voiceRootRef) {
   const outputPath = await assertSafeRef(repoRoot, ref, { mustExist: false, voiceRootRef });
+  const rootPath = path.join(repoRoot, resolveDeliveryVoiceRootRef(voiceRootRef));
+  const rootReal = await fs.realpath(rootPath);
+  const rootIdentity = await fs.stat(rootPath);
+  const assertWritePath = async (target) => {
+    const currentRoot = await fs.realpath(rootPath);
+    const currentIdentity = await fs.stat(rootPath);
+    if (currentRoot !== rootReal || currentIdentity.dev !== rootIdentity.dev || currentIdentity.ino !== rootIdentity.ino) {
+      throw new DeliveryContractError("delivery_write_root_changed");
+    }
+    const targetRef = path.relative(repoRoot, target).split(path.sep).join("/");
+    await assertSafeRef(repoRoot, targetRef, { mustExist: false, voiceRootRef });
+  };
   const content = `${JSON.stringify(value, null, 2)}\n`;
   const previous = pendingJsonWrites.get(outputPath) ?? Promise.resolve();
-  const current = previous.catch(() => {}).then(() => writeJsonPathIfChanged(outputPath, content, beforeWrite));
+  const current = previous.catch(() => {}).then(() => writeJsonPathIfChanged(outputPath, content, beforeWrite, assertWritePath));
   pendingJsonWrites.set(outputPath, current);
   try {
     return await current;
@@ -599,30 +611,51 @@ async function writeJsonIfChanged(repoRoot, ref, value, beforeWrite, voiceRootRe
   }
 }
 
-async function writeJsonPathIfChanged(outputPath, content, beforeWrite) {
+async function writeJsonPathIfChanged(outputPath, content, beforeWrite, assertWritePath) {
+  await assertWritePath(outputPath);
   try {
     if (await fs.readFile(outputPath, "utf8") === content) return { applied: true, changed: false };
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
   if (typeof beforeWrite === "function") await beforeWrite();
+  await assertWritePath(outputPath);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   const tempPath = `${outputPath}.tmp-${process.pid}-${crypto.randomUUID()}`;
+  let tempIdentity = null;
   try {
     if (typeof beforeWrite === "function") await beforeWrite();
-    await fs.writeFile(tempPath, content, "utf8");
+    await assertWritePath(outputPath);
+    await assertWritePath(tempPath);
+    await fs.writeFile(tempPath, content, { encoding: "utf8", flag: "wx" });
+    await assertWritePath(tempPath);
+    tempIdentity = await fs.lstat(tempPath);
     try {
       if (typeof beforeWrite === "function") await beforeWrite();
+      await assertWritePath(outputPath);
+      await assertWritePath(tempPath);
+      const beforeRename = await fs.lstat(tempPath);
+      if (beforeRename.dev !== tempIdentity.dev || beforeRename.ino !== tempIdentity.ino) {
+        throw new DeliveryContractError("delivery_write_temporary_changed");
+      }
       await fs.rename(tempPath, outputPath);
     } catch (error) {
       if (!["EEXIST", "ENOTEMPTY", "EPERM"].includes(error?.code)) throw error;
       try {
+        await assertWritePath(outputPath);
         if (await fs.readFile(outputPath, "utf8") === content) return { applied: true, changed: false };
       } catch {}
       throw error;
     }
   } finally {
-    await fs.rm(tempPath, { force: true });
+    // An exchanged parent or temporary belongs to another actor; never follow it during cleanup.
+    if (tempIdentity) try {
+      await assertWritePath(tempPath);
+      const current = await fs.lstat(tempPath);
+      if (current.isFile() && current.dev === tempIdentity.dev && current.ino === tempIdentity.ino) {
+        await fs.rm(tempPath, { force: true });
+      }
+    } catch { /* Leave inaccessible owned evidence for explicit recovery rather than deleting an unbound path. */ }
   }
   return { applied: true, changed: true };
 }

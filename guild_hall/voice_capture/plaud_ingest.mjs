@@ -6,8 +6,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
-import { prepareDeliveryReceipt, resolveDeliveryVoiceRootRef } from "./delivery_receipt.mjs";
+import { recordingLibraryEntrySchemaVersion, writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
+import { assertDeliveryArtifactRef, prepareDeliveryReceipt, resolveDeliveryVoiceRootRef } from "./delivery_receipt.mjs";
 import {
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
@@ -482,6 +482,35 @@ async function invokePlaudSharedWriteGuard(callback) {
   }
 }
 
+async function selectedLibraryArtifactPresent({ repoRoot, profile, sessionDir, manifest }) {
+  const voiceRootRef = resolveDeliveryVoiceRootRef(profile.output_root);
+  const date = path.basename(path.dirname(sessionDir));
+  const id = manifest.session_id;
+  if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(id)
+    || (manifest.date != null && manifest.date !== date)) throw new Error("plaud_library_identity_invalid");
+  const ref = `${voiceRootRef}/library/recordings/${date}/${id}/recording_manifest.json`;
+  if (voiceRootRef === "ingress/plaud") {
+    await assertDeliveryArtifactRef(repoRoot, ref, { voiceRootRef, mustExist: false });
+  }
+  let cursor = path.resolve(repoRoot, voiceRootRef);
+  const parts = ["library", "recordings", date, id, "recording_manifest.json"];
+  for (const [index, part] of parts.entries()) {
+    cursor = path.join(cursor, part);
+    let info;
+    try { info = await fs.lstat(cursor); } catch (error) {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    }
+    if (info.isSymbolicLink() || (index === parts.length - 1 ? !info.isFile() : !info.isDirectory())) {
+      throw new Error("plaud_library_artifact_unsafe");
+    }
+  }
+  const entry = JSON.parse(await fs.readFile(cursor, "utf8"));
+  if (entry.schema_version !== recordingLibraryEntrySchemaVersion || entry.session_id !== id
+    || entry.recording_id !== id || entry.recording_date !== date) throw new Error("plaud_library_identity_mismatch");
+  return true;
+}
+
 async function reconcileExistingPlaudSession(options) {
   const { repoRoot, profile, recordingId, existingRecording } = options;
   const sessionDir = path.dirname(existingRecording.manifest_path);
@@ -510,22 +539,26 @@ async function reconcileExistingPlaudSession(options) {
       : "ready",
   };
 
-  if ((manifest.post_import_contract?.library_required === true || manifest.library_warning)
-    && postImportState.library_state !== "registered") {
+  if (manifest.post_import_contract?.library_required === true || manifest.library_warning) {
     try {
-      await beforeSharedWrite();
-      await writeRecordingLibraryEntry({
-        repoRoot,
-        sessionDir,
-        voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
-        projectCode: profile.project_code_candidate,
-        routeStatus: "unclassified_needs_owner_confirmation",
-        meetingType: "unclassified_voice_recording",
-        apply: true,
-        beforeWrite: beforeSharedWrite,
-      });
-      postImportState.library_state = "registered";
-      await writePostImportState();
+      const present = await selectedLibraryArtifactPresent({ repoRoot, profile, sessionDir, manifest });
+      if (!present || postImportState.library_state !== "registered") {
+        postImportState.library_state = "registration_failed_retryable";
+        await writePostImportState();
+        await beforeSharedWrite();
+        await writeRecordingLibraryEntry({
+          repoRoot,
+          sessionDir,
+          voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
+          projectCode: profile.project_code_candidate,
+          routeStatus: "unclassified_needs_owner_confirmation",
+          meetingType: "unclassified_voice_recording",
+          apply: true,
+          beforeWrite: beforeSharedWrite,
+        });
+        postImportState.library_state = "registered";
+        await writePostImportState();
+      }
       library = { state: "registered" };
     } catch (error) {
       if (error?.plaudSharedWriteGuardFailure) throw error;

@@ -16,7 +16,7 @@ import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { buildDefaultLocalAsrProfile, drainLocalAsrQueue, enqueueLocalAsrBacklog } from "./local_asr.mjs";
 import { writeRecordingLibraryEntry } from "./voice_capture.mjs";
-import { validateDeliveryReceipt } from "./delivery_receipt.mjs";
+import { acknowledgeDelivery, validateDeliveryReceipt } from "./delivery_receipt.mjs";
 
 import {
   continuousVoiceLabelHealthSchemaVersion,
@@ -177,7 +177,7 @@ test("blocked processing is unknown and later label failure retains measured ASR
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
-test("HPP ASR succeeds through real direct library/delivery helpers without notification state", async () => {
+for (const deliveryRetry of [false, true, "requeue"]) test(`HPP ASR real helpers preserve delivery retry ${deliveryRetry} without engine rerun or notification state`, async () => {
   const f = await fixture("ingress/plaud");
   try {
     const sessionRef = "ingress/plaud/sessions/2026-09-10/synthetic-notify-off";
@@ -194,7 +194,13 @@ test("HPP ASR succeeds through real direct library/delivery helpers without noti
       vad: { enabled: false } };
     await writeFile(path.join(f.repoRoot, profile.model_path), "synthetic-model");
     await writeRecordingLibraryEntry({ repoRoot: f.repoRoot, sessionDir, voiceRootRef: "ingress/plaud", apply: true });
-    const result = await runContinuousVoiceLabelWorker({
+    const blocked = path.join(f.voiceRoot, "delivery/producer_receipts");
+    if (deliveryRetry) {
+      await mkdir(path.dirname(blocked), { recursive: true });
+      await writeFile(blocked, "synthetic blocked destination");
+    }
+    let engineCalls = 0;
+    const run = () => runContinuousVoiceLabelWorker({
       repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
       stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
       expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
@@ -205,6 +211,7 @@ test("HPP ASR succeeds through real direct library/delivery helpers without noti
         commandRunner: (command, args) => {
           if (command === profile.ffmpeg_binary) writeFileSync(args.at(-1), "synthetic-wav");
           else if (command === f.asrPath) {
+            engineCalls += 1;
             const outputBase = args[args.indexOf("-of") + 1];
             writeFileSync(`${outputBase}.json`, JSON.stringify({ transcription: [
               { offsets: { from: 0, to: 1000 }, text: "synthetic transcript" },
@@ -214,6 +221,21 @@ test("HPP ASR succeeds through real direct library/delivery helpers without noti
         },
       }),
     });
+    let result = await run();
+    if (deliveryRetry) {
+      assert.equal(result.status, "degraded");
+      assert.equal(result.asr.processed_count, 0);
+      assert.equal(result.asr.failed_count, 1);
+      assert.equal(result.asr.remaining_pending_count, 1);
+      const failed = JSON.parse(await readFile(path.join(sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json"), "utf8"));
+      assert.equal(failed.state, "completed");
+      assert.ok(failed.delivery_warning);
+      if (deliveryRetry === "requeue") await rm(path.join(f.voiceRoot, "local_asr_queue/pending/synthetic-notify-off.json"));
+      await rm(blocked);
+      result = await run();
+      assert.equal(result.asr.remaining_pending_count, 0);
+    }
+    assert.equal(engineCalls, 1);
     assert.equal(result.status, "ok");
     assert.equal(result.asr.processed_count, 1);
     assert.equal(result.asr.failed_count, 0);
@@ -222,10 +244,15 @@ test("HPP ASR succeeds through real direct library/delivery helpers without noti
     assert.equal(manifest.notification.state, "disabled");
     assert.equal(manifest.notification.queued, false);
     assert.equal(manifest.delivery_warning, undefined);
+    const session = JSON.parse(await readFile(path.join(sessionDir, "session_manifest.json"), "utf8"));
+    assert.equal(session.independent_transcription.delivery_warning, undefined);
     const receipt = JSON.parse(await readFile(path.join(f.voiceRoot, "delivery/producer_receipts/synthetic-notify-off.json"), "utf8"));
     validateDeliveryReceipt(receipt, { voiceRootRef: "ingress/plaud" });
     assert.equal(receipt.stage, "local_asr_ready");
     assert.ok(receipt.files.every((file) => file.ref.startsWith("ingress/plaud/")));
+    const ack = await acknowledgeDelivery({ repoRoot: f.repoRoot, voiceRootRef: "ingress/plaud",
+      sessionId: "synthetic-notify-off", consumerNode: "synthetic-consumer", apply: false });
+    assert.equal(ack.status, "delivered", "the receipt must hash the final warning-free metadata");
     assert.equal((await readdir(f.repoRoot)).includes("guild_hall"), false);
     assert.equal((await readdir(f.repoRoot)).includes("_workspaces"), false);
   } finally { await rm(f.root, { recursive: true, force: true }); }

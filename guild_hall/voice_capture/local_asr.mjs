@@ -1209,7 +1209,9 @@ export async function discoverLocalAsrSessions(options = {}) {
           duration_seconds: Number(manifest.duration_seconds ?? 0),
           source_sha256: sourceSha256,
           transcript_ref: transcriptRef,
-          state: completed ? "completed" : "needs_analysis",
+          state: completed
+            ? (analysisManifest.delivery_warning || manifest.independent_transcription?.delivery_warning ? "needs_delivery" : "completed")
+            : "needs_analysis",
         });
       } catch {
         // Invalid or unrelated sessions remain outside the local ASR queue.
@@ -1282,6 +1284,7 @@ export async function analyzeLocalAsrSession(options = {}) {
         { notificationEmitter: options.notificationEmitter },
       );
     const finalManifest = { ...resumableManifest, notification };
+    delete finalManifest.delivery_warning;
     sessionManifest.independent_transcription = {
       ...(sessionManifest.independent_transcription ?? {}),
       status: "completed",
@@ -1297,6 +1300,7 @@ export async function analyzeLocalAsrSession(options = {}) {
       completed_at: resumableManifest.completed_at,
       notification,
     };
+    delete sessionManifest.independent_transcription.delivery_warning;
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
     await atomicWriteJson(manifestPath, sessionManifest);
     const delivery = await prepareLocalAsrDelivery({
@@ -1641,7 +1645,7 @@ export async function enqueueLocalAsrBacklog(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const profile = options.profile ?? (await loadLocalAsrProfile({ repoRoot, profileRef: options.profileRef })).profile;
   const sessions = (await discoverLocalAsrSessions({ repoRoot, profile, sessionsRoot: options.sessionsRoot }))
-    .filter((row) => row.state === "needs_analysis");
+    .filter((row) => ["needs_analysis", "needs_delivery"].includes(row.state));
   const results = [];
   for (const session of sessions) {
     results.push(await enqueueLocalAsrSession({ repoRoot, profile, sessionDir: session.session_dir, apply: options.apply, now: options.now }));
@@ -1708,6 +1712,10 @@ export async function drainLocalAsrQueue(options = {}) {
     try {
       const payload = JSON.parse(await fs.readFile(queuePath, "utf8"));
       const result = await analyzeLocalAsrSession({ ...options, repoRoot, profile, sessionDir: payload.session_ref, apply: true });
+      if (result.delivery?.state !== "ready") {
+        results.push({ session_id: payload.session_id, state: "retryable_failure", failure_kind: "delivery_preparation_failed" });
+        continue;
+      }
       const processedDir = path.join(queueRoot, "processed", formatKstDate(options.now ?? new Date()));
       await fs.mkdir(processedDir, { recursive: true });
       await fs.rename(queuePath, path.join(processedDir, name));

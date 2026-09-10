@@ -12,6 +12,9 @@
 > Real library and delivery helpers now share the pinned direct layout through
 > import, reconciliation and ASR completion; moved valid legacy receipt current
 > pointers advance by existing digest-generation rules without history sweeps.
+> Selected repair verifies the actual library artifact, delivery writes recheck
+> post-callback paths, and failed ASR delivery remains retryable without rerunning
+> a completed transcription.
 > voice-label pause waits for the current cycle to finish. Synthetic validation
 > is separate from metadata migration, independent review, installed rollout,
 > three post-resume completed cycles and provider-backlog reconciliation.

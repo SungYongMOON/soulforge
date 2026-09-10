@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { symlinkSync } from "node:fs";
-import { lstat, mkdtemp, mkdir, readFile, readdir, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -482,6 +482,8 @@ test("direct delivery requires explicit fixed root and preserves required artifa
     const fixture = await createPlaudFixture(repoRoot, voiceRootRef);
     const base = { repoRoot, voiceRootRef, sessionDir: fixture.sessionDir,
       stage: "plaud_import_ready", producerNode: "synthetic-producer", apply: true };
+    await assert.rejects(writeRecordingLibraryEntry({ repoRoot, sessionDir: fixture.sessionDir,
+      voiceRootRef: "_workspaces/system/voice_capture", apply: true }), /recording_library_session_outside_selected_root/);
     await assert.rejects(prepareDeliveryReceipt({ ...base, voiceRootRef: undefined }), /delivery_ref_outside_allowlist/);
     await assert.rejects(prepareDeliveryReceipt({ ...base, voiceRootRef: "ingress/other" }), /delivery_voice_root_not_supported/);
     for (const ref of ["_workmeta/forbidden.json", "_workspaces/system/voice_capture/transcript.txt", "ingress/plaud/../other/data"]) {
@@ -514,6 +516,38 @@ test("direct delivery requires explicit fixed root and preserves required artifa
     await writeFile(manifestPath, JSON.stringify(manifest));
     assert.equal((await prepareDeliveryReceipt(base)).status, "ready");
     assert.equal(await stat(path.join(repoRoot, "_workspaces")).then(() => true, () => false), false);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+for (const boundary of [1, 2, 3]) test(`direct delivery revalidates write boundary ${boundary} and never cleans an outside temporary`, async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-delivery-write-boundary-"));
+  try {
+    const voiceRootRef = "ingress/plaud";
+    const fixture = await createPlaudFixture(repoRoot, voiceRootRef);
+    const destination = path.join(repoRoot, voiceRootRef, "delivery/producer_receipts");
+    const outside = path.join(repoRoot, "outside");
+    const displaced = path.join(repoRoot, "displaced");
+    await mkdir(outside);
+    await mkdir(path.dirname(destination), { recursive: true });
+    let callbacks = 0;
+    let protectedNames = [];
+    await assert.rejects(prepareDeliveryReceipt({ repoRoot, voiceRootRef, sessionDir: fixture.sessionDir,
+      stage: "plaud_import_ready", producerNode: "synthetic-producer", apply: true,
+      beforeWrite: async () => {
+        callbacks += 1;
+        if (callbacks !== boundary) return;
+        if (boundary > 1) await rename(destination, displaced);
+        if (boundary === 3) {
+          protectedNames = await readdir(displaced);
+          assert.equal(protectedNames.length, 1);
+          for (const name of protectedNames) await writeFile(path.join(outside, name), "outside-owned-sentinel");
+        }
+        symlinkSync(outside, destination, DIRECTORY_LINK_TYPE);
+      },
+    }), /delivery_/);
+    assert.equal(callbacks, boundary);
+    assert.deepEqual(await readdir(outside), protectedNames);
+    for (const name of protectedNames) assert.equal(await readFile(path.join(outside, name), "utf8"), "outside-owned-sentinel");
   } finally { await rm(repoRoot, { recursive: true, force: true }); }
 });
 

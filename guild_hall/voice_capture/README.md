@@ -395,12 +395,28 @@ the old bytes. Operating backup/retention remains with the existing cutover
 procedure. Mixed roots or different identities fail closed. Historical refs
 are not broadly replaced; library current indexes retain their existing
 per-recording upsert and file-rewrite behavior.
+After each delivery write callback, the writer revalidates its original root
+identity and destination before mkdir, exclusive temporary creation and rename.
+Cleanup removes only a still-bound owned temporary; exchanged paths are left
+for explicit recovery. Explicit library selectors check session containment in
+both layouts; omitted-selector legacy compatibility is unchanged.
 
 Already-registered library records are used as required hash/size artifacts;
 delivery does not dereference their internal `payload_refs`. Migrated records
 can therefore retain legacy internal pointers, which remain a separate data
 consistency limitation. Only new registration or actual library repair uses
 the existing recording-ID upsert contract to generate current refs.
+For a selected PLAUD reconciliation, a required library artifact is checked
+for actual existence and schema/session/recording/date identity even when its
+sidecar says registered. A missing artifact is regenerated; malformed, linked
+or differently identified artifacts are rejected without overwrite. This does
+not add a scan or regeneration of every registered library record.
+
+ASR queue completion includes required delivery preparation. A completed
+transcript with failed delivery remains pending with a retryable failure; a
+previously dequeued delivery warning is rediscovered. Retry reuses the completed
+transcript cache without invoking the engine, clears the warning before hashing
+the repaired delivery generation and only then moves the queue item to processed.
 
 The HPP uses a separate hidden supervisor for derived voice processing. The
 existing five-lane collector remains the RAW owner; this supervisor never

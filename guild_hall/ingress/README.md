@@ -272,6 +272,9 @@ layout selected by its pinned queue profile. Library registration, rejected
 delivery roots, missing delivery artifacts and other delivery preparation
 failures are exposed as closed `plaud_*` codes in the existing error list,
 without exception text or paths.
+Selected reconciliation checks the actual required library artifact as well
+as its sidecar flag. Missing artifacts are regenerated through the bound writer;
+unsafe links, invalid metadata and different identities are not overwritten.
 
 `continuous_cli.mjs --config <binding> --inspect` reads the existing health/run
 receipts without acquiring a lease or calling a provider. It reports the PLAUD,

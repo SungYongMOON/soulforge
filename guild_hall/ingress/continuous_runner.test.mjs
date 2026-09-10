@@ -2953,7 +2953,7 @@ test("PLAUD v3 keeps cutover blocked while unrelated voice mirror backlog hits i
   }
 });
 
-for (const direct of [false, true, "repair", "library-repair"]) test(`PLAUD v3 primary writer materializes RAW with ${direct ? `direct ${direct}` : "mirror"} custody and deduplicates replay`, async () => {
+for (const direct of [false, true, "repair", "library-repair", "registered-missing"]) test(`PLAUD v3 primary writer materializes RAW with ${direct ? `direct ${direct}` : "mirror"} custody and deduplicates replay`, async () => {
   const f = await fixture();
   try {
     const authority = await activateWriterAuthority(f);
@@ -3054,6 +3054,38 @@ for (const direct of [false, true, "repair", "library-repair"]) test(`PLAUD v3 p
       assert.equal(retry.plaud.imported_count, 0);
       assert.ok(retry.errors.some((item) => item.code === expectedCode));
       await rm(blockedDirectory);
+      if (direct === "registered-missing") {
+        const libraryManifest = join(f.dataRoot, "ingress/plaud/library/recordings/2026-07-10", sessionId, "recording_manifest.json");
+        const currentEntry = JSON.parse(await readFile(libraryManifest, "utf8"));
+        for (const bytes of [JSON.stringify({ ...currentEntry, recording_id: "different-recording" }), "malformed JSON"]) {
+          await writeFile(libraryManifest, bytes);
+          const rejected = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
+          assert.equal(rejected.plaud.reconciled_count, 0);
+          assert.ok(rejected.errors.some((item) => item.code === "plaud_library_registration_failed"));
+          assert.equal(await readFile(libraryManifest, "utf8"), bytes);
+        }
+        await rm(libraryManifest);
+        const outside = join(f.root, "outside-selected-library");
+        await mkdir(outside);
+        await writeFile(join(outside, "sentinel"), "outside-owned");
+        await symlink(outside, libraryManifest, process.platform === "win32" ? "junction" : "dir");
+        const linked = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
+        assert.equal(linked.plaud.reconciled_count, 0);
+        assert.ok(linked.errors.some((item) => item.code === "plaud_library_registration_failed"));
+        assert.equal(await readFile(join(outside, "sentinel"), "utf8"), "outside-owned");
+        await rm(libraryManifest, { recursive: true, force: true });
+        const sidecar = JSON.parse(await readFile(join(f.dataRoot, "ingress/plaud", relativeSession, "post_import_state.json"), "utf8"));
+        assert.equal(sidecar.library_state, "registered");
+        const indexPath = join(f.dataRoot, "ingress/plaud/library/index/recordings.jsonl");
+        const originalIndex = await readFile(indexPath);
+        await writeFile(indexPath, "synthetic corrupt index");
+        const interrupted = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
+        assert.ok(interrupted.errors.some((item) => item.code === "plaud_library_registration_failed"));
+        assert.equal((await stat(libraryManifest)).isFile(), true);
+        const partialState = JSON.parse(await readFile(join(f.dataRoot, "ingress/plaud", relativeSession, "post_import_state.json"), "utf8"));
+        assert.equal(partialState.library_state, "registration_failed_retryable");
+        await writeFile(indexPath, originalIndex);
+      }
     }
     const replay = await runContinuousIngress({
       bindingPath: f.bindingPath,
