@@ -8,10 +8,22 @@
 ## 기본 원칙
 
 - 루트 `README.md` 는 저장소 전체 상위 지도만 다룬다.
+- 에이전트의 상시 진입점은 root `AGENTS.md`, 공통 실행 의미·조건부 상세 진입표는 `AGENT_EXECUTION_CONTRACT_V0.md`가 소유한다. 운영 실행면·MSIX 상세는 `guild_hall/deployment_pack/README.md`, lane 전환의 기존 owner는 파일럿 계획 18 §13A다. 참조 목록은 전체 선적재나 실행 권한이 아니다.
 - `docs/architecture/foundation/` 는 canonical roots 의 cross-root canon 을 고정한다.
 - 아래 표의 `docs/architecture/<group>/*.md` 같은 wildcard 는 문서군 전체를 선적재하라는 뜻이 아니다. 그 문서군 `README.md` 의 문서 역할 색인을 먼저 읽고 필요한 문서만 연다. 새 문서를 추가하면 같은 변경에서 그 색인에 한 줄을 남긴다.
 - 각 owner 루트가 materialize 되면 해당 루트 바로 아래 `README.md` 와 owner-local 문서가 그 owner의 상세 운영 정본이 된다.
 - current legacy `_workspaces/<project_code>/` 아래 문서와 실행 산출물은 local/private owner 영역으로 관리한다. future target `_workspaces`/`_workmeta`는 greenfield W-AUTH/Genesis/Freeze contract가 adopted 되기 전에는 writer가 없다.
+
+## 에이전트 조건부 읽기 이동표 (2026-09-09)
+
+| 기존 위치 | 상세 owner/절 | 읽는 조건 |
+| --- | --- | --- |
+| root 작업 위치·실행면의 MSIX 사고·AppData 교차 확인 | `guild_hall/deployment_pack/README.md` §운영 실행면과 MSIX | 앱 기동·AppData 판정 |
+| root 상태 root 우선순위·전환 묶음·lease·보존·영수증 | 위 배포 owner 및 기존 파일럿 계획 18 §13A | 상태 root·lane 경로 전환 |
+| root 봇 페르소나·직책 표시 상세 | 기존 파일럿 계획 18 §13 | 팀·봇 명부 작업; 실제 값은 private |
+| 실행 계약 후반의 review·knowledge·skill·browser·canon 상세 | 같은 실행 계약의 기존 이름별 절, §조건부 읽기 표 | 표의 실제 작업 조건에 해당할 때; 감사 예외·기존 권한 유지 |
+
+root의 MSIX 직접 실행 금지·개발/운영 분리·secret·저장·검토/사람 수락 경계는 계속 상시 적용한다.
 
 ## 현재 public canon 과 owner-local 정본
 

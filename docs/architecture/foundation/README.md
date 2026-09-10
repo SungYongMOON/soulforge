@@ -21,7 +21,7 @@
 | `team_member_engineering_program/00_MASTER_INDEX_AND_DECISIONS.md` | 팀원 작업·정본자료 전달, Vault/Forge/Guild/Watch/Bastion, 제품·배포·검증·물리 호환을 Owner 검토용 계획 세트로 연결한다. |
 | `TARGET_TREE.md` | 목표 루트 트리와 canonical path shape 를 설명한다. |
 | `DOCUMENT_OWNERSHIP.md` | 어떤 문서가 어느 owner 경계를 소유하는지 정한다. |
-| `AGENT_EXECUTION_CONTRACT_V0.md` | AI agent 의 가정 노출, 최소 변경, 검증 기준, post-development review gate, secret 경계를 정한다. |
+| `AGENT_EXECUTION_CONTRACT_V0.md` | AI agent의 전체 목표 완결·가정·scoped edit·Git·비례 검증 공통 원칙과 작업 조건별 상세 읽기 표를 소유한다. |
 | `SHARED_GLOSSARY_V0.md` | owner 와 agent 가 개발 후보, 승인, RAG, 정본, workflow/party/mission 같은 공통 용어를 같은 뜻으로 읽게 한다. |
 | `TEAM_DAY_1_GUIDE_V0.md` | 팀 합류자/새 PC 운영자가 첫날 읽는 한 장짜리 지도와 경계 요약이다. |
 | `AI_OUTPUT_FORMAT_POLICY_V0.md` | AI 생성 결과의 source-of-truth 형식과 HTML human-review artifact 사용 경계를 정한다. |

@@ -7,6 +7,9 @@
 
 ## 포함 대상
 
+- `boot_digest_guard.mjs`
+  - root의 기존 50–90줄·필수 포인터 검사를 유지하고 public owner 참조의 존재와 `CLAUDE.md`/`GEMINI.md`의 단일 `@AGENTS.md` bridge를 확인한다. 잘못된 참조·bridge·누락 source는 `--update`로 서명할 수 없다.
+  - source manifest에 UTF-8 bytes를 줄 수와 별도로 기록하며 옮긴 운영 상세 owner도 hash에 포함한다. 줄 수는 배치 검사일 뿐 문맥량·정책 의미·실제 로딩의 증거가 아니다. 의미 검토 뒤 `--update`, 이어서 일반 guard를 실행한다.
 - `canon_validate.mjs`
   - `.registry`, `.unit`, `.workflow`, `.party`, `.mission`, `_workspaces/README.md` 의 최소 무결성 검사
   - `--json` 출력 지원

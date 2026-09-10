@@ -32,7 +32,8 @@ function makeFixtureRepo() {
   mkdirSync(join(root, "docs/architecture/foundation"), { recursive: true });
   for (const rel of SOURCES) {
     mkdirSync(join(root, rel, ".."), { recursive: true });
-    writeFileSync(join(root, rel), rel === "AGENTS.md" ? leanRootFixture() : `# src ${rel}\nrule line\n`);
+    writeFileSync(join(root, rel), rel === "AGENTS.md" ? leanRootFixture()
+      : ["CLAUDE.md", "GEMINI.md"].includes(rel) ? "@AGENTS.md\n" : `# src ${rel}\nrule line\n`);
   }
   writeFileSync(join(root, DIGEST_PATH), "# digest\n요약 줄\n");
   return root;
@@ -96,4 +97,22 @@ test("B3: 실제 저장소 — 다이제스트와 manifest 동기 상태", () =>
   const r = runGuard({});
   assert.deepEqual(r.problems, [], r.problems.join(" | "));
   assert.equal(r.ok, true);
+});
+
+test("B3: dangling owner pointer and divergent bridge cannot be signed", () => {
+  const root = makeFixtureRepo();
+  writeFileSync(join(root, "AGENTS.md"), leanRootFixture(["- `docs/missing-owner.md`"]));
+  assert.ok(runGuard({ root, update: true }).problems.some((p) => p.includes("owner 참조 누락")));
+  writeFileSync(join(root, "AGENTS.md"), leanRootFixture());
+  writeFileSync(join(root, "CLAUDE.md"), "@AGENTS.md\n@extra-policy.md\n");
+  assert.ok(runGuard({ root, update: true }).problems.some((p) => p.includes("bridge 불일치")));
+});
+
+test("B3: source bytes are measured independently of line count", () => {
+  const root = makeFixtureRepo();
+  const text = "한글\n";
+  writeFileSync(join(root, SOURCES[1]), text);
+  const measured = snapshot(root)[SOURCES[1]];
+  assert.equal(measured.bytes, Buffer.byteLength(text));
+  assert.equal(measured.lines, 2);
 });

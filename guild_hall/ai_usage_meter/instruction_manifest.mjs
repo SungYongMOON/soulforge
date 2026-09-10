@@ -227,6 +227,8 @@ export async function buildInstructionManifest({
       for (const source of sources) {
         if (source.access_status !== "inspected_public") continue;
         const expected = publicContents.get(source.source_ref).replaceAll("\r\n", "\n");
+        // Empty/whitespace text cannot establish that a source was loaded.
+        if (!expected.trim()) continue;
         source.model_visible = visibleStrings.some((item) => item.includes(expected)) ? "included" : "excluded";
       }
       promptDigest = sha256(canonicalPrompt);

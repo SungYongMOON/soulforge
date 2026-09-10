@@ -67,7 +67,7 @@ npm run guild-hall:ai-usage-meter -- bind `
   --role executor
 ```
 
-실제 로드된 instruction chain을 원문 없이 digest·bytes로 확인:
+Codex prompt-input이 노출한 문자열과 승인된 지침의 포함 관계를 원문 없이 digest·bytes로 확인:
 
 ```powershell
 $repoRoot = (Resolve-Path .).Path
@@ -81,6 +81,17 @@ npm run guild-hall:ai-usage-meter -- instruction-manifest `
 ```
 
 `--apply --state-root <local path>`를 추가하면 manifest를 `instruction_manifests/<YYYY-MM>/`에 저장한다. allowlist 밖 source는 읽거나 digest를 추정하지 않고 `prohibited/unknown`으로 남긴다.
+
+파일 존재나 설정 모델명만으로 실제 로딩·실행 모델을 증명하지 않는다. 기본 발견기는
+global/root/nested의 `AGENTS.override.md` 존재를 우선해 후보를 찾는다. 빈 문자열·공백만
+있는 source의 포함은 `unknown`이다. 2026-09-09 설치된 Codex CLI 0.147.0의 격리
+prompt-input에서 0-byte override가 있으면 base가 포함되지 않았으므로, 공식 문서의
+empty-file 설명만으로 발견기를 바꾸지 않는다. 버전별 loader fallback, 사용자 지정 fallback
+filename, 도구별 import 전체를 자동 재현하는 발견기는 아니다. 필요한 경우 API의
+`sourceCandidates`에 승인된 정확한 파일을 지정하고 해당 도구에서 별도로 관측한다.
+`total_instruction_bytes`는 읽은 source bytes이며 실제 모델 토큰량이나 수동 owner 읽기량이 아니다.
+Codex 관측으로 Claude·다른 도구의 로딩이나 행동 개선까지 주장하지 않는다.
+설명 기준: [공식 지침 발견 문서](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance).
 
 실행·품질·tool·actual replay 증거 JSON을 검증한 뒤 저장:
 

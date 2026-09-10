@@ -4,6 +4,20 @@ Owner: `guild_hall/deployment_pack`. Status: `CURRENT = 계약 데이터 + valid
 
 Program plan 12·16의 배포 규율을 코드로 고정한다: **"release는 폴더나 artifact가 존재한다는 뜻이 아니다."**
 
+## 운영 실행면과 MSIX
+
+앱 기동·AppData 판정·운영 상태 root 또는 lane 경로를 바꿀 때 읽는다.
+root `AGENTS.md`의 개발/운영 분리와 금지를 상세화하며 운영 활성화 권한을 만들지 않는다.
+
+- 운영은 checkout에서 실행하지 않는다. 버전이 박힌 `install/server-pack/<x.y.z>/payload` 또는 아직 Pack에 없는 `install/source-lanes/<lane>-vN`을 사용하고, 예약작업은 해당 lane의 등록기(`register-*-task.ps1`)로만 등록한다.
+- 패키지형(MSIX) 에이전트 세션에서 데스크톱 클라이언트 앱을 직접 실행하지 않는다. 기동은 등록된 비패키지 예약작업으로만 하며 이미 떠 있는 창 조작은 무관하다. 패키지 세션이 앱을 낳으면 `%LOCALAPPDATA%`·`%APPDATA%` 쓰기가 세션 가상 저장소로 갈라진다. Buzz Desktop에서 2026-08-29·09-01 기존 신원이 사라지고 새 신원 생성 화면이 뜬 사고가 이 규칙의 근거다.
+- 사용자 AppData 경로의 존부·내용을 판정할 때 패키지 세션 관측만 신뢰하지 않는다. WSL의 C: 드라이브 drvfs 마운트, UNC 관리 공유, 예약작업 컨텍스트 중 둘 이상으로 교차 확인한다. lane별 예약작업 이름·드리프트 감지기는 해당 lane runbook이 소유한다. 이 확인도 secret 내용 읽기를 허용하지 않는다.
+- 운영 상태 root 우선순위는 파일별 명시 flag/env > `SOULFORGE_STATE_ROOT`(공유 상태 root) > `SOULFORGE_OWNER_ROOT`(legacy metadata overlay checkout) > git-derived다. 잘못된 값은 fail-closed이며 조용한 fallback을 만들지 않는다.
+- 경로 전환 전 [파일럿 계획 18 §13A](../../docs/architecture/foundation/team_member_engineering_program/18_TEAM_PILOT_ACCESS_AND_RELEASE_PLAN_V0.md#13a-옛집새집-lane-전환-규칙-2026-09-02-slack-rc1-사고에서-도출)를 읽는다. 수집기 pin·바인딩 digest·VBS/launcher·채널/상태 digest 울타리를 함께 갱신하고 재등록 직후 등록된 인자로 launcher `--preflight`를 확인한다. 전환은 트리거 사이·lease가 없을 때만 하며 이전 lane 사본은 삭제하지 않고 rename 보존하고 `local-recovery/`에 영수증을 남긴다. 과거 전환의 한정 예외를 새 전환 권한으로 일반화하지 않는다.
+- 수집/custody와 백업/DR은 별개다. 기존 수집 범위는 메일·음성·PC파일·Codex 작업맥락·Slack·Linear이며 수집 영수증을 백업 증거로 대체하지 않는다.
+
+## 구현과 검증 표면
+
 Pack builder는 HPP·Team Client·Backup-Recovery의 명세를 카탈로그에 고정된
 emitter의 `--print` 결과와 비교한 뒤 빌드를 시작한다. 파일 목록·검토 pin·vendored
 hash 등이 현재 트리와 다르면 `spec_drifted_from_tree`로 산출물을 쓰기 전에 거부한다.

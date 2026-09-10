@@ -40,7 +40,7 @@ Soulforge 보정:
 
 ## 2. Simplicity First
 
-- 요청한 문제를 해결하는 최소 변경을 우선한다.
+- §4의 요청 전체 성공 기준을 충족하는 최소한의 완결된 변경을 우선한다. 작은 diff와 단계별 구현은 변경·검증 단위이며 목표를 축소하는 근거가 아니다.
 - 요청 범위 밖 기능, 추상화, 설정 가능성은 추가하지 않는다.
 - 단일 사용처를 위한 abstraction 을 만들지 않는다.
 - 기존 패턴, owner-local README, repo의 canonical command surface 를 우선한다.
@@ -66,6 +66,14 @@ Soulforge 보정:
 - public repo, `_workmeta`, `private-state`, `guild_hall/state/**` 경계를 넘는 변경은 임의로 섞지 않는다.
 - 관련 없는 보호 대상 업무 데이터, 메일 원문, monster history, battle log, outbound log 는 public repo 변경에 포함하지 않는다.
 
+Git 작업 경계:
+
+- Git 사용이 허용된 저장소 작업 전 `git rev-parse --show-toplevel`, `git rev-parse HEAD`, `git status --short`, `git rev-parse --git-path index.lock`로 root·기준·변경·lock 경로를 확인한다. 사용자가 금지한 명령은 이 점검에도 실행하지 않으며 확인하지 못한 항목만 미확인으로 보고한다. 개발면 지정은 private inventory/binding 메타데이터로 별도 확인하고 host-local 값을 public에 복사하지 않는다.
+- lock 부재만으로 동시 편집이 안전하다고 판단하지 않는다. HEAD·dirty·staged 변경과 소유권을 다시 확인하고, 충돌하는 쓰기만 승인된 작업별 worktree로 격리하거나 기존 수단으로 직렬화한다. 빠른 commit은 격리 수단이 아니다.
+- 자기 변경만 명시적 경로로 stage한 뒤 staged diff를 검토한다. 같은 파일에 다른 작업자의 변경이 섞이면 파일 전체 staging도 안전하지 않다. 사용자 checkout의 브랜치·staged 변경을 임의 변경하거나 전체 add, reset·clean·stash·lock 삭제로 충돌을 해결하지 않는다.
+- 기존 Owner 위임과 유효한 요청이 허용하는 개발 lane·변경·origin/브랜치의 자동 commit+push+self-verify는 유지하며 같은 승인을 다시 묻지 않는다. 검토 전용·명시적 중단선·node의 금지 작업·대상 밖 행위에는 적용하지 않는다. 권한 충돌이 남으면 해당 최종 행위만 보류하고 로컬 수정·검증은 계속한다.
+- commit 전 status·diff·staged diff를 확인하고 실제 작업자 도구·관측된 모델·검증 결과를 남긴다. commit·push·배포·사람 수락은 서로 다른 상태다. 편집한 지침 자체를 새로운 권한이나 검증 면제로 삼지 않는다.
+
 ## 4. Goal-Driven Execution
 
 - 요청 전체를 검증 가능한 성공 기준으로 바꾸고 필요한 구현·통합·검증·전달까지 진행한다. 계획, scaffold, 중간 산출물이나 인계 완료를 전체 작업 완료로 대신하지 않는다. 진행 중 새 지시는 명확한 취소·대체 요청이 아닌 한 기존 목표에 반영한다.
@@ -89,6 +97,34 @@ Soulforge 보정:
 변경 영향과 owner 계약에 맞는 검증을 먼저 정한다. 필수 검증이 통과하고 직접 관련된 미해결 우려가 없으면 종료한다. 새 변경·실패·통합 영향이 생겼을 때만 검증을 확대하거나 반복한다. 구현 문구를 그대로 검사하는 테스트를 작은 가역 변경마다 만들지 않으며, 필수 독립 검토·산출물 렌더 검증은 해당 작업의 실제 적용 조건에 따라 수행한다.
 
 Windows PowerShell 에서는 `npm.ps1` execution policy 차이 때문에 같은 검증 표면을 `npm.cmd run validate`, `npm.cmd run ui:done:check`, `npm.cmd run done:check` 처럼 실행한다. 이 표기는 PowerShell 실행형 차이만 다루며 canonical npm script 이름은 바꾸지 않는다.
+
+## 조건부 읽기
+
+위 목적·우선순위·감사 경계와 §1–4는 공통으로 읽는다. 아래는 자동 import 목록이 아니다.
+작업 조건이 맞을 때 해당 절과 owner만 추가로 읽으며, 불명확한 owner/적용 조건은
+`SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`에서 확인한다.
+한 절에서 다른 owner가 실제 적용되는 규칙을 가리키면 그 참조까지 확인한다.
+
+| 작업 조건 | 추가로 읽을 절·owner |
+| --- | --- |
+| 산출물 생성·변경 후 위험도 판단 | 아래 `Post-development independent review gate`; 감사는 위 감사 예외 우선 |
+| bounded 업무 완료·지식 후보 판단 | 아래 `End-of-task knowledge trigger check`; 감사에서는 diff·직접 검증·한계로 갈음 |
+| skill 생성·수정 | 아래 `Skill first-build verification gate`; 단순 지침 감사와 구분 |
+| 로컬 브라우저 연결 복구 | 아래 `Local browser connection standing approval` |
+| 지식·ontology·workflow·skill·registry의 검증/승격 주장 | 아래 `Knowledge and canon claim ceiling`; 승격 시 `Owner-delegated auto-canon lane`과 해당 owner 정책까지 |
+| 앱 기동·AppData 판정·운영 경로 전환 | `guild_hall/deployment_pack/README.md`의 `운영 실행면과 MSIX`, 파일럿 계획 18 §13A, 해당 lane runbook |
+| 팀·봇·음성·task 라우팅 | root `팀원·봇·조직 라우팅`과 그 조직 owner; 명부는 파일럿 계획 18 §13 |
+| 구조·owner·우선순위·backlog 변경 | root가 가리키는 ownership/target tree 또는 roadmap의 해당 부분 |
+| 실제 지침 로딩 비교 | `guild_hall/ai_usage_meter/README.md`의 instruction manifest; 아래 관측 한계 |
+
+파일 존재·브리지·설정 모델은 실제 입력이나 실행 모델의 증거가 아니다. 기존
+instruction manifest는 승인된 지침 bytes/hash와 Codex prompt의 포함 관측만 다룬다.
+도구·버전·cwd·global/override/import·명시한 fallback 이름·truncation 관측을 구분하며,
+지원되지 않은 설정이나 도구는 미확인으로 남긴다. Codex 관측을 Claude 로딩 증거로
+대체하지 않는다. 자동 조합된 지침량과 이후 수동으로 읽은 owner 문서량도 별개다.
+
+아래 조건부 절을 읽지 않았다는 이유로 secret·저장·권한·사람 수락 경계를 면제할 수 없다.
+근거 없이 검증·승격·완료 상태를 높이지 않으며, 정책 의미 검토는 해시·참조 검사와 별개다.
 
 ### Post-development independent review gate
 

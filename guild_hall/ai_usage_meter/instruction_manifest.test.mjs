@@ -171,3 +171,29 @@ test("prompt probe rejects unsafe model or feature options before launching Code
     { code: "instruction_probe_option_invalid" },
   );
 });
+
+test("empty override remains a candidate but cannot establish prompt inclusion", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-instruction-empty-"));
+  try {
+    await writeFile(path.join(root, "AGENTS.override.md"), "");
+    await writeFile(path.join(root, "AGENTS.md"), "PUBLIC BASE\n");
+    const discovered = await discoverInstructionSources({ cwd: root, repoRoot: root, codexHome: root });
+    assert.ok(discovered.candidates.every((item) => path.basename(item.path) === "AGENTS.override.md"));
+    for (const content of ["", " \r\n\t"]) {
+      const emptyPath = path.join(root, "AGENTS.override.md");
+      await writeFile(emptyPath, content);
+      const manifest = await buildInstructionManifest({
+        cwd: root,
+        repoRoot: root,
+        sourceCandidates: [{ scope: "root", path: emptyPath }],
+        approvedPublicRoots: [root],
+        runner: async () => ({ status: 0, stdout: JSON.stringify({ input: ["unrelated prompt \n\t"] }) }),
+      });
+      assert.equal(manifest.sources[0].model_visible, "unknown");
+      assert.equal(manifest.sources[0].bytes, Buffer.byteLength(content));
+      assert.equal(validateInstructionManifest(manifest), manifest);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

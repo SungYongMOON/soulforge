@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// B3 드리프트 가드: AGENT_BOOT_DIGEST_V0.md 가 원본 4+1 문서와 조용히
+// B3 드리프트 가드: AGENT_BOOT_DIGEST_V0.md 가 SOURCES의 정본/bridge와 조용히
 // 어긋나지 못하게 한다. 원본 해시가 manifest 와 다르면 실패 → 다이제스트
 // 재검토 후 `--update` 로 manifest 갱신. 표준 Node 만 (도구 비종속).
 import { createHash } from "node:crypto";
@@ -14,11 +14,14 @@ export const SOURCES = [
   "AGENTS.md",
   "docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md",
   "docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md",
-  "docs/architecture/foundation/PROJECT_MAP_V0.md"
+  "docs/architecture/foundation/PROJECT_MAP_V0.md",
+  "guild_hall/deployment_pack/README.md",
+  "CLAUDE.md",
+  "GEMINI.md"
 ];
 export const MAX_LINES = 100;
 export const ROOT_MIN_LINES = 50;
-export const ROOT_MAX_LINES = 90; // 2026-09-02~05 Owner 루트 개정으로 86~87줄; 다시 줄이려면 Owner 결정
+export const ROOT_MAX_LINES = 90; // Layout guard only; line count is not context usage.
 export const ROOT_REQUIRED_SNIPPETS = [
   "AGENT_EXECUTION_CONTRACT_V0.md",
   "DEVELOPMENT_ROADMAP_V0.md",
@@ -47,7 +50,7 @@ export function snapshot(root = REPO, sources = SOURCES) {
     const p = join(root, rel);
     if (!existsSync(p)) { out[rel] = { missing: true }; continue; }
     const t = readFileSync(p, "utf-8");
-    out[rel] = { sha256: sha256(t), lines: t.split("\n").length };
+    out[rel] = { sha256: sha256(t), lines: t.split("\n").length, bytes: Buffer.byteLength(t, "utf8") };
   }
   return out;
 }
@@ -89,6 +92,20 @@ export function runGuard({ root = REPO, update = false } = {}) {
   const rootText = existsSync(join(root, SOURCES[0])) ? readFileSync(join(root, SOURCES[0]), "utf-8") : "";
   const leanRoot = verifyLeanRoot(rootText);
   if (!leanRoot.ok) return leanRoot;
+  const routingProblems = [];
+  // Check public owner pointers without touching private state or executing imports.
+  for (const [, rel] of rootText.matchAll(/`((?:docs\/|guild_hall\/|\.registry\/)[\w./-]+\.md)`/gu)) {
+    if (!existsSync(join(root, rel))) routingProblems.push(`owner 참조 누락: ${rel}`);
+  }
+  for (const rel of ["CLAUDE.md", "GEMINI.md"]) {
+    if (current[rel]?.missing || readFileSync(join(root, rel), "utf8").trim() !== "@AGENTS.md") {
+      routingProblems.push(`공통 정본 bridge 불일치: ${rel}`);
+    }
+  }
+  for (const [rel, cur] of Object.entries(current)) {
+    if (cur.missing) routingProblems.push(`원본 누락: ${rel}`);
+  }
+  if (routingProblems.length) return { ok: false, problems: routingProblems };
   if (update) {
     const manifest = { schema: "boot_digest_guard.v0", updated_at: new Date().toISOString(), digest_sha256: sha256(digestText), sources: current };
     writeFileSync(join(root, MANIFEST_PATH), JSON.stringify(manifest, null, 2) + "\n");

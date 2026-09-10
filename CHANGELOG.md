@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-09 - 에이전트 지침의 전체 완료 기준과 조건부 읽기 정리
+
+- Revision 기준: `f85b76ca` 이후 지침 감사·수정. 과거 후보 전체를 덮어쓰지 않고 현재 정본에 적용한다.
+- 작은 diff를 전체 목표 축소로 해석하지 않도록 root와 실행 계약을 맞추고, 공통 절 이후에는 작업 조건에 맞는 owner만 읽게 한다. 운영 실행면·MSIX 상세는 배포 owner로 보존한다.
+- Git이 해석한 root·lock 경로, 변경 소유권·격리/직렬화·정확한 staging을 사용한다. 자동 마감은 기존 위임·lane·origin/브랜치 범위에서 유지하고 node 금지 작업과 검토 전용 요청을 우선한다. Git·배포·사람 수락은 별도 상태다.
+- boot guard는 기존 줄 수·필수 포인터 검사를 유지하며 owner 참조·단일 bridge·source bytes를 추가 확인한다. 빈 지침을 실제 포함으로 오판하는 manifest 오류를 고친다. 설치된 loader와 문서가 달랐던 override fallback 제안은 적용하지 않는다.
+- 운영 영향: 개발 지침과 직접 관련된 관측/검증만 변경하며 운영 실행·배포·writer 활성화는 하지 않는다. 실제 모델 행동 개선은 별도 비교 증거가 필요하다.
+- 관련 경로: `AGENTS.md`, `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`, 같은 폴더의 boot digest/manifest·ownership, `guild_hall/deployment_pack/README.md`, `guild_hall/validate/boot_digest_guard.mjs`, `guild_hall/ai_usage_meter/instruction_manifest.mjs`.
 ## 2026-09-10 - Hermes 봇을 Buzz 창구에 올리는 절차를 기록
 
 - Hermes 봇은 클라이언트가 관리하는 봇이 아니라 relay의 한 구성원으로 참여하며 관리 봇 목록에
