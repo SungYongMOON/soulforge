@@ -189,6 +189,13 @@ function exactFields(value, fields, code) {
   if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) fail(code);
 }
 
+function isSafePlaudOutputRoot(value) {
+  if (typeof value !== "string" || value.length === 0) return false;
+  if (value.includes(String.fromCharCode(0)) || value.includes(String.fromCharCode(92))) return false;
+  if (value.startsWith("/") || /^[A-Za-z]:/u.test(value)) return false;
+  return value.split("/").every((part) => part && part !== "." && part !== "..");
+}
+
 function safeId(value, code) {
   if (typeof value !== "string" || !SAFE_ID.test(value)) fail(code);
   return value;
@@ -779,7 +786,7 @@ async function normalizePlaud(value, targetNodeId, testHooks = {}) {
     || !Number.isSafeInteger(profile.max_new_per_run)
     || profile.max_new_per_run < 1
     || profile.max_new_per_run > 100
-    || profile.output_root !== "_workspaces/system/voice_capture"
+    || !isSafePlaudOutputRoot(profile.output_root)
     || profile.shared_workspace_required !== true
     || typeof profile.readiness?.require_audio !== "boolean"
     || typeof profile.readiness?.require_transcript !== "boolean"
@@ -936,27 +943,42 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
       + (binding.mail.enabled ? MAIL_BRIDGE_TIMEOUT_MS + MAIL_LEASE_MARGIN_MS : 0);
     if (binding.leaseTtlSeconds * 1000 < combinedWindowMs) fail("continuous_plaud_lease_ttl_too_short");
     if (binding.plaud.writerEnabled) {
-      if (!binding.voice.enabled) fail("continuous_plaud_writer_voice_mirror_required");
-      if (binding.voice.maxNewBytes < PLAUD_MAX_SESSION_BYTES
-        || binding.voice.maxNewFiles < PLAUD_MIN_SESSION_FILES_PER_RECORDING) {
-        fail("continuous_plaud_writer_voice_capacity_too_small");
-      }
-      const requiredVoiceLanes = ["delivery", "library", "sessions"];
-      if (requiredVoiceLanes.some((lane) => !binding.voice.lanes.includes(lane))) {
-        fail("continuous_plaud_writer_voice_lanes_incomplete");
-      }
-      let plaudOutputRoot;
-      let voiceSourceRoot;
-      try {
-        [plaudOutputRoot, voiceSourceRoot] = await Promise.all([
-          realpath(resolve(binding.plaud.workspaceRoot, binding.plaud.profile.output_root)),
-          realpath(binding.voice.sourceRoot),
-        ]);
-      } catch {
-        fail("continuous_plaud_writer_voice_source_unavailable");
-      }
-      if (comparable(plaudOutputRoot) !== comparable(voiceSourceRoot)) {
-        fail("continuous_plaud_writer_voice_source_mismatch");
+      if (binding.voice.enabled) {
+        if (binding.voice.maxNewBytes < PLAUD_MAX_SESSION_BYTES
+          || binding.voice.maxNewFiles < PLAUD_MIN_SESSION_FILES_PER_RECORDING) {
+          fail("continuous_plaud_writer_voice_capacity_too_small");
+        }
+        const requiredVoiceLanes = ["delivery", "library", "sessions"];
+        if (requiredVoiceLanes.some((lane) => !binding.voice.lanes.includes(lane))) {
+          fail("continuous_plaud_writer_voice_lanes_incomplete");
+        }
+        let plaudOutputRoot;
+        let voiceSourceRoot;
+        try {
+          [plaudOutputRoot, voiceSourceRoot] = await Promise.all([
+            realpath(resolve(binding.plaud.workspaceRoot, binding.plaud.profile.output_root)),
+            realpath(binding.voice.sourceRoot),
+          ]);
+        } catch {
+          fail("continuous_plaud_writer_voice_source_unavailable");
+        }
+        if (comparable(plaudOutputRoot) !== comparable(voiceSourceRoot)) {
+          fail("continuous_plaud_writer_voice_source_mismatch");
+        }
+      } else {
+        let plaudOutputRoot;
+        let dataRootReal;
+        try {
+          [plaudOutputRoot, dataRootReal] = await Promise.all([
+            realpath(resolve(binding.plaud.workspaceRoot, binding.plaud.profile.output_root)),
+            realpath(binding.dataRoot),
+          ]);
+        } catch {
+          fail("continuous_plaud_writer_output_unavailable");
+        }
+        if (!inside(dataRootReal, plaudOutputRoot)) {
+          fail("continuous_plaud_writer_output_outside_data_root");
+        }
       }
     }
   }
