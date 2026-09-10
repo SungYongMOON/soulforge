@@ -1,5 +1,16 @@
 # HWP Normalization v0
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 ## 목적
 
 이 문서는 Soulforge 에서 HWP 원문을 다루는 전사 기본 순서를 고정한다.
@@ -30,7 +41,7 @@ HWP 가 private reference, official source, working copy, final copy, attachment
 - `_workmeta` 에 남기는 것은 경로, 크기, 해시, 출처 메모, 변환 상태, 차단 사유, 추출 요약, 대조 결과뿐이다.
 - NAS, 공유 폴더, 원본 source pack 은 read-only 원본으로 취급한다. 변환은 workspace-local 사본 또는 승인된 shared worksite 작업본에서만 한다.
 
-## 표준 폴더 모양
+## Current legacy 표준 폴더 모양 (새 target은 위 Plan 17)
 
 프로젝트 소유 작업:
 

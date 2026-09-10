@@ -1,5 +1,15 @@
 # Physical Folder Compatibility, Packaging, and Migration Map
 
+## 2026-09-10 project-context migration boundary
+
+[Plan 17](17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+now owns `20_PROJECTS/<project-ref>`. Old `20_PROJECT_ASSET_INDEX`,
+`45_EVENT_STORES/projects`, and project `reference_payloads`/context paths
+are preserved migration inputs, not new payload targets. First map exact source,
+revision, project/common scope, old/new binding and every active consumer.
+Verify dependency closure, no duplicate writer, rollback and one-project replay
+before physical materialization. This document update performs no live move.
+
 > Status: `OWNER_REVIEW_DRAFT / G0_DOCUMENT_RECONCILIATION_ACCEPTED / R2_PHYSICAL_APPLY_HOLD` — suite state, owner decisions, and claim rules are governed by [00_MASTER_INDEX_AND_DECISIONS.md](00_MASTER_INDEX_AND_DECISIONS.md). Fresh Level 2 review accepted the G0 document reconciliation; it does not authorize an R2 apply.
 
 ## Public-safe inventory convention

@@ -1,5 +1,16 @@
 # Knowledge Assistant Activation Plan v0 (검토용 제안 — 미승인)
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 > **2026-08-14 상태: `HOLD` — 미승인 결정 문서.** 현재 active build는
 > read-only AX·SE project assessment Engine이다. 이 문서의 source synthesis,
 > automatic Wiki compile, completion-loop activation은 Engine의 전제나 authority가

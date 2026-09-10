@@ -1,5 +1,16 @@
 # Project Requirement Trace Model v0
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 - 상태: `DRAFT` / `canon_candidate` / `claim_ceiling: observed`
 - 작성: Claude Opus 5(초안, 2026-08-17) · 검토: Claude Fable 5(구조 검토, 정본 대조) · Owner 승인 전
 - 관계: `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 SE 확장이다. 기존 계층·owner·경계를 바꾸지 않고 그 위에 요구사항 추적 축만 추가한다. 모순이 생기면 기존 정본이 이긴다.

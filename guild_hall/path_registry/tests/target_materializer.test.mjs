@@ -16,6 +16,7 @@ import { createPathRegistry, registrySnapshot } from "../src/path_registry_core.
 import { SEED_AUTHORITY, seedRows } from "../data/registry_seed_v0.mjs";
 import {
   APPROVED_EMPTY_MATERIALIZATION_ROOT_REF,
+  PROJECT_CONTEXT_DIRECTORY_TEMPLATE,
   applyTargetMaterialization,
   planTargetMaterialization,
   rollbackTargetMaterialization,
@@ -196,6 +197,27 @@ test("dry-run creates nothing; apply creates all; replay is idempotent", () => {
   } finally {
     rmSync(containment, { recursive: true, force: true });
   }
+});
+
+test("project context template matches the adopted Plan 17 physical contract", () => {
+  const lines = documentCodeBlockAfter("## Project context data store").split(/\r?\n/u);
+  assert.equal(lines.shift(), "20_PROJECTS/<project-ref>/");
+  const stack = [];
+  const paths = [];
+  for (const line of lines) {
+    const match = line.match(/^((?:│  |   )*)(?:├─ |└─ )(.+)$/u);
+    assert.ok(match, `unrecognized project template line: ${line}`);
+    const level = match[1].length / 3;
+    stack.length = level;
+    const segment = match[2].replace(/\/$/u, "");
+    assert.ok(segment && !segment.includes("/") && !segment.includes("\\") && !segment.includes(".."));
+    stack.push(segment);
+    paths.push(stack.join("/"));
+  }
+  assert.deepEqual([...PROJECT_CONTEXT_DIRECTORY_TEMPLATE], paths);
+  assert.equal(new Set(paths).size, paths.length);
+  assert.equal(paths.some((p) => p.includes("_workspaces") || p.includes("_workmeta")), false);
+  assert.equal(paths.filter((p) => !p.includes("/")).length, 7);
 });
 
 test("foreign payload in the root refuses materialization", () => {

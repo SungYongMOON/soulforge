@@ -1,5 +1,23 @@
 # Tool Workshop operator — Internal RC candidate
 
+## Project-context storage update — 2026-09-10
+
+Use [Plan 17's project template](../../../docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+for `<data_root>/20_PROJECTS/<project-ref>`. It groups input references,
+document retrieval, project context, recall/evaluation, task packs and work
+episodes. Source custody and SE-numbered accepted artifacts keep their owners;
+target `_workmeta` is canonical byte-lineage only. Global INDEX directories
+hold refs, not a second body store. Older paths in historical examples are
+legacy compatibility; do not create them as new project targets.
+
+Before a real exercise, verify exact project/actor/purpose, source and index
+revisions, location resolution, coverage and stale/conflict handling. Exercise
+document change, locator-only move, replay and project restore through the same
+request/reader/output seam used by the caller. Missing bytes or unauthorized
+scope stay HOLD. Do not move data, turn on a writer, recreate old folders or
+weaken a guard merely to pass the exercise. Template tests are not installed
+release or human operator acceptance.
+
 - Artifact ref: `artifact.manual.workshop_operator.v0_1_0`
 - Compatibility: `>=0.1.0 <1.0.0`
 - Catalog target: `candidate` / `current` after catalog registration; no verified release or operator exercise acceptance is recorded.

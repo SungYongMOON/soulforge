@@ -1,5 +1,17 @@
 # Path Registry — physical organization spine (plan 17, R1–R3 contract surfaces)
 
+## 2026-09-10 project store template
+
+Plan 17 now specifies `20_PROJECTS` instead of the old project-only index.
+The empty estate materializer follows that static target root and exports
+`PROJECT_CONTEXT_DIRECTORY_TEMPLATE` as a read-only mandatory relative layout
+for project implementation/acceptance tests. It does not allocate a project,
+register a binding, authorize body writes or migrate live data.
+`20_PROJECT_ASSET_INDEX` and `45_EVENT_STORES/projects` remain legacy paths.
+Global indexes remain metadata-only; the protected per-project store is the
+separate content owner. See the Plan 17 project-store section and the existing
+resolver/operator manual before implementation or canary.
+
 Owner: `guild_hall/path_registry`. Status: `CURRENT = in-memory contract + tracked HOLD-sentinel seed + adversarial tests`; fresh Level 2 review accepted the G0 Plan 17 document reconciliation. R0 수락과 OD-10 owner/projection 배정은 2026-08-31 정본에 기록됐다. 실제 binding bytes 등록, write-guard 집행, materializer apply(실 canary root), 4192 배선, 그 어떤 물리 이동도 private binding·ACL·readback·activation gate 뒤의 `TARGET/HOLD`다.
 
 Team Member Engineering Program plan 17의 R1(Path Registry + resolver), R2(target materializer), R3(4192 Storage & Backup Map)의 계약 수직이다. 모든 binding·grant·evidence는 **호출자가 단언한 합성 사실**이고, 이 모듈은 어떤 payload byte도 소유·이동·삭제하지 않는다.

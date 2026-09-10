@@ -43,6 +43,8 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 - 팀원 창구 = Buzz + Main Node Hermes 봇이 대신 호출하는 MCP. 브라우저 World Tree(코드 dev-erp, 포트 4300)는 Owner loopback. 결과 등록은 제출 영수증이고 Linear done은 검토→사람 수락 뒤 사람이 누른다. 봇 명부는 조직도의 투영, 실제 ID는 private 명부에만.
 - 표시명은 `SHARED_GLOSSARY_V0.md` §세계 이름만 쓴다. 은퇴한 표시어(Vigil(4192·상황판), Hammer(Task Engine), Tributary(수집 lane), Tongs(MCP 문) 등, 같은 문서 §옛 표기 → 표시명 대조표)는 새로 쓰지 않고, 식별자(파일·폴더·포트·예약작업 ID)는 바꾸지 않으며 첫 등장에 괄호로 한 번 병기한다.
 
+- 새 프로젝트 맥락 데이터는 Plan 17의 `<data_root>/20_PROJECTS/<project-ref>/`에서 관리한다. 수집 원본·SE 수락 산출물·future target byte-lineage는 유지하며 current legacy 기록 append는 기존 guard 아래 계속한다. 폴더/단위시험 성공은 실제 canary·운영 수락이 아니다.
+
 ## 4. AI 작업 규약
 
 - 유효한 요청·Owner 위임이 허용한 lane·변경·origin/브랜치에서 자동 commit+push+self-verify를 유지한다. 검토 전용·명시적 중단선·node 금지 작업은 우선하며 Git 상태와 배포·사람 수락은 별개다.

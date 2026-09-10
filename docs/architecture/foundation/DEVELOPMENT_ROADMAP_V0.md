@@ -1,5 +1,25 @@
 # Development Roadmap v0
 
+## 2026-09-10 Owner priority — project-context build and physical acceptance
+
+Owner authorized the existing context/memory W0–W8 implementation and adopted
+the [Plan 17 project data template](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10).
+T0 freezes 24 question expectations and starts with Q01/Q05/Q07/Q09/Q11/Q12 plus
+project/ACL/budget negatives; the full 24 remain final coverage. Reuse current
+generation/query/memory code. T1–T2 close source/relation/replay gaps; T3 assembles
+bounded project context; T4 measures retrieval, utilization, judgment and cost
+separately; T5 must form/query/replay the adopted physical project template
+through the real consumer seam. Record missing or unimplemented comparison
+conditions as NOT_RUN. An empty tree, schema or unit suite is not completion.
+
+The implementation plan is held by the Owner's existing planning document.
+Only public-safe scope and acceptance rules are projected here. Actual project
+canary scope/ACL/source/binding/restore remains a separate prerequisite; current
+collector work is independent and is not restarted or migrated by this change.
+Existing SE artifact numbering and canonical byte-lineage remain intact.
+No new UI, giant ontology, compulsory Graph DB, official Task writer, external
+disclosure or production rule self-modification is introduced.
+
 ## Merge cleanup follow-up — 2026-09-09
 
 Owner authorized finishing the existing merge backlog, without restarting broad

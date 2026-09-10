@@ -1,22 +1,22 @@
 {
   "schema": "boot_digest_guard.v0",
-  "updated_at": "2026-09-09T03:48:09.314Z",
-  "digest_sha256": "97b2dfb3e0e14e80b66e2d398b86779bdfca27a4cfb2c179d70203e60f865300",
+  "updated_at": "2026-09-10T13:57:16.936Z",
+  "digest_sha256": "946025924b78b321d868ba6ccfc33a251aff519faee2d7f134cc26ff69ab0ddd",
   "sources": {
     "AGENTS.md": {
-      "sha256": "e4890bbb966fb917e425220eee401f001cdaa0bd615a3b5f3771f7333bc3c20c",
-      "lines": 87,
-      "bytes": 15180
+      "sha256": "63d8096d0c0882ef2f61ca6fb740b686eebbe7295ce9e07027868c445ca42703",
+      "lines": 88,
+      "bytes": 15479
     },
     "docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md": {
-      "sha256": "d2eba0047964026d781ad0106b6950e2b3d086561f2ea2ed84d883932404902b",
-      "lines": 354,
-      "bytes": 31966
+      "sha256": "392c1ebd1eb371682026eb4227b8b8f02cf5cf80a114434d739134c65582df6f",
+      "lines": 384,
+      "bytes": 34337
     },
     "docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md": {
-      "sha256": "c5d9ec9f92077d0f5d287d5bd9011000e2d113dc40f1525ca73fa27f5196f6b1",
-      "lines": 1642,
-      "bytes": 175689
+      "sha256": "789c883133050b1aee7bf8305c399b19d5854cd148749b99ced351d445591c55",
+      "lines": 1662,
+      "bytes": 177116
     },
     "docs/architecture/foundation/PROJECT_MAP_V0.md": {
       "sha256": "59aa2f6605139ff3e9568bb5838715a3d204737a6b69aab1f645f7d2df8d2551",

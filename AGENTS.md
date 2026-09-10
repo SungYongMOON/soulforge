@@ -36,6 +36,7 @@
 
 - Hammer(Task Engine)의 collector, scheduler, binding, custody, timeline, context 또는 TaskDriver를 바꾸면 `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`의 최신 CURRENT 상태표를 같은 변경에서 갱신한다.
 - 새 HPP 최상위 data surface는 `guild_hall/backup_controller/README.md`의 backup/restore 분류와 synthetic restore gate를 따른다.
+- 프로젝트 문서 RAG·맥락·회수 메모리의 새 저장 배치는 `docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md`의 프로젝트 store 계약을 따른다. 기존 legacy 기록과 future target을 섞지 않는다.
 - 지식 authority·저장·투영·재해복구를 다룰 때 `docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md`를 읽는다. 지식 접근 원장은 `guild_hall/knowledge_access/README.md`가 소유한다.
 - manager route는 `docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md`에서 exact resolve하고 ambiguous, stale, unknown route에는 자동 전송하지 않는다.
 - Hammer/AX 표시 용어는 `docs/architecture/foundation/SHARED_GLOSSARY_V0.md`를 따른다.

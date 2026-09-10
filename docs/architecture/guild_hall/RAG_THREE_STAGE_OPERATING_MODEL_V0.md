@@ -1,5 +1,16 @@
 # RAG Three-Stage Operating Model v0
 
+## 2026-09-10 target storage alignment
+
+Project-owned extraction/RAG/context/recall/evaluation content now targets
+`<data_root>/20_PROJECTS/<project-ref>/` under
+[Plan 17](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10).
+SE-numbered accepted bytes stay in target `_workspaces`; target `_workmeta` is
+canonical byte-lineage only. Old project `reference_payloads`, shared RAG and
+`project_context` paths below describe legacy compatibility until explicit
+cutover, not permission to write new target payloads. Project/common isolation,
+source truth, ACL and claim ceilings remain unchanged. No live data is moved.
+
 ## Purpose
 
 This document fixes the Soulforge RAG work into three plain stages.
@@ -11,7 +22,7 @@ Use this model when estimating scope, reporting progress, planning DAPA-style
 source work, or deciding whether a file is merely indexed, usable for work, or
 ready to become durable knowledge.
 
-### M2 storage boundary (2026-08-14)
+### Legacy M2 storage binding (2026-08-14; target path superseded above)
 
 This operating model inherits the exact-one-project Knowledge View boundary.
 Project-specific originals and every derived RAG/Wiki/run payload stay under

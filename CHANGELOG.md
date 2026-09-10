@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-10 — 프로젝트 중심 맥락 데이터 구조
+
+- Revision: this commit.
+- `20_PROJECTS/<project-ref>`를 문서 추출·검색·맥락·기억·평가·업무 경험의 새 target으로
+  채택하고 Plan 17, 전체 구조/ownership/지식 저장/개발 계획과 관련 매뉴얼을 동기화했다.
+- 기존 수집 원본, SE 번호별 수락 산출물과 canonical byte-lineage owner는 유지한다.
+  옛 project index/reference_payloads/context 경로는 legacy 호환·이관 입력으로 구분한다.
+- 빈 폴더 materializer와 문서-프로젝트 template 정합 시험을 맞췄다. 실제 자료 이동,
+  프로젝트 writer·collector·서비스 활성화, 설치본 업데이트는 수행하지 않는다.
+- 관련: Plan 17 project-store 계약, PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0,
+  PROJECT_CONTEXT_GRAPH_MODEL_V0, path_registry target_materializer 및 운영 매뉴얼.
+
 ## 2026-09-09 - 에이전트 지침의 전체 완료 기준과 조건부 읽기 정리
 
 - Revision 기준: `f85b76ca` 이후 지침 감사·수정. 과거 후보 전체를 덮어쓰지 않고 현재 정본에 적용한다.
