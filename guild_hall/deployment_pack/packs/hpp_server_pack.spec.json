@@ -2547,15 +2547,15 @@
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.mjs",
-      "sha256": "c0403c84c3b980152b91c25922ec380e2d6d42cdcbbde9646dc83e32457b294f"
+      "sha256": "16055fb370ee87a049a2d2446612d569da53a8b30a42c0dac7c0024fbbad8a9c"
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.test.mjs",
-      "sha256": "f62eac78d4b02dd80fc06ec61859ae1017f4c46b59f0e93b3bcaa36c0ca06574"
+      "sha256": "f5c79752f2b73f046d77945100f0631c48246738d1bd71607fdfa2a60c069bf9"
     },
     {
       "path": "guild_hall/voice_capture/local_asr.mjs",
-      "sha256": "cc388a65b1420cba50ac846aeb0e48ff4d928eda47cff26aa0ff19a4ba03af7b"
+      "sha256": "acbf1e05bf4d9edd63b85a7b512f0fe4d39e1e0ba147f889c572a883e2c3de22"
     },
     {
       "path": "guild_hall/voice_capture/semantic_labeling.mjs",
