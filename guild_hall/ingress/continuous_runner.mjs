@@ -2140,7 +2140,7 @@ export async function runContinuousIngress(options = {}) {
           commandTimeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
           requireHppCustody: binding.plaud.writerEnabled,
         });
-        if (binding.plaud.writerEnabled) {
+        if (binding.plaud.writerEnabled && binding.voice.enabled) {
           plaudRequiredSourcePrefixes = await plaudSessionCustodyPrefixes(
             sync,
             binding,
@@ -2209,10 +2209,12 @@ export async function runContinuousIngress(options = {}) {
       await assertLaneFences(binding, leaseContext, authorityContext, "voice", "after_payload", now);
     }
     if (isV3Binding(binding) && binding.plaud.writerEnabled) {
-      const custodyComplete = plaudRequiredSourcePrefixes.length === 0
-        ? voiceResult !== null
-        : voiceResult?.required_coverage?.complete === true;
-      const mirrorLimitReached = voiceResult?.limit_reached === true;
+      const custodyComplete = binding.voice.enabled
+        ? (plaudRequiredSourcePrefixes.length === 0
+          ? voiceResult !== null
+          : voiceResult?.required_coverage?.complete === true)
+        : plaudResult.status !== "failed";
+      const mirrorLimitReached = binding.voice.enabled && voiceResult?.limit_reached === true;
       plaudResult.custody_complete = custodyComplete;
       if (!custodyComplete || mirrorLimitReached) {
         plaudResult.cutover_ready = false;

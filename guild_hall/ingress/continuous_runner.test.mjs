@@ -2643,6 +2643,69 @@ test("PLAUD v3 primary writer imports through the existing fenced cycle without 
   }
 });
 
+test("PLAUD v3 primary writer accepts direct custody inside the managed data root when voice mirroring is off", async () => {
+  const f = await fixture();
+  try {
+    const authority = await activateWriterAuthority(f);
+    const plaud = await v3Binding(f, authority, { writerEnabled: true });
+    const directOutputRoot = join(f.dataRoot, "ingress", "plaud");
+    const directProfilePath = join(f.dataRoot, "config", "plaud_sync.profile.json");
+    await mkdir(directOutputRoot, { recursive: true });
+    await mkdir(dirname(directProfilePath), { recursive: true });
+    const directProfile = {
+      ...buildDefaultPlaudSyncProfile(),
+      output_root: "ingress/plaud",
+      register_library: true,
+      write_workmeta_draft: false,
+    };
+    const directProfileBytes = `${JSON.stringify(directProfile, null, 2)}\n`;
+    const directProfileSha256 = digest(directProfileBytes);
+    await writeFile(directProfilePath, directProfileBytes);
+    const cutoverReceipt = JSON.parse(await readFile(plaud.cutoverReceiptPath, "utf8"));
+    cutoverReceipt.profile_sha256 = directProfileSha256;
+    const cutoverReceiptBytes = `${JSON.stringify(cutoverReceipt, null, 2)}\n`;
+    await writeFile(plaud.cutoverReceiptPath, cutoverReceiptBytes);
+    plaud.payload.plaud.workspace_root = f.dataRoot;
+    plaud.payload.plaud.profile_path = directProfilePath;
+    plaud.payload.plaud.profile_sha256 = directProfileSha256;
+    plaud.payload.plaud.cutover_receipt_sha256 = digest(cutoverReceiptBytes);
+    plaud.payload.voice.enabled = false;
+    plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
+    await writeBinding(f, plaud.payload);
+    const sessionRef = join("ingress", "plaud", "sessions", "2026-09-10", "synthetic-session");
+    const sessionDir = join(f.dataRoot, sessionRef);
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, "session_manifest.json"), "synthetic\n");
+
+    const result = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: advancingClock(),
+      plaudSyncRunner: async () => ({
+        ok: true,
+        applied: true,
+        recent_count: 1,
+        existing_provider_id_count: 0,
+        new_candidate_count: 1,
+        candidate_count: 1,
+        truncated_new_candidate_count: 0,
+        recordings: [{ state: "imported", session_ref: sessionRef, audio_present: true }],
+        custody_required_session_refs: [sessionRef],
+      }),
+    });
+
+    assert.equal(result.status, "ok");
+    assert.equal(result.plaud.status, "ok");
+    assert.equal(result.plaud.imported_count, 1);
+    assert.equal(result.plaud.custody_complete, true);
+    assert.equal(result.plaud.cutover_ready, true);
+    assert.equal(result.voice, null);
+    assert.equal(result.errors.some((item) => item.binding_id === "plaud"), false);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test("PLAUD v3 keeps cutover blocked while unrelated voice mirror backlog hits its cycle limit", async () => {
   const f = await fixture();
   try {
