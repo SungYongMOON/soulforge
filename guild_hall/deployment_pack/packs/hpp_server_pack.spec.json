@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -135,6 +135,7 @@
       "guild_hall/gateway/mail_project_router.mjs",
       "guild_hall/ingress/collector.mjs",
       "guild_hall/ingress/continuous_binding.schema.json",
+      "guild_hall/ingress/continuous_cli.mjs",
       "guild_hall/ingress/continuous_runner.mjs",
       "guild_hall/ingress/continuous_supervisor.mjs",
       "guild_hall/ingress/continuous_supervisor_cli.mjs",
@@ -1687,7 +1688,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_10",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_12",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2431,6 +2432,10 @@
       "sha256": "9330f2d1f3b664b9ded3373cb93d66825aa6b43fcf92520f18a8cf21a8b91f8e"
     },
     {
+      "path": "guild_hall/deployment_pack/manuals/buzz_hermes_operations_recovery.v0.md",
+      "sha256": "e19adaf83c6f70bb140713db93b6d4afa816f78c106a50db50fccdb053e84ebc"
+    },
+    {
       "path": "guild_hall/dev_worker/feedback_dispatch.mjs",
       "sha256": "2255501f9af6eef89e213fc1a0fe1989db58b51c995a33a8c2e3e25e2f019dd0"
     },
@@ -2476,15 +2481,15 @@
     },
     {
       "path": "guild_hall/linear_history/linear_collect_receipt.mjs",
-      "sha256": "8a293c62e30aa7e5344da872587f3e60af966c1d43690f4a6e6693c6a30caf80"
+      "sha256": "ea0beb76e6c303664c3508b8e0aa2f5adc5ba5f1b163aa93be7776505936aa7a"
     },
     {
       "path": "guild_hall/linear_history/linear_collect_runner.mjs",
-      "sha256": "b88d8a49dd0dc10af1f2ca3cca398b3b710311db788ed4dd317df1f72e5a86a1"
+      "sha256": "be553978cf61823e0fc4dbf0acc198271ae645475004f7007644375b311c620c"
     },
     {
       "path": "guild_hall/linear_history/linear_graphql_client.mjs",
-      "sha256": "9e8df9d44468ab52a1994bcc1903f961a6d80873c809eb0e9d426593ff6c44f5"
+      "sha256": "efdfa28e63bc9057452c10432f8c19ea3ff3af09d25f37aa77d824106d01c644"
     },
     {
       "path": "guild_hall/path_registry/src/source_lane_index.mjs",
@@ -2532,7 +2537,7 @@
     },
     {
       "path": "guild_hall/voice_capture/local_asr.mjs",
-      "sha256": "b8688a99e8c7a6fe0d5556b93d80e797443f48ec5e2f2dd443f8f4318f407d78"
+      "sha256": "5ef1e40e111ad69ded210fbf6ef7a9ed36ca806aad888c314065e16838cbc1cf"
     },
     {
       "path": "guild_hall/voice_capture/semantic_labeling.mjs",

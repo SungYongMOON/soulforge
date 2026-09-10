@@ -57,6 +57,7 @@ const appEntrypoints = [
   ...listFiles(`${APP}/test`, ".test.mjs"),
 ];
 const operationalEntrypoints = [
+  "guild_hall/ingress/continuous_cli.mjs",
   "guild_hall/ingress/continuous_supervisor_cli.mjs",
   "guild_hall/local_activity/cli.mjs",
   "guild_hall/local_activity/store_validity_cli.mjs",
@@ -248,7 +249,7 @@ reviewed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "hpp_server_pack",
-  version: "0.1.11",
+  version: "0.1.12",
   host_effect_policy: {
     reboot: "forbidden",
     driver_change: "forbidden",
@@ -267,7 +268,7 @@ const spec = {
     .map((entry) => entry.replace("ui-workspace/apps/dev-erp/", ""))
     .filter((entry) => !INSTALLED_SMOKE_EXCLUDED.some((exclusion) => exclusion.path === entry)),
   installed_smoke_excluded: INSTALLED_SMOKE_EXCLUDED,
-  release_notes_ref: "release_notes.hpp_server_pack.v0_1_10",
+  release_notes_ref: "release_notes.hpp_server_pack.v0_1_12",
   install_manual_ref: "manual.install.hpp_server_pack",
   upgrade_manual_ref: "manual.upgrade.hpp_server_pack",
   rollback_manual_ref: "manual.rollback.hpp_server_pack",
