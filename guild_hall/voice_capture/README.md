@@ -357,6 +357,22 @@ event adapters for completed runs without reading or copying transcript text.
 
 ### HPP continuous ASR and label supervisor
 
+The existing registered launcher supports `-Preflight` (also `--preflight`)
+with all registered arguments. It checks paths, profile/executable pins and
+planned state custody without creating state, locks or logs and returns before
+source inventory, ASR or labeling. A preflight does not prove provider access or
+successful processing. The CLI's `continuous-label-supervisor.pause` file under
+the exact state root prevents new cycles and wakes the polling delay; an
+in-flight cycle finishes before exit. Earlier installed CLIs without this
+feature require their existing approved stop procedure.
+
+Backlog enqueue receives `voiceRoot/sessions` explicitly. An unavailable
+explicit sessions root is an error, not an empty backlog. New queue refs use
+the actual session location; retired refs require a separate exact metadata
+migration and are never resolved through an implicit legacy fallback. Blocked,
+not-run or interrupted processing reports unobserved counts as null and retains
+an already observed ASR result when a later labeling phase fails.
+
 The HPP uses a separate hidden supervisor for derived voice processing. The
 existing five-lane collector remains the RAW owner; this supervisor never
 downloads PLAUD data or rewrites source audio. Each 15-minute cycle:

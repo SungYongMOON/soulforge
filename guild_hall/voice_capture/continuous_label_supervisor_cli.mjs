@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import process from "node:process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 import {
   continuousVoiceLabelSupervisorEventSchemaVersion,
@@ -32,12 +34,12 @@ function parseArgs(tokens) {
     const token = tokens[index];
     if (!token.startsWith("--")) fail("voice_label_supervisor_unexpected_argument");
     const key = token.slice(2);
-    if (seen.has(key) || (key !== "apply" && !values.has(key))) {
+    if (seen.has(key) || (!["apply", "preflight"].includes(key) && !values.has(key))) {
       fail("voice_label_supervisor_unknown_or_duplicate_argument");
     }
     seen.add(key);
-    if (key === "apply") {
-      result.apply = true;
+    if (key === "apply" || key === "preflight") {
+      result[key] = true;
       continue;
     }
     const value = tokens[index + 1];
@@ -58,10 +60,12 @@ for (const signalName of ["SIGINT", "SIGTERM"]) {
   process.once(signalName, () => controller.abort());
 }
 
+let pauseMonitor;
 try {
   const args = parseArgs(process.argv.slice(2));
-  if (args.apply !== true) fail("voice_label_supervisor_apply_required");
-  await runContinuousVoiceLabelSupervisor({
+  if (args.preflight && args.apply) fail("voice_label_supervisor_preflight_apply_conflict");
+  if (!args.preflight && args.apply !== true) fail("voice_label_supervisor_apply_required");
+  const options = {
     repoRoot: required(args, "repo-root"),
     voiceRoot: required(args, "voice-root"),
     profileRef: required(args, "profile"),
@@ -74,7 +78,21 @@ try {
     apply: true,
     signal: controller.signal,
     emit: (value) => process.stdout.write(`${JSON.stringify(value)}\n`),
-  });
+  };
+  if (args.preflight) {
+    const poll = Number(args["poll-seconds"] ?? 900);
+    if (!Number.isSafeInteger(poll) || poll < 60 || poll > 86400) fail("voice_label_supervisor_poll_seconds_invalid");
+    const { runContinuousVoiceLabelWorker } = await import("./continuous_label_worker.mjs");
+    const result = await runContinuousVoiceLabelWorker({ ...options, apply: false, preflightOnly: true });
+    process.stdout.write(`${JSON.stringify({ schema_version: result.schema_version, status: result.status, preflight_ok: result.preflight_ok, writes_performed: 0 })}\n`);
+    if (result.status !== "preflight_passed") process.exitCode = 2;
+  } else {
+    const pauseRef = path.resolve(options.stateRoot, "continuous-label-supervisor.pause");
+    if (existsSync(pauseRef)) controller.abort();
+    pauseMonitor = setInterval(() => { if (existsSync(pauseRef)) controller.abort(); }, 1000);
+    pauseMonitor.unref();
+    await runContinuousVoiceLabelSupervisor(options);
+  }
 } catch (error) {
   process.stderr.write(`${JSON.stringify({
     schema_version: continuousVoiceLabelSupervisorEventSchemaVersion,
@@ -82,4 +100,6 @@ try {
     code: safeVoiceLabelSupervisorErrorCode(error),
   })}\n`);
   process.exitCode = 2;
+} finally {
+  if (pauseMonitor) clearInterval(pauseMonitor);
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runContinuousIngress } from "./continuous_runner.mjs";
+import { inspectContinuousIngress, runContinuousIngress } from "./continuous_runner.mjs";
 
 function parseArgs(tokens) {
   const result = {};
@@ -9,11 +9,11 @@ function parseArgs(tokens) {
     const token = tokens[i];
     if (!token.startsWith("--")) throw new Error("unexpected_argument");
     const key = token.slice(2);
-    if (key !== "apply" && !valueKeys.has(key)) throw new Error("unexpected_argument");
+    if (key !== "apply" && key !== "inspect" && !valueKeys.has(key)) throw new Error("unexpected_argument");
     if (seen.has(key)) throw new Error("duplicate_argument");
     seen.add(key);
-    if (key === "apply") {
-      result.apply = true;
+    if (key === "apply" || key === "inspect") {
+      result[key] = true;
       continue;
     }
     const value = tokens[i + 1];
@@ -27,6 +27,12 @@ function parseArgs(tokens) {
 try {
   const args = parseArgs(process.argv.slice(2));
   if (!args.config) throw new Error("config_required");
+  if (args.inspect && args.apply) throw new Error("inspect_apply_conflict");
+  if (args.inspect) {
+    const result = await inspectContinuousIngress({ bindingPath: args.config, bindingDigest: args["config-digest"] });
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    process.exit(["ok", "disabled"].includes(result.status) ? 0 : 1);
+  }
   if (args.apply === true && !args["config-digest"]) {
     throw new Error("continuous_binding_digest_required");
   }
@@ -78,12 +84,12 @@ try {
       plaud_enabled: result.plaud_enabled ?? result.plaud?.status !== "disabled",
       plaud_status: result.plaud?.status ?? result.plaud_status ?? "unknown",
       plaud_writer_enabled: result.plaud_writer_enabled ?? result.plaud?.writer_enabled ?? false,
-      plaud_recent_count: result.plaud?.recent_count ?? 0,
-      plaud_new_candidate_count: result.plaud?.new_candidate_count ?? 0,
-      plaud_ready_to_import_count: result.plaud?.ready_to_import_count ?? 0,
-      plaud_pending_provider_processing_count: result.plaud?.pending_provider_processing_count ?? 0,
-      plaud_imported_count: result.plaud?.imported_count ?? 0,
-      plaud_post_import_warning_count: result.plaud?.post_import_warning_count ?? 0,
+      plaud_recent_count: result.plaud?.recent_count ?? null,
+      plaud_new_candidate_count: result.plaud?.new_candidate_count ?? null,
+      plaud_ready_to_import_count: result.plaud?.ready_to_import_count ?? null,
+      plaud_pending_provider_processing_count: result.plaud?.pending_provider_processing_count ?? null,
+      plaud_imported_count: result.plaud?.imported_count ?? null,
+      plaud_post_import_warning_count: result.plaud?.post_import_warning_count ?? null,
       plaud_blocking_check_ids: Array.isArray(result.plaud?.blocking_check_ids)
         ? result.plaud.blocking_check_ids
         : [],

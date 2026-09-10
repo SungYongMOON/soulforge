@@ -214,7 +214,11 @@ long-lived supervisor checks provider metadata once per fenced cycle with
 `apply: false`. In `primary_writer` mode it passes the HPP node identity into
 the existing PLAUD importer, downloads only the bounded candidate set, writes
 the unclassified shared session/library/producer receipt, then lets the same
-cycle's copy-only mirror place the new generation in D-local custody. Both
+cycle's copy-only mirror place the new generation in D-local custody, or writes
+directly below the managed data root when `voice.enabled` is false. Direct
+mode accepts only safe relative profile output refs and requires their physical
+root to remain inside the bound data root. It never resolves or recreates the
+disabled mirror source. Both
 modes publish only counts and fixed health states: recording IDs, titles,
 provider URLs, transcript bodies, and absolute paths are omitted. A disabled
 PLAUD block does not open the profile, invoke the CLI, or touch the network.
@@ -242,7 +246,7 @@ service is disabled and unloaded with restart disabled, bind the HPP target node
 and exact PLAUD profile digest, carry a validity window of at most 30 days, and
 cite the operator approval reference. Historical observe-only v3 bindings
 remain valid without these optional fields; when present outside writer mode
-both fields must be `null`. Writer mode also requires the copy-only mirror's
+both fields must be `null`. When mirroring is enabled, writer mode requires the copy-only mirror's
 source to resolve to the exact PLAUD output root and its lanes to include
 `sessions`, `library`, and `delivery`. The atomic session already includes a
 pending post-import repair sidecar, so interrupted library or delivery work is
@@ -252,6 +256,29 @@ configured timeout. The complete atomic session is capped at 2.25 GiB and eight
 files; 4 KiB of that byte budget is reserved before publication for the bounded
 post-import state and warning updates. Required HPP RAW sessions are mirrored
 before unrelated voice backlog.
+
+Direct custody checks every required durable/current session ref, the session
+manifest schema, and the audio file's physical containment and recorded size.
+This is a metadata/size check, not a fresh content-hash audit. A moved manifest
+with a retired audio ref fails closed until an explicitly authorized metadata
+migration fixes the exact ref. There is no legacy-path fallback. Custody covers
+published RAW sessions; it does not mean all provider candidates were imported.
+Post-import repair warnings, retryable import failures, provider processing,
+unknown states and the cycle cap keep cutover readiness false. Unobserved or
+failed query counts are `null`, while a successfully observed empty run is zero.
+
+`continuous_cli.mjs --config <binding> --inspect` reads the existing health/run
+receipts without acquiring a lease or calling a provider. It reports the PLAUD
+lane, check time, last run/success, per-run collected and remaining candidate
+counts, custody and fixed error codes. Missing history is `not_run`; invalid or
+unbound history is `unknown`; a last completed run older than twice the polling
+interval is `stale`. Counts on stale rows belong to that displayed last run.
+The inspector does not claim a current provider inventory or ASR completion.
+
+The registered PowerShell ingress launcher accepts `-Preflight` (also
+`--preflight`) with its unchanged registered arguments. It checks the pinned
+binding and runnable configuration before logs, locks, heartbeats or data are
+created. It does not renew authority, fetch provider data or start a cycle.
 Newly published RAW enters D-local custody in the same cycle only when the
 mirror's required-session coverage check passes. An import that misses
 same-cycle custody remains degraded with `cutover_ready: false` and is retried

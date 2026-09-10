@@ -479,6 +479,28 @@ test("local ASR backlog discovery skips completed current-run sessions and queue
   }
 });
 
+test("local ASR enqueues an explicit moved sessions root and never recreates the retired default", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-asr-direct-"));
+  try {
+    const sessionsRoot = path.join(repoRoot, "ingress/plaud/sessions");
+    const sessionDir = path.join(sessionsRoot, "2026-09-10", "synthetic-direct");
+    await mkdir(path.join(sessionDir, "audio"), { recursive: true });
+    await writeFile(path.join(sessionDir, "audio/source.ogg"), "synthetic");
+    await writeFile(path.join(sessionDir, "session_manifest.json"), JSON.stringify({
+      session_id: "synthetic-direct", source_sha256: "synthetic-audio",
+      audio: { ref: "ingress/plaud/sessions/2026-09-10/synthetic-direct/audio/source.ogg" },
+    }));
+    const profile = { ...buildDefaultLocalAsrProfile(), queue_root: "ingress/plaud/local_asr_queue" };
+    const queued = await enqueueLocalAsrBacklog({ repoRoot, profile, sessionsRoot, apply: true });
+    assert.equal(queued.pending_count, 1);
+    const queue = JSON.parse(await readFile(path.join(repoRoot, queued.results[0].queue_ref), "utf8"));
+    assert.equal(queue.session_ref, "ingress/plaud/sessions/2026-09-10/synthetic-direct");
+    assert.equal(await stat(path.join(repoRoot, "_workspaces")).then(() => true, () => false), false);
+    await assert.rejects(enqueueLocalAsrBacklog({ repoRoot, profile,
+      sessionsRoot: path.join(repoRoot, "missing"), apply: true }), /local_asr_sessions_root_unavailable/);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
 test("local ASR preflight checks engine, ffmpeg, and model without reading source payload", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-preflight-"));
   try {

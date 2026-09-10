@@ -102,7 +102,8 @@ function implementations(f, calls) {
         run_id: "synthetic-run",
       },
     }),
-    enqueueImpl: async () => {
+    enqueueImpl: async (options) => {
+      assert.equal(options.sessionsRoot, path.join(f.voiceRoot, "sessions"));
       calls.push("enqueue");
       return { pending_count: 3, queued_count: 3 };
     },
@@ -132,6 +133,45 @@ function implementations(f, calls) {
     },
   };
 }
+
+test("preflight validates planned state without creating it or invoking source processing", async () => {
+  const f = await fixture();
+  try {
+    const calls = [];
+    const result = await runContinuousVoiceLabelWorker({
+      repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
+      stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
+      expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
+      expectedAsrSha256: f.asrSha256, apply: false, preflightOnly: true,
+      ...implementations(f, calls),
+    });
+    assert.equal(result.status, "preflight_passed");
+    assert.deepEqual(calls, []);
+    assert.deepEqual(await readdir(f.expectedStateRoot), []);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("blocked processing is unknown and later label failure retains measured ASR counts", async () => {
+  const f = await fixture();
+  try {
+    const options = { repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
+      stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
+      expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
+      expectedAsrSha256: f.asrSha256, apply: true, ...implementations(f, []) };
+    const blocked = await runContinuousVoiceLabelWorker({ ...options,
+      preflightImpl: async () => ({ ok: false, checks: [] }) });
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.asr.pending_count, null);
+    assert.equal(blocked.asr.processed_count, null);
+    await assert.rejects(runContinuousVoiceLabelWorker({ ...options,
+      sweepImpl: async () => { throw new Error("synthetic-label-interruption"); } }));
+    const health = JSON.parse(await readFile(path.join(f.stateRoot, "health.json"), "utf8"));
+    assert.equal(health.status, "failed");
+    assert.equal(health.asr.processed_count, 1);
+    assert.equal(health.asr.remaining_pending_count, 2);
+    assert.equal(health.labels.processed_session_count, null);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
 
 test("apply processes bounded ASR then labels and writes metadata-only state", async () => {
   const f = await fixture();

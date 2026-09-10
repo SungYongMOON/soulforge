@@ -10,7 +10,8 @@ param(
   [Parameter(Mandatory = $true)][string]$StateRoot,
   [ValidateRange(60, 86400)][int]$PollSeconds = 900,
   [ValidateRange(1, 16)][int]$MaxAsrSessions = 1,
-  [ValidateRange(1, 1000)][int]$MaxLabelSessions = 20
+  [ValidateRange(1, 1000)][int]$MaxLabelSessions = 20,
+  [Alias('-preflight')][switch]$Preflight
 )
 
 Set-StrictMode -Version Latest
@@ -213,6 +214,16 @@ if ($ActualAsrSha256 -ne $AsrSha256) {
   throw "voice label supervisor ASR digest mismatch"
 }
 
+if ($Preflight) {
+  if (Test-Path -LiteralPath $StateRoot) { Assert-SafeStateTree -Root $StateRoot }
+  $env:SOULFORGE_VOICE_LABEL_EXPECTED_STATE_ROOT = $StateRoot
+  $env:SOULFORGE_VOICE_LABEL_EXPECTED_ASR_BIN_ROOT = $AsrBinRoot
+  $env:SOULFORGE_VOICE_LABEL_EXPECTED_RUNTIME_ROOT = $RuntimeRoot
+  $env:PATH = "$AsrBinRoot;$env:PATH"
+  $NodeExe = [IO.Path]::GetFullPath((Get-Command node.exe -ErrorAction Stop).Source)
+  & $NodeExe $SupervisorCli --repo-root $RepoRoot --voice-root $VoiceRoot --profile $ProfilePath --profile-sha256 $ProfileSha256 --asr-sha256 $AsrSha256 --state-root $StateRoot --poll-seconds $PollSeconds --max-asr-sessions $MaxAsrSessions --max-label-sessions $MaxLabelSessions --preflight
+  exit $LASTEXITCODE
+}
 New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
 Assert-NoReparsePath -Path $StateRoot
 $StateRoot = [IO.Path]::GetFullPath((Get-Item -LiteralPath $StateRoot -Force).FullName)

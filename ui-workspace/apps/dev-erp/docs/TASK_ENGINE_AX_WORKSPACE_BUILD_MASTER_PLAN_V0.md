@@ -1,5 +1,15 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-10 CURRENT (Tributary direct custody candidate): the existing PLAUD
+> cycle supports mirror-off storage within its pinned managed data root and
+> checks durable session/audio metadata independently of collection/repair
+> status. Unknown counts remain null; receipt inspection distinguishes not-run,
+> unknown and stale evidence. ASR backlog discovery receives the bound physical
+> voice sessions root. Both registered launchers offer read-only preflight;
+> voice-label pause waits for the current cycle to finish. Synthetic validation
+> is separate from metadata migration, independent review, installed rollout,
+> three post-resume completed cycles and provider-backlog reconciliation.
+
 > 2026-09-09 CURRENT (native Owner attention): the existing bound Buzz reader now
 > supplies native questions to the Owner inbox. Exact Owner/session/project
 > checks and CSRF protect reversible seen/snooze preferences in the viewer ERP

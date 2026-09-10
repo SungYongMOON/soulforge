@@ -285,6 +285,7 @@ async function validateApplyStateCustody({
   stateRoot,
   expectedStateRoot,
   expectedAsrBinRoot,
+  readOnly = false,
 }) {
   if (!expectedStateRoot) fail("voice_label_worker_expected_state_root_required");
   if (!expectedAsrBinRoot) fail("voice_label_worker_expected_asr_bin_root_required");
@@ -292,11 +293,9 @@ async function validateApplyStateCustody({
     stateRoot,
     "voice_label_state_root_unsafe",
   );
-  const canonicalExpectedStateRoot = await canonicalExisting(
-    expectedStateRoot,
-    "directory",
-    "voice_label_expected_state_root_unsafe",
-  );
+  const canonicalExpectedStateRoot = readOnly
+    ? await canonicalPlannedDirectory(expectedStateRoot, "voice_label_expected_state_root_unsafe")
+    : await canonicalExisting(expectedStateRoot, "directory", "voice_label_expected_state_root_unsafe");
   if (!isSameOrInside(canonicalExpectedStateRoot, canonicalStateRoot)) {
     fail("voice_label_state_root_outside_expected");
   }
@@ -320,6 +319,14 @@ async function validateApplyStateCustody({
     || isSameOrInside(canonicalExpectedStateRoot, root)
   ))) {
     fail("voice_label_state_root_unsafe");
+  }
+  if (readOnly) {
+    try { await lstat(canonicalStateRoot); } catch (error) {
+      if (error.code === "ENOENT") return canonicalStateRoot;
+      throw error;
+    }
+    await assertSafeStateTree(canonicalStateRoot);
+    return canonicalStateRoot;
   }
   await mkdir(canonicalStateRoot, { recursive: true });
   const validatedStateRoot = await canonicalExisting(
@@ -520,6 +527,15 @@ function summarizeEnqueue(result) {
   };
 }
 
+function unobservedProcessing() {
+  return {
+    asr: { pending_count: null, processed_count: null, failed_count: null, remaining_pending_count: null, retry_required: true },
+    labels: { eligible_session_count: null, pending_session_count: null, processed_session_count: null,
+      duplicate_session_count: null, no_content_session_count: null, failed_session_count: null,
+      failure_codes: [], timeline_annotation_count: null },
+  };
+}
+
 function summarizeDrain(result) {
   return {
     pending_count: Number(result?.pending_count ?? 0),
@@ -566,6 +582,7 @@ async function writeResultState(stateRoot, result) {
 export async function runContinuousVoiceLabelWorker(options = {}) {
   const now = options.now instanceof Date ? options.now : new Date();
   const apply = options.apply === true;
+  if (apply && options.preflightOnly) fail("voice_label_preflight_apply_conflict");
   if (!options.voiceRoot || !options.profileRef) fail("voice_label_worker_binding_required");
   if (apply && !options.stateRoot) fail("voice_label_worker_state_root_required");
   const baseCustody = await validateBaseCustody({
@@ -582,7 +599,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
   const profileRef = baseCustody.profileRef;
   const expectedAsrBinRoot = options.expectedAsrBinRoot
     ?? process.env.SOULFORGE_VOICE_LABEL_EXPECTED_ASR_BIN_ROOT;
-  const stateRoot = apply
+  const stateRoot = apply || options.preflightOnly
     ? await validateApplyStateCustody({
       repoRoot,
       runtimeRoot,
@@ -592,6 +609,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
       expectedStateRoot: options.expectedStateRoot
         ?? process.env.SOULFORGE_VOICE_LABEL_EXPECTED_STATE_ROOT,
       expectedAsrBinRoot,
+      readOnly: options.preflightOnly === true,
     })
     : null;
   const runId = `voice-label-${compactTimestamp(now)}-${crypto.randomUUID().slice(0, 8)}`;
@@ -609,8 +627,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
         ...result,
         status: "already_running",
         completed_at: new Date().toISOString(),
-        asr: { pending_count: 0, processed_count: 0, failed_count: 0, remaining_pending_count: 0, retry_required: false },
-        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, no_content_session_count: 0, failed_session_count: 0, failure_codes: [], timeline_annotation_count: 0 },
+        ...unobservedProcessing(),
       };
     }
     const expectedProfileSha256 = normalizedSha256(
@@ -658,19 +675,20 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
         completed_at: new Date().toISOString(),
         preflight_ok: Boolean(preflight?.ok),
         asr_binary_sha256_match: observedAsrSha256 === expectedAsrSha256,
-        asr: { pending_count: 0, processed_count: 0, failed_count: 0, remaining_pending_count: 0, retry_required: false },
-        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, no_content_session_count: 0, failed_session_count: 0, failure_codes: [], timeline_annotation_count: 0 },
+        ...unobservedProcessing(),
       };
       if (apply) await writeResultState(stateRoot, blocked);
       return blocked;
     }
 
+    if (options.preflightOnly) return { ...result, status: "preflight_passed", preflight_ok: true, writes_performed: 0 };
     const profile = {
       ...profileLoad.profile,
       asr_binary: custody.canonicalAsrBinary,
     };
     const enqueue = await (options.enqueueImpl ?? enqueueLocalAsrBacklog)({
       repoRoot,
+      sessionsRoot: path.join(voiceRoot, "sessions"),
       profile,
       profileRef,
       apply,
@@ -684,6 +702,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
       maxSessions: maxAsrSessions,
       now,
     });
+    result = { ...result, queue: summarizeEnqueue(enqueue), asr: summarizeDrain(drain) };
     const labels = await (options.sweepImpl ?? runVoiceSemanticSweep)({
       repo_root: repoRoot,
       voice_root: voiceRoot,
@@ -715,8 +734,8 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
         error_code: /^[a-z0-9_]{1,128}$/u.test(String(error?.code ?? ""))
           ? error.code
           : "voice_label_worker_failed",
-        asr: { pending_count: 0, processed_count: 0, failed_count: 1, remaining_pending_count: 0, retry_required: true },
-        labels: { eligible_session_count: 0, pending_session_count: 0, processed_session_count: 0, duplicate_session_count: 0, no_content_session_count: 0, failed_session_count: 0, failure_codes: [], timeline_annotation_count: 0 },
+        ...unobservedProcessing(),
+        ...(result.asr ? { asr: result.asr } : {}),
       };
       await writeResultState(stateRoot, failed);
     }

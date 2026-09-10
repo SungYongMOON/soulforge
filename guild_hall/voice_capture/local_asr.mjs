@@ -1171,6 +1171,14 @@ export async function discoverLocalAsrSessions(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const profile = options.profile ?? (await loadLocalAsrProfile({ repoRoot, profileRef: options.profileRef })).profile;
   const sessionsRoot = resolveRepoPath(repoRoot, options.sessionsRoot ?? "_workspaces/system/voice_capture/sessions");
+  if (options.sessionsRoot !== undefined) {
+    const info = await fs.stat(sessionsRoot).catch(() => null);
+    if (!info?.isDirectory()) {
+      const error = new Error("local_asr_sessions_root_unavailable");
+      error.code = "local_asr_sessions_root_unavailable";
+      throw error;
+    }
+  }
   const rows = [];
   for (const dateEntry of await safeReadDir(sessionsRoot)) {
     if (!dateEntry.isDirectory()) continue;
@@ -1629,7 +1637,8 @@ export async function enqueueLocalAsrSession(options = {}) {
 export async function enqueueLocalAsrBacklog(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const profile = options.profile ?? (await loadLocalAsrProfile({ repoRoot, profileRef: options.profileRef })).profile;
-  const sessions = (await discoverLocalAsrSessions({ repoRoot, profile })).filter((row) => row.state === "needs_analysis");
+  const sessions = (await discoverLocalAsrSessions({ repoRoot, profile, sessionsRoot: options.sessionsRoot }))
+    .filter((row) => row.state === "needs_analysis");
   const results = [];
   for (const session of sessions) {
     results.push(await enqueueLocalAsrSession({ repoRoot, profile, sessionDir: session.session_dir, apply: options.apply, now: options.now }));

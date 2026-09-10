@@ -72,7 +72,7 @@ function supervisorEvent(event, fields = {}) {
   };
 }
 
-function assertRunnableBinding(binding) {
+export function assertRunnableBinding(binding) {
   if (!binding?.enabled) fail("continuous_supervisor_binding_disabled");
   if (!binding?.schedulerEnabled) fail("continuous_supervisor_scheduler_disabled");
   if (!Number.isSafeInteger(binding.pollIntervalSeconds)

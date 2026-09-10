@@ -3,8 +3,10 @@
 import process from "node:process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { loadContinuousBinding } from "./continuous_runner.mjs";
 import {
   CONTINUOUS_SUPERVISOR_EVENT_SCHEMA,
+  assertRunnableBinding,
   createSupervisorHeartbeatRecorder,
   runContinuousSupervisor,
   safeSupervisorErrorCode,
@@ -24,12 +26,12 @@ function parseArgs(tokens) {
     const token = tokens[index];
     if (!token.startsWith("--")) fail("continuous_supervisor_unexpected_argument");
     const key = token.slice(2);
-    if (seen.has(key) || (key !== "apply" && !values.has(key))) {
+    if (seen.has(key) || (!["apply", "preflight"].includes(key) && !values.has(key))) {
       fail("continuous_supervisor_unknown_or_duplicate_argument");
     }
     seen.add(key);
-    if (key === "apply") {
-      result.apply = true;
+    if (key === "apply" || key === "preflight") {
+      result[key] = true;
       continue;
     }
     const value = tokens[index + 1];
@@ -47,9 +49,16 @@ for (const name of ["SIGINT", "SIGTERM"]) {
 
 try {
   const args = parseArgs(process.argv.slice(2));
-  if (args.apply !== true) fail("continuous_supervisor_apply_required");
+  if (args.preflight && args.apply) fail("continuous_supervisor_preflight_apply_conflict");
+  if (!args.preflight && args.apply !== true) fail("continuous_supervisor_apply_required");
   if (!args.config) fail("continuous_supervisor_config_required");
   if (!args["config-digest"]) fail("continuous_supervisor_config_digest_required");
+  if (args.preflight) {
+    const binding = await loadContinuousBinding(args.config, { bindingDigest: args["config-digest"] });
+    assertRunnableBinding(binding);
+    process.stdout.write(`${JSON.stringify({ schema_version: CONTINUOUS_SUPERVISOR_EVENT_SCHEMA, event: "preflight_passed", writes_performed: 0 })}\n`);
+    process.exit(0);
+  }
   const pauseRef = path.resolve(path.dirname(args.config), "continuous-supervisor.pause");
   if (existsSync(pauseRef)) controller.abort();
   const pauseMonitor = setInterval(() => {
