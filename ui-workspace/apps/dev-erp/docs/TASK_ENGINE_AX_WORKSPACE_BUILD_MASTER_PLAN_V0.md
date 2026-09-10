@@ -1,5 +1,14 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-10 CURRENT (audio-first/discovery candidate): the explicit audio-first
+> profile separates original custody, unavailable provider text, independent
+> ASR and delivery. Same-ID provider backfill retains the audio and ASR result.
+> Pinned files pagination, exact created-at boundary checks, bounded deadlines
+> and config-bound fair probe cursors replace the recent-300 discovery shortcut.
+> Strict defaults remain compatible; new audio-only data is not declared safe
+> for old strict-only runtime rollback. Source/installed review and operating
+> backlog acceptance remain separate gates; no operating change is implied.
+
 > 2026-09-10 CURRENT (Tributary direct custody candidate): the existing PLAUD
 > cycle supports mirror-off storage within its pinned managed data root and
 > checks durable session/audio metadata independently of collection/repair

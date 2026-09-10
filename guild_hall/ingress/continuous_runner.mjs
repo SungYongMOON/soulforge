@@ -1797,6 +1797,12 @@ function disabledPlaudResult() {
     reconciled_count: null,
     post_import_warning_count: null,
     unknown_state_count: null,
+    catalog_count: null,
+    catalog_complete: false,
+    audio_unavailable_count: null,
+    provider_transcript_unavailable_count: null,
+    provider_backfill_pending_count: null,
+    provider_backfilled_count: null,
     preflight_ok: null,
     blocking_check_ids: [],
     raw_written: false,
@@ -1823,7 +1829,11 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
   const count = (state) => recordings.filter((item) => item?.state === state).length;
   const ready = count("ready_to_import");
   const processing = count("pending_provider_processing");
-  const retryable = count("import_failed_retryable") + count("existing_reconciliation_failed_retryable");
+  const unavailable = count("provider_artifact_unavailable");
+  const unavailableNew = recordings.filter((row) => row.state === "provider_artifact_unavailable" && row.work_kind !== "backfill").length;
+  const backfilled = count("provider_backfilled");
+  const readyBackfill = count("ready_to_backfill");
+  const retryable = count("import_failed_retryable") + count("existing_reconciliation_failed_retryable") + count("provider_backfill_failed_retryable");
   const imported = count("imported");
   const reconciled = count("reconciled");
   const importedWithoutAudio = recordings.filter((item) => item?.state === "imported"
@@ -1834,10 +1844,11 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
   );
   const postImportWarnings = remainingExistingWarnings + recordings.filter((item) => item?.state === "imported"
     && (item?.audio_present !== true
+      || item?.provider_transcript_state === "provider_output_failed_retryable"
       || item?.library?.state === "registration_failed_retryable"
       || item?.delivery?.state === "prepare_failed_retryable"
       || item?.workmeta?.state === "write_failed_retryable")).length;
-  const known = ready + processing + retryable + imported + reconciled;
+  const known = ready + processing + unavailable + retryable + imported + reconciled + backfilled + readyBackfill;
   const observedCount = (value) => Number.isSafeInteger(value) && value >= 0 ? value : null;
   const recentCount = observedCount(sync?.recent_count);
   const existingCount = observedCount(sync?.existing_provider_id_count);
@@ -1856,7 +1867,7 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
     status: sync?.ok === false
       ? "blocked"
       : !countsKnown || retryable > 0 || postImportWarnings > 0 || known !== recordings.length
-        || (writerEnabled && (processing > 0 || ready > 0 || truncatedCount > 0))
+        || (writerEnabled && (processing > 0 || unavailableNew > 0 || ready > 0 || truncatedCount > 0))
         ? "degraded"
         : "ok",
     applied: Boolean(writerEnabled && sync?.applied),
@@ -1866,7 +1877,18 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
     candidate_count: candidateCount,
     truncated_new_candidate_count: truncatedCount,
     ready_to_import_count: ready,
-    pending_provider_processing_count: processing,
+    pending_provider_processing_count: processing > 0 ? processing : null,
+    audio_unavailable_count: recordings.filter((row) => row.state === "provider_artifact_unavailable" && row.metadata?.audio_available === false).length,
+    provider_transcript_unavailable_count: recordings.filter((row) => row.provider_transcript_state === "not_available"
+      || (row.state === "provider_artifact_unavailable" && row.metadata?.transcript_available === false)).length,
+    provider_transcript_fetch_failed_count: recordings.filter((row) => row.provider_transcript_state === "provider_output_failed_retryable").length,
+    provider_backfill_failed_count: count("provider_backfill_failed_retryable"),
+    provider_backfilled_count: backfilled,
+    provider_backfill_pending_count: observedCount(sync?.provider_backfill_pending_count),
+    catalog_count: observedCount(sync?.catalog_count),
+    catalog_complete: sync?.catalog_complete === true,
+    lookback_complete: sync?.lookback_complete ?? null,
+    probe_cursor_sha256: /^[a-f0-9]{64}$/u.test(sync?.probe_cursor_sha256 ?? "") ? sync.probe_cursor_sha256 : null,
     import_failed_retryable_count: retryable,
     imported_count: imported,
     reconciled_count: reconciled,
@@ -1881,7 +1903,7 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
         .sort()
       : [],
     raw_written: rawWritten,
-    provider_payload_read: Boolean(writerEnabled && (imported > 0 || retryable > 0)),
+    provider_payload_read: Boolean(writerEnabled && (imported > 0 || retryable > 0 || backfilled > 0)),
     writer_enabled: writerEnabled,
     custody_complete: writerEnabled ? null : false,
     cutover_ready: Boolean(writerEnabled
@@ -2131,6 +2153,9 @@ async function inspectLatestSupervisorAttempt(bindingPath, observation) {
       lanes: observation.lanes.map((lane) => ({ ...lane,
         status: lane.status === "disabled" ? "disabled" : "unknown",
         collected_count: null, pending_count: null, custody_complete: null, error_codes: errorCodes,
+        ...(lane.lane === "plaud" ? { catalog_count: null, catalog_complete: false, lookback_complete: null,
+          audio_unavailable_count: null, provider_transcript_unavailable_count: null,
+          provider_backfill_pending_count: null, provider_backfilled_count: null } : {}),
       })),
     };
   } catch {
@@ -2138,6 +2163,9 @@ async function inspectLatestSupervisorAttempt(bindingPath, observation) {
       lanes: observation.lanes.map((lane) => ({ ...lane,
         status: lane.status === "disabled" ? "disabled" : "unknown",
         collected_count: null, pending_count: null, custody_complete: null,
+        ...(lane.lane === "plaud" ? { catalog_count: null, catalog_complete: false, lookback_complete: null,
+          audio_unavailable_count: null, provider_transcript_unavailable_count: null,
+          provider_backfill_pending_count: null, provider_backfilled_count: null } : {}),
         error_codes: ["continuous_inspection_heartbeat_invalid"],
       })),
     };
@@ -2224,6 +2252,13 @@ export async function inspectContinuousIngress(options = {}) {
         pending_count: count(plaud?.new_candidate_count) !== null && count(plaud?.imported_count) !== null
           ? Math.max(plaud.new_candidate_count - plaud.imported_count, 0) : null,
         custody_complete: typeof plaud?.custody_complete === "boolean" ? plaud.custody_complete : null,
+        catalog_count: count(plaud?.catalog_count),
+        catalog_complete: plaud?.catalog_complete === true,
+        audio_unavailable_count: count(plaud?.audio_unavailable_count),
+        lookback_complete: plaud?.lookback_complete ?? null,
+        provider_transcript_unavailable_count: count(plaud?.provider_transcript_unavailable_count),
+        provider_backfill_pending_count: count(plaud?.provider_backfill_pending_count),
+        provider_backfilled_count: count(plaud?.provider_backfilled_count),
         last_success_at: timestamp(health.plaud_last_success_at),
         error_codes: (receipt.errors ?? []).filter((item) => item.binding_id === "plaud")
           .map((item) => item.code).filter((code) => /^[a-z][a-z0-9_]{0,127}$/u.test(code)),
@@ -2326,6 +2361,11 @@ export async function runContinuousIngress(options = {}) {
         const afterPlaudRecording = binding.plaud.writerEnabled
           ? () => assertLaneFences(binding, leaseContext, authorityContext, "voice", "after_payload", now)
           : undefined;
+        let probeCursor = null;
+        try {
+          const prior = await readJson(resolve(binding.dataRoot, "state/health/continuous_ingress.json"), "continuous_health_invalid");
+          if (prior?.config_digest === binding.bindingDigest && /^[a-f0-9]{64}$/u.test(prior?.plaud_probe_cursor_sha256 ?? "")) probeCursor = prior.plaud_probe_cursor_sha256;
+        } catch { /* No prior bound cursor: start the first bounded sweep. */ }
         const sync = await (options.plaudSyncRunner ?? runPlaudSync)({
           repoRoot: binding.plaud.workspaceRoot,
           profile: {
@@ -2344,6 +2384,10 @@ export async function runContinuousIngress(options = {}) {
           audioDownloadTimeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
           commandTimeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
           requireHppCustody: binding.plaud.writerEnabled,
+          clock: now,
+          deadlineAtMs: Date.parse(leaseContext.lease.expires_at) - 60_000,
+          schedulingEpoch: leaseContext.lease.lease_epoch,
+          probeCursor,
         });
         if (binding.plaud.writerEnabled && binding.voice.enabled) {
           plaudRequiredSourcePrefixes = await plaudSessionCustodyPrefixes(
@@ -2354,11 +2398,14 @@ export async function runContinuousIngress(options = {}) {
         }
         plaudResult = sanitizePlaudCycle(sync, binding.plaud.writerEnabled);
         const repairFailureKinds = new Set(["library_registration_failed", "delivery_root_rejected",
-          "delivery_artifact_missing", "delivery_preparation_failed"]);
+          "delivery_artifact_missing", "delivery_preparation_failed", "plaud_deadline_exceeded", "plaud_rate_limited",
+          "plaud_command_timeout", "plaud_authentication_failed", "plaud_network_failed", "plaud_command_failed",
+          "plaud_created_at_unknown", "plaud_metadata_identity_mismatch", "plaud_provider_backfill_conflict"]);
         const observedRepairFailures = new Set((Array.isArray(sync?.recordings) ? sync.recordings : [])
-          .flatMap((recording) => [recording?.failure_kind, recording?.library?.failure_kind, recording?.delivery?.failure_kind])
+          .flatMap((recording) => [recording?.failure_kind, recording?.provider_failure_kind, recording?.library?.failure_kind, recording?.delivery?.failure_kind])
+          .concat((sync?.preflight?.checks ?? []).map((check) => check.error_code))
           .filter((kind) => repairFailureKinds.has(kind)));
-        for (const kind of observedRepairFailures) errors.push({ binding_id: "plaud", code: `plaud_${kind}` });
+        for (const kind of observedRepairFailures) errors.push({ binding_id: "plaud", code: kind.startsWith("plaud_") ? kind : `plaud_${kind}` });
         if (binding.plaud.writerEnabled && !binding.voice.enabled) {
           plaudResult.custody_complete = await validateDirectPlaudCustody(sync, binding);
         }
@@ -2381,7 +2428,12 @@ export async function runContinuousIngress(options = {}) {
         const operation = binding.plaud.writerEnabled ? "collection" : "observation";
         errors.push({ binding_id: "plaud", code: `plaud_${operation}_failed` });
         if (["continuous_plaud_session_ref_invalid", "continuous_plaud_direct_custody_invalid",
-          "continuous_plaud_writer_output_outside_data_root"].includes(error?.code)) {
+          "continuous_plaud_writer_output_outside_data_root", "plaud_deadline_exceeded", "plaud_rate_limited",
+          "plaud_command_timeout", "plaud_authentication_failed", "plaud_network_failed", "plaud_command_failed",
+          "plaud_catalog_incomplete", "plaud_catalog_malformed_page", "plaud_catalog_malformed_row",
+          "plaud_catalog_duplicate_id", "plaud_catalog_repeated_page", "plaud_catalog_page_limit",
+          "plaud_catalog_unstable", "plaud_catalog_deadline_exceeded", "plaud_catalog_command_failed",
+          "plaud_catalog_invalid_options", "plaud_clock_invalid", "plaud_budget_invalid"].includes(error?.code)) {
           errors.push({ binding_id: "plaud", code: error.code });
         }
       }
@@ -2474,12 +2526,14 @@ export async function runContinuousIngress(options = {}) {
       + Number(mailResult?.total_new_events || 0)
       + Number(plaudResult?.imported_count || 0)
       + Number(plaudResult?.reconciled_count || 0);
+    const providerBackfillWrites = Number(plaudResult?.provider_backfilled_count || 0);
     const plaudWriteCountKnown = !isV3Binding(binding)
       || !binding.plaud.writerEnabled
       || (plaudResult.status !== "failed"
         && plaudResult.import_failed_retryable_count === 0
         && plaudResult.imported_count === 0
-        && plaudResult.reconciled_count === 0);
+        && plaudResult.reconciled_count === 0
+        && providerBackfillWrites === 0);
     const writesPerformedExact = (!isV2Binding(binding) || mailResult?.write_count_known !== false)
       && plaudWriteCountKnown;
     const receipt = {
@@ -2498,7 +2552,7 @@ export async function runContinuousIngress(options = {}) {
       errors,
       writes_performed: writesPerformedExact ? writesPerformedLowerBound : null,
       ...(isV2Binding(binding) ? {
-        writes_performed_lower_bound: writesPerformedLowerBound,
+        writes_performed_lower_bound: writesPerformedLowerBound + providerBackfillWrites,
         writes_performed_exact: writesPerformedExact,
       } : {}),
       source_deleted: false,
@@ -2566,6 +2620,13 @@ export async function runContinuousIngress(options = {}) {
         plaud_pending_provider_processing_count: plaudResult.pending_provider_processing_count,
         plaud_imported_count: plaudResult.imported_count,
         plaud_last_success_at: plaudResult.status === "ok" ? completedAt : priorSuccess(priorHealth?.plaud_last_success_at),
+        plaud_catalog_count: plaudResult.catalog_count,
+        plaud_catalog_complete: plaudResult.catalog_complete,
+        plaud_audio_unavailable_count: plaudResult.audio_unavailable_count,
+        plaud_provider_transcript_unavailable_count: plaudResult.provider_transcript_unavailable_count,
+        plaud_provider_backfill_pending_count: plaudResult.provider_backfill_pending_count,
+        plaud_provider_backfilled_count: plaudResult.provider_backfilled_count,
+        plaud_probe_cursor_sha256: plaudResult.probe_cursor_sha256 ?? priorHealth?.plaud_probe_cursor_sha256 ?? null,
       } : {}),
       erp_enabled: false,
       mcp_enabled: false,

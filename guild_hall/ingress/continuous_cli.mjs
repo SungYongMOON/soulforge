@@ -90,6 +90,14 @@ try {
       plaud_pending_provider_processing_count: result.plaud?.pending_provider_processing_count ?? null,
       plaud_imported_count: result.plaud?.imported_count ?? null,
       plaud_post_import_warning_count: result.plaud?.post_import_warning_count ?? null,
+      plaud_catalog_count: result.plaud?.catalog_count ?? null,
+      plaud_catalog_complete: result.plaud?.catalog_complete ?? false,
+      plaud_lookback_complete: result.plaud?.lookback_complete ?? null,
+      plaud_custody_complete: result.plaud?.custody_complete ?? null,
+      plaud_audio_unavailable_count: result.plaud?.audio_unavailable_count ?? null,
+      plaud_provider_transcript_unavailable_count: result.plaud?.provider_transcript_unavailable_count ?? null,
+      plaud_provider_backfill_pending_count: result.plaud?.provider_backfill_pending_count ?? null,
+      plaud_provider_backfilled_count: result.plaud?.provider_backfilled_count ?? null,
       plaud_blocking_check_ids: Array.isArray(result.plaud?.blocking_check_ids)
         ? result.plaud.blocking_check_ids
         : [],

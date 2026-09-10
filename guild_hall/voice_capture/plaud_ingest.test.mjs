@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { acknowledgeDelivery, validateDeliveryReceipt } from "./delivery_receipt.mjs";
+import { runContinuousVoiceLabelWorker } from "./continuous_label_worker.mjs";
+import { buildDefaultLocalAsrProfile, drainLocalAsrQueue } from "./local_asr.mjs";
 import {
   assertPlaudSessionPublicationBudget,
   buildDefaultPlaudSyncProfile,
@@ -20,10 +24,262 @@ import {
   plaudSessionCustodyBudget,
   renderPlaudLaunchdPlist,
   runPlaudCommand,
-  runPlaudSync,
+  materializePlaudRecording,
+  runPlaudSync as runPlaudSyncImpl,
 } from "./plaud_ingest.mjs";
 
 const RECORDING_ID = "df8097c8505379f1702100f6fbd9cc16";
+function filesOutput(rows, page, pageSize = 100) {
+  const selected = rows.slice((page - 1) * pageSize, page * pageSize);
+  return [`Files on this page: ${selected.length}`,
+    `  ${"ID".padEnd(34)}  ${"NAME".padEnd(36)}  ${"DATE".padEnd(12)}  DURATION`, `  ${"─".repeat(98)}`,
+    ...selected.map((row) => `  ${row.id.padEnd(34)}  ${"synthetic".padEnd(36)}  ${(row.date ?? "-").padEnd(12)}  1m00s`), `Page ${page}`].join("\n");
+}
+
+// Older importer fixtures provide a catalog snapshot; transport is exercised by
+// plaud_catalog.test and the real-helper integration cases below/at ingress.
+function runPlaudSync(options) {
+  const commandRunner = options.commandRunner;
+  return runPlaudSyncImpl({ clock: () => Date.parse("2026-07-20T00:00:00Z"), ...options,
+    commandRunner: (command, args, context) => {
+      const raw = commandRunner(command, args, context);
+      return args[0] === "file" && !/^created_at:/mu.test(raw)
+        ? `${raw}\ncreated_at: 2026-07-10T00:00:00Z\n` : raw;
+    },
+    catalogRunner: options.catalogRunner ?? (async () => ({ complete: true, page_count: 1,
+      rows: parsePlaudRecentOutput(commandRunner(options.profile.plaud_command, ["recent", "--days", String(options.profile.poll_days)], { cwd: options.repoRoot })) })),
+  });
+}
+
+test("complete files catalog exceeds recent 300 and bounded probes fairly reach the oldest ready row", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "plaud-catalog-fair-"));
+  try {
+    const rows = Array.from({ length: 407 }, (_, index) => ({ id: (index + 1).toString(16).padStart(32, "0"), date: "2026-07-02" }));
+    const readyId = rows.at(-1).id;
+    const profile = { ...buildDefaultPlaudSyncProfile(), poll_days: 90, max_new_per_run: 1 };
+    let cursor;
+    let found = false;
+    for (let cycle = 0; cycle < Math.ceil(rows.length / 20); cycle += 1) {
+      const result = await runPlaudSyncImpl({ repoRoot, profile, skipPreflight: true, apply: false,
+        clock: () => Date.parse("2026-09-10T12:00:00Z"), probeCursor: cursor,
+        commandRunner: (_command, args) => {
+          if (args[0] === "files") return filesOutput(rows, Number(args[args.indexOf("--page") + 1]));
+          assert.equal(args[0], "file");
+          return `id: ${args[1]}\ncreated_at: 2026-07-02T00:00:00Z\nstart_at: 2026-07-02T00:00:00Z\naudio: available\ntranscript: ${args[1] === readyId ? "available" : "-"}\nsummary: -\n`;
+        },
+      });
+      assert.equal(result.catalog_count, 407);
+      assert.equal(result.recent_count, 407);
+      assert.ok(result.metadata_probed_count <= 20);
+      cursor = result.probe_cursor_sha256;
+      if (result.recordings.some((row) => row.id === readyId && row.state === "ready_to_import")) { found = true; break; }
+    }
+    assert.equal(found, true);
+    assert.deepEqual(await readdir(repoRoot), []);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+test("files lookback preserves exact created_at cutoff and leaves unknown dates unclaimed", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "plaud-cutoff-"));
+  try {
+    const now = Date.parse("2026-09-10T12:00:00Z");
+    const cutoff = now - 86400000;
+    const stamps = [cutoff - 1, cutoff, cutoff + 1];
+    const rows = stamps.map((stamp, index) => {
+      const local = new Date(stamp);
+      return { id: (index + 1).toString(16).padStart(32, "0"),
+        date: `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}` };
+    });
+    let unknown = false;
+    const options = { repoRoot, profile: { ...buildDefaultPlaudSyncProfile(), poll_days: 1, max_new_per_run: 10 },
+      skipPreflight: true, apply: false, clock: () => now,
+      commandRunner: (_command, args) => args[0] === "files" ? filesOutput(rows, Number(args[args.indexOf("--page") + 1]))
+        : `id: ${args[1]}\ncreated_at: ${unknown ? "-" : new Date(stamps[rows.findIndex((row) => row.id === args[1])]).toISOString()}\naudio: available\ntranscript: available\n` };
+    const exact = await runPlaudSyncImpl(options);
+    assert.equal(exact.recent_count, 2);
+    assert.equal(exact.new_candidate_count, 2);
+    assert.equal(exact.recordings.length, 2);
+    unknown = true;
+    const uncertain = await runPlaudSyncImpl(options);
+    assert.equal(uncertain.lookback_complete, false);
+    assert.equal(uncertain.recent_count, null);
+    assert.equal(uncertain.new_candidate_count, null);
+    assert.equal(uncertain.recordings.some((row) => row.state === "ready_to_import"), false);
+    assert.deepEqual(await readdir(repoRoot), []);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+test("audio-first real download and helpers keep provider missing through ASR and attach only real later provider text", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "plaud-audio-first-"));
+  try {
+    const repoRoot = path.join(root, "data");
+    const voiceRoot = path.join(repoRoot, "ingress/plaud");
+    const runtimeRoot = path.join(root, "runtime");
+    const stateRoot = path.join(root, "state");
+    const binRoot = path.join(root, "bin");
+    await Promise.all([mkdir(voiceRoot, { recursive: true }), mkdir(runtimeRoot), mkdir(stateRoot), mkdir(binRoot)]);
+    const audioBytes = Buffer.from("synthetic actual download bytes");
+    let downloads = 0;
+    let badLength = false;
+    t.mock.method(globalThis, "fetch", async () => {
+      downloads += 1;
+      const response = new Response(audioBytes, { headers: { "content-type": "audio/ogg", "content-length": String(audioBytes.length + Number(badLength)) } });
+      Object.defineProperty(response, "url", { value: "https://example.test/source.ogg" });
+      return response;
+    });
+    const profile = { ...buildDefaultPlaudSyncProfile(), output_root: "ingress/plaud", max_new_per_run: 1,
+      register_library: true, write_workmeta_draft: false };
+    let providerAvailable = false;
+    const rows = [{ id: RECORDING_ID, date: "2026-09-08" }];
+    const options = { repoRoot, profile, skipPreflight: true, apply: true, requireHppCustody: true,
+      clock: () => Date.parse("2026-09-10T12:00:00Z"), audioProbe: async () => ({ duration_seconds: 5, format: "ogg", codec: "opus" }),
+      commandRunner: (_command, args) => {
+        if (args[0] === "files") return filesOutput(rows, Number(args[args.indexOf("--page") + 1]));
+        if (args[0] === "file") return `id: ${RECORDING_ID}\ncreated_at: 2026-09-08T00:00:00Z\nstart_at: 2026-09-08T00:00:00Z\naudio: available\ntranscript: ${providerAvailable ? "available" : "-"}\nsummary: -\n`;
+        if (args[0] === "audio") return "https://example.test/source.ogg?signature=never-store";
+        assert.equal(args[0], "transcript");
+        writeFileSync(args.at(-1), "[00:00 - 00:02] Speaker 1: PROVIDER ORIGINAL\n");
+        return "saved";
+      } };
+    const strict = await runPlaudSyncImpl(options);
+    assert.equal(strict.recordings[0].state, "provider_artifact_unavailable");
+    assert.equal(downloads, 0);
+    profile.readiness = { ...profile.readiness, require_transcript: false };
+    badLength = true;
+    assert.equal((await runPlaudSyncImpl(options)).recordings[0].state, "import_failed_retryable");
+    assert.equal((await readdir(voiceRoot)).includes("sessions"), false);
+    badLength = false;
+    const captured = await runPlaudSyncImpl(options);
+    assert.equal(captured.recordings[0].state, "imported");
+    const sessionRef = captured.recordings[0].session_ref;
+    const sessionDir = path.join(repoRoot, sessionRef);
+    const manifestPath = path.join(sessionDir, "session_manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.equal(manifest.source_sha256, createHash("sha256").update(audioBytes).digest("hex"));
+    assert.equal(manifest.audio.size_bytes, audioBytes.length);
+    assert.equal(manifest.transcript.status, "not_available");
+    assert.equal(manifest.transcript.provider_original_ref, null);
+    assert.equal((await readdir(path.join(sessionDir, "provider_export"))).length, 0);
+    assert.equal((await readdir(sessionDir)).includes("transcript.txt"), false);
+    assert.equal(JSON.stringify(manifest).includes("never-store"), false);
+    const libraryPath = path.join(voiceRoot, "library/recordings/2026-09-08", manifest.session_id, "recording_manifest.json");
+    const audioOnlyLibrary = JSON.parse(await readFile(libraryPath, "utf8"));
+    assert.equal(audioOnlyLibrary.payload_refs.transcript_jsonl_ref, null);
+    assert.equal(audioOnlyLibrary.payload_refs.transcript_txt_ref, null);
+    const downloadCount = downloads;
+    assert.equal((await runPlaudSyncImpl(options)).recordings.some((row) => row.state === "imported"), false);
+    assert.equal(downloads, downloadCount);
+    const localProfile = { ...buildDefaultLocalAsrProfile(), queue_root: "ingress/plaud/local_asr_queue",
+      run_id: "synthetic-independent", model_path: "model.bin", chunk_seconds: 10, overlap_seconds: 0, vad: { enabled: false } };
+    const profileBytes = JSON.stringify(localProfile);
+    const profilePath = path.join(voiceRoot, "config/asr.json");
+    const asrPath = path.join(binRoot, "whisper-cli.exe");
+    await mkdir(path.dirname(profilePath), { recursive: true });
+    await writeFile(profilePath, profileBytes);
+    await writeFile(asrPath, "synthetic engine");
+    await writeFile(path.join(repoRoot, "model.bin"), "synthetic model");
+    const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+    const asr = await runContinuousVoiceLabelWorker({ repoRoot, voiceRoot,
+      profileRef: profilePath, expectedProfileSha256: hash(profileBytes), expectedAsrSha256: hash("synthetic engine"),
+      expectedAsrBinRoot: binRoot, stateRoot, expectedStateRoot: stateRoot, apply: true,
+      preflightImpl: async () => ({ ok: true, checks: [{ id: "whisper-cli_available", resolved_path: asrPath }] }),
+      loadProfileImpl: async () => ({ profile: localProfile }),
+      drainImpl: (args) => drainLocalAsrQueue({ ...args, commandRunner: (command, args) => {
+        if (command === "ffmpeg") writeFileSync(args.at(-1), "synthetic wav");
+        else { assert.equal(command, asrPath); writeFileSync(`${args[args.indexOf("-of") + 1]}.json`, JSON.stringify({ transcription: [{ offsets: { from: 0, to: 1000 }, text: "INDEPENDENT ASR" }] })); }
+        return { status: 0 };
+      } }),
+      sweepImpl: async () => ({ processed_session_count: 0, failed_session_count: 0 }),
+    });
+    assert.equal(asr.asr.processed_count, 1);
+    const independentPath = path.join(sessionDir, localProfile.output_subdir, localProfile.run_id, "transcript.txt");
+    const independentBytes = await readFile(independentPath);
+    assert.equal(JSON.parse(await readFile(manifestPath, "utf8")).transcript.status, "not_available");
+    assert.equal((await readdir(sessionDir)).includes("transcript.txt"), false);
+    providerAvailable = true;
+    let interruptBackfill = true;
+    options.schedulingEpoch = 2;
+    options.beforeSharedWrite = async () => {
+      if (interruptBackfill && (await readdir(path.join(sessionDir, "provider_export"))).includes("transcript.txt")) {
+        interruptBackfill = false;
+        throw new Error("synthetic post-publication fence interruption");
+      }
+    };
+    await assert.rejects(runPlaudSyncImpl(options), /synthetic post-publication fence interruption/);
+    assert.equal(JSON.parse(await readFile(manifestPath, "utf8")).transcript.status, "not_available");
+    assert.equal(downloads, downloadCount);
+    delete options.beforeSharedWrite;
+    const backfilled = await runPlaudSyncImpl(options);
+    assert.equal(backfilled.recordings[0].state, "provider_backfilled");
+    assert.equal(downloads, downloadCount);
+    assert.equal(backfilled.provider_backfill_pending_count, 0);
+    assert.deepEqual(await readFile(independentPath), independentBytes);
+    assert.match(await readFile(path.join(sessionDir, "provider_export/transcript.txt"), "utf8"), /PROVIDER ORIGINAL/);
+    const updated = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.equal(updated.transcript.evidence_role, "auxiliary_unverified");
+    assert.equal(updated.independent_transcription.status, "completed");
+    assert.equal(JSON.parse(await readFile(libraryPath, "utf8")).payload_refs.transcript_txt_ref, `${sessionRef}/transcript.txt`);
+    const receipt = JSON.parse(await readFile(path.join(voiceRoot, "delivery/producer_receipts", `${updated.session_id}.json`), "utf8"));
+    validateDeliveryReceipt(receipt, { voiceRootRef: "ingress/plaud" });
+    assert.equal(receipt.stage, "local_asr_ready");
+    assert.ok(receipt.files.some((file) => file.role === "provider_original_transcript"));
+    assert.equal((await acknowledgeDelivery({ repoRoot, voiceRootRef: "ingress/plaud", sessionId: updated.session_id, consumerNode: "synthetic-consumer", apply: false })).status, "delivered");
+    assert.equal((await readdir(repoRoot)).includes("guild_hall"), false);
+    assert.equal((await readdir(repoRoot)).includes("_workspaces"), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("audio-first preserves verified audio when an available provider transcript fetch fails", async (t) => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "plaud-audio-provider-failure-"));
+  try {
+    await mkdir(path.join(repoRoot, "ingress/plaud"), { recursive: true });
+    const bytes = Buffer.from("synthetic-audio");
+    t.mock.method(globalThis, "fetch", async () => {
+      const response = new Response(bytes, { headers: { "content-type": "audio/ogg", "content-length": String(bytes.length) } });
+      Object.defineProperty(response, "url", { value: "https://example.test/source.ogg" });
+      return response;
+    });
+    const profile = { ...buildDefaultPlaudSyncProfile(), output_root: "ingress/plaud", register_library: true,
+      write_workmeta_draft: false, readiness: { require_audio: true, require_transcript: false } };
+    const result = await materializePlaudRecording({ repoRoot, profile, requireHppCustody: true,
+      metadata: { id: RECORDING_ID, name: "synthetic", start_at: "2026-09-08T00:00:00Z", audio_available: true, transcript_available: true, summary_available: false },
+      audioProbe: async () => ({ duration_seconds: 1, format: "ogg", codec: "opus" }),
+      commandRunner: (_command, args) => {
+        if (args[0] === "audio") return "https://example.test/source.ogg";
+        throw Object.assign(new Error("PRIVATE PROVIDER DETAIL"), { code: "plaud_command_timeout" });
+      },
+    });
+    assert.equal(result.audio_present, true);
+    assert.equal(result.provider_transcript_state, "provider_output_failed_retryable");
+    assert.equal(result.provider_failure_kind, "plaud_command_timeout");
+    assert.equal(result.delivery.state, "ready");
+    assert.equal(JSON.stringify(result).includes("PRIVATE PROVIDER DETAIL"), false);
+    assert.deepEqual(await readdir(path.join(repoRoot, result.session_ref, "provider_export")), []);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+test("catalog deadline and rate failures stop before any source publication and expose only fixed codes", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "plaud-budget-"));
+  try {
+    const clock = () => Date.parse("2026-09-10T12:00:00Z");
+    let commands = 0;
+    const options = { repoRoot, profile: buildDefaultPlaudSyncProfile(), skipPreflight: true, apply: true,
+      clock, commandTimeoutMs: 120000,
+      deadlineAtMs: clock() + 120000 * (process.platform === "win32" ? 2 : 1) - 1,
+      commandRunner: () => { commands += 1; throw Object.assign(new Error("PRIVATE provider detail"), { stderr: "Error: API error: 429 PRIVATE URL", exitCode: 1 }); } };
+    await assert.rejects(runPlaudSyncImpl(options), { code: "plaud_catalog_deadline_exceeded" });
+    assert.equal(commands, 0);
+    options.deadlineAtMs = clock() + 1800000;
+    await assert.rejects(runPlaudSyncImpl(options), (error) => {
+      assert.equal(error.code, "plaud_rate_limited");
+      assert.equal(error.message, "plaud_rate_limited");
+      assert.equal(error.stderr, undefined);
+      return true;
+    });
+    assert.equal(commands, 1);
+    assert.deepEqual(await readdir(repoRoot), []);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
 
 test("PLAUD session budget reserves bounded post-publication metadata growth", () => {
   const manifest = {
@@ -764,7 +1020,7 @@ test("PLAUD mail queue drain retains the trigger when no recent recording is vis
       profile,
       apply: true,
       skipPreflight: true,
-      commandRunner: () => "No recordings in the last 14 days.\n",
+      commandRunner: (_command, args) => filesOutput([], Number(args[args.indexOf("--page") + 1])),
     });
     assert.equal(result.retry_required, true);
     assert.equal(result.processed_count, 0);
@@ -852,7 +1108,7 @@ test("PLAUD sync always runs the after-recording fence for pending provider work
       beforeRecording: async () => { before += 1; },
       afterRecording: async () => { after += 1; },
     });
-    assert.equal(result.recordings[0].state, "pending_provider_processing");
+    assert.equal(result.recordings[0].state, "provider_artifact_unavailable");
     assert.equal(before, 1);
     assert.equal(after, 1);
   } finally {
@@ -876,6 +1132,7 @@ test("PLAUD sync probes past pending work to use the bounded ready-import slot",
       profile,
       apply: false,
       skipPreflight: true,
+      probeCursor: createHash("sha256").update(readyId).digest("hex"),
       commandRunner: (_command, args) => {
         if (args[0] === "recent") {
           return [
@@ -914,7 +1171,7 @@ test("PLAUD sync probes past pending work to use the bounded ready-import slot",
     assert.equal(result.truncated_new_candidate_count, 0);
     assert.deepEqual(
       result.recordings.map((recording) => recording.state),
-      ["pending_provider_processing", "ready_to_import"],
+      ["provider_artifact_unavailable", "ready_to_import"],
     );
   } finally {
     await rm(repoRoot, { recursive: true, force: true });

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-10 - 원음 우선 수집과 완전성 확인을 분리
+
+- 승인된 audio-first profile은 가능한 원음을 먼저 보관한다. 제공자 전사 미가용·독립 ASR·전달을
+  별도로 표시하며 빈 제공자 파일이나 ASR 대체 표시를 만들지 않는다. 기존 strict 기본값은 유지한다.
+- 공식 CLI의 files 페이지를 끝까지 확인하고 head/last/종료 안정성·시간/호출 상한을 검사한다.
+  최근 300개 제한과 고정된 미준비 선두에 의한 누락을 막고, 전체 catalog와 lookback을 구분한다.
+- 실제 제공자 전사가 생기면 같은 ID에만 보완하며 원음·독립 ASR을 보존한다. 원음 쓰기 이후에는
+  이전 strict-only 설치본으로 무조건 복귀하지 않고 새 data/cache 호환성을 확인해야 한다.
+- 변경은 `guild_hall/voice_capture/`, 기존 ingress 조회·health 및 시험에 한정한다. 운영 전환과
+  원래 backlog/신규 유입 대조는 별도 검증이며 새 schema 파일·계정·알림·workflow를 만들지 않는다.
+
 ## 2026-09-10 - Tributary 직접 보관과 수집 상태 판정 수정
 
 - PLAUD 미러 OFF 기동·회차에서 폐기된 미러 경로 의존을 제거하고, 지정 자료 root 안의

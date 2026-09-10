@@ -49,12 +49,14 @@ export class DeliveryContractError extends Error {
 export async function prepareDeliveryReceipt(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const voiceRootRef = resolveDeliveryVoiceRootRef(options.voiceRootRef);
-  const stage = requireStage(options.stage);
+  let stage = requireStage(options.stage);
   const producerNode = requireSafeId(options.producerNode, "producer_node");
   const sessionDirRef = normalizeSessionDirRef(repoRoot, options.sessionDir, voiceRootRef);
   const sessionManifestRef = `${sessionDirRef}/session_manifest.json`;
   await assertSafeRef(repoRoot, sessionManifestRef, { mustExist: true, voiceRootRef });
   const sessionManifest = await readJson(path.join(repoRoot, sessionManifestRef), "session_manifest");
+  if (stage === "plaud_import_ready" && sessionManifest.post_import_contract?.provider_transcript_required === false
+    && sessionManifest.independent_transcription?.status === "completed") stage = "local_asr_ready";
   const sessionId = requireSafeId(sessionManifest.session_id ?? path.posix.basename(sessionDirRef), "session_id");
   const recordingId = requireSafeId(
     options.recordingId ?? sessionManifest.recording_id ?? sessionId,
@@ -292,6 +294,10 @@ export async function assertDeliveryArtifactRef(repoRoot, ref, options = {}) {
   return assertSafeRef(path.resolve(repoRoot), ref, options);
 }
 
+export async function writeBoundVoiceMetadata(repoRoot, ref, value, options = {}) {
+  return writeJsonIfChanged(path.resolve(repoRoot), ref, value, options.beforeWrite, options.voiceRootRef);
+}
+
 export function producerReceiptRef(sessionId, voiceRootRef) {
   return `${resolveDeliveryVoiceRootRef(voiceRootRef)}/delivery/producer_receipts/${requireSafeId(sessionId, "session_id")}.json`;
 }
@@ -310,12 +316,17 @@ function buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stag
     { role: "session_manifest", ref: `${sessionDirRef}/session_manifest.json`, required: true },
     { role: "source_audio", ref: sessionManifest.audio?.ref, required: true },
   ];
-  if (stage === "plaud_import_ready") {
-    return [
-      ...common,
+  const providerFiles = sessionManifest.post_import_contract?.provider_transcript_required === false
+    && ["not_available", "provider_output_failed_retryable"].includes(sessionManifest.transcript?.status)
+    ? [] : [
       { role: "provider_transcript", ref: sessionManifest.transcript?.ref, required: true },
       { role: "provider_transcript_segments", ref: sessionManifest.transcript?.jsonl_ref, required: true },
       { role: "provider_original_transcript", ref: sessionManifest.transcript?.provider_original_ref, required: true },
+    ];
+  if (stage === "plaud_import_ready") {
+    return [
+      ...common,
+      ...providerFiles,
       { role: "source_event_draft", ref: `${sessionDirRef}/source_event_draft.yaml`, required: true },
       {
         role: "recording_manifest",
@@ -331,6 +342,8 @@ function buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stag
   const outputRef = `${sessionDirRef}/analysis/local_asr/${runId}`;
   return [
     ...common,
+    ...(sessionManifest.post_import_contract?.provider_transcript_required === false
+      && sessionManifest.transcript?.status === "provider_transcript_present_unverified" ? providerFiles : []),
     { role: "analysis_manifest", ref: `${outputRef}/analysis_manifest.json`, required: true },
     { role: "local_transcript", ref: sessionManifest.independent_transcription?.transcript_ref, required: true },
     { role: "local_transcript_segments", ref: sessionManifest.independent_transcription?.transcript_jsonl_ref, required: true },

@@ -709,8 +709,10 @@ export async function buildRecordingLibraryEntry(options = {}) {
       source_event_draft_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "source_event_draft.yaml")),
       source_audio_ref: sourceAudioRef ? relativeToRepoOrAbsolute(repoRoot, sourceAudioRef) : null,
       chunk_log_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "chunks.jsonl")),
-      transcript_jsonl_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript.jsonl")),
-      transcript_txt_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript.txt")),
+      transcript_jsonl_ref: manifest.post_import_contract?.provider_transcript_required === false
+        && !fileExists(path.join(sessionDir, "transcript.jsonl")) ? null : relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript.jsonl")),
+      transcript_txt_ref: manifest.post_import_contract?.provider_transcript_required === false
+        && !fileExists(path.join(sessionDir, "transcript.txt")) ? null : relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript.txt")),
       speaker_summary_ref: fileExists(speakerSummaryPath) ? relativeToRepoOrAbsolute(repoRoot, speakerSummaryPath) : null,
       speaker_transcript_ref: fileExists(path.join(sessionDir, "transcript_speakers_local_k4.txt"))
         ? relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript_speakers_local_k4.txt"))

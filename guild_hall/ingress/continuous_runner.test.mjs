@@ -2813,6 +2813,8 @@ test("inspection exposes a newer failed supervisor attempt and preserves only pr
     assert.equal(failed.lanes[0].status, "unknown");
     assert.equal(failed.lanes[0].collected_count, null);
     assert.equal(failed.lanes[0].pending_count, null);
+    assert.equal(failed.lanes[0].catalog_complete, false);
+    assert.equal(failed.lanes[0].provider_backfill_pending_count, null);
     assert.deepEqual(failed.lanes[0].error_codes, ["continuous_lease_held_probe_unresolved"]);
     const ledgerPath = resolveSupervisorHeartbeatLedger(f.bindingPath);
     const latestRecord = await readFile(ledgerPath, "utf8");
@@ -2859,6 +2861,62 @@ test("inspection preserves a failed mail lane and the separately observed queue 
     const queueLane = observed.lanes.find((lane) => lane.binding_id === queue.binding_id);
     assert.equal(queueLane.collected_count, queue.staged_files);
     assert.equal(queueLane.pending_count, Math.max(queue.discovered_files - queue.acknowledged_files - queue.processed_files, 0));
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("HPP persists a bound opaque probe cursor and reaches a ready row behind 26 unavailable rows", async () => {
+  const f = await fixture();
+  try {
+    await directPlaudBinding(f, await activateWriterAuthority(f));
+    const ids = Array.from({ length: 27 }, (_, index) => (index + 1).toString(16).padStart(32, "0"))
+      .sort((a, b) => digest(a).localeCompare(digest(b)));
+    const readyId = ids.at(-1);
+    let probed = [];
+    const commandRunner = (_command, args) => {
+      if (args[0] === "files") {
+        const page = Number(args[args.indexOf("--page") + 1]);
+        return [`Files on this page: ${page === 1 ? ids.length : 0}`,
+          `  ${"ID".padEnd(34)}  ${"NAME".padEnd(36)}  ${"DATE".padEnd(12)}  DURATION`, `  ${"─".repeat(98)}`,
+          ...(page === 1 ? ids.map((id) => `  ${id.padEnd(34)}  ${"synthetic".padEnd(36)}  ${"2026-07-10".padEnd(12)}  1m00s`) : []), `Page ${page}`].join("\n");
+      }
+      if (args[0] === "file") {
+        probed.push(args[1]);
+        return `id: ${args[1]}\ncreated_at: 2026-07-10T00:00:00Z\nstart_at: 2026-07-10T00:00:00Z\naudio: available\ntranscript: ${args[1] === readyId ? "available" : "-"}\nsummary: -\n`;
+      }
+      if (args[0] === "audio") return "https://example.test/source.ogg";
+      assert.equal(args[0], "transcript");
+      writeFileSync(args.at(-1), "[00:00 - 00:01] Speaker 1: synthetic\n");
+      return "saved";
+    };
+    const now = advancingClock();
+    const run = () => runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now,
+      plaudSyncRunner: (options) => runPlaudSync({ ...options, skipPreflight: true, commandRunner,
+        audioDownloader: async (_url, outputDir) => {
+          const file = join(outputDir, "source.ogg");
+          await writeFile(file, "synthetic");
+          return { path: file, size_bytes: 9, sha256: digest("synthetic") };
+        }, audioProbe: async () => ({ duration_seconds: 1, format: "ogg", codec: "opus" }),
+      }),
+    });
+    const first = await run();
+    assert.equal(first.plaud.imported_count, 0);
+    assert.equal(first.plaud.provider_transcript_unavailable_count, 20);
+    assert.equal(first.plaud.pending_provider_processing_count, null);
+    assert.deepEqual(probed, ids.slice(0, 20));
+    const healthPath = join(f.dataRoot, "state/health/continuous_ingress.json");
+    const firstHealth = JSON.parse(await readFile(healthPath, "utf8"));
+    assert.equal(firstHealth.plaud_probe_cursor_sha256, digest(ids[19]));
+    await writeFile(healthPath, JSON.stringify({ ...firstHealth, config_digest: `sha256:${"0".repeat(64)}` }));
+    probed = [];
+    assert.equal((await run()).plaud.imported_count, 0);
+    assert.deepEqual(probed, ids.slice(0, 20), "an unbound cursor cannot steer the next sweep");
+    await writeFile(healthPath, JSON.stringify(firstHealth));
+    probed = [];
+    const resumed = await run();
+    assert.equal(resumed.plaud.imported_count, 1);
+    assert.deepEqual(probed, ids.slice(20));
+    assert.equal(resumed.plaud.catalog_count, 27);
+    assert.equal(JSON.stringify(resumed).includes(readyId), false);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -2964,11 +3022,17 @@ for (const direct of [false, true, "repair", "library-repair", "registered-missi
     await writeBinding(f, plaud.payload);
     const recordingId = "df8097c8505379f1702100f6fbd9cc16";
     const commandRunner = (_command, args) => {
-      if (args[0] === "recent") return `  ${recordingId}  private recording title  2026-07-10  10m\n`;
+      if (args[0] === "files") {
+        const page = Number(args[args.indexOf("--page") + 1]);
+        return [`Files on this page: ${page === 1 ? 1 : 0}`,
+          `  ${"ID".padEnd(34)}  ${"NAME".padEnd(36)}  ${"DATE".padEnd(12)}  DURATION`, `  ${"─".repeat(98)}`,
+          ...(page === 1 ? [`  ${recordingId.padEnd(34)}  ${"private recording title".padEnd(36)}  ${"2026-07-10".padEnd(12)}  10m00s`] : []), `Page ${page}`].join("\n");
+      }
       if (args[0] === "file") return [
         `id: ${recordingId}`,
         "name: private recording title",
         "start_at: 2026-07-10T04:04:32.000Z",
+        "created_at: 2026-07-10T04:04:32.000Z",
         "audio: available",
         "transcript: available",
         "summary: -",

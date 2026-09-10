@@ -12,6 +12,70 @@ versioned local-ASR runner. The runner uses resumable fixed windows, writes
 outputs only under each session's `analysis/local_asr/<run_id>/` directory, and
 does not replace the provider transcript.
 
+The default PLAUD profile remains strict (`readiness.require_transcript: true`).
+An explicitly selected audio-first profile sets it false. The session records
+`post_import_contract.provider_transcript_required: false`; an absent field
+keeps the old strict contract. Verified nonempty original audio is published
+atomically even when provider text is unavailable or an optional fetch fails.
+No empty provider originals or normalized provider transcript files stand in for
+missing text, and new audio-only library transcript refs are null.
+
+Custody, provider transcript availability, independent ASR and delivery are four
+different observations. `not_available` does not prove provider processing.
+The real delivery helper requires audio/manifest/library and its other required
+artifacts; provider transcript roles are omitted only for explicitly audio-first
+sessions with a known unavailable/failed provider state. If provider text is
+present, all three provider roles remain required. Independent ASR stays under
+`analysis/local_asr/<run_id>` and is never labeled as provider output.
+
+Later provider availability uses a same-ID bounded backfill with no audio
+download. Partial matching files replay idempotently; conflicting files are
+held rather than overwritten. A compare-before-write manifest guard preserves
+concurrent independent-ASR changes. Existing library/delivery repair completes
+the new generation. When independent ASR is already complete, the current
+receipt includes its real files plus the newly present provider files.
+
+PLAUD discovery uses `plaud_catalog.mjs` and the pinned CLI files table, not the
+CLI 0.3.4 recent command's three-page/300-row shortcut. It requires an explicit
+empty terminal page, validates counts/IDs/layout, and rechecks head, last
+nonempty and terminal pages. Limits are 100 rows/page, 16 pages including the
+terminal, and one restart for boundary movement (at most 38 calls). Exhaustion,
+duplicates, malformed output, unstable boundaries or deadline failures never
+become a complete empty catalog. This is a bounded observation, not an atomic
+provider snapshot guarantee.
+
+Account catalog count and the profile lookback count are separate. The cutoff
+is frozen immediately before listing, using `created_at >= cutoff` and elapsed
+24-hour days, matching CLI 0.3.4. Its DATE column is only a host-local calendar
+date: boundary/unknown dates require the exact file `created_at`; unresolvable
+scope counts stay null. Recording event time still uses the separate `start_at`
+normalization contract. Discovery time is not recording event time.
+
+The HPP passes a deadline before lease expiry and a config-digest-bound opaque
+probe cursor through its existing health record. Probes rotate by SHA-256 of
+provider ID; unavailable/failed probes advance, preventing a fixed unready head
+from starving later recordings. A stateless library caller must return the
+cursor on its next call. Read-only calls do not persist it. Existing repair and
+new/backfill work share the original write limit, with HPP rounds reserving
+opportunities for both. Actual ready work/failures can end a probe batch early.
+
+Standalone sync has a 30-minute default deadline; HPP uses its lease expiry
+minus a publication margin. Each Windows command reserves both executable
+discovery and the configured command timeout; timeout values are not shortened
+to squeeze in another call. No new call is admitted after the budget is spent.
+Read-only discovery failures leave RAW untouched, and existing publication
+fences remain authoritative. Filesystem latency is not a hard real-time bound.
+CLI 0.3.4 `API error: 429` becomes a fixed rate-limit code with no raw stderr;
+it supplies no trusted Retry-After value. There is no immediate rate-limit retry
+loop: the existing supervisor cadence remains the retry delay, not a claimed
+provider quota or a newly enabled notification policy.
+
+Compatibility is directional: old strict sessions work with this code; a new
+audio-only session is not claimed fully compatible with an older strict-only
+installation. Before RAW writes, an operator may use the approved old-version
+rollback. After writes, preserve the new data/cache and verify compatibility
+before restarting an old installation. Do not erase new data to fit old code.
+
 The semantic-label command is a body-safe shadow analyzer and private
 per-session derived-artifact writer. Provider text has
 locator-only authority and can emit neither task/project candidates nor RAG

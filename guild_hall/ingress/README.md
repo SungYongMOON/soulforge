@@ -275,6 +275,14 @@ without exception text or paths.
 Selected reconciliation checks the actual required library artifact as well
 as its sidecar flag. Missing artifacts are regenerated through the bound writer;
 unsafe links, invalid metadata and different identities are not overwritten.
+The selected audio-first profile preserves RAW without inventing provider
+transcripts. Catalog/window counts, observed audio/provider unavailability and
+stored-session provider backfill gaps are separate metadata; probe counts are
+not whole-account availability totals. Source `custody_complete` and raw
+cutover readiness do not claim all optional provider text or ASR is complete.
+ASR and its delivery remain represented by their existing worker health.
+The existing health cursor is an opaque provider-ID hash bound to config digest;
+it conveys scheduling progress, not authority or an acknowledgement of data.
 
 `continuous_cli.mjs --config <binding> --inspect` reads the existing health/run
 receipts without acquiring a lease or calling a provider. It reports the PLAUD,
