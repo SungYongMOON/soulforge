@@ -1404,7 +1404,7 @@
     ]
   },
   "test_cwd": "ui-workspace/apps/dev-erp",
-  "test_concurrency": 4,
+  "test_concurrency": 1,
   "smoke_test_entries": [
     "test/a8_synth_secure_access.test.mjs",
     "test/accepted_context_http.test.mjs",

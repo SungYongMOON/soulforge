@@ -261,9 +261,10 @@ const spec = {
   // dev-erp's suite assumes its app directory as cwd; entries are explicit
   // files relative to it (node --test does not discover positional dirs).
   test_cwd: "ui-workspace/apps/dev-erp",
-  // dev-erp's suite is engineered for --test-concurrency=4 (its own npm
-  // test); wider per-CPU defaults collide its port/db fixtures.
-  test_concurrency: 4,
+  // Retain every source/installed check while serializing test-file startup.
+  // Parallel Windows runs observed native exits in otherwise passing server
+  // fixtures; this changes validation scheduling, not runtime concurrency.
+  test_concurrency: 1,
   smoke_test_entries: contentRoles.validators.map((entry) => entry.replace("ui-workspace/apps/dev-erp/", "")),
   installed_smoke_entries: contentRoles.validators
     .map((entry) => entry.replace("ui-workspace/apps/dev-erp/", ""))
