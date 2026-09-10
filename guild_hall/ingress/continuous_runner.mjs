@@ -2088,18 +2088,76 @@ function authorityReceiptFields(binding, authorityContext) {
   };
 }
 
+async function inspectLatestSupervisorAttempt(bindingPath, observation) {
+  const ledgerPath = resolve(dirname(bindingPath), "state/continuous-supervisor-heartbeats.jsonl");
+  try {
+    if (!await optionalLstat(ledgerPath)) return observation;
+    await assertNormalFile(ledgerPath, "continuous_inspection_heartbeat_invalid");
+    const handle = await open(ledgerPath, "r");
+    let lastLine;
+    try {
+      const before = await handle.stat();
+      const length = Math.min(before.size, 64 * 1024);
+      if (length === 0) fail("continuous_inspection_heartbeat_invalid");
+      const bytes = Buffer.alloc(length);
+      const read = await handle.read(bytes, 0, length, before.size - length);
+      const after = await handle.stat();
+      if (read.bytesRead !== length || before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+        fail("continuous_inspection_heartbeat_invalid");
+      }
+      const lines = bytes.toString("utf8").trimEnd().split("\n");
+      if (before.size > length && lines.length < 2) fail("continuous_inspection_heartbeat_invalid");
+      lastLine = lines.at(-1);
+    } finally { await handle.close(); }
+    const heartbeat = JSON.parse(lastLine);
+    const attemptedAt = Date.parse(heartbeat.observed_at);
+    if (heartbeat.schema_version !== "soulforge.ingress.continuous_supervisor_heartbeat.v1"
+      || !Number.isFinite(attemptedAt) || new Date(attemptedAt).toISOString() !== heartbeat.observed_at
+      || attemptedAt > Date.parse(observation.checked_at)
+      || !["ok", "degraded", "failed"].includes(heartbeat.status)) {
+      fail("continuous_inspection_heartbeat_invalid");
+    }
+    if (heartbeat.status !== "failed"
+      || (observation.completed_at && attemptedAt < Date.parse(observation.completed_at))) return observation;
+    const errorCodes = Array.isArray(heartbeat.error_codes)
+      ? heartbeat.error_codes.filter((code) => typeof code === "string" && /^[a-z][a-z0-9_]{0,127}$/u.test(code))
+      : [];
+    if (errorCodes.length === 0) errorCodes.push("continuous_supervisor_failed");
+    return { ...observation, status: "failed", last_attempt_at: heartbeat.observed_at,
+      error_codes: errorCodes,
+      lanes: observation.lanes.map((lane) => ({ ...lane,
+        status: lane.status === "disabled" ? "disabled" : "unknown",
+        collected_count: null, pending_count: null, custody_complete: null, error_codes: errorCodes,
+      })),
+    };
+  } catch {
+    return { ...observation, status: "unknown", error_codes: ["continuous_inspection_heartbeat_invalid"],
+      lanes: observation.lanes.map((lane) => ({ ...lane,
+        status: lane.status === "disabled" ? "disabled" : "unknown",
+        collected_count: null, pending_count: null, custody_complete: null,
+        error_codes: ["continuous_inspection_heartbeat_invalid"],
+      })),
+    };
+  }
+}
+
 export async function inspectContinuousIngress(options = {}) {
   const binding = await loadContinuousBinding(options.bindingPath, { bindingDigest: options.bindingDigest });
   const checkedAt = new Date((options.now ?? Date.now)()).toISOString();
   const result = {
     schema_version: healthSchema(binding), checked_at: checkedAt, status: "not_run",
     last_run_id: null, started_at: null, completed_at: null, last_success_at: null,
-    lanes: [{ lane: "plaud", status: binding.plaud?.enabled ? "not_run" : "disabled",
-      collected_count: null, pending_count: null, custody_complete: null, error_codes: [] }],
+    lanes: [
+      { lane: "plaud", enabled: binding.plaud?.enabled },
+      { lane: "mail", enabled: binding.mail?.enabled },
+      { lane: "voice", enabled: binding.voice.enabled },
+      ...binding.queues.map((queue) => ({ lane: queue.lane, binding_id: queue.bindingId, enabled: queue.enabled })),
+    ].map(({ enabled, ...lane }) => ({ ...lane, status: enabled ? "not_run" : "disabled",
+      collected_count: null, pending_count: null, custody_complete: null, error_codes: [] })),
   };
   try {
     const healthPath = resolve(binding.dataRoot, "state/health/continuous_ingress.json");
-    if (!await optionalLstat(healthPath)) return result;
+    if (!await optionalLstat(healthPath)) return inspectLatestSupervisorAttempt(options.bindingPath, result);
     await assertNormalFile(healthPath, "continuous_inspection_invalid");
     const health = await readJson(healthPath, "continuous_inspection_invalid");
     if (health.schema_version !== healthSchema(binding) || health.node_id !== binding.nodeId
@@ -2122,7 +2180,38 @@ export async function inspectContinuousIngress(options = {}) {
     const stale = age > binding.pollIntervalSeconds * 2000;
     const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : null;
     const plaud = receipt.plaud;
-    return {
+    const safeCodes = (values) => values.filter((code) => typeof code === "string" && /^[a-z][a-z0-9_]{0,127}$/u.test(code));
+    const otherLanes = result.lanes.slice(1).map((lane) => {
+      if (lane.status === "disabled") return lane;
+      const errors = safeCodes(receipt.errors.filter((item) => item?.binding_id === (lane.binding_id ?? lane.lane))
+        .map((item) => item.code));
+      let status = "unknown";
+      let collected = null;
+      let pending = null;
+      if (lane.lane === "mail") {
+        if (["ok", "partial", "failed"].includes(receipt.mail?.status)) status = receipt.mail.status;
+        collected = ["ok", "partial"].includes(status) ? count(receipt.mail?.total_new_events) : null;
+      } else if (lane.lane === "voice" && receipt.voice) {
+        status = receipt.voice.limit_reached ? "degraded" : "ok";
+        if (count(receipt.voice.copied_new) !== null && count(receipt.voice.copied_version) !== null) {
+          collected = receipt.voice.copied_new + receipt.voice.copied_version;
+        }
+      } else if (lane.binding_id) {
+        const queue = receipt.queues?.find((item) => item.binding_id === lane.binding_id);
+        if (queue) {
+          status = queue.coverage_complete === true ? "ok" : "degraded";
+          collected = count(queue.staged_files);
+          if ([queue.discovered_files, queue.acknowledged_files, queue.processed_files].every((value) => count(value) !== null)) {
+            pending = Math.max(queue.discovered_files - queue.acknowledged_files - queue.processed_files, 0);
+          }
+          errors.push(...safeCodes(Array.isArray(queue.gap_reasons) ? queue.gap_reasons : []));
+        }
+      }
+      if (errors.length > 0 && status === "unknown") status = "failed";
+      return { ...lane, status: stale ? "stale" : status,
+        collected_count: collected, pending_count: pending, error_codes: [...new Set(errors)] };
+    });
+    return inspectLatestSupervisorAttempt(options.bindingPath, {
       ...result, status: stale ? "stale" : receipt.status,
       last_run_id: receipt.run_id, started_at: receipt.started_at, completed_at: receipt.completed_at,
       last_success_at: timestamp(health.last_success_at),
@@ -2135,13 +2224,13 @@ export async function inspectContinuousIngress(options = {}) {
         last_success_at: timestamp(health.plaud_last_success_at),
         error_codes: (receipt.errors ?? []).filter((item) => item.binding_id === "plaud")
           .map((item) => item.code).filter((code) => /^[a-z][a-z0-9_]{0,127}$/u.test(code)),
-      }],
-    };
+      }, ...otherLanes],
+    });
   } catch {
-    return { ...result, status: "unknown", lanes: result.lanes.map((lane) => ({
+    return inspectLatestSupervisorAttempt(options.bindingPath, { ...result, status: "unknown", lanes: result.lanes.map((lane) => ({
       ...lane, status: lane.status === "disabled" ? "disabled" : "unknown",
       error_codes: ["continuous_inspection_invalid"],
-    })) };
+    })) });
   }
 }
 

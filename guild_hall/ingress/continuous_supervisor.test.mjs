@@ -85,6 +85,24 @@ test("one supervisor process performs repeated one-shot cycles without overlappi
   assert.equal(events[1].plaud_cutover_ready, false);
 });
 
+test("supervisor preserves unknown PLAUD counts rather than publishing measured zero", async () => {
+  const events = [];
+  await runContinuousSupervisor({
+    bindingPath: "private-binding.json", bindingDigest: DIGEST, apply: true, maxCycles: 1,
+    loadBindingImpl: async () => binding(),
+    runCycleImpl: async () => ({ status: "degraded", errors: [], plaud: {
+      status: "blocked", imported_count: null, ready_to_import_count: null,
+      pending_provider_processing_count: null, post_import_warning_count: null,
+    } }),
+    emit: (event) => events.push(event),
+  });
+  const completed = events.find((event) => event.event === "cycle_completed");
+  for (const field of ["plaud_imported_count", "plaud_ready_to_import_count",
+    "plaud_pending_provider_processing_count", "plaud_post_import_warning_count"]) {
+    assert.equal(completed[field], null, field);
+  }
+});
+
 test("abort stops the persistent loop between cycles", async () => {
   const controller = new AbortController();
   let cycles = 0;

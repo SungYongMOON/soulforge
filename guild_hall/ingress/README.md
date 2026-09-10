@@ -268,12 +268,19 @@ unknown states and the cycle cap keep cutover readiness false. Unobserved or
 failed query counts are `null`, while a successfully observed empty run is zero.
 
 `continuous_cli.mjs --config <binding> --inspect` reads the existing health/run
-receipts without acquiring a lease or calling a provider. It reports the PLAUD
-lane, check time, last run/success, per-run collected and remaining candidate
+receipts without acquiring a lease or calling a provider. It reports the PLAUD,
+mail, voice mirror and configured queue lanes, check time, last run/success, per-run collected and remaining candidate
 counts, custody and fixed error codes. Missing history is `not_run`; invalid or
 unbound history is `unknown`; a last completed run older than twice the polling
 interval is `stale`. Counts on stale rows belong to that displayed last run.
 The inspector does not claim a current provider inventory or ASR completion.
+It also reads a bounded tail of the existing supervisor heartbeat ledger. A
+newer failed attempt overrides the previous completed-run status, retains the
+last-success history and exposes its fixed error codes; current lane counts
+remain unknown. A malformed latest heartbeat cannot leave the view green.
+Supervisor cycle summaries preserve null PLAUD counts without turning them
+into measured zeros. Each lane retains its own error codes, including mail
+failures while PLAUD succeeds.
 
 The registered PowerShell ingress launcher accepts `-Preflight` (also
 `--preflight`) with its unchanged registered arguments. It checks the pinned

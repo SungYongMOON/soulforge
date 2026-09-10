@@ -5,7 +5,9 @@
 > checks durable session/audio metadata independently of collection/repair
 > status. Unknown counts remain null; receipt inspection distinguishes not-run,
 > unknown and stale evidence. ASR backlog discovery receives the bound physical
-> voice sessions root. Both registered launchers offer read-only preflight;
+> voice sessions root. Inspection also accounts for a newer failed supervisor
+> attempt and separate lane causes; cycle summaries preserve unknown counts.
+> Both registered launchers offer read-only preflight;
 > voice-label pause waits for the current cycle to finish. Synthetic validation
 > is separate from metadata migration, independent review, installed rollout,
 > three post-resume completed cycles and provider-backlog reconciliation.

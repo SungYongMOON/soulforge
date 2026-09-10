@@ -35,6 +35,7 @@ import {
   runContinuousIngress as runContinuousIngressImpl,
 } from "./continuous_runner.mjs";
 import { inspectMailCollectorRelease } from "./mail_bridge.mjs";
+import { createSupervisorHeartbeatRecorder, resolveSupervisorHeartbeatLedger } from "./continuous_supervisor.mjs";
 import {
   WRITER_AUTHORITY_ABSENT_DIGEST,
   transitionWriterAuthority,
@@ -2788,6 +2789,75 @@ test("direct PLAUD separates empty success, partial failure, backlog, blocked an
     assert.equal(stale.lanes[0].status, "stale");
     await writeFile(join(f.dataRoot, "state/health/continuous_ingress.json"), "invalid");
     assert.equal((await inspect()).status, "unknown");
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("inspection exposes a newer failed supervisor attempt and preserves only prior success history", async () => {
+  const f = await fixture();
+  try {
+    await directPlaudBinding(f, await activateWriterAuthority(f));
+    const empty = { ok: true, applied: true, recent_count: 0, existing_provider_id_count: 0,
+      new_candidate_count: 0, candidate_count: 0, truncated_new_candidate_count: 0,
+      recordings: [], custody_required_session_refs: [] };
+    const good = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true,
+      now: advancingClock(), plaudSyncRunner: async () => empty });
+    const failedAt = new Date(Date.parse(good.completed_at) + 60_000);
+    const recordHeartbeat = createSupervisorHeartbeatRecorder({ bindingPath: f.bindingPath, now: () => failedAt });
+    await recordHeartbeat({ event: "cycle_failed", cycle: 2, code: "continuous_lease_held_probe_unresolved" });
+    const inspect = () => inspectContinuousIngress({ bindingPath: f.bindingPath, now: () => failedAt.getTime() + 1000 });
+    const failed = await inspect();
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.last_success_at, good.completed_at);
+    assert.equal(failed.last_attempt_at, failedAt.toISOString());
+    assert.equal(failed.lanes[0].status, "unknown");
+    assert.equal(failed.lanes[0].collected_count, null);
+    assert.equal(failed.lanes[0].pending_count, null);
+    assert.deepEqual(failed.lanes[0].error_codes, ["continuous_lease_held_probe_unresolved"]);
+    const ledgerPath = resolveSupervisorHeartbeatLedger(f.bindingPath);
+    const latestRecord = await readFile(ledgerPath, "utf8");
+    await writeFile(ledgerPath, `${"x".repeat(70_000)}\n${latestRecord}`);
+    assert.equal((await inspect()).status, "failed", "only the bounded last record is needed");
+    let resumedTime = failedAt.getTime() + 2000;
+    const resumedNow = () => resumedTime++;
+    const resumed = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true,
+      now: resumedNow, plaudSyncRunner: async () => empty });
+    const recovered = await inspectContinuousIngress({ bindingPath: f.bindingPath, now: resumedNow });
+    assert.equal(recovered.status, "ok", "a newer completed run supersedes the old failure");
+    assert.equal(recovered.last_success_at, resumed.completed_at);
+    await rm(join(f.dataRoot, "state/health/continuous_ingress.json"));
+    const firstFailure = await inspect();
+    assert.equal(firstFailure.status, "failed");
+    assert.equal(firstFailure.last_success_at, null);
+    await writeFile(resolveSupervisorHeartbeatLedger(f.bindingPath), "{partial");
+    assert.equal((await inspect()).status, "unknown");
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("inspection preserves a failed mail lane and the separately observed queue counts", async () => {
+  const f = await fixture();
+  try {
+    const bound = await directPlaudBinding(f, await activateWriterAuthority(f));
+    bound.payload.mail.enabled = true;
+    bound.payload.lease_ttl_seconds = 1800;
+    bound.payload.queues[0].enabled = true;
+    await writeBinding(f, bound.payload);
+    const now = advancingClock();
+    const result = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now,
+      mailExecutor: async () => { throw new Error("synthetic-mail-failure"); },
+      plaudSyncRunner: async () => ({ ok: true, applied: true, recent_count: 0, existing_provider_id_count: 0,
+        new_candidate_count: 0, candidate_count: 0, truncated_new_candidate_count: 0,
+        recordings: [], custody_required_session_refs: [] }),
+    });
+    const observed = await inspectContinuousIngress({ bindingPath: f.bindingPath, now });
+    const mail = observed.lanes.find((lane) => lane.lane === "mail");
+    assert.equal(observed.status, "degraded");
+    assert.equal(mail.status, "failed");
+    assert.equal(mail.collected_count, null);
+    assert.ok(mail.error_codes.includes("mail_executor_failed"));
+    const queue = result.queues[0];
+    const queueLane = observed.lanes.find((lane) => lane.binding_id === queue.binding_id);
+    assert.equal(queueLane.collected_count, queue.staged_files);
+    assert.equal(queueLane.pending_count, Math.max(queue.discovered_files - queue.acknowledged_files - queue.processed_files, 0));
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
