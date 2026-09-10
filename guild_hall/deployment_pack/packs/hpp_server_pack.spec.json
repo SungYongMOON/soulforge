@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -1688,7 +1688,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_12",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_13",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2533,11 +2533,11 @@
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.mjs",
-      "sha256": "80a493ecb5e7489eff390e6f73ce6ff6c66b136900c1ca0728c6fc79f8d24ae5"
+      "sha256": "d611dbaa9ff9d06a435a7882828a3fa25f6d4a8a245ac20d086e919063b08641"
     },
     {
       "path": "guild_hall/voice_capture/local_asr.mjs",
-      "sha256": "5ef1e40e111ad69ded210fbf6ef7a9ed36ca806aad888c314065e16838cbc1cf"
+      "sha256": "cc388a65b1420cba50ac846aeb0e48ff4d928eda47cff26aa0ff19a4ba03af7b"
     },
     {
       "path": "guild_hall/voice_capture/semantic_labeling.mjs",
