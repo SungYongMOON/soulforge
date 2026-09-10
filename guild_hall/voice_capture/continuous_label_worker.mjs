@@ -700,6 +700,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
       profileRef,
       apply,
       maxSessions: maxAsrSessions,
+      notificationEmitter: async () => ({ status: "disabled" }),
       now,
     });
     result = { ...result, queue: summarizeEnqueue(enqueue), asr: summarizeDrain(drain) };

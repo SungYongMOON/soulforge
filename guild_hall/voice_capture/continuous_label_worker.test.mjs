@@ -13,6 +13,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import crypto from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { buildDefaultLocalAsrProfile, drainLocalAsrQueue, enqueueLocalAsrBacklog } from "./local_asr.mjs";
 
 import {
   continuousVoiceLabelHealthSchemaVersion,
@@ -170,6 +172,54 @@ test("blocked processing is unknown and later label failure retains measured ASR
     assert.equal(health.asr.processed_count, 1);
     assert.equal(health.asr.remaining_pending_count, 2);
     assert.equal(health.labels.processed_session_count, null);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test("HPP ASR succeeds without creating notification policy or queue state", async () => {
+  const f = await fixture();
+  try {
+    const sessionRef = "voice/sessions/2026-09-10/synthetic-notify-off";
+    const sessionDir = path.join(f.repoRoot, sessionRef);
+    await mkdir(path.join(sessionDir, "audio"), { recursive: true });
+    await writeFile(path.join(sessionDir, "audio/source.mp3"), "synthetic-audio");
+    await writeFile(path.join(sessionDir, "session_manifest.json"), JSON.stringify({
+      schema_version: "soulforge.voice_capture_session.v0", session_id: "synthetic-notify-off",
+      duration_seconds: 5, recorded_at_local: "2026-09-10T10:00:00+09:00",
+      source_sha256: sha256("synthetic-audio"), audio: { ref: `${sessionRef}/audio/source.mp3` },
+    }));
+    const profile = { ...buildDefaultLocalAsrProfile(), queue_root: "voice/local_asr_queue",
+      run_id: "synthetic-notify-off", model_path: "synthetic-model.bin", chunk_seconds: 10, overlap_seconds: 0,
+      vad: { enabled: false } };
+    await writeFile(path.join(f.repoRoot, profile.model_path), "synthetic-model");
+    const result = await runContinuousVoiceLabelWorker({
+      repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
+      stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
+      expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
+      expectedAsrSha256: f.asrSha256, apply: true, ...implementations(f, []),
+      loadProfileImpl: async () => ({ profile }),
+      enqueueImpl: enqueueLocalAsrBacklog,
+      drainImpl: (options) => drainLocalAsrQueue({ ...options,
+        commandRunner: (command, args) => {
+          if (command === profile.ffmpeg_binary) writeFileSync(args.at(-1), "synthetic-wav");
+          else if (command === f.asrPath) {
+            const outputBase = args[args.indexOf("-of") + 1];
+            writeFileSync(`${outputBase}.json`, JSON.stringify({ transcription: [
+              { offsets: { from: 0, to: 1000 }, text: "synthetic transcript" },
+            ] }));
+          } else assert.fail("unexpected synthetic command");
+          return { status: 0 };
+        },
+        deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-delivery" }),
+      }),
+    });
+    assert.equal(result.status, "ok");
+    assert.equal(result.asr.processed_count, 1);
+    assert.equal(result.asr.failed_count, 0);
+    const manifest = JSON.parse(await readFile(path.join(sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json"), "utf8"));
+    assert.equal(manifest.state, "completed");
+    assert.equal(manifest.notification.state, "disabled");
+    assert.equal(manifest.notification.queued, false);
+    assert.equal((await readdir(f.repoRoot)).includes("guild_hall"), false);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

@@ -372,6 +372,9 @@ the actual session location; retired refs require a separate exact metadata
 migration and are never resolved through an implicit legacy fallback. Blocked,
 not-run or interrupted processing reports unobserved counts as null and retains
 an already observed ASR result when a later labeling phase fails.
+This HPP worker supplies the existing disabled notification emitter to ASR
+drain, so successful transcription creates neither a notification policy tree
+nor an outbound notification queue. Global ASR notification behavior is unchanged.
 
 The HPP uses a separate hidden supervisor for derived voice processing. The
 existing five-lane collector remains the RAW owner; this supervisor never
