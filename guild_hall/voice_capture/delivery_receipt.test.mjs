@@ -4,7 +4,7 @@ import { symlinkSync } from "node:fs";
 import { lstat, mkdtemp, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test, { after } from "node:test";
 import {
@@ -13,6 +13,7 @@ import {
   getDeliveryStatus,
   prepareDeliveryReceipt,
   validateDeliveryReceipt,
+  mergeVoiceSessionManifest,
 } from "./delivery_receipt.mjs";
 import { writeRecordingLibraryEntry } from "./voice_capture.mjs";
 
@@ -548,6 +549,40 @@ for (const boundary of [1, 2, 3]) test(`direct delivery revalidates write bounda
     assert.equal(callbacks, boundary);
     assert.deepEqual(await readdir(outside), protectedNames);
     for (const name of protectedNames) assert.equal(await readFile(path.join(outside, name), "utf8"), "outside-owned-sentinel");
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+test("separate processes merge ASR and provider fields without losing either generation", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "voice-manifest-merge-processes-"));
+  try {
+    const fixture = await createPlaudFixture(repoRoot, "ingress/plaud");
+    const manifestPath = path.join(fixture.sessionDir, "session_manifest.json");
+    const expected = JSON.parse(await readFile(manifestPath, "utf8"));
+    const program = `import {mergeVoiceSessionManifest} from ${JSON.stringify(new URL("./delivery_receipt.mjs", import.meta.url).href)};
+      const [repoRoot,sessionDir,expected,owner,patch]=process.argv.slice(1);
+      await mergeVoiceSessionManifest({repoRoot,sessionDir,expected:JSON.parse(expected),owner,patch:JSON.parse(patch),voiceRootRef:'ingress/plaud',beforeWrite:()=>new Promise(r=>setTimeout(r,40))});`;
+    const child = (owner, patch) => new Promise((resolve, reject) => {
+      const processHandle = spawn(process.execPath, ["--input-type=module", "-e", program,
+        repoRoot, fixture.sessionDir, JSON.stringify(expected), owner, JSON.stringify(patch)], { stdio: ["ignore", "ignore", "pipe"] });
+      let stderr = "";
+      processHandle.stderr.on("data", (bytes) => { stderr += bytes; });
+      processHandle.on("error", reject);
+      processHandle.on("exit", (code) => code === 0 ? resolve() : reject(new Error(stderr)));
+    });
+    await Promise.all([
+      child("asr", { independent_transcription: { status: "completed", run_id: "independent-test" } }),
+      child("provider", { transcript: { status: "provider_transcript_present_unverified", provider_available: true } }),
+    ]);
+    const merged = JSON.parse(await readFile(manifestPath, "utf8"));
+    assert.equal(merged.transcript.status, "provider_transcript_present_unverified");
+    assert.equal(merged.independent_transcription.status, "completed");
+    assert.equal((await readdir(fixture.sessionDir)).some((name) => name.endsWith(".merge.lock")), false);
+    const bytes = await readFile(manifestPath);
+    await assert.rejects(mergeVoiceSessionManifest({ repoRoot, sessionDir: fixture.sessionDir, voiceRootRef: "ingress/plaud",
+      expected, owner: "asr", patch: { transcript: { status: "not_available" } } }), /voice_manifest_update_unsafe/);
+    await assert.rejects(mergeVoiceSessionManifest({ repoRoot, sessionDir: fixture.sessionDir, voiceRootRef: "ingress/plaud",
+      expected: { ...expected, session_id: "other-session" }, owner: "provider", patch: { transcript: { status: "not_available" } } }), /voice_manifest_identity_mismatch/);
+    assert.deepEqual(await readFile(manifestPath), bytes);
   } finally { await rm(repoRoot, { recursive: true, force: true }); }
 });
 

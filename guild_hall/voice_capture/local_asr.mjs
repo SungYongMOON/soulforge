@@ -10,6 +10,7 @@ import {
   prepareDeliveryReceipt,
   producerReceiptRef,
   validateDeliveryReceipt,
+  mergeVoiceSessionManifest,
 } from "./delivery_receipt.mjs";
 
 export const localAsrProfileSchemaVersion = "soulforge.local_asr_profile.v0";
@@ -1226,7 +1227,24 @@ export async function analyzeLocalAsrSession(options = {}) {
   const profile = options.profile ?? (await loadLocalAsrProfile({ repoRoot, profileRef: options.profileRef })).profile;
   const sessionDir = resolveRepoPath(repoRoot, options.sessionDir);
   const manifestPath = path.join(sessionDir, "session_manifest.json");
-  const sessionManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  let sessionManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  const manifestIdentity = structuredClone(sessionManifest);
+  const persistAsrSession = async () => {
+    const owned = ["status", "source_sha256", "run_id", "engine", "model_id", "model_sha1", "evidence_role",
+      "transcript_ref", "transcript_jsonl_ref", "segment_count", "completed_at", "provider_transcript_used_as_input",
+      "speaker_identity_verified", "notification", "delivery_warning"];
+    const patch = { independent_transcription: {} };
+    for (const key of owned) {
+      if (Object.hasOwn(sessionManifest.independent_transcription ?? {}, key) || key === "delivery_warning") {
+        patch.independent_transcription[key] = sessionManifest.independent_transcription?.[key];
+      }
+    }
+    if (sessionManifest.canonicalization?.state === "independent_transcript_ready_project_match_and_review_required") {
+      patch.canonicalization = { state: sessionManifest.canonicalization.state, independent_transcript_is_human_verified: false };
+    }
+    sessionManifest = await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifestIdentity,
+      owner: "asr", patch, voiceRootRef: options.voiceRootRef, beforeWrite: options.beforeSharedWrite });
+  };
   const audioRef = sessionManifest.audio?.ref;
   if (!audioRef) throw new Error("session has no source audio ref");
   const audioPath = resolveRepoPath(repoRoot, audioRef);
@@ -1302,7 +1320,7 @@ export async function analyzeLocalAsrSession(options = {}) {
     };
     delete sessionManifest.independent_transcription.delivery_warning;
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
-    await atomicWriteJson(manifestPath, sessionManifest);
+    await persistAsrSession();
     const delivery = await prepareLocalAsrDelivery({
       repoRoot,
       sessionDir,
@@ -1314,7 +1332,7 @@ export async function analyzeLocalAsrSession(options = {}) {
       finalManifest.delivery_warning = delivery.warning;
       sessionManifest.independent_transcription.delivery_warning = delivery.warning;
       await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
-      await atomicWriteJson(manifestPath, sessionManifest);
+      await persistAsrSession();
     }
     return { applied: true, resumed_completed: true, ...finalManifest, delivery };
   }
@@ -1471,7 +1489,7 @@ export async function analyzeLocalAsrSession(options = {}) {
       state: "independent_transcript_ready_project_match_and_review_required",
       independent_transcript_is_human_verified: false,
     };
-    await atomicWriteJson(manifestPath, sessionManifest);
+    await persistAsrSession();
     const notification = await emitVoiceTranscriptionCompleted(
       repoRoot,
       sessionManifest,
@@ -1481,7 +1499,7 @@ export async function analyzeLocalAsrSession(options = {}) {
     const finalManifest = { ...completedManifest, notification };
     sessionManifest.independent_transcription.notification = notification;
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
-    await atomicWriteJson(manifestPath, sessionManifest);
+    await persistAsrSession();
     const delivery = await prepareLocalAsrDelivery({
       repoRoot,
       sessionDir,
@@ -1494,14 +1512,15 @@ export async function analyzeLocalAsrSession(options = {}) {
       sessionManifest.independent_transcription.delivery_warning = delivery.warning;
       try {
         await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
-        await atomicWriteJson(manifestPath, sessionManifest);
+        await persistAsrSession();
       } catch {
         // The returned retryable warning remains visible; delivery bookkeeping cannot roll back ASR.
       }
     }
     return { applied: true, ...finalManifest, delivery };
   } catch (error) {
-    await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), {
+    const completedCache = await readJsonIfExists(path.join(outputDir, "analysis_manifest.json"));
+    if (completedCache?.state !== "completed" || !completionIdentityMatches(completedCache, plan)) await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), {
       ...plan,
       state: "retryable_failure",
       failure_kind: classifyFailure(error),

@@ -298,6 +298,89 @@ export async function writeBoundVoiceMetadata(repoRoot, ref, value, options = {}
   return writeJsonIfChanged(path.resolve(repoRoot), ref, value, options.beforeWrite, options.voiceRootRef);
 }
 
+// Both live session writers share this short cross-process merge section. A
+// contended/orphaned lock is never stolen: the caller retains retryable work.
+export async function mergeVoiceSessionManifest(options) {
+  const repoRoot = path.resolve(options.repoRoot);
+  const sessionDir = path.resolve(options.sessionDir);
+  const target = path.join(sessionDir, "session_manifest.json");
+  const lockPath = `${target}.merge.lock`;
+  const allowed = options.owner === "asr" ? new Set(["independent_transcription", "canonicalization"])
+    : options.owner === "provider" ? new Set(["transcript", "speaker_diarization", "raw_payload_boundary", "library_warning", "delivery_warning"])
+      : null;
+  if (!allowed || !options.patch || Object.keys(options.patch).some((key) => !allowed.has(key))) {
+    throw new DeliveryContractError("voice_manifest_update_unsafe");
+  }
+  const sourceIdentity = (value) => JSON.stringify([value.session_id ?? path.basename(sessionDir),
+    value.provider_recording_id ?? null, value.source_sha256 ?? value.audio?.sha256 ?? null, value.audio?.ref ?? null]);
+  const expectedIdentity = sourceIdentity(options.expected);
+  const physical = await fs.realpath(sessionDir);
+  const rootStat = await fs.stat(sessionDir);
+  const assertPath = async (candidate) => {
+    if (candidate !== target && candidate !== lockPath && !candidate.startsWith(`${target}.tmp-`)) throw new DeliveryContractError("voice_manifest_update_unsafe");
+    const currentRoot = await fs.stat(sessionDir);
+    if (await fs.realpath(sessionDir) !== physical || currentRoot.dev !== rootStat.dev || currentRoot.ino !== rootStat.ino) throw new DeliveryContractError("voice_manifest_update_unsafe");
+    if (options.voiceRootRef !== undefined) {
+      await assertSafeRef(repoRoot, path.relative(repoRoot, candidate).split(path.sep).join("/"), { voiceRootRef: options.voiceRootRef });
+    }
+    try {
+      const info = await fs.lstat(candidate);
+      if (!info.isFile() || info.isSymbolicLink()) throw new DeliveryContractError("voice_manifest_update_unsafe");
+    } catch (error) { if (error.code !== "ENOENT") throw error; }
+  };
+  let lockIdentity = null;
+  const token = crypto.randomUUID();
+  const expires = Date.now() + 2000;
+  try {
+    while (!lockIdentity) {
+      await options.beforeWrite?.();
+      await assertPath(lockPath);
+      let handle;
+      try { handle = await fs.open(lockPath, "wx"); } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+        if (Date.now() >= expires) throw Object.assign(new DeliveryContractError("voice_manifest_update_busy"), { code: "voice_manifest_update_busy" });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        continue;
+      }
+      try {
+        lockIdentity = await handle.stat();
+        await handle.writeFile(JSON.stringify({ pid: process.pid, token }));
+      } finally { await handle.close(); }
+    }
+    await assertPath(target);
+    const bytes = await fs.readFile(target);
+    const latest = JSON.parse(bytes);
+    if (sourceIdentity(latest) !== expectedIdentity) throw new DeliveryContractError("voice_manifest_identity_mismatch");
+    const merged = { ...latest };
+    for (const [key, patch] of Object.entries(options.patch)) {
+      if (patch === undefined) delete merged[key];
+      else if (patch && typeof patch === "object" && !Array.isArray(patch)) {
+        merged[key] = { ...latest[key], ...patch };
+        for (const [field, value] of Object.entries(patch)) if (value === undefined) delete merged[key][field];
+      } else merged[key] = patch;
+    }
+    const expectedHash = sha256Bytes(bytes);
+    const guard = async () => {
+      await options.beforeWrite?.();
+      await assertPath(lockPath);
+      const lock = await fs.lstat(lockPath);
+      if (lock.dev !== lockIdentity.dev || lock.ino !== lockIdentity.ino
+        || JSON.parse(await fs.readFile(lockPath, "utf8")).token !== token) throw new DeliveryContractError("voice_manifest_update_unsafe");
+      await assertPath(target);
+      if (await sha256File(target) !== expectedHash) throw new DeliveryContractError("voice_manifest_generation_changed");
+    };
+    await writeJsonPathIfChanged(target, `${JSON.stringify(merged, null, 2)}\n`, guard, assertPath);
+    return merged;
+  } finally {
+    if (lockIdentity) try {
+      await assertPath(lockPath);
+      const current = await fs.lstat(lockPath);
+      if (current.dev === lockIdentity.dev && current.ino === lockIdentity.ino
+        && JSON.parse(await fs.readFile(lockPath, "utf8")).token === token) await fs.rm(lockPath);
+    } catch { /* Never remove a replaced or unbound lock. */ }
+  }
+}
+
 export function producerReceiptRef(sessionId, voiceRootRef) {
   return `${resolveDeliveryVoiceRootRef(voiceRootRef)}/delivery/producer_receipts/${requireSafeId(sessionId, "session_id")}.json`;
 }

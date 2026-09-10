@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { acknowledgeDelivery, validateDeliveryReceipt } from "./delivery_receipt.mjs";
 import { runContinuousVoiceLabelWorker } from "./continuous_label_worker.mjs";
-import { buildDefaultLocalAsrProfile, drainLocalAsrQueue } from "./local_asr.mjs";
+import { buildDefaultLocalAsrProfile, drainLocalAsrQueue, enqueueLocalAsrSession } from "./local_asr.mjs";
 import {
   assertPlaudSessionPublicationBudget,
   buildDefaultPlaudSyncProfile,
@@ -109,7 +109,7 @@ test("files lookback preserves exact created_at cutoff and leaves unknown dates 
   } finally { await rm(repoRoot, { recursive: true, force: true }); }
 });
 
-test("audio-first real download and helpers keep provider missing through ASR and attach only real later provider text", async (t) => {
+for (const interleaving of ["after", "completion", "resume", "busy-retry"]) test(`audio-first real helpers preserve provider and ASR across ${interleaving} backfill`, async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "plaud-audio-first-"));
   try {
     const repoRoot = path.join(root, "data");
@@ -179,23 +179,53 @@ test("audio-first real download and helpers keep provider missing through ASR an
     await writeFile(asrPath, "synthetic engine");
     await writeFile(path.join(repoRoot, "model.bin"), "synthetic model");
     const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
-    const asr = await runContinuousVoiceLabelWorker({ repoRoot, voiceRoot,
+    let backfilled;
+    let injectBackfill = ["completion", "busy-retry"].includes(interleaving);
+    const lockPath = `${manifestPath}.merge.lock`;
+    const syntheticLock = JSON.stringify({ pid: process.pid, token: "synthetic-other-writer" });
+    let engineCalls = 0;
+    const runAsr = () => runContinuousVoiceLabelWorker({ repoRoot, voiceRoot,
       profileRef: profilePath, expectedProfileSha256: hash(profileBytes), expectedAsrSha256: hash("synthetic engine"),
       expectedAsrBinRoot: binRoot, stateRoot, expectedStateRoot: stateRoot, apply: true,
       preflightImpl: async () => ({ ok: true, checks: [{ id: "whisper-cli_available", resolved_path: asrPath }] }),
       loadProfileImpl: async () => ({ profile: localProfile }),
-      drainImpl: (args) => drainLocalAsrQueue({ ...args, commandRunner: (command, args) => {
+      drainImpl: (args) => drainLocalAsrQueue({ ...args, notificationEmitter: async () => {
+        if (injectBackfill) {
+          injectBackfill = false;
+          providerAvailable = true;
+          backfilled = await runPlaudSyncImpl({ ...options, schedulingEpoch: 2 });
+          if (interleaving === "busy-retry") await writeFile(lockPath, syntheticLock, { flag: "wx" });
+        }
+        return { status: "disabled" };
+      }, commandRunner: (command, args) => {
         if (command === "ffmpeg") writeFileSync(args.at(-1), "synthetic wav");
-        else { assert.equal(command, asrPath); writeFileSync(`${args[args.indexOf("-of") + 1]}.json`, JSON.stringify({ transcription: [{ offsets: { from: 0, to: 1000 }, text: "INDEPENDENT ASR" }] })); }
+        else { engineCalls += 1; assert.equal(command, asrPath); writeFileSync(`${args[args.indexOf("-of") + 1]}.json`, JSON.stringify({ transcription: [{ offsets: { from: 0, to: 1000 }, text: "INDEPENDENT ASR" }] })); }
         return { status: 0 };
       } }),
       sweepImpl: async () => ({ processed_session_count: 0, failed_session_count: 0 }),
     });
+    let asr = await runAsr();
+    if (interleaving === "busy-retry") {
+      assert.equal(asr.asr.failed_count, 1);
+      assert.equal(await readFile(lockPath, "utf8"), syntheticLock);
+      assert.equal(JSON.parse(await readFile(path.join(sessionDir, localProfile.output_subdir, localProfile.run_id, "analysis_manifest.json"), "utf8")).state, "completed");
+      assert.equal(JSON.parse(await readFile(manifestPath, "utf8")).transcript.status, "provider_transcript_present_unverified");
+      await rm(lockPath); // The fixture owner releases its own lock; the worker must not steal it.
+      asr = await runAsr();
+    }
     assert.equal(asr.asr.processed_count, 1);
     const independentPath = path.join(sessionDir, localProfile.output_subdir, localProfile.run_id, "transcript.txt");
     const independentBytes = await readFile(independentPath);
-    assert.equal(JSON.parse(await readFile(manifestPath, "utf8")).transcript.status, "not_available");
-    assert.equal((await readdir(sessionDir)).includes("transcript.txt"), false);
+    if (["after", "resume"].includes(interleaving)) {
+      assert.equal(JSON.parse(await readFile(manifestPath, "utf8")).transcript.status, "not_available");
+      assert.equal((await readdir(sessionDir)).includes("transcript.txt"), false);
+    }
+    if (interleaving === "resume") {
+      await enqueueLocalAsrSession({ repoRoot, profile: localProfile, sessionDir, apply: true });
+      injectBackfill = true;
+      assert.equal((await runAsr()).asr.processed_count, 1);
+    }
+    if (interleaving === "after") {
     providerAvailable = true;
     let interruptBackfill = true;
     options.schedulingEpoch = 2;
@@ -209,7 +239,9 @@ test("audio-first real download and helpers keep provider missing through ASR an
     assert.equal(JSON.parse(await readFile(manifestPath, "utf8")).transcript.status, "not_available");
     assert.equal(downloads, downloadCount);
     delete options.beforeSharedWrite;
-    const backfilled = await runPlaudSyncImpl(options);
+    backfilled = await runPlaudSyncImpl(options);
+    }
+    assert.equal(engineCalls, 1);
     assert.equal(backfilled.recordings[0].state, "provider_backfilled");
     assert.equal(downloads, downloadCount);
     assert.equal(backfilled.provider_backfill_pending_count, 0);
@@ -255,6 +287,29 @@ test("audio-first preserves verified audio when an available provider transcript
     assert.equal(result.delivery.state, "ready");
     assert.equal(JSON.stringify(result).includes("PRIVATE PROVIDER DETAIL"), false);
     assert.deepEqual(await readdir(path.join(repoRoot, result.session_ref, "provider_export")), []);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+for (const kind of ["native", "cli-exit-4", "signal-only"]) test(`command timeout classification preserves ${kind} semantics`, async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "plaud-timeout-kind-"));
+  try {
+    let calls = 0;
+    await assert.rejects(runPlaudSyncImpl({ repoRoot, profile: buildDefaultPlaudSyncProfile(), skipPreflight: true,
+      clock: () => Date.parse("2026-09-10T12:00:00Z"), commandTimeoutMs: 100,
+      commandRunner: (command, args, options) => runPlaudCommand(command, args, { ...options, platform: "linux",
+        spawnImpl: () => {
+          calls += 1;
+          return kind === "cli-exit-4" ? { status: 4, stderr: "PRIVATE" }
+            : { status: null, signal: "SIGTERM", error: kind === "native" ? { code: "ETIMEDOUT" } : undefined, stderr: "PRIVATE" };
+        },
+      }),
+    }), (error) => {
+      assert.equal(error.code, kind === "signal-only" ? "plaud_catalog_command_failed" : "plaud_command_timeout");
+      assert.equal(error.stderr, undefined);
+      return true;
+    });
+    assert.equal(calls, 1);
+    assert.deepEqual(await readdir(repoRoot), []);
   } finally { await rm(repoRoot, { recursive: true, force: true }); }
 });
 

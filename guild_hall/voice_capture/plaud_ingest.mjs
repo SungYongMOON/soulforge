@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { collectPlaudCatalog } from "./plaud_catalog.mjs";
 import { recordingLibraryEntrySchemaVersion, writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
-import { assertDeliveryArtifactRef, prepareDeliveryReceipt, resolveDeliveryVoiceRootRef, sha256File, writeBoundVoiceMetadata } from "./delivery_receipt.mjs";
+import { assertDeliveryArtifactRef, prepareDeliveryReceipt, resolveDeliveryVoiceRootRef, sha256File, writeBoundVoiceMetadata, mergeVoiceSessionManifest } from "./delivery_receipt.mjs";
 import {
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
@@ -201,6 +201,9 @@ export function runPlaudCommand(command, args, options = {}) {
     ...invocation.spawnOptions,
     env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0", CI: "1", PLAUD_NO_UPDATE_NOTIFIER: "1" },
   });
+  if (result.error?.code === "ETIMEDOUT") {
+    throw Object.assign(new Error("plaud_command_timeout"), { code: "plaud_command_timeout", exitCode: null });
+  }
   if (result.status !== 0) {
     const error = new Error(`PLAUD command failed (${args[0] ?? "unknown"}) with status ${result.status ?? "unknown"}`);
     error.exitCode = result.status;
@@ -362,7 +365,7 @@ export async function runPlaudSync(options = {}) {
       assertBudget();
       return value;
     } catch (error) {
-      if (["plaud_deadline_exceeded", "plaud_clock_invalid"].includes(error?.code)) throw error;
+      if (["plaud_deadline_exceeded", "plaud_clock_invalid", "plaud_command_timeout"].includes(error?.code)) throw error;
       const code = /API error:\s*429\b/iu.test(stripAnsi(String(error?.stderr ?? ""))) ? "plaud_rate_limited"
         : error?.exitCode === 4 ? "plaud_command_timeout" : error?.exitCode === 2 ? "plaud_authentication_failed"
           : error?.exitCode === 3 ? "plaud_network_failed" : "plaud_command_failed";
@@ -641,26 +644,14 @@ async function backfillPlaudProviderTranscript(options) {
         if (await sha256File(target) !== await sha256File(path.join(stage, sourceName))) throw conflict();
       }
     }
-    const manifestRef = `${sessionRef}/session_manifest.json`;
-    await assertDeliveryArtifactRef(repoRoot, manifestRef, { voiceRootRef, mustExist: true });
-    const manifestBytes = await fs.readFile(path.join(repoRoot, manifestRef));
-    const manifest = JSON.parse(manifestBytes);
-    if (manifest.provider_recording_id !== original.provider_recording_id || manifest.session_id !== original.session_id
-      || manifest.source_sha256 !== original.source_sha256 || manifest.audio?.ref !== original.audio?.ref) throw conflict();
-    const expectedHash = crypto.createHash("sha256").update(manifestBytes).digest("hex");
-    const manifestGuard = async () => {
-      await beforeWrite();
-      await assertDeliveryArtifactRef(repoRoot, manifestRef, { voiceRootRef, mustExist: true });
-      if (await sha256File(path.join(repoRoot, manifestRef)) !== expectedHash) throw conflict();
-    };
     const speakers = [...new Set(segments.map((row) => row.speaker).filter((speaker) => speaker !== "UNKNOWN"))];
-    manifest.transcript = { ...manifest.transcript, status: "provider_transcript_present_unverified", provider_available: true,
+    const manifest = await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: original, owner: "provider", voiceRootRef, beforeWrite,
+      patch: { transcript: { status: "provider_transcript_present_unverified", provider_available: true,
       evidence_role: "auxiliary_unverified", ref: `${sessionRef}/transcript.txt`, jsonl_ref: `${sessionRef}/transcript.jsonl`,
-      provider_original_ref: `${sessionRef}/provider_export/transcript.txt`, segment_count: segments.length, speaker_label_count: speakers.length };
-    manifest.speaker_diarization = { ...manifest.speaker_diarization,
-      status: speakers.length ? "provider_labels_present_unverified" : "not_available", labels: speakers };
-    manifest.raw_payload_boundary = { ...manifest.raw_payload_boundary, transcript_stored_under_workspace: true };
-    await writeMetadata(manifestRef, manifest, manifestGuard);
+      provider_original_ref: `${sessionRef}/provider_export/transcript.txt`, segment_count: segments.length, speaker_label_count: speakers.length },
+      speaker_diarization: { status: speakers.length ? "provider_labels_present_unverified" : "not_available", labels: speakers },
+      raw_payload_boundary: { transcript_stored_under_workspace: true } },
+    });
     existingRecording.manifest = manifest;
     state.provider_transcript_state = manifest.transcript.status;
     await writeMetadata(`${sessionRef}/post_import_state.json`, state);
@@ -1141,7 +1132,9 @@ export async function materializePlaudRecording(options) {
         manifest.library_warning = "library_registration_failed_retryable";
         try {
           await beforeSharedWrite();
-          await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+          await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifest, owner: "provider",
+            voiceRootRef: options.requireHppCustody === true ? resolveDeliveryVoiceRootRef(profile.output_root) : undefined, beforeWrite: beforeSharedWrite,
+            patch: { library_warning: manifest.library_warning } });
         } catch (error) {
           if (error?.plaudSharedWriteGuardFailure) throw error;
           // The returned retryable warning remains visible; session publication is already complete.
@@ -1191,7 +1184,9 @@ export async function materializePlaudRecording(options) {
           manifest.delivery_warning = delivery.warning;
           try {
             await beforeSharedWrite();
-            await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+            await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifest, owner: "provider",
+              voiceRootRef: options.requireHppCustody === true ? resolveDeliveryVoiceRootRef(profile.output_root) : undefined, beforeWrite: beforeSharedWrite,
+              patch: { delivery_warning: manifest.delivery_warning } });
           } catch (error) {
             if (error?.plaudSharedWriteGuardFailure) throw error;
             // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
@@ -1203,7 +1198,9 @@ export async function materializePlaudRecording(options) {
         manifest.delivery_warning = delivery.warning;
         try {
           await beforeSharedWrite();
-          await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+          await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifest, owner: "provider",
+            voiceRootRef: options.requireHppCustody === true ? resolveDeliveryVoiceRootRef(profile.output_root) : undefined, beforeWrite: beforeSharedWrite,
+            patch: { delivery_warning: manifest.delivery_warning } });
         } catch (error) {
           if (error?.plaudSharedWriteGuardFailure) throw error;
           // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.

@@ -30,8 +30,12 @@ present, all three provider roles remain required. Independent ASR stays under
 
 Later provider availability uses a same-ID bounded backfill with no audio
 download. Partial matching files replay idempotently; conflicting files are
-held rather than overwritten. A compare-before-write manifest guard preserves
-concurrent independent-ASR changes. Existing library/delivery repair completes
+held rather than overwritten. ASR completion/resume and provider backfill merge
+only their owned manifest fields into a fresh source-identity-checked generation,
+under a shared cross-process lock and compare-before-write guard. Contention
+waits at most two seconds; an orphan lock is not stolen and requires exact-owner
+recovery before retry. A completed ASR cache survives a failed metadata merge.
+Older writers do not gain this coordination retroactively. Existing library/delivery repair completes
 the new generation. When independent ASR is already complete, the current
 receipt includes its real files plus the newly present provider files.
 
@@ -65,6 +69,8 @@ discovery and the configured command timeout; timeout values are not shortened
 to squeeze in another call. No new call is admitted after the budget is spent.
 Read-only discovery failures leave RAW untouched, and existing publication
 fences remain authoritative. Filesystem latency is not a hard real-time bound.
+Native spawn `ETIMEDOUT` and CLI exit 4 retain `plaud_command_timeout` through
+catalog discovery; a termination signal alone is not evidence of a timeout.
 CLI 0.3.4 `API error: 429` becomes a fixed rate-limit code with no raw stderr;
 it supplies no trusted Retry-After value. There is no immediate rate-limit retry
 loop: the existing supervisor cadence remains the retry delay, not a claimed
