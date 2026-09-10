@@ -966,6 +966,9 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
           fail("continuous_plaud_writer_voice_source_mismatch");
         }
       } else {
+        if (binding.plaud.profile.output_root !== "ingress/plaud") {
+          fail("continuous_plaud_writer_output_unsupported");
+        }
         let plaudOutputRoot;
         let dataRootReal;
         try {
@@ -2350,6 +2353,12 @@ export async function runContinuousIngress(options = {}) {
           );
         }
         plaudResult = sanitizePlaudCycle(sync, binding.plaud.writerEnabled);
+        const repairFailureKinds = new Set(["library_registration_failed", "delivery_root_rejected",
+          "delivery_artifact_missing", "delivery_preparation_failed"]);
+        const observedRepairFailures = new Set((Array.isArray(sync?.recordings) ? sync.recordings : [])
+          .flatMap((recording) => [recording?.failure_kind, recording?.library?.failure_kind, recording?.delivery?.failure_kind])
+          .filter((kind) => repairFailureKinds.has(kind)));
+        for (const kind of observedRepairFailures) errors.push({ binding_id: "plaud", code: `plaud_${kind}` });
         if (binding.plaud.writerEnabled && !binding.voice.enabled) {
           plaudResult.custody_complete = await validateDirectPlaudCustody(sync, binding);
         }

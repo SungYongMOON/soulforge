@@ -15,6 +15,8 @@ import test from "node:test";
 import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { buildDefaultLocalAsrProfile, drainLocalAsrQueue, enqueueLocalAsrBacklog } from "./local_asr.mjs";
+import { writeRecordingLibraryEntry } from "./voice_capture.mjs";
+import { validateDeliveryReceipt } from "./delivery_receipt.mjs";
 
 import {
   continuousVoiceLabelHealthSchemaVersion,
@@ -24,10 +26,10 @@ import {
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
-async function fixture() {
+async function fixture(voiceRef = "voice") {
   const root = await mkdtemp(path.join(os.tmpdir(), "voice-label-worker-"));
   const repoRoot = path.join(root, "repo");
-  const voiceRoot = path.join(repoRoot, "voice");
+  const voiceRoot = path.join(repoRoot, voiceRef);
   const expectedStateRoot = path.join(root, "private-state");
   const stateRoot = path.join(expectedStateRoot, "worker");
   const profilePath = path.join(voiceRoot, "config", "profile.json");
@@ -175,10 +177,10 @@ test("blocked processing is unknown and later label failure retains measured ASR
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
-test("HPP ASR succeeds without creating notification policy or queue state", async () => {
-  const f = await fixture();
+test("HPP ASR succeeds through real direct library/delivery helpers without notification state", async () => {
+  const f = await fixture("ingress/plaud");
   try {
-    const sessionRef = "voice/sessions/2026-09-10/synthetic-notify-off";
+    const sessionRef = "ingress/plaud/sessions/2026-09-10/synthetic-notify-off";
     const sessionDir = path.join(f.repoRoot, sessionRef);
     await mkdir(path.join(sessionDir, "audio"), { recursive: true });
     await writeFile(path.join(sessionDir, "audio/source.mp3"), "synthetic-audio");
@@ -187,10 +189,11 @@ test("HPP ASR succeeds without creating notification policy or queue state", asy
       duration_seconds: 5, recorded_at_local: "2026-09-10T10:00:00+09:00",
       source_sha256: sha256("synthetic-audio"), audio: { ref: `${sessionRef}/audio/source.mp3` },
     }));
-    const profile = { ...buildDefaultLocalAsrProfile(), queue_root: "voice/local_asr_queue",
+    const profile = { ...buildDefaultLocalAsrProfile(), queue_root: "ingress/plaud/local_asr_queue",
       run_id: "synthetic-notify-off", model_path: "synthetic-model.bin", chunk_seconds: 10, overlap_seconds: 0,
       vad: { enabled: false } };
     await writeFile(path.join(f.repoRoot, profile.model_path), "synthetic-model");
+    await writeRecordingLibraryEntry({ repoRoot: f.repoRoot, sessionDir, voiceRootRef: "ingress/plaud", apply: true });
     const result = await runContinuousVoiceLabelWorker({
       repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
       stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
@@ -209,7 +212,6 @@ test("HPP ASR succeeds without creating notification policy or queue state", asy
           } else assert.fail("unexpected synthetic command");
           return { status: 0 };
         },
-        deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-delivery" }),
       }),
     });
     assert.equal(result.status, "ok");
@@ -219,7 +221,13 @@ test("HPP ASR succeeds without creating notification policy or queue state", asy
     assert.equal(manifest.state, "completed");
     assert.equal(manifest.notification.state, "disabled");
     assert.equal(manifest.notification.queued, false);
+    assert.equal(manifest.delivery_warning, undefined);
+    const receipt = JSON.parse(await readFile(path.join(f.voiceRoot, "delivery/producer_receipts/synthetic-notify-off.json"), "utf8"));
+    validateDeliveryReceipt(receipt, { voiceRootRef: "ingress/plaud" });
+    assert.equal(receipt.stage, "local_asr_ready");
+    assert.ok(receipt.files.every((file) => file.ref.startsWith("ingress/plaud/")));
     assert.equal((await readdir(f.repoRoot)).includes("guild_hall"), false);
+    assert.equal((await readdir(f.repoRoot)).includes("_workspaces"), false);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

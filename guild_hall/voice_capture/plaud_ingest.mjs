@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
-import { prepareDeliveryReceipt } from "./delivery_receipt.mjs";
+import { prepareDeliveryReceipt, resolveDeliveryVoiceRootRef } from "./delivery_receipt.mjs";
 import {
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
@@ -372,7 +372,7 @@ export async function runPlaudSync(options = {}) {
       recordings.push(reconciled);
     } catch (error) {
       if (error?.plaudSharedWriteGuardFailure) throw error;
-      recordings.push({ id: recordingId, state: "existing_reconciliation_failed_retryable" });
+      recordings.push({ id: recordingId, state: "existing_reconciliation_failed_retryable", failure_kind: classifyPlaudImportFailure(error) });
     } finally {
       if (typeof options.afterRecording === "function") await options.afterRecording();
     }
@@ -512,19 +512,25 @@ async function reconcileExistingPlaudSession(options) {
 
   if ((manifest.post_import_contract?.library_required === true || manifest.library_warning)
     && postImportState.library_state !== "registered") {
-    await beforeSharedWrite();
-    await writeRecordingLibraryEntry({
-      repoRoot,
-      sessionDir,
-      projectCode: profile.project_code_candidate,
-      routeStatus: "unclassified_needs_owner_confirmation",
-      meetingType: "unclassified_voice_recording",
-      apply: true,
-      beforeWrite: beforeSharedWrite,
-    });
-    postImportState.library_state = "registered";
-    await writePostImportState();
-    library = { state: "registered" };
+    try {
+      await beforeSharedWrite();
+      await writeRecordingLibraryEntry({
+        repoRoot,
+        sessionDir,
+        voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
+        projectCode: profile.project_code_candidate,
+        routeStatus: "unclassified_needs_owner_confirmation",
+        meetingType: "unclassified_voice_recording",
+        apply: true,
+        beforeWrite: beforeSharedWrite,
+      });
+      postImportState.library_state = "registered";
+      await writePostImportState();
+      library = { state: "registered" };
+    } catch (error) {
+      if (error?.plaudSharedWriteGuardFailure) throw error;
+      throw Object.assign(new Error("PLAUD library reconciliation failed"), { plaudRepairPhase: "library" });
+    }
   }
 
   if ((manifest.post_import_contract?.delivery_required === true || manifest.delivery_warning)
@@ -534,6 +540,7 @@ async function reconcileExistingPlaudSession(options) {
       const result = await emitter({
         repoRoot,
         sessionDir,
+        voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
         recordingId: manifest.session_id,
         stage: "plaud_import_ready",
         producerNode: options.producerNode ?? "always_on_voice_producer",
@@ -541,12 +548,14 @@ async function reconcileExistingPlaudSession(options) {
         now: options.now,
         beforeWrite: beforeSharedWrite,
       });
-      if (result.status !== "ready") throw new Error("PLAUD delivery reconciliation incomplete");
+      if (result.status !== "ready") throw new Error(result.status === "missing"
+        ? "PLAUD delivery required artifact missing" : "PLAUD delivery reconciliation incomplete");
       postImportState.delivery_state = "ready";
       await writePostImportState();
       delivery = { state: "ready", receipt_ref: result.receipt_ref ?? null };
     } catch (error) {
       if (error?.plaudSharedWriteGuardFailure) throw error;
+      if (error && typeof error === "object") error.plaudRepairPhase = "delivery";
       throw error;
     }
   }
@@ -863,6 +872,7 @@ export async function materializePlaudRecording(options) {
         await writeRecordingLibraryEntry({
           repoRoot,
           sessionDir,
+          voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
           projectCode: profile.project_code_candidate,
           routeStatus: "unclassified_needs_owner_confirmation",
           meetingType: "unclassified_voice_recording",
@@ -872,7 +882,7 @@ export async function materializePlaudRecording(options) {
         library = { state: "registered" };
       } catch (error) {
         if (error?.plaudSharedWriteGuardFailure) throw error;
-        library = { state: "registration_failed_retryable" };
+        library = { state: "registration_failed_retryable", failure_kind: "library_registration_failed" };
         manifest.library_warning = "library_registration_failed_retryable";
         try {
           await beforeSharedWrite();
@@ -909,6 +919,7 @@ export async function materializePlaudRecording(options) {
         const result = await emitter({
           repoRoot,
           sessionDir,
+          voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
           recordingId: sessionId,
           stage: "plaud_import_ready",
           producerNode: options.producerNode ?? "always_on_voice_producer",
@@ -919,6 +930,7 @@ export async function materializePlaudRecording(options) {
           state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
           receipt_ref: result.receipt_ref ?? null,
           warning: result.status === "ready" ? null : "delivery_receipt_prepare_failed_retryable",
+          failure_kind: result.status === "ready" ? null : result.status === "missing" ? "delivery_artifact_missing" : "delivery_preparation_failed",
         };
         if (delivery.warning) {
           manifest.delivery_warning = delivery.warning;
@@ -932,7 +944,7 @@ export async function materializePlaudRecording(options) {
         }
       } catch (error) {
         if (error?.plaudSharedWriteGuardFailure) throw error;
-        delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
+        delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable", failure_kind: classifyPlaudImportFailure(error, "delivery") };
         manifest.delivery_warning = delivery.warning;
         try {
           await beforeSharedWrite();
@@ -1332,8 +1344,15 @@ export function commandAvailability(command, options = {}) {
   return { ok: result.status === 0 && Boolean(resolvedPath), resolved_path: resolvedPath };
 }
 
-function classifyPlaudImportFailure(error) {
+function classifyPlaudImportFailure(error, phase = error?.plaudRepairPhase) {
   const message = String(error?.message ?? "");
+  if (phase === "library") return "library_registration_failed";
+  if (phase === "delivery") {
+    if (message.startsWith("delivery_ref_outside_allowlist:") || message === "delivery_voice_root_not_supported"
+      || message === "session_dir_outside_voice_sessions") return "delivery_root_rejected";
+    if (message === "PLAUD delivery required artifact missing") return "delivery_artifact_missing";
+    return "delivery_preparation_failed";
+  }
   if (message.includes("transcript parse produced zero segments")) return "transcript_parse_empty";
   if (message.includes("audio URL missing")) return "audio_url_missing";
   if (message.includes("PLAUD command failed")) return "plaud_cli_command_failed";

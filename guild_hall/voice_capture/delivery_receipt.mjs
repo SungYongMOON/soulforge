@@ -6,8 +6,8 @@ import path from "node:path";
 export const deliveryReceiptSchemaVersion = "soulforge.voice_delivery_receipt.v0";
 export const deliveryAcknowledgementSchemaVersion = "soulforge.voice_delivery_acknowledgement.v0";
 
-const DELIVERY_ROOT_REF = "_workspaces/system/voice_capture/delivery";
 const WORKSPACE_ROOT_REF = "_workspaces/system/voice_capture";
+const DIRECT_ROOT_REF = "ingress/plaud";
 const WORKMETA_ROOT_REF = "_workmeta";
 const STAGES = new Set(["plaud_import_ready", "local_asr_ready"]);
 const RECEIPT_KEYS = new Set([
@@ -48,19 +48,20 @@ export class DeliveryContractError extends Error {
 
 export async function prepareDeliveryReceipt(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const voiceRootRef = resolveDeliveryVoiceRootRef(options.voiceRootRef);
   const stage = requireStage(options.stage);
   const producerNode = requireSafeId(options.producerNode, "producer_node");
-  const sessionDirRef = normalizeSessionDirRef(repoRoot, options.sessionDir);
+  const sessionDirRef = normalizeSessionDirRef(repoRoot, options.sessionDir, voiceRootRef);
   const sessionManifestRef = `${sessionDirRef}/session_manifest.json`;
-  await assertSafeRef(repoRoot, sessionManifestRef, { mustExist: true });
+  await assertSafeRef(repoRoot, sessionManifestRef, { mustExist: true, voiceRootRef });
   const sessionManifest = await readJson(path.join(repoRoot, sessionManifestRef), "session_manifest");
   const sessionId = requireSafeId(sessionManifest.session_id ?? path.posix.basename(sessionDirRef), "session_id");
   const recordingId = requireSafeId(
     options.recordingId ?? sessionManifest.recording_id ?? sessionId,
     "recording_id",
   );
-  const specs = options.files ?? buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stage });
-  const normalizedSpecs = normalizeFileSpecs(specs);
+  const specs = options.files ?? buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stage, voiceRootRef });
+  const normalizedSpecs = normalizeFileSpecs(specs, voiceRootRef);
   const rows = [];
   const missing = [];
 
@@ -70,7 +71,7 @@ export async function prepareDeliveryReceipt(options = {}) {
       continue;
     }
     try {
-      const file = await inspectFile(repoRoot, spec.ref);
+      const file = await inspectFile(repoRoot, spec.ref, voiceRootRef);
       rows.push({ role: spec.role, ref: spec.ref, size_bytes: file.size_bytes, sha256: file.sha256, required: spec.required });
     } catch (error) {
       if (error?.code === "ENOENT") {
@@ -106,15 +107,40 @@ export async function prepareDeliveryReceipt(options = {}) {
     created_at: toUtcIso(options.now),
     files: rows,
   };
-  const receiptRef = producerReceiptRef(sessionId);
-  const existingReceipt = await readOptionalContractJson(repoRoot, receiptRef, "delivery_receipt");
+  const receiptRef = producerReceiptRef(sessionId, voiceRootRef);
+  const existingReceipt = await readOptionalContractJson(repoRoot, receiptRef, "delivery_receipt", voiceRootRef);
+  let previousGeneration = null;
   if (existingReceipt) {
-    validateDeliveryReceipt(existingReceipt);
+    const previousRoot = voiceRootRef === DIRECT_ROOT_REF && Array.isArray(existingReceipt.files)
+      && existingReceipt.files.length > 0
+      && existingReceipt.files.every((file) => typeof file?.ref === "string" && file.ref.startsWith(`${WORKSPACE_ROOT_REF}/`))
+      ? WORKSPACE_ROOT_REF : voiceRootRef;
+    validateDeliveryReceipt(existingReceipt, { voiceRootRef: previousRoot });
+    if (existingReceipt.session_id !== sessionId || existingReceipt.recording_id !== recordingId) {
+      throw new DeliveryContractError("delivery_previous_identity_mismatch");
+    }
+    if (previousRoot !== voiceRootRef) {
+      for (const role of ["session_manifest", "source_audio", "recording_manifest"]) {
+        const current = receipt.files.find((file) => file.role === role);
+        const previous = existingReceipt.files.find((file) => file.role === role);
+        if (!current || !previous || previous.ref !== `${previousRoot}${current.ref.slice(voiceRootRef.length)}`) {
+          throw new DeliveryContractError("delivery_previous_identity_mismatch");
+        }
+      }
+    }
+    if (existingReceipt.receipt_id !== receipt.receipt_id) {
+      const previousBytes = await fs.readFile(path.join(repoRoot, receiptRef));
+      if (JSON.stringify(JSON.parse(previousBytes)) !== JSON.stringify(existingReceipt)) {
+        throw new DeliveryContractError("delivery_previous_generation_changed");
+      }
+      previousGeneration = { receipt_id: existingReceipt.receipt_id,
+        receipt_sha256: sha256Bytes(previousBytes), layout: previousRoot === DIRECT_ROOT_REF ? "direct" : "legacy" };
+    }
     if (sameWithoutTimestamp(existingReceipt, receipt, "created_at")) receipt.created_at = existingReceipt.created_at;
   }
-  validateDeliveryReceipt(receipt);
+  validateDeliveryReceipt(receipt, { voiceRootRef });
   const write = options.apply
-    ? await writeJsonIfChanged(repoRoot, receiptRef, receipt, options.beforeWrite)
+    ? await writeJsonIfChanged(repoRoot, receiptRef, receipt, options.beforeWrite, voiceRootRef)
     : { applied: false, changed: false };
   return {
     schema_version: "soulforge.voice_delivery_prepare_result.v0",
@@ -124,18 +150,20 @@ export async function prepareDeliveryReceipt(options = {}) {
     changed: write.changed,
     receipt_ref: receiptRef,
     receipt,
+    ...(previousGeneration ? { previous_generation: previousGeneration } : {}),
   };
 }
 
 export async function acknowledgeDelivery(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const voiceRootRef = resolveDeliveryVoiceRootRef(options.voiceRootRef);
   const sessionId = requireSafeId(options.sessionId, "session_id");
   const consumerNode = requireSafeId(options.consumerNode, "consumer_node");
-  const receiptRef = producerReceiptRef(sessionId);
+  const receiptRef = producerReceiptRef(sessionId, voiceRootRef);
   const receiptPath = path.join(repoRoot, receiptRef);
-  await assertSafeRef(repoRoot, receiptRef, { mustExist: true });
+  await assertSafeRef(repoRoot, receiptRef, { mustExist: true, voiceRootRef });
   const receipt = await readJson(receiptPath, "delivery_receipt");
-  validateDeliveryReceipt(receipt);
+  validateDeliveryReceipt(receipt, { voiceRootRef });
   if (receipt.session_id !== sessionId) throw new DeliveryContractError("receipt_session_id_mismatch");
   if (receipt.producer_node === consumerNode) throw new DeliveryContractError("consumer_node_must_differ_from_producer_node");
   const receiptSha256 = await sha256File(receiptPath);
@@ -146,7 +174,7 @@ export async function acknowledgeDelivery(options = {}) {
     let observedSizeBytes = null;
     let observedSha256 = null;
     try {
-      const observed = await inspectFile(repoRoot, expected.ref);
+      const observed = await inspectFile(repoRoot, expected.ref, voiceRootRef);
       observedSizeBytes = observed.size_bytes;
       observedSha256 = observed.sha256;
       if (observed.size_bytes !== expected.size_bytes || observed.sha256 !== expected.sha256) status = "mismatch";
@@ -181,20 +209,20 @@ export async function acknowledgeDelivery(options = {}) {
   if (Date.parse(acknowledgement.checked_at) < Date.parse(receipt.created_at)) {
     throw new DeliveryContractError("consumer_checked_at_predates_receipt_created_at");
   }
-  const acknowledgementRef = consumerAcknowledgementRef(consumerNode, sessionId);
-  const existingAcknowledgement = await readOptionalContractJson(repoRoot, acknowledgementRef, "delivery_acknowledgement");
+  const acknowledgementRef = consumerAcknowledgementRef(consumerNode, sessionId, voiceRootRef);
+  const existingAcknowledgement = await readOptionalContractJson(repoRoot, acknowledgementRef, "delivery_acknowledgement", voiceRootRef);
   if (existingAcknowledgement) {
-    validateAcknowledgement(existingAcknowledgement);
+    validateAcknowledgement(existingAcknowledgement, voiceRootRef);
     if (sameWithoutTimestamp(existingAcknowledgement, acknowledgement, "checked_at")) {
       acknowledgement.checked_at = existingAcknowledgement.checked_at;
     }
   }
-  validateAcknowledgement(acknowledgement);
+  validateAcknowledgement(acknowledgement, voiceRootRef);
   let write = { applied: false, changed: false };
   let latestWrite = { applied: false, changed: false };
   if (options.apply) {
-    write = await writeJsonIfChanged(repoRoot, acknowledgementRef, acknowledgement);
-    latestWrite = await writeJsonIfChanged(repoRoot, consumerLatestRef(consumerNode), acknowledgement);
+    write = await writeJsonIfChanged(repoRoot, acknowledgementRef, acknowledgement, undefined, voiceRootRef);
+    latestWrite = await writeJsonIfChanged(repoRoot, consumerLatestRef(consumerNode, voiceRootRef), acknowledgement, undefined, voiceRootRef);
   }
   return {
     schema_version: "soulforge.voice_delivery_ack_result.v0",
@@ -203,24 +231,25 @@ export async function acknowledgeDelivery(options = {}) {
     applied: write.applied,
     changed: write.changed || latestWrite.changed,
     acknowledgement_ref: acknowledgementRef,
-    latest_ref: consumerLatestRef(consumerNode),
+    latest_ref: consumerLatestRef(consumerNode, voiceRootRef),
     acknowledgement,
   };
 }
 
 export async function getDeliveryStatus(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const voiceRootRef = resolveDeliveryVoiceRootRef(options.voiceRootRef);
   const sessionId = requireSafeId(options.sessionId, "session_id");
   const consumerNode = requireSafeId(options.consumerNode, "consumer_node");
-  const receiptRef = producerReceiptRef(sessionId);
-  const acknowledgementRef = consumerAcknowledgementRef(consumerNode, sessionId);
-  const receipt = await readOptionalContractJson(repoRoot, receiptRef, "delivery_receipt");
+  const receiptRef = producerReceiptRef(sessionId, voiceRootRef);
+  const acknowledgementRef = consumerAcknowledgementRef(consumerNode, sessionId, voiceRootRef);
+  const receipt = await readOptionalContractJson(repoRoot, receiptRef, "delivery_receipt", voiceRootRef);
   if (!receipt) return statusResult("no_receipt", sessionId, consumerNode, receiptRef, acknowledgementRef);
-  validateDeliveryReceipt(receipt);
+  validateDeliveryReceipt(receipt, { voiceRootRef });
   const receiptSha256 = await sha256File(path.join(repoRoot, receiptRef));
-  const acknowledgement = await readOptionalContractJson(repoRoot, acknowledgementRef, "delivery_acknowledgement");
+  const acknowledgement = await readOptionalContractJson(repoRoot, acknowledgementRef, "delivery_acknowledgement", voiceRootRef);
   if (!acknowledgement) return statusResult("no_ack", sessionId, consumerNode, receiptRef, acknowledgementRef, receipt);
-  validateAcknowledgement(acknowledgement);
+  validateAcknowledgement(acknowledgement, voiceRootRef);
   const stale = acknowledgement.session_id !== sessionId
     || acknowledgement.consumer_node !== consumerNode
     || acknowledgement.receipt_id !== receipt.receipt_id
@@ -254,19 +283,28 @@ export async function sha256File(filePath) {
   });
 }
 
-export function producerReceiptRef(sessionId) {
-  return `${DELIVERY_ROOT_REF}/producer_receipts/${requireSafeId(sessionId, "session_id")}.json`;
+export function resolveDeliveryVoiceRootRef(value = WORKSPACE_ROOT_REF) {
+  if (![WORKSPACE_ROOT_REF, DIRECT_ROOT_REF].includes(value)) throw new DeliveryContractError("delivery_voice_root_not_supported");
+  return value;
 }
 
-export function consumerAcknowledgementRef(consumerNode, sessionId) {
-  return `${DELIVERY_ROOT_REF}/consumer_acknowledgements/${requireSafeId(consumerNode, "consumer_node")}/${requireSafeId(sessionId, "session_id")}.json`;
+export async function assertDeliveryArtifactRef(repoRoot, ref, options = {}) {
+  return assertSafeRef(path.resolve(repoRoot), ref, options);
 }
 
-function consumerLatestRef(consumerNode) {
-  return `${DELIVERY_ROOT_REF}/consumer_acknowledgements/${requireSafeId(consumerNode, "consumer_node")}/latest.json`;
+export function producerReceiptRef(sessionId, voiceRootRef) {
+  return `${resolveDeliveryVoiceRootRef(voiceRootRef)}/delivery/producer_receipts/${requireSafeId(sessionId, "session_id")}.json`;
 }
 
-function buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stage }) {
+export function consumerAcknowledgementRef(consumerNode, sessionId, voiceRootRef) {
+  return `${resolveDeliveryVoiceRootRef(voiceRootRef)}/delivery/consumer_acknowledgements/${requireSafeId(consumerNode, "consumer_node")}/${requireSafeId(sessionId, "session_id")}.json`;
+}
+
+function consumerLatestRef(consumerNode, voiceRootRef) {
+  return `${resolveDeliveryVoiceRootRef(voiceRootRef)}/delivery/consumer_acknowledgements/${requireSafeId(consumerNode, "consumer_node")}/latest.json`;
+}
+
+function buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stage, voiceRootRef }) {
   const dateRef = path.posix.basename(path.posix.dirname(sessionDirRef));
   const common = [
     { role: "session_manifest", ref: `${sessionDirRef}/session_manifest.json`, required: true },
@@ -281,7 +319,7 @@ function buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stag
       { role: "source_event_draft", ref: `${sessionDirRef}/source_event_draft.yaml`, required: true },
       {
         role: "recording_manifest",
-        ref: `${WORKSPACE_ROOT_REF}/library/recordings/${dateRef}/${recordingId}/recording_manifest.json`,
+        ref: `${voiceRootRef}/library/recordings/${dateRef}/${recordingId}/recording_manifest.json`,
         required: true,
       },
       ...(sessionManifest.provider_summary?.status === "provider_output_present_untrusted"
@@ -300,13 +338,13 @@ function buildStageFileSpecs({ sessionDirRef, sessionManifest, recordingId, stag
     { role: "project_context_event", ref: `${outputRef}/project_context_event.json`, required: true },
     {
       role: "recording_manifest",
-      ref: `${WORKSPACE_ROOT_REF}/library/recordings/${dateRef}/${recordingId}/recording_manifest.json`,
+      ref: `${voiceRootRef}/library/recordings/${dateRef}/${recordingId}/recording_manifest.json`,
       required: true,
     },
   ];
 }
 
-function normalizeFileSpecs(specs) {
+function normalizeFileSpecs(specs, voiceRootRef) {
   if (!Array.isArray(specs) || specs.length === 0) throw new DeliveryContractError("delivery_files_required");
   const seen = new Set();
   return specs.map((spec, index) => {
@@ -314,14 +352,15 @@ function normalizeFileSpecs(specs) {
     const role = String(spec.role ?? "");
     if (!FILE_ROLES.has(role)) throw new DeliveryContractError(`delivery_file_role_unsafe:${index}`);
     if (spec.required === false) throw new DeliveryContractError(`delivery_file_optional_not_supported:${index}`);
-    const ref = spec.ref == null ? null : normalizeAllowedRef(spec.ref);
+    const ref = spec.ref == null ? null : normalizeAllowedRef(spec.ref, voiceRootRef);
     if (ref && seen.has(ref)) throw new DeliveryContractError(`delivery_file_ref_duplicate:${ref}`);
     if (ref) seen.add(ref);
     return { role, ref, required: true };
   }).sort((left, right) => left.role.localeCompare(right.role) || String(left.ref).localeCompare(String(right.ref)));
 }
 
-export function validateDeliveryReceipt(receipt) {
+export function validateDeliveryReceipt(receipt, options = {}) {
+  const voiceRootRef = resolveDeliveryVoiceRootRef(options.voiceRootRef);
   validatePlainObject(receipt, RECEIPT_KEYS, "delivery_receipt");
   rejectSecretLikeKeys(receipt, "delivery_receipt");
   if (receipt.schema_version !== deliveryReceiptSchemaVersion) throw new DeliveryContractError("delivery_receipt_schema_version_mismatch");
@@ -338,7 +377,7 @@ export function validateDeliveryReceipt(receipt) {
   for (const [index, file] of receipt.files.entries()) {
     validatePlainObject(file, FILE_KEYS, `delivery_receipt.files[${index}]`);
     if (!FILE_ROLES.has(file.role)) throw new DeliveryContractError(`delivery_receipt_file_role_invalid:${index}`);
-    const ref = normalizeAllowedRef(file.ref);
+    const ref = normalizeAllowedRef(file.ref, voiceRootRef);
     if (refs.has(ref)) throw new DeliveryContractError(`delivery_receipt_file_ref_duplicate:${ref}`);
     refs.add(ref);
     if (!Number.isSafeInteger(file.size_bytes) || file.size_bytes < 0) throw new DeliveryContractError(`delivery_receipt_file_size_invalid:${index}`);
@@ -353,7 +392,7 @@ export function validateDeliveryReceipt(receipt) {
   if (receipt.receipt_id !== expectedId) throw new DeliveryContractError("delivery_receipt_id_mismatch");
 }
 
-function validateAcknowledgement(acknowledgement) {
+function validateAcknowledgement(acknowledgement, voiceRootRef) {
   validatePlainObject(acknowledgement, ACK_KEYS, "delivery_acknowledgement");
   rejectSecretLikeKeys(acknowledgement, "delivery_acknowledgement");
   if (acknowledgement.schema_version !== deliveryAcknowledgementSchemaVersion) {
@@ -367,7 +406,7 @@ function validateAcknowledgement(acknowledgement) {
   if (!/^voice-delivery-[a-f0-9]{24}$/u.test(acknowledgement.receipt_id ?? "")) {
     throw new DeliveryContractError("delivery_acknowledgement_receipt_id_invalid");
   }
-  if (acknowledgement.receipt_ref !== producerReceiptRef(acknowledgement.session_id)) {
+  if (acknowledgement.receipt_ref !== producerReceiptRef(acknowledgement.session_id, voiceRootRef)) {
     throw new DeliveryContractError("delivery_acknowledgement_receipt_ref_invalid");
   }
   if (!HASH_PATTERN.test(acknowledgement.receipt_sha256 ?? "")) {
@@ -381,7 +420,7 @@ function validateAcknowledgement(acknowledgement) {
   for (const [index, file] of acknowledgement.files.entries()) {
     validatePlainObject(file, ACK_FILE_KEYS, `delivery_acknowledgement.files[${index}]`);
     if (!FILE_ROLES.has(file.role)) throw new DeliveryContractError(`delivery_acknowledgement_file_role_invalid:${index}`);
-    const ref = normalizeAllowedRef(file.ref);
+    const ref = normalizeAllowedRef(file.ref, voiceRootRef);
     if (refs.has(ref)) throw new DeliveryContractError(`delivery_acknowledgement_file_ref_duplicate:${ref}`);
     refs.add(ref);
     if (!["delivered", "missing", "mismatch"].includes(file.status)) {
@@ -408,8 +447,8 @@ function validateAcknowledgement(acknowledgement) {
   if (acknowledgement.status !== derivedStatus) throw new DeliveryContractError("delivery_acknowledgement_status_inconsistent");
 }
 
-async function inspectFile(repoRoot, ref) {
-  const filePath = await assertSafeRef(repoRoot, ref, { mustExist: true });
+async function inspectFile(repoRoot, ref, voiceRootRef) {
+  const filePath = await assertSafeRef(repoRoot, ref, { mustExist: true, voiceRootRef });
   const before = await fs.stat(filePath);
   if (!before.isFile()) throw new DeliveryContractError(`delivery_ref_not_regular_file:${ref}`);
   const sha256 = await sha256File(filePath);
@@ -421,7 +460,8 @@ async function inspectFile(repoRoot, ref) {
 }
 
 async function assertSafeRef(repoRoot, value, options = {}) {
-  const ref = normalizeAllowedRef(value);
+  const voiceRootRef = resolveDeliveryVoiceRootRef(options.voiceRootRef);
+  const ref = normalizeAllowedRef(value, voiceRootRef);
   const filePath = path.join(repoRoot, ...ref.split("/"));
   const parts = ref.split("/");
   let cursor = repoRoot;
@@ -454,8 +494,8 @@ async function assertSafeRef(repoRoot, value, options = {}) {
       throw new DeliveryContractError(`delivery_ref_parent_not_directory:${logical}`);
     }
   }
-  const allowedRootRef = ref.startsWith(`${WORKSPACE_ROOT_REF}/`) || ref === WORKSPACE_ROOT_REF
-    ? WORKSPACE_ROOT_REF
+  const allowedRootRef = ref.startsWith(`${voiceRootRef}/`) || ref === voiceRootRef
+    ? voiceRootRef
     : WORKMETA_ROOT_REF;
   const allowedRootPath = path.join(repoRoot, ...allowedRootRef.split("/"));
   try {
@@ -467,7 +507,8 @@ async function assertSafeRef(repoRoot, value, options = {}) {
   return filePath;
 }
 
-function normalizeAllowedRef(value) {
+function normalizeAllowedRef(value, voiceRootRef = WORKSPACE_ROOT_REF) {
+  resolveDeliveryVoiceRootRef(voiceRootRef);
   if (typeof value !== "string" || value.length === 0 || value !== value.trim() || /[\u0000-\u001f\u007f]/u.test(value)) {
     throw new DeliveryContractError("delivery_ref_invalid");
   }
@@ -478,18 +519,19 @@ function normalizeAllowedRef(value) {
   if (parts.some((part) => part === "" || part === "." || part === "..")) {
     throw new DeliveryContractError(`delivery_ref_traversal_rejected:${value}`);
   }
-  if (!(value === WORKSPACE_ROOT_REF || value.startsWith(`${WORKSPACE_ROOT_REF}/`) || value === WORKMETA_ROOT_REF || value.startsWith(`${WORKMETA_ROOT_REF}/`))) {
+  if (!(value === voiceRootRef || value.startsWith(`${voiceRootRef}/`)
+    || (voiceRootRef === WORKSPACE_ROOT_REF && (value === WORKMETA_ROOT_REF || value.startsWith(`${WORKMETA_ROOT_REF}/`))))) {
     throw new DeliveryContractError(`delivery_ref_outside_allowlist:${value}`);
   }
   return value;
 }
 
-function normalizeSessionDirRef(repoRoot, value) {
+function normalizeSessionDirRef(repoRoot, value, voiceRootRef) {
   if (typeof value !== "string" || value.length === 0) throw new DeliveryContractError("session_dir_required");
   const absolute = path.resolve(repoRoot, value);
   const relative = path.relative(repoRoot, absolute).split(path.sep).join("/");
-  const normalized = normalizeAllowedRef(relative);
-  if (!normalized.startsWith(`${WORKSPACE_ROOT_REF}/sessions/`)) throw new DeliveryContractError("session_dir_outside_voice_sessions");
+  const normalized = normalizeAllowedRef(relative, voiceRootRef);
+  if (!normalized.startsWith(`${voiceRootRef}/sessions/`)) throw new DeliveryContractError("session_dir_outside_voice_sessions");
   return normalized;
 }
 
@@ -525,9 +567,9 @@ function rejectSecretLikeKeys(value, trail) {
   }
 }
 
-async function readOptionalContractJson(repoRoot, ref, label) {
+async function readOptionalContractJson(repoRoot, ref, label, voiceRootRef) {
   try {
-    await assertSafeRef(repoRoot, ref, { mustExist: true });
+    await assertSafeRef(repoRoot, ref, { mustExist: true, voiceRootRef });
     return await readJson(path.join(repoRoot, ref), label);
   } catch (error) {
     if (error?.code === "ENOENT") return null;
@@ -544,8 +586,8 @@ async function readJson(filePath, label) {
   }
 }
 
-async function writeJsonIfChanged(repoRoot, ref, value, beforeWrite) {
-  const outputPath = await assertSafeRef(repoRoot, ref, { mustExist: false });
+async function writeJsonIfChanged(repoRoot, ref, value, beforeWrite, voiceRootRef) {
+  const outputPath = await assertSafeRef(repoRoot, ref, { mustExist: false, voiceRootRef });
   const content = `${JSON.stringify(value, null, 2)}\n`;
   const previous = pendingJsonWrites.get(outputPath) ?? Promise.resolve();
   const current = previous.catch(() => {}).then(() => writeJsonPathIfChanged(outputPath, content, beforeWrite));

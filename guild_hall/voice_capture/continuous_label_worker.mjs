@@ -700,6 +700,7 @@ export async function runContinuousVoiceLabelWorker(options = {}) {
       profileRef,
       apply,
       maxSessions: maxAsrSessions,
+      voiceRootRef: profile.queue_root.replace(/\/local_asr_queue$/u, ""),
       notificationEmitter: async () => ({ status: "disabled" }),
       now,
     });

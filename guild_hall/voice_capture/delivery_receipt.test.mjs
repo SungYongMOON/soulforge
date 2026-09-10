@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { symlinkSync } from "node:fs";
-import { lstat, mkdtemp, mkdir, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, rm, stat, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -12,7 +12,9 @@ import {
   acknowledgeDelivery,
   getDeliveryStatus,
   prepareDeliveryReceipt,
+  validateDeliveryReceipt,
 } from "./delivery_receipt.mjs";
+import { writeRecordingLibraryEntry } from "./voice_capture.mjs";
 
 const CLI_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "cli.mjs");
 const DIRECTORY_LINK_TYPE = process.platform === "win32" ? "junction" : "dir";
@@ -473,9 +475,103 @@ test("delivery CLI uses 0 for success, 1 for delivery gaps, and 2 for unsafe inp
   }
 });
 
-async function createPlaudFixture(repoRoot) {
-  const systemPath = path.join(repoRoot, "_workspaces", "system");
+test("direct delivery requires explicit fixed root and preserves required artifact checks", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-direct-delivery-"));
   try {
+    const voiceRootRef = "ingress/plaud";
+    const fixture = await createPlaudFixture(repoRoot, voiceRootRef);
+    const base = { repoRoot, voiceRootRef, sessionDir: fixture.sessionDir,
+      stage: "plaud_import_ready", producerNode: "synthetic-producer", apply: true };
+    await assert.rejects(prepareDeliveryReceipt({ ...base, voiceRootRef: undefined }), /delivery_ref_outside_allowlist/);
+    await assert.rejects(prepareDeliveryReceipt({ ...base, voiceRootRef: "ingress/other" }), /delivery_voice_root_not_supported/);
+    for (const ref of ["_workmeta/forbidden.json", "_workspaces/system/voice_capture/transcript.txt", "ingress/plaud/../other/data"]) {
+      await assert.rejects(prepareDeliveryReceipt({ ...base, files: [{ role: "source_audio", ref, required: true }] }), /delivery_ref_/);
+    }
+    const prepared = await prepareDeliveryReceipt(base);
+    assert.equal(prepared.status, "ready");
+    assert.ok(prepared.receipt_ref.startsWith(`${voiceRootRef}/delivery/`));
+    const ack = await acknowledgeDelivery({ repoRoot, voiceRootRef, sessionId: fixture.sessionId,
+      consumerNode: "synthetic-consumer", apply: true });
+    assert.equal(ack.status, "delivered");
+    assert.equal((await getDeliveryStatus({ repoRoot, voiceRootRef, sessionId: fixture.sessionId,
+      consumerNode: "synthetic-consumer" })).status, "delivered");
+    const receiptBytes = await readFile(path.join(repoRoot, prepared.receipt_ref));
+    await unlink(path.join(fixture.sessionDir, "transcript.jsonl"));
+    const missing = await prepareDeliveryReceipt(base);
+    assert.equal(missing.status, "missing");
+    assert.deepEqual(missing.missing.map((item) => item.role), ["provider_transcript_segments"]);
+    assert.deepEqual(await readFile(path.join(repoRoot, prepared.receipt_ref)), receiptBytes);
+    await writeFile(path.join(fixture.sessionDir, "transcript.jsonl"), "synthetic transcript\n");
+    const manifestPath = path.join(fixture.sessionDir, "session_manifest.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.provider_summary = { status: "provider_output_present_untrusted",
+      ref: `${voiceRootRef}/sessions/2026-07-11/${fixture.sessionId}/provider_export/summary.md` };
+    await writeFile(manifestPath, JSON.stringify(manifest));
+    const missingSummary = await prepareDeliveryReceipt(base);
+    assert.equal(missingSummary.status, "missing");
+    assert.deepEqual(missingSummary.missing.map((item) => item.role), ["provider_summary"]);
+    manifest.provider_summary.status = "provider_output_failed_optional";
+    await writeFile(manifestPath, JSON.stringify(manifest));
+    assert.equal((await prepareDeliveryReceipt(base)).status, "ready");
+    assert.equal(await stat(path.join(repoRoot, "_workspaces")).then(() => true, () => false), false);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+test("direct current receipt replaces only a strictly valid same-identity legacy generation", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-direct-generation-"));
+  try {
+    const legacy = await createPlaudFixture(repoRoot);
+    const prior = await prepareDeliveryReceipt({ repoRoot, sessionDir: legacy.sessionDir,
+      stage: "plaud_import_ready", producerNode: "synthetic-producer", apply: true });
+    const priorBytes = await readFile(path.join(repoRoot, prior.receipt_ref));
+    const direct = await createPlaudFixture(repoRoot, "ingress/plaud");
+    const currentRef = `ingress/plaud/delivery/producer_receipts/${direct.sessionId}.json`;
+    await mkdir(path.dirname(path.join(repoRoot, currentRef)), { recursive: true });
+    await writeFile(path.join(repoRoot, currentRef), priorBytes);
+    const base = { repoRoot, voiceRootRef: "ingress/plaud", sessionDir: direct.sessionDir,
+      stage: "plaud_import_ready", producerNode: "synthetic-producer", apply: true };
+    const next = await prepareDeliveryReceipt(base);
+    assert.equal(next.status, "ready");
+    assert.notEqual(next.receipt.receipt_id, prior.receipt.receipt_id);
+    assert.equal(next.previous_generation.receipt_id, prior.receipt.receipt_id);
+    assert.equal(next.previous_generation.receipt_sha256, createHash("sha256").update(priorBytes).digest("hex"));
+    validateDeliveryReceipt(next.receipt, { voiceRootRef: "ingress/plaud" });
+    assert.deepEqual(await readFile(path.join(repoRoot, prior.receipt_ref)), priorBytes, "legacy history stays byte-identical");
+    for (const kind of ["identity", "mixed", "arbitrary", "wrong-session-ref"]) {
+      const unsafe = structuredClone(prior.receipt);
+      if (kind === "identity") unsafe.recording_id = "wrong-recording";
+      if (kind === "mixed") unsafe.files[0].ref = unsafe.files[0].ref.replace("_workspaces/system/voice_capture", "ingress/plaud");
+      if (kind === "arbitrary") unsafe.files[0].ref = "ingress/other/source.ogg";
+      if (kind === "wrong-session-ref") unsafe.files.find((file) => file.role === "session_manifest").ref = "_workspaces/system/voice_capture/sessions/2026-07-11/wrong-session/session_manifest.json";
+      unsafe.receipt_id = `voice-delivery-${createHash("sha256").update(JSON.stringify(unsafe.files)).digest("hex").slice(0, 24)}`;
+      const bytes = JSON.stringify(unsafe);
+      await writeFile(path.join(repoRoot, currentRef), bytes);
+      await assert.rejects(prepareDeliveryReceipt(base), DeliveryContractError, kind);
+      assert.equal(await readFile(path.join(repoRoot, currentRef), "utf8"), bytes);
+    }
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+test("direct library and delivery reject nested links before outside writes", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-direct-library-link-"));
+  try {
+    const voiceRootRef = "ingress/plaud";
+    const fixture = await createPlaudFixture(repoRoot, voiceRootRef);
+    const libraryRoot = path.join(repoRoot, voiceRootRef, "library");
+    const outside = path.join(repoRoot, "outside-library");
+    await mkdir(outside);
+    await rm(libraryRoot, { recursive: true, force: true });
+    symlinkSync(outside, libraryRoot, DIRECTORY_LINK_TYPE);
+    await assert.rejects(writeRecordingLibraryEntry({ repoRoot, voiceRootRef, sessionDir: fixture.sessionDir, apply: true }), /delivery_ref_nested_symlink_rejected/);
+    await assert.rejects(prepareDeliveryReceipt({ repoRoot, voiceRootRef, sessionDir: fixture.sessionDir,
+      stage: "plaud_import_ready", producerNode: "synthetic-producer", apply: true }), /delivery_ref_nested_symlink_rejected/);
+    assert.deepEqual(await readdir(outside), []);
+  } finally { await rm(repoRoot, { recursive: true, force: true }); }
+});
+
+async function createPlaudFixture(repoRoot, voiceRootRef = "_workspaces/system/voice_capture") {
+  const systemPath = path.join(repoRoot, "_workspaces", "system");
+  if (voiceRootRef === "_workspaces/system/voice_capture") try {
     await lstat(systemPath);
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
@@ -487,8 +583,8 @@ async function createPlaudFixture(repoRoot) {
   }
   const sessionId = "fixture_session";
   const date = "2026-07-11";
-  const sessionDir = path.join(repoRoot, "_workspaces", "system", "voice_capture", "sessions", date, sessionId);
-  const ref = (suffix) => `_workspaces/system/voice_capture/sessions/${date}/${sessionId}/${suffix}`;
+  const sessionDir = path.join(repoRoot, voiceRootRef, "sessions", date, sessionId);
+  const ref = (suffix) => `${voiceRootRef}/sessions/${date}/${sessionId}/${suffix}`;
   await mkdir(path.join(sessionDir, "audio"), { recursive: true });
   await mkdir(path.join(sessionDir, "provider_export"), { recursive: true });
   const audioPath = path.join(sessionDir, "audio", "source.ogg");
@@ -508,7 +604,7 @@ async function createPlaudFixture(repoRoot) {
     },
     provider_summary: { status: "not_available" },
   }, null, 2)}\n`, "utf8");
-  const recordingManifest = path.join(repoRoot, "_workspaces", "system", "voice_capture", "library", "recordings", date, sessionId, "recording_manifest.json");
+  const recordingManifest = path.join(repoRoot, voiceRootRef, "library", "recordings", date, sessionId, "recording_manifest.json");
   await mkdir(path.dirname(recordingManifest), { recursive: true });
   await writeFile(recordingManifest, '{"recording_id":"fixture_session"}\n', "utf8");
   return { sessionId, sessionDir, audioPath };

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { assertDeliveryArtifactRef, resolveDeliveryVoiceRootRef } from "./delivery_receipt.mjs";
 
 export const sessionSchemaVersion = "soulforge.voice_capture_session.v0";
 export const sourceEventDraftSchemaVersion = "soulforge.voice_capture_source_event_draft.v0";
@@ -643,8 +644,17 @@ export async function buildRecordingLibraryEntry(options = {}) {
     throw new Error("sessionDir is required to build a recording library entry");
   }
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
-  const libraryRoot = path.resolve(repoRoot, options.libraryRoot ?? defaultRecordingLibraryRoot);
+  const voiceRootRef = options.voiceRootRef === undefined ? null : resolveDeliveryVoiceRootRef(options.voiceRootRef);
+  const libraryRoot = path.resolve(repoRoot, voiceRootRef ? `${voiceRootRef}/library` : options.libraryRoot ?? defaultRecordingLibraryRoot);
+  if (voiceRootRef && options.libraryRoot && path.resolve(repoRoot, options.libraryRoot) !== libraryRoot) {
+    throw new Error("recording_library_root_mismatch");
+  }
   const sessionDir = path.resolve(options.sessionDir);
+  if (voiceRootRef === "ingress/plaud") {
+    const sessionRef = path.relative(repoRoot, sessionDir).split(path.sep).join("/");
+    if (!sessionRef.startsWith(`${voiceRootRef}/sessions/`)) throw new Error("recording_library_session_outside_direct_root");
+    await assertDeliveryArtifactRef(repoRoot, `${sessionRef}/session_manifest.json`, { voiceRootRef, mustExist: true });
+  }
   const status = await buildSessionStatus(sessionDir);
   const manifestPath = path.join(sessionDir, "session_manifest.json");
   const manifest = (await readJsonIfExists(manifestPath)) ?? {};
@@ -766,6 +776,19 @@ export async function writeRecordingLibraryEntry(options = {}) {
   }
   if (!plan.apply_ready) {
     throw new Error(`cannot register invalid voice recording session: ${plan.entry.status_summary.errors.join("; ")}`);
+  }
+
+  if (options.voiceRootRef === "ingress/plaud") {
+    const originalBeforeWrite = options.beforeWrite;
+    const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+    options = { ...options, beforeWrite: async () => {
+      if (typeof originalBeforeWrite === "function") await originalBeforeWrite();
+      for (const target of [plan.recording_manifest_path, plan.global_index_path, plan.current_index_path, plan.project_route_path]) {
+        await assertDeliveryArtifactRef(repoRoot, path.relative(repoRoot, target).split(path.sep).join("/"), {
+          voiceRootRef: options.voiceRootRef, mustExist: false,
+        });
+      }
+    } };
   }
 
   if (typeof options.beforeWrite === "function") await options.beforeWrite();

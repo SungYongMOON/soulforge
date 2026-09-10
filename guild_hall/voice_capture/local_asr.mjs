@@ -1302,6 +1302,7 @@ export async function analyzeLocalAsrSession(options = {}) {
     const delivery = await prepareLocalAsrDelivery({
       repoRoot,
       sessionDir,
+      voiceRootRef: options.voiceRootRef,
       producerNode: options.producerNode,
       deliveryReceiptEmitter: options.deliveryReceiptEmitter,
     });
@@ -1480,6 +1481,7 @@ export async function analyzeLocalAsrSession(options = {}) {
     const delivery = await prepareLocalAsrDelivery({
       repoRoot,
       sessionDir,
+      voiceRootRef: options.voiceRootRef,
       producerNode: options.producerNode,
       deliveryReceiptEmitter: options.deliveryReceiptEmitter,
     });
@@ -1513,6 +1515,7 @@ async function prepareLocalAsrDelivery(options) {
     const result = await emitter({
       repoRoot: options.repoRoot,
       sessionDir: options.sessionDir,
+      voiceRootRef: options.voiceRootRef,
       stage: "local_asr_ready",
       producerNode: options.producerNode ?? "always_on_voice_producer",
       apply: true,

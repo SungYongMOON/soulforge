@@ -376,6 +376,32 @@ This HPP worker supplies the existing disabled notification emitter to ASR
 drain, so successful transcription creates neither a notification policy tree
 nor an outbound notification queue. Global ASR notification behavior is unchanged.
 
+PLAUD import/reconciliation and HPP ASR delivery explicitly pass the selected
+`voiceRootRef` to the real delivery helper. Its only layouts are the default
+`_workspaces/system/voice_capture` and opt-in `ingress/plaud`; the latter comes
+from the pinned HPP profile/binding and remains inside its managed data root.
+The option does not grant writer authority. Existing fence callbacks remain
+required by the calling lane. Direct refs cannot mix legacy or `_workmeta`
+paths, and nested links are rejected. Library registration derives its root
+from the same selection and checks direct write targets before publication.
+
+A moved current producer receipt may contain a legacy generation. Before
+replacing that exact current pointer, the helper strictly validates the old
+layout, session/recording identity and common artifact refs, then independently
+validates the new direct file set. It returns the previous receipt ID and exact
+byte SHA-256 as `previous_generation`; persisted receipt schemas are unchanged.
+This metadata identifies a prior generation; it is not an automatic archive of
+the old bytes. Operating backup/retention remains with the existing cutover
+procedure. Mixed roots or different identities fail closed. Historical refs
+are not broadly replaced; library current indexes retain their existing
+per-recording upsert and file-rewrite behavior.
+
+Already-registered library records are used as required hash/size artifacts;
+delivery does not dereference their internal `payload_refs`. Migrated records
+can therefore retain legacy internal pointers, which remain a separate data
+consistency limitation. Only new registration or actual library repair uses
+the existing recording-ID upsert contract to generate current refs.
+
 The HPP uses a separate hidden supervisor for derived voice processing. The
 existing five-lane collector remains the RAW owner; this supervisor never
 downloads PLAUD data or rewrites source audio. Each 15-minute cycle:

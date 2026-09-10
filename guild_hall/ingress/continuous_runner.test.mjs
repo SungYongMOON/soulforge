@@ -36,6 +36,7 @@ import {
 } from "./continuous_runner.mjs";
 import { inspectMailCollectorRelease } from "./mail_bridge.mjs";
 import { createSupervisorHeartbeatRecorder, resolveSupervisorHeartbeatLedger } from "./continuous_supervisor.mjs";
+import { validateDeliveryReceipt } from "../voice_capture/delivery_receipt.mjs";
 import {
   WRITER_AUTHORITY_ABSENT_DIGEST,
   transitionWriterAuthority,
@@ -2952,7 +2953,7 @@ test("PLAUD v3 keeps cutover blocked while unrelated voice mirror backlog hits i
   }
 });
 
-for (const direct of [false, true, "repair"]) test(`PLAUD v3 primary writer materializes RAW with ${direct ? `direct ${direct}` : "mirror"} custody and deduplicates replay`, async () => {
+for (const direct of [false, true, "repair", "library-repair"]) test(`PLAUD v3 primary writer materializes RAW with ${direct ? `direct ${direct}` : "mirror"} custody and deduplicates replay`, async () => {
   const f = await fixture();
   try {
     const authority = await activateWriterAuthority(f);
@@ -2981,7 +2982,13 @@ for (const direct of [false, true, "repair"]) test(`PLAUD v3 primary writer mate
       throw new Error(`unexpected PLAUD command: ${args[0]}`);
     };
     const now = advancingClock();
-    let failDelivery = direct === "repair";
+    const receiptDirectory = join(f.dataRoot, "ingress/plaud/delivery/producer_receipts");
+    const needsRepair = typeof direct === "string";
+    const blockedDirectory = direct === "library-repair" ? join(f.dataRoot, "ingress/plaud/library") : receiptDirectory;
+    if (needsRepair) {
+      await mkdir(dirname(blockedDirectory), { recursive: true });
+      await writeFile(blockedDirectory, "synthetic interrupted artifact directory");
+    }
     const plaudSyncRunner = (options) => runPlaudSync({
       ...options,
       skipPreflight: true,
@@ -2999,10 +3006,7 @@ for (const direct of [false, true, "repair"]) test(`PLAUD v3 primary writer mate
         sample_rate_hz: 48000,
         channels: 1,
       }),
-      deliveryReceiptEmitter: async () => {
-        if (failDelivery) { failDelivery = false; throw new Error("synthetic-post-publication-interruption"); }
-        return { status: "ready", receipt_ref: "synthetic-only" };
-      },
+      ...(!direct ? { deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-only" }) } : {}),
     });
     const result = await runContinuousIngress({
       bindingPath: f.bindingPath,
@@ -3030,7 +3034,7 @@ for (const direct of [false, true, "repair"]) test(`PLAUD v3 primary writer mate
     assert.deepEqual(custodyAudio, sourceAudio);
     assert.equal(result.plaud.imported_count, 1);
     assert.equal(result.plaud.raw_written, true);
-    assert.equal(result.plaud.post_import_warning_count, direct === "repair" ? 1 : 0);
+    assert.equal(result.plaud.post_import_warning_count, needsRepair ? 1 : 0);
     assert.equal(result.plaud.custody_complete, true);
     if (direct) assert.equal(result.voice, null);
     else {
@@ -3042,6 +3046,15 @@ for (const direct of [false, true, "repair"]) test(`PLAUD v3 primary writer mate
     assert.equal(JSON.stringify(result).includes("private recording title"), false);
     assert.equal(JSON.stringify(result).includes(recordingId), false);
 
+    if (needsRepair) {
+      const expectedCode = direct === "library-repair" ? "plaud_library_registration_failed" : "plaud_delivery_preparation_failed";
+      assert.ok(result.errors.some((item) => item.code === expectedCode));
+      const retry = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
+      assert.equal(retry.plaud.import_failed_retryable_count, 1);
+      assert.equal(retry.plaud.imported_count, 0);
+      assert.ok(retry.errors.some((item) => item.code === expectedCode));
+      await rm(blockedDirectory);
+    }
     const replay = await runContinuousIngress({
       bindingPath: f.bindingPath,
       apply: true,
@@ -3055,9 +3068,19 @@ for (const direct of [false, true, "repair"]) test(`PLAUD v3 primary writer mate
     }
     assert.equal(replay.plaud.imported_count, 0);
     assert.equal(replay.plaud.new_candidate_count, 0);
-    assert.equal(replay.plaud.reconciled_count, direct === "repair" ? 1 : 0);
+    assert.equal(replay.plaud.reconciled_count, needsRepair ? 1 : 0);
     assert.equal(replay.plaud.custody_complete, true);
     assert.equal(replay.plaud.cutover_ready, true);
+    if (direct) {
+      const receipt = JSON.parse(await readFile(join(receiptDirectory, `${sessionId}.json`), "utf8"));
+      validateDeliveryReceipt(receipt, { voiceRootRef: "ingress/plaud" });
+      assert.equal(receipt.stage, "plaud_import_ready");
+      assert.ok(receipt.files.every((file) => file.ref.startsWith("ingress/plaud/")));
+      const library = JSON.parse(await readFile(join(f.dataRoot, "ingress/plaud/library/recordings/2026-07-10", sessionId, "recording_manifest.json"), "utf8"));
+      assert.equal(library.payload_refs.session_dir, `ingress/plaud/sessions/2026-07-10/${sessionId}`);
+      assert.equal(await stat(join(f.dataRoot, "_workspaces")).then(() => true, () => false), false);
+      assert.equal(await stat(join(f.dataRoot, "guild_hall")).then(() => true, () => false), false);
+    }
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

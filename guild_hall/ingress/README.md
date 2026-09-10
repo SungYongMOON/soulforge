@@ -266,6 +266,12 @@ published RAW sessions; it does not mean all provider candidates were imported.
 Post-import repair warnings, retryable import failures, provider processing,
 unknown states and the cycle cap keep cutover readiness false. Unobserved or
 failed query counts are `null`, while a successfully observed empty run is zero.
+The mirror-off writer accepts exactly `ingress/plaud`. Import and repair use
+the actual library/delivery helpers with that pinned root; ASR uses the same
+layout selected by its pinned queue profile. Library registration, rejected
+delivery roots, missing delivery artifacts and other delivery preparation
+failures are exposed as closed `plaud_*` codes in the existing error list,
+without exception text or paths.
 
 `continuous_cli.mjs --config <binding> --inspect` reads the existing health/run
 receipts without acquiring a lease or calling a provider. It reports the PLAUD,
