@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -137,7 +137,9 @@
       "guild_hall/ingress/continuous_binding.schema.json",
       "guild_hall/ingress/continuous_cli.mjs",
       "guild_hall/ingress/continuous_runner.mjs",
+      "guild_hall/ingress/continuous_runner.test.mjs",
       "guild_hall/ingress/continuous_supervisor.mjs",
+      "guild_hall/ingress/continuous_supervisor.test.mjs",
       "guild_hall/ingress/continuous_supervisor_cli.mjs",
       "guild_hall/ingress/legacy_mail_custody_binding.schema.json",
       "guild_hall/ingress/legacy_mail_source_binding.schema.json",
@@ -231,13 +233,18 @@
       "guild_hall/town_crier/runtime.mjs",
       "guild_hall/voice_capture/bounded_strong_asr_request.schema.json",
       "guild_hall/voice_capture/bounded_strong_asr_revision.schema.json",
+      "guild_hall/voice_capture/cli.mjs",
       "guild_hall/voice_capture/continuous_label_supervisor.mjs",
       "guild_hall/voice_capture/continuous_label_supervisor_cli.mjs",
       "guild_hall/voice_capture/continuous_label_worker.mjs",
       "guild_hall/voice_capture/copy_only_mirror.mjs",
       "guild_hall/voice_capture/delivery_receipt.mjs",
+      "guild_hall/voice_capture/delivery_receipt.test.mjs",
       "guild_hall/voice_capture/local_asr.mjs",
+      "guild_hall/voice_capture/plaud_catalog.mjs",
+      "guild_hall/voice_capture/plaud_catalog.test.mjs",
       "guild_hall/voice_capture/plaud_ingest.mjs",
+      "guild_hall/voice_capture/plaud_ingest.test.mjs",
       "guild_hall/voice_capture/plaud_writer_cutover_receipt.mjs",
       "guild_hall/voice_capture/plaud_writer_cutover_receipt.schema.json",
       "guild_hall/voice_capture/project_context_card.schema.json",
@@ -655,6 +662,7 @@
       "ui-workspace/apps/dev-erp/test/hermes_native_chat_executor.test.mjs",
       "ui-workspace/apps/dev-erp/test/hermes_native_workbench_http.test.mjs",
       "ui-workspace/apps/dev-erp/test/hermes_native_workbench_store.test.mjs",
+      "ui-workspace/apps/dev-erp/test/ingress_custody_pack.test.mjs",
       "ui-workspace/apps/dev-erp/test/knowledge_grounding.test.mjs",
       "ui-workspace/apps/dev-erp/test/knowledge_loop.test.mjs",
       "ui-workspace/apps/dev-erp/test/lan_https_proxy.test.mjs",
@@ -1461,6 +1469,7 @@
     "test/hermes_native_chat_executor.test.mjs",
     "test/hermes_native_workbench_http.test.mjs",
     "test/hermes_native_workbench_store.test.mjs",
+    "test/ingress_custody_pack.test.mjs",
     "test/knowledge_grounding.test.mjs",
     "test/knowledge_loop.test.mjs",
     "test/lan_https_proxy.test.mjs",
@@ -1606,6 +1615,7 @@
     "test/hermes_native_chat_executor.test.mjs",
     "test/hermes_native_workbench_http.test.mjs",
     "test/hermes_native_workbench_store.test.mjs",
+    "test/ingress_custody_pack.test.mjs",
     "test/knowledge_grounding.test.mjs",
     "test/knowledge_loop.test.mjs",
     "test/lan_https_proxy.test.mjs",
@@ -1688,7 +1698,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_13",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_14",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2472,6 +2482,10 @@
       "sha256": "f70d26e18fdd6420d7e307a1d7541f6b90424587befc7ea449fa40275fdee5cf"
     },
     {
+      "path": "guild_hall/ingress/continuous_supervisor.test.mjs",
+      "sha256": "933dc87a49f4f5b9e6e439ac5891d0973f6152f07962a7f3f06d9cbf75f62052"
+    },
+    {
       "path": "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
       "sha256": "49525827145899df4d549709a9f1d2a97dad38e260c42ef1781bc984fc7aba20"
     },
@@ -2533,7 +2547,11 @@
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.mjs",
-      "sha256": "d611dbaa9ff9d06a435a7882828a3fa25f6d4a8a245ac20d086e919063b08641"
+      "sha256": "c0403c84c3b980152b91c25922ec380e2d6d42cdcbbde9646dc83e32457b294f"
+    },
+    {
+      "path": "guild_hall/voice_capture/delivery_receipt.test.mjs",
+      "sha256": "f62eac78d4b02dd80fc06ec61859ae1017f4c46b59f0e93b3bcaa36c0ca06574"
     },
     {
       "path": "guild_hall/voice_capture/local_asr.mjs",
