@@ -12,6 +12,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch, AsyncMock
 
 
 def load(name, path):
@@ -50,6 +51,50 @@ class ImageDeliveryTests(unittest.IsolatedAsyncioTestCase):
         await self.adapter.send_image_file("synthetic", str(self.image))
         self.assertFalse(self.calls)
         self.assertIn("Couldn't deliver the image attachment.", self.text[0][1]["content"])
+
+    async def test_document_extension_replaces_native_fallback(self):
+        document = self.image.with_name("보고서.xlsx")
+        document.write_bytes(b"synthetic routing fixture")
+        adapter = plugin.extend_adapter(self.adapter)
+        self.assertIsNot(type(adapter).send_document, BasePlatformAdapter.send_document)
+
+    async def test_partial_upstream_image_fix_keeps_document_extension(self):
+        async def upstream(*args, **kwargs):
+            return SendResult(success=True, message_id="upstream")
+        cls = type("BuzzAdapter", (native.BuzzAdapter,), {"send_image_file": upstream})
+        self.adapter.__class__ = cls
+        instance = plugin.extend_adapter(self.adapter)
+        self.assertIs(type(instance).send_image_file, upstream)
+        self.assertIsNot(type(instance).send_document, BasePlatformAdapter.send_document)
+
+    async def test_document_audio_video_routes_preserve_arguments(self):
+        adapter = plugin.extend_adapter(self.adapter)
+        fake = AsyncMock(return_value=SendResult(success=True, message_id="file-event"))
+        with patch(plugin.__name__ + ".file_transport.send_file", fake):
+            for extension in ("pdf", "xlsx", "xls", "docx", "pptx", "hwpx", "csv", "zip", "step"):
+                path = self.image.with_name("파일 시험." + extension)
+                path.write_bytes(b"synthetic dispatch fixture")
+                media, _ = BasePlatformAdapter.extract_media('MEDIA:"' + str(path) + '"')
+                self.assertEqual(media, [(str(path), False)])
+                result = await adapter.send_document("synthetic", str(path), caption="caption",
+                                                     file_name="download."+extension,
+                                                     metadata={"thread_id":"root"})
+                self.assertTrue(result.success)
+                self.assertEqual(fake.call_args.args[2], path.resolve())
+                self.assertEqual(fake.call_args.kwargs["file_name"], "download."+extension)
+                self.assertEqual(fake.call_args.kwargs["metadata"], {"thread_id":"root"})
+            await adapter.send_voice("synthetic", str(self.image), reply_to="parent")
+            self.assertEqual(fake.call_args.kwargs["reply_to"], "parent")
+            await adapter.send_video("synthetic", str(self.image), caption="video")
+            self.assertEqual(fake.call_args.kwargs["caption"], "video")
+
+    async def test_document_missing_file_never_reaches_transport(self):
+        adapter = plugin.extend_adapter(self.adapter)
+        fake = AsyncMock()
+        with patch(plugin.__name__ + ".file_transport.send_file", fake):
+            result = await adapter.send_document("synthetic", str(self.image)+"missing")
+        self.assertFalse(result.success)
+        fake.assert_not_called()
 
     async def test_real_dispatch_uploads_local_image_in_thread(self):
         adapter = plugin.extend_adapter(self.adapter)
@@ -94,7 +139,8 @@ class ImageDeliveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_upstream_implementation_wins(self):
         async def upstream(*args, **kwargs):
             return SendResult(success=True, message_id="upstream")
-        cls = type("BuzzAdapter", (native.BuzzAdapter,), {"send_image_file": upstream})
+        cls = type("BuzzAdapter", (native.BuzzAdapter,),
+                   {name: upstream for name in ("send_image_file", "send_document", "send_voice", "send_video")})
         instance = cls.__new__(cls)
         self.assertIs(plugin.extend_adapter(instance), instance)
         self.assertIs(type(instance), cls)

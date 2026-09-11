@@ -88,9 +88,9 @@ covered in the same canonical validation entry.
 
 ## Existing task-packet command surface
 
-The optional [Buzz image compatibility plugin](buzz_media_plugin/README.md)
+The optional [Buzz attachment compatibility plugin](buzz_media_plugin/README.md)
 reuses the native Buzz connection used by the feedback bridge. It supplies missing
-local-image delivery through a profile-local Hermes user plugin, without changing
+local image/document/audio/video delivery through a profile-local Hermes user plugin, without changing
 the Hermes checkout. It is opt-in and does not grant feedback dispatch authority.
 Its offline test requires an explicitly supplied Hermes installation.
 
