@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-11 — Buzz 이미지 첨부 호환 플러그인
+
+- Revision: this commit.
+- Hermes 원본을 편집하지 않는 프로필별 사용자 플러그인으로 누락된 이미지 파일
+  전송을 보완한다. 기존 경로 검사·권한·연결을 유지하고 답글 위치와 업로드 영수증을 확인한다.
+- 운영 영향: 선택한 프로필에 별도 설치·활성화와 게이트웨이 재시작이 필요하다.
+  업데이트 후 원본 구현이 생기면 원본을 우선하며, 업데이트 호환성과 실제 표시는 별도 확인한다.
+- 관련: `guild_hall/dev_worker/buzz_media_plugin/`, `guild_hall/dev_worker/test_buzz_media_plugin.py`.
+
 ## 2026-09-10 — 프로젝트 중심 맥락 데이터 구조
 
 - Revision: this commit.
