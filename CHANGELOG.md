@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 후보를 독립 모듈로 main에 통합
+
+- 검토된 후보(로컬 보존 tag `codex/cleanup/20260911/context-manager`, c6c5870c)의 맥락 APP
+  (`guild_hall/context_engine`)을 기본 off 독립 모듈로 들였다. 공개 CLI, 권한·판본·시점·예산 검사,
+  원문 exact 읽기, 파생 세대 생성·선택, 설치 명세와 T0–T5 합성 시험·하니스·증거 문서를 포함한다.
+  이 APP runtime이 쓰는 PDF 추출 seam(`guild_hall/rag/project_document_*`)과 Plan 17 프로젝트 store
+  템플릿(`target_materializer`, Plan 17 물리 문서의 프로젝트 store 절)도 함께 반영했다.
+- World Tree(코드 dev-erp) 쪽 연결(shim, `server.mjs`·`work_intake_context.mjs` import, 행보관
+  `--accepted-context`)은 보류했다. 그 파일들이 HPP 팩 명세의 import 폐포에 들어가 APP 전체가 운영 팩에
+  실리기 때문이며 release gate 전에는 싣지 않는다. 그 연결에 기대던 APP 시험은 같은 요청을 APP CLI로
+  실행하고, 기존 dev-erp 사본의 공개 이름·상수·거부 응답이 APP과 같은지 검사한다.
+- KVDS 관찰 조회(`observed_context_query`)는 일반 경로가 아닌 격리 adapter로 표시했다. 그래프 저장·추출·
+  의미/그래프 검색은 D41에 따라 Neo4j GraphRAG로 연결할 예정이며 아직 연결하지 않았다.
+- 운영 영향 없음: 운영 writer·수집 경로·설치·예약작업·실자료 처리·강도담 소비는 바뀌지 않았고
+  HPP·백업·팀 클라이언트·툴 공방 팩 명세도 그대로다. mail_classifier, 지침 이동, planning lane commit은 넣지 않았다.
+- 검증: 맥락 APP 합성 시험 171건 중 133 PASS·3 SKIP, T5 35건은 pin PDF 해석기
+  (`SOULFORGE_TEST_PDF_PYTHON`)가 없어 환경 실패. `verify_module`, `validate:module-operability`(35개),
+  `validate:product-composition`, `validate:canon`, `validate:path-policy`, 팩 명세 `--check` 4종 통과.
+- 관련 경로: `guild_hall/context_engine/`, `guild_hall/rag/project_document_*`, `guild_hall/path_registry/`,
+  `guild_hall/module_operability/`, `docs/architecture/workspace/examples/context-memory/`,
+  Plan 17 물리 문서, `TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`.
+
 ## 2026-09-12 - Graph DB(Neo4j)·GraphRAG 채택 결정 반영
 
 - Owner 결정(D41)으로 Graph DB(Neo4j Community)와 GraphRAG(벡터 검색 포함)를 규모·질의 트리거를

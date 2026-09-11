@@ -1,5 +1,19 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine APP on main, callers deferred): the reviewed
+> candidate APP (`guild_hall/context_engine`, local tag
+> `codex/cleanup/20260911/context-manager` c6c5870c) now sits on main as a
+> standalone default-off module with its own CLI, T0–T5 synthetic tests, release
+> spec and evidence notes. 171 synthetic tests: 133 pass, 3 skip, and the 35 T5
+> tests fail only because the pinned PDF interpreter is absent. dev-ERP callers
+> (shims, server/work-intake imports, haengbogwan `--accepted-context`) are not
+> switched: those files are in the HPP pack import closure and the APP must not
+> ship in HPP before its release gate (CTX-S0-G2). The KVDS-specific observed
+> query stays isolated. The Owner decided on 2026-09-12 to use Neo4j GraphRAG
+> for graph storage, extraction and semantic/graph retrieval instead of building
+> them; it is not connected yet. No operating writer, collection route,
+> installation, canary or consumer resumption changed.
+
 > 2026-09-11 CURRENT (ingress hidden launch candidate): HPP 0.1.16 registers
 > WScript with an adjacent synchronous hidden VBS wrapper instead of direct
 > PowerShell startup. The supplied existing 0.1.14 RuntimeRoot and binding remain

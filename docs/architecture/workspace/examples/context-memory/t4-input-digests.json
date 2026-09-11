@@ -1,0 +1,40 @@
+{
+  "inputs": [
+    {
+      "batch_id": "batch-1",
+      "input_digest": "sha256:4833407218218880502e9424a1cbadf871155e0b22b94c5130079bedf316a37a"
+    },
+    {
+      "batch_id": "batch-2",
+      "input_digest": "sha256:873d8e91b2a64333fff2d4479b8d03222d4a9d6eef3564a6b3d75a7dbf9be1e5"
+    },
+    {
+      "batch_id": "batch-3",
+      "input_digest": "sha256:8f093bc18ba6024f16e32ff5dfe9b8a341c4fd2ae7af8e7e8f49588771d8dc57"
+    },
+    {
+      "batch_id": "batch-4",
+      "input_digest": "sha256:3b74d907da32d54bb20679915dc9865d9f647bb9e9c3f550bac16ede0147fea2"
+    },
+    {
+      "batch_id": "batch-5",
+      "input_digest": "sha256:c14fb201a1cd12268cbd26f849075098df3038ad6e434eba815909c3bccb2e2d"
+    },
+    {
+      "batch_id": "batch-6",
+      "input_digest": "sha256:4125da372cac52625ce802c0f906b6e7f304d7132886343397208e5f5896f63a"
+    }
+  ],
+  "canonical_intent_boundaries": {
+    "Q09": {
+      "canonical_intent": "Exact revision and locator resolution",
+      "implemented": "Verified source revision and paragraph:1",
+      "t0_detail_gap": "Numeric specimen measurement not provided; canonical locator intent remains exercised"
+    },
+    "Q21": {
+      "canonical_intent": "Deterministic budget selection, omission reasons and mandatory conflict proof",
+      "implemented": "Accepted pack budget plus explicit selector omissions and missing-conflict-proof gaps",
+      "t0_detail_gap": "Ten traceability observations stress case not reproduced; do not infer canonical intent NOT_RUN"
+    }
+  }
+}

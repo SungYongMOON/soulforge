@@ -782,11 +782,13 @@ test("pins the fixed worker, repo venv, stdin/stdout json seam, and the absent c
   assert.match(workerSource, /"pages"/u);
   assert.match(workerSource, /"page_number"/u);
   assert.match(workerSource, /"unreadable"/u);
+  assert.match(workerSource, /if sys\.argv\[1:\] not in \(\[\], \[TABLE_PROFILE\]\):/u,
+    "worker arguments must allow only the default or the fixed extraction profile");
+  assert.match(workerSource, /TABLE_PROFILE = "pdfplumber-tables-v1"/u);
 
   const forbiddenWorkerPatterns = [
     /\bimport\s+os\b/u,
     /\bos\.environ\b/u,
-    /\bsys\.argv\b/u,
     /\bargparse\b/u,
     /\bsubprocess\b/u,
     /\bsocket\b/u,

@@ -1,0 +1,778 @@
+{
+  "question_id": "Q21",
+  "question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+  "original_question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+  "source_snapshot_sha256": "sha256:196e34be36a66721138cf08275fc496f8cb773eb0104c844baba52035a34d934",
+  "accepted_snapshot_sha256": "sha256:2564b96d427d87b345f04ae5e9ab98e52cf599482765e1f2b5d2971dc0c9be19",
+  "budget": {
+    "max_characters": 12000,
+    "max_evidence": 5,
+    "max_paths": 6,
+    "max_source_reads": 2
+  },
+  "gold": {
+    "id": "Q21",
+    "include": [
+      "D-CURRENT",
+      "D-CONFLICT",
+      "F-RESULT"
+    ],
+    "rubric": "Bounded proof includes both conflict sides and traceability; original ten traceability observations absent: coverage gap, not full Q21 evidence equivalence.",
+    "accepted_statuses": [
+      "HOLD",
+      "NOT_AVAILABLE"
+    ],
+    "source_variant": "default",
+    "source_bindings": [
+      {
+        "id": "D-CURRENT",
+        "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+      },
+      {
+        "id": "D-CONFLICT",
+        "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+      },
+      {
+        "id": "F-RESULT",
+        "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+      }
+    ]
+  },
+  "variants": [
+    {
+      "id": "A",
+      "profile": "decision-v1",
+      "version": "0.2.1",
+      "input": {
+        "question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+        "pack": {
+          "status": "PARTIAL",
+          "policy_revision": "accepted-context-pack/1",
+          "identity": {
+            "project_ref": {
+              "entity_id": "00000000-0000-4000-8000-000000000001",
+              "revision_id": "10000000-0000-4000-8000-000000000001",
+              "content_id": "sha256:b428ae550d652968e159a7d16e04a5321f08da5c53117ea990cfa8fda23cba78",
+              "content_hash_alg": "sha256"
+            },
+            "task_ref": "T-A1",
+            "task_identity_verified": true
+          },
+          "accepted_generation_ref": {
+            "entity_id": "00000000-0000-4000-8000-000000000012",
+            "revision_id": "10000000-0000-4000-8000-000000000012",
+            "content_id": "sha256:dcb20ed9e13d4968871c10c30a4613236526fba24df659c8be833c18bc329979",
+            "content_hash_alg": "sha256"
+          },
+          "facts": [
+            {
+              "id": "D-CONFLICT",
+              "kind": "decision",
+              "statement": "별도 시험회의는 T-A1 시험 전압을 30 V로 유지한다. 28 V 정정과 충돌하며 최종 조정은 미확인이다.",
+              "subject": "T-A1",
+              "key": "test-voltage",
+              "value": "30V",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "D-CONFLICT",
+              "applicability": "work",
+              "use_state": "DISPUTED"
+            },
+            {
+              "id": "D-CURRENT",
+              "kind": "decision",
+              "statement": "정정 검토에서 T-A1 시험 전압을 28 V로 바꾸었다.",
+              "subject": "T-A1",
+              "key": "test-voltage",
+              "value": "28V",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "D-CURRENT",
+              "applicability": "work",
+              "use_state": "DISPUTED"
+            },
+            {
+              "id": "C-REVISION",
+              "kind": "correction",
+              "statement": "이전 24 V 결정은 대체되어 현재 근거에서 제외된다.",
+              "subject": "T-A1",
+              "key": "correction",
+              "value": "24V-to-28V",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "C-REVISION",
+              "applicability": "work",
+              "use_state": "ACCEPTED_AT_CUTOFF"
+            },
+            {
+              "id": "C-LIMIT",
+              "kind": "constraint",
+              "statement": "시험 전에 입력 전류 제한을 2 A로 설정한다.",
+              "subject": "T-A1",
+              "key": "current-limit",
+              "value": "2A",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "C-LIMIT",
+              "applicability": "work",
+              "use_state": "ACCEPTED_AT_CUTOFF"
+            }
+          ],
+          "evidence": [
+            {
+              "id": "D-CONFLICT",
+              "document_generation": 0,
+              "locator": "page:1/paragraph:2",
+              "page": 1,
+              "bbox": [
+                "50",
+                "89.001953",
+                "507.016597",
+                "113.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED",
+              "table": {
+                "page": 2,
+                "table": 1,
+                "row": 1,
+                "column": 2,
+                "bbox": [
+                  "300",
+                  "182",
+                  "545",
+                  "242"
+                ]
+              }
+            },
+            {
+              "id": "D-CURRENT",
+              "document_generation": 1,
+              "locator": "page:1/paragraph:3",
+              "page": 1,
+              "bbox": [
+                "50",
+                "127.001953",
+                "336.391598",
+                "137.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED",
+              "table": {
+                "page": 2,
+                "table": 1,
+                "row": 1,
+                "column": 2,
+                "bbox": [
+                  "300",
+                  "182",
+                  "545",
+                  "242"
+                ]
+              }
+            },
+            {
+              "id": "C-REVISION",
+              "document_generation": 1,
+              "locator": "page:1/paragraph:4",
+              "page": 1,
+              "bbox": [
+                "50",
+                "165.001953",
+                "344.135739",
+                "175.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED"
+            },
+            {
+              "id": "C-LIMIT",
+              "document_generation": 1,
+              "locator": "page:1/paragraph:5",
+              "page": 1,
+              "bbox": [
+                "50",
+                "203.001953",
+                "289.746092",
+                "213.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED",
+              "table": {
+                "page": 2,
+                "table": 1,
+                "row": 2,
+                "column": 2,
+                "bbox": [
+                  "300",
+                  "242",
+                  "545",
+                  "302"
+                ]
+              }
+            }
+          ],
+          "paths": [
+            {
+              "from": "C-REVISION",
+              "kind": "corrects",
+              "target": "timeline-span:1",
+              "target_status": "EXCLUDED_HISTORY"
+            }
+          ],
+          "conflicts": [
+            {
+              "left": "D-CONFLICT",
+              "right": "D-CURRENT",
+              "state": "UNRESOLVED"
+            }
+          ],
+          "coverage": {
+            "status": "INSUFFICIENT",
+            "accepted_corpus_complete": true,
+            "missing_kinds": [
+              "fact",
+              "commitment",
+              "failure"
+            ],
+            "cutoff": {
+              "known_at": "2026-08-06T00:00:00.000Z",
+              "valid_at": "2026-08-05T00:00:00.000Z"
+            }
+          },
+          "freshness": "ACCEPTED_AT_REQUESTED_CUTOFF",
+          "gaps": [
+            "EVIDENCE_BUDGET",
+            "REQUESTED_INFORMATION_MISSING",
+            "UNRESOLVED_CONFLICT",
+            "UNTYPED_OR_UNBOUND_SOURCE_COVERAGE"
+          ],
+          "excluded": [
+            {
+              "reason": "EVIDENCE_BUDGET",
+              "count": 5
+            },
+            {
+              "reason": "KIND_NOT_REQUESTED",
+              "count": 1
+            },
+            {
+              "reason": "PURPOSE_NOT_APPLICABLE",
+              "count": 2
+            },
+            {
+              "reason": "SUPERSEDED_OR_WITHDRAWN",
+              "count": 1
+            },
+            {
+              "reason": "WITHDRAWN_OR_RESOLVED",
+              "count": 1
+            }
+          ],
+          "retained_history": [
+            {
+              "source_span_ref": "timeline-span:1",
+              "source_revision_ref": {
+                "content_hash_alg": "sha256",
+                "content_id": "sha256:151ad47b3f95222d7f8660cdd7373bc7b38dc374ff20f90ce5feb3a7c6932991",
+                "entity_id": "00000000-0000-4000-8000-000000020100",
+                "revision_id": "10000000-0000-4000-8000-000000020100"
+              },
+              "correction_state": "original",
+              "supersession": {
+                "predecessor_source_span_refs": [],
+                "state": "superseded"
+              }
+            }
+          ],
+          "query_digests": [
+            "sha256:84241b9d7dbfa9876f6c50e790dfee5f8ab6db54e5fe947ca5ac6f3f7d0f948f",
+            "sha256:834a6f1895efd8b9b31a9f834e7fe3647f6cdd9cbceda1358761aaf6dffafe91"
+          ],
+          "effects": {
+            "task_mutations": 0,
+            "writer_calls": 0,
+            "persistent_writes": 0,
+            "external_sends": 0,
+            "model_calls": 0
+          },
+          "document_retrieval": {
+            "contract": "soulforge.source_text_corpus_search.v0",
+            "searched_source_count": 3,
+            "searched_chunk_count": 20,
+            "hit_count": 4,
+            "selected_count": 4,
+            "max_evidence": 12,
+            "max_per_source": 12,
+            "query_token_count": 11,
+            "advisory_token_count": 0,
+            "exact_query_preserved": true,
+            "advisory_expansion_applied": false,
+            "selected_advisory_only_count": 0,
+            "ranking_basis": "global_bm25_lexical_single_space",
+            "tie_break_basis": "score_desc_then_source_id_then_chunk_id",
+            "embeddings_used": false,
+            "web_search_used": false,
+            "per_source": [
+              {
+                "source_id": "timeline-span:1",
+                "chunk_count": 3,
+                "hit_count": 0,
+                "selected_count": 0
+              },
+              {
+                "source_id": "timeline-span:2",
+                "chunk_count": 7,
+                "hit_count": 2,
+                "selected_count": 2
+              },
+              {
+                "source_id": "timeline-span:corrected",
+                "chunk_count": 10,
+                "hit_count": 2,
+                "selected_count": 2
+              }
+            ],
+            "evaluation_state": "NOT_EVALUATED",
+            "episode_receipt_refs": [
+              "receipt:failure",
+              "receipt:rework",
+              "receipt:result",
+              "receipt:review"
+            ],
+            "index_digest": "sha256:3041b54c738f478d21ff797dc113ab6759d9eae5777650cc5ba0280df6f1a734"
+          },
+          "document_generations": [
+            {
+              "source_span_ref": "timeline-span:2",
+              "source_revision_ref": {
+                "content_hash_alg": "sha256",
+                "content_id": "sha256:c3b8743ec550b3fbba691c42c484f7b54463c9a665661cd5ab1737fa55ebfd19",
+                "entity_id": "00000000-0000-4000-8000-000000020101",
+                "revision_id": "10000000-0000-4000-8000-000000020101"
+              },
+              "context_unit_ref": "unit:timeline:1",
+              "context_event_ref": "event:timeline:1",
+              "context_branch_ref": "branch:timeline:1",
+              "extraction_digest": "sha256:acb828b3732ff94e884c23564c4ade11b2d8c167d2e650b9e095e3fa0d558815",
+              "index_digest": "sha256:3041b54c738f478d21ff797dc113ab6759d9eae5777650cc5ba0280df6f1a734"
+            },
+            {
+              "source_span_ref": "timeline-span:corrected",
+              "source_revision_ref": {
+                "content_hash_alg": "sha256",
+                "content_id": "sha256:4ae6e0be174da1ba5134ac6f4f4c8937895f8964590bdecc450c1e14d29afd96",
+                "entity_id": "00000000-0000-4000-8000-000000020901",
+                "revision_id": "10000000-0000-4000-8000-000000020901"
+              },
+              "context_unit_ref": "unit:corrected",
+              "context_event_ref": "event:corrected",
+              "context_branch_ref": "branch:timeline:0",
+              "extraction_digest": "sha256:a896ebf43f3c89f387d37bdc048f29f584e6e537c3112e705654325cfb2d90b0",
+              "index_digest": "sha256:3041b54c738f478d21ff797dc113ab6759d9eae5777650cc5ba0280df6f1a734"
+            }
+          ],
+          "digest": "sha256:36a027b7eaa68b981f08ddff1c7eb111c749e56065ca26dab09d22e825c6966d",
+          "metrics": {
+            "source_reads": 2,
+            "reader_calls": 2,
+            "tokens": "UNKNOWN",
+            "source_read_attempts": 2,
+            "source_body_loads": 2,
+            "source_bytes_loaded": 108776,
+            "derived_read_attempts": 15,
+            "derived_body_loads": 15,
+            "derived_bytes_loaded": 76844,
+            "snapshot_hash_reads": 4,
+            "snapshot_hash_bytes": 94558,
+            "pinned_read_attempts": 359,
+            "pinned_bytes_loaded": 24065189,
+            "elapsed_ms": 33432.755,
+            "output_characters": 7036
+          }
+        }
+      },
+      "input_sha256": "sha256:5230fc8f7960568966130afb33f24faa5a3640d4eeccf5adf96004d85dd94f64"
+    },
+    {
+      "id": "B",
+      "profile": "relation-v2",
+      "version": "0.3.0",
+      "input": {
+        "question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+        "pack": {
+          "status": "PARTIAL",
+          "policy_revision": "accepted-context-pack/1",
+          "identity": {
+            "project_ref": {
+              "entity_id": "00000000-0000-4000-8000-000000000001",
+              "revision_id": "10000000-0000-4000-8000-000000000001",
+              "content_id": "sha256:b428ae550d652968e159a7d16e04a5321f08da5c53117ea990cfa8fda23cba78",
+              "content_hash_alg": "sha256"
+            },
+            "task_ref": "T-A1",
+            "task_identity_verified": true
+          },
+          "accepted_generation_ref": {
+            "entity_id": "00000000-0000-4000-8000-000000000012",
+            "revision_id": "10000000-0000-4000-8000-000000000012",
+            "content_id": "sha256:dcb20ed9e13d4968871c10c30a4613236526fba24df659c8be833c18bc329979",
+            "content_hash_alg": "sha256"
+          },
+          "facts": [
+            {
+              "id": "D-CONFLICT",
+              "kind": "decision",
+              "statement": "별도 시험회의는 T-A1 시험 전압을 30 V로 유지한다. 28 V 정정과 충돌하며 최종 조정은 미확인이다.",
+              "subject": "T-A1",
+              "key": "test-voltage",
+              "value": "30V",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "D-CONFLICT",
+              "applicability": "work",
+              "use_state": "DISPUTED"
+            },
+            {
+              "id": "D-CURRENT",
+              "kind": "decision",
+              "statement": "정정 검토에서 T-A1 시험 전압을 28 V로 바꾸었다.",
+              "subject": "T-A1",
+              "key": "test-voltage",
+              "value": "28V",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "D-CURRENT",
+              "applicability": "work",
+              "use_state": "DISPUTED"
+            },
+            {
+              "id": "C-LIMIT",
+              "kind": "constraint",
+              "statement": "시험 전에 입력 전류 제한을 2 A로 설정한다.",
+              "subject": "T-A1",
+              "key": "current-limit",
+              "value": "2A",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "C-LIMIT",
+              "applicability": "work",
+              "use_state": "ACCEPTED_AT_CUTOFF"
+            },
+            {
+              "id": "F-PRE",
+              "kind": "fact",
+              "statement": "T-A1 bench qualification depends on completing C-LIMIT setup: set the current limit to 2 A before the run.",
+              "subject": "T-A1",
+              "key": "qualification-prerequisite",
+              "value": "current-limit-setup",
+              "state": "active",
+              "valid_at": "2026-08-01T00:00:00.000Z",
+              "known_at": "2026-08-02T00:00:00.000Z",
+              "evidence_id": "F-PRE",
+              "applicability": "work",
+              "use_state": "ACCEPTED_AT_CUTOFF"
+            }
+          ],
+          "evidence": [
+            {
+              "id": "D-CONFLICT",
+              "document_generation": 0,
+              "locator": "page:1/paragraph:2",
+              "page": 1,
+              "bbox": [
+                "50",
+                "89.001953",
+                "507.016597",
+                "113.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED",
+              "table": {
+                "page": 2,
+                "table": 1,
+                "row": 1,
+                "column": 2,
+                "bbox": [
+                  "300",
+                  "182",
+                  "545",
+                  "242"
+                ]
+              }
+            },
+            {
+              "id": "D-CURRENT",
+              "document_generation": 1,
+              "locator": "page:1/paragraph:3",
+              "page": 1,
+              "bbox": [
+                "50",
+                "127.001953",
+                "336.391598",
+                "137.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED",
+              "table": {
+                "page": 2,
+                "table": 1,
+                "row": 1,
+                "column": 2,
+                "bbox": [
+                  "300",
+                  "182",
+                  "545",
+                  "242"
+                ]
+              }
+            },
+            {
+              "id": "C-LIMIT",
+              "document_generation": 1,
+              "locator": "page:1/paragraph:5",
+              "page": 1,
+              "bbox": [
+                "50",
+                "203.001953",
+                "289.746092",
+                "213.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED",
+              "table": {
+                "page": 2,
+                "table": 1,
+                "row": 2,
+                "column": 2,
+                "bbox": [
+                  "300",
+                  "242",
+                  "545",
+                  "302"
+                ]
+              }
+            },
+            {
+              "id": "F-PRE",
+              "document_generation": 1,
+              "locator": "page:1/paragraph:8",
+              "page": 1,
+              "bbox": [
+                "50",
+                "331.001953",
+                "533.208003",
+                "355.001953"
+              ],
+              "coordinate_system": "top-left-points-decimal",
+              "status": "VERIFIED"
+            }
+          ],
+          "paths": [
+            {
+              "from": "F-PRE",
+              "kind": "depends_on",
+              "target": "C-LIMIT",
+              "target_status": "IN_PACK"
+            }
+          ],
+          "conflicts": [
+            {
+              "left": "D-CONFLICT",
+              "right": "D-CURRENT",
+              "state": "UNRESOLVED"
+            }
+          ],
+          "coverage": {
+            "status": "INSUFFICIENT",
+            "accepted_corpus_complete": true,
+            "missing_kinds": [
+              "correction",
+              "commitment",
+              "failure"
+            ],
+            "cutoff": {
+              "known_at": "2026-08-06T00:00:00.000Z",
+              "valid_at": "2026-08-05T00:00:00.000Z"
+            }
+          },
+          "freshness": "ACCEPTED_AT_REQUESTED_CUTOFF",
+          "gaps": [
+            "EVIDENCE_BUDGET",
+            "REQUESTED_INFORMATION_MISSING",
+            "UNRESOLVED_CONFLICT",
+            "UNTYPED_OR_UNBOUND_SOURCE_COVERAGE"
+          ],
+          "excluded": [
+            {
+              "reason": "EVIDENCE_BUDGET",
+              "count": 5
+            },
+            {
+              "reason": "KIND_NOT_REQUESTED",
+              "count": 1
+            },
+            {
+              "reason": "PURPOSE_NOT_APPLICABLE",
+              "count": 2
+            },
+            {
+              "reason": "SUPERSEDED_OR_WITHDRAWN",
+              "count": 1
+            },
+            {
+              "reason": "WITHDRAWN_OR_RESOLVED",
+              "count": 1
+            }
+          ],
+          "retained_history": [
+            {
+              "source_span_ref": "timeline-span:1",
+              "source_revision_ref": {
+                "content_hash_alg": "sha256",
+                "content_id": "sha256:151ad47b3f95222d7f8660cdd7373bc7b38dc374ff20f90ce5feb3a7c6932991",
+                "entity_id": "00000000-0000-4000-8000-000000020100",
+                "revision_id": "10000000-0000-4000-8000-000000020100"
+              },
+              "correction_state": "original",
+              "supersession": {
+                "predecessor_source_span_refs": [],
+                "state": "superseded"
+              }
+            }
+          ],
+          "query_digests": [
+            "sha256:84241b9d7dbfa9876f6c50e790dfee5f8ab6db54e5fe947ca5ac6f3f7d0f948f",
+            "sha256:834a6f1895efd8b9b31a9f834e7fe3647f6cdd9cbceda1358761aaf6dffafe91"
+          ],
+          "effects": {
+            "task_mutations": 0,
+            "writer_calls": 0,
+            "persistent_writes": 0,
+            "external_sends": 0,
+            "model_calls": 0
+          },
+          "document_retrieval": {
+            "contract": "soulforge.source_text_corpus_search.v0",
+            "searched_source_count": 3,
+            "searched_chunk_count": 30,
+            "hit_count": 5,
+            "selected_count": 5,
+            "max_evidence": 12,
+            "max_per_source": 12,
+            "query_token_count": 11,
+            "advisory_token_count": 0,
+            "exact_query_preserved": true,
+            "advisory_expansion_applied": false,
+            "selected_advisory_only_count": 0,
+            "ranking_basis": "global_bm25_lexical_single_space",
+            "tie_break_basis": "score_desc_then_source_id_then_chunk_id",
+            "embeddings_used": false,
+            "web_search_used": false,
+            "per_source": [
+              {
+                "source_id": "timeline-span:1",
+                "chunk_count": 5,
+                "hit_count": 0,
+                "selected_count": 0
+              },
+              {
+                "source_id": "timeline-span:2",
+                "chunk_count": 11,
+                "hit_count": 3,
+                "selected_count": 3
+              },
+              {
+                "source_id": "timeline-span:corrected",
+                "chunk_count": 14,
+                "hit_count": 2,
+                "selected_count": 2
+              }
+            ],
+            "evaluation_state": "NOT_EVALUATED",
+            "episode_receipt_refs": [
+              "receipt:failure",
+              "receipt:rework",
+              "receipt:result",
+              "receipt:review"
+            ],
+            "index_digest": "sha256:9431796566a8e3a5ac939bde9342780d8faf784bf4e31d03419c9ec5af82c6f7"
+          },
+          "document_generations": [
+            {
+              "source_span_ref": "timeline-span:2",
+              "source_revision_ref": {
+                "content_hash_alg": "sha256",
+                "content_id": "sha256:c3b8743ec550b3fbba691c42c484f7b54463c9a665661cd5ab1737fa55ebfd19",
+                "entity_id": "00000000-0000-4000-8000-000000020101",
+                "revision_id": "10000000-0000-4000-8000-000000020101"
+              },
+              "context_unit_ref": "unit:timeline:1",
+              "context_event_ref": "event:timeline:1",
+              "context_branch_ref": "branch:timeline:1",
+              "extraction_digest": "sha256:acb828b3732ff94e884c23564c4ade11b2d8c167d2e650b9e095e3fa0d558815",
+              "index_digest": "sha256:9431796566a8e3a5ac939bde9342780d8faf784bf4e31d03419c9ec5af82c6f7"
+            },
+            {
+              "source_span_ref": "timeline-span:corrected",
+              "source_revision_ref": {
+                "content_hash_alg": "sha256",
+                "content_id": "sha256:4ae6e0be174da1ba5134ac6f4f4c8937895f8964590bdecc450c1e14d29afd96",
+                "entity_id": "00000000-0000-4000-8000-000000020901",
+                "revision_id": "10000000-0000-4000-8000-000000020901"
+              },
+              "context_unit_ref": "unit:corrected",
+              "context_event_ref": "event:corrected",
+              "context_branch_ref": "branch:timeline:0",
+              "extraction_digest": "sha256:a896ebf43f3c89f387d37bdc048f29f584e6e537c3112e705654325cfb2d90b0",
+              "index_digest": "sha256:9431796566a8e3a5ac939bde9342780d8faf784bf4e31d03419c9ec5af82c6f7"
+            }
+          ],
+          "digest": "sha256:c56b9a0a78dd6a1465f4ef7b791651f9ebb233550ce9f92d2fdd89bc8b3d13cc",
+          "metrics": {
+            "source_reads": 2,
+            "reader_calls": 2,
+            "tokens": "UNKNOWN",
+            "source_read_attempts": 2,
+            "source_body_loads": 2,
+            "source_bytes_loaded": 108776,
+            "derived_read_attempts": 15,
+            "derived_body_loads": 15,
+            "derived_bytes_loaded": 78983,
+            "snapshot_hash_reads": 4,
+            "snapshot_hash_bytes": 94558,
+            "pinned_read_attempts": 359,
+            "pinned_bytes_loaded": 24075719,
+            "elapsed_ms": 41110.504,
+            "output_characters": 7103
+          }
+        }
+      },
+      "input_sha256": "sha256:8202b7da71a386a69d8a6361e315dba36398f27f04e72877d84a15b9a1745f55"
+    }
+  ],
+  "requested_consumer": {
+    "model": "gpt-6-astra",
+    "reasoning": "medium",
+    "tools": false,
+    "files": false,
+    "network": false
+  },
+  "observed_consumer_profile": "UNKNOWN",
+  "harness_versions": [
+    "app-strategy-eval/1",
+    "app-strategy-eval/2"
+  ],
+  "limitations": [
+    "One bounded original Q21 comparison, not whole W7 or ten-observation stress.",
+    "Gold/criteria are evaluation-only and are not included in consumer inputs."
+  ],
+  "freeze_sha256": "sha256:352417bdabaf794f7a56f0a1953f05da29cbfab8750c32b2774333337d6c3210"
+}

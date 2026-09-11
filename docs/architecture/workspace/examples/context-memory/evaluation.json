@@ -1,0 +1,414 @@
+{
+  "fixture_id": "context-memory-t0-v1",
+  "gold": [
+    {
+      "id": "Q01",
+      "expected_status": "OK",
+      "include": [
+        "S-TASK"
+      ],
+      "exclude": [
+        "S-LURE"
+      ],
+      "rubric": [
+        "Identify exact P-A / T-A1; matching Sensor review title in P-B must not change task identity."
+      ]
+    },
+    {
+      "id": "Q02",
+      "expected_status": "OK",
+      "include": [
+        "S-TASK",
+        "S-CURRENT"
+      ],
+      "exclude": [
+        "S-LURE"
+      ],
+      "rubric": [
+        "Reject P-B before body read or ranking against authorized P-A sources.",
+        "Use 60 C for P-A; P-B's same-title 90 C statement is not evidence."
+      ]
+    },
+    {
+      "id": "Q03",
+      "expected_status": "HOLD",
+      "accepted_statuses": ["HOLD", "NOT_AVAILABLE"],
+      "include": [],
+      "exclude": [
+        "S-EXACT"
+      ],
+      "rubric": [
+        "Deny actor-unauthorized before reading any source body; return no original measurement text. HOLD and uniform NOT_AVAILABLE are equivalent denial envelopes here."
+      ]
+    },
+    {
+      "id": "Q04",
+      "expected_status": "HOLD",
+      "include": [],
+      "exclude": [],
+      "rubric": [
+        "Missing project requires clarification; do not infer P-A from task, title, or previous requests."
+      ]
+    },
+    {
+      "id": "Q05",
+      "expected_status": "OK",
+      "include": [
+        "S-CURRENT"
+      ],
+      "exclude": [
+        "S-OLD"
+      ],
+      "rubric": [
+        "Use the accepted 60 C correction effective January 3 and known January 8; old 90 C is not current evidence."
+      ]
+    },
+    {
+      "id": "Q06",
+      "expected_status": "OK",
+      "include": [
+        "S-OLD"
+      ],
+      "exclude": [
+        "S-CURRENT"
+      ],
+      "rubric": [
+        "Report the 90 C decision as known on January 4, not as current truth.",
+        "Do not apply the January 8 correction to a known_at January 4 query even though its valid_at is January 3.",
+        "Snapshot superseded status does not erase the historically known decision."
+      ]
+    },
+    {
+      "id": "Q07",
+      "expected_status": "OK",
+      "include": [
+        "S-CURRENT"
+      ],
+      "exclude": [
+        "S-OLD",
+        "S-RETRACTED"
+      ],
+      "rubric": [
+        "Use 60 C; neither old 90 C nor withdrawn isolation bypass authorizes today's work.",
+        "Excluded decisions may be named as superseded or withdrawn metadata, never as effective support."
+      ]
+    },
+    {
+      "id": "Q08",
+      "expected_status": "HOLD",
+      "include": [
+        "S-STALE"
+      ],
+      "exclude": [
+        "S-OLD"
+      ],
+      "rubric": [
+        "Explain collection only through January 2 and missing January 3-10 coverage.",
+        "Do not call the old decision latest merely because it is the last available record."
+      ]
+    },
+    {
+      "id": "Q09",
+      "expected_status": "OK",
+      "include": [
+        "S-EXACT"
+      ],
+      "exclude": [],
+      "rubric": [
+        "Return 41 C at minute 6 with exact s-exact-r1 and paragraph:7 reference.",
+        "Locator resolution must recover the actual measurement body, not merely its manifest."
+      ]
+    },
+    {
+      "id": "Q10",
+      "expected_status": "NOT_AVAILABLE",
+      "include": [],
+      "exclude": [
+        "S-MISSING"
+      ],
+      "rubric": [
+        "Report source-reader unavailability; revision and locator metadata do not prove the original body was verified."
+      ]
+    },
+    {
+      "id": "Q11",
+      "expected_status": "HOLD",
+      "include": [
+        "S-CONFLICT-A",
+        "S-CONFLICT-B"
+      ],
+      "exclude": [],
+      "rubric": [
+        "Preserve both accepted 5 V and 12 V claims and their exact references.",
+        "No arbitrary selection, averaging, or invented reconciliation is permitted."
+      ]
+    },
+    {
+      "id": "Q12",
+      "expected_status": "HOLD",
+      "include": [
+        "S-COVERAGE"
+      ],
+      "exclude": [],
+      "rubric": [
+        "Distinguish absence of a hit within January 8 meeting notes from historical absence.",
+        "Explicitly state that mail, tests, and earlier records lack coverage; do not conclude no isolation failure ever occurred."
+      ]
+    },
+    {
+      "id": "Q13",
+      "expected_status": "OK",
+      "include": [
+        "S-PREDECESSOR"
+      ],
+      "exclude": [
+        "S-CANDIDATE"
+      ],
+      "rubric": [
+        "Calibration precedes bench qualification based on the reviewed relation.",
+        "Do not promote the unreviewed shipping suggestion into an accepted prerequisite."
+      ]
+    },
+    {
+      "id": "Q14",
+      "expected_status": "OK",
+      "include": [
+        "S-RESULT",
+        "S-TASK"
+      ],
+      "exclude": [
+        "S-LURE"
+      ],
+      "rubric": [
+        "Bind the measurement to existing exact T-A1 and state submission is not acceptance.",
+        "Do not create a new official task or mark it done."
+      ]
+    },
+    {
+      "id": "Q15",
+      "expected_status": "OK",
+      "include": [
+        "S-PROMISE"
+      ],
+      "exclude": [
+        "S-RESOLVED"
+      ],
+      "rubric": [
+        "Identify actor-a's undelivered calibration record, January 6 promise, January 9 due date, and January 10 outstanding state.",
+        "The fulfilled identifier promise is not an outstanding commitment."
+      ]
+    },
+    {
+      "id": "Q16",
+      "expected_status": "HOLD",
+      "include": [
+        "S-GAP"
+      ],
+      "exclude": [],
+      "rubric": [
+        "State the missing approved isolation-retest procedure and need for a procedure decision.",
+        "Do not invent a procedure, approval, or execution authority."
+      ]
+    },
+    {
+      "id": "Q17",
+      "expected_status": "OK",
+      "include": [
+        "S-FAILURE"
+      ],
+      "exclude": [
+        "S-UNRELATED"
+      ],
+      "rubric": [
+        "Recall skipped calibration and apply calibration-before-energizing only to the same isolated-sensor setup.",
+        "Exclude carton labeling failure from performing this sensor task."
+      ]
+    },
+    {
+      "id": "Q18",
+      "expected_status": "OK",
+      "include": [
+        "S-CURRENT",
+        "S-PREDECESSOR"
+      ],
+      "exclude": [
+        "S-RECENT",
+        "S-OLD"
+      ],
+      "rubric": [
+        "Prioritize valid 60 C ceiling and reviewed calibration prerequisite over recent color discussion.",
+        "Do not use the superseded 90 C limit."
+      ]
+    },
+    {
+      "id": "Q19",
+      "expected_status": "OK",
+      "include": [
+        "S-PREFERENCE",
+        "S-CURRENT"
+      ],
+      "exclude": [
+        "S-COMMON-DENIED"
+      ],
+      "rubric": [
+        "Label bullets as a presentation preference; preserve the technical 60 C criterion.",
+        "P-B preference has no common-sharing grant; projectless fallback must not expose it."
+      ]
+    },
+    {
+      "id": "Q20",
+      "expected_status": "OK",
+      "include": [],
+      "exclude": [
+        "S-RECENT",
+        "S-OLD"
+      ],
+      "rubric": [
+        "Summarize P-A / T-A1, 60 C ceiling, and calibration-before-energizing from request context.",
+        "No durable recall or additional original-source reads are needed; stale memory must not displace supplied instructions."
+      ]
+    },
+    {
+      "id": "Q21",
+      "expected_status": "HOLD",
+      "include": [
+        "S-CONFLICT-A",
+        "S-CONFLICT-B",
+        "S-DETAIL-01",
+        "S-DETAIL-02",
+        "S-DETAIL-03",
+        "S-DETAIL-04",
+        "S-DETAIL-05",
+        "S-DETAIL-06",
+        "S-DETAIL-07",
+        "S-DETAIL-08",
+        "S-DETAIL-09",
+        "S-DETAIL-10"
+      ],
+      "exclude": [
+        "S-APPENDIX"
+      ],
+      "rubric": [
+        "Keep both mandatory conflicting voltage references and all ten traceability observations within 12 evidence entries.",
+        "Deterministically omit the lower-priority tray appendix with an exclusion reason.",
+        "Do not hide the unresolved voltage conflict; respect 12000 output characters, 6 paths, and 2 additional reads."
+      ]
+    },
+    {
+      "id": "Q22",
+      "expected_status": "OK",
+      "include": [
+        "S-CURRENT",
+        "S-PREDECESSOR"
+      ],
+      "exclude": [
+        "S-RECENT"
+      ],
+      "rubric": [
+        "Repeat identical input and source revisions with identical selected refs, reference order, and deterministic digest.",
+        "Any language-model wording variation must be measured separately from deterministic selection."
+      ]
+    },
+    {
+      "id": "Q23",
+      "expected_status": "OK",
+      "include": [
+        "S-CURRENT"
+      ],
+      "exclude": [
+        "S-OLD"
+      ],
+      "rubric": [
+        "Answer that 75 C exceeds the accepted 60 C ceiling, so the run is not supported.",
+        "A retrieved current decision counts as retrieval success only; ignoring its limit is utilization and outcome failure."
+      ]
+    },
+    {
+      "id": "Q24",
+      "expected_status": "OK",
+      "include": [
+        "S-FAILURE",
+        "S-SUCCESS",
+        "S-SUCCESS-ALT"
+      ],
+      "exclude": [
+        "S-UNRELATED"
+      ],
+      "rubric": [
+        "For improvement purpose, compare skipped-calibration failure, calibrated success, and reference-instrument correction success.",
+        "Offer only a candidate lesson with applicability conditions; examples do not accept or activate an official procedure."
+      ]
+    }
+  ],
+  "counterexamples": [
+    {
+      "id": "CE-Q02-CROSS-PROJECT",
+      "question_id": "Q02",
+      "description": "A same-title retrieval includes P-B's 90 C body and uses it as the P-A limit.",
+      "returned_refs": [
+        "S-LURE",
+        "S-TASK"
+      ],
+      "used_refs": [
+        "S-LURE"
+      ],
+      "status": "OK",
+      "expected_violation": "Cross-project body access and unauthorized source use; similarity cannot authorize P-B."
+    },
+    {
+      "id": "CE-Q07-DISCARDED",
+      "question_id": "Q07",
+      "description": "A current answer recommends 90 C and bypassing isolation using superseded and withdrawn records.",
+      "returned_refs": [
+        "S-OLD",
+        "S-RETRACTED",
+        "S-CURRENT"
+      ],
+      "used_refs": [
+        "S-OLD",
+        "S-RETRACTED"
+      ],
+      "status": "OK",
+      "expected_violation": "Superseded and retracted decisions used as current accepted authority."
+    },
+    {
+      "id": "CE-Q12-COVERAGE",
+      "question_id": "Q12",
+      "description": "The answer states that no isolation failure has ever occurred because the limited index returned none.",
+      "returned_refs": [
+        "S-COVERAGE"
+      ],
+      "used_refs": [
+        "S-COVERAGE"
+      ],
+      "status": "OK",
+      "expected_violation": "Insufficient historical coverage disguised as proof of absence; required HOLD lost."
+    },
+    {
+      "id": "CE-Q23-UTILIZATION",
+      "question_id": "Q23",
+      "description": "The 60 C correction was retrieved, but the answer permits 75 C using the old 90 C limit.",
+      "returned_refs": [
+        "S-CURRENT"
+      ],
+      "used_refs": [
+        "S-OLD"
+      ],
+      "status": "OK",
+      "expected_violation": "Retrieval succeeds while utilization fails; used reference was not returned and is superseded."
+    },
+    {
+      "id": "CE-ORACLE-MISUSE",
+      "question_id": "Q23",
+      "description": "A normal work run imports expected include references from evaluation.json to choose evidence and reports the oracle-assisted result as ordinary retrieval.",
+      "returned_refs": [
+        "S-CURRENT"
+      ],
+      "used_refs": [
+        "S-CURRENT"
+      ],
+      "status": "OK",
+      "expected_violation": "Evaluation-only gold leaked into runtime; an oracle diagnostic cannot be reported as non-oracle service or independent retrieval."
+    }
+  ]
+}

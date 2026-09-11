@@ -1,0 +1,67 @@
+{
+  "freeze_sha256": "sha256:352417bdabaf794f7a56f0a1953f05da29cbfab8750c32b2774333337d6c3210",
+  "response_set_sha256": "sha256:b6a9a9fbfc53d75ae1f88756f2d4df5221e1223d24f66b41816e408ebc332a6b",
+  "evaluations": {
+    "app-strategy-eval/1": [
+      {
+        "id": "A",
+        "format": "PASS",
+        "reported_refs_grounded": true,
+        "required_ref_recall": 2,
+        "required_ref_count": 3,
+        "reported_required_refs": 2,
+        "frozen_status_match": false,
+        "semantic_quality": "REQUIRES_SEPARATE_MEANING_REVIEW",
+        "whole_question_pass": false
+      },
+      {
+        "id": "B",
+        "format": "PASS",
+        "reported_refs_grounded": true,
+        "required_ref_recall": 2,
+        "required_ref_count": 3,
+        "reported_required_refs": 2,
+        "frozen_status_match": false,
+        "semantic_quality": "REQUIRES_SEPARATE_MEANING_REVIEW",
+        "whole_question_pass": false
+      }
+    ],
+    "app-strategy-eval/2": [
+      {
+        "id": "A",
+        "format": "PASS",
+        "reported_refs_grounded": true,
+        "required_ref_recall": 2,
+        "required_ref_count": 3,
+        "reported_required_refs": 2,
+        "frozen_status_match": false,
+        "semantic_quality": "REQUIRES_SEPARATE_MEANING_REVIEW",
+        "whole_question_pass": false,
+        "omission_explanation_present": true,
+        "limitation_explanation_present": true,
+        "missing_required_refs": [
+          "F-RESULT"
+        ]
+      },
+      {
+        "id": "B",
+        "format": "PASS",
+        "reported_refs_grounded": true,
+        "required_ref_recall": 2,
+        "required_ref_count": 3,
+        "reported_required_refs": 2,
+        "frozen_status_match": false,
+        "semantic_quality": "REQUIRES_SEPARATE_MEANING_REVIEW",
+        "whole_question_pass": false,
+        "omission_explanation_present": true,
+        "limitation_explanation_present": true,
+        "missing_required_refs": [
+          "F-RESULT"
+        ]
+      }
+    ]
+  },
+  "independent_quality_review": false,
+  "adoption": "HOLD",
+  "whole_W7_complete": false
+}

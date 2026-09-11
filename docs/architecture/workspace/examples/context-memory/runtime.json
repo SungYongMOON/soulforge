@@ -1,0 +1,774 @@
+{
+  "fixture_id": "context-memory-t0-v1",
+  "budget": {
+    "output_chars": 12000,
+    "evidence": 12,
+    "paths": 6,
+    "additional_source_reads": 2
+  },
+  "sources": [
+    {
+      "id": "S-TASK",
+      "project": "P-A",
+      "revision": "s-task-r1",
+      "locator": "paragraph:1",
+      "body": "P-A owns exact task T-A1, titled Sensor review. Its scope is bench qualification of the P-A sensor.",
+      "kind": "task",
+      "valid_at": "2026-01-01T00:00:00Z",
+      "known_at": "2026-01-01T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-LURE",
+      "project": "P-B",
+      "revision": "s-lure-r1",
+      "locator": "paragraph:2",
+      "body": "P-B also has a Sensor review title. Its sensor is qualified for 90 C; this statement applies exclusively to P-B.",
+      "kind": "task",
+      "valid_at": "2026-01-01T00:00:00Z",
+      "known_at": "2026-01-01T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-OLD",
+      "project": "P-A",
+      "revision": "s-old-r1",
+      "locator": "paragraph:3",
+      "body": "Accepted P-A decision recorded on January 1: use a 90 C test ceiling. This record contains no later amendments.",
+      "kind": "decision",
+      "valid_at": "2026-01-01T00:00:00Z",
+      "known_at": "2026-01-01T00:00:00Z",
+      "state": "superseded"
+    },
+    {
+      "id": "S-CURRENT",
+      "project": "P-A",
+      "revision": "s-current-r1",
+      "locator": "paragraph:4",
+      "body": "Accepted correction to S-OLD: P-A T-A1 uses a 60 C maximum. Effective January 3; correction first recorded January 8. The 90 C decision is superseded.",
+      "kind": "decision",
+      "valid_at": "2026-01-03T00:00:00Z",
+      "known_at": "2026-01-08T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-RETRACTED",
+      "project": "P-A",
+      "revision": "s-retracted-r1",
+      "locator": "paragraph:5",
+      "body": "Proposal to bypass sensor isolation was withdrawn on January 5 and was never accepted for use.",
+      "kind": "decision",
+      "valid_at": "2026-01-05T00:00:00Z",
+      "known_at": "2026-01-05T00:00:00Z",
+      "state": "retracted"
+    },
+    {
+      "id": "S-STALE",
+      "project": "P-A",
+      "revision": "s-stale-r1",
+      "locator": "paragraph:6",
+      "body": "P-A sensor-mail collection completed only through January 2. January 3 through January 10 have not been collected; the latest decision cannot be established from this collection.",
+      "kind": "coverage",
+      "valid_at": "2026-01-02T00:00:00Z",
+      "known_at": "2026-01-02T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-EXACT",
+      "project": "P-A",
+      "revision": "s-exact-r1",
+      "locator": "paragraph:7",
+      "body": "P-A T-A1 bench test: specimen A measured 41 C at minute 6. Accepted test record, paragraph 7, immutable revision s-exact-r1.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-MISSING",
+      "project": "P-A",
+      "revision": "s-missing-r1",
+      "locator": "paragraph:8",
+      "body": "Source manifest contains an immutable revision and paragraph locator, but the test body is unavailable from its source reader.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "unavailable"
+    },
+    {
+      "id": "S-CONFLICT-A",
+      "project": "P-A",
+      "revision": "s-conflict-a-r1",
+      "locator": "paragraph:9",
+      "body": "Accepted P-A interface sheet specifies a 5 V sensor supply. No conflict resolution is recorded.",
+      "kind": "constraint",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-CONFLICT-B",
+      "project": "P-A",
+      "revision": "s-conflict-b-r1",
+      "locator": "paragraph:10",
+      "body": "Accepted P-A bench instruction specifies a 12 V supply for the same sensor. No conflict resolution is recorded.",
+      "kind": "constraint",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-COVERAGE",
+      "project": "P-A",
+      "revision": "s-coverage-r1",
+      "locator": "paragraph:11",
+      "body": "Only P-A January 8 meeting notes were indexed. Mail and tests, including all records before January 8, are outside index coverage. No historical isolation failure record was found within that index.",
+      "kind": "coverage",
+      "valid_at": "2026-01-08T00:00:00Z",
+      "known_at": "2026-01-08T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-PREDECESSOR",
+      "project": "P-A",
+      "revision": "s-predecessor-r1",
+      "locator": "paragraph:12",
+      "body": "Reviewed dependency for T-A1: finish calibration before bench qualification. Review accepted January 4; the calibration step has not yet been completed.",
+      "kind": "relation",
+      "valid_at": "2026-01-04T00:00:00Z",
+      "known_at": "2026-01-04T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-CANDIDATE",
+      "project": "P-A",
+      "revision": "s-candidate-r1",
+      "locator": "paragraph:13",
+      "body": "Unreviewed suggested dependency: ship the sensor before T-A1 qualification. This relation has not been accepted.",
+      "kind": "relation",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-RESULT",
+      "project": "P-A",
+      "revision": "s-result-r1",
+      "locator": "paragraph:14",
+      "body": "Exact result relation: the January 9 specimen A bench measurement is a result of existing P-A task T-A1. The result has been submitted; task acceptance remains pending.",
+      "kind": "relation",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-PROMISE",
+      "project": "P-A",
+      "revision": "s-promise-r1",
+      "locator": "paragraph:15",
+      "body": "In the January 6 meeting actor-a promised to deliver the P-A calibration record by January 9. The January 10 follow-up records that it remains undelivered.",
+      "kind": "commitment",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-RESOLVED",
+      "project": "P-A",
+      "revision": "s-resolved-r1",
+      "locator": "paragraph:16",
+      "body": "Actor-a's January 2 promise to supply the P-A sensor identifier was fulfilled January 4; it is closed.",
+      "kind": "commitment",
+      "valid_at": "2026-01-04T00:00:00Z",
+      "known_at": "2026-01-04T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-GAP",
+      "project": "P-A",
+      "revision": "s-gap-r1",
+      "locator": "paragraph:17",
+      "body": "P-A procedure register was reviewed January 10. No approved procedure for sensor isolation retest is registered; a procedure decision is still required.",
+      "kind": "procedure",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-FAILURE",
+      "project": "P-A",
+      "revision": "s-failure-r1",
+      "locator": "paragraph:18",
+      "body": "P-A earlier isolated-sensor bench attempt failed because calibration was skipped. The reviewed lesson applies when using the same isolated-sensor setup: complete calibration before energizing.",
+      "kind": "experience",
+      "valid_at": "2026-01-06T00:00:00Z",
+      "known_at": "2026-01-06T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-UNRELATED",
+      "project": "P-A",
+      "revision": "s-unrelated-r1",
+      "locator": "paragraph:19",
+      "body": "P-A packaging rehearsal failed because a label was unreadable. It concerns carton labeling, not sensor calibration or energizing.",
+      "kind": "experience",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-RECENT",
+      "project": "P-A",
+      "revision": "s-recent-r1",
+      "locator": "paragraph:20",
+      "body": "January 10 P-A meeting note: the sensor enclosure color was discussed. No temperature limit or acceptance decision changed.",
+      "kind": "note",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-PREFERENCE",
+      "project": "P-A",
+      "revision": "s-preference-r1",
+      "locator": "paragraph:21",
+      "body": "Actor-a prefers short bullet lists for P-A work summaries. This is a presentation preference, not a technical acceptance criterion.",
+      "kind": "preference",
+      "valid_at": "2026-01-02T00:00:00Z",
+      "known_at": "2026-01-02T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-COMMON-DENIED",
+      "project": "P-B",
+      "revision": "s-common-denied-r1",
+      "locator": "paragraph:22",
+      "body": "P-B team prefers a 90 C demonstration. This preference has no cross-project sharing grant and is not a P-A requirement.",
+      "kind": "preference",
+      "valid_at": "2026-01-02T00:00:00Z",
+      "known_at": "2026-01-02T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-SUCCESS",
+      "project": "P-A",
+      "revision": "s-success-r1",
+      "locator": "paragraph:23",
+      "body": "P-A sensor bench attempt with completed calibration and a 60 C ceiling succeeded. Review found calibration-before-energizing useful for this setup.",
+      "kind": "experience",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-SUCCESS-ALT",
+      "project": "P-A",
+      "revision": "s-success-alt-r1",
+      "locator": "paragraph:24",
+      "body": "P-A isolated-sensor retest succeeded after an independent instrument check detected and replaced a drifting reference. This differs from the skipped-calibration failure.",
+      "kind": "experience",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-01",
+      "project": "P-A",
+      "revision": "s-detail-01-r1",
+      "locator": "paragraph:25",
+      "body": "P-A T-A1 accepted observation 1: specimen 1 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-02",
+      "project": "P-A",
+      "revision": "s-detail-02-r1",
+      "locator": "paragraph:26",
+      "body": "P-A T-A1 accepted observation 2: specimen 2 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-03",
+      "project": "P-A",
+      "revision": "s-detail-03-r1",
+      "locator": "paragraph:27",
+      "body": "P-A T-A1 accepted observation 3: specimen 3 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-04",
+      "project": "P-A",
+      "revision": "s-detail-04-r1",
+      "locator": "paragraph:28",
+      "body": "P-A T-A1 accepted observation 4: specimen 4 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-05",
+      "project": "P-A",
+      "revision": "s-detail-05-r1",
+      "locator": "paragraph:29",
+      "body": "P-A T-A1 accepted observation 5: specimen 5 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-06",
+      "project": "P-A",
+      "revision": "s-detail-06-r1",
+      "locator": "paragraph:30",
+      "body": "P-A T-A1 accepted observation 6: specimen 6 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-07",
+      "project": "P-A",
+      "revision": "s-detail-07-r1",
+      "locator": "paragraph:31",
+      "body": "P-A T-A1 accepted observation 7: specimen 7 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-08",
+      "project": "P-A",
+      "revision": "s-detail-08-r1",
+      "locator": "paragraph:32",
+      "body": "P-A T-A1 accepted observation 8: specimen 8 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-09",
+      "project": "P-A",
+      "revision": "s-detail-09-r1",
+      "locator": "paragraph:33",
+      "body": "P-A T-A1 accepted observation 9: specimen 9 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-DETAIL-10",
+      "project": "P-A",
+      "revision": "s-detail-10-r1",
+      "locator": "paragraph:34",
+      "body": "P-A T-A1 accepted observation 10: specimen 10 identification was verified before the bench run. This supports traceability but does not resolve the supply-voltage conflict.",
+      "kind": "test",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    },
+    {
+      "id": "S-APPENDIX",
+      "project": "P-A",
+      "revision": "s-appendix-r1",
+      "locator": "paragraph:35",
+      "body": "P-A T-A1 appendix records the order of empty specimen trays. It does not affect calibration, supply selection, safety, or traceability.",
+      "kind": "note",
+      "valid_at": "2026-01-09T00:00:00Z",
+      "known_at": "2026-01-09T00:00:00Z",
+      "state": "active"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "Which exact project and task does Sensor review refer to?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-TASK",
+        "S-LURE"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q02",
+      "question": "Can the same-title Sensor review material establish this project's temperature limit?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-LURE",
+        "S-TASK",
+        "S-CURRENT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q03",
+      "question": "May I read this task's bench result?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-unauthorized",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-EXACT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q04",
+      "question": "Which project's Sensor review should I continue?",
+      "project": null,
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [],
+      "request_context": []
+    },
+    {
+      "id": "Q05",
+      "question": "Which accepted temperature decision applies now?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-OLD",
+        "S-CURRENT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q06",
+      "question": "What temperature decision was available on January 4 for work effective that day?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-04T00:00:00Z",
+      "known_at": "2026-01-04T00:00:00Z",
+      "source_ids": [
+        "S-OLD",
+        "S-CURRENT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q07",
+      "question": "Should I follow the old 90 C decision or bypass isolation for today's test?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-OLD",
+        "S-RETRACTED",
+        "S-CURRENT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q08",
+      "question": "What is the latest sensor decision in the collected mail?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-STALE",
+        "S-OLD"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q09",
+      "question": "Where exactly is the specimen A measurement supported?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-EXACT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q10",
+      "question": "Verify the original test body for this manifest entry.",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-MISSING"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q11",
+      "question": "What supply voltage should I use for the sensor?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-CONFLICT-A",
+        "S-CONFLICT-B"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q12",
+      "question": "No isolation failure was retrieved. Does that mean there has never been one?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-COVERAGE"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q13",
+      "question": "What must happen before T-A1 bench qualification?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-PREDECESSOR",
+        "S-CANDIDATE"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q14",
+      "question": "Is this specimen A measurement already attached to an existing task?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-RESULT",
+        "S-TASK",
+        "S-LURE"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q15",
+      "question": "Which promise from actor-a is still outstanding?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-PROMISE",
+        "S-RESOLVED"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q16",
+      "question": "Which approved isolation-retest procedure should I execute?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-GAP"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q17",
+      "question": "Which previous failure matters when energizing the same isolated-sensor setup?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-FAILURE",
+        "S-UNRELATED"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q18",
+      "question": "Which decision and prerequisite should guide the bench run?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-RECENT",
+        "S-CURRENT",
+        "S-PREDECESSOR",
+        "S-OLD"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q19",
+      "question": "Does actor-a's preferred format change the project's acceptance criteria?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-PREFERENCE",
+        "S-CURRENT",
+        "S-COMMON-DENIED"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q20",
+      "question": "Summarize these fully supplied instructions in one sentence.",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-RECENT",
+        "S-OLD"
+      ],
+      "request_context": [
+        "For this request: P-A task T-A1 is a bench qualification.",
+        "The accepted temperature ceiling is 60 C; calibration must finish before energizing.",
+        "Only summarize the supplied instructions; no source lookup is needed."
+      ]
+    },
+    {
+      "id": "Q21",
+      "question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-CONFLICT-A",
+        "S-CONFLICT-B",
+        "S-DETAIL-01",
+        "S-DETAIL-02",
+        "S-DETAIL-03",
+        "S-DETAIL-04",
+        "S-DETAIL-05",
+        "S-DETAIL-06",
+        "S-DETAIL-07",
+        "S-DETAIL-08",
+        "S-DETAIL-09",
+        "S-DETAIL-10",
+        "S-APPENDIX"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q22",
+      "question": "Return the current temperature decision and reviewed prerequisite in stable reference order.",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-PREDECESSOR",
+        "S-CURRENT",
+        "S-RECENT"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q23",
+      "question": "May I run the P-A sensor at 75 C, and what supports the decision?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "work",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-CURRENT",
+        "S-OLD"
+      ],
+      "request_context": []
+    },
+    {
+      "id": "Q24",
+      "question": "What varied past outcomes should inform a candidate improvement to the sensor procedure?",
+      "project": "P-A",
+      "task": "T-A1",
+      "actor": "actor-a",
+      "purpose": "improvement",
+      "valid_at": "2026-01-10T00:00:00Z",
+      "known_at": "2026-01-10T00:00:00Z",
+      "source_ids": [
+        "S-FAILURE",
+        "S-SUCCESS",
+        "S-SUCCESS-ALT",
+        "S-UNRELATED"
+      ],
+      "request_context": []
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "soulforge.module_manifest.v0",
+  "module_id": "context_engine",
+  "module_version": "0.3.3",
+  "interface_version": "context_engine.v0",
+  "schema_versions": ["soulforge.dev_erp_accepted_context_query_result.v1"],
+  "owner": "guild_hall/context_engine",
+  "capabilities_provided": ["context_engine.read_only_query.v0", "context_engine.derived_generation_update.v0", "context_engine.pinned_pair_selection.v0", "context_engine.owner_task_observation_query.v1", "context_engine.exact_source_readback.v1"],
+  "capabilities_required": [],
+  "required_dependencies": ["engineering_engine", "knowledge_access", "path_registry", "rag", "shared"],
+  "optional_dependencies": [],
+  "compatible_version_ranges": {
+    "node": ">=24.15.0",
+    "engineering_engine": "0.1.0",
+    "knowledge_access": "0.1.0",
+    "path_registry": "0.7.0",
+    "rag": "0.1.0",
+    "shared": "0.1.0"
+  },
+  "startup_order": null,
+  "feature_flag": "explicit_synthetic_or_owner_task_observation_binding",
+  "default_state": "default_off_explicit_binding_only",
+  "health_probe": null,
+  "readiness_probe": null,
+  "config_refs": ["guild_hall/context_engine/profiles/default_v1.mjs", "guild_hall/context_engine/profiles/update_profiles.mjs", "guild_hall/context_engine/profiles/selected_update.mjs"],
+  "secret_refs": [],
+  "data_owner": "Plan17_project_store_external_to_installation",
+  "backup_class": "not_applicable_tracked_code_only_external_data_owner",
+  "migration_version": null,
+  "rollback_version": "reselect_verified_installation_and_derived_generation_with_current_authorization",
+  "validators": [
+    "node --test guild_hall/context_engine/tests/exact_source_readback.test.mjs guild_hall/context_engine/tests/observed_context_query.test.mjs",
+    "node --test guild_hall/context_engine/tests/app_boundary.test.mjs",
+    "node guild_hall/context_engine/release/verify_module.mjs"
+  ],
+  "release_digest": null,
+  "deprecation_state": "active_draft",
+  "authority_notes": "Shared independent context APP, product_id null. Explicit approved synthetic source and separately validated accepted-record snapshots feed create-only derived generations; exact installation/data pairs are selected under expected-prior and exclusive lock. Source/SE/lineage/accepted bytes are preserved and current authorization is rechecked. Query is read-only. No operating writer activation, live grant, source collection, official Task, external send or automatic semantic acceptance. Unregistered ERP callers remain source/API adapters, not Candidate Execution module dependencies. Installed transition evidence and independent review remain distinct from structural manifest validation."
+}

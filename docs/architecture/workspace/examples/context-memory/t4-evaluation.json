@@ -1,0 +1,722 @@
+{
+  "gold": [
+    {
+      "id": "Q01",
+      "include": [
+        "F-TASK"
+      ],
+      "rubric": "Identify exact P-A / T-A1; matching title is insufficient.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-TASK",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q02",
+      "include": [
+        "F-TASK",
+        "D-CURRENT",
+        "C-REVISION"
+      ],
+      "rubric": "Do not use another project; corrected decision is28V, not old24V; unresolved30V means no settled operating voltage.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-TASK",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "C-REVISION",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "include": [],
+      "rubric": "Unauthorized actor receives no source body.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": []
+    },
+    {
+      "id": "Q04",
+      "include": [],
+      "rubric": "Missing project requires clarification.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": []
+    },
+    {
+      "id": "Q05",
+      "include": [
+        "D-CURRENT",
+        "C-REVISION"
+      ],
+      "rubric": "For Q05 separate conflict-free source variant: accepted28V correction supersedes24V.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "Q05",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "C-REVISION",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q06",
+      "include": [],
+      "rubric": "Historical answer unsupported: HOLD; never pretend current28V answers the past.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": [],
+      "historical_answer_status": "NOT_RUN"
+    },
+    {
+      "id": "Q07",
+      "include": [
+        "C-REVISION",
+        "C-LIMIT"
+      ],
+      "rubric": "Do not apply superseded24V or withdrawn36V; current limit2A required.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "C-REVISION",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "C-LIMIT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q08",
+      "include": [
+        "D-CURRENT",
+        "D-CONFLICT"
+      ],
+      "rubric": "Currentness is unconfirmed beyond accepted cutoff; do not call it latest.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CONFLICT",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        }
+      ]
+    },
+    {
+      "id": "Q09",
+      "include": [
+        "F-RESULT"
+      ],
+      "rubric": "Give exact verified source revision and paragraph:1 for specimen A attachment; numeric measurement is not provided.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-RESULT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q10",
+      "include": [],
+      "rubric": "Missing original source cannot be verified; HOLD.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": []
+    },
+    {
+      "id": "Q11",
+      "include": [
+        "D-CURRENT",
+        "D-CONFLICT"
+      ],
+      "rubric": "28V versus30V is unresolved: HOLD operating choice.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CONFLICT",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        }
+      ]
+    },
+    {
+      "id": "Q12",
+      "include": [],
+      "rubric": "Missing retrieved evidence is not proof of no past failure.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": []
+    },
+    {
+      "id": "Q13",
+      "include": [
+        "F-PRE",
+        "C-LIMIT"
+      ],
+      "rubric": "State reviewed prerequisite and2A limit; cite depends_on proof.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-PRE",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "C-LIMIT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q14",
+      "include": [
+        "F-RESULT",
+        "F-TASK"
+      ],
+      "rubric": "R-A already belongs to exact P-A T-A1; avoid duplicate.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-RESULT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "F-TASK",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q15",
+      "include": [
+        "P-OPEN"
+      ],
+      "rubric": "Person A promised to submit test record; pending.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "P-OPEN",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q16",
+      "include": [],
+      "rubric": "No approved procedure source: HOLD execution, do not invent procedure.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": []
+    },
+    {
+      "id": "Q17",
+      "include": [
+        "F-PRECEDENT",
+        "F-TASK"
+      ],
+      "rubric": "Polarity omission failed previously; same connector applicability.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-PRECEDENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "F-TASK",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q18",
+      "include": [
+        "D-CURRENT",
+        "D-CONFLICT",
+        "C-LIMIT",
+        "F-PRE"
+      ],
+      "rubric": "Use decision/constraint/prerequisite; conflict holds voltage choice.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CONFLICT",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        },
+        {
+          "id": "C-LIMIT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "F-PRE",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q19",
+      "include": [
+        "P-COMMON"
+      ],
+      "rubric": "Preference is presentation only, never project acceptance fact.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "P-COMMON",
+          "source_digest": "sha256:7028becc524185f1046b182b0c203d0c34ae133dea07ba657e9a29e7ff746b5b"
+        }
+      ]
+    },
+    {
+      "id": "Q20",
+      "include": [],
+      "rubric": "Summarize supplied60C/calibration instructions without source lookup.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": []
+    },
+    {
+      "id": "Q21",
+      "include": [
+        "D-CURRENT",
+        "D-CONFLICT",
+        "F-RESULT"
+      ],
+      "rubric": "Bounded proof includes both conflict sides and traceability; original ten traceability observations absent: coverage gap, not full Q21 evidence equivalence.",
+      "accepted_statuses": [
+        "HOLD",
+        "NOT_AVAILABLE"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CONFLICT",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        },
+        {
+          "id": "F-RESULT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q22",
+      "include": [
+        "D-CURRENT",
+        "D-CONFLICT",
+        "F-PRE",
+        "C-LIMIT"
+      ],
+      "rubric": "Stable refs; conflict remains unresolved.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CONFLICT",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        },
+        {
+          "id": "F-PRE",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "C-LIMIT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q23",
+      "include": [
+        "D-CURRENT",
+        "D-CONFLICT",
+        "C-REVISION"
+      ],
+      "rubric": "Do not approve32V: exceeds both disputed28V and30V and no authorization; correct refs with contrary prose fails.",
+      "accepted_statuses": [
+        "OK",
+        "HOLD"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "D-CURRENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "D-CONFLICT",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        },
+        {
+          "id": "C-REVISION",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        }
+      ]
+    },
+    {
+      "id": "Q24",
+      "include": [
+        "F-PRECEDENT",
+        "F-REVIEW",
+        "S-REVIEW"
+      ],
+      "rubric": "Compare failure and success for candidate improvement only; do not promote into approved procedure.",
+      "accepted_statuses": [
+        "OK"
+      ],
+      "source_variant": "default",
+      "source_bindings": [
+        {
+          "id": "F-PRECEDENT",
+          "source_digest": "sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307"
+        },
+        {
+          "id": "F-REVIEW",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        },
+        {
+          "id": "S-REVIEW",
+          "source_digest": "sha256:e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b"
+        }
+      ]
+    }
+  ],
+  "question_mapping": [
+    {
+      "id": "Q01",
+      "original_question": "Which exact project and task does Sensor review refer to?",
+      "question": "Which exact project and task does Power-unit review refer to?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:328ffe45747a65d8b6470b626f99a8fd5d5ef4a9d0fd2ef882ea8c614441f9f0"
+    },
+    {
+      "id": "Q02",
+      "original_question": "Can the same-title Sensor review material establish this project's temperature limit?",
+      "question": "Can the same-title Power-unit review material establish this project's test-voltage limit?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:134e1b2453b24730fc3fdda4ac87b80c3d205097e624db0c93714bc47af92ea4"
+    },
+    {
+      "id": "Q03",
+      "original_question": "May I read this task's bench result?",
+      "question": "May I read this task's bench result?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=unauthorized; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:64ac05567850466b350a43571e01a6ac4d14c877184db6e82586e7723c43f173"
+    },
+    {
+      "id": "Q04",
+      "original_question": "Which project's Sensor review should I continue?",
+      "question": "Which project's Power-unit review should I continue?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=unspecified; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:9d12e333ea2c2e88bc1b4782acd776e3ab3487ab6ee7acc3f71b7804d5fa8fb7"
+    },
+    {
+      "id": "Q05",
+      "original_question": "Which accepted temperature decision applies now?",
+      "question": "Which accepted test-voltage decision applies now?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:e2ef43eda3c7167dec8d253f7a0e9799f51f6644ca22aee4232ef789194c367e"
+    },
+    {
+      "id": "Q06",
+      "original_question": "What temperature decision was available on January 4 for work effective that day?",
+      "question": "What test-voltage decision was available on August 2 for work effective that day?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-01; known_at=2026-08-02"
+      ],
+      "original_question_digest": "sha256:3d9afe385e6fa7f99412ca8e309195d2991c7a13ad6baad3052a2566acba1c3e"
+    },
+    {
+      "id": "Q07",
+      "original_question": "Should I follow the old 90 C decision or bypass isolation for today's test?",
+      "question": "Should I follow the old 24 V decision or bypass isolation for today's test?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:5edf4deb523ee8db131fb3ec366a388216a221694c2d0941a7fdbe0be4e66fba"
+    },
+    {
+      "id": "Q08",
+      "original_question": "What is the latest sensor decision in the collected mail?",
+      "question": "What is the latest sensor decision in the collected mail?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-08; known_at=2026-08-08"
+      ],
+      "original_question_digest": "sha256:a7798b17818a9e7d6f4fdaa0ee1fbc4058ca59de6daeea01c737450b6dcd40fd"
+    },
+    {
+      "id": "Q09",
+      "original_question": "Where exactly is the specimen A measurement supported?",
+      "question": "Where exactly is the specimen A measurement supported?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:a1cc96e83a5d6029d782f03ef926aa4a816b5f7d3f93a204702743c2515aa964"
+    },
+    {
+      "id": "Q10",
+      "original_question": "Verify the original test body for this manifest entry.",
+      "question": "Verify the original test body for this manifest entry.",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:9923cee95bffb773627648a7f7ec23af5a3a2d3843a586768c5ebbf9b55decac"
+    },
+    {
+      "id": "Q11",
+      "original_question": "What supply voltage should I use for the sensor?",
+      "question": "What supply voltage should I use for the sensor?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:79df3951c221edf0875a90d6ae7f8782cc3e7b989567da425aecb6051ba7f94e"
+    },
+    {
+      "id": "Q12",
+      "original_question": "No isolation failure was retrieved. Does that mean there has never been one?",
+      "question": "No isolation failure was retrieved. Does that mean there has never been one?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:85a16f092277e747e01755cde0405215bc48298b863575270cfea52259d94648"
+    },
+    {
+      "id": "Q13",
+      "original_question": "What must happen before T-A1 bench qualification?",
+      "question": "What must happen before T-A1 bench qualification?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:0ae7e6067a7413715269e199c0c9c6551b100634e124c813300bfd3d6142def1"
+    },
+    {
+      "id": "Q14",
+      "original_question": "Is this specimen A measurement already attached to an existing task?",
+      "question": "Is this specimen A measurement already attached to an existing task?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:edcb4b1a028170a1255f61a68f8c3c7ef5a78c6d27455bc0ad829f0f5a1bc64a"
+    },
+    {
+      "id": "Q15",
+      "original_question": "Which promise from actor-a is still outstanding?",
+      "question": "Which promise from actor-a is still outstanding?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:7196076433ebc159bbcf17e3568d9f94fdca0c2acb4e27facacddeaa875a78a6"
+    },
+    {
+      "id": "Q16",
+      "original_question": "Which approved isolation-retest procedure should I execute?",
+      "question": "Which approved isolation-retest procedure should I execute?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:3a4bf8267509e37e152d6178756ffe6da5e99d2896b8c7d87937e51bc1d00e33"
+    },
+    {
+      "id": "Q17",
+      "original_question": "Which previous failure matters when energizing the same isolated-sensor setup?",
+      "question": "Which previous failure matters when energizing the same isolated-sensor setup?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:44b44442875e33e3aa83c8ef3c7e28023b857880f0318ef879e7b7473695d927"
+    },
+    {
+      "id": "Q18",
+      "original_question": "Which decision and prerequisite should guide the bench run?",
+      "question": "Which decision and prerequisite should guide the bench run?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:dd91df4b8b35bbb24cf6ec2207e8bf440710591cee4d394305b019390adfefef"
+    },
+    {
+      "id": "Q19",
+      "original_question": "Does actor-a's preferred format change the project's acceptance criteria?",
+      "question": "Does actor-a's preferred format change the project's acceptance criteria?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:2eaa685d01bf737449ae9b6f299be9da103afca3091d3b1d683a38aa2621ca79"
+    },
+    {
+      "id": "Q20",
+      "original_question": "Summarize these fully supplied instructions in one sentence.",
+      "question": "Summarize these fully supplied instructions in one sentence.",
+      "request_context": [
+        "For this request: P-A task T-A1 is a bench qualification.",
+        "The accepted temperature ceiling is 60 C; calibration must finish before energizing.",
+        "Only summarize the supplied instructions; no source lookup is needed."
+      ],
+      "original_question_digest": "sha256:55e960ee8014bfccc881a1d9d7f6d2d06df3dfaf1d8ecb74a85627bd32a5ad00"
+    },
+    {
+      "id": "Q21",
+      "original_question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+      "question": "Prepare bounded evidence for the bench review, including the unresolved supply issue and specimen traceability.",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:976f34db4cb76ecca88de841b27a3b96193952656757fe6195c868cc3ed6ac9a"
+    },
+    {
+      "id": "Q22",
+      "original_question": "Return the current temperature decision and reviewed prerequisite in stable reference order.",
+      "question": "Return the current test-voltage decision and reviewed prerequisite in stable reference order.",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:d3148f6a8ddc2615c5563073bf131f52376da9e55b5ac85fb9378fe841e057db"
+    },
+    {
+      "id": "Q23",
+      "original_question": "May I run the P-A sensor at 75 C, and what supports the decision?",
+      "question": "May I run the P-A sensor at 32 V, and what supports the decision?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=work; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:e7891a6f0a43e15a58fc5a29afffcc278ca6f2e795b7a71fadf5dc8a2ce6604c"
+    },
+    {
+      "id": "Q24",
+      "original_question": "What varied past outcomes should inform a candidate improvement to the sensor procedure?",
+      "question": "What varied past outcomes should inform a candidate improvement to the sensor procedure?",
+      "request_context": [
+        "This synthetic request concerns power-unit task T-A1. A source not supplied for this question is unavailable; do not borrow evidence from other questions.",
+        "actor=alpha; project=P-A; task=T-A1; purpose=procedure_review; valid_at=2026-08-05; known_at=2026-08-06"
+      ],
+      "original_question_digest": "sha256:60479a84756a0146bd40b63b4b72eb436ca5d8e5b8d02015147a70c5343993b0"
+    }
+  ]
+}

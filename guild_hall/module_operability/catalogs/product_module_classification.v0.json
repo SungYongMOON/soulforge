@@ -1,6 +1,6 @@
 {
   "schema_version": "soulforge.product_module_classification.v0",
-  "catalog_version": "0.2.0",
+  "catalog_version": "0.2.1",
   "product_manifest_refs": [
     "ui-workspace/apps/dev-erp/product.manifest.json",
     "guild_hall/engineering_engine/product.manifest.json",
@@ -86,6 +86,16 @@
       "rejected_duplicate_source_paths": []
     },
     {
+      "module_id": "context_engine",
+      "interface_version": "context_engine.v0",
+      "module_manifest_ref": "guild_hall/context_engine/module.manifest.json",
+      "implementation_owner": "guild_hall/context_engine",
+      "classification": "shared",
+      "product_id": null,
+      "current_caller_module_ids": [],
+      "rejected_duplicate_source_paths": []
+    },
+    {
       "module_id": "deployment_pack_contract",
       "interface_version": "deployment_pack.v0",
       "module_manifest_ref": "guild_hall/deployment_pack/module.manifest.json",
@@ -124,7 +134,7 @@
       "implementation_owner": "guild_hall/engineering_engine",
       "classification": "product_owned",
       "product_id": "product.engine",
-      "current_caller_module_ids": [],
+      "current_caller_module_ids": ["context_engine"],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -186,7 +196,7 @@
       "implementation_owner": "guild_hall/knowledge_access",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": [],
+      "current_caller_module_ids": ["context_engine"],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -207,6 +217,7 @@
       "classification": "shared",
       "product_id": null,
       "current_caller_module_ids": [
+        "context_engine",
         "team_ops_board"
       ],
       "rejected_duplicate_source_paths": []
@@ -218,7 +229,7 @@
       "implementation_owner": "guild_hall/rag",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": [],
+      "current_caller_module_ids": ["context_engine"],
       "rejected_duplicate_source_paths": []
     },
     {
@@ -230,6 +241,7 @@
       "product_id": null,
       "current_caller_module_ids": [
         "buzz_history",
+        "context_engine",
         "file_activity",
         "linear_history",
         "path_registry"

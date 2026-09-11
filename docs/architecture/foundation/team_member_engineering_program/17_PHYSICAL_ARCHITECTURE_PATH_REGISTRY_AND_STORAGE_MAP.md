@@ -1,5 +1,7 @@
 # Physical Architecture, Path Registry, and Storage Map
 
+> 2026-09-10 Owner adoption: project context payloads use `20_PROJECTS/<project-ref>`. See the Project context data store section. Current runtime data has not been moved by this document change.
+
 > Status: `OWNER_AUTHORIZED_STAGED_MIGRATION / TARGET_TOP_LEVEL_MATERIALIZED / G0_DOCUMENT_RECONCILIATION_ACCEPTED / R2_PHYSICAL_APPLY_HOLD` — the Human Owner confirmed the whole-estate direction and staged execution. `<TARGET_SOULFORGE_ROOT>` top-level exists with payload copy 0; fresh Level 2 review accepted the G0 document reconciliation, and R2 actual apply remains held.
 
 ## Owner execution directive — 2026-09-01
@@ -330,7 +332,7 @@ data_root/
 │  ├─ pc-activity/
 │  ├─ team-files/
 │  └─ run-logs/
-├─ 20_PROJECT_ASSET_INDEX/
+├─ 20_PROJECTS/
 │  └─ <project-ref>/
 ├─ 25_EVENT_TIMELINE_INDEX/
 │  ├─ occurrences/
@@ -358,7 +360,6 @@ data_root/
 │  ├─ test-results/
 │  └─ revisions/
 ├─ 45_EVENT_STORES/
-│  ├─ projects/<project-ref>/<store-id>/
 │  └─ organizations/<approved-org-scope>/<store-id>/
 ├─ 50_AI_WORKFORCE_INDEX/
 │  ├─ agent-families/
@@ -380,13 +381,14 @@ data_root/
 └─ 99_RESTORE_REQUEST_REFS/
 ```
 
-This target is an ERP-facing catalog/index view, not a second project-context,
-timeline, ontology, Agent-memory, receipt, or recovery-byte authority. Entries
+This target contains the protected project data store `20_PROJECTS` plus
+ERP-facing global catalogs/indexes. Global projections are not second context,
+timeline, ontology, Agent-memory, receipt, or recovery-byte authorities. Entries
 point to current approved source/custody owners, immutable revision stores,
-backup generations, or rebuildable projections. `_workmeta/<project>/` remains
-project-context canon; approved source/Drive lineage remains ontology authority;
+backup generations, or rebuildable projections. Current legacy `_workmeta/<project>/project_context` remains reference-in-place
+until the project-store writer cutover; approved source/Drive lineage remains ontology authority;
 source-native, routing, project, and accepted World-Tree timelines retain their
-distinct owners. `20`, `25`, `30`, and `50` store pointers, typed relations,
+distinct owners. `25`, `30`, and `50` store pointers, typed relations,
 scope, accepted-generation refs, and status unless an exact custody policy
 separately authorizes bytes. A physical copy is permitted only by its
 source-kind policy and exact promotion/backup gate.
@@ -398,8 +400,10 @@ generation metadata appear only when their Path Registry class and backup policy
 exist. A missing class remains visible as `HOLD`; it is never omitted to make
 coverage look complete.
 
-`45_EVENT_STORES` is not one enterprise database. The central Catalog records
-each store, but Event bytes are partitioned by project/approved organization,
+`45_EVENT_STORES` retains approved organization-scoped stores, not one enterprise
+database. New project-owned context events use `20_PROJECTS/<project-ref>`;
+old project-store bytes stay reference-in-place until explicit cutover. Event
+bytes remain partitioned by project/approved organization,
 ACL, retention, legal hold and restore blast radius. A SQLite WAL store is
 permitted only for the first bounded single-project pilot behind an API/MCP port.
 Source-native cursor and transactional outbox remain with their authoritative
@@ -465,7 +469,7 @@ Soulforge Engineering OS
 ├─ data_root/                                        # complete tree defined above
 │  ├─ 00_CATALOG/                                    # Path/Asset/Ledger/Case/Activity
 │  ├─ 10_SOURCE_CAPTURE_CATALOG/                     # Linear/Slack/Mail/PLAUD/Drive/...
-│  ├─ 20_PROJECT_ASSET_INDEX/
+│  ├─ 20_PROJECTS/
 │  ├─ 25_EVENT_TIMELINE_INDEX/
 │  ├─ 30_KNOWLEDGE_INDEX/                            # Context/Ontology/RAG metadata
 │  ├─ 40_ASSETS/                                     # Artifact/Template/BOM/Dataset refs
@@ -534,8 +538,9 @@ prime contractor, quality grade and profile owns the accepted stage/artifact
 numbering. A project can therefore have a different generated canonical-byte
 subtree without changing the stable ERP project root. Project RAG, Analytics,
 Task/plan, and reusable temp history are not target workspace children: their
-future target owners are the numbered `data_root` Knowledge/Event/Analytics
-indexes and only become writers after their own `TARGET/HOLD` acceptance.
+project-owned target content belongs in `data_root/20_PROJECTS/<project-ref>`,
+with global Knowledge/Event/Analytics indexes holding refs only. Live writers
+remain gated by their project-store acceptance.
 
 ### NAS의 두 역할은 별도 자산이다
 
@@ -569,6 +574,116 @@ Custody/data receipts may be indexed at `80`; writer-authority, lease,
 operational checkpoint, action, and rollback receipts remain under
 `control_root`. `99` contains restore request/proof refs only. Actual restore
 bytes and staging targets belong under an exact `recovery_root` binding.
+
+## Project context data store — Owner adoption 2026-09-10
+
+Owner adopted a project-first physical home for context production, document
+retrieval, memory recall and utilization evaluation. This changes the target
+storage contract; it does not move live source bytes or activate a writer.
+The existing suite roots, source-native custody, SE-numbered accepted artifacts
+and canonical byte-lineage remain separate.
+
+Current legacy `_workmeta` five-field/review/operation metadata append remains
+allowed under its existing guard and owner contract until applicable Freeze.
+The canonical-byte-lineage-only rule applies to the future target `_workmeta`;
+this adoption does not stop current legacy metadata writers or route new project
+body/context payloads into them.
+
+The following mandatory per-project template is owned here. `<project-ref>` is
+the owner's approved filesystem-safe project key resolved from the exact
+logical project reference, never a title or an unvalidated URI/path. It is a physical
+template, not a new graph, metadata or workflow schema. Dynamic source/revision,
+batch, index-generation and request children are owned by their existing module
+contracts. The empty estate materializer creates the static `20_PROJECTS` root
+only; a project-bound implementation must validate the template below before
+forming an authorized project store. It cannot use an arbitrary project label.
+
+```text
+20_PROJECTS/<project-ref>/
+├─ 00_프로젝트_안내/
+├─ 10_입력자료/
+│  ├─ MAIL/
+│  ├─ SLACK/
+│  ├─ BUZZ/
+│  ├─ VOICE/
+│  └─ DOCUMENT/
+├─ 20_문서검색/
+│  ├─ 본문·표_추출/
+│  ├─ 검색_색인/
+│  └─ 원문위치·추출품질/
+├─ 30_프로젝트맥락/
+│  ├─ 사건·관계/
+│  ├─ 결정·약속·제약/
+│  └─ 업무가지·프로젝트요약/
+├─ 40_기억관리/
+│  ├─ 회수용_기억/
+│  ├─ 선택정책/
+│  └─ 회수·활용_평가/
+├─ 50_업무맥락/
+│  └─ 업무별_맥락꾸러미·선택근거/
+└─ 60_업무경험/
+   └─ 결과·검토·실패·재작업의_연결/
+```
+
+| Area | Allowed content and responsibility |
+| --- | --- |
+| 00_프로젝트_안내 | Project identity and approved bindings, catalogs, current generation and processing coverage; no invented project or second official Task state. |
+| 10_입력자료 | Exact source/revision/locator references by source kind. A policy-authorized project-only input snapshot may be materialized with copy lineage; collection alone does not authorize it. Mixed voice uses exact relevant spans, not a forced whole-recording project assignment. |
+| 20_문서검색 | Project-owned extracted text/tables, rebuildable lexical/vector/graph retrieval assets, source-location maps, extraction warnings and quality records. Accepted source artifacts remain in their original owner. |
+| 30_프로젝트맥락 | Project semantic events and reviewed relations, decisions/commitments/constraints, branch/project summaries and their correction/revision lineage. Existing raw event owners are referenced, never silently duplicated. |
+| 40_기억관리 | Typed recall projections, policy revisions and retrieval/utilization evaluation. Recall memory references the decision/context record; it is not a second decision authority. |
+| 50_업무맥락 | Bounded task-context selection and evidence receipts; project-only pack payloads follow their retention/data-class policy. Common chunks remain transient and are not copied into a new project truth. |
+| 60_업무경험 | Work Episode projections linking exact result, review, failure and rework receipts. Raw transcripts, hidden reasoning and unrelated work are excluded. |
+
+Operational source custody stays at its accepted private binding (including the
+current `ingress/<source-kind>` lanes). Target `_workspaces/<project_code>`
+keeps only accepted bytes in its approved SE variant stage/artifact/revision
+shape. Target `_workmeta/<project_code>/lineage` keeps canonical byte-lineage,
+including evidence/correction/acceptance/backup references, not RAG bodies,
+context histories or memory evaluation logs.
+
+The global numbered indexes remain safe metadata projections into project
+stores and existing approved common/organization owners. `20_PROJECT_ASSET_INDEX`
+is a legacy index, not an alias permitted for new project payload writes.
+Old `45_EVENT_STORES/projects` and project `reference_payloads` paths are
+legacy/migration inputs; organization event stores retain their separate scope.
+Do not rewrite old receipts or delete old stores to make names look current.
+
+A per-project source/index/context/memory generation must bind exact input
+revisions, scope/ACL, writer epoch, policy, supersession and coverage. Only a
+fully validated generation advances its current pointer. Changed content
+invalidates dependent retrieval and summaries; a locator-only move with
+unchanged bytes changes its binding without pretending it is a new source.
+An incomplete rebuild stays stale/pending/HOLD rather than silently combining
+old and new generations.
+
+The project context service hides location resolution and assembly ordering
+from callers. An authorized actor requests one project/task/purpose and budget;
+it receives a bounded pack or honest gaps, with exact evidence and exclusions.
+MCP transfers control/metadata; exact artifact bytes still use the approved
+manifest/ticket data plane and retain SE-relative paths. This adoption does
+not enable an LLM inside the legacy ERP knowledge shell or expose raw/chunk
+bodies through its metadata-only endpoints.
+
+Acceptance test contract for context completion:
+- Materialize this exact template in an isolated project fixture; test the real
+  request/reader/assembler/output seam, not a replacement mock facade.
+- Preserve source custody and SE artifact/lineage roots; no target canonical
+  RAG/temp/run children and no broad or foreign-project retrieval.
+- Retrieve exact document page/table evidence; compare source and index
+  generations, then exercise content change, correction, source loss,
+  relocation, interrupted rebuild, replay and one-project restore closure.
+- A restore must include or resolve permitted dependency bytes; copying a
+  project directory alone is not proof of full recovery.
+- Evaluate recall separately from use and final judgment under fixed budget.
+- All required questions and negative cases must be accounted for. Template
+  or unit-test success is not real-data/installed/MCP/production acceptance.
+
+Live migration requires a source-kind inventory, project/common classification,
+exact old-to-new binding map, write ownership, dependency/hash readback,
+backup/restore and a bounded canary. Until those pass, keep current owners
+reference-in-place. This adoption grants no live move, collector restart,
+secret inspection or operating writer activation.
 
 ## Uniform external-source lane
 

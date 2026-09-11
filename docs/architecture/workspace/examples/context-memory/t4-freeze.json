@@ -1,0 +1,20 @@
+{
+  "version": "context-memory-t4-v1",
+  "questions_digest": "sha256:2c1a65953ec25ace4f8c24b691d32db8bebad6804b100f2e0564e18971b1ff61",
+  "source_digest": "sha256:88f9a06f68e6c545a5b2c5607105b22369d4aae89df219b034b846781ef17c2a",
+  "gold_digest": "sha256:a4ccb4f70796e496d904460363975b21f8ac964e84740590e2c391c5ee0dea02",
+  "source_variants_digest": "sha256:e4d587aab9d10fc7939fbbcae606ee64b0c844cd2da6fc3941867db5936279ac",
+  "t0_runtime_digest": "sha256:3501ac1daf955a5495226a5ed194361453e3c88ab832089d4b216605f821f4f1",
+  "budget": {
+    "max_characters": 12000,
+    "max_evidence": 12,
+    "max_paths": 6,
+    "max_source_reads": 2
+  },
+  "requested_profile": {
+    "model": "gpt-6-astra",
+    "reasoning": "medium"
+  },
+  "observed_profile": "UNKNOWN",
+  "digest": "sha256:0bb8678d9383c3a77bb50e6da92fc192284f0ac4aed0e115d21b48fc943bad70"
+}

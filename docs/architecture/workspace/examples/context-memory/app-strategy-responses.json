@@ -1,0 +1,28 @@
+{
+  "freeze_sha256": "sha256:352417bdabaf794f7a56f0a1953f05da29cbfab8750c32b2774333337d6c3210",
+  "requested_profile": {
+    "model": "gpt-6-astra",
+    "reasoning": "medium"
+  },
+  "observed_profile": "UNKNOWN",
+  "observed_tokens": "UNKNOWN",
+  "observed_tier": "UNKNOWN",
+  "calls": 2,
+  "tools_files_network_forbidden": true,
+  "gold_or_other_answers_supplied": false,
+  "capture": "Visible native final text preserved; no transport-byte attestation",
+  "responses": [
+    {
+      "id": "A",
+      "input_sha256": "sha256:5230fc8f7960568966130afb33f24faa5a3640d4eeccf5adf96004d85dd94f64",
+      "raw_response": "{\n  \"status\": \"PARTIAL\",\n  \"answer\": \"T-A1 벤치 검토에 사용할 수 있는 근거는 다음과 같습니다. 시험 전 입력 전류 제한을 2 A로 설정해야 합니다(C-LIMIT, 문서 세대 1, 1쪽 문단 5·2쪽 표 1 행 2 열 2). 시험 전압은 30 V 유지 결정(D-CONFLICT, 세대 0, 1쪽 문단 2)과 28 V 정정 결정(D-CURRENT, 세대 1, 1쪽 문단 3)이 충돌하며 최종 조정은 미확인입니다. 두 결정 모두 DISPUTED이므로 어느 전압도 확정값으로 제시할 수 없습니다. 이전 24 V 결정은 대체되어 현재 근거에서 제외됩니다(C-REVISION, 세대 1, 1쪽 문단 4). 미해결 공급 문제의 구체적 내용·담당·해결 약속과 시편 식별·이력·시험 결과 연결 정보는 제공되지 않아 검토 근거를 구성할 수 없습니다. 전압 충돌 조정 근거, 공급 문제 원자료, 시편 추적 기록이 추가로 필요합니다.\",\n  \"used_evidence_ids\": [\"C-LIMIT\", \"D-CONFLICT\", \"D-CURRENT\", \"C-REVISION\"],\n  \"omissions\": [\n    \"공급 문제와 시편 추적성의 상세 내용: 요청 정보 누락으로 확인 불가.\",\n    \"실제 제외 집계: EVIDENCE_BUDGET 5건, KIND_NOT_REQUESTED 1건, PURPOSE_NOT_APPLICABLE 2건, SUPERSEDED_OR_WITHDRAWN 1건, WITHDRAWN_OR_RESOLVED 1건. 각 제외 항목의 내용은 미제공이므로 공급·시편 정보와의 관계는 알 수 없음.\"\n  ],\n  \"limitations\": [\n    \"기준시점은 known_at 2026-08-06, valid_at 2026-08-05(UTC)이며 이후 상태는 확인되지 않음.\",\n    \"수락 코퍼스는 완전하다고 표시되지만 요청 범위의 근거는 INSUFFICIENT이며 fact·commitment·failure 종류가 누락됨.\",\n    \"문서 위치 VERIFIED는 전압 충돌 해결이나 시편 추적성 확인을 뜻하지 않음. 문서 세대·해시는 출처 추적 정보임.\",\n    \"검색은 3개 출처·20개 청크에서 4건을 선택했으며 평가 상태는 NOT_EVALUATED. 영수증 참조만으로 실패·재작업·결과·검토 내용을 추론할 수 없음.\"\n  ]\n}",
+      "response_sha256": "sha256:6798247b9d25ec183b8fcfb0896baa337b032b1d7424daba5229b23340cc2ea9"
+    },
+    {
+      "id": "B",
+      "input_sha256": "sha256:8202b7da71a386a69d8a6361e315dba36398f27f04e72877d84a15b9a1745f55",
+      "raw_response": "{\n  \"status\": \"PARTIAL\",\n  \"answer\": \"T-A1 벤치 검토 근거: 시험 전 입력 전류 제한을 2 A로 설정해야 하며(C-LIMIT, 문서 세대 1·1쪽 문단 5), 벤치 적격성은 이 설정 완료에 의존한다(F-PRE, 세대 1·1쪽 문단 8). 설정이 실제 완료되었다는 증거는 없다. 시험 전압은 30 V 유지 결정(D-CONFLICT, 세대 0·1쪽 문단 2)과 28 V 정정 결정(D-CURRENT, 세대 1·1쪽 문단 3)이 충돌한다. 두 결정 모두 DISPUTED이며 최종 조정은 미확인이다. 따라서 28 V를 확정값으로 채택할 수 없다. 요청한 미해결 공급 문제와 시험편 추적성은 제공된 근거에 없어 현황·원인·식별자·이력을 확인할 수 없다. 검토를 완결하려면 전압 조정 결과, 전류 제한 설정 완료 증거, 공급 문제 기록 및 시험편 식별·이력 연결 근거가 필요하다.\",\n  \"used_evidence_ids\": [\"C-LIMIT\", \"F-PRE\", \"D-CONFLICT\", \"D-CURRENT\"],\n  \"omissions\": [\n    \"미해결 공급 문제의 구체 내용 및 시험편 추적성 자료 미제공\",\n    \"실제 제외: EVIDENCE_BUDGET 5건, KIND_NOT_REQUESTED 1건, PURPOSE_NOT_APPLICABLE 2건, SUPERSEDED_OR_WITHDRAWN 1건, WITHDRAWN_OR_RESOLVED 1건\"\n  ],\n  \"limitations\": [\n    \"팩은 PARTIAL, 범위 충족도는 INSUFFICIENT이며 correction·commitment·failure 종류가 누락되어 있다.\",\n    \"수락 코퍼스 완전성 표시는 요청 정보의 충분성을 보장하지 않는다. 증거 예산, 요청 정보 누락, 미해결 충돌, 유형·바인딩 미확정 범위 문제가 남아 있다.\",\n    \"유효 시점 2026-08-05·인지 시점 2026-08-06 기준이며 이후 상태는 확인할 수 없다.\",\n    \"근거 위치 VERIFIED는 시험 수행·성공을 뜻하지 않는다. 영수증 참조만으로 실패·재작업·결과·검토 내용을 확정할 수 없다. 보존된 원본 이력은 superseded 상태다.\"\n  ]\n}",
+      "response_sha256": "sha256:7ad79f4cb6b705b352abf046733beb487ff84402bb728d589f94047b63464265"
+    }
+  ]
+}

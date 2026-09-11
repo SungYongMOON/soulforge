@@ -1,0 +1,65 @@
+{
+  "version": "T5-consumer-observation/1",
+  "requested_profile": { "model": "gpt-6-astra", "reasoning": "medium" },
+  "observed_profile": "UNKNOWN",
+  "tokens": "UNKNOWN",
+  "tier": "UNKNOWN",
+  "calls": 2,
+  "tools_files_network_forbidden": true,
+  "gold_or_other_answers_supplied": false,
+  "independent_final_review": false,
+  "capture": "Visible native final JSON response content; no transport byte attestation",
+  "responses": [
+    {
+      "question_id": "Q21",
+      "pack_digest": "sha256:2c29dadbcdf3d313650535aa0dbabef16f45635767fbd2ad0deeae100079b191",
+      "response": {
+        "status": "PARTIAL",
+        "answer": "T-A1 벤치 검토에 사용할 수 있는 근거는 다음 범위입니다.\n• 시험 전압: 30 V 유지 결정[D-CONFLICT, 문서 세대 0, 1쪽 문단 2]과 28 V 정정 결정[D-CURRENT, 문서 세대 1, 1쪽 문단 3]이 충돌합니다. 두 근거의 위치는 검증됐으나 결정의 사용 상태는 모두 DISPUTED이며, 최종 조정은 미확인입니다. 어느 전압도 확정 시험 조건으로 제시할 수 없습니다.\n• 이전 24 V 결정: 정정 근거[C-REVISION, 문서 세대 1, 1쪽 문단 4]에 따라 대체됐습니다. 보존 이력일 뿐 현재 시험 근거에서 제외합니다.\n• 미해결 공급 문제: 제공된 팩에 해당 문제의 내용·상태를 뒷받침하는 근거가 없어 검토 항목에 ‘근거 미제공’으로 표시합니다. 해결됐다고 판단할 수 없습니다.\n• 시편 추적성: 시편 식별과 시험·결과의 연결 근거가 제공되지 않아 확인할 수 없습니다. 문서의 세대·위치 추적 정보는 시편 추적성 증명이 아닙니다.\n검토를 마무리하려면 전압 충돌의 최종 조정 근거, 공급 문제의 현황 근거, 시편과 시험·결과의 연결 기록이 필요합니다.",
+        "used_evidence_ids": ["D-CONFLICT", "D-CURRENT", "C-REVISION"],
+        "omission_reasons": [
+          "팩 제외 집계: EVIDENCE_BUDGET 6건, KIND_NOT_REQUESTED 1건, PURPOSE_NOT_APPLICABLE 2건, SUPERSEDED_OR_WITHDRAWN 1건, WITHDRAWN_OR_RESOLVED 1건. 제외 내용은 복원하지 않았습니다.",
+          "공급 문제와 시편 추적성의 구체적 내용은 요청 정보 누락으로 작성하지 않았습니다."
+        ],
+        "limitations": [
+          "지식 기준 2026-08-06, 유효 기준 2026-08-05에 한정됩니다.",
+          "accepted_corpus_complete=true여도 요청 충족 범위는 INSUFFICIENT이며 fact·constraint·commitment·failure 유형이 누락됐습니다.",
+          "미해결 충돌, 증거 예산 제한, 미유형화 또는 미연결 출처 범위가 남아 있고 검색 평가 상태는 HOLD입니다."
+        ]
+      },
+      "author_observation": {
+        "conflict_sides_used": "OBSERVED",
+        "actual_omission_reasons_delivered": "OBSERVED",
+        "missing_specimen_evidence_acknowledged": "OBSERVED",
+        "semantic_limit": "Consumer treats supply issue as an additional separate gap after discussing voltage; exact intended equivalence is not established.",
+        "original_ten_observation_stress": "NOT_RUN",
+        "whole_question_pass": false
+      }
+    },
+    {
+      "question_id": "Q15",
+      "pack_digest": "sha256:8e1134cbfe2069c25c997829157c6ce8b7a36e7ee9bd5fd7ec9a5687b471cca8",
+      "response": {
+        "status": "PARTIAL",
+        "answer": "제공된 팩에서 아직 미해소로 확인되는 약속은 담당자 A가 시험 기록을 검토자에게 제출하는 것입니다. 근거는 P-OPEN(1쪽, 6번째 문단)입니다. 다만 요청의 actor-a와 팩의 person:A가 동일인이라는 명시적 연결은 없어, 해당 약속을 actor-a의 것으로 확정할 수는 없습니다.",
+        "used_evidence_ids": ["P-OPEN"],
+        "omission_reasons": [
+          "요청하지 않은 종류 9건, 목적에 부적합한 자료 2건, 대체·철회된 자료 1건, 철회·해소된 자료 1건은 제외되었습니다.",
+          "대체된 과거 기록은 현재 미해소 약속의 근거로 사용하지 않았습니다."
+        ],
+        "limitations": [
+          "유효 시점 2026-08-05, 알려진 시점 2026-08-06 기준입니다.",
+          "자료 범위는 INSUFFICIENT이며 유형 또는 연결이 확정되지 않은 출처 범위가 남아 있습니다.",
+          "문서 검색 결과는 0건이고 평가 상태는 HOLD이므로, 다른 미해소 약속이 없다고 단정할 수 없습니다."
+        ]
+      },
+      "author_observation": {
+        "person_A_promise_used": "OBSERVED",
+        "actor_a_identity_not_inferred": "OBSERVED",
+        "time_cutoff_delivered": "OBSERVED",
+        "fulfilled_promise_exclusion_fixture": "NOT_RUN",
+        "whole_question_pass": false
+      }
+    }
+  ]
+}

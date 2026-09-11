@@ -39,6 +39,34 @@ const SOURCE_LANE_DIRS = Object.freeze([
   "legacy-path-map",
 ]);
 
+
+// Plan 17 mandatory relative per-project layout. This export grants no write authority.
+export const PROJECT_CONTEXT_DIRECTORY_TEMPLATE = Object.freeze([
+  "00_프로젝트_안내",
+  "10_입력자료",
+  "10_입력자료/MAIL",
+  "10_입력자료/SLACK",
+  "10_입력자료/BUZZ",
+  "10_입력자료/VOICE",
+  "10_입력자료/DOCUMENT",
+  "20_문서검색",
+  "20_문서검색/본문·표_추출",
+  "20_문서검색/검색_색인",
+  "20_문서검색/원문위치·추출품질",
+  "30_프로젝트맥락",
+  "30_프로젝트맥락/사건·관계",
+  "30_프로젝트맥락/결정·약속·제약",
+  "30_프로젝트맥락/업무가지·프로젝트요약",
+  "40_기억관리",
+  "40_기억관리/회수용_기억",
+  "40_기억관리/선택정책",
+  "40_기억관리/회수·활용_평가",
+  "50_업무맥락",
+  "50_업무맥락/업무별_맥락꾸러미·선택근거",
+  "60_업무경험",
+  "60_업무경험/결과·검토·실패·재작업의_연결"
+]);
+
 const STATIC_TREE = Object.freeze([
   "00_CATALOG",
   "00_CATALOG/path-registry",
@@ -49,7 +77,7 @@ const STATIC_TREE = Object.freeze([
   "00_CATALOG/case-activity-registry",
   "00_CATALOG/legacy-path-map",
   "10_SOURCE_CAPTURE_CATALOG",
-  "20_PROJECT_ASSET_INDEX",
+  "20_PROJECTS",
   "25_EVENT_TIMELINE_INDEX",
   "25_EVENT_TIMELINE_INDEX/occurrences",
   "25_EVENT_TIMELINE_INDEX/correlations",
@@ -76,7 +104,6 @@ const STATIC_TREE = Object.freeze([
   "40_ASSETS/test-results",
   "40_ASSETS/revisions",
   "45_EVENT_STORES",
-  "45_EVENT_STORES/projects",
   "45_EVENT_STORES/organizations",
   "50_AI_WORKFORCE_INDEX",
   "50_AI_WORKFORCE_INDEX/agent-families",

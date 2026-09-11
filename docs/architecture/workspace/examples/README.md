@@ -6,6 +6,8 @@ locator or live activation authority.
 
 ## 목적
 
+- `context-memory/`는 가상 프로젝트의 맥락 조회 질문·근거와 평가 전용 gold/반례를 분리한다. 실행 입력에는 평가 정답을 전달하지 않으며, 실제 운영 binding이나 회사 자료를 포함하지 않는다.
+
 - `examples/` 는 tracked workspace contract 예시를 둔다.
 - `_workspaces/` public/private 정책을 깨지 않기 위해 tracked sample 은 이 경로 아래에만 둔다.
 - tracked example 은 binding set 과 execution rule example 을 public-safe mirror 로만 둔다.

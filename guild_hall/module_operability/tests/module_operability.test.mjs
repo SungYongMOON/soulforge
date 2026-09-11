@@ -56,7 +56,9 @@ test("every enrolled real manifest passes the completeness schema, and the disco
   // + 1 Linear collection lane receipt-contract owner (linear_history).
   // + 1 Buzz collection lane receipt-contract owner (buzz_history).
   // + 1 optional Sonar Intel app with separate working-data recovery.
-  assert.equal(paths.length, 34, paths.join(","));
+  // + 1 default-off shared Context Engine APP.
+  assert.equal(paths.length, 35, paths.join(","));
+  assert.equal(paths.includes("guild_hall/context_engine/module.manifest.json"), true, "the Context Engine APP is enrolled");
   assert.equal(paths.includes("ui-workspace/apps/team-ops-board/module.manifest.json"), true, "the Board is enrolled");
   assert.equal(paths.includes("ui-workspace/apps/dev-erp/module.manifest.json"), true, "the dev-ERP Task Execution surface is enrolled");
   assert.equal(paths.includes("ui-workspace/apps/soulforge-universal-client/module.manifest.json"), true, "the Universal Client is enrolled");
@@ -140,7 +142,7 @@ test("the aggregate preflight is green on the current repository", () => {
   const receipt = runPreflight();
   assert.deepEqual(receipt.problems, []);
   assert.equal(receipt.ok, true);
-  assert.equal(receipt.manifest_count, 34);
+  assert.equal(receipt.manifest_count, 35);
   assert.equal(receipt.scanned_modules > 1000, true);
   // Absence is visible, not silent: unenrolled legacy guild_hall modules are
   // counted in the receipt (enrolling them is deliberate follow-on work).

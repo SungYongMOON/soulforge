@@ -3,6 +3,7 @@
 // is fixed, and the result claims no authority and leaves nothing behind.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { isAbsolute } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
@@ -24,6 +25,8 @@ const MAX_WORKER_TEXT_BYTES = 2 * 1024 * 1024;
 const CANDIDATE_SCHEMA_VERSION = "soulforge.project_document_ingest_candidate.v0";
 const CANDIDATE_MEDIA_TYPE = "application/pdf";
 const EXTRACTION_ENGINE = "pymupdf";
+const TABLE_PROFILE = "pdfplumber-tables-v1";
+const MAX_LOCATION_ITEMS = 100000;
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/u;
 
 // Trusted typed array intrinsics. Accepted bytes are identified, measured and
@@ -56,7 +59,7 @@ const ERROR_MESSAGES = Object.freeze({
   pdf_unreadable: "project document ingest input is not a readable pdf",
 });
 
-// Both runtime refs are derived from this module location alone.
+// The worker and default interpreter refs derive from this module alone.
 const REPO_ROOT_URL = new URL("../../", import.meta.url);
 const WORKER_PATH = fileURLToPath(new URL(WORKER_REF, REPO_ROOT_URL));
 const VENV_PYTHON_PATH = fileURLToPath(new URL(
@@ -81,12 +84,40 @@ function ingestError(code) {
   return new ProjectDocumentIngestError(code);
 }
 
-export async function extractProjectPdfCandidate(request) {
+export async function extractProjectPdfCandidate(request, trustedOptions) {
   const prepared = prepareRequest(request);
-  const rawOutput = await runWorker(prepared.snapshot);
-  const pages = readWorkerPages(rawOutput);
+  const options = prepareOptions(trustedOptions);
+  const rawOutput = await runWorker(prepared.snapshot, options);
+  const pages = readWorkerPages(rawOutput, options);
   if (pages === null) throw ingestError("pdf_unreadable");
-  return buildCandidate(prepared, pages);
+  return buildCandidate(prepared, pages, options);
+}
+
+// This is a trusted host configuration seam, never a field in the PDF request.
+function prepareOptions(options) {
+  if (options === undefined) return null;
+  if (options === null || typeof options !== "object" || types.isProxy(options)) {
+    throw ingestError("request_invalid");
+  }
+  const prototype = Object.getPrototypeOf(options);
+  const keys = Reflect.ownKeys(options);
+  if ((prototype !== Object.prototype && prototype !== null)
+      || ![2, 3].includes(keys.length)
+      || keys.some(key => !["interpreterPath", "extractionProfile", "disableSiteStartup"].includes(key))) {
+    throw ingestError("request_invalid");
+  }
+  const interpreterPath = readOwnDataValue(options, "interpreterPath");
+  const extractionProfile = readOwnDataValue(options, "extractionProfile");
+  const disableSiteStartup = keys.includes("disableSiteStartup") ? readOwnDataValue(options, "disableSiteStartup") : false;
+  if (typeof disableSiteStartup !== "boolean" || (disableSiteStartup && process.platform !== "win32")) {
+    throw ingestError("request_invalid");
+  }
+  if (extractionProfile !== TABLE_PROFILE || typeof interpreterPath !== "string"
+      || !isAbsolute(interpreterPath) || /[\x00-\x1f]/u.test(interpreterPath)
+      || (process.platform === "win32" && !/^(?:[a-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+[\\/])/iu.test(interpreterPath))) {
+    throw ingestError("request_invalid");
+  }
+  return { interpreterPath, extractionProfile, disableSiteStartup };
 }
 
 // Closed own-data request, hard cap, then pin. Everything here runs before the
@@ -145,9 +176,9 @@ function readAcceptedByteLength(pdfBytes) {
 
 // One direct start of the fixed unit: bytes in over stdin, bounded json out over
 // stdout, diagnostics dropped, hard timeout and hard output cap. The isolated
-// no bytecode flags keep the repo venv runtime free of ambient interpreter
+// no bytecode flags keep the selected runtime free of ambient interpreter
 // configuration and leave nothing written beside the unit.
-function runWorker(snapshot) {
+function runWorker(snapshot, options) {
   return new Promise((resolve) => {
     const chunks = [];
     let outputBytes = 0;
@@ -162,7 +193,13 @@ function runWorker(snapshot) {
 
     let child = null;
     try {
-      child = spawn(VENV_PYTHON_PATH, ["-I", "-B", WORKER_PATH], {
+      // Explicit Windows APP profile: no site startup (.pth/sitecustomize), no
+      // ambient search path. Add only the interpreter's declared package root.
+      const args = options?.disableSiteStartup
+        ? ["-I", "-B", "-S", "-c", "import sys,runpy;from pathlib import Path;sys.path.append(str(Path(sys.executable).parent/'Lib'/'site-packages'));sys.argv=sys.argv[1:];runpy.run_path(sys.argv[0],run_name='__main__')", WORKER_PATH]
+        : ["-I", "-B", WORKER_PATH];
+      if (options) args.push(options.extractionProfile);
+      child = spawn(options?.interpreterPath ?? VENV_PYTHON_PATH, args, {
         stdio: ["pipe", "pipe", "ignore"],
         windowsHide: true,
       });
@@ -188,7 +225,7 @@ function runWorker(snapshot) {
       }
       chunks.push(chunk);
     });
-    child.on("close", () => finish(Buffer.concat(chunks)));
+    child.on("close", (code) => finish(code === 0 ? Buffer.concat(chunks) : null));
     child.stdin.end(snapshot);
   });
 }
@@ -198,7 +235,7 @@ function runWorker(snapshot) {
 const WORKER_OUTPUT_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 // Closed bounded validation of the reported shape. Anything else is unreadable.
-function readWorkerPages(rawOutput) {
+function readWorkerPages(rawOutput, options) {
   if (!Buffer.isBuffer(rawOutput)) return null;
   if (rawOutput.byteLength === 0 || rawOutput.byteLength > MAX_WORKER_OUTPUT_BYTES) return null;
   let report = null;
@@ -209,8 +246,11 @@ function readWorkerPages(rawOutput) {
     return null;
   }
   if (report === null || typeof report !== "object" || Array.isArray(report)) return null;
-  if (Reflect.ownKeys(report).length !== 4) return null;
-  if (report.status !== "extracted" || report.engine !== EXTRACTION_ENGINE) return null;
+  if (Reflect.ownKeys(report).length !== (options ? 6 : 4)) return null;
+  if (report.status !== "extracted" || report.engine !== (options ? "pdfplumber" : EXTRACTION_ENGINE)) return null;
+  if (options && (report.profile !== TABLE_PROFILE || typeof report.engine_version !== "string"
+      || !/^[0-9]+\.[0-9]+\.[0-9]+(?:[a-z0-9.+-]*)$/u.test(report.engine_version)
+      || report.engine_version.length > 64)) return null;
   if (!Number.isSafeInteger(report.page_count)) return null;
   if (report.page_count < 1 || report.page_count > MAX_WORKER_PAGES) return null;
   if (!Array.isArray(report.pages) || report.pages.length !== report.page_count) return null;
@@ -220,7 +260,7 @@ function readWorkerPages(rawOutput) {
   for (let index = 0; index < report.pages.length; index += 1) {
     const page = report.pages[index];
     if (page === null || typeof page !== "object" || Array.isArray(page)) return null;
-    if (Reflect.ownKeys(page).length !== 2) return null;
+    if (Reflect.ownKeys(page).length !== (options ? 8 : 2)) return null;
     if (page.page_number !== index + 1) return null;
     if (typeof page.text !== "string") return null;
     if (page.text.length > MAX_WORKER_PAGE_CHARACTERS) return null;
@@ -228,12 +268,59 @@ function readWorkerPages(rawOutput) {
     if (totalCharacters > MAX_WORKER_TEXT_CHARACTERS) return null;
     totalBytes += Buffer.byteLength(page.text, "utf8");
     if (totalBytes > MAX_WORKER_TEXT_BYTES) return null;
-    pages.push({ page_number: page.page_number, text: page.text });
+    if (options && !validLocations(page)) return null;
+    pages.push(options ? page : { page_number: page.page_number, text: page.text });
   }
-  return pages;
+  return options ? { pages, engine_version: report.engine_version } : pages;
 }
 
-function buildCandidate({ snapshot, sha256 }, pages) {
+function closed(value, keys) {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function validLocations(page) {
+  if (!closed(page, ["page_number", "text", "width", "height", "coordinate_system", "paragraphs", "words", "tables"])) return false;
+  if (!Number.isFinite(page.width) || !Number.isFinite(page.height) || page.width <= 0 || page.height <= 0
+      || page.coordinate_system !== "top-left-points") return false;
+  const bbox = (box) => Array.isArray(box) && box.length === 4 && box.every(Number.isFinite)
+    && box[0] >= 0 && box[1] >= 0 && box[0] <= box[2] && box[1] <= box[3]
+    && box[2] <= page.width && box[3] <= page.height;
+  let items = 0;
+  for (const [name, number] of [["paragraphs", "paragraph_number"], ["words", "word_number"]]) {
+    if (!Array.isArray(page[name]) || (items += page[name].length) > MAX_LOCATION_ITEMS) return false;
+    if (!page[name].every((item, i) => closed(item, [number, "text", "bbox"])
+      && item[number] === i + 1 && typeof item.text === "string"
+      && item.text.length <= MAX_WORKER_PAGE_CHARACTERS && bbox(item.bbox))) return false;
+  }
+  if (!Array.isArray(page.tables) || (items += page.tables.length) > MAX_LOCATION_ITEMS) return false;
+  return page.tables.every((table, i) => {
+    if (!closed(table, ["table_number", "bbox", "row_count", "column_count", "rows", "columns", "cells"])
+        || table.table_number !== i + 1 || !bbox(table.bbox)
+        || !Number.isSafeInteger(table.row_count) || table.row_count < 1
+        || !Number.isSafeInteger(table.column_count) || table.column_count < 1
+        || !Array.isArray(table.cells) || table.cells.length !== table.row_count * table.column_count
+        || (items += table.cells.length) > MAX_LOCATION_ITEMS) return false;
+    for (const [name, number, count] of [["rows", "row_number", table.row_count], ["columns", "column_number", table.column_count]]) {
+      if (!Array.isArray(table[name]) || table[name].length !== count
+          || (items += count) > MAX_LOCATION_ITEMS
+          || !table[name].every((item, index) => closed(item, [number, "bbox"])
+            && item[number] === index + 1 && bbox(item.bbox)
+            && item.bbox[0] >= table.bbox[0] && item.bbox[1] >= table.bbox[1]
+            && item.bbox[2] <= table.bbox[2] && item.bbox[3] <= table.bbox[3])) return false;
+    }
+    return table.cells.every((cell, index) => closed(cell, ["row_number", "column_number", "text", "bbox"])
+      && cell.row_number === Math.floor(index / table.column_count) + 1
+      && cell.column_number === index % table.column_count + 1
+      && (cell.text === null || (typeof cell.text === "string" && cell.text.length <= MAX_WORKER_PAGE_CHARACTERS))
+      && (cell.bbox === null ? cell.text === null : bbox(cell.bbox)
+        && cell.bbox[0] >= table.bbox[0] && cell.bbox[1] >= table.bbox[1]
+        && cell.bbox[2] <= table.bbox[2] && cell.bbox[3] <= table.bbox[3]));
+  });
+}
+
+function buildCandidate({ snapshot, sha256 }, result, options) {
+  const pages = options ? result.pages : result;
   const text = pages.map((page) => page.text).join("");
   return deepFreeze({
     schema_version: CANDIDATE_SCHEMA_VERSION,
@@ -244,7 +331,15 @@ function buildCandidate({ snapshot, sha256 }, pages) {
       byte_count: snapshot.byteLength,
     },
     extraction: {
-      engine: EXTRACTION_ENGINE,
+      engine: options ? "pdfplumber" : EXTRACTION_ENGINE,
+      ...(options ? {
+        profile: TABLE_PROFILE,
+        engine_version: result.engine_version,
+        extraction_sha256: createHash("sha256").update(JSON.stringify({
+          source_sha256: sha256, profile: TABLE_PROFILE, engine: "pdfplumber",
+          engine_version: result.engine_version, pages,
+        }), "utf8").digest("hex"),
+      } : {}),
       page_count: pages.length,
       character_count: text.length,
       text_sha256: createHash("sha256").update(text, "utf8").digest("hex"),

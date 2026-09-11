@@ -1,0 +1,51 @@
+{
+  "profile": "context-memory-t5-document/1",
+  "upstream_file_sha256": "8e791add30503ccbcdc24d22bb890b5fca29403ca7e8fd00025b6080e33d70cc",
+  "generator_sha256": "5d3a282057c4d0fc60fbcf7e4264f3196a4facfe3f7b3d5af5f15a6135fe42b3",
+  "font_sha256": "7a183cf1c6c56b9609fcc16eda8b5229fbc11758a21e669ec00343239b02192f",
+  "reportlab_version": "4.4.9",
+  "invariant": true,
+  "page_size_points": [
+    595,
+    842
+  ],
+  "page_compression": false,
+  "sources": {
+    "old": {
+      "file": "t5-document-old.pdf",
+      "sha256": "151ad47b3f95222d7f8660cdd7373bc7b38dc374ff20f90ce5feb3a7c6932991",
+      "byte_count": 31012,
+      "upstream_json_sha256": "65b77278bbab2cd9d3f511d3ea6835b78dda2270fa8affed2e590abe54dfc5d9",
+      "relation": "format_only_derivative",
+      "accepted": false,
+      "replay_equal": true
+    },
+    "current": {
+      "file": "t5-document-current.pdf",
+      "sha256": "4ae6e0be174da1ba5134ac6f4f4c8937895f8964590bdecc450c1e14d29afd96",
+      "byte_count": 56635,
+      "upstream_json_sha256": "e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307",
+      "relation": "format_only_derivative",
+      "accepted": false,
+      "replay_equal": true
+    },
+    "conflict": {
+      "file": "t5-document-conflict.pdf",
+      "sha256": "c3b8743ec550b3fbba691c42c484f7b54463c9a665661cd5ab1737fa55ebfd19",
+      "byte_count": 52141,
+      "upstream_json_sha256": "e5701024f0ff737f77cf40660b5e4f55cfc491e64a1b9e712aa59289646e494b",
+      "relation": "format_only_derivative",
+      "accepted": false,
+      "replay_equal": true
+    },
+    "common": {
+      "file": "t5-document-common.pdf",
+      "sha256": "16ef117a352ea46f5ffab829f570c84ed5f7db97d2f6b6edf0d48b41e7beb0fc",
+      "byte_count": 34188,
+      "upstream_json_sha256": "7028becc524185f1046b182b0c203d0c34ae133dea07ba657e9a29e7ff746b5b",
+      "relation": "format_only_derivative",
+      "accepted": false,
+      "replay_equal": true
+    }
+  }
+}

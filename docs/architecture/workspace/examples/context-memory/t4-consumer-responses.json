@@ -1,0 +1,1774 @@
+{
+  "freeze_digest": "sha256:0bb8678d9383c3a77bb50e6da92fc192284f0ac4aed0e115d21b48fc943bad70",
+  "independent_review": "NOT_RUN",
+  "batches": [
+    {
+      "batch_id": "batch-1",
+      "input_digest": "sha256:4833407218218880502e9424a1cbadf871155e0b22b94c5130079bedf316a37a",
+      "transmission_verification": "Frozen payload copied into native fresh consumer request; native message body readback is opaque and was not decrypted",
+      "requested": {
+        "model": "gpt-6-astra",
+        "reasoning": "medium"
+      },
+      "observed_profile": "UNKNOWN",
+      "provider_usage": "UNKNOWN",
+      "billed_cost": "UNKNOWN",
+      "tier": "UNKNOWN",
+      "actual_consumer_calls": 1,
+      "elapsed_ms": 209239,
+      "elapsed_scope": "Native dispatch to delivered final response; orchestration included, not provider latency",
+      "response_digest": "sha256:b18e3887f5812d4e300e199cbd12b5a7045964b3bf693a8d1a8a152a82151f1a",
+      "format": "PASS",
+      "diagnostic_repair": null,
+      "raw_response": "{\"answers\":[{\"id\":\"Q01\",\"status\":\"OK\",\"judgment\":\"The request context identifies project P-A and task T-A1.\",\"used_refs\":[],\"limitations\":[\"The empty memory does not independently resolve any same-title source material.\"]},{\"id\":\"Q02\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"No same-title material was supplied, so it cannot establish this project's test-voltage limit.\",\"used_refs\":[],\"limitations\":[\"Project applicability and the voltage limit remain unverified.\"]},{\"id\":\"Q03\",\"status\":\"HOLD\",\"judgment\":\"Do not read the bench result under this request: the actor is identified as unauthorized.\",\"used_refs\":[],\"limitations\":[\"No bench result or access grant is supplied.\"]},{\"id\":\"Q04\",\"status\":\"HOLD\",\"judgment\":\"Task T-A1 is specified, but the project must be resolved before continuing.\",\"used_refs\":[],\"limitations\":[\"This question's context leaves the project unspecified and its memory is empty.\"]},{\"id\":\"Q05\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The currently applicable accepted test-voltage decision cannot be identified.\",\"used_refs\":[],\"limitations\":[\"No decision or temporal applicability evidence is supplied.\"]},{\"id\":\"Q06\",\"status\":\"HOLD\",\"judgment\":\"The historical decision is unavailable, and the requested effective date needs clarification: the question says August 2 while context valid_at is August 1.\",\"used_refs\":[],\"limitations\":[\"No decision history is supplied; known_at is August 2.\"]},{\"id\":\"Q07\",\"status\":\"HOLD\",\"judgment\":\"Neither following the old 24 V decision nor bypassing isolation is justified by the supplied evidence.\",\"used_refs\":[],\"limitations\":[\"No applicable accepted decision or bypass authorization is supplied.\"]},{\"id\":\"Q08\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The latest sensor decision in collected mail cannot be determined.\",\"used_refs\":[],\"limitations\":[\"No collected mail or collection-coverage evidence is supplied.\"]},{\"id\":\"Q09\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"No exact supporting location for the specimen A measurement is available.\",\"used_refs\":[],\"limitations\":[\"No measurement source, locator, or specimen linkage is supplied.\"]},{\"id\":\"Q10\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The original test body cannot be verified.\",\"used_refs\":[],\"limitations\":[\"Neither the manifest entry nor its original test body is supplied.\"]},{\"id\":\"Q11\",\"status\":\"HOLD\",\"judgment\":\"A sensor supply voltage cannot be selected from this packet.\",\"used_refs\":[],\"limitations\":[\"No sensor specification or applicable accepted supply decision is supplied.\"]},{\"id\":\"Q12\",\"status\":\"OK\",\"judgment\":\"No. Failure to retrieve an isolation failure does not establish that none has ever occurred.\",\"used_refs\":[],\"limitations\":[\"The memory is empty; historical failure coverage is unknown.\"]},{\"id\":\"Q13\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The prerequisites for T-A1 bench qualification cannot be determined.\",\"used_refs\":[],\"limitations\":[\"No prerequisite evidence is supplied.\"]},{\"id\":\"Q14\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"Whether the specimen A measurement is already attached to an existing task is unknown.\",\"used_refs\":[],\"limitations\":[\"No measurement attachment or task-link evidence is supplied.\"]},{\"id\":\"Q15\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"No outstanding promise from actor-a can be identified.\",\"used_refs\":[],\"limitations\":[\"No commitment or completion records are supplied.\"]},{\"id\":\"Q16\",\"status\":\"HOLD\",\"judgment\":\"No approved isolation-retest procedure can be selected for execution.\",\"used_refs\":[],\"limitations\":[\"No procedure, approval, or applicability evidence is supplied.\"]},{\"id\":\"Q17\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"A relevant previous failure cannot be identified.\",\"used_refs\":[],\"limitations\":[\"No failure history or setup-matching evidence is supplied; absence from the packet does not establish absence of failures.\"]},{\"id\":\"Q18\",\"status\":\"HOLD\",\"judgment\":\"The bench run's applicable decision and prerequisite remain unresolved.\",\"used_refs\":[],\"limitations\":[\"Neither accepted decision evidence nor prerequisite evidence is supplied.\"]},{\"id\":\"Q19\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"No change to project acceptance criteria is established by the supplied packet.\",\"used_refs\":[],\"limitations\":[\"Neither actor-a's preferred format nor acceptance criteria or an authorized amendment is supplied.\"]},{\"id\":\"Q20\",\"status\":\"OK\",\"judgment\":\"For P-A task T-A1 bench qualification, observe the accepted 60 C temperature ceiling and complete calibration before energizing.\",\"used_refs\":[],\"limitations\":[]},{\"id\":\"Q21\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The bounded review can identify only the P-A/T-A1 request scope; the supply issue and specimen traceability lack supplied supporting evidence.\",\"used_refs\":[],\"limitations\":[\"The memory contains no items, so no evidence-backed supply finding, measurement, provenance, or traceability link can be prepared.\"]},{\"id\":\"Q22\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"No current test-voltage decision or reviewed prerequisite is available to return in stable reference order.\",\"used_refs\":[],\"limitations\":[\"No supporting references are supplied.\"]},{\"id\":\"Q23\",\"status\":\"HOLD\",\"judgment\":\"Running the P-A sensor at 32 V is not authorized by the supplied packet.\",\"used_refs\":[],\"limitations\":[\"No applicable voltage limit, accepted decision, or sensor specification is supplied; this is an evidence gap rather than a demonstrated 32 V prohibition.\"]},{\"id\":\"Q24\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"No varied past outcomes are available to support a candidate sensor-procedure improvement.\",\"used_refs\":[],\"limitations\":[\"No historical outcome or procedure evidence is supplied; an evidence-based improvement cannot be inferred.\"]}]}",
+      "response": {
+        "answers": [
+          {
+            "id": "Q01",
+            "status": "OK",
+            "judgment": "The request context identifies project P-A and task T-A1.",
+            "used_refs": [],
+            "limitations": [
+              "The empty memory does not independently resolve any same-title source material."
+            ]
+          },
+          {
+            "id": "Q02",
+            "status": "NOT_AVAILABLE",
+            "judgment": "No same-title material was supplied, so it cannot establish this project's test-voltage limit.",
+            "used_refs": [],
+            "limitations": [
+              "Project applicability and the voltage limit remain unverified."
+            ]
+          },
+          {
+            "id": "Q03",
+            "status": "HOLD",
+            "judgment": "Do not read the bench result under this request: the actor is identified as unauthorized.",
+            "used_refs": [],
+            "limitations": [
+              "No bench result or access grant is supplied."
+            ]
+          },
+          {
+            "id": "Q04",
+            "status": "HOLD",
+            "judgment": "Task T-A1 is specified, but the project must be resolved before continuing.",
+            "used_refs": [],
+            "limitations": [
+              "This question's context leaves the project unspecified and its memory is empty."
+            ]
+          },
+          {
+            "id": "Q05",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The currently applicable accepted test-voltage decision cannot be identified.",
+            "used_refs": [],
+            "limitations": [
+              "No decision or temporal applicability evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q06",
+            "status": "HOLD",
+            "judgment": "The historical decision is unavailable, and the requested effective date needs clarification: the question says August 2 while context valid_at is August 1.",
+            "used_refs": [],
+            "limitations": [
+              "No decision history is supplied; known_at is August 2."
+            ]
+          },
+          {
+            "id": "Q07",
+            "status": "HOLD",
+            "judgment": "Neither following the old 24 V decision nor bypassing isolation is justified by the supplied evidence.",
+            "used_refs": [],
+            "limitations": [
+              "No applicable accepted decision or bypass authorization is supplied."
+            ]
+          },
+          {
+            "id": "Q08",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The latest sensor decision in collected mail cannot be determined.",
+            "used_refs": [],
+            "limitations": [
+              "No collected mail or collection-coverage evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q09",
+            "status": "NOT_AVAILABLE",
+            "judgment": "No exact supporting location for the specimen A measurement is available.",
+            "used_refs": [],
+            "limitations": [
+              "No measurement source, locator, or specimen linkage is supplied."
+            ]
+          },
+          {
+            "id": "Q10",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The original test body cannot be verified.",
+            "used_refs": [],
+            "limitations": [
+              "Neither the manifest entry nor its original test body is supplied."
+            ]
+          },
+          {
+            "id": "Q11",
+            "status": "HOLD",
+            "judgment": "A sensor supply voltage cannot be selected from this packet.",
+            "used_refs": [],
+            "limitations": [
+              "No sensor specification or applicable accepted supply decision is supplied."
+            ]
+          },
+          {
+            "id": "Q12",
+            "status": "OK",
+            "judgment": "No. Failure to retrieve an isolation failure does not establish that none has ever occurred.",
+            "used_refs": [],
+            "limitations": [
+              "The memory is empty; historical failure coverage is unknown."
+            ]
+          },
+          {
+            "id": "Q13",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The prerequisites for T-A1 bench qualification cannot be determined.",
+            "used_refs": [],
+            "limitations": [
+              "No prerequisite evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q14",
+            "status": "NOT_AVAILABLE",
+            "judgment": "Whether the specimen A measurement is already attached to an existing task is unknown.",
+            "used_refs": [],
+            "limitations": [
+              "No measurement attachment or task-link evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q15",
+            "status": "NOT_AVAILABLE",
+            "judgment": "No outstanding promise from actor-a can be identified.",
+            "used_refs": [],
+            "limitations": [
+              "No commitment or completion records are supplied."
+            ]
+          },
+          {
+            "id": "Q16",
+            "status": "HOLD",
+            "judgment": "No approved isolation-retest procedure can be selected for execution.",
+            "used_refs": [],
+            "limitations": [
+              "No procedure, approval, or applicability evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q17",
+            "status": "NOT_AVAILABLE",
+            "judgment": "A relevant previous failure cannot be identified.",
+            "used_refs": [],
+            "limitations": [
+              "No failure history or setup-matching evidence is supplied; absence from the packet does not establish absence of failures."
+            ]
+          },
+          {
+            "id": "Q18",
+            "status": "HOLD",
+            "judgment": "The bench run's applicable decision and prerequisite remain unresolved.",
+            "used_refs": [],
+            "limitations": [
+              "Neither accepted decision evidence nor prerequisite evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q19",
+            "status": "NOT_AVAILABLE",
+            "judgment": "No change to project acceptance criteria is established by the supplied packet.",
+            "used_refs": [],
+            "limitations": [
+              "Neither actor-a's preferred format nor acceptance criteria or an authorized amendment is supplied."
+            ]
+          },
+          {
+            "id": "Q20",
+            "status": "OK",
+            "judgment": "For P-A task T-A1 bench qualification, observe the accepted 60 C temperature ceiling and complete calibration before energizing.",
+            "used_refs": [],
+            "limitations": []
+          },
+          {
+            "id": "Q21",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The bounded review can identify only the P-A/T-A1 request scope; the supply issue and specimen traceability lack supplied supporting evidence.",
+            "used_refs": [],
+            "limitations": [
+              "The memory contains no items, so no evidence-backed supply finding, measurement, provenance, or traceability link can be prepared."
+            ]
+          },
+          {
+            "id": "Q22",
+            "status": "NOT_AVAILABLE",
+            "judgment": "No current test-voltage decision or reviewed prerequisite is available to return in stable reference order.",
+            "used_refs": [],
+            "limitations": [
+              "No supporting references are supplied."
+            ]
+          },
+          {
+            "id": "Q23",
+            "status": "HOLD",
+            "judgment": "Running the P-A sensor at 32 V is not authorized by the supplied packet.",
+            "used_refs": [],
+            "limitations": [
+              "No applicable voltage limit, accepted decision, or sensor specification is supplied; this is an evidence gap rather than a demonstrated 32 V prohibition."
+            ]
+          },
+          {
+            "id": "Q24",
+            "status": "NOT_AVAILABLE",
+            "judgment": "No varied past outcomes are available to support a candidate sensor-procedure improvement.",
+            "used_refs": [],
+            "limitations": [
+              "No historical outcome or procedure evidence is supplied; an evidence-based improvement cannot be inferred."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batch_id": "batch-2",
+      "input_digest": "sha256:873d8e91b2a64333fff2d4479b8d03222d4a9d6eef3564a6b3d75a7dbf9be1e5",
+      "transmission_verification": "Frozen payload copied into native fresh consumer request; native message body readback is opaque and was not decrypted",
+      "requested": {
+        "model": "gpt-6-astra",
+        "reasoning": "medium"
+      },
+      "observed_profile": "UNKNOWN",
+      "provider_usage": "UNKNOWN",
+      "billed_cost": "UNKNOWN",
+      "tier": "UNKNOWN",
+      "actual_consumer_calls": 1,
+      "elapsed_ms": 194226,
+      "elapsed_scope": "Native dispatch to delivered final response; orchestration included, not provider latency",
+      "response_digest": "sha256:6129bac5c9df341a200cfd15abda4eddd87962a22790322886480cd85caa55e6",
+      "format": "PASS",
+      "diagnostic_repair": null,
+      "raw_response": "{\"answers\":[{\"id\":\"Q01\",\"status\":\"OK\",\"judgment\":\"Power-unit review refers to project P-A, task T-A1; the same-title P-B task is separate.\",\"used_refs\":[\"F-TASK\"],\"limitations\":[\"Overall pack coverage is partial; exact task identity is supported.\"]},{\"id\":\"Q02\",\"status\":\"HOLD\",\"judgment\":\"A same-title P-B task cannot establish P-A's test-voltage limit. T-A1 has unresolved 28 V versus 30 V decisions, and neither establishes a sensor rating.\",\"used_refs\":[\"F-TASK\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"No applicable sensor voltage-limit source is supplied.\",\"The decision conflict is unresolved.\"]},{\"id\":\"Q03\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The bench result is unavailable in this request's authorized context; this packet does not permit access.\",\"used_refs\":[],\"limitations\":[\"CONTEXT_UNAVAILABLE\",\"No result evidence is supplied.\"]},{\"id\":\"Q04\",\"status\":\"HOLD\",\"judgment\":\"Resolve the project binding before choosing which Power-unit review to continue.\",\"used_refs\":[],\"limitations\":[\"The project is unspecified.\",\"INPUT_OR_BINDING_UNAVAILABLE\"]},{\"id\":\"Q05\",\"status\":\"OK\",\"judgment\":\"At the requested cutoff, the accepted T-A1 test-voltage decision is 28 V; the previous 24 V decision is superseded.\",\"used_refs\":[\"D-CURRENT\",\"C-REVISION\"],\"limitations\":[\"Overall pack coverage is partial; this accepted decision is supplied.\",\"This establishes a test decision, not a sensor's rated limit.\"]},{\"id\":\"Q06\",\"status\":\"HOLD\",\"judgment\":\"The decision available and effective on August 2 cannot be established from this packet.\",\"used_refs\":[],\"limitations\":[\"HISTORICAL_ACCEPTED_QUERY_UNSUPPORTED\",\"The question asks for August 2 effectiveness, but its context specifies valid_at August 1 and known_at August 2.\"]},{\"id\":\"Q07\",\"status\":\"HOLD\",\"judgment\":\"The old 24 V decision is superseded, and no supplied evidence authorizes bypassing isolation. Resolve the disputed 28 V versus 30 V decision before selecting a test voltage.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"No approved isolation-bypass instruction is supplied.\",\"The voltage conflict remains unresolved.\"]},{\"id\":\"Q08\",\"status\":\"HOLD\",\"judgment\":\"The latest collected-mail sensor decision cannot be established; the supplied 28 V and 30 V decisions conflict and do not establish currentness on August 8.\",\"used_refs\":[\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"Freshness is STALE_OR_UNCONFIRMED.\",\"Evidence coverage ends at known_at August 6 and valid_at August 5.\",\"No complete current mail record is supplied.\"]},{\"id\":\"Q09\",\"status\":\"OK\",\"judgment\":\"The specimen A result R-A attachment is supported by F-RESULT at S1, revision 10000000-0000-4000-8000-000000000901, entity 00000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected; content sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307.\",\"used_refs\":[\"F-RESULT\"],\"limitations\":[\"The supplied statement supports traceability to P-A/T-A1; it does not provide measurement values or the original test body.\"]},{\"id\":\"Q10\",\"status\":\"HOLD\",\"judgment\":\"The original test body cannot be verified from this empty evidence pack.\",\"used_refs\":[],\"limitations\":[\"SOURCE_UNAVAILABLE\",\"TASK_IDENTITY_UNCONFIRMED\",\"Requested information is missing despite accepted-corpus completeness.\"]},{\"id\":\"Q11\",\"status\":\"HOLD\",\"judgment\":\"No sensor supply voltage can be selected: the supplied task test decisions conflict between 28 V and 30 V, and no sensor supply specification is provided.\",\"used_refs\":[\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"A task test-voltage decision does not establish the sensor's permissible supply voltage.\",\"Partial coverage and unresolved conflict prevent a final selection.\"]},{\"id\":\"Q12\",\"status\":\"OK\",\"judgment\":\"No. Failure evidence absent from this partial retrieval does not establish that an isolation failure never occurred.\",\"used_refs\":[],\"limitations\":[\"Selector exclusions and insufficient coverage prevent an exhaustive historical conclusion.\",\"No isolation-failure evidence is supplied for this question.\"]},{\"id\":\"Q13\",\"status\":\"OK\",\"judgment\":\"Before T-A1 bench qualification, complete C-LIMIT setup by setting the input current limit to 2 A.\",\"used_refs\":[\"F-PRE\",\"C-LIMIT\"],\"limitations\":[\"This supports the stated prerequisite, not complete readiness or resolution of the voltage conflict.\"]},{\"id\":\"Q14\",\"status\":\"OK\",\"judgment\":\"Yes. Specimen A measurement result R-A is already attached to P-A task T-A1; do not create a duplicate task.\",\"used_refs\":[\"F-RESULT\",\"F-TASK\"],\"limitations\":[\"This attachment is accepted at the requested cutoff; overall coverage remains partial.\"]},{\"id\":\"Q15\",\"status\":\"HOLD\",\"judgment\":\"An outstanding promise from actor-a cannot be identified from the supplied evidence.\",\"used_refs\":[],\"limitations\":[\"No commitment item is supplied.\",\"Non-retrieval does not establish that no promise exists.\"]},{\"id\":\"Q16\",\"status\":\"HOLD\",\"judgment\":\"No approved isolation-retest procedure is supplied, so an executable procedure cannot be selected.\",\"used_refs\":[],\"limitations\":[\"The requested procedure kind is missing.\",\"Pack coverage is insufficient; approval and execution steps cannot be inferred.\"]},{\"id\":\"Q17\",\"status\":\"HOLD\",\"judgment\":\"The relevant previous failure cannot be identified from this question's pack.\",\"used_refs\":[],\"limitations\":[\"No failure item is supplied.\",\"Evidence available to other questions cannot establish this setup's failure history.\"]},{\"id\":\"Q18\",\"status\":\"HOLD\",\"judgment\":\"Set the input current limit to 2 A before the bench run. The test-voltage decision remains unresolved between 28 V and 30 V and requires reconciliation.\",\"used_refs\":[\"F-PRE\",\"C-LIMIT\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"The prerequisite is supported, but a final voltage selection is not.\",\"Overall coverage is partial.\"]},{\"id\":\"Q19\",\"status\":\"OK\",\"judgment\":\"No supplied authority allows a concise-format preference to change project acceptance criteria; the item supports presentation preference only.\",\"used_refs\":[\"P-COMMON\"],\"limitations\":[\"The actual acceptance criteria are not supplied.\"]},{\"id\":\"Q20\",\"status\":\"OK\",\"judgment\":\"For P-A task T-A1 bench qualification, complete calibration before energizing and keep the temperature at or below the accepted 60 C ceiling.\",\"used_refs\":[],\"limitations\":[]},{\"id\":\"Q21\",\"status\":\"OK\",\"judgment\":\"Bounded review evidence: P-A/T-A1 is distinct from the same-title P-B task; specimen A result R-A is already attached to T-A1; set the input current limit to 2 A before the run; the 28 V and 30 V test decisions remain disputed.\",\"used_refs\":[\"F-TASK\",\"F-RESULT\",\"F-PRE\",\"C-LIMIT\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"This is an evidence summary, not run approval.\",\"No sensor supply specification or original measurement values are supplied.\",\"Partial coverage and unresolved voltage conflict prevent a final supply judgment.\"]},{\"id\":\"Q22\",\"status\":\"HOLD\",\"judgment\":\"Stable reference order: C-LIMIT—set input current limit to 2 A; D-CONFLICT—30 V remains disputed; D-CURRENT—28 V correction remains disputed; F-PRE—complete C-LIMIT before T-A1 bench qualification. No single current voltage decision is established.\",\"used_refs\":[\"C-LIMIT\",\"D-CONFLICT\",\"D-CURRENT\",\"F-PRE\"],\"limitations\":[\"The prerequisite is accepted at cutoff; the voltage decisions require reconciliation.\",\"Partial pack coverage is not a final readiness judgment.\"]},{\"id\":\"Q23\",\"status\":\"HOLD\",\"judgment\":\"This packet does not support running the P-A sensor at 32 V. Its task test decisions conflict between 28 V and 30 V, and its 2 A current-limit prerequisite does not establish a permissible sensor voltage.\",\"used_refs\":[\"F-TASK\",\"D-CURRENT\",\"D-CONFLICT\",\"F-PRE\",\"C-LIMIT\"],\"limitations\":[\"No sensor voltage rating or approved 32 V decision is supplied.\",\"This is insufficient authorization evidence, not proof of a specific physical voltage ceiling.\"]},{\"id\":\"Q24\",\"status\":\"OK\",\"judgment\":\"The varied outcomes are a failure after omitted wiring-polarity verification, a retest after omitted instrument calibration, and a successful test combining calibration verification with polarity checks. These support considering a combined pre-run calibration-and-polarity checklist as a candidate improvement.\",\"used_refs\":[\"F-PRECEDENT\",\"F-REVIEW\",\"S-REVIEW\"],\"limitations\":[\"These examples do not establish causation or an approved executable procedure.\",\"Coverage is partial and includes an unconfirmed relation target.\",\"Applicability and approval of the candidate improvement remain to be established.\"]}]}",
+      "response": {
+        "answers": [
+          {
+            "id": "Q01",
+            "status": "OK",
+            "judgment": "Power-unit review refers to project P-A, task T-A1; the same-title P-B task is separate.",
+            "used_refs": [
+              "F-TASK"
+            ],
+            "limitations": [
+              "Overall pack coverage is partial; exact task identity is supported."
+            ]
+          },
+          {
+            "id": "Q02",
+            "status": "HOLD",
+            "judgment": "A same-title P-B task cannot establish P-A's test-voltage limit. T-A1 has unresolved 28 V versus 30 V decisions, and neither establishes a sensor rating.",
+            "used_refs": [
+              "F-TASK",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "No applicable sensor voltage-limit source is supplied.",
+              "The decision conflict is unresolved."
+            ]
+          },
+          {
+            "id": "Q03",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The bench result is unavailable in this request's authorized context; this packet does not permit access.",
+            "used_refs": [],
+            "limitations": [
+              "CONTEXT_UNAVAILABLE",
+              "No result evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q04",
+            "status": "HOLD",
+            "judgment": "Resolve the project binding before choosing which Power-unit review to continue.",
+            "used_refs": [],
+            "limitations": [
+              "The project is unspecified.",
+              "INPUT_OR_BINDING_UNAVAILABLE"
+            ]
+          },
+          {
+            "id": "Q05",
+            "status": "OK",
+            "judgment": "At the requested cutoff, the accepted T-A1 test-voltage decision is 28 V; the previous 24 V decision is superseded.",
+            "used_refs": [
+              "D-CURRENT",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "Overall pack coverage is partial; this accepted decision is supplied.",
+              "This establishes a test decision, not a sensor's rated limit."
+            ]
+          },
+          {
+            "id": "Q06",
+            "status": "HOLD",
+            "judgment": "The decision available and effective on August 2 cannot be established from this packet.",
+            "used_refs": [],
+            "limitations": [
+              "HISTORICAL_ACCEPTED_QUERY_UNSUPPORTED",
+              "The question asks for August 2 effectiveness, but its context specifies valid_at August 1 and known_at August 2."
+            ]
+          },
+          {
+            "id": "Q07",
+            "status": "HOLD",
+            "judgment": "The old 24 V decision is superseded, and no supplied evidence authorizes bypassing isolation. Resolve the disputed 28 V versus 30 V decision before selecting a test voltage.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "No approved isolation-bypass instruction is supplied.",
+              "The voltage conflict remains unresolved."
+            ]
+          },
+          {
+            "id": "Q08",
+            "status": "HOLD",
+            "judgment": "The latest collected-mail sensor decision cannot be established; the supplied 28 V and 30 V decisions conflict and do not establish currentness on August 8.",
+            "used_refs": [
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "Freshness is STALE_OR_UNCONFIRMED.",
+              "Evidence coverage ends at known_at August 6 and valid_at August 5.",
+              "No complete current mail record is supplied."
+            ]
+          },
+          {
+            "id": "Q09",
+            "status": "OK",
+            "judgment": "The specimen A result R-A attachment is supported by F-RESULT at S1, revision 10000000-0000-4000-8000-000000000901, entity 00000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected; content sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307.",
+            "used_refs": [
+              "F-RESULT"
+            ],
+            "limitations": [
+              "The supplied statement supports traceability to P-A/T-A1; it does not provide measurement values or the original test body."
+            ]
+          },
+          {
+            "id": "Q10",
+            "status": "HOLD",
+            "judgment": "The original test body cannot be verified from this empty evidence pack.",
+            "used_refs": [],
+            "limitations": [
+              "SOURCE_UNAVAILABLE",
+              "TASK_IDENTITY_UNCONFIRMED",
+              "Requested information is missing despite accepted-corpus completeness."
+            ]
+          },
+          {
+            "id": "Q11",
+            "status": "HOLD",
+            "judgment": "No sensor supply voltage can be selected: the supplied task test decisions conflict between 28 V and 30 V, and no sensor supply specification is provided.",
+            "used_refs": [
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "A task test-voltage decision does not establish the sensor's permissible supply voltage.",
+              "Partial coverage and unresolved conflict prevent a final selection."
+            ]
+          },
+          {
+            "id": "Q12",
+            "status": "OK",
+            "judgment": "No. Failure evidence absent from this partial retrieval does not establish that an isolation failure never occurred.",
+            "used_refs": [],
+            "limitations": [
+              "Selector exclusions and insufficient coverage prevent an exhaustive historical conclusion.",
+              "No isolation-failure evidence is supplied for this question."
+            ]
+          },
+          {
+            "id": "Q13",
+            "status": "OK",
+            "judgment": "Before T-A1 bench qualification, complete C-LIMIT setup by setting the input current limit to 2 A.",
+            "used_refs": [
+              "F-PRE",
+              "C-LIMIT"
+            ],
+            "limitations": [
+              "This supports the stated prerequisite, not complete readiness or resolution of the voltage conflict."
+            ]
+          },
+          {
+            "id": "Q14",
+            "status": "OK",
+            "judgment": "Yes. Specimen A measurement result R-A is already attached to P-A task T-A1; do not create a duplicate task.",
+            "used_refs": [
+              "F-RESULT",
+              "F-TASK"
+            ],
+            "limitations": [
+              "This attachment is accepted at the requested cutoff; overall coverage remains partial."
+            ]
+          },
+          {
+            "id": "Q15",
+            "status": "HOLD",
+            "judgment": "An outstanding promise from actor-a cannot be identified from the supplied evidence.",
+            "used_refs": [],
+            "limitations": [
+              "No commitment item is supplied.",
+              "Non-retrieval does not establish that no promise exists."
+            ]
+          },
+          {
+            "id": "Q16",
+            "status": "HOLD",
+            "judgment": "No approved isolation-retest procedure is supplied, so an executable procedure cannot be selected.",
+            "used_refs": [],
+            "limitations": [
+              "The requested procedure kind is missing.",
+              "Pack coverage is insufficient; approval and execution steps cannot be inferred."
+            ]
+          },
+          {
+            "id": "Q17",
+            "status": "HOLD",
+            "judgment": "The relevant previous failure cannot be identified from this question's pack.",
+            "used_refs": [],
+            "limitations": [
+              "No failure item is supplied.",
+              "Evidence available to other questions cannot establish this setup's failure history."
+            ]
+          },
+          {
+            "id": "Q18",
+            "status": "HOLD",
+            "judgment": "Set the input current limit to 2 A before the bench run. The test-voltage decision remains unresolved between 28 V and 30 V and requires reconciliation.",
+            "used_refs": [
+              "F-PRE",
+              "C-LIMIT",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "The prerequisite is supported, but a final voltage selection is not.",
+              "Overall coverage is partial."
+            ]
+          },
+          {
+            "id": "Q19",
+            "status": "OK",
+            "judgment": "No supplied authority allows a concise-format preference to change project acceptance criteria; the item supports presentation preference only.",
+            "used_refs": [
+              "P-COMMON"
+            ],
+            "limitations": [
+              "The actual acceptance criteria are not supplied."
+            ]
+          },
+          {
+            "id": "Q20",
+            "status": "OK",
+            "judgment": "For P-A task T-A1 bench qualification, complete calibration before energizing and keep the temperature at or below the accepted 60 C ceiling.",
+            "used_refs": [],
+            "limitations": []
+          },
+          {
+            "id": "Q21",
+            "status": "OK",
+            "judgment": "Bounded review evidence: P-A/T-A1 is distinct from the same-title P-B task; specimen A result R-A is already attached to T-A1; set the input current limit to 2 A before the run; the 28 V and 30 V test decisions remain disputed.",
+            "used_refs": [
+              "F-TASK",
+              "F-RESULT",
+              "F-PRE",
+              "C-LIMIT",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "This is an evidence summary, not run approval.",
+              "No sensor supply specification or original measurement values are supplied.",
+              "Partial coverage and unresolved voltage conflict prevent a final supply judgment."
+            ]
+          },
+          {
+            "id": "Q22",
+            "status": "HOLD",
+            "judgment": "Stable reference order: C-LIMIT—set input current limit to 2 A; D-CONFLICT—30 V remains disputed; D-CURRENT—28 V correction remains disputed; F-PRE—complete C-LIMIT before T-A1 bench qualification. No single current voltage decision is established.",
+            "used_refs": [
+              "C-LIMIT",
+              "D-CONFLICT",
+              "D-CURRENT",
+              "F-PRE"
+            ],
+            "limitations": [
+              "The prerequisite is accepted at cutoff; the voltage decisions require reconciliation.",
+              "Partial pack coverage is not a final readiness judgment."
+            ]
+          },
+          {
+            "id": "Q23",
+            "status": "HOLD",
+            "judgment": "This packet does not support running the P-A sensor at 32 V. Its task test decisions conflict between 28 V and 30 V, and its 2 A current-limit prerequisite does not establish a permissible sensor voltage.",
+            "used_refs": [
+              "F-TASK",
+              "D-CURRENT",
+              "D-CONFLICT",
+              "F-PRE",
+              "C-LIMIT"
+            ],
+            "limitations": [
+              "No sensor voltage rating or approved 32 V decision is supplied.",
+              "This is insufficient authorization evidence, not proof of a specific physical voltage ceiling."
+            ]
+          },
+          {
+            "id": "Q24",
+            "status": "OK",
+            "judgment": "The varied outcomes are a failure after omitted wiring-polarity verification, a retest after omitted instrument calibration, and a successful test combining calibration verification with polarity checks. These support considering a combined pre-run calibration-and-polarity checklist as a candidate improvement.",
+            "used_refs": [
+              "F-PRECEDENT",
+              "F-REVIEW",
+              "S-REVIEW"
+            ],
+            "limitations": [
+              "These examples do not establish causation or an approved executable procedure.",
+              "Coverage is partial and includes an unconfirmed relation target.",
+              "Applicability and approval of the candidate improvement remain to be established."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batch_id": "batch-3",
+      "input_digest": "sha256:8f093bc18ba6024f16e32ff5dfe9b8a341c4fd2ae7af8e7e8f49588771d8dc57",
+      "transmission_verification": "Frozen payload copied into native fresh consumer request; native message body readback is opaque and was not decrypted",
+      "requested": {
+        "model": "gpt-6-astra",
+        "reasoning": "medium"
+      },
+      "observed_profile": "UNKNOWN",
+      "provider_usage": "UNKNOWN",
+      "billed_cost": "UNKNOWN",
+      "tier": "UNKNOWN",
+      "actual_consumer_calls": 1,
+      "elapsed_ms": 274951,
+      "elapsed_scope": "Native dispatch to delivered final response; orchestration included, not provider latency",
+      "response_digest": "sha256:496cd397ed5af83e2d00bf4137fe45078e5973acd2048b2b5cb2eb4fc3ba1899",
+      "format": "FAIL",
+      "diagnostic_repair": "Appended missing array/object terminators solely for diagnostic semantic inspection; original format remains FAIL",
+      "raw_response": "{\"answers\":[{\"id\":\"Q01\",\"status\":\"OK\",\"judgment\":\"The request context identifies project P-A and task T-A1. The title alone does not establish identity.\",\"used_refs\":[],\"limitations\":[\"No independent task-identity record is included in this memory; identity comes from this request context.\"]},{\"id\":\"Q02\",\"status\":\"OK\",\"judgment\":\"No. A shared title cannot establish applicability to P-A/T-A1. This pack's task-specific voltage records conflict between 28 V and 30 V.\",\"used_refs\":[\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"No same-title material from another project is supplied.\",\"The voltage conflict is unresolved.\"]},{\"id\":\"Q03\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"This request provides no accessible bench result and establishes no permission to read it.\",\"used_refs\":[],\"limitations\":[\"Actor is unauthorized; context is unavailable.\",\"No result content was supplied.\"]},{\"id\":\"Q04\",\"status\":\"HOLD\",\"judgment\":\"The project must be specified before continuing T-A1.\",\"used_refs\":[],\"limitations\":[\"The request leaves project unspecified, and the memory reports unavailable input or binding.\",\"No project identity may be borrowed from another question.\"]},{\"id\":\"Q05\",\"status\":\"OK\",\"judgment\":\"At the requested cutoff, the accepted decision changes T-A1 test voltage to 28 V; the former 24 V decision is superseded.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\"],\"limitations\":[\"This answers the bounded voltage question; overall pack coverage remains insufficient.\",\"It does not establish status after the requested cutoff.\"]},{\"id\":\"Q06\",\"status\":\"HOLD\",\"judgment\":\"The available memory cannot establish the historical voltage decision.\",\"used_refs\":[],\"limitations\":[\"Historical accepted queries are unsupported in this memory.\",\"The question asks for work effective August 2, but its context sets valid_at to August 1.\"]},{\"id\":\"Q07\",\"status\":\"HOLD\",\"judgment\":\"Do not rely on the superseded 24 V decision. The supplied 28 V and 30 V decisions remain disputed, and no evidence authorizes bypassing isolation.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"Isolation requirements or bypass approval are not supplied.\",\"A final test-voltage choice cannot be made from this unresolved pack.\"]},{\"id\":\"Q08\",\"status\":\"HOLD\",\"judgment\":\"The latest sensor decision cannot be established. The available voltage records conflict between 28 V and 30 V and are not confirmed current for August 8.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"Freshness is stale or unconfirmed relative to the request.\",\"No collected-mail chronology or sensor-specific decision is supplied.\"]},{\"id\":\"Q09\",\"status\":\"HOLD\",\"judgment\":\"No specimen A measurement evidence or exact supporting locator is included in this question's memory.\",\"used_refs\":[],\"limitations\":[\"Pack coverage is insufficient and selector omissions exist.\",\"Other questions' specimen records are unavailable for this answer.\"]},{\"id\":\"Q10\",\"status\":\"HOLD\",\"judgment\":\"The original test body cannot be verified from this empty pack.\",\"used_refs\":[],\"limitations\":[\"The source is unavailable and task identity is unconfirmed.\",\"Accepted-corpus completeness does not supply the missing original body.\"]},{\"id\":\"Q11\",\"status\":\"HOLD\",\"judgment\":\"A sensor supply voltage cannot be selected: T-A1 test-voltage records disagree between 28 V and 30 V, and the former 24 V decision is superseded.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"No explicit evidence equates the task's test voltage with the sensor supply rating.\",\"The conflict is unresolved.\"]},{\"id\":\"Q12\",\"status\":\"OK\",\"judgment\":\"No. Failure to retrieve an isolation failure does not prove none has ever occurred. The pack does record a previous failure involving unchecked wiring polarity.\",\"used_refs\":[\"F-PRECEDENT\"],\"limitations\":[\"The recorded failure is not identified as an isolation failure.\",\"Overall coverage is insufficient; retrieval is not a complete failure history.\"]},{\"id\":\"Q13\",\"status\":\"OK\",\"judgment\":\"Before the test, set the input current limit to 2 A. When using the same connector, check polarity first because a previous test failed after that check was omitted.\",\"used_refs\":[\"C-LIMIT\",\"F-PRECEDENT\"],\"limitations\":[\"These are the supplied prerequisites, not a complete qualification checklist.\",\"The test-voltage conflict remains unresolved.\"]},{\"id\":\"Q14\",\"status\":\"HOLD\",\"judgment\":\"This pack cannot establish whether specimen A's measurement is attached to an existing task.\",\"used_refs\":[],\"limitations\":[\"No specimen-to-task attachment record is included.\",\"Do not infer either an existing attachment or the need for a new task.\"]},{\"id\":\"Q15\",\"status\":\"HOLD\",\"judgment\":\"The recorded outstanding promise is that responsible person A will submit the test records to the reviewer. Attribution to actor-a is not explicitly established.\",\"used_refs\":[\"P-OPEN\"],\"limitations\":[\"No binding between actor-a and the recorded responsible person A is supplied.\"]},{\"id\":\"Q16\",\"status\":\"HOLD\",\"judgment\":\"No approved isolation-retest procedure is supplied, so an executable procedure cannot be selected.\",\"used_refs\":[],\"limitations\":[\"The requested procedure kind is missing and coverage is insufficient.\",\"This is absence from the pack, not proof that no approved procedure exists.\"]},{\"id\":\"Q17\",\"status\":\"OK\",\"judgment\":\"The supplied precedent is a test failure caused by not checking wiring polarity; check polarity before reusing the same connector.\",\"used_refs\":[\"F-PRECEDENT\"],\"limitations\":[\"The record does not specifically identify an isolation failure or prove that the present setup uses that connector.\",\"The pack does not provide a complete failure history.\"]},{\"id\":\"Q18\",\"status\":\"HOLD\",\"judgment\":\"Set the current limit to 2 A before the run and check polarity when reusing the same connector. Resolve the disputed 28 V versus 30 V decisions before selecting voltage; 24 V is superseded.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\",\"C-LIMIT\",\"F-PRECEDENT\"],\"limitations\":[\"These bounded prerequisites do not resolve the final voltage decision.\",\"Overall coverage is insufficient.\"]},{\"id\":\"Q19\",\"status\":\"OK\",\"judgment\":\"No supplied evidence makes a concise-format preference a change to project acceptance criteria.\",\"used_refs\":[\"P-COMMON\"],\"limitations\":[\"The memory establishes only a formatting preference under explicit common read permission.\",\"It supplies neither acceptance criteria nor an amendment to them.\"]},{\"id\":\"Q20\",\"status\":\"OK\",\"judgment\":\"For P-A task T-A1 bench qualification, observe the accepted 60 C temperature ceiling and complete calibration before energizing.\",\"used_refs\":[],\"limitations\":[]},{\"id\":\"Q21\",\"status\":\"OK\",\"judgment\":\"Bounded review evidence: the old 24 V decision is superseded; 28 V and 30 V test-voltage decisions remain disputed; set the input current limit to 2 A before testing; check polarity when reusing the same connector; responsible person A still owes the reviewer the test records. Specimen traceability is unavailable in this pack.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\",\"C-LIMIT\",\"P-OPEN\",\"F-PRECEDENT\"],\"limitations\":[\"This evidence summary is not final bench-run approval.\",\"No sensor-supply equivalence or specimen A attachment and measurement source is supplied.\",\"Coverage remains insufficient.\"]},{\"id\":\"Q22\",\"status\":\"HOLD\",\"judgment\":\"In stable reference order: C-LIMIT requires a 2 A input current limit before testing; D-CONFLICT retains 30 V; D-CURRENT changes the voltage to 28 V. The two voltage decisions remain disputed.\",\"used_refs\":[\"C-LIMIT\",\"D-CONFLICT\",\"D-CURRENT\"],\"limitations\":[\"No single current voltage decision can be selected until the conflict is resolved.\",\"The pack does not establish a complete prerequisite list.\"]},{\"id\":\"Q23\",\"status\":\"HOLD\",\"judgment\":\"The supplied evidence does not authorize a 32 V sensor run. It contains disputed 28 V and 30 V test decisions and a superseded 24 V decision, with no accepted 32 V decision or sensor rating.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"This does not establish a physical maximum safe voltage.\",\"Resolve the decision conflict and obtain applicable sensor evidence before approving the proposed run.\"]},{\"id\":\"Q24\",\"status\":\"OK\",\"judgment\":\"Relevant varied outcomes are a failure after omitted polarity verification, a retest after omitted instrument calibration, and a successful test combining calibration verification with polarity checking. A candidate improvement is to add both checks before energizing and retain the 2 A current-limit prerequisite. Result R-A for specimen A is already attached to exact P-A task T-A1; preserve that attachment rather than creating a duplicate task.\",\"used_refs\":[\"F-PRECEDENT\",\"F-REVIEW\",\"S-REVIEW\",\"F-PRE\",\"F-TASK\",\"F-RESULT\"],\"limitations\":[\"The successful case supports a candidate improvement, not causal proof or approval to execute a revised procedure.\",\"The pack reports insufficient coverage and an unconfirmed relation target; it is not a complete procedure or outcome history.\"]}",
+      "response": {
+        "answers": [
+          {
+            "id": "Q01",
+            "status": "OK",
+            "judgment": "The request context identifies project P-A and task T-A1. The title alone does not establish identity.",
+            "used_refs": [],
+            "limitations": [
+              "No independent task-identity record is included in this memory; identity comes from this request context."
+            ]
+          },
+          {
+            "id": "Q02",
+            "status": "OK",
+            "judgment": "No. A shared title cannot establish applicability to P-A/T-A1. This pack's task-specific voltage records conflict between 28 V and 30 V.",
+            "used_refs": [
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "No same-title material from another project is supplied.",
+              "The voltage conflict is unresolved."
+            ]
+          },
+          {
+            "id": "Q03",
+            "status": "NOT_AVAILABLE",
+            "judgment": "This request provides no accessible bench result and establishes no permission to read it.",
+            "used_refs": [],
+            "limitations": [
+              "Actor is unauthorized; context is unavailable.",
+              "No result content was supplied."
+            ]
+          },
+          {
+            "id": "Q04",
+            "status": "HOLD",
+            "judgment": "The project must be specified before continuing T-A1.",
+            "used_refs": [],
+            "limitations": [
+              "The request leaves project unspecified, and the memory reports unavailable input or binding.",
+              "No project identity may be borrowed from another question."
+            ]
+          },
+          {
+            "id": "Q05",
+            "status": "OK",
+            "judgment": "At the requested cutoff, the accepted decision changes T-A1 test voltage to 28 V; the former 24 V decision is superseded.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "This answers the bounded voltage question; overall pack coverage remains insufficient.",
+              "It does not establish status after the requested cutoff."
+            ]
+          },
+          {
+            "id": "Q06",
+            "status": "HOLD",
+            "judgment": "The available memory cannot establish the historical voltage decision.",
+            "used_refs": [],
+            "limitations": [
+              "Historical accepted queries are unsupported in this memory.",
+              "The question asks for work effective August 2, but its context sets valid_at to August 1."
+            ]
+          },
+          {
+            "id": "Q07",
+            "status": "HOLD",
+            "judgment": "Do not rely on the superseded 24 V decision. The supplied 28 V and 30 V decisions remain disputed, and no evidence authorizes bypassing isolation.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "Isolation requirements or bypass approval are not supplied.",
+              "A final test-voltage choice cannot be made from this unresolved pack."
+            ]
+          },
+          {
+            "id": "Q08",
+            "status": "HOLD",
+            "judgment": "The latest sensor decision cannot be established. The available voltage records conflict between 28 V and 30 V and are not confirmed current for August 8.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "Freshness is stale or unconfirmed relative to the request.",
+              "No collected-mail chronology or sensor-specific decision is supplied."
+            ]
+          },
+          {
+            "id": "Q09",
+            "status": "HOLD",
+            "judgment": "No specimen A measurement evidence or exact supporting locator is included in this question's memory.",
+            "used_refs": [],
+            "limitations": [
+              "Pack coverage is insufficient and selector omissions exist.",
+              "Other questions' specimen records are unavailable for this answer."
+            ]
+          },
+          {
+            "id": "Q10",
+            "status": "HOLD",
+            "judgment": "The original test body cannot be verified from this empty pack.",
+            "used_refs": [],
+            "limitations": [
+              "The source is unavailable and task identity is unconfirmed.",
+              "Accepted-corpus completeness does not supply the missing original body."
+            ]
+          },
+          {
+            "id": "Q11",
+            "status": "HOLD",
+            "judgment": "A sensor supply voltage cannot be selected: T-A1 test-voltage records disagree between 28 V and 30 V, and the former 24 V decision is superseded.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "No explicit evidence equates the task's test voltage with the sensor supply rating.",
+              "The conflict is unresolved."
+            ]
+          },
+          {
+            "id": "Q12",
+            "status": "OK",
+            "judgment": "No. Failure to retrieve an isolation failure does not prove none has ever occurred. The pack does record a previous failure involving unchecked wiring polarity.",
+            "used_refs": [
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "The recorded failure is not identified as an isolation failure.",
+              "Overall coverage is insufficient; retrieval is not a complete failure history."
+            ]
+          },
+          {
+            "id": "Q13",
+            "status": "OK",
+            "judgment": "Before the test, set the input current limit to 2 A. When using the same connector, check polarity first because a previous test failed after that check was omitted.",
+            "used_refs": [
+              "C-LIMIT",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "These are the supplied prerequisites, not a complete qualification checklist.",
+              "The test-voltage conflict remains unresolved."
+            ]
+          },
+          {
+            "id": "Q14",
+            "status": "HOLD",
+            "judgment": "This pack cannot establish whether specimen A's measurement is attached to an existing task.",
+            "used_refs": [],
+            "limitations": [
+              "No specimen-to-task attachment record is included.",
+              "Do not infer either an existing attachment or the need for a new task."
+            ]
+          },
+          {
+            "id": "Q15",
+            "status": "HOLD",
+            "judgment": "The recorded outstanding promise is that responsible person A will submit the test records to the reviewer. Attribution to actor-a is not explicitly established.",
+            "used_refs": [
+              "P-OPEN"
+            ],
+            "limitations": [
+              "No binding between actor-a and the recorded responsible person A is supplied."
+            ]
+          },
+          {
+            "id": "Q16",
+            "status": "HOLD",
+            "judgment": "No approved isolation-retest procedure is supplied, so an executable procedure cannot be selected.",
+            "used_refs": [],
+            "limitations": [
+              "The requested procedure kind is missing and coverage is insufficient.",
+              "This is absence from the pack, not proof that no approved procedure exists."
+            ]
+          },
+          {
+            "id": "Q17",
+            "status": "OK",
+            "judgment": "The supplied precedent is a test failure caused by not checking wiring polarity; check polarity before reusing the same connector.",
+            "used_refs": [
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "The record does not specifically identify an isolation failure or prove that the present setup uses that connector.",
+              "The pack does not provide a complete failure history."
+            ]
+          },
+          {
+            "id": "Q18",
+            "status": "HOLD",
+            "judgment": "Set the current limit to 2 A before the run and check polarity when reusing the same connector. Resolve the disputed 28 V versus 30 V decisions before selecting voltage; 24 V is superseded.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT",
+              "C-LIMIT",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "These bounded prerequisites do not resolve the final voltage decision.",
+              "Overall coverage is insufficient."
+            ]
+          },
+          {
+            "id": "Q19",
+            "status": "OK",
+            "judgment": "No supplied evidence makes a concise-format preference a change to project acceptance criteria.",
+            "used_refs": [
+              "P-COMMON"
+            ],
+            "limitations": [
+              "The memory establishes only a formatting preference under explicit common read permission.",
+              "It supplies neither acceptance criteria nor an amendment to them."
+            ]
+          },
+          {
+            "id": "Q20",
+            "status": "OK",
+            "judgment": "For P-A task T-A1 bench qualification, observe the accepted 60 C temperature ceiling and complete calibration before energizing.",
+            "used_refs": [],
+            "limitations": []
+          },
+          {
+            "id": "Q21",
+            "status": "OK",
+            "judgment": "Bounded review evidence: the old 24 V decision is superseded; 28 V and 30 V test-voltage decisions remain disputed; set the input current limit to 2 A before testing; check polarity when reusing the same connector; responsible person A still owes the reviewer the test records. Specimen traceability is unavailable in this pack.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT",
+              "C-LIMIT",
+              "P-OPEN",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "This evidence summary is not final bench-run approval.",
+              "No sensor-supply equivalence or specimen A attachment and measurement source is supplied.",
+              "Coverage remains insufficient."
+            ]
+          },
+          {
+            "id": "Q22",
+            "status": "HOLD",
+            "judgment": "In stable reference order: C-LIMIT requires a 2 A input current limit before testing; D-CONFLICT retains 30 V; D-CURRENT changes the voltage to 28 V. The two voltage decisions remain disputed.",
+            "used_refs": [
+              "C-LIMIT",
+              "D-CONFLICT",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "No single current voltage decision can be selected until the conflict is resolved.",
+              "The pack does not establish a complete prerequisite list."
+            ]
+          },
+          {
+            "id": "Q23",
+            "status": "HOLD",
+            "judgment": "The supplied evidence does not authorize a 32 V sensor run. It contains disputed 28 V and 30 V test decisions and a superseded 24 V decision, with no accepted 32 V decision or sensor rating.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "This does not establish a physical maximum safe voltage.",
+              "Resolve the decision conflict and obtain applicable sensor evidence before approving the proposed run."
+            ]
+          },
+          {
+            "id": "Q24",
+            "status": "OK",
+            "judgment": "Relevant varied outcomes are a failure after omitted polarity verification, a retest after omitted instrument calibration, and a successful test combining calibration verification with polarity checking. A candidate improvement is to add both checks before energizing and retain the 2 A current-limit prerequisite. Result R-A for specimen A is already attached to exact P-A task T-A1; preserve that attachment rather than creating a duplicate task.",
+            "used_refs": [
+              "F-PRECEDENT",
+              "F-REVIEW",
+              "S-REVIEW",
+              "F-PRE",
+              "F-TASK",
+              "F-RESULT"
+            ],
+            "limitations": [
+              "The successful case supports a candidate improvement, not causal proof or approval to execute a revised procedure.",
+              "The pack reports insufficient coverage and an unconfirmed relation target; it is not a complete procedure or outcome history."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batch_id": "batch-4",
+      "input_digest": "sha256:3b74d907da32d54bb20679915dc9865d9f647bb9e9c3f550bac16ede0147fea2",
+      "transmission_verification": "Frozen payload copied into native fresh consumer request; native message body readback is opaque and was not decrypted",
+      "requested": {
+        "model": "gpt-6-astra",
+        "reasoning": "medium"
+      },
+      "observed_profile": "UNKNOWN",
+      "provider_usage": "UNKNOWN",
+      "billed_cost": "UNKNOWN",
+      "tier": "UNKNOWN",
+      "actual_consumer_calls": 1,
+      "elapsed_ms": 69473,
+      "elapsed_scope": "Native dispatch to delivered final response; orchestration included, not provider latency",
+      "response_digest": "sha256:f20d92235813785c02af159fefe7305d055328fa64d501213abf6b3431acbb2c",
+      "format": "PASS",
+      "diagnostic_repair": null,
+      "raw_response": "{\"answers\":[{\"id\":\"Q01\",\"status\":\"OK\",\"judgment\":\"It refers to P-A task T-A1, the power-unit verification task, distinct from the same-title P-B task.\",\"used_refs\":[\"F-TASK\"],\"limitations\":[\"The pack is partial; this exact identity is supported, but broader coverage is insufficient.\"]},{\"id\":\"Q02\",\"status\":\"HOLD\",\"judgment\":\"A shared title cannot establish this project's voltage limit: P-A T-A1 is distinct from P-B. The supplied 28 V decision is disputed, and the previous 24 V decision is superseded.\",\"used_refs\":[\"F-TASK\",\"D-CURRENT\",\"C-REVISION\"],\"limitations\":[\"The conflict is unresolved and its complete proof is not selected; no final voltage limit can be established.\"]},{\"id\":\"Q03\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The bench result is not available in this question's authorized context.\",\"used_refs\":[],\"limitations\":[\"The requester is unauthorized and the pack reports CONTEXT_UNAVAILABLE; no result or access permission is supplied.\"]},{\"id\":\"Q04\",\"status\":\"HOLD\",\"judgment\":\"The project must be specified before selecting which Power-unit review to continue.\",\"used_refs\":[],\"limitations\":[\"Task T-A1 alone does not resolve the missing project binding; the pack reports INPUT_OR_BINDING_UNAVAILABLE.\"]},{\"id\":\"Q05\",\"status\":\"OK\",\"judgment\":\"At the supplied August 5 valid-time and August 6 knowledge cutoff, the accepted corrected test voltage is 28 V; the previous 24 V decision is superseded.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\"],\"limitations\":[\"This is a bounded decision answer from this pack; overall coverage remains partial.\"]},{\"id\":\"Q06\",\"status\":\"HOLD\",\"judgment\":\"The historical decision cannot be determined from this pack.\",\"used_refs\":[],\"limitations\":[\"Historical accepted queries are unsupported. The question asks for work effective August 2, but its context specifies valid_at August 1 and known_at August 2.\"]},{\"id\":\"Q07\",\"status\":\"HOLD\",\"judgment\":\"Do not rely on the superseded 24 V decision. The supplied constraint requires a 2 A input-current limit before testing; nothing supplied authorizes bypassing isolation.\",\"used_refs\":[\"C-REVISION\",\"C-LIMIT\"],\"limitations\":[\"No current voltage decision or isolation-bypass authorization is supplied; the partial pack reports an unresolved conflict.\"]},{\"id\":\"Q08\",\"status\":\"HOLD\",\"judgment\":\"The supplied decisions conflict: one specifies 28 V and another maintains 30 V. Neither establishes the latest resolved decision.\",\"used_refs\":[\"D-CONFLICT\",\"D-CURRENT\"],\"limitations\":[\"Freshness is unconfirmed. Evidence is accepted only at the August 5/August 6 cutoff, while this request asks as of August 8; latest collected-mail coverage is not established.\"]},{\"id\":\"Q09\",\"status\":\"OK\",\"judgment\":\"The supplied support is F-RESULT at S1, paragraph:1, timeline-span:corrected; entity 00000000-0000-4000-8000-000000000901, revision 10000000-0000-4000-8000-000000000901, content sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307. It states that specimen A result R-A is attached to P-A T-A1.\",\"used_refs\":[\"F-RESULT\",\"S1\"],\"limitations\":[\"This supports result attachment and traceability; no numerical measurement or original test body is supplied.\"]},{\"id\":\"Q10\",\"status\":\"HOLD\",\"judgment\":\"The original test body cannot be verified from this manifest-only, empty evidence pack.\",\"used_refs\":[],\"limitations\":[\"SOURCE_UNAVAILABLE and TASK_IDENTITY_UNCONFIRMED are reported; requested information is missing. Corpus completeness does not supply the absent body.\"]},{\"id\":\"Q11\",\"status\":\"HOLD\",\"judgment\":\"A supply voltage cannot be selected: the supplied 28 V and 30 V decisions remain disputed and unresolved.\",\"used_refs\":[\"D-CONFLICT\",\"D-CURRENT\"],\"limitations\":[\"No final reconciliation is supplied; accepted-cutoff freshness does not resolve the conflict.\"]},{\"id\":\"Q12\",\"status\":\"OK\",\"judgment\":\"No. Failure to retrieve an isolation failure does not establish that none has ever occurred.\",\"used_refs\":[],\"limitations\":[\"The selection contains no items, excludes nine by selector limit, and has insufficient coverage; no historical absence claim is justified.\"]},{\"id\":\"Q13\",\"status\":\"OK\",\"judgment\":\"Before T-A1 bench qualification, complete C-LIMIT setup by setting the input-current limit to 2 A.\",\"used_refs\":[\"C-LIMIT\",\"F-PRE\"],\"limitations\":[\"The depends_on relation is present in this pack. This establishes the supplied prerequisite, not a complete readiness judgment or exhaustive prerequisite list.\"]},{\"id\":\"Q14\",\"status\":\"OK\",\"judgment\":\"Yes. Specimen A measurement result R-A is already attached to the exact P-A task T-A1; do not create a duplicate task.\",\"used_refs\":[\"F-RESULT\",\"F-TASK\"],\"limitations\":[\"The same_result relation is present; overall pack coverage remains partial.\"]},{\"id\":\"Q15\",\"status\":\"OK\",\"judgment\":\"The supplied outstanding commitment is for person A to submit the test records to the reviewer.\",\"used_refs\":[\"P-OPEN\"],\"limitations\":[\"The item names person A rather than explicitly encoding actor-a; an exact identity mapping is not supplied. The partial pack does not establish an exhaustive promise list.\"]},{\"id\":\"Q16\",\"status\":\"HOLD\",\"judgment\":\"No approved isolation-retest procedure is supplied, so an executable procedure cannot be identified.\",\"used_refs\":[],\"limitations\":[\"The requested procedure kind is missing; no steps or approval may be inferred.\"]},{\"id\":\"Q17\",\"status\":\"OK\",\"judgment\":\"The relevant prior failure was caused by not checking wiring polarity. Check polarity first when using the same connector.\",\"used_refs\":[\"F-TASK\",\"F-PRECEDENT\"],\"limitations\":[\"The applies_to relation links this precedent to T-A1. No broader energizing authorization or complete procedure is supplied.\"]},{\"id\":\"Q18\",\"status\":\"HOLD\",\"judgment\":\"Set the input-current limit to 2 A before the bench run. The voltage remains unresolved between the disputed 28 V correction and 30 V decision, so no final voltage or run clearance follows.\",\"used_refs\":[\"C-LIMIT\",\"D-CONFLICT\",\"D-CURRENT\",\"F-PRE\"],\"limitations\":[\"The prerequisite is supported, but the voltage conflict requires reconciliation; overall coverage is partial.\"]},{\"id\":\"Q19\",\"status\":\"OK\",\"judgment\":\"No acceptance-criteria change is supported. The supplied preference concerns concise presentation under explicit common read access.\",\"used_refs\":[\"P-COMMON\"],\"limitations\":[\"The bounded preference request is covered; project acceptance criteria and authority to amend them are not supplied.\"]},{\"id\":\"Q20\",\"status\":\"OK\",\"judgment\":\"For P-A task T-A1 bench qualification, keep within the accepted 60 C temperature ceiling and complete calibration before energizing.\",\"used_refs\":[],\"limitations\":[]},{\"id\":\"Q21\",\"status\":\"OK\",\"judgment\":\"Bounded review evidence: D-CURRENT specifies 28 V, D-CONFLICT maintains 30 V, and their conflict is unresolved; F-RESULT traces specimen A result R-A to exact P-A task T-A1 and instructs against creating a duplicate task.\",\"used_refs\":[\"D-CONFLICT\",\"D-CURRENT\",\"F-RESULT\"],\"limitations\":[\"This completes a bounded evidence summary, not a final supply decision. The pack is partial, and measurement values and original test body are unavailable.\"]},{\"id\":\"Q22\",\"status\":\"HOLD\",\"judgment\":\"In stable reference order: C-LIMIT requires a 2 A input-current limit before testing; D-CONFLICT maintains 30 V; D-CURRENT records the 28 V correction; F-PRE makes C-LIMIT setup a prerequisite for T-A1 bench qualification. The voltage decision remains unresolved.\",\"used_refs\":[\"C-LIMIT\",\"D-CONFLICT\",\"D-CURRENT\",\"F-PRE\"],\"limitations\":[\"Both voltage decisions are disputed; no final current voltage or additional prerequisite-review approval is supplied.\"]},{\"id\":\"Q23\",\"status\":\"HOLD\",\"judgment\":\"The supplied evidence does not authorize running at 32 V. D-CURRENT specifies 28 V, D-CONFLICT maintains 30 V with unresolved reconciliation, and C-REVISION excludes the superseded 24 V decision.\",\"used_refs\":[\"C-REVISION\",\"D-CONFLICT\",\"D-CURRENT\"],\"limitations\":[\"No 32 V approval is supplied. This does not establish an absolute physical maximum; a resolved applicable decision is required.\"]},{\"id\":\"Q24\",\"status\":\"OK\",\"judgment\":\"The supplied procedure-review cases include failure from unchecked wiring polarity, retesting after omitted instrument calibration, and success when calibration verification and polarity checks were combined. A candidate improvement is to include both checks before testing.\",\"used_refs\":[\"F-PRECEDENT\",\"F-REVIEW\",\"S-REVIEW\"],\"limitations\":[\"This is a proposal from varied outcomes, not an approved executable procedure or causal proof. Relation targets are unconfirmed and coverage is partial.\"]}]}",
+      "response": {
+        "answers": [
+          {
+            "id": "Q01",
+            "status": "OK",
+            "judgment": "It refers to P-A task T-A1, the power-unit verification task, distinct from the same-title P-B task.",
+            "used_refs": [
+              "F-TASK"
+            ],
+            "limitations": [
+              "The pack is partial; this exact identity is supported, but broader coverage is insufficient."
+            ]
+          },
+          {
+            "id": "Q02",
+            "status": "HOLD",
+            "judgment": "A shared title cannot establish this project's voltage limit: P-A T-A1 is distinct from P-B. The supplied 28 V decision is disputed, and the previous 24 V decision is superseded.",
+            "used_refs": [
+              "F-TASK",
+              "D-CURRENT",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "The conflict is unresolved and its complete proof is not selected; no final voltage limit can be established."
+            ]
+          },
+          {
+            "id": "Q03",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The bench result is not available in this question's authorized context.",
+            "used_refs": [],
+            "limitations": [
+              "The requester is unauthorized and the pack reports CONTEXT_UNAVAILABLE; no result or access permission is supplied."
+            ]
+          },
+          {
+            "id": "Q04",
+            "status": "HOLD",
+            "judgment": "The project must be specified before selecting which Power-unit review to continue.",
+            "used_refs": [],
+            "limitations": [
+              "Task T-A1 alone does not resolve the missing project binding; the pack reports INPUT_OR_BINDING_UNAVAILABLE."
+            ]
+          },
+          {
+            "id": "Q05",
+            "status": "OK",
+            "judgment": "At the supplied August 5 valid-time and August 6 knowledge cutoff, the accepted corrected test voltage is 28 V; the previous 24 V decision is superseded.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "This is a bounded decision answer from this pack; overall coverage remains partial."
+            ]
+          },
+          {
+            "id": "Q06",
+            "status": "HOLD",
+            "judgment": "The historical decision cannot be determined from this pack.",
+            "used_refs": [],
+            "limitations": [
+              "Historical accepted queries are unsupported. The question asks for work effective August 2, but its context specifies valid_at August 1 and known_at August 2."
+            ]
+          },
+          {
+            "id": "Q07",
+            "status": "HOLD",
+            "judgment": "Do not rely on the superseded 24 V decision. The supplied constraint requires a 2 A input-current limit before testing; nothing supplied authorizes bypassing isolation.",
+            "used_refs": [
+              "C-REVISION",
+              "C-LIMIT"
+            ],
+            "limitations": [
+              "No current voltage decision or isolation-bypass authorization is supplied; the partial pack reports an unresolved conflict."
+            ]
+          },
+          {
+            "id": "Q08",
+            "status": "HOLD",
+            "judgment": "The supplied decisions conflict: one specifies 28 V and another maintains 30 V. Neither establishes the latest resolved decision.",
+            "used_refs": [
+              "D-CONFLICT",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "Freshness is unconfirmed. Evidence is accepted only at the August 5/August 6 cutoff, while this request asks as of August 8; latest collected-mail coverage is not established."
+            ]
+          },
+          {
+            "id": "Q09",
+            "status": "OK",
+            "judgment": "The supplied support is F-RESULT at S1, paragraph:1, timeline-span:corrected; entity 00000000-0000-4000-8000-000000000901, revision 10000000-0000-4000-8000-000000000901, content sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307. It states that specimen A result R-A is attached to P-A T-A1.",
+            "used_refs": [
+              "F-RESULT",
+              "S1"
+            ],
+            "limitations": [
+              "This supports result attachment and traceability; no numerical measurement or original test body is supplied."
+            ]
+          },
+          {
+            "id": "Q10",
+            "status": "HOLD",
+            "judgment": "The original test body cannot be verified from this manifest-only, empty evidence pack.",
+            "used_refs": [],
+            "limitations": [
+              "SOURCE_UNAVAILABLE and TASK_IDENTITY_UNCONFIRMED are reported; requested information is missing. Corpus completeness does not supply the absent body."
+            ]
+          },
+          {
+            "id": "Q11",
+            "status": "HOLD",
+            "judgment": "A supply voltage cannot be selected: the supplied 28 V and 30 V decisions remain disputed and unresolved.",
+            "used_refs": [
+              "D-CONFLICT",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "No final reconciliation is supplied; accepted-cutoff freshness does not resolve the conflict."
+            ]
+          },
+          {
+            "id": "Q12",
+            "status": "OK",
+            "judgment": "No. Failure to retrieve an isolation failure does not establish that none has ever occurred.",
+            "used_refs": [],
+            "limitations": [
+              "The selection contains no items, excludes nine by selector limit, and has insufficient coverage; no historical absence claim is justified."
+            ]
+          },
+          {
+            "id": "Q13",
+            "status": "OK",
+            "judgment": "Before T-A1 bench qualification, complete C-LIMIT setup by setting the input-current limit to 2 A.",
+            "used_refs": [
+              "C-LIMIT",
+              "F-PRE"
+            ],
+            "limitations": [
+              "The depends_on relation is present in this pack. This establishes the supplied prerequisite, not a complete readiness judgment or exhaustive prerequisite list."
+            ]
+          },
+          {
+            "id": "Q14",
+            "status": "OK",
+            "judgment": "Yes. Specimen A measurement result R-A is already attached to the exact P-A task T-A1; do not create a duplicate task.",
+            "used_refs": [
+              "F-RESULT",
+              "F-TASK"
+            ],
+            "limitations": [
+              "The same_result relation is present; overall pack coverage remains partial."
+            ]
+          },
+          {
+            "id": "Q15",
+            "status": "OK",
+            "judgment": "The supplied outstanding commitment is for person A to submit the test records to the reviewer.",
+            "used_refs": [
+              "P-OPEN"
+            ],
+            "limitations": [
+              "The item names person A rather than explicitly encoding actor-a; an exact identity mapping is not supplied. The partial pack does not establish an exhaustive promise list."
+            ]
+          },
+          {
+            "id": "Q16",
+            "status": "HOLD",
+            "judgment": "No approved isolation-retest procedure is supplied, so an executable procedure cannot be identified.",
+            "used_refs": [],
+            "limitations": [
+              "The requested procedure kind is missing; no steps or approval may be inferred."
+            ]
+          },
+          {
+            "id": "Q17",
+            "status": "OK",
+            "judgment": "The relevant prior failure was caused by not checking wiring polarity. Check polarity first when using the same connector.",
+            "used_refs": [
+              "F-TASK",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "The applies_to relation links this precedent to T-A1. No broader energizing authorization or complete procedure is supplied."
+            ]
+          },
+          {
+            "id": "Q18",
+            "status": "HOLD",
+            "judgment": "Set the input-current limit to 2 A before the bench run. The voltage remains unresolved between the disputed 28 V correction and 30 V decision, so no final voltage or run clearance follows.",
+            "used_refs": [
+              "C-LIMIT",
+              "D-CONFLICT",
+              "D-CURRENT",
+              "F-PRE"
+            ],
+            "limitations": [
+              "The prerequisite is supported, but the voltage conflict requires reconciliation; overall coverage is partial."
+            ]
+          },
+          {
+            "id": "Q19",
+            "status": "OK",
+            "judgment": "No acceptance-criteria change is supported. The supplied preference concerns concise presentation under explicit common read access.",
+            "used_refs": [
+              "P-COMMON"
+            ],
+            "limitations": [
+              "The bounded preference request is covered; project acceptance criteria and authority to amend them are not supplied."
+            ]
+          },
+          {
+            "id": "Q20",
+            "status": "OK",
+            "judgment": "For P-A task T-A1 bench qualification, keep within the accepted 60 C temperature ceiling and complete calibration before energizing.",
+            "used_refs": [],
+            "limitations": []
+          },
+          {
+            "id": "Q21",
+            "status": "OK",
+            "judgment": "Bounded review evidence: D-CURRENT specifies 28 V, D-CONFLICT maintains 30 V, and their conflict is unresolved; F-RESULT traces specimen A result R-A to exact P-A task T-A1 and instructs against creating a duplicate task.",
+            "used_refs": [
+              "D-CONFLICT",
+              "D-CURRENT",
+              "F-RESULT"
+            ],
+            "limitations": [
+              "This completes a bounded evidence summary, not a final supply decision. The pack is partial, and measurement values and original test body are unavailable."
+            ]
+          },
+          {
+            "id": "Q22",
+            "status": "HOLD",
+            "judgment": "In stable reference order: C-LIMIT requires a 2 A input-current limit before testing; D-CONFLICT maintains 30 V; D-CURRENT records the 28 V correction; F-PRE makes C-LIMIT setup a prerequisite for T-A1 bench qualification. The voltage decision remains unresolved.",
+            "used_refs": [
+              "C-LIMIT",
+              "D-CONFLICT",
+              "D-CURRENT",
+              "F-PRE"
+            ],
+            "limitations": [
+              "Both voltage decisions are disputed; no final current voltage or additional prerequisite-review approval is supplied."
+            ]
+          },
+          {
+            "id": "Q23",
+            "status": "HOLD",
+            "judgment": "The supplied evidence does not authorize running at 32 V. D-CURRENT specifies 28 V, D-CONFLICT maintains 30 V with unresolved reconciliation, and C-REVISION excludes the superseded 24 V decision.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CONFLICT",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "No 32 V approval is supplied. This does not establish an absolute physical maximum; a resolved applicable decision is required."
+            ]
+          },
+          {
+            "id": "Q24",
+            "status": "OK",
+            "judgment": "The supplied procedure-review cases include failure from unchecked wiring polarity, retesting after omitted instrument calibration, and success when calibration verification and polarity checks were combined. A candidate improvement is to include both checks before testing.",
+            "used_refs": [
+              "F-PRECEDENT",
+              "F-REVIEW",
+              "S-REVIEW"
+            ],
+            "limitations": [
+              "This is a proposal from varied outcomes, not an approved executable procedure or causal proof. Relation targets are unconfirmed and coverage is partial."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batch_id": "batch-5",
+      "input_digest": "sha256:c14fb201a1cd12268cbd26f849075098df3038ad6e434eba815909c3bccb2e2d",
+      "transmission_verification": "Frozen payload copied into native fresh consumer request; native message body readback is opaque and was not decrypted",
+      "requested": {
+        "model": "gpt-6-astra",
+        "reasoning": "medium"
+      },
+      "observed_profile": "UNKNOWN",
+      "provider_usage": "UNKNOWN",
+      "billed_cost": "UNKNOWN",
+      "tier": "UNKNOWN",
+      "actual_consumer_calls": 1,
+      "elapsed_ms": 204924,
+      "elapsed_scope": "Native dispatch to delivered final response; orchestration included, not provider latency",
+      "response_digest": "sha256:ea1e7ee7840cc979b55167dac28285a6405086561e34372ff420ad75889d2866",
+      "format": "PASS",
+      "diagnostic_repair": null,
+      "raw_response": "{\"answers\":[{\"id\":\"Q01\",\"status\":\"OK\",\"judgment\":\"It refers to project P-A, task T-A1, the power-unit verification task; the same-title P-B task is separate.\",\"used_refs\":[\"F-TASK\"],\"limitations\":[\"The pack is partial, but explicitly establishes this task identity.\"]},{\"id\":\"Q02\",\"status\":\"HOLD\",\"judgment\":\"A matching title does not establish applicability: P-B is separate from P-A/T-A1. No applicable test-voltage limit is supplied.\",\"used_refs\":[\"F-TASK\",\"C-REVISION\"],\"limitations\":[\"The previous 24 V decision is superseded; its replacement is not supplied.\"]},{\"id\":\"Q03\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The bench result is unavailable in this request's context; this packet does not establish permission to read it.\",\"used_refs\":[],\"limitations\":[\"CONTEXT_UNAVAILABLE; no result evidence is supplied.\"]},{\"id\":\"Q04\",\"status\":\"HOLD\",\"judgment\":\"Resolve the missing project binding before continuing the Power-unit review.\",\"used_refs\":[],\"limitations\":[\"The request names T-A1 but leaves project unspecified; INPUT_OR_BINDING_UNAVAILABLE.\"]},{\"id\":\"Q05\",\"status\":\"HOLD\",\"judgment\":\"The previous 24 V decision is superseded, but this pack does not identify its accepted replacement at the requested cutoff.\",\"used_refs\":[\"C-REVISION\"],\"limitations\":[\"Partial, insufficient coverage; no current voltage decision is supplied.\"]},{\"id\":\"Q06\",\"status\":\"HOLD\",\"judgment\":\"The historical voltage decision cannot be established from this packet.\",\"used_refs\":[],\"limitations\":[\"HISTORICAL_ACCEPTED_QUERY_UNSUPPORTED.\",\"The question asks about August 2 effectiveness, while its context specifies valid_at August 1 and known_at August 2.\"]},{\"id\":\"Q07\",\"status\":\"HOLD\",\"judgment\":\"Do not rely on the superseded 24 V decision. No supplied evidence authorizes bypassing isolation or establishes a replacement voltage.\",\"used_refs\":[\"C-REVISION\"],\"limitations\":[\"Partial coverage includes an unresolved conflict whose proof is not selected; isolation requirements are not supplied.\"]},{\"id\":\"Q08\",\"status\":\"HOLD\",\"judgment\":\"The latest sensor decision in collected mail cannot be established. The supplied items have unconfirmed currentness and do not provide a current sensor decision.\",\"used_refs\":[\"C-REVISION\"],\"limitations\":[\"The request cutoff is August 8, while pack coverage ends at known_at August 6 / valid_at August 5.\",\"FRESHNESS_UNCONFIRMED; unresolved conflict proof is absent.\"]},{\"id\":\"Q09\",\"status\":\"OK\",\"judgment\":\"F-RESULT supports the attachment of specimen A result R-A to P-A/T-A1. Its source is entity 00000000-0000-4000-8000-000000000901, revision 10000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected, content sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307.\",\"used_refs\":[\"F-RESULT\"],\"limitations\":[\"This is attachment provenance; the numerical measurement and original test body are not supplied.\"]},{\"id\":\"Q10\",\"status\":\"HOLD\",\"judgment\":\"The original test body cannot be verified from this manifest packet.\",\"used_refs\":[],\"limitations\":[\"SOURCE_UNAVAILABLE; no items supplied; task identity unconfirmed.\"]},{\"id\":\"Q11\",\"status\":\"HOLD\",\"judgment\":\"No sensor supply voltage can be selected from this pack. It excludes the superseded 24 V decision; the 2 A value is an input-current limit, not a voltage.\",\"used_refs\":[\"C-LIMIT\",\"C-REVISION\"],\"limitations\":[\"Unresolved conflict proof and an applicable supply-voltage decision are not supplied.\"]},{\"id\":\"Q12\",\"status\":\"OK\",\"judgment\":\"No. Failure to retrieve an isolation failure does not establish that none ever occurred. The supplied failure concerns unchecked wiring polarity.\",\"used_refs\":[\"F-PRECEDENT\"],\"limitations\":[\"Partial selection cannot prove historical absence or recategorize the polarity failure as an isolation failure.\"]},{\"id\":\"Q13\",\"status\":\"OK\",\"judgment\":\"Complete C-LIMIT setup by setting the input-current limit to 2 A before T-A1 bench qualification. Check polarity first when using the same connector, as the previous unchecked-polarity test failed.\",\"used_refs\":[\"C-LIMIT\",\"F-PRE\",\"F-PRECEDENT\"],\"limitations\":[\"These are supported prerequisites and precautions; partial coverage does not establish complete run readiness.\"]},{\"id\":\"Q14\",\"status\":\"OK\",\"judgment\":\"Yes. Specimen A measurement result R-A is already attached to the exact P-A task T-A1; do not create a duplicate task.\",\"used_refs\":[\"F-RESULT\",\"F-TASK\"],\"limitations\":[\"This confirms the attachment, not the measurement value or acceptance.\"]},{\"id\":\"Q15\",\"status\":\"HOLD\",\"judgment\":\"No outstanding promise from actor-a is identified in the supplied items.\",\"used_refs\":[],\"limitations\":[\"No commitment evidence is selected; this does not establish that no promise remains outstanding.\"]},{\"id\":\"Q16\",\"status\":\"HOLD\",\"judgment\":\"No approved isolation-retest procedure is supplied, so an executable procedure cannot be selected.\",\"used_refs\":[],\"limitations\":[\"The requested procedure kind is missing; coverage is insufficient.\"]},{\"id\":\"Q17\",\"status\":\"OK\",\"judgment\":\"The supplied relevant precedent is a failed test caused by not checking wiring polarity. Check polarity first when reusing the same connector.\",\"used_refs\":[\"F-PRECEDENT\",\"F-TASK\"],\"limitations\":[\"Its applies_to relation targets T-A1; the evidence does not describe an isolation failure or establish all setup details.\"]},{\"id\":\"Q18\",\"status\":\"HOLD\",\"judgment\":\"Set the input-current limit to 2 A before the bench run. The old 24 V decision is superseded, but the applicable replacement voltage decision is not supplied.\",\"used_refs\":[\"C-LIMIT\",\"F-PRE\",\"C-REVISION\"],\"limitations\":[\"The prerequisite is supported; a complete bench-run decision remains unresolved.\"]},{\"id\":\"Q19\",\"status\":\"OK\",\"judgment\":\"The concise-format preference does not establish a change to project acceptance criteria; it provides only a presentation preference under explicit common read permission.\",\"used_refs\":[\"P-COMMON\"],\"limitations\":[\"The project's acceptance criteria themselves are not supplied.\"]},{\"id\":\"Q20\",\"status\":\"OK\",\"judgment\":\"For P-A task T-A1 bench qualification, keep within the accepted 60 C temperature ceiling and complete calibration before energizing.\",\"used_refs\":[],\"limitations\":[]},{\"id\":\"Q21\",\"status\":\"HOLD\",\"judgment\":\"Bounded evidence: T-A1 is P-A's power-unit verification task; specimen A result R-A is already attached to it; set the current limit to 2 A before the run and check polarity when reusing the connector. The old 24 V decision is superseded. These claims point to source revision 10000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected. No replacement supply decision or conflict proof is supplied.\",\"used_refs\":[\"C-LIMIT\",\"F-PRE\",\"F-PRECEDENT\",\"F-RESULT\",\"F-TASK\",\"C-REVISION\"],\"limitations\":[\"This is a partial evidence packet, not final bench approval.\",\"The measurement value and original test body are unavailable; the unresolved supply issue cannot be resolved from the selected evidence.\"]},{\"id\":\"Q22\",\"status\":\"HOLD\",\"judgment\":\"In stable lexicographic reference order: C-LIMIT—set input-current limit to 2 A before testing; C-REVISION—the old 24 V decision is superseded, with no replacement supplied; F-PRE—T-A1 bench qualification depends on completing C-LIMIT setup.\",\"used_refs\":[\"C-LIMIT\",\"C-REVISION\",\"F-PRE\"],\"limitations\":[\"The current voltage decision is unavailable; the prerequisite is supported but no separate review or run-approval evidence is supplied.\"]},{\"id\":\"Q23\",\"status\":\"HOLD\",\"judgment\":\"This packet does not establish that running the P-A sensor at 32 V is permitted. It only excludes the old 24 V decision and requires a 2 A input-current limit.\",\"used_refs\":[\"C-LIMIT\",\"C-REVISION\"],\"limitations\":[\"No 32 V rating, accepted supply decision, or selected conflict proof is supplied; the current limit does not authorize a voltage.\"]},{\"id\":\"Q24\",\"status\":\"OK\",\"judgment\":\"Use three contrasting outcomes: unchecked polarity caused a failed test; omitted instrument calibration caused a retest; a test combining calibration confirmation and polarity checks succeeded. A candidate improvement is to include both checks before energizing and retain the supplied 2 A setup prerequisite for T-A1.\",\"used_refs\":[\"F-PRE\",\"F-PRECEDENT\",\"F-REVIEW\",\"S-REVIEW\"],\"limitations\":[\"This is a procedure-review candidate, not an approved procedure or proof of causation.\",\"Coverage is partial and reports an unconfirmed relation target; C-LIMIT itself is not selected, although F-PRE explicitly states the 2 A setup.\"]}]}",
+      "response": {
+        "answers": [
+          {
+            "id": "Q01",
+            "status": "OK",
+            "judgment": "It refers to project P-A, task T-A1, the power-unit verification task; the same-title P-B task is separate.",
+            "used_refs": [
+              "F-TASK"
+            ],
+            "limitations": [
+              "The pack is partial, but explicitly establishes this task identity."
+            ]
+          },
+          {
+            "id": "Q02",
+            "status": "HOLD",
+            "judgment": "A matching title does not establish applicability: P-B is separate from P-A/T-A1. No applicable test-voltage limit is supplied.",
+            "used_refs": [
+              "F-TASK",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "The previous 24 V decision is superseded; its replacement is not supplied."
+            ]
+          },
+          {
+            "id": "Q03",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The bench result is unavailable in this request's context; this packet does not establish permission to read it.",
+            "used_refs": [],
+            "limitations": [
+              "CONTEXT_UNAVAILABLE; no result evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q04",
+            "status": "HOLD",
+            "judgment": "Resolve the missing project binding before continuing the Power-unit review.",
+            "used_refs": [],
+            "limitations": [
+              "The request names T-A1 but leaves project unspecified; INPUT_OR_BINDING_UNAVAILABLE."
+            ]
+          },
+          {
+            "id": "Q05",
+            "status": "HOLD",
+            "judgment": "The previous 24 V decision is superseded, but this pack does not identify its accepted replacement at the requested cutoff.",
+            "used_refs": [
+              "C-REVISION"
+            ],
+            "limitations": [
+              "Partial, insufficient coverage; no current voltage decision is supplied."
+            ]
+          },
+          {
+            "id": "Q06",
+            "status": "HOLD",
+            "judgment": "The historical voltage decision cannot be established from this packet.",
+            "used_refs": [],
+            "limitations": [
+              "HISTORICAL_ACCEPTED_QUERY_UNSUPPORTED.",
+              "The question asks about August 2 effectiveness, while its context specifies valid_at August 1 and known_at August 2."
+            ]
+          },
+          {
+            "id": "Q07",
+            "status": "HOLD",
+            "judgment": "Do not rely on the superseded 24 V decision. No supplied evidence authorizes bypassing isolation or establishes a replacement voltage.",
+            "used_refs": [
+              "C-REVISION"
+            ],
+            "limitations": [
+              "Partial coverage includes an unresolved conflict whose proof is not selected; isolation requirements are not supplied."
+            ]
+          },
+          {
+            "id": "Q08",
+            "status": "HOLD",
+            "judgment": "The latest sensor decision in collected mail cannot be established. The supplied items have unconfirmed currentness and do not provide a current sensor decision.",
+            "used_refs": [
+              "C-REVISION"
+            ],
+            "limitations": [
+              "The request cutoff is August 8, while pack coverage ends at known_at August 6 / valid_at August 5.",
+              "FRESHNESS_UNCONFIRMED; unresolved conflict proof is absent."
+            ]
+          },
+          {
+            "id": "Q09",
+            "status": "OK",
+            "judgment": "F-RESULT supports the attachment of specimen A result R-A to P-A/T-A1. Its source is entity 00000000-0000-4000-8000-000000000901, revision 10000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected, content sha256:e4679c0ef5c1d572e1028be28eb8542fafc70c258247e6a88164648c82108307.",
+            "used_refs": [
+              "F-RESULT"
+            ],
+            "limitations": [
+              "This is attachment provenance; the numerical measurement and original test body are not supplied."
+            ]
+          },
+          {
+            "id": "Q10",
+            "status": "HOLD",
+            "judgment": "The original test body cannot be verified from this manifest packet.",
+            "used_refs": [],
+            "limitations": [
+              "SOURCE_UNAVAILABLE; no items supplied; task identity unconfirmed."
+            ]
+          },
+          {
+            "id": "Q11",
+            "status": "HOLD",
+            "judgment": "No sensor supply voltage can be selected from this pack. It excludes the superseded 24 V decision; the 2 A value is an input-current limit, not a voltage.",
+            "used_refs": [
+              "C-LIMIT",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "Unresolved conflict proof and an applicable supply-voltage decision are not supplied."
+            ]
+          },
+          {
+            "id": "Q12",
+            "status": "OK",
+            "judgment": "No. Failure to retrieve an isolation failure does not establish that none ever occurred. The supplied failure concerns unchecked wiring polarity.",
+            "used_refs": [
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "Partial selection cannot prove historical absence or recategorize the polarity failure as an isolation failure."
+            ]
+          },
+          {
+            "id": "Q13",
+            "status": "OK",
+            "judgment": "Complete C-LIMIT setup by setting the input-current limit to 2 A before T-A1 bench qualification. Check polarity first when using the same connector, as the previous unchecked-polarity test failed.",
+            "used_refs": [
+              "C-LIMIT",
+              "F-PRE",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "These are supported prerequisites and precautions; partial coverage does not establish complete run readiness."
+            ]
+          },
+          {
+            "id": "Q14",
+            "status": "OK",
+            "judgment": "Yes. Specimen A measurement result R-A is already attached to the exact P-A task T-A1; do not create a duplicate task.",
+            "used_refs": [
+              "F-RESULT",
+              "F-TASK"
+            ],
+            "limitations": [
+              "This confirms the attachment, not the measurement value or acceptance."
+            ]
+          },
+          {
+            "id": "Q15",
+            "status": "HOLD",
+            "judgment": "No outstanding promise from actor-a is identified in the supplied items.",
+            "used_refs": [],
+            "limitations": [
+              "No commitment evidence is selected; this does not establish that no promise remains outstanding."
+            ]
+          },
+          {
+            "id": "Q16",
+            "status": "HOLD",
+            "judgment": "No approved isolation-retest procedure is supplied, so an executable procedure cannot be selected.",
+            "used_refs": [],
+            "limitations": [
+              "The requested procedure kind is missing; coverage is insufficient."
+            ]
+          },
+          {
+            "id": "Q17",
+            "status": "OK",
+            "judgment": "The supplied relevant precedent is a failed test caused by not checking wiring polarity. Check polarity first when reusing the same connector.",
+            "used_refs": [
+              "F-PRECEDENT",
+              "F-TASK"
+            ],
+            "limitations": [
+              "Its applies_to relation targets T-A1; the evidence does not describe an isolation failure or establish all setup details."
+            ]
+          },
+          {
+            "id": "Q18",
+            "status": "HOLD",
+            "judgment": "Set the input-current limit to 2 A before the bench run. The old 24 V decision is superseded, but the applicable replacement voltage decision is not supplied.",
+            "used_refs": [
+              "C-LIMIT",
+              "F-PRE",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "The prerequisite is supported; a complete bench-run decision remains unresolved."
+            ]
+          },
+          {
+            "id": "Q19",
+            "status": "OK",
+            "judgment": "The concise-format preference does not establish a change to project acceptance criteria; it provides only a presentation preference under explicit common read permission.",
+            "used_refs": [
+              "P-COMMON"
+            ],
+            "limitations": [
+              "The project's acceptance criteria themselves are not supplied."
+            ]
+          },
+          {
+            "id": "Q20",
+            "status": "OK",
+            "judgment": "For P-A task T-A1 bench qualification, keep within the accepted 60 C temperature ceiling and complete calibration before energizing.",
+            "used_refs": [],
+            "limitations": []
+          },
+          {
+            "id": "Q21",
+            "status": "HOLD",
+            "judgment": "Bounded evidence: T-A1 is P-A's power-unit verification task; specimen A result R-A is already attached to it; set the current limit to 2 A before the run and check polarity when reusing the connector. The old 24 V decision is superseded. These claims point to source revision 10000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected. No replacement supply decision or conflict proof is supplied.",
+            "used_refs": [
+              "C-LIMIT",
+              "F-PRE",
+              "F-PRECEDENT",
+              "F-RESULT",
+              "F-TASK",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "This is a partial evidence packet, not final bench approval.",
+              "The measurement value and original test body are unavailable; the unresolved supply issue cannot be resolved from the selected evidence."
+            ]
+          },
+          {
+            "id": "Q22",
+            "status": "HOLD",
+            "judgment": "In stable lexicographic reference order: C-LIMIT—set input-current limit to 2 A before testing; C-REVISION—the old 24 V decision is superseded, with no replacement supplied; F-PRE—T-A1 bench qualification depends on completing C-LIMIT setup.",
+            "used_refs": [
+              "C-LIMIT",
+              "C-REVISION",
+              "F-PRE"
+            ],
+            "limitations": [
+              "The current voltage decision is unavailable; the prerequisite is supported but no separate review or run-approval evidence is supplied."
+            ]
+          },
+          {
+            "id": "Q23",
+            "status": "HOLD",
+            "judgment": "This packet does not establish that running the P-A sensor at 32 V is permitted. It only excludes the old 24 V decision and requires a 2 A input-current limit.",
+            "used_refs": [
+              "C-LIMIT",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "No 32 V rating, accepted supply decision, or selected conflict proof is supplied; the current limit does not authorize a voltage."
+            ]
+          },
+          {
+            "id": "Q24",
+            "status": "OK",
+            "judgment": "Use three contrasting outcomes: unchecked polarity caused a failed test; omitted instrument calibration caused a retest; a test combining calibration confirmation and polarity checks succeeded. A candidate improvement is to include both checks before energizing and retain the supplied 2 A setup prerequisite for T-A1.",
+            "used_refs": [
+              "F-PRE",
+              "F-PRECEDENT",
+              "F-REVIEW",
+              "S-REVIEW"
+            ],
+            "limitations": [
+              "This is a procedure-review candidate, not an approved procedure or proof of causation.",
+              "Coverage is partial and reports an unconfirmed relation target; C-LIMIT itself is not selected, although F-PRE explicitly states the 2 A setup."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batch_id": "batch-6",
+      "input_digest": "sha256:4125da372cac52625ce802c0f906b6e7f304d7132886343397208e5f5896f63a",
+      "transmission_verification": "Frozen payload copied into native fresh consumer request; native message body readback is opaque and was not decrypted",
+      "requested": {
+        "model": "gpt-6-astra",
+        "reasoning": "medium"
+      },
+      "observed_profile": "UNKNOWN",
+      "provider_usage": "UNKNOWN",
+      "billed_cost": "UNKNOWN",
+      "tier": "UNKNOWN",
+      "actual_consumer_calls": 1,
+      "elapsed_ms": 71516,
+      "elapsed_scope": "Native dispatch to delivered final response; orchestration included, not provider latency",
+      "response_digest": "sha256:395c97dfbc713d7594a6b07668f4defc0a67c4e19262a16bc33080c293d76410",
+      "format": "PASS",
+      "diagnostic_repair": null,
+      "raw_response": "{\"answers\":[{\"id\":\"Q01\",\"status\":\"OK\",\"judgment\":\"The request identifies project P-A and task T-A1. The title alone does not establish identity.\",\"used_refs\":[],\"limitations\":[\"Identity comes from this question's request context; no task-identity source item is included in its partial pack.\"]},{\"id\":\"Q02\",\"status\":\"HOLD\",\"judgment\":\"No. A matching title cannot establish this project's voltage limit. The supplied T-A1 decisions conflict between 28 V and 30 V.\",\"used_refs\":[\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"No same-title source establishing a P-A limit is supplied.\",\"The decision conflict is unresolved.\"]},{\"id\":\"Q03\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The bench result is unavailable in this request; the supplied context identifies the actor as unauthorized and provides no readable result.\",\"used_refs\":[],\"limitations\":[\"CONTEXT_UNAVAILABLE; no result contents or access grant are supplied.\"]},{\"id\":\"Q04\",\"status\":\"HOLD\",\"judgment\":\"Resolve the project binding before continuing T-A1; the project is unspecified.\",\"used_refs\":[],\"limitations\":[\"INPUT_OR_BINDING_UNAVAILABLE; a task label cannot supply the missing project.\"]},{\"id\":\"Q05\",\"status\":\"OK\",\"judgment\":\"At the requested cutoff, the accepted correction sets T-A1 test voltage to 28 V and supersedes the previous 24 V decision.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\"],\"limitations\":[\"This answers the bounded voltage question at valid_at 2026-08-05 and known_at 2026-08-06; overall pack coverage remains partial.\"]},{\"id\":\"Q06\",\"status\":\"HOLD\",\"judgment\":\"The historical decision cannot be established from this pack.\",\"used_refs\":[],\"limitations\":[\"HISTORICAL_ACCEPTED_QUERY_UNSUPPORTED.\",\"The question asks for work effective August 2, but its context specifies valid_at August 1 and known_at August 2.\"]},{\"id\":\"Q07\",\"status\":\"HOLD\",\"judgment\":\"The old 24 V decision is superseded. No supplied evidence authorizes bypassing isolation, and the 28 V versus 30 V conflict prevents selecting a final test voltage.\",\"used_refs\":[\"C-REVISION\",\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"Isolation-bypass instructions are absent.\",\"The pack is partial and contains an unresolved decision conflict.\"]},{\"id\":\"Q08\",\"status\":\"HOLD\",\"judgment\":\"A latest sensor decision cannot be confirmed. The supplied records contain conflicting 28 V and 30 V decisions and have unconfirmed freshness for the August 8 request.\",\"used_refs\":[\"D-CURRENT\",\"D-CONFLICT\",\"C-REVISION\"],\"limitations\":[\"STALE_OR_UNCONFIRMED; the supplied coverage cutoff is August 5 effective and August 6 known.\",\"No fresh collected-mail evidence resolves the conflict.\"]},{\"id\":\"Q09\",\"status\":\"HOLD\",\"judgment\":\"No specimen A measurement evidence or exact supporting span is supplied for this question.\",\"used_refs\":[],\"limitations\":[\"The partial pack contains no specimen measurement item; its other source spans cannot establish measurement support.\"]},{\"id\":\"Q10\",\"status\":\"NOT_AVAILABLE\",\"judgment\":\"The original test body cannot be verified because neither its source body nor a bound supporting item is supplied.\",\"used_refs\":[],\"limitations\":[\"SOURCE_UNAVAILABLE and TASK_IDENTITY_UNCONFIRMED.\",\"Accepted-corpus completeness does not make this empty, insufficient pack adequate for verification.\"]},{\"id\":\"Q11\",\"status\":\"HOLD\",\"judgment\":\"A sensor supply voltage cannot be determined. The supplied test-voltage decisions conflict between 28 V and 30 V and do not establish a sensor supply rating.\",\"used_refs\":[\"D-CURRENT\",\"D-CONFLICT\"],\"limitations\":[\"No sensor supply specification is supplied.\",\"Do not equate a test-voltage decision with a sensor supply limit.\"]},{\"id\":\"Q12\",\"status\":\"OK\",\"judgment\":\"No. Failure to retrieve an isolation failure does not prove that none ever occurred. The supplied failure concerns unchecked wiring polarity.\",\"used_refs\":[\"F-PRECEDENT\"],\"limitations\":[\"Coverage is insufficient and selection exclusions exist.\",\"The polarity failure cannot be relabeled an isolation failure.\"]},{\"id\":\"Q13\",\"status\":\"OK\",\"judgment\":\"Set the input current limit to 2 A before the test; when using the same connector, check polarity first.\",\"used_refs\":[\"C-LIMIT\",\"F-PRECEDENT\"],\"limitations\":[\"These are the supplied prerequisites, not proof of a complete qualification checklist.\",\"The pack does not include a separate qualification-dependency fact.\"]},{\"id\":\"Q14\",\"status\":\"HOLD\",\"judgment\":\"Whether specimen A's measurement is attached to an existing task cannot be established from this question's evidence.\",\"used_refs\":[],\"limitations\":[\"No measurement-to-task attachment item is included in this partial pack.\"]},{\"id\":\"Q15\",\"status\":\"OK\",\"judgment\":\"The supplied outstanding commitment is for 담당자 A to submit the test records to the reviewer.\",\"used_refs\":[\"P-OPEN\"],\"limitations\":[\"The pack does not explicitly map the actor-a identifier to 담당자 A; that identity attribution remains unconfirmed.\"]},{\"id\":\"Q16\",\"status\":\"HOLD\",\"judgment\":\"No approved isolation-retest procedure is supplied, so an executable approved procedure cannot be selected.\",\"used_refs\":[],\"limitations\":[\"The requested procedure kind is missing.\",\"An empty procedure retrieval does not prove that no procedure exists.\"]},{\"id\":\"Q17\",\"status\":\"OK\",\"judgment\":\"The relevant supplied precedent is a failed test caused by not checking wiring polarity; check polarity first when reusing the same connector.\",\"used_refs\":[\"F-PRECEDENT\"],\"limitations\":[\"The evidence does not identify the prior failure as an isolation failure or establish that every setup detail is identical.\"]},{\"id\":\"Q18\",\"status\":\"HOLD\",\"judgment\":\"Resolve the competing 28 V and 30 V decisions before selecting test voltage; 24 V is superseded. The accepted prerequisite is a 2 A input current limit before testing, with a polarity check when reusing the connector.\",\"used_refs\":[\"C-REVISION\",\"D-CONFLICT\",\"D-CURRENT\",\"C-LIMIT\",\"F-PRECEDENT\"],\"limitations\":[\"The prerequisite is supported, but the final voltage judgment remains unresolved.\",\"Overall coverage is partial.\"]},{\"id\":\"Q19\",\"status\":\"OK\",\"judgment\":\"No acceptance-criteria change is supported. The supplied preference only provides a concise format under explicit common read permission.\",\"used_refs\":[\"P-COMMON\"],\"limitations\":[\"The item does not supply project acceptance criteria or explicitly bind the preference to actor-a.\"]},{\"id\":\"Q20\",\"status\":\"OK\",\"judgment\":\"For P-A task T-A1 bench qualification, keep temperature at or below the accepted 60 C ceiling and complete calibration before energizing.\",\"used_refs\":[],\"limitations\":[]},{\"id\":\"Q21\",\"status\":\"OK\",\"judgment\":\"Bounded review evidence: 24 V is superseded; the 28 V correction conflicts with a 30 V meeting decision; set the input current limit to 2 A before testing; check polarity when reusing the connector; 담당자 A still owes test records to the reviewer. Specimen A traceability and a sensor supply rating are not supplied.\",\"used_refs\":[\"C-REVISION\",\"D-CONFLICT\",\"D-CURRENT\",\"C-LIMIT\",\"P-OPEN\",\"F-PRECEDENT\"],\"limitations\":[\"This is a bounded evidence summary, not approval to run.\",\"Voltage reconciliation and specimen traceability remain on hold.\",\"Test-voltage records do not establish a sensor supply specification.\"]},{\"id\":\"Q22\",\"status\":\"HOLD\",\"judgment\":\"In stable reference-ID order: C-LIMIT—set the input current limit to 2 A before testing; D-CONFLICT—30 V remains disputed; D-CURRENT—the 28 V correction is also disputed. No final current voltage decision is established.\",\"used_refs\":[\"C-LIMIT\",\"D-CONFLICT\",\"D-CURRENT\"],\"limitations\":[\"The prerequisite is accepted, but the voltage conflict is unresolved.\",\"The partial pack does not include a separate reviewed dependency item.\"]},{\"id\":\"Q23\",\"status\":\"HOLD\",\"judgment\":\"Running the P-A sensor at 32 V is not supported by this evidence. The available T-A1 test decisions conflict between 28 V and 30 V; neither establishes a sensor rating or authorizes 32 V.\",\"used_refs\":[\"D-CONFLICT\",\"D-CURRENT\"],\"limitations\":[\"D-CURRENT is supported at S1, revision 10000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected.\",\"D-CONFLICT is supported at S2, revision 10000000-0000-4000-8000-000000000101, paragraph:1, timeline-span:2.\",\"No supplied source proves a sensor maximum voltage or the physical safety of 32 V.\"]},{\"id\":\"Q24\",\"status\":\"OK\",\"judgment\":\"Use three varied outcomes: unchecked polarity caused a prior failure; omitted instrument calibration caused a retest; a test combining calibration confirmation and polarity checks succeeded. These support a candidate pre-energization checklist combining calibration confirmation and connector polarity checks. The supplied prerequisite also requires a 2 A current-limit setup.\",\"used_refs\":[\"F-PRECEDENT\",\"F-REVIEW\",\"S-REVIEW\",\"F-PRE\"],\"limitations\":[\"This supports a candidate improvement, not an approved procedure or proof of causation.\",\"Coverage is partial with an unconfirmed relation target; C-LIMIT itself is not included.\",\"F-PRECEDENT has an in-pack applies_to link to F-TASK; equivalent task links for the other review cases are not supplied.\"]}]}",
+      "response": {
+        "answers": [
+          {
+            "id": "Q01",
+            "status": "OK",
+            "judgment": "The request identifies project P-A and task T-A1. The title alone does not establish identity.",
+            "used_refs": [],
+            "limitations": [
+              "Identity comes from this question's request context; no task-identity source item is included in its partial pack."
+            ]
+          },
+          {
+            "id": "Q02",
+            "status": "HOLD",
+            "judgment": "No. A matching title cannot establish this project's voltage limit. The supplied T-A1 decisions conflict between 28 V and 30 V.",
+            "used_refs": [
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "No same-title source establishing a P-A limit is supplied.",
+              "The decision conflict is unresolved."
+            ]
+          },
+          {
+            "id": "Q03",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The bench result is unavailable in this request; the supplied context identifies the actor as unauthorized and provides no readable result.",
+            "used_refs": [],
+            "limitations": [
+              "CONTEXT_UNAVAILABLE; no result contents or access grant are supplied."
+            ]
+          },
+          {
+            "id": "Q04",
+            "status": "HOLD",
+            "judgment": "Resolve the project binding before continuing T-A1; the project is unspecified.",
+            "used_refs": [],
+            "limitations": [
+              "INPUT_OR_BINDING_UNAVAILABLE; a task label cannot supply the missing project."
+            ]
+          },
+          {
+            "id": "Q05",
+            "status": "OK",
+            "judgment": "At the requested cutoff, the accepted correction sets T-A1 test voltage to 28 V and supersedes the previous 24 V decision.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "This answers the bounded voltage question at valid_at 2026-08-05 and known_at 2026-08-06; overall pack coverage remains partial."
+            ]
+          },
+          {
+            "id": "Q06",
+            "status": "HOLD",
+            "judgment": "The historical decision cannot be established from this pack.",
+            "used_refs": [],
+            "limitations": [
+              "HISTORICAL_ACCEPTED_QUERY_UNSUPPORTED.",
+              "The question asks for work effective August 2, but its context specifies valid_at August 1 and known_at August 2."
+            ]
+          },
+          {
+            "id": "Q07",
+            "status": "HOLD",
+            "judgment": "The old 24 V decision is superseded. No supplied evidence authorizes bypassing isolation, and the 28 V versus 30 V conflict prevents selecting a final test voltage.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "Isolation-bypass instructions are absent.",
+              "The pack is partial and contains an unresolved decision conflict."
+            ]
+          },
+          {
+            "id": "Q08",
+            "status": "HOLD",
+            "judgment": "A latest sensor decision cannot be confirmed. The supplied records contain conflicting 28 V and 30 V decisions and have unconfirmed freshness for the August 8 request.",
+            "used_refs": [
+              "D-CURRENT",
+              "D-CONFLICT",
+              "C-REVISION"
+            ],
+            "limitations": [
+              "STALE_OR_UNCONFIRMED; the supplied coverage cutoff is August 5 effective and August 6 known.",
+              "No fresh collected-mail evidence resolves the conflict."
+            ]
+          },
+          {
+            "id": "Q09",
+            "status": "HOLD",
+            "judgment": "No specimen A measurement evidence or exact supporting span is supplied for this question.",
+            "used_refs": [],
+            "limitations": [
+              "The partial pack contains no specimen measurement item; its other source spans cannot establish measurement support."
+            ]
+          },
+          {
+            "id": "Q10",
+            "status": "NOT_AVAILABLE",
+            "judgment": "The original test body cannot be verified because neither its source body nor a bound supporting item is supplied.",
+            "used_refs": [],
+            "limitations": [
+              "SOURCE_UNAVAILABLE and TASK_IDENTITY_UNCONFIRMED.",
+              "Accepted-corpus completeness does not make this empty, insufficient pack adequate for verification."
+            ]
+          },
+          {
+            "id": "Q11",
+            "status": "HOLD",
+            "judgment": "A sensor supply voltage cannot be determined. The supplied test-voltage decisions conflict between 28 V and 30 V and do not establish a sensor supply rating.",
+            "used_refs": [
+              "D-CURRENT",
+              "D-CONFLICT"
+            ],
+            "limitations": [
+              "No sensor supply specification is supplied.",
+              "Do not equate a test-voltage decision with a sensor supply limit."
+            ]
+          },
+          {
+            "id": "Q12",
+            "status": "OK",
+            "judgment": "No. Failure to retrieve an isolation failure does not prove that none ever occurred. The supplied failure concerns unchecked wiring polarity.",
+            "used_refs": [
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "Coverage is insufficient and selection exclusions exist.",
+              "The polarity failure cannot be relabeled an isolation failure."
+            ]
+          },
+          {
+            "id": "Q13",
+            "status": "OK",
+            "judgment": "Set the input current limit to 2 A before the test; when using the same connector, check polarity first.",
+            "used_refs": [
+              "C-LIMIT",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "These are the supplied prerequisites, not proof of a complete qualification checklist.",
+              "The pack does not include a separate qualification-dependency fact."
+            ]
+          },
+          {
+            "id": "Q14",
+            "status": "HOLD",
+            "judgment": "Whether specimen A's measurement is attached to an existing task cannot be established from this question's evidence.",
+            "used_refs": [],
+            "limitations": [
+              "No measurement-to-task attachment item is included in this partial pack."
+            ]
+          },
+          {
+            "id": "Q15",
+            "status": "OK",
+            "judgment": "The supplied outstanding commitment is for 담당자 A to submit the test records to the reviewer.",
+            "used_refs": [
+              "P-OPEN"
+            ],
+            "limitations": [
+              "The pack does not explicitly map the actor-a identifier to 담당자 A; that identity attribution remains unconfirmed."
+            ]
+          },
+          {
+            "id": "Q16",
+            "status": "HOLD",
+            "judgment": "No approved isolation-retest procedure is supplied, so an executable approved procedure cannot be selected.",
+            "used_refs": [],
+            "limitations": [
+              "The requested procedure kind is missing.",
+              "An empty procedure retrieval does not prove that no procedure exists."
+            ]
+          },
+          {
+            "id": "Q17",
+            "status": "OK",
+            "judgment": "The relevant supplied precedent is a failed test caused by not checking wiring polarity; check polarity first when reusing the same connector.",
+            "used_refs": [
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "The evidence does not identify the prior failure as an isolation failure or establish that every setup detail is identical."
+            ]
+          },
+          {
+            "id": "Q18",
+            "status": "HOLD",
+            "judgment": "Resolve the competing 28 V and 30 V decisions before selecting test voltage; 24 V is superseded. The accepted prerequisite is a 2 A input current limit before testing, with a polarity check when reusing the connector.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CONFLICT",
+              "D-CURRENT",
+              "C-LIMIT",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "The prerequisite is supported, but the final voltage judgment remains unresolved.",
+              "Overall coverage is partial."
+            ]
+          },
+          {
+            "id": "Q19",
+            "status": "OK",
+            "judgment": "No acceptance-criteria change is supported. The supplied preference only provides a concise format under explicit common read permission.",
+            "used_refs": [
+              "P-COMMON"
+            ],
+            "limitations": [
+              "The item does not supply project acceptance criteria or explicitly bind the preference to actor-a."
+            ]
+          },
+          {
+            "id": "Q20",
+            "status": "OK",
+            "judgment": "For P-A task T-A1 bench qualification, keep temperature at or below the accepted 60 C ceiling and complete calibration before energizing.",
+            "used_refs": [],
+            "limitations": []
+          },
+          {
+            "id": "Q21",
+            "status": "OK",
+            "judgment": "Bounded review evidence: 24 V is superseded; the 28 V correction conflicts with a 30 V meeting decision; set the input current limit to 2 A before testing; check polarity when reusing the connector; 담당자 A still owes test records to the reviewer. Specimen A traceability and a sensor supply rating are not supplied.",
+            "used_refs": [
+              "C-REVISION",
+              "D-CONFLICT",
+              "D-CURRENT",
+              "C-LIMIT",
+              "P-OPEN",
+              "F-PRECEDENT"
+            ],
+            "limitations": [
+              "This is a bounded evidence summary, not approval to run.",
+              "Voltage reconciliation and specimen traceability remain on hold.",
+              "Test-voltage records do not establish a sensor supply specification."
+            ]
+          },
+          {
+            "id": "Q22",
+            "status": "HOLD",
+            "judgment": "In stable reference-ID order: C-LIMIT—set the input current limit to 2 A before testing; D-CONFLICT—30 V remains disputed; D-CURRENT—the 28 V correction is also disputed. No final current voltage decision is established.",
+            "used_refs": [
+              "C-LIMIT",
+              "D-CONFLICT",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "The prerequisite is accepted, but the voltage conflict is unresolved.",
+              "The partial pack does not include a separate reviewed dependency item."
+            ]
+          },
+          {
+            "id": "Q23",
+            "status": "HOLD",
+            "judgment": "Running the P-A sensor at 32 V is not supported by this evidence. The available T-A1 test decisions conflict between 28 V and 30 V; neither establishes a sensor rating or authorizes 32 V.",
+            "used_refs": [
+              "D-CONFLICT",
+              "D-CURRENT"
+            ],
+            "limitations": [
+              "D-CURRENT is supported at S1, revision 10000000-0000-4000-8000-000000000901, paragraph:1, timeline-span:corrected.",
+              "D-CONFLICT is supported at S2, revision 10000000-0000-4000-8000-000000000101, paragraph:1, timeline-span:2.",
+              "No supplied source proves a sensor maximum voltage or the physical safety of 32 V."
+            ]
+          },
+          {
+            "id": "Q24",
+            "status": "OK",
+            "judgment": "Use three varied outcomes: unchecked polarity caused a prior failure; omitted instrument calibration caused a retest; a test combining calibration confirmation and polarity checks succeeded. These support a candidate pre-energization checklist combining calibration confirmation and connector polarity checks. The supplied prerequisite also requires a 2 A current-limit setup.",
+            "used_refs": [
+              "F-PRECEDENT",
+              "F-REVIEW",
+              "S-REVIEW",
+              "F-PRE"
+            ],
+            "limitations": [
+              "This supports a candidate improvement, not an approved procedure or proof of causation.",
+              "Coverage is partial with an unconfirmed relation target; C-LIMIT itself is not included.",
+              "F-PRECEDENT has an in-pack applies_to link to F-TASK; equivalent task links for the other review cases are not supplied."
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

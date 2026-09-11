@@ -1,0 +1,36 @@
+{
+  "freeze_sha256": "sha256:352417bdabaf794f7a56f0a1953f05da29cbfab8750c32b2774333337d6c3210",
+  "comparisons": [
+    {
+      "id": "A",
+      "original_version": "0.2.1",
+      "revised_version": "0.2.2",
+      "original_input_sha256": "sha256:5230fc8f7960568966130afb33f24faa5a3640d4eeccf5adf96004d85dd94f64",
+      "revised_input_sha256": "sha256:3b11c17cd191123fc34777e1b90dfbea7d2e2c2c953b2253fa6bb9f5fc578dea",
+      "original_non_metric_input_sha256": "sha256:aa82724bb96874b17e841523c1db2ea6cdaad622189af52a0e5d2bd65faee593",
+      "revised_non_metric_input_sha256": "sha256:aa82724bb96874b17e841523c1db2ea6cdaad622189af52a0e5d2bd65faee593",
+      "exact_non_metric_input_equal": true,
+      "excluded_from_comparison": [
+        "pack.metrics"
+      ],
+      "new_model_calls": 0
+    },
+    {
+      "id": "B",
+      "original_version": "0.3.0",
+      "revised_version": "0.3.1",
+      "original_input_sha256": "sha256:8202b7da71a386a69d8a6361e315dba36398f27f04e72877d84a15b9a1745f55",
+      "revised_input_sha256": "sha256:a13ca7eba66dd22fce3ee9a463142d8bb141fbe1e2f6a1b57d6e447b0570b88d",
+      "original_non_metric_input_sha256": "sha256:1393cbc88c17f517a1e769c928376ae8162f92ca5b280ba897f743e1627bacdf",
+      "revised_non_metric_input_sha256": "sha256:1393cbc88c17f517a1e769c928376ae8162f92ca5b280ba897f743e1627bacdf",
+      "exact_non_metric_input_equal": true,
+      "excluded_from_comparison": [
+        "pack.metrics"
+      ],
+      "new_model_calls": 0
+    }
+  ],
+  "claim": "Exact question and all non-metric pack fields match; prior model outputs remain bound to their original versions.",
+  "revised_model_execution": false,
+  "quality_adoption": "HOLD"
+}
