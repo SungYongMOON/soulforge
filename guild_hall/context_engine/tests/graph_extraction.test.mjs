@@ -1,16 +1,19 @@
 // Graph extraction: the APP's fixed contract around neo4j-graphrag. Unit tests
-// feed a canned worker output (named as such) to check binding refusal and
-// fragment admission; the opt-in test runs the real worker with neo4j-graphrag
-// and a local model on a synthetic document.
+// feed a canned worker output (named as such) to check binding refusal,
+// fragment admission and degradation; the worker client is checked against an
+// interpreter that dies at once; the opt-in test runs the real worker with
+// neo4j-graphrag and a local model on a synthetic document.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
+import { CANNED_PACKAGES, CANNED_WORKER_SHA256 } from '../harness/fixtures/graph_index_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
 import { admitGraphFragment, extractGraphFragments, probeGraphModels, validateGraphBinding } from '../src/runtime/graph_extraction.mjs';
+import { GraphragWorkerError, MAX_WORKER_REQUEST_BYTES, runGraphragWorker } from '../src/adapters/graphrag/worker_client.mjs';
 import { GRAPH_EXTRACTION_PROFILE } from '../profiles/graph_extraction_v1.mjs';
 
 const NOW = '2026-09-12T00:00:00.000Z';
@@ -31,29 +34,33 @@ const BINDING = { worker: { interpreter_path: path.join(os.tmpdir(), 'unused-pyt
   llm: { host: 'http://127.0.0.1:11434', model: 'local-model:tag', max_calls: 20 }, embedder: null };
 const LLM_DIGEST = 'sha256:' + 'b'.repeat(64);
 
-// Canned worker output shaped like graphrag_worker.py's extract result.
-function cannedWorkerOutput(document, { createdAt = '2026-09-12T00:00:00+00:00', models } = {}) {
+// Canned worker output shaped like graphrag_worker.py's extract result. The
+// default carries a truncated answer, a chunk whose text was rewritten and a
+// repeated node id; `clean` gives a whole extraction of the first two units.
+function cannedWorkerOutput(document, { createdAt = '2026-09-12T00:00:00+00:00', models, clean = false, trace } = {}) {
   const [u0, u1] = document.units;
   const chunk = unit => `${document.doc_key}:${unit.unit_id}`;
   const node = (id, label, properties) => ({ id, label, properties, embedding_properties: {} });
   const rel = (start_node_id, type, end_node_id) => ({ start_node_id, end_node_id, type, properties: {} });
-  return { status: 'ok', models: models ?? { llm: { model: 'local-model:tag', digest: LLM_DIGEST } },
-    llm_calls: [{ call: 1, status: 'ok', input_sha256: 'sha256:' + '1'.repeat(64), prompt_tokens: 10, output_tokens: 5,
-      elapsed_ms: 7, done_reason: 'length', thinking_characters: 0, leaked_text: u0.text }],
-    budget_exhausted: false, llm_errors: 0, fragments: [{ doc_key: document.doc_key,
+  const units = clean ? [u0, u1] : [u0];
+  const nodes = [node(document.doc_key, 'Document', { path: document.doc_key, createdAt }),
+    { ...node(chunk(u0), 'Chunk', { text: u0.text, index: 0, sf_unit_id: u0.unit_id }), embedding_properties: { embedding: [0.25, -0.5, 0.125] } },
+    node(chunk(u1), 'Chunk', { text: clean ? u1.text : 'rewritten text', index: 1, sf_unit_id: u1.unit_id }),
+    node(`${chunk(u0)}:0`, 'Equipment', { name: '시험 장비 A', weight: 1.5, tags: ['a', { nested: 1 }] }),
+    node(`${chunk(u0)}:1`, 'Deliverable', { name: '응답기 장표' }),
+    ...(clean ? [] : [node(`${chunk(u0)}:1`, 'Deliverable', { name: '같은 id 반복' })]),
+    node('floating:9', 'Decision', { name: 'no chunk' }),
+    node(`${chunk(u0)}:2`, 'Document', { name: '이전 장표' }),
+    node(`${chunk(u0)}:3`, 'Person', { name: '요청자' }),
+    node(`${chunk(u1)}:0`, 'Constraint', { name: '전원 조건', value: '28V' })];
+  const others = document.units.filter(unit => !units.includes(unit));
+  if (clean) for (const unit of others) nodes.push(node(chunk(unit), 'Chunk', { text: unit.text, index: 9, sf_unit_id: unit.unit_id }));
+  return { status: 'ok', packages: CANNED_PACKAGES, models: models ?? { llm: { model: 'local-model:tag', digest: LLM_DIGEST } },
+    llm_calls: trace ?? [{ call: 1, status: 'ok', input_sha256: 'sha256:' + '1'.repeat(64), prompt_tokens: 10, output_tokens: 5,
+      elapsed_ms: 7, done_reason: clean ? 'stop' : 'length', thinking_characters: 0, leaked_text: u0.text }],
+    budget_exhausted: false, llm_errors: 0, invalid_outputs: 0, fragments: [{ doc_key: document.doc_key,
       tool_pruning: { nodes: { NOT_IN_SCHEMA: 2 }, relationships: { INVALID_PATTERN: 1 }, properties: {}, 'bad key': 3 },
-      nodes: [
-        node(document.doc_key, 'Document', { path: document.doc_key, createdAt }),
-        { ...node(chunk(u0), 'Chunk', { text: u0.text, index: 0, sf_unit_id: u0.unit_id }),
-          embedding_properties: { embedding: [0.25, -0.5, 0.125] } },
-        node(chunk(u1), 'Chunk', { text: 'rewritten text', index: 1, sf_unit_id: u1.unit_id }),
-        node(`${chunk(u0)}:0`, 'Equipment', { name: '시험 장비 A', weight: 1.5, tags: ['a', { nested: 1 }] }),
-        node(`${chunk(u0)}:1`, 'Deliverable', { name: '응답기 장표' }),
-        node('floating:9', 'Decision', { name: 'no chunk' }),
-        node(`${chunk(u0)}:2`, 'Document', { name: '이전 장표' }),
-        node(`${chunk(u0)}:3`, 'Person', { name: '요청자' }),
-        node(`${chunk(u1)}:0`, 'Constraint', { name: '전원 조건', value: '28V' }),
-      ], relationships: [
+      nodes, relationships: [
         rel(chunk(u0), 'FROM_DOCUMENT', document.doc_key), rel(chunk(u1), 'FROM_DOCUMENT', document.doc_key),
         rel(`${chunk(u0)}:0`, 'FROM_CHUNK', chunk(u0)), rel(`${chunk(u0)}:1`, 'FROM_CHUNK', chunk(u0)),
         rel(`${chunk(u0)}:1`, 'CONCERNS', `${chunk(u0)}:0`), rel(`${chunk(u0)}:1`, 'REFERENCES', 'elsewhere'),
@@ -61,8 +68,9 @@ function cannedWorkerOutput(document, { createdAt = '2026-09-12T00:00:00+00:00',
         rel(`${chunk(u1)}:0`, 'FROM_CHUNK', chunk(u1)),
       ] }] };
 }
+const canned = (output, workerSha256 = CANNED_WORKER_SHA256) => async () => ({ exit_code: 0, output, worker_sha256: workerSha256 });
 
-test('graph bindings are loopback-only and bounded before any worker starts', async () => {
+test('graph bindings are loopback-only, local-only and bounded before any worker starts', async () => {
   const never = async () => { throw new Error('worker must not start'); };
   const { documents, projectKey } = await syntheticDocuments();
   for (const [binding, code] of [
@@ -73,6 +81,8 @@ test('graph bindings are loopback-only and bounded before any worker starts', as
     [{ ...BINDING, llm: { ...BINDING.llm, think: 'max' } }, 'graph_llm_binding_invalid'],
     [{ ...BINDING, llm: { ...BINDING.llm, options: null } }, 'graph_llm_binding_invalid'],
     [{ ...BINDING, llm: { ...BINDING.llm, options: { stop: { nested: true } } } }, 'graph_llm_binding_invalid'],
+    [{ ...BINDING, llm: { ...BINDING.llm, model: 'gpt-oss:120b-cloud' } }, 'graph_model_not_local'],
+    [{ ...BINDING, embedder: { host: 'http://127.0.0.1:11434', model: 'embed-cloud' } }, 'graph_model_not_local'],
     [{ ...BINDING, embedder: { host: 'http://192.168.0.2:11434', model: 'embed' } }, 'graph_embedder_binding_invalid'],
   ]) {
     await assert.rejects(extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding, runWorker: never }), { code });
@@ -85,25 +95,30 @@ test('graph bindings are loopback-only and bounded before any worker starts', as
     binding: BINDING, runWorker: never }), { code: 'graph_documents_invalid' });
 });
 
-test('canned worker output: fragment admission keeps chunk-anchored profile entities with provenance only', async () => {
+test('canned worker output: admission keeps chunk-anchored profile entities; truncation or a lost chunk is degraded, never ok', async () => {
   const { documents, projectKey } = await syntheticDocuments();
   const document = documents[0];
   const run = options => extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding: BINDING,
-    runWorker: async () => ({ exit_code: 0, output: cannedWorkerOutput(document, options) }) });
+    runWorker: canned(cannedWorkerOutput(document, options)) });
   const first = await run();
   const second = await run({ createdAt: '2026-09-12T09:30:00+00:00' });
-  assert.equal(first.status, 'ok');
+  assert.deepEqual({ status: first.status, degraded: first.degraded }, { status: 'degraded', degraded: { budget_exhausted: false,
+    errors: 0, invalid_outputs: 0, truncated: 1, documents: [{ doc_key: document.doc_key, chunks_mismatched: 1,
+      missing_chunks: document.units.length - 1 }] } });
   const fragment = first.fragments[0];
   assert.deepEqual(fragment.nodes.map(node => node.label), ['Chunk', 'Deliverable', 'Document', 'Equipment']);
   assert.deepEqual({ chunks: fragment.stats.chunks, entities: fragment.stats.entities,
     without_chunk: fragment.stats.entities_without_chunk, reserved: fragment.stats.entities_reserved_label,
     outside_schema: fragment.stats.entities_outside_schema, dropped_rels: fragment.stats.relationships_outside_fragment,
-    mismatched: fragment.stats.chunks_mismatched, entity_relationships: fragment.stats.entity_relationships },
-  { chunks: 1, entities: 2, without_chunk: 2, reserved: 1, outside_schema: 1, dropped_rels: 5, mismatched: 1, entity_relationships: 1 });
+    mismatched: fragment.stats.chunks_mismatched, duplicates: fragment.stats.duplicate_ids,
+    entity_relationships: fragment.stats.entity_relationships },
+  { chunks: 1, entities: 2, without_chunk: 2, reserved: 1, outside_schema: 1, dropped_rels: 5, mismatched: 1, duplicates: 1,
+    entity_relationships: 1 });
   const byLabel = label => fragment.nodes.find(node => node.label === label);
   assert.deepEqual(byLabel('Document').properties.createdAt, undefined, 'the tool timestamp is not part of the fragment');
   assert.deepEqual({ text: byLabel('Chunk').properties.text, index: byLabel('Chunk').properties.index },
     { text: document.units[0].text, index: 0 });
+  assert.equal(fragment.source_text_sha256, document.text_sha256, 'a fragment names the exact text it was admitted against');
   assert.deepEqual({ embedded: fragment.stats.embedded_chunks, dimensions: byLabel('Chunk').embedding_ref.dimensions,
     vector: byLabel('Chunk').embedding }, { embedded: 1, dimensions: 3, vector: [0.25, -0.5, 0.125] });
   const equipment = byLabel('Equipment');
@@ -111,14 +126,21 @@ test('canned worker output: fragment admission keeps chunk-anchored profile enti
     'hashable property values only');
   assert.deepEqual({ project: equipment.properties.sf_project, state: equipment.properties.sf_claim_state,
     unit: equipment.properties.sf_unit_id, model: equipment.properties.sf_model, digest: equipment.properties.sf_model_digest,
-    profile: equipment.properties.sf_profile_version },
+    profile: equipment.properties.sf_profile_version, revision: /^sha256:/u.test(equipment.properties.sf_revision_sha256) },
   { project: projectKey, state: 'observed', unit: document.units[0].unit_id, model: 'local-model:tag', digest: LLM_DIGEST,
-    profile: GRAPH_EXTRACTION_PROFILE.profile_version });
+    profile: GRAPH_EXTRACTION_PROFILE.profile_version, revision: true });
   assert.deepEqual(fragment.tool_pruning, { nodes: { NOT_IN_SCHEMA: 2 }, relationships: { INVALID_PATTERN: 1 }, properties: {} });
-  assert.deepEqual({ think: first.model.think, digest: first.model.llm_digest }, { think: false, digest: LLM_DIGEST });
+  assert.deepEqual({ think: first.model.think, digest: first.model.llm_digest, tool: first.model.tool },
+    { think: false, digest: LLM_DIGEST, tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
   assert.equal(fragment.fragment_sha256, second.fragments[0].fragment_sha256, 'same input, same fragment despite the tool clock');
   assert.deepEqual({ calls: first.llm.calls, truncated: first.llm.truncated }, { calls: 1, truncated: 1 });
   assert.equal(JSON.stringify(first.llm.trace).includes(document.units[0].text), false, 'only named trace fields leave the worker');
+  const clean = await run({ clean: true });
+  assert.deepEqual({ status: clean.status, degraded: clean.degraded, chunks: clean.fragments[0].stats.chunks },
+    { status: 'ok', degraded: null, chunks: document.units.length });
+  const unreadable = await run({ clean: true, trace: [{ call: 1, status: 'invalid_output', input_sha256: 'sha256:' + '1'.repeat(64) }] });
+  assert.deepEqual({ status: unreadable.status, invalid: unreadable.degraded.invalid_outputs }, { status: 'degraded', invalid: 1 },
+    'an answer the extractor could not read is a hole, not an empty success');
   const failed = await extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding: BINDING,
     runWorker: async () => ({ exit_code: 3, output: { status: 'error', code: 'llm_endpoint_not_loopback' } }) });
   assert.deepEqual({ status: failed.status, code: failed.code, fragments: failed.fragments.length },
@@ -127,24 +149,37 @@ test('canned worker output: fragment admission keeps chunk-anchored profile enti
     { llm: { model: 'local-model:tag', digest: LLM_DIGEST }, embedder: { model: 'embed', digest: LLM_DIGEST } }]) {
     await assert.rejects(run({ models }), { code: 'graph_worker_models_invalid' });
   }
+  await assert.rejects(extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding: BINDING,
+    runWorker: canned(cannedWorkerOutput(document), null) }), { code: 'graph_worker_models_invalid' }, 'the worker file hash is part of the revision');
   const warm = await extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE,
-    binding: { ...BINDING, llm: { ...BINDING.llm, options: { temperature: 0.2, seed: 7 } } },
-    runWorker: async () => ({ exit_code: 0, output: cannedWorkerOutput(document) }) });
+    binding: { ...BINDING, llm: { ...BINDING.llm, options: { temperature: 0.2, seed: 7 } } }, runWorker: canned(cannedWorkerOutput(document)) });
   assert.deepEqual(warm.fragments[0].model.options, { seed: 7, temperature: '0.2' }, 'non-integer options stay hashable');
-  const probed = await probeGraphModels({ binding: BINDING, runWorker: async ({ request }) => ({ exit_code: 0,
-    output: { status: 'ok', models: { llm: { model: request.models.llm.model, digest: LLM_DIGEST } } } }) });
-  assert.deepEqual(probed, first.model, 'the probe reports the same model revision the extraction stamps');
+  const probed = await probeGraphModels({ binding: BINDING, runWorker: async ({ request }) => ({ exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+    output: { status: 'ok', packages: CANNED_PACKAGES, models: { llm: { model: request.models.llm.model, digest: LLM_DIGEST } } } }) });
+  assert.deepEqual(probed, first.model, 'the probe reports the same revision the extraction stamps');
   await assert.rejects(probeGraphModels({ binding: BINDING, runWorker: async () => ({ exit_code: 3,
     output: { status: 'error', code: 'llm_model_not_installed' } }) }), { code: 'llm_model_not_installed' });
   await assert.rejects(extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding: BINDING,
-    expectedModels: { ...probed, llm_digest: 'sha256:' + 'f'.repeat(64) },
-    runWorker: async () => ({ exit_code: 0, output: cannedWorkerOutput(document) }) }), { code: 'graph_model_changed' });
-  const models = { llm: 'local-model:tag', llm_digest: LLM_DIGEST, think: false, options: {}, embedder: null, embedder_digest: null };
+    expectedModels: { ...probed, llm_digest: 'sha256:' + 'f'.repeat(64) }, runWorker: canned(cannedWorkerOutput(document)) }),
+  { code: 'graph_model_changed' });
+  const models = { llm: 'local-model:tag', llm_digest: LLM_DIGEST, think: false, options: {}, embedder: null, embedder_digest: null,
+    tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } };
   assert.throws(() => admitGraphFragment({ fragment: { ...cannedWorkerOutput(document).fragments[0], doc_key: 'sha256:' + '0'.repeat(64) },
     document, projectKey, profile: GRAPH_EXTRACTION_PROFILE, models }), { code: 'graph_fragment_shape_invalid' });
   const withoutDocument = cannedWorkerOutput(document).fragments[0];
   assert.throws(() => admitGraphFragment({ fragment: { ...withoutDocument, nodes: withoutDocument.nodes.slice(1) },
     document, projectKey, profile: GRAPH_EXTRACTION_PROFILE, models }), { code: 'graph_fragment_document_mismatch' });
+});
+
+test('worker client: an oversized request is refused before spawning, and a worker that dies early is a refusal, not a crash', async () => {
+  const binding = { interpreter_path: process.execPath, timeout_ms: 60000 };
+  await assert.rejects(runGraphragWorker({ binding, request: { operation: 'probe', pad: 'x'.repeat(MAX_WORKER_REQUEST_BYTES) } }),
+    { code: 'graphrag_request_too_large' });
+  // Node rejects the Python flags and exits at once, so the large request meets a closed pipe.
+  const outcome = await runGraphragWorker({ binding, request: { operation: 'probe', pad: 'x'.repeat(4 * 1024 * 1024) } })
+    .then(() => 'resolved', error => error);
+  assert.ok(outcome instanceof GraphragWorkerError, String(outcome));
+  assert.ok(['graphrag_worker_stdin_failed', 'graphrag_output_invalid'].includes(outcome.code), outcome.code);
 });
 
 const PYTHON = process.env.SOULFORGE_TEST_GRAPHRAG_PYTHON;
@@ -159,11 +194,12 @@ test('real neo4j-graphrag extraction with a local model produces admitted chunk-
       binding: { worker: { interpreter_path: PYTHON, timeout_ms: 900000 },
         llm: { host, model: MODEL, max_calls: 20, keep_alive: process.env.SOULFORGE_TEST_GRAPHRAG_KEEP_ALIVE || '30s' },
         embedder: embedderModel ? { host, model: embedderModel } : null } });
-    assert.ok(['ok', 'partial'].includes(result.status), JSON.stringify({ status: result.status, code: result.code }));
+    assert.equal(result.status, 'ok', JSON.stringify({ status: result.status, code: result.code, degraded: result.degraded }));
     const fragment = result.fragments[0];
     assert.equal(fragment.stats.chunks, documents[0].units.length);
     assert.equal(fragment.stats.chunks_mismatched, 0);
     assert.match(result.model.llm_digest, /^sha256:[0-9a-f]{64}$/u);
+    assert.equal(typeof result.model.tool.packages['neo4j-graphrag'], 'string');
     assert.ok(fragment.stats.entities >= 1, 'the local model proposed no entity at all');
     for (const node of fragment.nodes.filter(row => !['Document', 'Chunk'].includes(row.label))) {
       assert.ok(documents[0].units.some(unit => unit.unit_id === node.properties.sf_unit_id));
@@ -171,8 +207,8 @@ test('real neo4j-graphrag extraction with a local model produces admitted chunk-
     assert.ok(result.llm.calls >= 1 && result.llm.trace.every(row => /^sha256:/u.test(row.input_sha256)));
     if (embedderModel) assert.equal(fragment.stats.embedded_chunks, fragment.stats.chunks);
     process.stdout.write(`# graphrag real run: ${JSON.stringify({ model: result.model, stats: fragment.stats,
-      tool_pruning: fragment.tool_pruning, llm: { calls: result.llm.calls, errors: result.llm.errors, truncated: result.llm.truncated,
-        thinking_characters: result.llm.thinking_characters, prompt_tokens: result.llm.prompt_tokens,
-        output_tokens: result.llm.output_tokens, elapsed_ms: result.llm.elapsed_ms },
+      tool_pruning: fragment.tool_pruning, llm: { calls: result.llm.calls, errors: result.llm.errors, invalid_outputs: result.llm.invalid_outputs,
+        truncated: result.llm.truncated, thinking_characters: result.llm.thinking_characters, prompt_tokens: result.llm.prompt_tokens,
+        output_tokens: result.llm.output_tokens, elapsed_ms: result.llm.elapsed_ms, embedder_calls: result.llm.embedder_calls },
       labels: [...new Set(fragment.nodes.map(node => node.label))] })}\n`);
   });

@@ -5,12 +5,15 @@
 // The opt-in test asks a real local model on the synthetic store.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import http from 'node:http';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { INDEX_NOW, READER_REQUEST, cannedGraphWorker, indexerRequest, makeGraphIndexStore } from '../harness/fixtures/graph_index_fixture.mjs';
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
-import { composeWorkingContext } from '../src/runtime/context_planner.mjs';
+import { PLANNER_BUDGET_CEILING, composeWorkingContext } from '../src/runtime/context_planner.mjs';
 import { CONTEXT_PLANNER_PROFILE } from '../profiles/context_planner_v1.mjs';
+import { loopbackFetch } from '../src/adapters/local_model/ollama_chat.mjs';
 
 const REQUEST = { request_text: '응답기 장표 요청 건과 전원 조건 변경을 확인해 착수 준비를 해 주세요.', task_purpose: '장표 작성 착수 전 맥락 확인' };
 const BINDING = { llm: { host: 'http://127.0.0.1:11434', model: 'planner-model:tag' } };
@@ -62,9 +65,14 @@ async function indexedStore() {
   return { store, worker, first, view };
 }
 
+// Every file under the store with its content hash: a query must change neither.
 async function listFiles(root) {
   const out = [];
-  for (const entry of await readdir(root, { withFileTypes: true, recursive: true })) if (entry.isFile()) out.push(path.join(entry.parentPath, entry.name));
+  for (const entry of await readdir(root, { withFileTypes: true, recursive: true })) {
+    if (!entry.isFile()) continue;
+    const file = path.join(entry.parentPath, entry.name);
+    out.push(`${file} ${createHash('sha256').update(await readFile(file)).digest('hex')}`);
+  }
   return out.sort();
 }
 
@@ -92,7 +100,9 @@ test('canned local model: the program searches, enforces citations and reports c
   const coverage = Object.fromEntries(pack.coverage.map(row => [row.source_kind, [row.state, row.searched, row.body_read > 0]]));
   assert.deepEqual(coverage, { buzz: ['not_connected', false, false], document: ['connected', true, true], linear: ['none_in_scope', false, false],
     mail: ['none_in_scope', false, false], slack: ['not_connected', false, false], voice: ['none_in_scope', false, false] });
-  assert.deepEqual(pack.rune, { status: 'not_run', reason: 'no_applicable_rule_or_verified_input' });
+  assert.deepEqual(pack.rune, { status: 'not_run', reason: 'rune_not_connected' });
+  assert.deepEqual(pack.review, { status: 'ok', rounds: 1, code: null });
+  assert.deepEqual(pack.uncited_model_text, ['deliverables', 'questions', 'missing', 'open_questions']);
   assert.equal(pack.budget.used.model_calls, 3);
   const trace = JSON.stringify(pack.trace);
   assert.ok(!trace.includes(REQUEST.request_text) && !trace.includes('화요일'), 'the trace carries hashes, not text');
@@ -112,8 +122,13 @@ test('budget, failure and refusal paths', async () => {
   const capped = cannedChat();
   const narrowed = await composeWorkingContext({ view: view(), request: { ...REQUEST, budget: { max_model_calls: 99 } },
     binding: { ...BINDING, budget: { max_model_calls: 2 } }, fetchImpl: capped.fetchImpl });
-  assert.deepEqual({ status: narrowed.status, steps: capped.calls.map(call => call.step) }, { status: 'complete', steps: ['plan', 'compose'] },
-    'a request cannot raise the configured budget; the last call is kept for compose');
+  assert.deepEqual({ status: narrowed.status, steps: capped.calls.map(call => call.step), review: narrowed.review },
+    { status: 'complete', steps: ['plan', 'compose'], review: { status: 'skipped', rounds: 0, code: 'model_budget_reserved_for_compose' } },
+    'a request cannot raise the configured budget; the last call is kept for compose and the skipped review is reported');
+  const greedy = await composeWorkingContext({ view: view(), request: REQUEST, binding: BINDING, fetchImpl: cannedChat().fetchImpl,
+    profile: { ...CONTEXT_PLANNER_PROFILE, budget: { ...CONTEXT_PLANNER_PROFILE.budget, max_model_calls: 99, max_evidence: 999 } } });
+  assert.deepEqual({ calls: greedy.budget.limits.max_model_calls, evidence: greedy.budget.limits.max_evidence },
+    { calls: PLANNER_BUDGET_CEILING.max_model_calls, evidence: PLANNER_BUDGET_CEILING.max_evidence }, 'no profile goes above the program ceiling');
   const few = await composeWorkingContext({ view: view(), request: { ...REQUEST, budget: { max_evidence: 1 } }, binding: BINDING,
     fetchImpl: cannedChat().fetchImpl });
   assert.deepEqual({ evidence: few.evidence.length, truncated: few.budget.evidence_truncated }, { evidence: 1, truncated: true });
@@ -126,6 +141,7 @@ test('budget, failure and refusal paths', async () => {
     [{ request: { ...REQUEST, as_of: '2026-09-01T00:00:00.000Z' } }, 'as_of_not_supported_by_graph_index'],
     [{ request: { task_purpose: 'x' } }, 'planner_request_invalid'],
     [{ binding: { llm: { host: 'http://10.1.2.3:11434', model: 'planner-model:tag' } } }, 'chat_binding_invalid'],
+    [{ binding: { llm: { host: 'http://127.0.0.1:11434', model: 'gpt-oss:120b-cloud' } } }, 'chat_model_not_local'],
   ]) {
     await assert.rejects(composeWorkingContext({ view: view(), request: REQUEST, binding: BINDING, fetchImpl: untouched.fetchImpl, ...args }), { code });
   }
@@ -139,6 +155,18 @@ test('budget, failure and refusal paths', async () => {
   assert.equal(moved.status, 'COMMITTED');
   await assert.rejects(composeWorkingContext({ view: stale, request: REQUEST, binding: BINDING, fetchImpl: cannedChat().fetchImpl }),
     { code: 'graph_index_pointer_changed' });
+});
+
+test('local model client: loopback only, and a redirect is refused rather than followed with the prompt', async () => {
+  await assert.rejects(loopbackFetch('http://192.0.2.10:11434/api/tags'), { code: 'chat_endpoint_not_loopback' });
+  const server = http.createServer((request, response) => {
+    response.writeHead(307, { location: 'http://192.0.2.10:11434/api/chat' }); response.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await assert.rejects(loopbackFetch(`http://127.0.0.1:${server.address().port}/api/chat`, { method: 'POST', body: '{"prompt":"x"}' }),
+      { code: 'chat_redirect_refused' });
+  } finally { await new Promise(resolve => server.close(resolve)); }
 });
 
 const MODEL = process.env.SOULFORGE_TEST_CONTEXT_PLANNER_LLM;

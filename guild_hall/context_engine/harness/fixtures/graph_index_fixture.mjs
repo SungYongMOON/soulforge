@@ -20,6 +20,8 @@ export const INDEX_MEMOS = Object.freeze({
   'memo-b.md': '# 전원 조건\n\n전원 조건은 28V로 바뀌었고 이전 24V 조건은 취소한다.\n',
 });
 export const CANNED_LLM_DIGEST = 'sha256:' + 'c'.repeat(64);
+export const CANNED_WORKER_SHA256 = 'sha256:' + 'f'.repeat(64);
+export const CANNED_PACKAGES = Object.freeze({ neo4j: '6.0.0', 'neo4j-graphrag': '1.19.0', ollama: '0.4.9', pydantic: '2.11.0' });
 const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
 export const indexerRequest = extra => ({ actor_ref: 'actor:indexer', project_ref: ref(1), purpose: 'context_preparation', ...extra });
 export const READER_REQUEST = Object.freeze({ actor_ref: 'actor:reader', project_ref: ref(1), purpose: 'context_query' });
@@ -60,14 +62,18 @@ export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclD
 }
 
 // Canned worker: answers the probe with one model revision and the extraction
-// with one chunk and one equipment entity per unit.
-export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, budgetExhausted = false } = {}) {
-  const calls = { probe: 0, extract: 0, extracted: [] };
+// with one chunk and one equipment entity per unit. invalidOutputs marks that
+// many calls as answers the extractor could not read (a degraded extraction).
+export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, budgetExhausted = false, invalidOutputs = 0,
+  packages = CANNED_PACKAGES } = {}) {
+  const calls = { probe: 0, extract: 0, extracted: [], batches: [] };
   async function runWorker({ request }) {
     if (request.operation === 'probe') {
       calls.probe++;
-      return { exit_code: 0, output: { status: 'ok', models: { llm: { model: request.models.llm.model, digest } } } };
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+        output: { status: 'ok', packages, models: { llm: { model: request.models.llm.model, digest } } } };
     }
+    calls.batches.push(request.documents.length);
     calls.extract++;
     const fragments = request.documents.map(document => {
       calls.extracted.push(document.doc_key);
@@ -82,10 +88,11 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, budgetExhausted 
       return { doc_key: document.doc_key, nodes, relationships, tool_pruning: { nodes: {}, relationships: {}, properties: {} } };
     });
     const units = request.documents.flatMap(document => document.units);
-    return { exit_code: 0, output: { status: 'ok', models: { llm: { model: request.profile.llm.model, digest } }, fragments,
-      budget_exhausted: budgetExhausted, llm_calls: units.map((unit, index) => ({ call: index + 1,
-        status: budgetExhausted && index > 0 ? 'budget_exhausted' : 'ok', input_sha256: 'sha256:' + 'd'.repeat(64),
-        prompt_tokens: 10, output_tokens: 5, elapsed_ms: 3 })) } };
+    return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', packages,
+      models: { llm: { model: request.profile.llm.model, digest } }, fragments, budget_exhausted: budgetExhausted,
+      llm_calls: units.map((unit, index) => ({ call: index + 1,
+        status: budgetExhausted && index > 0 ? 'budget_exhausted' : index < invalidOutputs ? 'invalid_output' : 'ok',
+        input_sha256: 'sha256:' + 'd'.repeat(64), prompt_tokens: 10, output_tokens: 5, elapsed_ms: 3 })) } };
   }
   return { runWorker, calls };
 }

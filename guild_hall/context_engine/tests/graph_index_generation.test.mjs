@@ -1,18 +1,20 @@
 // Graph index generations in the Plan 17 project store: create-only writes,
 // pull-based incremental extraction with carry-forward by exact reference, one
-// pointer under a lock and an expected prior, rollback, and refusals. Unit tests
+// pointer under a lock and an expected prior, rollback, grant-bound reads,
+// degraded extractions that hold, lost locks, and refusals. Unit tests
 // use a canned worker (named as such) that counts probe and extraction calls;
 // the opt-in test repeats the replay and single-change cases with the real
 // neo4j-graphrag worker and a local model.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { existsSync } from 'node:fs';
 import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
-import { CANNED_LLM_DIGEST as LLM_DIGEST, INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
+import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_WORKER_SHA256, INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
-import { GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, openGraphIndex, selectGraphIndexGeneration,
-  updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
+import { GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, openGraphIndex, planExtractionBatches,
+  selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
 const update = (store, request, worker) => updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request,
   now: NOW, runWorker: worker.runWorker });
@@ -31,7 +33,8 @@ test('first update writes a complete generation; replay is a no-op without extra
     const document = view.readDocument(row.doc_key), fragment = view.readFragment(row.doc_key);
     assert.equal(fragment.stats.chunks, document.units.length);
     assert.deepEqual(fragment.model, { llm: 'local-model:tag', llm_digest: LLM_DIGEST, think: false,
-      options: { temperature: 0, seed: 7, num_predict: 2048 }, embedder: null, embedder_digest: null });
+      options: { num_predict: 2048, seed: 7, temperature: 0 }, embedder: null, embedder_digest: null,
+      tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
   }
   const replay = await update(store, indexer({ generation_id: 'g2', expected_prior: first.pointer_sha256 }), worker);
   assert.deepEqual({ status: replay.status, generation: replay.generation_id, epoch: replay.selection_epoch, unchanged: replay.changes.unchanged },
@@ -128,6 +131,76 @@ test('access, binding and integrity refusals', async () => {
   const realResult = await updateGraphIndex({ storeRoot: real.storeRoot, bindingSha256: real.bindingSha256,
     request: indexer({ generation_id: 'g1', expected_prior: null }), now: NOW, runWorker: worker.runWorker });
   assert.deepEqual({ status: realResult.status, code: realResult.code }, { status: 'HOLD', code: 'real_source_preparation_not_admitted' });
+});
+
+test('a degraded extraction holds the index; carry decisions and batch plans refuse what they cannot vouch for', async () => {
+  const store = await makeStore();
+  const degraded = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker({ invalidOutputs: 1 }));
+  assert.deepEqual({ status: degraded.status, code: degraded.code, invalid: degraded.degraded.invalid_outputs },
+    { status: 'HOLD', code: 'graph_extraction_degraded', invalid: 1 });
+  assert.equal(existsSync(path.join(store.storeRoot, PROJECT, GRAPH_INDEX_AREAS.index, 'generations')), false, 'nothing was written');
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker());
+  assert.equal(first.status, 'COMMITTED');
+  const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
+  const row = view.manifest.documents[0], fragment = view.readFragment(row.doc_key), document = view.readDocument(row.doc_key);
+  const decide = changed => carryDecision({ row, fragment: { ...fragment, ...changed }, document,
+    projectKey: view.manifest.project_key, models: view.manifest.model });
+  assert.equal(decide({}), 'carry');
+  assert.equal(decide({ source_text_sha256: 'sha256:' + '0'.repeat(64) }), 'extract', 'a fragment admitted against other text is re-extracted');
+  assert.equal(decide({ stats: { ...fragment.stats, chunks_mismatched: 1 } }), 'extract', 'a degraded fragment is never carried');
+  assert.throws(() => decide({ doc_key: 'sha256:' + '0'.repeat(64) }), { code: 'graph_index_carry_invalid' });
+  assert.throws(() => decide({ model: { ...fragment.model, llm_digest: 'sha256:' + '0'.repeat(64) } }), { code: 'graph_index_carry_invalid' });
+  const documents = view.manifest.documents.map(item => view.readDocument(item.doc_key));
+  assert.deepEqual(planExtractionBatches(documents).map(batch => batch.length), [2]);
+  assert.deepEqual(planExtractionBatches(documents, { documents: 1, units: 100, characters: 100000 }).map(batch => batch.length), [1, 1]);
+  assert.throws(() => planExtractionBatches(documents, { documents: 5, units: 1, characters: 100000 }), { code: 'graph_index_document_too_large' });
+});
+
+test('a changed grant blocks reads and rollback of older generations until the index is rebuilt; readers need every data class', async () => {
+  const store = await makeStore(), worker = cannedWorker();
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), worker);
+  const narrowed = JSON.parse(await readFile(path.join(store.storeRoot, store.binding.grant.path), 'utf8'));
+  narrowed.sources[0].items = narrowed.sources[0].items.filter(item => item.item_id === 'memo-a');
+  const grant = await store.put(`${PROJECT}/00_프로젝트_안내/grants/grant.synthetic.index.v2.json`, narrowed);
+  const { sha256: bindingSha256 } = await store.put(GRAPH_INDEX_BINDING_FILE, { ...store.binding, grant });
+  const readerView = () => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256, request: reader });
+  assert.throws(readerView, { code: 'graph_index_grant_changed' }, 'the broader earlier generation is not served under the narrowed grant');
+  const rollback = await selectGraphIndexGeneration({ storeRoot: store.storeRoot, bindingSha256,
+    request: indexer({ generation_ref: first.manifest_ref, expected_prior: first.pointer_sha256 }) });
+  assert.deepEqual({ status: rollback.status, code: rollback.code }, { status: 'HOLD', code: 'graph_index_grant_changed' });
+  const rebuilt = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256, now: NOW, runWorker: worker.runWorker,
+    request: indexer({ generation_id: 'g2', expected_prior: first.pointer_sha256 }) });
+  assert.deepEqual({ status: rebuilt.status, documents: rebuilt.counts.documents, carried: rebuilt.counts.carried,
+    extracted: rebuilt.counts.extracted, removed: rebuilt.changes.removed },
+  { status: 'COMMITTED', documents: 1, carried: 1, extracted: 0, removed: 1 }, 'a rebuild under the new grant carries what stays');
+  assert.deepEqual(readerView().manifest.documents.map(item => item.item_id), ['memo-a']);
+  await store.put(store.aclPath, { ...store.acl, actors: store.acl.actors.map(actor => actor.actor_ref === 'actor:reader'
+    ? { ...actor, grant: { ...actor.grant, allowed_data_classes: [] } } : actor) });
+  assert.throws(readerView, { code: 'graph_index_access_refused' }, 'a reader must be admitted to every data class in the generation');
+});
+
+test('writers: concurrent updates commit once, a lost lock holds, and a failed release after the commit is reported', async () => {
+  const store = await makeStore(), worker = cannedWorker();
+  const both = await Promise.all([update(store, indexer({ generation_id: 'ga', expected_prior: null }), worker),
+    update(store, indexer({ generation_id: 'gb', expected_prior: null }), worker)]);
+  assert.deepEqual(both.map(result => result.status).sort(), ['COMMITTED', 'HOLD']);
+  assert.equal(both.find(result => result.status === 'HOLD').code, 'graph_index_locked');
+  const view = () => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
+  const current = view().pointer_sha256;
+  await writeFile(path.join(store.sourceRoot, 'memo-a.md'), '# 시험 장비 A\n\n장표 제출이 하루 늦어졌다.\n');
+  const lockPath = path.join(store.storeRoot, PROJECT, '00_프로젝트_안내', 'graph_index.lock');
+  const lost = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, now: NOW, runWorker: worker.runWorker,
+    request: indexer({ generation_id: 'gc', expected_prior: current }), hooks: { beforeCommit: () => writeFile(lockPath, 'someone else') } });
+  assert.deepEqual({ status: lost.status, code: lost.code }, { status: 'HOLD', code: 'graph_index_lock_lost' });
+  assert.equal(view().pointer_sha256, current, 'the pointer did not move');
+  assert.equal(await readFile(lockPath, 'utf8'), 'someone else', 'a lock no longer ours is left alone');
+  await rm(lockPath);
+  const cleanupFailed = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, now: NOW,
+    runWorker: worker.runWorker, request: indexer({ generation_id: 'gd', expected_prior: current }), hooks: { afterCommit: () => rm(lockPath) } });
+  assert.deepEqual({ status: cleanupFailed.status, code: cleanupFailed.code }, { status: 'COMMITTED_CLEANUP_FAILED', code: 'graph_index_lock_lost' });
+  assert.equal(view().manifest.generation_id, 'gd', 'the committed generation is current');
+  assert.equal(view().manifest.writer.epoch, 2);
+  assert.match(view().manifest.writer.acl_sha256, /^sha256:/u);
 });
 
 const PYTHON = process.env.SOULFORGE_TEST_GRAPHRAG_PYTHON;

@@ -112,15 +112,25 @@ schema 가지치기(`GraphPruning`)는 도구가 하고, APP은 그 둘레의 �
   인터페이스에 맞춘 얇은 연결부로 로컬 chat API를 직접 부르고 JSON 형식, binding의 `think`(기본 `false`, `null`은
   모델 기본값), 호출 예산(넘으면 빈 결과로 부분 처리), 호출별 기록(입출력 해시·크기·생각 길이·중단 사유·시간·
   토큰)을 남긴다. APP은 이름이 정해진 기록 필드만 받는다.
-- 모델 판본: worker가 설치된 모델의 manifest digest를 읽어 돌려주고, 조각의 모든 행에 모델 이름과 digest를 붙인다.
-  태그만으로는 판본이 아니다. 모델이 설치돼 있지 않으면 `llm_model_not_installed`/`embedder_model_not_installed`다.
+- 모델 판본: worker가 설치된 모델의 manifest digest를 읽어 돌려주고, 조각의 모든 행에 모델 이름과 digest, 판본 전체의
+  해시(`sf_revision_sha256`)를 붙인다. 태그만으로는 판본이 아니다. 판본에는 worker 파일 해시와 neo4j-graphrag·neo4j·
+  ollama·pydantic 판도 들어간다(도구의 기본 추출 prompt와 가지치기는 도구 판을 따라 바뀐다). 모델이 설치돼 있지 않으면
+  `llm_model_not_installed`/`embedder_model_not_installed`다. 이름이 `-cloud`로 끝나는 모델은 로컬 서버를 거쳐
+  제공자 서비스에서 돌므로(Ollama 공식 문서) loopback이어도 `graph_model_not_local`/`model_not_local`로 거부한다.
+- 도구가 대화 이력이나 system 지시를 붙여 부르면 prompt가 판본 밖에서 바뀌므로 worker가 `llm_prompt_path_not_supported`로
+  멈춘다. 요청은 64 MiB(worker 읽기 상한) 안이어야 하며 넘으면 실행 전에 거부하고, worker가 먼저 죽어 입력 pipe가
+  끊겨도 호출한 쪽이 죽지 않고 `graphrag_worker_stdin_failed`로 끝난다.
+- 추출 결과가 온전하지 않으면 `ok`가 아니다. 호출 오류, 도구가 읽지 못한 답(도구의 JSON 수선·그래프 검증을 worker가
+  같은 순서로 다시 해 셈), 잘린 답(`done_reason: length`), 원본 단위와 어긋나거나 빠진 청크가 하나라도 있으면
+  `degraded`(예산 초과는 `partial`)와 원인 개수를 돌려준다. 도구는 이런 답을 빈 그래프로 조용히 바꾸기 때문이다.
 - schema 강제는 도구의 `GraphPruning`이 한다. 선언하지 않은 유형·관계·패턴·속성과 이름 없는 대상(EXISTENCE 제약)을
   지우며, APP은 사유별 가지치기 개수만 조각에 남긴다.
 - 문서·청크 ID는 `doc_key`와 단위 ID로 정해져 추출 결과가 원문 단위로 이어진다. 조각 수용 규칙은 두 단계다.
   (1) 어휘 그래프: 문서 노드는 하나이고, 청크 본문은 원본 단위와 같아야 한다. 속성은 준비된 문서에서 다시 만든다
   (도구가 찍는 `createdAt` 시계값을 빼서 같은 입력은 같은 조각 해시가 된다). (2) 대상: profile 유형이어야 하고
   도구 어휘 라벨(`Document`/`Chunk`)을 쓰면 안 되며, 받아들여진 청크를 가리켜야 한다. 관계는 조각 안에서만 잇는다.
-  어긋난 것은 버리고 개수를 남긴다. 남은 모든 행에 과제·문서·profile 판본·모델 판본과 `claim_state: observed`를 붙인다.
+  어긋난 것은 버리고 개수를 남긴다(같은 id가 두 번 나오면 뒤의 것을 버리고 센다). 남은 모든 행에 과제·문서·profile
+  판본·모델 판본과 `claim_state: observed`를 붙이고, 조각에는 받아들일 때의 원문 해시(`source_text_sha256`)를 남긴다.
 - 추출 profile(`profiles/graph_extraction_v1.mjs` 0.2.0: 요청·산출물·결정·변경·약속·제약·장비·참조 문서·사건과
   관계)은 시험에서 바꿀 실험 설정이다. 참조 문서 유형은 도구의 `Document` 라벨과 겹치지 않게 `ReferencedDocument`다.
 - 시험: 단위 시험은 이름을 밝힌 가짜 worker 출력으로 binding 거부와 수용 규칙을 본다. 실제 추출은 opt-in
@@ -134,6 +144,9 @@ schema 가지치기(`GraphPruning`)는 도구가 하고, APP은 그 둘레의 �
 
 D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문에서 다시 만들 수 있지만 모델 출력이라 결정론적
 재생물이 아니라고 적었다. 그래서 받아들인 조각을 과제 project store에 세대로 보존하고, 그래프 DB는 여기서 적재한다.
+이 조각은 검색 자산일 뿐이다. FABLE A6가 말한 `30_프로젝트맥락`의 관찰·검토 후보 기록은 별도 writer가 만든다.
+세대는 byte 동일하게 다시 만들 수 없으므로 복구에는 백업이 필요하다. project store의 실제 백업 분류는 그 계약 owner가
+정한다(미정).
 
 - 위치(Plan 17 `20_문서검색`, 사람이 검토한 관계가 아니라서 `30_프로젝트맥락`에는 쓰지 않는다):
   `본문·표_추출/generations/<id>/<문서>.json`(준비 문서), `검색_색인/generations/<id>/fragments/<문서>.json`(조각)과
@@ -142,21 +155,29 @@ D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문
 - binding: store root의 `graph_index_binding.json`(호출자가 sha256으로 고정). 과제 ref·파일시스템 키·ACL·쓰기 권한·
   exact grant(경로+해시)·source root 표(store 밖만)·그래프 binding·profile pin(id·판·schema 해시)을 담는다. 요청은
   actor·과제·목적·세대 ID·expected prior만 준다.
-- 갱신 `updateGraphIndex`: 잠금 → expected prior → grant·ACL 재검증 → 원본 준비와 이전 coverage 대조 → 모델 판본
-  probe → 추가·변경 문서만 추출. 불변 문서는 같은 profile·모델 판본일 때 이전 세대 파일을 (경로, 해시)로 참조한다.
-  이어서 create-only 쓰기 → 전 파일 해시 재확인 → 포인터 원자 교체 순서다. 결과는 COMMITTED, UNCHANGED(재실행,
-  추출 0), HOLD(원본 누락·예산 초과·prior 불일치·잠금·권한·무결성·실자료 등급)이다. HOLD는 현재 세대를 바꾸지
-  않고, 모델 판본이 바뀌면 이전 조각을 섞지 않고 전부 다시 추출한다.
-- 복구 `selectGraphIndexGeneration`: 검증된 이전 세대를 같은 잠금·prior 규칙으로 다시 고른다.
-- 읽기 `openGraphIndex`: 현재 세대의 문서·조각을 해시로 다시 읽는 read view다(검색·그래프 적재용).
-  `assertCurrent`는 포인터·binding·권한이 바뀐 view를 거부한다.
+- 갱신 `updateGraphIndex`: 잠금 → expected prior → grant·ACL 재검증 → 원본 준비와 이전 coverage 대조 → 모델·도구
+  판본 probe → 추가·변경 문서만 추출. 불변 문서는 profile·모델·도구 판본이 같고, 조각의 원문 해시가 새로 준비한
+  문서와 같으며, 조각이 온전할 때만 이전 세대 파일을 (경로, 해시)로 참조한다. 추출은 한 번에 문서 50개·단위 2,000개·
+  8백만 글자까지 묶어 나눠 부르고, binding의 `max_calls`는 한 갱신 전체의 상한이다. 이어서 create-only 쓰기 → 전 파일
+  해시 재확인 → 포인터를 옆에 쓰고 동기화한 뒤 이름 바꾸기 순서다. 결과는 COMMITTED, UNCHANGED(재실행, 추출 0),
+  HOLD(원본 누락·예산 초과·추출 degraded·prior 불일치·잠금·권한·무결성·실자료 등급)이다. HOLD는 현재 세대를 바꾸지
+  않고, 모델·도구 판본이 바뀌면 이전 조각을 섞지 않고 전부 다시 추출한다. manifest에는 grant·ACL 해시·writer 차수가 남는다.
+- 잠금: `00_프로젝트_안내/graph_index.lock`에 잡은 쪽(프로세스 번호·시작 시각·작업·actor)을 적는다. 잠금을 쥔 프로세스가
+  죽으면 파일이 남아 다음 갱신이 `graph_index_locked`로 멈춘다. 그 프로세스가 더 없는지 확인한 뒤 운영자가 파일을
+  지운다. 자동으로 빼앗지 않는다. 남의 잠금은 절대 지우지 않고, 풀기에 실패하면 `graph_index_lock_lost`로 알린다.
+- 복구 `selectGraphIndexGeneration`: 검증된 이전 세대를 같은 잠금·prior 규칙으로 다시 고른다. 지금 binding의 grant로
+  만든 세대만 고를 수 있다.
+- 읽기 `openGraphIndex`: 현재 세대의 문서·조각을 해시로 다시 읽는 read view다(검색·그래프 적재용). 세대를 만든 grant가
+  지금 binding의 grant와 다르면 `graph_index_grant_changed`로 거부해, 좁혀지거나 철회된 grant 아래서 예전의 넓은 세대가
+  읽히지 않는다(새 grant로 갱신하면 남은 문서는 참조로 이어진다). 읽는 actor의 ACL이 세대의 모든 자료 등급을 허용해야
+  한다. `assertCurrent`는 포인터·binding·권한이 바뀐 view를 거부한다.
 - 아직 없는 것: 그래프 DB 적재·검색(설치 뒤), 참조 중인 파일을 지키는 오래된 세대 정리 규칙.
 
 ## 맥락이 작업 맥락 조립 (0.8.0, 그래프 검색은 Neo4j 설치 뒤)
 
 `composeWorkingContext({ view, request, binding })`는 선택된 그래프 색인 세대(`openGraphIndex` view) 위에서 v0.9 §4 B
-흐름을 돈다. 요청은 요청 원문·작업 목적(선택: 더 낮은 예산)만 준다. 과제·권한·세대는 view가, 모델 주소·예산 상한은
-신뢰된 binding이 정한다.
+흐름을 돈다. 요청은 요청 원문·작업 목적(선택: 더 낮은 예산)만 준다. 과제·권한·세대는 view가, 모델 주소는 신뢰된
+binding이 정한다. 예산 상한은 프로그램 상수(`PLANNER_BUDGET_CEILING`)이고 profile 값은 그 아래 기본값이다.
 
 - 맥락이(로컬 모델)가 하는 일: 요청의 산출물·대상 파악, 확인 질문, 질문별 검색 방식 선택(lexical·exact·graph),
   근거 충분성 판단과 추가 검색 요청, 절별 문장 작성. 검색과 읽기만 도구로 열려 있고 검색은 프로그램이 실행한다.
@@ -164,11 +185,17 @@ D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문
   GraphRAG 몫이라 `not_connected`), 근거는 해시 검증된 색인의 원본 단위에서만 가져온다(출처 종류·항목·단위·
   locator·시각·판본). 인용 강제는 근거 id가 없거나 없는 id만 단 fact·claim을 해석으로 낮추고 개수를 남긴다.
   나머지는 source 종류별 coverage(`connected`·`not_connected`·`none_in_scope`, 검색 여부·hit·본문 사용 수),
-  Rune 절(규칙·검증 입력이 없어 `not_run`), 예산·trace(해시·크기·중단 사유·시간·토큰만)다.
+  Rune 절(Rune이 아직 연결되지 않아 `not_run`, 사유 `rune_not_connected`), 추가 검색 검토 결과(`review`: ok·skipped·
+  failed·not_run), 예산·trace(해시·크기·중단 사유·시간·토큰만)다. `unknown`(미확인) 문장은 근거가 없다는 것 자체를 말하는
+  종류라 해석으로 낮추지 않는다. 산출물·질문·부족 사유·남은 질문은 모델이 쓴 계획 문장이라 인용 강제 밖이며
+  `uncited_model_text`에 그 필드를 적는다.
+- 로컬 모델은 `node:http` 기반 loopback 전용 client로 부른다. proxy 변수를 쓰지 않고, 되돌림(3xx)은 prompt를 다른
+  곳으로 다시 보내므로 따라가지 않고 `chat_redirect_refused`로 끝낸다. `-cloud` 모델은 `chat_model_not_local`로 거부한다.
 - 출력 `soulforge.context_pack.v2`: 9항목 중 1~5는 절(배경·업무 이력·결정 변화·재사용 자료·영향과 먼저 확인할 것),
   6은 문장 kind(확인 사실·자료의 주장·해석·미확인), 7은 근거 목록, 8은 검색 기록·coverage·남은 질문, 9는 Rune 절이다.
   `content_sha256`은 시간·trace를 뺀 내용 digest라 같은 입력을 비교할 수 있다. 조회는 아무것도 쓰지 않는다.
-- 예산: 모델 호출·검색 회차·회차당 검색·근거 수·근거 글자 수. binding과 요청은 profile 값을 낮추기만 한다.
+- 예산: 모델 호출·검색 회차·회차당 검색·근거 수·근거 글자 수. profile은 프로그램 상한 아래 기본값이고, binding과
+  요청은 그 값을 낮추기만 한다.
   마지막 호출은 조립용으로 남기고, 예산이 다하면 `partial`과 답하지 못한 질문을 돌려준다. `as_of`는 현재
   세대만 있어 거부한다(`as_of_not_supported_by_graph_index`). 조회 중 색인 포인터가 바뀌면 거부한다.
 - profile(`profiles/context_planner_v1.mjs`)은 prompt·출력 schema·기본 예산을 담은 실험 설정이다. 인용 강제·coverage·

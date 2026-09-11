@@ -33,7 +33,7 @@ context_engine/
 | --- | --- | --- | --- |
 | 외부 source custody·SE·lineage·receipt | 기존 owner | APP 재작성 불가 | 원본 path/hash와 연결 유지 |
 | 외부 `binding.accepted_snapshot` | 기존 수락 authority | APP 재작성 불가 | 실제 bundle과 records 읽기를 exact path/hash에 결속 |
-| project `20_문서검색` | 명시 update | 본문·표·품질·검색 index 재생성 가능. 그래프 색인 조각(제안층, D41)은 모델 출력이라 결정론적 재생물이 아님 | 세대 create-only. 그래프 색인은 불변 문서의 이전 세대 파일을 (경로, 해시)로 참조 |
+| project `20_문서검색` | 명시 update | 본문·표·품질·검색 index 재생성 가능. 그래프 색인 조각(제안층 검색 자산, D41)은 모델 출력이라 결정론적 재생물이 아니어서 복구에는 백업이 필요(분류는 project store 계약 owner, 미정) | 세대 create-only. 그래프 색인은 불변 문서의 이전 세대 파일을 (경로, 해시)로 참조하고, 세대를 만든 grant 아래서만 읽기·재선택 |
 | project `30_프로젝트맥락` | 명시 update | accepted 원본/위치 참조·범위 요약 | 새로운 결정/약속을 수락하지 않음 |
 | project `40_기억관리` | 명시 update | projection·선택 policy 재생성 가능 | source/accepted pin 유지 |
 | project `50_업무맥락` | 명시 update | generation manifest·empty cache | query의 persistent write 0; 준비된 cache를 완료 팩으로 표시하지 않음 |

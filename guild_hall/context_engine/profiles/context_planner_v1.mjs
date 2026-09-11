@@ -1,10 +1,10 @@
 // Experimental 맥락이 profile. v0.9 §4 B gives the model the request meaning,
 // the check questions, the search choice per question, the sufficiency judgment
 // and the written sections; v0.9 §14 keeps prompts, question strategy and the
-// additional-search policy as test-time variables. This profile carries no
-// endpoint, grant or budget ceiling (trusted configuration owns those) and it
-// cannot relax citation enforcement, coverage reporting or the claim ceiling,
-// which the program owns.
+// additional-search policy as test-time variables. Its budget is a default
+// under the program ceiling (PLANNER_BUDGET_CEILING); it carries no endpoint or
+// grant, and it cannot relax citation enforcement, coverage reporting or the
+// claim ceiling, which the program owns.
 const SECTIONS = ['background', 'work_history', 'decisions', 'reusable', 'impact'];
 const TEXT = { type: 'string' };
 const SEARCH = { type: 'object', required: ['question_id', 'mode', 'query'], properties: {

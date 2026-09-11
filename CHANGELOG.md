@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 그래프 색인·맥락이 검토 지적 반영
+
+- 비작성 Level 2 검토(수정 후 수락, 필수 4건)를 반영해 맥락 APP(`guild_hall/context_engine`)을 0.8.1로 올렸다.
+- 온전하지 않은 추출을 완료로 남기지 않는다. 호출 오류, 도구가 읽지 못한 답, 잘린 답, 원본과 어긋나거나 빠진 청크가
+  있으면 `degraded`이고, 색인 갱신은 HOLD라 현재 세대가 그대로다. 도구는 이런 답을 빈 그래프로 조용히 바꾸므로 worker가
+  도구와 같은 순서로 답을 다시 검사해 센다. 이어받기는 원문 해시가 같고 온전한 조각만 한다.
+- worker가 먼저 죽어 입력 pipe가 끊겨도 호출한 쪽이 죽지 않는다(잠금 파일이 남던 경로). 64 MiB를 넘는 요청은 실행 전에
+  거부하고, 추출은 문서 50개·단위 2,000개·8백만 글자 단위로 나눠 부르며 호출 예산은 갱신 전체에 건다.
+- 판본에 worker 파일 해시와 도구 판(neo4j-graphrag·neo4j·ollama·pydantic)을 넣었다. 도구가 대화 이력이나 system 지시를
+  붙이면 멈춘다. 이름이 `-cloud`로 끝나는 모델은 로컬 서버를 거쳐 제공자 서비스에서 돌므로 loopback이어도 거부한다.
+- 색인 세대는 그 세대를 만든 grant 아래서만 읽고 되돌린다. 좁혀지거나 철회된 grant 아래서 예전의 넓은 세대가 읽히지
+  않는다. 읽는 쪽 ACL은 세대의 모든 자료 등급을 허용해야 한다. manifest에 ACL 해시와 writer 차수를 남긴다. 잠금 파일에
+  잡은 쪽을 적고 수동 해제 절차를 README에 적었다. 포인터는 옆에 쓰고 동기화한 뒤 이름을 바꾼다.
+- 맥락이: 예산 상한을 프로그램 상수로 두었다(profile은 그 아래 기본값). 추가 검색 검토 결과를 팩에 남긴다. Rune 사유를
+  `rune_not_connected`로 바로잡았다. 모델이 쓴 계획 문장 필드를 `uncited_model_text`로 표시한다. 로컬 모델은 proxy·되돌림을
+  따르지 않는 `node:http` 전용 client로 부른다.
+- 운영 영향 없음: 실제 project store·운영 lane·설치·외부 전송 변화가 없고, 합성 자료와 이 PC의 loopback 로컬 모델만 썼다.
+- 검증: 추출·색인·맥락이 단위 시험 13건 PASS와 실제 opt-in 3건 PASS. 실제 추출은 `ok`·오류 0·못 읽은 답 0·잘림 0이고,
+  도구 판은 neo4j-graphrag 1.19.0·neo4j 6.3.0·ollama 0.4.9·pydantic 2.13.5로 관측됐다. 색인 재실행은 UNCHANGED, 변경 1건은
+  호출 2였다. 맥락이는 호출 3으로 완료했다. `npm run validate:context-engine` 165건 중 159 PASS·6 SKIP(실제 opt-in 3건
+  포함), `verify_module`(runtime 66 파일), `validate:module-operability`, `validate:product-composition`, `validate:canon`,
+  `validate:path-policy`, `validate:display-terms`, `emit_hpp_spec --check`, boot digest guard 통과.
+- 관련 경로: `guild_hall/context_engine/src/runtime/graph_index_generation.mjs`, `graph_extraction.mjs`, `context_planner.mjs`,
+  `graph_index_retrieval.mjs`, `src/adapters/graphrag/worker_client.mjs`, `src/adapters/local_model/ollama_chat.mjs`,
+  `src/workers/graphrag_worker.py`, 시험 3종, `harness/fixtures/graph_index_fixture.mjs`, README, `docs/GENERATION_TRANSITION.md`.
+
 ## 2026-09-12 - 맥락 APP 맥락이 작업 맥락 조립
 
 - 맥락 APP(`guild_hall/context_engine`) 0.8.0에 맥락이(로컬 모델) 작업 맥락 조립을 더했다(v0.9 §4 B). 선택된 과제

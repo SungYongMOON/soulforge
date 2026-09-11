@@ -6,7 +6,9 @@
 // an admitted chunk of its own document and carry a profile type, relationships
 // stay inside the fragment, and every row carries project, document, profile and
 // model provenance (installed model digest, not only the tag) with claim_state
-// observed. Fragments are proposals; nothing here writes a graph or accepts meaning.
+// observed. The revision covers the worker file and tool versions too, and an
+// extraction that lost answers, truncated them or dropped a chunk is degraded,
+// never ok. Fragments are proposals; nothing here writes a graph or accepts meaning.
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
@@ -44,6 +46,8 @@ export function validateGraphBinding(binding) {
   if (!llm || !loopback(llm.host) || !TOKEN.test(llm.model ?? '') || !Number.isSafeInteger(llm.max_calls)
     || llm.max_calls < 1 || llm.max_calls > GRAPH_EXTRACTION_LIMITS.llm_calls) fail('graph_llm_binding_invalid');
   if (embedder !== null && (!loopback(embedder.host) || !TOKEN.test(embedder.model ?? ''))) fail('graph_embedder_binding_invalid');
+  // A -cloud model runs on the vendor service behind the local server: loopback alone keeps nothing on this host.
+  if (llm.model.endsWith('-cloud') || embedder?.model?.endsWith('-cloud')) fail('graph_model_not_local');
   const options = llm.options === undefined ? { temperature: 0, seed: 7, num_predict: 2048 } : llm.options;
   const think = llm.think === undefined ? false : llm.think;
   if (typeof options !== 'object' || options === null || Array.isArray(options) || !THINK_VALUES.has(think)
@@ -56,14 +60,21 @@ export function validateGraphBinding(binding) {
 
 // The worker reports the installed digest of each bound model; a missing or
 // foreign model is a contract failure, not a softer label.
-function workerModels(output, bound) {
-  const llm = output?.models?.llm, embedder = output?.models?.embedder;
+function workerModels(output, bound, workerSha256) {
+  const llm = output?.models?.llm, embedder = output?.models?.embedder, packages = output?.packages;
   if (llm?.model !== bound.llm.model || !DIGEST.test(llm?.digest ?? '')) fail('graph_worker_models_invalid');
   if (bound.embedder ? embedder?.model !== bound.embedder.model || !DIGEST.test(embedder?.digest ?? '') : embedder !== undefined) {
     fail('graph_worker_models_invalid');
   }
+  // The tool prompt and pruning change with its version and with our worker file.
+  if (!DIGEST.test(workerSha256 ?? '') || !packages || typeof packages !== 'object' || typeof packages['neo4j-graphrag'] !== 'string') {
+    fail('graph_worker_models_invalid');
+  }
+  const tool = { worker_sha256: workerSha256, packages: Object.fromEntries(Object.entries(packages)
+    .filter(([name, version]) => /^[A-Za-z0-9._-]{1,64}$/u.test(name) && (version === null || (typeof version === 'string' && version.length <= 64)))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) };
   return Object.freeze({ llm: llm.model, llm_digest: llm.digest, think: bound.llm.think, options: hashableOptions(bound.llm.options),
-    embedder: bound.embedder?.model ?? null, embedder_digest: embedder?.digest ?? null });
+    embedder: bound.embedder?.model ?? null, embedder_digest: embedder?.digest ?? null, tool });
 }
 
 // Model options are part of the revision and enter a canonical hash that takes
@@ -117,9 +128,10 @@ export function admitGraphFragment({ fragment, document, projectKey, profile, mo
   const entityLabels = new Set(profile.schema.node_types.map(type => type.label));
   const provenance = { sf_project: projectKey, sf_doc_key: document.doc_key, sf_profile: profile.profile_id,
     sf_profile_version: profile.profile_version, sf_claim_state: 'observed', sf_model: models.llm,
-    sf_model_digest: models.llm_digest, sf_embedder: models.embedder, sf_embedder_digest: models.embedder_digest };
+    sf_model_digest: models.llm_digest, sf_embedder: models.embedder, sf_embedder_digest: models.embedder_digest,
+    sf_revision_sha256: sha256Canonical(models) };
   const nodes = new Map(), seen = new Set(), dropped = { chunks_mismatched: 0, entities_without_chunk: 0,
-    entities_reserved_label: 0, entities_outside_schema: 0, relationships_outside_fragment: 0 };
+    entities_reserved_label: 0, entities_outside_schema: 0, relationships_outside_fragment: 0, duplicate_ids: 0 };
   const chunkOf = new Map();
   for (const rel of fragment.relationships) if (rel?.type === 'FROM_CHUNK') chunkOf.set(rel.start_node_id, rel.end_node_id);
   const admit = (node, unitId, properties) => {
@@ -133,7 +145,9 @@ export function admitGraphFragment({ fragment, document, projectKey, profile, mo
   // Pass 1: the lexical graph (the document and chunks equal to their units).
   const entities = [];
   for (const node of fragment.nodes) {
-    if (typeof node?.id !== 'string' || !TYPE.test(node.label ?? '') || seen.has(node.id)) fail('graph_fragment_shape_invalid');
+    if (typeof node?.id !== 'string' || !TYPE.test(node.label ?? '')) fail('graph_fragment_shape_invalid');
+    // A repeated id (the model reusing one inside a chunk) is dropped and counted, not fatal: seeded runs would repeat it.
+    if (seen.has(node.id)) { dropped.duplicate_ids++; continue; }
     seen.add(node.id);
     if (node.id === document.doc_key) {
       if (node.label !== 'Document') fail('graph_fragment_document_mismatch');
@@ -166,6 +180,7 @@ export function admitGraphFragment({ fragment, document, projectKey, profile, mo
     || a.end_node_id.localeCompare(b.end_node_id));
   const body = { schema_version: GRAPH_FRAGMENT_SCHEMA, doc_key: document.doc_key, project_key: projectKey,
     profile_id: profile.profile_id, profile_version: profile.profile_version, claim_state: 'observed',
+    source_text_sha256: document.text_sha256,
     model: { ...models }, nodes: orderedNodes, relationships, tool_pruning: toolPruning(fragment.tool_pruning),
     stats: { chunks: orderedNodes.filter(node => node.label === 'Chunk').length,
       entities: orderedNodes.filter(node => !LEXICAL_LABELS.has(node.label)).length,
@@ -179,10 +194,10 @@ export function admitGraphFragment({ fragment, document, projectKey, profile, mo
 // caller can decide whether earlier fragments still share this model revision.
 export async function probeGraphModels({ binding, runWorker = runGraphragWorker }) {
   const bound = validateGraphBinding(binding);
-  const { exit_code: exitCode, output } = await runWorker({ binding: bound.worker, request: { operation: 'probe',
-    models: { llm: { host: bound.llm.host, model: bound.llm.model }, embedder: bound.embedder } } });
+  const { exit_code: exitCode, output, worker_sha256: workerSha256 } = await runWorker({ binding: bound.worker,
+    request: { operation: 'probe', models: { llm: { host: bound.llm.host, model: bound.llm.model }, embedder: bound.embedder } } });
   if (exitCode !== 0 || output?.status !== 'ok') fail(String(output?.code ?? 'graph_worker_failed'));
-  return workerModels(output, bound);
+  return workerModels(output, bound, workerSha256);
 }
 
 // expectedModels (optional): the probed revision; a different model answering
@@ -198,11 +213,11 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
   const request = { operation: 'extract', profile: { schema: profile.schema, llm: bound.llm, embedder: bound.embedder,
     max_concurrency: profile.max_concurrency ?? 1 },
     documents: documents.map(doc => ({ doc_key: doc.doc_key, title: doc.title, units: doc.units.map(({ unit_id, text }) => ({ unit_id, text })) })) };
-  const { exit_code: exitCode, output } = await runWorker({ binding: bound.worker, request });
+  const { exit_code: exitCode, output, worker_sha256: workerSha256 } = await runWorker({ binding: bound.worker, request });
   if (exitCode !== 0 || output?.status !== 'ok' || !Array.isArray(output.fragments)) {
-    return Object.freeze({ status: 'failed', code: String(output?.code ?? 'graph_worker_failed'), fragments: [], llm: null });
+    return Object.freeze({ status: 'failed', code: String(output?.code ?? 'graph_worker_failed'), fragments: [], llm: null, degraded: null });
   }
-  const models = workerModels(output, bound);
+  const models = workerModels(output, bound, workerSha256);
   if (expectedModels !== null && !isDeepStrictEqual(models, expectedModels)) fail('graph_model_changed');
   const byKey = new Map(documents.map(doc => [doc.doc_key, doc]));
   const fragments = output.fragments.map(fragment => {
@@ -217,10 +232,17 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
   const calls = (Array.isArray(output.llm_calls) ? output.llm_calls : []).map(row => Object.fromEntries(TRACE_FIELDS
     .filter(key => ['string', 'number'].includes(typeof row?.[key]) || row?.[key] === null).map(key => [key, row[key]])));
   const sum = key => calls.reduce((total, row) => total + (Number.isFinite(row[key]) ? row[key] : 0), 0);
-  return Object.freeze({ status: output.budget_exhausted ? 'partial' : 'ok', fragments, model: models,
-    llm: { calls: calls.filter(row => row.status !== 'budget_exhausted').length,
-      errors: calls.filter(row => row.status === 'error').length, budget_exhausted: output.budget_exhausted === true,
-      truncated: calls.filter(row => row.done_reason === 'length').length, prompt_tokens: sum('prompt_tokens'),
-      output_tokens: sum('output_tokens'), thinking_characters: sum('thinking_characters'), elapsed_ms: sum('elapsed_ms'),
-      trace: calls } });
+  const llm = { calls: calls.filter(row => row.status !== 'budget_exhausted').length,
+    errors: calls.filter(row => row.status === 'error').length, invalid_outputs: calls.filter(row => row.status === 'invalid_output').length,
+    budget_exhausted: output.budget_exhausted === true, truncated: calls.filter(row => row.done_reason === 'length').length,
+    prompt_tokens: sum('prompt_tokens'), output_tokens: sum('output_tokens'), thinking_characters: sum('thinking_characters'),
+    elapsed_ms: sum('elapsed_ms'), embedder_calls: Number.isSafeInteger(output.embedder_calls) ? output.embedder_calls : 0, trace: calls };
+  // A failed, unreadable or cut-off answer and a chunk that no longer equals its
+  // unit each leave a hole that the fragment stats alone would hide.
+  const documentsDegraded = fragments.map(f => ({ doc_key: f.doc_key, chunks_mismatched: f.stats.chunks_mismatched,
+    missing_chunks: byKey.get(f.doc_key).units.length - f.stats.chunks })).filter(row => row.chunks_mismatched > 0 || row.missing_chunks > 0);
+  const degraded = llm.budget_exhausted || llm.errors > 0 || llm.invalid_outputs > 0 || llm.truncated > 0 || documentsDegraded.length > 0
+    ? { budget_exhausted: llm.budget_exhausted, errors: llm.errors, invalid_outputs: llm.invalid_outputs, truncated: llm.truncated,
+      documents: documentsDegraded } : null;
+  return Object.freeze({ status: llm.budget_exhausted ? 'partial' : degraded ? 'degraded' : 'ok', fragments, model: models, llm, degraded });
 }

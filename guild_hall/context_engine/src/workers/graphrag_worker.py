@@ -68,13 +68,22 @@ def http_client(host):
 
 
 async def installed_model_digest(host, model):
-    """The installed model's manifest digest is the model revision; a tag alone is not."""
+    """The installed model's manifest digest is the model revision; a tag alone is not.
+
+    A `-cloud` model runs on the vendor's service behind the local server, so a
+    loopback address alone does not keep text on this host: such models, and any
+    row the server reports with a remote host or model, are refused.
+    """
+    if model.endswith("-cloud"):
+        raise WorkerError("model_not_local")
     wanted = model if ":" in model else model + ":latest"
     async with http_client(host) as client:
         response = await client.get("/api/tags")
         response.raise_for_status()
         for row in response.json().get("models") or []:
             if wanted in (row.get("name"), row.get("model")):
+                if row.get("remote_host") or row.get("remote_model"):
+                    raise WorkerError("model_not_local")
                 match = DIGEST.match(str(row.get("digest") or ""))
                 return "sha256:" + match.group(1) if match else None
     return None
@@ -84,6 +93,21 @@ def think_value(value):
     if value is None or isinstance(value, bool) or value in ("low", "medium", "high"):
         return value
     raise WorkerError("llm_think_invalid")
+
+
+def extractor_accepts(content):
+    """The extractor's own parse of an answer: repair, load, then the graph model.
+
+    It turns any failure into an empty chunk graph without saying so, so the
+    adapter runs the same steps to count answers that carried no graph.
+    """
+    from neo4j_graphrag.components.entity_relation_extractor import fix_invalid_json
+    from neo4j_graphrag.components.types import Neo4jGraph
+    try:
+        Neo4jGraph.model_validate(json.loads(fix_invalid_json(content)))
+        return True
+    except Exception:
+        return False
 
 
 def make_llm(llm_profile, client):
@@ -118,6 +142,10 @@ def make_llm(llm_profile, client):
             raise WorkerError("sync_llm_path_not_used")
 
         async def ainvoke(self, input, message_history=None, system_instruction=None):
+            # Only the prompt is sent; a tool path that adds history or a system
+            # instruction would change the prompt without the revision showing it.
+            if message_history or system_instruction:
+                raise WorkerError("llm_prompt_path_not_supported")
             if len(self.trace) >= max_calls:
                 self.trace.append({"call": len(self.trace) + 1, "status": "budget_exhausted",
                                    "input_sha256": sha256_text(input)})
@@ -131,7 +159,8 @@ def make_llm(llm_profile, client):
                 data = response.json()
                 message = data.get("message") or {}
                 content = message.get("content") or ""
-                row.update({"status": "ok", "output_sha256": sha256_text(content), "output_characters": len(content),
+                row.update({"status": "ok" if extractor_accepts(content) else "invalid_output",
+                            "output_sha256": sha256_text(content), "output_characters": len(content),
                             "thinking_characters": len(message.get("thinking") or ""),
                             "done_reason": data.get("done_reason"), "prompt_tokens": data.get("prompt_eval_count"),
                             "output_tokens": data.get("eval_count")})
@@ -197,7 +226,7 @@ async def extract(request):
             raise WorkerError("embedder_model_not_installed")
         embedder = TextChunkEmbedder(OllamaEmbeddings(model=embedder_profile["model"], host=embedder_profile["host"]),
                                      max_concurrency=1)
-    fragments = []
+    fragments, embedder_calls = [], 0
     async with http_client(llm_profile["host"]) as client:
         llm = make_llm(llm_profile, client)
         extractor = LLMEntityRelationExtractor(llm=llm, create_lexical_graph=True, on_error=OnError.IGNORE,
@@ -210,15 +239,18 @@ async def extract(request):
             text_chunks = TextChunks(chunks=chunks)
             if embedder is not None:
                 text_chunks = await embedder.run(text_chunks=text_chunks)
+                embedder_calls += len(chunks)
             info = DocumentInfo(path=document["doc_key"], uid=document["doc_key"],
                                 metadata={"sf_doc_key": document["doc_key"], "sf_title": str(document.get("title", ""))[:512]})
             graph = await extractor.run(chunks=text_chunks, document_info=info, schema=schema)
             pruned = await pruner.run(graph=graph, schema=schema)
             fragments.append(graph_to_fragment(pruned.graph, document, pruning_summary(pruned.pruning_stats)))
     calls = llm.trace
-    return {"status": "ok", "fragments": fragments, "llm_calls": calls, "models": models,
+    return {"status": "ok", "fragments": fragments, "llm_calls": calls, "models": models, "packages": package_versions(),
+            "embedder_calls": embedder_calls,
             "budget_exhausted": any(row["status"] == "budget_exhausted" for row in calls),
-            "llm_errors": sum(1 for row in calls if row["status"] == "error")}
+            "llm_errors": sum(1 for row in calls if row["status"] == "error"),
+            "invalid_outputs": sum(1 for row in calls if row["status"] == "invalid_output")}
 
 
 async def probe_models(models):

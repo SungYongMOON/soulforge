@@ -1,5 +1,14 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine 0.8.1, Level 2 review fixes): a degraded
+> extraction (failed, unreadable or truncated answers, lost chunks) now holds the
+> graph index instead of committing; carry-forward needs the same text and a whole
+> fragment; the revision includes the worker hash and tool versions; a worker
+> that dies early no longer crashes the caller; index generations are read and
+> rolled back only under the grant they were built from, for readers admitted to
+> every data class; -cloud models are refused even at loopback; the planner has a
+> program budget ceiling. Real synthetic runs pass. No live source read.
+
 > 2026-09-12 CURRENT (Context Engine 0.8.0, working-context planner): over one
 > selected graph index generation, the local model (맥락이) reads the request,
 > writes check questions, picks lexical, exact or graph search per question,

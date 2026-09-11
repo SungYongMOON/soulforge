@@ -29,10 +29,11 @@ export function createGraphIndexRetriever(view) {
         unit_kind: unit.unit_kind, locator: unit.locator, occurred_at: unit.occurred_at, speaker_ref: unit.speaker_ref, text: unit.text });
     }
   }
-  // One BM25 space over all units; chunks are grouped by source kind so the
-  // shared search's per-source cap spreads hits across kinds. The shared
-  // contract requires a page list; units carry their own locators, so page 1 is
-  // a placeholder that no hit reads back.
+  // One BM25 space over all units. Chunks are grouped by source kind to stay
+  // within the shared search's 16-source limit and to report which kinds were
+  // searched (bm25-v1 caps evidence and per-source hits alike at 12, so the
+  // grouping does not spread hits). The shared contract requires a page list;
+  // units carry their own locators, so page 1 is a placeholder no hit reads back.
   const groups = new Map();
   for (const [chunkId, unit] of units) {
     const list = groups.get(unit.source_kind) ?? [];
