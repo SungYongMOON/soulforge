@@ -1,5 +1,78 @@
 # Development Roadmap v0
 
+## 2026-09-12 Context APP build track — whole app, D41 tooling, staged gates
+
+Scope (Owner, private plan v0.9 §14–15): build the whole context app, not a
+sample for one question. On each source intake or change it prepares project
+GraphRAG and context under the adopted
+[Plan 17 project template](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10);
+on each new request it combines exact lookup, keyword, semantic and relation
+search, reconciles actual originals, revisions and history, and returns task
+context: background and follow-up relation, related work and progress/submission
+history, decisions/corrections/conflicts in time order, reusable material,
+impact and first checks, fact/claim/interpretation/unknown separation, source
+refs, searched/read/failed/unsearched coverage and applicable Rune findings.
+The HDD/TBL Responder request is the first validation case and is not hardcoded.
+
+Roles (Owner decision 2026-09-11, retained): the top-level work agent owns the
+task; the context assistant inside the Context APP prepares information; the
+APP fixes project, ACL, source, revision, time, budget and replay checks; Rune
+judges only explicit rules on validated inputs; the experiment UI calls real
+entrypoints. The two model roles may share one local model server sequentially
+with separate histories, tools and budgets and no recursive calls into the work
+agent's canonical conversation.
+
+Tooling (D41, Owner 2026-09-12): Neo4j Community and Neo4j GraphRAG
+(`neo4j-graphrag`) supply graph storage, entity/relation extraction, vector,
+full-text, hybrid and graph-expansion retrieval, and optional Text2Cypher or
+tool selection. These are not rebuilt in-house. Under D41 Neo4j holds only a
+read-only projection and a proposal-layer index rebuildable from ledgers and
+sources, and embedding-based automatic entity merging stays held, so tool-side
+resolution yields candidates only. The APP keeps the fixed contract: project
+isolation, ACL/source/revision/authority/time checks, exact original readback,
+deterministic IDs with replay no-op, budgets, cited assembly, trace and
+generation selection/rollback. The candidate's BM25 and typed-relation 1-hop
+retrieval remain only as comparison baseline A.
+
+Observed state (2026-09-12): the reviewed APP is on main as a standalone
+default-off module with its own CLI (`guild_hall/context_engine`); synthetic
+tests 171: 133 pass, 3 skip, 35 T5 fail only for the missing pinned PDF
+interpreter. The dev-ERP caller switch is deferred because those files are in
+the HPP pack import closure and the APP must not ship in HPP before its release
+gate. The KVDS-specific observed query stays isolated. Neo4j installation is a
+separate local task; its exact form, version and binding are not recorded here.
+
+| Gate | Plan stage | Work | Blocked until |
+| --- | --- | --- | --- |
+| CTX-S0 | P0 | Integrate reviewed APP, Plan 17 documents, this track | Level 2 review of the integration |
+| CTX-S0-G2 | P0→P8 | dev-ERP caller switch and HPP spec re-emit | Owner decision on shipping APP code in HPP |
+| CTX-S1 | P1 | No-exfiltration specification and probes for Neo4j, local models, GraphRAG worker, trace, telemetry and backup | Real egress-block evidence; no raw data before it |
+| CTX-S2 | P2 preparation | Source adapters (mail, voice, Linear, document) on synthetic fixtures, pull change detection, deterministic graph ingest, claim-state filter | — |
+| CTX-S3 | P3 | Local context-assistant adapter, planner, Neo4j GraphRAG retrievers under APP guards, task-context pack, trace, budgets | Local endpoint and budget values from the private configuration owner |
+| CTX-S4 | P2 run / P6 | First real case in the approved environment; Owner reads the actual context | CTX-S1, CTX-S3 and exact per-source grants |
+| CTX-S5 | P4 | Experiment UI on real APP and Rune entrypoints | Owner choice of UI location |
+| CTX-S6 | P5 | Same-input A/B: baseline A vs Neo4j GraphRAG candidate, one variable at a time | CTX-S3, CTX-S5 |
+| CTX-S7 | P7 | Work agent → context assistant → work agent | Explicit Owner resume after CTX-S4; consumer hold stays |
+| CTX-S8 | P8 | Versioned regression and rollback across all source kinds | CTX-S2, CTX-S3 |
+
+Gate outcomes, validators and evidence live in the private management record,
+not here. Experiment UI requirements (Owner 2026-09-11, retained): real
+installed entrypoints; baseline/candidate comparison on pinned inputs; actual
+input, retrieval candidates, evidence relations, execution trace, Rune
+findings, output difference and measured resources; trace and evidence graph as
+separate views; no UI-local engine or fixed snippet count; retrieval-only, Rune
+and whole-workflow comparison modes; selecting a test configuration never
+switches operating current. Evaluation/observability products remain
+candidates, not selected or installed.
+
+Data boundary (retained): real ERP evidence only inside the approved private
+environment; models, embedding, reranking, evaluation, trace/graph storage,
+error reporting, telemetry and backup must meet the no-exfiltration boundary,
+verified at execution time before raw data is connected; external model review
+receives only releasable metadata. Product purchase, raw external transfer, new
+server or operating-writer activation, mail reclassification, raw moves,
+consumer resumption and push are not authorized by this record.
+
 ## Merge cleanup follow-up — 2026-09-09
 
 Owner authorized finishing the existing merge backlog, without restarting broad
@@ -1633,6 +1706,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-08-25 | Engineering Engine 물리 package layout migration | 조립 모델 승인 뒤 물리 마이그레이션 착수 | shared core/ + engines/systems_engineering/ + engines/quality_readiness/(E01) 통합, .registry/engineering_profiles/ schema/catalog 구축, Core Domain Adapter 인터페이스 및 two-domain conformance suite 구현, legacy re-export stubs 보존, release/topology/manifest 재생성 및 검증 완료 | E02(interface_consistency) 확장은 의도적으로 미포함, zero-write replay 및 provenance 100% 보존 | CHANGELOG 08-25, core_domain_conformance.test.mjs, validate:quality-readiness, validate:engineering-engine-core-domain |
 | 2026-09-07 | 대장간 세계·세 창 lane 등록 | 2026-09-06의 로드맵·브리프·명세·계약이 사설 인수인계 폴더에만 있어 이 문서를 읽는 빌더가 다른 active slice를 보게 돼 있었음(FRESH_REVIEW 2026-09-06 Q3-6) | Owner-directed adjacent lane 절 1개 + 다음 후보 22·23 등록, 정본 승격 아님. 첫 조각은 이미 main(계약 v1 candidate·디자인 시스템 S1·집게 심박·소나 인텔 #1). 착수 순서는 외부 검토 2회(GPT 재자문 06, 신선한 눈)로 정정된 순서를 따른다 |
 | 2026-09-12 | Graph DB(Neo4j)·GraphRAG 채택(D41) | 요구추적 모델 §4.2·§4.4: Graph DB는 규모·질의 트리거 전 보류, GraphRAG·벡터 검색은 고정 평가셋 뒤 | Owner가 트리거 대기 없이 채택을 결정했다. 맥락엔진 일부를 GraphRAG로 대신하는 방향이며 Neo4j Community는 조회 전용 projection·제안층 검색 색인으로만 쓴다 | 규모 판정(SQLite로 충분)은 기록으로 두고 결정만 바꿨다. 원장 truth, project binding, 운영 편입 전 backup/restore 분류, 임베딩 기반 개체 자동 병합 보류는 유지 | `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §4·§8.2, CHANGELOG 09-12 |
+| 2026-09-12 | 맥락 APP 후보 main 통합 | 비공개 검토문(FABLE_REVIEW §2.1): 후보 APP을 들이며 World Tree(코드 dev-erp)의 `accepted_context_*`를 shim으로 바꾸고 `server.mjs`·`work_intake_context.mjs`·행보관 CLI를 APP에 연결 | APP을 자체 CLI를 가진 독립 모듈로 통합했다. dev-erp 파일은 그대로 두고, 그 연결에 기대던 APP 시험은 같은 요청을 APP CLI로 실행하게 옮겼다 | dev-erp 파일은 HPP 팩 명세의 정적·동적 import 폐포에 들어가 연결 시 APP runtime 전체가 운영 팩에 실린다. 같은 검토문 §6이 release gate 전 탑재를 금지해 연결을 CTX-S0-G2(Owner 결정 대기)로 분리했다. 기존 dev-erp 사본의 공개 이름·상수·거부 응답이 APP과 같은지는 시험으로 고정 | CHANGELOG 09-12, `guild_hall/context_engine/README.md` §main 통합 상태 |
 
 ## 갱신 규칙
 
