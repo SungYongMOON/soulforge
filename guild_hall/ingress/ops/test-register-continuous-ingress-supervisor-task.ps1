@@ -9,7 +9,10 @@ $global:IngressTestStarts = 0
 $global:IngressTestEnables = 0
 $global:IngressTestEnabled = $false
 $global:IngressTestOrder = @()
-function Test-Path { param($LiteralPath, $PathType) return $true }
+$global:IngressTestMissingWrapper = $false
+function Test-Path { param($LiteralPath, $PathType)
+  return -not ($global:IngressTestMissingWrapper -and $LiteralPath.EndsWith('run-continuous-ingress-supervisor-hidden.vbs'))
+}
 function Get-FileHash { param($LiteralPath, $Algorithm) return @{ Hash = $global:IngressTestHash } }
 function Get-ScheduledTask { param($TaskName, $ErrorAction) return @{ State = $global:IngressTestState } }
 function New-ScheduledTaskAction {
@@ -21,7 +24,10 @@ function New-ScheduledTaskTrigger {
   return @{ AtLogOn = [bool]$AtLogOn; Once = [bool]$Once; At = $At; User = $User;
     Repetition = @{ Interval = $RepetitionInterval; StopAtDurationEnd = $true } }
 }
-function New-ScheduledTaskPrincipal { param($UserId, $LogonType, $RunLevel) return @{} }
+function New-ScheduledTaskPrincipal { param($UserId, $LogonType, $RunLevel)
+  if ($LogonType -ne 'Interactive' -or $RunLevel -ne 'Limited') { throw 'principal expanded' }
+  return @{}
+}
 function New-ScheduledTaskSettingsSet {
   param([switch]$Disable, $MultipleInstances, $RestartCount, $RestartInterval, $ExecutionTimeLimit,
     [switch]$StartWhenAvailable, [switch]$AllowStartIfOnBatteries, [switch]$DontStopIfGoingOnBatteries)
@@ -50,14 +56,16 @@ function Export-ScheduledTask {
   $stop = 'false'
   $policy = $global:IngressTestSettings.MultipleInstances
   $args = [Security.SecurityElement]::Escape($global:IngressTestAction.Argument)
+  $execute = $global:IngressTestAction.Execute
   switch ($global:IngressTestDrift) {
     'interval' { $interval = 'PT30M' }
     'duration' { $duration = '<Duration>P1D</Duration>' }
     'stop' { $stop = 'true' }
     'duplicate' { $policy = 'Parallel' }
     'action' { $args += ' --unapproved' }
+    'executable' { $execute = 'powershell.exe' }
   }
-  return "<Task><Triggers><LogonTrigger/><TimeTrigger><Repetition><Interval>$interval</Interval>$duration<StopAtDurationEnd>$stop</StopAtDurationEnd></Repetition></TimeTrigger></Triggers><Settings><Enabled>$($global:IngressTestEnabled.ToString().ToLowerInvariant())</Enabled><MultipleInstancesPolicy>$policy</MultipleInstancesPolicy><RestartOnFailure><Count>$($global:IngressTestSettings.RestartCount)</Count><Interval>PT1M</Interval></RestartOnFailure><ExecutionTimeLimit>PT0S</ExecutionTimeLimit></Settings><Actions><Exec><Command>$($global:IngressTestAction.Execute)</Command><Arguments>$args</Arguments><WorkingDirectory>$($global:IngressTestAction.WorkingDirectory)</WorkingDirectory></Exec></Actions></Task>"
+  return "<Task><Triggers><LogonTrigger/><TimeTrigger><Repetition><Interval>$interval</Interval>$duration<StopAtDurationEnd>$stop</StopAtDurationEnd></Repetition></TimeTrigger></Triggers><Settings><Enabled>$($global:IngressTestEnabled.ToString().ToLowerInvariant())</Enabled><MultipleInstancesPolicy>$policy</MultipleInstancesPolicy><RestartOnFailure><Count>$($global:IngressTestSettings.RestartCount)</Count><Interval>PT1M</Interval></RestartOnFailure><ExecutionTimeLimit>PT0S</ExecutionTimeLimit></Settings><Actions><Exec><Command>$execute</Command><Arguments>$args</Arguments><WorkingDirectory>$($global:IngressTestAction.WorkingDirectory)</WorkingDirectory></Exec></Actions></Task>"
 }
 function Enable-ScheduledTask {
   param($TaskName, $ErrorAction)
@@ -71,15 +79,38 @@ function Start-ScheduledTask {
   $global:IngressTestOrder += 'start'
   $global:IngressTestStarts++
 }
-$Parameters = @{ RuntimeRoot = $PSScriptRoot; BindingPath = (Join-Path $PSScriptRoot 'synthetic-binding.json');
+$Parameters = @{ RuntimeRoot = (Join-Path $PSScriptRoot 'synthetic old runtime'); BindingPath = (Join-Path $PSScriptRoot 'synthetic-binding.json');
   BindingDigest = ('sha256:' + ('a' * 64)); ExpectedExistingTaskSha256 = ('A' * 64); Confirm = $false }
 & $Registrar @Parameters
 if ($global:IngressTestRegistrations -ne 0) { throw 'audit mutated task' }
 & $Registrar @Parameters -Register -Start
 if ($global:IngressTestRegistrations -ne 1 -or $global:IngressTestStarts -ne 1) { throw 'stopped recovery registration failed' }
 if (($global:IngressTestOrder -join ',') -ne 'register,attest,enable,start') { throw 'unsafe registration order' }
+$expectedWrapper = Join-Path $PSScriptRoot 'run-continuous-ingress-supervisor-hidden.vbs'
+$expectedArguments = @('//B', '//NoLogo', $expectedWrapper, (Get-Command powershell.exe).Source,
+  '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass',
+  '-File', (Join-Path $Parameters.RuntimeRoot 'guild_hall\ingress\ops\run-continuous-ingress-supervisor.ps1'),
+  '-RuntimeRoot', $Parameters.RuntimeRoot, '-BindingPath', $Parameters.BindingPath, '-BindingDigest', $Parameters.BindingDigest)
+$expectedLine = ($expectedArguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+if ($global:IngressTestAction.Execute -ne (Join-Path $env:WINDIR 'System32\wscript.exe') -or
+    $global:IngressTestAction.Argument -ne $expectedLine -or
+    -not $global:IngressTestAction.Argument.Contains($expectedWrapper) -or
+    -not $global:IngressTestAction.Argument.Contains((Join-Path $Parameters.RuntimeRoot 'guild_hall\ingress\ops\run-continuous-ingress-supervisor.ps1')) -or
+    $global:IngressTestAction.WorkingDirectory -ne $Parameters.RuntimeRoot) { throw 'hidden wrapper/runtime split failed' }
+$global:IngressTestMissingWrapper = $true
+$failure = $null
+try { & $Registrar @Parameters -Register } catch { $failure = $_.Exception.Message }
+if ($failure -ne 'continuous supervisor required file is missing' -or $global:IngressTestRegistrations -ne 1) {
+  throw 'missing wrapper did not fail before registration'
+}
+$global:IngressTestMissingWrapper = $false
 # A running task must be left intact; IgnoreNew also suppresses periodic duplicate starts.
-foreach ($case in @('running', 'hash', 'interval', 'duration', 'stop', 'duplicate', 'action')) {
+$quoted = $Parameters.Clone()
+$quoted.BindingPath = Join-Path $PSScriptRoot 'unsupported"quote.json'
+$failure = $null
+try { & $Registrar @quoted -Register } catch { $failure = $_.Exception.Message }
+if (-not $failure -or $global:IngressTestRegistrations -ne 1) { throw 'embedded quote did not fail before registration' }
+foreach ($case in @('running', 'hash', 'interval', 'duration', 'stop', 'duplicate', 'action', 'executable')) {
   $global:IngressTestState = if ($case -eq 'running') { 'Running' } else { 'Ready' }
   $global:IngressTestHash = if ($case -eq 'hash') { 'B' * 64 } else { 'A' * 64 }
   $global:IngressTestDrift = $case
@@ -96,4 +127,4 @@ foreach ($case in @('running', 'hash', 'interval', 'duration', 'stop', 'duplicat
   if ($case -notin @('running', 'hash') -and $global:IngressTestEnabled) { throw 'failed task left enabled' }
   if ($case -in @('running', 'hash') -and $global:IngressTestRegistrations -ne $before) { throw 'precheck mutated task' }
 }
-Write-Output 'PASS: audit, stopped recovery, running duplicate, exact hash, interval, duration, stop, duplicate policy, action drift'
+Write-Output 'PASS: audit, stopped recovery, runtime split, missing wrapper, quote rejection, limited principal, running duplicate, exact hash, interval, duration, stop, duplicate policy, exact WScript action and executable drift'

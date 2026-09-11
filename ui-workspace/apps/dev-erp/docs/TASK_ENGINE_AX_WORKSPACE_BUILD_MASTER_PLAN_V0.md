@@ -1,5 +1,13 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-11 CURRENT (ingress hidden launch candidate): HPP 0.1.16 registers
+> WScript with an adjacent synchronous hidden VBS wrapper instead of direct
+> PowerShell startup. The supplied existing 0.1.14 RuntimeRoot and binding remain
+> explicit; watchdog cadence, locks, limited interactive user and disabled-register,
+> attest, enable sequence remain unchanged. Synthetic argument/exit-code and task
+> drift checks cover the change. Installed activation and actual window visibility
+> require separate operational evidence.
+
 > 2026-09-11 CURRENT (ingress recovery watchdog candidate): the continuous ingress
 > registrar keeps AtLogOn and three one-minute restarts and adds an independent
 > indefinite 15-minute start trigger for the same resident supervisor. IgnoreNew,

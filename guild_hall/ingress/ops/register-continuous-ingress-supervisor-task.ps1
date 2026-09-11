@@ -26,21 +26,26 @@ function ConvertTo-TaskArgument {
   param([Parameter(Mandatory = $true)][string]$Value)
   if ($Value.Contains('"')) { throw "task argument contains an unsupported quote character" }
   if ($Value -notmatch '\s') { return $Value }
-  $Escaped = $Value -replace '(\\+)$', '$1$1'
-  return '"' + $Escaped + '"'
+  # WScript parses this layer without CRT backslash escaping; the VBS quotes
+  # its PowerShell child separately, including trailing backslashes.
+  return '"' + $Value + '"'
 }
 
 $RuntimeRoot = [IO.Path]::GetFullPath($RuntimeRoot)
 $BindingPath = [IO.Path]::GetFullPath($BindingPath)
 $Launcher = [IO.Path]::GetFullPath((Join-Path $RuntimeRoot "guild_hall\ingress\ops\run-continuous-ingress-supervisor.ps1"))
-foreach ($RequiredFile in @($Launcher, $BindingPath)) {
+$HiddenLauncher = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "run-continuous-ingress-supervisor-hidden.vbs"))
+foreach ($RequiredFile in @($Launcher, $HiddenLauncher, $BindingPath)) {
   if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
     throw "continuous supervisor required file is missing"
   }
 }
 
 $PowerShellExe = [IO.Path]::GetFullPath((Get-Command powershell.exe -ErrorAction Stop).Source)
+$WScriptExe = [IO.Path]::GetFullPath((Join-Path $env:WINDIR "System32\wscript.exe"))
+if (-not (Test-Path -LiteralPath $WScriptExe -PathType Leaf)) { throw "continuous supervisor WScript is missing" }
 $ActionArguments = @(
+  "//B", "//NoLogo", $HiddenLauncher, $PowerShellExe,
   "-NoProfile",
   "-NonInteractive",
   "-WindowStyle", "Hidden",
@@ -81,7 +86,7 @@ if (-not $PSCmdlet.ShouldProcess($TaskName, "register one hidden supervisor with
   return
 }
 
-$Action = New-ScheduledTaskAction -Execute $PowerShellExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
+$Action = New-ScheduledTaskAction -Execute $WScriptExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
 $LogonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
 # Independent of logon and bounded failure restarts; IgnoreNew keeps one resident.
 $WatchdogTrigger = New-ScheduledTaskTrigger -Once -At ([datetime]::new(2026, 1, 1, 0, 0, 0)) `
@@ -121,7 +126,7 @@ $RegistrationValid = $TriggerNodes.Count -eq 2 `
   -and $RegisteredXml.Task.Settings.RestartOnFailure.Count -eq "3" `
   -and $RegisteredXml.Task.Settings.RestartOnFailure.Interval -eq "PT1M" `
   -and $RegisteredXml.Task.Settings.ExecutionTimeLimit -eq "PT0S" `
-  -and $RegisteredXml.Task.Actions.Exec.Command -eq $PowerShellExe `
+  -and $RegisteredXml.Task.Actions.Exec.Command -eq $WScriptExe `
   -and $RegisteredXml.Task.Actions.Exec.Arguments -eq $ActionArgumentLine `
   -and $RegisteredXml.Task.Actions.Exec.WorkingDirectory -eq $RuntimeRoot `
   -and $RegisteredXml.Task.Actions.Exec.Arguments -match '-WindowStyle\s+Hidden'

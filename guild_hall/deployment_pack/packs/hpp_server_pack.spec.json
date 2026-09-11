@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.deployment_pack_spec.v0",
   "pack_id": "hpp_server_pack",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "host_effect_policy": {
     "reboot": "forbidden",
     "driver_change": "forbidden",
@@ -559,6 +559,7 @@
       "ui-workspace/apps/dev-erp/start-windows.bat",
       "guild_hall/ingress/ops/register-continuous-ingress-supervisor-task.ps1",
       "guild_hall/ingress/ops/run-continuous-ingress-supervisor.ps1",
+      "guild_hall/ingress/ops/run-continuous-ingress-supervisor-hidden.vbs",
       "guild_hall/local_activity/ops/register-hpp-local-activity-task.ps1",
       "guild_hall/local_activity/ops/run-hpp-local-activity-hidden.vbs",
       "guild_hall/local_activity/ops/run-hpp-local-activity.ps1",
@@ -1699,7 +1700,7 @@
     "test/workflow_job_ui_contract.test.mjs"
   ],
   "installed_smoke_excluded": [],
-  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_15",
+  "release_notes_ref": "release_notes.hpp_server_pack.v0_1_16",
   "install_manual_ref": "manual.install.hpp_server_pack",
   "upgrade_manual_ref": "manual.upgrade.hpp_server_pack",
   "rollback_manual_ref": "manual.rollback.hpp_server_pack",
@@ -2484,7 +2485,7 @@
     },
     {
       "path": "guild_hall/ingress/continuous_supervisor.test.mjs",
-      "sha256": "a2d9cf275799b49c9f5a8b618528337bee7b41f465731f3b54fb7bcc09810706"
+      "sha256": "015f6a178b8288c29a3c47afced4679d69b08666a5d0a4ff7bd14dc5e24fbf82"
     },
     {
       "path": "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",

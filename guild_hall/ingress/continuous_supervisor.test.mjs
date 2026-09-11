@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,7 @@ import {
 const CLI = fileURLToPath(new URL("./continuous_supervisor_cli.mjs", import.meta.url));
 const LAUNCHER = fileURLToPath(new URL("./ops/run-continuous-ingress-supervisor.ps1", import.meta.url));
 const REGISTRAR = fileURLToPath(new URL("./ops/register-continuous-ingress-supervisor-task.ps1", import.meta.url));
+const HIDDEN_LAUNCHER = fileURLToPath(new URL("./ops/run-continuous-ingress-supervisor-hidden.vbs", import.meta.url));
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
 function binding(overrides = {}) {
@@ -490,6 +491,11 @@ test("Windows watchdog recovers one hidden supervisor with a process-lifetime mu
   assert.doesNotMatch(launcher, /throw "continuous supervisor already running"/);
   assert.match(registrar, /New-ScheduledTaskTrigger -AtLogOn/);
   assert.match(registrar, /-WindowStyle", "Hidden"/);
+  assert.match(registrar, /New-ScheduledTaskAction -Execute \$WScriptExe/);
+  assert.match(registrar, /Join-Path \$PSScriptRoot "run-continuous-ingress-supervisor-hidden\.vbs"/);
+  const hidden = await readFile(HIDDEN_LAUNCHER, "utf8");
+  assert.match(hidden, /shell\.Run\(command, 0, True\)/);
+  assert.match(hidden, /WScript\.Quit exitCode/);
   assert.match(registrar, /-MultipleInstances IgnoreNew/);
   assert.match(registrar, /-RestartCount 3/);
   assert.match(registrar, /-ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/);
@@ -508,14 +514,40 @@ test("Windows watchdog recovers one hidden supervisor with a process-lifetime mu
     `$files=@('${LAUNCHER.replaceAll("'", "''")}','${REGISTRAR.replaceAll("'", "''")}')`,
     "foreach($file in $files){$tokens=$null;$errors=$null;[void][System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors);if($errors.Count){$errors|ForEach-Object{[Console]::Error.WriteLine($_.Message)};exit 1}}",
   ].join("; ");
-  const parsed = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { encoding: "utf8" });
+  const parsed = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { encoding: "utf8", windowsHide: true });
   assert.equal(parsed.status, 0, parsed.stderr);
 });
 
 test("Windows registrar mocks stopped recovery and rejects task drift before start", { skip: process.platform !== "win32" }, () => {
   const fixture = fileURLToPath(new URL("./ops/test-register-continuous-ingress-supervisor-task.ps1", import.meta.url));
-  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", fixture], { encoding: "utf8" });
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", fixture], { encoding: "utf8", windowsHide: true });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test("Windows hidden wrapper waits for a synthetic child and preserves arguments and exit codes", { skip: process.platform !== "win32" }, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ingress hidden wrapper "));
+  try {
+    const child = path.join(root, "synthetic child.ps1");
+    const output = path.join(root, "arguments.json");
+    await writeFile(child, "param([string]$OutputPath,[int]$ExitCode)\nStart-Sleep -Milliseconds 300\nConvertTo-Json -InputObject @($args) -Compress | Set-Content -LiteralPath $OutputPath -Encoding UTF8\nexit $ExitCode\n");
+    const wscript = path.join(process.env.WINDIR, "System32", "wscript.exe");
+    const powershell = path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+    const values = ["space value", "C:\\synthetic folder\\", "C:\\plain\\", "한글", "a&b;literal"];
+    for (const code of [0, 7]) {
+      const started = Date.now();
+      const result = spawnSync(wscript, ["//B", "//NoLogo", HIDDEN_LAUNCHER, powershell,
+        "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", child, output, String(code), ...values].map((value) => `"${value}"`),
+      { encoding: "utf8", windowsHide: true, windowsVerbatimArguments: true, timeout: 15000 });
+      assert.equal(result.status, code, `${result.error ?? ""} ${result.stderr}`);
+      assert.ok(Date.now() - started >= 300, "wrapper must wait for child completion");
+      assert.deepEqual(JSON.parse((await readFile(output, "utf8")).replace(/^\uFEFF/, "")), values);
+      await rm(output);
+    }
+    const missing = spawnSync(wscript, ["//B", "//NoLogo", HIDDEN_LAUNCHER], { windowsHide: true, timeout: 5000 });
+    assert.equal(missing.status, 64);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("watchdog re-entry never resumes an explicitly paused binding", async () => {

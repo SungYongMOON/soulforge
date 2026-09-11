@@ -193,6 +193,7 @@ const contentRoles = {
     "ui-workspace/apps/dev-erp/start-windows.bat",
     "guild_hall/ingress/ops/register-continuous-ingress-supervisor-task.ps1",
     "guild_hall/ingress/ops/run-continuous-ingress-supervisor.ps1",
+    "guild_hall/ingress/ops/run-continuous-ingress-supervisor-hidden.vbs",
     "guild_hall/local_activity/ops/register-hpp-local-activity-task.ps1",
     "guild_hall/local_activity/ops/run-hpp-local-activity-hidden.vbs",
     "guild_hall/local_activity/ops/run-hpp-local-activity.ps1",
@@ -251,7 +252,7 @@ reviewed.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 const spec = {
   schema: "soulforge.deployment_pack_spec.v0",
   pack_id: "hpp_server_pack",
-  version: "0.1.15",
+  version: "0.1.16",
   host_effect_policy: {
     reboot: "forbidden",
     driver_change: "forbidden",
@@ -271,7 +272,7 @@ const spec = {
     .map((entry) => entry.replace("ui-workspace/apps/dev-erp/", ""))
     .filter((entry) => !INSTALLED_SMOKE_EXCLUDED.some((exclusion) => exclusion.path === entry)),
   installed_smoke_excluded: INSTALLED_SMOKE_EXCLUDED,
-  release_notes_ref: "release_notes.hpp_server_pack.v0_1_15",
+  release_notes_ref: "release_notes.hpp_server_pack.v0_1_16",
   install_manual_ref: "manual.install.hpp_server_pack",
   upgrade_manual_ref: "manual.upgrade.hpp_server_pack",
   rollback_manual_ref: "manual.rollback.hpp_server_pack",

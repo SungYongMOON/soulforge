@@ -199,7 +199,14 @@ still rejected while loading the pinned binding.
 On Windows, `ops/register-continuous-ingress-supervisor-task.ps1` replaces the
 old worker scheduling with a current-user `AtLogOn` trigger and an independent,
 indefinite 15-minute recovery trigger for the same supervisor. Its action starts
-PowerShell with `WindowStyle Hidden`, and
+`wscript.exe //B //NoLogo` with the registrar's adjacent hidden VBS wrapper.
+The wrapper starts PowerShell using `WScript.Shell.Run(command, 0, True)`, waits
+for completion and forwards its exit code so task lifetime and restart semantics
+remain intact. This avoids a console host being created by direct PowerShell task
+startup. The HPP 0.1.16 registrar/wrapper may explicitly target the existing
+0.1.14 `RuntimeRoot`; the PowerShell launcher, binding and working directory
+continue to resolve from that supplied runtime. Missing wrappers fail before registration.
+PowerShell retains `WindowStyle Hidden`, and
 `ops/run-continuous-ingress-supervisor.ps1` holds one process-lifetime named
 mutex plus an exclusive file handle below the private control root, pins the
 binding SHA-256 again, launches the Node supervisor without a visible console,
