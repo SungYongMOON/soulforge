@@ -12,6 +12,8 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
+from types import SimpleNamespace
 from unittest.mock import patch, AsyncMock
 
 
@@ -109,6 +111,39 @@ class ImageDeliveryTests(unittest.IsolatedAsyncioTestCase):
         with patch(plugin.__name__ + '.document_preview.render_preview', render):
             self.assertIsNotNone(await transport._preview_bytes(path, b'original uploaded bytes'))
 
+    async def test_inbound_handler_scopes_then_preserves_original_callback(self):
+        adapter = plugin.extend_adapter(self.adapter)
+        order = []
+        @contextmanager
+        def scope(home):
+            self.assertEqual(home, Path(os.environ['HERMES_HOME']).resolve())
+            order.append('scope-enter')
+            yield
+            order.append('scope-exit')
+        async def hydrate(a, event):
+            self.assertIs(a, adapter)
+            order.append('hydrate')
+            event.media_urls = ['synthetic-local-image']
+        async def handler(event):
+            order.append('handler')
+            self.assertEqual(event.media_urls, ['synthetic-local-image'])
+            return 'original-response'
+        event = SimpleNamespace(message_id='synthetic-event', media_urls=[])
+        with patch.dict(sys.modules, {'gateway.run':SimpleNamespace(_profile_runtime_scope=scope)}), patch(plugin.__name__+'.inbound_media.hydrate_event', hydrate):
+            adapter.set_message_handler(handler)
+            result = await adapter._message_handler(event)
+        self.assertEqual(result, 'original-response')
+        self.assertEqual(order, ['scope-enter','hydrate','scope-exit','handler'])
+
+    async def test_missing_native_profile_scope_skips_hydration(self):
+        adapter = plugin.extend_adapter(self.adapter)
+        handler = AsyncMock(return_value='unchanged')
+        hydrate = AsyncMock()
+        with patch.dict(sys.modules, {'gateway.run':None}), patch(plugin.__name__+'.inbound_media.hydrate_event',hydrate):
+            adapter.set_message_handler(handler)
+            self.assertEqual(await adapter._message_handler(SimpleNamespace(message_id='synthetic')), 'unchanged')
+        hydrate.assert_not_called()
+
     async def test_real_dispatch_uploads_local_image_in_thread(self):
         adapter = plugin.extend_adapter(self.adapter)
         # Match Hermes' file:// + absolute-path producer (including Windows).
@@ -156,7 +191,8 @@ class ImageDeliveryTests(unittest.IsolatedAsyncioTestCase):
                    {name: upstream for name in ("send_image_file", "send_document", "send_voice", "send_video")})
         instance = cls.__new__(cls)
         self.assertIs(plugin.extend_adapter(instance), instance)
-        self.assertIs(type(instance), cls)
+        self.assertIs(type(instance).send_image_file, upstream)
+        self.assertIs(type(instance).send_document, upstream)
 
     async def test_native_class_not_modified(self):
         plugin.extend_adapter(self.adapter)

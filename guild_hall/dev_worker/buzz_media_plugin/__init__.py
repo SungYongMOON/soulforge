@@ -2,6 +2,7 @@
 import inspect
 import json
 import logging
+import sys
 from dataclasses import fields
 from pathlib import Path
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 def extend_adapter(adapter):
     from gateway.platforms.base import BasePlatformAdapter, SendResult
+    from hermes_constants import get_hermes_home
 
     original = type(adapter)
     if not isinstance(adapter, BasePlatformAdapter) or original.__name__ != "BuzzAdapter":
@@ -18,14 +20,36 @@ def extend_adapter(adapter):
     methods = ("send_image_file", "send_document", "send_voice", "send_video")
     missing = {name for name in methods
                if getattr(original, name) is getattr(BasePlatformAdapter, name)}
-    if not missing:
-        logger.info("buzz_media: native implementation present; extension inactive")
-        return adapter
+    adapter._buzz_attachment_home = Path(get_hermes_home()).resolve()
     params = inspect.signature(adapter._run_cli).parameters
     if "args" not in params or "input_text" not in params:
         raise RuntimeError("buzz_media: CLI contract changed")
 
     class BuzzMediaAdapter(original):
+        def set_message_handler(self, handler):
+            async def with_local_attachments(event):
+                # Use the gateway's own profile scope and authorization callback,
+                # including for multiplexed handlers which scope only on entry.
+                runtime = sys.modules.get("gateway.run")
+                scope = getattr(runtime, "_profile_runtime_scope", None)
+                if callable(scope):
+                    try:
+                        from gateway.session_context import reset_session_vars
+                        from .inbound_media import hydrate_event
+                        reset_session_vars()
+                        with scope(self._buzz_attachment_home):
+                            had_media = bool(getattr(event, "media_urls", None))
+                            await hydrate_event(self, event)
+                            if not had_media and getattr(event, "media_urls", None):
+                                logger.info("buzz_media: inbound attachments cached (%d)",
+                                            len(event.media_urls))
+                    except Exception:
+                        logger.warning("buzz_media: inbound attachment preparation unavailable")
+                return await handler(event)
+
+            # Retain the native adapter's existing observer/pilot wrapper.
+            return super().set_message_handler(with_local_attachments)
+
         async def _send_buzz_local_file(self, chat_id, path, caption=None,
                                         file_name=None, reply_to=None, metadata=None):
             safe = self.validate_media_delivery_path(str(path))
@@ -102,7 +126,7 @@ def extend_adapter(adapter):
     # Only this factory-created instance changes class; native class and files
     # remain intact, including existing local hooks and connection behavior.
     adapter.__class__ = BuzzMediaAdapter
-    logger.info("buzz_media: profile-local attachment extension active (%s)",
+    logger.info("buzz_media: profile-local attachment extension active (inbound; %s)",
                 ", ".join(sorted(missing)))
     return adapter
 

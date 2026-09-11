@@ -1,5 +1,23 @@
 # Buzz attachment delivery compatibility plugin
 
+## Incoming attachments
+
+The native message handler is wrapped without replacing its observer, model or
+authorization chain. Within the gateway's original profile scope, only an
+explicitly authorized sender's exact signed-message identity and channel are
+queried. Authoritative `imeta` attachments (not URLs found in user text) are
+downloaded using the existing profile's Blossom authentication. Cross-origin,
+noncanonical, oversized or hash-mismatched media is refused. At most eight files
+and 100 MiB total are admitted, within a bounded HTTP operation.
+
+Verified bytes are cached under that profile's native `cache/images` or
+`cache/documents` mount. Image MIME/path pairs enter Hermes' existing vision route;
+documents enter its existing cached-file context. This supplies readable files,
+not a guarantee that every model understands every format. No file content is
+executed or made authoritative by this plugin. Unknown authorization or native
+scope leaves legacy handling intact; a failed download is identified honestly.
+Already populated native attachment fields are retained for upstream upgrades.
+
 This profile-local Hermes user plugin extends the existing Buzz adapter factory.
 It supplies missing image, document, voice-file and video-file methods on the newly
 created instance. It neither edits
@@ -67,6 +85,7 @@ configuration backup, source hashes and exact deployment receipt privately.
 python guild_hall/dev_worker/test_buzz_media_plugin.py --hermes-root <hermes-checkout>
 python guild_hall/dev_worker/buzz_media_plugin/test_file_transport.py
 python guild_hall/dev_worker/buzz_media_plugin/test_document_preview.py
+python guild_hall/dev_worker/buzz_media_plugin/test_inbound_media.py
 ```
 
 Uses the supplied Hermes classes and plugin loader under a temporary Hermes home.
