@@ -476,7 +476,7 @@ test("CLI rejects missing production arguments without leaking values", () => {
   assert.equal(payload.code, "continuous_supervisor_apply_required");
 });
 
-test("Windows task contract is one hidden at-logon supervisor with a process-lifetime mutex", async (t) => {
+test("Windows watchdog recovers one hidden supervisor with a process-lifetime mutex", async (t) => {
   const [launcher, registrar] = await Promise.all([
     readFile(LAUNCHER, "utf8"),
     readFile(REGISTRAR, "utf8"),
@@ -495,7 +495,9 @@ test("Windows task contract is one hidden at-logon supervisor with a process-lif
   assert.match(registrar, /-ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/);
   assert.match(registrar, /-AllowStartIfOnBatteries/);
   assert.match(registrar, /-DontStopIfGoingOnBatteries/);
-  assert.doesNotMatch(registrar, /RepetitionInterval|New-TimeSpan -Minutes 15/);
+  assert.match(registrar, /-RepetitionInterval \(New-TimeSpan -Minutes 15\)/);
+  assert.match(registrar, /-Trigger @\(\$LogonTrigger, \$WatchdogTrigger\)/);
+  assert.doesNotMatch(registrar, /Stop-ScheduledTask|Stop-Process|taskkill/i);
 
   if (process.platform !== "win32") {
     t.skip("PowerShell syntax parser is Windows-only");
@@ -508,4 +510,20 @@ test("Windows task contract is one hidden at-logon supervisor with a process-lif
   ].join("; ");
   const parsed = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { encoding: "utf8" });
   assert.equal(parsed.status, 0, parsed.stderr);
+});
+
+test("Windows registrar mocks stopped recovery and rejects task drift before start", { skip: process.platform !== "win32" }, () => {
+  const fixture = fileURLToPath(new URL("./ops/test-register-continuous-ingress-supervisor-task.ps1", import.meta.url));
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", fixture], { encoding: "utf8" });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test("watchdog re-entry never resumes an explicitly paused binding", async () => {
+  for (let wake = 0; wake < 3; wake += 1) {
+    await assert.rejects(runContinuousSupervisor({
+      bindingPath: "paused-binding.json", bindingDigest: DIGEST, apply: true,
+      loadBindingImpl: async () => binding({ schedulerEnabled: false }),
+      runCycleImpl: async () => assert.fail("watchdog must not enable payload work"),
+    }), { code: "continuous_supervisor_scheduler_disabled" });
+  }
 });

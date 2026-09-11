@@ -1,5 +1,13 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-11 CURRENT (ingress recovery watchdog candidate): the continuous ingress
+> registrar keeps AtLogOn and three one-minute restarts and adds an independent
+> indefinite 15-minute start trigger for the same resident supervisor. IgnoreNew,
+> mutex/file locks and disabled-binding rejection remain; exact task hash and
+> post-registration attestation gate replacement/start. Synthetic regressions cover
+> stopped recovery, duplicate/paused entry and registration drift. Installation and
+> live recovery evidence remain separate; no immutable pack is modified in place.
+>
 > 2026-09-11 CURRENT (voice review fixes candidate): ASR completion/resume and
 > provider backfill share a bounded cross-process merge lock, reread the latest
 > source-bound manifest and update only owned fields. Busy merges retain completed

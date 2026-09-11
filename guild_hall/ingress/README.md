@@ -197,7 +197,8 @@ lanes. An existing source that resolves through a link or other unsafe path is
 still rejected while loading the pinned binding.
 
 On Windows, `ops/register-continuous-ingress-supervisor-task.ps1` replaces the
-old repeating trigger with one current-user `AtLogOn` trigger. Its action starts
+old worker scheduling with a current-user `AtLogOn` trigger and an independent,
+indefinite 15-minute recovery trigger for the same supervisor. Its action starts
 PowerShell with `WindowStyle Hidden`, and
 `ops/run-continuous-ingress-supervisor.ps1` holds one process-lifetime named
 mutex plus an exclusive file handle below the private control root, pins the
@@ -205,9 +206,16 @@ binding SHA-256 again, launches the Node supervisor without a visible console,
 and redirects sanitized JSONL stdout/stderr below the private control root. The
 file handle closes automatically after a crash and prevents duplicates across
 Windows sessions. Task Scheduler `IgnoreNew`, the process lock, and the
-existing per-cycle lease prevent duplicate supervisors and writers. The task has no
-15-minute repetition; Windows restarts only a terminated supervisor, up to the
-bounded task setting.
+existing per-cycle lease prevent duplicate supervisors and writers. The recovery
+trigger can start a stopped supervisor after the three one-minute failure restarts
+are exhausted or a termination does not qualify for them; it does not run workers
+directly or interrupt a running instance. An explicit binding/scheduler disable
+still fails closed on every wake. Disable the scheduled task for a maintenance pause;
+merely stopping its process is no longer a durable pause. Registration still requires
+the exact existing task SHA-256 and refuses a running task. Post-registration checks
+attest both triggers, indefinite cadence, duplicate policy, restart settings and exact
+action before an optional start. Source changes require reviewed installation and
+re-registration; immutable installed packs must not be patched in place.
 
 PLAUD does not create a second scheduled task. In `observe_only` mode the same
 long-lived supervisor checks provider metadata once per fenced cycle with
