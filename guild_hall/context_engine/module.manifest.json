@@ -1,11 +1,11 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "context_engine",
-  "module_version": "0.3.3",
+  "module_version": "0.4.0",
   "interface_version": "context_engine.v0",
   "schema_versions": ["soulforge.dev_erp_accepted_context_query_result.v1"],
   "owner": "guild_hall/context_engine",
-  "capabilities_provided": ["context_engine.read_only_query.v0", "context_engine.derived_generation_update.v0", "context_engine.pinned_pair_selection.v0", "context_engine.owner_task_observation_query.v1", "context_engine.exact_source_readback.v1"],
+  "capabilities_provided": ["context_engine.read_only_query.v0", "context_engine.derived_generation_update.v0", "context_engine.pinned_pair_selection.v0", "context_engine.owner_task_observation_query.v1", "context_engine.exact_source_readback.v1", "context_engine.source_document_preparation.v0"],
   "capabilities_required": [],
   "required_dependencies": ["engineering_engine", "knowledge_access", "path_registry", "rag", "shared"],
   "optional_dependencies": [],
@@ -31,6 +31,7 @@
   "validators": [
     "node --test guild_hall/context_engine/tests/exact_source_readback.test.mjs guild_hall/context_engine/tests/observed_context_query.test.mjs",
     "node --test guild_hall/context_engine/tests/app_boundary.test.mjs",
+    "node --test guild_hall/context_engine/tests/source_preparation.test.mjs",
     "node guild_hall/context_engine/release/verify_module.mjs"
   ],
   "release_digest": null,

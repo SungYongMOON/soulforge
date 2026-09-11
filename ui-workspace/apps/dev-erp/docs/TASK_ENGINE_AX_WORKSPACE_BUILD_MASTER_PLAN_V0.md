@@ -1,5 +1,19 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine source preparation, Linear connected):
+> Context Engine 0.4.0 prepares source documents only for items listed in an
+> exact grant (exact project ref, preparation purpose, allowed data classes,
+> validity window, per-source items with an exact or latest-in-custody revision
+> policy). The Linear adapter reads issues, comments and change history from the
+> collection lane's create-only custody and re-verifies every digest; tampered
+> bytes, absent items and stale exact revisions are reported per item. Document
+> keys are deterministic, so replay is a no-op and a changed comment yields a new
+> key; coverage and change sets separate added, changed, removed, unchanged and
+> unavailable items. Mail, voice and document adapters are reported as not
+> connected, and non-synthetic data classes are refused until no-exfiltration
+> evidence and per-source grants exist. Synthetic tests: 178, 140 pass, 3 skip,
+> 35 T5 fail only for the missing PDF interpreter. No live source was read.
+
 > 2026-09-12 CURRENT (Context Engine APP on main, callers deferred): the reviewed
 > candidate APP (`guild_hall/context_engine`, local tag
 > `codex/cleanup/20260911/context-manager` c6c5870c) now sits on main as a

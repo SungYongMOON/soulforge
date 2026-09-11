@@ -55,8 +55,16 @@
       "sha256": "de75142a0252531451fc4e5801938f22ff71d5127b989dae27453aa7ea02a3c0"
     },
     {
+      "path": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs",
+      "sha256": "3d7415238943186bb184e1129c74a4bcc3f5b13bcea657f1c9591aeb083c7ba0"
+    },
+    {
+      "path": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
+      "sha256": "28e82307dea1dd7b1f2ebaa22c8f410385502876b18c5cfded18a3e26b81e067"
+    },
+    {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "93ab4c618095e49000b5a938cb6967c3f06088cb8150190d614ed10c29089fc9"
+      "sha256": "397f3f49cbef2b6ce49cbc809f5fd0b598d42e4bd90dca1a61f8e61144a2e75f"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -89,6 +97,14 @@
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
       "sha256": "be8817e5374fd831493098927494c8d35982ad472699655e86835d0f276ef0fb"
+    },
+    {
+      "path": "guild_hall/context_engine/src/runtime/source_documents.mjs",
+      "sha256": "a4c12f3f207d06f3ca4d6fc3aaaacd1824d19ee8aab3e9b2d398a636ccb12a36"
+    },
+    {
+      "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
+      "sha256": "9eaac72e7127a1a271b461c33d2c80427c8ddcffc31ba74caa2135a6b629a0c6"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -199,7 +215,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "de91403a1faaf3559da217fbfeda9e614d3991df3d3f4216f3f6bff7728f972f",
+  "closure_sha256": "791415939ac415aacce4fb28e98775590c4d737636e581399f0cf98206e97232",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -301,6 +317,18 @@
       "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs"
     },
@@ -371,6 +399,14 @@
     {
       "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/pair_store.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_preparation.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -507,6 +543,22 @@
     {
       "from": "guild_hall/context_engine/src/runtime/pair_store.mjs",
       "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_documents.mjs",
+      "to": "guild_hall/engineering_engine/kernel/identity.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_documents.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
     },
     {
       "from": "guild_hall/engineering_engine/core/validators/canonical.mjs",

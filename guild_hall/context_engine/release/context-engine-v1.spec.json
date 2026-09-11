@@ -1,6 +1,6 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-engine-v0-3-3",
+  "lane_id": "context-engine-v0-4-0",
   "description": "Standalone synthetic Context Engine installed update and query. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer.",
   "tracked_paths": [
     "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",
@@ -15,6 +15,8 @@
     "guild_hall/context_engine/src/adapters/accepted_context_project_runtime.mjs",
     "guild_hall/context_engine/src/adapters/accepted_context_synthetic_runtime.mjs",
     "guild_hall/context_engine/src/adapters/exact_source_readback.mjs",
+    "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs",
+    "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
     "guild_hall/context_engine/src/app.mjs",
     "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
     "guild_hall/context_engine/src/guards/accepted_context_typed_memory.mjs",
@@ -24,6 +26,8 @@
     "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
     "guild_hall/context_engine/src/runtime/pair_store.mjs",
     "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
+    "guild_hall/context_engine/src/runtime/source_documents.mjs",
+    "guild_hall/context_engine/src/runtime/source_preparation.mjs",
     "guild_hall/engineering_engine/core/validators/canonical.mjs",
     "guild_hall/engineering_engine/core/validators/contract_config.mjs",
     "guild_hall/engineering_engine/core/validators/errors.mjs",

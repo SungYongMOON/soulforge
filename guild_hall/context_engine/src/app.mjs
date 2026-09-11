@@ -37,6 +37,9 @@ export { createAcceptedContextPack, finalizeContextPackObservation, CONTEXT_PACK
 export { createAcceptedContextQuery, makeUniformNotAvailable, ACCEPTED_CONTEXT_QUERY_CODES,
   ACCEPTED_CONTEXT_QUERY_RESULT_SCHEMA } from './guards/accepted_context_query.mjs';
 export { readTypedMemory, MEMORY_KINDS } from './guards/accepted_context_typed_memory.mjs';
+export { prepareSourceDocuments, SOURCE_ADAPTERS } from './runtime/source_preparation.mjs';
+export { validateSourceGrant, validateSourceDocument, buildSourceCoverage, detectSourceChanges, SOURCE_GRANT_SCHEMA,
+  SOURCE_DOCUMENT_SCHEMA, SOURCE_COVERAGE_SCHEMA, SOURCE_KINDS } from './runtime/source_documents.mjs';
 
 export function createContextEngineRuntime({ root, bindingSha256, syntheticOnly = false } = {}) {
   if(syntheticOnly && isPairStoreBinding({storeRoot:root,bindingSha256})) {

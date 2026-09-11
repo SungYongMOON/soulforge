@@ -12,7 +12,7 @@
 ## main 통합 상태 (2026-09-12)
 
 - 들어온 것: `src`·`algorithms`·`profiles`·`release`·`harness`·`tests`와 T0–T5 증거
-  ([docs/evidence](docs/evidence/)). 합성 시험 171건 중 133 PASS·3 SKIP이고 T5 35건은
+  ([docs/evidence](docs/evidence/)). 합성 시험 178건 중 140 PASS·3 SKIP(0.4.0 기준)이고 T5 35건은
   `SOULFORGE_TEST_PDF_PYTHON`(pdfplumber pin 해석기)이 없으면 환경 실패로 남는다.
 - 보류한 것: dev-ERP caller 연결(`accepted_context_*` shim, `server.mjs`·`work_intake_context.mjs`
   import 교체, 행보관 `--accepted-context` 분기). dev-ERP 파일은 HPP 팩 명세의 import 폐포에
@@ -59,6 +59,24 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 초과 크기·판본 변경을 거부한다. 자료 탐색, 원본 변경, 수락, 모델 호출이나
 새 Context store를 만들지 않는다. 기존 generation/수락 receipt/ACL 검사는
 그대로 남으며 실제 actor·source grant가 없으면 실제 연결 완료가 아니다.
+
+## 원본 문서 준비 (0.4.0)
+
+`prepareSourceDocuments({ grant, roots, now, previousCoverage })`는 수집 lane이 이미 보관한 항목 중
+exact grant(`soulforge.context_source_grant.v1`)에 적힌 항목만 읽어 `soulforge.context_source_document.v1`
+문서(제목·본문 단위·출처 locator·발생 시각·말한 사람·사실 항목)로 바꾼다. 항목 탐색, 과제 귀속 추측,
+원문 이동·복제, 쓰기는 하지 않는다. 과제 귀속은 grant만 정한다.
+
+- grant: 정확한 과제 ref, 목적 `context_preparation`, 허용 자료 등급, 유효기간, source별 root 이름과 항목.
+  항목 판본 정책은 `exact`(고정 판본) 또는 `latest_in_custody`(그 항목에 대해 보관된 최신 판본)다.
+  root 이름을 실제 경로로 잇는 표는 신뢰된 설정(`roots`)이 주며 grant에는 경로가 없다.
+- 연결됨: Linear(`linear-custody-v1`) — 이슈·댓글·변경 이력을 create-only 원본에서 읽고 파일마다 해시를 다시
+  계산해 대조한다. 미연결: 메일·PLAUD·문서(`adapter_not_connected`로 보고).
+- 실자료 등급은 거부한다(`real_source_preparation_not_admitted`). P1 비유출 증거와 source별 grant 검증 gate가
+  생기기 전에는 `public_synthetic`만 받는다.
+- `doc_key`는 과제·종류·root·항목·합성 판본·adapter profile의 해시다. 같은 입력은 같은 키(재실행 no-op)가 되고,
+  댓글처럼 딸린 판본이 바뀌면 새 키(변경 무효화)가 된다. coverage 기록과 `detectSourceChanges`가 추가·변경·삭제·
+  불변·사용불가를 나눈다.
 
 ## 작업 맥락 보조 역할 — 구현 계획
 

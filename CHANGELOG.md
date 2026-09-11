@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 원본 문서 준비와 Linear 연결
+
+- 맥락 APP(`guild_hall/context_engine`) 0.4.0에 원본 문서 준비를 더했다. exact grant(과제 ref·목적·허용 자료
+  등급·유효기간·source별 항목과 판본 정책)에 적힌 항목만 읽어 출처 locator·시각·말한 사람을 가진 문서 단위로
+  바꾸고, 결정론적 문서 키와 처리 범위(coverage)·변경 감지(추가·변경·삭제·불변·사용불가)를 만든다.
+- Linear 수집 원본(이슈·댓글·변경 이력)을 읽는 adapter를 연결했다. 파일마다 해시를 다시 계산하고, 변조·부재·
+  낡은 고정 판본은 항목별로 보고한다. 메일·PLAUD·문서는 미연결로 보고한다.
+- 과제 귀속은 grant만 정하고 항목 탐색·귀속 추측·원문 이동·쓰기는 없다. 실자료 등급은 P1 비유출 증거와
+  source별 grant 검증 전까지 거부한다. 운영·설치·수집 경로 변화는 없다.
+- 검증: 합성 시험 178건 중 140 PASS·3 SKIP(T5 35건은 PDF 해석기 부재 환경 실패), 새 시험 7건은 실제
+  linear_history 수집기의 합성 전송으로 만든 원본을 읽는다. `verify_module`(runtime 52 파일, 의존 5 불변),
+  `validate:module-operability`, `validate:product-composition`, `validate:canon`, `validate:path-policy`,
+  `emit_hpp_spec --check`, boot digest guard 통과.
+- 관련 경로: `guild_hall/context_engine/src/runtime/source_{documents,preparation}.mjs`,
+  `guild_hall/context_engine/src/adapters/sources/`, `guild_hall/context_engine/tests/source_preparation.test.mjs`.
+
 ## 2026-09-12 - 맥락 APP 전체 제작 트랙을 로드맵에 등록
 
 - 로드맵 맨 앞에 맥락 APP 제작 트랙을 두었다. 한 질문용 표본이 아니라 자료 유입·변경 때 준비하고
