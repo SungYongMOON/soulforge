@@ -176,7 +176,7 @@
       "implementation_owner": "guild_hall/gateway",
       "classification": "shared",
       "product_id": null,
-      "current_caller_module_ids": [],
+      "current_caller_module_ids": ["context_engine"],
       "rejected_duplicate_source_paths": []
     },
     {

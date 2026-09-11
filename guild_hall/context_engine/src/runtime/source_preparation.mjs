@@ -6,8 +6,12 @@
 // boundary evidence and per-source grants are admitted by a separate gate.
 import { validateSourceGrant, buildSourceCoverage, detectSourceChanges, SourceDocumentError } from './source_documents.mjs';
 import { readLinearSourceDocuments } from '../adapters/sources/linear_custody_source.mjs';
+import { readVoiceSourceDocuments } from '../adapters/sources/voice_session_source.mjs';
+import { readMailSourceDocuments } from '../adapters/sources/mail_event_source.mjs';
+import { readDocumentSourceDocuments } from '../adapters/sources/document_file_source.mjs';
 
-export const SOURCE_ADAPTERS = Object.freeze({ linear: readLinearSourceDocuments });
+export const SOURCE_ADAPTERS = Object.freeze({ document: readDocumentSourceDocuments, linear: readLinearSourceDocuments,
+  mail: readMailSourceDocuments, voice: readVoiceSourceDocuments });
 export const SYNTHETIC_DATA_CLASS = 'public_synthetic';
 
 export async function prepareSourceDocuments({ grant, roots, now, previousCoverage = null } = {}) {

@@ -12,7 +12,7 @@
 ## main 통합 상태 (2026-09-12)
 
 - 들어온 것: `src`·`algorithms`·`profiles`·`release`·`harness`·`tests`와 T0–T5 증거
-  ([docs/evidence](docs/evidence/)). 합성 시험 178건 중 140 PASS·3 SKIP(0.4.0 기준)이다. T5 35건은
+  ([docs/evidence](docs/evidence/)). 합성 시험 184건 중 146 PASS·3 SKIP(0.5.0 기준)이다. T5 35건은
   `SOULFORGE_TEST_PDF_PYTHON`(pdfplumber pin 해석기)이 없어 fixture 준비에서 멈추므로 **main에서는 아직 실행되지
   않았다(NOT_RUN)**. 통과 여부는 해석기를 준비해 실제로 돌린 뒤에만 말할 수 있다.
 - 검증 명령: `npm run validate:context-engine`(T5 밖 시험 + `verify_module`), `npm run validate:context-engine-t5`
@@ -67,7 +67,7 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 새 Context store를 만들지 않는다. 기존 generation/수락 receipt/ACL 검사는
 그대로 남으며 실제 actor·source grant가 없으면 실제 연결 완료가 아니다.
 
-## 원본 문서 준비 (0.4.0)
+## 원본 문서 준비 (0.4.0~0.5.0)
 
 `prepareSourceDocuments({ grant, roots, now, previousCoverage })`는 수집 lane이 이미 보관한 항목 중
 exact grant(`soulforge.context_source_grant.v1`)에 적힌 항목만 읽어 `soulforge.context_source_document.v1`
@@ -77,8 +77,18 @@ exact grant(`soulforge.context_source_grant.v1`)에 적힌 항목만 읽어 `sou
 - grant: 정확한 과제 ref, 목적 `context_preparation`, 허용 자료 등급, 유효기간, source별 root 이름과 항목.
   항목 판본 정책은 `exact`(고정 판본) 또는 `latest_in_custody`(그 항목에 대해 보관된 최신 판본)다.
   root 이름을 실제 경로로 잇는 표는 신뢰된 설정(`roots`)이 주며 grant에는 경로가 없다.
-- 연결됨: Linear(`linear-custody-v1`) — 이슈·댓글·변경 이력을 create-only 원본에서 읽고 파일마다 해시를 다시
-  계산해 대조한다. 미연결: 메일·PLAUD·문서(`adapter_not_connected`로 보고).
+- 연결됨(합성 원본으로만 검증):
+  - Linear(`linear-custody-v1`): 이슈·댓글·변경 이력을 create-only 원본에서 읽고 파일마다 해시를 다시 계산해 대조한다.
+  - 음성(`voice-session-v1`): `sessions/<날짜>/<세션>/`의 manifest와 `transcript.jsonl`을 발언 단위로 바꾼다. 발언 시각은
+    녹음 시작+오프셋, 알게 된 시각은 가져온 시각이다. 화자 라벨은 검증되지 않은 제공자 표시라 해시 ref로만 쓴다.
+    grant `scope`로 여러 과제가 섞인 녹음의 해당 구간만 받는다.
+  - 메일(`mail-event-v1`): 수집기 이벤트 싱크의 행을 머리글·새 본문·인용 이력으로 나눈다. 본문 정규화는 gateway의
+    `mailBodyTextFromRecord`를 재사용하고, 같은 달 파일의 다른 메일은 이 메일의 판본에 영향을 주지 않는다.
+  - 문서(`document-file-v1`): UTF-8 텍스트·Markdown을 문단·제목 절 단위로 바꾼다. 파일 시각은 신뢰하지 않아 `valid_at`은
+    null이다. PDF는 고정 PDF 준비와 해석기 binding 연결 전이라 `pdf_preparation_not_connected`, HWP/HWPX·Office는
+    `unsupported_document_format`으로 보고한다.
+- 경로 조각은 실제 파일 이름(한글·공백)을 받되 구분자·제어문자·`.`/`..`·Windows 예약 문자·끝 점/공백과
+  비밀 파일 이름은 거부한다.
 - 실자료 등급은 거부한다(`real_source_preparation_not_admitted`). P1 비유출 증거와 source별 grant 검증 gate가
   생기기 전에는 `public_synthetic`만 받는다.
 - `doc_key`는 과제·종류·root·항목·합성 판본·adapter profile의 해시다. 같은 입력은 같은 키(재실행 no-op)가 되고,

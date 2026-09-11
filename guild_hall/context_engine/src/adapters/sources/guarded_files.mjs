@@ -9,8 +9,16 @@ import { isDeepStrictEqual } from 'node:util';
 import { createHash } from 'node:crypto';
 
 export const SOURCE_READ_MAX_BYTES = 64 * 1024 * 1024;
-const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._@+-]{0,199}$/u;
 const SECRET = /^(?:\.env(?:\..*)?|credentials?|secrets?)$/iu;
+const RESERVED = /[<>:"/\\|?*]/u;
+// Real file names (Korean, spaces) are allowed; separators, control characters,
+// dot segments, Windows-reserved characters and trailing dots/spaces are not.
+export function isSafeSegment(part) {
+  return typeof part === 'string' && part.length > 0 && part.length <= 255 && part !== '.' && part !== '..'
+    && !RESERVED.test(part) && ![...part].some(ch => ch.codePointAt(0) < 32 || ch.codePointAt(0) === 127)
+    && !/[. ]$/u.test(part) && part.trim() === part;
+}
+const SEGMENT = { test: isSafeSegment };
 const stamp = stat => Object.fromEntries(['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'].map(key => [key, stat[key]]));
 
 export class SourceReadError extends Error {

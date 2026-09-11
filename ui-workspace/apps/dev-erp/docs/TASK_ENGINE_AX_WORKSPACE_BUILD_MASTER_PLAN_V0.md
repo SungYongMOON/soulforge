@@ -1,5 +1,16 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine 0.5.0, four source adapters): voice, mail
+> and document adapters join Linear. Voice sessions become utterance units
+> (recording start plus offset, capture time as known time, provider speaker
+> labels only as hashed hints) and a grant scope admits just the project part of
+> a mixed recording. Mail rows split header, new body and quoted history using the
+> gateway normalizer; other mails in the same month file never change a mail's
+> revision. Text and Markdown documents keep heading sections and carry no valid
+> time; PDF waits for the pinned PDF preparation binding and HWP/HWPX/Office are
+> refused. Real file names are allowed as path segments. Synthetic tests: 184,
+> 146 pass, 3 skip, 35 T5 not run on main. No live source was read.
+
 > 2026-09-12 CURRENT (Context Engine source preparation, Linear connected):
 > Context Engine 0.4.0 prepares source documents only for items listed in an
 > exact grant (exact project ref, preparation purpose, allowed data classes,

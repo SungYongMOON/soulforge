@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 음성·메일·문서 원본 연결
+
+- 맥락 APP(`guild_hall/context_engine`) 0.5.0에 음성·메일·문서 adapter를 더해 Linear와 함께 네 종류를 연결했다.
+  음성은 세션 manifest와 전사를 발언 단위(녹음 시작+오프셋 시각, 가져온 시각, 해시한 화자 라벨)로 바꾸고,
+  grant `scope`로 여러 과제가 섞인 녹음의 해당 구간만 받는다. 메일은 수집기 이벤트 행을 머리글·새 본문·인용
+  이력으로 나누며 gateway의 본문 정규화를 재사용한다. 문서는 텍스트·Markdown을 문단·제목 절로 바꾸고, PDF는
+  고정 PDF 준비 binding 전이라 미연결, HWP/HWPX·Office는 지원 안 함으로 보고한다.
+- grant 항목에 `path`(메일·문서 필수, 음성 선택)와 음성 전용 `scope`를 더했고, 경로 조각은 실제 파일 이름(한글·
+  공백)을 받되 구분자·제어문자·점 조각·예약 문자는 거부한다. gateway를 선언 의존으로 추가했다(카탈로그 호출자 반영).
+- 앞 조각(4646bdd4)의 `source_documents.mjs`와 시험 파일에 도구가 넣은 NUL 바이트 6개를 6글자 이스케이프로 되돌렸다
+  (의미는 같고 git이 바이너리로 보던 문제만 없앴다).
+- 운영 영향 없음: 실자료 등급은 여전히 거부하고, 수집·설치·쓰기·외부 전송 변화는 없다.
+- 검증: `npm run validate:context-engine` 149건 중 146 PASS·3 SKIP(T5 35건은 main에서 미실행), `verify_module`
+  (runtime 57 파일, 의존 6), `validate:module-operability`, `validate:product-composition`, `validate:canon`,
+  `validate:path-policy`, `validate:display-terms`, `emit_hpp_spec --check`, boot digest guard 통과.
+- 관련 경로: `guild_hall/context_engine/src/adapters/sources/`, `guild_hall/context_engine/src/runtime/source_documents.mjs`,
+  `guild_hall/context_engine/tests/source_adapters.test.mjs`, 모듈 카탈로그, `package.json`.
+
 ## 2026-09-12 - 맥락 APP 통합 문서의 검토 지적 반영과 검증 명령
 
 - 비작성 Level 2 검토(수정 후 수락) 지적을 반영했다. T5 35건은 PDF 해석기가 없어 fixture 준비에서 멈추므로

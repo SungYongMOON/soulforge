@@ -163,7 +163,7 @@ test('exact revisions custody no longer holds are stale grants; absent items are
   assert.equal(out.changes.unavailable.length, 2);
 });
 
-test('grant boundaries: not current, malformed and real-class grants are refused; unconnected kinds are reported', async () => {
+test('grant boundaries: not current, malformed and real-class grants are refused; unbound roots are reported', async () => {
   const x = await syntheticLinearCustody();
   const items = [latest(x.issue('SYN-1'))];
   await assert.rejects(prepareSourceDocuments({ grant: grantFor(items), roots: x.roots, now: '2026-10-02T00:00:00.000Z' }),
@@ -176,13 +176,18 @@ test('grant boundaries: not current, malformed and real-class grants are refused
     { allowed_data_classes: ['project_internal'] }), roots: x.roots, now: NOW }), { code: 'real_source_preparation_not_admitted' });
   await assert.rejects(prepareSourceDocuments({ grant: grantFor([...items, ...items]), roots: x.roots, now: NOW }),
     { code: 'source_grant_invalid' });
+  // Mail and document items must name their file; voice scopes are voice-only.
+  await assert.rejects(prepareSourceDocuments({ grant: grantFor(items, { sources: [{ kind: 'mail', root_ref: 'mail.synthetic',
+    items: [latest('mail-item-1')] }] }), roots: x.roots, now: NOW }), { code: 'source_grant_invalid' });
+  await assert.rejects(prepareSourceDocuments({ grant: grantFor([{ ...items[0], scope: { start_seconds: 0, end_seconds: 5 } }]),
+    roots: x.roots, now: NOW }), { code: 'source_grant_invalid' });
   const mixed = grantFor(items);
-  mixed.sources.push({ kind: 'mail', root_ref: 'mail.synthetic', items: [latest('mail-item-1')] });
+  mixed.sources.push({ kind: 'mail', root_ref: 'mail.synthetic', items: [{ ...latest('mail-item-1'), path: ['2026', '09.jsonl'] }] });
   mixed.sources.push({ kind: 'linear', root_ref: 'linear.unbound', items: [latest(x.issue('SYN-2'))] });
   const out = await prepareSourceDocuments({ grant: mixed, roots: x.roots, now: NOW });
   assert.equal(out.documents.length, 1);
   assert.deepEqual(out.coverage.items.filter(row => row.status === 'failed').map(row => row.code).sort(),
-    ['adapter_not_connected', 'source_root_unbound']);
+    ['source_root_unbound', 'source_root_unbound']);
   const relative = await prepareSourceDocuments({ grant: grantFor(items), roots: { [ROOT_REF]: 'relative/custody' }, now: NOW });
   assert.equal(relative.coverage.items[0].code, 'source_root_invalid');
 });
@@ -198,5 +203,5 @@ test('coverage comparison reports removed items, rejects duplicates and cross-pr
     { code: 'source_coverage_invalid' });
   const foreign = buildSourceCoverage({ projectKey: 'p2', grantSha256, results: [row('a1', '1')] });
   assert.throws(() => detectSourceChanges(before, foreign), { code: 'source_coverage_invalid' });
-  assert.equal(normalizeText('a\r\nb ć', 100), 'a\nbć');
+  assert.equal(normalizeText('a\r\nb\u0000ć', 100), 'a\nbć');
 });
