@@ -655,9 +655,9 @@ RAG와 Wiki 중 하나를 지식 전체로 삼지 않는다.
 구현은 하나의 거대 물리 index보다 project/common, domain, source family, lifecycle을
 먼저 거르는 catalog route를 우선한다. GraphRAG와 vector 검색은 2026-09-12 Owner
 결정으로 채택한다(Neo4j 조회 전용 projection·제안층 검색 색인,
-`PROJECT_REQUIREMENT_TRACE_MODEL_V0` D41). 위 project binding·top-k 규칙은 그대로
-적용한다. BM25/reranker는 고정 평가셋에서 현재 lexical retrieval의 부족이 확인된 뒤
-추가한다.
+`PROJECT_REQUIREMENT_TRACE_MODEL_V0` D41). GraphRAG 색인 안의 키워드(full-text)·벡터
+결합 검색도 이 채택에 포함한다. 위 project binding·top-k 규칙은 그대로 적용한다. 그 밖의
+BM25/reranker는 고정 평가셋에서 현재 lexical retrieval의 부족이 확인된 뒤 추가한다.
 
 사용 원장 집계는 원문을 읽지 않는 한 번의 streaming pass로 수행한다. 원장 규모가
 5만 행을 넘거나 snapshot 집계가 반복해서 500ms를 넘으면 월별 rollup을 만들고 최근

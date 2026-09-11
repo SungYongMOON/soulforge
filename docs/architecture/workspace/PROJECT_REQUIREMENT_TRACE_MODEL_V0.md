@@ -27,7 +27,7 @@ knowledge or operating binding is moved or enabled by this document update.
 >
 > **(1) 출처-지역 소유를 유지한 append-only 양시간축 사실 원장 → (2) 결정론적으로 재생 가능한 타입 그래프·RTM 투영 → (3) 별도의 수락 게이트(accepted generation) → (4) 얇은 sourcebound 카드**
 >
-> LLM·벡터·자유서술 메모리는 (1)(2)(3) 어디에도 truth로 들어가지 않고 `judgment` / `memory_candidate` 제안층에만 존재한다. Graph DB(Neo4j)와 GraphRAG는 채택한다(2026-09-12 Owner 결정, D41). Neo4j는 (2)를 담는 조회 전용 투영이고, GraphRAG가 LLM·임베딩으로 만든 개체·관계·벡터는 제안층 검색 색인이다.
+> LLM·벡터·자유서술 메모리는 (1)(2)(3) 어디에도 truth로 들어가지 않고 `judgment` / `memory_candidate` 제안층에만 존재한다. Graph DB(Neo4j)와 GraphRAG는 채택한다(2026-09-12 Owner 결정, D41). Neo4j는 (2)를 담는 조회 전용 투영이고, GraphRAG가 LLM·임베딩으로 만든 개체·관계·벡터는 과제별로 분리한 제안층 검색 색인이다.
 
 ### 1.2 제시된 가설의 자체 검증 결과
 
@@ -185,13 +185,13 @@ NASA 방식대로 게이트는 두 집합을 따로 가진다.
 | replayable projection | **채택** | 투영은 언제든 폐기·재생. 투영 수정이 원장을 바꾸지 않는다 |
 | projection receipt | **채택** | 입력 generation/digest ↔ 출력 generation/digest ↔ writer epoch ↔ row count 결속 |
 | Graph DB (Neo4j Community) | **채택**(2026-09-12 Owner 결정, D41) | §4.4 트리거를 기다리지 않는다. 원장이 truth이고 Neo4j는 조회 전용 projection이다. 폐기해도 원장은 무손상이며 다시 만든다 |
-| GraphRAG / 커뮤니티 탐지 / PageRank 유사 점수 / 벡터 검색 | **채택**(같은 결정) | 맥락 검색에 쓴다. LLM·임베딩이 만든 개체·관계·벡터는 제안층 검색 색인이며 truth나 수락 근거가 아니다. lexical 대비 품질은 도입 뒤 고정 평가셋으로 기록한다 |
+| GraphRAG / 커뮤니티 탐지 / PageRank 유사 점수 / 벡터·키워드 결합 검색 | **채택**(같은 결정) | 맥락 검색에 쓴다. LLM·임베딩이 만든 개체·관계·벡터는 제안층 검색 색인이며 truth나 수락 근거가 아니다. 색인 안의 개체 병합은 허용하되 정본 ID로 올리지 않는다(§4.2). lexical 대비 품질은 도입 뒤 고정 평가셋으로 기록한다 |
 
 ### 4.2 지금 도입하지 않음
 
 | 기법 | 판정 | 트리거 조건 |
 | --- | --- | --- |
-| 임베딩 기반 개체 해소(entity resolution) | **금지에 가까운 보류** | 별칭 다중 resolve는 conflict로 남겨야 하므로 자동 병합 도구는 정본과 충돌 |
+| 정본 식별(`source_id`·`requirement_id` 등)의 임베딩 기반 개체 해소(entity resolution) | **금지에 가까운 보류** | 별칭 다중 resolve는 conflict로 남겨야 하므로 자동 병합 도구는 정본과 충돌. GraphRAG 색인 안의 병합(D41)은 제안층 후보이며 정본 ID를 합치지 않는다 |
 
 ### 4.3 규모 추정 (한 과제 private inventory, 2026-08-15 기준)
 
@@ -215,12 +215,11 @@ NASA 방식대로 게이트는 두 집합을 따로 가진다.
 
 **판정**: 10^5~10^6 엣지는 SQLite 재귀 CTE와 JSONL 재생으로 충분하다. Neo4j의 실익은 10^7 이상, 가변 길이 다중 홉이 핵심 질의일 때 나타난다. 반면 도입 비용은 즉시 발생한다 — 두 번째 truth writer 위험, 새 HPP 최상위 data surface(=`guild_hall/backup_controller`의 backup/restore 분류와 synthetic restore gate 필요), 백업·복구·ACL 표면 증가. 지금은 **JSONL 원장 + SQLite 투영**으로 시작한다.
 
-**2026-09-12 Owner 결정(D41)**: 위 규모 판정과 별개로 Graph DB(Neo4j)·GraphRAG를 지금 채택한다(맥락 검색 용도). JSONL 원장이 truth이고 SQLite 투영도 그대로 둔다. Neo4j에는 원장에서 재생하는 조회 전용 projection과 원문에서 다시 만들 수 있는 GraphRAG 검색 색인(제안층)만 담는다. 두 번째 truth writer 위험은 이 조회 전용 원칙으로, 새 data surface 비용은 운영 편입 전 `guild_hall/backup_controller` 분류와 synthetic restore gate로 다룬다.
+**2026-09-12 Owner 결정(D41)**: 위 규모 판정과 별개로 Graph DB(Neo4j)·GraphRAG를 지금 채택한다(맥락 검색 용도). JSONL 원장이 truth이고 SQLite 투영도 그대로 둔다. Neo4j에는 원장에서 재생하는 조회 전용 projection과 GraphRAG 검색 색인(제안층)만 담는다. 이 색인은 원문에서 다시 만들 수 있지만 LLM 추출이라 결정론적 재생물은 아니다. 색인은 과제별 project store 단위로 분리하며(`PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` 원칙 1), Community판은 사용자 DB가 하나라 분리 방식은 구현 설계에서 정한다. LLM·임베딩은 로컬 모델만 써서 private 원문을 밖으로 보내지 않고, 모델 제안에는 입력·모델·정책 revision과 근거 ref를 남긴다(`PROJECT_CONTEXT_GRAPH_MODEL_V0.md`). 두 번째 truth writer 위험은 조회 전용 원칙으로 막고, Neo4j root를 새 HPP data surface로 넣는 개발 조각에서 `guild_hall/backup_controller`의 backup/restore 분류와 synthetic restore gate를 함께 닫는다.
 
 ### 4.4 Graph DB 도입 트리거 (2026-09-12 채택으로 대기 해제)
 
 아래 네 조건은 더 이상 도입 조건이 아니다. SQLite 투영만으로 부족해지는 시점을 가늠하는 규모 지표로 남긴다.
-
 
 1. 한 과제의 투영 전량 재구축 p95가 **60초**를 넘음
 2. 한 과제 view의 엣지가 **5×10^6**을 넘음
@@ -582,7 +581,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 | --- | --- | --- | --- | --- |
 | D37 | **decided** | 2026-08-17 | 제안 기본값 채택. 자동 추출 요구 ID는 `observed` candidate만이며 확정은 사람(Owner/담당) | Owner 채팅 승인(설명 요청 후 "동의해 진행해줘") |
 | D38 | **decided** | 2026-08-17 | 제안 기본값 채택. Needs 선언은 기존 `stage_expected_artifact_policy` 확장으로 두고 새 정책 store·새 정본 없음. 미선언은 `gap_unknown` | 같은 승인 |
-| D41 | **decided** | 2026-09-12 | 제안 기본값(§4.4 트리거 전 미도입) 대신 **트리거 대기 없이 채택**. Graph DB(Neo4j Community)와 GraphRAG(벡터 검색 포함)를 맥락 검색에 쓴다. Neo4j는 조회 전용 projection·제안층 검색 색인이며 원장이 truth다. 운영 data surface로 편입하기 전 `guild_hall/backup_controller` 분류와 synthetic restore gate 선행은 유지 | Owner 채팅 지시("보류 아니야 쓸꺼야 바꿔줘") |
+| D41 | **decided** | 2026-09-12 | 제안 기본값(§4.4 트리거 전 미도입) 대신 **트리거 대기 없이 채택**. Graph DB(Neo4j Community)와 GraphRAG(벡터·키워드 결합 검색 포함)를 맥락 검색에 쓴다. Neo4j는 조회 전용 projection·제안층 검색 색인이며 원장이 truth다. 색인은 과제별로 분리하고, LLM·임베딩은 로컬 모델만 쓰며(private 원문 반출 0), 모델 제안에는 입력·모델·정책 revision과 근거 ref를 남긴다. 색인 안 개체 병합은 허용하되 정본 ID는 자동 병합하지 않는다. Neo4j root를 HPP data surface로 넣는 개발 조각에서 `guild_hall/backup_controller` 분류와 synthetic restore gate를 함께 닫는다 | Owner 채팅: "보류 아니야 쓸꺼야 바꿔줘"(채택). 색인 안 병합·결합 검색 범위는 에이전트 추천안 제시 직후 "진행해줘" |
 | D39·D40 | open | — | R2 이후 필요 시점에 요청 | — |
 
 ---
@@ -597,7 +596,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 | 정정 처리 | 덮어쓰기(과거 소실) | 노드 수정(과거 소실 위험) | supersession append(과거 보존) |
 | 감사·재현 | 불가 | 스냅샷 설계 필요 | receipt + digest로 기본 제공 |
 | 도입 비용 | 매우 낮음 | 높음(새 data surface, 백업/복구, ACL) | 중간(스키마 + 순수 함수 + 재생기) |
-| 조회 편의 | 사람에게는 좋음 | 다중 홉 탐색 최상 | SQLite CTE로 충분, 필요 시 B를 조회 전용으로 추가 |
+| 조회 편의 | 사람에게는 좋음 | 다중 홉 탐색 최상 | SQLite CTE로 충분, B는 D41(2026-09-12)로 조회 전용 추가 |
 | 정본과의 충돌 | `_workmeta` metadata-only 위반, claim ceiling 부재, 원장 부재 | 두 번째 truth writer, "Neo4j는 projection" 규정 위반, 새 top-level data surface | 없음(기존 정본의 SE 확장) |
 | 최대 위험 | 조용한 요구 누락 — Owner 목적을 정면으로 훼손 | 조용한 과거 덮어쓰기 + 운영 표면 폭증 | 스키마 조기 고착. 완화: R1을 순수 함수 + fixture로만 닫고 writer는 R2로 미룸 |
 | 실패 시 회복 | 회복 불가(원본 소실) | 복구는 백업 의존 | 투영 폐기 후 재생. 원장 무손상 |
@@ -648,7 +647,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 
 ## 11. 비목표와 중단 조건
 
-**비목표**: 요구 ID 자동 확정, 자동 stage 귀속, 게이트 자동 통과, ERP write, TaskDriver activation, LLM 활성화, graph DB 설치(채택은 §4.1·D41이며 설치·연결은 별도 GraphRAG 작업), legacy 대량 rename·삭제, 두 번째 task/context writer.
+**비목표**: 요구 ID 자동 확정, 자동 stage 귀속, 게이트 자동 통과, ERP write, TaskDriver activation, LLM 활성화, graph DB 설치(채택은 §4.1·D41이며 설치·연결은 로드맵 Context APP build track이 맡는다), legacy 대량 rename·삭제, 두 번째 task/context writer.
 
 **다음이면 중단하고 보고한다.**
 

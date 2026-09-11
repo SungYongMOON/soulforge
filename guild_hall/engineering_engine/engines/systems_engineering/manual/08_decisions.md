@@ -11,7 +11,7 @@
 | D38 | Needs 선언의 정본 owner | 기존 `stage_expected_artifact_policy` 확장, 새 store 없음, 미선언은 `gap_unknown` | **decided 2026-08-17** |
 | D39 | `outdated` 처리(엔진 `gap_outdated` enum 추가 여부) | 투영층 사유 코드 + `gap_unknown`, enum 추가는 별도 승인 | open |
 | D40 | 중복·상위판 판정 authority(색인 중복 ID 4쌍 포함) | 동일 content_id는 observation만 추가, 상위판 불확실은 자동 병합 금지·conflict 보존 | open |
-| D41 | Graph DB 도입 트리거·backup 분류 | §4.4 트리거 전 미도입 | **decided 2026-09-12** — 기본값 대신 트리거 대기 없이 채택(Neo4j 조회 전용 projection, GraphRAG 포함), 운영 편입 전 backup 분류 선행 |
+| D41 | Graph DB 도입 트리거·backup 분류 | §4.4 트리거 전 미도입 | **decided 2026-09-12** — 기본값 대신 트리거 대기 없이 채택(Neo4j 조회 전용 projection, GraphRAG 포함). Neo4j를 HPP data surface로 넣는 개발 조각에서 backup 분류와 synthetic restore gate를 함께 닫음 |
 | D42 | L1 기계 필드를 스펙 md에 직접 넣을지 vs 사이드카 | 직접(단일 원천), 생성기는 모르는 키 무시 | open(구현은 기본값대로 진행됨) |
 | D43 | 탐색개발·선행연구 재기준 스펙 승격 시점 | draft variant 먼저, 실제 과제 1건 검증 후 승격 | open |
 | D44 | 표준어(artifact_type_id) 소유자·표시명 + ② 행 토큰 배정 정정 | 컴파일러 `artifact_vocabulary.v0` + 글로서리 표시명(신규 56 토큰 표시명 포함); 행 배정이 어긋난 3건은 대응표로 우회하지 말고 **행을 고친다** | **decided 2026-08-19** (§8.3) |

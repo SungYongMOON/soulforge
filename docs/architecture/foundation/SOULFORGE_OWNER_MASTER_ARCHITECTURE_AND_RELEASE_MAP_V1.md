@@ -147,7 +147,7 @@ capability/backlog ownership map이다. portfolio별 exact Product-owned/Shared/
 | M11 | Collection/Custody와 NAS Backup/DR | synthetic canary VALIDATED, actual DR/Human acceptance HOLD |
 | M12 | Owner grant/revoke/STOP UI | TARGET |
 | M13 | Soulforge Operations Console Apps·분석·관제 | foundation 부분, product shell TARGET |
-| M14 | World Tree 고정 I/O seam | TARGET, internal engine OPEN |
+| M14 | World Tree 고정 I/O seam | TARGET, internal graph/vector engine D41 채택(나머지 OPEN) |
 | M15 | Manual-as-Release | 16 candidate·resolver/HTML VALIDATED, exercise/last-verified RELEASE_HOLD |
 | M16 | 개발1팀 Main Node/internal RC→Universal Client pilot | Main Node local canary·3-seat virtual VALIDATED, external physical seat HOLD |
 
@@ -750,7 +750,9 @@ World Tree 내부 DB/Graph/RAG 구조는 지금 확정하지 않는다. 대신 �
 - accepted knowledge candidate와 invalidation/rebuild receipt.
 
 현재 개발의 완료조건은 모든 source/ledger가 이 seam에 연결 가능한 stable ID·revision·time·ACL·
-pointer를 남기는 것이다. 내부 graph/vector/relational engine 선택과 자동 ontology 승격은 후속 설계다.
+pointer를 남기는 것이다. 내부 graph/vector engine은 D41(2026-09-12 Owner)로 Neo4j Community와
+`neo4j-graphrag`를 채택했다(`PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §8.2). 엔진은 이 seam 뒤에
+두며 seam 우선 규칙은 그대로다. relational engine 선택과 자동 ontology 승격은 후속 설계다.
 
 ## M15. Manual-as-Release
 

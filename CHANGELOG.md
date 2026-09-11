@@ -55,16 +55,22 @@
 
 ## 2026-09-12 - Graph DB(Neo4j)·GraphRAG 채택 결정 반영
 
-- Owner 결정(D41)으로 Graph DB(Neo4j Community)와 GraphRAG(벡터 검색 포함)를 규모·질의 트리거를
-  기다리지 않고 채택했다. 맥락 검색에 쓰며, 원장이 truth이고 Neo4j는 조회 전용 projection과
-  제안층 검색 색인만 담는다.
-- 유지하는 조건: 두 번째 truth writer 금지, project binding·top-k 규칙, 운영 data surface 편입 전
-  `guild_hall/backup_controller` 분류와 synthetic restore gate, 임베딩 기반 개체 자동 병합 보류.
-  BM25/reranker는 기존대로 고정 평가셋 뒤에 추가한다.
-- 문서의 결정만 바꿨고 코드·스키마·운영 설정 변경은 없다. 설치와 연결 시험은 저장소 밖 로컬 작업이다.
+- Owner 결정(D41)으로 Graph DB(Neo4j Community)와 GraphRAG(벡터·키워드 결합 검색 포함)를 규모·질의
+  트리거를 기다리지 않고 채택했다. 맥락 검색에 쓰며, 원장이 truth이고 Neo4j는 조회 전용 projection과
+  과제별로 분리한 제안층 검색 색인만 담는다.
+- 조건: 두 번째 truth writer 금지, project binding·top-k 규칙, LLM·임베딩은 로컬 모델만(private 원문
+  반출 0), 모델 제안에는 입력·모델·정책 revision과 근거 ref. 색인 안 개체 병합은 허용하되 정본 ID는
+  자동 병합하지 않는다. Neo4j root를 HPP data surface로 넣는 개발 조각에서 `guild_hall/backup_controller`
+  분류와 synthetic restore gate를 함께 닫는다. 그 밖의 BM25/reranker는 기존대로 고정 평가셋 뒤에 추가한다.
+- 비작성 검토(Level 2)의 REVISE 지적(백업 분류 시점, M14 지도 문장, 로컬·과제별 조건, 결합 검색·개체
+  병합 범위)을 같은 날 반영했다. 마스터 맵 M14와 지식비서 활성화 계획의 벡터 보류 권고에 D41 포인터를 달았다.
+- 문서의 결정만 바꿨고 코드·스키마·운영 설정 변경은 없다. 기존 RAG 공개 표면의 벡터 차단 가드
+  (`no_vector_search`·`FORBIDDEN_RAG_PROJECTION_KEYS`)도 그대로다. 설치와 연결 시험은 저장소 밖 로컬 작업이다.
 - 관련 경로: `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`,
   `docs/architecture/guild_hall/PROJECT_CONTEXT_GRAPH_V0.md`,
-  `docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`, `guild_hall/requirement_trace/README.md`,
+  `docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`,
+  `docs/architecture/foundation/SOULFORGE_OWNER_MASTER_ARCHITECTURE_AND_RELEASE_MAP_V1.md`,
+  `docs/architecture/guild_hall/KNOWLEDGE_ASSISTANT_ACTIVATION_PLAN_V0.md`, `guild_hall/requirement_trace/README.md`,
   SE 매뉴얼 06·08장, `docs/architecture/workspace/README.md`, `DEVELOPMENT_ROADMAP_V0.md` 계획 대비 변경 기록.
 
 ## 2026-09-11 - Tributary 숨김 기동 보완
