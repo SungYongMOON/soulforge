@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-09-12 - 프로젝트 맥락 저장 구조(Plan 17) 채택 문서 반영
+
+- 2026-09-10 Owner가 채택한 프로젝트 store(`<data_root>/20_PROJECTS/<project-ref>/`) 기준을 루트 README,
+  AGENTS 라우팅 1줄, 부트 요약, 문서 소유·목표 트리·용어집·마스터 맵·제품 구성, 지식·RAG·워크스페이스
+  문서, 배포 매뉴얼 4종, 담당자 메모리 격리 문서에 반영했다(후보 eea7c288 분을 3-way로 합침).
+- 수집 원본·SE 수락 산출물·legacy `_workmeta`/`_workspaces` owner는 그대로이고, 실제 자료 이동·폴더 생성·
+  writer 활성화는 하지 않았다. 배포 매뉴얼 문구는 다음 팩 빌드에 실리며 팩 명세는 바뀌지 않았다.
+- 지침 이동(CLAUDE.md 규율 블록 → 실행 계약)과 메일 분류기 소유 행은 넣지 않았다.
+- 부트 요약 매니페스트를 다시 서명했다. AGENTS.md 새 줄은 요약의 Plan 17 한 줄로 반영되고,
+  D41 로드맵 행(d02042ff)은 요약 §6의 저장 규칙을 바꾸지 않아 본문은 유지했다.
+- 검증: boot digest guard와 시험 4/4, `validate:canon`, `validate:path-policy`, 팩 명세 `--check` 4종,
+  path_registry 151/151.
+- 관련 경로: `README.md`, `AGENTS.md`, `docs/architecture/foundation/`, `docs/architecture/guild_hall/`,
+  `docs/architecture/workspace/`, `guild_hall/deployment_pack/manuals/`,
+  `ui-workspace/apps/dev-erp/docs/MEMORY_PROJECT_ISOLATION.md`.
+
 ## 2026-09-12 - 맥락 APP 후보를 독립 모듈로 main에 통합
 
 - 검토된 후보(로컬 보존 tag `codex/cleanup/20260911/context-manager`, c6c5870c)의 맥락 APP

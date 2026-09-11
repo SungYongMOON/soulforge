@@ -1,5 +1,16 @@
 # Temporal Knowledge Ontology v0
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 - 상태: public-safe 통합 계약, writer/ERP/graph migration 은 후속 activation gate
 - 범위: 프로젝트 시간축, source revision, RAG, LLM Wiki, 지식 정본,
   SE 일정·산출물 규칙의 공통 식별·관계 기준

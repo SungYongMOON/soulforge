@@ -1,5 +1,13 @@
 # Company Common Source Storage v0
 
+## 2026-09-10 scope clarification
+
+This common-source owner remains reference-in-place. Project-specific
+extraction/RAG/context/recall data uses the new Plan 17 `20_PROJECTS` owner,
+not a new shared common payload root. Approved common revisions enter an exact
+project view only through their existing allowlist; current legacy metadata
+append and common custody are not stopped or migrated by this change.
+
 ## Evaluation ledger rule
 
 Reusable public-source or fully synthetic evaluations may keep raw answers,

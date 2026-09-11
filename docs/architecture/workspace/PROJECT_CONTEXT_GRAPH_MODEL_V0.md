@@ -1,5 +1,14 @@
 # Project Context Graph Model v0
 
+## 2026-09-10 프로젝트 중심 맥락 데이터 배치
+
+새 target은 `<data_root>/20_PROJECTS/<project-ref>/`를 사용한다. 상세 폴더·허용 데이터·
+갱신·이관·완료 시험은 [Plan 17 프로젝트 맥락 저장 계약](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)이 단일 소유한다.
+`_workspaces`의 SE 번호별 수락 산출물과 `_workmeta`의 canonical byte-lineage는 유지한다.
+이전 `reference_payloads`, project_context, RAG/Wiki/run 경로는 current legacy 호환·이관
+입력으로만 읽고 새 target 경로로 적용하지 않는다. 기존 데이터를 이동하거나 writer를 켜지 않는다.
+공통 지식은 기존 승인 owner에 유지하며 exact revision allowlist로만 참조한다.
+
 ## Purpose
 
 This document fixes the workspace-level contract for per-project context.
@@ -138,7 +147,7 @@ Forbidden in `_workmeta` project-context ledgers and reports:
 - local absolute source path when it exposes private host layout
 - `.env`, token, password, cookie, session, credential, or secret value
 
-## ERP, MCP, And Client Boundary
+## ERP, MCP, And Client Boundary (legacy owner until project-store cutover)
 
 `_workmeta/<project_code>/project_context/**` remains the project-context
 canon. dev-ERP may build a replaceable read model or accepted-generation index
@@ -166,7 +175,7 @@ _workmeta project_context canon
   rollback. Mac mini and work PCs have no normal project-context write
   authority.
 
-## Minimum Project-Local State
+## Current legacy compatibility state (not the new target layout)
 
 Current project-local live metadata lives under:
 
@@ -186,7 +195,8 @@ Current v0 compatibility files:
 - `summaries/project_summary.md`
 - `summaries/branch_summaries.csv`
 
-The additive TARGET layout is:
+The previous additive layout below is legacy/migration input. The 2026-09-10
+Plan 17 project template and area mapping supersede its target paths:
 
 ```text
 _workmeta/<project_code>/project_context/

@@ -1,5 +1,16 @@
 # Voice Recording Library v0
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 ## 목적
 
 항시 녹음, 음성 메모 import, 회의 녹음, 전사 sidecar 를 메일 intake 처럼 한곳에 모은 뒤 프로젝트별 후보 route 로 분리한다.

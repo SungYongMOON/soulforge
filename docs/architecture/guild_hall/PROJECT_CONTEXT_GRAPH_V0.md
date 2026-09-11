@@ -1,5 +1,16 @@
 # Project Context Graph Projection v0
 
+## 2026-09-10 target storage alignment
+
+Project-owned extraction/RAG/context/recall/evaluation content now targets
+`<data_root>/20_PROJECTS/<project-ref>/` under
+[Plan 17](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10).
+SE-numbered accepted bytes stay in target `_workspaces`; target `_workmeta` is
+canonical byte-lineage only. Old project `reference_payloads`, shared RAG and
+`project_context` paths below describe legacy compatibility until explicit
+cutover, not permission to write new target payloads. Project/common isolation,
+source truth, ACL and claim ceilings remain unchanged. No live data is moved.
+
 ## Purpose
 
 Project Context Graph Projection v0 defines how `guild_hall` and dev-ERP
@@ -17,7 +28,7 @@ haengbogwan engine answer one practical question:
 > When a new event arrives, which project branch does it belong to, what work
 > does it change, and what task or result should be created?
 
-## Tree Metaphor
+## Project query model
 
 The human-facing view is a tree.
 

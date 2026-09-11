@@ -1,5 +1,16 @@
 # Knowledge Wiki Worldview v0
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 ## 한 줄 요약
 
 Soulforge의 wiki는 "파일을 그냥 저장하는 창고"가 아니라, 출처가 확인된 자료를 private 작업장에서 읽고 정리한 뒤, 검토를 통과한 지식만 정본으로 승격하는 지식 운영 체계다.

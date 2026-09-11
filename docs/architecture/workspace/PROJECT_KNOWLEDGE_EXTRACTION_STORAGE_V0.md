@@ -1,5 +1,14 @@
 # Project Knowledge Extraction Storage v0
 
+## 2026-09-10 프로젝트 중심 맥락 데이터 배치
+
+새 target은 `<data_root>/20_PROJECTS/<project-ref>/`를 사용한다. 상세 폴더·허용 데이터·
+갱신·이관·완료 시험은 [Plan 17 프로젝트 맥락 저장 계약](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)이 단일 소유한다.
+`_workspaces`의 SE 번호별 수락 산출물과 `_workmeta`의 canonical byte-lineage는 유지한다.
+이전 `reference_payloads`, project_context, RAG/Wiki/run 경로는 current legacy 호환·이관
+입력으로만 읽고 새 target 경로로 적용하지 않는다. 기존 데이터를 이동하거나 writer를 켜지 않는다.
+공통 지식은 기존 승인 owner에 유지하며 exact revision allowlist로만 참조한다.
+
 ## 목적
 
 프로젝트 지식 등록·추출 작업(장서목록=레그, 본문 추출, 추출 메타)의 저장 위치를
@@ -12,24 +21,25 @@
 1. **프로젝트별 격리.** 모든 지식 산출물은 그 자료가 속한 `<project_code>` 폴더 안에만 둔다.
    전역으로 모아두거나 프로젝트를 섞지 않는다. 단계/과제가 다르면(예: `탐색개발`↔`체계개발`)
    서로 다른 project_code 로 분리한다 — 섞으면 오염이다.
-2. **메타데이터와 payload 분리.** `_workmeta/<code>/` 에는 메타데이터(레그·포인터·해시·상태)만
-   두고, 추출 본문 같은 payload 는 `_workspaces/<code>/` 에 둔다.
+2. **수락 정본과 맥락 데이터 분리.** 새 `_workspaces/<code>/`는 SE 수락 bytes,
+   `_workmeta/<code>/`는 그 byte-lineage만 둔다. 추출·RAG·맥락 payload는
+   `<data_root>/20_PROJECTS/<code>/` 안의 아래 역할별 영역에 둔다.
 3. **금지.** `_workspaces/_local/...` 같은 개인 임시 폴더, 임의 top-level 분기, 미승인
    `knowledge/projects` 분기를 만들지 않는다. `_workmeta` 에 원문/추출본문을 넣지 않는다.
 
-## 저장 위치 (프로젝트 자료)
+## 새 target 저장 위치 (프로젝트 자료)
 
 | 산출물 | 위치 |
 | --- | --- |
-| 장서목록(레그, 메타) | `_workmeta/<project_code>/reports/source_research/<set_id>_metadata_source_ledger.yaml` |
-| source root binding | `_workmeta/<project_code>/bindings/<set_id>_source_roots.yaml` (절대경로/정션 루트는 여기만) |
-| 추출 본문(derived text, payload) | `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/derived_text/` |
-| 추출 manifest(packet index) | `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/extract_manifest.json` |
-| 연결 receipt | `_workmeta/<project_code>/knowledge_ingest_receipts/events/<YYYY-MM>.jsonl` |
-| RAG payload root (target) | `_workspaces/<project_code>/reference_payloads/rag/` |
-| RAG index | 위 root의 `indexes_local/source_text_indexes/<source_id>_source_text_index/` |
-| RAG trace/answer/review/work card | 위 root의 `traceability_sidecars/`, `answer_runs/`, `source_text_quality_reviews/`, `source_text_work_cards/` 등 asset-kind 하위 경로 |
-| thin Wiki body (target) | `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/wiki/` |
+| 장서목록(레그, 메타) | `<data_root>/20_PROJECTS/<project_code>/00_프로젝트_안내/source-ledgers/<set_id>.yaml` |
+| source root binding | `<private_control_root>/project-bindings/<project_code>/<set_id>_source_roots.yaml` (절대경로/정션 루트는 여기만) |
+| 추출 본문(derived text, payload) | `<data_root>/20_PROJECTS/<project_code>/20_문서검색/본문·표_추출/<batch_id>/derived_text/` |
+| 추출 manifest(packet index) | `<data_root>/20_PROJECTS/<project_code>/20_문서검색/본문·표_추출/<batch_id>/extract_manifest.json` |
+| 연결 receipt | `<data_root>/20_PROJECTS/<project_code>/20_문서검색/원문위치·추출품질/receipts/<YYYY-MM>.jsonl` |
+| RAG payload root (target) | `<data_root>/20_PROJECTS/<project_code>/20_문서검색/검색_색인/` |
+| RAG index | 위 root의 `<source_revision>/<index_generation>/` |
+| RAG trace/answer/review/work card | `20_문서검색/원문위치·추출품질/`의 source trace/quality와 `50_업무맥락/`의 refs-only selection/result receipts |
+| thin Wiki body (target) | `<data_root>/20_PROJECTS/<project_code>/30_프로젝트맥락/업무가지·프로젝트요약/wiki/<batch_id>/` |
 
 현재 runtime/docs 일부가 project RAG asset을
 `_workspaces/knowledge/rag/indexes_local/source_text_indexes/**`에 두고 project_code 접두로
@@ -41,7 +51,7 @@ collision/rollback dry-run, 한 project pilot을 통과한 activation gate는 le
 M2-1 project-root output이 생기기 전에도 후에도 허용하지 않는다.
 `_workspaces/knowledge/rag/**`는 cross-project common RAG 전용 target이다.
 
-## 저장 위치 (회사 공통 — 특정 과제 아님)
+## 현재 legacy 저장 위치 (회사 공통 — 이번 변경에서 유지)
 
 여러 프로젝트 공통 참조 지식(예: 고객 품질/도면 프로세스)은 과제 폴더가 아니라 회사 공통 면에 둔다.
 
@@ -51,7 +61,7 @@ M2-1 project-root output이 생기기 전에도 후에도 허용하지 않는다
 | source packet / 추출 본문 | `_workspaces/knowledge/common/company/<source_set_id>/derived_text/` |
 | 연결 receipt | `_workmeta/system/knowledge_ingest_receipts/events/<YYYY-MM>.jsonl` |
 
-## AX·SE Knowledge View 경계 (TARGET, 2026-08-14 Owner 결정)
+## AX·SE Knowledge View 경계 (프로젝트 격리 유지, 경로는 2026-09-10 보정)
 
 이 절은 M2의 목표 계약이다. 현재 Feature-OFF helper나 기존 shared RAG/Wiki 경로가 이
 격리를 이미 집행한다는 뜻이 아니다.
@@ -60,7 +70,8 @@ M2-1 project-root output이 생기기 전에도 후에도 허용하지 않는다
   collection revision 집합만 선택한다. project가 없거나 둘 이상이거나, common 집합이
   명시되지 않았거나 권한 범위를 벗어나면 retrieval 전에 `HOLD`한다.
 - project source payload, derived text, RAG index, Wiki body, context, run payload는 해당
-  `_workspaces/<project_code>/**`에만 둔다. 다른 project를 enumerate·read·retrieve하지 않고,
+  `<data_root>/20_PROJECTS/<project_code>/**`의 역할별 영역에 둔다. 수락된 원본·산출물은
+  기존 source owner 또는 SE `_workspaces`에서 exact revision으로 읽는다. 다른 project를 enumerate·read·retrieve하지 않고,
   foreign-project 존재 여부도 결과·오류·count·cache key로 드러내지 않는다.
 - approved common knowledge는 `_workspaces/knowledge/**`의 project-agnostic owner에 한 번만
   둔다. project는 exact revision/hash ref로 이를 선택하며 common source byte를 project

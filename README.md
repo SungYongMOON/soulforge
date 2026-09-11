@@ -1,5 +1,13 @@
 # Soulforge
 
+## 프로젝트 맥락 제작 기준 — 2026-09-10
+
+새 프로젝트 맥락 데이터는 `<data_root>/20_PROJECTS/<project-ref>/`에서 관리한다.
+수집 원본·SE 번호별 수락 산출물·canonical 이력은 기존 owner를 유지한다.
+[물리 폴더·시험 정본](docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)과
+[개발 순서](docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md)를 함께 따른다.
+문서/빈 폴더 기준 변경이며 실제 운영 자료 이동·맥락 writer 활성화는 별도 검증 전이다.
+
 ## Soulforge 한 장 (2026-09-05)
 
 - **한 줄**: 대장간은 그 몬스터에 맞춰 무기를 계속 진화시켜 무찌른다. 무기는 도구·봇·절차·지식이고, 쓰고 나면 쌓인다. Soulforge는 사람과 AI가 함께 업무를 수행하고, 그 업무의 출처·판단·결과·검증·책임을 연결해서 남기는 엔지니어링 업무 시스템이다. 모델과 실행기가 바뀌어도 이 연결은 남는다. 실행이 성공한 것과 업무가 완료된 것은 다른 사건이다(등록은 제출 영수증, 완료는 검토 → 사람 수락 → 지정 writer).
@@ -65,6 +73,7 @@ flowchart TD
 - [`docs/architecture/foundation/ONTOLOGY_MODEL_V0.md`](docs/architecture/foundation/ONTOLOGY_MODEL_V0.md): Soulforge 개체/관계 모델과 ontology-style 저장 위치 규칙
 - [`docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md`](docs/architecture/foundation/ONTOLOGY_REVIEW_MANUAL_V0.md): ontology review 트리거, carry-forward, guild_master 상기 규칙
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계
+- [`guild_hall/context_engine/README.md`](guild_hall/context_engine/README.md): 맥락 APP의 호출·알고리즘·평가·설치 경계와 검증 범위
 - [`docs/architecture/guild_hall/README.md`](docs/architecture/guild_hall/README.md): `guild_hall` owner 기준 문서 색인
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md): Soulforge 전체 활동 로그 surface 와 recent-context 읽기 규칙
 - [`docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md`](docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md): Google Drive ontology canon package, `.registry/knowledge` 실행 투영, NotebookLM 책장, NAS 재해복구 권한 지도

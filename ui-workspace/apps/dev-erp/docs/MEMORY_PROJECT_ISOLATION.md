@@ -1,5 +1,16 @@
 # 담당자 메모리 과제 격리 (Memory Project Isolation)
 
+## 2026-09-10 target recall storage
+
+This document describes the existing assignee-memory compatibility layer.
+The new per-project recall projection/policy/evaluation lives under
+`<data_root>/20_PROJECTS/<project-ref>/40_기억관리/`, as owned by
+[Plan 17](../../../../docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10).
+Do not treat legacy NULL/general items as permission to share project facts or
+decisions. Current store behavior is preserved until its own reviewed migration;
+the new typed contract must test project/common/authority/validity explicitly.
+This update neither migrates memory nor enables retrieval or a writer.
+
 > 목적: 사람 단위 통합 메모리가 과제 경계를 넘어 다른 과제 작업 AI 컨텍스트로
 > 새는 것(cross-project bleed = 오염)을 막는다. 방위 과제 격리 기준에서 지식에
 > 적용한 "탐색 ≠ 체계 오염금지"를 메모리에도 동일하게 적용한 것.

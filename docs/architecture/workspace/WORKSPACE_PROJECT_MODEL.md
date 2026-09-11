@@ -1,5 +1,14 @@
 ﻿# 워크스페이스 프로젝트 모델
 
+## 2026-09-10 프로젝트 중심 맥락 데이터 배치
+
+새 target은 `<data_root>/20_PROJECTS/<project-ref>/`를 사용한다. 상세 폴더·허용 데이터·
+갱신·이관·완료 시험은 [Plan 17 프로젝트 맥락 저장 계약](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)이 단일 소유한다.
+`_workspaces`의 SE 번호별 수락 산출물과 `_workmeta`의 canonical byte-lineage는 유지한다.
+이전 `reference_payloads`, project_context, RAG/Wiki/run 경로는 current legacy 호환·이관
+입력으로만 읽고 새 target 경로로 적용하지 않는다. 기존 데이터를 이동하거나 writer를 켜지 않는다.
+공통 지식은 기존 승인 owner에 유지하며 exact revision allowlist로만 참조한다.
+
 ## 목적
 
 - current historical `_workspaces/<project_code>/` direct structure와 future target canonical store binding을 구분한다.
@@ -10,7 +19,7 @@
 - held mission plan owner 는 `.mission/` 이고, `_workspaces/` 는 project-local worksite owner, `_workmeta/` 는 companion private metadata owner 임을 고정한다.
 - cross-project ingress/staging 은 `_workspaces/` 가 아니라 `guild_hall/state/gateway/**` 가 맡는다는 기준을 같이 잠근다.
 
-## 구조 개요도
+## Current legacy 구조 개요도
 
 ```mermaid
 flowchart TD

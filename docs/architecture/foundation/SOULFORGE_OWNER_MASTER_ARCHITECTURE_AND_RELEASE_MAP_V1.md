@@ -1,5 +1,16 @@
 # Soulforge Owner Master Architecture and Release Map v1
 
+## 2026-09-10 프로젝트 맥락 저장 구조 채택
+
+맥락 제작·문서 RAG·기억 회수/평가의 새 물리 owner는
+`<data_root>/20_PROJECTS/<project-ref>/`다. 수집 원본, SE 번호별 accepted
+`_workspaces`, canonical byte-lineage `_workmeta`는 유지한다.
+전역 번호 INDEX는 프로젝트 store의 metadata/ref 투영이며 body의 두 번째 owner가 아니다.
+정확한 하위 폴더와 이관·완료 시험은
+[Plan 17](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+이 단일 소유한다. 현재 legacy 데이터·설치본 이동과 새 writer 활성화는 미수행이다.
+이 문서의 과거 `project_context`·`reference_payloads` 배치는 legacy 설명으로만 읽는다.
+
 ## 문서 상태
 
 | 항목 | 값 |
@@ -488,7 +499,7 @@ variant에서 folder exclusion 차이가 없어 quality grade와 generation prof
 [`SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`](../workspace/SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md),
 `se_foldertree_generate` canon.
 
-## M8. `_workmeta`와 Ledger 배치
+## M8. current legacy `_workmeta`와 Ledger 배치 (새 target 경로는 Plan 17)
 
 `_workmeta/<project_code>`는 그 프로젝트 metadata만 소유한다. 모든 회사 장부를 한 프로젝트
 아래에 넣지 않는다.

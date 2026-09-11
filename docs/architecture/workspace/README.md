@@ -1,5 +1,16 @@
 # docs/architecture/workspace
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 ## 목적
 
 - `workspace/` 는 `.mission/`, `_workspaces`, `_workmeta` 에 대한 저장소 공용 문서를 모은다.

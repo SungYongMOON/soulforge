@@ -1,5 +1,16 @@
 # Shared Glossary v0
 
+## 2026-09-10 project-context target alignment
+
+The [Plan 17 project store](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+owns new project extraction/RAG/context/recall/episode data under
+`<data_root>/20_PROJECTS/<project-ref>/`. Accepted SE artifacts and canonical
+byte-lineage retain their target `_workspaces` / `_workmeta` owners.
+Old workspace/project-context paths below remain legacy compatibility, not new
+target writes. Current legacy metadata append continues under its existing
+guard until applicable Freeze. No live source, library, collector, common
+knowledge or operating binding is moved or enabled by this document update.
+
 ## 목적
 
 - Soulforge owner 와 agent 가 개발, 검증, 지식, 정본, public/private 경계를 같은 말로 읽게 한다.
