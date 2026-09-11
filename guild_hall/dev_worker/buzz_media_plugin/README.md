@@ -30,6 +30,24 @@ Voice files are attachments, not a promise of platform-specific voice bubbles.
 Images still use the existing CLI limits. Documents are download attachments;
 preview availability depends on Buzz and the file type.
 
+## Automatic first-page preview
+
+For outgoing PDF and Office documents, the plugin automatically adds a first-page
+PNG below the download card in the same message. The caller supplies only the
+document. The preview is rendered from the exact uploaded byte snapshot, never
+from a later edit of the source file. PDF uses PyMuPDF; Office uses an installed
+LibreOffice with a unique profile and macro/linked-content restrictions. Converter
+children receive OS essentials only, without gateway credential environment.
+Each conversion/raster step has a 45-second limit with owned-process-tree cleanup.
+The thumbnail is bounded to 1000 by 1400 pixels and 5 MiB.
+
+Missing converters, unsupported types (including archives and HWPX previews),
+conversion errors and failed thumbnail uploads retain the original file card.
+This does not change Buzz's file-card click behavior: it downloads the original.
+It does not add a multipage document viewer or alter human-uploaded messages.
+LibreOffice layout may differ from the originating Office application; the
+downloaded original is authoritative. Program settings are not OS network isolation.
+
 ## Install and recover
 
 After passing the test below, copy this directory to the exact approved profile's
@@ -48,6 +66,7 @@ configuration backup, source hashes and exact deployment receipt privately.
 ```text
 python guild_hall/dev_worker/test_buzz_media_plugin.py --hermes-root <hermes-checkout>
 python guild_hall/dev_worker/buzz_media_plugin/test_file_transport.py
+python guild_hall/dev_worker/buzz_media_plugin/test_document_preview.py
 ```
 
 Uses the supplied Hermes classes and plugin loader under a temporary Hermes home.

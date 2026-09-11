@@ -96,6 +96,19 @@ class ImageDeliveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result.success)
         fake.assert_not_called()
 
+    async def test_preview_uses_uploaded_snapshot_not_later_file_edits(self):
+        from importlib import import_module
+        transport = import_module(plugin.__name__ + ".file_transport")
+        path = self.image.with_suffix('.pdf')
+        path.write_bytes(b'edited after upload')
+        def render(source, destination):
+            self.assertEqual(source.read_bytes(), b'original uploaded bytes')
+            png = destination / 'preview.png'
+            png.write_bytes(b'\x89PNG\r\n\x1a\nsynthetic')
+            return png
+        with patch(plugin.__name__ + '.document_preview.render_preview', render):
+            self.assertIsNotNone(await transport._preview_bytes(path, b'original uploaded bytes'))
+
     async def test_real_dispatch_uploads_local_image_in_thread(self):
         adapter = plugin.extend_adapter(self.adapter)
         # Match Hermes' file:// + absolute-path producer (including Windows).

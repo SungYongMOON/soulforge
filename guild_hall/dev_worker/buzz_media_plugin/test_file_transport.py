@@ -8,7 +8,7 @@ import sys
 import tempfile
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 import httpx
 
@@ -40,6 +40,8 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.receipt_change = {}
         self.status = 200
         self.fail_publish = False
+        self.preview_failure = False
+        self.preview_blob_change = {}
         self.adapter = BuzzAdapter()
         native = types.SimpleNamespace(
             _load_nostr_auth=lambda: types.SimpleNamespace(public_key_hex=lambda key: "c" * 64, schnorr_sign=lambda digest, key: b"s" * 64),
@@ -52,6 +54,9 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.client_patch = patch.object(transport.httpx, "AsyncClient", side_effect=lambda **kw: real_client(transport=httpx.MockTransport(self.handle), **kw))
         self.client_patch.start()
         self.addCleanup(self.client_patch.stop)
+        self.preview_patch = patch.object(transport, "_preview_bytes", AsyncMock(return_value=None))
+        self.preview_mock = self.preview_patch.start()
+        self.addCleanup(self.preview_patch.stop)
 
     def handle(self, request):
         self.calls.append(request)
@@ -64,6 +69,13 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         if request.url.path == "/query":
             return httpx.Response(200, json=[dict(id=self.parent, tags=self.parent_tags)])
         if request.url.path == "/upload":
+            if request.content.startswith(b"\x89PNG"):
+                if self.preview_failure:
+                    return httpx.Response(415, json={"error":"preview rejected"})
+                blob = dict(url="https://relay.example/media/preview.png",
+                    sha256=hashlib.sha256(request.content).hexdigest(), size=len(request.content), type="image/png")
+                blob.update(self.preview_blob_change)
+                return httpx.Response(200, json=blob)
             self.assertEqual(request.content, self.path.read_bytes())
             self.assertEqual(auth["kind"], 24242)
             self.assertIn(["server", "relay.example"], auth["tags"])
@@ -174,6 +186,33 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         result = await self.send(caption="x" * 65536)
         self.assertFalse(result.success)
         self.assertEqual(len(self.calls), 1)
+
+    async def test_automatic_preview_is_in_same_message(self):
+        self.preview_mock.return_value = b"\x89PNG\r\n\x1a\nsynthetic preview"
+        result = await self.send()
+        self.assertTrue(result.success)
+        self.assertEqual(len(self.calls), 3)
+        media = [t for t in self.event['tags'] if t[0]=='imeta']
+        self.assertEqual(len(media), 2)
+        self.assertIn('m image/png', media[1])
+        self.assertIn('![First page preview](', self.event['content'])
+
+    async def test_preview_rejection_keeps_original_attachment(self):
+        self.preview_mock.return_value = b"\x89PNG\r\n\x1a\nsynthetic preview"
+        self.preview_failure = True
+        result = await self.send()
+        self.assertTrue(result.success)
+        self.assertEqual(len([t for t in self.event['tags'] if t[0]=='imeta']), 1)
+        self.assertNotIn('![First page preview](', self.event['content'])
+
+    async def test_wrong_preview_digest_or_size_keeps_original_only(self):
+        self.preview_mock.return_value = b"\x89PNG\r\n\x1a\nsynthetic preview"
+        for change in ({'sha256':'d'*64}, {'size':1}):
+            self.preview_blob_change = change
+            result = await self.send()
+            self.assertTrue(result.success)
+            self.assertEqual(len([t for t in self.event['tags'] if t[0]=='imeta']), 1)
+            self.assertNotIn('![First page preview](', self.event['content'])
 
 
 if __name__ == "__main__":

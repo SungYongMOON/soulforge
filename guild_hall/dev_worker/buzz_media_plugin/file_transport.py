@@ -1,11 +1,14 @@
 """Profile-local Blossom uploads using the installed adapter's Nostr signer."""
 import base64
+import asyncio
 import hashlib
 import json
 import mimetypes
+import logging
 import re
 import sys
 import time
+import tempfile
 import uuid
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -15,6 +18,27 @@ import httpx
 MAX_FILE_BYTES = 100 * 1024 * 1024
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _MIME = re.compile(r"[a-zA-Z0-9!#$&^_.+-]+/[a-zA-Z0-9!#$&^_.+-]+\Z")
+logger = logging.getLogger(__name__)
+
+
+async def _preview_bytes(path, uploaded_content):
+    """Preview failure must never suppress the original file attachment."""
+    try:
+        from .document_preview import render_preview
+        with tempfile.TemporaryDirectory(prefix="buzz-preview-") as directory:
+            # Render the exact bytes uploaded, even if the caller edits the file
+            # while network I/O is in flight.
+            snapshot = Path(directory) / ("document" + path.suffix.lower())
+            snapshot.write_bytes(uploaded_content)
+            preview = await asyncio.to_thread(render_preview, snapshot, Path(directory))
+            if preview is not None:
+                with Path(preview).open("rb") as stream:
+                    content = stream.read(5 * 1024 * 1024 + 1)
+                if content.startswith(b"\x89PNG\r\n\x1a\n") and len(content) <= 5 * 1024 * 1024:
+                    return content
+    except Exception:
+        logger.info("buzz_media: preview unavailable; original attachment retained")
+    return None
 
 
 def _json(value):
@@ -159,6 +183,34 @@ async def send_file(adapter, chat_id, path: Path, caption=None, file_name=None,
                 return failure("caption and attachment exceed message limit; file may be stored")
             tags.append(["imeta", "url " + url, "m " + media_type, "x " + sha,
                          "size " + str(size), "filename " + filename])
+            preview = await _preview_bytes(path, content)
+            if preview:
+                try:
+                    preview_hash = hashlib.sha256(preview).hexdigest()
+                    preview_auth = _event(auth, key, 24242,
+                        [["t", "upload"], ["x", preview_hash],
+                         ["expiration", str(int(time.time()) + 600)],
+                         ["server", urlsplit(base).netloc]], "Upload file")
+                    preview_headers = dict(headers, Authorization=_authorization(preview_auth, True))
+                    preview_headers.update({"Content-Type": "image/png", "X-SHA-256": preview_hash})
+                    preview_response = await client.put(base + "/upload", content=preview, headers=preview_headers)
+                    preview_response.raise_for_status()
+                    pb = preview_response.json()
+                    pu, ph, ps = pb.get("url"), pb.get("sha256"), pb.get("size")
+                    if (not isinstance(pu, str) or _origin(pu) != origin
+                            or not isinstance(ph, str) or not _HEX.fullmatch(ph)
+                            or type(ps) is not int or not 0 < ps <= 5 * 1024 * 1024
+                            or ph != preview_hash or ps != len(preview)
+                            or pb.get("type") != "image/png"):
+                        raise ValueError("invalid preview receipt")
+                    pu = quote(pu, safe="/:%@!$&'*,;=+-._~")
+                    preview_message = message + "\n![First page preview](" + pu + ")"
+                    if len(preview_message.encode("utf-8")) <= 65536:
+                        tags.append(["imeta", "url " + pu, "m image/png", "x " + ph,
+                                     "size " + str(ps), "filename preview.png"])
+                        message = preview_message
+                except Exception:
+                    logger.info("buzz_media: preview upload unavailable; original attachment retained")
             event = _event(auth, key, 9, tags, message)
             stage = "publish outcome unknown; file may be stored"
             receipt = await post(client, "/events", event)

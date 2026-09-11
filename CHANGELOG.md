@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-11 — Hermes 발신 문서의 자동 첫 페이지 미리보기
+
+- Revision: this commit.
+- 파일만 보내면 PDF·Office 문서의 첫 페이지 PNG를 파일 카드 아래 같은 메시지에
+  자동 첨부한다. 업로드한 바이트에서 렌더링하며 변환 실패 시 원본 첨부는 유지한다.
+- 별도 변환 프로필·자격증명 환경 제외·시간 제한을 적용한다. Buzz 화면과
+  원본 프로그램은 바꾸지 않으며 파일 카드의 저장 동작·전체 문서 뷰어는 그대로다.
+- 운영 영향: 사용자 플러그인 갱신 및 선택한 게이트웨이 재시작이 필요하다.
+  PDF에는 PyMuPDF, Office에는 LibreOffice가 필요하고 미지원 파일은 카드만 보낸다.
+- 관련: `guild_hall/dev_worker/buzz_media_plugin/document_preview.py` 및 첨부 전송 테스트.
+
 ## 2026-09-11 — Buzz 일반 파일 첨부 확장
 
 - Revision: this commit.
