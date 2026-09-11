@@ -32,6 +32,10 @@
       "sha256": "499ac6a77067e09e4aed09afae9c7581440a77dec2dfd902d71ff29dc897f298"
     },
     {
+      "path": "guild_hall/context_engine/profiles/context_planner_v1.mjs",
+      "sha256": "2d5c468c6049e49f519b5f79ef36d65840abb4aa41fc86865bd3d4393bc16cce"
+    },
+    {
       "path": "guild_hall/context_engine/profiles/default_v1.mjs",
       "sha256": "6e1dfd54f9d46e092f215fd37ab58110ae0aa2890c3c4fbdd269d8a97deb4b7a"
     },
@@ -64,6 +68,10 @@
       "sha256": "1453ea8468177aedcdfa494944f9ab353b3619e2a4e67bea349f5ccab3e4fb6f"
     },
     {
+      "path": "guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs",
+      "sha256": "b8e8abcfcccbdadccc530ed2dde97ced503cb6f15ab6fa327167f481efaf1043"
+    },
+    {
       "path": "guild_hall/context_engine/src/adapters/sources/document_file_source.mjs",
       "sha256": "fca9df6bc59a15254111776cf1f2e94d6547f83a519a204685718d84a0e8b6ca"
     },
@@ -85,7 +93,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "63cfd51e8c9170fb4e5c8cc2cdf0e9c1a1011078cc33f4bc8ebf149581b03f1b"
+      "sha256": "29fc81ca598e89a4f715628ef16d932283133d3d7fe8d33891e7c743a69f2881"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -104,16 +112,24 @@
       "sha256": "9bb28e883dd10f1039cf0fd1f79a25ccbbfc69bba224813e2f32424ca537a273"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
+      "sha256": "0a3290ddbc9765dca1d0045e849ffac6ec226ead629b0a16b185c53fa7a85de1"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/generation_update.mjs",
       "sha256": "0d5e9b3a82a89f348f23cb6fc2d293f1ce62968ddaab917ca5364d5cb65705fb"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
-      "sha256": "8a7229024912e81021ffbca422e95bf1071daa7db730902a695bbd08b9838101"
+      "sha256": "b62aba63ce45fe39ce17bad16822470b7721e73e83fcb4225bcd0c7f854aebdc"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "5e6258dbd48aa3ddcab623e8d10d4c931081f2fda1d2c0b369ab59a71365d6a0"
+      "sha256": "82969fbdd5b91d03a9047536fa05a36b7e87863fdafff547fd9fd134cf5f7a27"
+    },
+    {
+      "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
+      "sha256": "ac213ce3dfd26febf5d9aab70b5e330da3cdf881016f62c9b12bbce3d98fda68"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
@@ -256,7 +272,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "cceeaaf2f51371865acd964b05452c3e9ec0f6a29f2bb5233f6c829df29a7826",
+  "closure_sha256": "d7ddc5eb2df66e1e08056d63f4bfafd2f933ed17a44804cdef9a4acd248f3eb5",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -429,6 +445,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/profiles/context_planner_v1.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/profiles/default_v1.mjs"
     },
     {
@@ -473,6 +493,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/context_planner.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/generation_update.mjs"
     },
     {
@@ -482,6 +506,10 @@
     {
       "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
@@ -580,6 +608,26 @@
       "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/runtime/context_planner.mjs",
+      "to": "guild_hall/context_engine/profiles/context_planner_v1.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/context_planner.mjs",
+      "to": "guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/context_planner.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_extraction.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/context_planner.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/context_planner.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/runtime/generation_update.mjs",
       "to": "guild_hall/context_engine/algorithms/preparation/pinned_pdf_v1.mjs"
     },
@@ -658,6 +706,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
       "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
+      "to": "guild_hall/context_engine/algorithms/retrieval/bm25_v1.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/pair_store.mjs",

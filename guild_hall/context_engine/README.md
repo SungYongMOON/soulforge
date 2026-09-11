@@ -152,6 +152,30 @@ D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문
   `assertCurrent`는 포인터·binding·권한이 바뀐 view를 거부한다.
 - 아직 없는 것: 그래프 DB 적재·검색(설치 뒤), 참조 중인 파일을 지키는 오래된 세대 정리 규칙.
 
+## 맥락이 작업 맥락 조립 (0.8.0, 그래프 검색은 Neo4j 설치 뒤)
+
+`composeWorkingContext({ view, request, binding })`는 선택된 그래프 색인 세대(`openGraphIndex` view) 위에서 v0.9 §4 B
+흐름을 돈다. 요청은 요청 원문·작업 목적(선택: 더 낮은 예산)만 준다. 과제·권한·세대는 view가, 모델 주소·예산 상한은
+신뢰된 binding이 정한다.
+
+- 맥락이(로컬 모델)가 하는 일: 요청의 산출물·대상 파악, 확인 질문, 질문별 검색 방식 선택(lexical·exact·graph),
+  근거 충분성 판단과 추가 검색 요청, 절별 문장 작성. 검색과 읽기만 도구로 열려 있고 검색은 프로그램이 실행한다.
+- 프로그램이 하는 일: 검색 실행(lexical = 공유 BM25 `bm25-v1` 기준판 A, exact = 목록의 item id, graph = Neo4j
+  GraphRAG 몫이라 `not_connected`), 근거는 해시 검증된 색인의 원본 단위에서만 가져온다(출처 종류·항목·단위·
+  locator·시각·판본). 인용 강제는 근거 id가 없거나 없는 id만 단 fact·claim을 해석으로 낮추고 개수를 남긴다.
+  나머지는 source 종류별 coverage(`connected`·`not_connected`·`none_in_scope`, 검색 여부·hit·본문 사용 수),
+  Rune 절(규칙·검증 입력이 없어 `not_run`), 예산·trace(해시·크기·중단 사유·시간·토큰만)다.
+- 출력 `soulforge.context_pack.v2`: 9항목 중 1~5는 절(배경·업무 이력·결정 변화·재사용 자료·영향과 먼저 확인할 것),
+  6은 문장 kind(확인 사실·자료의 주장·해석·미확인), 7은 근거 목록, 8은 검색 기록·coverage·남은 질문, 9는 Rune 절이다.
+  `content_sha256`은 시간·trace를 뺀 내용 digest라 같은 입력을 비교할 수 있다. 조회는 아무것도 쓰지 않는다.
+- 예산: 모델 호출·검색 회차·회차당 검색·근거 수·근거 글자 수. binding과 요청은 profile 값을 낮추기만 한다.
+  마지막 호출은 조립용으로 남기고, 예산이 다하면 `partial`과 답하지 못한 질문을 돌려준다. `as_of`는 현재
+  세대만 있어 거부한다(`as_of_not_supported_by_graph_index`). 조회 중 색인 포인터가 바뀌면 거부한다.
+- profile(`profiles/context_planner_v1.mjs`)은 prompt·출력 schema·기본 예산을 담은 실험 설정이다. 인용 강제·coverage·
+  claim ceiling은 profile이 바꿀 수 없다.
+- 시험: 단위 시험은 이름을 밝힌 가짜 로컬 모델 응답으로 프로그램 쪽 규칙을 본다. 실제 모델은 opt-in
+  (`SOULFORGE_TEST_CONTEXT_PLANNER_LLM`)이며 합성 색인으로만 돈다.
+
 ## 작업 맥락 보조 역할 — 구현 계획
 
 Owner가 정의한 최종 역할은 새 요청과 작업 목적을 받아 관련 과거 기록을

@@ -368,6 +368,13 @@ export function openGraphIndex({ storeRoot, bindingSha256, request } = {}) {
       || fragment.fragment_sha256 !== row(docKey).fragment.fragment_sha256) fail('graph_index_fragment_invalid');
     return fragment;
   }
+  function readQuality() {
+    const quality = JSON.parse(store.readArea(manifest.coverage));
+    if (quality.schema_version !== GRAPH_INDEX_QUALITY_SCHEMA || quality.coverage?.coverage_sha256 !== manifest.coverage_sha256) {
+      fail('graph_index_manifest_invalid');
+    }
+    return quality;
+  }
   return Object.freeze({ manifest, generation_ref: { ...store.opened.value.generation_ref }, pointer_sha256: store.opened.sha256,
-    selection_epoch: store.opened.value.selection_epoch, readDocument, readFragment, assertCurrent: store.assertUnchanged });
+    selection_epoch: store.opened.value.selection_epoch, readDocument, readFragment, readQuality, assertCurrent: store.assertUnchanged });
 }

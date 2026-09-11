@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 맥락이 작업 맥락 조립
+
+- 맥락 APP(`guild_hall/context_engine`) 0.8.0에 맥락이(로컬 모델) 작업 맥락 조립을 더했다(v0.9 §4 B). 선택된 과제
+  그래프 색인 위에서 맥락이가 요청 파악·확인 질문·질문별 검색 방식·충분성 판단·절별 문장을 맡는다. 프로그램은
+  검색 실행, 해시 검증된 원본 단위의 근거, 인용 강제(근거 없는 fact·claim은 해석으로 낮춤), source 종류별
+  coverage, Rune 미실시 표시, 예산과 해시만 담은 trace를 맡는다. 출력은 9항목을 담은 `soulforge.context_pack.v2`다.
+- 검색: lexical은 공유 BM25(`bm25-v1`, 기준판 A), exact는 목록의 항목 id다. 벡터·하이브리드·그래프 확장은
+  Neo4j GraphRAG 몫이라 다시 만들지 않고 `not_connected`로 보고한다. 로컬 모델은 loopback 주소와 JSON schema 출력,
+  명시적 생각 끄기, 호출 예산으로만 부른다. 예산이 다하면 `partial`과 답하지 못한 질문을 돌려준다.
+- 모델 옵션에 소수(예: temperature 0.2)가 있으면 0.6.0 조각 해시가 실패하던 문제를 고쳤다(정수가 아닌 값은 문자열로
+  판본에 남긴다).
+- 운영 영향 없음: 조회는 아무것도 쓰지 않고, 합성 색인과 이 PC의 loopback 로컬 모델만 썼다.
+- 검증: `npm run validate:context-engine` 160건 중 154 PASS·6 SKIP(실제 실행 opt-in 3건 포함, T5는 main에서 미실행).
+  opt-in 실제 조립(qwen3.5:9b, 합성 문서 2개): 호출 3·검색 2·근거 3, 완료. 28V 변경은 근거 인용 fact, 근거 없는
+  claim 1건은 해석으로 낮춰짐. `verify_module`(runtime 66 파일), `validate:module-operability`,
+  `validate:product-composition`, `validate:canon`, `validate:path-policy`, `validate:display-terms`,
+  `emit_hpp_spec --check`, boot digest guard 통과.
+- 관련 경로: `guild_hall/context_engine/src/runtime/context_planner.mjs`, `graph_index_retrieval.mjs`,
+  `src/adapters/local_model/ollama_chat.mjs`, `profiles/context_planner_v1.mjs`, `tests/context_planner.test.mjs`,
+  `harness/fixtures/graph_index_fixture.mjs`, `package.json`.
+
 ## 2026-09-12 - 맥락 APP 과제별 그래프 색인 세대
 
 - 맥락 APP(`guild_hall/context_engine`) 0.7.0에 과제별 그래프 색인 세대를 더했다. D41의 GraphRAG 색인은 과제별

@@ -6,93 +6,13 @@
 // neo4j-graphrag worker and a local model.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
-import os from 'node:os';
+import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
-import { exactRefIdentityKey } from '../../engineering_engine/kernel/identity.mjs';
-import { PROJECT_CONTEXT_DIRECTORY_TEMPLATE as TEMPLATE } from '../../path_registry/src/target_materializer.mjs';
-import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
-import { GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, GRAPH_INDEX_BINDING_MODE, graphProfilePin, openGraphIndex,
-  selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
-
-const NOW = '2026-09-12T00:00:00.000Z';
-const FS_KEY = 'P-SYN-GRAPH';
-const PROJECT = `data_root/20_PROJECTS/${FS_KEY}`;
-const MEMOS = {
-  'memo-a.md': '# 시험 장비 A 설계 메모\n\n요청자가 응답기 장표를 다음 주 화요일까지 요청했다.\n',
-  'memo-b.md': '# 전원 조건\n\n전원 조건은 28V로 바뀌었고 이전 24V 조건은 취소한다.\n',
-};
-const LLM_DIGEST = 'sha256:' + 'c'.repeat(64);
-const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
-const indexer = extra => ({ actor_ref: 'actor:indexer', project_ref: ref(1), purpose: 'context_preparation', ...extra });
-const reader = { actor_ref: 'actor:reader', project_ref: ref(1), purpose: 'context_query' };
-
-async function makeStore({ dataClass = 'public_synthetic', aclDataClasses = ['public_synthetic'], sourceInsideStore = false } = {}) {
-  const storeRoot = await mkdtemp(path.join(os.tmpdir(), 'ctx-index-store-'));
-  const sourceRoot = sourceInsideStore ? path.join(storeRoot, 'sources') : await mkdtemp(path.join(os.tmpdir(), 'ctx-index-src-'));
-  await mkdir(sourceRoot, { recursive: true });
-  for (const [name, text] of Object.entries(MEMOS)) await writeFile(path.join(sourceRoot, name), text);
-  for (const dir of TEMPLATE) await mkdir(path.join(storeRoot, PROJECT, dir), { recursive: true });
-  const put = async (rel, value) => {
-    const bytes = Buffer.from(JSON.stringify(value));
-    await mkdir(path.dirname(path.join(storeRoot, rel)), { recursive: true });
-    await writeFile(path.join(storeRoot, rel), bytes);
-    return { path: rel, sha256: sha(bytes) };
-  };
-  const projectKey = exactRefIdentityKey(ref(1));
-  const grant = await put(`${PROJECT}/00_프로젝트_안내/grants/grant.synthetic.index.json`, { schema_version: SOURCE_GRANT_SCHEMA,
-    grant_id: 'grant.synthetic.index', project_ref: ref(1), purposes: ['context_preparation'], allowed_data_classes: [dataClass],
-    valid_from: '2026-09-01T00:00:00.000Z', valid_to: '2026-10-01T00:00:00.000Z', sources: [{ kind: 'document', root_ref: 'doc.synthetic',
-      items: Object.keys(MEMOS).map(name => ({ item_id: name.replace('.md', ''), revision_policy: 'latest_in_custody', revision_sha256: null,
-        data_class: dataClass, path: [name] })) }] });
-  const aclPath = `${PROJECT}/00_프로젝트_안내/acl.json`;
-  const acl = { actors: [
-    { actor_ref: 'actor:indexer', grant: { allowed_projects: [projectKey], allowed_scopes: ['project'],
-      allowed_purposes: ['context_preparation', 'context_query'], allowed_data_classes: aclDataClasses } },
-    { actor_ref: 'actor:reader', grant: { allowed_projects: [projectKey], allowed_scopes: ['project'],
-      allowed_purposes: ['context_query'], allowed_data_classes: aclDataClasses } }], revoked_actors: [] };
-  await put(aclPath, acl);
-  const binding = { mode: GRAPH_INDEX_BINDING_MODE, project_ref: ref(1), approved_fs_key: FS_KEY, acl_path: aclPath,
-    write_authority: { actors: ['actor:indexer'], operations: ['index'] }, grant, source_roots: { 'doc.synthetic': sourceRoot },
-    graph: { worker: { interpreter_path: path.join(os.tmpdir(), 'unused-python.exe') },
-      llm: { host: 'http://127.0.0.1:11434', model: 'local-model:tag', max_calls: 50 }, embedder: null },
-    profile: graphProfilePin() };
-  const { sha256: bindingSha256 } = await put(GRAPH_INDEX_BINDING_FILE, binding);
-  return { storeRoot, sourceRoot, bindingSha256, binding, put, acl, aclPath };
-}
-
-// Canned worker: answers the probe with one model revision and the extraction
-// with one chunk and one equipment entity per unit.
-function cannedWorker({ digest = LLM_DIGEST, budgetExhausted = false } = {}) {
-  const calls = { probe: 0, extract: 0, extracted: [] };
-  async function runWorker({ request }) {
-    if (request.operation === 'probe') {
-      calls.probe++;
-      return { exit_code: 0, output: { status: 'ok', models: { llm: { model: request.models.llm.model, digest } } } };
-    }
-    calls.extract++;
-    const fragments = request.documents.map(document => {
-      calls.extracted.push(document.doc_key);
-      const nodes = [{ id: document.doc_key, label: 'Document', properties: {}, embedding_properties: {} }], relationships = [];
-      document.units.forEach((unit, index) => {
-        const chunk = `${document.doc_key}:${unit.unit_id}`;
-        nodes.push({ id: chunk, label: 'Chunk', properties: { text: unit.text, index, sf_unit_id: unit.unit_id }, embedding_properties: {} });
-        nodes.push({ id: `${chunk}:0`, label: 'Equipment', properties: { name: `장비 ${index}` }, embedding_properties: {} });
-        relationships.push({ start_node_id: chunk, end_node_id: document.doc_key, type: 'FROM_DOCUMENT', properties: {} });
-        relationships.push({ start_node_id: `${chunk}:0`, end_node_id: chunk, type: 'FROM_CHUNK', properties: {} });
-      });
-      return { doc_key: document.doc_key, nodes, relationships, tool_pruning: { nodes: {}, relationships: {}, properties: {} } };
-    });
-    const units = request.documents.flatMap(document => document.units);
-    return { exit_code: 0, output: { status: 'ok', models: { llm: { model: request.profile.llm.model, digest } }, fragments,
-      budget_exhausted: budgetExhausted, llm_calls: units.map((unit, index) => ({ call: index + 1,
-        status: budgetExhausted && index > 0 ? 'budget_exhausted' : 'ok', input_sha256: 'sha256:' + 'd'.repeat(64),
-        prompt_tokens: 10, output_tokens: 5, elapsed_ms: 3 })) } };
-  }
-  return { runWorker, calls };
-}
+import { CANNED_LLM_DIGEST as LLM_DIGEST, INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
+  cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
+import { GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, openGraphIndex, selectGraphIndexGeneration,
+  updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
 const update = (store, request, worker) => updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request,
   now: NOW, runWorker: worker.runWorker });

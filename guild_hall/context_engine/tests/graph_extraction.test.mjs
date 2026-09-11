@@ -72,6 +72,7 @@ test('graph bindings are loopback-only and bounded before any worker starts', as
     [{ ...BINDING, llm: { ...BINDING.llm, model: 'bad model name' } }, 'graph_llm_binding_invalid'],
     [{ ...BINDING, llm: { ...BINDING.llm, think: 'max' } }, 'graph_llm_binding_invalid'],
     [{ ...BINDING, llm: { ...BINDING.llm, options: null } }, 'graph_llm_binding_invalid'],
+    [{ ...BINDING, llm: { ...BINDING.llm, options: { stop: { nested: true } } } }, 'graph_llm_binding_invalid'],
     [{ ...BINDING, embedder: { host: 'http://192.168.0.2:11434', model: 'embed' } }, 'graph_embedder_binding_invalid'],
   ]) {
     await assert.rejects(extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding, runWorker: never }), { code });
@@ -126,6 +127,10 @@ test('canned worker output: fragment admission keeps chunk-anchored profile enti
     { llm: { model: 'local-model:tag', digest: LLM_DIGEST }, embedder: { model: 'embed', digest: LLM_DIGEST } }]) {
     await assert.rejects(run({ models }), { code: 'graph_worker_models_invalid' });
   }
+  const warm = await extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE,
+    binding: { ...BINDING, llm: { ...BINDING.llm, options: { temperature: 0.2, seed: 7 } } },
+    runWorker: async () => ({ exit_code: 0, output: cannedWorkerOutput(document) }) });
+  assert.deepEqual(warm.fragments[0].model.options, { seed: 7, temperature: '0.2' }, 'non-integer options stay hashable');
   const probed = await probeGraphModels({ binding: BINDING, runWorker: async ({ request }) => ({ exit_code: 0,
     output: { status: 'ok', models: { llm: { model: request.models.llm.model, digest: LLM_DIGEST } } } }) });
   assert.deepEqual(probed, first.model, 'the probe reports the same model revision the extraction stamps');

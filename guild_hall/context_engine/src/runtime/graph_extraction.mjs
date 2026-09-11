@@ -46,7 +46,8 @@ export function validateGraphBinding(binding) {
   if (embedder !== null && (!loopback(embedder.host) || !TOKEN.test(embedder.model ?? ''))) fail('graph_embedder_binding_invalid');
   const options = llm.options === undefined ? { temperature: 0, seed: 7, num_predict: 2048 } : llm.options;
   const think = llm.think === undefined ? false : llm.think;
-  if (typeof options !== 'object' || options === null || Array.isArray(options) || !THINK_VALUES.has(think)) {
+  if (typeof options !== 'object' || options === null || Array.isArray(options) || !THINK_VALUES.has(think)
+    || !Object.values(options).every(value => ['string', 'boolean'].includes(typeof value) || Number.isFinite(value))) {
     fail('graph_llm_binding_invalid');
   }
   return Object.freeze({ worker: binding.worker, llm: { host: llm.host, model: llm.model, max_calls: llm.max_calls,
@@ -61,8 +62,15 @@ function workerModels(output, bound) {
   if (bound.embedder ? embedder?.model !== bound.embedder.model || !DIGEST.test(embedder?.digest ?? '') : embedder !== undefined) {
     fail('graph_worker_models_invalid');
   }
-  return Object.freeze({ llm: llm.model, llm_digest: llm.digest, think: bound.llm.think, options: bound.llm.options,
+  return Object.freeze({ llm: llm.model, llm_digest: llm.digest, think: bound.llm.think, options: hashableOptions(bound.llm.options),
     embedder: bound.embedder?.model ?? null, embedder_digest: embedder?.digest ?? null });
+}
+
+// Model options are part of the revision and enter a canonical hash that takes
+// only safe integers: other numbers (temperature 0.2) become decimal strings.
+export function hashableOptions(options) {
+  return Object.fromEntries(Object.entries(options).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, value]) => [key, typeof value === 'number' && !Number.isSafeInteger(value) ? String(value) : value]));
 }
 
 function toolPruning(summary) {

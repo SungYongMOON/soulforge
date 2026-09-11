@@ -1,11 +1,11 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "context_engine",
-  "module_version": "0.7.0",
+  "module_version": "0.8.0",
   "interface_version": "context_engine.v0",
   "schema_versions": ["soulforge.dev_erp_accepted_context_query_result.v1"],
   "owner": "guild_hall/context_engine",
-  "capabilities_provided": ["context_engine.read_only_query.v0", "context_engine.derived_generation_update.v0", "context_engine.pinned_pair_selection.v0", "context_engine.owner_task_observation_query.v1", "context_engine.exact_source_readback.v1", "context_engine.source_document_preparation.v0", "context_engine.graph_extraction.v0", "context_engine.graph_index_generation.v0"],
+  "capabilities_provided": ["context_engine.read_only_query.v0", "context_engine.derived_generation_update.v0", "context_engine.pinned_pair_selection.v0", "context_engine.owner_task_observation_query.v1", "context_engine.exact_source_readback.v1", "context_engine.source_document_preparation.v0", "context_engine.graph_extraction.v0", "context_engine.graph_index_generation.v0", "context_engine.working_context_planner.v0"],
   "capabilities_required": [],
   "required_dependencies": ["engineering_engine", "gateway", "knowledge_access", "path_registry", "rag", "shared"],
   "optional_dependencies": [],
@@ -23,7 +23,7 @@
   "default_state": "default_off_explicit_binding_only",
   "health_probe": null,
   "readiness_probe": null,
-  "config_refs": ["guild_hall/context_engine/profiles/default_v1.mjs", "guild_hall/context_engine/profiles/update_profiles.mjs", "guild_hall/context_engine/profiles/selected_update.mjs"],
+  "config_refs": ["guild_hall/context_engine/profiles/default_v1.mjs", "guild_hall/context_engine/profiles/update_profiles.mjs", "guild_hall/context_engine/profiles/selected_update.mjs", "guild_hall/context_engine/profiles/graph_extraction_v1.mjs", "guild_hall/context_engine/profiles/context_planner_v1.mjs"],
   "secret_refs": [],
   "data_owner": "Plan17_project_store_external_to_installation",
   "backup_class": "not_applicable_tracked_code_only_external_data_owner",
@@ -32,10 +32,10 @@
   "validators": [
     "node --test guild_hall/context_engine/tests/exact_source_readback.test.mjs guild_hall/context_engine/tests/observed_context_query.test.mjs",
     "node --test guild_hall/context_engine/tests/app_boundary.test.mjs",
-    "node --test guild_hall/context_engine/tests/source_preparation.test.mjs guild_hall/context_engine/tests/source_adapters.test.mjs guild_hall/context_engine/tests/graph_extraction.test.mjs guild_hall/context_engine/tests/graph_index_generation.test.mjs",
+    "node --test guild_hall/context_engine/tests/source_preparation.test.mjs guild_hall/context_engine/tests/source_adapters.test.mjs guild_hall/context_engine/tests/graph_extraction.test.mjs guild_hall/context_engine/tests/graph_index_generation.test.mjs guild_hall/context_engine/tests/context_planner.test.mjs",
     "node guild_hall/context_engine/release/verify_module.mjs"
   ],
   "release_digest": null,
   "deprecation_state": "active_draft",
-  "authority_notes": "Shared independent context APP, product_id null. Explicit approved synthetic source and separately validated accepted-record snapshots feed create-only derived generations; exact installation/data pairs are selected under expected-prior and exclusive lock. Source/SE/lineage/accepted bytes are preserved and current authorization is rechecked. Query is read-only. No operating writer activation, live grant, source collection, official Task, external send or automatic semantic acceptance. Unregistered ERP callers remain source/API adapters, not Candidate Execution module dependencies. Installed transition evidence and independent review remain distinct from structural manifest validation. Granted synthetic sources feed create-only graph index generations (proposal layer, D41) in the project store under a separate lock and expected-prior pointer; no graph database write in this version."
+  "authority_notes": "Shared independent context APP, product_id null. Explicit approved synthetic source and separately validated accepted-record snapshots feed create-only derived generations; exact installation/data pairs are selected under expected-prior and exclusive lock. Source/SE/lineage/accepted bytes are preserved and current authorization is rechecked. Query is read-only. No operating writer activation, live grant, source collection, official Task, external send or automatic semantic acceptance. Unregistered ERP callers remain source/API adapters, not Candidate Execution module dependencies. Installed transition evidence and independent review remain distinct from structural manifest validation. Granted synthetic sources feed create-only graph index generations (proposal layer, D41) in the project store under a separate lock and expected-prior pointer; no graph database write in this version. The working-context planner (맥락이) reads one selected index through search and read only, calls a loopback local model under a budget, enforces citations and writes nothing."
 }

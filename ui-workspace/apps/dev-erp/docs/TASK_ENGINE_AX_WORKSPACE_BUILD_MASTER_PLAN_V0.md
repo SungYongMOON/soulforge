@@ -1,5 +1,15 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine 0.8.0, working-context planner): over one
+> selected graph index generation, the local model (맥락이) reads the request,
+> writes check questions, picks lexical, exact or graph search per question,
+> judges sufficiency and writes the sections; the program runs the searches
+> (lexical = shared BM25 baseline, graph = Neo4j GraphRAG, not connected yet),
+> takes evidence only from hash-verified source units, turns uncited facts and
+> claims into interpretations, reports coverage per source kind and returns a
+> nine-item context pack v2 with a budget and a hash-only trace. Nothing is
+> written. Real synthetic run: 3 calls, cited 28V change. No live source read.
+
 > 2026-09-12 CURRENT (Context Engine 0.7.0, per-project graph index generations):
 > admitted graph fragments persist in the Plan 17 project store (20 document
 > search areas) as create-only generations with one pointer under a lock and an
