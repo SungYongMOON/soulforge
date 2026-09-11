@@ -1,6 +1,6 @@
 # World Tree 맥락·메모리 T0 시험 바닥
 
-> 보존 기록: 이 문서는 후보 브랜치 `codex/context-memory-build`(로컬 보존 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 제작 당시 `ui-workspace/apps/dev-erp/docs/`에 쓴 증거다. 2026-09-12 main 통합에서는 dev-ERP 연결(shim·행보관 `--accepted-context`)을 CTX-S0-G2로 보류했고, 같은 시험은 `guild_hall/context_engine/src/app.mjs` CLI로 실행한다. 본문의 경로·명령은 당시 기준이다.
+> 보존 기록: 이 문서는 후보 브랜치 `codex/context-memory-build`(로컬 보존 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 제작 당시 `ui-workspace/apps/dev-erp/docs/`에 쓴 증거다. 2026-09-12 main 통합에서는 dev-ERP 연결(shim·행보관 `--accepted-context`)을 CTX-S0-G2로 보류했다. 시험 본체는 `guild_hall/context_engine/tests`에 있고, dev-ERP CLI를 거치던 T3–T5 시험은 APP CLI(`src/app.mjs`)를 쓰도록 옮겼다. 본문의 경로·명령은 당시 기준이며, dev-ERP 시험 래퍼를 가리키던 링크만 APP 위치로 고쳤다.
 
 상태: 공개 합성 시험 구현·직접검증. 매니저의 fresh 독립검토와 통합 전이다.
 제품 assembler, 운영 writer, 새 schema/workflow/canon 또는 실프로젝트 binding을 만들지 않았다.

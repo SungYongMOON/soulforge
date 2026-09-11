@@ -1,5 +1,11 @@
 # APP 첫 slice — 실제 구현 집중과 독립 v1 query
 
+> 보존 기록: 이 문서는 후보 브랜치(로컬 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 기준이다.
+> 2026-09-12 main 통합에서는 dev-ERP 연결(원위치 호환 export, caller import 교체, 행보관 `--accepted-context`)을
+> CTX-S0-G2로 보류했다. main의 dev-ERP는 HPP 팩 명세를 바꾸지 않도록 기존 `accepted_context_*` 사본을 그대로 쓰며,
+> 아래의 "원위치 호환 export", caller 표, APP1-G1의 export identity는 main에서는 성립하지 않는다.
+> main의 `app_boundary` 시험은 옛 dev-ERP 사본의 공개 이름·종류·상수·거부 응답이 APP과 같은지만 확인한다.
+
 Owner 계획 v0.7 §19.18의 고정 home과 책임을 적용한다. 이 문서는 구현 집중의
 범위와 재현 경계를 설명하며 전체 APP/운영 완료를 주장하지 않는다.
 
@@ -41,9 +47,6 @@ context_memory_t4_experiment, context_memory_t4_report, context_memory_t5_report
 고정 source/gold/원답안은 기존 `docs/architecture/workspace/examples/context-memory`에 남는다.
 
 다음 caller는 등록 모듈 ID로 가장하지 않는다.
-
-> main 통합(2026-09-12)에서는 아래 dev-ERP 연결을 CTX-S0-G2로 보류했다. 표는 후보 브랜치 기준이며,
-> main의 dev-ERP는 HPP 팩 명세를 바꾸지 않도록 기존 `accepted_context_*` 사본을 유지한다.
 
 | 실제 caller | 공개 API와 검사 |
 | --- | --- |

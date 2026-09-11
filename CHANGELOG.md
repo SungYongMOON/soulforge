@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 통합 문서의 검토 지적 반영과 검증 명령
+
+- 비작성 Level 2 검토(수정 후 수락) 지적을 반영했다. T5 35건은 PDF 해석기가 없어 fixture 준비에서 멈추므로
+  "해석기만 없어 실패"가 아니라 main에서 미실행으로 고쳤다. 도구 분담 문장은 D41 현재 판(과제별 제안층 색인,
+  색인 안 병합 허용·정본 ID 자동 병합 금지, 벡터·키워드 결합 검색)과 Owner 제작 채팅 지시, 이 트랙의 판단을
+  나눠 적었다. 첫 slice 문서는 후보 기준임을 맨 앞에 밝혔고, 증거 문서 머리말과 경계 시험의 설명·제목을 실제
+  검사 범위에 맞췄다.
+- 부트 요약 §6의 "로드맵 맨 앞" 안내를 맥락 APP 트랙과 merge cleanup 절 순서에 맞게 고치고 다시 서명했다.
+- `npm run validate:context-engine`(T5 밖 시험 + 모듈 검증)과 `validate:context-engine-t5`를 추가했다.
+  `done:check`·CI 연결은 Linux 실행 확인 뒤로 남긴다.
+- 관련 경로: `guild_hall/context_engine/`, `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`, `package.json`, AX 마스터 계획, `guild_hall/README.md`.
+
 ## 2026-09-12 - 맥락 APP 원본 문서 준비와 Linear 연결
 
 - 맥락 APP(`guild_hall/context_engine`) 0.4.0에 원본 문서 준비를 더했다. exact grant(과제 ref·목적·허용 자료
@@ -9,7 +22,7 @@
   낡은 고정 판본은 항목별로 보고한다. 메일·PLAUD·문서는 미연결로 보고한다.
 - 과제 귀속은 grant만 정하고 항목 탐색·귀속 추측·원문 이동·쓰기는 없다. 실자료 등급은 P1 비유출 증거와
   source별 grant 검증 전까지 거부한다. 운영·설치·수집 경로 변화는 없다.
-- 검증: 합성 시험 178건 중 140 PASS·3 SKIP(T5 35건은 PDF 해석기 부재 환경 실패), 새 시험 7건은 실제
+- 검증: 합성 시험 178건 중 140 PASS·3 SKIP(T5 35건은 PDF 해석기가 없어 fixture 준비에서 멈춤 — main에서 T5 미실행), 새 시험 7건은 실제
   linear_history 수집기의 합성 전송으로 만든 원본을 읽는다. `verify_module`(runtime 52 파일, 의존 5 불변),
   `validate:module-operability`, `validate:product-composition`, `validate:canon`, `validate:path-policy`,
   `emit_hpp_spec --check`, boot digest guard 통과.
@@ -63,7 +76,7 @@
 - 운영 영향 없음: 운영 writer·수집 경로·설치·예약작업·실자료 처리·강도담 소비는 바뀌지 않았고
   HPP·백업·팀 클라이언트·툴 공방 팩 명세도 그대로다. mail_classifier, 지침 이동, planning lane commit은 넣지 않았다.
 - 검증: 맥락 APP 합성 시험 171건 중 133 PASS·3 SKIP, T5 35건은 pin PDF 해석기
-  (`SOULFORGE_TEST_PDF_PYTHON`)가 없어 환경 실패. `verify_module`, `validate:module-operability`(35개),
+  (`SOULFORGE_TEST_PDF_PYTHON`)가 없어 fixture 준비에서 멈춤(main에서 T5 미실행). `verify_module`, `validate:module-operability`(35개),
   `validate:product-composition`, `validate:canon`, `validate:path-policy`, 팩 명세 `--check` 4종 통과.
 - 관련 경로: `guild_hall/context_engine/`, `guild_hall/rag/project_document_*`, `guild_hall/path_registry/`,
   `guild_hall/module_operability/`, `docs/architecture/workspace/examples/context-memory/`,

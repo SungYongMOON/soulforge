@@ -55,7 +55,8 @@ test('APP entry defaults off and retains old factory and constant exports', () =
   assert.equal(app.createContextEngineRuntime({}), null);
   assert.equal(app.createContextEngineRuntime({ root: '.', bindingSha256: 'invalid' }), null);
   // Every legacy caller-visible name is served by the APP with the same kind,
-  // constant value and uniform refusal envelope, so the later shim switch is compatible.
+  // constant value and uniform refusal envelope. This is a name-level check only;
+  // behavior of the later shim switch still needs its own caller tests (CTX-S0-G2).
   for (const legacy of [legacyQuery, legacyReader, legacyRuntime]) {
     for (const [name, value] of Object.entries(legacy)) {
       assert.ok(Object.hasOwn(app, name), name);
@@ -66,7 +67,7 @@ test('APP entry defaults off and retains old factory and constant exports', () =
   assert.deepEqual(app.makeUniformNotAvailable(), legacyQuery.makeUniformNotAvailable());
 });
 
-test('APP public query and CLI consume accepted bytes with the same legacy result', async () => {
+test('APP public query, direct runtime factory and CLI return the same pack for accepted bytes', async () => {
   const x = await materializeT3();
   const options = { root: x.root, bindingSha256: x.bindingSha256, syntheticOnly: true };
   const runtime = app.createContextEngineRuntime(options);

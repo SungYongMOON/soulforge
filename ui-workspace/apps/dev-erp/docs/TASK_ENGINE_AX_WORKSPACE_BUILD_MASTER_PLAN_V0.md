@@ -12,14 +12,15 @@
 > unavailable items. Mail, voice and document adapters are reported as not
 > connected, and non-synthetic data classes are refused until no-exfiltration
 > evidence and per-source grants exist. Synthetic tests: 178, 140 pass, 3 skip,
-> 35 T5 fail only for the missing PDF interpreter. No live source was read.
+> and 35 T5 stop at fixture setup without the pinned PDF interpreter (T5 NOT_RUN
+> on main). No live source was read.
 
 > 2026-09-12 CURRENT (Context Engine APP on main, callers deferred): the reviewed
 > candidate APP (`guild_hall/context_engine`, local tag
 > `codex/cleanup/20260911/context-manager` c6c5870c) now sits on main as a
 > standalone default-off module with its own CLI, T0–T5 synthetic tests, release
-> spec and evidence notes. 171 synthetic tests: 133 pass, 3 skip, and the 35 T5
-> tests fail only because the pinned PDF interpreter is absent. dev-ERP callers
+> spec and evidence notes. 171 synthetic tests: 133 pass, 3 skip; the 35 T5
+> tests stop at fixture setup without the pinned PDF interpreter (NOT_RUN on main). dev-ERP callers
 > (shims, server/work-intake imports, haengbogwan `--accepted-context`) are not
 > switched: those files are in the HPP pack import closure and the APP must not
 > ship in HPP before its release gate (CTX-S0-G2). The KVDS-specific observed

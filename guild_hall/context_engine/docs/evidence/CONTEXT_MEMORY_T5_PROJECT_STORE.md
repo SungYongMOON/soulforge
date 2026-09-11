@@ -1,6 +1,6 @@
 # T5 — 프로젝트 저장 구조의 실제 PDF 근거와 복구
 
-> 보존 기록: 이 문서는 후보 브랜치 `codex/context-memory-build`(로컬 보존 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 제작 당시 `ui-workspace/apps/dev-erp/docs/`에 쓴 증거다. 2026-09-12 main 통합에서는 dev-ERP 연결(shim·행보관 `--accepted-context`)을 CTX-S0-G2로 보류했고, 같은 시험은 `guild_hall/context_engine/src/app.mjs` CLI로 실행한다. 본문의 경로·명령은 당시 기준이다.
+> 보존 기록: 이 문서는 후보 브랜치 `codex/context-memory-build`(로컬 보존 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 제작 당시 `ui-workspace/apps/dev-erp/docs/`에 쓴 증거다. 2026-09-12 main 통합에서는 dev-ERP 연결(shim·행보관 `--accepted-context`)을 CTX-S0-G2로 보류했다. 시험 본체는 `guild_hall/context_engine/tests`에 있고, dev-ERP CLI를 거치던 T3–T5 시험은 APP CLI(`src/app.mjs`)를 쓰도록 옮겼다. 본문의 경로·명령은 당시 기준이며, dev-ERP 시험 래퍼를 가리키던 링크만 APP 위치로 고쳤다.
 
 상태: 공개 합성 물리 경로에 한해 독립 재검토 수락·manager 통합.
 실자료 canary, 전체 W7, 독립 APP 설치·전략 교체·전체 데이터 재생성은 완료가 아니다.

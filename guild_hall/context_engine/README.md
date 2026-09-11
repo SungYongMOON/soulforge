@@ -12,18 +12,25 @@
 ## main 통합 상태 (2026-09-12)
 
 - 들어온 것: `src`·`algorithms`·`profiles`·`release`·`harness`·`tests`와 T0–T5 증거
-  ([docs/evidence](docs/evidence/)). 합성 시험 178건 중 140 PASS·3 SKIP(0.4.0 기준)이고 T5 35건은
-  `SOULFORGE_TEST_PDF_PYTHON`(pdfplumber pin 해석기)이 없으면 환경 실패로 남는다.
+  ([docs/evidence](docs/evidence/)). 합성 시험 178건 중 140 PASS·3 SKIP(0.4.0 기준)이다. T5 35건은
+  `SOULFORGE_TEST_PDF_PYTHON`(pdfplumber pin 해석기)이 없어 fixture 준비에서 멈추므로 **main에서는 아직 실행되지
+  않았다(NOT_RUN)**. 통과 여부는 해석기를 준비해 실제로 돌린 뒤에만 말할 수 있다.
+- 검증 명령: `npm run validate:context-engine`(T5 밖 시험 + `verify_module`), `npm run validate:context-engine-t5`
+  (`SOULFORGE_TEST_PDF_PYTHON` 필요). 둘 다 아직 `done:check`·CI에 연결하지 않았다. CI가 도는 Linux에서의 실행을
+  확인한 뒤 연결한다.
 - 보류한 것: dev-ERP caller 연결(`accepted_context_*` shim, `server.mjs`·`work_intake_context.mjs`
   import 교체, 행보관 `--accepted-context` 분기). dev-ERP 파일은 HPP 팩 명세의 import 폐포에
   들어가므로 연결하면 이 APP runtime 전체가 운영 팩에 실린다. release gate 전에는 싣지 않으며,
   dev-ERP는 기존 사본을 유지한다. 이전 T3–T5 시험은 같은 요청을 이 APP CLI로 실행한다.
 - `observed_context_query`(0.3.2/0.3.3)는 KVDS 관찰 사례 전용 adapter다. gap 코드가 고정된
   단어 포함 점수기라 일반 맥락 경로로 쓰지 않는다. 대체 전까지 격리 상태로 둔다.
-- Owner 결정(2026-09-12): 그래프 저장, 대상·관계 추출, 같은 대상 합치기, 벡터·전문·하이브리드·그래프
-  확장 검색은 Neo4j GraphRAG를 연결해 쓰고 따로 만들지 않는다(아직 미연결). 현재 `bm25_v1`과
-  typed relations 1-hop은 비교 기준판 A로만 보존한다. 과제 격리·권한·판본·시점·원문 대조·예산은
-  이 APP의 고정 계약으로 남는다.
+- 도구 분담(2026-09-12): D41(`PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §8.2)이 Neo4j Community와
+  Neo4j GraphRAG(벡터·키워드 결합 검색 포함)를 맥락 검색에 채택했다. 색인은 과제별로 분리한 제안층이며,
+  색인 안의 같은 대상 합치기는 허용하지만 정본 ID는 자동으로 합치지 않는다. 같은 날 Owner는 제작 채팅에서
+  "도구로 되는 기능은 중복이니 개발하지 말고 도구를 쓰라"고 지시했다. 그래서 그래프 저장·대상/관계 추출·색인 안
+  합치기·벡터/키워드/그래프 확장 검색은 따로 만들지 않고 연결한다(아직 미연결). 현재 `bm25_v1`과 typed relations
+  1-hop을 비교 기준판 A로만 두는 것은 이 제작 트랙의 판단이다. 과제 격리·권한·판본·시점·원문 대조·예산은 이
+  APP의 고정 계약으로 남는다.
 
 | 경계 | 소유 |
 | --- | --- |

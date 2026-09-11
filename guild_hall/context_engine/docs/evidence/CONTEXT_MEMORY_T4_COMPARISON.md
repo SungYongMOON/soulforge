@@ -1,6 +1,6 @@
 # T4 — 회수와 실제 활용의 분리 비교
 
-> 보존 기록: 이 문서는 후보 브랜치 `codex/context-memory-build`(로컬 보존 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 제작 당시 `ui-workspace/apps/dev-erp/docs/`에 쓴 증거다. 2026-09-12 main 통합에서는 dev-ERP 연결(shim·행보관 `--accepted-context`)을 CTX-S0-G2로 보류했고, 같은 시험은 `guild_hall/context_engine/src/app.mjs` CLI로 실행한다. 본문의 경로·명령은 당시 기준이다.
+> 보존 기록: 이 문서는 후보 브랜치 `codex/context-memory-build`(로컬 보존 tag `codex/cleanup/20260911/context-manager`, `c6c5870c`) 제작 당시 `ui-workspace/apps/dev-erp/docs/`에 쓴 증거다. 2026-09-12 main 통합에서는 dev-ERP 연결(shim·행보관 `--accepted-context`)을 CTX-S0-G2로 보류했다. 시험 본체는 `guild_hall/context_engine/tests`에 있고, dev-ERP CLI를 거치던 T3–T5 시험은 APP CLI(`src/app.mjs`)를 쓰도록 옮겼다. 본문의 경로·명령은 당시 기준이며, dev-ERP 시험 래퍼를 가리키던 링크만 APP 위치로 고쳤다.
 
 상태: 합성 하니스 구현·6개 실제 소비 배치·작성자 검토까지 수행했다.
 전체 W7은 미완료이며 채택 판단은 HOLD다. 독립 의미·코드 검토와 통합은 manager가 수행한다.

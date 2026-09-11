@@ -22,22 +22,27 @@ entrypoints. The two model roles may share one local model server sequentially
 with separate histories, tools and budgets and no recursive calls into the work
 agent's canonical conversation.
 
-Tooling (D41, Owner 2026-09-12): Neo4j Community and Neo4j GraphRAG
-(`neo4j-graphrag`) supply graph storage, entity/relation extraction, vector,
-full-text, hybrid and graph-expansion retrieval, and optional Text2Cypher or
-tool selection. These are not rebuilt in-house. Under D41 Neo4j holds only a
-read-only projection and a proposal-layer index rebuildable from ledgers and
-sources, and embedding-based automatic entity merging stays held, so tool-side
-resolution yields candidates only. The APP keeps the fixed contract: project
-isolation, ACL/source/revision/authority/time checks, exact original readback,
-deterministic IDs with replay no-op, budgets, cited assembly, trace and
-generation selection/rollback. The candidate's BM25 and typed-relation 1-hop
-retrieval remain only as comparison baseline A.
+Tooling: D41 (`PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §8.2) adopts Neo4j
+Community and Neo4j GraphRAG (`neo4j-graphrag`, including combined vector and
+keyword search) for context retrieval. Neo4j holds a read-only projection and a
+per-project proposal-layer index that can be rebuilt from sources but is not a
+deterministic replay; entity merging is allowed inside that index while
+canonical IDs are never merged automatically; models run locally and proposals
+keep input, model and policy revisions with evidence refs. The same day the
+Owner told this build track not to rebuild what the tool already does, so graph
+storage, entity/relation extraction, in-index merging and vector, keyword and
+graph-expansion retrieval are connected rather than built; Text2Cypher and tool
+selection stay off until a read-only guard exists. The APP keeps the fixed
+contract: project isolation (the Community single-database split is decided in
+the CTX-S3 design), ACL/source/revision/authority/time checks, exact original
+readback, deterministic IDs with replay no-op, budgets, cited assembly, trace
+and generation selection/rollback. Keeping the candidate's BM25 and
+typed-relation 1-hop retrieval as comparison baseline A is this track's choice.
 
 Observed state (2026-09-12): the reviewed APP is on main as a standalone
 default-off module with its own CLI (`guild_hall/context_engine`); synthetic
-tests 171: 133 pass, 3 skip, 35 T5 fail only for the missing pinned PDF
-interpreter. The dev-ERP caller switch is deferred because those files are in
+tests 178: 140 pass, 3 skip; the 35 T5 tests stop at fixture setup without the
+pinned PDF interpreter, so T5 has not run on main (NOT_RUN). The dev-ERP caller switch is deferred because those files are in
 the HPP pack import closure and the APP must not ship in HPP before its release
 gate. The KVDS-specific observed query stays isolated. Neo4j installation is a
 separate local task; its exact form, version and binding are not recorded here.
