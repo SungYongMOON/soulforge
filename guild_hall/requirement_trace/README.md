@@ -85,8 +85,9 @@
 
 ## Owner 결정 (설계 §8.1, §8.2)
 
-D37과 D38은 2026-08-17에 결정됐고 D39~D41은 열려 있다. 이 폴더는 결정된 둘을 **구조로** 표현하고, 열린 셋은
-**입력 계약으로만** 표현한다. 어느 것도 여기서 새로 확정하지 않는다.
+D37과 D38은 2026-08-17에, D41은 2026-09-12에 결정됐고 D39·D40은 열려 있다. 이 폴더는 결정된 D37·D38을 **구조로**
+표현하고, 열린 둘은 **입력 계약으로만** 표현한다. D41은 이 폴더가 저장 표면을 만들지 않아 해당이 없다. 어느 것도 여기서
+새로 확정하지 않는다.
 
 | ID | 상태 | 이 폴더에서의 표현 |
 | --- | --- | --- |
@@ -94,7 +95,7 @@ D37과 D38은 2026-08-17에 결정됐고 D39~D41은 열려 있다. 이 폴더는
 | D38 Needs 선언 정본 owner | **decided 2026-08-17** — 기존 `stage_expected_artifact_policy` 확장, 새 정책 store 없음 | builder가 읽는 `soulforge.requirement_needs_policy.v0`는 확장 정책이며 `extends.policy_ref`로 base 정책 개정을 exact ref로 지목해야 한다. 이 필드가 없거나 다른 schema를 가리키면 `POLICY_INVALID`다. 미선언은 R1에서 `gap_unknown`으로 남는다 |
 | D39 `outdated` 처리 | open | 투영층 사유 코드 `coverage_revision_stale` + `gap_unknown`으로만 낸다. builder는 다른 문서 개정을 덮은 관측의 개정 id를 그대로 넘겨 R1이 stale로 읽게 하고, 신선도를 대신 주장하지 않는다 |
 | D40 중복·상위판 판정 | open | 자동 병합·자동 dedupe가 없다. 중복 requirement_id는 승자 없이 **모든 행**을 hold하고 사유 우선순위 맨 앞이라 다른 결함에 가려지지 않는다. 구분자 변형은 서로 다른 식별자로 남기며 `separator_variant`로 기록만 한다 |
-| D41 Graph DB·백업 분류 | open | 저장 표면을 만들지 않으므로 해당 없음. R4 이후 판단이다 |
+| D41 Graph DB·백업 분류 | **decided 2026-09-12** — 트리거 대기 없이 채택, Neo4j는 조회 전용 projection | 저장 표면을 만들지 않으므로 해당 없음 |
 
 ## 검증
 

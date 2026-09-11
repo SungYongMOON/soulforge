@@ -35,5 +35,5 @@ fail-closed: 미관측은 `gap_unknown`, 개정 미지정 ref는 거부, 상충�
 ## 6.4 "메모리" 판단(설계 §3·§4 요약)
 
 - 과제 맥락은 순수 메모리도 순수 그래프도 아니고 **append-only 사실 원장 + 재생 가능한 타입 그래프·RTM 투영 + 별도 수락 게이트 + 얇은 카드**다. 원장이 진실, 그래프·카드는 재생 산물.
-- Graph DB는 §4.4 트리거(규모·질의 패턴) 전에는 도입하지 않는다(D41). 도입 시 backup/restore 분류와 synthetic restore gate 선행.
+- Graph DB(Neo4j)와 GraphRAG는 §4.4 트리거를 기다리지 않고 채택했다(D41, 2026-09-12 Owner). Neo4j는 조회 전용 projection이라 원장이 여전히 진실이며, 운영 편입 전 backup/restore 분류와 synthetic restore gate 선행.
 - 3계층(핫/웜/콜드)과 만료·압축 규칙은 수년 과제를 전제한다.

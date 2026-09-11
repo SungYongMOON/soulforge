@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-09-12 - Graph DB(Neo4j)·GraphRAG 채택 결정 반영
+
+- Owner 결정(D41)으로 Graph DB(Neo4j Community)와 GraphRAG(벡터 검색 포함)를 규모·질의 트리거를
+  기다리지 않고 채택했다. 맥락 검색에 쓰며, 원장이 truth이고 Neo4j는 조회 전용 projection과
+  제안층 검색 색인만 담는다.
+- 유지하는 조건: 두 번째 truth writer 금지, project binding·top-k 규칙, 운영 data surface 편입 전
+  `guild_hall/backup_controller` 분류와 synthetic restore gate, 임베딩 기반 개체 자동 병합 보류.
+  BM25/reranker는 기존대로 고정 평가셋 뒤에 추가한다.
+- 문서의 결정만 바꿨고 코드·스키마·운영 설정 변경은 없다. 설치와 연결 시험은 저장소 밖 로컬 작업이다.
+- 관련 경로: `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`,
+  `docs/architecture/guild_hall/PROJECT_CONTEXT_GRAPH_V0.md`,
+  `docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`, `guild_hall/requirement_trace/README.md`,
+  SE 매뉴얼 06·08장, `docs/architecture/workspace/README.md`, `DEVELOPMENT_ROADMAP_V0.md` 계획 대비 변경 기록.
+
 ## 2026-09-11 - Tributary 숨김 기동 보완
 
 - 예약작업이 PowerShell을 직접 실행하며 빈 터미널이 생기는 경로를 WScript 숨김 기동으로 바꿨다.

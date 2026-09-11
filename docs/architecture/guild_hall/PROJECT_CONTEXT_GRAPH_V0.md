@@ -411,7 +411,10 @@ This design extends existing surfaces instead of replacing them.
 
 ## Non-goals
 
-- Do not adopt Neo4j or another graph database in v0.
+- Do not make the v0 tables depend on Neo4j or another graph database. Neo4j is
+  adopted only as a read-only projection and GraphRAG index (Owner decision
+  2026-09-12, D41 in
+  `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`).
 - Do not make the graph the source truth.
 - Do not let Codex own ID, deduplication, final apply, final assignee, or
   external send.
