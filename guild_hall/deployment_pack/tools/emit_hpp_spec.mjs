@@ -133,6 +133,7 @@ const vendoredPackages = VENDORED_PACKAGE_ROOTS.map((relRoot) => {
 });
 
 const dataReads = [
+  "guild_hall/ingress/ops/test-register-continuous-ingress-supervisor-task.ps1",
   // The installed secure-work launcher loads this owned Python package through
   // its trusted binding. The external E14 kit/runtime/config are not vendored.
   ...listFiles("guild_hall/secure_work/src/soulforge_secure_work", ".py"),

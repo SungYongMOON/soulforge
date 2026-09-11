@@ -88,7 +88,7 @@ $WatchdogTrigger = New-ScheduledTaskTrigger -Once -At ([datetime]::new(2026, 1, 
   -RepetitionInterval (New-TimeSpan -Minutes 15)
 $WatchdogTrigger.Repetition.StopAtDurationEnd = $false
 $Principal = New-ScheduledTaskPrincipal -UserId $CurrentUser -LogonType Interactive -RunLevel Limited
-$Settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -RestartCount 3 `
+$Settings = New-ScheduledTaskSettingsSet -Disable -MultipleInstances IgnoreNew -RestartCount 3 `
   -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
@@ -116,6 +116,7 @@ $RegistrationValid = $TriggerNodes.Count -eq 2 `
   -and $null -ne $WatchdogInterval -and $WatchdogInterval.InnerText -eq "PT15M" `
   -and $null -eq $WatchdogDuration `
   -and ($null -eq $WatchdogStop -or $WatchdogStop.InnerText -eq "false") `
+  -and $RegisteredXml.Task.Settings.Enabled -eq "false" `
   -and $RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `
   -and $RegisteredXml.Task.Settings.RestartOnFailure.Count -eq "3" `
   -and $RegisteredXml.Task.Settings.RestartOnFailure.Interval -eq "PT1M" `
@@ -128,6 +129,8 @@ if (-not $RegistrationValid) {
   throw "registered continuous supervisor task failed post-registration attestation"
 }
 
+# The due watchdog must remain inert until every registration check has passed.
+$null = Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop
 if ($Start) {
   Start-ScheduledTask -TaskName $TaskName
 }

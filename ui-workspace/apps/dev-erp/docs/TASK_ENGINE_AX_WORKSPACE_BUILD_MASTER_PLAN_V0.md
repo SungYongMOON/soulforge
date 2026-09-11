@@ -4,7 +4,8 @@
 > registrar keeps AtLogOn and three one-minute restarts and adds an independent
 > indefinite 15-minute start trigger for the same resident supervisor. IgnoreNew,
 > mutex/file locks and disabled-binding rejection remain; exact task hash and
-> post-registration attestation gate replacement/start. Synthetic regressions cover
+> post-registration attestation gate replacement/start: register disabled, attest,
+> then enable; failed attestation leaves the task disabled. Synthetic regressions cover
 > stopped recovery, duplicate/paused entry and registration drift. Installation and
 > live recovery evidence remain separate; no immutable pack is modified in place.
 >

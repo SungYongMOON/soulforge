@@ -214,7 +214,8 @@ still fails closed on every wake. Disable the scheduled task for a maintenance p
 merely stopping its process is no longer a durable pause. Registration still requires
 the exact existing task SHA-256 and refuses a running task. Post-registration checks
 attest both triggers, indefinite cadence, duplicate policy, restart settings and exact
-action before an optional start. Source changes require reviewed installation and
+action while the task remains disabled. Only a successful attestation enables it;
+failure leaves it disabled, and an optional start follows enablement. Source changes require reviewed installation and
 re-registration; immutable installed packs must not be patched in place.
 
 PLAUD does not create a second scheduled task. In `observe_only` mode the same
