@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-09-11 — Hermes 자료 읽기 기본값과 웹 탐색 권한 분리
+
+- Revision: this commit.
+- Owner 요청에 따라 모든 Hermes 프로필의 허용된 첨부·업무 자료 읽기와
+  이미지 분석을 기본 기능으로 정리했다. 일반 웹 탐색, 쓰기·실행·외부 전송
+  권한과 구분하며 기존 역할별 원본 접근 및 프로젝트 경계는 유지한다.
+- 이미지 미지원 대화 모델은 같은 승인 범위의 검증된 보조 분석 모델을 연결한다.
+  지침만으로 전체 프로필의 실제 설정·내용 읽기 완료를 주장하지 않는다.
+- 관련: `docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`.
+
 ## 2026-09-11 — Buzz 수신 첨부를 Hermes 로컬 분석 입력으로 연결
 
 - Revision: this commit.
