@@ -3,7 +3,8 @@
     "guild_hall/context_engine/src/app.mjs"
   ],
   "explicit_computed_assets": [
-    "guild_hall/rag/project_document_extract.py"
+    "guild_hall/rag/project_document_extract.py",
+    "guild_hall/context_engine/src/workers/graphrag_worker.py"
   ],
   "files": [
     {
@@ -35,6 +36,10 @@
       "sha256": "6e1dfd54f9d46e092f215fd37ab58110ae0aa2890c3c4fbdd269d8a97deb4b7a"
     },
     {
+      "path": "guild_hall/context_engine/profiles/graph_extraction_v1.mjs",
+      "sha256": "b105d8234ccdd2690ada6f50da7b0f80f4c82da30983d2227d412dcbaefb3c88"
+    },
+    {
       "path": "guild_hall/context_engine/profiles/selected_update.mjs",
       "sha256": "02721823c6aeec022c40ccac2fb41a05d000744b5d393c92bebf0e5940004fa0"
     },
@@ -53,6 +58,10 @@
     {
       "path": "guild_hall/context_engine/src/adapters/exact_source_readback.mjs",
       "sha256": "de75142a0252531451fc4e5801938f22ff71d5127b989dae27453aa7ea02a3c0"
+    },
+    {
+      "path": "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs",
+      "sha256": "1453ea8468177aedcdfa494944f9ab353b3619e2a4e67bea349f5ccab3e4fb6f"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/document_file_source.mjs",
@@ -76,7 +85,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "397f3f49cbef2b6ce49cbc809f5fd0b598d42e4bd90dca1a61f8e61144a2e75f"
+      "sha256": "8f763af8261ad937d044812ed787fa74006da839e07592ff2e4acb69dd25e137"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -99,6 +108,10 @@
       "sha256": "0d5e9b3a82a89f348f23cb6fc2d293f1ce62968ddaab917ca5364d5cb65705fb"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
+      "sha256": "b735baefc5d5bf8a456f74c46ac4848a0b3e96ead0f8556bf0d3eec9c5f359b8"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
       "sha256": "5469b7a1555c3a6b286d84ec6ec6be46facb743a3be8cbad534e7c178ed96ea9"
     },
@@ -117,6 +130,10 @@
     {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
       "sha256": "fbed9e04e3e58ccdd597fbde923d1fdb3d9cc218be45f74a8045236785f5395d"
+    },
+    {
+      "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
+      "sha256": "661fa296e958a01afcb0c3ecdf62d5fceb7079dffc826fded4fab9e33489f845"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -235,7 +252,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "e7691cbe3709615bce9b22da489fd7ef787f7ab47e1bcaba5c21f88cf8d9669e",
+  "closure_sha256": "d1f5de8b29ccc9bb451d1d86bbf274fcf20668aea6f570bb9bb886e26bff7d4f",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -412,6 +429,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/profiles/graph_extraction_v1.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/profiles/selected_update.mjs"
     },
     {
@@ -449,6 +470,10 @@
     {
       "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/generation_update.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_extraction.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
@@ -577,6 +602,18 @@
     {
       "from": "guild_hall/context_engine/src/runtime/generation_update.mjs",
       "to": "guild_hall/engineering_engine/kernel/identity.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
+      "to": "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/pair_store.mjs",
@@ -737,6 +774,6 @@
   ],
   "limitations": [
     "Literal import probe plus explicitly listed computed assets. Actual installed execution is a separate gate.",
-    "Node is a declared host runtime. PDF preparation requires an explicitly configured Python profile; no interpreter is copied."
+    "Node is a declared host runtime. PDF preparation and graph extraction require explicitly bound Python interpreters (PDF profile; neo4j-graphrag venv); no interpreter or Python package is copied."
   ]
 }

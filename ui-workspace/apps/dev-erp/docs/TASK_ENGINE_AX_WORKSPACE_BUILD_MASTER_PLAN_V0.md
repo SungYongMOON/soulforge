@@ -1,5 +1,17 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine 0.6.0, neo4j-graphrag extraction): prepared
+> source documents go through neo4j-graphrag's own chunk embedder, LLM entity and
+> relation extractor, lexical graph and schema pruning. The APP keeps only the
+> trusted binding (interpreter, loopback model hosts, call budget, thinking off),
+> the installed model digest as the model revision, and fragment admission: chunk
+> text equals the source unit, entities anchor to an admitted chunk and carry a
+> profile type, relationships stay inside the fragment, and every row carries
+> project, document, profile and model provenance with claim state observed.
+> Opt-in real run on a synthetic memo (qwen3.5:9b, qwen3-embedding:4b): 4/4
+> chunks, 7 entities, 4 relations, 4 calls, same fragment hash on rerun. Neo4j
+> load and search wait for the Neo4j install. No live source was read.
+
 > 2026-09-12 CURRENT (Context Engine 0.5.0, four source adapters): voice, mail
 > and document adapters join Linear. Voice sessions become utterance units
 > (recording start plus offset, capture time as known time, provider speaker

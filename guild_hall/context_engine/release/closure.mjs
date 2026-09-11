@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 export const REPO_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 export const APP_REF='guild_hall/context_engine';
 export const ENTRY_REF=APP_REF+'/src/app.mjs';
-const EXPLICIT_FILES=['guild_hall/rag/project_document_extract.py'];
+const EXPLICIT_FILES=['guild_hall/rag/project_document_extract.py','guild_hall/context_engine/src/workers/graphrag_worker.py'];
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const posix=value=>value.replaceAll('\\','/');
 const cmp=(a,b)=>a<b?-1:a>b?1:0;
@@ -55,7 +55,7 @@ export function inspectRuntimeClosure(repoRoot=REPO_ROOT){
     dependency_modules:[...modules.values()].sort((a,b)=>cmp(a.module_id,b.module_id)),
     builtin_imports:[...builtins].sort(cmp),bare_imports:[],edges:edges.sort((a,b)=>cmp(a.from+' '+a.to,b.from+' '+b.to)),
     limitations:['Literal import probe plus explicitly listed computed assets. Actual installed execution is a separate gate.',
-      'Node is a declared host runtime. PDF preparation requires an explicitly configured Python profile; no interpreter is copied.']};
+      'Node is a declared host runtime. PDF preparation and graph extraction require explicitly bound Python interpreters (PDF profile; neo4j-graphrag venv); no interpreter or Python package is copied.']};
 }
 
 export function writeRuntimeClosure(repoRoot=REPO_ROOT){

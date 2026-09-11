@@ -38,6 +38,9 @@ export { createAcceptedContextQuery, makeUniformNotAvailable, ACCEPTED_CONTEXT_Q
   ACCEPTED_CONTEXT_QUERY_RESULT_SCHEMA } from './guards/accepted_context_query.mjs';
 export { readTypedMemory, MEMORY_KINDS } from './guards/accepted_context_typed_memory.mjs';
 export { prepareSourceDocuments, SOURCE_ADAPTERS } from './runtime/source_preparation.mjs';
+export { extractGraphFragments, admitGraphFragment, validateGraphBinding, GRAPH_FRAGMENT_SCHEMA,
+  GRAPH_EXTRACTION_LIMITS } from './runtime/graph_extraction.mjs';
+export { GRAPH_EXTRACTION_PROFILE } from '../profiles/graph_extraction_v1.mjs';
 export { validateSourceGrant, validateSourceDocument, buildSourceCoverage, detectSourceChanges, SOURCE_GRANT_SCHEMA,
   SOURCE_DOCUMENT_SCHEMA, SOURCE_COVERAGE_SCHEMA, SOURCE_KINDS } from './runtime/source_documents.mjs';
 

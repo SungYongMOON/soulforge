@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP Neo4j GraphRAG 추출 연결
+
+- 맥락 APP(`guild_hall/context_engine`) 0.6.0에 준비된 원본 문서의 대상·관계 후보 추출을 연결했다. Owner 지시(도구로
+  되는 기능은 만들지 않음)에 따라 청크 임베딩·LLM 추출·어휘 그래프·schema 가지치기는 neo4j-graphrag 부품
+  (`TextChunkEmbedder`, `LLMEntityRelationExtractor`, `GraphPruning`)이 한다. APP은 신뢰된 binding(해석기·loopback 모델
+  주소·호출 예산·생각 끄기), 모델 판본(설치된 manifest digest), 조각 수용(청크 본문=원본 단위, 대상은 받아들여진 청크에
+  앵커, profile 유형만, 조각 밖 관계 제거, 과제·문서·profile·모델 출처와 `claim_state: observed`)만 맡는다.
+- 설치된 도구에서 드러난 문제를 연결부에서 막았다. 한국어 Windows pipe가 Python 출력을 cp949로 바꿔 청크가 전부
+  원본과 어긋났다(ASCII JSON 바이트 출력, `-X utf8`). 고정된 ollama client에 생각 끄기 인자가 없어 qwen3.5가 생각만
+  하다 JSON 없이 끝났다(chat API 직접 호출, binding `think` 기본 false). 도구 문서 노드의 `createdAt` 시계값이 같은
+  입력의 조각 해시를 바꿨다(어휘 노드 속성은 준비된 문서에서 다시 만든다). profile의 문서 대상 유형이 도구 어휘
+  라벨 `Document`와 겹쳤다(`ReferencedDocument`로 바꿨다).
+- Neo4j 적재·검색은 Neo4j 설치 뒤라 worker가 `neo4j_binding_not_connected`로 답한다. 실자료는 읽지 않았다.
+- 운영 영향 없음: 운영 lane·설치·쓰기·외부 전송 변화가 없고, 모델 호출은 이 PC의 loopback 로컬 모델뿐이다.
+- 검증: `npm run validate:context-engine` 152건 중 148 PASS·4 SKIP(실제 추출 opt-in 1건 포함, T5는 main에서 미실행).
+  opt-in 실제 추출(neo4j-graphrag 1.19.0, qwen3.5:9b + qwen3-embedding:4b, 합성 메모 4단위): 청크 4/4 일치·임베딩 4,
+  대상 7·관계 4·버림 0, 호출 4·오류 0·잘림 0, 같은 입력 두 번의 조각 해시 동일. `verify_module`(runtime 61 파일),
+  `validate:module-operability`, `validate:product-composition`, `validate:canon`, `validate:path-policy`,
+  `validate:display-terms`, `emit_hpp_spec --check`, boot digest guard 통과. `done:check`는 첫 단계에서
+  `guild_hall/ingress/continuous_supervisor.test.mjs:535`의 기존 경로 정책 위반 2건(이 변경 무관)으로 멈춘다.
+- 관련 경로: `guild_hall/context_engine/src/workers/graphrag_worker.py`, `guild_hall/context_engine/src/adapters/graphrag/`,
+  `guild_hall/context_engine/src/runtime/graph_extraction.mjs`, `guild_hall/context_engine/profiles/graph_extraction_v1.mjs`,
+  `guild_hall/context_engine/tests/graph_extraction.test.mjs`, `package.json`.
+
 ## 2026-09-12 - 맥락 APP 음성·메일·문서 원본 연결
 
 - 맥락 APP(`guild_hall/context_engine`) 0.5.0에 음성·메일·문서 adapter를 더해 Linear와 함께 네 종류를 연결했다.
