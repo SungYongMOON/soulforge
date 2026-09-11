@@ -581,7 +581,7 @@ MCP·플러그인은 `_workmeta`를 직접 순회하거나 쓰지 않는다. 클
 | --- | --- | --- | --- | --- |
 | D37 | **decided** | 2026-08-17 | 제안 기본값 채택. 자동 추출 요구 ID는 `observed` candidate만이며 확정은 사람(Owner/담당) | Owner 채팅 승인(설명 요청 후 "동의해 진행해줘") |
 | D38 | **decided** | 2026-08-17 | 제안 기본값 채택. Needs 선언은 기존 `stage_expected_artifact_policy` 확장으로 두고 새 정책 store·새 정본 없음. 미선언은 `gap_unknown` | 같은 승인 |
-| D41 | **decided** | 2026-09-12 | 제안 기본값(§4.4 트리거 전 미도입) 대신 **트리거 대기 없이 채택**. Graph DB(Neo4j Community)와 GraphRAG(벡터·키워드 결합 검색 포함)를 맥락 검색에 쓴다. Neo4j는 조회 전용 projection·제안층 검색 색인이며 원장이 truth다. 색인은 과제별로 분리하고, LLM·임베딩은 로컬 모델만 쓰며(private 원문 반출 0), 모델 제안에는 입력·모델·정책 revision과 근거 ref를 남긴다. 색인 안 개체 병합은 허용하되 정본 ID는 자동 병합하지 않는다. Neo4j root를 HPP data surface로 넣는 개발 조각에서 `guild_hall/backup_controller` 분류와 synthetic restore gate를 함께 닫는다 | Owner 채팅: "보류 아니야 쓸꺼야 바꿔줘"(채택). 색인 안 병합·결합 검색 범위는 에이전트 추천안 제시 직후 "진행해줘" |
+| D41 | **decided** | 2026-09-12 | 제안 기본값(§4.4 트리거 전 미도입) 대신 **트리거 대기 없이 채택**. Graph DB(Neo4j Community)와 GraphRAG(`neo4j-graphrag`, 벡터·키워드 결합 검색 포함)를 맥락 검색에 쓴다. Neo4j는 조회 전용 projection·제안층 검색 색인이며 원장이 truth다. 색인은 과제별로 분리하고, LLM·임베딩은 로컬 모델만 쓰며(private 원문 반출 0), 모델 제안에는 입력·모델·정책 revision과 근거 ref를 남긴다. 색인 안 개체 병합은 허용하되 정본 ID는 자동 병합하지 않는다. Neo4j root를 HPP data surface로 넣는 개발 조각에서 `guild_hall/backup_controller` 분류와 synthetic restore gate를 함께 닫는다 | Owner 채팅: "보류 아니야 쓸꺼야 바꿔줘"(채택). 색인 안 병합·결합 검색 범위는 에이전트 추천안 제시 직후 "진행해줘" |
 | D39·D40 | open | — | R2 이후 필요 시점에 요청 | — |
 
 ---

@@ -63,7 +63,9 @@
   자동 병합하지 않는다. Neo4j root를 HPP data surface로 넣는 개발 조각에서 `guild_hall/backup_controller`
   분류와 synthetic restore gate를 함께 닫는다. 그 밖의 BM25/reranker는 기존대로 고정 평가셋 뒤에 추가한다.
 - 비작성 검토(Level 2)의 REVISE 지적(백업 분류 시점, M14 지도 문장, 로컬·과제별 조건, 결합 검색·개체
-  병합 범위)을 같은 날 반영했다. 마스터 맵 M14와 지식비서 활성화 계획의 벡터 보류 권고에 D41 포인터를 달았다.
+  병합 범위)을 같은 날 반영했다. 마스터 맵 M14와 지식비서 활성화 계획의 벡터 보류 권고에 D41 포인터를
+  달았다(지식비서 스위치 ①은 HOLD 유지). SE 매뉴얼 06·08장이 바뀌어 엔진 byte manifest와 release
+  manifest를 정해진 emitter로 다시 만들었다.
 - 문서의 결정만 바꿨고 코드·스키마·운영 설정 변경은 없다. 기존 RAG 공개 표면의 벡터 차단 가드
   (`no_vector_search`·`FORBIDDEN_RAG_PROJECTION_KEYS`)도 그대로다. 설치와 연결 시험은 저장소 밖 로컬 작업이다.
 - 관련 경로: `docs/architecture/workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md`,

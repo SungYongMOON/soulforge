@@ -729,7 +729,7 @@ projection foundation이며 product/app shell은 `TARGET`이다.
 
 ## M14. 맥락·지식(sf-p05, 기존 Context World Tree) Input/Output Contract
 
-World Tree 내부 DB/Graph/RAG 구조는 지금 확정하지 않는다. 대신 교체 불가능한 입력·출력 seam을
+World Tree 내부 DB/Graph/RAG 구조는 지금 확정하지 않는다(graph/vector 엔진 선택은 아래 D41). 대신 교체 불가능한 입력·출력 seam을
 먼저 고정한다.
 
 입력:

@@ -38,7 +38,7 @@ knowledge or operating binding is moved or enabled by this document update.
 | **② 읽고-답하기** | FAQ뿐 아니라 진짜 출처 본문을 읽어 인용 붙은 문장으로 답 | M | ⚠️ **owner 경계 결정 필요** (가장 원하지만 가장 민감) |
 | **③a 위키 자동컴파일** | LLM이 원문 읽고 요약·개념·링크 있는 위키 .md를 스스로 작성 | M | ✅ go-with-fixes (출력 위치 owner 확정) |
 | **③b 완료 루프** | 과제 끝나면 '지식/다음할일' 제안을 승인 시 실제 적재(지금은 빈 동작) | S~M | ✅ go-with-fixes (3개 픽스 후, 가장 작음) |
-| **① 뜻으로 찾기(벡터)** | 비슷한 의미로도 검색(로컬 임베딩) | M | ⛔ 보류 권고 (카파시 규모상 후순위 + firewall 폭발반경 큼) → 2026-09-12 D41로 채택(아래 ① 끝) |
+| **① 뜻으로 찾기(벡터)** | 비슷한 의미로도 검색(로컬 임베딩) | M | ⛔ 보류 권고 (카파시 규모상 후순위 + firewall 폭발반경 큼) → 벡터 검색 자체는 2026-09-12 D41로 GraphRAG 색인에 채택, 이 스위치는 HOLD 유지(아래 ① 끝) |
 
 위 `평결` 열은 이 제안을 만들 당시의 **검토 결과 기록**이며 착수 승인이 아니다. 상단 `HOLD`
 배너가 상위이므로 `go-with-fixes`를 포함한 어떤 평결도 지금 실행을 허가하지 않는다. 네 스위치
@@ -173,9 +173,10 @@ claim_ceiling: observed`)가 있는 위키 .md 생성/갱신. Ollama 없으면 �
 
 **effort: M(+운영부담) · 평결: 보류**
 
-> 2026-09-12 D41: Owner가 벡터 검색·GraphRAG를 채택했다(`../workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §8.2).
-> 위 보류 권고는 그 전 기록이다. D41은 이 firewall을 풀지 않는다. 벡터는 Neo4j GraphRAG 색인에 두고,
-> 기존 공개 표면에 벡터 키를 넣으려면 그 조각에서 가드를 따로 바꾼다.
+> 2026-09-12 D41: Owner가 맥락 검색용 Neo4j GraphRAG 색인의 벡터 검색을 채택했다
+> (`../workspace/PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §8.2). 이 문서의 스위치 ①(지식비서 벡터 검색)은
+> 상단 HOLD 그대로다. D41은 이 firewall도 풀지 않는다. 기존 공개 표면에 벡터 키를 넣으려면 그 조각에서
+> 가드를 따로 바꾼다.
 
 ## 3. Phase 0 — 코드 전에 필요한 owner 결정
 
