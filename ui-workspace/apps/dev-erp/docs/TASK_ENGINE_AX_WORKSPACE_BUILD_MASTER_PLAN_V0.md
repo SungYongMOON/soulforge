@@ -7,7 +7,8 @@
 > post-registration attestation gate replacement/start: register disabled, attest,
 > then enable; failed attestation leaves the task disabled. Synthetic regressions cover
 > stopped recovery, duplicate/paused entry and registration drift. Installation and
-> live recovery evidence remain separate; no immutable pack is modified in place.
+> live recovery evidence remain separate; HPP 0.1.15 packages the candidate and
+> exact test fixture without modifying an immutable installed pack in place.
 >
 > 2026-09-11 CURRENT (voice review fixes candidate): ASR completion/resume and
 > provider backfill share a bounded cross-process merge lock, reread the latest
