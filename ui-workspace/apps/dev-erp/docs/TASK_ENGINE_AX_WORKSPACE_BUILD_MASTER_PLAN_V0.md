@@ -1,5 +1,15 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine 0.7.0, per-project graph index generations):
+> admitted graph fragments persist in the Plan 17 project store (20 document
+> search areas) as create-only generations with one pointer under a lock and an
+> expected prior; a graph database will load from there. Updates extract only
+> added or changed documents and carry unchanged ones forward by exact path and
+> hash when the profile and installed model revision match; a missing source,
+> budget exhaustion, prior mismatch or integrity failure holds the current
+> generation, and rollback re-selects an earlier one. Real synthetic run: replay
+> asked the model nothing, one changed document took 2 calls. No live source read.
+
 > 2026-09-12 CURRENT (Context Engine 0.6.0, neo4j-graphrag extraction): prepared
 > source documents go through neo4j-graphrag's own chunk embedder, LLM entity and
 > relation extractor, lexical graph and schema pruning. The APP keeps only the

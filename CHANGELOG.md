@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 과제별 그래프 색인 세대
+
+- 맥락 APP(`guild_hall/context_engine`) 0.7.0에 과제별 그래프 색인 세대를 더했다. D41의 GraphRAG 색인은 과제별
+  제안층이고 모델 출력이라 결정론적 재생물이 아니므로, 받아들인 조각을 Plan 17 project store `20_문서검색`에
+  create-only 세대로 보존하고(`본문·표_추출`·`검색_색인`·`원문위치·추출품질`) 그래프 DB는 여기서 적재한다.
+  사람이 검토한 관계가 아니라서 `30_프로젝트맥락`에는 쓰지 않는다.
+- `updateGraphIndex`는 잠금·expected prior 아래에서 grant·ACL을 다시 검사하고 원본을 준비해 이전 coverage와
+  대조한다. 모델 판본 probe 뒤 추가·변경 문서만 추출하고, 불변 문서는 같은 profile·모델 판본일 때 이전 세대 파일을
+  (경로, 해시)로 참조한다. 전 파일 해시를 재확인한 뒤 `00_프로젝트_안내/graph_index_current.json`을 원자 교체한다.
+  원본 누락·예산 초과·prior 불일치·잠금·권한·무결성·실자료 등급은 HOLD이며 현재 세대를 바꾸지 않는다.
+  `selectGraphIndexGeneration`은 이전 세대로 되돌리고, `openGraphIndex`는 해시로 다시 읽는 read view를 준다.
+- 설정은 store root의 `graph_index_binding.json`(sha256 고정)이 소유한다. 요청은 actor·과제·목적·세대 ID·
+  expected prior만 준다. worker probe가 설치된 모델 digest를 돌려주고, 추출 중 다른 모델이 답하면 거부한다.
+- 운영 영향 없음: 실제 project store·운영 lane·설치·외부 전송 변화가 없고, 합성 원본과 이 PC의 loopback 로컬 모델만 썼다.
+- 검증: `npm run validate:context-engine` 157건 중 152 PASS·5 SKIP(실제 실행 opt-in 2건 포함, T5는 main에서 미실행).
+  opt-in 실제 색인(neo4j-graphrag 1.19.0, qwen3.5:9b + qwen3-embedding:4b, 합성 문서 2개): 첫 세대 호출 4·대상 7,
+  같은 입력 재실행 UNCHANGED(추출 0), 한 문서 변경 뒤 그 문서만 추출(호출 2)·나머지 참조. `verify_module`
+  (runtime 62 파일), `validate:module-operability`, `validate:product-composition`, `validate:canon`,
+  `validate:path-policy`, `validate:display-terms`, `emit_hpp_spec --check`, boot digest guard 통과.
+- 관련 경로: `guild_hall/context_engine/src/runtime/graph_index_generation.mjs`, `graph_extraction.mjs`, `pair_store.mjs`
+  (경로 guard 공개), `src/workers/graphrag_worker.py`(모델 probe), `tests/graph_index_generation.test.mjs`,
+  `docs/GENERATION_TRANSITION.md`, `package.json`.
+
 ## 2026-09-12 - 맥락 APP Neo4j GraphRAG 추출 연결
 
 - 맥락 APP(`guild_hall/context_engine`) 0.6.0에 준비된 원본 문서의 대상·관계 후보 추출을 연결했다. Owner 지시(도구로

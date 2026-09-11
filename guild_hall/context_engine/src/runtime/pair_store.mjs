@@ -39,9 +39,9 @@ function rooted(root) {
     }
     return target;
   }
-  function read(name) {
+  function read(name, maxBytes = 8 * 1024 * 1024) {
     const target = path(name), stat = lstatSync(target, { bigint: true });
-    if (!stat.isFile() || stat.nlink !== 1n || stat.size > 8n * 1024n * 1024n) fail();
+    if (!stat.isFile() || stat.nlink !== 1n || stat.size > BigInt(maxBytes)) fail();
     const fd = openSync(target, 'r');
     try {
       if (!equal(stamp(stat), stamp(fstatSync(fd, { bigint: true })))) fail();
@@ -52,6 +52,9 @@ function rooted(root) {
   }
   return { root: canonical, path, read };
 }
+
+// The same rooted-path guards serve other APP-owned project store writers.
+export { rooted as rootedStore, safeRel as safeStoreRel, token as storeToken };
 
 export function computeInstallClosureSha256(files) {
   return sha256Canonical([...files].map(({ path, sha256 }) => ({ path, sha256 })).sort((a,b) => a.path.localeCompare(b.path)));

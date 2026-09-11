@@ -8,6 +8,7 @@
 // model provenance (installed model digest, not only the tag) with claim_state
 // observed. Fragments are proposals; nothing here writes a graph or accepts meaning.
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { runGraphragWorker } from '../adapters/graphrag/worker_client.mjs';
 import { validateSourceDocument } from './source_documents.mjs';
@@ -166,7 +167,20 @@ export function admitGraphFragment({ fragment, document, projectKey, profile, mo
   return Object.freeze({ ...body, fragment_sha256: sha256Canonical(hashed) });
 }
 
-export async function extractGraphFragments({ documents, projectKey, profile, binding, runWorker = runGraphragWorker }) {
+// Installed model revisions for a binding, read before any extraction so a
+// caller can decide whether earlier fragments still share this model revision.
+export async function probeGraphModels({ binding, runWorker = runGraphragWorker }) {
+  const bound = validateGraphBinding(binding);
+  const { exit_code: exitCode, output } = await runWorker({ binding: bound.worker, request: { operation: 'probe',
+    models: { llm: { host: bound.llm.host, model: bound.llm.model }, embedder: bound.embedder } } });
+  if (exitCode !== 0 || output?.status !== 'ok') fail(String(output?.code ?? 'graph_worker_failed'));
+  return workerModels(output, bound);
+}
+
+// expectedModels (optional): the probed revision; a different model answering
+// the extraction is refused rather than mixed into one index.
+export async function extractGraphFragments({ documents, projectKey, profile, binding, runWorker = runGraphragWorker,
+  expectedModels = null }) {
   const bound = validateGraphBinding(binding);
   if (!Array.isArray(documents) || documents.length === 0 || documents.length > GRAPH_EXTRACTION_LIMITS.documents
     || !documents.every(validateSourceDocument) || !documents.every(doc => doc.project_key === projectKey)) fail('graph_documents_invalid');
@@ -181,6 +195,7 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
     return Object.freeze({ status: 'failed', code: String(output?.code ?? 'graph_worker_failed'), fragments: [], llm: null });
   }
   const models = workerModels(output, bound);
+  if (expectedModels !== null && !isDeepStrictEqual(models, expectedModels)) fail('graph_model_changed');
   const byKey = new Map(documents.map(doc => [doc.doc_key, doc]));
   const fragments = output.fragments.map(fragment => {
     const document = byKey.get(fragment?.doc_key);

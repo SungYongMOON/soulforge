@@ -10,7 +10,7 @@ import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
-import { admitGraphFragment, extractGraphFragments, validateGraphBinding } from '../src/runtime/graph_extraction.mjs';
+import { admitGraphFragment, extractGraphFragments, probeGraphModels, validateGraphBinding } from '../src/runtime/graph_extraction.mjs';
 import { GRAPH_EXTRACTION_PROFILE } from '../profiles/graph_extraction_v1.mjs';
 
 const NOW = '2026-09-12T00:00:00.000Z';
@@ -126,6 +126,14 @@ test('canned worker output: fragment admission keeps chunk-anchored profile enti
     { llm: { model: 'local-model:tag', digest: LLM_DIGEST }, embedder: { model: 'embed', digest: LLM_DIGEST } }]) {
     await assert.rejects(run({ models }), { code: 'graph_worker_models_invalid' });
   }
+  const probed = await probeGraphModels({ binding: BINDING, runWorker: async ({ request }) => ({ exit_code: 0,
+    output: { status: 'ok', models: { llm: { model: request.models.llm.model, digest: LLM_DIGEST } } } }) });
+  assert.deepEqual(probed, first.model, 'the probe reports the same model revision the extraction stamps');
+  await assert.rejects(probeGraphModels({ binding: BINDING, runWorker: async () => ({ exit_code: 3,
+    output: { status: 'error', code: 'llm_model_not_installed' } }) }), { code: 'llm_model_not_installed' });
+  await assert.rejects(extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE, binding: BINDING,
+    expectedModels: { ...probed, llm_digest: 'sha256:' + 'f'.repeat(64) },
+    runWorker: async () => ({ exit_code: 0, output: cannedWorkerOutput(document) }) }), { code: 'graph_model_changed' });
   const models = { llm: 'local-model:tag', llm_digest: LLM_DIGEST, think: false, options: {}, embedder: null, embedder_digest: null };
   assert.throws(() => admitGraphFragment({ fragment: { ...cannedWorkerOutput(document).fragments[0], doc_key: 'sha256:' + '0'.repeat(64) },
     document, projectKey, profile: GRAPH_EXTRACTION_PROFILE, models }), { code: 'graph_fragment_shape_invalid' });

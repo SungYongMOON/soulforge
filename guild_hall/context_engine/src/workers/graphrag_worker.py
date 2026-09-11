@@ -221,10 +221,27 @@ async def extract(request):
             "llm_errors": sum(1 for row in calls if row["status"] == "error")}
 
 
+async def probe_models(models):
+    found = {}
+    for role in ("llm", "embedder"):
+        spec = models.get(role)
+        if not spec:
+            continue
+        if not loopback_url(spec.get("host")):
+            raise WorkerError(role + "_endpoint_not_loopback")
+        digest = await installed_model_digest(spec["host"], spec["model"])
+        if digest is None:
+            raise WorkerError(role + "_model_not_installed")
+        found[role] = {"model": spec["model"], "digest": digest}
+    return found
+
+
 def probe(request):
     result = {"status": "ok", "python": sys.version.split()[0], "packages": package_versions()}
     neo4j_binding = request.get("neo4j")
     result["neo4j"] = {"status": "not_bound"} if not neo4j_binding else {"status": "not_connected_in_this_slice"}
+    if request.get("models"):
+        result["models"] = asyncio.run(probe_models(request["models"]))
     return result
 
 

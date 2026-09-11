@@ -130,6 +130,28 @@ schema 가지치기(`GraphPruning`)는 도구가 하고, APP은 그 둘레의 �
   `neo4j_binding_not_connected`로 답한다. 설치된 writer는 노드를 CREATE로 쓰고 관계에 APOC
   (`apoc.merge.relationship`)가 필요하므로, 적재는 세대 단위 1회와 결정론 키로 막고 APOC core를 켜야 한다.
 
+## 과제별 그래프 색인 세대 (0.7.0)
+
+D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문에서 다시 만들 수 있지만 모델 출력이라 결정론적
+재생물이 아니라고 적었다. 그래서 받아들인 조각을 과제 project store에 세대로 보존하고, 그래프 DB는 여기서 적재한다.
+
+- 위치(Plan 17 `20_문서검색`, 사람이 검토한 관계가 아니라서 `30_프로젝트맥락`에는 쓰지 않는다):
+  `본문·표_추출/generations/<id>/<문서>.json`(준비 문서), `검색_색인/generations/<id>/fragments/<문서>.json`(조각)과
+  `generation.json`(세대 manifest), `원문위치·추출품질/generations/<id>/coverage.json`(coverage·변경·추출 기록).
+  현재 세대 포인터는 `00_프로젝트_안내/graph_index_current.json`이다.
+- binding: store root의 `graph_index_binding.json`(호출자가 sha256으로 고정). 과제 ref·파일시스템 키·ACL·쓰기 권한·
+  exact grant(경로+해시)·source root 표(store 밖만)·그래프 binding·profile pin(id·판·schema 해시)을 담는다. 요청은
+  actor·과제·목적·세대 ID·expected prior만 준다.
+- 갱신 `updateGraphIndex`: 잠금 → expected prior → grant·ACL 재검증 → 원본 준비와 이전 coverage 대조 → 모델 판본
+  probe → 추가·변경 문서만 추출. 불변 문서는 같은 profile·모델 판본일 때 이전 세대 파일을 (경로, 해시)로 참조한다.
+  이어서 create-only 쓰기 → 전 파일 해시 재확인 → 포인터 원자 교체 순서다. 결과는 COMMITTED, UNCHANGED(재실행,
+  추출 0), HOLD(원본 누락·예산 초과·prior 불일치·잠금·권한·무결성·실자료 등급)이다. HOLD는 현재 세대를 바꾸지
+  않고, 모델 판본이 바뀌면 이전 조각을 섞지 않고 전부 다시 추출한다.
+- 복구 `selectGraphIndexGeneration`: 검증된 이전 세대를 같은 잠금·prior 규칙으로 다시 고른다.
+- 읽기 `openGraphIndex`: 현재 세대의 문서·조각을 해시로 다시 읽는 read view다(검색·그래프 적재용).
+  `assertCurrent`는 포인터·binding·권한이 바뀐 view를 거부한다.
+- 아직 없는 것: 그래프 DB 적재·검색(설치 뒤), 참조 중인 파일을 지키는 오래된 세대 정리 규칙.
+
 ## 작업 맥락 보조 역할 — 구현 계획
 
 Owner가 정의한 최종 역할은 새 요청과 작업 목적을 받아 관련 과거 기록을

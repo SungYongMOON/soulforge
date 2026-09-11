@@ -85,7 +85,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "8f763af8261ad937d044812ed787fa74006da839e07592ff2e4acb69dd25e137"
+      "sha256": "63cfd51e8c9170fb4e5c8cc2cdf0e9c1a1011078cc33f4bc8ebf149581b03f1b"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -109,7 +109,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
-      "sha256": "b735baefc5d5bf8a456f74c46ac4848a0b3e96ead0f8556bf0d3eec9c5f359b8"
+      "sha256": "8a7229024912e81021ffbca422e95bf1071daa7db730902a695bbd08b9838101"
+    },
+    {
+      "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "sha256": "5e6258dbd48aa3ddcab623e8d10d4c931081f2fda1d2c0b369ab59a71365d6a0"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
@@ -117,7 +121,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/pair_store.mjs",
-      "sha256": "98eb520c40f27112d2e0928bdcccaa55d308f37c2f8d4c3db053da2bc918c9d8"
+      "sha256": "c8d505709e3dee7dda814700bd9a78129b4533aaa56ad4d0e601b6c286f861ea"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
@@ -133,7 +137,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "661fa296e958a01afcb0c3ecdf62d5fceb7079dffc826fded4fab9e33489f845"
+      "sha256": "e68bcb10e52f9cdb14995b21cf7a9e80e737760047535f71ada615aaf0c38c1d"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -252,7 +256,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "d1f5de8b29ccc9bb451d1d86bbf274fcf20668aea6f570bb9bb886e26bff7d4f",
+  "closure_sha256": "cceeaaf2f51371865acd964b05452c3e9ec0f6a29f2bb5233f6c829df29a7826",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -477,6 +481,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/observed_context_query.mjs"
     },
     {
@@ -613,6 +621,42 @@
     },
     {
       "from": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/profiles/graph_extraction_v1.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_extraction.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/pair_store.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_preparation.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/engineering_engine/kernel/identity.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/path_registry/src/target_materializer.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/shared/io.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
       "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
