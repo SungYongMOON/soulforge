@@ -65,7 +65,8 @@ test("only an absolute path may enter, and only a plain directory may be a root"
   const data = freshRoot("data");
   assert.throws(() => readRootTable({ tablePath: "estate_roots.json", expectedSha256: sha(Buffer.from("x")) }),
     /root_table_path_not_absolute/u);
-  const relative = tableFile({ data_root: "Soulforge-data" });
+  // A neutral name: a probe has no reason to echo what a real root is called.
+  const relative = tableFile({ data_root: "some-relative-dir" });
   assert.throws(() => readRootTable({ tablePath: relative.path, expectedSha256: relative.sha256 }),
     /root_table_value_not_absolute/u);
   const absent = tableFile({ data_root: join(data, "does-not-exist") });
