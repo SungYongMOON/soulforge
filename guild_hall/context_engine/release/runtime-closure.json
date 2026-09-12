@@ -93,7 +93,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "7fd5502de38cdea0367a393aac45192c56501d2dc9237892521fd32ab823ac80"
+      "sha256": "2d896d4f0d24d25d13498fe715693b42f40e36182aaa5e4fa90a8dbc05fc04c0"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -150,6 +150,10 @@
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
       "sha256": "be8817e5374fd831493098927494c8d35982ad472699655e86835d0f276ef0fb"
+    },
+    {
+      "path": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "sha256": "0f118c29bc52ce98906713618d001fe39722ca23c150d2a2a63a77e7d1511f5c"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_validation.mjs",
@@ -284,7 +288,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "5db44b1591b0c4e79fae0bafe1263e75edfd6d0458a697b59b04d5deeaeaf453",
+  "closure_sha256": "4e3dbed5caf984d1932f516426a5c647738143926a6650e17e56021244c5ebaf",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -543,6 +547,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/preparation_store.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/preparation_validation.mjs"
     },
     {
@@ -792,6 +800,34 @@
     {
       "from": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
       "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/context_engine/src/runtime/pair_store.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/context_engine/src/runtime/preparation_run.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/context_engine/src/runtime/preparation_validation.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/engineering_engine/kernel/identity.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/path_registry/src/target_materializer.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/preparation_validation.mjs",

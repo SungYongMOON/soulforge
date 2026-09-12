@@ -13,46 +13,13 @@ import { createSyntheticLinearTransport, loadSyntheticLinearFixture } from '../.
 import { writeCreateOnlyJson } from '../../linear_history/linear_custody.mjs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
+import { LINEAR_ROOT_REF as ROOT_REF, syntheticLinearCustody } from '../harness/fixtures/linear_custody_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA, buildSourceCoverage, detectSourceChanges, normalizeText,
   validateSourceDocument } from '../src/runtime/source_documents.mjs';
 import { validatePreparationRun } from '../src/runtime/preparation_validation.mjs';
 
-const REPO = path.resolve(fileURLToPath(new URL('../../../', import.meta.url)));
-const FIXTURE = fileURLToPath(new URL('../../linear_history/fixtures/synthetic_linear_workspace.json', import.meta.url));
-const ALPHA = '5e6f7081-92a3-4ebf-80d1-4c5d6e7f8091';
 const NOW = '2026-09-12T00:00:00.000Z';
-const ROOT_REF = 'linear.synthetic';
-
-async function syntheticLinearCustody() {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'ctx-src-linear-'));
-  const runtimeRoot = path.join(root, 'runtime'), privateRoot = path.join(root, 'private');
-  await mkdir(runtimeRoot, { recursive: true });
-  const binding = { schema_version: LINEAR_COLLECT_BINDING_SCHEMA_VERSION, feature_enabled: true,
-    lane_id: 'hpp-linear-collect', private_root: privateRoot, data_root: path.join(privateRoot, 'ingress', 'linear'),
-    state_root: path.join(privateRoot, 'linear_history', 'state'), forbidden_roots: [REPO, runtimeRoot],
-    writer: { authority_id: 'hpp-linear-collect-writer', epoch: 1 },
-    credentials: { api_key_env: null, api_key_file: path.join(privateRoot, 'config', 'linear_history', 'credentials', 'linear_api_key.txt') },
-    workspace: { url_key: 'synthetic-forge', organization_id: null,
-      project_scope_map: [{ linear_project_id: ALPHA, project_scope_ref: 'project:syn-alpha' }] },
-    cursor: { overlap_seconds: 300, initial_updated_at: null, page_size: 50, max_pages_per_run: 10, timeout_ms: 15000 } };
-  await mkdir(path.dirname(binding.credentials.api_key_file), { recursive: true });
-  // Synthetic transport never sends it; the runner only requires a well-formed file.
-  await writeFile(binding.credentials.api_key_file, `lin_api_${'a1b2c3d4'.repeat(5)}\n`);
-  const bindingPath = path.join(privateRoot, 'config', 'linear_history', 'linear_collect.binding.json');
-  const bytes = Buffer.from(`${JSON.stringify(binding, null, 2)}\n`);
-  await writeFile(bindingPath, bytes);
-  const fixture = await loadSyntheticLinearFixture(FIXTURE);
-  const run = await runLinearCollect({ binding_path: bindingPath,
-    expected_binding_sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
-    repository_root: REPO, runtime_root: runtimeRoot, state_root: binding.state_root,
-    transport_factory: async () => createSyntheticLinearTransport(fixture, { page_size: 50 }),
-    clock: { now: () => new Date('2026-09-01T02:00:00.000Z') }, run_id: 'run-0001' });
-  assert.equal(run.status, 'ok');
-  const custodyRoot = path.join(privateRoot, 'ingress', 'linear', 'synthetic-forge');
-  const issue = identifier => fixture.issues.find(row => row.identifier === identifier).id;
-  return { custodyRoot, fixture, issue, roots: { [ROOT_REF]: custodyRoot } };
-}
 
 function grantFor(items, overrides = {}) {
   return { schema_version: SOURCE_GRANT_SCHEMA, grant_id: 'grant.synthetic.linear.1', project_ref: ref(1),

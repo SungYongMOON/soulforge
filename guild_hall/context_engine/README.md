@@ -173,6 +173,33 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
   기술하는지를 말할 뿐, granted 항목이 다 준비됐는지를 말하지 않는다(빠진 것은 coverage의 `missing`과 `changes`의
   `unavailable`에 있고 둘 다 결속돼 있다).
 
+## 준비 결과와 검증 보고서의 과제 저장소 배치 (0.12.0)
+
+`writePreparationGeneration`이 한 번의 준비를 과제 저장소에 앉히고, `appendValidationReport`가 그 세대 옆에
+보고서를 더하며, `readPreparationGeneration`이 세대를 통째로 다시 읽어 파일마다 해시를 대조한다. 자리는 셋 다
+Plan 17이 이미 이름 붙인 곳이고 새 저장 체계를 만들지 않는다.
+
+- `10_입력자료/<종류>/references/` — 원본 참조·판본·locator. 수집 원본은 수집 owner에 그대로 있고 복사하지 않는다.
+  본문은 여기 없다(세대에 있다). 다만 locator가 위치를 잡는 방식 자체가 텍스트일 때는 그 조각이 함께 간다 —
+  문서 어댑터는 제목으로 절을 가리키므로 제목은 locator의 일부다.
+- `20_문서검색/본문·표_추출/generations/<준비 run id>/` — 준비된 문서와 manifest. create-only이고 **비활성이다**:
+  여기서는 현재 세대 pointer를 쓰지 않으므로 준비를 앉히는 것이 읽는 쪽을 바꾸지 않는다.
+- `20_문서검색/원문위치·추출품질/validations/<준비 run id>/` — 검증 보고서. 세대 **안이 아니라 옆**이라 보고서를
+  더해도 그 세대의 digest가 움직이지 않는다. 같은 run에 대한 옛 PASS와 새 FAIL이 둘 다 남는다.
+- 판본 넷을 갈라 적는다: 준비기(id·버전·code digest), 규칙(rules digest), 폴더구조(`template_version`), 그리고
+  보고서가 생기면 검증기(id·버전·code digest).
+- 다시 앉히기: 문서와 참조는 내용으로 이름이 정해지므로 같은 입력이면 다시 쓰이지 않는다. 세대 자체는 준비 run id로
+  이름이 정해지고 기록에는 관측한 시작·종료가 들어가므로, **같은 run id로 `REPLAYED`가 나오려면 그 시각까지 같아야
+  한다** — 실제 호출자는 보통 run id를 새로 주고, 그러면 새 세대가 생기되 문서·참조 바이트는 재사용된다.
+  같은 run id에 다른 기록이 이미 있으면 **아무것도 쓰기 전에** 거부한다.
+- **"기록은 서명이 아니다"가 여기서 좁아지는데, 어디까지인지 정확히 말해야 한다.** 쓰기 경로는 binding이
+  `prepare`로 허용하지 않은 actor를 거부하고, 준비가 아닌 목적을 거부하며, 어느 actor가 어느 binding·ACL
+  digest로 승인받았는지 manifest에 적는다. 여기까지다. 저장소 **안에서 발견된** 기록이 그렇게 들어왔다는 증명은
+  아니다 — 파일 시스템에 쓸 수 있는 것이 이 모듈만이 아니고, manifest의 digest는 자기일관성 검사이지 서명이 아니다.
+  다른 곳에서 통째로 복사해 넣은 세대는 깨끗하게 읽힌다. 더 좁히려면 서명이나 writer가 하나뿐인 저장소가 필요하고
+  둘 다 아직 없다.
+- 옛 레이아웃(v0) 저장소에도 앉는다. 모든 판본이 요구하는 영역이 빠졌으면 그대로 거부한다.
+
 ## Neo4j GraphRAG 추출 (0.6.0, 적재·검색은 Neo4j 설치 뒤)
 
 `extractGraphFragments({ documents, projectKey, profile, binding })`는 준비된 원본 문서를 neo4j-graphrag 부품으로

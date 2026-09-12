@@ -44,6 +44,9 @@ export { codeInventoryConsistent, documentsDigest, inspectPreparerCode, preparat
   PREPARATION_RUN_SCHEMA, PREPARER_ID, PREPARER_VERSION } from './runtime/preparation_run.mjs';
 export { validatePreparationRun, reportCovers, CHECK_IDS, CHECK_OUTCOMES, CHECK_POLICY_ID,
   VALIDATION_REPORT_SCHEMA, VALIDATOR_ID, VALIDATOR_VERSION } from './runtime/preparation_validation.mjs';
+export { writePreparationGeneration, appendValidationReport, readPreparationGeneration,
+  PREPARATION_GENERATION_SCHEMA, PREPARATION_STORE_AREAS, PREPARATION_WRITE_OPERATION,
+  SOURCE_KIND_DIRECTORIES, SOURCE_REFERENCE_SCHEMA } from './runtime/preparation_store.mjs';
 export { extractGraphFragments, admitGraphFragment, validateGraphBinding, probeGraphModels, GRAPH_FRAGMENT_SCHEMA,
   GRAPH_EXTRACTION_LIMITS } from './runtime/graph_extraction.mjs';
 export { updateGraphIndex, selectGraphIndexGeneration, openGraphIndex, graphProfilePin, GRAPH_INDEX_AREAS,

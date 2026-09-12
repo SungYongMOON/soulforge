@@ -1,6 +1,6 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-engine-v0-11-0",
+  "lane_id": "context-engine-v0-12-0",
   "description": "Standalone synthetic Context Engine installed update and query. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer.",
   "tracked_paths": [
     "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",
@@ -39,6 +39,7 @@
     "guild_hall/context_engine/src/runtime/pair_store.mjs",
     "guild_hall/context_engine/src/runtime/preparation_run.mjs",
     "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
+    "guild_hall/context_engine/src/runtime/preparation_store.mjs",
     "guild_hall/context_engine/src/runtime/preparation_validation.mjs",
     "guild_hall/context_engine/src/runtime/source_documents.mjs",
     "guild_hall/context_engine/src/runtime/source_preparation.mjs",

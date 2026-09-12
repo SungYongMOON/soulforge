@@ -33,8 +33,10 @@ export const READER_REQUEST = Object.freeze({ actor_ref: 'actor:reader', project
 
 // neo4j: false for no graph database (the default), true for a loopback binding
 // with a synthetic one-line password file, or an object to override its fields.
+// `writeOperations` is what the binding authorizes this actor to do. It defaults
+// to the index operation alone so existing callers keep the binding they had.
 export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclDataClasses = ['public_synthetic'], sourceInsideStore = false,
-  memos = INDEX_MEMOS, neo4j = false, embedder = null } = {}) {
+  memos = INDEX_MEMOS, neo4j = false, embedder = null, writeOperations = ['index'] } = {}) {
   const storeRoot = await mkdtemp(path.join(os.tmpdir(), 'ctx-index-store-'));
   const sourceRoot = sourceInsideStore ? path.join(storeRoot, 'sources') : await mkdtemp(path.join(os.tmpdir(), 'ctx-index-src-'));
   await mkdir(sourceRoot, { recursive: true });
@@ -69,7 +71,7 @@ export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclD
       ...(neo4j === true ? {} : neo4j) };
   }
   const binding = { mode: GRAPH_INDEX_BINDING_MODE, project_ref: ref(1), approved_fs_key: INDEX_FS_KEY, acl_path: aclPath,
-    write_authority: { actors: ['actor:indexer'], operations: ['index'] }, grant, source_roots: { 'doc.synthetic': sourceRoot },
+    write_authority: { actors: ['actor:indexer'], operations: [...writeOperations] }, grant, source_roots: { 'doc.synthetic': sourceRoot },
     graph: { worker: { interpreter_path: path.join(os.tmpdir(), 'unused-python.exe') },
       llm: { host: 'http://127.0.0.1:11434', model: 'local-model:tag', max_calls: 50 }, embedder, neo4j: neo4jBinding },
     profile: graphProfilePin() };
