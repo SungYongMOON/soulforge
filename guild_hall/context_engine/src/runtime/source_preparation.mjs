@@ -5,6 +5,7 @@
 // Real (non-synthetic) data classes stay refused until the no-exfiltration
 // boundary evidence and per-source grants are admitted by a separate gate.
 import { validateSourceGrant, buildSourceCoverage, detectSourceChanges, SourceDocumentError } from './source_documents.mjs';
+import { buildPreparationRun } from './preparation_run.mjs';
 import { readLinearSourceDocuments } from '../adapters/sources/linear_custody_source.mjs';
 import { readVoiceSourceDocuments } from '../adapters/sources/voice_session_source.mjs';
 import { readMailSourceDocuments } from '../adapters/sources/mail_event_source.mjs';
@@ -14,8 +15,24 @@ export const SOURCE_ADAPTERS = Object.freeze({ document: readDocumentSourceDocum
   mail: readMailSourceDocuments, voice: readVoiceSourceDocuments });
 export const SYNTHETIC_DATA_CLASS = 'public_synthetic';
 
-export async function prepareSourceDocuments({ grant, roots, now, previousCoverage = null } = {}) {
-  const admitted = validateSourceGrant(grant, { now });
+// Passing `runId` makes this call emit its own run record. The record is built
+// here, around the actual adapter work, rather than by a caller holding the
+// result: a record for documents the preparer did not emit cannot be produced
+// through this surface. `clock` exists so a test can fix the observed interval.
+export async function prepareSourceDocuments({ grant, roots, now, previousCoverage = null,
+  runId = null, clock = () => new Date() } = {}) {
+  const startedAt = clock().toISOString();
+  // The grant's bytes are its identity, so a path segment that canonical JSON
+  // cannot render (a macOS NFD filename, a name truncated mid-surrogate-pair)
+  // makes the grant unidentifiable. That is a refusal the Owner can act on -
+  // rewrite the segment in NFC - and it is said in this module's own vocabulary
+  // rather than escaping as somebody else's error class.
+  let admitted;
+  try { admitted = validateSourceGrant(grant, { now }); }
+  catch (error) {
+    if (error instanceof SourceDocumentError) throw error;
+    throw new SourceDocumentError('source_grant_not_canonical');
+  }
   if (!admitted.grant.allowed_data_classes.every(dataClass => dataClass === SYNTHETIC_DATA_CLASS)) {
     throw new SourceDocumentError('real_source_preparation_not_admitted');
   }
@@ -32,10 +49,27 @@ export async function prepareSourceDocuments({ grant, roots, now, previousCovera
     results.push(...output.results);
   }
   const coverage = buildSourceCoverage({ projectKey: admitted.project_key, grantSha256: admitted.grant_sha256, results });
-  return Object.freeze({
+  const prepared = {
     grant: Object.freeze({ grant_id: admitted.grant.grant_id, grant_sha256: admitted.grant_sha256, project_key: admitted.project_key }),
     documents: Object.freeze([...documents].sort((a, b) => a.doc_key.localeCompare(b.doc_key))),
     coverage,
     changes: detectSourceChanges(previousCoverage, coverage),
-  });
+  };
+  // Both lineage-less states carry the same two keys, so one gate - `run === null`
+  // with a stated reason - covers "no record was asked for" and "a record was
+  // asked for and could not be made". Leaving the keys off the first shape made
+  // a reader's check silently not apply.
+  if (runId === null) return Object.freeze({ ...prepared, run: null, run_unavailable: 'record_not_requested' });
+  // The record is built after every adapter has run, so anything it throws would
+  // destroy work already done - including documents from the other kinds in this
+  // grant. Twice a value honest input carries did exactly that. Whatever the
+  // reason, the documents stand and the missing record is reported beside them:
+  // no record is a thing a reader can see and act on, a lost preparation is not.
+  try {
+    return Object.freeze({ ...prepared, run: buildPreparationRun({ preparation: prepared, runId, startedAt,
+      endedAt: clock().toISOString(), previousCoverage }), run_unavailable: null });
+  } catch (error) {
+    return Object.freeze({ ...prepared, run: null,
+      run_unavailable: error instanceof SourceDocumentError ? error.code : 'preparation_run_uncomputable' });
+  }
 }

@@ -1,5 +1,87 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 준비 실행 기록과 독립 검증
+
+- 준비 결과가 "누가·어떤 코드로·어떤 규칙에서·어떤 grant로 만들었는지"를 스스로 말하게 했다. 지금까지 준비
+  산출물에는 과제·grant 해시·항목 상태만 있었고 준비기 자신에 대한 기록이 없었다. 이제 `prepareSourceDocuments`에
+  `runId`를 주면 그 호출이 자기 실행을 `soulforge.context_preparation_run.v1` 기록으로 함께 낸다: 준비기 id·버전,
+  준비 코드 폐포의 바이트 해시, 살아 있는 상수에서 뽑은 규칙 해시, grant·coverage·문서 해시, 문서 수, 관측한 시작·종료.
+- 기록은 준비 호출이 스스로 낸다. 공개 표면(`src/app.mjs`)에는 기록 생성기가 없고, `runId`를 주지 않으면 기록이
+  아예 나오지 않으므로 결과를 가졌다는 것만으로 기록이 따라오지 않는다.
+- **다만 기록은 서명이 아니다.** 해시는 키가 없고 생성기는 모듈에서 한 줄 import로 닿으므로, 바이트를 만들 수 있는
+  쪽은 기록도 만들 수 있다. 기록이 묶는 것은 "이 바이트가 이 주장과 맞는다"이지 "이 주장이 실제 준비 행위에서
+  나왔다"가 아니다. 기록의 진위는 이번 조각의 범위 밖이며, 그 보증은 기록을 낳는 쪽을 한정하는 저장 배치와
+  writer 권한이 생길 때 따라온다. 이 한계는 문서뿐 아니라 보고서 본문에도 실어, 보고서만 읽는 쪽도 알 수 있게 했다.
+- 문서를 통째로 해시할 때 소수는 정확한 십진 표기로 묶는다. `sha256Canonical`은 안전정수 아닌 수를 거부하는데
+  ASR이 밀리초 offset을, ffprobe가 소수 `duration_seconds`를 쓰므로 정상 voice 자료가 소수를 담는다. 그대로 두면
+  기록을 요청한 준비가 통째로 죽었다 — 항목별 `failed`로 강등되지도 않고 다른 종류까지 함께 날아간다. 합성
+  fixture가 전부 정수 초였던 탓에 시험이 초록이었고, 밀리초 offset·소수 duration fixture를 추가해 고정했다.
+- 코드 해시는 손으로 적은 목록이 아니라 **계산한 폐포**다. 준비 진입점에서 상대 import를 따라가 닿는 파일을 전부
+  해시하며, 시작점은 호출자가 준 root가 아니라 이 모듈 자신의 위치다. 그래서 모듈 밖이라도 준비 바이트를 실제로
+  만드는 것(메일 unit 본문을 쓰는 `gateway/mail_body_excerpt.mjs` 등)이 함께 덮이고 목록 드리프트가 생기지 않는다.
+  현재 폐포는 14개 파일이다. 규칙 해시도 복사본이 아니라 실제 상수에서 나오므로 한계·종류·판본 정책·adapter
+  profile이 바뀌면 같이 움직인다.
+- 기록의 파일 목록은 장식이 아니다. digest가 그 목록 자체의 digest여야 하고 검증기가 이를 다시 확인하므로,
+  진짜 digest 옆에 가짜 목록을 붙일 수 없다. 검증기도 같은 방식으로 자기 바이트를 고정한다(`validator_code_digest`).
+- 검증기를 준비기와 따로 두고 따로 판올림한다. 준비기가 바뀌면 기존 준비 bytes가 무효가 되지만 검증기가 바뀌는
+  것은 그렇지 않다. 같은 bytes를 새 검증기로 다시 보면 보고서만 늘고 준비 기록은 그대로여서 옛 PASS와 새 FAIL이
+  함께 남는다.
+- 검사 정책 `preparation-integrity-v1` 7종: 기록 자기일관성, 문서 신원 재계산, coverage 무결성, 기록과 산출물의
+  결속, grant 조건(등급·과제·판본 정책·유효기간·미승인 항목), unit locator, 이 트리에서의 재현 가능성. 결과는
+  `pass`/`fail`/`partial`/`not_run`이고 검사마다 검사 범위와 한계를 적는다. 살아 있는 코드 대조를 건너뛰면
+  통과가 아니라 `not_run`으로 적힌다.
+- locator 검사는 "인용한 것 중 문서가 안 쥔 게 있나"만 보지 않는다. 그러면 locator를 통째로 비운 unit이 그냥
+  통과한다. 판본에 닻을 내리는 종류(linear·mail·voice)는 unit마다 이 문서가 쥔 판본을 최소 하나는 인용해야 하고,
+  경로가 필요한 종류(document·mail)는 granted 경로를 가리켜야 한다. 어느 판본인지는 어댑터가 정한다 — Linear
+  댓글은 이슈 스냅샷이 아니라 자기 행을 가리키며 그것도 이 문서가 쥔 component다. primary를 콕 집어 요구하면
+  댓글 달린 이슈가 전부 오탐으로 걸린다. `document`는 경로와 줄 범위로만 위치를 잡아 판본 규칙 대상이 아니지만
+  경로 규칙은 적용되므로 검사 수에 들어가고, 적용되지 않은 규칙 쪽을 한계로 적는다.
+- 문서를 **통째로** 결속한다. `documents_sha256`의 각 행이 `[doc_key, totalDigest(document)]`라서 제목·사실·
+  시각·components·locator처럼 `doc_key`와 `text_sha256`이 덮지 않는 자리를 준비 뒤에 고쳐도 기록과 어긋난다.
+  신원 검사는 `composite_revision_sha256`을 primary와 components에서 다시 계산한다. 이게 없으면 가짜 component를
+  덧붙여 locator가 인용해도 되는 판본 집합을 넓히면서 `doc_key`와 `text_sha256`은 그대로 둘 수 있었다.
+- 잘못된 모양의 문서는 예외가 아니라 finding이다. 값이 이상해서 보고서가 아예 안 나오는 길도 막았는데, 거부 목록을
+  더 길게 적는 방식이 아니다 — 세 판본이 그 목록을 열거하려다 매번 짧았다(소수 → NFC 아닌 문자열 → 짝 없는
+  서로게이트·`-0`·NFC 아닌 키). 규칙을 둘로 줄였다: 이 모듈이 쥔 두 값의 비교는 `totalDigest`(어떤 값이든 ASCII 한
+  줄로 인코딩. 직렬화된 자료가 담을 수 있는 차이는 전부 가른다 — `Date`와 `{}`, `-0`과 `0`, NFD와 NFC. 모든
+  JavaScript 값에 대한 단사는 아니며 희소 배열 구멍 위치·비색인 속성·symbol 키·열거 불가 속성 등은 쌍둥이와 같은
+  encoding이 되는데, 전부 JSON을 통과하지 못하는 모양이다), `source_documents.mjs`가 쓴 digest 검사는
+  `matchesCanonical`("이 값이 이 digest가 되느냐"만 묻고 거부되는 값은 아니오). 둘 다 목록을 참조하지 않으므로
+  목록보다 뒤처질 수 없다.
+- 검사 하나가 못 읽는 모양을 만나도 보고서는 나온다. 검사 본문마다 가둬 `check_uncomputable`로 적고 나머지 여섯은
+  그대로 보고한다. 값 목록을 늘리는 대신 경계를 둔 것이며, 앞서 digest에만 적용한 구조 수정을 검사 본문까지 마저
+  적용한 것이다. locator를 도는 `shaValues`에도 `encode`와 같은 깊이 경계·순환 감지를 넣었다. 이 트리의 코드를
+  읽지 못하는 것도 보고서를 없애지 않고 `not_run`과 이유로 적힌다.
+- grant의 경로 조각이 canonical JSON으로 표현되지 않으면(macOS NFD 파일명 등) 남의 오류 클래스가 아니라
+  `source_grant_not_canonical`로 거부한다. grant의 바이트가 곧 그 정체라 조용히 정규화하지 않는다 — Owner가
+  NFC로 고쳐 쓸 수 있도록 이유를 말한다.
+- `runId`를 주지 않은 결과에도 `run: null`·`run_unavailable: 'record_not_requested'`가 실린다. 예전에는 키 자체가
+  없어서 읽는 쪽의 `run_unavailable` 검사가 조용히 적용되지 않았다.
+- 기록 생성을 가뒀다. `buildPreparationRun`은 모든 어댑터가 돈 뒤에 불리므로 여기서 던지면 이미 만든 문서가,
+  같은 grant의 다른 종류까지 함께 사라진다. 정직한 값이 그렇게 두 번 전체를 죽였다. 이제 실패하면 문서는 그대로
+  남고 `run: null`과 `run_unavailable: <코드>`로 옆에 적힌다 — 기록이 없는 건 읽는 쪽이 보고 대응할 수 있지만
+  사라진 준비는 그럴 수 없다.
+- `reportCovers`가 기록의 digest를 **다시 계산**한다. 적어둔 값을 그대로 믿으면 다른 run의 digest를 필드에 복사해
+  그 보고서를 빌려 쓸 수 있었다.
+- 보고서는 대상(`validated_run_sha256`)과 관측값(`observed_*`)을 나눠 싣는다. 기록 해시가 coverage·documents·grant
+  digest를 이미 덮으므로 대상 고정에는 그것 하나면 되고, FAIL 보고서도 자기 대상을 계속 가리킨다. 자료나 허용
+  범위가 달라지면 run이 달라져 `reportCovers`가 거짓이 된다. 다만 같은 run에 대한 두 보고서의 선후는 정하지 않으며
+  그 한계를 보고서에 적는다. 원문은 들어가지 않는다(코드와 ref만 — `doc_key`·`unit_id`, coverage 행은
+  `item`=종류/root/항목. 검사당 20건에서 자르고 그 사실을 한계로 적음).
+- 운영 영향 없음: 값만 만들고 저장 배치는 없다. 운영 lane·설치·HPP 팩 명세·dev-ERP 연결에 변화가 없고 합성
+  자료만 썼다. 실자료 0. 실자료 등급은 여전히 `real_source_preparation_not_admitted`로 거부된다.
+- locator 문자열도 unit 본문과 같이 NFC로 맞춘다. 같은 마크다운 제목이 `text`와 `locator.section`에 함께 들어가는데
+  한쪽만 정규화돼 있어 둘이 조용히 달랐다. 실제 writer는 정규화하지 않는다 — macOS 계열 도구는 NFD 한글을 쓰고
+  PLAUD 화자 라벨은 그대로 복사된다. 이 정규화 덕에 정직한 출력에는 NFC 아닌 문자열이 남지 않으므로,
+  `totalDigest`의 폭넓은 수용은 정직한 입력이 아니라 **변조 입력**을 견디기 위한 것이다.
+- PASS는 완결성이 아니라 충실성이라는 것을 보고서 한계에 적었다. granted 항목이 다 준비됐는지는 coverage의
+  `missing`과 `changes`의 `unavailable`이 말하며 둘 다 결속돼 있다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/preparation_run.mjs`(신규),
+  `src/runtime/preparation_validation.mjs`(신규), `tests/preparation_validation.test.mjs`(신규),
+  `src/runtime/source_documents.mjs`, `src/runtime/source_preparation.mjs`, `src/app.mjs`,
+  `tests/source_adapters.test.mjs`, `tests/source_preparation.test.mjs`, `module.manifest.json`,
+  `release/`, `package.json`.
+
 ## 2026-09-12 - 맥락 APP 모델 호출 경계와 추출 모델 비교
 
 - 모델을 부를 수 있는 자리를 넓혔다. 지금까지는 이 host(loopback)뿐이었고, 이제 **색인 binding이 이름을 명시한

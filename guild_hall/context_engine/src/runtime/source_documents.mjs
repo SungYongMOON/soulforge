@@ -32,7 +32,11 @@ const ITEM_FIELDS = ['item_id', 'revision_policy', 'revision_sha256', 'data_clas
 // mail event file, a document, a voice date folder). `scope`: the part of a mixed
 // recording that belongs to the project, in seconds from the recording start.
 const ITEM_OPTIONAL_FIELDS = ['path', 'scope'];
-const PATH_REQUIRED_KINDS = ['document', 'mail'];
+export const PATH_REQUIRED_KINDS = Object.freeze(['document', 'mail']);
+// Kinds whose unit locators anchor to a revision the document holds. The document
+// adapter locates by path and line range only, so its units carry no revision to
+// check; that is a property of the adapter, not a missing locator.
+export const LOCATOR_REVISION_KINDS = Object.freeze(['linear', 'mail', 'voice']);
 const validItemPath = path => Array.isArray(path) && path.length > 0 && path.length <= 16
   && path.every(isSafeSegment);
 const validScope = scope => exactKeys(scope, ['start_seconds', 'end_seconds'])
@@ -49,6 +53,7 @@ const exactKeys = (value, fields) => plain(value) && Object.keys(value).length =
   && fields.every(field => Object.hasOwn(value, field));
 const epoch = value => typeof value === 'string' && INSTANT.test(value) ? Date.parse(value) : NaN;
 export const isInstant = value => Number.isFinite(epoch(value));
+export const isSafeToken = value => typeof value === 'string' && TOKEN.test(value);
 const itemKey = row => `${row.source_kind}\u0000${row.root_ref}\u0000${row.item_id}`;
 
 // Text leaves the adapter as NFC with LF line ends and without NUL, so the same
@@ -104,11 +109,23 @@ export function sourceDocumentKey({ projectKey, sourceKind, rootRef, itemId, com
     scope: scope === null ? null : { start_seconds: scope.start_seconds, end_seconds: scope.end_seconds } });
 }
 
+function normalizeStrings(value) {
+  if (typeof value === 'string') return value.normalize('NFC');
+  if (Array.isArray(value)) return value.map(normalizeStrings);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeStrings(child)]));
+  }
+  return value;
+}
+
 function unitRow(unit) {
   if (!plain(unit) || typeof unit.unit_kind !== 'string' || !TOKEN.test(unit.unit_kind) || !plain(unit.locator)
     || (unit.occurred_at !== null && unit.occurred_at !== undefined && !isInstant(unit.occurred_at))
     || (unit.speaker_ref !== null && unit.speaker_ref !== undefined && !TOKEN.test(unit.speaker_ref))) fail('source_unit_invalid');
-  return { unit_kind: unit.unit_kind, locator: structuredClone(unit.locator),
+  // Locator strings get the same NFC treatment as unit text. The document adapter
+  // puts the very same heading into both, so leaving one decomposed made them
+  // unequal; a provider speaker label arrives however the provider wrote it.
+  return { unit_kind: unit.unit_kind, locator: normalizeStrings(structuredClone(unit.locator)),
     text: normalizeText(unit.text, SOURCE_LIMITS.unit_characters), occurred_at: unit.occurred_at ?? null,
     speaker_ref: unit.speaker_ref ?? null };
 }

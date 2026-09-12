@@ -38,6 +38,12 @@ export { createAcceptedContextQuery, makeUniformNotAvailable, ACCEPTED_CONTEXT_Q
   ACCEPTED_CONTEXT_QUERY_RESULT_SCHEMA } from './guards/accepted_context_query.mjs';
 export { readTypedMemory, MEMORY_KINDS } from './guards/accepted_context_typed_memory.mjs';
 export { prepareSourceDocuments, SOURCE_ADAPTERS } from './runtime/source_preparation.mjs';
+// No run-record builder is exported: a record is emitted by prepareSourceDocuments
+// itself, so this surface cannot mint one for documents it did not produce.
+export { codeInventoryConsistent, documentsDigest, inspectPreparerCode, preparationRulesDigest,
+  PREPARATION_RUN_SCHEMA, PREPARER_ID, PREPARER_VERSION } from './runtime/preparation_run.mjs';
+export { validatePreparationRun, reportCovers, CHECK_IDS, CHECK_OUTCOMES, CHECK_POLICY_ID,
+  VALIDATION_REPORT_SCHEMA, VALIDATOR_ID, VALIDATOR_VERSION } from './runtime/preparation_validation.mjs';
 export { extractGraphFragments, admitGraphFragment, validateGraphBinding, probeGraphModels, GRAPH_FRAGMENT_SCHEMA,
   GRAPH_EXTRACTION_LIMITS } from './runtime/graph_extraction.mjs';
 export { updateGraphIndex, selectGraphIndexGeneration, openGraphIndex, graphProfilePin, GRAPH_INDEX_AREAS,

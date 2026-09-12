@@ -95,6 +95,84 @@ exact grant(`soulforge.context_source_grant.v1`)에 적힌 항목만 읽어 `sou
   댓글처럼 딸린 판본이 바뀌면 새 키(변경 무효화)가 된다. coverage 기록과 `detectSourceChanges`가 추가·변경·삭제·
   불변·사용불가를 나눈다.
 
+## 준비 실행 기록과 독립 검증 (0.10.0)
+
+준비 결과는 무엇이 만들었는지 말할 수 있어야 증거가 된다. `prepareSourceDocuments`에 `runId`를 주면 그 호출이
+자기 실행을 `soulforge.context_preparation_run.v1` 기록으로 함께 낸다. `validatePreparationRun({ run, preparation,
+grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulforge.context_preparation_validation.v1`
+보고서로 다시 계산한다. 둘 다 값만 만들며 저장 배치는 아직 없다.
+
+- 기록은 **준비 행위에 묶인다.** 기록을 만드는 함수는 공개 표면(`src/app.mjs`)에 없고, 실제 어댑터 작업을 감싸는
+  준비기 안에서만 만들어진다. `runId`를 주지 않으면 기록이 아예 나오지 않으므로, 결과를 가졌다는 것만으로 기록이
+  있는 것처럼 되지도 않는다. 다만 이 보증은 **공개 표면의 export 목록에 대한 것**이고, `runtime/preparation_run.mjs`를
+  직접 import할 수 있는 코드에까지 미치지는 않는다(아래 "기록은 서명이 아니다" 참고).
+
+- 준비기(`context-engine/source-preparer`)와 검증기(`context-engine/preparation-validator`)는 module_version과
+  따로 판올림한다. 준비기가 바뀌면 기존 준비 bytes가 무효가 되지만 검증기가 바뀌는 것은 그렇지 않기 때문이다.
+- 문서를 통째로 해시할 때 소수는 정확한 십진 표기로 묶는다. `sha256Canonical`이 안전정수 아닌 수를 거부하는데,
+  ASR은 밀리초 offset을, ffprobe는 소수 `duration_seconds`를 쓰므로 정상 voice 자료가 소수를 담는다. 그대로 두면
+  기록을 요청한 준비가 통째로 죽는다(항목별 `failed`로 강등되지도 않는다).
+- `preparer_code_digest`는 손으로 적은 목록이 아니라 **계산한 폐포**다. 준비 진입점에서 상대 import를 따라가
+  닿는 파일을 전부 해시하며, 시작점은 호출자가 준 root가 아니라 이 모듈 자신의 위치다. 그래서 모듈 밖이라도
+  준비 바이트를 실제로 만드는 것(예: 메일 unit 본문을 쓰는 `gateway/mail_body_excerpt.mjs`)이 함께 덮이고,
+  어댑터나 헬퍼가 늘어도 목록을 고쳐 적을 일이 없다. 현재 폐포는 14개 파일이다(시험이 정확한 수를 고정한다).
+- `preparer_code_refs`는 장식이 아니다. 기록의 digest는 그 목록 자체의 digest여야 하며(`codeInventoryConsistent`),
+  검증기가 이를 다시 확인한다. 진짜 digest 옆에 가짜 파일 목록을 붙일 수 없고, 아무것도 준비하지 않았다고
+  주장하는 빈 목록도 거부된다. 어느 트리의 코드인지를 이 트리와 맞춰 보는 것은 재현 가능성 검사의 몫이다.
+- `preparation_rules_digest`는 살아 있는 상수(스키마·종류·판본 정책·한계·adapter profile)에서 나오므로 규칙이
+  바뀌면 같이 움직인다.
+- 검증기도 같은 방식으로 자기 바이트를 고정한다(`validator_code_digest`). 손으로 관리하는 버전 문자열만으로는
+  "어느 검증기가 PASS라고 했는지"를 확인할 수 없기 때문이다.
+- `started_at`·`ended_at`은 준비 호출을 감싼 `clock`이 준 값이다. 독립적으로 관측한 시각이 아니며 grant 유효기간
+  밖일 때만 걸린다. 기록은 서명이 아니다 — 바이트를 만들 수 있는 쪽은 기록도 만들 수 있고, 기록의 진위 보증은
+  기록을 낳는 쪽을 한정하는 저장 배치가 생길 때 따라온다.
+- `changes`도 결속한다. 읽는 쪽이 `changes.unavailable`로 불완전한 원본 묶음을 HOLD하기 때문에, 묶이지 않은
+  변경집합은 불완전을 완전으로 바꿔 놓을 수 있다. `changes`는 이전 coverage의 함수이기도 해서 기록이
+  `previous_coverage_sha256`도 함께 적는다.
+- 검사 정책 `preparation-integrity-v1`은 7개 검사를 돌린다: 기록 자기일관성, 문서 신원 재계산(변조), coverage
+  무결성, 기록과 산출물의 결속, grant 조건(등급·과제·판본 정책·유효기간·미승인 항목), unit locator, 그리고 이
+  트리에서의 재현 가능성. 결과 어휘는 `pass`/`fail`/`partial`/`not_run`이며 검사마다 검사 범위와 한계를 함께 적는다.
+- locator 검사는 "인용한 것 중 문서가 안 쥔 게 있나"만 보지 않는다. 그러면 locator를 통째로 비운 unit이 그냥
+  통과한다. 판본에 닻을 내리는 종류(`linear`·`mail`·`voice`)는 unit마다 이 문서가 쥔 판본을 **최소 하나는**
+  인용해야 하고, 경로가 필요한 종류(`document`·`mail`)는 granted 경로를 가리켜야 한다. 어느 판본인지는 어댑터가
+  정한다 — Linear 댓글은 이슈 스냅샷이 아니라 자기 행을 가리키고 그것도 이 문서가 쥔 component다. primary를
+  콕 집어 요구하면 댓글 달린 이슈가 전부 오탐으로 걸린다.
+- `document`는 경로와 줄 범위로만 위치를 잡으므로 **판본** 규칙의 대상이 아니다. 경로 규칙은 적용되므로 그 unit들도
+  `checked`에 들어가고, 적용되지 않은 규칙 쪽을 한계로 적는다.
+- 문서는 **통째로** 결속한다. `documents_sha256`의 각 행이 `[doc_key, totalDigest(document)]`라서 제목·사실·
+  시각·components·locator처럼 `doc_key`와 `text_sha256`이 덮지 않는 자리를 준비 뒤에 고쳐도 기록과 어긋난다.
+- 신원 검사는 `composite_revision_sha256`을 primary와 components에서 다시 계산한다. 이게 없으면 가짜 component를
+  덧붙여 locator가 인용해도 되는 판본 집합을 넓히면서도 `doc_key`와 `text_sha256`은 그대로 둘 수 있다.
+- 잘못된 모양의 문서는 예외가 아니라 finding(`document_malformed`)이다. 값이 이상해서 보고서 자체가 안 나오는
+  길도 막았는데, **거부 목록을 더 길게 적는 방식이 아니다.** 세 판본이 그 목록을 열거하려다 매번 짧았다(소수 →
+  NFC 아닌 문자열 → 짝 없는 서로게이트·`-0`·NFC 아닌 **키**). 그래서 규칙을 둘로 줄였다:
+  - 이 모듈이 쥔 두 값을 비교할 때는 `totalDigest`를 쓴다. 어떤 값이든 ASCII 한 줄로 인코딩해 넘기므로 거부 목록을
+    아예 만나지 않고, 직렬화된 자료가 담을 수 있는 차이는 전부 digest를 가른다(`Date`와 `{}`, `-0`과 `0`, NFD와 NFC).
+    모든 JavaScript 값에 대해 단사는 아니다 — 희소 배열의 구멍 위치, 배열의 비색인 속성, symbol 키, 열거 불가 속성,
+    null 프로토타입, 같은 이름의 다른 생성자, 이름만 적고 호출하지 않는 접근자는 쌍둥이와 같은 encoding이 된다.
+    전부 JSON을 통과하지 못하는 모양이고, 이 모듈이 읽는 것은 언제나 JSON을 거친 자료다. canonical 해시는 그중
+    일부를 모호하다는 이유로 거부하는데, 이쪽은 받아들여 직렬화된 모양으로 취급한다.
+  - `source_documents.mjs`가 `sha256Canonical`로 쓴 digest를 검사할 때는 `matchesCanonical`로 **"이 값이 이 digest가
+    되느냐"만** 묻는다. 거부되는 값은 "아니오"가 되고 그게 변조에 대한 정답이다.
+  둘 다 목록을 참조하지 않으므로 목록보다 뒤처질 수 없다. `totalDigest`는 `sha256Canonical`과 일부러 다른 값을 낸다 —
+  한쪽으로 해시한 값을 다른 쪽으로 해시한 값과 비교하는 자리는 없다.
+- 검증기는 준비 결과를 고치지 않는다. 같은 bytes를 새 검증기로 다시 보면 보고서만 늘고 준비 기록은 그대로라,
+  옛 PASS와 새 FAIL이 함께 남는다. 보고서는 대상(`validated_run_sha256`)과 관측값(`observed_*`)을 나눠 싣는다.
+  기록 해시가 coverage·documents·grant digest를 이미 덮으므로 대상 고정에는 그것 하나면 되고, 관측값이 어긋나는
+  것은 finding이지 보고서가 그 run을 못 가리키게 되는 사유가 아니다(FAIL 보고서도 자기 대상을 가리켜야 한다).
+  자료나 허용 범위가 달라지면 run이 달라져 `reportCovers`가 거짓이 되므로 예전 PASS를 새 대상 증거로 쓸 수 없다. 다만
+  `reportCovers`는 **같은 run에 대한 두 보고서의 선후를 정하지 않는다**. 그 판단은 읽는 쪽 몫이며 보고서가
+  `validator_code_digest`와 `checked_at`을 실어 한계로 명시한다.
+- 보고서에는 원문이 들어가지 않는다. finding은 코드와 ref(`doc_key`·`unit_id`, coverage 행은 `item`=종류/root/항목)만
+  담고 검사별 20건에서 자른 뒤 그 사실을
+  한계로 적는다. 보고서에는 한계가 항상 붙으며 현재 일곱 줄이다 — 재계산이 준비기와 같은 canonical 해시 함수를
+  쓰므로 그 함수 자체는 시험하지 않는다는 것, 원본을 다시 열지 않는다는 것, 같은 run에 대한 두 보고서의 선후를
+  정하지 않는다는 것, `previous_coverage_sha256`·`changes_sha256`은 재도출이 아니라 넘겨받은 결과와의 대조라는 것,
+  **문서 순서는 결속되지 않는다**는 것(digest가 doc_key로 정렬하므로 같은 구성원·같은 바이트의 재배열은 finding이
+  아니다), 기록은 서명이 아니라는 것, 그리고 **PASS는 완결성이 아니라 충실성**이라는 것 — 기록이 결과를 정확히
+  기술하는지를 말할 뿐, granted 항목이 다 준비됐는지를 말하지 않는다(빠진 것은 coverage의 `missing`과 `changes`의
+  `unavailable`에 있고 둘 다 결속돼 있다).
+
 ## Neo4j GraphRAG 추출 (0.6.0, 적재·검색은 Neo4j 설치 뒤)
 
 `extractGraphFragments({ documents, projectKey, profile, binding })`는 준비된 원본 문서를 neo4j-graphrag 부품으로

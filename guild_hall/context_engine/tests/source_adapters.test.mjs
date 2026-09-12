@@ -12,6 +12,7 @@ import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA, validateSourceDocument } from '../src/runtime/source_documents.mjs';
 import { splitQuotedHistory } from '../src/adapters/sources/mail_event_source.mjs';
+import { validatePreparationRun } from '../src/runtime/preparation_validation.mjs';
 
 const NOW = '2026-09-12T00:00:00.000Z';
 const sha = text => `sha256:${createHash('sha256').update(text).digest('hex')}`;
@@ -201,4 +202,204 @@ test('documents keep heading sections, refuse unsupported formats and track file
   assert.deepEqual(edited.changes.changed.map(row => row.item_id), ['memo-v2']);
   await assert.rejects(prepareSourceDocuments({ grant: grant('document', 'doc.synthetic', [item('escape', { path: ['..', 'x.md'] })]),
     roots, now: NOW }), { code: 'source_grant_invalid' });
+});
+
+// Voice is the only kind carrying a scope and an owner-named session path, and
+// its units anchor to the transcript revision. The validator is exercised here
+// because this file already builds real voice sessions.
+test('a real voice preparation validates clean, and a re-pointed utterance locator does not', async () => {
+  const v = await voiceRoot();
+  const voiceGrant = grant('voice', 'voice.synthetic', [item(v.sessionId)]);
+  const preparation = await prepareSourceDocuments({ grant: voiceGrant, roots: { 'voice.synthetic': v.root },
+    now: NOW, runId: 'prep-voice-1', clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  const args = { validationRunId: 'val-voice-1', checkedAt: '2026-09-12T01:00:00.000Z' };
+  const report = validatePreparationRun({ run, preparation: rest, grant: voiceGrant, ...args });
+  const [document] = rest.documents;
+  assert.equal(report.outcome, 'pass');
+  const locators = report.checks.find(check => check.check_id === 'unit_locators');
+  assert.deepEqual(locators.findings, []);
+  assert.equal(locators.scope.checked, document.units.length);
+  assert.deepEqual(locators.limits, []);
+
+  const units = document.units.map((unit, index) => index === 0
+    ? { ...unit, locator: { ...unit.locator, transcript_sha256: `sha256:${'c'.repeat(64)}` } } : unit);
+  const moved = validatePreparationRun({ run, grant: voiceGrant,
+    preparation: { ...rest, documents: [{ ...document, units }] }, validationRunId: 'val-voice-2',
+    checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(moved.outcome, 'fail');
+  assert.deepEqual(moved.checks.find(check => check.check_id === 'unit_locators').findings.map(f => f.code),
+    ['locator_cites_unheld_revision']);
+});
+
+// A granted scope keys its own document, so the record must follow the scope.
+test('a scoped voice grant records and validates the scoped document', async () => {
+  const v = await voiceRoot();
+  const scoped = grant('voice', 'voice.synthetic', [item(v.sessionId, { scope: { start_seconds: 0, end_seconds: 30 } })]);
+  const preparation = await prepareSourceDocuments({ grant: scoped, roots: { 'voice.synthetic': v.root },
+    now: NOW, runId: 'prep-voice-3', clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  const report = validatePreparationRun({ run, preparation: rest, grant: scoped,
+    validationRunId: 'val-voice-3', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(report.outcome, 'pass');
+  assert.deepEqual(rest.documents[0].scope, { start_seconds: 0, end_seconds: 30 });
+  // The same session without the scope is a different document and a different run.
+  const whole = await prepareSourceDocuments({ grant: grant('voice', 'voice.synthetic', [item(v.sessionId)]),
+    roots: { 'voice.synthetic': v.root }, now: NOW, runId: 'prep-voice-3',
+    clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  assert.notEqual(whole.run.run_sha256, run.run_sha256);
+  assert.notEqual(whole.documents[0].doc_key, rest.documents[0].doc_key);
+});
+
+// Real ASR writes millisecond offsets (local_asr.mjs roundMillis) and ffprobe
+// writes a fractional duration, so honest voice output carries numbers that are
+// not safe integers. Every synthetic transcript above uses whole-second PLAUD
+// timestamps, which is why this case needs its own fixture.
+async function fractionalVoiceRoot() {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'ctx-src-voice-frac-'));
+  const sessionId = buildPlaudSessionId(new Date('2026-09-11T01:00:00.000Z'), 'frac0001abcdef');
+  const dir = path.join(root, 'sessions', '2026-09-11', sessionId);
+  await mkdir(dir, { recursive: true });
+  const rows = [
+    { schema_version: 'soulforge.voice_transcript_segment.v0', segment_id: 0, start_seconds: 0.32,
+      end_seconds: 4.875, speaker: 'UNKNOWN', content: '시험 장비 A 일정부터 보겠습니다.', source: 'whisper_cpp_independent_local' },
+    { schema_version: 'soulforge.voice_transcript_segment.v0', segment_id: 1, start_seconds: 4.875,
+      end_seconds: 9.101, speaker: 'UNKNOWN', content: '응답기 장표는 다음 주에 올리겠습니다.', source: 'whisper_cpp_independent_local' },
+  ];
+  await writeFile(path.join(dir, 'transcript.jsonl'), rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+  await writeFile(path.join(dir, 'session_manifest.json'), JSON.stringify({
+    schema_version: 'soulforge.voice_capture_session.v0', session_id: sessionId, source: 'plaud_cli_import',
+    provider_recording_id: 'frac0001abcdef', source_page_title: '소수 초 녹음',
+    recorded_at_local: '2026-09-11T10:00:00+09:00', imported_at_local: '2026-09-11T11:30:00+09:00',
+    duration_seconds: 9.101333,
+    transcript: { status: 'provider_transcript_present_unverified',
+      quality: 'provider_machine_transcript_unverified', segment_count: rows.length },
+    canonicalization: { state: 'needs_local_transcription_project_match_and_minutes_review' } }));
+  return { root, sessionId };
+}
+
+test('millisecond ASR offsets and a fractional duration still record and validate', async () => {
+  const v = await fractionalVoiceRoot();
+  const voiceGrant = grant('voice', 'voice.synthetic', [item(v.sessionId)]);
+  const roots = { 'voice.synthetic': v.root };
+  // The whole point: asking for a record must not abort preparation over numbers
+  // the live writers legitimately produce.
+  const preparation = await prepareSourceDocuments({ grant: voiceGrant, roots, now: NOW,
+    runId: 'prep-voice-frac', clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  const [document] = rest.documents;
+  assert.equal(rest.coverage.counts.prepared, 1);
+  assert.equal(document.units[0].locator.start_seconds, 0.32);
+  assert.equal(document.facts.find(fact => fact.name === 'voice.duration_seconds').value, 9.101333);
+  const report = validatePreparationRun({ run, preparation: rest, grant: voiceGrant,
+    validationRunId: 'val-voice-frac', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(report.outcome, 'pass');
+
+  // The fractions are bound, not skipped: nudging one moves the documents digest.
+  const units = document.units.map((unit, index) => index === 0
+    ? { ...unit, locator: { ...unit.locator, start_seconds: 0.33 } } : unit);
+  const nudged = validatePreparationRun({ run, grant: voiceGrant,
+    preparation: { ...rest, documents: [{ ...document, units }] },
+    validationRunId: 'val-voice-frac-2', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(nudged.outcome, 'fail');
+  assert.ok(nudged.checks.find(check => check.check_id === 'run_output_binding')
+    .findings.some(finding => finding.code === 'run_documents_digest_mismatch'));
+});
+
+// Live writers do not normalise: macOS-style tools emit NFD Korean, and the PLAUD
+// CLI speaker label is copied verbatim (plaud_ingest.mjs). Locator strings were
+// the one part of a document the module left un-normalised, so honest decomposed
+// text used to abort the whole preparation once a record was asked for.
+test('decomposed Korean in a heading and a speaker label neither aborts nor splits identity', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'ctx-src-nfd-'));
+  const heading = '설계 검토'.normalize('NFD');
+  assert.notEqual(heading, heading.normalize('NFC'), 'the fixture must really be decomposed');
+  await writeFile(path.join(root, 'memo.md'), `# ${heading}\n\n첫 문단입니다.\n`);
+  const docGrant = grant('document', 'doc.synthetic', [item('memo', { path: ['memo.md'] })]);
+  const preparation = await prepareSourceDocuments({ grant: docGrant, roots: { 'doc.synthetic': root }, now: NOW,
+    runId: 'prep-nfd-1', clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  const [document] = rest.documents;
+  const report = validatePreparationRun({ run, preparation: rest, grant: docGrant,
+    validationRunId: 'val-nfd-1', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(report.outcome, 'pass');
+  // The same heading reaches text and locator.section, so both must be the same
+  // string; leaving one decomposed made them silently unequal.
+  const headingUnit = document.units.find(unit => unit.unit_kind === 'heading');
+  assert.equal(headingUnit.text, headingUnit.text.normalize('NFC'));
+  assert.equal(headingUnit.locator.section[0], headingUnit.text);
+});
+
+test('a decomposed speaker label does not destroy the other kinds in one grant', async () => {
+  const v = await voiceRoot({ transcript: ['[0:00 - 0:10] 화자 1'.normalize('NFD') + ': 통합 일정부터 보겠습니다.',
+    '[0:10 - 0:20] 화자 2: 다음 주에 올리겠습니다.'].join('\n') });
+  const m = await mailRoot();
+  const mixed = { schema_version: SOURCE_GRANT_SCHEMA, grant_id: 'grant.synthetic.mixed', project_ref: ref(1),
+    purposes: ['context_preparation'], allowed_data_classes: ['public_synthetic'],
+    valid_from: '2026-09-01T00:00:00.000Z', valid_to: '2026-10-01T00:00:00.000Z',
+    sources: [{ kind: 'voice', root_ref: 'voice.synthetic', items: [item(v.sessionId)] },
+      { kind: 'mail', root_ref: 'mail.synthetic', items: [item('gmail-0001', { path: MAIL_FILE })] }] };
+  const preparation = await prepareSourceDocuments({ grant: mixed, now: NOW, runId: 'prep-nfd-2',
+    roots: { 'voice.synthetic': v.root, 'mail.synthetic': m.root }, clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  // One awkward string in one kind must not take the other kind down with it.
+  assert.equal(rest.coverage.counts.prepared, 2);
+  assert.deepEqual([...new Set(rest.documents.map(doc => doc.source_kind))].sort(), ['mail', 'voice']);
+  const report = validatePreparationRun({ run, preparation: rest, grant: mixed,
+    validationRunId: 'val-nfd-2', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(report.outcome, 'pass');
+});
+
+// Provider metadata is copied verbatim, so a name truncated mid-surrogate-pair or
+// a literal -0 offset reaches a locator, a title or a fact. Asking for a record
+// must never cost the documents - least of all the other kinds in the same grant.
+test('values the canonical hash refuses never cost a preparation its documents', async () => {
+  const m = await mailRoot();
+  const cases = {
+    lone_surrogate_speaker: { speaker: '\ud83d' },
+    lone_surrogate_title: { title: '녹음\ud83d' },
+    negative_zero_offset: { negativeZero: true },
+  };
+  for (const [name, shape] of Object.entries(cases)) {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'ctx-src-odd-'));
+    const sessionId = buildPlaudSessionId(new Date('2026-09-11T01:00:00.000Z'), 'odd00001abcdef');
+    const dir = path.join(root, 'sessions', '2026-09-11', sessionId);
+    await mkdir(dir, { recursive: true });
+    const row = { schema_version: 'soulforge.voice_transcript_segment.v0', segment_id: 0,
+      start_seconds: 0, end_seconds: 4, speaker: shape.speaker ?? 'UNKNOWN', content: '일정부터 보겠습니다.',
+      source: 'whisper_cpp_independent_local' };
+    const line = shape.negativeZero
+      ? JSON.stringify(row).replace('"start_seconds":0', '"start_seconds":-0.0') : JSON.stringify(row);
+    await writeFile(path.join(dir, 'transcript.jsonl'), `${line}\n`);
+    await writeFile(path.join(dir, 'session_manifest.json'), JSON.stringify({
+      schema_version: 'soulforge.voice_capture_session.v0', session_id: sessionId, source: 'plaud_cli_import',
+      provider_recording_id: 'odd00001abcdef', source_page_title: shape.title ?? '녹음',
+      recorded_at_local: '2026-09-11T10:00:00+09:00', imported_at_local: '2026-09-11T11:30:00+09:00',
+      duration_seconds: 4,
+      transcript: { status: 'provider_transcript_present_unverified',
+        quality: 'provider_machine_transcript_unverified', segment_count: 1 },
+      canonicalization: { state: 'needs_local_transcription_project_match_and_minutes_review' } }));
+    const mixed = { schema_version: SOURCE_GRANT_SCHEMA, grant_id: 'grant.synthetic.odd', project_ref: ref(1),
+      purposes: ['context_preparation'], allowed_data_classes: ['public_synthetic'],
+      valid_from: '2026-09-01T00:00:00.000Z', valid_to: '2026-10-01T00:00:00.000Z',
+      sources: [{ kind: 'voice', root_ref: 'voice.synthetic', items: [item(sessionId)] },
+        { kind: 'mail', root_ref: 'mail.synthetic', items: [item('gmail-0001', { path: MAIL_FILE })] }] };
+    const roots = { 'voice.synthetic': root, 'mail.synthetic': m.root };
+    const without = await prepareSourceDocuments({ grant: mixed, roots, now: NOW });
+    const withRecord = await prepareSourceDocuments({ grant: mixed, roots, now: NOW, runId: 'prep-odd',
+      clock: () => new Date('2026-09-12T00:00:00.000Z') });
+    // Asking for a record changes what you get alongside the documents, never the
+    // documents themselves, and never the other kind in the grant.
+    assert.equal(withRecord.coverage.counts.prepared, without.coverage.counts.prepared, name);
+    assert.equal(withRecord.documents.length, without.documents.length, name);
+    assert.ok(withRecord.documents.some(doc => doc.source_kind === 'mail'), `${name} keeps the mail document`);
+    // These shapes are now hashable, so the record is emitted rather than refused.
+    assert.notEqual(withRecord.run, null, `${name} still yields a record`);
+    assert.equal(withRecord.run_unavailable, null, name);
+    const report = validatePreparationRun({ run: withRecord.run, grant: mixed,
+      preparation: { grant: withRecord.grant, documents: withRecord.documents,
+        coverage: withRecord.coverage, changes: withRecord.changes },
+      validationRunId: `val-${name}`, checkedAt: '2026-09-12T01:00:00.000Z' });
+    assert.equal(report.outcome, 'pass', name);
+  }
 });

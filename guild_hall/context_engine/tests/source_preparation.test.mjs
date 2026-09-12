@@ -16,6 +16,7 @@ import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA, buildSourceCoverage, detectSourceChanges, normalizeText,
   validateSourceDocument } from '../src/runtime/source_documents.mjs';
+import { validatePreparationRun } from '../src/runtime/preparation_validation.mjs';
 
 const REPO = path.resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const FIXTURE = fileURLToPath(new URL('../../linear_history/fixtures/synthetic_linear_workspace.json', import.meta.url));
@@ -204,4 +205,55 @@ test('coverage comparison reports removed items, rejects duplicates and cross-pr
   const foreign = buildSourceCoverage({ projectKey: 'p2', grantSha256, results: [row('a1', '1')] });
   assert.throws(() => detectSourceChanges(before, foreign), { code: 'source_coverage_invalid' });
   assert.equal(normalizeText('a\r\nb\u0000ć', 100), 'a\nbć');
+});
+
+// The validator over real Linear custody. Linear is the kind whose units anchor
+// to different revisions - a comment cites its own row, not the issue snapshot -
+// so it is the case a mail-only locator test cannot speak for.
+test('a real Linear preparation validates clean, and a re-pointed comment locator does not', async () => {
+  const x = await syntheticLinearCustody();
+  const syn1 = x.issue('SYN-1');
+  const preparation = await prepareSourceDocuments({ grant: grantFor([latest(syn1)]), roots: x.roots, now: NOW,
+    runId: 'prep-linear-1', clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  const report = validatePreparationRun({ run, preparation: rest, grant: grantFor([latest(syn1)]),
+    validationRunId: 'val-linear-1', checkedAt: '2026-09-12T01:00:00.000Z' });
+  const [document] = rest.documents;
+  assert.ok(document.units.length > 2, 'the issue carries comments or changes beyond title and description');
+  // Comment and change units legitimately cite their own row rather than the
+  // issue snapshot; every one of those rows is a component this document holds.
+  const kinds = new Set(document.units.map(unit => unit.unit_kind));
+  assert.ok(kinds.has('comment') || kinds.has('change'));
+  assert.equal(report.outcome, 'pass');
+  const locators = report.checks.find(check => check.check_id === 'unit_locators');
+  assert.deepEqual(locators.findings, []);
+  assert.equal(locators.scope.checked, document.units.length);
+
+  // Re-pointing one comment at a revision this document does not hold is caught.
+  const units = document.units.map(unit => unit.unit_kind === 'comment'
+    ? { ...unit, locator: { ...unit.locator, revision_sha256: `sha256:${'e'.repeat(64)}` } } : unit);
+  const moved = validatePreparationRun({ run, grant: grantFor([latest(syn1)]),
+    preparation: { ...rest, documents: [{ ...document, units }] },
+    validationRunId: 'val-linear-2', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(moved.outcome, 'fail');
+  assert.ok(moved.checks.find(check => check.check_id === 'unit_locators')
+    .findings.every(finding => finding.code === 'locator_cites_unheld_revision'));
+});
+
+test('a granted item that never reaches coverage is reported as a missing condition', async () => {
+  const x = await syntheticLinearCustody();
+  const grant = grantFor([latest(x.issue('SYN-1')), latest(x.issue('SYN-2'))]);
+  const preparation = await prepareSourceDocuments({ grant, roots: x.roots, now: NOW,
+    runId: 'prep-linear-2', clock: () => new Date('2026-09-12T00:00:00.000Z') });
+  const { run, ...rest } = preparation;
+  // Drop one granted item from the result the way a silently skipped item looks.
+  const items = rest.coverage.items.filter(row => row.item_id !== x.issue('SYN-2'));
+  const coverage = buildSourceCoverage({ projectKey: rest.coverage.project_key,
+    grantSha256: rest.coverage.grant_sha256, results: items });
+  const thinned = { ...rest, coverage, documents: rest.documents.filter(doc => doc.item_id !== x.issue('SYN-2')) };
+  const report = validatePreparationRun({ run, preparation: thinned, grant,
+    validationRunId: 'val-linear-3', checkedAt: '2026-09-12T01:00:00.000Z' });
+  assert.equal(report.outcome, 'fail');
+  const conditions = report.checks.find(check => check.check_id === 'grant_conditions').findings;
+  assert.ok(conditions.some(finding => finding.code === 'granted_item_absent_from_coverage'));
 });

@@ -1,5 +1,61 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-12 CURRENT (Context Engine 0.10.0, preparation run record and
+> independent validation): a preparation call given a run id now emits its own
+> run record - the builder is not on the public surface and no run id means no
+> record, though the record is unsigned: it binds bytes to a claim, not a claim
+> to an act, so record authenticity waits on a store that constrains who may
+> emit one - naming its preparer id and version, the sha256 of the computed preparing
+> closure (walked from the preparation entry through this module's own relative
+> refs, not a caller root, so it reaches the 14 files that actually produce
+> prepared bytes including the gateway mail body extractor), a rules digest taken
+> from the live constants, the grant and coverage digests, a whole-document
+> digest, the document count and the observed interval. A
+> separately versioned validator recomputes those claims under the named policy
+> `preparation-integrity-v1`: record self-consistency, document identity,
+> coverage integrity, record-to-output binding, grant conditions, unit locators
+> and reproducibility in this tree, each with pass/fail/partial/not_run plus its
+> checked scope and limits. Documents are bound whole and the composite revision
+> is recomputed from primary plus components, so rewriting a title, a fact, a
+> unit time or an appended component - none of which move doc_key or
+> text_sha256 - is caught, and a malformed document is a finding rather than an
+> exception. Making a value unhashable no longer ends the report either, and not
+> by enumerating what the canonical hash refuses: three revisions tried that list
+> and each was short. Comparing two values this module holds uses a total,
+> encoding that never meets the list and separates everything a serialized reader
+> can carry, though not every JavaScript value; checking a digest source_documents
+> wrote asks only whether the value hashes to it, so a refused value answers no.
+> Locators must anchor rather than merely avoid citing something unheld: kinds
+> that anchor by revision must cite at least one revision the document holds -
+> which one is the adapter's business, since a Linear comment anchors to its own
+> row rather than the issue snapshot - and kinds that anchor by path must cite the
+> granted path. The document kind anchors by path and line range only, so the
+> revision rule does not apply to it; its units are still path-checked and the
+> inapplicable rule is stated as a limit.
+> The validator pins its own bytes too, holds no writer, reopens no source root
+> and returns refs and codes, never source text. Re-checking the same bytes adds
+> a report and leaves the run record untouched; a report separates its target
+> (validated_run_sha256, which already covers the coverage, documents and grant
+> digests) from what it observed, so an earlier PASS cannot be reused for a
+> changed target while a FAIL report still points at its own. Precedence between
+> two reports over one run is stated as a limit, not decided. Values only: no
+> store placement yet. Fractional numbers - millisecond ASR offsets and a
+> fractional duration, a provider label truncated mid-surrogate-pair, a literal
+> -0 - are hashed rather than refused, and locator strings are NFC-normalised
+> where the module already normalises unit text. Emitting the record is also
+> contained: it runs after every adapter, so a throw there used to destroy the
+> whole multi-kind preparation, and now leaves the documents standing with
+> run: null and a stated reason beside them - as does a result nobody asked a
+> record for, so one gate covers both. Each check body is contained the same way:
+> a check that meets a shape it cannot read reports check_uncomputable and the
+> other six still report, so no value ends a report. A grant path canonical JSON
+> cannot render is refused as source_grant_not_canonical rather than escaping as
+> another module's error. Synthetic
+> tests: 215, 208 pass, 0 fail, 7 skip - 4
+> external-runtime opt-ins (local model, Neo4j, graphrag worker x2) and 3 gated
+> on SOULFORGE_TEST_PDF_PYTHON. The 35 T5 tests are in validate:context-engine-t5
+> and are not in this validator. No live source read.
+
 > 2026-09-12 CURRENT (Context Engine 0.8.1, Level 2 review fixes): a degraded
 > extraction (failed, unreadable or truncated answers, lost chunks) now holds the
 > graph index instead of committing; carry-forward needs the same text and a whole
