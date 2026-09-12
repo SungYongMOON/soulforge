@@ -231,3 +231,32 @@ test('real neo4j-graphrag index: replay asks the model nothing and one change re
     process.stdout.write(`# graph index real run: ${JSON.stringify({ first: { counts: first.counts, llm: first.llm },
       replay: replay.status, changed: { counts: changed.counts, llm: changed.llm }, model: view.manifest.model })}\n`);
   });
+
+// The compatibility this versioning exists for. A store formed before a source
+// kind was declared must keep working the moment the kind is added, and the
+// generation must say which layout it was read at rather than leaving a reader
+// to guess. Removing a directory every version requires is still refused.
+test('a store formed under the older layout still indexes, and says which layout it held', async () => {
+  const store = await makeStore(), worker = cannedWorker();
+  const linear = path.join(store.storeRoot, PROJECT, '10_입력자료', 'LINEAR');
+  assert.equal(existsSync(linear), true, 'the fixture builds the current layout');
+  // Make it exactly the older layout: the kind that did not exist yet is absent.
+  await rm(linear, { recursive: true });
+  const older = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), worker);
+  assert.equal(older.status, 'COMMITTED');
+  const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
+  assert.equal(view.manifest.template_version, 'project-context-template-v0');
+
+  // The same store with the kind present is read as today's layout.
+  const current = await makeStore(), worker2 = cannedWorker();
+  await update(current, indexer({ generation_id: 'g1', expected_prior: null }), worker2);
+  const currentView = openGraphIndex({ storeRoot: current.storeRoot, bindingSha256: current.bindingSha256, request: reader });
+  assert.equal(currentView.manifest.template_version, 'project-context-template-v1');
+
+  // Not a blanket skip: an area every declared layout requires is still demanded.
+  const broken = await makeStore(), worker3 = cannedWorker();
+  await rm(path.join(broken.storeRoot, PROJECT, '20_문서검색'), { recursive: true });
+  const refused = await update(broken, indexer({ generation_id: 'g1', expected_prior: null }), worker3);
+  assert.equal(refused.status, 'HOLD');
+  assert.equal(refused.code, 'graph_index_template_invalid');
+});

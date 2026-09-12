@@ -19,7 +19,7 @@ import { dirname, isAbsolute, relative } from 'node:path';
 import { isDeepStrictEqual as equal } from 'node:util';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { sameExactRef, exactRefIdentityKey } from '../../../engineering_engine/kernel/identity.mjs';
-import { PROJECT_CONTEXT_DIRECTORY_TEMPLATE } from '../../../path_registry/src/target_materializer.mjs';
+import { resolveProjectTemplateVersion } from '../../../path_registry/src/target_materializer.mjs';
 import { rootedStore, safeStoreRel, storeToken } from './pair_store.mjs';
 import { prepareSourceDocuments } from './source_preparation.mjs';
 import { SOURCE_PREPARATION_PURPOSE, validateSourceDocument } from './source_documents.mjs';
@@ -127,11 +127,13 @@ function openIndexStore({ storeRoot, bindingSha256, request, operation }) {
     return grant;
   };
   const aclGrant = admit(aclBytes);
-  for (const dir of PROJECT_CONTEXT_DIRECTORY_TEMPLATE) {
-    let stat;
-    try { stat = lstatSync(io.path(`${projectPath}/${dir}`)); } catch { fail('graph_index_template_invalid'); }
-    if (!stat.isDirectory()) fail('graph_index_template_invalid');
-  }
+  // Which declared layout this store holds, not whether it holds today's. A
+  // store formed before a source kind existed is complete without it; a store
+  // matching no declared version is still refused.
+  const templateVersion = resolveProjectTemplateVersion((dir) => {
+    try { return lstatSync(io.path(`${projectPath}/${dir}`)).isDirectory(); } catch { return false; }
+  });
+  if (templateVersion === null) fail('graph_index_template_invalid');
   const areaOf = path => Object.values(GRAPH_INDEX_AREAS).find(area => path.startsWith(`${projectPath}/${area}/generations/`));
   function readArea(ref) {
     if (!plain(ref) || !safeStoreRel(ref.path) || !SHA.test(ref.sha256 ?? '') || !areaOf(ref.path)) fail('graph_index_ref_invalid');
@@ -209,8 +211,8 @@ function openIndexStore({ storeRoot, bindingSha256, request, operation }) {
     catch (error) { await unlink(temp).catch(() => {}); throw error; }
     return digest(Buffer.from(text, 'utf8'));
   }
-  return { io, binding, graphBinding, projectKey, projectPath, aclGrant, aclSha256: digest(aclBytes), opened, readRaw, readArea,
-    readPointer, assertUnchanged, lock, unlock, writeCreateOnly, commitPointer };
+  return { io, binding, graphBinding, projectKey, projectPath, templateVersion, aclGrant, aclSha256: digest(aclBytes),
+    opened, readRaw, readArea, readPointer, assertUnchanged, lock, unlock, writeCreateOnly, commitPointer };
 }
 
 // A complete manifest whose every file still has its recorded bytes.
@@ -375,7 +377,8 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     supersedes: prior === null ? null : { generation_id: prior.manifest.generation_id, manifest: prior.pointer.value.generation_ref,
       selection_epoch: prior.pointer.value.selection_epoch },
     grant: { grant_id: prepared.grant.grant_id, grant_sha256: prepared.grant.grant_sha256, ref: { ...store.binding.grant } },
-    profile, model: models, coverage: coverageRef, coverage_sha256: prepared.coverage.coverage_sha256, changes, documents: rows,
+    profile, model: models, template_version: store.templateVersion,
+    coverage: coverageRef, coverage_sha256: prepared.coverage.coverage_sha256, changes, documents: rows,
     counts: { documents: rows.length, extracted: rows.filter(r => r.origin === 'extracted').length,
       carried: rows.filter(r => r.origin === 'carried').length, units: rows.reduce((total, row) => total + row.units, 0),
       chunks: sum('chunks'), entities: sum('entities'), entity_relationships: sum('entity_relationships') },

@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "path_registry",
-  "module_version": "0.7.0",
+  "module_version": "0.8.0",
   "interface_version": "path_registry.v0",
   "schema_versions": ["soulforge.path_registry.v0", "soulforge.target_materializer.v0", "soulforge.workspace_greenfield_admission.v1", "soulforge.private_target_binding_control_store.v0", "soulforge.private_target_binding_set.v0", "soulforge.private_target_binding_acl_admission.v0", "soulforge.private_target_binding_lock_break.v0", "soulforge.private_target_binding_reactivation.v0", "soulforge.watch_storage_map.v0", "soulforge.source_lane_index.v0", "soulforge.source_lane_ledger.v0", "soulforge.asset_class_revision_ledger.v0"],
   "owner": "guild_hall/path_registry",

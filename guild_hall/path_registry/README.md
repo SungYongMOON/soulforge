@@ -7,6 +7,19 @@ The empty estate materializer follows that static target root and exports
 `PROJECT_CONTEXT_DIRECTORY_TEMPLATE` as a read-only mandatory relative layout
 for project implementation/acceptance tests. It does not allocate a project,
 register a binding, authorize body writes or migrate live data.
+
+The layout is versioned, because it gains source kinds and a project store keeps
+the layout it was formed under. `PROJECT_CONTEXT_DIRECTORY_TEMPLATE` is the
+current version (`PROJECT_CONTEXT_TEMPLATE_VERSION`), every declared version is
+in `PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS` newest first, and
+`resolveProjectTemplateVersion(present)` answers which one a store matches, or
+`null`. A reader records the version it matched rather than demanding the newest,
+so adding a kind does not make older stores unreadable in the same commit; a
+store matching no declared version is still refused, because that is a broken
+store and not an older one. `project-context-template-v1` added
+`10_입력자료/LINEAR` on 2026-09-12 for the references of Linear, one of the
+Tributary source kinds.
+Declaring a version changes no bytes on disk: physical apply stays behind R2.
 `20_PROJECT_ASSET_INDEX` and `45_EVENT_STORES/projects` remain legacy paths.
 Global indexes remain metadata-only; the protected per-project store is the
 separate content owner. See the Plan 17 project-store section and the existing

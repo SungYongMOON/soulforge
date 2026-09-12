@@ -592,7 +592,18 @@ body/context payloads into them.
 The following mandatory per-project template is owned here. `<project-ref>` is
 the owner's approved filesystem-safe project key resolved from the exact
 logical project reference, never a title or an unvalidated URI/path. It is a physical
-template, not a new graph, metadata or workflow schema. Dynamic source/revision,
+template, not a new graph, metadata or workflow schema.
+
+The layout is versioned, because it gains source kinds over time and a project
+store keeps the layout it was formed under. The tree below is
+`project-context-template-v1`; `project-context-template-v0` is the same tree
+without `10_입력자료/LINEAR`, which was added on 2026-09-12 so that Linear, one
+of the Tributary source kinds, has a place for its references. A reader admits a store matching
+any declared version and records which one it matched, so adding a kind does not
+make stores built before it unreadable. A store matching no declared version is
+refused - that is a broken store, not an older one. Adding a version is a
+declaration change; nothing here authorizes creating or altering a physical
+project folder, which stays behind R2 apply. Dynamic source/revision,
 batch, index-generation and request children are owned by their existing module
 contracts. The empty estate materializer creates the static `20_PROJECTS` root
 only; a project-bound implementation must validate the template below before
@@ -603,6 +614,7 @@ forming an authorized project store. It cannot use an arbitrary project label.
 ├─ 00_프로젝트_안내/
 ├─ 10_입력자료/
 │  ├─ MAIL/
+│  ├─ LINEAR/
 │  ├─ SLACK/
 │  ├─ BUZZ/
 │  ├─ VOICE/
@@ -628,7 +640,7 @@ forming an authorized project store. It cannot use an arbitrary project label.
 | Area | Allowed content and responsibility |
 | --- | --- |
 | 00_프로젝트_안내 | Project identity and approved bindings, catalogs, current generation and processing coverage; no invented project or second official Task state. |
-| 10_입력자료 | Exact source/revision/locator references by source kind. A policy-authorized project-only input snapshot may be materialized with copy lineage; collection alone does not authorize it. Mixed voice uses exact relevant spans, not a forced whole-recording project assignment. |
+| 10_입력자료 | Exact source/revision/locator references by source kind. A policy-authorized project-only input snapshot may be materialized with copy lineage; collection alone does not authorize it. Mixed voice uses exact relevant spans, not a forced whole-recording project assignment. Collected originals stay with their collection owner and are never moved, copied or deleted into this area. |
 | 20_문서검색 | Project-owned extracted text/tables, rebuildable lexical/vector/graph retrieval assets, source-location maps, extraction warnings and quality records. Accepted source artifacts remain in their original owner. |
 | 30_프로젝트맥락 | Project semantic events and reviewed relations, decisions/commitments/constraints, branch/project summaries and their correction/revision lineage. Existing raw event owners are referenced, never silently duplicated. |
 | 40_기억관리 | Typed recall projections, policy revisions and retrieval/utilization evaluation. Recall memory references the decision/context record; it is not a second decision authority. |

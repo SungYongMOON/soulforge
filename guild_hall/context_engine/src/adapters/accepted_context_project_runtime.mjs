@@ -8,7 +8,8 @@ import { tmpdir } from 'node:os';
 import { isDeepStrictEqual } from 'node:util';
 import { sameExactRef, exactRefIdentityKey } from '../../../engineering_engine/kernel/identity.mjs';
 import { retrieveAdmittedDocuments } from '../../algorithms/retrieval/bm25_v1.mjs';
-import { PROJECT_CONTEXT_DIRECTORY_TEMPLATE } from '../../../path_registry/src/target_materializer.mjs';
+import { PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS,
+  resolveProjectTemplateVersion } from '../../../path_registry/src/target_materializer.mjs';
 import { createAcceptedContextPack, CONTEXT_PACK_POLICY, finalizeContextPackObservation } from '../runtime/accepted_context_pack.mjs';
 
 const hash = b => 'sha256:' + createHash('sha256').update(b).digest('hex');
@@ -79,7 +80,16 @@ export function createProjectAcceptedContextRuntime({ root, bindingSha256, gener
     if(commonPath!==null && (!safeRel(commonPath) || commonPath===projectNamespace
       || commonPath.startsWith(projectNamespace+'/') || projectNamespace.startsWith(commonPath+'/')))return null;
     const info = projectPath + '/00_프로젝트_안내';
-    if(!generationView)for (const dir of PROJECT_CONTEXT_DIRECTORY_TEMPLATE) path(projectPath+'/'+dir,true);
+    // Registers the layout this store actually holds. Registering today's layout
+    // against a store formed under an earlier one would refuse a directory that
+    // store was never supposed to have.
+    if(!generationView){
+      const version=resolveProjectTemplateVersion(dir=>{
+        try{ path(projectPath+'/'+dir,true); return true; }catch{ return false; }
+      });
+      if(version===null)return null;
+      for (const dir of PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS[version]) path(projectPath+'/'+dir,true);
+    }
     const assets = new Map(); const paths = new Set();
     for (const asset of bound.assets) {
       if (!asset || typeof asset.id !== 'string' || assets.has(asset.id) || (!safeRel(asset.path) && !(generationView && isAbsolute(asset.path)))

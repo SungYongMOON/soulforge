@@ -41,10 +41,23 @@ const SOURCE_LANE_DIRS = Object.freeze([
 
 
 // Plan 17 mandatory relative per-project layout. This export grants no write authority.
+//
+// The layout gains source kinds over time, and a project store keeps the layout
+// it was formed under. A reader that demanded today's layout would make every
+// store built before the newest kind unreadable at the moment the kind is added,
+// so `resolveProjectTemplateVersion` accepts a store matching any declared
+// version and says which one. That is not a relaxation: a store that matches no
+// declared version - missing a directory every version requires - still fails.
+export const PROJECT_CONTEXT_TEMPLATE_VERSION = 'project-context-template-v1';
+// What each earlier version did not yet have. A store formed under that version
+// is complete without these and must not be read as broken for lacking them.
+const TEMPLATE_ADDED_SINCE = Object.freeze({ 'project-context-template-v0': Object.freeze(['10_입력자료/LINEAR']) });
+
 export const PROJECT_CONTEXT_DIRECTORY_TEMPLATE = Object.freeze([
   "00_프로젝트_안내",
   "10_입력자료",
   "10_입력자료/MAIL",
+  "10_입력자료/LINEAR",
   "10_입력자료/SLACK",
   "10_입력자료/BUZZ",
   "10_입력자료/VOICE",
@@ -66,6 +79,26 @@ export const PROJECT_CONTEXT_DIRECTORY_TEMPLATE = Object.freeze([
   "60_업무경험",
   "60_업무경험/결과·검토·실패·재작업의_연결"
 ]);
+
+// Newest first, so a store holding today's layout resolves as today's version
+// rather than as the older one it also happens to satisfy.
+export const PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS = Object.freeze(
+  Object.fromEntries([[PROJECT_CONTEXT_TEMPLATE_VERSION, PROJECT_CONTEXT_DIRECTORY_TEMPLATE],
+    ...Object.entries(TEMPLATE_ADDED_SINCE).map(([version, added]) =>
+      [version, Object.freeze(PROJECT_CONTEXT_DIRECTORY_TEMPLATE.filter(dir => !added.includes(dir)))])]));
+
+/**
+ * Which declared layout does this store match? `present(dir)` answers whether one
+ * relative directory is there; it stays a callback because each caller resolves
+ * store paths its own guarded way. Returns the version id, or null when the store
+ * matches none - which is a broken store, not an older one.
+ */
+export function resolveProjectTemplateVersion(present) {
+  for (const [version, dirs] of Object.entries(PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS)) {
+    if (dirs.every((dir) => present(dir) === true)) return version;
+  }
+  return null;
+}
 
 const STATIC_TREE = Object.freeze([
   "00_CATALOG",

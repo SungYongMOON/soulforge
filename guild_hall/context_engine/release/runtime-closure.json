@@ -53,7 +53,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/accepted_context_project_runtime.mjs",
-      "sha256": "797c39561bb45234210c9adabbd16b7e96abfdcf71d8f9e6fc4522ddc66e66a6"
+      "sha256": "3abbecb3675d9238c7e28ee306e01ed446faf9675178f362fbf1ad90571eaa63"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/accepted_context_synthetic_runtime.mjs",
@@ -129,7 +129,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "ec4f3ee9e84637b20bce81f7176272e584bad225a16a52ed4e5591c4dcb2f598"
+      "sha256": "849dde3d8b805c8035a48d36675ac0358cbd6867ecbd738a37849fc81cca9869"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
@@ -229,7 +229,7 @@
     },
     {
       "path": "guild_hall/path_registry/module.manifest.json",
-      "sha256": "d456835ee766a20b25df61ca1533964c2ada3e24adb75898edf10be443f3c225"
+      "sha256": "00b8d56f368cac4c1ece38ed3876cb5840de157c0ed37f22ec15c7763bbcd751"
     },
     {
       "path": "guild_hall/path_registry/src/path_registry_core.mjs",
@@ -237,7 +237,7 @@
     },
     {
       "path": "guild_hall/path_registry/src/target_materializer.mjs",
-      "sha256": "5b16dfe1f39e6467e0cd42fd6332aa63b1363740612b21d60c8b1e664022058b"
+      "sha256": "bb63f27dc2fd48bbd9cd0a1c83c261106d2f3ebf9e71c4d23c3692a02d60e021"
     },
     {
       "path": "guild_hall/rag/knowledge_access_capture.mjs",
@@ -284,7 +284,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "91ac7c4df0dcaaa7bf9d698c65a2c74ced0d48ae796206c65ce33e23113ed411",
+  "closure_sha256": "5db44b1591b0c4e79fae0bafe1263e75edfd6d0458a697b59b04d5deeaeaf453",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -306,7 +306,7 @@
     },
     {
       "module_id": "path_registry",
-      "module_version": "0.7.0",
+      "module_version": "0.8.0",
       "interface_version": "path_registry.v0",
       "manifest_ref": "guild_hall/path_registry/module.manifest.json"
     },

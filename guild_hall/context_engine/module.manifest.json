@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "context_engine",
-  "module_version": "0.10.0",
+  "module_version": "0.11.0",
   "interface_version": "context_engine.v0",
   "schema_versions": ["soulforge.dev_erp_accepted_context_query_result.v1"],
   "owner": "guild_hall/context_engine",
@@ -14,7 +14,7 @@
     "engineering_engine": "0.1.0",
     "gateway": "0.1.0",
     "knowledge_access": "0.1.0",
-    "path_registry": "0.7.0",
+    "path_registry": "0.8.0",
     "rag": "0.1.0",
     "shared": "0.1.0"
   },

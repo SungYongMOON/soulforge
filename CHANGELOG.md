@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-09-12 - 과제 저장소 레이아웃에 LINEAR를 더하고 판본으로 읽는다
+
+- `10_입력자료`에 `LINEAR/`가 생겼다. 어댑터 4종(document·linear·mail·voice) 중 Linear만 자료를 둘 자리가 없었다.
+  Plan 17의 `10_입력자료` 계약은 "source kind별 원본·판본·locator 참조"이고 Linear가 정확히 그 자리다. 이 자리에는
+  참조·판본·locator만 두며, 수집 원본은 수집 owner에 그대로 남고 이동·복사·삭제하지 않는다. 준비 결과·검증 보고서는
+  기존 `20_문서검색` 배치를 그대로 쓴다.
+- **그냥 추가하면 기존 과제가 그 자리에서 읽기 불가가 된다.** 템플릿은 두 곳에서 존재를 요구하는 검사에 쓰인다
+  (`graph_index_generation.mjs`의 fail-closed lstat, `accepted_context_project_runtime.mjs`의 필수 경로 등록).
+  그래서 레이아웃을 판본으로 만들었다 — 현재가 `project-context-template-v1`, LINEAR 없는 것이
+  `project-context-template-v0`다. 저장소는 선언된 어느 판본과 맞으면 읽히고, 검사는 **무엇과 맞았는지 말한다**.
+  옛 과제는 v0으로 계속 읽히고, 새 과제는 v1로 읽히며, 모든 판본이 요구하는 영역이 빠진 저장소는 그대로 거부된다.
+  검사를 건너뛰는 게 아니라 어느 판본인지 확정하는 방식이다.
+- 그래프 색인 세대 manifest가 `template_version`을 싣는다. 세대가 어느 레이아웃에서 읽혔는지 나중에 확인할 수 있다.
+- 선언과 상수는 이미 시험으로 묶여 있다 — `target_materializer.test.mjs`가 Plan 17 문서의 트리를 파싱해 상수와
+  대조하므로 둘이 드리프트할 수 없다. 판본 해석·옛 저장소 호환·거부를 고정하는 시험을 양쪽에 더했다.
+- 선언 변경일 뿐이다. 실제 과제 폴더를 만들거나 바꾸지 않는다 — 물리 적용은 Plan 17의 R2 뒤에 남아 있다.
+- 관련 경로: `guild_hall/path_registry/src/target_materializer.mjs`, `guild_hall/path_registry/README.md`,
+  `guild_hall/path_registry/tests/target_materializer.test.mjs`, `guild_hall/path_registry/module.manifest.json`,
+  `guild_hall/context_engine/src/runtime/graph_index_generation.mjs`,
+  `guild_hall/context_engine/src/adapters/accepted_context_project_runtime.mjs`,
+  `guild_hall/context_engine/tests/graph_index_generation.test.mjs`,
+  `guild_hall/context_engine/module.manifest.json`, `release/`,
+  `docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md`.
+
 ## 2026-09-12 - 맥락 APP 준비 실행 기록과 독립 검증
 
 - 준비 결과가 "누가·어떤 코드로·어떤 규칙에서·어떤 grant로 만들었는지"를 스스로 말하게 했다. 지금까지 준비
