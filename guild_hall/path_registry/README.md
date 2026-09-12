@@ -8,6 +8,21 @@ The empty estate materializer follows that static target root and exports
 for project implementation/acceptance tests. It does not allocate a project,
 register a binding, authorize body writes or migrate live data.
 
+## 2026-09-12 root table — one absolute path in, aliases after
+
+`data_root` and its siblings in `PHYSICAL_ROOT_CLASSES` are root classes, not
+directory names: no declared layout contains a folder called `data_root`, and an
+address like `data_root/20_PROJECTS/<project-ref>` names the class it lives under.
+`src/root_table.mjs` reads the alias-to-physical-root table that turns such an
+address into a place on this host. Because the table locates the estate it cannot
+live inside it: `readRootTable({ tablePath, expectedSha256 })` takes the one
+absolute path a process accepts and pins it, and every address after that is an
+alias. Each root is admitted as exactly the directory it names, reached without a
+link, and two aliases may neither share a root nor nest, so an address has one
+meaning or none. The table's values are host-local private facts and are never
+written into code, documents, manifests or receipts, which carry the alias and
+the table digest instead.
+
 The layout is versioned, because it gains source kinds and a project store keeps
 the layout it was formed under. `PROJECT_CONTEXT_DIRECTORY_TEMPLATE` is the
 current version (`PROJECT_CONTEXT_TEMPLATE_VERSION`), every declared version is

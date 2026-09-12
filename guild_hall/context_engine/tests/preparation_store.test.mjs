@@ -18,6 +18,8 @@ import { INDEX_NOW, INDEX_PROJECT as PROJECT, cannedGraphWorker as cannedWorker,
 import { updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { LINEAR_ROOT_REF, syntheticLinearCustody } from '../harness/fixtures/linear_custody_fixture.mjs';
+import { ROOT_TABLE_SCHEMA, readRootTable } from '../../path_registry/src/root_table.mjs';
+import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA, SOURCE_KINDS } from '../src/runtime/source_documents.mjs';
 import { PROJECT_CONTEXT_DIRECTORY_TEMPLATE } from '../../path_registry/src/target_materializer.mjs';
@@ -55,6 +57,17 @@ async function preparedStore({ writeOperations = ['index', 'prepare'], subject =
         revision_policy: 'latest_in_custody', revision_sha256: null, data_class: 'public_synthetic', path: ['memo-a.md'] }] }] };
   const roots = { 'mail.synthetic': mailRoot, 'doc.synthetic': store.sourceRoot };
   return { store, grant, roots };
+}
+
+// Copies a directory tree; the estate case needs the same store contents under a
+// bare root rather than under a store root.
+async function cpDir(from, to) {
+  const { cp } = await import('node:fs/promises');
+  await cp(from, to, { recursive: true });
+}
+async function cpFile(from, to) {
+  const { copyFile } = await import('node:fs/promises');
+  await copyFile(from, to);
 }
 
 async function mkdtempRoot(prefix) {
@@ -377,4 +390,54 @@ test('an empty but honest preparation still reports that it was written', async 
   assert.equal(receipt.documents, 0);
   assert.equal((await readBack(store, 'prep-empty')).documents.length, 0);
   assert.equal((await land(store, preparation)).status, 'REPLAYED');
+});
+
+// The estate shape a real host has: 20_PROJECTS directly under the root, no
+// directory named data_root, addresses resolved through the root table. The same
+// preparation must land and read back unchanged, because the address is the same
+// and only the root moved.
+test('a preparation lands through an alias io on an estate with no data_root folder', async () => {
+  const { store, grant, roots } = await preparedStore();
+  const preparation = await prepare(grant, roots);
+  const landed = await land(store, preparation);
+
+  // Rebuild the same store contents under a bare estate root, then address it by
+  // alias instead of by one absolute store root.
+  const dataRoot = await mkdtempRoot('ctx-estate-data-');
+  await cpDir(path.join(store.storeRoot, 'data_root'), dataRoot);
+  // The per-project binding carries absolute source roots, so on a real estate it
+  // lives under control_root rather than in the data plane beside the project.
+  const controlRoot = await mkdtempRoot('ctx-estate-control-');
+  const bindingDir = path.join(controlRoot, 'project-bindings', 'P26-000');
+  await mkdir(bindingDir, { recursive: true });
+  await cpFile(path.join(store.storeRoot, 'graph_index_binding.json'), path.join(bindingDir, 'graph_index_binding.json'));
+  const bindingAddress = 'control_root/project-bindings/P26-000/graph_index_binding.json';
+  const tableDir = await mkdtempRoot('ctx-estate-table-');
+  const tablePath = path.join(tableDir, 'estate_roots.json');
+  const bytes = Buffer.from(`${JSON.stringify({ schema_version: ROOT_TABLE_SCHEMA,
+    roots: { data_root: dataRoot, control_root: controlRoot } })}\n`);
+  await writeFile(tablePath, bytes);
+  const io = createAliasedStoreIo(readRootTable({ tablePath, expectedSha256: sha(bytes) }));
+  assert.equal(existsSync(path.join(dataRoot, 'data_root')), false, 'the estate has no such folder');
+  assert.ok(existsSync(path.join(dataRoot, '20_PROJECTS')), 'the project tree is directly under the root');
+
+  const back = await readPreparationGeneration({ io, bindingSha256: store.bindingSha256, bindingAddress,
+    request: writer(), generationId: 'prep-0001' });
+  // Byte-identical: the manifest the other io wrote reads the same here, and the
+  // addresses inside it did not have to change.
+  assert.equal(back.manifest.generation_sha256, landed.generation_sha256);
+  assert.equal(back.documents.length, 2);
+  assert.ok(back.manifest.documents.every(row => row.path.startsWith('data_root/20_PROJECTS/')));
+
+  // And a report still appends through the alias io, beside the same generation.
+  const { run, ...rest } = preparation;
+  const report = validatePreparationRun({ run, preparation: rest, grant,
+    validationRunId: 'val-alias', checkedAt: '2026-09-12T01:00:00.000Z' });
+  const appended = await appendValidationReport({ io, bindingSha256: store.bindingSha256, bindingAddress,
+    request: writer(), report });
+  assert.equal(appended.status, 'APPENDED');
+  assert.equal(appended.generation_sha256, landed.generation_sha256);
+  // The receipt says which table answered, never where the root is.
+  assert.equal(io.table_sha256, sha(bytes));
+  assert.equal(JSON.stringify(back.manifest).includes(dataRoot), false, 'no host path is stored');
 });

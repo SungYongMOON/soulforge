@@ -173,6 +173,24 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
   기술하는지를 말할 뿐, granted 항목이 다 준비됐는지를 말하지 않는다(빠진 것은 coverage의 `missing`과 `changes`의
   `unavailable`에 있고 둘 다 결속돼 있다).
 
+## 실제 자산 주소 (0.13.0)
+
+`data_root/20_PROJECTS/<과제>/...`의 첫 조각은 폴더 이름이 아니라 Path Registry의 **root class 별칭**이다. 선언된 어떤
+배치에도 `data_root`라는 폴더는 없다. 이 주소가 manifest와 참조에 저장되는 **이식 가능한 주소**이고(`safeStoreRel`이
+절대경로를 거부한다), 별칭을 이 host의 자리로 바꾸는 것은 root 표다.
+
+- `createAliasedStoreIo(rootTable)`는 `rootedStore`와 **같은 `{ path, read }` 계약**을 주되 첫 조각을 별칭으로 푼다.
+  세그먼트마다 링크를 거부하는 가드도 그대로다. 그래서 두 io 중 무엇으로 써도 manifest 바이트가 같고 저장된 참조의
+  뜻이 변하지 않는다. 합성 저장소는 절대 root 하나 아래 같은 상대 트리를 갖는 것이고, 그게 `rootedStore`다.
+- 표는 자산의 위치를 알려주므로 **자산 안에 있을 수 없다.** 프로세스에 들어가는 절대경로는 표 파일 경로 하나뿐이고
+  그 뒤 모든 주소는 별칭이다. 표의 값(실제 root)은 코드·문서·manifest·영수증에 넣지 않는다 — 영수증에는 별칭과
+  표 digest만 남는다.
+- 과제 binding 주소도 같은 언어로 말한다(`bindingAddress`). 합성 저장소는 과제 트리 옆에 두는 것이 기본이고,
+  실제 자산에서는 절대 source root를 담은 과제별 binding이 `control_root` 아래에 있다 — 그 절대경로는 사적 사실이라
+  과제 트리가 사는 자료 평면에 두지 않는다.
+- 정션·symlink로 `data_root` 폴더를 흉내 내는 방법은 쓰지 않는다. root가 링크면 표가 거부하고, 그 아래 어느 조각이
+  링크여도 io가 거부한다.
+
 ## 준비 결과와 검증 보고서의 과제 저장소 배치 (0.12.0)
 
 `writePreparationGeneration`이 한 번의 준비를 과제 저장소에 앉히고, `appendValidationReport`가 그 세대 옆에

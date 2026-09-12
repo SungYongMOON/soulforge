@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-09-12 - 주소의 첫 조각은 폴더가 아니라 root class 별칭이다
+
+- 맥락 APP의 과제 저장소 주소 `data_root/20_PROJECTS/<과제>/...`에서 `data_root`는 **Path Registry의 root class
+  별칭**이지 폴더 이름이 아니다. 선언된 어떤 배치에도 그런 폴더는 없다. 지금까지 합성 시험이 임시 root 안에 진짜
+  `data_root` 폴더를 만들어 돌았기 때문에 드러나지 않았고, 이 APP은 실제 자산에 붙어 본 적이 없다.
+- 접두사는 빼지 않았다. 그 주소가 manifest·참조에 저장되는 **이식 가능한 주소**이고(`safeStoreRel`이 절대경로를 거부)
+  `data_root/20_PROJECTS`는 namespace 경계이기도 하다. 대신 별칭을 이 host의 자리로 바꾸는 층을 냈다.
+- `path_registry/src/root_table.mjs` — 별칭→물리 root 표를 읽고 승인한다. 표가 자산의 위치를 알려주므로 자산 안에
+  있을 수 없다: 절대경로는 표 파일 경로 하나만 들어오고 digest로 고정하며, 그 뒤 모든 주소는 별칭이다. 별칭 어휘는
+  등록부의 `PHYSICAL_ROOT_CLASSES`를 그대로 쓴다(두 번째 목록을 만들지 않는다). 각 root는 링크 없이 닿는 바로 그
+  디렉터리여야 하고, 두 별칭이 같은 root를 가리키거나 한쪽이 다른 쪽 안에 있으면 거부한다 — 주소는 뜻이 하나이거나
+  없어야 한다.
+- `context_engine/src/adapters/aliased_store_io.mjs` — `rootedStore`와 같은 `{ path, read }` 계약을 주되 첫 조각을
+  별칭으로 푼다. 세그먼트마다 링크를 거부하는 가드는 그대로다. 같은 준비 결과가 `data_root` 폴더가 없는 자산에서
+  별칭으로 읽히고 manifest digest가 바이트 단위로 같은 것을 시험으로 고정했다.
+- 과제 binding 주소도 인자가 됐다(`bindingAddress`). 합성 저장소는 과제 트리 옆이 기본이고, 실제 자산에서는 절대
+  source root를 담은 과제별 binding이 `control_root` 아래에 있다 — 그 절대경로는 사적 사실이라 자료 평면에 두지 않는다.
+- 정션·symlink로 `data_root` 폴더를 흉내 내는 우회는 쓰지 않는다. root가 링크면 표가, 그 아래가 링크면 io가 거부한다.
+- 표의 실제 값은 코드·문서·manifest·영수증 어디에도 없다. 영수증에는 별칭과 표 digest만 남는다.
+- 아직 남은 것: 이 host의 표 파일과 과제별 binding은 Owner가 배치한다. 실자료는 여전히
+  `real_source_preparation_not_admitted`로 거부된다.
+- 관련 경로: `guild_hall/path_registry/src/root_table.mjs`(신규), `tests/root_table.test.mjs`(신규),
+  `guild_hall/context_engine/src/adapters/aliased_store_io.mjs`(신규), `tests/aliased_store_io.test.mjs`(신규),
+  `src/runtime/preparation_store.mjs`, `src/app.mjs`, 양쪽 `module.manifest.json`, `release/`, `package.json`,
+  `guild_hall/path_registry/README.md`, `guild_hall/context_engine/README.md`.
+
 ## 2026-09-12 - 준비 결과와 검증 보고서가 과제 폴더에 쌓인다
 
 - 지금까지 준비 결과와 검증 보고서는 값으로만 있었고 어디에도 쌓이지 않았다. 이제 과제 저장소에 앉는다.

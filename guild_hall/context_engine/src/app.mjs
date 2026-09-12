@@ -44,6 +44,9 @@ export { codeInventoryConsistent, documentsDigest, inspectPreparerCode, preparat
   PREPARATION_RUN_SCHEMA, PREPARER_ID, PREPARER_VERSION } from './runtime/preparation_run.mjs';
 export { validatePreparationRun, reportCovers, CHECK_IDS, CHECK_OUTCOMES, CHECK_POLICY_ID,
   VALIDATION_REPORT_SCHEMA, VALIDATOR_ID, VALIDATOR_VERSION } from './runtime/preparation_validation.mjs';
+// How an operating caller gets an io: one absolute path (the root table) enters,
+// and every address after it is an alias.
+export { createAliasedStoreIo } from './adapters/aliased_store_io.mjs';
 export { writePreparationGeneration, appendValidationReport, readPreparationGeneration,
   PREPARATION_GENERATION_SCHEMA, PREPARATION_STORE_AREAS, PREPARATION_WRITE_OPERATION,
   SOURCE_KIND_DIRECTORIES, SOURCE_REFERENCE_SCHEMA } from './runtime/preparation_store.mjs';

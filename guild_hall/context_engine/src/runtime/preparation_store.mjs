@@ -71,11 +71,22 @@ const fail = code => { throw new PreparationStoreError(code); };
  * pointer and lock lifecycle this has no business touching. A test asserts both
  * admit and refuse the same actors; keep them in step.
  */
-function openPreparationStore({ storeRoot, bindingSha256, request, operation }) {
-  let io;
-  try { io = rootedStore(storeRoot); } catch { fail('preparation_store_invalid'); }
+// `io` is how a real estate gets in: an aliased io resolves `data_root/…` through
+// the root table, while `storeRoot` keeps meaning one absolute root holding the
+// same relative tree, which is what a synthetic store is. Addresses are identical
+// either way, so nothing stored changes with the host.
+// `bindingAddress` is where the binding is, said in the same address language as
+// everything else. A synthetic store keeps it beside the project tree, which is
+// the default; a real estate keeps the per-project binding under `control_root`,
+// because it carries absolute source roots and those are a private fact that does
+// not belong in the data plane the project tree lives in.
+function openPreparationStore({ storeRoot, io: suppliedIo = null, bindingSha256, request, operation,
+  bindingAddress = PREPARATION_STORE_BINDING_FILE } = {}) {
+  let io = suppliedIo;
+  if (io === null) { try { io = rootedStore(storeRoot); } catch { fail('preparation_store_invalid'); } }
   const read = (name, max = 64 * 1024 * 1024) => { try { return io.read(name, max); } catch { fail('preparation_store_file_unavailable'); } };
-  const bindingBytes = read(PREPARATION_STORE_BINDING_FILE);
+  if (!safeStoreRel(bindingAddress)) fail('preparation_store_binding_address_invalid');
+  const bindingBytes = read(bindingAddress);
   if (digest(bindingBytes) !== bindingSha256) fail('preparation_store_binding_mismatch');
   const binding = JSON.parse(bindingBytes);
   if (!plain(binding) || binding.mode !== PREPARATION_STORE_BINDING_MODE
@@ -160,8 +171,8 @@ function referenceFor(document, projectKey) {
  * as an inactive generation named by the preparation run id. Replaying the same
  * preparation writes the same bytes and reports that it wrote nothing new.
  */
-export async function writePreparationGeneration({ storeRoot, bindingSha256, request, preparation } = {}) {
-  const store = openPreparationStore({ storeRoot, bindingSha256, request, operation: PREPARATION_WRITE_OPERATION });
+export async function writePreparationGeneration({ storeRoot, io = null, bindingSha256, bindingAddress, request, preparation } = {}) {
+  const store = openPreparationStore({ storeRoot, io, bindingSha256, bindingAddress, request, operation: PREPARATION_WRITE_OPERATION });
   const run = preparation?.run ?? null;
   // Only a record the preparer emitted is landed. A result without one says why,
   // and that reason travels instead of being flattened into a generic refusal.
@@ -229,13 +240,13 @@ export async function writePreparationGeneration({ storeRoot, bindingSha256, req
  * outside the generation, so an old PASS and a new FAIL both stay and neither
  * moves the generation's digest.
  */
-export async function appendValidationReport({ storeRoot, bindingSha256, request, report } = {}) {
-  const store = openPreparationStore({ storeRoot, bindingSha256, request, operation: PREPARATION_WRITE_OPERATION });
+export async function appendValidationReport({ storeRoot, io = null, bindingSha256, bindingAddress, request, report } = {}) {
+  const store = openPreparationStore({ storeRoot, io, bindingSha256, bindingAddress, request, operation: PREPARATION_WRITE_OPERATION });
   if (!plain(report) || report.schema_version !== VALIDATION_REPORT_SCHEMA
     || !storeToken(report.validation_run_id) || !SHA.test(report.validated_run_sha256 ?? '')) {
     fail('preparation_store_report_invalid');
   }
-  const generation = await readPreparationGeneration({ storeRoot, bindingSha256, request,
+  const generation = await readPreparationGeneration({ storeRoot, io, bindingSha256, bindingAddress, request,
     generationId: findGenerationFor(store, report) });
   // The report has to be about a generation this store actually holds, and
   // reportCovers recomputes that record's digest rather than trusting its field.
@@ -274,8 +285,8 @@ function listGenerationIds(store) {
 }
 
 /** Reads one generation back and re-verifies every file against its manifest. */
-export async function readPreparationGeneration({ storeRoot, bindingSha256, request, generationId } = {}) {
-  const store = openPreparationStore({ storeRoot, bindingSha256, request, operation: 'read' });
+export async function readPreparationGeneration({ storeRoot, io = null, bindingSha256, bindingAddress, request, generationId } = {}) {
+  const store = openPreparationStore({ storeRoot, io, bindingSha256, bindingAddress, request, operation: 'read' });
   if (!storeToken(generationId)) fail('preparation_store_generation_invalid');
   const base = `${store.projectPath}/${PREPARATION_STORE_AREAS.documents}/generations/${generationId}`;
   const manifestBytes = store.read(`${base}/manifest.json`);
