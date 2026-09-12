@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-12 - 준비에서 보고서까지 한 바퀴 도는 작은 합성 실행기, 키 인코딩 경계, SKIP 사유
+
+- `guild_hall/context_engine/harness/preparation_flow.mjs`(신규): 기존 export만으로 준비 → 비활성 안착 → 되읽기 → 저장된 run을 정확한
+  grant로 검증 → 세대 밖 보고서 추가. `--synthetic`은 임시 별칭 estate에서 한 바퀴 돌고 지운다. 이름 있는 estate는 표 경로 하나만 절대경로.
+  현재 pointer·그래프 색인·Neo4j·실자료는 범위 밖. 시험 `tests/preparation_flow.test.mjs`(4건).
+- canonical hash: 객체 키에도 값과 같은 규칙(홀로 선 surrogate 키는 JSON 텍스트를 S 태그로). 정상 키 digest 불변. 회귀시험 REV-C3.
+- 7 SKIP을 시험별 사유로 나눠 README에 적었다(PDF 해석기 3, GraphRAG opt-in 3, 로컬 모델 opt-in 1). 앞선 "전부 PDF" 설명 정정.
+- PV-2 표기: 일관성 검증 구현 / 원문 대조 미구현. 원문 대조 요구는 삭제하지 않는다.
+- 검증: validate:context-engine 252 / 245 pass / 0 fail / 7 skip, path-registry 42/42, path-policy 0. 모듈 0.14.0, closure 재생성.
 ## 2026-09-12 - 저장 입구와 읽기 출구가 자기 검사를 실제로 한다 (외부 검토 REV-A/B/C)
 
 - 외부 검토(1e594af2)의 회귀시험 8건을 저장소 시험으로 들여왔다(`guild_hall/context_engine/tests/preparation_store_review.test.mjs`).

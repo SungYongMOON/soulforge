@@ -180,12 +180,16 @@ function encodeObject(value, recur) {
   const shape = prototype === Object.prototype || prototype === null ? 'o'
     : `c${hex(prototype?.constructor?.name ?? 'unknown')}:`;
   const keys = Object.keys(value).sort();
+  // A key is a string too: a lone-surrogate key takes the same escaped form and
+  // tag as a lone-surrogate value, so two such keys never share an encoding and a
+  // well-formed key keeps the hex it always had (hex never starts with 'S').
+  const encodeKey = key => key.isWellFormed() ? hex(key) : `S${hex(JSON.stringify(key))}`;
   const body = keys.map(key => {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     // An accessor is named, never called: calling it would let the value under
     // inspection run code and decide its own digest.
     return descriptor && !('value' in descriptor)
-      ? `${hex(key)};A;` : `${hex(key)};${recur(value[key])}`;
+      ? `${encodeKey(key)};A;` : `${encodeKey(key)};${recur(value[key])}`;
   }).join('');
   return `${shape}${keys.length};${body}`;
 }

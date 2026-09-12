@@ -119,6 +119,14 @@ test('REV-C1: distinct JSON-representable strings have distinct total digests', 
   assert.equal(totalDigest('plain'), totalDigest('plain'));
 });
 
+test('REV-C3: distinct lone-surrogate object keys have distinct total digests', () => {
+  const a = JSON.parse('"\\ud800"'), b = JSON.parse('"\\ud801"');
+  assert.notEqual(totalDigest({ [a]: 1 }), totalDigest({ [b]: 1 }));
+  // A well-formed key keeps its digest and cannot collide with an escaped one.
+  assert.notEqual(totalDigest({ ['"\\ud800"']: 1 }), totalDigest({ [a]: 1 }));
+  assert.equal(totalDigest({ plain: 1, other: [2] }), totalDigest({ other: [2], plain: 1 }));
+});
+
 test('REV-C2: preparation -> JSON store -> readback preserves its recorded document digest', async t => {
   const s = await setup(t);
   const voiceRoot = await mkdtemp(path.join(os.tmpdir(), 'ctx-review-voice-'));

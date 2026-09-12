@@ -208,6 +208,27 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
 - 시험: `tests/preparation_store_review.test.mjs`(REV-A1~A3, B1~B2, C1~C2, D). 검토자가 보낸 probe를 그대로 들여왔고,
   수정 전 1e594af2에서는 8건 중 7건이 실패(REV-D만 통과)했다.
 - 여전히 아님: 서명. manifest·run·report digest는 자기 일관성 검사이지 생산자 인증이 아니다.
+## 작은 합성 실행기 — 준비에서 보고서까지 한 바퀴 (0.14.0)
+
+`harness/preparation_flow.mjs`는 기존 export만 써서 다섯 걸음을 순서대로 한다: 준비 → 비활성 세대로 안착 → 저장된 것을
+되읽기 → **저장된** run을 정확한 grant로 검증 → 세대 밖에 보고서 추가. 메모리 안에서는 맞았다가 저장 뒤 달라지는 문제를 잡기
+위해 판정 대상은 언제나 되읽은 것이다. 현재 pointer·그래프 색인·Neo4j·실자료는 하지 않는다(준비기 게이트 유지).
+
+- `node guild_hall/context_engine/harness/preparation_flow.mjs --synthetic`: 임시 estate(fixture 과제 트리를 `data`에, binding을
+  `control/project-bindings/synthetic/`에, 별칭 표를 옆에)를 만들어 별칭 io로 한 바퀴 돌고 영수증 한 줄을 찍은 뒤 지운다.
+- 이름 있는 estate: `--root-table <절대경로> --root-table-sha256 --binding-address --binding-sha256 --request-json`. 절대경로는 표 하나뿐이고
+  나머지는 별칭 주소다. 실제 estate 실행은 그 과제의 binding·actor·grant가 승인된 뒤의 일이며 이 문서가 그것을 대신하지 않는다.
+- 영수증(`soulforge.context_preparation_flow_receipt.v1`)은 refs·digest·상태만 담는다. host 경로도 문서 본문도 없다.
+- 시험 `tests/preparation_flow.test.mjs`: cold 별칭 estate 한 바퀴·재실행 REPLAYED·거부(핀 불일치, 같은 id, 권한 없는 actor)·rooted store·CLI.
+- 같은 판에 canonical hash의 잔여 경계 하나를 닫았다: 객체 **키**도 값과 같은 규칙으로(홀로 선 surrogate 키는 JSON 텍스트를 `S` 태그로).
+  정상 키의 digest는 그대로다. 회귀시험 REV-C3.
+
+7 SKIP의 정체(2026-09-12, 시험별): PDF 해석기 `SOULFORGE_TEST_PDF_PYTHON` 미설정 3건(generation_producer #4, pair_transition #10·#11),
+GraphRAG 실환경 opt-in 3건(graph_extraction #4, graph_index_generation #8, graph_database #10 — `SOULFORGE_TEST_GRAPHRAG_PYTHON/LLM(/NEO4J)`),
+로컬 모델 opt-in 1건(context_planner #4 — `SOULFORGE_TEST_CONTEXT_PLANNER_LLM`). 이 문서의 앞선 "전부 PDF 해석기" 설명은 틀렸다.
+
+PV-2 상태 표기(사실): 실행 기록·준비 결과·grant의 **일관성 검증은 구현**, **원문 대조는 미구현**(검증기는 source root를 열지 않는다).
+원문 대조 요구는 후속으로 남아 있고, 이 표기가 PV-2 전체 완료를 뜻하지 않는다.
 ## 준비 결과와 검증 보고서의 과제 저장소 배치 (0.12.0)
 
 `writePreparationGeneration`이 한 번의 준비를 과제 저장소에 앉히고, `appendValidationReport`가 그 세대 옆에

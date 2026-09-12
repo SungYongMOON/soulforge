@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "context_engine",
-  "module_version": "0.13.1",
+  "module_version": "0.14.0",
   "interface_version": "context_engine.v0",
   "schema_versions": ["soulforge.dev_erp_accepted_context_query_result.v1"],
   "owner": "guild_hall/context_engine",
@@ -32,7 +32,7 @@
   "validators": [
     "node --test guild_hall/context_engine/tests/exact_source_readback.test.mjs guild_hall/context_engine/tests/observed_context_query.test.mjs",
     "node --test guild_hall/context_engine/tests/app_boundary.test.mjs",
-    "node --test guild_hall/context_engine/tests/source_preparation.test.mjs guild_hall/context_engine/tests/source_adapters.test.mjs guild_hall/context_engine/tests/graph_extraction.test.mjs guild_hall/context_engine/tests/graph_index_generation.test.mjs guild_hall/context_engine/tests/context_planner.test.mjs guild_hall/context_engine/tests/preparation_validation.test.mjs guild_hall/context_engine/tests/preparation_store.test.mjs guild_hall/context_engine/tests/aliased_store_io.test.mjs guild_hall/context_engine/tests/preparation_store_review.test.mjs",
+    "node --test guild_hall/context_engine/tests/source_preparation.test.mjs guild_hall/context_engine/tests/source_adapters.test.mjs guild_hall/context_engine/tests/graph_extraction.test.mjs guild_hall/context_engine/tests/graph_index_generation.test.mjs guild_hall/context_engine/tests/context_planner.test.mjs guild_hall/context_engine/tests/preparation_validation.test.mjs guild_hall/context_engine/tests/preparation_store.test.mjs guild_hall/context_engine/tests/aliased_store_io.test.mjs guild_hall/context_engine/tests/preparation_store_review.test.mjs guild_hall/context_engine/tests/preparation_flow.test.mjs",
     "node guild_hall/context_engine/release/verify_module.mjs"
   ],
   "release_digest": null,
