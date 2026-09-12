@@ -13,7 +13,10 @@ import { INDEX_NOW, READER_REQUEST, cannedGraphWorker, indexerRequest, makeGraph
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { PLANNER_BUDGET_CEILING, composeWorkingContext } from '../src/runtime/context_planner.mjs';
 import { CONTEXT_PLANNER_PROFILE } from '../profiles/context_planner_v1.mjs';
-import { loopbackFetch } from '../src/adapters/local_model/ollama_chat.mjs';
+import { createModelFetch, loopbackFetch, validateAllowedChatHosts, validateChatBinding }
+  from '../src/adapters/local_model/ollama_chat.mjs';
+
+const code = fn => { try { fn(); return null; } catch (error) { return error.code; } };
 
 const REQUEST = { request_text: '응답기 장표 요청 건과 전원 조건 변경을 확인해 착수 준비를 해 주세요.', task_purpose: '장표 작성 착수 전 맥락 확인' };
 const BINDING = { llm: { host: 'http://127.0.0.1:11434', model: 'planner-model:tag' } };
@@ -157,8 +160,29 @@ test('budget, failure and refusal paths', async () => {
     { code: 'graph_index_pointer_changed' });
 });
 
-test('local model client: loopback only, and a redirect is refused rather than followed with the prompt', async () => {
-  await assert.rejects(loopbackFetch('http://192.0.2.10:11434/api/tags'), { code: 'chat_endpoint_not_loopback' });
+test('local model client: this host plus named origins only, and a redirect is refused rather than followed with the prompt', async () => {
+  await assert.rejects(loopbackFetch('http://192.0.2.10:11434/api/tags'), { code: 'chat_endpoint_not_admitted' });
+
+  // An origin the configuration names is reachable; everything else still is not.
+  const named = 'https://model-host.example';
+  const admitted = createModelFetch(validateAllowedChatHosts([named]));
+  await assert.rejects(admitted('https://other-host.example/api/tags'), { code: 'chat_endpoint_not_admitted' });
+  await assert.rejects(admitted('http://192.0.2.10:11434/api/tags'), { code: 'chat_endpoint_not_admitted' });
+  // Loopback keeps working through the same guard.
+  await assert.rejects(admitted('http://127.0.0.1:1/api/tags'), error => error.code !== 'chat_endpoint_not_admitted');
+
+  assert.deepEqual([...validateAllowedChatHosts(undefined)], [], 'no list means this host only');
+  assert.equal(code(() => validateAllowedChatHosts(['http://192.168.0.9:11434'])), 'chat_host_not_https',
+    'plaintext off-host would put the prompt on the wire in clear');
+  assert.equal(code(() => validateAllowedChatHosts([`${named}/v1`])), 'chat_hosts_invalid');
+  assert.equal(code(() => validateAllowedChatHosts(['https://127.0.0.1:11434'])), 'chat_host_redundant');
+
+  // The binding admits the named origin for the model as well as for the transport.
+  const bound = validateChatBinding({ host: `${named}/`, model: 'a-model:tag', allowed_hosts: [named] });
+  assert.deepEqual([...bound.allowed_hosts], [named]);
+  assert.equal(code(() => validateChatBinding({ host: `${named}/`, model: 'a-model:tag' })), 'chat_binding_invalid',
+    'without the list the same address is refused');
+
   const server = http.createServer((request, response) => {
     response.writeHead(307, { location: 'http://192.0.2.10:11434/api/chat' }); response.end();
   });

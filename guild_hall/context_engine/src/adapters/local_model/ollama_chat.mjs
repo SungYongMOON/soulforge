@@ -15,6 +15,7 @@ const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@+_-]{0,199}$/u;
 const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+const MAX_ALLOWED_CHAT_HOSTS = 8;
 const sha = text => `sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`;
 
 export class LocalModelError extends Error {
@@ -27,10 +28,45 @@ export function isLoopbackUrl(value) {
   catch { return false; }
 }
 
-// A fetch-shaped call for loopback endpoints only: no agent-level proxy, a 3xx
-// is an error (a redirect would re-send the prompt elsewhere), and the body is capped.
-export function loopbackFetch(url, { method = 'GET', headers = {}, body, signal } = {}) {
-  if (!isLoopbackUrl(url)) return Promise.reject(new LocalModelError('chat_endpoint_not_loopback'));
+// Origins outside this host that the trusted configuration names for the model.
+// An origin, never a range, so the address the request text went to is answerable
+// from the binding alone; plaintext is refused off-host, where http would put the
+// request on the wire in clear.
+export function validateAllowedChatHosts(hosts) {
+  if (hosts === undefined || hosts === null) return Object.freeze([]);
+  if (!Array.isArray(hosts) || hosts.length > MAX_ALLOWED_CHAT_HOSTS) fail('chat_hosts_invalid');
+  const origins = hosts.map(value => {
+    let url;
+    try { url = new URL(value); } catch { return fail('chat_hosts_invalid'); }
+    if (url.protocol !== 'https:') fail('chat_host_not_https');
+    if (LOCAL_HOSTS.has(url.hostname)) fail('chat_host_redundant');
+    if (url.pathname !== '/' || url.search || url.username || url.password) fail('chat_hosts_invalid');
+    return url.origin;
+  });
+  if (new Set(origins).size !== origins.length) fail('chat_hosts_invalid');
+  return Object.freeze(origins);
+}
+
+function chatHostAdmitted(value, allowedOrigins) {
+  if (isLoopbackUrl(value)) return true;
+  try { return allowedOrigins.includes(new URL(value).origin); } catch { return false; }
+}
+
+// A fetch-shaped call for this host, plus exactly the origins the binding named:
+// no agent-level proxy, a 3xx is an error (a redirect would re-send the prompt
+// elsewhere), and the body is capped.
+export function createModelFetch(allowedOrigins = []) {
+  return function modelFetch(url, { method = 'GET', headers = {}, body, signal } = {}) {
+    if (!chatHostAdmitted(url, allowedOrigins)) return Promise.reject(new LocalModelError('chat_endpoint_not_admitted'));
+    return sendRequest(url, { method, headers, body, signal });
+  };
+}
+
+// Every model call this APP makes on this path goes through here, so the guard
+// above cannot be skipped by reaching for the transport directly.
+export const loopbackFetch = createModelFetch([]);
+
+function sendRequest(url, { method = 'GET', headers = {}, body, signal } = {}) {
   const target = new URL(url), client = target.protocol === 'https:' ? https : http;
   return new Promise((resolve, reject) => {
     const request = client.request(target, { method, headers, signal, agent: false }, response => {
@@ -53,9 +89,12 @@ export function loopbackFetch(url, { method = 'GET', headers = {}, body, signal 
   });
 }
 
-// binding: { host, model, think?, options?, keep_alive?, timeout_ms? } from trusted configuration.
+// binding: { host, model, think?, options?, keep_alive?, timeout_ms?, allowed_hosts? }
+// from trusted configuration. `allowed_hosts` is empty by default, which means the
+// model may only be called on this host.
 export function validateChatBinding(binding) {
-  if (!binding || !isLoopbackUrl(binding.host) || !TOKEN.test(binding.model ?? '')) fail('chat_binding_invalid');
+  const allowedHosts = validateAllowedChatHosts(binding?.allowed_hosts);
+  if (!binding || !chatHostAdmitted(binding.host, allowedHosts) || !TOKEN.test(binding.model ?? '')) fail('chat_binding_invalid');
   if (binding.model.endsWith('-cloud')) fail('chat_model_not_local');
   const think = binding.think === undefined ? false : binding.think;
   const options = binding.options === undefined ? { temperature: 0, seed: 7, num_predict: 4096 } : binding.options;
@@ -64,7 +103,7 @@ export function validateChatBinding(binding) {
     || !Object.values(options).every(value => ['string', 'boolean'].includes(typeof value) || Number.isFinite(value))
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3600000) fail('chat_binding_invalid');
   return Object.freeze({ host: binding.host.replace(/\/+$/u, ''), model: binding.model, think, options,
-    keep_alive: binding.keep_alive ?? '0s', timeout_ms: timeoutMs });
+    keep_alive: binding.keep_alive ?? '0s', timeout_ms: timeoutMs, allowed_hosts: allowedHosts });
 }
 
 // The installed model's manifest digest is its revision; a tag alone is not.

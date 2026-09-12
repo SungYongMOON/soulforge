@@ -200,8 +200,12 @@ export async function composeWorkingContext({ view, request, binding, profile = 
     deliverables, questions, answered, missing, review, sections, open_questions: openQuestions, statement_kinds: STATEMENT_KIND_LABELS,
     uncited_model_text: UNCITED_MODEL_TEXT,
     evidence, searches, coverage,
+    // Reported from what this view can actually reach, not from a fixed list: a
+    // pack that claims a mode it cannot run would make an empty answer look like
+    // an answered question.
     search_modes: [{ mode: 'lexical', state: 'connected', profile: retriever.profile }, { mode: 'exact', state: 'connected' },
-      { mode: 'graph', state: 'not_connected', code: 'graph_database_not_connected' }],
+      ...['vector', 'hybrid', 'graph'].map(mode => (retriever.connected ? { mode, state: 'connected' }
+        : { mode, state: 'not_connected', code: 'graph_database_not_connected' }))],
     rune: { status: 'not_run', reason: 'rune_not_connected' },
     enforcement: stats,
     budget: { limits: budget, used: { model_calls: callsMade(), search_rounds: rounds, searches: searches.filter(row => row.status !== 'skipped').length,
