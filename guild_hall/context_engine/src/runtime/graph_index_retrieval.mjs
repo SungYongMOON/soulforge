@@ -1,11 +1,18 @@
 // Retrieval over the selected graph index generation of one project. Lexical
 // search reuses the shared BM25 corpus search (bm25-v1, baseline A) over the
 // prepared source units; exact lookup takes an item id from the manifest.
-// Vector, hybrid and graph-expansion search belong to Neo4j GraphRAG and report
-// not_connected until a graph database binding exists — they are not rebuilt
-// here. Every hit carries its source kind, item, unit, locator, time and
-// revision, and nothing outside the view's project is searched.
+// Vector, hybrid and graph-expansion search belong to Neo4j GraphRAG: they run in
+// the graph database when this view's binding names one, and report not_connected
+// otherwise rather than falling back to a different search under the same name.
+// Those three are async; lexical and exact stay synchronous.
+//
+// A database hit is a (document, unit) pair and a score, nothing more. It becomes
+// a hit here only if that pair is in this view's hash-verified manifest, so a row
+// the store no longer agrees with is dropped and counted instead of being served.
+// Every hit carries its source kind, item, unit, locator, time and revision, and
+// nothing outside the view's project is searched.
 import { retrieveAdmittedDocuments, RETRIEVAL_PROFILE } from '../../algorithms/retrieval/bm25_v1.mjs';
+import { createGraphSearch } from './graph_database.mjs';
 
 const MAX_CHUNKS_PER_SOURCE = 20000;
 const MAX_SOURCES = 16;
@@ -16,8 +23,14 @@ export class GraphIndexRetrievalError extends Error {
 }
 const fail = code => { throw new GraphIndexRetrievalError(code); };
 
-export function createGraphIndexRetriever(view) {
+// graphSearch (optional): a createGraphSearch result, or built from the view's own
+// binding when it names a graph database. Passing one explicitly is how tests and
+// the installed runtime bind a worker; omitting it keeps the old behaviour.
+export function createGraphIndexRetriever(view, { graphSearch = null, runWorker = undefined } = {}) {
   view.assertCurrent();
+  const database = graphSearch ?? (view.graph_binding?.neo4j
+    ? createGraphSearch({ view, binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) })
+    : null);
   const units = new Map(), catalog = [];
   for (const row of view.manifest.documents) {
     const document = view.readDocument(row.doc_key);
@@ -68,9 +81,30 @@ export function createGraphIndexRetriever(view) {
     }
     return { status: 'ok', hits, searched_kinds: [...new Set(rows.map(row => row.source_kind))].sort() };
   }
-  function graph() {
-    return { status: 'not_connected', code: 'graph_database_not_connected', hits: [], searched_kinds: [] };
+  // A database row names a document and a unit; only the pair this view already
+  // holds becomes a hit, and a pair it does not hold is dropped and counted.
+  async function fromDatabase(mode, query, topK) {
+    if (database === null) return { status: 'not_connected', code: 'graph_database_not_connected', hits: [], searched_kinds: [] };
+    const result = await database[mode](query, topK);
+    if (result.status !== 'ok') return { ...result, hits: [], searched_kinds: [] };
+    const hits = [], kinds = new Set();
+    let unknown = 0;
+    for (const row of result.hits) {
+      const chunkId = `${row.doc_key.slice('sha256:'.length)}:${row.unit_id}`;
+      if (!units.has(chunkId)) { unknown++; continue; }
+      const unit = units.get(chunkId);
+      kinds.add(unit.source_kind);
+      hits.push({ rank: hits.length + 1, chunk_id: chunkId, ...unit,
+        score: row.score, seed: row.seed });
+    }
+    return { status: 'ok', hits, searched_kinds: [...kinds].sort(),
+      receipt: { mode, requested_top_k: topK ?? null, returned: result.hits.length, admitted: hits.length,
+        not_in_generation: unknown, dropped_out_of_generation: result.dropped_out_of_generation ?? 0 } };
   }
-  return Object.freeze({ catalog: () => catalog.map(row => ({ ...row })), lexical, exact, graph,
-    kinds: () => [...groups.keys()].sort(), profile: RETRIEVAL_PROFILE });
+  const vector = (query, topK) => fromDatabase('vector', query, topK);
+  const hybrid = (query, topK) => fromDatabase('hybrid', query, topK);
+  const graph = (query, topK) => fromDatabase('graph', query, topK);
+
+  return Object.freeze({ catalog: () => catalog.map(row => ({ ...row })), lexical, exact, vector, hybrid, graph,
+    connected: database !== null, kinds: () => [...groups.keys()].sort(), profile: RETRIEVAL_PROFILE });
 }

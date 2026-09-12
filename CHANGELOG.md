@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 그래프 데이터베이스 적재·검색 연결
+
+- 맥락 APP(`guild_hall/context_engine`)을 0.9.0으로 올려 선택된 과제 색인 세대를 그래프 데이터베이스에 적재하고
+  vector·hybrid·graph 확장 검색을 돌려받는 경로를 연결했다. 그래프는 과제 store 세대에서 다시 만들 수 있는 파생
+  투영이고, 내구 자산은 그대로 세대다.
+- 색인 binding에 그래프 데이터베이스 절(`neo4j`)이 생겼다. 주소는 loopback bolt만 받고, 비밀번호는 신뢰된 설정이
+  지정한 파일 경로로만 온다(절대경로·실파일·심링크 아님). 이 절이 없으면 색인은 예전처럼 만들어지고 적재와 검색만
+  `not_connected`으로 답한다. 다른 검색으로 조용히 대체하지 않는다.
+- 한 데이터베이스는 한 과제의 한 세대만 담는다. 같은 세대를 다시 적재하면 아무것도 바뀌지 않고 그렇게 보고한다.
+  같은 과제의 다른 세대는 이전 세대를 대체한다. 다른 과제가 들어 있으면 합치지 않고 거부한다. 적재 전에 도구가
+  남길 수 있는 임시 식별자 잔여를 먼저 확인하고, 적재한 노드에만 과제·세대 표시를 붙인 뒤 임시 식별자를 지운다.
+- 검색은 (문서, 단위) 쌍과 점수만 돌려받는다. 그 쌍이 이 view의 해시 검증된 manifest에 있을 때만 근거가 되고,
+  없는 행은 버리고 센다. 색인은 데이터베이스 전체에 걸리므로 세대 밖 행도 같은 자리에서 걸러진다.
+- 맥락이가 고를 수 있는 검색 방식에 vector·hybrid가 더해졌다. 연결되지 않은 방식을 고르면 그 사유가 검색 기록에
+  남고 다른 방식의 답으로 채워지지 않는다.
+- 텔레메트리는 값이 아니라 판본 선택으로 막았다. 쓰는 판본의 서버 설정 넷(사용량 보고·클라이언트 텔레메트리·
+  Fleet Manager·bolt 텔레메트리)을 모두 명시로 끄고 `SHOW SETTINGS`로 되읽어 확인했으며, Python driver는
+  `telemetry_disabled=True`로 연결한다. 주소는 127.0.0.1에만 열려 있고 컨테이너의 비-loopback 바깥 연결은 0건이다.
+- 운영 영향 없음: 운영 lane·설치·HPP 팩 명세·dev-ERP 연결(`CTX-S0-G2`는 HOLD 그대로)에 변화가 없고, 합성 자료와
+  이 PC의 loopback 로컬 모델·로컬 데이터베이스만 썼다. 실자료 0.
+- 검증: `npm run validate:context-engine` 174건 중 167 PASS·7 SKIP(opt-in), `verify_module`(runtime 67 파일),
+  새 시험 `tests/graph_database.test.mjs` 9건 전부 PASS(단위 8 + 실제 데이터베이스 1). 실제 시험은 세대 적재 1회 →
+  같은 세대 재실행 무변경 → vector·hybrid·graph 전부 hit이고, 각 hit의 본문이 store의 단위 본문과 바이트 일치했다.
+  `validate:module-operability`, `validate:product-composition`, `validate:canon`, `validate:path-policy`,
+  `validate:display-terms`, `emit_hpp_spec --check`, boot digest guard 통과. `done:check`는 `validate:path-policy:all`
+  (tracked 전수)에서 멈추는데, 그 2건은 `guild_hall/ingress/continuous_supervisor.test.mjs`의 시험용 리터럴 경로
+  문자열로 이번 변경 이전부터 있던 것이고 이번에 고치지 않았다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/graph_database.mjs`(신규), `graph_extraction.mjs`,
+  `graph_index_generation.mjs`, `graph_index_retrieval.mjs`, `context_planner.mjs`,
+  `src/workers/graphrag_worker.py`, `profiles/context_planner_v1.mjs`, `tests/graph_database.test.mjs`(신규),
+  `harness/fixtures/graph_index_fixture.mjs`.
+
 ## 2026-09-12 - 맥락 APP 그래프 색인·맥락이 검토 지적 반영
 
 - 비작성 Level 2 검토(수정 후 수락, 필수 4건)를 반영해 맥락 APP(`guild_hall/context_engine`)을 0.8.1로 올렸다.

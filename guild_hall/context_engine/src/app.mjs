@@ -45,6 +45,7 @@ export { updateGraphIndex, selectGraphIndexGeneration, openGraphIndex, graphProf
   GRAPH_INDEX_QUALITY_SCHEMA } from './runtime/graph_index_generation.mjs';
 export { GRAPH_EXTRACTION_PROFILE } from '../profiles/graph_extraction_v1.mjs';
 export { createGraphIndexRetriever } from './runtime/graph_index_retrieval.mjs';
+export { createGraphSearch, materializeGraphIndex, GRAPH_SEARCH_MODES } from './runtime/graph_database.mjs';
 export { composeWorkingContext, CONTEXT_PACK_V2_SCHEMA, STATEMENT_KIND_LABELS } from './runtime/context_planner.mjs';
 export { CONTEXT_PLANNER_PROFILE } from '../profiles/context_planner_v1.mjs';
 export { validateSourceGrant, validateSourceDocument, buildSourceCoverage, detectSourceChanges, SOURCE_GRANT_SCHEMA,

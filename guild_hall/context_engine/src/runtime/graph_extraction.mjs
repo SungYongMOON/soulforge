@@ -10,6 +10,8 @@
 // extraction that lost answers, truncated them or dropped a chunk is degraded,
 // never ok. Fragments are proposals; nothing here writes a graph or accepts meaning.
 import { createHash } from 'node:crypto';
+import { lstatSync, realpathSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { runGraphragWorker } from '../adapters/graphrag/worker_client.mjs';
@@ -34,13 +36,37 @@ export class GraphExtractionError extends Error {
 }
 const fail = code => { throw new GraphExtractionError(code); };
 
-function loopback(url) {
-  try { const parsed = new URL(url); return ['http:', 'https:'].includes(parsed.protocol) && LOCAL_HOSTS.has(parsed.hostname); }
+function loopback(url, protocols = ['http:', 'https:']) {
+  try { const parsed = new URL(url); return protocols.includes(parsed.protocol) && LOCAL_HOSTS.has(parsed.hostname); }
   catch { return false; }
 }
 
+// binding.neo4j: { uri, user, password_file, database? } | null — the graph database
+// this project's index is loaded into and searched from. The address must be a
+// loopback bolt endpoint, and the password is a file the trusted configuration
+// names: this process never holds the value, and no request may supply either.
+export function validateNeo4jBinding(neo4j) {
+  if (neo4j === null || neo4j === undefined) return null;
+  if (!loopback(neo4j.uri, ['bolt:', 'neo4j:'])) fail('graph_neo4j_endpoint_not_loopback');
+  if (!TOKEN.test(neo4j.user ?? '') || (neo4j.database !== undefined && neo4j.database !== null
+    && !TOKEN.test(neo4j.database))) fail('graph_neo4j_binding_invalid');
+  const passwordFile = neo4j.password_file;
+  if (typeof passwordFile !== 'string' || !isAbsolute(passwordFile)) fail('graph_neo4j_binding_invalid');
+  const resolved = resolve(passwordFile);
+  let stat;
+  // A symlink or a path that resolves elsewhere would let the file the binding
+  // names and the file that is read come apart.
+  try { stat = lstatSync(resolved); } catch { fail('graph_neo4j_password_file_missing'); }
+  if (!stat.isFile() || stat.isSymbolicLink() || realpathSync(resolved) !== resolved) fail('graph_neo4j_password_file_refused');
+  return Object.freeze({ uri: neo4j.uri, user: neo4j.user, password_file: resolved,
+    database: neo4j.database ?? null });
+}
+
 // binding: { worker: { interpreter_path, timeout_ms? }, llm: { host, model, max_calls, options?, keep_alive?, think? },
-//            embedder: { host, model } | null } — owned by the trusted configuration, not by the request.
+//            embedder: { host, model } | null, neo4j?: { uri, user, password_file, database? } | null }
+//            — owned by the trusted configuration, not by the request. `neo4j` is
+//            optional: without it, extraction still runs and the graph database
+//            operations report that they are not connected.
 export function validateGraphBinding(binding) {
   const llm = binding?.llm, embedder = binding?.embedder ?? null;
   if (!llm || !loopback(llm.host) || !TOKEN.test(llm.model ?? '') || !Number.isSafeInteger(llm.max_calls)
@@ -55,7 +81,8 @@ export function validateGraphBinding(binding) {
     fail('graph_llm_binding_invalid');
   }
   return Object.freeze({ worker: binding.worker, llm: { host: llm.host, model: llm.model, max_calls: llm.max_calls,
-    options, keep_alive: llm.keep_alive ?? '0s', think }, embedder: embedder && { host: embedder.host, model: embedder.model } });
+    options, keep_alive: llm.keep_alive ?? '0s', think }, embedder: embedder && { host: embedder.host, model: embedder.model },
+  neo4j: validateNeo4jBinding(binding?.neo4j ?? null) });
 }
 
 // The worker reports the installed digest of each bound model; a missing or

@@ -8,7 +8,7 @@
 const SECTIONS = ['background', 'work_history', 'decisions', 'reusable', 'impact'];
 const TEXT = { type: 'string' };
 const SEARCH = { type: 'object', required: ['question_id', 'mode', 'query'], properties: {
-  question_id: TEXT, mode: { type: 'string', enum: ['lexical', 'exact', 'graph'] }, query: TEXT } };
+  question_id: TEXT, mode: { type: 'string', enum: ['lexical', 'exact', 'vector', 'hybrid', 'graph'] }, query: TEXT } };
 const STATEMENT = { type: 'object', required: ['text', 'kind', 'evidence'], properties: {
   text: TEXT, kind: { type: 'string', enum: ['fact', 'claim', 'interpretation', 'unknown'] },
   evidence: { type: 'array', items: TEXT } } };

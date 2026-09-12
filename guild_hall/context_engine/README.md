@@ -136,9 +136,8 @@ schema 가지치기(`GraphPruning`)는 도구가 하고, APP은 그 둘레의 �
 - 시험: 단위 시험은 이름을 밝힌 가짜 worker 출력으로 binding 거부와 수용 규칙을 본다. 실제 추출은 opt-in
   (`SOULFORGE_TEST_GRAPHRAG_PYTHON`, `SOULFORGE_TEST_GRAPHRAG_LLM`, 선택 `SOULFORGE_TEST_GRAPHRAG_EMBEDDER`)이며
   합성 메모로만 돈다.
-- 아직 없는 것: Neo4j 적재(`materialize`)와 검색(`retrieve`)은 Neo4j가 설치되기 전이라 worker가
-  `neo4j_binding_not_connected`로 답한다. 설치된 writer는 노드를 CREATE로 쓰고 관계에 APOC
-  (`apoc.merge.relationship`)가 필요하므로, 적재는 세대 단위 1회와 결정론 키로 막고 APOC core를 켜야 한다.
+- 적재와 검색은 아래 `그래프 데이터베이스 적재·검색`에서 연결됐다(0.9.0). 그래프 데이터베이스 binding이 없는
+  색인은 여기까지만 돌고 적재·검색만 `graph_database_not_connected`로 답한다.
 
 ## 과제별 그래프 색인 세대 (0.7.0)
 
@@ -173,16 +172,44 @@ D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문
   한다. `assertCurrent`는 포인터·binding·권한이 바뀐 view를 거부한다.
 - 아직 없는 것: 그래프 DB 적재·검색(설치 뒤), 참조 중인 파일을 지키는 오래된 세대 정리 규칙.
 
-## 맥락이 작업 맥락 조립 (0.8.0, 그래프 검색은 Neo4j 설치 뒤)
+## 그래프 데이터베이스 적재·검색 (0.9.0)
+
+`materializeGraphIndex({ view, binding })`가 선택된 세대를 그래프 데이터베이스에 적재하고,
+`createGraphSearch({ view, binding })`가 그 세대를 vector·hybrid·graph 확장으로 검색한다. 둘 다 worker 안에서
+neo4j-graphrag의 writer와 retriever를 쓰고, 이 APP은 그 둘레의 계약만 소유한다.
+
+- binding: 색인 binding의 `graph.neo4j = { uri, user, password_file, database? }`. 주소는 loopback `bolt:`/`neo4j:`만
+  받고, 비밀번호는 신뢰된 설정이 지정한 **파일 경로**로만 온다(절대경로·실파일·심링크 아님·실경로 일치). 요청은
+  주소도 비밀번호도 줄 수 없다. `neo4j`가 없으면(`null`) 색인은 그대로 만들어지고 적재·검색만 연결 없음을 알린다.
+- 한 데이터베이스 = 한 과제의 한 세대. 같은 세대를 다시 적재하면 아무것도 바뀌지 않고 `generation_already_loaded`로
+  답한다. 같은 과제의 다른 세대는 이전 세대를 대체한다(두 세대가 함께 있으면 모든 청크가 두 벌이 된다). 다른 과제가
+  들어 있으면 합치지 않고 `graph_project_mismatch`로 거부한다. 과제 격리는 컨테이너 분리로 하고 DB 안 필터에 기대지 않는다.
+- 설치된 writer는 노드를 `CREATE`로 쓰고 관계에 APOC(`apoc.merge.relationship`·`apoc.create.addLabels`)이 필요하므로
+  **APOC core가 있어야 한다**. writer는 자신이 만든 노드를 임시 식별자(`__tmp_internal_id`)로 표시하므로, 적재 전에 그
+  잔여를 먼저 확인하고(있으면 거부), 적재 직후 그 표시가 살아 있는 동안 과제·세대를 새기고 표시를 지운다.
+- 그래프는 과제 store 세대에서 다시 만들 수 있는 파생 투영이다(`runtime_local`). 내구 자산은 세대이고, 복구는
+  "세대 → 재적재 → 같은 그래프"다. 살아 있는 DB 파일은 컨테이너의 named volume에만 둔다.
+- 검색이 돌려주는 것은 (문서, 단위) 쌍과 점수뿐이다. 그 쌍이 이 view의 해시 검증된 manifest에 있을 때만 hit이 되고,
+  없는 행은 버리고 센다(`receipt.not_in_generation`). 색인은 데이터베이스 전체에 걸리므로 세대 밖 행도 같은 자리에서
+  걸러진다. graph 확장은 씨앗 청크에서 그 청크의 대상이 어휘 관계가 아닌 관계로 닿는 청크까지만 넓힌다.
+- 텔레메트리: Python driver는 `telemetry_disabled=True`로 연결한다. 서버 쪽은 판본의 설정으로 끄고 `SHOW SETTINGS`로
+  되읽어 확인한다(실제 설정 이름과 관측값은 런타임 영수증에 있다).
+- 시험: 단위 시험은 이름을 밝힌 가짜 데이터베이스로 binding 거부·세대 경계·중복 적재를 본다. 실제 시험은 opt-in
+  (`SOULFORGE_TEST_GRAPHRAG_PYTHON`, `SOULFORGE_TEST_GRAPHRAG_LLM`, `SOULFORGE_TEST_GRAPHRAG_EMBEDDER`,
+  `SOULFORGE_TEST_NEO4J_URI`, `SOULFORGE_TEST_NEO4J_PASSWORD_FILE`)이며 합성 메모로만 돈다.
+
+## 맥락이 작업 맥락 조립 (0.8.0~0.9.0)
 
 `composeWorkingContext({ view, request, binding })`는 선택된 그래프 색인 세대(`openGraphIndex` view) 위에서 v0.9 §4 B
 흐름을 돈다. 요청은 요청 원문·작업 목적(선택: 더 낮은 예산)만 준다. 과제·권한·세대는 view가, 모델 주소는 신뢰된
 binding이 정한다. 예산 상한은 프로그램 상수(`PLANNER_BUDGET_CEILING`)이고 profile 값은 그 아래 기본값이다.
 
-- 맥락이(로컬 모델)가 하는 일: 요청의 산출물·대상 파악, 확인 질문, 질문별 검색 방식 선택(lexical·exact·graph),
-  근거 충분성 판단과 추가 검색 요청, 절별 문장 작성. 검색과 읽기만 도구로 열려 있고 검색은 프로그램이 실행한다.
-- 프로그램이 하는 일: 검색 실행(lexical = 공유 BM25 `bm25-v1` 기준판 A, exact = 목록의 item id, graph = Neo4j
-  GraphRAG 몫이라 `not_connected`), 근거는 해시 검증된 색인의 원본 단위에서만 가져온다(출처 종류·항목·단위·
+- 맥락이(로컬 모델)가 하는 일: 요청의 산출물·대상 파악, 확인 질문, 질문별 검색 방식 선택
+  (lexical·exact·vector·hybrid·graph), 근거 충분성 판단과 추가 검색 요청, 절별 문장 작성. 검색과 읽기만 도구로
+  열려 있고 검색은 프로그램이 실행한다.
+- 프로그램이 하는 일: 검색 실행(lexical = 공유 BM25 `bm25-v1` 기준판 A, exact = 목록의 item id,
+  vector·hybrid·graph = 그래프 데이터베이스 몫이라 binding이 없으면 `not_connected`이고 다른 방식으로 대체하지
+  않는다), 근거는 해시 검증된 색인의 원본 단위에서만 가져온다(출처 종류·항목·단위·
   locator·시각·판본). 인용 강제는 근거 id가 없거나 없는 id만 단 fact·claim을 해석으로 낮추고 개수를 남긴다.
   나머지는 source 종류별 coverage(`connected`·`not_connected`·`none_in_scope`, 검색 여부·hit·본문 사용 수),
   Rune 절(Rune이 아직 연결되지 않아 `not_run`, 사유 `rune_not_connected`), 추가 검색 검토 결과(`review`: ok·skipped·

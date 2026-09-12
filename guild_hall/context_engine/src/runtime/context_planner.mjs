@@ -24,7 +24,12 @@ export const PLANNER_BUDGET_CEILING = Object.freeze({ max_model_calls: 8, max_se
   max_evidence: 24, max_evidence_characters: 24000, max_questions: 12, max_statements_per_section: 12, max_statement_characters: 800 });
 // Model-written fields outside citation enforcement: planning text, not claims.
 const UNCITED_MODEL_TEXT = Object.freeze(['deliverables', 'questions', 'missing', 'open_questions']);
-const MODES = new Set(['lexical', 'exact', 'graph']);
+// lexical and exact answer from the store; vector, hybrid and graph answer from
+// the graph database and report not_connected when none is bound. A search the
+// model asks for that cannot run is recorded with its code, never silently
+// answered by a different mode.
+const MODES = new Set(['lexical', 'exact', 'vector', 'hybrid', 'graph']);
+const DATABASE_MODES = new Set(['vector', 'hybrid', 'graph']);
 const MAX_REQUEST_CHARACTERS = 8000, MAX_PURPOSE_CHARACTERS = 2000, MAX_QUERY_CHARACTERS = 500;
 const sha = text => `sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`;
 
@@ -83,7 +88,10 @@ function enforceStatements(list, validIds, budget, stats) {
 // request: { request_text, task_purpose, budget? }. The view is an openGraphIndex
 // result, so actor, project and purpose were admitted when it was opened.
 // binding: { llm: { host, model, think?, options?, keep_alive?, timeout_ms? }, budget? } from trusted configuration.
-export async function composeWorkingContext({ view, request, binding, profile = CONTEXT_PLANNER_PROFILE, fetchImpl = loopbackFetch } = {}) {
+// graphSearch (optional): a createGraphSearch result for the database modes; by
+// default the view's own graph binding decides whether they are connected.
+export async function composeWorkingContext({ view, request, binding, profile = CONTEXT_PLANNER_PROFILE,
+  fetchImpl = loopbackFetch, graphSearch = null, runWorker = undefined } = {}) {
   const requestText = text(request?.request_text, MAX_REQUEST_CHARACTERS), purpose = text(request?.task_purpose, MAX_PURPOSE_CHARACTERS);
   if (!requestText || typeof request?.request_text !== 'string' || request.request_text.length > MAX_REQUEST_CHARACTERS) fail('planner_request_invalid');
   if (request.as_of !== undefined) fail('as_of_not_supported_by_graph_index');
@@ -91,7 +99,7 @@ export async function composeWorkingContext({ view, request, binding, profile = 
   const llm = validateChatBinding(binding?.llm);
   const digest = await installedModelDigest(llm, { fetchImpl });
   const local = createLocalChat({ binding: llm, maxCalls: budget.max_model_calls, fetchImpl });
-  const retriever = createGraphIndexRetriever(view);
+  const retriever = createGraphIndexRetriever(view, { graphSearch: graphSearch ?? null, runWorker });
   const catalog = retriever.catalog().map(({ source_kind, item_id, title, units }) => ({ source_kind, item_id, title, units }));
 
   const evidence = [], evidenceByChunk = new Map(), searches = [], searchedKinds = new Set(), hitsByKind = new Map();
@@ -99,15 +107,17 @@ export async function composeWorkingContext({ view, request, binding, profile = 
   const callsMade = () => local.trace().filter(row => row.status !== 'budget_exhausted').length;
   const modelEvidence = () => evidence.map(({ id, source_kind, item_id, title, unit_kind, locator, occurred_at, speaker_ref, text: body }) =>
     ({ id, source_kind, item_id, title, unit_kind, locator, occurred_at, speaker_ref, text: body }));
-  function runSearches(list, round) {
+  async function runSearches(list, round) {
     rounds = round;
-    list.forEach((search, index) => {
+    for (const [index, search] of list.entries()) {
       if (index >= budget.max_searches_per_round) {
         searches.push({ round, ...search, status: 'skipped', code: 'search_budget_exhausted', hits: 0 });
-        return;
+        continue;
       }
-      const result = search.mode === 'lexical' ? retriever.lexical(search.query)
-        : search.mode === 'exact' ? retriever.exact(search.query) : retriever.graph(search.query);
+      // The database modes are async; awaiting the synchronous ones costs nothing
+      // and keeps one path for every mode.
+      const result = await (DATABASE_MODES.has(search.mode) ? retriever[search.mode](search.query)
+        : search.mode === 'exact' ? retriever.exact(search.query) : retriever.lexical(search.query));
       searches.push({ round, ...search, status: result.status, code: result.code ?? null, hits: result.hits.length });
       for (const kind of result.searched_kinds ?? []) searchedKinds.add(kind);
       for (const hit of result.hits) {
@@ -123,7 +133,7 @@ export async function composeWorkingContext({ view, request, binding, profile = 
           revision_sha256: hit.revision_sha256, unit_id: hit.unit_id, unit_kind: hit.unit_kind, locator: hit.locator,
           occurred_at: hit.occurred_at, speaker_ref: hit.speaker_ref, text: hit.text, text_sha256: sha(hit.text) });
       }
-    });
+    }
   }
 
   let status = 'complete', code = null, deliverables = [], questions = [], answered = [], missing = [];
@@ -141,7 +151,7 @@ export async function composeWorkingContext({ view, request, binding, profile = 
     questions = (Array.isArray(plan.value.questions) ? plan.value.questions : []).map(row => ({ id: text(row?.id, 16), text: text(row?.text, 400) }))
       .filter(row => row.id && row.text && !seen.has(row.id) && seen.add(row.id)).slice(0, budget.max_questions);
     const questionIds = new Set(questions.map(row => row.id));
-    runSearches(cleanSearches(plan.value.searches, questionIds), 1);
+    await runSearches(cleanSearches(plan.value.searches, questionIds), 1);
     // Additional searches while a compose call is still left in the budget.
     if (budget.max_search_rounds >= 2 && budget.max_model_calls - callsMade() <= 1) review = { status: 'skipped', rounds: 0, code: 'model_budget_reserved_for_compose' };
     for (let round = 2; round <= budget.max_search_rounds && budget.max_model_calls - callsMade() > 1; round++) {
@@ -154,7 +164,7 @@ export async function composeWorkingContext({ view, request, binding, profile = 
         .map(row => ({ question_id: row.question_id, reason: text(row.reason, 300) }));
       const followUp = cleanSearches(reviewed.value.searches, questionIds);
       if (followUp.length === 0) break;
-      runSearches(followUp, round);
+      await runSearches(followUp, round);
     }
     const composed = await local.chat({ step: 'compose', system: profile.prompts.compose, schema: profile.schemas.compose,
       user: JSON.stringify({ request_text: requestText, task_purpose: purpose, questions, evidence: modelEvidence() }) });

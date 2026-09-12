@@ -33,7 +33,7 @@
     },
     {
       "path": "guild_hall/context_engine/profiles/context_planner_v1.mjs",
-      "sha256": "bc1a8829d5b31d99213b72ff95e462ef956f7587ab7ab9deae906ceeaecae272"
+      "sha256": "17895f177c39cd1869bcb0c26ca1b70f64f8e2c169971454ee10924d8e66b9aa"
     },
     {
       "path": "guild_hall/context_engine/profiles/default_v1.mjs",
@@ -93,7 +93,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "29fc81ca598e89a4f715628ef16d932283133d3d7fe8d33891e7c743a69f2881"
+      "sha256": "f5ac55a408d055c8dae3b14c871f12400aebc414d1d7e2967932b552913bba75"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -113,23 +113,27 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
-      "sha256": "8b15b7470e325735ae19e6f3f11f27eb16f0354f6f6610dd5f098f01f5ac3182"
+      "sha256": "cae0b8b79d44f8d7854b2d707af3e0407a4b4421a6460ca9dcfedee2894f727d"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/generation_update.mjs",
       "sha256": "0d5e9b3a82a89f348f23cb6fc2d293f1ce62968ddaab917ca5364d5cb65705fb"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/graph_database.mjs",
+      "sha256": "be339a6de3572c1132158f737a683c0f360c27554a105a5a8c09a1e998df6338"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
-      "sha256": "a4f7a595c16146a6d654e5924befa067d7e8f799c6f46b0725652bd56b7a2fe1"
+      "sha256": "4e0a2500ecef22cf76e47d4f58764288660d50829fdd66e3d60d12c291b5cae1"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "ea8474f027d151aed691359475f6f186eb23929ba39a292f53b547c881997669"
+      "sha256": "ec4f3ee9e84637b20bce81f7176272e584bad225a16a52ed4e5591c4dcb2f598"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
-      "sha256": "ee951a7588543844fd056182ebbf3874e304f9c1f2366bfda99cc9fcca0640b6"
+      "sha256": "705224130d660436bae682a9030e4767236578b630c5b51e0ab651d032ae5cc2"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
@@ -153,7 +157,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "7280a3164bba2014d72f183730dad43ac2443e0b7833dd668abccbbbd9885c0f"
+      "sha256": "89abbf2df1236a7e617170fd40fbc5a10d38f25f2c2e7054032ce4135c777e65"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -272,7 +276,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "dac1b6f81cc4884ec5a5b337b51ea90b17e89cd2767baac6f78127cfda5f4a27",
+  "closure_sha256": "ffbaafbd8d12c48ae3e5bbba6e087f74e337fe18068286725ae67915528bb819",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -503,6 +507,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_database.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/graph_extraction.mjs"
     },
     {
@@ -662,6 +670,14 @@
       "to": "guild_hall/engineering_engine/kernel/identity.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/runtime/graph_database.mjs",
+      "to": "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_database.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_extraction.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
       "to": "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs"
     },
@@ -708,6 +724,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
       "to": "guild_hall/context_engine/algorithms/retrieval/bm25_v1.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
+      "to": "guild_hall/context_engine/src/runtime/graph_database.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/pair_store.mjs",

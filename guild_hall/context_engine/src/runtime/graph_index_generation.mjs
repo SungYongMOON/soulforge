@@ -62,7 +62,7 @@ function validateIndexBinding(binding) {
     || !plain(binding.source_roots) || !Object.entries(binding.source_roots).every(([key, value]) => ROOT_REF.test(key)
       && typeof value === 'string' && isAbsolute(value))
     || !equal(binding.profile, graphProfilePin())) fail('graph_index_binding_invalid');
-  validateGraphBinding(binding.graph);
+  return validateGraphBinding(binding.graph);
 }
 
 // Documents in order, grouped so no worker call exceeds the batch bounds.
@@ -103,7 +103,7 @@ function openIndexStore({ storeRoot, bindingSha256, request, operation }) {
   const bindingBytes = readRaw(GRAPH_INDEX_BINDING_FILE, 1024 * 1024);
   if (!SHA.test(bindingSha256 ?? '') || digest(bindingBytes) !== bindingSha256) fail('graph_index_binding_mismatch');
   const binding = JSON.parse(bindingBytes);
-  validateIndexBinding(binding);
+  const graphBinding = validateIndexBinding(binding);
   // Sources are external custody: a root inside the store could be rewritten by the store's own writers.
   for (const root of Object.values(binding.source_roots)) {
     let canonical = root;
@@ -209,8 +209,8 @@ function openIndexStore({ storeRoot, bindingSha256, request, operation }) {
     catch (error) { await unlink(temp).catch(() => {}); throw error; }
     return digest(Buffer.from(text, 'utf8'));
   }
-  return { io, binding, projectKey, projectPath, aclGrant, aclSha256: digest(aclBytes), opened, readRaw, readArea, readPointer,
-    assertUnchanged, lock, unlock, writeCreateOnly, commitPointer };
+  return { io, binding, graphBinding, projectKey, projectPath, aclGrant, aclSha256: digest(aclBytes), opened, readRaw, readArea,
+    readPointer, assertUnchanged, lock, unlock, writeCreateOnly, commitPointer };
 }
 
 // A complete manifest whose every file still has its recorded bytes.
@@ -421,7 +421,9 @@ export async function selectGraphIndexGeneration({ storeRoot, bindingSha256, req
 
 // Read view of the selected generation for retrieval or a graph load. Every
 // document and fragment is re-read by hash; assertCurrent refuses a view whose
-// pointer, binding or access changed since it was opened.
+// pointer, binding or access changed since it was opened. `graph_binding` is the
+// validated graph binding this view was opened under, including the graph
+// database endpoint when one is bound.
 export function openGraphIndex({ storeRoot, bindingSha256, request } = {}) {
   const store = openIndexStore({ storeRoot, bindingSha256, request: structuredClone(request), operation: 'read' });
   if (!store.opened) fail('graph_index_not_selected');
@@ -449,5 +451,6 @@ export function openGraphIndex({ storeRoot, bindingSha256, request } = {}) {
     return quality;
   }
   return Object.freeze({ manifest, generation_ref: { ...store.opened.value.generation_ref }, pointer_sha256: store.opened.sha256,
-    selection_epoch: store.opened.value.selection_epoch, readDocument, readFragment, readQuality, assertCurrent: store.assertUnchanged });
+    selection_epoch: store.opened.value.selection_epoch, graph_binding: store.graphBinding, readDocument, readFragment,
+    readQuality, assertCurrent: store.assertUnchanged });
 }

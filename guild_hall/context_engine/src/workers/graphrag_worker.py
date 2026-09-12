@@ -2,13 +2,14 @@
 # stdin and writes one ASCII JSON result on stdout (the pipe encoding of the
 # host never touches the text). It assembles the tool's own components (text
 # chunks, chunk embedder, LLM entity/relation extractor, lexical graph, schema
-# pruning) and adds only what the tool does not own: a local-model adapter with
-# an explicit thinking switch, a call budget and an observable call trace, the
-# installed model digests as the model revision, deterministic document and
-# chunk ids, and a plain fragment the APP can pin. It reads no files, keys or
-# network locations by itself; every endpoint comes from the trusted APP adapter
-# and must be a loopback address. Graph writes and search wait for a Neo4j
-# binding and report that instead of pretending.
+# pruning, KG writer, vector/hybrid/graph retrievers) and adds only what the tool
+# does not own: a local-model adapter with an explicit thinking switch, a call
+# budget and an observable call trace, the installed model digests as the model
+# revision, deterministic document and chunk ids, a plain fragment the APP can
+# pin, and the rule that a database holds exactly one project's currently
+# selected generation. It reads no keys or network locations by itself; every
+# endpoint comes from the trusted APP adapter and must be a loopback address, and
+# the only file it opens is the password file that adapter names.
 import asyncio
 import hashlib
 import importlib.metadata as metadata
@@ -23,6 +24,17 @@ MAX_REQUEST_BYTES = 64 * 1024 * 1024
 WORKER_SCHEMA = "soulforge.context_graphrag_worker.v1"
 EMPTY_GRAPH = '{"nodes": [], "relationships": []}'
 DIGEST = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
+TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,199}$")
+# One database holds one project. These names are therefore fixed, not per project:
+# a second project would be a second container, never a second index in this one.
+GENERATION_LABEL = "__SfGeneration__"
+CHUNK_LABEL = "Chunk"
+VECTOR_INDEX = "sf_chunk_vector"
+FULLTEXT_INDEX = "sf_chunk_fulltext"
+EMBEDDING_PROPERTY = "embedding"
+# Lexical edges are the graph's skeleton; expansion follows the extracted ones.
+LEXICAL_RELATIONSHIPS = ("FROM_CHUNK", "FROM_DOCUMENT", "NEXT_CHUNK")
+MAX_TOP_K = 50
 
 
 class WorkerError(Exception):
@@ -253,6 +265,328 @@ async def extract(request):
             "invalid_outputs": sum(1 for row in calls if row["status"] == "invalid_output")}
 
 
+# ---------------------------------------------------------------------------
+# Graph database: one container, one project, one selected generation.
+# ---------------------------------------------------------------------------
+
+
+def read_password(path):
+    """The single line at `path`, checked for shape only.
+
+    The value is handed straight to the driver. It is never logged, hashed into a
+    receipt, or included in any result this worker prints.
+    """
+    with open(path, "rb") as handle:
+        raw = handle.read(4096)
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise WorkerError("neo4j_password_file_invalid")
+    lines = raw.decode("utf-8").splitlines()
+    if len(lines) != 1 or not lines[0].strip():
+        raise WorkerError("neo4j_password_file_invalid")
+    return lines[0].strip()
+
+
+def neo4j_driver(binding):
+    """A driver for a loopback Neo4j, with the driver's own telemetry switched off."""
+    from neo4j import GraphDatabase
+    if not isinstance(binding, dict):
+        raise WorkerError("neo4j_binding_invalid")
+    uri = binding.get("uri")
+    if not loopback_url(uri) or urlparse(uri).scheme not in ("bolt", "neo4j"):
+        raise WorkerError("neo4j_endpoint_not_loopback")
+    user, password_file = binding.get("user"), binding.get("password_file")
+    database = binding.get("database") or None
+    for value in (user, password_file):
+        if not isinstance(value, str) or not value:
+            raise WorkerError("neo4j_binding_invalid")
+    if database is not None and not TOKEN.match(database):
+        raise WorkerError("neo4j_binding_invalid")
+    driver = GraphDatabase.driver(uri, auth=(user, read_password(password_file)), telemetry_disabled=True)
+    return driver, database
+
+
+def run_query(driver, database, query, **parameters):
+    return driver.execute_query(query, database_=database, **parameters).records
+
+
+def generation_rows(driver, database):
+    return run_query(driver, database,
+                     "MATCH (g:" + GENERATION_LABEL + ") "
+                     "RETURN g.project_key AS project_key, g.generation_id AS generation_id, "
+                     "toString(g.loaded_at) AS loaded_at ORDER BY g.generation_id")
+
+
+def residue_count(driver, database):
+    """Nodes the tool's writer left mid-flight.
+
+    Neo4jWriter marks every node it creates with `__tmp_internal_id` and clears the
+    property when it finishes. A node still carrying one is an unfinished earlier
+    load, and writing on top of it would stamp those nodes as this generation's.
+    """
+    rows = run_query(driver, database,
+                     "MATCH (n:__KGBuilder__) WHERE n.__tmp_internal_id IS NOT NULL RETURN count(n) AS n")
+    return rows[0]["n"] if rows else 0
+
+
+def fragment_to_graph(fragment):
+    """One admitted fragment as the tool's own graph model.
+
+    The APP keeps a chunk's vector beside the node; the tool wants it under
+    `embedding_properties`, which is what `db.create.setNodeVectorProperty` reads.
+    """
+    from neo4j_graphrag.components.types import Neo4jGraph
+    # Neo4j has no null property: setting one removes it. The APP writes null for a
+    # field that does not apply (a Document node has no unit id), so those keys are
+    # dropped here rather than offered to the tool, which rejects None outright.
+    present = lambda properties: {key: value for key, value in (properties or {}).items() if value is not None}
+    nodes = []
+    for node in fragment["nodes"]:
+        row = {"id": node["id"], "label": node["label"], "properties": present(node.get("properties"))}
+        embedding = node.get("embedding")
+        if embedding:
+            row["embedding_properties"] = {EMBEDDING_PROPERTY: list(embedding)}
+        nodes.append(row)
+    relationships = [{"start_node_id": rel["start_node_id"], "end_node_id": rel["end_node_id"],
+                      "type": rel["type"], "properties": present(rel.get("properties"))}
+                     for rel in fragment["relationships"]]
+    return Neo4jGraph.model_validate({"nodes": nodes, "relationships": relationships})
+
+
+async def write_fragments(driver, database, fragments):
+    from neo4j_graphrag.components.kg_writer import Neo4jWriter
+    # clean_db=False: the temporary ids are how the just-written nodes are found, so
+    # this adapter stamps them with project and generation first and clears them itself.
+    writer = Neo4jWriter(driver=driver, neo4j_database=database, clean_db=False)
+    written = {"nodes": 0, "relationships": 0}
+    for fragment in fragments:
+        graph = fragment_to_graph(fragment)
+        result = await writer.run(graph=graph)
+        if str(getattr(result, "status", "SUCCESS")) not in ("SUCCESS", "KGWriterStatus.SUCCESS"):
+            raise WorkerError("graph_write_failed")
+        written["nodes"] += len(graph.nodes)
+        written["relationships"] += len(graph.relationships)
+    return written
+
+
+def ensure_indexes(driver, database, dimensions):
+    from neo4j_graphrag.indexes import create_fulltext_index, create_vector_index
+    if dimensions:
+        create_vector_index(driver, VECTOR_INDEX, label=CHUNK_LABEL, embedding_property=EMBEDDING_PROPERTY,
+                            dimensions=dimensions, similarity_fn="cosine", neo4j_database=database,
+                            fail_if_exists=False)
+    create_fulltext_index(driver, FULLTEXT_INDEX, label=CHUNK_LABEL, node_properties=["text"],
+                          neo4j_database=database, fail_if_exists=False)
+    run_query(driver, database, "CALL db.awaitIndexes(300)")
+
+
+def embedding_dimensions(fragments):
+    for fragment in fragments:
+        for node in fragment["nodes"]:
+            if node.get("embedding"):
+                return len(node["embedding"])
+    return 0
+
+
+def materialize(request):
+    """Loads one generation so the database holds exactly that generation.
+
+    A repeat of the same generation changes nothing and says so. A different
+    generation of the same project replaces the previous one: the graph is a derived,
+    rebuildable projection of the project store, and two generations in one database
+    would double every chunk. A database already holding another project is refused
+    outright rather than merged.
+    """
+    project_key, generation_id = request.get("project_key"), request.get("generation_id")
+    # The project key is the APP's composite identity string (it carries unit
+    # separators), so it is bounded and stored as given rather than tokenised.
+    # The generation id is a store token and is checked as one.
+    if not isinstance(project_key, str) or not project_key or len(project_key) > 512:
+        raise WorkerError("graph_materialize_request_invalid")
+    if not TOKEN.match(str(generation_id or "")):
+        raise WorkerError("graph_materialize_request_invalid")
+    fragments = request.get("fragments")
+    if not isinstance(fragments, list):
+        raise WorkerError("graph_materialize_request_invalid")
+
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        driver.verify_connectivity()
+        existing = generation_rows(driver, database)
+        if any(row["project_key"] != project_key for row in existing):
+            # One project per container: never merge, never delete another project's.
+            raise WorkerError("graph_project_mismatch")
+        if any(row["generation_id"] == generation_id for row in existing):
+            counts = run_query(driver, database,
+                               "MATCH (n) WHERE n.sf_generation = $g RETURN count(n) AS nodes", g=generation_id)
+            return {"status": "ok", "loaded": False, "code": "generation_already_loaded",
+                    "project_key": project_key, "generation_id": generation_id,
+                    "counts": {"nodes": counts[0]["nodes"] if counts else 0},
+                    "generations_present": [row["generation_id"] for row in existing]}
+        if residue_count(driver, database):
+            raise WorkerError("graph_residue_present")
+
+        superseded = [row["generation_id"] for row in existing]
+        removed = 0
+        for old in superseded:
+            rows = run_query(driver, database,
+                             "MATCH (n) WHERE n.sf_generation = $g DETACH DELETE n RETURN count(n) AS n", g=old)
+            removed += rows[0]["n"] if rows else 0
+
+        written = asyncio.run(write_fragments(driver, database, fragments))
+        stamped = run_query(driver, database,
+                            "MATCH (n:__KGBuilder__) WHERE n.__tmp_internal_id IS NOT NULL "
+                            "SET n.sf_project = $p, n.sf_generation = $g "
+                            "SET n.__tmp_internal_id = NULL RETURN count(n) AS n",
+                            p=project_key, g=generation_id)
+        stamped_count = stamped[0]["n"] if stamped else 0
+        if residue_count(driver, database):
+            raise WorkerError("graph_residue_not_cleared")
+
+        dimensions = embedding_dimensions(fragments)
+        ensure_indexes(driver, database, dimensions)
+
+        chunks = run_query(driver, database,
+                           "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_generation = $g RETURN count(c) AS n",
+                           g=generation_id)
+        embedded = run_query(driver, database,
+                             "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_generation = $g AND c."
+                             + EMBEDDING_PROPERTY + " IS NOT NULL RETURN count(c) AS n", g=generation_id)
+        run_query(driver, database,
+                  "CREATE (g:" + GENERATION_LABEL + " {project_key: $p, generation_id: $gen, "
+                  "sf_project: $p, sf_generation: $gen, loaded_at: datetime()})",
+                  p=project_key, gen=generation_id)
+        return {"status": "ok", "loaded": True, "project_key": project_key, "generation_id": generation_id,
+                "counts": {"fragments": len(fragments), "nodes": written["nodes"],
+                           "relationships": written["relationships"], "stamped": stamped_count,
+                           "chunks": chunks[0]["n"] if chunks else 0,
+                           "embedded_chunks": embedded[0]["n"] if embedded else 0},
+                "superseded": superseded, "removed_nodes": removed,
+                "indexes": {"vector": VECTOR_INDEX if dimensions else None, "fulltext": FULLTEXT_INDEX,
+                            "dimensions": dimensions},
+                "packages": package_versions()}
+
+
+# Seed chunk plus the chunks its entities reach over one extracted edge. Lexical
+# edges are excluded so expansion follows meaning, not document order.
+GRAPH_EXPANSION_QUERY = (
+    "WITH node, score "
+    "WHERE node.sf_generation = $generation "
+    "OPTIONAL MATCH (node)<-[:FROM_CHUNK]-(entity) "
+    "OPTIONAL MATCH (entity)-[edge]-(neighbour) "
+    "WHERE NOT type(edge) IN $lexical AND neighbour.sf_generation = $generation "
+    "OPTIONAL MATCH (neighbour)-[:FROM_CHUNK]->(other) "
+    "WHERE other.sf_generation = $generation AND other:" + CHUNK_LABEL + " "
+    "WITH node, score, collect(DISTINCT other) AS others "
+    "UNWIND ([node] + others) AS chunk "
+    "RETURN DISTINCT chunk.sf_unit_id AS sf_unit_id, chunk.sf_doc_key AS sf_doc_key, "
+    "chunk.sf_generation AS sf_generation, chunk.text AS text, score, "
+    "chunk.sf_unit_id = node.sf_unit_id AS seed "
+    "ORDER BY seed DESC, score DESC"
+)
+
+RETURN_PROPERTIES = ["sf_unit_id", "sf_doc_key", "sf_generation", "text"]
+
+
+def record_formatter(record):
+    """Every retriever result as a plain dict of the fields this worker asked for.
+
+    Without a formatter the tool renders a row as its repr and the fields would have
+    to be parsed back out of a string -- which silently mangles non-ASCII text and
+    truncates anything containing a quote. A formatter reads the record structurally
+    instead, so a chunk's Korean text survives exactly as stored.
+
+    Vector and hybrid searches return the properties inside a `node` map; the graph
+    expansion returns them as top-level columns. Both shapes are read here.
+    """
+    from neo4j_graphrag.types import RetrieverResultItem
+    data = dict(record)
+    node = data.pop("node", None)
+    row = {}
+    if isinstance(node, dict):
+        row.update({key: node.get(key) for key in RETURN_PROPERTIES})
+    for key in RETURN_PROPERTIES:
+        if key in data:
+            row[key] = data[key]
+    row["score"] = data.get("score")
+    row["seed"] = bool(data["seed"]) if data.get("seed") is not None else None
+    return RetrieverResultItem(content=row, metadata={"score": data.get("score")})
+
+
+def hit_from_record(item):
+    """One formatted item, or None when it does not name a unit of a document."""
+    row = item.content
+    if not isinstance(row, dict) or not row.get("sf_unit_id") or not row.get("sf_doc_key"):
+        return None
+    return row
+
+
+def retrieve(request):
+    """vector, hybrid or graph search over the generation this database holds.
+
+    Every mode is bound to one generation: the vector and fulltext indexes are
+    database-wide, so a hit from another generation would cross a selection the APP
+    has already made. Hits carry unit and document ids only; the APP joins them back
+    to its own manifest, so nothing here decides what a hit means.
+    """
+    from neo4j_graphrag.embeddings import OllamaEmbeddings
+    from neo4j_graphrag.retrievers import HybridRetriever, VectorCypherRetriever, VectorRetriever
+
+    mode = request.get("mode")
+    if mode not in ("vector", "hybrid", "graph"):
+        raise WorkerError("graph_retrieve_mode_invalid")
+    query_text = request.get("query_text")
+    if not isinstance(query_text, str) or not query_text.strip():
+        raise WorkerError("graph_retrieve_request_invalid")
+    generation_id = request.get("generation_id")
+    if not TOKEN.match(str(generation_id or "")):
+        raise WorkerError("graph_retrieve_request_invalid")
+    top_k = request.get("top_k", 10)
+    if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1 or top_k > MAX_TOP_K:
+        raise WorkerError("graph_retrieve_request_invalid")
+    spec = request.get("embedder")
+    if not isinstance(spec, dict) or not loopback_url(spec.get("host")):
+        raise WorkerError("embedder_endpoint_not_loopback")
+    digest = asyncio.run(installed_model_digest(spec["host"], spec["model"]))
+    if digest is None:
+        raise WorkerError("embedder_model_not_installed")
+
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        driver.verify_connectivity()
+        present = [row["generation_id"] for row in generation_rows(driver, database)]
+        if generation_id not in present:
+            return {"status": "not_loaded", "code": "generation_not_materialized", "mode": mode,
+                    "generation_id": generation_id, "generations_present": present, "hits": []}
+        embedder = OllamaEmbeddings(model=spec["model"], host=spec["host"])
+        if mode == "graph":
+            retriever = VectorCypherRetriever(driver, VECTOR_INDEX, GRAPH_EXPANSION_QUERY, embedder,
+                                              result_formatter=record_formatter, neo4j_database=database)
+            result = retriever.search(query_text=query_text, top_k=top_k,
+                                      query_params={"generation": generation_id,
+                                                    "lexical": list(LEXICAL_RELATIONSHIPS)})
+        elif mode == "vector":
+            retriever = VectorRetriever(driver, VECTOR_INDEX, embedder, return_properties=RETURN_PROPERTIES,
+                                        result_formatter=record_formatter, neo4j_database=database)
+            result = retriever.search(query_text=query_text, top_k=top_k)
+        else:
+            retriever = HybridRetriever(driver, VECTOR_INDEX, FULLTEXT_INDEX, embedder,
+                                        return_properties=RETURN_PROPERTIES,
+                                        result_formatter=record_formatter, neo4j_database=database)
+            result = retriever.search(query_text=query_text, top_k=top_k)
+        hits, dropped = [], 0
+        for item in result.items:
+            row = hit_from_record(item)
+            # The indexes span the database; a hit outside the selected generation is
+            # not this view's, and is dropped rather than relabelled.
+            if row is None or row.get("sf_generation") not in (None, generation_id):
+                dropped += 1
+                continue
+            hits.append(row)
+        return {"status": "ok", "mode": mode, "generation_id": generation_id, "top_k": top_k,
+                "embedder": {"model": spec["model"], "digest": digest},
+                "hits": hits, "dropped_out_of_generation": dropped, "packages": package_versions()}
+
+
 async def probe_models(models):
     found = {}
     for role in ("llm", "embedder"):
@@ -271,7 +605,23 @@ async def probe_models(models):
 def probe(request):
     result = {"status": "ok", "python": sys.version.split()[0], "packages": package_versions()}
     neo4j_binding = request.get("neo4j")
-    result["neo4j"] = {"status": "not_bound"} if not neo4j_binding else {"status": "not_connected_in_this_slice"}
+    if not neo4j_binding:
+        result["neo4j"] = {"status": "not_bound"}
+    else:
+        try:
+            driver, database = neo4j_driver(neo4j_binding)
+            with driver:
+                driver.verify_connectivity()
+                row = run_query(driver, database,
+                                "CALL dbms.components() YIELD name, versions, edition "
+                                "RETURN name AS name, versions[0] AS version, edition AS edition")[0]
+                result["neo4j"] = {"status": "ok", "name": row["name"], "version": row["version"],
+                                   "edition": row["edition"],
+                                   "generations": [dict(r) for r in generation_rows(driver, database)]}
+        except WorkerError:
+            raise
+        except Exception as error:  # never echo the address or the password path
+            result["neo4j"] = {"status": "unreachable", "error_type": type(error).__name__}
     if request.get("models"):
         result["models"] = asyncio.run(probe_models(request["models"]))
     return result
@@ -289,8 +639,10 @@ def main():
         return probe(request)
     if operation == "extract":
         return asyncio.run(extract(request))
-    if operation in ("materialize", "retrieve"):
-        return {"status": "not_connected", "code": "neo4j_binding_not_connected", "operation": operation}
+    if operation == "materialize":
+        return materialize(request)
+    if operation == "retrieve":
+        return retrieve(request)
     raise WorkerError("operation_unknown")
 
 
