@@ -33,7 +33,7 @@ const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
 // `openai_chat` (llama.cpp, vLLM and friends) cannot, and is pinned by what the
 // server says about itself instead — weaker, and labelled as such in the revision.
 const TRANSPORTS = new Set(['ollama', 'openai_chat']);
-const PIN_KINDS = new Set(['model_digest', 'server_props']);
+const PIN_KINDS = new Set(['model_digest', 'server_props', 'served_id']);
 const TRACE_FIELDS = ['call', 'status', 'input_sha256', 'output_sha256', 'output_characters', 'thinking_characters',
   'done_reason', 'prompt_tokens', 'output_tokens', 'elapsed_ms', 'error_type', 'http_status'];
 

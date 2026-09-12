@@ -162,7 +162,12 @@ async def openai_model_pin(host, model):
         except Exception:  # a server without /props is pinned by name only
             props = {}
         if not props.get("model_path"):
-            return {"digest": None, "pin_kind": "name_only"}
+            # No /props: the identity is whatever the server says it is serving. That
+            # catches a swapped model -- the usual way an index and its model come
+            # apart -- but not new weights published under the same id, so it is
+            # labelled `served_id` and never confused with a weight digest.
+            blob = json.dumps({"requested": model, "served": served}, sort_keys=True, ensure_ascii=True)
+            return {"digest": sha256_text(blob), "pin_kind": "served_id"}
         blob = json.dumps({"requested": model, "served": served, **props}, sort_keys=True, ensure_ascii=True)
         return {"digest": sha256_text(blob), "pin_kind": "server_props"}
 

@@ -30,6 +30,7 @@ const PYTHON = process.env.SOULFORGE_TEST_GRAPHRAG_PYTHON;
 const LOCAL = process.env.SOULFORGE_TEST_OLLAMA_HOST || 'http://127.0.0.1:11434';
 const REMOTE = process.env.SOULFORGE_TEST_REMOTE_OLLAMA || null;
 const LOCAL_OPENAI = process.env.SOULFORGE_TEST_LOCAL_OPENAI || null;
+const REMOTE_OPENAI = process.env.SOULFORGE_TEST_REMOTE_OPENAI || null;
 if (!PYTHON) { process.stderr.write('set SOULFORGE_TEST_GRAPHRAG_PYTHON\n'); process.exit(2); }
 
 const candidates = [
@@ -39,7 +40,10 @@ const candidates = [
   { label: '4-qwen3.8-27b-local', host: LOCAL_OPENAI, model: 'qwen3.8-27b-iq3xxs', transport: 'openai_chat' },
   { label: '5-gemma4-e2b-73k', host: REMOTE, model: 'gemma4:e2b-73k' },
   { label: '6-gemma4-31b-remote', host: REMOTE, model: 'gemma4:31b' },
-].filter(row => row.host)
+  // A remote OpenAI-compatible server: same shape as the local one, different host.
+  { label: '7-remote-openai', host: REMOTE_OPENAI, model: process.env.SOULFORGE_TEST_REMOTE_OPENAI_MODEL,
+    transport: 'openai_chat' },
+].filter(row => row.host && row.model)
   .filter(row => !process.env.SOULFORGE_TEST_ONLY || process.env.SOULFORGE_TEST_ONLY.split(',').includes(row.label));
 
 // The two synthetic memos say exactly this much. Each check is something an index
@@ -86,7 +90,7 @@ async function run(candidate) {
     llm: { host: candidate.host, model: candidate.model, max_calls: 40, keep_alive: '10m',
       ...(candidate.transport ? { transport: candidate.transport } : {}) },
     embedder: null,
-    ...(REMOTE && candidate.host === REMOTE ? { allowed_model_hosts: [REMOTE] } : {}) };
+    ...(candidate.host.startsWith('https://') ? { allowed_model_hosts: [new URL(candidate.host).origin] } : {}) };
   const { sha256: bindingSha256 } = await store.put('graph_index_binding.json', { ...store.binding, graph });
   const result = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256, now: INDEX_NOW,
     request: indexerRequest({ generation_id: 'g1', expected_prior: null }) });
