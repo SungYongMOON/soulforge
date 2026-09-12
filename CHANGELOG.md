@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 2026-09-12 - 맥락 APP 모델 호출 경계와 추출 모델 비교
+
+- 모델을 부를 수 있는 자리를 넓혔다. 지금까지는 이 host(loopback)뿐이었고, 이제 **색인 binding이 이름을 명시한
+  origin**도 부를 수 있다. 목록은 대역이 아니라 origin이며, 평문(http)은 host 밖에서 거부한다. loopback은 자료가
+  기계를 안 떠나지만 네트워크 위 평문은 원문을 그대로 흘리기 때문이다. 목록이 binding 안에 있으므로 "이 자료가
+  어디로 갔나"는 binding과 그 해시만으로 답할 수 있고, worker가 호출자의 말을 믿지 않고 같은 검사를 다시 한다.
+- 전송 방식이 둘이 됐다. 기본은 Ollama이고 가중치 digest를 받는다. OpenAI 호환 서버(llama.cpp, vLLM)는 digest를
+  줄 수 없으므로 서버가 자기에 대해 말하는 것(적재한 파일·양자화·빌드·문맥)을 묶어 해시하고 `server_props`로,
+  그것조차 없으면 서버가 서빙한다고 밝힌 id를 묶어 `served_id`로 표시한다. 어느 쪽도 가중치 digest로 읽히지 않게
+  종류를 같이 적으며, 아무것도 못 대면 거부한다 — 모델에 묶이지 않는 색인을 조용히 받아들이지 않는다.
+- 맥락 팩이 자기 검색 능력을 고정 목록으로 보고하던 것을 실제로 닿는 것에서 뽑도록 고쳤다. 연결되지 않은 방식을
+  연결됐다고 적으면 빈 답이 답한 것처럼 보인다.
+- 임베더와 LLM을 다른 기계에 둘 수 있다. 추출은 청크당 모델 호출 1회라 무겁고, 임베딩은 작고 빠르다.
+- 개발용 하네스 둘을 더했다(패키지에 실리지 않는다): 같은 합성 입력으로 모델 후보를 비교하는 것과,
+  준비→추출→적재→검색 5종→맥락이를 실제 endpoint에 대고 한 번 훑는 것.
+- 운영 영향 없음: 운영 lane·설치·HPP 팩 명세·dev-ERP 연결에 변화가 없고, 합성 자료와 Owner 소유 기계의 로컬
+  모델만 썼다. 실자료 0. 원격 주소는 환경변수로만 받고 저장소에 적지 않는다.
+- 검증: `npm run validate:context-engine` 175건 중 168 PASS·7 SKIP(opt-in), `validate:module-operability`,
+  `validate:product-composition`, `validate:canon`, `validate:path-policy`, `validate:display-terms`,
+  `emit_hpp_spec --check`, boot digest guard 통과. 추출 모델 7종 비교와 기계 간 동일성(같은 가중치면 출력이
+  바이트 단위로 같음) 실측은 로컬 영수증에 있다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/graph_extraction.mjs`,
+  `src/adapters/local_model/ollama_chat.mjs`, `src/workers/graphrag_worker.py`,
+  `src/runtime/context_planner.mjs`, `src/runtime/graph_database.mjs`,
+  `harness/model_comparison.mjs`(신규), `harness/end_to_end.mjs`(신규), `tests/graph_database.test.mjs`.
+
 ## 2026-09-12 - 맥락 APP 그래프 데이터베이스 적재·검색 연결
 
 - 맥락 APP(`guild_hall/context_engine`)을 0.9.0으로 올려 선택된 과제 색인 세대를 그래프 데이터베이스에 적재하고
