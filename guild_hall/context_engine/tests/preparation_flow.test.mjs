@@ -68,6 +68,32 @@ test('the flow also runs over a rooted synthetic store', async t => {
   assert.equal(receipt.steps.validate.outcome, 'pass');
 });
 
+test('a failing command prints a code and never echoes the input that failed', async () => {
+  const marker = 'ZZ_NOT_A_REAL_VALUE_9f3c';
+  const run = args => new Promise(done => execFile(process.execPath, [RUNNER, ...args], { encoding: 'utf8' },
+    (error, stdout, stderr) => done({ code: error?.code ?? 0, stdout, stderr })));
+  // Malformed JSON carrying a marker: the parser's message would quote it.
+  const badJson = await run(['--root-table', path.join(os.tmpdir(), 'no-such-table.json'),
+    '--root-table-sha256', 'sha256:' + '0'.repeat(64), '--binding-address', 'control_root/x.json',
+    '--binding-sha256', 'sha256:' + '0'.repeat(64), '--request-json', `{"${marker}":`]);
+  assert.equal(badJson.code, 2);
+  assert.equal(badJson.stdout, '');
+  assert.equal(badJson.stderr.includes(marker), false);
+  assert.match(badJson.stderr, /^\[preparation-flow\] [a-z][a-z0-9_]*\n$/u);
+  // A table that cannot be pinned fails with the table module's own code, and
+  // the path it named does not come back out.
+  const badTable = await run(['--root-table', path.join(os.tmpdir(), `${marker}.json`),
+    '--root-table-sha256', 'sha256:' + '0'.repeat(64), '--binding-address', 'control_root/x.json',
+    '--binding-sha256', 'sha256:' + '0'.repeat(64), '--request-json', '{}']);
+  assert.equal(badTable.code, 2);
+  assert.equal(badTable.stderr.includes(marker), false);
+  assert.equal(badTable.stderr, '[preparation-flow] root_table_unavailable\n');
+  // An unknown flag is a usage error with the fixed code, not a stack trace.
+  const usage = await run([`--${marker}`]);
+  assert.equal(usage.code, 2);
+  assert.equal(usage.stderr.includes(marker), false);
+});
+
 test('the --synthetic command prints one receipt line and cleans up after itself', async () => {
   const { stdout } = await promisify(execFile)(process.execPath, [RUNNER, '--synthetic', '--now', NOW,
     '--run-id', 'cli-run', '--validation-run-id', 'cli-val'], { encoding: 'utf8' });

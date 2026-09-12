@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-13 - 합성 실행기의 실패 출력은 코드만 낸다
+
+- `harness/preparation_flow.mjs`: 실패 시 `error.message`를 내보내지 않는다. 호출한 모듈의 오류 코드(`[a-z][a-z0-9_]*`)만 통과시키고
+  그 밖은 고정 코드 `preparation_flow_failed`로 접는다. 메시지는 파싱하던 입력(잘못된 JSON 인자, 경로, 파일 값)의 조각을 실을 수 있고
+  이 출력은 영수증에 들어갈 수 있기 때문이다.
+- 회귀시험: 표식이 든 잘못된 JSON 인자·표식이 든 표 경로·알 수 없는 플래그 어느 경우에도 stdout은 비고 stderr에 표식이 나오지 않으며,
+  표 모듈의 코드(`root_table_unavailable`)는 그대로 나온다.
 ## 2026-09-12 - 준비에서 보고서까지 한 바퀴 도는 작은 합성 실행기, 키 인코딩 경계, SKIP 사유
 
 - `guild_hall/context_engine/harness/preparation_flow.mjs`(신규): 기존 export만으로 준비 → 비활성 안착 → 되읽기 → 저장된 run을 정확한

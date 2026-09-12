@@ -156,9 +156,20 @@ async function main() {
   return 0;
 }
 
+// What a failure prints is a code, never a message: a message can carry a
+// fragment of whatever input was being parsed (a bad JSON argument, a path, a
+// value from a file), and this runner's output may end up in a receipt. A code
+// from one of the modules it calls is passed through; anything else collapses
+// to one fixed code.
+const ERROR_CODE = /^[a-z][a-z0-9_]{0,80}$/u;
+export const GENERIC_FAILURE_CODE = 'preparation_flow_failed';
+export function failureCode(error) {
+  return typeof error?.code === 'string' && ERROR_CODE.test(error.code) ? error.code : GENERIC_FAILURE_CODE;
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   main().then(code => { process.exitCode = code; }, error => {
-    process.stderr.write(`[preparation-flow] ${error?.code ?? error?.message ?? 'failed'}\n`);
+    process.stderr.write(`[preparation-flow] ${failureCode(error)}\n`);
     process.exitCode = 2;
   });
 }
