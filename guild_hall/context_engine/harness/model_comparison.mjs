@@ -43,6 +43,9 @@ const candidates = [
   // A remote OpenAI-compatible server: same shape as the local one, different host.
   { label: '7-remote-openai', host: REMOTE_OPENAI, model: process.env.SOULFORGE_TEST_REMOTE_OPENAI_MODEL,
     transport: 'openai_chat' },
+  // The same weights as candidate 1, on the other machine. Ollama reports the same
+  // digest on both, so a difference here is the machine and nothing else.
+  { label: '8-gemma4-12b-remote', host: REMOTE, model: 'gemma4:12b' },
 ].filter(row => row.host && row.model)
   .filter(row => !process.env.SOULFORGE_TEST_ONLY || process.env.SOULFORGE_TEST_ONLY.split(',').includes(row.label));
 
