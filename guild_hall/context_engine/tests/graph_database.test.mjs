@@ -11,7 +11,7 @@ import path from 'node:path';
 import { cannedGraphDatabaseWorker as cannedDatabase, cannedGraphWorker as cannedWorker, indexerRequest as indexer,
   INDEX_NOW as NOW, makeGraphIndexStore as makeStore, READER_REQUEST as reader } from '../harness/fixtures/graph_index_fixture.mjs';
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
-import { validateGraphBinding, validateNeo4jBinding } from '../src/runtime/graph_extraction.mjs';
+import { validateAllowedModelHosts, validateGraphBinding, validateNeo4jBinding } from '../src/runtime/graph_extraction.mjs';
 import { createGraphSearch, materializeGraphIndex } from '../src/runtime/graph_database.mjs';
 import { createGraphIndexRetriever } from '../src/runtime/graph_index_retrieval.mjs';
 
@@ -69,6 +69,36 @@ test('the neo4j binding takes a loopback bolt address and a real one-line passwo
     assert.equal(code(() => validateNeo4jBinding({ ...base, password_file: link })), 'graph_neo4j_password_file_refused');
   }
   await rm(dir, { recursive: true, force: true });
+});
+
+test('a model may be called off this host only at an origin the binding names', async () => {
+  const mini = 'https://seabot-example.tailnet-example.ts.net';
+  assert.deepEqual([...validateAllowedModelHosts([mini])], [mini]);
+  assert.deepEqual([...validateAllowedModelHosts(undefined)], [], 'no list means this host only');
+  assert.deepEqual([...validateAllowedModelHosts([`${mini}:8443`])], [`${mini}:8443`], 'a port is part of the origin');
+
+  // Plaintext off-host would put document text on the wire in clear.
+  assert.equal(code(() => validateAllowedModelHosts(['http://192.168.0.9:11434'])), 'graph_model_host_not_https');
+  // A range, a path or a credential in the URL would all make the address unanswerable.
+  assert.equal(code(() => validateAllowedModelHosts([`${mini}/v1`])), 'graph_model_hosts_invalid');
+  assert.equal(code(() => validateAllowedModelHosts([`https://user:pw@host.example`])), 'graph_model_hosts_invalid');
+  assert.equal(code(() => validateAllowedModelHosts(['not a url'])), 'graph_model_hosts_invalid');
+  assert.equal(code(() => validateAllowedModelHosts([mini, mini])), 'graph_model_hosts_invalid');
+  assert.equal(code(() => validateAllowedModelHosts(['https://127.0.0.1:11434'])), 'graph_model_host_redundant',
+    'this host is always allowed; listing it would suggest the list is what permits it');
+
+  const store = await makeStore();
+  const base = store.binding.graph;
+  // Listed: admitted. Unlisted: refused, for the LLM and the embedder alike.
+  const listed = validateGraphBinding({ ...base, allowed_model_hosts: [mini],
+    llm: { ...base.llm, host: `${mini}/` }, embedder: { host: `${mini}/`, model: 'embed:tag' } });
+  assert.deepEqual([...listed.allowed_model_hosts], [mini]);
+  assert.equal(code(() => validateGraphBinding({ ...base, llm: { ...base.llm, host: `${mini}/` } })),
+    'graph_llm_binding_invalid', 'without the list the same address is refused');
+  assert.equal(code(() => validateGraphBinding({ ...base, allowed_model_hosts: [mini],
+    embedder: { host: 'https://other.example/', model: 'embed:tag' } })), 'graph_embedder_binding_invalid');
+  // Loopback keeps working with no list at all, which is the default.
+  assert.equal(validateGraphBinding(base).llm.host, 'http://127.0.0.1:11434');
 });
 
 test('a store binding carries the graph database into the view it opens', async () => {

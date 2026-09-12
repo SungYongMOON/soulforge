@@ -32,7 +32,8 @@ test('first update writes a complete generation; replay is a no-op without extra
   for (const row of view.manifest.documents) {
     const document = view.readDocument(row.doc_key), fragment = view.readFragment(row.doc_key);
     assert.equal(fragment.stats.chunks, document.units.length);
-    assert.deepEqual(fragment.model, { llm: 'local-model:tag', llm_digest: LLM_DIGEST, think: false,
+    assert.deepEqual(fragment.model, { llm: 'local-model:tag', llm_digest: LLM_DIGEST, llm_pin_kind: 'model_digest',
+      transport: 'ollama', think: false,
       options: { num_predict: 2048, seed: 7, temperature: 0 }, embedder: null, embedder_digest: null,
       tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
   }

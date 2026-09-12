@@ -62,6 +62,35 @@ def loopback_url(value):
         return False
 
 
+def origin_of(value):
+    parsed = urlparse(value)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return None
+    port = "" if parsed.port is None else ":" + str(parsed.port)
+    return parsed.scheme + "://" + parsed.hostname + port
+
+
+def model_host_admitted(value, allowed):
+    """This host always; otherwise exactly one of the origins the binding named.
+
+    The caller checks this too. It is repeated here because the worker must not
+    take the caller's word for where a document's text is allowed to go: a request
+    that reached this process with a foreign address is refused before any call.
+    Off-host plaintext is refused outright -- on loopback nothing leaves the
+    machine, but over a network http would put the text on the wire in clear.
+    """
+    if not isinstance(value, str):
+        return False
+    if loopback_url(value):
+        return True
+    if not isinstance(allowed, list) or not allowed:
+        return False
+    if not value.startswith("https://"):
+        return False
+    origin = origin_of(value)
+    return origin is not None and origin in allowed
+
+
 def package_versions():
     names = ("neo4j-graphrag", "neo4j", "ollama", "pydantic")
     versions = {}
@@ -79,7 +108,7 @@ def http_client(host):
     return httpx.AsyncClient(base_url=host, trust_env=False, timeout=httpx.Timeout(600.0, connect=5.0))
 
 
-async def installed_model_digest(host, model):
+async def ollama_model_pin(host, model):
     """The installed model's manifest digest is the model revision; a tag alone is not.
 
     A `-cloud` model runs on the vendor's service behind the local server, so a
@@ -97,8 +126,51 @@ async def installed_model_digest(host, model):
                 if row.get("remote_host") or row.get("remote_model"):
                     raise WorkerError("model_not_local")
                 match = DIGEST.match(str(row.get("digest") or ""))
-                return "sha256:" + match.group(1) if match else None
+                if not match:
+                    return None
+                return {"digest": "sha256:" + match.group(1), "pin_kind": "model_digest"}
     return None
+
+
+async def openai_model_pin(host, model):
+    """What an OpenAI-compatible server can honestly say about what it is serving.
+
+    There is no weight digest on this path. llama.cpp's /props does report the file
+    it loaded, its quantisation, its build and its context size, so those are hashed
+    together into the revision under `pin_kind: server_props`. That is weaker than a
+    weight digest -- swapping the file at the same path would not be caught -- and it
+    is labelled so nothing reads it as one. The reported path is a host-local
+    absolute path, so it goes into the hash and never into a result.
+
+    A server with no /props leaves `pin_kind: name_only` and no digest, which the
+    caller's model contract refuses: an index nobody can tie to a model is not
+    silently accepted.
+    """
+    async with http_client(host) as client:
+        listing = await client.get("/v1/models")
+        listing.raise_for_status()
+        served = sorted(str(row.get("id")) for row in (listing.json().get("data") or []) if row.get("id"))
+        if not served:
+            return None
+        props = {}
+        try:
+            answer = await client.get("/props")
+            if answer.status_code == 200:
+                body = answer.json()
+                props = {key: body.get(key) for key in ("model_path", "model_ftype", "build_info")}
+                props["n_ctx"] = (body.get("default_generation_settings") or {}).get("n_ctx")
+        except Exception:  # a server without /props is pinned by name only
+            props = {}
+        if not props.get("model_path"):
+            return {"digest": None, "pin_kind": "name_only"}
+        blob = json.dumps({"requested": model, "served": served, **props}, sort_keys=True, ensure_ascii=True)
+        return {"digest": sha256_text(blob), "pin_kind": "server_props"}
+
+
+async def model_pin(host, model, transport):
+    if transport == "openai_chat":
+        return await openai_model_pin(host, model)
+    return await ollama_model_pin(host, model)
 
 
 def think_value(value):
@@ -129,11 +201,32 @@ def make_llm(llm_profile, client):
     max_calls = int(llm_profile.get("max_calls", 0))
     if max_calls < 1:
         raise WorkerError("llm_budget_invalid")
-    body = {"model": llm_profile["model"], "format": "json", "stream": False,
-            "options": dict(llm_profile.get("options") or {}), "keep_alive": llm_profile.get("keep_alive", "0s")}
+    transport = llm_profile.get("transport", "ollama")
+    if transport not in ("ollama", "openai_chat"):
+        raise WorkerError("llm_transport_invalid")
     think = think_value(llm_profile.get("think", False))
-    if think is not None:
-        body["think"] = think
+    options = dict(llm_profile.get("options") or {})
+    if transport == "ollama":
+        path = "/api/chat"
+        body = {"model": llm_profile["model"], "format": "json", "stream": False,
+                "options": options, "keep_alive": llm_profile.get("keep_alive", "0s")}
+        if think is not None:
+            body["think"] = think
+    else:
+        # OpenAI-compatible: JSON mode is response_format, the sampler lives at the
+        # top level, and thinking is a chat-template argument rather than a field.
+        # llama.cpp returns its reasoning separately, so `content` stays pure JSON.
+        path = "/v1/chat/completions"
+        body = {"model": llm_profile["model"], "stream": False,
+                "response_format": {"type": "json_object"}}
+        if "temperature" in options:
+            body["temperature"] = options["temperature"]
+        if "seed" in options:
+            body["seed"] = options["seed"]
+        if "num_predict" in options:
+            body["max_tokens"] = options["num_predict"]
+        if think is not None:
+            body["chat_template_kwargs"] = {"enable_thinking": bool(think)}
 
     class BudgetedLocalLLM(LLMInterface):
         """LLM adapter for the extractor's prompt path.
@@ -165,17 +258,31 @@ def make_llm(llm_profile, client):
             started = time.monotonic()
             row = {"call": len(self.trace) + 1, "input_sha256": sha256_text(input)}
             try:
-                response = await client.post("/api/chat", json={**body, "messages": [{"role": "user", "content": input}]})
+                response = await client.post(path, json={**body, "messages": [{"role": "user", "content": input}]})
                 row["http_status"] = response.status_code
                 response.raise_for_status()
                 data = response.json()
-                message = data.get("message") or {}
-                content = message.get("content") or ""
+                if transport == "ollama":
+                    message = data.get("message") or {}
+                    content = message.get("content") or ""
+                    thinking = message.get("thinking") or ""
+                    stop, prompt_tokens = data.get("done_reason"), data.get("prompt_eval_count")
+                    output_tokens = data.get("eval_count")
+                else:
+                    choice = (data.get("choices") or [{}])[0]
+                    message = choice.get("message") or {}
+                    content = message.get("content") or ""
+                    thinking = message.get("reasoning_content") or ""
+                    usage = data.get("usage") or {}
+                    # finish_reason uses the same word for a cut-off answer, which is
+                    # what the caller's degraded check reads.
+                    stop, prompt_tokens = choice.get("finish_reason"), usage.get("prompt_tokens")
+                    output_tokens = usage.get("completion_tokens")
                 row.update({"status": "ok" if extractor_accepts(content) else "invalid_output",
                             "output_sha256": sha256_text(content), "output_characters": len(content),
-                            "thinking_characters": len(message.get("thinking") or ""),
-                            "done_reason": data.get("done_reason"), "prompt_tokens": data.get("prompt_eval_count"),
-                            "output_tokens": data.get("eval_count")})
+                            "thinking_characters": len(thinking),
+                            "done_reason": stop, "prompt_tokens": prompt_tokens,
+                            "output_tokens": output_tokens})
             except Exception as error:  # the extractor turns empty output into an empty chunk graph
                 content = EMPTY_GRAPH
                 row.update({"status": "error", "error_type": type(error).__name__})
@@ -221,21 +328,23 @@ async def extract(request):
     profile = request["profile"]
     schema = GraphSchema.model_validate(profile["schema"])
     llm_profile, embedder_profile = profile["llm"], profile.get("embedder")
-    if not loopback_url(llm_profile.get("host")):
-        raise WorkerError("llm_endpoint_not_loopback")
-    if embedder_profile and not loopback_url(embedder_profile.get("host")):
-        raise WorkerError("embedder_endpoint_not_loopback")
-    models = {"llm": {"model": llm_profile["model"],
-                      "digest": await installed_model_digest(llm_profile["host"], llm_profile["model"])}}
-    if models["llm"]["digest"] is None:
+    allowed = profile.get("allowed_hosts") or []
+    if not model_host_admitted(llm_profile.get("host"), allowed):
+        raise WorkerError("llm_endpoint_not_admitted")
+    if embedder_profile and not model_host_admitted(embedder_profile.get("host"), allowed):
+        raise WorkerError("embedder_endpoint_not_admitted")
+    llm_pin = await model_pin(llm_profile["host"], llm_profile["model"], llm_profile.get("transport", "ollama"))
+    if not llm_pin or llm_pin.get("digest") is None:
         raise WorkerError("llm_model_not_installed")
+    models = {"llm": {"model": llm_profile["model"], **llm_pin}}
     embedder = None
     if embedder_profile:
         from neo4j_graphrag.embeddings import OllamaEmbeddings
-        models["embedder"] = {"model": embedder_profile["model"],
-                              "digest": await installed_model_digest(embedder_profile["host"], embedder_profile["model"])}
-        if models["embedder"]["digest"] is None:
+        # The embedder is always spoken to over Ollama: its vectors are the index.
+        embedder_pin = await ollama_model_pin(embedder_profile["host"], embedder_profile["model"])
+        if not embedder_pin or embedder_pin.get("digest") is None:
             raise WorkerError("embedder_model_not_installed")
+        models["embedder"] = {"model": embedder_profile["model"], **embedder_pin}
         embedder = TextChunkEmbedder(OllamaEmbeddings(model=embedder_profile["model"], host=embedder_profile["host"]),
                                      max_concurrency=1)
     fragments, embedder_calls = [], 0
@@ -544,11 +653,12 @@ def retrieve(request):
     if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1 or top_k > MAX_TOP_K:
         raise WorkerError("graph_retrieve_request_invalid")
     spec = request.get("embedder")
-    if not isinstance(spec, dict) or not loopback_url(spec.get("host")):
-        raise WorkerError("embedder_endpoint_not_loopback")
-    digest = asyncio.run(installed_model_digest(spec["host"], spec["model"]))
-    if digest is None:
+    if not isinstance(spec, dict) or not model_host_admitted(spec.get("host"), request.get("allowed_hosts") or []):
+        raise WorkerError("embedder_endpoint_not_admitted")
+    pin = asyncio.run(ollama_model_pin(spec["host"], spec["model"]))
+    if not pin or pin.get("digest") is None:
         raise WorkerError("embedder_model_not_installed")
+    digest = pin["digest"]
 
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
@@ -587,18 +697,18 @@ def retrieve(request):
                 "hits": hits, "dropped_out_of_generation": dropped, "packages": package_versions()}
 
 
-async def probe_models(models):
+async def probe_models(models, allowed=None):
     found = {}
     for role in ("llm", "embedder"):
         spec = models.get(role)
         if not spec:
             continue
-        if not loopback_url(spec.get("host")):
-            raise WorkerError(role + "_endpoint_not_loopback")
-        digest = await installed_model_digest(spec["host"], spec["model"])
-        if digest is None:
+        if not model_host_admitted(spec.get("host"), allowed or []):
+            raise WorkerError(role + "_endpoint_not_admitted")
+        pin = await model_pin(spec["host"], spec["model"], spec.get("transport", "ollama"))
+        if not pin or pin.get("digest") is None:
             raise WorkerError(role + "_model_not_installed")
-        found[role] = {"model": spec["model"], "digest": digest}
+        found[role] = {"model": spec["model"], **pin}
     return found
 
 
@@ -623,7 +733,7 @@ def probe(request):
         except Exception as error:  # never echo the address or the password path
             result["neo4j"] = {"status": "unreachable", "error_type": type(error).__name__}
     if request.get("models"):
-        result["models"] = asyncio.run(probe_models(request["models"]))
+        result["models"] = asyncio.run(probe_models(request["models"], request.get("allowed_hosts") or []))
     return result
 
 

@@ -81,7 +81,8 @@ export function createGraphSearch({ view, binding, runWorker = runGraphragWorker
     if (!Number.isSafeInteger(topK) || topK < 1 || topK > GRAPH_SEARCH_MAX_TOP_K) fail('graph_search_top_k_invalid');
     view.assertCurrent();
     const output = await callWorker({ bound, runWorker, request: { operation: 'retrieve', neo4j: bound.neo4j,
-      mode, query_text: queryText, top_k: topK, generation_id: generationId, embedder: bound.embedder } });
+      mode, query_text: queryText, top_k: topK, generation_id: generationId, embedder: bound.embedder,
+      allowed_hosts: bound.allowed_model_hosts } });
     if (output.status === 'not_loaded') {
       return { status: 'not_loaded', code: String(output.code ?? 'generation_not_materialized'), mode, hits: [] };
     }

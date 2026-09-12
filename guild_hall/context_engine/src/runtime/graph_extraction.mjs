@@ -24,10 +24,16 @@ const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@+_-]{0,199}$/u;
 const TYPE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/u;
 const DIGEST = /^sha256:[0-9a-f]{64}$/u;
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+const MAX_ALLOWED_MODEL_HOSTS = 8;
 const LEXICAL_LABELS = new Set(['Document', 'Chunk']);
 const LEXICAL_RELATIONSHIPS = new Set(['FROM_DOCUMENT', 'NEXT_CHUNK', 'FROM_CHUNK']);
 // false/true/level: the thinking switch sent to the local model; null leaves the model default.
 const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
+// How the worker speaks to the model server. `ollama` reports a weight digest;
+// `openai_chat` (llama.cpp, vLLM and friends) cannot, and is pinned by what the
+// server says about itself instead — weaker, and labelled as such in the revision.
+const TRANSPORTS = new Set(['ollama', 'openai_chat']);
+const PIN_KINDS = new Set(['model_digest', 'server_props']);
 const TRACE_FIELDS = ['call', 'status', 'input_sha256', 'output_sha256', 'output_characters', 'thinking_characters',
   'done_reason', 'prompt_tokens', 'output_tokens', 'elapsed_ms', 'error_type', 'http_status'];
 
@@ -39,6 +45,31 @@ const fail = code => { throw new GraphExtractionError(code); };
 function loopback(url, protocols = ['http:', 'https:']) {
   try { const parsed = new URL(url); return protocols.includes(parsed.protocol) && LOCAL_HOSTS.has(parsed.hostname); }
   catch { return false; }
+}
+
+// A model endpoint that is not on this host. The binding must name it exactly —
+// an origin, not a range — so the address text is answerable from the binding and
+// its hash alone. Plaintext is refused off-host: on loopback nothing leaves the
+// machine, but over a network http would put document text on the wire in clear.
+export function validateAllowedModelHosts(hosts) {
+  if (hosts === undefined || hosts === null) return Object.freeze([]);
+  if (!Array.isArray(hosts) || hosts.length > MAX_ALLOWED_MODEL_HOSTS) fail('graph_model_hosts_invalid');
+  const origins = hosts.map(value => {
+    let parsed;
+    try { parsed = new URL(value); } catch { return fail('graph_model_hosts_invalid'); }
+    if (parsed.protocol !== 'https:') fail('graph_model_host_not_https');
+    if (LOCAL_HOSTS.has(parsed.hostname)) fail('graph_model_host_redundant');
+    if (parsed.pathname !== '/' || parsed.search || parsed.username || parsed.password) fail('graph_model_hosts_invalid');
+    return parsed.origin;
+  });
+  if (new Set(origins).size !== origins.length) fail('graph_model_hosts_invalid');
+  return Object.freeze(origins);
+}
+
+// Where a model may be called: this host always, plus exactly the named origins.
+function modelHostAdmitted(url, allowedOrigins) {
+  if (loopback(url)) return true;
+  try { return allowedOrigins.includes(new URL(url).origin); } catch { return false; }
 }
 
 // binding.neo4j: { uri, user, password_file, database? } | null — the graph database
@@ -63,26 +94,34 @@ export function validateNeo4jBinding(neo4j) {
 }
 
 // binding: { worker: { interpreter_path, timeout_ms? }, llm: { host, model, max_calls, options?, keep_alive?, think? },
-//            embedder: { host, model } | null, neo4j?: { uri, user, password_file, database? } | null }
+//            embedder: { host, model } | null, neo4j?: { uri, user, password_file, database? } | null,
+//            allowed_model_hosts?: string[] }
 //            — owned by the trusted configuration, not by the request. `neo4j` is
 //            optional: without it, extraction still runs and the graph database
-//            operations report that they are not connected.
+//            operations report that they are not connected. `allowed_model_hosts`
+//            is likewise optional: empty means models may only be called on this
+//            host, which is the default.
 export function validateGraphBinding(binding) {
   const llm = binding?.llm, embedder = binding?.embedder ?? null;
-  if (!llm || !loopback(llm.host) || !TOKEN.test(llm.model ?? '') || !Number.isSafeInteger(llm.max_calls)
-    || llm.max_calls < 1 || llm.max_calls > GRAPH_EXTRACTION_LIMITS.llm_calls) fail('graph_llm_binding_invalid');
-  if (embedder !== null && (!loopback(embedder.host) || !TOKEN.test(embedder.model ?? ''))) fail('graph_embedder_binding_invalid');
+  const allowedModelHosts = validateAllowedModelHosts(binding?.allowed_model_hosts);
+  if (!llm || !modelHostAdmitted(llm.host, allowedModelHosts) || !TOKEN.test(llm.model ?? '')
+    || !Number.isSafeInteger(llm.max_calls) || llm.max_calls < 1
+    || llm.max_calls > GRAPH_EXTRACTION_LIMITS.llm_calls) fail('graph_llm_binding_invalid');
+  if (embedder !== null && (!modelHostAdmitted(embedder.host, allowedModelHosts)
+    || !TOKEN.test(embedder.model ?? ''))) fail('graph_embedder_binding_invalid');
   // A -cloud model runs on the vendor service behind the local server: loopback alone keeps nothing on this host.
   if (llm.model.endsWith('-cloud') || embedder?.model?.endsWith('-cloud')) fail('graph_model_not_local');
   const options = llm.options === undefined ? { temperature: 0, seed: 7, num_predict: 2048 } : llm.options;
   const think = llm.think === undefined ? false : llm.think;
+  const transport = llm.transport === undefined ? 'ollama' : llm.transport;
   if (typeof options !== 'object' || options === null || Array.isArray(options) || !THINK_VALUES.has(think)
+    || !TRANSPORTS.has(transport)
     || !Object.values(options).every(value => ['string', 'boolean'].includes(typeof value) || Number.isFinite(value))) {
     fail('graph_llm_binding_invalid');
   }
   return Object.freeze({ worker: binding.worker, llm: { host: llm.host, model: llm.model, max_calls: llm.max_calls,
-    options, keep_alive: llm.keep_alive ?? '0s', think }, embedder: embedder && { host: embedder.host, model: embedder.model },
-  neo4j: validateNeo4jBinding(binding?.neo4j ?? null) });
+    options, keep_alive: llm.keep_alive ?? '0s', think, transport }, embedder: embedder && { host: embedder.host, model: embedder.model },
+  neo4j: validateNeo4jBinding(binding?.neo4j ?? null), allowed_model_hosts: allowedModelHosts });
 }
 
 // The worker reports the installed digest of each bound model; a missing or
@@ -90,6 +129,10 @@ export function validateGraphBinding(binding) {
 function workerModels(output, bound, workerSha256) {
   const llm = output?.models?.llm, embedder = output?.models?.embedder, packages = output?.packages;
   if (llm?.model !== bound.llm.model || !DIGEST.test(llm?.digest ?? '')) fail('graph_worker_models_invalid');
+  // An Ollama server reports a weight digest; an OpenAI-compatible one can only be
+  // pinned by what it says about itself. Both are recorded, never conflated.
+  const llmPin = llm.pin_kind ?? 'model_digest';
+  if (!PIN_KINDS.has(llmPin)) fail('graph_worker_models_invalid');
   if (bound.embedder ? embedder?.model !== bound.embedder.model || !DIGEST.test(embedder?.digest ?? '') : embedder !== undefined) {
     fail('graph_worker_models_invalid');
   }
@@ -100,7 +143,8 @@ function workerModels(output, bound, workerSha256) {
   const tool = { worker_sha256: workerSha256, packages: Object.fromEntries(Object.entries(packages)
     .filter(([name, version]) => /^[A-Za-z0-9._-]{1,64}$/u.test(name) && (version === null || (typeof version === 'string' && version.length <= 64)))
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) };
-  return Object.freeze({ llm: llm.model, llm_digest: llm.digest, think: bound.llm.think, options: hashableOptions(bound.llm.options),
+  return Object.freeze({ llm: llm.model, llm_digest: llm.digest, llm_pin_kind: llmPin, transport: bound.llm.transport,
+    think: bound.llm.think, options: hashableOptions(bound.llm.options),
     embedder: bound.embedder?.model ?? null, embedder_digest: embedder?.digest ?? null, tool });
 }
 
@@ -222,7 +266,9 @@ export function admitGraphFragment({ fragment, document, projectKey, profile, mo
 export async function probeGraphModels({ binding, runWorker = runGraphragWorker }) {
   const bound = validateGraphBinding(binding);
   const { exit_code: exitCode, output, worker_sha256: workerSha256 } = await runWorker({ binding: bound.worker,
-    request: { operation: 'probe', models: { llm: { host: bound.llm.host, model: bound.llm.model }, embedder: bound.embedder } } });
+    request: { operation: 'probe', allowed_hosts: bound.allowed_model_hosts,
+      models: { llm: { host: bound.llm.host, model: bound.llm.model, transport: bound.llm.transport },
+        embedder: bound.embedder } } });
   if (exitCode !== 0 || output?.status !== 'ok') fail(String(output?.code ?? 'graph_worker_failed'));
   return workerModels(output, bound, workerSha256);
 }
@@ -238,7 +284,7 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
   if (unitCount > GRAPH_EXTRACTION_LIMITS.units) fail('graph_documents_invalid');
   if (!profile?.schema || !TOKEN.test(profile.profile_id?.replaceAll('/', '.') ?? '')) fail('graph_profile_invalid');
   const request = { operation: 'extract', profile: { schema: profile.schema, llm: bound.llm, embedder: bound.embedder,
-    max_concurrency: profile.max_concurrency ?? 1 },
+    allowed_hosts: bound.allowed_model_hosts, max_concurrency: profile.max_concurrency ?? 1 },
     documents: documents.map(doc => ({ doc_key: doc.doc_key, title: doc.title, units: doc.units.map(({ unit_id, text }) => ({ unit_id, text })) })) };
   const { exit_code: exitCode, output, worker_sha256: workerSha256 } = await runWorker({ binding: bound.worker, request });
   if (exitCode !== 0 || output?.status !== 'ok' || !Array.isArray(output.fragments)) {
