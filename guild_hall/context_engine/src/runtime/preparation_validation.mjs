@@ -19,7 +19,7 @@ import { ADAPTER_PROFILES, PREPARATION_RUN_SCHEMA, PREPARER_ID, PREPARER_VERSION
 
 export const VALIDATION_REPORT_SCHEMA = 'soulforge.context_preparation_validation.v1';
 export const VALIDATOR_ID = 'context-engine/preparation-validator';
-export const VALIDATOR_VERSION = '0.1.0';
+export const VALIDATOR_VERSION = '0.2.0';
 export const VALIDATOR_ENTRY = './preparation_validation.mjs';
 
 // The validator pins its own bytes the same way the preparer does, so "which

@@ -191,6 +191,23 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
 - 정션·symlink로 `data_root` 폴더를 흉내 내는 방법은 쓰지 않는다. root가 링크면 표가 거부하고, 그 아래 어느 조각이
   링크여도 io가 거부한다.
 
+## 저장 입구와 읽기 출구의 검사 (0.13.1)
+
+2026-09-12 외부 검토(1e594af2)가 지적한 저장·읽기·무결성 계약의 빈틈을 닫았다. 새 기능이 아니라 이미 둔 검사를 실제로
+하게 만든 것이고, 폴더 구조·준비/검증 분리·비활성 세대·별칭 주소는 그대로다.
+
+- 자료등급과 과제 경계: `writePreparationGeneration`·`readPreparationGeneration`이 문서마다 `data_class`가 현재 actor의
+  `allowed_data_classes`에 있는지, `project_key`가 이 과제인지 대조한다(목록이 배열이라는 사실은 권한이 아니다). 읽기는
+  지금의 ACL로 판정하므로 등급을 좁히면 본문이 즉시 닿지 않고, 세대 자체는 제자리에 남는다.
+- 읽기 범위: manifest가 가리키는 문서 경로는 그 세대의 `documents/` 아래, 참조 경로는 이 과제의 `10_입력자료/` 아래여야
+  읽는다. 자기 일관적인 manifest라도 다른 과제의 파일을 가리키면 한 바이트도 읽기 전에 거부한다(`preparation_store_generation_scope_refused`).
+- 기록 자체의 digest: 저장 입구에서 run의 `run_sha256`, 보고서 append에서 `report_sha256`을 본문에서 다시 계산해 대조한다.
+  outcome만 고친 보고서, preparer_version만 고친 run은 정상 receipt로 들어가지 않는다. 온전한 옛 PASS와 새 FAIL은 둘 다 남는다.
+- 해시와 JSON 보관의 정합: 준비기 0.2.0·검증기 0.2.0. canonical hash는 JSON이 보관하는 값을 따른다 — `-0`은 `0`으로,
+  비유한 수는 null로, 홀로 선 surrogate 문자열은 JSON 텍스트로 별도 태그 아래 해시한다. 보통 값의 digest는 바뀌지 않는다.
+- 시험: `tests/preparation_store_review.test.mjs`(REV-A1~A3, B1~B2, C1~C2, D). 검토자가 보낸 probe를 그대로 들여왔고,
+  수정 전 1e594af2에서는 8건 중 7건이 실패(REV-D만 통과)했다.
+- 여전히 아님: 서명. manifest·run·report digest는 자기 일관성 검사이지 생산자 인증이 아니다.
 ## 준비 결과와 검증 보고서의 과제 저장소 배치 (0.12.0)
 
 `writePreparationGeneration`이 한 번의 준비를 과제 저장소에 앉히고, `appendValidationReport`가 그 세대 옆에

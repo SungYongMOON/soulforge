@@ -28,7 +28,9 @@ export const PREPARER_ID = 'context-engine/source-preparer';
 // Deliberately independent of module_version: "the preparer changed" and "the
 // validator changed" must be separately visible, because only the first one
 // invalidates existing prepared bytes.
-export const PREPARER_VERSION = '0.1.0';
+// 0.2.0: the canonical hash now follows JSON persistence for -0, non-finite
+// numbers and lone-surrogate strings. Digests of ordinary values are unchanged.
+export const PREPARER_VERSION = '0.2.0';
 export const PREPARER_ENTRY = './source_preparation.mjs';
 
 export const ADAPTER_PROFILES = Object.freeze({ document: DOCUMENT_SOURCE_ADAPTER, linear: LINEAR_SOURCE_ADAPTER,
@@ -139,7 +141,13 @@ export function preparationRulesDigest() {
 // match an honest digest, so both still read as a difference. No honest value
 // comes close: the deepest thing here is a document's locator, about five levels.
 const ENCODE_MAX_DEPTH = 64;
+// A string is hashed as its UTF-8 bytes, which is how it is stored. A string that
+// is not well-formed UTF-16 (a lone surrogate) has no UTF-8 form: Buffer would
+// replace it, and two different lone surrogates would share one encoding. Such a
+// string is hashed as its JSON text instead, under its own tag, so it never
+// collides with a well-formed string and well-formed strings keep their digest.
 const hex = text => Buffer.from(text, 'utf8').toString('hex');
+const encodeString = text => text.isWellFormed() ? `s${hex(text)};` : `S${hex(JSON.stringify(text))};`;
 function encode(value, depth = 0, open = new Set()) {
   const recur = child => encode(child, depth + 1, open);
   if (value !== null && typeof value === 'object') {
@@ -150,10 +158,13 @@ function encode(value, depth = 0, open = new Set()) {
   if (value === undefined) return 'u;';
   const kind = typeof value;
   if (kind === 'boolean') return value ? 't;' : 'f;';
-  // -0 and 0 are different values and must not share an encoding.
-  if (kind === 'number') return `n${Object.is(value, -0) ? '-0' : String(value)};`;
+  // Numbers are hashed as the value JSON persists: -0 comes back as 0 and a
+  // non-finite number comes back as null, so the digest of a result equals the
+  // digest of the same result read back from the store. Distinguishing them here
+  // would make an honest stored generation fail its own record.
+  if (kind === 'number') return Number.isFinite(value) ? `n${Object.is(value, -0) ? '0' : String(value)};` : 'z;';
   if (kind === 'bigint') return `g${value};`;
-  if (kind === 'string') return `s${hex(value)};`;
+  if (kind === 'string') return encodeString(value);
   if (kind === 'symbol' || kind === 'function') return `w${hex(String(value))};`;
   open.add(value);
   try {

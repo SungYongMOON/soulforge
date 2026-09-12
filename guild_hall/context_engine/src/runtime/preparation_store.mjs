@@ -180,10 +180,19 @@ export async function writePreparationGeneration({ storeRoot, io = null, binding
     ? 'preparation_store_run_not_requested' : 'preparation_store_run_unavailable');
   if (run.schema_version !== PREPARATION_RUN_SCHEMA || !storeToken(run.preparation_run_id)
     || run.project_key !== store.projectKey) fail('preparation_store_run_invalid');
+  // The record's own digest is recomputed at the entrance, not trusted from its
+  // field: a run whose claims changed after its hash was minted is not a record
+  // of anything, and landing it would file that claim as if the preparer made it.
+  const { run_sha256: statedRun, ...runBody } = run;
+  if (!SHA.test(statedRun ?? '') || totalDigest(runBody) !== statedRun) fail('preparation_store_run_digest_mismatch');
   const documents = preparation.documents ?? [];
   if (!Array.isArray(documents) || !documents.every(document => plain(document) && validateSourceDocument(document))) {
     fail('preparation_store_documents_invalid');
   }
+  // What the ACL admits is checked against each document, not merely present:
+  // a writer whose grant admits no data class lands nothing, and a document of
+  // another project never becomes this project's material.
+  assertDocumentsAdmitted(store, documents);
   // The record has to describe the material filed beside it. Without this the
   // four versions the manifest records would attest a different preparation's
   // documents, and nothing downstream would notice.
@@ -243,9 +252,15 @@ export async function writePreparationGeneration({ storeRoot, io = null, binding
 export async function appendValidationReport({ storeRoot, io = null, bindingSha256, bindingAddress, request, report } = {}) {
   const store = openPreparationStore({ storeRoot, io, bindingSha256, bindingAddress, request, operation: PREPARATION_WRITE_OPERATION });
   if (!plain(report) || report.schema_version !== VALIDATION_REPORT_SCHEMA
-    || !storeToken(report.validation_run_id) || !SHA.test(report.validated_run_sha256 ?? '')) {
+    || !storeToken(report.validation_run_id) || !SHA.test(report.validated_run_sha256 ?? '')
+    || typeof report.outcome !== 'string' || !Array.isArray(report.checks)) {
     fail('preparation_store_report_invalid');
   }
+  // The report's own digest is recomputed from its body. A report whose outcome
+  // was edited after the validator signed off on it is not a validation receipt,
+  // and filing it under a fresh file hash would only preserve the edit.
+  const { report_sha256: statedReport, ...reportBody } = report;
+  if (!SHA.test(statedReport ?? '') || totalDigest(reportBody) !== statedReport) fail('preparation_store_report_digest_mismatch');
   const generation = await readPreparationGeneration({ storeRoot, io, bindingSha256, bindingAddress, request,
     generationId: findGenerationFor(store, report) });
   // The report has to be about a generation this store actually holds, and
@@ -260,6 +275,16 @@ export async function appendValidationReport({ storeRoot, io = null, bindingSha2
     validator: { id: report.validator_id, version: report.validator_version, code_digest: report.validator_code_digest },
     // Stated, not assumed: adding a report leaves the generation's digest alone.
     generation_sha256: generation.manifest.generation_sha256, store_root: storeRoot });
+}
+
+// Every document must belong to this project and be of a data class the actor's
+// current grant admits. Presence of the allowlist is not permission; membership is.
+function assertDocumentsAdmitted(store, documents) {
+  const classes = store.aclGrant.allowed_data_classes;
+  for (const document of documents) {
+    if (document.project_key !== store.projectKey) fail('preparation_store_document_project_mismatch');
+    if (typeof document.data_class !== 'string' || !classes.includes(document.data_class)) fail('preparation_store_data_class_refused');
+  }
 }
 
 // A directory that merely looks like a generation must not be able to answer for
@@ -295,6 +320,16 @@ export async function readPreparationGeneration({ storeRoot, io = null, bindingS
     || manifest.project_key !== store.projectKey) fail('preparation_store_generation_invalid');
   const { generation_sha256: stated, ...body } = manifest;
   if (totalDigest(body) !== stated) fail('preparation_store_generation_mismatch');
+  // A manifest is only trusted to name files inside its own generation and this
+  // project's reference area. A self-consistent manifest pointing elsewhere is
+  // refused before a byte of the foreign file is read: the io's path safety says
+  // the file is inside the store, not that this project's request may read it.
+  const inScope = (row, prefix) => plain(row) && safeStoreRel(row.path) && row.path.startsWith(prefix);
+  if (!Array.isArray(manifest.documents) || !Array.isArray(manifest.references)
+    || !manifest.documents.every(row => inScope(row, `${base}/documents/`))
+    || !manifest.references.every(row => inScope(row, `${store.projectPath}/${PREPARATION_STORE_AREAS.references}/`))) {
+    fail('preparation_store_generation_scope_refused');
+  }
   const documents = [];
   for (const row of manifest.documents) {
     const bytes = store.read(row.path);
@@ -304,6 +339,9 @@ export async function readPreparationGeneration({ storeRoot, io = null, bindingS
   for (const row of manifest.references) {
     if (digest(store.read(row.path)) !== row.sha256) fail('preparation_store_generation_mismatch');
   }
+  // Read under the ACL as it is now. Narrowing an actor's data classes stops the
+  // body reaching them at once; the generation itself stays where it is.
+  assertDocumentsAdmitted(store, documents);
   return Object.freeze({ manifest, documents: Object.freeze(documents),
     preparation: Object.freeze({ grant: manifest.grant, documents: Object.freeze(documents),
       coverage: manifest.coverage, changes: manifest.changes }),

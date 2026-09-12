@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-12 - 저장 입구와 읽기 출구가 자기 검사를 실제로 한다 (외부 검토 REV-A/B/C)
+
+- 외부 검토(1e594af2)의 회귀시험 8건을 저장소 시험으로 들여왔다(`guild_hall/context_engine/tests/preparation_store_review.test.mjs`).
+  수정 전 같은 커밋에서 실제로 돌리면 7건이 실패했고(REV-D만 통과), 수정 후 8/8이다. 검토자 주장을 그대로 쓰지 않고 실행으로 확인했다.
+- REV-A: 준비 저장소가 문서마다 자료등급(`data_class` ∈ 현재 actor의 `allowed_data_classes`)과 과제 키를 대조한다 — 쓰기와 읽기 모두.
+  manifest가 가리키는 경로는 그 세대·이 과제의 참조 영역 안일 때만 읽는다.
+- REV-B: run의 `run_sha256`과 보고서의 `report_sha256`을 입구에서 본문으로 재계산한다. 편집된 기록은 정상 receipt가 되지 않는다.
+- REV-C: canonical hash가 JSON 보관값을 따른다(-0→0, 비유한 수→null, 홀로 선 surrogate는 JSON 텍스트로 별도 태그). 준비기·검증기
+  0.2.0. 보통 값의 digest는 그대로다. 저장 전후 documents digest가 같음을 음성 세그먼트 -0 사례로 고정했다.
+- 범위 밖 그대로: 서명·GraphRAG·위키·기억, 운영 폴더 실행, 실자료(`real_source_preparation_not_admitted` 유지).
+- 관련 경로: `src/runtime/preparation_store.mjs`, `src/runtime/preparation_run.mjs`, `src/runtime/preparation_validation.mjs`,
+  `module.manifest.json`(0.13.1), `release/runtime-closure.json`, `package.json`, `README.md`.
 ## 2026-09-12 - 주소의 첫 조각은 폴더가 아니라 root class 별칭이다
 
 - 맥락 APP의 과제 저장소 주소 `data_root/20_PROJECTS/<과제>/...`에서 `data_root`는 **Path Registry의 root class
