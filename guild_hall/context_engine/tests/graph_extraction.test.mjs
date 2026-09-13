@@ -102,13 +102,18 @@ test('canned worker output: admission keeps chunk-anchored profile entities; tru
     runWorker: canned(cannedWorkerOutput(document, options)) });
   const first = await run();
   const second = await run({ createdAt: '2026-09-12T09:30:00+00:00' });
-  assert.deepEqual({ status: first.status, degraded: { ...first.degraded, truncated_calls: first.degraded.truncated_calls.length } },
-    { status: 'degraded', degraded: { budget_exhausted: false,
-      errors: 0, invalid_outputs: 0, truncated: 1, documents: [{ doc_key: document.doc_key, chunks_mismatched: 1,
-        missing_chunks: document.units.length - 1 }],
-      // A refused answer is described by shape; this run had none, and the one
-      // cut-off answer is named by call so a reader can see which it was.
-      rejected_shapes: [], truncated_calls: 1 } });
+  assert.deepEqual({ status: first.status, degraded: { ...first.degraded,
+    truncated_calls: first.degraded.truncated_calls.length, refused_units: first.degraded.refused_units.length } },
+  { status: 'degraded', degraded: { budget_exhausted: false,
+    errors: 0, invalid_outputs: 0, truncated: 1, documents: [{ doc_key: document.doc_key, chunks_mismatched: 1,
+      missing_chunks: document.units.length - 1 }],
+    // A refused answer is described by shape; this run had none, and the one
+    // cut-off answer is named by call so a reader can see which it was.
+    rejected_shapes: [], truncated_calls: 1, refused_units: 1 } });
+  // And the record behind that call, so a caller can leave exactly it out of a
+  // retry. The call's position is the basis, and the row says so.
+  assert.deepEqual(first.degraded.refused_units, [{ call: 1, status: 'ok', done_reason: 'length',
+    by: 'call_position', doc_key: document.doc_key, unit_id: document.units[0].unit_id }]);
   const fragment = first.fragments[0];
   assert.deepEqual(fragment.nodes.map(node => node.label), ['Chunk', 'Deliverable', 'Document', 'Equipment']);
   assert.deepEqual({ chunks: fragment.stats.chunks, entities: fragment.stats.entities,

@@ -133,7 +133,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
-      "sha256": "219145205eb57fe9ad7aec5f97edb24eeb1eb81c87e7cf2b2b625466cbee5b94"
+      "sha256": "18b8881302761ee7fb547f4ccc540c9493e3b50c922ccb63615ec91aed025b67"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "2e3f274cb89fd5942cabae8f4c98a637d774bd19edf03b981d3bcf4f07b42aa6",
+  "closure_sha256": "edb76dfdfc0d8dae4ef7b28f29d774ee88823e90953d681868cd1adb82afef08",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

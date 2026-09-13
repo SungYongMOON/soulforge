@@ -332,6 +332,15 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
     ...Object.fromEntries(TRACE_FIELDS
       .filter(key => ['string', 'number'].includes(typeof row?.[key]) || row?.[key] === null).map(key => [key, row[key]])),
     ...(plainShape(row?.rejected_shape) ? { rejected_shape: rejectedShape(row.rejected_shape) } : {}) }));
+  // Which record each call was about. The worker calls the model once per chunk
+  // with `max_concurrency: 1`, in the order this request listed the documents and
+  // each document listed its units, so call N is unit N of that flattened list.
+  // It is a position rather than something the worker stated, and every row says
+  // so, because a caller that isolates a record on this basis should be able to
+  // see what the basis was.
+  const positions = documents.flatMap(document => document.units.map(unit =>
+    ({ doc_key: document.doc_key, unit_id: unit.unit_id })));
+  const at = call => (Number.isSafeInteger(call) && call >= 1 && call <= positions.length ? positions[call - 1] : null);
   const sum = key => calls.reduce((total, row) => total + (Number.isFinite(row[key]) ? row[key] : 0), 0);
   const llm = { calls: calls.filter(row => row.status !== 'budget_exhausted').length,
     errors: calls.filter(row => row.status === 'error').length, invalid_outputs: calls.filter(row => row.status === 'invalid_output').length,
@@ -349,6 +358,12 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
       // tool will not take" is a diagnosis rather than a count.
       rejected_shapes: calls.filter(row => row.rejected_shape).map(row => ({ call: row.call, ...row.rejected_shape })),
       truncated_calls: calls.filter(row => row.done_reason === 'length')
-        .map(row => ({ call: row.call, output_characters: row.output_characters, output_tokens: row.output_tokens })) } : null;
+        .map(row => ({ call: row.call, output_characters: row.output_characters, output_tokens: row.output_tokens })),
+      // The records behind the calls that did not produce a graph, so a caller can
+      // leave exactly those out of a retry instead of holding everything.
+      refused_units: calls.filter(row => row.status === 'invalid_output' || row.status === 'error'
+        || row.done_reason === 'length')
+        .map(row => ({ call: row.call, status: row.status, done_reason: row.done_reason ?? null,
+          by: 'call_position', ...(at(row.call) ?? { doc_key: null, unit_id: null }) })) } : null;
   return Object.freeze({ status: llm.budget_exhausted ? 'partial' : degraded ? 'degraded' : 'ok', fragments, model: models, llm, degraded });
 }

@@ -1,24 +1,34 @@
 // Dev harness and lane entry point: bring one project's graph index up to what
 // the collectors now hold, and put the result in the unified graph database.
 //
-// Five steps, in this order, for each project named:
-//   1. grant    re-list the items custody holds for this project, by the same
-//               three rules the inventory uses, bounded by what the binding's
-//               admission admits. A new item, an item whose revision moved, an
-//               item custody no longer holds and a source the admission stopped
-//               admitting all show up here as a difference in the grant -- so
-//               "what may be read" and "what is read" stay the same question.
-//               A changed grant is written create-only and the binding is
-//               re-pointed at it, keeping a copy of the binding it replaced.
-//   2. index    updateGraphIndex: the preparer re-reads every granted item, only
-//               added and changed documents go to the extraction model, the rest
-//               are carried forward by reference, and the pointer moves under its
-//               own lock. Nothing changed means UNCHANGED and the run stops here.
-//   3. load     materialize the selected generation into the database, replacing
-//               only this project's own previous generation.
-//   4. link     re-apply the L1 explicit-reference rule to the loaded projection.
-//   5. receipt  how many items were in scope, how many reached the database, what
-//               is waiting or failed and why, and when the database last wrote it.
+// One pass, for each project named:
+//   1. scope     re-read the admission and the ACL, then re-list the items custody
+//                holds for this project by the inventory's own three rules,
+//                bounded by what the admission still admits. A new item, an item
+//                whose revision moved, an item custody no longer holds, and a
+//                source the admission stopped naming all appear here as one thing:
+//                a difference in the grant. "What may be read" and "what is read"
+//                stay the same question.
+//   2. offer     take out the items an earlier pass could not get in and has
+//                stopped trying (the ledger), leave every other pending item in --
+//                a pass retries what failed last time.
+//   3. prepare   run the preparer over that grant without writing a generation.
+//                Anything it cannot prepare is taken out of THIS pass, written
+//                down with the code that stopped it, and the pass tries again, so
+//                one unreadable record does not hold the other sixty.
+//   4. index     updateGraphIndex: only added and changed documents reach the
+//                extraction model, the rest are carried by reference, and the
+//                pointer moves under its own lock. An extraction the model held
+//                is traced back to the records behind the refused calls, which
+//                are taken out the same way and retried next pass.
+//   5. load      materialize the selected generation, replacing only this
+//                project's own previous generation, and re-apply L1.
+//   6. candidates related evidence (R1) is refreshed as candidates and never
+//                applied: a pass marks a candidate stale when the unit it quoted
+//                is no longer the document it was judged on, and leaves the
+//                `approved` list exactly as it found it.
+//   7. verify    read the database back. Only what it agrees with is completed;
+//                everything else stays in the ledger for the next pass.
 //
 // The harness holds no address of its own: the root table is the one absolute
 // path, the binding names the database and the sources, and where receipts go is
@@ -38,10 +48,18 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { EXPLICIT_LINK_RULES, inspectGraphDatabase, linkExplicitReferences,
   materializeGraphIndex } from '../src/runtime/graph_database.mjs';
+import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { validateSourceGrant, SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
 import { grantCandidates } from './estate_inventory.mjs';
 
 export const GRAPH_SYNC_SCHEMA = 'soulforge.context_graph_sync_receipt.v1';
+export const GRAPH_SYNC_PENDING_SCHEMA = 'soulforge.context_graph_sync_pending.v1';
+export const GRAPH_SYNC_CANDIDATE_SCHEMA = 'soulforge.context_graph_related_candidates.v1';
+// How many passes an item may fail before a pass stops offering it, and how many
+// times one pass may narrow its own grant and try again. Both are small on
+// purpose: a pass that keeps narrowing is one that should be read, not one that
+// should keep going.
+export const SYNC_LIMITS = Object.freeze({ item_attempts: 3, isolations_per_pass: 4 });
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const BINDING_FILE = /^graph_index_binding(?:\.[a-z0-9]{1,32})?\.json$/u;
 const PREPARER = 'actor:hpp-primary-01:context-preparer';
@@ -50,6 +68,7 @@ const LINEAR_IDENTIFIER_FACT = 'linear.identifier';
 const MAX_JSON_BYTES = 64 * 1024 * 1024;
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const encode = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+const at = (rootRef, itemId) => `${rootRef}|${itemId}`;
 
 export class GraphSyncError extends Error {
   constructor(code) { super(code); this.name = 'GraphSyncError'; this.code = code; }
@@ -94,7 +113,79 @@ export function nextGenerationId(prefix, existing) {
   return `${prefix}-${String(Math.max(0, ...numbers) + 1).padStart(3, '0')}`;
 }
 
-async function applyLink({ io, bindingAddress, bindingSha256, projectRef, graphBinding }) {
+const readJsonFile = (file, fallback) => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return fallback; } };
+
+/** The items an earlier pass could not get into the database, and how often it tried. */
+export function readLedger(receiptsDir, project) {
+  const held = readJsonFile(path.join(receiptsDir, 'pending.json'), null);
+  return held?.schema_version === GRAPH_SYNC_PENDING_SCHEMA && held.project_code === project
+    && held.items !== null && typeof held.items === 'object'
+    ? { schema_version: GRAPH_SYNC_PENDING_SCHEMA, project_code: project, updated_at: held.updated_at ?? null,
+      items: { ...held.items } }
+    : { schema_version: GRAPH_SYNC_PENDING_SCHEMA, project_code: project, updated_at: null, items: {} };
+}
+
+/** Records one item as held back, with the code that held it and the count so far. */
+export function holdBack(ledger, { root_ref: rootRef, item_id: itemId, code, by = null, now }) {
+  const held = ledger.items[at(rootRef, itemId)]
+    ?? { root_ref: rootRef, item_id: itemId, attempts: 0, first_seen: now };
+  const attempts = held.attempts + 1;
+  // A pass stops offering an item once it has failed this often. It stays in the
+  // ledger: "we stopped trying, and this is why" is a state a reader can see.
+  ledger.items[at(rootRef, itemId)] = { ...held, code: String(code ?? 'unknown'), by, attempts, last_seen: now,
+    state: attempts >= SYNC_LIMITS.item_attempts ? 'failed' : 'pending' };
+  return ledger.items[at(rootRef, itemId)];
+}
+
+/** Clears every item this pass actually got into a generation the database agreed with. */
+export function clearCompleted(ledger, completed) {
+  for (const row of completed) delete ledger.items[at(row.root_ref, row.item_id)];
+  return ledger;
+}
+
+const ledgerRows = ledger => Object.values(ledger.items);
+const stoppedSet = ledger => new Set(ledgerRows(ledger).filter(row => row.state === 'failed')
+  .map(row => at(row.root_ref, row.item_id)));
+
+/** The same sources with the named items left out, empty sources dropped. */
+function without(sources, drop) {
+  return sources.map(source => ({ ...source,
+    items: source.items.filter(item => !drop.has(at(source.root_ref, item.item_id))) }))
+    .filter(source => source.items.length > 0);
+}
+
+function writeLedger(receiptsDir, ledger, now) {
+  mkdirSync(receiptsDir, { recursive: true });
+  writeFileSync(path.join(receiptsDir, 'pending.json'), encode({ ...ledger, updated_at: now }));
+}
+
+/**
+ * Related-evidence candidates: kept, never applied by a pass, and marked stale
+ * when the unit a quote came from is no longer the document it was judged on.
+ * `approved` is where a reviewed relation would be named; a pass reads it and
+ * writes it back untouched, so nothing here can approve itself.
+ */
+export function refreshCandidates({ held, project, manifest, now }) {
+  const base = held?.schema_version === GRAPH_SYNC_CANDIDATE_SCHEMA ? held
+    : { schema_version: GRAPH_SYNC_CANDIDATE_SCHEMA, project_code: project, approved: [], candidates: [] };
+  const byItem = new Map(manifest.documents.map(row => [row.item_id, row]));
+  const candidates = (Array.isArray(base.candidates) ? base.candidates : []).map(row => {
+    const ends = ['a', 'b'].map(side => ({ side, held: byItem.get(row[side]?.item_id) ?? null, was: row[side] }));
+    const broken = ends.filter(({ held: document, was }) => document === null || document.doc_key !== was?.doc_key);
+    if (broken.length === 0) return { ...row, review_state: 'candidate', stale_reason: null };
+    return { ...row, review_state: 'stale', marked_stale_at: row.marked_stale_at ?? now,
+      stale_reason: broken.map(({ side, held: document }) =>
+        `${side}:${document === null ? 'not_in_generation' : 'revision_changed'}`).join(',') };
+  });
+  const body = { ...base, schema_version: GRAPH_SYNC_CANDIDATE_SCHEMA, project_code: project,
+    generation_id: manifest.generation_id, updated_at: now,
+    approved: Array.isArray(base.approved) ? base.approved : [], candidates };
+  return { body, counts: { candidates: candidates.filter(row => row.review_state === 'candidate').length,
+    stale: candidates.filter(row => row.review_state === 'stale').length,
+    approved: body.approved.length, applied_by_this_pass: 0 } };
+}
+
+async function applyLink({ io, bindingAddress, bindingSha256, projectRef, graphBinding, runWorker }) {
   const view = () => openGraphIndex({ io, bindingAddress, bindingSha256,
     request: { actor_ref: READER, project_ref: projectRef, purpose: 'context_query' } });
   const opened = view();
@@ -111,7 +202,7 @@ async function applyLink({ io, bindingAddress, bindingSha256, projectRef, graphB
   }
   if (Object.keys(identifiers).length === 0) return { status: 'no_identifiers', counts: null };
   const applied = await linkExplicitReferences({ view: view(), binding: graphBinding, identifiers,
-    rule: EXPLICIT_LINK_RULES[0], apply: true });
+    rule: EXPLICIT_LINK_RULES[0], apply: true, ...(runWorker ? { runWorker } : {}) });
   return { status: applied.status, rule: EXPLICIT_LINK_RULES[0], identifiers: Object.keys(identifiers).length,
     counts: applied.counts ?? null };
 }
@@ -124,103 +215,207 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
   let bindingBytes;
   try { bindingBytes = io.read(bindingAddress, 1024 * 1024); } catch { fail('graph_sync_binding_unavailable'); }
   const binding = JSON.parse(bindingBytes);
-  const grantAddress = binding.grant.path;
-  const grant = JSON.parse(io.read(grantAddress, MAX_JSON_BYTES));
-  const admission = JSON.parse(io.read(binding.admission.path, MAX_JSON_BYTES));
+  const grant = JSON.parse(io.read(binding.grant.path, MAX_JSON_BYTES));
+  // Read every pass: an admission or an ACL the Owner narrowed since last time is
+  // a change in what may be read, and it has to reach this pass's grant.
+  const admissionBytes = io.read(binding.admission.path, MAX_JSON_BYTES);
+  const admission = JSON.parse(admissionBytes);
+  const aclBytes = io.read(binding.acl_path, MAX_JSON_BYTES);
   const storePath = `data_root/20_PROJECTS/${binding.approved_fs_key}`;
+  const ledger = readLedger(receiptsDir, project);
 
   // 1. What custody holds now, inside what the admission admits and the binding binds.
-  const roots = {};
+  const roots = {}, notAdmitted = [];
   for (const [ref, absolute] of Object.entries(binding.source_roots)) {
-    if (!admission.source_refs.includes(ref)) continue;
+    if (!admission.source_refs.includes(ref)) { notAdmitted.push({ root_ref: ref, code: 'not_admitted' }); continue; }
     const address = aliasAddressFor(rootTable, absolute);
-    if (address !== null) roots[ref] = address;
+    if (address === null) notAdmitted.push({ root_ref: ref, code: 'outside_root_table' });
+    else roots[ref] = address;
   }
-  const sources = grantCandidates({ io, code: project, roots,
-    dataClass: grant.allowed_data_classes.find(value => value !== 'public_synthetic') ?? grant.allowed_data_classes[0] });
-  const next = { schema_version: SOURCE_GRANT_SCHEMA,
-    grant_id: `grant.${project}.sync.${now.replace(/[-:.]/gu, '').slice(0, 15)}`,
-    project_ref: grant.project_ref, purposes: [...grant.purposes], allowed_data_classes: [...grant.allowed_data_classes],
-    valid_from: grant.valid_from, valid_to: grant.valid_to, sources };
-  validateSourceGrant(next, { now });
-  const difference = grantDifference(grant, next);
-  const scope = { items: sources.reduce((total, source) => total + source.items.length, 0),
-    by_root: Object.fromEntries(sources.map(source => [source.root_ref, source.items.length])) };
+  const dataClass = grant.allowed_data_classes.find(value => value !== 'public_synthetic') ?? grant.allowed_data_classes[0];
+  const candidates = grantCandidates({ io, code: project, roots, dataClass });
+  const stopped = stoppedSet(ledger);
+  const scope = { items: candidates.reduce((total, source) => total + source.items.length, 0),
+    by_root: Object.fromEntries(candidates.map(source => [source.root_ref, source.items.length])),
+    held_back_from_this_pass: stopped.size, sources_not_admitted: notAdmitted };
 
   const receipt = { schema_version: GRAPH_SYNC_SCHEMA, project_code: project, ran_at: now, dry,
     binding: { address: bindingAddress, sha256: sha256(bindingBytes) },
-    grant: { in_force: grant.grant_id, proposed: next.grant_id, ...difference,
-      added_count: difference.added.length, removed_count: difference.removed.length },
-    scope, steps: {} };
-  if (dry) return Object.freeze({ ...receipt, status: difference.changed ? 'WOULD_UPDATE' : 'UNCHANGED' });
+    access: { admission_id: admission.admission_id, admission_sha256: sha256(admissionBytes),
+      acl_sha256: sha256(aclBytes), source_refs_admitted: admission.source_refs.length,
+      source_refs_bound: Object.keys(binding.source_roots).length },
+    scope, steps: {}, isolated: [] };
 
-  // 2. A changed grant is placed create-only and the binding is re-pointed at it.
-  let inForceBytes = bindingBytes, inForceSha = sha256(bindingBytes);
-  if (difference.changed) {
-    const grantFile = io.path(`${storePath}/00_프로젝트_안내/grants/${next.grant_id}.json`, true);
-    mkdirSync(path.dirname(grantFile), { recursive: true });
-    const grantBytes = encode(next);
-    writeFileSync(grantFile, grantBytes, { flag: 'wx' });
-    mkdirSync(receiptsDir, { recursive: true });
-    copyFileSync(io.path(bindingAddress), path.join(receiptsDir,
-      `binding-before-${next.grant_id}.json`));
-    const repointed = { ...binding, grant: { path: `${storePath}/00_프로젝트_안내/grants/${next.grant_id}.json`,
-      sha256: sha256(grantBytes) } };
-    inForceBytes = encode(repointed);
-    writeFileSync(io.path(bindingAddress), inForceBytes);
-    inForceSha = sha256(inForceBytes);
-    receipt.steps.grant = { placed: next.grant_id, sha256: sha256(grantBytes), binding_sha256: inForceSha };
-  } else {
-    receipt.steps.grant = { placed: null, note: 'custody holds exactly what the grant in force names' };
+  if (dry) {
+    const difference = grantDifference(grant, { ...grant, sources: without(candidates, stopped) });
+    return Object.freeze({ ...receipt,
+      grant: { in_force: grant.grant_id, proposed: null, ...difference,
+        added_count: difference.added.length, removed_count: difference.removed.length },
+      status: difference.changed ? 'WOULD_UPDATE' : 'UNCHANGED' });
   }
 
-  // 3. The index: extraction only for what is added or changed.
+  mkdirSync(receiptsDir, { recursive: true });
   const pointerAddress = `${storePath}/00_프로젝트_안내/graph_index_current.json`;
-  let expectedPrior = null;
-  try { expectedPrior = sha256(io.read(pointerAddress, 65536)); } catch { expectedPrior = null; }
-  let existing = [];
-  try { existing = readdirSync(io.path(`${storePath}/20_문서검색/검색_색인/generations`, true)); }
-  catch { existing = []; }
   const prefix = `${binding.approved_fs_key.toLowerCase().replace(/[^a-z0-9]/gu, '')}-graph`;
-  const generationId = nextGenerationId(prefix, existing);
+  let inForceSha = sha256(bindingBytes);
+  let attempt = 0, offered = without(candidates, stopped), updated = null, placed = null, difference = null;
   const started = Date.now();
-  const updated = await updateGraphIndex({ io, bindingAddress, bindingSha256: inForceSha, now,
-    ...(runWorker ? { runWorker } : {}),
-    request: { actor_ref: PREPARER, project_ref: binding.project_ref, purpose: 'context_preparation',
-      generation_id: generationId, expected_prior: expectedPrior } });
-  receipt.steps.index = { status: updated.status, code: updated.code ?? null, generation_id: updated.generation_id,
-    counts: updated.counts ?? null, changes: updated.changes ?? null, llm: updated.llm ?? null,
-    unavailable: (updated.unavailable ?? []).map(({ source_kind, root_ref, item_id, status, code }) =>
+
+  // 2-4. Offer what this pass can support, prepare it, index it, and -- when
+  // either step is held by particular records -- take exactly those records out
+  // of THIS pass and try again. Every removal is written down with the code that
+  // caused it, and the item stays in the ledger so the next pass offers it again.
+  while (attempt < SYNC_LIMITS.isolations_per_pass) {
+    attempt += 1;
+    const proposed = { schema_version: SOURCE_GRANT_SCHEMA,
+      grant_id: `grant.${project}.sync.${now.replace(/[-:.]/gu, '').slice(0, 15)}${attempt > 1 ? `-${attempt}` : ''}`,
+      project_ref: grant.project_ref, purposes: [...grant.purposes], allowed_data_classes: [...grant.allowed_data_classes],
+      valid_from: grant.valid_from, valid_to: grant.valid_to, sources: offered };
+    validateSourceGrant(proposed, { now });
+    difference = grantDifference(grant, proposed);
+
+    // The preparer first, with nothing written: a record it cannot read is taken
+    // out before any model is asked about anything.
+    const prepared = await prepareSourceDocuments({ grant: proposed, roots: binding.source_roots, now, admission });
+    const owners = new Map(prepared.documents.map(document =>
+      [document.doc_key, { root_ref: document.root_ref, item_id: document.item_id }]));
+    const unreadable = prepared.coverage.items.filter(row => row.status !== 'prepared')
+      .map(row => ({ root_ref: row.root_ref, item_id: row.item_id, code: row.code ?? row.status, by: 'preparer' }));
+    if (unreadable.length > 0) {
+      for (const row of unreadable) {
+        const state = holdBack(ledger, { ...row, now });
+        receipt.isolated.push({ ...row, attempts: state.attempts, state: state.state });
+      }
+      offered = without(offered, new Set(unreadable.map(row => at(row.root_ref, row.item_id))));
+      if (offered.length === 0) break;
+      continue;
+    }
+
+    if (!difference.changed && attempt === 1 && placed === null) {
+      // Custody holds exactly what the grant in force names: keep that grant.
+      placed = null;
+    } else {
+      const grantAddress = `${storePath}/00_프로젝트_안내/grants/${proposed.grant_id}.json`;
+      const grantFile = io.path(grantAddress, true);
+      mkdirSync(path.dirname(grantFile), { recursive: true });
+      const grantBytes = encode(proposed);
+      writeFileSync(grantFile, grantBytes, { flag: 'wx' });
+      if (placed === null) {
+        copyFileSync(io.path(bindingAddress), path.join(receiptsDir, `binding-before-${proposed.grant_id}.json`));
+      }
+      const repointed = { ...binding, grant: { path: grantAddress, sha256: sha256(grantBytes) } };
+      const bytes = encode(repointed);
+      writeFileSync(io.path(bindingAddress), bytes);
+      inForceSha = sha256(bytes);
+      placed = proposed.grant_id;
+    }
+    receipt.steps.grant = { placed, attempt, binding_sha256: inForceSha,
+      ...(placed === null ? { note: 'custody holds exactly what the grant in force names' } : {}) };
+
+    let expectedPrior = null;
+    try { expectedPrior = sha256(io.read(pointerAddress, 65536)); } catch { expectedPrior = null; }
+    let existing = [];
+    try { existing = readdirSync(io.path(`${storePath}/20_문서검색/검색_색인/generations`, true)); } catch { existing = []; }
+    updated = await updateGraphIndex({ io, bindingAddress, bindingSha256: inForceSha, now,
+      ...(runWorker ? { runWorker } : {}),
+      request: { actor_ref: PREPARER, project_ref: binding.project_ref, purpose: 'context_preparation',
+        generation_id: nextGenerationId(prefix, existing), expected_prior: expectedPrior } });
+    if (updated.status !== 'HOLD') break;
+
+    // Which records held it. The preparer names its own; an extraction the model
+    // held names the calls, and each call's position gives the record it was about.
+    const holding = [...(updated.unavailable ?? []).map(row =>
+      ({ root_ref: row.root_ref, item_id: row.item_id, code: row.code ?? row.status, by: 'preparer' }))];
+    for (const row of updated.degraded?.refused_units ?? []) {
+      const owner = owners.get(row.doc_key);
+      if (!owner) continue;
+      holding.push({ ...owner, by: `${row.by}:${row.call}`,
+        code: row.status === 'error' ? 'extraction_error'
+          : row.done_reason === 'length' ? 'extraction_truncated' : 'extraction_refused' });
+    }
+    const unique = [...new Map(holding.map(row => [at(row.root_ref, row.item_id), row])).values()];
+    if (unique.length === 0) break;   // held by something no record explains: reported as it is
+    for (const row of unique) {
+      const state = holdBack(ledger, { ...row, now });
+      receipt.isolated.push({ ...row, attempts: state.attempts, state: state.state });
+    }
+    offered = without(offered, new Set(unique.map(row => at(row.root_ref, row.item_id))));
+    if (offered.length === 0) break;
+  }
+
+  receipt.steps.index = { status: updated?.status ?? 'not_run', code: updated?.code ?? null,
+    generation_id: updated?.generation_id ?? null, attempts: attempt,
+    counts: updated?.counts ?? null, changes: updated?.changes ?? null,
+    llm: updated?.llm ? { calls: updated.llm.calls, errors: updated.llm.errors,
+      invalid_outputs: updated.llm.invalid_outputs, truncated: updated.llm.truncated } : null,
+    unavailable: (updated?.unavailable ?? []).map(({ source_kind, root_ref, item_id, status, code }) =>
       ({ source_kind, root_ref, item_id, status, code })),
     elapsed_ms: Date.now() - started };
-  if (updated.status === 'HOLD') {
-    return Object.freeze({ ...receipt, status: 'HOLD', code: updated.code ?? null });
+  receipt.grant = { in_force: grant.grant_id, proposed: placed,
+    ...(difference ?? { added: [], removed: [], changed: false }),
+    added_count: difference?.added.length ?? 0, removed_count: difference?.removed.length ?? 0 };
+
+  const withLedger = body => {
+    writeLedger(receiptsDir, ledger, now);
+    return Object.freeze({ ...receipt, ...body,
+      pending: ledgerRows(ledger).filter(row => row.state === 'pending'),
+      failed: ledgerRows(ledger).filter(row => row.state === 'failed') });
+  };
+  if (updated === null || updated.status === 'HOLD') {
+    return withLedger({ status: 'HOLD', code: updated?.code ?? 'graph_sync_no_progress' });
   }
 
-  // 4. The database: load the selected generation and re-apply the rule edges.
-  const view = openGraphIndex({ io, bindingAddress, bindingSha256: inForceSha,
-    request: { actor_ref: READER, project_ref: binding.project_ref, purpose: 'context_query' } });
+  // 5. The database: load the selected generation and re-apply the rule edges. A
+  // grant or an ACL that changed under this pass makes the view refuse; that is a
+  // scope change, and the pass says so rather than treating it as a fault.
+  let view;
+  try {
+    view = openGraphIndex({ io, bindingAddress, bindingSha256: inForceSha,
+      request: { actor_ref: READER, project_ref: binding.project_ref, purpose: 'context_query' } });
+  } catch (error) {
+    return withLedger({ status: 'HOLD', code: 'scope_changed_under_pass',
+      detail: typeof error?.code === 'string' ? error.code : 'unknown' });
+  }
   const loaded = await materializeGraphIndex({ view, binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) });
   receipt.steps.load = { status: loaded.status, loaded: loaded.loaded, code: loaded.code ?? null,
     generation_id: loaded.generation_id, loaded_at: loaded.loaded_at ?? null, counts: loaded.counts ?? null,
     superseded: loaded.superseded ?? [], removed_nodes: loaded.removed_nodes ?? 0,
-    other_projects: (loaded.other_projects ?? []).length };
+    other_projects: (loaded.other_projects ?? []).length, other_project_nodes: loaded.other_project_nodes ?? null };
   receipt.steps.link = loaded.loaded
     ? await applyLink({ io, bindingAddress, bindingSha256: inForceSha, projectRef: binding.project_ref,
-      graphBinding: view.graph_binding })
+      graphBinding: view.graph_binding, runWorker })
     : { status: 'skipped', note: 'the database already held this generation' };
 
-  // 5. What the database actually holds for this project, read back from it.
+  // 6. Related evidence stays a candidate. A pass never applies one; it marks the
+  // ones whose quoted unit is no longer the document they were judged on.
+  const candidateFile = path.join(receiptsDir, 'related_candidates.json');
+  const related = refreshCandidates({ held: readJsonFile(candidateFile, null), project, manifest: view.manifest, now });
+  writeFileSync(candidateFile, encode(related.body));
+  receipt.steps.related_evidence = { ...related.counts,
+    note: 'a judged relation is applied by a person, never by a pass' };
+
+  // 7. Completed means the database was read back and agreed. Anything else stays
+  // in the ledger for the next pass.
   const seen = await inspectGraphDatabase({ binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) });
   const mine = seen.projects.find(row => row.generation_id === view.manifest.generation_id) ?? null;
+  const agreed = mine !== null && mine.chunks === view.manifest.counts.chunks && mine.nodes > 0;
+  const completed = agreed ? view.manifest.documents.map(row => ({ root_ref: row.root_ref, item_id: row.item_id })) : [];
+  if (agreed) clearCompleted(ledger, completed);
+
   receipt.database = { generation_id: mine?.generation_id ?? null, loaded_at: mine?.loaded_at ?? null,
     nodes: mine?.nodes ?? 0, chunks: mine?.chunks ?? 0, embedded_chunks: mine?.embedded_chunks ?? 0,
-    rule_edges: mine?.rule_edges ?? {}, projects_in_database: seen.projects.length };
+    rule_edges: mine?.rule_edges ?? {}, projects_in_database: seen.projects.length,
+    agrees_with_generation: agreed };
+  receipt.completed = { items: completed.length, verified_by: 'database read-back of chunk and node counts' };
   receipt.totals = { in_scope: scope.items, documents_in_generation: view.manifest.counts.documents,
-    chunks_in_database: mine?.chunks ?? 0,
-    pending_or_failed: receipt.steps.index.unavailable.length,
+    chunks_in_database: mine?.chunks ?? 0, completed: completed.length,
+    pending: ledgerRows(ledger).filter(row => row.state === 'pending').length,
+    failed: ledgerRows(ledger).filter(row => row.state === 'failed').length,
+    removed_from_scope: receipt.grant.removed_count, added_to_scope: receipt.grant.added_count,
     last_reflected_at: mine?.loaded_at ?? null };
-  return Object.freeze({ ...receipt, status: updated.status === 'UNCHANGED' && !loaded.loaded ? 'UNCHANGED' : 'SYNCED' });
+  return withLedger({ status: !agreed ? 'HOLD'
+    : updated.status === 'UNCHANGED' && !loaded.loaded ? 'UNCHANGED' : 'SYNCED',
+  ...(agreed ? {} : { code: 'database_does_not_agree_with_generation' }) });
 }
 
 function options(argv) {
@@ -259,7 +454,7 @@ async function main() {
       result = await syncProject({ io, rootTable, project, bindingFile, receiptsDir: where, dry, now });
     } catch (error) {
       // One project that cannot be synced does not stop the others: the reason is
-      // written down and the run moves on, which is what a scheduled pass must do.
+      // written down and the pass moves on, which is what a scheduled run must do.
       failures++;
       result = { schema_version: GRAPH_SYNC_SCHEMA, project_code: project, ran_at: now, dry,
         status: 'FAILED', code: typeof error?.code === 'string' ? error.code : 'graph_sync_failed' };
@@ -271,10 +466,12 @@ async function main() {
     if (['HOLD', 'FAILED'].includes(result.status)) failures++;
     process.stdout.write(flags.get('json') === true ? `${JSON.stringify(result)}\n`
       : `${project} ${result.status}${result.code ? ` ${result.code}` : ''} `
-        + `grant=${result.grant ? `${result.grant.added_count}+/${result.grant.removed_count}-` : '-'} `
+        + `grant=+${result.grant?.added_count ?? '-'}/-${result.grant?.removed_count ?? '-'} `
         + `index=${result.steps?.index?.status ?? '-'} `
+        + `isolated=${result.isolated?.length ?? 0} `
         + `load=${result.steps?.load?.loaded === true ? 'loaded' : (result.steps?.load?.code ?? '-')} `
-        + `chunks=${result.database?.chunks ?? '-'} at=${result.database?.loaded_at ?? '-'}\n`);
+        + `completed=${result.totals?.completed ?? '-'} pending=${result.totals?.pending ?? '-'} `
+        + `failed=${result.totals?.failed ?? '-'} at=${result.database?.loaded_at ?? '-'}\n`);
   }
   return failures > 0 ? 1 : 0;
 }
