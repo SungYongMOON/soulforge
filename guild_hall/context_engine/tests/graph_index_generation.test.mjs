@@ -7,8 +7,10 @@
 // neo4j-graphrag worker and a local model.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_WORKER_SHA256, INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
@@ -259,4 +261,37 @@ test('a store formed under the older layout still indexes, and says which layout
   const refused = await update(broken, indexer({ generation_id: 'g1', expected_prior: null }), worker3);
   assert.equal(refused.status, 'HOLD');
   assert.equal(refused.code, 'graph_index_template_invalid');
+});
+
+// The estate seam: the same update and read over an aliased io, where the store
+// is `data_root/...` and the binding lives under `control_root/...`, and the
+// binding may name an admission by address and digest.
+test('an aliased estate indexes through the same contract; a mispinned admission holds before any read', async t => {
+  const fixture = await import('../harness/fixtures/graph_index_fixture.mjs');
+  const { makeSyntheticEstate } = await import('../harness/preparation_flow.mjs');
+  const estate = await makeSyntheticEstate({ fixture, now: NOW });
+  t.after(() => estate.cleanup());
+  const worker = cannedWorker();
+  const base = { io: estate.io, bindingAddress: estate.bindingAddress, bindingSha256: estate.bindingSha256, now: NOW, runWorker: worker.runWorker };
+  const first = await updateGraphIndex({ ...base, request: indexer({ generation_id: 'g1', expected_prior: null }) });
+  assert.deepEqual({ status: first.status, documents: first.counts.documents, extracted: first.counts.extracted },
+    { status: 'COMMITTED', documents: 2, extracted: 2 });
+  const view = openGraphIndex({ ...base, request: reader });
+  assert.equal(view.manifest.generation_id, 'g1');
+  assert.equal(view.manifest.admission, null, 'a synthetic grant needs no admission');
+  assert.match(view.manifest.documents[0].document.path, /^data_root\/20_PROJECTS\//u);
+  // A store address is never a physical path.
+  assert.equal(JSON.stringify(view.manifest).includes(os.tmpdir()), false);
+  // The binding names an admission whose bytes do not match the pin: held, no generation written.
+  const bindingBytes = await readFile(estate.io.path(estate.bindingAddress));
+  const binding = JSON.parse(bindingBytes);
+  const pinned = { ...binding, admission: { path: 'control_root/project-bindings/synthetic/admission.json', sha256: 'sha256:' + '1'.repeat(64) } };
+  const pinnedBytes = Buffer.from(JSON.stringify(pinned));
+  await writeFile(estate.io.path('control_root/project-bindings/synthetic/admission.json', true), '{}');
+  await writeFile(estate.io.path(estate.bindingAddress), pinnedBytes);
+  const sha = `sha256:${createHash('sha256').update(pinnedBytes).digest('hex')}`;
+  const held = await updateGraphIndex({ ...base, bindingSha256: sha, request: indexer({ generation_id: 'g2', expected_prior: first.pointer_sha256 }) });
+  assert.deepEqual({ status: held.status, code: held.code }, { status: 'HOLD', code: 'graph_index_admission_mismatch' });
+  await writeFile(estate.io.path(estate.bindingAddress), bindingBytes);
+  assert.equal(openGraphIndex({ ...base, request: reader }).manifest.generation_id, 'g1');
 });

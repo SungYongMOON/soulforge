@@ -62,6 +62,13 @@ function validateIndexBinding(binding) {
     || !plain(binding.source_roots) || !Object.entries(binding.source_roots).every(([key, value]) => ROOT_REF.test(key)
       && typeof value === 'string' && isAbsolute(value))
     || !equal(binding.profile, graphProfilePin())) fail('graph_index_binding_invalid');
+  // Real material needs the admission record the preparer judges; the binding
+  // names it by address and digest the same way it names the grant. Absent, the
+  // preparer's own gate still refuses every class but public_synthetic.
+  if (binding.admission !== undefined && binding.admission !== null
+    && (!plain(binding.admission) || !safeStoreRel(binding.admission.path) || !SHA.test(binding.admission.sha256 ?? ''))) {
+    fail('graph_index_binding_invalid');
+  }
   return validateGraphBinding(binding.graph);
 }
 
@@ -96,22 +103,31 @@ export function carryDecision({ row, fragment, document, projectKey, models }) {
 // Opens the store for one actor and operation ('index' writes and selects,
 // 'read' only reads). Binding, ACL, template, pointer and lock are re-checked by
 // assertUnchanged before and after every write.
-function openIndexStore({ storeRoot, bindingSha256, request, operation }) {
-  let io;
-  try { io = rootedStore(storeRoot); } catch { fail('graph_index_store_invalid'); }
+// The store is one absolute `storeRoot` (a synthetic store) or an already
+// admitted `io` (an aliased estate, where `data_root/…` and `control_root/…`
+// are answered by a root table); `bindingAddress` is the binding's address in
+// that io. Either way the binding, the grant and every store file are addressed
+// the same way and pinned by digest before they are read.
+function openIndexStore({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request, operation }) {
+  if (io === null) { try { io = rootedStore(storeRoot); } catch { fail('graph_index_store_invalid'); } }
+  if (!safeStoreRel(bindingAddress)) fail('graph_index_binding_invalid');
   const readRaw = (name, max = MAX_FILE_BYTES) => { try { return io.read(name, max); } catch { return fail('graph_index_file_unavailable'); } };
-  const bindingBytes = readRaw(GRAPH_INDEX_BINDING_FILE, 1024 * 1024);
+  const bindingBytes = readRaw(bindingAddress, 1024 * 1024);
   if (!SHA.test(bindingSha256 ?? '') || digest(bindingBytes) !== bindingSha256) fail('graph_index_binding_mismatch');
   const binding = JSON.parse(bindingBytes);
   const graphBinding = validateIndexBinding(binding);
-  // Sources are external custody: a root inside the store could be rewritten by the store's own writers.
+  const projectKey = exactRefIdentityKey(binding.project_ref), projectPath = `data_root/20_PROJECTS/${binding.approved_fs_key}`;
+  // Sources are external custody: a root inside what this writer writes could be
+  // rewritten by it. A synthetic store is one root and all of it is the store; on
+  // an estate the store is this project's tree, and collection custody lives
+  // beside it under the same data root, so the tree is the boundary there.
+  const storeTree = io.root ?? io.path(projectPath);
   for (const root of Object.values(binding.source_roots)) {
     let canonical = root;
     try { canonical = realpathSync(root); } catch { /* an absent root is reported by its adapter */ }
-    const inside = relative(io.root, canonical);
+    const inside = relative(storeTree, canonical);
     if (inside === '' || (!isAbsolute(inside) && inside.split(/[\\/]/u)[0] !== '..')) fail('graph_index_binding_invalid');
   }
-  const projectKey = exactRefIdentityKey(binding.project_ref), projectPath = `data_root/20_PROJECTS/${binding.approved_fs_key}`;
   if (!request || typeof request.actor_ref !== 'string' || !sameExactRef(request.project_ref, binding.project_ref)
     || typeof request.purpose !== 'string') fail('graph_index_request_refused');
   const aclBytes = readRaw(binding.acl_path, 1024 * 1024);
@@ -160,7 +176,7 @@ function openIndexStore({ storeRoot, bindingSha256, request, operation }) {
     try { return readFileSync(io.path(`${projectPath}/${LOCK}`), 'utf8'); } catch { return null; }
   }
   function assertUnchanged() {
-    if (digest(readRaw(GRAPH_INDEX_BINDING_FILE, 1024 * 1024)) !== bindingSha256) fail('graph_index_binding_changed');
+    if (digest(readRaw(bindingAddress, 1024 * 1024)) !== bindingSha256) fail('graph_index_binding_changed');
     const freshAcl = readRaw(binding.acl_path, 1024 * 1024);
     if (!freshAcl.equals(aclBytes)) fail('graph_index_acl_changed');
     admit(freshAcl);
@@ -285,11 +301,12 @@ async function withIndexLock(openStore, run) {
 // request: { actor_ref, project_ref, purpose: 'context_preparation', generation_id, expected_prior }.
 // Sources, roots, grant, graph endpoints and profile all come from the pinned binding.
 // hooks (tests): beforeCommit / afterCommit around the pointer swap.
-export async function updateGraphIndex({ storeRoot, bindingSha256, request, now = new Date().toISOString(), runWorker, hooks = {} } = {}) {
+export async function updateGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request,
+  now = new Date().toISOString(), runWorker, hooks = {} } = {}) {
   request = structuredClone(request);
   const result = await withIndexLock(() => {
     if (!storeToken(request?.generation_id) || !Object.hasOwn(request, 'expected_prior')) fail('graph_index_request_refused');
-    return openIndexStore({ storeRoot, bindingSha256, request, operation: 'index' });
+    return openIndexStore({ io, storeRoot, bindingAddress, bindingSha256, request, operation: 'index' });
   }, (store, markCommitted) => runUpdate({ store, bindingSha256, request, now, runWorker, hooks, markCommitted }));
   return Object.freeze({ generation_id: request?.generation_id ?? null, ...result });
 }
@@ -304,7 +321,16 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     || !grant.allowed_data_classes?.every(dataClass => store.aclGrant.allowed_data_classes.includes(dataClass))) {
     fail('graph_index_grant_mismatch');
   }
-  const prepared = await prepareSourceDocuments({ grant, roots: store.binding.source_roots, now, previousCoverage: prior?.coverage ?? null });
+  // The admission the binding names, pinned by digest; the preparer judges it
+  // against this exact grant and refuses real material without one.
+  let admission = null;
+  if (store.binding.admission) {
+    const admissionBytes = store.readRaw(store.binding.admission.path, 1024 * 1024);
+    if (digest(admissionBytes) !== store.binding.admission.sha256) fail('graph_index_admission_mismatch');
+    admission = JSON.parse(admissionBytes);
+  }
+  const prepared = await prepareSourceDocuments({ grant, roots: store.binding.source_roots, now, previousCoverage: prior?.coverage ?? null,
+    admission });
   if (prepared.grant.project_key !== store.projectKey) fail('graph_index_grant_mismatch');
   const changes = changeCounts(prepared.changes);
   if (prepared.changes.unavailable.length) {
@@ -377,6 +403,9 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     supersedes: prior === null ? null : { generation_id: prior.manifest.generation_id, manifest: prior.pointer.value.generation_ref,
       selection_epoch: prior.pointer.value.selection_epoch },
     grant: { grant_id: prepared.grant.grant_id, grant_sha256: prepared.grant.grant_sha256, ref: { ...store.binding.grant } },
+    // Who admitted real material (id, canonical digest, classes, authority), by
+    // the preparer's own judgement; null when the grant was synthetic only.
+    admission: prepared.admission === null ? null : { ...prepared.admission, ref: { ...store.binding.admission } },
     profile, model: models, template_version: store.templateVersion,
     coverage: coverageRef, coverage_sha256: prepared.coverage.coverage_sha256, changes, documents: rows,
     counts: { documents: rows.length, extracted: rows.filter(r => r.origin === 'extracted').length,
@@ -398,11 +427,12 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
 
 // Re-selects an earlier complete generation (rollback) under the same lock,
 // authority, grant and expected-prior rules. request: { ..., generation_ref, expected_prior }.
-export async function selectGraphIndexGeneration({ storeRoot, bindingSha256, request, hooks = {} } = {}) {
+export async function selectGraphIndexGeneration({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request,
+  hooks = {} } = {}) {
   request = structuredClone(request);
   return withIndexLock(() => {
     if (!Object.hasOwn(request ?? {}, 'expected_prior')) fail('graph_index_request_refused');
-    return openIndexStore({ storeRoot, bindingSha256, request, operation: 'index' });
+    return openIndexStore({ io, storeRoot, bindingAddress, bindingSha256, request, operation: 'index' });
   }, async (store, markCommitted) => {
     if ((store.opened?.sha256 ?? null) !== request.expected_prior) fail('graph_index_prior_mismatch');
     const manifest = verifyManifest(store, request.generation_ref);
@@ -427,8 +457,8 @@ export async function selectGraphIndexGeneration({ storeRoot, bindingSha256, req
 // pointer, binding or access changed since it was opened. `graph_binding` is the
 // validated graph binding this view was opened under, including the graph
 // database endpoint when one is bound.
-export function openGraphIndex({ storeRoot, bindingSha256, request } = {}) {
-  const store = openIndexStore({ storeRoot, bindingSha256, request: structuredClone(request), operation: 'read' });
+export function openGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request } = {}) {
+  const store = openIndexStore({ io, storeRoot, bindingAddress, bindingSha256, request: structuredClone(request), operation: 'read' });
   if (!store.opened) fail('graph_index_not_selected');
   const manifest = verifyManifest(store, store.opened.value.generation_ref);
   assertServable(store, manifest);

@@ -221,6 +221,20 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
   `slack.attachment_bodies_processed=false`를 적는다. 본문도 포인터도 없는 메시지만 `refused / slack_message_without_content`.
 - 실행기 `recheckGeneration`·CLI `--recheck <세대>`: 저장된 세대를 그대로 두고 새 검사 보고서만 옆에 추가한다(검증만 바뀐 경우). 준비 결과가 바뀌는 항목은 새 세대.
 - 준비기 0.4.0, 검사기 0.2.0(정책 source-original-check-v2). 시험 3건 추가.
+## 실제 estate 위의 그래프 색인 (0.18.0)
+
+PV-4 이음새. 그래프 색인기(`updateGraphIndex`·`selectGraphIndexGeneration`·`openGraphIndex`)가 준비 store와 같은 방식으로
+별칭 io를 받는다: `io`(`createAliasedStoreIo`)와 `bindingAddress`(예: `control_root/project-bindings/<과제>/graph_index_binding.json`).
+`storeRoot` 하나로 여는 합성 저장소는 그대로다. 계약·manifest 바이트·주소 언어는 바뀌지 않았다.
+
+- source root 경계: 합성 저장소는 root 전체가 store라 source root가 그 안이면 거부한다(그대로). estate에서는 수집 custody가
+  같은 `data_root` 아래 과제 트리 **옆**에 있으므로 경계는 이 과제의 트리(`data_root/20_PROJECTS/<키>`)다. 그 안이면 거부.
+- 실자료 admission: index binding이 `admission: { path, sha256 }`로 admission 기록을 가리키면 digest 대조 뒤 준비기에 넘긴다
+  (`graph_index_admission_mismatch`). 없으면 준비기 게이트가 종전대로 public_synthetic 외 등급을 거부한다. manifest에
+  `admission`(id·canonical digest·등급·승인자·참조)이 남고 합성 grant면 null이다.
+- 쓰기 전후 재검사(`assertUnchanged`)도 같은 binding 주소를 다시 읽는다.
+- 시험: 별칭 estate 위 갱신·읽기, 잘못 고정된 admission은 아무것도 쓰기 전에 HOLD.
+- 실행 결과와 남은 것은 handoff 보고(2026-09-13 그래프 검색 연결)가 소유한다. 이 문서는 계약만 적는다.
 ## Slack 채널 custody 어댑터 (0.16.0)
 
 `src/adapters/sources/slack_custody_source.mjs`(`slack-custody-v1`): Slack history lane의 채널 custody(`state/slack-continuous.json`의 revisions·custody_receipts,
@@ -351,8 +365,8 @@ D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문
   `본문·표_추출/generations/<id>/<문서>.json`(준비 문서), `검색_색인/generations/<id>/fragments/<문서>.json`(조각)과
   `generation.json`(세대 manifest), `원문위치·추출품질/generations/<id>/coverage.json`(coverage·변경·추출 기록).
   현재 세대 포인터는 `00_프로젝트_안내/graph_index_current.json`이다.
-- binding: store root의 `graph_index_binding.json`(호출자가 sha256으로 고정). 과제 ref·파일시스템 키·ACL·쓰기 권한·
-  exact grant(경로+해시)·source root 표(store 밖만)·그래프 binding·profile pin(id·판·schema 해시)을 담는다. 요청은
+- binding: store root의 `graph_index_binding.json`(호출자가 sha256으로 고정; estate에서는 `bindingAddress`, 0.18.0). 과제 ref·파일시스템 키·ACL·쓰기 권한·
+  exact grant(경로+해시)·선택적 admission(경로+해시)·source root 표(store 밖만)·그래프 binding·profile pin(id·판·schema 해시)을 담는다. 요청은
   actor·과제·목적·세대 ID·expected prior만 준다.
 - 갱신 `updateGraphIndex`: 잠금 → expected prior → grant·ACL 재검증 → 원본 준비와 이전 coverage 대조 → 모델·도구
   판본 probe → 추가·변경 문서만 추출. 불변 문서는 profile·모델·도구 판본이 같고, 조각의 원문 해시가 새로 준비한
