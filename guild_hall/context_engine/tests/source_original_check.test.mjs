@@ -20,6 +20,7 @@ import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
 import { REAL_DATA_ADMISSION_SCHEMA, validateRealDataAdmission } from '../src/runtime/real_data_admission.mjs';
 import { checkDocumentsAgainstOriginals, SOURCE_CHECK_SCHEMA, CHECKER_ID } from '../src/runtime/source_original_check.mjs';
 import { totalDigest } from '../src/runtime/preparation_run.mjs';
+import { validatePreparationRun } from '../src/runtime/preparation_validation.mjs';
 import { exactRefIdentityKey } from '../../engineering_engine/core/validators/identity.mjs';
 import { openSourceRoot } from '../src/adapters/sources/guarded_files.mjs';
 
@@ -202,7 +203,7 @@ test('Slack root messages prepare with their replies and attachments, and are ch
   const roots = { 'slack.check': s.root };
   const g = { ...grant('slack', 'slack.check', [item(s.rootTs), item(s.aloneTs), item('1784709999.000999')]) };
   const adm = admission({ source_refs: ['slack.check'] });
-  const prepared = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: adm });
+  const prepared = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: adm, runId: 'prep-slack', clock: () => new Date(NOW) });
   assert.equal(prepared.coverage.counts.prepared, 2);
   assert.equal(prepared.coverage.counts.missing, 1);
   const withReplies = prepared.documents.find(d => d.item_id === s.rootTs);
@@ -212,6 +213,9 @@ test('Slack root messages prepare with their replies and attachments, and are ch
   assert.equal(withReplies.facts.find(f => f.name === 'slack.reply_count').value, 2);
   assert.equal(withReplies.facts.find(f => f.name === 'slack.channel_held_events').value, 1);
   assert.equal(withReplies.time_basis, 'slack_message_ts');
+  // The consistency validator anchors every slack unit to a revision the document holds.
+  const consistency = validatePreparationRun({ run: prepared.run, preparation: prepared, grant: g, validationRunId: 'val-slack', checkedAt: NOW });
+  assert.equal(consistency.outcome, 'pass', JSON.stringify(consistency.checks.filter(c => c.outcome !== 'pass'), null, 1));
   const report = await checkDocumentsAgainstOriginals({ documents: prepared.documents, grant: { ...g, project_key: prepared.grant.project_key },
     roots, checkRunId: 'check-slack-1', checkedAt: NOW });
   assert.equal(report.outcome, 'pass', JSON.stringify(report.documents.map(d => d.checks), null, 1));

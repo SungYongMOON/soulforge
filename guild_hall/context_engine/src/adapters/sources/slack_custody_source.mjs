@@ -61,12 +61,12 @@ const latestRevision = revisions => [...revisions].sort((a, b) => String(a.revis
   || a.revision_ref.localeCompare(b.revision_ref)).at(-1);
 
 function documentFor({ admitted, source, item, root: rootRev, rootRaw, replies, held }) {
-  const locator = { channel_id: rootRev.channel_id, message_ts: rootRev.message_ts, revision_ref: rootRev.revision_ref, raw_digest: rootRaw.digest };
+  const locator = { channel_id: rootRev.channel_id, message_ts: rootRev.message_ts, revision_ref: rootRev.revision_ref, raw_sha256: rootRaw.digest };
   const units = [
     { unit_kind: 'message', locator: { ...locator, part: 'text' }, text: String(rootRaw.raw.text ?? ''),
       occurred_at: slackTsToIso(rootRev.message_ts), speaker_ref: speaker(rootRev.actor?.slack_user_id ?? rootRaw.raw.user) },
     ...replies.map(({ rev, rawEntry }) => ({ unit_kind: 'reply',
-      locator: { channel_id: rev.channel_id, message_ts: rev.message_ts, thread_ts: rev.thread_ts, revision_ref: rev.revision_ref, raw_digest: rawEntry.digest, part: 'text' },
+      locator: { channel_id: rev.channel_id, message_ts: rev.message_ts, thread_ts: rev.thread_ts, revision_ref: rev.revision_ref, raw_sha256: rawEntry.digest, part: 'text' },
       text: String(rawEntry.raw.text ?? ''), occurred_at: slackTsToIso(rev.message_ts), speaker_ref: speaker(rev.actor?.slack_user_id ?? rawEntry.raw.user) })),
   ];
   const pointers = [rootRev, ...replies.map(r => r.rev)].flatMap(rev => rev.attachment_pointers)
@@ -119,6 +119,11 @@ export async function readSlackSourceDocuments({ admitted, source, rootPath }) {
         .sort((a, b) => a.message_ts.localeCompare(b.message_ts))
         .map(rev => ({ rev, rawEntry: (rawByTs.get(rev.message_ts) ?? []).at(-1) }))
         .filter(entry => entry.rawEntry);
+      // A message with no text and no reply text (a file share alone) has nothing
+      // a document can carry: refused by rule, not invented and not failed.
+      if (!String(rootRaw.raw.text ?? '').trim() && !replies.some(r => String(r.rawEntry.raw.text ?? '').trim())) {
+        outcome(item, 'refused', { code: 'slack_message_without_text' }); continue;
+      }
       const document = documentFor({ admitted, source, item, root: rootRev, rootRaw, replies, held });
       documents.push(document);
       outcome(item, 'prepared', { composite_revision_sha256: document.composite_revision_sha256, doc_key: document.doc_key });

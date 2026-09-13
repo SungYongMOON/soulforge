@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-09-13 - Slack 문서의 locator가 판본에 닻을 내리고, 본문 없는 메시지는 규칙으로 거부된다
+
+- 실제 채널 첫 실행에서 두 가지가 드러났다. (1) slack locator의 digest 키 이름이 검증기의 앵커 규칙(`*_sha256`)에 안 걸려 일관성 검증이
+  `locator_anchors_no_revision`으로 실패 → `raw_sha256`으로 바꾸고 시험에 일관성 검증을 추가. (2) 본문이 비고 답글도 없는 파일 공유 메시지 6건이
+  `source_document_bounds`로 실패 → 어댑터가 `refused / slack_message_without_text`로 사유를 말한다(문서를 지어내지 않음).
+- 검증: context-engine 261 / 254 pass / 0 fail / 7 skip, path-policy 0.
 ## 2026-09-13 - Slack 채널 custody가 준비 source kind에 합류한다
 
 - `context_engine/src/adapters/sources/slack_custody_source.mjs`(신규, `slack-custody-v1`): 루트 메시지 = 항목, 답글·첨부 포인터·보류 건수 동반. raw는 custody digest로 검증.
