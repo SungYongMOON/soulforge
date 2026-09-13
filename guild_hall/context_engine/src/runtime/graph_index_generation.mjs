@@ -70,7 +70,21 @@ function validateIndexBinding(binding) {
     && (!plain(binding.admission) || !safeStoreRel(binding.admission.path) || !SHA.test(binding.admission.sha256 ?? ''))) {
     fail('graph_index_binding_invalid');
   }
+  extractionBatchLimits(binding.graph?.extraction_batch);
   return validateGraphBinding(binding.graph);
+}
+
+// How much one worker call may take, from the binding: each bound may only be
+// lowered below the program constant. One call carries one timeout, so a slow
+// model host is given smaller calls rather than a longer wait — a call that
+// overruns its timeout loses every chunk it had extracted.
+export function extractionBatchLimits(batch) {
+  if (batch === undefined || batch === null) return GRAPH_EXTRACTION_BATCH;
+  if (!plain(batch) || !Object.keys(batch).every(key => Object.hasOwn(GRAPH_EXTRACTION_BATCH, key))
+    || !Object.entries(batch).every(([key, value]) => Number.isSafeInteger(value) && value >= 1 && value <= GRAPH_EXTRACTION_BATCH[key])) {
+    fail('graph_index_binding_invalid');
+  }
+  return Object.freeze({ ...GRAPH_EXTRACTION_BATCH, ...batch });
 }
 
 // Documents in order, grouped so no worker call exceeds the batch bounds.
@@ -361,7 +375,7 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
   // partial or degraded holds the update, so a hole never becomes a complete generation.
   const fresh = new Map(), batches = [];
   const llm = { calls: 0, errors: 0, invalid_outputs: 0, truncated: 0, prompt_tokens: 0, output_tokens: 0, elapsed_ms: 0, embedder_calls: 0 };
-  for (const batch of planExtractionBatches(toExtract)) {
+  for (const batch of planExtractionBatches(toExtract, extractionBatchLimits(store.binding.graph.extraction_batch))) {
     const remaining = store.binding.graph.llm.max_calls - llm.calls;
     if (remaining < 1) return { status: 'HOLD', code: 'graph_budget_exhausted', changes };
     const result = await extractGraphFragments({ documents: batch, projectKey: store.projectKey, profile: GRAPH_EXTRACTION_PROFILE,

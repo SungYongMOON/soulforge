@@ -377,7 +377,10 @@ D41은 GraphRAG 색인을 과제별 제안층으로 두고, 이 색인은 원문
 - 갱신 `updateGraphIndex`: 잠금 → expected prior → grant·ACL 재검증 → 원본 준비와 이전 coverage 대조 → 모델·도구
   판본 probe → 추가·변경 문서만 추출. 불변 문서는 profile·모델·도구 판본이 같고, 조각의 원문 해시가 새로 준비한
   문서와 같으며, 조각이 온전할 때만 이전 세대 파일을 (경로, 해시)로 참조한다. 추출은 한 번에 문서 50개·단위 2,000개·
-  8백만 글자까지 묶어 나눠 부르고, binding의 `max_calls`는 한 갱신 전체의 상한이다. 이어서 create-only 쓰기 → 전 파일
+  8백만 글자까지 묶어 나눠 부르고, binding의 `max_calls`는 한 갱신 전체의 상한이다. binding `graph.extraction_batch`
+  `{ documents?, units?, characters? }`는 이 상한을 **낮추기만** 한다(0.18.1): worker 호출 하나가 timeout 하나를 지므로
+  느린 모델 host에는 더 긴 대기가 아니라 더 작은 호출을 준다(상한을 넘긴 호출은 그때까지 뽑은 청크를 전부 잃는다.
+  2026-09-13 실자료 1단계가 153단위 한 호출로 1시간 상한에 걸려 HOLD된 것이 계기). 이어서 create-only 쓰기 → 전 파일
   해시 재확인 → 포인터를 옆에 쓰고 동기화한 뒤 이름 바꾸기 순서다. 결과는 COMMITTED, UNCHANGED(재실행, 추출 0),
   HOLD(원본 누락·예산 초과·추출 degraded·prior 불일치·잠금·권한·무결성·실자료 등급)이다. HOLD는 현재 세대를 바꾸지
   않고, 모델·도구 판본이 바뀌면 이전 조각을 섞지 않고 전부 다시 추출한다. manifest에는 grant·ACL 해시·writer 차수가 남는다.

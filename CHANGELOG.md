@@ -6,6 +6,8 @@
   합성 `storeRoot` 경로는 그대로. source root 경계는 합성 저장소면 root 전체, estate면 이 과제의 store 트리. index binding의 선택적 `admission {path, sha256}`을
   digest 대조 뒤 준비기에 넘기고 manifest에 admission(id·digest·등급·승인자)을 남긴다(`graph_index_admission_mismatch`). 쓰기 전후 재검사도 같은 주소를 읽는다.
 - 시험 1건 추가(별칭 estate 갱신·읽기, 잘못 고정된 admission HOLD). 모듈 0.18.0. 검증: context-engine 266 / 259 pass / 0 fail / 7 skip, path-registry 42/42, path-policy 0 (305bc0df).
+- 같은 날 후속 2(0.18.1): index binding `graph.extraction_batch`로 추출 배치 상한(문서·단위·글자)을 낮출 수 있다(`extractionBatchLimits`, 상한 초과는 `graph_index_binding_invalid`).
+  이유: 실자료 1단계(문서 50·단위 153)가 worker 호출 한 번으로 묶여 1시간 timeout에 걸려 HOLD(`graphrag_worker_timeout`, 뽑은 청크 전부 유실). 시험 1건.
 - 같은 날 후속: admission `model_calls`에 `owner_hosts_only` + `model_hosts`(Owner 기기의 https origin) 추가, 색인 갱신이 binding의 `allowed_model_hosts`를 그 목록으로 검사
   (`assertModelHostsAdmitted`; `none`은 추출 거부). 이유: 실자료 admission이 loopback뿐이면 확정된 배치(추출 LLM은 맥미니)를 실자료에 쓸 수 없었다. 시험 보강(admission 판정 1건 확장).
 ## 2026-09-13 - 원문 대조 v2: 정확한 판본 대조, 이력 값 비교, NOT_RUN 비은폐, 본문 분할, 파일 공유 메타

@@ -15,7 +15,7 @@ import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_WORKER_SHA256, INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
-import { GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, openGraphIndex, planExtractionBatches,
+import { GRAPH_EXTRACTION_BATCH, GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
   selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
 const update = (store, request, worker) => updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request,
@@ -157,6 +157,28 @@ test('a degraded extraction holds the index; carry decisions and batch plans ref
   assert.deepEqual(planExtractionBatches(documents).map(batch => batch.length), [2]);
   assert.deepEqual(planExtractionBatches(documents, { documents: 1, units: 100, characters: 100000 }).map(batch => batch.length), [1, 1]);
   assert.throws(() => planExtractionBatches(documents, { documents: 5, units: 1, characters: 100000 }), { code: 'graph_index_document_too_large' });
+});
+
+// A binding may make worker calls smaller, never larger: one call carries one
+// timeout, and a slow model host gets smaller calls rather than a longer wait.
+test('the binding lowers the extraction batch bounds; a bound above the program constant is refused', async () => {
+  const store = await makeStore(), worker = cannedWorker();
+  const small = { ...store.binding, graph: { ...store.binding.graph, extraction_batch: { units: 2 } } };
+  const { sha256 } = await store.put(GRAPH_INDEX_BINDING_FILE, small);
+  const first = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: sha256, now: NOW, runWorker: worker.runWorker,
+    request: indexer({ generation_id: 'g1', expected_prior: null }) });
+  assert.equal(first.status, 'COMMITTED');
+  assert.deepEqual(worker.calls.batches, [1, 1], 'two documents of two units each: one document per call under units: 2');
+  assert.deepEqual(extractionBatchLimits({ units: 1 }), { ...GRAPH_EXTRACTION_BATCH, units: 1 });
+  assert.equal(extractionBatchLimits(undefined), GRAPH_EXTRACTION_BATCH);
+  for (const bad of [{ units: GRAPH_EXTRACTION_BATCH.units + 1 }, { units: 0 }, { pages: 3 }, { documents: 1.5 }, 'x']) {
+    assert.throws(() => extractionBatchLimits(bad), { code: 'graph_index_binding_invalid' });
+  }
+  const tooLarge = { ...store.binding, graph: { ...store.binding.graph, extraction_batch: { documents: GRAPH_EXTRACTION_BATCH.documents + 1 } } };
+  const { sha256: badSha } = await store.put(GRAPH_INDEX_BINDING_FILE, tooLarge);
+  const held = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: badSha, now: NOW, runWorker: worker.runWorker,
+    request: indexer({ generation_id: 'g2', expected_prior: first.pointer_sha256 }) });
+  assert.deepEqual({ status: held.status, code: held.code }, { status: 'HOLD', code: 'graph_index_binding_invalid' });
 });
 
 test('a changed grant blocks reads and rollback of older generations until the index is rebuilt; readers need every data class', async () => {
