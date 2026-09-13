@@ -12,7 +12,7 @@ import os from 'node:os';
 import { rm } from 'node:fs/promises';
 
 import * as fixture from '../harness/fixtures/graph_index_fixture.mjs';
-import { runPreparationFlow, makeSyntheticEstate, PREPARATION_FLOW_SCHEMA } from '../harness/preparation_flow.mjs';
+import { runPreparationFlow, recheckGeneration, makeSyntheticEstate, PREPARATION_FLOW_SCHEMA } from '../harness/preparation_flow.mjs';
 
 const NOW = '2026-09-12T00:00:00.000Z';
 const RUNNER = fileURLToPath(new URL('../harness/preparation_flow.mjs', import.meta.url));
@@ -42,6 +42,25 @@ test('the flow lands, reads back, validates the stored run and appends on a cold
   const text = JSON.stringify(receipt);
   assert.equal(text.includes(os.tmpdir()), false);
   assert.equal(text.includes('Public synthetic'), false);
+});
+
+test('a generation can be rechecked in place: a new source-check report beside it, the generation untouched', async t => {
+  const estate = await makeSyntheticEstate({ fixture, now: NOW });
+  t.after(() => estate.cleanup());
+  const base = { io: estate.io, bindingAddress: estate.bindingAddress, bindingSha256: estate.bindingSha256, request: estate.request, now: NOW };
+  const first = await runPreparationFlow({ ...base, runId: 'flow-rc', validationRunId: 'flow-rc-val' });
+  const again = await recheckGeneration({ ...base, generationId: 'flow-rc', checkRunId: 'flow-rc-src-2' });
+  assert.equal(again.mode, 'recheck');
+  assert.equal(again.generation_sha256, first.steps.land.generation_sha256);
+  assert.equal(again.source_check.appended, 'APPENDED');
+  assert.notEqual(again.source_check.check_run_id, first.steps.source_check.check_run_id);
+  // The document kind of the fixture has no original checker: the verdict says so, and never pass.
+  assert.equal(again.source_check.outcome, 'not_run');
+  assert.equal(again.source_check.counts.not_run, 2);
+  // A grant that is not the generation's grant is refused before any report is written.
+  await assert.rejects(recheckGeneration({ ...base, generationId: 'flow-rc', checkRunId: 'flow-rc-src-3',
+    grantAddress: 'data_root/20_PROJECTS/P-SYN-GRAPH/00_프로젝트_안내/acl.json', grantSha256: 'sha256:' + '0'.repeat(64) }),
+  error => error.code === 'preparation_flow_grant_mismatch');
 });
 
 test('the flow refuses a binding it cannot pin and ids that would name the report after the run', async t => {

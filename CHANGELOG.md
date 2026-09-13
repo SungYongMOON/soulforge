@@ -2,6 +2,8 @@
 
 ## 2026-09-13 - 원문 대조 v2: 정확한 판본 대조, 이력 값 비교, NOT_RUN 비은폐, 본문 분할, 파일 공유 메타
 
+- 실제 세대 재검사에서 드러난 둘을 고침(검사기 0.2.1): 상태 이름이 바뀐 뒤에는 custody가 가진 어느 이름으로도 일치를 인정(리네임은 결함이 아님), 옛 어댑터 문서에 없는 새 fact(`slack.attachment_bodies_processed`)은 부재로 실패시키지 않고 "처리했다"고 주장하는 경우만 실패.
+- `recheckGeneration`의 grant 결속은 manifest의 canonical digest로 대조(파일 digest와 구분). 시험 1건 추가. 검증: 265 / 258 pass / 0 fail / 7 skip.
 - 재검토 지적 5건 반영. rollup에서 not_run이 pass에 묻히지 않음. Linear 이력의 변경값 자체를 비교(`history_values_preserved`). 댓글·이력·Slack 답글은 기록된 정확한 판본과
   대조하고 이후 추가분은 later input change로 분리. 메일 긴 본문은 단위 상한 안에서 순서 있는 chunk로 분할(mail-event-v2). Slack 파일 공유는 저장 메타를 file_share 단위로 보존하고
   첨부 본문 미처리를 fact로 표시(slack-custody-v3). 정책 보류는 그대로.

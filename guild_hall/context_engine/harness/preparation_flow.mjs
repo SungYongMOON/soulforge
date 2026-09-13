@@ -28,6 +28,7 @@ import { checkDocumentsAgainstOriginals } from '../src/runtime/source_original_c
 import { rootedStore, safeStoreRel } from '../src/runtime/pair_store.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
+import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
 
 export const PREPARATION_FLOW_SCHEMA = 'soulforge.context_preparation_flow_receipt.v1';
 const SHA = /^sha256:[0-9a-f]{64}$/u;
@@ -138,8 +139,9 @@ export async function recheckGeneration({ io = null, storeRoot = null, bindingSh
   const grant = JSON.parse(grantBytes);
   const storeArgs = { io, storeRoot, bindingSha256, bindingAddress, request };
   const back = await readPreparationGeneration({ ...storeArgs, generationId });
-  // The generation must have been prepared under this exact grant.
-  if (back.manifest.grant.grant_sha256 !== grantRef.sha256) fail('preparation_flow_grant_mismatch');
+  // The generation must have been prepared under this exact grant: the manifest
+  // records the grant's canonical digest, the address pins its file bytes.
+  if (back.manifest.grant.grant_sha256 !== sha256Canonical(grant)) fail('preparation_flow_grant_mismatch');
   const sourceCheck = await checkDocumentsAgainstOriginals({ documents: back.documents, grant: { ...grant, project_key: back.manifest.project_key },
     roots: binding.source_roots, checkRunId, checkedAt: clock().toISOString(), preparedAt: back.manifest.run.ended_at });
   const appended = await appendSourceCheckReport({ ...storeArgs, generationId, report: sourceCheck });

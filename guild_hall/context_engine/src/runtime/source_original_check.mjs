@@ -36,7 +36,9 @@ export const SOURCE_CHECK_SCHEMA = 'soulforge.context_source_original_check.v1';
 export const CHECKER_ID = 'context-engine/source-original-checker';
 // 0.2.0: exact-revision comparison for comments, history and replies; history
 // values compared; not_run never rolls up to pass; file-share units checked.
-export const CHECKER_VERSION = '0.2.0';
+// 0.2.1: a renamed state matches under any name custody has held; an older Slack document
+// without the attachment-bodies fact is not failed for lacking it.
+export const CHECKER_VERSION = '0.2.1';
 export const SOURCE_CHECK_POLICY_ID = 'source-original-check-v2';
 export const CHECK_OUTCOMES = Object.freeze(['pass', 'fail', 'partial', 'not_run']);
 const MAIL_MAX_BODY_CHARACTERS = 200000;
@@ -161,12 +163,15 @@ async function objectsOfIssue(root, kind, issueId) {
   }
   return out;
 }
+// Every name a state has carried in custody, by id. A rendering made when the
+// state was called one thing is still faithful after the state is renamed, so
+// the comparison accepts any name custody holds for that id, or the id itself.
 async function stateNames(root, ids) {
   const names = new Map();
   for (const id of ids) {
     if (!id || names.has(id)) continue;
-    const latest = (await readSnapshots(root, 'states', id)).filter(s => s.object).at(-1);
-    if (latest?.object?.name) names.set(id, latest.object.name);
+    const held = (await readSnapshots(root, 'states', id)).filter(s => s.object?.name).map(s => s.object.name);
+    names.set(id, [...new Set(held)]);
   }
   return names;
 }
@@ -178,8 +183,9 @@ function expectedChangeFragments(entry, names) {
   const fragments = [];
   const pair = (label, from, to) => { if (from !== to && (from !== null || to !== null)) fragments.push({ field: label, text: `${label}: ${from ?? '-'} -> ${to ?? '-'}` }); };
   if (entry.from_state_id !== entry.to_state_id) {
-    const name = id => id === null || id === undefined ? '-' : names.get(id) ?? id;
-    fragments.push({ field: 'state', text: `state: ${name(entry.from_state_id)} -> ${name(entry.to_state_id)}` });
+    const options = id => id === null || id === undefined ? ['-'] : [...(names.get(id) ?? []), id];
+    const alternatives = options(entry.from_state_id).flatMap(from => options(entry.to_state_id).map(to => `state: ${from} -> ${to}`));
+    fragments.push({ field: 'state', text: alternatives[0], alternatives });
   }
   pair('title', entry.from_title, entry.to_title); pair('assignee', entry.from_assignee_id, entry.to_assignee_id);
   pair('due_date', entry.from_due_date, entry.to_due_date); pair('priority', entry.from_priority, entry.to_priority);
@@ -245,7 +251,7 @@ async function checkLinear({ document, root, item, preparedAt }) {
     if (unit.occurred_at !== exact.object.created_at) { histOk = false; histProblems.push(`${unit.locator.history_id}: time differs`); }
     const fragments = expectedChangeFragments(exact.object, names);
     fieldsCompared += fragments.length;
-    const lost = fragments.filter(f => !unit.text.includes(f.text));
+    const lost = fragments.filter(f => !(f.alternatives ?? [f.text]).some(text => unit.text.includes(text)));
     if (lost.length) { histOk = false; histProblems.push(`${unit.locator.history_id}: ${lost.map(f => f.field).join(',')} not in rendered change`); }
     if (fragments.length === 0 && !unit.text.includes('change recorded without field differences')) { histOk = false; histProblems.push(`${unit.locator.history_id}: empty change not stated`); }
   }
@@ -256,7 +262,7 @@ async function checkLinear({ document, root, item, preparedAt }) {
   checks.push(check('history_preserved', histOk ? 'pass' : 'fail', `${entriesCompared} entr(y/ies) compared with their exact revisions by id and time${histProblems.length ? '; ' + histProblems.join('; ') : ''}`));
   checks.push(check('history_values_preserved', histOk ? 'pass' : 'fail', `${fieldsCompared} changed value(s) (state, title, assignee, due date, priority, estimate, project, parent, team, cycle, labels, relations, flags) found in the rendered change text`));
   if (laterHist) exclusions.push(`later input change: ${laterHist} history entr(y/ies) added after the prepared issue revision are not in this document`);
-  exclusions.push('history is compared as rendered text: state names resolve through custody states; ids of assignee, project, parent, team, cycle and labels are compared as ids');
+  exclusions.push('history is compared as rendered text: a state may match under any name custody has held for it (renames are not findings); ids of assignee, project, parent, team, cycle and labels are compared as ids');
   const timeOk = document.valid_at === issue.updated_at && units('title')[0]?.occurred_at === issue.updated_at;
   checks.push(check('time_preserved', timeOk ? 'pass' : 'fail', 'issue updated_at kept as valid_at and title time'));
   const fact = name => document.facts.find(f => f.name === name)?.value ?? null;
@@ -316,9 +322,11 @@ async function checkSlack({ document, root, item, preparedAt }) {
   const timeOk = document.valid_at === slackTsToIso(item.item_id) && head.occurred_at === document.valid_at;
   checks.push(check('time_preserved', timeOk ? 'pass' : 'fail', 'message ts kept as valid_at and unit time'));
   const fact = name => document.facts.find(f => f.name === name)?.value ?? null;
+  // The attachment-bodies fact arrived with adapter v3; an older document may not
+  // carry it, but no document may claim the bodies were processed.
   const relOk = fact('slack.channel_id') === revision?.channel_id && fact('slack.reply_count') === replyUnits.length
-    && fact('slack.attachment_bodies_processed') === false;
-  checks.push(check('relations_preserved', relOk ? 'pass' : 'fail', 'channel id, reply count and attachment-bodies-not-processed facts'));
+    && fact('slack.attachment_bodies_processed') !== true;
+  checks.push(check('relations_preserved', relOk ? 'pass' : 'fail', 'channel id, reply count; attachment bodies not claimed as processed'));
   if (held) exclusions.push(`${held} event(s) in this channel are policy-held: raw body never stored, so they are not documents and are not compared`);
   return { checks, exclusions };
 }
