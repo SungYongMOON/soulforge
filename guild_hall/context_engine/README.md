@@ -233,7 +233,13 @@ PV-4 이음새. 그래프 색인기(`updateGraphIndex`·`selectGraphIndexGenerat
   (`graph_index_admission_mismatch`). 없으면 준비기 게이트가 종전대로 public_synthetic 외 등급을 거부한다. manifest에
   `admission`(id·canonical digest·등급·승인자·참조)이 남고 합성 grant면 null이다.
 - 쓰기 전후 재검사(`assertUnchanged`)도 같은 binding 주소를 다시 읽는다.
-- 시험: 별칭 estate 위 갱신·읽기, 잘못 고정된 admission은 아무것도 쓰기 전에 HOLD.
+- admission의 모델 호출 정책(`model_calls`)이 셋이 됐다: `none`(모델 호출 없음) · `loopback_only`(이 host만) · `owner_hosts_only`
+  (이 host + 기록이 `model_hosts`로 이름한 Owner 보유 기기, https origin 정확히). 기기를 여기 적는 것은 그 기기로의 호출이
+  외부 전송이 아니라는 Owner의 선언이다. 색인 갱신은 admission 아래서 binding의 `allowed_model_hosts`가 그 목록 안인지
+  본다(`assertModelHostsAdmitted`): `none`이면 추출 자체를 거부(`real_data_admission_model_calls_refused`), 목록 밖 origin은
+  `real_data_admission_model_host_refused`. 2026-09-13 실행에서 실자료 admission이 `loopback_only`뿐이라 확정된 배치(추출 LLM은
+  맥미니, 이 PC GPU는 Hermes 전용)를 실자료에 적용하지 못하고 GPU를 점유한 뒤 정정한 것이 계기다.
+- 시험: 별칭 estate 위 갱신·읽기, 잘못 고정된 admission은 아무것도 쓰기 전에 HOLD, 모델 호출 정책 3종·origin 형식 판정.
 - 실행 결과와 남은 것은 handoff 보고(2026-09-13 그래프 검색 연결)가 소유한다. 이 문서는 계약만 적는다.
 ## Slack 채널 custody 어댑터 (0.16.0)
 

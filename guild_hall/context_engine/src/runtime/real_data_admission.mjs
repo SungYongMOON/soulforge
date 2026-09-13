@@ -21,9 +21,41 @@ const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@+_-]{0,199}$/u;
 // (valid_from is listed last so the APP boundary scan does not read it as an import.)
 const FIELDS = ['schema_version', 'admission_id', 'project_ref', 'data_classes', 'source_refs', 'processing',
   'external_transfer', 'model_calls', 'authorized_by', 'authorized_at', 'valid_to', 'valid_from'];
+// Where a model may be called with this material: nowhere, this host only, or
+// this host plus exactly the Owner-held machines the record names as https
+// origins (`model_hosts`). Naming a device here is the Owner saying that a call
+// to it is not an external transfer; the list is then the ceiling for any
+// binding's `allowed_model_hosts` under this admission.
+export const MODEL_CALL_POLICIES = Object.freeze(['none', 'loopback_only', 'owner_hosts_only']);
+const MAX_MODEL_HOSTS = 8;
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const exactKeys = (value, keys) => plain(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 const fail = code => { throw new SourceDocumentError(code); };
+
+// An exact https origin, not loopback, with nothing after the host.
+function ownerHostOrigin(value) {
+  let parsed;
+  try { parsed = new URL(value); } catch { return null; }
+  if (parsed.protocol !== 'https:' || LOCAL_HOSTS.has(parsed.hostname) || parsed.pathname !== '/' || parsed.search
+    || parsed.username || parsed.password || parsed.origin !== value) return null;
+  return parsed.origin;
+}
+
+/**
+ * Which model origins a binding may use under an admission (`[]` = loopback
+ * only). Throws when the binding names an origin the admission does not, or
+ * names any model use under an admission that allows none.
+ */
+export function assertModelHostsAdmitted(admissionRef, allowedModelHosts) {
+  const origins = Array.isArray(allowedModelHosts) ? allowedModelHosts : [];
+  if (admissionRef.model_calls === 'none') fail('real_data_admission_model_calls_refused');
+  if (admissionRef.model_calls === 'loopback_only' && origins.length > 0) fail('real_data_admission_model_host_refused');
+  if (admissionRef.model_calls === 'owner_hosts_only' && !origins.every(origin => admissionRef.model_hosts.includes(origin))) {
+    fail('real_data_admission_model_host_refused');
+  }
+  return Object.freeze([...origins]);
+}
 
 /** Does this grant reach beyond synthetic material at all? */
 export function grantNeedsAdmission(grant) {
@@ -36,13 +68,20 @@ export function grantNeedsAdmission(grant) {
  * SourceDocumentError naming what refused it.
  */
 export function validateRealDataAdmission(admission, { admitted, now } = {}) {
-  if (!exactKeys(admission, FIELDS) || admission.schema_version !== REAL_DATA_ADMISSION_SCHEMA
+  const ownerHosts = plain(admission) && admission.model_calls === 'owner_hosts_only';
+  const fields = ownerHosts ? [...FIELDS, 'model_hosts'] : FIELDS;
+  const modelHosts = ownerHosts && Array.isArray(admission.model_hosts) && admission.model_hosts.length > 0
+    && admission.model_hosts.length <= MAX_MODEL_HOSTS ? admission.model_hosts.map(ownerHostOrigin) : null;
+  if (ownerHosts && (modelHosts === null || modelHosts.includes(null) || new Set(modelHosts).size !== modelHosts.length)) {
+    fail('real_data_admission_invalid');
+  }
+  if (!exactKeys(admission, fields) || admission.schema_version !== REAL_DATA_ADMISSION_SCHEMA
     || !TOKEN.test(admission.admission_id ?? '') || exactRefIdentityKey(admission.project_ref) === null
     || !Array.isArray(admission.data_classes) || admission.data_classes.length === 0
     || !admission.data_classes.every(dataClass => TOKEN.test(dataClass) && dataClass !== SYNTHETIC_DATA_CLASS)
     || !Array.isArray(admission.source_refs) || !admission.source_refs.every(ref => TOKEN.test(ref))
     || admission.processing !== 'local_only' || admission.external_transfer !== false
-    || !['none', 'loopback_only'].includes(admission.model_calls)
+    || !MODEL_CALL_POLICIES.includes(admission.model_calls)
     || typeof admission.authorized_by !== 'string' || !admission.authorized_by
     || !isInstant(admission.authorized_at) || !isInstant(admission.valid_from) || !isInstant(admission.valid_to)
     || Date.parse(admission.valid_from) >= Date.parse(admission.valid_to)) fail('real_data_admission_invalid');
@@ -59,5 +98,6 @@ export function validateRealDataAdmission(admission, { admitted, now } = {}) {
     if (!refs.has(source.root_ref)) fail('real_data_admission_source_refused');
   }
   return Object.freeze({ admission_id: admission.admission_id, admission_sha256: sha256Canonical(admission),
-    data_classes: Object.freeze([...admission.data_classes]), authorized_by: admission.authorized_by });
+    data_classes: Object.freeze([...admission.data_classes]), authorized_by: admission.authorized_by,
+    model_calls: admission.model_calls, model_hosts: Object.freeze(modelHosts ?? []) });
 }

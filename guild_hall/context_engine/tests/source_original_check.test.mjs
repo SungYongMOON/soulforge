@@ -17,7 +17,7 @@ import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { LINEAR_ROOT_REF, syntheticLinearCustody } from '../harness/fixtures/linear_custody_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
-import { REAL_DATA_ADMISSION_SCHEMA, validateRealDataAdmission } from '../src/runtime/real_data_admission.mjs';
+import { REAL_DATA_ADMISSION_SCHEMA, assertModelHostsAdmitted, validateRealDataAdmission } from '../src/runtime/real_data_admission.mjs';
 import { checkDocumentsAgainstOriginals, SOURCE_CHECK_SCHEMA, CHECKER_ID, rollup } from '../src/runtime/source_original_check.mjs';
 import { totalDigest } from '../src/runtime/preparation_run.mjs';
 import { validatePreparationRun } from '../src/runtime/preparation_validation.mjs';
@@ -91,6 +91,24 @@ test('an admission is judged against the exact grant: project, classes, roots, v
   refuse({ source_refs: ['mail.elsewhere'] }, 'real_data_admission_source_refused');
   // An extra field is not an admission either.
   refuse({ note: 'x' }, 'real_data_admission_invalid');
+  // Owner-held model hosts: named as exact https origins, and they become the
+  // ceiling for a binding's model origins; loopback-only and none admit no origin.
+  const owner = admission({ model_calls: 'owner_hosts_only', model_hosts: ['https://owner-box.example.invalid'] });
+  const ref1 = validateRealDataAdmission(owner, { admitted, now: NOW });
+  assert.deepEqual({ calls: ref1.model_calls, hosts: ref1.model_hosts }, { calls: 'owner_hosts_only', hosts: ['https://owner-box.example.invalid'] });
+  assert.deepEqual(assertModelHostsAdmitted(ref1, ['https://owner-box.example.invalid']), ['https://owner-box.example.invalid']);
+  assert.deepEqual(assertModelHostsAdmitted(ref1, []), []);
+  assert.throws(() => assertModelHostsAdmitted(ref1, ['https://elsewhere.example.invalid']), error => error.code === 'real_data_admission_model_host_refused');
+  assert.throws(() => assertModelHostsAdmitted(ok, []), error => error.code === 'real_data_admission_model_calls_refused', 'none admits no model call');
+  const loop = validateRealDataAdmission(admission({ model_calls: 'loopback_only' }), { admitted, now: NOW });
+  assert.deepEqual(assertModelHostsAdmitted(loop, []), []);
+  assert.throws(() => assertModelHostsAdmitted(loop, ['https://owner-box.example.invalid']), error => error.code === 'real_data_admission_model_host_refused');
+  refuse({ model_calls: 'owner_hosts_only' }, 'real_data_admission_invalid');
+  refuse({ model_calls: 'owner_hosts_only', model_hosts: [] }, 'real_data_admission_invalid');
+  refuse({ model_calls: 'owner_hosts_only', model_hosts: ['http://owner-box.example.invalid'] }, 'real_data_admission_invalid');
+  refuse({ model_calls: 'owner_hosts_only', model_hosts: ['https://127.0.0.1'] }, 'real_data_admission_invalid');
+  refuse({ model_calls: 'owner_hosts_only', model_hosts: ['https://owner-box.example.invalid/v1'] }, 'real_data_admission_invalid');
+  refuse({ model_calls: 'loopback_only', model_hosts: ['https://owner-box.example.invalid'] }, 'real_data_admission_invalid');
 });
 
 test('an admission for another class or another root refuses the grant through the preparer', async () => {

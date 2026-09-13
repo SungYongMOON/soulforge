@@ -22,6 +22,7 @@ import { sameExactRef, exactRefIdentityKey } from '../../../engineering_engine/k
 import { resolveProjectTemplateVersion } from '../../../path_registry/src/target_materializer.mjs';
 import { rootedStore, safeStoreRel, storeToken } from './pair_store.mjs';
 import { prepareSourceDocuments } from './source_preparation.mjs';
+import { assertModelHostsAdmitted } from './real_data_admission.mjs';
 import { SOURCE_PREPARATION_PURPOSE, validateSourceDocument } from './source_documents.mjs';
 import { extractGraphFragments, probeGraphModels, validateGraphBinding } from './graph_extraction.mjs';
 import { GRAPH_EXTRACTION_PROFILE } from '../../profiles/graph_extraction_v1.mjs';
@@ -332,6 +333,9 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
   const prepared = await prepareSourceDocuments({ grant, roots: store.binding.source_roots, now, previousCoverage: prior?.coverage ?? null,
     admission });
   if (prepared.grant.project_key !== store.projectKey) fail('graph_index_grant_mismatch');
+  // Extraction calls a model with this material: under a real-data admission the
+  // binding's model origins must be ones the admission names (loopback needs none).
+  if (prepared.admission !== null) assertModelHostsAdmitted(prepared.admission, store.graphBinding.allowed_model_hosts);
   const changes = changeCounts(prepared.changes);
   if (prepared.changes.unavailable.length) {
     return { status: 'HOLD', code: 'source_incomplete', changes, unavailable: prepared.changes.unavailable

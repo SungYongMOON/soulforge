@@ -5,7 +5,9 @@
 - `context_engine/src/runtime/graph_index_generation.mjs`: `updateGraphIndex`·`selectGraphIndexGeneration`·`openGraphIndex`가 `io`(별칭 io)와 `bindingAddress`를 받는다.
   합성 `storeRoot` 경로는 그대로. source root 경계는 합성 저장소면 root 전체, estate면 이 과제의 store 트리. index binding의 선택적 `admission {path, sha256}`을
   digest 대조 뒤 준비기에 넘기고 manifest에 admission(id·digest·등급·승인자)을 남긴다(`graph_index_admission_mismatch`). 쓰기 전후 재검사도 같은 주소를 읽는다.
-- 시험 1건 추가(별칭 estate 갱신·읽기, 잘못 고정된 admission HOLD). 모듈 0.18.0. 검증 결과는 아래 상태선.
+- 시험 1건 추가(별칭 estate 갱신·읽기, 잘못 고정된 admission HOLD). 모듈 0.18.0. 검증: context-engine 266 / 259 pass / 0 fail / 7 skip, path-registry 42/42, path-policy 0 (305bc0df).
+- 같은 날 후속: admission `model_calls`에 `owner_hosts_only` + `model_hosts`(Owner 기기의 https origin) 추가, 색인 갱신이 binding의 `allowed_model_hosts`를 그 목록으로 검사
+  (`assertModelHostsAdmitted`; `none`은 추출 거부). 이유: 실자료 admission이 loopback뿐이면 확정된 배치(추출 LLM은 맥미니)를 실자료에 쓸 수 없었다. 시험 보강(admission 판정 1건 확장).
 ## 2026-09-13 - 원문 대조 v2: 정확한 판본 대조, 이력 값 비교, NOT_RUN 비은폐, 본문 분할, 파일 공유 메타
 
 - 실제 세대 재검사에서 드러난 둘을 고침(검사기 0.2.1): 상태 이름이 바뀐 뒤에는 custody가 가진 어느 이름으로도 일치를 인정(리네임은 결함이 아님), 옛 어댑터 문서에 없는 새 fact(`slack.attachment_bodies_processed`)은 부재로 실패시키지 않고 "처리했다"고 주장하는 경우만 실패.

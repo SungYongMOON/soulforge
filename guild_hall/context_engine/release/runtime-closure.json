@@ -137,7 +137,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "c6cd597ad3e4e1cac484c6c01732065045fb0d71179afe2ac4ecbdfb40cb4aee"
+      "sha256": "fa71df17a6c2eca352c2606d54a2189408e68ccb0a71128bb6fdb9a873808c96"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
@@ -169,7 +169,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/real_data_admission.mjs",
-      "sha256": "4797b462bcc5d707ad45c7cfd530e1efbd806258d7fa6cad09f076f396f43870"
+      "sha256": "f9ad8cd79f1d8fce6f07d9997858616da6c11e0e718690108dbc4b9015185263"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_documents.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "e5ce72cf7d304c3f1d4c351329ede648d360db5c571774b8eabf37f1f1c9b2fc",
+  "closure_sha256": "b6708278847a69e0e11e377144b961269924e0b29a34d9a913d725fe8b822cb5",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -764,6 +764,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
       "to": "guild_hall/context_engine/src/runtime/pair_store.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/real_data_admission.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
