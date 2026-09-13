@@ -173,8 +173,14 @@ async function mailCandidates(io, roots, codes) {
 // event in two files -- and every item takes the latest revision custody has,
 // which is what makes a new comment on an issue a changed document rather than a
 // new one.
-export function grantCandidates({ io, code, roots, dataClass = 'company_internal' } = {}) {
+export function grantCandidates({ io, code, roots, dataClass = 'company_internal', everyCode = null } = {}) {
   const item = extra => ({ revision_policy: 'latest_in_custody', revision_sha256: null, data_class: dataClass, ...extra });
+  // `everyCode`: the codes the estate knows. Given it, the same pass over the mail
+  // files also counts the events that name none of them -- items no rule attributes
+  // anywhere, which a caller keeps as pending rather than as absent.
+  const known = Array.isArray(everyCode) && everyCode.length ? everyCode : null;
+  const unattributed = { mail_events: 0, mail_events_scanned: 0,
+    reason: 'no project code appears as a standalone token in the subject or the body' };
   const sources = [];
   const add = (kind, rootRef, items) => {
     const once = [...new Map(items.map(row => [row.item_id, row])).values()]
@@ -204,7 +210,12 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
             if (!raw.trim()) continue;
             let event;
             try { event = JSON.parse(raw); } catch { continue; }
-            if (mailCodesIn([event.subject ?? '', event.body_text ?? ''].join(String.fromCharCode(10)), [code]).length === 0) continue;
+            const text = [event.subject ?? '', event.body_text ?? ''].join(String.fromCharCode(10));
+            if (known !== null) {
+              unattributed.mail_events_scanned += 1;
+              if (mailCodesIn(text, known).length === 0) unattributed.mail_events += 1;
+            }
+            if (mailCodesIn(text, [code]).length === 0) continue;
             rows.push(item({ item_id: event.event_id, path: [year, file] }));
           }
         }
@@ -212,7 +223,11 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
       add('mail', rootRef, rows);
     }
   }
-  return sources.sort((a, b) => a.root_ref.localeCompare(b.root_ref));
+  const ordered = sources.sort((a, b) => a.root_ref.localeCompare(b.root_ref));
+  // The array is what every caller already uses; the count rides along for the
+  // one caller that asked for it, so neither has to scan the mail twice.
+  if (known !== null) Object.defineProperty(ordered, 'unattributed', { value: Object.freeze(unattributed), enumerable: false });
+  return ordered;
 }
 
 export async function takeEstateInventory({ io, codes = null, slackRoot, linearRoot, mailRoots = [],

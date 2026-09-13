@@ -233,11 +233,22 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     else roots[ref] = address;
   }
   const dataClass = grant.allowed_data_classes.find(value => value !== 'public_synthetic') ?? grant.allowed_data_classes[0];
-  const candidates = grantCandidates({ io, code: project, roots, dataClass });
+  // Every project code this estate holds, so the same pass over the mail can also
+  // count what no rule attributes anywhere. Those stay pending: the next pass
+  // applies the rules again rather than treating them as absent.
+  let everyCode = null;
+  try {
+    everyCode = readdirSync(io.path('data_root/20_PROJECTS', true)).filter(name => PROJECT_CODE.test(name));
+  } catch { everyCode = null; }
+  const candidates = grantCandidates({ io, code: project, roots, dataClass, everyCode });
   const stopped = stoppedSet(ledger);
   const scope = { items: candidates.reduce((total, source) => total + source.items.length, 0),
     by_root: Object.fromEntries(candidates.map(source => [source.root_ref, source.items.length])),
-    held_back_from_this_pass: stopped.size, sources_not_admitted: notAdmitted };
+    held_back_from_this_pass: stopped.size, sources_not_admitted: notAdmitted,
+    // Items the attribution rules place with no project at all. They are not this
+    // project's to load, and they are not lost either: the next pass re-applies
+    // the rules to the same custody.
+    unattributed: candidates.unattributed ?? null };
 
   const receipt = { schema_version: GRAPH_SYNC_SCHEMA, project_code: project, ran_at: now, dry,
     binding: { address: bindingAddress, sha256: sha256(bindingBytes) },
@@ -248,10 +259,15 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
 
   if (dry) {
     const difference = grantDifference(grant, { ...grant, sources: without(candidates, stopped) });
-    return Object.freeze({ ...receipt,
+    // A grant that already matches custody is not the same as a project already
+    // in the database: a project with no generation yet has work to do either way.
+    let selected = null;
+    try { selected = JSON.parse(io.read(`${storePath}/00_프로젝트_안내/graph_index_current.json`, 65536)).generation_id; }
+    catch { selected = null; }
+    return Object.freeze({ ...receipt, selected_generation: selected,
       grant: { in_force: grant.grant_id, proposed: null, ...difference,
         added_count: difference.added.length, removed_count: difference.removed.length },
-      status: difference.changed ? 'WOULD_UPDATE' : 'UNCHANGED' });
+      status: difference.changed ? 'WOULD_UPDATE' : selected === null ? 'WOULD_CREATE' : 'UNCHANGED' });
   }
 
   mkdirSync(receiptsDir, { recursive: true });
