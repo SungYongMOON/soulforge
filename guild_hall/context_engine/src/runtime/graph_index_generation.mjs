@@ -108,12 +108,32 @@ export function planExtractionBatches(documents, limits = GRAPH_EXTRACTION_BATCH
   return batches;
 }
 
+// Whether a stored model record is the model revision a probe just reported.
+//
+// Every field the probe produced must match: the LLM and its digest, the
+// transport, the thinking switch, the options, the embedder and its digest, and
+// the worker and package versions that did the extraction. What is NOT compared is
+// anything the stored record carries beyond that set. A derived generation records
+// how its vectors came to be (`embedding_source: "reembed"`), and that note is not
+// part of the revision — the embedder and its digest already are. Comparing the
+// records whole made a re-embedded generation unreusable, so the next update
+// extracted all of it again with the same model that had already read it.
+//
+// The comparison follows the probe rather than a list kept here: if the probe ever
+// reports a new field, that field is compared from then on without this having to
+// be edited.
+export function sameModelRevision(stored, probed) {
+  if (!plain(stored) || !plain(probed)) return false;
+  return Object.keys(probed).every(key => equal(stored[key], probed[key]));
+}
+
 // Whether an earlier fragment may stand for this document in a new generation.
 // Identity breaks are integrity failures; a changed text or a degraded fragment
 // is simply extracted again.
 export function carryDecision({ row, fragment, document, projectKey, models }) {
   if (row?.doc_key !== document.doc_key || fragment?.doc_key !== document.doc_key || fragment.project_key !== projectKey
-    || fragment.fragment_sha256 !== row.fragment?.fragment_sha256 || !equal(fragment.model, models)) fail('graph_index_carry_invalid');
+    || fragment.fragment_sha256 !== row.fragment?.fragment_sha256
+    || !sameModelRevision(fragment.model, models)) fail('graph_index_carry_invalid');
   if (fragment.source_text_sha256 !== document.text_sha256 || fragment.stats?.chunks_mismatched !== 0
     || fragment.stats?.chunks !== document.units.length) return 'extract';
   return 'carry';
@@ -361,7 +381,8 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
   }
   const profile = graphProfilePin();
   const models = await probeGraphModels({ binding: store.binding.graph, runWorker });
-  const reusable = prior !== null && equal(prior.manifest.profile, profile) && equal(prior.manifest.model, models);
+  const reusable = prior !== null && equal(prior.manifest.profile, profile)
+    && sameModelRevision(prior.manifest.model, models);
   const priorRows = new Map((prior?.manifest.documents ?? []).map(row => [row.doc_key, row]));
   const carried = new Map(), toExtract = [];
   for (const document of prepared.documents) {

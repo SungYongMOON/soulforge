@@ -116,6 +116,9 @@ export function createGraphIndexRetriever(view, { graphSearch = null, runWorker 
       // requested top_k is never read as the number of rows that came back.
       receipt: { mode, requested_top_k: topK ?? null, returned: result.hits.length, admitted: hits.length,
         not_in_generation: unknown, dropped_out_of_generation: result.dropped_out_of_generation ?? 0,
+        // Where the database applied this view's project and generation, and what
+        // each half of the search had to leave out to stay inside them.
+        ...(result.retrieval ? { retrieval: result.retrieval } : {}),
         ...(result.whole_generation ? { whole_generation: true, chunks_in_generation: result.chunks_in_generation ?? null } : {}),
         ...(result.expansion ? { expansion: result.expansion } : {}) } };
   }

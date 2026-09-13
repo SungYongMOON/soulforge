@@ -40,25 +40,29 @@ export const READER_REQUEST = Object.freeze({ actor_ref: 'actor:reader', project
 // `writeOperations` is what the binding authorizes this actor to do. It defaults
 // to the index operation alone so existing callers keep the binding they had.
 export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclDataClasses = ['public_synthetic'], sourceInsideStore = false,
-  memos = INDEX_MEMOS, neo4j = false, embedder = null, writeOperations = ['index'] } = {}) {
+  memos = INDEX_MEMOS, neo4j = false, embedder = null, writeOperations = ['index'],
+  // A second project for tests about a database that holds more than one. Both
+  // default to the single synthetic project every existing caller already gets.
+  projectRef = ref(1), fsKey = INDEX_FS_KEY } = {}) {
+  const projectPath = `data_root/20_PROJECTS/${fsKey}`;
   const storeRoot = await mkdtemp(path.join(os.tmpdir(), 'ctx-index-store-'));
   const sourceRoot = sourceInsideStore ? path.join(storeRoot, 'sources') : await mkdtemp(path.join(os.tmpdir(), 'ctx-index-src-'));
   await mkdir(sourceRoot, { recursive: true });
   for (const [name, body] of Object.entries(memos)) await writeFile(path.join(sourceRoot, name), body);
-  for (const dir of TEMPLATE) await mkdir(path.join(storeRoot, INDEX_PROJECT, dir), { recursive: true });
+  for (const dir of TEMPLATE) await mkdir(path.join(storeRoot, projectPath, dir), { recursive: true });
   const put = async (rel, value) => {
     const bytes = Buffer.from(JSON.stringify(value));
     await mkdir(path.dirname(path.join(storeRoot, rel)), { recursive: true });
     await writeFile(path.join(storeRoot, rel), bytes);
     return { path: rel, sha256: sha(bytes) };
   };
-  const projectKey = exactRefIdentityKey(ref(1));
-  const grant = await put(`${INDEX_PROJECT}/00_프로젝트_안내/grants/grant.synthetic.index.json`, { schema_version: SOURCE_GRANT_SCHEMA,
-    grant_id: 'grant.synthetic.index', project_ref: ref(1), purposes: ['context_preparation'], allowed_data_classes: [dataClass],
+  const projectKey = exactRefIdentityKey(projectRef);
+  const grant = await put(`${projectPath}/00_프로젝트_안내/grants/grant.synthetic.index.json`, { schema_version: SOURCE_GRANT_SCHEMA,
+    grant_id: 'grant.synthetic.index', project_ref: projectRef, purposes: ['context_preparation'], allowed_data_classes: [dataClass],
     valid_from: '2026-09-01T00:00:00.000Z', valid_to: '2026-10-01T00:00:00.000Z', sources: [{ kind: 'document', root_ref: 'doc.synthetic',
       items: Object.keys(memos).map(name => ({ item_id: name.replace('.md', ''), revision_policy: 'latest_in_custody', revision_sha256: null,
         data_class: dataClass, path: [name] })) }] });
-  const aclPath = `${INDEX_PROJECT}/00_프로젝트_안내/acl.json`;
+  const aclPath = `${projectPath}/00_프로젝트_안내/acl.json`;
   const acl = { actors: [
     { actor_ref: 'actor:indexer', grant: { allowed_projects: [projectKey], allowed_scopes: ['project'],
       allowed_purposes: ['context_preparation', 'context_query'], allowed_data_classes: aclDataClasses } },
@@ -74,13 +78,13 @@ export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclD
     neo4jBinding = { uri: 'bolt://127.0.0.1:7687', user: 'neo4j', password_file: passwordFile, database: null,
       ...(neo4j === true ? {} : neo4j) };
   }
-  const binding = { mode: GRAPH_INDEX_BINDING_MODE, project_ref: ref(1), approved_fs_key: INDEX_FS_KEY, acl_path: aclPath,
+  const binding = { mode: GRAPH_INDEX_BINDING_MODE, project_ref: projectRef, approved_fs_key: fsKey, acl_path: aclPath,
     write_authority: { actors: ['actor:indexer'], operations: [...writeOperations] }, grant, source_roots: { 'doc.synthetic': sourceRoot },
     graph: { worker: { interpreter_path: path.join(os.tmpdir(), 'unused-python.exe') },
       llm: { host: 'http://127.0.0.1:11434', model: 'local-model:tag', max_calls: 50 }, embedder, neo4j: neo4jBinding },
     profile: graphProfilePin() };
   const { sha256: bindingSha256 } = await put(GRAPH_INDEX_BINDING_FILE, binding);
-  return { storeRoot, sourceRoot, bindingSha256, binding, put, acl, aclPath, passwordFile };
+  return { storeRoot, sourceRoot, bindingSha256, binding, put, acl, aclPath, passwordFile, projectKey, fsKey, projectRef };
 }
 
 // Canned worker: answers the probe with one model revision and the extraction
@@ -221,4 +225,84 @@ export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = []
         dropped_out_of_generation: 0, embedder: { model: request.embedder?.model ?? null, digest: CANNED_LLM_DIGEST } } };
   }
   return { runWorker, calls, held };
+}
+
+// A stand-in for the unified database: one store holding many projects, each with
+// one loaded generation. Unlike the canned database above it keeps the nodes, so
+// what a load removed and what it left alone are countable rather than asserted.
+// It implements the same three rules the worker does -- a load replaces only
+// (this project, its previous generation), a search sees only (this project, this
+// generation), and a repeat of a loaded generation changes nothing -- and it can
+// be told to leak a foreign row, which is how the caller's own admission is tested.
+export function sharedGraphDatabase({ leak = null } = {}) {
+  const nodes = [];          // { project, generation, doc_key, unit_id, text }
+  const generations = new Map();   // project -> { generation_id, loaded_at }
+  const calls = { materialize: 0, retrieve: 0, inspect: 0, requests: [] };
+  let clock = 0;
+  const chunksOf = fragments => fragments.flatMap(fragment => fragment.nodes
+    .filter(node => typeof node.properties?.sf_unit_id === 'string')
+    .map(node => ({ doc_key: fragment.doc_key, unit_id: node.properties.sf_unit_id, text: node.properties.text ?? '' })));
+
+  async function runWorker({ request }) {
+    calls.requests.push(request);
+    const project = request.project_key;
+    if (request.operation === 'inspect') {
+      calls.inspect++;
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok',
+        projects: [...generations].map(([key, row]) => ({ project_key: key, generation_id: row.generation_id,
+          loaded_at: row.loaded_at, nodes: nodes.filter(node => node.project === key).length,
+          chunks: nodes.filter(node => node.project === key).length, embedded_chunks: 0, rule_edges: {} })),
+        total_nodes: nodes.length, unscoped_nodes: 0, residue_nodes: 0, materialize_lock: [],
+        indexes: { vector: { name: 'sf_chunk_vector', dimensions: 4, filter_properties: ['sf_project', 'sf_generation'] },
+          fulltext: 'sf_chunk_fulltext' } } };
+    }
+    if (request.operation === 'materialize') {
+      calls.materialize++;
+      const held = generations.get(project) ?? null;
+      if (held?.generation_id === request.generation_id) {
+        return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', loaded: false,
+          code: 'generation_already_loaded', generations_present: [held.generation_id],
+          counts: { nodes: nodes.filter(node => node.project === project).length } } };
+      }
+      const before = nodes.length;
+      for (let index = nodes.length - 1; index >= 0; index--) {
+        if (nodes[index].project === project && nodes[index].generation === held?.generation_id) nodes.splice(index, 1);
+      }
+      const removed = before - nodes.length;
+      for (const chunk of chunksOf(request.fragments)) {
+        nodes.push({ project, generation: request.generation_id, ...chunk });
+      }
+      const loadedAt = `2026-09-14T00:00:${String(clock++).padStart(2, '0')}.000Z`;
+      generations.set(project, { generation_id: request.generation_id, loaded_at: loadedAt });
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', loaded: true,
+        loaded_at: loadedAt, counts: { fragments: request.fragments.length, nodes: request.fragments.reduce((total, f) => total + f.nodes.length, 0),
+          relationships: request.fragments.reduce((total, f) => total + f.relationships.length, 0),
+          chunks: nodes.filter(node => node.project === project).length },
+        superseded: held ? [held.generation_id] : [], removed_nodes: removed,
+        indexes: { vector: 'sf_chunk_vector', fulltext: 'sf_chunk_fulltext', dimensions: 4,
+          filter_properties: ['sf_project', 'sf_generation'] },
+        other_projects: [...generations].filter(([key]) => key !== project)
+          .map(([key, row]) => ({ project_key: key, generation_id: row.generation_id, loaded_at: row.loaded_at })) } };
+    }
+    calls.retrieve++;
+    const held = generations.get(project) ?? null;
+    if (held?.generation_id !== request.generation_id) {
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'not_loaded',
+        code: 'generation_not_materialized', hits: [], generations_present: held ? [held.generation_id] : [] } };
+    }
+    const scoped = nodes.filter(node => node.project === project && node.generation === request.generation_id);
+    const hits = scoped.slice(0, request.top_k).map((node, index) => ({ sf_doc_key: node.doc_key,
+      sf_unit_id: node.unit_id, sf_generation: node.generation, text: node.text, score: 1 - index * 0.01, seed: index === 0 }));
+    // A database that forgot the scope: the row is offered, and the caller decides.
+    if (leak) hits.push({ ...leak, score: 0.5, seed: false });
+    return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', mode: request.mode,
+      project_key: project, generation_id: request.generation_id, hits, dropped_out_of_generation: 0,
+      retrieval: { filter_stage: 'in_index_filter', index_filter_properties: ['sf_project', 'sf_generation'],
+        index_dimensions: 4, vector_requested: request.top_k, vector_in_scope: hits.length, vector_starved: false },
+      whole_generation: request.whole_generation === true, expansion: null,
+      embedder: { model: request.embedder?.model ?? null, digest: CANNED_LLM_DIGEST } } };
+  }
+  return { runWorker, calls,
+    rows: () => nodes.map(node => ({ ...node })),
+    loaded: () => Object.fromEntries([...generations].map(([key, row]) => [key, row.generation_id])) };
 }

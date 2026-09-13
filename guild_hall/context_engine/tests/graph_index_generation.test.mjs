@@ -17,7 +17,7 @@ import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REEMBEDDING, C
   INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
 import { GRAPH_EXTRACTION_BATCH, GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
-  reembedGraphIndex, selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
+  reembedGraphIndex, sameModelRevision, selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
 const update = (store, request, worker) => updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request,
   now: NOW, runWorker: worker.runWorker });
@@ -403,6 +403,54 @@ test('a re-embedding reuses the extraction as it stands and changes only the vec
   for (const row of before.manifest.documents) {
     assert.deepEqual(open(store).readFragment(row.doc_key), priorFragments.get(row.doc_key));
   }
+});
+
+test('a re-embedded generation still carries its extraction forward; a model that actually changed does not', async () => {
+  // `sameModelRevision` compares every field the probe reported and ignores what a
+  // stored record carries beyond them. The derivation note a re-embedding writes is
+  // the case that mattered: comparing the records whole made 153 chunks unreusable.
+  const probed = { llm: 'local-model:tag', llm_digest: LLM_DIGEST, embedder: 'embed8:tag',
+    embedder_digest: CANNED_REEMBED_DIGEST, tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } };
+  assert.equal(sameModelRevision({ ...probed, embedding_source: 'reembed' }, probed), true,
+    'how the vectors came to be is not part of the model revision; the embedder and its digest are');
+  assert.equal(sameModelRevision({ ...probed, embedder_digest: LLM_DIGEST }, probed), false);
+  assert.equal(sameModelRevision({ ...probed, tool: { worker_sha256: LLM_DIGEST, packages: CANNED_PACKAGES } }, probed), false,
+    'the worker that did the extraction is part of it');
+  const { embedder_digest: dropped, ...missing } = probed;
+  assert.equal(sameModelRevision(missing, probed), false, 'a record that lacks a field the probe reported is not the same revision');
+
+  // End to end: build, re-embed, select the derived generation, then update through
+  // the second embedder's binding. The extraction is carried, not run again.
+  const store = await makeStore({ embedder: EMBEDDER });
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker());
+  const second = await secondBinding(store);
+  const derived = await reembed(store, indexer({ generation_id: 'g2', source_generation_id: 'g1' }), cannedWorker(), second);
+  assert.equal(derived.status, 'WRITTEN');
+  const selected = await selectGraphIndexGeneration({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256,
+    request: indexer({ generation_ref: derived.manifest_ref, expected_prior: first.pointer_sha256 }) });
+  assert.equal(selected.status, 'COMMITTED');
+  assert.equal(open(store).manifest.model.embedding_source, 'reembed', 'the selected generation carries the derivation note');
+
+  // The worker that answers this update reports the re-embedder as the bound one.
+  const worker = cannedWorker({ embedderDigest: CANNED_REEMBED_DIGEST });
+  await writeFile(path.join(store.sourceRoot, 'memo-b.md'), '# 전원 조건\n\n전원 조건은 32V로 다시 바뀌었다.\n');
+  const third = await updateGraphIndex({ storeRoot: store.storeRoot, bindingAddress: second.bindingAddress,
+    bindingSha256: second.bindingSha256, now: NOW, runWorker: worker.runWorker,
+    request: indexer({ generation_id: 'g3', expected_prior: selected.pointer_sha256 }) });
+  assert.deepEqual({ status: third.status, extracted: third.counts.extracted, carried: third.counts.carried },
+    { status: 'COMMITTED', extracted: 1, carried: 1 }, 'only the document whose text changed went to the model');
+  assert.equal(worker.calls.extracted.length, 1);
+  const carriedRow = open(store, { generationRef: third.manifest_ref }).manifest.documents.find(row => row.origin === 'carried');
+  assert.equal(carriedRow.fragment.path.includes('/generations/g2/'), true,
+    'the carried fragment is the re-embedded one, by reference');
+
+  // The negative: an embedder that really is a different one carries nothing.
+  const other = cannedWorker({ embedderDigest: 'sha256:' + '3'.repeat(64) });
+  const fourth = await updateGraphIndex({ storeRoot: store.storeRoot, bindingAddress: second.bindingAddress,
+    bindingSha256: second.bindingSha256, now: NOW, runWorker: other.runWorker,
+    request: indexer({ generation_id: 'g4', expected_prior: third.pointer_sha256 }) });
+  assert.deepEqual({ status: fourth.status, extracted: fourth.counts.extracted, carried: fourth.counts.carried },
+    { status: 'COMMITTED', extracted: 2, carried: 0 });
 });
 
 test('a chunk the embedder will not take holds the re-embedding, and a source that is not the selected generation never reaches it', async () => {

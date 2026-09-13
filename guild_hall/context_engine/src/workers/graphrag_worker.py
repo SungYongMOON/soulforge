@@ -2,12 +2,20 @@
 # stdin and writes one ASCII JSON result on stdout (the pipe encoding of the
 # host never touches the text). It assembles the tool's own components (text
 # chunks, chunk embedder, LLM entity/relation extractor, lexical graph, schema
-# pruning, KG writer, vector/hybrid/graph retrievers) and adds only what the tool
-# does not own: a local-model adapter with an explicit thinking switch, a call
-# budget and an observable call trace, the installed model digests as the model
-# revision, deterministic document and chunk ids, a plain fragment the APP can
-# pin, and the rule that a database holds exactly one project's currently
-# selected generation. It reads no keys or network locations by itself; every
+# pruning, KG writer, query embedder) and adds only what the tool does not own: a
+# local-model adapter with an explicit thinking switch, a call budget and an
+# observable call trace, the installed model digests as the model revision,
+# deterministic document and chunk ids, a plain fragment the APP can pin, and the
+# rule that a database holds one currently selected generation per project.
+#
+# Search is written here rather than taken from the tool's retrievers. The
+# retrievers cannot express the one thing a shared database needs: a scope that is
+# part of the index rather than a step a caller could forget. HybridRetriever takes
+# no filters at all and VectorRetriever falls back to brute force without a
+# filterable index, so this file issues Cypher 25's `SEARCH n IN (VECTOR INDEX ...
+# WHERE ... LIMIT k)` itself, and reproduces the tool's own hybrid ranking rule
+# (each half normalised by its own maximum, best per node) rather than inventing
+# one. It reads no keys or network locations by itself; every
 # endpoint comes from the trusted APP adapter and must be a loopback address, and
 # the only file it opens is the password file that adapter names.
 import asyncio
@@ -25,8 +33,10 @@ WORKER_SCHEMA = "soulforge.context_graphrag_worker.v1"
 EMPTY_GRAPH = '{"nodes": [], "relationships": []}'
 DIGEST = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
 TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,199}$")
-# One database holds one project. These names are therefore fixed, not per project:
-# a second project would be a second container, never a second index in this one.
+# One database holds many projects, each with exactly one currently loaded
+# generation. The index and label names are therefore database-wide, and every
+# node carries `sf_project` and `sf_generation`; a search's scope is those two
+# properties rather than the address of the container it reached.
 GENERATION_LABEL = "__SfGeneration__"
 CHUNK_LABEL = "Chunk"
 DOCUMENT_LABEL = "Document"
@@ -34,6 +44,22 @@ ENTITY_LABEL = "__Entity__"
 VECTOR_INDEX = "sf_chunk_vector"
 FULLTEXT_INDEX = "sf_chunk_fulltext"
 EMBEDDING_PROPERTY = "embedding"
+# The properties the vector index declares as filterable, in the order the DDL
+# names them. A vector index carrying these can be searched with the scope
+# predicate INSIDE the index (Cypher 25 `SEARCH n IN (VECTOR INDEX ... WHERE ...
+# LIMIT k)`), so the k rows it returns are already this project's and this
+# generation's. Measured on this host's Neo4j 2026.02.3: two equality predicates
+# joined by AND are accepted inside the parentheses, `IN` is not (that needs
+# 2026.06). An index without them can only be filtered after the fact.
+VECTOR_FILTER_PROPERTIES = ("sf_project", "sf_generation")
+# One project's load takes this node for the duration, so two projects loading at
+# once cannot stamp each other's freshly written nodes.
+MATERIALIZE_LOCK_LABEL = "__SfMaterializeLock__"
+# How many rows each half of a search asks for before the scope is applied. The
+# in-index filter needs no overfetch; a post-filtered vector index and the
+# fulltext index (which has no filter properties at all) do, and what the scope
+# then removes is counted rather than hidden.
+SCOPE_OVERFETCH = 10
 # Lexical edges are the graph's skeleton; expansion follows the extracted ones.
 LEXICAL_RELATIONSHIPS = ("FROM_CHUNK", "FROM_DOCUMENT", "NEXT_CHUNK")
 MAX_TOP_K = 50
@@ -551,19 +577,29 @@ def run_query(driver, database, query, **parameters):
     return driver.execute_query(query, database_=database, **parameters).records
 
 
-def chunk_count(driver, database, generation_id):
-    """How many chunks this generation holds, as the database has them."""
+def chunk_count(driver, database, project_key, generation_id):
+    """How many chunks this project's generation holds, as the database has them."""
     rows = run_query(driver, database,
-                     "MATCH (c:" + CHUNK_LABEL + " {sf_generation: $generation}) RETURN count(c) AS chunks",
-                     generation=generation_id)
+                     "MATCH (c:" + CHUNK_LABEL + " {sf_project: $project, sf_generation: $generation}) "
+                     "RETURN count(c) AS chunks", project=project_key, generation=generation_id)
     return int(rows[0]["chunks"]) if rows else 0
 
 
-def generation_rows(driver, database):
+def generation_rows(driver, database, project_key=None):
+    """The generations this database holds; one project's when `project_key` is given.
+
+    Every caller that decides something about a project passes one. Without it the
+    answer is the whole database, which is what an inventory asks for.
+    """
+    if project_key is None:
+        return run_query(driver, database,
+                         "MATCH (g:" + GENERATION_LABEL + ") "
+                         "RETURN g.project_key AS project_key, g.generation_id AS generation_id, "
+                         "toString(g.loaded_at) AS loaded_at ORDER BY g.project_key, g.generation_id")
     return run_query(driver, database,
-                     "MATCH (g:" + GENERATION_LABEL + ") "
+                     "MATCH (g:" + GENERATION_LABEL + " {project_key: $project}) "
                      "RETURN g.project_key AS project_key, g.generation_id AS generation_id, "
-                     "toString(g.loaded_at) AS loaded_at ORDER BY g.generation_id")
+                     "toString(g.loaded_at) AS loaded_at ORDER BY g.generation_id", project=project_key)
 
 
 def residue_count(driver, database):
@@ -618,15 +654,82 @@ async def write_fragments(driver, database, fragments):
     return written
 
 
+def vector_index_row(driver, database):
+    """What the database says its chunk vector index is, or None when it has none.
+
+    `properties` lists the embedding property first and the declared filter
+    properties after it, which is how a caller learns whether the scope predicate
+    can sit inside the index or has to be applied to what it returns.
+    """
+    for row in run_query(driver, database,
+                         "SHOW VECTOR INDEXES YIELD name, properties, options, state "
+                         "RETURN name, properties, options, state"):
+        if row["name"] != VECTOR_INDEX:
+            continue
+        properties = list(row["properties"] or [])
+        config = (row["options"] or {}).get("indexConfig") or {}
+        dimensions = config.get("vector.dimensions")
+        return {"name": VECTOR_INDEX, "state": row["state"],
+                "embedding_property": properties[0] if properties else None,
+                "filter_properties": properties[1:],
+                "dimensions": int(dimensions) if isinstance(dimensions, (int, float)) else None}
+    return None
+
+
 def ensure_indexes(driver, database, dimensions):
-    from neo4j_graphrag.indexes import create_fulltext_index, create_vector_index
+    """The database-wide chunk indexes, created once and never silently replaced.
+
+    The vector index is written as DDL rather than through the tool's helper
+    because the helper cannot declare filter properties, and those are what make a
+    project's scope part of the index rather than a step a caller could forget.
+    An index that is already there with different dimensions is a refusal: dropping
+    it would delete every other project's search vectors along with this one's.
+    """
+    from neo4j_graphrag.indexes import create_fulltext_index
+    existing = vector_index_row(driver, database)
     if dimensions:
-        create_vector_index(driver, VECTOR_INDEX, label=CHUNK_LABEL, embedding_property=EMBEDDING_PROPERTY,
-                            dimensions=dimensions, similarity_fn="cosine", neo4j_database=database,
-                            fail_if_exists=False)
+        if existing is None:
+            # `dimensions` is an integer measured from the fragments; index options
+            # take no parameters, so it is rendered as one after that check.
+            if not isinstance(dimensions, int) or isinstance(dimensions, bool) or not 1 <= dimensions <= 8192:
+                raise WorkerError("graph_embedding_dimensions_invalid")
+            filters = ", ".join("n." + name for name in VECTOR_FILTER_PROPERTIES)
+            run_query(driver, database,
+                      "CREATE VECTOR INDEX " + VECTOR_INDEX + " IF NOT EXISTS "
+                      "FOR (n:" + CHUNK_LABEL + ") ON n." + EMBEDDING_PROPERTY + " "
+                      "WITH [" + filters + "] "
+                      "OPTIONS {indexConfig:{`vector.dimensions`: " + str(dimensions) + ", "
+                      "`vector.similarity_function`: 'cosine'}}")
+        elif existing["dimensions"] != dimensions:
+            raise WorkerError("graph_vector_index_dimension_mismatch")
     create_fulltext_index(driver, FULLTEXT_INDEX, label=CHUNK_LABEL, node_properties=["text"],
                           neo4j_database=database, fail_if_exists=False)
     run_query(driver, database, "CALL db.awaitIndexes(300)")
+    return vector_index_row(driver, database)
+
+
+def take_materialize_lock(driver, database, project_key, token):
+    """Holds the database against a second load for the length of this one.
+
+    A load writes nodes the tool marks with `__tmp_internal_id` and then stamps
+    every marked node with this project and generation. That stamp is database-wide
+    by construction, so two projects loading at the same time would each take the
+    other's half-written nodes. The lock is a single node: it is created only when
+    none is there, and the creator re-reads it to be sure exactly its own is held.
+    """
+    if run_query(driver, database, "MATCH (l:" + MATERIALIZE_LOCK_LABEL + ") RETURN count(l) AS n")[0]["n"]:
+        raise WorkerError("graph_materialize_locked")
+    run_query(driver, database,
+              "CREATE (l:" + MATERIALIZE_LOCK_LABEL + " {token: $token, project_key: $project, taken_at: datetime()})",
+              token=token, project=project_key)
+    held = run_query(driver, database, "MATCH (l:" + MATERIALIZE_LOCK_LABEL + ") RETURN l.token AS token")
+    if len(held) != 1 or held[0]["token"] != token:
+        release_materialize_lock(driver, database, token)
+        raise WorkerError("graph_materialize_locked")
+
+
+def release_materialize_lock(driver, database, token):
+    run_query(driver, database, "MATCH (l:" + MATERIALIZE_LOCK_LABEL + " {token: $token}) DELETE l", token=token)
 
 
 def embedding_dimensions(fragments):
@@ -638,13 +741,14 @@ def embedding_dimensions(fragments):
 
 
 def materialize(request):
-    """Loads one generation so the database holds exactly that generation.
+    """Loads one generation so the database holds exactly that generation of this project.
 
     A repeat of the same generation changes nothing and says so. A different
     generation of the same project replaces the previous one: the graph is a derived,
-    rebuildable projection of the project store, and two generations in one database
-    would double every chunk. A database already holding another project is refused
-    outright rather than merged.
+    rebuildable projection of the project store, and two generations of one project in
+    one database would double every chunk. Another project's generations are neither
+    read nor written: the replacement names this project and this generation, so a
+    load is bounded by the scope it declares rather than by the database it reached.
     """
     project_key, generation_id = request.get("project_key"), request.get("generation_id")
     # The project key is the APP's composite identity string (it carries unit
@@ -661,58 +765,81 @@ def materialize(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
-        existing = generation_rows(driver, database)
-        if any(row["project_key"] != project_key for row in existing):
-            # One project per container: never merge, never delete another project's.
-            raise WorkerError("graph_project_mismatch")
+        existing = generation_rows(driver, database, project_key)
+        others = sorted({row["project_key"] for row in generation_rows(driver, database)
+                         if row["project_key"] != project_key})
         if any(row["generation_id"] == generation_id for row in existing):
             counts = run_query(driver, database,
-                               "MATCH (n) WHERE n.sf_generation = $g RETURN count(n) AS nodes", g=generation_id)
+                               "MATCH (n) WHERE n.sf_project = $p AND n.sf_generation = $g RETURN count(n) AS nodes",
+                               p=project_key, g=generation_id)
             return {"status": "ok", "loaded": False, "code": "generation_already_loaded",
                     "project_key": project_key, "generation_id": generation_id,
                     "counts": {"nodes": counts[0]["nodes"] if counts else 0},
-                    "generations_present": [row["generation_id"] for row in existing]}
-        if residue_count(driver, database):
-            raise WorkerError("graph_residue_present")
-
-        superseded = [row["generation_id"] for row in existing]
-        removed = 0
-        for old in superseded:
-            rows = run_query(driver, database,
-                             "MATCH (n) WHERE n.sf_generation = $g DETACH DELETE n RETURN count(n) AS n", g=old)
-            removed += rows[0]["n"] if rows else 0
-
-        written = asyncio.run(write_fragments(driver, database, fragments))
-        stamped = run_query(driver, database,
-                            "MATCH (n:__KGBuilder__) WHERE n.__tmp_internal_id IS NOT NULL "
-                            "SET n.sf_project = $p, n.sf_generation = $g "
-                            "SET n.__tmp_internal_id = NULL RETURN count(n) AS n",
-                            p=project_key, g=generation_id)
-        stamped_count = stamped[0]["n"] if stamped else 0
-        if residue_count(driver, database):
-            raise WorkerError("graph_residue_not_cleared")
-
+                    "generations_present": [row["generation_id"] for row in existing],
+                    "other_projects_present": len(others)}
         dimensions = embedding_dimensions(fragments)
-        ensure_indexes(driver, database, dimensions)
+        token = hashlib.sha256((project_key + "\x00" + generation_id + "\x00" + str(time.time_ns())).encode("utf-8")).hexdigest()
+        take_materialize_lock(driver, database, project_key, token)
+        try:
+            if residue_count(driver, database):
+                raise WorkerError("graph_residue_present")
+            # Checked before anything is written: an index of another width cannot
+            # be widened, and dropping it would take every other project's vectors.
+            present_index = vector_index_row(driver, database)
+            if dimensions and present_index is not None and present_index["dimensions"] != dimensions:
+                raise WorkerError("graph_vector_index_dimension_mismatch")
 
-        chunks = run_query(driver, database,
-                           "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_generation = $g RETURN count(c) AS n",
-                           g=generation_id)
-        embedded = run_query(driver, database,
-                             "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_generation = $g AND c."
-                             + EMBEDDING_PROPERTY + " IS NOT NULL RETURN count(c) AS n", g=generation_id)
-        run_query(driver, database,
-                  "CREATE (g:" + GENERATION_LABEL + " {project_key: $p, generation_id: $gen, "
-                  "sf_project: $p, sf_generation: $gen, loaded_at: datetime()})",
-                  p=project_key, gen=generation_id)
+            superseded = [row["generation_id"] for row in existing]
+            removed = 0
+            for old in superseded:
+                rows = run_query(driver, database,
+                                 "MATCH (n) WHERE n.sf_project = $p AND n.sf_generation = $g "
+                                 "DETACH DELETE n RETURN count(n) AS n", p=project_key, g=old)
+                removed += rows[0]["n"] if rows else 0
+
+            written = asyncio.run(write_fragments(driver, database, fragments))
+            stamped = run_query(driver, database,
+                                "MATCH (n:__KGBuilder__) WHERE n.__tmp_internal_id IS NOT NULL "
+                                "SET n.sf_project = $p, n.sf_generation = $g "
+                                "SET n.__tmp_internal_id = NULL RETURN count(n) AS n",
+                                p=project_key, g=generation_id)
+            stamped_count = stamped[0]["n"] if stamped else 0
+            if residue_count(driver, database):
+                raise WorkerError("graph_residue_not_cleared")
+
+            indexes = ensure_indexes(driver, database, dimensions)
+
+            scope = {"p": project_key, "g": generation_id}
+            chunks = run_query(driver, database,
+                               "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_project = $p AND c.sf_generation = $g "
+                               "RETURN count(c) AS n", **scope)
+            embedded = run_query(driver, database,
+                                 "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_project = $p AND c.sf_generation = $g "
+                                 "AND c." + EMBEDDING_PROPERTY + " IS NOT NULL RETURN count(c) AS n", **scope)
+            run_query(driver, database,
+                      "CREATE (g:" + GENERATION_LABEL + " {project_key: $p, generation_id: $g, "
+                      "sf_project: $p, sf_generation: $g, loaded_at: datetime()})", **scope)
+            loaded_at = run_query(driver, database,
+                                  "MATCH (g:" + GENERATION_LABEL + " {project_key: $p, generation_id: $g}) "
+                                  "RETURN toString(g.loaded_at) AS loaded_at", **scope)
+        finally:
+            release_materialize_lock(driver, database, token)
+        # What the rest of the database holds after this load, counted rather than
+        # asserted: a load that touched another project would show up here.
+        untouched = [{"project_key": row["project_key"], "generation_id": row["generation_id"],
+                      "loaded_at": row["loaded_at"]} for row in generation_rows(driver, database)
+                     if row["project_key"] != project_key]
         return {"status": "ok", "loaded": True, "project_key": project_key, "generation_id": generation_id,
+                "loaded_at": loaded_at[0]["loaded_at"] if loaded_at else None,
                 "counts": {"fragments": len(fragments), "nodes": written["nodes"],
                            "relationships": written["relationships"], "stamped": stamped_count,
                            "chunks": chunks[0]["n"] if chunks else 0,
                            "embedded_chunks": embedded[0]["n"] if embedded else 0},
                 "superseded": superseded, "removed_nodes": removed,
                 "indexes": {"vector": VECTOR_INDEX if dimensions else None, "fulltext": FULLTEXT_INDEX,
-                            "dimensions": dimensions},
+                            "dimensions": dimensions,
+                            "filter_properties": (indexes or {}).get("filter_properties", [])},
+                "other_projects": untouched,
                 "packages": package_versions()}
 
 
@@ -736,8 +863,9 @@ LINK_COUNT_QUERY = (
     "UNWIND $rows AS row "
     "MATCH (e) WHERE elementId(e) = row.element_id "
     "MATCH (e)-[r:" + LINK_RELATIONSHIP + "]->(d:" + DOCUMENT_LABEL + ") "
-    "WHERE d.sf_doc_key = row.target_doc_key AND d.sf_generation = $generation "
+    "WHERE d.sf_doc_key = row.target_doc_key AND d.sf_generation = $generation AND d.sf_project = $project "
     "AND r.sf_rule = $rule AND r.sf_token = row.token AND r.sf_generation = $generation "
+    "AND r.sf_project = $project "
     "RETURN count(r) AS n"
 )
 
@@ -745,7 +873,7 @@ LINK_MERGE_QUERY = (
     "UNWIND $rows AS row "
     "MATCH (e) WHERE elementId(e) = row.element_id "
     "MATCH (d:" + DOCUMENT_LABEL + ") "
-    "WHERE d.sf_doc_key = row.target_doc_key AND d.sf_generation = $generation "
+    "WHERE d.sf_doc_key = row.target_doc_key AND d.sf_generation = $generation AND d.sf_project = $project "
     "MERGE (e)-[r:" + LINK_RELATIONSHIP + " {sf_rule: $rule, sf_token: row.token, "
     "sf_source_unit_id: row.source_unit_id, sf_source_doc_key: row.source_doc_key, "
     "sf_generation: $generation, sf_project: $project, sf_claim_state: 'observed'}]->(d) "
@@ -821,7 +949,7 @@ def link_explicit_refs(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
-        present = [row["generation_id"] for row in generation_rows(driver, database)]
+        present = [row["generation_id"] for row in generation_rows(driver, database, project_key)]
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "rule": rule,
                     "project_key": project_key, "generation_id": generation_id,
@@ -831,7 +959,7 @@ def link_explicit_refs(request):
                                                      pattern=pattern_text)]
         candidates = link_candidates(rows, identifiers, project_key, generation_id, pattern)
         counted = lambda: (run_query(driver, database, LINK_COUNT_QUERY, rows=candidates, rule=rule,
-                                     generation=generation_id)[0]["n"] if candidates else 0)
+                                     generation=generation_id, project=project_key)[0]["n"] if candidates else 0)
         existing = counted()
         created = 0
         if apply_edges and candidates:
@@ -869,9 +997,10 @@ RELATED_MERGE_QUERY = (
 RELATED_COUNT_QUERY = (
     "UNWIND $rows AS row "
     "MATCH (a:" + CHUNK_LABEL + ")-[r:" + RELATED_RELATIONSHIP + "]->(b:" + CHUNK_LABEL + ") "
-    "WHERE a.sf_doc_key = row.a_doc_key AND a.sf_unit_id = row.a_unit_id "
-    "AND b.sf_doc_key = row.b_doc_key AND b.sf_unit_id = row.b_unit_id "
+    "WHERE a.sf_doc_key = row.a_doc_key AND a.sf_unit_id = row.a_unit_id AND a.sf_project = $project "
+    "AND b.sf_doc_key = row.b_doc_key AND b.sf_unit_id = row.b_unit_id AND b.sf_project = $project "
     "AND r.sf_rule = $rule AND r.sf_judgement_id = row.judgement_id AND r.sf_generation = $generation "
+    "AND r.sf_project = $project "
     "RETURN count(r) AS n"
 )
 
@@ -944,13 +1073,13 @@ def link_related_evidence(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
-        present = [row["generation_id"] for row in generation_rows(driver, database)]
+        present = [row["generation_id"] for row in generation_rows(driver, database, project_key)]
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "rule": RELATED_RULE,
                     "project_key": project_key, "generation_id": generation_id,
                     "generations_present": present, "applied": False, "edges": []}
         counted = lambda: run_query(driver, database, RELATED_COUNT_QUERY, rows=rows, rule=RELATED_RULE,
-                                    generation=generation_id)[0]["n"]
+                                    generation=generation_id, project=project_key)[0]["n"]
         existing = counted()
         created = 0
         if apply_edges:
@@ -982,19 +1111,21 @@ def link_related_evidence(request):
 # caller uses to choose within its inflow budget -- never as the score it reports.
 GRAPH_EXPANSION_QUERY = (
     "WITH node, score "
-    "WHERE node.sf_generation = $generation "
+    "WHERE node.sf_generation = $generation AND node.sf_project = $project "
     "OPTIONAL MATCH (node)<-[:FROM_CHUNK]-(entity) "
     "OPTIONAL MATCH (entity)-[edge]-(neighbour) "
     "WHERE NOT type(edge) IN $lexical AND neighbour.sf_generation = $generation "
+    "AND neighbour.sf_project = $project "
     "OPTIONAL MATCH (neighbour)-[:FROM_CHUNK]->(other) "
-    "WHERE other.sf_generation = $generation AND other:" + CHUNK_LABEL + " "
+    "WHERE other.sf_generation = $generation AND other.sf_project = $project AND other:" + CHUNK_LABEL + " "
     "WITH node, score, collect(DISTINCT other) AS others "
     "OPTIONAL MATCH (node)<-[:FROM_CHUNK]-(:" + ENTITY_LABEL + ")-[:" + LINK_RELATIONSHIP + "]->"
     "(cited:" + DOCUMENT_LABEL + ")<-[:FROM_DOCUMENT]-(quoted:" + CHUNK_LABEL + ") "
     "WHERE 'L1' IN $rules AND cited.sf_generation = $generation AND quoted.sf_generation = $generation "
+    "AND cited.sf_project = $project AND quoted.sf_project = $project "
     "WITH node, score, others, collect(DISTINCT quoted) AS cited_chunks "
     "OPTIONAL MATCH (node)-[:" + RELATED_RELATIONSHIP + "]-(related:" + CHUNK_LABEL + ") "
-    "WHERE 'R1' IN $rules AND related.sf_generation = $generation "
+    "WHERE 'R1' IN $rules AND related.sf_generation = $generation AND related.sf_project = $project "
     "WITH node, score, others, cited_chunks, collect(DISTINCT related) AS related_chunks "
     "UNWIND ([{chunk: node, tier: -1}] + [c IN others | {chunk: c, tier: 2}] "
     "+ [c IN cited_chunks | {chunk: c, tier: 1}] + [c IN related_chunks | {chunk: c, tier: 0}]) AS reached "
@@ -1084,61 +1215,86 @@ def escape_lucene(text):
 
 
 RETURN_PROPERTIES = ["sf_unit_id", "sf_doc_key", "sf_generation", "text"]
+CHUNK_COLUMNS = ("node.sf_unit_id AS sf_unit_id, node.sf_doc_key AS sf_doc_key, "
+                 "node.sf_generation AS sf_generation, node.sf_project AS sf_project, "
+                 "node.text AS text, score")
+
+# The vector half with the project and the generation INSIDE the index: the rows
+# it returns are already this scope's, so nothing has to be thrown away afterwards
+# and a small project is not starved by a database full of other projects.
+# Measured on this host's Neo4j 2026.02.3: two equality predicates joined by AND
+# are accepted inside the parentheses. A WHERE after the closing parenthesis would
+# be an ordinary post-filter wearing the same word.
+SEARCH_IN_INDEX = (
+    "CYPHER 25 MATCH (node:" + CHUNK_LABEL + ") "
+    "SEARCH node IN (VECTOR INDEX " + VECTOR_INDEX + " FOR vector($query_vector, {dimensions}, FLOAT) "
+    "WHERE node.sf_project = $project AND node.sf_generation = $generation LIMIT $seed_k) SCORE AS score "
+)
+# The same seeds from an index that declares no filter property (every index built
+# before this change, including the per-project containers): ask the index for more
+# than is wanted and drop what is out of scope. Both what was asked for and what
+# survived are reported, so a starved search reads as one.
+SEARCH_POST_FILTER = (
+    "CALL db.index.vector.queryNodes($index, $raw_k, $query_vector) YIELD node, score "
+    "WITH node, score WHERE node.sf_project = $project AND node.sf_generation = $generation "
+    "WITH node, score ORDER BY score DESC LIMIT $seed_k "
+)
+FULLTEXT_QUERY = (
+    "CALL db.index.fulltext.queryNodes($index, $text, {limit: $limit}) YIELD node, score "
+    "RETURN " + CHUNK_COLUMNS + " ORDER BY score DESC"
+)
 
 
-def record_formatter(record):
-    """Every retriever result as a plain dict of the fields this worker asked for.
+def hit_from_row(row):
+    """One database row as a hit, or None when it does not name a unit of a document.
 
-    Without a formatter the tool renders a row as its repr and the fields would have
-    to be parsed back out of a string -- which silently mangles non-ASCII text and
-    truncates anything containing a quote. A formatter reads the record structurally
-    instead, so a chunk's Korean text survives exactly as stored.
-
-    Vector and hybrid searches return the properties inside a `node` map; the graph
-    expansion returns them as top-level columns. Both shapes are read here.
+    The expansion columns (`seed`, `tier`, `relevance`) are absent from a vector or
+    hybrid row and null on a seed; they are read structurally here so a chunk's
+    Korean text is never parsed back out of a rendered record.
     """
-    from neo4j_graphrag.types import RetrieverResultItem
-    data = dict(record)
-    node = data.pop("node", None)
-    row = {}
-    if isinstance(node, dict):
-        row.update({key: node.get(key) for key in RETURN_PROPERTIES})
-    for key in RETURN_PROPERTIES:
-        if key in data:
-            row[key] = data[key]
-    row["score"] = data.get("score")
-    row["seed"] = bool(data["seed"]) if data.get("seed") is not None else None
-    # Expansion columns: which rule reached the row, and how close that chunk is to
-    # this question. Both are null on a seed and absent from vector and hybrid rows.
-    row["tier"] = data["tier"] if isinstance(data.get("tier"), int) else None
-    row["relevance"] = float(data["relevance"]) if isinstance(data.get("relevance"), (int, float)) else None
-    return RetrieverResultItem(content=row, metadata={"score": data.get("score")})
-
-
-def hit_from_record(item):
-    """One formatted item, or None when it does not name a unit of a document."""
-    row = item.content
     if not isinstance(row, dict) or not row.get("sf_unit_id") or not row.get("sf_doc_key"):
         return None
-    return row
+    hit = {key: row.get(key) for key in RETURN_PROPERTIES}
+    hit["score"] = row.get("score")
+    hit["seed"] = bool(row["seed"]) if row.get("seed") is not None else None
+    hit["tier"] = row["tier"] if isinstance(row.get("tier"), int) else None
+    hit["relevance"] = float(row["relevance"]) if isinstance(row.get("relevance"), (int, float)) else None
+    return hit
+
+
+def normalise(rows):
+    """Each half's scores divided by that half's own best, as the installed hybrid does.
+
+    neo4j-graphrag's hybrid query normalises the vector rows by `max(score)` of the
+    vector rows and the fulltext rows by `max(score)` of the fulltext rows, then
+    keeps `max(score)` per node. That rule is reproduced here rather than invented,
+    so a hybrid rank stays comparable with the ones taken before this change.
+    """
+    best = max((row["score"] for row in rows if isinstance(row.get("score"), (int, float))), default=0.0)
+    if not best:
+        return [{**row, "score": 0.0} for row in rows]
+    return [{**row, "score": float(row["score"]) / best} for row in rows]
 
 
 def retrieve(request):
-    """vector, hybrid or graph search over the generation this database holds.
+    """vector, hybrid or graph search over one project's generation in this database.
 
-    Every mode is bound to one generation: the vector and fulltext indexes are
-    database-wide, so a hit from another generation would cross a selection the APP
-    has already made. Hits carry unit and document ids only; the APP joins them back
-    to its own manifest, so nothing here decides what a hit means.
+    The database holds many projects. Every mode is therefore bound to a project
+    and a generation, and that bound is applied where the rows are chosen -- inside
+    the vector index when the index declares the filter properties -- rather than to
+    whatever a search happened to return. Hits carry unit and document ids only; the
+    APP joins them back to its own manifest, so nothing here decides what a hit means.
     """
     from neo4j_graphrag.embeddings import OllamaEmbeddings
-    from neo4j_graphrag.retrievers import HybridRetriever, VectorCypherRetriever, VectorRetriever
 
     mode = request.get("mode")
     if mode not in ("vector", "hybrid", "graph"):
         raise WorkerError("graph_retrieve_mode_invalid")
     query_text = request.get("query_text")
     if not isinstance(query_text, str) or not query_text.strip():
+        raise WorkerError("graph_retrieve_request_invalid")
+    project_key = request.get("project_key")
+    if not isinstance(project_key, str) or not project_key or len(project_key) > 512:
         raise WorkerError("graph_retrieve_request_invalid")
     generation_id = request.get("generation_id")
     if not TOKEN.match(str(generation_id or "")):
@@ -1162,62 +1318,94 @@ def retrieve(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
-        present = [row["generation_id"] for row in generation_rows(driver, database)]
+        present = [row["generation_id"] for row in generation_rows(driver, database, project_key)]
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "mode": mode,
-                    "generation_id": generation_id, "generations_present": present, "hits": []}
+                    "project_key": project_key, "generation_id": generation_id,
+                    "generations_present": present, "hits": []}
+        index = vector_index_row(driver, database)
+        if index is None or index.get("dimensions") is None:
+            raise WorkerError("graph_vector_index_missing")
         # The whole-generation ceiling is the generation itself: asking for more
         # rows than it holds is refused rather than quietly answered with fewer.
-        held = chunk_count(driver, database, generation_id) if whole_generation else None
+        held = chunk_count(driver, database, project_key, generation_id) if whole_generation else None
         if whole_generation and top_k > max(MAX_TOP_K, held):
             raise WorkerError("graph_retrieve_top_k_above_generation")
+
         embedder = OllamaEmbeddings(model=spec["model"], host=spec["host"])
-        if mode == "graph":
-            retriever = VectorCypherRetriever(driver, VECTOR_INDEX, GRAPH_EXPANSION_QUERY, embedder,
-                                              result_formatter=record_formatter, neo4j_database=database)
-            # The expansion reads `$query_vector`, which is the parameter the vector
-            # index query already carries: the rows a chunk is ranked against are
-            # measured with the same embedding of the same question that found the
-            # seeds, never a second one.
-            result = retriever.search(query_text=query_text, top_k=top_k,
-                                      query_params={"generation": generation_id, "rules": rules,
-                                                    "lexical": list(LEXICAL_RELATIONSHIPS)})
-        elif mode == "vector":
-            retriever = VectorRetriever(driver, VECTOR_INDEX, embedder, return_properties=RETURN_PROPERTIES,
-                                        result_formatter=record_formatter, neo4j_database=database)
-            result = retriever.search(query_text=query_text, top_k=top_k)
+        query_vector = list(embedder.embed_query(query_text))
+        # A question embedded to a different width than the index was built at is a
+        # silent miss on one path and a scan of every other project on the other.
+        if len(query_vector) != index["dimensions"]:
+            raise WorkerError("graph_query_vector_dimension_mismatch")
+
+        in_index = list(VECTOR_FILTER_PROPERTIES) == list(index["filter_properties"])
+        parameters = {"query_vector": query_vector, "project": project_key, "generation": generation_id,
+                      "seed_k": top_k}
+        if in_index:
+            seed_clause = SEARCH_IN_INDEX.format(dimensions=index["dimensions"])
         else:
-            retriever = HybridRetriever(driver, VECTOR_INDEX, FULLTEXT_INDEX, embedder,
-                                        return_properties=RETURN_PROPERTIES,
-                                        result_formatter=record_formatter, neo4j_database=database)
-            # The fulltext half parses its text as a Lucene query, so one reserved
-            # character in a question ("10/30") fails the whole mode rather than
-            # matching less. The question is escaped for that half only; the vector
-            # half is handed the embedding of the question exactly as written, which
-            # the retriever prefers over embedding the escaped text itself.
-            result = retriever.search(query_text=escape_lucene(query_text), top_k=top_k,
-                                      query_vector=embedder.embed_query(query_text))
+            seed_clause = SEARCH_POST_FILTER
+            parameters["index"] = VECTOR_INDEX
+            parameters["raw_k"] = min(MAX_WHOLE_GENERATION_TOP_K, top_k * SCOPE_OVERFETCH)
+
+        vector_rows = [dict(row) for row in
+                       run_query(driver, database, seed_clause + "RETURN " + CHUNK_COLUMNS + " ORDER BY score DESC",
+                                 **parameters)]
+        retrieval = {"filter_stage": "in_index_filter" if in_index else "post_filter",
+                     "index_filter_properties": index["filter_properties"], "index_dimensions": index["dimensions"],
+                     "vector_requested": parameters.get("raw_k", top_k), "vector_in_scope": len(vector_rows),
+                     "vector_starved": (not in_index) and len(vector_rows) < top_k}
+
+        expansion = None
+        if mode == "vector":
+            rows = vector_rows
+        elif mode == "hybrid":
+            # The fulltext index carries no filter property of any kind, so its half
+            # always overfetches and is then cut to this scope. When everything it
+            # returned belonged to other projects the half is starved, and that is
+            # said rather than left to look like "these words are not in the corpus".
+            limit = min(MAX_WHOLE_GENERATION_TOP_K, top_k * SCOPE_OVERFETCH)
+            raw = run_query(driver, database, FULLTEXT_QUERY, index=FULLTEXT_INDEX,
+                            text=escape_lucene(query_text), limit=limit)
+            in_scope = [dict(row) for row in raw
+                        if row["sf_project"] == project_key and row["sf_generation"] == generation_id]
+            retrieval.update({"fulltext_requested": limit, "fulltext_retrieved": len(raw),
+                              "fulltext_in_scope": len(in_scope),
+                              "fulltext_starved": len(raw) >= limit and len(in_scope) < top_k})
+            merged = {}
+            for row in normalise(vector_rows) + normalise(in_scope):
+                key = (row.get("sf_doc_key"), row.get("sf_unit_id"))
+                if key not in merged or row["score"] > merged[key]["score"]:
+                    merged[key] = row
+            rows = sorted(merged.values(), key=lambda row: (-row["score"], str(row.get("sf_unit_id"))))[:top_k]
+        else:
+            rows = [dict(row) for row in
+                    run_query(driver, database, seed_clause + GRAPH_EXPANSION_QUERY, **parameters)]
+
         hits, dropped = [], 0
-        for item in result.items:
-            row = hit_from_record(item)
-            # The indexes span the database; a hit outside the selected generation is
-            # not this view's, and is dropped rather than relabelled.
-            if row is None or row.get("sf_generation") not in (None, generation_id):
+        for row in rows:
+            hit = hit_from_row(row)
+            # The indexes span the database, and the expansion follows edges: a row
+            # outside this project's selected generation is not this view's, and is
+            # dropped rather than relabelled. (The expansion already constrains both
+            # in Cypher and returns no project column, so this is the second check.)
+            if hit is None or row.get("sf_generation") not in (None, generation_id) \
+                    or row.get("sf_project") not in (None, project_key):
                 dropped += 1
                 continue
-            hits.append(row)
-        expansion = None
+            hits.append(hit)
         if mode == "graph":
-            # The budget is applied after the generation filter, so a row this view
-            # does not hold never takes an inflow place from one it does.
+            # The budget is applied after the scope filter, so a row this view does
+            # not hold never takes an inflow place from one it does.
             hits, expansion = apply_expansion(hits, limits)
             expansion = {"enabled_rules": rules, "limits": limits, "seed_top_k": top_k, **expansion}
             for row in hits:
                 row["via"] = "seed" if row.get("seed") else EXPANSION_VIA.get(row.get("tier"), "unknown")
-        return {"status": "ok", "mode": mode, "generation_id": generation_id, "top_k": top_k,
-                "whole_generation": whole_generation, "chunks_in_generation": held,
+        return {"status": "ok", "mode": mode, "project_key": project_key, "generation_id": generation_id,
+                "top_k": top_k, "whole_generation": whole_generation, "chunks_in_generation": held,
                 "embedder": {"model": spec["model"], "digest": digest},
-                "hits": hits, "expansion": expansion,
+                "hits": hits, "expansion": expansion, "retrieval": retrieval,
                 "dropped_out_of_generation": dropped, "packages": package_versions()}
 
 
@@ -1261,6 +1449,47 @@ def probe(request):
     return result
 
 
+def inspect(request):
+    """What this database holds, per project. Read-only, no model call, no text.
+
+    An inventory and a sync receipt both need the same three answers: which
+    generation of which project is loaded, when it was loaded, and how much of it
+    is there. They are read from the database rather than from a manifest, because
+    "the store has a generation" and "the database holds it" are different claims.
+    """
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        driver.verify_connectivity()
+        projects = []
+        for row in generation_rows(driver, database):
+            scope = {"p": row["project_key"], "g": row["generation_id"]}
+            counts = run_query(driver, database,
+                               "MATCH (n) WHERE n.sf_project = $p AND n.sf_generation = $g "
+                               "RETURN count(n) AS nodes", **scope)[0]["nodes"]
+            chunks = run_query(driver, database,
+                               "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_project = $p AND c.sf_generation = $g "
+                               "RETURN count(c) AS n, count(c." + EMBEDDING_PROPERTY + ") AS embedded", **scope)[0]
+            edges = run_query(driver, database,
+                              "MATCH ()-[r]->() WHERE r.sf_project = $p AND r.sf_generation = $g "
+                              "RETURN type(r) AS type, count(r) AS n ORDER BY type", **scope)
+            projects.append({"project_key": row["project_key"], "generation_id": row["generation_id"],
+                             "loaded_at": row["loaded_at"], "nodes": counts, "chunks": chunks["n"],
+                             "embedded_chunks": chunks["embedded"],
+                             "rule_edges": {edge["type"]: edge["n"] for edge in edges}})
+        total = run_query(driver, database, "MATCH (n) RETURN count(n) AS n")[0]["n"]
+        unscoped = run_query(driver, database,
+                             "MATCH (n) WHERE n.sf_project IS NULL AND NOT n:" + MATERIALIZE_LOCK_LABEL
+                             + " RETURN count(n) AS n")[0]["n"]
+        locked = run_query(driver, database,
+                           "MATCH (l:" + MATERIALIZE_LOCK_LABEL + ") "
+                           "RETURN l.project_key AS project_key, toString(l.taken_at) AS taken_at")
+        return {"status": "ok", "projects": projects, "total_nodes": total, "unscoped_nodes": unscoped,
+                "residue_nodes": residue_count(driver, database),
+                "materialize_lock": [dict(row) for row in locked],
+                "indexes": {"vector": vector_index_row(driver, database), "fulltext": FULLTEXT_INDEX},
+                "packages": package_versions()}
+
+
 def main():
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
     if len(raw) > MAX_REQUEST_BYTES:
@@ -1271,6 +1500,8 @@ def main():
     operation = request.get("operation")
     if operation == "probe":
         return probe(request)
+    if operation == "inspect":
+        return inspect(request)
     if operation == "extract":
         return asyncio.run(extract(request))
     if operation == "materialize":

@@ -8,12 +8,14 @@ import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { cannedGraphDatabaseWorker as cannedDatabase, cannedGraphWorker as cannedWorker, indexerRequest as indexer,
-  INDEX_NOW as NOW, makeGraphIndexStore as makeStore, READER_REQUEST as reader } from '../harness/fixtures/graph_index_fixture.mjs';
+  sharedGraphDatabase, INDEX_NOW as NOW, makeGraphIndexStore as makeStore,
+  READER_REQUEST as reader } from '../harness/fixtures/graph_index_fixture.mjs';
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { validateAllowedModelHosts, validateGraphBinding, validateNeo4jBinding } from '../src/runtime/graph_extraction.mjs';
-import { GRAPH_EXPANSION_LIMITS, createGraphSearch, linkExplicitReferences, linkRelatedEvidence, materializeGraphIndex,
-  narrowExpansion } from '../src/runtime/graph_database.mjs';
+import { GRAPH_EXPANSION_LIMITS, createGraphSearch, inspectGraphDatabase, linkExplicitReferences, linkRelatedEvidence,
+  materializeGraphIndex, narrowExpansion } from '../src/runtime/graph_database.mjs';
 import { createGraphIndexRetriever, otherSourceRows } from '../src/runtime/graph_index_retrieval.mjs';
 import { checkJudgement, quoteMatch, relationFromJudgement } from '../src/runtime/relation_judgement.mjs';
 
@@ -41,6 +43,101 @@ function unitRows(view, count = 2) {
   }
   return rows;
 }
+
+// One project's generation in its own store, ready to be loaded into a database
+// shared with others. `seed` and `fsKey` are what make it a different project.
+async function preparedProject({ seed, fsKey, memos }) {
+  const projectRef = ref(seed);
+  const store = await makeStore({ neo4j: true, embedder: { host: 'http://127.0.0.1:11434', model: 'embed:tag' },
+    projectRef, fsKey, memos });
+  const worker = cannedWorker();
+  const request = extra => ({ actor_ref: 'actor:indexer', project_ref: projectRef, purpose: 'context_preparation', ...extra });
+  const built = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, now: NOW,
+    runWorker: worker.runWorker, request: request({ generation_id: `${fsKey}-g1`, expected_prior: null }) });
+  assert.equal(built.status, 'COMMITTED');
+  const view = () => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256,
+    request: { actor_ref: 'actor:reader', project_ref: projectRef, purpose: 'context_query' } });
+  return { store, worker, view, request, built, projectKey: store.projectKey };
+}
+
+test('one database holds two projects: a load replaces its own generation and leaves the other project alone', async () => {
+  const alpha = await preparedProject({ seed: 11, fsKey: 'P-SYN-ALPHA' });
+  const beta = await preparedProject({ seed: 12, fsKey: 'P-SYN-BETA',
+    memos: { 'memo-c.md': '# 다른 과제 메모\n\n베타 과제의 시험 조건은 별개다.\n' } });
+  const database = sharedGraphDatabase();
+
+  const loadA = await materializeGraphIndex({ view: alpha.view(), binding: alpha.view().graph_binding, runWorker: database.runWorker });
+  const loadB = await materializeGraphIndex({ view: beta.view(), binding: beta.view().graph_binding, runWorker: database.runWorker });
+  assert.deepEqual([loadA.loaded, loadB.loaded], [true, true]);
+  // Loading the second project is not a refusal, and it removed nothing.
+  assert.equal(loadB.removed_nodes, 0, "the second project's load deletes nothing");
+  assert.deepEqual(loadB.other_projects.map(row => row.project_key), [alpha.projectKey],
+    'the load reports what else the database holds, read back from it');
+  assert.deepEqual(database.loaded(), { [alpha.projectKey]: 'P-SYN-ALPHA-g1', [beta.projectKey]: 'P-SYN-BETA-g1' });
+
+  // Every request carried both halves of the scope; neither was left to the address.
+  for (const request of database.calls.requests) {
+    assert.equal(typeof request.project_key, 'string');
+    assert.notEqual(request.project_key, '');
+  }
+
+  // A second generation of alpha: alpha's own rows are replaced, beta's are not.
+  const betaRowsBefore = database.rows().filter(row => row.project === beta.projectKey);
+  const again = await updateGraphIndex({ storeRoot: alpha.store.storeRoot, bindingSha256: alpha.store.bindingSha256,
+    now: NOW, runWorker: cannedWorker({ digest: 'sha256:' + '7'.repeat(64) }).runWorker,
+    request: alpha.request({ generation_id: 'P-SYN-ALPHA-g2', expected_prior: alpha.built.pointer_sha256 }) });
+  assert.equal(again.status, 'COMMITTED');
+  const replaced = await materializeGraphIndex({ view: alpha.view(), binding: alpha.view().graph_binding, runWorker: database.runWorker });
+  assert.deepEqual([replaced.loaded, replaced.superseded], [true, ['P-SYN-ALPHA-g1']]);
+  assert.equal(replaced.removed_nodes > 0, true, "the replacement removed this project's previous nodes");
+  assert.deepEqual(database.rows().filter(row => row.project === beta.projectKey), betaRowsBefore,
+    "beta's rows are byte-identical after alpha was replaced");
+  assert.deepEqual(database.rows().filter(row => row.project === alpha.projectKey).map(row => row.generation)
+    .filter((value, index, all) => all.indexOf(value) === index), ['P-SYN-ALPHA-g2'],
+    'alpha holds exactly one generation');
+
+  // The inventory reads the same two projects back out of the database.
+  const seen = await inspectGraphDatabase({ binding: alpha.view().graph_binding, runWorker: database.runWorker });
+  assert.deepEqual(seen.projects.map(row => [row.project_key, row.generation_id]).sort(),
+    [[alpha.projectKey, 'P-SYN-ALPHA-g2'], [beta.projectKey, 'P-SYN-BETA-g1']].sort());
+  assert.equal(typeof seen.projects[0].loaded_at, 'string', 'when the database last wrote it is the database’s answer');
+});
+
+test('a search carries its own project, and a row from another project never becomes evidence', async () => {
+  const alpha = await preparedProject({ seed: 21, fsKey: 'P-SYN-A2' });
+  const beta = await preparedProject({ seed: 22, fsKey: 'P-SYN-B2',
+    memos: { 'memo-c.md': '# 다른 과제 메모\n\n베타 과제의 시험 조건은 별개다.\n' } });
+  const database = sharedGraphDatabase();
+  await materializeGraphIndex({ view: alpha.view(), binding: alpha.view().graph_binding, runWorker: database.runWorker });
+  await materializeGraphIndex({ view: beta.view(), binding: beta.view().graph_binding, runWorker: database.runWorker });
+
+  // 1. The request names this view's project and generation, not the caller's choice.
+  const search = createGraphSearch({ view: alpha.view(), binding: alpha.view().graph_binding, runWorker: database.runWorker });
+  const answered = await search.vector('시험 조건', 5);
+  assert.equal(answered.status, 'ok');
+  assert.deepEqual([database.calls.requests.at(-1).project_key, database.calls.requests.at(-1).generation_id],
+    [alpha.projectKey, 'P-SYN-A2-g1']);
+  assert.equal(answered.retrieval.filter_stage, 'in_index_filter', 'where the scope was applied is reported');
+  assert.equal(answered.hits.every(hit => hit.doc_key.startsWith('sha256:')), true);
+
+  // 2. A database that leaks one of beta's rows: the retriever drops it, because
+  //    alpha's own manifest does not hold that (document, unit) pair.
+  const betaRow = database.rows().find(row => row.project === beta.projectKey);
+  const leaky = sharedGraphDatabase({ leak: { sf_doc_key: betaRow.doc_key, sf_unit_id: betaRow.unit_id,
+    sf_generation: betaRow.generation } });
+  await materializeGraphIndex({ view: alpha.view(), binding: alpha.view().graph_binding, runWorker: leaky.runWorker });
+  const retriever = createGraphIndexRetriever(alpha.view(), { runWorker: leaky.runWorker });
+  const guarded = await retriever.vector('시험 조건', 5);
+  assert.equal(guarded.hits.some(hit => hit.doc_key === betaRow.doc_key), false,
+    "a foreign row offered by the database is not served as this project's evidence");
+  assert.equal(guarded.receipt.not_in_generation, 1, 'and the row that was dropped is counted, not hidden');
+
+  // 3. A project the database has not loaded is not answered from another's rows.
+  const empty = await preparedProject({ seed: 23, fsKey: 'P-SYN-C2' });
+  const unloaded = createGraphSearch({ view: empty.view(), binding: empty.view().graph_binding, runWorker: database.runWorker });
+  const missing = await unloaded.vector('시험 조건', 5);
+  assert.deepEqual([missing.status, missing.code, missing.hits.length], ['not_loaded', 'generation_not_materialized', 0]);
+});
 
 test('the neo4j binding takes a loopback bolt address and a real one-line password file, and nothing else', async () => {
   const dir = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-neo4j-binding-')));
@@ -449,8 +546,10 @@ test('a search asks for more rows than the ordinary ceiling only when it ranks t
   // Asking for the whole generation raises the ceiling to what the generation
   // holds -- the data, not a larger fixed number -- and says so in the request.
   // The stand-in view is a generation of 153 chunks; createGraphSearch reads
-  // nothing else from a view than its id, its chunk count and assertCurrent.
-  const large = { manifest: { generation_id: 'g1', counts: { chunks: 153 } }, assertCurrent() {} };
+  // nothing else from a view than its project key, its generation id, its chunk
+  // count and assertCurrent.
+  const large = { manifest: { generation_id: 'g1', project_key: current.manifest.project_key, counts: { chunks: 153 } },
+    assertCurrent() {} };
   const wide = createGraphSearch({ view: large, binding: current.graph_binding, runWorker: database.runWorker });
   const whole = await wide.vector('전원 조건', 153, { wholeGeneration: true });
   assert.equal(whole.status, 'ok');

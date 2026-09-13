@@ -1,11 +1,14 @@
 // The graph database side of one project's index: loading a selected generation
-// into Neo4j, and searching it. neo4j-graphrag owns the writer and the retrievers
-// inside the worker; this module owns the contract around them.
+// into Neo4j, and searching it. neo4j-graphrag owns the writer inside the worker;
+// this module owns the contract around it.
 //
-// One container holds one project and exactly one generation. Loading is therefore
-// idempotent by generation — the same generation twice is a no-op that says so —
-// and a different generation of the same project replaces the previous one rather
-// than adding to it. The graph is a derived, rebuildable projection: the durable
+// One database holds one generation per project, and may hold many projects.
+// Loading is idempotent by generation — the same generation twice is a no-op that
+// says so — and a different generation of the same project replaces that project's
+// previous one, naming the project in the replacement so no other project's nodes
+// are read or written. A search is bound to one project and one generation the
+// same way, and that bound is applied inside the vector index rather than to what
+// a search returned. The graph is a derived, rebuildable projection: the durable
 // asset is the generation in the project store, and "restore" means loading that
 // generation again and getting the same graph.
 //
@@ -75,8 +78,25 @@ export async function materializeGraphIndex({ view, binding, runWorker = runGrap
   if (output.status !== 'ok') fail(String(output.code ?? 'graph_materialize_failed'));
   return Object.freeze({ status: 'ok', loaded: output.loaded === true, code: output.code ?? null,
     generation_id: manifest.generation_id, project_key: manifest.project_key,
+    loaded_at: output.loaded_at ?? null,
     counts: output.counts ?? null, superseded: output.superseded ?? [], removed_nodes: output.removed_nodes ?? 0,
-    indexes: output.indexes ?? null });
+    indexes: output.indexes ?? null,
+    // What else the database holds after this load, read back from it rather than
+    // assumed: a load that reached another project's generation would show here.
+    other_projects: Array.isArray(output.other_projects) ? output.other_projects : [] });
+}
+
+// What the database holds, per project: which generation, when it was loaded and
+// how much of it is there. Read-only, and it answers a question the store cannot:
+// "the store has this generation" and "the database is serving it" are different
+// claims, and only this one can say when the serving copy was last written.
+export async function inspectGraphDatabase({ binding, runWorker = runGraphragWorker } = {}) {
+  const bound = validateGraphBinding(binding);
+  if (bound.neo4j === null) return Object.freeze({ status: 'not_connected', code: 'graph_database_not_connected', projects: [] });
+  const output = await callWorker({ bound, runWorker, request: { operation: 'inspect', neo4j: bound.neo4j } });
+  return Object.freeze({ status: 'ok', projects: output.projects ?? [], total_nodes: output.total_nodes ?? null,
+    unscoped_nodes: output.unscoped_nodes ?? null, residue_nodes: output.residue_nodes ?? null,
+    materialize_lock: output.materialize_lock ?? [], indexes: output.indexes ?? null });
 }
 
 // Adds one rule's explicit-reference edges to the loaded generation: a node that
@@ -202,7 +222,12 @@ export function narrowExpansion(expansion) {
 export function createGraphSearch({ view, binding, runWorker = runGraphragWorker } = {}) {
   const bound = validateGraphBinding(binding);
   const generationId = view.manifest.generation_id;
+  const projectKey = view.manifest.project_key;
   if (!TOKEN.test(generationId ?? '')) fail('graph_search_generation_invalid');
+  // The database holds other projects. The project is therefore part of every
+  // search the same way the generation is: fixed here from the manifest the view
+  // already verified, never chosen by a caller.
+  if (typeof projectKey !== 'string' || !projectKey || projectKey.length > 512) fail('graph_search_project_invalid');
   const ready = searchable(bound);
 
   // wholeGeneration: rank every chunk of this generation rather than the first
@@ -224,7 +249,8 @@ export function createGraphSearch({ view, binding, runWorker = runGraphragWorker
     const narrowed = narrowExpansion(expansion);
     view.assertCurrent();
     const output = await callWorker({ bound, runWorker, request: { operation: 'retrieve', neo4j: bound.neo4j,
-      mode, query_text: queryText, top_k: topK, generation_id: generationId, embedder: bound.embedder,
+      mode, query_text: queryText, top_k: topK, project_key: projectKey, generation_id: generationId,
+      embedder: bound.embedder,
       allowed_hosts: bound.allowed_model_hosts, ...(wholeGeneration ? { whole_generation: true } : {}),
       ...(narrowed ? { expansion: narrowed } : {}) } });
     if (output.status === 'not_loaded') {
@@ -242,10 +268,14 @@ export function createGraphSearch({ view, binding, runWorker = runGraphragWorker
     return { status: 'ok', mode, hits, dropped_out_of_generation: Number.isSafeInteger(output.dropped_out_of_generation)
       ? output.dropped_out_of_generation : 0, embedder: output.embedder ?? null,
     expansion: output.expansion ?? null, whole_generation: wholeGeneration,
+    // Where the scope was applied and what each half of the search had to leave
+    // out. A starved half is a different answer from an empty one, so it is said.
+    retrieval: output.retrieval ?? null,
     chunks_in_generation: Number.isSafeInteger(output.chunks_in_generation) ? output.chunks_in_generation : null };
   }
 
-  return Object.freeze({ generation_id: generationId, connected: ready.ok, code: ready.ok ? null : ready.code,
+  return Object.freeze({ generation_id: generationId, project_key: projectKey, connected: ready.ok,
+    code: ready.ok ? null : ready.code,
     vector: (query, topK, options) => search('vector', query, topK, options ?? {}),
     hybrid: (query, topK, options) => search('hybrid', query, topK, options ?? {}),
     graph: (query, topK, options) => search('graph', query, topK, options ?? {}) });
