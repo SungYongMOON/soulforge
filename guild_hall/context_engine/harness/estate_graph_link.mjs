@@ -112,6 +112,9 @@ out(`generation ${opened.manifest.generation_id} (${opened.selected ? 'selected'
 out(`rule ${rule} identifiers ${Object.keys(identifiers).length}: ${Object.keys(identifiers).join(', ')}`);
 
 const receipt = { schema: 'context engine graph link receipt (dev, local-recovery)', at: now, rule,
+  // The database may hold other projects, so a receipt that named only a
+  // generation would not say whose edges these are.
+  approved_fs_key: binding.approved_fs_key,
   generation: opened.manifest.generation_id, generation_sha256: opened.generation_ref.sha256,
   generation_selected: opened.selected, binding_address: bindingAddress,
   identifiers: Object.fromEntries(Object.entries(identifiers).map(([token, key]) => [token,

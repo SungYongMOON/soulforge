@@ -608,7 +608,17 @@ async def embed_chunks(request):
 
 
 # ---------------------------------------------------------------------------
-# Graph database: one container, one project, one selected generation.
+# Graph database: one database, many projects, one selected generation each.
+#
+# What used to be guaranteed by the address (a container held one project, so a
+# wrong address was the only way to reach another project's nodes) is guaranteed
+# here by the scope every operation carries. The checks did not go away; their
+# ground moved. A load names (project, generation) and may read, write or delete
+# only nodes with that pair. A search names it and the vector index itself filters
+# on it. A generation id already held by a different project is refused outright,
+# because a receipt that named it would be ambiguous. And a load counts every
+# other project's nodes before and after itself: if that number moves, the load
+# reached outside its scope and says so rather than reporting success.
 # ---------------------------------------------------------------------------
 
 
@@ -674,6 +684,29 @@ def generation_rows(driver, database, project_key=None):
                      "MATCH (g:" + GENERATION_LABEL + " {project_key: $project}) "
                      "RETURN g.project_key AS project_key, g.generation_id AS generation_id, "
                      "toString(g.loaded_at) AS loaded_at ORDER BY g.generation_id", project=project_key)
+
+
+def assert_generation_owned(driver, database, project_key, generation_id):
+    """Refuses a generation id this database already holds under another project.
+
+    Two projects naming one generation the same would make every row that carries
+    only the id -- a receipt's `generations_present`, an operator's query, a
+    superseded list -- mean two things at once, and the next replacement would be
+    aimed at an ambiguous target. The scope is the pair, so the id must be free.
+    """
+    rows = run_query(driver, database,
+                     "MATCH (g:" + GENERATION_LABEL + " {generation_id: $g}) WHERE g.project_key <> $p "
+                     "RETURN count(g) AS n", g=generation_id, p=project_key)
+    if rows and rows[0]["n"]:
+        raise WorkerError("graph_project_mismatch")
+
+
+def other_project_nodes(driver, database, project_key):
+    """How many nodes in this database belong to some other project."""
+    rows = run_query(driver, database,
+                     "MATCH (n) WHERE n.sf_project IS NOT NULL AND n.sf_project <> $p RETURN count(n) AS n",
+                     p=project_key)
+    return int(rows[0]["n"]) if rows else 0
 
 
 def residue_count(driver, database):
@@ -839,7 +872,9 @@ def materialize(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
+        # This project's generations, and the id's freedom from every other project.
         existing = generation_rows(driver, database, project_key)
+        assert_generation_owned(driver, database, project_key, generation_id)
         others = sorted({row["project_key"] for row in generation_rows(driver, database)
                          if row["project_key"] != project_key})
         if any(row["generation_id"] == generation_id for row in existing):
@@ -854,6 +889,11 @@ def materialize(request):
         dimensions = embedding_dimensions(fragments)
         token = hashlib.sha256((project_key + "\x00" + generation_id + "\x00" + str(time.time_ns())).encode("utf-8")).hexdigest()
         take_materialize_lock(driver, database, project_key, token)
+        # Counted before the first write and again after the last one. This load
+        # may touch only its own (project, generation); if the number of nodes
+        # belonging to anyone else moves, it reached outside that scope, and the
+        # result says so instead of reporting a successful load.
+        outside_before = other_project_nodes(driver, database, project_key)
         try:
             if residue_count(driver, database):
                 raise WorkerError("graph_residue_present")
@@ -880,6 +920,14 @@ def materialize(request):
             stamped_count = stamped[0]["n"] if stamped else 0
             if residue_count(driver, database):
                 raise WorkerError("graph_residue_not_cleared")
+            # The stamp is database-wide by construction (it finds nodes by the
+            # tool's temporary marker), so what it actually stamped is checked
+            # against the scope it was given rather than assumed to match it.
+            crossed = run_query(driver, database,
+                                "MATCH (n) WHERE n.sf_generation = $g AND n.sf_project <> $p "
+                                "RETURN count(n) AS n", g=generation_id, p=project_key)
+            if crossed and crossed[0]["n"]:
+                raise WorkerError("graph_project_mismatch")
 
             indexes = ensure_indexes(driver, database, dimensions)
 
@@ -896,6 +944,9 @@ def materialize(request):
             loaded_at = run_query(driver, database,
                                   "MATCH (g:" + GENERATION_LABEL + " {project_key: $p, generation_id: $g}) "
                                   "RETURN toString(g.loaded_at) AS loaded_at", **scope)
+            outside_after = other_project_nodes(driver, database, project_key)
+            if outside_after != outside_before:
+                raise WorkerError("graph_other_project_changed")
         finally:
             release_materialize_lock(driver, database, token)
         # What the rest of the database holds after this load, counted rather than
@@ -914,6 +965,7 @@ def materialize(request):
                             "dimensions": dimensions,
                             "filter_properties": (indexes or {}).get("filter_properties", [])},
                 "other_projects": untouched,
+                "other_project_nodes": {"before": outside_before, "after": outside_after},
                 "packages": package_versions()}
 
 
@@ -1023,6 +1075,10 @@ def link_explicit_refs(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
+        # A generation id this project does not own is a refusal, not an empty
+        # answer: "not loaded" would read as "nothing there" when in fact the
+        # name belongs to someone else.
+        assert_generation_owned(driver, database, project_key, generation_id)
         present = [row["generation_id"] for row in generation_rows(driver, database, project_key)]
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "rule": rule,
@@ -1147,6 +1203,10 @@ def link_related_evidence(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
+        # A generation id this project does not own is a refusal, not an empty
+        # answer: "not loaded" would read as "nothing there" when in fact the
+        # name belongs to someone else.
+        assert_generation_owned(driver, database, project_key, generation_id)
         present = [row["generation_id"] for row in generation_rows(driver, database, project_key)]
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "rule": RELATED_RULE,
@@ -1392,6 +1452,10 @@ def retrieve(request):
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
         driver.verify_connectivity()
+        # A generation id this project does not own is a refusal, not an empty
+        # answer: "not loaded" would read as "nothing there" when in fact the
+        # name belongs to someone else.
+        assert_generation_owned(driver, database, project_key, generation_id)
         present = [row["generation_id"] for row in generation_rows(driver, database, project_key)]
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "mode": mode,

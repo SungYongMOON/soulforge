@@ -149,24 +149,45 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
 }
 
 
-// Canned graph database: answers materialize, retrieve and link without a server. It
-// keeps the generation it was told to load so a repeat reports loaded=false, the
-// way a real database reports a generation it already holds, and answers a search
-// with the rows the caller hands it (a row outside the generation included, so the
-// caller's own admission can be tested).
+// Canned graph database: answers materialize, retrieve and link without a server.
+// It holds one generation PER PROJECT, the way the real database does, so an
+// answer depends on the (project, generation) a request names and not on which
+// stand-in it reached: a repeat of a held generation reports loaded=false, a
+// generation id another project owns is refused with graph_project_mismatch, and
+// a search answers with the rows the caller handed it (a row outside the
+// generation included, so the caller's own admission can be tested).
+//
+// `loaded` names a generation this database already holds. Give it a string to
+// keep the single-project shape, or { [projectKey]: generationId } to start with
+// several. A request whose project is unknown holds nothing for that project.
 export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = [], expansion = null } = {}) {
   const calls = { materialize: 0, retrieve: 0, link: 0, related: 0, modes: [], requests: [] };
-  const held = new Set(loaded === null ? [] : [loaded]);
+  // project key -> generation id. A string `loaded` belongs to whichever project
+  // asks first, which is how a single-project test keeps reading as one.
+  const held = new Map(loaded !== null && typeof loaded === 'object' ? Object.entries(loaded) : []);
+  let pending = typeof loaded === 'string' ? loaded : null;
+  const heldFor = project => {
+    if (pending !== null && !held.has(project)) { held.set(project, pending); pending = null; }
+    return held.get(project) ?? null;
+  };
+  // The same rule the worker keeps: an id another project owns is not "absent".
+  const mismatch = (project, generation) => [...held.entries()]
+    .some(([key, id]) => key !== project && id === generation);
+  const present = project => { const id = heldFor(project); return id === null ? [] : [id]; };
   async function runWorker({ request }) {
     calls.requests.push(request);
     // A judged relation between two chunks: the canned database reports back the
     // rows it was handed, and creates them only when the request says to apply.
     if (request.operation === 'link_related_evidence') {
       calls.related++;
-      if (!held.has(request.generation_id)) {
+      if (mismatch(request.project_key, request.generation_id)) {
+        return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+          output: { status: 'error', code: 'graph_project_mismatch' } };
+      }
+      if (heldFor(request.project_key) !== request.generation_id) {
         return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
           output: { status: 'not_loaded', code: 'generation_not_materialized', edges: [], applied: false,
-            generations_present: [...held] } };
+            generations_present: present(request.project_key) } };
       }
       return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
         output: { status: 'ok', rule: request.rule, relationship: 'RELATED_EVIDENCE', applied: request.apply === true,
@@ -181,10 +202,14 @@ export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = []
     // handed, and creates them only when the request says to apply.
     if (request.operation === 'link_explicit_refs') {
       calls.link++;
-      if (!held.has(request.generation_id)) {
+      if (mismatch(request.project_key, request.generation_id)) {
+        return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+          output: { status: 'error', code: 'graph_project_mismatch' } };
+      }
+      if (heldFor(request.project_key) !== request.generation_id) {
         return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
           output: { status: 'not_loaded', code: 'generation_not_materialized', edges: [], applied: false,
-            generations_present: [...held] } };
+            generations_present: present(request.project_key) } };
       }
       return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
         output: { status: 'ok', rule: request.rule, relationship: 'REFERS_TO', applied: request.apply === true,
@@ -195,28 +220,48 @@ export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = []
     }
     if (request.operation === 'materialize') {
       calls.materialize++;
-      if (held.has(request.generation_id)) {
+      if (mismatch(request.project_key, request.generation_id)) {
+        return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+          output: { status: 'error', code: 'graph_project_mismatch' } };
+      }
+      const mine = heldFor(request.project_key);
+      if (mine === request.generation_id) {
         return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
           output: { status: 'ok', loaded: false, code: 'generation_already_loaded',
-            counts: { nodes: 0 }, generations_present: [...held] } };
+            project_key: request.project_key, generation_id: request.generation_id,
+            counts: { nodes: 0 }, generations_present: present(request.project_key) } };
       }
-      const superseded = [...held];
-      held.clear();
-      held.add(request.generation_id);
+      // Only this project's own previous generation is superseded.
+      const superseded = mine === null ? [] : [mine];
+      held.set(request.project_key, request.generation_id);
       const nodes = request.fragments.reduce((total, fragment) => total + fragment.nodes.length, 0);
       const relationships = request.fragments.reduce((total, fragment) => total + fragment.relationships.length, 0);
       return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
-        output: { status: 'ok', loaded: true, counts: { fragments: request.fragments.length, nodes, relationships },
-          superseded, removed_nodes: 0, indexes: { vector: 'sf_chunk_vector', fulltext: 'sf_chunk_fulltext', dimensions: 4 } } };
+        output: { status: 'ok', loaded: true, project_key: request.project_key, generation_id: request.generation_id,
+          loaded_at: '2026-09-14T00:00:00.000Z',
+          counts: { fragments: request.fragments.length, nodes, relationships },
+          superseded, removed_nodes: 0,
+          indexes: { vector: 'sf_chunk_vector', fulltext: 'sf_chunk_fulltext', dimensions: 4,
+            filter_properties: ['sf_project', 'sf_generation'] },
+          other_projects: [...held.entries()].filter(([key]) => key !== request.project_key)
+            .map(([key, id]) => ({ project_key: key, generation_id: id, loaded_at: '2026-09-14T00:00:00.000Z' })),
+          other_project_nodes: { before: 0, after: 0 } } };
     }
     calls.retrieve++;
     calls.modes.push(request.mode);
-    if (!held.has(request.generation_id)) {
+    if (mismatch(request.project_key, request.generation_id)) {
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'error', code: 'graph_project_mismatch' } };
+    }
+    if (heldFor(request.project_key) !== request.generation_id) {
       return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
-        output: { status: 'not_loaded', code: 'generation_not_materialized', hits: [], generations_present: [...held] } };
+        output: { status: 'not_loaded', code: 'generation_not_materialized', hits: [],
+          generations_present: present(request.project_key) } };
     }
     return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
-      output: { status: 'ok', mode: request.mode, generation_id: request.generation_id, hits,
+      output: { status: 'ok', mode: request.mode, project_key: request.project_key,
+        generation_id: request.generation_id, hits,
+        retrieval: { filter_stage: 'in_index_filter', index_filter_properties: ['sf_project', 'sf_generation'],
+          index_dimensions: 4, vector_requested: request.top_k, vector_in_scope: hits.length, vector_starved: false },
         whole_generation: request.whole_generation === true,
         chunks_in_generation: request.whole_generation === true ? hits.length : null,
         expansion: request.mode === 'graph' ? { enabled_rules: request.expansion?.enabled_rules ?? ['L1', 'R1'],
@@ -224,7 +269,7 @@ export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = []
           inflow: hits.filter(row => !row.seed).length, candidates: hits.length, ...(expansion ?? {}) } : null,
         dropped_out_of_generation: 0, embedder: { model: request.embedder?.model ?? null, digest: CANNED_LLM_DIGEST } } };
   }
-  return { runWorker, calls, held };
+  return { runWorker, calls, held, loadedFor: heldFor };
 }
 
 // A stand-in for the unified database: one store holding many projects, each with

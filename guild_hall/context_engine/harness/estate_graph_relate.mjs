@@ -323,6 +323,9 @@ for (const row of judged.judgements) {
 }
 
 const receipt = { schema: 'context engine related-evidence receipt (dev, local-recovery)', at: now,
+  // Which project's generation these candidates belong to: the database behind
+  // the binding may hold several, so the generation id alone is not the scope.
+  approved_fs_key: binding.approved_fs_key,
   rule: judged.rule, binding_address: bindingAddress, generation: opened.manifest.generation_id,
   generation_sha256: opened.generation_ref.sha256, generation_selected: opened.selected,
   embedder: opened.manifest.model.embedder, start: { item_id: fromItem, unit_id: fromUnit, doc_key: start.doc_key },

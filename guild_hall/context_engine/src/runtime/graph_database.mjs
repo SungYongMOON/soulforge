@@ -79,11 +79,16 @@ export async function materializeGraphIndex({ view, binding, runWorker = runGrap
   return Object.freeze({ status: 'ok', loaded: output.loaded === true, code: output.code ?? null,
     generation_id: manifest.generation_id, project_key: manifest.project_key,
     loaded_at: output.loaded_at ?? null,
+    // `superseded` is this project's own previous generations, never another
+    // project's: the replacement is scoped to the pair (project, generation).
     counts: output.counts ?? null, superseded: output.superseded ?? [], removed_nodes: output.removed_nodes ?? 0,
     indexes: output.indexes ?? null,
     // What else the database holds after this load, read back from it rather than
-    // assumed: a load that reached another project's generation would show here.
-    other_projects: Array.isArray(output.other_projects) ? output.other_projects : [] });
+    // assumed: a load that reached another project's generation would show here,
+    // and `other_project_nodes` is the count the worker took on both sides of the
+    // load and refused to let differ.
+    other_projects: Array.isArray(output.other_projects) ? output.other_projects : [],
+    other_project_nodes: output.other_project_nodes ?? null });
 }
 
 // What the database holds, per project: which generation, when it was loaded and

@@ -1,4 +1,7 @@
 // 맥락이 working context over one project's selected graph index (v0.9 §4 B).
+// The database behind that index may hold other projects; the project is fixed
+// here from the view's own manifest and travels with every search, so what the
+// pack can reach is this project's selected generation and nothing beside it.
 // The program fixes project, authority, generation and budget, runs every
 // search itself (the model only asks; search and read are the only tools),
 // takes evidence from the hash-verified index, enforces citations (a fact or a
@@ -124,7 +127,13 @@ export async function composeWorkingContext({ view, request, binding, profile = 
       // and keeps one path for every mode.
       const result = await (DATABASE_MODES.has(search.mode) ? retriever[search.mode](search.query)
         : search.mode === 'exact' ? retriever.exact(search.query) : retriever.lexical(search.query));
-      searches.push({ round, ...search, status: result.status, code: result.code ?? null, hits: result.hits.length });
+      // Where the database applied this view's project and generation, and what a
+      // half of the search had to leave out to stay inside them. Without it a
+      // starved answer and an empty one read the same in the pack's own record.
+      const scope = result.receipt?.retrieval ?? null;
+      searches.push({ round, ...search, status: result.status, code: result.code ?? null, hits: result.hits.length,
+        ...(scope ? { filter_stage: scope.filter_stage,
+          starved: scope.fulltext_starved === true || scope.vector_starved === true } : {}) });
       for (const kind of result.searched_kinds ?? []) searchedKinds.add(kind);
       for (const hit of result.hits) {
         hitsByKind.set(hit.source_kind, (hitsByKind.get(hit.source_kind) ?? 0) + 1);

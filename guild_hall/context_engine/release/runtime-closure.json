@@ -121,7 +121,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
-      "sha256": "73ce01b35511e375d1a0ffdfc398b5839bad8a23fb7de6070a5dec8d61d274c7"
+      "sha256": "2763fdee14fdb5ca25430e4109af7111bc1284256ac02c63f30231c6bad1487d"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/generation_update.mjs",
@@ -129,7 +129,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_database.mjs",
-      "sha256": "c2878daab7a18c432b413f91b3544d91a8f45dac0c82d5ecff14a281541c1f01"
+      "sha256": "f6f12492b2a0de8e1db3f38f133a429b7a4c6ad2e6e379973dc2b23fc5cafb70"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
@@ -185,7 +185,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "85796bbccd268c67292f70c346c513dd9a087d99d3d7c597b643fd717f69b791"
+      "sha256": "82dd08db477afa728c02b8e5816def409c3a88784159ecb5c98cb1c4c4d3798f"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "57f474009876c491c228daee12260f39651d129bd753f48b4c8f5f5a0c84eda0",
+  "closure_sha256": "2e3f274cb89fd5942cabae8f4c98a637d774bd19edf03b981d3bcf4f07b42aa6",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

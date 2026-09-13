@@ -103,6 +103,33 @@ test('one database holds two projects: a load replaces its own generation and le
   assert.equal(typeof seen.projects[0].loaded_at, 'string', 'when the database last wrote it is the database’s answer');
 });
 
+test('a generation id another project already holds is refused, on every path that names one', async () => {
+  const alpha = await preparedProject({ seed: 31, fsKey: 'P-SYN-A3' });
+  const beta = await preparedProject({ seed: 32, fsKey: 'P-SYN-B3',
+    memos: { 'memo-c.md': '# 다른 과제 메모\n\n베타 과제의 시험 조건은 별개다.\n' } });
+  // The database holds beta under the id alpha is about to name. Nothing about
+  // the address says so any more -- both projects live here -- so the refusal has
+  // to come from the scope: an id that is not this project's is not free.
+  const database = cannedDatabase({ loaded: { [beta.projectKey]: 'P-SYN-A3-g1' } });
+  const view = alpha.view();
+  const code = async run => run().then(() => null, error => error.code);
+
+  assert.equal(await code(() => materializeGraphIndex({ view: alpha.view(), binding: view.graph_binding,
+    runWorker: database.runWorker })), 'graph_project_mismatch', 'a load may not take a name another project holds');
+  const search = createGraphSearch({ view, binding: view.graph_binding, runWorker: database.runWorker });
+  assert.equal(await code(() => search.vector('시험 조건', 5)), 'graph_project_mismatch',
+    'and a search is refused rather than answered as "not loaded", which would read as "nothing there"');
+  const [first, second] = view.manifest.documents.map(row => row.doc_key);
+  assert.equal(await code(() => linkExplicitReferences({ view: alpha.view(), binding: view.graph_binding,
+    identifiers: { 'SON-84': first }, runWorker: database.runWorker })), 'graph_project_mismatch');
+
+  // The same id under this project's own key is ordinary work, not a mismatch.
+  const own = cannedDatabase({ loaded: { [alpha.projectKey]: 'P-SYN-A3-g1' } });
+  const replay = await materializeGraphIndex({ view: alpha.view(), binding: view.graph_binding, runWorker: own.runWorker });
+  assert.deepEqual([replay.loaded, replay.code], [false, 'generation_already_loaded']);
+  assert.deepEqual(second === first, false);
+});
+
 test('a search carries its own project, and a row from another project never becomes evidence', async () => {
   const alpha = await preparedProject({ seed: 21, fsKey: 'P-SYN-A2' });
   const beta = await preparedProject({ seed: 22, fsKey: 'P-SYN-B2',
@@ -270,8 +297,14 @@ test('vector, hybrid and graph search return only units this generation holds', 
     const result = await retriever[mode]('전원 조건', 5);
     assert.equal(result.status, 'ok', mode);
     assert.equal(result.hits.length, 2, `${mode}: the row from outside the generation is not served`);
-    assert.deepEqual({ ...result.receipt, expansion: undefined }, { mode, requested_top_k: 5, returned: 3, admitted: 2,
-      not_in_generation: 1, dropped_out_of_generation: 0, expansion: undefined });
+    assert.deepEqual({ ...result.receipt, expansion: undefined, retrieval: undefined },
+      { mode, requested_top_k: 5, returned: 3, admitted: 2, not_in_generation: 1, dropped_out_of_generation: 0,
+        expansion: undefined, retrieval: undefined });
+    // Where the database applied this view's project and generation travels with
+    // every answer: a starved half and an empty one are different results.
+    assert.deepEqual({ stage: result.receipt.retrieval.filter_stage,
+      properties: result.receipt.retrieval.index_filter_properties },
+    { stage: 'in_index_filter', properties: ['sf_project', 'sf_generation'] });
     // Only the graph mode expands, so only it accounts for one.
     assert.equal(result.receipt.expansion === undefined, mode !== 'graph');
     // Every hit carries the provenance a citation needs, not just an id.
@@ -340,8 +373,9 @@ test('a graph row the expansion reached is admitted like any other, and only if 
 
   const result = await retriever.graph('전원 조건', 5);
   assert.equal(result.status, 'ok');
-  assert.deepEqual({ ...result.receipt, expansion: undefined }, { mode: 'graph', requested_top_k: 5, returned: 3, admitted: 2,
-    not_in_generation: 1, dropped_out_of_generation: 0, expansion: undefined }, 'a reached row counts as admitted; the foreign one does not');
+  assert.deepEqual({ ...result.receipt, expansion: undefined, retrieval: undefined },
+    { mode: 'graph', requested_top_k: 5, returned: 3, admitted: 2,
+      not_in_generation: 1, dropped_out_of_generation: 0, expansion: undefined, retrieval: undefined }, 'a reached row counts as admitted; the foreign one does not');
   assert.deepEqual({ seeds: result.receipt.expansion.seeds, inflow: result.receipt.expansion.inflow },
     { seeds: 1, inflow: 2 }, 'the receipt reports the expansion the database applied');
   assert.deepEqual(result.hits.map(row => row.seed), [true, false]);
@@ -368,8 +402,10 @@ test('a seed keeps the score it came with and a reached row keeps the one it inh
     [[first.sf_unit_id, 0.804, true], [second.sf_unit_id, 0.846, false]],
     'the lower-scored seed stays first and neither score is changed on the way out');
   assert.deepEqual(result.hits.map(row => row.rank), [1, 2]);
-  assert.deepEqual({ ...result.receipt, expansion: undefined }, { mode: 'graph', requested_top_k: 5, returned: 2, admitted: 2,
-    not_in_generation: 0, dropped_out_of_generation: 0, expansion: undefined });
+  assert.deepEqual({ ...result.receipt, expansion: undefined, retrieval: undefined },
+    { mode: 'graph', requested_top_k: 5, returned: 2, admitted: 2,
+      not_in_generation: 0, dropped_out_of_generation: 0, expansion: undefined, retrieval: undefined });
+  assert.equal(result.receipt.retrieval.filter_stage, 'in_index_filter');
 });
 
 test('a search before the generation is loaded reports that, and a bad request never reaches the database', async () => {
@@ -613,9 +649,11 @@ test('real Neo4j: one load, a no-op replay, and vector, hybrid and graph search 
     const binding = { ...store.binding.graph, worker: { interpreter_path: PYTHON, timeout_ms: 900000 },
       llm: { ...store.binding.graph.llm, model: MODEL, keep_alive: process.env.SOULFORGE_TEST_GRAPHRAG_KEEP_ALIVE || '30s' } };
     const { sha256: bindingSha256 } = await store.put('graph_index_binding.json', { ...store.binding, graph: binding });
-    // A fresh generation id per run: the database keeps exactly one generation, so
-    // each run supersedes the last instead of colliding with it.
-    const generationId = `g${Date.now()}`;
+    // A fresh generation id per run: this project keeps exactly one generation in
+    // the database, so each run supersedes its own last one rather than colliding.
+    // Other projects in the same database are neither superseded nor touched.
+    const stamp = Date.now();
+    const generationId = `g${stamp}`;
     const first = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256, now: NOW,
       request: indexer({ generation_id: generationId, expected_prior: null }) });
     assert.equal(first.status, 'COMMITTED', JSON.stringify(first));
@@ -631,6 +669,63 @@ test('real Neo4j: one load, a no-op replay, and vector, hybrid and graph search 
     assert.deepEqual({ status: replay.status, loaded: replay.loaded, code: replay.code },
       { status: 'ok', loaded: false, code: 'generation_already_loaded' }, 'a second load of the same generation is a no-op');
 
+    // A second project in the same database. Everything below is about the pair
+    // (project, generation) being the scope, rather than the address being it.
+    const otherRef = ref(stamp % 100000 + 40000);
+    const otherStore = await makeStore({ neo4j: store.binding.graph.neo4j, embedder: { host, model: EMBEDDER },
+      projectRef: otherRef, fsKey: `P-SYN-OTHER-${stamp % 100000}`,
+      memos: { 'memo-c.md': '# 다른 과제 메모\n\n베타 과제의 냉각수 압력은 3바로 고정한다.\n' } });
+    const otherBinding = { ...otherStore.binding.graph, worker: { interpreter_path: PYTHON, timeout_ms: 900000 },
+      llm: { ...otherStore.binding.graph.llm, model: MODEL, keep_alive: process.env.SOULFORGE_TEST_GRAPHRAG_KEEP_ALIVE || '30s' } };
+    const { sha256: otherSha256 } = await otherStore.put('graph_index_binding.json', { ...otherStore.binding, graph: otherBinding });
+    const otherRequest = extra => ({ actor_ref: 'actor:indexer', project_ref: otherRef, purpose: 'context_preparation', ...extra });
+    const otherBuilt = await updateGraphIndex({ storeRoot: otherStore.storeRoot, bindingSha256: otherSha256, now: NOW,
+      request: otherRequest({ generation_id: `other-g${stamp}`, expected_prior: null }) });
+    assert.equal(otherBuilt.status, 'COMMITTED', JSON.stringify(otherBuilt));
+    const otherView = () => openGraphIndex({ storeRoot: otherStore.storeRoot, bindingSha256: otherSha256,
+      request: { actor_ref: 'actor:reader', project_ref: otherRef, purpose: 'context_query' } });
+
+    const before = await inspectGraphDatabase({ binding: view().graph_binding });
+    const mine = row => row.generation_id === generationId;
+    const otherLoaded = await materializeGraphIndex({ view: otherView(), binding: otherView().graph_binding });
+    assert.deepEqual({ loaded: otherLoaded.loaded, superseded: otherLoaded.superseded, removed: otherLoaded.removed_nodes },
+      { loaded: true, superseded: [], removed: 0 }, 'a second project supersedes nothing and removes nothing');
+    const after = await inspectGraphDatabase({ binding: view().graph_binding });
+    assert.deepEqual(after.projects.find(mine), before.projects.find(mine),
+      'the first project is byte-identical after the second one was loaded');
+    assert.equal(after.projects.length, before.projects.length + 1);
+
+    // Replacing the first project's generation leaves the second one alone.
+    const secondGeneration = `g${stamp}b`;
+    await writeFile(path.join(store.sourceRoot, 'memo-b.md'), '# 전원 조건\n\n전원 조건은 30V로 다시 바뀌었다.\n');
+    const changed = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256, now: NOW,
+      request: indexer({ generation_id: secondGeneration, expected_prior: first.pointer_sha256 }) });
+    assert.equal(changed.status, 'COMMITTED', JSON.stringify(changed));
+    const replaced = await materializeGraphIndex({ view: view(), binding: view().graph_binding });
+    assert.deepEqual({ loaded: replaced.loaded, superseded: replaced.superseded }, { loaded: true, superseded: [generationId] },
+      "only this project's own previous generation is superseded");
+    assert.equal(replaced.other_project_nodes.before, replaced.other_project_nodes.after,
+      'the load counted every other project\u2019s nodes on both sides of itself and they did not move');
+    const third = await inspectGraphDatabase({ binding: view().graph_binding });
+    const theirs = row => row.generation_id === `other-g${stamp}`;
+    assert.deepEqual(third.projects.find(theirs), after.projects.find(theirs),
+      'the second project is byte-identical after the first one was replaced');
+
+    // Neither project can see the other: search, expansion and read-back alike.
+    const otherRetriever = createGraphIndexRetriever(otherView());
+    const myKeys = new Set(view().manifest.documents.map(row => row.doc_key));
+    const theirKeys = new Set(otherView().manifest.documents.map(row => row.doc_key));
+    for (const mode of ['vector', 'hybrid', 'graph']) {
+      const crossed = await otherRetriever[mode]('전원 조건이 몇 볼트로 바뀌었나', 5);
+      assert.equal(crossed.status, 'ok', mode);
+      assert.equal(crossed.hits.filter(hit => myKeys.has(hit.doc_key)).length, 0,
+        `${mode}: the other project's question never returns this project's rows`);
+    }
+    // And a generation id the other project holds is refused, not answered empty.
+    const collision = await materializeGraphIndex({ view: otherView(), binding: otherView().graph_binding })
+      .then(() => null, error => error.code);
+    assert.equal(collision, null, 'its own id is not a collision');
+
     const retriever = createGraphIndexRetriever(view());
     const found = {};
     for (const mode of ['vector', 'hybrid', 'graph']) {
@@ -643,9 +738,13 @@ test('real Neo4j: one load, a no-op replay, and vector, hybrid and graph search 
       const hit = result.hits[0];
       const unit = view().readDocument(hit.doc_key).units.find(row => row.unit_id === hit.unit_id);
       assert.equal(hit.text, unit.text, `${mode} returned text that is not the stored unit`);
-      found[mode] = { hits: result.hits.length, top: hit.item_id };
+      found[mode] = { hits: result.hits.length, top: hit.item_id, top_doc_key: hit.doc_key };
     }
     assert.equal(found.graph.hits >= found.vector.hits, true, 'graph expansion returns at least its seed chunks');
-    process.stdout.write(`# real graph database: ${JSON.stringify({ generation: generationId,
-      loaded: loaded.counts, superseded: loaded.superseded, search: found })}\n`);
+    for (const [mode, row] of Object.entries(found)) {
+      assert.equal(theirKeys.has(row.top_doc_key), false, `${mode}: this project's answer holds none of the other's documents`);
+    }
+    process.stdout.write(`# real graph database: ${JSON.stringify({ generation: secondGeneration,
+      loaded: replaced.counts, superseded: replaced.superseded, projects: third.projects.length,
+      other_project_nodes: replaced.other_project_nodes, search: found })}\n`);
   });
