@@ -121,7 +121,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
-      "sha256": "5e675a464f86685554e4dd9f0beea68770e0e0b5dbb6625fc41a85dbc33a31c3"
+      "sha256": "73ce01b35511e375d1a0ffdfc398b5839bad8a23fb7de6070a5dec8d61d274c7"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/generation_update.mjs",
@@ -129,7 +129,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_database.mjs",
-      "sha256": "0eb8cb9b282709ff0595b4645cf43db76e623952e90cf4c6dbc42aa6a02a865a"
+      "sha256": "517d1d77ae15c9146e83ff5c0ca6cf06797236ca9fadd7bda68e7f782e4fd259"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
@@ -141,7 +141,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
-      "sha256": "e8b5bf786754be79155d26517adfad990815a92663c75df1311b7515a0010578"
+      "sha256": "a84c00b61b1b096e93492333cec7654198a01c9081d3aabfe68990d6edd08bbb"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
@@ -185,7 +185,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "8afa8a5330fd69d709db21ae9dd4c7ac9b37e8fd125e7f834caf1dc7a266eece"
+      "sha256": "44e9837aee56a172cf58e42c6ef69e589bf6ab0dc51ae6950496117d34ce7b1a"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "5ff55a94f80b1b8b46dbd96699ee3a540ff605247063b4e2f065a287a81c17c2",
+  "closure_sha256": "5fd3c9f1e122d955472720f9b09a97b5c4cabce3f2ff40592d19d036b50c0c87",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

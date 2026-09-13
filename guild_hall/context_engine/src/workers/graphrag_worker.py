@@ -37,6 +37,13 @@ EMBEDDING_PROPERTY = "embedding"
 # Lexical edges are the graph's skeleton; expansion follows the extracted ones.
 LEXICAL_RELATIONSHIPS = ("FROM_CHUNK", "FROM_DOCUMENT", "NEXT_CHUNK")
 MAX_TOP_K = 50
+# A search that ranks the whole generation asks for more rows than the ordinary
+# ceiling: it is how a caller sees where a chunk sits among all of them rather
+# than only whether it reached the first fifty. Such a request is bounded by the
+# generation's own chunk count, read from the database, so the ceiling is the data
+# and not a larger fixed number. Only a request that asks for it is bounded this
+# way; every other request keeps MAX_TOP_K.
+MAX_WHOLE_GENERATION_TOP_K = 10000
 # An explicit reference an extracted entity names verbatim: the edge the APP adds
 # between a target node and the document that token identifies. One rule, one
 # pattern, and the same pattern text is what the database matches on.
@@ -542,6 +549,14 @@ def neo4j_driver(binding):
 
 def run_query(driver, database, query, **parameters):
     return driver.execute_query(query, database_=database, **parameters).records
+
+
+def chunk_count(driver, database, generation_id):
+    """How many chunks this generation holds, as the database has them."""
+    rows = run_query(driver, database,
+                     "MATCH (c:" + CHUNK_LABEL + " {sf_generation: $generation}) RETURN count(c) AS chunks",
+                     generation=generation_id)
+    return int(rows[0]["chunks"]) if rows else 0
 
 
 def generation_rows(driver, database):
@@ -1128,8 +1143,12 @@ def retrieve(request):
     generation_id = request.get("generation_id")
     if not TOKEN.match(str(generation_id or "")):
         raise WorkerError("graph_retrieve_request_invalid")
+    whole_generation = request.get("whole_generation", False)
+    if not isinstance(whole_generation, bool):
+        raise WorkerError("graph_retrieve_request_invalid")
     top_k = request.get("top_k", 10)
-    if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1 or top_k > MAX_TOP_K:
+    ceiling = MAX_WHOLE_GENERATION_TOP_K if whole_generation else MAX_TOP_K
+    if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1 or top_k > ceiling:
         raise WorkerError("graph_retrieve_request_invalid")
     spec = request.get("embedder")
     if not isinstance(spec, dict) or not model_host_admitted(spec.get("host"), request.get("allowed_hosts") or []):
@@ -1147,6 +1166,11 @@ def retrieve(request):
         if generation_id not in present:
             return {"status": "not_loaded", "code": "generation_not_materialized", "mode": mode,
                     "generation_id": generation_id, "generations_present": present, "hits": []}
+        # The whole-generation ceiling is the generation itself: asking for more
+        # rows than it holds is refused rather than quietly answered with fewer.
+        held = chunk_count(driver, database, generation_id) if whole_generation else None
+        if whole_generation and top_k > max(MAX_TOP_K, held):
+            raise WorkerError("graph_retrieve_top_k_above_generation")
         embedder = OllamaEmbeddings(model=spec["model"], host=spec["host"])
         if mode == "graph":
             retriever = VectorCypherRetriever(driver, VECTOR_INDEX, GRAPH_EXPANSION_QUERY, embedder,
@@ -1191,6 +1215,7 @@ def retrieve(request):
             for row in hits:
                 row["via"] = "seed" if row.get("seed") else EXPANSION_VIA.get(row.get("tier"), "unknown")
         return {"status": "ok", "mode": mode, "generation_id": generation_id, "top_k": top_k,
+                "whole_generation": whole_generation, "chunks_in_generation": held,
                 "embedder": {"model": spec["model"], "digest": digest},
                 "hits": hits, "expansion": expansion,
                 "dropped_out_of_generation": dropped, "packages": package_versions()}

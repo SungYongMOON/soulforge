@@ -63,9 +63,12 @@ function narrowBudget(base, ...limits) {
 
 const text = (value, max) => (typeof value === 'string' ? [...value.trim()].slice(0, max).join('') : '');
 
-function cleanSearches(list, questionIds) {
+// `origin` says who asked for a search: the model that planned it, or the request
+// that named it outright. It is carried into the record so the two are never read
+// as one.
+function cleanSearches(list, questionIds, origin = 'model') {
   return (Array.isArray(list) ? list : []).map(row => ({ question_id: questionIds.has(row?.question_id) ? row.question_id : null,
-    mode: MODES.has(row?.mode) ? row.mode : null, query: text(row?.query, MAX_QUERY_CHARACTERS) }))
+    mode: MODES.has(row?.mode) ? row.mode : null, query: text(row?.query, MAX_QUERY_CHARACTERS), origin }))
     .filter(row => row.mode !== null && row.query);
 }
 
@@ -101,6 +104,9 @@ export async function composeWorkingContext({ view, request, binding, profile = 
   const local = createLocalChat({ binding: llm, maxCalls: budget.max_model_calls, fetchImpl });
   const retriever = createGraphIndexRetriever(view, { graphSearch: graphSearch ?? null, runWorker });
   const catalog = retriever.catalog().map(({ source_kind, item_id, title, units }) => ({ source_kind, item_id, title, units }));
+  if (request.explicit_searches !== undefined && (!Array.isArray(request.explicit_searches)
+    || request.explicit_searches.length > budget.max_searches_per_round)) fail('planner_explicit_searches_invalid');
+  const explicitSearches = cleanSearches(request.explicit_searches, new Set(), 'explicit');
 
   const evidence = [], evidenceByChunk = new Map(), searches = [], searchedKinds = new Set(), hitsByKind = new Map();
   let evidenceCharacters = 0, evidenceTruncated = false, rounds = 0;
@@ -141,6 +147,12 @@ export async function composeWorkingContext({ view, request, binding, profile = 
   let review = { status: 'not_run', rounds: 0, code: null };
   let sections = Object.fromEntries(profile.sections.map(name => [name, []])), openQuestions = [];
   const stats = { empty_dropped: 0, downgraded: 0, unknown_evidence_ids: 0 };
+  // A search the request names outright, run by the program before the model
+  // plans, so what it finds is already among the evidence the model may cite or
+  // pass over. It is recorded with origin `explicit` and never attributed to the
+  // model. Nothing else about it is special: the same evidence budget, the same
+  // per-round ceiling, the same citation enforcement.
+  if (explicitSearches.length > 0) await runSearches(explicitSearches, 0);
   const plan = await local.chat({ step: 'plan', system: profile.prompts.plan, schema: profile.schemas.plan,
     user: JSON.stringify({ request_text: requestText, task_purpose: purpose, catalog }) });
   if (plan.status !== 'ok') {

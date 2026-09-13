@@ -14,7 +14,7 @@ import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_gen
 import { validateAllowedModelHosts, validateGraphBinding, validateNeo4jBinding } from '../src/runtime/graph_extraction.mjs';
 import { GRAPH_EXPANSION_LIMITS, createGraphSearch, linkExplicitReferences, linkRelatedEvidence, materializeGraphIndex,
   narrowExpansion } from '../src/runtime/graph_database.mjs';
-import { createGraphIndexRetriever } from '../src/runtime/graph_index_retrieval.mjs';
+import { createGraphIndexRetriever, otherSourceRows } from '../src/runtime/graph_index_retrieval.mjs';
 import { checkJudgement, quoteMatch, relationFromJudgement } from '../src/runtime/relation_judgement.mjs';
 
 const code = fn => { try { fn(); return null; } catch (error) { return error.code; } };
@@ -431,6 +431,66 @@ test('an expansion budget is narrowed to this APP ceiling, carried to the databa
   assert.equal(refused({ enabled_rules: ['L1', 'L1'] }), 'graph_search_expansion_invalid');
   assert.equal(refused({ per_document_limit: -1 }), 'graph_search_expansion_invalid');
   assert.equal(refused({ depth: 2 }), 'graph_search_expansion_invalid', 'a bound this APP does not have is not silently ignored');
+});
+
+test('a search asks for more rows than the ordinary ceiling only when it ranks the whole generation', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const database = cannedDatabase({ hits: unitRows(current, 2), loaded: 'g1' });
+  const search = createGraphSearch({ view: current, binding: current.graph_binding, runWorker: database.runWorker });
+
+  // The default is untouched: fifty rows, and the request says nothing about it.
+  assert.equal((await search.vector('전원 조건', 50)).status, 'ok');
+  assert.equal(database.calls.requests.at(-1).whole_generation, undefined, 'an ordinary search asks for no such thing');
+  assert.equal(await search.vector('전원 조건', 51).then(() => null, error => error.code), 'graph_search_top_k_invalid');
+  assert.equal(await search.vector('전원 조건', 8, { wholeGeneration: 'yes' }).then(() => null, error => error.code),
+    'graph_search_top_k_invalid', 'the flag is a boolean, not anything truthy');
+
+  // Asking for the whole generation raises the ceiling to what the generation
+  // holds -- the data, not a larger fixed number -- and says so in the request.
+  // The stand-in view is a generation of 153 chunks; createGraphSearch reads
+  // nothing else from a view than its id, its chunk count and assertCurrent.
+  const large = { manifest: { generation_id: 'g1', counts: { chunks: 153 } }, assertCurrent() {} };
+  const wide = createGraphSearch({ view: large, binding: current.graph_binding, runWorker: database.runWorker });
+  const whole = await wide.vector('전원 조건', 153, { wholeGeneration: true });
+  assert.equal(whole.status, 'ok');
+  assert.equal(whole.whole_generation, true);
+  assert.deepEqual([database.calls.requests.at(-1).top_k, database.calls.requests.at(-1).whole_generation], [153, true]);
+  assert.equal(await wide.vector('전원 조건', 154, { wholeGeneration: true }).then(() => null, error => error.code),
+    'graph_search_top_k_invalid', 'the generation is the ceiling: one row more than it holds is refused');
+  assert.equal(await wide.vector('전원 조건', 51).then(() => null, error => error.code), 'graph_search_top_k_invalid',
+    'without the flag the ordinary ceiling still holds, however large the generation is');
+
+  // The receipt carries it, so a ranking taken over the whole generation is never
+  // read back as one taken over the first rows.
+  const retriever = createGraphIndexRetriever(current, { runWorker: database.runWorker });
+  const answered = await retriever.vector('전원 조건', 2, { wholeGeneration: true });
+  assert.equal(answered.receipt.whole_generation, true);
+  assert.equal((await retriever.vector('전원 조건', 2)).receipt.whole_generation, undefined);
+});
+
+test('the rows of a search that came from another source are ranked among themselves, and keep the rank the search gave', () => {
+  const hits = [{ rank: 1, doc_key: 'sha256:a', source_kind: 'linear', unit_id: 'u0' },
+    { rank: 2, doc_key: 'sha256:a', source_kind: 'linear', unit_id: 'u1' },
+    { rank: 3, doc_key: 'sha256:b', source_kind: 'linear', unit_id: 'u0' },
+    { rank: 4, doc_key: 'sha256:c', source_kind: 'slack', unit_id: 'u0' },
+    { rank: 5, doc_key: 'sha256:d', source_kind: 'mail', unit_id: 'u0' },
+    { rank: 6, doc_key: 'sha256:e', source_kind: 'slack', unit_id: 'u0' }];
+
+  // The document the question started from is dropped, and so is every kind that
+  // was not asked for. What is left is renumbered, and the rank the search gave is
+  // kept beside it: "first among the other sources" and "first of the search" are
+  // different facts and the receipt has to be able to say which it means.
+  assert.deepEqual(otherSourceRows(hits, { excludeDocKey: 'sha256:a', kinds: ['slack'] })
+    .map(row => [row.doc_key, row.rank, row.search_rank]), [['sha256:c', 1, 4], ['sha256:e', 2, 6]]);
+  assert.deepEqual(otherSourceRows(hits, { excludeDocKey: 'sha256:a' }).map(row => row.doc_key),
+    ['sha256:b', 'sha256:c', 'sha256:d', 'sha256:e'], 'no kinds named means every other source');
+  assert.deepEqual(otherSourceRows(hits, { excludeDocKey: 'sha256:a', limit: 2 }).map(row => row.rank), [1, 2]);
+  assert.deepEqual(otherSourceRows([], { excludeDocKey: 'sha256:a' }), [],
+    'a search that reached no other source is an empty ranking, not an error');
+  assert.deepEqual(otherSourceRows(hits, { excludeDocKey: 'sha256:a', kinds: ['voice'] }), [],
+    'a kind nothing was found in leaves nothing, and nothing else is admitted in its place');
+  assert.deepEqual(hits.map(row => row.rank), [1, 2, 3, 4, 5, 6], 'the search result itself is not changed');
 });
 
 // ---------------------------------------------------------------------------

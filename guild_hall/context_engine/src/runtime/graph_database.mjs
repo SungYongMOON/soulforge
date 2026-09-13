@@ -205,18 +205,28 @@ export function createGraphSearch({ view, binding, runWorker = runGraphragWorker
   if (!TOKEN.test(generationId ?? '')) fail('graph_search_generation_invalid');
   const ready = searchable(bound);
 
-  async function search(mode, queryText, topK = 10, { expansion = null } = {}) {
+  // wholeGeneration: rank every chunk of this generation rather than the first
+  // GRAPH_SEARCH_MAX_TOP_K. A caller asks for it to see where a row sits among all
+  // of them -- "not in the first fifty" and "not in the generation" are different
+  // answers. The ceiling then comes from this generation's own chunk count, so it
+  // is still a bound and still this side's; the default is untouched.
+  async function search(mode, queryText, topK = 10, { expansion = null, wholeGeneration = false } = {}) {
     if (!GRAPH_SEARCH_MODES.includes(mode)) fail('graph_search_mode_invalid');
+    if (typeof wholeGeneration !== 'boolean') fail('graph_search_top_k_invalid');
     if (!ready.ok) return { status: 'not_connected', code: ready.code, mode, hits: [] };
     if (typeof queryText !== 'string' || !queryText.trim() || queryText.length > MAX_QUERY_CHARACTERS) {
       return { status: 'refused', code: 'query_invalid', mode, hits: [] };
     }
-    if (!Number.isSafeInteger(topK) || topK < 1 || topK > GRAPH_SEARCH_MAX_TOP_K) fail('graph_search_top_k_invalid');
+    const ceiling = wholeGeneration
+      ? Math.max(GRAPH_SEARCH_MAX_TOP_K, Number.isSafeInteger(view.manifest.counts?.chunks) ? view.manifest.counts.chunks : 0)
+      : GRAPH_SEARCH_MAX_TOP_K;
+    if (!Number.isSafeInteger(topK) || topK < 1 || topK > ceiling) fail('graph_search_top_k_invalid');
     const narrowed = narrowExpansion(expansion);
     view.assertCurrent();
     const output = await callWorker({ bound, runWorker, request: { operation: 'retrieve', neo4j: bound.neo4j,
       mode, query_text: queryText, top_k: topK, generation_id: generationId, embedder: bound.embedder,
-      allowed_hosts: bound.allowed_model_hosts, ...(narrowed ? { expansion: narrowed } : {}) } });
+      allowed_hosts: bound.allowed_model_hosts, ...(wholeGeneration ? { whole_generation: true } : {}),
+      ...(narrowed ? { expansion: narrowed } : {}) } });
     if (output.status === 'not_loaded') {
       return { status: 'not_loaded', code: String(output.code ?? 'generation_not_materialized'), mode, hits: [] };
     }
@@ -231,7 +241,8 @@ export function createGraphSearch({ view, binding, runWorker = runGraphragWorker
         relevance: Number.isFinite(row.relevance) ? row.relevance : null }));
     return { status: 'ok', mode, hits, dropped_out_of_generation: Number.isSafeInteger(output.dropped_out_of_generation)
       ? output.dropped_out_of_generation : 0, embedder: output.embedder ?? null,
-    expansion: output.expansion ?? null };
+    expansion: output.expansion ?? null, whole_generation: wholeGeneration,
+    chunks_in_generation: Number.isSafeInteger(output.chunks_in_generation) ? output.chunks_in_generation : null };
   }
 
   return Object.freeze({ generation_id: generationId, connected: ready.ok, code: ready.ok ? null : ready.code,

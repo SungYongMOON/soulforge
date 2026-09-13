@@ -213,6 +213,8 @@ export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = []
     }
     return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
       output: { status: 'ok', mode: request.mode, generation_id: request.generation_id, hits,
+        whole_generation: request.whole_generation === true,
+        chunks_in_generation: request.whole_generation === true ? hits.length : null,
         expansion: request.mode === 'graph' ? { enabled_rules: request.expansion?.enabled_rules ?? ['L1', 'R1'],
           limits: request.expansion ?? null, seed_top_k: request.top_k, seeds: hits.filter(row => row.seed).length,
           inflow: hits.filter(row => !row.seed).length, candidates: hits.length, ...(expansion ?? {}) } : null,

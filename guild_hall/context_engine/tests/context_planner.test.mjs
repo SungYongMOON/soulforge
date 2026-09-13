@@ -145,6 +145,39 @@ test('canned local model: the program searches, enforces citations and reports c
   assert.equal(again.content_sha256, pack.content_sha256, 'same input and same answers give the same content digest');
 });
 
+test('a search the request names outright runs before the model plans, and is recorded as the request asking, not the model', async () => {
+  const { store, view } = await indexedStore();
+  const before = await listFiles(store.storeRoot);
+  const chat = cannedChat();
+  const pack = await composeWorkingContext({ view: view(), binding: BINDING, fetchImpl: chat.fetchImpl,
+    request: { ...REQUEST, explicit_searches: [{ mode: 'exact', query: 'memo-a' }, { mode: 'graph', query: '전원 변경 이력' }] } });
+
+  // Round 0: run by the program before the model has written a question, and
+  // labelled by who asked. A mode that cannot run is recorded with its code here
+  // exactly as it is anywhere else.
+  assert.deepEqual(pack.searches.map(row => [row.round, row.origin, row.mode, row.status]),
+    [[0, 'explicit', 'exact', 'ok'], [0, 'explicit', 'graph', 'not_connected'],
+      [1, 'model', 'lexical', 'ok'], [1, 'model', 'graph', 'not_connected'], [1, 'model', 'exact', 'ok'],
+      [2, 'model', 'lexical', 'ok']]);
+  assert.equal(pack.searches[0].question_id, null, 'a search the request named answers to no planned question');
+  assert.equal(pack.evidence[0].item_id, 'memo-a', 'what it found is evidence like any other, and it is there first');
+
+  // Everything else is untouched: the same model calls, the same citation
+  // enforcement, and still nothing written. Whether the model cites what the hook
+  // put in front of it is the model's own doing and is not forced here.
+  assert.equal(pack.budget.used.model_calls, 3);
+  assert.deepEqual(pack.enforcement, { empty_dropped: 0, downgraded: 2, unknown_evidence_ids: 1 });
+  assert.deepEqual(await listFiles(store.storeRoot), before, 'a query writes nothing');
+
+  const asked = async explicit => composeWorkingContext({ view: view(), binding: BINDING, fetchImpl: cannedChat().fetchImpl,
+    request: { ...REQUEST, explicit_searches: explicit } });
+  await assert.rejects(asked('memo-a'), { code: 'planner_explicit_searches_invalid' }, 'a list, not a string');
+  await assert.rejects(asked(new Array(9).fill({ mode: 'lexical', query: '전원' })),
+    { code: 'planner_explicit_searches_invalid' }, 'no more than one round of them');
+  const unknown = await asked([{ mode: 'sql', query: '전원' }, { mode: 'lexical', query: '   ' }]);
+  assert.deepEqual(unknown.searches.filter(row => row.round === 0), [], 'a mode this APP has not got is dropped, not run');
+});
+
 test('openai-compatible transport: the same program, a schema response_format and a server-reported pin', async () => {
   const { store, view } = await indexedStore();
   const before = await listFiles(store.storeRoot);

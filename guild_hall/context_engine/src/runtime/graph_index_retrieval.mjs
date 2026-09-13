@@ -18,6 +18,19 @@ const MAX_CHUNKS_PER_SOURCE = 20000;
 const MAX_SOURCES = 16;
 const MAX_QUERY_CHARACTERS = 8000;
 
+// The rows of a result that came from somewhere else than the record a search
+// started from: not that document, and -- when kinds are named -- only those
+// kinds. Ranks are renumbered over what is left and the rank the search gave is
+// kept beside it, so "third among the other sources" is never read as "third of
+// the search". This filters a result; it does not search again, and it changes no
+// score and no order.
+export function otherSourceRows(hits, { excludeDocKey = null, kinds = [], limit = Infinity } = {}) {
+  const kept = (Array.isArray(hits) ? hits : []).filter(row => row.doc_key !== excludeDocKey
+    && (kinds.length === 0 || kinds.includes(row.source_kind)));
+  return kept.slice(0, limit === Infinity ? kept.length : Math.max(0, limit))
+    .map((row, index) => ({ ...row, rank: index + 1, search_rank: row.rank }));
+}
+
 export class GraphIndexRetrievalError extends Error {
   constructor(code) { super(code); this.name = 'GraphIndexRetrievalError'; this.code = code; }
 }
@@ -103,6 +116,7 @@ export function createGraphIndexRetriever(view, { graphSearch = null, runWorker 
       // requested top_k is never read as the number of rows that came back.
       receipt: { mode, requested_top_k: topK ?? null, returned: result.hits.length, admitted: hits.length,
         not_in_generation: unknown, dropped_out_of_generation: result.dropped_out_of_generation ?? 0,
+        ...(result.whole_generation ? { whole_generation: true, chunks_in_generation: result.chunks_in_generation ?? null } : {}),
         ...(result.expansion ? { expansion: result.expansion } : {}) } };
   }
   const vector = (query, topK, options) => fromDatabase('vector', query, topK, options);
