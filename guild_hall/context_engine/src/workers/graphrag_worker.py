@@ -29,12 +29,20 @@ TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,199}$")
 # a second project would be a second container, never a second index in this one.
 GENERATION_LABEL = "__SfGeneration__"
 CHUNK_LABEL = "Chunk"
+DOCUMENT_LABEL = "Document"
+ENTITY_LABEL = "__Entity__"
 VECTOR_INDEX = "sf_chunk_vector"
 FULLTEXT_INDEX = "sf_chunk_fulltext"
 EMBEDDING_PROPERTY = "embedding"
 # Lexical edges are the graph's skeleton; expansion follows the extracted ones.
 LEXICAL_RELATIONSHIPS = ("FROM_CHUNK", "FROM_DOCUMENT", "NEXT_CHUNK")
 MAX_TOP_K = 50
+# An explicit reference an extracted entity names verbatim: the edge the APP adds
+# between a target node and the document that token identifies. One rule, one
+# pattern, and the same pattern text is what the database matches on.
+LINK_RELATIONSHIP = "REFERS_TO"
+LINK_RULES = {"L1-linear-identifier": r"^SON-\d+$"}
+MAX_LINK_IDENTIFIERS = 1000
 
 
 class WorkerError(Exception):
@@ -618,8 +626,142 @@ def materialize(request):
                 "packages": package_versions()}
 
 
-# Seed chunk plus the chunks its entities reach over one extracted edge. Lexical
-# edges are excluded so expansion follows meaning, not document order.
+# ---------------------------------------------------------------------------
+# Explicit references: an edge from a node that names an identifier verbatim to
+# the document that identifier belongs to. Nothing is merged and no node changes;
+# the edge is an addition to the derived projection, rebuilt with the generation.
+# ---------------------------------------------------------------------------
+
+LINK_SCAN_QUERY = (
+    "MATCH (e:" + ENTITY_LABEL + ") "
+    "WHERE e.sf_generation = $generation AND e.sf_project = $project AND e.name =~ $pattern "
+    "RETURN elementId(e) AS element_id, e.name AS name, e.sf_unit_id AS sf_unit_id, "
+    "e.sf_doc_key AS sf_doc_key, e.sf_generation AS sf_generation, e.sf_project AS sf_project "
+    "ORDER BY e.sf_doc_key, e.sf_unit_id, e.name"
+)
+
+# Counted before and after the merge: the difference is what this call created,
+# so a repeat of the same request reports the same edges and creates none.
+LINK_COUNT_QUERY = (
+    "UNWIND $rows AS row "
+    "MATCH (e) WHERE elementId(e) = row.element_id "
+    "MATCH (e)-[r:" + LINK_RELATIONSHIP + "]->(d:" + DOCUMENT_LABEL + ") "
+    "WHERE d.sf_doc_key = row.target_doc_key AND d.sf_generation = $generation "
+    "AND r.sf_rule = $rule AND r.sf_token = row.token AND r.sf_generation = $generation "
+    "RETURN count(r) AS n"
+)
+
+LINK_MERGE_QUERY = (
+    "UNWIND $rows AS row "
+    "MATCH (e) WHERE elementId(e) = row.element_id "
+    "MATCH (d:" + DOCUMENT_LABEL + ") "
+    "WHERE d.sf_doc_key = row.target_doc_key AND d.sf_generation = $generation "
+    "MERGE (e)-[r:" + LINK_RELATIONSHIP + " {sf_rule: $rule, sf_token: row.token, "
+    "sf_source_unit_id: row.source_unit_id, sf_source_doc_key: row.source_doc_key, "
+    "sf_generation: $generation, sf_project: $project, sf_claim_state: 'observed'}]->(d) "
+    "RETURN count(r) AS n"
+)
+
+
+def link_candidates(rows, identifiers, project_key, generation_id, pattern):
+    """The rows this rule links, and only those.
+
+    A row survives when its name is exactly an identifier of this rule's shape,
+    that identifier belongs to a document of this same generation and project,
+    and that document is not the row's own. A node naming its own document adds
+    no hop, and a name the identifier map does not know is not a reference this
+    rule can claim -- both are left out rather than guessed at.
+    """
+    candidates = []
+    for row in rows:
+        token = row.get("name")
+        if not isinstance(token, str) or not pattern.match(token):
+            continue
+        target = identifiers.get(token)
+        if not isinstance(target, str) or not target:
+            continue
+        source_doc_key = row.get("sf_doc_key")
+        if not isinstance(source_doc_key, str) or target == source_doc_key:
+            continue
+        if row.get("sf_generation") != generation_id or row.get("sf_project") != project_key:
+            continue
+        candidates.append({"element_id": row.get("element_id"), "token": token,
+                           "source_unit_id": row.get("sf_unit_id"), "source_doc_key": source_doc_key,
+                           "target_doc_key": target})
+    candidates.sort(key=lambda row: (row["source_doc_key"], str(row["source_unit_id"]), row["token"],
+                                     row["target_doc_key"]))
+    return candidates
+
+
+def link_request_identifiers(value):
+    """The token -> document map this request may link, checked for shape only."""
+    if not isinstance(value, dict) or not value or len(value) > MAX_LINK_IDENTIFIERS:
+        raise WorkerError("graph_link_request_invalid")
+    for token, doc_key in value.items():
+        if not isinstance(token, str) or not token or len(token) > 200:
+            raise WorkerError("graph_link_request_invalid")
+        if not isinstance(doc_key, str) or not doc_key.startswith("sha256:") or not DIGEST.match(doc_key):
+            raise WorkerError("graph_link_request_invalid")
+    return value
+
+
+def link_explicit_refs(request):
+    """Adds one rule's explicit-reference edges to the generation this database holds.
+
+    `apply: false` reads and returns the candidates without writing anything.
+    `apply: true` merges one edge per candidate, so running it again finds the same
+    edges and creates none. Nodes are never merged, relabelled or given a property
+    here: a node keeps the chunk it came from, which is what a citation reads back.
+    """
+    project_key, generation_id = request.get("project_key"), request.get("generation_id")
+    if not isinstance(project_key, str) or not project_key or len(project_key) > 512:
+        raise WorkerError("graph_link_request_invalid")
+    if not TOKEN.match(str(generation_id or "")):
+        raise WorkerError("graph_link_request_invalid")
+    rule = request.get("rule")
+    if rule not in LINK_RULES:
+        raise WorkerError("graph_link_rule_unknown")
+    pattern_text = LINK_RULES[rule]
+    pattern = re.compile(pattern_text)
+    identifiers = link_request_identifiers(request.get("identifiers"))
+    apply_edges = request.get("apply")
+    if not isinstance(apply_edges, bool):
+        raise WorkerError("graph_link_request_invalid")
+
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        driver.verify_connectivity()
+        present = [row["generation_id"] for row in generation_rows(driver, database)]
+        if generation_id not in present:
+            return {"status": "not_loaded", "code": "generation_not_materialized", "rule": rule,
+                    "project_key": project_key, "generation_id": generation_id,
+                    "generations_present": present, "applied": False, "edges": []}
+        rows = [dict(record) for record in run_query(driver, database, LINK_SCAN_QUERY,
+                                                     generation=generation_id, project=project_key,
+                                                     pattern=pattern_text)]
+        candidates = link_candidates(rows, identifiers, project_key, generation_id, pattern)
+        counted = lambda: (run_query(driver, database, LINK_COUNT_QUERY, rows=candidates, rule=rule,
+                                     generation=generation_id)[0]["n"] if candidates else 0)
+        existing = counted()
+        created = 0
+        if apply_edges and candidates:
+            run_query(driver, database, LINK_MERGE_QUERY, rows=candidates, rule=rule,
+                      generation=generation_id, project=project_key)
+            created = counted() - existing
+        return {"status": "ok", "rule": rule, "relationship": LINK_RELATIONSHIP, "pattern": pattern_text,
+                "project_key": project_key, "generation_id": generation_id, "applied": apply_edges,
+                "counts": {"identifiers": len(identifiers), "scanned": len(rows),
+                           "candidates": len(candidates), "created": created, "existing": existing},
+                "edges": [{key: row[key] for key in ("token", "source_unit_id", "source_doc_key",
+                                                     "target_doc_key")} for row in candidates],
+                "packages": package_versions()}
+
+
+# Seed chunk plus the chunks its entities reach over one extracted edge, and the
+# chunks of a document one of those entities names outright. Lexical edges are
+# excluded from the first hop so expansion follows meaning, not document order;
+# the second hop is the explicit reference, which is what carries a seed across
+# documents. A chunk is returned once, seeded if any seed of this search was it.
 GRAPH_EXPANSION_QUERY = (
     "WITH node, score "
     "WHERE node.sf_generation = $generation "
@@ -629,11 +771,18 @@ GRAPH_EXPANSION_QUERY = (
     "OPTIONAL MATCH (neighbour)-[:FROM_CHUNK]->(other) "
     "WHERE other.sf_generation = $generation AND other:" + CHUNK_LABEL + " "
     "WITH node, score, collect(DISTINCT other) AS others "
-    "UNWIND ([node] + others) AS chunk "
-    "RETURN DISTINCT chunk.sf_unit_id AS sf_unit_id, chunk.sf_doc_key AS sf_doc_key, "
+    "OPTIONAL MATCH (node)<-[:FROM_CHUNK]-(:" + ENTITY_LABEL + ")-[:" + LINK_RELATIONSHIP + "]->"
+    "(cited:" + DOCUMENT_LABEL + ")<-[:FROM_DOCUMENT]-(quoted:" + CHUNK_LABEL + ") "
+    "WHERE cited.sf_generation = $generation AND quoted.sf_generation = $generation "
+    "WITH node, score, others, collect(DISTINCT quoted) AS cited_chunks "
+    "UNWIND ([node] + others + cited_chunks) AS chunk "
+    "WITH chunk.sf_unit_id AS sf_unit_id, chunk.sf_doc_key AS sf_doc_key, "
     "chunk.sf_generation AS sf_generation, chunk.text AS text, score, "
-    "chunk.sf_unit_id = node.sf_unit_id AS seed "
-    "ORDER BY seed DESC, score DESC"
+    "CASE WHEN chunk.sf_unit_id = node.sf_unit_id AND chunk.sf_doc_key = node.sf_doc_key "
+    "THEN 1 ELSE 0 END AS seeded "
+    "WITH sf_unit_id, sf_doc_key, sf_generation, text, max(score) AS best, max(seeded) AS seeded_max "
+    "RETURN sf_unit_id, sf_doc_key, sf_generation, text, best AS score, seeded_max = 1 AS seed "
+    "ORDER BY seed DESC, score DESC, sf_unit_id"
 )
 
 RETURN_PROPERTIES = ["sf_unit_id", "sf_doc_key", "sf_generation", "text"]
@@ -794,6 +943,8 @@ def main():
         return asyncio.run(extract(request))
     if operation == "materialize":
         return materialize(request)
+    if operation == "link_explicit_refs":
+        return link_explicit_refs(request)
     if operation == "retrieve":
         return retrieve(request)
     raise WorkerError("operation_unknown")

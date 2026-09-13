@@ -420,7 +420,17 @@ neo4j-graphrag의 writer와 retriever를 쓰고, 이 APP은 그 둘레의 계약
   "세대 → 재적재 → 같은 그래프"다. 살아 있는 DB 파일은 컨테이너의 named volume에만 둔다.
 - 검색이 돌려주는 것은 (문서, 단위) 쌍과 점수뿐이다. 그 쌍이 이 view의 해시 검증된 manifest에 있을 때만 hit이 되고,
   없는 행은 버리고 센다(`receipt.not_in_generation`). 색인은 데이터베이스 전체에 걸리므로 세대 밖 행도 같은 자리에서
-  걸러진다. graph 확장은 씨앗 청크에서 그 청크의 대상이 어휘 관계가 아닌 관계로 닿는 청크까지만 넓힌다.
+  걸러진다. graph 확장은 씨앗 청크에서 그 청크의 대상이 어휘 관계가 아닌 관계로 닿는 청크까지, 그리고 그 대상이
+  명시적으로 가리키는 문서(`REFERS_TO`)의 청크까지 넓힌다. 유입 청크는 `seed=false`로 표시되고 씨앗 점수를 물려받아
+  씨앗 뒤에 온다. 넓힐 간선이 하나도 없으면 graph 모드는 vector와 같은 결과를 돌려준다.
+- **명시적 참조 연결 (0.18.3)**: `linkExplicitReferences({ view, binding, identifiers, rule, apply })`가 규칙
+  하나(`L1-linear-identifier`: 대상 노드 `name`이 `^SON-\d+$`이고 같은 세대·과제 문서의 식별자와 같을 때)로
+  `(대상)-[:REFERS_TO {sf_rule, sf_token, sf_source_unit_id, sf_source_doc_key, sf_generation, sf_project,
+  sf_claim_state:'observed'}]->(:Document)` 간선을 **더한다**. `apply:false`면 후보만 돌려주고 아무것도 쓰지 않는다.
+  MERGE라 재실행해도 같은 간선이 하나이고, 노드는 병합·재라벨·수정되지 않는다(청크별 출처가 인용의 근거이므로
+  이름이 같다는 이유로 노드를 합치지 않는다). 자기 문서 참조는 제외하고, 대상은 이 view의 manifest가 가진 문서여야
+  한다. 식별자 지도는 문서 `facts`에서 APP이 읽어 넘긴다(데이터베이스가 사실을 해석하지 않는다). 간선은 파생 투영에만
+  있으므로 세대를 다시 적재하면 사라지고 같은 호출로 다시 만들 수 있다.
 - 텔레메트리: Python driver는 `telemetry_disabled=True`로 연결한다. 서버 쪽은 판본의 설정으로 끄고 `SHOW SETTINGS`로
   되읽어 확인한다(실제 설정 이름과 관측값은 런타임 영수증에 있다).
 - 시험: 단위 시험은 이름을 밝힌 가짜 데이터베이스로 binding 거부·세대 경계·중복 적재를 본다. 실제 시험은 opt-in

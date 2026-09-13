@@ -17,6 +17,10 @@ import { validateGraphBinding } from './graph_extraction.mjs';
 
 export const GRAPH_SEARCH_MODES = Object.freeze(['vector', 'hybrid', 'graph']);
 export const GRAPH_SEARCH_MAX_TOP_K = 50;
+// The explicit-reference rules this APP will ask the database to add. A rule is
+// named here and implemented in the worker; nothing else may be linked.
+export const EXPLICIT_LINK_RULES = Object.freeze(['L1-linear-identifier']);
+const MAX_LINK_IDENTIFIERS = 1000;
 const MAX_QUERY_CHARACTERS = 8000;
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@+_-]{0,199}$/u;
 
@@ -62,6 +66,49 @@ export async function materializeGraphIndex({ view, binding, runWorker = runGrap
     generation_id: manifest.generation_id, project_key: manifest.project_key,
     counts: output.counts ?? null, superseded: output.superseded ?? [], removed_nodes: output.removed_nodes ?? 0,
     indexes: output.indexes ?? null });
+}
+
+// Adds one rule's explicit-reference edges to the loaded generation: a node that
+// names an identifier verbatim is joined to the document that identifier belongs
+// to. The edge lives only in the derived projection — reloading the generation
+// rebuilds the graph without it — so this adds no meaning to the store and nothing
+// here merges, relabels or rewrites a node. The caller supplies the identifier map
+// because reading a document's facts is the APP's job, not the database's; every
+// target must be a document this view's own manifest holds, so the database is
+// never asked to point at something the generation does not contain.
+//
+// `apply: false` is a read: the worker returns the candidates and writes nothing.
+export async function linkExplicitReferences({ view, binding, identifiers, rule = EXPLICIT_LINK_RULES[0],
+  apply = false, runWorker = runGraphragWorker } = {}) {
+  const bound = validateGraphBinding(binding);
+  if (bound.neo4j === null) return Object.freeze({ status: 'not_connected', code: 'graph_database_not_connected' });
+  if (!EXPLICIT_LINK_RULES.includes(rule)) fail('graph_link_rule_unknown');
+  if (typeof apply !== 'boolean') fail('graph_link_request_invalid');
+  if (identifiers === null || typeof identifiers !== 'object' || Array.isArray(identifiers)) fail('graph_link_identifiers_invalid');
+  const entries = Object.entries(identifiers);
+  if (entries.length === 0 || entries.length > MAX_LINK_IDENTIFIERS) fail('graph_link_identifiers_invalid');
+  view.assertCurrent();
+  const { manifest } = view;
+  const held = new Set(manifest.documents.map(row => row.doc_key));
+  for (const [token, docKey] of entries) {
+    if (typeof token !== 'string' || !token || typeof docKey !== 'string' || !held.has(docKey)) {
+      fail('graph_link_identifiers_invalid');
+    }
+  }
+  const output = await callWorker({ bound, runWorker, request: { operation: 'link_explicit_refs', neo4j: bound.neo4j,
+    project_key: manifest.project_key, generation_id: manifest.generation_id, rule,
+    identifiers: Object.fromEntries(entries), apply } });
+  view.assertCurrent();
+  if (output.status === 'not_loaded') {
+    return Object.freeze({ status: 'not_loaded', code: String(output.code ?? 'generation_not_materialized'),
+      rule, generation_id: manifest.generation_id, applied: false, edges: [] });
+  }
+  if (output.status !== 'ok') fail(String(output.code ?? 'graph_link_failed'));
+  const edges = (Array.isArray(output.edges) ? output.edges : []).map(row => ({ token: row.token,
+    source_unit_id: row.source_unit_id, source_doc_key: row.source_doc_key, target_doc_key: row.target_doc_key }));
+  return Object.freeze({ status: 'ok', rule, applied: output.applied === true,
+    relationship: output.relationship ?? null, generation_id: manifest.generation_id,
+    project_key: manifest.project_key, counts: output.counts ?? null, edges });
 }
 
 // A search bound to one view: project, generation and endpoints are fixed here, so

@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2026-09-13 - 명시적 식별자 참조로 청크를 건너는 근거 연결, 그리고 그 간선을 따라가는 graph 확장
+
+- `context_engine/src/workers/graphrag_worker.py`: operation `link_explicit_refs`(신규). 규칙 하나(`L1-linear-identifier`)로
+  같은 세대·과제의 `__Entity__` 노드 중 `name`이 `^SON-\d+$`에 정확히 일치하고 그 식별자가 같은 세대의 어떤 문서 식별자와 같은 것을 찾아
+  `(대상)-[:REFERS_TO {sf_rule, sf_token, sf_source_unit_id, sf_source_doc_key, sf_generation, sf_project, sf_claim_state:'observed'}]->(:Document)`
+  를 MERGE한다. 자기 문서 참조는 제외하고, 후보 판정은 순수 함수(`link_candidates`)가 정규식·자기참조·세대/과제 일치를 모두 다시 본다.
+  `apply:false`는 후보만 돌려주고 아무것도 쓰지 않으며, 재실행은 같은 간선 하나를 유지한다(생성 0). **노드는 병합·재라벨·수정하지 않는다** —
+  설치본 resolver 3종(`SinglePropertyExactMatchResolver`·`FuzzyMatchResolver`·`SpaCySemanticMatchResolver`)은 이름이 같은 노드를
+  `apoc.refactor.mergeNodes`로 합쳐 청크별 `sf_unit_id`·`sf_doc_key` 출처를 뭉개므로 쓰지 않는다. 식별자 지도는 문서 `facts`에서 APP이 읽어 넘긴다.
+- `context_engine/src/runtime/graph_database.mjs`: `linkExplicitReferences({ view, binding, identifiers, rule, apply })`(신규).
+  규칙 이름은 `EXPLICIT_LINK_RULES`에 있는 것만, 대상 문서는 이 view의 manifest가 가진 문서만 받는다(아니면 데이터베이스에 가기 전에 거부).
+- `GRAPH_EXPANSION_QUERY`에 경로 하나 추가: 씨앗 청크의 대상이 `REFERS_TO`로 가리키는 문서의 청크까지(같은 세대). 유입 청크는 `seed=false`,
+  점수는 씨앗 점수를 물려받고 `ORDER BY seed DESC, score DESC, sf_unit_id`로 뒤에 온다. 같은 청크가 씨앗이면서 유입이기도 할 수 있으므로
+  청크 하나가 한 행이 되도록 묶었고(`max(score)`·어느 씨앗이든 자기 자신이면 seed), `seed` 판정은 단위 id만이 아니라 **(문서, 단위)** 쌍으로 한다
+  (단위 id는 문서마다 되풀이되므로 `u0001`끼리 씨앗으로 잘못 표시될 수 있었다).
+- 간선은 Neo4j 파생 투영에만 있다. 세대 파일·포인터·manifest·binding은 바뀌지 않고, 세대를 다시 적재하면 간선은 사라지며 같은 호출로 다시 만든다.
+- 시험 2건 추가(가짜 DB worker: 식별자 지도·규칙·세대를 그대로 전달하고 결과를 그대로 돌려주는 계약과 모르는 규칙·세대 밖 대상 거부, 그리고
+  확장으로 들어온 `seed:false` 행도 manifest에 있는 단위만 admitted로 세는 기존 규칙). 모듈 0.18.3.
+  검증: context-engine 270 / 263 pass / 0 fail / 7 skip(opt-in), path-registry 42/42, path-policy 0.
+
 ## 2026-09-13 - null 속성 하나로 청크 답을 통째로 잃지 않고, 맥락이가 OpenAI 호환 로컬 서버에 붙는다
 
 - `context_engine/src/workers/graphrag_worker.py`: `drop_null_properties`(신규) — 모델 답을 도구에 넘기기 전에 `nodes`·`relationships`의

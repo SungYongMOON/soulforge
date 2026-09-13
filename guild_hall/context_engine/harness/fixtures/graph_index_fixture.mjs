@@ -122,16 +122,32 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
 }
 
 
-// Canned graph database: answers materialize and retrieve without a server. It
+// Canned graph database: answers materialize, retrieve and link without a server. It
 // keeps the generation it was told to load so a repeat reports loaded=false, the
 // way a real database reports a generation it already holds, and answers a search
 // with the rows the caller hands it (a row outside the generation included, so the
 // caller's own admission can be tested).
-export function cannedGraphDatabaseWorker({ hits = [], loaded = null } = {}) {
-  const calls = { materialize: 0, retrieve: 0, modes: [], requests: [] };
+export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = [] } = {}) {
+  const calls = { materialize: 0, retrieve: 0, link: 0, modes: [], requests: [] };
   const held = new Set(loaded === null ? [] : [loaded]);
   async function runWorker({ request }) {
     calls.requests.push(request);
+    // An explicit-reference link: the canned database reports the edges it was
+    // handed, and creates them only when the request says to apply.
+    if (request.operation === 'link_explicit_refs') {
+      calls.link++;
+      if (!held.has(request.generation_id)) {
+        return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+          output: { status: 'not_loaded', code: 'generation_not_materialized', edges: [], applied: false,
+            generations_present: [...held] } };
+      }
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+        output: { status: 'ok', rule: request.rule, relationship: 'REFERS_TO', applied: request.apply === true,
+          project_key: request.project_key, generation_id: request.generation_id,
+          counts: { identifiers: Object.keys(request.identifiers ?? {}).length, scanned: edges.length,
+            candidates: edges.length, created: request.apply === true ? edges.length : 0, existing: 0 },
+          edges } };
+    }
     if (request.operation === 'materialize') {
       calls.materialize++;
       if (held.has(request.generation_id)) {

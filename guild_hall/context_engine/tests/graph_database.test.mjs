@@ -12,7 +12,7 @@ import { cannedGraphDatabaseWorker as cannedDatabase, cannedGraphWorker as canne
   INDEX_NOW as NOW, makeGraphIndexStore as makeStore, READER_REQUEST as reader } from '../harness/fixtures/graph_index_fixture.mjs';
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { validateAllowedModelHosts, validateGraphBinding, validateNeo4jBinding } from '../src/runtime/graph_extraction.mjs';
-import { createGraphSearch, materializeGraphIndex } from '../src/runtime/graph_database.mjs';
+import { createGraphSearch, linkExplicitReferences, materializeGraphIndex } from '../src/runtime/graph_database.mjs';
 import { createGraphIndexRetriever } from '../src/runtime/graph_index_retrieval.mjs';
 
 const code = fn => { try { fn(); return null; } catch (error) { return error.code; } };
@@ -184,6 +184,66 @@ test('vector, hybrid and graph search return only units this generation holds', 
   assert.deepEqual(database.calls.modes, ['vector', 'hybrid', 'graph']);
   assert.ok(database.calls.requests.every(request => request.generation_id === 'g1'),
     'every search is pinned to the generation the view selected');
+});
+
+test('an explicit-reference link carries the identifier map, the rule and the generation, and answers with the edges', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const [first, second] = current.manifest.documents.map(row => row.doc_key);
+  const identifiers = { 'SON-84': first, 'SON-92': second };
+  const edge = { token: 'SON-92', source_unit_id: 'u0004', source_doc_key: first, target_doc_key: second };
+  const database = cannedDatabase({ loaded: 'g1', edges: [edge] });
+
+  const dry = await linkExplicitReferences({ view: current, binding: current.graph_binding, identifiers,
+    runWorker: database.runWorker });
+  assert.deepEqual({ status: dry.status, applied: dry.applied, rule: dry.rule, generation: dry.generation_id },
+    { status: 'ok', applied: false, rule: 'L1-linear-identifier', generation: 'g1' });
+  assert.deepEqual(dry.edges, [edge], 'the candidate rows come back as the worker reported them');
+  assert.equal(dry.counts.created, 0, 'a dry run creates nothing');
+
+  const applied = await linkExplicitReferences({ view: view(), binding: current.graph_binding, identifiers,
+    apply: true, runWorker: database.runWorker });
+  assert.equal(applied.applied, true);
+  assert.equal(applied.counts.created, 1);
+
+  // What left the APP: the same map, the rule, the view's own generation and project.
+  const sent = database.calls.requests.filter(request => request.operation === 'link_explicit_refs');
+  assert.equal(sent.length, 2);
+  assert.deepEqual(sent.map(request => request.apply), [false, true]);
+  for (const request of sent) {
+    assert.deepEqual(request.identifiers, identifiers);
+    assert.equal(request.rule, 'L1-linear-identifier');
+    assert.equal(request.generation_id, 'g1');
+    assert.equal(request.project_key, current.manifest.project_key);
+  }
+
+  // A target the generation does not hold is refused before the database is asked.
+  const absent = 'sha256:' + 'b'.repeat(64);
+  await assert.rejects(linkExplicitReferences({ view: view(), binding: current.graph_binding,
+    identifiers: { 'SON-84': absent }, runWorker: database.runWorker }), error => error.code === 'graph_link_identifiers_invalid');
+  await assert.rejects(linkExplicitReferences({ view: view(), binding: current.graph_binding, identifiers,
+    rule: 'L9-name-similarity', runWorker: database.runWorker }), error => error.code === 'graph_link_rule_unknown');
+  assert.equal(database.calls.link, 2, 'only the two well-formed requests were sent');
+});
+
+test('a graph row the expansion reached is admitted like any other, and only if this generation holds it', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const [seed, reached] = unitRows(current, 2);
+  // What a real expansion returns: the seed, a chunk reached over a link, and a
+  // row for a unit outside this generation. The seed flag does not change admission.
+  const rows = [{ ...seed, seed: true }, { ...reached, seed: false },
+    { sf_doc_key: 'sha256:' + 'c'.repeat(64), sf_unit_id: 'u-not-here', score: 0.4, seed: false }];
+  const database = cannedDatabase({ hits: rows, loaded: 'g1' });
+  const retriever = createGraphIndexRetriever(current, { runWorker: database.runWorker });
+
+  const result = await retriever.graph('전원 조건', 5);
+  assert.equal(result.status, 'ok');
+  assert.deepEqual(result.receipt, { mode: 'graph', requested_top_k: 5, returned: 3, admitted: 2,
+    not_in_generation: 1, dropped_out_of_generation: 0 }, 'a reached row counts as admitted; the foreign one does not');
+  assert.deepEqual(result.hits.map(row => row.seed), [true, false]);
+  // The reached row is evidence with the same provenance as the seed, not a weaker one.
+  for (const row of result.hits) assert.ok(row.text && row.unit_id && row.item_id && row.revision_sha256);
 });
 
 test('a search before the generation is loaded reports that, and a bad request never reaches the database', async () => {
