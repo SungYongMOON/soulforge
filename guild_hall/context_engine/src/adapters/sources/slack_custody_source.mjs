@@ -10,7 +10,8 @@ import { createHash } from 'node:crypto';
 import { openSourceRoot, SourceReadError } from './guarded_files.mjs';
 import { buildSourceDocument, SourceDocumentError } from '../../runtime/source_documents.mjs';
 
-export const SLACK_SOURCE_ADAPTER = 'slack-custody-v1';
+// v2: the locator digest key is raw_sha256 (a revision anchor); v1 documents keep their keys.
+export const SLACK_SOURCE_ADAPTER = 'slack-custody-v2';
 export const SLACK_STATE_PATH = Object.freeze(['state', 'slack-continuous.json']);
 const MAX_STATE_BYTES = 64 * 1024 * 1024;
 const MAX_RAW_BYTES = 4 * 1024 * 1024;

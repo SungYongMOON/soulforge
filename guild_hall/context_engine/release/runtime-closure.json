@@ -93,7 +93,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
-      "sha256": "2029e35297ac72589a9e48b888da1d0b5e423d6675c70a1ef39ca8e1c9b2c219"
+      "sha256": "9c23681fd80f9692381c6c73d4772320f774766fc34483f8b7fa72ee1b4ea287"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "2ad522d4cb0ed4ed6122b739148e3ceec839ba85e6e8d98931eb8abb81fed2d1",
+  "closure_sha256": "2ba568feb10f8f99045cb0bb0a726a8d4c0343de2e32a8f39eb56004359a6a61",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

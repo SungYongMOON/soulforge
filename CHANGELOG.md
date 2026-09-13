@@ -2,6 +2,7 @@
 
 ## 2026-09-13 - Slack 문서의 locator가 판본에 닻을 내리고, 본문 없는 메시지는 규칙으로 거부된다
 
+- 어댑터 프로필을 `slack-custody-v2`로 올렸다: locator 바이트가 바뀌었으므로 같은 문서 키로 create-only 참조를 덮어쓰지 않고 새 키를 받는다(003 세대의 v1 참조는 그대로).
 - 실제 채널 첫 실행에서 두 가지가 드러났다. (1) slack locator의 digest 키 이름이 검증기의 앵커 규칙(`*_sha256`)에 안 걸려 일관성 검증이
   `locator_anchors_no_revision`으로 실패 → `raw_sha256`으로 바꾸고 시험에 일관성 검증을 추가. (2) 본문이 비고 답글도 없는 파일 공유 메시지 6건이
   `source_document_bounds`로 실패 → 어댑터가 `refused / slack_message_without_text`로 사유를 말한다(문서를 지어내지 않음).
