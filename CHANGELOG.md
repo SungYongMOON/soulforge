@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-09-13 - 원문 대조 v2: 정확한 판본 대조, 이력 값 비교, NOT_RUN 비은폐, 본문 분할, 파일 공유 메타
+
+- 재검토 지적 5건 반영. rollup에서 not_run이 pass에 묻히지 않음. Linear 이력의 변경값 자체를 비교(`history_values_preserved`). 댓글·이력·Slack 답글은 기록된 정확한 판본과
+  대조하고 이후 추가분은 later input change로 분리. 메일 긴 본문은 단위 상한 안에서 순서 있는 chunk로 분할(mail-event-v2). Slack 파일 공유는 저장 메타를 file_share 단위로 보존하고
+  첨부 본문 미처리를 fact로 표시(slack-custody-v3). 정책 보류는 그대로.
+- 실행기 `recheckGeneration`(같은 결과에 새 보고서). 준비기 0.4.0, 검사기 0.2.0, 모듈 0.17.0. 검증: context-engine 264 / 257 pass / 0 fail / 7 skip, path-registry 42/42, path-policy 0.
 ## 2026-09-13 - Slack 문서의 locator가 판본에 닻을 내리고, 본문 없는 메시지는 규칙으로 거부된다
 
 - 어댑터 프로필을 `slack-custody-v2`로 올렸다: locator 바이트가 바뀌었으므로 같은 문서 키로 create-only 참조를 덮어쓰지 않고 새 키를 받는다(003 세대의 v1 참조는 그대로).

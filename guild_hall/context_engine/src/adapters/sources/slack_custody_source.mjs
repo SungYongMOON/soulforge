@@ -11,7 +11,8 @@ import { openSourceRoot, SourceReadError } from './guarded_files.mjs';
 import { buildSourceDocument, SourceDocumentError } from '../../runtime/source_documents.mjs';
 
 // v2: the locator digest key is raw_sha256 (a revision anchor); v1 documents keep their keys.
-export const SLACK_SOURCE_ADAPTER = 'slack-custody-v2';
+// v3: a text-less file share keeps its stored file metadata as a file_share unit (no body invented).
+export const SLACK_SOURCE_ADAPTER = 'slack-custody-v3';
 export const SLACK_STATE_PATH = Object.freeze(['state', 'slack-continuous.json']);
 const MAX_STATE_BYTES = 64 * 1024 * 1024;
 const MAX_RAW_BYTES = 4 * 1024 * 1024;
@@ -61,11 +62,24 @@ export async function readRawEvents(root, rawDigests) {
 const latestRevision = revisions => [...revisions].sort((a, b) => String(a.revision_ts ?? '').localeCompare(String(b.revision_ts ?? ''))
   || a.revision_ref.localeCompare(b.revision_ref)).at(-1);
 
+/** The stored metadata of a file share, one line per file, in pointer order. Nothing beyond what custody holds. */
+export function fileShareText(pointers) {
+  return pointers.map(pointer => `file ${pointer.file_id ?? '-'} | ${pointer.mime_type ?? '-'} | ${pointer.size_bytes ?? '-'} bytes | ${pointer.content_sha256}`).join('\n');
+}
+
 function documentFor({ admitted, source, item, root: rootRev, rootRaw, replies, held }) {
   const locator = { channel_id: rootRev.channel_id, message_ts: rootRev.message_ts, revision_ref: rootRev.revision_ref, raw_sha256: rootRaw.digest };
+  const messageText = String(rootRaw.raw.text ?? '');
+  const rootPointers = rootRev.attachment_pointers.filter(pointer => plain(pointer) && SHA_HEX.test(pointer.content_sha256 ?? ''));
   const units = [
-    { unit_kind: 'message', locator: { ...locator, part: 'text' }, text: String(rootRaw.raw.text ?? ''),
-      occurred_at: slackTsToIso(rootRev.message_ts), speaker_ref: speaker(rootRev.actor?.slack_user_id ?? rootRaw.raw.user) },
+    // A message with text is its text. A file share without text is not given a
+    // body: its unit is the stored file metadata (id, type, size, digest), stated
+    // as such, so the message keeps its place and its references without a word
+    // being invented. The attachment bytes themselves are not processed here.
+    ...(messageText.trim() ? [{ unit_kind: 'message', locator: { ...locator, part: 'text' }, text: messageText,
+      occurred_at: slackTsToIso(rootRev.message_ts), speaker_ref: speaker(rootRev.actor?.slack_user_id ?? rootRaw.raw.user) }]
+      : [{ unit_kind: 'file_share', locator: { ...locator, part: 'files' }, text: fileShareText(rootPointers),
+        occurred_at: slackTsToIso(rootRev.message_ts), speaker_ref: speaker(rootRev.actor?.slack_user_id ?? rootRaw.raw.user) }]),
     ...replies.map(({ rev, rawEntry }) => ({ unit_kind: 'reply',
       locator: { channel_id: rev.channel_id, message_ts: rev.message_ts, thread_ts: rev.thread_ts, revision_ref: rev.revision_ref, raw_sha256: rawEntry.digest, part: 'text' },
       text: String(rawEntry.raw.text ?? ''), occurred_at: slackTsToIso(rev.message_ts), speaker_ref: speaker(rev.actor?.slack_user_id ?? rawEntry.raw.user) })),
@@ -86,10 +100,13 @@ function documentFor({ admitted, source, item, root: rootRev, rootRaw, replies, 
     { name: 'slack.edited', value: rootRaw.raw.edited ? true : false, at },
     { name: 'slack.reaction_count', value: Array.isArray(rootRaw.raw.reactions) ? rootRaw.raw.reactions.length : 0, at },
     { name: 'slack.channel_held_events', value: held, at: null },
+    // Stated on every document: attachment bytes are referenced by digest, never read or extracted here.
+    { name: 'slack.attachment_bodies_processed', value: false, at: null },
+    { name: 'slack.message_has_text', value: messageText.trim().length > 0, at: null },
   ];
   return buildSourceDocument({ admitted, sourceKind: 'slack', rootRef: source.root_ref, item,
     adapterProfile: SLACK_SOURCE_ADAPTER, primaryRevisionSha256: rootRaw.digest, components,
-    title: String(rootRaw.raw.text ?? '').split('\n')[0] || `slack message ${rootRev.message_ts}`,
+    title: messageText.split('\n')[0] || `slack file share ${rootRev.message_ts}`,
     validAt: at, knownAt: null, timeBasis: 'slack_message_ts', facts, units });
 }
 
@@ -120,10 +137,11 @@ export async function readSlackSourceDocuments({ admitted, source, rootPath }) {
         .sort((a, b) => a.message_ts.localeCompare(b.message_ts))
         .map(rev => ({ rev, rawEntry: (rawByTs.get(rev.message_ts) ?? []).at(-1) }))
         .filter(entry => entry.rawEntry);
-      // A message with no text and no reply text (a file share alone) has nothing
-      // a document can carry: refused by rule, not invented and not failed.
-      if (!String(rootRaw.raw.text ?? '').trim() && !replies.some(r => String(r.rawEntry.raw.text ?? '').trim())) {
-        outcome(item, 'refused', { code: 'slack_message_without_text' }); continue;
+      // A message with no text, no reply text and no stored attachment pointer has
+      // nothing a document can carry: refused by rule, not invented and not failed.
+      const anyPointer = rootRev.attachment_pointers.some(pointer => plain(pointer) && SHA_HEX.test(pointer.content_sha256 ?? ''));
+      if (!String(rootRaw.raw.text ?? '').trim() && !anyPointer && !replies.some(r => String(r.rawEntry.raw.text ?? '').trim())) {
+        outcome(item, 'refused', { code: 'slack_message_without_content' }); continue;
       }
       const document = documentFor({ admitted, source, item, root: rootRev, rootRaw, replies, held });
       documents.push(document);

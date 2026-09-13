@@ -88,7 +88,7 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
   if (appended.generation_sha256 !== landed.generation_sha256) fail('preparation_flow_generation_moved');
   // 6. compare the stored documents with their originals, and append that too
   const sourceCheck = await checkDocumentsAgainstOriginals({ documents: back.documents, grant: { ...grant, project_key: back.manifest.project_key },
-    roots: binding.source_roots, checkRunId: `${validationRunId}-src`, checkedAt: clock().toISOString() });
+    roots: binding.source_roots, checkRunId: `${validationRunId}-src`, checkedAt: clock().toISOString(), preparedAt: back.manifest.run.ended_at });
   const checkAppended = await appendSourceCheckReport({ ...storeArgs, generationId: runId, report: sourceCheck });
   if (checkAppended.generation_sha256 !== landed.generation_sha256) fail('preparation_flow_generation_moved');
   const unprepared = preparation.coverage.items.filter(row => row.status !== 'prepared')
@@ -114,6 +114,40 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
     },
     not_done: ['current pointer', 'graph index', 'neo4j'],
   });
+}
+
+/**
+ * Re-checks one generation already in the store against its originals and
+ * appends a new source-check report beside it. The generation is not rewritten:
+ * a validator that changed adds a report to the same result. The grant is the
+ * one the generation's manifest recorded, read back by its address and digest.
+ */
+export async function recheckGeneration({ io = null, storeRoot = null, bindingSha256, bindingAddress = PREPARATION_STORE_BINDING_FILE,
+  request, generationId, checkRunId, now, clock = () => new Date(now), grantAddress = null, grantSha256 = null } = {}) {
+  if (io === null && typeof storeRoot !== 'string') fail('preparation_flow_store_required');
+  if (!SHA.test(bindingSha256 ?? '') || !safeStoreRel(bindingAddress)) fail('preparation_flow_binding_invalid');
+  if (typeof generationId !== 'string' || typeof checkRunId !== 'string') fail('preparation_flow_ids_invalid');
+  const reader = io ?? rootedStore(storeRoot);
+  const bindingBytes = reader.read(bindingAddress);
+  if (digest(bindingBytes) !== bindingSha256) fail('preparation_flow_binding_mismatch');
+  const binding = JSON.parse(bindingBytes);
+  const grantRef = grantAddress === null ? binding?.grant : { path: grantAddress, sha256: grantSha256 };
+  if (!safeStoreRel(grantRef?.path) || !SHA.test(grantRef?.sha256 ?? '')) fail('preparation_flow_grant_ref_invalid');
+  const grantBytes = reader.read(grantRef.path);
+  if (digest(grantBytes) !== grantRef.sha256) fail('preparation_flow_grant_mismatch');
+  const grant = JSON.parse(grantBytes);
+  const storeArgs = { io, storeRoot, bindingSha256, bindingAddress, request };
+  const back = await readPreparationGeneration({ ...storeArgs, generationId });
+  // The generation must have been prepared under this exact grant.
+  if (back.manifest.grant.grant_sha256 !== grantRef.sha256) fail('preparation_flow_grant_mismatch');
+  const sourceCheck = await checkDocumentsAgainstOriginals({ documents: back.documents, grant: { ...grant, project_key: back.manifest.project_key },
+    roots: binding.source_roots, checkRunId, checkedAt: clock().toISOString(), preparedAt: back.manifest.run.ended_at });
+  const appended = await appendSourceCheckReport({ ...storeArgs, generationId, report: sourceCheck });
+  if (appended.generation_sha256 !== back.manifest.generation_sha256) fail('preparation_flow_generation_moved');
+  return Object.freeze({ schema_version: PREPARATION_FLOW_SCHEMA, mode: 'recheck', generation_id: generationId,
+    generation_sha256: back.manifest.generation_sha256, grant: { path: grantRef.path, sha256: grantRef.sha256 },
+    source_check: { check_run_id: checkRunId, outcome: sourceCheck.outcome, counts: sourceCheck.counts, report_sha256: sourceCheck.report_sha256,
+      checker: { id: sourceCheck.checker_id, version: sourceCheck.checker_version }, appended: appended.status, report: appended.report } });
 }
 
 /**
@@ -174,6 +208,13 @@ async function main() {
   const tablePath = options['--root-table'], tableSha = options['--root-table-sha256'];
   const request = JSON.parse(options['--request-json'] ?? 'null');
   const io = createAliasedStoreIo(readRootTable({ tablePath, expectedSha256: tableSha }));
+  if (options['--recheck']) {
+    const receipt = await recheckGeneration({ io, bindingAddress: options['--binding-address'], bindingSha256: options['--binding-sha256'],
+      request, generationId: options['--recheck'], checkRunId: options['--check-run-id'] ?? `${options['--recheck']}-recheck-${now.replace(/[-:.]/gu, '').slice(0, 15)}`,
+      now, grantAddress: options['--grant-address'] ?? null, grantSha256: options['--grant-sha256'] ?? null });
+    process.stdout.write(`${JSON.stringify({ mode: 'estate', ...receipt })}\n`);
+    return 0;
+  }
   const receipt = await runPreparationFlow({ io, bindingAddress: options['--binding-address'],
     bindingSha256: options['--binding-sha256'], request, runId, validationRunId, now,
     grantAddress: options['--grant-address'] ?? null, grantSha256: options['--grant-sha256'] ?? null,

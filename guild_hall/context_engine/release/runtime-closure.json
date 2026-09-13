@@ -89,11 +89,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/mail_event_source.mjs",
-      "sha256": "469a1a87df196ac0a0db4654e76c2bd955248c9001e3b9280b0e82f40223ea66"
+      "sha256": "b1e5d4ae0e237939986847f6974af844396c3706b21e4c6d21566a7cb75fd1a7"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
-      "sha256": "9c23681fd80f9692381c6c73d4772320f774766fc34483f8b7fa72ee1b4ea287"
+      "sha256": "268071aeea0d5686b04c4b7045c7510a84344f7b890de7ba0e86877b88fc76b6"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
@@ -153,7 +153,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
-      "sha256": "f9d91cc4b17a756ea390dd2eeab62f6bf07fcaee5d538120036a994b6b9db96a"
+      "sha256": "5a5882627222aaedfdbc76f7f6ffcb67444efbd52bde40949b5e9dc0dbef2179"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
@@ -177,7 +177,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
-      "sha256": "06b52c7cff870343745dd7657f5834e7b967c3a1237ae53792625c6801b477ab"
+      "sha256": "9cf50c3d01c4b333e7a2e9b5b3b1776ea7c3d469d799e1ac96d2ec2690057581"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "2ba568feb10f8f99045cb0bb0a726a8d4c0343de2e32a8f39eb56004359a6a61",
+  "closure_sha256": "0cc6387120e2ffe62dbbbb1c8ddf601bef8c5ca6b46385c16c12658e79b5102a",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

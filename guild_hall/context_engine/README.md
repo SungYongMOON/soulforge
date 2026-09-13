@@ -208,6 +208,19 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
 - 시험: `tests/preparation_store_review.test.mjs`(REV-A1~A3, B1~B2, C1~C2, D). 검토자가 보낸 probe를 그대로 들여왔고,
   수정 전 1e594af2에서는 8건 중 7건이 실패(REV-D만 통과)했다.
 - 여전히 아님: 서명. manifest·run·report digest는 자기 일관성 검사이지 생산자 인증이 아니다.
+## 원문 대조 v2 — 정확한 판본, 값 대조, NOT_RUN은 PASS가 아니다 (0.17.0)
+
+- 판정: 문서·전체 rollup은 fail > partial(부분 보존 또는 검사 미실행이 하나라도 있음) > not_run(아무것도 안 돌음) > pass. 검사기 없는 kind나 안 돈 검사는 절대 pass에 묻히지 않는다.
+- 정확한 판본: 댓글·이력·Slack 답글은 단위 locator가 기록한 그 판본(revision_sha256 / raw_sha256)과 대조한다. custody가 준비 시각(`prepared_at`, run의 ended_at) 뒤에 얻은 항목은
+  "later input change"로 exclusions에 적고 결함으로 세지 않는다. 준비 시각을 모르면 모두 누락으로 본다(더 엄격한 쪽).
+- Linear 이력 값: history id·시각뿐 아니라 raw 항목에서 독립 도출한 변경값 조각(state 이름/id, title, assignee, due_date, priority, estimate, project, parent, team, cycle, labels, relations, flags)이
+  렌더된 텍스트에 있는지 본다(`history_values_preserved`). 보고서 `scope.compared`·`scope.not_compared`에 비교한 것과 안 한 것을 적는다.
+- 메일 본문 분할(mail-event-v2): 단위 상한(20,000자)을 넘는 본문·인용은 줄 경계에서 순서 있는 chunk로 나눠 담는다(locator chunk/chunks). 검사기는 chunk를 순서대로 이어 원문과 대조하고
+  `order_preserved`로 순서·본문/인용 구분을 본다.
+- Slack 파일 공유(slack-custody-v3): 본문 없는 메시지는 본문을 만들지 않고 저장된 파일 메타(id·type·size·digest)를 `file_share` 단위로 담는다. 모든 Slack 문서에
+  `slack.attachment_bodies_processed=false`를 적는다. 본문도 포인터도 없는 메시지만 `refused / slack_message_without_content`.
+- 실행기 `recheckGeneration`·CLI `--recheck <세대>`: 저장된 세대를 그대로 두고 새 검사 보고서만 옆에 추가한다(검증만 바뀐 경우). 준비 결과가 바뀌는 항목은 새 세대.
+- 준비기 0.4.0, 검사기 0.2.0(정책 source-original-check-v2). 시험 3건 추가.
 ## Slack 채널 custody 어댑터 (0.16.0)
 
 `src/adapters/sources/slack_custody_source.mjs`(`slack-custody-v1`): Slack history lane의 채널 custody(`state/slack-continuous.json`의 revisions·custody_receipts,

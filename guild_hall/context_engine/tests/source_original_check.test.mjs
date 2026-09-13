@@ -18,7 +18,7 @@ import { LINEAR_ROOT_REF, syntheticLinearCustody } from '../harness/fixtures/lin
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
 import { REAL_DATA_ADMISSION_SCHEMA, validateRealDataAdmission } from '../src/runtime/real_data_admission.mjs';
-import { checkDocumentsAgainstOriginals, SOURCE_CHECK_SCHEMA, CHECKER_ID } from '../src/runtime/source_original_check.mjs';
+import { checkDocumentsAgainstOriginals, SOURCE_CHECK_SCHEMA, CHECKER_ID, rollup } from '../src/runtime/source_original_check.mjs';
 import { totalDigest } from '../src/runtime/preparation_run.mjs';
 import { validatePreparationRun } from '../src/runtime/preparation_validation.mjs';
 import { exactRefIdentityKey } from '../../engineering_engine/core/validators/identity.mjs';
@@ -119,7 +119,7 @@ test('mail documents are checked against their raw rows: fields, body, attachmen
   assert.equal(report.counts.pass, 3);
   const byItem = id => report.documents.find(d => d.item_id === id);
   const ids = d => d.checks.map(c => c.id);
-  assert.deepEqual(ids(byItem('hw-0001')), ['original_found', 'locator_valid', 'fields_preserved', 'body_preserved', 'attachments_preserved', 'time_preserved', 'relations_preserved']);
+  assert.deepEqual(ids(byItem('hw-0001')), ['original_found', 'locator_valid', 'fields_preserved', 'body_preserved', 'order_preserved', 'attachments_preserved', 'time_preserved', 'relations_preserved']);
   assert.ok(byItem('hw-0001').exclusions.some(e => e.includes('attachment bodies')));
   assert.ok(byItem('hw-0002').exclusions.some(e => e.includes('HTML')));
   assert.ok(byItem('hw-0003').exclusions.some(e => e.includes('appears 2 times')));
@@ -152,8 +152,8 @@ test('Linear documents are checked against custody: title, description, every co
     roots: x.roots, checkRunId: 'check-linear-1', checkedAt: NOW });
   assert.equal(report.outcome, 'pass', JSON.stringify(report.documents.map(d => d.checks), null, 1));
   const first = report.documents[0];
-  assert.deepEqual(first.checks.map(c => c.id), ['original_found', 'locator_valid', 'fields_preserved', 'comments_preserved', 'history_preserved', 'time_preserved', 'relations_preserved']);
-  assert.ok(first.exclusions.some(e => e.includes('history entries are rendered')));
+  assert.deepEqual(first.checks.map(c => c.id), ['original_found', 'locator_valid', 'fields_preserved', 'comments_preserved', 'history_preserved', 'history_values_preserved', 'time_preserved', 'relations_preserved']);
+  assert.ok(first.exclusions.some(e => e.includes('history is compared as rendered text')));
   // Dropping a comment unit from the stored document is a finding against custody.
   const withComment = prepared.documents.find(d => d.units.some(u => u.unit_kind === 'comment'));
   assert.ok(withComment, 'fixture holds at least one commented issue');
@@ -234,6 +234,111 @@ test('Slack root messages prepare with their replies and attachments, and are ch
   await writeFile(path.join(s.root, 'raw', 'sha256', hex.slice(0, 2), `${hex}.json`), '{"ts":"1784697623.139789","text":"rewritten"}');
   const tampered = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: adm });
   assert.ok(tampered.coverage.items.every(row => row.status === 'failed' && row.code === 'slack_raw_digest_mismatch'));
+});
+
+test('a long mail body is split into ordered chunks within the unit bound, and nothing of the original is lost', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'ctx-check-mail-long-'));
+  const file = path.join(root, ...MAIL_FILE);
+  await mkdir(path.dirname(file), { recursive: true });
+  const line = '이 줄은 긴 본문의 한 줄이며 원문 순서를 지켜야 한다. ';
+  const longBody = Array.from({ length: 2200 }, (_, i) => `${String(i).padStart(4, '0')} ${line}`).join('\n');
+  assert.ok([...longBody].length > 20000 * 2);
+  await writeFile(file, JSON.stringify(mailRow('hw-long', '긴 메일', `${longBody}\n\n-----Original Message-----\n보낸 사람: 이전 담당\n지난 요청입니다.`)) + '\n');
+  const roots = { 'mail.check': root };
+  const g = grant('mail', 'mail.check', [item('hw-long', { path: MAIL_FILE })]);
+  const prepared = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: admission() });
+  const doc = prepared.documents[0];
+  const bodies = doc.units.filter(u => u.unit_kind === 'body');
+  assert.ok(bodies.length >= 3, `expected several body chunks, got ${bodies.length}`);
+  assert.ok(bodies.every(u => [...u.text].length <= 20000));
+  assert.deepEqual(bodies.map(u => u.locator.chunk), bodies.map((_, i) => i));
+  assert.ok(bodies.every(u => u.locator.chunks === bodies.length));
+  // Rejoined in order, the chunks are the original body; quoted history stays a separate unit after them.
+  assert.equal(bodies.map(u => u.text).join('\n').replace(/\s+/gu, ' ').trim(), longBody.replace(/\s+/gu, ' ').trim());
+  assert.equal(doc.units.at(-1).unit_kind, 'quoted');
+  const report = await checkDocumentsAgainstOriginals({ documents: prepared.documents, grant: { ...g, project_key: prepared.grant.project_key },
+    roots, checkRunId: 'check-long', checkedAt: NOW, preparedAt: NOW });
+  assert.equal(report.outcome, 'pass', JSON.stringify(report.documents[0].checks, null, 1));
+  assert.equal(report.documents[0].checks.find(c => c.id === 'body_preserved').outcome, 'pass');
+  assert.equal(report.documents[0].checks.find(c => c.id === 'order_preserved').outcome, 'pass');
+  // Chunks out of order are a finding.
+  const swapped = { ...doc, units: doc.units.map(u => u.unit_kind !== 'body' ? u : { ...u, locator: { ...u.locator, chunk: bodies.length - 1 - u.locator.chunk } }) };
+  const bad = await checkDocumentsAgainstOriginals({ documents: [swapped], grant: { ...g, project_key: prepared.grant.project_key },
+    roots, checkRunId: 'check-long-2', checkedAt: NOW, preparedAt: NOW });
+  assert.equal(bad.documents[0].checks.find(c => c.id === 'body_preserved').outcome, 'fail');
+});
+
+test('a Slack file share without text keeps stored file metadata as its unit, never an invented body', async () => {
+  const s = await slackRoot();
+  // Make the lone root message a text-less file share with one stored pointer.
+  const statePath = path.join(s.root, 'state', 'slack-continuous.json');
+  const state = JSON.parse(await readFile(statePath, 'utf8'));
+  const rev = state.revisions.find(r => r.message_ts === s.aloneTs);
+  const rawHex = state.custody_receipts.find(r => r.raw_ref.endsWith(rev.message_ref.slice('slack-msg:'.length))).raw_digest.slice('sha256:'.length);
+  const raw = JSON.parse(await readFile(path.join(s.root, 'raw', 'sha256', rawHex.slice(0, 2), `${rawHex}.json`), 'utf8'));
+  raw.text = ''; raw.files = [{ id: 'F0SYN00009' }];
+  const bytes = Buffer.from(JSON.stringify(raw)); const digest = sha(bytes.toString()).slice('sha256:'.length);
+  await mkdir(path.join(s.root, 'raw', 'sha256', digest.slice(0, 2)), { recursive: true });
+  await writeFile(path.join(s.root, 'raw', 'sha256', digest.slice(0, 2), `${digest}.json`), bytes);
+  rev.attachment_pointers = [{ content_sha256: sha('file-nine'), file_id: 'F0SYN00009', mime_type: 'application/pdf', pointer_ref: 'slack-file-sha256:y', size_bytes: 4321 }];
+  rev.revision_ref = `slack-rev:${digest}`; rev.message_ref = `slack-msg:${digest}`;
+  state.custody_receipts = state.custody_receipts.filter(r => !r.raw_digest.endsWith(rawHex)).concat([{ raw_digest: `sha256:${digest}`, raw_ref: `slack-raw:${digest}`, source_refs: [] }]);
+  await writeFile(statePath, JSON.stringify(state, null, 2));
+  const roots = { 'slack.check': s.root };
+  const g = grant('slack', 'slack.check', [item(s.aloneTs)]);
+  const prepared = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: admission({ source_refs: ['slack.check'] }) });
+  assert.equal(prepared.coverage.counts.prepared, 1);
+  const doc = prepared.documents[0];
+  assert.deepEqual(doc.units.map(u => u.unit_kind), ['file_share']);
+  assert.match(doc.units[0].text, /^file F0SYN00009 \| application\/pdf \| 4321 bytes \| sha256:/u);
+  assert.equal(doc.facts.find(f => f.name === 'slack.attachment_bodies_processed').value, false);
+  assert.equal(doc.facts.find(f => f.name === 'slack.message_has_text').value, false);
+  assert.equal(doc.components.filter(c => c.kind === 'attachment').length, 1);
+  const report = await checkDocumentsAgainstOriginals({ documents: prepared.documents, grant: { ...g, project_key: prepared.grant.project_key },
+    roots, checkRunId: 'check-fileshare', checkedAt: NOW, preparedAt: NOW });
+  assert.equal(report.outcome, 'pass', JSON.stringify(report.documents[0].checks, null, 1));
+  assert.ok(report.documents[0].exclusions.some(e => e.includes('file share without text')));
+  // A message with neither text nor stored pointers is refused, not invented.
+  rev.attachment_pointers = [];
+  await writeFile(statePath, JSON.stringify(state, null, 2));
+  const refused = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: admission({ source_refs: ['slack.check'] }) });
+  assert.deepEqual(refused.coverage.items.map(r => [r.status, r.code]), [['refused', 'slack_message_without_content']]);
+});
+
+test('Linear history values are compared, and a check that did not run never rolls up to pass', async () => {
+  const x = await syntheticLinearCustody();
+  const ids = [x.issue('SYN-1'), x.issue('SYN-3')];
+  const g = grant('linear', LINEAR_ROOT_REF, ids.map(id => item(id)));
+  const prepared = await prepareSourceDocuments({ grant: g, roots: x.roots, now: NOW, admission: admission() });
+  const withChange = prepared.documents.find(d => d.units.some(u => u.unit_kind === 'change' && !u.text.includes('without field differences')));
+  assert.ok(withChange, 'fixture holds a history entry with changed values');
+  const good = await checkDocumentsAgainstOriginals({ documents: prepared.documents, grant: { ...g, project_key: prepared.grant.project_key },
+    roots: x.roots, checkRunId: 'check-values-1', checkedAt: NOW, preparedAt: NOW });
+  const valuesCheck = good.documents.find(d => d.item_id === withChange.item_id).checks.find(c => c.id === 'history_values_preserved');
+  assert.equal(valuesCheck.outcome, 'pass');
+  assert.match(valuesCheck.detail, /^[1-9]\d* changed value/u);
+  // The same entry with one rendered value altered is a finding against the exact history revision.
+  const altered = prepared.documents.map(d => d !== withChange ? d : { ...d, units: d.units.map(u => u.unit_kind === 'change' && !u.text.includes('without field differences')
+    ? { ...u, text: u.text.replace(/->\s*\S+/u, '-> something-else') } : u) });
+  const bad = await checkDocumentsAgainstOriginals({ documents: altered, grant: { ...g, project_key: prepared.grant.project_key },
+    roots: x.roots, checkRunId: 'check-values-2', checkedAt: NOW, preparedAt: NOW });
+  assert.equal(bad.documents.find(d => d.item_id === withChange.item_id).checks.find(c => c.id === 'history_values_preserved').outcome, 'fail');
+  // Rollup: a document with one not_run check beside passes is partial, never pass; all not_run is not_run.
+  assert.equal(rollup([{ outcome: 'pass' }, { outcome: 'not_run' }]), 'partial');
+  assert.equal(rollup([{ outcome: 'not_run' }, { outcome: 'not_run' }]), 'not_run');
+  assert.equal(rollup([{ outcome: 'pass' }, { outcome: 'fail' }, { outcome: 'not_run' }]), 'fail');
+  assert.equal(rollup([{ outcome: 'pass' }, { outcome: 'pass' }]), 'pass');
+  // A comment added to custody after preparation is later input change, not a defect; before it, a missing comment is.
+  const withComment = prepared.documents.find(d => d.units.some(u => u.unit_kind === 'comment'));
+  const dropped = prepared.documents.map(d => d !== withComment ? d : { ...d, units: d.units.filter(u => u.unit_kind !== 'comment') });
+  const strict = await checkDocumentsAgainstOriginals({ documents: dropped, grant: { ...g, project_key: prepared.grant.project_key },
+    roots: x.roots, checkRunId: 'check-later-1', checkedAt: NOW, preparedAt: NOW });
+  assert.equal(strict.documents.find(d => d.item_id === withComment.item_id).checks.find(c => c.id === 'comments_preserved').outcome, 'fail');
+  const lenient = await checkDocumentsAgainstOriginals({ documents: dropped, grant: { ...g, project_key: prepared.grant.project_key },
+    roots: x.roots, checkRunId: 'check-later-2', checkedAt: NOW, preparedAt: '2000-01-01T00:00:00.000Z' });
+  const doc = lenient.documents.find(d => d.item_id === withComment.item_id);
+  assert.equal(doc.checks.find(c => c.id === 'comments_preserved').outcome, 'pass');
+  assert.ok(doc.exclusions.some(e => e.startsWith('later input change')));
 });
 
 test('a streamed, filtered read yields the same rows as a whole read and keeps its bounds', async () => {

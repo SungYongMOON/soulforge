@@ -29,10 +29,12 @@ export const PREPARER_ID = 'context-engine/source-preparer';
 // Deliberately independent of module_version: "the preparer changed" and "the
 // validator changed" must be separately visible, because only the first one
 // invalidates existing prepared bytes.
+// 0.4.0: mail bodies past the unit bound are chunked (mail-event-v2); Slack file shares keep
+// their stored file metadata as a unit (slack-custody-v3).
 // 0.3.0: Slack channel custody joins the source kinds (slack-custody-v1).
 // 0.2.0: the canonical hash now follows JSON persistence for -0, non-finite
 // numbers and lone-surrogate strings. Digests of ordinary values are unchanged.
-export const PREPARER_VERSION = '0.3.0';
+export const PREPARER_VERSION = '0.4.0';
 export const PREPARER_ENTRY = './source_preparation.mjs';
 
 export const ADAPTER_PROFILES = Object.freeze({ document: DOCUMENT_SOURCE_ADAPTER, linear: LINEAR_SOURCE_ADAPTER,
