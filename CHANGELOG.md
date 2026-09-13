@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-13 - 실자료 admission 게이트와 원문 대조 검사 (PV-2 원문 대조 구현)
+
+- `context_engine/src/runtime/real_data_admission.mjs`(신규): public_synthetic 밖 등급의 grant는 Owner 승인 admission 기록(과제·등급·source root·local_only 경계)
+  이 정확한 grant에 맞을 때만 준비된다. 없으면 전처럼 `real_source_preparation_not_admitted`. 검사 제거·synthetic 재라벨 우회를 대신하는 문.
+- `context_engine/src/runtime/source_original_check.mjs`(신규): 저장된 문서를 수집 원문과 필드·본문·댓글·이력·시각·locator 단위로 대조하고 의도적 제외를
+  exclusions로 적는다(메일·Linear). 준비기 재실행이 아니라 owner reader로 원문을 다시 읽는다. 검사기 없는 kind는 not_run.
+- 저장소 `appendSourceCheckReport`(세대 밖 append-only, digest·documents 결속), 실행기 6단계(원문 대조·보고서 추가), admission·grant 주소 인자.
+- 시험 6건 추가. 준비기 폐포 15 모듈(+admission). 검증: context-engine 259 / 252 pass / 0 fail / 7 skip, path-registry 42/42, path-policy 0. 모듈 0.15.0.
+- PV-2 표기 갱신: 일관성 검증 구현 + 원문 대조 구현(메일·Linear). 다른 kind의 원문 대조는 검사기 연결 전까지 not_run.
 ## 2026-09-13 - 합성 실행기의 실패 출력은 코드만 낸다
 
 - `harness/preparation_flow.mjs`: 실패 시 `error.message`를 내보내지 않는다. 호출한 모듈의 오류 코드(`[a-z][a-z0-9_]*`)만 통과시키고

@@ -208,6 +208,26 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
 - 시험: `tests/preparation_store_review.test.mjs`(REV-A1~A3, B1~B2, C1~C2, D). 검토자가 보낸 probe를 그대로 들여왔고,
   수정 전 1e594af2에서는 8건 중 7건이 실패(REV-D만 통과)했다.
 - 여전히 아님: 서명. manifest·run·report digest는 자기 일관성 검사이지 생산자 인증이 아니다.
+## 실자료 admission과 원문 대조 검사 (0.15.0)
+
+실자료 처리는 두 가지를 더 요구한다. 읽어도 되는가(admission), 그리고 읽은 것이 원문을 보존했는가(원문 대조).
+
+- `src/runtime/real_data_admission.mjs`: public_synthetic 밖의 자료등급을 담은 grant는 admission 없이는 전처럼 거부된다
+  (`real_source_preparation_not_admitted`). admission은 Owner가 승인한 기록(`soulforge.context_real_data_admission.v1`)으로 과제·자료등급·source root를
+  이름하고 경계(local_only, 외부 전송 없음, 모델 호출 none/loopback_only)를 적는다. 준비기는 이 기록을 정확한 grant에 대조한다: 과제 키 일치, grant의
+  모든 실자료 등급이 admission에 있음, 모든 source root_ref가 admission에 있음, 유효기간 안. 자료 평면이 아니라 control_root에서 주소+digest로 읽는다.
+  admission은 ACL을 넓히지 않는다(저장소는 여전히 문서마다 actor 등급을 대조한다). 회사 자료를 synthetic으로 바꾸거나 검사를 빼는 우회를 대신하는 문이다.
+- `src/runtime/source_original_check.mjs`: 저장된 문서를 수집 원문과 대조한다. 원문은 수집 owner의 reader(`guarded_files`, 메일 본문은 gateway reader)로
+  다시 읽고, 준비기를 재실행하지 않는다. 메일: 원문 행 존재(canonical digest), 헤더 필드, 본문(+인용 이력)=원문 텍스트(공백 정규화), 첨부 digest·개수,
+  시각, thread/message id·수신자 수. Linear: custody 스냅샷 존재·digest, 제목·설명, 댓글 전수(본문·시각·parent), 이력 전수(id·시각), 시각, project·identifier.
+  의도적 제외(첨부 본문 없음, HTML→텍스트, 이력의 텍스트 렌더, 빈 댓글 미보존, 중복 행)는 exclusions로 적는다. 검사기 없는 kind는 not_run이며 pass가 아니다.
+  결과는 `soulforge.context_source_original_check.v1`(검사기 id·버전·code digest, documents digest 결속, report_sha256).
+- `preparation_store.appendSourceCheckReport`: 보고서를 세대 밖 `20_문서검색/원문위치·추출품질/source_checks/<세대>/`에 append-only로 둔다.
+  자체 digest 재계산, 세대의 documents digest와 결속, 과제 키 일치를 요구한다.
+- 실행기 6단계: 준비 → 비활성 안착 → 되읽기 → 저장된 run 검증 → 보고서 추가 → **원문 대조 → 대조 보고서 추가**. `--admission-address/--admission-sha256`,
+  `--grant-address/--grant-sha256`(binding이 고정한 grant 대신 묶음 grant) 인자. 영수증에 admission id·digest와 미처리 항목 목록이 실린다.
+- 시험 `tests/source_original_check.test.mjs`(6건): 게이트 거부/허용, admission 판정 11경우, 메일 3종(첨부·HTML·중복)·Linear 2건 대조 통과, 본문 드리프트·댓글 누락·
+  없는 판본 FAIL, 검사기 없는 kind not_run.
 ## 작은 합성 실행기 — 준비에서 보고서까지 한 바퀴 (0.14.0)
 
 `harness/preparation_flow.mjs`는 기존 export만 써서 다섯 걸음을 순서대로 한다: 준비 → 비활성 세대로 안착 → 저장된 것을

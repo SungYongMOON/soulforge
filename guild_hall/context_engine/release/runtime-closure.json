@@ -157,19 +157,27 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
-      "sha256": "52d00d2bc8b1046d0e5287600b509df877950d41c1ff1ec8eadeda08831c47bc"
+      "sha256": "5cc66fe45c7fc50bff8f7b3b5ce8082b546ebd40d57fa61992cab150060f882b"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_validation.mjs",
       "sha256": "2aaa1204d3fd39923dbc41714c049f4b57e765cba3d610fc3fd2efc767ea4e34"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/real_data_admission.mjs",
+      "sha256": "4797b462bcc5d707ad45c7cfd530e1efbd806258d7fa6cad09f076f396f43870"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/source_documents.mjs",
       "sha256": "94ff0c8d37fd349c8c67727d718fff8c9a1ffcecf9a38b42dafa0b7d4c1784fb"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
+      "sha256": "71e8f5f58d1db3783e7d86a43058f1f91b46bdd9b7456babc9bd0f9de0db65c4"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
-      "sha256": "0a32761ff0204309e4e61ea82b035d0c59d7e1bb22186443c2d04b1bd5c36758"
+      "sha256": "e5f360423540b325ef9f25e34c85fdb9a012ca641fbd515a71eec517ab5d87b8"
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
@@ -296,7 +304,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "4467e7c608b9f4cc4e91596b9f15043824f77b6ad5e481f8b0d3e17abf99c4f7",
+  "closure_sha256": "d4332d02cd242335076035e977e8e651e3cb7b8e184a795ba79c8bcf008064b8",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -843,6 +851,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_original_check.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
       "to": "guild_hall/engineering_engine/kernel/identity.mjs"
     },
     {
@@ -866,6 +878,18 @@
       "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/runtime/real_data_admission.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/real_data_admission.mjs",
+      "to": "guild_hall/engineering_engine/core/validators/identity.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/real_data_admission.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/runtime/source_documents.mjs",
       "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
     },
@@ -875,6 +899,22 @@
     },
     {
       "from": "guild_hall/context_engine/src/runtime/source_documents.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
+      "to": "guild_hall/context_engine/src/runtime/preparation_run.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
+      "to": "guild_hall/gateway/mail_body_excerpt.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
       "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
@@ -896,6 +936,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
       "to": "guild_hall/context_engine/src/runtime/preparation_run.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/real_data_admission.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",

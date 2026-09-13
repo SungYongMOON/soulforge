@@ -33,6 +33,7 @@ import { rootedStore, safeStoreRel, storeToken } from './pair_store.mjs';
 import { SOURCE_PREPARATION_PURPOSE, validateSourceDocument } from './source_documents.mjs';
 import { PREPARATION_RUN_SCHEMA, documentsDigest, totalDigest } from './preparation_run.mjs';
 import { VALIDATION_REPORT_SCHEMA, reportCovers } from './preparation_validation.mjs';
+import { SOURCE_CHECK_SCHEMA } from './source_original_check.mjs';
 import { GRAPH_INDEX_BINDING_FILE, GRAPH_INDEX_BINDING_MODE } from './graph_index_generation.mjs';
 
 export const PREPARATION_GENERATION_SCHEMA = 'soulforge.context_preparation_generation.v1';
@@ -274,6 +275,32 @@ export async function appendValidationReport({ storeRoot, io = null, bindingSha2
     generation_id: generation.manifest.preparation_run_id, outcome: report.outcome,
     validator: { id: report.validator_id, version: report.validator_version, code_digest: report.validator_code_digest },
     // Stated, not assumed: adding a report leaves the generation's digest alone.
+    generation_sha256: generation.manifest.generation_sha256, store_root: storeRoot });
+}
+
+/**
+ * Adds one original-comparison report beside the generation whose documents it
+ * examined. Same rules as a validation report: append-only, outside the
+ * generation, its own digest recomputed, and it must name the documents this
+ * store actually holds (by their digest), not merely a run id.
+ */
+export async function appendSourceCheckReport({ storeRoot, io = null, bindingSha256, bindingAddress, request, generationId, report } = {}) {
+  const store = openPreparationStore({ storeRoot, io, bindingSha256, bindingAddress, request, operation: PREPARATION_WRITE_OPERATION });
+  if (!plain(report) || report.schema_version !== SOURCE_CHECK_SCHEMA || !storeToken(report.check_run_id)
+    || typeof report.outcome !== 'string' || !Array.isArray(report.documents) || !SHA.test(report.documents_sha256 ?? '')) {
+    fail('preparation_store_report_invalid');
+  }
+  const { report_sha256: stated, ...body } = report;
+  if (!SHA.test(stated ?? '') || totalDigest(body) !== stated) fail('preparation_store_report_digest_mismatch');
+  const generation = await readPreparationGeneration({ storeRoot, io, bindingSha256, bindingAddress, request, generationId });
+  if (documentsDigest(generation.documents) !== report.documents_sha256 || report.project_key !== store.projectKey) {
+    fail('preparation_store_report_unrelated');
+  }
+  const path = `${store.projectPath}/${PREPARATION_STORE_AREAS.quality}/source_checks/${generationId}/${report.check_run_id}.json`;
+  const written = await writeOnce(store.io, path, encode(report), [`${store.projectPath}/${PREPARATION_STORE_AREAS.quality}/source_checks/`]);
+  return Object.freeze({ status: written.written ? 'APPENDED' : 'REPLAYED', report: { path: written.path, sha256: written.sha256 },
+    generation_id: generationId, outcome: report.outcome, counts: report.counts,
+    checker: { id: report.checker_id, version: report.checker_version, code_digest: report.checker_code_digest },
     generation_sha256: generation.manifest.generation_sha256, store_root: storeRoot });
 }
 

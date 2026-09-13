@@ -6,6 +6,7 @@
 // boundary evidence and per-source grants are admitted by a separate gate.
 import { validateSourceGrant, buildSourceCoverage, detectSourceChanges, SourceDocumentError } from './source_documents.mjs';
 import { buildPreparationRun } from './preparation_run.mjs';
+import { grantNeedsAdmission, validateRealDataAdmission } from './real_data_admission.mjs';
 import { readLinearSourceDocuments } from '../adapters/sources/linear_custody_source.mjs';
 import { readVoiceSourceDocuments } from '../adapters/sources/voice_session_source.mjs';
 import { readMailSourceDocuments } from '../adapters/sources/mail_event_source.mjs';
@@ -20,7 +21,7 @@ export const SYNTHETIC_DATA_CLASS = 'public_synthetic';
 // result: a record for documents the preparer did not emit cannot be produced
 // through this surface. `clock` exists so a test can fix the observed interval.
 export async function prepareSourceDocuments({ grant, roots, now, previousCoverage = null,
-  runId = null, clock = () => new Date() } = {}) {
+  runId = null, clock = () => new Date(), admission = null } = {}) {
   const startedAt = clock().toISOString();
   // The grant's bytes are its identity, so a path segment that canonical JSON
   // cannot render (a macOS NFD filename, a name truncated mid-surrogate-pair)
@@ -33,8 +34,14 @@ export async function prepareSourceDocuments({ grant, roots, now, previousCovera
     if (error instanceof SourceDocumentError) throw error;
     throw new SourceDocumentError('source_grant_not_canonical');
   }
-  if (!admitted.grant.allowed_data_classes.every(dataClass => dataClass === SYNTHETIC_DATA_CLASS)) {
-    throw new SourceDocumentError('real_source_preparation_not_admitted');
+  // Synthetic material needs only the grant. Anything else needs an admission:
+  // an Owner-authorized record naming this project, these data classes and
+  // these source roots, with the boundary stated (local only, nothing sent
+  // out). Without one the refusal stands exactly as before.
+  let admissionRef = null;
+  if (grantNeedsAdmission(admitted.grant)) {
+    if (admission === null) throw new SourceDocumentError('real_source_preparation_not_admitted');
+    admissionRef = validateRealDataAdmission(admission, { admitted, now });
   }
   const documents = [], results = [];
   for (const source of admitted.grant.sources) {
@@ -54,6 +61,8 @@ export async function prepareSourceDocuments({ grant, roots, now, previousCovera
     documents: Object.freeze([...documents].sort((a, b) => a.doc_key.localeCompare(b.doc_key))),
     coverage,
     changes: detectSourceChanges(previousCoverage, coverage),
+    // Who admitted real material, by id and digest - null when none was needed.
+    admission: admissionRef,
   };
   // Both lineage-less states carry the same two keys, so one gate - `run === null`
   // with a stated reason - covers "no record was asked for" and "a record was
