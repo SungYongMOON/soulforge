@@ -165,6 +165,56 @@ async function mailCandidates(io, roots, codes) {
   return { perCode, scanned, unattributed };
 }
 
+// The grant items custody holds for one project, by the three rules above and
+// nothing else. `roots` maps a binding's source refs to alias addresses, so what
+// is listed is exactly what that binding binds and its admission admits: a source
+// the admission stopped naming is simply not in `roots` and its items disappear
+// from the next grant. Items are deduplicated by id -- custody can hold one mail
+// event in two files -- and every item takes the latest revision custody has,
+// which is what makes a new comment on an issue a changed document rather than a
+// new one.
+export function grantCandidates({ io, code, roots, dataClass = 'company_internal' } = {}) {
+  const item = extra => ({ revision_policy: 'latest_in_custody', revision_sha256: null, data_class: dataClass, ...extra });
+  const sources = [];
+  const add = (kind, rootRef, items) => {
+    const once = [...new Map(items.map(row => [row.item_id, row])).values()]
+      .sort((a, b) => String(a.item_id).localeCompare(String(b.item_id)));
+    if (once.length) sources.push({ kind, root_ref: rootRef, items: once });
+  };
+
+  for (const [rootRef, address] of Object.entries(roots ?? {})) {
+    if (rootRef.startsWith('slack.')) {
+      const state = `${address}/state/slack-continuous.json`;
+      if (!fileExists(io, state)) continue;
+      add('slack', rootRef, slackChannelRoots(readJson(io, state)).roots.map(ts => item({ item_id: ts })));
+    } else if (rootRef.startsWith('linear.')) {
+      const projects = latestPerObject(custodyRecords(io, `${address}/projects`))
+        .map(record => ({ id: record.object_id, name: record.object?.name ?? null }));
+      const wanted = linearProjectsFor(code, projects);
+      add('linear', rootRef, latestPerObject(custodyRecords(io, `${address}/issues`))
+        .filter(record => wanted.includes(record.object?.project_id))
+        .map(record => item({ item_id: record.object_id })));
+    } else if (rootRef.startsWith('mail.')) {
+      const rows = [];
+      for (const year of dirEntries(io, address)) {
+        for (const file of dirEntries(io, `${address}/${year}`)) {
+          if (!file.endsWith('.jsonl')) continue;
+          const text = io.read(`${address}/${year}/${file}`, 512 * 1024 * 1024).toString('utf8');
+          for (const raw of text.split(String.fromCharCode(10))) {
+            if (!raw.trim()) continue;
+            let event;
+            try { event = JSON.parse(raw); } catch { continue; }
+            if (mailCodesIn([event.subject ?? '', event.body_text ?? ''].join(String.fromCharCode(10)), [code]).length === 0) continue;
+            rows.push(item({ item_id: event.event_id, path: [year, file] }));
+          }
+        }
+      }
+      add('mail', rootRef, rows);
+    }
+  }
+  return sources.sort((a, b) => a.root_ref.localeCompare(b.root_ref));
+}
+
 export async function takeEstateInventory({ io, codes = null, slackRoot, linearRoot, mailRoots = [],
   bindingName = 'graph_index_binding.json', runWorker = undefined, now = new Date().toISOString() } = {}) {
   const projectsRoot = 'data_root/20_PROJECTS';

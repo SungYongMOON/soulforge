@@ -247,19 +247,90 @@ def think_value(value):
     raise WorkerError("llm_think_invalid")
 
 
-def extractor_accepts(content):
-    """The extractor's own parse of an answer: repair, load, then the graph model.
+# The field names the tool's graph model uses. A path element that is one of
+# these, or a list index, says where an answer failed; anything else is a name the
+# model itself wrote and is replaced by "*", so a diagnosis never carries text.
+GRAPH_MODEL_FIELDS = frozenset({"nodes", "relationships", "properties", "embedding_properties",
+                                "id", "label", "type", "start_node_id", "end_node_id"})
+MAX_SHAPE_PROBLEMS = 8
+# A key an answer used that the graph model does not know, named only when the key
+# itself is a plain ASCII identifier: a schema label, never a phrase from a document.
+SCHEMA_LABEL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,31}$")
 
-    It turns any failure into an empty chunk graph without saying so, so the
-    adapter runs the same steps to count answers that carried no graph.
+
+def rejected_shape(content, error):
+    """What an answer the extractor refuses looks like -- never what it says.
+
+    A rejected answer used to be a bare count, so "the model is writing something
+    the tool will not take" could not be told apart from "the model wrote the
+    wrong thing". This records the shape: whether it parsed at all, which
+    top-level keys it had (only the ones the graph model knows; anything else is
+    counted), how many nodes and relationships, and the field path and error kind
+    of each validation problem. No value, key name or message from the answer is
+    included -- a pydantic error carries the offending input, and that input is
+    document text.
+    """
+    from neo4j_graphrag.components.entity_relation_extractor import fix_invalid_json
+    shape = {"parsed": False, "error_type": type(error).__name__, "characters": len(content)}
+    try:
+        parsed = json.loads(fix_invalid_json(content))
+    except Exception as parse_error:
+        shape["parse_error_type"] = type(parse_error).__name__
+        return shape
+    shape["parsed"] = True
+    if not isinstance(parsed, dict):
+        shape["top_level_type"] = type(parsed).__name__
+        return shape
+    known = sorted(key for key in parsed if key in GRAPH_MODEL_FIELDS)
+    unknown = [key for key in parsed if key not in GRAPH_MODEL_FIELDS]
+    shape.update({"top_level_keys": known, "unknown_top_level_keys": len(unknown),
+                  # The names an answer used instead, but only when a name is a
+                  # plain ASCII identifier -- that is a schema label the model
+                  # chose ("entities", "graph"), and it is what tells a reader
+                  # whether the answer was the wrong shape or the wrong content.
+                  # Anything else could be a phrase out of the document and is
+                  # counted rather than named.
+                  "unknown_top_level_key_names": [key for key in unknown
+                                                  if SCHEMA_LABEL.match(str(key))][:8]})
+    for key in ("nodes", "relationships"):
+        rows = parsed.get(key)
+        shape[key] = len(rows) if isinstance(rows, list) else None
+    problems = getattr(error, "errors", None)
+    if callable(problems):
+        seen = []
+        try:
+            for problem in problems():
+                where = ".".join(str(part) if isinstance(part, int) or part in GRAPH_MODEL_FIELDS else "*"
+                                 for part in (problem.get("loc") or ()))
+                row = {"at": where[:120], "kind": str(problem.get("type"))[:60]}
+                if row not in seen:
+                    seen.append(row)
+                if len(seen) >= MAX_SHAPE_PROBLEMS:
+                    break
+        except Exception:  # a model whose errors cannot be listed is still counted
+            seen = []
+        shape["problems"] = seen
+    return shape
+
+
+def extractor_verdict(content):
+    """Whether the extractor's own parse accepts this answer, and if not, its shape.
+
+    The extractor turns any failure into an empty chunk graph without saying so,
+    so the adapter runs the same steps itself to count -- and now to describe --
+    the answers that carried no graph.
     """
     from neo4j_graphrag.components.entity_relation_extractor import fix_invalid_json
     from neo4j_graphrag.components.types import Neo4jGraph
     try:
         Neo4jGraph.model_validate(json.loads(fix_invalid_json(content)))
-        return True
-    except Exception:
-        return False
+        return True, None
+    except Exception as error:
+        return False, rejected_shape(content, error)
+
+
+def extractor_accepts(content):
+    return extractor_verdict(content)[0]
 
 
 def drop_null_properties(content):
@@ -387,8 +458,11 @@ def make_llm(llm_profile, client):
                             "done_reason": stop, "prompt_tokens": prompt_tokens,
                             "output_tokens": output_tokens})
                 content, dropped_nulls = drop_null_properties(content)
-                row.update({"status": "ok" if extractor_accepts(content) else "invalid_output",
+                accepted, shape = extractor_verdict(content)
+                row.update({"status": "ok" if accepted else "invalid_output",
                             "dropped_null_properties": dropped_nulls})
+                if shape is not None:
+                    row["rejected_shape"] = shape
             except Exception as error:  # the extractor turns empty output into an empty chunk graph
                 content = EMPTY_GRAPH
                 row.update({"status": "error", "error_type": type(error).__name__})
@@ -1380,8 +1454,12 @@ def retrieve(request):
                     merged[key] = row
             rows = sorted(merged.values(), key=lambda row: (-row["score"], str(row.get("sf_unit_id"))))[:top_k]
         else:
+            # The expansion reads `$query_vector`, which is the same parameter the
+            # seed search already carries: a chunk's distance to the question is
+            # measured with the embedding that found the seeds, never a second one.
             rows = [dict(row) for row in
-                    run_query(driver, database, seed_clause + GRAPH_EXPANSION_QUERY, **parameters)]
+                    run_query(driver, database, seed_clause + GRAPH_EXPANSION_QUERY,
+                              rules=rules, lexical=list(LEXICAL_RELATIONSHIPS), **parameters)]
 
         hits, dropped = [], 0
         for row in rows:

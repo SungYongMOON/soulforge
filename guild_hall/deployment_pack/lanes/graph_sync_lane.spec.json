@@ -1,0 +1,49 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "graph-sync-v1",
+  "description": "The lane SoulforgeGraphSync executes every 30 minutes: guild_hall/context_engine/harness/estate_graph_sync.mjs, which re-lists what custody holds for each named project, updates that project's graph index generation, and loads it into the unified graph database (sfgraph-unified, bolt 7690). tracked_paths are the context engine itself plus exactly the dependency files its own runtime closure records (guild_hall/context_engine/release/runtime-closure.json, 30 files across engineering_engine, gateway, knowledge_access, path_registry, rag and shared) plus path_registry/src/root_table.mjs, which the harness reads directly. There are no carried_forward_prefixes: every module in the closure imports node: builtins only, so this lane needs no node_modules and can be built without a previous lane.",
+  "tracked_paths": [
+    "guild_hall/context_engine/",
+    "guild_hall/engineering_engine/core/validators/canonical.mjs",
+    "guild_hall/engineering_engine/core/validators/contract_config.mjs",
+    "guild_hall/engineering_engine/core/validators/errors.mjs",
+    "guild_hall/engineering_engine/core/validators/identity.mjs",
+    "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
+    "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
+    "guild_hall/engineering_engine/kernel/canonical.mjs",
+    "guild_hall/engineering_engine/kernel/identity.mjs",
+    "guild_hall/engineering_engine/kernel/project_context_acceptance_gate.mjs",
+    "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs",
+    "guild_hall/engineering_engine/module.manifest.json",
+    "guild_hall/gateway/mail_body_excerpt.mjs",
+    "guild_hall/gateway/module.manifest.json",
+    "guild_hall/knowledge_access/ledger.mjs",
+    "guild_hall/knowledge_access/module.manifest.json",
+    "guild_hall/path_registry/module.manifest.json",
+    "guild_hall/path_registry/src/path_registry_core.mjs",
+    "guild_hall/path_registry/src/root_table.mjs",
+    "guild_hall/path_registry/src/target_materializer.mjs",
+    "guild_hall/rag/knowledge_access_capture.mjs",
+    "guild_hall/rag/module.manifest.json",
+    "guild_hall/rag/project_document_extract.py",
+    "guild_hall/rag/project_document_ingest.mjs",
+    "guild_hall/rag/source_sync_ready_manifest.mjs",
+    "guild_hall/rag/source_text_index.mjs",
+    "guild_hall/shared/io.mjs",
+    "guild_hall/shared/knowledge_root_resolver.mjs",
+    "guild_hall/shared/module.manifest.json",
+    "guild_hall/shared/physical_path_identity.mjs",
+    "guild_hall/shared/project_history_envelope.mjs"
+  ],
+  "tracked_excludes": [
+    "guild_hall/context_engine/tests/"
+  ],
+  "carried_forward_prefixes": [],
+  "entry_points": [
+    "guild_hall/context_engine/harness/estate_graph_sync.mjs",
+    "guild_hall/context_engine/harness/estate_graph_query.mjs",
+    "guild_hall/context_engine/harness/estate_inventory.mjs",
+    "guild_hall/context_engine/ops/register-graph-sync-task.ps1",
+    "guild_hall/context_engine/ops/run-graph-sync-hidden.vbs"
+  ]
+}

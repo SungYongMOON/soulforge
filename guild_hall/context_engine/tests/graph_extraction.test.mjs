@@ -102,9 +102,13 @@ test('canned worker output: admission keeps chunk-anchored profile entities; tru
     runWorker: canned(cannedWorkerOutput(document, options)) });
   const first = await run();
   const second = await run({ createdAt: '2026-09-12T09:30:00+00:00' });
-  assert.deepEqual({ status: first.status, degraded: first.degraded }, { status: 'degraded', degraded: { budget_exhausted: false,
-    errors: 0, invalid_outputs: 0, truncated: 1, documents: [{ doc_key: document.doc_key, chunks_mismatched: 1,
-      missing_chunks: document.units.length - 1 }] } });
+  assert.deepEqual({ status: first.status, degraded: { ...first.degraded, truncated_calls: first.degraded.truncated_calls.length } },
+    { status: 'degraded', degraded: { budget_exhausted: false,
+      errors: 0, invalid_outputs: 0, truncated: 1, documents: [{ doc_key: document.doc_key, chunks_mismatched: 1,
+        missing_chunks: document.units.length - 1 }],
+      // A refused answer is described by shape; this run had none, and the one
+      // cut-off answer is named by call so a reader can see which it was.
+      rejected_shapes: [], truncated_calls: 1 } });
   const fragment = first.fragments[0];
   assert.deepEqual(fragment.nodes.map(node => node.label), ['Chunk', 'Deliverable', 'Document', 'Equipment']);
   assert.deepEqual({ chunks: fragment.stats.chunks, entities: fragment.stats.entities,
@@ -175,6 +179,40 @@ test('canned worker output: admission keeps chunk-anchored profile entities; tru
   const withoutDocument = cannedWorkerOutput(document).fragments[0];
   assert.throws(() => admitGraphFragment({ fragment: { ...withoutDocument, nodes: withoutDocument.nodes.slice(1) },
     document, projectKey, profile: GRAPH_EXTRACTION_PROFILE, models }), { code: 'graph_fragment_document_mismatch' });
+});
+
+test('a refused answer is reported by its shape, and the shape carries no text', async () => {
+  const { documents, projectKey } = await syntheticDocuments();
+  const document = documents[0];
+  const leaked = document.units[0].text;
+  // The worker describes an answer the extractor would not take: what parsed,
+  // which known keys it had, how many rows, and where validation failed. This
+  // canned row also carries fields the worker never sends -- a message and the
+  // offending value -- to check that this side admits named fields only.
+  const trace = [{ call: 1, status: 'invalid_output', input_sha256: 'sha256:' + '1'.repeat(64),
+    output_sha256: 'sha256:' + '2'.repeat(64), output_characters: 1282, thinking_characters: 0,
+    done_reason: 'stop', prompt_tokens: 10, output_tokens: 400, elapsed_ms: 7, dropped_null_properties: 0,
+    rejected_shape: { parsed: true, error_type: 'ValidationError', characters: 1282,
+      top_level_keys: ['nodes', 'relationships'], unknown_top_level_keys: 2, nodes: 6, relationships: 4,
+      // One key name is a schema label and travels; the other is a phrase and does not.
+      unknown_top_level_key_names: ['entities', leaked],
+      problems: [{ at: 'nodes.0.properties.*', kind: 'string_type', msg: leaked, input: leaked }],
+      leaked_text: leaked } }];
+  const result = await extractGraphFragments({ documents, projectKey, profile: GRAPH_EXTRACTION_PROFILE,
+    binding: BINDING, runWorker: canned(cannedWorkerOutput(document, { trace })) });
+
+  assert.equal(result.status, 'degraded');
+  assert.deepEqual(result.degraded.rejected_shapes, [{ call: 1, parsed: true, error_type: 'ValidationError',
+    characters: 1282, unknown_top_level_keys: 2, nodes: 6, relationships: 4,
+    top_level_keys: ['nodes', 'relationships'], unknown_top_level_key_names: ['entities'],
+    problems: [{ at: 'nodes.0.properties.*', kind: 'string_type' }] }]);
+  // The one thing that must not travel: the answer's own text, by any route.
+  const serialised = JSON.stringify(result.llm);
+  assert.equal(serialised.includes(leaked), false, 'no document text reaches the trace');
+  assert.equal(serialised.includes('leaked_text'), false, 'a field the contract does not name is not carried');
+  assert.equal(JSON.stringify(result.degraded).includes('msg'), false, 'a validation message is not a shape');
+  assert.equal(result.llm.trace[0].rejected_shape.problems[0].at, 'nodes.0.properties.*');
+  assert.equal(result.degraded.invalid_outputs, 1);
 });
 
 test('worker client: an oversized request is refused before spawning, and a worker that dies early is a refusal, not a crash', async () => {

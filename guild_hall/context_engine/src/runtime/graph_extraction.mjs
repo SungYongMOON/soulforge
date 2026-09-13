@@ -37,6 +37,29 @@ const PIN_KINDS = new Set(['model_digest', 'server_props', 'served_id']);
 const TRACE_FIELDS = ['call', 'status', 'input_sha256', 'output_sha256', 'output_characters', 'thinking_characters',
   'done_reason', 'prompt_tokens', 'output_tokens', 'elapsed_ms', 'error_type', 'http_status', 'dropped_null_properties'];
 
+// The shape of an answer the extractor refused, read field by field rather than
+// carried across whole: the worker builds it without text, and this side admits
+// only the named fields with the types it expects, so nothing else can ride in.
+const SHAPE_FIELDS = ['parsed', 'error_type', 'parse_error_type', 'top_level_type', 'characters',
+  'unknown_top_level_keys', 'nodes', 'relationships'];
+const plainShape = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+function rejectedShape(shape) {
+  const row = Object.fromEntries(SHAPE_FIELDS
+    .filter(key => ['string', 'number', 'boolean'].includes(typeof shape[key]) || shape[key] === null)
+    .map(key => [key, shape[key]]));
+  for (const field of ['top_level_keys', 'unknown_top_level_key_names']) {
+    if (!Array.isArray(shape[field])) continue;
+    // A key name only travels when it is a plain ASCII identifier; the worker
+    // applies the same rule, and this side does not take its word for it.
+    row[field] = shape[field].filter(key => typeof key === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,31}$/u.test(key)).slice(0, 12);
+  }
+  if (Array.isArray(shape.problems)) {
+    row.problems = shape.problems.filter(plainShape).slice(0, 8)
+      .map(problem => ({ at: String(problem.at ?? '').slice(0, 120), kind: String(problem.kind ?? '').slice(0, 60) }));
+  }
+  return row;
+}
+
 export class GraphExtractionError extends Error {
   constructor(code) { super(code); this.name = 'GraphExtractionError'; this.code = code; }
 }
@@ -302,9 +325,13 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
   if (fragments.length !== documents.length || new Set(fragments.map(f => f.doc_key)).size !== documents.length) {
     fail('graph_fragment_count_mismatch');
   }
-  // Only named metadata fields leave the worker trace: hashes, sizes, stop reason, time, tokens.
-  const calls = (Array.isArray(output.llm_calls) ? output.llm_calls : []).map(row => Object.fromEntries(TRACE_FIELDS
-    .filter(key => ['string', 'number'].includes(typeof row?.[key]) || row?.[key] === null).map(key => [key, row[key]])));
+  // Only named metadata fields leave the worker trace: hashes, sizes, stop reason,
+  // time, tokens, and -- for an answer the extractor refused -- the shape of that
+  // answer, which the worker builds from field paths and counts alone.
+  const calls = (Array.isArray(output.llm_calls) ? output.llm_calls : []).map(row => ({
+    ...Object.fromEntries(TRACE_FIELDS
+      .filter(key => ['string', 'number'].includes(typeof row?.[key]) || row?.[key] === null).map(key => [key, row[key]])),
+    ...(plainShape(row?.rejected_shape) ? { rejected_shape: rejectedShape(row.rejected_shape) } : {}) }));
   const sum = key => calls.reduce((total, row) => total + (Number.isFinite(row[key]) ? row[key] : 0), 0);
   const llm = { calls: calls.filter(row => row.status !== 'budget_exhausted').length,
     errors: calls.filter(row => row.status === 'error').length, invalid_outputs: calls.filter(row => row.status === 'invalid_output').length,
@@ -317,6 +344,11 @@ export async function extractGraphFragments({ documents, projectKey, profile, bi
     missing_chunks: byKey.get(f.doc_key).units.length - f.stats.chunks })).filter(row => row.chunks_mismatched > 0 || row.missing_chunks > 0);
   const degraded = llm.budget_exhausted || llm.errors > 0 || llm.invalid_outputs > 0 || llm.truncated > 0 || documentsDegraded.length > 0
     ? { budget_exhausted: llm.budget_exhausted, errors: llm.errors, invalid_outputs: llm.invalid_outputs, truncated: llm.truncated,
-      documents: documentsDegraded } : null;
+      documents: documentsDegraded,
+      // Why each refused answer was refused, so "the model wrote something the
+      // tool will not take" is a diagnosis rather than a count.
+      rejected_shapes: calls.filter(row => row.rejected_shape).map(row => ({ call: row.call, ...row.rejected_shape })),
+      truncated_calls: calls.filter(row => row.done_reason === 'length')
+        .map(row => ({ call: row.call, output_characters: row.output_characters, output_tokens: row.output_tokens })) } : null;
   return Object.freeze({ status: llm.budget_exhausted ? 'partial' : degraded ? 'degraded' : 'ok', fragments, model: models, llm, degraded });
 }
