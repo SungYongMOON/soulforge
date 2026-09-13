@@ -343,6 +343,12 @@ schema 가지치기(`GraphPruning`)는 도구가 하고, APP은 그 둘레의 �
 - 추출 결과가 온전하지 않으면 `ok`가 아니다. 호출 오류, 도구가 읽지 못한 답(도구의 JSON 수선·그래프 검증을 worker가
   같은 순서로 다시 해 셈), 잘린 답(`done_reason: length`), 원본 단위와 어긋나거나 빠진 청크가 하나라도 있으면
   `degraded`(예산 초과는 `partial`)와 원인 개수를 돌려준다. 도구는 이런 답을 빈 그래프로 조용히 바꾸기 때문이다.
+- 모델이 값을 모르는 속성을 `null`로 채우면 설치본의 `PropertyValue`에 null 자리가 없어 그 청크 답 전체가 그래프
+  검증에서 떨어지고 도구가 조용히 빈 그래프로 바꾼다(P24-049 실자료 50건 시험에서 호출 100회에 1~2회, 온도와
+  무관하게 되풀이됐다). 그래서 worker는 답을 도구에 넘기기 전에 `nodes`·`relationships`의 `properties`에서 값이
+  null인 키만 떨어뜨리고 그 개수를 기록 필드 `dropped_null_properties`에 남긴다(0.18.2). Neo4j에 null 속성은 없고
+  APP의 속성 정리도 undefined를 버리므로 의미는 잃지 않는다. 읽히지 않는 답과 null이 없는 답은 모델이 쓴 그대로
+  도구에 가고 판정은 계속 도구가 한다. 도구 판본 고정을 깨지 않도록 prompt는 건드리지 않는다.
 - schema 강제는 도구의 `GraphPruning`이 한다. 선언하지 않은 유형·관계·패턴·속성과 이름 없는 대상(EXISTENCE 제약)을
   지우며, APP은 사유별 가지치기 개수만 조각에 남긴다.
 - 문서·청크 ID는 `doc_key`와 단위 ID로 정해져 추출 결과가 원문 단위로 이어진다. 조각 수용 규칙은 두 단계다.
@@ -441,6 +447,15 @@ binding이 정한다. 예산 상한은 프로그램 상수(`PLANNER_BUDGET_CEILI
   `uncited_model_text`에 그 필드를 적는다.
 - 로컬 모델은 `node:http` 기반 loopback 전용 client로 부른다. proxy 변수를 쓰지 않고, 되돌림(3xx)은 prompt를 다른
   곳으로 다시 보내므로 따라가지 않고 `chat_redirect_refused`로 끝낸다. `-cloud` 모델은 `chat_model_not_local`로 거부한다.
+- 말하는 방식은 binding의 `transport`가 정한다(기본 `ollama`, 0.18.2). `openai_chat`은 llama.cpp·vLLM 같은 OpenAI
+  호환 서버에 붙어 `/v1/chat/completions`를 부른다. 출력 schema는 `response_format: json_schema`, 생각 스위치는
+  `chat_template_kwargs.enable_thinking`, 표본 설정은 최상위 `temperature`·`seed`·`max_tokens`로 가며 `keep_alive`는
+  이 경로에 자리가 없다. 답은 `choices[0].message.content`이고 `reasoning_content`는 본문에 섞이지 않아 길이만 센다.
+- 이 경로에는 가중치 digest가 없다. 판본은 `/v1/models`의 제공 id와 `/props`(`model_path`·`model_ftype`·`build_info`·
+  `n_ctx`)를 함께 해시한 값이고 종류를 `llm_pin_kind: server_props`로 적는다. `/props`가 없으면 제공 id만으로
+  `served_id`다. 어느 쪽도 가중치 digest가 아니므로 그렇게 읽히지 않게 종류를 판본과 같이 남긴다(같은 경로에 다른
+  가중치를 두면 잡지 못한다). 해시에 들어간 모델 경로는 host-local 절대경로라 결과에는 나오지 않는다. 규칙은
+  worker의 `openai_model_pin`과 같고, 두 해시의 표준형이 달라 서로 비교하지는 않는다.
 - 출력 `soulforge.context_pack.v2`: 9항목 중 1~5는 절(배경·업무 이력·결정 변화·재사용 자료·영향과 먼저 확인할 것),
   6은 문장 kind(확인 사실·자료의 주장·해석·미확인), 7은 근거 목록, 8은 검색 기록·coverage·남은 질문, 9는 Rune 절이다.
   `content_sha256`은 시간·trace를 뺀 내용 digest라 같은 입력을 비교할 수 있다. 조회는 아무것도 쓰지 않는다.

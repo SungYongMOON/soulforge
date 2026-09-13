@@ -97,7 +97,7 @@ export async function composeWorkingContext({ view, request, binding, profile = 
   if (request.as_of !== undefined) fail('as_of_not_supported_by_graph_index');
   const budget = narrowBudget(profile.budget, binding?.budget, request.budget);
   const llm = validateChatBinding(binding?.llm);
-  const digest = await installedModelDigest(llm, { fetchImpl });
+  const { digest, pin_kind: pinKind } = await installedModelDigest(llm, { fetchImpl });
   const local = createLocalChat({ binding: llm, maxCalls: budget.max_model_calls, fetchImpl });
   const retriever = createGraphIndexRetriever(view, { graphSearch: graphSearch ?? null, runWorker });
   const catalog = retriever.catalog().map(({ source_kind, item_id, title, units }) => ({ source_kind, item_id, title, units }));
@@ -196,7 +196,9 @@ export async function composeWorkingContext({ view, request, binding, profile = 
     index: { generation_id: view.manifest.generation_id, manifest_sha256: view.generation_ref.sha256, pointer_sha256: view.pointer_sha256,
       selection_epoch: view.selection_epoch, extraction_model: view.manifest.model, extraction_profile: view.manifest.profile },
     planner: { profile_id: profile.profile_id, profile_version: profile.profile_version, retrieval: retriever.profile,
-      model: { llm: llm.model, llm_digest: digest, think: llm.think, options: hashableOptions(llm.options) } },
+      // How strongly the model behind this pack is pinned: a weight digest, or only
+      // what an OpenAI-compatible server says about itself. Reported, never conflated.
+      model: { llm: llm.model, llm_digest: digest, llm_pin_kind: pinKind, think: llm.think, options: hashableOptions(llm.options) } },
     deliverables, questions, answered, missing, review, sections, open_questions: openQuestions, statement_kinds: STATEMENT_KIND_LABELS,
     uncited_model_text: UNCITED_MODEL_TEXT,
     evidence, searches, coverage,

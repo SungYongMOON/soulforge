@@ -14,6 +14,11 @@ import https from 'node:https';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@+_-]{0,199}$/u;
 const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
+// How this APP speaks to the local model server, with the same rule the worker's
+// `openai_model_pin`/`make_llm` follow: `ollama` reports an installed weight digest,
+// while `openai_chat` (llama.cpp, vLLM and friends) has none to give and is pinned by
+// what the server says about itself instead — weaker, and labelled as such.
+const TRANSPORTS = new Set(['ollama', 'openai_chat']);
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_ALLOWED_CHAT_HOSTS = 8;
 const sha = text => `sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`;
@@ -89,38 +94,115 @@ function sendRequest(url, { method = 'GET', headers = {}, body, signal } = {}) {
   });
 }
 
-// binding: { host, model, think?, options?, keep_alive?, timeout_ms?, allowed_hosts? }
+// binding: { host, model, transport?, think?, options?, keep_alive?, timeout_ms?, allowed_hosts? }
 // from trusted configuration. `allowed_hosts` is empty by default, which means the
 // model may only be called on this host.
 export function validateChatBinding(binding) {
   const allowedHosts = validateAllowedChatHosts(binding?.allowed_hosts);
   if (!binding || !chatHostAdmitted(binding.host, allowedHosts) || !TOKEN.test(binding.model ?? '')) fail('chat_binding_invalid');
   if (binding.model.endsWith('-cloud')) fail('chat_model_not_local');
+  const transport = binding.transport === undefined ? 'ollama' : binding.transport;
   const think = binding.think === undefined ? false : binding.think;
   const options = binding.options === undefined ? { temperature: 0, seed: 7, num_predict: 4096 } : binding.options;
   const timeoutMs = binding.timeout_ms ?? 600000;
-  if (!THINK_VALUES.has(think) || typeof options !== 'object' || options === null || Array.isArray(options)
+  if (!TRANSPORTS.has(transport) || !THINK_VALUES.has(think) || typeof options !== 'object' || options === null || Array.isArray(options)
     || !Object.values(options).every(value => ['string', 'boolean'].includes(typeof value) || Number.isFinite(value))
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3600000) fail('chat_binding_invalid');
-  return Object.freeze({ host: binding.host.replace(/\/+$/u, ''), model: binding.model, think, options,
+  return Object.freeze({ host: binding.host.replace(/\/+$/u, ''), model: binding.model, transport, think, options,
     keep_alive: binding.keep_alive ?? '0s', timeout_ms: timeoutMs, allowed_hosts: allowedHosts });
 }
 
-// The installed model's manifest digest is its revision; a tag alone is not.
+async function readJson(fetchImpl, url) {
+  const response = await fetchImpl(url, { signal: AbortSignal.timeout(10000) });
+  if (!response.ok) fail('chat_endpoint_unavailable');
+  return response.json();
+}
+
+// What an OpenAI-compatible server can honestly say about what it is serving.
+// There is no weight digest on this path. llama.cpp's /props does report the file it
+// loaded, its quantisation, its build and its context size, so those are hashed with
+// the served ids under `pin_kind: server_props`; a server without /props leaves only
+// the ids it answers under, which catches a swapped model — the usual way an index and
+// its model come apart — but not new weights at the same name, so it is labelled
+// `served_id` and never read as a weight digest. The reported path is a host-local
+// absolute path: it goes into the hash and never into a result. The facts are the
+// worker's `openai_model_pin` facts; the two hashes have different canonical forms and
+// are never compared with each other.
+async function openAiModelPin(bound, fetchImpl) {
+  let served;
+  try {
+    const listing = await readJson(fetchImpl, `${bound.host}/v1/models`);
+    served = [...new Set((listing?.data ?? []).map(row => row?.id).filter(id => typeof id === 'string' && id))].sort();
+  } catch (error) { if (error instanceof LocalModelError) throw error; fail('chat_endpoint_unavailable'); }
+  if (served.length === 0) fail('chat_model_not_installed');
+  let props = null;
+  try {
+    const body = await readJson(fetchImpl, `${bound.host}/props`);
+    if (typeof body?.model_path === 'string' && body.model_path) {
+      props = { model_path: body.model_path, model_ftype: body.model_ftype ?? null, build_info: body.build_info ?? null,
+        n_ctx: body.default_generation_settings?.n_ctx ?? null };
+    }
+  } catch { props = null; }
+  const pinned = { requested: bound.model, served, ...(props ?? {}) };
+  const blob = JSON.stringify(Object.fromEntries(Object.keys(pinned).sort().map(key => [key, pinned[key]])));
+  return { digest: sha(blob), pin_kind: props ? 'server_props' : 'served_id' };
+}
+
+// The revision behind an answer, as { digest, pin_kind }. On Ollama the installed
+// model's manifest digest is that revision and a tag alone is not; an
+// OpenAI-compatible server is pinned by what it reports about itself instead.
 export async function installedModelDigest(binding, { fetchImpl = loopbackFetch } = {}) {
   const bound = validateChatBinding(binding);
+  if (bound.transport === 'openai_chat') return openAiModelPin(bound, fetchImpl);
   let rows;
   try {
-    const response = await fetchImpl(`${bound.host}/api/tags`, { signal: AbortSignal.timeout(10000) });
-    if (!response.ok) fail('chat_endpoint_unavailable');
-    rows = (await response.json()).models ?? [];
+    rows = (await readJson(fetchImpl, `${bound.host}/api/tags`)).models ?? [];
   } catch (error) { if (error instanceof LocalModelError) throw error; fail('chat_endpoint_unavailable'); }
   const wanted = bound.model.includes(':') ? bound.model : `${bound.model}:latest`;
   const row = rows.find(item => item?.name === wanted || item?.model === wanted);
   if (row?.remote_host || row?.remote_model) fail('chat_model_not_local');
   const match = /^(?:sha256:)?([0-9a-f]{64})$/u.exec(String(row?.digest ?? ''));
   if (!match) fail('chat_model_not_installed');
-  return `sha256:${match[1]}`;
+  return { digest: `sha256:${match[1]}`, pin_kind: 'model_digest' };
+}
+
+const integer = value => (Number.isSafeInteger(value) ? value : null);
+
+function ollamaRequest(bound, messages, schema) {
+  const body = { model: bound.model, stream: false, format: schema, options: bound.options, keep_alive: bound.keep_alive, messages };
+  if (bound.think !== null) body.think = bound.think;
+  return { path: '/api/chat', body };
+}
+
+function readOllamaAnswer(data) {
+  return { content: typeof data?.message?.content === 'string' ? data.message.content : '',
+    thinking_characters: typeof data?.message?.thinking === 'string' ? data.message.thinking.length : 0,
+    done_reason: typeof data?.done_reason === 'string' ? data.done_reason : null,
+    prompt_tokens: integer(data?.prompt_eval_count), output_tokens: integer(data?.eval_count) };
+}
+
+// OpenAI-compatible: the schema is a response_format, the sampler lives at the top
+// level, thinking is a chat-template argument rather than a field, and there is no
+// keep_alive. Only the sampler keys that have a place there are sent; the others stay
+// out of the request rather than being renamed into something the server would read
+// differently. llama.cpp returns its reasoning separately, so `content` stays pure JSON.
+function openAiRequest(bound, messages, schema) {
+  const body = { model: bound.model, stream: false,
+    response_format: { type: 'json_schema', json_schema: { name: 'answer', schema } }, messages };
+  if ('temperature' in bound.options) body.temperature = bound.options.temperature;
+  if ('seed' in bound.options) body.seed = bound.options.seed;
+  if ('num_predict' in bound.options) body.max_tokens = bound.options.num_predict;
+  if (bound.think !== null) body.chat_template_kwargs = { enable_thinking: Boolean(bound.think) };
+  return { path: '/v1/chat/completions', body };
+}
+
+function readOpenAiAnswer(data) {
+  const choice = (data?.choices ?? [])[0] ?? {}, message = choice.message ?? {};
+  return { content: typeof message.content === 'string' ? message.content : '',
+    thinking_characters: typeof message.reasoning_content === 'string' ? message.reasoning_content.length : 0,
+    // finish_reason uses the same word for a cut-off answer as the Ollama path.
+    done_reason: typeof choice.finish_reason === 'string' ? choice.finish_reason : null,
+    prompt_tokens: integer(data?.usage?.prompt_tokens), output_tokens: integer(data?.usage?.completion_tokens) };
 }
 
 // Returns { chat, trace, model }. chat({ step, system, user, schema }) resolves to
@@ -138,20 +220,19 @@ export function createLocalChat({ binding, maxCalls, fetchImpl = loopbackFetch }
     }
     const started = Date.now();
     try {
-      const body = { model: bound.model, stream: false, format: schema, options: bound.options, keep_alive: bound.keep_alive,
-        messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
-      if (bound.think !== null) body.think = bound.think;
-      const response = await fetchImpl(`${bound.host}/api/chat`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
+      const openai = bound.transport === 'openai_chat';
+      const { path, body } = openai ? openAiRequest(bound, messages, schema) : ollamaRequest(bound, messages, schema);
+      const response = await fetchImpl(`${bound.host}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(bound.timeout_ms) });
       row.http_status = response.status;
       if (!response.ok) fail('chat_http_error');
       const data = await response.json();
-      const content = typeof data?.message?.content === 'string' ? data.message.content : '';
+      const answer = openai ? readOpenAiAnswer(data) : readOllamaAnswer(data);
+      const { content } = answer;
       Object.assign(row, { output_sha256: sha(content), output_characters: content.length,
-        thinking_characters: typeof data?.message?.thinking === 'string' ? data.message.thinking.length : 0,
-        done_reason: typeof data?.done_reason === 'string' ? data.done_reason : null,
-        prompt_tokens: Number.isSafeInteger(data?.prompt_eval_count) ? data.prompt_eval_count : null,
-        output_tokens: Number.isSafeInteger(data?.eval_count) ? data.eval_count : null });
+        thinking_characters: answer.thinking_characters, done_reason: answer.done_reason,
+        prompt_tokens: answer.prompt_tokens, output_tokens: answer.output_tokens });
       let value;
       try { value = JSON.parse(content); } catch { row.status = 'invalid_json'; return { status: 'invalid_json' }; }
       row.status = 'ok';

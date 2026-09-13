@@ -199,6 +199,40 @@ def extractor_accepts(content):
         return False
 
 
+def drop_null_properties(content):
+    """Remove properties the model left null, and say how many. Nothing else changes.
+
+    The installed tool's `PropertyValue` has no null member, so a single
+    `"properties": {"due": null}` makes the graph model reject the whole chunk
+    answer; the extractor then turns that answer into an empty chunk graph
+    without saying so and the run is degraded. A null property has no meaning
+    downstream either -- Neo4j has no null property and the APP's own
+    `cleanProperties` drops undefined -- so the key is removed rather than the
+    answer lost. An answer that does not parse, or that carries no null property,
+    goes to the tool exactly as the model wrote it; the tool still judges it.
+    The prompt is untouched: it belongs to the pinned tool version.
+    """
+    from neo4j_graphrag.components.entity_relation_extractor import fix_invalid_json
+    try:
+        parsed = json.loads(fix_invalid_json(content))
+    except Exception:
+        return content, 0
+    dropped = 0
+    for key in ("nodes", "relationships"):
+        rows = parsed.get(key) if isinstance(parsed, dict) else None
+        for row in rows if isinstance(rows, list) else []:
+            properties = row.get("properties") if isinstance(row, dict) else None
+            if not isinstance(properties, dict):
+                continue
+            empty = [name for name, value in properties.items() if value is None]
+            for name in empty:
+                del properties[name]
+            dropped += len(empty)
+    if dropped == 0:
+        return content, 0
+    return json.dumps(parsed, ensure_ascii=False), dropped
+
+
 def make_llm(llm_profile, client):
     from neo4j_graphrag.llm.base import LLMInterface
     from neo4j_graphrag.llm.types import LLMResponse
@@ -283,11 +317,15 @@ def make_llm(llm_profile, client):
                     # what the caller's degraded check reads.
                     stop, prompt_tokens = choice.get("finish_reason"), usage.get("prompt_tokens")
                     output_tokens = usage.get("completion_tokens")
-                row.update({"status": "ok" if extractor_accepts(content) else "invalid_output",
-                            "output_sha256": sha256_text(content), "output_characters": len(content),
+                # The answer as the model wrote it is what the trace hashes and
+                # measures; only the null properties are taken out before the tool.
+                row.update({"output_sha256": sha256_text(content), "output_characters": len(content),
                             "thinking_characters": len(thinking),
                             "done_reason": stop, "prompt_tokens": prompt_tokens,
                             "output_tokens": output_tokens})
+                content, dropped_nulls = drop_null_properties(content)
+                row.update({"status": "ok" if extractor_accepts(content) else "invalid_output",
+                            "dropped_null_properties": dropped_nulls})
             except Exception as error:  # the extractor turns empty output into an empty chunk graph
                 content = EMPTY_GRAPH
                 row.update({"status": "error", "error_type": type(error).__name__})

@@ -73,7 +73,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs",
-      "sha256": "fac44344941c5697324ada2d8d40bc0486c9ba18e8d066668e1b8c17fef356f7"
+      "sha256": "9b86c8689f0502b84d2c9bf597331799d1276e8997b19bcbee1760f43dc855a1"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/document_file_source.mjs",
@@ -121,7 +121,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
-      "sha256": "6fd4f54045a637bb3b8c796f395511ba0d7d87041ec60a101a2bb112707cc168"
+      "sha256": "5e675a464f86685554e4dd9f0beea68770e0e0b5dbb6625fc41a85dbc33a31c3"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/generation_update.mjs",
@@ -133,7 +133,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
-      "sha256": "41dca869e78f3298cef2c95cb98d365fb4a266fec060237f4571af5d0c051fc4"
+      "sha256": "a4573959b0bd4c2abd81e8d74c95c52dde68eee80a04806a1ee73e221443ca53"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
@@ -185,7 +185,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "35c50db527ca07ecff2444e796acf92f10695be6cda84c5185665cd21aa0e755"
+      "sha256": "40b741020876cd6bd14e7256a7e145663b707dadf495a2063414f8911ca0b570"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "c3e56e22aac7e647392d3f540d85392a8031bfae1d09b4c631a80608378f6be1",
+  "closure_sha256": "b79867f8a8b30ecca6d6f9e4360a845467f4734d23c386d589170e289d7b7ebd",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

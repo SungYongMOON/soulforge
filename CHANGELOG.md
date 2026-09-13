@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-09-13 - null 속성 하나로 청크 답을 통째로 잃지 않고, 맥락이가 OpenAI 호환 로컬 서버에 붙는다
+
+- `context_engine/src/workers/graphrag_worker.py`: `drop_null_properties`(신규) — 모델 답을 도구에 넘기기 전에 `nodes`·`relationships`의
+  `properties`에서 값이 null인 키만 떨어뜨리고 개수를 기록 필드 `dropped_null_properties`에 남긴다(`graph_extraction.mjs`의 `TRACE_FIELDS`에도 추가).
+  이유: 설치본 1.19.0의 `PropertyValue`에 null 자리가 없어 `"due": null` 하나로 그 청크 답 전체가 그래프 검증에서 떨어지고 도구가 조용히 빈 그래프로 바꾼다.
+  P24-049 실자료 1단계에서 온도와 무관하게 호출 100회에 1~2회 재현돼 추출이 네 번 `graph_extraction_degraded`로 멈췄다. Neo4j에 null 속성은 없고 APP의 속성 정리도
+  undefined를 버리므로 의미 손실은 없다. 읽히지 않는 답과 null 없는 답은 모델이 쓴 그대로 도구에 가고 판정은 계속 도구가 한다. 도구 판본 고정을 지키려 prompt는 그대로 둔다.
+- `context_engine/src/adapters/local_model/ollama_chat.mjs`: binding `transport`(기본 `ollama`, 새로 `openai_chat`). `openai_chat`은 llama.cpp·vLLM 같은
+  OpenAI 호환 서버의 `/v1/chat/completions`를 부르고 출력 schema는 `response_format: json_schema`, 생각 스위치는 `chat_template_kwargs.enable_thinking`,
+  표본 설정은 최상위 `temperature`·`seed`·`max_tokens`로 보낸다(`keep_alive`는 이 경로에 자리가 없다). `reasoning_content`는 본문과 분리해 길이만 센다.
+  판본은 가중치 digest가 없으므로 `/v1/models` 제공 id + `/props`(`model_path`·`model_ftype`·`build_info`·`n_ctx`) 해시이며 종류를 `llm_pin_kind`
+  (`server_props`, `/props`가 없으면 `served_id`, Ollama는 `model_digest`)로 같이 남긴다 — 가중치 digest로 읽히지 않게. 해시에 들어간 모델 경로는 결과에 나오지 않는다.
+  `installedModelDigest`는 문자열 대신 `{ digest, pin_kind }`를 돌려주고 `context_planner`의 `planner.model`에 `llm_pin_kind`가 붙는다. 규칙은 worker의 `openai_model_pin`과 같다.
+- 시험 2건 추가(가짜 worker 기록의 `dropped_null_properties` 전달, OpenAI 호환 canned 서버로 schema·생각 스위치·판본 종류·인용 강제 불변). 모듈 0.18.2.
+  검증: context-engine 268 / 261 pass / 0 fail / 7 skip(opt-in 실모델·실 Neo4j 등), path-registry 42/42, path-policy 0.
+
 ## 2026-09-13 - 그래프 색인기가 실제 estate(별칭 주소)와 실자료 admission을 받는다 (PV-4 이음새)
 
 - `context_engine/src/runtime/graph_index_generation.mjs`: `updateGraphIndex`·`selectGraphIndexGeneration`·`openGraphIndex`가 `io`(별칭 io)와 `bindingAddress`를 받는다.

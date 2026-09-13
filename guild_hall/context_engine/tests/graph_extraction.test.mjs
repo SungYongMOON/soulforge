@@ -138,6 +138,12 @@ test('canned worker output: admission keeps chunk-anchored profile entities; tru
   const clean = await run({ clean: true });
   assert.deepEqual({ status: clean.status, degraded: clean.degraded, chunks: clean.fragments[0].stats.chunks },
     { status: 'ok', degraded: null, chunks: document.units.length });
+  // The worker removes the null property values the tool's graph model refuses and
+  // counts them; the count rides the trace so a clean run still says what was repaired.
+  const repaired = await run({ clean: true, trace: [{ call: 1, status: 'ok', input_sha256: 'sha256:' + '1'.repeat(64),
+    dropped_null_properties: 3, leaked_text: document.units[0].text }] });
+  assert.deepEqual({ status: repaired.status, dropped: repaired.llm.trace[0].dropped_null_properties,
+    leaked: repaired.llm.trace[0].leaked_text }, { status: 'ok', dropped: 3, leaked: undefined });
   const unreadable = await run({ clean: true, trace: [{ call: 1, status: 'invalid_output', input_sha256: 'sha256:' + '1'.repeat(64) }] });
   assert.deepEqual({ status: unreadable.status, invalid: unreadable.degraded.invalid_outputs }, { status: 'degraded', invalid: 1 },
     'an answer the extractor could not read is a hole, not an empty success');

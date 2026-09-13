@@ -59,6 +59,36 @@ function cannedChat({ responses = { plan: PLAN, review: REVIEW, compose }, insta
   return { fetchImpl, calls };
 }
 
+// What an OpenAI-compatible server serves under: a host-local file path, not a tag.
+// Joined rather than written out: a host-shaped absolute path is not a literal here.
+const SERVED_ID = ['D:', 'models', 'planner-27B', 'planner-UD-IQ3_XXS.gguf'].join(String.fromCharCode(92));
+const REASONING = '생각'.repeat(5);
+// Canned OpenAI-compatible stub (llama.cpp shaped): the served model list, /props and
+// the chat completions endpoint, answering the same scripted steps as cannedChat.
+function cannedOpenAiChat({ props = true, served = [SERVED_ID] } = {}) {
+  const calls = [];
+  const responses = { plan: PLAN, review: REVIEW, compose };
+  async function fetchImpl(url, init = {}) {
+    const { pathname } = new URL(url);
+    if (pathname === '/v1/models') return json({ object: 'list', data: served.map(id => ({ id, object: 'model' })) });
+    if (pathname === '/props') {
+      if (!props) return new Response('no such endpoint', { status: 404 });
+      return json({ model_path: SERVED_ID, model_ftype: 'IQ3_XXS - 3.0625 bpw', build_info: 'b10711-9723942ad',
+        default_generation_settings: { n_ctx: 65536 } });
+    }
+    if (pathname !== '/v1/chat/completions') throw new Error('unexpected endpoint');
+    const body = JSON.parse(init.body), user = JSON.parse(body.messages[1].content);
+    const step = Object.entries(CONTEXT_PLANNER_PROFILE.prompts).find(([, prompt]) => prompt === body.messages[0].content)?.[0];
+    calls.push({ step, thinking: body.chat_template_kwargs?.enable_thinking, schema: body.response_format?.json_schema?.schema,
+      format: body.response_format?.type, keep_alive: body.keep_alive, max_tokens: body.max_tokens,
+      temperature: body.temperature, seed: body.seed, user });
+    const reply = typeof responses[step] === 'function' ? responses[step](user) : responses[step];
+    return json({ choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant',
+      content: JSON.stringify(reply), reasoning_content: REASONING } }], usage: { prompt_tokens: 100, completion_tokens: 20 } });
+  }
+  return { fetchImpl, calls };
+}
+
 async function indexedStore() {
   const store = await makeGraphIndexStore(), worker = cannedGraphWorker();
   const first = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256,
@@ -113,6 +143,39 @@ test('canned local model: the program searches, enforces citations and reports c
   assert.deepEqual(await listFiles(store.storeRoot), before, 'a query writes nothing');
   const again = await composeWorkingContext({ view: view(), request: REQUEST, binding: BINDING, fetchImpl: cannedChat().fetchImpl });
   assert.equal(again.content_sha256, pack.content_sha256, 'same input and same answers give the same content digest');
+});
+
+test('openai-compatible transport: the same program, a schema response_format and a server-reported pin', async () => {
+  const { store, view } = await indexedStore();
+  const before = await listFiles(store.storeRoot);
+  const binding = { llm: { ...BINDING.llm, transport: 'openai_chat' } };
+  const chat = cannedOpenAiChat();
+  const pack = await composeWorkingContext({ view: view(), request: REQUEST, binding, fetchImpl: chat.fetchImpl });
+  assert.deepEqual({ status: pack.status, steps: chat.calls.map(call => call.step) },
+    { status: 'complete', steps: ['plan', 'review', 'compose'] });
+  // The schema is a response_format, the sampler is top level, thinking is a template
+  // argument, and keep_alive has no place on this path.
+  assert.deepEqual(chat.calls.map(call => [call.format, typeof call.schema, call.thinking, call.temperature, call.seed, call.max_tokens, call.keep_alive]),
+    [['json_schema', 'object', false, 0, 7, 4096, undefined], ['json_schema', 'object', false, 0, 7, 4096, undefined],
+      ['json_schema', 'object', false, 0, 7, 4096, undefined]]);
+  assert.match(pack.planner.model.llm_digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(pack.planner.model.llm_pin_kind, 'server_props', 'a server without a weight digest is labelled, not conflated');
+  assert.equal(JSON.stringify(pack).includes(SERVED_ID), false, 'the host-local model path is hashed, never reported');
+  assert.ok(pack.trace.every(row => row.thinking_characters === REASONING.length && row.done_reason === 'stop'
+    && row.prompt_tokens === 100 && row.output_tokens === 20), 'reasoning stays out of the answer and is measured separately');
+  assert.deepEqual(pack.enforcement, { empty_dropped: 0, downgraded: 2, unknown_evidence_ids: 1 },
+    'citation enforcement does not change with the transport');
+  assert.deepEqual(await listFiles(store.storeRoot), before, 'a query writes nothing');
+  // Without /props the same server can only be pinned by the ids it answers under.
+  const named = await composeWorkingContext({ view: view(), request: REQUEST, binding,
+    fetchImpl: cannedOpenAiChat({ props: false }).fetchImpl });
+  assert.equal(named.planner.model.llm_pin_kind, 'served_id');
+  assert.notEqual(named.planner.model.llm_digest, pack.planner.model.llm_digest);
+  await assert.rejects(composeWorkingContext({ view: view(), request: REQUEST, binding,
+    fetchImpl: cannedOpenAiChat({ served: [] }).fetchImpl }), { code: 'chat_model_not_installed' },
+  'a server serving nothing leaves the index tied to no model');
+  assert.equal(code(() => validateChatBinding({ ...binding.llm, transport: 'grpc' })), 'chat_binding_invalid');
+  assert.equal(validateChatBinding(BINDING.llm).transport, 'ollama', 'the Ollama transport stays the default');
 });
 
 test('budget, failure and refusal paths', async () => {
