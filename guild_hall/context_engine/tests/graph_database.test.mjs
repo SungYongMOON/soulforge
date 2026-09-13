@@ -12,8 +12,10 @@ import { cannedGraphDatabaseWorker as cannedDatabase, cannedGraphWorker as canne
   INDEX_NOW as NOW, makeGraphIndexStore as makeStore, READER_REQUEST as reader } from '../harness/fixtures/graph_index_fixture.mjs';
 import { openGraphIndex, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { validateAllowedModelHosts, validateGraphBinding, validateNeo4jBinding } from '../src/runtime/graph_extraction.mjs';
-import { createGraphSearch, linkExplicitReferences, materializeGraphIndex } from '../src/runtime/graph_database.mjs';
+import { GRAPH_EXPANSION_LIMITS, createGraphSearch, linkExplicitReferences, linkRelatedEvidence, materializeGraphIndex,
+  narrowExpansion } from '../src/runtime/graph_database.mjs';
 import { createGraphIndexRetriever } from '../src/runtime/graph_index_retrieval.mjs';
+import { checkJudgement, quoteMatch, relationFromJudgement } from '../src/runtime/relation_judgement.mjs';
 
 const code = fn => { try { fn(); return null; } catch (error) { return error.code; } };
 
@@ -171,8 +173,10 @@ test('vector, hybrid and graph search return only units this generation holds', 
     const result = await retriever[mode]('전원 조건', 5);
     assert.equal(result.status, 'ok', mode);
     assert.equal(result.hits.length, 2, `${mode}: the row from outside the generation is not served`);
-    assert.deepEqual(result.receipt, { mode, requested_top_k: 5, returned: 3, admitted: 2,
-      not_in_generation: 1, dropped_out_of_generation: 0 });
+    assert.deepEqual({ ...result.receipt, expansion: undefined }, { mode, requested_top_k: 5, returned: 3, admitted: 2,
+      not_in_generation: 1, dropped_out_of_generation: 0, expansion: undefined });
+    // Only the graph mode expands, so only it accounts for one.
+    assert.equal(result.receipt.expansion === undefined, mode !== 'graph');
     // Every hit carries the provenance a citation needs, not just an id.
     for (const hit of result.hits) {
       assert.ok(hit.text && hit.unit_id && hit.item_id && hit.source_kind && hit.revision_sha256);
@@ -239,8 +243,10 @@ test('a graph row the expansion reached is admitted like any other, and only if 
 
   const result = await retriever.graph('전원 조건', 5);
   assert.equal(result.status, 'ok');
-  assert.deepEqual(result.receipt, { mode: 'graph', requested_top_k: 5, returned: 3, admitted: 2,
-    not_in_generation: 1, dropped_out_of_generation: 0 }, 'a reached row counts as admitted; the foreign one does not');
+  assert.deepEqual({ ...result.receipt, expansion: undefined }, { mode: 'graph', requested_top_k: 5, returned: 3, admitted: 2,
+    not_in_generation: 1, dropped_out_of_generation: 0, expansion: undefined }, 'a reached row counts as admitted; the foreign one does not');
+  assert.deepEqual({ seeds: result.receipt.expansion.seeds, inflow: result.receipt.expansion.inflow },
+    { seeds: 1, inflow: 2 }, 'the receipt reports the expansion the database applied');
   assert.deepEqual(result.hits.map(row => row.seed), [true, false]);
   // The reached row is evidence with the same provenance as the seed, not a weaker one.
   for (const row of result.hits) assert.ok(row.text && row.unit_id && row.item_id && row.revision_sha256);
@@ -265,8 +271,8 @@ test('a seed keeps the score it came with and a reached row keeps the one it inh
     [[first.sf_unit_id, 0.804, true], [second.sf_unit_id, 0.846, false]],
     'the lower-scored seed stays first and neither score is changed on the way out');
   assert.deepEqual(result.hits.map(row => row.rank), [1, 2]);
-  assert.deepEqual(result.receipt, { mode: 'graph', requested_top_k: 5, returned: 2, admitted: 2,
-    not_in_generation: 0, dropped_out_of_generation: 0 });
+  assert.deepEqual({ ...result.receipt, expansion: undefined }, { mode: 'graph', requested_top_k: 5, returned: 2, admitted: 2,
+    not_in_generation: 0, dropped_out_of_generation: 0, expansion: undefined });
 });
 
 test('a search before the generation is loaded reports that, and a bad request never reaches the database', async () => {
@@ -293,6 +299,138 @@ test('a view that stopped being current is not searched or loaded', async () => 
   await assert.rejects(retriever.vector('전원 조건'), error => error.code === 'graph_index_acl_changed');
   await assert.rejects(materializeGraphIndex({ view: current, binding: current.graph_binding, runWorker: database.runWorker }),
     error => error.code === 'graph_index_acl_changed');
+});
+
+// ---------------------------------------------------------------------------
+// Related evidence (rule R1): a judged relation, checked before it is written.
+// ---------------------------------------------------------------------------
+
+// One well-formed relation between the first two units of the two fixture
+// documents, as judgeRelatedEvidence would hand it over.
+function relationOf(view, { relationKind = 'same_test_context', direction = 'a_to_b', evidenceA = null, evidenceB = null } = {}) {
+  const [first, second] = view.manifest.documents;
+  const unitOf = row => view.readDocument(row.doc_key).units[0].unit_id;
+  return { a_doc_key: first.doc_key, a_unit_id: unitOf(first), b_doc_key: second.doc_key, b_unit_id: unitOf(second),
+    judgement_id: `sha256:${'a'.repeat(64)}`, relation_kind: relationKind, direction,
+    evidence_a_unit: evidenceA ?? unitOf(first), evidence_b_unit: evidenceB ?? unitOf(second),
+    prompt_sha256: `sha256:${'b'.repeat(64)}`, model: 'local-model:tag', model_pin: `model_digest:sha256:${'c'.repeat(64)}` };
+}
+
+test('a judged relation reaches the database only when this generation holds both ends and both quoted units', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const database = cannedDatabase({ loaded: 'g1' });
+  const relation = relationOf(current);
+  const link = extra => linkRelatedEvidence({ view: view(), binding: current.graph_binding,
+    relations: [{ ...relation, ...extra }], apply: true, runWorker: database.runWorker });
+
+  const applied = await link({});
+  assert.deepEqual({ status: applied.status, rule: applied.rule, applied: applied.applied, counts: applied.counts },
+    { status: 'ok', rule: 'R1-local-judgement', applied: true, counts: { requested: 1, created: 1, existing: 0 } });
+  const sent = database.calls.requests.at(-1);
+  assert.deepEqual({ operation: sent.operation, generation: sent.generation_id, rule: sent.rule, rows: sent.relations.length },
+    { operation: 'link_related_evidence', generation: 'g1', rule: 'R1-local-judgement', rows: 1 });
+  assert.equal(sent.relations[0].relation_kind, 'same_test_context');
+
+  const refused = async extra => link(extra).then(() => null, error => error.code);
+  // A unit this generation does not hold, on either end or as a quote's source.
+  assert.equal(await refused({ b_unit_id: 'u-not-here' }), 'graph_related_relations_invalid');
+  assert.equal(await refused({ a_doc_key: `sha256:${'f'.repeat(64)}` }), 'graph_related_relations_invalid');
+  // A quote attributed to a unit that is not in the record it is said to come from.
+  assert.equal(await refused({ evidence_b_unit: 'u-not-here' }), 'graph_related_evidence_invalid');
+  assert.equal(await refused({ evidence_a_unit: 'u-not-here' }), 'graph_related_evidence_invalid');
+  // A kind this rule does not write, and a chunk joined to itself.
+  assert.equal(await refused({ relation_kind: 'similar_topic' }), 'graph_related_kind_unknown');
+  assert.equal(await refused({ b_doc_key: relation.a_doc_key, b_unit_id: relation.a_unit_id }), 'graph_related_relations_invalid');
+  // A judgement id that is not a digest cannot be merged onto twice.
+  assert.equal(await refused({ judgement_id: 'j-1' }), 'graph_related_relations_invalid');
+  assert.equal(database.calls.related, 1, 'only the checked relation was sent to the database');
+});
+
+test('a judgement that names a different event, or quotes what its unit does not say, becomes no relation', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const [first, second] = current.manifest.documents;
+  const pair = { a: { doc_key: first.doc_key, unit_id: current.readDocument(first.doc_key).units[0].unit_id },
+    b: { doc_key: second.doc_key, unit_id: current.readDocument(second.doc_key).units[0].unit_id } };
+  const textA = current.readDocument(first.doc_key).units[0].text;
+  const textB = current.readDocument(second.doc_key).units[0].text;
+  const answer = extra => ({ subject_a: 'A', subject_b: 'B', relation_kind: 'same_test_context', direction: 'symmetric',
+    evidence_a: { unit_id: pair.a.unit_id, quote: textA.slice(0, 8) },
+    evidence_b: { unit_id: pair.b.unit_id, quote: textB.slice(0, 8) },
+    counter_conditions: [], unresolved: [], ...extra });
+
+  const good = checkJudgement({ view: current, pair, answer: answer() });
+  assert.deepEqual({ linkable: good.linkable, kind: good.relation_kind, a: good.checks.evidence_a.quote_match,
+    b: good.checks.evidence_b.quote_match, reasons: good.reasons },
+  { linkable: true, kind: 'same_test_context', a: 'exact', b: 'exact', reasons: [] });
+
+  // Same date, different test: a kind that says so is kept and linked to nothing.
+  const different = checkJudgement({ view: current, pair, answer: answer({ relation_kind: 'different_event' }) });
+  assert.deepEqual({ linkable: different.linkable, kind: different.relation_kind, reasons: different.reasons },
+    { linkable: false, kind: 'different_event', reasons: ['kind_not_linked:different_event'] });
+  assert.equal(checkJudgement({ view: current, pair, answer: answer({ relation_kind: 'similar_topic' }) }).linkable, false);
+  assert.equal(checkJudgement({ view: current, pair, answer: answer({ relation_kind: 'insufficient' }) }).linkable, false);
+
+  // A quote the unit does not carry, and a quote attributed to a unit that is not there.
+  const invented = checkJudgement({ view: current, pair,
+    answer: answer({ evidence_b: { unit_id: pair.b.unit_id, quote: '이 문장은 원문에 없다' } }) });
+  assert.deepEqual({ linkable: invented.linkable, match: invented.checks.evidence_b.quote_match, reasons: invented.reasons },
+    { linkable: false, match: 'not_found', reasons: ['evidence_b_quote_not_in_unit'] });
+  const elsewhere = checkJudgement({ view: current, pair,
+    answer: answer({ evidence_a: { unit_id: 'u-not-here', quote: textA.slice(0, 8) } }) });
+  assert.deepEqual({ linkable: elsewhere.linkable, reasons: elsewhere.reasons },
+    { linkable: false, reasons: ['evidence_a_unit_unknown'] });
+  // Whitespace is the one difference a quote may have; a paraphrase is not one.
+  assert.equal(quoteMatch(textA.slice(0, 8).replace(/\s+/gu, '  '), textA), 'whitespace_normalised');
+  assert.equal(quoteMatch('전혀 다른 문장', textA), 'not_found');
+
+  // The edge a good judgement becomes: content-addressed, so the same judgement
+  // twice is the same edge, and its claim is recorded as an inference.
+  const relation = relationFromJudgement({ pair, judgement: good, promptSha256: `sha256:${'b'.repeat(64)}`,
+    model: 'local-model:tag', modelPin: `server_props:sha256:${'c'.repeat(64)}` });
+  assert.equal(relation.judgement_id, relationFromJudgement({ pair, judgement: good, promptSha256: `sha256:${'b'.repeat(64)}`,
+    model: 'local-model:tag', modelPin: `server_props:sha256:${'c'.repeat(64)}` }).judgement_id);
+  assert.deepEqual({ a: relation.a_doc_key, b: relation.b_doc_key, direction: relation.direction },
+    { a: pair.a.doc_key, b: pair.b.doc_key, direction: 'symmetric' });
+  // b_to_a swaps the ends rather than writing a backwards edge.
+  const backwards = checkJudgement({ view: current, pair, answer: answer({ direction: 'b_to_a' }) });
+  const swapped = relationFromJudgement({ pair, judgement: backwards, promptSha256: `sha256:${'b'.repeat(64)}`,
+    model: 'local-model:tag', modelPin: `server_props:sha256:${'c'.repeat(64)}` });
+  assert.deepEqual({ a: swapped.a_doc_key, b: swapped.b_doc_key, evidence_a: swapped.evidence_a_unit, direction: swapped.direction },
+    { a: pair.b.doc_key, b: pair.a.doc_key, evidence_a: pair.b.unit_id, direction: 'a_to_b' });
+});
+
+test('an expansion budget is narrowed to this APP ceiling, carried to the database, and its rows come back as they were ordered', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const [seed, reached] = unitRows(current, 2);
+  const rows = [{ ...seed, seed: true, via: 'seed', relevance: null },
+    { ...reached, seed: false, score: 0.9, via: 'R1', relevance: 0.5 }];
+  const database = cannedDatabase({ hits: rows, loaded: 'g1' });
+  const retriever = createGraphIndexRetriever(current, { runWorker: database.runWorker });
+
+  // A: one rule. B: both. Same question, same seeds, the condition is the request.
+  const withoutR1 = await retriever.graph('전원 조건', 5, { expansion: { enabled_rules: ['L1'] } });
+  assert.deepEqual(database.calls.requests.at(-1).expansion, { enabled_rules: ['L1'] });
+  const withR1 = await retriever.graph('전원 조건', 5, { expansion: { enabled_rules: ['L1', 'R1'], per_document_limit: 2 } });
+  assert.deepEqual(database.calls.requests.at(-1).expansion, { enabled_rules: ['L1', 'R1'], per_document_limit: 2 });
+  assert.equal(withoutR1.status, 'ok');
+  assert.deepEqual(withR1.hits.map(row => [row.seed, row.via, row.score]), [[true, 'seed', rows[0].score], [false, 'R1', 0.9]],
+    'the seed stays first and the reached row keeps the score it inherited');
+  assert.equal(withR1.receipt.expansion.enabled_rules.join(','), 'L1,R1', 'the receipt says which rules this answer followed');
+  assert.equal(withR1.receipt.returned, 2);
+
+  // The ceiling is this side's, not the caller's: a request may lower a bound, never raise it.
+  assert.deepEqual(narrowExpansion({ expansion_limit: 3 }),
+    { enabled_rules: ['L1', 'R1'], expansion_limit: 3 });
+  assert.deepEqual(narrowExpansion({ final_limit: 99 }).final_limit, GRAPH_EXPANSION_LIMITS.final_limit);
+  assert.equal(narrowExpansion(null), null, 'no expansion in the request leaves the database its own defaults');
+  const refused = value => { try { narrowExpansion(value); return null; } catch (error) { return error.code; } };
+  assert.equal(refused({ enabled_rules: ['L1', 'L9'] }), 'graph_search_expansion_invalid');
+  assert.equal(refused({ enabled_rules: ['L1', 'L1'] }), 'graph_search_expansion_invalid');
+  assert.equal(refused({ per_document_limit: -1 }), 'graph_search_expansion_invalid');
+  assert.equal(refused({ depth: 2 }), 'graph_search_expansion_invalid', 'a bound this APP does not have is not silently ignored');
 });
 
 // ---------------------------------------------------------------------------

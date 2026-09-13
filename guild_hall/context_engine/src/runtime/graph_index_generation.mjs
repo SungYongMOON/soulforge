@@ -24,8 +24,9 @@ import { rootedStore, safeStoreRel, storeToken } from './pair_store.mjs';
 import { prepareSourceDocuments } from './source_preparation.mjs';
 import { assertModelHostsAdmitted } from './real_data_admission.mjs';
 import { SOURCE_PREPARATION_PURPOSE, validateSourceDocument } from './source_documents.mjs';
-import { extractGraphFragments, probeGraphModels, validateGraphBinding } from './graph_extraction.mjs';
+import { embeddingRef, extractGraphFragments, probeGraphModels, validateGraphBinding } from './graph_extraction.mjs';
 import { GRAPH_EXTRACTION_PROFILE } from '../../profiles/graph_extraction_v1.mjs';
+import { runGraphragWorker } from '../adapters/graphrag/worker_client.mjs';
 
 export const GRAPH_INDEX_BINDING_FILE = 'graph_index_binding.json';
 export const GRAPH_INDEX_BINDING_MODE = 'context_engine_graph_index';
@@ -37,6 +38,9 @@ export const GRAPH_INDEX_AREAS = Object.freeze({ documents: '20_문서검색/본
 // One worker call takes at most this much: inside the extraction limits and far
 // under the worker's 64 MiB request cap (Korean text is 3 bytes per character).
 export const GRAPH_EXTRACTION_BATCH = Object.freeze({ documents: 50, units: 2000, characters: 8_000_000 });
+// One embed call takes at most this much. The vectors come back in the answer, so
+// the bound is the size of that answer rather than a model call budget.
+export const GRAPH_EMBED_BATCH = Object.freeze({ chunks: 50, characters: 400_000 });
 const POINTER = '00_프로젝트_안내/graph_index_current.json';
 const LOCK = '00_프로젝트_안내/graph_index.lock';
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
@@ -443,6 +447,173 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     selection_epoch: epoch, changes, counts: manifest.counts, llm };
 }
 
+// Chunks in order, grouped so no worker call exceeds the embed bounds.
+export function planEmbedBatches(chunks, limits = GRAPH_EMBED_BATCH) {
+  const batches = [];
+  let current = [], characters = 0;
+  for (const chunk of chunks) {
+    if (chunk.text.length > limits.characters) fail('graph_index_chunk_too_large');
+    if (current.length && (current.length + 1 > limits.chunks || characters + chunk.text.length > limits.characters)) {
+      batches.push(current); current = []; characters = 0;
+    }
+    current.push(chunk); characters += chunk.text.length;
+  }
+  if (current.length) batches.push(current);
+  return batches;
+}
+
+// Replaces `sf_embedder`, `sf_embedder_digest` and the model revision on a row
+// that carries them, and leaves every other property, including `sf_model` and
+// `sf_model_digest`, exactly as the extraction wrote it.
+function restamp(properties, model, revision) {
+  if (!plain(properties) || !Object.hasOwn(properties, 'sf_revision_sha256')) return properties;
+  return { ...properties, sf_embedder: model.embedder, sf_embedder_digest: model.embedder_digest,
+    sf_revision_sha256: revision };
+}
+
+// A derived generation that keeps one generation's extraction and replaces only
+// its search vectors. Changing the embedder through updateGraphIndex would make
+// every fragment unreusable and re-run the model over every chunk; the relations
+// in those fragments are not a function of the embedder, so this path re-reads the
+// source generation by hash, asks the worker for new vectors over the same chunk
+// texts, and writes a new create-only generation whose fragments say which
+// extraction they reused and which embedder produced their vectors. No LLM is
+// called, the pointer is not moved (selecting the result is a separate,
+// authorized act) and the source generation's files are never opened for writing.
+//
+// request: { actor_ref, project_ref, purpose: 'context_preparation', generation_id, source_generation_id }.
+export async function reembedGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256,
+  request, now = new Date().toISOString(), runWorker = runGraphragWorker } = {}) {
+  request = structuredClone(request);
+  const result = await withIndexLock(() => {
+    if (!storeToken(request?.generation_id) || !storeToken(request?.source_generation_id)
+      || request.generation_id === request.source_generation_id) fail('graph_index_request_refused');
+    return openIndexStore({ io, storeRoot, bindingAddress, bindingSha256, request, operation: 'index' });
+  }, (store, markCommitted) => runReembed({ store, bindingSha256, request, now, runWorker, markCommitted }));
+  return Object.freeze({ generation_id: request?.generation_id ?? null, ...result });
+}
+
+async function runReembed({ store, bindingSha256, request, now, runWorker, markCommitted }) {
+  // The source is the generation this project has selected: a hash-verified,
+  // servable manifest rather than a path a caller chose.
+  if (!store.opened || store.opened.value.generation_id !== request.source_generation_id) fail('graph_index_source_not_selected');
+  const sourceRef = store.opened.value.generation_ref;
+  const source = verifyManifest(store, sourceRef);
+  assertServable(store, source);
+  const bound = validateGraphBinding(store.binding.graph);
+  if (!bound.embedder) fail('graph_embedder_not_bound');
+
+  // Every fragment, checked against its own document: a reused extraction has to
+  // still be the extraction of the text whose vector is being replaced.
+  const fragments = new Map(), chunks = [];
+  for (const row of source.documents) {
+    const fragment = JSON.parse(store.readArea(row.fragment));
+    if (fragment.doc_key !== row.doc_key || fragment.project_key !== store.projectKey
+      || fragment.fragment_sha256 !== row.fragment.fragment_sha256) fail('graph_index_fragment_invalid');
+    const document = JSON.parse(store.readArea(row.document));
+    if (!validateSourceDocument(document) || document.doc_key !== row.doc_key
+      || document.project_key !== store.projectKey || document.text_sha256 !== row.text_sha256) fail('graph_index_document_invalid');
+    const textOf = new Map(document.units.map(unit => [unit.unit_id, unit.text]));
+    fragments.set(row.doc_key, fragment);
+    for (const node of fragment.nodes) {
+      if (node.label !== 'Chunk' || !node.embedding) continue;
+      const unitId = node.properties?.sf_unit_id;
+      if (!textOf.has(unitId) || textOf.get(unitId) !== node.properties?.text) fail('graph_index_chunk_text_changed');
+      chunks.push({ doc_key: row.doc_key, unit_id: unitId, text: node.properties.text });
+    }
+  }
+  if (chunks.length === 0) fail('graph_index_nothing_to_embed');
+
+  const vectors = new Map();
+  let embedder = null, tool = null, calls = 0, elapsed = 0;
+  for (const batch of planEmbedBatches(chunks)) {
+    const { exit_code: exitCode, output, worker_sha256: workerSha256 } = await runWorker({ binding: bound.worker,
+      request: { operation: 'embed', profile: { embedder: bound.embedder, allowed_hosts: bound.allowed_model_hosts },
+        chunks: batch.map(({ doc_key, unit_id, text }) => ({ doc_key, unit_id, text })) } });
+    if (exitCode !== 0 || !plain(output)) fail(String(output?.code ?? 'graph_worker_failed'));
+    if (output.status !== 'ok') {
+      return { status: 'HOLD', code: String(output.code ?? 'graph_embed_failed'),
+        refused: (Array.isArray(output.refused) ? output.refused : []).map(({ doc_key, unit_id, characters, error_type }) =>
+          ({ doc_key, unit_id, characters, error_type })), dimensions: output.dimensions ?? null };
+    }
+    const reported = output.models?.embedder;
+    if (reported?.model !== bound.embedder.model || !SHA.test(reported?.digest ?? '')) fail('graph_worker_models_invalid');
+    const pin = { model: reported.model, digest: reported.digest, pin_kind: reported.pin_kind ?? 'model_digest' };
+    if (embedder !== null && !equal(embedder, pin)) fail('graph_embedder_changed');
+    embedder = pin;
+    if (!SHA.test(workerSha256 ?? '') || typeof output.packages?.['neo4j-graphrag'] !== 'string') fail('graph_worker_models_invalid');
+    const batchTool = { worker_sha256: workerSha256, packages: output.packages };
+    if (tool !== null && !equal(tool, batchTool)) fail('graph_worker_models_invalid');
+    tool = batchTool;
+    calls += Number.isSafeInteger(output.embedder_calls) ? output.embedder_calls : 0;
+    elapsed += Number.isSafeInteger(output.elapsed_ms) ? output.elapsed_ms : 0;
+    for (const row of Array.isArray(output.vectors) ? output.vectors : []) {
+      if (!Array.isArray(row?.embedding) || row.embedding.length === 0 || !row.embedding.every(Number.isFinite)) fail('graph_embedding_invalid');
+      vectors.set(`${row.doc_key}${row.unit_id}`, row.embedding);
+    }
+  }
+  const dimensions = [...new Set([...vectors.values()].map(vector => vector.length))];
+  if (vectors.size !== chunks.length || dimensions.length !== 1) fail('graph_embedding_incomplete');
+
+  // The extraction's model revision with only its embedder half replaced, so a
+  // reader can see that the entities and relations came from the earlier run.
+  const model = { ...source.model, embedder: embedder.model, embedder_digest: embedder.digest, embedding_source: 'reembed' };
+  const revision = sha256Canonical(model);
+  const generationId = request.generation_id, rows = [];
+  for (const row of source.documents) {
+    const { fragment_sha256: priorSha256, ...body } = fragments.get(row.doc_key);
+    const nodes = body.nodes.map(node => {
+      const properties = restamp(node.properties, model, revision);
+      if (node.label !== 'Chunk' || !node.embedding) return { ...node, properties };
+      const embedding = vectors.get(`${row.doc_key}${node.properties.sf_unit_id}`);
+      if (!embedding) fail('graph_embedding_incomplete');
+      return { ...node, properties, embedding_ref: embeddingRef(embedding), embedding };
+    });
+    const rebuilt = { ...body, model, nodes,
+      relationships: body.relationships.map(rel => ({ ...rel, properties: restamp(rel.properties, model, revision) })),
+      extraction_reused_from: { generation_id: source.generation_id, fragment_sha256: priorSha256 } };
+    const fragment = { ...rebuilt, fragment_sha256: sha256Canonical({ ...rebuilt,
+      nodes: nodes.map(({ embedding, ...node }) => node) }) };
+    const hex = row.doc_key.slice('sha256:'.length);
+    const written = await store.writeCreateOnly(generationId,
+      `${GRAPH_INDEX_AREAS.index}/generations/${generationId}/fragments/${hex}.json`, encode(fragment));
+    // The document itself is unchanged, so the new generation points at the bytes
+    // the source generation already holds rather than writing a second copy.
+    rows.push({ ...row, document: { ...row.document }, fragment: { ...written, fragment_sha256: fragment.fragment_sha256 },
+      origin: 'reembedded' });
+  }
+  const sourceQuality = JSON.parse(store.readArea(source.coverage));
+  const unchanged = rows.map(({ source_kind, root_ref, item_id, doc_key }) => ({ source_kind, root_ref, item_id, doc_key }));
+  const embedding = { model: embedder.model, digest: embedder.digest, pin_kind: embedder.pin_kind,
+    dimensions: dimensions[0], chunks: chunks.length, calls, elapsed_ms: elapsed, tool };
+  const quality = { schema_version: GRAPH_INDEX_QUALITY_SCHEMA, generation_id: generationId, coverage: sourceQuality.coverage,
+    changes: { added: [], changed: [], removed: [], unchanged, unavailable: [] }, extraction: null,
+    derived_from: { generation_id: source.generation_id, coverage: { ...source.coverage }, reused: 'extraction' },
+    embedding, reembedded_at: now };
+  const coverageRef = await store.writeCreateOnly(generationId,
+    `${GRAPH_INDEX_AREAS.quality}/generations/${generationId}/coverage.json`, encode(quality));
+  const manifest = { schema_version: GRAPH_INDEX_MANIFEST_SCHEMA, generation_id: generationId, status: 'complete',
+    project_ref: store.binding.project_ref, project_key: store.projectKey, approved_fs_key: store.binding.approved_fs_key,
+    // No selection epoch: this run writes a generation and selects nothing.
+    writer: { actor_ref: request.actor_ref, operation: 'reembed', binding_sha256: bindingSha256, acl_sha256: store.aclSha256, epoch: null },
+    supersedes: null,
+    derived_from: { generation_id: source.generation_id, manifest_ref: { ...sourceRef }, reused: 'extraction' },
+    grant: source.grant, admission: source.admission, profile: source.profile, model, template_version: store.templateVersion,
+    coverage: coverageRef, coverage_sha256: source.coverage_sha256,
+    changes: { added: 0, changed: 0, removed: 0, unchanged: rows.length, unavailable: 0 }, documents: rows,
+    counts: { ...source.counts, extracted: 0, carried: 0, reembedded: rows.length },
+    // Nothing asked a language model anything on this path.
+    llm: { calls: 0, errors: 0, invalid_outputs: 0, truncated: 0, prompt_tokens: 0, output_tokens: 0, elapsed_ms: 0, embedder_calls: 0 },
+    embedding };
+  const manifestRef = await store.writeCreateOnly(generationId,
+    `${GRAPH_INDEX_AREAS.index}/generations/${generationId}/generation.json`, encode(manifest));
+  verifyManifest(store, manifestRef);
+  markCommitted();
+  return { status: 'WRITTEN', generation_id: generationId, manifest_ref: manifestRef, pointer_moved: false,
+    source_generation_id: source.generation_id, source_manifest_ref: { ...sourceRef },
+    counts: manifest.counts, changes: manifest.changes, embedding, llm: manifest.llm };
+}
+
 // Re-selects an earlier complete generation (rollback) under the same lock,
 // authority, grant and expected-prior rules. request: { ..., generation_ref, expected_prior }.
 export async function selectGraphIndexGeneration({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request,
@@ -470,15 +641,22 @@ export async function selectGraphIndexGeneration({ io = null, storeRoot, binding
   });
 }
 
-// Read view of the selected generation for retrieval or a graph load. Every
-// document and fragment is re-read by hash; assertCurrent refuses a view whose
-// pointer, binding or access changed since it was opened. `graph_binding` is the
-// validated graph binding this view was opened under, including the graph
-// database endpoint when one is bound.
-export function openGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request } = {}) {
+// Read view of a generation for retrieval or a graph load. The selected one by
+// default; `generationRef` opens a named one instead, which is how a derived
+// generation is read without moving the pointer. A named generation is held to
+// exactly the same rules: the ref must address this project's index area, every
+// file is re-read by hash, and the grant and data classes it was built under must
+// still admit this actor. `selected` says which of the two a view is, so nothing
+// reads a derived generation as the project's current answer. assertCurrent
+// refuses a view whose pointer, binding or access changed since it was opened.
+// `graph_binding` is the validated graph binding this view was opened under,
+// including the graph database endpoint when one is bound.
+export function openGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request,
+  generationRef = null } = {}) {
   const store = openIndexStore({ io, storeRoot, bindingAddress, bindingSha256, request: structuredClone(request), operation: 'read' });
-  if (!store.opened) fail('graph_index_not_selected');
-  const manifest = verifyManifest(store, store.opened.value.generation_ref);
+  if (generationRef === null && !store.opened) fail('graph_index_not_selected');
+  const openedRef = generationRef ?? store.opened.value.generation_ref;
+  const manifest = verifyManifest(store, openedRef);
   assertServable(store, manifest);
   const row = docKey => manifest.documents.find(item => item.doc_key === docKey) ?? fail('graph_index_document_unknown');
   function readDocument(docKey) {
@@ -501,7 +679,8 @@ export function openGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_IN
     }
     return quality;
   }
-  return Object.freeze({ manifest, generation_ref: { ...store.opened.value.generation_ref }, pointer_sha256: store.opened.sha256,
-    selection_epoch: store.opened.value.selection_epoch, graph_binding: store.graphBinding, readDocument, readFragment,
-    readQuality, assertCurrent: store.assertUnchanged });
+  return Object.freeze({ manifest, generation_ref: { ...openedRef }, pointer_sha256: store.opened?.sha256 ?? null,
+    selection_epoch: store.opened?.value.selection_epoch ?? null,
+    selected: store.opened !== null && store.opened.value.generation_id === manifest.generation_id,
+    graph_binding: store.graphBinding, readDocument, readFragment, readQuality, assertCurrent: store.assertUnchanged });
 }

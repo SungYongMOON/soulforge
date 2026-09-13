@@ -13,10 +13,11 @@ import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
-import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_WORKER_SHA256, INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
+import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REEMBEDDING, CANNED_REEMBED_DIGEST, CANNED_WORKER_SHA256,
+  INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
 import { GRAPH_EXTRACTION_BATCH, GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
-  selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
+  reembedGraphIndex, selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
 const update = (store, request, worker) => updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request,
   now: NOW, runWorker: worker.runWorker });
@@ -316,4 +317,132 @@ test('an aliased estate indexes through the same contract; a mispinned admission
   assert.deepEqual({ status: held.status, code: held.code }, { status: 'HOLD', code: 'graph_index_admission_mismatch' });
   await writeFile(estate.io.path(estate.bindingAddress), bindingBytes);
   assert.equal(openGraphIndex({ ...base, request: reader }).manifest.generation_id, 'g1');
+});
+
+// ---------------------------------------------------------------------------
+// Re-embedding: one generation's extraction reused, its search vectors replaced.
+// ---------------------------------------------------------------------------
+
+const EMBEDDER = Object.freeze({ host: 'http://127.0.0.1:11434', model: 'embed:tag' });
+const SECOND_EMBEDDER = Object.freeze({ host: 'http://127.0.0.1:11434', model: 'embed8:tag' });
+// The re-embedding reads a second binding beside the first: same project, same
+// grant, a different embedder. The original binding is never rewritten, which is
+// how the selected generation stays readable exactly as it was.
+async function secondBinding(store, embedder = SECOND_EMBEDDER) {
+  const address = 'graph_index_binding.second.json';
+  const { sha256 } = await store.put(address, { ...store.binding,
+    graph: { ...store.binding.graph, embedder } });
+  return { bindingAddress: address, bindingSha256: sha256 };
+}
+const reembed = async (store, request, worker, binding = null) => reembedGraphIndex({ storeRoot: store.storeRoot,
+  ...(binding ?? { bindingSha256: store.bindingSha256 }), request, now: NOW, runWorker: worker.runWorker });
+const open = (store, extra = {}) => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader, ...extra });
+const codeOf = fn => { try { fn(); return null; } catch (error) { return error.code; } };
+
+test('a re-embedding reuses the extraction as it stands and changes only the vectors and the embedder half of the revision', async () => {
+  const store = await makeStore({ embedder: EMBEDDER }), worker = cannedWorker();
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), worker);
+  assert.equal(first.status, 'COMMITTED');
+  const before = open(store);
+  const priorFragments = new Map(before.manifest.documents.map(row => [row.doc_key, before.readFragment(row.doc_key)]));
+  const priorRows = new Map(before.manifest.documents.map(row => [row.doc_key, row]));
+
+  const result = await reembed(store, indexer({ generation_id: 'g2', source_generation_id: 'g1' }), worker,
+    await secondBinding(store));
+  assert.deepEqual({ status: result.status, moved: result.pointer_moved, source: result.source_generation_id,
+    llm: result.llm.calls, reembedded: result.counts.reembedded, extracted: result.counts.extracted,
+    dimensions: result.embedding.dimensions, model: result.embedding.model, digest: result.embedding.digest },
+  { status: 'WRITTEN', moved: false, source: 'g1', llm: 0, reembedded: 2, extracted: 0,
+    dimensions: CANNED_REEMBEDDING.length, model: SECOND_EMBEDDER.model, digest: CANNED_REEMBED_DIGEST });
+  // Nothing asked the extraction model anything, and every chunk went once to the embedder.
+  assert.deepEqual({ extract: worker.calls.extract, probe: worker.calls.probe, embed: worker.calls.embed,
+    embedded: worker.calls.embedded.length }, { extract: 1, probe: 1, embed: 1, embedded: 4 });
+  assert.deepEqual(await generations(store), ['g1', 'g2']);
+  // The pointer did not move: g1 is still what this project has selected.
+  assert.deepEqual([open(store).manifest.generation_id, open(store).selected], ['g1', true]);
+
+  // Read back through the original binding: a derived generation is not a second
+  // store, and the binding that made it is not the only one that may read it.
+  const after = open(store, { generationRef: result.manifest_ref });
+  assert.equal(after.manifest.model.embedder, SECOND_EMBEDDER.model);
+  assert.deepEqual({ generation: after.manifest.generation_id, selected: after.selected,
+    embedder: after.manifest.model.embedder_digest, llm: after.manifest.model.llm_digest,
+    source: after.manifest.model.embedding_source, derived: after.manifest.derived_from.generation_id,
+    reused: after.manifest.derived_from.reused, coverage: after.manifest.coverage_sha256 === before.manifest.coverage_sha256,
+    grant: JSON.stringify(after.manifest.grant) === JSON.stringify(before.manifest.grant) },
+  { generation: 'g2', selected: false, embedder: CANNED_REEMBED_DIGEST, llm: LLM_DIGEST, source: 'reembed',
+    derived: 'g1', reused: 'extraction', coverage: true, grant: true });
+
+  const CHANGED = ['sf_embedder', 'sf_embedder_digest', 'sf_revision_sha256'];
+  const differing = (a, b) => [...new Set([...Object.keys(a), ...Object.keys(b)])]
+    .filter(key => JSON.stringify(a[key]) !== JSON.stringify(b[key])).sort();
+  for (const row of after.manifest.documents) {
+    const prior = priorFragments.get(row.doc_key), fragment = after.readFragment(row.doc_key);
+    assert.deepEqual(fragment.extraction_reused_from, { generation_id: 'g1', fragment_sha256: prior.fragment_sha256 });
+    assert.notEqual(fragment.fragment_sha256, prior.fragment_sha256, 'a new revision is a new fragment digest');
+    assert.deepEqual(row.document, priorRows.get(row.doc_key).document, 'the document is carried by reference, not rewritten');
+    assert.equal(row.origin, 'reembedded');
+    assert.deepEqual(fragment.stats, prior.stats);
+    assert.deepEqual(fragment.nodes.map(node => [node.id, node.label]), prior.nodes.map(node => [node.id, node.label]));
+    assert.deepEqual(fragment.relationships.map(rel => [rel.type, rel.start_node_id, rel.end_node_id]),
+      prior.relationships.map(rel => [rel.type, rel.start_node_id, rel.end_node_id]));
+    for (const [index, node] of fragment.nodes.entries()) {
+      assert.deepEqual(differing(prior.nodes[index].properties, node.properties), CHANGED,
+        'every property but the embedder half of the revision is the extraction as it stands');
+      assert.equal(node.properties.sf_model_digest, LLM_DIGEST);
+      if (node.label !== 'Chunk') continue;
+      assert.deepEqual(node.embedding, [...CANNED_REEMBEDDING]);
+      assert.equal(node.embedding_ref.dimensions, CANNED_REEMBEDDING.length);
+      assert.notEqual(node.embedding_ref.sha256, prior.nodes[index].embedding_ref.sha256);
+    }
+    for (const [index, rel] of fragment.relationships.entries()) {
+      assert.deepEqual(differing(prior.relationships[index].properties, rel.properties), CHANGED);
+    }
+  }
+  // The source generation's own files are byte for byte what they were.
+  for (const row of before.manifest.documents) {
+    assert.deepEqual(open(store).readFragment(row.doc_key), priorFragments.get(row.doc_key));
+  }
+});
+
+test('a chunk the embedder will not take holds the re-embedding, and a source that is not the selected generation never reaches it', async () => {
+  const store = await makeStore({ embedder: EMBEDDER });
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker());
+  assert.equal(first.status, 'COMMITTED');
+  const refusing = cannedWorker({ embedRefuses: ['u0001'] });
+  const held = await reembed(store, indexer({ generation_id: 'g2', source_generation_id: 'g1' }), refusing);
+  assert.deepEqual({ status: held.status, code: held.code }, { status: 'HOLD', code: 'embed_input_refused' });
+  assert.equal(held.refused[0].unit_id, 'u0001', 'a chunk too long is named with its size, never cut in silence');
+  assert.equal(Number.isSafeInteger(held.refused[0].characters), true);
+  assert.deepEqual(await generations(store), ['g1'], 'a partial re-embedding is not a generation');
+
+  const wrongSource = cannedWorker();
+  const refused = await reembed(store, indexer({ generation_id: 'g3', source_generation_id: 'g0' }), wrongSource);
+  assert.deepEqual({ status: refused.status, code: refused.code, embed: wrongSource.calls.embed },
+    { status: 'HOLD', code: 'graph_index_source_not_selected', embed: 0 });
+});
+
+test('a generation opened by name is held to the grant, the access and the store area the selected one is', async () => {
+  const store = await makeStore({ embedder: EMBEDDER }), worker = cannedWorker();
+  await update(store, indexer({ generation_id: 'g1', expected_prior: null }), worker);
+  const derived = await reembed(store, indexer({ generation_id: 'g2', source_generation_id: 'g1' }), worker);
+  assert.equal(derived.status, 'WRITTEN');
+  assert.equal(open(store, { generationRef: derived.manifest_ref }).manifest.generation_id, 'g2');
+
+  // A ref outside this project's index area is not a generation, whatever it holds.
+  assert.equal(codeOf(() => open(store, { generationRef: { path: `${PROJECT}/00_프로젝트_안내/acl.json`,
+    sha256: derived.manifest_ref.sha256 } })), 'graph_index_ref_invalid');
+  // A ref whose bytes are not the ones it names is refused before it is read as one.
+  assert.equal(codeOf(() => open(store, { generationRef: { ...derived.manifest_ref, sha256: `sha256:${'0'.repeat(64)}` } })),
+    'graph_index_file_mismatch');
+  // The ACL admits the named generation no differently from the selected one.
+  await store.put(store.aclPath, { ...store.acl, revoked_actors: ['actor:reader'] });
+  assert.equal(codeOf(() => open(store, { generationRef: derived.manifest_ref })), 'graph_index_access_refused');
+  assert.equal(codeOf(() => open(store)), 'graph_index_access_refused');
+  // And so is the grant the generation was built from.
+  await store.put(store.aclPath, store.acl);
+  const moved = await store.put(GRAPH_INDEX_BINDING_FILE, { ...store.binding,
+    grant: { ...store.binding.grant, sha256: `sha256:${'1'.repeat(64)}` } });
+  assert.equal(codeOf(() => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: moved.sha256, request: reader,
+    generationRef: derived.manifest_ref })), 'graph_index_grant_changed');
 });

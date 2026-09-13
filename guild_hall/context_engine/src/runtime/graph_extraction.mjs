@@ -181,8 +181,9 @@ function cleanProperties(properties) {
 }
 
 // Embeddings are floats: the fragment keeps the vector, the hash covers its
-// float64 bytes through a reference (dimensions + sha256).
-function embeddingRef(embedding) {
+// float64 bytes through a reference (dimensions + sha256). Exported because a
+// re-embedding writes the same reference for a vector it did not extract.
+export function embeddingRef(embedding) {
   const bytes = Buffer.alloc(embedding.length * 8);
   embedding.forEach((value, index) => bytes.writeDoubleLE(value, index * 8));
   return { dimensions: embedding.length, sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}` };

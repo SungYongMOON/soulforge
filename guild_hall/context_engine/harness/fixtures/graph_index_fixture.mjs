@@ -25,6 +25,10 @@ export const CANNED_EMBEDDER_DIGEST = 'sha256:' + 'e'.repeat(64);
 // A fixed four-dimension vector: the canned database never measures distance, so
 // the value only has to be a well-formed embedding the admission accepts.
 export const CANNED_EMBEDDING = Object.freeze([0.1, 0.2, 0.3, 0.4]);
+// A second embedder, for a re-embedding: a different digest and a different
+// number of dimensions, so a vector that was not replaced is visible at a glance.
+export const CANNED_REEMBED_DIGEST = 'sha256:' + '8'.repeat(64);
+export const CANNED_REEMBEDDING = Object.freeze([0.5, 0.6, 0.7, 0.8, 0.9, 1]);
 export const CANNED_WORKER_SHA256 = 'sha256:' + 'f'.repeat(64);
 export const CANNED_PACKAGES = Object.freeze({ neo4j: '6.0.0', 'neo4j-graphrag': '1.19.0', ollama: '0.4.9', pydantic: '2.11.0' });
 const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
@@ -85,10 +89,29 @@ export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclD
 // A bound embedder is echoed back with its own digest, and its chunk vectors are
 // fixed values: the real worker reports both, and a revision missing one is refused.
 export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest = CANNED_EMBEDDER_DIGEST,
-  budgetExhausted = false, invalidOutputs = 0, packages = CANNED_PACKAGES } = {}) {
-  const calls = { probe: 0, extract: 0, extracted: [], batches: [] };
+  reembedDigest = CANNED_REEMBED_DIGEST, embedRefuses = [], budgetExhausted = false, invalidOutputs = 0,
+  packages = CANNED_PACKAGES } = {}) {
+  const calls = { probe: 0, extract: 0, embed: 0, extracted: [], embedded: [], batches: [] };
   const reported = spec => (spec ? { embedder: { model: spec.model, digest: embedderDigest } } : {});
   async function runWorker({ request }) {
+    // A re-embedding: the same chunks, a second embedder, no model and no graph.
+    // `embedRefuses` names the units this embedder will not take, which is how a
+    // chunk too long for the model is answered.
+    if (request.operation === 'embed') {
+      calls.embed++;
+      const refused = request.chunks.filter(chunk => embedRefuses.includes(chunk.unit_id));
+      const taken = request.chunks.filter(chunk => !embedRefuses.includes(chunk.unit_id));
+      calls.embedded.push(...taken.map(chunk => `${chunk.doc_key}:${chunk.unit_id}`));
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+        output: { status: refused.length ? 'incomplete' : 'ok', code: refused.length ? 'embed_input_refused' : null,
+          packages, models: { embedder: { model: request.profile.embedder.model, digest: reembedDigest, pin_kind: 'model_digest' } },
+          vectors: taken.map(chunk => ({ doc_key: chunk.doc_key, unit_id: chunk.unit_id,
+            dimensions: CANNED_REEMBEDDING.length, embedding: [...CANNED_REEMBEDDING] })),
+          refused: refused.map(chunk => ({ doc_key: chunk.doc_key, unit_id: chunk.unit_id,
+            characters: chunk.text.length, error_type: 'ResponseError' })),
+          dimensions: taken.length ? [CANNED_REEMBEDDING.length] : [],
+          embedder_calls: taken.length, elapsed_ms: 7 } };
+    }
     if (request.operation === 'probe') {
       calls.probe++;
       return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
@@ -127,11 +150,29 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
 // way a real database reports a generation it already holds, and answers a search
 // with the rows the caller hands it (a row outside the generation included, so the
 // caller's own admission can be tested).
-export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = [] } = {}) {
-  const calls = { materialize: 0, retrieve: 0, link: 0, modes: [], requests: [] };
+export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = [], expansion = null } = {}) {
+  const calls = { materialize: 0, retrieve: 0, link: 0, related: 0, modes: [], requests: [] };
   const held = new Set(loaded === null ? [] : [loaded]);
   async function runWorker({ request }) {
     calls.requests.push(request);
+    // A judged relation between two chunks: the canned database reports back the
+    // rows it was handed, and creates them only when the request says to apply.
+    if (request.operation === 'link_related_evidence') {
+      calls.related++;
+      if (!held.has(request.generation_id)) {
+        return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+          output: { status: 'not_loaded', code: 'generation_not_materialized', edges: [], applied: false,
+            generations_present: [...held] } };
+      }
+      return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
+        output: { status: 'ok', rule: request.rule, relationship: 'RELATED_EVIDENCE', applied: request.apply === true,
+          project_key: request.project_key, generation_id: request.generation_id,
+          counts: { requested: request.relations.length, created: request.apply === true ? request.relations.length : 0,
+            existing: 0 },
+          edges: request.relations.map(row => ({ a_doc_key: row.a_doc_key, a_unit_id: row.a_unit_id,
+            b_doc_key: row.b_doc_key, b_unit_id: row.b_unit_id, judgement_id: row.judgement_id,
+            relation_kind: row.relation_kind, direction: row.direction })) } };
+    }
     // An explicit-reference link: the canned database reports the edges it was
     // handed, and creates them only when the request says to apply.
     if (request.operation === 'link_explicit_refs') {
@@ -172,6 +213,9 @@ export function cannedGraphDatabaseWorker({ hits = [], loaded = null, edges = []
     }
     return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
       output: { status: 'ok', mode: request.mode, generation_id: request.generation_id, hits,
+        expansion: request.mode === 'graph' ? { enabled_rules: request.expansion?.enabled_rules ?? ['L1', 'R1'],
+          limits: request.expansion ?? null, seed_top_k: request.top_k, seeds: hits.filter(row => row.seed).length,
+          inflow: hits.filter(row => !row.seed).length, candidates: hits.length, ...(expansion ?? {}) } : null,
         dropped_out_of_generation: 0, embedder: { model: request.embedder?.model ?? null, digest: CANNED_LLM_DIGEST } } };
   }
   return { runWorker, calls, held };

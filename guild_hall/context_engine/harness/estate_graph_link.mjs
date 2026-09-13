@@ -14,10 +14,16 @@
 // usage:
 //   node estate_graph_link.mjs --root-table <file> --binding <file> --receipts <dir>
 //                              [--binding-address <alias address>] [--project <code>]
+//                              [--generation <id> [--generation-sha256 <sha256:...>]]
 //                              [--rule <rule id>] [--actor <ref>] [--apply]
 // env fallbacks: SOULFORGE_GRAPH_LINK_ROOT_TABLE, SOULFORGE_GRAPH_LINK_BINDING,
 //   SOULFORGE_GRAPH_LINK_BINDING_ADDRESS, SOULFORGE_GRAPH_LINK_RECEIPTS,
 //   SOULFORGE_GRAPH_LINK_PROJECT, SOULFORGE_GRAPH_LINK_ACTOR
+//
+// `--generation` links a named generation instead of the selected one, which is how
+// a derived generation (a re-embedding, say) gets the same rule applied to its own
+// projection. The manifest is still read by hash: pass `--generation-sha256` to pin
+// it, or let the harness read the digest it finds and print it into the receipt.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -83,21 +89,31 @@ const bindingAddress = flags.get('binding-address') ?? process.env.SOULFORGE_GRA
   ?? (project ? `control_root/project-bindings/${project}/graph_index_binding.json` : null);
 if (typeof bindingAddress !== 'string' || !bindingAddress) throw new Error('missing --binding-address (or --project)');
 
+const generationId = flags.get('generation') ?? process.env.SOULFORGE_GRAPH_LINK_GENERATION ?? null;
+const generationSha256 = flags.get('generation-sha256') ?? process.env.SOULFORGE_GRAPH_LINK_GENERATION_SHA256 ?? null;
+
 const now = new Date().toISOString();
 const io = createAliasedStoreIo(readRootTable({ tablePath, expectedSha256: sha256(readFileSync(tablePath)) }));
 const bindingBytes = readFileSync(bindingPath);
 const binding = JSON.parse(bindingBytes);
 const request = { actor_ref: actorRef, project_ref: binding.project_ref, purpose: 'context_query' };
-const view = () => openGraphIndex({ io, bindingAddress, bindingSha256: sha256(bindingBytes), request });
+let generationRef = null;
+if (typeof generationId === 'string' && generationId) {
+  const address = `data_root/20_PROJECTS/${binding.approved_fs_key}/20_문서검색/검색_색인/generations/${generationId}/generation.json`;
+  generationRef = { path: address, sha256: generationSha256 ?? sha256(io.read(address, 64 * 1024 * 1024)) };
+}
+const view = () => openGraphIndex({ io, bindingAddress, bindingSha256: sha256(bindingBytes), request, generationRef });
 
 const opened = view();
 const { identifiers, claimed } = identifierMap(opened, LINEAR_IDENTIFIER_FACT);
-out(`generation ${opened.manifest.generation_id} documents ${opened.manifest.counts.documents} `
-  + `chunks ${opened.manifest.counts.chunks} entities ${opened.manifest.counts.entities}`);
+out(`generation ${opened.manifest.generation_id} (${opened.selected ? 'selected' : 'named, not selected'}) `
+  + `documents ${opened.manifest.counts.documents} chunks ${opened.manifest.counts.chunks} `
+  + `entities ${opened.manifest.counts.entities}`);
 out(`rule ${rule} identifiers ${Object.keys(identifiers).length}: ${Object.keys(identifiers).join(', ')}`);
 
 const receipt = { schema: 'context engine graph link receipt (dev, local-recovery)', at: now, rule,
   generation: opened.manifest.generation_id, generation_sha256: opened.generation_ref.sha256,
+  generation_selected: opened.selected, binding_address: bindingAddress,
   identifiers: Object.fromEntries(Object.entries(identifiers).map(([token, key]) => [token,
     { doc_key: key, ...claimed.get(token) }])), steps: {} };
 

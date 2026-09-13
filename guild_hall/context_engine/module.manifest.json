@@ -1,7 +1,7 @@
 {
   "schema_version": "soulforge.module_manifest.v0",
   "module_id": "context_engine",
-  "module_version": "0.18.4",
+  "module_version": "0.19.0",
   "interface_version": "context_engine.v0",
   "schema_versions": ["soulforge.dev_erp_accepted_context_query_result.v1"],
   "owner": "guild_hall/context_engine",
@@ -23,7 +23,7 @@
   "default_state": "default_off_explicit_binding_only",
   "health_probe": null,
   "readiness_probe": null,
-  "config_refs": ["guild_hall/context_engine/profiles/default_v1.mjs", "guild_hall/context_engine/profiles/update_profiles.mjs", "guild_hall/context_engine/profiles/selected_update.mjs", "guild_hall/context_engine/profiles/graph_extraction_v1.mjs", "guild_hall/context_engine/profiles/context_planner_v1.mjs"],
+  "config_refs": ["guild_hall/context_engine/profiles/default_v1.mjs", "guild_hall/context_engine/profiles/update_profiles.mjs", "guild_hall/context_engine/profiles/selected_update.mjs", "guild_hall/context_engine/profiles/graph_extraction_v1.mjs", "guild_hall/context_engine/profiles/context_planner_v1.mjs", "guild_hall/context_engine/profiles/relation_judgement_v1.mjs"],
   "secret_refs": [],
   "data_owner": "Plan17_project_store_external_to_installation",
   "backup_class": "not_applicable_tracked_code_only_external_data_owner",

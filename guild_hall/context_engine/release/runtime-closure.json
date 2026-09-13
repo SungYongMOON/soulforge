@@ -129,19 +129,19 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_database.mjs",
-      "sha256": "6d56c7065c1a181b697198138028e51e8156ee8b6158537ec04aa884676f3cd1"
+      "sha256": "0eb8cb9b282709ff0595b4645cf43db76e623952e90cf4c6dbc42aa6a02a865a"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
-      "sha256": "a4573959b0bd4c2abd81e8d74c95c52dde68eee80a04806a1ee73e221443ca53"
+      "sha256": "8bf1b5087743652737a293c24ba0a8fb10709422d021d9a9a2cb35c11b850455"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "79d135a4fa51bba20e6834c2bafe91304d06e036272d3003f83793d21a82ff4d"
+      "sha256": "d2feffbbb73d4d3114a8aac808671ad8754b1bde415c83a9aac631a0291cf579"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
-      "sha256": "705224130d660436bae682a9030e4767236578b630c5b51e0ab651d032ae5cc2"
+      "sha256": "e8b5bf786754be79155d26517adfad990815a92663c75df1311b7515a0010578"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
@@ -185,7 +185,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "1e69231d1631c5e77344bc4986beae647918a4dd5230d40c9749d24ccf32b8c6"
+      "sha256": "8afa8a5330fd69d709db21ae9dd4c7ac9b37e8fd125e7f834caf1dc7a266eece"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "506594f817fa78d8cd59139d3de0ea8a7c1874868265e62f5cc5f1c7a1f01a45",
+  "closure_sha256": "5ff55a94f80b1b8b46dbd96699ee3a540ff605247063b4e2f065a287a81c17c2",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -756,6 +756,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
       "to": "guild_hall/context_engine/profiles/graph_extraction_v1.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",

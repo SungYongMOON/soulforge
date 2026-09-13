@@ -221,6 +221,47 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
   `slack.attachment_bodies_processed=false`를 적는다. 본문도 포인터도 없는 메시지만 `refused / slack_message_without_content`.
 - 실행기 `recheckGeneration`·CLI `--recheck <세대>`: 저장된 세대를 그대로 두고 새 검사 보고서만 옆에 추가한다(검증만 바뀐 경우). 준비 결과가 바뀌는 항목은 새 세대.
 - 준비기 0.4.0, 검사기 0.2.0(정책 source-original-check-v2). 시험 3건 추가.
+## 파생 세대(임베더 교체)와 번호 없는 근거 연결 (0.19.0)
+
+추출은 그대로 두고 **검색 벡터만** 바꾸는 길, 그리고 공통 번호·직접 링크가 없는 두 기록을 **추론 관계**로 잇는 길.
+둘 다 파생이다. 원문도, 원래 세대도, 포인터도 바뀌지 않는다.
+
+- **`reembedGraphIndex`**: 선택된 세대의 조각을 해시로 되읽어 청크 본문만 임베더에 보내고, Chunk의 `embedding`·
+  `embedding_ref`와 노드·관계의 `sf_embedder`·`sf_embedder_digest`·`sf_revision_sha256`만 바꿔 **새 세대**를 create-only로
+  쓴다. `sf_model`·`sf_model_digest`·대상·관계·`stats`는 추출이 남긴 그대로다. 조각에 `extraction_reused_from`
+  (원래 세대 id와 그 조각의 digest), manifest에 `derived_from`·`llm.calls: 0`·`embedding`(모델·digest·차원·호출 수·소요·
+  worker digest)이 남는다. 문서 바이트는 새로 쓰지 않고 원래 세대의 `(path, sha256)`을 그대로 잇는다.
+  **포인터는 쓰지 않는다** — 세대를 고르는 것은 `selectGraphIndexGeneration`의 별개 행위다.
+  `updateGraphIndex`로 임베더만 바꾸면 모델 판본이 달라져 모든 문서가 재추출 대상이 되는데, 조각의 대상·관계는
+  임베더의 함수가 아니므로 그 재추출은 값을 만들지 않고 비용만 만든다.
+- 워커 연산 `embed`: 문서 임베딩과 **같은 호출**(`OllamaEmbeddings.embed_query(청크 본문)`)을 쓴다. 지시문을 덧붙이지
+  않고 이쪽에서 정규화하지 않으며, `truncate=False`로 모델 문맥을 넘는 청크를 조용히 자르는 대신 크기와 함께
+  거부로 돌려준다(그 실행은 HOLD, 세대는 쓰이지 않는다). LLM은 호출되지 않는다.
+- **`openGraphIndex({ generationRef })`**: 포인터 대신 이름으로 세대를 연다. 검사는 그대로다 — ref는 이 과제의
+  검색_색인 영역이어야 하고, 파일은 digest로 되읽으며, grant와 자료등급이 지금도 이 actor를 허용해야 한다.
+  뷰의 `selected`가 이것이 선택된 세대인지 아닌지를 말한다.
+- **규칙 R1(`RELATED_EVIDENCE`)**: 같은 번호를 공유하지 않는 두 청크를 잇는다. 로컬 모델이 **한 쌍씩** 읽고
+  `profiles/relation_judgement_v1.mjs`의 다섯 종류 중 하나로 답하며, 그중 `same_test_context`·`condition_material_for`만
+  간선이 된다(`similar_topic`·`insufficient`·`different_event`는 보고로만 남는다). 모델의 답은 그 자체로 간선이
+  되지 않는다: 코드가 ① 양쪽 (문서, 단위)를 이 세대의 manifest에서 찾고 ② 인용 구절이 그 단위 본문에 실제로
+  있는지(공백 차이까지만 허용) 확인한 뒤에야 워커에 넘긴다. 간선은 `sf_claim_state: 'inferred'`,
+  `sf_review_state: 'unreviewed'`, 규칙·프롬프트 digest·모델·모델 pin·양쪽 근거 단위를 달고 **투영에만** 들어간다.
+  `sf_judgement_id`는 그 판단의 내용 해시라서 같은 판단을 다시 적용해도 간선이 늘지 않는다.
+- **확장 예산**: graph 검색이 따라가는 것은 씨앗의 추출 관계 1홉, 규칙 L1(명시적 참조가 가리킨 문서의 청크),
+  규칙 R1(관계가 지목한 청크)이다. 요청의 `expansion.enabled_rules`로 규칙을 끄고 같은 질문을 다시 물을 수 있다
+  (A/B 조건). 상한은 이 APP의 것이고 요청은 낮출 수만 있다: 문서당 유입 3, 유입 합계 8, 최종 16, 깊이 1,
+  `(doc_key, unit_id)` 중복 제거. 씨앗은 자기 벡터 점수와 순서를 지키고 유입만 씨앗 점수를 상속한다. 유입 순서는
+  ① 관계가 직접 지목한 청크 ② 그 청크의 질문에 대한 근접도(`vector.similarity.cosine`, 질의 벡터는 씨앗을 찾은
+  바로 그 벡터)다 — 근접도는 **고르는 데만** 쓰고 보고하는 점수로 쓰지 않는다. 상한이 덜어낸 수는 receipt의
+  `expansion.truncated`에 이유별로 남는다.
+- 실행기: `harness/estate_graph_link.mjs --generation <id>`(L1을 이름 있는 세대에 다시 적용),
+  `harness/estate_graph_relate.mjs`(후보 검색 → 관계 판단 → 검사 → `--apply`). 후보가 **검색으로 발견된 것**인지
+  **검토자가 지목한 것**인지는 receipt에서 갈라 적는다.
+- 시험: 재임베딩이 추출을 그대로 두는지·거부된 청크가 세대를 만들지 않는지·이름으로 연 세대가 같은 grant/ACL/영역
+  검사를 받는지, 판단된 관계가 양쪽 단위와 인용까지 확인된 뒤에만 DB에 가는지, 다른 사건·없는 인용이 간선이 되지
+  않는지, 확장 예산이 좁혀져 전달되고 행이 재정렬되지 않는지.
+- 실행 결과와 남은 것은 handoff 보고(2026-09-13 8B 재임베딩·번호 없는 연결)가 소유한다. 이 문서는 계약만 적는다.
+
 ## 실제 estate 위의 그래프 색인 (0.18.0)
 
 PV-4 이음새. 그래프 색인기(`updateGraphIndex`·`selectGraphIndexGeneration`·`openGraphIndex`)가 준비 store와 같은 방식으로

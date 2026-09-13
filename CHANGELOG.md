@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2026-09-13 - 추출은 그대로 두고 검색 벡터만 바꾸는 파생 세대, 그리고 번호를 공유하지 않는 두 기록의 근거 연결
+
+- `context_engine/src/runtime/graph_index_generation.mjs`: `reembedGraphIndex`(신규). 선택된 세대의 조각을 해시로 되읽어 청크 본문만
+  임베더에 보내고, Chunk의 `embedding`·`embedding_ref`와 노드·관계의 `sf_embedder`·`sf_embedder_digest`·`sf_revision_sha256`만 바꾼
+  **파생 세대**를 create-only로 쓴다. 대상·관계·`sf_model`·`sf_model_digest`·`stats`는 추출이 남긴 그대로이고, 문서 바이트는 새로 쓰지 않고
+  원래 세대의 `(path, sha256)`을 잇는다. 조각에 `extraction_reused_from`, manifest에 `derived_from`·`llm.calls: 0`·`embedding`(모델·digest·
+  차원·호출 수·소요·worker digest)이 남는다. **포인터는 쓰지 않는다**(세대 선택은 `selectGraphIndexGeneration`의 별개 행위).
+  이유: `updateGraphIndex`는 모델 판본이 다르면 모든 문서를 재추출 대상으로 보는데, 조각의 대상·관계는 임베더의 함수가 아니므로
+  임베더만 바꾸는 재추출은 값을 만들지 않고 비용만 만든다.
+- 같은 파일 `openGraphIndex({ generationRef })`: 포인터 대신 이름으로 세대를 연다. ref는 이 과제의 검색_색인 영역이어야 하고, 파일은
+  digest로 되읽으며, grant·자료등급 검사는 선택된 세대와 같다. 뷰에 `selected`가 붙어 파생 세대를 현재 답으로 읽는 일이 없게 한다.
+- `context_engine/src/workers/graphrag_worker.py`: operation `embed`(신규) — 문서 임베딩과 같은 호출(`OllamaEmbeddings.embed_query`)로
+  청크 벡터만 만든다. 지시문을 덧붙이지 않고 이쪽에서 정규화하지 않으며, `truncate=False`로 모델 문맥을 넘는 청크를 조용히 자르는 대신
+  크기와 함께 거부로 돌려준다(그 실행은 HOLD). LLM 호출 0.
+- 같은 파일 operation `link_related_evidence`(신규)와 `graph_database.linkRelatedEvidence`: 규칙 `R1-local-judgement`로 청크↔청크
+  `RELATED_EVIDENCE` 간선을 MERGE한다. `sf_judgement_id`가 판단의 내용 해시라 같은 판단을 다시 적용해도 간선이 늘지 않는다. 간선은
+  `sf_claim_state: 'inferred'`·`sf_review_state: 'unreviewed'`와 규칙·프롬프트 digest·모델·모델 pin·양쪽 근거 단위를 달고 투영에만 들어간다.
+- `context_engine/src/runtime/relation_judgement.mjs`·`profiles/relation_judgement_v1.mjs`(신규): 로컬 모델이 한 쌍씩 읽고 다섯 종류
+  (`same_test_context`·`condition_material_for`·`similar_topic`·`insufficient`·`different_event`) 중 하나로 답한다. 앞의 둘만 간선이 되며,
+  모델의 답은 그 자체로 간선이 되지 않는다 — 코드가 양쪽 (문서, 단위)를 manifest에서 찾고 인용 구절이 그 단위 본문에 실제로 있는지
+  (공백 차이까지만 허용) 확인한 뒤에야 워커에 넘긴다. 모델의 confidence는 읽지 않는다.
+- `GRAPH_EXPANSION_QUERY`에 R1 1홉 추가와 **확장 예산**: 요청의 `expansion.enabled_rules`로 규칙(L1·R1)을 끄고 같은 질문을 다시 물을 수
+  있다(A/B 조건). 상한은 이 APP의 것이고 요청은 낮출 수만 있다 — 문서당 유입 3, 유입 합계 8, 최종 16, 깊이 1, `(doc_key, unit_id)` 중복 제거.
+  씨앗은 자기 점수·순서를 지키고 유입만 상속한다. 유입 순서는 ① 관계가 직접 지목한 청크 ② 그 청크의 질문에 대한 근접도
+  (`vector.similarity.cosine`, 질의 벡터는 씨앗을 찾은 바로 그 벡터)이며 근접도는 고르는 데만 쓰고 보고 점수로 쓰지 않는다. 상한이 덜어낸
+  수는 receipt `expansion.truncated`에 이유별로 남는다. 이유: 직전 판은 참조된 문서를 통째로 끌어와 top_k 8 요청에 40행이 나왔다.
+- 실행기 `harness/estate_graph_link.mjs --generation <id>`(이름 있는 세대에 L1 재적용)와 `harness/estate_graph_relate.mjs`(신규:
+  후보 검색 → 관계 판단 → 검사 → `--apply`). 후보가 검색으로 발견된 것인지 검토자가 지목한 것인지 receipt에서 갈라 적는다.
+- 시험 5건 추가(재임베딩이 추출을 그대로 두는지, 거부된 청크가 세대를 만들지 않는지, 이름으로 연 세대의 grant/ACL/영역 검사, 판단된
+  관계가 양쪽 단위·인용까지 확인된 뒤에만 DB에 가는지, 다른 사건·없는 인용이 간선이 되지 않는지, 확장 예산이 좁혀져 전달되는지).
+  워커의 상한 적용 함수(`apply_expansion`)는 순수 함수로 venv에서 직접 확인했다. 모듈 0.19.0, 폐포 재작성(75 파일).
+  검증: context-engine 277 / 270 pass / 0 fail / 7 skip(opt-in), path-registry 42/42, path-policy 0.
+
 ## 2026-09-13 - 씨앗은 자기 점수를 지키고, 질문의 슬래시 하나가 hybrid를 통째로 떨어뜨리지 않는다
 
 - `context_engine/src/workers/graphrag_worker.py` `GRAPH_EXPANSION_QUERY`: 청크당 한 행으로 묶는 것은 그대로 두되 점수 집계를 둘로 갈랐다.

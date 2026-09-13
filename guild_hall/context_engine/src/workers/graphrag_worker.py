@@ -43,6 +43,25 @@ MAX_TOP_K = 50
 LINK_RELATIONSHIP = "REFERS_TO"
 LINK_RULES = {"L1-linear-identifier": r"^SON-\d+$"}
 MAX_LINK_IDENTIFIERS = 1000
+# A related-evidence edge between two chunks: a relation a local model proposed
+# and the APP checked against both texts before it was allowed here. It is an
+# inference, so it carries its own claim and review state and never becomes an
+# extracted relation.
+RELATED_RELATIONSHIP = "RELATED_EVIDENCE"
+RELATED_RULE = "R1-local-judgement"
+RELATED_KINDS = ("same_test_context", "condition_material_for")
+RELATED_DIRECTIONS = ("a_to_b", "symmetric")
+MAX_RELATED_ROWS = 100
+# Chunks one embed call may take. The vectors come back in the answer, so the
+# bound is the request and reply size rather than a model budget.
+MAX_EMBED_CHUNKS = 2000
+# How far a search may follow the graph, and how much it may bring back. These
+# are this APP's expansion budget, not a change to what top_k means to Neo4j:
+# `seed_top_k` is the vector search, everything else bounds what follows it.
+EXPANSION_RULES = ("L1", "R1")
+EXPANSION_DEFAULTS = {"per_document_limit": 3, "expansion_limit": 8, "final_limit": 16}
+# Which rule reached a chunk, by the tier the expansion query stamps on it.
+EXPANSION_VIA = {0: "R1", 1: "L1", 2: "entity"}
 # Lucene's own reserved set (QueryParser.escape). The fulltext half of a hybrid
 # search parses its text as a Lucene query; a question is not a query expression.
 LUCENE_SPECIAL = set('\\+-!():^[]"{}~*?|&/')
@@ -428,6 +447,59 @@ async def extract(request):
             "invalid_outputs": sum(1 for row in calls if row["status"] == "invalid_output")}
 
 
+async def embed_chunks(request):
+    """Vectors for chunks that already exist, with no extraction and nothing written.
+
+    `extract` embeds a chunk on its way through the tool's TextChunkEmbedder, which
+    calls `OllamaEmbeddings.embed_query(chunk.text)`; this operation calls exactly
+    that, one chunk at a time, so a generation whose vectors were replaced here holds
+    the vectors the same path would have produced. Nothing is prepended to the text,
+    nothing is normalised on this side (the server returns unit-length vectors), and
+    `truncate=False` turns Ollama's silent cut at the context length into a refusal:
+    a chunk too long for the model is reported with its size rather than embedded as
+    a prefix of itself. The relations of the source generation are not touched -- no
+    model writes a graph here, and no LLM is called at all.
+    """
+    from neo4j_graphrag.embeddings import OllamaEmbeddings
+
+    profile = request.get("profile") or {}
+    spec = profile.get("embedder")
+    if not isinstance(spec, dict) or not model_host_admitted(spec.get("host"), profile.get("allowed_hosts") or []):
+        raise WorkerError("embedder_endpoint_not_admitted")
+    pin = await ollama_model_pin(spec["host"], spec["model"])
+    if not pin or pin.get("digest") is None:
+        raise WorkerError("embedder_model_not_installed")
+    chunks = request.get("chunks")
+    if not isinstance(chunks, list) or not chunks or len(chunks) > MAX_EMBED_CHUNKS:
+        raise WorkerError("embed_request_invalid")
+    for chunk in chunks:
+        if (not isinstance(chunk, dict) or not DIGEST.match(str(chunk.get("doc_key") or ""))
+                or not TOKEN.match(str(chunk.get("unit_id") or "")) or not isinstance(chunk.get("text"), str)
+                or not chunk["text"]):
+            raise WorkerError("embed_request_invalid")
+
+    embedder = OllamaEmbeddings(model=spec["model"], host=spec["host"])
+    vectors, refused, calls = [], [], 0
+    started = time.monotonic()
+    for chunk in chunks:
+        try:
+            vector = embedder.embed_query(chunk["text"], truncate=False)
+            calls += 1
+        except Exception as error:  # never echo the text, only its size
+            refused.append({"doc_key": chunk["doc_key"], "unit_id": chunk["unit_id"],
+                            "characters": len(chunk["text"]), "error_type": type(error).__name__})
+            continue
+        vectors.append({"doc_key": chunk["doc_key"], "unit_id": chunk["unit_id"],
+                        "dimensions": len(vector), "embedding": vector})
+    dimensions = sorted({row["dimensions"] for row in vectors})
+    code = "embed_input_refused" if refused else "embed_dimensions_mixed" if len(dimensions) > 1 else None
+    return {"status": "incomplete" if code else "ok", "code": code,
+            "models": {"embedder": {"model": spec["model"], **pin}},
+            "vectors": vectors, "refused": refused, "dimensions": dimensions,
+            "embedder_calls": calls, "elapsed_ms": round((time.monotonic() - started) * 1000),
+            "packages": package_versions()}
+
+
 # ---------------------------------------------------------------------------
 # Graph database: one container, one project, one selected generation.
 # ---------------------------------------------------------------------------
@@ -760,14 +832,139 @@ def link_explicit_refs(request):
                 "packages": package_versions()}
 
 
-# Seed chunk plus the chunks its entities reach over one extracted edge, and the
-# chunks of a document one of those entities names outright. Lexical edges are
-# excluded from the first hop so expansion follows meaning, not document order;
-# the second hop is the explicit reference, which is what carries a seed across
-# documents. A chunk is returned once, seeded if any seed of this search was it; a
-# seed keeps its own vector score even when another seed also reaches it, so the
-# order among seeds is the vector order. Only a reached chunk inherits a score, and
-# it inherits the best of the seeds that reached it.
+# ---------------------------------------------------------------------------
+# Related evidence: an inferred edge between two chunks. A local model proposed
+# the relation and the APP checked both quotes against both texts before asking
+# for it; nothing here judges anything. Like the explicit reference it is an
+# addition to the derived projection and is rebuilt with the generation.
+# ---------------------------------------------------------------------------
+
+RELATED_MERGE_QUERY = (
+    "UNWIND $rows AS row "
+    "MATCH (a:" + CHUNK_LABEL + ") WHERE a.sf_doc_key = row.a_doc_key AND a.sf_unit_id = row.a_unit_id "
+    "AND a.sf_generation = $generation AND a.sf_project = $project "
+    "MATCH (b:" + CHUNK_LABEL + ") WHERE b.sf_doc_key = row.b_doc_key AND b.sf_unit_id = row.b_unit_id "
+    "AND b.sf_generation = $generation AND b.sf_project = $project "
+    "MERGE (a)-[r:" + RELATED_RELATIONSHIP + " {sf_rule: $rule, sf_judgement_id: row.judgement_id, "
+    "sf_generation: $generation, sf_project: $project}]->(b) "
+    "SET r += row.properties "
+    "RETURN count(r) AS n"
+)
+
+RELATED_COUNT_QUERY = (
+    "UNWIND $rows AS row "
+    "MATCH (a:" + CHUNK_LABEL + ")-[r:" + RELATED_RELATIONSHIP + "]->(b:" + CHUNK_LABEL + ") "
+    "WHERE a.sf_doc_key = row.a_doc_key AND a.sf_unit_id = row.a_unit_id "
+    "AND b.sf_doc_key = row.b_doc_key AND b.sf_unit_id = row.b_unit_id "
+    "AND r.sf_rule = $rule AND r.sf_judgement_id = row.judgement_id AND r.sf_generation = $generation "
+    "RETURN count(r) AS n"
+)
+
+
+def related_rows(value):
+    """The related-evidence rows this request may write, checked for shape only.
+
+    Both ends must be a unit of this generation and this project (the database
+    match enforces that too), the relation kind must be one this rule links, and
+    the judgement id must be a digest, so a repeat of the same judgement merges
+    onto the same edge instead of adding another.
+    """
+    if not isinstance(value, list) or not value or len(value) > MAX_RELATED_ROWS:
+        raise WorkerError("graph_related_request_invalid")
+    rows = []
+    for row in value:
+        if not isinstance(row, dict):
+            raise WorkerError("graph_related_request_invalid")
+        keys = ("a_doc_key", "a_unit_id", "b_doc_key", "b_unit_id", "judgement_id", "relation_kind",
+                "direction", "evidence_a_unit", "evidence_b_unit", "prompt_sha256", "model", "model_pin")
+        if any(key not in row for key in keys):
+            raise WorkerError("graph_related_request_invalid")
+        if not DIGEST.match(str(row["a_doc_key"])) or not DIGEST.match(str(row["b_doc_key"])):
+            raise WorkerError("graph_related_request_invalid")
+        if not TOKEN.match(str(row["a_unit_id"])) or not TOKEN.match(str(row["b_unit_id"])):
+            raise WorkerError("graph_related_request_invalid")
+        if not DIGEST.match(str(row["judgement_id"])) or not DIGEST.match(str(row["prompt_sha256"])):
+            raise WorkerError("graph_related_request_invalid")
+        if row["relation_kind"] not in RELATED_KINDS or row["direction"] not in RELATED_DIRECTIONS:
+            raise WorkerError("graph_related_kind_unknown")
+        if (row["a_doc_key"], row["a_unit_id"]) == (row["b_doc_key"], row["b_unit_id"]):
+            raise WorkerError("graph_related_request_invalid")
+        for key in ("evidence_a_unit", "evidence_b_unit", "model", "model_pin"):
+            if not isinstance(row[key], str) or not row[key] or len(row[key]) > 200:
+                raise WorkerError("graph_related_request_invalid")
+        rows.append({"a_doc_key": row["a_doc_key"], "a_unit_id": row["a_unit_id"],
+                     "b_doc_key": row["b_doc_key"], "b_unit_id": row["b_unit_id"],
+                     "judgement_id": row["judgement_id"],
+                     "properties": {"sf_relation_kind": row["relation_kind"], "sf_direction": row["direction"],
+                                    "sf_evidence_a_unit": row["evidence_a_unit"],
+                                    "sf_evidence_b_unit": row["evidence_b_unit"],
+                                    "sf_prompt_sha256": row["prompt_sha256"], "sf_model": row["model"],
+                                    "sf_model_pin": row["model_pin"], "sf_claim_state": "inferred",
+                                    "sf_review_state": "unreviewed"}})
+    rows.sort(key=lambda item: (item["a_doc_key"], item["a_unit_id"], item["b_doc_key"], item["b_unit_id"]))
+    return rows
+
+
+def link_related_evidence(request):
+    """Adds the checked related-evidence edges to the generation this database holds.
+
+    `apply: false` reads and returns what is already there without writing. The
+    merge key is the rule, the judgement digest, the generation and the project, so
+    the same judgement run twice finds its own edge and creates none. Nodes are
+    never merged, relabelled or given a property: each chunk stays the chunk its
+    own document produced, which is what a citation reads back.
+    """
+    project_key, generation_id = request.get("project_key"), request.get("generation_id")
+    if not isinstance(project_key, str) or not project_key or len(project_key) > 512:
+        raise WorkerError("graph_related_request_invalid")
+    if not TOKEN.match(str(generation_id or "")):
+        raise WorkerError("graph_related_request_invalid")
+    if request.get("rule") != RELATED_RULE:
+        raise WorkerError("graph_related_rule_unknown")
+    apply_edges = request.get("apply")
+    if not isinstance(apply_edges, bool):
+        raise WorkerError("graph_related_request_invalid")
+    rows = related_rows(request.get("relations"))
+
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        driver.verify_connectivity()
+        present = [row["generation_id"] for row in generation_rows(driver, database)]
+        if generation_id not in present:
+            return {"status": "not_loaded", "code": "generation_not_materialized", "rule": RELATED_RULE,
+                    "project_key": project_key, "generation_id": generation_id,
+                    "generations_present": present, "applied": False, "edges": []}
+        counted = lambda: run_query(driver, database, RELATED_COUNT_QUERY, rows=rows, rule=RELATED_RULE,
+                                    generation=generation_id)[0]["n"]
+        existing = counted()
+        created = 0
+        if apply_edges:
+            run_query(driver, database, RELATED_MERGE_QUERY, rows=rows, rule=RELATED_RULE,
+                      generation=generation_id, project=project_key)
+            created = counted() - existing
+        return {"status": "ok", "rule": RELATED_RULE, "relationship": RELATED_RELATIONSHIP,
+                "project_key": project_key, "generation_id": generation_id, "applied": apply_edges,
+                "counts": {"requested": len(rows), "created": created, "existing": existing},
+                "edges": [{"a_doc_key": row["a_doc_key"], "a_unit_id": row["a_unit_id"],
+                           "b_doc_key": row["b_doc_key"], "b_unit_id": row["b_unit_id"],
+                           "judgement_id": row["judgement_id"],
+                           "relation_kind": row["properties"]["sf_relation_kind"],
+                           "direction": row["properties"]["sf_direction"]} for row in rows],
+                "packages": package_versions()}
+
+
+# Seed chunk plus the chunks its entities reach over one extracted edge, the
+# chunks of a document one of those entities names outright (rule L1), and the
+# chunk a checked related-evidence edge names (rule R1). Lexical edges are
+# excluded from the first hop so expansion follows meaning, not document order.
+# Expansion is one hop: nothing a reached chunk reaches is followed. A chunk is
+# returned once, seeded if any seed of this search was it; a seed keeps its own
+# vector score even when another seed also reaches it, so the order among seeds is
+# the vector order. Only a reached chunk inherits a score, and it inherits the best
+# of the seeds that reached it. `tier` says which rule reached it first (the
+# related-evidence chunk a relation names outright before a cited document's other
+# chunks) and `relevance` is that chunk's own distance to this question, which the
+# caller uses to choose within its inflow budget -- never as the score it reports.
 GRAPH_EXPANSION_QUERY = (
     "WITH node, score "
     "WHERE node.sf_generation = $generation "
@@ -779,20 +976,85 @@ GRAPH_EXPANSION_QUERY = (
     "WITH node, score, collect(DISTINCT other) AS others "
     "OPTIONAL MATCH (node)<-[:FROM_CHUNK]-(:" + ENTITY_LABEL + ")-[:" + LINK_RELATIONSHIP + "]->"
     "(cited:" + DOCUMENT_LABEL + ")<-[:FROM_DOCUMENT]-(quoted:" + CHUNK_LABEL + ") "
-    "WHERE cited.sf_generation = $generation AND quoted.sf_generation = $generation "
+    "WHERE 'L1' IN $rules AND cited.sf_generation = $generation AND quoted.sf_generation = $generation "
     "WITH node, score, others, collect(DISTINCT quoted) AS cited_chunks "
-    "UNWIND ([node] + others + cited_chunks) AS chunk "
+    "OPTIONAL MATCH (node)-[:" + RELATED_RELATIONSHIP + "]-(related:" + CHUNK_LABEL + ") "
+    "WHERE 'R1' IN $rules AND related.sf_generation = $generation "
+    "WITH node, score, others, cited_chunks, collect(DISTINCT related) AS related_chunks "
+    "UNWIND ([{chunk: node, tier: -1}] + [c IN others | {chunk: c, tier: 2}] "
+    "+ [c IN cited_chunks | {chunk: c, tier: 1}] + [c IN related_chunks | {chunk: c, tier: 0}]) AS reached "
+    "WITH node, score, reached.chunk AS chunk, reached.tier AS tier "
     "WITH chunk.sf_unit_id AS sf_unit_id, chunk.sf_doc_key AS sf_doc_key, "
-    "chunk.sf_generation AS sf_generation, chunk.text AS text, score, "
+    "chunk.sf_generation AS sf_generation, chunk.text AS text, score, tier, "
+    "CASE WHEN chunk." + EMBEDDING_PROPERTY + " IS NULL THEN null "
+    "ELSE vector.similarity.cosine(chunk." + EMBEDDING_PROPERTY + ", $query_vector) END AS relevance, "
     "CASE WHEN chunk.sf_unit_id = node.sf_unit_id AND chunk.sf_doc_key = node.sf_doc_key "
     "THEN 1 ELSE 0 END AS seeded "
-    "WITH sf_unit_id, sf_doc_key, sf_generation, text, max(seeded) AS seeded_max, "
+    "WITH sf_unit_id, sf_doc_key, sf_generation, text, max(seeded) AS seeded_max, max(relevance) AS relevance, "
     "max(CASE WHEN seeded = 1 THEN score END) AS own_score, "
-    "max(CASE WHEN seeded = 0 THEN score END) AS reached_score "
-    "RETURN sf_unit_id, sf_doc_key, sf_generation, text, "
-    "coalesce(own_score, reached_score) AS score, seeded_max = 1 AS seed "
+    "max(CASE WHEN seeded = 0 THEN score END) AS reached_score, "
+    "min(CASE WHEN seeded = 0 THEN tier END) AS reached_tier "
+    "RETURN sf_unit_id, sf_doc_key, sf_generation, text, relevance, "
+    "coalesce(own_score, reached_score) AS score, seeded_max = 1 AS seed, "
+    "CASE WHEN seeded_max = 1 THEN null ELSE reached_tier END AS tier "
     "ORDER BY seed DESC, score DESC, sf_unit_id"
 )
+
+
+def expansion_request(value):
+    """This search's expansion budget: the defaults, lowered by the request only."""
+    if value is None:
+        value = {}
+    if not isinstance(value, dict):
+        raise WorkerError("graph_retrieve_request_invalid")
+    rules = value.get("enabled_rules", list(EXPANSION_RULES))
+    if not isinstance(rules, list) or any(rule not in EXPANSION_RULES for rule in rules) or len(set(rules)) != len(rules):
+        raise WorkerError("graph_retrieve_request_invalid")
+    limits = dict(EXPANSION_DEFAULTS)
+    for key, bound in EXPANSION_DEFAULTS.items():
+        given = value.get(key)
+        if given is None:
+            continue
+        if not isinstance(given, int) or isinstance(given, bool) or given < 0 or given > bound:
+            raise WorkerError("graph_retrieve_request_invalid")
+        limits[key] = given
+    return sorted(rules), limits
+
+
+def apply_expansion(rows, limits):
+    """The seeds in the order the vector search gave them, then the inflow it earned.
+
+    Seeds are never dropped or reordered here: they are the search. Inflow is taken
+    by the rule that reached it first (a relation naming the chunk outright before a
+    cited document's other chunks), then by that chunk's own relevance to this
+    question, and it is bounded three ways -- per target document, in total, and by
+    what is left of the final row count. Whatever the bounds leave out is counted by
+    the bound that left it out, so a missing piece of evidence is visible rather than
+    silently absent.
+    """
+    seeds = [row for row in rows if row.get("seed")]
+    inflow = [row for row in rows if not row.get("seed")]
+    inflow.sort(key=lambda row: (row.get("tier") if row.get("tier") is not None else len(EXPANSION_VIA),
+                                 -(row.get("relevance") or 0.0), -(row.get("score") or 0.0),
+                                 str(row.get("sf_doc_key")), str(row.get("sf_unit_id"))))
+    truncated = {"seed_limit": max(0, len(seeds) - limits["final_limit"]),
+                 "per_document": 0, "expansion_limit": 0, "final_limit": 0}
+    per_document, taken = {}, []
+    seeds = seeds[:limits["final_limit"]]
+    for row in inflow:
+        document = row.get("sf_doc_key")
+        if per_document.get(document, 0) >= limits["per_document_limit"]:
+            truncated["per_document"] += 1
+        elif len(taken) >= limits["expansion_limit"]:
+            truncated["expansion_limit"] += 1
+        elif len(seeds) + len(taken) >= limits["final_limit"]:
+            truncated["final_limit"] += 1
+        else:
+            per_document[document] = per_document.get(document, 0) + 1
+            taken.append(row)
+    truncated["total"] = sum(truncated.values())
+    return seeds + taken, {"seeds": len(seeds), "inflow": len(taken),
+                           "candidates": len(rows), "truncated": truncated}
 
 def escape_lucene(text):
     """`text` with every Lucene reserved character escaped, so it searches as itself.
@@ -831,6 +1093,10 @@ def record_formatter(record):
             row[key] = data[key]
     row["score"] = data.get("score")
     row["seed"] = bool(data["seed"]) if data.get("seed") is not None else None
+    # Expansion columns: which rule reached the row, and how close that chunk is to
+    # this question. Both are null on a seed and absent from vector and hybrid rows.
+    row["tier"] = data["tier"] if isinstance(data.get("tier"), int) else None
+    row["relevance"] = float(data["relevance"]) if isinstance(data.get("relevance"), (int, float)) else None
     return RetrieverResultItem(content=row, metadata={"score": data.get("score")})
 
 
@@ -872,6 +1138,7 @@ def retrieve(request):
     if not pin or pin.get("digest") is None:
         raise WorkerError("embedder_model_not_installed")
     digest = pin["digest"]
+    rules, limits = expansion_request(request.get("expansion"))
 
     driver, database = neo4j_driver(request.get("neo4j"))
     with driver:
@@ -884,8 +1151,12 @@ def retrieve(request):
         if mode == "graph":
             retriever = VectorCypherRetriever(driver, VECTOR_INDEX, GRAPH_EXPANSION_QUERY, embedder,
                                               result_formatter=record_formatter, neo4j_database=database)
+            # The expansion reads `$query_vector`, which is the parameter the vector
+            # index query already carries: the rows a chunk is ranked against are
+            # measured with the same embedding of the same question that found the
+            # seeds, never a second one.
             result = retriever.search(query_text=query_text, top_k=top_k,
-                                      query_params={"generation": generation_id,
+                                      query_params={"generation": generation_id, "rules": rules,
                                                     "lexical": list(LEXICAL_RELATIONSHIPS)})
         elif mode == "vector":
             retriever = VectorRetriever(driver, VECTOR_INDEX, embedder, return_properties=RETURN_PROPERTIES,
@@ -911,9 +1182,18 @@ def retrieve(request):
                 dropped += 1
                 continue
             hits.append(row)
+        expansion = None
+        if mode == "graph":
+            # The budget is applied after the generation filter, so a row this view
+            # does not hold never takes an inflow place from one it does.
+            hits, expansion = apply_expansion(hits, limits)
+            expansion = {"enabled_rules": rules, "limits": limits, "seed_top_k": top_k, **expansion}
+            for row in hits:
+                row["via"] = "seed" if row.get("seed") else EXPANSION_VIA.get(row.get("tier"), "unknown")
         return {"status": "ok", "mode": mode, "generation_id": generation_id, "top_k": top_k,
                 "embedder": {"model": spec["model"], "digest": digest},
-                "hits": hits, "dropped_out_of_generation": dropped, "packages": package_versions()}
+                "hits": hits, "expansion": expansion,
+                "dropped_out_of_generation": dropped, "packages": package_versions()}
 
 
 async def probe_models(models, allowed=None):
@@ -970,8 +1250,12 @@ def main():
         return asyncio.run(extract(request))
     if operation == "materialize":
         return materialize(request)
+    if operation == "embed":
+        return asyncio.run(embed_chunks(request))
     if operation == "link_explicit_refs":
         return link_explicit_refs(request)
+    if operation == "link_related_evidence":
+        return link_related_evidence(request)
     if operation == "retrieve":
         return retrieve(request)
     raise WorkerError("operation_unknown")

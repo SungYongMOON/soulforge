@@ -83,9 +83,9 @@ export function createGraphIndexRetriever(view, { graphSearch = null, runWorker 
   }
   // A database row names a document and a unit; only the pair this view already
   // holds becomes a hit, and a pair it does not hold is dropped and counted.
-  async function fromDatabase(mode, query, topK) {
+  async function fromDatabase(mode, query, topK, options) {
     if (database === null) return { status: 'not_connected', code: 'graph_database_not_connected', hits: [], searched_kinds: [] };
-    const result = await database[mode](query, topK);
+    const result = await database[mode](query, topK, options);
     if (result.status !== 'ok') return { ...result, hits: [], searched_kinds: [] };
     const hits = [], kinds = new Set();
     let unknown = 0;
@@ -95,15 +95,19 @@ export function createGraphIndexRetriever(view, { graphSearch = null, runWorker 
       const unit = units.get(chunkId);
       kinds.add(unit.source_kind);
       hits.push({ rank: hits.length + 1, chunk_id: chunkId, ...unit,
-        score: row.score, seed: row.seed });
+        score: row.score, seed: row.seed, via: row.via ?? null, relevance: row.relevance ?? null });
     }
     return { status: 'ok', hits, searched_kinds: [...kinds].sort(),
+      // `returned` is what the database sent after its own expansion budget; the
+      // seed count and what the budget left out are reported beside it, so a
+      // requested top_k is never read as the number of rows that came back.
       receipt: { mode, requested_top_k: topK ?? null, returned: result.hits.length, admitted: hits.length,
-        not_in_generation: unknown, dropped_out_of_generation: result.dropped_out_of_generation ?? 0 } };
+        not_in_generation: unknown, dropped_out_of_generation: result.dropped_out_of_generation ?? 0,
+        ...(result.expansion ? { expansion: result.expansion } : {}) } };
   }
-  const vector = (query, topK) => fromDatabase('vector', query, topK);
-  const hybrid = (query, topK) => fromDatabase('hybrid', query, topK);
-  const graph = (query, topK) => fromDatabase('graph', query, topK);
+  const vector = (query, topK, options) => fromDatabase('vector', query, topK, options);
+  const hybrid = (query, topK, options) => fromDatabase('hybrid', query, topK, options);
+  const graph = (query, topK, options) => fromDatabase('graph', query, topK, options);
 
   return Object.freeze({ catalog: () => catalog.map(row => ({ ...row })), lexical, exact, vector, hybrid, graph,
     connected: database !== null, kinds: () => [...groups.keys()].sort(), profile: RETRIEVAL_PROFILE });
