@@ -24,6 +24,7 @@
     "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs",
     "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
     "guild_hall/context_engine/src/adapters/sources/mail_event_source.mjs",
+    "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
     "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
     "guild_hall/context_engine/src/app.mjs",
     "guild_hall/context_engine/src/guards/accepted_context_query.mjs",

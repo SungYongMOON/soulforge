@@ -49,7 +49,7 @@ export const PREPARATION_STORE_AREAS = Object.freeze({ documents: '20_문서검�
 // Which input directory each source kind's references belong in. The template
 // declares the directories and `source_documents.mjs` declares the kinds; this is
 // the one place they meet, and a test pins that neither side moves without it.
-export const SOURCE_KIND_DIRECTORIES = Object.freeze({ document: 'DOCUMENT', linear: 'LINEAR',
+export const SOURCE_KIND_DIRECTORIES = Object.freeze({ document: 'DOCUMENT', linear: 'LINEAR', slack: 'SLACK',
   mail: 'MAIL', voice: 'VOICE' });
 
 const SHA = /^sha256:[0-9a-f]{64}$/u;

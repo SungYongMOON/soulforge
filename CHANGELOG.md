@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-09-13 - Slack 채널 custody가 준비 source kind에 합류한다
+
+- `context_engine/src/adapters/sources/slack_custody_source.mjs`(신규, `slack-custody-v1`): 루트 메시지 = 항목, 답글·첨부 포인터·보류 건수 동반. raw는 custody digest로 검증.
+- source kind `slack` 등록(SOURCE_KINDS·LOCATOR_REVISION_KINDS·SOURCE_KIND_DIRECTORIES·ADAPTER_PROFILES·SOURCE_ADAPTERS), 원문 대조 검사기에 slack 검사 추가.
+- 준비기 0.3.0, 폐포 16 모듈. 검증: context-engine 261 / 254 pass / 0 fail / 7 skip, path-registry 42/42, path-policy 0. 모듈 0.16.0.
 ## 2026-09-13 - 큰 월파일도 grant가 이름한 행만 스트리밍으로 읽는다
 
 - `guarded_files.readLines`(신규): 파일 전체 상한(64MB)을 넘는 이벤트 월파일을 한 줄씩 스트리밍하며 filter가 고른 줄만 남긴다. 같은 가드(plain chain,

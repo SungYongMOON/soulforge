@@ -11,9 +11,10 @@ import { readLinearSourceDocuments } from '../adapters/sources/linear_custody_so
 import { readVoiceSourceDocuments } from '../adapters/sources/voice_session_source.mjs';
 import { readMailSourceDocuments } from '../adapters/sources/mail_event_source.mjs';
 import { readDocumentSourceDocuments } from '../adapters/sources/document_file_source.mjs';
+import { readSlackSourceDocuments } from '../adapters/sources/slack_custody_source.mjs';
 
 export const SOURCE_ADAPTERS = Object.freeze({ document: readDocumentSourceDocuments, linear: readLinearSourceDocuments,
-  mail: readMailSourceDocuments, voice: readVoiceSourceDocuments });
+  mail: readMailSourceDocuments, slack: readSlackSourceDocuments, voice: readVoiceSourceDocuments });
 export const SYNTHETIC_DATA_CLASS = 'public_synthetic';
 
 // Passing `runId` makes this call emit its own run record. The record is built

@@ -10,7 +10,7 @@ import { isSafeSegment } from '../adapters/sources/guarded_files.mjs';
 export const SOURCE_GRANT_SCHEMA = 'soulforge.context_source_grant.v1';
 export const SOURCE_DOCUMENT_SCHEMA = 'soulforge.context_source_document.v1';
 export const SOURCE_COVERAGE_SCHEMA = 'soulforge.context_source_coverage.v1';
-export const SOURCE_KINDS = Object.freeze(['document', 'linear', 'mail', 'voice']);
+export const SOURCE_KINDS = Object.freeze(['document', 'linear', 'mail', 'slack', 'voice']);
 export const SOURCE_PREPARATION_PURPOSE = 'context_preparation';
 // Item evidence either pins one exact revision, or admits the latest revision the
 // collection owner already holds for that exact item (items that evolve, e.g. an
@@ -36,7 +36,7 @@ export const PATH_REQUIRED_KINDS = Object.freeze(['document', 'mail']);
 // Kinds whose unit locators anchor to a revision the document holds. The document
 // adapter locates by path and line range only, so its units carry no revision to
 // check; that is a property of the adapter, not a missing locator.
-export const LOCATOR_REVISION_KINDS = Object.freeze(['linear', 'mail', 'voice']);
+export const LOCATOR_REVISION_KINDS = Object.freeze(['linear', 'mail', 'slack', 'voice']);
 const validItemPath = path => Array.isArray(path) && path.length > 0 && path.length <= 16
   && path.every(isSafeSegment);
 const validScope = scope => exactKeys(scope, ['start_seconds', 'end_seconds'])

@@ -92,6 +92,10 @@
       "sha256": "469a1a87df196ac0a0db4654e76c2bd955248c9001e3b9280b0e82f40223ea66"
     },
     {
+      "path": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
+      "sha256": "2de880e5ee52910220213ba77c92fb6adeca4ca42bcc684eadc53775c744b151"
+    },
+    {
       "path": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
       "sha256": "c3e84d8894eaa9b1bf238a3dd56acc4aea2bdaba24e974a19ce7ba964757719e"
     },
@@ -149,7 +153,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
-      "sha256": "cd4154645a42896fd742e211d4d72b6bf8e97b57f81aa45211dffe296b29df42"
+      "sha256": "f9d91cc4b17a756ea390dd2eeab62f6bf07fcaee5d538120036a994b6b9db96a"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
@@ -157,7 +161,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_store.mjs",
-      "sha256": "5cc66fe45c7fc50bff8f7b3b5ce8082b546ebd40d57fa61992cab150060f882b"
+      "sha256": "3c109e69e6290b9d8e602de9ed2abfa83b9060bb95eef05d5879bf9949a34808"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_validation.mjs",
@@ -169,15 +173,15 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_documents.mjs",
-      "sha256": "94ff0c8d37fd349c8c67727d718fff8c9a1ffcecf9a38b42dafa0b7d4c1784fb"
+      "sha256": "b26f5270dbd793614a0b7776a99a770b4cad40942adc526e403007ec28ff88b4"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
-      "sha256": "48e22c24cd68400cdf5863bc0229e02b62fc1a8f9ba862669c204b87cb5b2314"
+      "sha256": "06b52c7cff870343745dd7657f5834e7b967c3a1237ae53792625c6801b477ab"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
-      "sha256": "e5f360423540b325ef9f25e34c85fdb9a012ca641fbd515a71eec517ab5d87b8"
+      "sha256": "c50fcf743a0ce5e85ef09c4a69b350ea9bc56d68d21dde52e13fb54d93b245eb"
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
@@ -304,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "88140e7e3c9fdd8cda88d01ed82865a6c63896bb0d71de244414a6283f82baf3",
+  "closure_sha256": "6e8b173d6a7ff278aacf3f1dc79d936a224551f61a630fd4bc35e3e9409b8dd8",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -456,6 +460,14 @@
     {
       "from": "guild_hall/context_engine/src/adapters/sources/mail_event_source.mjs",
       "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
+      "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
@@ -819,6 +831,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
       "to": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs"
     },
     {
@@ -907,6 +923,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
       "to": "guild_hall/context_engine/src/runtime/preparation_run.mjs"
     },
     {
@@ -932,6 +952,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
       "to": "guild_hall/context_engine/src/adapters/sources/mail_event_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",

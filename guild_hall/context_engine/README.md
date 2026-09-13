@@ -208,6 +208,12 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
 - 시험: `tests/preparation_store_review.test.mjs`(REV-A1~A3, B1~B2, C1~C2, D). 검토자가 보낸 probe를 그대로 들여왔고,
   수정 전 1e594af2에서는 8건 중 7건이 실패(REV-D만 통과)했다.
 - 여전히 아님: 서명. manifest·run·report digest는 자기 일관성 검사이지 생산자 인증이 아니다.
+## Slack 채널 custody 어댑터 (0.16.0)
+
+`src/adapters/sources/slack_custody_source.mjs`(`slack-custody-v1`): Slack history lane의 채널 custody(`state/slack-continuous.json`의 revisions·custody_receipts,
+`raw/sha256/<xx>/<digest>.json`, attachments 포인터)를 읽는다. 한 항목은 루트 메시지 하나(Slack ts)이고 문서는 그 메시지와 custody가 가진 답글을
+단위로 담는다(revision ref·raw digest로 위치). raw 파일은 custody receipt의 digest로 검증한다. 정책 보류(hold) 이벤트는 raw가 없으므로 문서가 되지 않고
+채널 보류 건수를 fact로 남긴다. 원문 대조 검사기는 raw 텍스트·답글 전수·첨부 포인터·시각·채널을 대조한다. 준비기 0.3.0(kind 추가). 시험 1건 추가.
 ## 실자료 admission과 원문 대조 검사 (0.15.0)
 
 실자료 처리는 두 가지를 더 요구한다. 읽어도 되는가(admission), 그리고 읽은 것이 원문을 보존했는가(원문 대조).

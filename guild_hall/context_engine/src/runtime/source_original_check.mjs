@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { mailBodyTextFromRecord } from '../../../gateway/mail_body_excerpt.mjs';
 import { openSourceRoot } from '../adapters/sources/guarded_files.mjs';
+import { readChannelState, readRawEvents, slackTsToIso } from '../adapters/sources/slack_custody_source.mjs';
 import { totalDigest, documentsDigest } from './preparation_run.mjs';
 import { SOURCE_LIMITS } from './source_documents.mjs';
 
@@ -194,7 +195,48 @@ async function checkLinear({ document, root, item }) {
   return { checks, exclusions };
 }
 
-const CHECKERS = Object.freeze({ mail: checkMail, linear: checkLinear });
+// ---- slack -------------------------------------------------------------------
+async function checkSlack({ document, root, item }) {
+  const checks = [], exclusions = [];
+  const { state, rawDigests, held } = await readChannelState(root);
+  const rawByTs = await readRawEvents(root, rawDigests);
+  const units = kind => document.units.filter(u => u.unit_kind === kind);
+  const message = units('message')[0];
+  if (!message || message.locator.message_ts !== item.item_id) return { checks: [check('locator_valid', 'fail', 'message unit missing or names another ts')], exclusions };
+  const rawEntry = (rawByTs.get(item.item_id) ?? []).find(entry => entry.digest === document.primary_revision_sha256);
+  if (!rawEntry) return { checks: [check('original_found', 'fail', 'prepared raw digest not among custody raw events for this ts')], exclusions };
+  checks.push(check('original_found', 'pass', 'raw event present under its content digest'));
+  const revision = state.revisions.find(rev => rev.revision_ref === message.locator.revision_ref && rev.message_ts === item.item_id);
+  checks.push(check('locator_valid', revision ? 'pass' : 'fail', revision ? 'revision ref and ts resolve in channel state' : 'revision ref not in channel state'));
+  const textOk = squash(message.text) === squash(rawEntry.raw.text ?? '');
+  checks.push(check('body_preserved', textOk ? 'pass' : 'fail', `${[...squash(rawEntry.raw.text ?? '')].length} characters`));
+  if (Array.isArray(rawEntry.raw.blocks) && rawEntry.raw.blocks.length) exclusions.push('rich-text blocks are not restated; the plain text field is what is kept');
+  // replies: every reply custody holds for this root, by ts, text and time
+  const replyRevs = state.revisions.filter(rev => rev.thread_ts === item.item_id && rev.message_ts !== item.item_id);
+  const replyUnits = units('reply');
+  let repliesOk = replyUnits.length === replyRevs.length;
+  for (const rev of replyRevs) {
+    const unit = replyUnits.find(u => u.locator.message_ts === rev.message_ts);
+    const raw = (rawByTs.get(rev.message_ts) ?? []).at(-1);
+    if (!unit || !raw || squash(unit.text) !== squash(raw.raw.text ?? '') || unit.occurred_at !== slackTsToIso(rev.message_ts)) repliesOk = false;
+  }
+  checks.push(check('comments_preserved', repliesOk ? 'pass' : 'fail', `${replyRevs.length} repl(y/ies) in custody, ${replyUnits.length} reply unit(s)`));
+  // attachments by pointer digest
+  const pointers = [revision, ...replyRevs].filter(Boolean).flatMap(rev => rev.attachment_pointers ?? []).map(p => p.content_sha256).filter(Boolean).sort();
+  const components = document.components.filter(c => c.kind === 'attachment').map(c => c.sha256).sort();
+  const attOk = JSON.stringify(pointers) === JSON.stringify(components);
+  checks.push(check('attachments_preserved', attOk ? 'pass' : 'fail', `${pointers.length} attachment pointer(s), ${components.length} component digest(s)`));
+  if (pointers.length) exclusions.push('attachment bodies not included: only file ids, mime types and content digests travel');
+  const timeOk = document.valid_at === slackTsToIso(item.item_id) && message.occurred_at === document.valid_at;
+  checks.push(check('time_preserved', timeOk ? 'pass' : 'fail', 'message ts kept as valid_at and unit time'));
+  const fact = name => document.facts.find(f => f.name === name)?.value ?? null;
+  const relOk = fact('slack.channel_id') === revision?.channel_id && fact('slack.reply_count') === replyRevs.length;
+  checks.push(check('relations_preserved', relOk ? 'pass' : 'fail', 'channel id and reply count facts'));
+  if (held) exclusions.push(`${held} event(s) in this channel are policy-held: raw body never stored, so they are not documents and are not compared`);
+  return { checks, exclusions };
+}
+
+const CHECKERS = Object.freeze({ mail: checkMail, linear: checkLinear, slack: checkSlack });
 
 /**
  * Compares each stored document with its original. `roots` maps root_ref to the

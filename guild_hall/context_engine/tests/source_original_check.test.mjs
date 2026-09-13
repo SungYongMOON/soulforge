@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
@@ -161,6 +161,75 @@ test('Linear documents are checked against custody: title, description, every co
     roots: x.roots, checkRunId: 'check-linear-2', checkedAt: NOW });
   assert.equal(failing.outcome, 'fail');
   assert.equal(failing.documents.find(d => d.item_id === withComment.item_id).checks.find(c => c.id === 'comments_preserved').outcome, 'fail');
+});
+
+// A synthetic Slack channel in the history lane's custody shape: state with
+// revisions and custody receipts, raw events under their content digests, one
+// root with two replies and an attachment pointer, one root alone, one held event.
+async function slackRoot() {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'ctx-check-slack-'));
+  const rawDir = path.join(root, 'raw', 'sha256');
+  const rawEvent = (ts, text, extra = {}) => ({ type: 'message', ts, text, user: 'U0SYN00001', team: 'T0SYN0001', client_msg_id: `cm-${ts}`, blocks: [{ type: 'rich_text' }], ...extra });
+  const events = [
+    rawEvent('1784697623.139789', '설계 검토 요청: 시험 장비 A 도면을 확인해 주세요.', { files: [{ id: 'F0SYN00001' }] }),
+    rawEvent('1784697700.000100', '확인했습니다. 수요일까지 회신하겠습니다.', { thread_ts: '1784697623.139789' }),
+    rawEvent('1784697800.000200', '추가로 전원 조건은 28V입니다.', { thread_ts: '1784697623.139789' }),
+    rawEvent('1784700000.000300', '다음 회의는 목요일입니다.'),
+  ];
+  const receipts = [], revisions = [];
+  for (const raw of events) {
+    const bytes = Buffer.from(JSON.stringify(raw));
+    const digest = sha(bytes.toString()).slice('sha256:'.length);
+    await mkdir(path.join(rawDir, digest.slice(0, 2)), { recursive: true });
+    await writeFile(path.join(rawDir, digest.slice(0, 2), `${digest}.json`), bytes);
+    receipts.push({ raw_digest: `sha256:${digest}`, raw_ref: `slack-raw:${digest}`, source_refs: [`slack-web:${digest.slice(0, 32)}`] });
+    const isReply = raw.thread_ts && raw.thread_ts !== raw.ts;
+    revisions.push({ actor: { erp_account_ref: null, slack_user_id: raw.user }, channel_id: 'C0SYN0001', message_ref: `slack-msg:${digest}`,
+      message_ts: raw.ts, revision_kind: isReply ? 'reply' : 'message', revision_ref: `slack-rev:${digest}`, revision_ts: raw.ts,
+      source_metadata_digest: `sha256:${digest}`, supersedes_revision_ref: null, thread_ts: isReply ? raw.thread_ts : null, workspace_id: 'T0SYN0001',
+      attachment_pointers: raw.files ? [{ content_sha256: sha('attachment-bytes'), file_id: 'F0SYN00001', mime_type: 'image/png', pointer_ref: 'slack-file-sha256:x', size_bytes: 10 }] : [] });
+  }
+  const state = { schema_version: 'soulforge.slack_history.continuous_state.v1', revisions, custody_receipts: receipts,
+    hold_receipts: [{ event_id: 'EvWeb:held0001', hold_reasons: ['external_or_unfurl_attachment'], raw_digest: sha('held'), received_at: NOW }],
+    attachment_receipts: [], page_evidence_receipts: [], cursor: {}, writer_authority_id: 'synthetic', writer_epoch: 1 };
+  await mkdir(path.join(root, 'state'), { recursive: true });
+  await writeFile(path.join(root, 'state', 'slack-continuous.json'), JSON.stringify(state, null, 2));
+  return { root, rootTs: '1784697623.139789', aloneTs: '1784700000.000300' };
+}
+
+test('Slack root messages prepare with their replies and attachments, and are checked against custody', async () => {
+  const s = await slackRoot();
+  const roots = { 'slack.check': s.root };
+  const g = { ...grant('slack', 'slack.check', [item(s.rootTs), item(s.aloneTs), item('1784709999.000999')]) };
+  const adm = admission({ source_refs: ['slack.check'] });
+  const prepared = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: adm });
+  assert.equal(prepared.coverage.counts.prepared, 2);
+  assert.equal(prepared.coverage.counts.missing, 1);
+  const withReplies = prepared.documents.find(d => d.item_id === s.rootTs);
+  assert.deepEqual(withReplies.units.map(u => u.unit_kind), ['message', 'reply', 'reply']);
+  assert.equal(withReplies.components.filter(c => c.kind === 'reply').length, 2);
+  assert.equal(withReplies.components.filter(c => c.kind === 'attachment').length, 1);
+  assert.equal(withReplies.facts.find(f => f.name === 'slack.reply_count').value, 2);
+  assert.equal(withReplies.facts.find(f => f.name === 'slack.channel_held_events').value, 1);
+  assert.equal(withReplies.time_basis, 'slack_message_ts');
+  const report = await checkDocumentsAgainstOriginals({ documents: prepared.documents, grant: { ...g, project_key: prepared.grant.project_key },
+    roots, checkRunId: 'check-slack-1', checkedAt: NOW });
+  assert.equal(report.outcome, 'pass', JSON.stringify(report.documents.map(d => d.checks), null, 1));
+  const first = report.documents.find(d => d.item_id === s.rootTs);
+  assert.deepEqual(first.checks.map(c => c.id), ['original_found', 'locator_valid', 'body_preserved', 'comments_preserved', 'attachments_preserved', 'time_preserved', 'relations_preserved']);
+  assert.ok(first.exclusions.some(e => e.includes('policy-held')));
+  assert.ok(first.exclusions.some(e => e.includes('attachment bodies')));
+  // A reply dropped from the stored document is a finding against custody.
+  const dropped = prepared.documents.map(d => d.item_id !== s.rootTs ? d : { ...d, units: d.units.filter(u => u.unit_kind !== 'reply') });
+  const failing = await checkDocumentsAgainstOriginals({ documents: dropped, grant: { ...g, project_key: prepared.grant.project_key },
+    roots, checkRunId: 'check-slack-2', checkedAt: NOW });
+  assert.equal(failing.documents.find(d => d.item_id === s.rootTs).checks.find(c => c.id === 'comments_preserved').outcome, 'fail');
+  // A raw event whose bytes no longer match custody's digest fails the whole channel read, by code.
+  const receipts = JSON.parse(await readFile(path.join(s.root, 'state', 'slack-continuous.json'), 'utf8')).custody_receipts;
+  const hex = receipts[0].raw_digest.slice('sha256:'.length);
+  await writeFile(path.join(s.root, 'raw', 'sha256', hex.slice(0, 2), `${hex}.json`), '{"ts":"1784697623.139789","text":"rewritten"}');
+  const tampered = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: adm });
+  assert.ok(tampered.coverage.items.every(row => row.status === 'failed' && row.code === 'slack_raw_digest_mismatch'));
 });
 
 test('a streamed, filtered read yields the same rows as a whole read and keeps its bounds', async () => {
