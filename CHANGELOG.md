@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-13 - 큰 월파일도 grant가 이름한 행만 스트리밍으로 읽는다
+
+- `guarded_files.readLines`(신규): 파일 전체 상한(64MB)을 넘는 이벤트 월파일을 한 줄씩 스트리밍하며 filter가 고른 줄만 남긴다. 같은 가드(plain chain,
+  단일 링크, 읽는 동안 identity 불변, 엄격 UTF-8)에 파일 상한 4GB·줄 상한 64MB. 메일 어댑터와 원문 대조 검사기가 이 경로로 읽는다.
+  실자료 첫 실행에서 299MB 월파일의 30건이 `source_too_large`로 미처리된 것이 계기.
+- 원문 대조: 단위 상한(20,000자)에 잘린 본문은 partial로 두되 exclusions에 상한을 명시.
+- 검증: context-engine 260 / 253 pass / 0 fail / 7 skip, path-policy 0.
 ## 2026-09-13 - 실자료 admission 게이트와 원문 대조 검사 (PV-2 원문 대조 구현)
 
 - `context_engine/src/runtime/real_data_admission.mjs`(신규): public_synthetic 밖 등급의 grant는 Owner 승인 admission 기록(과제·등급·source root·local_only 경계)

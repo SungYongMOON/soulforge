@@ -97,19 +97,32 @@ export async function readMailSourceDocuments({ admitted, source, rootPath }) {
     for (const item of source.items) outcome(item, 'failed', { code: codeOf(error) });
     return { documents, results };
   }
+  // One streamed pass per event file, keeping only the lines that mention a
+  // granted event id: a month file far larger than any single read bound still
+  // yields the rows this grant names, and nothing else is held in memory.
+  const wanted = new Map();
+  for (const item of source.items) {
+    const key = item.path.join('/');
+    if (!wanted.has(key)) wanted.set(key, { path: item.path, ids: new Set() });
+    wanted.get(key).ids.add(item.item_id);
+  }
   const files = new Map();
   for (const item of source.items) {
     try {
       const key = item.path.join('/');
       if (!files.has(key)) {
-        try { files.set(key, await root.readText(item.path, MAX_EVENT_FILE_BYTES)); } catch (error) {
+        const { path, ids } = wanted.get(key);
+        try {
+          const needles = [...ids];
+          files.set(key, await root.readLines(path, { maxLineBytes: MAX_EVENT_FILE_BYTES, filter: line => needles.some(id => line.includes(id)) }));
+        } catch (error) {
           if (error?.code !== 'source_missing') throw error;
           files.set(key, null);
         }
       }
       if (files.get(key) === null) { outcome(item, 'missing', { code: 'source_missing' }); continue; }
       const file = files.get(key);
-      const rows = eventRows(file.text, item.item_id)
+      const rows = eventRows(file.lines.join('\n'), item.item_id)
         .sort((a, b) => String(a.row.ingested_at ?? '').localeCompare(String(b.row.ingested_at ?? '')) || a.sha256.localeCompare(b.sha256));
       if (rows.length === 0) { outcome(item, 'missing', { code: 'source_missing' }); continue; }
       const chosen = item.revision_policy === 'exact' ? rows.find(row => row.sha256 === item.revision_sha256) : rows.at(-1);

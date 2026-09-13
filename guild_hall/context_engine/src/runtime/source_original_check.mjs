@@ -21,6 +21,7 @@ import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { mailBodyTextFromRecord } from '../../../gateway/mail_body_excerpt.mjs';
 import { openSourceRoot } from '../adapters/sources/guarded_files.mjs';
 import { totalDigest, documentsDigest } from './preparation_run.mjs';
+import { SOURCE_LIMITS } from './source_documents.mjs';
 
 export const SOURCE_CHECK_SCHEMA = 'soulforge.context_source_original_check.v1';
 export const CHECKER_ID = 'context-engine/source-original-checker';
@@ -56,12 +57,11 @@ async function checkMail({ document, root, item }) {
   if (!locator || !Array.isArray(locator.path) || locator.event_id !== item.item_id) {
     return { checks: [check('locator_valid', 'fail', 'locator missing or names another event')], exclusions };
   }
-  let text;
-  try { ({ text } = await root.readText(locator.path, 64 * 1024 * 1024)); }
+  let lines;
+  try { ({ lines } = await root.readLines(locator.path, { filter: line => line.includes(locator.event_id) })); }
   catch { return { checks: [check('original_found', 'fail', 'event file unreadable at locator path')], exclusions }; }
   const rows = [];
-  for (const line of text.split('\n')) {
-    if (!line.includes(locator.event_id)) continue;
+  for (const line of lines) {
     let row; try { row = JSON.parse(line); } catch { continue; }
     if (row?.event_id === locator.event_id) rows.push({ row, sha256: sha256Canonical(row) });
   }
@@ -92,6 +92,10 @@ async function checkMail({ document, root, item }) {
   }
   const rawFull = String(row.body_text ?? row.body_html ?? '');
   if ([...rawFull].length > MAIL_MAX_BODY_CHARACTERS) exclusions.push(`original body longer than ${MAIL_MAX_BODY_CHARACTERS} characters: truncated by design`);
+  // A single unit is bounded (SOURCE_LIMITS.unit_characters); a body past that
+  // bound is stored as a prefix. The check above still says partial - that is
+  // the truth of what is stored - and this names the bound it hit.
+  if ([...expected].length > SOURCE_LIMITS.unit_characters) exclusions.push(`original text longer than the unit bound (${SOURCE_LIMITS.unit_characters} characters): body unit holds a prefix`);
   // attachments: digests and names, not bodies
   const atts = (row.attachments ?? []).filter(a => a && typeof a === 'object');
   const attShas = atts.map(a => a.content_sha256).filter(s => /^sha256:[0-9a-f]{64}$/u.test(s ?? '')).sort();

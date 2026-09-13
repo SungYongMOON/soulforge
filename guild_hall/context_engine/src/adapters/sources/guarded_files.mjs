@@ -9,6 +9,9 @@ import { isDeepStrictEqual } from 'node:util';
 import { createHash } from 'node:crypto';
 
 export const SOURCE_READ_MAX_BYTES = 64 * 1024 * 1024;
+// A streamed, filtered read may cover a much larger file; each kept line still
+// obeys SOURCE_READ_MAX_BYTES.
+export const SOURCE_STREAM_MAX_BYTES = 4 * 1024 * 1024 * 1024;
 const SECRET = /^(?:\.env(?:\..*)?|credentials?|secrets?)$/iu;
 const RESERVED = /[<>:"/\\|?*]/u;
 // Real file names (Korean, spaces) are allowed; separators, control characters,
@@ -87,6 +90,53 @@ export function openSourceRoot(rootPath) {
         let text;
         try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { fail('source_encoding_invalid'); }
         return { text, bytes: bytes.length, sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') };
+      } finally { await file.close(); }
+    },
+    // Streams a line-oriented file and keeps only the lines `filter` accepts, so
+    // a month of mail events far past the whole-file bound can still yield the
+    // few rows one grant names. The same guards as readText: plain chain, single
+    // link, size bound (a larger one, per line and per file), identity unchanged
+    // across the read, strict UTF-8. Nothing but the kept lines is retained.
+    async readLines(segments, { maxBytes = SOURCE_STREAM_MAX_BYTES, maxLineBytes = SOURCE_READ_MAX_BYTES, filter } = {}) {
+      if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > SOURCE_STREAM_MAX_BYTES
+        || !Number.isSafeInteger(maxLineBytes) || maxLineBytes < 1 || maxLineBytes > SOURCE_READ_MAX_BYTES
+        || typeof filter !== 'function') fail('source_read_bounds');
+      const path = target(segments);
+      try { assertPlainChain(path); } catch (error) {
+        if (error?.code === 'ENOENT') fail('source_missing');
+        throw error instanceof SourceReadError ? error : new SourceReadError('source_path_refused');
+      }
+      const before = lstatSync(path, { bigint: true });
+      if (!before.isFile() || before.nlink !== 1n) fail('source_path_refused');
+      if (before.size > BigInt(maxBytes)) fail('source_too_large');
+      const file = await open(path, 'r');
+      try {
+        if (!isDeepStrictEqual(stamp(before), stamp(await file.stat({ bigint: true })))) fail('source_changed_during_read');
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        const chunk = Buffer.alloc(8 * 1024 * 1024);
+        const kept = [];
+        let carry = '', position = 0, scanned = 0;
+        for (;;) {
+          const { bytesRead } = await file.read(chunk, 0, chunk.length, position);
+          if (!bytesRead) break;
+          position += bytesRead;
+          let text;
+          try { text = decoder.decode(chunk.subarray(0, bytesRead), { stream: true }); } catch { fail('source_encoding_invalid'); }
+          const parts = (carry + text).split('\n');
+          carry = parts.pop();
+          if (Buffer.byteLength(carry) > maxLineBytes) fail('source_line_too_long');
+          for (const line of parts) {
+            scanned += 1;
+            if (Buffer.byteLength(line) > maxLineBytes) fail('source_line_too_long');
+            if (filter(line)) kept.push(line);
+          }
+        }
+        try { carry += decoder.decode(); } catch { fail('source_encoding_invalid'); }
+        if (carry.length) { scanned += 1; if (filter(carry)) kept.push(carry); }
+        if (position !== Number(before.size)
+          || !isDeepStrictEqual(stamp(before), stamp(await file.stat({ bigint: true })))
+          || !isDeepStrictEqual(stamp(before), stamp(lstatSync(path, { bigint: true })))) fail('source_changed_during_read');
+        return { lines: kept, bytes: position, scanned };
       } finally { await file.close(); }
     },
   });

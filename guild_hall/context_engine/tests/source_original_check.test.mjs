@@ -21,6 +21,7 @@ import { REAL_DATA_ADMISSION_SCHEMA, validateRealDataAdmission } from '../src/ru
 import { checkDocumentsAgainstOriginals, SOURCE_CHECK_SCHEMA, CHECKER_ID } from '../src/runtime/source_original_check.mjs';
 import { totalDigest } from '../src/runtime/preparation_run.mjs';
 import { exactRefIdentityKey } from '../../engineering_engine/core/validators/identity.mjs';
+import { openSourceRoot } from '../src/adapters/sources/guarded_files.mjs';
 
 const NOW = '2026-09-12T00:00:00.000Z';
 const sha = text => `sha256:${createHash('sha256').update(text).digest('hex')}`;
@@ -160,6 +161,28 @@ test('Linear documents are checked against custody: title, description, every co
     roots: x.roots, checkRunId: 'check-linear-2', checkedAt: NOW });
   assert.equal(failing.outcome, 'fail');
   assert.equal(failing.documents.find(d => d.item_id === withComment.item_id).checks.find(c => c.id === 'comments_preserved').outcome, 'fail');
+});
+
+test('a streamed, filtered read yields the same rows as a whole read and keeps its bounds', async () => {
+  const m = await mailRoot();
+  const root = openSourceRoot(m.root);
+  const whole = await root.readText(MAIL_FILE, 64 * 1024 * 1024);
+  const streamed = await root.readLines(MAIL_FILE, { filter: line => line.includes('hw-0003') });
+  assert.equal(streamed.lines.length, 2);
+  assert.equal(streamed.bytes, whole.bytes);
+  assert.equal(streamed.scanned, 4);
+  assert.deepEqual(streamed.lines, whole.text.split('\n').filter(line => line.includes('hw-0003')));
+  // The file bound and the line bound both refuse, by code, before returning anything.
+  await assert.rejects(root.readLines(MAIL_FILE, { maxBytes: 16, filter: () => true }), error => error.code === 'source_too_large');
+  await assert.rejects(root.readLines(MAIL_FILE, { maxLineBytes: 16, filter: () => true }), error => error.code === 'source_line_too_long');
+  await assert.rejects(root.readLines(MAIL_FILE, {}), error => error.code === 'source_read_bounds');
+  await assert.rejects(root.readLines(['company', 'nope.jsonl'], { filter: () => true }), error => error.code === 'source_missing');
+  // The mail adapter reads through the same streamed path: a grant over this file prepares as before.
+  const roots = { 'mail.check': m.root };
+  const g = grant('mail', 'mail.check', [item('hw-0001', { path: MAIL_FILE }), item('hw-0003', { path: MAIL_FILE })]);
+  const prepared = await prepareSourceDocuments({ grant: g, roots, now: NOW, admission: admission() });
+  assert.equal(prepared.documents.length, 2);
+  assert.equal(prepared.coverage.counts.prepared, 2);
 });
 
 test('a kind without a checker is reported not_run, never pass, and an ungranted document is a finding', async () => {
