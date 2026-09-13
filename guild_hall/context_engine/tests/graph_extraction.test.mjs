@@ -197,6 +197,9 @@ test('a refused answer is reported by its shape, and the shape carries no text',
   const trace = [{ call: 1, status: 'invalid_output', input_sha256: 'sha256:' + '1'.repeat(64),
     output_sha256: 'sha256:' + '2'.repeat(64), output_characters: 1282, thinking_characters: 0,
     done_reason: 'stop', prompt_tokens: 10, output_tokens: 400, elapsed_ms: 7, dropped_null_properties: 0,
+    // What the worker took out of the answer before the tool judged it: null
+    // properties, and the relationship rows a cut-off answer could not finish.
+    dropped_incomplete_relationships: 2,
     rejected_shape: { parsed: true, error_type: 'ValidationError', characters: 1282,
       top_level_keys: ['nodes', 'relationships'], unknown_top_level_keys: 2, nodes: 6, relationships: 4,
       // One key name is a schema label and travels; the other is a phrase and does not.
@@ -218,6 +221,8 @@ test('a refused answer is reported by its shape, and the shape carries no text',
   assert.equal(JSON.stringify(result.degraded).includes('msg'), false, 'a validation message is not a shape');
   assert.equal(result.llm.trace[0].rejected_shape.problems[0].at, 'nodes.0.properties.*');
   assert.equal(result.degraded.invalid_outputs, 1);
+  assert.deepEqual([result.llm.trace[0].dropped_null_properties, result.llm.trace[0].dropped_incomplete_relationships],
+    [0, 2], 'both counts of what the worker removed before the tool judged reach the trace');
 });
 
 test('worker client: an oversized request is refused before spawning, and a worker that dies early is a refusal, not a crash', async () => {

@@ -35,7 +35,8 @@ const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
 const TRANSPORTS = new Set(['ollama', 'openai_chat']);
 const PIN_KINDS = new Set(['model_digest', 'server_props', 'served_id']);
 const TRACE_FIELDS = ['call', 'status', 'input_sha256', 'output_sha256', 'output_characters', 'thinking_characters',
-  'done_reason', 'prompt_tokens', 'output_tokens', 'elapsed_ms', 'error_type', 'http_status', 'dropped_null_properties'];
+  'done_reason', 'prompt_tokens', 'output_tokens', 'elapsed_ms', 'error_type', 'http_status', 'dropped_null_properties',
+  'dropped_incomplete_relationships'];
 
 // The shape of an answer the extractor refused, read field by field rather than
 // carried across whole: the worker builds it without text, and this side admits

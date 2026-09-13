@@ -333,6 +333,38 @@ def extractor_accepts(content):
     return extractor_verdict(content)[0]
 
 
+def drop_incomplete_relationships(parsed):
+    """Removes relationship rows that cannot stand, and says how many.
+
+    An answer cut off mid-object leaves a relationship with no `start_node_id` or
+    `end_node_id`; the tool's `Neo4jRelationship` requires both, so pydantic
+    rejects the whole answer and the extractor turns that chunk into an empty
+    graph -- seventeen good relationships lost because the eighteenth was cut. A
+    relationship that names a node the same answer never defined is the same kind
+    of row: the APP's own admission drops it a moment later anyway
+    (`relationships_outside_fragment`), so nothing is admitted here that would not
+    have been. Nodes are untouched, and a complete answer is unchanged.
+    """
+    rows = parsed.get("relationships") if isinstance(parsed, dict) else None
+    if not isinstance(rows, list):
+        return parsed, 0
+    known = {node.get("id") for node in (parsed.get("nodes") or []) if isinstance(node, dict)}
+    kept = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        start, end, kind = row.get("start_node_id"), row.get("end_node_id"), row.get("type")
+        if not isinstance(start, str) or not isinstance(end, str) or not isinstance(kind, str) or not kind:
+            continue
+        if start not in known or end not in known:
+            continue
+        kept.append(row)
+    dropped = len(rows) - len(kept)
+    if dropped:
+        parsed["relationships"] = kept
+    return parsed, dropped
+
+
 def drop_null_properties(content):
     """Remove properties the model left null, and say how many. Nothing else changes.
 
@@ -345,12 +377,16 @@ def drop_null_properties(content):
     answer lost. An answer that does not parse, or that carries no null property,
     goes to the tool exactly as the model wrote it; the tool still judges it.
     The prompt is untouched: it belongs to the pinned tool version.
+
+    It also drops the relationship rows an answer could not finish
+    (`drop_incomplete_relationships`) and reports both counts, because both are
+    the same failure: one row the tool will not take losing the whole answer.
     """
     from neo4j_graphrag.components.entity_relation_extractor import fix_invalid_json
     try:
         parsed = json.loads(fix_invalid_json(content))
     except Exception:
-        return content, 0
+        return content, {"null_properties": 0, "incomplete_relationships": 0}
     dropped = 0
     for key in ("nodes", "relationships"):
         rows = parsed.get(key) if isinstance(parsed, dict) else None
@@ -362,9 +398,10 @@ def drop_null_properties(content):
             for name in empty:
                 del properties[name]
             dropped += len(empty)
-    if dropped == 0:
-        return content, 0
-    return json.dumps(parsed, ensure_ascii=False), dropped
+    parsed, incomplete = drop_incomplete_relationships(parsed)
+    if dropped == 0 and incomplete == 0:
+        return content, {"null_properties": 0, "incomplete_relationships": 0}
+    return json.dumps(parsed, ensure_ascii=False), {"null_properties": dropped, "incomplete_relationships": incomplete}
 
 
 def make_llm(llm_profile, client):
@@ -457,10 +494,11 @@ def make_llm(llm_profile, client):
                             "thinking_characters": len(thinking),
                             "done_reason": stop, "prompt_tokens": prompt_tokens,
                             "output_tokens": output_tokens})
-                content, dropped_nulls = drop_null_properties(content)
+                content, cleaned = drop_null_properties(content)
                 accepted, shape = extractor_verdict(content)
                 row.update({"status": "ok" if accepted else "invalid_output",
-                            "dropped_null_properties": dropped_nulls})
+                            "dropped_null_properties": cleaned["null_properties"],
+                            "dropped_incomplete_relationships": cleaned["incomplete_relationships"]})
                 if shape is not None:
                     row["rejected_shape"] = shape
             except Exception as error:  # the extractor turns empty output into an empty chunk graph
