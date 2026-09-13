@@ -1,6 +1,6 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-engine-v0-18-3",
+  "lane_id": "context-engine-v0-18-4",
   "description": "Standalone synthetic Context Engine installed update and query. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer.",
   "tracked_paths": [
     "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",

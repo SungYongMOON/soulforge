@@ -421,8 +421,12 @@ neo4j-graphrag의 writer와 retriever를 쓰고, 이 APP은 그 둘레의 계약
 - 검색이 돌려주는 것은 (문서, 단위) 쌍과 점수뿐이다. 그 쌍이 이 view의 해시 검증된 manifest에 있을 때만 hit이 되고,
   없는 행은 버리고 센다(`receipt.not_in_generation`). 색인은 데이터베이스 전체에 걸리므로 세대 밖 행도 같은 자리에서
   걸러진다. graph 확장은 씨앗 청크에서 그 청크의 대상이 어휘 관계가 아닌 관계로 닿는 청크까지, 그리고 그 대상이
-  명시적으로 가리키는 문서(`REFERS_TO`)의 청크까지 넓힌다. 유입 청크는 `seed=false`로 표시되고 씨앗 점수를 물려받아
-  씨앗 뒤에 온다. 넓힐 간선이 하나도 없으면 graph 모드는 vector와 같은 결과를 돌려준다.
+  명시적으로 가리키는 문서(`REFERS_TO`)의 청크까지 넓힌다. 유입 청크는 `seed=false`로 표시되고 **자기에게 닿은 씨앗들 중
+  가장 높은 점수**를 물려받아 씨앗 뒤에 온다. **씨앗은 자기 vector 점수를 그대로 쓴다** — 다른 씨앗이 유입 경로로 같은 청크에
+  닿아도 올리지 않으므로 씨앗끼리의 순위는 vector 순위와 같다. 넓힐 간선이 하나도 없으면 graph 모드는 vector와 같은 결과를 돌려준다.
+- `hybrid`의 전문검색 쪽은 질의 문자열을 Lucene 질의로 파싱하므로 예약문자(`+ - ! ( ) : ^ [ ] " { } ~ * ? | & \ /`)를
+  이스케이프한 뒤 넘긴다. 사용자 질문은 검색 문법이 아니어서, 이스케이프 전에는 `10/30` 하나로 모드 전체가 실패했다
+  (Lucene 파스 오류). **의미 변화**: 이 문자들은 연산자가 아니라 문자 그대로 검색된다. vector 쪽은 질문 원문을 그대로 임베딩한다.
 - **명시적 참조 연결 (0.18.3)**: `linkExplicitReferences({ view, binding, identifiers, rule, apply })`가 규칙
   하나(`L1-linear-identifier`: 대상 노드 `name`이 `^SON-\d+$`이고 같은 세대·과제 문서의 식별자와 같을 때)로
   `(대상)-[:REFERS_TO {sf_rule, sf_token, sf_source_unit_id, sf_source_doc_key, sf_generation, sf_project,

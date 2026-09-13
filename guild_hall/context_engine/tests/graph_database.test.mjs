@@ -246,6 +246,29 @@ test('a graph row the expansion reached is admitted like any other, and only if 
   for (const row of result.hits) assert.ok(row.text && row.unit_id && row.item_id && row.revision_sha256);
 });
 
+test('a seed keeps the score it came with and a reached row keeps the one it inherited; the APP rescores and reorders neither', async () => {
+  const { view } = await prepared();
+  const current = view();
+  const [first, second] = unitRows(current, 2);
+  // The shape the expansion returns once seed and reached scores are kept apart: a
+  // seed carries its own vector score even when a better-scoring seed also reached
+  // it, and a reached chunk carries the best score among the seeds that reached it.
+  // So a seed can sit above a reached row that scores higher, and that order is the
+  // database's to decide -- this side must not sort or recompute it.
+  const rows = [{ ...first, score: 0.804, seed: true }, { ...second, score: 0.846, seed: false }];
+  const database = cannedDatabase({ hits: rows, loaded: 'g1' });
+  const retriever = createGraphIndexRetriever(current, { runWorker: database.runWorker });
+
+  const result = await retriever.graph('전원 조건', 5);
+  assert.equal(result.status, 'ok');
+  assert.deepEqual(result.hits.map(row => [row.unit_id, row.score, row.seed]),
+    [[first.sf_unit_id, 0.804, true], [second.sf_unit_id, 0.846, false]],
+    'the lower-scored seed stays first and neither score is changed on the way out');
+  assert.deepEqual(result.hits.map(row => row.rank), [1, 2]);
+  assert.deepEqual(result.receipt, { mode: 'graph', requested_top_k: 5, returned: 2, admitted: 2,
+    not_in_generation: 0, dropped_out_of_generation: 0 });
+});
+
 test('a search before the generation is loaded reports that, and a bad request never reaches the database', async () => {
   const { view } = await prepared();
   const database = cannedDatabase({ hits: [] });

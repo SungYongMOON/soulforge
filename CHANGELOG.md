@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-09-13 - 씨앗은 자기 점수를 지키고, 질문의 슬래시 하나가 hybrid를 통째로 떨어뜨리지 않는다
+
+- `context_engine/src/workers/graphrag_worker.py` `GRAPH_EXPANSION_QUERY`: 청크당 한 행으로 묶는 것은 그대로 두되 점수 집계를 둘로 갈랐다.
+  **씨앗 행은 자기 vector 점수**를 쓰고(다른 씨앗이 유입 경로로 같은 청크에 닿아도 올리지 않는다), **유입 행만** 자기에게 닿은 씨앗들의
+  `max(score)`를 물려받는다(`coalesce(own_score, reached_score)`). 이유: 직전 판의 단일 `max(score)`가 씨앗 점수까지 올려
+  graph의 씨앗 순위가 vector와 달라졌다(실측: SON-84 u0000이 0.804 → 0.846으로 1위). 고친 뒤 씨앗 8건의 순서와 점수가 vector와 같아졌다.
+- 같은 파일 `escape_lucene`(신규)과 `retrieve`의 hybrid 경로: 전문검색에 넘기는 질의 문자열의 Lucene 예약문자
+  (`+ - ! ( ) : ^ [ ] " { } ~ * ? | & \ /`)를 이스케이프하고, vector 쪽에는 **질문 원문을 임베딩한 벡터**를 `query_vector`로 직접 넘긴다.
+  이유: 질문 `기본시제 납기 10/30 …`에서 `/`가 Lucene 정규식 시작으로 읽혀 hybrid 모드 전체가 `ClientError`로 실패했다(vector·graph·lexical은 영향 없음).
+  **의미 변화**: 그 문자들은 연산자가 아니라 문자 그대로 검색된다. 사용자 질문은 검색 문법이 아니라는 쪽을 택했다.
+- 시험 1건 추가(가짜 DB worker: 점수가 낮은 씨앗이 점수가 높은 유입 행보다 앞에 그대로 남고, APP이 점수도 순서도 다시 만들지 않는다).
+  `escape_lucene`은 순수 함수로 venv에서 직접 확인했다. 모듈 0.18.4.
+  검증: context-engine 271 / 264 pass / 0 fail / 7 skip(opt-in), path-registry 42/42, path-policy 0.
+
 ## 2026-09-13 - 명시적 식별자 참조로 청크를 건너는 근거 연결, 그리고 그 간선을 따라가는 graph 확장
 
 - `context_engine/src/workers/graphrag_worker.py`: operation `link_explicit_refs`(신규). 규칙 하나(`L1-linear-identifier`)로

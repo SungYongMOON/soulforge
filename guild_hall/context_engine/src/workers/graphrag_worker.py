@@ -43,6 +43,9 @@ MAX_TOP_K = 50
 LINK_RELATIONSHIP = "REFERS_TO"
 LINK_RULES = {"L1-linear-identifier": r"^SON-\d+$"}
 MAX_LINK_IDENTIFIERS = 1000
+# Lucene's own reserved set (QueryParser.escape). The fulltext half of a hybrid
+# search parses its text as a Lucene query; a question is not a query expression.
+LUCENE_SPECIAL = set('\\+-!():^[]"{}~*?|&/')
 
 
 class WorkerError(Exception):
@@ -761,7 +764,10 @@ def link_explicit_refs(request):
 # chunks of a document one of those entities names outright. Lexical edges are
 # excluded from the first hop so expansion follows meaning, not document order;
 # the second hop is the explicit reference, which is what carries a seed across
-# documents. A chunk is returned once, seeded if any seed of this search was it.
+# documents. A chunk is returned once, seeded if any seed of this search was it; a
+# seed keeps its own vector score even when another seed also reaches it, so the
+# order among seeds is the vector order. Only a reached chunk inherits a score, and
+# it inherits the best of the seeds that reached it.
 GRAPH_EXPANSION_QUERY = (
     "WITH node, score "
     "WHERE node.sf_generation = $generation "
@@ -780,10 +786,25 @@ GRAPH_EXPANSION_QUERY = (
     "chunk.sf_generation AS sf_generation, chunk.text AS text, score, "
     "CASE WHEN chunk.sf_unit_id = node.sf_unit_id AND chunk.sf_doc_key = node.sf_doc_key "
     "THEN 1 ELSE 0 END AS seeded "
-    "WITH sf_unit_id, sf_doc_key, sf_generation, text, max(score) AS best, max(seeded) AS seeded_max "
-    "RETURN sf_unit_id, sf_doc_key, sf_generation, text, best AS score, seeded_max = 1 AS seed "
+    "WITH sf_unit_id, sf_doc_key, sf_generation, text, max(seeded) AS seeded_max, "
+    "max(CASE WHEN seeded = 1 THEN score END) AS own_score, "
+    "max(CASE WHEN seeded = 0 THEN score END) AS reached_score "
+    "RETURN sf_unit_id, sf_doc_key, sf_generation, text, "
+    "coalesce(own_score, reached_score) AS score, seeded_max = 1 AS seed "
     "ORDER BY seed DESC, score DESC, sf_unit_id"
 )
+
+def escape_lucene(text):
+    """`text` with every Lucene reserved character escaped, so it searches as itself.
+
+    A question the Owner types is not a search expression: `10/30` starts a regex to
+    Lucene's parser and fails the whole query, and `SON-84` reads as a NOT. Escaping
+    turns those back into literal characters. Only the fulltext half needs this --
+    the vector half embeds the question exactly as written.
+    """
+    return "".join("\\" + character if character in LUCENE_SPECIAL else character
+                   for character in text)
+
 
 RETURN_PROPERTIES = ["sf_unit_id", "sf_doc_key", "sf_generation", "text"]
 
@@ -874,7 +895,13 @@ def retrieve(request):
             retriever = HybridRetriever(driver, VECTOR_INDEX, FULLTEXT_INDEX, embedder,
                                         return_properties=RETURN_PROPERTIES,
                                         result_formatter=record_formatter, neo4j_database=database)
-            result = retriever.search(query_text=query_text, top_k=top_k)
+            # The fulltext half parses its text as a Lucene query, so one reserved
+            # character in a question ("10/30") fails the whole mode rather than
+            # matching less. The question is escaped for that half only; the vector
+            # half is handed the embedding of the question exactly as written, which
+            # the retriever prefers over embedding the escaped text itself.
+            result = retriever.search(query_text=escape_lucene(query_text), top_k=top_k,
+                                      query_vector=embedder.embed_query(query_text))
         hits, dropped = [], 0
         for item in result.items:
             row = hit_from_record(item)
