@@ -451,9 +451,25 @@ neo4j-graphrag의 writer와 retriever를 쓰고, 이 APP은 그 둘레의 계약
 - binding: 색인 binding의 `graph.neo4j = { uri, user, password_file, database? }`. 주소는 loopback `bolt:`/`neo4j:`만
   받고, 비밀번호는 신뢰된 설정이 지정한 **파일 경로**로만 온다(절대경로·실파일·심링크 아님·실경로 일치). 요청은
   주소도 비밀번호도 줄 수 없다. `neo4j`가 없으면(`null`) 색인은 그대로 만들어지고 적재·검색만 연결 없음을 알린다.
-- 한 데이터베이스 = 한 과제의 한 세대. 같은 세대를 다시 적재하면 아무것도 바뀌지 않고 `generation_already_loaded`로
-  답한다. 같은 과제의 다른 세대는 이전 세대를 대체한다(두 세대가 함께 있으면 모든 청크가 두 벌이 된다). 다른 과제가
-  들어 있으면 합치지 않고 `graph_project_mismatch`로 거부한다. 과제 격리는 컨테이너 분리로 하고 DB 안 필터에 기대지 않는다.
+- 한 데이터베이스 = **과제마다 한 세대**(0.20.0). 같은 세대를 다시 적재하면 아무것도 바뀌지 않고
+  `generation_already_loaded`로 답한다. 같은 과제의 다른 세대는 **그 과제의** 이전 세대를 대체한다(두 세대가 함께
+  있으면 모든 청크가 두 벌이 된다). 다른 과제의 노드는 읽지도 지우지도 않는다 — 적재는 `(sf_project, sf_generation)`
+  짝만 지우고 쓴다.
+- 과제 격리가 서는 자리가 컨테이너 경계에서 **연산이 선언한 범위**로 옮겨졌고, 검사는 그대로 남았다.
+  - `graph_project_mismatch`: 다른 과제가 이미 쓰고 있는 세대 이름을 요청하면 거부한다(적재·검색·연결 세 경로 모두).
+    "없는 세대"로 답하면 이름이 남의 것이라는 사실이 "거기 아무것도 없다"로 읽히기 때문이다.
+  - `graph_other_project_changed`: 적재는 자기 것이 아닌 노드 수를 적재 전후로 세고, 그 수가 움직이면 성공으로
+    보고하지 않는다. 도구 writer가 남기는 임시 표식은 데이터베이스 전체에 걸리므로, 새긴 결과가 받은 범위와 같은지를
+    가정하지 않고 확인한다.
+  - `__SfMaterializeLock__`: 적재 한 번이 DB 안 잠금 노드 하나를 쥔다. 두 과제가 동시에 적재하면 서로의 갓 쓴 노드에
+    자기 과제를 새길 수 있기 때문이다.
+  - 벡터 색인 `sf_chunk_vector`는 `WITH [n.sf_project, n.sf_generation]`으로 **필터 속성을 선언**하고, 검색은
+    Cypher 25 `SEARCH n IN (VECTOR INDEX … WHERE n.sf_project = $p AND n.sf_generation = $g LIMIT $k)`로 범위를
+    색인 안에서 건다(2026.02.3 실측: 등식 두 개를 AND로 묶는 것까지. `IN`은 2026.06 필요). 필터 속성이 없는 옛 색인은
+    과잉 조회 뒤 걸러내며, 어느 쪽이었는지와 무엇이 빠졌는지가 receipt `retrieval`에 남는다(`filter_stage`,
+    `fulltext_starved`). 전문검색 색인에는 필터 속성이 없으므로 그쪽은 언제나 과잉 조회 뒤 걸러낸다.
+  - 차원이 다른 벡터 색인이 이미 있으면 `graph_vector_index_dimension_mismatch`로 거부한다. 드롭하면 그 DB에 있는
+    **다른 과제들의** 검색 벡터까지 함께 사라지기 때문이다.
 - 설치된 writer는 노드를 `CREATE`로 쓰고 관계에 APOC(`apoc.merge.relationship`·`apoc.create.addLabels`)이 필요하므로
   **APOC core가 있어야 한다**. writer는 자신이 만든 노드를 임시 식별자(`__tmp_internal_id`)로 표시하므로, 적재 전에 그
   잔여를 먼저 확인하고(있으면 거부), 적재 직후 그 표시가 살아 있는 동안 과제·세대를 새기고 표시를 지운다.
