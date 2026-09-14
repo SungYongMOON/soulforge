@@ -2895,7 +2895,7 @@ function usageTrendTooltipGeometry(activeX: number, plotLeft: number, plotRight:
   return { boxX, side };
 }
 
-function UsageTrendChart({ usage }: { usage: any }) {
+function UsageTrendChart({ usage, onSelection }: { usage: any; onSelection?: (selection: { date: string | null; modelId: string | null; excludedModelIds?: string[] } | null) => void }) {
   const [range, setRange] = useState<7 | 30>(7);
   const [view, setView] = useState<"model" | "provider">("model");
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
@@ -2942,6 +2942,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
   const knownTokens = series.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = slicedModelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
   const unknownTurns = series.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
+  useEffect(() => { onSelection?.(null); }, [range, view]);
   const chooseRange = (next: 7 | 30) => { setRange(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   if (chart === null) return <p className="usage-trend-empty">최근 {range}일의 정확한 로컬 토큰 시계열이 없습니다.</p>;
@@ -3090,6 +3091,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
                 key={day.date}
                 type="button"
                 aria-label={ariaLabel}
+                onClick={() => onSelection?.(view === "model" ? { date: day.date, modelId: selectedSeries, excludedModelIds: series.filter((s:any)=>s.id!=="other").map((s:any)=>s.id) } : null)}
                 onFocus={() => setActiveIndex(index)}
                 onBlur={() => setActiveIndex(null)}
                 onMouseEnter={() => setActiveIndex(index)}
@@ -3118,7 +3120,7 @@ function UsageTrendChart({ usage }: { usage: any }) {
             type="button"
             aria-pressed={selectedSeries === item.id}
             className={selectedSeries !== null && selectedSeries !== item.id ? "is-muted" : ""}
-            onClick={() => setSelectedSeries((current) => current === item.id ? null : item.id)}
+            onClick={() => { const next = selectedSeries === item.id ? null : item.id; setSelectedSeries(next); onSelection?.(view === "model" ? { date: null, modelId: next, excludedModelIds: series.filter((s:any)=>s.id!=="other").map((s:any)=>s.id) } : null); }}
           >
             <span style={{ background: USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length] }} />
             {item.label}
@@ -6203,3 +6205,5 @@ function UsageRows({ rows, labelKey, showEffort = false }: { rows: any[]; labelK
 }
 
 export default App;
+// Shared read-only visualizations for the separate operations UX preview.
+export { UsageTrendChart, LedgerActivity, LedgerDistribution, AiUsageHistoryPanel };

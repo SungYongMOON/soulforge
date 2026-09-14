@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildConsoleView,consoleAssessment,focusScene,directoryKey,flattenDirectory,selectedUsageDay} from './operations-console-view.mjs';
+
+test('preparer input is a grant artifact, never invented direct custody traffic',()=>{
+  const m=buildConsoleView(); const scene=focusScene(m,'context_engine::prepare');
+  assert.ok(scene.nodes.some(n=>n.id==='context_engine::source_grant'));
+  assert.equal(scene.edges.find(e=>e.from==='context_engine::source_grant').receiptObserved,false);
+  assert.ok(m.nodes.every(n=>n.status.key==='unknown'));
+  assert.equal(m.edges.some(e=>e.from.startsWith('watchtower::store_')&&e.to==='context_engine::prepare'),false);
+  assert.equal(new Set(scene.nodes.map(n=>n.id)).size,scene.nodes.length);
+});
+test('retained normal/held snapshot cannot be current when source read failed',()=>{
+  const node={id:'watchtower::mail',assessment:{key:'pending',pendingCount:4}};
+  assert.equal(consoleAssessment(node,true).key,'pending');
+  assert.equal(consoleAssessment(node,false).key,'unknown');
+  assert.equal(consoleAssessment({id:'other',health:'ok'},true).key,'unknown');
+});
+test('folder flattening only visits expanded exact root keys with a total bound',()=>{
+  const root='data_root',cache={};
+  cache[directoryKey(root,'')]={entries:[{name:'A',browsable:true},{name:'B',browsable:true}]};
+  cache[directoryKey(root,'A')]={entries:[{name:'file',browsable:false}]};
+  cache[directoryKey('other','A')]={entries:[{name:'must-not-read'}]};
+  const expanded=new Set([directoryKey(root,'A')]);
+  assert.deepEqual(flattenDirectory(root,'',cache,expanded).map(r=>r.relative),['A','A/file','B']);
+  assert.equal(flattenDirectory(root,'',cache,expanded,2).length,2);
+  assert.equal(flattenDirectory('missing','',cache,expanded).length,0);
+});
+test('model selection never attributes aggregate period work to that model/day',()=>{
+  const result=selectedUsageDay({model_daily:[{date:'2026-09-15',models:[{model_id:'m1',total_tokens:100},{model_id:'m2',total_tokens:200}]}]},'2026-09-15','m1',undefined);
+  assert.equal(result.rows.length,1);assert.equal(result.rows[0].total_tokens,100);
+  assert.equal(result.taskAttribution,'unavailable');
+  assert.equal(selectedUsageDay({},'2026-09-15',null,undefined),null);
+  const history={model_daily:[{date:'2026-09-15',models:[{model_id:'m1',total_tokens:100},{model_id:'m2',total_tokens:200}]}]};
+  assert.deepEqual(selectedUsageDay(history,'2026-09-15','other',['m1']).rows.map(r=>r.model_id),['m2']);
+  assert.equal(selectedUsageDay(history,'2026-09-15','other',undefined),null);
+});

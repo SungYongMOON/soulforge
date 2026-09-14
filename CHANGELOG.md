@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-15 - 운영 현황에서 근거까지 이어지는 UX 미리보기
+
+- Revision: 이 항목을 포함한 커밋. Vigil에 운영 현황·통합 진단·데이터 폴더·사용 이력의
+  읽기 전용 미리보기 `/operations-console.html`을 추가했다. 기존 운영 화면과 서비스는 유지한다.
+- 선택한 서비스의 직접 경로·검사 범위·조치 근거를 함께 읽고, 준비기의 source grant 입력은
+  구현 계약으로 표시한다. 보존된 검사와 현재 관측 실패를 구분하며 가짜 전달 효과는 없다.
+- 폴더 다중 펼침은 기존 허용 reader를 재사용한다. 서비스별 폴더 참조와 모델/날짜별 TASK
+  귀속처럼 공급되지 않은 연결은 이유를 표시하며 추정하지 않는다. 기존 사용량 그래프는 보존한다.
+- 운영 영향: 별도 미리보기 build에만 새 진입점을 추가한다. DB·수집·권한·예약 실행·3D는 변경하지 않는다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/operations-preview.config.ts`,
+  `src/operations-console*`, `src/core/operations-console-view*`, `src/App.tsx`.
+
 ## 2026-09-14 - 관측 실패와 실제 이상 신호를 구분
 
 - Revision: 이 항목을 포함한 커밋. Vigil은 읽기·검사 실패를 `확인 불가`로 설명하고,

@@ -26,5 +26,5 @@ export default defineConfig({
     createOperationsDirectoryPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256 })],
   server: { host: '127.0.0.1', port: 4194, strictPort: true, open: false },
   preview: { host: '127.0.0.1', port: 4194, strictPort: true },
-  build: { outDir: 'dist-operations', rollupOptions: { input: { board: path.join(root,'index.html'), operations: path.join(root, 'operations-map.html') } } },
+  build: { outDir: 'dist-operations', rollupOptions: { input: { board: path.join(root,'index.html'), operations: path.join(root, 'operations-map.html'), console: path.join(root, 'operations-console.html') } } },
 });
