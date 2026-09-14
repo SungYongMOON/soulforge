@@ -1,41 +1,65 @@
-// Which part of which recording a person has decided belongs to which project.
+// Which conversation in which recording a person has decided belongs to which
+// project.
 //
-// A PLAUD session arrives unclassified: one recording can cross several projects,
-// and nothing in it says where one ends. The collectors do not decide that, and
-// neither does a model -- `analysis/semantic_labels/**` proposes, it does not
-// route. The decision lives here, in a metadata-only ledger one file per session,
-// written by a person or by the CLI they run, and read by the grant builder.
+// A PLAUD session arrives unclassified: one recording holds several separate
+// conversations -- a project's test schedule, then team logistics, then an idea
+// somebody had on the way out -- and nothing in the file says where one ends.
+// The unit that gets decided, carried and read back is therefore a *conversation
+// segment*, not a time window that happens to be a convenient length. The
+// interval is how a segment is addressed; it is not what a segment is.
 //
-// Three states, and only one of them widens what may be read:
-//   confirmed     a person judged this interval to be this project's, and said so
-//                 with their own name and the time they said it. Only these reach
-//                 a grant.
-//   candidate     an investigator's proposal. It is kept so the next reviewer can
-//                 see what was already looked at; it admits nothing.
-//   unclassified  looked at, still not placed. Also admits nothing.
+// The ledger keeps four things about a segment apart, because they answer four
+// different questions and one of them is never an answer to another:
+//   nature              what kind of conversation it is (project work, team
+//                       operations, an idea, everyday talk, or not made out)
+//   project_candidates  which project it is about, with the refs that say so
+//   quality             how good the recording and the transcript are, and
+//                       whether anyone has corrected them
+//   status              whether a person has decided (confirmed), an
+//                       investigator has proposed (candidate), or it is still
+//                       unplaced (unclassified)
+// A hard-to-hear work conversation is `unreadable` quality, not `daily` nature.
+// A segment that mentions a part number shared by two projects is not thereby
+// that project's: `basis` has to say what placed it.
 //
-// The ledger holds no transcript text, no summary, and no audio: session ids,
-// second offsets, the refs the judgement leaned on, and who judged when. The
-// recording itself is never moved, rewritten or re-transcribed by anything here.
+// Title and description are derived summaries written for a person scanning the
+// ledger. They are never speech and never minutes, which is what `derived_summary`
+// marks. The ledger holds no transcript text, no provider summary and no audio:
+// second offsets, refs, decisions, and who decided when. The recording itself is
+// never moved, rewritten, re-transcribed or deleted by anything here.
 //
-// The recording library index carries the older form of the same decision -- a
-// whole session accepted for one project (`route_status: accepted_project_route`
-// with an accepted code, acceptor and time). Both are read, and a session
-// accepted there counts as one confirmed window covering the whole recording.
+// The recording library index carries the older, coarser form of the same
+// decision -- a whole recording accepted for one project (`route_status:
+// accepted_project_route` with an accepted code, acceptor and time). Both are
+// read, and a recording accepted there counts as one confirmed whole-recording
+// segment.
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { isSafeSegment } from '../src/adapters/sources/guarded_files.mjs';
+import { SEGMENT_ITEM_SEPARATOR, segmentItemId } from '../src/adapters/sources/voice_session_source.mjs';
+
+export { SEGMENT_ITEM_SEPARATOR, segmentItemId, splitSegmentItemId } from '../src/adapters/sources/voice_session_source.mjs';
 
 export const VOICE_ROUTE_LEDGER_SCHEMA = 'soulforge.voice_route_ledger.v0';
 export const VOICE_ROUTE_STATUSES = Object.freeze(['confirmed', 'candidate', 'unclassified']);
+// Fixed vocabulary. `unreadable` is about being able to make the conversation
+// out at all and `undetermined` is about nobody having judged yet; neither is a
+// kind of conversation, and neither may stand in for `daily`.
+export const VOICE_SEGMENT_NATURES = Object.freeze(['project_work', 'team_operations', 'idea', 'daily',
+  'unreadable', 'undetermined']);
+export const VOICE_TRANSCRIPT_QUALITIES = Object.freeze(['provider_only', 'independent_fast',
+  'independent_strong', 'unknown']);
+export const VOICE_CORRECTION_STATES = Object.freeze(['none', 'machine_corrected', 'human_corrected']);
 export const VOICE_ROUTES_ADDRESS = 'control_root/voice-routes';
 export const VOICE_LIBRARY_INDEX_ADDRESS = 'data_root/ingress/plaud/library/index/recordings.current.json';
 export const LIBRARY_INDEX_SCHEMA = 'soulforge.voice_recording_library_index.v0';
 export const LIBRARY_ACCEPTED_STATUS = 'accepted_project_route';
-export const VOICE_ROUTE_LIMITS = Object.freeze({ routes: 200, evidence_refs: 32, ref_characters: 512,
-  ledger_bytes: 1024 * 1024, index_bytes: 64 * 1024 * 1024, transcript_ref_segments: 8 });
+export const VOICE_ROUTE_LIMITS = Object.freeze({ segments: 200, project_candidates: 8, evidence_refs: 32,
+  related_segment_ids: 16, ref_characters: 512, title_characters: 200, description_characters: 1000,
+  basis_characters: 500, ledger_bytes: 4 * 1024 * 1024, index_bytes: 64 * 1024 * 1024, ref_segments: 8 });
 
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u;
+const SEGMENT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 const ACTOR = /^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,199}$/u;
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/u;
 
@@ -47,66 +71,103 @@ const plain = value => value !== null && typeof value === 'object' && !Array.isA
   && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const exactKeys = (value, fields) => plain(value) && Object.keys(value).length === fields.length
   && fields.every(field => Object.hasOwn(value, field));
-const isInstant = value => typeof value === 'string' && INSTANT.test(value)
-  && Number.isFinite(Date.parse(value));
+const isInstant = value => typeof value === 'string' && INSTANT.test(value) && Number.isFinite(Date.parse(value));
+const text = (value, max) => value === null || (typeof value === 'string' && value.trim() === value
+  && value.length > 0 && [...value].length <= max);
 
-const LEDGER_FIELDS = ['schema_version', 'session_id', 'transcript_run', 'routes', 'updated_at'];
-const ROUTE_FIELDS = ['project_code', 'start_seconds', 'end_seconds', 'status', 'evidence_refs',
-  'judged_by', 'judged_at', 'confirmed_by', 'confirmed_at'];
+const LEDGER_FIELDS = ['schema_version', 'session_id', 'segments', 'updated_at'];
+export const SEGMENT_FIELDS = Object.freeze(['segment_id', 'start_seconds', 'end_seconds', 'title', 'description',
+  'derived_summary', 'nature', 'project_candidates', 'status', 'quality', 'transcript_ref', 'audio_ref',
+  'related_segment_ids', 'draft_source', 'judged_by', 'judged_at', 'confirmed_by', 'confirmed_at']);
+const CANDIDATE_FIELDS = ['project_code', 'evidence_refs', 'basis'];
 
-// A transcript run ref: segments below the session folder, or null for the
-// session transcript. The segment rule is the source root's own, so a ledger can
-// never name something the adapter would have to refuse when it reads it.
-export function isTranscriptRun(value) {
+// A ref below the session folder, with the source root's own segment rule, so a
+// ledger can never name something the adapter would have to refuse when it reads.
+export function isSessionRef(value) {
   return value === null || (Array.isArray(value) && value.length > 0
-    && value.length <= VOICE_ROUTE_LIMITS.transcript_ref_segments && value.every(isSafeSegment));
+    && value.length <= VOICE_ROUTE_LIMITS.ref_segments && value.every(isSafeSegment));
 }
 
-function validRoute(route) {
-  if (!exactKeys(route, ROUTE_FIELDS) || !PROJECT_CODE.test(route.project_code ?? '')
-    || !Number.isFinite(route.start_seconds) || !Number.isFinite(route.end_seconds)
-    || route.start_seconds < 0 || route.end_seconds <= route.start_seconds
-    || !VOICE_ROUTE_STATUSES.includes(route.status)
-    || !Array.isArray(route.evidence_refs) || route.evidence_refs.length > VOICE_ROUTE_LIMITS.evidence_refs
-    || !route.evidence_refs.every(ref => typeof ref === 'string' && ref.length > 0
+function validCandidate(candidate) {
+  return exactKeys(candidate, CANDIDATE_FIELDS) && PROJECT_CODE.test(candidate.project_code ?? '')
+    && Array.isArray(candidate.evidence_refs) && candidate.evidence_refs.length <= VOICE_ROUTE_LIMITS.evidence_refs
+    && candidate.evidence_refs.every(ref => typeof ref === 'string' && ref.length > 0
       && ref.length <= VOICE_ROUTE_LIMITS.ref_characters)
-    || !ACTOR.test(route.judged_by ?? '') || !isInstant(route.judged_at)) return false;
-  // Confirmation is a person's act, so it is a person's fields: a row that says
-  // `confirmed` without a name and a time is not a confirmation, and this is the
-  // one place that can be checked before anything reads more than it may.
-  if (route.status === 'confirmed') return ACTOR.test(route.confirmed_by ?? '') && isInstant(route.confirmed_at);
-  return route.confirmed_by === null && route.confirmed_at === null;
+    // What placed it. A candidate with no stated basis is a guess wearing a
+    // project code, and this ledger is exactly where that must not pass.
+    && text(candidate.basis, VOICE_ROUTE_LIMITS.basis_characters) && candidate.basis !== null;
+}
+
+function validQuality(quality) {
+  return exactKeys(quality, ['transcript', 'correction_state'])
+    && VOICE_TRANSCRIPT_QUALITIES.includes(quality.transcript)
+    && VOICE_CORRECTION_STATES.includes(quality.correction_state);
+}
+
+function validSegment(segment) {
+  // Whole seconds: the interval becomes a grant scope, and a grant is identified
+  // by its canonical bytes, which hold only safe integers. Rounding therefore
+  // happens once, where a boundary is first derived, rather than being discovered
+  // later as an unhashable grant.
+  if (!exactKeys(segment, SEGMENT_FIELDS) || !SEGMENT_ID.test(segment.segment_id ?? '')
+    || !Number.isSafeInteger(segment.start_seconds) || !Number.isSafeInteger(segment.end_seconds)
+    || segment.start_seconds < 0 || segment.end_seconds <= segment.start_seconds
+    || !text(segment.title, VOICE_ROUTE_LIMITS.title_characters)
+    || !text(segment.description, VOICE_ROUTE_LIMITS.description_characters)
+    // Never `false`: a title here is always somebody's or something's summary of
+    // the conversation, never the words that were said and never minutes anyone
+    // approved. The marker travels with the summary into the graph.
+    || segment.derived_summary !== true
+    || !VOICE_SEGMENT_NATURES.includes(segment.nature)
+    || !Array.isArray(segment.project_candidates)
+    || segment.project_candidates.length > VOICE_ROUTE_LIMITS.project_candidates
+    || !segment.project_candidates.every(validCandidate)
+    || new Set(segment.project_candidates.map(row => row.project_code)).size !== segment.project_candidates.length
+    || !VOICE_ROUTE_STATUSES.includes(segment.status) || !validQuality(segment.quality)
+    || !isSessionRef(segment.transcript_ref) || !isSessionRef(segment.audio_ref)
+    || !Array.isArray(segment.related_segment_ids)
+    || segment.related_segment_ids.length > VOICE_ROUTE_LIMITS.related_segment_ids
+    || !segment.related_segment_ids.every(id => SEGMENT_ID.test(id) && id !== segment.segment_id)
+    || new Set(segment.related_segment_ids).size !== segment.related_segment_ids.length
+    || (segment.draft_source !== null && !(exactKeys(segment.draft_source, ['kind', 'run_id', 'unit_id'])
+      && typeof segment.draft_source.kind === 'string' && isSafeSegment(segment.draft_source.run_id ?? '')
+      && SEGMENT_ID.test(segment.draft_source.unit_id ?? '')))
+    || !ACTOR.test(segment.judged_by ?? '') || !isInstant(segment.judged_at)) return false;
+  // Confirmation is a person's act, so it is a person's fields, and it places the
+  // segment with exactly one project. Two candidates is not a decision and none
+  // is not either.
+  if (segment.status === 'confirmed') {
+    return ACTOR.test(segment.confirmed_by ?? '') && isInstant(segment.confirmed_at)
+      && segment.project_candidates.length === 1;
+  }
+  return segment.confirmed_by === null && segment.confirmed_at === null;
 }
 
 /** Admits one ledger body exactly as written, or refuses it naming what was wrong. */
 export function validateVoiceRouteLedger(body, { sessionId = null } = {}) {
   if (!exactKeys(body, LEDGER_FIELDS) || body.schema_version !== VOICE_ROUTE_LEDGER_SCHEMA
-    || !SESSION_ID.test(body.session_id ?? '') || !isTranscriptRun(body.transcript_run)
-    || !Array.isArray(body.routes) || body.routes.length > VOICE_ROUTE_LIMITS.routes
+    || !SESSION_ID.test(body.session_id ?? '') || body.session_id.includes(SEGMENT_ITEM_SEPARATOR)
+    || !Array.isArray(body.segments) || body.segments.length > VOICE_ROUTE_LIMITS.segments
     || (body.updated_at !== null && !isInstant(body.updated_at))) fail('voice_route_ledger_invalid');
   if (sessionId !== null && body.session_id !== sessionId) fail('voice_route_session_mismatch');
-  if (!body.routes.every(validRoute)) fail('voice_route_invalid');
-  return Object.freeze({ ...structuredClone(body), routes: Object.freeze(body.routes.map(route => Object.freeze({ ...route }))) });
+  if (!body.segments.every(validSegment)) fail('voice_route_segment_invalid');
+  const ids = body.segments.map(segment => segment.segment_id);
+  if (new Set(ids).size !== ids.length) fail('voice_route_segment_id_repeated');
+  // A related id that names nothing in this recording is a dangling link, and a
+  // reader would have to guess what it meant.
+  const known = new Set(ids);
+  for (const segment of body.segments) {
+    if (!segment.related_segment_ids.every(id => known.has(id))) fail('voice_route_related_segment_unknown');
+  }
+  return Object.freeze({ ...structuredClone(body),
+    segments: Object.freeze(body.segments.map(segment => Object.freeze({ ...structuredClone(segment) }))) });
 }
 
-/**
- * The confirmed intervals one ledger holds for one project, in seconds from the
- * recording start. Intervals that touch or overlap are one interval: their union
- * is exactly the material a person confirmed, so joining them widens nothing.
- * Intervals with a gap between them are left as they are -- the gap is material
- * nobody confirmed, and this module does not close it.
- */
-export function confirmedWindows(ledger, code) {
-  const windows = ledger.routes.filter(route => route.status === 'confirmed' && route.project_code === code)
-    .map(route => ({ start_seconds: route.start_seconds, end_seconds: route.end_seconds }))
-    .sort((a, b) => a.start_seconds - b.start_seconds || a.end_seconds - b.end_seconds);
-  const merged = [];
-  for (const window of windows) {
-    const held = merged.at(-1);
-    if (held && window.start_seconds <= held.end_seconds) held.end_seconds = Math.max(held.end_seconds, window.end_seconds);
-    else merged.push({ ...window });
-  }
-  return merged;
+/** The segments of one ledger a person confirmed for one project, in recording order. */
+export function confirmedSegments(ledger, code) {
+  return ledger.segments.filter(segment => segment.status === 'confirmed'
+    && segment.project_candidates[0]?.project_code === code)
+    .sort((a, b) => a.start_seconds - b.start_seconds || a.segment_id.localeCompare(b.segment_id));
 }
 
 const dirFiles = (io, address) => {
@@ -147,10 +208,10 @@ export function readVoiceRouteLedgers({ io, address = VOICE_ROUTES_ADDRESS } = {
 }
 
 /**
- * The sessions the recording library index records as accepted for one project.
- * That is the older shape of the same decision and it carries no interval, so it
- * means the whole recording. A row missing an acceptor or an acceptance time is
- * not an acceptance, by the same rule the ledger applies.
+ * The recordings the library index records as accepted for one project. That is
+ * the older shape of the same decision and it carries no segment, so it means the
+ * whole recording. A row missing an acceptor or an acceptance time is not an
+ * acceptance, by the same rule a segment follows.
  */
 export function acceptedSessionsInIndex({ io, address = VOICE_LIBRARY_INDEX_ADDRESS, code } = {}) {
   let index;
@@ -159,20 +220,18 @@ export function acceptedSessionsInIndex({ io, address = VOICE_LIBRARY_INDEX_ADDR
   if (index?.schema_version !== LIBRARY_INDEX_SCHEMA || !Array.isArray(index.recordings)) return { sessions: [], read: false };
   const sessions = index.recordings.filter(row => row?.route_state?.route_status === LIBRARY_ACCEPTED_STATUS
     && row.route_state.accepted_project_code === code && ACTOR.test(row.route_state.accepted_by ?? '')
-    && isInstant(row.route_state.accepted_at) && SESSION_ID.test(row.session_id ?? ''))
+    && isInstant(row.route_state.accepted_at) && SESSION_ID.test(row.session_id ?? '')
+    && !row.session_id.includes(SEGMENT_ITEM_SEPARATOR))
     .map(row => row.session_id);
   return { sessions: [...new Set(sessions)].sort(), read: true };
 }
 
 /**
  * The voice items one project's grant may carry, from the two records above and
- * nothing else. One session is one grant item, because a grant names an item once
- * and the adapter finds a session by its id; so a project with one confirmed
- * interval in a session gets that interval as the item's scope, and a project
- * with two intervals a gap apart in the same session gets neither. That is
- * refused rather than joined: joining them would admit the material between, and
- * nobody confirmed that material. The pair is named in `skipped` so it can be
- * seen and decided on.
+ * nothing else. One confirmed conversation segment is one grant item and one
+ * document: its id carries both the recording and the segment, its interval is
+ * the scope, and the derived title and nature travel with it so a piece answered
+ * out of the graph can say which conversation it came from.
  *
  * `item` is the caller's item shape (revision policy, data class) so this module
  * decides admission only, never the grant's other terms.
@@ -185,20 +244,26 @@ export function voiceGrantItems({ io, code, item, routesAddress = VOICE_ROUTES_A
   let fromLedger = 0, fromIndex = 0;
 
   for (const [sessionId, ledger] of [...ledgers.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    const windows = confirmedWindows(ledger, code);
-    if (windows.length === 0) continue;
-    if (windows.length > 1) { skipped.push({ session_id: sessionId, code: 'multiple_confirmed_windows', windows: windows.length }); continue; }
-    // A session the index also accepted whole is a second decision about the same
-    // recording. The ledger's interval and the whole recording are not the same
-    // claim, so the two are not merged and the session is left out until one of
-    // them is withdrawn.
-    if (accepted.sessions.includes(sessionId)) { skipped.push({ session_id: sessionId, code: 'ledger_and_index_disagree' }); continue; }
-    fromLedger += 1;
-    items.push({ ...item, item_id: sessionId, scope: { ...windows[0] },
-      ...(ledger.transcript_run === null ? {} : { transcript_ref: [...ledger.transcript_run] }) });
+    const segments = confirmedSegments(ledger, code);
+    if (segments.length === 0) continue;
+    // A recording the index also accepted whole is a second decision about the
+    // same material. "This segment" and "the whole recording" are not the same
+    // claim, so they are not merged: the recording waits until one is withdrawn.
+    if (accepted.sessions.includes(sessionId)) {
+      skipped.push({ session_id: sessionId, code: 'ledger_and_index_disagree', segments: segments.length });
+      continue;
+    }
+    for (const segment of segments) {
+      fromLedger += 1;
+      items.push({ ...item, item_id: segmentItemId(sessionId, segment.segment_id),
+        scope: { start_seconds: segment.start_seconds, end_seconds: segment.end_seconds },
+        conversation_segment: { segment_id: segment.segment_id, title: segment.title,
+          nature: segment.nature, related_segment_ids: [...segment.related_segment_ids] },
+        ...(segment.transcript_ref === null ? {} : { transcript_ref: [...segment.transcript_ref] }) });
+    }
   }
   for (const sessionId of accepted.sessions) {
-    if (ledgers.has(sessionId)) continue;   // already decided above, either as an item or as a skip
+    if (ledgers.has(sessionId)) continue;   // already decided above, either as items or as a skip
     fromIndex += 1;
     items.push({ ...item, item_id: sessionId });
   }

@@ -1,12 +1,18 @@
-// What a confirmed voice route admits, and what it does not.
+// What a confirmed conversation admits, and what it does not.
 //
-// A recording is not attributable the way a Slack channel or a Linear project is:
-// one session crosses projects, so the only thing that places any of it is a
-// person's confirmed interval. These tests hold that boundary from both ends --
-// nothing but `confirmed` reaches a grant, and a grant reaches nothing but the
-// interval it names -- and then follow one confirmed session through preparation
-// twice, so "a new transcript is picked up" and "the same input is not done
-// again" are two observed results rather than one hopeful sentence.
+// A recording is not attributable the way a Slack channel or a Linear project
+// is: one recording holds several separate conversations, so the only thing that
+// places any of it is a person's decision about one conversation. These tests
+// hold that boundary from both ends -- nothing but `confirmed` reaches a grant,
+// and a grant reaches nothing but the conversation it names -- and then follow
+// confirmed conversations through preparation twice, so "a new transcript is
+// picked up" and "the same input is not done again" are observed results rather
+// than one hopeful sentence.
+//
+// The mixed-recording fixture near the end is the case the whole design exists
+// for: the same part name said in two different projects' conversations, a
+// correction that belongs to its own moment, a work conversation nobody could
+// hear properly, and an idea that belongs to no project at all.
 //
 // Every root here is a fresh temp directory and every recording is synthetic.
 import assert from 'node:assert/strict';
@@ -19,8 +25,10 @@ import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_t
 import { buildPlaudSessionId, parsePlaudTranscript } from '../../voice_capture/plaud_ingest.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { grantCandidates } from '../harness/estate_inventory.mjs';
-import { VOICE_ROUTE_LEDGER_SCHEMA, confirmedWindows, validateVoiceRouteLedger } from '../harness/voice_routes.mjs';
-import { applyRouteDecision, emptyLedger, readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
+import { VOICE_ROUTE_LEDGER_SCHEMA, confirmedSegments, segmentItemId, splitSegmentItemId,
+  validateVoiceRouteLedger } from '../harness/voice_routes.mjs';
+import { readSemanticSegmentDrafts, sessionAddress, transcriptRunFrom } from '../harness/voice_segment_drafts.mjs';
+import { applySegmentDecision, emptyLedger, readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA, validateSourceDocument } from '../src/runtime/source_documents.mjs';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
@@ -62,26 +70,28 @@ async function estate() {
     roots: { data_root: dataRoot, control_root: controlRoot } })}\n`);
   await writeFile(tablePath, bytes);
   const io = createAliasedStoreIo(readRootTable({ tablePath, expectedSha256: sha(bytes) }));
-  // The adapter finds a session below `sessions/<date>/`, so the root a binding
+  // The adapter finds a recording below `sessions/<date>/`, so the root a binding
   // declares is the folder that holds `sessions`, not the sessions folder itself.
   const plaudRoot = path.join(dataRoot, 'ingress', 'plaud');
   const sessionsRoot = path.join(plaudRoot, 'sessions');
   await mkdir(sessionsRoot, { recursive: true });
   const routesDir = path.join(controlRoot, 'voice-routes');
   await mkdir(routesDir, { recursive: true });
-  return { dataRoot, controlRoot, io, plaudRoot, sessionsRoot, routesDir };
+  return { dataRoot, controlRoot, io, plaudRoot, sessionsRoot, routesDir, tablePath,
+    tableSha256: sha(bytes) };
 }
 
-/** One synthetic session with a provider transcript and one independent run. */
-async function session(estateDirs, { seed, date = '2026-09-11', runs = { [RUN_ONE.at(-1)]: INDEPENDENT } } = {}) {
+/** One synthetic recording with a provider transcript and one independent run. */
+async function session(estateDirs, { seed, date = '2026-09-11', provider = PROVIDER,
+  runs = { [RUN_ONE.at(-1)]: INDEPENDENT }, duration = 80 } = {}) {
   const sessionId = buildPlaudSessionId(new Date('2026-09-11T01:00:00.000Z'), seed);
   const dir = path.join(estateDirs.sessionsRoot, date, sessionId);
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, 'transcript.jsonl'), transcriptLines(PROVIDER));
+  await writeFile(path.join(dir, 'transcript.jsonl'), transcriptLines(provider));
   await writeFile(path.join(dir, 'session_manifest.json'), JSON.stringify({
     schema_version: 'soulforge.voice_capture_session.v0', session_id: sessionId, source: 'plaud_cli_import',
     provider_recording_id: seed, source_page_title: '합성 회의 녹음', recorded_at_local: '2026-09-11T10:00:00+09:00',
-    imported_at_local: '2026-09-11T11:30:00+09:00', duration_seconds: 80,
+    imported_at_local: '2026-09-11T11:30:00+09:00', duration_seconds: duration,
     transcript: { status: 'provider_transcript_present_unverified', quality: 'provider_machine_transcript_unverified' },
     independent_transcription: { status: 'completed', evidence_role: 'independent_machine_transcript_unverified' },
     canonicalization: { state: 'independent_transcript_ready_project_match_and_review_required' } }));
@@ -93,13 +103,23 @@ async function session(estateDirs, { seed, date = '2026-09-11', runs = { [RUN_ON
   return { sessionId, dir };
 }
 
-const route = (code, from, to, status, extra = {}) => ({ project_code: code, start_seconds: from, end_seconds: to,
-  status, evidence_refs: [], judged_by: 'actor:owner:context-reader', judged_at: NOW,
-  confirmed_by: status === 'confirmed' ? 'actor:owner' : null, confirmed_at: status === 'confirmed' ? NOW : null,
-  ...extra });
+const candidate = (code, basis = '회신 메일과 과제 코드가 같은 시험을 가리킴', evidenceRefs = []) =>
+  ({ project_code: code, evidence_refs: [...evidenceRefs], basis });
 
-const ledgerFor = (sessionId, routes, transcriptRun = null) => ({ schema_version: VOICE_ROUTE_LEDGER_SCHEMA,
-  session_id: sessionId, transcript_run: transcriptRun, routes, updated_at: NOW });
+/** One conversation segment row, with everything a ledger needs and nothing more. */
+const segment = (segmentId, from, to, extra = {}) => ({ segment_id: segmentId,
+  start_seconds: from, end_seconds: to, title: '합성 구간 요약', description: null, derived_summary: true,
+  nature: 'project_work', project_candidates: [], status: 'unclassified',
+  quality: { transcript: 'independent_fast', correction_state: 'none' },
+  transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
+  judged_by: 'actor:bot:context-planner', judged_at: NOW, confirmed_by: null, confirmed_at: null, ...extra });
+
+const confirmed = (segmentId, from, to, code, extra = {}) => segment(segmentId, from, to,
+  { status: 'confirmed', project_candidates: [candidate(code)], confirmed_by: 'actor:owner',
+    confirmed_at: NOW, ...extra });
+
+const ledgerFor = (sessionId, segments) => ({ schema_version: VOICE_ROUTE_LEDGER_SCHEMA,
+  session_id: sessionId, segments, updated_at: NOW });
 
 const writeLedger = (estateDirs, ledger) =>
   writeFile(path.join(estateDirs.routesDir, `${ledger.session_id}.json`), `${JSON.stringify(ledger, null, 2)}\n`);
@@ -125,52 +145,81 @@ const grantOf = items => ({ schema_version: SOURCE_GRANT_SCHEMA, grant_id: 'gran
 
 // --------------------------------------------------------------- admission
 
-test('only a confirmed interval reaches a grant; a proposal and an unplaced interval reach nothing', async () => {
+test('only a confirmed conversation reaches a grant; a proposal and an unplaced one reach nothing', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
   const proposed = await session(dirs, { seed: 's0002abcdef' });
   const theirs = await session(dirs, { seed: 's0003abcdef' });
-  await writeLedger(dirs, ledgerFor(mine.sessionId, [route(MINE, 0, 40, 'confirmed')]));
-  // A session an investigator looked at: a proposal for my project and an
-  // interval they could not place. Neither is a decision.
-  await writeLedger(dirs, ledgerFor(proposed.sessionId,
-    [route(MINE, 0, 30, 'candidate'), route(MINE, 30, 60, 'unclassified')]));
-  // And a session confirmed for somebody else entirely.
-  await writeLedger(dirs, ledgerFor(theirs.sessionId, [route(OTHER, 0, 60, 'confirmed')]));
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [confirmed('seg-a', 0, 40, MINE)]));
+  // A recording an investigator looked at: a proposal for my project and a
+  // conversation they could not place. Neither is a decision.
+  await writeLedger(dirs, ledgerFor(proposed.sessionId, [
+    segment('seg-a', 0, 30, { status: 'candidate', project_candidates: [candidate(MINE)] }),
+    segment('seg-b', 30, 60, { status: 'unclassified', nature: 'undetermined' })]));
+  await writeLedger(dirs, ledgerFor(theirs.sessionId, [confirmed('seg-a', 0, 60, OTHER)]));
 
   const candidates = candidatesFor(dirs, MINE);
   assert.deepEqual(candidates.map(source => source.kind), ['voice']);
-  assert.deepEqual(candidates[0].items.map(item => item.item_id), [mine.sessionId],
-    'a candidate, an unclassified interval and another project’s confirmation are all absent');
-  assert.deepEqual(candidates[0].items[0].scope, { start_seconds: 0, end_seconds: 40 });
-  assert.equal(candidates[0].items[0].revision_policy, 'latest_in_custody');
-  assert.deepEqual(candidates.voice.confirmed_from_ledger, 1);
+  assert.deepEqual(candidates[0].items.map(item => item.item_id), [segmentItemId(mine.sessionId, 'seg-a')],
+    'a proposal, an unplaced conversation and another project’s decision are all absent');
+  const item = candidates[0].items[0];
+  assert.deepEqual(item.scope, { start_seconds: 0, end_seconds: 40 });
+  assert.deepEqual(item.conversation_segment,
+    { segment_id: 'seg-a', title: '합성 구간 요약', nature: 'project_work', related_segment_ids: [] });
+  assert.equal(item.revision_policy, 'latest_in_custody');
+  assert.deepEqual(splitSegmentItemId(item.item_id), { session_id: mine.sessionId, segment_id: 'seg-a' });
+  assert.equal(candidates.voice.confirmed_from_ledger, 1);
   assert.deepEqual(candidates.voice.ledgers_refused, []);
+  assert.deepEqual(candidatesFor(dirs, OTHER)[0].items.map(item_ => splitSegmentItemId(item_.item_id).session_id),
+    [theirs.sessionId]);
+});
 
-  // The other project sees its own confirmation and nothing of mine.
-  assert.deepEqual(candidatesFor(dirs, OTHER)[0].items.map(item => item.item_id), [theirs.sessionId]);
+test('every confirmed conversation in one recording is its own item, and its own document', async () => {
+  const dirs = await estate();
+  const mine = await session(dirs, { seed: 's0001abcdef' });
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [
+    confirmed('seg-a', 0, 20, MINE), confirmed('seg-b', 45, 60, MINE),
+    segment('seg-c', 20, 45, { status: 'candidate', project_candidates: [candidate(MINE)] })]));
+  const items = candidatesFor(dirs, MINE)[0].items;
+  assert.deepEqual(items.map(row => row.conversation_segment.segment_id), ['seg-a', 'seg-b'],
+    'two conversations a gap apart are two decisions, and the gap between them is admitted by neither');
+  const prepared = await prepareSourceDocuments({ grant: grantOf(items),
+    roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
+  assert.equal(prepared.documents.length, 2);
+  assert.equal(new Set(prepared.documents.map(row => row.doc_key)).size, 2);
 });
 
 test('a project whose binding names no voice root gets no voice items, however many confirmations exist', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
-  await writeLedger(dirs, ledgerFor(mine.sessionId, [route(MINE, 0, 40, 'confirmed')]));
-  // The same estate, the same ledger, a binding that binds Slack instead.
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [confirmed('seg-a', 0, 40, MINE)]));
   const candidates = candidatesFor(dirs, MINE, { 'slack.channel': 'data_root/ingress/slack/channels/P26-000' });
   assert.deepEqual([...candidates], [], 'the ledger does not reach a project the binding never opened this root for');
   assert.equal(candidates.voice, undefined, 'and nothing is reported about a root that was not looked at');
 });
 
-test('a confirmation without a person on it is not a confirmation, and a broken ledger is named rather than skipped', async () => {
+test('a decision without a person, or about two projects at once, is not a decision', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
-  assert.throws(() => validateVoiceRouteLedger(ledgerFor(mine.sessionId,
-    [{ ...route(MINE, 0, 40, 'confirmed'), confirmed_by: null }])), /voice_route_invalid/u);
-  assert.throws(() => validateVoiceRouteLedger(ledgerFor(mine.sessionId,
-    [{ ...route(MINE, 0, 40, 'confirmed'), confirmed_at: 'yesterday' }])), /voice_route_invalid/u);
-  assert.throws(() => validateVoiceRouteLedger(ledgerFor(mine.sessionId,
-    [{ ...route(MINE, 0, 40, 'candidate'), confirmed_by: 'actor:owner' }])), /voice_route_invalid/u,
-  'a proposal cannot carry an acceptance');
+  const ledger = segments => ledgerFor(mine.sessionId, segments);
+  assert.throws(() => validateVoiceRouteLedger(ledger([confirmed('seg-a', 0, 40, MINE, { confirmed_by: null })])),
+    /voice_route_segment_invalid/u);
+  assert.throws(() => validateVoiceRouteLedger(ledger([confirmed('seg-a', 0, 40, MINE, { confirmed_at: 'yesterday' })])),
+    /voice_route_segment_invalid/u);
+  assert.throws(() => validateVoiceRouteLedger(ledger([confirmed('seg-a', 0, 40, MINE,
+    { project_candidates: [candidate(MINE), candidate(OTHER)] })])), /voice_route_segment_invalid/u,
+  'two projects is not a placement, it is the question still being open');
+  assert.throws(() => validateVoiceRouteLedger(ledger([confirmed('seg-a', 0, 40, MINE, { project_candidates: [] })])),
+    /voice_route_segment_invalid/u);
+  assert.throws(() => validateVoiceRouteLedger(ledger([segment('seg-a', 0, 40,
+    { project_candidates: [{ project_code: MINE, evidence_refs: [], basis: null }] })])), /voice_route_segment_invalid/u,
+  'a project code with no stated basis is a guess, not a candidate');
+  assert.throws(() => validateVoiceRouteLedger(ledger([segment('seg-a', 0, 40, { derived_summary: false })])),
+    /voice_route_segment_invalid/u, 'nothing in this ledger is ever the words that were said');
+  assert.throws(() => validateVoiceRouteLedger(ledger([segment('seg-a', 0, 40), segment('seg-a', 40, 60)])),
+    /voice_route_segment_id_repeated/u);
+  assert.throws(() => validateVoiceRouteLedger(ledger([segment('seg-a', 0, 40, { related_segment_ids: ['seg-z'] })])),
+    /voice_route_related_segment_unknown/u);
 
   await writeFile(path.join(dirs.routesDir, `${mine.sessionId}.json`), '{ not a ledger');
   const candidates = candidatesFor(dirs, MINE);
@@ -182,39 +231,20 @@ test('a confirmation without a person on it is not a confirmation, and a broken 
 test('another owner’s record in the same folder is left alone, not read as a broken ledger', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
-  await writeLedger(dirs, ledgerFor(mine.sessionId, [route(MINE, 0, 40, 'confirmed')]));
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [confirmed('seg-a', 0, 40, MINE)]));
   // The voice inbox access declaration the reading CLI looks for lives here too.
   await writeFile(path.join(dirs.routesDir, 'inbox_access.v0.json'),
     `${JSON.stringify({ schema: 'soulforge.voice_inbox_access.v0', actor_ref: 'actor:owner:context-reader',
       purpose: 'voice_route_review', revoked: false }, null, 2)}\n`);
 
   const candidates = candidatesFor(dirs, MINE);
-  assert.deepEqual(candidates[0].items.map(item => item.item_id), [mine.sessionId]);
+  assert.equal(candidates[0].items.length, 1);
   assert.deepEqual(candidates.voice.ledgers_refused, [], 'it is not a ledger, so it is not a broken one');
   assert.deepEqual(candidates.voice.other_schemas_in_folder,
     [{ file: 'inbox_access.v0.json', schema: 'soulforge.voice_inbox_access.v0' }]);
   const listed = runVoiceRouteCli(['list', '--routes-dir', dirs.routesDir]);
   assert.deepEqual(listed.ledgers.map(row => row.session_id), [mine.sessionId]);
   assert.deepEqual(listed.other_schemas.map(row => row.file), ['inbox_access.v0.json']);
-});
-
-test('intervals that touch are one interval; intervals with a gap between them are refused, not joined', async () => {
-  const dirs = await estate();
-  const joined = await session(dirs, { seed: 's0001abcdef' });
-  const split = await session(dirs, { seed: 's0002abcdef' });
-  await writeLedger(dirs, ledgerFor(joined.sessionId,
-    [route(MINE, 0, 25, 'confirmed'), route(MINE, 25, 40, 'confirmed')]));
-  await writeLedger(dirs, ledgerFor(split.sessionId,
-    [route(MINE, 0, 25, 'confirmed'), route(MINE, 45, 60, 'confirmed')]));
-
-  const candidates = candidatesFor(dirs, MINE);
-  assert.deepEqual(candidates[0].items.map(item => [item.item_id, item.scope]),
-    [[joined.sessionId, { start_seconds: 0, end_seconds: 40 }]],
-    'joining two touching intervals admits exactly what was confirmed; joining across a gap would admit the gap');
-  assert.deepEqual(candidates.voice.skipped,
-    [{ session_id: split.sessionId, code: 'multiple_confirmed_windows', windows: 2 }]);
-  assert.deepEqual(confirmedWindows(validateVoiceRouteLedger(ledgerFor(split.sessionId,
-    [route(MINE, 0, 25, 'confirmed'), route(MINE, 45, 60, 'confirmed')])), MINE).length, 2);
 });
 
 test('the recording library’s accepted route is the same decision about the whole recording', async () => {
@@ -224,28 +254,31 @@ test('the recording library’s accepted route is the same decision about the wh
   await writeIndex(dirs, [
     indexRow(accepted.sessionId, { route_status: 'accepted_project_route', accepted_project_code: MINE,
       accepted_by: 'actor:owner', accepted_at: NOW }),
-    // An acceptance with no acceptor is not one, by the same rule the ledger uses.
+    // An acceptance with no acceptor is not one, by the same rule a segment follows.
     indexRow(halfAccepted.sessionId, { route_status: 'accepted_project_route', accepted_project_code: MINE,
       accepted_by: null, accepted_at: NOW })]);
 
   const candidates = candidatesFor(dirs, MINE);
   assert.deepEqual(candidates[0].items.map(item => item.item_id), [accepted.sessionId]);
-  assert.equal(Object.hasOwn(candidates[0].items[0], 'scope'), false, 'the whole recording is not an interval of it');
+  assert.equal(Object.hasOwn(candidates[0].items[0], 'scope'), false, 'the whole recording is not a part of it');
+  assert.equal(Object.hasOwn(candidates[0].items[0], 'conversation_segment'), false);
   assert.deepEqual([candidates.voice.confirmed_from_index, candidates.voice.library_index_read], [1, true]);
 
-  // A session both records decide about is left out rather than resolved by order.
-  await writeLedger(dirs, ledgerFor(accepted.sessionId, [route(MINE, 0, 25, 'confirmed')]));
+  // A recording both records decide about is left out rather than resolved by order.
+  await writeLedger(dirs, ledgerFor(accepted.sessionId, [confirmed('seg-a', 0, 25, MINE)]));
   const both = candidatesFor(dirs, MINE);
   assert.deepEqual([...both], []);
-  assert.deepEqual(both.voice.skipped, [{ session_id: accepted.sessionId, code: 'ledger_and_index_disagree' }]);
+  assert.deepEqual(both.voice.skipped,
+    [{ session_id: accepted.sessionId, code: 'ledger_and_index_disagree', segments: 1 }]);
 });
 
 // ------------------------------------------------------------- preparation
 
-test('a granted interval prepares that interval only, from the transcript run the ledger names', async () => {
+test('a confirmed conversation prepares that conversation only, from the transcript run the ledger names', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
-  await writeLedger(dirs, ledgerFor(mine.sessionId, [route(MINE, 0, 40, 'confirmed')], RUN_ONE));
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [confirmed('seg-a', 0, 40, MINE,
+    { transcript_ref: RUN_ONE, title: '시험 일정 합의', related_segment_ids: [] })]));
   const items = candidatesFor(dirs, MINE)[0].items;
   assert.deepEqual(items[0].transcript_ref, RUN_ONE);
 
@@ -255,29 +288,40 @@ test('a granted interval prepares that interval only, from the transcript run th
   assert.ok(validateSourceDocument(document));
   assert.deepEqual(document.scope, { start_seconds: 0, end_seconds: 40 });
   assert.ok(document.units.every(unit => unit.locator.start_seconds < 40),
-    'the part of the recording that belongs to another project is not in the document');
+    'the part of the recording that belongs to another conversation is not in the document');
   assert.equal(document.units.some(unit => unit.text.includes('예산')), false);
-  // Which transcript it is comes from the transcript, and it is the independent one.
-  assert.equal(document.facts.find(fact => fact.name === 'voice.transcript_ref').value, RUN_ONE.join('/'));
-  assert.equal(document.facts.find(fact => fact.name === 'voice.transcript_evidence_role').value,
-    'independent_machine_transcript_unverified');
+  assert.equal(document.units[0].locator.session_id, mine.sessionId,
+    'a unit is located in the recording, and the conversation is what the document is');
+  // Which conversation, what somebody called it, and that the name is a summary.
+  const fact = name => document.facts.find(row => row.name === name)?.value;
+  assert.equal(fact('voice.conversation_segment_id'), 'seg-a');
+  assert.equal(fact('voice.conversation_segment_title'), '시험 일정 합의');
+  assert.equal(fact('voice.conversation_segment_title_is_derived'), true);
+  assert.equal(fact('voice.conversation_nature'), 'project_work');
+  assert.equal(document.title, '시험 일정 합의', 'the document is named for the conversation, not the recording');
+  assert.equal(fact('voice.transcript_ref'), RUN_ONE.join('/'));
+  assert.equal(fact('voice.transcript_evidence_role'), 'independent_machine_transcript_unverified');
   assert.equal(document.units[0].text.includes('먼저'), true, 'the run’s wording, not the provider’s');
-
-  // Without a named run the session transcript is what a grant means, and the
-  // document carries no run facts at all.
-  const { transcript_ref: _named, ...withoutRun } = items[0];
-  const session_ = await prepareSourceDocuments({ grant: grantOf([withoutRun]),
-    roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
-  const plain = session_.documents[0];
-  assert.equal(plain.facts.some(fact => fact.name.startsWith('voice.transcript_ref')), false);
-  assert.notEqual(plain.primary_revision_sha256, document.primary_revision_sha256);
-  assert.notEqual(plain.doc_key, document.doc_key);
 });
 
-test('a run the ledger names but the session does not hold is reported as that, not as a missing session', async () => {
+test('a whole-recording item still prepares exactly as it did, with no conversation facts', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
-  await writeLedger(dirs, ledgerFor(mine.sessionId, [route(MINE, 0, 40, 'confirmed')], RUN_TWO));
+  const whole = { item_id: mine.sessionId, revision_policy: 'latest_in_custody', revision_sha256: null,
+    data_class: 'public_synthetic' };
+  const prepared = await prepareSourceDocuments({ grant: grantOf([whole]),
+    roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
+  const document = prepared.documents[0];
+  assert.deepEqual(document.facts.map(row => row.name), ['voice.provider_recording_id', 'voice.duration_seconds',
+    'voice.transcript_quality', 'voice.speaker_label_count', 'voice.canonicalization_state']);
+  assert.equal(document.title, '합성 회의 녹음');
+  assert.equal(document.scope, null);
+});
+
+test('a run the ledger names but the recording does not hold is reported as that, not as a missing recording', async () => {
+  const dirs = await estate();
+  const mine = await session(dirs, { seed: 's0001abcdef' });
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [confirmed('seg-a', 0, 40, MINE, { transcript_ref: RUN_TWO })]));
   const prepared = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items),
     roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
   assert.deepEqual(prepared.coverage.items.map(row => [row.status, row.code]), [['missing', 'transcript_run_absent']]);
@@ -287,8 +331,8 @@ test('a new transcript is picked up as a change to that one document, and the sa
   const dirs = await estate();
   const changing = await session(dirs, { seed: 's0001abcdef' });
   const still = await session(dirs, { seed: 's0002abcdef' });
-  await writeLedger(dirs, ledgerFor(changing.sessionId, [route(MINE, 0, 40, 'confirmed')], RUN_ONE));
-  await writeLedger(dirs, ledgerFor(still.sessionId, [route(MINE, 0, 40, 'confirmed')], RUN_ONE));
+  await writeLedger(dirs, ledgerFor(changing.sessionId, [confirmed('seg-a', 0, 40, MINE, { transcript_ref: RUN_ONE })]));
+  await writeLedger(dirs, ledgerFor(still.sessionId, [confirmed('seg-a', 0, 40, MINE, { transcript_ref: RUN_ONE })]));
   const roots = { [VOICE_ROOT]: dirs.plaudRoot };
 
   const first = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items), roots, now: NOW });
@@ -302,74 +346,293 @@ test('a new transcript is picked up as a change to that one document, and the sa
   assert.deepEqual(again.documents.map(row => row.doc_key).sort(), first.documents.map(row => row.doc_key).sort(),
     'the same input is the same document, so a pass has nothing to extract or embed again');
 
-  // The ASR lane rewrites one session's run in place.
+  // The ASR lane rewrites one recording's run in place.
   await writeFile(path.join(changing.dir, 'analysis', 'local_asr', RUN_ONE.at(-1), 'transcript.jsonl'),
     transcriptLines(REVISED, RUN_ONE.at(-1)));
   const rewritten = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items), roots, now: NOW,
     previousCoverage: first.coverage });
-  assert.deepEqual(rewritten.changes.changed.map(row => row.item_id), [changing.sessionId]);
-  assert.deepEqual(rewritten.changes.unchanged.map(row => row.item_id), [still.sessionId]);
+  assert.deepEqual(rewritten.changes.changed.map(row => splitSegmentItemId(row.item_id).session_id), [changing.sessionId]);
+  assert.deepEqual(rewritten.changes.unchanged.map(row => splitSegmentItemId(row.item_id).session_id), [still.sessionId]);
   assert.deepEqual([rewritten.changes.added.length, rewritten.changes.removed.length], [0, 0]);
 
-  // And a ledger re-pointed at a second run is the same kind of change: one
-  // document moved, the other did not.
+  // And a ledger re-pointed at a second run is the same kind of change.
   await mkdir(path.join(still.dir, 'analysis', 'local_asr', RUN_TWO.at(-1)), { recursive: true });
   await writeFile(path.join(still.dir, 'analysis', 'local_asr', RUN_TWO.at(-1), 'transcript.jsonl'),
     transcriptLines(REVISED, RUN_TWO.at(-1)));
-  await writeLedger(dirs, ledgerFor(still.sessionId, [route(MINE, 0, 40, 'confirmed')], RUN_TWO));
+  await writeLedger(dirs, ledgerFor(still.sessionId, [confirmed('seg-a', 0, 40, MINE, { transcript_ref: RUN_TWO })]));
   const repointed = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items), roots, now: NOW,
     previousCoverage: rewritten.coverage });
-  assert.deepEqual(repointed.changes.changed.map(row => row.item_id), [still.sessionId]);
-  assert.deepEqual(repointed.changes.unchanged.map(row => row.item_id), [changing.sessionId]);
+  assert.deepEqual(repointed.changes.changed.map(row => splitSegmentItemId(row.item_id).session_id), [still.sessionId]);
+  assert.deepEqual(repointed.changes.unchanged.map(row => splitSegmentItemId(row.item_id).session_id), [changing.sessionId]);
+});
+
+// ------------------------------------------------- the mixed recording case
+
+// The same part name is said in two different projects' conversations; a date is
+// corrected later in its own moment; one work conversation was barely audible;
+// and one stretch is an idea belonging to no project. Built long enough that the
+// conversations really do sit at different places in the recording.
+const MIXED = [
+  '[0:00 - 0:20] 화자 1: 수신부 CDR 준비 상태부터 확인하겠습니다.',
+  '[0:20 - 0:50] 화자 2: 수신부 조립은 다음 주 수요일에 끝납니다.',
+  '[1:05 - 1:30] 화자 1: 여기서는 다른 과제의 수신부 CDR 일정을 보겠습니다.',
+  '[1:30 - 1:55] 화자 3: 그쪽 수신부는 외주 일정이 아직 안 잡혔습니다.',
+  '[2:05 - 2:20] 화자 2: 아까 말한 수요일은 목요일로 정정합니다.',
+  '[2:30 - 2:50] 화자 1: (잡음) 시험 장비 반입 관련해서 잘 안 들리는 부분입니다.',
+  '[3:05 - 3:25] 화자 3: 이건 과제하고 상관없는 생각인데 측정 자동화를 해보면 좋겠습니다.',
+].join('\n');
+
+async function mixedEstate() {
+  const dirs = await estate();
+  const mixed = await session(dirs, { seed: 's0009abcdef', provider: MIXED, duration: 240,
+    runs: { [RUN_ONE.at(-1)]: MIXED } });
+  await writeLedger(dirs, ledgerFor(mixed.sessionId, [
+    confirmed('seg-a', 0, 60, MINE, { title: '수신부 CDR 준비 상태 확인', transcript_ref: RUN_ONE,
+      project_candidates: [candidate(MINE, '조립 완료일이 이 과제 회신 메일과 같은 주차', ['mail:m-1'])] }),
+    // The same words in a conversation nobody has placed. A shared part name is
+    // not a project, and a row whose only basis is the shared name stays a proposal.
+    segment('seg-b', 60, 90, { status: 'candidate', title: '수신부 CDR 언급 구간',
+      transcript_ref: RUN_ONE,
+      project_candidates: [candidate(MINE, '같은 부품 이름이 나옴'), candidate(OTHER, '같은 부품 이름이 나옴')] }),
+    confirmed('seg-c', 90, 120, OTHER, { title: '다른 과제 수신부 외주 일정', transcript_ref: RUN_ONE,
+      project_candidates: [candidate(OTHER, '외주 업체명이 이 과제 발주 건과 일치', ['linear:X-1'])] }),
+    confirmed('seg-d', 120, 145, MINE, { title: '조립 완료일 정정', transcript_ref: RUN_ONE,
+      related_segment_ids: ['seg-a'],
+      project_candidates: [candidate(MINE, '정정 대상이 seg-a의 같은 일정', ['mail:m-1'])] }),
+    // Barely audible, and still work: the quality is what was poor, not the kind
+    // of conversation it was.
+    confirmed('seg-e', 145, 175, MINE, { title: '시험 장비 반입 논의(일부 판독 불가)', nature: 'unreadable',
+      transcript_ref: RUN_ONE, quality: { transcript: 'independent_fast', correction_state: 'none' },
+      project_candidates: [candidate(MINE, '반입 대상이 이 과제 시험 장비', ['linear:Y-1'])] }),
+    segment('seg-f', 175, 230, { status: 'unclassified', nature: 'idea', title: '측정 자동화 아이디어',
+      transcript_ref: RUN_ONE })]));
+  return { dirs, mixed };
+}
+
+test('a shared part name does not place a conversation, and every placed work conversation still arrives', async () => {
+  const { dirs, mixed } = await mixedEstate();
+  const items = candidatesFor(dirs, MINE)[0].items;
+  assert.deepEqual(items.map(item => item.conversation_segment.segment_id), ['seg-a', 'seg-d', 'seg-e'],
+    'the two conversations that share the part name are not both mine, and none of my work conversations is dropped');
+  assert.deepEqual(candidatesFor(dirs, OTHER)[0].items.map(item => item.conversation_segment.segment_id), ['seg-c']);
+
+  // The unplaced one stays exactly where it is, with both proposals intact: an
+  // early classification removes nothing.
+  const held = readLedgerFile(dirs.routesDir, mixed.sessionId).ledger;
+  const kept = held.segments.find(row => row.segment_id === 'seg-b');
+  assert.deepEqual([kept.status, kept.project_candidates.map(row => row.project_code)], ['candidate', [MINE, OTHER]]);
+  assert.equal(held.segments.length, 6, 'nothing is deleted by being classified, or by not being classified');
+
+  // A barely audible work conversation is poor quality, never everyday talk.
+  const hard = items.find(item => item.conversation_segment.segment_id === 'seg-e');
+  assert.equal(hard.conversation_segment.nature, 'unreadable');
+  assert.notEqual(hard.conversation_segment.nature, 'daily');
+
+  // The correction is its own moment, linked to what it corrects rather than
+  // folded into it.
+  const correction = items.find(item => item.conversation_segment.segment_id === 'seg-d');
+  assert.deepEqual(correction.conversation_segment.related_segment_ids, ['seg-a']);
+  assert.deepEqual(correction.scope, { start_seconds: 120, end_seconds: 145 });
+  assert.equal(items.find(item => item.conversation_segment.segment_id === 'seg-a').scope.end_seconds, 60,
+    'the corrected conversation keeps its own interval; the correction is not merged into it');
+
+  // An idea belongs to no project, so it is in no project's grant, and it is
+  // still in the ledger for whoever wants it later.
+  assert.equal(items.some(item => item.conversation_segment.segment_id === 'seg-f'), false);
+  assert.equal(held.segments.find(row => row.segment_id === 'seg-f').nature, 'idea');
+});
+
+test('the mixed recording prepares as separate documents, each holding only its own conversation', async () => {
+  const { dirs } = await mixedEstate();
+  const roots = { [VOICE_ROOT]: dirs.plaudRoot };
+  const mineDocs = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items), roots, now: NOW });
+  const theirDocs = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, OTHER)[0].items), roots, now: NOW });
+  assert.equal(mineDocs.documents.length, 3);
+  assert.equal(theirDocs.documents.length, 1);
+  const byId = new Map(mineDocs.documents.map(row => [row.facts.find(f => f.name === 'voice.conversation_segment_id').value, row]));
+  // The other project's conversation says the same part name; it is in that
+  // project's document and in none of mine.
+  assert.equal([...byId.values()].some(document => document.units.some(unit => unit.text.includes('외주'))), false);
+  assert.equal(theirDocs.documents[0].units.some(unit => unit.text.includes('외주')), true);
+  assert.equal(byId.get('seg-d').units.some(unit => unit.text.includes('정정')), true);
+  assert.equal(byId.get('seg-a').units.some(unit => unit.text.includes('정정')), false);
+  assert.equal(byId.get('seg-e').title, '시험 장비 반입 논의(일부 판독 불가)');
+  assert.equal(new Set([...byId.values(), theirDocs.documents[0]].map(row => row.doc_key)).size, 4);
+});
+
+// ------------------------------------------------------- drafts from labels
+
+test('the first draft of a recording’s conversations comes from the semantic labels, not from a new splitter', async () => {
+  const dirs = await estate();
+  const mine = await session(dirs, { seed: 's0001abcdef' });
+  const runId = 'vsl_synthetic0001';
+  const labelDir = path.join(mine.dir, 'analysis', 'semantic_labels', runId);
+  await mkdir(labelDir, { recursive: true });
+  await writeFile(path.join(labelDir, 'semantic_label_run.json'), JSON.stringify({
+    schema_version: 'soulforge.voice_semantic_label_run.v1', run_id: runId,
+    recording_ref: { recording_id: mine.sessionId,
+      transcript_ref: `ingress/plaud/sessions/2026-09-11/${mine.sessionId}/${RUN_ONE.join('/')}/transcript.jsonl` },
+    evidence_gate: { input_class: 'independent_asr_fast', state: 'stronger_local_asr_required',
+      project_candidate_emission_allowed: false },
+    segment_labels: [
+      { unit_id: 'unit_1_14', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 26,
+        speech_acts: ['deadline_mention'], action_codes: ['test_or_measure'], disposition: 'material_ambiguity_deferred',
+        entities: [{ kind: 'date_or_period', value: '화요일', value_sha256: 'a'.repeat(64) }],
+        project_match: { state: 'unresolved_needs_context', candidates: [] } },
+      { unit_id: 'unit_15_22', source_segment_ids: [3], start_seconds: 45, end_seconds: 56,
+        speech_acts: ['topic_shift'], action_codes: [], disposition: 'context_only', entities: [],
+        project_match: { state: 'unresolved_needs_context', candidates: [] } }],
+    review_windows: [{ window_id: 'vrw_1', start_seconds: 0, duration_seconds: 30, source_unit_refs: ['unit_1_14'],
+      importance_state: 'material_ambiguity_candidate', escalation_state: 'stronger_local_asr_required',
+      human_listen_required: true }],
+    coverage: { semantic_unit_count: 2 }, project_resolution: { state: 'stronger_local_asr_required' },
+    boundaries: { transcript_body_copied_to_output: false } }));
+
+  const session_ = sessionAddress({ io: dirs.io, sessionId: mine.sessionId });
+  assert.equal(session_, `data_root/ingress/plaud/sessions/2026-09-11/${mine.sessionId}`);
+  const found = readSemanticSegmentDrafts({ io: dirs.io, session: session_, sessionId: mine.sessionId });
+  assert.deepEqual(found.drafts.map(draft => draft.segment.segment_id), ['unit_1_14', 'unit_15_22']);
+  const first = found.drafts[0];
+  assert.deepEqual([first.segment.start_seconds, first.segment.end_seconds], [0, 26],
+    'the boundary is the lane’s semantic unit, not a fixed number of seconds or a change of speaker');
+  assert.deepEqual([first.segment.status, first.segment.nature, first.segment.title], ['unclassified', 'undetermined', null]);
+  assert.deepEqual(first.segment.transcript_ref, RUN_ONE, 'the run the labelling actually read is the run to read');
+  assert.equal(first.segment.quality.transcript, 'independent_fast');
+  assert.deepEqual(first.segment.project_candidates, [], 'the label run may not emit project candidates yet, and none are invented');
+  // Hints carry kinds and codes, never the words behind them.
+  assert.deepEqual(first.hints.entity_kinds, ['date_or_period']);
+  assert.equal(JSON.stringify(found.drafts).includes('화요일'), false, 'no entity value leaves the label run');
+  assert.deepEqual([first.hints.human_listen_required, first.hints.importance_states],
+    [true, ['material_ambiguity_candidate']]);
+  assert.equal(found.run.evidence_gate.project_candidate_emission_allowed, false);
+  assert.equal(transcriptRunFrom({ transcript_ref: 'a/b' }, mine.sessionId), null, 'a ref that names no session is nothing');
+
+  // Written in, the drafts become unplaced segments a person can then decide on,
+  // and a second pass adds nothing and overwrites nothing.
+  const written = runVoiceRouteCli(['draft', '--session', mine.sessionId, '--routes-dir', dirs.routesDir,
+    '--root-table', dirs.tablePath, '--root-table-sha256', dirs.tableSha256, '--write', '--by', 'actor:owner',
+    '--now', NOW]);
+  assert.deepEqual([written.added, written.unclassified, written.confirmed], [2, 2, 0]);
+  runVoiceRouteCli(['confirm', '--session', mine.sessionId, '--segment', 'unit_1_14', '--project', MINE,
+    '--basis', '반입일이 이 과제 회신과 같음', '--title', '시험 일정 합의', '--nature', 'project_work',
+    '--by', 'actor:owner', '--routes-dir', dirs.routesDir, '--now', NOW]);
+  const second = runVoiceRouteCli(['draft', '--session', mine.sessionId, '--routes-dir', dirs.routesDir,
+    '--root-table', dirs.tablePath, '--root-table-sha256', dirs.tableSha256, '--write', '--by', 'actor:owner',
+    '--now', NOW]);
+  assert.deepEqual([second.added, second.confirmed], [0, 1], 'a draft pass never reopens a decision');
+});
+
+test('a conversation is addressed in whole seconds, because a fraction cannot be part of a grant’s identity', async () => {
+  const dirs = await estate();
+  const mine = await session(dirs, { seed: 's0001abcdef' });
+  // A semantic unit ends where a transcript row ends, which is rarely a whole
+  // second. The rows below are written as the ASR lane writes them.
+  const rows = [
+    { schema_version: 'soulforge.voice_transcript_segment.v0', segment_id: 1, start_seconds: 0, end_seconds: 57.82,
+      speaker: '화자 1', content: '첫 번째 대화입니다.', source: 'whisper_cpp_independent_local' },
+    { schema_version: 'soulforge.voice_transcript_segment.v0', segment_id: 2, start_seconds: 57.82, end_seconds: 121.48,
+      speaker: '화자 2', content: '두 번째 대화입니다.', source: 'whisper_cpp_independent_local' }];
+  const runDir = path.join(mine.dir, 'analysis', 'local_asr', RUN_ONE.at(-1));
+  await writeFile(path.join(runDir, 'transcript.jsonl'), rows.map(row => JSON.stringify(row) + String.fromCharCode(10)).join(''));
+  const labelDir = path.join(mine.dir, 'analysis', 'semantic_labels', 'vsl_fractional');
+  await mkdir(labelDir, { recursive: true });
+  await writeFile(path.join(labelDir, 'semantic_label_run.json'), JSON.stringify({
+    schema_version: 'soulforge.voice_semantic_label_run.v1', run_id: 'vsl_fractional',
+    recording_ref: { recording_id: mine.sessionId,
+      transcript_ref: `ingress/plaud/sessions/2026-09-11/${mine.sessionId}/${RUN_ONE.join('/')}/transcript.jsonl` },
+    evidence_gate: { input_class: 'independent_asr_fast' },
+    segment_labels: [
+      { unit_id: 'unit_1', start_seconds: 0, end_seconds: 57.82, entities: [], project_match: { state: 'x', candidates: [] } },
+      { unit_id: 'unit_2', start_seconds: 57.82, end_seconds: 121.48, entities: [], project_match: { state: 'x', candidates: [] } },
+      // Shorter than the rounding: not an interval anybody can address.
+      { unit_id: 'unit_3', start_seconds: 130.1, end_seconds: 130.3, entities: [], project_match: { state: 'x', candidates: [] } }],
+    review_windows: [], boundaries: { transcript_body_copied_to_output: false } }));
+
+  const found = readSemanticSegmentDrafts({ io: dirs.io,
+    session: sessionAddress({ io: dirs.io, sessionId: mine.sessionId }), sessionId: mine.sessionId });
+  assert.deepEqual(found.drafts.map(draft => [draft.segment.start_seconds, draft.segment.end_seconds]),
+    [[0, 58], [58, 121]], 'both sides of a shared boundary round the same way, so no gap opens between them');
+  assert.equal(found.units_shorter_than_a_second, 1);
+  assert.ok(found.drafts.every(draft => Number.isSafeInteger(draft.segment.start_seconds)));
+
+  // And the whole path -- grant identity, document key, run record -- holds for a
+  // recording whose own offsets are fractional.
+  await writeLedger(dirs, ledgerFor(mine.sessionId, [
+    confirmed('unit_1', 0, 58, MINE, { transcript_ref: RUN_ONE, title: '첫 대화' })]));
+  const prepared = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items),
+    roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW, runId: 'prep-voice-fractional',
+    clock: () => new Date(NOW) });
+  assert.equal(prepared.run_unavailable, null, 'a fractional offset inside the document is not part of any digest');
+  assert.ok(validateSourceDocument(prepared.documents[0]));
+  assert.deepEqual(prepared.documents[0].units.map(unit => unit.locator.segment_id), [1, 2],
+    'the utterance that opens the next conversation sits at the edge of both, which is the side to err on');
+  // A fraction in a scope is refused where it is written, not where it is hashed.
+  assert.throws(() => validateVoiceRouteLedger(ledgerFor(mine.sessionId,
+    [confirmed('unit_1', 0, 57.82, MINE)])), /voice_route_segment_invalid/u);
 });
 
 // --------------------------------------------------------------------- CLI
 
-test('the CLI is the writer: a proposal, a person’s confirmation, a withdrawal, and a rehearsal that writes nothing', async () => {
+test('the CLI is the writer: a proposal, a person’s decision, a withdrawal, and a rehearsal that writes nothing', async () => {
   const dirs = await estate();
   const mine = await session(dirs, { seed: 's0001abcdef' });
-  const base = ['--session', mine.sessionId, '--project', MINE, '--from', '0', '--to', '40',
-    '--routes-dir', dirs.routesDir, '--now', NOW];
+  const where = ['--routes-dir', dirs.routesDir, '--now', NOW];
+  const base = ['--session', mine.sessionId, '--segment', 'seg-a', ...where];
 
-  // A rehearsal shows the exact body and leaves the folder as it was.
-  const dry = runVoiceRouteCli(['set', ...base, '--status', 'candidate', '--by', 'actor:bot:context-planner', '--dry']);
+  const dry = runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--status', 'candidate',
+    '--by', 'actor:bot:context-planner', '--dry']);
   assert.deepEqual([dry.dry, dry.candidate, dry.file_sha256], [true, 1, null]);
-  assert.deepEqual(await readdir(dirs.routesDir), []);
+  assert.deepEqual(await readdir(dirs.routesDir), [], 'a rehearsal leaves the folder as it was');
 
-  runVoiceRouteCli(['set', ...base, '--status', 'candidate', '--by', 'actor:bot:context-planner',
-    '--evidence', 'linear:SON-1', '--transcript-run', RUN_ONE.join('/')]);
+  runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--status', 'candidate',
+    '--by', 'actor:bot:context-planner', '--project', MINE, '--basis', '회신 메일과 같은 시험',
+    '--evidence', 'mail:m-1', '--transcript-run', RUN_ONE.join('/'), '--audio-ref', 'audio/source.mp3']);
   assert.deepEqual(candidatesFor(dirs, MINE)[0]?.items ?? [], [], 'a proposal admits nothing');
+  // What it is about, what kind of conversation it is, and how well it was heard
+  // are three separate answers, and a decision may not do without any of them.
+  assert.throws(() => runVoiceRouteCli(['confirm', ...base, '--project', MINE, '--basis', 'x', '--by', 'actor:owner']),
+    /voice_route_title_required/u);
+  assert.throws(() => runVoiceRouteCli(['confirm', ...base, '--project', MINE, '--basis', 'x', '--by', 'actor:owner',
+    '--title', '시험 일정 합의']), /voice_route_nature_required/u);
+  assert.throws(() => runVoiceRouteCli(['confirm', ...base, '--project', MINE, '--basis', 'x', '--by', 'actor:owner',
+    '--title', '시험 일정 합의', '--nature', 'project_work']), /voice_route_quality_required/u);
+  assert.throws(() => runVoiceRouteCli(['confirm', ...base, '--basis', 'x', '--by', 'actor:owner',
+    '--title', 't', '--nature', 'project_work', '--quality', 'independent_fast']), /voice_route_project_required/u);
+  assert.throws(() => runVoiceRouteCli(['confirm', ...base, '--project', MINE, '--basis', 'x',
+    '--title', 't', '--nature', 'project_work', '--quality', 'independent_fast']), /voice_route_actor_required/u);
 
-  const confirmed = runVoiceRouteCli(['confirm', ...base, '--by', 'actor:owner']);
-  assert.deepEqual([confirmed.confirmed, confirmed.candidate], [1, 0]);
-  const row = confirmed.routes[0];
-  assert.deepEqual([row.judged_by, row.confirmed_by], ['actor:bot:context-planner', 'actor:owner'],
-    'promoting a proposal keeps who proposed it and adds who confirmed it');
-  assert.deepEqual(row.evidence_refs, ['linear:SON-1']);
+  const done = runVoiceRouteCli(['confirm', ...base, '--project', MINE, '--basis', '회신 메일과 같은 시험',
+    '--title', '시험 일정 합의', '--nature', 'project_work', '--quality', 'independent_fast', '--by', 'actor:owner']);
+  const row = done.segment_rows[0];
+  assert.deepEqual([row.status, row.judged_by, row.confirmed_by], ['confirmed', 'actor:bot:context-planner', 'actor:owner'],
+    'a decision keeps who proposed it and adds who made it');
+  assert.deepEqual([row.quality.transcript, row.audio_ref], ['independent_fast', ['audio', 'source.mp3']]);
   const items = candidatesFor(dirs, MINE)[0].items;
-  assert.deepEqual([items.length, items[0].scope, items[0].transcript_ref],
-    [1, { start_seconds: 0, end_seconds: 40 }, RUN_ONE]);
+  assert.deepEqual([items.length, items[0].scope], [1, { start_seconds: 0, end_seconds: 40 }]);
 
-  // Withdrawing is a command, so undoing a confirmation is not a hand edit.
-  runVoiceRouteCli(['withdraw', ...base]);
+  // Withdrawing returns it to a proposal rather than erasing the investigation.
+  const back = runVoiceRouteCli(['withdraw', ...base]);
+  assert.deepEqual([back.confirmed, back.candidate, back.segment_rows[0].judged_by],
+    [0, 1, 'actor:bot:context-planner']);
   assert.deepEqual([...candidatesFor(dirs, MINE)], []);
-  assert.equal(readLedgerFile(dirs.routesDir, mine.sessionId).ledger.routes.length, 0);
-  assert.throws(() => runVoiceRouteCli(['withdraw', ...base]), /voice_route_window_absent/u);
-  assert.throws(() => runVoiceRouteCli(['confirm', ...base]), /voice_route_actor_required/u,
-    'a confirmation with nobody on it is refused before it is written');
+  assert.throws(() => runVoiceRouteCli(['withdraw', ...base]), /voice_route_segment_not_confirmed/u);
+  runVoiceRouteCli(['remove', ...base]);
+  assert.equal(readLedgerFile(dirs.routesDir, mine.sessionId).ledger.segments.length, 0);
 });
 
-test('one decision applied to one ledger changes that window and nothing around it', () => {
+test('one decision applied to one ledger changes that conversation and nothing around it', () => {
   const ledger = validateVoiceRouteLedger(emptyLedger('20260911T010000_plaud_cli_synth0001'));
-  const withOther = applyRouteDecision(ledger, { command: 'set', code: OTHER, from: 50, to: 90,
-    status: 'candidate', by: 'actor:bot:context-planner', now: NOW });
-  const both = applyRouteDecision(withOther, { command: 'confirm', code: MINE, from: 0, to: 40,
-    by: 'actor:owner', now: NOW });
-  assert.deepEqual(both.routes.map(route_ => [route_.project_code, route_.status]),
-    [[MINE, 'confirmed'], [OTHER, 'candidate']]);
-  assert.equal(both.transcript_run, null, 'a decision about an interval does not repoint the transcript');
-  assert.throws(() => applyRouteDecision(ledger, { command: 'confirm', code: MINE, from: 40, to: 40,
-    by: 'actor:owner', now: NOW }), /voice_route_interval_invalid/u);
-  assert.throws(() => applyRouteDecision(ledger, { command: 'confirm', code: 'not a code', from: 0, to: 40,
-    by: 'actor:owner', now: NOW }), /voice_route_project_invalid/u);
+  const withOther = applySegmentDecision(ledger, { command: 'set', segmentId: 'seg-b', from: 50, to: 90,
+    status: 'candidate', by: 'actor:bot:context-planner', project: OTHER, basis: '외주 업체명 일치', now: NOW });
+  const both = applySegmentDecision(withOther, { command: 'confirm', segmentId: 'seg-a', from: 0, to: 40,
+    by: 'actor:owner', project: MINE, basis: '회신 메일과 같은 시험', title: '시험 일정 합의',
+    nature: 'project_work', quality: 'independent_strong', now: NOW });
+  assert.deepEqual(both.segments.map(row => [row.segment_id, row.status]), [['seg-a', 'confirmed'], ['seg-b', 'candidate']]);
+  assert.deepEqual(confirmedSegments(both, MINE).map(row => row.segment_id), ['seg-a']);
+  assert.deepEqual(confirmedSegments(both, OTHER), []);
+  assert.throws(() => applySegmentDecision(ledger, { command: 'confirm', segmentId: 'seg-a', from: 40, to: 40,
+    by: 'actor:owner', project: MINE, basis: 'x', title: 't', nature: 'project_work', quality: 'independent_fast',
+    now: NOW }), /voice_route_interval_invalid/u);
+  assert.throws(() => applySegmentDecision(ledger, { command: 'set', segmentId: 'seg-a', from: 0, to: 40,
+    status: 'candidate', by: 'actor:owner', project: MINE, basis: null, now: NOW }), /voice_route_basis_required/u);
 });

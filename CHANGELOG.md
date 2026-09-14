@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 2026-09-15 - 음성 편입의 단위가 시간 구간에서 대화 구간으로
+
+- Revision: 이 항목을 포함한 커밋. Owner 추가 전제(09-15 아침)에 따라 같은 날 앞 항목의 판정 원장을
+  다시 세웠다. 편입되고 읽히는 단위는 "몇 초부터 몇 초까지"가 아니라 **대화 구간**이다. 녹음 하나에
+  과제 업무·팀 운영·아이디어·일상이 차례로 들어 있고, 구간은 그 대화가 어디서 끝나는지를 말한다.
+- 원장의 구간은 네 가지를 각각 따로 들고 서로를 대신하지 않는다. `nature`(대화 성격: 과제 업무·팀 운영·
+  아이디어·일상·판독 불가·미판정), `project_candidates[{과제코드, 근거 ref, basis}]`, `quality`
+  (전사 판본 + 교정 상태), `status`(확정·후보·미분류). 잘 안 들린 업무 대화는 품질이 나쁜 것이지
+  잡담이 아니다. 근거(`basis`) 없는 과제 코드는 후보로도 받지 않는다.
+- `title`·`description`은 사람이 다시 찾기 위한 **파생 요약**이며 발언도 승인 회의록도 아니다.
+  `derived_summary: true`가 항상 붙고, 그 표시가 문서 사실로 그래프까지 따라간다. 확정 순간에는
+  제목·성격·전사 품질 셋을 모두 요구한다.
+- 구간 초안은 새 분할기를 만들지 않고 이미 있는 `analysis/semantic_labels/<run>/semantic_label_run.json`의
+  의미 단위와 검토 창을 읽어 만든다(읽기 전용 `harness/voice_segment_drafts.mjs`, CLI `draft`).
+  전사 판본은 라벨 run이 실제로 읽은 것을 그대로 물려받고, 개체는 종류와 개수만 힌트로 나오며 값은
+  나오지 않는다. 라벨 run이 과제 후보를 낼 수 없다고 말하면 그대로 0건이다.
+- grant 항목은 이제 대화 구간 하나다(`<세션>:<구간>`). 한 녹음에서 같은 과제의 대화가 여럿이면
+  각각 문서가 되고, 구간 id·파생 제목·성격·이어지는 구간이 문서 사실로 함께 간다. 되돌아오는 주제는
+  합치지 않고 별도 구간으로 두고 `related_segment_ids`로 잇는다.
+- 구간 경계는 온전한 초다. 구간은 grant의 신원(정규 바이트)에 들어가는데 정규 직렬화는 안전한 정수만
+  받는다. 실제 라벨 경계는 57.82초처럼 소수라 초안을 만들 때 한 번 반올림하며, 맞닿은 두 구간은 같은
+  값으로 반올림되어 사이가 벌어지지 않는다. 대신 경계의 한 발언이 양쪽 대화에 함께 걸릴 수 있다.
+- 운영 영향: 앞 항목과 같다. 이번 변경만으로는 아무것도 편입되지 않으며 바인딩·admission·첫 확정은
+  Owner 승인 항목이고 운영 lane은 재빌드 전까지 옛 코드다. 원본·전사·라벨·색인은 읽기만 하고
+  초기 분류로 무엇도 지우지 않는다.
+- 관련 경로: `guild_hall/context_engine/harness/{voice_routes.mjs,voice_segment_drafts.mjs,voice_route_cli.mjs}`,
+  `guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs`,
+  `guild_hall/context_engine/src/runtime/source_documents.mjs`,
+  `guild_hall/context_engine/tests/voice_grant.test.mjs`.
+
 ## 2026-09-15 - 확정된 음성 구간만 통합 RAG에 들어가는 길
 
 - Revision: 이 항목을 포함한 커밋. 음성 세션은 지금까지 통합 그래프에 한 건도 들어가지 않았다.

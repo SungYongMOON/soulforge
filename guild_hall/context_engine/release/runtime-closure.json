@@ -97,7 +97,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
-      "sha256": "a1c40ef5e27982f53cc37fde366851752bf585de1ece7ed34ea3334137f8d8fd"
+      "sha256": "f1368b7ce5f1d0eb7fd5a8550bccb615902c009802a92239afadec4fabbd260e"
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
@@ -173,7 +173,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_documents.mjs",
-      "sha256": "cdcfa62222bfbcc1a3615f6a27e963106335d0cd34f241194108712033b047e7"
+      "sha256": "0f2f5d85941a57933f7728074859e47b42171747ed81a03850b1c96afed1548f"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "5908373304d2c2f45fa2264aeabb0dff5169532372afda43ce46bdc7b346119a",
+  "closure_sha256": "4aa24bdf61afe0eaedf45cb71287d47ae4b70dab92d9fe8399fb2fd6b23ef11c",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
