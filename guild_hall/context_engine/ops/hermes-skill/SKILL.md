@@ -59,10 +59,12 @@ Buzz DM에서 이런 문구를 받았을 때 쓴다.
 ## How to Run
 
 `terminal` 도구로 아래 한 줄을 실행한다. `<lane>`과 `<root table>`은 설치된 사본에서 실제
-경로로 치환되어 있다.
+경로로 치환되어 있다. **명령은 이 문서의 줄을 그대로 복사한다(경로 형식을 바꾸지 않는다).**
+경로가 작은따옴표 안에 슬래시로 적혀 있는 것은 이 셸이 Git Bash라서다 — 백슬래시로
+바꾸면 셸이 그것을 먹어 `Cannot find module`로 실패한다.
 
 ```
-node <lane>\guild_hall\context_engine\harness\estate_graph_query.mjs --root-table <root table> --project <과제코드> --question "<질문 그대로>" --mode hybrid --top-k 8
+node '<lane>/guild_hall/context_engine/harness/estate_graph_query.mjs' --root-table '<root table>' --project <과제코드> --question "<질문 그대로>" --mode hybrid --top-k 8
 ```
 
 `--mode`는 이 다섯 중에서만 고른다.
@@ -71,7 +73,16 @@ node <lane>\guild_hall\context_engine\harness\estate_graph_query.mjs --root-tabl
 - `vector` — 뜻만. 질문에 고유명사가 없을 때.
 - `lexical` — 말만(BM25). 날짜·코드·파일명처럼 글자 그대로 찾을 때.
 - `graph` — 찾은 자료가 가리키는 다른 자료까지 한 칸 따라간다.
-- `exact` — 항목 id 하나를 그대로 펼친다(`--item <id>` 필요).
+- `exact` — 항목 id 하나를 그대로 펼친다(`--item <id>`와 `--question` 둘 다 필요 — 아래 표).
+
+모드마다 반드시 있어야 하는 인자는 다르다. 빠지면 그 자리에서 멈춘다.
+
+| 모드 | 반드시 있어야 하는 인자 |
+| --- | --- |
+| `hybrid` · `vector` · `lexical` · `graph` | 비어 있지 않은 `--question "<질문>"` |
+| `exact` | `--item <항목 id>` **와** 비어 있지 않은 `--question` **둘 다**. `--question`에는 그 항목 id를 그대로 넣어도 된다 |
+
+`--question`이 없거나 비어 있으면 모드와 상관없이 `estate_query_question_invalid`로 멈춘다.
 
 `--quote 200`으로 각 행의 인용 길이를 늘릴 수 있고, `--json`을 붙이면 기계 판독용 JSON이
 나온다. 그 밖의 인자는 쓰지 않는다.
@@ -111,6 +122,7 @@ CLI는 실패를 한 줄 코드로만 낸다(`[estate-graph-query] <code>`). 스
 
 | 코드 | 뜻 | 회신 |
 | --- | --- | --- |
+| `estate_query_question_invalid` | `--question`이 없거나 비어 있다(`exact`도 필요하다) | 빠진 `--question`을 채워 한 번만 다시 실행한다 |
 | `estate_query_project_invalid` | 과제 코드 모양이 아니다 | 코드를 다시 묻는다 |
 | `estate_query_binding_unavailable` | 그 과제는 아직 통합 DB 연결이 없다 | "아직 검색 범위에 없습니다" |
 | `generation_not_materialized` (결과 status) | 세대가 DB에 적재되지 않았다 | 그대로 알리고 Owner 확인 요청 |
