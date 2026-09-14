@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2026-09-15 - 맥락 검색에서 원문·첨부까지 읽는 CLI와 조사 호출 예산
+
+- Revision: 이 항목을 포함한 커밋. 검색 CLI가 행마다 한 줄만 인용하던 자리에
+  `guild_hall/context_engine/harness/estate_original_read.mjs`를 더했다. 선택 세대 manifest에
+  있는 항목 하나를 원본 reader로 다시 읽어 단위 전문과 첨부 목록을 돌려준다.
+- 호출자가 고르는 것은 과제 코드·항목·단위·첨부·글자 상한뿐이다. 경로·Cypher·DB 주소는 받지 않고,
+  manifest에 없는 항목은 `not_in_scope`, 재읽기 doc_key가 manifest와 다르면 둘 다 보이는
+  `revision_mismatch`로 계속 읽는다. 첨부 바이트는 원문 포인터를 따라가 sha256을 대조한 뒤에만 연다.
+- 조사 호출 예산 모듈을 검색·읽기 두 CLI에 함께 붙였다. 세션 하나당 6회이며 시작 전에 원장 행을
+  먼저 쓰므로 실패와 재시도도 센다. 원장을 쓸 수 없으면 실행하지 않는다.
+- 첨부 텍스트·페이지 그림 워커는 시스템 Python과 LibreOffice headless를 도구 설정에 선언된 경로로만
+  부른다(PATH 탐색 없음). 원본은 읽기만 하며 변환은 임시 사본과 임시 LibreOffice 프로필에서 한다.
+  파생물 캐시 위치는 프로젝트 store 쓰기 권한이 없어 보류 상태로 설정 파일이 정한다.
+- 운영 영향: 새 읽기 lane `install/source-lanes/context-read-v1`만 추가한다. 예약작업·수집기·
+  graph-sync lane·모델 배치는 바꾸지 않는다. 검색 CLI는 원장 위치를 위해 `--tools-config`를 요구한다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/{original_read,attachment_access,attachment_derivation,investigation_budget}.mjs`,
+  `src/workers/attachment_{text,render}_worker.py`, `ops/context-read/tools.v0.example.json`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`, `package.json`(`validate:context-original-read`).
+
 ## 2026-09-15 - 운영 현황에서 근거까지 이어지는 UX 미리보기
 
 - Revision: 이 항목을 포함한 커밋. Vigil에 운영 현황·통합 진단·데이터 폴더·사용 이력의

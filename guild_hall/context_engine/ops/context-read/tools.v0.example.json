@@ -1,0 +1,39 @@
+{
+  "schema": "soulforge.context_read_tools.v0",
+  "note": "PUBLIC-SAFE EXAMPLE. The real file lives at <control_root>/context-read/tools.v0.json and is Owner-placed; every value below is a placeholder. The read CLI pins this file by digest and prints the first 12 hex of it in its output head, so a changed tool set is visible in the answer rather than only in a log.",
+  "interpreter_path": "<tool_root>/python/python.exe",
+  "soffice_path": "<tool_root>/LibreOffice/program/soffice.exe",
+  "python_packages": {
+    "python-pptx": "<version>",
+    "pypdf": "<version>",
+    "PyMuPDF": "<version>",
+    "openpyxl": "<version>"
+  },
+  "max_attachment_bytes": 33554432,
+  "formats": {
+    "pptx": true,
+    "pdf": true,
+    "xlsx": true,
+    "txt": true,
+    "md": true,
+    "csv": true
+  },
+  "mail_attachments_layout": {
+    "rule": "declared_roots",
+    "note": "The mail collector records an absolute local_path per attachment and no repository module declares where those paths live, so the roots are declared here. A stored path outside every declared root is access_denied — the read never widens a root to reach a file.",
+    "roots": {
+      "<mail source root_ref>": "<data_root>/ingress/mailbox/<box>/<lane>/attachments/<provider>"
+    }
+  },
+  "receipts_root": "<recovery_root>/context-read/receipts",
+  "derived_root": "<recovery_root>/context-read/derived",
+  "derived_root_alias": "derived_root",
+  "derived_root_status": "hold_project_store_write_refused",
+  "derived_root_hold_reason": "The path registry places derived extracts under the project store 20_문서검색/본문·표_추출. That area accepts writes only through the graph index store, which refuses any path outside generations/<id>/ and admits only the binding write_authority actor for prepare/index. A read CLI running as the reader actor with purpose context_query has no admitted write surface there, so the cache stays outside the store until an Owner decision gives that area a second writer.",
+  "render": {
+    "max_pages": 8,
+    "dpi": 120
+  },
+  "worker_timeout_ms": 120000,
+  "render_timeout_ms": 300000
+}

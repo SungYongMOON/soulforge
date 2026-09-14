@@ -1,0 +1,49 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "context-read-v1",
+  "description": "The lane the context bot's skill calls to read: guild_hall/context_engine/harness/estate_graph_query.mjs finds an item and guild_hall/context_engine/harness/estate_original_read.mjs reads that item back to its original, including the attachment list and one attachment's text or page images. No scheduled task runs this lane — it is called per question, which is why it is separate from graph-sync-v1 (the 30-minute writer) rather than folded into it: a read lane can be rebuilt without touching the lane that is holding a lease. tracked_paths are the context engine plus exactly the dependency files its own runtime closure records, the same set graph-sync-v1 carries, so the two lanes stay byte-comparable where they overlap. There are no carried_forward_prefixes: every module imports node: builtins only.",
+  "tracked_paths": [
+    "guild_hall/context_engine/",
+    "guild_hall/engineering_engine/core/validators/canonical.mjs",
+    "guild_hall/engineering_engine/core/validators/contract_config.mjs",
+    "guild_hall/engineering_engine/core/validators/errors.mjs",
+    "guild_hall/engineering_engine/core/validators/identity.mjs",
+    "guild_hall/engineering_engine/core/validators/project_context_acceptance_gate.mjs",
+    "guild_hall/engineering_engine/core/validators/project_context_generation_candidate.mjs",
+    "guild_hall/engineering_engine/kernel/canonical.mjs",
+    "guild_hall/engineering_engine/kernel/identity.mjs",
+    "guild_hall/engineering_engine/kernel/project_context_acceptance_gate.mjs",
+    "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs",
+    "guild_hall/engineering_engine/module.manifest.json",
+    "guild_hall/gateway/mail_body_excerpt.mjs",
+    "guild_hall/gateway/module.manifest.json",
+    "guild_hall/knowledge_access/ledger.mjs",
+    "guild_hall/knowledge_access/module.manifest.json",
+    "guild_hall/path_registry/module.manifest.json",
+    "guild_hall/path_registry/src/path_registry_core.mjs",
+    "guild_hall/path_registry/src/root_table.mjs",
+    "guild_hall/path_registry/src/target_materializer.mjs",
+    "guild_hall/rag/knowledge_access_capture.mjs",
+    "guild_hall/rag/module.manifest.json",
+    "guild_hall/rag/project_document_extract.py",
+    "guild_hall/rag/project_document_ingest.mjs",
+    "guild_hall/rag/source_sync_ready_manifest.mjs",
+    "guild_hall/rag/source_text_index.mjs",
+    "guild_hall/shared/io.mjs",
+    "guild_hall/shared/knowledge_root_resolver.mjs",
+    "guild_hall/shared/module.manifest.json",
+    "guild_hall/shared/physical_path_identity.mjs",
+    "guild_hall/shared/project_history_envelope.mjs"
+  ],
+  "tracked_excludes": [
+    "guild_hall/context_engine/tests/"
+  ],
+  "carried_forward_prefixes": [],
+  "entry_points": [
+    "guild_hall/context_engine/harness/estate_original_read.mjs",
+    "guild_hall/context_engine/harness/estate_graph_query.mjs",
+    "guild_hall/context_engine/src/workers/attachment_text_worker.py",
+    "guild_hall/context_engine/src/workers/attachment_render_worker.py",
+    "guild_hall/context_engine/ops/context-read/tools.v0.example.json"
+  ]
+}

@@ -18,9 +18,16 @@
 // tell what a hit is without the harness becoming a way to read a store out.
 //
 // usage:
-//   node estate_graph_query.mjs --root-table <file> --project <code> --question "..."
+//   node estate_graph_query.mjs --root-table <file> --tools-config <file> --project <code> --question "..."
 //        [--mode lexical|exact|vector|hybrid|graph|all] [--top-k 8] [--item <id>]
 //        [--binding graph_index_binding.unified.json] [--generation <id>] [--json] [--quote 160]
+//        [--dev-run <label>]
+//
+// `--tools-config` is where the call ledger lives. Search and original-read share
+// one budget per investigation, because they are two halves of one question: six
+// calls between them, charged before each call runs so a failure or a retry costs
+// what it cost. A call that cannot write the ledger does not run -- without the
+// ledger there is no budget.
 //
 // `--generation` opens a named generation instead of the one the project's pointer
 // selects. It is how a project whose pointer still selects an older generation (one
@@ -33,6 +40,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
+import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
+import { chargeInvestigation, BUDGET_EXHAUSTED_CODE } from '../src/runtime/investigation_budget.mjs';
 import { openGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { createGraphIndexRetriever } from '../src/runtime/graph_index_retrieval.mjs';
 
@@ -145,18 +154,41 @@ async function main() {
   const flags = options(process.argv.slice(2));
   const tablePath = String(flags.get('root-table') ?? process.env.SOULFORGE_CONTEXT_ROOT_TABLE ?? '');
   if (!tablePath) fail('estate_query_root_table_required');
+  const toolsPath = String(flags.get('tools-config') ?? process.env.SOULFORGE_CONTEXT_TOOLS_CONFIG ?? '');
+  if (!toolsPath) fail('estate_query_tools_config_required');
+  const toolsBytes = readFileSync(toolsPath);
+  const tools = readToolsConfig(toolsBytes);
   const expected = flags.get('root-table-sha256');
   const io = createAliasedStoreIo(readRootTable({ tablePath,
     expectedSha256: typeof expected === 'string' ? expected : sha256(readFileSync(tablePath)) }));
   const mode = String(flags.get('mode') ?? 'hybrid');
-  const answer = await askEstateGraph({ io, project: String(flags.get('project') ?? ''),
-    question: String(flags.get('question') ?? ''),
-    modes: mode === 'all' ? [...QUERY_MODES] : mode.split(',').map(value => value.trim()),
-    topK: Number.parseInt(String(flags.get('top-k') ?? '8'), 10),
-    itemId: flags.get('item') === undefined ? null : String(flags.get('item')),
-    quote: Number.parseInt(String(flags.get('quote') ?? '160'), 10),
-    generationId: flags.get('generation') === undefined ? null : String(flags.get('generation')),
-    bindingFile: String(flags.get('binding') ?? 'graph_index_binding.unified.json') });
+  const project = String(flags.get('project') ?? '');
+  let budget;
+  try {
+    budget = chargeInvestigation({ receiptsRoot: tools.receipts_root, cli: 'query',
+      args: { project, mode, item: flags.get('item') === undefined ? null : String(flags.get('item')),
+        tools_config_sha256: sha256(toolsBytes).slice(0, 19), root_table_sha256: io.table_sha256.slice(0, 19) },
+      devRun: flags.get('dev-run') === undefined || flags.get('dev-run') === true ? null : String(flags.get('dev-run')) });
+  } catch (error) {
+    if (error?.code === BUDGET_EXHAUSTED_CODE) {
+      process.stdout.write(`${['status investigation_budget_exhausted',
+        `이 조사에서 이미 ${error.calls}번 호출했습니다. 확보한 근거로 답하고, 남은 일을 말해 주세요.`,
+        ...error.summary].join('\n')}\n`);
+      return 2;
+    }
+    throw error;
+  }
+  let answer;
+  try {
+    answer = await askEstateGraph({ io, project, question: String(flags.get('question') ?? ''),
+      modes: mode === 'all' ? [...QUERY_MODES] : mode.split(',').map(value => value.trim()),
+      topK: Number.parseInt(String(flags.get('top-k') ?? '8'), 10),
+      itemId: flags.get('item') === undefined ? null : String(flags.get('item')),
+      quote: Number.parseInt(String(flags.get('quote') ?? '160'), 10),
+      generationId: flags.get('generation') === undefined ? null : String(flags.get('generation')),
+      bindingFile: String(flags.get('binding') ?? 'graph_index_binding.unified.json') });
+  } catch (error) { budget.finish(String(error?.code ?? 'estate_query_failed')); throw error; }
+  budget.finish(answer.results.map(result => `${result.mode}:${result.status}`).join(','));
   process.stdout.write(flags.get('json') === true ? `${JSON.stringify(answer)}\n` : `${render(answer)}\n`);
   return 0;
 }
