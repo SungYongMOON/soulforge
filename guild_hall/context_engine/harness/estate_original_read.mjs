@@ -14,12 +14,21 @@
 // its six calls is refused with a summary of what it already asked, which is
 // what a bot needs to answer with the evidence it has instead of asking again.
 //
+// The same command also reads a voice session that belongs to no project yet
+// (`--voice-session`). That read has no binding and no generation behind it --
+// the recording is in the inbox precisely because nobody has classified it -- so
+// it is gated by the Owner's inbox declaration instead, and it answers in
+// windows of the recording rather than in units of a document.
+//
 // usage:
 //   node estate_original_read.mjs --root-table <file> --tools-config <file>
 //        --project <code> --item <item id>
 //        [--unit <unit id>] [--max-chars 6000] [--attachments]
 //        [--attachment <index|file_id|sha256 앞 12자>] [--slide <n>|--page <n>] [--render]
 //        [--json] [--dev-run <label>] [--generation <id>] [--binding <file>]
+//   node estate_original_read.mjs --root-table <file> --tools-config <file>
+//        --voice-session <session id> [--from <sec>] [--to <sec>]
+//        [--transcript local|provider] [--max-chars 12000] [--json] [--dev-run <label>]
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +38,7 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { chargeInvestigation, BUDGET_EXHAUSTED_CODE } from '../src/runtime/investigation_budget.mjs';
 import { readOriginal, DEFAULT_MAX_CHARACTERS } from '../src/runtime/original_read.mjs';
+import { readVoiceSession } from '../src/runtime/voice_session_read.mjs';
 
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 /** Said on every rendered image: the model that reads this output cannot see one. */
@@ -146,6 +156,122 @@ export function render(answer, { budget, toolsSha256, slide = null }) {
   return lines.join('\n');
 }
 
+const seconds = value => `${Number(value).toFixed(1)}s`;
+const spoken = value => {
+  const total = Math.max(0, Math.round(Number(value) || 0));
+  return `${Math.floor(total / 60)}분 ${String(total % 60).padStart(2, '0')}초`;
+};
+
+/**
+ * One window of a voice session. The head says which transcript answered and
+ * what that chain allows a reader to claim; the rows are intervals, and the
+ * clock beside each one is the recording's own declared offset applied to the
+ * offset from its start -- not a time anybody wrote down.
+ */
+export function renderVoice(answer, { budget, toolsSha256 }) {
+  const lines = [`voice session ${answer.session_id} tools ${toolsSha256.replace('sha256:', '').slice(0, 12)} `
+    + `budget ${budget.call}/${budget.call + budget.remaining} (${budget.bucket})`, `status ${answer.status}`];
+  if (!answer.access.granted) {
+    lines.push('', `음성 인박스를 읽을 선언이 없습니다 — ${answer.detail}.`,
+      `선언 자리는 \`${answer.access.address}\`이고 Owner가 둡니다. 선언 없이는 어떤 구간도 읽지 않습니다.`);
+    return lines.join('\n');
+  }
+  if (answer.session === null) {
+    lines.push('', `${answer.detail}`,
+      answer.status === 'session_not_found'
+        ? '세션 id를 다시 확인하세요. 이 도구는 폴더를 뒤져 비슷한 id를 고르지 않습니다.'
+        : '이 상태에서는 구간을 읽지 않습니다.');
+    return lines.join('\n');
+  }
+  const session = answer.session, transcript = answer.transcript, window = answer.window;
+  lines.push(`\nsession ${session.date} · ${line(session.title)}`,
+    `  recorded ${session.recorded_clock} · duration ${seconds(session.duration_seconds)} (${spoken(session.duration_seconds)})`,
+    `  meeting_type ${session.meeting_type ?? '-'} · canonicalization ${session.canonicalization_state ?? '-'}`,
+    `  transcript ${transcript.kind}${transcript.run_id ? ` run ${transcript.run_id}` : ''} `
+      + `state ${transcript.state ?? '-'} segments ${transcript.segments_in_file}`
+      + `${transcript.declared_segment_count !== null ? ` (선언 ${transcript.declared_segment_count})` : ''} `
+      + `sha256 ${transcript.sha256_short}`,
+    `    evidence_role ${transcript.evidence_role ?? '-'} · claim_ceiling ${transcript.claim_ceiling ?? '(선언 없음)'}`
+      + ` · quality ${transcript.quality ?? '-'}`);
+  if (transcript.kind === 'provider') {
+    lines.push('    공급자 전사는 정본이 아니며 claim_ceiling을 선언하지 않습니다 — 들은 말의 기록이 아니라 기계 전사입니다.');
+    if (transcript.fallback_reason) lines.push(`    (로컬 ASR을 쓰지 못해 공급자 전사로 답했습니다: ${transcript.fallback_reason})`);
+  }
+  if (transcript.sha256_matches === false) {
+    lines.push(`    (판본 불일치 — run이 선언한 ${transcript.declared_sha256?.replace('sha256:', '').slice(0, 12)}와 `
+      + `읽은 ${transcript.sha256_short}가 다릅니다. 읽은 쪽을 그대로 보여 줍니다.)`);
+  }
+  lines.push(`  speaker 라벨은 정렬 힌트입니다 — 신원이 아니고 담당자도 아닙니다.`,
+    `  window ${seconds(window.from)}–${seconds(window.to)} / 요청 ${seconds(window.from)}–${seconds(window.requested_to)}`
+      + `${window.clamped ? ` (한 번에 ${window.max_seconds_per_call}초까지)` : ''}`
+      + ` · 구간 ${answer.counts.in_window}개 중 ${answer.counts.shown}개 · `
+      + `${answer.counts.characters_shown}자 / ${answer.counts.characters_total}자`);
+  if (answer.status === 'window_without_speech') {
+    lines.push('\n이 구간에는 전사된 말이 없습니다. 다른 구간을 읽으세요.');
+    return lines.join('\n');
+  }
+  for (const row of answer.segments) {
+    lines.push(`\n[seg ${row.segment_id}] ${seconds(row.start_seconds)}–${seconds(row.end_seconds)} `
+      + `${row.clock} ${session.clock_label} · ${row.speaker} · ${row.characters}자`);
+    if (row.shown > 0) lines.push(row.text);
+    if (row.truncated) lines.push(`[잘림: ${row.characters}자 중 ${row.shown}자]`);
+  }
+  if (answer.next_window) {
+    lines.push(`\n[이어 읽기] --from ${answer.next_window.from} --to ${answer.next_window.to}`
+      + ` (${answer.next_window.reason === 'character_bound' ? '글자 상한' : '창 상한'}에 걸려 여기서 끊었습니다)`);
+  } else {
+    lines.push('\n[끝] 요청한 구간을 모두 보여 줬습니다.');
+  }
+  return lines.join('\n');
+}
+
+async function voiceMain({ flags, io, tools, toolsSha256 }) {
+  const sessionId = String(flags.get('voice-session') ?? '');
+  // One read is one thing. A call that names both a project item and a session
+  // would charge one budget row for two different scopes.
+  if (flags.get('project') !== undefined || flags.get('item') !== undefined) {
+    process.stderr.write('[estate-original-read] voice_session_conflicting_arguments\n');
+    return 2;
+  }
+  const number = name => {
+    const raw = flags.get(name);
+    if (raw === undefined || raw === true) return null;
+    const value = Number.parseFloat(String(raw));
+    return Number.isFinite(value) ? value : Number.NaN;
+  };
+  const from = number('from'), to = number('to');
+  const kind = flags.get('transcript') === undefined || flags.get('transcript') === true
+    ? null : String(flags.get('transcript'));
+  const args = { voice_session: sessionId, from, to, transcript: kind,
+    tools_config_sha256: toolsSha256.slice(0, 19), root_table_sha256: io.table_sha256.slice(0, 19) };
+  let budget;
+  try {
+    budget = chargeInvestigation({ receiptsRoot: tools.receipts_root, cli: 'read', args,
+      devRun: flags.get('dev-run') === undefined || flags.get('dev-run') === true ? null : String(flags.get('dev-run')) });
+  } catch (error) {
+    if (error?.code === BUDGET_EXHAUSTED_CODE) {
+      process.stdout.write(`${['status investigation_budget_exhausted',
+        `이 조사에서 이미 ${error.calls}번 호출했습니다. 확보한 근거로 답하고, 남은 일을 말해 주세요.`,
+        ...error.summary].join('\n')}\n`);
+      return 2;
+    }
+    throw error;
+  }
+  try {
+    const answer = await readVoiceSession({ io, sessionId, from, to, transcriptKind: kind,
+      maxChars: flags.get('max-chars') === undefined ? null : Number.parseInt(String(flags.get('max-chars')), 10) });
+    budget.finish(answer.status, answer.internal);
+    process.stdout.write(flags.get('json') === true
+      ? `${JSON.stringify({ ...answer, tools_config: { sha256: toolsSha256 },
+        budget: { bucket: budget.bucket, call: budget.call, remaining: budget.remaining } })}\n`
+      : `${renderVoice(answer, { budget, toolsSha256 })}\n`);
+    return 0;
+  } catch (error) {
+    budget.finish(String(error?.code ?? 'voice_session_read_failed'));
+    throw error;
+  }
+}
+
 async function main() {
   const flags = options(process.argv.slice(2));
   const tablePath = String(flags.get('root-table') ?? process.env.SOULFORGE_CONTEXT_ROOT_TABLE ?? '');
@@ -158,6 +284,13 @@ async function main() {
   const expected = flags.get('root-table-sha256');
   const io = createAliasedStoreIo(readRootTable({ tablePath,
     expectedSha256: typeof expected === 'string' ? expected : sha256(readFileSync(tablePath)) }));
+  if (flags.get('voice-session') !== undefined) {
+    if (flags.get('voice-session') === true) {
+      process.stderr.write('[estate-original-read] voice_session_id_invalid\n');
+      return 2;
+    }
+    return voiceMain({ flags, io, tools, toolsSha256 });
+  }
   const project = String(flags.get('project') ?? '');
   const itemId = String(flags.get('item') ?? '');
   const slide = flags.get('slide') ?? flags.get('page');

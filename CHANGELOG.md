@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-09-15 - 아직 과제가 정해지지 않은 음성 녹음을 구간 단위로 읽는 통로
+
+- Revision: 이 항목을 포함한 커밋. 읽기 CLI
+  `guild_hall/context_engine/harness/estate_original_read.mjs`에 `--voice-session <세션 id>
+  [--from <초> --to <초>] [--transcript local|provider]`를 더했다. 과제 코드로 들어가지 않는
+  유일한 읽기다 — 인박스 녹음은 아직 어느 과제 것도 아니고, 과제를 먼저 물으면 답을 먼저 묻는 것이 된다.
+- 대신 `control_root/voice-routes/inbox_access.v0.json`(Owner가 두는 선언)이 문을 연다. 선언이
+  없거나 다른 actor·목적을 가리키면 `access_denied`이고 한 구간도 읽지 않는다. 선언은 한 호출이
+  덮을 수 있는 초와 글자 수도 정하며, 호출자는 그 상한을 낮출 수만 있고 올리지 못한다.
+- 답은 세션 머리와 구간 목록이다. 머리는 **어느 전사가 답했는지**와 그 전사의 `evidence_role`·
+  `claim_ceiling`을 함께 낸다(기본은 독립 로컬 ASR run, 없으면 공급자 전사이며 왜 내려왔는지도
+  적는다). 구간 줄의 시계 시각은 녹음 시작의 선언된 offset에 구간 offset을 더한 값이고, speaker는
+  정렬 힌트다. 오디오와 격리된 공급자 요약은 어떤 경로로도 나오지 않는다.
+- 상한에 걸리면 이어 읽을 창을 답이 직접 알려 준다. 호출은 기존 조사 예산 모듈에 `read`로 함께
+  셈해져, 음성 구간 읽기도 한 조사의 6회 안에서 일어난다.
+- 스킬 문서와 맥락이 SOUL에 "음성 구간 검토" 절차를 넣었다. 창을 먼저 읽고 단서로 후보 과제를
+  한 번에 하나씩 좁히며, 판정은 `candidate` 또는 `unclassified`뿐이다 — **봇은 `confirmed`를
+  쓰지 않고**, 판정으로 열람 범위가 넓어지지 않는다. 발언 시각·발언자 ≠ 담당자·인명과 수치의
+  전사 오인 가능성을 판정마다 함께 적는다.
+- 운영 영향: 음성 원본·전사·라이브러리 색인·수집기·예약작업·lane·그래프 DB는 바꾸지 않는다.
+  설치된 스킬의 7형은 읽기 lane `install/source-lanes/context-read-v1`이 이 커밋으로 다시
+  빌드된 뒤에 동작한다(그 전에는 `original_read_item_invalid`로 멈추며, 문서가 그 경우의 답을 정한다).
+- 관련 경로: `guild_hall/context_engine/src/runtime/voice_session_read.mjs`,
+  `harness/estate_original_read.mjs`, `ops/voice-routes/inbox_access.v0.example.json`,
+  `ops/hermes-skill/SKILL.md`, `tests/voice_session_read.test.mjs`,
+  `package.json`(`validate:context-original-read`).
+
 ## 2026-09-15 - 맥락 검색 스킬이 찾기에서 원문·첨부 읽기까지 이어지는 절차로
 
 - Revision: 이 항목을 포함한 커밋. 공유 스킬 문서

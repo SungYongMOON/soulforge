@@ -1,13 +1,13 @@
 ---
 name: soulforge-context-search
-description: Search one Soulforge project's own records (Linear, Slack, mail), then read a found item back to its original - every unit in full, its attachment list, and the text inside one attachment - and answer with source, item, unit, page and locator.
-version: 2.0.0
+description: Search one Soulforge project's own records (Linear, Slack, mail), then read a found item back to its original - every unit in full, its attachment list, and the text inside one attachment - and answer with source, item, unit, page and locator. Also reads one window of an unclassified voice recording (transcript only) so a mixed session can be judged interval by interval.
+version: 2.1.0
 author: Soulforge context engine (Claude Opus 5), 2026-09-15 KST
 license: Soulforge internal
 platforms: [windows]
 metadata:
   hermes:
-    tags: [soulforge, context, search, graph, original, attachment, evidence, buzz]
+    tags: [soulforge, context, search, graph, original, attachment, evidence, voice, buzz]
     category: soulforge
     requires_toolsets: [terminal]
 prerequisites:
@@ -21,6 +21,9 @@ prerequisites:
 
 **찾기 → 필요한 항목의 본문 전문 읽기 → 첨부 목록 확인 → 필요한 첨부의 텍스트 읽기 →
 (그림이 필요하면 렌더는 만들 수 있으나 이 봇은 이미지를 읽지 못한다).**
+
+아직 어느 과제 것도 아닌 **음성 녹음**은 다른 길이다. 과제 코드로 들어가지 않고 세션 id로
+**구간(창) 하나씩** 전사를 읽어, 창마다 어느 과제 얘기인지를 **후보로만** 적는다(§음성 구간 검토).
 
 요약이나 판단은 이 스킬이 하지 않는다 — 찾은 자료가 무엇이고 어디에 있는지만 옮긴다.
 
@@ -46,6 +49,7 @@ Buzz DM에서 이런 문구를 받았을 때 쓴다.
 - "`<과제코드>`에서 `<주제>` 자료 찾아줘"
 - "`<주제>` 관련 기록 뭐 있어?" (과제가 문맥에서 분명할 때)
 - "그 이슈 원문 좀 보여줘", "첨부에 뭐가 들어 있어?" (과제 + 항목 id가 있을 때 → 읽기 CLI)
+- "이 녹음 무슨 얘기야?", "그 세션 앞 10분만 훑어줘" (**세션 id가 있을 때** → 7) 음성 읽기)
 
 쓰지 않는 경우:
 
@@ -151,6 +155,45 @@ PNG를 만들어 `derived_root/<sha256hex>/slide-<n>.png` 같은 **자리표시 
 그 자리는 **사람이 여는 곳**이고, **이 봇은 이미지를 읽지 못한다.** 렌더를 만들었다는 것은
 본 것이 아니다 — 답에는 locator와 "시각 검증 미실시"를 함께 적는다.
 
+### 7) 미분류 음성 세션의 한 구간 — 읽기 CLI
+
+```
+node '<lane>/guild_hall/context_engine/harness/estate_original_read.mjs' --root-table '<root table>' --tools-config '<tools config>' --voice-session <세션 id> --from <시작초> --to <끝초>
+```
+
+- **과제 코드를 넣지 않는다.** 인박스 녹음은 아직 어느 과제 것도 아니다. `--project`나 `--item`을
+  같이 넣으면 `voice_session_conflicting_arguments`로 거부된다.
+- **세션 id는 요청자가 준다.** 모르면 되묻는다. 폴더·파일을 뒤져 찾지 않는다 — 이 CLI에 목록 기능은 없다.
+- `--from`/`--to`는 **녹음 시작부터의 초**다. 빼면 처음부터 허용된 길이만큼 읽는다.
+- 기본은 이 집이 직접 만든 **로컬 ASR 전사**다. `--transcript provider`를 붙이면 공급자 전사를 읽는다.
+- 답 끝에 `[이어 읽기] --from N --to M`이 나오면 **그 줄을 그대로** 다음 호출에 쓴다. `[끝]`이면 그 창은 다 본 것이다.
+- **오디오와 공급자 요약은 나오지 않는다.** 요약은 격리된 자료라 이 통로로 오지 않는다 — 없는 것을 있는 것처럼 말하지 않는다.
+- 인박스 읽기 **선언이 없으면** `access_denied`다. 우회하지 말고 그대로 알린다.
+
+**이 형은 lane이 갱신된 뒤에만 동작한다.** 설치된 lane이 옛 판본이면 이 명령은
+`[estate-original-read] original_read_item_invalid`로 멈춘다(관측된 동작이다). 그때는 다시
+시도하지 말고 **"음성 구간 읽기는 아직 이 lane에 올라가 있지 않습니다"**라고 그대로 알린다.
+
+출력 머리에 **어느 전사인지**와 그 전사의 `evidence_role`·`claim_ceiling`이 붙는다. 그 값이
+답에 쓸 수 있는 **확인 등급의 상한**이다.
+
+| 머리에 나온 것 | 답에 쓸 수 있는 최대 |
+| --- | --- |
+| `transcript local` + `claim_ceiling observed` | "독립 기계 전사에 이렇게 적혀 있다" (`전사 확인`) |
+| `transcript provider` + `claim_ceiling (선언 없음)` | 위보다 약하다 — 공급자 전사는 정본이 아니다. 근거로 쓸 때 그렇게 적는다 |
+| `revision_mismatch` | run이 선언한 판본과 파일이 다르다 — 읽은 쪽을 밝히고 두 값을 다 적는다 |
+
+어느 경우에도 **"그가 그렇게 말했다"로 옮기지 않는다.** 기계 전사에 그렇게 적혀 있는 것이다.
+
+구간 줄은 이렇게 나온다.
+
+```
+[seg <구간 id>] <시작>s–<끝>s <시계 시각> KST · <speaker 라벨> · <글자수>
+```
+
+시계 시각은 **녹음 시작 시각 + 그 구간의 offset**이다(사람이 적어 둔 시각이 아니다).
+`speaker` 라벨은 **정렬 힌트**다 — 신원도 아니고 담당자도 아니다.
+
 ## 절차 (이 순서를 지킨다)
 
 1. **단서가 있으면 `lexical`, 뜻으로 찾아야 하면 `hybrid`**로 검색한다. 단서(부품명·문서번호·
@@ -163,13 +206,16 @@ PNG를 만들어 `derived_root/<sha256hex>/slide-<n>.png` 같은 **자리표시 
 5. **치수·배치·그림에 관한 질문이면** 6)으로 렌더를 만들어 locator를 주되, "이 봇은 이미지를
    읽지 못하므로 시각 검증 미실시"라고 적는다.
 
-**호출 상한은 6회다**(검색·읽기·첨부·렌더를 모두 합쳐, 실패와 재시도도 센다). 7회째는 CLI가
+**세션 id를 받았으면 이 순서가 아니라 §음성 구간 검토로 간다.** 그 길은 창을 먼저 읽고
+단서로 과제를 좁히는, 방향이 반대인 절차다.
+
+**호출 상한은 6회다**(검색·읽기·첨부·렌더·음성 구간을 모두 합쳐, 실패와 재시도도 센다). 7회째는 CLI가
 `investigation_budget_exhausted`로 거부하고 지금까지 무엇을 물었는지 6줄로 돌려준다. 그러면
 **확보한 근거로 답하고 남은 일을 말한다** — 다시 시도하지 않는다. 읽기 CLI 출력 머리의
 `budget n/6`이 지금까지 쓴 횟수다.
 
 계산해 두면 대개 이렇게 쓴다: 검색 1 → 후보 본문+첨부 목록 1~2 → 필요한 단위 전문 1 →
-첨부 텍스트 1 → 렌더 1.
+첨부 텍스트 1 → 렌더 1. 음성이면: 구간 읽기 1~2 → 단서로 과제 하나씩 검색 1~2 → 본문 1.
 
 ### pptx처럼 도형이 있는 첨부를 읽을 때
 
@@ -182,6 +228,36 @@ PNG를 만들어 `derived_root/<sha256hex>/slide-<n>.png` 같은 **자리표시 
   좌표를 함께 적고 `좌표 확인`**으로 표기한다.
 - 좌표로도 어느 변인지 정할 수 없으면 **`미확인`**이다. 그럴듯한 쪽으로 정하지 않는다.
 - 렌더 이미지는 이 봇이 볼 수 없으므로 어떤 경우에도 **`시각 검증 미실시`**를 함께 적는다.
+
+## 음성 구간 검토 (미분류 녹음)
+
+한 녹음에 여러 과제 얘기가 섞여 있다. 그래서 판정 단위는 녹음이 아니라 **창(구간)** 이다.
+
+1. **창 하나를 읽는다**(7형). 한 번에 한 창이다.
+2. 그 창에서 **구별력 높은 단서**를 뽑는다 — 과제명·부품명·시험명·문서번호·장비명·날짜·인명.
+   흔한 낱말("회의", "일정", "자료")은 단서가 아니다.
+3. 그 단서로 **후보 과제를 한 번에 하나씩** 검색한다(1형, `--project`에 후보 하나). 후보 둘이면
+   두 번 부르되 예산을 보고 정한다. 여러 과제를 한 번에 훑지 않는다.
+4. 검색에 걸린 항목이 판정을 가를 만하면 **본문을 읽는다**(2·3형).
+5. **창마다 판정한다.**
+   - `candidate(<과제코드>)` — 근거 ref가 있을 때만. 근거 = 검색·읽기로 확인한 **항목 id**.
+   - `unclassified` — 단서가 흔하거나, 근거가 안 나오거나, 두 과제 어느 쪽도 될 때. **모호하면 이쪽이다.**
+   - **`confirmed`는 이 봇이 쓰지 않는다.** 확정은 사람이 한다. 판정은 제안일 뿐이다.
+6. 예산 안에서 **못 본 창**은 답 끝에 `다음 회차: --from N --to M`으로 남긴다. 억지로 다 훑지 않는다.
+
+판정마다 반드시 함께 적는다.
+
+- **발언 시각**(KST)과 **구간 id**. 어느 창에서 나온 말인지 없으면 근거가 아니다.
+- **발언자 ≠ 담당자.** speaker 라벨은 정렬 힌트이고, 말한 사람이 그 일의 담당자라는 뜻이 아니다.
+- **인명·수치는 기계 전사라 오인될 수 있다.** 들린 대로 적힌 철자를 **그대로** 옮기고
+  `전사 오인 가능`을 붙인다. 비슷한 이름으로 고쳐 적지 않는다.
+- **판정이 `candidate`라고 해서 그 과제의 자료를 더 열지 않는다.** 열람 범위는 판정으로 넓어지지 않는다.
+
+답에는 §회신 형식의 표를 더한다.
+
+| 구간 | 판정 | 근거 | 미확인 사유 |
+| --- | --- | --- | --- |
+| `seg <id>` <시각> KST | `candidate(<과제코드>)` 또는 `unclassified` | 항목 id·단위 id (없으면 `—`) | 왜 더 못 좁혔는지 |
 
 ## 상태 어휘 (출력의 상태 낱말을 답에 이렇게 옮긴다)
 
@@ -198,6 +274,17 @@ PNG를 만들어 `derived_root/<sha256hex>/slide-<n>.png` 같은 **자리표시 
 | `not_in_scope` | 그 항목 id는 이 세대의 목록에 없다 — 검색으로 id를 다시 확인한다 |
 | `investigation_budget_exhausted` | 호출 6회를 다 썼다 — 확보한 근거로 답하고 남은 일을 말한다 |
 
+음성 읽기(7형)에만 나오는 상태.
+
+| 상태 | 답에 적을 말 |
+| --- | --- |
+| `access_denied` | 음성 인박스를 읽을 선언이 없거나 이 목적을 허용하지 않는다 — 우회하지 않고 그대로 알린다 |
+| `session_not_found` | 그 세션 id가 인박스에 없다 — id를 다시 확인한다(비슷한 것으로 바꾸지 않는다) |
+| `session_ambiguous` | 같은 id의 폴더가 둘이다 — 고르지 않는다, 그대로 알린다 |
+| `transcript_unavailable` | 요청한 전사가 없거나 아직 끝나지 않았다 |
+| `window_without_speech` | 그 구간에는 전사된 말이 없다 — 다른 구간을 읽는다 |
+| `revision_mismatch` | run이 선언한 판본과 읽은 파일이 다르다 — 두 값을 다 적고 읽은 쪽을 밝힌다 |
+
 **지금 이 연결에서 메일 첨부는 목록만 나온다**(이름·종류·크기까지). 바이트가 수집돼 있지
 않아 상태는 `bytes_not_collected`이고 내용은 읽을 수 없다. 내용을 아는 척하지 않는다.
 
@@ -213,6 +300,18 @@ PNG를 만들어 `derived_root/<sha256hex>/slide-<n>.png` 같은 **자리표시 
 3. **첨부 줄**: 목록에 있던 첨부와 그 상태(§상태 어휘의 말로). 못 읽은 것은 왜 못 읽었는지.
 4. **범위 줄**: 찾은 범위(과제·세대·방식) / 찾았으나 없었던 것 / 이 연결로는 확인할 수 없는 것.
 5. **마지막 줄**: `호출 n/6 (실패 m)`.
+
+음성 구간 검토(7형)면 2와 3 자리에 **구간 표**가 들어가고, 1은 과제 코드 대신
+`세션 id · 읽은 창(초) · 어느 전사(local/provider)`를 적는다. 마지막 줄 앞에
+`다음 회차: --from N --to M`(못 본 창이 있을 때)을 둔다.
+
+> 세션 `<세션 id>`의 `<N>–<M>초`를 독립 기계 전사로 읽었습니다.
+> | 구간 | 판정 | 근거 | 미확인 사유 |
+> | `seg <id>` <시각> KST | `candidate(<과제코드>)` | linear `<항목 id>` | — |
+> | `seg <id>` <시각> KST | `unclassified` | — | 단서가 두 과제에 모두 나옵니다 |
+> 발언자 라벨은 정렬 힌트입니다(발언자 ≠ 담당자). 인명·수치는 기계 전사라 전사 오인 가능.
+> 다음 회차: --from <N> --to <M>
+> 호출 5/6 (실패 0)
 
 예시 회신 (값은 전부 자리표시자다):
 
@@ -237,6 +336,10 @@ PNG를 만들어 `derived_root/<sha256hex>/slide-<n>.png` 같은 **자리표시 
 - **6회를 넘겨 부르지 않는다.** 거부가 오면 그 자리에서 답을 정리한다.
 - **원본을 고치거나 옮기지 않는다.** 이 스킬은 읽기만 한다. host 절대경로는 회신에 적지 않는다.
 - **없는 것을 만들어 답하지 않는다.** 근거가 0건이면 0건이라고 답한다.
+- **음성 구간에 `confirmed`를 쓰지 않는다.** 이 봇이 낼 수 있는 것은 `candidate`와 `unclassified`뿐이다.
+- **음성 판정으로 열람을 넓히지 않는다.** 후보 과제를 확인하는 검색은 한 번에 한 과제이고,
+  판정이 `candidate`가 되어도 그 과제의 다른 자료를 더 열어 보지 않는다.
+- **오디오·공급자 요약을 구하지 않는다.** 이 통로로는 오지 않고, 들어 본 것처럼 적지 않는다.
 
 ## 오류
 
@@ -252,6 +355,11 @@ CLI는 실패를 한 줄 코드로만 낸다(`[estate-graph-query] <code>` 또�
 | `estate_query_tools_config_required` · `original_read_tools_config_required` | `--tools-config`가 빠졌다 | 이 문서의 줄을 그대로 다시 복사해 실행한다 |
 | `investigation_budget_exhausted` | 이 조사의 호출 6회를 다 썼다 | 확보한 근거로 답하고 남은 일을 말한다. 다시 부르지 않는다 |
 | `investigation_budget_key_unavailable` | 호출을 어느 조사에 달지 정할 수 없다 | 그대로 알리고 Owner 확인 요청 |
+| `voice_session_conflicting_arguments` | `--voice-session`에 `--project`·`--item`을 같이 넣었다 | 한 호출은 하나다 — 음성만 남기고 다시 실행 |
+| `voice_session_id_invalid` | 세션 id 모양이 아니다 | 세션 id를 다시 묻는다 |
+| `original_read_item_invalid` (7형에서) | 이 lane에 음성 읽기가 아직 없다 | "음성 구간 읽기는 아직 이 lane에 올라가 있지 않습니다" — 다시 부르지 않는다 |
+| `voice_window_invalid` · `voice_max_chars_invalid` | `--from/--to`나 글자 상한 값이 모양이 아니다 | 초 단위 숫자로 다시 실행한다 |
+| `voice_transcript_kind_invalid` | `--transcript`는 `local` 또는 `provider`뿐이다 | 둘 중 하나로 다시 실행한다 |
 | `generation_not_materialized` (결과 status) | 세대가 DB에 적재되지 않았다 | 그대로 알리고 Owner 확인 요청 |
 | `graph_database_not_connected` | 그래프 DB가 꺼져 있다 | 그대로 알리고 Owner 확인 요청 |
 | `embedder_model_not_installed` | 임베딩 모델이 없다 | 그대로 알리고 Owner 확인 요청 |
@@ -269,3 +377,5 @@ store, 그래프 데이터베이스에는 영향이 없다.
 `draft` — CLI 단독 실행(셸에서 직접)과 `hermes tools list --platform buzz` 노출까지
 확인한 뒤에도, Buzz DM에서 실제로 트리거되는 것은 사람이 한 번 보내 봐야 확인된다.
 그 확인 전까지 `production-ready`로 보지 않는다.
+
+7형(음성 구간 읽기)은 **lane 갱신 대기 중**이다. 1~6형은 지금 lane에서 그대로 동작한다.
