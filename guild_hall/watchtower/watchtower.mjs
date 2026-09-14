@@ -2,7 +2,7 @@
 // 이미 생산 중인 하트비트/상태 파일을 period+grace 2단 윈도로 판정해
 // 경로가 노출되지 않는 topology health 스냅샷을 만든다. 원문·secret은 읽지 않는다.
 
-import { readFile, readdir, stat, mkdir, writeFile, rename } from "node:fs/promises";
+import { readFile, readdir, stat, open, mkdir, writeFile, rename } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { spawn } from "node:child_process";
 
@@ -180,10 +180,32 @@ async function probeJsonFile(probe) {
 }
 
 async function probeJsonlTail(probe) {
-  const { text, mtimeMs } = await readBoundedFile(probe.path);
-  const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-  if (lines.length === 0) fail("source_empty", "jsonl has no records");
-  return { record: JSON.parse(lines[lines.length - 1]), mtimeMs };
+  const handle = await open(probe.path, 'r');
+  try {
+    const before = await handle.stat();
+    if (!before.isFile()) fail('source_missing', 'not a regular observation file');
+    const offset = Math.max(0, before.size - MAX_SOURCE_BYTES);
+    const bytes = Buffer.alloc(Math.min(before.size, MAX_SOURCE_BYTES));
+    const { bytesRead } = await handle.read(bytes, 0, bytes.length, offset);
+    const after = await handle.stat();
+    const current = await stat(probe.path);
+    if (bytesRead !== bytes.length || after.size !== before.size || after.mtimeMs !== before.mtimeMs
+      || current.dev !== before.dev || current.ino !== before.ino || current.size !== before.size || current.mtimeMs !== before.mtimeMs) {
+      fail('source_changed_during_read', 'observation changed during bounded read');
+    }
+    let tail = bytes;
+    if (offset > 0) {
+      const newline = tail.indexOf(10);
+      if (newline < 0) fail('source_too_large', 'latest record exceeds read bound');
+      tail = tail.subarray(newline + 1);
+    }
+    const lines = tail.toString('utf8').split('\n').map(line => line.trim()).filter(Boolean);
+    if (!lines.length) fail('source_empty', 'jsonl has no complete records in tail');
+    let record;
+    try { record = JSON.parse(lines.at(-1)); }
+    catch { fail('source_invalid_json', 'latest observation is not valid JSON'); }
+    return { record, mtimeMs: before.mtimeMs };
+  } finally { await handle.close(); }
 }
 
 async function newestMtimeUnder(root, depthLeft, budget) {

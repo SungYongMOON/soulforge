@@ -1,6 +1,7 @@
 import { buildTopologyFederationViewModel } from './topology-federation-view.mjs';
 import { buildUnifiedTopologyViewModel } from './topology-unified-view.mjs';
 import { buildTopologyRecoverySupervision } from './topology-recovery-view.mjs';
+import { assessTopologyObservation, summariseTopologyAssessments } from './topology-view.mjs';
 
 // Presentation registration only. Node identity/edges stay in the existing
 // federation; the context implementation has not yet supplied health receipts.
@@ -59,6 +60,7 @@ export function buildOperationsMap({ federation, health, recovery, graph } = {})
       location: raw?.tracking?.evidence_owner ? `관측 소유자: ${raw.tracking.evidence_owner} · 실행 경로 미제공` : '실행 위치 관측 미연결',
       implementation: `${provider?.declaredStatusLabel ?? '구조 등록'} · ${provider?.validationStateLabel ?? '검증 미확인'}`,
       health: raw?.health?.state ?? 'unknown', healthReasons: raw?.health?.reasons ?? [],
+      assessment: assessTopologyObservation(raw?.health),
       freshness: observed ? health?.refresh_state === 'ready' ? 'fresh' : 'retained' : 'unknown',
       observedAt: observed ? raw.tracking?.last_checked_at ?? health.snapshot.observed_at : null,
       scope: raw?.health_scope === 'node' ? '노드 상태·근거 시각 검사 · 업무 산출물과 종단 전달은 미진단' : raw?.health_scope ?? n.healthEvidenceScope ?? '선언 구조만 · 실행·업무 성공 미진단',
@@ -85,6 +87,7 @@ export function buildOperationsMap({ federation, health, recovery, graph } = {})
   const stages = OPERATION_STAGES.map(stage => ({ ...stage, members: nodes.filter(n => n.stage === stage.id) }));
   return { stages, nodes, edges, sourceAvailable: declared.available, observedAt: health?.snapshot?.observed_at ?? null,
     refreshState: health?.refresh_state ?? 'unavailable', gaps: ['보관 → 맥락 엔진 자료 준비: 전달 연결 미확인 (음성 후처리와 별도)', '맥락이 → 응답 에이전트·Buzz: 전달 연결 미등록'],
+    assessments: summariseTopologyAssessments(nodes.filter(n=>n.id.startsWith('watchtower::'))),
     matchedCount: nodes.filter(n => n.observedAt).length };
 }
 
@@ -116,12 +119,17 @@ export function directConnections(model, nodeId) {
 
 export function architectureScene(model) {
   const columns = { custody: 2, prepare: 3, extract: 4, graph: 5, context: 6, response: 7 };
+  const connectors = {
+    'watchtower::ingress_supervisor': {column:1,row:4},
+    'watchtower::gate_five_field': {column:1,row:6},
+    'watchtower::src_gmail': {column:2,row:6},
+  };
   const family = id => /buzz/u.test(id) ? 0 : /linear/u.test(id) ? 1 : /mail|hiworks/u.test(id) ? 2
     : /slack/u.test(id) ? 3 : /voice|plaud/u.test(id) ? 4 : /activity|onedrive|local/u.test(id) ? 5 : /usage/u.test(id) ? 6 : 7;
-  const sceneNodes = model.nodes.filter(n => n.stage !== 'support').map(n => {
+  const sceneNodes = model.nodes.filter(n => n.stage !== 'support' || connectors[n.id]).map(n => {
     const source = n.id.startsWith('watchtower::src_');
-    const column = n.id === 'watchtower::src_buzz' ? 0 : n.stage === 'collect' ? source ? 0 : 1 : columns[n.stage];
-    const row = n.id.startsWith('watchtower::') ? family(n.id) : /models|compose/u.test(n.id) ? 4 : 2;
+    const column = connectors[n.id]?.column ?? (n.id === 'watchtower::src_buzz' ? 0 : n.stage === 'collect' ? source ? 0 : 1 : columns[n.stage]);
+    const row = connectors[n.id]?.row ?? (n.id.startsWith('watchtower::') ? family(n.id) : /models|compose/u.test(n.id) ? 4 : 2);
     const shape = n.id === 'context_engine::neo4j' || n.role?.startsWith('store') ? 'store'
       : n.stage === 'response' && n.id !== 'watchtower::src_buzz' || n.id === 'context_engine::compose' ? 'agent' : 'process';
     return { ...n, column, row, shape, position: { x: column * 180, y: 55 + row * 76 } };
@@ -129,7 +137,7 @@ export function architectureScene(model) {
   // Keep identities and relation direction. No aggregate stage bridge can turn
   // one voice-processing connection into the context engine's missing input.
   const byId = new Map(sceneNodes.map(n => [n.id,n]));
-  const sceneEdges = model.edges.filter(e => e.relation === 'data' && byId.has(e.from) && byId.has(e.to)).map(e => {
+  const sceneEdges = model.edges.filter(e => (e.relation === 'data' || e.relation === 'control' && e.to === 'watchtower::gate_five_field') && byId.has(e.from) && byId.has(e.to)).map(e => {
     const from=byId.get(e.from), to=byId.get(e.to);
     return { ...e, sourceHandle: from.column === to.column ? from.row < to.row ? 'bottom' : 'top-out' : from.column < to.column ? 'right' : 'left-out',
       targetHandle: from.column === to.column ? from.row < to.row ? 'top' : 'bottom-in' : from.column < to.column ? 'left' : 'right-in' };

@@ -45,13 +45,21 @@ const TOPOLOGY_LANE_WIDTH = 360;
 
 const STATE_LABELS = Object.freeze({
   ok: "정상",
-  degraded: "열화",
-  stale: "신선도 초과",
-  down: "정지",
-  unmonitored: "미감시",
+  degraded: "이상 신호",
+  stale: "근거 오래됨",
+  down: "중단·이상 신호",
+  unmonitored: "미확인",
 });
 
 const REASON_LABELS = Object.freeze({
+  source_too_large: "감시 기록 읽기 한도 초과 · 프로그램 정지 여부 미확인",
+  source_invalid_json: "최근 감시 기록의 형식을 읽을 수 없음",
+  source_changed_during_read: "읽는 중 감시 기록 변경 · 재확인 필요",
+  workmeta_root_unavailable: "장부 검사 경로에 접근할 수 없음",
+  workmeta_store_absent: "장부 경로를 찾지 못함 · 원본 유실 여부와 별도",
+  workmeta_validation_failed: "장부 검사 실행 실패",
+  workmeta_policy_violation: "장부 저장 규칙 위반 확인",
+  watchtower_execution_failed: "감시 검사 결과를 확인하지 못함",
   heartbeat_late: "하트비트 지각",
   heartbeat_stale: "하트비트 신선도 초과",
   task_not_running: "예약작업 미실행",
@@ -67,6 +75,27 @@ const REASON_LABELS = Object.freeze({
   event_validation_receipt_absent: "이벤트 검증 영수증 없음",
   owner_bounded_validation_receipt_absent: "owner 범위 검증 영수증 없음",
 });
+
+export function assessTopologyObservation(health) {
+  const reasons=Array.isArray(health?.reasons)?health.reasons:[];
+  if (reasons.some(reason => /^(source_|workmeta_root_|workmeta_store_absent$|workmeta_validation_failed$|watchtower_execution_failed$|probe_unbound$|task_query_failed$|task_state_unknown$|heartbeat_receipt_unavailable$)/u.test(reason))) {
+    return {key:'observation_error',label:'확인 불가 · 관측/검사 문제',pendingCount:null};
+  }
+  if (health?.state==='ok' && ['held','retrying'].includes(health.activity_state)) {
+    const count=Number.isSafeInteger(health.activity_count)?health.activity_count:null;
+    return {key:'pending',label:`수집 정상 · ${health.activity_state==='held'?'처리 보류':'재시도'}${count===null?'':` ${count}건`}`,pendingCount:count};
+  }
+  if (health?.state==='ok') return {key:'ok',label:'정상 관측',pendingCount:null};
+  if (health?.state==='down' || health?.state==='degraded') return {key:'problem',label:STATE_LABELS[health.state],pendingCount:null};
+  return {key:'unknown',label:health?.state==='stale'?'현재 미확인 · 근거 오래됨':'미확인 · 관측 근거 없음',pendingCount:null};
+}
+
+export function summariseTopologyAssessments(nodes) {
+  const result={ok:0,problem:0,pending:0,observation_error:0,unknown:0,pendingItems:0,pendingItemsUnknown:false};
+  for(const node of nodes){const a=node.assessment??assessTopologyObservation(node.health);result[a.key]++;
+    if(a.key==='pending'){if(a.pendingCount===null)result.pendingItemsUnknown=true;else result.pendingItems+=a.pendingCount;}}
+  return result;
+}
 
 const REPAIRABILITY_LABELS = Object.freeze({
   automatic: "자동 복구 가능",
@@ -120,6 +149,7 @@ function unavailableTopologyViewModel() {
     nodes: [],
     edges: [],
     summary: null,
+    assessmentSummary: null,
     attention: [],
     unmonitored: [],
     unmonitoredBreakdown: {
@@ -270,6 +300,7 @@ export function buildTopologyViewModel(snapshot) {
   const columnCursor = new Map();
   const nodes = snapshot.nodes.map((node) => {
     const state = TOPOLOGY_HEALTH_STATES.includes(node?.health?.state) ? node.health.state : "unmonitored";
+    const assessment = assessTopologyObservation(node.health);
     const reasons = Array.isArray(node?.health?.reasons)
       ? node.health.reasons.map((reason) => describeTopologyReason(reason))
       : [];
@@ -287,7 +318,7 @@ export function buildTopologyViewModel(snapshot) {
         || (typeof node?.health?.activity_next_at === "string"
           && Number.isFinite(Date.parse(node.health.activity_next_at))))
       ? node.health.activity_next_at : null;
-    const stateLabel = activityState === "idle" ? "정상 유휴"
+    const stateLabel = assessment.key === 'observation_error' ? assessment.label : activityState === "idle" ? "정상 유휴"
       : activityState === "collecting" ? "정상 수집 중"
         : activityState === "retrying" ? "정상 · 재시도"
           : activityState === "held" ? "정상 · 보류"
@@ -296,7 +327,7 @@ export function buildTopologyViewModel(snapshot) {
     const tracking = state === "ok" || node.tracking === undefined ? null : {
       nodeId: node.tracking.node_id,
       reasonCode: node.tracking.reason_code,
-      reasonLabel: describeTopologyReason(node.tracking.reason_code),
+      reasonLabel: assessment.key === 'observation_error' ? textReasons.join(' · ') : describeTopologyReason(node.tracking.reason_code),
       evidenceOwner: node.tracking.evidence_owner,
       lastCheckedAt: node.tracking.last_checked_at,
       nextCheckAt: node.tracking.next_check_at,
@@ -327,6 +358,7 @@ export function buildTopologyViewModel(snapshot) {
       healthScope: typeof node.health_scope === "string" ? node.health_scope : "node",
       state,
       stateLabel,
+      assessment,
       activityState,
       activityCount,
       activityNextAt,
@@ -486,6 +518,7 @@ export function buildTopologyViewModel(snapshot) {
       label: node.label,
       state: node.state,
       stateLabel: node.stateLabel,
+      assessmentKey: node.assessment.key,
       reasonCode: node.tracking.reasonCode,
       reasonLabel: node.tracking.reasonLabel,
       evidenceOwner: node.tracking.evidenceOwner,
@@ -531,6 +564,7 @@ export function buildTopologyViewModel(snapshot) {
     nodes: [...lanes, ...routedNodes],
     edges,
     summary,
+    assessmentSummary: summariseTopologyAssessments(nodes),
     attention,
     unmonitored,
     unmonitoredBreakdown,

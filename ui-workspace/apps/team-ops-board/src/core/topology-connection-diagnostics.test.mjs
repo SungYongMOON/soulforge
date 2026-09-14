@@ -165,7 +165,7 @@ test("fresh provider quota confirms account connection without turning the node 
   assert.equal(claude.account.state, "confirmed");
   assert.equal(claude.account.reason_code, "provider_issued_quota_observed");
   assert.equal(claude.node_health.state, "unmonitored");
-  assert.equal(claude.node_health.state_label, "미감시");
+  assert.equal(claude.node_health.state_label, "미확인");
   assert.ok(claude.evidence.scopes.includes("provider_issued_quota_receipt"));
   assert.ok(claude.evidence.limits.some((limit) => limit.includes("현재 순간을 보장하지 않습니다")));
 

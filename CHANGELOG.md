@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-14 - 관측 실패와 실제 이상 신호를 구분
+
+- Revision: 이 항목을 포함한 커밋. Vigil은 읽기·검사 실패를 `확인 불가`로 설명하고,
+  정상 수집기에 남은 처리 보류·재시도 수를 별도 요약한다. 기존 health 계약과 복구 권한은 유지한다.
+- Watchtower의 JSONL 관측은 파일 전체 크기 대신 끝부분 최대 4MiB에서 최신 기록을 읽는다.
+  최신 기록 손상·과대 행·읽는 중 변경은 실패로 닫고 과거 정상 행으로 대체하지 않는다.
+- down 노드 보고용 종료 코드 2를 감시기 실행 오류와 구분한다. 이 구분은 진단 영수증만
+  보정하며 기존 복구 재검증 게이트는 그대로다. 지도는 생략됐던 수집 감독·원장 검증·Gmail을 표시한다.
+- 관련 경로: `guild_hall/watchtower/watchtower.mjs`, `recovery_runtime.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/topology-view.mjs`, `operations-map-view.mjs`.
+
 ## 2026-09-14 - Vigil 예약 실행에 운영 지도 읽기 설정 연결
 
 - Revision: 이 항목을 포함한 커밋. 기존 Board 상태 위치의 `operations_read_config.json`에서

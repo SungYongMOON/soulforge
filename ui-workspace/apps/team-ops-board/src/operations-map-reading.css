@@ -1,4 +1,9 @@
 .op-reading-layout { display: flex; flex-direction: column; gap: 16px; }
+.op-status-reading { display:flex; flex-wrap:wrap; gap:10px 18px; border:1px solid var(--sf-glass-line); padding:15px 18px; border-radius:8px; font-size:12px; }
+.op-status-reading > strong,.op-status-reading > small { flex-basis:100%; }
+.op-status-reading > small { color:var(--sf-ink-2); font-size:11px; }
+.op-reading-layout .op-edge-control .react-flow__edge-path { stroke:var(--sf-warn); stroke-dasharray:6 3; }
+.op-reading-layout .op-legend-line.control { border-color:var(--sf-warn); border-top-style:dashed; }
 .op-embedded { padding: 16px; }
 .op-embedded > .op-topbar, .op-embedded > .op-title, .op-embedded > .op-bottom { display: none; }
 .op-topbar nav > a { padding: 10px 18px; font-size: 12px; color: var(--sf-ink-2); align-self: center; }

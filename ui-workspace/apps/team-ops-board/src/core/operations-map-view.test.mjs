@@ -25,3 +25,13 @@ test('architecture scene has actual nodes and source edges, not inferred stage b
   assert.equal(scene.edges.some(e=>e.to==='operations::response_agent'),false);
   assert.equal(new Set(scene.nodes.map(n=>`${n.position.x}:${n.position.y}`)).size,scene.nodes.length);
 });
+test('intermediate supervisor, validation gate and Gmail remain visible with exact edge semantics',()=>{
+  const model=buildOperationsMap();
+  for(const id of ['ingress_supervisor','gate_five_field','src_gmail'])model.nodes.push({id:`watchtower::${id}`,stage:'support',label:id});
+  model.nodes.push({id:'watchtower::local_activity',stage:'collect',label:'collector'});
+  model.edges.push({id:'validation',from:'watchtower::local_activity',to:'watchtower::gate_five_field',relation:'control'});
+  const scene=architectureScene(model);
+  for(const id of ['ingress_supervisor','gate_five_field','src_gmail'])assert.ok(scene.nodes.some(n=>n.id===`watchtower::${id}`));
+  assert.equal(scene.edges.find(e=>e.id==='validation').relation,'control');
+  assert.equal(new Set(scene.nodes.map(n=>`${n.position.x}:${n.position.y}`)).size,scene.nodes.length);
+});

@@ -4995,6 +4995,7 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
           </ul>
         </section>
       )}
+      {model.assessmentSummary && <section className="watchtower-tracking" aria-label="진단 해석 요약"><header><strong>최근 검사에서 확인된 상태</strong><span>이상 신호 {model.assessmentSummary.problem}곳 · 처리 보류/재시도 {model.assessmentSummary.pending}곳 ({model.assessmentSummary.pendingItemsUnknown ? '건수 미확인' : `${model.assessmentSummary.pendingItems}건`}) · 관측/검사 문제 {model.assessmentSummary.observation_error}곳 · 미확인 {model.assessmentSummary.unknown}곳</span></header><p>관측/검사 문제는 프로그램 정지 확정이 아닙니다. 미확인은 정상으로 세지 않으며, 정상 관측도 모든 업무의 성공을 뜻하지 않습니다.</p></section>}
       {model.nonGreenQueue.length > 0 && (
         <section className="watchtower-tracking" aria-labelledby="watchtower-tracking-title" data-testid="system-topology-tracking">
           <header>
@@ -5003,7 +5004,7 @@ function SystemTopologySurface({ projection, refreshing, providerSnapshots = nul
           </header>
           <ul>
             {model.nonGreenQueue.map((item: any) => (
-              <li key={item.id} className={`is-${item.state}`}>
+              <li key={item.id} className={`is-${item.assessmentKey === 'observation_error' ? 'degraded' : item.state}`}>
                 <div className="watchtower-tracking-main">
                   <span>{item.stateLabel}</span>
                   <strong>{item.label}</strong>

@@ -89,7 +89,7 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.ok(collectorB.position.y > collectorA.position.y);
 
   assert.equal(collectorA.state, "degraded");
-  assert.equal(collectorA.stateLabel, "열화");
+  assert.equal(collectorA.stateLabel, "이상 신호");
   assert.deepEqual(collectorA.reasons, ["상태 신호: degraded"]);
 
   assert.equal(model.edges.length, 3);
@@ -134,7 +134,8 @@ test("view model lays out columns and keeps observed health separate from catalo
     id: "slack_batch",
     label: "Slack 배치 수집기",
     state: "down",
-    stateLabel: "정지",
+    stateLabel: "확인 불가 · 관측/검사 문제",
+    assessmentKey: "observation_error",
     reasonCode: "source_missing",
     reasonLabel: "신호 파일 없음",
     evidenceOwner: "watchtower_probe",
@@ -153,7 +154,7 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.deepEqual(external.doesNotProve, ["provider_availability", "provider_health", "live_execution", "end_to_end_execution", "edge_receipt"]);
   assert.equal(external.statusText, "미감시 · 관측 근거 없음");
   assert.equal(collectorA.healthBasis, "observed");
-  assert.match(collectorA.statusText, /^열화 · 77초 전 · 상태 신호: degraded$/u);
+  assert.match(collectorA.statusText, /^이상 신호 · 77초 전 · 상태 신호: degraded$/u);
 });
 
 test("usage health labels idle and collecting without changing the health state", () => {

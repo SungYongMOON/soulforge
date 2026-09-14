@@ -230,6 +230,18 @@ function publicRecoveryReceipt(receipt, outcomeCode, row, diagnosticCode = null)
   };
 }
 
+export function completedWatchtowerDiagnostic(error) {
+  // CLI exit 2 means a completed diagnostic containing down nodes, not a crash.
+  // This is for the execution receipt only; the later repair revalidation gate
+  // remains unchanged and does not receive a new permission from this parser.
+  if (error?.code !== 2 || typeof error.stdout !== 'string') return null;
+  try {
+    const snapshot=JSON.parse(error.stdout);
+    return Number.isInteger(snapshot?.summary?.down) && snapshot.summary.down > 0
+      && validateWatchtowerExecution(snapshot).ok ? snapshot : null;
+  } catch { return null; }
+}
+
 export async function runRecoveryCycle({
   repoRoot,
   projectRoot = repoRoot,
@@ -258,8 +270,10 @@ export async function runRecoveryCycle({
   try {
     initialSnapshot = await runWatchtower();
     watchtowerResult = validateWatchtowerExecution(initialSnapshot);
-  } catch {
-    watchtowerResult = { ok: false, error_codes: ["watchtower_execution_failed"], validated_count: 0 };
+  } catch (error) {
+    initialSnapshot = completedWatchtowerDiagnostic(error);
+    watchtowerResult = initialSnapshot ? validateWatchtowerExecution(initialSnapshot)
+      : { ok: false, error_codes: ["watchtower_execution_failed"], validated_count: 0 };
   }
   const [fiveFieldResult, workmetaResult] = await Promise.all([
     validateFiveFieldLedgerSet({ workmetaRoot: path.join(projectRoot, "_workmeta") }),
