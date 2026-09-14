@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-14 - Vigil 예약 실행에 운영 지도 읽기 설정 연결
+
+- Revision: 이 항목을 포함한 커밋. 기존 Board 상태 위치의 `operations_read_config.json`에서
+  디렉터리 root 표·pin과 그래프 영수증 범위 등 이미 허용된 다섯 읽기 설정만 가져온다.
+- 명시 환경값 우선, 파일 부재는 미연결, 손상과 미등록 키는 시작 거부다. 예약 실행 wrapper,
+  수집기와 writer 설정은 바꾸지 않는다. 실제 설치 전환 영수증은 private local-recovery가 소유한다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.mjs`, `vite.config.ts`.
+
 ## 2026-09-14 - 기존 대시보드 안으로 운영 지도를 통합하고 아키텍처 도형으로 정리
 
 - Revision: 이 항목을 포함한 커밋. 토큰·기간·모델별 그래프와 기존 시스템 진단을 유지하고

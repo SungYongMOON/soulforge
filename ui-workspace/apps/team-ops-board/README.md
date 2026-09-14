@@ -42,6 +42,11 @@
 - `TEAM_OPS_RESPONSE_AGENT_LABEL`: Owner가 지정한 응답 에이전트 표시명(상태·연결 근거는 아님).
 - 기존 `SOULFORGE_STATE_ROOT` / `SOULFORGE_OWNER_ROOT`: Watchtower·사용량 상태 위치.
 
+예약 실행은 임의 환경변수를 자식에게 넘기지 않으므로, 운영 설치에서는 같은 다섯 읽기 설정을
+`<state_root>/operations/team_ops_board/operations_read_config.json`에 둘 수 있다. 설정은 위
+`TEAM_OPS_*` 다섯 키의 문자열만 허용하며 명시적 환경값이 우선한다. 파일 부재는 미연결,
+손상·알 수 없는 키는 시작 거부다. 수집기·writer·프로세스 플래그는 이 설정에 넣을 수 없다.
+
 디렉터리는 파일 본문을 열지 않고, `secret_owner_root`·보호 이름·경로 이탈·ADS·링크를
 거부한다. 직접 자식 최대 200개, 깊이 24, 캐시 64폴더/60초이며 제한에 걸리거나 읽기 실패가
 있으면 partial이다. 폴더 크기는 미집계다. 새 기능은 기존 federation provider의 안정 ID,

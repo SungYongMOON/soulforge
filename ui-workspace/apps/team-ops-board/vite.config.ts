@@ -24,6 +24,7 @@ import { createStorageMapServerAdapter } from "./src/server/storage-map-adapter.
 import { createCodexRetentionServerAdapter } from "./src/server/codex-retention-adapter.mjs";
 import { createOperationsDirectoryPlugin } from "./src/server/operations-directory-adapter.mjs";
 import { createGraphReceiptPlugin } from "./src/server/operations-graph-receipts-adapter.mjs";
+import { readOperationsReadConfiguration } from "./src/server/operations-read-configuration.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
@@ -76,11 +77,13 @@ const codexRetentionReportPath = path.join(
   "current.json",
 );
 
-export default defineConfig(async () => ({
+export default defineConfig(async () => {
+  const operationsRead = await readOperationsReadConfiguration({ bindingPath: path.join(operationsRoot, 'team_ops_board', 'operations_read_config.json') });
+  return ({
   plugins: [
     react(),
-    createOperationsDirectoryPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256 }),
-    createGraphReceiptPlugin({ receiptsRoot: process.env.TEAM_OPS_GRAPH_RECEIPTS_ROOT, projects: (process.env.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean), responseAgentLabel: process.env.TEAM_OPS_RESPONSE_AGENT_LABEL }),
+    createOperationsDirectoryPlugin(operationsRead.directory),
+    createGraphReceiptPlugin(operationsRead.graph),
     await createAgentRuntimeSnapshotAdapterPluginFromEnvironment(),
     createErpPendingReviewAdapterPluginFromEnvironment(),
     createLiveThreadAdapterPlugin({ env: boardEnvironment }),
@@ -120,4 +123,5 @@ export default defineConfig(async () => ({
     port: 4193,
     allowedHosts: boardAllowedHosts
   }
-}));
+});
+});
