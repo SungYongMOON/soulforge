@@ -30,6 +30,10 @@ export const CANNED_EMBEDDING = Object.freeze([0.1, 0.2, 0.3, 0.4]);
 export const CANNED_REEMBED_DIGEST = 'sha256:' + '8'.repeat(64);
 export const CANNED_REEMBEDDING = Object.freeze([0.5, 0.6, 0.7, 0.8, 0.9, 1]);
 export const CANNED_WORKER_SHA256 = 'sha256:' + 'f'.repeat(64);
+// The hash of the rules the canned worker stands for. A test that changes the
+// rules changes this; a test that changes anything else does not, which is the
+// whole point of the field being separate from the worker's own hash.
+export const CANNED_RULES_SHA256 = 'sha256:' + 'a'.repeat(64);
 export const CANNED_PACKAGES = Object.freeze({ neo4j: '6.0.0', 'neo4j-graphrag': '1.19.0', ollama: '0.4.9', pydantic: '2.11.0' });
 const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
 export const indexerRequest = extra => ({ actor_ref: 'actor:indexer', project_ref: ref(1), purpose: 'context_preparation', ...extra });
@@ -94,7 +98,7 @@ export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclD
 // fixed values: the real worker reports both, and a revision missing one is refused.
 export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest = CANNED_EMBEDDER_DIGEST,
   reembedDigest = CANNED_REEMBED_DIGEST, embedRefuses = [], budgetExhausted = false, invalidOutputs = 0,
-  packages = CANNED_PACKAGES } = {}) {
+  packages = CANNED_PACKAGES, rulesSha256 = CANNED_RULES_SHA256 } = {}) {
   const calls = { probe: 0, extract: 0, embed: 0, extracted: [], embedded: [], batches: [] };
   const reported = spec => (spec ? { embedder: { model: spec.model, digest: embedderDigest } } : {});
   async function runWorker({ request }) {
@@ -119,7 +123,7 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
     if (request.operation === 'probe') {
       calls.probe++;
       return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
-        output: { status: 'ok', packages,
+        output: { status: 'ok', packages, rules_sha256: rulesSha256,
           models: { llm: { model: request.models.llm.model, digest }, ...reported(request.models.embedder) } } };
     }
     calls.batches.push(request.documents.length);
@@ -138,7 +142,7 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
       return { doc_key: document.doc_key, nodes, relationships, tool_pruning: { nodes: {}, relationships: {}, properties: {} } };
     });
     const units = request.documents.flatMap(document => document.units);
-    return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', packages,
+    return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', packages, rules_sha256: rulesSha256,
       models: { llm: { model: request.profile.llm.model, digest }, ...reported(request.profile.embedder) },
       embedder_calls: request.profile.embedder ? units.length : 0, fragments, budget_exhausted: budgetExhausted,
       llm_calls: units.map((unit, index) => ({ call: index + 1,

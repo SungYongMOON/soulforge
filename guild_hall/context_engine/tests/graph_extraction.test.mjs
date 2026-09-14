@@ -6,10 +6,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
-import { CANNED_PACKAGES, CANNED_WORKER_SHA256 } from '../harness/fixtures/graph_index_fixture.mjs';
+import { CANNED_PACKAGES, CANNED_RULES_SHA256, CANNED_WORKER_SHA256 } from '../harness/fixtures/graph_index_fixture.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
 import { admitGraphFragment, extractGraphFragments, probeGraphModels, validateGraphBinding } from '../src/runtime/graph_extraction.mjs';
@@ -55,7 +57,8 @@ function cannedWorkerOutput(document, { createdAt = '2026-09-12T00:00:00+00:00',
     node(`${chunk(u1)}:0`, 'Constraint', { name: '전원 조건', value: '28V' })];
   const others = document.units.filter(unit => !units.includes(unit));
   if (clean) for (const unit of others) nodes.push(node(chunk(unit), 'Chunk', { text: unit.text, index: 9, sf_unit_id: unit.unit_id }));
-  return { status: 'ok', packages: CANNED_PACKAGES, models: models ?? { llm: { model: 'local-model:tag', digest: LLM_DIGEST } },
+  return { status: 'ok', packages: CANNED_PACKAGES, rules_sha256: CANNED_RULES_SHA256,
+    models: models ?? { llm: { model: 'local-model:tag', digest: LLM_DIGEST } },
     llm_calls: trace ?? [{ call: 1, status: 'ok', input_sha256: 'sha256:' + '1'.repeat(64), prompt_tokens: 10, output_tokens: 5,
       elapsed_ms: 7, done_reason: clean ? 'stop' : 'length', thinking_characters: 0, leaked_text: u0.text }],
     budget_exhausted: false, llm_errors: 0, invalid_outputs: 0, fragments: [{ doc_key: document.doc_key,
@@ -140,7 +143,11 @@ test('canned worker output: admission keeps chunk-anchored profile entities; tru
     profile: GRAPH_EXTRACTION_PROFILE.profile_version, revision: true });
   assert.deepEqual(fragment.tool_pruning, { nodes: { NOT_IN_SCHEMA: 2 }, relationships: { INVALID_PATTERN: 1 }, properties: {} });
   assert.deepEqual({ think: first.model.think, digest: first.model.llm_digest, tool: first.model.tool },
-    { think: false, digest: LLM_DIGEST, tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
+    { think: false, digest: LLM_DIGEST,
+      // The revision names the rules that made this extraction and the build that
+      // ran them. Only the first decides whether a later run may reuse it.
+      tool: { revision_kind: 'extraction_rules_v1', rules_sha256: CANNED_RULES_SHA256,
+        worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
   assert.equal(fragment.fragment_sha256, second.fragments[0].fragment_sha256, 'same input, same fragment despite the tool clock');
   assert.deepEqual({ calls: first.llm.calls, truncated: first.llm.truncated }, { calls: 1, truncated: 1 });
   assert.equal(JSON.stringify(first.llm.trace).includes(document.units[0].text), false, 'only named trace fields leave the worker');
@@ -170,7 +177,8 @@ test('canned worker output: admission keeps chunk-anchored profile entities; tru
     binding: { ...BINDING, llm: { ...BINDING.llm, options: { temperature: 0.2, seed: 7 } } }, runWorker: canned(cannedWorkerOutput(document)) });
   assert.deepEqual(warm.fragments[0].model.options, { seed: 7, temperature: '0.2' }, 'non-integer options stay hashable');
   const probed = await probeGraphModels({ binding: BINDING, runWorker: async ({ request }) => ({ exit_code: 0, worker_sha256: CANNED_WORKER_SHA256,
-    output: { status: 'ok', packages: CANNED_PACKAGES, models: { llm: { model: request.models.llm.model, digest: LLM_DIGEST } } } }) });
+    output: { status: 'ok', packages: CANNED_PACKAGES, rules_sha256: CANNED_RULES_SHA256,
+      models: { llm: { model: request.models.llm.model, digest: LLM_DIGEST } } } }) });
   assert.deepEqual(probed, first.model, 'the probe reports the same revision the extraction stamps');
   await assert.rejects(probeGraphModels({ binding: BINDING, runWorker: async () => ({ exit_code: 3,
     output: { status: 'error', code: 'llm_model_not_installed' } }) }), { code: 'llm_model_not_installed' });
@@ -237,6 +245,41 @@ test('worker client: an oversized request is refused before spawning, and a work
 });
 
 const PYTHON = process.env.SOULFORGE_TEST_GRAPHRAG_PYTHON;
+
+// What the rules hash is for: a stored extraction stays reusable when the worker
+// changes somewhere that cannot affect an extraction, and stops being reusable
+// when it changes somewhere that can. Both halves are checked against the worker's
+// own function, over its own source, so this test cannot drift from it.
+test('the extraction rules hash covers the extraction rules and nothing else (opt-in)',
+  { skip: PYTHON ? false : 'set SOULFORGE_TEST_GRAPHRAG_PYTHON to run the worker\u2019s own hash' },
+  async () => {
+    const worker = fileURLToPath(new URL('../src/workers/graphrag_worker.py', import.meta.url));
+    const program = [
+      'import io, json, sys',
+      'sys.path.insert(0, sys.argv[1])',
+      'import graphrag_worker as w',
+      'source = io.open(sys.argv[2], encoding="utf-8", newline="").read()',
+      'def mutate(text, anchor):',
+      '    assert text.count(anchor) == 1, anchor',
+      '    return text.replace(anchor, "    # changed\\n" + anchor)',
+      'print(json.dumps({',
+      '  "base": w.extraction_rules_sha256(source),',
+      '  "rule": w.extraction_rules_sha256(mutate(source, sys.argv[3])),',
+      '  "search": w.extraction_rules_sha256(mutate(source, sys.argv[4])),',
+      '  "functions": list(w.EXTRACTION_RULE_FUNCTIONS)}))',
+    ].join('\n');
+    // One anchor inside a function the hash covers, one inside a function it does not.
+    const inRule = '    dropped = 0\n    for key in ("nodes", "relationships"):';
+    const inSearch = '    mode = request.get("mode")\n    if mode not in ("vector", "hybrid", "graph"):';
+    const run = spawnSync(PYTHON, ['-I', '-B', '-X', 'utf8', '-c', program, path.dirname(worker), worker, inRule, inSearch],
+      { encoding: 'utf8' });
+    assert.equal(run.status, 0, run.stderr);
+    const out = JSON.parse(run.stdout);
+    assert.notEqual(out.rule, out.base, 'a change inside a rule function makes a stored extraction unreusable');
+    assert.equal(out.search, out.base, 'a change inside the search does not');
+    assert.ok(out.functions.includes('extract') && out.functions.includes('drop_null_properties')
+      && !out.functions.includes('retrieve'), 'the hashed set is the extraction path, not the search path');
+  });
 const MODEL = process.env.SOULFORGE_TEST_GRAPHRAG_LLM;
 test('real neo4j-graphrag extraction with a local model produces admitted chunk-anchored fragments (opt-in)',
   { skip: PYTHON && MODEL ? false : 'set SOULFORGE_TEST_GRAPHRAG_PYTHON and SOULFORGE_TEST_GRAPHRAG_LLM to run the real worker', timeout: 900000 },

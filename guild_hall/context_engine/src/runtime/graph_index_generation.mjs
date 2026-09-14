@@ -108,23 +108,61 @@ export function planExtractionBatches(documents, limits = GRAPH_EXTRACTION_BATCH
   return batches;
 }
 
+// Worker builds written before the worker named its own extraction rules, and the
+// rules each of them actually had. A pre-`extraction_rules_v1` record carries only
+// a whole-file hash, which cannot be compared with a rules hash — so the rules of
+// that exact build were measured by running this worker's own
+// `extraction_rules_sha256(source)` over that file's bytes, and the answer is
+// pinned here. Nothing else is admitted: a build that is not in this table and
+// carries no rules hash is re-extracted.
+//
+// sha256:3dd7cc28… is the build that wrote the eleven generations of 2026-09-14.
+// Its rule functions are byte-identical to the current ones (measured: the change
+// that added the rules hash touched no function it hashes), so those generations
+// carry instead of being extracted again for nothing.
+export const KNOWN_RULE_EQUIVALENT_WORKERS = Object.freeze({
+  'sha256:3dd7cc289eb66d13bdad3f9677986e01d5ac8fc21f87f2dfaaaef5371c5404b3':
+    'sha256:ede7d2eb706cb189b3586f2048def221061417ed07747e794c46d87341e428ac',
+});
+
+// Whether the worker that made a stored fragment ran the rules this worker runs.
+//
+// The whole-file hash used to stand for this, and it does not: editing a search
+// query, a log field or a diagnostic changed it, and every stored fragment became
+// unreusable. The rules hash covers exactly the code that decides what an
+// extraction produces. A record written before that field existed is accepted only
+// when its build is in the table above and that build's measured rules are these
+// rules; a record with a rules hash is compared on it and on nothing else.
+export function sameToolRevision(stored, probed) {
+  if (!plain(stored) || !plain(probed) || !SHA.test(probed.rules_sha256 ?? '')) return false;
+  if (!equal(stored.packages, probed.packages)) return false;
+  if (typeof stored.rules_sha256 === 'string') return stored.rules_sha256 === probed.rules_sha256;
+  const measured = KNOWN_RULE_EQUIVALENT_WORKERS[stored.worker_sha256 ?? ''];
+  return measured !== undefined && measured === probed.rules_sha256;
+}
+
 // Whether a stored model record is the model revision a probe just reported.
 //
 // Every field the probe produced must match: the LLM and its digest, the
-// transport, the thinking switch, the options, the embedder and its digest, and
-// the worker and package versions that did the extraction. What is NOT compared is
-// anything the stored record carries beyond that set. A derived generation records
-// how its vectors came to be (`embedding_source: "reembed"`), and that note is not
-// part of the revision — the embedder and its digest already are. Comparing the
-// records whole made a re-embedded generation unreusable, so the next update
-// extracted all of it again with the same model that had already read it.
+// transport, the thinking switch, the options, and the embedder and its digest.
+// `tool` is compared by the rule above rather than whole, because only part of it
+// decides what an extraction produces. What is NOT compared is anything the stored
+// record carries beyond that set. A derived generation records how its vectors
+// came to be (`embedding_source: "reembed"`), and that note is not part of the
+// revision — the embedder and its digest already are. Comparing the records whole
+// made a re-embedded generation unreusable, so the next update extracted all of it
+// again with the same model that had already read it.
 //
-// The comparison follows the probe rather than a list kept here: if the probe ever
-// reports a new field, that field is compared from then on without this having to
-// be edited.
+// Outside `tool`, the comparison follows the probe rather than a list kept here:
+// if the probe ever reports a new field, that field is compared from then on
+// without this having to be edited.
 export function sameModelRevision(stored, probed) {
   if (!plain(stored) || !plain(probed)) return false;
-  return Object.keys(probed).every(key => equal(stored[key], probed[key]));
+  for (const key of Object.keys(probed)) {
+    if (key === 'tool') continue;
+    if (!equal(stored[key], probed[key])) return false;
+  }
+  return sameToolRevision(stored.tool, probed.tool);
 }
 
 // Whether an earlier fragment may stand for this document in a new generation.

@@ -13,11 +13,12 @@ import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
-import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REEMBEDDING, CANNED_REEMBED_DIGEST, CANNED_WORKER_SHA256,
+import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REEMBEDDING, CANNED_REEMBED_DIGEST, CANNED_RULES_SHA256, CANNED_WORKER_SHA256,
   INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
 import { GRAPH_EXTRACTION_BATCH, GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
-  reembedGraphIndex, sameModelRevision, selectGraphIndexGeneration, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
+  KNOWN_RULE_EQUIVALENT_WORKERS, reembedGraphIndex, sameModelRevision, selectGraphIndexGeneration,
+  updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
 const update = (store, request, worker) => updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request,
   now: NOW, runWorker: worker.runWorker });
@@ -38,7 +39,10 @@ test('first update writes a complete generation; replay is a no-op without extra
     assert.deepEqual(fragment.model, { llm: 'local-model:tag', llm_digest: LLM_DIGEST, llm_pin_kind: 'model_digest',
       transport: 'ollama', think: false,
       options: { num_predict: 2048, seed: 7, temperature: 0 }, embedder: null, embedder_digest: null,
-      tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
+      // Two parts, not one: the rules that decided this extraction, and the build
+      // that ran them. Only the first is what a later run compares against.
+      tool: { revision_kind: 'extraction_rules_v1', rules_sha256: CANNED_RULES_SHA256,
+        worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } });
   }
   const replay = await update(store, indexer({ generation_id: 'g2', expected_prior: first.pointer_sha256 }), worker);
   assert.deepEqual({ status: replay.status, generation: replay.generation_id, epoch: replay.selection_epoch, unchanged: replay.changes.unchanged },
@@ -409,15 +413,35 @@ test('a re-embedded generation still carries its extraction forward; a model tha
   // `sameModelRevision` compares every field the probe reported and ignores what a
   // stored record carries beyond them. The derivation note a re-embedding writes is
   // the case that mattered: comparing the records whole made 153 chunks unreusable.
+  const tool = { revision_kind: 'extraction_rules_v1', rules_sha256: CANNED_RULES_SHA256,
+    worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES };
   const probed = { llm: 'local-model:tag', llm_digest: LLM_DIGEST, embedder: 'embed8:tag',
-    embedder_digest: CANNED_REEMBED_DIGEST, tool: { worker_sha256: CANNED_WORKER_SHA256, packages: CANNED_PACKAGES } };
+    embedder_digest: CANNED_REEMBED_DIGEST, tool };
   assert.equal(sameModelRevision({ ...probed, embedding_source: 'reembed' }, probed), true,
     'how the vectors came to be is not part of the model revision; the embedder and its digest are');
   assert.equal(sameModelRevision({ ...probed, embedder_digest: LLM_DIGEST }, probed), false);
-  assert.equal(sameModelRevision({ ...probed, tool: { worker_sha256: LLM_DIGEST, packages: CANNED_PACKAGES } }, probed), false,
-    'the worker that did the extraction is part of it');
   const { embedder_digest: dropped, ...missing } = probed;
   assert.equal(sameModelRevision(missing, probed), false, 'a record that lacks a field the probe reported is not the same revision');
+
+  // The whole worker file is a record, not the gate. A build that changed its
+  // search or its logging kept the rules, and a stored extraction still stands.
+  assert.equal(sameModelRevision({ ...probed, tool: { ...tool, worker_sha256: 'sha256:' + '4'.repeat(64) } }, probed), true,
+    'a different build with the same rules is the same rules');
+  assert.equal(sameModelRevision({ ...probed, tool: { ...tool, rules_sha256: 'sha256:' + '5'.repeat(64) } }, probed), false,
+    'a changed rule is a changed revision, whatever the file hash says');
+  assert.equal(sameModelRevision({ ...probed, tool: { ...tool, packages: { ...CANNED_PACKAGES, 'neo4j-graphrag': '9.9.9' } } }, probed),
+    false, 'the tool version that did the extraction is part of it');
+
+  // A record written before the rules had a name carries only the file hash. It is
+  // accepted only when that exact build's rules were measured and are these rules.
+  const [legacyWorker, legacyRules] = Object.entries(KNOWN_RULE_EQUIVALENT_WORKERS)[0];
+  const legacy = { ...probed, tool: { worker_sha256: legacyWorker, packages: CANNED_PACKAGES } };
+  assert.equal(sameModelRevision(legacy, { ...probed, tool: { ...tool, rules_sha256: legacyRules } }), true,
+    'the build that wrote the first eleven generations had these rules, measured from its own bytes');
+  assert.equal(sameModelRevision(legacy, probed), false,
+    'and it is not accepted against rules it was never measured to have');
+  assert.equal(sameModelRevision({ ...probed, tool: { worker_sha256: 'sha256:' + '6'.repeat(64), packages: CANNED_PACKAGES } }, probed),
+    false, 'a build nobody measured carries no claim about its rules');
 
   // End to end: build, re-embed, select the derived generation, then update through
   // the second embedder's binding. The extraction is carried, not run again.

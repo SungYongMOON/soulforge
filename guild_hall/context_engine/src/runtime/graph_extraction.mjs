@@ -34,6 +34,10 @@ const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
 // server says about itself instead — weaker, and labelled as such in the revision.
 const TRANSPORTS = new Set(['ollama', 'openai_chat']);
 const PIN_KINDS = new Set(['model_digest', 'server_props', 'served_id']);
+// Which contract a stored model record was written under. A record without it
+// predates the extraction rules being named, and is compared by the rule in
+// graph_index_generation.mjs rather than by its whole-file hash alone.
+export const TOOL_REVISION_KIND = 'extraction_rules_v1';
 const TRACE_FIELDS = ['call', 'status', 'input_sha256', 'output_sha256', 'output_characters', 'thinking_characters',
   'done_reason', 'prompt_tokens', 'output_tokens', 'elapsed_ms', 'error_type', 'http_status', 'dropped_null_properties',
   'dropped_incomplete_relationships'];
@@ -160,13 +164,20 @@ function workerModels(output, bound, workerSha256) {
   if (bound.embedder ? embedder?.model !== bound.embedder.model || !DIGEST.test(embedder?.digest ?? '') : embedder !== undefined) {
     fail('graph_worker_models_invalid');
   }
-  // The tool prompt and pruning change with its version and with our worker file.
-  if (!DIGEST.test(workerSha256 ?? '') || !packages || typeof packages !== 'object' || typeof packages['neo4j-graphrag'] !== 'string') {
+  // What made this extraction, in two parts that are not the same question.
+  // `rules_sha256` is the hash of the worker code that decides what an extraction
+  // produces; it is what a later run compares against, because a change to search,
+  // loading or logging must not make a stored fragment unreusable.
+  // `worker_sha256` is the whole file, kept as the record of which build ran.
+  const rulesSha256 = output?.rules_sha256;
+  if (!DIGEST.test(workerSha256 ?? '') || !DIGEST.test(rulesSha256 ?? '')
+    || !packages || typeof packages !== 'object' || typeof packages['neo4j-graphrag'] !== 'string') {
     fail('graph_worker_models_invalid');
   }
-  const tool = { worker_sha256: workerSha256, packages: Object.fromEntries(Object.entries(packages)
-    .filter(([name, version]) => /^[A-Za-z0-9._-]{1,64}$/u.test(name) && (version === null || (typeof version === 'string' && version.length <= 64)))
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) };
+  const tool = { revision_kind: TOOL_REVISION_KIND, rules_sha256: rulesSha256, worker_sha256: workerSha256,
+    packages: Object.fromEntries(Object.entries(packages)
+      .filter(([name, version]) => /^[A-Za-z0-9._-]{1,64}$/u.test(name) && (version === null || (typeof version === 'string' && version.length <= 64)))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) };
   return Object.freeze({ llm: llm.model, llm_digest: llm.digest, llm_pin_kind: llmPin, transport: bound.llm.transport,
     think: bound.llm.think, options: hashableOptions(bound.llm.options),
     embedder: bound.embedder?.model ?? null, embedder_digest: embedder?.digest ?? null, tool });

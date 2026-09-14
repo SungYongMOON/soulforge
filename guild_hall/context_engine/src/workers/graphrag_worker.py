@@ -5,8 +5,10 @@
 # pruning, KG writer, query embedder) and adds only what the tool does not own: a
 # local-model adapter with an explicit thinking switch, a call budget and an
 # observable call trace, the installed model digests as the model revision,
-# deterministic document and chunk ids, a plain fragment the APP can pin, and the
-# rule that a database holds one currently selected generation per project.
+# deterministic document and chunk ids, a plain fragment the APP can pin, the hash
+# of its own extraction rules (so a change to search or logging does not make a
+# stored extraction unreusable), and the rule that a database holds one currently
+# selected generation per project.
 #
 # Search is written here rather than taken from the tool's retrievers. The
 # retrievers cannot express the one thing a shared database needs: a scope that is
@@ -16,8 +18,9 @@
 # WHERE ... LIMIT k)` itself, and reproduces the tool's own hybrid ranking rule
 # (each half normalised by its own maximum, best per node) rather than inventing
 # one. It reads no keys or network locations by itself; every
-# endpoint comes from the trusted APP adapter and must be a loopback address, and
-# the only file it opens is the password file that adapter names.
+# endpoint comes from the trusted APP adapter and must be a loopback address; the
+# only files it opens are the password file that adapter names and its own source,
+# which it hashes to report which extraction rules it is running.
 import asyncio
 import hashlib
 import importlib.metadata as metadata
@@ -152,6 +155,46 @@ def model_host_admitted(value, allowed):
         return False
     origin = origin_of(value)
     return origin is not None and origin in allowed
+
+
+# The code that decides what an extraction produces. A change inside any of these
+# means a fragment made by the old one cannot stand for a fragment made by the new
+# one; a change anywhere else in this file (search, loading, diagnostics, logging)
+# does not. The list is deliberately whole functions rather than lines: drawing a
+# boundary inside a function by hand would rot, and being conservative here costs
+# an extraction that was not strictly needed, never an extraction that was.
+#
+# `make_llm` carries its own trace rows, so editing what the trace records also
+# changes this hash. That is the price of not cutting a function in half, and it
+# errs on the side of re-extracting.
+EXTRACTION_RULE_FUNCTIONS = ("think_value", "extractor_accepts", "extractor_verdict",
+                             "drop_incomplete_relationships", "drop_null_properties",
+                             "make_llm", "extract")
+
+
+def extraction_rules_sha256(source=None):
+    """The hash of this worker's extraction rules, read from its own source.
+
+    Takes `source` so the same function can be asked about a different version of
+    this file -- which is how a stored fragment written before this field existed
+    can be checked rather than guessed at. Reading its own source is the only file
+    this worker opens besides the password file the adapter names.
+    """
+    import ast
+    text = source
+    if text is None:
+        with open(__file__, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    tree = ast.parse(text)
+    lines = text.splitlines(keepends=True)
+    parts = []
+    for name in EXTRACTION_RULE_FUNCTIONS:
+        node = next((row for row in tree.body
+                     if isinstance(row, (ast.FunctionDef, ast.AsyncFunctionDef)) and row.name == name), None)
+        if node is None:
+            raise WorkerError("extraction_rule_function_missing")
+        parts.append(name + "\x00" + "".join(lines[node.lineno - 1:node.end_lineno]))
+    return "sha256:" + hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()
 
 
 def package_versions():
@@ -1605,7 +1648,8 @@ async def probe_models(models, allowed=None):
 
 
 def probe(request):
-    result = {"status": "ok", "python": sys.version.split()[0], "packages": package_versions()}
+    result = {"status": "ok", "python": sys.version.split()[0], "packages": package_versions(),
+              "rules_sha256": extraction_rules_sha256()}
     neo4j_binding = request.get("neo4j")
     if not neo4j_binding:
         result["neo4j"] = {"status": "not_bound"}
@@ -1683,7 +1727,10 @@ def main():
     if operation == "inspect":
         return inspect(request)
     if operation == "extract":
-        return asyncio.run(extract(request))
+        # The rules hash is added here rather than inside `extract`, because
+        # `extract` is one of the functions it hashes: reporting a revision must
+        # not be able to change the revision it reports.
+        return {**asyncio.run(extract(request)), "rules_sha256": extraction_rules_sha256()}
     if operation == "materialize":
         return materialize(request)
     if operation == "embed":
