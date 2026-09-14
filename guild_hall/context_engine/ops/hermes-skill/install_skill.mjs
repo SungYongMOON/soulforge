@@ -5,23 +5,30 @@
 // facts that must not live in the public tree. This installer fills them in at
 // install time and writes a receipt saying what it filled them with.
 //
-// Three substitutions, and nothing else:
-//   1. `<lane>`       -> the lane root the skill's command should run out of.
-//   2. `<root table>` -> the physical root table the CLI resolves aliases with.
-//   3. the project table -> the projects the graph database actually serves,
+// Four substitutions, and nothing else:
+//   1. `<lane>`         -> the lane root the skill's commands should run out of.
+//   2. `<root table>`   -> the physical root table the CLIs resolve aliases with.
+//   3. `<tools config>` -> the tool configuration both CLIs read, which is also
+//      where the shared call ledger of one investigation lives.
+//   4. the project table -> the projects the graph database actually serves,
 //      read from the database rather than typed, with the extra `--generation`
 //      argument added for a project whose store pointer selects a generation
 //      this database is not serving.
 //
-// Both paths are written with forward slashes and inside single quotes, because
-// the Hermes `terminal` tool runs its command through Git Bash on Windows: a
-// backslash there is an escape character, so a Windows-style path reaches node
-// with its separators eaten and fails as `Cannot find module`.
+// The skill now carries several command lines (search, read, attachment list,
+// attachment text, render), so each path placeholder occurs more than once and
+// every occurrence is substituted. A placeholder that occurs nowhere is a broken
+// template and refused; one left behind after substitution is too.
+//
+// All three paths are written with forward slashes and inside single quotes,
+// because the Hermes `terminal` tool runs its command through Git Bash on
+// Windows: a backslash there is an escape character, so a Windows-style path
+// reaches node with its separators eaten and fails as `Cannot find module`.
 //
 // usage:
 //   node install_skill.mjs --source <SKILL.md> --lane <lane root> --root-table <file>
-//        --target <installed SKILL.md> [--target <another>] [--receipt <file>]
-//        [--binding graph_index_binding.unified.json] [--dry-run]
+//        --tools-config <file> --target <installed SKILL.md> [--target <another>]
+//        [--receipt <file>] [--binding graph_index_binding.unified.json] [--dry-run]
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -109,17 +116,23 @@ export function renderProjectRows(projects) {
 // substituting there would turn that sentence into nonsense.
 const LANE_NEEDLE = "'<lane>/";
 const TABLE_NEEDLE = "--root-table '<root table>'";
+const CONFIG_NEEDLE = "--tools-config '<tools config>'";
+const present = (text, needle) => { if (!text.includes(needle)) fail('skill_template_placeholder_missing'); };
 const once = (text, needle) => { if (text.split(needle).length !== 2) fail('skill_template_placeholder_missing'); };
 
-export function renderInstalledSkill({ source, lane, rootTable, projects, sourceRef, at }) {
-  once(source, LANE_NEEDLE);
-  once(source, TABLE_NEEDLE);
+export function renderInstalledSkill({ source, lane, rootTable, toolsConfig, projects, sourceRef, at }) {
+  present(source, LANE_NEEDLE);
+  present(source, TABLE_NEEDLE);
+  present(source, CONFIG_NEEDLE);
   once(source, TABLE_PLACEHOLDER);
   const body = source
-    .replace(LANE_NEEDLE, `'${shellPath(lane)}/`)
-    .replace(TABLE_NEEDLE, `--root-table '${shellPath(rootTable)}'`)
+    .replaceAll(LANE_NEEDLE, `'${shellPath(lane)}/`)
+    .replaceAll(TABLE_NEEDLE, `--root-table '${shellPath(rootTable)}'`)
+    .replaceAll(CONFIG_NEEDLE, `--tools-config '${shellPath(toolsConfig)}'`)
     .replace(TABLE_PLACEHOLDER, renderProjectRows(projects));
-  if (body.includes(LANE_NEEDLE) || body.includes(TABLE_NEEDLE)) fail('skill_template_placeholder_left');
+  if (body.includes(LANE_NEEDLE) || body.includes(TABLE_NEEDLE) || body.includes(CONFIG_NEEDLE)) {
+    fail('skill_template_placeholder_left');
+  }
   return `${body.replace(/\n+$/u, '\n')}\n<!-- installed ${at} from ${sourceRef}; `
     + 'projects read from the database -->\n';
 }
@@ -143,13 +156,14 @@ async function main() {
   const sourcePath = String(flags.get('source') ?? '');
   const lane = String(flags.get('lane') ?? '');
   const tablePath = String(flags.get('root-table') ?? '');
-  if (!sourcePath || !lane || !tablePath || targets.length === 0) fail('skill_install_arguments_required');
+  const toolsPath = String(flags.get('tools-config') ?? '');
+  if (!sourcePath || !lane || !tablePath || !toolsPath || targets.length === 0) fail('skill_install_arguments_required');
   const io = createAliasedStoreIo(readRootTable({ tablePath, expectedSha256: sha256(readFileSync(tablePath)) }));
   const projects = await readProjectTable({ io,
     bindingFile: String(flags.get('binding') ?? 'graph_index_binding.unified.json') });
   const at = new Date().toISOString();
   const installed = renderInstalledSkill({ source: readFileSync(sourcePath, 'utf8'), lane, rootTable: tablePath,
-    projects, sourceRef: shellPath(path.resolve(sourcePath)), at });
+    toolsConfig: toolsPath, projects, sourceRef: shellPath(path.resolve(sourcePath)), at });
   const bytes = Buffer.from(installed, 'utf8');
   const wrote = targets.map(target => {
     const before = existsSync(target) ? sha256(readFileSync(target)) : null;
@@ -160,7 +174,9 @@ async function main() {
     return { path: shellPath(target), existed: before !== null, sha256_before: before, sha256_after: sha256(bytes) };
   });
   const receipt = { schema_version: SKILL_INSTALL_SCHEMA, at, lane: shellPath(lane),
-    root_table: shellPath(tablePath), source: shellPath(path.resolve(sourcePath)),
+    root_table: shellPath(tablePath), tools_config: shellPath(toolsPath),
+    tools_config_sha256: sha256(readFileSync(toolsPath)),
+    source: shellPath(path.resolve(sourcePath)),
     source_sha256: sha256(readFileSync(sourcePath)), dry_run: flags.get('dry-run') === true,
     projects: projects.map(({ code, generation, chunks, served }) => ({ code, generation, chunks, served })),
     installed_sha256: sha256(bytes), targets: wrote };
