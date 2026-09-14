@@ -11,13 +11,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
-import { clockAt, readInboxAccess, readVoiceSession, VOICE_ACCESS_SCHEMA,
+import { buildSemanticUnits, clockAt, readInboxAccess, readVoiceSession, VOICE_ACCESS_SCHEMA,
   VOICE_READ_STATUSES } from '../src/runtime/voice_session_read.mjs';
 import { renderVoice } from '../harness/estate_original_read.mjs';
 
@@ -67,8 +67,42 @@ const runManifest = ({ state = 'completed', digest } = {}) => ({
   evidence_role: 'independent_machine_transcript_unverified',
   quality: 'machine_transcript_unverified_attention_required', claim_ceiling: 'observed' });
 
+// A labelling run in the shape the real engine writes: units over the
+// transcript it names, review windows that point at those units, and an
+// evidence gate that says whether it may put a project on anything.
+const labelRun = ({ runId = 'vsl_synthetic_run', transcriptDigest, units, windows = null,
+  projectEmission = false } = {}) => ({
+  schema_version: 'soulforge.voice_semantic_label_run.v1', run_id: runId,
+  recording_ref: { recording_id: SESSION, transcript_sha256: transcriptDigest.replace('sha256:', ''),
+    evidence_role: 'independent_machine_transcript_unverified' },
+  engine: { engine_id: 'soulforge_voice_semantic_baseline', engine_version: '1.10.9',
+    mode: 'transcript_only_rules', claim_ceiling: 'machine_generated_reviewable' },
+  evidence_gate: { input_class: 'independent_asr_fast', state: 'stronger_local_asr_required',
+    reason_codes: ['independent_fast_asr_quality_requires_attention'],
+    action_candidate_emission_allowed: false, project_candidate_emission_allowed: projectEmission,
+    next_step: 'run_stronger_local_asr_on_material_windows' },
+  recording_classification: { type_candidate: 'unknown' },
+  context: { missing_context_kinds: ['project_context_cards'] },
+  segment_labels: units, action_candidates: [],
+  review_windows: windows ?? units.map((unit, index) => ({ window_id: `vrw_${index}`,
+    start_seconds: unit.start_seconds, duration_seconds: unit.end_seconds - unit.start_seconds,
+    source_unit_refs: [unit.unit_id], importance_state: 'material_ambiguity_candidate',
+    importance_reason_codes: ['speech_act_conditional_statement'],
+    escalation_state: 'stronger_local_asr_required', human_listen_required: false })),
+  project_resolution: { state: 'stronger_local_asr_required', candidates: [] },
+  coverage: { source_segment_count: 3, covered_source_segment_count: 3,
+    semantic_unit_count: units.length, labeled_semantic_unit_count: units.length },
+});
+
+const unitLabel = ({ id, segmentIds, start, end, characters, entities = [] }) => ({
+  unit_id: id, source_segment_ids: segmentIds, start_seconds: start, end_seconds: end,
+  speaker_label: 'UNKNOWN', content_char_count: characters, speech_acts: ['conditional_statement'],
+  polarity: 'affirmed', modality: 'conditional', action_codes: [], entities,
+  project_match: { state: 'unresolved_needs_context', candidates: [] },
+  disposition: 'material_ambiguity_deferred' });
+
 /** One inbox: two roots, a sessions tree, and the declaration that opens it. */
-async function makeInbox({ localRun = true, runState = 'completed', declaredDigest = null,
+async function makeInbox({ localRun = true, runState = 'completed', declaredDigest = null, localRows = LOCAL,
   access = { max_seconds_per_call: 600, max_characters_per_call: 12000 }, duplicate = false } = {}) {
   const dataRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-voice-data-')));
   const controlRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-voice-control-')));
@@ -87,7 +121,7 @@ async function makeInbox({ localRun = true, runState = 'completed', declaredDige
   await put(`${folder}/audio/source.mp3`, Buffer.from('not audio, but in the audio place'));
   await put(`${folder}/provider_export/summary.md`, Buffer.from(SECRET_SUMMARY));
   if (localRun) {
-    const bytes = Buffer.from(LOCAL);
+    const bytes = Buffer.from(localRows);
     await put(`${folder}/analysis/local_asr/${RUN}/transcript.jsonl`, bytes);
     await put(`${folder}/analysis/local_asr/${RUN}/analysis_manifest.json`,
       json(runManifest({ state: runState, digest: declaredDigest ?? sha(bytes) })));
@@ -106,7 +140,8 @@ async function makeInbox({ localRun = true, runState = 'completed', declaredDige
   const tableBytes = Buffer.from(`${JSON.stringify({ schema_version: ROOT_TABLE_SCHEMA, roots })}\n`);
   await writeFile(tablePath, tableBytes);
   const io = createAliasedStoreIo(readRootTable({ tablePath, expectedSha256: sha(tableBytes) }));
-  return { io, dataRoot, controlRoot, tableDir,
+  return { io, dataRoot, controlRoot, tableDir, put, folder,
+    localDigest: sha(Buffer.from(localRows)), providerDigest: sha(Buffer.from(PROVIDER)),
     cleanup: () => Promise.all([dataRoot, controlRoot, tableDir].map(dir => rm(dir, { recursive: true, force: true }))) };
 }
 
@@ -319,4 +354,216 @@ test('시계는 녹음의 선언된 offset을 쓴다 — +09:00이 아니면 KST
   assert.equal(clockAt('2026-01-02T09:00:00+09:00', 0).label, 'KST');
   assert.equal(clockAt('2026-01-02T09:00:00+00:00', 0).label, 'UTC+00:00');
   assert.equal(clockAt('2026-01-02T09:00:00-05:00', 0).label, 'UTC-05:00');
+});
+
+// ---------------------------------------------------------------- 구간 초안
+// The labelling run's draft intervals: read when they were made over the very
+// transcript that answered, and never borrowed from another chain.
+
+const contentOf = (rows, id) => JSON.parse(rows.trim().split('\n')
+  .find(row => JSON.parse(row).segment_id === id)).content;
+
+const LOCAL_UNITS = [
+  unitLabel({ id: 'unit_11_11', segmentIds: [11], start: 0.4, end: 29.8,
+    characters: [...contentOf(LOCAL, 11)].length,
+    entities: [{ kind: 'artifact_mention', value: '설계문서', role_label: null }] }),
+  unitLabel({ id: 'unit_12_12', segmentIds: [12], start: 30.2, end: 69.6,
+    characters: [...contentOf(LOCAL, 12)].length }),
+  unitLabel({ id: 'unit_13_13', segmentIds: [13], start: 700.1, end: 759.9,
+    characters: [...contentOf(LOCAL, 13)].length }),
+];
+
+const hostPath = (inbox, address) => path.join(inbox.dataRoot, address.slice('data_root/'.length));
+
+async function withLabels(options = {}, run = null) {
+  const inbox = await makeInbox(options);
+  const built = run ?? labelRun({ transcriptDigest: inbox.localDigest, units: LOCAL_UNITS });
+  await inbox.put(`${inbox.folder}/analysis/semantic_labels/${built.run_id}/semantic_label_run.json`, json(built));
+  return inbox;
+}
+
+test('--units는 라벨 run의 구간 초안으로 답하고, 그 초안이 초안임을 머리가 말한다', async () => {
+  const inbox = await withLabels();
+  try {
+    const answer = await read(inbox.io, { units: true });
+    assert.equal(answer.status, 'ok');
+    assert.equal(answer.units.status, 'ok');
+    assert.equal(answer.counts.basis, 'semantic_units');
+    assert.equal(answer.segments.length, 0, 'units replace raw segments rather than doubling them');
+    assert.equal(answer.units.claim_ceiling, 'machine_generated_reviewable');
+    assert.equal(answer.units.evidence_gate.input_class, 'independent_asr_fast');
+    assert.equal(answer.units.evidence_gate.state, 'stronger_local_asr_required');
+    assert.equal(answer.units.evidence_gate.project_candidate_emission_allowed, false);
+    const first = answer.units.rows[0];
+    assert.equal(first.unit_id, 'unit_11_11');
+    assert.equal(first.characters_match, true, 'the run counted the same text this read assembled');
+    assert.equal(first.project_match.state, 'unresolved_needs_context');
+    assert.equal(first.disposition, 'material_ambiguity_deferred');
+    assert.equal(first.window.importance_state, 'material_ambiguity_candidate');
+    assert.equal(first.window.escalation_state, 'stronger_local_asr_required');
+    assert.equal(first.clock, '09:00:00');
+    assert.equal(first.clock_end, '09:00:29');
+    assert.deepEqual(first.entities.map(entity => entity.kind), ['artifact_mention']);
+  } finally { await inbox.cleanup(); }
+});
+
+test('창에 걸친 구간 초안은 잘라 보여 주지 않고 통째로 보여 준다', async () => {
+  const inbox = await withLabels();
+  try {
+    // The window opens at 40s; unit_12 starts at 30.2s and is shown whole.
+    const answer = await read(inbox.io, { units: true, from: 40, to: 200 });
+    assert.deepEqual(answer.units.rows.map(row => row.unit_id), ['unit_12_12']);
+    assert.equal(answer.units.rows[0].start_seconds, 30.2);
+    assert.equal(answer.units.rows[0].truncated, false);
+  } finally { await inbox.cleanup(); }
+});
+
+test('다른 전사로 만든 라벨 run은 쓰지 않고 원 전사 구간으로 내려온다', async () => {
+  const inbox = await withLabels();
+  try {
+    const answer = await read(inbox.io, { units: true, transcriptKind: 'provider' });
+    assert.equal(answer.units.status, 'labels_other_revision');
+    assert.equal(answer.counts.basis, 'transcript_segments');
+    assert.ok(answer.segments.length > 0, 'the read still answers, with the segments it did read');
+    assert.equal(answer.units.rows.length, 0);
+  } finally { await inbox.cleanup(); }
+});
+
+test('라벨 run이 없으면 원 전사 구간으로 답하고 왜인지 말한다', async () => {
+  const inbox = await makeInbox();
+  try {
+    const answer = await read(inbox.io, { units: true });
+    assert.equal(answer.units.status, 'labels_absent');
+    assert.equal(answer.counts.basis, 'transcript_segments');
+    assert.ok(answer.segments.length > 0);
+  } finally { await inbox.cleanup(); }
+});
+
+test('같은 전사를 가리키는 라벨 run이 둘이면 고르지 않는다', async () => {
+  const inbox = await withLabels();
+  try {
+    const second = labelRun({ runId: 'vsl_synthetic_other', transcriptDigest: inbox.localDigest, units: LOCAL_UNITS });
+    await inbox.put(`${inbox.folder}/analysis/semantic_labels/${second.run_id}/semantic_label_run.json`, json(second));
+    const answer = await read(inbox.io, { units: true });
+    assert.equal(answer.units.status, 'labels_ambiguous');
+    assert.equal(answer.counts.basis, 'transcript_segments');
+  } finally { await inbox.cleanup(); }
+});
+
+// ------------------------------------------------------------- 공통 용어
+// A mixed recording: the same words carry across two projects' stretches, and
+// what differs is the equipment, the purpose and the outcome.
+
+const SHARED_A = 'CDR 준비 회의에서 수신부 앰프 이득을 다시 봤고 시험수조 표적 배치를 확인했습니다.';
+const SHARED_B = '이건 그냥 점심 얘기입니다.';
+const SHARED_C = 'CDR 일정에 맞춰 수신부 보드와 앰프 교체는 구미 현장 디버깅 때 같이 합니다.';
+const MIXED_ROWS = [segment(21, 0, 60, 'UNKNOWN', SHARED_A), segment(22, 60, 120, 'UNKNOWN', SHARED_B),
+  segment(23, 120, 180, 'UNKNOWN', SHARED_C)].join('\n') + '\n';
+const MIXED_UNITS = [
+  unitLabel({ id: 'unit_21', segmentIds: [21], start: 0, end: 60, characters: [...SHARED_A].length }),
+  unitLabel({ id: 'unit_22', segmentIds: [22], start: 60, end: 120, characters: [...SHARED_B].length }),
+  unitLabel({ id: 'unit_23', segmentIds: [23], start: 120, end: 180, characters: [...SHARED_C].length }),
+];
+const REGISTRY = {
+  schema: 'soulforge.context_shared_terms.v0', generated_at: '2026-09-15T00:00:00.000Z',
+  terms: [
+    { term: 'CDR', normalized: 'cdr', projects: ['S00-001', 'S00-002', 'S00-003'], count: 31, source: 'graph' },
+    { term: '수신부', normalized: '수신부', projects: ['S00-001', 'S00-002'], count: 18, source: 'graph' },
+    { term: '앰프', normalized: '앰프', projects: ['S00-001', 'S00-002', 'S00-004'], count: 12, source: 'seed' },
+    { term: '시험수조', normalized: '시험수조', projects: ['S00-001'], count: 5, source: 'graph' },
+    { term: '구미 현장', normalized: '구미 현장', projects: ['S00-002'], count: 4, source: 'seed' },
+  ],
+};
+
+async function mixedInbox(registry = REGISTRY) {
+  const inbox = await makeInbox({ localRows: MIXED_ROWS });
+  const run = labelRun({ transcriptDigest: inbox.localDigest, units: MIXED_UNITS });
+  await inbox.put(`${inbox.folder}/analysis/semantic_labels/${run.run_id}/semantic_label_run.json`, json(run));
+  const address = `${inbox.folder}/shared_terms.v0.json`;
+  if (registry !== null) await inbox.put(address, json(registry));
+  return { ...inbox, registryPath: hostPath(inbox, address) };
+}
+
+test('같은 용어가 두 과제 구간에 걸쳐 나오면 공통으로 표시되고, 도구는 과제를 고르지 않는다', async () => {
+  const inbox = await mixedInbox();
+  try {
+    const answer = await read(inbox.io, { units: true, sharedTermsPath: inbox.registryPath });
+    assert.equal(answer.shared_terms.status, 'ok');
+    assert.equal(answer.shared_terms.term_count, 5);
+    const [first, , third] = answer.units.rows;
+    const sharedOf = row => row.terms.filter(term => term.shared).map(term => term.term).sort();
+    // Three registry terms carry across both stretches: none of them picks a project.
+    assert.deepEqual(sharedOf(first), ['CDR', '수신부', '앰프']);
+    assert.deepEqual(sharedOf(third), ['CDR', '수신부', '앰프']);
+    assert.ok(first.terms.every(term => !term.shared || term.project_count >= 2));
+    // What differs is the distinguishing term, and each names exactly one project.
+    const only = row => row.terms.filter(term => !term.shared).map(term => `${term.term}=${term.projects.join(',')}`);
+    assert.deepEqual(only(first), ['시험수조=S00-001']);
+    assert.deepEqual(only(third), ['구미 현장=S00-002']);
+    // The tool marks and does not decide: every unit stays unresolved and the
+    // gate still refuses to emit project candidates.
+    assert.ok(answer.units.rows.every(row => row.project_match.state === 'unresolved_needs_context'));
+    assert.ok(answer.units.rows.every(row => row.project_match.candidates.length === 0));
+    assert.equal(answer.units.evidence_gate.project_candidate_emission_allowed, false);
+    const text = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' },
+      toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(text, /공통\(과제 3개\) CDR/u);
+    assert.match(text, /구별\(S00-001\) 시험수조/u);
+    assert.match(text, /공통 표시가 붙은 용어로는 과제를 정하지 못합니다/u);
+  } finally { await inbox.cleanup(); }
+});
+
+test('글자 상한에 잘린 구간도 용어 표시는 구간 전체에서 뽑는다', async () => {
+  const inbox = await mixedInbox();
+  try {
+    const answer = await read(inbox.io, { units: true, sharedTermsPath: inbox.registryPath, maxChars: 100 });
+    const third = answer.units.rows[2];
+    assert.ok(third.shown < third.characters, 'the third unit is cut by the character bound');
+    assert.deepEqual(third.terms.filter(term => term.shared).map(term => term.term).sort(),
+      ['CDR', '수신부', '앰프'], 'marks come from the whole interval, not the shown part');
+  } finally { await inbox.cleanup(); }
+});
+
+test('등록부가 없거나 설정되지 않았으면 표시만 빠지고 답은 그대로 나온다', async () => {
+  const inbox = await mixedInbox(null);
+  try {
+    const none = await read(inbox.io, { units: true });
+    assert.equal(none.shared_terms.status, 'not_configured');
+    assert.ok(none.units.rows.every(row => row.terms.length === 0));
+    assert.equal(none.status, 'ok');
+    const missing = await read(inbox.io, { units: true, sharedTermsPath: inbox.registryPath });
+    assert.equal(missing.shared_terms.status, 'unavailable');
+    assert.equal(missing.status, 'ok');
+  } finally { await inbox.cleanup(); }
+});
+
+test('공통 용어 표시는 원 전사 구간 모드에서도 붙는다', async () => {
+  const inbox = await mixedInbox();
+  try {
+    const answer = await read(inbox.io, { sharedTermsPath: inbox.registryPath });
+    assert.equal(answer.counts.basis, 'transcript_segments');
+    assert.deepEqual(answer.segments[0].terms.filter(term => term.shared).map(term => term.term).sort(),
+      ['CDR', '수신부', '앰프']);
+  } finally { await inbox.cleanup(); }
+});
+
+test('구간 초안 조립은 라벨 run이 센 글자 수와 맞는지 스스로 밝힌다', () => {
+  const rows = [{ segment_id: 1, content: '가나다', start_seconds: 0, end_seconds: 1 },
+    { segment_id: 2, content: '라마바', start_seconds: 1, end_seconds: 2 }];
+  const run = { segment_labels: [{ unit_id: 'u', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 2,
+    content_char_count: 7 }], review_windows: [] };
+  const [built] = buildSemanticUnits({ run, rows, recordedAtLocal: RECORDED });
+  assert.equal(built.text, '가나다 라마바');
+  assert.equal(built.characters, 7);
+  assert.equal(built.characters_match, true);
+  const [drifted] = buildSemanticUnits({ run: { ...run,
+    segment_labels: [{ ...run.segment_labels[0], content_char_count: 99 }] }, rows, recordedAtLocal: RECORDED });
+  assert.equal(drifted.characters_match, false, 'a drifted count is reported, never corrected');
+});
+
+test('스킬 문서가 공통 용어 규칙과 대화 목록 형식을 실제로 담고 있다', async () => {
+  const skill = await readFile(new URL('../ops/hermes-skill/SKILL.md', import.meta.url), 'utf8');
+  for (const rule of ['공통 용어', '근거 두 가지 이상', '대화 목록', '판독 불가', 'candidate', 'unclassified']) {
+    assert.ok(skill.includes(rule), `SKILL.md should state: ${rule}`);
+  }
 });

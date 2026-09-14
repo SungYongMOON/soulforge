@@ -15,15 +15,33 @@
   정렬 힌트다. 오디오와 격리된 공급자 요약은 어떤 경로로도 나오지 않는다.
 - 상한에 걸리면 이어 읽을 창을 답이 직접 알려 준다. 호출은 기존 조사 예산 모듈에 `read`로 함께
   셈해져, 음성 구간 읽기도 한 조사의 6회 안에서 일어난다.
-- 스킬 문서와 맥락이 SOUL에 "음성 구간 검토" 절차를 넣었다. 창을 먼저 읽고 단서로 후보 과제를
-  한 번에 하나씩 좁히며, 판정은 `candidate` 또는 `unclassified`뿐이다 — **봇은 `confirmed`를
-  쓰지 않고**, 판정으로 열람 범위가 넓어지지 않는다. 발언 시각·발언자 ≠ 담당자·인명과 수치의
-  전사 오인 가능성을 판정마다 함께 적는다.
+- `--units`를 붙이면 라벨 run(`analysis/semantic_labels/<run>/semantic_label_run.json`)이 나눠 둔
+  **의미 구간 초안**으로 답한다. 초안임을 머리가 말하고(`claim_ceiling machine_generated_reviewable`,
+  `evidence_gate`의 입력 등급·상태·과제 후보 방출 허용 여부), 각 구간은 speech_acts·disposition·
+  project_match·중요도·에스컬레이션과 함께 나오며 본문은 읽은 전사에서 그대로 온다. 라벨 run은
+  **자기가 라벨한 전사의 digest로** 찾는다 — 없거나, 다른 전사로 만들어졌거나, 같은 전사를
+  가리키는 run이 둘이면 고르지 않고 원 전사 구간으로 내려오며 이유를 적는다.
+- 독립 ASR run의 품질 수치(평균 토큰 확률·낮은 확률 비율·억제 구간·flags·반복 필터·VAD)를 머리에
+  실었다. 판독 불가와 환각 반복을 표시하라고 하면서 근거를 주지 않으면 그 표시는 짐작이 된다.
+- 공통 용어 등록부 훅을 달았다. 도구 설정의 선택 항목 `shared_terms_path`가 가리키는 등록부가
+  있으면 구간마다 `공통(과제 N개)`/`구별` 표시가 붙는다. 표시는 표시일 뿐이며 이 도구는 과제를
+  고르지 않는다. 등록부가 없으면 표시만 빠진다.
+- 스킬 문서와 맥락이 SOUL의 "음성 구간 검토" 절차를 **말을 고치기 전에 대화를 나누는** 순서로 썼다:
+  ① 녹음·전사 품질(판독 불가·환각 반복 표시) → ② 의미가 이어지는 대화 구간 초안(질문·답변·정정·
+  결론은 한 구간, 고정 시간·글자 수·화자 바뀜만으로 경계를 정하지 않음, A→B→A는 두 구간 + 연결)
+  → ③ 구간별 성격(과제 업무/팀 운영/아이디어/일상/판독 불가)과 파생 한 줄 → ④ 과제 후보 대조
+  (한 번에 하나씩, **공통 용어로는 과제를 정하지 못하고** 장비·보드·논의 목적·시험 조건·산출물·
+  후속 기록 중 **두 가지 이상**이 있어야 후보) → ⑤ 용어 교정·원음 재확인 표시 → ⑥ 필요하면
+  구간·과제 판단 수정 → ⑦ **대화 목록**으로 답. 판정은 `candidate` 또는 `unclassified`뿐이고
+  **봇은 `confirmed`를 쓰지 않으며**, 판정으로 열람 범위가 넓어지지 않는다. 안 들리는 구간을
+  잡담으로 분류하지 않고, 결론이 안 난 제안도 아이디어로 남기며, 파생 제목·설명이 실제 발언도
+  승인된 회의록도 아님을 답에 적는다.
 - 운영 영향: 음성 원본·전사·라이브러리 색인·수집기·예약작업·lane·그래프 DB는 바꾸지 않는다.
   설치된 스킬의 7형은 읽기 lane `install/source-lanes/context-read-v1`이 이 커밋으로 다시
   빌드된 뒤에 동작한다(그 전에는 `original_read_item_invalid`로 멈추며, 문서가 그 경우의 답을 정한다).
-- 관련 경로: `guild_hall/context_engine/src/runtime/voice_session_read.mjs`,
-  `harness/estate_original_read.mjs`, `ops/voice-routes/inbox_access.v0.example.json`,
+- 관련 경로: `guild_hall/context_engine/src/runtime/{voice_session_read,shared_terms}.mjs`,
+  `harness/estate_original_read.mjs`, `src/runtime/attachment_derivation.mjs`(설정 한 항목),
+  `ops/voice-routes/inbox_access.v0.example.json`, `ops/context-read/tools.v0.example.json`,
   `ops/hermes-skill/SKILL.md`, `tests/voice_session_read.test.mjs`,
   `package.json`(`validate:context-original-read`).
 

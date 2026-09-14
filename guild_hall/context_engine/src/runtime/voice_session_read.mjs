@@ -28,6 +28,7 @@
 // apart -- not so that a name in that column becomes who owns the work.
 import { createHash } from 'node:crypto';
 import { openSourceRoot, isSafeSegment, SourceReadError } from '../adapters/sources/guarded_files.mjs';
+import { classifyTerms, loadSharedTerms } from './shared_terms.mjs';
 
 export const VOICE_READ_SCHEMA = 'soulforge.context_voice_session_read.v1';
 export const VOICE_ACCESS_SCHEMA = 'soulforge.voice_inbox_access.v0';
@@ -46,6 +47,7 @@ export const MAX_WINDOW_SECONDS = 24 * 60 * 60;
 const SESSION_SCHEMA = 'soulforge.voice_capture_session.v0';
 const SEGMENT_SCHEMA = 'soulforge.voice_transcript_segment.v0';
 const LOCAL_RUN_SCHEMA = 'soulforge.local_asr_run.v0';
+const LABEL_RUN_SCHEMA = 'soulforge.voice_semantic_label_run.v1';
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/u;
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const ALIAS_ADDRESS = /^[a-z][a-z0-9_]{0,31}(?:\/[^/\\:]{1,255}){1,16}$/u;
@@ -53,6 +55,7 @@ const OFFSET = /([+-])(\d{2}):(\d{2})$/u;
 const MAX_ACCESS_BYTES = 256 * 1024;
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
 const MAX_TRANSCRIPT_BYTES = 32 * 1024 * 1024;
+const MAX_LABEL_BYTES = 32 * 1024 * 1024;
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 export class VoiceSessionReadError extends Error {
@@ -163,8 +166,19 @@ async function readLocalTranscript({ root, segments, runId }) {
   catch (error) { return { status: 'transcript_unavailable', detail: `local transcript ${String(error?.code ?? 'unreadable')}` }; }
   const declaredDigest = typeof runManifest.transcript_sha256 === 'string'
     ? `sha256:${runManifest.transcript_sha256.replace(/^sha256:/u, '')}` : null;
+  // The run's own quality numbers travel with it: without them a reader is
+  // asked to judge whether a stretch is inaudible or a repetition artefact with
+  // nothing to judge it from.
+  const metrics = runManifest.quality_metrics ?? {};
   return { status: 'ok', text: file.text,
     transcript: { kind: 'local', run_id: runId, state: runManifest.state,
+      metrics: { mean_token_probability: metrics.mean_token_probability ?? null,
+        low_probability_token_ratio: metrics.low_probability_token_ratio ?? null,
+        suppressed_segment_count: metrics.suppressed_segment_count ?? null,
+        retained_segment_count: metrics.retained_segment_count ?? null,
+        flags: Array.isArray(metrics.flags) ? metrics.flags.map(String) : [],
+        repetition_filter_enabled: runManifest.repetition_filter?.enabled === true,
+        vad_enabled: runManifest.vad_enabled === true },
       evidence_role: runManifest.evidence_role ?? null, claim_ceiling: runManifest.claim_ceiling ?? null,
       quality: runManifest.quality ?? null, engine: runManifest.engine ?? null,
       model_id: runManifest.model_id ?? null,
@@ -182,6 +196,7 @@ async function readProviderTranscript({ root, segments, manifest, detail = null 
     // The provider chain declares no claim ceiling of its own, and the manifest
     // says the provider transcript is not canonical. Both facts travel with it.
     transcript: { kind: 'provider', run_id: null, state: declared.status ?? null,
+      metrics: null,
       evidence_role: declared.evidence_role ?? null, claim_ceiling: null, quality: declared.quality ?? null,
       engine: null, model_id: null,
       declared_segment_count: Number.isSafeInteger(declared.segment_count) ? declared.segment_count : null,
@@ -190,16 +205,129 @@ async function readProviderTranscript({ root, segments, manifest, detail = null 
       fallback_reason: detail } };
 }
 
+// ------------------------------------------------------- semantic units
+// The labelling run already cut the recording where the talk changes, which is
+// a better first draft of "one conversation" than a fixed number of seconds or
+// a change of speaker. It is a draft and says so: the engine declares
+// `claim_ceiling: machine_generated_reviewable`, and where it could not resolve
+// a project it says `unresolved_needs_context` rather than guessing one.
+//
+// A run is bound to the exact transcript it labelled. The session manifest does
+// not declare which run is current (checked: its top-level keys carry audio,
+// transcript, summary, diarization, canonicalization, meeting_context,
+// raw_payload_boundary, post_import_contract and independent_transcription --
+// no semantic label block), so the run is found by the digest it names: the one
+// whose `recording_ref.transcript_sha256` is the transcript being read. Two
+// runs over the same transcript are a refusal rather than a pick, and a run
+// over a different transcript is not used at all -- its unit boundaries are
+// offsets into another chain's segments.
+async function readSemanticLabelRun({ root, segments, transcriptSha256 }) {
+  let entries;
+  try { entries = await root.list([...segments, 'analysis', 'semantic_labels']); }
+  catch { return { status: 'labels_absent', detail: 'no semantic label folder' }; }
+  const runs = entries.filter(entry => entry.directory && isSafeSegment(entry.name));
+  if (runs.length === 0) return { status: 'labels_absent', detail: 'no semantic label run' };
+  const matched = [];
+  let readable = 0;
+  for (const entry of runs) {
+    let run;
+    try {
+      run = JSON.parse((await root.readText([...segments, 'analysis', 'semantic_labels', entry.name,
+        'semantic_label_run.json'], MAX_LABEL_BYTES)).text);
+    } catch { continue; }
+    if (run?.schema_version !== LABEL_RUN_SCHEMA || !Array.isArray(run.segment_labels)) continue;
+    readable += 1;
+    const declared = typeof run.recording_ref?.transcript_sha256 === 'string'
+      ? `sha256:${run.recording_ref.transcript_sha256.replace(/^sha256:/u, '')}` : null;
+    if (declared !== null && declared === transcriptSha256) matched.push({ run, run_id: entry.name });
+  }
+  if (matched.length > 1) return { status: 'labels_ambiguous', detail: 'two label runs name this transcript' };
+  if (matched.length === 0) {
+    return { status: readable === 0 ? 'labels_absent' : 'labels_other_revision',
+      detail: readable === 0 ? 'no readable semantic label run'
+        : 'the label run was made over a different transcript than the one read' };
+  }
+  return { status: 'ok', detail: null, ...matched[0] };
+}
+
+/**
+ * The draft intervals, with each one's text taken verbatim from the transcript
+ * that was read. `content_char_count` is the run's own count of that text, so a
+ * mismatch says the unit no longer describes what the transcript holds -- it is
+ * reported, never silently corrected.
+ */
+export function buildSemanticUnits({ run, rows, recordedAtLocal }) {
+  const byId = new Map(rows.map(row => [row.segment_id, row]));
+  const windows = new Map();
+  for (const window of Array.isArray(run.review_windows) ? run.review_windows : []) {
+    for (const ref of Array.isArray(window.source_unit_refs) ? window.source_unit_refs : []) {
+      if (!windows.has(ref)) windows.set(ref, window);
+    }
+  }
+  return run.segment_labels.map(unit => {
+    const ids = Array.isArray(unit.source_segment_ids) ? unit.source_segment_ids : [];
+    const found = ids.map(id => byId.get(id)).filter(row => row !== undefined);
+    const text = found.map(row => row.content).join(' ');
+    const characters = [...text].length;
+    const window = windows.get(unit.unit_id) ?? null;
+    return { unit_id: String(unit.unit_id), source_segment_ids: ids, segments_found: found.length,
+      start_seconds: Number(unit.start_seconds), end_seconds: Number(unit.end_seconds),
+      clock: clockAt(recordedAtLocal, Number(unit.start_seconds)).clock,
+      clock_end: clockAt(recordedAtLocal, Number(unit.end_seconds)).clock,
+      speaker: String(unit.speaker_label ?? 'UNKNOWN'),
+      speech_acts: Array.isArray(unit.speech_acts) ? unit.speech_acts.map(String) : [],
+      action_codes: Array.isArray(unit.action_codes) ? unit.action_codes.map(String) : [],
+      // The entity value is raw transcript text, so it is a clue to search with
+      // and never a name to attribute anything to.
+      entities: (Array.isArray(unit.entities) ? unit.entities : [])
+        .map(entity => ({ kind: String(entity.kind ?? '-'), value: String(entity.value ?? ''),
+          role_label: entity.role_label === undefined ? null : String(entity.role_label) })),
+      project_match: { state: String(unit.project_match?.state ?? 'unknown'),
+        candidates: Array.isArray(unit.project_match?.candidates) ? unit.project_match.candidates : [] },
+      disposition: String(unit.disposition ?? '-'), modality: String(unit.modality ?? '-'),
+      polarity: String(unit.polarity ?? '-'),
+      declared_characters: Number.isSafeInteger(unit.content_char_count) ? unit.content_char_count : null,
+      characters, text,
+      characters_match: Number.isSafeInteger(unit.content_char_count) ? unit.content_char_count === characters : null,
+      window: window === null ? null : { window_id: String(window.window_id ?? '-'),
+        importance_state: String(window.importance_state ?? '-'),
+        importance_reason_codes: Array.isArray(window.importance_reason_codes)
+          ? window.importance_reason_codes.map(String) : [],
+        escalation_state: String(window.escalation_state ?? '-'),
+        human_listen_required: window.human_listen_required === true },
+    };
+  }).sort((a, b) => a.start_seconds - b.start_seconds || a.unit_id.localeCompare(b.unit_id));
+}
+
+const labelHead = ({ run, run_id }) => ({
+  run_id, engine_id: String(run.engine?.engine_id ?? '-'), engine_version: String(run.engine?.engine_version ?? '-'),
+  engine_mode: String(run.engine?.mode ?? '-'), claim_ceiling: run.engine?.claim_ceiling ?? null,
+  evidence_gate: { input_class: String(run.evidence_gate?.input_class ?? '-'),
+    state: String(run.evidence_gate?.state ?? '-'),
+    reason_codes: Array.isArray(run.evidence_gate?.reason_codes) ? run.evidence_gate.reason_codes.map(String) : [],
+    project_candidate_emission_allowed: run.evidence_gate?.project_candidate_emission_allowed === true,
+    next_step: run.evidence_gate?.next_step === undefined ? null : String(run.evidence_gate.next_step) },
+  coverage: { semantic_units: run.coverage?.semantic_unit_count ?? null,
+    source_segments: run.coverage?.source_segment_count ?? null,
+    covered_source_segments: run.coverage?.covered_source_segment_count ?? null },
+  recording_classification: String(run.recording_classification?.type_candidate ?? '-'),
+  project_resolution: String(run.project_resolution?.state ?? '-'),
+  missing_context_kinds: Array.isArray(run.context?.missing_context_kinds)
+    ? run.context.missing_context_kinds.map(String) : [],
+});
+
 // -------------------------------------------------------------------- read
 /**
  * One window of one session. `from`/`to` are seconds from the start of the
  * recording; the window is clamped to what the declaration allows and the answer
  * says where to continue. `maxChars` may lower the declared character bound and
- * never raises it.
+ * never raises it. With `units`, the window is shown as the labelling run's
+ * draft intervals instead of raw transcript segments; without a usable run it
+ * falls back to the segments and says why.
  */
 export async function readVoiceSession({ io, sessionId, from = null, to = null, transcriptKind = null,
-  maxChars = null, actorRef = VOICE_READER_ACTOR, accessAddress = VOICE_ACCESS_ADDRESS,
-  now = new Date().toISOString() } = {}) {
+  units = false, maxChars = null, sharedTermsPath = null, actorRef = VOICE_READER_ACTOR,
+  accessAddress = VOICE_ACCESS_ADDRESS, now = new Date().toISOString() } = {}) {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || !isSafeSegment(sessionId)) {
     fail('voice_session_id_invalid');
   }
@@ -218,7 +346,10 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
       sha256: access.sha256 ?? null, root: access.root ?? null, purpose: access.purpose ?? null,
       max_seconds_per_call: access.max_seconds_per_call ?? null },
     detail, session: null, transcript: null, window: null, segments: [],
-    counts: { in_window: 0, shown: 0, characters_total: 0, characters_shown: 0 }, next_window: null,
+    units: { status: units ? 'not_read' : 'not_requested', detail: null, rows: [] },
+    shared_terms: { status: 'not_read', detail: null, term_count: 0 },
+    counts: { basis: 'transcript_segments', in_window: 0, shown: 0, characters_total: 0, characters_shown: 0 },
+    next_window: null,
     internal: { parser_calls: 0, render_calls: 0, model_calls: 0 }, ...extra });
   if (!access.granted) return closed('access_denied', access.detail);
 
@@ -263,18 +394,49 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
   const requestedFrom = from ?? 0;
   const requestedTo = to ?? Math.max(duration, rows.at(-1)?.end_seconds ?? 0, requestedFrom);
   const windowTo = Math.min(requestedTo, requestedFrom + access.max_seconds_per_call);
-  const inWindow = rows.filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo);
   const limit = Math.min(maxChars ?? access.max_characters_per_call, access.max_characters_per_call);
   const start = manifest.recorded_at_local;
+
+  // The draft intervals, when they were made over the very transcript that was
+  // read. Anything else falls back to the raw segments and says why, because a
+  // unit boundary from another chain would point at the wrong words.
+  let labels = { status: units ? 'not_read' : 'not_requested', detail: null, rows: [] };
+  let unitRows = null;
+  if (units) {
+    const found = await readSemanticLabelRun({ root, segments, transcriptSha256: read.transcript.sha256 });
+    labels = found.status === 'ok'
+      ? { status: 'ok', detail: null, ...labelHead(found), rows: [] }
+      : { status: found.status, detail: found.detail, rows: [] };
+    if (found.status === 'ok') {
+      unitRows = buildSemanticUnits({ run: found.run, rows, recordedAtLocal: start })
+        .filter(unit => unit.end_seconds > requestedFrom && unit.start_seconds < windowTo);
+    }
+  }
+
+  const basis = unitRows === null ? 'transcript_segments' : 'semantic_units';
+  const inWindow = unitRows ?? rows.filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo);
+  const lengthOf = row => unitRows === null ? [...row.content].length : row.characters;
+  const textOf = row => unitRows === null ? row.content : row.text;
+  // Marks, not judgements: a term the registry says several projects carry is
+  // one a reader must stop using to pick one.
+  const registry = loadSharedTerms(sharedTermsPath);
   let budget = limit;
   const shown = inWindow.map(row => {
-    const characters = [...row.content].length;
+    const characters = lengthOf(row);
     const give = budget <= 0 ? 0 : Math.min(characters, budget);
     budget -= give;
-    return { segment_id: row.segment_id, start_seconds: row.start_seconds, end_seconds: row.end_seconds,
-      clock: clockAt(start, row.start_seconds).clock, speaker: row.speaker, characters, shown: give,
-      truncated: give < characters, text: give === characters ? row.content : [...row.content].slice(0, give).join('') };
+    const text = textOf(row);
+    const body = { start_seconds: row.start_seconds, end_seconds: row.end_seconds, characters, shown: give,
+      truncated: give < characters, text: give === characters ? text : [...text].slice(0, give).join('') };
+    // The whole interval's text is classified, not only the part shown, so a
+    // character bound cannot hide the word that makes a clue ambiguous.
+    const terms = registry.status === 'ok' ? classifyTerms(text, registry) : [];
+    return unitRows === null
+      ? { segment_id: row.segment_id, clock: clockAt(start, row.start_seconds).clock, speaker: row.speaker,
+        ...body, terms }
+      : { ...row, ...body, terms };
   });
+  if (unitRows !== null) labels = { ...labels, rows: shown };
   const firstUnshown = shown.find(row => row.shown < row.characters) ?? null;
   const nextWindow = firstUnshown !== null
     ? { from: Math.floor(firstUnshown.start_seconds), to: windowTo, reason: 'character_bound' }
@@ -301,11 +463,13 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
     window: { from: requestedFrom, to: windowTo, requested_to: requestedTo,
       clamped: windowTo < requestedTo, max_seconds_per_call: access.max_seconds_per_call,
       max_characters: limit },
-    segments: shown, next_window: nextWindow,
-    counts: { in_window: inWindow.length, shown: shown.filter(row => row.shown > 0).length,
-      characters_total: inWindow.reduce((sum, row) => sum + [...row.content].length, 0),
+    segments: unitRows === null ? shown : [], units: labels, next_window: nextWindow,
+    shared_terms: { status: registry.status, detail: registry.detail, term_count: registry.terms.length,
+      registry_sha256: registry.path_sha256 },
+    counts: { basis, in_window: inWindow.length, shown: shown.filter(row => row.shown > 0).length,
+      characters_total: inWindow.reduce((sum, row) => sum + lengthOf(row), 0),
       characters_shown: shown.reduce((sum, row) => sum + row.shown, 0) },
-    internal: { parser_calls: 0, render_calls: 0, model_calls: 0 },
+  internal: { parser_calls: 0, render_calls: 0, model_calls: 0 },
   });
 }
 
