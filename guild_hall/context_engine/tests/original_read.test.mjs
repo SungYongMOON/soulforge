@@ -383,6 +383,9 @@ test('six calls is the whole of one investigation, and a seventh is refused with
       assert.equal(error.calls, INVESTIGATION_BUDGET_LIMIT);
       assert.equal(error.summary.length, INVESTIGATION_BUDGET_LIMIT);
       assert.match(error.summary[0], /query/u);
+      // What each call became, not only that it happened: the third one failed.
+      assert.match(error.summary[2], /estate_query_failed$/u);
+      assert.match(error.summary[3], /ok$/u);
       return true;
     });
   // The ledger is where the count lives, one line per phase per call.

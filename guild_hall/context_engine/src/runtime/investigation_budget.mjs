@@ -88,11 +88,16 @@ export function chargeInvestigation({ receiptsRoot, cli, env = process.env, devR
   const identity = investigationKey({ env, devRun });
   const directory = join(receiptsRoot, identity.directory);
   const ledgerPath = join(directory, identity.file);
-  const previous = readRows(ledgerPath).filter(row => row?.phase === 'start' && row?.key === identity.key);
+  const rows = readRows(ledgerPath).filter(row => row?.key === identity.key);
+  const previous = rows.filter(row => row?.phase === 'start');
   if (previous.length >= limit) {
     const error = new InvestigationBudgetError(BUDGET_EXHAUSTED_CODE);
+    // The start row is what a call costs; the end row is what it became. The
+    // summary a refused caller gets has to carry the second one, or it says six
+    // questions were asked and nothing about what came back.
+    const ended = new Map(rows.filter(row => row?.phase === 'end').map(row => [row.call, row.outcome]));
     error.summary = previous.slice(0, limit).map((row, index) =>
-      `${index + 1}. ${row.ts ?? '-'} ${row.cli ?? '-'} ${describe(row.arguments)} -> ${row.outcome ?? 'unknown'}`);
+      `${index + 1}. ${row.ts ?? '-'} ${row.cli ?? '-'} ${describe(row.arguments)} -> ${ended.get(row.call) ?? 'no result recorded'}`);
     error.calls = previous.length;
     throw error;
   }

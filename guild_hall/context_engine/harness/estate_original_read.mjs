@@ -164,7 +164,7 @@ async function main() {
   const attachmentSelector = flags.get('attachment') === undefined || flags.get('attachment') === true
     ? null : String(flags.get('attachment'));
   const args = { project, item: itemId, unit: flags.get('unit') === undefined ? null : String(flags.get('unit')),
-    attachment: attachmentSelector, render: flags.get('render') === true,
+    attachments: flags.get('attachments') === true, attachment: attachmentSelector, render: flags.get('render') === true,
     tools_config_sha256: toolsSha256.slice(0, 19), root_table_sha256: io.table_sha256.slice(0, 19) };
   let budget;
   try {
