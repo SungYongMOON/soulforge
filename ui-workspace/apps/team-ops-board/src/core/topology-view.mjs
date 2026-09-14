@@ -78,6 +78,7 @@ const REASON_LABELS = Object.freeze({
 
 export function assessTopologyObservation(health) {
   const reasons=Array.isArray(health?.reasons)?health.reasons:[];
+  if (health?.state==='unmonitored') return {key:'unknown',label:'미확인 · 관측 근거 없음',pendingCount:null};
   if (reasons.some(reason => /^(source_|workmeta_root_|workmeta_store_absent$|workmeta_validation_failed$|watchtower_execution_failed$|probe_unbound$|task_query_failed$|task_state_unknown$|heartbeat_receipt_unavailable$)/u.test(reason))) {
     return {key:'observation_error',label:'확인 불가 · 관측/검사 문제',pendingCount:null};
   }
