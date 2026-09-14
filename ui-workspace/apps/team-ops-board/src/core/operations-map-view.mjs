@@ -35,7 +35,8 @@ export const CONTEXT_EDGES = Object.freeze([
 function stageFor(node) {
   if (node.stage) return node.stage;
   const local = node.id.replace(/^watchtower::/u, '');
-  if (['src_buzz', 'src_agent_runtime'].includes(local)) return 'response';
+  if (['ingress_supervisor','gate_five_field','store_usage_ledger','store_workmeta','src_agent_runtime'].includes(local)) return 'support';
+  if (local === 'src_buzz') return 'response';
   if (local === 'voice_label_worker' || local === 'gate_five_field') return 'prepare';
   if (node.provider_id !== 'watchtower') return 'support';
   if (node.group === '수집' || node.group === '외부 소스') return 'collect';
@@ -100,4 +101,38 @@ export function stageConnections(model) {
     else groups.set(key, { id: key, source: from, target: to, count: 1, label: edge.evidenceMode === 'implementation_contract' ? '구현 계약 · 관측 미연결' : '등록된 구조', observed: false });
   }
   return [...groups.values()];
+}
+
+export function directConnections(model, nodeId) {
+  const byId = new Map(model.nodes.map(node => [node.id, node]));
+  if (!byId.has(nodeId)) return { incoming: [], outgoing: [] };
+  return {
+    incoming: model.edges.filter(edge => edge.to === nodeId && byId.has(edge.from))
+      .map(edge => ({ edge, node: byId.get(edge.from) })),
+    outgoing: model.edges.filter(edge => edge.from === nodeId && byId.has(edge.to))
+      .map(edge => ({ edge, node: byId.get(edge.to) })),
+  };
+}
+
+export function architectureScene(model) {
+  const columns = { custody: 2, prepare: 3, extract: 4, graph: 5, context: 6, response: 7 };
+  const family = id => /buzz/u.test(id) ? 0 : /linear/u.test(id) ? 1 : /mail|hiworks/u.test(id) ? 2
+    : /slack/u.test(id) ? 3 : /voice|plaud/u.test(id) ? 4 : /activity|onedrive|local/u.test(id) ? 5 : /usage/u.test(id) ? 6 : 7;
+  const sceneNodes = model.nodes.filter(n => n.stage !== 'support').map(n => {
+    const source = n.id.startsWith('watchtower::src_');
+    const column = n.id === 'watchtower::src_buzz' ? 0 : n.stage === 'collect' ? source ? 0 : 1 : columns[n.stage];
+    const row = n.id.startsWith('watchtower::') ? family(n.id) : /models|compose/u.test(n.id) ? 4 : 2;
+    const shape = n.id === 'context_engine::neo4j' || n.role?.startsWith('store') ? 'store'
+      : n.stage === 'response' && n.id !== 'watchtower::src_buzz' || n.id === 'context_engine::compose' ? 'agent' : 'process';
+    return { ...n, column, row, shape, position: { x: column * 180, y: 55 + row * 76 } };
+  });
+  // Keep identities and relation direction. No aggregate stage bridge can turn
+  // one voice-processing connection into the context engine's missing input.
+  const byId = new Map(sceneNodes.map(n => [n.id,n]));
+  const sceneEdges = model.edges.filter(e => e.relation === 'data' && byId.has(e.from) && byId.has(e.to)).map(e => {
+    const from=byId.get(e.from), to=byId.get(e.to);
+    return { ...e, sourceHandle: from.column === to.column ? from.row < to.row ? 'bottom' : 'top-out' : from.column < to.column ? 'right' : 'left-out',
+      targetHandle: from.column === to.column ? from.row < to.row ? 'top' : 'bottom-in' : from.column < to.column ? 'left' : 'right-in' };
+  });
+  return { nodes: sceneNodes, edges: sceneEdges };
 }

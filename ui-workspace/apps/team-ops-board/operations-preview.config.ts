@@ -9,6 +9,7 @@ import { createTopologyRecoveryAdapterPlugin } from './src/server/topology-recov
 import { createAiUsageAdapterPlugin } from './src/server/ai-usage-adapter.mjs';
 import { createOperationsDirectoryPlugin } from './src/server/operations-directory-adapter.mjs';
 import { createGraphReceiptPlugin } from './src/server/operations-graph-receipts-adapter.mjs';
+import { createOperationsPreviewReadPlugin } from './src/server/operations-preview-read-adapter.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const stateRoot = resolveSoulforgeStateRoot(process.env, () => path.resolve(root, '../../../guild_hall/state'));
@@ -17,6 +18,7 @@ const stateRoot = resolveSoulforgeStateRoot(process.env, () => path.resolve(root
 export default defineConfig({
   root,
   plugins: [react(), createTopologyAdapterPlugin({ readOnlyPilot: true, snapshotPath: '/operations-health.snapshot.json' }), createTopologyFederationAdapterPlugin(),
+    createTopologyAdapterPlugin({ readOnlyPilot: true }), createOperationsPreviewReadPlugin(),
     createTopologyRecoveryAdapterPlugin({ evidenceRoot: path.join(stateRoot, 'operations/watchtower/external_evidence') }),
     createAiUsageAdapterPlugin({ registryPath: path.join(stateRoot, 'operations/team_ops_board/thread_visibility.v1.json'),
       usageMeterStateRoot: path.join(stateRoot, 'operations/ai_usage_meter') }),
@@ -24,5 +26,5 @@ export default defineConfig({
     createOperationsDirectoryPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256 })],
   server: { host: '127.0.0.1', port: 4194, strictPort: true, open: false },
   preview: { host: '127.0.0.1', port: 4194, strictPort: true },
-  build: { outDir: 'dist-operations', rollupOptions: { input: path.join(root, 'operations-map.html') } },
+  build: { outDir: 'dist-operations', rollupOptions: { input: { board: path.join(root,'index.html'), operations: path.join(root, 'operations-map.html') } } },
 });

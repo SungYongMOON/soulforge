@@ -122,7 +122,7 @@ import {
 } from "./core/live-thread-ui-model.mjs";
 
 type BoardView = "active" | "history";
-type BoardSurface = "forge" | "owner" | "organization" | "work" | "system";
+type BoardSurface = "forge" | "owner" | "organization" | "work" | "system" | "operations" | "directory";
 
 function compactClock(value: string | null): string {
   if (value === null) return "—";
@@ -139,6 +139,8 @@ const SURFACE_WORDMARKS: Record<BoardSurface, string> = {
   organization: "ORG TOPOLOGY",
   work: "LEDGER",
   system: "SYSTEM TOPOLOGY",
+  operations: "OPERATIONS MAP",
+  directory: "DIRECTORY",
 };
 
 function LiveClock() {
@@ -501,8 +503,8 @@ function App() {
   const [projection, setProjection] = useState<any>(() =>
     createUnavailableLiveThreadProjection({ health: "unavailable", enrollmentHealth: "missing" })
   );
-  // 첫 진입은 대장간 지도다: 구조 전체가 도는지를 한 장으로 먼저 보여 준다.
-  const [surface, setSurface] = useState<BoardSurface>("forge");
+  // 운영 현황과 기존 사용량 그래프가 기본 화면이며 지도는 하위 메뉴다.
+  const [surface, setSurface] = useState<BoardSurface>("owner");
   const [organizationSubview, setOrganizationSubview] = useState<OrganizationSubview>("tree");
   const [selectedOrganizationGroupId, setSelectedOrganizationGroupId] = useState<string | null>(null);
   const [view, setView] = useState<BoardView>("active");
@@ -960,11 +962,11 @@ function App() {
             <span className="live-board-brand-live"><span aria-hidden="true" /> LIVE</span>
           </div>
           <nav className="live-board-primary-nav" aria-label="Workspace Board 화면">
+            <button type="button" data-testid="owner-overview-tab" className={surface === "owner" ? "is-active" : ""} aria-pressed={surface === "owner"} onClick={() => setSurface("owner")}>
+              대시보드
+            </button>
             <button type="button" data-testid="forge-map-tab" className={surface === "forge" ? "is-active" : ""} aria-pressed={surface === "forge"} onClick={() => setSurface("forge")}>
               대장간
-            </button>
-            <button type="button" data-testid="owner-overview-tab" className={surface === "owner" ? "is-active" : ""} aria-pressed={surface === "owner"} onClick={() => setSurface("owner")}>
-              실시간 현황
             </button>
             <button type="button" data-testid="organization-tree-tab" className={surface === "organization" ? "is-active" : ""} aria-pressed={surface === "organization"} onClick={() => setSurface("organization")}>
               조직도
@@ -973,7 +975,13 @@ function App() {
               업무 현황·이력
             </button>
             <button type="button" data-testid="system-topology-tab" className={surface === "system" ? "is-active" : ""} aria-pressed={surface === "system"} onClick={() => setSurface("system")}>
-              시스템 토폴로지
+              시스템 진단
+            </button>
+            <button type="button" data-testid="operations-map-subview-tab" className={surface === "operations" ? "is-active" : ""} aria-pressed={surface === "operations"} onClick={() => setSurface("operations")}>
+              운영 지도
+            </button>
+            <button type="button" data-testid="operations-directory-subview-tab" className={surface === "directory" ? "is-active" : ""} aria-pressed={surface === "directory"} onClick={() => setSurface("directory")}>
+              디렉터리
             </button>
           </nav>
           <div className="live-board-top-actions">
@@ -1103,7 +1111,13 @@ function App() {
               onOpenSystemSurface={() => setSurface("system")}
             />
           )}
-          {surface !== "forge" && (liveProjectionPresentation.should_render_projection ? <>
+          {(surface === "operations" || surface === "directory") && (
+            <iframe key={surface} title={surface === "operations" ? "운영 지도" : "디렉터리"}
+              src={`/operations-map.html?embedded=1&tab=${surface === "directory" ? "directory" : "map"}`}
+              style={{ width: "100%", height: "calc(100vh - 150px)", minHeight: 650, border: 0, borderRadius: 12 }} />
+          )}
+          {/* Usage and diagnostics own their evidence; a thread-list outage
+              must not hide their independently available graphs and receipts. */}
           {surface === "owner" && (
             <SystemStatStrip
               projection={topologyProjection}
@@ -1116,6 +1130,14 @@ function App() {
           {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} providers={providerSnapshots} pending={aiUsagePending} />}
           {surface === "owner" && <FleetStatusRows projection={topologyProjection} />}
           {surface === "owner" && <ErpPendingReviewPanel />}
+          {surface === "system" && (
+            <div className="system-topology-stack" data-testid="system-topology-stack">
+              <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing}
+                providerSnapshots={providerSnapshots} onRefreshReadOnly={refreshDiagnostics} />
+              <EngineeringEngineTopologySurface projection={topologyFederationProjection} />
+            </div>
+          )}
+          {surface !== "forge" && surface !== "operations" && surface !== "directory" && surface !== "system" && (liveProjectionPresentation.should_render_projection ? <>
           {surface === "owner" && (
             <RealtimeDashboard
               projection={projection}
@@ -1159,18 +1181,6 @@ function App() {
               onToggle={toggleThreadTree}
               onSelect={selectThread}
             />
-          )}
-
-          {surface === "system" && (
-            <div className="system-topology-stack" data-testid="system-topology-stack">
-              <SystemTopologySurface
-                projection={topologyProjection}
-                refreshing={topologyRefreshing}
-                providerSnapshots={providerSnapshots}
-                onRefreshReadOnly={refreshDiagnostics}
-              />
-              <EngineeringEngineTopologySurface projection={topologyFederationProjection} />
-            </div>
           )}
 
           {surface === "work" && workGroups.map((group) => (

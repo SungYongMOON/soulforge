@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ReactFlow, Background, Controls, Handle, Position, MarkerType, applyNodeChanges, type NodeProps } from '@xyflow/react';
-import { Activity, Archive, ArrowUpLeft, Boxes, ChevronDown, ChevronRight, Database, File, Filter, Folder, GitBranch, Inbox, Layers, LockKeyhole, MessageSquare, RefreshCw, Search, ShieldCheck, X } from 'lucide-react';
-import { buildOperationsMap, stageConnections } from './core/operations-map-view.mjs';
+import { Activity, ArrowRight, ArrowUpLeft, ChevronDown, ChevronRight, File, Folder, GitBranch, Layers, LockKeyhole, RefreshCw, Search, ShieldCheck, Unplug, X } from 'lucide-react';
+import { buildOperationsMap, architectureScene, directConnections } from './core/operations-map-view.mjs';
 import { describeTopologyReason } from './core/topology-view.mjs';
 import '@xyflow/react/dist/style.css';
 import './design/design-system.generated.css';
 import './operations-map.css';
+import './operations-map-reading.css';
 
 type Row = Record<string, any>;
-const icons: Record<string, any> = { inbox: Inbox, archive: Archive, filter: Filter, boxes: Boxes, database: Database, search: Search, message: MessageSquare, activity: Activity };
 const healthLabel: Record<string,string> = { ok: '정상 관측', down: '실패 관측', degraded: '주의 관측', stale: '지연 관측', unmonitored: '미감시', unknown: '미확인' };
 const at = (value: any) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '미확인';
 const bytes = (n: any) => n === null || n === undefined ? '미집계' : n < 1024 ? `${n} B` : n < 1048576 ? `${(n/1024).toFixed(1)} KB` : `${(n/1048576).toFixed(1)} MB`;
@@ -20,25 +20,38 @@ async function readJson(url: string, signal?: AbortSignal) {
   return response.json();
 }
 
-function StageNode({ data }: NodeProps) {
-  const d = data as Row, stage = d.stage, Icon = icons[stage.icon];
-  const members = stage.members as Row[];
-  const previewCount = ['response', 'prepare'].includes(stage.id) ? 3 : 2;
-  const visible = d.expanded ? members : members.slice(0, previewCount);
-  const observations = members.filter(n => n.observedAt).length;
-  return <article className={`op-stage op-stage-${stage.id}`}>
+function ArchitectureNode({ data }: NodeProps) {
+  const d=data as Row, n=d.node;
+  return <div className={`op-architecture-node op-architecture-${n.shape} ${d.selected?'is-selected':''}`}>
     <Handle type="target" id="left" position={Position.Left}/><Handle type="source" id="right" position={Position.Right}/>
     <Handle type="target" id="top" position={Position.Top}/><Handle type="source" id="bottom" position={Position.Bottom}/>
     <Handle type="target" id="right-in" position={Position.Right}/><Handle type="source" id="left-out" position={Position.Left}/>
-    <div className="op-stage-heading"><span className="op-stage-icon"><Icon size={20}/></span><div><small>{d.number === 8 ? 'SUPPORT' : `STAGE 0${d.number}`}</small><h2>{stage.title}</h2></div>
-      <button className="nodrag op-disclosure" aria-label={`${stage.title} ${d.expanded ? '접기' : '펼치기'}`} aria-expanded={d.expanded} onClick={() => d.toggle(stage.id)}>{d.expanded ? <ChevronDown size={17}/> : <ChevronRight size={17}/>}</button></div>
-    <p>{stage.subtitle}</p>
-    <div className="op-members nodrag nowheel">{visible.map(n => <button key={n.id} className={`op-member ${d.selected === n.id ? 'is-selected' : ''}`} onClick={() => d.select(n.id)}><span className={`op-dot ${n.freshness === 'fresh' ? n.health : 'unknown'}`}/><span>{n.label}</span><ChevronRight size={12}/></button>)}</div>
-    {!d.expanded && members.length > previewCount && <button className="op-more nodrag" onClick={() => d.toggle(stage.id)}>+ {members.length - previewCount}개 항목 펼치기</button>}
-    <footer>{members.length}개 항목 <span>{observations ? `${observations}개 관측 기록` : '실행 관측 미연결'}</span></footer>
-  </article>;
+    <Handle type="target" id="bottom-in" position={Position.Bottom}/><Handle type="source" id="top-out" position={Position.Top}/>
+    {n.shape==='store'&&<svg viewBox="0 0 140 64" preserveAspectRatio="none" aria-hidden="true"><path d="M1 9v45c0 12 138 12 138 0V9"/><ellipse cx="70" cy="9" rx="69" ry="8"/></svg>}
+    <button className="nodrag" title={n.label} aria-label={`${n.label} 상세`} onClick={()=>d.select(n.id)}><strong>{n.label}</strong></button>
+  </div>;
 }
-const nodeTypes = { stage: StageNode };
+function ArchitectureHeading({data}:NodeProps){return <div className="op-architecture-heading">{String(data.label)}</div>;}
+const nodeTypes = { architecture: ArchitectureNode, heading: ArchitectureHeading };
+function architectureHandles(height:number) {
+  return [
+    {id:'left',type:'target' as const,position:Position.Left,x:0,y:height/2},
+    {id:'right',type:'source' as const,position:Position.Right,x:140,y:height/2},
+    {id:'top',type:'target' as const,position:Position.Top,x:70,y:0},
+    {id:'bottom',type:'source' as const,position:Position.Bottom,x:70,y:height},
+    {id:'right-in',type:'target' as const,position:Position.Right,x:140,y:height/2},
+    {id:'left-out',type:'source' as const,position:Position.Left,x:0,y:height/2},
+    {id:'bottom-in',type:'target' as const,position:Position.Bottom,x:70,y:height},
+    {id:'top-out',type:'source' as const,position:Position.Top,x:70,y:0},
+  ];
+}
+
+function ConnectionFocus({ node, model, select }: { node: Row; model: Row; select: (id:string) => void }) {
+  const connections = directConnections(model, node.id);
+  const relations: Record<string,string> = { data: '자료', control: '제어', observes: '관측', projects: '투영', advises: '자문', contains: '포함', imports: '참조', validates: '검증' };
+  const column = (rows: Row[], label: string) => <section className="op-neighbors"><h3>{label} <span>{rows.length}개</span></h3>{rows.length ? rows.map(({node: neighbor, edge}) => <button key={edge.id} onClick={() => select(neighbor.id)}><strong>{neighbor.label}</strong><small>{relations[edge.relation] ?? edge.relation} · {edge.label || '등록된 관계'}</small></button>) : <p>등록된 연결 없음</p>}</section>;
+  return <section className="op-focus-connections" aria-label="선택 항목의 직접 연결"><header><GitBranch size={17}/><strong>이 항목과 직접 연결된 곳만</strong><span>전체 관계는 숨김</span></header><div className="op-neighbor-layout">{column(connections.incoming,'들어오는 곳')}<div className="op-focus-center"><ArrowRight size={18}/><strong>{node.label}</strong><ArrowRight size={18}/><small>구조 방향이며<br/>전달 성공을 뜻하지 않습니다.</small></div>{column(connections.outgoing,'나가는 곳')}</div></section>;
+}
 
 function Detail({ node, model, close }: { node: Row | undefined; model: Row; close: () => void }) {
   if (!node) return <aside className="op-detail op-detail-empty"><GitBranch size={32}/><h2>흐름의 한 지점을<br/>선택해 보세요</h2><p>역할과 입출력, 마지막 관측과<br/>진단 범위를 한곳에서 읽습니다.</p><div className="op-gap"><strong>아직 이어지지 않은 곳</strong>{model.gaps.map((gap: string) => <p key={gap}>{gap}</p>)}</div><small>선은 구조 또는 구현 계약입니다.<br/>실제 전송 중이라는 뜻이 아닙니다.</small></aside>;
@@ -79,8 +92,9 @@ function Directory() {
 }
 
 function App() {
-  const [tab, setTab] = useState('map'), [inputs, setInputs] = useState<Row>({}), [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null), [expanded, setExpanded] = useState<string[]>([]), [query, setQuery] = useState('');
+  const [tab, setTab] = useState(()=>new URLSearchParams(window.location.search).get('tab')==='directory'?'directory':'map'), [inputs, setInputs] = useState<Row>({}), [loading, setLoading] = useState(true);
+  const embedded = new URLSearchParams(window.location.search).get('embedded')==='1';
+  const [selected, setSelected] = useState<string | null>(null), [openStage, setOpenStage] = useState<string | null>(null), [query, setQuery] = useState('');
   const [positions, setPositions] = useState<Row>({});
   const inFlight = useRef(false);
   const load = useCallback(async () => {
@@ -96,31 +110,39 @@ function App() {
   }, []);
   useEffect(() => { void load(); const timer = setInterval(() => { if (!document.hidden) void load(); }, 60_000); return () => clearInterval(timer); }, [load]);
   const model = useMemo(() => buildOperationsMap(inputs), [inputs]);
-  const toggle = useCallback((id: string) => setExpanded(old => old.includes(id) ? old.filter(x => x !== id) : [...old,id]), []);
-  const flowNodes = model.stages.map((stage: Row, index: number) => ({ id: stage.id, type: 'stage', position: positions[stage.id] ?? { x: stage.x, y: stage.y },
-    data: { stage: { ...stage, members: query ? stage.members.filter((n: Row) => `${n.label} ${n.id}`.toLowerCase().includes(query.toLowerCase())) : stage.members },
-      number: index+1, expanded: expanded.includes(stage.id), toggle, select: setSelected, selected } }));
-  const flowEdges = stageConnections(model).map((e: Row) => ({ id: e.id, source: e.source, target: e.target, type: 'default', animated: false, markerEnd: { type: MarkerType.ArrowClosed },
-    sourceHandle: e.source === 'extract' && e.target === 'graph' ? 'bottom' : ['graph','context'].includes(e.source) ? 'left-out' : 'right',
-    targetHandle: e.source === 'extract' && e.target === 'graph' ? 'top' : ['graph','context'].includes(e.source) ? 'right-in' : 'left',
-    label: e.label, className: e.id.endsWith('implementation') ? 'op-edge-implementation' : 'op-edge-declared',
-    style: { strokeWidth: 1.6 }, labelStyle: { fontSize: 11 }, labelShowBg: true }));
+  const toggle = useCallback((id: string) => { setOpenStage(old => old === id ? null : id); setSelected(null); setQuery(''); }, []);
+  const scene = architectureScene(model);
+  const selectNode = (id:string) => {setSelected(id);setOpenStage(model.nodes.find((n:Row)=>n.id===id)?.stage??null);};
+  const flowNodes = [...scene.nodes.map((node:Row)=>{const height=node.shape==='agent'?68:node.shape==='store'?64:58;return {id:node.id,type:'architecture',width:140,height,handles:architectureHandles(height),position:positions[node.id]??node.position,data:{node,select:selectNode,selected:selected===node.id}};}),
+    ...['외부 원천','수집','원본 보관','전처리·검증','청킹·임베딩','Neo4j','검색·맥락','에이전트·응답'].map((label,index)=>({id:`heading:${index}`,type:'heading',width:140,height:34,position:{x:index*180,y:0},data:{label},draggable:false,selectable:false}))];
+  const focusEdges = selected ? new Set([...directConnections(model,selected).incoming,...directConnections(model,selected).outgoing].map(r=>r.edge.id)) : null;
+  const flowEdges = scene.edges.map((e: Row) => ({ id: e.id, source: e.from, target: e.to, type: 'default', animated: false, markerEnd: { type: MarkerType.ArrowClosed },
+    sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, className: e.evidenceMode === 'implementation_contract' ? 'op-edge-implementation' : 'op-edge-declared', style: { strokeWidth: focusEdges?.has(e.id)?2:1.2, opacity:focusEdges&&!focusEdges.has(e.id)?.12:.75 } }));
+  const selectedNode = model.nodes.find((n: Row) => n.id === selected);
+  const opened = model.stages.find((s: Row) => s.id === openStage);
+  const members = (query ? model.nodes : opened?.members ?? []).filter((n:Row) => !query || `${n.label} ${n.id}`.toLowerCase().includes(query.toLowerCase()));
+  const support = model.stages.find((s: Row) => s.id === 'support');
   const usage = inputs.usage?.snapshot;
   const current = usage?.current;
   const measured = current?.coverage?.status && current.coverage.status !== 'unmeasured';
   const graphSummary = inputs.graph?.summary;
   const metric = (n: unknown) => typeof n === 'number' ? n.toLocaleString('ko-KR') : '미확인';
-  return <main className="op-app"><header className="op-topbar"><a className="op-brand" href="/operations-map.html"><GitBranch size={25}/><span>SOULFORGE<small>OPERATIONS ATLAS</small></span></a><nav aria-label="화면 선택"><button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}><GitBranch size={16}/>운영 지도</button><button className={tab === 'directory' ? 'active' : ''} onClick={() => setTab('directory')}><Folder size={16}/>디렉터리</button></nav><div className="op-mode"><LockKeyhole size={13}/>로컬 · 읽기 전용<a href="http://127.0.0.1:4192/" target="_blank" rel="noreferrer">기존 화면 ↗</a></div></header>
+  return <main className={`op-app ${embedded?'op-embedded':''}`}><header className="op-topbar"><a className="op-brand" href="/"><GitBranch size={25}/><span>SOULFORGE<small>OPERATIONS ATLAS</small></span></a><nav aria-label="화면 선택"><a href="/">대시보드</a><button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}><GitBranch size={16}/>운영 지도</button><button className={tab === 'directory' ? 'active' : ''} onClick={() => setTab('directory')}><Folder size={16}/>디렉터리</button></nav><div className="op-mode"><LockKeyhole size={13}/>로컬 · 읽기 전용<a href="http://127.0.0.1:4192/" target="_blank" rel="noreferrer">운영 설치본 ↗</a></div></header>
     <div className="op-title"><div><small>VIGIL / FIRST PREVIEW</small><h1>{tab === 'map' ? '자료가 도착하고, 맥락이 되기까지.' : '실제 저장 위치를 따라가세요.'}</h1><p>{tab === 'map' ? '구조, 실행 관측, 근거의 시간을 함께 읽는 운영 지도' : '허용된 root 안에서 폴더와 파일의 메타데이터를 확인합니다.'}</p></div><button className="op-button" onClick={() => void load()} disabled={loading}><RefreshCw size={15}/>{loading ? '근거 읽는 중' : '저장된 근거 다시 읽기'}</button></div>
     <section className="op-summary" aria-label="관측 요약"><div><small>세대 내 처리 / 대기 / 실패</small><strong>{graphSummary ? `${metric(graphSummary.completed)} / ${metric(graphSummary.pending)} / ${metric(graphSummary.failed)}` : '미확인'}</strong><span>{inputs.graph?.rows?.length ? `구성된 ${inputs.graph.rows.length}/${inputs.graph.expected}개 과제 영수증 · ${graphSummary?.fresh ? '45분 이내' : '현재 여부 미확인'}` : '업무 건수 집계 미연결'}</span></div><div><small>최근 DB 반영 / 상태 관측</small><strong>{at(graphSummary?.last_reflected_at)}</strong><span>상태 {at(model.observedAt)} · 보존 관측</span></div><div><small>관측 연결</small><strong>{model.sourceAvailable ? model.matchedCount : '미확인'}<em>개 노드</em></strong><span>전체 정상 또는 업무 성공을 뜻하지 않음</span></div><div><small>누적 토큰 · 등록 TASK 범위</small><strong>{measured && Number.isFinite(current?.totals?.total_tokens) ? new Intl.NumberFormat('ko-KR',{notation:'compact'}).format(current.totals.total_tokens) : '미확인'}</strong><span>{measured ? `${current.coverage.status === 'partial' ? '부분 측정' : '측정됨'} · ${at(usage.generated_at)}` : '측정 근거 미연결 · 0으로 대체하지 않음'}</span></div></section>
-    {tab === 'directory' ? <Directory/> : <div className="op-map-shell"><section className="op-map-main"><div className="op-map-toolbar"><div><Layers size={16}/><strong>운영 흐름</strong><span>01 — 07</span></div><label><Search size={15}/><input aria-label="노드 필터" placeholder="노드 이름으로 찾기" value={query} onChange={e => setQuery(e.target.value)}/></label><button onClick={() => { setExpanded([]); setPositions({}); setQuery(''); }}>배치 초기화</button></div>
+    {tab === 'directory' ? <Directory/> : <div className="op-reading-layout"><section className="op-map-main"><div className="op-map-toolbar"><div><Layers size={16}/><strong>자료가 지나가는 순서</strong><span>왼쪽 → 오른쪽</span></div><label><Search size={15}/><input aria-label="노드 필터" placeholder="세부 항목 찾기" value={query} onChange={e => {setQuery(e.target.value);setSelected(null);}}/></label><button onClick={() => { setOpenStage(null); setSelected(null); setPositions({}); setQuery(''); }}>전체 흐름으로</button></div>
       {!model.sourceAvailable && <div className="op-source-error">{loading ? '토폴로지 원천 읽는 중' : '토폴로지 원천 읽기 실패 · 구현 계약 노드만 표시합니다.'}</div>}
-      <div className="op-flow"><ReactFlow nodes={flowNodes} edges={flowEdges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.09 }} minZoom={0.35} maxZoom={1.6} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null} onNodeDragStop={(_,n) => setPositions(old => ({ ...old,[n.id]:n.position }))} onNodesChange={changes => {
+      <div className="op-flow op-overview-flow"><ReactFlow key={scene.nodes.length} nodes={flowNodes} edges={flowEdges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.05 }} minZoom={0.35} maxZoom={1.6} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null} onNodeDragStop={(_,n) => setPositions(old => ({ ...old,[n.id]:n.position }))} onNodesChange={changes => {
         const changed = applyNodeChanges(changes, flowNodes);
         if (changes.some(c => c.type === 'position' && c.position)) setPositions(old => ({ ...old,...Object.fromEntries(changed.map(n => [n.id,n.position])) }));
       }} colorMode="dark"><Background gap={24} size={1}/><Controls showInteractive={false}/></ReactFlow></div>
-      <div className="op-map-legend"><span><i className="op-legend-line"/>등록 구조</span><span><i className="op-legend-line dashed"/>구현 계약 · 실행 미확인</span><span><i className="op-dot unknown"/>현재 근거 미확인</span><span>드래그 이동 · 휠 확대 · 그룹 펼치기</span></div><div className="op-gap-strip"><ShieldCheck size={16}/><span>{model.gaps.join(' / ')}</span></div>
-    </section><Detail key={selected ?? 'empty'} node={model.nodes.find((n: Row) => n.id === selected)} model={model} close={() => setSelected(null)}/></div>}
+      <div className="op-overview-gaps"><div><Unplug size={17}/><strong>02 → 03</strong><span>보관 → 맥락 엔진 준비<br/>전달 연결 미확인</span></div><div><Unplug size={17}/><strong>06 → 07</strong><span>맥락 → 에이전트 응답<br/>전달 연결 미등록</span></div><p>순서는 읽는 방향입니다.<br/>선이 없는 구간은 연결을 확인하지 못한 곳입니다.</p></div>
+      <div className="op-map-legend"><span><i className="op-legend-line"/>등록된 자료 연결</span><span><i className="op-legend-line dashed"/>구현 계약 · 실행 미확인</span><span>원통: 저장소 · 원형: 에이전트 · 박스: 처리 / 노드 선택으로 진단</span></div>
+    </section>
+    <section className="op-support-shelf"><div><Activity size={18}/><strong>관측·백업·지원</strong><span>자료 처리 순서와 별도</span></div><button aria-expanded={openStage === 'support'} onClick={() => toggle('support')}>{support?.members.length ?? 0}개 항목 {openStage === 'support' ? '접기' : '보기'}<ChevronDown size={15}/></button></section>
+    {(openStage || query) && <section className="op-stage-browser"><header><h2>{query ? '검색 결과' : opened?.title} <span>{members.length}개 항목</span></h2><button aria-label="항목 목록 접기" onClick={()=>{setOpenStage(null);setQuery('');setSelected(null);}}><X size={17}/></button></header><div className="op-stage-members">{members.map((n:Row)=><button key={n.id} className={selected===n.id?'selected':''} onClick={()=>setSelected(n.id)}><span className={`op-dot ${n.freshness==='fresh'?n.health:'unknown'}`}/><strong>{n.label}</strong><small>{n.observedAt?'관측 기록 있음':'실행 관측 미연결'}</small><ChevronRight size={14}/></button>)}</div>{members.length===0&&<p>일치하는 항목이 없습니다.</p>}</section>}
+    {selectedNode ? <div className="op-selected-layout"><ConnectionFocus node={selectedNode} model={model} select={setSelected}/><Detail key={selected} node={selectedNode} model={model} close={() => setSelected(null)}/></div> : <p className="op-reading-help"><ShieldCheck size={16}/>노드를 고르면 직접 연결만 강조하고 오른쪽에 진단 근거를 엽니다. 모양과 선은 역할·구조이며 정상 판정이 아닙니다.</p>}
+    </div>}
     <footer className="op-bottom">첫 버전 · 실관측 + 코드 기반 구조 · 시연값 없음<span>화면 조작은 서비스·DB·수집 주기를 바꾸지 않습니다.</span></footer>
   </main>;
 }

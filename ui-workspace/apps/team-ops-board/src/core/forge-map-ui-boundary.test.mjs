@@ -22,13 +22,13 @@ function forgeSurfaceBlock(source) {
   return source.slice(start, end);
 }
 
-test("대장간이 첫 탭이고 기본 진입 표면이다", () => {
+test("대시보드가 기본 진입이며 대장간은 기존 하위 탭으로 보존된다", () => {
   const source = appSource();
   assert.match(source, /type BoardSurface = "forge" \| "owner"/u);
-  assert.match(source, /useState<BoardSurface>\("forge"\)/u);
+  assert.match(source, /useState<BoardSurface>\("owner"\)/u);
   assert.match(source, /data-testid="forge-map-tab"/u);
-  // 대장간 단추가 실시간 현황 단추보다 먼저 나온다.
-  assert.equal(source.indexOf("forge-map-tab") < source.indexOf("owner-overview-tab"), true);
+  // Owner 요청에 따라 기존 그래프를 가진 대시보드가 먼저다.
+  assert.equal(source.indexOf("owner-overview-tab") < source.indexOf("forge-map-tab"), true);
   assert.match(source, /surface === "forge" && \(\n\s+<ForgeMapSurface/u);
   assert.equal((source.match(/<ForgeMapSurface/gu) ?? []).length, 1, "표면은 한 번만 붙는다");
 });

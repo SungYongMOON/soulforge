@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-14 - 기존 대시보드 안으로 운영 지도를 통합하고 아키텍처 도형으로 정리
+
+- Revision: 이 항목을 포함한 커밋. 토큰·기간·모델별 그래프와 기존 시스템 진단을 유지하고
+  운영 지도·디렉터리를 Board 주 메뉴에 추가했다. 사용량·진단을 스레드 목록 로딩과 분리했다.
+- 카드 안에 설명과 목록을 쌓는 지도를 작은 처리 노드·저장 원통·에이전트 원형으로 바꾸고,
+  원천별 수집·보관 행을 정렬했다. 감시·백업·운영 원장은 별도 지원 영역에서 읽는다.
+  선택한 노드의 직접 연결과 진단만 강조하며 미연결 구간에 간선을 만들지 않는다.
+- 운영 영향: 검토용 4194에서 기존 4192의 명시된 읽기 snapshot만 재사용한다.
+  운영 설치본·수집기·DB·모델 호출·예약작업은 변경하지 않는다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/App.tsx`, `src/operations-map.tsx`,
+  `src/core/operations-map-view.mjs`, `src/server/operations-preview-read-adapter.mjs`.
+
 ## 2026-09-14 - Vigil 운영 지도와 제한된 디렉터리 탐색 첫 화면 후보
 
 - Revision: 이 항목을 포함한 커밋. `team-ops-board/operations-map.html`에 7단계 흐름 지도,
