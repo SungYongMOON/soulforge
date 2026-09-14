@@ -22,6 +22,8 @@ import { createTongsHeartbeatAdapterPlugin } from "./src/server/tongs-heartbeat-
 import { createWorldCoverageAdapterPlugin } from "./src/server/forge-world-coverage-adapter.mjs";
 import { createStorageMapServerAdapter } from "./src/server/storage-map-adapter.mjs";
 import { createCodexRetentionServerAdapter } from "./src/server/codex-retention-adapter.mjs";
+import { createOperationsDirectoryPlugin } from "./src/server/operations-directory-adapter.mjs";
+import { createGraphReceiptPlugin } from "./src/server/operations-graph-receipts-adapter.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
@@ -77,11 +79,14 @@ const codexRetentionReportPath = path.join(
 export default defineConfig(async () => ({
   plugins: [
     react(),
+    createOperationsDirectoryPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256 }),
+    createGraphReceiptPlugin({ receiptsRoot: process.env.TEAM_OPS_GRAPH_RECEIPTS_ROOT, projects: (process.env.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean), responseAgentLabel: process.env.TEAM_OPS_RESPONSE_AGENT_LABEL }),
     await createAgentRuntimeSnapshotAdapterPluginFromEnvironment(),
     createErpPendingReviewAdapterPluginFromEnvironment(),
     createLiveThreadAdapterPlugin({ env: boardEnvironment }),
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(boardTopologyOptions),
+    createTopologyAdapterPlugin({ readOnlyPilot: true, snapshotPath: '/operations-health.snapshot.json' }),
     createTopologyFederationAdapterPlugin(),
     createTopologyRecoveryAdapterPlugin({ ownerRoot, evidenceRoot: topologyRecoveryEvidenceRoot }),
     createReceiptExpiryServerAdapter({ bindingPath: receiptExpiryBindingPath, ownerRoot }),
@@ -103,7 +108,7 @@ export default defineConfig(async () => ({
     createProviderLimitsAdapterPlugin({ env: boardEnvironment, providerQuotaReceiptPath })
   ],
   build: {
-    rollupOptions: { input: { board: path.join(boardRoot, "index.html"), world: path.join(boardRoot, "forge-world.html") } }
+    rollupOptions: { input: { board: path.join(boardRoot, "index.html"), world: path.join(boardRoot, "forge-world.html"), operations: path.join(boardRoot, "operations-map.html") } }
   },
   server: {
     host: "127.0.0.1",

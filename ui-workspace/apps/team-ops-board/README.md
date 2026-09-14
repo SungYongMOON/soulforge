@@ -1,5 +1,45 @@
 # Workspace Board — Owner perspective local Codex thread projection
 
+## 운영 지도 첫 화면 후보
+
+`/operations-map.html`은 운영 지도와 디렉터리 두 탭의 읽기 전용 후보다. 기존 `/`와
+`/forge-world.html`은 그대로 유지한다. `operations-preview.config.ts`로 별도 loopback
+4194 미리보기를 실행하며 운영 4192 설치본·DB·예약작업은 이 변경으로 갱신되지 않는다.
+
+| 재사용 원천 | 표시 및 변경 범위 |
+| --- | --- |
+| federation / unified topology view | 기존 stable ID·구조 간선·exact-ID 건강 overlay, 화면 전용 단계 묶음 |
+| Watchtower 저장 snapshot | `/operations-health.snapshot.json`은 기존 adapter의 snapshot-only 모드; 새 probe 없음 |
+| recovery projection v3 | 마지막 조치와 사후 검증 통과 시각을 별도 표시 |
+| AI Usage Meter | 기존 등록 TASK 범위 누적·부분 측정값과 시각, 60초 cadence |
+| Context Engine 구현 계약 | 청킹·임베딩·Neo4j·검색·맥락 조립; 영수증 없는 실행은 미확인 |
+| 기존 Graph Sync 영수증 | 명시된 과제의 최신 회차만, 60초 캐시; DB 되읽기 확인 없이 처리 완료로 표시하지 않음 |
+| Path Registry root table | 기존 pin·root 해석을 재사용한 직접 자식 메타데이터 탐색 |
+
+첫 버전은 필터·펼치기·이동·팬/줌을 화면 메모리에서만 적용한다. 구조 간선에는 전달 중
+효과가 없고, 등록과 현재 건강 및 근거 신선도는 다른 축이다. 요약 간선은 등록된 data
+관계만 묶으며 개별 노드 상세에는 다른 관계도 보존한다. 일부 준비 단계가 연결돼 있어도
+원본 보관에서 맥락 엔진 준비기로 이어지는 전달을 증명하지 않는다. 복구 성공 영수증도
+현재 건강으로 승격하지 않는다. 원천 없는 수치·읽기 실패·부분 범위는 0이나 전체로 바꾸지 않는다.
+
+미리보기 실행(앱 폴더): `node ../../node_modules/vite/bin/vite.js --config operations-preview.config.ts`.
+선택적인 연결은 명시적 환경값으로만 주입하며 주소 기본값이나 디스크 자동 발견은 없다:
+
+- `TEAM_OPS_DIRECTORY_ROOT_TABLE`, `TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256`: 기존 private root table과 pin.
+- `TEAM_OPS_GRAPH_RECEIPTS_ROOT`, `TEAM_OPS_GRAPH_PROJECTS`: 기존 회차 영수증 root와 쉼표 구분 과제 allowlist.
+- `TEAM_OPS_RESPONSE_AGENT_LABEL`: Owner가 지정한 응답 에이전트 표시명(상태·연결 근거는 아님).
+- 기존 `SOULFORGE_STATE_ROOT` / `SOULFORGE_OWNER_ROOT`: Watchtower·사용량 상태 위치.
+
+디렉터리는 파일 본문을 열지 않고, `secret_owner_root`·보호 이름·경로 이탈·ADS·링크를
+거부한다. 직접 자식 최대 200개, 깊이 24, 캐시 64폴더/60초이며 제한에 걸리거나 읽기 실패가
+있으면 partial이다. 폴더 크기는 미집계다. 새 기능은 기존 federation provider의 안정 ID,
+노드·연결, 별도 관측 공급자를 등록하면 같은 화면으로 들어오며 기본 분류는 관측·지원이다.
+맥락 엔진 전용 표시 정의는 `src/core/operations-map-view.mjs`의 작은 구현 계약 목록이다.
+현재 이 목록은 federation 등록·실행 정상 또는 운영 배포를 주장하지 않는다.
+
+검증: 앱 typecheck/test, `npm run ui:done:check`, 브라우저 지도·상세·그룹·검색·디렉터리 확인.
+실제 화면 캡처와 host-local 실행 설정은 private local-recovery에만 보관한다.
+
 ## 세계와 작업대 개발 후보
 
 `/forge-world.html`은 같은 빌드에 포함된 2.5D 해안 기지의 읽기 화면이다. Soulforge 개발과

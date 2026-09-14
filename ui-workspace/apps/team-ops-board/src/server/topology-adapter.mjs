@@ -720,6 +720,7 @@ export function createTopologyAdapter({
 
 export function createTopologyAdapterPlugin(options = {}) {
   const adapter = createTopologyAdapter(options);
+  const snapshotPath = options.snapshotPath ?? TOPOLOGY_SNAPSHOT_PATH;
   const configure = (server) => {
     server.middlewares.use((request, response, next) => {
       let url;
@@ -730,7 +731,7 @@ export function createTopologyAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      if (url.pathname !== TOPOLOGY_SNAPSHOT_PATH) {
+      if (url.pathname !== snapshotPath) {
         next();
         return;
       }

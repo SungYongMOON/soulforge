@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-09-14 - Vigil 운영 지도와 제한된 디렉터리 탐색 첫 화면 후보
+
+- Revision: 이 항목을 포함한 커밋. `team-ops-board/operations-map.html`에 7단계 흐름 지도,
+  그룹 펼치기·팬/줌·노드 상세와 디렉터리 탭을 추가했다. 기존 화면은 보존한다.
+- 기존 토폴로지·건강·복구·사용량 투영을 재사용하고 Graph Sync의 한정된 과제 영수증만 읽는다.
+  등록·실행 관측·신선도·DB 재검증을 분리하며 원천 없는 값은 미확인이다.
+- Path Registry의 pinned root table에서 직접 자식 메타데이터만 반환한다. 보호 이름·링크·
+  범위 이탈은 거부하고, 제한 초과·읽기 실패는 부분 목록으로 표시한다.
+- 운영 영향: 별도 loopback 4194 미리보기용. 운영 설치본·DB·수집기·자동 갱신·모델 호출·
+  Docker·WSL·볼륨은 변경하지 않는다. Owner 화면 확인 전 운영 교체와 콘솔 확장은 보류한다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/README.md`, `src/core/operations-map-view.mjs`,
+  `src/server/operations-directory-adapter.mjs`, `src/server/operations-graph-receipts-adapter.mjs`.
+
 ## 2026-09-14 - 한 데이터베이스가 여러 과제를 들고, 추출 판본은 추출 규칙만 가리킨다
 
 - `context_engine/src/workers/graphrag_worker.py`: 적재·검색·점검의 기준을 **컨테이너 주소에서 `(과제, 세대)`로** 옮겼다.
