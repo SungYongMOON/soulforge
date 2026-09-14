@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-09-14 - 한 데이터베이스가 여러 과제를 들고, 추출 판본은 추출 규칙만 가리킨다
+
+- `context_engine/src/workers/graphrag_worker.py`: 적재·검색·점검의 기준을 **컨테이너 주소에서 `(과제, 세대)`로** 옮겼다.
+  `materialize`는 자기 과제의 노드만 지우고 쓰며, 다른 과제가 소유한 세대 이름을 쓰려 하면 `graph_project_mismatch`로 거부하고,
+  적재 전후로 **다른 과제 노드 수를 세어** 달라지면 `graph_other_project_changed`로 멈춘다. 같은 데이터베이스에 두 적재가 겹치지
+  않도록 적재 잠금(`__SfMaterializeLock__`)을 둔다. 벡터 색인은 필터 속성 `sf_project`·`sf_generation`을 달고 만들어지며,
+  `retrieve`는 색인 **안에서** 거르는 길(`in_index_filter`)과 거르지 못할 때의 과잉 조회 뒤 자르기(`post_filter`)를 영수증에
+  구분해 적는다(`fulltext_starved`·`vector_starved` 포함). 읽기 전용 `inspect`(과제별 세대·노드·청크·색인·잠금) 추가.
+  검사는 한 건도 없애지 않았다 — 기준만 옮겼고 검사는 둘 늘었다.
+- 같은 파일: 모델이 끝을 맺지 못한 답에서 **끝이 없는 관계 행을 떼어내고**(`drop_incomplete_relationships`) 그 수를 trace에
+  남긴다. 답이 거부됐을 때는 본문 대신 **모양만**(무엇이 파싱됐는지, 어떤 키가 몇 개, 어디서 검증이 깨졌는지) 돌려준다.
+- 같은 파일 `extraction_rules_sha256`: **추출 결과를 정하는 함수들만** 자기 소스에서 AST로 잘라 해시한다. worker 파일 통째
+  해시는 기록으로만 남는다. 이유: 통째 해시는 검색 질의 한 줄·로그 한 줄을 고쳐도 바뀌었고, 그때마다 저장된 조각 전부가
+  재사용 불가가 되어 같은 모델로 같은 문서를 다시 읽었다.
+- `context_engine/src/runtime/graph_index_generation.mjs` `sameToolRevision`: 저장된 기록에 규칙 해시가 있으면 그것으로,
+  없으면(이 변경 이전 세대) **측정해 표에 적어둔 build만** 같은 규칙으로 받아준다(`KNOWN_RULE_EQUIVALENT_WORKERS`).
+  표에 없는 build는 재추출한다. `sameModelRevision`은 probe가 보고한 나머지 필드를 그대로 비교하고 `tool`만 이 규칙에 맡긴다.
+- `context_engine/src/runtime/graph_database.mjs`: 검색은 manifest가 정한 과제 키를 **고정해서** 워커에 넘긴다(요청이 고를 수
+  없다). 적재 결과에 `loaded_at`·`other_projects`·`other_project_nodes`가 올라오고, `inspectGraphDatabase`가 새로 생겼다.
+- `context_engine/src/runtime/graph_extraction.mjs`: 모델 판본의 `tool`이 `{revision_kind, rules_sha256, worker_sha256, packages}`
+  꼴이 됐고(`extraction_rules_v1`), 규칙 해시가 없는 워커 출력은 `graph_worker_models_invalid`로 거부된다. 거부된 답의 모양은
+  이름 붙은 필드만 통과시키고, 잘린 호출이 어느 단위였는지를 호출 위치로 되짚어 적는다.
+- `context_engine/harness/estate_inventory.mjs`(신규, 읽기 전용): 수집이 들고 있는 것을 과제별로 세고 최신 판본만 남긴다.
+  `estate_graph_sync.mjs`(신규): 범위→제안→준비→색인→적재→후보→확인 7단계 회차. 못 넣는 항목은 그 회차에서만 빼고
+  나머지를 커밋하며(원장에 사유·시도횟수, 3회에 `failed`), 완료는 **데이터베이스를 되읽어** 맞을 때만 준다.
+  의미 관계(R1)는 후보로만 두고 회차가 적용하지 않는다. `estate_graph_query.mjs`(신규): 과제 코드 하나가 정해진 주소 형식으로
+  binding을 고르는 읽기 전용 질의 CLI.
+- `context_engine/ops/`(신규): 30분마다 도는 예약작업 등록기(경로 정규성·digest·dry-run 계획 digest·등록 후 XML 대조와 롤백),
+  숨김 실행기, Hermes 스킬 `soulforge-context-search` 원본. `deployment_pack/lanes/graph_sync_lane.spec.json`(신규) — 맥락 APP과
+  그 폐포 파일만 싣고 carried_forward는 없다.
+- 모듈 manifest의 `authority_notes`에서 "no graph database write in this version"을 지우고, 한 데이터베이스가 여러 과제를 들되
+  쓰기는 언제나 이름댄 `(과제, 세대)`로 한정된다는 지금 계약으로 바꿨다. 모듈 0.20.0, 폐포 재작성(75 파일).
+  검증: context-engine 291 / 284 pass / 0 fail / 7 skip(opt-in), path-policy 0.
+
 ## 2026-09-13 - 추출은 그대로 두고 검색 벡터만 바꾸는 파생 세대, 그리고 번호를 공유하지 않는 두 기록의 근거 연결
 
 - `context_engine/src/runtime/graph_index_generation.mjs`: `reembedGraphIndex`(신규). 선택된 세대의 조각을 해시로 되읽어 청크 본문만
