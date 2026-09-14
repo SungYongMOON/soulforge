@@ -1,0 +1,7 @@
+{
+  "schema_version": "soulforge.watchtower.plaud_freshness_policy.v0",
+  "_comment": "public-safe example. The live file is an untracked local-control document at <LOCAL_CONTROL_ROOT>/watchtower/plaud_freshness.policy.v0.json and is optional: without it the probe uses exactly these defaults. expected_weekdays uses 0=Sun..6=Sat in KST; cutoff_hour_kst is the hour on the day AFTER an expected weekday at which a still-missing recording stops being 'not yet synced' and becomes stale; holiday_dates are KST YYYY-MM-DD days on which no recording is expected.",
+  "expected_weekdays": [1, 2, 3, 4, 5],
+  "cutoff_hour_kst": 12,
+  "holiday_dates": []
+}

@@ -637,10 +637,10 @@ test("tracking covers remaining structural absences plus one degraded probe with
   const tracked = snapshot.nodes.filter((node) => Object.hasOwn(node, "tracking"));
   const healthy = snapshot.nodes.filter((node) => node.health.state === "ok");
 
-  assert.equal(snapshot.summary.unmonitored, 12);
+  assert.equal(snapshot.summary.unmonitored, 11);
   assert.equal(snapshot.summary.degraded, 1);
-  assert.equal(tracked.length, 13);
-  assert.equal(healthy.length, 25);
+  assert.equal(tracked.length, 12);
+  assert.equal(healthy.length, 26);
   assert.ok(healthy.every((node) => !Object.hasOwn(node, "tracking")));
   assert.ok(tracked.every((node) => node.tracking.node_id === node.id && node.tracking.repair_action === null));
 

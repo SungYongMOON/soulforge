@@ -36,7 +36,8 @@ CLI의 종료 코드 2는 down 노드를 포함한 검사 완료다. 실행 영�
 | `tools/emit_federated_topology.mjs` | 고정된 tracked source allowlist만 읽어 단일 derived projection을 생성하거나 byte parity를 검사하는 도구 |
 | `topology/federated_topology.v1.json` | UI가 읽을 수 있는 tracked public-safe 선언 구조 projection; runtime truth가 아님 |
 | `topology/federated_topology.v1.contract.json` | **단일 topology oracle pin**(요약·provider별 노드/간선 수·artifact sha256). producer 테스트와 Board unified-view 테스트가 기대값을 전부 이 pin에서 유도하므로, 구조 성장은 의도적 pin 갱신이고 무언의 drift는 양쪽에서 fail-closed다 (`L-RED-02`) |
-| `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
+| `watchtower.mjs` | binding 검증, probe 5종(jsonl_tail/json_file/dir_latest_mtime/schtask/plaud_recording_freshness), 판정, 스냅샷 |
+| `plaud_freshness.policy.example.json` | PLAUD 녹음 신선도 정책의 public-safe 예시. 실제 파일은 추적되지 않는 local control 문서이며 없으면 예시의 기본값이 곧 규칙이다 |
 | `internal_receipt_catalog.mjs` | 내부 시한성 영수증 계약 카탈로그, 4분류(same_authority_local_auto_renew/owner_revalidation_required/on_demand_ephemeral_excluded/external_auth_excluded) 검증 및 순수 평가기 |
 | `local_evidence.mjs` | Watchtower 실행 계약, five-field metadata 원장, `_workmeta` payload policy의 독립 검증 receipt |
 | `recovery_diagnostics.mjs` | 4대 장애군(`scheduled_task_action_drift`, `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`) 순수 진단 분류기 (public-safe, 경로/secret/원문 무노출) |
@@ -70,6 +71,15 @@ CLI의 종료 코드 2는 down 노드를 포함한 검사 완료다. 실행 영�
   backlog stays visible, and invalid activity metadata fails closed.
 - `resident_task`가 지정된 노드는 stale일 때 schtasks 상태로 정지 여부를
   구분한다(`task_not_running` → down).
+- `plaud_recording_freshness`는 하트비트가 아니라 **달력**으로 판정한다(그래서 period/grace를
+  받지 않는다). 라이브러리 색인의 최신 녹음일(KST)이 "오늘 이전의 가장 최근 기대 평일"
+  (기본 월~금, 공휴일 제외) 이상이면 `ok`, 아니면 그 평일 다음 날 `cutoff_hour_kst`(기본 12시)
+  전까지는 `degraded`(`plaud_recording_not_yet_synced`), 그 뒤로는
+  `stale`(`plaud_no_weekday_recording_since:<날짜>`)이고 색인을 읽지 못하면 `down`이다.
+- 같은 판정에 원인 사유를 붙인다. 5-lane 감독자 health를 함께 읽어 최근 회차에서 PLAUD를
+  실제로 읽었으면 `device_upload_gap_suspected`(기기가 안 올림), 아니면
+  `plaud_api_or_login_failure`(연결·로그인)다. 감독자의 `plaud_status: degraded`는 custody
+  미완성 같은 이유로도 붙으므로 그것만으로 연결 실패라고 하지 않고 상태 단어를 따로 싣는다.
 - probe가 없는 구조 노드는 이유 코드가 있는 `unmonitored`다. provider source는
   `provider_evidence_absent`, 실제 on-demand 실행 증거를 받지 않는 collector는
   `catalog_only_on_demand`, 공통 meter와 Watchtower 자체는

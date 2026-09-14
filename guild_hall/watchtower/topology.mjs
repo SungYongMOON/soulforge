@@ -62,7 +62,10 @@ function topologyFail(code, detail = "") {
 export const TOPOLOGY_NODES = Object.freeze([
   // 외부 입력 소스
   { id: "src_hiworks", label: "Hiworks 메일", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 0 },
-  { id: "src_plaud", label: "PLAUD 음성", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 1.8 },
+  // 기기→클라우드 업로드 공백은 감독자 하트비트로 보이지 않으므로(감독자는 매 회차
+  // 카탈로그를 정상으로 읽는다) 이 소스는 구조 표시로만 두지 않고 녹음 신선도로 판정한다.
+  // binding 에 probe 가 없으면 unmonitored_reason 그대로 미감시가 드러난다.
+  { id: "src_plaud", label: "PLAUD 음성", kind: "external", group: "외부 소스", probe: "plaud_recording_freshness", operation_mode: "structural", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 0, row: 1.8 },
   { id: "src_slack", label: "Slack API", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 2.7 },
   { id: "src_onedrive", label: "OneDrive worksite", kind: "external", group: "외부 소스", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 0, row: 3.6 },
   { id: "src_codex", label: "Codex session JSONL", kind: "external", group: "AI 공급자 소스", probe: null, operation_mode: "structural", provider: "codex", health_scope: "provider", unmonitored_reason: "provider_evidence_absent", col: 0, row: 4.5 },

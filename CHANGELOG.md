@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-09-15 - 통합 관제가 PLAUD 녹음이 평일에 안 들어오는 것을 오류로 표시한다
+
+- Revision: 이 항목을 포함한 커밋. Watchtower에 달력 판정 probe
+  `plaud_recording_freshness`를 더했다(`guild_hall/watchtower/watchtower.mjs`). 기기→클라우드
+  업로드 공백은 기존 어느 검사로도 보이지 않았다 — 5-lane 감독자는 매 회차 PLAUD
+  카탈로그를 정상으로 읽으므로 기기가 며칠째 아무것도 올리지 않아도 모든 하트비트가 초록이었다.
+- 판정은 하트비트 창이 아니라 달력이다. 라이브러리 색인의 최신 녹음일(KST)이 “오늘 이전의
+  가장 최근 기대 평일”(기본 월~금, 공휴일 제외) 이상이면 `ok`, 아니면 그 다음 날 정오까지는
+  `degraded`, 그 뒤로는 `stale`, 색인을 읽지 못하면 `down`이다. 주말과 공휴일은 그 자체로
+  경보가 되지 않고, 주말 이틀은 같은 금요일을 가리키므로 판정이 흔들리지 않는다.
+- 같은 판정에 원인을 붙인다. 감독자 health를 함께 읽어 최근 회차에서 PLAUD를 실제로
+  읽었으면 `device_upload_gap_suspected`(기기가 안 올림), 아니면
+  `plaud_api_or_login_failure`(연결·로그인)다. 감독자의 `plaud_status: degraded`는 custody
+  미완성 같은 연결과 무관한 이유로도 붙고 `plaud_last_success_at`은 회차 전체가 ok일 때만
+  전진하므로, 그 둘만으로 연결을 판정하면 멀쩡한 연결이 로그인 실패로 보고된다.
+- 토폴로지의 `src_plaud`는 더 이상 구조 표시 전용(`structural_only`)이 아니다. 이 probe가
+  붙어 binding에 없을 때만 `collector_evidence_absent`로 미감시가 드러난다. 연방 topology
+  projection과 그 oracle pin(`federated_topology.v1.json`/`.contract.json`)을 같은 변경에서
+  재생성했으며 노드·간선 수(38/48)는 그대로다.
+- 정책 문서는 선택이다. 없으면 기본값(월~금·정오·공휴일 없음)이 곧 규칙이고, 있는데
+  모양이 틀리면 기본값으로 판정하되 `plaud_freshness_policy_invalid`로 그 사실을 드러낸다.
+  저장소에는 예시만 둔다(`guild_hall/watchtower/plaud_freshness.policy.example.json`).
+- 운영 영향: 이 변경은 읽기 전용 판정이며 예약작업·수집 lane·감독자·Board UI를 바꾸지
+  않는다. 운영 화면에 나타나려면 Board lane 재빌드·재등록과 local binding에 probe
+  등록이 필요하며 그것은 이 변경에 포함되지 않는다.
+- 관련 경로: `guild_hall/watchtower/{watchtower.mjs,topology.mjs,cli.mjs,README.md,plaud_freshness.test.mjs,plaud_freshness.policy.example.json}`.
+
 ## 2026-09-15 - 맥락 검색 스킬이 찾기에서 원문·첨부 읽기까지 이어지는 절차로
 
 - Revision: 이 항목을 포함한 커밋. 공유 스킬 문서

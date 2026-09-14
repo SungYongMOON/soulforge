@@ -11,7 +11,12 @@ import { edgeDeliveryVerdict, summariseEdgeDelivery, topologySkeleton } from "./
 export const WATCHTOWER_BINDING_SCHEMA_VERSION = "soulforge.watchtower.binding.v1";
 export const WATCHTOWER_SNAPSHOT_SCHEMA_VERSION = "soulforge.watchtower.topology_health.v2";
 
-const PROBE_KINDS = new Set(["jsonl_tail", "json_file", "dir_latest_mtime", "schtask"]);
+const PROBE_KINDS = new Set([
+  "jsonl_tail", "json_file", "dir_latest_mtime", "schtask", "plaud_recording_freshness",
+]);
+// 달력 판정 probe. 하트비트가 아니라 "기대 평일에 자료가 들어왔는가"를 보므로
+// period+grace 2단 윈도가 성립하지 않는다. 뜻 없는 창을 기입하게 두지 않고 거부한다.
+const CALENDAR_PROBE_KINDS = new Set(["plaud_recording_freshness"]);
 const HEALTH_STATES = ["ok", "degraded", "stale", "down", "unmonitored"];
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_DIR_ENTRIES = 4000;
@@ -105,12 +110,29 @@ export function validateWatchtowerBinding(binding) {
         fail("probe_activity_contract_invalid", `probe ${key}.${field}`);
       }
     }
-    for (const field of ["period_seconds", "grace_seconds"]) {
-      if (!Number.isSafeInteger(probe[field]) || probe[field] < 0 || probe[field] > 604800) {
-        fail("probe_window_invalid", `probe ${key}.${field}`);
+    if (CALENDAR_PROBE_KINDS.has(probe.kind)) {
+      for (const field of ["period_seconds", "grace_seconds"]) {
+        if (probe[field] !== undefined) fail("probe_window_invalid", `probe ${key}.${field}`);
+      }
+    } else {
+      for (const field of ["period_seconds", "grace_seconds"]) {
+        if (!Number.isSafeInteger(probe[field]) || probe[field] < 0 || probe[field] > 604800) {
+          fail("probe_window_invalid", `probe ${key}.${field}`);
+        }
+      }
+      if (probe.period_seconds === 0) fail("probe_window_invalid", `probe ${key}.period_seconds`);
+    }
+    if (probe.kind === "plaud_recording_freshness") {
+      // health_path 는 선택이 아니다. 이 probe 의 목적 절반이 "연결이 끊긴 것인지
+      // 기기가 안 올린 것인지"를 가르는 것이고, 감독자 health 없이는 그 구분을 못 한다.
+      if (typeof probe.health_path !== "string" || probe.health_path.length === 0) {
+        fail("probe_plaud_health_path_invalid", `probe ${key}.health_path`);
+      }
+      if (probe.policy_path !== undefined
+        && (typeof probe.policy_path !== "string" || probe.policy_path.length === 0)) {
+        fail("probe_plaud_policy_path_invalid", `probe ${key}.policy_path`);
       }
     }
-    if (probe.period_seconds === 0) fail("probe_window_invalid", `probe ${key}.period_seconds`);
     if (probe.degrade_when !== undefined) {
       if (!Array.isArray(probe.degrade_when)) fail("probe_degrade_invalid", `probe ${key}`);
       for (const rule of probe.degrade_when) {
@@ -362,6 +384,244 @@ export async function collectMailAccountDetails(detail) {
   return { reasons: reasons.sort(), scanned };
 }
 
+// ── PLAUD 녹음 신선도 ──────────────────────────────────────────────────────────
+// 기기→클라우드 업로드 공백은 다른 어떤 probe 로도 보이지 않는다. 5-lane 감독자는
+// 매 회차 PLAUD 카탈로그를 정상으로 읽으므로(연결·로그인 검사는 거기서 이미 한다),
+// 기기가 며칠째 아무것도 올리지 않아도 그 하트비트는 계속 초록이다. 그래서 이 probe 는
+// 하트비트가 아니라 라이브러리 색인의 **최신 녹음일(KST)** 을 기대 평일과 비교한다.
+// 원인 구분은 감독자 health 를 함께 읽어서 붙인다 — 읽기 전용이며 아무것도 고치지 않는다.
+
+export const PLAUD_FRESHNESS_POLICY_SCHEMA_VERSION = "soulforge.watchtower.plaud_freshness_policy.v0";
+// 기본값: 월~금(KST)에는 무조건 녹음하고, 주말·공휴일에는 쓰지 않는다. 기대 평일의 녹음이
+// 다음 날 정오까지 들어오지 않으면 더 기다리지 않는다.
+export const DEFAULT_PLAUD_FRESHNESS_POLICY = Object.freeze({
+  expected_weekdays: Object.freeze([1, 2, 3, 4, 5]),
+  cutoff_hour_kst: 12,
+  holiday_dates: Object.freeze([]),
+});
+// 감독자가 이 시간 안에 PLAUD 를 실제로 읽었다면 API·로그인은 살아 있다고 본다.
+// 감독자 회차는 ~6분이므로 30분은 몇 회차 연속 실패를 요구하는 값이다.
+const PLAUD_INGRESS_SUCCESS_MAX_AGE_SECONDS = 1800;
+// 감독자가 PLAUD 를 아예 읽지 못했다고 말하는 상태들. `degraded` 는 여기 없다 —
+// custody 미완성·백필 잔량처럼 연결과 무관한 이유로도 붙는 단어이기 때문이다.
+const PLAUD_LANE_HARD_FAILURE_STATES = new Set(["failed", "blocked", "unknown", "stale"]);
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/u;
+const MAX_EXPECTED_DAY_LOOKBACK = 400;
+
+function kstDayStartMs(dateIso) {
+  return Date.parse(`${dateIso}T00:00:00.000Z`) - KST_OFFSET_MS;
+}
+
+// KST 는 고정 +09:00 이므로 epoch 를 그만큼 밀고 UTC 게터로 읽으면 실행 호스트의
+// 표준시와 무관하게 같은 답이 나온다. 시험이 시각을 주입할 수 있는 이유이기도 하다.
+function kstCivil(nowMs) {
+  const shifted = new Date(nowMs + KST_OFFSET_MS);
+  return {
+    date: shifted.toISOString().slice(0, 10),
+    hour: shifted.getUTCHours(),
+  };
+}
+
+function shiftIsoDate(dateIso, days) {
+  return new Date(Date.parse(`${dateIso}T00:00:00.000Z`) + days * 86_400_000)
+    .toISOString().slice(0, 10);
+}
+
+function isoWeekday(dateIso) {
+  return new Date(Date.parse(`${dateIso}T00:00:00.000Z`)).getUTCDay();
+}
+
+/** 오늘(KST) 이전의 가장 최근 기대 평일. 공휴일은 건너뛴다. 없으면 null. */
+export function previousExpectedRecordingDate(todayIso, policy) {
+  const holidays = new Set(policy.holiday_dates);
+  let cursor = shiftIsoDate(todayIso, -1);
+  for (let step = 0; step < MAX_EXPECTED_DAY_LOOKBACK; step += 1) {
+    if (policy.expected_weekdays.includes(isoWeekday(cursor)) && !holidays.has(cursor)) return cursor;
+    cursor = shiftIsoDate(cursor, -1);
+  }
+  return null;
+}
+
+/**
+ * 정책 문서를 읽을 수 있는 값으로 바꾼다. 파일이 없으면 기본값이고(그건 정상 상태다),
+ * 있는데 모양이 틀리면 기본값으로 판정하되 그 사실을 사유로 드러낸다. 조용한 fallback 을
+ * 만들지 않는다 — 손으로 고친 정책이 무시되고 있는 것을 사람이 알아야 한다.
+ */
+export function normalisePlaudFreshnessPolicy(value) {
+  const invalid = { policy: DEFAULT_PLAUD_FRESHNESS_POLICY, policy_invalid: true };
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return invalid;
+  if (value.schema_version !== PLAUD_FRESHNESS_POLICY_SCHEMA_VERSION) return invalid;
+  const weekdays = value.expected_weekdays;
+  if (!Array.isArray(weekdays) || weekdays.length === 0
+    || weekdays.some((day) => !Number.isSafeInteger(day) || day < 0 || day > 6)) return invalid;
+  const cutoff = value.cutoff_hour_kst;
+  if (!Number.isSafeInteger(cutoff) || cutoff < 0 || cutoff > 23) return invalid;
+  const holidays = value.holiday_dates;
+  if (!Array.isArray(holidays) || holidays.some((date) => typeof date !== "string" || !ISO_DATE.test(date))) {
+    return invalid;
+  }
+  return {
+    policy: {
+      expected_weekdays: [...new Set(weekdays)],
+      cutoff_hour_kst: cutoff,
+      holiday_dates: [...holidays],
+    },
+    policy_invalid: false,
+  };
+}
+
+// 공백이 실제로 무엇인지 사람 말로 좁힌다. 감독자가 최근에 PLAUD 회차를 성공시켰다면
+// 연결·로그인은 살아 있는 것이므로 남는 설명은 기기 업로드 공백이다.
+function plaudGapCauseReasons(health, healthError, now) {
+  if (healthError !== null) return ["plaud_ingress_health_unavailable", healthError];
+  if (health?.plaud_enabled === false) return ["plaud_collection_disabled"];
+  const status = typeof health?.plaud_status === "string" ? health.plaud_status : null;
+  const ageSeconds = (field) => {
+    const parsed = typeof health?.[field] === "string" ? Date.parse(health[field]) : Number.NaN;
+    return Number.isFinite(parsed) ? (now - parsed) / 1000 : Infinity;
+  };
+  // `plaud_status: ok` 만으로 연결을 판정하면 틀린다. 감독자는 custody 미완성 같은
+  // 연결과 무관한 이유로도 회차를 degraded 로 내리고(continuous_runner.mjs),
+  // `plaud_last_success_at` 은 회차 전체가 ok 일 때만 전진하므로 실제로는 매 회차
+  // 카탈로그를 정상으로 읽고 있는데도 그 시각이 계속 늙는다. 그러면 기기 업로드 공백이
+  // 로그인 실패로 보고되어 사람을 엉뚱한 곳으로 보낸다. 그래서 두 가지 증거 중 하나면
+  // 연결이 살아 있다고 본다: 최근의 완전 성공 회차, 또는 최근 회차에서 카탈로그를
+  // 끝까지 읽었다는 사실. 감독자가 아예 못 읽었다고 말하는 상태는 둘 다 무효로 만든다.
+  const recentFullSuccess = ageSeconds("plaud_last_success_at") <= PLAUD_INGRESS_SUCCESS_MAX_AGE_SECONDS;
+  const recentCatalogRead = health?.plaud_catalog_complete === true
+    && ageSeconds("observed_at") <= PLAUD_INGRESS_SUCCESS_MAX_AGE_SECONDS;
+  const reachable = status !== null && !PLAUD_LANE_HARD_FAILURE_STATES.has(status)
+    && (recentFullSuccess || recentCatalogRead);
+  const reasons = [reachable ? "device_upload_gap_suspected" : "plaud_api_or_login_failure"];
+  if (status !== null && status !== "ok") {
+    reasons.push(`plaud_supervisor_status_${status.replace(/[^a-z0-9_]/giu, "_").slice(0, 32)}`);
+  }
+  for (const code of Array.isArray(health?.error_codes) ? health.error_codes : []) {
+    if (typeof code === "string" && SAFE_ERROR_CODE.test(code) && /^(?:plaud|auth)_/u.test(code)) {
+      reasons.push(code);
+    }
+  }
+  return reasons;
+}
+
+/**
+ * 순수 판정기. I/O 를 하지 않으므로 시험이 시각·색인·정책·감독자 health 를 그대로 준다.
+ * @param {object} input
+ * @param {number} input.now                      epoch ms
+ * @param {string} input.latest_recording_date     색인 안 최대 `recording_date` (KST 녹음일)
+ * @param {object} input.policy                    normalisePlaudFreshnessPolicy 의 policy
+ * @param {boolean} input.policy_invalid
+ * @param {object|null} input.ingress_health       continuous_ingress.json 레코드
+ * @param {string|null} input.ingress_health_error 읽지 못한 사유 코드
+ */
+export function judgePlaudRecordingFreshness({
+  now,
+  latest_recording_date: latest,
+  policy = DEFAULT_PLAUD_FRESHNESS_POLICY,
+  policy_invalid: policyInvalid = false,
+  ingress_health: health = null,
+  ingress_health_error: healthError = null,
+}) {
+  const reasons = [];
+  if (policyInvalid) reasons.push("plaud_freshness_policy_invalid");
+  const today = kstCivil(now);
+  const required = previousExpectedRecordingDate(today.date, policy);
+  const ageSeconds = Math.max(0, Math.round((now - kstDayStartMs(latest)) / 1000));
+  const dates = { latest_recording_date: latest, required_recording_date: required };
+  if (required === null) {
+    return {
+      state: "down",
+      reasons: [...reasons, "plaud_freshness_policy_unsatisfiable"],
+      age_seconds: ageSeconds,
+      ...dates,
+    };
+  }
+  if (latest >= required) {
+    return {
+      state: reasons.length > 0 ? "degraded" : "ok",
+      reasons,
+      age_seconds: ageSeconds,
+      ...dates,
+    };
+  }
+  // 기대 평일의 녹음이 없다. 다음 날 정오(정책값)까지는 아직 동기화 중일 수 있으므로
+  // 열화로 두고, 그 시각을 넘기면 사람이 확인해야 하는 stale 이다.
+  const syncDeadlineMs = kstDayStartMs(shiftIsoDate(required, 1)) + policy.cutoff_hour_kst * 3_600_000;
+  const state = now < syncDeadlineMs ? "degraded" : "stale";
+  reasons.push(state === "degraded"
+    ? "plaud_recording_not_yet_synced"
+    : `plaud_no_weekday_recording_since:${latest}`);
+  reasons.push(...plaudGapCauseReasons(health, healthError, now));
+  return { state, reasons, age_seconds: ageSeconds, ...dates };
+}
+
+async function readOptionalJsonRecord(path) {
+  let text;
+  try {
+    ({ text } = await readBoundedFile(path));
+  } catch {
+    return { record: null, error: "source_missing" };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { record: null, error: "source_invalid_json" };
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { record: null, error: "source_invalid_record" };
+  }
+  return { record: parsed, error: null };
+}
+
+async function probePlaudRecordingFreshness(probe, now) {
+  let latest = null;
+  try {
+    const { text } = await readBoundedFile(probe.path);
+    let index;
+    try {
+      index = JSON.parse(text);
+    } catch {
+      fail("source_invalid_json", "invalid library index");
+    }
+    plainObject(index, "source_invalid_record");
+    if (typeof probe.expected_schema_version === "string"
+      && index.schema_version !== probe.expected_schema_version) {
+      fail("source_schema_invalid", "unexpected library index schema_version");
+    }
+    if (!Array.isArray(index.recordings)) fail("plaud_index_recordings_invalid", "recordings is not a list");
+    for (const row of index.recordings) {
+      const value = row === null || typeof row !== "object" ? undefined : row.recording_date;
+      if (typeof value === "string" && ISO_DATE.test(value) && (latest === null || value > latest)) {
+        latest = value;
+      }
+    }
+    if (latest === null) fail("plaud_index_no_recording_date", "index carries no dated recording");
+  } catch (error) {
+    const code = error instanceof WatchtowerError ? error.code : "source_missing";
+    return { state: "down", reasons: [code], age_seconds: null };
+  }
+
+  // 정책 파일은 없어도 된다(기본값이 곧 owner 의 규칙이다). 감독자 health 는 읽지 못하면
+  // 원인 구분을 못 한다는 사실 자체를 사유로 남긴다.
+  const policyRead = typeof probe.policy_path === "string"
+    ? await readOptionalJsonRecord(probe.policy_path)
+    : { record: null, error: "source_missing" };
+  const policy = policyRead.error === "source_missing"
+    ? { policy: DEFAULT_PLAUD_FRESHNESS_POLICY, policy_invalid: false }
+    : normalisePlaudFreshnessPolicy(policyRead.record);
+  const healthRead = await readOptionalJsonRecord(probe.health_path);
+
+  return judgePlaudRecordingFreshness({
+    now,
+    latest_recording_date: latest,
+    ...policy,
+    ingress_health: healthRead.record,
+    ingress_health_error: healthRead.error,
+  });
+}
+
 export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   const reasons = [];
   let observedAtMs = null;
@@ -382,6 +642,8 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   if (taskOwner?.state === "unmonitored") {
     return { state: "unmonitored", reasons: [taskOwner.reason], age_seconds: null };
   }
+
+  if (probe.kind === "plaud_recording_freshness") return probePlaudRecordingFreshness(probe, now);
 
   try {
     if (probe.kind === "json_file") {
@@ -606,8 +868,9 @@ export function assertSnapshotPathFree(snapshot, binding) {
   if (/[A-Za-z]:\\|\\\\[^\\]|\/(?:Users|home|var|tmp|private|Volumes)\//u.test(text)) leaks.push("absolute_path");
   const boundPaths = [binding.state_root];
   for (const probe of Object.values(binding.probes)) {
-    if (typeof probe.path === "string") boundPaths.push(probe.path);
-    if (typeof probe.detail?.path === "string") boundPaths.push(probe.detail.path);
+    for (const candidate of [probe.path, probe.detail?.path, probe.health_path, probe.policy_path]) {
+      if (typeof candidate === "string") boundPaths.push(candidate);
+    }
   }
   if (boundPaths.some((boundPath) => typeof boundPath === "string" && boundPath.length > 3 && text.includes(boundPath))) {
     leaks.push("probe_path");

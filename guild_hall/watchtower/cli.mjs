@@ -91,6 +91,17 @@ export const EXAMPLE_BINDING = {
       grace_seconds: 600,
       scheduled_task: "Soulforge-Hiworks-Gmail-Forwarder",
     },
+    // PLAUD 기기가 며칠째 클라우드에 아무것도 올리지 않아도 위 감독자 하트비트는 계속
+    // 초록이다(감독자는 매 회차 카탈로그를 정상으로 읽는다). 그 공백을 보는 유일한 근거가
+    // 라이브러리 색인의 최신 녹음일이므로 여기서 읽는다. period/grace 가 없는 것은 누락이
+    // 아니라 이 probe 가 달력(기대 평일)으로 판정하기 때문이다.
+    plaud_recording_freshness: {
+      kind: "plaud_recording_freshness",
+      path: "<LOCAL_STATE_ROOT>/ingress/plaud/library/index/recordings.current.json",
+      expected_schema_version: "soulforge.voice_recording_library_index.v0",
+      health_path: "<LOCAL_STATE_ROOT>/state/health/continuous_ingress.json",
+      policy_path: "<LOCAL_CONTROL_ROOT>/watchtower/plaud_freshness.policy.v0.json",
+    },
     voice_label_worker: {
       kind: "json_file",
       path: "<LOCAL_CONTROL_ROOT>/voice-label/health.json",
