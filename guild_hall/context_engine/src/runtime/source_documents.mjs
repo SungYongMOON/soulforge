@@ -31,7 +31,11 @@ const ITEM_FIELDS = ['item_id', 'revision_policy', 'revision_sha256', 'data_clas
 // `path`: segments below the source root that the owner names for the item (a
 // mail event file, a document, a voice date folder). `scope`: the part of a mixed
 // recording that belongs to the project, in seconds from the recording start.
-const ITEM_OPTIONAL_FIELDS = ['path', 'scope'];
+// `transcript_ref`: which transcript of a recording this item means, as segments
+// below the session folder (an independent machine transcription run). A session
+// keeps its provider transcript where it is even after a better one is made, so
+// naming the run is how a grant says which of them it granted.
+const ITEM_OPTIONAL_FIELDS = ['path', 'scope', 'transcript_ref'];
 export const PATH_REQUIRED_KINDS = Object.freeze(['document', 'mail']);
 // Kinds whose unit locators anchor to a revision the document holds. The document
 // adapter locates by path and line range only, so its units carry no revision to
@@ -88,7 +92,8 @@ export function validateSourceGrant(grant, { now = null } = {}) {
         || !grant.allowed_data_classes.includes(item.data_class)
         || (Object.hasOwn(item, 'path') && !validItemPath(item.path))
         || (PATH_REQUIRED_KINDS.includes(source.kind) && !Object.hasOwn(item, 'path'))
-        || (Object.hasOwn(item, 'scope') && (source.kind !== 'voice' || !validScope(item.scope)))) fail('source_grant_invalid');
+        || (Object.hasOwn(item, 'scope') && (source.kind !== 'voice' || !validScope(item.scope)))
+        || (Object.hasOwn(item, 'transcript_ref') && (source.kind !== 'voice' || !validItemPath(item.transcript_ref)))) fail('source_grant_invalid');
       const key = itemKey({ source_kind: source.kind, root_ref: source.root_ref, item_id: item.item_id });
       if (seen.has(key) || ++count > SOURCE_LIMITS.grant_items) fail('source_grant_invalid');
       seen.add(key);

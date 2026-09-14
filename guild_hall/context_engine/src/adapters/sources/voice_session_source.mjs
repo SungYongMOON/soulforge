@@ -1,7 +1,8 @@
 // Read-only source adapter over voice sessions kept by guild_hall/voice_capture
 // (sessions/<date>/<session_id>/session_manifest.json + transcript.jsonl).
 // Provider speaker labels are alignment hints, never identities. A grant scope
-// limits a mixed recording to the interval that belongs to the project.
+// limits a mixed recording to the interval that belongs to the project, and a
+// grant `transcript_ref` names which transcript of that recording it granted.
 import { createHash } from 'node:crypto';
 import { openSourceRoot, SourceReadError } from './guarded_files.mjs';
 import { buildSourceDocument, isInstant, SourceDocumentError } from '../../runtime/source_documents.mjs';
@@ -61,9 +62,19 @@ async function documentFor({ admitted, source, item, root, segments }) {
   try { manifest = JSON.parse(manifestFile.text); } catch { fail('session_manifest_invalid'); }
   if (manifest?.schema_version !== SESSION_SCHEMA || manifest.session_id !== item.item_id
     || !isInstant(manifest.recorded_at_local)) fail('session_manifest_invalid');
+  // Which transcript of this recording the grant means. A session keeps the
+  // provider's transcript where it is even after an independent machine
+  // transcription is made -- the canonical pointer is never replaced under a
+  // reader -- so a grant that wants the independent one has to name its run.
+  // Naming a run names a folder, never a file: the adapter still opens only
+  // `transcript.jsonl` below it, so audio and the quarantined provider summary
+  // stay unreachable through this grant however the ref is written.
+  const run = item.transcript_ref ?? null;
   let transcript;
-  try { transcript = await root.readText([...segments, 'transcript.jsonl'], MAX_TRANSCRIPT_BYTES); } catch (error) {
-    if (error?.code === 'source_missing') return { status: 'missing', code: 'transcript_absent' };
+  try { transcript = await root.readText([...segments, ...(run ?? []), 'transcript.jsonl'], MAX_TRANSCRIPT_BYTES); } catch (error) {
+    if (error?.code === 'source_missing') {
+      return { status: 'missing', code: run === null ? 'transcript_absent' : 'transcript_run_absent' };
+    }
     throw error;
   }
   if (item.revision_policy === 'exact' && transcript.sha256 !== item.revision_sha256) {
@@ -86,6 +97,16 @@ async function documentFor({ admitted, source, item, root, segments }) {
     { name: 'voice.transcript_quality', value: String(manifest.transcript?.quality ?? 'unknown'), at: null },
     { name: 'voice.speaker_label_count', value: labels.length, at: null },
     { name: 'voice.canonicalization_state', value: String(manifest.canonicalization?.state ?? 'unknown'), at: null },
+    // Only when a run was named, so a document prepared without one keeps exactly
+    // the facts it had. `voice.transcript_quality` above stays the session
+    // manifest's statement about the session's own transcript; these two say
+    // which transcript the text below actually came from, and what the lane
+    // claims that transcript is worth.
+    ...(run === null ? [] : [
+      { name: 'voice.transcript_ref', value: run.join('/'), at: null },
+      { name: 'voice.transcript_evidence_role',
+        value: String(manifest.independent_transcription?.evidence_role ?? 'unknown'), at: null },
+    ]),
   ];
   const document = buildSourceDocument({ admitted, sourceKind: 'voice', rootRef: source.root_ref, item,
     adapterProfile: VOICE_SOURCE_ADAPTER, primaryRevisionSha256: transcript.sha256,

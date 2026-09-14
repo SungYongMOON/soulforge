@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-09-15 - 확정된 음성 구간만 통합 RAG에 들어가는 길
+
+- Revision: 이 항목을 포함한 커밋. 음성 세션은 지금까지 통합 그래프에 한 건도 들어가지 않았다.
+  `harness/estate_inventory.mjs`의 `grantCandidates`에 slack·linear·mail 분기만 있었기 때문이고,
+  녹음 하나가 여러 과제를 넘나들기 때문에 "인박스에 있다"는 사실만으로는 어느 과제에도 귀속되지 않는다.
+- 판정 원장 `control_root/voice-routes/<session_id>.json`(metadata-only, 새로 씀)이 사람의 결정을 담는다.
+  구간마다 `confirmed`(사람이 확정 — 이름과 시각이 함께 있어야 성립) / `candidate`(조사자의 제안) /
+  `unclassified`(아직 못 정함) 세 가지이며 grant에 들어가는 것은 confirmed뿐이다. 원본·전사·색인은 읽기만 한다.
+  기존 녹음 색인의 `route_state.accepted_*`가 채워진 세션은 녹음 전체에 대한 같은 결정으로 함께 읽는다.
+- `grantCandidates`의 voice 분기는 폴더가 아니라 이 원장에서 항목을 만든다. 바인딩이 voice 루트를
+  선언하지 않은 과제는 확정이 아무리 많아도 후보 0이다. 한 녹음 안에서 맞닿은 구간은 하나로 잇고,
+  사이가 벌어진 구간이 둘 이상이면 그 사이를 함께 넣지 않기 위해 그 세션을 빼고 이유를 영수증에 남긴다.
+- 어댑터는 grant 항목의 `transcript_ref`가 가리키는 판본(독립 기계 전사 run)을 revision으로 삼는다.
+  세션의 공급자 전사 포인터는 그대로 두므로 어느 전사를 편입했는지는 grant가 말한다. 판본이 바뀌면
+  그 문서만 다음 회차에 다시 추출되고, 같은 입력을 다시 넣으면 변경 없음으로 끝난다.
+- 원장에 쓰는 것은 `harness/voice_route_cli.mjs`(list·show·set·confirm·withdraw)뿐이고 `--dry`로
+  쓰지 않고 결과를 볼 수 있다. 봇은 제안만 하고 확정은 사람이 누른다.
+- 운영 영향: 이번 변경만으로는 아무것도 편입되지 않는다. 통합 바인딩 `source_roots`와 admission에
+  voice 루트를 더하는 것과 첫 확정 등록은 Owner 승인 항목이며, 운영 중인 graph-sync lane은 재빌드
+  전까지 옛 코드라 voice 분기를 갖지 않는다. 예약작업·수집기·모델 배치·그래프 DB는 바꾸지 않았다.
+- 관련 경로: `guild_hall/context_engine/harness/{voice_routes.mjs,voice_route_cli.mjs,estate_inventory.mjs,estate_graph_sync.mjs}`,
+  `guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs`,
+  `guild_hall/context_engine/src/runtime/source_documents.mjs`,
+  `guild_hall/context_engine/tests/voice_grant.test.mjs`.
+
 ## 2026-09-15 - 맥락 검색 스킬이 찾기에서 원문·첨부 읽기까지 이어지는 절차로
 
 - Revision: 이 항목을 포함한 커밋. 공유 스킬 문서

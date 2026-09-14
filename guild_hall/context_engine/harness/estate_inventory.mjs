@@ -35,6 +35,7 @@ import { readRootTable } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { validateGraphBinding } from '../src/runtime/graph_extraction.mjs';
 import { inspectGraphDatabase } from '../src/runtime/graph_database.mjs';
+import { VOICE_LIBRARY_INDEX_ADDRESS, VOICE_ROUTES_ADDRESS, voiceGrantItems } from './voice_routes.mjs';
 
 export const ESTATE_INVENTORY_SCHEMA = 'soulforge.context_estate_inventory.v1';
 // A project folder is a code: upper-case letters and digits in hyphen-joined
@@ -165,15 +166,23 @@ async function mailCandidates(io, roots, codes) {
   return { perCode, scanned, unattributed };
 }
 
-// The grant items custody holds for one project, by the three rules above and
-// nothing else. `roots` maps a binding's source refs to alias addresses, so what
-// is listed is exactly what that binding binds and its admission admits: a source
+// The grant items custody holds for one project, by the rules above and nothing
+// else. `roots` maps a binding's source refs to alias addresses, so what is
+// listed is exactly what that binding binds and its admission admits: a source
 // the admission stopped naming is simply not in `roots` and its items disappear
 // from the next grant. Items are deduplicated by id -- custody can hold one mail
 // event in two files -- and every item takes the latest revision custody has,
 // which is what makes a new comment on an issue a changed document rather than a
 // new one.
-export function grantCandidates({ io, code, roots, dataClass = 'company_internal', everyCode = null } = {}) {
+//
+// Voice is the one kind whose items do not come from what a folder holds. A
+// recording crosses projects, so "this recording is in the inbox" attributes
+// nothing; only a person's confirmed interval does, and that is read from the
+// route ledger rather than from the sessions folder. A project whose binding does
+// not name a voice root gets no voice items at all, however many confirmations
+// exist -- the binding is still what decides which roots are looked at.
+export function grantCandidates({ io, code, roots, dataClass = 'company_internal', everyCode = null,
+  voiceRoutesAddress = VOICE_ROUTES_ADDRESS, voiceLibraryIndexAddress = VOICE_LIBRARY_INDEX_ADDRESS } = {}) {
   const item = extra => ({ revision_policy: 'latest_in_custody', revision_sha256: null, data_class: dataClass, ...extra });
   // `everyCode`: the codes the estate knows. Given it, the same pass over the mail
   // files also counts the events that name none of them -- items no rule attributes
@@ -182,6 +191,7 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
   const unattributed = { mail_events: 0, mail_events_scanned: 0,
     reason: 'no project code appears as a standalone token in the subject or the body' };
   const sources = [];
+  let voice = null;
   const add = (kind, rootRef, items) => {
     const once = [...new Map(items.map(row => [row.item_id, row])).values()]
       .sort((a, b) => String(a.item_id).localeCompare(String(b.item_id)));
@@ -221,12 +231,23 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
         }
       }
       add('mail', rootRef, rows);
+    } else if (rootRef.startsWith('voice.')) {
+      // The address is not read here at all: the ledger says which sessions were
+      // confirmed for this project, and the adapter opens them below this root.
+      const found = voiceGrantItems({ io, code, item: item({}),
+        routesAddress: voiceRoutesAddress, libraryIndexAddress: voiceLibraryIndexAddress });
+      voice = { ...found.diagnostics, root_ref: rootRef, items: found.items.length };
+      add('voice', rootRef, found.items);
     }
   }
   const ordered = sources.sort((a, b) => a.root_ref.localeCompare(b.root_ref));
   // The array is what every caller already uses; the count rides along for the
   // one caller that asked for it, so neither has to scan the mail twice.
   if (known !== null) Object.defineProperty(ordered, 'unattributed', { value: Object.freeze(unattributed), enumerable: false });
+  // Which confirmations were read, which the pass could not read, and which
+  // sessions it refused to place. A voice root that is bound but holds nothing
+  // for this project still reports zero rather than nothing at all.
+  if (voice !== null) Object.defineProperty(ordered, 'voice', { value: Object.freeze(voice), enumerable: false });
   return ordered;
 }
 
