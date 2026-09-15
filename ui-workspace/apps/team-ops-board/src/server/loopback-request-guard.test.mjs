@@ -43,6 +43,7 @@ const ADAPTER_TABLE = Object.freeze([
   { module: "live-thread-adapter.mjs", factory: "createLiveThreadAdapterPlugin", url: "/codex-threads.snapshot.json" },
   { module: "operations-directory-adapter.mjs", factory: "createOperationsDirectoryPlugin", url: "/operations-directory.json" },
   { module: "operations-graph-receipts-adapter.mjs", factory: "createGraphReceiptPlugin", url: "/operations-graph-receipts.json" },
+  { module: "rag-operations-adapter.mjs", factory: "createRagOperationsPlugin", url: "/rag-operations.json" },
   { module: "operations-preview-read-adapter.mjs", factory: "createOperationsPreviewReadPlugin", url: "/codex-threads.snapshot.json" },
   { module: "provider-limits-adapter.mjs", factory: "createProviderLimitsAdapterPlugin", url: "/provider-limits.snapshot.json" },
   { module: "receipt-expiry-adapter.mjs", factory: "createReceiptExpiryServerAdapter", url: "/receipt-expiry.snapshot.json" },

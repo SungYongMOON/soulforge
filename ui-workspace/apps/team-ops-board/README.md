@@ -1,5 +1,30 @@
 # Workspace Board — Owner perspective local Codex thread projection
 
+## RAG 실제 DB 읽기 화면
+
+전용 미리보기의 `/rag-operations.html`은 기존 Context Engine의 `inspectGraphDatabase`
+읽기 작업으로 실제 로컬 Neo4j를 조회한다. `/rag-operations.json`은 loopback GET만 받고,
+프로젝트는 기존 운영 읽기 설정의 allowlist만 받는다. 클라이언트가 DB 주소·Cypher·파일 경로·
+worker operation을 지정할 수 없다. 일반 운영 `/`의 배포나 데이터 쓰기를 활성화하지 않는다.
+
+- DB: 현재 적재 판본, 청크 수, 임베딩 속성이 있는 청크 수, 벡터 색인 상태·차원,
+  미귀속·잔여 노드와 적재 잠금 수를 읽는다. 잔여 노드는 자동 삭제 대상이 아니다.
+- 준비 기록: Path Registry pin과 과제 binding에서 정확한 현재 pointer·manifest·coverage를
+  읽는다. pointer/coverage digest와 과제 신원이 맞지 않거나 조회 중 바뀌면 확인 불가다.
+  문서별 청크·임베딩·무결성 수치는 저장 기록이며 문서별 실 DB 재검증이 아니다.
+- 이력: 판본 ID 역순 최대 12개와 최근 Graph Sync 영수증 최대 24개를 읽는다.
+  직접 디렉터리 열거는 2,048개까지이며 초과·손상·읽기 실패를 부분/확인 불가로 표시한다.
+  판본 파일 수정 시각을 임베딩 실행 시각으로 바꾸지 않는다.
+- `qwen` 등 모델명·digest는 저장된 판본 기록이고 현재 DB의 색인 차원은 실조회 값이다.
+  재임베딩 기록과 일반 추출·재사용 판본을 구분한다. 값이 없는 항목은 0으로 만들지 않는다.
+- DB 조회는 60초 캐시·단일 진행 요청을 공유한다. 검증된 기존 worker의 `inspect`만 호출하며,
+  새 모델 호출, 재임베딩, graph sync, 색인 생성·갱신·삭제는 하지 않는다. 결과에 자격증명,
+  원문·벡터 배열·host 경로를 싣지 않는다. 조회는 동시 writer에 대한 원자적 snapshot이 아니다.
+
+`src/server/rag-operations-adapter.mjs`가 최소 읽기 결합을, `src/rag-operations.tsx`가
+자료·청크 / 임베딩·판본 / 처리 이력 화면을 소유한다. 질문별 그래프와 기억 생성·회수 기록은
+이 집계에서 만들어내지 않는다. 현재 화면은 RAG 전체 품질 또는 production-ready 수락이 아니다.
+
 ## 운영 UX 미리보기
 
 `/operations-console.html`은 `operations-preview.config.ts`에서 제공하는 별도 읽기 전용

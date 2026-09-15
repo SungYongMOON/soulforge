@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-15 - 실제 Neo4j와 RAG 처리 이력 조회
+
+- Revision: 이 항목을 포함한 커밋. 운영 미리보기에 `/rag-operations.html`을 추가했다.
+  기존 Context Engine의 읽기 전용 DB inspector와 과제별 준비·판본·Graph Sync 기록을 연결한다.
+- 실제 DB의 청크·임베딩 속성·현재 적재 판본·벡터 색인 상태와 저장소의 선택 판본을 구분한다.
+  재임베딩 모델·차원·소요 기록, 문서별 추출 무결성 기록, 보류·실패·반영 이력을 읽을 수 있다.
+- 정확한 과제·경로·digest 대조, 60초 캐시, 조회량 제한과 공통 loopback guard를 적용한다.
+  읽기 실패·부분 범위·판본 변경은 성공 또는 0으로 표시하지 않는다.
+- 운영 영향: 미리보기만 변경하며 DB 쓰기·재임베딩·새 모델 호출·기존 운영 lane 전환은 없다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/rag-operations-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/rag-operations.tsx`, `operations-preview.config.ts`.
+
 ## 2026-09-15 - 아직 과제가 정해지지 않은 녹음을 단계마다 검사하며 대화 목록으로 만든다
 
 - Revision: 이 항목을 포함한 커밋. 한 슬라이스가 세 가지를 바꿨다 — (가) 대화 목록 파이프라인을
