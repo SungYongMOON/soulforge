@@ -438,15 +438,22 @@ test('a long conversation is answered in windows and the windows are put back to
   assert.ok(byTime.length > 1, 'ten minutes is a processing bound too, not only a character count');
 
   const merged = mergeNatureWindows([
-    { nature: 'project_work', title: '앞', description: '앞부분', key_terms: ['가대'], unclear: false, marks: [] },
-    { nature: 'team_operations', title: '뒤', description: '뒷부분', key_terms: ['케이블'], unclear: false, marks: [] }]);
+    { nature: 'project_work', title: '앞', description: '앞부분을 요약한 문장입니다.', key_terms: ['가대'],
+      unclear: false, marks: [] },
+    { nature: 'team_operations', title: '뒤', description: '뒷부분을 요약한 문장입니다.', key_terms: ['케이블'],
+      unclear: false, marks: [] }]);
   assert.deepEqual([merged.nature, merged.key_terms, merged.processed_in_windows],
     ['mixed', ['가대', '케이블'], 2]);
   assert.ok(merged.marks.includes('windows_disagree'), 'two windows that disagree is a fact about the answer');
+  // The first window's description is kept whole rather than glued to the next
+  // one and cut wherever the character count lands.
+  assert.equal(merged.description, '앞부분을 요약한 문장입니다. (창 2개 중 1)');
+  assert.equal(merged.description_windows_dropped, 1);
   const agreed = mergeNatureWindows([
     { nature: 'project_work', title: '앞', description: 'a', key_terms: [], unclear: false, marks: [] },
-    { nature: 'project_work', title: '뒤', description: 'b', key_terms: [], unclear: false, marks: [] }]);
-  assert.deepEqual([agreed.nature, agreed.marks], ['project_work', []]);
+    { nature: 'project_work', title: '뒤', description: '', key_terms: [], unclear: false, marks: [] }]);
+  assert.deepEqual([agreed.nature, agreed.marks, agreed.description, agreed.description_windows_dropped],
+    ['project_work', [], 'a', 0], 'one window described it, so there is nothing to say about the others');
 });
 
 test('short conversations share a call and a long one gets its own', () => {

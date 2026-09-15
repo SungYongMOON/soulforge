@@ -680,15 +680,27 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
     dropped_key_terms: keyTerms.length - kept.length, unclear: answer.unclear === true, marks };
 }
 
-/** Several windows of one long conversation, put back together as one answer. */
+/**
+ * Several windows of one long conversation, put back together as one answer.
+ *
+ * The descriptions are not glued together and cut to length: joining two
+ * summaries and trimming to two hundred characters ends the sentence wherever the
+ * count lands, which reads as a summary that trails off rather than as one that
+ * was bounded. The first window's description is kept whole and the answer says
+ * how many windows there were, so a reader knows the rest exists and was not
+ * silently blended in.
+ */
 export function mergeNatureWindows(answers) {
   const natures = [...new Set(answers.map(answer => answer.nature))];
   const marks = [...new Set(answers.flatMap(answer => answer.marks))];
   if (natures.length > 1) marks.push('windows_disagree');
-  const description = answers.map(answer => answer.description).filter(Boolean).join(' ');
+  const described = answers.filter(answer => answer.description);
+  const first = described[0]?.description ?? '';
+  const dropped = Math.max(0, described.length - 1);
   return { nature: natures.length === 1 ? natures[0] : 'mixed',
     title: answers.find(answer => answer.title)?.title ?? '',
-    description: codePoints(description).slice(0, DESCRIPTION_CHARACTERS).join(''),
+    description: dropped === 0 ? first : `${first} (창 ${answers.length}개 중 1)`,
+    description_windows_dropped: dropped,
     key_terms: [...new Set(answers.flatMap(answer => answer.key_terms))],
     key_terms_typed: [...new Map(answers.flatMap(answer => answer.key_terms_typed ?? [])
       .map(entry => [entry.term, entry])).values()],
