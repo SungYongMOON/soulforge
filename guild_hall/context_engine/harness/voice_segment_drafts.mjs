@@ -23,7 +23,7 @@
 // candidates at all until a stronger transcript exists, which is a boundary this
 // module passes through rather than works around.
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { VOICE_ROUTE_LIMITS, VoiceRouteError, isSessionRef } from './voice_routes.mjs';
+import { VOICE_ROUTE_LIMITS, VoiceRouteError, isSessionRef, isSourceSegmentIds } from './voice_routes.mjs';
 
 // A semantic unit's boundary falls where a transcript row ends, which is rarely a
 // whole second. A conversation's interval has to be whole seconds, because it
@@ -122,7 +122,11 @@ export function readSemanticSegmentDrafts({ io, session, sessionId, runId = null
 
   const drafts = body.segment_labels
     .filter(unit => typeof unit?.unit_id === 'string' && Number.isFinite(unit.start_seconds)
-      && Number.isFinite(unit.end_seconds) && unit.end_seconds > unit.start_seconds)
+      && Number.isFinite(unit.end_seconds) && unit.end_seconds > unit.start_seconds
+      // The run already says which utterances each unit is made of. A unit that
+      // does not say is not a draft anybody can address exactly, and guessing the
+      // ids back out of the interval is the guess this field exists to remove.
+      && isSourceSegmentIds([...new Set(unit.source_segment_ids ?? [])].sort((a, b) => a - b)))
     .sort((a, b) => a.start_seconds - b.start_seconds || a.unit_id.localeCompare(b.unit_id))
     .slice(0, VOICE_ROUTE_LIMITS.segments)
     .map(unit => ({ ...unit, start_seconds: wholeSeconds(unit.start_seconds),
@@ -134,7 +138,9 @@ export function readSemanticSegmentDrafts({ io, session, sessionId, runId = null
       const mine = windows.filter(window => Array.isArray(window.source_unit_refs)
         && window.source_unit_refs.includes(unit.unit_id));
       return {
-        segment: { segment_id: unit.unit_id, start_seconds: unit.start_seconds, end_seconds: unit.end_seconds,
+        segment: { segment_id: unit.unit_id,
+          source_segment_ids: [...new Set(unit.source_segment_ids)].sort((a, b) => a - b),
+          start_seconds: unit.start_seconds, end_seconds: unit.end_seconds,
           title: null, description: null, derived_summary: true, nature: 'undetermined',
           // Whatever the run itself resolved, with the run named as the basis. It
           // resolves none until a stronger transcript exists, and that is its

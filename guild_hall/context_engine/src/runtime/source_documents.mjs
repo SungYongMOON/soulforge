@@ -50,7 +50,16 @@ const validItemPath = path => Array.isArray(path) && path.length > 0 && path.len
 // document key, and canonical serialization holds only safe integers. A fraction
 // here does not fail here -- it fails later, when the grant is digested, with a
 // code that says nothing about where the fraction came from.
-const validScope = scope => exactKeys(scope, ['start_seconds', 'end_seconds'])
+// `segment_ids`, when the grant carries them, is which utterances of the
+// recording the conversation is made of -- the exact thing an interval cannot
+// say, because an utterance that starts inside one conversation and ends in the
+// next overlaps both. Safe integers again, ascending and without repeats, so the
+// list has one canonical form and can be part of the document key.
+const validSegmentIds = ids => Array.isArray(ids) && ids.length > 0 && ids.length <= 4000
+  && ids.every(id => Number.isSafeInteger(id) && id >= 0)
+  && ids.every((id, index) => index === 0 || id > ids[index - 1]);
+const validScope = scope => (exactKeys(scope, ['start_seconds', 'end_seconds'])
+  || (exactKeys(scope, ['start_seconds', 'end_seconds', 'segment_ids']) && validSegmentIds(scope.segment_ids)))
   && Number.isSafeInteger(scope.start_seconds) && Number.isSafeInteger(scope.end_seconds)
   && scope.start_seconds >= 0 && scope.end_seconds > scope.start_seconds;
 // The title may be absent (a conversation nobody has named yet); it is never
@@ -128,7 +137,10 @@ export function sourceDocumentKey({ projectKey, sourceKind, rootRef, itemId, com
   }
   return sha256Canonical({ schema: SOURCE_DOCUMENT_SCHEMA, project_key: projectKey, source_kind: sourceKind,
     root_ref: rootRef, item_id: itemId, composite_revision_sha256: compositeRevisionSha256, adapter_profile: adapterProfile,
-    scope: scope === null ? null : { start_seconds: scope.start_seconds, end_seconds: scope.end_seconds } });
+    // The ids enter the key only when the grant carries them, so a document
+    // prepared from an interval alone keeps exactly the key it always had.
+    scope: scope === null ? null : { start_seconds: scope.start_seconds, end_seconds: scope.end_seconds,
+      ...(scope.segment_ids === undefined ? {} : { segment_ids: [...scope.segment_ids] }) } });
 }
 
 function normalizeStrings(value) {

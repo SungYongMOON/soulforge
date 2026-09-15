@@ -96,8 +96,27 @@ async function documentFor({ admitted, source, item, root, segments, sessionId, 
     return { status: 'stale_grant', code: 'granted_revision_absent' };
   }
   const scope = item.scope ?? null;
-  const rows = parseSegments(transcript.text).filter(row => !scope
-    || (row.end_seconds > scope.start_seconds && row.start_seconds < scope.end_seconds));
+  const parsed = parseSegments(transcript.text);
+  // Two ways to say which part of the recording this is, and they mean different
+  // things. A grant that names the utterances gets exactly those utterances: no
+  // overlap test, so the sentence that opens the next conversation does not ride
+  // in on a shared boundary. A grant that names only an interval keeps the older
+  // meaning, overlap and all, because that is what it was granted as.
+  let rows;
+  if (scope?.segment_ids !== undefined) {
+    const wanted = new Set(scope.segment_ids);
+    rows = parsed.filter(row => wanted.has(row.segment_id));
+    // This revision does not hold one of the granted utterances. The grant names
+    // a conversation, not a stretch of seconds, so there is no wider or narrower
+    // reading of it that would be the same conversation: it is stale, and the
+    // person who granted it decides what it should be now.
+    if (new Set(rows.map(row => row.segment_id)).size !== wanted.size) {
+      return { status: 'stale_grant', code: 'scope_segments_absent' };
+    }
+  } else {
+    rows = parsed.filter(row => !scope
+      || (row.end_seconds > scope.start_seconds && row.start_seconds < scope.end_seconds));
+  }
   if (rows.length === 0) return { status: 'missing', code: scope ? 'scope_without_speech' : 'transcript_empty' };
   const start = Date.parse(manifest.recorded_at_local);
   const units = rows.map(row => ({ unit_kind: 'utterance',

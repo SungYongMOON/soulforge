@@ -106,13 +106,24 @@ async function session(estateDirs, { seed, date = '2026-09-11', provider = PROVI
 const candidate = (code, basis = '회신 메일과 과제 코드가 같은 시험을 가리킴', evidenceRefs = []) =>
   ({ project_code: code, evidence_refs: [...evidenceRefs], basis });
 
+/**
+ * The utterances an interval overlaps -- what a scope of seconds used to select
+ * on its own. Fixtures written before conversations named their utterances go on
+ * meaning exactly what they meant, and the one test that is about the difference
+ * names its ids itself.
+ */
+const idsIn = (text, from, to) => parsePlaudTranscript(text)
+  .filter(row => row.end_seconds > from && row.start_seconds < to).map(row => row.segment_id);
+
 /** One conversation segment row, with everything a ledger needs and nothing more. */
 const segment = (segmentId, from, to, extra = {}) => ({ segment_id: segmentId,
+  source_segment_ids: idsIn(extra.transcript ?? INDEPENDENT, from, to),
   start_seconds: from, end_seconds: to, title: '합성 구간 요약', description: null, derived_summary: true,
   nature: 'project_work', project_candidates: [], status: 'unclassified',
   quality: { transcript: 'independent_fast', correction_state: 'none' },
   transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
-  judged_by: 'actor:bot:context-planner', judged_at: NOW, confirmed_by: null, confirmed_at: null, ...extra });
+  judged_by: 'actor:bot:context-planner', judged_at: NOW, confirmed_by: null, confirmed_at: null,
+  ...(({ transcript, ...rest }) => rest)(extra) });
 
 const confirmed = (segmentId, from, to, code, extra = {}) => segment(segmentId, from, to,
   { status: 'confirmed', project_candidates: [candidate(code)], confirmed_by: 'actor:owner',
@@ -163,7 +174,8 @@ test('only a confirmed conversation reaches a grant; a proposal and an unplaced 
   assert.deepEqual(candidates[0].items.map(item => item.item_id), [segmentItemId(mine.sessionId, 'seg-a')],
     'a proposal, an unplaced conversation and another project’s decision are all absent');
   const item = candidates[0].items[0];
-  assert.deepEqual(item.scope, { start_seconds: 0, end_seconds: 40 });
+  assert.deepEqual(item.scope, { start_seconds: 0, end_seconds: 40, segment_ids: [1, 2] },
+    'the interval says where the conversation is; the ids say what it is made of');
   assert.deepEqual(item.conversation_segment,
     { segment_id: 'seg-a', title: '합성 구간 요약', nature: 'project_work', related_segment_ids: [] });
   assert.equal(item.revision_policy, 'latest_in_custody');
@@ -286,7 +298,7 @@ test('a confirmed conversation prepares that conversation only, from the transcr
     roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
   const document = prepared.documents[0];
   assert.ok(validateSourceDocument(document));
-  assert.deepEqual(document.scope, { start_seconds: 0, end_seconds: 40 });
+  assert.deepEqual(document.scope, { start_seconds: 0, end_seconds: 40, segment_ids: [1, 2] });
   assert.ok(document.units.every(unit => unit.locator.start_seconds < 40),
     'the part of the recording that belongs to another conversation is not in the document');
   assert.equal(document.units.some(unit => unit.text.includes('예산')), false);
@@ -387,24 +399,24 @@ async function mixedEstate() {
   const mixed = await session(dirs, { seed: 's0009abcdef', provider: MIXED, duration: 240,
     runs: { [RUN_ONE.at(-1)]: MIXED } });
   await writeLedger(dirs, ledgerFor(mixed.sessionId, [
-    confirmed('seg-a', 0, 60, MINE, { title: '수신부 CDR 준비 상태 확인', transcript_ref: RUN_ONE,
+    confirmed('seg-a', 0, 60, MINE, { transcript: MIXED, title: '수신부 CDR 준비 상태 확인', transcript_ref: RUN_ONE,
       project_candidates: [candidate(MINE, '조립 완료일이 이 과제 회신 메일과 같은 주차', ['mail:m-1'])] }),
     // The same words in a conversation nobody has placed. A shared part name is
     // not a project, and a row whose only basis is the shared name stays a proposal.
-    segment('seg-b', 60, 90, { status: 'candidate', title: '수신부 CDR 언급 구간',
+    segment('seg-b', 60, 90, { transcript: MIXED, status: 'candidate', title: '수신부 CDR 언급 구간',
       transcript_ref: RUN_ONE,
       project_candidates: [candidate(MINE, '같은 부품 이름이 나옴'), candidate(OTHER, '같은 부품 이름이 나옴')] }),
-    confirmed('seg-c', 90, 120, OTHER, { title: '다른 과제 수신부 외주 일정', transcript_ref: RUN_ONE,
+    confirmed('seg-c', 90, 120, OTHER, { transcript: MIXED, title: '다른 과제 수신부 외주 일정', transcript_ref: RUN_ONE,
       project_candidates: [candidate(OTHER, '외주 업체명이 이 과제 발주 건과 일치', ['linear:X-1'])] }),
-    confirmed('seg-d', 120, 145, MINE, { title: '조립 완료일 정정', transcript_ref: RUN_ONE,
+    confirmed('seg-d', 120, 145, MINE, { transcript: MIXED, title: '조립 완료일 정정', transcript_ref: RUN_ONE,
       related_segment_ids: ['seg-a'],
       project_candidates: [candidate(MINE, '정정 대상이 seg-a의 같은 일정', ['mail:m-1'])] }),
     // Barely audible, and still work: the quality is what was poor, not the kind
     // of conversation it was.
-    confirmed('seg-e', 145, 175, MINE, { title: '시험 장비 반입 논의(일부 판독 불가)', nature: 'unreadable',
+    confirmed('seg-e', 145, 175, MINE, { transcript: MIXED, title: '시험 장비 반입 논의(일부 판독 불가)', nature: 'unreadable',
       transcript_ref: RUN_ONE, quality: { transcript: 'independent_fast', correction_state: 'none' },
       project_candidates: [candidate(MINE, '반입 대상이 이 과제 시험 장비', ['linear:Y-1'])] }),
-    segment('seg-f', 175, 230, { status: 'unclassified', nature: 'idea', title: '측정 자동화 아이디어',
+    segment('seg-f', 175, 230, { transcript: MIXED, status: 'unclassified', nature: 'idea', title: '측정 자동화 아이디어',
       transcript_ref: RUN_ONE })]));
   return { dirs, mixed };
 }
@@ -432,7 +444,7 @@ test('a shared part name does not place a conversation, and every placed work co
   // folded into it.
   const correction = items.find(item => item.conversation_segment.segment_id === 'seg-d');
   assert.deepEqual(correction.conversation_segment.related_segment_ids, ['seg-a']);
-  assert.deepEqual(correction.scope, { start_seconds: 120, end_seconds: 145 });
+  assert.deepEqual(correction.scope, { start_seconds: 120, end_seconds: 145, segment_ids: [5] });
   assert.equal(items.find(item => item.conversation_segment.segment_id === 'seg-a').scope.end_seconds, 60,
     'the corrected conversation keeps its own interval; the correction is not merged into it');
 
@@ -542,33 +554,72 @@ test('a conversation is addressed in whole seconds, because a fraction cannot be
       transcript_ref: `ingress/plaud/sessions/2026-09-11/${mine.sessionId}/${RUN_ONE.join('/')}/transcript.jsonl` },
     evidence_gate: { input_class: 'independent_asr_fast' },
     segment_labels: [
-      { unit_id: 'unit_1', start_seconds: 0, end_seconds: 57.82, entities: [], project_match: { state: 'x', candidates: [] } },
-      { unit_id: 'unit_2', start_seconds: 57.82, end_seconds: 121.48, entities: [], project_match: { state: 'x', candidates: [] } },
+      { unit_id: 'unit_1', source_segment_ids: [1], start_seconds: 0, end_seconds: 57.82, entities: [],
+        project_match: { state: 'x', candidates: [] } },
+      { unit_id: 'unit_2', source_segment_ids: [2], start_seconds: 57.82, end_seconds: 121.48, entities: [],
+        project_match: { state: 'x', candidates: [] } },
       // Shorter than the rounding: not an interval anybody can address.
-      { unit_id: 'unit_3', start_seconds: 130.1, end_seconds: 130.3, entities: [], project_match: { state: 'x', candidates: [] } }],
+      { unit_id: 'unit_3', source_segment_ids: [3], start_seconds: 130.1, end_seconds: 130.3, entities: [],
+        project_match: { state: 'x', candidates: [] } }],
     review_windows: [], boundaries: { transcript_body_copied_to_output: false } }));
 
   const found = readSemanticSegmentDrafts({ io: dirs.io,
     session: sessionAddress({ io: dirs.io, sessionId: mine.sessionId }), sessionId: mine.sessionId });
   assert.deepEqual(found.drafts.map(draft => [draft.segment.start_seconds, draft.segment.end_seconds]),
     [[0, 58], [58, 121]], 'both sides of a shared boundary round the same way, so no gap opens between them');
+  assert.deepEqual(found.drafts.map(draft => draft.segment.source_segment_ids), [[1], [2]],
+    'and the draft says which utterances it is made of, which the rounded interval cannot');
   assert.equal(found.units_shorter_than_a_second, 1);
   assert.ok(found.drafts.every(draft => Number.isSafeInteger(draft.segment.start_seconds)));
 
-  // And the whole path -- grant identity, document key, run record -- holds for a
-  // recording whose own offsets are fractional.
+  // The two utterances are two different conversations. Addressed by whole
+  // seconds alone, the second one arrives inside the first one's document --
+  // 57.82 and 58 both round to 58 and the overlap test keeps anything that
+  // starts before the end. That is the cost the rounding was chosen to pay.
+  const byInterval = await prepareSourceDocuments({ grant: grantOf([{ item_id: mine.sessionId,
+    revision_policy: 'latest_in_custody', revision_sha256: null, data_class: 'public_synthetic',
+    transcript_ref: RUN_ONE, scope: { start_seconds: 0, end_seconds: 58 } }]),
+  roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
+  assert.deepEqual(byInterval.documents[0].units.map(unit => unit.locator.segment_id), [1, 2],
+    'the interval alone cannot tell the utterance at the seam from the one before it');
+
+  // Naming the utterances answers exactly that question, and the whole path --
+  // grant identity, document key, run record -- still holds for a recording whose
+  // own offsets are fractional.
   await writeLedger(dirs, ledgerFor(mine.sessionId, [
-    confirmed('unit_1', 0, 58, MINE, { transcript_ref: RUN_ONE, title: '첫 대화' })]));
-  const prepared = await prepareSourceDocuments({ grant: grantOf(candidatesFor(dirs, MINE)[0].items),
+    confirmed('unit_1', 0, 58, MINE, { transcript_ref: RUN_ONE, title: '첫 대화', source_segment_ids: [1] })]));
+  const items = candidatesFor(dirs, MINE)[0].items;
+  assert.deepEqual(items[0].scope, { start_seconds: 0, end_seconds: 58, segment_ids: [1] });
+  const prepared = await prepareSourceDocuments({ grant: grantOf(items),
     roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW, runId: 'prep-voice-fractional',
     clock: () => new Date(NOW) });
   assert.equal(prepared.run_unavailable, null, 'a fractional offset inside the document is not part of any digest');
   assert.ok(validateSourceDocument(prepared.documents[0]));
-  assert.deepEqual(prepared.documents[0].units.map(unit => unit.locator.segment_id), [1, 2],
-    'the utterance that opens the next conversation sits at the edge of both, which is the side to err on');
-  // A fraction in a scope is refused where it is written, not where it is hashed.
+  assert.deepEqual(prepared.documents[0].units.map(unit => unit.locator.segment_id), [1],
+    'the utterance that opens the next conversation stays in the next conversation');
+  assert.deepEqual(prepared.documents[0].units.map(unit => unit.locator.end_seconds), [57.82],
+    'and the fractional offset the ASR wrote is carried through the document unrounded');
+  assert.notEqual(prepared.documents[0].doc_key, byInterval.documents[0].doc_key,
+    'the ids are part of what the document is, so the two readings are two documents');
+
+  // An id the granted revision does not hold is a stale grant. There is no wider
+  // or narrower interval that would be the same conversation, so nothing is
+  // widened to make the ids fit.
+  const missing = await prepareSourceDocuments({ grant: grantOf([{ ...items[0],
+    scope: { start_seconds: 0, end_seconds: 58, segment_ids: [1, 9] } }]),
+  roots: { [VOICE_ROOT]: dirs.plaudRoot }, now: NOW });
+  assert.deepEqual(missing.coverage.items.map(row => [row.status, row.code]),
+    [['stale_grant', 'scope_segments_absent']]);
+
+  // A fraction in a scope is refused where it is written, not where it is hashed,
+  // and so is a conversation that names no utterances at all.
   assert.throws(() => validateVoiceRouteLedger(ledgerFor(mine.sessionId,
-    [confirmed('unit_1', 0, 57.82, MINE)])), /voice_route_segment_invalid/u);
+    [confirmed('unit_1', 0, 57.82, MINE, { source_segment_ids: [1] })])), /voice_route_segment_invalid/u);
+  for (const ids of [[], [2, 1], [1, 1], [1.5], [-1]]) {
+    assert.throws(() => validateVoiceRouteLedger(ledgerFor(mine.sessionId,
+      [confirmed('unit_1', 0, 58, MINE, { source_segment_ids: ids })])), /voice_route_segment_invalid/u,
+    `source_segment_ids ${JSON.stringify(ids)} is not a list of utterances`);
+  }
 });
 
 // --------------------------------------------------------------------- CLI
@@ -579,12 +630,16 @@ test('the CLI is the writer: a proposal, a person’s decision, a withdrawal, an
   const where = ['--routes-dir', dirs.routesDir, '--now', NOW];
   const base = ['--session', mine.sessionId, '--segment', 'seg-a', ...where];
 
-  const dry = runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--status', 'candidate',
-    '--by', 'actor:bot:context-planner', '--dry']);
+  // A conversation that names no utterances cannot be read back exactly, so it is
+  // refused at the moment somebody tries to write one.
+  assert.throws(() => runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--status', 'candidate',
+    '--by', 'actor:bot:context-planner']), /voice_route_source_segments_required/u);
+  const dry = runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--source-segments', '1,2',
+    '--status', 'candidate', '--by', 'actor:bot:context-planner', '--dry']);
   assert.deepEqual([dry.dry, dry.candidate, dry.file_sha256], [true, 1, null]);
   assert.deepEqual(await readdir(dirs.routesDir), [], 'a rehearsal leaves the folder as it was');
 
-  runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--status', 'candidate',
+  runVoiceRouteCli(['set', ...base, '--from', '0', '--to', '40', '--source-segments', '1,2', '--status', 'candidate',
     '--by', 'actor:bot:context-planner', '--project', MINE, '--basis', '회신 메일과 같은 시험',
     '--evidence', 'mail:m-1', '--transcript-run', RUN_ONE.join('/'), '--audio-ref', 'audio/source.mp3']);
   assert.deepEqual(candidatesFor(dirs, MINE)[0]?.items ?? [], [], 'a proposal admits nothing');
@@ -608,7 +663,8 @@ test('the CLI is the writer: a proposal, a person’s decision, a withdrawal, an
     'a decision keeps who proposed it and adds who made it');
   assert.deepEqual([row.quality.transcript, row.audio_ref], ['independent_fast', ['audio', 'source.mp3']]);
   const items = candidatesFor(dirs, MINE)[0].items;
-  assert.deepEqual([items.length, items[0].scope], [1, { start_seconds: 0, end_seconds: 40 }]);
+  assert.deepEqual([items.length, items[0].scope],
+    [1, { start_seconds: 0, end_seconds: 40, segment_ids: [1, 2] }]);
 
   // Withdrawing returns it to a proposal rather than erasing the investigation.
   const back = runVoiceRouteCli(['withdraw', ...base]);
@@ -623,16 +679,22 @@ test('the CLI is the writer: a proposal, a person’s decision, a withdrawal, an
 test('one decision applied to one ledger changes that conversation and nothing around it', () => {
   const ledger = validateVoiceRouteLedger(emptyLedger('20260911T010000_plaud_cli_synth0001'));
   const withOther = applySegmentDecision(ledger, { command: 'set', segmentId: 'seg-b', from: 50, to: 90,
-    status: 'candidate', by: 'actor:bot:context-planner', project: OTHER, basis: '외주 업체명 일치', now: NOW });
+    sourceSegmentIds: [3], status: 'candidate', by: 'actor:bot:context-planner', project: OTHER,
+    basis: '외주 업체명 일치', now: NOW });
   const both = applySegmentDecision(withOther, { command: 'confirm', segmentId: 'seg-a', from: 0, to: 40,
-    by: 'actor:owner', project: MINE, basis: '회신 메일과 같은 시험', title: '시험 일정 합의',
-    nature: 'project_work', quality: 'independent_strong', now: NOW });
+    sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '회신 메일과 같은 시험',
+    title: '시험 일정 합의', nature: 'project_work', quality: 'independent_strong', now: NOW });
   assert.deepEqual(both.segments.map(row => [row.segment_id, row.status]), [['seg-a', 'confirmed'], ['seg-b', 'candidate']]);
   assert.deepEqual(confirmedSegments(both, MINE).map(row => row.segment_id), ['seg-a']);
   assert.deepEqual(confirmedSegments(both, OTHER), []);
   assert.throws(() => applySegmentDecision(ledger, { command: 'confirm', segmentId: 'seg-a', from: 40, to: 40,
-    by: 'actor:owner', project: MINE, basis: 'x', title: 't', nature: 'project_work', quality: 'independent_fast',
-    now: NOW }), /voice_route_interval_invalid/u);
+    sourceSegmentIds: [1], by: 'actor:owner', project: MINE, basis: 'x', title: 't', nature: 'project_work',
+    quality: 'independent_fast', now: NOW }), /voice_route_interval_invalid/u);
   assert.throws(() => applySegmentDecision(ledger, { command: 'set', segmentId: 'seg-a', from: 0, to: 40,
-    status: 'candidate', by: 'actor:owner', project: MINE, basis: null, now: NOW }), /voice_route_basis_required/u);
+    sourceSegmentIds: [1], status: 'candidate', by: 'actor:owner', project: MINE, basis: null, now: NOW }),
+  /voice_route_basis_required/u);
+  assert.throws(() => applySegmentDecision(ledger, { command: 'set', segmentId: 'seg-a', from: 0, to: 40,
+    status: 'candidate', by: 'actor:owner', now: NOW }), /voice_route_source_segments_required/u);
+  // The ids stay when a later decision does not mention them.
+  assert.deepEqual(both.segments.find(row => row.segment_id === 'seg-a').source_segment_ids, [1, 2]);
 });

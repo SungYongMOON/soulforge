@@ -14,7 +14,7 @@
 //   node voice_route_cli.mjs draft   --session <id> [--run <run_id>] [--write --by <actor>]
 //                                    [--sessions-address <alias address>] [--now <iso>] [--json]
 //   node voice_route_cli.mjs set     --session <id> --segment <id> [--from <s> --to <s>]
-//                                    --status candidate|unclassified --by <actor>
+//                                    [--source-segments 1,2,3] --status candidate|unclassified --by <actor>
 //                                    [--title <text>] [--description <text>] [--nature <nature>]
 //                                    [--project <code> --basis <text> [--evidence <ref>]...]
 //                                    [--drop-project <code>] [--quality <q>] [--correction <state>]
@@ -34,7 +34,7 @@ import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { VOICE_CORRECTION_STATES, VOICE_ROUTES_ADDRESS, VOICE_ROUTE_LEDGER_SCHEMA, VOICE_ROUTE_LIMITS,
-  VOICE_SEGMENT_NATURES, VOICE_TRANSCRIPT_QUALITIES, VoiceRouteError, isSessionRef,
+  VOICE_SEGMENT_NATURES, VOICE_TRANSCRIPT_QUALITIES, VoiceRouteError, isSessionRef, isSourceSegmentIds,
   validateVoiceRouteLedger } from './voice_routes.mjs';
 import { VOICE_SESSIONS_ADDRESS, readSemanticSegmentDrafts, sessionAddress } from './voice_segment_drafts.mjs';
 
@@ -74,7 +74,7 @@ export function emptyLedger(sessionId) {
   return { schema_version: VOICE_ROUTE_LEDGER_SCHEMA, session_id: sessionId, segments: [], updated_at: null };
 }
 
-const blankSegment = segmentId => ({ segment_id: segmentId, start_seconds: 0, end_seconds: 0,
+const blankSegment = segmentId => ({ segment_id: segmentId, source_segment_ids: [], start_seconds: 0, end_seconds: 0,
   title: null, description: null, derived_summary: true, nature: 'undetermined', project_candidates: [],
   status: 'unclassified', quality: { transcript: 'unknown', correction_state: 'none' },
   transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
@@ -95,7 +95,7 @@ const order = (a, b) => a.start_seconds - b.start_seconds || a.segment_id.locale
  */
 export function applySegmentDecision(ledger, { command, segmentId, from = null, to = null, status = null,
   by = null, title, description, nature, project = null, basis = null, evidenceRefs = [], dropProject = null,
-  quality, correctionState, transcriptRef, audioRef, relatedSegmentIds, now } = {}) {
+  quality, correctionState, transcriptRef, audioRef, relatedSegmentIds, sourceSegmentIds, now } = {}) {
   if (!SEGMENT_ID.test(segmentId ?? '')) fail('voice_route_segment_id_invalid');
   const held = ledger.segments.find(segment => segment.segment_id === segmentId) ?? null;
   const rest = ledger.segments.filter(segment => segment.segment_id !== segmentId);
@@ -124,6 +124,11 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
   const start = from === null ? base.start_seconds : from;
   const end = to === null ? base.end_seconds : to;
   if (!(end > start)) fail('voice_route_interval_invalid');
+  // Which utterances the conversation is made of. A segment that names none is
+  // one nobody can read back exactly, so it is refused where it is written
+  // rather than read back as its neighbours' words.
+  const sourceIds = sourceSegmentIds === undefined ? base.source_segment_ids : sourceSegmentIds;
+  if (!isSourceSegmentIds(sourceIds)) fail('voice_route_source_segments_required');
 
   let candidates = base.project_candidates.filter(row => row.project_code !== dropProject);
   if (project !== null) {
@@ -138,7 +143,7 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
     candidates = candidates.filter(row => row.project_code === project);
   }
 
-  const next = { ...base, start_seconds: start, end_seconds: end,
+  const next = { ...base, source_segment_ids: [...sourceIds], start_seconds: start, end_seconds: end,
     title: title === undefined ? base.title : title,
     description: description === undefined ? base.description : description,
     derived_summary: true,
@@ -228,6 +233,7 @@ const NATURE_KO = { project_work: '과제 업무', team_operations: '팀 운영'
   daily: '일상', unreadable: '판독 불가', undetermined: '미판정' };
 
 const segmentLine = segment => `${segment.segment_id} | ${segment.start_seconds}-${segment.end_seconds}s`
+  + ` | 발화 ${segment.source_segment_ids.length}개`
   + ` | ${NATURE_KO[segment.nature] ?? segment.nature} | ${segment.status}`
   + ` | ${segment.project_candidates.map(row => row.project_code).join(',') || '과제 미정'}`
   + ` | 전사 ${segment.quality.transcript}/${segment.quality.correction_state}`
@@ -321,6 +327,9 @@ export function runVoiceRouteCli(argv) {
   const audioRef = refFlag('audio-ref');
   for (const ref of [transcriptRef, audioRef]) if (ref !== undefined && !isSessionRef(ref)) fail('voice_route_ref_invalid');
   const related = flags.has('related') ? listOf(flags.get('related')) : undefined;
+  const sourceSegments = flags.has('source-segments')
+    ? String(flags.get('source-segments')).split(',').map(value => Number.parseInt(value.trim(), 10)) : undefined;
+  if (sourceSegments !== undefined && !isSourceSegmentIds(sourceSegments)) fail('voice_route_source_segments_invalid');
   const status = command === 'set' ? String(flags.get('status') ?? '') : null;
   if (command === 'set' && !['candidate', 'unclassified'].includes(status)) fail('voice_route_status_invalid');
 
@@ -335,7 +344,7 @@ export function runVoiceRouteCli(argv) {
     evidenceRefs: listOf(flags.get('evidence')), dropProject: oneOf(flags, 'drop-project'),
     quality: quality === null ? undefined : quality,
     correctionState: correction === null ? undefined : correction,
-    transcriptRef, audioRef, relatedSegmentIds: related, now });
+    transcriptRef, audioRef, relatedSegmentIds: related, sourceSegmentIds: sourceSegments, now });
   const written = dry ? null : writeLedgerFile(dir, next);
   return { command, dry, ...summarize(next), segment_rows: next.segments.map(segment => ({ ...segment })),
     file_sha256: written?.sha256 ?? null,

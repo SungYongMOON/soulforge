@@ -55,7 +55,8 @@ export const LIBRARY_INDEX_SCHEMA = 'soulforge.voice_recording_library_index.v0'
 export const LIBRARY_ACCEPTED_STATUS = 'accepted_project_route';
 export const VOICE_ROUTE_LIMITS = Object.freeze({ segments: 200, project_candidates: 8, evidence_refs: 32,
   related_segment_ids: 16, ref_characters: 512, title_characters: 200, description_characters: 1000,
-  basis_characters: 500, ledger_bytes: 4 * 1024 * 1024, index_bytes: 64 * 1024 * 1024, ref_segments: 8 });
+  basis_characters: 500, ledger_bytes: 4 * 1024 * 1024, index_bytes: 64 * 1024 * 1024, ref_segments: 8,
+  source_segment_ids: 4000 });
 
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u;
@@ -76,10 +77,26 @@ const text = (value, max) => value === null || (typeof value === 'string' && val
   && value.length > 0 && [...value].length <= max);
 
 const LEDGER_FIELDS = ['schema_version', 'session_id', 'segments', 'updated_at'];
-export const SEGMENT_FIELDS = Object.freeze(['segment_id', 'start_seconds', 'end_seconds', 'title', 'description',
-  'derived_summary', 'nature', 'project_candidates', 'status', 'quality', 'transcript_ref', 'audio_ref',
-  'related_segment_ids', 'draft_source', 'judged_by', 'judged_at', 'confirmed_by', 'confirmed_at']);
+export const SEGMENT_FIELDS = Object.freeze(['segment_id', 'source_segment_ids', 'start_seconds', 'end_seconds',
+  'title', 'description', 'derived_summary', 'nature', 'project_candidates', 'status', 'quality', 'transcript_ref',
+  'audio_ref', 'related_segment_ids', 'draft_source', 'judged_by', 'judged_at', 'confirmed_by', 'confirmed_at']);
 const CANDIDATE_FIELDS = ['project_code', 'evidence_refs', 'basis'];
+
+/**
+ * Which utterances a conversation is made of, as the transcript's own ids.
+ *
+ * The interval is how a conversation is addressed; this is what it is. An
+ * utterance ends where the speaker stopped, which is rarely a whole second, so
+ * two conversations that meet at 57.82s both round to 58 and the utterance at the
+ * seam belongs to whichever of them actually contains it -- a question an
+ * interval cannot answer and a list of ids answers exactly. Ascending and without
+ * repeats, because the list is part of a grant's identity and its canonical bytes
+ * must not depend on the order somebody wrote it in.
+ */
+export const isSourceSegmentIds = value => Array.isArray(value) && value.length > 0
+  && value.length <= VOICE_ROUTE_LIMITS.source_segment_ids
+  && value.every(id => Number.isSafeInteger(id) && id >= 0)
+  && value.every((id, index) => index === 0 || id > value[index - 1]);
 
 // A ref below the session folder, with the source root's own segment rule, so a
 // ledger can never name something the adapter would have to refuse when it reads.
@@ -110,6 +127,7 @@ function validSegment(segment) {
   // happens once, where a boundary is first derived, rather than being discovered
   // later as an unhashable grant.
   if (!exactKeys(segment, SEGMENT_FIELDS) || !SEGMENT_ID.test(segment.segment_id ?? '')
+    || !isSourceSegmentIds(segment.source_segment_ids)
     || !Number.isSafeInteger(segment.start_seconds) || !Number.isSafeInteger(segment.end_seconds)
     || segment.start_seconds < 0 || segment.end_seconds <= segment.start_seconds
     || !text(segment.title, VOICE_ROUTE_LIMITS.title_characters)
@@ -256,7 +274,11 @@ export function voiceGrantItems({ io, code, item, routesAddress = VOICE_ROUTES_A
     for (const segment of segments) {
       fromLedger += 1;
       items.push({ ...item, item_id: segmentItemId(sessionId, segment.segment_id),
-        scope: { start_seconds: segment.start_seconds, end_seconds: segment.end_seconds },
+        // The interval addresses the conversation and the ids are the conversation.
+        // The adapter reads the ids; the interval stays for a reader who wants to
+        // know where in the recording this was without opening the transcript.
+        scope: { start_seconds: segment.start_seconds, end_seconds: segment.end_seconds,
+          segment_ids: [...segment.source_segment_ids] },
         conversation_segment: { segment_id: segment.segment_id, title: segment.title,
           nature: segment.nature, related_segment_ids: [...segment.related_segment_ids] },
         ...(segment.transcript_ref === null ? {} : { transcript_ref: [...segment.transcript_ref] }) });
