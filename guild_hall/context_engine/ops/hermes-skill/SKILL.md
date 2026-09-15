@@ -1,8 +1,8 @@
 ---
 name: soulforge-context-search
 description: Search one Soulforge project's own records (Linear, Slack, mail), then read a found item back to its original - every unit in full, its attachment list, and the text inside one attachment - and answer with source, item, unit, page and locator. Also reads one window of an unclassified voice recording (transcript only) so a mixed session can be judged interval by interval.
-version: 2.1.0
-author: Soulforge context engine (Claude Opus 5), 2026-09-15 KST
+version: 2.2.0
+author: Soulforge context engine (Claude Opus 5; 2.2.0 voice corrections wiring by Claude Fable 5.1), 2026-09-15 KST
 license: Soulforge internal
 platforms: [windows]
 metadata:
@@ -164,7 +164,17 @@ node '<lane>/guild_hall/context_engine/harness/estate_original_read.mjs' --root-
 ```
 
 목록이 있으면 구간마다 **제목·설명·성격·과제 후보·품질·참조**가 나온다(전사 본문은 나오지 않는다).
+긴 구간에는 `안건:` 줄(안건 이름과 발화 id 범위)이 붙을 수 있다.
 없으면 `conversation_list 미생성`이 찍히고 아래 7-c형과 같은 원 발화로 답한다 — 그때가 (b)다.
+
+같은 호출에 `--corrections`를 더하면 **같은 run의 교정안**이 구간 뒤에 `[교정 pNNN]` 줄로 붙는다 —
+발화 id·문자 위치·이유·확신·`문맥 추정`·`원음 재확인 필요` 표시와 `원문:`/`제안:` 두 줄. 교정안은
+**제안**이지 확인된 전사가 아니다(전사 파일은 그대로다). `원음 재확인 필요`는 재확인이 끝났다는 뜻이
+아니라 아직 안 됐다는 뜻이다. 교정안을 근거로 쓸 때는 `제안:` 표기와 발화 id를 함께 옮긴다.
+
+```
+node '<lane>/guild_hall/context_engine/harness/estate_original_read.mjs' --root-table '<root table>' --tools-config '<tools config>' --voice-session <세션 id> --conversation-list --corrections --from <시작초> --to <끝초>
+```
 
 **7-b) 구간 초안** — 라벨 run이 나눠 둔 의미 단위로 읽는다.
 
@@ -267,6 +277,12 @@ node '<lane>/guild_hall/context_engine/harness/estate_original_read.mjs' --root-
 - **제목과 설명은 파생 요약이다** — 실제 발언도 승인된 회의록도 아니라고 답에 한 줄로 적는다.
 - `verified false`면 **검증 전 결과**라고 함께 적는다. `checks`가 있으면 그 수를 적는다.
 - 어느 run의 목록인지(run id)와, run이 여럿이면 무엇으로 최신을 골랐는지도 적는다.
+- 교정안(`--corrections`)을 옮길 때는 **원문과 제안을 나란히**, `제안:` 표기와 발화 id·이유·확신을
+  함께 적는다. 제안된 낱말을 원문인 것처럼 인용하지 않으며, `원음 재확인 필요`가 붙은 것은 수·인명·기한이
+  아직 확인되지 않았다고 적는다. 과제 후보의 확정(confirm)과 교정 내용의 확인은 서로 다른 일이다 —
+  하나가 됐다고 다른 하나가 된 것이 아니다.
+- 긴 구간(`안건:` 줄이 있거나 발화가 40개 넘는 구간)은 제목·설명만 읽고 판단하지 않는다. 요청·약속·정정·
+  기한을 찾아야 하면 7-c형으로 그 구간의 발화를 읽고 **발화 id**로 가리킨다.
 
 ### (b) 대화 목록이 없으면 "아직 만들어지지 않았다"고 답한다
 
@@ -439,4 +455,6 @@ store, 그래프 데이터베이스에는 영향이 없다.
 확인한 뒤에도, Buzz DM에서 실제로 트리거되는 것은 사람이 한 번 보내 봐야 확인된다.
 그 확인 전까지 `production-ready`로 보지 않는다.
 
-7형(음성 구간 읽기)은 **lane 갱신 대기 중**이다. 1~6형은 지금 lane에서 그대로 동작한다.
+7형(음성 구간 읽기)은 2026-09-15 저녁 `context-read-v2` lane(main c117202a)에 올라갔다 — 대화 목록·안건 줄·
+교정안(`--corrections`)까지 이 lane에서 답한다. 옛 v1 lane에서는 `original_read_item_invalid`로 답하므로, 그 코드가
+나오면 설치된 스킬이 옛 lane을 가리키고 있는 것이다.
