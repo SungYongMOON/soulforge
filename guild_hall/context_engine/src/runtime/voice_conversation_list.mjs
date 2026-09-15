@@ -811,6 +811,64 @@ export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_L
 }
 
 // ------------------------------------------------------------------ step 5
+const TOKEN_RUN = /[\p{L}\p{N}]+/gu;
+/** How often a recurring word has to recur before the recording is said to use it. */
+export const RECURRING_MINIMUM = 3;
+export const RECURRING_LIMIT = 40;
+/** How much longer than a word one of its particled forms may be. */
+const MAX_PARTICLE_LENGTH = 3;
+
+/**
+ * The words this recording keeps saying.
+ *
+ * A machine transcript's mishearings are one-offs; the words a meeting is about
+ * come back. Handing the correction step the recurring words gives it the
+ * recording's own vocabulary to compare a suspect spelling against -- and the
+ * same list is what tells a code that a word said thirty times is not a typo.
+ * Stoplisted words are left out: every recording says 일정.
+ */
+export function recurringTokens(rows, { minimum = RECURRING_MINIMUM, limit = RECURRING_LIMIT } = {}) {
+  const counts = new Map();
+  for (const row of rows) {
+    for (const [token] of String(row?.content ?? '').matchAll(TOKEN_RUN)) {
+      if (codePoints(token).length < 2 || isStoplisted(token)) continue;
+      const key = token.toLowerCase();
+      counts.set(key, { term: counts.get(key)?.term ?? token, count: (counts.get(key)?.count ?? 0) + 1 });
+    }
+  }
+  // Korean writes the particle onto the word, so `아트웍` and `아트웍은` are two
+  // whitespace tokens and one word. Without morphology the rule has to be stated
+  // rather than clever: a token counts the tokens that start with it and are at
+  // most a particle longer. It can over-merge two words that share a beginning;
+  // this is a frequency hint for a prompt and for a demotion, not a lexicon.
+  const keys = [...counts.keys()];
+  const merged = keys.map(key => ({ term: counts.get(key).term,
+    count: keys.filter(other => other === key
+      || (other.startsWith(key) && other.length - key.length <= MAX_PARTICLE_LENGTH))
+      .reduce((sum, other) => sum + counts.get(other).count, 0) }));
+  // A token that is only ever seen with its particle would otherwise be dropped,
+  // and the shorter form is the one worth showing, so both are kept and the
+  // longer one loses to the shorter at the same count.
+  return merged.filter(row => row.count >= minimum)
+    .sort((a, b) => b.count - a.count || codePoints(a.term).length - codePoints(b.term).length
+      || a.term.localeCompare(b.term))
+    .filter((row, index, all) => all.findIndex(other => other.term.toLowerCase().startsWith(row.term.toLowerCase())
+      || row.term.toLowerCase().startsWith(other.term.toLowerCase())) === index)
+    .slice(0, limit);
+}
+
+/** How often a piece of text occurs across a whole transcript. */
+export function occurrenceCounter(rows) {
+  const body = rows.map(row => String(row?.content ?? '')).join('\n').toLowerCase();
+  return needle => {
+    const target = String(needle ?? '').trim().toLowerCase();
+    if (!target) return 0;
+    let count = 0;
+    for (let at = body.indexOf(target); at !== -1; at = body.indexOf(target, at + target.length)) count += 1;
+    return count;
+  };
+}
+
 /**
  * Whether a correction is a correction: one word, at a place in the transcript
  * that actually holds the text the model said it holds.
@@ -822,7 +880,7 @@ export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_L
  * the other failure: a proposal three times the original, or a long phrase with
  * spaces in it, is a rewrite of the sentence wearing a correction's shape.
  */
-export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = [] } = {}) {
+export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = [], occurrences = null } = {}) {
   if (!plain(proposal)) return { status: 'discarded', code: 'position_mismatch' };
   const original = String(proposal.original ?? '');
   const proposed = String(proposal.proposed ?? '');
@@ -851,9 +909,17 @@ export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = []
   const normalised = original.trim().toLowerCase();
   const known = knownTerms.some(term => String(term).trim().toLowerCase() === normalised)
     || keyTerms.some(term => String(term).trim().toLowerCase() === normalised);
+  // A word this recording says again and again, replaced by one it never says, is
+  // far more likely to be the recording's own vocabulary than a mishearing --
+  // a decoder does not make the same mistake thirty times and no other. The
+  // proposal is kept, because it might be right and a reader can see it, but it
+  // stops being a confident one.
+  const recurs = typeof occurrences === 'function'
+    && occurrences(original) >= RECURRING_MINIMUM && occurrences(proposed) === 0;
   const confidence = ['high', 'medium', 'low'].includes(proposal.confidence) ? proposal.confidence : 'low';
   return { status: 'proposed', code: null, char_offset: offset, original, proposed,
-    reason: proposal.reason, confidence: known ? 'low' : confidence,
+    reason: proposal.reason, confidence: known || recurs ? 'low' : confidence,
+    original_recurs_in_transcript: recurs,
     // A correction with `needs_audio_recheck` is not a weaker correction; it is
     // one whose truth is not in the transcript at all.
     needs_audio_recheck: AUDIO_RECHECK_REASONS.includes(proposal.reason),

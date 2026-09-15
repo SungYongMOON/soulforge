@@ -23,7 +23,8 @@ import {
   applyCorrections, attachUncovered, batchSegments, boundaryWindows, checkBoundaryProposal, checkCandidates,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
   clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
-  qualityReport, readPipelineConfig, relatedByKeyTerms, singleSegmentSuspect,
+  occurrenceCounter, qualityReport, readPipelineConfig, recurringTokens, relatedByKeyTerms,
+  singleSegmentSuspect,
   renderConversationTable, repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
@@ -587,6 +588,31 @@ test('a correction has to be where the model said it was, and may not restring t
   assert.equal(applyCorrections(text, [ok]), '그 부품은 수요일에 반입됩니다');
 });
 
+test('a word the recording keeps saying is not a mishearing, and a proposal against it is demoted', () => {
+  const rows = [{ content: '아트웍 확인했습니다' }, { content: '아트웍 일정이 밀렸습니다' },
+    { content: '그 아트웍은 다음 주입니다' }, { content: '오늘 일정 확인 회의 자료' }];
+  const recurring = recurringTokens(rows).map(row => `${row.term}:${row.count}`);
+  assert.ok(recurring.includes('아트웍:3'), 'a word said three times is a word this recording uses');
+  assert.equal(recurring.some(row => row.startsWith('일정')), false, 'every recording says 일정');
+  assert.equal(recurringTokens(rows, { minimum: 4 }).length, 0);
+
+  const occurrences = occurrenceCounter(rows);
+  assert.deepEqual([occurrences('아트웍'), occurrences('완료'), occurrences('')], [3, 0, 0]);
+  const demoted = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '아트웍', proposed: '완료',
+    reason: 'homophone', confidence: 'high' }, { text: '아트웍 확인했습니다', occurrences });
+  assert.deepEqual([demoted.status, demoted.confidence, demoted.original_recurs_in_transcript],
+    ['proposed', 'low', true], 'a decoder does not make the same mistake three times and no other');
+  const kept = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '아트웍', proposed: '아트워크',
+    reason: 'homophone', confidence: 'high' }, { text: '아트웍 확인했습니다',
+    occurrences: occurrenceCounter([...rows, { content: '아트워크 라는 말도 씁니다' }]) });
+  assert.deepEqual([kept.confidence, kept.original_recurs_in_transcript], ['high', false],
+    'a replacement the recording also says is a spelling question, not a word swap');
+  const unknown = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '아트웍', proposed: '완료',
+    reason: 'homophone', confidence: 'high' }, { text: '아트웍 확인했습니다' });
+  assert.deepEqual([unknown.confidence, unknown.original_recurs_in_transcript], ['high', false],
+    'without the counts the rule does not fire, rather than firing on a guess');
+});
+
 test('a conversation is judged again only when a confident correction moved a word it was judged on', () => {
   const segment = { segment_id: 'c001', source_segment_ids: [1], key_terms: ['반님'],
     corrections: [{ source_segment_id: 1, char_offset: 12, original: '반님', proposed: '반입', confidence: 'high' }] };
@@ -840,6 +866,20 @@ test('correcting a word the registry knows is reported and demoted rather than a
   assert.deepEqual([corrections.proposals[0].confidence, corrections.proposals[0].original_is_known_term],
     ['low', true]);
   assert.equal(corrections.counts.known_term_overrides, 1, 'and how often that happened is counted');
+  assert.equal(Object.hasOwn(corrections.counts, 'recurring_original_overrides'), true);
+});
+
+test('the correction step is given the recording’s own words and the records of the projects it may belong to', async () => {
+  const dirs = await estate({ registry: REGISTRY });
+  const asked = [];
+  await run(dirs, ({ step, user }) => {
+    if (step === 'correction') asked.push(user);
+    return plainScript({ step, user });
+  });
+  assert.ok(asked.length > 0);
+  assert.match(asked[0], /이 녹음에서 반복되는 낱말/u);
+  assert.match(asked[0], /관련 자료/u);
+  assert.match(asked[0], /용어표/u);
 });
 
 test('a run that spends its budget writes what it has, says what is left, and is not verified', async () => {

@@ -41,9 +41,9 @@ import {
   ConversationListError, KEY_TERM_KINDS, NATURES, RUN_MANIFEST_SCHEMA, applyCorrections, attachUncovered,
   batchSegments, boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection,
   checkNature, classifyClues, clockAt, clueQuery, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
-  qaBoundarySuspects, qualityReport, readPipelineConfig, relatedByKeyTerms, renderConversationTable,
-  renderCorrectionsTable, rulesCoverage, runIdFor, searchableClues, segmentsNeedingRejudgement,
-  singleSegmentSuspect, stitchBoundaries, wholeMilliseconds,
+  occurrenceCounter, qaBoundarySuspects, qualityReport, readPipelineConfig, recurringTokens,
+  relatedByKeyTerms, renderConversationTable, renderCorrectionsTable, rulesCoverage, runIdFor,
+  searchableClues, segmentsNeedingRejudgement, singleSegmentSuspect, stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
 
 export const VOICE_CONVERSATION_COMMANDS = Object.freeze(['run', 'show', 'table']);
@@ -499,6 +499,16 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const proposals = [], discarded = [];
   const knownTermsFor = text => (registry === null ? []
     : registry.terms.filter(row => text.toLowerCase().includes(row.normalized)).map(row => row.term));
+  // Two more things the correction step needs to tell a mishearing from the
+  // recording's own words: what this recording keeps saying, and what the records
+  // of the projects it might belong to call the same things.
+  const recurring = recurringTokens(input.rows);
+  const occurrences = occurrenceCounter(input.rows);
+  const evidenceFor = batch => {
+    const rows = batch.flatMap(segment => judgements.get(segment.segment_id)?.rows ?? []);
+    return [...new Map(rows.map(row => [`${row.item_id}\u0000${row.unit_id}`, row])).values()]
+      .slice(0, limits.project_evidence_rows);
+  };
   for (const batch of batchSegments(segments, {
     charactersOf: segment => glyphs(textOfSegment(segment)).length,
     maxCharacters: limits.correction_characters, maxSegments: limits.nature_segments_per_call })) {
@@ -511,8 +521,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       const text = ids.map(textOfId).join(' ');
       const terms = [...new Set([...knownTermsFor(text),
         ...batch.flatMap(segment => natureOf.get(segment.segment_id)?.key_terms ?? [])])];
+      const related = evidenceFor(batch).map(row => `${line(row.item_id, 60)} — ${line(row.quote, 90)}`);
       const body = ids.map(id => `${id}: ${textOfId(id)}`).join('\n');
-      const user = `용어표\n${terms.join(' · ') || '(없음)'}\n\n발화\n${body}`;
+      const user = `용어표\n${terms.join(' · ') || '(없음)'}\n\n`
+        + `이 녹음에서 반복되는 낱말 (숫자는 나온 횟수)\n`
+        + `${recurring.map(row => `${row.term}(${row.count})`).join(' · ') || '(없음)'}\n\n`
+        + `관련 자료 — 이 구간의 후보 과제 기록에서 온 줄이며, 같은 것을 부르는 올바른 표기의 참고다\n`
+        + `${related.join('\n') || '(없음)'}\n\n발화\n${body}`;
       const answer = await ask({ step: 'correction', system: prompts.correction, user, schema: CORRECTION_ANSWER });
       if (answer.status !== 'ok') {
         for (const segment of batch) note('correction', segment.segment_id,
@@ -529,7 +544,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
           continue;
         }
         const checked = checkCorrection(raw, { text: textOfId(id), knownTerms: knownTermsFor(textOfId(id)),
-          keyTerms: natureOf.get(segment.segment_id)?.key_terms ?? [] });
+          keyTerms: natureOf.get(segment.segment_id)?.key_terms ?? [], occurrences });
         if (checked.status !== 'proposed') {
           discarded.push({ source_segment_id: id, original: String(raw?.original ?? ''),
             proposed: String(raw?.proposed ?? ''), code: checked.code });
@@ -640,6 +655,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     counts: { proposed: proposals.length, discarded: discarded.length,
       needs_audio_recheck: proposals.filter(row => row.needs_audio_recheck).length,
       known_term_overrides: proposals.filter(row => row.original_is_known_term).length,
+      recurring_original_overrides: proposals.filter(row => row.original_recurs_in_transcript).length,
       by_discard_code: discarded.reduce((held, row) => ({ ...held, [row.code]: (held[row.code] ?? 0) + 1 }), {}) } };
 
   const before = (() => {
