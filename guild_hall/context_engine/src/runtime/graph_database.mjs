@@ -104,6 +104,37 @@ export async function inspectGraphDatabase({ binding, runWorker = runGraphragWor
     materialize_lock: output.materialize_lock ?? [], indexes: output.indexes ?? null });
 }
 
+// Which projects name the same entity, over the generations this database serves.
+// The one question here whose scope is the whole database rather than one project:
+// a term only one project uses cannot say whether a term is shared, so the
+// crossing has to be looked at across all of them at once. Read-only, one call,
+// and it returns names and counts -- never chunk text, never a document.
+//
+// Project keys come back as the database holds them. Which project code a key
+// belongs to is the caller's binding to know, so a key no binding named is a row
+// the caller drops rather than something this side resolves.
+export async function listEntityProjects({ binding, runWorker = runGraphragWorker } = {}) {
+  const bound = validateGraphBinding(binding);
+  if (bound.neo4j === null) {
+    return Object.freeze({ status: 'not_connected', code: 'graph_database_not_connected', generations: [], terms: [] });
+  }
+  const output = await callWorker({ bound, runWorker, request: { operation: 'entity_projects', neo4j: bound.neo4j } });
+  const terms = (Array.isArray(output.terms) ? output.terms : [])
+    .filter(row => typeof row?.normalized === 'string' && row.normalized && Array.isArray(row.projects))
+    .map(row => Object.freeze({ normalized: row.normalized,
+      names: Object.freeze((Array.isArray(row.names) ? row.names : []).filter(name => typeof name === 'string' && name)),
+      projects: Object.freeze(row.projects.filter(held => typeof held?.project_key === 'string')
+        .map(held => Object.freeze({ project_key: held.project_key,
+          generation_id: typeof held.generation_id === 'string' ? held.generation_id : null,
+          mentions: Number.isSafeInteger(held.mentions) && held.mentions >= 0 ? held.mentions : 0 }))),
+      mention_count: Number.isSafeInteger(row.mention_count) && row.mention_count >= 0 ? row.mention_count : 0 }));
+  const generations = (Array.isArray(output.generations) ? output.generations : [])
+    .filter(row => typeof row?.project_key === 'string' && typeof row?.generation_id === 'string')
+    .map(row => Object.freeze({ project_key: row.project_key, generation_id: row.generation_id }));
+  return Object.freeze({ status: 'ok', generations: Object.freeze(generations), terms: Object.freeze(terms),
+    counts: output.counts ?? null });
+}
+
 // Adds one rule's explicit-reference edges to the loaded generation: a node that
 // names an identifier verbatim is joined to the document that identifier belongs
 // to. The edge lives only in the derived projection — reloading the generation

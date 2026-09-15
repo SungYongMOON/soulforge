@@ -67,6 +67,37 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 새 Context store를 만들지 않는다. 기존 generation/수락 receipt/ACL 검사는
 그대로 남으며 실제 actor·source grant가 없으면 실제 연결 완료가 아니다.
 
+## 과제를 넘나드는 공통 용어 등록부
+
+여러 과제가 같은 일을 하니 같은 말을 쓴다. CDR·수신부·앰프·해상시험이 그렇고, 그런 말 하나로는 어떤 기록이
+어느 과제 것인지 정할 수 없다. 이 등록부는 그 규칙을 **고정된 낱말 두 개가 아니라 자료에서 파생되는 파일**로
+만든 것이다. 파생물이라 언제든 다시 만들 수 있고, 원본이 아니다.
+
+- 입력은 둘뿐이다. ① 통합 그래프 DB가 **지금 서비스 중인 세대**의 엔티티 이름 — 두 과제의 세대가 같은 이름을
+  들고 있으면 그것은 관측된 공통 용어다. ② Owner가 두는 seed(`<control_root>/context-read/shared_terms.seed.v0.json`)
+  — 그래프가 아직 두 과제에서 보여주지 않았지만 온 estate가 쓰는 말을 선언한다. 항목마다 근거 과제 코드를 적으며,
+  근거 없는 seed 항목은 거부한다. 저장소에는 예시(`ops/context-read/shared_terms.seed.example.json`)만 둔다.
+- 출력은 `<control_root>/context-read/shared_terms.v0.json` 한 파일이다(`tools.v0.json`의 `shared_terms_path`).
+  `{schema, generated_at, generation_refs[], terms[{term, normalized, projects[], mention_count, source}], counts}`이며
+  `source`는 `graph`·`seed`·`both`다. 매번 덮어쓰되 직전 판은 `.prev`로 한 벌 남는다. 본문·문서·경로는 담기지 않는다.
+- DB에 묻는 것은 읽기 명령 `entity_projects`(워커) 하나다. `listEntityProjects({binding, runWorker})`가 그것을
+  `inspectGraphDatabase`와 같은 규약으로 부른다. Cypher는 워커 안에만 있고, 답은 이름·과제·언급 수이며 청크 본문은
+  돌아오지 않는다. 쓰기는 없다. 추출 규칙 해시(`rules_sha256`)가 가리키는 함수는 건드리지 않으므로 저장된
+  fragment는 그대로 재사용된다.
+- **용어의 모양**은 규칙으로 적는다. 식별자(`P24-049`·`SON-1421`처럼 숫자를 낀 하이픈 토큰)는 공통 용어의 반대이므로
+  등록하지 않고, `--max-term-characters`(기본 24)를 넘는 이름과 3낱말을 넘는 제목은 기록의 제목이지 용어가 아니다.
+  걸러낸 수는 이유별로 `counts`에 남는다. 등록 최소 과제 수는 `--min-projects`(기본 2)이며, seed 항목은 그 아래여도
+  남는다(그때 `source`가 `both`가 된다). 바인딩을 열지 못한 과제의 행은 세지 않고 `unknown_project_rows`로 적는다.
+- 판독은 `src/runtime/shared_terms.mjs`다. `loadSharedTerms(path)`는 파일이 없으면 `null`(등록부 없음은 실패가 아니다),
+  등록부가 아닌 파일은 거부한다. `classifyTerms(text, registry)`는 `shared`(2과제 이상)·`distinctive`(1과제)·
+  `unregistered`(등록부가 모르는 약어형 토큰)를 과제 목록과 함께 돌려주고, 등록부가 없으면 빈 배열이다. 형태소 분석은
+  없다: 대소문자 무시 부분 문자열이라 `수신부의`·`수신부에서`가 걸리고, 전부 ASCII인 용어는 양옆이 영숫자가 아닐
+  때만 걸려 `CDR`이 `CDROM` 안에서 걸리지 않는다.
+- 재생성: `node guild_hall/context_engine/harness/estate_shared_terms.mjs --root-table <표> --tools-config <설정>
+  [--seed <파일>] [--min-projects 2] [--out <파일>]`. 읽기 전용이며 DB·색인·원본을 바꾸지 않는다.
+- 시험: `tests/shared_terms.test.mjs`(합성 등록부의 세 판정, 조사·대소문자·경계, 등록부 없음, 합성 워커 응답의 집계,
+  식별자·제목 제외, seed 병합, `.prev` 보존).
+
 ## 원본 문서 준비 (0.4.0~0.5.0)
 
 `prepareSourceDocuments({ grant, roots, now, previousCoverage })`는 수집 lane이 이미 보관한 항목 중

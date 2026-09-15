@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-09-15 - 과제를 넘나드는 공통 용어 등록부
+
+- Revision: 이 항목을 포함한 커밋. 여러 과제가 함께 쓰는 용어(CDR·수신부·앰프·해상시험 같은)를
+  고정된 낱말 목록이 아니라 **자료에서 파생되고 다시 만들 수 있는 등록부**로 만들었다. 그런 용어
+  하나로는 어떤 기록이 어느 과제 것인지 정할 수 없다는 규칙을, 읽는 쪽이 파일로 물어볼 수 있게 한다.
+- 입력은 둘이다. 통합 그래프 DB가 지금 서비스 중인 세대의 엔티티 이름(두 과제가 같은 이름을 들고
+  있으면 관측된 공통 용어)과, Owner가 두는 seed(근거 과제 코드가 없는 항목은 거부). 출력은 제어 root의
+  등록부 파일 하나이며 직전 판은 `.prev`로 남는다. 본문·문서·경로·Cypher는 어디에도 담기지 않는다.
+- 워커에 읽기 전용 명령 `entity_projects`를 더하고 `listEntityProjects({binding, runWorker})`가
+  `inspectGraphDatabase`와 같은 규약으로 부른다. DB 전체를 한 번에 묻고 이름·과제·언급 수만 돌려준다.
+  추출 규칙 해시가 가리키는 함수는 건드리지 않아 저장된 fragment는 그대로 재사용된다(해시 동일 확인).
+- 용어의 모양을 규칙으로 적었다. 숫자를 낀 하이픈 토큰(`P24-049`·`SON-1421`)은 공통 용어의 반대라서
+  등록하지 않고, 24자를 넘는 이름과 3낱말을 넘는 제목은 기록의 제목이지 용어가 아니다. 걸러낸 수는
+  이유별로 `counts`에 남는다. 등록 최소 과제 수는 기본 2이며 seed 항목은 그 아래여도 남는다.
+- 판독기 `loadSharedTerms`/`classifyTerms`는 `shared`(2과제 이상)·`distinctive`(1과제)·`unregistered`를
+  과제 목록과 함께 돌려준다. 형태소 분석 없이 대소문자 무시 부분 문자열이라 조사가 붙은 형태가 걸리고,
+  전부 ASCII인 용어는 양옆이 영숫자가 아닐 때만 걸린다. 등록부가 없으면 판정 없음(빈 배열)이다.
+- 운영 영향: 읽기 전용 생성기 하나와 판독 모듈 하나가 늘었다. 예약작업·수집기·graph-sync lane·모델 배치·
+  DB 내용은 바꾸지 않는다. 도구 설정에 선택 필드 `shared_terms_path`가 생겼고, 없으면 등록부 없음으로 읽는다.
+- 관련 경로: `guild_hall/context_engine/harness/estate_shared_terms.mjs`,
+  `src/runtime/{shared_terms,graph_database,attachment_derivation}.mjs`, `src/workers/graphrag_worker.py`,
+  `ops/context-read/{shared_terms.seed.example.json,tools.v0.example.json}`,
+  `tests/shared_terms.test.mjs`, `README.md`, `package.json`(`validate:context-engine`).
 ## 2026-09-15 - 음성 편입의 단위가 시간 구간에서 대화 구간으로
 
 - Revision: 이 항목을 포함한 커밋. Owner 추가 전제(09-15 아침)에 따라 같은 날 앞 항목의 판정 원장을

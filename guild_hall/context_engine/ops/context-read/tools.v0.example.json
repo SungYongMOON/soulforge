@@ -26,6 +26,7 @@
     }
   },
   "receipts_root": "<recovery_root>/context-read/receipts",
+  "shared_terms_path": "<control_root>/context-read/shared_terms.v0.json",
   "derived_root": "<recovery_root>/context-read/derived",
   "derived_root_alias": "derived_root",
   "derived_root_status": "hold_project_store_write_refused",
