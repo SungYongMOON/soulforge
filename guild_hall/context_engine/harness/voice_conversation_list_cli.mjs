@@ -38,11 +38,11 @@ import { classifyTerms, loadSharedTerms } from '../src/runtime/shared_terms.mjs'
 import { sessionAddress } from './voice_segment_drafts.mjs';
 import {
   BASIS_KINDS, BOUNDARY_REASONS, CONVERSATION_LIST_SCHEMA, CORRECTIONS_SCHEMA, CORRECTION_REASONS,
-  ConversationListError, NATURES, RUN_MANIFEST_SCHEMA, applyCorrections, attachUncovered, batchSegments,
-  boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection, checkNature,
-  classifyClues, clockAt, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows, qaBoundarySuspects,
-  qualityReport, readPipelineConfig, renderConversationTable, renderCorrectionsTable, rulesCoverage,
-  runIdFor, searchableClues, segmentsNeedingRejudgement, stitchBoundaries, wholeMilliseconds,
+  ConversationListError, KEY_TERM_KINDS, NATURES, RUN_MANIFEST_SCHEMA, applyCorrections, attachUncovered,
+  batchSegments, boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection,
+  checkNature, classifyClues, clockAt, clueQuery, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
+  qaBoundarySuspects, qualityReport, readPipelineConfig, renderConversationTable, renderCorrectionsTable,
+  rulesCoverage, runIdFor, searchableClues, segmentsNeedingRejudgement, stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
 
 export const VOICE_CONVERSATION_COMMANDS = Object.freeze(['run', 'show', 'table']);
@@ -192,7 +192,13 @@ const NATURE_ANSWER = { type: 'object', additionalProperties: false, required: [
   segments: array({ type: 'object', additionalProperties: false,
     required: ['segment_id', 'nature', 'title', 'description', 'key_terms', 'unclear'], properties: {
       segment_id: { type: 'string' }, nature: enumOf(NATURES), title: { type: 'string' },
-      description: { type: 'string' }, key_terms: array({ type: 'string' }), unclear: { type: 'boolean' } } }) } };
+      description: { type: 'string' },
+      // Typed, because what a word names is what decides whether a project may
+      // be searched by it. An untyped list makes "next week" and a board name
+      // look like the same kind of clue.
+      key_terms: array({ type: 'object', additionalProperties: false, required: ['term', 'kind'], properties: {
+        term: { type: 'string' }, kind: enumOf(KEY_TERM_KINDS) } }),
+      unclear: { type: 'boolean' } } }) } };
 const PROJECT_ANSWER = { type: 'object', additionalProperties: false, required: ['candidates'], properties: {
   candidates: array({ type: 'object', additionalProperties: false,
     required: ['project_code', 'evidence_row_ids', 'basis', 'strength'], properties: {
@@ -385,7 +391,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     }
     natureOf.set(segment.segment_id, answers.length === 0
       ? { nature: 'mixed', title: `구간 ${segment.segment_id} (미정)`, description: '', key_terms: [],
-        unclear: true, marks: ['nature_llm_failed'], processed_in_windows: windowsOf.length }
+        key_terms_typed: [], unclear: true, marks: ['nature_llm_failed'], processed_in_windows: windowsOf.length }
       : mergeNatureWindows(answers));
   }
   const short = segments.filter(segment => !long(segment));
@@ -401,7 +407,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       else {
         note('nature', entry.segment_id, checked.code ?? 'nature_llm_failed');
         natureOf.set(entry.segment_id, { nature: 'mixed', title: `구간 ${entry.segment_id} (미정)`,
-          description: '', key_terms: [], unclear: true, marks: ['nature_llm_failed'], processed_in_windows: 1 });
+          description: '', key_terms: [], key_terms_typed: [], unclear: true, marks: ['nature_llm_failed'],
+          processed_in_windows: 1 });
       }
     }
   }
@@ -413,14 +420,19 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const judgements = new Map();
   const judge = async (segment, text, { revised = false } = {}) => {
     const ids = segment.source_segment_ids;
-    const entities = [...new Set(ids.map(id => unitFor.get(id)).filter(Boolean)
-      .flatMap(unit => (unit.entities ?? []).map(entity => entity?.value).filter(Boolean)))];
-    const clues = classifyClues(text, registry, { keyTerms: natureOf.get(segment.segment_id)?.key_terms ?? [], entities });
+    // The labelling run's entities, with their kinds intact so that only the ones
+    // naming a thing become clues. This lane's rule labeller emits dates,
+    // measured values and person mentions, none of which narrows a project, so in
+    // practice it contributes nothing here -- and says so rather than searching.
+    const entities = ids.map(id => unitFor.get(id)).filter(Boolean).flatMap(unit => unit.entities ?? []);
+    const clues = classifyClues(text, registry,
+      { keyTerms: natureOf.get(segment.segment_id)?.key_terms_typed ?? [], entities });
     const searchable = searchableClues(clues, { limit: limits.project_clues });
+    const table = clueTableFor(clues, searchable);
     if (searchable.length === 0) {
-      return { candidates: [], unclassified_reason: 'no_distinctive_clue', clues, rows: [], revised };
+      return { candidates: [], unclassified_reason: 'no_distinctive_clue', clues, table, rows: [], revised };
     }
-    const query = searchable.map(clue => clue.term).join(' ');
+    const { query, used } = clueQuery(searchable);
     const rows = [];
     for (const [code, retriever] of retrievers.opened) {
       const answered = retriever.lexical(query);
@@ -438,19 +450,21 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     }
     const kept = rows.sort((a, b) => b.matched_terms.length - a.matched_terms.length || a.rank - b.rank)
       .slice(0, limits.project_evidence_rows);
-    if (kept.length === 0) return { candidates: [], unclassified_reason: 'no_evidence', clues, rows: [], revised };
-    const table = clues.map(clue => `${clue.term} · ${clue.kind}${clue.category === 'workflow' ? ' · workflow' : ''}`).join('\n');
+    if (kept.length === 0) return { candidates: [], unclassified_reason: 'no_evidence', clues, table, rows: [], revised };
+    const shown = table.map(row => `${row.term} · ${row.kind} · ${row.term_kind}`
+      + `${row.category === 'workflow' ? ' · workflow' : ''}${row.searched ? ' · 검색함' : ''}`).join('\n');
     const body = kept.map(row => `row ${row.row_id} · 과제 ${row.project_code} · 항목 ${row.item_id}`
       + ` · 단위 ${row.unit_id} · ${row.source_kind}\n  ${row.quote}`).join('\n');
-    const user = `구간 본문\n${headTail(text, limits.project_characters)}\n\n단서 분류표\n${table}\n\n근거 행\n${body}`;
+    const user = `구간 본문\n${headTail(text, limits.project_characters)}\n\n단서 분류표\n${shown}\n\n근거 행\n${body}`;
     const answer = await ask({ step: 'project', system: prompts.project, user, schema: PROJECT_ANSWER });
     if (answer.status !== 'ok') {
       note('project', segment.segment_id, answer.status === 'budget_exhausted' ? 'llm_budget_exhausted' : 'project_llm_failed');
-      return { candidates: [], unclassified_reason: 'project_llm_failed', clues, rows: kept, revised };
+      return { candidates: [], unclassified_reason: 'project_llm_failed', clues, table, rows: kept, revised };
     }
     const checked = checkCandidates(answer.value, { evidenceRows: kept, clues, limit: limits.project_candidates });
     return { candidates: checked.candidates, unclassified_reason: checked.unclassified_reason,
-      downgraded: checked.downgraded, clues, rows: kept, revised };
+      downgraded: checked.downgraded, other_project_mentions: checked.other_project_mentions,
+      clues, table, rows: kept, revised };
   };
   for (const segment of segments) {
     const judged = await judge(segment, textOfSegment(segment));
@@ -533,8 +547,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     const ids = segment.source_segment_ids;
     const start = Math.min(...ids.map(id => rowFor.get(id)?.start_seconds ?? 0));
     const end = Math.max(...ids.map(id => rowFor.get(id)?.end_seconds ?? 0));
-    const nature = natureOf.get(segment.segment_id) ?? { nature: 'mixed', title: '', description: '', key_terms: [], unclear: true, marks: [], processed_in_windows: 1 };
-    const judged = judgements.get(segment.segment_id) ?? { candidates: [], unclassified_reason: 'no_evidence', clues: [] };
+    const nature = natureOf.get(segment.segment_id) ?? { nature: 'mixed', title: '', description: '', key_terms: [], key_terms_typed: [], unclear: true, marks: [], processed_in_windows: 1 };
+    const judged = judgements.get(segment.segment_id) ?? { candidates: [], unclassified_reason: 'no_evidence', clues: [], table: [] };
     const marks = [...new Set(ids.flatMap(id => marksFor.get(id) ?? []))].sort();
     const probabilities = ids.map(id => rowFor.get(id)?.asr_confidence?.mean_token_probability).filter(Number.isFinite);
     const mine = proposals.filter(row => row.segment_id === segment.segment_id);
@@ -544,6 +558,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       title: nature.title, description: nature.description, derived_summary: true,
       nature: nature.nature, nature_unclear: nature.unclear === true,
       key_terms: [...nature.key_terms],
+      key_terms_typed: [...(nature.key_terms_typed ?? [])],
+      clue_table: judged.table ?? [],
       // The registry's verdict on the words actually in this conversation. Clues
       // include what the labelling run saw and what step 3 picked out; these are
       // only the ones the registry can speak for.
@@ -655,6 +671,21 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     renderCorrectionsTable(corrections, { textOf: textOfId,
       clockOf: id => clockAt(recordedAt, rowFor.get(id)?.start_seconds ?? 0).clock }));
   return { run_id: runId, directory: outDir, list, corrections, manifest };
+}
+
+/**
+ * What the project step had to work with, and what it actually used.
+ *
+ * Without this a reader sees the evidence rows and cannot tell whether they came
+ * from a board's name or from the words "next week" -- which is the difference
+ * between a candidate and noise.
+ */
+function clueTableFor(clues, searched) {
+  const used = new Set(searched.map(clue => clue.term.toLowerCase()));
+  return clues.map(clue => ({ term: clue.term, kind: clue.kind, term_kind: clue.term_kind,
+    category: clue.category, origin: [...clue.origins].sort().join('+'),
+    stoplisted: clue.stoplisted === true, searched: used.has(clue.term.toLowerCase()) }))
+    .sort((a, b) => Number(b.searched) - Number(a.searched) || a.term.localeCompare(b.term));
 }
 
 /**

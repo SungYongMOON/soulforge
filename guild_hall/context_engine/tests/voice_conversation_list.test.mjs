@@ -22,8 +22,8 @@ import { conversationRow } from '../src/runtime/voice_session_read.mjs';
 import {
   applyCorrections, attachUncovered, batchSegments, boundaryWindows, checkBoundaryProposal, checkCandidates,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
-  loopUnitRatio, qaBoundarySuspects, qualityReport, readPipelineConfig, renderConversationTable,
-  repeatRuns, repetitionRatio,
+  clueQuery, isStoplisted, loopUnitRatio, qaBoundarySuspects, qualityReport, readPipelineConfig,
+  renderConversationTable, repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
@@ -150,7 +150,7 @@ const pin = async () => ({ digest: `sha256:${'b'.repeat(64)}`, pin_kind: 'server
 
 const natureFor = ids => ({ segments: ids.map(id => ({ segment_id: id, nature: 'project_work',
   title: '가대 도면 확인', description: '도면 수정본의 볼트 구멍 위치를 확인하기로 함.',
-  key_terms: ['가대'], unclear: false })) });
+  key_terms: [{ term: '가대', kind: 'equipment' }], unclear: false })) });
 const idsInUser = user => [...user.matchAll(/^(\d+): /gmu)].map(match => Number(match[1]));
 const segmentIdsInUser = user => [...user.matchAll(/\[(c\d{3})\]/gu)].map(match => match[1]);
 
@@ -320,9 +320,16 @@ test('a window is bounded by units and by characters, and it overlaps the one be
 test('a nature answer is checked against the text it claims to summarise', () => {
   const text = '가대 도면 수정본을 확인했습니다';
   const ok = checkNature({ nature: 'project_work', title: '가대 도면 확인', description: '확인하기로 함',
-    key_terms: ['가대', '없는말'], unclear: false }, { text });
+    key_terms: [{ term: '가대', kind: 'equipment' }, { term: '없는말', kind: 'board' }], unclear: false },
+  { text });
   assert.deepEqual([ok.ok, ok.key_terms, ok.dropped_key_terms], [true, ['가대'], 1],
     'a key term that is not in the text is not a key term of the text');
+  assert.deepEqual(ok.key_terms_typed, [{ term: '가대', kind: 'equipment' }],
+    'what a term names travels with it, because that is what decides whether a project may be searched by it');
+  const untyped = checkNature({ nature: 'project_work', title: 't', description: '',
+    key_terms: ['가대', { term: '도면', kind: 'nonsense' }] }, { text: '가대 도면' });
+  assert.deepEqual(untyped.key_terms_typed, [{ term: '가대', kind: 'other' }, { term: '도면', kind: 'other' }],
+    'an untyped or unknown kind is `other`, not a refusal: the word was still said');
   assert.equal(checkNature({ nature: 'project_work', title: 'AB-123 도면 확인', description: '', key_terms: [] },
     { text }).code, 'nature_title_names_a_project',
   'naming a project is step 4, which has evidence rules this step does not');
@@ -386,14 +393,54 @@ const REGISTRY = { schema: 'soulforge.context_shared_terms.v0', generated_at: NO
 
 test('a shared word and the tracker’s own wording are never what a project is searched by', () => {
   const clues = classifyClues('케이블 포설과 가대 도면, Status Change 알림, 그리고 XG보정판 확인',
-    REGISTRY, { keyTerms: ['XG보정판'], entities: [] });
+    REGISTRY, { keyTerms: [{ term: 'XG보정판', kind: 'board' }], entities: [] });
   const byTerm = new Map(clues.map(clue => [clue.term, clue]));
   assert.deepEqual([byTerm.get('케이블').kind, byTerm.get('가대').kind], ['shared', 'distinctive']);
   assert.equal(byTerm.get('Status Change').category, 'workflow');
   assert.equal(byTerm.get('XG보정판').kind, 'unregistered');
   const searchable = searchableClues(clues, { limit: 5 }).map(clue => clue.term);
-  assert.deepEqual(searchable, ['가대', 'XG보정판'],
-    'the shared word and the workflow word are dropped; a word the registry has not seen is still searched with');
+  assert.deepEqual(searchable, ['XG보정판', '가대'],
+    'the shared word and the workflow word are dropped; what a word names ranks it above what the registry knows');
+});
+
+test('relative time and the generic nouns of doing work are never searched with', () => {
+  // What the labelling run offers here is what it actually emits on this estate:
+  // dates and a person, neither of which says which project anything belongs to.
+  const clues = classifyClues('다음 주 시험 일정을 확인하고 XG보정판 작업을 합니다', REGISTRY, {
+    keyTerms: [{ term: '다음 주', kind: 'other' }, { term: '시험', kind: 'test' },
+      { term: '일정', kind: 'other' }, { term: 'XG보정판', kind: 'board' }],
+    entities: [{ kind: 'date_or_period', value: '다음 주' }, { kind: 'person_mention', value: '아무개' },
+      { kind: 'measured_value', value: '12개' }] });
+  const byTerm = new Map(clues.map(clue => [clue.term, clue]));
+  assert.equal(byTerm.has('아무개'), false, 'a person mention does not name a thing, so it is not a clue');
+  assert.equal(byTerm.has('12개'), false, 'and neither does a measured value');
+  assert.equal(byTerm.get('다음 주').stoplisted, true);
+  assert.deepEqual(searchableClues(clues, { limit: 8 }).map(clue => clue.term), ['XG보정판'],
+    'the only word left that can narrow anything');
+  assert.deepEqual([isStoplisted('다음 주'), isStoplisted('  다음   주 '), isStoplisted('화요일'),
+    isStoplisted('XG보정판')], [true, true, true, false]);
+
+  // An entity kind that does name a thing is a clue, when a labeller emits one.
+  const named = classifyClues('보정판 확인', REGISTRY,
+    { entities: [{ kind: 'equipment', value: '보정판' }] });
+  assert.deepEqual(named.map(clue => [clue.term, clue.term_kind, clue.origins]), [['보정판', 'equipment', ['entity']]]);
+  assert.deepEqual(classifyClues('보정판 확인', REGISTRY, { entities: ['보정판'] }), [],
+    'an entity with no declared kind is not shown to name a thing');
+});
+
+test('a person’s name is searched after a thing’s name, and the query is bounded', () => {
+  const clues = classifyClues('가나다 담당자와 XG보정판, 구미현장 이야기', REGISTRY, {
+    keyTerms: [{ term: '가나다', kind: 'person' }, { term: 'XG보정판', kind: 'board' },
+      { term: '구미현장', kind: 'place' }, { term: '담당자', kind: 'other' }] });
+  assert.deepEqual(searchableClues(clues, { limit: 8 }).map(clue => clue.term),
+    ['XG보정판', '구미현장', '가나다', '담당자'],
+    'things first, then a person, then a word nobody typed');
+  const long = Array.from({ length: 40 }, (_, index) => ({ term: `용어${String(index).padStart(3, '0')}` }));
+  const bounded = clueQuery(long, { maxCharacters: 30 });
+  assert.ok([...bounded.query].length <= 30, 'a longer query is a wider net, not a better one');
+  assert.ok(bounded.used.length < long.length);
+  assert.equal(clueQuery([{ term: '가'.repeat(80) }], { maxCharacters: 30 }).used.length, 1,
+    'one clue longer than the bound is still the query, because dropping it would search with nothing');
 });
 
 test('a candidate whose only evidence is a word several projects use is not weak, it is unclassified', () => {
@@ -558,6 +605,12 @@ test('a recording becomes a conversation list, and every utterance is in exactly
     'quality.v0.json', 'corrections.v0.json']) assert.ok(files.includes(name), name);
   const table = await readFile(path.join(answer.directory, 'conversation_list.md'), 'utf8');
   assert.match(table, /파생 요약/u, 'the table says the titles are derived on the page itself');
+  // A reviewer can see what was searched with, not only what came back.
+  const clueTable = list.segments[0].clue_table;
+  assert.ok(Array.isArray(clueTable) && clueTable.length > 0);
+  assert.deepEqual(Object.keys(clueTable[0]).sort(),
+    ['category', 'kind', 'origin', 'searched', 'stoplisted', 'term', 'term_kind']);
+  assert.deepEqual(list.segments[0].key_terms_typed, [{ term: '가대', kind: 'equipment' }]);
 });
 
 test('the output row is the row the read CLI already knows how to show', async () => {

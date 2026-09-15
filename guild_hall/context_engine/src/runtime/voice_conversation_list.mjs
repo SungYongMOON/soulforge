@@ -59,12 +59,55 @@ export const CORRECTION_DISCARD_CODES = Object.freeze(['position_ambiguous', 'po
   'rewrite_refused', 'reason_unknown', 'too_many_for_utterance', 'too_many_for_segment', 'utterance_not_in_segment']);
 export const QUALITY_MARKS = Object.freeze(['hallucination_loop', 'low_confidence', 'low_density', 'suppressed',
   'provider_divergent']);
+/**
+ * What a key term names. The kind is what makes a clue worth searching with: a
+ * device, a board, a named test, a document, a place or an organisation narrows
+ * a record set; a person's name and an unclassified word rarely do, and are
+ * searched last rather than first.
+ */
+export const KEY_TERM_KINDS = Object.freeze(['equipment', 'board', 'test', 'document', 'place', 'organization',
+  'person', 'other']);
+const NARROWING_KINDS = Object.freeze(['equipment', 'board', 'test', 'document', 'place', 'organization']);
+/**
+ * Entity kinds a labelling run may contribute as clues: the ones that name a
+ * thing. A date, a measured value and a person's mention are the three this
+ * estate's rule labeller actually emits, and none of them says which project a
+ * conversation belongs to -- searching with "next week" returns every project
+ * that ever wrote the words. An entity with no kind is not shown to name a
+ * thing, so it does not become a clue either.
+ */
+export const CLUE_ENTITY_KINDS = Object.freeze(['equipment', 'board', 'component', 'part', 'device', 'system',
+  'document', 'deliverable', 'place', 'site', 'organization', 'domain_term']);
+/**
+ * Words that are never searched with, whatever else is true of them.
+ *
+ * Two groups, and both are about a word that cannot narrow anything: relative
+ * time, which is said in every conversation and written in every record, and the
+ * generic nouns of doing work. They are not wrong, they are not misheard, and a
+ * search that uses them returns whichever project wrote most. Nothing in this
+ * list is particular to any recording or project -- it is the vocabulary of
+ * having a job.
+ */
+export const CLUE_STOPLIST = Object.freeze([
+  '오늘', '어제', '내일', '모레', '이번', '지난', '다음', '이번 주', '다음 주', '지난주', '이번주', '다음주',
+  '주말', '평일', '오전', '오후', '아침', '점심', '저녁', '내주', '금주', '당일', '시간', '요일',
+  '월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일',
+  '테스트', '시험', '일정', '회의', '자료', '문서', '프로그램', '품질', '형상', '배치', '작동', '모듈',
+  '확인', '내용', '부분', '상황', '문제', '이야기', '얘기', '생각', '정리', '진행', '작업', '업무',
+  '사람', '경우', '정도', '관련', '필요', '가능', '사용', '설명', '요청', '답변', '질문', '방식',
+  '준비', '결과', '상태', '기준', '계획', '방법', '조건', '수정', '추가', '변경', '완료', '시작',
+]);
+const STOPLIST = new Set(CLUE_STOPLIST.map(term => term.replace(/\s+/gu, ' ').trim().toLowerCase()));
+/** Whether a word is one a search may not use. */
+export const isStoplisted = term => STOPLIST.has(String(term ?? '').replace(/\s+/gu, ' ').trim().toLowerCase());
+/** How long the clue query handed to a search may be. */
+export const MAX_CLUE_QUERY_CHARACTERS = 200;
 
 export const DEFAULT_LIMITS = Object.freeze({
   boundary_units: 8, boundary_characters: 6000, boundary_overlap_units: 1,
   qa_gap_seconds: 30, qa_rechecks: 8,
   nature_characters: 2000, nature_segments_per_call: 4,
-  project_characters: 2000, project_evidence_rows: 12, project_clues: 5, project_candidates: 3,
+  project_characters: 2000, project_evidence_rows: 12, project_clues: 8, project_candidates: 3,
   correction_characters: 1500, correction_per_utterance: 5, correction_per_segment: 20,
   window_seconds: 600, evidence_quote_characters: 160, llm_calls: 60, retries: 2,
 });
@@ -521,15 +564,24 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
   if (codePoints(title).length > TITLE_CHARACTERS) return { ok: false, code: 'nature_title_too_long' };
   if (codePoints(description).length > DESCRIPTION_CHARACTERS) return { ok: false, code: 'nature_description_too_long' };
   if (PROJECT_CODE_ANYWHERE.test(title)) return { ok: false, code: 'nature_title_names_a_project' };
+  // A key term arrives typed: what it names is what decides whether a search may
+  // use it. An untyped or unknown kind is `other`, which is searched last rather
+  // than refused -- the model not knowing what a word names is not a reason to
+  // pretend the word was not said.
   const keyTerms = (Array.isArray(answer.key_terms) ? answer.key_terms : [])
-    .map(term => String(term ?? '').trim()).filter(Boolean);
-  const kept = keyTerms.filter(term => text.includes(term));
+    .map(entry => (typeof entry === 'string'
+      ? { term: entry.trim(), kind: 'other' }
+      : { term: String(entry?.term ?? '').trim(),
+        kind: KEY_TERM_KINDS.includes(entry?.kind) ? entry.kind : 'other' }))
+    .filter(entry => entry.term);
+  const typed = keyTerms.filter(entry => text.includes(entry.term));
+  const kept = typed.map(entry => entry.term);
   if (unreadableRatio >= 0.7 && nature !== 'unreadable') { nature = 'unreadable'; marks.push('unreadable_ratio'); }
   if (nature === 'personal' && speechActs.some(act => MATERIAL_ACTS.includes(act))) {
     nature = 'mixed';
     marks.push('personal_with_material_acts');
   }
-  return { ok: true, code: null, nature, title, description, key_terms: kept,
+  return { ok: true, code: null, nature, title, description, key_terms: kept, key_terms_typed: typed,
     dropped_key_terms: keyTerms.length - kept.length, unclear: answer.unclear === true, marks };
 }
 
@@ -543,6 +595,8 @@ export function mergeNatureWindows(answers) {
     title: answers.find(answer => answer.title)?.title ?? '',
     description: codePoints(description).slice(0, DESCRIPTION_CHARACTERS).join(''),
     key_terms: [...new Set(answers.flatMap(answer => answer.key_terms))],
+    key_terms_typed: [...new Map(answers.flatMap(answer => answer.key_terms_typed ?? [])
+      .map(entry => [entry.term, entry])).values()],
     unclear: answers.some(answer => answer.unclear), marks: [...new Set(marks)],
     processed_in_windows: answers.length };
 }
@@ -561,7 +615,7 @@ export function mergeNatureWindows(answers) {
 export function classifyClues(text, registry, { keyTerms = [], entities = [] } = {}) {
   const marks = new Map(classifyTerms(text, registry).map(entry => [entry.term.toLowerCase(), entry]));
   const clues = new Map();
-  const add = (value, origin) => {
+  const add = (value, origin, termKind) => {
     const term = String(value ?? '').trim();
     if (!term) return;
     const mark = marks.get(term.toLowerCase())
@@ -570,23 +624,63 @@ export function classifyClues(text, registry, { keyTerms = [], entities = [] } =
     const held = clues.get(term.toLowerCase());
     if (held === undefined) {
       clues.set(term.toLowerCase(), { term, kind, category: mark?.category ?? 'content',
+        term_kind: KEY_TERM_KINDS.includes(termKind) ? termKind : 'other',
+        stoplisted: isStoplisted(term),
         declared_shared: mark?.declared_shared ?? null,
         observed_project_count: mark?.observed_project_count ?? null,
         projects: [...(mark?.projects ?? [])], origins: [origin] });
-    } else if (!held.origins.includes(origin)) held.origins.push(origin);
+      return;
+    }
+    if (!held.origins.includes(origin)) held.origins.push(origin);
+    // A word that arrived typed keeps its type: the registry knows what a term
+    // is registered as, not what it names.
+    if (held.term_kind === 'other' && KEY_TERM_KINDS.includes(termKind)) held.term_kind = termKind;
   };
-  for (const term of keyTerms) add(term, 'key_term');
-  for (const entity of entities) add(entity?.value ?? entity, 'entity');
-  for (const mark of marks.values()) add(mark.term, 'registry');
+  for (const entry of keyTerms) {
+    if (typeof entry === 'string') add(entry, 'key_term', 'other');
+    else add(entry?.term, 'key_term', entry?.kind);
+  }
+  for (const entity of entities) {
+    // Only the kinds that name a thing, and only when the kind was declared.
+    if (!plain(entity) || !CLUE_ENTITY_KINDS.includes(entity.kind)) continue;
+    add(entity.value, 'entity', entity.kind);
+  }
+  for (const mark of marks.values()) add(mark.term, 'registry', 'other');
   return [...clues.values()];
 }
 
-/** The clues worth searching with: never the shared ones, and never the workflow ones. */
+const kindRank = clue => (NARROWING_KINDS.includes(clue.term_kind) ? 0 : (clue.term_kind === 'person' ? 1 : 2));
+
+/**
+ * The clues worth searching with, in the order they are worth it.
+ *
+ * Four things are excluded outright: a term several projects share, the task
+ * tracker's own workflow wording, and any word on the stoplist -- relative time
+ * and the generic nouns of doing work. What is left is ranked by what it names
+ * before anything else: a device, a board, a named test, a document, a place or
+ * an organisation first, a person's name after those, and an untyped word last.
+ * Length is only the tie-break, because sorting by length alone is how "다음 주"
+ * ends up being the thing a project is searched by.
+ */
 export function searchableClues(clues, { limit = DEFAULT_LIMITS.project_clues } = {}) {
-  return clues.filter(clue => clue.kind !== 'shared' && clue.category !== 'workflow')
-    .sort((a, b) => (a.kind === b.kind ? 0 : (a.kind === 'distinctive' ? -1 : 1))
+  return clues.filter(clue => clue.kind !== 'shared' && clue.category !== 'workflow' && !isStoplisted(clue.term))
+    .sort((a, b) => kindRank(a) - kindRank(b)
+      || (a.kind === b.kind ? 0 : (a.kind === 'distinctive' ? -1 : 1))
       || codePoints(b.term).length - codePoints(a.term).length)
     .slice(0, limit);
+}
+
+/** The searched clues as one bounded query. A longer query is a wider net, not a better one. */
+export function clueQuery(clues, { maxCharacters = MAX_CLUE_QUERY_CHARACTERS } = {}) {
+  const held = [];
+  let length = 0;
+  for (const clue of clues) {
+    const size = codePoints(clue.term).length + (held.length === 0 ? 0 : 1);
+    if (held.length > 0 && length + size > maxCharacters) break;
+    held.push(clue.term);
+    length += size;
+  }
+  return { query: held.join(' '), used: held };
 }
 
 /**
