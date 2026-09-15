@@ -650,6 +650,14 @@ test('the same recording run twice asks the model nothing the second time', asyn
   const again = await run(dirs, () => { throw new Error('the model must not be asked again'); });
   assert.equal(again.run_id, first.run_id, 'the same inputs are the same run');
   assert.deepEqual([again.calls.total, again.calls.cache_hits], [0, first.calls.total]);
+  // A pass that asks nothing must not overwrite the record of what the first
+  // pass cost: "the run took no calls" is not true of the run.
+  const manifest = JSON.parse(await readFile(path.join(again.directory, 'run_manifest.json'), 'utf8'));
+  assert.deepEqual(manifest.passes.map(row => [row.pass, row.calls, row.cache_hits]),
+    [[1, first.calls.total, 0], [2, 0, first.calls.total]]);
+  const jsonl = await readFile(path.join(again.directory, 'run_passes.jsonl'), 'utf8');
+  assert.equal(jsonl.trim().split(String.fromCharCode(10)).length, 2,
+    'one line per pass, appended and never rewritten');
   const after = await readFile(path.join(again.directory, 'conversation_list.v0.json'), 'utf8');
   assert.equal(hex(Buffer.from(after)), hex(Buffer.from(before)),
     'and the same answer, byte for byte, including when it was first made');

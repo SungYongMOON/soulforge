@@ -25,7 +25,7 @@
 //   node voice_conversation_list_cli.mjs table --tools-config <file> --session <id> [--run <run id>]
 //        [--corrections]
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
@@ -588,6 +588,23 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       known_term_overrides: proposals.filter(row => row.original_is_known_term).length,
       by_discard_code: discarded.reduce((held, row) => ({ ...held, [row.code]: (held[row.code] ?? 0) + 1 }), {}) } };
 
+  const before = (() => {
+    try {
+      return readFileSync(path.join(outDir, 'run_passes.jsonl'), 'utf8').split('\n').filter(Boolean)
+        .map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+    } catch { return []; }
+  })();
+  // How long the model took, kept with the pass rather than only in the trace:
+  // a later pass overwrites the manifest, and "how slow was it" is a fact about
+  // the pass that paid for it.
+  const latencies = session.trace().map(row => row.elapsed_ms).filter(Number.isFinite).sort((a, b) => a - b);
+  const thisPass = { pass: before.length + 1, at: now, elapsed_ms: Date.now() - started,
+    calls: counters.calls, retries: counters.retries, cache_hits: counters.cache_hits,
+    budget_exhausted: counters.budget_exhausted, remaining_work: remainingWork.length,
+    verified: list.verified,
+    latency_ms: latencies.length === 0 ? null : { min: latencies[0], median: latencies[Math.floor(latencies.length / 2)],
+      max: latencies.at(-1), mean: Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) } };
+  const passes = [...before, thisPass];
   const manifest = { schema: RUN_MANIFEST_SCHEMA, session_id: sessionId, run_id: runId, generated_at: now,
     elapsed_ms: Date.now() - started,
     model: { host: config.model.host, alias: config.model.model, transport: config.model.transport ?? null,
@@ -596,6 +613,11 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     prompts: promptDigests, limits, config_sha256: `sha256:${configSha256}`,
     calls: { total: counters.calls, by_step: counters.by_step, retries: counters.retries,
       cache_hits: counters.cache_hits, budget: limits.llm_calls, budget_exhausted: counters.budget_exhausted },
+    // What this pass did, and what every pass before it did. A pass that finds a
+    // full cache asks nothing, which is the point -- but it would also overwrite
+    // the only record of what the first pass cost, and "the run took no calls"
+    // read off a second pass is not true of the run.
+    passes,
     trace: session.trace().map(row => ({ call: row.call, step: row.step, status: row.status,
       elapsed_ms: row.elapsed_ms, http_status: row.http_status ?? null, done_reason: row.done_reason ?? null,
       prompt_tokens: row.prompt_tokens ?? null, output_tokens: row.output_tokens ?? null })),
@@ -623,6 +645,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     checks, remaining_work: remainingWork, verified: list.verified };
 
   writeFileSync(path.join(outDir, 'conversation_list.v0.json'), `${JSON.stringify(list, null, 2)}\n`);
+  appendFileSync(path.join(outDir, 'run_passes.jsonl'), `${JSON.stringify(thisPass)}\n`);
   writeFileSync(path.join(outDir, 'corrections.v0.json'), `${JSON.stringify(corrections, null, 2)}\n`);
   writeFileSync(path.join(outDir, 'run_manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   writeFileSync(path.join(outDir, 'quality.v0.json'), `${JSON.stringify({ ...quality, session_id: sessionId,
