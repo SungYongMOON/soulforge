@@ -31,7 +31,7 @@ import { readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs
 
 const NOW = '2026-09-15T02:00:00.000Z';
 const RUN = 'whispercpp_test_v1';
-const SESSION = '20260907_180419_plaud_cli_testfixture';
+const SESSION = '20260101_090000_plaud_cli_testfixture';
 const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts', 'voice_conversation_list');
 const hex = bytes => createHash('sha256').update(bytes).digest('hex');
 const code = fn => { try { fn(); return null; } catch (error) { return error.code; } };
@@ -76,7 +76,7 @@ async function estate({ rows = SPEECH.map(row => rowOf(row)), units = UNITS, sup
   const dataRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'vcl-data-')));
   const controlRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'vcl-control-')));
   const derivedRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'vcl-derived-')));
-  const sessionDir = path.join(dataRoot, 'ingress', 'plaud', 'sessions', '2026-09-07', SESSION);
+  const sessionDir = path.join(dataRoot, 'ingress', 'plaud', 'sessions', '2026-01-01', SESSION);
   const runDir = path.join(sessionDir, 'analysis', 'local_asr', RUN);
   await mkdir(runDir, { recursive: true });
   const transcript = jsonl(rows);
@@ -91,7 +91,7 @@ async function estate({ rows = SPEECH.map(row => rowOf(row)), units = UNITS, sup
     source: 'provider', analysis_run_id: undefined }))));
   await writeFile(path.join(sessionDir, 'session_manifest.json'), JSON.stringify({
     schema_version: 'soulforge.voice_capture_session.v0', session_id: SESSION, source: 'plaud_cli_import',
-    source_page_title: '합성 녹음', recorded_at_local: '2026-09-07T18:04:19+09:00', duration_seconds: 60,
+    source_page_title: '합성 녹음', recorded_at_local: '2026-01-01T09:00:00+09:00', duration_seconds: 60,
     independent_transcription: { status: 'completed', run_id: RUN,
       evidence_role: 'independent_machine_transcript_unverified' } }));
   const labelDir = path.join(sessionDir, 'analysis', 'semantic_labels', 'vsl_testfixture0001');
@@ -514,7 +514,7 @@ test('a recording becomes a conversation list, and every utterance is in exactly
   // The interval is carried both ways and the fractional value is the one the ASR wrote.
   const last = list.segments.at(-1);
   assert.deepEqual([last.end_seconds, last.end_ms], [57.82, 57820]);
-  assert.match(last.clock, /^2026-09-07T18:0/u);
+  assert.match(last.clock, /^2026-01-01T09:0/u);
   assert.ok(list.checks.every(check => check.status === 'ok'));
   // And the files a person reads.
   const files = await readdir(answer.directory);
@@ -528,7 +528,7 @@ test('the output row is the row the read CLI already knows how to show', async (
   const dirs = await estate();
   const answer = await run(dirs, plainScript);
   const list = JSON.parse(await readFile(path.join(answer.directory, 'conversation_list.v0.json'), 'utf8'));
-  const shown = conversationRow(list.segments[0], '2026-09-07T18:04:19+09:00');
+  const shown = conversationRow(list.segments[0], '2026-01-01T09:00:00+09:00');
   assert.equal(shown.conversation_id, 'c001');
   assert.equal(shown.clock_matches, true, 'the clock the file declares is the clock the reader computes');
   assert.deepEqual([shown.derived_summary, shown.status], [true, 'unclassified']);
@@ -754,7 +754,7 @@ test('a table renders without a model and says on its face what it is', () => {
   const list = { session_id: SESSION, run_id: 'vcl_0000000000000000', generated_at: NOW, verified: false,
     transcript: { run_id: RUN, kind: 'independent_fast' }, checks: [{ check: 'x', status: 'failed', detail: 'd' }],
     segments: [{ segment_id: 'c001', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 15.82,
-      clock: '2026-09-07T18:04:19+09:00', clock_end: '2026-09-07T18:04:35+09:00', title: '가대 도면',
+      clock: '2026-01-01T09:00:00+09:00', clock_end: '2026-01-01T09:00:16+09:00', title: '가대 도면',
       description: '설명', nature: 'project_work', nature_unclear: false,
       project_candidates: [{ project_code: 'S00-001', strength: 'weak', basis: ['equipment'], evidence_row_ids: [1] }],
       unclassified_reason: null, quality: { marks: ['low_confidence'], correction_state: 'none' },
