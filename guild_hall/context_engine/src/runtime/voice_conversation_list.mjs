@@ -42,6 +42,9 @@ export const QUESTION_ACTS = Object.freeze(['open_question', 'request']);
 export const ANSWER_ACTS = Object.freeze(['acknowledgement', 'decision', 'result_report', 'commitment']);
 export const BOUNDARY_REASONS = Object.freeze(['topic_shift', 'speaker_turn_cluster', 'qa_closure',
   'return_to_topic', 'unreadable_block', 'rules_uncovered']);
+/** Reasons a code, rather than the model, put on a boundary. */
+export const CODE_BOUNDARY_REASONS = Object.freeze(['overlap_conflict', 'attached_by_code',
+  'single_segment_window', 'related_by_key_terms']);
 export const BASIS_KINDS = Object.freeze(['equipment', 'board', 'purpose', 'test_condition', 'deliverable',
   'follow_up_record']);
 export const CORRECTION_REASONS = Object.freeze(['term_glossary', 'person_name', 'number_unit', 'date_deadline',
@@ -110,7 +113,21 @@ export const DEFAULT_LIMITS = Object.freeze({
   project_characters: 2000, project_evidence_rows: 12, project_clues: 8, project_candidates: 3,
   correction_characters: 1500, correction_per_utterance: 5, correction_per_segment: 20,
   window_seconds: 600, evidence_quote_characters: 160, llm_calls: 60, retries: 2,
+  single_segment_reasks: 3,
 });
+
+/**
+ * When one segment for a whole window is worth asking about again.
+ *
+ * A window that really does hold one subject exists, so this is a question and
+ * not a refusal. But eight units and a hundred utterances answered as a single
+ * conversation is a model declining to read rather than a recording with one
+ * agenda item, and the cost of asking once more is one call.
+ */
+export const SINGLE_SEGMENT_UNITS = 4;
+export const SINGLE_SEGMENT_UTTERANCES = 40;
+export const singleSegmentSuspect = (window, segments) => segments.length === 1
+  && window.units.length >= SINGLE_SEGMENT_UNITS && window.segment_ids.length >= SINGLE_SEGMENT_UTTERANCES;
 
 const PROJECT_CODE_ANYWHERE = /\b[A-Z][0-9A-Z]*-[0-9A-Z]+\b/u;
 const TITLE_CHARACTERS = 40, DESCRIPTION_CHARACTERS = 200;
@@ -435,11 +452,12 @@ export function stitchBoundaries(windowResults) {
       // carries the window. A link to a draft that another window had already
       // placed resolves to nothing and is dropped rather than pointed anywhere.
       const key = `w${result.window_index ?? 0}:${segment.draft_id ?? fresh[0]}`;
+      const reasons = [segment.boundary_reason ?? 'topic_shift', ...(result.extra_reasons ?? []),
+        ...(dropped > 0 ? ['overlap_conflict'] : [])];
       drafts.push(draftOf(fresh, segment.boundary_reason ?? 'topic_shift',
         { draft_key: key,
           related_draft_keys: (segment.related_draft_ids ?? []).map(id => `w${result.window_index ?? 0}:${id}`),
-          ...(dropped > 0
-            ? { boundary_reasons: [segment.boundary_reason ?? 'topic_shift', 'overlap_conflict'] } : {}) }));
+          boundary_reasons: [...new Set(reasons)] }));
     }
   }
   return drafts.sort((a, b) => a.source_segment_ids[0] - b.source_segment_ids[0]);
@@ -537,6 +555,35 @@ export function mergeDrafts(drafts, index) {
     qa_boundary: 'merged',
     related_draft_keys: [...new Set([...before.related_draft_keys, ...after.related_draft_keys])] };
   return [...drafts.slice(0, index), merged, ...drafts.slice(index + 2)];
+}
+
+/**
+ * Conversations that are about the same things without being next to each other.
+ *
+ * A recording returns to an agenda item, and the boundary step is asked to link
+ * the two with `related_draft_ids` -- but it only sees one window at a time, so a
+ * return that crosses a window is invisible to it. Two segments that share more
+ * than one word that can actually narrow something are that return, found by a
+ * code over the whole recording. A shared word or a stoplisted one is not
+ * evidence of anything: every conversation in the estate says 일정.
+ */
+export function relatedByKeyTerms(segments, { registry = null, minimum = 2 } = {}) {
+  const shared = new Set((registry?.terms ?? []).filter(row => row.declared_shared
+    || (row.observed_projects ?? row.projects ?? []).length >= 2).map(row => row.normalized));
+  const narrowing = segment => new Set((segment.key_terms ?? [])
+    .map(term => String(term).replace(/\s+/gu, ' ').trim().toLowerCase())
+    .filter(term => term && !isStoplisted(term) && !shared.has(term)));
+  const terms = segments.map(narrowing);
+  const links = [];
+  for (let left = 0; left < segments.length; left++) {
+    for (let right = left + 2; right < segments.length; right++) {
+      const common = [...terms[left]].filter(term => terms[right].has(term));
+      if (common.length >= minimum) {
+        links.push({ from: segments[left].segment_id, to: segments[right].segment_id, terms: common.sort() });
+      }
+    }
+  }
+  return links;
 }
 
 // ------------------------------------------------------------------ step 3/5

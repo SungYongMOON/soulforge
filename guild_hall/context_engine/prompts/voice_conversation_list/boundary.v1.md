@@ -14,8 +14,17 @@
    `related_draft_ids`로 앞의 A를 가리킨다.
 6. **고정된 길이나 화자가 바뀌었다는 이유만으로 자르지 않는다.** 같은 사람이 혼자 말해도 주제가 둘이면 둘이고,
    여러 사람이 번갈아 말해도 한 주제면 하나다.
-7. `marks`에 `hallucination_loop`만 있고 내용이 같은 말의 반복이면 그 단위는 `unreadable_block`으로 둔다.
-8. 확실하지 않으면 **더 크게 묶지 말고 있는 그대로 나눈다.** 뒤 단계가 다시 본다.
+7. **안건이 바뀌면 새 대화다 — 말하는 사람이 그대로여도.** 다음 중 하나가 바뀌면 안건이 바뀐 것이다.
+   - 다루는 **장소**(다른 현장·다른 시설)
+   - 다루는 **시험·측정**
+   - 다루는 **장비·보드·부품**
+   - 다루는 **산출물·문서**
+   - **누구에게 맡기는지**, 또는 **언제까지 하는지**
+   같은 사람들이 한 시간 동안 말해도 안건이 다섯 번 바뀌면 대화는 다섯 개다.
+8. `marks`에 `hallucination_loop`만 있고 내용이 같은 말의 반복이면 그 단위는 `unreadable_block`으로 둔다.
+9. 확실하지 않으면 **더 크게 묶지 말고 있는 그대로 나눈다.** 뒤 단계가 다시 본다.
+10. **창 하나를 통째로 한 구간이라고 답하는 것은 거의 틀린 답이다.** 정말로 처음부터 끝까지 한 가지
+    안건만 다룬 창이 아니라면, 안건이 바뀌는 자리에서 나눈다.
 
 ## 출력
 
@@ -53,5 +62,25 @@ unit_c segment_ids [5,6] acts [context_statement] "그건 그렇고 주차 등�
 {"segments": [
   {"draft_id": "d1", "source_segment_ids": [1,2,3,4], "boundary_reason": "qa_closure", "related_draft_ids": []},
   {"draft_id": "d2", "source_segment_ids": [5,6], "boundary_reason": "topic_shift", "related_draft_ids": []}
+]}
+```
+
+## 예 2 — 돌아오는 안건 (합성 자료 — 실제 기록이 아니다)
+
+같은 두 사람이 계속 말하지만 안건은 A(입고) → B(사무실 정리) → A(입고)로 바뀐다.
+
+```
+unit_a segment_ids [1,2] "부품 입고가 언제죠" / "다음 주 중으로 봅니다"
+unit_b segment_ids [3,4] "그건 그렇고 창고 정리는 누가 하나요" / "제가 금요일에 하겠습니다"
+unit_c segment_ids [5,6] "아까 입고 얘기로 돌아가면, 검사는 누가 하죠" / "받는 쪽에서 바로 하겠습니다"
+```
+
+출력 — A와 A를 **합치지 않고** 별도 구간으로 두고 `related_draft_ids`로 잇는다.
+
+```
+{"segments": [
+  {"draft_id": "d1", "source_segment_ids": [1,2], "boundary_reason": "topic_shift", "related_draft_ids": []},
+  {"draft_id": "d2", "source_segment_ids": [3,4], "boundary_reason": "topic_shift", "related_draft_ids": []},
+  {"draft_id": "d3", "source_segment_ids": [5,6], "boundary_reason": "return_to_topic", "related_draft_ids": ["d1"]}
 ]}
 ```

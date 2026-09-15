@@ -41,8 +41,9 @@ import {
   ConversationListError, KEY_TERM_KINDS, NATURES, RUN_MANIFEST_SCHEMA, applyCorrections, attachUncovered,
   batchSegments, boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection,
   checkNature, classifyClues, clockAt, clueQuery, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
-  qaBoundarySuspects, qualityReport, readPipelineConfig, renderConversationTable, renderCorrectionsTable,
-  rulesCoverage, runIdFor, searchableClues, segmentsNeedingRejudgement, stitchBoundaries, wholeMilliseconds,
+  qaBoundarySuspects, qualityReport, readPipelineConfig, relatedByKeyTerms, renderConversationTable,
+  renderCorrectionsTable, rulesCoverage, runIdFor, searchableClues, segmentsNeedingRejudgement,
+  singleSegmentSuspect, stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
 
 export const VOICE_CONVERSATION_COMMANDS = Object.freeze(['run', 'show', 'table']);
@@ -297,6 +298,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const windows = boundaryWindows(units, { maxUnits: limits.boundary_units,
     maxCharacters: limits.boundary_characters, overlap: limits.boundary_overlap_units, textOf: unitText });
   const windowResults = [];
+  // One window answered as one conversation is sometimes true and usually a
+  // model declining to read. Asking again costs one call and is bounded per
+  // session; a second single-segment answer is taken as the truth and said so.
+  const REASK = '\n\n이 창을 통째로 한 구간이라고 답했습니다. 정말 처음부터 끝까지 한 가지 안건만'
+    + ' 다룬 창이 아니라면, **안건이 바뀌는 자리에서 나눠** 다시 답하세요. 장소·시험·장비·산출물·담당·기한'
+    + ' 중 하나가 바뀌면 안건이 바뀐 것입니다. 정말 한 안건뿐이면 같은 답을 그대로 내세요.';
+  let reasks = 0;
   for (const window of windows) {
     const body = window.units.map(unit => {
       const marks = [...new Set(unit.source_segment_ids.flatMap(id => marksFor.get(id) ?? []))];
@@ -312,7 +320,20 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       ? checkBoundaryProposal(answer.value, { windowSegmentIds: window.segment_ids })
       : { ok: false, code: answer.status === 'budget_exhausted' ? 'llm_budget_exhausted' : 'boundary_llm_failed' };
     if (checked.ok) {
-      windowResults.push({ window_index: window.index, segments: answer.value.segments });
+      let segments = answer.value.segments, extra = [];
+      if (singleSegmentSuspect(window, segments) && reasks < limits.single_segment_reasks) {
+        reasks += 1;
+        const again = await ask({ step: 'boundary', system: prompts.boundary, user: `${user}${REASK}`,
+          schema: BOUNDARY_ANSWER });
+        const rechecked = again.status === 'ok'
+          ? checkBoundaryProposal(again.value, { windowSegmentIds: window.segment_ids }) : { ok: false };
+        if (rechecked.ok && again.value.segments.length > 1) segments = again.value.segments;
+        else extra = ['single_segment_window'];
+      } else if (singleSegmentSuspect(window, segments)) {
+        extra = ['single_segment_window'];
+        note('boundary', `window_${window.index + 1}`, 'single_segment_reask_budget');
+      }
+      windowResults.push({ window_index: window.index, segments, extra_reasons: extra });
       continue;
     }
     // The rules already drew a boundary at every unit. Falling back to those is
@@ -544,6 +565,19 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   }
 
   // --------------------------------------------------------------- step 7
+  // A recording returns to an agenda item across a window the boundary step could
+  // not see past. Two conversations that share more than one word able to narrow
+  // anything are that return, and the link is the model's own `related_draft_ids`
+  // plus this.
+  const keyTermLinks = relatedByKeyTerms(
+    segments.map(segment => ({ segment_id: segment.segment_id,
+      key_terms: natureOf.get(segment.segment_id)?.key_terms ?? [] })), { registry });
+  const relatedLinks = new Map();
+  for (const link of keyTermLinks) {
+    for (const [from, to] of [[link.from, link.to], [link.to, link.from]]) {
+      relatedLinks.set(from, [...new Set([...(relatedLinks.get(from) ?? []), to])]);
+    }
+  }
   const recordedAt = input.manifest.recorded_at_local;
   const rows = segments.map(segment => {
     const ids = segment.source_segment_ids;
@@ -580,10 +614,12 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
           : Number((probabilities.reduce((sum, value) => sum + value, 0) / probabilities.length).toFixed(4)) },
       refs: { session_id: sessionId, transcript_run_id: input.transcript.run_id,
         semantic_run_id: input.semantic.run_id, source_segment_ids: [...ids], audio_ref: 'audio/source.mp3' },
-      related_segment_ids: [...new Set((segment.related_draft_keys ?? []).map(key => keyToId.get(key))
-        .filter(id => id !== undefined && id !== segment.segment_id))],
-      boundary: { reasons: [...segment.boundary_reasons], qa_boundary: segment.qa_boundary,
-        processed_in_windows: nature.processed_in_windows ?? 1 },
+      related_segment_ids: [...new Set([...(segment.related_draft_keys ?? []).map(key => keyToId.get(key))
+        .filter(id => id !== undefined && id !== segment.segment_id),
+      ...(relatedLinks.get(segment.segment_id) ?? [])])].sort(),
+      boundary: { reasons: [...new Set([...segment.boundary_reasons,
+        ...(relatedLinks.has(segment.segment_id) ? ['related_by_key_terms'] : [])])],
+      qa_boundary: segment.qa_boundary, processed_in_windows: nature.processed_in_windows ?? 1 },
       revised_after_correction: judged.revised === true };
   });
   const checks = finalChecks({ segments: rows, rows: input.rows,
@@ -650,7 +686,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     coverage, boundary: { windows: windows.length, drafts_after_stitch: drafts.length,
       qa_suspects: suspects.length, qa_suspects_by_trigger: byTrigger,
       qa_rechecks: rechecks, qa_merged: merged, qa_still_suspect: stillSuspect,
-      uncovered_attached: attached.attached, uncovered_segment: attached.uncovered_draft !== null },
+      uncovered_attached: attached.attached, uncovered_segment: attached.uncovered_draft !== null,
+      single_segment_reasks: reasks,
+      single_segment_windows: segments.filter(row => row.boundary_reasons.includes('single_segment_window')).length,
+      related_by_key_terms: keyTermLinks.length },
     projects: { opened: [...retrievers.opened.keys()], refused: retrievers.refused,
       evidence_rows: evidenceRows.length, rejudged },
     counts: { segments: rows.length,

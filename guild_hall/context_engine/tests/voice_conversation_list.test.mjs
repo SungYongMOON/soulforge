@@ -23,7 +23,7 @@ import {
   applyCorrections, attachUncovered, batchSegments, boundaryWindows, checkBoundaryProposal, checkCandidates,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
   clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
-  qualityReport, readPipelineConfig,
+  qualityReport, readPipelineConfig, relatedByKeyTerms, singleSegmentSuspect,
   renderConversationTable, repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
@@ -351,6 +351,46 @@ test('a window is bounded by units and by characters, and it overlaps the one be
 });
 
 // =============================================================== step 3 rules
+
+test('a window answered as one conversation is asked about once more, and a second such answer stands', async () => {
+  // Eight utterances over four units: the shape that is usually a model declining
+  // to read rather than a window with one agenda item.
+  const wide = { units: [{}, {}, {}, {}], segment_ids: Array.from({ length: 40 }, (_, index) => index + 1) };
+  assert.equal(singleSegmentSuspect(wide, [{ source_segment_ids: wide.segment_ids }]), true);
+  assert.equal(singleSegmentSuspect(wide, [{}, {}]), false, 'two segments is an answer, not a refusal to read');
+  assert.equal(singleSegmentSuspect({ units: [{}, {}], segment_ids: [1, 2] }, [{}]), false,
+    'a small window really can hold one conversation');
+
+  // End to end: the fixture is small, so the re-ask does not trigger on it, and a
+  // window under the bound is never asked twice.
+  const dirs = await estate();
+  const asked = [];
+  const answer = await run(dirs, ({ step, user }) => {
+    if (step === 'boundary') asked.push(user);
+    return plainScript({ step, user });
+  });
+  assert.equal(asked.length, 1, 'one window, asked once');
+  const manifest = JSON.parse(await readFile(path.join(answer.directory, 'run_manifest.json'), 'utf8'));
+  assert.deepEqual([manifest.boundary.single_segment_reasks, manifest.boundary.single_segment_windows], [0, 0]);
+});
+
+test('conversations that return to the same subject are linked even across a window', () => {
+  const registry = { terms: [{ normalized: '케이블', declared_shared: false, observed_projects: ['S00-001', 'S00-002'] }] };
+  const segments = [
+    { segment_id: 'c001', key_terms: ['XG보정판', '구미현장', '케이블'] },
+    { segment_id: 'c002', key_terms: ['급여', '정산'] },
+    { segment_id: 'c003', key_terms: ['XG보정판', '구미현장'] },
+    { segment_id: 'c004', key_terms: ['케이블', '일정'] }];
+  const links = relatedByKeyTerms(segments, { registry });
+  assert.deepEqual(links.map(link => [link.from, link.to, link.terms]),
+    [['c001', 'c003', ['xg보정판', '구미현장']]], 'two words that can narrow something, two conversations apart');
+  assert.equal(links.some(link => link.to === 'c004'), false,
+    'a shared word and a stoplisted one are not evidence that two conversations are the same subject');
+  assert.deepEqual(relatedByKeyTerms([segments[0], segments[2]], { registry }), [],
+    'adjacent conversations are already next to each other; a link would say nothing');
+  assert.deepEqual(relatedByKeyTerms(segments, { registry, minimum: 3 }), [],
+    'one word in common is a word in common, not a returned subject');
+});
 
 test('a nature answer is checked against the text it claims to summarise', () => {
   const text = '가대 도면 수정본을 확인했습니다';
@@ -697,6 +737,56 @@ test('a suspect Q/A boundary is merged, kept or left suspect by what the recheck
     assert.equal(list.segments[0].boundary.qa_boundary, verdict === 'same_conversation' ? 'merged' : 'suspect',
       'an unresolved suspicion stays on the record rather than being resolved by merging');
   }
+});
+
+test('a big window answered as one conversation is re-asked, and the split answer is taken', async () => {
+  // Forty short utterances over four units. The script answers the whole window
+  // as one conversation first, and splits only when asked again.
+  const speech = Array.from({ length: 40 }, (_, index) =>
+    [index + 1, index * 2, index * 2 + 1.5, `${index + 1}번째 발화입니다 내용은 각각 다릅니다`]);
+  const units = [0, 10, 20, 30].map(at => ({ unit_id: `unit_${at + 1}`,
+    source_segment_ids: speech.slice(at, at + 10).map(row => row[0]),
+    start_seconds: speech[at][1], end_seconds: speech[at + 9][2], speaker_label: 'UNKNOWN',
+    content_sha256: 'a'.repeat(64), content_char_count: 10, speech_acts: ['status_update'], polarity: 'affirmed',
+    modality: 'actual', action_codes: [], entities: [], project_match: { state: 'x', candidates: [] },
+    disposition: 'context_only' }));
+  const dirs = await estate({ rows: speech.map(row => rowOf(row)), units });
+  let boundaryCalls = 0;
+  const answer = await run(dirs, ({ step, user }) => {
+    if (step !== 'boundary') return plainScript({ step, user });
+    boundaryCalls += 1;
+    const ids = idsInUser(user);
+    if (!user.includes('안건이 바뀌는 자리에서 나눠')) {
+      return { segments: [{ draft_id: 'd1', source_segment_ids: ids, boundary_reason: 'topic_shift' }] };
+    }
+    return { segments: [{ draft_id: 'd1', source_segment_ids: ids.filter(id => id <= 20), boundary_reason: 'topic_shift' },
+      { draft_id: 'd2', source_segment_ids: ids.filter(id => id > 20), boundary_reason: 'topic_shift' }] };
+  });
+  assert.ok(boundaryCalls >= 2, 'the window was asked about a second time');
+  const list = JSON.parse(await readFile(path.join(answer.directory, 'conversation_list.v0.json'), 'utf8'));
+  assert.ok(list.segments.length >= 2, 'and the split answer is the one that was taken');
+  assert.ok(list.segments.every(row => !row.boundary.reasons.includes('single_segment_window')));
+  const manifest = JSON.parse(await readFile(path.join(answer.directory, 'run_manifest.json'), 'utf8'));
+  assert.equal(manifest.boundary.single_segment_reasks, 1);
+});
+
+test('a second single-segment answer is taken as the truth and recorded as one', async () => {
+  const speech = Array.from({ length: 40 }, (_, index) =>
+    [index + 1, index * 2, index * 2 + 1.5, `${index + 1}번째 발화입니다 내용은 각각 다릅니다`]);
+  const units = [0, 10, 20, 30].map(at => ({ unit_id: `unit_${at + 1}`,
+    source_segment_ids: speech.slice(at, at + 10).map(row => row[0]),
+    start_seconds: speech[at][1], end_seconds: speech[at + 9][2], speaker_label: 'UNKNOWN',
+    content_sha256: 'a'.repeat(64), content_char_count: 10, speech_acts: ['status_update'], polarity: 'affirmed',
+    modality: 'actual', action_codes: [], entities: [], project_match: { state: 'x', candidates: [] },
+    disposition: 'context_only' }));
+  const dirs = await estate({ rows: speech.map(row => rowOf(row)), units });
+  const answer = await run(dirs, ({ step, user }) => step === 'boundary'
+    ? { segments: [{ draft_id: 'd1', source_segment_ids: idsInUser(user), boundary_reason: 'topic_shift' }] }
+    : plainScript({ step, user }));
+  const list = JSON.parse(await readFile(path.join(answer.directory, 'conversation_list.v0.json'), 'utf8'));
+  assert.equal(list.segments.length, 1);
+  assert.ok(list.segments[0].boundary.reasons.includes('single_segment_window'),
+    'asked twice and answered the same way twice is an answer, and the list says it was that');
 });
 
 test('an utterance the rules never reached is attached and counted, and the list still adds up', async () => {
