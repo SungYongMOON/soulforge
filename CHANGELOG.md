@@ -1,5 +1,95 @@
 # CHANGELOG
 
+## 2026-09-15 - 아직 과제가 정해지지 않은 녹음을 단계마다 검사하며 대화 목록으로 만든다
+
+- Revision: 이 항목을 포함한 커밋. 한 슬라이스가 세 가지를 바꿨다 — (가) 대화 목록 파이프라인을
+  새로 만들었고, (나) 대화 구간을 초가 아니라 발화로 지정하게 했으며, (다) 공통 용어 등록부가
+  "선언"과 "관측"을 나눠 적게 했다. 아래에 각각의 내용·운영 영향·경로를 적는다.
+
+### (가) 대화 목록 파이프라인
+
+- "녹음을 읽고 알아서 나누고 성격을 붙이고 과제를 정하고 낱말을 고쳐라"는 프롬프트 하나가 아니라,
+  **단계 사이에 검사를 둔 일곱 단계**로 만들었다. 프롬프트 하나는 매번 다르게, 보이지 않게 답하고,
+  틀린 답을 거부할 자리가 없다. 새 하네스
+  `guild_hall/context_engine/harness/voice_conversation_list_cli.mjs`(`run`·`show`·`table`)와
+  순수 규칙 모듈 `src/runtime/voice_conversation_list.mjs`, 프롬프트 5개가 그것이다.
+- 1단계는 전사 자체의 수치로 품질 표시를 만들고(반복 환각·낮은 확률·낮은 밀도·억제·공급자 전사와의
+  불일치), 규칙 기반 의미 단위가 **전사 발화를 전수 덮었는지 세어 본다**. 2단계는 경계를 **발화 ID
+  목록으로만** 받고 누락·중복·창 밖·역행을 거부한다. 질문과 답이 잘린 것으로 **의심되는** 경계는
+  자동 병합하지 않고 한 번 더 물어보며, `unclear`면 분할과 의심을 **둘 다** 남긴다. 규칙이 닿지
+  않은 발화는 버리지 않고 앞 구간에 붙이며 그렇게 붙였다고 적는다.
+- 3단계는 성격·중립 제목·설명·본문에 실제로 있는 낱말을 내고, 제목에 과제 코드가 들어가면 거부한다.
+  판독 불가 비율이 높으면 성격은 `unreadable`로, 업무 발화행위가 있는 `personal`은 `mixed`로
+  **강제 승격**된다. 4단계는 과제를 좁힐 수 있는 단서로만 각 과제의 색인을 찾고(여러 과제가 함께
+  쓰는 용어와 작업 도구의 상태 어휘는 질의에서 뺀다), 근거가 그런 용어뿐인 후보는 약한 후보가
+  아니라 **미분류**로 내린다. 등록부가 모르는 낱말은 `strong` 근거가 될 수 없다.
+- 5단계 교정안은 **낱말 하나의 위치**다: 발화 ID·문자 위치·원문 세 가지가 모두 맞아야 채택하고,
+  같은 낱말이 여러 번 나오는데 위치를 안 주면 `position_ambiguous`로 폐기하며, 원문보다 세 배 길거나
+  공백이 든 40자를 넘으면 `rewrite_refused`다. 사람 이름·수·날짜·부품번호·부정·완료·취소는 문맥으로
+  확정할 수 없으므로 **항상** 음성 재확인 필요로 표시된다. 6단계는 확신 높은 교정이 판정 근거였던
+  낱말을 바꾼 구간만 다시 판정한다. 7단계는 전수 검사 결과와 함께 결과를 **그대로** 내되 통과하지
+  못하면 `verified: false`로 적는다.
+- 파이프라인은 **아무것도 확정하지 않는다.** 모든 구간은 `candidate`이거나 `unclassified`이고
+  `confirmed`는 검사가 막는다. 전사 파일은 쓰지 않으며, 교정 후 텍스트는 표를 만드는 동안 메모리에만
+  있다. 호출은 예산 안에서만 하고(재시도 포함), 모든 답은 그 답을 만든 바이트로 run 디렉터리에
+  캐시된다. run id는 녹음·두 전사·프롬프트·모델 pin·설정의 해시라서 **같은 입력은 같은 run**이고,
+  두 번째 실행은 호출 0회로 같은 결과를 낸다. 예산이 떨어지면 남은 단계는 fallback으로 채우고
+  `remaining_work`에 무엇이 남았는지 적으며, 다음 실행이 캐시에서 이어 간다. 회차별 비용은
+  `run_passes.jsonl`에 쌓인다.
+- 읽기 CLI에 `--corrections`를 더했다. 같은 run의 교정안을 발화·위치·원문·제안·이유·확신·재확인 필요와
+  함께 `원문:`/`제안:` 두 줄로 보여 주며, 제안일 뿐 전사 파일은 그대로임을 답에 적는다.
+  `voice_route_cli.mjs import`는 파이프라인 결과를 판정 원장으로 옮기는 **사람이 실행하는** 유일한
+  명령이며, 구간을 `candidate`/`unclassified`로만 쓰고 `confirmed`에는 닿지 못하고, 같은 run을 두 번
+  import해도 아무것도 바뀌지 않는다.
+- 운영 영향: 읽기 전용이다. 녹음·전사·라벨 run·라이브러리 색인·바인딩·그래프 DB·예약작업·lane·수집기는
+  바꾸지 않는다. 쓰는 곳은 도구 설정의 `derived_root` 아래 `voice/<세션>/<run>/` 하나뿐이다. 모델은
+  설정이 가리키는 **loopback 서버**여야 한다 — 미분류 녹음의 전사는 어느 과제 admission에도 속하지
+  않으므로 이 호스트 밖으로 나가지 않는다. 파이프라인 설정(모델 binding·예산·상한·프롬프트 위치)은
+  제어 root의 호스트 파일이 소유하며 저장소에는 예시만 둔다.
+
+### (나) 대화 구간을 초가 아니라 발화로 지정한다
+
+- 의미 단위의 경계는 발화가 끝나는 자리라 57.82초 같은 소수이고, grant scope는 정본 바이트의 일부라
+  온전한 초여야 한다. 양쪽을 같은 방향으로 반올림하면 사이가 벌어지지는 않지만, **경계에 걸친 발화가
+  어느 대화의 것인지**는 반올림된 구간으로 답할 수 없어 겹침 판정이 그 발화를 양쪽 문서에 모두
+  넣고 있었다.
+- 그래서 대화가 **어떤 발화로 이루어졌는지**를 적는다. 원장 구간에 `source_segment_ids`(오름차순·중복
+  없음, 전사 자신의 id)가 필수 필드로 생기고, 초안은 라벨 run이 이미 적어 둔 그 값을 그대로 읽어 오며,
+  grant에는 `scope.segment_ids`로 실리고, 어댑터는 **그 id의 행만** 고른다(겹침 판정 없음).
+  id는 문서 키의 일부라서 같은 구간을 두 방식으로 읽으면 두 문서가 된다.
+- granted revision에 그 id 중 하나라도 없으면 `stale_grant`/`scope_segments_absent`로 답한다.
+  해시를 맞추려고 범위를 넓히거나 줄이지 않는다 — grant는 대화를 가리키고, 그 대화와 같은 이웃한
+  초 구간은 없다. `segment_ids` 없이 구간만 있는 옛 grant는 문서 키까지 예전 그대로 동작한다.
+- 운영 영향: 라이브 원장에 구간이 아직 0건이라 옮길 기록이 없다. 원본·전사·색인은 바꾸지 않는다.
+
+### (다) 공통 용어 등록부가 "선언"과 "관측"을 나눠 적는다
+
+- 등록부는 서로 다른 두 진술을 한 목록에 섞고 있었다. seed가 적은 과제 코드가 `projects`에 합쳐져서,
+  그래프가 한 과제에서만 본 낱말이 두 과제 관측처럼 보였고, 분류기는 `projects.length >= 2`만 보았다.
+  그래서 **사람이 공통이라고 선언했는데 관측이 하나뿐인 용어가 `distinctive`로 나와** 혼자서 과제를
+  정할 수 있었다.
+- 이제 행은 `observed_projects`(DB가 실제로 들고 있던 과제)·`declared_projects`(seed가 적은 과제,
+  선언이지 증거가 아님)·`declared_shared`를 따로 적는다. `projects`와 `mention_count`는 관측만 담고,
+  공통 판정은 `declared_shared || observed_projects.length >= 2`다. 나누기 전에 만들어진 파일도 그대로
+  읽되 `declared_shared`는 `source`에서 파생하고 seed가 적은 과제는 빈 배열로 두며, 판독기가
+  `compat: derived_from_v0_rows`로 그 사실을 말한다.
+- 용어에 `category`가 생겼다. 작업 도구의 상태·알림 어휘(`Status Change`·`due_date`·`상태 변경`)는
+  모든 과제에 걸쳐 공통이 맞지만 업무 내용 어휘와 답하는 질문이 달라, seed의 `workflow_terms`가
+  그 낱말들을 표시하고 읽기 CLI는 `워크플로:` 줄로 따로 보인다. 거기 적는다고 등록되지는 않는다.
+- 운영 영향: 등록부는 파생물이며 이 변경으로 형태만 바뀌고 용어 목록은 그대로다. 생성기는 읽기
+  전용이고 DB에 쓰지 않는다. `validate:context-engine`이 이제 `shared_terms.test.mjs`를 실제로 돌린다
+  (그 전에는 `verify_module.mjs`의 인자로 붙어 있어 한 번도 실행되지 않았다).
+
+### 관련 경로
+
+- `guild_hall/context_engine/src/runtime/{voice_conversation_list,shared_terms,voice_session_read,source_documents}.mjs`
+- `guild_hall/context_engine/harness/{voice_conversation_list_cli,voice_routes,voice_segment_drafts,voice_route_cli,estate_shared_terms,estate_original_read}.mjs`
+- `guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs`
+- `guild_hall/context_engine/prompts/voice_conversation_list/*.v1.md`,
+  `harness/fixtures/voice_pipeline.example.json`, `ops/context-read/shared_terms.seed.example.json`
+- `guild_hall/context_engine/tests/{voice_conversation_list,voice_grant,shared_terms,voice_session_read}.test.mjs`,
+  `release/runtime-closure.json`, `module.manifest.json`, `package.json`(`validate:voice-conversation-list`)
+
 ## 2026-09-15 - 아직 과제가 정해지지 않은 음성 녹음을 구간 단위로 읽는 통로
 
 - Revision: 이 항목을 포함한 커밋. 읽기 CLI
