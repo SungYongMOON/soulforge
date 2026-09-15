@@ -19,36 +19,68 @@ const code = fn => { try { fn(); return null; } catch (error) { return error.cod
 
 // A registry as the generator writes one: three terms two projects share, one
 // term a single project uses, and the counts that came with them.
+const registryRow = (term, projects, extra = {}) => ({ term, normalized: normaliseTerm(term),
+  projects: [...projects], observed_projects: [...projects], declared_projects: [], mention_count: 0,
+  source: 'graph', declared_shared: false, category: 'content', ...extra });
+
 const REGISTRY = Object.freeze({
   schema: SHARED_TERMS_SCHEMA, generated_at: NOW,
   generation_refs: [{ project: 'P24-049', generation_id: 'p24049-graph-010' },
     { project: 'P26-014', generation_id: 'p26014-graph-001' }],
   terms: [
-    { term: 'CDR', normalized: 'cdr', projects: ['P24-049', 'P26-014'], mention_count: 12, source: 'both' },
-    { term: '수신부', normalized: '수신부', projects: ['P24-049', 'P26-014'], mention_count: 9, source: 'graph' },
-    { term: '해상시험', normalized: '해상시험', projects: ['P23-027', 'P24-049', 'P26-014'], mention_count: 7, source: 'seed' },
-    { term: '소나테크 사옥', normalized: '소나테크 사옥', projects: ['P26-014'], mention_count: 3, source: 'graph' },
+    registryRow('CDR', ['P24-049', 'P26-014'], { mention_count: 12, source: 'both', declared_shared: true,
+      declared_projects: ['P24-049', 'P26-014'] }),
+    registryRow('수신부', ['P24-049', 'P26-014'], { mention_count: 9 }),
+    // Declared shared by a person, and observed in one project only: the two
+    // numbers stay apart, and the declaration is what makes it shared.
+    registryRow('해상시험', ['P26-014'], { mention_count: 7, source: 'both', declared_shared: true,
+      declared_projects: ['P23-027', 'P24-049', 'P26-014'] }),
+    registryRow('소나테크 사옥', ['P26-014'], { mention_count: 3 }),
+    registryRow('Status Change', ['P24-049', 'P26-014'], { mention_count: 20, category: 'workflow' }),
   ],
-  counts: { projects: 2, min_projects: 2, terms: 4, shared_terms: 3 },
+  counts: { projects: 2, min_projects: 2, terms: 5, shared_terms: 4 },
 });
 
 test('a term several projects use is shared, a term one project uses is distinctive, and an unknown acronym is neither', () => {
   const rows = classifyTerms('CDR 회의에서 수신부 결선과 해상시험 일정을 정했고 SBC 보드는 다음 주에 온다.', REGISTRY);
-  const byTerm = new Map(rows.map(row => [row.term, row]));
+  const byTerm = new Map(rows.map(entry => [entry.term, entry]));
   assert.deepEqual([byTerm.get('CDR').kind, byTerm.get('수신부').kind, byTerm.get('해상시험').kind],
-    ['shared', 'shared', 'shared'], 'three registered terms crossing two or more projects');
+    ['shared', 'shared', 'shared'], 'two observed in two projects, one a person declared shared');
   assert.deepEqual(byTerm.get('CDR').projects, ['P24-049', 'P26-014'],
     'the projects come with the verdict, so a reader can see what the term does not narrow to');
   assert.equal(byTerm.has('소나테크 사옥'), false, 'a registered term the text does not contain is not reported');
   assert.equal(byTerm.get('SBC').kind, 'unregistered');
   assert.deepEqual(byTerm.get('SBC').projects, [], 'an unknown term carries no projects, not a guess');
-  assert.deepEqual(rows.map(row => row.kind), ['shared', 'shared', 'shared', 'unregistered'],
+  assert.deepEqual(rows.map(entry => entry.kind), ['shared', 'shared', 'shared', 'unregistered'],
     'shared first, then distinctive, then unregistered');
+});
+
+test('a declaration makes a term shared without making it observed twice', () => {
+  const found = new Map(classifyTerms('해상시험 준비와 수신부 점검', REGISTRY).map(entry => [entry.term, entry]));
+  assert.deepEqual([found.get('해상시험').kind, found.get('해상시험').declared_shared,
+    found.get('해상시험').observed_project_count], ['shared', true, 1],
+  'the seed says shared; the graph has still shown it in one project, and the count says so');
+  assert.deepEqual(found.get('해상시험').observed_projects, ['P26-014']);
+  assert.deepEqual(found.get('해상시험').declared_projects, ['P23-027', 'P24-049', 'P26-014'],
+    'what the seed named stays apart from what was observed');
+  assert.deepEqual(found.get('해상시험').projects, ['P23-027', 'P24-049', 'P26-014'],
+    'the union is what a reader is shown as where this word lives');
+  assert.deepEqual([found.get('수신부').declared_shared, found.get('수신부').observed_project_count], [false, 2],
+    'a term nobody declared is shared purely by observation');
+});
+
+test('workflow wording is shared like any other term and is marked as a different kind of word', () => {
+  const found = new Map(classifyTerms('Status Change 알림이 오고 수신부 시험을 했다', REGISTRY)
+    .map(entry => [entry.term, entry]));
+  assert.deepEqual([found.get('Status Change').kind, found.get('Status Change').category], ['shared', 'workflow']);
+  assert.equal(found.get('수신부').category, 'content', 'the estate own vocabulary is the default');
 });
 
 test('one project’s term is a candidate, and it is never labelled shared', () => {
   const rows = classifyTerms('소나테크 사옥 3층에서 본 시험', REGISTRY);
-  assert.deepEqual(rows, [{ term: '소나테크 사옥', kind: 'distinctive', projects: ['P26-014'] }]);
+  assert.deepEqual(rows, [{ term: '소나테크 사옥', kind: 'distinctive', projects: ['P26-014'],
+    observed_projects: ['P26-014'], declared_projects: [], observed_project_count: 1,
+    declared_shared: false, category: 'content' }]);
 });
 
 test('a Korean term matches with a particle attached, and an ASCII term does not match inside a longer word', () => {
@@ -78,16 +110,40 @@ test('a missing registry reads as none; a file that is not a registry is refused
   const file = path.join(dir, 'shared_terms.v0.json');
   await writeFile(file, JSON.stringify(REGISTRY));
   const loaded = loadSharedTerms(file);
-  assert.deepEqual([loaded.schema, loaded.terms.length, loaded.generation_refs.length], [SHARED_TERMS_SCHEMA, 4, 2]);
-  assert.deepEqual(classifyTerms('CDR 회의', loaded).map(row => row.kind), ['shared'],
+  assert.deepEqual([loaded.schema, loaded.terms.length, loaded.generation_refs.length], [SHARED_TERMS_SCHEMA, 5, 2]);
+  assert.equal(loaded.compat, 'rows_as_written');
+  assert.deepEqual(classifyTerms('CDR 회의', loaded).map(entry => entry.kind), ['shared'],
     'a registry read from disk classifies the same as one held in memory');
 
   await writeFile(file, '{"schema": "something.else.v0"}');
   assert.equal(code(() => loadSharedTerms(file)), 'shared_terms_schema_unknown');
   await writeFile(file, JSON.stringify({ ...REGISTRY, terms: [{ term: 'CDR', normalized: 'cdr', projects: ['P26-014'] }] }));
   assert.equal(code(() => loadSharedTerms(file)), 'shared_terms_invalid', 'a row without its counts is not a row');
+  await writeFile(file, JSON.stringify({ ...REGISTRY,
+    terms: [{ term: 'CDR', normalized: 'cdr', projects: ['P26-014'], mention_count: 3, source: 'graph',
+      declared_shared: 'yes', observed_projects: ['P26-014'], declared_projects: [], category: 'content' }] }));
+  assert.equal(code(() => loadSharedTerms(file)), 'shared_terms_invalid', 'a declaration is a boolean or it is nothing');
   await writeFile(file, 'not json');
   assert.equal(code(() => loadSharedTerms(file)), 'shared_terms_unreadable');
+});
+
+test('a registry written before declaration and observation were told apart still reads, and says it was derived', async () => {
+  const dir = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-terms-v0-')));
+  const file = path.join(dir, 'shared_terms.v0.json');
+  // Exactly the shape the first generator wrote: projects, a count and a source.
+  await writeFile(file, JSON.stringify({ schema: SHARED_TERMS_SCHEMA, generated_at: NOW, generation_refs: [],
+    terms: [{ term: 'CDR', normalized: 'cdr', projects: ['P24-049', 'P26-014'], mention_count: 12, source: 'both' },
+      { term: '앰프', normalized: '앰프', projects: ['P26-014'], mention_count: 2, source: 'seed' },
+      { term: '소나테크 사옥', normalized: '소나테크 사옥', projects: ['P26-014'], mention_count: 3, source: 'graph' }] }));
+  const loaded = loadSharedTerms(file);
+  assert.equal(loaded.compat, 'derived_from_v0_rows', 'the reader says the split was derived, not read');
+  const found = new Map(classifyTerms('CDR 회의에서 앰프와 소나테크 사옥 이야기', loaded).map(entry => [entry.term, entry]));
+  assert.deepEqual([found.get('CDR').kind, found.get('CDR').declared_shared], ['shared', true]);
+  assert.deepEqual([found.get('앰프').kind, found.get('앰프').declared_shared, found.get('앰프').observed_project_count],
+    ['shared', true, 1], 'a seed row is shared by its declaration even where the old file could not say which projects');
+  assert.deepEqual(found.get('앰프').declared_projects, [],
+    'which projects the seed named is not recoverable from the old file, and is left empty rather than guessed');
+  assert.deepEqual([found.get('소나테크 사옥').kind, found.get('소나테크 사옥').category], ['distinctive', 'content']);
 });
 
 // The database's answer, as the worker returns it: names normalised, the projects
@@ -153,7 +209,8 @@ test('a term is registered when two projects the bindings know use it, and a pro
   assert.deepEqual(registry.terms.map(row => row.term), ['CDR', '수신부'],
     'only the names both known projects hold; 앰프 crossed into a project no binding named');
   assert.deepEqual(registry.terms[0], { term: 'CDR', normalized: 'cdr', projects: ['P24-049', 'P26-014'],
-    mention_count: 12, source: 'graph' });
+    mention_count: 12, source: 'graph', declared_shared: false, observed_projects: ['P24-049', 'P26-014'],
+    declared_projects: [], category: 'content' });
   assert.deepEqual(registry.generation_refs, [{ project: 'P24-049', generation_id: 'p24049-graph-010' },
     { project: 'P26-014', generation_id: 'p26014-graph-001' }], 'the generation each registered project was read at');
   assert.equal(registry.counts.unknown_project_rows, 1, 'the row that pointed outside is counted, not hidden');
@@ -194,23 +251,43 @@ test('an identifier and a record title are not terms, however many projects hold
   assert.deepEqual([withTitle.counts.too_many_words_dropped, withTitle.counts.max_term_words], [1, MAX_TERM_WORDS]);
 });
 
-test('the seed adds what the graph has not shown yet, and says so when the graph has shown it', () => {
-  const seed = readSeed(Buffer.from(JSON.stringify({ schema: 'soulforge.context_shared_terms_seed.v0', terms: [
+test('the seed declares without observing: its projects never enter the observed count', () => {
+  const { terms: seed } = readSeed(Buffer.from(JSON.stringify({ schema: 'soulforge.context_shared_terms_seed.v0', terms: [
     { term: '소나테크 사옥', projects: ['P24-049', 'P26-014'], note: '두 과제 회의록에 같은 형태로 나옴' },
     { term: '해상시험', projects: ['P23-027', 'P26-014'] },
   ] })));
   const registry = buildSharedTerms({ terms: WORKER_ANSWER.terms, generations: WORKER_ANSWER.generations,
     codeForKey: CODES, seed, minProjects: 2, now: NOW });
-  const bySource = new Map(registry.terms.map(row => [row.term, row]));
-  assert.equal(bySource.get('CDR').source, 'graph');
+  const bySource = new Map(registry.terms.map(entry => [entry.term, entry]));
+  assert.deepEqual([bySource.get('CDR').source, bySource.get('CDR').declared_shared], ['graph', false]);
   assert.deepEqual([bySource.get('소나테크 사옥').source, bySource.get('소나테크 사옥').projects,
-    bySource.get('소나테크 사옥').mention_count], ['both', ['P24-049', 'P26-014'], 3],
-  'a term the graph reached in one project only is kept when the seed declares it, with the graph’s own count');
+    bySource.get('소나테크 사옥').declared_projects, bySource.get('소나테크 사옥').mention_count],
+  ['both', ['P26-014'], ['P24-049', 'P26-014'], 3],
+  'the graph reached it in one project; the seed named two, and the two lists stay apart');
   assert.deepEqual([bySource.get('해상시험').source, bySource.get('해상시험').projects,
-    bySource.get('해상시험').mention_count], ['seed', ['P23-027', 'P26-014'], 0],
-  'a term no generation carries yet is a seed row with no mentions');
-  assert.deepEqual([registry.counts.seed_terms, registry.counts.terms], [2, 4]);
-  assert.deepEqual(registry.terms.map(row => row.projects.length), [2, 2, 2, 2], 'every registered row crosses two projects');
+    bySource.get('해상시험').declared_projects, bySource.get('해상시험').mention_count],
+  ['seed', [], ['P23-027', 'P26-014'], 0],
+  'a term no generation carries yet is observed nowhere, and the file says so rather than borrowing the declaration');
+  assert.deepEqual([registry.counts.seed_terms, registry.counts.terms, registry.counts.shared_terms,
+    registry.counts.observed_shared_terms, registry.counts.declared_only_terms], [2, 4, 4, 2, 2]);
+  assert.equal(registry.terms.every(entry => entry.declared_shared || entry.observed_projects.length >= 2), true,
+    'every registered row is shared either by observation or by declaration');
+});
+
+test('workflow wording from the seed marks a category and registers nothing on its own', () => {
+  const { terms: seed, workflow_terms: workflowTerms } = readSeed(Buffer.from(JSON.stringify({
+    schema: 'soulforge.context_shared_terms_seed.v0', terms: [],
+    workflow_terms: ['Status Change', '상태 변경', ' due_date ', 'CDR'] })));
+  assert.deepEqual(workflowTerms, ['cdr', 'due_date', 'status change', '상태 변경'],
+    'normalised and deduplicated, because that is how a term is matched');
+  const registry = buildSharedTerms({ terms: WORKER_ANSWER.terms, generations: WORKER_ANSWER.generations,
+    codeForKey: CODES, seed, workflowTerms, minProjects: 2, now: NOW });
+  const byTerm = new Map(registry.terms.map(entry => [entry.term, entry]));
+  assert.deepEqual([byTerm.get('CDR').category, byTerm.get('수신부').category], ['workflow', 'content']);
+  assert.equal(byTerm.has('Status Change'), false,
+    'a word the graph never showed is not registered by being called workflow');
+  assert.deepEqual([registry.counts.workflow_terms_declared, registry.counts.workflow_rows,
+    registry.counts.content_rows], [4, 1, 1]);
 });
 
 test('a seed row without the projects it was seen in is refused, and so is one that is not a seed', () => {
@@ -222,9 +299,12 @@ test('a seed row without the projects it was seen in is refused, and so is one t
     terms: [{ term: 'CDR', projects: ['P26-014'] }, { term: 'cdr', projects: ['P24-049'] }] }), 'shared_terms_seed_invalid',
   'the same term twice under different cases would make two rows of one term');
   assert.equal(seed({ schema: 'something.else.v0', terms: [] }), 'shared_terms_seed_schema_unknown');
+  assert.equal(seed({ schema: 'soulforge.context_shared_terms_seed.v0', terms: [], workflow_terms: [{ term: 'x' }] }),
+    'shared_terms_seed_invalid', 'workflow_terms is a list of words, not a list of rows');
   assert.deepEqual(readSeed(Buffer.from(JSON.stringify({ schema: 'soulforge.context_shared_terms_seed.v0',
     terms: [{ term: ' 케이블 ', projects: ['P26-014', 'P26-014'] }] }))),
-  [{ term: '케이블', normalized: '케이블', projects: ['P26-014'] }], 'a term is trimmed and its projects deduplicated');
+  { terms: [{ term: '케이블', normalized: '케이블', projects: ['P26-014'] }], workflow_terms: [] },
+  'a term is trimmed and its projects deduplicated, and a seed with no workflow list declares none');
 });
 
 test('a lowered bound registers more terms, and a raised one registers fewer', () => {

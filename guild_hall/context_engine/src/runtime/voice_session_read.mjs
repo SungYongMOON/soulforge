@@ -45,10 +45,16 @@ function readSharedTermRegistry(path) {
   return { status: 'ok', detail: null, terms: registry.terms, path_sha256: sha, registry };
 }
 // Marks a reader can act on: registry terms only (an unregistered acronym is
-// not a mark), each saying whether more than one project carries it.
+// not a mark), each saying whether the estate uses it in more than one place and
+// on what grounds. `observed_project_count` is what the graph was seen holding,
+// which is not the same as `declared_shared` -- a person's declaration makes a
+// term shared without making it observed twice -- and `category` separates the
+// task tracker's workflow wording from the estate's own subject vocabulary.
 function markTerms(text, registry) {
   return classifyTerms(text, registry.registry).filter(entry => entry.kind !== 'unregistered')
-    .map(entry => ({ term: entry.term, shared: entry.kind === 'shared', project_count: entry.projects.length, projects: [...entry.projects] }));
+    .map(entry => ({ term: entry.term, shared: entry.kind === 'shared', project_count: entry.projects.length,
+      projects: [...entry.projects], observed_project_count: entry.observed_project_count,
+      declared_shared: entry.declared_shared, category: entry.category }));
 }
 
 export const VOICE_READ_SCHEMA = 'soulforge.context_voice_session_read.v1';

@@ -464,14 +464,24 @@ const MIXED_UNITS = [
   unitLabel({ id: 'unit_22', segmentIds: [22], start: 60, end: 120, characters: [...SHARED_B].length }),
   unitLabel({ id: 'unit_23', segmentIds: [23], start: 120, end: 180, characters: [...SHARED_C].length }),
 ];
+// A registry row says two different things and keeps them apart: which projects
+// the graph was observed holding the term in, and whether a person declared it
+// shared. A term seen in one project that nobody declared is distinctive; one a
+// person declared is shared however few projects have shown it yet.
+const term = (name, observed, extra = {}) => ({ term: name, normalized: name.toLowerCase(),
+  projects: [...observed], observed_projects: [...observed], declared_projects: [], mention_count: 0,
+  source: 'graph', declared_shared: false, category: 'content', ...extra });
 const REGISTRY = {
   schema: 'soulforge.context_shared_terms.v0', generated_at: '2026-09-15T00:00:00.000Z', generation_refs: [],
   terms: [
-    { term: 'CDR', normalized: 'cdr', projects: ['S00-001', 'S00-002', 'S00-003'], mention_count: 31, source: 'graph' },
-    { term: '수신부', normalized: '수신부', projects: ['S00-001', 'S00-002'], mention_count: 18, source: 'graph' },
-    { term: '앰프', normalized: '앰프', projects: ['S00-001', 'S00-002', 'S00-004'], mention_count: 12, source: 'seed' },
-    { term: '시험수조', normalized: '시험수조', projects: ['S00-001'], mention_count: 5, source: 'graph' },
-    { term: '구미 현장', normalized: '구미 현장', projects: ['S00-002'], mention_count: 4, source: 'seed' },
+    term('CDR', ['S00-001', 'S00-002', 'S00-003'], { mention_count: 31 }),
+    term('수신부', ['S00-001', 'S00-002'], { mention_count: 18 }),
+    term('앰프', ['S00-001', 'S00-002', 'S00-004'], { mention_count: 12, source: 'both', declared_shared: true,
+      declared_projects: ['S00-001', 'S00-002'] }),
+    term('시험수조', ['S00-001'], { mention_count: 5 }),
+    term('구미 현장', ['S00-002'], { mention_count: 4 }),
+    // Workflow wording: shared, and a different kind of word from the estate's own.
+    term('Status Change', ['S00-001', 'S00-002'], { mention_count: 40, category: 'workflow' }),
   ],
 };
 
@@ -489,15 +499,19 @@ test('같은 용어가 두 과제 구간에 걸쳐 나오면 공통으로 표시
   try {
     const answer = await read(inbox.io, { units: true, sharedTermsPath: inbox.registryPath });
     assert.equal(answer.shared_terms.status, 'ok');
-    assert.equal(answer.shared_terms.term_count, 5);
+    assert.equal(answer.shared_terms.term_count, 6);
     const [first, , third] = answer.units.rows;
-    const sharedOf = row => row.terms.filter(term => term.shared).map(term => term.term).sort();
+    const sharedOf = row => row.terms.filter(mark => mark.shared).map(mark => mark.term).sort();
     // Three registry terms carry across both stretches: none of them picks a project.
     assert.deepEqual(sharedOf(first), ['CDR', '수신부', '앰프']);
     assert.deepEqual(sharedOf(third), ['CDR', '수신부', '앰프']);
-    assert.ok(first.terms.every(term => !term.shared || term.project_count >= 2));
+    assert.ok(first.terms.every(mark => !mark.shared || mark.project_count >= 2));
+    // 앰프 is shared because somebody declared it, and the mark says which of the
+    // two grounds it stands on rather than merging them into one number.
+    const amp = first.terms.find(mark => mark.term === '앰프');
+    assert.deepEqual([amp.declared_shared, amp.observed_project_count, amp.category], [true, 3, 'content']);
     // What differs is the distinguishing term, and each names exactly one project.
-    const only = row => row.terms.filter(term => !term.shared).map(term => `${term.term}=${term.projects.join(',')}`);
+    const only = row => row.terms.filter(mark => !mark.shared).map(mark => `${mark.term}=${mark.projects.join(',')}`);
     assert.deepEqual(only(first), ['시험수조=S00-001']);
     assert.deepEqual(only(third), ['구미 현장=S00-002']);
     // The tool marks and does not decide: every unit stays unresolved and the
@@ -507,7 +521,7 @@ test('같은 용어가 두 과제 구간에 걸쳐 나오면 공통으로 표시
     assert.equal(answer.units.evidence_gate.project_candidate_emission_allowed, false);
     const text = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' },
       toolsSha256: sha(Buffer.from('tools')) });
-    assert.match(text, /공통\(과제 3개\) CDR/u);
+    assert.match(text, /공통\(관측 3과제\) CDR/u);
     assert.match(text, /구별\(S00-001\) 시험수조/u);
     assert.match(text, /공통 표시가 붙은 용어로는 과제를 정하지 못합니다/u);
   } finally { await inbox.cleanup(); }
@@ -519,7 +533,7 @@ test('글자 상한에 잘린 구간도 용어 표시는 구간 전체에서 뽑
     const answer = await read(inbox.io, { units: true, sharedTermsPath: inbox.registryPath, maxChars: 100 });
     const third = answer.units.rows[2];
     assert.ok(third.shown < third.characters, 'the third unit is cut by the character bound');
-    assert.deepEqual(third.terms.filter(term => term.shared).map(term => term.term).sort(),
+    assert.deepEqual(third.terms.filter(mark => mark.shared).map(mark => mark.term).sort(),
       ['CDR', '수신부', '앰프'], 'marks come from the whole interval, not the shown part');
   } finally { await inbox.cleanup(); }
 });

@@ -158,12 +158,21 @@ export function render(answer, { budget, toolsSha256, slide = null }) {
 }
 
 /** What the shared-term registry says about one interval: marks, never a verdict. */
+// Workflow wording -- the task tracker's own state and notification words -- is
+// shown on its own line. It is shared like any other shared term and decides no
+// project either, but mixing it into the subject vocabulary makes a conversation
+// look like it is about state changes when it is about a cable.
+const markOf = term => term.shared
+  ? `공통(관측 ${term.observed_project_count ?? term.project_count}과제`
+    + `${term.declared_shared && (term.observed_project_count ?? term.project_count) < 2 ? ', 선언' : ''}) ${term.term}`
+  : `구별(${term.projects[0] ?? '?'}) ${term.term}`;
+const termLine = (label, terms) => terms.length === 0 ? null
+  : `  ${label} ${terms.slice(0, 10).map(markOf).join(' · ')}${terms.length > 10 ? ` 외 ${terms.length - 10}` : ''}`;
 const termMarks = row => {
   if (!row.terms?.length) return null;
-  const marks = row.terms.slice(0, 10).map(term => term.shared
-    ? `공통(과제 ${term.project_count}개) ${term.term}`
-    : `구별(${term.projects[0] ?? '?'}) ${term.term}`);
-  return `  terms ${marks.join(' · ')}${row.terms.length > 10 ? ` 외 ${row.terms.length - 10}` : ''}`;
+  return [termLine('terms', row.terms.filter(term => term.category !== 'workflow')),
+    termLine('워크플로:', row.terms.filter(term => term.category === 'workflow'))]
+    .filter(line => line !== null).join(String.fromCharCode(10)) || null;
 };
 
 const seconds = value => `${Number(value).toFixed(1)}s`;

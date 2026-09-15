@@ -72,8 +72,13 @@ const fail = code => { throw new SharedTermsBuildError(code); };
 
 /**
  * The Owner-placed seed: terms declared shared, each with the projects it was
- * actually seen in. The projects are the evidence, so a seed row without them is
- * refused rather than admitted as an assertion about nothing.
+ * actually seen in, and the words that belong to the task tracker's own workflow
+ * rather than to this estate's subject matter.
+ *
+ * The projects are the evidence for a declaration, so a seed row without them is
+ * refused rather than admitted as an assertion about nothing. `workflow_terms` is
+ * a plain list instead: it says what kind of word a term is, not which projects
+ * hold it, and a word in it that the graph never showed registers nothing.
  */
 export function readSeed(bytes) {
   let value;
@@ -81,7 +86,7 @@ export function readSeed(bytes) {
   if (value?.schema !== SHARED_TERMS_SEED_SCHEMA) fail('shared_terms_seed_schema_unknown');
   if (!Array.isArray(value.terms) || value.terms.length > MAX_SEED_TERMS) fail('shared_terms_seed_invalid');
   const seen = new Set();
-  return value.terms.map(row => {
+  const terms = value.terms.map(row => {
     const term = typeof row?.term === 'string' ? row.term.trim() : '';
     if (!term || !Array.isArray(row.projects) || row.projects.length === 0
       || !row.projects.every(code => typeof code === 'string' && PROJECT_CODE.test(code))) fail('shared_terms_seed_invalid');
@@ -90,6 +95,11 @@ export function readSeed(bytes) {
     seen.add(normalized);
     return { term, normalized, projects: [...new Set(row.projects)].sort() };
   });
+  const declaredWorkflow = value.workflow_terms ?? [];
+  if (!Array.isArray(declaredWorkflow) || declaredWorkflow.length > MAX_SEED_TERMS
+    || !declaredWorkflow.every(term => typeof term === 'string' && term.trim())) fail('shared_terms_seed_invalid');
+  const workflow = [...new Set(declaredWorkflow.map(normaliseTerm).filter(Boolean))].sort();
+  return { terms, workflow_terms: workflow };
 }
 
 /**
@@ -102,7 +112,7 @@ export function readSeed(bytes) {
  * caller can only partly account for must not quietly widen the registry.
  */
 export function buildSharedTerms({ terms = [], generations = [], codeForKey = new Map(), seed = [],
-  minProjects = 2, maxTermCharacters = DEFAULT_MAX_TERM_CHARACTERS, now } = {}) {
+  workflowTerms = [], minProjects = 2, maxTermCharacters = DEFAULT_MAX_TERM_CHARACTERS, now } = {}) {
   if (!Number.isSafeInteger(minProjects) || minProjects < 1 || minProjects > 64) fail('shared_terms_min_projects_invalid');
   if (!Number.isSafeInteger(maxTermCharacters) || maxTermCharacters < 2 || maxTermCharacters > 400) fail('shared_terms_max_characters_invalid');
   if (typeof now !== 'string' || !now) fail('shared_terms_generated_at_invalid');
@@ -134,29 +144,38 @@ export function buildSharedTerms({ terms = [], generations = [], codeForKey = ne
       for (const code of projects) row.projects.add(code);
       row.mention_count += mentions;
     } else {
-      rows.set(normalized, { term: surface, normalized, projects, mention_count: mentions, source: 'graph' });
+      rows.set(normalized, { term: surface, normalized, projects, mention_count: mentions, source: 'graph',
+        declared_shared: false, declared: new Set() });
     }
   }
   const graphTerms = rows.size;
+  // The seed declares; it does not observe. Its project codes go to
+  // `declared_projects` and never into `projects`, so a term the graph reached in
+  // one project stays a one-project observation however many projects the seed
+  // named -- and is still shared, because somebody said so.
   for (const entry of seed) {
     const normalized = entry.normalized ?? normaliseTerm(entry.term);
     if (!normalized) continue;
     const row = rows.get(normalized);
     if (row) {
-      for (const code of entry.projects) row.projects.add(code);
       row.source = 'both';
+      row.declared_shared = true;
+      for (const code of entry.projects) row.declared.add(code);
     } else {
-      rows.set(normalized, { term: entry.term, normalized, projects: new Set(entry.projects),
-        mention_count: 0, source: 'seed' });
+      rows.set(normalized, { term: entry.term, normalized, projects: new Set(), mention_count: 0,
+        source: 'seed', declared_shared: true, declared: new Set(entry.projects) });
     }
   }
+  const workflow = new Set(workflowTerms.map(normaliseTerm).filter(Boolean));
   // The min-projects bound is applied after the seed is merged, so a term the
   // graph has only reached in one project is still kept when the seed declares it
   // -- and kept as `both`, saying that the graph has it too.
   const kept = [...rows.values()]
     .filter(row => row.source !== 'graph' || row.projects.size >= minProjects)
     .map(row => ({ term: row.term, normalized: row.normalized, projects: [...row.projects].sort(),
-      mention_count: row.mention_count, source: row.source }))
+      mention_count: row.mention_count, source: row.source, declared_shared: row.declared_shared,
+      observed_projects: [...row.projects].sort(), declared_projects: [...row.declared].sort(),
+      category: workflow.has(row.normalized) ? 'workflow' : 'content' }))
     .sort((a, b) => b.projects.length - a.projects.length || b.mention_count - a.mention_count
       || (a.normalized < b.normalized ? -1 : a.normalized > b.normalized ? 1 : 0));
   const refs = generations
@@ -167,8 +186,12 @@ export function buildSharedTerms({ terms = [], generations = [], codeForKey = ne
     counts: { projects: refs.length, min_projects: minProjects, max_term_characters: maxTermCharacters,
       graph_names: names, identifier_dropped: identifiers, too_long_dropped: tooLong,
       too_many_words_dropped: tooManyWords, max_term_words: MAX_TERM_WORDS, graph_terms: graphTerms,
-      seed_terms: seed.length, terms: kept.length,
-      shared_terms: kept.filter(row => row.projects.length >= 2).length,
+      seed_terms: seed.length, workflow_terms_declared: workflow.size, terms: kept.length,
+      shared_terms: kept.filter(row => row.declared_shared || row.observed_projects.length >= 2).length,
+      observed_shared_terms: kept.filter(row => row.observed_projects.length >= 2).length,
+      declared_only_terms: kept.filter(row => row.declared_shared && row.observed_projects.length < 2).length,
+      workflow_rows: kept.filter(row => row.category === 'workflow').length,
+      content_rows: kept.filter(row => row.category === 'content').length,
       graph_below_min: graphTerms - kept.filter(row => row.source !== 'seed').length,
       unknown_project_rows: unknownRows } };
 }
@@ -201,7 +224,7 @@ export function readProjectKeys({ io, bindingFile = 'graph_index_binding.unified
  * projects on one database are one question and not eleven.
  */
 export async function collectSharedTerms({ io, bindingFile = 'graph_index_binding.unified.json', minProjects = 2,
-  maxTermCharacters = DEFAULT_MAX_TERM_CHARACTERS, seed = [], runWorker = undefined,
+  maxTermCharacters = DEFAULT_MAX_TERM_CHARACTERS, seed = [], workflowTerms = [], runWorker = undefined,
   now = new Date().toISOString() } = {}) {
   const { opened, refused } = readProjectKeys({ io, bindingFile });
   const databases = new Map();
@@ -219,7 +242,8 @@ export async function collectSharedTerms({ io, bindingFile = 'graph_index_bindin
     generations.push(...seen.generations);
   }
   const codeForKey = new Map(opened.map(entry => [entry.project_key, entry.code]));
-  const registry = buildSharedTerms({ terms, generations, codeForKey, seed, minProjects, maxTermCharacters, now });
+  const registry = buildSharedTerms({ terms, generations, codeForKey, seed, workflowTerms, minProjects,
+    maxTermCharacters, now });
   // Diagnostics for the operator, not part of the file: the registry schema is
   // the same whether or not a binding was refused this time.
   Object.defineProperty(registry, 'refused', { value: refused, enumerable: false });
@@ -254,7 +278,9 @@ function options(argv) {
 const RENDERED_ROWS = 20;
 
 export function render(registry, wrote) {
-  const lines = [`용어 ${registry.counts.terms} (2과제 이상 ${registry.counts.shared_terms})`
+  const lines = [`용어 ${registry.counts.terms} (공통 ${registry.counts.shared_terms}`
+    + ` = 관측 2과제 이상 ${registry.counts.observed_shared_terms} + 선언만 ${registry.counts.declared_only_terms})`
+    + ` · 업무 내용 ${registry.counts.content_rows} · 워크플로 ${registry.counts.workflow_rows}`
     + ` · 과제 ${registry.counts.projects} · 그래프 용어 ${registry.counts.graph_terms}`
     + ` · seed ${registry.counts.seed_terms} · 최소 과제 수 ${registry.counts.min_projects}`,
   `그래프 이름 ${registry.counts.graph_names} 중 식별자 ${registry.counts.identifier_dropped}개,`
@@ -268,8 +294,11 @@ export function render(registry, wrote) {
   if (wrote) lines.push(`wrote ${wrote.path} ${wrote.sha256.slice(0, 19)} `
     + `(${wrote.previous_kept ? '.prev kept' : 'first write'})`);
   for (const [index, row] of registry.terms.slice(0, RENDERED_ROWS).entries()) {
-    lines.push(`  #${index + 1} ${row.term} · ${row.projects.length}과제 `
-      + `${row.projects.join(',')} · 언급 ${row.mention_count} · ${row.source}`);
+    lines.push(`  #${index + 1} ${row.term} · 관측 ${row.observed_projects.length}과제 `
+      + `${row.observed_projects.join(',') || '-'}`
+      + `${row.declared_projects.length ? ` · 선언 ${row.declared_projects.join(',')}` : ''}`
+      + ` · 언급 ${row.mention_count} · ${row.source}`
+      + `${row.category === 'workflow' ? ' · 워크플로' : ''}`);
   }
   if (registry.terms.length > RENDERED_ROWS) lines.push(`  … 나머지 ${registry.terms.length - RENDERED_ROWS}개는 파일에 있습니다.`);
   return lines.join('\n');
@@ -286,15 +315,15 @@ async function main() {
   const io = createAliasedStoreIo(readRootTable({ tablePath,
     expectedSha256: typeof expected === 'string' ? expected : sha256(readFileSync(tablePath)) }));
   const seedPath = flags.get('seed');
-  let seed = [];
+  let seed = [], workflowTerms = [];
   if (typeof seedPath === 'string' && existsSync(seedPath)) {
     const bytes = readFileSync(seedPath);
     if (bytes.length > MAX_SEED_BYTES) fail('shared_terms_seed_too_large');
-    seed = readSeed(bytes);
+    ({ terms: seed, workflow_terms: workflowTerms } = readSeed(bytes));
   }
   const registry = await collectSharedTerms({ io, minProjects: Number.parseInt(String(flags.get('min-projects') ?? '2'), 10),
     maxTermCharacters: Number.parseInt(String(flags.get('max-term-characters') ?? String(DEFAULT_MAX_TERM_CHARACTERS)), 10),
-    seed, bindingFile: String(flags.get('binding') ?? 'graph_index_binding.unified.json') });
+    seed, workflowTerms, bindingFile: String(flags.get('binding') ?? 'graph_index_binding.unified.json') });
   const out = typeof flags.get('out') === 'string' ? String(flags.get('out')) : tools.shared_terms_path;
   if (!out) fail('shared_terms_out_required');
   const wrote = { path: out, ...writeRegistry(out, registry) };

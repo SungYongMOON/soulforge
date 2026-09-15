@@ -23,6 +23,12 @@
 import { readFileSync } from 'node:fs';
 
 export const SHARED_TERMS_SCHEMA = 'soulforge.context_shared_terms.v0';
+// What a term is about. `content` is the estate's own subject vocabulary; a
+// `workflow` term is the state-machine and notification wording that arrives with
+// the task tracker (Status Change, due_date, 상태 변경). Both are shared and
+// neither can decide a project, but they answer different questions, so a reader
+// shows them apart and the project step drops the workflow ones from its query.
+export const TERM_CATEGORIES = Object.freeze(['content', 'workflow']);
 export const SHARED_TERMS_MAX_BYTES = 8 * 1024 * 1024;
 // What one call will scan. A caller with more text than this splits it; it is not
 // quietly truncated, because a term missed by truncation reads as "not present".
@@ -66,13 +72,33 @@ export function loadSharedTerms(path) {
   if (value?.schema !== SHARED_TERMS_SCHEMA) fail('shared_terms_schema_unknown');
   if (typeof value.generated_at !== 'string' || !value.generated_at || !Array.isArray(value.generation_refs)
     || !Array.isArray(value.terms)) fail('shared_terms_invalid');
+  let derived = false;
   const terms = value.terms.map(row => {
     if (typeof row?.term !== 'string' || !row.term || typeof row.normalized !== 'string' || !row.normalized
       || !Array.isArray(row.projects) || !row.projects.every(code => typeof code === 'string' && code)
       || !Number.isSafeInteger(row.mention_count) || row.mention_count < 0
       || !['graph', 'seed', 'both'].includes(row.source)) fail('shared_terms_invalid');
+    for (const field of ['observed_projects', 'declared_projects']) {
+      if (Object.hasOwn(row, field) && (!Array.isArray(row[field])
+        || !row[field].every(code => typeof code === 'string' && code))) fail('shared_terms_invalid');
+    }
+    if (Object.hasOwn(row, 'declared_shared') && typeof row.declared_shared !== 'boolean') fail('shared_terms_invalid');
+    if (Object.hasOwn(row, 'category') && !TERM_CATEGORIES.includes(row.category)) fail('shared_terms_invalid');
+    const complete = ['declared_shared', 'observed_projects', 'declared_projects', 'category']
+      .every(field => Object.hasOwn(row, field));
+    if (!complete) derived = true;
+    // A row written before the declaration and the observation were told apart
+    // says only `projects` and `source`. The one thing that file does record is
+    // that the seed named the term, so `declared_shared` is recoverable; which of
+    // the projects came from the seed is not, and is reported as unknown (empty)
+    // rather than guessed at.
+    const declaredShared = Object.hasOwn(row, 'declared_shared') ? row.declared_shared : row.source !== 'graph';
+    const observed = Object.hasOwn(row, 'observed_projects') ? [...row.observed_projects] : [...row.projects];
+    const declaredProjects = Object.hasOwn(row, 'declared_projects') ? [...row.declared_projects] : [];
     return Object.freeze({ term: row.term, normalized: row.normalized, projects: Object.freeze([...row.projects]),
-      mention_count: row.mention_count, source: row.source });
+      mention_count: row.mention_count, source: row.source, declared_shared: declaredShared,
+      observed_projects: Object.freeze(observed), declared_projects: Object.freeze(declaredProjects),
+      category: Object.hasOwn(row, 'category') ? row.category : 'content' });
   });
   const refs = value.generation_refs.map(row => {
     if (typeof row?.project !== 'string' || !row.project || typeof row.generation_id !== 'string'
@@ -81,6 +107,7 @@ export function loadSharedTerms(path) {
   });
   return Object.freeze({ schema: value.schema, generated_at: value.generated_at,
     generation_refs: Object.freeze(refs), terms: Object.freeze(terms),
+    compat: derived ? 'derived_from_v0_rows' : 'rows_as_written',
     counts: Object.freeze({ ...(value.counts ?? {}) }) });
 }
 
@@ -101,13 +128,18 @@ const KIND_ORDER = { shared: 0, distinctive: 1, unregistered: 2 };
 /**
  * The terms this text carries, and whether any of them can decide a project.
  *
- * `shared` is a term two or more projects use: it is evidence about the subject
- * and no evidence at all about which project the text belongs to. `distinctive`
- * is a term exactly one project's generation holds, so it is a candidate -- still
- * a candidate, because the registry says where a term has been seen, not where it
- * may appear. `unregistered` is an acronym-shaped token the registry has never
- * seen; it is reported so a reader can say "I do not know this word" instead of
- * quietly treating it as distinctive.
+ * `shared` is a term the estate uses in more than one place: either two or more
+ * projects' generations were observed holding it, or a person declared it shared
+ * in the seed. A declaration is not an observation and the two are kept apart --
+ * the seed's own project list never inflates the observed count -- but either one
+ * is enough to stop the term from deciding a project.
+ *
+ * `distinctive` is a term exactly one project's generation holds and nobody
+ * declared shared, so it is a candidate -- still a candidate, because the registry
+ * says where a term has been seen, not where it may appear. `unregistered` is an
+ * acronym-shaped token the registry has never seen; it is reported so a reader can
+ * say "I do not know this word" instead of quietly treating it as distinctive, and
+ * it is never strong evidence for anything.
  *
  * Without a registry there is no verdict, so the answer is empty rather than a
  * list of guesses.
@@ -125,14 +157,29 @@ export function classifyTerms(text, registry) {
     if (!needle) continue;
     known.add(needle);
     if (found.has(needle) || !occurs(haystack, needle)) continue;
-    const projects = Array.isArray(entry.projects) ? [...entry.projects] : [];
+    const observed = Array.isArray(entry.observed_projects) ? [...entry.observed_projects]
+      : (Array.isArray(entry.projects) ? [...entry.projects] : []);
+    const declaredProjects = Array.isArray(entry.declared_projects) ? [...entry.declared_projects] : [];
+    const declaredShared = typeof entry.declared_shared === 'boolean' ? entry.declared_shared
+      : entry.source !== 'graph';
+    // A row that names no project at all and carries no declaration says nothing
+    // about anything; it is left out rather than reported as distinctive to
+    // nowhere. The generator cannot emit one, so this is a file-shape guard.
+    if (observed.length === 0 && !declaredShared) continue;
     found.set(needle, Object.freeze({ term: typeof entry.term === 'string' && entry.term ? entry.term : needle,
-      kind: projects.length >= 2 ? 'shared' : 'distinctive', projects: Object.freeze(projects) }));
+      kind: declaredShared || observed.length >= 2 ? 'shared' : 'distinctive',
+      projects: Object.freeze([...new Set([...observed, ...declaredProjects])].sort()),
+      observed_projects: Object.freeze([...observed].sort()),
+      declared_projects: Object.freeze([...declaredProjects].sort()),
+      observed_project_count: observed.length, declared_shared: declaredShared,
+      category: TERM_CATEGORIES.includes(entry.category) ? entry.category : 'content' }));
   }
   for (const [token] of text.matchAll(ACRONYM)) {
     const needle = normaliseTerm(token);
     if (!needle || known.has(needle) || found.has(needle)) continue;
-    found.set(needle, Object.freeze({ term: token, kind: 'unregistered', projects: Object.freeze([]) }));
+    found.set(needle, Object.freeze({ term: token, kind: 'unregistered', projects: Object.freeze([]),
+      observed_projects: Object.freeze([]), declared_projects: Object.freeze([]),
+      observed_project_count: 0, declared_shared: false, category: 'content' }));
   }
   return [...found.values()].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]
     || (a.term < b.term ? -1 : a.term > b.term ? 1 : 0));

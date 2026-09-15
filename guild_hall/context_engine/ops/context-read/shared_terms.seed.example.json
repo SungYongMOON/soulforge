@@ -1,6 +1,6 @@
 {
   "schema": "soulforge.context_shared_terms_seed.v0",
-  "note": "PUBLIC-SAFE EXAMPLE. The real seed lives at <control_root>/context-read/shared_terms.seed.v0.json and is Owner-placed; the terms below are placeholders and the project codes are not real ones. The seed declares a term shared before the graph has shown it in two projects — it never removes a term, and it never invents evidence: `projects` is where the term was actually seen, so a row without at least one project code is refused. The generated registry (<control_root>/context-read/shared_terms.v0.json) is derived from this file plus the graph index and may be regenerated at any time.",
+  "note": "PUBLIC-SAFE EXAMPLE. The real seed lives at <control_root>/context-read/shared_terms.seed.v0.json and is Owner-placed; the terms below are placeholders and the project codes are not real ones. The seed declares a term shared before the graph has shown it in two projects — it never removes a term, and it never invents evidence: `projects` is where the term was actually seen, so a row without at least one project code is refused. `workflow_terms` is a plain list of the words that come from the task tracker's own state machine and notifications rather than from this estate's subject matter; it marks a registered term's category and registers nothing on its own. The generated registry (<control_root>/context-read/shared_terms.v0.json) is derived from this file plus the graph index and may be regenerated at any time.",
   "terms": [
     {
       "term": "<공통 용어>",
@@ -12,5 +12,9 @@
       "projects": ["<과제 코드>", "<다른 과제 코드>", "<또 다른 과제 코드>"],
       "note": "약어는 대소문자를 구분하지 않고 찾으며, 붙어 있는 한글 조사는 그대로 허용한다."
     }
+  ],
+  "workflow_terms": [
+    "<과제 업무가 아니라 작업 도구의 상태·알림에서 온 말>",
+    "<같은 종류의 다른 말>"
   ]
 }
