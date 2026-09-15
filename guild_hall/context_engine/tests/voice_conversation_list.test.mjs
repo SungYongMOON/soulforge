@@ -796,6 +796,19 @@ test('the agenda of a long conversation is checked against the conversation it c
   { text: '내용', segmentIds: ids });
   assert.deepEqual(checked.agenda, [{ label: '앞부분', source_segment_ids: [1, 2] }]);
   assert.deepEqual([checked.agenda_dropped, checked.marks], [1, ['agenda_items_dropped']]);
+
+  // One item covering the whole thing is the title written twice; a long
+  // conversation with no agenda at all says so too. Neither is refused.
+  const whole = checkNature({ nature: 'project_work', title: 't', description: '', key_terms: [],
+    agenda: [{ label: '전부', source_segment_ids: ids }] }, { text: '내용', segmentIds: ids });
+  assert.ok(whole.marks.includes('agenda_covers_whole_segment'));
+  const long = Array.from({ length: 45 }, (_, index) => index + 1);
+  const none = checkNature({ nature: 'project_work', title: 't', description: '', key_terms: [], agenda: [] },
+    { text: '내용', segmentIds: long });
+  assert.ok(none.marks.includes('agenda_absent'), 'a long conversation that answered with nothing says so');
+  const short = checkNature({ nature: 'project_work', title: 't', description: '', key_terms: [], agenda: [] },
+    { text: '내용', segmentIds: [1, 2] });
+  assert.deepEqual(short.marks, [], 'a short one is allowed to have no agenda');
   const merged = mergeNatureWindows([
     { nature: 'project_work', title: '앞', description: 'a', key_terms: [], marks: [],
       agenda: [{ label: '뒤쪽', source_segment_ids: [9] }], agenda_dropped: 0 },

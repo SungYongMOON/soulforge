@@ -627,6 +627,9 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       key_terms: [...nature.key_terms],
       key_terms_typed: [...(nature.key_terms_typed ?? [])],
       agenda_items: [...(nature.agenda ?? [])],
+      // What the nature step said about its own answer, so a thin agenda is
+      // visible as a thin agenda rather than as an absent one.
+      nature_marks: [...(nature.marks ?? [])],
       clue_table: judged.table ?? [],
       // The registry's verdict on the words actually in this conversation. Clues
       // include what the labelling run saw and what step 3 picked out; these are
@@ -747,6 +750,9 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       project_mixed: rows.filter(row => row.project_candidates.length >= 2).length,
       agenda_items: rows.reduce((sum, row) => sum + row.agenda_items.length, 0),
       segments_with_agenda: rows.filter(row => row.agenda_items.length > 0).length,
+      agenda_absent: rows.filter(row => row.nature_marks.includes('agenda_absent')).length,
+      agenda_covers_whole_segment: rows.filter(row => row.nature_marks.includes('agenda_covers_whole_segment')).length,
+      agenda_items_dropped: rows.filter(row => row.nature_marks.includes('agenda_items_dropped')).length,
       corrections: corrections.counts },
     checks, remaining_work: remainingWork, verified: list.verified };
 

@@ -158,6 +158,8 @@ const TITLE_CHARACTERS = 40, DESCRIPTION_CHARACTERS = 200;
 export const AGENDA_ITEMS = 6, AGENDA_LABEL_CHARACTERS = 40;
 /** A conversation long enough that one title cannot say what it was about. */
 export const AGENDA_UTTERANCES = 40;
+/** How much of a conversation one agenda item may cover before it is just the title. */
+export const AGENDA_WHOLE_SEGMENT = 0.8;
 const sha256 = value => createHash('sha256').update(typeof value === 'string' ? Buffer.from(value, 'utf8') : value).digest('hex');
 
 export class ConversationListError extends Error {
@@ -691,6 +693,14 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
   }
   const agenda = checkAgenda(answer.agenda, { segmentIds });
   if (agenda.dropped.length > 0) marks.push('agenda_items_dropped');
+  // One item covering the whole conversation is the title written twice. It is
+  // not refused -- a conversation really can hold one subject -- but a reader
+  // should see that the agenda did not tell them anything the title did not.
+  if (agenda.items.length === 1 && segmentIds.length > 0
+    && agenda.items[0].source_segment_ids.length >= segmentIds.length * AGENDA_WHOLE_SEGMENT) {
+    marks.push('agenda_covers_whole_segment');
+  }
+  if (agenda.items.length === 0 && segmentIds.length >= AGENDA_UTTERANCES) marks.push('agenda_absent');
   return { ok: true, code: null, nature, title, description, key_terms: kept, key_terms_typed: typed,
     agenda: agenda.items, agenda_dropped: agenda.dropped.length,
     dropped_key_terms: keyTerms.length - kept.length, unclear: answer.unclear === true, marks };
@@ -765,6 +775,7 @@ export function mergeNatureWindows(answers) {
     agenda: answers.flatMap(answer => answer.agenda ?? [])
       .sort((a, b) => a.source_segment_ids[0] - b.source_segment_ids[0]),
     agenda_dropped: answers.reduce((sum, answer) => sum + (answer.agenda_dropped ?? 0), 0),
+    agenda_windows_without: answers.filter(answer => (answer.agenda ?? []).length === 0).length,
     unclear: answers.some(answer => answer.unclear), marks: [...new Set(marks)],
     processed_in_windows: answers.length };
 }
