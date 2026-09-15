@@ -35,7 +35,7 @@ function App(){
   const total=(key:string)=>!error&&snapshot?.state==='ready'&&snapshot.projects?.length>0&&snapshot.projects.every((r:Row)=>typeof r.database?.[key]==='number')?snapshot.projects.reduce((sum:number,r:Row)=>sum+r.database[key],0):null;
   const displayDetail=detail?.state==='ready';
   const metadataStatus=detail?.preparation?.state;
-  return <div className="rag-app"><header className="rag-topbar"><a href="/operations-console.html"><ArrowLeft size={17}/>운영 미리보기</a><strong>Soulforge <span>RAG</span></strong><span>실제 로컬 DB · 읽기 전용</span></header>
+  return <div className={`rag-app ${new URLSearchParams(location.search).get('embedded')==='1'?'rag-embedded':''}`}><header className="rag-topbar"><a href="/operations-console.html"><ArrowLeft size={17}/>운영 미리보기</a><strong>Soulforge <span>RAG</span></strong><span>실제 로컬 DB · 읽기 전용</span></header>
     <main><div className="rag-title"><div><small>검색 준비부터 실제 반영까지</small><h1>RAG 처리 상태</h1><p>Neo4j의 현재 데이터와 저장된 전처리·임베딩 이력을 함께 확인합니다.</p></div><button className="rag-primary" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>{loading?'읽는 중':'DB·기록 다시 조회'}</button></div>
       <div className="rag-connection"><Database size={18}/><strong>{error?'DB 현재성 확인 필요':snapshot?.state==='ready'?'Neo4j 실조회 연결':'DB 읽는 중'}</strong><span>조회 {at(snapshot?.observed_at)}</span><small>60초 캐시 · 재임베딩·색인 갱신은 실행하지 않음</small></div>
       {error&&<div className="rag-notice" role="status">{error}</div>}

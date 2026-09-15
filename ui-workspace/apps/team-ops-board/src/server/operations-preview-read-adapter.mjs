@@ -17,7 +17,7 @@ export function createOperationsPreviewReadPlugin({ fetchImpl = fetch, now = Dat
     if (old && now()-old.at < 10_000) return old.body;
     if (pending.has(route)) return pending.get(route);
     const operation = (async()=>{
-      const url = `http://127.0.0.1:4192${route}${route==='/erp-pending-reviews.snapshot.json'?'?read_only=1':''}`;
+      const url = `http://127.0.0.1:4192${route}${['/erp-pending-reviews.snapshot.json','/agent-runtime.snapshot.json'].includes(route)?'?read_only=1':''}`;
       const response = await fetchImpl(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15_000),headers:{Accept:'application/json'}});
       if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('read_unavailable');
       const chunks=[];let size=0;

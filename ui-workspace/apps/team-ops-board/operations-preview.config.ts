@@ -11,6 +11,7 @@ import { createOperationsDirectoryPlugin } from './src/server/operations-directo
 import { createGraphReceiptPlugin } from './src/server/operations-graph-receipts-adapter.mjs';
 import { createOperationsPreviewReadPlugin } from './src/server/operations-preview-read-adapter.mjs';
 import { createRagOperationsPlugin } from './src/server/rag-operations-adapter.mjs';
+import { createOperationsSpacesPlugin } from './src/server/operations-spaces-adapter.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const stateRoot = resolveSoulforgeStateRoot(process.env, () => path.resolve(root, '../../../guild_hall/state'));
@@ -19,7 +20,7 @@ const stateRoot = resolveSoulforgeStateRoot(process.env, () => path.resolve(root
 // local database inspector only (no embedding, retrieval/model call or writer).
 export default defineConfig({
   root,
-  plugins: [react(), createTopologyAdapterPlugin({ readOnlyPilot: true, snapshotPath: '/operations-health.snapshot.json' }), createTopologyFederationAdapterPlugin(),
+  plugins: [react(), createOperationsSpacesPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256, projects: (process.env.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean) }), createTopologyAdapterPlugin({ readOnlyPilot: true, snapshotPath: '/operations-health.snapshot.json' }), createTopologyFederationAdapterPlugin(),
     createRagOperationsPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256,
       receiptsRoot: process.env.TEAM_OPS_GRAPH_RECEIPTS_ROOT, projects: (process.env.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean) }),
     createTopologyAdapterPlugin({ readOnlyPilot: true }), createOperationsPreviewReadPlugin(),

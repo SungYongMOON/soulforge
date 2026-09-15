@@ -16,6 +16,7 @@ test('preview reads only fixed installed snapshot routes, drops force/target que
   await read('/host-stats.snapshot.json');assert.equal(calls.length,1);
   assert.equal(calls[0].url,'http://127.0.0.1:4192/host-stats.snapshot.json');assert.equal(calls[0].options.method,'GET');
   assert.equal(calls[0].options.redirect,'error');assert.deepEqual(await read('/unregistered.json'),{next:true});
+  await read('/agent-runtime.snapshot.json?refresh=1');assert.equal(calls[1].url,'http://127.0.0.1:4192/agent-runtime.snapshot.json?read_only=1');
   assert.equal((await read('/host-stats.snapshot.json','POST')).status,405);
   assert.equal((await read('/host-stats.snapshot.json','GET',{'forwarded':'for=external'})).status,403);
 });

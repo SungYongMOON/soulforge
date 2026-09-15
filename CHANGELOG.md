@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-09-15 - 운영 미리보기를 현황·구조·자료·검색 근거로 통합
+
+- Revision: 이 항목을 포함한 커밋. 기존 RAG 화면과 운영 현황, 전체 Topology·진단,
+  주요 데이터 공간, 사용 이력, 질문·근거, 기억·맥락을 같은 탐색에 연결했다.
+- 남은 제공자 한도·초기화 시각과 기존 시간·모델별 사용 차트를 보존하고,
+  실제 활성 작업 관측, PLAUD 등록 기록과 현재 RAG 판본의 출처별 문서를 표시한다.
+- 고정 데이터 공간에서 폴더를 펼치고 파일을 옆 또는 별도 창에서 읽을 수 있다.
+  경로 표 검증·보호 이름·링크·파일 크기 제한을 적용하며 기존 문서 추출 캐시를 재사용한다.
+- 질문 버튼은 기존 lexical 검색과 조사 예산만 사용한다. 결과의 출처 분포·문서/청크
+  소속을 보여주며 DB 엣지 탐색·검색 품질·기억 생성으로 과장하지 않는다.
+- 운영 영향: 검토용 미리보기만 변경. DB 쓰기·재임베딩·LLM·새 probe·운영 lane 전환은 없음.
+  명시적인 파일 열기는 기존 private 파생 캐시, 수동 검색은 기존 호출 원장에 기록될 수 있다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/operations-workspace.tsx`,
+  `src/operations-system.tsx`, `src/server/operations-spaces-adapter.mjs`, `operations-preview.config.ts`.
+
 ## 2026-09-15 - 실제 Neo4j와 RAG 처리 이력 조회
 
 - Revision: 이 항목을 포함한 커밋. 운영 미리보기에 `/rag-operations.html`을 추가했다.
