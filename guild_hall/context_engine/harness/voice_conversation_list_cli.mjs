@@ -42,9 +42,10 @@ import {
   batchSegments, boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection,
   applyContextContinuity, checkNature, classifyClues, clockAt, clueQuery, correctionGlossary, finalChecks,
   mergeDrafts, mergeNatureWindows, partialWindows,
-  occurrenceCounter, qaBoundarySuspects, qualityReport, readPipelineConfig, recurringTokens,
-  relatedByKeyTerms, renderConversationTable, renderCorrectionsTable, rulesCoverage, runIdFor,
-  searchableClues, segmentsNeedingRejudgement, singleSegmentSuspect, stitchBoundaries, wholeMilliseconds,
+  AGENDA_UTTERANCES, occurrenceCounter, qaBoundarySuspects, qualityReport, readPipelineConfig,
+  recurringTokens, relatedByKeyTerms, renderConversationTable, renderCorrectionsTable, rulesCoverage,
+  runIdFor, searchableClues, segmentsNeedingRejudgement, selectEvidenceHits, singleSegmentSuspect,
+  stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
 
 export const VOICE_CONVERSATION_COMMANDS = Object.freeze(['run', 'show', 'table']);
@@ -205,6 +206,11 @@ const NATURE_ANSWER = { type: 'object', additionalProperties: false, required: [
       // look like the same kind of clue.
       key_terms: array({ type: 'object', additionalProperties: false, required: ['term', 'kind'], properties: {
         term: { type: 'string' }, kind: enumOf(KEY_TERM_KINDS) } }),
+      // What a long conversation held, so a reader can find the part they wanted.
+      // A short one answers with an empty list.
+      agenda: array({ type: 'object', additionalProperties: false,
+        required: ['label', 'source_segment_ids'], properties: {
+          label: { type: 'string' }, source_segment_ids: array({ type: 'integer' }) } }),
       unclear: { type: 'boolean' } } }) } };
 const PROJECT_ANSWER = { type: 'object', additionalProperties: false, required: ['candidates'], properties: {
   candidates: array({ type: 'object', additionalProperties: false,
@@ -392,7 +398,9 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const natureOf = new Map();
   const askNature = async (batch) => {
     const body = batch.map(entry => `[${entry.segment_id}] 발화 ${entry.ids[0]}–${entry.ids.at(-1)}`
-      + ` · 화행 ${entry.acts.join(',') || '-'} · 품질 ${entry.marks.join(',') || '-'}\n${entry.text}`).join('\n\n');
+      + ` · 화행 ${entry.acts.join(',') || '-'} · 품질 ${entry.marks.join(',') || '-'}`
+      + `${entry.ids.length >= AGENDA_UTTERANCES ? ' · (긴 구간 — agenda를 낼 것)' : ''}`
+      + `\n${entry.text}`).join('\n\n');
     const answer = await ask({ step: 'nature', system: prompts.nature,
       user: `구간 ${batch.length}개\n\n${body}`, schema: NATURE_ANSWER });
     if (answer.status !== 'ok') return null;
@@ -414,13 +422,14 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       const found = await askNature([entry]);
       const row = found?.get(segment.segment_id) ?? null;
       const checked = row === null ? { ok: false } : checkNature(row, { text: entry.text,
-        unreadableRatio: unreadableRatioOf(ids), speechActs: entry.acts });
+        unreadableRatio: unreadableRatioOf(ids), speechActs: entry.acts, segmentIds: ids });
       if (checked.ok) answers.push(checked);
       else note('nature', segment.segment_id, checked.code ?? 'nature_llm_failed');
     }
     natureOf.set(segment.segment_id, answers.length === 0
       ? { nature: 'mixed', title: `구간 ${segment.segment_id} (미정)`, description: '', key_terms: [],
-        key_terms_typed: [], unclear: true, marks: ['nature_llm_failed'], processed_in_windows: windowsOf.length }
+        key_terms_typed: [], agenda: [], unclear: true, marks: ['nature_llm_failed'],
+        processed_in_windows: windowsOf.length }
       : mergeNatureWindows(answers));
   }
   const short = segments.filter(segment => !long(segment));
@@ -431,13 +440,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     for (const entry of entries) {
       const row = found?.get(entry.segment_id) ?? null;
       const checked = row === null ? { ok: false } : checkNature(row, { text: entry.text,
-        unreadableRatio: unreadableRatioOf(entry.ids), speechActs: entry.acts });
+        unreadableRatio: unreadableRatioOf(entry.ids), speechActs: entry.acts, segmentIds: entry.ids });
       if (checked.ok) natureOf.set(entry.segment_id, { ...checked, processed_in_windows: 1 });
       else {
         note('nature', entry.segment_id, checked.code ?? 'nature_llm_failed');
         natureOf.set(entry.segment_id, { nature: 'mixed', title: `구간 ${entry.segment_id} (미정)`,
-          description: '', key_terms: [], key_terms_typed: [], unclear: true, marks: ['nature_llm_failed'],
-          processed_in_windows: 1 });
+          description: '', key_terms: [], key_terms_typed: [], agenda: [], unclear: true,
+          marks: ['nature_llm_failed'], processed_in_windows: 1 });
       }
     }
   }
@@ -466,11 +475,12 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     for (const [code, retriever] of retrievers.opened) {
       const answered = retriever.lexical(query);
       if (answered.status !== 'ok') continue;
-      for (const hit of answered.hits.slice(0, 3)) {
-        const quote = String(hit.text ?? '').split('\n').map(line => line.trim()).find(Boolean) ?? '';
-        const matched = searchable.filter(clue => `${hit.title ?? ''} ${hit.text ?? ''}`.toLowerCase()
-          .includes(clue.term.toLowerCase())).map(clue => clue.term);
-        if (matched.length === 0) continue;
+      // Filter, then take. The search ranks by the whole query, so a project's top
+      // rows can all be about its most ordinary word while the row that holds the
+      // specific term sits further down.
+      for (const { hit, matched } of selectEvidenceHits(answered.hits, searchable,
+        { scan: limits.project_evidence_rows, keep: 3 })) {
+        const quote = String(hit.text ?? '').split('\n').map(part => part.trim()).find(Boolean) ?? '';
         rows.push({ row_id: evidenceRows.length + rows.length + 1, project_code: code, item_id: String(hit.item_id ?? ''),
           unit_id: String(hit.unit_id ?? ''), source_kind: String(hit.source_kind ?? ''),
           quote: glyphs(quote).slice(0, limits.evidence_quote_characters).join(''),
@@ -493,6 +503,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     const checked = checkCandidates(answer.value, { evidenceRows: kept, clues, limit: limits.project_candidates });
     return { candidates: checked.candidates, unclassified_reason: checked.unclassified_reason,
       downgraded: checked.downgraded, other_project_mentions: checked.other_project_mentions,
+      strong_downgraded_single_clue: checked.strong_downgraded_single_clue ?? 0,
       clues, table, rows: kept, revised };
   };
   for (const segment of segments) {
@@ -547,7 +558,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
           continue;
         }
         const checked = checkCorrection(raw, { text: textOfId(id), knownTerms: knownTermsFor(textOfId(id)),
-          keyTerms: natureOf.get(segment.segment_id)?.key_terms ?? [], occurrences });
+          keyTerms: natureOf.get(segment.segment_id)?.key_terms ?? [], occurrences,
+          protectedWords: recurring.map(row => row.term) });
         if (checked.status !== 'proposed') {
           discarded.push({ source_segment_id: id, original: String(raw?.original ?? ''),
             proposed: String(raw?.proposed ?? ''), code: checked.code });
@@ -601,7 +613,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     const ids = segment.source_segment_ids;
     const start = Math.min(...ids.map(id => rowFor.get(id)?.start_seconds ?? 0));
     const end = Math.max(...ids.map(id => rowFor.get(id)?.end_seconds ?? 0));
-    const nature = natureOf.get(segment.segment_id) ?? { nature: 'mixed', title: '', description: '', key_terms: [], key_terms_typed: [], unclear: true, marks: [], processed_in_windows: 1 };
+    const nature = natureOf.get(segment.segment_id) ?? { nature: 'mixed', title: '', description: '',
+      key_terms: [], key_terms_typed: [], agenda: [], unclear: true, marks: [], processed_in_windows: 1 };
     const judged = judgements.get(segment.segment_id) ?? { candidates: [], unclassified_reason: 'no_evidence', clues: [], table: [] };
     const marks = [...new Set(ids.flatMap(id => marksFor.get(id) ?? []))].sort();
     const probabilities = ids.map(id => rowFor.get(id)?.asr_confidence?.mean_token_probability).filter(Number.isFinite);
@@ -613,6 +626,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       nature: nature.nature, nature_unclear: nature.unclear === true,
       key_terms: [...nature.key_terms],
       key_terms_typed: [...(nature.key_terms_typed ?? [])],
+      agenda_items: [...(nature.agenda ?? [])],
       clue_table: judged.table ?? [],
       // The registry's verdict on the words actually in this conversation. Clues
       // include what the labelling run saw and what step 3 picked out; these are
@@ -663,6 +677,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       needs_audio_recheck: proposals.filter(row => row.needs_audio_recheck).length,
       known_term_overrides: proposals.filter(row => row.original_is_known_term).length,
       recurring_original_overrides: proposals.filter(row => row.original_recurs_in_transcript).length,
+      synonym_normalizations: proposals.filter(row => row.synonym_normalization).length,
+      mapped_onto_protected_word: proposals.filter(row => row.mapped_onto_protected_word).length,
       by_discard_code: discarded.reduce((held, row) => ({ ...held, [row.code]: (held[row.code] ?? 0) + 1 }), {}) } };
 
   const before = (() => {
@@ -716,8 +732,12 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     projects: { opened: [...retrievers.opened.keys()], refused: retrievers.refused,
       evidence_rows: evidenceRows.length, rejudged,
       other_project_mentions: rows.reduce((sum, row) => sum + row.other_project_mentions.length, 0),
+      mention_reasons: rows.flatMap(row => row.other_project_mentions.map(item => item.code ?? 'unknown'))
+        .reduce((held, code) => ({ ...held, [code]: (held[code] ?? 0) + 1 }), {}),
+      strong_downgraded_single_clue: [...judgements.values()]
+        .reduce((sum, row) => sum + (row.strong_downgraded_single_clue ?? 0), 0),
       context_continuity_candidates: continuity.applied.length,
-      context_continuity: continuity.applied },
+      context_continuity: continuity.applied, context_stretches: continuity.stretches },
     counts: { segments: rows.length,
       nature: Object.fromEntries(NATURES.map(nature => [nature, rows.filter(row => row.nature === nature).length])),
       candidate: rows.filter(row => row.status === 'candidate').length,
@@ -725,6 +745,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       unclassified_reasons: rows.filter(row => row.status === 'unclassified')
         .reduce((held, row) => ({ ...held, [row.unclassified_reason ?? 'unknown']: (held[row.unclassified_reason ?? 'unknown'] ?? 0) + 1 }), {}),
       project_mixed: rows.filter(row => row.project_candidates.length >= 2).length,
+      agenda_items: rows.reduce((sum, row) => sum + row.agenda_items.length, 0),
+      segments_with_agenda: rows.filter(row => row.agenda_items.length > 0).length,
       corrections: corrections.counts },
     checks, remaining_work: remainingWork, verified: list.verified };
 
@@ -833,6 +855,10 @@ function renderRun(found) {
         ? ` · 언급 ${segment.other_project_mentions.map(row => row.project_code).join(',')}` : ''}`,
     `  품질 marks ${segment.quality.marks.join(',') || '-'} · 교정 ${segment.quality.correction_state}`
       + ` · 판독불가 비율 ${segment.quality.unreadable_ratio}`);
+    if ((segment.agenda_items ?? []).length > 0) {
+      lines.push(`  안건 ${segment.agenda_items.map(item => `${item.label}`
+        + `(${item.source_segment_ids[0]}–${item.source_segment_ids.at(-1)})`).join(' · ')}`);
+    }
   }
   if (found.corrections !== null) {
     lines.push(`\n교정안 ${found.corrections.counts.proposed}건 · 폐기 ${found.corrections.counts.discarded}건`

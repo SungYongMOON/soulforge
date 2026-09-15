@@ -597,6 +597,8 @@ const conversationRowFixture = ({ id, start, end, nature = 'project_work', title
   title, description, nature, status: candidates.length ? 'candidate' : 'unclassified',
   project_candidates: candidates, unclassified_reason: candidates.length ? null : '단서가 공통 용어뿐입니다',
   quality: { transcript_kind: 'independent_fast', marks: ['low_confidence'], correction_state: 'proposed', ...quality },
+  agenda_items: [{ label: '도면 수정본 확인', source_segment_ids: [11] },
+    { label: '다음 반입 일정', source_segment_ids: [12] }],
   refs: { session_id: SESSION, transcript_run_id: RUN, source_segment_ids: [11, 12],
     // The pipeline records where the audio is; this read must never pass it on.
     audio_ref: `sessions/${DATE}/${SESSION}/audio/source.mp3`, semantic_run_id: 'vsl_synthetic_run' },
@@ -701,6 +703,12 @@ test('대화 목록이 있으면 그것으로 답하고, 원 발화 자리는 �
       basis: ['equipment', 'purpose'], evidence_rows: 2 }]);
     assert.equal(first.quality.correction_state, 'proposed');
     assert.deepEqual(first.refs.source_segment_ids, [11, 12]);
+    // A long conversation's agenda travels, so a reader can find the part they wanted.
+    assert.deepEqual(first.agenda.map(item => item.label), ['도면 수정본 확인', '다음 반입 일정']);
+    const rendered = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' },
+      toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(rendered, /안건: 도면 수정본 확인 \(발화 11–11\) · 다음 반입 일정/u);
+    assert.equal(rendered.includes('source.mp3'), false);
     assert.deepEqual(first.related, ['conv_2']);
     assert.equal(second.unclassified_reason, '단서가 공통 용어뿐입니다');
     assert.equal(second.project_candidates.length, 0);

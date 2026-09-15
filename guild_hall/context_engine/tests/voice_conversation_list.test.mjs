@@ -21,11 +21,11 @@ import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import { conversationRow } from '../src/runtime/voice_session_read.mjs';
 import {
   applyContextContinuity, applyCorrections, attachUncovered, batchSegments, boundaryWindows,
-  checkBoundaryProposal, checkCandidates, correctionGlossary,
+  checkAgenda, checkBoundaryProposal, checkCandidates, contextStretches, correctionGlossary,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
   clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
   occurrenceCounter, qualityReport, readPipelineConfig, recurringTokens, relatedByKeyTerms,
-  singleSegmentSuspect,
+  selectEvidenceHits, singleSegmentSuspect,
   renderConversationTable, repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
@@ -499,8 +499,9 @@ test('relative time and the generic nouns of doing work are never searched with'
   assert.equal(byTerm.has('아무개'), false, 'a person mention does not name a thing, so it is not a clue');
   assert.equal(byTerm.has('12개'), false, 'and neither does a measured value');
   assert.equal(byTerm.get('다음 주').stoplisted, true);
-  assert.deepEqual(searchableClues(clues, { limit: 8 }).map(clue => clue.term), ['XG보정판'],
-    'the only word left that can narrow anything');
+  assert.deepEqual(searchableClues(clues, { limit: 8 }).map(clue => clue.term), ['XG보정판', '시험'],
+    'the generic nouns go, and a stoplisted word the model says names a test may still be searched');
+  assert.equal(byTerm.get('일정').stoplisted, true, 'typed `other`, so the stoplist stands');
   assert.deepEqual([isStoplisted('다음 주'), isStoplisted('  다음   주 '), isStoplisted('화요일'),
     isStoplisted('XG보정판')], [true, true, true, false]);
 
@@ -510,6 +511,50 @@ test('relative time and the generic nouns of doing work are never searched with'
   assert.deepEqual(named.map(clue => [clue.term, clue.term_kind, clue.origins]), [['보정판', 'equipment', ['entity']]]);
   assert.deepEqual(classifyClues('보정판 확인', REGISTRY, { entities: ['보정판'] }), [],
     'an entity with no declared kind is not shown to name a thing');
+});
+
+test('a compound that merely contains a shared word is not itself shared', () => {
+  // `보드` and `센서` are words several projects use. `32채널 보드` and `센서 커넥터`
+  // are not: nobody has registered them, which is exactly what makes them worth
+  // searching with. Reading a compound as shared because a part of it is was
+  // dropping every specific term a recording had.
+  const registry = { terms: [
+    { term: '보드', normalized: '보드', projects: ['S00-001', 'S00-002'], observed_projects: ['S00-001', 'S00-002'],
+      declared_projects: [], mention_count: 9, source: 'graph', declared_shared: false, category: 'content' },
+    { term: '센서', normalized: '센서', projects: ['S00-001', 'S00-003'], observed_projects: ['S00-001', 'S00-003'],
+      declared_projects: [], mention_count: 4, source: 'graph', declared_shared: false, category: 'content' }] };
+  const clues = classifyClues('32채널 보드와 센서 커넥터를 확인했고 보드 자체는 그대로다', registry, {
+    keyTerms: [{ term: '32채널 보드', kind: 'board' }, { term: '센서 커넥터', kind: 'board' },
+      { term: '보드', kind: 'board' }] });
+  const byTerm = new Map(clues.map(clue => [clue.term, clue]));
+  assert.equal(byTerm.get('보드').kind, 'shared', 'the bare word is what the registry registered');
+  assert.deepEqual([byTerm.get('32채널 보드').kind, byTerm.get('센서 커넥터').kind],
+    ['unregistered', 'unregistered']);
+  assert.deepEqual(byTerm.get('32채널 보드').contains_shared, ['보드'],
+    'and the clue table says which part of it is shared, so a reader can see the question');
+  assert.deepEqual(byTerm.get('센서 커넥터').contains_shared, ['센서']);
+  assert.deepEqual(searchableClues(clues, { limit: 8 }).map(clue => clue.term),
+    ['32채널 보드', '센서 커넥터'], 'the compounds are searched and the bare shared word is not');
+  // The bare count word is on the stoplist; the compound is a different word.
+  assert.deepEqual([isStoplisted('채널'), isStoplisted('32채널'), isStoplisted('32채널 보드')],
+    [true, false, false]);
+});
+
+test('a project’s evidence is filtered before it is taken, not after', () => {
+  const hit = (rank, text) => ({ rank, text, title: '', item_id: `i${rank}` });
+  const clues = [{ term: 'XG보정판' }, { term: '구미현장' }];
+  // The search's own top three are all about a word that matches nothing here;
+  // the rows that carry the clues sit at ranks four and eight.
+  const hits = [hit(1, '일반적인 브리핑'), hit(2, '또 다른 브리핑'), hit(3, '세 번째 브리핑'),
+    hit(4, 'XG보정판 도면 회신'), hit(5, '관계 없는 줄'), hit(6, '관계 없는 줄'), hit(7, '관계 없는 줄'),
+    hit(8, 'XG보정판과 구미현장 일정')];
+  const picked = selectEvidenceHits(hits, clues, { scan: 12, keep: 3 });
+  assert.deepEqual(picked.map(row => row.hit.rank), [8, 4],
+    'the row matching two clues first, then the row matching one; the clue-less top three are gone');
+  assert.deepEqual(picked[0].matched, ['XG보정판', '구미현장']);
+  assert.deepEqual(selectEvidenceHits(hits, clues, { scan: 3 }), [],
+    'a scan that stops before the evidence finds none, which is what taking three did');
+  assert.equal(selectEvidenceHits(hits, clues, { scan: 12, keep: 1 }).length, 1);
 });
 
 test('a person’s name is searched after a thing’s name, and the query is bounded', () => {
@@ -548,7 +593,8 @@ test('a candidate whose only evidence is a word several projects use is not weak
   // S00-003 was found by one row matched on one unregistered word, beside a
   // project that was found properly. That is a mention, not a second placement.
   assert.equal(byCode.has('S00-003'), false);
-  assert.deepEqual(answer.other_project_mentions, [{ project_code: 'S00-003', evidence_row_ids: [3] }]);
+  assert.deepEqual(answer.other_project_mentions,
+    [{ project_code: 'S00-003', evidence_row_ids: [3], code: 'single_row_beside_a_placement' }]);
   assert.deepEqual(answer.downgraded.map(row => row.code), ['shared_terms_only', 'no_evidence_row']);
 
   // With nothing placed strongly, the same weak row is still a candidate: there
@@ -559,9 +605,11 @@ test('a candidate whose only evidence is a word several projects use is not weak
     [[['S00-003', 'weak']], []],
   'a word the registry has never seen cannot make a candidate strong, however specific it sounds');
 
-  const twoBasis = checkCandidates({ candidates: [{ project_code: 'S00-003', evidence_row_ids: [3],
-    basis: ['equipment', 'follow_up_record'], strength: 'strong' }] }, { evidenceRows: rows, clues });
-  assert.equal(twoBasis.candidates[0].strength, 'strong', 'two kinds of basis is the other way to be strong');
+  const twoBasis = checkCandidates({ candidates: [{ project_code: 'S00-003', evidence_row_ids: [3, 5],
+    basis: ['equipment', 'follow_up_record'], strength: 'strong' }] },
+  { evidenceRows: [...rows, { row_id: 5, project_code: 'S00-003', matched_terms: ['가대'] }], clues });
+  assert.equal(twoBasis.candidates[0].strength, 'strong',
+    'two kinds of basis over two different matched words is the other way to be strong');
   // A weak candidate with more than one row beside a strong one stays a candidate:
   // the rule is about a single row matched on a single unregistered word.
   const twoRows = checkCandidates({ candidates: [
@@ -576,63 +624,61 @@ test('a candidate whose only evidence is a word several projects use is not weak
   assert.deepEqual([none.candidates, none.unclassified_reason], [[], 'shared_terms_only']);
 });
 
-test('a stretch that named nothing, sitting inside work that did, is placed weakly and says why', () => {
-  const placed = (id, from, to, code) => ({ segment_id: id, start_seconds: from, end_seconds: to,
-    nature: 'project_work', status: 'candidate',
+test('a stretch of work places what is unplaced inside it, and a stretch is what ends it', () => {
+  const placed = (id, from, to, code, nature = 'project_work') => ({ segment_id: id, start_seconds: from,
+    end_seconds: to, nature, status: 'candidate',
     project_candidates: [{ project_code: code, strength: 'strong', basis: ['equipment'], evidence_row_ids: [1] }] });
-  const unplaced = (id, from, to, reason = 'no_distinctive_clue') => ({ segment_id: id, start_seconds: from,
-    end_seconds: to, nature: 'project_work', status: 'unclassified', unclassified_reason: reason,
-    project_candidates: [] });
+  const unplaced = (id, from, to, nature = 'project_work') => ({ segment_id: id, start_seconds: from,
+    end_seconds: to, nature, status: 'unclassified', unclassified_reason: 'no_evidence', project_candidates: [] });
+  const aside = (id, from, to, nature) => ({ ...unplaced(id, from, to), nature });
 
   const answer = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
-    placed('c003', 210, 300, 'S00-001')]);
-  assert.deepEqual(answer.applied,
-    [{ segment_id: 'c002', project_code: 'S00-001', context_segment_ids: ['c001', 'c003'] }]);
-  const middle = answer.segments[1];
-  assert.deepEqual([middle.status, middle.unclassified_reason], ['candidate', null]);
-  assert.deepEqual(middle.project_candidates, [{ project_code: 'S00-001', strength: 'weak',
-    basis: ['context_continuity'], evidence_row_ids: [], context_segment_ids: ['c001', 'c003'] }],
-  'weak, with the neighbours named: this is where it sat, not what was said in it');
-
-  // An unreadable stretch in between is skipped rather than read as a change of subject.
-  const skipped = applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
-    { segment_id: 'c002', start_seconds: 105, end_seconds: 115, nature: 'unreadable', status: 'unclassified',
-      unclassified_reason: 'no_evidence', project_candidates: [] },
-    unplaced('c003', 120, 200), placed('c004', 210, 300, 'S00-001')]);
-  assert.deepEqual(skipped.applied.map(row => row.segment_id), ['c003']);
-
-  // Every way it must not fire.
-  const weakNeighbour = { ...placed('c001', 0, 100, 'S00-001'),
-    project_candidates: [{ project_code: 'S00-001', strength: 'weak', basis: [], evidence_row_ids: [1] }] };
-  assert.deepEqual(applyContextContinuity([weakNeighbour, unplaced('c002', 110, 200),
-    placed('c003', 210, 300, 'S00-001')]).applied, [], 'a weak neighbour cannot lend what it does not have');
-  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
-    placed('c003', 210, 300, 'S00-002')]).applied, [], 'two different projects either side place nothing');
-  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 400, 500),
-    placed('c003', 510, 600, 'S00-001')]).applied, [], 'five minutes of silence is not the same stretch of work');
-  // What the middle stretch is about is not part of the rule: the rule is about
-  // where it sits. A stretch the nature step called `personal` that still named
-  // no project is placed like any other, weakly and with its neighbours shown.
-  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
-    { ...unplaced('c002', 110, 200), nature: 'personal' },
-    placed('c003', 210, 300, 'S00-001')]).applied.map(row => row.segment_id), ['c002']);
-  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
-    { ...unplaced('c002', 110, 200), unclassified_reason: 'project_llm_failed' },
-    placed('c003', 210, 300, 'S00-001')]).applied, [],
-  'a step that failed is a step to run again, not a conversation to place from its neighbours');
-
-  // And it never cascades. Two unplaced stretches in a row are each other's
-  // neighbour, so neither has work on both sides of it -- and an inherited
-  // placement never becomes the evidence that places the next one.
-  const chain = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
     unplaced('c003', 210, 300), placed('c004', 310, 400, 'S00-001')]);
-  assert.deepEqual(chain.applied, []);
-  // Each of two unplaced stretches with placed work on both sides is placed, and
-  // neither one's placement is what placed the other.
-  const both = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
-    placed('c003', 210, 300, 'S00-001'), unplaced('c004', 310, 400), placed('c005', 410, 500, 'S00-001')]);
-  assert.deepEqual(both.applied.map(row => [row.segment_id, row.context_segment_ids]),
-    [['c002', ['c001', 'c003']], ['c004', ['c003', 'c005']]]);
+  assert.deepEqual(answer.applied.map(row => row.segment_id), ['c002', 'c003'],
+    'two unplaced conversations in the middle of one stretch of work are both inside it');
+  assert.deepEqual(answer.applied[0].context_segment_ids, ['c001', 'c004'],
+    'and the conversations that were actually placed are named');
+  assert.deepEqual(answer.segments[1].project_candidates, [{ project_code: 'S00-001', strength: 'weak',
+    basis: ['context_continuity'], evidence_row_ids: [], context_segment_ids: ['c001', 'c004'] }]);
+  assert.deepEqual(answer.stretches.map(row => [row.from, row.to, row.project_code, row.placed]),
+    [['c001', 'c004', 'S00-001', 2]], 'the stretch itself is on the record');
+
+  // One strong placement is enough; it does not have to be on both sides.
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200)])
+    .applied.map(row => row.segment_id), ['c002']);
+
+  // An unreadable conversation does not end a stretch -- nobody could hear it,
+  // which is not evidence that the subject changed -- and it is placed like the
+  // rest of the stretch it sits in.
+  const skipped = applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
+    aside('c002', 105, 115, 'unreadable'), unplaced('c003', 120, 200), placed('c004', 210, 300, 'S00-001')]);
+  assert.deepEqual(skipped.applied.map(row => row.segment_id), ['c002', 'c003']);
+
+  // Anything that is not work does end one. Each side is then its own stretch.
+  for (const nature of ['personal', 'idea', 'team_operations']) {
+    const broken = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+      aside('cX', 205, 210, nature), unplaced('c003', 215, 300)]);
+    assert.deepEqual(broken.applied.map(row => row.segment_id), ['c002'],
+      `a ${nature} conversation is where a subject changes, so nothing is inherited across it`);
+    assert.deepEqual(contextStretches([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+      aside('cX', 205, 210, nature), unplaced('c003', 215, 300)]).map(row => row.map(item => item.segment_id)),
+    [['c001', 'c002'], ['c003']]);
+  }
+
+  // Every way it must not place anything.
+  const weakOnly = { ...placed('c001', 0, 100, 'S00-001'),
+    project_candidates: [{ project_code: 'S00-001', strength: 'weak', basis: [], evidence_row_ids: [1] }] };
+  assert.deepEqual(applyContextContinuity([weakOnly, unplaced('c002', 110, 200)]).applied, [],
+    'a weak placement lends nothing, because it has nothing to lend');
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+    placed('c003', 210, 300, 'S00-002')]).applied, [],
+  'two projects placed in one stretch is the ambiguity this rule must not resolve');
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 400, 500)]).applied,
+    [], 'five minutes of silence is not the same stretch of work');
+  const held = applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
+    { ...unplaced('c002', 110, 200), status: 'candidate',
+      project_candidates: [{ project_code: 'S00-009', strength: 'weak', basis: [], evidence_row_ids: [2] }] }]);
+  assert.deepEqual(held.applied, [], 'a conversation that already has a candidate keeps it, however weak');
 });
 
 // =============================================================== step 5 rules
@@ -687,15 +733,77 @@ test('a word the recording keeps saying is not a mishearing, and a proposal agai
     reason: 'homophone', confidence: 'high' }, { text: '아트웍 확인했습니다', occurrences });
   assert.deepEqual([demoted.status, demoted.confidence, demoted.original_recurs_in_transcript],
     ['proposed', 'low', true], 'a decoder does not make the same mistake three times and no other');
-  const kept = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '아트웍', proposed: '아트워크',
-    reason: 'homophone', confidence: 'high' }, { text: '아트웍 확인했습니다',
-    occurrences: occurrenceCounter([...rows, { content: '아트워크 라는 말도 씁니다' }]) });
-  assert.deepEqual([kept.confidence, kept.original_recurs_in_transcript], ['high', false],
-    'a replacement the recording also says is a spelling question, not a word swap');
   const unknown = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '아트웍', proposed: '완료',
     reason: 'homophone', confidence: 'high' }, { text: '아트웍 확인했습니다' });
   assert.deepEqual([unknown.confidence, unknown.original_recurs_in_transcript], ['high', false],
     'without the counts the rule does not fire, rather than firing on a guess');
+});
+
+test('a proposal that normalises a synonym, or maps onto a protected word, is not a correction', () => {
+  // Both words are in the transcript: the speakers used both.
+  const rows = [{ content: '파워보드 확인했습니다' }, { content: '전원보드 점검이 끝났습니다' },
+    { content: '전원보드 교체 예정' }, { content: '파워보드 재확인' }];
+  const occurrences = occurrenceCounter(rows);
+  const protectedWords = recurringTokens(rows, { minimum: 2 }).map(row => row.term);
+  const synonym = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '파워보드',
+    proposed: '전원보드', reason: 'term_glossary', confidence: 'high' },
+  { text: '파워보드 확인했습니다', occurrences, protectedWords });
+  assert.deepEqual([synonym.status, synonym.confidence, synonym.synonym_normalization,
+    synonym.mapped_onto_protected_word], ['proposed', 'low', true, false],
+  'choosing one of two words the speakers both used is normalising, not correcting');
+  assert.deepEqual(protectedWords.sort(), ['전원보드', '파워보드'],
+    'both are protected, so the mapping guard does not also fire: the synonym guard is the one that names this');
+
+  // Mapping a half-heard word onto a protected one: the recurring list read as a
+  // table of things to map towards, which is what it must never become.
+  const mapped = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '리시브',
+    proposed: '전원보드', reason: 'homophone', confidence: 'high' },
+  { text: '리시브 쪽은 아직입니다', occurrences: occurrenceCounter([...rows, { content: '리시브 쪽은 아직입니다' }]),
+    protectedWords });
+  assert.deepEqual([mapped.confidence, mapped.mapped_onto_protected_word, mapped.synonym_normalization],
+    ['low', true, false]);
+
+  // A word the transcript says once, replaced by one it never says, is still an
+  // ordinary proposal: none of the three guards is about that.
+  const ordinary = checkCorrection({ source_segment_id: 1, char_offset: 0, original: '반님', proposed: '반입',
+    reason: 'term_glossary', confidence: 'high' },
+  { text: '반님 예정입니다', occurrences: occurrenceCounter([{ content: '반님 예정입니다' }]), protectedWords });
+  assert.deepEqual([ordinary.confidence, ordinary.original_recurs_in_transcript, ordinary.synonym_normalization,
+    ordinary.mapped_onto_protected_word], ['high', false, false, false]);
+});
+
+test('the agenda of a long conversation is checked against the conversation it claims to be in', () => {
+  const ids = [1, 2, 3, 4, 5, 6];
+  const answer = checkAgenda([
+    { label: '도면 확인', source_segment_ids: [1, 2] },
+    { label: '일정 조율', source_segment_ids: [3, 4] },
+    { label: '이 구간 밖', source_segment_ids: [99] },
+    { label: 'AB-123 건', source_segment_ids: [5] },
+    { label: '거꾸로', source_segment_ids: [6, 5] },
+    { label: '겹침', source_segment_ids: [2, 3] }], { segmentIds: ids });
+  assert.deepEqual(answer.items.map(item => item.label), ['도면 확인', '일정 조율']);
+  assert.deepEqual(answer.dropped.map(row => row.code),
+    ['agenda_item_invalid', 'agenda_item_invalid', 'agenda_item_invalid', 'agenda_item_overlaps']);
+  assert.equal(checkAgenda(Array.from({ length: 9 }, (_, index) => ({ label: `안건 ${index}`,
+    source_segment_ids: [index + 1] })), { segmentIds: Array.from({ length: 9 }, (_, index) => index + 1) })
+    .items.length, 6, 'six is the bound, and the rest are counted rather than trimmed silently');
+  assert.deepEqual(checkAgenda(undefined, { segmentIds: ids }), { items: [], dropped: [] },
+    'a short conversation answers with nothing, which is not a failure');
+
+  // Through the nature check, and joined across the windows of one conversation.
+  const checked = checkNature({ nature: 'project_work', title: 't', description: '', key_terms: [],
+    agenda: [{ label: '앞부분', source_segment_ids: [1, 2] }, { label: '밖', source_segment_ids: [50] }] },
+  { text: '내용', segmentIds: ids });
+  assert.deepEqual(checked.agenda, [{ label: '앞부분', source_segment_ids: [1, 2] }]);
+  assert.deepEqual([checked.agenda_dropped, checked.marks], [1, ['agenda_items_dropped']]);
+  const merged = mergeNatureWindows([
+    { nature: 'project_work', title: '앞', description: 'a', key_terms: [], marks: [],
+      agenda: [{ label: '뒤쪽', source_segment_ids: [9] }], agenda_dropped: 0 },
+    { nature: 'project_work', title: '뒤', description: 'b', key_terms: [], marks: [],
+      agenda: [{ label: '앞쪽', source_segment_ids: [1] }], agenda_dropped: 1 }]);
+  assert.deepEqual(merged.agenda.map(item => item.label), ['앞쪽', '뒤쪽'],
+    'each window answered for its own part, so the agendas join in recording order');
+  assert.equal(merged.agenda_dropped, 1);
 });
 
 test('a conversation is judged again only when a confident correction moved a word it was judged on', () => {

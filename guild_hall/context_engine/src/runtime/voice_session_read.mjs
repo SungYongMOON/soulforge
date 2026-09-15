@@ -495,6 +495,12 @@ export function conversationRow(row, recordedAtLocal) {
       semantic_run_id: refs.semantic_run_id === undefined ? null : String(refs.semantic_run_id),
       source_segment_ids: Array.isArray(refs.source_segment_ids) ? refs.source_segment_ids : [] },
     related: Array.isArray(row.related_segment_ids) ? row.related_segment_ids.map(String) : [],
+    // What a long conversation held. A title and a description are one sentence
+    // each about an hour; the agenda is how a reader finds the part they wanted.
+    agenda: (Array.isArray(row.agenda_items) ? row.agenda_items : [])
+      .filter(item => item && typeof item.label === 'string')
+      .map(item => ({ label: String(item.label),
+        source_segment_ids: Array.isArray(item.source_segment_ids) ? item.source_segment_ids : [] })),
     derived_summary: true, characters: [...description].length, text: description,
   };
 }

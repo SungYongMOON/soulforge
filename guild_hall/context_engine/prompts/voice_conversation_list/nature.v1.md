@@ -56,6 +56,16 @@
 - 무엇을 가리키는지 모르겠으면 `other`로 둔다. 모르는 것을 `equipment`라고 쓰지 않는다.
 - 최대 8개.
 
+## agenda — 긴 구간의 속 안건
+
+구간이 길면(발화 40개 이상이거나 여러 창으로 나뉘어 들어오면) 제목 하나로는 무슨 이야기였는지 찾을 수 없다.
+그럴 때 **그 구간 안에서 다룬 안건**을 순서대로 적는다.
+
+- 항목마다 `label`(40자 이하, 중립적인 파생 요약, **과제 코드 금지**)과 그 안건이 걸친 `source_segment_ids`.
+- **한 창에 최대 6개.** 발화 ID는 이 입력에 있는 것만, 오름차순으로, 안건끼리 겹치지 않게.
+- 짧은 구간이면 빈 배열로 둔다. 억지로 쪼개지 않는다.
+- 이것은 **구간을 다시 나누는 것이 아니다.** 경계는 이미 정해졌고, 여기서는 그 안의 목차를 적을 뿐이다.
+
 ## 출력
 
 JSON만 낸다. 입력에 온 구간마다 한 항목씩, 같은 `segment_id`로 낸다.
@@ -63,7 +73,9 @@ JSON만 낸다. 입력에 온 구간마다 한 항목씩, 같은 `segment_id`로
 ```
 {"segments": [
   {"segment_id": "c001", "nature": "project_work", "title": "…", "description": "…",
-   "key_terms": [{"term": "…", "kind": "board"}], "unclear": false}
+   "key_terms": [{"term": "…", "kind": "board"}],
+   "agenda": [{"label": "…", "source_segment_ids": [12, 13, 14]}],
+   "unclear": false}
 ]}
 ```
 
@@ -76,7 +88,7 @@ JSON만 낸다. 입력에 온 구간마다 한 항목씩, 같은 `segment_id`로
   {"segment_id": "c001", "nature": "project_work", "title": "가대 도면 수정본 확인 필요",
    "description": "도면 수정본에서 볼트 구멍 위치가 이전과 달라, 확인 후 회신하기로 함.",
    "key_terms": [{"term": "가대", "kind": "equipment"}, {"term": "볼트 구멍", "kind": "other"}],
-   "unclear": false}
+   "agenda": [], "unclear": false}
 ]}
 ```
 

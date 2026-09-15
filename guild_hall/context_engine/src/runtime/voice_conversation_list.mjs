@@ -23,7 +23,7 @@
 //     conversation belongs to, and it never reads a word the registry has not
 //     seen as though it were a word only one project uses.
 import { createHash } from 'node:crypto';
-import { classifyTerms } from './shared_terms.mjs';
+import { classifyTerms, normaliseTerm } from './shared_terms.mjs';
 
 export const CONVERSATION_LIST_SCHEMA = 'soulforge.voice_conversation_list.v0';
 export const CORRECTIONS_SCHEMA = 'soulforge.voice_corrections.v0';
@@ -57,8 +57,6 @@ export const BASIS_KINDS = Object.freeze(['equipment', 'board', 'purpose', 'test
  * "which project is this about" could only answer it by guessing.
  */
 export const CODE_BASIS_KINDS = Object.freeze(['context_continuity']);
-/** The unplaced reasons a neighbouring conversation is allowed to speak for. */
-export const CONTINUITY_REASONS = Object.freeze(['no_distinctive_clue', 'no_evidence', 'shared_terms_only']);
 /** How far away a neighbour may be and still be the same stretch of work. */
 export const CONTINUITY_GAP_SECONDS = 60;
 export const CORRECTION_REASONS = Object.freeze(['term_glossary', 'person_name', 'number_unit', 'date_deadline',
@@ -113,10 +111,21 @@ export const CLUE_STOPLIST = Object.freeze([
   '확인', '내용', '부분', '상황', '문제', '이야기', '얘기', '생각', '정리', '진행', '작업', '업무',
   '사람', '경우', '정도', '관련', '필요', '가능', '사용', '설명', '요청', '답변', '질문', '방식',
   '준비', '결과', '상태', '기준', '계획', '방법', '조건', '수정', '추가', '변경', '완료', '시작',
+  // Bare only. A count of something is a property of every device that has any;
+  // `32채널 모듈` is a different word and is not on this list.
+  '채널',
 ]);
 const STOPLIST = new Set(CLUE_STOPLIST.map(term => term.replace(/\s+/gu, ' ').trim().toLowerCase()));
 /** Whether a word is one a search may not use. */
 export const isStoplisted = term => STOPLIST.has(String(term ?? '').replace(/\s+/gu, ' ').trim().toLowerCase());
+/**
+ * A stoplisted word may still be searched with when the nature step says it names
+ * a thing. The list is about generic nouns used generically; a model that looked
+ * at the sentence and called the word a board or a device has said something the
+ * list cannot know, and refusing it would throw that away.
+ */
+const TYPED_PAST_STOPLIST = Object.freeze(['board', 'equipment', 'test']);
+export const searchableDespiteStoplist = clue => TYPED_PAST_STOPLIST.includes(clue?.term_kind);
 /** How long the clue query handed to a search may be. */
 export const MAX_CLUE_QUERY_CHARACTERS = 200;
 
@@ -145,6 +154,10 @@ export const singleSegmentSuspect = (window, segments) => segments.length === 1
 
 const PROJECT_CODE_ANYWHERE = /\b[A-Z][0-9A-Z]*-[0-9A-Z]+\b/u;
 const TITLE_CHARACTERS = 40, DESCRIPTION_CHARACTERS = 200;
+/** How many agenda items one conversation may be said to hold, and how long a label may be. */
+export const AGENDA_ITEMS = 6, AGENDA_LABEL_CHARACTERS = 40;
+/** A conversation long enough that one title cannot say what it was about. */
+export const AGENDA_UTTERANCES = 40;
 const sha256 = value => createHash('sha256').update(typeof value === 'string' ? Buffer.from(value, 'utf8') : value).digest('hex');
 
 export class ConversationListError extends Error {
@@ -649,7 +662,7 @@ export function batchSegments(segments, { charactersOf, maxCharacters, maxSegmen
  * make out is `unreadable` whatever it looked like, and one that assigns work or
  * names a deadline is not `personal` however chatty it sounded.
  */
-export function checkNature(answer, { text, unreadableRatio = 0, speechActs = [] } = {}) {
+export function checkNature(answer, { text, unreadableRatio = 0, speechActs = [], segmentIds = [] } = {}) {
   if (!plain(answer)) return { ok: false, code: 'nature_shape_invalid' };
   const marks = [];
   let nature = answer.nature;
@@ -676,8 +689,51 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
     nature = 'mixed';
     marks.push('personal_with_material_acts');
   }
+  const agenda = checkAgenda(answer.agenda, { segmentIds });
+  if (agenda.dropped.length > 0) marks.push('agenda_items_dropped');
   return { ok: true, code: null, nature, title, description, key_terms: kept, key_terms_typed: typed,
+    agenda: agenda.items, agenda_dropped: agenda.dropped.length,
     dropped_key_terms: keyTerms.length - kept.length, unclear: answer.unclear === true, marks };
+}
+
+/**
+ * The agenda items inside one long conversation.
+ *
+ * A conversation of a hundred utterances has a title and a description, and both
+ * of them are one sentence about an hour. What is lost is not the boundary -- the
+ * boundary may well be right -- but the fact that the hour had six subjects in it,
+ * none of which a reader can now find. An agenda item is a label and the
+ * utterances it covers: enough to find the part you wanted, and not a second
+ * conversation list competing with the first.
+ *
+ * An item that names utterances outside the conversation, runs backwards, overlaps
+ * another item or carries a project code is dropped rather than repaired: a
+ * repaired agenda is this module deciding what the conversation was about.
+ */
+export function checkAgenda(items, { segmentIds = [], limit = AGENDA_ITEMS } = {}) {
+  const allowed = new Set(segmentIds);
+  const kept = [], dropped = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const label = String(item?.label ?? '').trim();
+    const ids = Array.isArray(item?.source_segment_ids) ? [...item.source_segment_ids] : [];
+    const bad = !label || codePoints(label).length > AGENDA_LABEL_CHARACTERS || PROJECT_CODE_ANYWHERE.test(label)
+      || ids.length === 0 || !ids.every(id => Number.isSafeInteger(id) && allowed.has(id))
+      || !ids.every((id, index) => index === 0 || id > ids[index - 1]);
+    if (bad) { dropped.push({ label, code: 'agenda_item_invalid' }); continue; }
+    kept.push({ label, source_segment_ids: ids });
+  }
+  const ordered = kept.sort((a, b) => a.source_segment_ids[0] - b.source_segment_ids[0]);
+  const held = [], seen = new Set();
+  for (const item of ordered) {
+    if (item.source_segment_ids.some(id => seen.has(id))) {
+      dropped.push({ label: item.label, code: 'agenda_item_overlaps' });
+      continue;
+    }
+    if (held.length >= limit) { dropped.push({ label: item.label, code: 'agenda_too_many' }); continue; }
+    for (const id of item.source_segment_ids) seen.add(id);
+    held.push(item);
+  }
+  return { items: held, dropped };
 }
 
 /**
@@ -704,6 +760,11 @@ export function mergeNatureWindows(answers) {
     key_terms: [...new Set(answers.flatMap(answer => answer.key_terms))],
     key_terms_typed: [...new Map(answers.flatMap(answer => answer.key_terms_typed ?? [])
       .map(entry => [entry.term, entry])).values()],
+    // Each window answered for its own part of the conversation, so the agendas
+    // join end to end rather than competing.
+    agenda: answers.flatMap(answer => answer.agenda ?? [])
+      .sort((a, b) => a.source_segment_ids[0] - b.source_segment_ids[0]),
+    agenda_dropped: answers.reduce((sum, answer) => sum + (answer.agenda_dropped ?? 0), 0),
     unclear: answers.some(answer => answer.unclear), marks: [...new Set(marks)],
     processed_in_windows: answers.length };
 }
@@ -720,19 +781,27 @@ export function mergeNatureWindows(answers) {
  * reason `unregistered` is its own answer.
  */
 export function classifyClues(text, registry, { keyTerms = [], entities = [] } = {}) {
-  const marks = new Map(classifyTerms(text, registry).map(entry => [entry.term.toLowerCase(), entry]));
+  const marks = new Map(classifyTerms(text, registry).map(entry => [normaliseTerm(entry.term), entry]));
   const clues = new Map();
   const add = (value, origin, termKind) => {
     const term = String(value ?? '').trim();
     if (!term) return;
-    const mark = marks.get(term.toLowerCase())
-      ?? [...marks.values()].find(entry => term.toLowerCase().includes(entry.term.toLowerCase()));
+    // Exact equality, and nothing else. A compound that happens to contain a
+    // shared word -- `32채널 보드`, `센서 커넥터` -- is not itself a word several
+    // projects use; it is a word the registry has never seen, which is exactly
+    // what makes it worth searching with. Reading the compound as shared because
+    // one of its parts is was dropping every specific term the recording had.
+    const normalized = normaliseTerm(term);
+    const mark = marks.get(normalized);
+    const containsShared = mark !== undefined ? [] : [...marks.values()]
+      .filter(entry => entry.kind === 'shared' && normalized.includes(normaliseTerm(entry.term)))
+      .map(entry => entry.term).sort();
     const kind = mark === undefined ? 'unregistered' : mark.kind;
-    const held = clues.get(term.toLowerCase());
+    const held = clues.get(normalized);
     if (held === undefined) {
-      clues.set(term.toLowerCase(), { term, kind, category: mark?.category ?? 'content',
+      clues.set(normalized, { term, kind, category: mark?.category ?? 'content',
         term_kind: KEY_TERM_KINDS.includes(termKind) ? termKind : 'other',
-        stoplisted: isStoplisted(term),
+        stoplisted: isStoplisted(term), contains_shared: containsShared,
         declared_shared: mark?.declared_shared ?? null,
         observed_project_count: mark?.observed_project_count ?? null,
         projects: [...(mark?.projects ?? [])], origins: [origin] });
@@ -770,11 +839,33 @@ const kindRank = clue => (NARROWING_KINDS.includes(clue.term_kind) ? 0 : (clue.t
  * ends up being the thing a project is searched by.
  */
 export function searchableClues(clues, { limit = DEFAULT_LIMITS.project_clues } = {}) {
-  return clues.filter(clue => clue.kind !== 'shared' && clue.category !== 'workflow' && !isStoplisted(clue.term))
+  return clues.filter(clue => clue.kind !== 'shared' && clue.category !== 'workflow'
+    && (!isStoplisted(clue.term) || searchableDespiteStoplist(clue)))
     .sort((a, b) => kindRank(a) - kindRank(b)
       || (a.kind === b.kind ? 0 : (a.kind === 'distinctive' ? -1 : 1))
       || codePoints(b.term).length - codePoints(a.term).length)
     .slice(0, limit);
+}
+
+/**
+ * Which of a project's search hits become evidence.
+ *
+ * Taking the top three and then asking which of them carry a clue is how a
+ * project ends up represented by three rows that match nothing: BM25 ranks by the
+ * whole query, so a project's best three rows can all be about the one ubiquitous
+ * word in it while the row that actually holds the specific term sits at rank
+ * eight. Filter first, then take: scan the top `scan` hits, keep the ones that
+ * match at least one clue, and prefer the ones that match more distinct clues
+ * before falling back to the search's own order.
+ */
+export function selectEvidenceHits(hits, clues, { scan = 12, keep = 3 } = {}) {
+  return (hits ?? []).slice(0, scan)
+    .map(hit => ({ hit, matched: [...new Set(clues
+      .filter(clue => `${hit.title ?? ''} ${hit.text ?? ''}`.toLowerCase().includes(clue.term.toLowerCase()))
+      .map(clue => clue.term))] }))
+    .filter(row => row.matched.length > 0)
+    .sort((a, b) => b.matched.length - a.matched.length || (a.hit.rank ?? 0) - (b.hit.rank ?? 0))
+    .slice(0, keep);
 }
 
 /** The searched clues as one bounded query. A longer query is a wider net, not a better one. */
@@ -802,10 +893,27 @@ export function clueQuery(clues, { maxCharacters = MAX_CLUE_QUERY_CHARACTERS } =
  *     A word nobody has registered cannot make a candidate strong, however
  *     specific it sounds.
  */
+/** Key-term kinds that name somebody or somewhere rather than something. */
+const BORROWED_KINDS = Object.freeze(['person', 'place', 'organization']);
+/** How many other projects a word has to reach before it decides nothing. */
+const UBIQUITOUS_PROJECTS = 3;
+
 export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_LIMITS.project_candidates } = {}) {
   if (!plain(answer)) return { ok: false, code: 'project_shape_invalid' };
   const rows = new Map(evidenceRows.map(row => [row.row_id, row]));
   const kindOf = new Map(clues.map(clue => [clue.term.toLowerCase(), clue]));
+  // Which projects each matched word reaches across everything this segment's
+  // search returned. A word that turns up in four projects' records is a word
+  // about the estate, not about a project, whatever the registry has seen of it.
+  const mentions = [];
+  let singleClue = 0;
+  const reach = new Map();
+  for (const row of evidenceRows) {
+    for (const term of row.matched_terms ?? []) {
+      const key = term.toLowerCase();
+      reach.set(key, new Set([...(reach.get(key) ?? []), row.project_code]));
+    }
+  }
   const kept = [], downgraded = [];
   for (const candidate of Array.isArray(answer.candidates) ? answer.candidates : []) {
     const code = String(candidate?.project_code ?? '');
@@ -823,69 +931,125 @@ export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_L
       downgraded.push({ project_code: code, code: 'shared_terms_only' });
       continue;
     }
-    const strong = grounds.includes('distinctive') || basis.length >= 2;
-    kept.push({ project_code: code, strength: candidate?.strength === 'strong' && strong ? 'strong' : 'weak',
+    // Two kinds of basis stated over one matched word is one piece of evidence
+    // described twice. Three rows all found by the same place name are three
+    // copies of the same fact, and calling that `strong` is how a candidate gets
+    // a confidence its evidence never had.
+    const distinctTerms = new Set(matched.map(term => term.toLowerCase())).size;
+    const strong = grounds.includes('distinctive') || (basis.length >= 2 && distinctTerms >= 2);
+    const askedStrong = candidate?.strength === 'strong';
+    if (askedStrong && !strong && basis.length >= 2 && distinctTerms < 2) singleClue += 1;
+    // Everything that found this project is a person, a place or an organisation.
+    // A customer, a site or a colleague is shared between projects exactly the way
+    // a part name is, so it may say a project was mentioned and not that the
+    // conversation belongs to it.
+    const kinds = matched.map(term => kindOf.get(term.toLowerCase())?.term_kind ?? 'other');
+    const borrowed = kinds.length > 0 && kinds.every(kind => BORROWED_KINDS.includes(kind));
+    const ubiquitous = matched.length > 0 && matched.every(term =>
+      (reach.get(term.toLowerCase())?.size ?? 0) > UBIQUITOUS_PROJECTS);
+    if (borrowed || ubiquitous) {
+      mentions.push({ project_code: code, evidence_row_ids: [...ids].sort((a, b) => a - b),
+        code: borrowed ? 'borrowed_name_only' : 'ubiquitous_term_only' });
+      continue;
+    }
+    kept.push({ project_code: code, strength: askedStrong && strong ? 'strong' : 'weak',
       basis, evidence_row_ids: [...ids].sort((a, b) => a - b), matched_terms: matched,
       distinctive: grounds.includes('distinctive') });
   }
   const ranked = kept.sort((a, b) => (a.strength === b.strength ? 0 : a.strength === 'strong' ? -1 : 1)
     || b.evidence_row_ids.length - a.evidence_row_ids.length);
+  // Mentions gathered above keep their place; the loop below adds the ones that
+  // are mentions only because something else was placed properly.
+
   // A conversation placed on one project with real evidence, plus a second
   // project found by a single row matched on a single word nobody has registered,
   // is not a conversation about two projects. The second one is a mention: it
   // stays visible, and it stops being an attribution.
-  const mentions = [];
   const candidates = [];
   const anyStrong = ranked.some(row => row.strength === 'strong');
   for (const row of ranked) {
     if (anyStrong && row.strength === 'weak' && row.evidence_row_ids.length === 1 && !row.distinctive) {
-      mentions.push({ project_code: row.project_code, evidence_row_ids: [...row.evidence_row_ids] });
+      mentions.push({ project_code: row.project_code, evidence_row_ids: [...row.evidence_row_ids],
+        code: 'single_row_beside_a_placement' });
       continue;
     }
     candidates.push(row);
   }
   const reason = candidates.length > 0 ? null
     : (downgraded.find(row => row.code === 'shared_terms_only') ? 'shared_terms_only'
-      : (typeof answer.unclassified_reason === 'string' && answer.unclassified_reason
-        ? answer.unclassified_reason : 'no_evidence'));
+      : (mentions.length > 0 ? 'mentions_only'
+        : (typeof answer.unclassified_reason === 'string' && answer.unclassified_reason
+          ? answer.unclassified_reason : 'no_evidence')));
   return { ok: true, code: null, candidates: candidates.slice(0, limit), downgraded,
-    other_project_mentions: mentions, unclassified_reason: reason };
+    other_project_mentions: mentions, strong_downgraded_single_clue: singleClue,
+    unclassified_reason: reason };
 }
 
 /**
  * The project a conversation sits inside, when nothing in the conversation says.
  *
  * A recording of one afternoon's work does not change project between one
- * sentence and the next. A stretch that named nothing, with the same project
- * placed strongly on both sides of it and no silence to speak of in between, is
- * almost certainly part of the same work -- and leaving it unplaced loses it.
+ * sentence and the next, and a stretch that named nothing is lost if it is left
+ * unplaced. The unit is therefore a *stretch*: consecutive conversations that are
+ * project work (or mixed), with no real silence between them. A stretch that
+ * holds a strong placement for exactly one project and for no other places every
+ * unplaced conversation inside it, weakly, with the placed conversations named.
  *
- * It is a weak candidate and it says so: the basis is `context_continuity`, the
- * neighbours are named, and nothing here ever promotes. A neighbour that is only
- * a weak candidate itself cannot lend what it does not have, an `unreadable`
- * stretch in between is skipped rather than treated as a change of subject, and
- * the decisions are all taken against the segments as they arrived, so one
- * inherited placement never becomes the evidence for the next.
+ * Everything about it is deliberately narrow, and each restriction is a way the
+ * earlier version of this rule was wrong or could have been:
+ *   - a stretch ends at anything that is not project work: a personal aside, an
+ *     idea, team logistics. Those are where a subject actually changes;
+ *   - an `unreadable` conversation does not end a stretch. Nobody could hear it,
+ *     which is not evidence that the subject changed;
+ *   - a weak placement lends nothing. Only a strong one speaks for its stretch;
+ *   - two projects placed strongly in one stretch place nothing: the stretch is
+ *     then exactly the ambiguity this rule must not resolve;
+ *   - a conversation that already has a candidate keeps it, however weak.
  */
+export function contextStretches(segments, { gapSeconds = CONTINUITY_GAP_SECONDS } = {}) {
+  const stretches = [];
+  let held = [];
+  const close = () => { if (held.length > 0) stretches.push(held); held = []; };
+  for (const segment of segments) {
+    if (segment.nature === 'unreadable') { if (held.length > 0) held.push(segment); continue; }
+    if (!['project_work', 'mixed'].includes(segment.nature)) { close(); continue; }
+    const previous = held.at(-1);
+    if (previous !== undefined && segment.start_seconds - previous.end_seconds > gapSeconds) close();
+    held.push(segment);
+  }
+  close();
+  // A stretch that trails off into unreadable conversations ends at the last one
+  // anybody could hear; the silence after that is not part of the work.
+  return stretches.map(stretch => {
+    let last = stretch.length - 1;
+    while (last > 0 && stretch[last].nature === 'unreadable') last -= 1;
+    return stretch.slice(0, last + 1);
+  }).filter(stretch => stretch.length > 0);
+}
+
 export function applyContextContinuity(segments, { gapSeconds = CONTINUITY_GAP_SECONDS } = {}) {
   const strongCodes = segment => new Set((segment.project_candidates ?? [])
     .filter(row => row.strength === 'strong').map(row => row.project_code));
-  const donor = segment => segment !== undefined && segment.nature === 'project_work' && strongCodes(segment).size > 0;
-  const applied = [];
   const decisions = new Map();
-  for (const [index, segment] of segments.entries()) {
-    if (segment.status !== 'unclassified' || !CONTINUITY_REASONS.includes(segment.unclassified_reason)) continue;
-    const back = [...segments.slice(0, index)].reverse().find(row => row.nature !== 'unreadable');
-    const forward = segments.slice(index + 1).find(row => row.nature !== 'unreadable');
-    if (!donor(back) || !donor(forward)) continue;
-    const shared = [...strongCodes(back)].filter(code => strongCodes(forward).has(code));
-    if (shared.length !== 1) continue;
-    if (segment.start_seconds - back.end_seconds > gapSeconds) continue;
-    if (forward.start_seconds - segment.end_seconds > gapSeconds) continue;
-    decisions.set(segment.segment_id, { project_code: shared[0],
-      context_segment_ids: [back.segment_id, forward.segment_id] });
-    applied.push({ segment_id: segment.segment_id, project_code: shared[0],
-      context_segment_ids: [back.segment_id, forward.segment_id] });
+  const applied = [], spans = [];
+  for (const stretch of contextStretches(segments, { gapSeconds })) {
+    const placed = stretch.filter(segment => strongCodes(segment).size > 0);
+    const codes = new Set(placed.flatMap(segment => [...strongCodes(segment)]));
+    const span = { from: stretch[0].segment_id, to: stretch.at(-1).segment_id, segments: stretch.length,
+      project_code: codes.size === 1 ? [...codes][0] : null, strong_segments: placed.map(row => row.segment_id),
+      placed: 0 };
+    if (codes.size === 1) {
+      const code = [...codes][0];
+      for (const segment of stretch) {
+        if (segment.status !== 'unclassified' || (segment.project_candidates ?? []).length > 0) continue;
+        decisions.set(segment.segment_id, { project_code: code,
+          context_segment_ids: placed.map(row => row.segment_id) });
+        applied.push({ segment_id: segment.segment_id, project_code: code,
+          context_segment_ids: placed.map(row => row.segment_id) });
+        span.placed += 1;
+      }
+    }
+    spans.push(span);
   }
   return { segments: segments.map(segment => {
     const decision = decisions.get(segment.segment_id);
@@ -894,7 +1058,7 @@ export function applyContextContinuity(segments, { gapSeconds = CONTINUITY_GAP_S
       project_candidates: [{ project_code: decision.project_code, strength: 'weak',
         basis: ['context_continuity'], evidence_row_ids: [],
         context_segment_ids: [...decision.context_segment_ids] }] };
-  }), applied };
+  }), applied, stretches: spans };
 }
 
 // ------------------------------------------------------------------ step 5
@@ -975,8 +1139,13 @@ export function correctionGlossary({ terms = [], recurring = [], evidenceRows = 
   quote = firstLine } = {}) {
   const rows = evidenceRows.slice(0, maxRows)
     .map(row => `${quote(String(row.item_id ?? ''), 60)} \u2014 ${quote(String(row.quote ?? ''), 90)}`);
-  return [`용어표\n${terms.join(' \u00b7 ') || '(없음)'}`,
-    `이 녹음에서 반복되는 낱말 (숫자는 나온 횟수)\n`
+  // The recurring words are shown as protected, not as targets. Offered as a
+  // vocabulary to correct towards they became a mapping table: the step replaced
+  // whatever it half-heard with whichever recurring word was nearest, and
+  // normalised the synonyms the speakers themselves were using.
+  return [`용어표 \u2014 이 과제들의 기록이 쓰는 표기다\n${terms.join(' \u00b7 ') || '(없음)'}`,
+    `보호 낱말 \u2014 이 녹음에서 반복되는 낱말(괄호는 나온 횟수). 실제 발화일 가능성이 높다.\n`
+      + `**그대로 두고, 다른 낱말을 이 낱말로 바꾸지도 않는다.**\n`
       + `${recurring.map(row => `${row.term}(${row.count})`).join(' \u00b7 ') || '(없음)'}`,
     `관련 자료 \u2014 이 구간의 후보 과제 기록에서 온 줄이며, 같은 것을 부르는 올바른 표기의 참고다\n`
       + `${rows.join('\n') || '(없음)'}`].join('\n\n');
@@ -993,7 +1162,8 @@ export function correctionGlossary({ terms = [], recurring = [], evidenceRows = 
  * the other failure: a proposal three times the original, or a long phrase with
  * spaces in it, is a rewrite of the sentence wearing a correction's shape.
  */
-export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = [], occurrences = null } = {}) {
+export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = [], occurrences = null,
+  protectedWords = [] } = {}) {
   if (!plain(proposal)) return { status: 'discarded', code: 'position_mismatch' };
   const original = String(proposal.original ?? '');
   const proposed = String(proposal.proposed ?? '');
@@ -1022,17 +1192,28 @@ export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = []
   const normalised = original.trim().toLowerCase();
   const known = knownTerms.some(term => String(term).trim().toLowerCase() === normalised)
     || keyTerms.some(term => String(term).trim().toLowerCase() === normalised);
-  // A word this recording says again and again, replaced by one it never says, is
-  // far more likely to be the recording's own vocabulary than a mishearing --
-  // a decoder does not make the same mistake thirty times and no other. The
-  // proposal is kept, because it might be right and a reader can see it, but it
-  // stops being a confident one.
-  const recurs = typeof occurrences === 'function'
-    && occurrences(original) >= RECURRING_MINIMUM && occurrences(proposed) === 0;
+  // Three ways a proposal is about the recording's vocabulary rather than about a
+  // mishearing. None of them discards it -- each might still be right, and a
+  // reader has to be able to see that the machine wanted to make the change --
+  // but none of them is a confident correction either.
+  const counted = typeof occurrences === 'function';
+  // A word this recording says again and again. A decoder does not make the same
+  // mistake thirty times and no other.
+  const recurs = counted && occurrences(original) >= RECURRING_MINIMUM;
+  // Both words are in the transcript: the speakers used both, and choosing one is
+  // normalising a synonym rather than correcting a mistake.
+  const synonym = counted && occurrences(original) >= 2 && occurrences(proposed) >= 2;
+  // The replacement is a protected word and the original is not: this is the
+  // recurring-word list being read as a list of things to map onto.
+  const guarded = new Set(protectedWords.map(term => String(term).trim().toLowerCase()));
+  const mapped = guarded.size > 0 && guarded.has(proposed.trim().toLowerCase())
+    && !guarded.has(original.trim().toLowerCase());
   const confidence = ['high', 'medium', 'low'].includes(proposal.confidence) ? proposal.confidence : 'low';
   return { status: 'proposed', code: null, char_offset: offset, original, proposed,
-    reason: proposal.reason, confidence: known || recurs ? 'low' : confidence,
-    original_recurs_in_transcript: recurs,
+    reason: proposal.reason,
+    confidence: known || recurs || synonym || mapped ? 'low' : confidence,
+    original_recurs_in_transcript: recurs, synonym_normalization: synonym,
+    mapped_onto_protected_word: mapped,
     // A correction with `needs_audio_recheck` is not a weaker correction; it is
     // one whose truth is not in the transcript at all.
     needs_audio_recheck: AUDIO_RECHECK_REASONS.includes(proposal.reason),
@@ -1158,6 +1339,9 @@ export function renderConversationTable(list) {
     lines.push(`| ${segment.clock.slice(11, 19)}–${segment.clock_end.slice(11, 19)}`
       + `<br>${spokenClock(segment.start_seconds)}–${spokenClock(segment.end_seconds)}`
       + ` | ${cell(trim(segment.title, 40))} | ${cell(trim(segment.description, 200))}`
+      + `${(segment.agenda_items ?? []).length ? `<br>안건: ${segment.agenda_items
+        .map(item => `${cell(trim(item.label, 40))} (발화 ${item.source_segment_ids[0]}\u2013${item.source_segment_ids.at(-1)})`)
+        .join(' \u00b7 ')}` : ''}`
       + ` | ${cell(segment.nature)}${segment.nature_unclear ? ' (미정)' : ''}`
       + ` | ${candidates}${mentions ? `<br>${mentions}` : ''} | ${marks} · 교정 ${segment.quality.correction_state}`
       + ` | ${segment.segment_id} · 발화 ${segment.source_segment_ids.length}개`

@@ -322,6 +322,11 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
       ? `  과제 후보 ${row.project_candidates.map(candidate => `${candidate.project_code}(${candidate.strength}`
         + `${candidate.basis.length ? `, ${candidate.basis.join('+')}` : ''}, 근거 ${candidate.evidence_rows}행)`).join(' · ')}`
       : `  과제 후보 없음${row.unclassified_reason ? ` — ${line(row.unclassified_reason, 80)}` : ''}`);
+    if (row.agenda.length > 0) {
+      lines.push(`  안건: ${row.agenda.map(item => `${line(item.label, 40)}`
+        + `${item.source_segment_ids.length ? ` (발화 ${item.source_segment_ids[0]}–${item.source_segment_ids.at(-1)})` : ''}`)
+        .join(' · ')}`);
+    }
     lines.push(`  품질 ${row.quality.transcript_kind ?? '-'} · marks ${row.quality.marks.join(', ') || '-'}`
       + ` · 교정 ${row.quality.correction_state ?? '-'}`,
     `  참조 transcript ${row.refs.transcript_run_id ?? '-'}`
