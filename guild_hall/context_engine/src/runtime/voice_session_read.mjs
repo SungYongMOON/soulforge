@@ -85,6 +85,7 @@ const MAX_TRANSCRIPT_BYTES = 32 * 1024 * 1024;
 const MAX_LABEL_BYTES = 32 * 1024 * 1024;
 const MAX_CONVERSATION_BYTES = 32 * 1024 * 1024;
 const CONVERSATION_FILE = 'conversation_list.v0.json';
+const CORRECTIONS_FILE = 'corrections.v0.json';
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 export class VoiceSessionReadError extends Error {
@@ -402,6 +403,67 @@ async function readConversationList({ derivedRoot, sessionId }) {
     rows: picked.rows };
 }
 
+/**
+ * The word-level corrections a pipeline proposed for the same run.
+ *
+ * Proposals, not corrections: the transcript on disk says what it always said,
+ * and every row here is a suggestion about one word at one position in one
+ * utterance. They are shown so a reader can see what the machine thinks it
+ * misheard -- with the reason, how sure it is, and whether the truth of it is
+ * even in the transcript (a name, a number or a date is not) -- and so that a
+ * reader never mistakes the suggested wording for what was said.
+ */
+async function readCorrections({ derivedRoot, sessionId, runId = null }) {
+  if (typeof derivedRoot !== 'string' || !derivedRoot) {
+    return { status: 'not_configured', detail: 'no derived root declared', rows: [] };
+  }
+  let root;
+  try { root = openSourceRoot(derivedRoot); }
+  catch { return { status: 'absent', detail: 'derived root unavailable', rows: [] }; }
+  let runs;
+  try { runs = await root.list(['voice', sessionId]); }
+  catch { return { status: 'absent', detail: 'no corrections for this session', rows: [] }; }
+  const found = [];
+  for (const entry of runs) {
+    if (!entry.directory || !isSafeSegment(entry.name)) continue;
+    if (runId !== null && entry.name !== runId) continue;
+    let parsed;
+    try { parsed = JSON.parse((await root.readText(['voice', sessionId, entry.name, CORRECTIONS_FILE],
+      MAX_CONVERSATION_BYTES)).text); } catch { continue; }
+    if (!Array.isArray(parsed?.proposals)) continue;
+    found.push({ run_id: entry.name, parsed,
+      generated_at: typeof parsed.generated_at === 'string' ? parsed.generated_at : null });
+  }
+  if (found.length === 0) {
+    return { status: runs.length === 0 ? 'absent' : 'unreadable',
+      detail: runId === null ? 'no readable corrections for this session'
+        : `run ${runId} carries no readable corrections`, rows: [] };
+  }
+  found.sort((a, b) => String(b.generated_at ?? '').localeCompare(String(a.generated_at ?? ''))
+    || b.run_id.localeCompare(a.run_id));
+  const picked = found[0];
+  return { status: 'ok', detail: null, run_id: picked.run_id, runs_found: found.length,
+    generated_at: picked.generated_at, counts: picked.parsed.counts ?? null,
+    discarded: Array.isArray(picked.parsed.discarded) ? picked.parsed.discarded.length : 0,
+    rows: picked.parsed.proposals.map(correctionRow) };
+}
+
+/** One proposal, flattened to what a reader may act on. No utterance text travels here. */
+export function correctionRow(row) {
+  return { proposal_id: String(row?.proposal_id ?? '-'),
+    conversation_id: row?.segment_id === undefined ? null : String(row.segment_id),
+    source_segment_id: Number.isSafeInteger(row?.source_segment_id) ? row.source_segment_id : null,
+    char_offset: Number.isSafeInteger(row?.char_offset) ? row.char_offset : null,
+    original: String(row?.original ?? ''), proposed: String(row?.proposed ?? ''),
+    reason: String(row?.reason ?? '-'), confidence: String(row?.confidence ?? '-'),
+    needs_audio_recheck: row?.needs_audio_recheck === true,
+    // The one thing a reader must not have to infer: this pipeline does not
+    // listen, so `context_inference` is what every row it wrote says.
+    evidence: String(row?.evidence ?? 'context_inference'),
+    original_is_known_term: row?.original_is_known_term === true,
+    status: String(row?.status ?? 'proposed') };
+}
+
 /** One row of that list, with the audio reference dropped: this tool never hands one out. */
 export function conversationRow(row, recordedAtLocal) {
   const start = Number(row.start_seconds ?? row.start ?? 0);
@@ -447,7 +509,8 @@ export function conversationRow(row, recordedAtLocal) {
  * falls back to the segments and says why.
  */
 export async function readVoiceSession({ io, sessionId, from = null, to = null, transcriptKind = null,
-  units = false, conversationList = false, derivedRoot = null, maxChars = null, sharedTermsPath = null,
+  units = false, conversationList = false, corrections = false, derivedRoot = null, maxChars = null,
+  sharedTermsPath = null,
   actorRef = VOICE_READER_ACTOR, accessAddress = VOICE_ACCESS_ADDRESS,
   now = new Date().toISOString() } = {}) {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || !isSafeSegment(sessionId)) {
@@ -470,6 +533,7 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
     detail, session: null, transcript: null, window: null, segments: [],
     units: { status: units ? 'not_read' : 'not_requested', detail: null, rows: [] },
     conversation_list: { status: conversationList ? 'not_read' : 'not_requested', detail: null, rows: [] },
+    corrections: { status: corrections ? 'not_read' : 'not_requested', detail: null, rows: [] },
     shared_terms: { status: 'not_read', detail: null, term_count: 0 },
     counts: { basis: 'transcript_segments', in_window: 0, shown: 0, characters_total: 0, characters_shown: 0 },
     next_window: null,
@@ -536,6 +600,24 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
         .filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo)
         .sort((a, b) => a.start_seconds - b.start_seconds || a.conversation_id.localeCompare(b.conversation_id));
     }
+  }
+
+  // The corrections of the same run, so a reader is not shown one run's
+  // conversations beside another run's proposals about their words.
+  let corrected = { status: corrections ? 'not_read' : 'not_requested', detail: null, rows: [] };
+  if (corrections) {
+    const found = await readCorrections({ derivedRoot, sessionId,
+      runId: conversations.status === 'ok' ? conversations.run_id : null });
+    const shownRows = (found.rows ?? []).filter(row => {
+      const utterance = rows.find(item => item.segment_id === row.source_segment_id);
+      return utterance === undefined
+        || (utterance.end_seconds > requestedFrom && utterance.start_seconds < windowTo);
+    });
+    corrected = found.status === 'ok'
+      ? { status: 'ok', detail: null, run_id: found.run_id, runs_found: found.runs_found,
+        generated_at: found.generated_at, counts: found.counts, discarded: found.discarded,
+        in_window: shownRows.length, total: found.rows.length, rows: shownRows }
+      : { status: found.status, detail: found.detail, rows: [] };
   }
 
   // The draft intervals, when they were made over the very transcript that was
@@ -608,7 +690,7 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
       clamped: windowTo < requestedTo, max_seconds_per_call: access.max_seconds_per_call,
       max_characters: limit },
     segments: basis === 'transcript_segments' ? shown : [], units: labels,
-    conversation_list: conversations, next_window: nextWindow,
+    conversation_list: conversations, corrections: corrected, next_window: nextWindow,
     shared_terms: { status: registry.status, detail: registry.detail, term_count: registry.terms.length,
       registry_sha256: registry.path_sha256 },
     counts: { basis, in_window: inWindow.length, shown: shown.filter(row => row.shown > 0).length,

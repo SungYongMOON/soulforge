@@ -22,6 +22,8 @@
 //                                    [--now <iso>] [--dry] [--json]
 //   node voice_route_cli.mjs confirm --session <id> --segment <id> --project <code> --basis <text>
 //                                    --by <actor> [--title …] [--nature …] [--quality …] [...] [--dry]
+//   node voice_route_cli.mjs import  --session <id> --run <run id> --by <actor>
+//                                    --tools-config <file> [--now <iso>] [--dry] [--json]
 //   node voice_route_cli.mjs withdraw --session <id> --segment <id> [--now <iso>] [--dry]
 //   node voice_route_cli.mjs remove   --session <id> --segment <id> [--now <iso>] [--dry]
 //
@@ -33,12 +35,27 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
+import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { VOICE_CORRECTION_STATES, VOICE_ROUTES_ADDRESS, VOICE_ROUTE_LEDGER_SCHEMA, VOICE_ROUTE_LIMITS,
   VOICE_SEGMENT_NATURES, VOICE_TRANSCRIPT_QUALITIES, VoiceRouteError, isSessionRef, isSourceSegmentIds,
   validateVoiceRouteLedger } from './voice_routes.mjs';
 import { VOICE_SESSIONS_ADDRESS, readSemanticSegmentDrafts, sessionAddress } from './voice_segment_drafts.mjs';
 
-export const VOICE_ROUTE_COMMANDS = Object.freeze(['list', 'show', 'draft', 'set', 'confirm', 'withdraw', 'remove']);
+export const VOICE_ROUTE_COMMANDS = Object.freeze(['list', 'show', 'draft', 'import', 'set', 'confirm',
+  'withdraw', 'remove']);
+const CONVERSATION_LIST_FILE = 'conversation_list.v0.json';
+const MAX_LIST_BYTES = 32 * 1024 * 1024;
+/**
+ * The pipeline's vocabulary in the ledger's own words.
+ *
+ * `personal` and `daily` are the same thing said twice. `mixed` is not: the
+ * ledger has no word for "several kinds at once", and the nearest true statement
+ * is that nobody has settled what kind of conversation it is -- so it arrives
+ * `undetermined`, which is exactly what blocks a confirmation until a person
+ * looks. Nothing here is promoted; a confirmation still needs a person.
+ */
+const NATURE_FROM_PIPELINE = Object.freeze({ project_work: 'project_work', team_operations: 'team_operations',
+  idea: 'idea', personal: 'daily', unreadable: 'unreadable', mixed: 'undetermined' });
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u;
 const SEGMENT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
@@ -170,6 +187,55 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
     { sessionId: ledger.session_id });
 }
 
+/**
+ * One conversation-list row as a ledger segment.
+ *
+ * The pipeline's own status travels as it is: `candidate` when it found evidence,
+ * `unclassified` when it did not. `confirmed` is not reachable from here at all,
+ * and neither is a project the row did not name.
+ *
+ * The interval is widened to the whole seconds either side rather than rounded to
+ * the nearest, so that the conversation is certainly inside the interval it is
+ * addressed by -- the ids are what actually select the utterances, and a rounded
+ * boundary that fell inside the first or last utterance would make the display
+ * interval say less than the truth.
+ */
+export function ledgerSegmentFrom(row, { runId, by, now }) {
+  const status = row?.status === 'candidate' ? 'candidate' : 'unclassified';
+  const nature = NATURE_FROM_PIPELINE[row?.nature] ?? 'undetermined';
+  const ids = Array.isArray(row?.source_segment_ids) ? [...row.source_segment_ids].sort((a, b) => a - b) : [];
+  if (!isSourceSegmentIds(ids)) fail('voice_route_source_segments_invalid');
+  const start = Math.floor(Number(row.start_seconds ?? 0));
+  const end = Math.ceil(Number(row.end_seconds ?? 0));
+  const runRef = typeof row?.refs?.transcript_run_id === 'string' && row.refs.transcript_run_id
+    ? ['analysis', 'local_asr', row.refs.transcript_run_id] : null;
+  const text = (value, max) => {
+    const held = typeof value === 'string' ? value.trim() : '';
+    return held === '' ? null : [...held].slice(0, max).join('');
+  };
+  return { segment_id: String(row.segment_id), source_segment_ids: ids,
+    start_seconds: start, end_seconds: end > start ? end : start + 1,
+    title: text(row.title, VOICE_ROUTE_LIMITS.title_characters),
+    description: text(row.description, VOICE_ROUTE_LIMITS.description_characters),
+    derived_summary: true, nature,
+    project_candidates: status === 'candidate'
+      ? (row.project_candidates ?? []).map(candidate => ({ project_code: String(candidate.project_code),
+        evidence_refs: (candidate.evidence_row_ids ?? []).map(id => `evidence_row:${id}`)
+          .slice(0, VOICE_ROUTE_LIMITS.evidence_refs),
+        basis: `voice_conversation_list:${runId}:${row.segment_id}`
+          + ` strength=${candidate.strength ?? 'weak'}`
+          + ` basis=${(candidate.basis ?? []).join('+') || 'none'}` })) : [],
+    status, quality: { transcript: row?.quality?.transcript_kind === 'provider_only' ? 'provider_only'
+      : 'independent_fast',
+    // The pipeline proposed corrections; it corrected nothing. `machine_corrected`
+    // would say the transcript had been changed, and it has not been.
+    correction_state: 'none' },
+    transcript_ref: runRef, audio_ref: null,
+    related_segment_ids: Array.isArray(row.related_segment_ids) ? row.related_segment_ids.map(String) : [],
+    draft_source: { kind: 'conversation_list', run_id: runId, unit_id: String(row.segment_id) },
+    judged_by: by, judged_at: now, confirmed_by: null, confirmed_at: null };
+}
+
 /** Merges drafts into a ledger as unplaced segments, never touching one already there. */
 export function mergeDrafts(ledger, drafts, { by, now }) {
   if (!ACTOR.test(by ?? '')) fail('voice_route_actor_required');
@@ -179,6 +245,34 @@ export function mergeDrafts(ledger, drafts, { by, now }) {
   const next = validateVoiceRouteLedger({ ...ledger, segments: [...ledger.segments, ...added].sort(order),
     updated_at: now }, { sessionId: ledger.session_id });
   return { ledger: next, added: added.length, kept: ledger.segments.length };
+}
+
+/**
+ * The pipeline's list for one run, as ledger segments a person can then decide on.
+ *
+ * Like `draft`, it never reopens what is already in the ledger: a segment id that
+ * is already there is kept as it is, so importing the same run twice changes
+ * nothing and importing a second run does not overwrite the first run's rows.
+ */
+export function mergeConversationList(ledger, list, { runId, by, now }) {
+  if (!ACTOR.test(by ?? '')) fail('voice_route_actor_required');
+  if (list?.schema !== 'soulforge.voice_conversation_list.v0' || !Array.isArray(list.segments)) {
+    fail('voice_conversation_list_invalid');
+  }
+  if (list.session_id !== ledger.session_id) fail('voice_route_session_mismatch');
+  const known = new Set(ledger.segments.map(segment => segment.segment_id));
+  const incoming = list.segments.map(row => ledgerSegmentFrom(row, { runId, by, now }));
+  const added = incoming.filter(segment => !known.has(segment.segment_id));
+  const names = new Set([...known, ...added.map(segment => segment.segment_id)]);
+  const next = validateVoiceRouteLedger({ ...ledger,
+    // A link to a conversation that was not imported would dangle, so it is
+    // dropped here rather than refused at the validator.
+    segments: [...ledger.segments, ...added.map(segment => ({ ...segment,
+      related_segment_ids: segment.related_segment_ids.filter(id => names.has(id) && id !== segment.segment_id) }))]
+      .sort(order), updated_at: now }, { sessionId: ledger.session_id });
+  return { ledger: next, added: added.length, kept: ledger.segments.length,
+    candidate: added.filter(segment => segment.status === 'candidate').length,
+    unclassified: added.filter(segment => segment.status === 'unclassified').length };
 }
 
 /** Where the ledgers live: an explicit folder, or `control_root/voice-routes`. */
@@ -311,6 +405,35 @@ export function runVoiceRouteCli(argv) {
           + ` | 화행 ${draft.hints.speech_acts.join(',') || '-'} | 행위 ${draft.hints.action_codes.join(',') || '-'}`
           + ` | 개체 ${draft.hints.entity_kinds.join(',') || '-'}(${draft.hints.entity_count})`
           + ` | ${draft.hints.disposition ?? '-'} | 중요도 ${draft.hints.importance_states.join(',') || '-'}`)].join('\n') }) };
+  }
+
+  if (command === 'import') {
+    const runId = oneOf(flags, 'run');
+    if (runId === null || !/^vcl_[0-9a-f]{16}$/u.test(runId)) fail('voice_route_run_invalid');
+    const toolsPath = String(flags.get('tools-config') ?? process.env.SOULFORGE_CONTEXT_TOOLS_CONFIG ?? '');
+    if (!toolsPath) fail('voice_route_tools_config_required');
+    const tools = readToolsConfig(readFileSync(toolsPath));
+    if (!tools.derived_root) fail('voice_route_derived_root_required');
+    const file = path.join(tools.derived_root, 'voice', sessionId, runId, CONVERSATION_LIST_FILE);
+    if (!existsSync(file)) fail('voice_conversation_list_absent');
+    const bytes = readFileSync(file);
+    if (bytes.length > MAX_LIST_BYTES) fail('voice_conversation_list_too_large');
+    let list;
+    try { list = JSON.parse(bytes); } catch { return fail('voice_conversation_list_unreadable'); }
+    const merged = mergeConversationList(held.ledger, list, { runId,
+      by: flags.get('by') === undefined ? null : String(flags.get('by')), now });
+    const written = dry ? null : writeLedgerFile(dir, merged.ledger);
+    return { command, dry, ...summarize(merged.ledger), run_id: runId,
+      list_verified: list.verified === true, added: merged.added, kept: merged.kept,
+      added_candidate: merged.candidate, added_unclassified: merged.unclassified,
+      file_sha256: written?.sha256 ?? null,
+      segment_rows: merged.ledger.segments.map(segment => ({ ...segment })),
+      ...(json ? {} : { text: [
+        `${dry ? '[미기록] ' : ''}${sessionId} | 대화 목록 run ${runId}`
+        + ` | verified ${list.verified === true} | 더함 ${merged.added}`
+        + ` (후보 ${merged.candidate} · 미분류 ${merged.unclassified}) | 이미 있던 구간 ${merged.kept}`,
+        '확정(confirmed)은 이 명령이 쓰지 않습니다 — 사람이 confirm으로만 씁니다.',
+        ...merged.ledger.segments.map(segmentLine)].join('\n') }) };
   }
 
   const nature = oneOf(flags, 'nature');

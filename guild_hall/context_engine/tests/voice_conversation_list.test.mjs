@@ -27,6 +27,7 @@ import {
   stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
 import { runVoiceConversationCli } from '../harness/voice_conversation_list_cli.mjs';
+import { readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
 
 const NOW = '2026-09-15T02:00:00.000Z';
 const RUN = 'whispercpp_test_v1';
@@ -680,6 +681,65 @@ test('the run manifest says what the run actually did, in numbers a reader can c
   assert.equal(manifest.projects.opened.length, 0, 'this estate has no bindings, and the manifest says so');
   assert.ok(Object.hasOwn(manifest.quality.counts, 'hallucination_loop'));
   assert.equal(manifest.transcript.rows, 6);
+});
+
+test('the list reaches the ledger as proposals a person can decide on, and never as a decision', async () => {
+  const dirs = await estate({ registry: REGISTRY });
+  const answer = await run(dirs, ({ step, user }) => step === 'boundary'
+    ? { segments: [{ draft_id: 'd1', source_segment_ids: idsInUser(user).filter(id => id <= 4),
+      boundary_reason: 'topic_shift' },
+    { draft_id: 'd2', source_segment_ids: idsInUser(user).filter(id => id > 4), boundary_reason: 'topic_shift' }] }
+    : plainScript({ step, user }));
+  const routesDir = path.join(dirs.controlRoot, 'voice-routes');
+  await mkdir(routesDir, { recursive: true });
+  const where = ['--session', SESSION, '--run', answer.run_id, '--routes-dir', routesDir,
+    '--tools-config', dirs.toolsPath, '--by', 'actor:owner', '--now', NOW];
+
+  // A rehearsal writes nothing at all.
+  const dry = runVoiceRouteCli(['import', ...where, '--dry']);
+  assert.deepEqual([dry.dry, dry.added, dry.file_sha256], [true, 2, null]);
+  assert.deepEqual(await readdir(routesDir), [], 'a rehearsal leaves the folder as it was');
+
+  const first = runVoiceRouteCli(['import', ...where]);
+  assert.deepEqual([first.added, first.confirmed], [2, 0]);
+  assert.deepEqual([first.candidate, first.unclassified], [0, 2],
+    'no binding was opened, so every conversation arrives unplaced');
+  const ledger = readLedgerFile(routesDir, SESSION).ledger;
+  assert.deepEqual(ledger.segments.map(row => row.segment_id), ['c001', 'c002']);
+  assert.deepEqual(ledger.segments.map(row => row.source_segment_ids), [[1, 2, 3, 4], [5, 6]],
+    'the utterances travel with the conversation, which is what makes it addressable');
+  assert.ok(ledger.segments.every(row => row.status !== 'confirmed'));
+  assert.ok(ledger.segments.every(row => row.derived_summary === true));
+  assert.deepEqual(ledger.segments[0].draft_source, { kind: 'conversation_list', run_id: answer.run_id,
+    unit_id: 'c001' }, 'the ledger says which run proposed this');
+  assert.deepEqual(ledger.segments[0].transcript_ref, ['analysis', 'local_asr', RUN]);
+  assert.equal(ledger.segments[0].quality.correction_state, 'none',
+    'the pipeline proposed corrections; it corrected nothing, and the ledger says what is true');
+  assert.equal(ledger.segments[0].end_seconds >= 33.5, true, 'the interval covers the whole conversation');
+
+  // The same run twice changes nothing, and a person's decision in between is
+  // not reopened by a later import.
+  const second = runVoiceRouteCli(['import', ...where]);
+  assert.deepEqual([second.added, second.kept], [0, 2]);
+  runVoiceRouteCli(['confirm', '--session', SESSION, '--segment', 'c001', '--routes-dir', routesDir,
+    '--project', 'S00-001', '--basis', '사람이 들어 보고 판단함', '--title', '가대 도면 확인',
+    '--nature', 'project_work', '--quality', 'independent_fast', '--by', 'actor:owner', '--now', NOW]);
+  const third = runVoiceRouteCli(['import', ...where]);
+  assert.deepEqual([third.added, third.confirmed], [0, 1], 'an import never reopens a decision');
+});
+
+test('a conversation list from another recording, or a run that is not there, is refused', async () => {
+  const dirs = await estate();
+  const answer = await run(dirs, plainScript);
+  const routesDir = path.join(dirs.controlRoot, 'voice-routes');
+  await mkdir(routesDir, { recursive: true });
+  const base = ['--routes-dir', routesDir, '--tools-config', dirs.toolsPath, '--by', 'actor:owner', '--now', NOW];
+  assert.throws(() => runVoiceRouteCli(['import', '--session', SESSION, '--run', 'vcl_0000000000000000', ...base]),
+    /voice_conversation_list_absent/u);
+  assert.throws(() => runVoiceRouteCli(['import', '--session', SESSION, '--run', 'not-a-run', ...base]),
+    /voice_route_run_invalid/u);
+  assert.throws(() => runVoiceRouteCli(['import', '--session', SESSION, '--run', answer.run_id,
+    '--routes-dir', routesDir, '--tools-config', dirs.toolsPath, '--now', NOW]), /voice_route_actor_required/u);
 });
 
 test('a table renders without a model and says on its face what it is', () => {

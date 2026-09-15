@@ -607,7 +607,14 @@ const conversationFile = ({ generatedAt = '2026-09-15T01:00:00.000Z', verified =
   schema: 'soulforge.voice_conversation_list.v0', generated_at: generatedAt, verified,
   checks: ['segment_ids_complete'], segments: rows });
 
-async function withConversationList({ runs = null } = {}) {
+const correctionsFile = ({ generatedAt = '2026-09-15T01:00:00.000Z', proposals = [], discarded = [] } = {}) => ({
+  schema: 'soulforge.voice_corrections.v0', session_id: SESSION, run_id: 'clr_0001', generated_at: generatedAt,
+  proposals, discarded,
+  counts: { proposed: proposals.length, discarded: discarded.length,
+    needs_audio_recheck: proposals.filter(row => row.needs_audio_recheck).length,
+    known_term_overrides: proposals.filter(row => row.original_is_known_term).length } });
+
+async function withConversationList({ runs = null, corrections = null } = {}) {
   // A 900s window so the fixture's two conversations are both reachable in one call.
   const inbox = await makeInbox({ access: { max_seconds_per_call: 900, max_characters_per_call: 12000 } });
   const derivedRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-voice-derived-')));
@@ -620,10 +627,58 @@ async function withConversationList({ runs = null } = {}) {
     const dir = path.join(derivedRoot, 'voice', SESSION, runId);
     await mkdir(dir, { recursive: true });
     await writeFile(path.join(dir, 'conversation_list.v0.json'), json(file));
+    if (corrections !== null) await writeFile(path.join(dir, 'corrections.v0.json'), json(corrections));
   }
   return { ...inbox, derivedRoot,
     cleanup: () => Promise.all([inbox.cleanup(), rm(derivedRoot, { recursive: true, force: true })]) };
 }
+
+test('교정안은 제안으로 보이고, 전사 원문과 섞이지 않는다', async () => {
+  const inbox = await withConversationList({ corrections: correctionsFile({ proposals: [
+    { proposal_id: 'p001', segment_id: 'conv_1', source_segment_id: 11, char_offset: 3, original: '반님',
+      proposed: '반입', reason: 'term_glossary', confidence: 'medium', needs_audio_recheck: false,
+      evidence: 'context_inference', original_is_known_term: false, status: 'proposed' },
+    // A number is never settleable from context, and the row says so on its face.
+    { proposal_id: 'p002', segment_id: 'conv_1', source_segment_id: 12, char_offset: 0, original: '십이',
+      proposed: '십이월', reason: 'number_unit', confidence: 'high', needs_audio_recheck: true,
+      evidence: 'context_inference', original_is_known_term: true, status: 'proposed' }],
+  discarded: [{ source_segment_id: 12, original: 'x', proposed: 'y', code: 'position_ambiguous' }] }) });
+  try {
+    const answer = await read(inbox.io, { conversationList: true, corrections: true,
+      derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.corrections.status, 'ok');
+    assert.equal(answer.corrections.run_id, 'clr_0001', '목록과 같은 run의 교정안만 읽는다');
+    assert.deepEqual([answer.corrections.total, answer.corrections.discarded], [2, 1]);
+    const [first, second] = answer.corrections.rows;
+    assert.deepEqual([first.original, first.proposed, first.reason], ['반님', '반입', 'term_glossary']);
+    assert.deepEqual([second.needs_audio_recheck, second.original_is_known_term], [true, true]);
+    assert.ok(answer.corrections.rows.every(row => row.evidence === 'context_inference'),
+      '이 파이프라인은 오디오를 듣지 않는다');
+    const text = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' },
+      toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(text, /제안: 반입/u, '바꾼 말이 아니라 바꾸자는 말로 보인다');
+    assert.match(text, /원문: 반님/u);
+    assert.match(text, /원음 재확인 필요/u);
+    assert.match(text, /교정안은 제안일 뿐이며 전사 파일은 그대로입니다/u);
+    assert.equal(text.includes('source.mp3'), false);
+  } finally { await inbox.cleanup(); }
+});
+
+test('교정안이 없으면 없다고 말하고 나머지 답은 그대로 나온다', async () => {
+  const inbox = await withConversationList();
+  try {
+    const answer = await read(inbox.io, { conversationList: true, corrections: true,
+      derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.status, 'ok');
+    assert.equal(answer.corrections.status, 'unreadable');
+    assert.deepEqual(answer.corrections.rows, []);
+    assert.equal(answer.conversation_list.status, 'ok', '목록은 그대로 나온다');
+    const none = await read(inbox.io, { corrections: true });
+    assert.equal(none.corrections.status, 'not_configured', '파생 루트가 없으면 교정안도 없다');
+    const off = await read(inbox.io, { derivedRoot: inbox.derivedRoot });
+    assert.equal(off.corrections.status, 'not_requested');
+  } finally { await inbox.cleanup(); }
+});
 
 test('대화 목록이 있으면 그것으로 답하고, 원 발화 자리는 비운다', async () => {
   const inbox = await withConversationList();

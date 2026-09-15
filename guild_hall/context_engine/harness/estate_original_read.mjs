@@ -28,7 +28,7 @@
 //        [--json] [--dev-run <label>] [--generation <id>] [--binding <file>]
 //   node estate_original_read.mjs --root-table <file> --tools-config <file>
 //        --voice-session <session id> [--from <sec>] [--to <sec>]
-//        [--conversation-list] [--units] [--transcript local|provider]
+//        [--conversation-list] [--corrections] [--units] [--transcript local|provider]
 //        [--max-chars 12000] [--json] [--dev-run <label>]
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -253,6 +253,15 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
     lines.push(`  conversation_list 미생성 (${list.detail ?? list.status})`
       + ' — 아직 대화 목록이 만들어지지 않았습니다. 아래는 원 발화(또는 의미 단위)입니다.');
   }
+  const fixes = answer.corrections;
+  if (fixes.status === 'ok') {
+    lines.push(`  corrections run ${fixes.run_id}${fixes.generated_at ? ` generated ${fixes.generated_at}` : ''}`
+      + ` · 제안 ${fixes.total}건 중 이 창에 ${fixes.in_window}건`
+      + `${fixes.counts ? ` · 폐기 ${fixes.discarded}건 · 재확인 필요 ${fixes.counts.needs_audio_recheck ?? 0}건` : ''}`,
+    '    교정안은 제안일 뿐이며 전사 파일은 그대로입니다 — 아래 `제안:`은 바뀐 말이 아니라 바꾸자는 말입니다.');
+  } else if (fixes.status !== 'not_requested') {
+    lines.push(`  corrections 미생성 (${fixes.detail ?? fixes.status}) — 이 녹음에는 교정안이 없습니다.`);
+  }
   const registry = answer.shared_terms;
   if (registry.status === 'ok') {
     lines.push(`  shared_terms 등록 ${registry.term_count}개 (registry ${String(registry.registry_sha256 ?? '')
@@ -323,6 +332,17 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
     const marks = termMarks(row);
     if (marks !== null) lines.push(marks);
   }
+  for (const row of fixes.rows ?? []) {
+    lines.push(`\n[교정 ${row.proposal_id}] 발화 ${row.source_segment_id ?? '-'}`
+      + `${row.char_offset === null ? '' : ` 위치 ${row.char_offset}`}`
+      + `${row.conversation_id ? ` · 구간 ${row.conversation_id}` : ''}`
+      + ` · ${row.reason} · 확신 ${row.confidence}`
+      + ` · ${row.evidence === 'context_inference' ? '문맥 추정' : '음성 확인'}`
+      + `${row.needs_audio_recheck ? ' · 원음 재확인 필요' : ''}`
+      + `${row.original_is_known_term ? ' · 등록 용어를 고치려 함' : ''}`,
+    `  원문: ${line(row.original, 80)}`,
+    `  제안: ${line(row.proposed, 80)}`);
+  }
   if (answer.next_window) {
     lines.push(`\n[이어 읽기] --from ${answer.next_window.from} --to ${answer.next_window.to}`
       + ` (${answer.next_window.reason === 'character_bound' ? '글자 상한' : '창 상한'}에 걸려 여기서 끊었습니다)`);
@@ -351,8 +371,9 @@ async function voiceMain({ flags, io, tools, toolsSha256 }) {
     ? null : String(flags.get('transcript'));
   const wantUnits = flags.get('units') === true;
   const wantList = flags.get('conversation-list') === true;
+  const wantCorrections = flags.get('corrections') === true;
   const args = { voice_session: sessionId, from, to, transcript: kind, units: wantUnits,
-    conversation_list: wantList,
+    conversation_list: wantList, corrections: wantCorrections,
     tools_config_sha256: toolsSha256.slice(0, 19), root_table_sha256: io.table_sha256.slice(0, 19) };
   let budget;
   try {
@@ -369,7 +390,7 @@ async function voiceMain({ flags, io, tools, toolsSha256 }) {
   }
   try {
     const answer = await readVoiceSession({ io, sessionId, from, to, transcriptKind: kind, units: wantUnits,
-      conversationList: wantList, derivedRoot: tools.derived_root ?? null,
+      conversationList: wantList, corrections: wantCorrections, derivedRoot: tools.derived_root ?? null,
       sharedTermsPath: tools.shared_terms_path ?? null,
       maxChars: flags.get('max-chars') === undefined ? null : Number.parseInt(String(flags.get('max-chars')), 10) });
     budget.finish(answer.status, answer.internal);
