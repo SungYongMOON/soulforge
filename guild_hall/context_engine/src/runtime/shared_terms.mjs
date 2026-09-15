@@ -52,7 +52,10 @@ export function loadSharedTerms(path) {
     const projects = Array.isArray(row.projects) ? row.projects.map(String) : [];
     terms.push(Object.freeze({ term, normalized: normalize(row.normalized ?? term), projects: Object.freeze(projects),
       project_count: projects.length, shared: projects.length >= 2,
-      count: Number.isFinite(row.count) ? row.count : null,
+      // The registry the shared-terms slice writes calls this `mention_count`;
+      // an earlier draft called it `count`. Both are read, neither is required.
+      count: Number.isFinite(row.mention_count) ? row.mention_count
+        : (Number.isFinite(row.count) ? row.count : null),
       source: typeof row.source === 'string' ? row.source : 'unknown' }));
   }
   // Longest first, so a term that contains a shorter one is reported as itself.

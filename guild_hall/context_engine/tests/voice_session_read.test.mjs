@@ -563,7 +563,159 @@ test('구간 초안 조립은 라벨 run이 센 글자 수와 맞는지 스스�
 
 test('스킬 문서가 공통 용어 규칙과 대화 목록 형식을 실제로 담고 있다', async () => {
   const skill = await readFile(new URL('../ops/hermes-skill/SKILL.md', import.meta.url), 'utf8');
-  for (const rule of ['공통 용어', '근거 두 가지 이상', '대화 목록', '판독 불가', 'candidate', 'unclassified']) {
+  for (const rule of ['공통 용어', '근거 두 가지 이상', '대화 목록', '판독 불가', 'candidate', 'unclassified',
+    // The narrowed shape: cite the list, or say there is none -- never derive one.
+    '아직 대화 목록이 만들어지지 않았', '대신 나눠 주지 않는다', '제안', '파생 요약']) {
     assert.ok(skill.includes(rule), `SKILL.md should state: ${rule}`);
   }
+  assert.ok(!skill.includes('① 녹음·전사 품질부터 본다'),
+    'the long bot-performed procedure is gone');
+});
+
+// ------------------------------------------------------------ 대화 목록
+// The list a separate pipeline writes. This read cites it or says there is
+// none; it never derives one.
+
+const conversationRowFixture = ({ id, start, end, nature = 'project_work', title = '중립 제목',
+  description = '파생 설명입니다.', candidates = [], quality = {}, related = [] } = {}) => ({
+  segment_id: id, start_seconds: start, end_seconds: end,
+  clock: `09:${String(Math.floor(start / 60)).padStart(2, '0')}:${String(Math.floor(start % 60)).padStart(2, '0')}`,
+  title, description, nature, status: candidates.length ? 'candidate' : 'unclassified',
+  project_candidates: candidates, unclassified_reason: candidates.length ? null : '단서가 공통 용어뿐입니다',
+  quality: { transcript_kind: 'independent_fast', marks: ['low_confidence'], correction_state: 'proposed', ...quality },
+  refs: { session_id: SESSION, transcript_run_id: RUN, source_segment_ids: [11, 12],
+    // The pipeline records where the audio is; this read must never pass it on.
+    audio_ref: `sessions/${DATE}/${SESSION}/audio/source.mp3`, semantic_run_id: 'vsl_synthetic_run' },
+  related_segment_ids: related,
+});
+
+const conversationFile = ({ generatedAt = '2026-09-15T01:00:00.000Z', verified = false, rows } = {}) => ({
+  schema: 'soulforge.voice_conversation_list.v0', generated_at: generatedAt, verified,
+  checks: ['segment_ids_complete'], segments: rows });
+
+async function withConversationList({ runs = null } = {}) {
+  // A 900s window so the fixture's two conversations are both reachable in one call.
+  const inbox = await makeInbox({ access: { max_seconds_per_call: 900, max_characters_per_call: 12000 } });
+  const derivedRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-voice-derived-')));
+  for (const [runId, file] of runs ?? [['clr_0001', conversationFile({ rows: [
+    conversationRowFixture({ id: 'conv_1', start: 0.4, end: 69.6,
+      candidates: [{ project_code: 'S00-001', evidence_row_ids: [1, 2], basis: ['equipment', 'purpose'],
+        strength: 'strong' }], related: ['conv_2'] }),
+    conversationRowFixture({ id: 'conv_2', start: 700.1, end: 759.9, nature: 'idea', candidates: [] }),
+  ] })]]) {
+    const dir = path.join(derivedRoot, 'voice', SESSION, runId);
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, 'conversation_list.v0.json'), json(file));
+  }
+  return { ...inbox, derivedRoot,
+    cleanup: () => Promise.all([inbox.cleanup(), rm(derivedRoot, { recursive: true, force: true })]) };
+}
+
+test('대화 목록이 있으면 그것으로 답하고, 원 발화 자리는 비운다', async () => {
+  const inbox = await withConversationList();
+  try {
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.status, 'ok');
+    assert.equal(answer.conversation_list.status, 'ok');
+    assert.equal(answer.counts.basis, 'conversation_list');
+    assert.equal(answer.segments.length, 0);
+    assert.equal(answer.units.rows.length, 0);
+    assert.equal(answer.conversation_list.run_id, 'clr_0001');
+    assert.equal(answer.conversation_list.verified, false, 'an unverified list says so');
+    assert.deepEqual(answer.conversation_list.checks, ['segment_ids_complete']);
+    const [first, second] = answer.conversation_list.rows;
+    assert.equal(first.conversation_id, 'conv_1');
+    assert.equal(first.nature, 'project_work');
+    assert.equal(first.status, 'candidate');
+    assert.equal(first.derived_summary, true);
+    assert.deepEqual(first.project_candidates, [{ project_code: 'S00-001', strength: 'strong',
+      basis: ['equipment', 'purpose'], evidence_rows: 2 }]);
+    assert.equal(first.quality.correction_state, 'proposed');
+    assert.deepEqual(first.refs.source_segment_ids, [11, 12]);
+    assert.deepEqual(first.related, ['conv_2']);
+    assert.equal(second.unclassified_reason, '단서가 공통 용어뿐입니다');
+    assert.equal(second.project_candidates.length, 0);
+  } finally { await inbox.cleanup(); }
+});
+
+test('대화 목록의 오디오 참조는 어떤 출력에도 실리지 않는다', async () => {
+  const inbox = await withConversationList();
+  try {
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot });
+    const text = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' },
+      toolsSha256: sha(Buffer.from('tools')) });
+    for (const carrier of [JSON.stringify(answer), text]) {
+      assert.ok(!carrier.includes('source.mp3'), 'the audio reference is dropped, not forwarded');
+      assert.ok(!carrier.includes('audio_ref'));
+    }
+    assert.match(text, /파생 요약입니다/u);
+    assert.match(text, /conversation_list run clr_0001/u);
+    assert.match(text, /verified false/u);
+  } finally { await inbox.cleanup(); }
+});
+
+test('run이 여럿이면 선언된 시각으로 최신을 고르고, 무엇으로 골랐는지 말한다', async () => {
+  const rows = [conversationRowFixture({ id: 'conv_1', start: 0.4, end: 69.6 })];
+  const inbox = await withConversationList({ runs: [
+    ['clr_0001', conversationFile({ generatedAt: '2026-09-15T01:00:00.000Z', rows })],
+    ['clr_0002', conversationFile({ generatedAt: '2026-09-15T05:00:00.000Z', rows, verified: true })],
+  ] });
+  try {
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.conversation_list.run_id, 'clr_0002');
+    assert.equal(answer.conversation_list.runs_found, 2);
+    assert.equal(answer.conversation_list.selected_by, 'declared_instant');
+    assert.equal(answer.conversation_list.verified, true);
+  } finally { await inbox.cleanup(); }
+});
+
+test('대화 목록이 없으면 "미생성"이라 말하고 원 발화로 답한다', async () => {
+  const inbox = await makeInbox();
+  const derivedRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-voice-derived-')));
+  try {
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot });
+    assert.equal(answer.conversation_list.status, 'absent');
+    assert.equal(answer.counts.basis, 'transcript_segments');
+    assert.ok(answer.segments.length > 0, 'the utterances still answer');
+    const text = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' },
+      toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(text, /conversation_list 미생성/u);
+    assert.match(text, /아직 대화 목록이 만들어지지 않았습니다/u);
+  } finally {
+    await inbox.cleanup();
+    await rm(derivedRoot, { recursive: true, force: true });
+  }
+});
+
+test('파생 루트가 아예 없거나 설정되지 않아도 읽기는 그대로 답한다', async () => {
+  const inbox = await makeInbox();
+  try {
+    const none = await read(inbox.io, { conversationList: true });
+    assert.equal(none.conversation_list.status, 'not_configured');
+    assert.equal(none.status, 'ok');
+    assert.ok(none.segments.length > 0);
+    const gone = await read(inbox.io, { conversationList: true,
+      derivedRoot: path.join(inbox.dataRoot, 'no-such-derived-root') });
+    assert.equal(gone.conversation_list.status, 'absent');
+    assert.equal(gone.status, 'ok');
+  } finally { await inbox.cleanup(); }
+});
+
+test('대화 목록도 창으로 자른다 — 창 밖 구간은 나오지 않는다', async () => {
+  const inbox = await withConversationList();
+  try {
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot,
+      from: 600, to: 900 });
+    assert.deepEqual(answer.conversation_list.rows.map(row => row.conversation_id), ['conv_2']);
+    assert.equal(answer.counts.in_window, 1);
+  } finally { await inbox.cleanup(); }
+});
+
+test('대화 목록을 달라고 하면 의미 단위 초안은 읽지 않는다', async () => {
+  const inbox = await withConversationList();
+  try {
+    const answer = await read(inbox.io, { conversationList: true, units: true, derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.counts.basis, 'conversation_list');
+    assert.equal(answer.units.status, 'not_read', 'one answer has one basis');
+  } finally { await inbox.cleanup(); }
 });

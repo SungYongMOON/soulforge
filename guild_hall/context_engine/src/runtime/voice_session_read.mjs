@@ -56,6 +56,8 @@ const MAX_ACCESS_BYTES = 256 * 1024;
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
 const MAX_TRANSCRIPT_BYTES = 32 * 1024 * 1024;
 const MAX_LABEL_BYTES = 32 * 1024 * 1024;
+const MAX_CONVERSATION_BYTES = 32 * 1024 * 1024;
+const CONVERSATION_FILE = 'conversation_list.v0.json';
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 export class VoiceSessionReadError extends Error {
@@ -316,6 +318,98 @@ const labelHead = ({ run, run_id }) => ({
     ? run.context.missing_context_kinds.map(String) : [],
 });
 
+// ------------------------------------------------------- conversation list
+// The list a pipeline made, not one this tool makes.
+//
+// Splitting a recording into conversations, naming what each one is, proposing
+// which project it belongs to and correcting its terms are staged work with
+// checks between the stages. A bot asked to do all of that from one prompt does
+// it invisibly and differently every time. So this read does none of it: when a
+// run has produced a list it shows that list, attributed to its run, and when
+// none exists it says so and shows the utterances instead.
+//
+// Everything in a row is derived except the references. Titles and descriptions
+// are summaries a model wrote; they are not what anybody said, and the rendering
+// says so on every answer.
+async function readConversationList({ derivedRoot, sessionId }) {
+  if (typeof derivedRoot !== 'string' || !derivedRoot) {
+    return { status: 'not_configured', detail: 'no derived root declared', rows: [] };
+  }
+  let root;
+  try { root = openSourceRoot(derivedRoot); }
+  catch { return { status: 'absent', detail: 'derived root unavailable', rows: [] }; }
+  let runs;
+  try { runs = await root.list(['voice', sessionId]); }
+  catch { return { status: 'absent', detail: 'no conversation list for this session', rows: [] }; }
+  const found = [];
+  for (const entry of runs) {
+    if (!entry.directory || !isSafeSegment(entry.name)) continue;
+    let parsed;
+    try { parsed = JSON.parse((await root.readText(['voice', sessionId, entry.name, CONVERSATION_FILE],
+      MAX_CONVERSATION_BYTES)).text); } catch { continue; }
+    const rows = Array.isArray(parsed) ? parsed
+      : (Array.isArray(parsed?.segments) ? parsed.segments
+        : (Array.isArray(parsed?.conversations) ? parsed.conversations : null));
+    if (rows === null) continue;
+    found.push({ run_id: entry.name, parsed, rows,
+      generated_at: typeof parsed?.generated_at === 'string' ? parsed.generated_at
+        : (typeof parsed?.created_at === 'string' ? parsed.created_at : null) });
+  }
+  if (found.length === 0) {
+    return { status: runs.length === 0 ? 'absent' : 'unreadable',
+      detail: runs.length === 0 ? 'no conversation list for this session'
+        : 'no readable conversation list in the runs of this session', rows: [] };
+  }
+  // Newest by what the run declares; a run that declares no instant sorts under
+  // one that does, and the tie-break is the run id. The answer says which run
+  // answered and how many there were, so "the latest" is never a silent choice.
+  found.sort((a, b) => String(b.generated_at ?? '').localeCompare(String(a.generated_at ?? ''))
+    || b.run_id.localeCompare(a.run_id));
+  const picked = found[0];
+  return { status: 'ok', detail: null, run_id: picked.run_id, runs_found: found.length,
+    generated_at: picked.generated_at,
+    selected_by: picked.generated_at === null ? 'run_id' : 'declared_instant',
+    verified: picked.parsed?.verified === true,
+    checks: Array.isArray(picked.parsed?.checks) ? picked.parsed.checks
+      : (picked.parsed?.checks === undefined ? [] : [picked.parsed.checks]),
+    rows: picked.rows };
+}
+
+/** One row of that list, with the audio reference dropped: this tool never hands one out. */
+export function conversationRow(row, recordedAtLocal) {
+  const start = Number(row.start_seconds ?? row.start ?? 0);
+  const end = Number(row.end_seconds ?? row.end ?? start);
+  const computed = clockAt(recordedAtLocal, start);
+  const refs = row.refs ?? {};
+  const quality = row.quality ?? {};
+  const description = String(row.description ?? '');
+  return {
+    conversation_id: String(row.segment_id ?? row.draft_id ?? row.id ?? '-'),
+    start_seconds: start, end_seconds: end,
+    clock: computed.clock, clock_end: clockAt(recordedAtLocal, end).clock,
+    declared_clock: typeof row.clock === 'string' ? row.clock : null,
+    clock_matches: typeof row.clock === 'string' ? row.clock.includes(computed.clock) : null,
+    title: String(row.title ?? ''), description, nature: String(row.nature ?? '-'),
+    status: typeof row.status === 'string' ? row.status : null,
+    project_candidates: (Array.isArray(row.project_candidates) ? row.project_candidates : []).map(candidate => ({
+      project_code: String(candidate.project_code ?? '-'), strength: String(candidate.strength ?? '-'),
+      basis: Array.isArray(candidate.basis) ? candidate.basis.map(String) : [],
+      evidence_rows: Array.isArray(candidate.evidence_row_ids) ? candidate.evidence_row_ids.length : 0 })),
+    unclassified_reason: row.unclassified_reason === undefined || row.unclassified_reason === null
+      ? null : String(row.unclassified_reason),
+    quality: { transcript_kind: quality.transcript_kind === undefined ? null : String(quality.transcript_kind),
+      marks: Array.isArray(quality.marks) ? quality.marks.map(String)
+        : (quality.marks === undefined || quality.marks === null ? [] : [String(quality.marks)]),
+      correction_state: quality.correction_state === undefined ? null : String(quality.correction_state) },
+    // refs.audio_ref is deliberately not carried: the audio never leaves through here.
+    refs: { transcript_run_id: refs.transcript_run_id === undefined ? null : String(refs.transcript_run_id),
+      semantic_run_id: refs.semantic_run_id === undefined ? null : String(refs.semantic_run_id),
+      source_segment_ids: Array.isArray(refs.source_segment_ids) ? refs.source_segment_ids : [] },
+    related: Array.isArray(row.related_segment_ids) ? row.related_segment_ids.map(String) : [],
+    derived_summary: true, characters: [...description].length, text: description,
+  };
+}
+
 // -------------------------------------------------------------------- read
 /**
  * One window of one session. `from`/`to` are seconds from the start of the
@@ -326,8 +420,9 @@ const labelHead = ({ run, run_id }) => ({
  * falls back to the segments and says why.
  */
 export async function readVoiceSession({ io, sessionId, from = null, to = null, transcriptKind = null,
-  units = false, maxChars = null, sharedTermsPath = null, actorRef = VOICE_READER_ACTOR,
-  accessAddress = VOICE_ACCESS_ADDRESS, now = new Date().toISOString() } = {}) {
+  units = false, conversationList = false, derivedRoot = null, maxChars = null, sharedTermsPath = null,
+  actorRef = VOICE_READER_ACTOR, accessAddress = VOICE_ACCESS_ADDRESS,
+  now = new Date().toISOString() } = {}) {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || !isSafeSegment(sessionId)) {
     fail('voice_session_id_invalid');
   }
@@ -347,6 +442,7 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
       max_seconds_per_call: access.max_seconds_per_call ?? null },
     detail, session: null, transcript: null, window: null, segments: [],
     units: { status: units ? 'not_read' : 'not_requested', detail: null, rows: [] },
+    conversation_list: { status: conversationList ? 'not_read' : 'not_requested', detail: null, rows: [] },
     shared_terms: { status: 'not_read', detail: null, term_count: 0 },
     counts: { basis: 'transcript_segments', in_window: 0, shown: 0, characters_total: 0, characters_shown: 0 },
     next_window: null,
@@ -397,12 +493,30 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
   const limit = Math.min(maxChars ?? access.max_characters_per_call, access.max_characters_per_call);
   const start = manifest.recorded_at_local;
 
+  // The list a pipeline made comes first when it was asked for: a reader who has
+  // one should be citing it, not re-deriving it from the utterances.
+  let conversations = { status: conversationList ? 'not_read' : 'not_requested', detail: null, rows: [] };
+  let conversationRows = null;
+  if (conversationList) {
+    const found = await readConversationList({ derivedRoot, sessionId });
+    conversations = found.status === 'ok'
+      ? { status: 'ok', detail: null, run_id: found.run_id, runs_found: found.runs_found,
+        generated_at: found.generated_at, selected_by: found.selected_by, verified: found.verified,
+        checks: found.checks, rows: [] }
+      : { status: found.status, detail: found.detail, rows: [] };
+    if (found.status === 'ok') {
+      conversationRows = found.rows.map(row => conversationRow(row, start))
+        .filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo)
+        .sort((a, b) => a.start_seconds - b.start_seconds || a.conversation_id.localeCompare(b.conversation_id));
+    }
+  }
+
   // The draft intervals, when they were made over the very transcript that was
   // read. Anything else falls back to the raw segments and says why, because a
   // unit boundary from another chain would point at the wrong words.
   let labels = { status: units ? 'not_read' : 'not_requested', detail: null, rows: [] };
   let unitRows = null;
-  if (units) {
+  if (units && conversationRows === null) {
     const found = await readSemanticLabelRun({ root, segments, transcriptSha256: read.transcript.sha256 });
     labels = found.status === 'ok'
       ? { status: 'ok', detail: null, ...labelHead(found), rows: [] }
@@ -413,10 +527,12 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
     }
   }
 
-  const basis = unitRows === null ? 'transcript_segments' : 'semantic_units';
-  const inWindow = unitRows ?? rows.filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo);
-  const lengthOf = row => unitRows === null ? [...row.content].length : row.characters;
-  const textOf = row => unitRows === null ? row.content : row.text;
+  const basis = conversationRows !== null ? 'conversation_list'
+    : (unitRows === null ? 'transcript_segments' : 'semantic_units');
+  const inWindow = conversationRows ?? unitRows
+    ?? rows.filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo);
+  const lengthOf = row => basis === 'transcript_segments' ? [...row.content].length : row.characters;
+  const textOf = row => basis === 'transcript_segments' ? row.content : row.text;
   // Marks, not judgements: a term the registry says several projects carry is
   // one a reader must stop using to pick one.
   const registry = loadSharedTerms(sharedTermsPath);
@@ -431,12 +547,13 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
     // The whole interval's text is classified, not only the part shown, so a
     // character bound cannot hide the word that makes a clue ambiguous.
     const terms = registry.status === 'ok' ? classifyTerms(text, registry) : [];
-    return unitRows === null
+    return basis === 'transcript_segments'
       ? { segment_id: row.segment_id, clock: clockAt(start, row.start_seconds).clock, speaker: row.speaker,
         ...body, terms }
       : { ...row, ...body, terms };
   });
-  if (unitRows !== null) labels = { ...labels, rows: shown };
+  if (conversationRows !== null) conversations = { ...conversations, rows: shown };
+  else if (unitRows !== null) labels = { ...labels, rows: shown };
   const firstUnshown = shown.find(row => row.shown < row.characters) ?? null;
   const nextWindow = firstUnshown !== null
     ? { from: Math.floor(firstUnshown.start_seconds), to: windowTo, reason: 'character_bound' }
@@ -463,7 +580,8 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
     window: { from: requestedFrom, to: windowTo, requested_to: requestedTo,
       clamped: windowTo < requestedTo, max_seconds_per_call: access.max_seconds_per_call,
       max_characters: limit },
-    segments: unitRows === null ? shown : [], units: labels, next_window: nextWindow,
+    segments: basis === 'transcript_segments' ? shown : [], units: labels,
+    conversation_list: conversations, next_window: nextWindow,
     shared_terms: { status: registry.status, detail: registry.detail, term_count: registry.terms.length,
       registry_sha256: registry.path_sha256 },
     counts: { basis, in_window: inWindow.length, shown: shown.filter(row => row.shown > 0).length,

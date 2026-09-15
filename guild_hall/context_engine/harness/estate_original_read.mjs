@@ -27,8 +27,9 @@
 //        [--attachment <index|file_id|sha256 앞 12자>] [--slide <n>|--page <n>] [--render]
 //        [--json] [--dev-run <label>] [--generation <id>] [--binding <file>]
 //   node estate_original_read.mjs --root-table <file> --tools-config <file>
-//        --voice-session <session id> [--from <sec>] [--to <sec>] [--units]
-//        [--transcript local|provider] [--max-chars 12000] [--json] [--dev-run <label>]
+//        --voice-session <session id> [--from <sec>] [--to <sec>]
+//        [--conversation-list] [--units] [--transcript local|provider]
+//        [--max-chars 12000] [--json] [--dev-run <label>]
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -233,6 +234,16 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
   } else if (labels.status !== 'not_requested') {
     lines.push(`  labels ${labels.status}${labels.detail ? ` (${labels.detail})` : ''} — 원 전사 구간으로 답합니다.`);
   }
+  const list = answer.conversation_list;
+  if (list.status === 'ok') {
+    lines.push(`  conversation_list run ${list.run_id}${list.generated_at ? ` generated ${list.generated_at}` : ''}`
+      + ` (run ${list.runs_found}개 중 ${list.selected_by === 'run_id' ? 'run id' : '선언 시각'}으로 고름)`
+      + ` verified ${list.verified ? 'true' : 'false'}${list.checks.length ? ` checks ${list.checks.length}건` : ''}`,
+      '    제목·설명은 파이프라인이 만든 파생 요약입니다 — 실제 발언도 승인된 회의록도 아닙니다.');
+  } else if (list.status !== 'not_requested') {
+    lines.push(`  conversation_list 미생성 (${list.detail ?? list.status})`
+      + ' — 아직 대화 목록이 만들어지지 않았습니다. 아래는 원 발화(또는 의미 단위)입니다.');
+  }
   const registry = answer.shared_terms;
   if (registry.status === 'ok') {
     lines.push(`  shared_terms 등록 ${registry.term_count}개 (registry ${String(registry.registry_sha256 ?? '')
@@ -244,7 +255,8 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
   lines.push(`  speaker 라벨은 정렬 힌트입니다 — 신원이 아니고 담당자도 아닙니다.`,
     `  window ${seconds(window.from)}–${seconds(window.to)} / 요청 ${seconds(window.from)}–${seconds(window.requested_to)}`
       + `${window.clamped ? ` (한 번에 ${window.max_seconds_per_call}초까지)` : ''}`
-      + ` · ${answer.counts.basis === 'semantic_units' ? '구간 초안' : '전사 구간'} `
+      + ` · ${answer.counts.basis === 'conversation_list' ? '대화 목록'
+        : (answer.counts.basis === 'semantic_units' ? '구간 초안' : '전사 구간')} `
       + `${answer.counts.in_window}개 중 ${answer.counts.shown}개 · `
       + `${answer.counts.characters_shown}자 / ${answer.counts.characters_total}자`);
   if (answer.status === 'window_without_speech') {
@@ -280,6 +292,28 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
     if (unit.shown > 0) lines.push(unit.text);
     if (unit.truncated) lines.push(`[잘림: ${unit.characters}자 중 ${unit.shown}자]`);
   }
+  for (const row of list.rows) {
+    lines.push(`\n[conv ${row.conversation_id}] ${seconds(row.start_seconds)}–${seconds(row.end_seconds)} `
+      + `${row.clock}–${row.clock_end} ${session.clock_label} · ${row.nature}`
+      + `${row.status ? ` · ${row.status}` : ''}`
+      + `${row.clock_matches === false ? ` (파일이 선언한 시각 ${row.declared_clock}과 다름)` : ''}`,
+    `  제목(파생) ${line(row.title, 80)}`);
+    if (row.shown > 0) lines.push(`  설명(파생) ${row.text}`);
+    if (row.truncated) lines.push(`  [잘림: ${row.characters}자 중 ${row.shown}자]`);
+    lines.push(row.project_candidates.length
+      ? `  과제 후보 ${row.project_candidates.map(candidate => `${candidate.project_code}(${candidate.strength}`
+        + `${candidate.basis.length ? `, ${candidate.basis.join('+')}` : ''}, 근거 ${candidate.evidence_rows}행)`).join(' · ')}`
+      : `  과제 후보 없음${row.unclassified_reason ? ` — ${line(row.unclassified_reason, 80)}` : ''}`);
+    lines.push(`  품질 ${row.quality.transcript_kind ?? '-'} · marks ${row.quality.marks.join(', ') || '-'}`
+      + ` · 교정 ${row.quality.correction_state ?? '-'}`,
+    `  참조 transcript ${row.refs.transcript_run_id ?? '-'}`
+      + `${row.refs.source_segment_ids.length ? ` segs ${row.refs.source_segment_ids[0]}..${row.refs.source_segment_ids.at(-1)}`
+        + ` (${row.refs.source_segment_ids.length}개)` : ''}`
+      + `${row.refs.semantic_run_id ? ` · semantic ${row.refs.semantic_run_id}` : ''}`
+      + `${row.related.length ? ` · 관련 ${row.related.join(', ')}` : ''}`);
+    const marks = termMarks(row);
+    if (marks !== null) lines.push(marks);
+  }
   if (answer.next_window) {
     lines.push(`\n[이어 읽기] --from ${answer.next_window.from} --to ${answer.next_window.to}`
       + ` (${answer.next_window.reason === 'character_bound' ? '글자 상한' : '창 상한'}에 걸려 여기서 끊었습니다)`);
@@ -307,7 +341,9 @@ async function voiceMain({ flags, io, tools, toolsSha256 }) {
   const kind = flags.get('transcript') === undefined || flags.get('transcript') === true
     ? null : String(flags.get('transcript'));
   const wantUnits = flags.get('units') === true;
+  const wantList = flags.get('conversation-list') === true;
   const args = { voice_session: sessionId, from, to, transcript: kind, units: wantUnits,
+    conversation_list: wantList,
     tools_config_sha256: toolsSha256.slice(0, 19), root_table_sha256: io.table_sha256.slice(0, 19) };
   let budget;
   try {
@@ -324,6 +360,7 @@ async function voiceMain({ flags, io, tools, toolsSha256 }) {
   }
   try {
     const answer = await readVoiceSession({ io, sessionId, from, to, transcriptKind: kind, units: wantUnits,
+      conversationList: wantList, derivedRoot: tools.derived_root ?? null,
       sharedTermsPath: tools.shared_terms_path ?? null,
       maxChars: flags.get('max-chars') === undefined ? null : Number.parseInt(String(flags.get('max-chars')), 10) });
     budget.finish(answer.status, answer.internal);
