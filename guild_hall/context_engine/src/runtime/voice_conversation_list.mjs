@@ -1211,8 +1211,18 @@ export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = []
   }
   if (at.length === 0) return { status: 'discarded', code: 'position_mismatch' };
   let offset = proposal.char_offset;
+  // The three-way rule is satisfied by the utterance, the text and the one place
+  // that text occurs; an offset the model miscounted adds nothing to that and
+  // takes nothing away. So a wrong offset is corrected -- and said to have been
+  // -- when the text occurs exactly once, and refused when it occurs more than
+  // once, because then the offset was the only thing that could have chosen.
+  let offsetCorrected = false;
   if (Number.isSafeInteger(offset)) {
-    if (!at.includes(offset)) return { status: 'discarded', code: 'position_mismatch' };
+    if (!at.includes(offset)) {
+      if (at.length !== 1) return { status: 'discarded', code: 'position_mismatch' };
+      offset = at[0];
+      offsetCorrected = true;
+    }
   } else if (at.length === 1) {
     offset = at[0];
   } else {
@@ -1242,7 +1252,7 @@ export function checkCorrection(proposal, { text, knownTerms = [], keyTerms = []
     reason: proposal.reason,
     confidence: known || recurs || synonym || mapped ? 'low' : confidence,
     original_recurs_in_transcript: recurs, synonym_normalization: synonym,
-    mapped_onto_protected_word: mapped,
+    mapped_onto_protected_word: mapped, offset_corrected_by_code: offsetCorrected,
     // A correction with `needs_audio_recheck` is not a weaker correction; it is
     // one whose truth is not in the transcript at all.
     needs_audio_recheck: AUDIO_RECHECK_REASONS.includes(proposal.reason),
@@ -1409,6 +1419,7 @@ export function renderCorrectionsTable(corrections, { textOf, clockOf }) {
       + ` | ${cell(trim(text, 60))} | ${cell(trim(applyCorrections(text, [proposal]), 60))}`
       + ` | ${proposal.reason} | ${proposal.confidence}`
       + `${proposal.original_is_known_term ? ' (등록 용어)' : ''}`
+      + `${proposal.offset_corrected_by_code ? ' (위치 보정)' : ''}`
       + ` | ${proposal.evidence === 'context_inference' ? '문맥 추정' : '음성 확인'}`
       + ` | ${proposal.needs_audio_recheck ? '예' : '아니오'} |`);
   }

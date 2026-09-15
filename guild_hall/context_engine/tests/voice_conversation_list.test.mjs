@@ -747,8 +747,17 @@ test('a correction has to be where the model said it was, and may not restring t
   assert.deepEqual([ok.status, ok.char_offset, ok.needs_audio_recheck, ok.evidence],
     ['proposed', 11, false, 'context_inference']);
 
-  assert.equal(checkCorrection({ original: '반님', proposed: '반입', char_offset: 3, reason: 'term_glossary' },
-    { text }).code, 'position_mismatch', 'the offset does not hold that text');
+  // A miscounted offset is corrected when the text occurs exactly once -- the
+  // utterance and the text already settle where it is -- and the proposal says
+  // that a code, not the model, chose the position.
+  const miscounted = checkCorrection({ original: '반님', proposed: '반입', char_offset: 3, reason: 'term_glossary',
+    confidence: 'high' }, { text });
+  assert.deepEqual([miscounted.status, miscounted.char_offset, miscounted.offset_corrected_by_code, miscounted.confidence],
+    ['proposed', 11, true, 'high'], 'one occurrence: the offset is corrected and marked');
+  assert.equal(ok.offset_corrected_by_code, false, 'a right offset is not marked as corrected');
+  assert.equal(checkCorrection({ original: '수', proposed: '주', char_offset: 1, reason: 'homophone' },
+    { text: '수요일 수정본 수신' }).code, 'position_mismatch',
+  'a wrong offset over several occurrences is refused: the offset was the only thing that could choose');
   assert.equal(checkCorrection({ original: '없는말', proposed: 'x', reason: 'other' }, { text }).code,
     'position_mismatch');
   assert.equal(checkCorrection({ original: '수', proposed: '주', reason: 'homophone' },

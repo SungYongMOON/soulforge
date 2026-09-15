@@ -686,6 +686,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       recurring_original_overrides: proposals.filter(row => row.original_recurs_in_transcript).length,
       synonym_normalizations: proposals.filter(row => row.synonym_normalization).length,
       mapped_onto_protected_word: proposals.filter(row => row.mapped_onto_protected_word).length,
+      offset_corrected_by_code: proposals.filter(row => row.offset_corrected_by_code).length,
       by_discard_code: discarded.reduce((held, row) => ({ ...held, [row.code]: (held[row.code] ?? 0) + 1 }), {}) } };
 
   const before = (() => {
