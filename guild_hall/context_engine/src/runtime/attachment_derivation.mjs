@@ -73,6 +73,11 @@ export function readToolsConfig(bytes) {
     if (typeof config[key] !== 'string' || !isAbsolute(config[key])) fail('tools_config_path_invalid');
   }
   if (config.python_packages === null || typeof config.python_packages !== 'object') fail('tools_config_packages_invalid');
+  // Optional: the shared-term registry this host generates and reads. A host that
+  // has no registry yet has no path, and a consumer then has no verdict rather than
+  // a wrong one -- but a path that is present and not absolute is a typo, not a hold.
+  if (config.shared_terms_path !== undefined && config.shared_terms_path !== null
+    && (typeof config.shared_terms_path !== 'string' || !isAbsolute(config.shared_terms_path))) fail('tools_config_path_invalid');
   if (config.formats === null || typeof config.formats !== 'object') fail('tools_config_formats_invalid');
   if (!Number.isSafeInteger(config.max_attachment_bytes) || config.max_attachment_bytes < 1
     || config.max_attachment_bytes > MAX_WORKER_OUTPUT_BYTES) fail('tools_config_bounds_invalid');
@@ -87,6 +92,7 @@ export function readToolsConfig(bytes) {
     mail_attachments_layout: Object.freeze({ rule: config.mail_attachments_layout?.rule ?? 'declared_roots',
       roots: Object.freeze({ ...(config.mail_attachments_layout?.roots ?? {}) }) }),
     receipts_root: config.receipts_root,
+    shared_terms_path: config.shared_terms_path ?? null,
     derived_root: config.derived_root,
     derived_root_alias: typeof config.derived_root_alias === 'string' && config.derived_root_alias
       ? config.derived_root_alias : 'derived_root',

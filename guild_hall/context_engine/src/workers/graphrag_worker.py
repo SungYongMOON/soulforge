@@ -1714,6 +1714,84 @@ def inspect(request):
                 "packages": package_versions()}
 
 
+# ---------------------------------------------------------------------------
+# Shared terms: which projects name the same entity. Read-only, no model call,
+# and no chunk text -- an entity name, the projects that hold it and how often.
+# This is the one question whose scope is the whole database rather than one
+# project: a name only one project uses cannot answer it, so the crossing has to
+# be looked at across every generation the database currently serves. Nothing
+# here is an extraction rule, so a stored fragment stays reusable across it.
+# ---------------------------------------------------------------------------
+
+# The database groups by (project, generation, surface form), which is what keeps
+# the rows bounded; normalising is done in Python because collapsing a run of
+# whitespace has no plain-Cypher form and this worker takes no APOC dependency.
+ENTITY_NAME_QUERY = (
+    "MATCH (e:" + ENTITY_LABEL + ") "
+    "WHERE e.sf_project IS NOT NULL AND e.sf_generation IS NOT NULL AND e.name IS NOT NULL "
+    "RETURN e.sf_project AS project_key, e.sf_generation AS generation_id, e.name AS name, "
+    "count(*) AS mentions ORDER BY project_key, generation_id, name"
+)
+# A guard rather than a page: the answer is names and counts, and a database that
+# would return more rows than this is refused rather than half-read.
+MAX_ENTITY_NAME_ROWS = 200000
+# How many surface forms one normalised name reports, most mentioned first. The
+# first of them is what a reader sees as the term.
+MAX_ENTITY_SURFACES = 8
+
+
+def normalised_entity_name(value):
+    """trim, lowercase, and collapse every run of whitespace to one space."""
+    return " ".join(value.split()).lower()
+
+
+def entity_projects(request):
+    """Which projects name the same entity, over the generations this database serves.
+
+    An entity carrying a generation the database no longer serves is residue of a
+    replaced load: it is counted out rather than mixed in, so the answer is always
+    about what a search of this database could actually reach. Project keys are
+    returned as the database holds them -- which key belongs to which project code
+    is the caller's binding to know, not this side's.
+    """
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        driver.verify_connectivity()
+        selected = {row["project_key"]: row["generation_id"] for row in generation_rows(driver, database)}
+        rows = run_query(driver, database, ENTITY_NAME_QUERY)
+        if len(rows) > MAX_ENTITY_NAME_ROWS:
+            raise WorkerError("graph_entity_rows_too_many")
+        terms, skipped = {}, 0
+        for row in rows:
+            project_key, generation_id, name = row["project_key"], row["generation_id"], row["name"]
+            normalized = normalised_entity_name(name) if isinstance(name, str) else ""
+            if not normalized or selected.get(project_key) != generation_id:
+                skipped += 1
+                continue
+            mentions = int(row["mentions"])
+            term = terms.setdefault(normalized, {"surfaces": {}, "projects": {}, "mention_count": 0})
+            term["surfaces"][name] = term["surfaces"].get(name, 0) + mentions
+            held = term["projects"].setdefault(project_key,
+                                               {"project_key": project_key, "generation_id": generation_id,
+                                                "mentions": 0})
+            held["mentions"] += mentions
+            term["mention_count"] += mentions
+        answer = []
+        for normalized in sorted(terms):
+            term = terms[normalized]
+            surfaces = sorted(term["surfaces"].items(), key=lambda item: (-item[1], item[0]))
+            answer.append({"normalized": normalized,
+                           "names": [name for name, _ in surfaces[:MAX_ENTITY_SURFACES]],
+                           "projects": sorted(term["projects"].values(), key=lambda held: held["project_key"]),
+                           "mention_count": term["mention_count"]})
+        return {"status": "ok",
+                "generations": [{"project_key": key, "generation_id": value}
+                                for key, value in sorted(selected.items())],
+                "terms": answer,
+                "counts": {"entity_rows": len(rows), "terms": len(answer), "skipped_rows": skipped},
+                "packages": package_versions()}
+
+
 def main():
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
     if len(raw) > MAX_REQUEST_BYTES:
@@ -1741,6 +1819,8 @@ def main():
         return link_related_evidence(request)
     if operation == "retrieve":
         return retrieve(request)
+    if operation == "entity_projects":
+        return entity_projects(request)
     raise WorkerError("operation_unknown")
 
 
