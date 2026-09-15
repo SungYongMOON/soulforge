@@ -40,8 +40,8 @@ import {
   BASIS_KINDS, BOUNDARY_REASONS, CONVERSATION_LIST_SCHEMA, CORRECTIONS_SCHEMA, CORRECTION_REASONS,
   ConversationListError, KEY_TERM_KINDS, NATURES, RUN_MANIFEST_SCHEMA, applyCorrections, attachUncovered,
   batchSegments, boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection,
-  applyContextContinuity, checkNature, classifyClues, clockAt, clueQuery, finalChecks, mergeDrafts,
-  mergeNatureWindows, partialWindows,
+  applyContextContinuity, checkNature, classifyClues, clockAt, clueQuery, correctionGlossary, finalChecks,
+  mergeDrafts, mergeNatureWindows, partialWindows,
   occurrenceCounter, qaBoundarySuspects, qualityReport, readPipelineConfig, recurringTokens,
   relatedByKeyTerms, renderConversationTable, renderCorrectionsTable, rulesCoverage, runIdFor,
   searchableClues, segmentsNeedingRejudgement, singleSegmentSuspect, stitchBoundaries, wholeMilliseconds,
@@ -77,6 +77,11 @@ const trim = (value, max) => {
 // what a long stretch repeats; the opening says what it is about and the close
 // says what came of it, and the marker says how much is missing rather than
 // leaving the model to read a sentence that stops.
+/** One line of a record, bounded: a quote in a prompt is a hint, not the record. */
+const oneLine = (value, max) => {
+  const first = String(value ?? '').split(String.fromCharCode(10)).map(row => row.trim()).find(Boolean) ?? '';
+  return trim(first, max);
+};
 const headTail = (value, max, head = Math.round(max * 0.7)) => {
   const held = glyphs(value);
   if (held.length <= max) return held.join('');
@@ -522,13 +527,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       const text = ids.map(textOfId).join(' ');
       const terms = [...new Set([...knownTermsFor(text),
         ...batch.flatMap(segment => natureOf.get(segment.segment_id)?.key_terms ?? [])])];
-      const related = evidenceFor(batch).map(row => `${line(row.item_id, 60)} — ${line(row.quote, 90)}`);
+      const glossary = correctionGlossary({ terms, recurring, evidenceRows: evidenceFor(batch),
+        maxRows: limits.project_evidence_rows, quote: oneLine });
       const body = ids.map(id => `${id}: ${textOfId(id)}`).join('\n');
-      const user = `용어표\n${terms.join(' · ') || '(없음)'}\n\n`
-        + `이 녹음에서 반복되는 낱말 (숫자는 나온 횟수)\n`
-        + `${recurring.map(row => `${row.term}(${row.count})`).join(' · ') || '(없음)'}\n\n`
-        + `관련 자료 — 이 구간의 후보 과제 기록에서 온 줄이며, 같은 것을 부르는 올바른 표기의 참고다\n`
-        + `${related.join('\n') || '(없음)'}\n\n발화\n${body}`;
+      const user = `${glossary}\n\n발화\n${body}`;
       const answer = await ask({ step: 'correction', system: prompts.correction, user, schema: CORRECTION_ANSWER });
       if (answer.status !== 'ok') {
         for (const segment of batch) note('correction', segment.segment_id,

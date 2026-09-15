@@ -957,6 +957,32 @@ export function occurrenceCounter(rows) {
 }
 
 /**
+ * What the correction step is told about the words before it is asked about them.
+ *
+ * Three things, and each answers a different way of getting a correction wrong.
+ * The glossary says what the estate calls things, so a misheard term can be
+ * recognised. The recurring words say what this recording calls things, so a word
+ * said thirty times is not offered up as a typo. The evidence rows say what the
+ * records of the projects it may belong to call the same things, which is where
+ * the right spelling of a part or a place actually lives.
+ */
+const firstLine = (value, max) => {
+  const held = String(value ?? '').split(String.fromCharCode(10)).map(row => row.trim()).find(Boolean) ?? '';
+  return codePoints(held).slice(0, max).join('');
+};
+export function correctionGlossary({ terms = [], recurring = [], evidenceRows = [], maxRows = 12,
+  // One line, bounded: a quote in a prompt is a hint about wording, never the record.
+  quote = firstLine } = {}) {
+  const rows = evidenceRows.slice(0, maxRows)
+    .map(row => `${quote(String(row.item_id ?? ''), 60)} \u2014 ${quote(String(row.quote ?? ''), 90)}`);
+  return [`용어표\n${terms.join(' \u00b7 ') || '(없음)'}`,
+    `이 녹음에서 반복되는 낱말 (숫자는 나온 횟수)\n`
+      + `${recurring.map(row => `${row.term}(${row.count})`).join(' \u00b7 ') || '(없음)'}`,
+    `관련 자료 \u2014 이 구간의 후보 과제 기록에서 온 줄이며, 같은 것을 부르는 올바른 표기의 참고다\n`
+      + `${rows.join('\n') || '(없음)'}`].join('\n\n');
+}
+
+/**
  * Whether a correction is a correction: one word, at a place in the transcript
  * that actually holds the text the model said it holds.
  *

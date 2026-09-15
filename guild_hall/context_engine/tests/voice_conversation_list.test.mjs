@@ -21,7 +21,7 @@ import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import { conversationRow } from '../src/runtime/voice_session_read.mjs';
 import {
   applyContextContinuity, applyCorrections, attachUncovered, batchSegments, boundaryWindows,
-  checkBoundaryProposal, checkCandidates,
+  checkBoundaryProposal, checkCandidates, correctionGlossary,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
   clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
   occurrenceCounter, qualityReport, readPipelineConfig, recurringTokens, relatedByKeyTerms,
@@ -952,6 +952,21 @@ test('correcting a word the registry knows is reported and demoted rather than a
     ['low', true]);
   assert.equal(corrections.counts.known_term_overrides, 1, 'and how often that happened is counted');
   assert.equal(Object.hasOwn(corrections.counts, 'recurring_original_overrides'), true);
+});
+
+test('the glossary handed to the correction step carries all three kinds of evidence', () => {
+  const glossary = correctionGlossary({ terms: ['반입', '가대'], recurring: [{ term: '아트웍', count: 5 }],
+    evidenceRows: [{ item_id: 'mail:abc', quote: `첫 줄${String.fromCharCode(10)}둘째 줄은 버린다` },
+      { item_id: 'linear:X-1', quote: '다른 기록' }],
+    maxRows: 1 });
+  assert.match(glossary, /용어표/u);
+  assert.match(glossary, /반입 · 가대/u);
+  assert.match(glossary, /아트웍\(5\)/u);
+  assert.match(glossary, /mail:abc — 첫 줄/u);
+  assert.equal(glossary.includes('둘째 줄'), false, 'a quote in a prompt is one line, not the record');
+  assert.equal(glossary.includes('linear:X-1'), false, 'and the row bound is a bound');
+  const empty = correctionGlossary({});
+  assert.equal((empty.match(/\(없음\)/gu) ?? []).length, 3, 'nothing to say is said three times, not left blank');
 });
 
 test('the correction step is given the recording’s own words and the records of the projects it may belong to', async () => {
