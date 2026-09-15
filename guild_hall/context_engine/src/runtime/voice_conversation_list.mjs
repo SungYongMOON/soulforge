@@ -469,27 +469,61 @@ export function attachUncovered(drafts, notCovered) {
     .sort((a, b) => a.source_segment_ids[0] - b.source_segment_ids[0]), attached, uncovered_draft: uncovered };
 }
 
+// A question, as it is actually written down. Korean marks one by how the verb
+// ends rather than by a question mark, and a machine transcript often has no
+// punctuation at all, so both are looked for.
+const QUESTION_MARK = /[?？]\s*$/u;
+const QUESTION_TAIL = /(?:까요|나요|가요|을까|ㄹ까|어요|에요|까|나|죠)$/u;
+const TRAILING = /[\s.!…·,~"'”’)\]]+$/u;
+// An answer, as it actually starts. The one-syllable openers have to be the whole
+// word: `어제` begins with `어` and is not an answer to anything.
+const SHORT_ANSWER = /^(?:네|예|응|어)(?![가-힣])/u;
+const LONG_ANSWER = /^(?:아니|그렇|맞|그죠|그쵸|그니까|그러니까|일단|그럼|아\s)/u;
+
+/** Whether an utterance reads as a question. */
+export function looksLikeQuestion(text) {
+  const trimmed = String(text ?? '').trim();
+  if (!trimmed) return false;
+  if (QUESTION_MARK.test(trimmed)) return true;
+  return QUESTION_TAIL.test(trimmed.replace(TRAILING, ''));
+}
+/** Whether an utterance reads as the start of an answer. */
+export function looksLikeAnswer(text) {
+  const trimmed = String(text ?? '').trim();
+  return trimmed !== '' && (SHORT_ANSWER.test(trimmed) || LONG_ANSWER.test(trimmed));
+}
+
 /**
- * Boundaries where a question and its answer may have been cut apart: the last
- * unit of one conversation asks or requests, the first unit of the next
- * acknowledges, decides, reports or commits, and there is almost no silence
- * between them. This is a reason to look again, not a reason to merge -- a topic
- * really can change right after an answer -- so it returns the pairs and leaves
- * the decision to whoever can ask.
+ * Boundaries where a question and its answer may have been cut apart.
+ *
+ * Two triggers, because the first one alone does not fire on real recordings.
+ * The speech-act trigger asks whether the labelling run called the closing unit a
+ * question or a request and the opening one an acknowledgement, decision, report
+ * or commitment -- true in principle, and on this estate's rule labeller the
+ * answer-side acts are almost never emitted, so the whole path stayed dark. The
+ * text trigger reads the utterances instead: the last one ends like a question
+ * and the next one starts like an answer.
+ *
+ * Either way this is a reason to look again, not a reason to merge -- a topic
+ * really can change right after an answer -- so it returns the pairs, says which
+ * trigger fired, and leaves the decision to whoever can ask.
  */
 export function qaBoundarySuspects(drafts, { unitFor, rowFor, gapSeconds = DEFAULT_LIMITS.qa_gap_seconds } = {}) {
   const suspects = [];
   for (let index = 0; index + 1 < drafts.length; index++) {
     const before = drafts[index], after = drafts[index + 1];
-    const closing = unitFor(before.source_segment_ids.at(-1));
-    const opening = unitFor(after.source_segment_ids[0]);
-    if (!closing || !opening) continue;
-    if (!(closing.speech_acts ?? []).some(act => QUESTION_ACTS.includes(act))) continue;
-    if (!(opening.speech_acts ?? []).some(act => ANSWER_ACTS.includes(act))) continue;
-    const endOf = rowFor(before.source_segment_ids.at(-1))?.end_seconds;
-    const startOf = rowFor(after.source_segment_ids[0])?.start_seconds;
+    const lastId = before.source_segment_ids.at(-1), firstId = after.source_segment_ids[0];
+    const closing = unitFor(lastId), opening = unitFor(firstId);
+    const lastRow = rowFor(lastId), firstRow = rowFor(firstId);
+    const triggers = [];
+    if (closing && opening
+      && (closing.speech_acts ?? []).some(act => QUESTION_ACTS.includes(act))
+      && (opening.speech_acts ?? []).some(act => ANSWER_ACTS.includes(act))) triggers.push('speech_acts');
+    if (looksLikeQuestion(lastRow?.content) && looksLikeAnswer(firstRow?.content)) triggers.push('text');
+    if (triggers.length === 0) continue;
+    const endOf = lastRow?.end_seconds, startOf = firstRow?.start_seconds;
     if (!Number.isFinite(endOf) || !Number.isFinite(startOf) || startOf - endOf > gapSeconds) continue;
-    suspects.push({ index, gap_seconds: Number((startOf - endOf).toFixed(3)) });
+    suspects.push({ index, gap_seconds: Number((startOf - endOf).toFixed(3)), triggers });
   }
   return suspects;
 }

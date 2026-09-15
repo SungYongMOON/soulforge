@@ -22,7 +22,8 @@ import { conversationRow } from '../src/runtime/voice_session_read.mjs';
 import {
   applyCorrections, attachUncovered, batchSegments, boundaryWindows, checkBoundaryProposal, checkCandidates,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
-  clueQuery, isStoplisted, loopUnitRatio, qaBoundarySuspects, qualityReport, readPipelineConfig,
+  clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
+  qualityReport, readPipelineConfig,
   renderConversationTable, repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
@@ -294,6 +295,7 @@ test('a question cut from its answer is a boundary to look at again, not one to 
     draft_key: 'w0:d3', related_draft_keys: [] }];
   const found = qaBoundarySuspects(drafts, { unitFor: id => units.get(id), rowFor: id => rows.get(id) });
   assert.deepEqual(found.map(row => row.index), [0], 'a question then a commitment 0.9s later');
+  assert.ok(found[0].triggers.includes('speech_acts'));
   assert.ok(found[0].gap_seconds < 1);
   const merged = mergeDrafts(drafts, 0);
   assert.deepEqual(merged.map(draft => draft.source_segment_ids), [[1, 2, 3, 4], [5, 6]]);
@@ -303,6 +305,39 @@ test('a question cut from its answer is a boundary to look at again, not one to 
   const far = new Map(rows);
   far.set(4, { ...rows.get(4), start_seconds: 300, end_seconds: 310 });
   assert.deepEqual(qaBoundarySuspects(drafts, { unitFor: id => units.get(id), rowFor: id => far.get(id) }), []);
+});
+
+test('a question and an answer are recognised by how they are written, not only by what the labeller called them', () => {
+  for (const question of ['언제까지 될까요?', '언제까지 되나요', '그거 확인했죠', '어디에 있나']) {
+    assert.equal(looksLikeQuestion(question), true, question);
+  }
+  for (const statement of ['내일 갑니다', '확인했습니다', '수요일입니다', '']) {
+    assert.equal(looksLikeQuestion(statement), false, statement);
+  }
+  for (const answer of ['네 알겠습니다', '어, 그건요', '아니요 안 됩니다', '그럼 그렇게 하죠', '일단 정리하겠습니다',
+    '아 그거요', '맞습니다', '그렇게 하겠습니다']) assert.equal(looksLikeAnswer(answer), true, answer);
+  for (const other of ['어제 갔습니다', '수요일에 갑니다', '어디에 있나']) {
+    assert.equal(looksLikeAnswer(other), false, `${other} — a one-syllable opener has to be the whole word`);
+  }
+
+  // The labeller here emits no answer-side speech act at all, which is why the
+  // speech-act trigger alone never fires on a real recording.
+  const rows = new Map([[1, { segment_id: 1, content: '그 일정은 언제까지 될까요', start_seconds: 0, end_seconds: 5 }],
+    [2, { segment_id: 2, content: '네 내일까지 하겠습니다', start_seconds: 6, end_seconds: 10 }],
+    [3, { segment_id: 3, content: '다음 안건으로 넘어가겠습니다', start_seconds: 60, end_seconds: 66 }]]);
+  const units = new Map([[1, { speech_acts: ['status_update'] }], [2, { speech_acts: ['status_update'] }],
+    [3, { speech_acts: ['status_update'] }]]);
+  const draft = ids => ({ source_segment_ids: ids, boundary_reasons: ['topic_shift'], qa_boundary: 'none',
+    processed_in_windows: 1, draft_key: `w0:d${ids[0]}`, related_draft_keys: [] });
+  const found = qaBoundarySuspects([draft([1]), draft([2]), draft([3])],
+    { unitFor: id => units.get(id), rowFor: id => rows.get(id) });
+  assert.deepEqual(found.map(row => [row.index, row.triggers]), [[0, ['text']]],
+    'the text trigger sees what the speech acts did not say');
+  // The same pair with a long silence between them is not a suspect.
+  const far = new Map(rows);
+  far.set(2, { ...rows.get(2), start_seconds: 300, end_seconds: 310 });
+  assert.deepEqual(qaBoundarySuspects([draft([1]), draft([2])],
+    { unitFor: id => units.get(id), rowFor: id => far.get(id) }), []);
 });
 
 test('a window is bounded by units and by characters, and it overlaps the one before it', () => {

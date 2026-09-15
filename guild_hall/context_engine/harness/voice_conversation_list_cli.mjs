@@ -328,6 +328,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const suspects = qaBoundarySuspects(drafts, { unitFor: id => unitFor.get(id),
     rowFor: id => rowFor.get(id), gapSeconds: limits.qa_gap_seconds });
   let rechecks = 0, merged = 0, stillSuspect = 0;
+  const byTrigger = {};
+  for (const suspect of suspects) for (const trigger of suspect.triggers) byTrigger[trigger] = (byTrigger[trigger] ?? 0) + 1;
   for (const suspect of [...suspects].sort((a, b) => b.index - a.index)) {
     const before = drafts[suspect.index], after = drafts[suspect.index + 1];
     if (before === undefined || after === undefined) continue;
@@ -337,7 +339,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     const head = after.source_segment_ids.slice(0, 12).map(id => `${id}: ${textOfId(id)}`).join('\n');
     const user = `앞 구간 끝 (발화 ${before.source_segment_ids.at(-1)}까지)\n${trim(tail, UNIT_TEXT_CHARACTERS)}\n\n`
       + `뒤 구간 처음 (발화 ${after.source_segment_ids[0]}부터, 간격 ${suspect.gap_seconds}초)\n`
-      + `${trim(head, UNIT_TEXT_CHARACTERS)}`;
+      + `${trim(head, UNIT_TEXT_CHARACTERS)}\n\n(의심 근거: ${suspect.triggers.join('+')})`;
     const answer = await ask({ step: 'boundary_recheck', system: prompts.boundary_recheck, user, schema: RECHECK_ANSWER });
     rechecks += 1;
     if (answer.status !== 'ok') { note('boundary_recheck', `pair_${suspect.index}`, 'recheck_llm_failed'); stillSuspect += 1; continue; }
@@ -646,7 +648,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       mean_token_probability: quality.mean_token_probability,
       provider_local_token_overlap: quality.provider_local_token_overlap },
     coverage, boundary: { windows: windows.length, drafts_after_stitch: drafts.length,
-      qa_suspects: suspects.length, qa_rechecks: rechecks, qa_merged: merged, qa_still_suspect: stillSuspect,
+      qa_suspects: suspects.length, qa_suspects_by_trigger: byTrigger,
+      qa_rechecks: rechecks, qa_merged: merged, qa_still_suspect: stillSuspect,
       uncovered_attached: attached.attached, uncovered_segment: attached.uncovered_draft !== null },
     projects: { opened: [...retrievers.opened.keys()], refused: retrievers.refused,
       evidence_rows: evidenceRows.length, rejudged },
