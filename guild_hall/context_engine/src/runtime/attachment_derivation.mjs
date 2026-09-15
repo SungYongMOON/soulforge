@@ -94,6 +94,10 @@ export function readToolsConfig(bytes) {
     receipts_root: config.receipts_root,
     shared_terms_path: config.shared_terms_path ?? null,
     derived_root: config.derived_root,
+    // Optional: the shared-term registry the voice read marks intervals with.
+    // Absent means no marking, which is a smaller answer and never a guess.
+    shared_terms_path: typeof config.shared_terms_path === 'string' && isAbsolute(config.shared_terms_path)
+      ? config.shared_terms_path : null,
     derived_root_alias: typeof config.derived_root_alias === 'string' && config.derived_root_alias
       ? config.derived_root_alias : 'derived_root',
     derived_root_status: typeof config.derived_root_status === 'string' ? config.derived_root_status : 'declared',

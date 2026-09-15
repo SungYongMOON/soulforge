@@ -25,6 +25,8 @@
       "<mail source root_ref>": "<data_root>/ingress/mailbox/<box>/<lane>/attachments/<provider>"
     }
   },
+  "shared_terms_path": "<control_root>/context-read/shared_terms.v0.json",
+  "shared_terms_note": "OPTIONAL and absolute. The derived, regenerable registry of terms that occur in more than one project, built by the shared-terms slice. The voice read marks each interval with the registry terms it contains -- 공통(과제 N개) or 구별 -- so a reader stops treating a word several projects share as the one that picks a project. Omit the field and the marking is simply absent; the rule that a candidate needs two independent kinds of corroboration does not depend on it.",
   "receipts_root": "<recovery_root>/context-read/receipts",
   "shared_terms_path": "<control_root>/context-read/shared_terms.v0.json",
   "derived_root": "<recovery_root>/context-read/derived",

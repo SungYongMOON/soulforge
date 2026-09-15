@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2026-09-15 - 아직 과제가 정해지지 않은 음성 녹음을 구간 단위로 읽는 통로
+
+- Revision: 이 항목을 포함한 커밋. 읽기 CLI
+  `guild_hall/context_engine/harness/estate_original_read.mjs`에 `--voice-session <세션 id>
+  [--from <초> --to <초>] [--transcript local|provider]`를 더했다. 과제 코드로 들어가지 않는
+  유일한 읽기다 — 인박스 녹음은 아직 어느 과제 것도 아니고, 과제를 먼저 물으면 답을 먼저 묻는 것이 된다.
+- 대신 `control_root/voice-routes/inbox_access.v0.json`(Owner가 두는 선언)이 문을 연다. 선언이
+  없거나 다른 actor·목적을 가리키면 `access_denied`이고 한 구간도 읽지 않는다. 선언은 한 호출이
+  덮을 수 있는 초와 글자 수도 정하며, 호출자는 그 상한을 낮출 수만 있고 올리지 못한다.
+- 답은 세션 머리와 구간 목록이다. 머리는 **어느 전사가 답했는지**와 그 전사의 `evidence_role`·
+  `claim_ceiling`을 함께 낸다(기본은 독립 로컬 ASR run, 없으면 공급자 전사이며 왜 내려왔는지도
+  적는다). 구간 줄의 시계 시각은 녹음 시작의 선언된 offset에 구간 offset을 더한 값이고, speaker는
+  정렬 힌트다. 오디오와 격리된 공급자 요약은 어떤 경로로도 나오지 않는다.
+- 상한에 걸리면 이어 읽을 창을 답이 직접 알려 준다. 호출은 기존 조사 예산 모듈에 `read`로 함께
+  셈해져, 음성 구간 읽기도 한 조사의 6회 안에서 일어난다.
+- `--units`를 붙이면 라벨 run(`analysis/semantic_labels/<run>/semantic_label_run.json`)이 나눠 둔
+  **의미 구간 초안**으로 답한다. 초안임을 머리가 말하고(`claim_ceiling machine_generated_reviewable`,
+  `evidence_gate`의 입력 등급·상태·과제 후보 방출 허용 여부), 각 구간은 speech_acts·disposition·
+  project_match·중요도·에스컬레이션과 함께 나오며 본문은 읽은 전사에서 그대로 온다. 라벨 run은
+  **자기가 라벨한 전사의 digest로** 찾는다 — 없거나, 다른 전사로 만들어졌거나, 같은 전사를
+  가리키는 run이 둘이면 고르지 않고 원 전사 구간으로 내려오며 이유를 적는다.
+- 독립 ASR run의 품질 수치(평균 토큰 확률·낮은 확률 비율·억제 구간·flags·반복 필터·VAD)를 머리에
+  실었다. 판독 불가와 환각 반복을 표시하라고 하면서 근거를 주지 않으면 그 표시는 짐작이 된다.
+- 공통 용어 등록부 훅을 달았다. 도구 설정의 선택 항목 `shared_terms_path`가 가리키는 등록부가
+  있으면 구간마다 `공통(과제 N개)`/`구별` 표시가 붙는다. 표시는 표시일 뿐이며 이 도구는 과제를
+  고르지 않는다. 등록부가 없으면 표시만 빠진다.
+- `--conversation-list`는 별도 파이프라인이 만든 **대화 목록**(`<recovery_root>/context-read/derived/
+  voice/<session_id>/<run_id>/conversation_list.v0.json`)의 최신 run을 읽어 구간 목록으로 낸다.
+  run은 선언된 시각으로 고르고 무엇으로 골랐는지 답이 말한다. 목록의 오디오 참조는 **버린다** —
+  이 통로로 오디오는 나가지 않는다. 목록이 없으면 "미생성"이라 말하고 원 발화로 답한다.
+- 스킬 문서와 맥락이 SOUL의 음성 절차를 **봇이 전 과정을 수행하는 형태에서 덜어냈다**. 대화를
+  나누고 성격을 붙이고 과제 후보를 내고 용어를 고치는 일은 파이프라인이 단계마다 검사를 두고 하고,
+  봇은 (a) 목록이 있으면 그대로 인용하고(파생 요약임과 `verified` 상태를 함께 적는다) (b) 없으면
+  "아직 만들어지지 않았다"고 답하며 **대신 나눠 주지 않고** (c) 바꿀 것은 근거와 함께 `제안:`으로만
+  적고 **상태를 스스로 정하지 않으며** (d) 공통 용어 규칙(등록부 표시·근거 두 가지 이상)을 지킨다.
+  긴 절차 프롬프트는 두지 않는다.
+- 운영 영향: 음성 원본·전사·라이브러리 색인·수집기·예약작업·lane·그래프 DB는 바꾸지 않는다.
+  설치된 스킬의 7형은 읽기 lane `install/source-lanes/context-read-v1`이 이 커밋으로 다시
+  빌드된 뒤에 동작한다(그 전에는 `original_read_item_invalid`로 멈추며, 문서가 그 경우의 답을 정한다).
+- 운영 영향 하나 더: 읽기 CLI가 도구 설정의 `derived_root` 아래 `voice/**`를 **읽기만** 한다.
+  그 자리에 아무것도 없어도 동작하며, 파이프라인·원본·색인은 이 변경으로 바뀌지 않는다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/{voice_session_read,shared_terms}.mjs`,
+  `harness/estate_original_read.mjs`, `src/runtime/attachment_derivation.mjs`(설정 한 항목),
+  `ops/voice-routes/inbox_access.v0.example.json`, `ops/context-read/tools.v0.example.json`,
+  `ops/hermes-skill/SKILL.md`, `tests/voice_session_read.test.mjs`,
+  `package.json`(`validate:context-original-read`).
 ## 2026-09-15 - 과제를 넘나드는 공통 용어 등록부
 
 - Revision: 이 항목을 포함한 커밋. 여러 과제가 함께 쓰는 용어(CDR·수신부·앰프·해상시험 같은)를

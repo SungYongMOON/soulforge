@@ -1,0 +1,15 @@
+{
+  "schema": "soulforge.voice_inbox_access.v0",
+  "note": "PUBLIC-SAFE EXAMPLE. The real file lives at <control_root>/voice-routes/inbox_access.v0.json and is Owner-placed. It is what opens the unclassified voice inbox to the reading CLI: with no such file, `--voice-session` answers `access_denied` and reads nothing. A project code is deliberately not part of it — a recording in the inbox belongs to no project yet, and asking for one before reading would be asking for the answer.",
+  "actor_ref": "actor:owner:context-reader",
+  "purpose": "voice_route_review",
+  "root": "data_root/ingress/plaud/sessions",
+  "max_seconds_per_call": 600,
+  "max_characters_per_call": 12000,
+  "granted_by": "<owner ref>",
+  "granted_at": "<instant>",
+  "expires_at": null,
+  "revoked": false,
+  "bounds_note": "max_seconds_per_call is how much of one recording a single call may cover, and max_characters_per_call is how much text one call may return. Both are the declaration's, not the caller's: --max-chars may lower the character bound and can never raise it, and a wider --from/--to window is clamped with the next window printed in the answer.",
+  "reading_note": "Only the transcript is read. The audio file is never opened and the provider's summary is quarantined upstream and never returned. Speaker labels travel through as alignment hints, which is what the session manifest declares them to be."
+}
