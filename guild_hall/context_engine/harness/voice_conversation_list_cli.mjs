@@ -482,6 +482,9 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
         { scan: limits.project_evidence_rows, keep: 3 })) {
         const quote = String(hit.text ?? '').split('\n').map(part => part.trim()).find(Boolean) ?? '';
         rows.push({ row_id: evidenceRows.length + rows.length + 1, project_code: code, item_id: String(hit.item_id ?? ''),
+          // The record's title is what the matcher already reads; not carrying it
+          // through left the model judging rows whose quoted line was a heading.
+          title: oneLine(hit.title, limits.evidence_title_characters),
           unit_id: String(hit.unit_id ?? ''), source_kind: String(hit.source_kind ?? ''),
           quote: glyphs(quote).slice(0, limits.evidence_quote_characters).join(''),
           score: Number.isFinite(hit.score) ? hit.score : null, rank: hit.rank, matched_terms: matched });
@@ -493,7 +496,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     const shown = table.map(row => `${row.term} · ${row.kind} · ${row.term_kind}`
       + `${row.category === 'workflow' ? ' · workflow' : ''}${row.searched ? ' · 검색함' : ''}`).join('\n');
     const body = kept.map(row => `row ${row.row_id} · 과제 ${row.project_code} · 항목 ${row.item_id}`
-      + ` · 단위 ${row.unit_id} · ${row.source_kind}\n  ${row.quote}`).join('\n');
+      + ` · 제목 ${row.title || '(제목 없음)'} · ${row.source_kind} · 단위 ${row.unit_id}`
+      + `\n  인용 ${row.quote}`).join('\n');
     const user = `구간 본문\n${headTail(text, limits.project_characters)}\n\n단서 분류표\n${shown}\n\n근거 행\n${body}`;
     const answer = await ask({ step: 'project', system: prompts.project, user, schema: PROJECT_ANSWER });
     if (answer.status !== 'ok') {
@@ -639,7 +643,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
         .map(mark => ({ term: mark.term, kind: mark.kind, category: mark.category,
           declared_shared: mark.declared_shared, observed_project_count: mark.observed_project_count })),
       project_candidates: judged.candidates.map(row => ({ project_code: row.project_code, strength: row.strength,
-        basis: [...row.basis], evidence_row_ids: [...row.evidence_row_ids] })),
+        strong_by: row.strong_by ?? null, basis: [...row.basis], evidence_row_ids: [...row.evidence_row_ids] })),
       other_project_mentions: [...(judged.other_project_mentions ?? [])],
       unclassified_reason: judged.candidates.length === 0 ? judged.unclassified_reason : null,
       status: judged.candidates.length === 0 ? 'unclassified' : 'candidate',
@@ -672,8 +676,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     prompts: promptDigests, suppressed_segment_ids: [...coverage.suppressed_segment_ids],
     remaining_work: remainingWork, segments: rows,
     evidence_rows: evidenceRows.map(row => ({ row_id: row.row_id, project_code: row.project_code,
-      item_id: row.item_id, unit_id: row.unit_id, source_kind: row.source_kind, quote: row.quote,
-      score: row.score, matched_terms: [...row.matched_terms] })) };
+      item_id: row.item_id, title: row.title ?? '', unit_id: row.unit_id, source_kind: row.source_kind,
+      quote: row.quote, score: row.score, matched_terms: [...row.matched_terms] })) };
   const corrections = { schema: CORRECTIONS_SCHEMA, session_id: sessionId, run_id: runId, generated_at: generatedAt,
     proposals, discarded,
     counts: { proposed: proposals.length, discarded: discarded.length,
@@ -748,6 +752,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       unclassified_reasons: rows.filter(row => row.status === 'unclassified')
         .reduce((held, row) => ({ ...held, [row.unclassified_reason ?? 'unknown']: (held[row.unclassified_reason ?? 'unknown'] ?? 0) + 1 }), {}),
       project_mixed: rows.filter(row => row.project_candidates.length >= 2).length,
+      strong_by: rows.flatMap(row => row.project_candidates.map(item => item.strong_by))
+        .filter(Boolean).reduce((held, kind) => ({ ...held, [kind]: (held[kind] ?? 0) + 1 }), {}),
       agenda_items: rows.reduce((sum, row) => sum + row.agenda_items.length, 0),
       segments_with_agenda: rows.filter(row => row.agenda_items.length > 0).length,
       agenda_absent: rows.filter(row => row.nature_marks.includes('agenda_absent')).length,
@@ -855,6 +861,7 @@ function renderRun(found) {
     `  과제 ${segment.project_candidates.length === 0
       ? `미분류 — ${segment.unclassified_reason ?? '-'}`
       : segment.project_candidates.map(row => `${row.project_code}(${row.strength}`
+        + `${row.strong_by ? `/${row.strong_by}` : ''}`
         + `${row.context_segment_ids?.length ? `, 이웃 ${row.context_segment_ids.join('·')}`
           : `, 근거 ${row.evidence_row_ids.length}행`})`).join(' · ')}`
       + `${(segment.other_project_mentions ?? []).length

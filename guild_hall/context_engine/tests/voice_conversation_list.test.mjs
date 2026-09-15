@@ -681,6 +681,63 @@ test('a stretch of work places what is unplaced inside it, and a stretch is what
   assert.deepEqual(held.applied, [], 'a conversation that already has a candidate keeps it, however weak');
 });
 
+test('a candidate is strong by a distinctive word, by two words, or by two records', () => {
+  const clues = [{ term: 'XG보정판', kind: 'unregistered', category: 'content', term_kind: 'board' },
+    { term: '구미현장', kind: 'unregistered', category: 'content', term_kind: 'place' },
+    { term: '보정판대', kind: 'distinctive', category: 'content', term_kind: 'board' }];
+  const row = (row_id, item_id, terms) => ({ row_id, item_id, project_code: 'S00-001', matched_terms: terms });
+  const ask = (rows, ids) => checkCandidates({ candidates: [{ project_code: 'S00-001', evidence_row_ids: ids,
+    basis: ['equipment', 'follow_up_record'], strength: 'strong' }] }, { evidenceRows: rows, clues });
+
+  // One word, one record: one fact, however many rows it produced.
+  const one = ask([row(1, 'i1', ['XG보정판']), row(2, 'i1', ['XG보정판'])], [1, 2]);
+  assert.deepEqual(one.candidates.map(item => [item.strength, item.strong_by]), [['weak', null]]);
+  assert.equal(one.strong_downgraded_single_clue, 1);
+
+  // Two different words across the rows.
+  const terms = ask([row(1, 'i1', ['XG보정판']), row(2, 'i1', ['구미현장'])], [1, 2]);
+  assert.deepEqual(terms.candidates.map(item => [item.strength, item.strong_by]), [['strong', 'terms']]);
+
+  // One word, but two different records of the same project: two facts, not one
+  // copied. The record is what makes them two, so the item id is what is counted.
+  const items = ask([row(1, 'i1', ['XG보정판']), row(2, 'i2', ['XG보정판'])], [1, 2]);
+  assert.deepEqual(items.candidates.map(item => [item.strength, item.strong_by]), [['strong', 'items']]);
+
+  // Two records found only by a place name are still only a mention.
+  const places = ask([row(1, 'i1', ['구미현장']), row(2, 'i2', ['구미현장'])], [1, 2]);
+  assert.deepEqual(places.candidates, []);
+  assert.deepEqual(places.other_project_mentions.map(item => item.code), ['borrowed_name_only']);
+
+  // A registered term one project uses is strong on its own.
+  const distinctive = checkCandidates({ candidates: [{ project_code: 'S00-001', evidence_row_ids: [1],
+    basis: ['equipment'], strength: 'strong' }] }, { evidenceRows: [row(1, 'i1', ['보정판대'])], clues });
+  assert.deepEqual(distinctive.candidates.map(item => [item.strength, item.strong_by]),
+    [['strong', 'distinctive']]);
+
+  // And a model that did not ask for strong does not get it.
+  const asked = checkCandidates({ candidates: [{ project_code: 'S00-001', evidence_row_ids: [1, 2],
+    basis: ['equipment', 'follow_up_record'], strength: 'weak' }] },
+  { evidenceRows: [row(1, 'i1', ['XG보정판']), row(2, 'i2', ['XG보정판'])], clues });
+  assert.deepEqual(asked.candidates.map(item => [item.strength, item.strong_by]), [['weak', null]]);
+});
+
+test('a word that reaches four projects decides none of them', () => {
+  const clues = [{ term: 'ABC', kind: 'unregistered', category: 'content', term_kind: 'other' }];
+  const rows = ['S00-001', 'S00-002', 'S00-003', 'S00-004', 'S00-005']
+    .map((project_code, index) => ({ row_id: index + 1, item_id: `i${index}`, project_code,
+      matched_terms: ['ABC'] }));
+  const answer = checkCandidates({ candidates: [{ project_code: 'S00-001', evidence_row_ids: [1],
+    basis: ['equipment'], strength: 'weak' }] }, { evidenceRows: rows, clues });
+  assert.deepEqual(answer.candidates, []);
+  assert.deepEqual(answer.other_project_mentions,
+    [{ project_code: 'S00-001', evidence_row_ids: [1], code: 'ubiquitous_term_only' }]);
+  assert.equal(answer.unclassified_reason, 'mentions_only');
+  // The same word reaching three projects is still a candidate's evidence.
+  const fewer = checkCandidates({ candidates: [{ project_code: 'S00-001', evidence_row_ids: [1],
+    basis: ['equipment'], strength: 'weak' }] }, { evidenceRows: rows.slice(0, 3), clues });
+  assert.deepEqual(fewer.candidates.map(item => item.project_code), ['S00-001']);
+});
+
 // =============================================================== step 5 rules
 
 test('a correction has to be where the model said it was, and may not restring the sentence', () => {
@@ -915,6 +972,8 @@ test('a recording becomes a conversation list, and every utterance is in exactly
   // A reviewer can see what was searched with, not only what came back.
   const clueTable = list.segments[0].clue_table;
   assert.ok(Array.isArray(clueTable) && clueTable.length > 0);
+  // Every evidence row names its record as well as quoting one line of it.
+  assert.ok(list.evidence_rows.every(row => Object.hasOwn(row, 'title')));
   assert.deepEqual(Object.keys(clueTable[0]).sort(),
     ['category', 'kind', 'origin', 'searched', 'stoplisted', 'term', 'term_kind']);
   assert.deepEqual(list.segments[0].key_terms_typed, [{ term: '가대', kind: 'equipment' }]);
@@ -1077,13 +1136,15 @@ test('correcting a word the registry knows is reported and demoted rather than a
 
 test('the glossary handed to the correction step carries all three kinds of evidence', () => {
   const glossary = correctionGlossary({ terms: ['반입', '가대'], recurring: [{ term: '아트웍', count: 5 }],
-    evidenceRows: [{ item_id: 'mail:abc', quote: `첫 줄${String.fromCharCode(10)}둘째 줄은 버린다` },
-      { item_id: 'linear:X-1', quote: '다른 기록' }],
+    evidenceRows: [{ item_id: 'mail:abc', title: '가대 도면 회신',
+      quote: `첫 줄${String.fromCharCode(10)}둘째 줄은 버린다` },
+    { item_id: 'linear:X-1', title: '다른 제목', quote: '다른 기록' }],
     maxRows: 1 });
   assert.match(glossary, /용어표/u);
   assert.match(glossary, /반입 · 가대/u);
   assert.match(glossary, /아트웍\(5\)/u);
-  assert.match(glossary, /mail:abc — 첫 줄/u);
+  assert.match(glossary, /mail:abc · 가대 도면 회신 — 첫 줄/u,
+    'the record is named as well as quoted: the first line of a unit is often a heading');
   assert.equal(glossary.includes('둘째 줄'), false, 'a quote in a prompt is one line, not the record');
   assert.equal(glossary.includes('linear:X-1'), false, 'and the row bound is a bound');
   const empty = correctionGlossary({});

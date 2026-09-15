@@ -135,7 +135,8 @@ export const DEFAULT_LIMITS = Object.freeze({
   nature_characters: 2000, nature_segments_per_call: 4,
   project_characters: 2000, project_evidence_rows: 12, project_clues: 8, project_candidates: 3,
   correction_characters: 1500, correction_per_utterance: 5, correction_per_segment: 20,
-  window_seconds: 600, evidence_quote_characters: 160, llm_calls: 60, retries: 2,
+  window_seconds: 600, evidence_quote_characters: 160, evidence_title_characters: 120,
+  llm_calls: 60, retries: 2,
   single_segment_reasks: 3,
 });
 
@@ -946,10 +947,22 @@ export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_L
     // described twice. Three rows all found by the same place name are three
     // copies of the same fact, and calling that `strong` is how a candidate gets
     // a confidence its evidence never had.
+    //
+    // But two different records of the same project, each found by a word that is
+    // not somebody's name, are two facts -- the second one is not a copy of the
+    // first just because the same term found both. So there are two ways past the
+    // one-word problem, and the answer says which one it took.
     const distinctTerms = new Set(matched.map(term => term.toLowerCase())).size;
-    const strong = grounds.includes('distinctive') || (basis.length >= 2 && distinctTerms >= 2);
+    const borrowedOnly = row => (row.matched_terms ?? []).length > 0
+      && (row.matched_terms ?? []).every(term => BORROWED_KINDS.includes(kindOf.get(term.toLowerCase())?.term_kind ?? 'other'));
+    const distinctItems = new Set(ids.map(id => rows.get(id))
+      .filter(row => row !== undefined && !borrowedOnly(row)).map(row => row.item_id)).size;
+    const strongBy = grounds.includes('distinctive') ? 'distinctive'
+      : (basis.length >= 2 && distinctTerms >= 2 ? 'terms'
+        : (basis.length >= 2 && distinctItems >= 2 ? 'items' : null));
+    const strong = strongBy !== null;
     const askedStrong = candidate?.strength === 'strong';
-    if (askedStrong && !strong && basis.length >= 2 && distinctTerms < 2) singleClue += 1;
+    if (askedStrong && !strong && basis.length >= 2) singleClue += 1;
     // Everything that found this project is a person, a place or an organisation.
     // A customer, a site or a colleague is shared between projects exactly the way
     // a part name is, so it may say a project was mentioned and not that the
@@ -964,6 +977,7 @@ export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_L
       continue;
     }
     kept.push({ project_code: code, strength: askedStrong && strong ? 'strong' : 'weak',
+      strong_by: askedStrong && strong ? strongBy : null,
       basis, evidence_row_ids: [...ids].sort((a, b) => a - b), matched_terms: matched,
       distinctive: grounds.includes('distinctive') });
   }
@@ -1148,8 +1162,12 @@ const firstLine = (value, max) => {
 export function correctionGlossary({ terms = [], recurring = [], evidenceRows = [], maxRows = 12,
   // One line, bounded: a quote in a prompt is a hint about wording, never the record.
   quote = firstLine } = {}) {
+  // The record's own title, because the first line of a unit is often a heading
+  // (`## Work Brief`) that says nothing about what the record is: a reader given
+  // only that quote is right to refuse the row, and so is a model.
   const rows = evidenceRows.slice(0, maxRows)
-    .map(row => `${quote(String(row.item_id ?? ''), 60)} \u2014 ${quote(String(row.quote ?? ''), 90)}`);
+    .map(row => `${quote(String(row.item_id ?? ''), 40)} \u00b7 ${quote(String(row.title ?? ''), 80)}`
+      + ` \u2014 ${quote(String(row.quote ?? ''), 90)}`);
   // The recurring words are shown as protected, not as targets. Offered as a
   // vocabulary to correct towards they became a mapping table: the step replaced
   // whatever it half-heard with whichever recurring word was nearest, and
@@ -1341,6 +1359,7 @@ export function renderConversationTable(list) {
     const candidates = segment.project_candidates.length === 0
       ? `미분류${segment.unclassified_reason ? ` (${cell(segment.unclassified_reason)})` : ''}`
       : segment.project_candidates.map(row => `${row.project_code} ${row.strength}`
+        + `${row.strong_by ? `(${row.strong_by})` : ''}`
         + `${row.basis.length ? ` [${row.basis.join('+')}]` : ''}`
         + `${row.context_segment_ids?.length ? ` 이웃 ${row.context_segment_ids.join('·')}`
           : ` 근거 ${row.evidence_row_ids.length}행`}`).join('<br>');
@@ -1361,9 +1380,12 @@ export function renderConversationTable(list) {
       + `${segment.boundary.processed_in_windows > 1 ? ` · 창 ${segment.boundary.processed_in_windows}` : ''} |`);
   }
   if (list.evidence_rows.length > 0) {
-    lines.push('', '## 근거 행', '', '| # | 과제 | 항목 | 단위 | 종류 | 맞은 용어 | 인용 |', '| --- | --- | --- | --- | --- | --- | --- |');
+    lines.push('', '## 근거 행', '',
+      '| # | 과제 | 항목 | 제목 | 단위 | 종류 | 맞은 용어 | 인용 |',
+      '| --- | --- | --- | --- | --- | --- | --- | --- |');
     for (const row of list.evidence_rows) {
-      lines.push(`| ${row.row_id} | ${row.project_code} | ${cell(trim(row.item_id, 40))} | ${cell(row.unit_id)}`
+      lines.push(`| ${row.row_id} | ${row.project_code} | ${cell(trim(row.item_id, 40))}`
+        + ` | ${cell(trim(row.title ?? '', 60))} | ${cell(row.unit_id)}`
         + ` | ${cell(row.source_kind)} | ${cell(row.matched_terms.join(', '))} | ${cell(trim(row.quote, 80))} |`);
     }
   }
