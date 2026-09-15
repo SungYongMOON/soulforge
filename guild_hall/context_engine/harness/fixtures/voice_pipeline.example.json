@@ -1,0 +1,25 @@
+{
+  "schema": "soulforge.voice_conversation_pipeline.v0",
+  "note": "PUBLIC-SAFE EXAMPLE. The real configuration lives at <control_root>/context-read/voice_pipeline.v0.json and holds this host's own values. Every field below is a host fact: which local server answers, what it is serving, how many calls one recording may cost, and where the prompts are installed. `host` must be a loopback address — an unclassified recording's transcript belongs to no project's admission and may not leave this machine. `model` is a name, not a path: the server is asked under an alias and pinned by what it reports about itself, which the run manifest records. `limits` overrides only the bounds you name; the rest keep the module's defaults, and the run manifest always writes the values actually used.",
+  "model": {
+    "host": "http://127.0.0.1:<port>",
+    "model": "<served model alias>",
+    "transport": "openai_chat",
+    "think": false,
+    "options": { "temperature": 0, "seed": 7, "num_predict": 4096 },
+    "timeout_ms": 120000
+  },
+  "prompts_dir": "<installed app>/prompts/voice_conversation_list",
+  "limits": {
+    "llm_calls": 60,
+    "retries": 2,
+    "boundary_units": 8,
+    "boundary_characters": 6000,
+    "qa_rechecks": 8,
+    "nature_characters": 2000,
+    "project_characters": 2000,
+    "project_evidence_rows": 12,
+    "correction_characters": 1500,
+    "window_seconds": 600
+  }
+}
