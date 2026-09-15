@@ -148,6 +148,72 @@ export function repetitionRatio(text, { size = 3 } = {}) {
   return 1 - (new Set(grams).size / grams.length);
 }
 
+/** How long an utterance may be before a repeating character unit means anything. */
+export const LOOP_MINIMUM_CHARACTERS = 24;
+/** The longest repeating unit this looks for. Beyond a few characters it is a phrase, not a stutter. */
+export const LOOP_MAXIMUM_UNIT = 6;
+export const LOOP_COVERAGE = 0.6;
+/** How alike consecutive utterances have to be before the run of them is a loop. */
+export const REPEAT_RUN_SIMILARITY = 0.8;
+export const REPEAT_RUN_LENGTH = 3;
+export const REPEAT_RUN_WORDS = 12;
+
+/**
+ * How much of an utterance is one short unit repeated.
+ *
+ * The word-level measure cannot see a decoder that got stuck on a token with no
+ * space after it: two hundred characters of the same two characters joined by
+ * commas is one "word", and its 3-gram repetition is zero. This looks at the
+ * characters instead, spaces removed, for the shortest unit up to six characters
+ * that covers most of what was said. Every phase of every size is tried, because
+ * a loop that starts mid-unit is the same loop.
+ */
+export function loopUnitRatio(text) {
+  const raw = codePoints(text);
+  if (raw.length < LOOP_MINIMUM_CHARACTERS) return 0;
+  const glyphs = raw.filter(glyph => !/\s/u.test(glyph));
+  if (glyphs.length === 0) return 0;
+  let best = 0;
+  for (let size = 1; size <= LOOP_MAXIMUM_UNIT; size++) {
+    for (let phase = 0; phase < size; phase++) {
+      const counts = new Map();
+      for (let at = phase; at + size <= glyphs.length; at += size) {
+        const unit = glyphs.slice(at, at + size).join('');
+        counts.set(unit, (counts.get(unit) ?? 0) + 1);
+      }
+      for (const count of counts.values()) best = Math.max(best, (count * size) / glyphs.length);
+    }
+    // The shortest unit that reaches the bound is the answer; a longer one that
+    // also reaches it is the same loop counted in bigger pieces.
+    if (best >= LOOP_COVERAGE) break;
+  }
+  return Number(best.toFixed(4));
+}
+
+/**
+ * Runs of short utterances that all say the same thing.
+ *
+ * A decoder looping across utterance boundaries produces several rows in a row
+ * that no single row's repetition measure can catch -- each one on its own is a
+ * plausible short sentence. Three or more consecutive short rows whose word sets
+ * all but coincide are that, and marking only one of them would leave a reader
+ * quoting the others.
+ */
+export function repeatRuns(rows, { similarity = REPEAT_RUN_SIMILARITY, length = REPEAT_RUN_LENGTH,
+  maxWords = REPEAT_RUN_WORDS } = {}) {
+  const runs = [];
+  let held = [];
+  const alike = (row, others) => others.every(other => jaccard(words(other.content), words(row.content)) >= similarity);
+  for (const row of rows) {
+    const short = words(row.content).length > 0 && words(row.content).length <= maxWords;
+    if (short && (held.length === 0 || alike(row, held))) { held.push(row); continue; }
+    if (held.length >= length) runs.push(held.map(item => item.segment_id));
+    held = short ? [row] : [];
+  }
+  if (held.length >= length) runs.push(held.map(item => item.segment_id));
+  return runs;
+}
+
 const jaccard = (left, right) => {
   const a = new Set(left), b = new Set(right);
   if (a.size === 0 && b.size === 0) return 1;
@@ -168,25 +234,35 @@ const jaccard = (left, right) => {
  */
 export function qualityReport({ rows, suppressed = [], providerRows = [], alignmentSeconds = 2 } = {}) {
   if (!Array.isArray(rows)) fail('voice_conversation_rows_invalid');
+  const inRun = new Map();
+  for (const run of repeatRuns(rows)) for (const id of run) inRun.set(id, run.length);
   const marksFor = row => {
-    const marks = [];
+    const marks = [], reasons = [];
+    const mark = (name, reason, value) => { if (!marks.includes(name)) marks.push(name); reasons.push({ mark: name, reason, value }); };
     const characters = codePoints(row.content).length;
     const seconds = Math.max(0, Number(row.end_seconds) - Number(row.start_seconds));
     const probability = row.asr_confidence?.mean_token_probability;
-    if (words(row.content).length >= 8 && repetitionRatio(row.content) >= 0.6) marks.push('hallucination_loop');
-    if (Number.isFinite(probability) && probability < 0.5) marks.push('low_confidence');
-    if (seconds > 0 && characters / seconds < 1.5) marks.push('low_density');
+    const ngramRatio = repetitionRatio(row.content);
+    if (words(row.content).length >= 8 && ngramRatio >= 0.6) mark('hallucination_loop', 'ngram_repeat', ngramRatio);
+    const unitRatio = loopUnitRatio(row.content);
+    if (unitRatio >= LOOP_COVERAGE) mark('hallucination_loop', 'char_unit_repeat', unitRatio);
+    if (inRun.has(row.segment_id)) mark('hallucination_loop', 'repeat_run', inRun.get(row.segment_id));
+    if (Number.isFinite(probability) && probability < 0.5) mark('low_confidence', 'mean_token_probability', probability);
+    const density = seconds > 0 ? Number((characters / seconds).toFixed(3)) : null;
+    if (density !== null && density < 1.5) mark('low_density', 'characters_per_second', density);
     const near = providerRows.filter(other => other.end_seconds > row.start_seconds - alignmentSeconds
       && other.start_seconds < row.end_seconds + alignmentSeconds);
-    if (providerRows.length > 0
-      && jaccard(words(row.content), near.flatMap(other => words(other.content))) < 0.2) marks.push('provider_divergent');
+    const overlap = providerRows.length === 0 ? null
+      : Number(jaccard(words(row.content), near.flatMap(other => words(other.content))).toFixed(4));
+    if (overlap !== null && overlap < 0.2) mark('provider_divergent', 'window_jaccard', overlap);
     return { segment_id: row.segment_id, mean_token_probability: Number.isFinite(probability) ? probability : null,
-      characters, marks };
+      characters, marks, mark_reasons: reasons };
   };
   const segments = rows.map(marksFor);
   const suppressedRows = suppressed.map(row => ({ segment_id: row.segment_id,
     mean_token_probability: row.asr_confidence?.mean_token_probability ?? null,
     characters: codePoints(row.content).length, marks: ['suppressed'],
+    mark_reasons: [{ mark: 'suppressed', reason: String(row.suppression_reason ?? 'suppressed_by_asr_lane'), value: null }],
     suppression_reason: row.suppression_reason ?? null }));
   const counts = Object.fromEntries(QUALITY_MARKS.map(mark =>
     [mark, [...segments, ...suppressedRows].filter(row => row.marks.includes(mark)).length]));

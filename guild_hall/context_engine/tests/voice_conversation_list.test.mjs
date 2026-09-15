@@ -22,7 +22,8 @@ import { conversationRow } from '../src/runtime/voice_session_read.mjs';
 import {
   applyCorrections, attachUncovered, batchSegments, boundaryWindows, checkBoundaryProposal, checkCandidates,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
-  qaBoundarySuspects, qualityReport, readPipelineConfig, renderConversationTable, repetitionRatio,
+  loopUnitRatio, qaBoundarySuspects, qualityReport, readPipelineConfig, renderConversationTable,
+  repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
 } from '../src/runtime/voice_conversation_list.mjs';
@@ -202,6 +203,41 @@ test('quality marks are the transcript’s own numbers, and disagreement between
   assert.ok(report.provider_local_token_overlap > 0 && report.provider_local_token_overlap < 1);
   assert.ok(repetitionRatio('가 나 다 가 나 다 가 나 다 가 나 다') > 0.6);
   assert.equal(repetitionRatio('가 나 다 라 마 바'), 0);
+  // Every mark says why it is there, so a reader is not left to re-derive it.
+  assert.deepEqual(report.segments[1].mark_reasons.map(row => row.reason).sort(),
+    ['char_unit_repeat', 'mean_token_probability', 'ngram_repeat', 'window_jaccard'],
+    'a phrase repeated with spaces is both a word loop and a character loop, and both are said');
+});
+
+test('a decoder stuck on one token with no spaces is a loop the word measure cannot see', () => {
+  // One "word" as far as whitespace is concerned, and 3-gram repetition of zero.
+  const stuck = '4,'.repeat(110);
+  assert.equal(repetitionRatio(stuck), 0, 'the word-level measure sees nothing here');
+  assert.ok(loopUnitRatio(stuck) >= 0.6, 'the character-level measure sees the two-character unit');
+  assert.equal(loopUnitRatio('4,4,'), 0, 'too short to mean anything');
+  assert.ok(loopUnitRatio('오늘은 가대 도면 수정본부터 보겠습니다 그리고 볼트 구멍 위치를 확인합니다') < 0.6,
+    'an ordinary sentence is not a loop');
+  // A loop that starts mid-unit is the same loop.
+  assert.ok(loopUnitRatio(`x${'가나'.repeat(40)}`) >= 0.6);
+  const report = qualityReport({ rows: [rowOf([1, 0, 30, stuck])] });
+  assert.ok(report.segments[0].marks.includes('hallucination_loop'));
+  assert.deepEqual(report.segments[0].mark_reasons.filter(row => row.mark === 'hallucination_loop')
+    .map(row => row.reason), ['char_unit_repeat']);
+});
+
+test('three short utterances in a row that all say the same thing are all marked', () => {
+  const rows = [rowOf([1, 0, 2, '네 알겠습니다']), rowOf([2, 2, 4, '네 알겠습니다']),
+    rowOf([3, 4, 6, '알겠습니다 네']), rowOf([4, 6, 20, '이제 다른 안건으로 넘어가서 일정을 정하겠습니다'])];
+  assert.deepEqual(repeatRuns(rows), [[1, 2, 3]]);
+  const report = qualityReport({ rows });
+  assert.deepEqual(report.segments.map(row => row.marks.includes('hallucination_loop')),
+    [true, true, true, false], 'marking only one of them would leave a reader quoting the others');
+  assert.equal(report.segments[0].mark_reasons.find(row => row.mark === 'hallucination_loop').reason, 'repeat_run');
+  assert.deepEqual(repeatRuns([rows[0], rows[1], rows[3]]), [], 'two is not a run');
+  assert.deepEqual(repeatRuns([rowOf([1, 0, 2, '가 나 다 라 마 바 사 아 자 차 카 타 파 하']),
+    rowOf([2, 2, 4, '가 나 다 라 마 바 사 아 자 차 카 타 파 하']),
+    rowOf([3, 4, 6, '가 나 다 라 마 바 사 아 자 차 카 타 파 하'])]), [],
+  'a long utterance is a sentence somebody said, however often it recurs');
 });
 
 // =============================================================== step 2 rules
