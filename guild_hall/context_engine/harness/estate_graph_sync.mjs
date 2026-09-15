@@ -248,7 +248,11 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     // Items the attribution rules place with no project at all. They are not this
     // project's to load, and they are not lost either: the next pass re-applies
     // the rules to the same custody.
-    unattributed: candidates.unattributed ?? null };
+    unattributed: candidates.unattributed ?? null,
+    // What the voice route ledger said, when a voice root is bound: how many
+    // confirmations were read, which ledgers could not be read, and which
+    // sessions this pass refused to place. Null when no voice root is bound.
+    voice: candidates.voice ?? null };
 
   const receipt = { schema_version: GRAPH_SYNC_SCHEMA, project_code: project, ran_at: now, dry,
     binding: { address: bindingAddress, sha256: sha256(bindingBytes) },

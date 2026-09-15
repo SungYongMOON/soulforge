@@ -1,5 +1,59 @@
 # CHANGELOG
 
+## 2026-09-15 - 음성 편입의 단위가 시간 구간에서 대화 구간으로
+
+- Revision: 이 항목을 포함한 커밋. Owner 추가 전제(09-15 아침)에 따라 같은 날 앞 항목의 판정 원장을
+  다시 세웠다. 편입되고 읽히는 단위는 "몇 초부터 몇 초까지"가 아니라 **대화 구간**이다. 녹음 하나에
+  과제 업무·팀 운영·아이디어·일상이 차례로 들어 있고, 구간은 그 대화가 어디서 끝나는지를 말한다.
+- 원장의 구간은 네 가지를 각각 따로 들고 서로를 대신하지 않는다. `nature`(대화 성격: 과제 업무·팀 운영·
+  아이디어·일상·판독 불가·미판정), `project_candidates[{과제코드, 근거 ref, basis}]`, `quality`
+  (전사 판본 + 교정 상태), `status`(확정·후보·미분류). 잘 안 들린 업무 대화는 품질이 나쁜 것이지
+  잡담이 아니다. 근거(`basis`) 없는 과제 코드는 후보로도 받지 않는다.
+- `title`·`description`은 사람이 다시 찾기 위한 **파생 요약**이며 발언도 승인 회의록도 아니다.
+  `derived_summary: true`가 항상 붙고, 그 표시가 문서 사실로 그래프까지 따라간다. 확정 순간에는
+  제목·성격·전사 품질 셋을 모두 요구한다.
+- 구간 초안은 새 분할기를 만들지 않고 이미 있는 `analysis/semantic_labels/<run>/semantic_label_run.json`의
+  의미 단위와 검토 창을 읽어 만든다(읽기 전용 `harness/voice_segment_drafts.mjs`, CLI `draft`).
+  전사 판본은 라벨 run이 실제로 읽은 것을 그대로 물려받고, 개체는 종류와 개수만 힌트로 나오며 값은
+  나오지 않는다. 라벨 run이 과제 후보를 낼 수 없다고 말하면 그대로 0건이다.
+- grant 항목은 이제 대화 구간 하나다(`<세션>:<구간>`). 한 녹음에서 같은 과제의 대화가 여럿이면
+  각각 문서가 되고, 구간 id·파생 제목·성격·이어지는 구간이 문서 사실로 함께 간다. 되돌아오는 주제는
+  합치지 않고 별도 구간으로 두고 `related_segment_ids`로 잇는다.
+- 구간 경계는 온전한 초다. 구간은 grant의 신원(정규 바이트)에 들어가는데 정규 직렬화는 안전한 정수만
+  받는다. 실제 라벨 경계는 57.82초처럼 소수라 초안을 만들 때 한 번 반올림하며, 맞닿은 두 구간은 같은
+  값으로 반올림되어 사이가 벌어지지 않는다. 대신 경계의 한 발언이 양쪽 대화에 함께 걸릴 수 있다.
+- 운영 영향: 앞 항목과 같다. 이번 변경만으로는 아무것도 편입되지 않으며 바인딩·admission·첫 확정은
+  Owner 승인 항목이고 운영 lane은 재빌드 전까지 옛 코드다. 원본·전사·라벨·색인은 읽기만 하고
+  초기 분류로 무엇도 지우지 않는다.
+- 관련 경로: `guild_hall/context_engine/harness/{voice_routes.mjs,voice_segment_drafts.mjs,voice_route_cli.mjs}`,
+  `guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs`,
+  `guild_hall/context_engine/src/runtime/source_documents.mjs`,
+  `guild_hall/context_engine/tests/voice_grant.test.mjs`.
+
+## 2026-09-15 - 확정된 음성 구간만 통합 RAG에 들어가는 길
+
+- Revision: 이 항목을 포함한 커밋. 음성 세션은 지금까지 통합 그래프에 한 건도 들어가지 않았다.
+  `harness/estate_inventory.mjs`의 `grantCandidates`에 slack·linear·mail 분기만 있었기 때문이고,
+  녹음 하나가 여러 과제를 넘나들기 때문에 "인박스에 있다"는 사실만으로는 어느 과제에도 귀속되지 않는다.
+- 판정 원장 `control_root/voice-routes/<session_id>.json`(metadata-only, 새로 씀)이 사람의 결정을 담는다.
+  구간마다 `confirmed`(사람이 확정 — 이름과 시각이 함께 있어야 성립) / `candidate`(조사자의 제안) /
+  `unclassified`(아직 못 정함) 세 가지이며 grant에 들어가는 것은 confirmed뿐이다. 원본·전사·색인은 읽기만 한다.
+  기존 녹음 색인의 `route_state.accepted_*`가 채워진 세션은 녹음 전체에 대한 같은 결정으로 함께 읽는다.
+- `grantCandidates`의 voice 분기는 폴더가 아니라 이 원장에서 항목을 만든다. 바인딩이 voice 루트를
+  선언하지 않은 과제는 확정이 아무리 많아도 후보 0이다. 한 녹음 안에서 맞닿은 구간은 하나로 잇고,
+  사이가 벌어진 구간이 둘 이상이면 그 사이를 함께 넣지 않기 위해 그 세션을 빼고 이유를 영수증에 남긴다.
+- 어댑터는 grant 항목의 `transcript_ref`가 가리키는 판본(독립 기계 전사 run)을 revision으로 삼는다.
+  세션의 공급자 전사 포인터는 그대로 두므로 어느 전사를 편입했는지는 grant가 말한다. 판본이 바뀌면
+  그 문서만 다음 회차에 다시 추출되고, 같은 입력을 다시 넣으면 변경 없음으로 끝난다.
+- 원장에 쓰는 것은 `harness/voice_route_cli.mjs`(list·show·set·confirm·withdraw)뿐이고 `--dry`로
+  쓰지 않고 결과를 볼 수 있다. 봇은 제안만 하고 확정은 사람이 누른다.
+- 운영 영향: 이번 변경만으로는 아무것도 편입되지 않는다. 통합 바인딩 `source_roots`와 admission에
+  voice 루트를 더하는 것과 첫 확정 등록은 Owner 승인 항목이며, 운영 중인 graph-sync lane은 재빌드
+  전까지 옛 코드라 voice 분기를 갖지 않는다. 예약작업·수집기·모델 배치·그래프 DB는 바꾸지 않았다.
+- 관련 경로: `guild_hall/context_engine/harness/{voice_routes.mjs,voice_route_cli.mjs,estate_inventory.mjs,estate_graph_sync.mjs}`,
+  `guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs`,
+  `guild_hall/context_engine/src/runtime/source_documents.mjs`,
+  `guild_hall/context_engine/tests/voice_grant.test.mjs`.
 ## 2026-09-15 - 통합 관제가 PLAUD 녹음이 평일에 안 들어오는 것을 오류로 표시한다
 
 - Revision: 이 항목을 포함한 커밋. Watchtower에 달력 판정 probe

@@ -31,7 +31,14 @@ const ITEM_FIELDS = ['item_id', 'revision_policy', 'revision_sha256', 'data_clas
 // `path`: segments below the source root that the owner names for the item (a
 // mail event file, a document, a voice date folder). `scope`: the part of a mixed
 // recording that belongs to the project, in seconds from the recording start.
-const ITEM_OPTIONAL_FIELDS = ['path', 'scope'];
+// `transcript_ref`: which transcript of a recording this item means, as segments
+// below the session folder (an independent machine transcription run). A session
+// keeps its provider transcript where it is even after a better one is made, so
+// naming the run is how a grant says which of them it granted.
+// `conversation_segment`: which conversation of a mixed recording the item is,
+// with the derived title and the kind of conversation it is, so a document
+// answered out of the graph can say where in the recording it came from.
+const ITEM_OPTIONAL_FIELDS = ['path', 'scope', 'transcript_ref', 'conversation_segment'];
 export const PATH_REQUIRED_KINDS = Object.freeze(['document', 'mail']);
 // Kinds whose unit locators anchor to a revision the document holds. The document
 // adapter locates by path and line range only, so its units carry no revision to
@@ -39,9 +46,21 @@ export const PATH_REQUIRED_KINDS = Object.freeze(['document', 'mail']);
 export const LOCATOR_REVISION_KINDS = Object.freeze(['linear', 'mail', 'slack', 'voice']);
 const validItemPath = path => Array.isArray(path) && path.length > 0 && path.length <= 16
   && path.every(isSafeSegment);
+// Whole seconds, because a scope is part of the grant's identity and of the
+// document key, and canonical serialization holds only safe integers. A fraction
+// here does not fail here -- it fails later, when the grant is digested, with a
+// code that says nothing about where the fraction came from.
 const validScope = scope => exactKeys(scope, ['start_seconds', 'end_seconds'])
-  && Number.isFinite(scope.start_seconds) && Number.isFinite(scope.end_seconds)
+  && Number.isSafeInteger(scope.start_seconds) && Number.isSafeInteger(scope.end_seconds)
   && scope.start_seconds >= 0 && scope.end_seconds > scope.start_seconds;
+// The title may be absent (a conversation nobody has named yet); it is never
+// speech, so its length is a summary's length rather than a transcript's.
+const validConversationSegment = value => exactKeys(value, ['segment_id', 'title', 'nature', 'related_segment_ids'])
+  && TOKEN.test(value.segment_id ?? '') && TOKEN.test(value.nature ?? '')
+  && (value.title === null || (typeof value.title === 'string' && value.title.length > 0 && [...value.title].length <= 200))
+  && Array.isArray(value.related_segment_ids) && value.related_segment_ids.length <= 16
+  && value.related_segment_ids.every(id => TOKEN.test(id))
+  && new Set(value.related_segment_ids).size === value.related_segment_ids.length;
 
 export class SourceDocumentError extends Error {
   constructor(code) { super(code); this.name = 'SourceDocumentError'; this.code = code; }
@@ -88,7 +107,10 @@ export function validateSourceGrant(grant, { now = null } = {}) {
         || !grant.allowed_data_classes.includes(item.data_class)
         || (Object.hasOwn(item, 'path') && !validItemPath(item.path))
         || (PATH_REQUIRED_KINDS.includes(source.kind) && !Object.hasOwn(item, 'path'))
-        || (Object.hasOwn(item, 'scope') && (source.kind !== 'voice' || !validScope(item.scope)))) fail('source_grant_invalid');
+        || (Object.hasOwn(item, 'scope') && (source.kind !== 'voice' || !validScope(item.scope)))
+        || (Object.hasOwn(item, 'transcript_ref') && (source.kind !== 'voice' || !validItemPath(item.transcript_ref)))
+        || (Object.hasOwn(item, 'conversation_segment')
+          && (source.kind !== 'voice' || !validConversationSegment(item.conversation_segment)))) fail('source_grant_invalid');
       const key = itemKey({ source_kind: source.kind, root_ref: source.root_ref, item_id: item.item_id });
       if (seen.has(key) || ++count > SOURCE_LIMITS.grant_items) fail('source_grant_invalid');
       seen.add(key);
