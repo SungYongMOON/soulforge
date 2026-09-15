@@ -465,13 +465,13 @@ const MIXED_UNITS = [
   unitLabel({ id: 'unit_23', segmentIds: [23], start: 120, end: 180, characters: [...SHARED_C].length }),
 ];
 const REGISTRY = {
-  schema: 'soulforge.context_shared_terms.v0', generated_at: '2026-09-15T00:00:00.000Z',
+  schema: 'soulforge.context_shared_terms.v0', generated_at: '2026-09-15T00:00:00.000Z', generation_refs: [],
   terms: [
-    { term: 'CDR', normalized: 'cdr', projects: ['S00-001', 'S00-002', 'S00-003'], count: 31, source: 'graph' },
-    { term: '수신부', normalized: '수신부', projects: ['S00-001', 'S00-002'], count: 18, source: 'graph' },
-    { term: '앰프', normalized: '앰프', projects: ['S00-001', 'S00-002', 'S00-004'], count: 12, source: 'seed' },
-    { term: '시험수조', normalized: '시험수조', projects: ['S00-001'], count: 5, source: 'graph' },
-    { term: '구미 현장', normalized: '구미 현장', projects: ['S00-002'], count: 4, source: 'seed' },
+    { term: 'CDR', normalized: 'cdr', projects: ['S00-001', 'S00-002', 'S00-003'], mention_count: 31, source: 'graph' },
+    { term: '수신부', normalized: '수신부', projects: ['S00-001', 'S00-002'], mention_count: 18, source: 'graph' },
+    { term: '앰프', normalized: '앰프', projects: ['S00-001', 'S00-002', 'S00-004'], mention_count: 12, source: 'seed' },
+    { term: '시험수조', normalized: '시험수조', projects: ['S00-001'], mention_count: 5, source: 'graph' },
+    { term: '구미 현장', normalized: '구미 현장', projects: ['S00-002'], mention_count: 4, source: 'seed' },
   ],
 };
 

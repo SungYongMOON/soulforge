@@ -28,7 +28,28 @@
 // apart -- not so that a name in that column becomes who owns the work.
 import { createHash } from 'node:crypto';
 import { openSourceRoot, isSafeSegment, SourceReadError } from '../adapters/sources/guarded_files.mjs';
+import { readFileSync } from 'node:fs';
 import { classifyTerms, loadSharedTerms } from './shared_terms.mjs';
+
+// The registry module reports absence as null and refuses a malformed file by
+// throwing; a voice read must keep going without marks in both cases and say
+// which case it was, so the two are folded into one status here.
+function readSharedTermRegistry(path) {
+  if (typeof path !== 'string' || !path) return { status: 'not_configured', detail: null, terms: [], path_sha256: null, registry: null };
+  let registry;
+  try { registry = loadSharedTerms(path); }
+  catch (error) { return { status: 'unavailable', detail: String(error?.code ?? 'shared_terms_unreadable'), terms: [], path_sha256: null, registry: null }; }
+  if (registry === null) return { status: 'unavailable', detail: 'absent', terms: [], path_sha256: null, registry: null };
+  let sha = null;
+  try { sha = `sha256:${createHash('sha256').update(readFileSync(path)).digest('hex')}`; } catch { sha = null; }
+  return { status: 'ok', detail: null, terms: registry.terms, path_sha256: sha, registry };
+}
+// Marks a reader can act on: registry terms only (an unregistered acronym is
+// not a mark), each saying whether more than one project carries it.
+function markTerms(text, registry) {
+  return classifyTerms(text, registry.registry).filter(entry => entry.kind !== 'unregistered')
+    .map(entry => ({ term: entry.term, shared: entry.kind === 'shared', project_count: entry.projects.length, projects: [...entry.projects] }));
+}
 
 export const VOICE_READ_SCHEMA = 'soulforge.context_voice_session_read.v1';
 export const VOICE_ACCESS_SCHEMA = 'soulforge.voice_inbox_access.v0';
@@ -535,7 +556,7 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
   const textOf = row => basis === 'transcript_segments' ? row.content : row.text;
   // Marks, not judgements: a term the registry says several projects carry is
   // one a reader must stop using to pick one.
-  const registry = loadSharedTerms(sharedTermsPath);
+  const registry = readSharedTermRegistry(sharedTermsPath);
   let budget = limit;
   const shown = inWindow.map(row => {
     const characters = lengthOf(row);
@@ -546,7 +567,7 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
       truncated: give < characters, text: give === characters ? text : [...text].slice(0, give).join('') };
     // The whole interval's text is classified, not only the part shown, so a
     // character bound cannot hide the word that makes a clue ambiguous.
-    const terms = registry.status === 'ok' ? classifyTerms(text, registry) : [];
+    const terms = registry.status === 'ok' ? markTerms(text, registry) : [];
     return basis === 'transcript_segments'
       ? { segment_id: row.segment_id, clock: clockAt(start, row.start_seconds).clock, speaker: row.speaker,
         ...body, terms }
