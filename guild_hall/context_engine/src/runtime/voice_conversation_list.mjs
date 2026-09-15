@@ -47,6 +47,20 @@ export const CODE_BOUNDARY_REASONS = Object.freeze(['overlap_conflict', 'attache
   'single_segment_window', 'related_by_key_terms']);
 export const BASIS_KINDS = Object.freeze(['equipment', 'board', 'purpose', 'test_condition', 'deliverable',
   'follow_up_record']);
+/**
+ * A basis only a code can state, and the model's schema does not carry.
+ *
+ * `context_continuity` says: nothing in this conversation names a project, and
+ * the conversations either side of it -- close in time, both project work, both
+ * placed on the same project with strong evidence -- do. That is a fact about
+ * where the conversation sits, not about what was said in it, so a model asked
+ * "which project is this about" could only answer it by guessing.
+ */
+export const CODE_BASIS_KINDS = Object.freeze(['context_continuity']);
+/** The unplaced reasons a neighbouring conversation is allowed to speak for. */
+export const CONTINUITY_REASONS = Object.freeze(['no_distinctive_clue', 'no_evidence', 'shared_terms_only']);
+/** How far away a neighbour may be and still be the same stretch of work. */
+export const CONTINUITY_GAP_SECONDS = 60;
 export const CORRECTION_REASONS = Object.freeze(['term_glossary', 'person_name', 'number_unit', 'date_deadline',
   'part_number', 'negation', 'completion_state', 'cancellation', 'homophone', 'other']);
 // A wrong name, number, date, part number, negation or completion state changes
@@ -799,15 +813,76 @@ export function checkCandidates(answer, { evidenceRows, clues, limit = DEFAULT_L
     }
     const strong = grounds.includes('distinctive') || basis.length >= 2;
     kept.push({ project_code: code, strength: candidate?.strength === 'strong' && strong ? 'strong' : 'weak',
-      basis, evidence_row_ids: [...ids].sort((a, b) => a - b), matched_terms: matched });
+      basis, evidence_row_ids: [...ids].sort((a, b) => a - b), matched_terms: matched,
+      distinctive: grounds.includes('distinctive') });
   }
-  const candidates = kept.sort((a, b) => (a.strength === b.strength ? 0 : a.strength === 'strong' ? -1 : 1)
-    || b.evidence_row_ids.length - a.evidence_row_ids.length).slice(0, limit);
+  const ranked = kept.sort((a, b) => (a.strength === b.strength ? 0 : a.strength === 'strong' ? -1 : 1)
+    || b.evidence_row_ids.length - a.evidence_row_ids.length);
+  // A conversation placed on one project with real evidence, plus a second
+  // project found by a single row matched on a single word nobody has registered,
+  // is not a conversation about two projects. The second one is a mention: it
+  // stays visible, and it stops being an attribution.
+  const mentions = [];
+  const candidates = [];
+  const anyStrong = ranked.some(row => row.strength === 'strong');
+  for (const row of ranked) {
+    if (anyStrong && row.strength === 'weak' && row.evidence_row_ids.length === 1 && !row.distinctive) {
+      mentions.push({ project_code: row.project_code, evidence_row_ids: [...row.evidence_row_ids] });
+      continue;
+    }
+    candidates.push(row);
+  }
   const reason = candidates.length > 0 ? null
     : (downgraded.find(row => row.code === 'shared_terms_only') ? 'shared_terms_only'
       : (typeof answer.unclassified_reason === 'string' && answer.unclassified_reason
         ? answer.unclassified_reason : 'no_evidence'));
-  return { ok: true, code: null, candidates, downgraded, unclassified_reason: reason };
+  return { ok: true, code: null, candidates: candidates.slice(0, limit), downgraded,
+    other_project_mentions: mentions, unclassified_reason: reason };
+}
+
+/**
+ * The project a conversation sits inside, when nothing in the conversation says.
+ *
+ * A recording of one afternoon's work does not change project between one
+ * sentence and the next. A stretch that named nothing, with the same project
+ * placed strongly on both sides of it and no silence to speak of in between, is
+ * almost certainly part of the same work -- and leaving it unplaced loses it.
+ *
+ * It is a weak candidate and it says so: the basis is `context_continuity`, the
+ * neighbours are named, and nothing here ever promotes. A neighbour that is only
+ * a weak candidate itself cannot lend what it does not have, an `unreadable`
+ * stretch in between is skipped rather than treated as a change of subject, and
+ * the decisions are all taken against the segments as they arrived, so one
+ * inherited placement never becomes the evidence for the next.
+ */
+export function applyContextContinuity(segments, { gapSeconds = CONTINUITY_GAP_SECONDS } = {}) {
+  const strongCodes = segment => new Set((segment.project_candidates ?? [])
+    .filter(row => row.strength === 'strong').map(row => row.project_code));
+  const donor = segment => segment !== undefined && segment.nature === 'project_work' && strongCodes(segment).size > 0;
+  const applied = [];
+  const decisions = new Map();
+  for (const [index, segment] of segments.entries()) {
+    if (segment.status !== 'unclassified' || !CONTINUITY_REASONS.includes(segment.unclassified_reason)) continue;
+    const back = [...segments.slice(0, index)].reverse().find(row => row.nature !== 'unreadable');
+    const forward = segments.slice(index + 1).find(row => row.nature !== 'unreadable');
+    if (!donor(back) || !donor(forward)) continue;
+    const shared = [...strongCodes(back)].filter(code => strongCodes(forward).has(code));
+    if (shared.length !== 1) continue;
+    if (segment.start_seconds - back.end_seconds > gapSeconds) continue;
+    if (forward.start_seconds - segment.end_seconds > gapSeconds) continue;
+    decisions.set(segment.segment_id, { project_code: shared[0],
+      context_segment_ids: [back.segment_id, forward.segment_id] });
+    applied.push({ segment_id: segment.segment_id, project_code: shared[0],
+      context_segment_ids: [back.segment_id, forward.segment_id] });
+  }
+  return { segments: segments.map(segment => {
+    const decision = decisions.get(segment.segment_id);
+    if (decision === undefined) return segment;
+    return { ...segment, status: 'candidate', unclassified_reason: null,
+      project_candidates: [{ project_code: decision.project_code, strength: 'weak',
+        basis: ['context_continuity'], evidence_row_ids: [],
+        context_segment_ids: [...decision.context_segment_ids] }] };
+  }), applied };
 }
 
 // ------------------------------------------------------------------ step 5
@@ -1036,13 +1111,17 @@ export function renderConversationTable(list) {
     const candidates = segment.project_candidates.length === 0
       ? `미분류${segment.unclassified_reason ? ` (${cell(segment.unclassified_reason)})` : ''}`
       : segment.project_candidates.map(row => `${row.project_code} ${row.strength}`
-        + `${row.basis.length ? ` [${row.basis.join('+')}]` : ''} 근거 ${row.evidence_row_ids.length}행`).join('<br>');
+        + `${row.basis.length ? ` [${row.basis.join('+')}]` : ''}`
+        + `${row.context_segment_ids?.length ? ` 이웃 ${row.context_segment_ids.join('·')}`
+          : ` 근거 ${row.evidence_row_ids.length}행`}`).join('<br>');
+    const mentions = (segment.other_project_mentions ?? [])
+      .map(row => `언급: ${row.project_code} 근거 ${row.evidence_row_ids.length}행`).join('<br>');
     const marks = segment.quality.marks.length ? segment.quality.marks.join(',') : '-';
     lines.push(`| ${segment.clock.slice(11, 19)}–${segment.clock_end.slice(11, 19)}`
       + `<br>${spokenClock(segment.start_seconds)}–${spokenClock(segment.end_seconds)}`
       + ` | ${cell(trim(segment.title, 40))} | ${cell(trim(segment.description, 200))}`
       + ` | ${cell(segment.nature)}${segment.nature_unclear ? ' (미정)' : ''}`
-      + ` | ${candidates} | ${marks} · 교정 ${segment.quality.correction_state}`
+      + ` | ${candidates}${mentions ? `<br>${mentions}` : ''} | ${marks} · 교정 ${segment.quality.correction_state}`
       + ` | ${segment.segment_id} · 발화 ${segment.source_segment_ids.length}개`
       + ` (${segment.source_segment_ids[0]}–${segment.source_segment_ids.at(-1)})`
       + `${segment.boundary.qa_boundary === 'none' ? '' : ` · Q/A ${segment.boundary.qa_boundary}`}`

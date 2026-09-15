@@ -20,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import { conversationRow } from '../src/runtime/voice_session_read.mjs';
 import {
-  applyCorrections, attachUncovered, batchSegments, boundaryWindows, checkBoundaryProposal, checkCandidates,
+  applyContextContinuity, applyCorrections, attachUncovered, batchSegments, boundaryWindows,
+  checkBoundaryProposal, checkCandidates,
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
   clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
   occurrenceCounter, qualityReport, readPipelineConfig, recurringTokens, relatedByKeyTerms,
@@ -537,17 +538,94 @@ test('a candidate whose only evidence is a word several projects use is not weak
   assert.equal(byCode.has('S00-002'), false, 'found only by a word two projects share');
   assert.equal(byCode.has('S00-009'), false, 'and one with no evidence row at all is not a candidate');
   assert.equal(byCode.get('S00-001').strength, 'strong', 'a term one project uses, with a stated basis');
-  assert.equal(byCode.get('S00-003').strength, 'weak',
-    'a word the registry has never seen cannot make a candidate strong, however specific it sounds');
+  // S00-003 was found by one row matched on one unregistered word, beside a
+  // project that was found properly. That is a mention, not a second placement.
+  assert.equal(byCode.has('S00-003'), false);
+  assert.deepEqual(answer.other_project_mentions, [{ project_code: 'S00-003', evidence_row_ids: [3] }]);
   assert.deepEqual(answer.downgraded.map(row => row.code), ['shared_terms_only', 'no_evidence_row']);
+
+  // With nothing placed strongly, the same weak row is still a candidate: there
+  // is no attribution for it to sit beside and quietly widen.
+  const alone = checkCandidates({ candidates: [{ project_code: 'S00-003', evidence_row_ids: [3],
+    basis: ['equipment'], strength: 'strong' }] }, { evidenceRows: rows, clues });
+  assert.deepEqual([alone.candidates.map(row => [row.project_code, row.strength]), alone.other_project_mentions],
+    [[['S00-003', 'weak']], []],
+  'a word the registry has never seen cannot make a candidate strong, however specific it sounds');
 
   const twoBasis = checkCandidates({ candidates: [{ project_code: 'S00-003', evidence_row_ids: [3],
     basis: ['equipment', 'follow_up_record'], strength: 'strong' }] }, { evidenceRows: rows, clues });
   assert.equal(twoBasis.candidates[0].strength, 'strong', 'two kinds of basis is the other way to be strong');
+  // A weak candidate with more than one row beside a strong one stays a candidate:
+  // the rule is about a single row matched on a single unregistered word.
+  const twoRows = checkCandidates({ candidates: [
+    { project_code: 'S00-001', evidence_row_ids: [2], basis: ['equipment'], strength: 'strong' },
+    { project_code: 'S00-003', evidence_row_ids: [3, 4], basis: ['equipment'], strength: 'weak' }] },
+  { evidenceRows: [...rows, { row_id: 4, project_code: 'S00-003', matched_terms: ['XG보정판'] }], clues });
+  assert.deepEqual(twoRows.candidates.map(row => row.project_code), ['S00-001', 'S00-003']);
+  assert.deepEqual(twoRows.other_project_mentions, []);
 
   const none = checkCandidates({ candidates: [{ project_code: 'S00-002', evidence_row_ids: [1],
     basis: [], strength: 'weak' }] }, { evidenceRows: rows, clues });
   assert.deepEqual([none.candidates, none.unclassified_reason], [[], 'shared_terms_only']);
+});
+
+test('a stretch that named nothing, sitting inside work that did, is placed weakly and says why', () => {
+  const placed = (id, from, to, code) => ({ segment_id: id, start_seconds: from, end_seconds: to,
+    nature: 'project_work', status: 'candidate',
+    project_candidates: [{ project_code: code, strength: 'strong', basis: ['equipment'], evidence_row_ids: [1] }] });
+  const unplaced = (id, from, to, reason = 'no_distinctive_clue') => ({ segment_id: id, start_seconds: from,
+    end_seconds: to, nature: 'project_work', status: 'unclassified', unclassified_reason: reason,
+    project_candidates: [] });
+
+  const answer = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+    placed('c003', 210, 300, 'S00-001')]);
+  assert.deepEqual(answer.applied,
+    [{ segment_id: 'c002', project_code: 'S00-001', context_segment_ids: ['c001', 'c003'] }]);
+  const middle = answer.segments[1];
+  assert.deepEqual([middle.status, middle.unclassified_reason], ['candidate', null]);
+  assert.deepEqual(middle.project_candidates, [{ project_code: 'S00-001', strength: 'weak',
+    basis: ['context_continuity'], evidence_row_ids: [], context_segment_ids: ['c001', 'c003'] }],
+  'weak, with the neighbours named: this is where it sat, not what was said in it');
+
+  // An unreadable stretch in between is skipped rather than read as a change of subject.
+  const skipped = applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
+    { segment_id: 'c002', start_seconds: 105, end_seconds: 115, nature: 'unreadable', status: 'unclassified',
+      unclassified_reason: 'no_evidence', project_candidates: [] },
+    unplaced('c003', 120, 200), placed('c004', 210, 300, 'S00-001')]);
+  assert.deepEqual(skipped.applied.map(row => row.segment_id), ['c003']);
+
+  // Every way it must not fire.
+  const weakNeighbour = { ...placed('c001', 0, 100, 'S00-001'),
+    project_candidates: [{ project_code: 'S00-001', strength: 'weak', basis: [], evidence_row_ids: [1] }] };
+  assert.deepEqual(applyContextContinuity([weakNeighbour, unplaced('c002', 110, 200),
+    placed('c003', 210, 300, 'S00-001')]).applied, [], 'a weak neighbour cannot lend what it does not have');
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+    placed('c003', 210, 300, 'S00-002')]).applied, [], 'two different projects either side place nothing');
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 400, 500),
+    placed('c003', 510, 600, 'S00-001')]).applied, [], 'five minutes of silence is not the same stretch of work');
+  // What the middle stretch is about is not part of the rule: the rule is about
+  // where it sits. A stretch the nature step called `personal` that still named
+  // no project is placed like any other, weakly and with its neighbours shown.
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
+    { ...unplaced('c002', 110, 200), nature: 'personal' },
+    placed('c003', 210, 300, 'S00-001')]).applied.map(row => row.segment_id), ['c002']);
+  assert.deepEqual(applyContextContinuity([placed('c001', 0, 100, 'S00-001'),
+    { ...unplaced('c002', 110, 200), unclassified_reason: 'project_llm_failed' },
+    placed('c003', 210, 300, 'S00-001')]).applied, [],
+  'a step that failed is a step to run again, not a conversation to place from its neighbours');
+
+  // And it never cascades. Two unplaced stretches in a row are each other's
+  // neighbour, so neither has work on both sides of it -- and an inherited
+  // placement never becomes the evidence that places the next one.
+  const chain = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+    unplaced('c003', 210, 300), placed('c004', 310, 400, 'S00-001')]);
+  assert.deepEqual(chain.applied, []);
+  // Each of two unplaced stretches with placed work on both sides is placed, and
+  // neither one's placement is what placed the other.
+  const both = applyContextContinuity([placed('c001', 0, 100, 'S00-001'), unplaced('c002', 110, 200),
+    placed('c003', 210, 300, 'S00-001'), unplaced('c004', 310, 400), placed('c005', 410, 500, 'S00-001')]);
+  assert.deepEqual(both.applied.map(row => [row.segment_id, row.context_segment_ids]),
+    [['c002', ['c001', 'c003']], ['c004', ['c003', 'c005']]]);
 });
 
 // =============================================================== step 5 rules
@@ -940,6 +1018,8 @@ test('the run manifest says what the run actually did, in numbers a reader can c
   assert.deepEqual([manifest.counts.segments, manifest.counts.unclassified], [1, 1],
     'the script answered one conversation for the whole window, and the manifest counts what happened');
   assert.equal(manifest.counts.project_mixed, 0);
+  assert.deepEqual([manifest.projects.other_project_mentions, manifest.projects.context_continuity_candidates],
+    [0, 0], 'this estate has no bindings, so there is nothing to mention and nothing to inherit');
   assert.equal(manifest.projects.opened.length, 0, 'this estate has no bindings, and the manifest says so');
   assert.ok(Object.hasOwn(manifest.quality.counts, 'hallucination_loop'));
   assert.equal(manifest.transcript.rows, 6);

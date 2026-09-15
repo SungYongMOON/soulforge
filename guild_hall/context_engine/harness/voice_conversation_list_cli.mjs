@@ -40,7 +40,8 @@ import {
   BASIS_KINDS, BOUNDARY_REASONS, CONVERSATION_LIST_SCHEMA, CORRECTIONS_SCHEMA, CORRECTION_REASONS,
   ConversationListError, KEY_TERM_KINDS, NATURES, RUN_MANIFEST_SCHEMA, applyCorrections, attachUncovered,
   batchSegments, boundaryWindows, cacheKeyFor, checkBoundaryProposal, checkCandidates, checkCorrection,
-  checkNature, classifyClues, clockAt, clueQuery, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
+  applyContextContinuity, checkNature, classifyClues, clockAt, clueQuery, finalChecks, mergeDrafts,
+  mergeNatureWindows, partialWindows,
   occurrenceCounter, qaBoundarySuspects, qualityReport, readPipelineConfig, recurringTokens,
   relatedByKeyTerms, renderConversationTable, renderCorrectionsTable, rulesCoverage, runIdFor,
   searchableClues, segmentsNeedingRejudgement, singleSegmentSuspect, stitchBoundaries, wholeMilliseconds,
@@ -594,7 +595,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     }
   }
   const recordedAt = input.manifest.recorded_at_local;
-  const rows = segments.map(segment => {
+  const unplaced = segments.map(segment => {
     const ids = segment.source_segment_ids;
     const start = Math.min(...ids.map(id => rowFor.get(id)?.start_seconds ?? 0));
     const end = Math.max(...ids.map(id => rowFor.get(id)?.end_seconds ?? 0));
@@ -620,6 +621,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
           declared_shared: mark.declared_shared, observed_project_count: mark.observed_project_count })),
       project_candidates: judged.candidates.map(row => ({ project_code: row.project_code, strength: row.strength,
         basis: [...row.basis], evidence_row_ids: [...row.evidence_row_ids] })),
+      other_project_mentions: [...(judged.other_project_mentions ?? [])],
       unclassified_reason: judged.candidates.length === 0 ? judged.unclassified_reason : null,
       status: judged.candidates.length === 0 ? 'unclassified' : 'candidate',
       quality: { transcript_kind: quality.transcript_kind, marks,
@@ -637,6 +639,9 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       qa_boundary: segment.qa_boundary, processed_in_windows: nature.processed_in_windows ?? 1 },
       revised_after_correction: judged.revised === true };
   });
+  // A stretch that named nothing, sitting inside work that did.
+  const continuity = applyContextContinuity(unplaced);
+  const rows = continuity.segments;
   const checks = finalChecks({ segments: rows, rows: input.rows,
     suppressedSegmentIds: [...coverage.suppressed_segment_ids], coverage });
   const list = { schema: CONVERSATION_LIST_SCHEMA, session_id: sessionId, run_id: runId, generated_at: generatedAt,
@@ -707,7 +712,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       single_segment_windows: segments.filter(row => row.boundary_reasons.includes('single_segment_window')).length,
       related_by_key_terms: keyTermLinks.length },
     projects: { opened: [...retrievers.opened.keys()], refused: retrievers.refused,
-      evidence_rows: evidenceRows.length, rejudged },
+      evidence_rows: evidenceRows.length, rejudged,
+      other_project_mentions: rows.reduce((sum, row) => sum + row.other_project_mentions.length, 0),
+      context_continuity_candidates: continuity.applied.length,
+      context_continuity: continuity.applied },
     counts: { segments: rows.length,
       nature: Object.fromEntries(NATURES.map(nature => [nature, rows.filter(row => row.nature === nature).length])),
       candidate: rows.filter(row => row.status === 'candidate').length,
@@ -816,7 +824,11 @@ function renderRun(found) {
     `  설명(파생) ${segment.description}`,
     `  과제 ${segment.project_candidates.length === 0
       ? `미분류 — ${segment.unclassified_reason ?? '-'}`
-      : segment.project_candidates.map(row => `${row.project_code}(${row.strength}, 근거 ${row.evidence_row_ids.length}행)`).join(' · ')}`,
+      : segment.project_candidates.map(row => `${row.project_code}(${row.strength}`
+        + `${row.context_segment_ids?.length ? `, 이웃 ${row.context_segment_ids.join('·')}`
+          : `, 근거 ${row.evidence_row_ids.length}행`})`).join(' · ')}`
+      + `${(segment.other_project_mentions ?? []).length
+        ? ` · 언급 ${segment.other_project_mentions.map(row => row.project_code).join(',')}` : ''}`,
     `  품질 marks ${segment.quality.marks.join(',') || '-'} · 교정 ${segment.quality.correction_state}`
       + ` · 판독불가 비율 ${segment.quality.unreadable_ratio}`);
   }
