@@ -10,6 +10,7 @@ import { createOperationsDirectoryReader } from './operations-directory-adapter.
 import { isDirectLoopbackRequest } from './loopback-request-guard.mjs';
 import {registrationTimeline} from '../core/operations-dashboard-view.mjs';
 import {createSourceObservationsReader} from './source-observations.mjs';
+import {plaudCollectionObservation} from '../core/plaud-collection-view.mjs';
 
 const PROJECT = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/u;
 const PROTECTED = /(?:^\.|secret|credential|password|token|cookie|session|auth|^config|^binding|^settings|\.pem$|\.key$)/iu;
@@ -95,6 +96,13 @@ export function createOperationsSpacesReader(options = {}) {
       if(data.schema_version!=='soulforge.voice_recording_library_index.v0'||!Array.isArray(data.recordings)) throw Error('shape');
       const timeline=registrationTimeline(data);
       const value={state:timeline.state==='ready'?'ready':'partial',rows:timeline.recent??[],timeline,observed_at:data.generated_at,scope:'PLAUD 라이브러리 등록 시각 · RAG 완료와 별도'};
+      try {
+        const health=JSON.parse(await readBoundedFile(path.join(root,'state/health/continuous_ingress.json'),root,1024*1024));
+        if(/^[0-9TZ_A-Za-z-]{1,150}$/u.test(health.last_run_id??'')){
+          const receipt=JSON.parse(await readBoundedFile(path.join(root,`state/receipts/continuous_ingress/${health.last_run_id}.json`),root,1024*1024));
+          value.collection=plaudCollectionObservation(health,receipt);
+        }
+      }catch{value.collection=null;}
       recentCache={value,at:Date.now(),digest:table.table_sha256};return value;
     } catch { return {state:'unavailable',rows:[],reason:'PLAUD 등록 원장 읽기 실패'}; }
   }

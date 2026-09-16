@@ -42,7 +42,12 @@ export function buildConsoleView(inputs = {}, failedSources = []) {
   const edges = [...base.edges, { id: 'context-call:source_grant:prepare', from: grantNode.id,
     to: 'context_engine::prepare', relation: 'data', label: '허용된 항목만',
     evidenceMode: 'implementation_contract', receiptObserved: false, sourceRef: grantNode.sourceRef }];
-  const rows = nodes.map(n => ({ ...n, status: consoleAssessment(n, healthAvailable) }));
+  const collection=failedSources.includes('recent')?null:inputs.recent?.collection;
+  const freshCollection=collection?.recovering===true&&Date.now()-Date.parse(collection.observed_at)>=0&&Date.now()-Date.parse(collection.observed_at)<900000;
+  const rows = nodes.map(n => n.id==='watchtower::ingress_supervisor'&&freshCollection
+    &&(!n.observedAt||Date.parse(collection.observed_at)>=Date.parse(n.observedAt)-5000||(n.healthReasons?.length>0&&n.healthReasons.every(r=>['status_degraded','plaud_collection_degraded'].includes(r))))?{...n,collection,
+    observedAt:collection.observed_at,healthReasons:['plaud_collection_backlog'],scope:'최신 수집 영수증의 목록 완주·원본 보관·등록 결과 · 전처리·RAG 성공과 별도',
+    status:{...CONSOLE_ASSESSMENTS.pending,key:'pending',label:'수집 재개 · 후속 처리 대기',count:null}}:({ ...n, status: consoleAssessment(n, healthAvailable) }));
   const watched = rows.filter(n => n.id.startsWith('watchtower::'));
   const counts = Object.fromEntries(Object.keys(CONSOLE_ASSESSMENTS).map(key => [key, watched.filter(n => n.status.key === key).length]));
   const rank = { problem: 0, pending: 1, observation_error: 2, unknown: 3, ok: 4 };

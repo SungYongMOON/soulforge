@@ -9,6 +9,8 @@
   영수증을 재검증한다. 이름·날짜만으로 합치거나 URL·자격증명을 저장하지 않는다.
 - 운영 영향: 기존 수집 경로의 호환 수정. 자동 재시작은 형식 오류를 고칠 수 없으며 코드
   적용과 실제 등록·재실행 검증은 별도의 private 설치 영수증으로 확인한다.
+- 운영 UI는 최신 실제 영수증의 목록·보관·실패 여부를 대조해 수집 재개 후의 처리 대기를
+  수집 실패와 구분한다. 더 새로운 실패나 오래된 영수증을 정상으로 덮지 않는다.
 - 관련 경로: `guild_hall/voice_capture/plaud_catalog.mjs`, `plaud_ingest.mjs`,
   `delivery_receipt.mjs`, `guild_hall/ingress/continuous_runner.mjs`.
 

@@ -52,6 +52,7 @@ const STATE_LABELS = Object.freeze({
 });
 
 const REASON_LABELS = Object.freeze({
+  plaud_collection_backlog: "목록·보관 검증 통과 · 기존 ID 대조와 후속 처리 대기",
   lease_unavailable: "실행 잠금 확보 실패 · 점유자·잔여 잠금 여부 확인 필요",
   plaud_catalog_malformed_row: "PLAUD 목록 항목 형식 오류",
   plaud_collection_failed: "PLAUD 수집 실행 실패 기록",
