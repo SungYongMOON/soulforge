@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-16 - 운영 현황을 상태·추세 중심으로 재구성
+
+- Revision: 이 항목을 포함한 커밋. 문장형 안내와 큰 설명 카드를 짧은 잔여 한도·주의 목록,
+  실제 사용 추이·등록일별 막대·모델 상태 행·최근 자료로 재구성했다. 상세는 선택한 항목 옆에 연다.
+- Codex 창은 실제 제공 기간으로 식별하고 원장/실시간 중복과 만료 관측을 구분한다.
+  사용량 차트와 기존 기능은 유지하며 기존 PLAUD index에서 제한된 날짜별 메타데이터만 투영한다.
+- 자료 등록은 KST·원장 생성 시각 기준이며 미측정 구간·중복·부분 날짜를 정상/0으로 꾸미지 않는다.
+- 운영 영향: 새 수집기·감시기·LLM 호출·DB 변경 없음. 한도 원천의 설치 UI runtime 재기동
+  사실과 before/after 조회 근거는 private local-recovery에 남기며 스케줄 정의는 변경하지 않았다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/operations-dashboard.tsx`,
+  `src/core/operations-dashboard-view.mjs`, `src/server/operations-spaces-adapter.mjs`, `src/App.tsx`.
+
 ## 2026-09-16 - 운영 UI에서 로컬 모델 서버 연결과 적재 상태를 구분
 
 - Revision: 이 항목을 포함한 커밋. 운영 현황과 구조·진단에 로컬 모델 상태 패널을 추가했다.

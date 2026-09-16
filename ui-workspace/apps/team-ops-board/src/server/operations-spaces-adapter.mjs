@@ -8,6 +8,7 @@ import { readToolsConfig, deriveAttachment } from '../../../../../guild_hall/con
 import { chargeInvestigation } from '../../../../../guild_hall/context_engine/src/runtime/investigation_budget.mjs';
 import { createOperationsDirectoryReader } from './operations-directory-adapter.mjs';
 import { isDirectLoopbackRequest } from './loopback-request-guard.mjs';
+import {registrationTimeline} from '../core/operations-dashboard-view.mjs';
 
 const PROJECT = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/u;
 const PROTECTED = /(?:^\.|secret|credential|password|token|cookie|session|auth|^config|^binding|^settings|\.pem$|\.key$)/iu;
@@ -91,10 +92,8 @@ export function createOperationsSpacesReader(options = {}) {
       const bytes=await readBoundedFile(path.join(root,'ingress/plaud/library/index/recordings.current.json'),root,8*1024*1024);
       const data=JSON.parse(bytes);
       if(data.schema_version!=='soulforge.voice_recording_library_index.v0'||!Array.isArray(data.recordings)) throw Error('shape');
-      const rows=data.recordings.map(r=>({id:r.recording_id,source:'PLAUD',date:r.recording_date,at:r.registered_at_kst,
-        status:r.status_summary?.ok===true?'자료 등록 · 처리 기록 있음':r.status_summary?.ok===false?'처리 기록에 오류':'처리 미확인',
-        segments:r.status_summary?.transcript_segments??null,chunks:r.status_summary?.audio_chunks??null})).sort((a,b)=>(Date.parse(b.at)||0)-(Date.parse(a.at)||0)).slice(0,8);
-      const value={state:'ready',rows,observed_at:data.generated_at,scope:'PLAUD 라이브러리 등록 시각 · RAG 완료와 별도'};
+      const timeline=registrationTimeline(data);
+      const value={state:timeline.state==='ready'?'ready':'partial',rows:timeline.recent??[],timeline,observed_at:data.generated_at,scope:'PLAUD 라이브러리 등록 시각 · RAG 완료와 별도'};
       recentCache={value,at:Date.now(),digest:table.table_sha256};return value;
     } catch { return {state:'unavailable',rows:[],reason:'PLAUD 등록 원장 읽기 실패'}; }
   }

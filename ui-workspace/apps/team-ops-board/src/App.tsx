@@ -2895,7 +2895,7 @@ function usageTrendTooltipGeometry(activeX: number, plotLeft: number, plotRight:
   return { boxX, side };
 }
 
-function UsageTrendChart({ usage, onSelection }: { usage: any; onSelection?: (selection: { date: string | null; modelId: string | null; excludedModelIds?: string[] } | null) => void }) {
+function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; compact?: boolean; onSelection?: (selection: { date: string | null; modelId: string | null; excludedModelIds?: string[] } | null) => void }) {
   const [range, setRange] = useState<7 | 30>(7);
   const [view, setView] = useState<"model" | "provider">("model");
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
@@ -2939,9 +2939,10 @@ function UsageTrendChart({ usage, onSelection }: { usage: any; onSelection?: (se
   const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
 
   const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries);
-  const knownTokens = series.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
+  const summarySeries = compact && selectedSeries !== null ? series.filter((item: any) => item.id === selectedSeries) : series;
+  const knownTokens = summarySeries.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = slicedModelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
-  const unknownTurns = series.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
+  const unknownTurns = summarySeries.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
   useEffect(() => { onSelection?.(null); }, [range, view]);
   const chooseRange = (next: 7 | 30) => { setRange(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
@@ -2953,14 +2954,17 @@ function UsageTrendChart({ usage, onSelection }: { usage: any; onSelection?: (se
     : coverageState === "partial"
       ? " · 토큰 관측일 우선 · 미근거 항목은 시작일 기준"
       : "";
+  const scopeNote = <p className="usage-trend-note">{showAgOverlay
+    ? `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다. Antigravity 요청(회)은 우측 축에 표시되며 토큰 미측정으로 토큰 합계에 합산되지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 토큰 합계에서 제외됩니다.` : ""}`
+    : `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 합계에서 제외됩니다.` : ""}`}</p>;
 
   return (
     <div className={`usage-trend${showAgOverlay ? " has-req-overlay" : ""}`} data-testid="usage-trend-chart" data-view={view} data-range={range}>
       <header className="usage-trend-header">
         <div>
           <span>토큰</span>
-          <strong>{formatUsageNumber(knownTokens)}</strong>
-          <small>{formatUsageNumber(dailyTurns)}회{showAgOverlay ? " (측정 원장)" : ""} · KST 최근 {range}일{basisLabel}{showAgOverlay ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</small>
+          <strong>{compact ? new Intl.NumberFormat('ko-KR',{notation:'compact',maximumFractionDigits:1}).format(knownTokens) : formatUsageNumber(knownTokens)}{compact && <span className="usage-trend-total-unit">토큰</span>}</strong>
+          <small>{compact ? `KST ${range}일 · ${days.at(-1)?.date===new Date(Date.now()+9*3600000).toISOString().slice(0,10)?'오늘 집계 중':`${String(days.at(-1)?.date??'').slice(5)} 기준`}${unknownTurns > 0 || coverageState === 'partial' ? ' · 부분 계측' : ''}` : <>{formatUsageNumber(dailyTurns)}회{showAgOverlay ? " (측정 원장)" : ""} · KST 최근 {range}일{basisLabel}{showAgOverlay ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</>}</small>
         </div>
         <div className="usage-trend-controls">
           <div className="usage-trend-ranges" role="tablist" aria-label="조회 기간">
@@ -2973,11 +2977,11 @@ function UsageTrendChart({ usage, onSelection }: { usage: any; onSelection?: (se
           </div>
         </div>
       </header>
-      <p className="usage-trend-note">
-        {showAgOverlay
-          ? `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다. Antigravity 요청(회)은 우측 축에 표시되며 토큰 미측정으로 토큰 합계에 합산되지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 토큰 합계에서 제외됩니다.` : ""}`
-          : `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 합계에서 제외됩니다.` : ""}`}
-      </p>
+      {compact ? <details className="usage-trend-scope">
+        <summary>집계 범위{unknownTurns > 0 ? ` · 토큰 미측정 ${formatUsageNumber(unknownTurns)}회` : ""}</summary>
+        {basisLabel && <p className="usage-trend-note">{basisLabel.replace(/^ · /u, '')}</p>}
+        {scopeNote}
+      </details> : scopeNote}
       <div className="usage-trend-plot">
         <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`최근 ${range}일 ${view === "model" ? "모델별" : "제공자별"} 로컬 토큰${showAgOverlay ? " 및 Antigravity 요청" : ""} 사용량`}>
           {showAgOverlay && (
@@ -2993,7 +2997,7 @@ function UsageTrendChart({ usage, onSelection }: { usage: any; onSelection?: (se
             return (
               <g key={ratio}>
                 <line className="usage-trend-grid" x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} />
-                <text className="usage-trend-axis" x={chart.left - 8} y={y + 4} textAnchor="end">{fleetAxisTokenLabel(value)}</text>
+                <text className="usage-trend-axis" x={chart.left - 8} y={y + 4} textAnchor="end">{compact ? new Intl.NumberFormat('ko-KR',{notation:'compact',maximumFractionDigits:1}).format(value) : fleetAxisTokenLabel(value)}</text>
                 {showAgOverlay && <text className="usage-trend-axis is-req" x={chart.width - chart.right + 8} y={y + 4} textAnchor="start">{reqVal}회</text>}
               </g>
             );
