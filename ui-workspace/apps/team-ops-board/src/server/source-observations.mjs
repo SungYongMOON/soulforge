@@ -2,6 +2,7 @@ import path from 'node:path';
 import {readRootTable,physicalRootFor} from '../../../../../guild_hall/path_registry/src/root_table.mjs';
 import {readBoundedFile} from '../../../../../guild_hall/context_engine/src/runtime/attachment_access.mjs';
 import {createOperationsDirectoryReader} from './operations-directory-adapter.mjs';
+import {createMailCollectionHistoryReader} from './mail-collection-history.mjs';
 
 const dateOf=value=>Number.isFinite(Date.parse(value??''))?new Date(Date.parse(value)).toISOString():null;
 const day=value=>new Date(Date.parse(value)+9*3600000).toISOString().slice(0,10);
@@ -14,6 +15,7 @@ export function observationSeries(id,label,basis,records,observedAt,scope,partia
   return {id,label,basis,scope,state:partial?'partial':'ready',observed_at:observedAt,rows:accepted.slice(0,12),timeline:{state:partial?'partial':'ready',as_of:observedAt,start:days[0],end,daily:days.map(date=>({date,registrations:buckets.get(date)??null,partial:true})),total:buckets.size?[...buckets.values()].reduce((a,b)=>a+b,0):null,records:window.slice(0,500),records_limited:window.length>500,records_total:window.length}};
 }
 export function createSourceObservationsReader(options={}){
+  const mailHistory=createMailCollectionHistoryReader();
   const directory=createOperationsDirectoryReader(options),projects=(options.projects??[]).filter(p=>/^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/u.test(p));
   let cache,pending;
   async function read(){
@@ -37,11 +39,7 @@ export function createSourceObservationsReader(options={}){
           return observationSeries('linear','Linear','이슈 수정일',rows,observedAt,'현재 이슈 인덱스의 최종 수정 분포 · 신규 수집·변경 이력 전체가 아님');
         }),
         source('mail','메일',async()=>{
-          const health=await json('state/health/continuous_ingress.json');if(!/^[0-9TZ_\-A-Za-z]+$/u.test(health.last_run_id??'')||health.last_run_id.length>150)throw Error('id');
-          const receipt=await json(`state/receipts/continuous_ingress/${health.last_run_id}.json`,['soulforge.ingress.continuous_run_receipt.v3','soulforge.ingress.continuous_run_receipt.v2']);const mail=receipt.mail;if(!mail)throw Error('mail');
-          const value=mail.write_count_known===true?count(mail.total_new_events):null;
-          const rows=[{id:health.last_run_id,source:'메일',title:'최근 메일 수집 실행',at:dateOf(receipt.completed_at??receipt.started_at),value,status:`${value===null?'신규 건수 미확인':`신규 ${value}건`} · ${mail.status==='ok'&&!mail.partial?'수집 기록 확인':'부분·오류 기록'}`,basis:'수집 실행 시각'}];
-          return observationSeries('mail','메일','수집 실행일',rows,observedAt,'최신 실행 영수증 1회 · 과거 날짜는 미조회 · 개별 메일 목록 아님');
+          return mailHistory.read(root,observedAt);
         }),
         source('docs','DOC',async()=>{
           const queue=[{relative:'ingress/team_files',depth:0}],rows=[];let scanned=0,failed=0;
