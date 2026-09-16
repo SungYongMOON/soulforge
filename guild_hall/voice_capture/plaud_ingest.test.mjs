@@ -21,6 +21,8 @@ import {
   parsePlaudRecentOutput,
   parsePlaudTranscript,
   parsePlaudVersion,
+  findPlaudLegacyAlias,
+  discoverExistingPlaudRecordings,
   plaudSessionCustodyBudget,
   renderPlaudLaunchdPlist,
   runPlaudCommand,
@@ -29,6 +31,34 @@ import {
 } from "./plaud_ingest.mjs";
 
 const RECORDING_ID = "df8097c8505379f1702100f6fbd9cc16";
+test('opaque provider IDs survive file metadata and recent-row parsing',()=>{
+  const id=`of_${'z1'.repeat(16)}`;
+  assert.equal(parsePlaudFileOutput(`id: ${id}\ncreated_at: 2026-09-16T00:00:00Z\naudio: available`).id,id);
+  assert.equal(parsePlaudRecentOutput(`  ${id}  Synthetic recording  2026-09-16  1m00s`)[0]?.id,id);
+  assert.throws(()=>parsePlaudFileOutput('id: of_../../escape'));
+});
+test('provider alias requires exact path identity and timestamp, never a query or loose match',()=>{
+  const id=`of_${'z1'.repeat(16)}`,start_at='2026-07-10T01:02:03Z',entry={manifest:{provider_timestamp:{start_at_raw:start_at}}},existing=new Map([[RECORDING_ID,entry]]);
+  assert.equal(findPlaudLegacyAlias({id,start_at},`https://example.test/${RECORDING_ID}/audio.mp3`,existing),entry);
+  assert.equal(findPlaudLegacyAlias({id,start_at},`https://example.test/audio.mp3?id=${RECORDING_ID}`,existing),null);
+  assert.throws(()=>findPlaudLegacyAlias({id,start_at:'2026-07-11T01:02:03Z'},`https://example.test/${RECORDING_ID}/audio.mp3`,existing),{code:'plaud_metadata_identity_mismatch'});
+});
+
+test('opaque alias reconciliation preserves source identity/audio and skips import on replay',async t=>{
+  const repoRoot=await mkdtemp(path.join(os.tmpdir(),'plaud-alias-'));
+  t.after(async()=>{assert.equal(path.dirname(path.resolve(repoRoot)),path.resolve(os.tmpdir()));assert.ok(path.basename(repoRoot).startsWith('plaud-alias-'));await rm(repoRoot,{recursive:true,force:true});});
+  const profile={...buildDefaultPlaudSyncProfile(),output_root:'ingress/plaud',shared_workspace_required:false,write_workmeta_draft:false,register_library:false};
+  const sessionRef=`${profile.output_root}/sessions/2026-07-10/existing`,sessionDir=path.join(repoRoot,sessionRef),audioRef=`${sessionRef}/audio/source.mp3`;
+  await mkdir(path.join(sessionDir,'audio'),{recursive:true});await writeFile(path.join(repoRoot,audioRef),'fixture audio');
+  const manifest={schema_version:'soulforge.voice_capture_session.v0',session_id:'existing',provider_recording_id:RECORDING_ID,provider_timestamp:{start_at_raw:'2026-07-10T01:02:03Z'},audio:{ref:audioRef,sha256:createHash('sha256').update('fixture audio').digest('hex')},post_import_contract:{provider_transcript_required:true}};
+  await writeFile(path.join(sessionDir,'session_manifest.json'),JSON.stringify(manifest));
+  const id=`of_${'z1'.repeat(16)}`;let fileCalls=0;
+  const options={repoRoot,profile,apply:true,skipPreflight:true,clock:()=>Date.parse('2026-07-20T00:00:00Z'),catalogRunner:async()=>({complete:true,page_count:1,rows:[{id,date:'2026-07-10'}]}),commandRunner:(_cmd,args)=>{if(args[0]==='file'){fileCalls++;return `id: ${id}\ncreated_at: 2026-07-10T01:02:03Z\nstart_at: 2026-07-10T01:02:03Z\naudio: available\ntranscript: available`;}if(args[0]==='audio')return `https://example.test/${RECORDING_ID}/audio.mp3?signature=never-store`;throw Error('unexpected payload read');},audioDownloader:()=>assert.fail('must not download existing recording')};
+  const first=await runPlaudSyncImpl(options);assert.equal(first.recordings[0].state,'existing_identity_verified',JSON.stringify(first.recordings));assert.equal(first.new_candidate_count,0);assert.equal(first.existing_provider_id_count,1);
+  const current=JSON.parse(await readFile(path.join(sessionDir,'session_manifest.json'),'utf8'));assert.equal(current.provider_recording_id,RECORDING_ID);assert.deepEqual(current.audio,manifest.audio);assert.equal(JSON.stringify(current).includes('signature'),false);assert.equal(await readFile(path.join(repoRoot,audioRef),'utf8'),'fixture audio');
+  assert.equal((await discoverExistingPlaudRecordings(path.join(repoRoot,profile.output_root))).has(id),true);
+  assert.equal((await runPlaudSyncImpl(options)).recordings.length,0);assert.equal(fileCalls,1);
+});
 function filesOutput(rows, page, pageSize = 100) {
   const selected = rows.slice((page - 1) * pageSize, page * pageSize);
   return [`Files on this page: ${selected.length}`,

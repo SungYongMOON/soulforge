@@ -72,6 +72,14 @@ test("repeated pages and duplicate IDs fail closed rather than deduplicating", a
   }
 });
 
+test("opaque of_ recording IDs use their actual column width alongside legacy IDs", () => {
+  const current={id:`of_${'z1'.repeat(16)}`,date:'2026-09-16'};
+  assert.deepEqual(parsePlaudFilesPage(table(1,[current,row(2)]),{page:1}),[current,row(2)]);
+  for(const id of ['of_../escape','of_'+ 'z'.repeat(31),'of_'+ 'z'.repeat(33),'of_'+ 'Z'.repeat(32)]) {
+    assert.throws(()=>parsePlaudFilesPage(table(1,[{...current,id}]),{page:1}),{code:'plaud_catalog_malformed_row'});
+  }
+});
+
 test("page budget includes explicit empty and never claims partial completeness", async () => {
   const f = fixture([[row(1)], [row(2)]], { maxPages: 2 });
   await assert.rejects(collectPlaudCatalog(f.options), { code: "plaud_catalog_page_limit" });

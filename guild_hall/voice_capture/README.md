@@ -48,6 +48,25 @@ duplicates, malformed output, unstable boundaries or deadline failures never
 become a complete empty catalog. This is a bounded observation, not an atomic
 provider snapshot guarantee.
 
+The table and detail parsers accept both legacy hexadecimal IDs and the
+observed `of_` plus 32 lowercase alphanumeric opaque IDs. Column positions use
+the actual padded ID width. Opaque IDs are not stripped, hashed or guessed.
+When an opaque ID refers to an already imported recording, the existing provider
+audio URL must contain the exact legacy ID as a path token and the recording
+timestamp must agree. The guarded local audio hash is rechecked before the
+existing provider writer adds a `provider_recording_aliases` metadata entry.
+The original ID and source audio are preserved, URLs are never stored, and the
+manifest merge retains its existing lock/fence rules. Required delivery receipts
+are marked pending and reconciled after a metadata change. Subsequent discovery
+recognizes both IDs while counting the source recording once. Ambiguous path/time
+evidence remains an identity failure; unknown formats remain rejected.
+
+Watchtower detects the collector's failed status but bounded recovery primarily
+restarts stale/down tasks. A fresh running collector with an incompatible parser
+is a code compatibility incident; restarting the same parser is not a repair.
+After a patch, verify complete catalog enumeration, actual import/library output,
+source-preserving replay, and fresh producer receipts separately.
+
 Account catalog count and the profile lookback count are separate. The cutoff
 is frozen immediately before listing, using `created_at >= cutoff` and elapsed
 24-hour days, matching CLI 0.3.4. Its DATE column is only a host-local calendar

@@ -8,6 +8,9 @@ const COMMAND_ERROR_CODES = new Set([
   "plaud_authentication_failed", "plaud_network_failed",
 ]);
 export const plaudCatalogMaxPages = 16;
+// Keep the observed opaque ID alphabet closed; never admit paths or shell syntax.
+export const isPlaudRecordingId = value => typeof value === 'string'
+  && (/^[0-9a-f]{32,64}$/iu.test(value) || /^of_[a-z0-9]{32}$/u.test(value));
 
 function fail(code) {
   // Never attach command output or provider rows to an error.
@@ -36,8 +39,8 @@ export function parsePlaudFilesPage(raw, { page, pageSize = 100 } = {}) {
   const rows = [];
   const ids = new Set();
   for (const line of lines.slice(3, -1)) {
-    const idMatch = line.match(/^  ([0-9a-f]{32,64}) /iu);
-    if (!idMatch) throw fail("plaud_catalog_malformed_row");
+    const idMatch = line.match(/^  (\S+) /u);
+    if (!idMatch || !isPlaudRecordingId(idMatch[1])) throw fail("plaud_catalog_malformed_row");
     const id = idMatch[1];
     const prefix = `  ${id.padEnd(34)}  `;
     const dateOffset = prefix.length + 38;

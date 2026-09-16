@@ -1848,7 +1848,8 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
       || item?.library?.state === "registration_failed_retryable"
       || item?.delivery?.state === "prepare_failed_retryable"
       || item?.workmeta?.state === "write_failed_retryable")).length;
-  const known = ready + processing + unavailable + retryable + imported + reconciled + backfilled + readyBackfill;
+  const identityVerified = count("existing_identity_verified");
+  const known = ready + processing + unavailable + retryable + imported + reconciled + backfilled + readyBackfill + identityVerified;
   const observedCount = (value) => Number.isSafeInteger(value) && value >= 0 ? value : null;
   const recentCount = observedCount(sync?.recent_count);
   const existingCount = observedCount(sync?.existing_provider_id_count);
@@ -1892,6 +1893,7 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
     import_failed_retryable_count: retryable,
     imported_count: imported,
     reconciled_count: reconciled,
+    existing_identity_verified_count: identityVerified,
     post_import_warning_count: postImportWarnings,
     unknown_state_count: unknown,
     preflight_ok: preflightOk,

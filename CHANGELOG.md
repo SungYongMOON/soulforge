@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-16 - PLAUD 불투명 녹음 ID 호환과 중복 수집 방지
+
+- Revision: 이 항목을 포함한 커밋. 공급자의 `of_` 형식 ID를 이전 16진수 ID만 허용하던
+  목록·상세·기존 기록 판독기가 거부하던 원인을 수정했다. ID 폭에 맞춰 날짜 열을 읽는다.
+- 기존 원본 ID가 공급자 음성 경로와 녹음 시각에서 일치하고 로컬 음성 해시가 확인된 경우만
+  기존 provider writer가 alias 메타데이터를 병합한다. 원본 ID·음성은 보존하고 필요한 전달
+  영수증을 재검증한다. 이름·날짜만으로 합치거나 URL·자격증명을 저장하지 않는다.
+- 운영 영향: 기존 수집 경로의 호환 수정. 자동 재시작은 형식 오류를 고칠 수 없으며 코드
+  적용과 실제 등록·재실행 검증은 별도의 private 설치 영수증으로 확인한다.
+- 관련 경로: `guild_hall/voice_capture/plaud_catalog.mjs`, `plaud_ingest.mjs`,
+  `delivery_receipt.mjs`, `guild_hall/ingress/continuous_runner.mjs`.
+
 ## 2026-09-16 - 원천 자료 종합표를 운영 현황 기본 화면에 추가
 
 - Revision: 이 항목을 포함한 커밋. 원천별 탭을 모두 눌러야 했던 자료 기록 패널에

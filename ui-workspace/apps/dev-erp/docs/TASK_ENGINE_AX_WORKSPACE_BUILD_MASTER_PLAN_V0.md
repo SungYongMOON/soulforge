@@ -1,5 +1,13 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-16 CURRENT (PLAUD provider ID compatibility): catalog/detail parsing
+> accepts the observed opaque `of_` ID form alongside legacy IDs. Existing
+> recordings are linked only by provider audio-path identity plus recording
+> timestamp, with local audio hash and guarded metadata merge verification.
+> Alias recognition prevents a provider ID transition from reimporting the same
+> source. No ERP/Task writer, promotion, quota or scheduler authority is added.
+> Runtime rollout and actual import verification are recorded in private receipts.
+
 > 2026-09-12 CURRENT (Context Engine 0.10.0, preparation run record and
 > independent validation): a preparation call given a run id now emits its own
 > run record - the builder is not on the public surface and no run id means no

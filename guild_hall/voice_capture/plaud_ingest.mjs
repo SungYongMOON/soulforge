@@ -6,7 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { collectPlaudCatalog } from "./plaud_catalog.mjs";
+import { collectPlaudCatalog, isPlaudRecordingId } from "./plaud_catalog.mjs";
 import { recordingLibraryEntrySchemaVersion, writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
 import { assertDeliveryArtifactRef, prepareDeliveryReceipt, resolveDeliveryVoiceRootRef, sha256File, writeBoundVoiceMetadata, mergeVoiceSessionManifest } from "./delivery_receipt.mjs";
 import {
@@ -22,7 +22,6 @@ export const plaudSyncResultSchemaVersion = "soulforge.plaud_sync_result.v0";
 export const defaultPlaudProfileRef = "_workspaces/system/voice_capture/config/plaud_sync.profile.json";
 
 const ANSI_PATTERN = /\u001b\[[0-?]*[ -/]*[@-~]/gu;
-const PLAUD_ID_PATTERN = /^[0-9a-f]{32,64}$/iu;
 const MAX_PLAUD_AUDIO_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_PLAUD_PROVIDER_TEXT_BYTES = 64 * 1024 * 1024;
 const MAX_PLAUD_SESSION_BYTES = MAX_PLAUD_AUDIO_BYTES + 256 * 1024 * 1024;
@@ -111,8 +110,8 @@ export function stripAnsi(value) {
 export function parsePlaudRecentOutput(raw) {
   const rows = [];
   for (const line of stripAnsi(raw).split(/\r?\n/u)) {
-    const match = line.match(/^\s*([0-9a-f]{32,64})\s{2,}(.+?)\s{2,}(\d{4}-\d{2}-\d{2})\s{2,}(\S+)\s*$/iu);
-    if (!match) continue;
+    const match = line.match(/^\s*(\S+)\s{2,}(.+?)\s{2,}(\d{4}-\d{2}-\d{2})\s{2,}(\S+)\s*$/u);
+    if (!match || !isPlaudRecordingId(match[1])) continue;
     rows.push({ id: match[1], name: match[2].trim(), date: match[3], duration_display: match[4] });
   }
   return rows;
@@ -124,7 +123,7 @@ export function parsePlaudFileOutput(raw) {
     const match = line.match(/^\s*(id|name|created_at|start_at|duration|serial_number|audio|transcript|summary):\s*(.*?)\s*$/u);
     if (match) fields[match[1]] = match[2];
   }
-  if (!PLAUD_ID_PATTERN.test(fields.id ?? "")) {
+  if (!isPlaudRecordingId(fields.id)) {
     throw new Error("PLAUD file output does not contain a valid recording id");
   }
   return {
@@ -147,6 +146,20 @@ export function parsePlaudAudioUrl(raw) {
     if (parsed.protocol === "https:") return value;
   }
   return null;
+}
+
+// Provider opaque IDs can replace legacy IDs without changing the recording.
+// Only the exact original ID in the provider's audio path plus recording time
+// binds an alias. Names, dates alone, URL queries and arbitrary URL text do not.
+export function findPlaudLegacyAlias(metadata, audioUrl, existing) {
+  if (!/^of_[a-z0-9]{32}$/u.test(metadata.id ?? '')) return null;
+  let pathname;try { const url=new URL(audioUrl);if(url.protocol!=='https:')return null;pathname=url.pathname; } catch {return null;}
+  const ids=new Set((pathname.match(/(?<![a-zA-Z0-9])[a-f0-9]{32,64}(?![a-zA-Z0-9])/giu)??[]).map(id=>id.toLowerCase()));
+  const identified=[...existing.entries()].filter(([id])=>ids.has(id));
+  const matches=identified.filter(([,value])=> value.manifest.provider_timestamp?.start_at_raw
+    && parsePlaudProviderTimestamp(value.manifest.provider_timestamp.start_at_raw).date.getTime()===parsePlaudProviderTimestamp(metadata.start_at??metadata.created_at).date.getTime());
+  if(identified.length&&(identified.length!==1||matches.length!==1))throw Object.assign(new Error('plaud_metadata_identity_mismatch'),{code:'plaud_metadata_identity_mismatch'});
+  return matches.length===1?matches[0][1]:null;
 }
 
 export function parsePlaudVersion(raw) {
@@ -392,11 +405,12 @@ export async function runPlaudSync(options = {}) {
   if (catalog?.complete !== true || !Array.isArray(catalog.rows)) throw Object.assign(new Error("plaud_catalog_incomplete"), { code: "plaud_catalog_incomplete" });
   const relations = new Map(catalog.rows.map((row) => [row.id, plaudDateRelation(row.date, cutoff)]));
   const existing = await discoverExistingPlaudRecordings(resolveRepoPath(repoRoot, profile.output_root));
+  const existingRecords = [...new Map([...existing.entries()].map(([id,value])=>[value.manifest_path,[id,value]])).values()];
   const allCandidates = catalog.rows.filter((row) => !existing.has(row.id) && relations.get(row.id) !== -1);
-  const providerPending = [...existing.entries()].filter(([, value]) => value.manifest?.post_import_contract?.provider_transcript_required === false
+  const providerPending = existingRecords.filter(([, value]) => value.manifest?.post_import_contract?.provider_transcript_required === false
     && value.manifest?.transcript?.status !== "provider_transcript_present_unverified" && profile.collect.provider_transcript);
   const recordings = [];
-  const existingWarningEntries = [...existing.entries()]
+  const existingWarningEntries = existingRecords
     .filter(([, value]) => (
       (value.manifest?.post_import_contract?.library_required === true
         && value.post_import_state?.library_state !== "registered")
@@ -470,6 +484,28 @@ export async function runPlaudSync(options = {}) {
         relations.set(candidate.id, created >= cutoff ? 1 : -1);
       }
       if (candidate.kind === "date") continue;
+      if(candidate.kind==='new'&&candidate.id.startsWith('of_')&&metadata.audio_available) {
+        const audioUrl=parsePlaudAudioUrl(runner(profile.plaud_command,['audio',candidate.id],{cwd:repoRoot}));
+        const legacy=findPlaudLegacyAlias(metadata,audioUrl,existing);
+        if(legacy){
+          if(options.apply){
+            const voiceRootRef=resolveDeliveryVoiceRootRef(profile.output_root);
+            await assertDeliveryArtifactRef(repoRoot,legacy.manifest.audio.ref,{voiceRootRef,mustExist:true});
+            if(await sha256File(resolveRepoPath(repoRoot,legacy.manifest.audio.ref))!==legacy.manifest.audio.sha256)throw Object.assign(new Error('plaud_metadata_identity_mismatch'),{code:'plaud_metadata_identity_mismatch'});
+            const guard=()=>invokePlaudSharedWriteGuard(beforeSharedWrite);
+            if(legacy.manifest.post_import_contract?.delivery_required===true){
+              legacy.post_import_state={...legacy.post_import_state,schema_version:'soulforge.voice.plaud_post_import_state.v1',delivery_state:'prepare_failed_retryable'};
+              await writeBoundVoiceMetadata(repoRoot,relativeRef(repoRoot,path.join(path.dirname(legacy.manifest_path),'post_import_state.json')),legacy.post_import_state,{voiceRootRef,beforeWrite:guard});
+            }
+            legacy.manifest=await mergeVoiceSessionManifest({repoRoot,sessionDir:path.dirname(legacy.manifest_path),expected:legacy.manifest,owner:'provider',voiceRootRef,beforeWrite:guard,
+              patch:{provider_recording_aliases:{[candidate.id]:{basis:'provider_audio_path_and_recording_time',source_id:legacy.manifest.provider_recording_id}}}});
+            if(legacy.manifest.post_import_contract?.delivery_required===true)await reconcileExistingPlaudSession({...options,repoRoot,profile,recordingId:legacy.manifest.provider_recording_id,existingRecording:legacy,beforeSharedWrite});
+          }
+          existing.set(candidate.id,legacy);candidateCount-=1;
+          recordings.push({id:candidate.id,state:'existing_identity_verified',applied:Boolean(options.apply)});
+          continue;
+        }
+      }
       if (candidate.kind === "new" && relations.get(candidate.id) === -1) { candidateCount -= 1; continue; }
       if (candidate.kind === "backfill") {
         if (!metadata.transcript_available) {
@@ -551,19 +587,19 @@ export async function runPlaudSync(options = {}) {
     lookback_complete: ![...relations.values()].includes(0),
     lookback_cutoff_at: new Date(cutoff).toISOString(),
     recent_count: [...relations.values()].includes(0) ? null : [...relations.values()].filter((value) => value === 1).length,
-    existing_provider_id_count: existing.size,
+    existing_provider_id_count: new Set([...existing.values()].map(value=>value.manifest_path)).size,
     existing_post_import_warning_count: existingWarningEntries.length,
     reconciliation_candidate_count: reconciliationCandidates.length,
     reconciled_count: recordings.filter((item) => item.state === "reconciled").length,
     new_candidate_count: allCandidates.some((row) => relations.get(row.id) === 0) ? null
-      : allCandidates.filter((row) => relations.get(row.id) === 1).length,
+      : allCandidates.filter((row) => !existing.has(row.id)&&relations.get(row.id) === 1).length,
     candidate_count: candidateCount,
     truncated_new_candidate_count: allCandidates.some((row) => relations.get(row.id) === 0) ? null
-      : Math.max(allCandidates.filter((row) => relations.get(row.id) === 1).length - candidateCount, 0),
+      : Math.max(allCandidates.filter((row) => !existing.has(row.id)&&relations.get(row.id) === 1).length - candidateCount, 0),
     metadata_probed_count: metadataProbedCount,
     probe_cursor_sha256: nextCursor,
     deadline_limited: deadlineLimited,
-    provider_backfill_pending_count: Math.max(0, [...existing.values()].filter((value) => value.manifest?.post_import_contract?.provider_transcript_required === false
+    provider_backfill_pending_count: Math.max(0, existingRecords.map(([,value])=>value).filter((value) => value.manifest?.post_import_contract?.provider_transcript_required === false
       && value.manifest?.transcript?.status !== "provider_transcript_present_unverified").length
       + recordings.filter((row) => row.state === "imported" && row.provider_transcript_state !== "provider_transcript_present_unverified").length
     ),
@@ -600,7 +636,8 @@ async function backfillPlaudProviderTranscript(options) {
   const writeMetadata = (ref, value, guard = beforeWrite) => writeBoundVoiceMetadata(repoRoot, ref, value, { voiceRootRef, beforeWrite: guard });
   const conflict = () => Object.assign(new Error("plaud_provider_backfill_conflict"), { code: "plaud_provider_backfill_conflict" });
   if (original.post_import_contract?.provider_transcript_required !== false || !metadata.transcript_available
-    || original.provider_recording_id?.toLowerCase() !== metadata.id) throw conflict();
+    || (original.provider_recording_id?.toLowerCase() !== metadata.id
+      && original.provider_recording_aliases?.[metadata.id]?.source_id!==original.provider_recording_id)) throw conflict();
   await assertDeliveryArtifactRef(repoRoot, `${sessionRef}/session_manifest.json`, { voiceRootRef, mustExist: true });
   let stage;
   let stageIdentity;
@@ -1266,6 +1303,7 @@ export async function materializePlaudRecording(options) {
 
 export async function discoverExistingPlaudRecordings(outputRoot) {
   const found = new Map();
+  const register=(id,entry)=>{if(found.has(id)&&found.get(id).manifest_path!==entry.manifest_path)throw Object.assign(new Error('plaud_metadata_identity_mismatch'),{code:'plaud_metadata_identity_mismatch'});found.set(id,entry);};
   const sessionsRoot = path.join(outputRoot, "sessions");
   for (const dateEntry of await safeReadDir(sessionsRoot)) {
     if (!dateEntry.isDirectory()) continue;
@@ -1274,7 +1312,7 @@ export async function discoverExistingPlaudRecordings(outputRoot) {
       const manifestPath = path.join(sessionsRoot, dateEntry.name, sessionEntry.name, "session_manifest.json");
       try {
         const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-        if (PLAUD_ID_PATTERN.test(manifest.provider_recording_id ?? "")) {
+        if (isPlaudRecordingId(manifest.provider_recording_id)) {
           let postImportState = null;
           try {
             const candidate = JSON.parse(await fs.readFile(
@@ -1287,14 +1325,20 @@ export async function discoverExistingPlaudRecordings(outputRoot) {
           } catch {
             // Existing sessions predate the repair sidecar or have not repaired yet.
           }
-          found.set(manifest.provider_recording_id.toLowerCase(), {
+          const entry={
             session_id: manifest.session_id,
             manifest_path: manifestPath,
             manifest,
             post_import_state: postImportState,
-          });
+          };
+          register(manifest.provider_recording_id.toLowerCase(),entry);
+          for(const [alias,evidence] of Object.entries(manifest.provider_recording_aliases??{})){
+            if(/^of_[a-z0-9]{32}$/u.test(alias)&&evidence?.source_id===manifest.provider_recording_id
+              &&evidence?.basis==='provider_audio_path_and_recording_time')register(alias,entry);
+          }
         }
-      } catch {
+      } catch (error) {
+        if(error?.code==='plaud_metadata_identity_mismatch')throw error;
         // An incomplete unrelated session must not stop discovery.
       }
     }

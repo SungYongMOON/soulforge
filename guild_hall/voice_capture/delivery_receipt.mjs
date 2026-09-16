@@ -306,10 +306,18 @@ export async function mergeVoiceSessionManifest(options) {
   const target = path.join(sessionDir, "session_manifest.json");
   const lockPath = `${target}.merge.lock`;
   const allowed = options.owner === "asr" ? new Set(["independent_transcription", "canonicalization"])
-    : options.owner === "provider" ? new Set(["transcript", "speaker_diarization", "raw_payload_boundary", "library_warning", "delivery_warning"])
+    : options.owner === "provider" ? new Set(["transcript", "speaker_diarization", "raw_payload_boundary", "library_warning", "delivery_warning", "provider_recording_aliases"])
       : null;
   if (!allowed || !options.patch || Object.keys(options.patch).some((key) => !allowed.has(key))) {
     throw new DeliveryContractError("voice_manifest_update_unsafe");
+  }
+  if(Object.hasOwn(options.patch,'provider_recording_aliases')){
+    const aliases=options.patch.provider_recording_aliases;
+    if(!aliases||typeof aliases!=='object'||Array.isArray(aliases)||Object.keys(aliases).length!==1
+      ||Object.entries(aliases).some(([id,evidence])=>!/^of_[a-z0-9]{32}$/u.test(id)
+        ||evidence?.source_id!==options.expected.provider_recording_id
+        ||evidence?.basis!=='provider_audio_path_and_recording_time'
+        ||Object.keys(evidence).sort().join(',')!=='basis,source_id'))throw new DeliveryContractError('voice_manifest_update_unsafe');
   }
   const sourceIdentity = (value) => JSON.stringify([value.session_id ?? path.basename(sessionDir),
     value.provider_recording_id ?? null, value.source_sha256 ?? value.audio?.sha256 ?? null, value.audio?.ref ?? null]);
