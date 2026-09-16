@@ -26,8 +26,15 @@ export function consoleAssessment(node, healthAvailable = true) {
 
 export function buildConsoleView(inputs = {}, failedSources = []) {
   const base = buildOperationsMap(inputs);
+  const modelHosts = failedSources.includes('models') ? [] : (inputs.models?.hosts ?? []).filter(h => h.id?.startsWith('rag-model-'));
   const nodes = [...base.nodes.map(n => n.id === 'context_engine::prepare'
-    ? { ...n, role: '허용 목록의 보관 항목을 읽어 문서 단위로 준비·검증' } : n), { ...grantNode }];
+    ? { ...n, role: '허용 목록의 보관 항목을 읽어 문서 단위로 준비·검증' }
+    : n.id === 'context_engine::models' && modelHosts.length ? { ...n,
+      location: modelHosts.map(h => h.label).join(' · '),
+      implementation: '호출 계약 구현 · 모델 서버 메타데이터 관측 연결',
+      scope: '서버 API·등록 모델·적재 목록은 로컬 모델 서버 패널에서 확인 · 실제 추론과 검색 성공은 미검사',
+      observedAt: inputs.models.observed_at, freshness: 'observed',
+      sourceRef: 'ui-workspace/apps/team-ops-board/src/server/local-model-status-adapter.mjs' } : n), { ...grantNode }];
   const healthAvailable = Boolean(inputs.health?.snapshot) && !failedSources.includes('health');
   // Snapshot-only adapters deliberately return retained/stale. Keep the last
   // scan's findings visible, but never call the retained result current.

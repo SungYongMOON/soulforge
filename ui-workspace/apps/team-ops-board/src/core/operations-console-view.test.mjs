@@ -35,3 +35,9 @@ test('model selection never attributes aggregate period work to that model/day',
   assert.deepEqual(selectedUsageDay(history,'2026-09-15','other',['m1']).rows.map(r=>r.model_id),['m2']);
   assert.equal(selectedUsageDay(history,'2026-09-15','other',undefined),null);
 });
+test('model API observations update source scope but never promote inference health',()=>{
+  const inputs={models:{observed_at:'2026-09-16T00:00:00Z',hosts:[{id:'rag-model-synthetic',label:'Synthetic model server',connection:'responding'}]}};
+  const model=buildConsoleView(inputs).nodes.find(n=>n.id==='context_engine::models');
+  assert.equal(model.location,'Synthetic model server');assert.equal(model.status.key,'unknown');assert.match(model.scope,/실제 추론과 검색 성공은 미검사/u);
+  const failed=buildConsoleView(inputs,['models']).nodes.find(n=>n.id==='context_engine::models');assert.equal(failed.observedAt,null);
+});

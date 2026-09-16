@@ -31,6 +31,7 @@ const SURFACES = Object.freeze(["configureServer", "configurePreviewServer"]);
 // (only the ERP adapter checks trust first, per its review finding M8); this
 // slice must not change any adapter's GET-only handling.
 const ADAPTER_TABLE = Object.freeze([
+  { module: "local-model-status-adapter.mjs", factory: "createLocalModelStatusPlugin", url: "/local-model-status.json" },
   { module: "operations-spaces-adapter.mjs", factory: "createOperationsSpacesPlugin", url: "/operations-spaces.json" },
   { module: "agent-runtime-snapshot-adapter.mjs", factory: "createAgentRuntimeSnapshotAdapterPlugin", url: "/agent-runtime.snapshot.json?read_only=1" },
   { module: "ai-usage-adapter.mjs", factory: "createAiUsageAdapterPlugin", url: "/ai-usage-meter.snapshot.json?read_only=1" },

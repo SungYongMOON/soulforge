@@ -27,6 +27,26 @@ worker operation을 지정할 수 없다. 일반 운영 `/`의 배포나 데이�
 
 ## 운영 UX 미리보기
 
+### 로컬 모델 접속 상태
+
+현황과 구조·진단 화면의 `로컬 모델 서버` 패널은 서버 API 응답, 모델 등록,
+메모리 적재와 실제 추론 검사를 분리한다. `GET /local-model-status.json`은
+고정 메타데이터 GET만 사용하며 LLM·임베딩 요청, 모델 적재/해제·시작/중지·다운로드를 하지 않는다.
+
+- PC 응답 서버와 별도 Ollama는 private 실행 설정의 `TEAM_OPS_LOCAL_MODEL_HOST`,
+  `TEAM_OPS_LOCAL_OLLAMA_HOST`로 지정한 loopback origin만 읽는다.
+- 과제 RAG 모델은 pinned Path Registry의 기존 `graph_index_binding.unified.json`에서
+  모델·호스트·허용 HTTPS origin을 읽는다. 같은 호스트/transport는 한 번만 조회한다.
+  `TEAM_OPS_REMOTE_MODEL_LABEL`은 표시 이름이며 연결 권한이나 장치 신원을 만들지 않는다.
+- Ollama의 version/tags/ps, OpenAI 호환 서버의 health/models를 읽는다.
+  모델 목록만으로 GPU 적재량을 추정하지 않는다. ps의 빈 목록은 미적재이며 서버 중단이 아니다.
+  API 응답은 추론 성공이 아니고, 타임아웃·접속 거부만으로 원격 장치 자체의 종료를 단정하지 않는다.
+- 기존 화면의 60초 갱신 주기와 60초 요청 캐시를 사용한다. host 최대 10개,
+  목록 최대 100개·요청별 5초 제한이며 일부 목록/설정 실패는 별도로 표시한다.
+  캐시 재사용 전 binding을 다시 확인한다. 클라이언트는 조회 주소나 명령을 지정할 수 없다.
+- 기존 모델 HTTP transport의 proxy·redirect 거부를 재사용한다. 브라우저에는 모델명과
+  상태 메타데이터만 반환하며 실제 host 주소·경로·자격증명·전체 응답은 반환하지 않는다.
+
 `/operations-console.html`은 `operations-preview.config.ts`에서 제공하는 별도 읽기 전용
 미리보기다. 운영 현황, 전체 구조·진단, 데이터 공간, 사용 이력, RAG 처리, 질문·근거,
 기억·맥락을 같은 탐색 안에서 유지한다. 기존 `/`, 운영 지도,

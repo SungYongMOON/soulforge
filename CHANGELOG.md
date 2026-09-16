@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-09-16 - 운영 UI에서 로컬 모델 서버 연결과 적재 상태를 구분
+
+- Revision: 이 항목을 포함한 커밋. 운영 현황과 구조·진단에 로컬 모델 상태 패널을 추가했다.
+- 신뢰된 로컬 실행 설정과 과제 RAG binding의 호스트만 고정 metadata GET으로 조회한다.
+  서버 응답·모델 등록·메모리 적재·실제 추론 미검사를 분리하고 빈 적재 목록을 장애로 표시하지 않는다.
+- 운영 영향: 4194 미리보기의 읽기 adapter만 확장. 모델 호출·적재/해제·재시작·다운로드,
+  새 감시 작업·스케줄·DB 변경 없음. 기존 화면 갱신 주기와 제한된 캐시를 사용한다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/local-model-status-adapter.mjs`,
+  `src/local-model-status.tsx`, `src/core/operations-console-view.mjs`, `operations-preview.config.ts`.
+
 ## 2026-09-15 - 운영 미리보기를 현황·구조·자료·검색 근거로 통합
 
 - Revision: 이 항목을 포함한 커밋. 기존 RAG 화면과 운영 현황, 전체 Topology·진단,
