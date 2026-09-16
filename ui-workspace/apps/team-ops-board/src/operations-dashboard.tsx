@@ -72,7 +72,7 @@ function Attention({model,inputs,failed,go,open}:{model:Row;inputs:Row;failed:st
 }
 
 export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:Row;failed:string[];go:(n:any)=>void}){
-  const {detail,open,close}=useDetail(),[selectedDay,setSelectedDay]=useState<string|null>(null),[sourceId,setSourceId]=useState('plaud');
+  const {detail,open,close}=useDetail(),[selectedDay,setSelectedDay]=useState<string|null>(null),[sourceId,setSourceId]=useState('all');
   const sources=sourceChoices(inputs);
   const work=dashboardWork(inputs,failed);
   const chooseUsage=(selection:Row|null)=>{if(!selection?.date)return;const picked=selectedUsageDay(inputs.usage?.history,selection.date,selection.modelId,selection.excludedModelIds);if(!picked)return;
