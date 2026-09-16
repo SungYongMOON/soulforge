@@ -3,7 +3,8 @@ export function operationIssue(node){
   const reasons=node.healthReasons??[],has=code=>reasons.includes(code);
   let cause=reasons.length?reasons.map(describeTopologyReason).join(' · '):'검사에서 상세 사유를 제공하지 않았습니다.';
   let impact='이 검사만으로 업무 전체의 중단 여부는 확인할 수 없습니다.',next='검사 근거와 담당 서비스의 기록을 확인합니다.';
-  if(node.diagnostic?.lane){const c=node.diagnostic;cause=c.failed?`보관 파일 ${c.failed}개의 식별자·해시가 일치하지 않습니다.`:'보관 검사를 끝까지 수행하지 못했습니다.';impact=`검사 통과 ${c.checked}개 · 읽기 미완료 ${c.unreadable}개. 검사 범위 밖의 상태는 미확인입니다.`;next=c.failed?'누락·불일치 파일을 해당 수집기의 원본 기록과 대조해야 합니다. 파일을 덮어쓰거나 자동 삭제하지 않습니다.':'읽기 실패·경로 거부·검사 한도와 다음 검사 결과를 확인합니다.';}
+  if(node.connection){cause='외부 원천 연결 시도가 실패했습니다.';impact='연결 경로를 확인해야 합니다. 이미 보관된 자료의 손상이나 모든 수집의 중단을 뜻하지 않습니다.';next='연결 방식·관측 시각을 확인하고 네트워크 또는 해당 서버의 응답을 재확인합니다. 자격증명을 바꾸거나 자료를 재전송하지 않습니다.';}
+  else if(node.diagnostic?.lane){const c=node.diagnostic;cause=c.failed?`보관 파일 ${c.failed}개의 식별자·해시가 일치하지 않습니다.`:'보관 검사를 끝까지 수행하지 못했습니다.';impact=`검사 통과 ${c.checked}개 · 읽기 미완료 ${c.unreadable}개. 검사 범위 밖의 상태는 미확인입니다.`;next=c.failed?'누락·불일치 파일을 해당 수집기의 원본 기록과 대조해야 합니다. 파일을 덮어쓰거나 자동 삭제하지 않습니다.':'읽기 실패·경로 거부·검사 한도와 다음 검사 결과를 확인합니다.';}
   else if(node.diagnostic?.kind==='rag'){cause=node.id==='context_engine::neo4j'?'DB 판본·청크·임베딩 또는 색인 검사에 확인할 항목이 있습니다.':'현재 판본의 준비 기록에 누락·거부·실패 또는 읽기 미확인이 있습니다.';impact='설정된 과제 범위의 검사입니다. 검색·답변 전체가 실패했다는 의미는 아닙니다.';next='RAG 처리 화면에서 과제별 불일치와 마지막 반영 결과를 대조합니다. 자료를 재수집하거나 DB를 덮어쓰기 전에 해당 판본의 원인을 확인해야 합니다.';}
   else if(node.diagnostic?.kind==='models'){cause='RAG 모델 서버 API의 응답을 확인하지 못했습니다.';impact='모델 호출 경로 확인이 필요합니다. 실제 추론은 실행하지 않았습니다.';next='로컬 모델 패널의 서버 주소·연결 오류·적재 모델 근거를 확인합니다.';}
   else if(node.mailHistory?.history_only){cause=`과거 POP 조회 실패 ${node.mailHistory.tracked}건이 남아 있습니다.`;impact='최근 실행의 실패·보류는 0건입니다. 과거 기록을 현재 장애로 합산하지 않습니다.';next=`마지막 실패 시도 ${node.mailHistory.last_attempt_at?.slice(0,10)??'미확인'}. 현재 조회 범위 밖 기록이며, 원래 메일의 전달 결과는 미확인입니다. 재전달하거나 기록을 삭제하지 않았습니다.`;}

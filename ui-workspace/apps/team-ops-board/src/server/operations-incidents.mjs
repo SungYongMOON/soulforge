@@ -1,4 +1,5 @@
 import {inspectCustody} from './custody-checks.mjs';
+import {readSourceConnections} from './source-connections.mjs';
 import path from 'node:path';
 import {open,lstat,realpath} from 'node:fs/promises';
 import {readRootTable,physicalRootFor} from '../../../../../guild_hall/path_registry/src/root_table.mjs';
@@ -38,7 +39,7 @@ export function createOperationsIncidentReader(options={}){
       const cycle=await tailCycle(path.join(folder,'events.jsonl'));
       if([2,3].includes(state.schema_version)&&cycle&&Date.parse(cycle.observed_at)>=Date.parse(state.updated_at)-5000)answer.mail=projectForwarderCycle(cycle,Object.values(state.uidl_failures??{}));
     }catch{}
-    answer.custody=await Promise.all(['linear','buzz'].map(lane=>inspectCustody(root,lane)));
+    [answer.custody,answer.connections]=await Promise.all([Promise.all(['linear','buzz'].map(lane=>inspectCustody(root,lane))),readSourceConnections(root)]);
     answer.state=answer.linear&&answer.mail?'ready':answer.linear||answer.mail?'partial':'unavailable';return answer;
   }
   return {async read(){const table=readRootTable(options);if(cache?.digest===table.table_sha256&&Date.now()-cache.at<60000)return cache.value;if(pending)return pending;

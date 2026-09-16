@@ -1,14 +1,15 @@
+import {STATUS_LABELS,unifyStatus,applySourceConnection} from './operation-status.mjs';
 import { buildOperationsMap, directConnections } from './operations-map-view.mjs';
 
 export const CONSOLE_ASSESSMENTS = Object.freeze({
-  problem: { label: '이상 신호', tone: 'red', next: '검사 결과와 영향 범위를 확인하세요.' },
-  pending: { label: '처리 보류', tone: 'amber', next: '보류 사유와 다음 처리 시각을 확인하세요.' },
-  processing: { label: '처리 중', tone: 'blue', next: '기존 수집 주기로 순차 처리 중입니다. 지금 필요한 사용자 조치는 없습니다.' },
-  sampled: { label: '표본 검사 통과', tone: 'blue', next: '검사한 표본의 파일은 일치합니다. 전체 저장소 검사 결과는 아닙니다.' },
-  history: { label: '과거 이력', tone: 'neutral', next: '과거 조사용 기록입니다. 현재 실행을 막는 사유나 사용자 조치로 분류하지 않습니다.' },
-  observation_error: { label: '확인 불가', tone: 'amber', next: '관측·검사 근거를 확인하세요. 서비스 중단이 확정된 것은 아닙니다.' },
+  problem: { label: '이상', tone: 'red', next: '검사 결과와 영향 범위를 확인하세요.' },
+  pending: { label: '보류', tone: 'amber', next: '보류 사유와 다음 처리 시각을 확인하세요.' },
+  processing: { label: '진행 중', tone: 'blue', next: '기존 수집 주기로 순차 처리 중입니다. 지금 필요한 사용자 조치는 없습니다.' },
+  sampled: { label: '일부 확인', tone: 'blue', next: '검사한 표본의 파일은 일치합니다. 전체 저장소 검사 결과는 아닙니다.' },
+  history: { label: '미확인', tone: 'neutral', next: '과거 조사용 기록입니다. 현재 실행을 막는 사유나 사용자 조치로 분류하지 않습니다.' },
+  observation_error: { label: '미확인', tone: 'amber', next: '관측·검사 근거를 확인하세요. 서비스 중단이 확정된 것은 아닙니다.' },
   unknown: { label: '미확인', tone: 'neutral', next: '아직 판단할 근거가 없습니다. 구현·연결과 검사 범위를 확인하세요.' },
-  ok: { label: '검사 통과', tone: 'green', next: '아래 검사 범위에서 확인됐습니다. 모든 업무의 성공을 뜻하지 않습니다.' },
+  ok: { label: '정상', tone: 'green', next: '아래 검사 범위에서 확인됐습니다. 모든 업무의 성공을 뜻하지 않습니다.' },
 });
 
 // A documented input artifact, not a new service or a claim that every custody
@@ -24,7 +25,7 @@ export function consoleAssessment(node, healthAvailable = true) {
   const key = node?.id?.startsWith('watchtower::') && !healthAvailable
     ? 'unknown' : node?.assessment?.key ?? 'unknown';
   const base = CONSOLE_ASSESSMENTS[key] ?? CONSOLE_ASSESSMENTS.unknown;
-  return { ...base, key, count: node?.assessment?.pendingCount ?? null };
+  return { ...base, label:STATUS_LABELS[key]??STATUS_LABELS.unknown, key, count: node?.assessment?.pendingCount ?? null };
 }
 
 // Registration gaps, routine processing and historical records are not operator alerts.
@@ -92,6 +93,13 @@ export function buildConsoleView(inputs = {}, failedSources = []) {
     }
     if(n.status.key==='unknown')return {...n,status:{...n.status,label:n.id.startsWith('watchtower::src_')?'외부 원천 · 직접 검사 없음':'실행 검사 미연결'}};
     return n;
+  });
+  rows=rows.map(n=>{
+    const id=n.id.replace('watchtower::src_','');
+    let connection=facts?.connections?.find(c=>c.id===id&&fresh(c.observed_at));
+    if(n.id==='watchtower::src_plaud'&&freshCollection&&collection.catalog_complete)connection={id:'plaud',state:'responding',basis:'collection',observed_at:collection.observed_at};
+    if(n.id==='watchtower::src_hiworks'&&facts?.mail?.collector_status==='ok'&&fresh(facts.mail.observed_at))connection={id:'hiworks',state:'responding',basis:'collection',observed_at:facts.mail.observed_at};
+    return unifyStatus(connection?applySourceConnection(n,connection,CONSOLE_ASSESSMENTS):n);
   });
   const watched = rows.filter(n => n.id.startsWith('watchtower::'));
   const counts = Object.fromEntries(Object.keys(CONSOLE_ASSESSMENTS).map(key => [key, watched.filter(n => n.status.key === key).length]));
