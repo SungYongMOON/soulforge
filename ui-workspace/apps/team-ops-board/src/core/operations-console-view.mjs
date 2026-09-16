@@ -3,7 +3,8 @@ import { buildOperationsMap, directConnections } from './operations-map-view.mjs
 export const CONSOLE_ASSESSMENTS = Object.freeze({
   problem: { label: '이상 신호', tone: 'red', next: '검사 결과와 영향 범위를 확인하세요.' },
   pending: { label: '처리 보류', tone: 'amber', next: '보류 사유와 다음 처리 시각을 확인하세요.' },
-  history: { label: '과거 이력', tone: 'neutral', next: '현재 실행과 구분해 과거 전달 결과를 확인하세요.' },
+  processing: { label: '처리 중', tone: 'blue', next: '기존 수집 주기로 순차 처리 중입니다. 지금 필요한 사용자 조치는 없습니다.' },
+  history: { label: '과거 이력', tone: 'neutral', next: '과거 조사용 기록입니다. 현재 실행을 막는 사유나 사용자 조치로 분류하지 않습니다.' },
   observation_error: { label: '확인 불가', tone: 'amber', next: '관측·검사 근거를 확인하세요. 서비스 중단이 확정된 것은 아닙니다.' },
   unknown: { label: '미확인', tone: 'neutral', next: '아직 판단할 근거가 없습니다. 구현·연결과 검사 범위를 확인하세요.' },
   ok: { label: '검사 통과', tone: 'green', next: '아래 검사 범위에서 확인됐습니다. 모든 업무의 성공을 뜻하지 않습니다.' },
@@ -25,6 +26,11 @@ export function consoleAssessment(node, healthAvailable = true) {
   return { ...base, key, count: node?.assessment?.pendingCount ?? null };
 }
 
+// Registration gaps, routine processing and historical records are not operator alerts.
+export function needsIntervention(node) {
+  return ['problem', 'pending', 'observation_error'].includes(node?.status?.key);
+}
+
 export function buildConsoleView(inputs = {}, failedSources = []) {
   const base = buildOperationsMap(inputs);
   const modelHosts = failedSources.includes('models') ? [] : (inputs.models?.hosts ?? []).filter(h => h.id?.startsWith('rag-model-'));
@@ -44,11 +50,11 @@ export function buildConsoleView(inputs = {}, failedSources = []) {
     to: 'context_engine::prepare', relation: 'data', label: '허용된 항목만',
     evidenceMode: 'implementation_contract', receiptObserved: false, sourceRef: grantNode.sourceRef }];
   const collection=failedSources.includes('recent')?null:inputs.recent?.collection;
-  const freshCollection=collection?.recovering===true&&Date.now()-Date.parse(collection.observed_at)>=0&&Date.now()-Date.parse(collection.observed_at)<900000;
+  const freshCollection=collection&&Date.now()-Date.parse(collection.observed_at)>=0&&Date.now()-Date.parse(collection.observed_at)<900000;
   let rows = nodes.map(n => n.id==='watchtower::ingress_supervisor'&&freshCollection
     &&(!n.observedAt||Date.parse(collection.observed_at)>=Date.parse(n.observedAt)-5000||(n.healthReasons?.length>0&&n.healthReasons.every(r=>['status_degraded','plaud_collection_degraded'].includes(r))))?{...n,collection,
-    observedAt:collection.observed_at,healthReasons:['plaud_collection_backlog'],scope:'최신 수집 영수증의 목록 완주·원본 보관·등록 결과 · 전처리·RAG 성공과 별도',
-    status:{...CONSOLE_ASSESSMENTS.pending,key:'pending',label:'수집 재개 · 후속 처리 대기',count:null}}:({ ...n, status: consoleAssessment(n, healthAvailable) }));
+    observedAt:collection.observed_at,healthReasons:collection.recovering?['plaud_collection_backlog']:[...new Set([...(n.healthReasons??[]),...(collection.errors??[])])],scope:'최신 수집 영수증의 목록·원본 보관·등록 결과 · 전처리·RAG 성공과 별도',
+    status:collection.recovering?{...CONSOLE_ASSESSMENTS.processing,key:'processing',label:'수집 순차 처리 중',count:null}:collection.errors?.length?{...CONSOLE_ASSESSMENTS.problem,key:'problem',count:null}:consoleAssessment(n,healthAvailable)}:({ ...n, status: consoleAssessment(n, healthAvailable) }));
   const facts=failedSources.includes('incidents')?null:inputs.incidents;
   const fresh=at=>Date.now()-Date.parse(at)>=0&&Date.now()-Date.parse(at)<15*60000;
   rows=rows.map(n=>{
@@ -59,7 +65,7 @@ export function buildConsoleView(inputs = {}, failedSources = []) {
   const watched = rows.filter(n => n.id.startsWith('watchtower::'));
   const counts = Object.fromEntries(Object.keys(CONSOLE_ASSESSMENTS).map(key => [key, watched.filter(n => n.status.key === key).length]));
   const rank = { problem: 0, pending: 1, observation_error: 2, history:3, unknown: 4, ok: 5 };
-  const attention = watched.filter(n => n.status.key !== 'ok').sort((a,b) => rank[a.status.key]-rank[b.status.key] || a.label.localeCompare(b.label,'ko'));
+  const attention = watched.filter(needsIntervention).sort((a,b) => rank[a.status.key]-rank[b.status.key] || a.label.localeCompare(b.label,'ko'));
   return { ...base, nodes: rows, edges, counts, attention, watchedCount: watched.length, healthAvailable, healthCurrent,
     stages: base.stages.map(s => ({ ...s, members: rows.filter(n => n.stage === s.id) })) };
 }

@@ -23,7 +23,7 @@ const screens=[['overview','운영 현황',LayoutDashboard],['system','구조·�
 const at=(v:any)=>v&&Number.isFinite(Date.parse(v))?new Date(v).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'미확인';
 const number=(n:any)=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString('ko-KR'):'미확인';
 const shortName=(label:string)=>label.replaceAll('custody','보관').replace('event 원장','원장');
-function Status({status}:{status:Row}){const Icon=status.key==='ok'?Check:status.key==='pending'?Clock3:status.key==='unknown'?CircleHelp:TriangleAlert;return <span className={`cx-status is-${status.tone}`}><Icon size={13}/>{status.label}{status.key==='pending'&&status.count!==null?` ${status.count}건`:''}</span>;}
+function Status({status}:{status:Row}){const Icon=status.key==='ok'?Check:['pending','processing','history'].includes(status.key)?Clock3:status.key==='unknown'?CircleHelp:TriangleAlert;return <span className={`cx-status is-${status.tone}`}><Icon size={13}/>{status.label}{status.key==='pending'&&status.count!==null?` ${status.count}건`:''}</span>;}
 async function readJson(url:string){const r=await fetch(url,{cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(url.startsWith('/rag-operations')?45000:20000)});if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw Error('unavailable');return r.json();}
 function useSources(){
   const [inputs,setInputs]=useState<Row>({}),[failed,setFailed]=useState<string[]>([]),[loading,setLoading]=useState(false),[readAt,setReadAt]=useState<string|null>(null);

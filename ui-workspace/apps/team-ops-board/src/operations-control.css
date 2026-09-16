@@ -6,3 +6,10 @@
 .oc-resource-layer{align-items:stretch}.oc-resource-layer .vd-quota-overview{display:flex;flex-direction:column;height:100%}.oc-resource-layer .vd-quota-groups{flex:1;align-content:space-between}.cx-app .oc-resource-layer .vd-quota-line{padding-top:8px;padding-bottom:8px}.cx-app .oc-resource-layer .usage-trend-legend{gap:4px}.cx-app .oc-resource-layer .usage-trend-legend button{padding:3px 6px;min-height:0}.cx-app .oc-resource-layer .usage-trend-legend button.usage-trend-req-toggle{padding:2px 6px}.cx-app .oc-resource-layer .usage-trend-legend small{font-size:10px;line-height:1.3}
 .oc-passed{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px;margin-top:12px;font-size:10px;color:var(--muted)}.cx-app .oc-passed button{font-size:10px;color:var(--green);padding:2px 0;gap:5px}
 .vd-work:has(.vd-work-empty){display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 22px;align-items:center}.vd-work:has(.vd-work-empty)>header{margin:0}.vd-work:has(.vd-work-empty) .vd-work-empty{padding:0}.vd-work:has(.vd-work-empty)>.vd-chart-foot{grid-column:1/-1;margin:0}@media(max-width:700px){.vd-work:has(.vd-work-empty){grid-template-columns:1fr}}
+
+.cx-status.is-blue{color:var(--blue);background:var(--selection)}
+.oc-diagnostic-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0 24px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}
+.oc-diagnostic-summary small{color:var(--muted)}
+.oc-intake-progress{border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.oc-intake-progress small{flex-basis:100%;color:var(--muted);font-size:11px}
+.oc-next-step{border-top:1px solid var(--line);padding-top:12px;margin-top:12px;font-size:12px}

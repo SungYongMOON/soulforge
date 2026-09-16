@@ -1,6 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildConsoleView,consoleAssessment,focusScene,directoryKey,flattenDirectory,selectedUsageDay} from './operations-console-view.mjs';
+import {buildConsoleView,consoleAssessment,focusScene,directoryKey,flattenDirectory,selectedUsageDay,needsIntervention} from './operations-console-view.mjs';
+import {readFileSync} from 'node:fs';
+
+test('only current problem, blocked processing and failed observation require intervention',()=>{
+  for(const key of ['problem','pending','observation_error'])assert.equal(needsIntervention({status:{key}}),true);
+  for(const key of ['ok','processing','history','unknown'])assert.equal(needsIntervention({status:{key}}),false);
+});
+test('fresh verified PLAUD progress and mail history remain inspectable but never alert',()=>{
+  const federation=JSON.parse(readFileSync(new URL('../../../../../guild_hall/watchtower/topology/federated_topology.v1.json',import.meta.url),'utf8'));
+  const observed_at=new Date().toISOString();
+  const inputs={federation:{lens:'declared_structure',state:'ready',snapshot:federation},recent:{collection:{recovering:true,observed_at,imported:1,catalog:50}},incidents:{mail:{history_only:true,observed_at,tracked:4}}};
+  const model=buildConsoleView(inputs);
+  assert.equal(model.nodes.find(n=>n.id==='watchtower::ingress_supervisor').status.key,'processing');
+  assert.equal(model.nodes.find(n=>n.id==='watchtower::mail_forwarder').status.key,'history');
+  assert.equal(model.attention.length,0);
+  assert.equal(model.counts.processing,1);assert.equal(model.counts.history,1);
+  assert.notEqual(buildConsoleView(inputs,['recent']).nodes.find(n=>n.id==='watchtower::ingress_supervisor').status.key,'processing');
+  inputs.recent.collection={...inputs.recent.collection,recovering:false,errors:['plaud_metadata_identity_mismatch','plaud_collection_degraded']};
+  const failed=buildConsoleView(inputs);
+  assert.equal(failed.attention[0].id,'watchtower::ingress_supervisor');
+  assert.ok(failed.attention[0].healthReasons.includes('plaud_metadata_identity_mismatch'));
+  inputs.recent.collection.observed_at=new Date(Date.now()-16*60000).toISOString();
+  assert.notEqual(buildConsoleView(inputs).nodes.find(n=>n.id==='watchtower::ingress_supervisor').status.key,'processing');
+});
 
 test('preparer input is a grant artifact, never invented direct custody traffic',()=>{
   const m=buildConsoleView(); const scene=focusScene(m,'context_engine::prepare');
