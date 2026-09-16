@@ -2943,6 +2943,7 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
   const knownTokens = summarySeries.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = slicedModelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
   const unknownTurns = summarySeries.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
+  const seriesTotalLabel=(item:any)=>{const total=item.values.reduce((sum:number,n:number)=>sum+n,0),partial=item.unknownTurns.some((n:number)=>n>0);return total===0&&partial?'토큰 미측정':`${new Intl.NumberFormat('ko-KR',{notation:'compact',maximumFractionDigits:1}).format(total)} 토큰${partial?' · 일부':''}`;};
   useEffect(() => { onSelection?.(null); }, [range, view]);
   const chooseRange = (next: 7 | 30) => { setRange(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
@@ -3128,6 +3129,7 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
           >
             <span style={{ background: USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length] }} />
             {item.label}
+            {compact&&<small className="vd-series-total">{seriesTotalLabel(item)}</small>}
           </button>
         ))}
         {showAgOverlay && (

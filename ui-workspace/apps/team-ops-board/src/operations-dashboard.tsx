@@ -10,7 +10,8 @@ type Row=Record<string,any>;
 type Open=(title:string,body:ReactNode)=>void;
 const number=(v:any)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ko-KR'):'—';
 const day=(s:string)=>s?.slice(5).replace('-','/');
-const resetIn=(s:any)=>{const m=Date.parse(s??'')-Date.now();if(!Number.isFinite(m)||m<=0)return null;const h=Math.ceil(m/3600000);return h>=24?`${Math.floor(h/24)}일 ${h%24}시간`:`${h}시간`;};
+const resetIn=(s:any)=>{const m=Math.ceil((Date.parse(s??'')-Date.now())/60000);if(!Number.isFinite(m)||m<=0)return null;const h=Math.floor(m/60);return h>=24?`${Math.floor(h/24)}일 ${h%24}시간`:h?`${h}시간 ${m%60}분`:`${m}분`;};
+const quotaResetAt=(s:any)=>Number.isFinite(Date.parse(s??''))?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(s)):'미확인';
 const sourceNames:Row={federation:'구조',health:'상태',recovery:'조치 이력',graph:'자료 반영',host:'호스트',usage:'사용량',limits:'한도',agQuota:'AG 한도',runtime:'에이전트',threads:'작업',recent:'최근 자료',models:'모델 서버',codexQuota:'Codex 계정 한도',sources:'원천별 기록'};
 
 function useDetail(){
@@ -33,17 +34,21 @@ export function SourceNotice({failed}:{failed:string[]}){
   if(!failed.length)return null;
   return <details className="vd-source"><summary><span className="vd-dot amber"/>관측 조회 실패 <strong>{failed.length}</strong><ChevronRight size={13}/></summary><p>{failed.map(k=>sourceNames[k]??k).join(' · ')}</p><p>위 항목의 새 관측을 읽지 못했습니다. 값이 남아 있다면 관측 시각의 보존 자료입니다.</p></details>;
 }
-function QuotaFacts({r}:{r:Row}){return <><dl className="vd-facts"><dt>제공자</dt><dd>{r.provider}</dd><dt>한도 창</dt><dd>{r.window}</dd><dt>{r.current?'남은 한도':'마지막 관측 잔량'}</dt><dd>{r.remaining===null?'미제공':`${number(r.remaining)}%`}</dd><dt>관측</dt><dd>{when(r.observed_at)}</dd><dt>초기화</dt><dd>{when(r.reset)}</dd></dl><p>{r.current?'제공된 창의 현재 관측입니다.':'현재 잔량은 확인되지 않았습니다. 지난 초기화 시각이나 오래된 관측값을 현재 한도로 사용하지 않습니다.'}</p><p>{r.provider.startsWith('AG·')?'Antigravity는 Gemini 모델 묶음의 공유 한도를 제공합니다. Gemini 3.8 Flash 개별 잔량은 제공되지 않습니다. 모델별 요청 이력은 사용 추이에서 별도로 확인합니다.':''}</p><p>창과 계정마다 기준이 다르므로 서로 더하지 않습니다. 남은 토큰 개수는 제공되지 않습니다.</p></>;}
+function QuotaFacts({r}:{r:Row}){return <><dl className="vd-facts"><dt>제공자</dt><dd>{r.provider}</dd><dt>한도 창</dt><dd>{r.window}</dd><dt>{r.current?'남은 한도':'마지막 관측 잔량'}</dt><dd>{r.remaining===null?'미제공':`${number(r.remaining)}%`}</dd><dt>관측</dt><dd>{when(r.observed_at)}</dd><dt>초기화</dt><dd>{when(r.reset)}</dd></dl><p>{r.current?'제공된 창의 현재 관측입니다.':'현재 잔량은 확인되지 않았습니다. 지난 초기화 시각이나 오래된 관측값을 현재 한도로 사용하지 않습니다.'}</p><p>{r.provider.startsWith('AG·')?`Antigravity ${r.provider.replace('AG·','')} 모델 묶음의 공유 한도입니다. 개별 모델의 잔량은 제공되지 않습니다. 모델별 요청 이력은 사용 추이에서 별도로 확인합니다.`:''}</p><p>창과 계정마다 기준이 다르므로 서로 더하지 않습니다. 남은 토큰 개수는 제공되지 않습니다.</p></>;}
 export function QuotaStrip({inputs,failed=[]}:{inputs:Row;failed?:string[]}){
-  const {detail,open,close}=useDetail();const rows:Row[]=dashboardQuotas(inputs,failed);const gemini=rows.find((r:Row)=>r.provider==='AG·Gemini'&&r.window==='5시간');const visible=[...rows.filter((r:Row)=>!r.id.startsWith('ag-')).slice(0,4),...(gemini?[gemini]:[])];const extra=rows.filter((r:Row)=>!visible.includes(r));
-  return <><section className="vd-quota-strip" aria-label="남은 사용 한도">
-    {visible.map((r:Row)=><button className={`vd-quota ${r.current&&r.remaining<10?'low':''}`} key={r.id} onClick={()=>open(`${r.provider} · ${r.window}`,<QuotaFacts r={r}/>)}>
-      <span className="vd-quota-label">{r.provider==='AG·Gemini'?'Antigravity':r.provider}<small>{r.provider==='AG·Gemini'?'Gemini 공유 · ':''}{r.window}</small></span>
-      <span className="vd-quota-value">{r.current?`${Math.round(r.remaining)}%`:'—'}<small>{r.current?'남음':'조회 미확인'}</small></span>
-      {r.current?<span className="vd-quota-track"><i style={{width:`${r.remaining}%`}}/></span>:<span className="vd-quota-unknown"/>}
-      <small className="vd-reset">{r.current&&resetIn(r.reset)?`${resetIn(r.reset)} 후 초기화`:'관측·초기화 정보'}</small>
-    </button>)}
-    {extra.length>0&&<button className="vd-quota-more" onClick={()=>open('추가 한도',<div className="vd-more-quotas">{extra.map((r:Row)=><section key={r.id}><h3>{r.provider} · {r.window}</h3><QuotaFacts r={r}/></section>)}</div>)}>추가<br/>{extra.length}개<ChevronRight size={14}/></button>}
+  const {detail,open,close}=useDetail();const rows:Row[]=dashboardQuotas(inputs,failed);
+  const rank=(window:string)=>window==='5시간'?0:window==='주간'?1:2;
+  const windows=[...new Set(rows.map(r=>r.window))].sort((a,b)=>rank(a)-rank(b));
+  return <><section className="vd-quota-overview" aria-label="남은 사용 한도">
+    <header><h2>남은 한도</h2><span>막대는 남은 비율 · 초기화 시각 KST</span></header>
+    <div className="vd-quota-groups">{windows.map(window=><section className="vd-quota-group" key={window} aria-label={`${window} 한도`}><h3>{window}</h3>
+      {rows.filter(r=>r.window===window).map(r=><button className={`vd-quota-line ${!r.current?'unknown':r.remaining<10?'low':r.remaining<25?'warning':''}`} key={r.id} onClick={()=>open(`${r.provider} · ${r.window}`,<QuotaFacts r={r}/>)} aria-label={`${r.provider} ${r.window} ${r.current?Math.round(r.remaining)+'% 남음':'현재 잔량 미확인'} · 초기화 ${quotaResetAt(r.reset)}`}>
+        <span className="vd-quota-provider">{r.provider.startsWith('AG·')?<><strong>Antigravity</strong><small>{r.provider.replace('AG·','')} 공유</small></>:<strong>{r.provider}</strong>}</span>
+        <span className="vd-quota-meter" aria-hidden="true">{r.current&&<i style={{width:`${r.remaining}%`}}/>}</span>
+        <span className="vd-quota-balance"><strong>{r.current?`${Math.round(r.remaining)}%`:'—'}</strong><small>{r.current?'남음':'미확인'}</small></span>
+        <span className="vd-quota-deadline"><time>{r.current?quotaResetAt(r.reset):'현재 관측 없음'}</time><small>{r.current&&resetIn(r.reset)?`${resetIn(r.reset)} 후 초기화`:`마지막 ${when(r.observed_at)}`}</small></span>
+      </button>)}
+    </section>)}</div>
   </section>{detail&&<Detail value={detail} close={close}/>}</>;
 }
 
