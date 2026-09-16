@@ -31,6 +31,7 @@
     "guild_hall/context_engine/src/guards/accepted_context_typed_memory.mjs",
     "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",
     "guild_hall/context_engine/src/runtime/accepted_context_reader.mjs",
+    "guild_hall/context_engine/src/runtime/attachment_derivation.mjs",
     "guild_hall/context_engine/src/runtime/context_planner.mjs",
     "guild_hall/context_engine/src/runtime/generation_update.mjs",
     "guild_hall/context_engine/src/runtime/graph_database.mjs",

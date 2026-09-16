@@ -28,7 +28,9 @@ import { fileURLToPath } from 'node:url';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { mailBodyTextFromRecord } from '../../../gateway/mail_body_excerpt.mjs';
 import { openSourceRoot } from '../adapters/sources/guarded_files.mjs';
-import { readChannelState, readRawEvents, slackTsToIso, fileShareText } from '../adapters/sources/slack_custody_source.mjs';
+import { readChannelState, readRawEvents, slackTsToIso, fileShareText, attachmentBytesPath, ATTACHMENT_UNIT_KINDS,
+  SLACK_SOURCE_ADAPTER_ATTACHMENTS } from '../adapters/sources/slack_custody_source.mjs';
+import { SOURCE_READ_MAX_BYTES } from '../adapters/sources/guarded_files.mjs';
 import { totalDigest, documentsDigest } from './preparation_run.mjs';
 import { SOURCE_LIMITS } from './source_documents.mjs';
 
@@ -38,7 +40,9 @@ export const CHECKER_ID = 'context-engine/source-original-checker';
 // values compared; not_run never rolls up to pass; file-share units checked.
 // 0.2.1: a renamed state matches under any name custody has held; an older Slack document
 // without the attachment-bodies fact is not failed for lacking it.
-export const CHECKER_VERSION = '0.2.1';
+// 0.2.2: Slack attachment units (adapter v4) are checked against the bytes custody holds
+// for the attachment they name; the derivation recipe is listed, not repeated.
+export const CHECKER_VERSION = '0.2.2';
 export const SOURCE_CHECK_POLICY_ID = 'source-original-check-v2';
 export const CHECK_OUTCOMES = Object.freeze(['pass', 'fail', 'partial', 'not_run']);
 const MAIL_MAX_BODY_CHARACTERS = 200000;
@@ -318,15 +322,44 @@ async function checkSlack({ document, root, item, preparedAt }) {
   const components = document.components.filter(c => c.kind === 'attachment').map(c => c.sha256).sort();
   const attOk = JSON.stringify(pointers) === JSON.stringify(components);
   checks.push(check('attachments_preserved', attOk ? 'pass' : 'fail', `${pointers.length} attachment pointer(s), ${components.length} component digest(s)`));
-  if (pointers.length) exclusions.push('attachment bodies not included: only file ids, mime types and content digests travel');
+  const fact = name => document.facts.find(f => f.name === name)?.value ?? null;
+  // Derived attachment units (adapter v4): each names an attachment this document
+  // points at, and the bytes custody holds for it still match the digest the unit
+  // was derived from. The text itself is not re-derived here - that would take
+  // the worker and the interpreter - so the recipe the document recorded is
+  // listed as what the units depend on.
+  const attachmentUnits = document.units.filter(u => ATTACHMENT_UNIT_KINDS.includes(u.unit_kind));
+  const derivedShas = [...new Set(attachmentUnits.map(u => u.locator?.content_sha256).filter(value => SHA.test(value ?? '')))].sort();
+  if (attachmentUnits.length || fact('slack.attachment_bodies_processed') === true) {
+    const pointerSet = new Set(pointers);
+    let bytesOk = attachmentUnits.length > 0 && attachmentUnits.every(u => pointerSet.has(u.locator?.content_sha256));
+    const byteProblems = bytesOk ? [] : ['a derived unit names an attachment this message does not point at'];
+    for (const sha of derivedShas) {
+      const hex = sha.slice('sha256:'.length);
+      try {
+        const read = await root.readBytes(attachmentBytesPath(hex), SOURCE_READ_MAX_BYTES);
+        if (read.sha256 !== sha) { bytesOk = false; byteProblems.push(`${hex.slice(0, 12)}: custody bytes differ from the digest`); }
+      } catch (error) { bytesOk = false; byteProblems.push(`${hex.slice(0, 12)}: ${error?.code ?? 'unreadable'}`); }
+    }
+    checks.push(check('attachment_bytes_preserved', bytesOk ? 'pass' : 'fail',
+      `${attachmentUnits.length} derived unit(s) over ${derivedShas.length} attachment(s)${byteProblems.length ? '; ' + byteProblems.join('; ') : ''}`));
+    exclusions.push(`attachment text derived by recipe ${fact('slack.attachment_recipes_sha256') ?? '(unrecorded)'}: bytes verified, derivation not repeated by this checker`);
+    if (pointers.length > derivedShas.length) exclusions.push(`${pointers.length - derivedShas.length} attachment(s) not derived: only file ids, mime types and content digests travel`);
+  } else if (pointers.length) {
+    exclusions.push('attachment bodies not included: only file ids, mime types and content digests travel');
+  }
   const timeOk = document.valid_at === slackTsToIso(item.item_id) && head.occurred_at === document.valid_at;
   checks.push(check('time_preserved', timeOk ? 'pass' : 'fail', 'message ts kept as valid_at and unit time'));
-  const fact = name => document.facts.find(f => f.name === name)?.value ?? null;
   // The attachment-bodies fact arrived with adapter v3; an older document may not
-  // carry it, but no document may claim the bodies were processed.
-  const relOk = fact('slack.channel_id') === revision?.channel_id && fact('slack.reply_count') === replyUnits.length
-    && fact('slack.attachment_bodies_processed') !== true;
-  checks.push(check('relations_preserved', relOk ? 'pass' : 'fail', 'channel id, reply count; attachment bodies not claimed as processed'));
+  // carry it. A document may claim the bodies were processed only under the v4
+  // profile, with derived units present and the derived count matching them.
+  const bodiesClaim = fact('slack.attachment_bodies_processed') === true;
+  const bodiesOk = !bodiesClaim || (document.adapter_profile === SLACK_SOURCE_ADAPTER_ATTACHMENTS && attachmentUnits.length > 0
+    && fact('slack.attachment_derived_count') === derivedShas.length);
+  const relOk = fact('slack.channel_id') === revision?.channel_id && fact('slack.reply_count') === replyUnits.length && bodiesOk;
+  checks.push(check('relations_preserved', relOk ? 'pass' : 'fail', bodiesClaim
+    ? 'channel id, reply count; attachment bodies claimed as processed under the v4 profile with derived units'
+    : 'channel id, reply count; attachment bodies not claimed as processed'));
   if (held) exclusions.push(`${held} event(s) in this channel are policy-held: raw body never stored, so they are not documents and are not compared`);
   return { checks, exclusions };
 }

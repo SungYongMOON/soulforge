@@ -251,6 +251,18 @@ grant, validationRunId, checkedAt })`은 그 기록이 주장한 값을 `soulfor
 - Slack 파일 공유(slack-custody-v3): 본문 없는 메시지는 본문을 만들지 않고 저장된 파일 메타(id·type·size·digest)를 `file_share` 단위로 담는다. 모든 Slack 문서에
   `slack.attachment_bodies_processed=false`를 적는다. 본문도 포인터도 없는 메시지만 `refused / slack_message_without_content`.
 - 실행기 `recheckGeneration`·CLI `--recheck <세대>`: 저장된 세대를 그대로 두고 새 검사 보고서만 옆에 추가한다(검증만 바뀐 경우). 준비 결과가 바뀌는 항목은 새 세대.
+- Slack 첨부 본문 단위(slack-custody-v4, 준비기 0.5.0, 검사기 0.2.2): index binding에 `attachments: { tools_config: { path, sha256 } }`로
+  첨부 도구 설정(`soulforge.context_read_tools.v0`, 읽기 CLI와 같은 파일)을 digest로 가리키면, 준비기가 각 attachment pointer의
+  바이트를 채널 custody `attachments/sha256/<xx>/<hex>.bin`에서 guarded 읽기(`readBytes`)로 읽어 pointer digest와 대조한 뒤
+  `attachment_derivation`의 텍스트 워커로 추출하고, 그 결과를 같은 문서의 단위로 담는다. 단위 종류는 `attachment_page`(pdf 쪽),
+  `attachment_slide`·`attachment_table`(pptx 슬라이드·표), `attachment_table`(xlsx 시트), `attachment_text`(txt·md·csv)이며 locator는
+  `file_id·content_sha256·format`에 `page`/`slide`/`table`/`sheet`(+`part`, 단위 상한을 넘겨 줄 경계에서 나눈 경우)를 더한다.
+  파생 1건 이상인 문서만 `slack-custody-v4` 프로필을 받고 `slack.attachment_bodies_processed=true`·파생/미지원/실패/누락 수·
+  단위 수·레시피 digest(`slack.attachment_recipes_sha256`)를 사실로 적는다. 파생이 없거나 도구 설정이 없으면 v3와 바이트까지 같다.
+  바이트가 없거나(`missing`) digest가 어긋나거나 워커가 실패한 첨부는 세어질 뿐 문서를 실패시키지 않고, 암호본 OLE(pptx)은
+  `parse_failed`로 남는다. 파생 캐시는 도구 설정의 `derived_root`(프로젝트 store 밖)에만 쓴다. 검사기는 파생 단위가 가리키는
+  첨부의 custody 바이트가 digest와 같은지 `attachment_bytes_preserved`로 보고 레시피는 exclusions에 적는다(재추출하지 않음).
+  준비기 규칙 digest에 `adapter_profile_variants`(slack: v3·v4)가 들어가고 검증기는 변형 프로필을 허용한다.
 - 준비기 0.4.0, 검사기 0.2.0(정책 source-original-check-v2). 시험 3건 추가.
 ## 파생 세대(임베더 교체)와 번호 없는 근거 연결 (0.19.0)
 

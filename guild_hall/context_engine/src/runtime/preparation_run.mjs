@@ -19,7 +19,7 @@ import { DOCUMENT_SOURCE_ADAPTER } from '../adapters/sources/document_file_sourc
 import { LINEAR_SOURCE_ADAPTER } from '../adapters/sources/linear_custody_source.mjs';
 import { MAIL_SOURCE_ADAPTER } from '../adapters/sources/mail_event_source.mjs';
 import { VOICE_SOURCE_ADAPTER } from '../adapters/sources/voice_session_source.mjs';
-import { SLACK_SOURCE_ADAPTER } from '../adapters/sources/slack_custody_source.mjs';
+import { SLACK_SOURCE_ADAPTER, SLACK_SOURCE_ADAPTER_ATTACHMENTS } from '../adapters/sources/slack_custody_source.mjs';
 import { ITEM_STATUSES, LOCATOR_REVISION_KINDS, PATH_REQUIRED_KINDS, REVISION_POLICIES, SOURCE_COVERAGE_SCHEMA,
   SOURCE_DOCUMENT_SCHEMA, SOURCE_GRANT_SCHEMA, SOURCE_KINDS, SOURCE_LIMITS, SOURCE_PREPARATION_PURPOSE,
   SourceDocumentError, isInstant, isSafeToken } from './source_documents.mjs';
@@ -29,16 +29,25 @@ export const PREPARER_ID = 'context-engine/source-preparer';
 // Deliberately independent of module_version: "the preparer changed" and "the
 // validator changed" must be separately visible, because only the first one
 // invalidates existing prepared bytes.
+// 0.5.0: Slack attachment bodies become units under a derivation context (slack-custody-v4,
+// beside v3 for documents with nothing derived); the rule surface names the profile variants.
 // 0.4.0: mail bodies past the unit bound are chunked (mail-event-v2); Slack file shares keep
 // their stored file metadata as a unit (slack-custody-v3).
 // 0.3.0: Slack channel custody joins the source kinds (slack-custody-v1).
 // 0.2.0: the canonical hash now follows JSON persistence for -0, non-finite
 // numbers and lone-surrogate strings. Digests of ordinary values are unchanged.
-export const PREPARER_VERSION = '0.4.0';
+export const PREPARER_VERSION = '0.5.0';
 export const PREPARER_ENTRY = './source_preparation.mjs';
 
+// The canonical profile of each kind, and the variants a kind may emit in the
+// same run: a Slack document is v4 only when an attachment body was derived into
+// it, so one run can hold both, and each document says which it is.
 export const ADAPTER_PROFILES = Object.freeze({ document: DOCUMENT_SOURCE_ADAPTER, linear: LINEAR_SOURCE_ADAPTER,
   mail: MAIL_SOURCE_ADAPTER, slack: SLACK_SOURCE_ADAPTER, voice: VOICE_SOURCE_ADAPTER });
+export const ADAPTER_PROFILE_VARIANTS = Object.freeze({ slack: Object.freeze([SLACK_SOURCE_ADAPTER, SLACK_SOURCE_ADAPTER_ATTACHMENTS]) });
+export function adapterProfileAllowed(kind, profile) {
+  return profile === ADAPTER_PROFILES[kind] || (ADAPTER_PROFILE_VARIANTS[kind] ?? []).includes(profile);
+}
 
 const REPO_ROOT = new URL('../../../../', import.meta.url);
 // These patterns and the walk below intentionally mirror `release/closure.mjs`
@@ -117,7 +126,8 @@ export function preparationRulesDigest() {
     coverage_schema: SOURCE_COVERAGE_SCHEMA, purpose: SOURCE_PREPARATION_PURPOSE, source_kinds: [...SOURCE_KINDS],
     revision_policies: [...REVISION_POLICIES], item_statuses: [...ITEM_STATUSES], limits: { ...SOURCE_LIMITS },
     path_required_kinds: [...PATH_REQUIRED_KINDS], locator_revision_kinds: [...LOCATOR_REVISION_KINDS],
-    adapter_profiles: { ...ADAPTER_PROFILES } });
+    adapter_profiles: { ...ADAPTER_PROFILES },
+    adapter_profile_variants: Object.fromEntries(Object.entries(ADAPTER_PROFILE_VARIANTS).map(([kind, rows]) => [kind, [...rows]])) });
 }
 
 // The canonical hash refuses whatever canonical JSON cannot render unambiguously

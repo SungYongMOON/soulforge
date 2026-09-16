@@ -208,11 +208,23 @@ export function derivationRecipe({ tools, format }) {
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
 /**
+ * The derivation context a source adapter takes: the admitted tools and the
+ * function that turns verified bytes into an extract. The default is this
+ * module's own deriveAttachment; a test passes a canned one so no interpreter
+ * runs.
+ */
+export function derivationContext({ tools, derive = deriveAttachment } = {}) {
+  if (tools === null || typeof tools !== 'object' || typeof tools.derived_root !== 'string') fail('tools_config_unreadable');
+  if (typeof derive !== 'function') fail('attachment_derivation_invalid');
+  return Object.freeze({ tools, derive });
+}
+
+/**
  * Extracts one attachment's text (and, when asked, its page images) into the
  * cache. `bytes` are the verified bytes; `sha256` is the digest they were
- * verified against. Returns the extraction, the cached locators and the counts a
- * receipt records. Never throws for a file a parser cannot read -- that is a
- * status, not a crash.
+ * verified against. Returns the extraction, the cached locators, the recipe the
+ * extract was made with and the counts a receipt records. Never throws for a
+ * file a parser cannot read -- that is a status, not a crash.
  */
 export async function deriveAttachment({ tools, bytes, sha256, mime = null, name = null, source = {},
   render = false, now = () => new Date() } = {}) {
@@ -221,7 +233,7 @@ export async function deriveAttachment({ tools, bytes, sha256, mime = null, name
   const format = formatFor({ mime, name });
   const internal = { parser_calls: 0, render_calls: 0 };
   if (format === null || !SUPPORTED_FORMATS.includes(format) || tools.formats[format] !== true) {
-    return { status: 'unsupported_format', format, extract: null, pages: [], cache: null, internal };
+    return { status: 'unsupported_format', format, extract: null, pages: [], cache: null, recipe: null, internal };
   }
   const interpreter = admitExecutable(tools.interpreter_path, 'attachment_interpreter_refused');
   const cacheDir = join(resolve(tools.derived_root), hex);
@@ -256,7 +268,7 @@ export async function deriveAttachment({ tools, bytes, sha256, mime = null, name
     }
     if (extract?.status === 'error') {
       return { status: extract.code === 'unsupported_format' ? 'unsupported_format' : 'ok', format, extract,
-        pages: [], cache: cacheRefs(tools, hex, []), internal };
+        pages: [], cache: cacheRefs(tools, hex, []), recipe, internal };
     }
     let pages = Array.isArray(meta?.pages) ? meta.pages : [];
     if (render) {
@@ -273,11 +285,11 @@ export async function deriveAttachment({ tools, bytes, sha256, mime = null, name
           pdfPath = join(scratch, 'source.pdf');
           if (!converted.ok || !existsSync(pdfPath)) {
             return { status: 'ok', format, extract, pages: [], cache: cacheRefs(tools, hex, []),
-              render_unavailable: converted.code ?? 'render_converter_failed', internal };
+              render_unavailable: converted.code ?? 'render_converter_failed', recipe, internal };
           }
         } else if (format !== 'pdf') {
           return { status: 'ok', format, extract, pages: [], cache: cacheRefs(tools, hex, []),
-            render_unavailable: 'render_not_applicable', internal };
+            render_unavailable: 'render_not_applicable', recipe, internal };
         }
         internal.render_calls += 1;
         const rendered = await runWorker({ interpreter, worker: RENDER_WORKER, timeoutMs: tools.render_timeout_ms,
@@ -285,14 +297,14 @@ export async function deriveAttachment({ tools, bytes, sha256, mime = null, name
             out_dir: cacheDir, prefix, dpi: tools.render.dpi, max_pages: tools.render.max_pages } });
         if (rendered.output?.status !== 'ok') {
           return { status: 'ok', format, extract, pages: [], cache: cacheRefs(tools, hex, []),
-            render_unavailable: rendered.output?.code ?? 'render_failed', internal };
+            render_unavailable: rendered.output?.code ?? 'render_failed', recipe, internal };
         }
         pages = rendered.output.pages;
         meta = { ...(meta ?? {}), pages, rendered_at: now().toISOString() };
         writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`, 'utf8');
       }
     }
-    return { status: 'ok', format, extract, pages: render ? pages : [], cache: cacheRefs(tools, hex, render ? pages : []), internal };
+    return { status: 'ok', format, extract, pages: render ? pages : [], cache: cacheRefs(tools, hex, render ? pages : []), recipe, internal };
   } finally {
     // The scratch copy of the original never outlives the call.
     try { rmSync(scratch, { recursive: true, force: true }); } catch { /* best effort */ }

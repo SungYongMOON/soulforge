@@ -13,7 +13,7 @@ import { exactRefIdentityKey } from '../../../engineering_engine/kernel/identity
 import { ITEM_STATUSES, LOCATOR_REVISION_KINDS, PATH_REQUIRED_KINDS, SOURCE_COVERAGE_SCHEMA,
   SOURCE_PREPARATION_PURPOSE, SourceDocumentError, isInstant, isSafeToken, validateSourceDocument,
   validateSourceGrant } from './source_documents.mjs';
-import { ADAPTER_PROFILES, PREPARATION_RUN_SCHEMA, PREPARER_ID, PREPARER_VERSION, codeInventoryConsistent,
+import { ADAPTER_PROFILES, adapterProfileAllowed, PREPARATION_RUN_SCHEMA, PREPARER_ID, PREPARER_VERSION, codeInventoryConsistent,
   documentsDigest, inspectCodeClosure, inspectPreparerCode, matchesCanonical, preparationRulesDigest,
   totalDigest } from './preparation_run.mjs';
 
@@ -214,8 +214,11 @@ function grantConditions({ run, documents, coverage, grant, grantIndex }) {
     }
     // Against the live constant, not the record's own copy: a fabricated record
     // must not get to declare which profile counts as correct.
-    if (document.adapter_profile !== ADAPTER_PROFILES[document.source_kind]
-      || document.adapter_profile !== (run?.adapter_profiles ?? {})[document.source_kind]) {
+    // The document's profile must be one the live constants allow for its kind (the
+    // canonical one or a named variant), and the record's canonical map must be the
+    // live one - not the other way round.
+    if (!adapterProfileAllowed(document.source_kind, document.adapter_profile)
+      || (run?.adapter_profiles ?? {})[document.source_kind] !== ADAPTER_PROFILES[document.source_kind]) {
       findings.push({ code: 'document_adapter_profile_unexpected', doc_key });
     }
     if (!same(document.scope ?? null, item.scope ?? null)) findings.push({ code: 'document_scope_differs', doc_key });

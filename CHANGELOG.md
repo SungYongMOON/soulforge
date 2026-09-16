@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-17 - Slack 첨부 본문의 전처리 단위 편입
+
+- Revision: 이 항목을 포함한 커밋. Context Engine의 Slack custody 어댑터가 index binding이
+  `attachments.tools_config`로 가리키는 첨부 도구 설정 아래서 첨부 바이트를 custody에서 읽어
+  digest 대조 뒤 기존 텍스트 워커로 추출하고, 쪽·슬라이드·표·시트 단위와 locator로 같은 문서에
+  담는다(slack-custody-v4). 파생이 없는 문서는 v3와 바이트까지 같다.
+- 준비기 0.5.0은 규칙 digest에 프로필 변형(slack v3·v4)을 넣고, 원본 대조 검사기 0.2.2는 파생
+  단위가 가리키는 첨부의 custody 바이트를 `attachment_bytes_preserved`로 검사하며 레시피를 exclusions에
+  남긴다. guarded 파일 읽기에 `readBytes`가 추가됐다. 새 어댑터·검색기·DB는 없으며 운영 binding·lane은
+  바뀌지 않았다(scratch estate에서 실자료 PDF 1건으로 준비·검증·원본 대조까지 확인).
+- 시험 9건 추가(합성 파생, 파이썬 미사용). 런타임 closure pin 재생성.
+
 ## 2026-09-16 - 수집과 RAG 반영 겹침 및 기간 선택
 
 - Revision: 이 항목을 포함한 커밋. 수집·보관 막대의 테두리와 같은 자료의 현재 RAG 반영

@@ -21,8 +21,12 @@ export const SYNTHETIC_DATA_CLASS = 'public_synthetic';
 // here, around the actual adapter work, rather than by a caller holding the
 // result: a record for documents the preparer did not emit cannot be produced
 // through this surface. `clock` exists so a test can fix the observed interval.
+// `derivation`, when given, is the attachment derivation context (`{ tools,
+// derive }` from attachment_derivation) that lets an adapter turn the collected
+// bytes of an attachment into text units. Without it every adapter behaves as
+// before: attachments stay digests and a stated count, never a body.
 export async function prepareSourceDocuments({ grant, roots, now, previousCoverage = null,
-  runId = null, clock = () => new Date(), admission = null } = {}) {
+  runId = null, clock = () => new Date(), admission = null, derivation = null } = {}) {
   const startedAt = clock().toISOString();
   // The grant's bytes are its identity, so a path segment that canonical JSON
   // cannot render (a macOS NFD filename, a name truncated mid-surrogate-pair)
@@ -52,11 +56,18 @@ export async function prepareSourceDocuments({ grant, roots, now, previousCovera
       root_ref: source.root_ref, item_id: item.item_id, status: 'failed', code }));
     if (!adapter) { unavailable('adapter_not_connected'); continue; }
     if (typeof rootPath !== 'string') { unavailable('source_root_unbound'); continue; }
-    const output = await adapter({ admitted, source, rootPath });
+    const output = await adapter({ admitted, source, rootPath, derivation });
     documents.push(...output.documents);
     results.push(...output.results);
   }
   const coverage = buildSourceCoverage({ projectKey: admitted.project_key, grantSha256: admitted.grant_sha256, results });
+  // What happened to each prepared item's attachments under a derivation context,
+  // beside the result rather than in it: coverage and the run record keep their
+  // shape, and a caller that asked for derivation can still see the outcomes.
+  const attachmentReports = results.filter(row => Array.isArray(row.attachments))
+    .map(({ source_kind, root_ref, item_id, attachments }) => ({ source_kind, root_ref, item_id, attachments }));
+  const withReports = value => Object.freeze(Object.defineProperty(value, 'attachment_reports',
+    { value: Object.freeze(attachmentReports), enumerable: false }));
   const prepared = {
     grant: Object.freeze({ grant_id: admitted.grant.grant_id, grant_sha256: admitted.grant_sha256, project_key: admitted.project_key }),
     documents: Object.freeze([...documents].sort((a, b) => a.doc_key.localeCompare(b.doc_key))),
@@ -69,17 +80,17 @@ export async function prepareSourceDocuments({ grant, roots, now, previousCovera
   // with a stated reason - covers "no record was asked for" and "a record was
   // asked for and could not be made". Leaving the keys off the first shape made
   // a reader's check silently not apply.
-  if (runId === null) return Object.freeze({ ...prepared, run: null, run_unavailable: 'record_not_requested' });
+  if (runId === null) return withReports({ ...prepared, run: null, run_unavailable: 'record_not_requested' });
   // The record is built after every adapter has run, so anything it throws would
   // destroy work already done - including documents from the other kinds in this
   // grant. Twice a value honest input carries did exactly that. Whatever the
   // reason, the documents stand and the missing record is reported beside them:
   // no record is a thing a reader can see and act on, a lost preparation is not.
   try {
-    return Object.freeze({ ...prepared, run: buildPreparationRun({ preparation: prepared, runId, startedAt,
+    return withReports({ ...prepared, run: buildPreparationRun({ preparation: prepared, runId, startedAt,
       endedAt: clock().toISOString(), previousCoverage }), run_unavailable: null });
   } catch (error) {
-    return Object.freeze({ ...prepared, run: null,
+    return withReports({ ...prepared, run: null,
       run_unavailable: error instanceof SourceDocumentError ? error.code : 'preparation_run_uncomputable' });
   }
 }

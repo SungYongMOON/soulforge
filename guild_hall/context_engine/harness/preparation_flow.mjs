@@ -29,6 +29,7 @@ import { rootedStore, safeStoreRel } from '../src/runtime/pair_store.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
+import { derivationFromBinding } from '../src/runtime/graph_index_generation.mjs';
 
 export const PREPARATION_FLOW_SCHEMA = 'soulforge.context_preparation_flow_receipt.v1';
 const SHA = /^sha256:[0-9a-f]{64}$/u;
@@ -46,7 +47,7 @@ const fail = code => { throw new PreparationFlowError(code); };
  */
 export async function runPreparationFlow({ io = null, storeRoot = null, bindingSha256, bindingAddress = PREPARATION_STORE_BINDING_FILE,
   request, runId, validationRunId, now, clock = () => new Date(now),
-  grantAddress = null, grantSha256 = null, admissionAddress = null, admissionSha256 = null } = {}) {
+  grantAddress = null, grantSha256 = null, admissionAddress = null, admissionSha256 = null, derive = undefined } = {}) {
   if (io === null && typeof storeRoot !== 'string') fail('preparation_flow_store_required');
   if (!SHA.test(bindingSha256 ?? '') || !safeStoreRel(bindingAddress)) fail('preparation_flow_binding_invalid');
   if (typeof runId !== 'string' || typeof validationRunId !== 'string' || runId === validationRunId) fail('preparation_flow_ids_invalid');
@@ -72,9 +73,12 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
     admission = JSON.parse(admissionBytes);
   }
   const storeArgs = { io, storeRoot, bindingSha256, bindingAddress, request };
+  // The attachment tools the binding names (optional), pinned by digest: with
+  // them attachment bytes become units at step 1; without them nothing changes.
+  const derivation = derivationFromBinding({ binding, readRaw: (name, max) => reader.read(name, max), ...(derive ? { derive } : {}) });
 
   // 1. prepare (real data classes pass only with an admission the preparer accepts)
-  const preparation = await prepareSourceDocuments({ grant, roots: binding.source_roots, now, runId, clock, admission });
+  const preparation = await prepareSourceDocuments({ grant, roots: binding.source_roots, now, runId, clock, admission, derivation });
   if (!preparation.run) fail('preparation_flow_run_unavailable');
   // 2. land, inactive
   const landed = await writePreparationGeneration({ ...storeArgs, preparation });
@@ -99,6 +103,8 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
     io: io ? { kind: 'aliased', table_sha256: io.table_sha256, aliases: io.aliases } : { kind: 'rooted' },
     binding: { address: bindingAddress, sha256: bindingSha256 }, grant: { path: grantRef.path, sha256: grantRef.sha256 },
     admission: preparation.admission ?? null,
+    attachments: derivation === null ? null
+      : { tools_config: { ...binding.attachments.tools_config }, items: preparation.attachment_reports ?? [] },
     request: { actor_ref: request.actor_ref, purpose: request.purpose },
     steps: {
       prepare: { run_id: runId, run_sha256: preparation.run.run_sha256, documents: preparation.documents.length,

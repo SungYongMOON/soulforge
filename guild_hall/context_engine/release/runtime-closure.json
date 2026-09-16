@@ -81,7 +81,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs",
-      "sha256": "cf081a02f74899b49fc05d7946e57a2532675f7965df63a9b9e0786671bdb910"
+      "sha256": "1f50cb9b7a7a0f021855d8c6034c727f5f9d2f86b945c4fab8f5443659abb7b3"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
@@ -93,7 +93,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
-      "sha256": "268071aeea0d5686b04c4b7045c7510a84344f7b890de7ba0e86877b88fc76b6"
+      "sha256": "cb930c3f4a051b2e8f9774b673447379604fb239521dfc6ecd1dfac7c673ca2d"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
@@ -120,6 +120,10 @@
       "sha256": "9bb28e883dd10f1039cf0fd1f79a25ccbbfc69bba224813e2f32424ca537a273"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/attachment_derivation.mjs",
+      "sha256": "96879ed9d48aeec99f20518f6580c4cdfce0961a9ac05bcddfd4758d9310877c"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
       "sha256": "2763fdee14fdb5ca25430e4109af7111bc1284256ac02c63f30231c6bad1487d"
     },
@@ -137,7 +141,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "1e857c8a32ea78e25fb1d5ee863d843ebd87e6339f00d24ead4dd69f29d5068a"
+      "sha256": "70f3b0214378bd23ba5b5a7fd4a38c771d6604474f3232d6d945f30a835f3dfc"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
@@ -153,7 +157,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
-      "sha256": "5a5882627222aaedfdbc76f7f6ffcb67444efbd52bde40949b5e9dc0dbef2179"
+      "sha256": "121636e791da4527380ad4f371a152062e5b5bb002a5091a2ce4265be5f296f7"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
@@ -165,7 +169,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_validation.mjs",
-      "sha256": "2aaa1204d3fd39923dbc41714c049f4b57e765cba3d610fc3fd2efc767ea4e34"
+      "sha256": "c52b5dbd149db57b7d82d2874f691afb7345d0de03282cba0a34938518f4c6c1"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/real_data_admission.mjs",
@@ -177,11 +181,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_original_check.mjs",
-      "sha256": "3aaa1af7b3741a235fb7d8ed26f71a8c77f3f68fb46e873e19a6f7be0b6d74b8"
+      "sha256": "a0cb06b2a06cae273322ae1600889a0b2f6c895c2c795f6180d2c2fe13ef7200"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
-      "sha256": "c50fcf743a0ce5e85ef09c4a69b350ea9bc56d68d21dde52e13fb54d93b245eb"
+      "sha256": "86023aaa9a0fca7e6fdd2f18145ef52e6b8e255358ab697c1c65719d8331d532"
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
@@ -308,7 +312,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "7125dc32c329ea5579040e0c067a73cbef34bc623b0e8711f22b1c31dea160e8",
+  "closure_sha256": "be8a8d77fbba2119a77812ea4fa296bde8d61695e9bfc20aa8173a837f2fd2c0",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -468,6 +472,10 @@
     {
       "from": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
       "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
@@ -760,6 +768,10 @@
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
       "to": "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
+      "to": "guild_hall/context_engine/src/runtime/attachment_derivation.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",

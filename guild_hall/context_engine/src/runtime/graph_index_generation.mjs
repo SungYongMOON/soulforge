@@ -27,6 +27,7 @@ import { SOURCE_PREPARATION_PURPOSE, validateSourceDocument } from './source_doc
 import { embeddingRef, extractGraphFragments, probeGraphModels, validateGraphBinding } from './graph_extraction.mjs';
 import { GRAPH_EXTRACTION_PROFILE } from '../../profiles/graph_extraction_v1.mjs';
 import { runGraphragWorker } from '../adapters/graphrag/worker_client.mjs';
+import { deriveAttachment, derivationContext, readToolsConfig } from './attachment_derivation.mjs';
 
 export const GRAPH_INDEX_BINDING_FILE = 'graph_index_binding.json';
 export const GRAPH_INDEX_BINDING_MODE = 'context_engine_graph_index';
@@ -74,8 +75,31 @@ function validateIndexBinding(binding) {
     && (!plain(binding.admission) || !safeStoreRel(binding.admission.path) || !SHA.test(binding.admission.sha256 ?? ''))) {
     fail('graph_index_binding_invalid');
   }
+  // Optional: the attachment tool configuration (interpreter, converter, formats,
+  // derived cache) by address and digest. Named here, attachment bytes the
+  // adapters hold are turned into text units at preparation; absent, they stay
+  // digests exactly as before.
+  validateAttachmentsRef(binding.attachments);
   extractionBatchLimits(binding.graph?.extraction_batch);
   return validateGraphBinding(binding.graph);
+}
+
+export function validateAttachmentsRef(attachments) {
+  if (attachments === undefined || attachments === null) return null;
+  if (!plain(attachments) || !plain(attachments.tools_config) || !safeStoreRel(attachments.tools_config.path)
+    || !SHA.test(attachments.tools_config.sha256 ?? '')) fail('graph_index_binding_invalid');
+  return attachments;
+}
+
+// The derivation context the binding names, read through the store and pinned by
+// digest, or null when the binding names none. `derive` is the extraction
+// function; a test passes its own so no interpreter is spawned.
+export function derivationFromBinding({ binding, readRaw, derive = deriveAttachment }) {
+  const ref = validateAttachmentsRef(binding?.attachments);
+  if (ref === null) return null;
+  const bytes = readRaw(ref.tools_config.path, 1024 * 1024);
+  if (digest(bytes) !== ref.tools_config.sha256) fail('graph_index_tools_config_mismatch');
+  return derivationContext({ tools: readToolsConfig(bytes), derive });
 }
 
 // How much one worker call may take, from the binding: each bound may only be
@@ -379,16 +403,16 @@ async function withIndexLock(openStore, run) {
 // Sources, roots, grant, graph endpoints and profile all come from the pinned binding.
 // hooks (tests): beforeCommit / afterCommit around the pointer swap.
 export async function updateGraphIndex({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BINDING_FILE, bindingSha256, request,
-  now = new Date().toISOString(), runWorker, hooks = {} } = {}) {
+  now = new Date().toISOString(), runWorker, hooks = {}, derive = deriveAttachment } = {}) {
   request = structuredClone(request);
   const result = await withIndexLock(() => {
     if (!storeToken(request?.generation_id) || !Object.hasOwn(request, 'expected_prior')) fail('graph_index_request_refused');
     return openIndexStore({ io, storeRoot, bindingAddress, bindingSha256, request, operation: 'index' });
-  }, (store, markCommitted) => runUpdate({ store, bindingSha256, request, now, runWorker, hooks, markCommitted }));
+  }, (store, markCommitted) => runUpdate({ store, bindingSha256, request, now, runWorker, hooks, markCommitted, derive }));
   return Object.freeze({ generation_id: request?.generation_id ?? null, ...result });
 }
 
-async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks, markCommitted }) {
+async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks, markCommitted, derive }) {
   if ((store.opened?.sha256 ?? null) !== request.expected_prior) fail('graph_index_prior_mismatch');
   const prior = priorState(store);
   const grantBytes = store.readRaw(store.binding.grant.path, 4 * 1024 * 1024);
@@ -406,8 +430,9 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     if (digest(admissionBytes) !== store.binding.admission.sha256) fail('graph_index_admission_mismatch');
     admission = JSON.parse(admissionBytes);
   }
+  const derivation = derivationFromBinding({ binding: store.binding, readRaw: store.readRaw, derive });
   const prepared = await prepareSourceDocuments({ grant, roots: store.binding.source_roots, now, previousCoverage: prior?.coverage ?? null,
-    admission });
+    admission, derivation });
   if (prepared.grant.project_key !== store.projectKey) fail('graph_index_grant_mismatch');
   // Extraction calls a model with this material: under a real-data admission the
   // binding's model origins must be ones the admission names (loopback needs none).
