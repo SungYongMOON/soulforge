@@ -54,6 +54,12 @@ the actual padded ID width. Opaque IDs are not stripped, hashed or guessed.
 When an opaque ID refers to an already imported recording, the existing provider
 audio URL must contain the exact legacy ID as a path token and the recording
 timestamp must agree. The guarded local audio hash is rechecked before the
+alias is accepted. For audited legacy manifests explicitly marked
+`seconds_reconstructed_from_legacy_manifest` with a seconds-only timestamp,
+agreement means the same UTC second; fractional provider precision is not a
+different recording. Unmarked or fractional stored timestamps still require
+exact instant equality. No rounding across seconds or generic tolerance applies.
+The hash-checked
 existing provider writer adds a `provider_recording_aliases` metadata entry.
 The original ID and source audio are preserved, URLs are never stored, and the
 manifest merge retains its existing lock/fence rules. Required delivery receipts

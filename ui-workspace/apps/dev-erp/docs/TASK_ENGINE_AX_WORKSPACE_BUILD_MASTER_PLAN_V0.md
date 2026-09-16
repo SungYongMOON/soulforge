@@ -7,6 +7,9 @@
 > Alias recognition prevents a provider ID transition from reimporting the same
 > source. No ERP/Task writer, promotion, quota or scheduler authority is added.
 > Runtime rollout and actual import verification are recorded in private receipts.
+> The explicitly audited legacy seconds-only timestamp precision is respected
+> during alias matching; unmarked/fractional timestamps retain exact equality.
+> ID, audio hash, shared-write fences and original manifest identity remain required.
 
 > 2026-09-12 CURRENT (Context Engine 0.10.0, preparation run record and
 > independent validation): a preparation call given a run id now emits its own

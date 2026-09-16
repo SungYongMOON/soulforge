@@ -156,8 +156,17 @@ export function findPlaudLegacyAlias(metadata, audioUrl, existing) {
   let pathname;try { const url=new URL(audioUrl);if(url.protocol!=='https:')return null;pathname=url.pathname; } catch {return null;}
   const ids=new Set((pathname.match(/(?<![a-zA-Z0-9])[a-f0-9]{32,64}(?![a-zA-Z0-9])/giu)??[]).map(id=>id.toLowerCase()));
   const identified=[...existing.entries()].filter(([id])=>ids.has(id));
-  const matches=identified.filter(([,value])=> value.manifest.provider_timestamp?.start_at_raw
-    && parsePlaudProviderTimestamp(value.manifest.provider_timestamp.start_at_raw).date.getTime()===parsePlaudProviderTimestamp(metadata.start_at??metadata.created_at).date.getTime());
+  const matches=identified.filter(([,value])=>{
+    const timestamp=value.manifest.provider_timestamp;
+    if(!timestamp?.start_at_raw)return false;
+    const stored=parsePlaudProviderTimestamp(timestamp.start_at_raw).date.getTime();
+    const observed=parsePlaudProviderTimestamp(metadata.start_at??metadata.created_at).date.getTime();
+    // Audited legacy migrations retained seconds only. Compare that known
+    // precision, never a generic tolerance or rounding into an adjacent second.
+    const secondsOnly=timestamp.raw_precision==='seconds_reconstructed_from_legacy_manifest'
+      && /T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:?\d{2})?$/u.test(timestamp.start_at_raw);
+    return secondsOnly?Math.floor(stored/1000)===Math.floor(observed/1000):stored===observed;
+  });
   if(identified.length&&(identified.length!==1||matches.length!==1))throw Object.assign(new Error('plaud_metadata_identity_mismatch'),{code:'plaud_metadata_identity_mismatch'});
   return matches.length===1?matches[0][1]:null;
 }
