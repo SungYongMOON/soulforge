@@ -1,3 +1,4 @@
+import {readProjectLabel} from './operations-project-label.mjs';
 import { createHash } from 'node:crypto';
 import { lstat, opendir, realpath } from 'node:fs/promises';
 import path from 'node:path';
@@ -142,7 +143,7 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
         const database=match?{generation:text(match.generation_id),loaded_at:stamp(match.loaded_at),nodes:count(match.nodes),chunks:count(match.chunks),embedded_chunks:count(match.embedded_chunks),
           unembedded_chunks:count(match.chunks)!==null&&count(match.embedded_chunks)!==null&&match.chunks>=match.embedded_chunks?match.chunks-match.embedded_chunks:null,
           relationships:Object.fromEntries(Object.entries(match.rule_edges??{}).filter(([k,v])=>/^[A-Z][A-Z0-9_]{0,80}$/u.test(k)&&count(v)!==null))}:null;
-        publicRows.push({project:row.project,database,store:row.manifest?projectManifest(row.manifest,{pointerGeneration:row.pointer?.value.generation_id,dbGeneration:match?.generation_id}):null,
+        publicRows.push({project:row.project,project_name:readProjectLabel(io,row.project,row.binding?.value.approved_fs_key??row.project),database,store:row.manifest?projectManifest(row.manifest,{pointerGeneration:row.pointer?.value.generation_id,dbGeneration:match?.generation_id}):null,
           comparison:db===null?'database_unavailable':!sameDatabase(row)?'database_binding_mismatch':compareGeneration(row.manifest,match,stable),
           reason:row.storeError??null});
       }
@@ -210,7 +211,7 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
       const whole=d.preparation?.state==='ready'&&!d.preparation?.limited&&d.documents?.length===d.documents_total;
       const quality=Object.fromEntries(STAT_KEYS.map(key=>[key,whole&&d.documents.every(doc=>count(doc.stats?.[key])!==null)?d.documents.reduce((sum,doc)=>sum+doc.stats[key],0):null]));
       return {...row,preparation:d.preparation,quality,pending:{state:d.pending_state,count:count(d.pending_total)},last_run:d.runs?.[0]??null,
-        detail_state:d.state,history_scope:d.run_history};
+        detail_state:d.state,history_scope:d.run_history,runs:d.runs??[]};
     }));rows.push(...batch);}
     return {...current,projects:rows,overview:true};
   },async read(project=null){

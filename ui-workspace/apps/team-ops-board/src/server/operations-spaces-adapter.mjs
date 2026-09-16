@@ -1,3 +1,4 @@
+import {readProjectLabel} from './operations-project-label.mjs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { readRootTable, physicalRootFor } from '../../../../../guild_hall/path_registry/src/root_table.mjs';
@@ -51,7 +52,7 @@ export function createOperationsSpacesReader(options = {}) {
     let table;
     try { table=readRootTable(options); } catch { return {state:'unavailable',reason:'허용 경로 표 검증 실패',spaces:[],projects}; }
     const catalog=spaces(project);
-    if(!space) return {state:'ready',spaces:catalog,projects};
+    if(!space){const io=createAliasedStoreIo(table);return {state:'ready',spaces:catalog,projects,project_names:Object.fromEntries(projects.map(p=>[p,readProjectLabel(io,p)]))};}
     const selected=catalog.find(s=>s.id===space);
     if(!selected || relative && !safePreviewRelative(relative)) return {state:'denied',reason:'허용된 데이터 공간 밖입니다.'};
     const location=[selected.relative,relative].filter(Boolean).join('/');
