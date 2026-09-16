@@ -54,7 +54,8 @@ export function projectDocuments(manifest,quality) {
 export function projectSyncReceipt(receipt,project) {
   if(receipt?.schema_version!=='soulforge.context_graph_sync_receipt.v1'||receipt.project_code!==project||!stamp(receipt.ran_at)||receipt.dry!==false||!['SYNCED','UNCHANGED','HOLD','FAILED'].includes(receipt.status))fail('receipt_invalid');
   return {at:receipt.ran_at,status:receipt.status,code:text(receipt.code),generation:text(receipt.database?.generation_id??receipt.steps?.index?.generation_id),
-    verified:receipt.database?.agrees_with_generation===true&&receipt.completed?.verified_by==='database read-back of chunk and node counts',
+    verified:['SYNCED','UNCHANGED'].includes(receipt.status)&&receipt.database?.agrees_with_generation===true&&receipt.completed?.verified_by==='database read-back of chunk and node counts'
+      &&count(receipt.completed?.items)!==null&&receipt.completed.items===receipt.totals?.completed,
     totals:counters(receipt.totals,['in_scope','documents_in_generation','chunks_in_database','completed','pending','failed','added_to_scope','removed_from_scope']),
     index:{status:text(receipt.steps?.index?.status),code:text(receipt.steps?.index?.code),elapsed_ms:count(receipt.steps?.index?.elapsed_ms)},
     database:{loaded_at:stamp(receipt.database?.loaded_at),chunks:count(receipt.database?.chunks),embedded_chunks:count(receipt.database?.embedded_chunks)},
@@ -192,7 +193,7 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
       try{const file=await readStableFile(path.join(directory,'pending.json'));const bytes=file.bytes??file;
         if(bytes.length>RAG_LIMITS.metadataBytes)fail('pending_limit');const ledger=JSON.parse(bytes.toString('utf8'));
         if(ledger.schema_version!=='soulforge.context_graph_sync_pending.v1'||ledger.project_code!==project||!ledger.items||typeof ledger.items!=='object')fail('pending_invalid');
-        const items=Object.values(ledger.items);answer.pending=items.slice(0,100).map(p=>({source_ref:text(p.root_ref),item:text(p.item_id),code:text(p.code),attempts:count(p.attempts),state:text(p.state),last_seen:stamp(p.last_seen)}));
+        const items=Object.values(ledger.items);answer.pending_total=items.length;answer.pending=items.slice(0,100).map(p=>({source_ref:text(p.root_ref),item:text(p.item_id),code:text(p.code),attempts:count(p.attempts),state:text(p.state),last_seen:stamp(p.last_seen)}));
         answer.pending_state=items.length>100?'partial':'ready';
       }catch(error){answer.pending_reason=codeOf(error);}
     }catch(error){answer.run_history={state:'unavailable',reason:codeOf(error)};}
@@ -200,7 +201,19 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
     catch{return {state:'unavailable',reason:'changed_during_read',project};}
     return answer;
   }
-  return {async read(project=null){
+  return {async overview(){
+    const current=await this.read();if(current.state==='unavailable')return current;
+    const rows=[];
+    for(let i=0;i<current.projects.length;i+=3){const batch=await Promise.all(current.projects.slice(i,i+3).map(async row=>{
+      const d=await this.read(row.project);
+      if(d.observed_at!==current.observed_at||(d.preparation?.state==='ready'&&d.preparation.generation!==row.store?.generation))return {...row,preparation:{state:'unavailable',reason:'changed_during_read'},quality:Object.fromEntries(STAT_KEYS.map(key=>[key,null])),pending:{state:'unavailable',count:null},last_run:null,detail_state:'unavailable'};
+      const whole=d.preparation?.state==='ready'&&!d.preparation?.limited&&d.documents?.length===d.documents_total;
+      const quality=Object.fromEntries(STAT_KEYS.map(key=>[key,whole&&d.documents.every(doc=>count(doc.stats?.[key])!==null)?d.documents.reduce((sum,doc)=>sum+doc.stats[key],0):null]));
+      return {...row,preparation:d.preparation,quality,pending:{state:d.pending_state,count:count(d.pending_total)},last_run:d.runs?.[0]??null,
+        detail_state:d.state,history_scope:d.run_history};
+    }));rows.push(...batch);}
+    return {...current,projects:rows,overview:true};
+  },async read(project=null){
     if(project!==null&&!projects.includes(project))return {state:'denied',reason:'project_outside_scope'};
     const current=await base();if(project===null)return current.public;
     if(!current.io)return {state:'unavailable',reason:current.public.reason,project};
@@ -222,10 +235,11 @@ export function createRagOperationsPlugin(options={}) {
     if(!isDirectLoopbackRequest(req)||!/^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/u.test(req.headers.host??'')){res.statusCode=403;res.end();return;}
     if(req.headers['sec-fetch-site']==='cross-site'){res.statusCode=403;res.end('{}');return;}
     if(req.headers.origin){try{if(new URL(req.headers.origin).host!==req.headers.host)throw Error();}catch{res.statusCode=403;res.end('{}');return;}}
-    if([...url.searchParams.keys()].some(k=>k!=='project')||url.searchParams.getAll('project').length>1){res.statusCode=400;res.end('{}');return;}
+    if([...url.searchParams.keys()].some(k=>!['project','view'].includes(k))||url.searchParams.getAll('project').length>1||url.searchParams.getAll('view').length>1){res.statusCode=400;res.end('{}');return;}
     const project=url.searchParams.get('project');
+    const view=url.searchParams.get('view');if(view!==null&&(view!=='overview'||project!==null)){res.statusCode=400;res.end('{}');return;}
     if(project!==null&&!CODE.test(project)){res.statusCode=400;res.end('{}');return;}
-    void reader.read(project).then(result=>{if(result.state==='denied')res.statusCode=403;res.end(JSON.stringify(result));},()=>{res.statusCode=503;res.end('{"state":"unavailable","reason":"read_failed"}');});
+    void (view==='overview'?reader.overview():reader.read(project)).then(result=>{if(result.state==='denied')res.statusCode=403;res.end(JSON.stringify(result));},()=>{res.statusCode=503;res.end('{"state":"unavailable","reason":"read_failed"}');});
   });};
   return {name:'rag-operations-read-only',configureServer:configure,configurePreviewServer:configure};
 }

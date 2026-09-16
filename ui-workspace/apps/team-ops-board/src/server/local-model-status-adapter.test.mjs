@@ -14,11 +14,13 @@ test('model origin refuses credentials, redirects-to-path, arbitrary hosts and p
 test('installed but unloaded Ollama model is not a dead server or a successful inference',async()=>{
   const calls=[];const result=await inspectModelTarget(target,{fetchImpl:async(url,opts)=>{calls.push([new URL(url).pathname,opts.method]);return response(url.endsWith('/api/version')?{version:'test'}:url.endsWith('/api/tags')?{models:[{name:'test:8b',private_field:'never output'}]}:{models:[]});}});
   assert.equal(result.connection,'responding');assert.equal(result.models[0].registered,true);assert.equal(result.models[0].resident,false);assert.equal(result.resident_count,0);assert.equal(result.inference,'not_tested');
+  assert.equal(result.resident_memory_bytes,0);assert.equal(result.accelerator_memory_bytes,0);
   assert.deepEqual(calls.map(c=>c[0]).sort(),['/api/ps','/api/tags','/api/version']);assert.ok(calls.every(c=>c[1]==='GET'));assert.ok(!JSON.stringify(result).includes('private_field'));
 });
 test('refused, malformed and incomplete observations remain distinct; no false zero for residency',async()=>{
   const refused=await inspectModelTarget(target,{fetchImpl:async()=>{throw Object.assign(new Error('private location'),{code:'ECONNREFUSED'});}});assert.equal(refused.connection,'refused');assert.equal(refused.registered_count,null);assert.equal(refused.models[0].resident,null);assert.ok(!JSON.stringify(refused).includes('private location'));
   const malformed=await inspectModelTarget(target,{fetchImpl:async()=>response({wrong:true})});assert.equal(malformed.connection,'unknown');assert.equal(malformed.resident_count,null);
+  assert.equal(malformed.resident_memory_bytes,null);
   const mixed=await inspectModelTarget(target,{fetchImpl:async url=>url.endsWith('/api/ps')?{ok:false,status:503}:response(url.endsWith('/api/tags')?{models:[{name:'test:8b'}]}:{version:'test'})});assert.equal(mixed.connection,'responding');assert.equal(mixed.models[0].resident,null);
 });
 test('OpenAI-compatible model listing does not invent accelerator residency',async()=>{

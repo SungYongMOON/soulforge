@@ -18,18 +18,18 @@ import './operations-console.css';
 type Row=Record<string,any>;
 const CONSOLE_ASSESSMENTS: Record<string, Row> = assessmentDefinitions;
 type Screen='overview'|'system'|'directory'|'usage'|'rag'|'evidence'|'memory';
-type Navigation={screen:Screen;node:string|null};
+type Navigation={screen:Screen;node:string|null;project?:string};
 const screens=[['overview','운영 현황',LayoutDashboard],['system','구조·진단',GitBranch],['directory','데이터 공간',FolderOpen],['usage','사용 이력',Activity],['rag','RAG 처리',Database],['evidence','질문·근거',Search],['memory','기억·맥락',FileCheck2]] as const;
 const at=(v:any)=>v&&Number.isFinite(Date.parse(v))?new Date(v).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'미확인';
 const number=(n:any)=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString('ko-KR'):'미확인';
 const shortName=(label:string)=>label.replaceAll('custody','보관').replace('event 원장','원장');
 function Status({status}:{status:Row}){const Icon=status.key==='ok'?Check:status.key==='pending'?Clock3:status.key==='unknown'?CircleHelp:TriangleAlert;return <span className={`cx-status is-${status.tone}`}><Icon size={13}/>{status.label}{status.key==='pending'&&status.count!==null?` ${status.count}건`:''}</span>;}
-async function readJson(url:string){const r=await fetch(url,{cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw Error('unavailable');return r.json();}
+async function readJson(url:string){const r=await fetch(url,{cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(url.startsWith('/rag-operations')?45000:20000)});if(!r.ok||!r.headers.get('content-type')?.includes('application/json'))throw Error('unavailable');return r.json();}
 function useSources(){
   const [inputs,setInputs]=useState<Row>({}),[failed,setFailed]=useState<string[]>([]),[loading,setLoading]=useState(false),[readAt,setReadAt]=useState<string|null>(null);
   const inFlight=useRef(false),mounted=useRef(true);
   const load=useCallback(async()=>{if(inFlight.current)return;inFlight.current=true;setLoading(true);
-    const entries=[['federation','/topology-federation.snapshot.json'],['health','/operations-health.snapshot.json'],['recovery','/topology-recovery.snapshot.json'],['graph','/operations-graph-receipts.json'],['host','/host-stats.snapshot.json'],['limits','/provider-limits.snapshot.json'],['codexQuota','/codex-live-limits.json'],['agQuota','/antigravity-quota.snapshot.json'],['runtime','/agent-runtime.snapshot.json'],['threads','/codex-threads.snapshot.json'],['recent','/operations-recent.json'],['sources','/operations-sources.json'],['models','/local-model-status.json']];
+    const entries=[['federation','/topology-federation.snapshot.json'],['health','/operations-health.snapshot.json'],['recovery','/topology-recovery.snapshot.json'],['graph','/operations-graph-receipts.json'],['host','/host-stats.snapshot.json'],['limits','/provider-limits.snapshot.json'],['codexQuota','/codex-live-limits.json'],['agQuota','/antigravity-quota.snapshot.json'],['runtime','/agent-runtime.snapshot.json'],['threads','/codex-threads.snapshot.json'],['recent','/operations-recent.json'],['sources','/operations-sources.json'],['models','/local-model-status.json'],['rag','/rag-operations.json?view=overview'],['incidents','/operations-incidents.json']];
     await Promise.allSettled([...entries.map(async([key,url])=>{
       try{const value=await readJson(url);if(value.state==='unavailable'||value.status==='unavailable')throw Error('unavailable');if(mounted.current){setInputs(old=>({...old,[key]:value}));setFailed(old=>old.filter(k=>k!==key));}}
       catch{if(mounted.current)setFailed(old=>[...new Set([...old,key])]);}
@@ -84,7 +84,8 @@ function UsageView({usage,failed}:{usage:Row|undefined;failed:boolean}){
 
 function ConsoleApp(){
   const {inputs,failed,loading,readAt,load}=useSources();
-  const [nav,setNav]=useState<Navigation>(()=>({screen:(screens.some(s=>s[0]===location.hash.slice(1))?location.hash.slice(1):'overview') as Screen,node:null})),[inspector,setInspector]=useState(false),[theme,setTheme]=useState('light');
+  const [nav,setNav]=useState<Navigation>(()=>({screen:(screens.some(s=>s[0]===location.hash.slice(1))?location.hash.slice(1):'overview') as Screen,node:null})),[inspector,setInspector]=useState(false),[theme,setTheme]=useState(()=>{try{return localStorage.getItem('soulforge.operations.theme')==='light'?'light':'dark';}catch{return 'dark';}});
+  useEffect(()=>{try{localStorage.setItem('soulforge.operations.theme',theme);}catch{}},[theme]);
   const [past,setPast]=useState<Navigation[]>([]),scrollPositions=useRef<Row>({}),main=useRef<HTMLElement>(null),lastTrigger=useRef<HTMLElement|null>(null);
   const model=useMemo(()=>buildConsoleView(inputs,failed),[inputs,failed]);
   const selected=model.nodes.find((n:Row)=>n.id===nav.node)??model.attention[0]??model.nodes[0];
@@ -99,7 +100,7 @@ function ConsoleApp(){
       <div hidden={nav.screen!=='system'}><div className="vd-system-models"><ServerStrip data={inputs.models} failed={failed.includes('models')}/></div>{nav.screen==='system'&&<OperationsSystem model={model} inputs={inputs} selected={selected} onSelect={id=>go({screen:'system',node:id})} go={go} inspect={()=>{lastTrigger.current=document.activeElement as HTMLElement;setInspector(true);}}/>}</div>
       <div hidden={nav.screen!=='directory'}><DataSpaces active={nav.screen==='directory'}/></div>
       <div hidden={nav.screen!=='usage'}><QuotaStrip inputs={inputs} failed={failed}/><UsageView usage={inputs.usage} failed={failed.includes('usage')}/></div>
-      <div hidden={nav.screen!=='rag'}>{nav.screen==='rag'&&<iframe className="ow-embedded-rag" title="RAG 실제 처리 상태" src="/rag-operations.html?embedded=1"/>}</div>
+      <div hidden={nav.screen!=='rag'}>{nav.screen==='rag'&&<iframe className="ow-embedded-rag" title="RAG 실제 처리 상태" src={`/rag-operations.html?embedded=1${nav.project?`&project=${encodeURIComponent(nav.project)}`:''}`}/>}</div>
       <div hidden={nav.screen!=='evidence'}><EvidenceSearch active={nav.screen==='evidence'}/></div>
       <div hidden={nav.screen!=='memory'}><DataSpaces active={nav.screen==='memory'} memory/></div>
     </main></div>{inspector&&nav.screen==='system'&&selected&&<Inspector node={selected} close={closeInspector} folder={()=>go({screen:'directory',node:selected.id})}/>}</div>;

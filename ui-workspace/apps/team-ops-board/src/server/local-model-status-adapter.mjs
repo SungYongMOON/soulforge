@@ -48,6 +48,8 @@ export async function inspectModelTarget(target,{fetchImpl=createModelFetch(targ
     observed_at:checked,elapsed_ms:Math.max(...[health,listing,resident].filter(Boolean).map(r=>r.elapsed_ms)),
     registration_state:listValid?'observed':'unknown',resident_state:residentValid?'observed':'unknown',
     registered_count:listValid?raw.length:null,resident_count:residentValid?resident.value.models.length:null,
+    resident_memory_bytes:residentValid&&loaded.length===resident.value.models.length&&loaded.every(m=>count(m.size)!==null)?loaded.reduce((sum,m)=>sum+m.size,0):null,
+    accelerator_memory_bytes:residentValid&&loaded.length===resident.value.models.length&&loaded.every(m=>count(m.size_vram)!==null)?loaded.reduce((sum,m)=>sum+m.size_vram,0):null,
     limited:listValid&&raw.length>100||residentValid&&resident.value.models.length>100,
     models:rows.slice(0,100).map(r=>{const active=loaded.find(m=>m.name===r.model||m.model===r.model);return {model:r.model,roles:r.roles,
       registered:listValid?(available.includes(r.model)?true:raw.length<=100?false:null):null,

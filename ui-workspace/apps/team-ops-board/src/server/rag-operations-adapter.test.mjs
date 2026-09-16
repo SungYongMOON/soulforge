@@ -37,6 +37,13 @@ test('document stats preserve missing counts and require coverage evidence for p
   assert.equal(projectDocuments(m,q)[0].preparation,'prepared');
   assert.equal(JSON.stringify(r).includes('MUST_NOT_SURFACE'),false);
 });
+
+test('verified reflection count requires matching receipt counts and a successful execution status',()=>{
+  const value={schema_version:'soulforge.context_graph_sync_receipt.v1',project_code:'P26-001',ran_at:'2026-09-15T00:00:00Z',dry:false,status:'SYNCED',database:{agrees_with_generation:true},completed:{verified_by:'database read-back of chunk and node counts',items:2},totals:{completed:2}};
+  assert.equal(projectSyncReceipt(value,'P26-001').verified,true);
+  assert.equal(projectSyncReceipt({...value,status:'HOLD'},'P26-001').verified,false);
+  assert.equal(projectSyncReceipt({...value,totals:{completed:3}},'P26-001').verified,false);
+});
 test('sync receipt needs project and real-run binding and never mistakes a stored count for live DB',()=>{
   const sample={schema_version:'soulforge.context_graph_sync_receipt.v1',project_code:'P26-001',ran_at:'2026-09-15T00:00:00Z',dry:false,status:'HOLD',totals:{pending:3},raw:'MUST_NOT_SURFACE'};
   const r=projectSyncReceipt(sample,'P26-001');assert.equal(r.verified,false);assert.equal(r.totals.completed,null);assert.equal(r.totals.pending,3);
@@ -95,6 +102,7 @@ test('real file boundary pins current manifest, reuses DB cache and rejects root
   assert.equal((await r.read()).projects[0].comparison,'counts_match');
   const d=await r.read(f.project);assert.equal(d.preparation.state,'ready');assert.equal(d.documents[0].preparation,'prepared');
   assert.equal(d.run_history.state,'unavailable');assert.equal(calls,1);
+  const summary=await r.overview();assert.equal(summary.projects[0].preparation.counts.prepared,1);assert.equal(summary.projects[0].quality.duplicate_ids,null);assert.equal(summary.projects[0].pending.count,null);assert.equal('documents' in summary.projects[0],false);assert.equal(calls,1);
   await writeFile(f.tablePath,'{}');assert.equal((await r.read()).state,'unavailable');assert.equal(calls,1);
 });
 test('a pointer changed during DB read cannot be called a matched current generation',async t=>{

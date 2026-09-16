@@ -16,7 +16,7 @@ function Empty({children}:{children:React.ReactNode}){return <div className="rag
 function Stat({title,value,note}:{title:string;value:any;note?:string}){return <div className="rag-stat"><span>{title}</span><strong>{value}</strong>{note&&<small>{note}</small>}</div>;}
 
 function App(){
-  const [snapshot,setSnapshot]=useState<Row|null>(null),[detail,setDetail]=useState<Row|null>(null),[project,setProject]=useState('');
+  const [snapshot,setSnapshot]=useState<Row|null>(null),[detail,setDetail]=useState<Row|null>(null),[project,setProject]=useState(new URLSearchParams(location.search).get('project')??'');
   const [tab,setTab]=useState('documents'),[loading,setLoading]=useState(false),[detailLoading,setDetailLoading]=useState(false),[error,setError]=useState('');
   const [source,setSource]=useState('all'),[query,setQuery]=useState(''),[selected,setSelected]=useState<Row|null>(null),[generation,setGeneration]=useState<Row|null>(null);
   const requestId=useRef(0),inFlight=useRef(false);

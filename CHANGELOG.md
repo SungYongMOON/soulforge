@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-09-16 - 운영 판단과 처리 단계 중심으로 현황 재배치
+
+- Revision: 이 항목을 포함한 커밋. 한도와 사용 추이를 같은 상단에 배치하고 가용 화면 폭을
+  사용한다. 단일 주의 건수 대신 확인 필요·진행 대기·과거 이력과 검사 범위를 함께 보여준다.
+- 기존 Neo4j·전처리·실행 영수증 reader를 재사용해 과제별 문서·청크·임베딩·대기·실패·잔여·
+  정합성 수치를 기본 화면에 연결했다. 과제 선택은 해당 RAG 상세로 이어진다.
+- 로컬 모델 접속·적재 메모리와 선택 판본에 기록된 호출·토큰을 구분한다. 계측되지 않은
+  서버 전체 사용량·처리율은 추정하지 않으며 새 추론이나 임베딩 호출은 없다.
+- 최신 메일 실행의 보류와 과거 실패 장부를 분리한다. 과거 기록은 삭제하거나 재전달하지 않는다.
+- 운영 영향: UI·읽기 projection 변경. 사용자 요청에 따른 정확한 Linear 고아 잠금의 보존·
+  복구 및 실제 재수집 검증은 private local-recovery에 기록한다. 예약 정의·DB·모델 기동 변경 없음.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/operations-control.tsx`,
+  `src/core/operations-overview-view.mjs`, `src/server/operations-incidents.mjs`,
+  `src/server/rag-operations-adapter.mjs`.
+
 ## 2026-09-16 - 메일 자료 차트를 최근 실행 한 번에서 기간 이력 집계로 수정
 
 - Revision: 이 항목을 포함한 커밋. 14일 차트에 최신 실행 1회의 신규 메일만 표시하던
