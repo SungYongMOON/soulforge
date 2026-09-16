@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-09-16 - 운영 콘솔 한도 조회와 원천별 기록·진단 원인 보완
+
+- Revision: 이 항목을 포함한 커밋. Codex 잔여 한도는 공식 App Server의
+  `account/rateLimits/read`를 제한된 읽기 요청으로 조회하고 60초 캐시를 사용한다.
+  유휴 세션 기록만 읽어 현재 한도가 사라지던 문제를 보완했다.
+- Antigravity Gemini 공유 한도를 첫 줄에 표시하고, 모델 서버 접속·응답 시간·적재 상태와
+  에이전트 활동·RAG 반영 이력을 구분했다. API 응답을 추론 성공으로 표시하지 않는다.
+- 기존 PLAUD 원장 외 Slack·Linear·메일의 메타데이터와 제한된 DOC 폴더 목록을 연결했다.
+  서로 다른 시각·단위는 합산하지 않으며 미조회 날짜는 0으로 만들지 않는다.
+- 구조·진단에서 현재 원인·확인된 영향·자동 조치 대상 여부를 지도 앞에 제시한다.
+  과거 복구 실패를 현재 원인으로 쓰지 않으며 재조회는 복구 실행과 구분한다.
+- 운영 영향: 검토용 UI와 최소 읽기 adapter 변경. 운영 DB·수집기·복구 정책·예약작업·모델
+  실행 상태는 변경하지 않는다. 계정 조회는 추론·LLM 호출을 수행하지 않는다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/operations-dashboard.tsx`,
+  `src/operations-issues.tsx`, `src/operations-source-panels.tsx`,
+  `src/server/codex-quota-read.mjs`, `src/server/source-observations.mjs`.
+
 ## 2026-09-16 - 운영 현황을 상태·추세 중심으로 재구성
 
 - Revision: 이 항목을 포함한 커밋. 문장형 안내와 큰 설명 카드를 짧은 잔여 한도·주의 목록,

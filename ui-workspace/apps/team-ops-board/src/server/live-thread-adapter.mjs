@@ -177,7 +177,7 @@ function directWindowsCodexSpawnSpec(command, args) {
   return null;
 }
 
-function defaultSpawnSpec() {
+export function defaultSpawnSpec() {
   const configuredCommand = String(process.env.TEAM_OPS_BOARD_CODEX_APP_SERVER_COMMAND || "").trim();
   const command = configuredCommand || "codex";
   const args = ["app-server"];

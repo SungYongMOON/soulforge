@@ -6,14 +6,15 @@ const fresh=(value,now)=>Number.isFinite(Date.parse(value??''))&&now-Date.parse(
 const windowLabel=minutes=>minutes===300?'5시간':minutes===10080?'주간':Number.isFinite(minutes)?`${minutes}분`:'기간 미확인';
 
 export function dashboardQuotas(inputs={},failed=[],now=Date.now()){
-  const codex=inputs.limits?.codex,slots=new Map(),meter=failed.includes('usage')?null:inputs.usage?.history?.rate_limit;
+  const direct=inputs.codexQuota?.state==='ready'&&!failed.includes('codexQuota');
+  const codex=direct?inputs.codexQuota.codex:inputs.limits?.codex,slots=new Map(),meter=failed.includes('usage')?null:inputs.usage?.history?.rate_limit;
   for(const item of [codex?.primary,codex?.secondary]){
     if(!item||!validPercent(item.used_percent))continue;
     const live={...item,observed_at:codex.observed_at};
     slots.set(item.window_minutes,selectCodexRateLimitObservation({live,meter:meter?.window_minutes===item.window_minutes?meter:null,nowMs:now}));
   }
   if(meter&&validPercent(meter.used_percent)&&!slots.has(meter.window_minutes)&&(slots.size===0||fresh(meter.observed_at,now)&&meter.resets_at_epoch_s*1000>now))slots.set(meter.window_minutes,meter);
-  const rows=[...slots.values()].map(w=>{const reset=iso(w.resets_at_epoch_s*1000);return {id:`codex-${w.window_minutes}`,provider:'Codex',window:windowLabel(w.window_minutes),remaining:100-w.used_percent,observed_at:w.observed_at,reset,current:(!failed.includes('limits')||w===meter)&&fresh(w.observed_at,now)&&Date.parse(reset)>now};});
+  const rows=[...slots.values()].map(w=>{const reset=iso(w.resets_at_epoch_s*1000);return {id:`codex-${w.window_minutes}`,provider:'Codex',window:windowLabel(w.window_minutes),remaining:100-w.used_percent,observed_at:w.observed_at,reset,current:(direct||!failed.includes('limits')||w===meter)&&fresh(w.observed_at,now)&&Date.parse(reset)>now};});
   if(!rows.length)rows.push({id:'codex-unavailable',provider:'Codex',window:'한도',remaining:null,observed_at:null,reset:null,current:false});
   const claude=buildClaudeQuotaPresentation(inputs.limits);
   for(const [key,window,provider] of [['five_hour','5시간','Claude'],['seven_day','주간','Claude'],['fable_weekly','주간','Claude Fable']]){

@@ -1,0 +1,7 @@
+import {operationIssue} from './core/operations-issues.mjs';
+import {when} from './operations-workspace';
+type Row=Record<string,any>;
+export function OperationsIssues({model,select}:{model:Row;select:(id:string)=>void}){
+  const rows=model.attention.filter((n:Row)=>n.status.key!=='unknown').map(operationIssue);
+  return <section className="vd-issues" aria-label="진단 원인과 복구 상태"><header><h2>확인할 항목</h2><span>이상 {model.healthAvailable?rows.filter((r:Row)=>r.kind==='problem').length:'—'} · 보류 {model.healthAvailable?rows.filter((r:Row)=>r.kind==='pending').length:'—'}</span><small>{model.healthAvailable?`검사 ${when(model.observedAt)}`:'검사 근거 조회 미확인'}</small></header>{rows.map((r:Row)=><article key={r.id} className={`vd-issue ${r.kind==='problem'?'red':'amber'}`}><div className="vd-issue-heading"><span className={`vd-dot ${r.kind==='problem'?'red':'amber'}`}/><strong>{r.label}</strong><span className="vd-source-pill">{r.kind==='pending'?'보류':'이상 신호'}</span><button onClick={()=>select(r.id)}>근거·이력 ↗</button></div><h3>{r.cause}</h3><p>{r.impact}</p><div className="vd-issue-repair"><span>{r.recovery}</span><small>{r.verifiedAt?`복구 검증 ${when(r.verifiedAt)}`:r.attemptedAt?`조치 ${when(r.attemptedAt)} · 복구 미검증`:'최근 자동 조치·복구 검증 미확인'}</small></div><details><summary>다음 확인</summary><p>{r.next}</p><p>자동 복구 범위는 기존 정책을 따릅니다. 이 화면의 재조회는 복구 명령을 실행하지 않습니다.</p></details></article>)}{!rows.length&&<p className="vd-muted">{model.healthAvailable?'제공된 검사 범위에 이상·보류 신호 없음':'새 검사 결과를 읽지 못했습니다.'}</p>}</section>;
+}

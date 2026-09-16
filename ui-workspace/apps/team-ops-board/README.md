@@ -29,6 +29,32 @@ worker operation을 지정할 수 없다. 일반 운영 `/`의 배포나 데이�
 
 ### 시각 중심 운영 현황
 
+검토 콘솔의 Codex 한도는 설치된 CLI의 공식 `account/rateLimits/read`를 사용한다
+([App Server 계약](https://learn.chatgpt.com/docs/app-server)). 조회 시 짧게 기동한 helper에
+initialize/read만 보내며 12초·1MiB 응답 제한, 60초 캐시·동시 요청 병합을 적용한다.
+thread/turn/login/reset 또는 모델 호출을 만들지 않는다. `/codex-live-limits.json`은
+loopback·같은 Origin GET만 허용하고 한도 창·소진율·초기화 시각만 투영한다.
+기존 provider snapshot은 별도 fallback이며 오래된 관측은 현재 한도로 표시하지 않는다.
+Antigravity의 Gemini 한도는 공유 그룹 값이며 Flash 개별 한도로 해석하지 않는다.
+
+`/operations-sources.json`은 pinned Path Registry와 기존 파일 접근 경계를 재사용한다.
+새 수집기는 없으며 기존 화면 갱신에 맞춰 60초 캐시를 사용한다. 원천마다 서로 다른
+기록을 탭으로 표시하고 전체 수집량으로 합산하지 않는다.
+
+| 원천 | 투영 근거 | 표시 기준·제한 |
+| --- | --- | --- |
+| PLAUD | 기존 recording index | 등록일·현재 라이브러리 |
+| Slack | 허용 과제별 continuous state | 메시지 작성일·중복 제거·원문/actor/token 제외 |
+| Linear | 기존 object index | 현재 이슈 최종 수정일·전체 변경 이력 아님 |
+| 메일 | health가 가리키는 마지막 continuous receipt | 최신 실행 1회 신규 건수·미확인 건수는 null |
+| DOC | team_files의 보호된 디렉터리 reader | 수정일·최대 32폴더/깊이 3/폴더당 200항목·파일 본문 미조회 |
+
+원장 JSON은 파일당 8MiB를 넘으면 읽지 않는다. 부분 범위의 빈 날짜는 0이 아닌 미확인이다.
+최근 기록은 원천마다 1건씩 보여 특정 원천이 다른 원천을 가리지 않게 한다.
+구조·진단은 현재 health reason을 원인으로 사용하고 recovery history와 구분한다.
+자동 조치 비대상·조회 실패·실행 시도·사후 검증은 서로 다른 상태로 남긴다.
+검사 결과 다시 읽기는 저장된 검사의 재조회이며 복구나 새 검사를 실행하지 않는다.
+
 첫 화면은 문장형 안내/큰 빈 카드 대신 창별 잔여 한도, 짧은 주의 목록, 기존 7일·30일
 모델/제공자별 사용 추이, PLAUD 등록일별 막대, 모델 상태 행과 최근 자료로 구성한다.
 한도·날짜·모델·자료를 선택하면 해당 근거가 옆에 열리며, 지도는 모델 상세 목록보다 먼저 보인다.

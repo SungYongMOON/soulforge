@@ -52,6 +52,10 @@ const STATE_LABELS = Object.freeze({
 });
 
 const REASON_LABELS = Object.freeze({
+  lease_unavailable: "실행 잠금 확보 실패 · 점유자·잔여 잠금 여부 확인 필요",
+  plaud_catalog_malformed_row: "PLAUD 목록 항목 형식 오류",
+  plaud_collection_failed: "PLAUD 수집 실행 실패 기록",
+  plaud_custody_incomplete: "PLAUD 원본 보관 완료 근거 부족",
   source_too_large: "감시 기록 읽기 한도 초과 · 프로그램 정지 여부 미확인",
   source_invalid_json: "최근 감시 기록의 형식을 읽을 수 없음",
   source_changed_during_read: "읽는 중 감시 기록 변경 · 재확인 필요",

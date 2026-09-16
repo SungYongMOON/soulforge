@@ -13,11 +13,13 @@ import { createOperationsPreviewReadPlugin } from './src/server/operations-previ
 import { createRagOperationsPlugin } from './src/server/rag-operations-adapter.mjs';
 import { createOperationsSpacesPlugin } from './src/server/operations-spaces-adapter.mjs';
 import { createLocalModelStatusPlugin } from './src/server/local-model-status-adapter.mjs';
+import { createCodexQuotaPlugin } from './src/server/codex-quota-read.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const stateRoot = resolveSoulforgeStateRoot(process.env, () => path.resolve(root, '../../../guild_hall/state'));
 // Dedicated preview: only existing snapshot readers. No enrollment, collector,
-// scheduled probe, scheduler, quota refresh or repair companion. Model status
+// scheduled probe, scheduler or repair companion. Codex quota uses a bounded
+// account/rateLimits/read RPC on demand with a 60-second cache. Model status
 // uses fixed metadata GETs only. RAG uses the existing
 // local database inspector only (no embedding, retrieval/model call or writer).
 export default defineConfig({
@@ -25,7 +27,7 @@ export default defineConfig({
   plugins: [react(), createLocalModelStatusPlugin({tablePath:process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE,expectedSha256:process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256,projects:(process.env.TEAM_OPS_GRAPH_PROJECTS||'').split(',').filter(Boolean),remoteLabel:process.env.TEAM_OPS_REMOTE_MODEL_LABEL,localTargets:[...(process.env.TEAM_OPS_LOCAL_MODEL_HOST?[{id:'gpu-response',label:'GPU PC · 응답 모델',origin:process.env.TEAM_OPS_LOCAL_MODEL_HOST,transport:'openai_chat'}]:[]),...(process.env.TEAM_OPS_LOCAL_OLLAMA_HOST?[{id:'local-ollama',label:'이 PC · 별도 Ollama',origin:process.env.TEAM_OPS_LOCAL_OLLAMA_HOST,transport:'ollama'}]:[])]}), createOperationsSpacesPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256, projects: (process.env.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean) }), createTopologyAdapterPlugin({ readOnlyPilot: true, snapshotPath: '/operations-health.snapshot.json' }), createTopologyFederationAdapterPlugin(),
     createRagOperationsPlugin({ tablePath: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE, expectedSha256: process.env.TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256,
       receiptsRoot: process.env.TEAM_OPS_GRAPH_RECEIPTS_ROOT, projects: (process.env.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean) }),
-    createTopologyAdapterPlugin({ readOnlyPilot: true }), createOperationsPreviewReadPlugin(),
+    createTopologyAdapterPlugin({ readOnlyPilot: true }), createOperationsPreviewReadPlugin(), createCodexQuotaPlugin(),
     createTopologyRecoveryAdapterPlugin({ evidenceRoot: path.join(stateRoot, 'operations/watchtower/external_evidence') }),
     createAiUsageAdapterPlugin({ registryPath: path.join(stateRoot, 'operations/team_ops_board/thread_visibility.v1.json'),
       usageMeterStateRoot: path.join(stateRoot, 'operations/ai_usage_meter') }),

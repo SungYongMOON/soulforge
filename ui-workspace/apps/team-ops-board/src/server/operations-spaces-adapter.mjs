@@ -9,6 +9,7 @@ import { chargeInvestigation } from '../../../../../guild_hall/context_engine/sr
 import { createOperationsDirectoryReader } from './operations-directory-adapter.mjs';
 import { isDirectLoopbackRequest } from './loopback-request-guard.mjs';
 import {registrationTimeline} from '../core/operations-dashboard-view.mjs';
+import {createSourceObservationsReader} from './source-observations.mjs';
 
 const PROJECT = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/u;
 const PROTECTED = /(?:^\.|secret|credential|password|token|cookie|session|auth|^config|^binding|^settings|\.pem$|\.key$)/iu;
@@ -116,9 +117,10 @@ export function createOperationsSpacesReader(options = {}) {
 
 export function createOperationsSpacesPlugin(options={}) {
   const reader=createOperationsSpacesReader(options);
+  const sources=createSourceObservationsReader(options);
   const configure=server=>{server.middlewares.use((req,res,next)=>{
     let url;try{url=new URL(req.url||'/','http://127.0.0.1');}catch{res.statusCode=400;res.end();return;}
-    if(!['/operations-spaces.json','/operations-file.json','/operations-recent.json','/operations-query.json'].includes(url.pathname))return next();
+    if(!['/operations-spaces.json','/operations-file.json','/operations-recent.json','/operations-sources.json','/operations-query.json'].includes(url.pathname))return next();
     const query=url.pathname==='/operations-query.json';
     if(req.method!==(query?'POST':'GET')){res.statusCode=405;res.end();return;}
     let origin=true;try{if(req.headers.origin)origin=new URL(req.headers.origin).host===req.headers.host;}catch{origin=false;}
@@ -130,7 +132,7 @@ export function createOperationsSpacesPlugin(options={}) {
       void(async()=>{let text='';for await(const chunk of req){text+=chunk;if(Buffer.byteLength(text)>8192)throw Error('limit');}return reader.query(JSON.parse(text));})().then(send,()=>{res.statusCode=400;send({state:'denied'});});return;
     }
     if([...url.searchParams.keys()].some(k=>!['space','project','relative'].includes(k))){res.statusCode=400;send({state:'denied'});return;}
-    const operation=url.pathname==='/operations-recent.json'?reader.recent():reader.read({...Object.fromEntries(url.searchParams),file:url.pathname==='/operations-file.json'});
+    const operation=url.pathname==='/operations-sources.json'?sources.read():url.pathname==='/operations-recent.json'?reader.recent():reader.read({...Object.fromEntries(url.searchParams),file:url.pathname==='/operations-file.json'});
     void operation.then(send,()=>{res.statusCode=503;send({state:'unavailable'});});
   });};
   return {name:'operations-spaces-read-only',configureServer:configure,configurePreviewServer:configure};
