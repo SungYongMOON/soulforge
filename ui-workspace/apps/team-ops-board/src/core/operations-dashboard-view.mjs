@@ -28,7 +28,7 @@ export function dashboardQuotas(inputs={},failed=[],now=Date.now()){
 }
 
 const kstDay=ms=>new Date(ms+9*3600000).toISOString().slice(0,10);
-export function registrationTimeline(data,days=14){
+export function registrationTimeline(data,days=30){
   const asOf=Date.parse(data?.generated_at??'');
   if(!Number.isFinite(asOf)||!Array.isArray(data?.recordings)||!Number.isInteger(days)||days<1||days>30)return {state:'unavailable',daily:[],reason:'등록 원장 시각 미확인'};
   const end=kstDay(asOf),endMs=Date.parse(`${end}T00:00:00+09:00`),ids=new Map();

@@ -7,6 +7,12 @@ test('all measured run deltas sum across KST days, excluding duplicate runs and 
   const a=projectMailRun(receipt('a','2026-09-14T16:00:00Z',7),'a',observed),b=projectMailRun(receipt('b','2026-09-15T01:00:00Z',3),'b',observed),c=projectMailRun(receipt('c','2026-09-16T01:00:00Z',2),'c',observed);
   const value=aggregateMailRuns([a,b,c,a],observed);assert.equal(value.timeline.total,12);assert.equal(value.timeline.daily.find(d=>d.date==='2026-09-15').registrations,10);assert.equal(value.timeline.daily.at(-1).registrations,2);assert.equal(value.coverage.duplicate_runs,1);assert.equal(value.rows[0].value,2);assert.equal(value.timeline.records.length,2);
 });
+
+test('30-day view retains older observations and hourly drill-down reconciles without duplicate runs',()=>{
+ const older=projectMailRun(receipt('older','2026-08-20T01:00:00Z',7),'older',observed),today=projectMailRun(receipt('today','2026-09-16T01:05:00Z',3),'today',observed);
+ const r=aggregateMailRuns([older,today,today],observed,{},30);
+ assert.equal(r.timeline.daily.length,30);assert.equal(r.timeline.total,10);assert.equal(r.timeline.hourly[0].registrations,3);assert.equal(r.timeline.hourly_records[0].value,3);assert.equal(r.timeline.hourly_records[0].at,'2026-09-16T01:00:00.000Z');
+});
 test('unmeasured/failed runs and missing days are not zero, but an observed zero remains zero',()=>{
   const missing=projectMailRun(receipt('a','2026-09-14T01:00:00Z',9,{write_count_known:false}),'a',observed),failed=projectMailRun(receipt('b','2026-09-15T01:00:00Z',8,{status:'failed'}),'b',observed),zero=projectMailRun(receipt('c','2026-09-16T01:00:00Z',0),'c',observed);
   const value=aggregateMailRuns([missing,failed,zero],observed);assert.equal(value.timeline.total,0);assert.equal(value.timeline.daily.at(-3).registrations,null);assert.equal(value.timeline.daily.at(-2).failed_runs,1);assert.equal(value.timeline.daily.at(-1).registrations,0);assert.equal(value.state,'partial');

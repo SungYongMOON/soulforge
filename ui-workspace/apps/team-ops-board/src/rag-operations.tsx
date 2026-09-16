@@ -50,7 +50,7 @@ function App(){
         <div className="rag-inline-stats"><span>DB 청크 <b>{n(db?.chunks)}</b></span><span>DB 임베딩 <b>{n(db?.embedded_chunks)}</b></span><span>임베딩 없음 <b>{n(db?.unembedded_chunks)}</b></span><span>저장 문서 <b>{n(store?.counts?.documents)}</b></span></div>
         <p className="rag-footnote">판본·청크 수 대조입니다. 전처리 품질·검색 성공·답변 품질을 보증하지 않습니다. 다른 작업이 갱신 중이면 조회값 사이에 시차가 있을 수 있습니다.</p>
       </section>
-      {detail&&<RagTrend projects={[{project,runs:detail.runs,history_scope:detail.run_history}]} expected={1}/>}
+      {detail&&<RagTrend projects={[{project,runs:detail.runs,history_scope:detail.run_history}]} expected={1} asOf={snapshot?.observed_at}/>}
       <nav className="rag-tabs" aria-label="RAG 기록 보기">{[['documents','자료·청크 상태',FileText],['generations','임베딩·판본 이력',Layers],['runs','처리 실행 이력',History]].map(([id,label,Icon]:any)=><button key={id} className={tab===id?'selected':''} aria-pressed={tab===id} onClick={()=>{setTab(id);setSelected(null);setGeneration(null);}}><Icon size={16}/>{label}</button>)}</nav>
       {detailLoading?<Empty>과제의 실제 기록을 읽고 있습니다.</Empty>:!displayDetail?<Empty>과제 기록을 확인하지 못했습니다. {detail?.reason??''}</Empty>:<>
         {tab==='documents'&&<section className="rag-panel"><header className="rag-section-title"><div><h2>문서별 준비·청크 기록</h2><p>현재 선택 판본의 메타데이터 · {n(detail?.documents_total)}개 중 {rows.length}개 표시</p></div><Badge tone={metadataStatus==='ready'?'ok':'warn'}>{metadataStatus==='ready'?'준비 근거 연결':'준비 근거 미확인'}</Badge></header>

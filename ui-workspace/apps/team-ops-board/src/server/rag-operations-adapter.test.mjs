@@ -95,7 +95,7 @@ async function fixture(t){
   await write(`control_root/project-bindings/${project}/graph_index_binding.unified.json`,{project_ref,approved_fs_key:project,graph:{worker:{},neo4j:{uri:'bolt://127.0.0.1:7687',user:'synthetic',password_file:'not-used-by-stub'}}});
   const tablePath=path.join(base,'roots.json'),bytes=JSON.stringify({schema_version:'soulforge.physical_root_table.v0',roots:{data_root:data,control_root:control}});await writeFile(tablePath,bytes);
   const db={status:'ok',projects:[{project_key:projectKey,generation_id:'test-002',chunks:2,embedded_chunks:2,nodes:3}],total_nodes:3};
-  return {project,write,pointer,pointerAddress,tablePath,expectedSha256:digest(bytes),receiptsRoot,projects:[project],db};
+  return {project,write,pointer,pointerAddress,tablePath,expectedSha256:digest(bytes),receiptsRoot,projects:[project],db,manifest:m,now:()=>Date.parse('2026-09-16T10:00:00Z')};
 }
 test('real file boundary pins current manifest, reuses DB cache and rejects root-table drift',async t=>{
   const f=await fixture(t);let calls=0;const r=createRagOperationsReader({...f,inspect:async()=>{calls++;return f.db;}});
@@ -104,6 +104,16 @@ test('real file boundary pins current manifest, reuses DB cache and rejects root
   assert.equal(d.run_history.state,'unavailable');assert.equal(calls,1);
   const summary=await r.overview();assert.equal(summary.projects[0].preparation.counts.prepared,1);assert.equal(summary.projects[0].quality.duplicate_ids,null);assert.equal(summary.projects[0].pending.count,null);assert.equal('documents' in summary.projects[0],false);assert.equal(calls,1);
   await writeFile(f.tablePath,'{}');assert.equal((await r.read()).state,'unavailable');assert.equal(calls,1);
+});
+
+test('cohort links follow hash-pinned carried documents within the same project and reject mismatched bytes',async t=>{
+  const f=await fixture(t),m=structuredClone(f.manifest),doc=m.documents[0],revision=`sha256:${'d'.repeat(64)}`;
+  doc.source_kind='linear';doc.root_ref='linear.synthetic';doc.composite_revision_sha256=revision;doc.stats.embedded_chunks=doc.stats.chunks;
+  const prepared={schema_version:'soulforge.context_source_document.v1',project_key:m.project_key,doc_key:doc.doc_key,source_kind:doc.source_kind,root_ref:doc.root_ref,item_id:doc.item_id,composite_revision_sha256:revision,primary_revision_sha256:revision,units:[],raw:'SYNTHETIC_PAYLOAD_MUST_NOT_RETURN'};
+  doc.document=await f.write(`data_root/20_PROJECTS/${f.project}/20_문서검색/본문·표_추출/generations/test-001/${doc.doc_key.slice(7)}.json`,prepared);
+  const generation_ref=await f.write(f.pointer.generation_ref.path,m);await f.write(f.pointerAddress,{...f.pointer,generation_ref});
+  const reader=createRagOperationsReader({...f,inspect:async()=>f.db}),d=await reader.read(f.project);assert.equal(d.source_links.complete,true);assert.equal(d.source_links.keys.length,1);assert.equal(JSON.stringify(d).includes('SYNTHETIC_PAYLOAD'),false);
+  await f.write(doc.document.path,{...prepared,item_id:'wrong'});const bad=await createRagOperationsReader({...f,inspect:async()=>f.db}).read(f.project);assert.equal(bad.source_links.complete,false);assert.equal(bad.source_links.keys.length,0);
 });
 test('a pointer changed during DB read cannot be called a matched current generation',async t=>{
   const f=await fixture(t);const r=createRagOperationsReader({...f,inspect:async()=>{await f.write(f.pointerAddress,{...f.pointer,generation_id:'test-003'});return f.db;}});

@@ -1,3 +1,4 @@
+import {projectRagSourceLink} from './rag-source-link.mjs';
 import {readProjectLabel} from './operations-project-label.mjs';
 import { createHash } from 'node:crypto';
 import { lstat, opendir, realpath } from 'node:fs/promises';
@@ -10,7 +11,7 @@ import { isDirectLoopbackRequest } from './loopback-request-guard.mjs';
 import { readStableFile } from './receipt-expiry-adapter.mjs';
 
 export const RAG_PATH = '/rag-operations.json';
-export const RAG_LIMITS = Object.freeze({ cacheMs: 60000, projects: 32, generations: 12, receipts: 24, directoryEntries: 2048, documents: 500, metadataBytes: 8*1024*1024 });
+export const RAG_LIMITS = Object.freeze({ cacheMs: 60000, projects: 32, generations: 12, receipts: 1500, directoryEntries: 2048, documents: 500, metadataBytes: 8*1024*1024 });
 const CODE=/^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/u;
 const NAME=/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/u;
 const SHA=/^sha256:[a-f0-9]{64}$/u;
@@ -88,7 +89,7 @@ async function boundedNames(directory,predicate) {
 
 export function createRagOperationsReader({tablePath,expectedSha256,projects=[],receiptsRoot,inspect=inspectGraphDatabase,now=Date.now}={}) {
   let baseCache=null,basePending=null;
-  const detailCache=new Map(),detailPending=new Map();
+  const detailCache=new Map(),detailPending=new Map(),receiptCache=new Map();
   const configured=path.isAbsolute(tablePath??'')&&SHA.test(expectedSha256??'')&&projects.length>0&&projects.length<=RAG_LIMITS.projects&&new Set(projects).size===projects.length&&projects.every(p=>CODE.test(p))&&path.isAbsolute(receiptsRoot??'');
   function readJson(io,address,max=RAG_LIMITS.metadataBytes){const bytes=io.read(address,max);return {value:JSON.parse(bytes.toString('utf8')),digest:hash(bytes)};}
   function refRead(io,ref,prefix){
@@ -170,6 +171,26 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
           recorded_items:quality.coverage.items?.length??null,limited:answer.documents.length<answer.documents_total};
       }catch(error){answer.preparation={state:'unavailable',reason:codeOf(error)};answer.documents=projectDocuments(row.manifest,null);answer.documents_total=row.manifest.documents.length;}
     }
+    answer.source_links={keys:[],types:{},complete:answer.preparation.state==='ready'&&!answer.preparation.limited};
+    if(row.manifest&&row.stable){
+      let budget=0;
+      for(const doc of row.manifest.documents.slice(0,RAG_LIMITS.documents)){
+        answer.source_links.types[doc.source_kind]=(answer.source_links.types[doc.source_kind]??0)+1;
+        if(!['linear','slack'].includes(doc.source_kind))continue;
+        try{
+          const prefix=`${row.store}/20_문서검색/본문·표_추출/generations/`,expected=doc.document?.path;
+          const parts=typeof expected==='string'&&expected.startsWith(prefix)?expected.slice(prefix.length).split('/'):[];
+          if(parts.length!==2||!NAME.test(parts[0])||parts[1]!==`${doc.doc_key?.slice(7)}.json`||!SHA.test(doc.document.sha256??'')||budget>=16*1024*1024)fail('source_link_scope');
+          const bytes=io.read(expected,Math.min(1048576,16*1024*1024-budget));budget+=bytes.length;
+          if(hash(bytes)!==doc.document.sha256)fail('source_link_digest');
+          const prepared=JSON.parse(bytes);if(prepared.doc_key!==doc.doc_key||prepared.project_key!==row.projectKey||prepared.source_kind!==doc.source_kind||prepared.item_id!==doc.item_id||prepared.root_ref!==doc.root_ref||prepared.composite_revision_sha256!==doc.composite_revision_sha256)fail('source_link_identity');
+          const key=projectRagSourceLink(prepared);if(!key)fail('source_link_unavailable');
+          const check=answer.documents.find(d=>d.id===doc.doc_key);
+          if(check?.preparation==='prepared'&&count(doc.stats?.chunks)>0&&doc.stats.embedded_chunks===doc.stats.chunks)answer.source_links.keys.push(key);
+          else answer.source_links.complete=false;
+        }catch{answer.source_links.complete=false;}
+      }
+    }
     const prefix=`${row.store}/20_문서검색/검색_색인/generations`;
     try{
       const names=await boundedNames(io.path(prefix),n=>NAME.test(n));let failed=0;
@@ -183,11 +204,15 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
     }catch(error){answer.generation_history={state:'unavailable',reason:codeOf(error)};}
     const directory=path.join(receiptsRoot,project);
     try{
-      const names=await boundedNames(directory,n=>/^\d{8}T\d{6}\.json$/u.test(n));let failed=0;
+      const cutoff=new Date(now()-31*86400000).toISOString().slice(0,10).replaceAll('-','');
+      const names=await boundedNames(directory,n=>/^\d{8}T\d{6}\.json$/u.test(n)&&n.slice(0,8)>=cutoff);let failed=0,readBytes=0;
       for(const name of names.slice(0,RAG_LIMITS.receipts)){
-        try{const file=await readStableFile(path.join(directory,name));const bytes=file.bytes??file;
-          if(bytes.length>RAG_LIMITS.metadataBytes)fail('receipt_limit');
-          answer.runs.push(projectSyncReceipt(JSON.parse(bytes.toString('utf8')),project));
+        try{const filePath=path.join(directory,name),stat=await lstat(filePath,{bigint:true});
+          if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||await realpath(filePath)!==filePath||stat.size>262144n)fail('receipt_limit');
+          const stamp=[stat.dev,stat.ino,stat.size,stat.mtimeNs,stat.ctimeNs].join(':');let projected;
+          if(receiptCache.get(filePath)?.stamp===stamp)projected=receiptCache.get(filePath).value;
+          else{readBytes+=Number(stat.size);if(readBytes>8*1024*1024)fail('history_read_limit');const file=await readStableFile(filePath);const bytes=file.bytes??file;projected=projectSyncReceipt(JSON.parse(bytes.toString('utf8')),project);receiptCache.set(filePath,{stamp,value:projected});if(receiptCache.size>48000)receiptCache.clear();}
+          answer.runs.push(projected);
         }catch{failed++;}
       }
       answer.run_history={state:failed||names.length>RAG_LIMITS.receipts?'partial':'ready',observed_files:names.length,failed,limit:RAG_LIMITS.receipts};
@@ -211,7 +236,7 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
       const whole=d.preparation?.state==='ready'&&!d.preparation?.limited&&d.documents?.length===d.documents_total;
       const quality=Object.fromEntries(STAT_KEYS.map(key=>[key,whole&&d.documents.every(doc=>count(doc.stats?.[key])!==null)?d.documents.reduce((sum,doc)=>sum+doc.stats[key],0):null]));
       return {...row,preparation:d.preparation,quality,pending:{state:d.pending_state,count:count(d.pending_total)},last_run:d.runs?.[0]??null,
-        detail_state:d.state,history_scope:d.run_history,runs:d.runs??[]};
+        detail_state:d.state,history_scope:d.run_history,runs:d.runs??[],source_links:d.source_links};
     }));rows.push(...batch);}
     return {...current,projects:rows,overview:true};
   },async read(project=null){
