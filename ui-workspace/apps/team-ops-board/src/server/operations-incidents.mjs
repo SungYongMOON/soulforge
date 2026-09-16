@@ -1,3 +1,4 @@
+import {inspectCustody} from './custody-checks.mjs';
 import path from 'node:path';
 import {open,lstat,realpath} from 'node:fs/promises';
 import {readRootTable,physicalRootFor} from '../../../../../guild_hall/path_registry/src/root_table.mjs';
@@ -25,8 +26,9 @@ async function tailCycle(file){
   }finally{await handle.close();}
 }
 export function createOperationsIncidentReader(options={}){
-  return {async read(){
-    const table=readRootTable(options),root=physicalRootFor(table,'data_root'),answer={state:'ready',observed_at:new Date().toISOString(),linear:null,mail:null};
+  let cache=null,pending=null;
+  async function collect(table){
+    const root=physicalRootFor(table,'data_root'),answer={state:'ready',observed_at:new Date().toISOString(),linear:null,mail:null};
     try{const h=JSON.parse(await readBoundedFile(path.join(root,'linear_history/state/health/linear_collect.json'),root,1048576));
       if(['soulforge.linear_collect.health.v1','soulforge.linear_collect.health.v2'].includes(h.schema_version)&&['ok','error','degraded'].includes(h.status)&&Array.isArray(h.error_codes)&&h.error_codes.every(c=>typeof c==='string'&&/^[a-z_]{1,80}$/u.test(c)))answer.linear={status:h.status,observed_at:stamp(h.completed_at),last_success_at:stamp(h.last_success_at),codes:h.error_codes};
     }catch{}
@@ -36,6 +38,10 @@ export function createOperationsIncidentReader(options={}){
       const cycle=await tailCycle(path.join(folder,'events.jsonl'));
       if([2,3].includes(state.schema_version)&&cycle&&Date.parse(cycle.observed_at)>=Date.parse(state.updated_at)-5000)answer.mail=projectForwarderCycle(cycle,Object.values(state.uidl_failures??{}));
     }catch{}
+    answer.custody=await Promise.all(['linear','buzz'].map(lane=>inspectCustody(root,lane)));
     answer.state=answer.linear&&answer.mail?'ready':answer.linear||answer.mail?'partial':'unavailable';return answer;
+  }
+  return {async read(){const table=readRootTable(options);if(cache?.digest===table.table_sha256&&Date.now()-cache.at<60000)return cache.value;if(pending)return pending;
+    pending=collect(table);try{const value=await pending;readRootTable(options);cache={digest:table.table_sha256,at:Date.now(),value};return value;}finally{pending=null;}
   }};
 }

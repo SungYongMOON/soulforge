@@ -13,9 +13,10 @@ test('fresh verified PLAUD progress and mail history remain inspectable but neve
   const inputs={federation:{lens:'declared_structure',state:'ready',snapshot:federation},recent:{collection:{recovering:true,observed_at,imported:1,catalog:50}},incidents:{mail:{history_only:true,observed_at,tracked:4}}};
   const model=buildConsoleView(inputs);
   assert.equal(model.nodes.find(n=>n.id==='watchtower::ingress_supervisor').status.key,'processing');
-  assert.equal(model.nodes.find(n=>n.id==='watchtower::mail_forwarder').status.key,'history');
+  assert.equal(model.nodes.find(n=>n.id==='watchtower::mail_forwarder').status.key,'ok');
+  assert.equal(model.nodes.find(n=>n.id==='watchtower::mail_forwarder').mailHistory.tracked,4);
   assert.equal(model.attention.length,0);
-  assert.equal(model.counts.processing,1);assert.equal(model.counts.history,1);
+  assert.equal(model.counts.processing,1);assert.equal(model.counts.history,0);
   assert.notEqual(buildConsoleView(inputs,['recent']).nodes.find(n=>n.id==='watchtower::ingress_supervisor').status.key,'processing');
   inputs.recent.collection={...inputs.recent.collection,recovering:false,errors:['plaud_metadata_identity_mismatch','plaud_collection_degraded']};
   const failed=buildConsoleView(inputs);
@@ -32,6 +33,15 @@ test('preparer input is a grant artifact, never invented direct custody traffic'
   assert.ok(m.nodes.every(n=>n.status.key==='unknown'));
   assert.equal(m.edges.some(e=>e.from.startsWith('watchtower::store_')&&e.to==='context_engine::prepare'),false);
   assert.equal(new Set(scene.nodes.map(n=>n.id)).size,scene.nodes.length);
+});
+
+test('custody samples stay blue, corruption alerts and current DB failures join attention',()=>{
+  const snapshot=JSON.parse(readFileSync(new URL('../../../../../guild_hall/watchtower/topology/federated_topology.v1.json',import.meta.url),'utf8'));
+  const at=new Date().toISOString(),inputs={federation:{lens:'declared_structure',state:'ready',snapshot},incidents:{custody:[{lane:'linear',state:'passed',complete:true,expected:2,checked:2,failed:0,unreadable:0,codes:[],observed_at:at},{lane:'buzz',state:'sampled',checked:2,failed:0,unreadable:0,codes:[],observed_at:at}]},rag:{state:'ready',expected:1,observed_at:at,database:{vector_index:{state:'ONLINE'}},projects:[{database:{},comparison:'counts_match',preparation:{state:'ready',counts:{prepared:1,missing:0,refused:0,failed:0}}}]}};
+  let m=buildConsoleView(inputs);assert.equal(m.nodes.find(n=>n.id==='watchtower::store_linear_custody').status.key,'ok');assert.equal(m.nodes.find(n=>n.id==='watchtower::store_buzz_custody').status.key,'sampled');assert.equal(m.nodes.find(n=>n.id==='context_engine::neo4j').status.key,'ok');assert.equal(m.attention.length,0);
+  inputs.rag.projects[0].comparison='embedding_missing';m=buildConsoleView(inputs);assert.ok(m.attention.some(n=>n.id==='context_engine::neo4j'));
+  assert.equal(buildConsoleView(inputs,['incidents']).nodes.find(n=>n.id==='watchtower::store_linear_custody').status.key,'unknown');
+  inputs.incidents.custody[0].observed_at=new Date(Date.now()-16*60000).toISOString();assert.equal(buildConsoleView(inputs).nodes.find(n=>n.id==='watchtower::store_linear_custody').status.key,'unknown');
 });
 test('retained normal/held snapshot cannot be current when source read failed',()=>{
   const node={id:'watchtower::mail',assessment:{key:'pending',pendingCount:4}};
