@@ -2485,7 +2485,7 @@
     },
     {
       "path": "guild_hall/ingress/continuous_supervisor.test.mjs",
-      "sha256": "015f6a178b8288c29a3c47afced4679d69b08666a5d0a4ff7bd14dc5e24fbf82"
+      "sha256": "a56d7d2b302ddaa23a8f2d8b03beeb6765634db77120548a48391898c28ddbd1"
     },
     {
       "path": "guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs",
@@ -2549,7 +2549,7 @@
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.mjs",
-      "sha256": "16055fb370ee87a049a2d2446612d569da53a8b30a42c0dac7c0024fbbad8a9c"
+      "sha256": "ec3358095355d5ab9327a7f2db70f1db848f14512c3721daffde7d07b5e8512b"
     },
     {
       "path": "guild_hall/voice_capture/delivery_receipt.test.mjs",
