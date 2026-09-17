@@ -107,17 +107,44 @@ async function readState(binding) {
   return JSON.parse(await readFile(statePath(binding), "utf8"));
 }
 
-function run(binding, records, { pass = "tail", max_events: maxEvents = 100 } = {}) {
+function run(binding, records, {
+  pass = "tail",
+  max_events: maxEvents = 100,
+  transport = null,
+} = {}) {
   return runSlackContinuousIngress({
     binding,
     expected_binding_digest: digestSlackContinuousBinding(binding),
     writer_authority_id: binding.writer.authority_id,
     writer_epoch: binding.writer.epoch,
-    transport: createSyntheticSlackTransport(records),
+    transport: transport ?? createSyntheticSlackTransport(records),
     dry_run: false,
     max_events: maxEvents,
     pass,
   });
+}
+
+function scriptedPageTransport({
+  label,
+  expected_cursor: expectedCursor = null,
+  expected_oldest: expectedOldest = null,
+  records,
+  next_cursor: nextCursor = null,
+}) {
+  return {
+    kind: "synthetic",
+    async pull({ cursor_token: cursorToken, oldest }) {
+      assert.equal(cursorToken, expectedCursor, `${label}: cursor`);
+      assert.equal(oldest, expectedOldest, `${label}: oldest`);
+      return {
+        page_id: `scripted-page:${label}`,
+        previous_cursor_digest: cursorToken === null ? null : sha256Canonical(cursorToken),
+        next_cursor_digest: nextCursor === null ? null : sha256Canonical(nextCursor),
+        next_cursor_token: nextCursor,
+        records,
+      };
+    },
+  };
 }
 
 test("head pass pulls only messages newer than the watermark and the anchored tail never restarts a walk", async () => {
@@ -228,6 +255,118 @@ test("a head window larger than one page continues through its own chain and clo
   assert.equal(done.private_writes, 0);
   const uniqueRefs = new Set(state.revisions.map((revision) => revision.revision_ref));
   assert.equal(uniqueRefs.size, 6, "no message is retained twice");
+});
+
+test("an anchored tail cannot move the watermark past arrivals omitted by an open head chain", async () => {
+  const binding = await makeBinding();
+  await run(binding, newestFirst([1]));
+
+  const firstHeadCursor = "head-before-5";
+  await run(binding, null, {
+    pass: "head",
+    max_events: 2,
+    transport: scriptedPageTransport({
+      label: "open-head-6-5",
+      expected_oldest: message(1).raw_event.ts,
+      records: newestFirst([5, 6]),
+      next_cursor: firstHeadCursor,
+    }),
+  });
+  let state = await readState(binding);
+  assert.equal(state.head.latest_ts, message(6).raw_event.ts);
+  assert.equal(state.head.chain.provider_cursor_token, firstHeadCursor);
+
+  // New messages arrive after the first head page. The anchored tail sees only
+  // the newest page; 7 and 8 remain solely the head window's responsibility.
+  await run(binding, null, {
+    max_events: 2,
+    transport: scriptedPageTransport({
+      label: "anchored-tail-10-9",
+      records: newestFirst([9, 10]),
+      next_cursor: "tail-before-9",
+    }),
+  });
+  state = await readState(binding);
+  assert.equal(
+    state.head.latest_ts,
+    message(6).raw_event.ts,
+    "tail must not advance the head-owned watermark",
+  );
+  assert.equal(state.head.chain.provider_cursor_token, firstHeadCursor);
+
+  const secondHeadCursor = "head-before-3";
+  await run(binding, null, {
+    pass: "head",
+    max_events: 2,
+    transport: scriptedPageTransport({
+      label: "resume-head-4-3",
+      expected_cursor: firstHeadCursor,
+      expected_oldest: message(1).raw_event.ts,
+      records: newestFirst([3, 4]),
+      next_cursor: secondHeadCursor,
+    }),
+  });
+  await run(binding, null, {
+    pass: "head",
+    max_events: 2,
+    transport: scriptedPageTransport({
+      label: "resume-head-2",
+      expected_cursor: secondHeadCursor,
+      expected_oldest: message(1).raw_event.ts,
+      records: newestFirst([2]),
+    }),
+  });
+  state = await readState(binding);
+  assert.equal(state.head.latest_ts, message(6).raw_event.ts);
+  assert.equal(state.head.chain, null);
+
+  await run(binding, null, {
+    pass: "head",
+    max_events: 2,
+    transport: scriptedPageTransport({
+      label: "next-head-8-7",
+      expected_oldest: message(6).raw_event.ts,
+      records: newestFirst([7, 8]),
+    }),
+  });
+  const retained = (await readState(binding)).revisions
+    .map((revision) => revision.message_ts)
+    .sort();
+  assert.deepEqual(retained, newestFirst([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    .map((record) => record.raw_event.ts)
+    .sort());
+});
+
+test("an anchored tail after an empty head probe leaves deeper arrivals discoverable", async () => {
+  const binding = await makeBinding();
+  await run(binding, newestFirst([1]));
+
+  const empty = await run(binding, newestFirst([1]), { pass: "head", max_events: 2 });
+  assert.equal(empty.skipped, "head_empty");
+
+  // Four messages arrive between the empty head probe and the tail. The
+  // anchored tail sees only the newest page, so 2 and 3 must remain inside the
+  // next head window instead of being skipped by a tail-owned watermark move.
+  const arrived = newestFirst([1, 2, 3, 4, 5]);
+  await run(binding, arrived, { max_events: 2 });
+  let state = await readState(binding);
+  assert.equal(
+    state.head.latest_ts,
+    message(1).raw_event.ts,
+    "tail must preserve the watermark from the completed head probe",
+  );
+  assert.deepEqual(
+    state.revisions.map((revision) => revision.message_ts).sort(),
+    [message(1).raw_event.ts, message(4).raw_event.ts, message(5).raw_event.ts].sort(),
+  );
+
+  await run(binding, arrived, { pass: "head", max_events: 2 });
+  await run(binding, arrived, { pass: "head", max_events: 2 });
+  state = await readState(binding);
+  assert.deepEqual(
+    state.revisions.map((revision) => revision.message_ts).sort(),
+    arrived.map((record) => record.raw_event.ts).sort(),
+  );
 });
 
 test("a tail cursor stalled on an already accepted page steps over it until the provider end", async () => {

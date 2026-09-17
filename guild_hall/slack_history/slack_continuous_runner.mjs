@@ -1527,7 +1527,13 @@ export async function runSlackContinuousIngress({
     } else if (applied.processed_pages === 1) {
       nextToken = tailAnchored ? null : page.next_cursor_token;
       if (tailAnchored) nextCursor = { ...applied.cursor, provider_cursor_digest: null };
-      nextHead = { ...state.head, latest_ts: pageLatestTs };
+      // The first tail page bootstraps the head watermark. After that, only
+      // the head pass may advance it: a tail page can see newer messages while
+      // an older head window is still open (or just after an empty head probe),
+      // and moving the watermark there would skip arrivals below that page.
+      if (state.head.latest_ts === null) {
+        nextHead = { ...state.head, latest_ts: pageLatestTs };
+      }
     } else if (applied.replayed_pages === 1 && !tailAnchored) {
       // The stored cursor points at a page an earlier walk already accepted.
       // Step over it instead of replaying it on every run; a missing or

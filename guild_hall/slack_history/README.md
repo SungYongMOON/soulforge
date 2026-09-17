@@ -102,8 +102,10 @@ channel watermark (`state.head.latest_ts`, the newest message timestamp the
 channel has evaluated), newest page first, following its own continuation
 chain (`state.head.chain`) across runs until the provider reaches the window
 start. It stops at the first page that adds nothing and writes nothing when
-the window is empty. The tail pass then continues the backward walk from the
-stored provider cursor. Once that walk has reached the provider end the tail
+the window is empty. The first tail page initializes this watermark; after
+that only the head pass advances it, so a tail page cannot skip arrivals below
+its bounded newest page. The tail pass then continues the backward walk from
+the stored provider cursor. Once that walk has reached the provider end the tail
 stays anchored at the newest page: it re-reads that page every run (edits and
 metadata of recent messages replay their retained revisions) but never
 restarts a walk through older pages. The aggregate reports
