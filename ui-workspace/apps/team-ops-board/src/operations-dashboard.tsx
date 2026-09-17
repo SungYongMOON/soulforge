@@ -9,6 +9,7 @@ import {sourceChoices,SourcesChart,SourceRecent} from './operations-source-panel
 import {OperationsJudgment,RagPipeline,LocalModels} from './operations-control';
 import {OperationsSummary} from './operations-summary';
 import {OperationsHostStrip} from './operations-host-strip';
+import {SourceBoundary,SourceFailures,DIAGNOSTIC_SOURCES} from './operations-source-ui';
 type Row=Record<string,any>;
 type Open=(title:string,body:ReactNode)=>void;
 const number=(v:any)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ko-KR'):'—';
@@ -34,8 +35,7 @@ function Detail({value,close}:{value:{title:string;body:ReactNode};close:()=>voi
 }
 function Info({label,children,open}:{label:string;children:ReactNode;open:Open}){return <button className="vd-info" aria-label={`${label} 근거`} onClick={()=>open(label,children)}><CircleHelp size={15}/></button>;}
 export function SourceNotice({failed}:{failed:string[]}){
-  if(!failed.length)return null;
-  return <details className="vd-source"><summary><span className="vd-dot amber"/>최신 상태 조회 실패 <strong>{failed.length}</strong><ChevronRight size={13}/></summary><p>{failed.map(k=>sourceNames[k]??k).join(' · ')}</p><p>위 항목의 새 상태을 읽지 못했습니다. 값이 남아 있다면 마지막 확인 시각의 자료입니다.</p></details>;
+  return <SourceFailures/>;
 }
 function QuotaFacts({r}:{r:Row}){return <><dl className="vd-facts"><dt>제공자</dt><dd>{r.provider}</dd><dt>한도 적용 기간</dt><dd>{r.window}</dd><dt>{r.current?'남은 한도':'마지막 확인 잔량'}</dt><dd>{r.remaining===null?'미제공':`${number(r.remaining)}%`}</dd><dt>확인 시각</dt><dd>{when(r.observed_at)}</dd><dt>초기화</dt><dd>{when(r.reset)}</dd></dl><p>{r.current?'해당 기간에 적용되는 남은 한도입니다.':'현재 잔량은 확인되지 않았습니다. 지난 초기화 시각이나 오래된 관측값을 현재 한도로 사용하지 않습니다.'}</p><p>{r.provider.startsWith('AG·')?`Antigravity ${r.provider.replace('AG·','')} 모델 묶음의 공유 한도입니다. 개별 모델의 잔량은 제공되지 않습니다. 모델별 요청 이력은 사용 추이에서 별도로 확인합니다.`:''}</p><p>기간과 계정마다 기준이 다르므로 서로 더하지 않습니다. 남은 토큰 개수는 제공되지 않습니다.</p></>;}
 export function QuotaStrip({inputs,failed=[]}:{inputs:Row;failed?:string[]}){
@@ -79,18 +79,18 @@ export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:R
   const agCollector = model.nodes?.find((n: Row) => n.id === 'watchtower::usage_antigravity_collector');
   const agCollectorStatus = agCollector ? { key: agCollector.status?.key, observedAt: agCollector.observedAt } : undefined;
   return <div className="vd-dashboard">
-    <OperationsHostStrip snapshot={inputs.host} failed={failed.includes('host')}/>
+    <SourceBoundary keys={['host']} label="PC 자원"><OperationsHostStrip snapshot={inputs.host} failed={failed.includes('host')}/></SourceBoundary>
     <OperationsSummary model={model} inputs={inputs} failed={failed} />
-    <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청은 같은 그래프 위의 선으로, 오른쪽 ‘회’ 축을 사용합니다. 왼쪽 토큰 합계에는 포함하지 않습니다. 날짜는 대화 관측일 기준이며, 토큰 미측정과 날짜 귀속 범위는 집계 범위에서 확인합니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
+    <div className="oc-resource-layer"><SourceBoundary keys={['limits','codexQuota','agQuota']} label="남은 한도" allowPartial><QuotaStrip inputs={inputs} failed={failed}/></SourceBoundary><SourceBoundary keys={['usage']} label="사용 추이"><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청은 같은 그래프 위의 선으로, 오른쪽 ‘회’ 축을 사용합니다. 왼쪽 토큰 합계에는 포함하지 않습니다. 날짜는 대화 관측일 기준이며, 토큰 미측정과 날짜 귀속 범위는 집계 범위에서 확인합니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
       {failed.includes('usage')&&<span className="vd-small-state">보존 이력 · 새 조회 실패</span>}<UsageTrendChart usage={inputs.usage} onSelection={chooseUsage} compact collectorStatus={agCollectorStatus} />
-    </section></div>
-    <OperationsJudgment model={model} inputs={inputs} failed={failed} go={go} hostDetail={h=>open(h.label,<HostFacts host={h}/>)} />
-    <div className="oc-data-layer"><div className="oc-intake"><SourcesChart rag={failed.includes('rag')?undefined:inputs.rag} processing={model.nodes.find((n:Row)=>n.status.key==='processing')} sources={sources} sourceId={sourceId} select={id=>{setSourceId(id);setSelectedDay(null);}} retained={failed.includes(sourceId==='plaud'?'recent':'sources')} open={open} onDay={setSelectedDay} selectedDay={selectedDay}/><SourceRecent sources={sources} sourceId={sourceId} selectedDay={selectedDay} open={open} go={go}/></div><RagPipeline data={inputs.rag} failed={failed.includes('rag')} go={go}/></div>
-    <LocalModels data={inputs.models} rag={inputs.rag} ragFailed={failed.includes('rag')} failed={failed.includes('models')} onInspect={h=>open(h.label,<HostFacts host={h} retained={failed.includes('models')}/>)} />
-    <section className="vd-panel vd-work"><header><h2>에이전트 활동</h2><span className="vd-count">{work.complete?work.rows.length:'—'}</span><Info label="에이전트 실행 상태" open={open}><p>실행이 관측된 작업만 표시합니다. 등록된 봇이나 프로세스 생존을 작업 중으로 계산하지 않습니다.</p><p>Hermes: {work.runtimeKnown?'상태 연결됨':'현재 상태 조회 불가'}<br/>Codex: {work.threadKnown?'상태 연결됨':'현재 상태 조회 불가'}</p>{inputs.runtime?.bots?.map((b:Row)=><p key={b.bot_id}>{b.display_label} · {b.hold_code??b.state?.value??'미확인'}</p>)}</Info></header>
+    </section></SourceBoundary></div>
+    <SourceBoundary keys={DIAGNOSTIC_SOURCES} label="운영 상태" allowPartial><OperationsJudgment model={model} inputs={inputs} failed={failed} go={go} hostDetail={h=>open(h.label,<HostFacts host={h}/>)} /></SourceBoundary>
+    <div className="oc-data-layer"><div className="oc-intake"><SourceBoundary keys={['recent','sources','rag']} label="자료 수집·검색 포함" allowPartial><SourcesChart rag={failed.includes('rag')?undefined:inputs.rag} processing={model.nodes.find((n:Row)=>n.status.key==='processing')} sources={sources} sourceId={sourceId} select={id=>{setSourceId(id);setSelectedDay(null);}} retained={failed.includes(sourceId==='plaud'?'recent':'sources')} open={open} onDay={setSelectedDay} selectedDay={selectedDay}/><SourceRecent sources={sources} sourceId={sourceId} selectedDay={selectedDay} open={open} go={go}/></SourceBoundary></div><SourceBoundary keys={['rag']} label="검색용 자료 처리"><RagPipeline data={inputs.rag} failed={failed.includes('rag')} go={go}/></SourceBoundary></div>
+    <SourceBoundary keys={['models','rag']} label="로컬 모델" allowPartial><LocalModels data={inputs.models} rag={inputs.rag} ragFailed={failed.includes('rag')} failed={failed.includes('models')} onInspect={h=>open(h.label,<HostFacts host={h} retained={failed.includes('models')}/>)} /></SourceBoundary>
+    <SourceBoundary keys={['runtime','threads']} label="에이전트 활동" allowPartial><section className="vd-panel vd-work"><header><h2>에이전트 활동</h2><span className="vd-count">{work.complete?work.rows.length:'—'}</span><Info label="에이전트 실행 상태" open={open}><p>실행이 관측된 작업만 표시합니다. 등록된 봇이나 프로세스 생존을 작업 중으로 계산하지 않습니다.</p><p>Hermes: {work.runtimeKnown?'상태 연결됨':'현재 상태 조회 불가'}<br/>Codex: {work.threadKnown?'상태 연결됨':'현재 상태 조회 불가'}</p>{inputs.runtime?.bots?.map((b:Row)=><p key={b.bot_id}>{b.display_label} · {b.hold_code??b.state?.value??'미확인'}</p>)}</Info></header>
       {work.rows.length?work.rows.slice(0,4).map((r:Row)=><button className="vd-task-row" key={r.id} onClick={()=>open(r.label,<dl className="vd-facts"><dt>실행 상태</dt><dd>{r.state}</dd><dt>모델</dt><dd>{r.model??'미확인'}</dd></dl>)}><span className="vd-dot blue"/><strong>{r.label}</strong><small>{['waiting','waiting_for_user','waiting_for_approval'].includes(r.state)?'대기':'작업 중'}</small></button>):<div className="vd-work-empty"><Clock3 size={20}/><span>{work.complete?'실행 중인 작업 없음':'실행 중인 작업을 조회할 수 없음'}</span><button onClick={()=>open('에이전트 활동 연결',<p>실행 상태 연결됨을 읽지 못했습니다. 활성 작업이 0개라는 뜻은 아닙니다.</p>)}>근거<ChevronRight size={13}/></button></div>}
       <div className="vd-chart-foot"><span>Hermes {work.runtimeKnown?'연결':'상태 조회 연결 안 됨'} · Codex {work.threadKnown?'연결':'상태 조회 연결 안 됨'} </span></div>
-    </section>
+    </section></SourceBoundary>
 
     {detail&&<Detail value={detail} close={close}/>}
   </div>;

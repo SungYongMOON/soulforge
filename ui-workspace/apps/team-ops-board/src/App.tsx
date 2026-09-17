@@ -2,6 +2,8 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, Controls, Handle, MarkerType, MiniMap, Position, ReactFlow, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./usage-trend-layout.css";
+import {UsageHistoryTable} from './usage-history-table';
+import {formatAmount,formatExact,displayModelName} from './core/operations-format.mjs';
 import {
   Activity,
   AlertCircle,
@@ -2802,7 +2804,7 @@ function buildModelTokenSeries(modelDaily: any[]) {
   const ordered = [...totals].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "en"));
   const ids = ordered.slice(0, 7).map(([id]) => id);
   const hasOther = ordered.length > ids.length;
-  return [...ids.map((id) => ({ id, label: id })), ...(hasOther ? [{ id: "other", label: "기타 모델" }] : [])].map((series) => ({
+  return [...ids.map((id) => ({ id, label: displayModelName(id) })), ...(hasOther ? [{ id: "other", label: "기타 모델" }] : [])].map((series) => ({
     ...series,
     values: modelDaily.map((day: any) => (day.models ?? []).reduce((sum: number, row: any) => (
       series.id === "other" ? (ids.includes(row.model_id) ? sum : sum + row.total_tokens) : sum + (row.model_id === series.id ? row.total_tokens : 0)
@@ -6177,10 +6179,10 @@ function AiUsageHistoryPanel({ history, selectedWindow, onSelectWindow, exactTas
     <section className="ai-usage-history" aria-labelledby="ai-usage-history-heading">
       <header className="ai-usage-history-header">
         <div>
-          <h3 id="ai-usage-history-heading">정확한 ID 기준 사용 이력</h3>
-          <p>KST 기준 토큰·크레딧과 프로젝트/업무/TASK 순위를 보여줍니다.</p>
+          <h3 id="ai-usage-history-heading">기간별 사용량</h3>
+          <p>KST 기준 과제·업무·작업 사용량입니다. 식별자는 기술 정보에서 확인합니다.</p>
         </div>
-        <div className="ai-usage-period-tabs" role="tablist" aria-label="AI usage period">
+        <div className="ai-usage-period-tabs" role="tablist" aria-label="사용 이력 기간">
           {USAGE_HISTORY_PERIODS.map(([key, label]) => (
             <button
               key={key}
@@ -6200,17 +6202,17 @@ function AiUsageHistoryPanel({ history, selectedWindow, onSelectWindow, exactTas
       </header>
       <section id={panelId} role="tabpanel" aria-labelledby={`ai-usage-period-${selectedWindow}`} className="ai-usage-history-panel" tabIndex={0}>
         <dl className="ai-usage-history-summary">
-          <div><dt>작업 회차</dt><dd>{formatUsageNumber(window.totals.turns)}</dd></div>
-          <div><dt>토큰</dt><dd>{formatUsageNumber(window.totals.total_tokens)}</dd></div>
-          <div><dt>계산 크레딧</dt><dd>{formatUsageCredits(window.totals.credits)}</dd></div>
-          <div><dt>크레딧 미확정</dt><dd>{formatUsageNumber(window.totals.credit_unknown_turns)}</dd></div>
+          <div><dt>작업 회차</dt><dd title={formatExact(window.totals.turns)}>{formatAmount(window.totals.turns)}</dd></div>
+          <div><dt>토큰</dt><dd title={formatExact(window.totals.total_tokens)}>{formatAmount(window.totals.total_tokens)}</dd></div>
+          <div><dt>계산 크레딧</dt><dd title={formatExact(window.totals.credits)}>{formatAmount(window.totals.credits)}</dd></div>
+          <div><dt>크레딧 미확정</dt><dd title={formatExact(window.totals.credit_unknown_turns)}>{formatAmount(window.totals.credit_unknown_turns)}</dd></div>
         </dl>
         <p className="ai-usage-reconciliation" data-testid="ai-usage-history-reconciliation">project/work/task 합계가 선택 기간 총계와 일치합니다.</p>
         <div className="ai-usage-chart-grid" aria-label="선택 기간 사용량 비교 그래프">
           <UsageComparisonChart
             chartId="ai-usage-project-chart"
             heading="프로젝트별 토큰 사용량"
-            subtitle="Meter project_id 기준 · 미결합은 unassigned로 표시"
+            subtitle="원장의 과제 기준 · 연결되지 않은 사용량은 미분류로 표시"
             rows={projectChartRows}
             tone="project"
             emptyLabel="선택 기간에 계측된 프로젝트 사용량이 없습니다."
@@ -6232,7 +6234,7 @@ function AiUsageHistoryPanel({ history, selectedWindow, onSelectWindow, exactTas
         <div className="ai-usage-history-grid">
           <UsageHistoryRows heading="프로젝트 사용량 순위" rows={window.breakdowns.projects} labelKey="project_id" />
           <UsageHistoryRows heading="업무 사용량 순위" rows={window.breakdowns.works} labelKey="work_id" />
-          <UsageHistoryRows heading="TASK 사용량 순위" rows={window.breakdowns.tasks} labelKey="task_id" exactTaskLabels={exactTaskLabels} />
+          <UsageHistoryRows heading="작업 사용량 순위" rows={window.breakdowns.tasks} labelKey="task_id" exactTaskLabels={exactTaskLabels} />
         </div>
       </section>
     </section>
@@ -6265,15 +6267,15 @@ function UsageComparisonChart({ chartId, heading, subtitle, rows, tone, emptyLab
             {visibleRows.map((row) => (
               <li key={row.usage_id}>
                 <div className="ai-usage-chart-label">
-                  <span><strong>{row.label}</strong><small>{row.secondary}</small></span>
-                  <b>{formatUsageNumber(row.total_tokens)}</b>
+                  <span><strong>{row.label==='unassigned'?'미분류':row.label}</strong><details><summary>기술 정보</summary><small>{row.secondary}</small></details></span>
+                  <b title={formatExact(row.total_tokens)}>{formatAmount(row.total_tokens)}</b>
                 </div>
                 <progress
                   max={maxTokens}
                   value={row.total_tokens}
                   aria-label={`${row.label} ${formatUsageNumber(row.total_tokens)} 토큰`}
                 />
-                <p>{formatUsageNumber(row.turns)}회 · {formatUsageCredits(row.credits)} 크레딧{row.credit_unknown_turns > 0 ? ` · 미확정 ${formatUsageNumber(row.credit_unknown_turns)}회` : ""}</p>
+                <p title={`회차 ${formatExact(row.turns)} · 크레딧 ${formatExact(row.credits)}`}>{formatAmount(row.turns)}회 · {formatAmount(row.credits)} 크레딧{row.credit_unknown_turns > 0 ? ` · 미확정 ${formatAmount(row.credit_unknown_turns)}회` : ""}</p>
               </li>
             ))}
           </ol>
@@ -6284,27 +6286,7 @@ function UsageComparisonChart({ chartId, heading, subtitle, rows, tone, emptyLab
 }
 
 function UsageHistoryRows({ heading, rows, labelKey, exactTaskLabels = new Map<string, string>() }: { heading: string; rows: any; labelKey: "project_id" | "work_id" | "task_id"; exactTaskLabels?: ReadonlyMap<string, string> }) {
-  const tableRows = [...rows.top, { [labelKey]: "other", ...rows.other }];
-  return (
-    <section aria-label={heading}>
-      <h4>{heading}</h4>
-      <div className="ai-usage-table" role="table">
-        <div className="ai-usage-row ai-usage-row-head" role="row">
-          <span role="columnheader">ID</span><span role="columnheader">회차</span><span role="columnheader">토큰</span><span role="columnheader">크레딧</span>
-        </div>
-        {tableRows.map((row: any) => (
-          <div className="ai-usage-row" role="row" key={row[labelKey]}>
-            <span role="cell">
-              {labelKey === "task_id" && exactTaskLabels.get(row[labelKey])
-                ? <><strong>{exactTaskLabels.get(row[labelKey])}</strong><small>{row[labelKey]}</small></>
-                : row[labelKey]}
-            </span>
-            <span role="cell">{formatUsageNumber(row.turns)}</span><span role="cell">{formatUsageNumber(row.total_tokens)}</span><span role="cell">{formatUsageCredits(row.credits)}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+  return <UsageHistoryTable heading={heading} rows={rows} labelKey={labelKey} labels={exactTaskLabels}/>;
 }
 
 function UsageRows({ rows, labelKey, showEffort = false }: { rows: any[]; labelKey: "role" | "model"; showEffort?: boolean }) {

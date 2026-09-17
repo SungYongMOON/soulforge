@@ -1,6 +1,7 @@
 import {useCallback, useRef, type ReactNode} from 'react';
 import {ArrowRight} from 'lucide-react';
 import {buildOperationsSummaryView} from './core/operations-summary-view.mjs';
+import {SummaryBoundaries} from './operations-source-ui';
 import './operations-summary.css';
 
 type Row = Record<string, any>;
@@ -244,6 +245,7 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
 
   return (
     <section ref={sectionRef} className="op-summary-strip" aria-label="운영 종합 요약">
+      <SummaryBoundaries>
       {/* 1. 남은 한도 */}
       <button
         type="button"
@@ -572,6 +574,7 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
           </span>
         </div>
       </button>
+      </SummaryBoundaries>
     </section>
   );
 }

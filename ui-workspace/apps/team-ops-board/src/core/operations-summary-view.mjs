@@ -2,21 +2,10 @@ import {dashboardQuotas,dashboardWork} from './operations-dashboard-view.mjs';
 import {ragOverview} from './operations-overview-view.mjs';
 import {ragTrend} from './rag-trend.mjs';
 import {chartPeriod} from './chart-period.mjs';
+import {formatAmount} from './operations-format.mjs';
 
 function formatKoreanTokens(tokens) {
-  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) return '—';
-  if (tokens === 0) return '0';
-  if (tokens >= 100000000) {
-    const eok = tokens / 100000000;
-    const formatted = Number(eok.toFixed(1));
-    return `${formatted}억`;
-  }
-  if (tokens >= 10000) {
-    const man = tokens / 10000;
-    const formatted = Number(man.toFixed(1));
-    return `${formatted}만`;
-  }
-  return tokens.toLocaleString('ko-KR');
+  return typeof tokens==='number'&&tokens>=0?formatAmount(tokens):'—';
 }
 
 export function projectQuotaSummary(inputs = {}, failed = []) {

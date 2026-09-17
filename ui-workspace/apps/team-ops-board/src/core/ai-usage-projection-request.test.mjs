@@ -91,3 +91,14 @@ test("AI usage projection request: automatic polling refetches after the bounded
     `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}`
   ]);
 });
+
+test('a timed-out shared read releases its slot so an explicit retry can make a new request',async()=>{
+  let calls=0;
+  const request=createAiUsageProjectionRequest((_path,options)=>{
+    calls++;
+    if(calls>1)return Promise.resolve({ok:false});
+    return new Promise((_resolve,reject)=>options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true}));
+  },{timeoutMs:5});
+  const keepAlive=setTimeout(()=>{},100);
+  try{await request.load();await request.load({force:true});assert.equal(calls,2);}finally{clearTimeout(keepAlive);}
+});

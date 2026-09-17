@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useState,useRef} from 'react';
 import {ReactFlow,Background,Controls,Handle,Position,MarkerType,type NodeProps,type ReactFlowInstance} from '@xyflow/react';
-import {ArrowRight,Database,FileText,GitBranch,RotateCcw,Search,SlidersHorizontal,X} from 'lucide-react';
+import {cleanHumanText} from './core/operations-workspace-helpers.mjs';
+import {ArrowRight,ChevronDown,Database,FileText,GitBranch,RotateCcw,Search,SlidersHorizontal,X} from 'lucide-react';
 import {ProjectNamesContext,ProjectLabel} from './project-labels';
 import {RagTrend} from './rag-trend';
 import {ragGraphScene,RAG_SOURCES,ENTITY_TYPE_NAMES} from './core/rag-explorer-view.mjs';
@@ -119,6 +120,16 @@ function GraphCanvas({scene,select,selected,theme}:{scene:Row;select:(r:Row)=>vo
     };
   }),[scene.edges,isSemantic,nodePos,selected,theme]);
 
+  const koreanAriaLabels = {
+    'controls.ariaLabel': '그래프 탐색 조절기',
+    'controls.zoomIn.ariaLabel': '확대',
+    'controls.zoomOut.ariaLabel': '축소',
+    'controls.fitView.ariaLabel': '화면에 맞추기',
+    'controls.interactive.ariaLabel': '상호작용 전환',
+    'minimap.ariaLabel': '미니맵',
+    'handle.ariaLabel': '핸들'
+  };
+
   return <div ref={canvasRef} className={`rg-canvas ${isSemantic?'is-semantic':'is-storage'}`} aria-label={isSemantic?'개체 지식 그래프':'실제 DB 저장 구조 그래프'}>
     <div className="rg-canvas-hint" aria-hidden="true">
       <span>드래그: 화면 이동 · 휠: 확대/축소 · 컨트롤: 전체 맞춤</span>
@@ -137,10 +148,11 @@ function GraphCanvas({scene,select,selected,theme}:{scene:Row;select:(r:Row)=>vo
       nodesConnectable={false}
       panOnDrag={true}
       zoomOnScroll={true}
+      ariaLabelConfig={koreanAriaLabels}
       onNodeClick={(_,n)=>select(n.data.row as Row)}
     >
       <Background gap={24} color={theme==='dark'?'#303a46':'#dce3ec'}/>
-      <Controls showInteractive={false}/>
+      <Controls showInteractive={false} aria-label="그래프 탐색 조절기"/>
     </ReactFlow>
   </div>;
 }
@@ -300,17 +312,43 @@ export function RagGraph({project,documents,theme,version}:{project:string;docum
   const [mode,setMode]=useState<'semantic'|'storage'>('semantic');
   const [selectedDoc,setSelectedDoc]=useState<string|null>(null);
   const [data,setData]=useState<Row|null>(null);
+  const [graphStatus,setGraphStatus]=useState<'idle'|'loading'|'success'|'error'>('idle');
+  const [documentTitles,setDocumentTitles]=useState<Row[]>([]);
   const [selected,setSelected]=useState<Row|null>(null);
   const [filterQuery,setFilterQuery]=useState('');
   const [filterType,setFilterType]=useState('');
   const [retry,setRetry]=useState(0);
+
+  // Combobox state for document selection
+  const [comboboxOpen,setComboboxOpen]=useState(false);
+  const [comboboxSearch,setComboboxSearch]=useState('');
+  const [comboboxSource,setComboboxSource]=useState('all');
+  const [activeOptionIndex,setActiveOptionIndex]=useState(0);
+  const comboboxRef=useRef<HTMLDivElement>(null);
+  const comboboxInputRef=useRef<HTMLInputElement>(null);
+  const closeDocumentPicker=()=>{setComboboxOpen(false);requestAnimationFrame(()=>comboboxRef.current?.querySelector<HTMLButtonElement>('.rg-combobox-trigger')?.focus());};
 
   useEffect(()=>{
     setSelectedDoc(null);
     setSelected(null);
     setFilterQuery('');
     setFilterType('');
+    setComboboxOpen(false);
+    setComboboxSearch('');
+    setComboboxSource('all');
+    setDocumentTitles([]);
   },[project]);
+
+  useEffect(()=>{
+    if(!comboboxOpen)return;
+    const handleClickOutside=(e:MouseEvent)=>{
+      if(comboboxRef.current&&!comboboxRef.current.contains(e.target as Node)){
+        setComboboxOpen(false);
+      }
+    };
+    document.addEventListener('mousedown',handleClickOutside);
+    return ()=>document.removeEventListener('mousedown',handleClickOutside);
+  },[comboboxOpen]);
 
   // Merge documents prop with backend graph documents
   const mergedDocs=useMemo(()=>{
@@ -321,7 +359,7 @@ export function RagGraph({project,documents,theme,version}:{project:string;docum
       map.set(d.id,{id:d.id,source:d.source,item:d.item,title:d.title});
     }
 
-    const backendDocs:Array<{id:string;title?:string|null}>=data?.documents??[];
+    const backendDocs:Array<{id:string;title?:string|null}>=documentTitles as Array<{id:string;title?:string|null}>;
     for(const bd of backendDocs){
       if(!bd.id)continue;
       const existing=map.get(bd.id);
@@ -334,21 +372,36 @@ export function RagGraph({project,documents,theme,version}:{project:string;docum
 
     return Array.from(map.values()).map(d=>{
       const srcLabel=d.source?((RAG_SOURCES as Row)[d.source]??d.source):'';
-      const mainTitle=d.title||d.item||(d.id.length>22?`${d.id.slice(0,18)}…`:d.id);
+      const itemTitle=d.item&&!/^(?:[a-f0-9]{8}-[a-f0-9-]{27}|sha256:)/i.test(d.item)?d.item:'';
+      const mainTitle=cleanHumanText(d.title||itemTitle)||'제목이 제공되지 않은 자료';
       const displayLabel=srcLabel?`${srcLabel} · ${mainTitle}`:mainTitle;
       return {...d,displayLabel,mainTitle,sourceLabel:srcLabel};
     });
-  },[documents,data?.documents]);
+  },[documents,documentTitles]);
 
   const effectiveDoc=useMemo(()=>{
-    if(selectedDoc!==null)return selectedDoc;
+    if(selectedDoc!==null&&(selectedDoc===''||mergedDocs.some(d=>d.id===selectedDoc)))return selectedDoc;
     if(mergedDocs.length>0)return mergedDocs[0].id;
     return '';
   },[selectedDoc,mergedDocs]);
 
+  const filteredDocs=useMemo(()=>{
+    const q=comboboxSearch.trim().toLowerCase();
+    return mergedDocs.filter(d=>{
+      const matchesSource=comboboxSource==='all'||d.source===comboboxSource;
+      const matchesQ=!q||(d.displayLabel&&d.displayLabel.toLowerCase().includes(q))||(d.id&&d.id.toLowerCase().includes(q));
+      return matchesSource&&matchesQ;
+    });
+  },[mergedDocs,comboboxSearch,comboboxSource]);
+
+  const boundedDocs=useMemo(()=>filteredDocs.slice(0,50),[filteredDocs]);
+  useEffect(()=>setActiveOptionIndex(0),[comboboxSource,comboboxSearch]);
+  useEffect(()=>{if(comboboxOpen)document.getElementById(`rg-doc-opt-${activeOptionIndex}`)?.scrollIntoView({block:'nearest'});},[activeOptionIndex,comboboxOpen]);
+
   useEffect(()=>{
     let alive=true;
-    setData(null);
+    setGraphStatus('loading');
+    setData(previous=>previous?.state==='ready'&&previous.project===project&&(previous.document??'')===effectiveDoc?previous:null);
     setSelected(null);
     const params=new URLSearchParams({view:'graph',project});
     if(effectiveDoc)params.set('document',effectiveDoc);
@@ -361,14 +414,15 @@ export function RagGraph({project,documents,theme,version}:{project:string;docum
       if(!r.ok)throw Error();
       return r.json();
     }).then(r=>{
-      if(alive)setData(r);
+      if(alive){if(r?.state==='ready'&&r.project===project&&(r.document??'')===effectiveDoc){setData(r);setDocumentTitles(r.documents??[]);setGraphStatus('success');}else{setGraphStatus('error');setData(previous=>previous??{state:'unavailable'});}}
     },()=>{
-      if(alive)setData({state:'unavailable'});
+      if(alive){setGraphStatus('error');setData(previous=>previous??{state:'unavailable'});}
     });
     return()=>{alive=false;};
   },[project,effectiveDoc,version,retry]);
 
-  const rawScene=useMemo(()=>ragGraphScene(data,mode),[data,mode]);
+  const visibleGraph=data?.state==='ready'&&data.project===project&&(data.document??'')===effectiveDoc?data:null;
+  const rawScene=useMemo(()=>{const scene=ragGraphScene(visibleGraph,mode);return {...scene,nodes:scene.nodes.map((node:Row)=>({...node,label:cleanHumanText(node.label)}))};},[visibleGraph,mode]);
 
   const entityTypes=useMemo(()=>{
     const set=new Set<string>();
@@ -457,13 +511,162 @@ export function RagGraph({project,documents,theme,version}:{project:string;docum
 
     {/* Toolbar controls above graph */}
     <div className="rg-graph-toolbar">
-      <label className="rg-doc-scope-field">
-        <span>자료 범위</span>
-        <select aria-label="그래프 문서 선택" value={effectiveDoc} onChange={e=>setSelectedDoc(e.target.value)}>
-          <option value="">과제 전체 중 표본</option>
-          {mergedDocs.map(d=><option key={d.id} value={d.id}>{d.displayLabel}</option>)}
-        </select>
-      </label>
+      <div className="rg-doc-scope-field" ref={comboboxRef}>
+        <span id="rg-doc-scope-label">자료 범위</span>
+        <div className="rg-combobox-wrap">
+          <button
+            type="button"
+            className="rg-combobox-trigger"
+            id="rg-doc-scope-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={comboboxOpen}
+            aria-labelledby="rg-doc-scope-label rg-doc-scope-trigger"
+            onClick={()=>{
+              setComboboxOpen(open=>!open);
+              if(!comboboxOpen){
+                setTimeout(()=>comboboxInputRef.current?.focus(),50);
+              }
+            }}
+          >
+            <span className="rg-combobox-trigger-text">
+              {effectiveDoc===''?'과제 전체 중 표본':(mergedDocs.find(d=>d.id===effectiveDoc)?.displayLabel||effectiveDoc)}
+            </span>
+            <ChevronDown size={14} className={`rg-combobox-arrow ${comboboxOpen?'open':''}`}/>
+          </button>
+
+          {comboboxOpen&&(
+            <div className="rg-combobox-dropdown" role="region" aria-label="문서 검색 및 선택">
+              <div className="rg-combobox-source-filters" role="group" aria-label="문서 원천 필터">
+                <button
+                  type="button"
+                  className={`rg-combobox-source-btn ${comboboxSource==='all'?'is-active':''}`}
+                  aria-pressed={comboboxSource==='all'}
+                  onClick={()=>setComboboxSource('all')}
+                >
+                  전체
+                </button>
+                {Object.entries(RAG_SOURCES).map(([k,v])=>(
+                  <button
+                    key={k}
+                    type="button"
+                    className={`rg-combobox-source-btn ${comboboxSource===k?'is-active':''}`}
+                    aria-pressed={comboboxSource===k}
+                    onClick={()=>setComboboxSource(k)}
+                  >
+                    {v as string}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rg-combobox-search-box">
+                <Search size={13}/>
+                <input
+                  ref={comboboxInputRef}
+                  type="text"
+                  role="combobox"
+                  aria-expanded={comboboxOpen}
+                  aria-autocomplete="list"
+                  aria-controls="rg-doc-scope-listbox"
+                  aria-activedescendant={`rg-doc-opt-${activeOptionIndex}`}
+                  aria-label="문서 제목 또는 식별자 검색"
+                  placeholder="제목이나 식별자로 검색..."
+                  value={comboboxSearch}
+                  onChange={e=>{
+                    setComboboxSearch(e.target.value);
+                    setActiveOptionIndex(0);
+                  }}
+                  onKeyDown={e=>{
+                    const totalOptions = 1 + boundedDocs.length;
+                    if(e.key==='ArrowDown'){
+                      e.preventDefault();
+                      setActiveOptionIndex(idx=>(idx+1)%totalOptions);
+                    }else if(e.key==='ArrowUp'){
+                      e.preventDefault();
+                      setActiveOptionIndex(idx=>(idx-1+totalOptions)%totalOptions);
+                    }else if(e.key==='Enter'){
+                      e.preventDefault();
+                      if(activeOptionIndex===0){
+                        setSelectedDoc('');
+                        closeDocumentPicker();
+                      }else{
+                        const doc=boundedDocs[activeOptionIndex-1];
+                        if(doc){
+                          setSelectedDoc(doc.id);
+                          closeDocumentPicker();
+                        }
+                      }
+                    }else if(e.key==='Escape'){
+                      e.preventDefault();
+                      closeDocumentPicker();
+                    }
+                  }}
+                />
+                {comboboxSearch&&(
+                  <button type="button" onClick={()=>setComboboxSearch('')} aria-label="검색어 지우기">
+                    <X size={12}/>
+                  </button>
+                )}
+              </div>
+
+              <ul
+                className="rg-combobox-listbox"
+                id="rg-doc-scope-listbox"
+                role="listbox"
+                aria-label="문서 목록"
+              >
+                <li
+                  role="option"
+                  id="rg-doc-opt-0"
+                  aria-selected={effectiveDoc===''}
+                  className={`rg-combobox-option ${effectiveDoc===''?'is-selected':''} ${activeOptionIndex===0?'is-active':''}`}
+                  onClick={()=>{
+                    setSelectedDoc('');
+                    closeDocumentPicker();
+                  }}
+                >
+                  <div className="rg-combobox-opt-title">과제 전체 중 표본</div>
+                </li>
+                {boundedDocs.map((d,i)=>{
+                  const optionIdx = i + 1;
+                  const isSelected = effectiveDoc===d.id;
+                  const isActive = activeOptionIndex===optionIdx;
+                  return (
+                    <li
+                      key={d.id}
+                      role="option"
+                      id={`rg-doc-opt-${optionIdx}`}
+                      aria-selected={isSelected}
+                      className={`rg-combobox-option ${isSelected?'is-selected':''} ${isActive?'is-active':''}`}
+                      onClick={()=>{
+                        setSelectedDoc(d.id);
+                        closeDocumentPicker();
+                      }}
+                    >
+                      <div className="rg-combobox-opt-header">
+                        {d.sourceLabel&&<span className="rg-source-tag">{d.sourceLabel}</span>}
+                        <strong className="rg-combobox-opt-title">{d.mainTitle}</strong>
+                      </div>
+                      <details className="rg-combobox-tech-id" onClick={e=>e.stopPropagation()}>
+                        <summary>식별자</summary>
+                        <code>{d.id}</code>
+                      </details>
+                    </li>
+                  );
+                })}
+                {boundedDocs.length===0&&(
+                  <li className="rg-combobox-empty">일치하는 문서가 없습니다.</li>
+                )}
+              </ul>
+
+              {filteredDocs.length>50&&(
+                <div className="rg-combobox-footer">
+                  검색 결과 {filteredDocs.length}개 중 상위 50개 표시 (더 찾으려면 검색어를 입력하세요)
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {mode==='semantic'&&(
         <>
@@ -528,17 +731,18 @@ export function RagGraph({project,documents,theme,version}:{project:string;docum
         </div>
       )}
       <small>
-        {data?.state==='ready'
+        {visibleGraph?.state==='ready'
           ? `${scene.nodes.length} 노드 · ${scene.edges.length} 연결${hasFilterActive?' (필터 적용)':''} · 드래그로 화면 이동`
-          : '조회 중 또는 확인 불가'}
+          : graphStatus==='error'?'확인할 수 없음':'조회 중'}
       </small>
     </div>
 
     {/* Live Canvas & Inspector */}
+    {visibleGraph&&graphStatus!=='success'&&<p className="rag-notice">{graphStatus==='error'?'그래프 갱신 실패 · 마지막 정상값 표시 중':'그래프 업데이트 중'} · 마지막 확인 {when(visibleGraph.observed_at)}{graphStatus==='error'&&<button onClick={()=>setRetry(v=>v+1)}>다시 시도</button>}</p>}
     <div className={`rg-live-body ${selected?'has-selection':''}`}>
-      {data===null?(
+      {!visibleGraph&&graphStatus!=='error'?(
         <div className="rag-empty">실제 DB의 연결을 읽는 중…</div>
-      ):data.state!=='ready'?(
+      ):!visibleGraph?(
         <div className="rag-empty">
           <p>현재 DB 연결 그래프를 읽지 못했습니다. 과제·처리 버전이 바뀌었거나 조회에 실패했을 수 있습니다.</p>
           <button onClick={()=>setRetry(v=>v+1)}>그래프 다시 조회</button>

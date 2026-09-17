@@ -274,9 +274,11 @@ test("AI usage history controls stay on the work surface and expose only exact-I
   assert.match(source, /labelKey="project_id"/u);
   assert.match(source, /labelKey="work_id"/u);
   assert.match(source, /labelKey="task_id"/u);
-  assert.match(source, /정확한 ID 기준 사용 이력/u);
-  assert.match(source, /KST 기준 토큰·크레딧/u);
-  assert.match(source, /exactTaskLabels\.get\(row\[labelKey\]\)/u);
+  assert.match(source, /기간별 사용량/u);
+  assert.match(source, /KST 기준 과제·업무·작업 사용량/u);
+  const historyTable=readFileSync(join(dirname(APP_PATH),'usage-history-table.tsx'),'utf8');
+  assert.match(historyTable,/labels\.get\(id\)/u);
+  assert.match(historyTable,/<details><summary>기술 정보<\/summary>/u);
   assert.match(source, /자동 계측 정상/u);
   assert.match(source, /부분 계측/u);
   assert.match(source, /Meter hook 상태/u);

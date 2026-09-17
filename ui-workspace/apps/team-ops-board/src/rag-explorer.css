@@ -47,8 +47,36 @@
 
 /* Toolbar above graph */
 .rg-graph-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0 14px;border-bottom:1px solid var(--line);margin-bottom:12px}
-.rg-doc-scope-field{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}
-.rg-doc-scope-field select{max-width:360px;overflow:hidden;text-overflow:ellipsis;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px}
+.rg-doc-scope-field{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);position:relative}
+.rg-combobox-wrap{position:relative}
+.rg-combobox-trigger{display:inline-flex;align-items:center;gap:8px;max-width:360px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;text-align:left}
+.rg-combobox-trigger:hover{background:var(--surface-soft)}
+.rg-combobox-trigger-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:310px}
+.rg-combobox-arrow{flex-shrink:0;color:var(--muted);transition:transform .15s}
+.rg-combobox-arrow.open{transform:rotate(180deg)}
+.rg-combobox-dropdown{position:absolute;top:calc(100% + 4px);left:0;width:380px;max-width:90vw;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:20;display:flex;flex-direction:column;overflow:hidden}
+.rg-combobox-source-filters{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--surface-soft)}
+.rg-combobox-source-btn{border:0;background:transparent;color:var(--muted);font-size:11px;padding:3px 7px;border-radius:4px;cursor:pointer;white-space:nowrap}
+.rg-combobox-source-btn:hover{background:var(--surface);color:var(--text)}
+.rg-combobox-source-btn.is-active{background:var(--blue);color:#ffffff;font-weight:600}
+.rg-combobox-search-box{position:relative;display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+.rg-combobox-search-box svg{position:absolute;left:18px;color:var(--muted);pointer-events:none}
+.rg-combobox-search-box input{width:100%;padding:6px 26px 6px 28px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:5px;font-size:12px}
+.rg-combobox-search-box input:focus{outline:none;border-color:var(--blue)}
+.rg-combobox-search-box button{position:absolute;right:16px;background:transparent;border:0;color:var(--muted);cursor:pointer;padding:2px;display:flex;align-items:center}
+.rg-combobox-listbox{list-style:none;margin:0;padding:4px 0;max-height:260px;overflow-y:auto}
+.rg-combobox-option{padding:7px 12px;cursor:pointer;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+.rg-combobox-option:last-child{border-bottom:0}
+.rg-combobox-option:hover,.rg-combobox-option.is-active{background:var(--surface-soft)}
+.rg-combobox-option.is-selected{background:var(--selection)}
+.rg-combobox-opt-header{display:flex;align-items:center;gap:6px}
+.rg-combobox-opt-title{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rg-source-tag{font-size:10px;color:var(--blue);background:var(--surface-soft);border:1px solid var(--line);border-radius:3px;padding:1px 5px;white-space:nowrap;flex-shrink:0}
+.rg-combobox-tech-id{font-size:10px;color:var(--muted)}
+.rg-combobox-tech-id summary{cursor:pointer;color:var(--muted)}
+.rg-combobox-tech-id code{font-size:10px;background:var(--surface-soft);padding:1px 4px;border-radius:3px;word-break:break-all}
+.rg-combobox-empty{padding:14px;font-size:12px;color:var(--muted);text-align:center}
+.rg-combobox-footer{padding:6px 10px;font-size:10px;color:var(--muted);background:var(--surface-soft);border-top:1px solid var(--line);text-align:center}
 
 .rg-search-field{display:flex;align-items:center;gap:6px;font-size:12px}
 .rg-field-label{color:var(--muted);font-size:11px;white-space:nowrap}

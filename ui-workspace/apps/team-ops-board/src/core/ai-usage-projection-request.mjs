@@ -39,7 +39,7 @@ function attachConsumer(request, signal) {
   });
 }
 
-async function fetchAiUsageProjection(fetchImpl, { force = false } = {}) {
+async function fetchAiUsageProjection(fetchImpl, { force = false, timeoutMs = 20000 } = {}) {
   try {
     const path = force
       ? `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}&refresh=1`
@@ -49,7 +49,8 @@ async function fetchAiUsageProjection(fetchImpl, { force = false } = {}) {
       headers: { Accept: "application/json" },
       credentials: "omit",
       mode: "same-origin",
-      redirect: "error"
+      redirect: "error",
+      signal: AbortSignal.timeout(timeoutMs)
     });
     if (!response.ok) {
       return normalizeAiUsageHistoryProjection(null);
@@ -69,7 +70,8 @@ export function createAiUsageProjectionRequest(
   fetchImpl = globalThis.fetch,
   {
     now = Date.now,
-    cacheTtlMs = AI_USAGE_PROJECTION_CACHE_TTL_MS
+    cacheTtlMs = AI_USAGE_PROJECTION_CACHE_TTL_MS,
+    timeoutMs = 20000
   } = {}
 ) {
   let cached = null;
@@ -77,6 +79,7 @@ export function createAiUsageProjectionRequest(
   let inFlight = null;
 
   return {
+    /** @param {{signal?: AbortSignal, force?: boolean}} [options] */
     load({ signal, force = false } = {}) {
       if (force) {
         cached = null;
@@ -88,7 +91,7 @@ export function createAiUsageProjectionRequest(
       if (cacheIsFresh) return attachConsumer(Promise.resolve(cached), signal);
       if (inFlight === null) {
         // A consumer may leave without aborting the request shared by a StrictMode remount.
-        inFlight = fetchAiUsageProjection(fetchImpl, { force }).then((projection) => {
+        inFlight = fetchAiUsageProjection(fetchImpl, { force, timeoutMs }).then((projection) => {
           cached = projection;
           cachedAt = now();
           return projection;
