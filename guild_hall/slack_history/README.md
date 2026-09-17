@@ -96,6 +96,23 @@ running. The batch is bounded by per-channel page and event limits. If a
 provider cursor still has another page when `max_pages` is reached, the batch
 records `max_pages_continuation_pending` instead of implying complete catch-up.
 
+Each channel runs two passes per batch, both under the same page budget. The
+head pass comes first: it asks the provider only for messages newer than the
+channel watermark (`state.head.latest_ts`, the newest message timestamp the
+channel has evaluated), newest page first, following its own continuation
+chain (`state.head.chain`) across runs until the provider reaches the window
+start. A live head page binds that window start into its page identity, while
+tail page identity remains backward-compatible. It stops at the first page
+that adds nothing and writes nothing when
+the window is empty. The first tail page initializes this watermark; after
+that only the head pass advances it, so a tail page cannot skip arrivals below
+its bounded newest page. The tail pass then continues the backward walk from
+the stored provider cursor. Once that walk has reached the provider end the tail
+stays anchored at the newest page: it re-reads that page every run (edits and
+metadata of recent messages replay their retained revisions) but never
+restarts a walk through older pages. The aggregate reports
+`head_processed_pages`, `head_accepted_count`, and `advanced_pages`.
+
 The HPP scheduler is one hidden current-user Windows task with exactly two
 daily local-time triggers: `02:00` and `12:00` KST. It has no persistent polling
 loop or repetition trigger, uses `IgnoreNew`, and verifies the Node executable,
@@ -169,7 +186,11 @@ only after its complete metadata batch validates; a page is never split to
 advance the cursor. The cursor retains opaque digests, immutable page receipts,
 and cumulative delivery-attempt evidence so an `event_id` conflict cannot be
 hidden across page or restart boundaries. Replaying a completed page never
-replaces the persisted provider cursor with an older page token. Its generation
+replaces the persisted provider cursor with an older page token. A stored
+cursor that lands mid-walk on a page an earlier walk already accepted (the
+shape an aligned re-walk leaves behind) is stepped forward to that page's
+continuation instead of being replayed on every run; a missing or
+self-referencing continuation ends the walk. Its generation
 digest must match the retained revision set before another page is accepted.
 An immutable page-evidence receipt digests every validated record's metadata,
 raw digest, and accepted/HOLD disposition, so changing HOLD membership under an

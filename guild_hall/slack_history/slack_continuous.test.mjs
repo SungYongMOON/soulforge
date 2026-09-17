@@ -1000,6 +1000,97 @@ test("live polling accepts a new top message while replaying older page members 
   assert.equal(second.timeline_annotations_written, 1);
 });
 
+test("live head pages remain distinct from an anchored tail page with the same stable cursor", async () => {
+  const binding = await makeBinding();
+  binding.schema_version = "soulforge.slack_continuous.binding.v2";
+  binding.feature_enabled = true;
+  const channel = {
+    id: binding.channel_id,
+    is_private: false,
+    is_shared: false,
+    is_ext_shared: false,
+    is_archived: false,
+    is_member: true,
+  };
+  const providerMessage = (index) => ({
+    type: "message",
+    ts: `172000000${index}.000100`,
+    user: "U00000001",
+    text: `private stable cursor fixture ${index}`,
+  });
+  let values = [1];
+  const historyCalls = [];
+  const transport = createSlackWebApiPollingTransport({
+    binding,
+    async apiCall(method, params) {
+      if (method === "auth.test") return { ok: true, team_id: binding.workspace_id };
+      if (method === "conversations.info") return { ok: true, channel };
+      assert.equal(method, "conversations.history");
+      historyCalls.push({ cursor: params.cursor ?? null, oldest: params.oldest ?? null });
+      let visible = values.map(providerMessage).sort((left, right) => right.ts.localeCompare(left.ts));
+      if (params.oldest !== undefined) {
+        visible = visible.filter((message) => message.ts > params.oldest);
+      }
+      if (params.cursor !== undefined) {
+        const boundary = params.cursor.slice("before:".length);
+        visible = visible.filter((message) => message.ts < boundary);
+      }
+      const messages = visible.slice(0, params.limit);
+      const nextCursor = visible.length > messages.length
+        ? `before:${messages.at(-1).ts}`
+        : "";
+      return { ok: true, messages, response_metadata: { next_cursor: nextCursor } };
+    },
+  });
+  const request = {
+    binding,
+    expected_binding_digest: digestSlackContinuousBinding(binding),
+    writer_authority_id: binding.writer.authority_id,
+    writer_epoch: binding.writer.epoch,
+    transport,
+    dry_run: false,
+    max_events: 2,
+  };
+
+  await runSlackContinuousIngress({ ...request, pass: "tail" });
+  const empty = await runSlackContinuousIngress({ ...request, pass: "head" });
+  assert.equal(empty.skipped, "head_empty");
+
+  values = [5, 4, 3, 2, 1];
+  await runSlackContinuousIngress({ ...request, pass: "tail" });
+  let state = JSON.parse(await readFile(
+    path.join(binding.data_root, "state", "slack-continuous.json"),
+    "utf8",
+  ));
+  assert.equal(state.head.latest_ts, providerMessage(1).ts);
+
+  const firstHead = await runSlackContinuousIngress({ ...request, pass: "head" });
+  assert.equal(firstHead.processed_pages, 1, "head page identity must not collide with the tail page");
+  assert.equal(firstHead.replayed_pages, 0);
+  assert.equal(firstHead.continuation_pending, true);
+  const secondHead = await runSlackContinuousIngress({ ...request, pass: "head" });
+  assert.equal(secondHead.processed_pages, 1);
+  assert.equal(secondHead.continuation_pending, false);
+
+  state = JSON.parse(await readFile(
+    path.join(binding.data_root, "state", "slack-continuous.json"),
+    "utf8",
+  ));
+  assert.equal(state.head.latest_ts, providerMessage(5).ts);
+  assert.equal(state.head.chain, null);
+  assert.deepEqual(
+    state.revisions.map((revision) => revision.message_ts).sort(),
+    values.map((index) => providerMessage(index).ts).sort(),
+  );
+  assert.deepEqual(historyCalls, [
+    { cursor: null, oldest: null },
+    { cursor: null, oldest: providerMessage(1).ts },
+    { cursor: null, oldest: null },
+    { cursor: null, oldest: providerMessage(1).ts },
+    { cursor: `before:${providerMessage(4).ts}`, oldest: providerMessage(1).ts },
+  ]);
+});
+
 test("live polling rejects another workspace before reading channel history", async () => {
   const binding = await makeBinding();
   binding.schema_version = "soulforge.slack_continuous.binding.v2";

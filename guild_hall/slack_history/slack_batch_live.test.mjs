@@ -249,6 +249,9 @@ test("preflight validates every exact private binding without network or writes"
     held_count: 0,
     processed_pages: 0,
     replayed_pages: 0,
+    head_processed_pages: 0,
+    head_accepted_count: 0,
+    advanced_pages: 0,
     continuation_pending_count: 0,
     repository_writes: 0,
     private_writes: 0,
@@ -1013,4 +1016,126 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
   assert.equal(result.disable_count, 1, result.caught_message);
   assert.equal(result.unregister_count, 1, result.caught_message);
   assert.equal(result.exists, false, result.caught_message);
+});
+
+test("batch runs the head pass before the tail and keeps an exhausted tail anchored at the newest page", async () => {
+  const fixture = await createBatchFixture({
+    bindingSpecs: [
+      { bindingId: "binding-a", workspaceId: "TAAA", channelId: "CAAA" },
+    ],
+  });
+  const calls = [];
+  // Provider history, newest first. Run 1 sees [2, 1]; run 2 sees [3, 2, 1].
+  let newest = 2;
+  const transportFactory = async ({ binding }) => ({
+    kind: "web_api",
+    async pull({ cursor_token: cursorToken, oldest = null }) {
+      calls.push({ cursor: cursorToken, oldest });
+      const all = [];
+      for (let index = newest; index >= 1; index -= 1) all.push(messageRecord(binding, String(index)));
+      const visible = oldest === null
+        ? all
+        : all.filter((record) => Number.parseFloat(record.raw_event.ts) > Number.parseFloat(oldest));
+      const offset = cursorToken === null ? 0 : Number.parseInt(cursorToken.slice("cursor:".length), 10);
+      const records = visible.slice(offset, offset + 1);
+      const nextOffset = offset + records.length;
+      const nextToken = nextOffset >= visible.length ? null : `cursor:${nextOffset}`;
+      return {
+        page_id: `page:${oldest ?? "tail"}:${cursorToken ?? "start"}:${records.map((record) => record.event_id).join(",")}`,
+        previous_cursor_digest: cursorToken === null ? null : sha256CanonicalString(cursorToken),
+        next_cursor_digest: nextToken === null ? null : sha256CanonicalString(nextToken),
+        next_cursor_token: nextToken,
+        records,
+      };
+    },
+  });
+
+  const first = await runSlackBatchLive({ ...fixture.options, transport_factory: transportFactory });
+  assert.equal(first.succeeded_count, 1);
+  assert.equal(first.head_processed_pages, 0, "no watermark yet: the head pass pulls nothing");
+  assert.equal(first.processed_pages, 2, "the tail walks both pages to the provider end");
+  assert.deepEqual(calls, [{ cursor: null, oldest: null }, { cursor: "cursor:1", oldest: null }]);
+  const statePathA = path.join(fixture.privateRoot, "channels", "binding-a", "state", "slack-continuous.json");
+  let channelState = JSON.parse(await readFile(statePathA, "utf8"));
+  assert.equal(channelState.provider_cursor_token, null);
+  assert.equal(channelState.head.latest_ts, "1720000000.000002");
+
+  newest = 3;
+  calls.length = 0;
+  const second = await runSlackBatchLive({ ...fixture.options, transport_factory: transportFactory });
+  assert.equal(second.succeeded_count, 1);
+  assert.equal(second.head_processed_pages, 1);
+  assert.equal(second.head_accepted_count, 1);
+  assert.equal(second.advanced_pages, 0);
+  assert.deepEqual(calls, [
+    { cursor: null, oldest: "1720000000.000002" },
+    { cursor: null, oldest: null },
+  ], "head pass first, then one anchored newest-page read; no walk restarts");
+  channelState = JSON.parse(await readFile(statePathA, "utf8"));
+  assert.equal(channelState.provider_cursor_token, null);
+  assert.equal(channelState.head.latest_ts, "1720000000.000003");
+  assert.equal(channelState.head.chain, null);
+  assert.equal(channelState.revisions.length, 3);
+  const batchState = JSON.parse(await readFile(path.join(fixture.stateRoot, "state", "slack-batch-live.json"), "utf8"));
+  assert.equal(batchState.result.head_processed_pages, 1);
+});
+
+test("batch steps a stalled tail cursor over already accepted pages within one run", async () => {
+  const fixture = await createBatchFixture({
+    bindingSpecs: [
+      { bindingId: "binding-a", workspaceId: "TAAA", channelId: "CAAA" },
+    ],
+  });
+  const calls = [];
+  const transportFactory = async ({ binding }) => ({
+    kind: "web_api",
+    async pull({ cursor_token: cursorToken, oldest = null }) {
+      calls.push(cursorToken);
+      if (oldest !== null) {
+        return {
+          page_id: `page:head:${oldest}`,
+          previous_cursor_digest: null,
+          next_cursor_digest: null,
+          next_cursor_token: null,
+          records: [],
+        };
+      }
+      const pages = {
+        start: { page_id: "page:CAAA:1", next: "cursor:CAAA:2", record: "1" },
+        "cursor:CAAA:2": { page_id: "page:CAAA:2", next: "cursor:CAAA:3", record: "2" },
+        "cursor:CAAA:3": { page_id: "page:CAAA:3", next: null, record: "3" },
+      };
+      const page = pages[cursorToken ?? "start"];
+      return {
+        page_id: page.page_id,
+        previous_cursor_digest: cursorToken === null ? null : sha256CanonicalString(cursorToken),
+        next_cursor_digest: page.next === null ? null : sha256CanonicalString(page.next),
+        next_cursor_token: page.next,
+        records: [messageRecord(binding, page.record)],
+      };
+    },
+  });
+  const walk = await runSlackBatchLive({ ...fixture.options, transport_factory: transportFactory });
+  assert.equal(walk.processed_pages, 3);
+  const statePathA = path.join(fixture.privateRoot, "channels", "binding-a", "state", "slack-continuous.json");
+  const walked = JSON.parse(await readFile(statePathA, "utf8"));
+  assert.equal(walked.provider_cursor_token, null);
+
+  // Reproduce the production stall: the stored cursor points at page 2, which
+  // this walk already accepted.
+  walked.provider_cursor_token = "cursor:CAAA:2";
+  walked.cursor.provider_cursor_digest = sha256CanonicalString("cursor:CAAA:2");
+  await writeFile(statePathA, JSON.stringify(walked));
+  calls.length = 0;
+
+  const stepped = await runSlackBatchLive({ ...fixture.options, transport_factory: transportFactory });
+  assert.equal(stepped.succeeded_count, 1);
+  assert.equal(stepped.replayed_pages, 2, "pages 2 and 3 replay and are stepped over");
+  assert.equal(stepped.advanced_pages, 2);
+  assert.equal(stepped.processed_pages, 0);
+  assert.deepEqual(calls, [null, "cursor:CAAA:2", "cursor:CAAA:3"], "head probe, then the stalled page and its successor");
+  const after = JSON.parse(await readFile(statePathA, "utf8"));
+  assert.equal(after.provider_cursor_token, null, "the replayed last page ends the walk");
+  assert.equal(after.cursor.accepted_pages.length, 3);
+  assert.equal(after.revisions.length, 3);
 });
