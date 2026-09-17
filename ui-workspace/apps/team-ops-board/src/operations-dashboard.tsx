@@ -8,6 +8,7 @@ import './operations-dashboard.css';
 import {sourceChoices,SourcesChart,SourceRecent} from './operations-source-panels';
 import {OperationsJudgment,RagPipeline,LocalModels} from './operations-control';
 import {OperationsSummary} from './operations-summary';
+import {OperationsHostStrip} from './operations-host-strip';
 type Row=Record<string,any>;
 type Open=(title:string,body:ReactNode)=>void;
 const number=(v:any)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ko-KR'):'—';
@@ -78,8 +79,9 @@ export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:R
   const agCollector = model.nodes?.find((n: Row) => n.id === 'watchtower::usage_antigravity_collector');
   const agCollectorStatus = agCollector ? { key: agCollector.status?.key, observedAt: agCollector.observedAt } : undefined;
   return <div className="vd-dashboard">
+    <OperationsHostStrip snapshot={inputs.host} failed={failed.includes('host')}/>
     <OperationsSummary model={model} inputs={inputs} failed={failed} />
-    <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청 수는 토큰 합계와 별도이며 차트 우측 축의 ‘회’ 단위로 표시됩니다. 토큰 미측정 회차와 날짜 귀속 범위는 차트 하단의 집계 범위에서 확인할 수 있습니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
+    <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청은 아래의 얇은 보조 그래프에서 ‘회’ 단위로 봅니다. 토큰 합계에는 포함하지 않습니다. 날짜는 대화 관측일 기준이며, 토큰 미측정과 날짜 귀속 범위는 집계 범위에서 확인합니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
       {failed.includes('usage')&&<span className="vd-small-state">보존 이력 · 새 조회 실패</span>}<UsageTrendChart usage={inputs.usage} onSelection={chooseUsage} compact collectorStatus={agCollectorStatus} />
     </section></div>
     <OperationsJudgment model={model} inputs={inputs} failed={failed} go={go} hostDetail={h=>open(h.label,<HostFacts host={h}/>)} />

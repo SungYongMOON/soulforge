@@ -1,29 +1,29 @@
 .ag-req-trend {
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
 .ag-req-trend-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .ag-req-trend-title {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
 }
 
 .ag-req-trend-title strong {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text);
 }
@@ -33,57 +33,52 @@
   font-size: 10px;
 }
 
+.ag-req-trend-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .ag-req-trend-warning {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--amber);
   background: color-mix(in srgb, var(--amber) 8%, var(--surface));
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
 }
 
 .ag-req-trend-caption {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--muted);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.ag-req-trend-summary {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-size: 11px;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .ag-req-family-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 7px;
-  border-radius: 5px;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
   background: var(--surface-soft);
-  color: var(--text);
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 10px;
 }
 
 .ag-req-family-pill strong {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
-.ag-req-family-pill.is-selected {
-  outline: 1.5px solid var(--blue);
-  background: var(--selection);
-}
-
 .ag-req-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -104,9 +99,9 @@
 .ag-req-plot {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
-  height: 60px;
-  padding: 6px 0 0;
+  gap: 3px;
+  height: 38px;
+  padding: 2px 0 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -178,30 +173,38 @@
 .ag-req-selection-box {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
+  gap: 8px;
+  padding: 3px 8px;
   background: var(--surface-soft);
-  border-radius: 6px;
-  font-size: 11px;
-  margin-top: 2px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-top: 1px;
   flex-wrap: wrap;
 }
 
 .ag-req-selection-date {
   font-weight: 600;
   color: var(--text);
+  font-size: 10px;
 }
 
 .ag-req-selection-val {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   color: var(--muted);
+  font-size: 10px;
 }
 
 .ag-req-selection-val b {
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ag-req-selection-val small {
+  color: var(--muted);
+  font-size: 9px;
 }
 
 /* Inline active detail panel when hovering/focusing a date */
@@ -260,3 +263,13 @@
     transition: none !important;
   }
 }
+
+/* Date inspection reuses the visible model legend in the compact dashboard. */
+.usage-trend-readout{font-size:11px;margin-top:6px;color:var(--muted)}
+.usage-trend-readout-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.usage-trend-readout-items{display:flex;gap:5px 14px;flex-wrap:wrap}
+.usage-trend-readout-chip{display:inline-flex;gap:4px;align-items:center}
+.usage-trend-readout-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.vd-usage .usage-trend-readout{min-height:30px;padding:5px 8px}
+.cx-app .ag-req-bar-group,.cx-app .ag-req-bar-group:hover,.cx-app .ag-req-bar-group.is-active{background:transparent!important}
+.cx-app .ag-req-bar-group.is-active{box-shadow:inset 0 -2px var(--blue)}

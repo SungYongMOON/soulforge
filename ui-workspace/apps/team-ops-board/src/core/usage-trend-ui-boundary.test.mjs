@@ -185,10 +185,16 @@ test("variable x denominator, dynamic tick stride, hit-grid column count, and ke
   assert.equal(keyClamp30(0, -1), 0, "Left arrow clamps at index 0 in 30-day view");
 });
 
-test("UsageTrendChart tooltip geometry keeps the active guide clear for left, midpoint, and right dates across 7/30-day desktop and narrow SVG layouts", () => {
+test("UsageTrendChart date inspection stays outside the plot and pointer targets cannot paint a column", () => {
   const placeTooltip = loadUsageTrendTooltipGeometry();
   const source = readFileSync(APP_PATH, "utf8");
-  assert.match(source, /const tooltip = usageTrendTooltipGeometry\(x, chart\.left, chart\.width - chart\.right, boxWidth\);/u);
+  const start=source.indexOf('function UsageTrendChart('),end=source.indexOf('\nfunction ',start+10);
+  const chartSource=source.slice(start,end);
+  assert.ok(chartSource.indexOf('className="usage-trend-readout"')>chartSource.indexOf('</svg>'));
+  assert.doesNotMatch(chartSource, /<rect/u, 'date inspection must not cover the plot');
+  assert.match(chartSource, /const showAgOverlay = false/u, 'request units use only the companion track');
+  const dashboardCss=readFileSync(join(dirname(APP_PATH),'operations-dashboard.css'),'utf8');
+  assert.match(dashboardCss, /\.cx-app \.usage-trend-hit-grid button:hover[^}]*background:transparent!important/u);
   const boxWidth = 260;
   const gap = 12;
 

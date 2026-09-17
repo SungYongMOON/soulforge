@@ -253,6 +253,7 @@ export function projectCollectionSummary(model = {}, failed = []) {
     unknown,
     processing,
     problem,
+    observationError,
     collectors: collectorItems,
     severity,
   };

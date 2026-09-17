@@ -189,45 +189,44 @@
   background: var(--line-strong);
 }
 
-/* Cell 1: Quota list with mini bars */
+/* Cell 1: Quota list with aligned full-width tracks */
 .op-quota-rows {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2.5px;
   width: 100%;
 }
 
 .op-quota-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 78px minmax(32px, 1fr) 68px;
   align-items: center;
-  justify-content: space-between;
   font-size: 11px;
-  gap: 6px;
-  line-height: 1.35;
-}
-
-.op-quota-label-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
+  gap: 5px;
+  line-height: 1.3;
 }
 
 .op-quota-name {
   color: var(--muted);
   white-space: nowrap;
   font-size: 11px;
+  overflow: visible;
+}
+
+.op-quota-track-cell {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .op-quota-mini-track {
-  width: 28px;
+  width: 100%;
   height: 4px;
   border-radius: 2px;
   background: var(--surface-soft);
   border: 1px solid var(--line);
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .op-quota-mini-track.is-unknown {
@@ -255,6 +254,8 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  text-align: right;
+  font-size: 11px;
 }
 
 .op-quota-val.is-crit {
@@ -283,10 +284,21 @@
 }
 
 .op-summary-visual-slot {
-  margin-top: 5px;
-  min-height: 24px;
+  margin-top: 6px;
+  height: 38px;
   display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.op-slot-meta {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1;
 }
 
 /* Sparklines */
@@ -337,163 +349,84 @@
   align-items: center;
 }
 
-/* Cell 3: Collector dots */
-.op-collector-dots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  max-width: 100%;
-}
-
-.op-collector-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.op-collector-dot.is-ok {
-  background: var(--green);
-}
-
-.op-collector-dot.is-warn,
-.op-collector-dot.is-pending {
-  background: var(--amber);
-}
-
-.op-collector-dot.is-crit {
-  background: var(--red);
-}
-
-.op-collector-dot.is-unknown {
-  background: var(--line-strong);
-}
-
-/* Cell 5: Host list */
-.op-models-list {
+/* Segmented status bars */
+.op-seg-bar-wrap {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 3px;
+  gap: 4px;
+  width: 100%;
 }
 
-.op-models-row {
+.op-seg-bar-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--muted);
-}
-
-.op-models-item-left {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-
-.op-models-item-left span {
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.op-host-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.op-host-dot.is-ok {
-  background: var(--green);
-}
-
-.op-host-dot.is-warn {
-  background: var(--amber);
-}
-
-.op-host-dot.is-crit {
-  background: var(--red);
-}
-
-.op-models-status {
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.op-models-status.is-ok {
-  color: var(--green);
-}
-
-.op-models-status.is-crit {
-  color: var(--red);
-}
-
-.op-models-status.is-warn {
-  color: var(--amber);
-}
-
-/* Cell 6: Issues list */
-.op-issues-visual-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 3px;
-}
-
-.op-issues-pictogram {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
-
-.op-issue-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.op-issue-dot.is-crit {
-  background: var(--red);
-}
-
-.op-issue-dot.is-warn {
-  background: var(--amber);
-}
-
-.op-issues-top {
-  display: flex;
-  flex-direction: column;
   gap: 1px;
 }
 
-.op-issues-item {
-  font-size: 10px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+.op-seg-bar-fill {
+  height: 100%;
 }
 
+.op-seg-bar-fill.is-ok {
+  background: var(--green);
+}
+
+.op-seg-bar-fill.is-warn {
+  background: var(--amber);
+}
+
+.op-seg-bar-fill.is-pending {
+  background: #38bdf8;
+}
+
+.op-seg-bar-fill.is-crit {
+  background: var(--red);
+}
+
+.op-seg-bar-fill.is-unknown {
+  background: var(--line-strong);
+}
+
+.op-seg-bar-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 7px;
+  font-size: 9px;
+  color: var(--muted);
+  overflow: visible;
+  line-height: 1.2;
+}
+
+.op-seg-bar-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.op-seg-bar-legend-item b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Normal state in issues card */
 .op-issues-normal-state {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 3px;
+  align-items: center;
+  height: 24px;
 }
 
 .op-issue-clear-dot {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 10px;
-  color: var(--green);
   font-weight: 500;
 }
 
@@ -509,7 +442,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .cx-app .op-summary-card {
-    min-height: 160px;
+    min-height: 164px;
     padding: 10px 12px;
   }
   .op-summary-val-main {
@@ -523,17 +456,16 @@
     gap: 8px;
   }
   .cx-app .op-summary-card {
-    min-height: 154px;
+    min-height: 156px;
     padding: 8px 10px;
   }
   .op-quota-row {
+    grid-template-columns: 68px minmax(20px, 1fr) 68px;
+    gap: 4px;
     font-size: 10px;
   }
   .op-quota-name {
     font-size: 10px;
-  }
-  .op-quota-mini-track {
-    width: 20px;
   }
   .op-summary-head-title {
     flex-wrap: wrap;

@@ -1,4 +1,4 @@
-import {useCallback, useRef} from 'react';
+import {useCallback, useRef, type ReactNode} from 'react';
 import {ArrowRight} from 'lucide-react';
 import {buildOperationsSummaryView} from './core/operations-summary-view.mjs';
 import './operations-summary.css';
@@ -36,9 +36,9 @@ function MiniSparkline({
   }
 
   const values = validPoints.map(p => p.value as number);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal === minVal ? (maxVal === 0 ? 1 : maxVal) : maxVal - minVal;
+  const minVal = 0;
+  const maxVal = Math.max(...values, 1);
+  const range = maxVal - minVal;
 
   const width = 120;
   const height = 24;
@@ -74,7 +74,7 @@ function MiniSparkline({
   }
 
   return (
-    <div className="op-sparkline-wrap" role="img" aria-label={`${ariaLabel}: ${points.map(p=>`${p.label ?? p.date ?? ''} ${p.value ?? '미확인'}`).join(', ')}`} title={`${ariaLabel} · 범위 ${minVal.toLocaleString('ko-KR')}–${maxVal.toLocaleString('ko-KR')} · 빈 구간은 기록 없음`}>
+    <div className="op-sparkline-wrap" role="img" aria-label={`${ariaLabel}: ${points.map(p=>`${p.label ?? p.date ?? ''} ${p.value ?? '미확인'}`).join(', ')}`} title={`${ariaLabel} · 범위 0–${maxVal.toLocaleString('ko-KR')} · 빈 구간은 기록 없음`}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className={`op-sparkline-svg is-${colorClass}`}
@@ -105,6 +105,65 @@ function MiniSparkline({
   );
 }
 
+interface SegmentBarItem {
+  key: string;
+  label: string;
+  count: number;
+  severity: 'ok' | 'warn' | 'crit' | 'unknown' | 'pending';
+}
+
+function SegmentedStatusBar({
+  items,
+  total,
+  ariaLabel,
+  customLegend,
+}: {
+  items: SegmentBarItem[];
+  total: number;
+  ariaLabel: string;
+  customLegend?: ReactNode;
+}) {
+  if (total === 0 || items.length === 0) {
+    return (
+      <div className="op-spark-unavailable" aria-label={`${ariaLabel}: 상태 미확인`}>
+        <span>상태 미확인</span>
+      </div>
+    );
+  }
+
+  const activeItems = items.filter(i => i.count > 0);
+
+  return (
+    <div className="op-seg-bar-wrap" role="img" aria-label={`${ariaLabel}: ${activeItems.map(i => `${i.label} ${i.count}개`).join(', ')}`}>
+      <div className="op-seg-bar-track" aria-hidden="true">
+        {activeItems.map(item => {
+          const pct = Math.max(2, (item.count / total) * 100);
+          return (
+            <div
+              key={item.key}
+              className={`op-seg-bar-fill is-${item.severity}`}
+              style={{width: `${pct}%`}}
+              title={`${item.label} ${item.count}개 (${Math.round((item.count / total) * 100)}%)`}
+            />
+          );
+        })}
+      </div>
+      {customLegend ? (
+        <div className="op-seg-bar-legend">{customLegend}</div>
+      ) : (
+        <div className="op-seg-bar-legend">
+          {activeItems.map(item => (
+            <span key={item.key} className="op-seg-bar-legend-item">
+              <i className={`op-summary-dot is-${item.severity}`} />
+              <span>{item.label} <b>{item.count}</b></span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OperationsSummary({model, inputs, failed}: OperationsSummaryProps) {
   const summary = buildOperationsSummaryView(inputs, failed, model);
   const sectionRef = useRef<HTMLElement>(null);
@@ -125,6 +184,64 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
 
   const severityText = (s: string) => (s === 'ok' ? '정상' : s === 'warn' ? '주의' : s === 'crit' ? '이상' : '미확인');
 
+  // Collection segments: normal, pending/processing, problem, unknown/failed
+  const collectionTotal = summary.collection.total ?? 0;
+  const unknownOrFailed = (summary.collection.unknown ?? 0) + (summary.collection.observationError ?? 0);
+  const collectionSegments: SegmentBarItem[] = [
+    { key: 'ok', label: '정상', count: summary.collection.normal ?? 0, severity: 'ok' },
+    { key: 'proc', label: '진행/보류', count: (summary.collection.processing ?? 0) + (summary.collection.pending ?? 0), severity: 'pending' },
+    { key: 'prob', label: '이상', count: summary.collection.problem ?? 0, severity: 'crit' },
+    { key: 'unk', label: '미확인', count: unknownOrFailed, severity: 'unknown' },
+  ];
+
+  // Model hosts segments: responding, refused, timeout, unknown
+  const hostsList: any[] = summary.models.hosts ?? [];
+  const modelTotal = summary.models.totalHosts ?? 0;
+  const modelResponding = hostsList.filter((h: any) => h.connection === 'responding').length;
+  const modelRefused = hostsList.filter((h: any) => h.connection === 'refused').length;
+  const modelTimeout = hostsList.filter((h: any) => h.connection === 'timeout').length;
+  const modelUnknown = Math.max(0, modelTotal - modelResponding - modelRefused - modelTimeout);
+  const modelSegments: SegmentBarItem[] = [
+    { key: 'ok', label: '정상', count: modelResponding, severity: 'ok' },
+    { key: 'warn', label: '지연', count: modelTimeout, severity: 'warn' },
+    { key: 'crit', label: '거부', count: modelRefused, severity: 'crit' },
+    { key: 'unk', label: '미확인', count: modelUnknown, severity: 'unknown' },
+  ];
+
+  // Quota footer state calculation
+  const critQuotas = summary.quotas.providers.filter((p: any) => p.current && typeof p.remaining === 'number' && p.remaining < 10);
+  const warnQuotas = summary.quotas.providers.filter((p: any) => p.current && typeof p.remaining === 'number' && p.remaining >= 10 && p.remaining < 25);
+  let quotaFootText = '최신 한도 확인';
+  let quotaFootPillSeverity = 'ok';
+  let quotaFootPillLabel = '확인됨';
+  if (summary.quotas.allUnknown) {
+    quotaFootText = '잔량 확인 불가';
+    quotaFootPillSeverity = 'idle';
+    quotaFootPillLabel = '미확인';
+  } else if (critQuotas.length > 0) {
+    quotaFootText = `한도 부족 ${critQuotas.length}곳`;
+    quotaFootPillSeverity = 'crit';
+    quotaFootPillLabel = `부족 ${critQuotas.length}곳`;
+  } else if (warnQuotas.length > 0) {
+    quotaFootText = `한도 주의 ${warnQuotas.length}곳`;
+    quotaFootPillSeverity = 'warn';
+    quotaFootPillLabel = `주의 ${warnQuotas.length}곳`;
+  } else if (summary.quotas.anyUnknown) {
+    quotaFootText = '일부 기간 확인 불가';
+    quotaFootPillSeverity = 'warn';
+    quotaFootPillLabel = '일부';
+  }
+
+  // Issues / Attention current state segments
+  const brokenList: any[] = summary.issues.brokenNodes ?? [];
+  const brokenHostsCount = brokenList.filter((b: any) => b.type === 'host').length;
+  const brokenNodesCount = brokenList.filter((b: any) => b.type === 'node').length;
+  const issuesTotal = summary.issues.totalCount ?? 0;
+  const issueSegments: SegmentBarItem[] = [
+    { key: 'crit', label: '호스트 이상', count: brokenHostsCount, severity: 'crit' },
+    { key: 'warn', label: '운영 점검', count: brokenNodesCount, severity: 'warn' },
+  ];
+
   return (
     <section ref={sectionRef} className="op-summary-strip" aria-label="운영 종합 요약">
       {/* 1. 남은 한도 */}
@@ -137,7 +254,7 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
         <div className="op-summary-head">
           <div className="op-summary-head-title">
             <strong>남은 한도</strong>
-            <span className="op-summary-sub">기간별 최저</span>
+            <span className="op-summary-sub">현재 잔량비</span>
           </div>
           <ArrowRight size={13} className="op-summary-arrow" aria-hidden="true" />
         </div>
@@ -145,21 +262,26 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
           {summary.quotas.providers.length > 0 ? (
             <div className="op-quota-rows">
               {summary.quotas.providers.map(p => {
-                const labelName = p.provider.startsWith('AG·')
-                  ? `AG(${p.provider.replace('AG·', '')})`
-                  : p.provider;
+                let labelName = p.provider;
+                if (p.provider === 'AG·Gemini' || p.provider === 'AG(Gemini)') {
+                  labelName = 'AG Gemini';
+                } else if (p.provider === 'AG·Claude+GPT' || p.provider === 'AG·Claude/GPT' || p.provider === 'AG(Claude+GPT)' || p.provider.startsWith('AG·Claude')) {
+                  labelName = 'AG C+G';
+                } else if (p.provider.startsWith('AG·')) {
+                  labelName = `AG ${p.provider.replace('AG·', '')}`;
+                }
                 const valStr = p.current && p.remaining !== null ? `${p.remaining}%` : '—';
                 const windowTag = p.current ? ` (${p.window})` : '';
                 const pct = p.current && p.remaining !== null ? Math.max(0, Math.min(100, p.remaining)) : 0;
                 return (
                   <div className="op-quota-row" key={p.provider}>
-                    <div className="op-quota-label-wrap">
-                      <span
-                        className="op-quota-name"
-                        title={p.provider.startsWith('AG·') ? 'Antigravity 공유 한도' : undefined}
-                      >
-                        {labelName}
-                      </span>
+                    <span
+                      className="op-quota-name"
+                      title={p.provider.startsWith('AG·') ? 'Antigravity 공유 한도' : undefined}
+                    >
+                      {labelName}
+                    </span>
+                    <div className="op-quota-track-cell">
                       {p.current && p.remaining !== null ? (
                         <div className="op-quota-mini-track" aria-hidden="true">
                           <div className={`op-quota-mini-fill is-${p.severity}`} style={{width: `${pct}%`}} />
@@ -183,10 +305,10 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
           )}
         </div>
         <div className="op-summary-foot">
-          <span>{summary.quotas.allUnknown ? '잔량 확인 불가' : summary.quotas.anyUnknown ? '일부 기간 확인 불가' : '최신 한도 확인'}</span>
-          <span className={`op-summary-state-pill is-${summary.quotas.allUnknown ? 'idle' : summary.quotas.anyUnknown ? 'warn' : 'ok'}`}>
-            <i className={`op-summary-dot is-${summary.quotas.allUnknown ? 'idle' : summary.quotas.anyUnknown ? 'warn' : 'ok'}`} />
-            {summary.quotas.allUnknown ? '미확인' : summary.quotas.anyUnknown ? '일부' : '확인됨'}
+          <span>{quotaFootText}</span>
+          <span className={`op-summary-state-pill is-${quotaFootPillSeverity}`}>
+            <i className={`op-summary-dot is-${quotaFootPillSeverity}`} />
+            {quotaFootPillLabel}
           </span>
         </div>
       </button>
@@ -216,6 +338,10 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
             )}
           </div>
           <div className="op-summary-visual-slot">
+            <div className="op-slot-meta">
+              <span>최근 7일</span>
+              <span>토큰</span>
+            </div>
             <MiniSparkline
               points={summary.tokens.sparkline ?? []}
               ariaLabel="최근 7일 토큰 소비 추이"
@@ -236,13 +362,13 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
       <button
         type="button"
         className="op-summary-card"
-        onClick={() => scrollToPanel('.vd-arrival-chart')}
+        onClick={() => scrollToPanel('.oc-judgment')}
         aria-label="자료 수집 상세 보기"
       >
         <div className="op-summary-head">
           <div className="op-summary-head-title">
             <strong>자료 수집</strong>
-            <span className="op-summary-sub">수집기 상태별</span>
+            <span className="op-summary-sub">현재 수집기</span>
           </div>
           <ArrowRight size={13} className="op-summary-arrow" aria-hidden="true" />
         </div>
@@ -254,26 +380,20 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
             </div>
             {summary.collection.state === 'ready' && (
               <span className="op-summary-val-sub">
-                보류 {summary.collection.pending ?? 0} · 미확인 {summary.collection.unknown ?? 0}
+                정상 {Math.round(((summary.collection.normal ?? 0) / Math.max(1, collectionTotal)) * 100)}%
               </span>
             )}
           </div>
           <div className="op-summary-visual-slot">
-            {summary.collection.collectors?.length > 0 ? (
-              <div className="op-collector-dots" aria-label="수집기별 현재 상태 분포">
-                {summary.collection.collectors.map((c: any) => (
-                  <span
-                    key={c.id}
-                    className={`op-collector-dot is-${c.severity}`}
-                    title={`${c.label}: ${{ok:'정상',pending:'보류',processing:'진행 중',problem:'이상',observation_error:'상태 조회 실패',unknown:'미확인'}[c.key as string] ?? '미확인'}`}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="op-spark-unavailable">
-                <span>상태 미확인</span>
-              </div>
-            )}
+            <div className="op-slot-meta">
+              <span>현재 상태</span>
+              <span>{collectionTotal}기</span>
+            </div>
+            <SegmentedStatusBar
+              items={collectionSegments}
+              total={collectionTotal}
+              ariaLabel="수집기 현재 상태 분포"
+            />
           </div>
         </div>
         <div className="op-summary-foot">
@@ -295,23 +415,27 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
         <div className="op-summary-head">
           <div className="op-summary-head-title">
             <strong>검색 준비</strong>
-            <span className="op-summary-sub">7일 문서 추세</span>
+            <span className="op-summary-sub">검색용 문서</span>
           </div>
           <ArrowRight size={13} className="op-summary-arrow" aria-hidden="true" />
         </div>
         <div className="op-summary-body">
           <div className="op-summary-value-row">
             <div className="op-summary-value">
-              <span className="op-summary-val-main">{summary.rag.matchedLabel}</span>
-              {summary.rag.state === 'ready' && <span className="op-summary-val-unit">과제</span>}
+              <span className="op-summary-val-main">{summary.rag.docsLabel}</span>
+              {summary.rag.state === 'ready' && <span className="op-summary-val-unit">건</span>}
             </div>
             {summary.rag.state === 'ready' && (
               <span className="op-summary-val-sub">
-                문서 {summary.rag.docsLabel}
+                과제 {summary.rag.matchedLabel} 일치
               </span>
             )}
           </div>
           <div className="op-summary-visual-slot">
+            <div className="op-slot-meta">
+              <span>최근 7일</span>
+              <span>문서</span>
+            </div>
             <MiniSparkline
               points={summary.rag.sparkline ?? []}
               ariaLabel="최근 7일 검색용 문서 보유량 추이"
@@ -338,7 +462,7 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
         <div className="op-summary-head">
           <div className="op-summary-head-title">
             <strong>모델 연결</strong>
-            <span className="op-summary-sub">서버 응답</span>
+            <span className="op-summary-sub">현재 서버</span>
           </div>
           <ArrowRight size={13} className="op-summary-arrow" aria-hidden="true" />
         </div>
@@ -348,22 +472,33 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
               <span className="op-summary-val-main">{summary.models.label}</span>
               {summary.models.state === 'ready' && <span className="op-summary-val-unit">서버</span>}
             </div>
+            {summary.models.state === 'ready' && (
+              <span className="op-summary-val-sub">
+                정상 {Math.round((modelResponding / Math.max(1, modelTotal)) * 100)}%
+              </span>
+            )}
           </div>
-          {summary.models.hosts.length > 0 ? (
-            <div className="op-models-list">
-              {summary.models.hosts.map((h: any) => (
-                <div className="op-models-row" key={h.id}>
-                  <div className="op-models-item-left">
-                    <span className={`op-host-dot is-${h.severity}`} aria-hidden="true" />
-                    <span>{h.label}</span>
-                  </div>
-                  <span className={`op-models-status is-${h.severity}`}>{h.stateText}</span>
-                </div>
-              ))}
+          <div className="op-summary-visual-slot">
+            <div className="op-slot-meta">
+              <span>현재 상태</span>
+              <span>{modelTotal}대</span>
             </div>
-          ) : (
-            <span className="op-summary-val-sub">서버 응답 미확인</span>
-          )}
+            <SegmentedStatusBar
+              items={modelSegments}
+              total={modelTotal}
+              ariaLabel="모델 호스트 현재 응답 분포"
+              customLegend={hostsList.length > 0 ? (
+                <>
+                  {hostsList.map((h: any) => (
+                    <span key={h.id} className="op-seg-bar-legend-item">
+                      <i className={`op-summary-dot is-${h.severity}`} />
+                      <span>{h.label} <b>{h.stateText}</b></span>
+                    </span>
+                  ))}
+                </>
+              ) : undefined}
+            />
+          </div>
         </div>
         <div className="op-summary-foot">
           <span>{summary.models.workActivity ? `에이전트 ${summary.models.workActivity}` : '추론 성공과 별도'}</span>
@@ -384,7 +519,7 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
         <div className="op-summary-head">
           <div className="op-summary-head-title">
             <strong>확인할 항목</strong>
-            <span className="op-summary-sub">조치 대상</span>
+            <span className="op-summary-sub">현재 진단</span>
           </div>
           <ArrowRight size={13} className="op-summary-arrow" aria-hidden="true" />
         </div>
@@ -394,39 +529,34 @@ export function OperationsSummary({model, inputs, failed}: OperationsSummaryProp
               <span className="op-summary-val-main">{summary.issues.label}</span>
               {summary.issues.label !== '—' && <span className="op-summary-val-unit">건</span>}
             </div>
+            <span className="op-summary-val-sub">
+              {summary.issues.countsKnown
+                ? issuesTotal === 0
+                  ? '조치 대상 없음'
+                  : `주의/이상 ${issuesTotal}건`
+                : '진단 미확인'}
+            </span>
           </div>
-          {summary.issues.brokenNodes?.length > 0 ? (
-            <div className="op-issues-visual-list">
-              <div className="op-issues-pictogram" aria-label="점검 대상 현황">
-                {summary.issues.brokenNodes.map((n: any) => (
-                  <span
-                    key={n.id}
-                    className={`op-issue-dot is-${n.severity}`}
-                    title={`${n.label} (${n.type === 'host' ? '호스트' : '노드'})`}
-                  />
-                ))}
-              </div>
-              <div className="op-issues-top">
-                {summary.issues.topItems.map((item: any) => (
-                  <span className="op-issues-item" key={item.id}>
-                    · {item.label}
-                  </span>
-                ))}
-              </div>
+          <div className="op-summary-visual-slot">
+            <div className="op-slot-meta">
+              <span>현재 상태</span>
+              <span>{!summary.issues.countsKnown ? '미확인' : issuesTotal === 0 ? '조치 없음' : `${issuesTotal}건`}</span>
             </div>
-          ) : (
-            <div className="op-issues-normal-state">
-              <div className="op-issue-clear-dot" style={{color:summary.issues.countsKnown ? 'var(--green)' : 'var(--muted)'}}>
-                <i className={`op-summary-dot is-${summary.issues.countsKnown ? 'ok' : 'idle'}`} />
-                <span>{summary.issues.countsKnown ? '조치 대상 없음' : '상태 미확인'}</span>
+            {issuesTotal > 0 ? (
+              <SegmentedStatusBar
+                items={issueSegments}
+                total={issuesTotal}
+                ariaLabel="점검 대상 현재 상태 분포"
+              />
+            ) : (
+              <div className="op-issues-normal-state">
+                <div className="op-issue-clear-dot" style={{color: summary.issues.countsKnown ? 'var(--green)' : 'var(--muted)'}}>
+                  <i className={`op-summary-dot is-${summary.issues.countsKnown ? 'ok' : 'idle'}`} />
+                  <span>{summary.issues.countsKnown ? '현재 점검 이상 없음' : '관측 범위 미확인'}</span>
+                </div>
               </div>
-              <span className="op-summary-val-sub">
-                {summary.issues.countsKnown
-                  ? '현재 관측된 점검 항목 없음'
-                  : '관측 범위 확인 필요'}
-              </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         <div className="op-summary-foot">
           <span>

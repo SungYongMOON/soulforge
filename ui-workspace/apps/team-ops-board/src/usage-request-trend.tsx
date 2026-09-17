@@ -57,24 +57,23 @@ export function UsageRequestTrend({ unmeasuredDaily, range, collectorStatus }: U
           <strong>Antigravity 요청</strong>
           <small>최근 {range}일 · 토큰 미측정</small>
         </div>
+        <div className="ag-req-trend-pills">
+          <span className="ag-req-family-pill">
+            <span className="ag-req-dot is-gemini" />
+            <span>Gemini</span>
+            <strong>{geminiTotal.toLocaleString('ko-KR')}회</strong>
+          </span>
+          <span className="ag-req-family-pill">
+            <span className="ag-req-dot is-claude-gpt" />
+            <span>Claude+GPT</span>
+            <strong>{claudeGptTotal.toLocaleString('ko-KR')}회</strong>
+          </span>
+        </div>
         {isCollectorDown && (
           <span className="ag-req-trend-warning" title={collectorStatus?.observedAt ? `마지막 관측: ${collectorStatus.observedAt}` : undefined}>
-            저장 기록 · 최근 수집 상태 확인 필요
+            최근 수집 상태 확인 필요
           </span>
         )}
-      </div>
-
-      <div className="ag-req-trend-summary">
-        <div className="ag-req-family-pill">
-          <span className="ag-req-dot is-gemini" />
-          <span>AG·Gemini</span>
-          <strong>{geminiTotal.toLocaleString('ko-KR')}회</strong>
-        </div>
-        <div className="ag-req-family-pill">
-          <span className="ag-req-dot is-claude-gpt" />
-          <span>AG·Claude+GPT</span>
-          <strong>{claudeGptTotal.toLocaleString('ko-KR')}회</strong>
-        </div>
       </div>
 
       <div className="ag-req-plot-wrap">
@@ -107,34 +106,26 @@ export function UsageRequestTrend({ unmeasuredDaily, range, collectorStatus }: U
             );
           })}
         </div>
-        <div className="ag-req-axis-labels">
-          <span>{sliced[0]?.date ? String(sliced[0].date).slice(5).replace('-', '/') : ''}</span>
-          <span>{activeDay?.date ? `${String(activeDay.date).slice(5).replace('-', '/')} (선택)` : ''}</span>
-          <span>{sliced.at(-1)?.date ? String(sliced.at(-1)?.date).slice(5).replace('-', '/') : ''}</span>
-        </div>
       </div>
 
-      {activeDay && (
-        <div className="ag-req-selection-box">
-          <span className="ag-req-selection-date">{activeDay.date}</span>
-          <span className="ag-req-selection-val">
-            <span className="ag-req-dot is-gemini" />
-            Gemini: <b>{activeGemini.toLocaleString('ko-KR')}회</b>
-            {activeGeminiModels.length > 0 && (
-              <small>({activeGeminiModels.map(m => `${m.model_id}: ${m.requests}회`).join(' · ')})</small>
-            )}
-          </span>
-          <span className="ag-req-selection-val">
-            <span className="ag-req-dot is-claude-gpt" />
-            Claude+GPT: <b>{activeClaudeGpt.toLocaleString('ko-KR')}회</b>
-            {activeClaudeGptModels.length > 0 && (
-              <small>({activeClaudeGptModels.map(m => `${m.model_id}: ${m.requests}회`).join(' · ')})</small>
-            )}
-          </span>
-        </div>
-      )}
-
-      <p className="ag-req-trend-caption">요청 기록 · 대화 관측일 기준 · 토큰 별도</p>
+      <div className="ag-req-selection-box">
+        <span className="ag-req-selection-date">{activeDay ? String(activeDay.date).slice(5).replace('-', '/') : ''}</span>
+        <span className="ag-req-selection-val">
+          <span className="ag-req-dot is-gemini" />
+          <b>{activeGemini.toLocaleString('ko-KR')}회</b>
+          {activeGeminiModels.length > 0 && (
+            <small>({activeGeminiModels.map(m => `${m.model_id}: ${m.requests}회`).join(', ')})</small>
+          )}
+        </span>
+        <span className="ag-req-selection-val">
+          <span className="ag-req-dot is-claude-gpt" />
+          <b>{activeClaudeGpt.toLocaleString('ko-KR')}회</b>
+          {activeClaudeGptModels.length > 0 && (
+            <small>({activeClaudeGptModels.map(m => `${m.model_id}: ${m.requests}회`).join(', ')})</small>
+          )}
+        </span>
+        <span className="ag-req-trend-caption">대화 관측일 기준 · 토큰 별도</span>
+      </div>
     </div>
   );
 }
