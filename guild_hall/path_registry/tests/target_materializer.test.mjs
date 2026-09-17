@@ -16,11 +16,7 @@ import { createPathRegistry, registrySnapshot } from "../src/path_registry_core.
 import { SEED_AUTHORITY, seedRows } from "../data/registry_seed_v0.mjs";
 import {
   APPROVED_EMPTY_MATERIALIZATION_ROOT_REF,
-  PROJECT_CONTEXT_DIRECTORY_TEMPLATE,
-  PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS,
-  PROJECT_CONTEXT_TEMPLATE_VERSION,
   applyTargetMaterialization,
-  resolveProjectTemplateVersion,
   planTargetMaterialization,
   rollbackTargetMaterialization,
 } from "../src/target_materializer.mjs";
@@ -202,27 +198,6 @@ test("dry-run creates nothing; apply creates all; replay is idempotent", () => {
   }
 });
 
-test("project context template matches the adopted Plan 17 physical contract", () => {
-  const lines = documentCodeBlockAfter("## Project context data store").split(/\r?\n/u);
-  assert.equal(lines.shift(), "20_PROJECTS/<project-ref>/");
-  const stack = [];
-  const paths = [];
-  for (const line of lines) {
-    const match = line.match(/^((?:│  |   )*)(?:├─ |└─ )(.+)$/u);
-    assert.ok(match, `unrecognized project template line: ${line}`);
-    const level = match[1].length / 3;
-    stack.length = level;
-    const segment = match[2].replace(/\/$/u, "");
-    assert.ok(segment && !segment.includes("/") && !segment.includes("\\") && !segment.includes(".."));
-    stack.push(segment);
-    paths.push(stack.join("/"));
-  }
-  assert.deepEqual([...PROJECT_CONTEXT_DIRECTORY_TEMPLATE], paths);
-  assert.equal(new Set(paths).size, paths.length);
-  assert.equal(paths.some((p) => p.includes("_workspaces") || p.includes("_workmeta")), false);
-  assert.equal(paths.filter((p) => !p.includes("/")).length, 7);
-});
-
 test("foreign payload in the root refuses materialization", () => {
   const { containment, root } = freshRoots();
   try {
@@ -398,39 +373,4 @@ test("rollback removes only still-empty created directories and keeps payload", 
   } finally {
     rmSync(containment, { recursive: true, force: true });
   }
-});
-
-test("a project store is read at the layout version it was formed under", () => {
-  const versions = Object.keys(PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS);
-  // Newest first, so a store holding today's layout is not reported as the older
-  // version it also satisfies.
-  assert.equal(versions[0], PROJECT_CONTEXT_TEMPLATE_VERSION);
-  assert.ok(versions.length >= 2, "an older layout stays declared once a kind is added");
-  const held = (version) => new Set(PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS[version]);
-  for (const version of versions) {
-    assert.equal(resolveProjectTemplateVersion((dir) => held(version).has(dir)), version);
-  }
-  // The whole point: a store built before LINEAR existed stays readable, and is
-  // not silently reported as today's layout.
-  const older = held("project-context-template-v0");
-  assert.equal(older.has("10_입력자료/LINEAR"), false);
-  assert.equal(held(PROJECT_CONTEXT_TEMPLATE_VERSION).has("10_입력자료/LINEAR"), true);
-  assert.equal(resolveProjectTemplateVersion((dir) => older.has(dir)), "project-context-template-v0");
-
-  // Every declared version keeps every area a project store needs; a version is
-  // a source kind added, never an area dropped.
-  const areas = PROJECT_CONTEXT_DIRECTORY_TEMPLATE.filter((dir) => !dir.includes("/"));
-  for (const version of versions) {
-    for (const area of areas) assert.ok(held(version).has(area), `${version} keeps ${area}`);
-  }
-
-  // And the check is not skipped: a store missing an area every version requires
-  // is refused rather than read as an older store.
-  for (const area of areas) {
-    const broken = new Set([...held(PROJECT_CONTEXT_TEMPLATE_VERSION)].filter((dir) => dir !== area));
-    assert.equal(resolveProjectTemplateVersion((dir) => broken.has(dir)), null, `missing ${area} is refused`);
-  }
-  assert.equal(resolveProjectTemplateVersion(() => false), null);
-  // A present() that answers anything but true does not satisfy a directory.
-  assert.equal(resolveProjectTemplateVersion(() => "yes"), null);
 });

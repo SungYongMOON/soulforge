@@ -49,16 +49,6 @@ async function fixture() {
   return { projectRoot, snapshot };
 }
 
-test("a completed down diagnostic is not a watcher crash and cannot bypass repair revalidation", async () => {
-  const {projectRoot,snapshot}=await fixture();let starts=0;
-  const result=await runRecoveryCycle({repoRoot:projectRoot,projectRoot,binding:binding(),evidenceRoot:path.join(projectRoot,'exit2-evidence'),watchtowerPointerPath:path.join(projectRoot,'pointer.json'),
-    runWatchtower:async()=>{throw Object.assign(new Error('diagnostic down'),{code:2,stdout:JSON.stringify({...snapshot,summary:{...snapshot.summary,down:1}})});},
-    inspectTask:async()=>{throw new Error('No task inspection expected');},startTask:async()=>{starts++;},now:()=>new Date('2026-08-14T00:01:00.000Z')});
-  assert.equal(result.evidence.watchtower_self.status,'ok');
-  assert.equal(result.state_revalidated,false);
-  assert.equal(starts,0);
-});
-
 test("recovery binding is exact, admits newly safe local nodes, and excludes provider/external/unbound tasks", () => {
   assert.equal(validateRecoveryBinding(binding()).mode, "safe-repair");
   // All newly safe local nodes must be accepted when valid

@@ -26,26 +26,21 @@ function ConvertTo-TaskArgument {
   param([Parameter(Mandatory = $true)][string]$Value)
   if ($Value.Contains('"')) { throw "task argument contains an unsupported quote character" }
   if ($Value -notmatch '\s') { return $Value }
-  # WScript parses this layer without CRT backslash escaping; the VBS quotes
-  # its PowerShell child separately, including trailing backslashes.
-  return '"' + $Value + '"'
+  $Escaped = $Value -replace '(\\+)$', '$1$1'
+  return '"' + $Escaped + '"'
 }
 
 $RuntimeRoot = [IO.Path]::GetFullPath($RuntimeRoot)
 $BindingPath = [IO.Path]::GetFullPath($BindingPath)
 $Launcher = [IO.Path]::GetFullPath((Join-Path $RuntimeRoot "guild_hall\ingress\ops\run-continuous-ingress-supervisor.ps1"))
-$HiddenLauncher = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "run-continuous-ingress-supervisor-hidden.vbs"))
-foreach ($RequiredFile in @($Launcher, $HiddenLauncher, $BindingPath)) {
+foreach ($RequiredFile in @($Launcher, $BindingPath)) {
   if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
     throw "continuous supervisor required file is missing"
   }
 }
 
 $PowerShellExe = [IO.Path]::GetFullPath((Get-Command powershell.exe -ErrorAction Stop).Source)
-$WScriptExe = [IO.Path]::GetFullPath((Join-Path $env:WINDIR "System32\wscript.exe"))
-if (-not (Test-Path -LiteralPath $WScriptExe -PathType Leaf)) { throw "continuous supervisor WScript is missing" }
 $ActionArguments = @(
-  "//B", "//NoLogo", $HiddenLauncher, $PowerShellExe,
   "-NoProfile",
   "-NonInteractive",
   "-WindowStyle", "Hidden",
@@ -76,67 +71,41 @@ if ($Existing) {
 }
 
 if (-not $Register) {
-  Write-Output "continuous supervisor task audit passed: mode=at-logon-watchdog hidden=true watchdog_minutes=15 mutation=false"
+  Write-Output "continuous supervisor task audit passed: mode=single-at-logon hidden=true repeated-trigger=false mutation=false"
   return
 }
 
 $CurrentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-if (-not $PSCmdlet.ShouldProcess($TaskName, "register one hidden supervisor with at-logon and 15-minute recovery triggers")) {
+if (-not $PSCmdlet.ShouldProcess($TaskName, "replace repeating ingress task with one hidden at-logon supervisor")) {
   Write-Output "continuous supervisor task registration skipped"
   return
 }
 
-$Action = New-ScheduledTaskAction -Execute $WScriptExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
-$LogonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
-# Independent of logon and bounded failure restarts; IgnoreNew keeps one resident.
-$WatchdogTrigger = New-ScheduledTaskTrigger -Once -At ([datetime]::new(2026, 1, 1, 0, 0, 0)) `
-  -RepetitionInterval (New-TimeSpan -Minutes 15)
-$WatchdogTrigger.Repetition.StopAtDurationEnd = $false
+$Action = New-ScheduledTaskAction -Execute $PowerShellExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
+$Trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
 $Principal = New-ScheduledTaskPrincipal -UserId $CurrentUser -LogonType Interactive -RunLevel Limited
-$Settings = New-ScheduledTaskSettingsSet -Disable -MultipleInstances IgnoreNew -RestartCount 3 `
+$Settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -RestartCount 3 `
   -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
-$null = Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger @($LogonTrigger, $WatchdogTrigger) `
+$null = Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger `
   -Principal $Principal -Settings $Settings `
-  -Description "Soulforge HPP single hidden continuous ingress supervisor; 15-minute recovery watchdog." `
+  -Description "Soulforge HPP single hidden continuous ingress supervisor; no repeated trigger." `
   -Force -ErrorAction Stop
 
 [xml]$RegisteredXml = Export-ScheduledTask -TaskName $TaskName
 $TriggerNodes = @($RegisteredXml.Task.Triggers.ChildNodes)
-$LogonNodes = @($TriggerNodes | Where-Object { $_.LocalName -eq "LogonTrigger" })
-$WatchdogNodes = @($TriggerNodes | Where-Object { $_.LocalName -eq "TimeTrigger" })
-$WatchdogInterval = $null
-$WatchdogDuration = $null
-$WatchdogStop = $null
-if ($WatchdogNodes.Count -eq 1) {
-  $WatchdogInterval = $WatchdogNodes[0].SelectSingleNode("./*[local-name()='Repetition']/*[local-name()='Interval']")
-  $WatchdogDuration = $WatchdogNodes[0].SelectSingleNode("./*[local-name()='Repetition']/*[local-name()='Duration']")
-  $WatchdogStop = $WatchdogNodes[0].SelectSingleNode("./*[local-name()='Repetition']/*[local-name()='StopAtDurationEnd']")
-}
-$RegistrationValid = $TriggerNodes.Count -eq 2 `
-  -and $LogonNodes.Count -eq 1 `
-  -and $null -eq $LogonNodes[0].SelectSingleNode("./*[local-name()='Repetition']") `
-  -and $WatchdogNodes.Count -eq 1 `
-  -and $null -ne $WatchdogInterval -and $WatchdogInterval.InnerText -eq "PT15M" `
-  -and $null -eq $WatchdogDuration `
-  -and ($null -eq $WatchdogStop -or $WatchdogStop.InnerText -eq "false") `
-  -and $RegisteredXml.Task.Settings.Enabled -eq "false" `
+$RegistrationValid = $TriggerNodes.Count -eq 1 `
+  -and $TriggerNodes[0].LocalName -eq "LogonTrigger" `
+  -and $null -eq $TriggerNodes[0].SelectSingleNode("./*[local-name()='Repetition']") `
   -and $RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `
-  -and $RegisteredXml.Task.Settings.RestartOnFailure.Count -eq "3" `
-  -and $RegisteredXml.Task.Settings.RestartOnFailure.Interval -eq "PT1M" `
-  -and $RegisteredXml.Task.Settings.ExecutionTimeLimit -eq "PT0S" `
-  -and $RegisteredXml.Task.Actions.Exec.Command -eq $WScriptExe `
-  -and $RegisteredXml.Task.Actions.Exec.Arguments -eq $ActionArgumentLine `
-  -and $RegisteredXml.Task.Actions.Exec.WorkingDirectory -eq $RuntimeRoot `
+  -and $RegisteredXml.Task.Actions.Exec.Command -eq $PowerShellExe `
   -and $RegisteredXml.Task.Actions.Exec.Arguments -match '-WindowStyle\s+Hidden'
 if (-not $RegistrationValid) {
   throw "registered continuous supervisor task failed post-registration attestation"
 }
 
-# The due watchdog must remain inert until every registration check has passed.
-$null = Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop
 if ($Start) {
   Start-ScheduledTask -TaskName $TaskName
 }
-Write-Output "continuous supervisor task registered: mode=at-logon-watchdog hidden=true watchdog_minutes=15 started=$([bool]$Start)"
+Write-Output "continuous supervisor task registered: mode=single-at-logon hidden=true repeated-trigger=false started=$([bool]$Start)"

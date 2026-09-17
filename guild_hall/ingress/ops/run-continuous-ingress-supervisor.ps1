@@ -2,8 +2,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$RuntimeRoot,
   [Parameter(Mandatory = $true)][string]$BindingPath,
-  [Parameter(Mandatory = $true)][string]$BindingDigest,
-  [Alias('-preflight')][switch]$Preflight
+  [Parameter(Mandatory = $true)][string]$BindingDigest
 )
 
 Set-StrictMode -Version Latest
@@ -31,10 +30,6 @@ if ($ActualDigest -ne $ExpectedDigest) {
 
 $NodeCommand = Get-Command node.exe -ErrorAction Stop
 $NodeExe = [IO.Path]::GetFullPath($NodeCommand.Source)
-if ($Preflight) {
-  & $NodeExe $SupervisorCli --config $BindingPath --config-digest $BindingDigest --preflight
-  exit $LASTEXITCODE
-}
 $ControlRoot = [IO.Path]::GetFullPath((Split-Path -Parent $BindingPath))
 $LogRoot = [IO.Path]::GetFullPath((Join-Path $ControlRoot "logs\continuous-supervisor"))
 if (-not $LogRoot.StartsWith($ControlRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {

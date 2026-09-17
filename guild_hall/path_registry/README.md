@@ -1,45 +1,5 @@
 # Path Registry — physical organization spine (plan 17, R1–R3 contract surfaces)
 
-## 2026-09-10 project store template
-
-Plan 17 now specifies `20_PROJECTS` instead of the old project-only index.
-The empty estate materializer follows that static target root and exports
-`PROJECT_CONTEXT_DIRECTORY_TEMPLATE` as a read-only mandatory relative layout
-for project implementation/acceptance tests. It does not allocate a project,
-register a binding, authorize body writes or migrate live data.
-
-## 2026-09-12 root table — one absolute path in, aliases after
-
-`data_root` and its siblings in `PHYSICAL_ROOT_CLASSES` are root classes, not
-directory names: no declared layout contains a folder called `data_root`, and an
-address like `data_root/20_PROJECTS/<project-ref>` names the class it lives under.
-`src/root_table.mjs` reads the alias-to-physical-root table that turns such an
-address into a place on this host. Because the table locates the estate it cannot
-live inside it: `readRootTable({ tablePath, expectedSha256 })` takes the one
-absolute path a process accepts and pins it, and every address after that is an
-alias. Each root is admitted as exactly the directory it names, reached without a
-link, and two aliases may neither share a root nor nest, so an address has one
-meaning or none. The table's values are host-local private facts and are never
-written into code, documents, manifests or receipts, which carry the alias and
-the table digest instead.
-
-The layout is versioned, because it gains source kinds and a project store keeps
-the layout it was formed under. `PROJECT_CONTEXT_DIRECTORY_TEMPLATE` is the
-current version (`PROJECT_CONTEXT_TEMPLATE_VERSION`), every declared version is
-in `PROJECT_CONTEXT_DIRECTORY_TEMPLATE_VERSIONS` newest first, and
-`resolveProjectTemplateVersion(present)` answers which one a store matches, or
-`null`. A reader records the version it matched rather than demanding the newest,
-so adding a kind does not make older stores unreadable in the same commit; a
-store matching no declared version is still refused, because that is a broken
-store and not an older one. `project-context-template-v1` added
-`10_입력자료/LINEAR` on 2026-09-12 for the references of Linear, one of the
-Tributary source kinds.
-Declaring a version changes no bytes on disk: physical apply stays behind R2.
-`20_PROJECT_ASSET_INDEX` and `45_EVENT_STORES/projects` remain legacy paths.
-Global indexes remain metadata-only; the protected per-project store is the
-separate content owner. See the Plan 17 project-store section and the existing
-resolver/operator manual before implementation or canary.
-
 Owner: `guild_hall/path_registry`. Status: `CURRENT = in-memory contract + tracked HOLD-sentinel seed + adversarial tests`; fresh Level 2 review accepted the G0 Plan 17 document reconciliation. R0 수락과 OD-10 owner/projection 배정은 2026-08-31 정본에 기록됐다. 실제 binding bytes 등록, write-guard 집행, materializer apply(실 canary root), 4192 배선, 그 어떤 물리 이동도 private binding·ACL·readback·activation gate 뒤의 `TARGET/HOLD`다.
 
 Team Member Engineering Program plan 17의 R1(Path Registry + resolver), R2(target materializer), R3(4192 Storage & Backup Map)의 계약 수직이다. 모든 binding·grant·evidence는 **호출자가 단언한 합성 사실**이고, 이 모듈은 어떤 payload byte도 소유·이동·삭제하지 않는다.

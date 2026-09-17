@@ -6,9 +6,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { collectPlaudCatalog } from "./plaud_catalog.mjs";
-import { recordingLibraryEntrySchemaVersion, writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
-import { assertDeliveryArtifactRef, prepareDeliveryReceipt, resolveDeliveryVoiceRootRef, sha256File, writeBoundVoiceMetadata, mergeVoiceSessionManifest } from "./delivery_receipt.mjs";
+import { writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
+import { prepareDeliveryReceipt } from "./delivery_receipt.mjs";
 import {
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
@@ -128,7 +127,7 @@ export function parsePlaudFileOutput(raw) {
     throw new Error("PLAUD file output does not contain a valid recording id");
   }
   return {
-    id: fields.id.toLowerCase(),
+    id: fields.id,
     name: fields.name || "Untitled PLAUD recording",
     created_at: fields.created_at && fields.created_at !== "-" ? fields.created_at : null,
     start_at: fields.start_at && fields.start_at !== "-" ? fields.start_at : null,
@@ -201,9 +200,6 @@ export function runPlaudCommand(command, args, options = {}) {
     ...invocation.spawnOptions,
     env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0", CI: "1", PLAUD_NO_UPDATE_NOTIFIER: "1" },
   });
-  if (result.error?.code === "ETIMEDOUT") {
-    throw Object.assign(new Error("plaud_command_timeout"), { code: "plaud_command_timeout", exitCode: null });
-  }
   if (result.status !== 0) {
     const error = new Error(`PLAUD command failed (${args[0] ?? "unknown"}) with status ${result.status ?? "unknown"}`);
     error.exitCode = result.status;
@@ -270,7 +266,6 @@ export async function buildPlaudPreflight(options = {}) {
     : DEFAULT_PLAUD_COMMAND_TIMEOUT_MS;
 
   for (const command of [profile.plaud_command, "ffprobe"]) {
-    options.assertBudget?.(commandTimeoutMs);
     const check = commandAvailability(command, { timeoutMs: commandTimeoutMs });
     checks.push({ id: `${command}_available`, ...check });
     if (!check.ok) blockers.push(`missing executable: ${command}`);
@@ -282,7 +277,6 @@ export async function buildPlaudPreflight(options = {}) {
     if (!sharedCheck.ok) blockers.push("_workspaces/system must be a shared link on the always-on collector");
   }
 
-  options.assertBudget?.(commandTimeoutMs);
   if (commandAvailability(profile.plaud_command, { timeoutMs: commandTimeoutMs }).ok) {
     try {
       const versionOutput = runner(profile.plaud_command, ["version"], { cwd: repoRoot, timeoutMs: commandTimeoutMs });
@@ -293,14 +287,14 @@ export async function buildPlaudPreflight(options = {}) {
       checks.push({ id: "plaud_version", ok: supported, version });
       if (!supported) blockers.push(`unsupported PLAUD CLI version: ${version ?? "unknown"}`);
     } catch (error) {
-      checks.push({ id: "plaud_version", ok: false, error_code: error?.code ?? null });
+      checks.push({ id: "plaud_version", ok: false });
       blockers.push(error.message);
     }
     try {
       runner(profile.plaud_command, ["me"], { cwd: repoRoot, timeoutMs: commandTimeoutMs });
       checks.push({ id: "plaud_authenticated", ok: true });
     } catch (error) {
-      checks.push({ id: "plaud_authenticated", ok: false, error_code: error?.code ?? null });
+      checks.push({ id: "plaud_authenticated", ok: false });
       blockers.push(error.exitCode === 2 ? "PLAUD authentication required: run `plaud login`" : error.message);
     }
   }
@@ -328,51 +322,10 @@ export async function buildPlaudPreflight(options = {}) {
   };
 }
 
-function plaudDateRelation(date, cutoff) {
-  if (!/^\d{4}-\d{2}-\d{2}$/u.test(date ?? "")) return 0;
-  const [year, month, day] = date.split("-").map(Number);
-  const start = new Date(year, month - 1, day).getTime();
-  const end = new Date(year, month - 1, day + 1).getTime();
-  return end <= cutoff ? -1 : start >= cutoff ? 1 : 0;
-}
-
 export async function runPlaudSync(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const profile = options.profile ?? (await loadPlaudSyncProfile({ repoRoot, profileRef: options.profileRef })).profile;
-  const rawRunner = options.commandRunner ?? runPlaudCommand;
-  const rawClock = options.clock ?? Date.now;
-  const observationAt = rawClock();
-  let previousTime = observationAt;
-  const clock = () => {
-    const value = rawClock();
-    if (!Number.isFinite(value) || value < previousTime) throw Object.assign(new Error("plaud_clock_invalid"), { code: "plaud_clock_invalid" });
-    previousTime = value;
-    return value;
-  };
-  const timeoutMs = options.commandTimeoutMs ?? DEFAULT_PLAUD_COMMAND_TIMEOUT_MS;
-  const deadlineAtMs = options.deadlineAtMs ?? observationAt + 30 * 60 * 1000;
-  if (!Number.isFinite(observationAt) || !Number.isFinite(deadlineAtMs) || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw Object.assign(new Error("plaud_budget_invalid"), { code: "plaud_budget_invalid" });
-  }
-  const invocationBudgetMs = timeoutMs * (process.platform === "win32" ? 2 : 1);
-  const assertBudget = (reserve = 0) => {
-    if (clock() + reserve >= deadlineAtMs) throw Object.assign(new Error("plaud_deadline_exceeded"), { code: "plaud_deadline_exceeded" });
-  };
-  const runner = (command, args, commandOptions = {}) => {
-    assertBudget(invocationBudgetMs);
-    try {
-      const value = rawRunner(command, args, { ...commandOptions, timeoutMs });
-      assertBudget();
-      return value;
-    } catch (error) {
-      if (["plaud_deadline_exceeded", "plaud_clock_invalid", "plaud_command_timeout"].includes(error?.code)) throw error;
-      const code = /API error:\s*429\b/iu.test(stripAnsi(String(error?.stderr ?? ""))) ? "plaud_rate_limited"
-        : error?.exitCode === 4 ? "plaud_command_timeout" : error?.exitCode === 2 ? "plaud_authentication_failed"
-          : error?.exitCode === 3 ? "plaud_network_failed" : "plaud_command_failed";
-      throw Object.assign(new Error(code), { code });
-    }
-  };
-  const beforeSharedWrite = async () => { assertBudget(); await options.beforeSharedWrite?.(); assertBudget(); };
+  const runner = options.commandRunner ?? runPlaudCommand;
   const preflight = options.skipPreflight
     ? { ok: true, blockers: [], checks: [] }
     : await buildPlaudPreflight({
@@ -380,21 +333,15 @@ export async function runPlaudSync(options = {}) {
         profile,
         commandRunner: runner,
         commandTimeoutMs: options.commandTimeoutMs,
-        assertBudget,
       });
   if (!preflight.ok) {
     return { schema_version: plaudSyncResultSchemaVersion, ok: false, applied: false, preflight, recordings: [] };
   }
 
-  const cutoff = clock() - profile.poll_days * 24 * 60 * 60 * 1000;
-  const catalog = await (options.catalogRunner ?? collectPlaudCatalog)({ command: profile.plaud_command,
-    commandRunner: runner, cwd: repoRoot, clock, deadlineAtMs, commandTimeoutMs: timeoutMs });
-  if (catalog?.complete !== true || !Array.isArray(catalog.rows)) throw Object.assign(new Error("plaud_catalog_incomplete"), { code: "plaud_catalog_incomplete" });
-  const relations = new Map(catalog.rows.map((row) => [row.id, plaudDateRelation(row.date, cutoff)]));
+  const recentRaw = runner(profile.plaud_command, ["recent", "--days", String(profile.poll_days)], { cwd: repoRoot });
+  const recent = parsePlaudRecentOutput(recentRaw);
   const existing = await discoverExistingPlaudRecordings(resolveRepoPath(repoRoot, profile.output_root));
-  const allCandidates = catalog.rows.filter((row) => !existing.has(row.id) && relations.get(row.id) !== -1);
-  const providerPending = [...existing.entries()].filter(([, value]) => value.manifest?.post_import_contract?.provider_transcript_required === false
-    && value.manifest?.transcript?.status !== "provider_transcript_present_unverified" && profile.collect.provider_transcript);
+  const allCandidates = recent.filter((row) => !existing.has(row.id));
   const recordings = [];
   const existingWarningEntries = [...existing.entries()]
     .filter(([, value]) => (
@@ -405,11 +352,8 @@ export async function runPlaudSync(options = {}) {
       || (value.manifest?.library_warning && value.post_import_state?.library_state !== "registered")
       || (value.manifest?.delivery_warning && value.post_import_state?.delivery_state !== "ready")
     ));
-  const competingWork = allCandidates.length > 0 || providerPending.length > 0;
-  const repairLimit = competingWork ? (profile.max_new_per_run > 1 ? profile.max_new_per_run - 1
-    : Number(options.schedulingEpoch ?? 1) % 2) : profile.max_new_per_run;
   const reconciliationCandidates = options.apply
-    ? existingWarningEntries.slice(0, repairLimit)
+    ? existingWarningEntries.slice(0, profile.max_new_per_run)
     : [];
 
   for (const [recordingId, existingRecording] of reconciliationCandidates) {
@@ -423,73 +367,38 @@ export async function runPlaudSync(options = {}) {
         deliveryReceiptEmitter: options.deliveryReceiptEmitter,
         producerNode: options.producerNode,
         now: options.now,
-        beforeSharedWrite,
+        beforeSharedWrite: options.beforeSharedWrite,
       });
       recordings.push(reconciled);
     } catch (error) {
       if (error?.plaudSharedWriteGuardFailure) throw error;
-      recordings.push({ id: recordingId, state: "existing_reconciliation_failed_retryable", failure_kind: classifyPlaudImportFailure(error) });
+      recordings.push({ id: recordingId, state: "existing_reconciliation_failed_retryable" });
     } finally {
       if (typeof options.afterRecording === "function") await options.afterRecording();
     }
   }
 
   const remainingCandidateSlots = Math.max(profile.max_new_per_run - reconciliationCandidates.length, 0);
-  const tasks = new Map(allCandidates.map((row) => [row.id, { ...row, kind: "new" }]));
-  for (const [id, value] of providerPending) if (catalog.rows.some((row) => row.id === id)) tasks.set(id, { id, kind: "backfill", existing: value });
-  for (const row of catalog.rows) if (relations.get(row.id) === 0 && !tasks.has(row.id)) tasks.set(row.id, { ...row, kind: "date" });
-  const ordered = [...tasks.values()].map((row) => ({ ...row, key: crypto.createHash("sha256").update(row.id).digest("hex") }))
-    .sort((a, b) => a.key.localeCompare(b.key));
-  const cursor = /^[a-f0-9]{64}$/u.test(options.probeCursor ?? "") ? options.probeCursor : null;
-  const startIndex = cursor ? ordered.findIndex((row) => row.key > cursor) : 0;
-  const rotated = startIndex > 0 ? [...ordered.slice(startIndex), ...ordered.slice(0, startIndex)] : ordered;
   const candidateProbeLimit = Math.min(
-    tasks.size,
+    allCandidates.length,
     Math.min(Math.max(profile.max_new_per_run * 20, 20), 100),
   );
-  const candidates = rotated.slice(0, candidateProbeLimit);
+  const candidates = allCandidates.slice(0, candidateProbeLimit);
   let candidateCount = 0;
-  let metadataProbedCount = 0;
-  let nextCursor = cursor;
-  let deadlineLimited = false;
   let consumedCandidateSlots = 0;
 
   for (const candidate of candidates) {
     if (consumedCandidateSlots >= remainingCandidateSlots) break;
-    if (clock() + invocationBudgetMs >= deadlineAtMs) { deadlineLimited = true; break; }
-    if (candidate.kind === "new") candidateCount += 1;
-    metadataProbedCount += 1;
+    candidateCount += 1;
     if (typeof options.beforeRecording === "function") await options.beforeRecording();
     try {
       const fileRaw = runner(profile.plaud_command, ["file", candidate.id], { cwd: repoRoot });
       const metadata = parsePlaudFileOutput(fileRaw);
-      if (metadata.id.toLowerCase() !== candidate.id.toLowerCase()) throw Object.assign(new Error("plaud_metadata_identity_mismatch"), { code: "plaud_metadata_identity_mismatch" });
-      if (relations.get(candidate.id) === 0 || candidate.kind === "new") {
-        const created = metadata.created_at ? new Date(metadata.created_at).getTime() : Number.NaN;
-        if (!Number.isFinite(created)) throw Object.assign(new Error("plaud_created_at_unknown"), { code: "plaud_created_at_unknown" });
-        relations.set(candidate.id, created >= cutoff ? 1 : -1);
-      }
-      if (candidate.kind === "date") continue;
-      if (candidate.kind === "new" && relations.get(candidate.id) === -1) { candidateCount -= 1; continue; }
-      if (candidate.kind === "backfill") {
-        if (!metadata.transcript_available) {
-          recordings.push({ id: candidate.id, state: "provider_artifact_unavailable", work_kind: "backfill", provider_transcript_state: "not_available" });
-          continue;
-        }
-        if (!options.apply) {
-          recordings.push({ id: candidate.id, state: "ready_to_backfill" });
-        } else {
-          recordings.push(await backfillPlaudProviderTranscript({ ...options, repoRoot, profile, metadata,
-            existingRecording: candidate.existing, commandRunner: runner, beforeSharedWrite }));
-        }
-        consumedCandidateSlots += 1;
-        continue;
-      }
       const ready =
         (!profile.readiness.require_audio || metadata.audio_available) &&
         (!profile.readiness.require_transcript || metadata.transcript_available);
       if (!ready) {
-        recordings.push({ id: candidate.id, state: "provider_artifact_unavailable", metadata });
+        recordings.push({ id: candidate.id, state: "pending_provider_processing", metadata });
         continue;
       }
       if (!options.apply) {
@@ -509,10 +418,9 @@ export async function runPlaudSync(options = {}) {
         deliveryReceiptEmitter: options.deliveryReceiptEmitter,
         producerNode: options.producerNode,
         now: options.now,
-        beforeSharedWrite,
+        beforeSharedWrite: options.beforeSharedWrite,
         audioDownloadTimeoutMs: options.audioDownloadTimeoutMs,
         requireHppCustody: options.requireHppCustody === true,
-        assertBudget,
       });
       recordings.push(imported);
       consumedCandidateSlots += 1;
@@ -520,14 +428,12 @@ export async function runPlaudSync(options = {}) {
       if (error?.plaudSharedWriteGuardFailure) throw error;
       recordings.push({
         id: candidate.id,
-        state: candidate.kind === "backfill" ? "provider_backfill_failed_retryable" : "import_failed_retryable",
+        state: "import_failed_retryable",
         failure_kind: classifyPlaudImportFailure(error),
       });
       consumedCandidateSlots += 1;
     } finally {
-      nextCursor = candidate.key;
       if (typeof options.afterRecording === "function") await options.afterRecording();
-      assertBudget();
     }
   }
 
@@ -545,28 +451,14 @@ export async function runPlaudSync(options = {}) {
     schema_version: plaudSyncResultSchemaVersion,
     ok: true,
     applied: Boolean(options.apply),
-    catalog_count: catalog.rows.length,
-    catalog_complete: true,
-    catalog_page_count: catalog.page_count,
-    lookback_complete: ![...relations.values()].includes(0),
-    lookback_cutoff_at: new Date(cutoff).toISOString(),
-    recent_count: [...relations.values()].includes(0) ? null : [...relations.values()].filter((value) => value === 1).length,
+    recent_count: recent.length,
     existing_provider_id_count: existing.size,
     existing_post_import_warning_count: existingWarningEntries.length,
     reconciliation_candidate_count: reconciliationCandidates.length,
     reconciled_count: recordings.filter((item) => item.state === "reconciled").length,
-    new_candidate_count: allCandidates.some((row) => relations.get(row.id) === 0) ? null
-      : allCandidates.filter((row) => relations.get(row.id) === 1).length,
+    new_candidate_count: allCandidates.length,
     candidate_count: candidateCount,
-    truncated_new_candidate_count: allCandidates.some((row) => relations.get(row.id) === 0) ? null
-      : Math.max(allCandidates.filter((row) => relations.get(row.id) === 1).length - candidateCount, 0),
-    metadata_probed_count: metadataProbedCount,
-    probe_cursor_sha256: nextCursor,
-    deadline_limited: deadlineLimited,
-    provider_backfill_pending_count: Math.max(0, [...existing.values()].filter((value) => value.manifest?.post_import_contract?.provider_transcript_required === false
-      && value.manifest?.transcript?.status !== "provider_transcript_present_unverified").length
-      + recordings.filter((row) => row.state === "imported" && row.provider_transcript_state !== "provider_transcript_present_unverified").length
-    ),
+    truncated_new_candidate_count: Math.max(allCandidates.length - candidateCount, 0),
     recordings,
     custody_required_session_refs: [...new Set(custodyRequiredSessionRefs)].sort(),
     raw_payload_boundary: {
@@ -590,114 +482,6 @@ async function invokePlaudSharedWriteGuard(callback) {
   }
 }
 
-async function backfillPlaudProviderTranscript(options) {
-  const { repoRoot, profile, metadata, existingRecording } = options;
-  const voiceRootRef = resolveDeliveryVoiceRootRef(profile.output_root);
-  const sessionDir = path.dirname(existingRecording.manifest_path);
-  const sessionRef = relativeRef(repoRoot, sessionDir);
-  const original = existingRecording.manifest;
-  const beforeWrite = () => invokePlaudSharedWriteGuard(options.beforeSharedWrite);
-  const writeMetadata = (ref, value, guard = beforeWrite) => writeBoundVoiceMetadata(repoRoot, ref, value, { voiceRootRef, beforeWrite: guard });
-  const conflict = () => Object.assign(new Error("plaud_provider_backfill_conflict"), { code: "plaud_provider_backfill_conflict" });
-  if (original.post_import_contract?.provider_transcript_required !== false || !metadata.transcript_available
-    || original.provider_recording_id?.toLowerCase() !== metadata.id) throw conflict();
-  await assertDeliveryArtifactRef(repoRoot, `${sessionRef}/session_manifest.json`, { voiceRootRef, mustExist: true });
-  let stage;
-  let stageIdentity;
-  try {
-    await beforeWrite();
-    await assertDeliveryArtifactRef(repoRoot, `${sessionRef}/.provider-backfill-stage`, { voiceRootRef });
-    stage = await fs.mkdtemp(path.join(sessionDir, ".provider-backfill-"));
-    stageIdentity = await fs.lstat(stage);
-    const stageGuard = async (name) => {
-      await beforeWrite();
-      await assertDeliveryArtifactRef(repoRoot, relativeRef(repoRoot, path.join(stage, name)), { voiceRootRef });
-      const current = await fs.lstat(stage);
-      if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== stageIdentity.dev || current.ino !== stageIdentity.ino) throw conflict();
-    };
-    const source = path.join(stage, "original.txt");
-    await stageGuard("original.txt");
-    options.commandRunner(profile.plaud_command, ["transcript", metadata.id, "-o", source], { cwd: repoRoot });
-    const info = await fs.lstat(source);
-    if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_PLAUD_PROVIDER_TEXT_BYTES) throw conflict();
-    const raw = await fs.readFile(source, "utf8");
-    const segments = parsePlaudTranscript(raw);
-    if (segments.length === 0) throw new Error("PLAUD transcript parse produced zero segments");
-    await stageGuard("normalized.txt");
-    await fs.writeFile(path.join(stage, "normalized.txt"), raw, { flag: "wx" });
-    await stageGuard("segments.jsonl");
-    await fs.writeFile(path.join(stage, "segments.jsonl"), `${segments.map((row) => JSON.stringify(row)).join("\n")}\n`, { flag: "wx" });
-    const state = { ...existingRecording.post_import_state,
-      schema_version: "soulforge.voice.plaud_post_import_state.v1", provider_transcript_state: "backfill_pending",
-      library_state: "registration_failed_retryable", delivery_state: "prepare_failed_retryable" };
-    await writeMetadata(`${sessionRef}/post_import_state.json`, state);
-    for (const [sourceName, suffix] of [["original.txt", "provider_export/transcript.txt"], ["normalized.txt", "transcript.txt"], ["segments.jsonl", "transcript.jsonl"]]) {
-      const ref = `${sessionRef}/${suffix}`;
-      await beforeWrite();
-      const target = await assertDeliveryArtifactRef(repoRoot, ref, { voiceRootRef });
-      await fs.mkdir(path.dirname(target), { recursive: true });
-      await stageGuard(sourceName);
-      await assertDeliveryArtifactRef(repoRoot, ref, { voiceRootRef });
-      try { await fs.link(path.join(stage, sourceName), target); } catch (error) {
-        if (error.code !== "EEXIST") throw conflict();
-        await assertDeliveryArtifactRef(repoRoot, ref, { voiceRootRef, mustExist: true });
-        if (await sha256File(target) !== await sha256File(path.join(stage, sourceName))) throw conflict();
-      }
-    }
-    const speakers = [...new Set(segments.map((row) => row.speaker).filter((speaker) => speaker !== "UNKNOWN"))];
-    const manifest = await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: original, owner: "provider", voiceRootRef, beforeWrite,
-      patch: { transcript: { status: "provider_transcript_present_unverified", provider_available: true,
-      evidence_role: "auxiliary_unverified", ref: `${sessionRef}/transcript.txt`, jsonl_ref: `${sessionRef}/transcript.jsonl`,
-      provider_original_ref: `${sessionRef}/provider_export/transcript.txt`, segment_count: segments.length, speaker_label_count: speakers.length },
-      speaker_diarization: { status: speakers.length ? "provider_labels_present_unverified" : "not_available", labels: speakers },
-      raw_payload_boundary: { transcript_stored_under_workspace: true } },
-    });
-    existingRecording.manifest = manifest;
-    state.provider_transcript_state = manifest.transcript.status;
-    await writeMetadata(`${sessionRef}/post_import_state.json`, state);
-    const repaired = await reconcileExistingPlaudSession({ ...options, recordingId: metadata.id,
-      existingRecording: { ...existingRecording, manifest, post_import_state: state } });
-    return { ...repaired, state: "provider_backfilled", provider_transcript_state: manifest.transcript.status };
-  } finally {
-    if (stage && stageIdentity) try {
-      await assertDeliveryArtifactRef(repoRoot, relativeRef(repoRoot, stage), { voiceRootRef });
-      const current = await fs.lstat(stage);
-      if (current.isDirectory() && !current.isSymbolicLink() && current.dev === stageIdentity.dev && current.ino === stageIdentity.ino) {
-        await fs.rm(stage, { recursive: true, force: true });
-      }
-    } catch { /* Never clean an exchanged path. */ }
-  }
-}
-
-async function selectedLibraryArtifactPresent({ repoRoot, profile, sessionDir, manifest }) {
-  const voiceRootRef = resolveDeliveryVoiceRootRef(profile.output_root);
-  const date = path.basename(path.dirname(sessionDir));
-  const id = manifest.session_id;
-  if (typeof id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(id)
-    || (manifest.date != null && manifest.date !== date)) throw new Error("plaud_library_identity_invalid");
-  const ref = `${voiceRootRef}/library/recordings/${date}/${id}/recording_manifest.json`;
-  if (voiceRootRef === "ingress/plaud") {
-    await assertDeliveryArtifactRef(repoRoot, ref, { voiceRootRef, mustExist: false });
-  }
-  let cursor = path.resolve(repoRoot, voiceRootRef);
-  const parts = ["library", "recordings", date, id, "recording_manifest.json"];
-  for (const [index, part] of parts.entries()) {
-    cursor = path.join(cursor, part);
-    let info;
-    try { info = await fs.lstat(cursor); } catch (error) {
-      if (error.code === "ENOENT") return false;
-      throw error;
-    }
-    if (info.isSymbolicLink() || (index === parts.length - 1 ? !info.isFile() : !info.isDirectory())) {
-      throw new Error("plaud_library_artifact_unsafe");
-    }
-  }
-  const entry = JSON.parse(await fs.readFile(cursor, "utf8"));
-  if (entry.schema_version !== recordingLibraryEntrySchemaVersion || entry.session_id !== id
-    || entry.recording_id !== id || entry.recording_date !== date) throw new Error("plaud_library_identity_mismatch");
-  return true;
-}
-
 async function reconcileExistingPlaudSession(options) {
   const { repoRoot, profile, recordingId, existingRecording } = options;
   const sessionDir = path.dirname(existingRecording.manifest_path);
@@ -707,7 +491,6 @@ async function reconcileExistingPlaudSession(options) {
     schema_version: "soulforge.voice.plaud_post_import_state.v1",
     library_state: existingRecording.post_import_state?.library_state ?? "unknown",
     delivery_state: existingRecording.post_import_state?.delivery_state ?? "unknown",
-    provider_transcript_state: manifest.transcript?.status ?? "not_available",
   };
   const beforeSharedWrite = () => invokePlaudSharedWriteGuard(options.beforeSharedWrite);
   const writePostImportState = async () => {
@@ -727,31 +510,21 @@ async function reconcileExistingPlaudSession(options) {
       : "ready",
   };
 
-  if (manifest.post_import_contract?.library_required === true || manifest.library_warning) {
-    try {
-      const present = await selectedLibraryArtifactPresent({ repoRoot, profile, sessionDir, manifest });
-      if (!present || postImportState.library_state !== "registered") {
-        postImportState.library_state = "registration_failed_retryable";
-        await writePostImportState();
-        await beforeSharedWrite();
-        await writeRecordingLibraryEntry({
-          repoRoot,
-          sessionDir,
-          voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
-          projectCode: profile.project_code_candidate,
-          routeStatus: "unclassified_needs_owner_confirmation",
-          meetingType: "unclassified_voice_recording",
-          apply: true,
-          beforeWrite: beforeSharedWrite,
-        });
-        postImportState.library_state = "registered";
-        await writePostImportState();
-      }
-      library = { state: "registered" };
-    } catch (error) {
-      if (error?.plaudSharedWriteGuardFailure) throw error;
-      throw Object.assign(new Error("PLAUD library reconciliation failed"), { plaudRepairPhase: "library" });
-    }
+  if ((manifest.post_import_contract?.library_required === true || manifest.library_warning)
+    && postImportState.library_state !== "registered") {
+    await beforeSharedWrite();
+    await writeRecordingLibraryEntry({
+      repoRoot,
+      sessionDir,
+      projectCode: profile.project_code_candidate,
+      routeStatus: "unclassified_needs_owner_confirmation",
+      meetingType: "unclassified_voice_recording",
+      apply: true,
+      beforeWrite: beforeSharedWrite,
+    });
+    postImportState.library_state = "registered";
+    await writePostImportState();
+    library = { state: "registered" };
   }
 
   if ((manifest.post_import_contract?.delivery_required === true || manifest.delivery_warning)
@@ -761,23 +534,19 @@ async function reconcileExistingPlaudSession(options) {
       const result = await emitter({
         repoRoot,
         sessionDir,
-        voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
         recordingId: manifest.session_id,
-        stage: manifest.post_import_contract?.provider_transcript_required === false
-          && manifest.independent_transcription?.status === "completed" ? "local_asr_ready" : "plaud_import_ready",
+        stage: "plaud_import_ready",
         producerNode: options.producerNode ?? "always_on_voice_producer",
         apply: true,
         now: options.now,
         beforeWrite: beforeSharedWrite,
       });
-      if (result.status !== "ready") throw new Error(result.status === "missing"
-        ? "PLAUD delivery required artifact missing" : "PLAUD delivery reconciliation incomplete");
+      if (result.status !== "ready") throw new Error("PLAUD delivery reconciliation incomplete");
       postImportState.delivery_state = "ready";
       await writePostImportState();
       delivery = { state: "ready", receipt_ref: result.receipt_ref ?? null };
     } catch (error) {
       if (error?.plaudSharedWriteGuardFailure) throw error;
-      if (error && typeof error === "object") error.plaudRepairPhase = "delivery";
       throw error;
     }
   }
@@ -830,7 +599,7 @@ export async function drainPlaudMailQueue(options = {}) {
   });
   const importedCount = sync.recordings.filter((recording) => recording.state === "imported").length;
   const retryableRecordingCount = sync.recordings.filter((recording) =>
-    ["pending_provider_processing", "provider_artifact_unavailable", "import_failed_retryable", "provider_backfill_failed_retryable"].includes(recording.state),
+    ["pending_provider_processing", "import_failed_retryable"].includes(recording.state),
   ).length;
   const truncatedCount = Number(sync.truncated_new_candidate_count ?? 0);
   const now = options.now ?? new Date();
@@ -897,56 +666,18 @@ export async function materializePlaudRecording(options) {
     await fs.mkdir(providerDir, { recursive: true });
     await fs.mkdir(audioDir, { recursive: true });
 
-    let audio = null;
-    const collectAudio = async () => {
-      if (!profile.collect.audio || !metadata.audio_available) return;
-      const audioOutput = runner(profile.plaud_command, ["audio", metadata.id], { cwd: repoRoot });
-      const audioUrl = parsePlaudAudioUrl(audioOutput);
-      if (!audioUrl) throw new Error(`PLAUD audio URL missing for ${metadata.id}`);
-      const downloader = options.audioDownloader ?? downloadPlaudAudio;
-      options.assertBudget?.(options.audioDownloadTimeoutMs ?? DEFAULT_PLAUD_COMMAND_TIMEOUT_MS);
-      audio = await downloader(audioUrl, audioDir, {
-        timeoutMs: options.audioDownloadTimeoutMs,
-        maxBytes: MAX_PLAUD_AUDIO_BYTES,
-      });
-      const downloadedStat = await fs.stat(audio.path);
-      if (!downloadedStat.isFile() || downloadedStat.size <= 0
-        || downloadedStat.size > MAX_PLAUD_AUDIO_BYTES
-        || downloadedStat.size !== audio.size_bytes) {
-        throw new Error("PLAUD audio download size contract failed");
-      }
-      const probe = options.audioProbe ?? probeAudio;
-      options.assertBudget?.(options.audioDownloadTimeoutMs ?? DEFAULT_PLAUD_COMMAND_TIMEOUT_MS);
-      audio.probe = await probe(audio.path, { timeoutMs: options.audioDownloadTimeoutMs });
-    };
-    if (profile.readiness.require_transcript === false) await collectAudio();
-
     const transcriptPath = path.join(providerDir, "transcript.txt");
-    let transcriptRaw = "";
-    let segments = [];
-    let transcriptFetchFailed = false;
-    let transcriptFailureKind = null;
-    try {
-      if (profile.collect.provider_transcript && metadata.transcript_available) {
-        runner(profile.plaud_command, ["transcript", metadata.id, "-o", transcriptPath], { cwd: repoRoot });
-      }
-      if (existsSync(transcriptPath)) {
-        const transcriptStat = await fs.stat(transcriptPath);
-        if (!transcriptStat.isFile() || transcriptStat.size > MAX_PLAUD_PROVIDER_TEXT_BYTES) {
-          throw new Error("PLAUD provider transcript exceeds byte limit");
-        }
-        transcriptRaw = await fs.readFile(transcriptPath, "utf8");
-        segments = parsePlaudTranscript(transcriptRaw);
-        if (segments.length === 0) throw new Error("PLAUD transcript parse produced zero segments");
-      }
-    } catch (error) {
-      if (profile.readiness.require_transcript !== false || error?.plaudSharedWriteGuardFailure) throw error;
-      transcriptFetchFailed = true;
-      transcriptFailureKind = classifyPlaudImportFailure(error);
-      transcriptRaw = "";
-      segments = [];
-      await fs.rm(transcriptPath, { force: true });
+    if (profile.collect.provider_transcript && metadata.transcript_available) {
+      runner(profile.plaud_command, ["transcript", metadata.id, "-o", transcriptPath], { cwd: repoRoot });
     }
+    if (existsSync(transcriptPath)) {
+      const transcriptStat = await fs.stat(transcriptPath);
+      if (!transcriptStat.isFile() || transcriptStat.size > MAX_PLAUD_PROVIDER_TEXT_BYTES) {
+        throw new Error("PLAUD provider transcript exceeds byte limit");
+      }
+    }
+    const transcriptRaw = existsSync(transcriptPath) ? await fs.readFile(transcriptPath, "utf8") : "";
+    const segments = parsePlaudTranscript(transcriptRaw);
     if (profile.readiness.require_transcript && metadata.transcript_available && segments.length === 0) {
       throw new Error("PLAUD transcript parse produced zero segments");
     }
@@ -966,7 +697,26 @@ export async function materializePlaudRecording(options) {
       }
     }
 
-    if (profile.readiness.require_transcript !== false) await collectAudio();
+    let audio = null;
+    if (profile.collect.audio && metadata.audio_available) {
+      const audioOutput = runner(profile.plaud_command, ["audio", metadata.id], { cwd: repoRoot });
+      const audioUrl = parsePlaudAudioUrl(audioOutput);
+      if (!audioUrl) throw new Error(`PLAUD audio URL missing for ${metadata.id}`);
+      const downloader = options.audioDownloader ?? downloadPlaudAudio;
+      audio = await downloader(audioUrl, audioDir, {
+        timeoutMs: options.audioDownloadTimeoutMs,
+        maxBytes: MAX_PLAUD_AUDIO_BYTES,
+      });
+      const downloadedStat = await fs.stat(audio.path);
+      if (!downloadedStat.isFile()
+        || downloadedStat.size > MAX_PLAUD_AUDIO_BYTES
+        || downloadedStat.size !== audio.size_bytes) {
+        throw new Error("PLAUD audio download size contract failed");
+      }
+      const probe = options.audioProbe ?? probeAudio;
+      audio.probe = await probe(audio.path, { timeoutMs: options.audioDownloadTimeoutMs });
+    }
+
     const durationSeconds = Number(audio?.probe?.duration_seconds ?? segments.at(-1)?.end_seconds ?? 0);
     const end = new Date(start.getTime() + durationSeconds * 1000);
     const speakers = [...new Set(segments.map((segment) => segment.speaker).filter((speaker) => speaker !== "UNKNOWN"))];
@@ -1003,14 +753,11 @@ export async function materializePlaudRecording(options) {
           }
         : { status: "not_available" },
       transcript: {
-        status: segments.length > 0 ? "provider_transcript_present_unverified"
-          : transcriptFetchFailed ? "provider_output_failed_retryable" : "not_available",
-        provider_available: metadata.transcript_available,
-        failure_kind: transcriptFailureKind,
+        status: segments.length > 0 ? "provider_transcript_present_unverified" : "not_available",
         evidence_role: profile.evidence_roles.provider_transcript,
-        ref: segments.length > 0 ? relativeRef(repoRoot, path.join(sessionDir, "transcript.txt")) : null,
-        jsonl_ref: segments.length > 0 ? relativeRef(repoRoot, path.join(sessionDir, "transcript.jsonl")) : null,
-        provider_original_ref: segments.length > 0 ? relativeRef(repoRoot, path.join(sessionDir, "provider_export", "transcript.txt")) : null,
+        ref: relativeRef(repoRoot, path.join(sessionDir, "transcript.txt")),
+        jsonl_ref: relativeRef(repoRoot, path.join(sessionDir, "transcript.jsonl")),
+        provider_original_ref: relativeRef(repoRoot, path.join(sessionDir, "provider_export", "transcript.txt")),
         segment_count: segments.length,
         speaker_label_count: speakers.length,
         time_basis: "seconds_from_recording_start_rounded_by_provider_cli",
@@ -1055,14 +802,12 @@ export async function materializePlaudRecording(options) {
         library_required: Boolean(profile.register_library),
         delivery_required: Boolean(profile.register_library),
         hpp_custody_required: options.requireHppCustody === true,
-        provider_transcript_required: profile.readiness.require_transcript !== false,
       },
     };
     const initialPostImportState = {
       schema_version: "soulforge.voice.plaud_post_import_state.v1",
       library_state: profile.register_library ? "pending" : "not_required",
       delivery_state: profile.register_library ? "pending" : "not_required",
-      provider_transcript_state: manifest.transcript.status,
     };
 
     const sessionDateRoot = path.dirname(sessionDir);
@@ -1118,7 +863,6 @@ export async function materializePlaudRecording(options) {
         await writeRecordingLibraryEntry({
           repoRoot,
           sessionDir,
-          voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
           projectCode: profile.project_code_candidate,
           routeStatus: "unclassified_needs_owner_confirmation",
           meetingType: "unclassified_voice_recording",
@@ -1128,13 +872,11 @@ export async function materializePlaudRecording(options) {
         library = { state: "registered" };
       } catch (error) {
         if (error?.plaudSharedWriteGuardFailure) throw error;
-        library = { state: "registration_failed_retryable", failure_kind: "library_registration_failed" };
+        library = { state: "registration_failed_retryable" };
         manifest.library_warning = "library_registration_failed_retryable";
         try {
           await beforeSharedWrite();
-          await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifest, owner: "provider",
-            voiceRootRef: options.requireHppCustody === true ? resolveDeliveryVoiceRootRef(profile.output_root) : undefined, beforeWrite: beforeSharedWrite,
-            patch: { library_warning: manifest.library_warning } });
+          await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
         } catch (error) {
           if (error?.plaudSharedWriteGuardFailure) throw error;
           // The returned retryable warning remains visible; session publication is already complete.
@@ -1167,7 +909,6 @@ export async function materializePlaudRecording(options) {
         const result = await emitter({
           repoRoot,
           sessionDir,
-          voiceRootRef: resolveDeliveryVoiceRootRef(profile.output_root),
           recordingId: sessionId,
           stage: "plaud_import_ready",
           producerNode: options.producerNode ?? "always_on_voice_producer",
@@ -1178,15 +919,12 @@ export async function materializePlaudRecording(options) {
           state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
           receipt_ref: result.receipt_ref ?? null,
           warning: result.status === "ready" ? null : "delivery_receipt_prepare_failed_retryable",
-          failure_kind: result.status === "ready" ? null : result.status === "missing" ? "delivery_artifact_missing" : "delivery_preparation_failed",
         };
         if (delivery.warning) {
           manifest.delivery_warning = delivery.warning;
           try {
             await beforeSharedWrite();
-            await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifest, owner: "provider",
-              voiceRootRef: options.requireHppCustody === true ? resolveDeliveryVoiceRootRef(profile.output_root) : undefined, beforeWrite: beforeSharedWrite,
-              patch: { delivery_warning: manifest.delivery_warning } });
+            await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
           } catch (error) {
             if (error?.plaudSharedWriteGuardFailure) throw error;
             // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
@@ -1194,13 +932,11 @@ export async function materializePlaudRecording(options) {
         }
       } catch (error) {
         if (error?.plaudSharedWriteGuardFailure) throw error;
-        delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable", failure_kind: classifyPlaudImportFailure(error, "delivery") };
+        delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
         manifest.delivery_warning = delivery.warning;
         try {
           await beforeSharedWrite();
-          await mergeVoiceSessionManifest({ repoRoot, sessionDir, expected: manifest, owner: "provider",
-            voiceRootRef: options.requireHppCustody === true ? resolveDeliveryVoiceRootRef(profile.output_root) : undefined, beforeWrite: beforeSharedWrite,
-            patch: { delivery_warning: manifest.delivery_warning } });
+          await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
         } catch (error) {
           if (error?.plaudSharedWriteGuardFailure) throw error;
           // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
@@ -1232,7 +968,6 @@ export async function materializePlaudRecording(options) {
       schema_version: "soulforge.voice.plaud_post_import_state.v1",
       library_state: library.state,
       delivery_state: delivery.state,
-      provider_transcript_state: manifest.transcript.status,
     };
     await beforeSharedWrite();
     await fs.writeFile(
@@ -1247,8 +982,6 @@ export async function materializePlaudRecording(options) {
       session_id: sessionId,
       session_ref: relativeRef(repoRoot, sessionDir),
       audio_present: Boolean(audio),
-      provider_transcript_state: manifest.transcript.status,
-      provider_failure_kind: transcriptFailureKind,
       transcript_segments: segments.length,
       provider_summary_present: existsSync(summaryPath),
       provider_summary_fetch_failed: summaryFetchFailed,
@@ -1287,7 +1020,7 @@ export async function discoverExistingPlaudRecordings(outputRoot) {
           } catch {
             // Existing sessions predate the repair sidecar or have not repaired yet.
           }
-          found.set(manifest.provider_recording_id.toLowerCase(), {
+          found.set(manifest.provider_recording_id, {
             session_id: manifest.session_id,
             manifest_path: manifestPath,
             manifest,
@@ -1407,9 +1140,8 @@ async function downloadPlaudAudio(url, outputDir, options = {}) {
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok || !response.body) throw new Error(`PLAUD audio download failed with status ${response.status}`);
-  const lengthHeader = response.headers.get("content-length");
-  const declaredLength = lengthHeader === null ? null : Number(lengthHeader);
-  if (declaredLength !== null && (!Number.isSafeInteger(declaredLength) || declaredLength < 0 || declaredLength > maxBytes)) {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     throw new Error("PLAUD audio download exceeds byte limit");
   }
   const extension = audioExtension(response.headers.get("content-type"), new URL(response.url).pathname);
@@ -1426,7 +1158,6 @@ async function downloadPlaudAudio(url, outputDir, options = {}) {
   });
   await pipeline(Readable.fromWeb(response.body.pipeThrough(tap)), createWriteStream(outputPath));
   const stat = await fs.stat(outputPath);
-  if (declaredLength !== null && stat.size !== declaredLength) throw new Error("PLAUD audio download size contract failed");
   return { path: outputPath, size_bytes: stat.size, sha256: hash.digest("hex") };
 }
 
@@ -1601,18 +1332,8 @@ export function commandAvailability(command, options = {}) {
   return { ok: result.status === 0 && Boolean(resolvedPath), resolved_path: resolvedPath };
 }
 
-function classifyPlaudImportFailure(error, phase = error?.plaudRepairPhase) {
+function classifyPlaudImportFailure(error) {
   const message = String(error?.message ?? "");
-  if (["plaud_deadline_exceeded", "plaud_rate_limited", "plaud_command_timeout", "plaud_authentication_failed",
-    "plaud_network_failed", "plaud_command_failed", "plaud_created_at_unknown", "plaud_metadata_identity_mismatch",
-    "plaud_provider_backfill_conflict"].includes(error?.code)) return error.code;
-  if (phase === "library") return "library_registration_failed";
-  if (phase === "delivery") {
-    if (message.startsWith("delivery_ref_outside_allowlist:") || message === "delivery_voice_root_not_supported"
-      || message === "session_dir_outside_voice_sessions") return "delivery_root_rejected";
-    if (message === "PLAUD delivery required artifact missing") return "delivery_artifact_missing";
-    return "delivery_preparation_failed";
-  }
   if (message.includes("transcript parse produced zero segments")) return "transcript_parse_empty";
   if (message.includes("audio URL missing")) return "audio_url_missing";
   if (message.includes("PLAUD command failed")) return "plaud_cli_command_failed";

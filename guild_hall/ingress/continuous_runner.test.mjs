@@ -29,14 +29,11 @@ import {
   CONTINUOUS_LEASE_SCHEMA,
   continuousLeaseInstancePath,
   loadContinuousBinding,
-  inspectContinuousIngress,
   plaudSessionCustodyPrefixes,
   resolveWindowsProcessInstanceToken,
   runContinuousIngress as runContinuousIngressImpl,
 } from "./continuous_runner.mjs";
 import { inspectMailCollectorRelease } from "./mail_bridge.mjs";
-import { createSupervisorHeartbeatRecorder, resolveSupervisorHeartbeatLedger } from "./continuous_supervisor.mjs";
-import { validateDeliveryReceipt } from "../voice_capture/delivery_receipt.mjs";
 import {
   WRITER_AUTHORITY_ABSENT_DIGEST,
   transitionWriterAuthority,
@@ -449,27 +446,6 @@ async function v3Binding(f, authority, options = {}) {
     cutover_receipt_sha256: cutoverReceiptSha256,
   };
   return { ...mail, profilePath, workspaceRoot, cutoverReceiptPath };
-}
-
-async function directPlaudBinding(f, authority) {
-  const plaud = await v3Binding(f, authority, { writerEnabled: true });
-  const profilePath = join(f.dataRoot, "config", "plaud_sync.profile.json");
-  await mkdir(dirname(profilePath), { recursive: true });
-  await mkdir(join(f.dataRoot, "ingress", "plaud"), { recursive: true });
-  const profileBytes = JSON.stringify({ ...buildDefaultPlaudSyncProfile(), output_root: "ingress/plaud",
-    register_library: true, write_workmeta_draft: false });
-  await writeFile(profilePath, profileBytes);
-  const cutover = JSON.parse(await readFile(plaud.cutoverReceiptPath, "utf8"));
-  cutover.profile_sha256 = digest(profileBytes);
-  const cutoverBytes = JSON.stringify(cutover);
-  await writeFile(plaud.cutoverReceiptPath, cutoverBytes);
-  Object.assign(plaud.payload.plaud, { workspace_root: f.dataRoot, profile_path: profilePath,
-    profile_sha256: digest(profileBytes), cutover_receipt_sha256: digest(cutoverBytes) });
-  plaud.payload.voice.enabled = false;
-  plaud.payload.voice.source_root = join(f.root, "retired-mirror-does-not-exist");
-  plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
-  await writeBinding(f, plaud.payload);
-  return { ...plaud, workspaceRoot: f.dataRoot, profilePath };
 }
 
 function syntheticMailSummary(overrides = {}) {
@@ -2542,7 +2518,6 @@ test("PLAUD v3 observes provider backlog inside the existing fenced cycle withou
           existing_provider_id_count: 6,
           new_candidate_count: 14,
           candidate_count: 14,
-          truncated_new_candidate_count: 0,
           recordings: [
             ...Array.from({ length: 4 }, (_, index) => ({ id: `private-ready-${index}`, name: "private title", state: "ready_to_import" })),
             ...Array.from({ length: 10 }, (_, index) => ({ id: `private-pending-${index}`, state: "pending_provider_processing" })),
@@ -2668,291 +2643,6 @@ test("PLAUD v3 primary writer imports through the existing fenced cycle without 
   }
 });
 
-test("PLAUD v3 primary writer accepts direct custody inside the managed data root when voice mirroring is off", async () => {
-  const f = await fixture();
-  try {
-    const authority = await activateWriterAuthority(f);
-    const plaud = await v3Binding(f, authority, { writerEnabled: true });
-    const directOutputRoot = join(f.dataRoot, "ingress", "plaud");
-    const directProfilePath = join(f.dataRoot, "config", "plaud_sync.profile.json");
-    await mkdir(directOutputRoot, { recursive: true });
-    await mkdir(dirname(directProfilePath), { recursive: true });
-    const directProfile = {
-      ...buildDefaultPlaudSyncProfile(),
-      output_root: "ingress/plaud",
-      register_library: true,
-      write_workmeta_draft: false,
-    };
-    const directProfileBytes = `${JSON.stringify(directProfile, null, 2)}\n`;
-    const directProfileSha256 = digest(directProfileBytes);
-    await writeFile(directProfilePath, directProfileBytes);
-    const cutoverReceipt = JSON.parse(await readFile(plaud.cutoverReceiptPath, "utf8"));
-    cutoverReceipt.profile_sha256 = directProfileSha256;
-    const cutoverReceiptBytes = `${JSON.stringify(cutoverReceipt, null, 2)}\n`;
-    await writeFile(plaud.cutoverReceiptPath, cutoverReceiptBytes);
-    plaud.payload.plaud.workspace_root = f.dataRoot;
-    plaud.payload.plaud.profile_path = directProfilePath;
-    plaud.payload.plaud.profile_sha256 = directProfileSha256;
-    plaud.payload.plaud.cutover_receipt_sha256 = digest(cutoverReceiptBytes);
-    plaud.payload.voice.enabled = false;
-    plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
-    await writeBinding(f, plaud.payload);
-    const sessionRef = join("ingress", "plaud", "sessions", "2026-09-10", "synthetic-session");
-    const sessionDir = join(f.dataRoot, sessionRef);
-    await mkdir(sessionDir, { recursive: true });
-    await mkdir(join(sessionDir, "audio"));
-    await writeFile(join(sessionDir, "audio", "source.ogg"), "synthetic");
-    await writeFile(join(sessionDir, "session_manifest.json"), JSON.stringify({
-      schema_version: "soulforge.voice_capture_session.v0",
-      audio: { status: "source_present", size_bytes: 9,
-        ref: `${sessionRef.split("\\").join("/")}/audio/source.ogg` },
-    }));
-
-    const result = await runContinuousIngress({
-      bindingPath: f.bindingPath,
-      apply: true,
-      now: advancingClock(),
-      plaudSyncRunner: async () => ({
-        ok: true,
-        applied: true,
-        recent_count: 1,
-        existing_provider_id_count: 0,
-        new_candidate_count: 1,
-        candidate_count: 1,
-        truncated_new_candidate_count: 0,
-        recordings: [{ state: "imported", session_ref: sessionRef.split("\\").join("/"), audio_present: true }],
-        custody_required_session_refs: [sessionRef.split("\\").join("/")],
-      }),
-    });
-
-    assert.equal(result.status, "ok");
-    assert.equal(result.plaud.status, "ok");
-    assert.equal(result.plaud.imported_count, 1);
-    assert.equal(result.plaud.custody_complete, true);
-    assert.equal(result.plaud.cutover_ready, true);
-    assert.equal(result.voice, null);
-    assert.equal(result.errors.some((item) => item.binding_id === "plaud"), false);
-  } finally {
-    await rm(f.root, { recursive: true, force: true });
-  }
-});
-
-test("direct PLAUD separates empty success, partial failure, backlog, blocked and unknown observations", async () => {
-  const f = await fixture();
-  try {
-    await directPlaudBinding(f, await activateWriterAuthority(f));
-    const now = advancingClock();
-    const inspect = () => inspectContinuousIngress({ bindingPath: f.bindingPath, now });
-    assert.equal((await inspect()).status, "not_run");
-    const empty = { ok: true, applied: true, recent_count: 0, existing_provider_id_count: 0,
-      new_candidate_count: 0, candidate_count: 0, truncated_new_candidate_count: 0,
-      recordings: [], custody_required_session_refs: [] };
-    const run = (sync) => runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now,
-      plaudSyncRunner: async () => { if (sync instanceof Error) throw sync; return sync; } });
-    const zero = await run(empty);
-    assert.equal(zero.plaud.status, "ok");
-    assert.equal(zero.plaud.cutover_ready, true);
-    const success = await inspect();
-    assert.equal(success.status, "ok");
-    assert.equal(success.lanes[0].collected_count, 0);
-    assert.equal(success.lanes[0].pending_count, 0);
-    assert.equal(success.last_success_at, zero.completed_at);
-    for (const state of ["import_failed_retryable", "pending_provider_processing", "unknown_provider_state"]) {
-      const result = await run({ ...empty, recent_count: 1, new_candidate_count: 1, candidate_count: 1,
-        recordings: [{ state }] });
-      assert.equal(result.plaud.status, "degraded", state);
-      assert.equal(result.plaud.cutover_ready, false, state);
-      const observed = await inspect();
-      assert.equal(observed.lanes[0].pending_count, 1);
-      assert.equal(observed.last_success_at, zero.completed_at);
-    }
-    const capped = await run({ ...empty, recent_count: 69, new_candidate_count: 69, truncated_new_candidate_count: 69 });
-    assert.equal(capped.plaud.status, "degraded");
-    assert.equal(capped.plaud.cutover_ready, false);
-    assert.equal((await inspect()).lanes[0].pending_count, 69);
-    const blocked = await run({ ok: false, applied: false, recordings: [],
-      preflight: { ok: false, checks: [{ id: "plaud_authenticated", ok: false }] } });
-    assert.equal(blocked.plaud.status, "blocked");
-    assert.equal(blocked.plaud.custody_complete, false);
-    assert.equal(blocked.plaud.imported_count, null);
-    assert.equal((await inspect()).lanes[0].collected_count, null);
-    const failed = await run(new Error("private-provider-error-not-for-output"));
-    assert.equal(failed.plaud.status, "failed");
-    assert.equal(failed.plaud.imported_count, null);
-    assert.equal(failed.plaud.cutover_ready, false);
-    assert.equal(JSON.stringify(failed).includes("private-provider-error"), false);
-    const unknown = await run(undefined);
-    assert.equal(unknown.plaud.status, "unknown");
-    assert.equal(unknown.plaud.cutover_ready, false);
-    const stale = await inspectContinuousIngress({ bindingPath: f.bindingPath,
-      now: () => Date.parse(unknown.completed_at) + 24 * 60 * 60 * 1000 });
-    assert.equal(stale.status, "stale");
-    assert.equal(stale.lanes[0].status, "stale");
-    await writeFile(join(f.dataRoot, "state/health/continuous_ingress.json"), "invalid");
-    assert.equal((await inspect()).status, "unknown");
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
-test("inspection exposes a newer failed supervisor attempt and preserves only prior success history", async () => {
-  const f = await fixture();
-  try {
-    await directPlaudBinding(f, await activateWriterAuthority(f));
-    const empty = { ok: true, applied: true, recent_count: 0, existing_provider_id_count: 0,
-      new_candidate_count: 0, candidate_count: 0, truncated_new_candidate_count: 0,
-      recordings: [], custody_required_session_refs: [] };
-    const good = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true,
-      now: advancingClock(), plaudSyncRunner: async () => empty });
-    const failedAt = new Date(Date.parse(good.completed_at) + 60_000);
-    const recordHeartbeat = createSupervisorHeartbeatRecorder({ bindingPath: f.bindingPath, now: () => failedAt });
-    await recordHeartbeat({ event: "cycle_failed", cycle: 2, code: "continuous_lease_held_probe_unresolved" });
-    const inspect = () => inspectContinuousIngress({ bindingPath: f.bindingPath, now: () => failedAt.getTime() + 1000 });
-    const failed = await inspect();
-    assert.equal(failed.status, "failed");
-    assert.equal(failed.last_success_at, good.completed_at);
-    assert.equal(failed.last_attempt_at, failedAt.toISOString());
-    assert.equal(failed.lanes[0].status, "unknown");
-    assert.equal(failed.lanes[0].collected_count, null);
-    assert.equal(failed.lanes[0].pending_count, null);
-    assert.equal(failed.lanes[0].catalog_complete, false);
-    assert.equal(failed.lanes[0].provider_backfill_pending_count, null);
-    assert.deepEqual(failed.lanes[0].error_codes, ["continuous_lease_held_probe_unresolved"]);
-    const ledgerPath = resolveSupervisorHeartbeatLedger(f.bindingPath);
-    const latestRecord = await readFile(ledgerPath, "utf8");
-    await writeFile(ledgerPath, `${"x".repeat(70_000)}\n${latestRecord}`);
-    assert.equal((await inspect()).status, "failed", "only the bounded last record is needed");
-    let resumedTime = failedAt.getTime() + 2000;
-    const resumedNow = () => resumedTime++;
-    const resumed = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true,
-      now: resumedNow, plaudSyncRunner: async () => empty });
-    const recovered = await inspectContinuousIngress({ bindingPath: f.bindingPath, now: resumedNow });
-    assert.equal(recovered.status, "ok", "a newer completed run supersedes the old failure");
-    assert.equal(recovered.last_success_at, resumed.completed_at);
-    await rm(join(f.dataRoot, "state/health/continuous_ingress.json"));
-    const firstFailure = await inspect();
-    assert.equal(firstFailure.status, "failed");
-    assert.equal(firstFailure.last_success_at, null);
-    await writeFile(resolveSupervisorHeartbeatLedger(f.bindingPath), "{partial");
-    assert.equal((await inspect()).status, "unknown");
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
-test("inspection preserves a failed mail lane and the separately observed queue counts", async () => {
-  const f = await fixture();
-  try {
-    const bound = await directPlaudBinding(f, await activateWriterAuthority(f));
-    bound.payload.mail.enabled = true;
-    bound.payload.lease_ttl_seconds = 1800;
-    bound.payload.queues[0].enabled = true;
-    await writeBinding(f, bound.payload);
-    const now = advancingClock();
-    const result = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now,
-      mailExecutor: async () => { throw new Error("synthetic-mail-failure"); },
-      plaudSyncRunner: async () => ({ ok: true, applied: true, recent_count: 0, existing_provider_id_count: 0,
-        new_candidate_count: 0, candidate_count: 0, truncated_new_candidate_count: 0,
-        recordings: [], custody_required_session_refs: [] }),
-    });
-    const observed = await inspectContinuousIngress({ bindingPath: f.bindingPath, now });
-    const mail = observed.lanes.find((lane) => lane.lane === "mail");
-    assert.equal(observed.status, "degraded");
-    assert.equal(mail.status, "failed");
-    assert.equal(mail.collected_count, null);
-    assert.ok(mail.error_codes.includes("mail_executor_failed"));
-    const queue = result.queues[0];
-    const queueLane = observed.lanes.find((lane) => lane.binding_id === queue.binding_id);
-    assert.equal(queueLane.collected_count, queue.staged_files);
-    assert.equal(queueLane.pending_count, Math.max(queue.discovered_files - queue.acknowledged_files - queue.processed_files, 0));
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
-test("HPP persists a bound opaque probe cursor and reaches a ready row behind 26 unavailable rows", async () => {
-  const f = await fixture();
-  try {
-    await directPlaudBinding(f, await activateWriterAuthority(f));
-    const ids = Array.from({ length: 27 }, (_, index) => (index + 1).toString(16).padStart(32, "0"))
-      .sort((a, b) => digest(a).localeCompare(digest(b)));
-    const readyId = ids.at(-1);
-    let probed = [];
-    const commandRunner = (_command, args) => {
-      if (args[0] === "files") {
-        const page = Number(args[args.indexOf("--page") + 1]);
-        return [`Files on this page: ${page === 1 ? ids.length : 0}`,
-          `  ${"ID".padEnd(34)}  ${"NAME".padEnd(36)}  ${"DATE".padEnd(12)}  DURATION`, `  ${"─".repeat(98)}`,
-          ...(page === 1 ? ids.map((id) => `  ${id.padEnd(34)}  ${"synthetic".padEnd(36)}  ${"2026-07-10".padEnd(12)}  1m00s`) : []), `Page ${page}`].join("\n");
-      }
-      if (args[0] === "file") {
-        probed.push(args[1]);
-        return `id: ${args[1]}\ncreated_at: 2026-07-10T00:00:00Z\nstart_at: 2026-07-10T00:00:00Z\naudio: available\ntranscript: ${args[1] === readyId ? "available" : "-"}\nsummary: -\n`;
-      }
-      if (args[0] === "audio") return "https://example.test/source.ogg";
-      assert.equal(args[0], "transcript");
-      writeFileSync(args.at(-1), "[00:00 - 00:01] Speaker 1: synthetic\n");
-      return "saved";
-    };
-    const now = advancingClock();
-    const run = () => runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now,
-      plaudSyncRunner: (options) => runPlaudSync({ ...options, skipPreflight: true, commandRunner,
-        audioDownloader: async (_url, outputDir) => {
-          const file = join(outputDir, "source.ogg");
-          await writeFile(file, "synthetic");
-          return { path: file, size_bytes: 9, sha256: digest("synthetic") };
-        }, audioProbe: async () => ({ duration_seconds: 1, format: "ogg", codec: "opus" }),
-      }),
-    });
-    const first = await run();
-    assert.equal(first.plaud.imported_count, 0);
-    assert.equal(first.plaud.provider_transcript_unavailable_count, 20);
-    assert.equal(first.plaud.pending_provider_processing_count, null);
-    assert.deepEqual(probed, ids.slice(0, 20));
-    const healthPath = join(f.dataRoot, "state/health/continuous_ingress.json");
-    const firstHealth = JSON.parse(await readFile(healthPath, "utf8"));
-    assert.equal(firstHealth.plaud_probe_cursor_sha256, digest(ids[19]));
-    await writeFile(healthPath, JSON.stringify({ ...firstHealth, config_digest: `sha256:${"0".repeat(64)}` }));
-    probed = [];
-    assert.equal((await run()).plaud.imported_count, 0);
-    assert.deepEqual(probed, ids.slice(0, 20), "an unbound cursor cannot steer the next sweep");
-    await writeFile(healthPath, JSON.stringify(firstHealth));
-    probed = [];
-    const resumed = await run();
-    assert.equal(resumed.plaud.imported_count, 1);
-    assert.deepEqual(probed, ids.slice(20));
-    assert.equal(resumed.plaud.catalog_count, 27);
-    assert.equal(JSON.stringify(resumed).includes(readyId), false);
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
-test("direct PLAUD rejects moved legacy audio refs until metadata is exactly migrated", async () => {
-  const f = await fixture();
-  try {
-    await directPlaudBinding(f, await activateWriterAuthority(f));
-    const ref = "ingress/plaud/sessions/2026-09-10/synthetic";
-    const session = join(f.dataRoot, ref);
-    await mkdir(join(session, "audio"), { recursive: true });
-    await writeFile(join(session, "audio/source.ogg"), "synthetic");
-    const manifest = { schema_version: "soulforge.voice_capture_session.v0",
-      audio: { status: "source_present", size_bytes: 9,
-        ref: "_workspaces/system/voice_capture/sessions/2026-09-10/synthetic/audio/source.ogg" } };
-    const manifestPath = join(session, "session_manifest.json");
-    await writeFile(manifestPath, JSON.stringify(manifest));
-    const sync = { ok: true, applied: true, recent_count: 1, existing_provider_id_count: 1,
-      new_candidate_count: 0, candidate_count: 0, truncated_new_candidate_count: 0,
-      recordings: [], custody_required_session_refs: [ref] };
-    const now = advancingClock();
-    const run = () => runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now,
-      plaudSyncRunner: async () => sync });
-    assert.equal((await run()).plaud.custody_complete, false);
-    assert.equal(await stat(join(f.root, "retired-mirror-does-not-exist")).then(() => true, () => false), false);
-    manifest.audio.ref = `${ref}/audio/source.ogg`;
-    await writeFile(manifestPath, JSON.stringify(manifest));
-    const migrated = await run();
-    assert.equal(migrated.plaud.custody_complete, true);
-    assert.equal(migrated.plaud.cutover_ready, true);
-    await writeFile(join(session, "audio/source.ogg"), "truncated");
-    // Same-length bytes are outside this metadata-only custody check; size drift is not.
-    await writeFile(join(session, "audio/source.ogg"), "short");
-    assert.equal((await run()).plaud.custody_complete, false);
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
 test("PLAUD v3 keeps cutover blocked while unrelated voice mirror backlog hits its cycle limit", async () => {
   const f = await fixture();
   try {
@@ -3011,28 +2701,22 @@ test("PLAUD v3 keeps cutover blocked while unrelated voice mirror backlog hits i
   }
 });
 
-for (const direct of [false, true, "repair", "library-repair", "registered-missing"]) test(`PLAUD v3 primary writer materializes RAW with ${direct ? `direct ${direct}` : "mirror"} custody and deduplicates replay`, async () => {
+test("PLAUD v3 primary writer materializes RAW and mirrors the same session into HPP custody", async () => {
   const f = await fixture();
   try {
     const authority = await activateWriterAuthority(f);
-    const plaud = direct ? await directPlaudBinding(f, authority) : await v3Binding(f, authority, { writerEnabled: true });
+    const plaud = await v3Binding(f, authority, { writerEnabled: true });
     plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
     plaud.payload.voice.max_new_files = 8;
     plaud.payload.voice.max_new_bytes = 2 * 1024 * 1024 * 1024 + 256 * 1024 * 1024;
     await writeBinding(f, plaud.payload);
     const recordingId = "df8097c8505379f1702100f6fbd9cc16";
     const commandRunner = (_command, args) => {
-      if (args[0] === "files") {
-        const page = Number(args[args.indexOf("--page") + 1]);
-        return [`Files on this page: ${page === 1 ? 1 : 0}`,
-          `  ${"ID".padEnd(34)}  ${"NAME".padEnd(36)}  ${"DATE".padEnd(12)}  DURATION`, `  ${"─".repeat(98)}`,
-          ...(page === 1 ? [`  ${recordingId.padEnd(34)}  ${"private recording title".padEnd(36)}  ${"2026-07-10".padEnd(12)}  10m00s`] : []), `Page ${page}`].join("\n");
-      }
+      if (args[0] === "recent") return `  ${recordingId}  private recording title  2026-07-10  10m\n`;
       if (args[0] === "file") return [
         `id: ${recordingId}`,
         "name: private recording title",
         "start_at: 2026-07-10T04:04:32.000Z",
-        "created_at: 2026-07-10T04:04:32.000Z",
         "audio: available",
         "transcript: available",
         "summary: -",
@@ -3046,13 +2730,6 @@ for (const direct of [false, true, "repair", "library-repair", "registered-missi
       throw new Error(`unexpected PLAUD command: ${args[0]}`);
     };
     const now = advancingClock();
-    const receiptDirectory = join(f.dataRoot, "ingress/plaud/delivery/producer_receipts");
-    const needsRepair = typeof direct === "string";
-    const blockedDirectory = direct === "library-repair" ? join(f.dataRoot, "ingress/plaud/library") : receiptDirectory;
-    if (needsRepair) {
-      await mkdir(dirname(blockedDirectory), { recursive: true });
-      await writeFile(blockedDirectory, "synthetic interrupted artifact directory");
-    }
     const plaudSyncRunner = (options) => runPlaudSync({
       ...options,
       skipPreflight: true,
@@ -3070,7 +2747,7 @@ for (const direct of [false, true, "repair", "library-repair", "registered-missi
         sample_rate_hz: 48000,
         channels: 1,
       }),
-      ...(!direct ? { deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-only" }) } : {}),
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-only" }),
     });
     const result = await runContinuousIngress({
       bindingPath: f.bindingPath,
@@ -3082,7 +2759,9 @@ for (const direct of [false, true, "repair", "library-repair", "registered-missi
     const relativeSession = join("sessions", "2026-07-10", sessionId);
     const sourceAudio = await readFile(join(
       plaud.workspaceRoot,
-      ...(direct ? ["ingress", "plaud"] : ["_workspaces", "system", "voice_capture"]),
+      "_workspaces",
+      "system",
+      "voice_capture",
       relativeSession,
       "audio",
       "source.ogg",
@@ -3090,7 +2769,8 @@ for (const direct of [false, true, "repair", "library-repair", "registered-missi
     const custodyAudio = await readFile(join(
       f.dataRoot,
       "ingress",
-      ...(direct ? ["plaud"] : ["voice", "live_workspace_capture"]),
+      "voice",
+      "live_workspace_capture",
       relativeSession,
       "audio",
       "source.ogg",
@@ -3098,85 +2778,25 @@ for (const direct of [false, true, "repair", "library-repair", "registered-missi
     assert.deepEqual(custodyAudio, sourceAudio);
     assert.equal(result.plaud.imported_count, 1);
     assert.equal(result.plaud.raw_written, true);
-    assert.equal(result.plaud.post_import_warning_count, needsRepair ? 1 : 0);
+    assert.equal(result.plaud.post_import_warning_count, 0);
     assert.equal(result.plaud.custody_complete, true);
-    if (direct) assert.equal(result.voice, null);
-    else {
-      assert.equal(result.voice.required_coverage.complete, true);
-      assert.equal(result.voice.limit_reached, true);
-    }
-    assert.equal(result.plaud.cutover_ready, direct === true);
+    assert.equal(result.voice.required_coverage.complete, true);
+    assert.equal(result.voice.limit_reached, true);
+    assert.equal(result.plaud.cutover_ready, false);
     assert.equal(result.writes_performed_exact, false);
     assert.equal(JSON.stringify(result).includes("private recording title"), false);
     assert.equal(JSON.stringify(result).includes(recordingId), false);
 
-    if (needsRepair) {
-      const expectedCode = direct === "library-repair" ? "plaud_library_registration_failed" : "plaud_delivery_preparation_failed";
-      assert.ok(result.errors.some((item) => item.code === expectedCode));
-      const retry = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
-      assert.equal(retry.plaud.import_failed_retryable_count, 1);
-      assert.equal(retry.plaud.imported_count, 0);
-      assert.ok(retry.errors.some((item) => item.code === expectedCode));
-      await rm(blockedDirectory);
-      if (direct === "registered-missing") {
-        const libraryManifest = join(f.dataRoot, "ingress/plaud/library/recordings/2026-07-10", sessionId, "recording_manifest.json");
-        const currentEntry = JSON.parse(await readFile(libraryManifest, "utf8"));
-        for (const bytes of [JSON.stringify({ ...currentEntry, recording_id: "different-recording" }), "malformed JSON"]) {
-          await writeFile(libraryManifest, bytes);
-          const rejected = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
-          assert.equal(rejected.plaud.reconciled_count, 0);
-          assert.ok(rejected.errors.some((item) => item.code === "plaud_library_registration_failed"));
-          assert.equal(await readFile(libraryManifest, "utf8"), bytes);
-        }
-        await rm(libraryManifest);
-        const outside = join(f.root, "outside-selected-library");
-        await mkdir(outside);
-        await writeFile(join(outside, "sentinel"), "outside-owned");
-        await symlink(outside, libraryManifest, process.platform === "win32" ? "junction" : "dir");
-        const linked = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
-        assert.equal(linked.plaud.reconciled_count, 0);
-        assert.ok(linked.errors.some((item) => item.code === "plaud_library_registration_failed"));
-        assert.equal(await readFile(join(outside, "sentinel"), "utf8"), "outside-owned");
-        await rm(libraryManifest, { recursive: true, force: true });
-        const sidecar = JSON.parse(await readFile(join(f.dataRoot, "ingress/plaud", relativeSession, "post_import_state.json"), "utf8"));
-        assert.equal(sidecar.library_state, "registered");
-        const indexPath = join(f.dataRoot, "ingress/plaud/library/index/recordings.jsonl");
-        const originalIndex = await readFile(indexPath);
-        await writeFile(indexPath, "synthetic corrupt index");
-        const interrupted = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now, plaudSyncRunner });
-        assert.ok(interrupted.errors.some((item) => item.code === "plaud_library_registration_failed"));
-        assert.equal((await stat(libraryManifest)).isFile(), true);
-        const partialState = JSON.parse(await readFile(join(f.dataRoot, "ingress/plaud", relativeSession, "post_import_state.json"), "utf8"));
-        assert.equal(partialState.library_state, "registration_failed_retryable");
-        await writeFile(indexPath, originalIndex);
-      }
-    }
     const replay = await runContinuousIngress({
       bindingPath: f.bindingPath,
       apply: true,
       now,
       plaudSyncRunner,
     });
-    if (direct) assert.equal(replay.voice, null);
-    else {
-      assert.equal(replay.voice.limit_reached, false);
-      assert.equal(replay.voice.required_coverage.complete, true);
-    }
-    assert.equal(replay.plaud.imported_count, 0);
-    assert.equal(replay.plaud.new_candidate_count, 0);
-    assert.equal(replay.plaud.reconciled_count, needsRepair ? 1 : 0);
+    assert.equal(replay.voice.limit_reached, false);
+    assert.equal(replay.voice.required_coverage.complete, true);
     assert.equal(replay.plaud.custody_complete, true);
     assert.equal(replay.plaud.cutover_ready, true);
-    if (direct) {
-      const receipt = JSON.parse(await readFile(join(receiptDirectory, `${sessionId}.json`), "utf8"));
-      validateDeliveryReceipt(receipt, { voiceRootRef: "ingress/plaud" });
-      assert.equal(receipt.stage, "plaud_import_ready");
-      assert.ok(receipt.files.every((file) => file.ref.startsWith("ingress/plaud/")));
-      const library = JSON.parse(await readFile(join(f.dataRoot, "ingress/plaud/library/recordings/2026-07-10", sessionId, "recording_manifest.json"), "utf8"));
-      assert.equal(library.payload_refs.session_dir, `ingress/plaud/sessions/2026-07-10/${sessionId}`);
-      assert.equal(await stat(join(f.dataRoot, "_workspaces")).then(() => true, () => false), false);
-      assert.equal(await stat(join(f.dataRoot, "guild_hall")).then(() => true, () => false), false);
-    }
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

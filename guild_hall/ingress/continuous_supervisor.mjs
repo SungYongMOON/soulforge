@@ -72,7 +72,7 @@ function supervisorEvent(event, fields = {}) {
   };
 }
 
-export function assertRunnableBinding(binding) {
+function assertRunnableBinding(binding) {
   if (!binding?.enabled) fail("continuous_supervisor_binding_disabled");
   if (!binding?.schedulerEnabled) fail("continuous_supervisor_scheduler_disabled");
   if (!Number.isSafeInteger(binding.pollIntervalSeconds)
@@ -97,19 +97,13 @@ function safeCycleSummary(result, cycle) {
     mail_status: result?.mail?.status ?? null,
     plaud_status: result?.plaud?.status ?? null,
     plaud_writer_enabled: result?.plaud?.writer_enabled ?? false,
-    plaud_imported_count: result?.plaud?.imported_count ?? null,
-    plaud_post_import_warning_count: result?.plaud?.post_import_warning_count ?? null,
+    plaud_imported_count: result?.plaud?.imported_count ?? 0,
+    plaud_post_import_warning_count: result?.plaud?.post_import_warning_count ?? 0,
     plaud_raw_written: Object.hasOwn(result?.plaud ?? {}, "raw_written")
       ? result.plaud.raw_written
       : false,
-    plaud_ready_to_import_count: result?.plaud?.ready_to_import_count ?? null,
-    plaud_pending_provider_processing_count: result?.plaud?.pending_provider_processing_count ?? null,
-    plaud_catalog_count: result?.plaud?.catalog_count ?? null,
-    plaud_catalog_complete: result?.plaud?.catalog_complete ?? false,
-    plaud_audio_unavailable_count: result?.plaud?.audio_unavailable_count ?? null,
-    plaud_provider_transcript_unavailable_count: result?.plaud?.provider_transcript_unavailable_count ?? null,
-    plaud_provider_backfill_pending_count: result?.plaud?.provider_backfill_pending_count ?? null,
-    plaud_provider_backfilled_count: result?.plaud?.provider_backfilled_count ?? null,
+    plaud_ready_to_import_count: result?.plaud?.ready_to_import_count ?? 0,
+    plaud_pending_provider_processing_count: result?.plaud?.pending_provider_processing_count ?? 0,
     plaud_cutover_ready: result?.plaud?.cutover_ready ?? false,
     mcp_written: result?.mcp_written ?? false,
     erp_written: result?.erp_written ?? false,

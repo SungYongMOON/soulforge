@@ -55,56 +55,8 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
   { path: "guild_hall/dev_worker/candidate_queue.mjs", why: "auto-approval policy" },
   { path: "guild_hall/dev_worker/claim_task.mjs", why: "packet eligibility gate" },
   { path: "guild_hall/dev_worker/automations/", why: "the agent's own prompt and schedule" },
-  ...["feedback_cycle", "feedback_linear_source", "feedback_request_provider", "feedback_worktree_runner",
-    "feedback_watchdog", "feedback_polling"].flatMap(name => [
-    { path: `guild_hall/dev_worker/${name}.mjs`, why: "continuous developer authority, execution, budget or independent supervision" },
-    { path: `guild_hall/dev_worker/${name}.test.mjs`, why: "continuous developer authority regression proof" },
-  ]),
-  ...["feedback_runtime.mjs", "feedback_runtime_cli.mjs", "feedback_runtime_io.mjs",
-    "feedback_runtime_source.mjs", "feedback_publication_currentness.mjs", "feedback_runtime_model.mjs", "feedback_runtime_acp.mjs",
-    "feedback_runtime_validator.mjs", "feedback_runtime_stage.mjs", "feedback_runtime.test.mjs",
-    "feedback_runtime_model.test.mjs", "feedback_runtime_acp.test.mjs", "feedback_runtime_validator.test.mjs",
-    "feedback_runtime_stage.test.mjs", "feedback_runtime_review.test.mjs", "FEEDBACK_RUNTIME.md"].map(name => ({
-    path: `guild_hall/dev_worker/${name}`, why: "continuous developer runtime authority and its verification contract",
-  })),
 
   // 무엇이 위반인지 판정하는 검사기. 이것을 고칠 수 있으면 위반이 사라진다.
-  ...["feedback_readbox.mjs", "feedback_dispatch.mjs", "feedback_readbox_cli.mjs", "feedback_readbox_stage.mjs",
-    "feedback_buzz_bridge.py", "feedback_buzz_bridge_install.py", "FEEDBACK_READBOX.md",
-    "feedback_readbox.test.mjs", "feedback_dispatch.test.mjs", "feedback_readbox_fixture.mjs",
-    "feedback_readbox_native_fixture.py", "feedback_readbox_native_integration.test.mjs", "test_feedback_buzz_bridge.py",
-    "feedback_restore.test.mjs", "feedback_readbox_history.test.mjs"].map(name => ({
-    path: `guild_hall/dev_worker/${name}`, why: "manager read authority and independent delivery proof",
-  })),
-  ...["server.mjs", "src/feedback_readbox_http.mjs", "src/feedback_readbox_view.mjs",
-    "test/feedback_readbox_http.test.mjs", "test/feedback_readbox_server.test.mjs", "test/feedback_recovery.test.mjs"].map(name => ({
-    path: `ui-workspace/apps/dev-erp/${name}`, why: "manager read authority and server integration proof",
-  })),
-  ...["src/buzz_pilot_owner_attention.mjs", "src/buzz_pilot_auth_source.mjs",
-    "src/owner_attention_source.mjs", "src/owner_attention_service.mjs", "src/owner_attention_http.mjs",
-    "src/owner_attention_buzz_link.mjs", "test/buzz_pilot_owner_attention.test.mjs",
-    "test/buzz_pilot_owner_attention_server.test.mjs", "test/buzz_pilot_auth_source.test.mjs",
-    "test/owner_attention_source.test.mjs", "test/owner_attention_service.test.mjs", "test/owner_attention_http.test.mjs"].map(name => ({
-    path: `ui-workspace/apps/dev-erp/${name}`, why: "exact Owner question authority, reversible preferences and delivery evidence",
-  })),
-  ...["g2_linear_custody_reader.mjs", "g2_linear_custody_cli.mjs", "G2_LINEAR_CUSTODY.md",
-    "g2_feedback_publisher.mjs", "feedback_currentness_contract.mjs", "feedback_currentness_transport.mjs",
-    "sfx.mjs", "execution_authority.mjs", "src/soulforge_secure_work/launch_runtime.py", "src/soulforge_secure_work/ipc_pipe.py",
-    "src/soulforge_secure_work/feedback_currentness_pipe.py", "src/soulforge_secure_work/feedback_prepare.py",
-    "src/soulforge_secure_work/feedback_verify.py", "tests/g2_feedback_publisher.test.mjs",
-    "tests/feedback_currentness_transport.test.mjs", "G2_FEEDBACK_PUBLISHER.md",
-    "tests/g2_linear_custody.test.mjs"].map(name => ({
-    path: `guild_hall/secure_work/${name}`, why: "current SOURCE custody authority and its proof",
-  })),
-  ...["adapter", "context", "documents", "evaluation", "http", "io", "judge", "linear", "rule_profile", "runtime", "source", "store"].flatMap(name => [
-    { path: `ui-workspace/apps/dev-erp/src/work_intake_${name}.mjs`, why: "released input, current project authority and work candidate evidence" },
-    { path: `ui-workspace/apps/dev-erp/test/work_intake_${name}.test.mjs`, why: "work candidate authority regression proof" },
-  ]),
-  ...["tools/work_intake_cli.mjs", "tools/work_intake_stage.mjs", "tools/work_intake_packet_reader.py",
-    "test/test_work_intake_packet_reader.py", "test/work_intake_server.test.mjs", "test/work_intake_recovery.test.mjs",
-    "docs/WORK_INTAKE_RUNTIME.md", "docs/WORK_INTAKE_SHADOW_ADAPTER.md"].map(name => ({
-    path: `ui-workspace/apps/dev-erp/${name}`, why: "work intake launch, release verification and installation contract",
-  })),
   { path: "guild_hall/validate/", why: "the validators that decide what counts as a violation" },
 
   // 어떤 바이트가 운영에 도달하는지 정하는 조립 도구. 저장소 안의 코드는
@@ -117,31 +69,11 @@ export const AGENT_DENIED_WRITE_PATHS = Object.freeze([
 
   // 비밀·private 평면. 애초에 열람도 금지지만 명시해 둔다.
   { path: "private-state/", why: "cross-project protected state" },
-  { path: "_workspaces/", why: "canonical or legacy working data is not automated source repair" },
-  { path: "_workmeta/", why: "metadata lineage is not automated source repair" },
-  { path: ".git/", why: "repository control metadata and hooks" },
   { path: ".github/workflows/", why: "CI that runs with repository credentials" },
 ]);
 
 function normalize(value) {
-  if (typeof value !== "string" || !value.trim()) return "";
-  return value.trim().replaceAll("\\", "/").replace(/^\.\//u, "") || ".";
-}
-
-function comparisonScope(value) {
-  const normalized = normalize(value);
-  if (!normalized) return "";
-  if (normalized === "." || normalized === "/") return ".";
-  // A cross-platform scope cannot silently normalize into another file/root.
-  // An invalid scope conservatively intersects every protected entry.
-  if (normalized.startsWith("/") || /[\u0000-\u001f\u007f:]/u.test(normalized)
-    || normalized.includes("//") || normalized.split("/").some(segment => segment === "." || segment === ".."
-      || /[. ]$/u.test(segment) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(segment))) return ".";
-  // Globs under a protected parent are intentionally conservative: enumerate
-  // exact allowed files instead of letting a packet include its own guards.
-  const wildcard = normalized.search(/[*?\[\]{}()!]/u);
-  const prefix = wildcard < 0 ? normalized : normalized.slice(0, normalized.lastIndexOf("/", wildcard) + 1);
-  return prefix.replace(/\/$/u, "").toLowerCase() || ".";
+  return typeof value === "string" ? value.trim().replaceAll("\\", "/").replace(/^\.\//u, "") : "";
 }
 
 /**
@@ -151,7 +83,20 @@ function comparisonScope(value) {
  * file below it.
  */
 export function isDeniedAgentWritePath(candidate) {
-  return AGENT_DENIED_WRITE_PATHS.some(({ path: denied }) => matches(candidate, denied));
+  const value = normalize(candidate);
+  if (value === "") return false;
+  // The repository root contains every denied entry, so naming it is the widest
+  // possible way to ask for them. A blank entry is noise and stays allowed; `.`
+  // is a deliberate request for everything and is not.
+  if (value === "." || value === "/") return true;
+  return AGENT_DENIED_WRITE_PATHS.some(({ path: denied }) => {
+    if (denied.endsWith("/")) {
+      return value === denied || value.startsWith(denied) || `${value}/`.startsWith(denied)
+        || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
+    }
+    return value === denied
+      || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
+  });
 }
 
 /**
@@ -165,7 +110,7 @@ export function findDeniedAgentWritePaths(allowedWritePaths = []) {
     const value = normalize(entry);
     if (value === "") continue;
     for (const denied of AGENT_DENIED_WRITE_PATHS) {
-      if (matches(value, denied.path)) {
+      if (isDeniedAgentWritePath(value) && matches(value, denied.path)) {
         hits.push({ requested: value, denied: denied.path, why: denied.why });
       }
     }
@@ -174,9 +119,9 @@ export function findDeniedAgentWritePaths(allowedWritePaths = []) {
 }
 
 function matches(value, denied) {
-  const scope = comparisonScope(value);
-  if (!scope) return false;
-  const target = denied.replace(/\/$/u, "").toLowerCase();
-  return scope === "." || scope === target || target.startsWith(`${scope}/`)
-    || (denied.endsWith("/") && scope.startsWith(`${target}/`));
+  if (denied.endsWith("/")) {
+    return value === denied || value.startsWith(denied) || `${value}/`.startsWith(denied)
+      || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
+  }
+  return value === denied || denied.startsWith(value.endsWith("/") ? value : `${value}/`);
 }

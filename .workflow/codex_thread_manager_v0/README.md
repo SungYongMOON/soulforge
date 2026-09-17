@@ -109,11 +109,10 @@ product organizations are excluded as direct recipients.
 
 ## Context Lifecycle
 
-- Assess continuity before creating workers, compacting, clearing, rolling over
-  a manager, cross-PC/overnight continuation, or substantial closeout. Refresh
-  `NIGHT_WORK_HANDOFF` only when unrecorded forward-state must cross a context
-  boundary or the user explicitly requests a checkpoint. Reuse sufficient
-  commits, validation, activity records, or task history without a new handoff.
+- Keep `NIGHT_WORK_HANDOFF` as the structured continuity object for the manager
+  and worker team.
+- Refresh handoff before creating workers, compacting, clearing, rolling over a
+  manager, cross-PC/overnight continuation, or substantial closeout.
 - Compact when continuing the same large goal and context pressure, drift, or a
   meaningful unit boundary justifies preserving only durable state.
 - Clear or start fresh at phase boundaries when old context is more likely to

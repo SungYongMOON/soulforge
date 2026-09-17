@@ -70,34 +70,16 @@ observed state and compares:
 The one declared containment pair is the ERP database inside its owning
 directory. Every other containment between bound resources is an overlap.
 
-The reader rejects unsafe manifest/controller relative paths, Windows device
-names and trailing-dot aliases. Duplicate manifest paths (case-folded on
-Windows) and a declared manifest digest that disagrees with its file recipe
-are refused before payload hashing. This validates path syntax and declared
-identity; it is not a sandbox for a concurrently replaced installed payload.
-
 ```
-node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path> [--evidence-out <absolute-path>]
+node guild_hall/backup_controller/topology_v2_cli.mjs check --binding <absolute-path>
 node guild_hall/backup_controller/topology_v2_cli.mjs generate --draft <absolute-path> --out <absolute-path>
 ```
 
 `generate` is the author-time leg that derives the frozen binding from observed
 state; freezing its output is what gives every later `check` something to fail
 against. A first `check` immediately after a `generate` therefore proves
-coherence, not drift. Optional evidence and generated bindings must stay below
-the input file's existing control directory and outside declared protected
-roots. The CLI refuses observed directory links/resolution drift, checks
-protected-root aliases, and publishes through a create-only hard link with
-readback. A destination that appears during publication is preserved. It
-creates no parent directories and overwrites no existing output.
-
-The control directory must already be owner-protected and remain stable for
-the operation. These pathname checks cannot prevent an active ancestor swap
-between filesystem calls, and file mode alone is not Windows ACL protection.
-This is bounded path and publication hardening, not strict adversarial
-confinement or a durability claim against power loss. Neither mode prints an
-absolute path, and a green `check` is still `feature_state: off`: it authorizes
-no activation and no backup.
+coherence, not drift. Neither mode prints an absolute path, and a green `check`
+is still `feature_state: off`: it authorizes no activation and no backup.
 
 ## NAS disaster-recovery binding (default OFF)
 
@@ -378,99 +360,6 @@ The quiesce sidecar is private operational metadata. It never carries a secret,
 arbitrary command, executable, or environment value.
 
 ## New HPP data surfaces
-
-Protected execution evidence is durable working data, not a rebuildable cache or
-canonical artifact. Original instructions, admitted input revisions and captured
-tool/output bytes must remain paired with the metadata ledger by task, attempt,
-fixed role, generation and hash. Model-reported tool use is not an observed tool
-event. The working-store boundary is owned by
-`docs/architecture/workspace/WORKSPACE_PROJECT_MODEL.md`; it grants no migration
-of legacy metadata or raw work logs into canonical targets.
-
-Classify the explicitly bound working-evidence root as included in protected
-backup/restore, with its current source owner and read authority. For an external
-bot working root, bind that owner explicitly instead of copying it into HPP or a
-canonical tree to make the existing snapshot pass. Restore must preserve exact
-role bytes and references together, reject a missing/mixed generation and deny
-reads by a revoked or unrelated requester. No automatic deletion or operational
-backup activation follows from this classification. The Buzz first-pilot gate
-`ui-workspace/apps/dev-erp/test/buzz_pilot_wal_restore.test.mjs` uses the existing
-logical SQLite exporter with a live, uncheckpointed WAL writer. It binds the
-frozen DB and its exact protected roles into one create-only generation, restores
-them in isolation, and checks current read authority and observed-event replay.
-It covers issued and question-waiting records; it does not restore the gateway's
-in-memory question or authorize a model retry. Role reads reject damaged or
-missing bytes, while a metadata-only status snapshot does not verify every role.
-Operational restoration must therefore verify all manifest members before
-activation. This synthetic gate is not NAS/operational DR or human acceptance;
-existing declared backup stages continue.
-
-### Feedback runtime protected restore classification
-
-The G2 publisher's prepared packet/evidence bytes and manifest are protected
-candidate custody. Its control root (consumed permit/attempt journal and pending/
-current publication receipts) is required runtime state. Preserve those together
-with exact reviewed projection bytes. `current.json` and `currentness.json` are
-rebuildable locators/expected metadata, never release authority. Restoring either
-without the completed journal and fresh authenticated SENDER check cannot enable
-a G1 run. Preserve public verification/config pins with their existing owner;
-do not collect a signing key, pipe handle or helper snapshot into this generation.
-`guild_hall/secure_work/tests/g2_feedback_journal.test.mjs` verifies the existing
-completed-attempt consistency gate; actual cross-account operational restore
-remains unverified.
-
-Company work intake includes its runtime SQLite, candidate-store SQLite,
-protected result/input evidence and the non-secret deployment/authority
-descriptors in one closed generation. A read-only server must not initialize a
-missing store. Restored candidate state is not an official task or acceptance,
-and `MODEL_UNKNOWN` cannot authorize a new model attempt. The current authority
-pointer remains live; a historical snapshot must not restore revoked access.
-`ui-workspace/apps/dev-erp/test/work_intake_recovery.test.mjs` uses the existing
-logical SQLite exporter for ten members total (two closed synthetic databases
-and eight evidence/authority files), exact generation readback, missing/mixed-byte rejection,
-read-only query and UNKNOWN/current-revocation checks. Its runtime rows are
-explicit fixtures. It does not prove a live model's closure, source-bound release
-restoration, active WAL recovery, operating backup activation or human acceptance.
-
-Feedback runtime/control SQLite, watchdog SQLite, protected execution evidence,
-closed candidate worktree contents and their file hashes, and durable dispatch
-and native delivery ledgers are **included in protected backup/restore**.
-Candidate directories are not a rebuildable exclusion: runtime recovery reads
-the saved candidate path and every declared file hash. Dispatch consumption and
-native acknowledgement are separate durable facts; neither can be inferred from
-a report or human acceptance. Include exact non-secret deployment/readbox/route
-descriptor bytes with their pinned references. Live credentials, ephemeral locks
-and process handles are forbidden from this generation. An unresolved execution
-must retain its recovery fence; restoring bytes does not authorize a retry.
-
-`guild_hall/dev_worker/feedback_restore.test.mjs` is a test-level synthetic gate
-using the existing `backupRuntimeDb` logical exporter, `readRuntimeBytes` pin
-checks, and actual feedback readbox/dispatch and cycle APIs. Its three live WAL
-databases have fresh committed runtime, watchdog and consumed `DELIVERY_UNKNOWN`
-rows outside the unchanged main DB files. A bounded 15-member create-only
-generation includes those logical snapshots, four protected evidence records,
-seven synthetic authority descriptors and one candidate file. All manifest
-members must pass exact-byte readback before a restored reader opens. Fourteen
-missing/mixed-byte cases cover each database, report, candidate evidence/content
-and deployment descriptor; a metadata `CURRENT` view is not completeness proof.
-
-Only owned synthetic handles are stopped. The original synthetic tree is
-renamed to a verified sibling and remains byte-identical during the test;
-restoration creates files exclusively at the **same original synthetic paths**.
-Readbox metadata and candidate pins survive, revoked manager reads fail, and
-`prepare`/`send`/`tick` cannot retransmit consumed UNKNOWN rows. The loopback stub
-counts three initial attempts and no restored attempts; it invokes no native
-transport, real profile or model. Reopening the restored cycle with a newer
-source revision returns `RECOVERY_REQUIRED` with zero execution/model-port calls.
-Successful tests remove only their own temporary namespace; failures retain it.
-
-This is not operational recovery-service integration, a native delivery-ledger
-schema test, process-closure verification, NAS DR or human restore acceptance.
-The full runtime recovery verifier and native ledger still need their own
-bounded restore evidence. Cross-path relocation remains incomplete: dispatch
-scope includes the runtime-deployment descriptor path and hash, while runtime
-and candidate references bind their original paths. Do not rewrite restored DB
-scope digests or infer relocation authority from this same-location gate.
 
 Every new top-level HPP data surface is classified in the same development
 slice as one of:

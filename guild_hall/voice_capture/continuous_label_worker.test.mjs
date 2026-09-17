@@ -13,10 +13,6 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import crypto from "node:crypto";
-import { writeFileSync } from "node:fs";
-import { buildDefaultLocalAsrProfile, drainLocalAsrQueue, enqueueLocalAsrBacklog } from "./local_asr.mjs";
-import { writeRecordingLibraryEntry } from "./voice_capture.mjs";
-import { acknowledgeDelivery, validateDeliveryReceipt } from "./delivery_receipt.mjs";
 
 import {
   continuousVoiceLabelHealthSchemaVersion,
@@ -26,10 +22,10 @@ import {
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
-async function fixture(voiceRef = "voice") {
+async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "voice-label-worker-"));
   const repoRoot = path.join(root, "repo");
-  const voiceRoot = path.join(repoRoot, voiceRef);
+  const voiceRoot = path.join(repoRoot, "voice");
   const expectedStateRoot = path.join(root, "private-state");
   const stateRoot = path.join(expectedStateRoot, "worker");
   const profilePath = path.join(voiceRoot, "config", "profile.json");
@@ -106,8 +102,7 @@ function implementations(f, calls) {
         run_id: "synthetic-run",
       },
     }),
-    enqueueImpl: async (options) => {
-      assert.equal(options.sessionsRoot, path.join(f.voiceRoot, "sessions"));
+    enqueueImpl: async () => {
       calls.push("enqueue");
       return { pending_count: 3, queued_count: 3 };
     },
@@ -137,126 +132,6 @@ function implementations(f, calls) {
     },
   };
 }
-
-test("preflight validates planned state without creating it or invoking source processing", async () => {
-  const f = await fixture();
-  try {
-    const calls = [];
-    const result = await runContinuousVoiceLabelWorker({
-      repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
-      stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
-      expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
-      expectedAsrSha256: f.asrSha256, apply: false, preflightOnly: true,
-      ...implementations(f, calls),
-    });
-    assert.equal(result.status, "preflight_passed");
-    assert.deepEqual(calls, []);
-    assert.deepEqual(await readdir(f.expectedStateRoot), []);
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
-test("blocked processing is unknown and later label failure retains measured ASR counts", async () => {
-  const f = await fixture();
-  try {
-    const options = { repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
-      stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
-      expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
-      expectedAsrSha256: f.asrSha256, apply: true, ...implementations(f, []) };
-    const blocked = await runContinuousVoiceLabelWorker({ ...options,
-      preflightImpl: async () => ({ ok: false, checks: [] }) });
-    assert.equal(blocked.status, "blocked");
-    assert.equal(blocked.asr.pending_count, null);
-    assert.equal(blocked.asr.processed_count, null);
-    await assert.rejects(runContinuousVoiceLabelWorker({ ...options,
-      sweepImpl: async () => { throw new Error("synthetic-label-interruption"); } }));
-    const health = JSON.parse(await readFile(path.join(f.stateRoot, "health.json"), "utf8"));
-    assert.equal(health.status, "failed");
-    assert.equal(health.asr.processed_count, 1);
-    assert.equal(health.asr.remaining_pending_count, 2);
-    assert.equal(health.labels.processed_session_count, null);
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
-
-for (const deliveryRetry of [false, true, "requeue"]) test(`HPP ASR real helpers preserve delivery retry ${deliveryRetry} without engine rerun or notification state`, async () => {
-  const f = await fixture("ingress/plaud");
-  try {
-    const sessionRef = "ingress/plaud/sessions/2026-09-10/synthetic-notify-off";
-    const sessionDir = path.join(f.repoRoot, sessionRef);
-    await mkdir(path.join(sessionDir, "audio"), { recursive: true });
-    await writeFile(path.join(sessionDir, "audio/source.mp3"), "synthetic-audio");
-    await writeFile(path.join(sessionDir, "session_manifest.json"), JSON.stringify({
-      schema_version: "soulforge.voice_capture_session.v0", session_id: "synthetic-notify-off",
-      duration_seconds: 5, recorded_at_local: "2026-09-10T10:00:00+09:00",
-      source_sha256: sha256("synthetic-audio"), audio: { ref: `${sessionRef}/audio/source.mp3` },
-    }));
-    const profile = { ...buildDefaultLocalAsrProfile(), queue_root: "ingress/plaud/local_asr_queue",
-      run_id: "synthetic-notify-off", model_path: "synthetic-model.bin", chunk_seconds: 10, overlap_seconds: 0,
-      vad: { enabled: false } };
-    await writeFile(path.join(f.repoRoot, profile.model_path), "synthetic-model");
-    await writeRecordingLibraryEntry({ repoRoot: f.repoRoot, sessionDir, voiceRootRef: "ingress/plaud", apply: true });
-    const blocked = path.join(f.voiceRoot, "delivery/producer_receipts");
-    if (deliveryRetry) {
-      await mkdir(path.dirname(blocked), { recursive: true });
-      await writeFile(blocked, "synthetic blocked destination");
-    }
-    let engineCalls = 0;
-    const run = () => runContinuousVoiceLabelWorker({
-      repoRoot: f.repoRoot, voiceRoot: f.voiceRoot, profileRef: f.profilePath,
-      stateRoot: f.stateRoot, expectedStateRoot: f.expectedStateRoot,
-      expectedAsrBinRoot: path.dirname(f.asrPath), expectedProfileSha256: f.profileSha256,
-      expectedAsrSha256: f.asrSha256, apply: true, ...implementations(f, []),
-      loadProfileImpl: async () => ({ profile }),
-      enqueueImpl: enqueueLocalAsrBacklog,
-      drainImpl: (options) => drainLocalAsrQueue({ ...options,
-        commandRunner: (command, args) => {
-          if (command === profile.ffmpeg_binary) writeFileSync(args.at(-1), "synthetic-wav");
-          else if (command === f.asrPath) {
-            engineCalls += 1;
-            const outputBase = args[args.indexOf("-of") + 1];
-            writeFileSync(`${outputBase}.json`, JSON.stringify({ transcription: [
-              { offsets: { from: 0, to: 1000 }, text: "synthetic transcript" },
-            ] }));
-          } else assert.fail("unexpected synthetic command");
-          return { status: 0 };
-        },
-      }),
-    });
-    let result = await run();
-    if (deliveryRetry) {
-      assert.equal(result.status, "degraded");
-      assert.equal(result.asr.processed_count, 0);
-      assert.equal(result.asr.failed_count, 1);
-      assert.equal(result.asr.remaining_pending_count, 1);
-      const failed = JSON.parse(await readFile(path.join(sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json"), "utf8"));
-      assert.equal(failed.state, "completed");
-      assert.ok(failed.delivery_warning);
-      if (deliveryRetry === "requeue") await rm(path.join(f.voiceRoot, "local_asr_queue/pending/synthetic-notify-off.json"));
-      await rm(blocked);
-      result = await run();
-      assert.equal(result.asr.remaining_pending_count, 0);
-    }
-    assert.equal(engineCalls, 1);
-    assert.equal(result.status, "ok");
-    assert.equal(result.asr.processed_count, 1);
-    assert.equal(result.asr.failed_count, 0);
-    const manifest = JSON.parse(await readFile(path.join(sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json"), "utf8"));
-    assert.equal(manifest.state, "completed");
-    assert.equal(manifest.notification.state, "disabled");
-    assert.equal(manifest.notification.queued, false);
-    assert.equal(manifest.delivery_warning, undefined);
-    const session = JSON.parse(await readFile(path.join(sessionDir, "session_manifest.json"), "utf8"));
-    assert.equal(session.independent_transcription.delivery_warning, undefined);
-    const receipt = JSON.parse(await readFile(path.join(f.voiceRoot, "delivery/producer_receipts/synthetic-notify-off.json"), "utf8"));
-    validateDeliveryReceipt(receipt, { voiceRootRef: "ingress/plaud" });
-    assert.equal(receipt.stage, "local_asr_ready");
-    assert.ok(receipt.files.every((file) => file.ref.startsWith("ingress/plaud/")));
-    const ack = await acknowledgeDelivery({ repoRoot: f.repoRoot, voiceRootRef: "ingress/plaud",
-      sessionId: "synthetic-notify-off", consumerNode: "synthetic-consumer", apply: false });
-    assert.equal(ack.status, "delivered", "the receipt must hash the final warning-free metadata");
-    assert.equal((await readdir(f.repoRoot)).includes("guild_hall"), false);
-    assert.equal((await readdir(f.repoRoot)).includes("_workspaces"), false);
-  } finally { await rm(f.root, { recursive: true, force: true }); }
-});
 
 test("apply processes bounded ASR then labels and writes metadata-only state", async () => {
   const f = await fixture();

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,7 +18,6 @@ import {
 const CLI = fileURLToPath(new URL("./continuous_supervisor_cli.mjs", import.meta.url));
 const LAUNCHER = fileURLToPath(new URL("./ops/run-continuous-ingress-supervisor.ps1", import.meta.url));
 const REGISTRAR = fileURLToPath(new URL("./ops/register-continuous-ingress-supervisor-task.ps1", import.meta.url));
-const HIDDEN_LAUNCHER = fileURLToPath(new URL("./ops/run-continuous-ingress-supervisor-hidden.vbs", import.meta.url));
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
 function binding(overrides = {}) {
@@ -84,24 +83,6 @@ test("one supervisor process performs repeated one-shot cycles without overlappi
   assert.equal(events[1].plaud_ready_to_import_count, 4);
   assert.equal(events[1].plaud_pending_provider_processing_count, 10);
   assert.equal(events[1].plaud_cutover_ready, false);
-});
-
-test("supervisor preserves unknown PLAUD counts rather than publishing measured zero", async () => {
-  const events = [];
-  await runContinuousSupervisor({
-    bindingPath: "private-binding.json", bindingDigest: DIGEST, apply: true, maxCycles: 1,
-    loadBindingImpl: async () => binding(),
-    runCycleImpl: async () => ({ status: "degraded", errors: [], plaud: {
-      status: "blocked", imported_count: null, ready_to_import_count: null,
-      pending_provider_processing_count: null, post_import_warning_count: null,
-    } }),
-    emit: (event) => events.push(event),
-  });
-  const completed = events.find((event) => event.event === "cycle_completed");
-  for (const field of ["plaud_imported_count", "plaud_ready_to_import_count",
-    "plaud_pending_provider_processing_count", "plaud_post_import_warning_count"]) {
-    assert.equal(completed[field], null, field);
-  }
 });
 
 test("abort stops the persistent loop between cycles", async () => {
@@ -477,7 +458,7 @@ test("CLI rejects missing production arguments without leaking values", () => {
   assert.equal(payload.code, "continuous_supervisor_apply_required");
 });
 
-test("Windows watchdog recovers one hidden supervisor with a process-lifetime mutex", async (t) => {
+test("Windows task contract is one hidden at-logon supervisor with a process-lifetime mutex", async (t) => {
   const [launcher, registrar] = await Promise.all([
     readFile(LAUNCHER, "utf8"),
     readFile(REGISTRAR, "utf8"),
@@ -491,19 +472,12 @@ test("Windows watchdog recovers one hidden supervisor with a process-lifetime mu
   assert.doesNotMatch(launcher, /throw "continuous supervisor already running"/);
   assert.match(registrar, /New-ScheduledTaskTrigger -AtLogOn/);
   assert.match(registrar, /-WindowStyle", "Hidden"/);
-  assert.match(registrar, /New-ScheduledTaskAction -Execute \$WScriptExe/);
-  assert.match(registrar, /Join-Path \$PSScriptRoot "run-continuous-ingress-supervisor-hidden\.vbs"/);
-  const hidden = await readFile(HIDDEN_LAUNCHER, "utf8");
-  assert.match(hidden, /shell\.Run\(command, 0, True\)/);
-  assert.match(hidden, /WScript\.Quit exitCode/);
   assert.match(registrar, /-MultipleInstances IgnoreNew/);
   assert.match(registrar, /-RestartCount 3/);
   assert.match(registrar, /-ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/);
   assert.match(registrar, /-AllowStartIfOnBatteries/);
   assert.match(registrar, /-DontStopIfGoingOnBatteries/);
-  assert.match(registrar, /-RepetitionInterval \(New-TimeSpan -Minutes 15\)/);
-  assert.match(registrar, /-Trigger @\(\$LogonTrigger, \$WatchdogTrigger\)/);
-  assert.doesNotMatch(registrar, /Stop-ScheduledTask|Stop-Process|taskkill/i);
+  assert.doesNotMatch(registrar, /RepetitionInterval|New-TimeSpan -Minutes 15/);
 
   if (process.platform !== "win32") {
     t.skip("PowerShell syntax parser is Windows-only");
@@ -514,48 +488,6 @@ test("Windows watchdog recovers one hidden supervisor with a process-lifetime mu
     `$files=@('${LAUNCHER.replaceAll("'", "''")}','${REGISTRAR.replaceAll("'", "''")}')`,
     "foreach($file in $files){$tokens=$null;$errors=$null;[void][System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors);if($errors.Count){$errors|ForEach-Object{[Console]::Error.WriteLine($_.Message)};exit 1}}",
   ].join("; ");
-  const parsed = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { encoding: "utf8", windowsHide: true });
+  const parsed = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { encoding: "utf8" });
   assert.equal(parsed.status, 0, parsed.stderr);
-});
-
-test("Windows registrar mocks stopped recovery and rejects task drift before start", { skip: process.platform !== "win32" }, () => {
-  const fixture = fileURLToPath(new URL("./ops/test-register-continuous-ingress-supervisor-task.ps1", import.meta.url));
-  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", fixture], { encoding: "utf8", windowsHide: true });
-  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-});
-
-test("Windows hidden wrapper waits for a synthetic child and preserves arguments and exit codes", { skip: process.platform !== "win32" }, async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "ingress hidden wrapper "));
-  try {
-    const child = path.join(root, "synthetic child.ps1");
-    const output = path.join(root, "arguments.json");
-    await writeFile(child, "param([string]$OutputPath,[int]$ExitCode)\nStart-Sleep -Milliseconds 300\nConvertTo-Json -InputObject @($args) -Compress | Set-Content -LiteralPath $OutputPath -Encoding UTF8\nexit $ExitCode\n");
-    const wscript = path.join(process.env.WINDIR, "System32", "wscript.exe");
-    const powershell = path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-    const values = ["space value", "C:\\synthetic folder\\", "C:\\plain\\", "한글", "a&b;literal"];
-    for (const code of [0, 7]) {
-      const started = Date.now();
-      const result = spawnSync(wscript, ["//B", "//NoLogo", HIDDEN_LAUNCHER, powershell,
-        "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", child, output, String(code), ...values].map((value) => `"${value}"`),
-      { encoding: "utf8", windowsHide: true, windowsVerbatimArguments: true, timeout: 15000 });
-      assert.equal(result.status, code, `${result.error ?? ""} ${result.stderr}`);
-      assert.ok(Date.now() - started >= 300, "wrapper must wait for child completion");
-      assert.deepEqual(JSON.parse((await readFile(output, "utf8")).replace(/^\uFEFF/, "")), values);
-      await rm(output);
-    }
-    const missing = spawnSync(wscript, ["//B", "//NoLogo", HIDDEN_LAUNCHER], { windowsHide: true, timeout: 5000 });
-    assert.equal(missing.status, 64);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("watchdog re-entry never resumes an explicitly paused binding", async () => {
-  for (let wake = 0; wake < 3; wake += 1) {
-    await assert.rejects(runContinuousSupervisor({
-      bindingPath: "paused-binding.json", bindingDigest: DIGEST, apply: true,
-      loadBindingImpl: async () => binding({ schedulerEnabled: false }),
-      runCycleImpl: async () => assert.fail("watchdog must not enable payload work"),
-    }), { code: "continuous_supervisor_scheduler_disabled" });
-  }
 });
