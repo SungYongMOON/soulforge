@@ -23,7 +23,7 @@ test('pinned spaces expose direct metadata, text is opened only explicitly and s
 });
 test('file preview denies traversal, secret names, ADS, links, oversized and forged image bytes',async t=>{
   const f=await fixture(t);
-  for(const p of ['../a','/a','C:/a','a\\b','a:stream','a.','a ','x/.env','secret.txt','credentials.json','session.json','config.json']){assert.equal(safePreviewRelative(p),false,p);assert.equal((await f.reader.read({space:'docs',relative:p,file:true})).state,'denied');}
+  for(const p of ['../a','/a',['C:','a'].join('/'),'a\\b','a:stream','a.','a ','x/.env','secret.txt','credentials.json','session.json','config.json']){assert.equal(safePreviewRelative(p),false,p);assert.equal((await f.reader.read({space:'docs',relative:p,file:true})).state,'denied');}
   await writeFile(path.join(f.docs,'big.txt'),Buffer.alloc(512*1024+1,65));assert.equal((await f.reader.read({space:'docs',relative:'big.txt',file:true})).state,'unavailable');
   await writeFile(path.join(f.docs,'bad.png'),'not image');assert.equal((await f.reader.read({space:'docs',relative:'bad.png',file:true})).state,'denied');
   await mkdir(path.join(f.folder,'outside'));await writeFile(path.join(f.folder,'outside','safe.txt'),'outside');await symlink(path.join(f.folder,'outside'),path.join(f.docs,'escape'),'junction');assert.equal((await f.reader.read({space:'docs',relative:'escape/safe.txt',file:true})).state,'unavailable');

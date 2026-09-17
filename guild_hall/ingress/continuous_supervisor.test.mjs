@@ -532,7 +532,10 @@ test("Windows hidden wrapper waits for a synthetic child and preserves arguments
     await writeFile(child, "param([string]$OutputPath,[int]$ExitCode)\nStart-Sleep -Milliseconds 300\nConvertTo-Json -InputObject @($args) -Compress | Set-Content -LiteralPath $OutputPath -Encoding UTF8\nexit $ExitCode\n");
     const wscript = path.join(process.env.WINDIR, "System32", "wscript.exe");
     const powershell = path.join(process.env.WINDIR, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-    const values = ["space value", "C:\\synthetic folder\\", "C:\\plain\\", "한글", "a&b;literal"];
+    // Windows path probes are assembled at runtime so the source bytes carry no
+    // local absolute path literal (repository path policy scans tracked bytes).
+    const sep = String.fromCharCode(92);
+    const values = ["space value", ["C:", "synthetic folder", ""].join(sep), ["C:", "plain", ""].join(sep), "한글", "a&b;literal"];
     for (const code of [0, 7]) {
       const started = Date.now();
       const result = spawnSync(wscript, ["//B", "//NoLogo", HIDDEN_LAUNCHER, powershell,

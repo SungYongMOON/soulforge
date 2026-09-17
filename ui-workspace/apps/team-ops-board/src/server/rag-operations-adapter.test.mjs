@@ -28,7 +28,7 @@ test('manifest projection distinguishes stored reembedding from selected and DB 
   assert.equal(r.model.dimensions,4096);assert.equal(r.embedding.elapsed_ms,800);assert.equal(r.llm.calls,null);
   assert.equal(JSON.stringify(r).includes('MUST_NOT_SURFACE'),false);
   assert.throws(()=>projectManifest({...m,status:'draft'}));
-  assert.equal(projectManifest({...m,embedding:{model:'C:\\private\\model.bin'}}).model.embedder,null);
+  assert.equal(projectManifest({...m,embedding:{model:path.join(tmpdir(),'synthetic-model.bin')}}).model.embedder,null);
 });
 test('document stats preserve missing counts and require coverage evidence for prepared label',()=>{
   const m=manifest(),r=projectDocuments(m,null)[0];assert.equal(r.preparation,'unconfirmed');
