@@ -182,6 +182,11 @@ export function createSlackWebApiPollingTransport({
         next_cursor_digest: nextToken === null ? null : sha256Canonical(nextToken),
         event_ids: records.map((record) => record.event_id),
       };
+      // Preserve the established tail page identity when `oldest` is null,
+      // while separating a head-window page that happens to return the same
+      // records and cursor. Otherwise the shared accepted-page ledger treats
+      // the head page as a tail replay and never follows its continuation.
+      if (oldest !== null) pageBasis.oldest_digest = sha256Canonical(oldest);
       return {
         page_id: `slack-web-page:${sha256Canonical(pageBasis).slice("sha256:".length, "sha256:".length + 24)}`,
         previous_cursor_digest: cursorToken === null ? null : sha256Canonical(cursorToken),

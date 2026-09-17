@@ -101,7 +101,9 @@ head pass comes first: it asks the provider only for messages newer than the
 channel watermark (`state.head.latest_ts`, the newest message timestamp the
 channel has evaluated), newest page first, following its own continuation
 chain (`state.head.chain`) across runs until the provider reaches the window
-start. It stops at the first page that adds nothing and writes nothing when
+start. A live head page binds that window start into its page identity, while
+tail page identity remains backward-compatible. It stops at the first page
+that adds nothing and writes nothing when
 the window is empty. The first tail page initializes this watermark; after
 that only the head pass advances it, so a tail page cannot skip arrivals below
 its bounded newest page. The tail pass then continues the backward walk from
