@@ -20,6 +20,7 @@
 .cx-link-state{color:var(--amber);font-size:9px!important;white-space:nowrap}
 .cx-host-strip{display:flex;gap:20px;flex-wrap:wrap;color:var(--muted);font-size:11px;padding:0 4px 6px}
 .cx-host-strip strong{color:var(--text);font-weight:550;margin-left:6px}.cx-host-strip small{font-size:10px;margin-left:auto}
+.cx-manual-link{color:var(--blue);white-space:nowrap;font-size:12px;text-underline-offset:3px}
 .cx-app .cx-list-toggle{display:none}.cx-node-title strong{font-size:14px}.cx-diagram-node .cx-status{font-size:11px}
 .cx-pinned-selection{display:grid;gap:6px;padding:12px 10px;background:var(--selection);border-radius:7px;margin-bottom:10px}.cx-pinned-selection small{font-size:10px;color:var(--muted)}.cx-pinned-selection strong{font-size:12px}.cx-pinned-selection button{justify-self:start;color:var(--blue);font-size:11px;padding:3px 0}
 .cx-sidebar nav .cx-rag-link{display:flex;align-items:center;gap:7px;min-height:43px;padding:10px 13px;color:var(--blue);font-size:12px;border-radius:7px}.cx-sidebar nav .cx-rag-link:hover{background:var(--selection)}

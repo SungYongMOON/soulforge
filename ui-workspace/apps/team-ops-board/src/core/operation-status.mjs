@@ -3,7 +3,8 @@
 export const STATUS_LABELS=Object.freeze({ok:'정상',processing:'진행 중',pending:'보류',problem:'이상',sampled:'일부 확인',observation_error:'미확인',unknown:'미확인',history:'미확인'});
 export function unifyStatus(node){
   const checkLabel=node.connection?'연결':node.diagnostic?.scope==='bounded_sample'?'보관 · 표본':node.diagnostic?.lane?'보관':node.diagnostic?.kind==='models'?'API':node.id==='context_engine::neo4j'?'DB':node.id==='context_engine::prepare'?'준비 기록':node.id.startsWith('watchtower::src_')?'연결':node.stage==='collect'?'수집':node.stage==='custody'?'보관':'관측';
-  return {...node,checkLabel,status:{...node.status,evidenceLabel:node.status.evidenceLabel??node.status.label,label:STATUS_LABELS[node.status.key]??STATUS_LABELS.unknown}};
+  const label=node.label?.replaceAll('custody','보관').replaceAll('event 원장','이벤트 기록').replace('five-field 원장 검증','작업 요약 기록 검사').replace('Five-Lane Ingress 감독','수집 상태 점검').replace('Hiworks→Gmail 수입기','Hiworks→Gmail 메일 가져오기');
+  return {...node,label,checkLabel,status:{...node.status,evidenceLabel:node.status.evidenceLabel??node.status.label,label:STATUS_LABELS[node.status.key]??STATUS_LABELS.unknown}};
 }
 export function applySourceConnection(node,connection,definitions){
   const key=connection.state==='responding'?(connection.collection||connection.basis==='http_liveness'||connection.basis==='collection'?'ok':'sampled'):connection.state==='failed'?'problem':'unknown';

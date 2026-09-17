@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Soulforge 운영 화면 · 사용 설명서</title>
+<style>
+:root{color-scheme:light dark;--bg:#13181e;--surface:#1c242d;--text:#e9eef5;--muted:#a7b6c7;--line:#344250;--blue:#8bbcff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 system-ui,"Malgun Gothic",sans-serif}main{max-width:1080px;margin:auto;padding:36px 24px 80px}a{color:var(--blue);text-underline-offset:4px}h1{font-size:30px;margin:20px 0 8px}h2{font-size:22px;margin:0 0 12px}h3{font-size:17px;margin:24px 0 8px}p{margin:8px 0 16px}small,.muted{color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0}nav a{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 12px;text-decoration:none}section{scroll-margin-top:24px;border-top:1px solid var(--line);padding:28px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px 10px;border-bottom:1px solid var(--line)}thead{color:var(--muted)}th:first-child{min-width:130px}td{min-width:150px}.table{overflow-x:auto}strong{font-weight:650}.example{padding:18px;background:var(--surface);border-radius:10px}.bar{display:inline-block;vertical-align:middle;width:100px;height:17px;border:2px solid var(--blue);margin-right:8px}.bar b{display:block;height:100%;width:60%;background:var(--blue)}.bar.unknown{background:repeating-linear-gradient(135deg,transparent 0 4px,#8bbcff55 4px 6px)}li{margin:6px 0}a:focus-visible{outline:2px solid var(--blue);outline-offset:4px}@media(prefers-color-scheme:light){:root{--bg:#f7f9fb;--surface:#fff;--text:#182633;--muted:#546779;--line:#dce3eb;--blue:#2365a8}}@media(max-width:600px){main{padding:22px 18px 60px}h1{font-size:25px}table{font-size:13px}th,td{padding:10px 8px}}
+</style></head>
+<body><main>
+<a href="/operations-console.html#overview">← 운영 현황</a>
+<h1>운영 화면 사용 설명서</h1>
+<p>무엇이 모였고, 검색에 얼마나 쓰일 수 있으며, 지금 고칠 것이 있는지 판단하는 화면입니다.</p>
+<small>적용 범위: 운영 현황 · 구조·진단 · 데이터 공간 · 사용 이력 · RAG 처리 · 자료 검색 · 기억·맥락</small>
+<nav aria-label="설명서 목차"><a href="#read">숫자·상태 읽기</a><a href="#collection">자료 수집</a><a href="#rag">검색용 처리</a><a href="#system">연결·진단</a><a href="#usage">한도·사용량</a><a href="#models">로컬 모델</a><a href="#files">파일·검색·기억</a><a href="#terms">용어 대조표</a></nav>
+
+<section id="read"><h2>숫자와 상태 읽기</h2>
+<p><strong>0은 확인한 범위에서 없음, —는 알 수 없음, ≥는 최소 확인 수</strong>입니다. 예를 들어 ≥20은 최소 20개를 확인했지만 전체가 더 많을 수 있다는 뜻입니다. 분모가 붙은 수는 해당 검사 대상에 대한 비율입니다.</p>
+<div class="table"><table><thead><tr><th>표시</th><th>뜻</th><th>사용자가 할 일</th></tr></thead><tbody>
+<tr><th>정상</th><td>표시된 시각과 검사 범위에서 문제가 발견되지 않음.</td><td>별도 조치 없음. 수집 정상만으로 검색·답변까지 정상이라고 판단하지 않음.</td></tr>
+<tr><th>진행 중</th><td>실행 중이거나 정상 주기로 순차 처리하는 기록이 있음.</td><td>다음 확인에서 진행량이 늘어나는지 봄. 단순 대기를 장애로 취급하지 않음.</td></tr>
+<tr><th>보류</th><td>조건을 충족하지 못해 해당 처리가 멈춰 있음.</td><td>해당 항목의 원인·다음 조치 확인. 조건을 해소한 뒤 재시도 여부 판단.</td></tr>
+<tr><th>이상</th><td>연결 실패나 검사 불일치 등 구체적 문제가 확인됨.</td><td>문제가 난 대상·시각·원인을 보고 해당 서비스 또는 자료를 점검.</td></tr>
+<tr><th>일부 확인</th><td>표본만 검사했거나 연결 등 일부 단계만 확인함.</td><td>전체 상태가 필요한 경우 검사 범위를 확대. 검사한 표본 수와 전체 수를 구분.</td></tr>
+<tr><th>미확인 / 상태 확인 불가</th><td>검사 연결·자료가 없거나 읽기에 실패해 판단할 수 없음.</td><td>조회 실패면 다시 읽기. 기록 연결이 없으면 모니터링 연결 보완이 필요함. 서비스 고장으로 단정하지 않음.</td></tr>
+<tr><th>이전 확인 결과 / 보존값</th><td>최신 조회에 실패해 이전 값을 표시 중.</td><td>확인 시각을 보고 최신 조회 재시도. 현재 값으로 사용하지 않음.</td></tr>
+</tbody></table></div>
+<p>상단 <strong>다시 읽기</strong>는 상태를 조회합니다. 일부 결과는 최대 60초간 재사용되므로 클릭마다 수집이나 DB 검사가 새로 실행되지는 않습니다. 서비스 재시작·재처리 버튼이 아닙니다.</p></section>
+
+<section id="collection"><h2>자료 수집 · 검색 포함</h2>
+<p>모은 자료와 그중 현재 과제 검색 목록에 들어 있는 자료를 같은 막대에서 봅니다. <strong>수집 날짜별로 현재 검색 포함 여부를 보여주며, 처리 완료 날짜별 작업량은 아닙니다.</strong></p>
+<div class="example"><p><span class="bar"><b></b></span>예: 모은 자료 10개 중 검색에 포함된 같은 본문 버전 6개.</p><p><span class="bar unknown"></span>사선: 모은 수는 알지만 검색 포함 수를 계산할 기록이 부족함.</p></div>
+<div class="table"><table><thead><tr><th>표시</th><th>정확한 뜻</th><th>판단·다음 행동</th></tr></thead><tbody>
+<tr><th>모은 자료 · 테두리</th><td>선택 기간에 수집·등록 기록으로 확인한 자료 수. 원천마다 집계 범위가 다름.</td><td>날짜 기준과 최소 확인 표시를 함께 봄. 백업 완료나 전처리 완료 수가 아님.</td></tr>
+<tr><th>검색에 포함 · 채움</th><td>같은 자료 ID와 본문 버전이 현재 조회 과제의 검색 DB에 연결된 수. 과제 간 같은 자료는 한 번만 셈.</td><td>검색 후보에 들어 있음. 실제 질문에서 검색되거나 답변에 인용됐다는 뜻은 아님. 댓글·첨부 전체의 완료도 별도.</td></tr>
+<tr><th>빈 테두리</th><td>검색 포함이 확인된 수에 들지 않은 부분.</td><td>처리 대상 밖인지, 처리 실패인지, 아직 처리되지 않았는지 이 그래프만으로 구분 불가. 과제와 처리 이력 확인 후 판단.</td></tr>
+<tr><th>포함 여부 모름 · 사선</th><td>자료별 식별 정보나 처리 기록의 연결이 부족하거나 검색 목록 조회가 안 됨.</td><td>패널 아래 이유 확인. 조회 실패면 다시 읽기, 집계 연결 부족이면 표시 기능의 연결 보완. 무조건 재수집·재처리하지 않음.</td></tr>
+<tr><th>검색 0</th><td>확인한 과제·기록 범위에서 검색 포함 자료가 0개.</td><td>이 수만으로 대기량·오류량을 계산하지 않음. 모든 수집 자료가 조회 과제의 처리 대상인 것은 아님.</td></tr>
+<tr><th>검색 —</th><td>검색 포함 수를 계산할 수 없음.</td><td>0개와 구분. 특히 메일은 수집 실행의 합계와 개별 검색 문서의 연결 정보가 부족할 수 있음.</td></tr>
+</tbody></table></div>
+<h3>원천별 날짜와 집계 단위</h3>
+<div class="table"><table><thead><tr><th>원천</th><th>날짜·단위</th><th>범위</th></tr></thead><tbody>
+<tr><th>PLAUD</th><td>라이브러리 등록일 · 녹음</td><td>녹음한 날짜와 등록일이 다를 수 있음. 음성 자료의 검색 포함 여부는 조회 과제 기준.</td></tr>
+<tr><th>Slack</th><td>메시지 작성일 · 메시지</td><td>조회 가능한 채널의 보존된 기록. 모든 채널·답글·첨부 전체 집계가 아님.</td></tr>
+<tr><th>Linear</th><td>이슈 수정일 · 이슈</td><td>보존된 이슈 목록. 새로 만든 이슈 수나 당일 수집 실행 수가 아님. 과제가 없는 이슈가 검색 처리 대상에서 빠질 수 있음.</td></tr>
+<tr><th>메일</th><td>수집 실행일 · 신규 메일</td><td>기간 내 실행별 신규 메일 합계. 전체 받은편지함 수나 수신 날짜별 합계가 아님.</td></tr>
+<tr><th>DOC</th><td>파일 수정일 · 문서</td><td>허용된 폴더에서 읽은 목록. 기록이 없다는 표시만으로 PC 전체에 문서가 없다고 판단하지 않음.</td></tr>
+</tbody></table></div>
+<p>종합 표의 작은 막대는 <strong>각 원천 안에서 상대 크기</strong>를 보여줍니다. 서로 다른 행의 막대 높이를 건수로 직접 비교하거나 원천끼리 합산하지 않습니다. 1일은 KST 오늘의 시간별, 7일·30일은 오늘을 포함한 날짜별입니다. 누락된 기록은 0으로 채우지 않습니다.</p></section>
+
+<section id="rag"><h2>검색용 자료 처리 · RAG 처리</h2>
+<p><strong>RAG</strong>는 질문과 관련된 자료를 찾아 AI 답변에 활용하는 방식입니다. 이 화면은 자료 준비와 검색 DB 저장 상태를 보여줍니다. 답변 품질 점수는 아닙니다.</p>
+<div class="table"><table><thead><tr><th>용어</th><th>뜻·단위</th><th>확인할 점</th></tr></thead><tbody>
+<tr><th>전처리 완료 문서</th><td>저장 기록에서 검색용 준비가 끝난 문서 수.</td><td>DB 저장 완료 수와 다름. 아래 검색 DB 수와 함께 확인.</td></tr>
+<tr><th>검색 조각(청크)</th><td>긴 문서를 검색하기 쉬운 본문 조각으로 나눈 것. 수치는 DB에 저장된 조각 수.</td><td>한 문서가 여러 조각이 되므로 문서 수와 같지 않음.</td></tr>
+<tr><th>벡터·임베딩</th><td>본문의 의미를 숫자 배열로 바꾸는 작업을 임베딩, 그 결과를 벡터라고 함.</td><td>벡터 포함 청크는 벡터 속성이 있는 조각 수. 의미 정확도·검색 성공은 별도 확인.</td></tr>
+<tr><th>검색 DB 저장 일치</th><td>선택된 처리 버전과 DB의 처리 버전·청크 수가 같고 필요한 벡터 수가 맞는 과제 수 / 조회 과제 수.</td><td>전체 수집 자료의 처리율이 아님. 불일치면 과제별 처리 이력 확인.</td></tr>
+<tr><th>처리 버전</th><td>한 번의 처리 결과를 구분하는 ID. 이전 화면의 ‘판본’.</td><td>파일에 저장한 버전과 DB에 저장한 버전을 구분. 이전 버전이 있다고 오류는 아님.</td></tr>
+<tr><th>벡터 검색 인덱스</th><td>비슷한 의미의 벡터를 찾는 DB 검색 구조. ONLINE은 사용할 수 있는 상태, POPULATING은 만드는 중.</td><td>색인이 준비돼도 모든 질문의 정답을 보장하지 않음. 차원은 벡터 길이이며 문서 수가 아님.</td></tr>
+<tr><th>동시 저장 방지 잠금</th><td>같은 과제에 동시에 저장하지 못하게 하는 잠금 수.</td><td>0보다 크다고 곧바로 오류는 아님. 장시간 남으면 실행 상태와 소유자 확인 후 조치.</td></tr>
+<tr><th>최근 실행에서 저장 확인</th><td>마지막 실행이 DB 수량을 다시 읽어 확인한 문서 수.</td><td>현재 전체 문서 수·오늘 새로 처리한 수와 다름.</td></tr>
+<tr><th>최근 실행의 대기·실패</th><td>마지막 실행의 대상 중 대기·실패로 기록된 수.</td><td>전체 수집 잔량이 아님. 처리 이력에서 해당 항목과 사유 확인.</td></tr>
+<tr><th>재처리 목록</th><td>대기·실패·제외 사유가 남은 재시도 장부의 항목 수.</td><td>자동 재시도가 허용되는지는 항목별 정책에 따라 다름.</td></tr>
+<tr><th>전처리 실패 / 거부</th><td>처리 시도 실패 / 조건을 충족하지 못해 준비를 허용하지 않음.</td><td>처리 기록에서 원인을 확인하고 실패 해결 또는 대상 조건 조정. 삭제 대상이라는 뜻은 아님.</td></tr>
+</tbody></table></div>
+<h3>품질 점검과 ‘정크’</h3>
+<p>성격이 다른 수치를 한데 묶어 ‘정크’라고 부르지 않습니다. <strong>처리 당시 제외한 데이터</strong>와 <strong>지금 DB에서 확인할 데이터</strong>를 구분합니다.</p>
+<div class="table"><table><thead><tr><th>표시</th><th>뜻</th><th>조치 기준</th></tr></thead><tbody>
+<tr><th>중복 ID</th><td>처리 중 같은 ID가 반복돼 제외한 횟수.</td><td>현재 DB의 중복 개수로 해석하지 않음. 반복 증가 시 추출 결과 점검.</td></tr>
+<tr><th>본문·청크 불일치</th><td>처리 당시 본문·조각 정보가 맞지 않아 제외된 조각.</td><td>원문과 추출 기록을 확인. 원본 파일 손상으로 단정하지 않음.</td></tr>
+<tr><th>출처 청크 없는 개체</th><td>인물·사물 등 추출 개체의 출처 조각을 찾지 못해 제외한 수.</td><td>출처 연결을 점검. 저장된 검색 DB 전체의 출처 누락 수는 아님.</td></tr>
+<tr><th>제외된 관계</th><td>연결 양끝의 개체가 없거나 관계 형식이 맞지 않아 제외한 수.</td><td>해당 처리 결과와 관계 형식 확인. 이 숫자를 삭제할 관계 수로 쓰지 않음.</td></tr>
+<tr><th>저장 미완료 표시 노드</th><td>DB 저장 작업의 임시 표시가 아직 남은 데이터 항목.</td><td>진행 중 작업인지, 중단 뒤 남았는지 먼저 확인. 자동 삭제하지 않음.</td></tr>
+<tr><th>과제 정보 없는 노드</th><td>DB에 과제 식별 정보가 없는 데이터 항목. 저장 잠금 항목은 제외.</td><td>출처·생성 경로를 확인한 뒤 처리 방법 결정.</td></tr>
+</tbody></table></div>
+<p>보유량 추세는 시간·날짜별 마지막 확인값입니다. 반복 검사한 수를 신규 처리량으로 더하지 않습니다. 전 과제 기록이 없는 구간은 선이 끊어집니다. 품질 점검 수치의 과거 기록이 없으면 추세를 만들지 않습니다.</p>
+<p>RAG 처리 메뉴의 자료별 표는 <strong>저장된 처리 기록</strong>, 상단 수치는 <strong>현재 DB 조회</strong>입니다. ‘변경 없음’은 최신 실행에서 새 변경이 없었다는 뜻이며, 실패와 다릅니다. 과제 코드 뒤에는 확인 가능한 과제명을 붙이며 명칭을 읽지 못하면 임의로 만들지 않습니다.</p></section>
+
+<section id="system"><h2>구조·진단 · 시스템 연결도</h2>
+<p>현재 조치가 필요한 항목에는 원인, 영향, 다음 조치를 표시합니다. 정상적인 순차 처리와 현재 실행을 막지 않는 과거 실패는 현재 장애 수에 합산하지 않습니다.</p>
+<ul><li><strong>연결</strong>: 서버에 닿거나 API 응답을 받았는지. 인터넷 보안 연결(TLS)만 확인되면 계정 인증·자료 접근은 아직 모릅니다.</li><li><strong>수집</strong>: 원천 자료를 가져오는 실행 결과. 모든 최신 자료가 빠짐없이 모였다는 보장은 별도 검사가 필요합니다.</li><li><strong>보관</strong>: 가져온 파일의 식별 정보·내용이 저장 기록과 맞는지. 재해 복구용 백업과 다릅니다.</li><li><strong>표본</strong>: 일부 파일만 검사함. 표본 통과를 전체 통과로 읽지 않습니다.</li><li><strong>검사 결과 다시 읽기</strong>: 현재 사용할 수 있는 검사 결과를 다시 조회합니다. 복구 실행이 아닙니다.</li></ul>
+<p>실선은 등록된 연결, 점선은 코드에 정의된 연결, 가는 점선은 제어·감시 관계입니다. 선이 있다는 것은 실제 전송 성공을 뜻하지 않으며, 선이 없는 것은 연결 정보가 없다는 뜻일 수 있습니다. 연결도에서 네모는 서비스나 저장소, 상세 검색에서 노드는 데이터 항목, 엣지는 항목 사이 관계입니다.</p>
+<h3>흔한 알림의 다음 조치</h3><div class="table"><table><thead><tr><th>상황</th><th>의미와 조치</th></tr></thead><tbody>
+<tr><th>PLAUD 동일 녹음 확인 실패</th><td>새 목록의 녹음과 기존 보관 자료가 같은 항목인지 확인하지 못함. 해당 ID·녹음 시각·파일 내용 확인값을 비교해 원인을 찾음. 다른 녹음을 강제로 합치거나 모두 다시 등록하지 않음.</td></tr>
+<tr><th>Linear 실행 잠금 사용 불가</th><td>다른 실행이 사용 중이거나 중단된 실행의 잠금이 남아 있을 수 있음. 소유자와 최근 실행 확인 후 조치. 무조건 잠금을 지우지 않음.</td></tr>
+<tr><th>과거 메일 조회 실패</th><td>현재 회차가 정상이고 과거 이력만 남았다면 즉시 조치 대상이 아님. 실제 누락 메일이 있을 때 당시 원본과 수신 결과를 조사하는 참고 기록.</td></tr>
+<tr><th>자동 복구 대상 아님</th><td>등록된 자동 복구 정책이 이 원인을 처리하지 않음. 사람이 원인을 진단해 코드·설정·데이터 연결을 고칠 수 없다는 뜻은 아님. 이 화면 자체에는 복구 실행 기능이 없음.</td></tr>
+</tbody></table></div></section>
+
+<section id="usage"><h2>남은 한도 · 사용 이력</h2>
+<ul><li><strong>남은 한도</strong>: 계정·모델 묶음별 사용할 수 있는 비율. 막대가 길수록 많이 남음. 남은 토큰 개수는 아닙니다.</li><li><strong>5시간·주간</strong>: 제공자가 정한 한도 적용 기간. 제공자별·기간별 비율을 더하지 않습니다.</li><li><strong>초기화</strong>: 해당 한도가 갱신될 예정 시각. 예정 시각이 지났어도 새 조회 없이 100%로 표시하지 않습니다.</li><li><strong>Antigravity 공유</strong>: 표시된 모델 묶음이 함께 쓰는 한도. Gemini 개별 모델마다 독립 한도가 있다는 뜻은 아닙니다.</li><li><strong>토큰</strong>: 모델이 읽고 생성한 텍스트의 계산 단위. 비용·요금으로 바로 바꾸지 않습니다.</li><li><strong>요청·회차</strong>: 사용 기록의 호출 또는 대화 회수. 토큰을 측정하지 않는 기록은 요청 수로 따로 보여줍니다.</li><li><strong>토큰 미측정</strong>: 사용은 기록됐지만 토큰 수를 알 수 없음. 0토큰이 아닙니다.</li><li><strong>작업별 귀속</strong>: 어떤 작업에서 사용했는지 연결하는 것. 작업 ID 연결이 없으면 모델별 값을 임의 배분하지 않습니다.</li></ul>
+<p>사용 추이의 모델/제공자·기간 선택과 아래 작업 이력의 기간 집계는 각각의 표시 범위를 따릅니다. 부분 기록, 오늘 집계 중, 입력·출력·캐시 등 세부 집계 조건은 차트의 집계 범위를 확인합니다.</p></section>
+
+<section id="models"><h2>로컬 모델 · 에이전트 활동</h2>
+<div class="table"><table><thead><tr><th>표시</th><th>뜻</th><th>다음 행동</th></tr></thead><tbody>
+<tr><th>모델 API 정상</th><td>서버가 목록·상태 요청에 응답함.</td><td>실제 답변 생성 성공은 별도. ms는 상태 조회 소요 시간이며 토큰 생성 속도가 아님.</td></tr>
+<tr><th>등록 모델</th><td>서버가 제공하는 모델 목록에 있음.</td><td>메모리에 올라온 모델인지 함께 확인.</td></tr>
+<tr><th>메모리에 올라온 모델</th><td>조회 시점에 메모리를 사용 중인 모델.</td><td>0개여도 호출할 때 불러오는 서버일 수 있음. 접속 불가와 구분.</td></tr>
+<tr><th>접속 거부 / 응답 지연</th><td>설정 주소가 접속을 받지 않음 / 제한 시간 내 응답 없음.</td><td>서버 실행·포트·네트워크 확인. GPU나 PC 자체의 고장으로 단정하지 않음.</td></tr>
+<tr><th>RAG 모델 사용 기록</th><td>현재 처리 버전을 만들 때 기록된 모델 호출·토큰·오류.</td><td>서버 전체 누적, 다른 앱의 사용량, 실시간 토큰/초가 아님. 별도 계측이 없는 값은 —.</td></tr>
+<tr><th>에이전트 활동</th><td>실행 상태가 연결된 작업만 표시함.</td><td>실행 중인 작업 조회 불가는 작업 0개와 다름. 등록된 봇 수와 활동 수를 혼동하지 않음.</td></tr>
+</tbody></table></div></section>
+
+<section id="files"><h2>데이터 공간 · 자료 검색 · 기억·맥락</h2>
+<p><strong>데이터 공간</strong>에서 과제를 선택한 뒤 폴더를 펼치고 파일을 누르면 옆에서 미리 봅니다. ‘별도 창’으로 열 수도 있습니다. 크기는 파일 크기이며 하위 폴더 합계는 제외합니다. 허용된 범위의 파일만 표시하므로 목록이 비어 있다는 것이 저장소 전체가 비었다는 뜻은 아닙니다.</p>
+<p><strong>자료 검색</strong>은 선택 과제 DB에서 단어로 관련 본문을 찾습니다. AI 답변 생성이나 새 임베딩을 호출하지 않습니다. 한 검색 묶음에서 최대 6회, 결과는 최대 12개입니다. ‘새 검색 묶음 시작’으로 묶음을 새로 시작합니다. 결과의 출처·문서·청크를 보면 어떤 자료가 반환됐는지 알 수 있습니다. 검색 점수는 정답 확률이 아니며 결과가 없다고 DB 전체에 자료가 없는 것은 아닙니다.</p>
+<p><strong>기억·맥락</strong>은 과제의 해당 저장 공간을 보여줍니다. 맥락은 작업이나 질문에 참고하는 정보입니다. 단기·장기·추론 기억의 생성·활성 여부는 실제 기록이 연결된 경우에만 판단할 수 있습니다. 폴더가 있다는 것만으로 기억 기능이 작동 중이라고 표시하지 않습니다.</p></section>
+
+<section id="terms"><h2>용어 검토 · 이전 표시와 새 표시</h2>
+<p>첫 화면은 일상적인 말로 표시하고, 기술적 식별자·오류 코드는 조사에 필요한 상세에서 유지합니다. ‘완료’에는 완료된 단계를, ‘미확인’에는 알 수 없는 이유를 붙입니다.</p>
+<div class="table"><table><thead><tr><th>이전 표시</th><th>새 표시·설명 위치</th></tr></thead><tbody>
+<tr><td>수집·보관 / RAG 반영 확인 / 대조 미확인</td><td>모은 자료 / 검색에 포함 / 포함 여부 모름. <a href="#collection">막대·사선·다음 행동</a></td></tr>
+<tr><td>판본 / 판본 대조</td><td>처리 버전 / 검색 DB 저장 일치. <a href="#rag">과제·문서·청크의 다른 단위</a></td></tr>
+<tr><td>DB 청크 / 임베딩 포함</td><td>검색 조각(청크) / 벡터 포함 청크. <a href="#rag">검색용 처리</a></td></tr>
+<tr><td>DB 잔여 노드 / 미귀속 노드</td><td>저장 미완료 표시 노드 / 과제 정보 없는 노드. <a href="#rag">삭제 전 확인 기준</a></td></tr>
+<tr><td>범위 밖 관계 / 준비 거부 / 대기·재시도</td><td>제외된 관계 / 전처리 거부 / 재처리 목록. <a href="#rag">제외와 실패의 차이</a></td></tr>
+<tr><td>토폴로지 / custody / 원장 / 영수증</td><td>시스템 연결도 / 보관 / 기록 목록 / 실행·검사 결과 기록. 기술 원본 이름과 ID는 상세에서 유지 가능.</td></tr>
+<tr><td>관측 / 관측 미확인 / 보존 관측</td><td>확인·측정 / 상태 확인 불가 / 이전 확인 결과. <a href="#read">시각과 검사 범위</a></td></tr>
+<tr><td>미적재 / 실제 추론 미검사 / 계측 미연결</td><td>메모리에 없음 / 답변 생성 시험 실행 안 함 / 사용량 측정 안 함. <a href="#models">서버와 모델의 차이</a></td></tr>
+<tr><td>한도 창 / 작업별 귀속</td><td>한도 적용 기간 / 어떤 작업의 사용량인지 연결. <a href="#usage">한도와 사용량</a></td></tr>
+<tr><td>질문·근거 / 근거 검색 / 새 조사 시작</td><td>자료 검색 / 검색 / 새 검색 묶음 시작. <a href="#files">검색 동작과 한계</a></td></tr>
+<tr><td>검사 통과의 여러 표현</td><td>상태 배지 6종 유지 + 연결·수집·보관·표본·DB의 검사 범위. <a href="#read">상태별 판단</a></td></tr>
+</tbody></table></div><p class="muted">이 설명서는 표시와 판단 기준을 설명합니다. 수집 설정, 검색 처리 대상, 원본 데이터, 자동 복구 권한을 변경하지 않습니다.</p></section>
+</main></body></html>
