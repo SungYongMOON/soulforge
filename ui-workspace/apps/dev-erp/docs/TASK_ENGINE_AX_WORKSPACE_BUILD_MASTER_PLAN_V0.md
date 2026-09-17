@@ -1,5 +1,15 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-17 CURRENT (Context Engine 0.22.1 document path consistency candidate):
+> the sync preflight uses the same explicit host document tools as preparation,
+> index update and original reread. Closed tool-configuration validation rejects
+> malformed settings before parsing. Original-read units retain their locators;
+> missing parser configuration, other reread failures and stored-unit fallback
+> are distinguished from an actual fresh-source revision mismatch. Windows
+> interpreter paths must be fully qualified. This remains a bounded development change:
+> source fidelity, automatic document discovery, live rollout and the business
+> A/B/C evaluation require their own evidence.
+
 > 2026-09-17 CURRENT (Context Engine 0.22.0 bounded DOCX candidate):
 > trusted host-only DOCX preparation adds body paragraphs and simple rectangular
 > tables to the existing document contract. Package/structure checks reject

@@ -95,10 +95,9 @@ test('document tool wiring is host-only and leaves legacy text and unsupported f
   assert.deepEqual(unbound.documents[0].units.map(unit => [unit.unit_kind, unit.text]),
     [['heading', 'Memo'], ['paragraph', 'Text stays available.']]);
 
-  const invalid = await prepareSourceDocuments({ grant: grant([item('pdf', ['input.pdf'])]), roots: { [ROOT_REF]: root }, now: NOW,
-    documentTools: { pdf: { interpreterPath: 'caller/relative/python', extractionProfile: PREPARATION_PROFILE } } });
-  assert.deepEqual(invalid.coverage.items.map(row => [row.status, row.code]),
-    [['failed', 'pdf_preparation_tool_invalid']]);
+  await assert.rejects(prepareSourceDocuments({ grant: grant([item('pdf', ['input.pdf'])]), roots: { [ROOT_REF]: root }, now: NOW,
+    documentTools: { pdf: { interpreterPath: 'caller/relative/python', extractionProfile: PREPARATION_PROFILE } } }),
+  { code: 'document_tools_invalid' });
 });
 
 const page = overrides => ({ page_number: 1, text: '', width: 612, height: 792,

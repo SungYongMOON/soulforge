@@ -253,11 +253,10 @@ test('DOCX corrupt and decompression-bound inputs fail explicitly; unbound and i
     roots: { [ROOT_REF]: root }, now: NOW });
   assert.deepEqual(unbound.coverage.items.map(row => [row.status, row.code]),
     [['failed', 'docx_preparation_not_connected']]);
-  const invalid = await prepareSourceDocuments({ grant: grant([item('corrupt', ['corrupt.docx'])]),
+  await assert.rejects(prepareSourceDocuments({ grant: grant([item('corrupt', ['corrupt.docx'])]),
     roots: { [ROOT_REF]: root }, now: NOW,
-    documentTools: { docx: { interpreterPath: 'relative/python', extractionProfile: DOCX_PREPARATION_PROFILE } } });
-  assert.deepEqual(invalid.coverage.items.map(row => [row.status, row.code]),
-    [['failed', 'docx_preparation_tool_invalid']]);
+    documentTools: { docx: { interpreterPath: 'relative/python', extractionProfile: DOCX_PREPARATION_PROFILE } } }),
+  { code: 'document_tools_invalid' });
 });
 
 const PINNED_DOCX = new URL('../algorithms/preparation/pinned_docx_v1.mjs', import.meta.url);

@@ -27,6 +27,7 @@ import { SOURCE_PREPARATION_PURPOSE, validateSourceDocument } from './source_doc
 import { embeddingRef, extractGraphFragments, probeGraphModels, validateGraphBinding } from './graph_extraction.mjs';
 import { GRAPH_EXTRACTION_PROFILE } from '../../profiles/graph_extraction_v1.mjs';
 import { runGraphragWorker } from '../adapters/graphrag/worker_client.mjs';
+import { validateDocumentTools } from './document_tools.mjs';
 
 export const GRAPH_INDEX_BINDING_FILE = 'graph_index_binding.json';
 export const GRAPH_INDEX_BINDING_MODE = 'context_engine_graph_index';
@@ -74,6 +75,7 @@ function validateIndexBinding(binding) {
     && (!plain(binding.admission) || !safeStoreRel(binding.admission.path) || !SHA.test(binding.admission.sha256 ?? ''))) {
     fail('graph_index_binding_invalid');
   }
+  try { validateDocumentTools(binding.document_tools); } catch { fail('graph_index_binding_invalid'); }
   extractionBatchLimits(binding.graph?.extraction_batch);
   return validateGraphBinding(binding.graph);
 }

@@ -1,5 +1,26 @@
 # Context Engine
 
+## 문서 준비 경로 일치와 원문 위치 반환 (0.22.1)
+
+문서 도구 설정은 host binding의 `document_tools`에만 둔다. 준비 flow, 동기화의
+선행 준비, 색인 갱신과 원문 재읽기가 같은 설정을 사용하며, 허용하지 않은 형식
+키나 잘못된 도구 값은 파서를 실행하기 전에 거부한다. 도구를 선언하지 않은 기존
+binding은 유지되지만 PDF/DOCX에는 해당 형식의 명시 설정이 필요하다.
+
+원문 읽기는 각 단위의 `locator`를 반환한다. PDF는 실제 페이지·문단·표/셀 위치,
+DOCX는 XML part·블록·문단·표/행/열이며 DOCX 렌더링 페이지 번호는 만들지 않는다.
+도구 미설정으로 재읽지 못한 경우는 `tool_configuration_missing`으로 구분하고
+저장된 단위를 제공하면 `units_from: generation_document`로 표시한다. 그 밖의 재읽기
+실패는 상세 오류와 함께 `reread_unavailable`로 알린다. `revision_mismatch`는 실제로
+새로 읽은 결과의 판본이 다를 때만 사용한다. 비교를 못 한 상태를 변경 확인으로 읽지 않는다.
+
+이 연결은 일반 문서 자동 발견, 독립 내용 충실도, 실제 업무 A/B/C 또는 운영 배포의
+완료를 뜻하지 않는다. 파서 시험은 명시한 Python 환경에서 실행해야 하며 로컬 실행
+로그와 CI의 실행·skip 여부를 구분한다.
+
+실제 파서의 로컬 실행 로그·도구 판본·검증 한계는
+[PR18 검증 기록](docs/evidence/DOCUMENT_PREPARATION_PR18.md)에 남긴다.
+
 ## 제한형 DOCX 본문·표 준비 (0.22.0)
 
 `documentTools.docx`는 기존 PDF 설정과 나란히 놓이는 별도 host 도구 설정이다.

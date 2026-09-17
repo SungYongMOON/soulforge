@@ -125,15 +125,20 @@ export function render(answer, { budget, toolsSha256, slide = null }) {
     return lines.join('\n');
   }
   const item = answer.item;
+  const comparison = answer.status === 'tool_configuration_missing'
+    ? '(비교 미실행 — 문서 도구 설정 없음, 저장 세대 사용)'
+    : item.units_from === 'generation_document' ? '(원본 재읽기 실패 — 저장 세대 사용)'
+      : item.doc_key_matches ? '(일치)' : '(불일치 — 원본이 바뀌었습니다)';
   lines.push(`\nitem ${item.source_kind} ${item.item_id} root=${item.root_ref} class=${item.data_class}`,
     `  title ${line(item.title)}`,
     `  at ${item.occurred_at ?? '-'} revision ${item.primary_revision_sha256.replace('sha256:', '').slice(0, 12)}`,
     `  doc_key ${item.doc_key.replace('sha256:', '').slice(0, 12)} manifest ${item.manifest_doc_key.replace('sha256:', '').slice(0, 12)}`
-    + ` ${item.doc_key_matches ? '(일치)' : '(불일치 — 원본이 바뀌었습니다)'}`,
+    + ` ${comparison}`,
     `  units ${item.units_total} characters ${item.characters_total} (${item.units_from}${item.reread_code ? `: ${item.reread_code}` : ''})`);
   if (!answer.requested_unit_found) lines.push('\n요청한 단위 id가 이 항목에 없습니다.');
   for (const unit of answer.units) {
     lines.push(`\n[${unit.unit_id}] ${unit.unit_kind} ${unit.occurred_at ?? '-'} ${unit.characters}자`);
+    lines.push(`  locator ${JSON.stringify(unit.locator)}`);
     lines.push(unit.text);
     if (unit.truncated) {
       lines.push(`[잘림: ${unit.characters}자 중 ${unit.shown}자 — --unit ${unit.unit_id} --max-chars <더 큰 값>]`);

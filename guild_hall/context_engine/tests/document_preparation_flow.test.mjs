@@ -75,6 +75,41 @@ test('real PDF -> canned graph extraction -> lexical evidence and replay, with n
   assert.equal(original.status, 'ok');
   assert.equal(original.internal.parser_calls_scope, 'attachment_derivation_only');
   assert.ok(original.units.some(unit => /28/.test(unit.text)));
+  const opened = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: READER_REQUEST });
+  const stored = opened.readDocument(opened.manifest.documents.find(row => row.item_id === 'current.pdf').doc_key);
+  assert.deepEqual(original.units.map(unit => unit.locator), stored.units.map(unit => unit.locator));
+  const longestParagraph = stored.units.filter(unit => unit.unit_kind === 'pdf_paragraph')
+    .sort((a, b) => [...b.text].length - [...a.text].length)[0];
+  assert.ok([...longestParagraph.text].length > 100);
+  for (const expected of [longestParagraph,
+    stored.units.find(unit => unit.unit_kind === 'pdf_table_cell')]) {
+    assert.ok(expected);
+    const selected = await readOriginal({ io: rootedStore(store.storeRoot), project: store.fsKey,
+      itemId: 'current.pdf', unitId: expected.unit_id, maxChars: 100,
+      actorRef: READER_REQUEST.actor_ref, now: INDEX_NOW, tools: null });
+    assert.deepEqual(selected.units[0].locator, expected.locator);
+    assert.equal(selected.units[0].truncated, [...expected.text].length > 100);
+  }
+  const unavailableTools = structuredClone(store.binding);
+  unavailableTools.document_tools.pdf.interpreterPath = path.join(os.tmpdir(), 'missing-pdf-python.exe');
+  await store.put('control_root/project-bindings/' + store.fsKey + '/graph_index_binding.unified.json', unavailableTools);
+  const unavailable = await readOriginal({ io: rootedStore(store.storeRoot), project: store.fsKey,
+    itemId: 'current.pdf', actorRef: READER_REQUEST.actor_ref, now: INDEX_NOW, tools: null });
+  assert.equal(unavailable.status, 'reread_unavailable');
+  assert.equal(unavailable.item.units_from, 'generation_document');
+  assert.equal(unavailable.item.stored_fallback, true);
+  assert.equal(unavailable.item.revision_check, 'not_run_reread_failed');
+  assert.equal(unavailable.item.reread_code, 'pdf_unreadable');
+  assert.deepEqual(unavailable.units.map(unit => unit.locator), stored.units.map(unit => unit.locator));
+  const withoutTools = structuredClone(store.binding);
+  delete withoutTools.document_tools;
+  await store.put('control_root/project-bindings/' + store.fsKey + '/graph_index_binding.unified.json', withoutTools);
+  const fallback = await readOriginal({ io: rootedStore(store.storeRoot), project: store.fsKey,
+    itemId: 'current.pdf', actorRef: READER_REQUEST.actor_ref, now: INDEX_NOW, tools: null });
+  assert.equal(fallback.status, 'tool_configuration_missing');
+  assert.equal(fallback.item.units_from, 'generation_document');
+  assert.equal(fallback.item.reread_code, 'pdf_preparation_not_connected');
+  assert.deepEqual(fallback.units.map(unit => unit.locator), stored.units.map(unit => unit.locator));
   const beforeCalls = worker.calls.extract;
   const replay = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256,
     request: indexerRequest({ generation_id: 'pdf-g2', expected_prior: first.pointer_sha256 }), now: INDEX_NOW,

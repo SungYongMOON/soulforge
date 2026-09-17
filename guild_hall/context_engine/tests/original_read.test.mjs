@@ -339,14 +339,16 @@ test('an original that moved since the generation is read and said to have moved
   assert.equal(after.item.units_from, 'original_reread');
 });
 
-test('an original custody no longer holds falls back to the generation and says so', async () => {
+test('an original custody no longer holds falls back without claiming a revision mismatch', async () => {
   const estate = await makeEstate();
   await estate.writeState({ revisions: estate.baseRevisions.filter(row => row.message_ts !== TS.plain),
     digests: estate.digests.filter(digest => digest !== estate.plainDigest) });
   const answer = await read(estate, { itemId: TS.plain });
-  assert.equal(answer.status, 'revision_mismatch');
+  assert.equal(answer.status, 'reread_unavailable');
   assert.equal(answer.item.units_from, 'generation_document');
   assert.equal(answer.item.reread_code, 'source_missing');
+  assert.equal(answer.item.stored_fallback, true);
+  assert.equal(answer.item.revision_check, 'not_run_reread_failed');
   assert.ok(answer.units[0].text.length > 0, 'the generation still answers with what it recorded');
 });
 

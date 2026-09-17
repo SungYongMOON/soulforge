@@ -23,7 +23,7 @@ test('real minimal DOCX preserves body/table order through inactive store and re
   const fixtureFile=path.join(fixture,'trial.docx');
   t.after(async()=>{assert.equal(path.dirname(fixture),os.tmpdir());await rm(fixture,{recursive:true,force:true});});
   await promisify(execFile)(python,['-I','-X','utf8','-c',
-    "from docx import Document; import sys; d=Document(); d.add_paragraph('Before table: verified setup'); t=d.add_table(rows=2, cols=2); t.cell(0,0).text='Voltage'; t.cell(0,1).text='28 V'; t.cell(1,0).text='Status'; t.cell(1,1).text='Pending'; d.add_paragraph('After table: do not use 24 V'); d.save(sys.argv[1])",fixtureFile],
+    "from docx import Document; import sys; d=Document(); d.add_paragraph('Before table: verified setup '+('long text '*30)); t=d.add_table(rows=2, cols=2); t.cell(0,0).text='Voltage'; t.cell(0,1).text='28 V'; t.cell(1,0).text='Status'; t.cell(1,1).text='Pending'; d.add_paragraph('After table: do not use 24 V'); d.save(sys.argv[1])",fixtureFile],
     {timeout:30000,maxBuffer:1024*1024});
   const bytes=await readFile(fixtureFile), store=await makeGraphIndexStore({memos:{'trial.docx':bytes},writeOperations:['index','prepare']});
   t.after(async()=>{for(const dir of [store.storeRoot,store.sourceRoot]){assert.equal(path.dirname(dir),os.tmpdir());await rm(dir,{recursive:true,force:true});}});
@@ -36,7 +36,7 @@ test('real minimal DOCX preserves body/table order through inactive store and re
   const readback=await readPreparationGeneration({...base,generationId:'docx-flow'});
   const doc=readback.documents[0];
   assert.equal(doc.primary_revision_sha256,sha(bytes));
-  assert.deepEqual(doc.units.map(u=>u.text),['Before table: verified setup','Voltage','28 V','Status','Pending','After table: do not use 24 V']);
+  assert.deepEqual(doc.units.map(u=>u.text),['Before table: verified setup '+('long text '.repeat(30)).trim(),'Voltage','28 V','Status','Pending','After table: do not use 24 V']);
   for(const unit of doc.units){
     assert.deepEqual(unit.locator.path,['trial.docx']);
     assert.equal(unit.locator.part,'word/document.xml');
@@ -56,4 +56,20 @@ test('real minimal DOCX preserves body/table order through inactive store and re
   assert.equal(original.status,'ok');
   assert.equal(original.internal.parser_calls_scope,'attachment_derivation_only');
   assert.deepEqual(original.units.map(u=>u.text),doc.units.map(u=>u.text));
+  assert.deepEqual(original.units.map(u=>u.locator),doc.units.map(u=>u.locator));
+  for(const expected of [doc.units.find(u=>u.unit_kind==='docx_paragraph'),doc.units.find(u=>u.unit_kind==='docx_table_cell')]){
+    const selected=await readOriginal({io:rootedStore(store.storeRoot),project:store.fsKey,itemId:'trial.docx',
+      unitId:expected.unit_id,maxChars:100,actorRef:READER_REQUEST.actor_ref,now:INDEX_NOW,tools:null});
+    assert.deepEqual(selected.units[0].locator,expected.locator);
+    assert.equal(selected.units[0].truncated,[...expected.text].length>100);
+  }
+  assert.equal([...doc.units.find(u=>u.unit_kind==='docx_paragraph').text].length>100,true);
+  const withoutTools=structuredClone(store.binding);delete withoutTools.document_tools;
+  await store.put('control_root/project-bindings/'+store.fsKey+'/graph_index_binding.unified.json',withoutTools);
+  const fallback=await readOriginal({io:rootedStore(store.storeRoot),project:store.fsKey,itemId:'trial.docx',
+    actorRef:READER_REQUEST.actor_ref,now:INDEX_NOW,tools:null});
+  assert.equal(fallback.status,'tool_configuration_missing');
+  assert.equal(fallback.item.units_from,'generation_document');
+  assert.equal(fallback.item.reread_code,'docx_preparation_not_connected');
+  assert.deepEqual(fallback.units.map(u=>u.locator),doc.units.map(u=>u.locator));
 });
