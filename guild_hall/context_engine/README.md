@@ -11,6 +11,14 @@
 
 ## main 통합 상태 (2026-09-12)
 
+운영 미리보기의 연결 탐색에는 `inspectGraphSubgraph` / `inspect_subgraph` 읽기 경로를
+사용한다. 호출자가 고른 과제·현재 DB 처리 버전을 대조한 뒤 최대 80개 노드·160개 관계의
+식별자·이름·종류·문서 참조만 반환한다. 원문·임베딩 배열·임의 속성·Cypher는 받거나
+반환하지 않으며 모델 호출과 쓰기가 없다. 고정 쿼리는 read routing과 쿼리당 5초 한도를
+사용하고 전후 처리 버전이 달라지면 결과를 거부한다. 관계의 양끝을 현재 과제·버전으로
+한정하므로 버전 속성이 없던 기존 관계도 조회하며, 명시적으로 다른 범위인 관계는 제외한다.
+그래프 표본은 질문이 실제로 따라간 검색 경로나 전체 DB 검사 결과가 아니다.
+
 - 들어온 것: `src`·`algorithms`·`profiles`·`release`·`harness`·`tests`와 T0–T5 증거
   ([docs/evidence](docs/evidence/)). 합성 시험 184건 중 146 PASS·3 SKIP(0.5.0 기준)이다. T5 35건은
   `SOULFORGE_TEST_PDF_PYTHON`(pdfplumber pin 해석기)이 없어 fixture 준비에서 멈추므로 **main에서는 아직 실행되지

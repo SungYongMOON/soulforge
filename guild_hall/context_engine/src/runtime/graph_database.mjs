@@ -95,6 +95,13 @@ export async function materializeGraphIndex({ view, binding, runWorker = runGrap
 // how much of it is there. Read-only, and it answers a question the store cannot:
 // "the store has this generation" and "the database is serving it" are different
 // claims, and only this one can say when the serving copy was last written.
+export async function inspectGraphSubgraph({binding,projectKey,generation,document=null,runWorker=runGraphragWorker}={}) {
+  const bound=validateGraphBinding(binding);
+  if(typeof projectKey!=='string'||!projectKey||projectKey.length>512||!TOKEN.test(generation??'')||(document!==null&&!SHA.test(document)))fail('graph_preview_scope_invalid');
+  if(bound.neo4j===null)return {status:'not_connected',nodes:[],edges:[]};
+  return callWorker({bound,runWorker,request:{operation:'inspect_subgraph',neo4j:bound.neo4j,project_key:projectKey,generation_id:generation,document}});
+}
+
 export async function inspectGraphDatabase({ binding, runWorker = runGraphragWorker } = {}) {
   const bound = validateGraphBinding(binding);
   if (bound.neo4j === null) return Object.freeze({ status: 'not_connected', code: 'graph_database_not_connected', projects: [] });
