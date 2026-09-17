@@ -17,7 +17,7 @@
     },
     {
       "path": "guild_hall/context_engine/algorithms/preparation/pinned_pdf_v1.mjs",
-      "sha256": "837265ca538cf32eae09d95718ec914820e142041328f0819a71e388ffb68973"
+      "sha256": "f3e3ff139fc9e461e8ff7d672f50ee2f89b409c500079b0435cb2c38e0155503"
     },
     {
       "path": "guild_hall/context_engine/algorithms/representation/accepted_typed_v1.mjs",
@@ -77,11 +77,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/document_file_source.mjs",
-      "sha256": "fca9df6bc59a15254111776cf1f2e94d6547f83a519a204685718d84a0e8b6ca"
+      "sha256": "c580dc20fd0b72930c5b0da508068a2497229f259a8b60c2f92cfc672f2f0f9f"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs",
-      "sha256": "cf081a02f74899b49fc05d7946e57a2532675f7965df63a9b9e0786671bdb910"
+      "sha256": "6cae1ff81eee997e4a9a6ad47cc8aaf554fe09e0f78a26f8ed560d38c28ffa6a"
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/linear_custody_source.mjs",
@@ -137,7 +137,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
-      "sha256": "1e857c8a32ea78e25fb1d5ee863d843ebd87e6339f00d24ead4dd69f29d5068a"
+      "sha256": "5db8c2d907f46e0d002586d3850f707d62e61f746e48a78452d7ee699cff40f7"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
@@ -153,7 +153,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_run.mjs",
-      "sha256": "5a5882627222aaedfdbc76f7f6ffcb67444efbd52bde40949b5e9dc0dbef2179"
+      "sha256": "10104b98e61907860a5a5382f0d735fdb0ebd7b0289c95f3795d2c711bdc698a"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/preparation_runtime_manifest.mjs",
@@ -181,7 +181,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
-      "sha256": "c50fcf743a0ce5e85ef09c4a69b350ea9bc56d68d21dde52e13fb54d93b245eb"
+      "sha256": "e8e164f7bf15b54f1966fe7e23b900303bf43f0b3838084ac76f0c5a139e2379"
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "7125dc32c329ea5579040e0c067a73cbef34bc623b0e8711f22b1c31dea160e8",
+  "closure_sha256": "daacab666daff3e1191ddc3fac220b177e221b7db22973c9cdbf7fedf0bfc666",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -424,6 +424,10 @@
     {
       "from": "guild_hall/context_engine/src/adapters/aliased_store_io.mjs",
       "to": "guild_hall/path_registry/src/root_table.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/adapters/sources/document_file_source.mjs",
+      "to": "guild_hall/context_engine/algorithms/preparation/pinned_pdf_v1.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/adapters/sources/document_file_source.mjs",

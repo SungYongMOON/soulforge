@@ -407,7 +407,7 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     admission = JSON.parse(admissionBytes);
   }
   const prepared = await prepareSourceDocuments({ grant, roots: store.binding.source_roots, now, previousCoverage: prior?.coverage ?? null,
-    admission });
+    admission, documentTools: store.binding.document_tools ?? null });
   if (prepared.grant.project_key !== store.projectKey) fail('graph_index_grant_mismatch');
   // Extraction calls a model with this material: under a real-data admission the
   // binding's model origins must be ones the admission names (loopback needs none).

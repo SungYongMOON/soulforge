@@ -1,5 +1,14 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-17 CURRENT (Context Engine 0.21.0 document preparation candidate):
+> explicit trusted PDF tool binding connects the generic document adapter to the
+> existing pinned parser. Original bytes and page/table locators stay bound to
+> exact revisions; parser-worker bytes participate in preparation evidence.
+> Inactive preparation and graph-index callers pass the same hash-pinned host
+> binding. This is a development candidate: runtime installation, live document
+> discovery, DOCX/OCR support, source-fidelity acceptance and business A/B/C
+> evaluation are not established by this change. Operating writers remain unchanged.
+
 > 2026-09-16 CURRENT (PLAUD provider ID compatibility): catalog/detail parsing
 > accepts the observed opaque `of_` ID form alongside legacy IDs. Existing
 > recordings are linked only by provider audio-path identity plus recording

@@ -1,5 +1,38 @@
 # Context Engine
 
+## 명시적으로 연결한 PDF 문서 준비 (0.21.0)
+
+일반 문서 어댑터는 기존 TXT/Markdown 경로를 유지하고, 신뢰된 host 설정의
+`documentTools.pdf`가 있을 때만 고정 `pdfplumber-tables-v1` 추출기를 호출한다.
+설정은 `prepareSourceDocuments`의 별도 인자이며 grant·자료 본문·요청이 실행 경로를
+선택하지 않는다. 저장 준비 하니스와 그래프 색인 갱신은 해시로 고정한 binding의
+`document_tools`에서 같은 설정을 전달한다. 기존 설정에는 새 실행이 생기지 않는다.
+
+```js
+documentTools: {
+  pdf: {
+    interpreterPath: '<approved-absolute-python-path>',
+    extractionProfile: 'pdfplumber-tables-v1',
+    disableSiteStartup: true // Windows; false on other platforms
+  }
+}
+```
+
+원본 bytes는 경로·크기·읽기 전후 동일성을 검사한 reader로 읽고 exact grant hash를
+대조한다. 문단과 표 셀은 원본 상대 위치, 페이지·문단 또는 표·행·열·좌표를 보존한다.
+고정 Python worker와 추출 profile/version은 파생 문서의 판본에 결속하며 준비 실행
+기록의 code closure에도 worker를 포함한다. 원본·운영 설정·수락 기록은 쓰지 않는다.
+
+실제 parser를 사용하는 공개 합성 PDF로 준비→비활성 저장→되읽기→무결성 검증,
+준비→canned graph worker→어휘 검색→재실행 경로를 검사한다. 후자는 실제 모델·Neo4j
+품질 시험이 아니며 문서의 독립 원문 내용 검사는 여전히 `not_run`으로 남긴다.
+`SOULFORGE_TEST_PDF_PYTHON`을 명시하고 `npm run validate:context-document-preparation`을
+실행한다. 해석기가 없으면 실제 PDF 시험은 SKIP이며 완료 근거가 아니다.
+
+미연결·읽기 실패·내용 상한 초과를 성공한 준비로 바꾸지 않는다. OCR, DOCX/HWPX,
+일반 문서 자동 발견, 운영 배포·활성화, 실제 업무 A/B/C 평가는 이 변경의 완료 범위가
+아니다. 다음 기존 버전별 설명은 구현 이력이며 이 절이 PDF 연결 부분을 보완한다.
+
 프로젝트의 승인된 입력·수락 기록을 검사하고, 허용된 근거·기억·충돌·부족을
 한정된 Context Pack으로 반환하는 APP이다. 독립 APP home은 Owner 계획 v0.7
 §19.18의 고정 구조를 따른다. 운영 서비스나 새로운 수락 권한을 만들지 않는다.

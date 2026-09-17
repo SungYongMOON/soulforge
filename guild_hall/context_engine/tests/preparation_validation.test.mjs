@@ -94,7 +94,10 @@ test('a preparation run records its preparer, code, rules, grant and exact resul
   assert.equal(run.ended_at, ENDED);
   // The refs are the computed preparing closure, so they reach outside this
   // module to whatever actually produces prepared bytes.
-  assert.equal(run.preparer_code_refs.length, 16);
+  const parserRef = 'guild_hall/rag/project_document_extract.py';
+  const parser = run.preparer_code_refs.find(row => row.ref === parserRef);
+  assert.ok(parser, 'the computed worker is part of preparation evidence');
+  assert.equal(parser.sha256, sha(await readFile(new URL('../../rag/project_document_extract.py', import.meta.url))));
   assert.ok(run.preparer_code_refs.every(row => row.ref.startsWith('guild_hall/')
     && /^sha256:[0-9a-f]{64}$/u.test(row.sha256)));
   assert.ok(codeInventoryConsistent({ code_refs: run.preparer_code_refs, code_digest: run.preparer_code_digest }));

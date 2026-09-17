@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-09-17 - 맥락 APP의 명시 PDF 문서 준비 연결
+
+- Revision: 이 항목을 포함한 커밋. 일반 문서 준비가 신뢰된 host 설정 아래 기존
+  고정 PDF parser를 사용하고 본문·표 셀의 원문 위치와 파생 판본을 유지한다.
+- 준비 실행의 코드 증거에 Python worker를 포함하고, 비활성 저장 하니스와 검색
+  세대 준비가 같은 binding을 사용한다. 원문 내용 검증과 무결성 검증은 구분한다.
+- 운영 영향: 기존 도구 미설정 상태는 유지된다. 설치·예약작업·운영 DB·수락 writer는
+  변경하지 않는다. Word/OCR·문서 자동 편입·실업무 검증은 별도 후속 범위다.
+- 관련 경로: `guild_hall/context_engine/{src,algorithms,harness,tests,release}`.
+
 ## 2026-09-17 - 사용 설명서 고정 목차
 
 - Revision: 이 항목을 포함한 커밋. 설명서 왼쪽에 고정 목차를 배치하고 현재 읽는 항목을

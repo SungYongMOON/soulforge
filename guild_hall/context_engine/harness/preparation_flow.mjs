@@ -74,7 +74,10 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
   const storeArgs = { io, storeRoot, bindingSha256, bindingAddress, request };
 
   // 1. prepare (real data classes pass only with an admission the preparer accepts)
-  const preparation = await prepareSourceDocuments({ grant, roots: binding.source_roots, now, runId, clock, admission });
+  // Executable configuration comes only from the already hash-pinned host
+  // binding, never from the grant, document or CLI request.
+  const preparation = await prepareSourceDocuments({ grant, roots: binding.source_roots, now, runId, clock, admission,
+    documentTools: binding.document_tools ?? null });
   if (!preparation.run) fail('preparation_flow_run_unavailable');
   // 2. land, inactive
   const landed = await writePreparationGeneration({ ...storeArgs, preparation });

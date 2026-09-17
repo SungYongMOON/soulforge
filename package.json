@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "npm@11.9.0",
   "scripts": {
+    "validate:context-document-preparation": "node --test guild_hall/context_engine/tests/document_source_preparation.test.mjs guild_hall/context_engine/tests/pinned_pdf_worker_guard.test.mjs guild_hall/context_engine/tests/document_preparation_flow.test.mjs guild_hall/context_engine/tests/preparation_validation.test.mjs guild_hall/context_engine/tests/source_adapters.test.mjs",
     "skills:sync": "node .registry/docs/operations/scripts/sync_codex_skill.mjs",
     "pets:sync": "node .registry/docs/operations/scripts/sync_codex_pet.mjs sync",
     "pets:verify": "node .registry/docs/operations/scripts/sync_codex_pet.mjs verify",

@@ -50,6 +50,33 @@ export function openSourceRoot(rootPath) {
       if (dirname(cursor) === cursor) fail('source_path_refused');
     }
   };
+  const readBytes = async (segments, maxBytes) => {
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > SOURCE_READ_MAX_BYTES) fail('source_read_bounds');
+    const path = target(segments);
+    try { assertPlainChain(path); } catch (error) {
+      if (error?.code === 'ENOENT') fail('source_missing');
+      throw error instanceof SourceReadError ? error : new SourceReadError('source_path_refused');
+    }
+    const before = lstatSync(path, { bigint: true });
+    if (!before.isFile() || before.nlink !== 1n) fail('source_path_refused');
+    if (before.size > BigInt(maxBytes)) fail('source_too_large');
+    const file = await open(path, 'r');
+    try {
+      if (!isDeepStrictEqual(stamp(before), stamp(await file.stat({ bigint: true })))) fail('source_changed_during_read');
+      const buffer = Buffer.alloc(Number(before.size) + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await file.read(buffer, length, buffer.length - length, length);
+        if (!bytesRead) break;
+        length += bytesRead;
+      }
+      const bytes = buffer.subarray(0, length);
+      if (bytes.length !== Number(before.size)
+        || !isDeepStrictEqual(stamp(before), stamp(await file.stat({ bigint: true })))
+        || !isDeepStrictEqual(stamp(before), stamp(lstatSync(path, { bigint: true })))) fail('source_changed_during_read');
+      return { bytes, byte_count: bytes.length, sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') };
+    } finally { await file.close(); }
+  };
   return Object.freeze({
     root,
     async list(segments) {
@@ -63,34 +90,12 @@ export function openSourceRoot(rootPath) {
         .map(entry => ({ name: entry.name, directory: entry.isDirectory(), file: entry.isFile() }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },
+    readBytes,
     async readText(segments, maxBytes) {
-      if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > SOURCE_READ_MAX_BYTES) fail('source_read_bounds');
-      const path = target(segments);
-      try { assertPlainChain(path); } catch (error) {
-        if (error?.code === 'ENOENT') fail('source_missing');
-        throw error instanceof SourceReadError ? error : new SourceReadError('source_path_refused');
-      }
-      const before = lstatSync(path, { bigint: true });
-      if (!before.isFile() || before.nlink !== 1n) fail('source_path_refused');
-      if (before.size > BigInt(maxBytes)) fail('source_too_large');
-      const file = await open(path, 'r');
-      try {
-        if (!isDeepStrictEqual(stamp(before), stamp(await file.stat({ bigint: true })))) fail('source_changed_during_read');
-        const buffer = Buffer.alloc(Number(before.size) + 1);
-        let length = 0;
-        while (length < buffer.length) {
-          const { bytesRead } = await file.read(buffer, length, buffer.length - length, length);
-          if (!bytesRead) break;
-          length += bytesRead;
-        }
-        const bytes = buffer.subarray(0, length);
-        if (bytes.length !== Number(before.size)
-          || !isDeepStrictEqual(stamp(before), stamp(await file.stat({ bigint: true })))
-          || !isDeepStrictEqual(stamp(before), stamp(lstatSync(path, { bigint: true })))) fail('source_changed_during_read');
-        let text;
-        try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { fail('source_encoding_invalid'); }
-        return { text, bytes: bytes.length, sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') };
-      } finally { await file.close(); }
+      const file = await readBytes(segments, maxBytes);
+      let text;
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(file.bytes); } catch { fail('source_encoding_invalid'); }
+      return { text, bytes: file.byte_count, sha256: file.sha256 };
     },
     // Streams a line-oriented file and keeps only the lines `filter` accepts, so
     // a month of mail events far past the whole-file bound can still yield the
