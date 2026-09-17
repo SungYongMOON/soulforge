@@ -50,6 +50,7 @@ import { buildClaudeQuotaPresentation, selectCodexRateLimitObservation } from ".
 import { FORGE_STATE_LABELS, buildForgeMapViewModel, clampForgeText, estimateForgeTextWidth } from "./core/forge-map-view.mjs";
 import { monotoneAreaPath, monotoneLinePath } from "./core/monotone-area.mjs";
 import { UNMEASURED_REQUEST_FAMILY_LABELS } from "./core/ai-usage-history-snapshot.mjs";
+import { UsageRequestTrend } from "./usage-request-trend";
 import {
   LIVE_THREAD_POLL_INTERVAL_MS,
   acknowledgeLiveThread,
@@ -2895,7 +2896,7 @@ function usageTrendTooltipGeometry(activeX: number, plotLeft: number, plotRight:
   return { boxX, side };
 }
 
-function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; compact?: boolean; onSelection?: (selection: { date: string | null; modelId: string | null; excludedModelIds?: string[] } | null) => void }) {
+function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus }: { usage: any; compact?: boolean; onSelection?: (selection: { date: string | null; modelId: string | null; excludedModelIds?: string[] } | null) => void; collectorStatus?: { key?: string; observedAt?: string | null } }) {
   const [range, setRange] = useState<7 | 30>(7);
   const [view, setView] = useState<"model" | "provider">("model");
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
@@ -2936,7 +2937,8 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
       ]
     : [];
   const totalAgRequests = requestSeries.reduce((sum, item) => sum + item.totalRequests, 0);
-  const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
+  // Request counts have their own chart; never use a competing token axis.
+  const showAgOverlay = false;
 
   const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries);
   const summarySeries = compact && selectedSeries !== null ? series.filter((item: any) => item.id === selectedSeries) : series;
@@ -2947,7 +2949,7 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
   useEffect(() => { onSelection?.(null); }, [range, view]);
   const chooseRange = (next: 7 | 30) => { setRange(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
   const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setSelectedReqFamily(null); setActiveIndex(null); };
-  if (chart === null) return <p className="usage-trend-empty">최근 {range}일의 정확한 로컬 토큰 시계열이 없습니다.</p>;
+  if (chart === null) return <div className="usage-trend"><p className="usage-trend-empty">최근 {range}일의 토큰 기록을 확인할 수 없습니다.</p><div className="usage-trend-ranges" role="group" aria-label="요청 조회 기간">{([7,30] as const).map(d=><button key={d} onClick={()=>chooseRange(d)} aria-pressed={range===d}>최근 {d}일</button>)}</div><UsageRequestTrend unmeasuredDaily={unmeasuredDaily} range={range} collectorStatus={collectorStatus}/></div>;
 
   const coverageState = usage?.history?.codex_activity_coverage?.state;
   const basisLabel = coverageState === "complete"
@@ -2964,7 +2966,7 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
       <header className="usage-trend-header">
         <div>
           <span>토큰</span>
-          <strong>{compact ? new Intl.NumberFormat('ko-KR',{notation:'compact',maximumFractionDigits:1}).format(knownTokens) : formatUsageNumber(knownTokens)}{compact && <span className="usage-trend-total-unit">토큰</span>}</strong>
+          <strong>{knownTokens===0&&unknownTurns>0?'미측정':compact ? new Intl.NumberFormat('ko-KR',{notation:'compact',maximumFractionDigits:1}).format(knownTokens) : formatUsageNumber(knownTokens)}{compact && !(knownTokens===0&&unknownTurns>0) && <span className="usage-trend-total-unit">토큰</span>}</strong>
           <small>{compact ? `KST ${range}일 · ${days.at(-1)?.date===new Date(Date.now()+9*3600000).toISOString().slice(0,10)?'오늘 집계 중':`${String(days.at(-1)?.date??'').slice(5)} 기준`}${unknownTurns > 0 || coverageState === 'partial' ? ' · 부분 계측' : ''}` : <>{formatUsageNumber(dailyTurns)}회{showAgOverlay ? " (측정 원장)" : ""} · KST 최근 {range}일{basisLabel}{showAgOverlay ? ` · AG ${formatUsageNumber(totalAgRequests)}회 (토큰 미측정)` : ""}</>}</small>
         </div>
         <div className="usage-trend-controls">
@@ -3039,10 +3041,15 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
                 activeReqModels.push({ model_id: m.model_id, requests: m.requests, color: fam.color, familyLabel: fam.label });
               }
             }
-            const hasAg = showAgOverlay && visibleReqs.some((fam) => (fam.values[activeIndex] ?? 0) > 0);
-            const totalLines = visibleTokens.length + (hasAg ? 1 + activeReqModels.length : 0);
-            const boxHeight = 44 + totalLines * 16;
-            const maxNameLen = Math.max(14, ...visibleTokens.map((t: any) => t.label.length), ...activeReqModels.map((m) => m.model_id.length));
+            const maxItems = 7;
+            const hasAg = false;
+            const shownTokens = visibleTokens.slice(0, maxItems);
+            const tokenOmitted = visibleTokens.length - shownTokens.length;
+            const shownReqModels = activeReqModels.slice(0, Math.max(0, maxItems - shownTokens.length));
+            const reqOmitted = activeReqModels.length - shownReqModels.length;
+            const totalLines = shownTokens.length + (tokenOmitted > 0 ? 1 : 0) + (hasAg ? (shownReqModels.length > 0 ? 1 + shownReqModels.length : 1) : 0) + (reqOmitted > 0 ? 1 : 0);
+            const boxHeight = Math.min(220, 44 + totalLines * 16);
+            const maxNameLen = Math.max(14, ...shownTokens.map((t: any) => t.label.length), ...shownReqModels.map((m) => m.model_id.length));
             const boxWidth = Math.min(260, Math.max(190, maxNameLen * 8 + 60));
             const tooltip = usageTrendTooltipGeometry(x, chart.left, chart.width - chart.right, boxWidth);
             let curY = 47;
@@ -3051,21 +3058,27 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
                 <line x1={x} x2={x} y1={chart.top} y2={chart.top + chart.plotHeight} />
                 <rect x={tooltip.boxX} y={10} width={boxWidth} height={boxHeight} rx="8" />
                 <text x={tooltip.boxX + 11} y={29} className="is-title">{days[activeIndex]?.date}</text>
-                {visibleTokens.map((item: any) => {
+                {shownTokens.map((item: any) => {
                   const yPos = curY;
                   curY += 16;
                   return (
                     <text key={item.id} x={tooltip.boxX + 11} y={yPos} style={{ fill: USAGE_TREND_COLORS[series.indexOf(item) % USAGE_TREND_COLORS.length] }}>
-                      {item.label}: {formatUsageNumber(item.values[activeIndex])} tok{item.unknownTurns[activeIndex] > 0 ? ` · 미기록 ${item.unknownTurns[activeIndex]}회` : ""}
+                      {item.label}: {item.values[activeIndex]===0&&item.unknownTurns[activeIndex]>0?'토큰 미측정':`${formatUsageNumber(item.values[activeIndex])} tok`}{item.unknownTurns[activeIndex] > 0 ? ` · 미기록 ${item.unknownTurns[activeIndex]}회` : ""}
                     </text>
                   );
                 })}
+                {tokenOmitted > 0 && (
+                  <text x={tooltip.boxX + 11} y={curY} style={{ fill: '#8e9ba8', fontSize: '9px' }}>
+                    외 {tokenOmitted}개 모델
+                  </text>
+                )}
                 {hasAg && (
                   <>
+                    {(() => { if (tokenOmitted > 0) curY += 16; return null; })()}
                     <text x={tooltip.boxX + 11} y={curY} className="is-req-header">── AG 요청 (토큰 미측정) ──</text>
                     {(() => {
                       curY += 15;
-                      return activeReqModels.map((m) => {
+                      return shownReqModels.map((m) => {
                         const yPos = curY;
                         curY += 16;
                         return (
@@ -3075,6 +3088,11 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
                         );
                       });
                     })()}
+                    {reqOmitted > 0 && (
+                      <text x={tooltip.boxX + 11} y={curY} style={{ fill: '#8e9ba8', fontSize: '9px' }}>
+                        외 {reqOmitted}개 AG 모델
+                      </text>
+                    )}
                   </>
                 )}
               </g>
@@ -3084,7 +3102,7 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
         <div className="usage-trend-hit-grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-label={showAgOverlay ? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"}>
           {days.map((day: any, index: number) => {
             const tokenDesc = (selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries))
-              .map((item: any) => `${item.label} ${formatUsageNumber(item.values[index])} 토큰`).join(", ");
+              .map((item: any) => `${item.label} ${item.values[index]===0&&item.unknownTurns[index]>0?'토큰 미측정':`${formatUsageNumber(item.values[index])} 토큰`}`).join(", ");
             const agDesc = showAgOverlay
               ? requestSeries.map((fam) => `${fam.label} ${fam.values[index] ?? 0}회`).join(", ")
               : "";
@@ -3151,6 +3169,7 @@ function UsageTrendChart({ usage, onSelection, compact = false }: { usage: any; 
           </>
         )}
       </div>
+      <UsageRequestTrend unmeasuredDaily={unmeasuredDaily} range={range} collectorStatus={collectorStatus} />
     </div>
   );
 }

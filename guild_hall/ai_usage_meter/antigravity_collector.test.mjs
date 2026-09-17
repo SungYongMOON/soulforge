@@ -216,3 +216,27 @@ test("Antigravity timestamp and model scans stay defensive", () => {
   assert.equal(extractAntigravityModelId(Uint8Array.from([1, 2, 3])), "unknown");
   assert.equal(extractAntigravityModelId(null), "unknown");
 });
+
+test("continuing a conversation preserves old request dates and still appends new generations", async () => {
+  const cliRoot=await mkdtemp(path.join(os.tmpdir(),'sf-ag-continued-'));
+  const stateRoot=await mkdtemp(path.join(os.tmpdir(),'sf-ag-continued-state-'));
+  try {
+    await writeAntigravityFixture(cliRoot);
+    await runCli(['collect-antigravity','--cli-root',cliRoot,'--state-root',stateRoot,'--apply']);
+    const before=await loadPersistedUsageEvents(stateRoot);
+    const index=new DatabaseSync(path.join(cliRoot,'conversation_summaries.db'));
+    index.prepare('UPDATE conversation_summaries SET last_user_input_time=? WHERE conversation_id=?').run('2026-08-03 11:00:00+00:00',CONV_A);index.close();
+    const db=new DatabaseSync(path.join(cliRoot,'conversations',`${CONV_A}.db`));
+    db.prepare('INSERT INTO gen_metadata VALUES (?,?)').run(2,modelBlob('gemini-3-flash'));db.close();
+    const result=await runCli(['collect-antigravity','--cli-root',cliRoot,'--state-root',stateRoot,'--apply']);
+    assert.equal(result.persistence.created,1);assert.equal(result.persistence.replayed,5);
+    const after=await loadPersistedUsageEvents(stateRoot);
+    assert.equal(after.length,6);
+    for(const event of before)assert.deepEqual(after.find(e=>e.event_id===event.event_id),event);
+    const changed=new DatabaseSync(path.join(cliRoot,'conversations',`${CONV_A}.db`));
+    changed.prepare('UPDATE gen_metadata SET data=? WHERE idx=0').run(modelBlob('claude-sonnet-4-5'));changed.close();
+    await assert.rejects(runCli(['collect-antigravity','--cli-root',cliRoot,'--state-root',stateRoot,'--apply']),{code:'usage_event_conflict'});
+  } finally {
+    for(const root of [cliRoot,stateRoot]){assert.equal(path.dirname(root),path.resolve(os.tmpdir()));assert.ok(path.basename(root).startsWith('sf-ag-continued-'));await rm(root,{recursive:true,force:true});}
+  }
+});

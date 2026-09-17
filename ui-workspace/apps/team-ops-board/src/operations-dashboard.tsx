@@ -7,6 +7,7 @@ import {when} from './operations-workspace';
 import './operations-dashboard.css';
 import {sourceChoices,SourcesChart,SourceRecent} from './operations-source-panels';
 import {OperationsJudgment,RagPipeline,LocalModels} from './operations-control';
+import {OperationsSummary} from './operations-summary';
 type Row=Record<string,any>;
 type Open=(title:string,body:ReactNode)=>void;
 const number=(v:any)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ko-KR'):'—';
@@ -70,11 +71,16 @@ export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:R
   const sources=sourceChoices(inputs);
   const work=dashboardWork(inputs,failed);
   const chooseUsage=(selection:Row|null)=>{if(!selection?.date)return;const picked=selectedUsageDay(inputs.usage?.history,selection.date,selection.modelId,selection.excludedModelIds);if(!picked)return;
+    const agCollector = model.nodes?.find((n: Row) => n.id === 'watchtower::usage_antigravity_collector');
+    const collectorStatus = agCollector ? { key: agCollector.status?.key, observedAt: agCollector.observedAt } : undefined;
     open(`${picked.date} · 사용량`,<><table className="vd-records"><thead><tr><th>모델</th><th>토큰</th><th>회차</th></tr></thead><tbody>{picked.rows.map((r:Row)=><tr key={r.model_id}><td>{r.model_id}</td><td>{number(r.total_tokens)}</td><td>{number(r.turns)}</td></tr>)}</tbody></table><p>모델별 측정 이력입니다. 선택 날짜와 작업별 집계의 직접 귀속은 별도 근거가 필요합니다.</p><button className="cx-primary" onClick={()=>{close();go({screen:'usage',node:null});}}>사용 이력 <ArrowRight size={15}/></button></>);
   };
+  const agCollector = model.nodes?.find((n: Row) => n.id === 'watchtower::usage_antigravity_collector');
+  const agCollectorStatus = agCollector ? { key: agCollector.status?.key, observedAt: agCollector.observedAt } : undefined;
   return <div className="vd-dashboard">
+    <OperationsSummary model={model} inputs={inputs} failed={failed} />
     <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청 수는 토큰 합계와 별도이며 차트 우측 축의 ‘회’ 단위로 표시됩니다. 토큰 미측정 회차와 날짜 귀속 범위는 차트 하단의 집계 범위에서 확인할 수 있습니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
-      {failed.includes('usage')&&<span className="vd-small-state">보존 이력 · 새 조회 실패</span>}<UsageTrendChart usage={inputs.usage} onSelection={chooseUsage} compact/>
+      {failed.includes('usage')&&<span className="vd-small-state">보존 이력 · 새 조회 실패</span>}<UsageTrendChart usage={inputs.usage} onSelection={chooseUsage} compact collectorStatus={agCollectorStatus} />
     </section></div>
     <OperationsJudgment model={model} inputs={inputs} failed={failed} go={go} hostDetail={h=>open(h.label,<HostFacts host={h}/>)} />
     <div className="oc-data-layer"><div className="oc-intake"><SourcesChart rag={failed.includes('rag')?undefined:inputs.rag} processing={model.nodes.find((n:Row)=>n.status.key==='processing')} sources={sources} sourceId={sourceId} select={id=>{setSourceId(id);setSelectedDay(null);}} retained={failed.includes(sourceId==='plaud'?'recent':'sources')} open={open} onDay={setSelectedDay} selectedDay={selectedDay}/><SourceRecent sources={sources} sourceId={sourceId} selectedDay={selectedDay} open={open} go={go}/></div><RagPipeline data={inputs.rag} failed={failed.includes('rag')} go={go}/></div>

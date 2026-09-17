@@ -29,6 +29,8 @@ class Driver:
             rows = [{'generation':'g2' if self.changed and self.checks > 1 else 'g1'}]
         elif 'labels(n)' in query:
             rows = [{'id':f'n{i}', 'document':'sha256:'+'a'*64, 'labels':['Chunk'], 'name':''} for i in range(81)]
+        elif 'AS title' in query:
+            rows = [{'id':'sha256:'+'a'*64,'title':'Synthetic source'}]
         else:
             rows = [{'id':f'e{i}', 'source':'n1', 'target':'n0', 'type':'FROM_DOCUMENT'} for i in range(161)]
         return types.SimpleNamespace(records=rows)
@@ -42,7 +44,8 @@ class PreviewTests(unittest.TestCase):
         result = self.invoke(driver, document='sha256:'+'a'*64)
         self.assertEqual((len(result['nodes']),len(result['edges'])), (80,160))
         self.assertTrue(result['limited'])
-        self.assertEqual(len(driver.calls),4)
+        self.assertEqual(len(driver.calls),5)
+        self.assertEqual(result['documents'][0]['title'],'Synthetic source')
         for query, params in driver.calls:
             self.assertEqual(params['routing_'],'r')
             self.assertEqual(query.timeout,5)
@@ -50,8 +53,8 @@ class PreviewTests(unittest.TestCase):
             self.assertNotRegex(query,r'\b(CREATE|MERGE|SET|DELETE|REMOVE|CALL)\b')
             self.assertNotIn('n.text',query)
             self.assertNotIn('n.embedding',query)
-        self.assertIn('r.sf_generation=$g',driver.calls[2][0])
-        self.assertEqual(len(driver.calls[2][1]['ids']),80)
+        self.assertIn('r.sf_generation=$g',driver.calls[3][0])
+        self.assertEqual(len(driver.calls[3][1]['ids']),80)
     def test_changed_generation_refused(self):
         with self.assertRaisesRegex(worker.WorkerError,'graph_preview_generation_changed'):
             self.invoke(Driver(changed=True))

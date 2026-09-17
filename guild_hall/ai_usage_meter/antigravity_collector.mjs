@@ -267,7 +267,9 @@ export async function collectAntigravityUsageEvents({
     let summary = index.get(conversationId) ?? null;
     if (summary !== null && summary.started_at === null) summary = null;
     if (summary === null) {
-      // 인덱스 미포함 대화(2.0 경로): DB 파일 시각 중 이른 쪽(min(생성, 수정))을 관측 시각으로 쓴다.
+      // 인덱스 미포함 대화(2.0 경로): 최근 파일 관측 시각을 사용한다.
+      // 생성일이 오래됐어도 최근에 이어 쓴 대화는 수집 창에서 제외하지 않는다.
+      // 이미 저장된 요청은 persistence가 최초 관측 시각을 보존한다.
       // 수집 창 밖이거나 시각을 얻지 못하면 건너뛴다.
       let fileStats = null;
       try {
@@ -281,7 +283,8 @@ export async function collectAntigravityUsageEvents({
       const modifiedMs = Number.isFinite(fileStats?.mtimeMs) && fileStats.mtimeMs > MIN_VALID_EPOCH_MS
         ? fileStats.mtimeMs
         : Infinity;
-      const observedMs = Math.min(birthMs, modifiedMs);
+      const validTimes=[birthMs,modifiedMs].filter(Number.isFinite);
+      const observedMs=validTimes.length?Math.max(...validTimes):Infinity;
       if (!Number.isFinite(observedMs) || observedMs < cutoffMs || observedMs > nowMs + 60_000) {
         skippedConversationCount += 1;
         continue;

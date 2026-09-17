@@ -1932,7 +1932,7 @@ test("Antigravity persistence rejects different known orgs or unrelated models",
   }
 });
 
-test("Antigravity persistence rejects token, time, source_ref, or attribution differences", async () => {
+test("Antigravity persistence preserves observation time but rejects token, source_ref, or attribution differences", async () => {
   const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-ag-mismatch-"));
   try {
     const base = makeAntigravityEvent({ conversationId: "mismatch" });
@@ -1940,7 +1940,7 @@ test("Antigravity persistence rejects token, time, source_ref, or attribution di
 
     const variations = [
       ["token", (e) => { e.usage.input_tokens = 100; e.usage.total_tokens = 100; e.usage.uncached_input_tokens = 100; }],
-      ["time", (e) => { e.time.started_at = "2026-08-02T10:00:00.000Z"; e.time.completed_at = "2026-08-02T10:00:00.000Z"; }],
+      ["duration", (e) => { e.time.duration_ms = 1000; }],
       ["source_ref", (e) => { e.source.source_ref = "other-conv"; }],
       ["project_id", (e) => { e.project_id = "project-x"; }],
       ["work_id", (e) => { e.work_id = "antigravity.other"; }],
@@ -1953,6 +1953,11 @@ test("Antigravity persistence rejects token, time, source_ref, or attribution di
       assert.equal(retainCanonicalAntigravityObservation(base, candidate), null, name);
       await assert.rejects(persistUsageEvents(state, [candidate]), { code: "usage_event_conflict" }, name);
     }
+    const later=structuredClone(base);
+    later.time.started_at='2026-08-02T10:00:00.000Z';later.time.completed_at=later.time.started_at;
+    assert.deepEqual(retainCanonicalAntigravityObservation(base,later),base);
+    assert.equal((await persistUsageEvents(state,[later])).replayed,1);
+    assert.deepEqual((await loadPersistedUsageEvents(state))[0],base);
   } finally {
     await rm(state, { recursive: true, force: true });
   }

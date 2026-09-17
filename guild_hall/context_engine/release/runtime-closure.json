@@ -185,7 +185,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "c2f372b238ce870276734e783bce6973593e3a160ddb61103da2ecacf7a4a23d"
+      "sha256": "c9313d4d1c145e8b85354502f63fe27478684e4852511f858fc09f000841dc52"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -308,7 +308,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "f95dfc2ad9303628f51cbed00499b68bb15f66a2c296b82185556c33ce6a8428",
+  "closure_sha256": "4a495c848f3caf289229f7f8c0fd6a10494af7ab0238876d0bc0f05f1319d3d9",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

@@ -246,7 +246,8 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
         const nodes=(result.nodes??[]).slice(0,80).filter(n=>typeof n.id==='string'&&docs.has(n.document)&&(document===null||n.document===document)).map(n=>({id:text(n.id),labels:(n.labels??[]).filter(l=>/^[A-Za-z][A-Za-z0-9_]{0,80}$/u.test(l)).slice(0,8),name:text(n.name),document:n.document,unit:text(n.unit),source:text(n.source)})).filter(n=>n.id);
         const ids=new Set(nodes.map(n=>n.id));
         const edges=(result.edges??[]).slice(0,160).filter(e=>ids.has(e.source)&&ids.has(e.target)&&/^[A-Za-z][A-Za-z0-9_]{0,80}$/u.test(e.type??'')).map(e=>({id:text(e.id),source:e.source,target:e.target,type:e.type})).filter(e=>e.id);
-        const answer={state:'ready',project,generation:result.generation_id,observed_at:new Date(now()).toISOString(),basis:'neo4j_live_metadata',document,nodes,edges,node_limit:80,edge_limit:160,limited:result.limited===true||nodes.length!==(result.nodes??[]).length||edges.length!==(result.edges??[]).length};
+        const documents=(result.documents??[]).slice(0,500).filter(d=>docs.has(d.id)).map(d=>({id:d.id,title:text(d.title)}));
+        const answer={state:'ready',project,generation:result.generation_id,observed_at:new Date(now()).toISOString(),basis:'neo4j_live_metadata',document,nodes,edges,documents,node_limit:80,edge_limit:160,limited:result.limited===true||nodes.length!==(result.nodes??[]).length||edges.length!==(result.edges??[]).length};
         if(graphCache.size>=32)graphCache.clear();graphCache.set(key,answer);return answer;
       }catch(error){return {state:'unavailable',reason:codeOf(error),nodes:[],edges:[]};}
     })();graphPending.set(key,pending);try{return await pending;}finally{graphPending.delete(key);}
