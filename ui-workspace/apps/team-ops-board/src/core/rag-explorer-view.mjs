@@ -28,4 +28,3 @@ export function ragGraphScene(graph){
   const names={FROM_DOCUMENT:'문서에 속함',FROM_CHUNK:'본문 출처',NEXT_CHUNK:'다음 청크',REFERS_TO:'명시적 참조',RELATED_EVIDENCE:'관련 근거'};
   return {nodes,edges:(graph?.edges??[]).filter(e=>ids.has(e.source)&&ids.has(e.target)).map(e=>({...e,label:names[e.type]??e.type}))};
 }
-
