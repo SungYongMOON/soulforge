@@ -1700,6 +1700,10 @@ def inspect_subgraph(request):
             "n.sf_unit_id AS unit "
             "ORDER BY n.sf_doc_key, CASE WHEN n:Document THEN 0 WHEN n:Chunk THEN 1 ELSE 2 END, elementId(n) LIMIT 81", **scope)
         nodes = [dict(row) for row in rows[:80]]
+        documents = read(
+            "MATCH (n:Document) WHERE n.sf_project=$p AND n.sf_generation=$g AND n.sf_doc_key IS NOT NULL "
+            "RETURN n.sf_doc_key AS id, left(coalesce(n.title,n.name,''),160) AS title "
+            "ORDER BY n.sf_doc_key LIMIT 500", p=project, g=generation)
         edges = read(
             "MATCH (a)-[r]->(b) WHERE elementId(a) IN $ids AND elementId(b) IN $ids "
             "AND a.sf_project=$p AND b.sf_project=$p AND a.sf_generation=$g AND b.sf_generation=$g "
@@ -1710,6 +1714,7 @@ def inspect_subgraph(request):
             raise WorkerError("graph_preview_generation_changed")
         return {"status":"ok", "project_key":project, "generation_id":generation,
                 "nodes":nodes, "edges":[dict(row) for row in edges[:160]],
+                "documents":[dict(row) for row in documents],
                 "node_limit":80, "edge_limit":160, "limited":len(rows)>80 or len(edges)>160}
 
 

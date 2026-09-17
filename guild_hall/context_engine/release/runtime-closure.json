@@ -194,7 +194,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/workers/graphrag_worker.py",
-      "sha256": "c2f372b238ce870276734e783bce6973593e3a160ddb61103da2ecacf7a4a23d"
+      "sha256": "c9313d4d1c145e8b85354502f63fe27478684e4852511f858fc09f000841dc52"
     },
     {
       "path": "guild_hall/engineering_engine/core/validators/canonical.mjs",

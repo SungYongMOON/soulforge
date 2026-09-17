@@ -1067,6 +1067,18 @@ export function retainCanonicalAntigravityObservation(existing, incoming) {
     id: existing.model.id,
   };
 
+  // This collector has conversation-level observation times, not immutable
+  // request timestamps. Continuing a conversation changes the index/file time.
+  // Preserve the first ledger observation only for the exact request-count-only
+  // event; all identity, project, model and usage differences still fail closed.
+  const requestOnly = [existing,incoming].every(event =>
+    event.measurement?.token_confidence === 'request_count_only'
+    && event.measurement?.status === 'complete'
+    && event.time?.duration_ms === null
+    && event.time?.started_at === event.time?.completed_at
+    && Object.entries(event.usage??{}).every(([key,value])=>value === (key==='model_invocation_count'?1:0)));
+  if(requestOnly)normalizedIncoming.time=structuredClone(existing.time);
+
   if (canonicalJson(existing) !== canonicalJson(normalizedIncoming)) return null;
 
   validateUsageEvent(existing);
