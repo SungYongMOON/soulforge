@@ -1,5 +1,26 @@
 # Context Engine
 
+## 제한형 DOCX 본문·표 준비 (0.22.0)
+
+`documentTools.docx`는 기존 PDF 설정과 나란히 놓이는 별도 host 도구 설정이다.
+`interpreterPath`, `extractionProfile: 'python-docx-structure-v1'`,
+`disableSiteStartup`으로 고정 worker를 호출한다. grant와 원문은 실행 파일을
+선택하지 않으며 원본 bytes만 stdin으로 전달한다. DOCX도 준비·비활성 저장·검색
+준비에서 같은 source-document 계약을 사용한다.
+
+이 profile은 **본문 문단과 단순 직사각형 표의 텍스트**만 처리한다. XML 블록과
+표·행·열 위치를 보존하며 렌더링하지 않았으므로 페이지 번호를 만들지 않는다.
+ZIP의 멤버·크기·실제 압축 해제량·CRC와 XML·관계·본문 구조를 먼저 검사한다.
+인식하지 못하는 내용 wrapper, 추적 변경, 수식·그림·필드·외부 관계, 숨김·목록
+스타일, 병합·중첩 표 등은 명시적으로 거부한다. 일부만 읽고 완전한 문서로 내지 않는다.
+worker·parser 판본과 추출 결과는 문서 신원에 포함되며 실행 전후 worker 변경을 거부한다.
+
+`SOULFORGE_TEST_DOCX_PYTHON`에 `python-docx`가 설치된 해석기를 명시하고
+`npm run validate:context-docx-preparation`으로 공개 합성 문서를 검증한다.
+독립 문서 원문 내용 검사는 여전히 `not_run`이다. 이 변경은 모든 Word 형식, `.doc`,
+HWPX, OCR, Office 표시 충실도, 일반 문서 자동 편입 또는 운영 배포를 보장하지 않는다.
+뒤의 0.21.0·기존 설명은 해당 시점 이력이며 이 절이 제한형 DOCX 연결을 보완한다.
+
 ## 명시적으로 연결한 PDF 문서 준비 (0.21.0)
 
 일반 문서 어댑터는 기존 TXT/Markdown 경로를 유지하고, 신뢰된 host 설정의

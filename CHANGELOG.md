@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-09-17 - 맥락 APP의 제한형 Word 본문·표 준비
+
+- Revision: 이 항목을 포함한 커밋. DOCX의 기본 본문 문단과 단순 표를 고정된
+  로컬 parser로 준비하고 XML 블록·표·셀 위치와 원본 판본을 보존한다.
+- 지원하지 않는 내용, 구조·압축 상한 위반은 부분 성공 대신 명시적인 실패로
+  남긴다. 기존 PDF와 함께 source-document 계약과 준비 저장 경로를 사용한다.
+- 운영 영향: 명시 host binding이 있어야 동작한다. 설치·예약작업·운영 DB·수락
+  권한은 바꾸지 않으며 모든 Word 형식이나 원문 의미 검증 완료를 주장하지 않는다.
+- 관련 경로: `guild_hall/context_engine/{algorithms,src,tests,release}`.
+
 ## 2026-09-17 - 맥락 APP의 명시 PDF 문서 준비 연결
 
 - Revision: 이 항목을 포함한 커밋. 일반 문서 준비가 신뢰된 host 설정 아래 기존

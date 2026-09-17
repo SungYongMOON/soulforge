@@ -1,5 +1,12 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-17 CURRENT (Context Engine 0.22.0 bounded DOCX candidate):
+> trusted host-only DOCX preparation adds body paragraphs and simple rectangular
+> tables to the existing document contract. Package/structure checks reject
+> unsupported content rather than silently omitting it; locators name XML blocks
+> and table cells, never inferred pages. Original-fidelity acceptance, general
+> Office support, operational source discovery and rollout remain separate gates.
+
 > 2026-09-17 CURRENT (Context Engine 0.21.0 document preparation candidate):
 > explicit trusted PDF tool binding connects the generic document adapter to the
 > existing pinned parser. Original bytes and page/table locators stay bound to

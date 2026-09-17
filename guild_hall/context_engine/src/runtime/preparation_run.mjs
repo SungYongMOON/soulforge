@@ -34,7 +34,7 @@ export const PREPARER_ID = 'context-engine/source-preparer';
 // 0.3.0: Slack channel custody joins the source kinds (slack-custody-v1).
 // 0.2.0: the canonical hash now follows JSON persistence for -0, non-finite
 // numbers and lone-surrogate strings. Digests of ordinary values are unchanged.
-export const PREPARER_VERSION = '0.5.0';
+export const PREPARER_VERSION = '0.6.0';
 export const PREPARER_ENTRY = './source_preparation.mjs';
 
 export const ADAPTER_PROFILES = Object.freeze({ document: DOCUMENT_SOURCE_ADAPTER, linear: LINEAR_SOURCE_ADAPTER,
@@ -95,7 +95,8 @@ export function inspectPreparerCode() {
   // The pinned parser is launched by a computed worker path, not a JS import.
   // Bind those exact bytes too; a parser change must invalidate preparation.
   return inspectCodeClosure([new URL(PREPARER_ENTRY, import.meta.url),
-    new URL('guild_hall/rag/project_document_extract.py', REPO_ROOT)]);
+    new URL('guild_hall/rag/project_document_extract.py', REPO_ROOT),
+    new URL('../workers/document_docx_extract.py', import.meta.url)]);
 }
 
 // An inventory is only usable if its digest is the digest of its own refs. That

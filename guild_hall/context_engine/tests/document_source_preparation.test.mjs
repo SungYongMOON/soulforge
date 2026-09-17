@@ -89,7 +89,7 @@ test('document tool wiring is host-only and leaves legacy text and unsupported f
   const items = [item('memo', ['memo.md']), item('pdf', ['input.pdf']), item('docx', ['input.docx'])];
   const unbound = await prepareSourceDocuments({ grant: grant(items), roots: { [ROOT_REF]: root }, now: NOW });
   assert.deepEqual(Object.fromEntries(unbound.coverage.items.map(row => [row.item_id, [row.status, row.code]])), {
-    docx: ['refused', 'unsupported_document_format'], memo: ['prepared', null],
+    docx: ['failed', 'docx_preparation_not_connected'], memo: ['prepared', null],
     pdf: ['failed', 'pdf_preparation_not_connected'],
   });
   assert.deepEqual(unbound.documents[0].units.map(unit => [unit.unit_kind, unit.text]),

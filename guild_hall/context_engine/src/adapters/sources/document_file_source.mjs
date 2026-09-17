@@ -8,6 +8,8 @@ import { openSourceRoot, SourceReadError } from './guarded_files.mjs';
 import { buildSourceDocument, normalizeText, SOURCE_LIMITS, SourceDocumentError } from '../../runtime/source_documents.mjs';
 import { PREPARATION_PROFILE, PREPARATION_WORKER_SHA256,
   preparePinnedPdfCandidate } from '../../../algorithms/preparation/pinned_pdf_v1.mjs';
+import { DOCX_PREPARATION_PROFILE, DOCX_PREPARATION_WORKER_SHA256, DocxPreparationError,
+  preparePinnedDocxCandidate } from '../../../algorithms/preparation/pinned_docx_v1.mjs';
 
 export const DOCUMENT_SOURCE_ADAPTER = 'document-file-v1';
 const MAX_TEXT_BYTES = 16 * 1024 * 1024;
@@ -18,7 +20,7 @@ class DocumentSourceError extends Error {
   constructor(code) { super(code); this.code = code; }
 }
 const codeOf = error => (error instanceof DocumentSourceError || error instanceof SourceReadError
-  || error instanceof SourceDocumentError) ? error.code
+  || error instanceof SourceDocumentError || error instanceof DocxPreparationError) ? error.code
   : error?.code === 'pdf_unreadable' ? 'pdf_unreadable'
     : error?.code === 'pdf_preparation_worker_changed' ? 'pdf_preparation_worker_changed'
     : error?.code === 'request_invalid' ? 'pdf_preparation_tool_invalid'
@@ -26,23 +28,36 @@ const codeOf = error => (error instanceof DocumentSourceError || error instanceo
         : error?.code === 'input_bytes_too_large' ? 'source_too_large' : 'adapter_failed';
 const extension = name => { const index = name.lastIndexOf('.'); return index > 0 ? name.slice(index).toLowerCase() : ''; };
 const fail = code => { throw new DocumentSourceError(code); };
+const DOCX_REFUSALS = new Set([
+  'docx_alt_chunk_unsupported', 'docx_alternate_content_unsupported', 'docx_comments_unsupported',
+  'docx_custom_xml_wrapper_unsupported', 'docx_drawing_unsupported', 'docx_embedded_object_unsupported',
+  'docx_endnote_unsupported', 'docx_external_relationship_unsupported', 'docx_field_unsupported',
+  'docx_footnote_unsupported', 'docx_headers_footers_unsupported', 'docx_hidden_text_unsupported',
+  'docx_math_unsupported', 'docx_numbering_unsupported', 'docx_package_member_unsupported',
+  'docx_relationship_unsupported', 'docx_revision_unsupported', 'docx_ruby_unsupported',
+  'docx_sdt_unsupported', 'docx_smart_tag_unsupported', 'docx_structure_unsupported',
+  'docx_symbol_unsupported', 'docx_table_merge_unsupported', 'docx_table_nested_content_unsupported',
+  'docx_table_structure_unsupported', 'docx_xml_directive_unsupported',
+]);
 
-function trustedPdfOptions(documentTools) {
+function trustedDocumentOptions(documentTools, format) {
   if (documentTools === null || documentTools === undefined) return null;
   if (typeof documentTools !== 'object' || Array.isArray(documentTools)
     || Object.getPrototypeOf(documentTools) !== Object.prototype
-    || Object.keys(documentTools).length !== 1 || !Object.hasOwn(documentTools, 'pdf')) fail('pdf_preparation_tool_invalid');
-  const pdf = documentTools.pdf;
-  const keys = typeof pdf === 'object' && pdf !== null ? Object.keys(pdf) : [];
-  if (typeof pdf !== 'object' || pdf === null || Array.isArray(pdf)
-    || Object.getPrototypeOf(pdf) !== Object.prototype
-    || !['extractionProfile', 'interpreterPath'].every(key => Object.hasOwn(pdf, key))
+    || Object.keys(documentTools).length < 1 || Object.keys(documentTools).length > 2
+    || Object.keys(documentTools).some(key => !['docx', 'pdf'].includes(key))) fail(`${format}_preparation_tool_invalid`);
+  if (!Object.hasOwn(documentTools, format)) return null;
+  const options = documentTools[format];
+  const keys = typeof options === 'object' && options !== null ? Object.keys(options) : [];
+  if (typeof options !== 'object' || options === null || Array.isArray(options)
+    || Object.getPrototypeOf(options) !== Object.prototype
+    || !['extractionProfile', 'interpreterPath'].every(key => Object.hasOwn(options, key))
     || ![2, 3].includes(keys.length)
     || keys.some(key => !['disableSiteStartup', 'extractionProfile', 'interpreterPath'].includes(key))) {
-    fail('pdf_preparation_tool_invalid');
+    fail(`${format}_preparation_tool_invalid`);
   }
-  return { interpreterPath: pdf.interpreterPath, extractionProfile: pdf.extractionProfile,
-    ...(Object.hasOwn(pdf, 'disableSiteStartup') ? { disableSiteStartup: pdf.disableSiteStartup } : {}) };
+  return { interpreterPath: options.interpreterPath, extractionProfile: options.extractionProfile,
+    ...(Object.hasOwn(options, 'disableSiteStartup') ? { disableSiteStartup: options.disableSiteStartup } : {}) };
 }
 
 const characters = text => [...text].length;
@@ -86,6 +101,33 @@ export function pdfSourceUnits(extraction, sourcePath, sourceSha256) {
     if (units.length === pageStart && page.text) add('pdf_page', page.text, pageLocator);
     if (units.length === pageStart) fail('pdf_page_content_unavailable');
   }
+  return Object.freeze({ units: Object.freeze(units), characters: totalCharacters });
+}
+
+export function docxSourceUnits(extraction, sourcePath, sourceSha256) {
+  const units = [];
+  let totalCharacters = 0;
+  const add = (unitKind, textValue, locator) => {
+    const text = normalizeText(textValue, Number.MAX_SAFE_INTEGER);
+    const count = characters(text);
+    if (!text) return;
+    if (count > SOURCE_LIMITS.unit_characters) fail('docx_preparation_unit_limit_exceeded');
+    if (units.length >= SOURCE_LIMITS.document_units
+      || totalCharacters + count > SOURCE_LIMITS.document_characters) fail('docx_preparation_document_limit_exceeded');
+    totalCharacters += count;
+    units.push({ unit_kind: unitKind, text, occurred_at: null, speaker_ref: null,
+      locator: { path: [...sourcePath], source_sha256: sourceSha256, part: 'word/document.xml', ...locator } });
+  };
+  for (const block of extraction.blocks) {
+    if (block.kind === 'paragraph') {
+      add('docx_paragraph', block.text,
+        { block_index: block.block_index, paragraph_index: block.paragraph_index });
+      continue;
+    }
+    for (const cell of block.cells) add('docx_table_cell', cell.text, { block_index: block.block_index,
+      table_index: block.table_index, row_number: cell.row_number, column_number: cell.column_number });
+  }
+  if (units.length === 0) fail('docx_content_unavailable');
   return Object.freeze({ units: Object.freeze(units), characters: totalCharacters });
 }
 
@@ -137,7 +179,7 @@ export async function readDocumentSourceDocuments({ admitted, source, rootPath, 
       const ext = extension(item.path.at(-1));
       const format = TEXT_FORMATS[ext];
       if (ext === '.pdf') {
-        const options = trustedPdfOptions(documentTools);
+        const options = trustedDocumentOptions(documentTools, 'pdf');
         if (options === null) { outcome(item, 'failed', { code: 'pdf_preparation_not_connected' }); continue; }
         let file;
         try { file = await root.readBytes(item.path, MAX_TEXT_BYTES); } catch (error) {
@@ -169,6 +211,52 @@ export async function readDocumentSourceDocuments({ admitted, source, rootPath, 
             { name: 'document.parser_engine', value: candidate.extraction.engine, at: null },
             { name: 'document.parser_version', value: candidate.extraction.engine_version, at: null },
             { name: 'document.worker_sha256', value: PREPARATION_WORKER_SHA256, at: null },
+            { name: 'document.extraction_sha256', value: extractionSha256, at: null },
+          ], units: prepared.units });
+        documents.push(document);
+        outcome(item, 'prepared', { composite_revision_sha256: document.composite_revision_sha256, doc_key: document.doc_key });
+        continue;
+      }
+      if (ext === '.docx') {
+        const options = trustedDocumentOptions(documentTools, 'docx');
+        if (options === null) { outcome(item, 'failed', { code: 'docx_preparation_not_connected' }); continue; }
+        let file;
+        try { file = await root.readBytes(item.path, MAX_TEXT_BYTES); } catch (error) {
+          if (error?.code === 'source_missing') { outcome(item, 'missing', { code: 'source_missing' }); continue; }
+          throw error;
+        }
+        if (item.revision_policy === 'exact' && file.sha256 !== item.revision_sha256) {
+          outcome(item, 'stale_grant', { code: 'granted_revision_absent' }); continue;
+        }
+        let candidate;
+        try {
+          candidate = await preparePinnedDocxCandidate({ docxBytes: file.bytes, expectedSha256: file.sha256.slice(7) }, options);
+        } catch (error) {
+          const code = codeOf(error);
+          outcome(item, DOCX_REFUSALS.has(code) ? 'refused' : 'failed', { code });
+          continue;
+        }
+        if (candidate.source.sha256 !== file.sha256.slice(7) || candidate.source.byte_count !== file.byte_count
+          || candidate.extraction.profile !== DOCX_PREPARATION_PROFILE || candidate.extraction.engine !== 'python-docx') {
+          fail('docx_preparation_result_invalid');
+        }
+        const prepared = docxSourceUnits(candidate.extraction, item.path, file.sha256);
+        const extractionSha256 = `sha256:${candidate.extraction.extraction_sha256}`;
+        const components = [
+          { kind: 'docx_worker', id: DOCX_PREPARATION_PROFILE, sha256: DOCX_PREPARATION_WORKER_SHA256 },
+          { kind: 'docx_extraction', id: `python-docx-${candidate.extraction.engine_version}`, sha256: extractionSha256 },
+        ];
+        const document = buildSourceDocument({ admitted, sourceKind: 'document', rootRef: source.root_ref, item,
+          adapterProfile: DOCUMENT_SOURCE_ADAPTER, primaryRevisionSha256: file.sha256, components, title: item.path.at(-1),
+          validAt: null, knownAt: null, timeBasis: 'untimed_document', facts: [
+            { name: 'document.format', value: 'docx', at: null },
+            { name: 'document.bytes', value: file.byte_count, at: null },
+            { name: 'document.unit_count', value: prepared.units.length, at: null },
+            { name: 'document.block_count', value: candidate.extraction.block_count, at: null },
+            { name: 'document.parser_profile', value: candidate.extraction.profile, at: null },
+            { name: 'document.parser_engine', value: candidate.extraction.engine, at: null },
+            { name: 'document.parser_version', value: candidate.extraction.engine_version, at: null },
+            { name: 'document.worker_sha256', value: DOCX_PREPARATION_WORKER_SHA256, at: null },
             { name: 'document.extraction_sha256', value: extractionSha256, at: null },
           ], units: prepared.units });
         documents.push(document);

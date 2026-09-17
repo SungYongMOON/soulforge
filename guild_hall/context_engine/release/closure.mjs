@@ -8,7 +8,8 @@ import { createHash } from 'node:crypto';
 export const REPO_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 export const APP_REF='guild_hall/context_engine';
 export const ENTRY_REF=APP_REF+'/src/app.mjs';
-const EXPLICIT_FILES=['guild_hall/rag/project_document_extract.py','guild_hall/context_engine/src/workers/graphrag_worker.py'];
+const EXPLICIT_FILES=['guild_hall/rag/project_document_extract.py','guild_hall/context_engine/src/workers/graphrag_worker.py',
+  'guild_hall/context_engine/src/workers/document_docx_extract.py'];
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const posix=value=>value.replaceAll('\\','/');
 const cmp=(a,b)=>a<b?-1:a>b?1:0;
