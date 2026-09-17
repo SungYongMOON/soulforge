@@ -6,7 +6,7 @@ import path from 'node:path';
 import { readRootTable } from '../../../../../guild_hall/path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../../../../../guild_hall/context_engine/src/adapters/aliased_store_io.mjs';
 import { exactRefIdentityKey } from '../../../../../guild_hall/engineering_engine/kernel/identity.mjs';
-import { inspectGraphDatabase } from '../../../../../guild_hall/context_engine/src/runtime/graph_database.mjs';
+import { inspectGraphDatabase, inspectGraphSubgraph } from '../../../../../guild_hall/context_engine/src/runtime/graph_database.mjs';
 import { isDirectLoopbackRequest } from './loopback-request-guard.mjs';
 import { readStableFile } from './receipt-expiry-adapter.mjs';
 
@@ -87,9 +87,9 @@ async function boundedNames(directory,predicate) {
   return names.sort().reverse();
 }
 
-export function createRagOperationsReader({tablePath,expectedSha256,projects=[],receiptsRoot,inspect=inspectGraphDatabase,now=Date.now}={}) {
+export function createRagOperationsReader({tablePath,expectedSha256,projects=[],receiptsRoot,inspect=inspectGraphDatabase,inspectGraph=inspectGraphSubgraph,now=Date.now}={}) {
   let baseCache=null,basePending=null;
-  const detailCache=new Map(),detailPending=new Map(),receiptCache=new Map();
+  const detailCache=new Map(),detailPending=new Map(),receiptCache=new Map(),graphCache=new Map(),graphPending=new Map();
   const configured=path.isAbsolute(tablePath??'')&&SHA.test(expectedSha256??'')&&projects.length>0&&projects.length<=RAG_LIMITS.projects&&new Set(projects).size===projects.length&&projects.every(p=>CODE.test(p))&&path.isAbsolute(receiptsRoot??'');
   function readJson(io,address,max=RAG_LIMITS.metadataBytes){const bytes=io.read(address,max);return {value:JSON.parse(bytes.toString('utf8')),digest:hash(bytes)};}
   function refRead(io,ref,prefix){
@@ -227,7 +227,30 @@ export function createRagOperationsReader({tablePath,expectedSha256,projects=[],
     catch{return {state:'unavailable',reason:'changed_during_read',project};}
     return answer;
   }
-  return {async overview(){
+  return {async graph(project,document=null){
+    if(!projects.includes(project)||(document!==null&&!SHA.test(document)))return {state:'denied',reason:'project_outside_scope'};
+    const current=await base(),row=current.held?.find(r=>r.project===project),publicRow=current.public.projects?.find(r=>r.project===project);
+    if(!row?.stable||!row.db||publicRow?.comparison!=='counts_match')return {state:'unavailable',reason:'graph_scope_not_verified',nodes:[],edges:[]};
+    if(document!==null&&!row.manifest.documents.some(d=>d.doc_key===document))return {state:'denied',reason:'document_outside_scope'};
+    const key=[project,row.db.generation_id,document,current.public.observed_at].join(':');
+    if(graphCache.has(key))return graphCache.get(key);
+    if(graphPending.has(key))return graphPending.get(key);
+    if(graphPending.size>=2)return {state:'unavailable',reason:'graph_busy',nodes:[],edges:[]};
+    const pending=(async()=>{
+      try{
+        const result=await inspectGraph({binding:{...row.binding.value.graph,worker:{...row.binding.value.graph.worker,timeout_ms:20000}},projectKey:row.projectKey,generation:row.db.generation_id,document});
+        if(result.status!=='ok'||result.project_key!==row.projectKey||result.generation_id!==row.db.generation_id)fail('graph_scope_not_verified');
+        readRootTable({tablePath,expectedSha256});
+        if(readJson(current.io,row.bindingAddress,1048576).digest!==row.binding.digest||readJson(current.io,row.pointerAddress,1048576).digest!==row.pointer.digest)fail('changed_during_read');
+        const docs=new Set(row.manifest.documents.map(d=>d.doc_key));
+        const nodes=(result.nodes??[]).slice(0,80).filter(n=>typeof n.id==='string'&&docs.has(n.document)&&(document===null||n.document===document)).map(n=>({id:text(n.id),labels:(n.labels??[]).filter(l=>/^[A-Za-z][A-Za-z0-9_]{0,80}$/u.test(l)).slice(0,8),name:text(n.name),document:n.document,unit:text(n.unit),source:text(n.source)})).filter(n=>n.id);
+        const ids=new Set(nodes.map(n=>n.id));
+        const edges=(result.edges??[]).slice(0,160).filter(e=>ids.has(e.source)&&ids.has(e.target)&&/^[A-Za-z][A-Za-z0-9_]{0,80}$/u.test(e.type??'')).map(e=>({id:text(e.id),source:e.source,target:e.target,type:e.type})).filter(e=>e.id);
+        const answer={state:'ready',project,generation:result.generation_id,observed_at:new Date(now()).toISOString(),basis:'neo4j_live_metadata',document,nodes,edges,node_limit:80,edge_limit:160,limited:result.limited===true||nodes.length!==(result.nodes??[]).length||edges.length!==(result.edges??[]).length};
+        if(graphCache.size>=32)graphCache.clear();graphCache.set(key,answer);return answer;
+      }catch(error){return {state:'unavailable',reason:codeOf(error),nodes:[],edges:[]};}
+    })();graphPending.set(key,pending);try{return await pending;}finally{graphPending.delete(key);}
+  },async overview(){
     const current=await this.read();if(current.state==='unavailable')return current;
     const rows=[];
     for(let i=0;i<current.projects.length;i+=3){const batch=await Promise.all(current.projects.slice(i,i+3).map(async row=>{
@@ -261,11 +284,12 @@ export function createRagOperationsPlugin(options={}) {
     if(!isDirectLoopbackRequest(req)||!/^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/u.test(req.headers.host??'')){res.statusCode=403;res.end();return;}
     if(req.headers['sec-fetch-site']==='cross-site'){res.statusCode=403;res.end('{}');return;}
     if(req.headers.origin){try{if(new URL(req.headers.origin).host!==req.headers.host)throw Error();}catch{res.statusCode=403;res.end('{}');return;}}
-    if([...url.searchParams.keys()].some(k=>!['project','view'].includes(k))||url.searchParams.getAll('project').length>1||url.searchParams.getAll('view').length>1){res.statusCode=400;res.end('{}');return;}
+    if([...url.searchParams.keys()].some(k=>!['project','view','document'].includes(k))||['project','view','document'].some(k=>url.searchParams.getAll(k).length>1)){res.statusCode=400;res.end('{}');return;}
     const project=url.searchParams.get('project');
-    const view=url.searchParams.get('view');if(view!==null&&(view!=='overview'||project!==null)){res.statusCode=400;res.end('{}');return;}
+    const view=url.searchParams.get('view'),document=url.searchParams.get('document');
+    if(view!==null&&(!['overview','graph'].includes(view)||(view==='overview'&&project!==null)||(view==='graph'&&project===null))||document!==null&&(view!=='graph'||!SHA.test(document))){res.statusCode=400;res.end('{}');return;}
     if(project!==null&&!CODE.test(project)){res.statusCode=400;res.end('{}');return;}
-    void (view==='overview'?reader.overview():reader.read(project)).then(result=>{if(result.state==='denied')res.statusCode=403;res.end(JSON.stringify(result));},()=>{res.statusCode=503;res.end('{"state":"unavailable","reason":"read_failed"}');});
+    void (view==='overview'?reader.overview():view==='graph'?reader.graph(project,document):reader.read(project)).then(result=>{if(result.state==='denied')res.statusCode=403;res.end(JSON.stringify(result));},()=>{res.statusCode=503;res.end('{"state":"unavailable","reason":"read_failed"}');});
   });};
   return {name:'rag-operations-read-only',configureServer:configure,configurePreviewServer:configure};
 }

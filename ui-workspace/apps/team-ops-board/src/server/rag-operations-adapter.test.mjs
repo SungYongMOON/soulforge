@@ -28,7 +28,7 @@ test('manifest projection distinguishes stored reembedding from selected and DB 
   assert.equal(r.model.dimensions,4096);assert.equal(r.embedding.elapsed_ms,800);assert.equal(r.llm.calls,null);
   assert.equal(JSON.stringify(r).includes('MUST_NOT_SURFACE'),false);
   assert.throws(()=>projectManifest({...m,status:'draft'}));
-  assert.equal(projectManifest({...m,embedding:{model:'C:\\private\\model.bin'}}).model.embedder,null);
+  assert.equal(projectManifest({...m,embedding:{model:path.join(tmpdir(),'synthetic-model.bin')}}).model.embedder,null);
 });
 test('document stats preserve missing counts and require coverage evidence for prepared label',()=>{
   const m=manifest(),r=projectDocuments(m,null)[0];assert.equal(r.preparation,'unconfirmed');
@@ -54,6 +54,33 @@ test('sync receipt needs project and real-run binding and never mistakes a store
 function harness(){let handler,calls=0;createRagOperationsPlugin({reader:{async read(project){calls++;return {state:'ready',project};}}}).configureServer({middlewares:{use(fn){handler=fn;}}});
   return {calls:()=>calls,request:(url,{method='GET',headers={host:'127.0.0.1:4194'},remoteAddress='127.0.0.1'}={})=>new Promise(resolve=>handler({url,method,headers,socket:{remoteAddress}},{statusCode:200,setHeader(){},end(body){resolve({status:this.statusCode,body});}},()=>resolve({next:true})))};
 }
+
+test('graph request requires project and document hash; generic commands remain refused',async()=>{
+  const h=harness();
+  for(const url of ['/rag-operations.json?view=graph','/rag-operations.json?view=graph&project=P26-001&document=../../x','/rag-operations.json?project=P26-001&document=sha256:'+ 'a'.repeat(64),'/rag-operations.json?view=graph&project=P26-001&cypher=MATCH'])assert.equal((await h.request(url)).status,400);
+  assert.equal(h.calls(),0);
+});
+
+test('graph reader binds current project/version, filters metadata and rejects scope escapes',async t=>{
+  const f=await fixture(t),doc=f.manifest.documents[0].doc_key;let calls=0;
+  const reader=createRagOperationsReader({...f,inspect:async()=>f.db,inspectGraph:async args=>{
+    calls++;assert.equal(args.projectKey,f.manifest.project_key);assert.equal(args.generation,'test-002');assert.equal(args.document,doc);
+    return {status:'ok',project_key:args.projectKey,generation_id:args.generation,limited:false,nodes:[{id:'n1',document:doc,labels:['Document'],name:'Synthetic document',text:'RAW_NOT_FOR_UI',embedding:[1,2]},{id:'n2',document:doc,labels:['Chunk']},{id:'foreign',document:'sha256:'+'f'.repeat(64),labels:['Document']}],edges:[{id:'e1',source:'n2',target:'n1',type:'FROM_DOCUMENT',raw:'RAW_NOT_FOR_UI'},{id:'escape',source:'foreign',target:'n1',type:'FROM_DOCUMENT'}]};
+  }});
+  assert.equal((await reader.graph('P26-OTHER')).state,'denied');
+  assert.equal((await reader.graph(f.project,'sha256:'+'f'.repeat(64))).state,'denied');
+  const graph=await reader.graph(f.project,doc);assert.equal(graph.state,'ready');assert.equal(graph.nodes.length,2);assert.equal(graph.edges.length,1);assert.equal(graph.limited,true);
+  assert.equal(JSON.stringify(graph).includes('RAW_NOT_FOR_UI'),false);assert.equal('embedding' in graph.nodes[0],false);
+  await reader.graph(f.project,doc);assert.equal(calls,1);
+});
+
+test('graph result is refused when the selected version changes during the read',async t=>{
+  const f=await fixture(t);const reader=createRagOperationsReader({...f,inspect:async()=>f.db,inspectGraph:async args=>{
+    await f.write(f.pointerAddress,{...f.pointer,generation_id:'test-003'});
+    return {status:'ok',project_key:args.projectKey,generation_id:args.generation,nodes:[],edges:[]};
+  }});
+  assert.equal((await reader.graph(f.project)).reason,'changed_during_read');
+});
 test('only loopback GET and exact project query can reach the reader; no arbitrary command or path',async()=>{
   const h=harness();
   for(const [url,options,status] of [

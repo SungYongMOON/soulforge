@@ -10,6 +10,8 @@ import { runPreparationFlow } from '../harness/preparation_flow.mjs';
 import { readPreparationGeneration } from '../src/runtime/preparation_store.mjs';
 import { GRAPH_INDEX_BINDING_FILE, updateGraphIndex, openGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { createGraphIndexRetriever } from '../src/runtime/graph_index_retrieval.mjs';
+import { readOriginal } from '../src/runtime/original_read.mjs';
+import { rootedStore } from '../src/runtime/pair_store.mjs';
 
 const python = process.env.SOULFORGE_TEST_PDF_PYTHON;
 const skip = python ? false : 'set SOULFORGE_TEST_PDF_PYTHON for the real local PDF parser';
@@ -67,6 +69,12 @@ test('real PDF -> canned graph extraction -> lexical evidence and replay, with n
   const found = retriever.lexical('28');
   assert.ok(found.hits.length > 0);
   assert.ok(found.hits.every(hit => hit.item_id === 'current.pdf' && hit.locator.page_number >= 1));
+  await store.put('control_root/project-bindings/' + store.fsKey + '/graph_index_binding.unified.json', store.binding);
+  const original = await readOriginal({ io: rootedStore(store.storeRoot), project: store.fsKey,
+    itemId: 'current.pdf', actorRef: READER_REQUEST.actor_ref, now: INDEX_NOW, tools: null });
+  assert.equal(original.status, 'ok');
+  assert.equal(original.internal.parser_calls_scope, 'attachment_derivation_only');
+  assert.ok(original.units.some(unit => /28/.test(unit.text)));
   const beforeCalls = worker.calls.extract;
   const replay = await updateGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256,
     request: indexerRequest({ generation_id: 'pdf-g2', expected_prior: first.pointer_sha256 }), now: INDEX_NOW,

@@ -1673,6 +1673,46 @@ def probe(request):
     return result
 
 
+def inspect_subgraph(request):
+    """Bounded metadata-only view of actual edges in one serving generation."""
+    project, generation, document = request.get("project_key"), request.get("generation_id"), request.get("document")
+    if not isinstance(project, str) or not project or len(project)>512 or not isinstance(generation, str) or not TOKEN.fullmatch(generation):
+        raise WorkerError("graph_preview_scope_invalid")
+    if document is not None and (not isinstance(document, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", document)):
+        raise WorkerError("graph_preview_document_invalid")
+    driver, database = neo4j_driver(request.get("neo4j"))
+    with driver:
+        # All queries are constant read queries. No caller-supplied Cypher, path,
+        # properties, limits, model calls or writer operations enter this view.
+        from neo4j import Query
+        def read(query, **params):
+            return driver.execute_query(Query(query, timeout=5), database_=database, routing_="r", **params).records
+        def current():
+            return read("MATCH (g:__SfGeneration__ {project_key:$p}) RETURN g.generation_id AS generation", p=project)
+        if [r["generation"] for r in current()] != [generation]:
+            raise WorkerError("graph_preview_generation_changed")
+        scope = {"p": project, "g": generation, "doc": document}
+        rows = read(
+            "MATCH (n) WHERE n.sf_project=$p AND n.sf_generation=$g AND n.sf_doc_key IS NOT NULL "
+            "AND ($doc IS NULL OR n.sf_doc_key=$doc) "
+            "RETURN elementId(n) AS id, labels(n) AS labels, "
+            "left(coalesce(n.name,n.title,''),160) AS name, n.sf_doc_key AS document, "
+            "n.sf_unit_id AS unit "
+            "ORDER BY n.sf_doc_key, CASE WHEN n:Document THEN 0 WHEN n:Chunk THEN 1 ELSE 2 END, elementId(n) LIMIT 81", **scope)
+        nodes = [dict(row) for row in rows[:80]]
+        edges = read(
+            "MATCH (a)-[r]->(b) WHERE elementId(a) IN $ids AND elementId(b) IN $ids "
+            "AND a.sf_project=$p AND b.sf_project=$p AND a.sf_generation=$g AND b.sf_generation=$g "
+            "AND (r.sf_project IS NULL OR r.sf_project=$p) AND (r.sf_generation IS NULL OR r.sf_generation=$g) "
+            "RETURN elementId(r) AS id, elementId(a) AS source, elementId(b) AS target, type(r) AS type "
+            "ORDER BY elementId(r) LIMIT 161", ids=[n["id"] for n in nodes], p=project, g=generation)
+        if [r["generation"] for r in current()] != [generation]:
+            raise WorkerError("graph_preview_generation_changed")
+        return {"status":"ok", "project_key":project, "generation_id":generation,
+                "nodes":nodes, "edges":[dict(row) for row in edges[:160]],
+                "node_limit":80, "edge_limit":160, "limited":len(rows)>80 or len(edges)>160}
+
+
 def inspect(request):
     """What this database holds, per project. Read-only, no model call, no text.
 
@@ -1693,8 +1733,12 @@ def inspect(request):
             chunks = run_query(driver, database,
                                "MATCH (c:" + CHUNK_LABEL + ") WHERE c.sf_project = $p AND c.sf_generation = $g "
                                "RETURN count(c) AS n, count(c." + EMBEDDING_PROPERTY + ") AS embedded", **scope)[0]
+            # Older lexical/extracted edges carry no generation stamp. Their
+            # two endpoints still bind them to the serving project/generation.
             edges = run_query(driver, database,
-                              "MATCH ()-[r]->() WHERE r.sf_project = $p AND r.sf_generation = $g "
+                              "MATCH (a)-[r]->(b) WHERE a.sf_project=$p AND b.sf_project=$p "
+                              "AND a.sf_generation=$g AND b.sf_generation=$g "
+                              "AND (r.sf_project IS NULL OR r.sf_project=$p) AND (r.sf_generation IS NULL OR r.sf_generation=$g) "
                               "RETURN type(r) AS type, count(r) AS n ORDER BY type", **scope)
             projects.append({"project_key": row["project_key"], "generation_id": row["generation_id"],
                              "loaded_at": row["loaded_at"], "nodes": counts, "chunks": chunks["n"],
@@ -1804,6 +1848,8 @@ def main():
         return probe(request)
     if operation == "inspect":
         return inspect(request)
+    if operation == "inspect_subgraph":
+        return inspect_subgraph(request)
     if operation == "extract":
         # The rules hash is added here rather than inside `extract`, because
         # `extract` is one of the functions it hashes: reporting a revision must

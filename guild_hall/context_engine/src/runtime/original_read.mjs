@@ -89,7 +89,7 @@ async function rereadOriginal({ io, binding, row, now }) {
   let prepared;
   try {
     prepared = await prepareSourceDocuments({ grant: narrowed.grant, roots: { [row.root_ref]: rootPath },
-      now, admission });
+      now, admission, documentTools: binding.document_tools ?? null });
   } catch (error) { return { document: null, code: String(error?.code ?? 'original_reread_failed'), rootPath }; }
   const document = prepared.documents[0] ?? null;
   const result = prepared.coverage.items[0] ?? null;
@@ -242,7 +242,10 @@ export async function readOriginal({ io, project, itemId, unitId = null, maxChar
   const matches = reread.document !== null && reread.document.doc_key === row.doc_key;
   const status = matches ? 'ok' : 'revision_mismatch';
   const rendered = renderUnits(document, { unitId, maxChars });
-  const internal = { parser_calls: 0, render_calls: 0, model_calls: 0 };
+  // Historical counters measure attachment derivation only. Source-adapter
+  // rereads may now launch PDF/DOCX parsers; do not imply a measured total.
+  const internal = { parser_calls: 0, parser_calls_scope: 'attachment_derivation_only',
+    render_calls: 0, model_calls: 0 };
   let attachments = { status: 'attachment_list_unavailable', entries: [], detail: 'not requested' };
   let attachment = null;
   if (wantAttachments || attachmentSelector !== null) {

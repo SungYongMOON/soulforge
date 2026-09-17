@@ -8,10 +8,13 @@ import { createHash } from 'node:crypto';
 import { readFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { makeGraphIndexStore, indexerRequest, INDEX_NOW, INDEX_PROJECT } from '../harness/fixtures/graph_index_fixture.mjs';
-import { GRAPH_INDEX_BINDING_FILE } from '../src/runtime/graph_index_generation.mjs';
+import { makeGraphIndexStore, indexerRequest, INDEX_NOW, INDEX_PROJECT, READER_REQUEST,
+  cannedGraphWorker } from '../harness/fixtures/graph_index_fixture.mjs';
+import { GRAPH_INDEX_BINDING_FILE, updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 import { runPreparationFlow } from '../harness/preparation_flow.mjs';
 import { readPreparationGeneration } from '../src/runtime/preparation_store.mjs';
+import { readOriginal } from '../src/runtime/original_read.mjs';
+import { rootedStore } from '../src/runtime/pair_store.mjs';
 const python=process.env.SOULFORGE_TEST_DOCX_PYTHON;
 const skip=python?false:'set SOULFORGE_TEST_DOCX_PYTHON for the real local DOCX parser';
 const sha=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
@@ -44,5 +47,13 @@ test('real minimal DOCX preserves body/table order through inactive store and re
   await assert.rejects(readFile(path.join(store.storeRoot,INDEX_PROJECT,'00_프로젝트_안내/graph_index_current.json')),e=>e.code==='ENOENT');
   const replay=await runPreparationFlow({...base,runId:'docx-flow',validationRunId:'docx-flow-val'});
   assert.equal(replay.steps.land.status,'REPLAYED');
+  const worker=cannedGraphWorker();
+  const indexed=await updateGraphIndex({...base,request:indexerRequest({generation_id:'docx-g1',expected_prior:null}),runWorker:worker.runWorker});
+  assert.equal(indexed.status,'COMMITTED');
+  await store.put('control_root/project-bindings/'+store.fsKey+'/graph_index_binding.unified.json',store.binding);
+  const original=await readOriginal({io:rootedStore(store.storeRoot),project:store.fsKey,itemId:'trial.docx',
+    actorRef:READER_REQUEST.actor_ref,now:INDEX_NOW,tools:null});
+  assert.equal(original.status,'ok');
+  assert.equal(original.internal.parser_calls_scope,'attachment_derivation_only');
+  assert.deepEqual(original.units.map(u=>u.text),doc.units.map(u=>u.text));
 });
-

@@ -84,9 +84,28 @@ function UsageView({usage,failed}:{usage:Row|undefined;failed:boolean}){
   </div>;
 }
 
+function RagFrame({theme,project}:{theme:string;project?:string}){
+  const frameRef=useRef<HTMLIFrameElement>(null),[loaded,setLoaded]=useState(false);
+  const themeRef=useRef(theme);
+  themeRef.current=theme;
+  const src=useMemo(()=>`/rag-operations.html?embedded=1&theme=${themeRef.current}${project?`&project=${encodeURIComponent(project)}`:''}`,[project]);
+  const postTheme=useCallback((t:string)=>{
+    try{frameRef.current?.contentWindow?.postMessage({type:'theme',theme:t},window.location.origin);}catch{}
+  },[]);
+  useEffect(()=>{if(loaded)postTheme(theme);},[theme,loaded,postTheme]);
+  return <iframe
+    ref={frameRef}
+    className="ow-embedded-rag"
+    title="RAG 실제 처리 상태"
+    src={src}
+    onLoad={()=>{setLoaded(true);postTheme(theme);}}
+  />;
+}
+
 function ConsoleApp(){
   const {inputs,failed,loading,readAt,load}=useSources();
-  const [nav,setNav]=useState<Navigation>(()=>({screen:(screens.some(s=>s[0]===location.hash.slice(1))?location.hash.slice(1):'overview') as Screen,node:null})),[inspector,setInspector]=useState(false),[theme,setTheme]=useState(()=>{try{return localStorage.getItem('soulforge.operations.theme')==='light'?'light':'dark';}catch{return 'dark';}});
+  const initProject=useMemo(()=>new URLSearchParams(location.search).get('project')??undefined,[]);
+  const [nav,setNav]=useState<Navigation>(()=>({screen:(screens.some(s=>s[0]===location.hash.slice(1))?location.hash.slice(1):'overview') as Screen,node:null,project:initProject})),[inspector,setInspector]=useState(false),[theme,setTheme]=useState(()=>{try{return localStorage.getItem('soulforge.operations.theme')==='light'?'light':'dark';}catch{return 'dark';}});
   useEffect(()=>{try{localStorage.setItem('soulforge.operations.theme',theme);}catch{}},[theme]);
   const [past,setPast]=useState<Navigation[]>([]),scrollPositions=useRef<Row>({}),main=useRef<HTMLElement>(null),lastTrigger=useRef<HTMLElement|null>(null);
   const model=useMemo(()=>buildConsoleView(inputs,failed),[inputs,failed]);
@@ -94,18 +113,28 @@ function ConsoleApp(){
   const go=useCallback((next:Navigation)=>{scrollPositions.current[nav.screen]=main.current?.scrollTop??0;setPast(old=>[...old,nav]);setNav(next);setInspector(false);window.history.pushState({consoleNavigation:next},'',`#${next.screen}`);requestAnimationFrame(()=>{if(main.current)main.current.scrollTop=scrollPositions.current[next.screen]??0;});},[nav]);
   const closeInspector=useCallback(()=>{setInspector(false);lastTrigger.current?.focus();},[]);
   useEffect(()=>{window.history.replaceState({consoleNavigation:nav},'',`#${nav.screen}`);const pop=(event:PopStateEvent)=>{if(event.state?.consoleNavigation){setNav(event.state.consoleNavigation);setInspector(false);setPast(old=>old.slice(0,-1));}};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
+  useEffect(()=>{
+    const onMsg=(e:MessageEvent)=>{
+      if(e.origin!==window.location.origin)return;
+      if(e.data?.type==='rag-project'){
+        setNav(prev=>({...prev,project:e.data.project||undefined}));
+      }
+    };
+    window.addEventListener('message',onMsg);
+    return()=>window.removeEventListener('message',onMsg);
+  },[]);
   const title=screens.find(s=>s[0]===nav.screen)?.[1];
   const projectNames=Object.fromEntries((inputs.rag?.projects??[]).map((p:Row)=>[p.project,p.project_name]));
-  return <ProjectNamesContext.Provider value={projectNames}><div className="cx-app" data-theme={theme}><a className="cx-skip" href="#console-content">본문으로 건너뛰기</a><aside className="cx-sidebar"><a className="cx-brand" href="#overview" onClick={e=>{e.preventDefault();go({screen:'overview',node:null});}}><span><GitBranch size={22}/></span><strong>Soulforge<small>Operations</small></strong></a><nav aria-label="운영 화면">{screens.map(([id,label,Icon])=><button key={id} aria-current={nav.screen===id?'page':undefined} className={nav.screen===id?'is-selected':''} onClick={()=>go({screen:id,node:nav.node})}><Icon size={18}/><span>{label}</span>{id==='system'&&model.healthAvailable&&model.attention.length>0&&<small>{model.attention.length}</small>}</button>)}<a className="cx-rag-link" href="/rag-operations.html"><Database size={18}/><span>RAG 처리 상태</span></a></nav><div className="cx-sidebar-bottom"><span className="cx-preview-label">UX 미리보기</span><p>기존 관측을 읽습니다.<br/>서비스는 변경하지 않습니다.</p><a href="http://127.0.0.1:4192/" target="_blank" rel="noreferrer">기존 업무·조직·대시보드 <ArrowUpRight size={14}/></a><button onClick={()=>setTheme(t=>t==='light'?'dark':'light')}>{theme==='light'?<Moon size={15}/>:<Sun size={15}/>} {theme==='light'?'어둡게 보기':'밝게 보기'}</button><span className="cx-local"><LockKeyhole size={12}/>이 PC · 읽기 전용</span></div></aside>
+  return <ProjectNamesContext.Provider value={projectNames}><div className="cx-app" data-theme={theme}><a className="cx-skip" href="#console-content">본문으로 건너뛰기</a><aside className="cx-sidebar"><a className="cx-brand" href="#overview" onClick={e=>{e.preventDefault();go({screen:'overview',node:null,project:nav.project});}}><span><GitBranch size={22}/></span><strong>Soulforge<small>Operations</small></strong></a><nav aria-label="운영 화면">{screens.map(([id,label,Icon])=><button key={id} aria-current={nav.screen===id?'page':undefined} className={nav.screen===id?'is-selected':''} onClick={()=>go({screen:id,node:nav.node,project:nav.project})}><Icon size={18}/><span>{label}</span>{id==='system'&&model.healthAvailable&&model.attention.length>0&&<small>{model.attention.length}</small>}</button>)}<a className="cx-rag-link" href="/rag-operations.html"><Database size={18}/><span>RAG 처리 상태</span></a></nav><div className="cx-sidebar-bottom"><span className="cx-preview-label">UX 미리보기</span><p>기존 관측을 읽습니다.<br/>서비스는 변경하지 않습니다.</p><a href="http://127.0.0.1:4192/" target="_blank" rel="noreferrer">기존 업무·조직·대시보드 <ArrowUpRight size={14}/></a><button onClick={()=>setTheme(t=>t==='light'?'dark':'light')}>{theme==='light'?<Moon size={15}/>:<Sun size={15}/>} {theme==='light'?'어둡게 보기':'밝게 보기'}</button><span className="cx-local"><LockKeyhole size={12}/>이 PC · 읽기 전용</span></div></aside>
     <div className="cx-shell"><header className="cx-topbar"><div><button className="cx-back" aria-label="이전 화면" disabled={!past.length} onClick={()=>window.history.back()}><ArrowLeft size={17}/></button><h1>{title}</h1></div><div className="cx-topbar-actions"><a href="/operations-manual.html" target="_blank" rel="noreferrer" className="cx-manual-link">사용 설명서</a><span>{loading?'최신 상태 읽는 중':`조회 ${at(readAt)}`}</span><button aria-label="최신 상태 다시 읽기" disabled={loading} onClick={()=>void load()}><RefreshCw size={16} className={loading?'cx-spin':''}/><span>다시 읽기</span></button></div></header>
     <main ref={main} id="console-content" className="cx-main"><SourceNotice failed={failed}/>
       <div hidden={nav.screen!=='overview'}><OperationsDashboard model={model} inputs={inputs} failed={failed} go={go}/></div>
-      <div hidden={nav.screen!=='system'}><div className="vd-system-models"><ServerStrip data={inputs.models} failed={failed.includes('models')}/></div>{nav.screen==='system'&&<OperationsSystem model={model} inputs={inputs} selected={selected} onSelect={id=>go({screen:'system',node:id})} go={go} inspect={()=>{lastTrigger.current=document.activeElement as HTMLElement;setInspector(true);}}/>}</div>
+      <div hidden={nav.screen!=='system'}><div className="vd-system-models"><ServerStrip data={inputs.models} failed={failed.includes('models')}/></div>{nav.screen==='system'&&<OperationsSystem model={model} inputs={inputs} selected={selected} onSelect={id=>go({screen:'system',node:id,project:nav.project})} go={go} inspect={()=>{lastTrigger.current=document.activeElement as HTMLElement;setInspector(true);}}/>}</div>
       <div hidden={nav.screen!=='directory'}><DataSpaces active={nav.screen==='directory'}/></div>
       <div hidden={nav.screen!=='usage'}><QuotaStrip inputs={inputs} failed={failed}/><UsageView usage={inputs.usage} failed={failed.includes('usage')}/></div>
-      <div hidden={nav.screen!=='rag'}>{nav.screen==='rag'&&<iframe className="ow-embedded-rag" title="RAG 실제 처리 상태" src={`/rag-operations.html?embedded=1${nav.project?`&project=${encodeURIComponent(nav.project)}`:''}`}/>}</div>
+      <div hidden={nav.screen!=='rag'}><RagFrame theme={theme} project={nav.project}/></div>
       <div hidden={nav.screen!=='evidence'}><EvidenceSearch active={nav.screen==='evidence'}/></div>
       <div hidden={nav.screen!=='memory'}><DataSpaces active={nav.screen==='memory'} memory/></div>
-    </main></div>{inspector&&nav.screen==='system'&&selected&&<Inspector node={selected} close={closeInspector} folder={()=>go({screen:'directory',node:selected.id})}/>}</div></ProjectNamesContext.Provider>;
+    </main></div>{inspector&&nav.screen==='system'&&selected&&<Inspector node={selected} close={closeInspector} folder={()=>go({screen:'directory',node:selected.id,project:nav.project})}/>}</div></ProjectNamesContext.Provider>;
 }
 createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('preview')==='1'?<StandalonePreview/>:<ConsoleApp/>);
