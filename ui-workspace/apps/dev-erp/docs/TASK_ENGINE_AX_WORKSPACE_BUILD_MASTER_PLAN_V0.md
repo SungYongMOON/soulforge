@@ -1,5 +1,12 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-17 CURRENT (Context Engine 0.22.2 Slack coverage reporting):
+> the working-context pack reports one Slack row from actual source preparation,
+> search and body-use evidence. Failed preparation and none-in-scope remain
+> distinct from an unsupported source kind; Buzz stays not_connected. This is a
+> reporting correction, not collection freshness, complete recall or live rollout
+> acceptance. Existing graph generations do not need extraction for this change.
+
 > 2026-09-17 CURRENT (Context Engine 0.22.1 document path consistency candidate):
 > the sync preflight uses the same explicit host document tools as preparation,
 > index update and original reread. Closed tool-configuration validation rejects

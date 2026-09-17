@@ -20,7 +20,7 @@ import { CONTEXT_PLANNER_PROFILE } from '../../profiles/context_planner_v1.mjs';
 export const CONTEXT_PACK_V2_SCHEMA = 'soulforge.context_pack.v2';
 export const STATEMENT_KIND_LABELS = Object.freeze({ fact: '확인 사실', claim: '자료의 주장', interpretation: '해석', unknown: '미확인' });
 // Plan 17 input kinds without an adapter yet: listed so absence is not silent.
-const NOT_CONNECTED_KINDS = Object.freeze(['buzz', 'slack']);
+const NOT_CONNECTED_KINDS = Object.freeze(['buzz']);
 // Program ceiling: no profile, binding or request can go above it. A profile
 // budget is a default under this ceiling; binding and request only lower it.
 export const PLANNER_BUDGET_CEILING = Object.freeze({ max_model_calls: 8, max_search_rounds: 3, max_searches_per_round: 8,

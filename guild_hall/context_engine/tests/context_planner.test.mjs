@@ -98,6 +98,37 @@ async function indexedStore() {
   return { store, worker, first, view };
 }
 
+function plannerViewWithSlack(baseView, { status = 'prepared', includeDocument = status === 'prepared' } = {}) {
+  const docKey = `sha256:${'9'.repeat(64)}`;
+  const sourceRow = baseView.manifest.documents[0];
+  const sourceDocument = structuredClone(baseView.readDocument(sourceRow.doc_key));
+  const slackDocument = {
+    ...sourceDocument,
+    doc_key: docKey,
+    source_kind: 'slack',
+    root_ref: 'slack.fixture',
+    item_id: 'slack-prepared',
+    primary_revision_sha256: `sha256:${'7'.repeat(64)}`,
+    composite_revision_sha256: `sha256:${'8'.repeat(64)}`,
+    title: 'Slack coverage fixture',
+    units: [{ ...sourceDocument.units[0], unit_id: 'u0000', text: 'slackfixtureterm 준비 메시지 본문' }],
+  };
+  const slackRow = { ...sourceRow, doc_key: docKey, source_kind: 'slack', item_id: 'slack-prepared' };
+  const quality = structuredClone(baseView.readQuality());
+  quality.coverage.items.push({ source_kind: 'slack', root_ref: 'slack.fixture', item_id: 'slack-prepared', status,
+    code: status === 'prepared' ? null : 'fixture_failed',
+    composite_revision_sha256: status === 'prepared' ? slackDocument.composite_revision_sha256 : null,
+    doc_key: status === 'prepared' ? docKey : null });
+  quality.coverage.counts[status] += 1;
+  return Object.freeze({
+    ...baseView,
+    manifest: { ...baseView.manifest,
+      documents: includeDocument ? [...baseView.manifest.documents, slackRow] : [...baseView.manifest.documents] },
+    readDocument: key => key === docKey ? structuredClone(slackDocument) : baseView.readDocument(key),
+    readQuality: () => structuredClone(quality),
+  });
+}
+
 // Every file under the store with its content hash: a query must change neither.
 async function listFiles(root) {
   const out = [];
@@ -132,7 +163,7 @@ test('canned local model: the program searches, enforces citations and reports c
   assert.deepEqual(pack.sections.work_history, [{ text: '장표 초안이 이미 제출되었다.', kind: 'interpretation', evidence: [], downgraded_from: 'fact' }]);
   const coverage = Object.fromEntries(pack.coverage.map(row => [row.source_kind, [row.state, row.searched, row.body_read > 0]]));
   assert.deepEqual(coverage, { buzz: ['not_connected', false, false], document: ['connected', true, true], linear: ['none_in_scope', false, false],
-    mail: ['none_in_scope', false, false], slack: ['not_connected', false, false], voice: ['none_in_scope', false, false] });
+    mail: ['none_in_scope', false, false], slack: ['none_in_scope', false, false], voice: ['none_in_scope', false, false] });
   assert.deepEqual(pack.rune, { status: 'not_run', reason: 'rune_not_connected' });
   assert.deepEqual(pack.review, { status: 'ok', rounds: 1, code: null });
   assert.deepEqual(pack.uncited_model_text, ['deliverables', 'questions', 'missing', 'open_questions']);
@@ -143,6 +174,52 @@ test('canned local model: the program searches, enforces citations and reports c
   assert.deepEqual(await listFiles(store.storeRoot), before, 'a query writes nothing');
   const again = await composeWorkingContext({ view: view(), request: REQUEST, binding: BINDING, fetchImpl: cannedChat().fetchImpl });
   assert.equal(again.content_sha256, pack.content_sha256, 'same input and same answers give the same content digest');
+});
+
+test('prepared Slack coverage is one real compose row with search, hit and body counts', async () => {
+  const { view } = await indexedStore();
+  const slackPlan = { deliverables: ['Slack 준비 확인'], questions: [{ id: 'qs', text: 'Slack 준비 메시지가 있는가?' }],
+    searches: [{ question_id: 'qs', mode: 'lexical', query: 'slackfixtureterm' }] };
+  const slackReview = { answered: ['qs'], missing: [], searches: [] };
+  const slackCompose = ({ evidence }) => ({ sections: {
+    background: [{ text: 'Slack 준비 메시지가 있다.', kind: 'fact',
+      evidence: [evidence.find(row => row.source_kind === 'slack')?.id] }],
+    work_history: [], decisions: [], reusable: [], impact: [] }, open_questions: [] });
+  const chat = cannedChat({ responses: { plan: slackPlan, review: slackReview, compose: slackCompose } });
+  const pack = await composeWorkingContext({ view: plannerViewWithSlack(view()), request: REQUEST, binding: BINDING,
+    fetchImpl: chat.fetchImpl });
+  const slackRows = pack.coverage.filter(row => row.source_kind === 'slack');
+  assert.equal(slackRows.length, 1, 'one source kind produces one coverage row');
+  assert.deepEqual(slackRows[0], { source_kind: 'slack', state: 'connected', items: 1, prepared: 1, failed: 0,
+    searched: true, hits: 1, body_read: 1 });
+  assert.equal(pack.coverage.filter(row => row.source_kind === 'buzz').length, 1, 'Buzz remains one unconnected row');
+  assert.equal(new Set(pack.coverage.map(row => row.source_kind)).size, pack.coverage.length, 'coverage kinds are unique');
+});
+
+test('failed Slack preparation remains in scope with its failed count and no invented search or body', async () => {
+  const { view } = await indexedStore();
+  const pack = await composeWorkingContext({ view: plannerViewWithSlack(view(), { status: 'failed' }),
+    request: REQUEST, binding: BINDING, fetchImpl: cannedChat().fetchImpl });
+  assert.deepEqual(pack.coverage.filter(row => row.source_kind === 'slack'), [
+    { source_kind: 'slack', state: 'connected', items: 1, prepared: 0, failed: 1,
+      searched: false, hits: 0, body_read: 0 },
+  ]);
+  assert.equal(new Set(pack.coverage.map(row => row.source_kind)).size, pack.coverage.length);
+});
+
+test('Slack with no granted item is none in scope while Buzz is unconnected exactly once', async () => {
+  const { view } = await indexedStore();
+  const pack = await composeWorkingContext({ view: view(), request: REQUEST, binding: BINDING,
+    fetchImpl: cannedChat().fetchImpl });
+  assert.deepEqual(pack.coverage.filter(row => row.source_kind === 'slack'), [
+    { source_kind: 'slack', state: 'none_in_scope', items: 0, prepared: 0, failed: 0,
+      searched: false, hits: 0, body_read: 0 },
+  ]);
+  assert.deepEqual(pack.coverage.filter(row => row.source_kind === 'buzz'), [
+    { source_kind: 'buzz', state: 'not_connected', items: 0, prepared: 0, failed: 0,
+      searched: false, hits: 0, body_read: 0 },
+  ]);
+  assert.equal(new Set(pack.coverage.map(row => row.source_kind)).size, pack.coverage.length);
 });
 
 test('a search the request names outright runs before the model plans, and is recorded as the request asking, not the model', async () => {

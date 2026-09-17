@@ -126,7 +126,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/runtime/context_planner.mjs",
-      "sha256": "2763fdee14fdb5ca25430e4109af7111bc1284256ac02c63f30231c6bad1487d"
+      "sha256": "88d8be879d3be2d1deda0036af90a558d910e171a894b1dfbfa6433b1e6b6840"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/document_tools.mjs",
@@ -321,7 +321,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "0d314f875adc68e82e0a16aef97d16558e230ddb2435456bad8f1c88e3d9ba34",
+  "closure_sha256": "312b7479de58f1ee2563bcdb74754b7ee7b72a39d2d4f2beb6e11ab828efa25b",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
