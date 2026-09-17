@@ -3,9 +3,29 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const APP_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "App.tsx");
 const CSS_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "team-ops.css");
+
+test('actual chart geometry follows rendered pixels without changing token/request scales',()=>{
+  const source=readFileSync(APP_PATH,'utf8');
+  const start=source.indexOf('function buildUsageTrendChart('),end=source.indexOf('\nfunction usageTrendTooltipGeometry',start);
+  const js=ts.transpileModule(source.slice(start,end),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+  const build=Function('monotoneAreaPath','monotoneLinePath',`${js};return buildUsageTrendChart;`)(()=>'',()=>'');
+  for(const length of [7,30]){
+    const days=Array.from({length},()=>({})),series=[{id:'synthetic',values:days.map((_,i)=>i+1)}],requests=[{id:'ag_gemini',totalRequests:50,values:days.map(()=>50)}];
+    const baseline=build(days,series,requests);
+    assert.equal(baseline.width,1000);assert.equal(baseline.height,238);
+    for(const width of [300,540,989,1400]){
+      const chart=build(days,series,requests,null,{width,height:186});
+      assert.equal(chart.width,width);assert.equal(chart.height,186);
+      assert.equal(chart.x(0),chart.left);assert.equal(chart.x(length-1),width-chart.right);
+      assert.equal(chart.y(0),186-chart.bottom);assert.equal(chart.yReq(0),186-chart.bottom);
+      assert.equal(chart.maxToken,baseline.maxToken);assert.equal(chart.maxRequests,baseline.maxRequests);
+    }
+  }
+});
 
 function loadUsageTrendTooltipGeometry() {
   const source = readFileSync(APP_PATH, "utf8");

@@ -337,7 +337,7 @@ test("usage trend overlays Antigravity requests on their own axis and provides c
   assert.match(source, /<UsageRequestTrend unmeasuredDaily=\{unmeasuredDaily\} range=\{range\}/u);
 
   // Gated className for overlay styling
-  assert.match(source, /className=\{`usage-trend\$\{showAgOverlay \? " has-req-overlay" : ""\}`\}/u);
+  assert.match(source, /className=\{`usage-trend\$\{showAgOverlay \? " has-req-overlay" : ""\}\$\{compact/u);
   assert.match(css, /\.usage-trend-hit-grid\s*\{\s*position:\s*absolute;\s*inset:\s*6%\s+1\.2%\s+13%\s+5\.8%;/u);
   assert.match(css, /\.usage-trend\.has-req-overlay\s+\.usage-trend-hit-grid\s*\{\s*inset:\s*6%\s+4\.8%\s+13%\s+5\.8%;\s*\}/u);
 

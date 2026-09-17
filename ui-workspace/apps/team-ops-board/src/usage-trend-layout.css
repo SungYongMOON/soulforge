@@ -1,0 +1,304 @@
+/* Compact Usage Trend Chart Layout & Grid */
+
+/* Container and Plot */
+.usage-trend.is-compact {
+  width: 100%;
+}
+
+.usage-trend.is-compact .usage-trend-plot {
+  position: relative;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.usage-trend.is-compact .usage-trend-plot svg {
+  display: block;
+  width: 100%;
+  height: 186px;
+  max-height: 190px;
+  overflow: visible;
+}
+
+/* Axis styling in compact mode: crisp, fixed 10-11px readable font */
+.usage-trend.is-compact .usage-trend-axis {
+  font-size: 10.5px !important;
+  fill: var(--muted) !important;
+  letter-spacing: 0 !important;
+}
+
+.usage-trend.is-compact .usage-trend-axis-title {
+  font-size: 10px !important;
+  fill: var(--muted) !important;
+  font-weight: 500 !important;
+}
+
+.usage-trend.is-compact .usage-trend-grid {
+  stroke: var(--line) !important;
+  stroke-dasharray: 2 2;
+}
+
+.usage-trend.is-compact .usage-trend-guide {
+  stroke: var(--line-strong) !important;
+  stroke-dasharray: 3 3 !important;
+  stroke-width: 1.5 !important;
+}
+
+/* Transparent Hit Grid: positioned via inline percentages */
+.cx-app .usage-trend.is-compact .usage-trend-hit-grid {
+  position: absolute;
+  display: grid;
+  width: auto;
+  height: auto;
+}
+
+.cx-app .usage-trend.is-compact .usage-trend-hit-grid button {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  border-radius: 2px !important;
+}
+
+.cx-app .usage-trend.is-compact .usage-trend-hit-grid button:hover,
+.cx-app .usage-trend.is-compact .usage-trend-hit-grid button:active {
+  background: transparent !important;
+}
+
+.cx-app .usage-trend.is-compact .usage-trend-hit-grid button:focus-visible {
+  outline: 2px solid var(--blue) !important;
+  outline-offset: 1px !important;
+}
+
+/* Outside Date Readout */
+.usage-trend.is-compact .usage-trend-readout-bar{width:100%}
+.usage-trend.is-compact .usage-trend-readout-meta{width:100%;justify-content:space-between}
+.usage-trend.is-compact .usage-trend-axis.is-req,.usage-trend.is-compact .usage-trend-axis-title.is-right{fill:#2dd4bf!important}
+.usage-trend.is-compact .usage-trend-readout {
+  margin-top: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  line-height: 1.3;
+  box-sizing: border-box;
+}
+
+.usage-trend.is-compact .usage-trend-readout-date {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.usage-trend.is-compact .usage-trend-readout-tag {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.usage-trend.is-compact .usage-trend-readout-total {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.usage-trend.is-compact .usage-trend-readout-total b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Compact Legend: Root wrapper */
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-legend,
+.usage-trend.is-compact .usage-trend-legend {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+  width: 100% !important;
+}
+
+/* Token Model Buttons: Genuine 2-column CSS Grid */
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-series-grid,
+.usage-trend.is-compact .usage-trend-series-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 4px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 600px) {
+  .cx-app .vd-usage .usage-trend.is-compact .usage-trend-series-grid,
+  .usage-trend.is-compact .usage-trend-series-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Token Model Button Cell */
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-legend-btn,
+.usage-trend.is-compact .usage-trend-legend-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 4px 8px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 5px !important;
+  background: var(--surface-soft) !important;
+  color: var(--text) !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  transition: border-color 0.15s ease, opacity 0.15s ease, background 0.15s ease !important;
+}
+
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-legend-btn:hover,
+.usage-trend.is-compact .usage-trend-legend-btn:hover {
+  border-color: var(--line-strong) !important;
+  background: var(--surface) !important;
+}
+
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-legend-btn[aria-pressed="true"],
+.usage-trend.is-compact .usage-trend-legend-btn[aria-pressed="true"] {
+  border-color: var(--blue) !important;
+  background: var(--surface) !important;
+}
+
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-legend-btn.is-muted,
+.usage-trend.is-compact .usage-trend-legend-btn.is-muted {
+  opacity: 0.45 !important;
+}
+
+.usage-trend.is-compact .usage-trend-color-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  margin-right: 6px !important;
+  flex-shrink: 0 !important;
+}
+
+.usage-trend.is-compact .usage-trend-legend-name {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-align: left !important;
+  font-weight: 500 !important;
+  font-size: 11px !important;
+}
+
+.usage-trend.is-compact .usage-trend-legend-val {
+  flex: 0 0 auto !important;
+  margin-left: 8px !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+  color: var(--text) !important;
+  font-size: 10px !important;
+  text-align: right !important;
+}
+
+.usage-trend.is-compact .usage-trend-legend-val.is-unmeasured {
+  color: var(--amber) !important;
+}
+
+/* Distinct Full-Width AG Footer */
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-ag-footer,
+.usage-trend.is-compact .usage-trend-ag-footer {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  padding-top: 6px !important;
+  border-top: 1px dashed var(--line) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.usage-trend.is-compact .usage-trend-ag-footer-label {
+  font-size: 10px !important;
+  color: var(--muted) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.2px !important;
+}
+
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-ag-buttons,
+.usage-trend.is-compact .usage-trend-ag-buttons {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 600px) {
+  .cx-app .vd-usage .usage-trend.is-compact .usage-trend-ag-buttons,
+  .usage-trend.is-compact .usage-trend-ag-buttons {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-req-toggle,
+.usage-trend.is-compact .usage-trend-req-toggle {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 4px 8px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 5px !important;
+  background: var(--surface-soft) !important;
+  color: var(--text) !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  transition: opacity 0.15s ease, border-color 0.15s ease !important;
+}
+
+.cx-app .vd-usage .usage-trend.is-compact .usage-trend-req-toggle.is-muted,
+.usage-trend.is-compact .usage-trend-req-toggle.is-muted {
+  opacity: 0.45 !important;
+}
+
+.usage-trend.is-compact .usage-trend-req-indicator {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 2px !important;
+  margin-right: 6px !important;
+  flex-shrink: 0 !important;
+}
+
+.usage-trend.is-compact .usage-trend-ag-name {
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+
+.usage-trend.is-compact .usage-trend-ag-val {
+  margin-left: auto !important;
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  white-space: nowrap !important;
+  padding-left: 6px !important;
+}
+
+/* Header responsiveness */
+.usage-trend.is-compact .usage-trend-legend button span:not(.usage-trend-color-dot):not(.usage-trend-req-indicator){width:auto;height:auto;border-radius:0}
+@media(min-width:601px){
+  .cx-app .vd-usage .usage-trend.is-compact .usage-trend-ag-footer{flex-direction:row!important;align-items:center!important;gap:12px!important}
+  .cx-app .vd-usage .usage-trend.is-compact .usage-trend-ag-buttons{width:auto!important;flex:1}
+}
+.usage-trend.is-compact .usage-trend-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}

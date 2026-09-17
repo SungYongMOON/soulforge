@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, Controls, Handle, MarkerType, MiniMap, Position, ReactFlow, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import "./usage-trend-layout.css";
 import {
   Activity,
   AlertCircle,
@@ -2820,11 +2821,23 @@ function buildProviderTokenSeries(providerDaily: any[]) {
   }));
 }
 
-function buildUsageTrendChart(days: any[], series: any[], requestSeries: any[] = [], selectedSeries: string | null = null) {
+function buildUsageTrendChart(
+  days: any[],
+  series: any[],
+  requestSeries: any[] = [],
+  selectedSeries: string | null = null,
+  options?: { width?: number; height?: number; left?: number; right?: number; top?: number; bottom?: number }
+) {
   if ((days.length !== 7 && days.length !== 30) || series.length === 0) return null;
   const hasAgOverlay = requestSeries.length > 0 && requestSeries.some((s: any) => (s.totalRequests ?? 0) > 0);
-  const width = 1000, height = 238, left = 58, right = hasAgOverlay ? 48 : 12, top = 16, bottom = 34;
-  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const width = options?.width ?? 1000;
+  const height = options?.height ?? 238;
+  const left = options?.left ?? 58;
+  const right = options?.right ?? (hasAgOverlay ? 48 : 12);
+  const top = options?.top ?? 16;
+  const bottom = options?.bottom ?? 34;
+  const plotWidth = Math.max(10, width - left - right);
+  const plotHeight = Math.max(10, height - top - bottom);
   const totals = days.map((_: any, index: number) => series.reduce((sum: number, item: any) => sum + (item.values[index] ?? 0), 0));
   const selectedItem = selectedSeries !== null ? series.find((item: any) => item.id === selectedSeries) : null;
   const rawMax = selectedItem
@@ -2902,6 +2915,9 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
   const [selectedReqFamily, setSelectedReqFamily] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [plotWidth, setPlotWidth] = useState<number | null>(null);
+
   const modelDaily = Array.isArray(usage?.history?.model_daily) ? usage.history.model_daily : [];
   const providerDaily = Array.isArray(usage?.history?.provider_daily) ? usage.history.provider_daily : [];
   const unmeasuredDaily = Array.isArray(usage?.history?.unmeasured_request_daily) && usage.history.unmeasured_request_daily.length === 30
@@ -2939,7 +2955,28 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
   const totalAgRequests = requestSeries.reduce((sum, item) => sum + item.totalRequests, 0);
   const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
 
-  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries);
+  const chartGeometry = compact
+    ? {
+        width: plotWidth ?? 600,
+        height: 186,
+        left: 54,
+        right: showAgOverlay ? 44 : 10,
+        top: 14,
+        bottom: 26,
+      }
+    : undefined;
+
+  const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries, chartGeometry);
+  const hasPlot = chart !== null;
+  useEffect(() => {
+    const element=plotRef.current;
+    if (!compact || !hasPlot || !element) return;
+    const update=(width:number)=>{if(width>0)setPlotWidth(Math.round(width));};
+    update(element.getBoundingClientRect().width);
+    const observer=new ResizeObserver(entries=>entries.forEach(entry=>update(entry.contentRect.width)));
+    observer.observe(element);
+    return ()=>observer.disconnect();
+  }, [compact,hasPlot]);
   const summarySeries = compact && selectedSeries !== null ? series.filter((item: any) => item.id === selectedSeries) : series;
   const knownTokens = summarySeries.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
   const dailyTurns = slicedModelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
@@ -2961,7 +2998,7 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
     : `사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다.${unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 합계에서 제외됩니다.` : ""}`}</p>;
 
   return (
-    <div className={`usage-trend${showAgOverlay ? " has-req-overlay" : ""}`} data-testid="usage-trend-chart" data-view={view} data-range={range}>
+    <div className={`usage-trend${showAgOverlay ? " has-req-overlay" : ""}${compact ? " is-compact" : ""}`} data-testid="usage-trend-chart" data-view={view} data-range={range}>
       <header className="usage-trend-header">
         <div>
           <span>토큰</span>
@@ -2984,13 +3021,12 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
         {basisLabel && <p className="usage-trend-note">{basisLabel.replace(/^ · /u, '')}</p>}
         {scopeNote}
       </details> : scopeNote}
-      <div className="usage-trend-plot">
+      <div className="usage-trend-plot" ref={plotRef}>
         <svg
           viewBox={`0 0 ${chart.width} ${chart.height}`}
           role="img"
           aria-label={`최근 ${range}일 ${view === "model" ? "모델별" : "제공자별"} 로컬 토큰${showAgOverlay ? " 및 Antigravity 요청" : ""} 사용량`}
-          preserveAspectRatio={compact ? "none" : undefined}
-          style={compact ? { height: 180 } : undefined}
+          style={{ width: "100%", height: chart.height, display: "block" }}
         >
           {showAgOverlay && (
             <>
@@ -3031,7 +3067,7 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
             </g>
           ))}
           {days.map((day: any, index: number) => ((index % (days.length <= 7 ? 1 : 5) === 0 || index === days.length - 1) && (
-            <text key={day.date} className="usage-trend-axis" x={chart.x(index)} y={chart.height - 10} textAnchor="middle">{String(day.date).slice(5).replace("-", "/")}</text>
+            <text key={day.date} className="usage-trend-axis" x={chart.x(index)} y={chart.height - 8} textAnchor="middle">{String(day.date).slice(5).replace("-", "/")}</text>
           )))}
           {activeIndex !== null && (() => {
             const x = chart.x(activeIndex);
@@ -3042,7 +3078,17 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
             );
           })()}
         </svg>
-        <div className="usage-trend-hit-grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-label={showAgOverlay ? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"}>
+        <div
+          className="usage-trend-hit-grid"
+          style={{
+            gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
+            top: `${((chart.top / chart.height) * 100).toFixed(2)}%`,
+            bottom: `${((chart.bottom / chart.height) * 100).toFixed(2)}%`,
+            left: `${((chart.left / chart.width) * 100).toFixed(2)}%`,
+            right: `${((chart.right / chart.width) * 100).toFixed(2)}%`,
+          }}
+          aria-label={showAgOverlay ? "날짜별 토큰 및 Antigravity 요청 상세" : "날짜별 토큰 상세"}
+        >
           {days.map((day: any, index: number) => {
             const tokenDesc = (selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries))
               .map((item: any) => `${item.label} ${item.values[index]===0&&item.unknownTurns[index]>0?'토큰 미측정':`${formatUsageNumber(item.values[index])} 토큰`}`).join(", ");
@@ -3090,10 +3136,10 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
           return (
             <div className="usage-trend-readout-bar">
               <div className="usage-trend-readout-meta">
-                <strong className="usage-trend-readout-date">{currentDay.date}</strong>
-                <span className="usage-trend-readout-tag">아래 모델별: {isHovered?'선택일':`${range}일 합계`}</span>
+                <strong className="usage-trend-readout-date">{compact ? isHovered ? `${currentDay.date} · 일별 사용량` : `${view==='model'?'모델별':'제공자별'} · ${range}일 합계` : currentDay.date}</strong>
+                {!compact && <span className="usage-trend-readout-tag">아래 모델별: {isHovered ? '선택일' : `${range}일 합계`}</span>}
                 <span className="usage-trend-readout-total">
-                  합계 <b>{dayTokens === 0 && series.some((s: any) => s.unknownTurns[displayIndex] > 0) ? "토큰 미측정" : `${compact ? new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFractionDigits: 1 }).format(dayTokens) : formatUsageNumber(dayTokens)} 토큰`}</b>
+                  {compact&&!isHovered?`${String(currentDay.date).slice(5).replace('-','/')} 사용`:'합계'} <b>{dayTokens === 0 && series.some((s: any) => s.unknownTurns[displayIndex] > 0) ? "토큰 미측정" : `${compact ? new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFractionDigits: 1 }).format(dayTokens) : formatUsageNumber(dayTokens)} 토큰`}</b>
                 </span>
               </div>
               {!compact && <div className="usage-trend-readout-items">
@@ -3119,38 +3165,102 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
         })()}
       </div>
       <div className="usage-trend-legend" aria-label={`${view === "model" ? "모델" : "제공자"}${showAgOverlay ? " 및 Antigravity" : ""} 범례`}>
-        {series.map((item: any, index: number) => (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={selectedSeries === item.id}
-            className={selectedSeries !== null && selectedSeries !== item.id ? "is-muted" : ""}
-            onClick={() => { const next = selectedSeries === item.id ? null : item.id; setSelectedSeries(next); onSelection?.(view === "model" ? { date: null, modelId: next, excludedModelIds: series.filter((s:any)=>s.id!=="other").map((s:any)=>s.id) } : null); }}
-          >
-            <span style={{ background: USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length] }} />
-            {item.label}
-            {compact&&<small className="vd-series-total">{activeIndex===null?seriesTotalLabel(item):item.values[activeIndex]===0&&item.unknownTurns[activeIndex]>0?'토큰 미측정':`${new Intl.NumberFormat('ko-KR',{notation:'compact',maximumFractionDigits:1}).format(item.values[activeIndex])} 토큰`}</small>}
-          </button>
-        ))}
-        {showAgOverlay && (
+        {compact ? (
           <>
-            <span className="usage-trend-legend-divider" aria-hidden="true">|</span>
-            {requestSeries.map((fam) => {
-              const reqCount = activeIndex !== null ? (fam.values[activeIndex] ?? 0) : fam.totalRequests;
-              return (
-                <button
-                  key={fam.id}
-                  type="button"
-                  aria-pressed={selectedReqFamily === fam.id}
-                  className={`usage-trend-req-toggle is-${fam.id}${selectedReqFamily !== null && selectedReqFamily !== fam.id ? " is-muted" : ""}`}
-                  onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
-                >
-                  <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
-                  <b>{fam.label}</b>
-                  <small>({reqCount.toLocaleString("en-US")}회 · 토큰 미측정)</small>
-                </button>
-              );
-            })}
+            <div className="usage-trend-series-grid">
+              {series.map((item: any, index: number) => {
+                const isSelected = selectedSeries === item.id;
+                const isMuted = selectedSeries !== null && !isSelected;
+                const color = USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length];
+                const dayVal = activeIndex !== null ? item.values[activeIndex] : null;
+                const dayUnk = activeIndex !== null ? item.unknownTurns[activeIndex] : null;
+                const isUnmeasured = activeIndex !== null && dayVal === 0 && (dayUnk ?? 0) > 0;
+                const valueText = activeIndex === null
+                  ? seriesTotalLabel(item)
+                  : isUnmeasured
+                    ? "토큰 미측정"
+                    : `${new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFractionDigits: 1 }).format(dayVal ?? 0)} 토큰`;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={isSelected}
+                    className={`usage-trend-legend-btn${isMuted ? " is-muted" : ""}`}
+                    onClick={() => {
+                      const next = isSelected ? null : item.id;
+                      setSelectedSeries(next);
+                      onSelection?.(view === "model" ? { date: null, modelId: next, excludedModelIds: series.filter((s: any) => s.id !== "other").map((s: any) => s.id) } : null);
+                    }}
+                  >
+                    <span className="usage-trend-color-dot" style={{ background: color }} />
+                    <span className="usage-trend-legend-name" title={item.label}>{item.label}</span>
+                    <span className={`usage-trend-legend-val vd-series-total${isUnmeasured ? " is-unmeasured" : ""}`}>{valueText}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {showAgOverlay && (
+              <div className="usage-trend-ag-footer">
+                <span className="usage-trend-ag-footer-label">Antigravity 요청 · 회 / 토큰 별도</span>
+                <div className="usage-trend-ag-buttons">
+                  {requestSeries.map((fam) => {
+                    const reqCount = activeIndex !== null ? (fam.values[activeIndex] ?? 0) : fam.totalRequests;
+                    const isSelected = selectedReqFamily === fam.id;
+                    const isMuted = selectedReqFamily !== null && !isSelected;
+                    return (
+                      <button
+                        key={fam.id}
+                        type="button"
+                        aria-pressed={isSelected}
+                        className={`usage-trend-req-toggle is-${fam.id}${isMuted ? " is-muted" : ""}`}
+                        onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
+                      >
+                        <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
+                        <span className="usage-trend-ag-name">{fam.label}</span>
+                        <span className="usage-trend-ag-val">{reqCount.toLocaleString("en-US")}회</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {series.map((item: any, index: number) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={selectedSeries === item.id}
+                className={selectedSeries !== null && selectedSeries !== item.id ? "is-muted" : ""}
+                onClick={() => { const next = selectedSeries === item.id ? null : item.id; setSelectedSeries(next); onSelection?.(view === "model" ? { date: null, modelId: next, excludedModelIds: series.filter((s:any)=>s.id!=="other").map((s:any)=>s.id) } : null); }}
+              >
+                <span style={{ background: USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length] }} />
+                {item.label}
+              </button>
+            ))}
+            {showAgOverlay && (
+              <>
+                <span className="usage-trend-legend-divider" aria-hidden="true">|</span>
+                {requestSeries.map((fam) => {
+                  const reqCount = activeIndex !== null ? (fam.values[activeIndex] ?? 0) : fam.totalRequests;
+                  return (
+                    <button
+                      key={fam.id}
+                      type="button"
+                      aria-pressed={selectedReqFamily === fam.id}
+                      className={`usage-trend-req-toggle is-${fam.id}${selectedReqFamily !== null && selectedReqFamily !== fam.id ? " is-muted" : ""}`}
+                      onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
+                    >
+                      <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
+                      <b>{fam.label}</b>
+                      <small>({reqCount.toLocaleString("en-US")}회 · 토큰 미측정)</small>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </>
         )}
       </div>
