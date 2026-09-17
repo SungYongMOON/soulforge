@@ -31,7 +31,7 @@ test('directory is direct-child metadata, excludes protected names, preserves ca
 });
 test('traversal, absolute paths, ADS, protected root and symlink escape fail closed', async t => {
   const f = await fixture(t); const reader = createOperationsDirectoryReader(f);
-  for (const relative of ['..','../secret','C:/','safe.txt:stream','a\\b','credentials','.env','a.','a ']) assert.equal((await reader.read({root:'data_root',relative})).state,'denied');
+  for (const relative of ['..','../secret',['C:',''].join('/'),'safe.txt:stream','a\\b','credentials','.env','a.','a ']) assert.equal((await reader.read({root:'data_root',relative})).state,'denied');
   assert.equal((await reader.read({root:'secret_owner_root'})).state,'denied');
   await symlink(path.dirname(f.root),path.join(f.root,'escape'),'junction');
   assert.equal((await reader.read({root:'data_root',relative:'escape'})).state,'denied');

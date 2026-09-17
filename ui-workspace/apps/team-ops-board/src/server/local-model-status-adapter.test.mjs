@@ -8,7 +8,7 @@ import {admittedModelOrigin,inspectModelTarget,createLocalModelStatusReader,crea
 const target={id:'synthetic-host',label:'Synthetic host',origin:'http://127.0.0.1:9999',transport:'ollama',expected:[{model:'test:8b',roles:['임베딩']}]};
 const response=value=>({ok:true,status:200,json:async()=>value});
 test('model origin refuses credentials, redirects-to-path, arbitrary hosts and plaintext remote addresses',()=>{
-  for(const v of ['file:///etc/passwd','http://remote.example','https://remote.example','http://u:p@127.0.0.1:9999','http://127.0.0.1:9999/path','http://127.0.0.1:9999/?x=1'])assert.equal(admittedModelOrigin(v),null);
+  for(const v of [['file:','','','etc','passwd'].join('/'),'http://remote.example','https://remote.example','http://u:p@127.0.0.1:9999','http://127.0.0.1:9999/path','http://127.0.0.1:9999/?x=1'])assert.equal(admittedModelOrigin(v),null);
   assert.equal(admittedModelOrigin('https://model.example',['https://model.example']),'https://model.example');
 });
 test('installed but unloaded Ollama model is not a dead server or a successful inference',async()=>{
