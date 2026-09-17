@@ -540,6 +540,9 @@ function baseAggregate(mode, configuredCount) {
     held_count: 0,
     processed_pages: 0,
     replayed_pages: 0,
+    head_processed_pages: 0,
+    head_accepted_count: 0,
+    advanced_pages: 0,
     continuation_pending_count: 0,
     repository_writes: 0,
     private_writes: 0,
@@ -759,16 +762,7 @@ export async function runSlackBatchLive({
         if (transport?.kind === "web_api") aggregate.network_used = true;
         const observedTransport = observeTransportPages(transport);
         let continuationPending = false;
-        for (let pageIndex = 0; pageIndex < reference.max_pages; pageIndex += 1) {
-          const result = await runSlackContinuousIngress({
-            binding: loaded.binding,
-            expected_binding_digest: loaded.binding_digest,
-            writer_authority_id: loaded.binding.writer.authority_id,
-            writer_epoch: loaded.binding.writer.epoch,
-            transport: observedTransport.transport,
-            dry_run: false,
-            max_events: reference.max_events,
-          });
+        const accumulate = (result) => {
           aggregate.pulled_count += result.pulled_count;
           aggregate.accepted_count += result.accepted_count;
           aggregate.held_count += result.held_count;
@@ -776,10 +770,43 @@ export async function runSlackBatchLive({
           aggregate.replayed_pages += result.replayed_pages;
           aggregate.private_writes += result.private_writes;
           aggregate.network_used ||= result.network_used;
+          if (result.cursor_advanced === true) aggregate.advanced_pages += 1;
+        };
+        const ingest = (pass) => runSlackContinuousIngress({
+          binding: loaded.binding,
+          expected_binding_digest: loaded.binding_digest,
+          writer_authority_id: loaded.binding.writer.authority_id,
+          writer_epoch: loaded.binding.writer.epoch,
+          transport: observedTransport.transport,
+          dry_run: false,
+          max_events: reference.max_events,
+          pass,
+        });
+        // Head pass first: messages newer than the channel watermark, newest page
+        // first, under the same page budget as the tail walk. It stops at the
+        // first page that adds nothing.
+        for (let pageIndex = 0; pageIndex < reference.max_pages; pageIndex += 1) {
+          const result = await ingest("head");
+          accumulate(result);
+          aggregate.head_processed_pages += result.processed_pages;
+          aggregate.head_accepted_count += result.accepted_count;
           if (result.pulled_count === 0
             || result.processed_pages === 0
-            || result.replayed_pages > 0
-            || observedTransport.latestHasNextPage() !== true) {
+            || result.continuation_pending !== true) {
+            break;
+          }
+          if (pageIndex === reference.max_pages - 1) continuationPending = true;
+        }
+        // Tail walk: backward paging as before. A replayed page mid-walk now
+        // advances the stored cursor instead of stalling on it; once the walk
+        // has reached the provider end it only re-reads the newest page and
+        // reports no continuation, so the loop stops after that one read.
+        for (let pageIndex = 0; pageIndex < reference.max_pages; pageIndex += 1) {
+          const result = await ingest("tail");
+          accumulate(result);
+          if (result.pulled_count === 0
+            || (result.processed_pages === 0 && result.cursor_advanced !== true)
+            || result.continuation_pending !== true) {
             break;
           }
           if (pageIndex === reference.max_pages - 1) continuationPending = true;

@@ -21,24 +21,45 @@ function assertLimit(limit) {
   }
 }
 
+// A head window (`oldest`) is a Slack message timestamp: only messages newer
+// than it are returned. The tail walk never sets it; the head pass always does.
+const SLACK_TS_PATTERN = /^[0-9]{10,16}\.[0-9]{6}$/u;
+
+export function assertOldest(oldest) {
+  if (oldest !== null && (typeof oldest !== "string" || !SLACK_TS_PATTERN.test(oldest))) {
+    fail("transport_oldest_invalid", "oldest must be null or a Slack message timestamp");
+  }
+}
+
 export function createSyntheticSlackTransport(records) {
   if (!Array.isArray(records)) fail("synthetic_records_invalid", "records must be an array");
   const retained = structuredClone(records);
   return Object.freeze({
     kind: "synthetic",
-    async pull({ cursor_token: cursorToken = null, limit }) {
+    async pull({ cursor_token: cursorToken = null, limit, oldest = null }) {
       assertLimit(limit);
+      assertOldest(oldest);
+      const visible = oldest === null
+        ? retained
+        : retained.filter((record) => (
+          Number.parseFloat(String(record?.raw_event?.ts ?? "")) > Number.parseFloat(oldest)
+        ));
       const offset = cursorToken === null
         ? 0
         : Number.parseInt(cursorToken.replace(/^synthetic:/u, ""), 10);
-      if (!Number.isSafeInteger(offset) || offset < 0 || offset > retained.length) {
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset > visible.length) {
         fail("synthetic_cursor_invalid", "cursor token is outside the fixture");
       }
-      const pageRecords = retained.slice(offset, offset + limit);
+      const pageRecords = visible.slice(offset, offset + limit);
       const nextOffset = offset + pageRecords.length;
-      const nextToken = nextOffset >= retained.length ? null : `synthetic:${nextOffset}`;
+      const nextToken = nextOffset >= visible.length ? null : `synthetic:${nextOffset}`;
+      // A head-window page is a different page from the tail page at the same
+      // offsets (the web transport separates them through the next-cursor
+      // digest and event ids); name the window so the ids cannot collide.
       return {
-        page_id: `synthetic-page:${offset}:${nextOffset}`,
+        page_id: oldest === null
+          ? `synthetic-page:${offset}:${nextOffset}`
+          : `synthetic-page:${offset}:${nextOffset}:after:${oldest}`,
         previous_cursor_digest: cursorToken === null ? null : sha256Canonical(cursorToken),
         next_cursor_digest: nextToken === null ? null : sha256Canonical(nextToken),
         next_cursor_token: nextToken,
@@ -63,12 +84,14 @@ export function createSlackWebApiCompatibleAdapter({ apiCall }) {
         include_num_members: false,
       });
     },
-    async pullHistoryPage({ channel_id: channelId, cursor_token: cursorToken = null, limit }) {
+    async pullHistoryPage({ channel_id: channelId, cursor_token: cursorToken = null, limit, oldest = null }) {
       assertLimit(limit);
+      assertOldest(oldest);
       return apiCall("conversations.history", {
         channel: channelId,
         cursor: cursorToken ?? undefined,
-        inclusive: true,
+        // Head window: the watermark message itself is excluded. Tail walk: unchanged.
+        ...(oldest === null ? { inclusive: true } : { oldest, inclusive: false }),
         limit,
       });
     },
@@ -128,8 +151,9 @@ export function createSlackWebApiPollingTransport({
   if (!binding || typeof binding !== "object") fail("binding_required", "A validated Slack binding is required");
   const transport = {
     kind: "web_api",
-    async pull({ cursor_token: cursorToken = null, limit }) {
+    async pull({ cursor_token: cursorToken = null, limit, oldest = null }) {
       assertLimit(limit);
+      assertOldest(oldest);
       const authResponse = await adapter.inspectAuth();
       if (authResponse?.ok !== true || authResponse.team_id !== binding.workspace_id) {
         fail("token_workspace_mismatch", "Slack token is not bound to the configured workspace");
@@ -141,6 +165,7 @@ export function createSlackWebApiPollingTransport({
         channel_id: binding.channel_id,
         cursor_token: cursorToken,
         limit: Math.min(limit, 15),
+        oldest,
       });
       if (historyResponse?.ok !== true || !Array.isArray(historyResponse.messages)) {
         fail("history_pull_failed", "conversations.history did not return a message page");

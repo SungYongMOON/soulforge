@@ -23,6 +23,17 @@ export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2 = "soulforge.slack_conti
 export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3 = "soulforge.slack_continuous.binding.v3";
 export const SLACK_CONTINUOUS_STATE_SCHEMA_VERSION = "soulforge.slack_continuous.state.v1";
 
+// Head window state. `latest_ts` is the newest Slack message timestamp this
+// channel has evaluated (accepted or held); the head pass asks the provider only
+// for messages newer than it. `chain` is an in-progress head continuation
+// (newest page first, older pages follow) that is closed once the provider
+// reaches the window start. States written before this field existed derive the
+// watermark from their retained revisions on load.
+const HEAD_FIELDS = Object.freeze(["latest_ts", "chain"]);
+const HEAD_CHAIN_FIELDS = Object.freeze(["oldest", "provider_cursor_token", "provider_cursor_digest"]);
+const SLACK_TS_PATTERN = /^[0-9]{10,16}\.[0-9]{6}$/u;
+const INGRESS_PASSES = Object.freeze(["head", "tail"]);
+
 const BINDING_FIELDS = Object.freeze([
   "schema_version",
   "feature_enabled",
@@ -837,6 +848,7 @@ function initialState(binding, bindingDigest) {
     writer_authority_id: binding.writer.authority_id,
     writer_epoch: binding.writer.epoch,
     provider_cursor_token: null,
+    head: { latest_ts: null, chain: null },
     cursor: createSlackBackfillCursor({
       workspace_id: binding.workspace_id,
       channel_id: binding.channel_id,
@@ -865,6 +877,7 @@ function validateLoadedState(state, binding, bindingDigest) {
     fail("state_writer_fence", "$state.writer_epoch", "State belongs to another writer authority or epoch");
   }
   validateSlackBackfillCursor(state.cursor);
+  state.head = validateHeadState(state.head, state.revisions);
   if (!Array.isArray(state.revisions)
     || !Array.isArray(state.custody_receipts)
     || (state.attachment_receipts !== undefined && !Array.isArray(state.attachment_receipts))
@@ -922,6 +935,49 @@ function assertWriterFence(binding, {
     fail("writer_authority_fence", "$writer", "Apply requires the exact writer authority and epoch");
   }
   return actualDigest;
+}
+
+function slackTsMax(left, right) {
+  if (typeof right !== "string" || !SLACK_TS_PATTERN.test(right)) return left;
+  if (left === null) return right;
+  return Number.parseFloat(right) > Number.parseFloat(left) ? right : left;
+}
+
+// The watermark after a page: accepted deliveries by their message timestamp,
+// plus every pulled record by its own timestamp, so held messages are not
+// re-pulled by the head pass either.
+function pageWatermark(current, deliveries, records) {
+  let latest = current;
+  for (const delivery of deliveries) latest = slackTsMax(latest, delivery?.revision?.message_ts);
+  for (const record of records) latest = slackTsMax(latest, messagePayload(record?.raw_event)?.ts);
+  return latest;
+}
+
+function validateHeadState(head, revisions) {
+  if (head === undefined) {
+    let latest = null;
+    for (const revision of revisions) latest = slackTsMax(latest, revision?.message_ts);
+    return { latest_ts: latest, chain: null };
+  }
+  exactKeys(head, HEAD_FIELDS, "$state.head");
+  if (head.latest_ts !== null
+    && (typeof head.latest_ts !== "string" || !SLACK_TS_PATTERN.test(head.latest_ts))) {
+    fail("state_head_invalid", "$state.head.latest_ts", "Expected null or a Slack message timestamp");
+  }
+  if (head.chain !== null) {
+    exactKeys(head.chain, HEAD_CHAIN_FIELDS, "$state.head.chain");
+    if (head.latest_ts === null) {
+      fail("state_head_invalid", "$state.head.chain", "A head chain requires a watermark");
+    }
+    if (typeof head.chain.oldest !== "string" || !SLACK_TS_PATTERN.test(head.chain.oldest)) {
+      fail("state_head_invalid", "$state.head.chain.oldest", "Expected a Slack message timestamp");
+    }
+    if (typeof head.chain.provider_cursor_token !== "string" || head.chain.provider_cursor_token.length === 0) {
+      fail("state_head_invalid", "$state.head.chain.provider_cursor_token", "Expected a provider cursor token");
+    }
+    validateDigest(head.chain.provider_cursor_digest, "$state.head.chain.provider_cursor_digest");
+  }
+  return head;
 }
 
 function receiptKey(receipt) {
@@ -1120,9 +1176,13 @@ export async function runSlackContinuousIngress({
   transport,
   dry_run: dryRun = false,
   max_events: maxEvents = 100,
+  pass = "tail",
   test_fail_before_state_rename: failBeforeStateRename = false,
 }) {
   validateSlackContinuousBinding(binding);
+  if (!INGRESS_PASSES.includes(pass)) {
+    fail("pass_invalid", "$pass", "Expected \"head\" or \"tail\"");
+  }
   if (transport === null || typeof transport !== "object" || typeof transport.pull !== "function") {
     fail("transport_invalid", "$transport", "Expected an injected pull transport");
   }
@@ -1167,12 +1227,74 @@ export async function runSlackContinuousIngress({
         : validateLoadedState(state, binding, bindingDigest);
     }
 
+    const skipped = (reason, { pulled = false, next_state: nextStateForDigest = state, private_writes: privateWrites = 0 } = {}) => ({
+      mode: dryRun ? "dry_run" : "apply",
+      feature_status: binding.feature_enabled ? "ON" : "OFF",
+      binding_digest: bindingDigest,
+      state_digest: sha256Canonical(nextStateForDigest),
+      pass,
+      skipped: reason,
+      cursor_advanced: false,
+      continuation_pending: false,
+      pulled_count: 0,
+      accepted_count: 0,
+      held_count: 0,
+      processed_pages: 0,
+      replayed_pages: 0,
+      revision_count: state.revisions.length,
+      repository_writes: 0,
+      private_writes: privateWrites,
+      network_used: pulled && transport.kind === "web_api",
+      coverage_gaps: [],
+      timeline_annotation_count: 0,
+      timeline_annotations_written: 0,
+    });
+    let pull;
+    // Once the tail walk has reached the provider end its token is null again
+    // and it stays anchored at the newest page: that page is re-read every run
+    // (edits and metadata of recent messages) but never restarts a full walk.
+    const tailAnchored = pass === "tail"
+      && state.provider_cursor_token === null
+      && state.cursor.accepted_pages.length > 0;
+    if (pass === "head") {
+      // No watermark yet: the tail walk's first page defines it.
+      if (state.head.latest_ts === null) return skipped("head_no_watermark");
+      const chain = state.head.chain;
+      pull = chain === null
+        ? { cursor_token: null, chain_digest: null, oldest: state.head.latest_ts }
+        : {
+          cursor_token: chain.provider_cursor_token,
+          chain_digest: chain.provider_cursor_digest,
+          oldest: chain.oldest,
+        };
+    } else {
+      pull = {
+        cursor_token: state.provider_cursor_token,
+        chain_digest: state.cursor.provider_cursor_digest,
+        oldest: null,
+      };
+    }
+
     const page = await transport.pull({
-      cursor_token: state.provider_cursor_token,
+      cursor_token: pull.cursor_token,
       limit: maxEvents,
+      oldest: pull.oldest,
     });
     if (!Array.isArray(page.records)) {
       fail("transport_page_invalid", "$transport.page.records", "Transport page records must be an array");
+    }
+    if (pass === "head" && page.records.length === 0) {
+      // Nothing newer than the window start. An open continuation that ends
+      // empty is closed; otherwise nothing changes and nothing is written.
+      if (state.head.chain === null || dryRun) return skipped("head_empty", { pulled: true });
+      const closedState = { ...state, head: { ...state.head, chain: null } };
+      await atomicWritePrivateJson(
+        binding.data_root,
+        ["state", "slack-continuous.json"],
+        closedState,
+        { fail_before_rename: failBeforeStateRename },
+      );
+      return skipped("head_empty", { pulled: true, next_state: closedState, private_writes: 1 });
     }
     const workingRevisions = structuredClone(state.revisions);
     const deliveries = [];
@@ -1316,8 +1438,14 @@ export async function runSlackContinuousIngress({
       acceptedEventIds,
     );
 
+    // The head window is its own page chain: it starts from the newest page
+    // (no previous cursor) and continues through its own provider tokens, so it
+    // is checked against the head chain digest while sharing the channel's
+    // accepted-page set, delivery evidence and revisions with the tail walk.
     const applied = applyBoundedSlackBackfill({
-      cursor: state.cursor,
+      cursor: pass === "head"
+        ? { ...state.cursor, provider_cursor_digest: pull.chain_digest }
+        : state.cursor,
       pages: [{
         page_id: page.page_id,
         previous_cursor_digest: page.previous_cursor_digest,
@@ -1373,12 +1501,53 @@ export async function runSlackContinuousIngress({
       }
       attachmentByFileId.set(receipt.file_id, receipt);
     });
+    const pageLatestTs = pageWatermark(state.head.latest_ts, deliveries, page.records);
+    let nextCursor = applied.cursor;
+    let nextToken = state.provider_cursor_token;
+    let nextHead = state.head;
+    let cursorAdvanced = false;
+    if (pass === "head") {
+      nextCursor = { ...applied.cursor, provider_cursor_digest: state.cursor.provider_cursor_digest };
+      if (applied.processed_pages === 1) {
+        nextHead = {
+          latest_ts: pageLatestTs,
+          chain: page.next_cursor_token === null
+            ? null
+            : {
+              oldest: pull.oldest,
+              provider_cursor_token: page.next_cursor_token,
+              provider_cursor_digest: page.next_cursor_digest,
+            },
+        };
+      } else if (state.head.chain !== null) {
+        // A replayed continuation page: this window has nothing left to add.
+        nextHead = { ...state.head, chain: null };
+        cursorAdvanced = true;
+      }
+    } else if (applied.processed_pages === 1) {
+      nextToken = tailAnchored ? null : page.next_cursor_token;
+      if (tailAnchored) nextCursor = { ...applied.cursor, provider_cursor_digest: null };
+      nextHead = { ...state.head, latest_ts: pageLatestTs };
+    } else if (applied.replayed_pages === 1 && !tailAnchored) {
+      // The stored cursor points at a page an earlier walk already accepted.
+      // Step over it instead of replaying it on every run; a missing or
+      // self-referencing continuation ends the walk.
+      const advanceTo = page.next_cursor_token === state.provider_cursor_token
+        ? null
+        : page.next_cursor_token;
+      nextToken = advanceTo;
+      nextCursor = {
+        ...applied.cursor,
+        provider_cursor_digest: advanceTo === null ? null : page.next_cursor_digest,
+      };
+      cursorAdvanced = true;
+    }
+    const stateChanged = applied.processed_pages === 1 || cursorAdvanced;
     const nextState = {
       ...state,
-      provider_cursor_token: applied.processed_pages === 1
-        ? page.next_cursor_token
-        : state.provider_cursor_token,
-      cursor: applied.cursor,
+      provider_cursor_token: nextToken,
+      head: nextHead,
+      cursor: nextCursor,
       revisions: applied.revisions,
       custody_receipts: [...custodyByKey.values()].sort((left, right) => receiptKey(left).localeCompare(receiptKey(right))),
       attachment_receipts: [...attachmentByFileId.values()].sort((left, right) => left.file_id.localeCompare(right.file_id)),
@@ -1386,13 +1555,15 @@ export async function runSlackContinuousIngress({
       page_evidence_receipts: mergedPageEvidenceReceipts,
     };
     const stateDigest = sha256Canonical(nextState);
-    if (!dryRun && applied.processed_pages === 1) {
+    if (!dryRun && stateChanged) {
       await atomicWritePrivateJson(
         binding.data_root,
         ["state", "slack-continuous.json"],
         nextState,
         { fail_before_rename: failBeforeStateRename },
       );
+    }
+    if (!dryRun && applied.processed_pages === 1) {
       for (const transaction of attachmentTransactions) await transaction.finalize();
       attachmentTransactionsFinalized = true;
     } else if (!dryRun) {
@@ -1406,6 +1577,12 @@ export async function runSlackContinuousIngress({
       feature_status: binding.feature_enabled ? "ON" : "OFF",
       binding_digest: bindingDigest,
       state_digest: stateDigest,
+      pass,
+      skipped: null,
+      cursor_advanced: cursorAdvanced,
+      // True when another pull of the same pass would move further: an open
+      // head chain, or a tail token that still points at a page.
+      continuation_pending: pass === "head" ? nextHead.chain !== null : nextToken !== null,
       pulled_count: page.records.length,
       accepted_count: acceptedRecords.length,
       held_count: newHoldReceipts.length,
@@ -1416,7 +1593,7 @@ export async function runSlackContinuousIngress({
       private_writes: dryRun
         ? 0
         : newCustodyReceipts.length
-          + (applied.processed_pages === 1 ? 1 : 0)
+          + (stateChanged ? 1 : 0)
           + (applied.processed_pages === 1
             ? attachmentTransactions.reduce(
               (total, transaction) => total + transaction.private_writes,
