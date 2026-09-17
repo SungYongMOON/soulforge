@@ -192,7 +192,8 @@ test("UsageTrendChart date inspection stays outside the plot and pointer targets
   const chartSource=source.slice(start,end);
   assert.ok(chartSource.indexOf('className="usage-trend-readout"')>chartSource.indexOf('</svg>'));
   assert.doesNotMatch(chartSource, /<rect/u, 'date inspection must not cover the plot');
-  assert.match(chartSource, /const showAgOverlay = false/u, 'request units use only the companion track');
+  assert.match(chartSource, /const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;/u);
+  assert.equal((chartSource.match(/<UsageRequestTrend /gu)??[]).length,1,'separate requests are only the missing-token fallback, not duplicated below the normal chart');
   const dashboardCss=readFileSync(join(dirname(APP_PATH),'operations-dashboard.css'),'utf8');
   assert.match(dashboardCss, /\.cx-app \.usage-trend-hit-grid button:hover[^}]*background:transparent!important/u);
   const boxWidth = 260;

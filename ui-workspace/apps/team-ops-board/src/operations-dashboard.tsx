@@ -81,7 +81,7 @@ export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:R
   return <div className="vd-dashboard">
     <OperationsHostStrip snapshot={inputs.host} failed={failed.includes('host')}/>
     <OperationsSummary model={model} inputs={inputs} failed={failed} />
-    <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청은 아래의 얇은 보조 그래프에서 ‘회’ 단위로 봅니다. 토큰 합계에는 포함하지 않습니다. 날짜는 대화 관측일 기준이며, 토큰 미측정과 날짜 귀속 범위는 집계 범위에서 확인합니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
+    <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청은 같은 그래프 위의 선으로, 오른쪽 ‘회’ 축을 사용합니다. 왼쪽 토큰 합계에는 포함하지 않습니다. 날짜는 대화 관측일 기준이며, 토큰 미측정과 날짜 귀속 범위는 집계 범위에서 확인합니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
       {failed.includes('usage')&&<span className="vd-small-state">보존 이력 · 새 조회 실패</span>}<UsageTrendChart usage={inputs.usage} onSelection={chooseUsage} compact collectorStatus={agCollectorStatus} />
     </section></div>
     <OperationsJudgment model={model} inputs={inputs} failed={failed} go={go} hostDetail={h=>open(h.label,<HostFacts host={h}/>)} />

@@ -323,7 +323,7 @@ test("usage trend defaults to exact model data and exposes accessible provider a
   assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.usage-trend-header/u);
 });
 
-test("usage trend separates Antigravity request units into a companion track and provides clean v2 fallback", () => {
+test("usage trend overlays Antigravity requests on their own axis and provides clean v2 fallback", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
 
@@ -331,9 +331,9 @@ test("usage trend separates Antigravity request units into a companion track and
   assert.match(source, /for \(const row of day\.models \?\? \[\]\) totals\.set\(row\.model_id, \(totals\.get\(row\.model_id\) \?\? 0\) \+ row\.total_tokens\);/u);
   assert.doesNotMatch(source, /if \(\(row\.total_tokens \?\? 0\) > 0\) totals\.set/u);
 
-  // Request data retains its input gate and renders in its own companion track.
+  // Only valid non-zero requests enable the separate right axis.
   assert.match(source, /const unmeasuredDaily = Array\.isArray\(usage\?\.history\?\.unmeasured_request_daily\) && usage\.history\.unmeasured_request_daily\.length === 30/u);
-  assert.match(source, /const showAgOverlay = false;/u);
+  assert.match(source, /const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;/u);
   assert.match(source, /<UsageRequestTrend unmeasuredDaily=\{unmeasuredDaily\} range=\{range\}/u);
 
   // Gated className for overlay styling

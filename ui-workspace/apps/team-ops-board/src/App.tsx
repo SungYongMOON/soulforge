@@ -2937,7 +2937,7 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
       ]
     : [];
   const totalAgRequests = requestSeries.reduce((sum, item) => sum + item.totalRequests, 0);
-  const showAgOverlay = false; // Requests have their own compact track and unit.
+  const showAgOverlay = hasValidAgDaily && totalAgRequests > 0;
 
   const chart = buildUsageTrendChart(days, series, showAgOverlay ? requestSeries : [], selectedSeries);
   const summarySeries = compact && selectedSeries !== null ? series.filter((item: any) => item.id === selectedSeries) : series;
@@ -3135,23 +3135,25 @@ function UsageTrendChart({ usage, onSelection, compact = false, collectorStatus 
         {showAgOverlay && (
           <>
             <span className="usage-trend-legend-divider" aria-hidden="true">|</span>
-            {requestSeries.map((fam) => (
-              <button
-                key={fam.id}
-                type="button"
-                aria-pressed={selectedReqFamily === fam.id}
-                className={`usage-trend-req-toggle is-${fam.id}${selectedReqFamily !== null && selectedReqFamily !== fam.id ? " is-muted" : ""}`}
-                onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
-              >
-                <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
-                <b>{fam.label}</b>
-                <small>({fam.totalRequests.toLocaleString("en-US")}회 · 토큰 미측정)</small>
-              </button>
-            ))}
+            {requestSeries.map((fam) => {
+              const reqCount = activeIndex !== null ? (fam.values[activeIndex] ?? 0) : fam.totalRequests;
+              return (
+                <button
+                  key={fam.id}
+                  type="button"
+                  aria-pressed={selectedReqFamily === fam.id}
+                  className={`usage-trend-req-toggle is-${fam.id}${selectedReqFamily !== null && selectedReqFamily !== fam.id ? " is-muted" : ""}`}
+                  onClick={() => setSelectedReqFamily((current) => current === fam.id ? null : fam.id)}
+                >
+                  <span className="usage-trend-req-indicator" style={{ background: fam.color }} />
+                  <b>{fam.label}</b>
+                  <small>({reqCount.toLocaleString("en-US")}회 · 토큰 미측정)</small>
+                </button>
+              );
+            })}
           </>
         )}
       </div>
-      <UsageRequestTrend unmeasuredDaily={unmeasuredDaily} range={range} collectorStatus={collectorStatus} />
     </div>
   );
 }
