@@ -1,5 +1,16 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-17 CURRENT (Slack head-window and replayed-tail recovery):
+> the batch collector checks newer messages before continuing bounded historical
+> traversal. A replayed historical page advances its cursor instead of leaving the
+> channel stalled. Head counts, accepted revisions and cursor advances remain
+> separate from run success. After bootstrap only the head advances its watermark;
+> head-window page identity is separate from legacy-compatible tail page identity.
+> The combined source regression suite passed 91 tests, including interleaved
+> arrivals and actual Web-transport page collisions.
+> Operating task pins, fresh-run results and actual source arrival require the
+> matching private deployment receipt; source tests alone do not prove recovery.
+
 > 2026-09-16 CURRENT (PLAUD provider ID compatibility): catalog/detail parsing
 > accepts the observed opaque `of_` ID form alongside legacy IDs. Existing
 > recordings are linked only by provider audio-path identity plus recording
