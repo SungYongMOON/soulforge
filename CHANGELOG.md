@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-18 - 살피미 실행 1회용 dry-run launcher
+
+- Revision: 이 항목을 포함한 커밋. `guild_hall/salpi_audit/src/salpi_launcher.mjs`가 기존 `dev-assist` Hermes
+  프로필을 유지한 채 살피미 감사 실행 한 번에만 도구를 `todo`로 줄이는 명령을 조립하고, 여섯 조건
+  (고정 명령·최소 도구·kanban 차단·hook 없음·전용 run 폴더·자동 주입 context 안전)을 검사한다.
+- 자동 주입 context는 `hermes_probe/prompt_closure_probe.py`가 Hermes 코드로 렌더링해 메타데이터만 보고한다.
+  모델을 호출하지 않고 프로필 파일에 쓰지 않는다.
+- 운영 영향: dev-assist·맥락이·강도담 설정, 게이트웨이, scheduler는 바꾸지 않는다. 실행 경로는 없고
+  dry-run만 있다. 알려진 잔여는 프로필 `terminal.cwd`가 context cwd를 기존 작업 폴더로 고정하는 점이다.
+- 관련 경로: `guild_hall/salpi_audit/`, `package.json`(`validate:salpi-audit`).
+
 ## 2026-09-18 - 살피미 v2 Safe Projection 감사 경계
 
 - Revision: 이 항목을 포함한 커밋. 새 `guild_hall/salpi_audit/`가 메일 수집기 상태(raw·events·

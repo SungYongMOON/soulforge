@@ -5,6 +5,9 @@
 //   validate     --projection <file>
 //   audit        --projection <file> [--previous <file>] [--audited-at <utc>] [--max-receipt-age-seconds <n>]
 //   check-report --projection <file> --report <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//   launch-plan  --projection <file> --hermes-home <dir> --hermes-root <dir> --hermes-python <exe>
+//                --run-root <dir> --dev-assist-workdir <dir> --audited-at <utc>
+//                (dry-run only: renders the prompt closure with Hermes' code, never calls a model)
 //
 // Exit code 0 = OK, 2 = HOLD, 1 = usage error. Output is JSON on stdout. A rejected projection is
 // reported by its hold code only; the rejected content is never printed.
@@ -14,6 +17,7 @@ import process from 'node:process';
 
 import { projectMailPipeline } from './src/mail_pipeline_projector.mjs';
 import { auditMailProjection, validateSalpiAuditReport } from './src/salpi_audit.mjs';
+import { planSalpiLaunch } from './src/salpi_launcher.mjs';
 import { validateSafeProjection } from './src/safe_projection.mjs';
 
 const COMMANDS = Object.freeze({
@@ -21,6 +25,7 @@ const COMMANDS = Object.freeze({
   validate: ['projection'],
   audit: ['projection', 'previous', 'audited-at', 'max-receipt-age-seconds'],
   'check-report': ['projection', 'report', 'audited-at', 'previous', 'max-receipt-age-seconds'],
+  'launch-plan': ['projection', 'hermes-home', 'hermes-root', 'hermes-python', 'run-root', 'dev-assist-workdir', 'audited-at'],
 });
 
 function usage(message) {
@@ -84,6 +89,20 @@ async function main() {
   if (command === 'validate') {
     const verdict = validateSafeProjection(projection);
     emit(verdict.status === 'OK' ? { status: 'OK', digest: verdict.digest } : { status: 'HOLD', hold_code: verdict.hold_code }, verdict.status === 'OK');
+    return;
+  }
+  if (command === 'launch-plan') {
+    for (const name of COMMANDS['launch-plan']) if (!options[name]) usage(`--${name} is required`);
+    const plan = planSalpiLaunch({
+      projection,
+      hermesHome: options['hermes-home'],
+      hermesRoot: options['hermes-root'],
+      hermesPython: options['hermes-python'],
+      runRoot: options['run-root'],
+      devAssistWorkdir: options['dev-assist-workdir'],
+      auditedAt: options['audited-at'],
+    });
+    emit(plan, plan.status === 'OK');
     return;
   }
   const previous = options.previous ? await readJson(options.previous) : undefined;
