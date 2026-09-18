@@ -5,8 +5,14 @@
 //   validate     --projection <file>
 //   audit        --projection <file> [--previous <file>] [--audited-at <utc>] [--max-receipt-age-seconds <n>]
 //   check-report --projection <file> --report <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//                (strict comparator for a full audit report; the model no longer writes one)
+//   review-packet --projection <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//                (the canonical findings the model reviews, built by the deterministic checker)
+//   check-review --projection <file> --review <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//                (rebuilds the packet, validates the model review, prints the outcome)
 //   launch-plan  --projection <file> --hermes-home <dir> --hermes-root <dir> --hermes-python <exe>
 //                --run-root <dir> --dev-assist-workdir <dir> --audited-at <utc>
+//                [--previous <file>] [--max-receipt-age-seconds <n>]  (must match the later check-review)
 //                (dry-run only: renders the prompt closure with Hermes' code, never calls a model)
 //
 // Exit code 0 = OK, 2 = HOLD, 1 = usage error. Output is JSON on stdout. A rejected projection is
@@ -18,6 +24,7 @@ import process from 'node:process';
 import { projectMailPipeline } from './src/mail_pipeline_projector.mjs';
 import { auditMailProjection, validateSalpiAuditReport } from './src/salpi_audit.mjs';
 import { planSalpiLaunch } from './src/salpi_launcher.mjs';
+import { buildCanonicalReviewPacket, decideSalpiOutcome } from './src/salpi_review.mjs';
 import { validateSafeProjection } from './src/safe_projection.mjs';
 
 const COMMANDS = Object.freeze({
@@ -25,7 +32,10 @@ const COMMANDS = Object.freeze({
   validate: ['projection'],
   audit: ['projection', 'previous', 'audited-at', 'max-receipt-age-seconds'],
   'check-report': ['projection', 'report', 'audited-at', 'previous', 'max-receipt-age-seconds'],
-  'launch-plan': ['projection', 'hermes-home', 'hermes-root', 'hermes-python', 'run-root', 'dev-assist-workdir', 'audited-at'],
+  'review-packet': ['projection', 'audited-at', 'previous', 'max-receipt-age-seconds'],
+  'check-review': ['projection', 'review', 'audited-at', 'previous', 'max-receipt-age-seconds'],
+  'launch-plan': ['projection', 'hermes-home', 'hermes-root', 'hermes-python', 'run-root', 'dev-assist-workdir', 'audited-at',
+    'previous', 'max-receipt-age-seconds'],
 });
 
 function usage(message) {
@@ -92,7 +102,7 @@ async function main() {
     return;
   }
   if (command === 'launch-plan') {
-    for (const name of COMMANDS['launch-plan']) if (!options[name]) usage(`--${name} is required`);
+    for (const name of COMMANDS['launch-plan'].slice(0, 7)) if (!options[name]) usage(`--${name} is required`);
     const plan = planSalpiLaunch({
       projection,
       hermesHome: options['hermes-home'],
@@ -101,6 +111,8 @@ async function main() {
       runRoot: options['run-root'],
       devAssistWorkdir: options['dev-assist-workdir'],
       auditedAt: options['audited-at'],
+      previous: options.previous ? await readJson(options.previous) : undefined,
+      maxReceiptAgeSeconds: positiveInt(options['max-receipt-age-seconds']),
     });
     emit(plan, plan.status === 'OK');
     return;
@@ -110,6 +122,16 @@ async function main() {
   if (command === 'audit') {
     const report = auditMailProjection(projection, { auditedAt: options['audited-at'], maxReceiptAgeSeconds, previous });
     emit(report, report.overall !== 'HOLD');
+    return;
+  }
+  if (command === 'review-packet' || command === 'check-review') {
+    if (!options['audited-at']) usage('--audited-at is required: the audit clock belongs to the caller');
+    const built = buildCanonicalReviewPacket(projection, { auditedAt: options['audited-at'], maxReceiptAgeSeconds, previous });
+    if (built.status !== 'OK') { emit(built, false); return; }
+    if (command === 'review-packet') { emit({ status: 'OK', digest: built.digest, packet: built.packet }, true); return; }
+    if (!options.review) usage('--review is required');
+    const outcome = decideSalpiOutcome(built.packet, await readJson(options.review));
+    emit(outcome, outcome.review_valid && outcome.review_status === 'CONFIRMED');
     return;
   }
   if (!options.report) usage('--report is required');

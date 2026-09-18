@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-19 - 살피미 정답 소유권을 결정론 checker로 이동 (review contract v1)
+
+- Revision: 이 항목을 포함한 커밋. 새 `guild_hall/salpi_audit/src/salpi_review.mjs`가 결정론 checklist 결과를
+  canonical review packet(`soulforge.salpi.review_packet.v1`, finding id `F01`…)으로 고정한다. 모델 출력은
+  `soulforge.salpi.review.v1`로 줄어, finding_id별 `CONFIRMED`·`INSUFFICIENT_PROJECTION`·`CONFLICT_WITH_INPUT`과
+  그보다 느슨할 수 없는 `review_status`만 쓴다. finding·evidence·UNKNOWN·status·overall·hold 필드를 쓰면 HOLD다.
+- `decideSalpiOutcome`은 canonical 판정을 바꾸지 않고, 거부된 답이나 CONFIRMED가 아닌 답에만 HOLD를 더해 Owner에게 넘긴다.
+  launcher 쿼리는 packet을 싣고 새 출력 계약을 요구하며, CLI에 `review-packet`·`check-review`가 추가됐다.
+- 계기: 2026-09-18 실제 1회 실행에서 모델이 미지원 finding·지어낸 UNKNOWN·증거 포인터 변경을 내 검사기가 HOLD로 막음.
+- 운영 영향: 없음. 모델 호출·dev-assist 설정·게이트웨이는 바꾸지 않았고, 검증은 synthetic 테스트뿐이다.
+- 관련 경로: `guild_hall/salpi_audit/`, `package.json`(`validate:salpi-audit`).
+
 ## 2026-09-18 - 살피미 실행 1회용 dry-run launcher
 
 - Revision: 이 항목을 포함한 커밋. `guild_hall/salpi_audit/src/salpi_launcher.mjs`가 기존 `dev-assist` Hermes

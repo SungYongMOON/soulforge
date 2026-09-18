@@ -52,7 +52,8 @@
     "architecture_judgement",
     "decide_fix",
     "assign_work_to_other_bots",
-    "recount_or_edit_projection_values"
+    "recount_or_edit_projection_values",
+    "write_or_edit_canonical_findings_evidence_or_unknowns"
   ],
   "statuses": ["OK", "WARN", "UNKNOWN", "CONFLICT", "HOLD"],
   "status_severity_order": ["HOLD", "CONFLICT", "UNKNOWN", "WARN", "OK"],
@@ -69,6 +70,14 @@
     "context_investigator": "why it is inconsistent, with originals under its existing local permissions (unchanged by this contract)",
     "coordinator": "강도담 — next action and human gates (unchanged by this contract)"
   },
-  "output": "soulforge.salpi.audit_report.v1",
+  "canonical_owner": "deterministic_checker",
+  "canonical_input": "soulforge.salpi.review_packet.v1",
+  "output": "soulforge.salpi.review.v1",
+  "review_contract": {
+    "model_writes": ["review_status", "finding_checks[].finding_id", "finding_checks[].result"],
+    "results": ["CONFIRMED", "INSUFFICIENT_PROJECTION", "CONFLICT_WITH_INPUT"],
+    "model_never_writes": ["finding_code", "evidence", "unknowns", "status", "overall", "hold_codes", "escalate_to"],
+    "outcome_rule": "Canonical findings, evidence, UNKNOWNs and overall come from the deterministic packet. A rejected review or any non-CONFIRMED answer adds a HOLD for the Owner; the review never removes one."
+  },
   "claim_ceiling": "audit_candidate_only"
 }

@@ -8,10 +8,31 @@ Safe Projection만 읽어 누락·불일치·stale·회귀·HOLD를 감사하도
       ↓  src/mail_pipeline_projector.mjs   (로컬, 결정론, LLM 없음)
 [Safe Projection]  count · status · timestamp · digest · coverage · hold_code · safe locator
       ↓  src/safe_projection.mjs           (validateSafeProjection, fail closed)
-살피미  ── 기준 판정: src/salpi_audit.mjs auditMailProjection
-      ↓  모델 보고서 검사: validateSalpiAuditReport
+      ↓  src/salpi_audit.mjs auditMailProjection  (결정론 checklist)
+[Canonical Findings]  src/salpi_review.mjs buildCanonicalReviewPacket  (finding·evidence·UNKNOWN·overall, id F01…)
+      ↓
+살피미(모델)  ── finding_id별 CONFIRMED / CONFLICT_WITH_INPUT / INSUFFICIENT_PROJECTION만 답함
+      ↓  validateSalpiReview → decideSalpiOutcome  (fail closed, HOLD는 더할 수만 있음)
 누락 / mismatch / stale / regression / HOLD 후보
 ```
+
+## 정답 소유권 (review contract v1, 2026-09-19)
+
+결정론으로 계산할 수 있는 것은 코드가 소유한다. 2026-09-18 실제 1회 실행에서 모델이 finding을 직접 쓰게 했더니
+미지원 finding·지어낸 UNKNOWN·증거 포인터 변경이 나와 검사기가 HOLD로 막았다. 그래서 모델의 역할을 정답 생성자에서
+**두 번째 눈**으로 줄였다.
+
+- canonical packet(`soulforge.salpi.review_packet.v1`)은 `auditMailProjection` 결과를 그대로 얼린 것이다.
+  finding마다 고정 id(`F01`…)가 붙고, packet digest가 모델 답과 묶인다.
+- 모델 출력(`soulforge.salpi.review.v1`)의 키는 `schema_version`·`packet_digest`·`review_status`·
+  `finding_checks[{finding_id, result}]`·`authority`(전부 false)·`claim_ceiling`뿐이다. 답은 세 가지뿐이다.
+  `CONFIRMED`·`INSUFFICIENT_PROJECTION`·`CONFLICT_WITH_INPUT`.
+- finding code·evidence·pointer·unknowns·status·severity·overall·hold_codes·escalate_to/escalation 같은 canonical 필드명이
+  답 어디에든 나오면 `SALPI_REVIEW_CANONICAL_FIELD_WRITTEN`이다. 없는 id·빠진 id·중복 id·세 답 밖의 값·
+  per-finding 답보다 느슨한 `review_status`·다른 packet digest·권한 주장도 모두 HOLD다.
+- `decideSalpiOutcome`은 canonical overall을 바꾸지 않는다. 답이 거부되면 `salpi_review_rejected`,
+  유효하지만 CONFIRMED가 아니면 `salpi_review_disagreement`를 더해 HOLD로 Owner에게 넘긴다. 모델 답으로 HOLD가 풀리는 경로는 없다.
+- `validateSalpiAuditReport`(전체 보고서 비교기)는 코드 경로 검증용으로 남겨 두지만, 모델에게 보고서를 쓰게 하지 않는다.
 
 ## 구성
 
@@ -28,7 +49,9 @@ Safe Projection만 읽어 누락·불일치·stale·회귀·HOLD를 감사하도
   모델 호출 경로는 이 모듈에 없다.
 - `hermes_probe/prompt_closure_probe.py` — Hermes venv에서 Hermes 자신의 코드로 시스템 프롬프트와 도구 schema를
   렌더링해(모델 호출 없음, loopback 닫힌 포트, 로깅 꺼짐) 메타데이터만 돌려준다. 프롬프트 본문은 출력하지 않는다.
-- `cli.mjs` — `project-mail` · `validate` · `audit` · `check-report` · `launch-plan`. 로컬 전용이며 어디에도 보내지 않는다.
+- `src/salpi_review.mjs` — canonical review packet, 모델 review 검사기, 최종 outcome.
+- `cli.mjs` — `project-mail` · `validate` · `audit` · `review-packet` · `check-review` · `check-report` · `launch-plan`.
+  로컬 전용이며 어디에도 보내지 않는다.
 
 ## launcher dry-run 조건 (모두 PASS여야 `status: OK`)
 
@@ -66,8 +89,8 @@ Hermes가 모델에게 알려 주는 context 폴더는 여전히 기존 작업 �
 - 공용 입력 guard(`guild_hall/agent_observation/guard_primitives.mjs`의 snapshot·accessor 거부·
   secret·로컬 절대경로 검사)를 **수정 없이 import해 재사용**한다.
 - 거부된 projection은 감사기로 넘어가지 않는다(`overall: HOLD`, findings 없음).
-- 모델 보고서는 닫힌 스키마다. 원인·요약 같은 서술 칸이 없고, catalog에 없는 finding·기준 판정에 없는
-  finding·빠뜨린 finding·낮춘 overall·HOLD 해제·UNKNOWN 채우기·권한 주장은 모두 `HOLD`다.
+- 모델은 finding·evidence·UNKNOWN을 쓰지 않는다. 모델 답은 finding_id별 세 가지 판정뿐인 닫힌 스키마이며
+  서술 칸이 없다. 그 밖의 모든 것은 `HOLD`다(위 "정답 소유권").
 
 ## 살피미 역할(요약)
 

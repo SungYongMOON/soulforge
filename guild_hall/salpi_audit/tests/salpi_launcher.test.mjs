@@ -6,6 +6,8 @@ import { after, describe, it } from 'node:test';
 
 import * as launcher from '../src/salpi_launcher.mjs';
 import { validateSafeProjection } from '../src/safe_projection.mjs';
+import { digestOf } from '../../agent_observation/guard_primitives.mjs';
+import { buildCanonicalReviewPacket } from '../src/salpi_review.mjs';
 
 const { LAUNCH_HOLD_CODES: L, buildHermesInvocation, isFixedInvocation, planSalpiLaunch, sanitizeLaunchEnv } = launcher;
 const AUDITED_AT = '2026-09-18T01:00:00.000Z';
@@ -123,7 +125,38 @@ describe('salpi launcher dry-run', () => {
     const verdict = validateSafeProjection(JSON.parse(embedded));
     assert.equal(verdict.status, 'OK');
     assert.equal(verdict.digest, result.projection.digest);
-    assert.ok(query.includes(`audited_at "${AUDITED_AT}"`));
+  });
+
+  it('hands the model the canonical packet to review and asks only for per-finding answers', () => {
+    const result = plan(layout());
+    const query = readFileSync(result.workdir.query_file, 'utf8');
+    const packet = JSON.parse(query.split('CANONICAL_REVIEW_PACKET_JSON_BEGIN\n')[1].split('\nCANONICAL_REVIEW_PACKET_JSON_END')[0]);
+    assert.equal(digestOf(packet), result.review_packet.digest);
+    assert.equal(packet.audited_at, AUDITED_AT);
+    assert.equal(packet.findings.length, 4);
+    assert.equal(result.review_packet.finding_count, 4);
+    assert.equal(result.review_packet.canonical_overall, 'HOLD');
+    assert.ok(query.includes(`schema_version "soulforge.salpi.review.v1", packet_digest "${result.review_packet.digest}"`));
+    assert.ok(query.includes('finding_checks [{finding_id, result}]'));
+    assert.equal(query.includes('audit_report.v1'), false);
+    assert.equal(query.includes('unknowns[{'), false);
+    assert.match(result.post_run, /decideSalpiOutcome/u);
+  });
+
+  it('builds the packet with the same previous projection and receipt age the later check uses', () => {
+    const previous = projection({ observed_at: '2026-09-18T00:30:00.000Z', metrics: { raw_count: 5, event_count: 0,
+      event_count_mail: 0, receipt_new_events: 1, receipt_event_written: 1, dedupe_key_count: 1, dedupe_orphan_count: 1, cursor_seen: 1 } });
+    const result = plan(layout(), { previous, maxReceiptAgeSeconds: 60 });
+    const expected = buildCanonicalReviewPacket(projection(), { auditedAt: AUDITED_AT, previous, maxReceiptAgeSeconds: 60 });
+    assert.equal(result.review_packet.digest, expected.digest);
+    assert.notEqual(result.review_packet.digest, plan(layout()).review_packet.digest);
+    assert.equal(result.review_packet.finding_count, 5);
+  });
+
+  it('rejects a non-UTC audit clock before creating a run dir', () => {
+    const paths = layout();
+    assert.throws(() => plan(paths, { auditedAt: 'yesterday' }), TypeError);
+    assert.equal(existsSync(paths.runRoot), false);
   });
 
   it('has no execute path', () => {

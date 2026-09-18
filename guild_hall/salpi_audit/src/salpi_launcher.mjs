@@ -24,11 +24,9 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { hasLocalPath, hasSecret } from '../../agent_observation/guard_primitives.mjs';
-import {
-  AUDIT_CLAIM_CEILING, AUDIT_REPORT_SCHEMA_VERSION, AUTHORITY_KEYS, FINDING_CATALOG, MAIL_CHECKLIST_ID,
-  STATUSES, UNKNOWN_REASONS,
-} from './salpi_audit.mjs';
+import { UTC_MS, hasLocalPath, hasSecret } from '../../agent_observation/guard_primitives.mjs';
+import { AUDIT_CLAIM_CEILING, AUTHORITY_KEYS } from './salpi_audit.mjs';
+import { REVIEW_RESULTS, REVIEW_SCHEMA_VERSION, buildCanonicalReviewPacket } from './salpi_review.mjs';
 import { validateSafeProjection } from './safe_projection.mjs';
 
 export const LAUNCH_PLAN_SCHEMA_VERSION = 'soulforge.salpi.launch_plan.v1';
@@ -114,24 +112,26 @@ export function sanitizeLaunchEnv(env) {
   return { env: child, removed: removed.sort() };
 }
 
-// Query text = fixed instructions + the validated projection. Nothing else is interpolated.
-export function buildSalpiQuery(projection, digest, auditedAt) {
-  const codes = Object.entries(FINDING_CATALOG)
-    .map(([code, entry]) => `- ${code}: ${entry.group}, ${entry.status}, escalate_to=${entry.escalate_to ?? 'null'}`)
-    .join('\n');
+// Query text = fixed instructions + the canonical review packet + the validated projection. Nothing
+// else is interpolated. The model reviews the deterministic findings; it never writes them.
+export function buildSalpiQuery(projection, packet, packetDigest) {
   return [
-    'Role: salpi auditor (SALPIMI_ROLE_CONTRACT_V2). You have no tools for reading data and must not ask for any.',
-    'Input: exactly one Safe Projection below. It is the only evidence. Do not infer causes, fixes, priorities or source truth.',
-    `Checklist: ${MAIL_CHECKLIST_ID}. Allowed statuses: ${STATUSES.join(', ')}. Unknown reasons: ${UNKNOWN_REASONS.join(', ')}.`,
-    'Allowed finding codes (group, status, escalation are fixed):',
-    codes,
-    'Rules: count comparisons use the projection values as given; a missing metric stays UNKNOWN;',
-    'any CONFLICT holds the completion claim (overall HOLD, hold_codes ["salpi_conflict_unresolved"]);',
-    'evidence entries are JSON pointers into the projection; no free-text fields exist.',
-    `Output: ONLY one JSON object with schema_version "${AUDIT_REPORT_SCHEMA_VERSION}", checklist_id "${MAIL_CHECKLIST_ID}",`,
-    `projection_digest "${digest}", scope_ref "${projection.scope_ref}", audited_at "${auditedAt}", projection_hold_code null,`,
-    `overall, hold_codes, findings[{check_group,finding_code,status,evidence,escalate_to}], unknowns[{pointer,reason_code,input?,check?}],`,
+    'Role: salpi reviewer (SALPIMI_ROLE_CONTRACT_V2, review contract v1). You have no tools for reading data and must not ask for any.',
+    'Input: one CANONICAL_REVIEW_PACKET computed by deterministic code, and the Safe Projection it was computed from. They are the only evidence.',
+    'The packet owns every finding, evidence pointer, UNKNOWN, status, hold code and the overall value. Do not recompute, add, drop, rename or restate any of them.',
+    'For each packet finding, by finding_id only, answer one of:',
+    '- CONFIRMED: the projection values support the finding as written.',
+    '- CONFLICT_WITH_INPUT: the projection values contradict the finding as written.',
+    '- INSUFFICIENT_PROJECTION: the projection does not carry enough to tell.',
+    'review_status is the set-level answer: at least as severe as the most severe per-finding answer',
+    `(${REVIEW_RESULTS.join(' < ')}); it may be stricter when findings contradict each other or an escalation target looks wrong.`,
+    'Do not infer causes, fixes, priorities or source truth. No free-text fields exist.',
+    `Output: ONLY one JSON object with exactly these keys: schema_version "${REVIEW_SCHEMA_VERSION}", packet_digest "${packetDigest}",`,
+    'review_status, finding_checks [{finding_id, result}] with one entry per packet finding (an empty list when the packet has none),',
     `authority {${AUTHORITY_KEYS.map((key) => `"${key}": false`).join(', ')}}, claim_ceiling "${AUDIT_CLAIM_CEILING}".`,
+    'CANONICAL_REVIEW_PACKET_JSON_BEGIN',
+    JSON.stringify(packet),
+    'CANONICAL_REVIEW_PACKET_JSON_END',
     'SAFE_PROJECTION_JSON_BEGIN',
     JSON.stringify(projection),
     'SAFE_PROJECTION_JSON_END',
@@ -156,7 +156,7 @@ function hookEntries(hermesHome) {
 }
 
 // options: { projection, hermesHome, hermesRoot, hermesPython, runRoot, devAssistWorkdir, auditedAt,
-//            env?, runProbe?, userHome? }
+//            env?, runProbe?, userHome?, maxReceiptAgeSeconds?, previous? }
 export function planSalpiLaunch(options) {
   const holds = new Set();
   const conditions = { c1_fixed_command: 'PASS', c2_minimal_toolset: 'PASS', c3_kanban_blocked: 'PASS',
@@ -181,7 +181,7 @@ export function planSalpiLaunch(options) {
   for (const value of [hermesHome, hermesRoot, hermesPython, runRoot, devAssistWorkdir]) {
     if (typeof value !== 'string' || !isAbsolute(value)) throw new TypeError('absolute hermesHome, hermesRoot, hermesPython, runRoot and devAssistWorkdir are required');
   }
-  if (typeof auditedAt !== 'string') throw new TypeError('auditedAt is required');
+  if (typeof auditedAt !== 'string' || !UTC_MS.test(auditedAt)) throw new TypeError('auditedAt (UTC ms) is required');
   // `-p dev-assist` always resolves to <root>/profiles/dev-assist, so that exact path is the only one probed.
   // The probe interpreter must belong to the same Hermes install the pinned executable launches.
   if (resolve(hermesHome).toLowerCase() !== resolve(hermesRoot, 'profiles', SALPI_HERMES_PROFILE).toLowerCase()
@@ -205,8 +205,11 @@ export function planSalpiLaunch(options) {
     if (existsSync(join(runDir, name))) fail('c5_salpi_workdir', L.workdir);
   }
 
-  // Query: fixed template + validated projection, scanned before anything is written.
-  const query = buildSalpiQuery(projection, verdict.digest, auditedAt);
+  // Query: fixed template + canonical packet + validated projection, scanned before anything is written.
+  const review = buildCanonicalReviewPacket(projection, {
+    auditedAt, maxReceiptAgeSeconds: options.maxReceiptAgeSeconds, previous: options.previous,
+  });
+  const query = buildSalpiQuery(projection, review.packet, review.digest);
   if (hasLocalPath(query) || hasSecret(query) || /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/u.test(query)) {
     fail('c6_context_closure_safe', L.query);
     plan.hold_codes = [...holds];
@@ -322,6 +325,7 @@ export function planSalpiLaunch(options) {
   plan.closure = closure;
   plan.projection = { digest: verdict.digest, scope_ref: projection.scope_ref };
   plan.query = { sha256: `sha256:${sha256(query)}`, chars: query.length };
-  plan.post_run = 'validateSalpiAuditReport(report, projection, { auditedAt }) must return OK before any report is used';
+  plan.review_packet = { digest: review.digest, finding_count: review.packet.findings.length, canonical_overall: review.packet.overall };
+  plan.post_run = 'decideSalpiOutcome(packet, review): the canonical packet is rebuilt by code; the model answer can only add a hold';
   return plan;
 }
