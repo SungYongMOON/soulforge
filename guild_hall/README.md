@@ -30,6 +30,9 @@
   and feature-OFF H04 project-history adapter
 - `run_history/`: feature-OFF H05 exact workflow-receipt adapter, replay, and six-state coverage evidence
 - `schedule_history/`: synthetic-only H03B external schedule identity, immutable revision, replay, and coverage candidate
+- `salpi_audit/`: 살피미 v2(상용 모델 운영 감사자)용 Safe Projection 경계. 메일 수집기 상태를 로컬에서 숫자·digest·코드만
+  남긴 projection으로 바꾸는 결정론 투영기, 자유 텍스트 칸이 없는 fail-closed validator, checklist 기준 판정과
+  모델 보고서 검사기. 봇 도구 권한·입력 통로 연결과 다른 봇·scheduler·수집 순서 변경은 소유하지 않는다
 - `slack_history/`: feature-OFF H07 Slack workspace/channel/message revision, cursor, dedupe, and coverage foundation
 - `linear_history/`: read-only HPP Linear collection lane (every 15 minutes) mirroring the Slack batch lane: SHA-256-pinned
   private binding with a `credentials.api_key_file` pointer, exact forbidden roots, writer fence, health-before-reject, bounded `updatedAt`

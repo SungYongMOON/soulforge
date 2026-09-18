@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-09-18 - 살피미 v2 Safe Projection 감사 경계
+
+- Revision: 이 항목을 포함한 커밋. 새 `guild_hall/salpi_audit/`가 메일 수집기 상태(raw·events·
+  run summary·dedupe·cursor)를 로컬 결정론 코드로 읽어 숫자·digest·고정 locator·코드만 담은
+  `soulforge.salpi.safe_projection.v1`로 투영한다. 스키마에는 자유 텍스트 칸이 없고, 알 수 없는
+  키와 내용처럼 보이는 키는 fail closed로 거부한다.
+- 살피미 역할 계약 v2(`salpi_role_contract.v2.json`), checklist 기준 판정, 모델 보고서 검사기
+  (원인 서술·발명·누락·HOLD 해제·UNKNOWN 채우기 거부)와 메일 골든 케이스 테스트를 더한다.
+- 운영 영향: 코드와 테스트만이다. 살피미 봇의 도구 권한·입력 통로, 맥락이·강도담·다른 봇,
+  scheduler·launcher, 메일 수집 처리 순서, 공용 guard는 바꾸지 않는다(공용 guard는 import만).
+- 관련 경로: `guild_hall/salpi_audit/`, `package.json`(`validate:salpi-audit`), `guild_hall/README.md`.
+
 ## 2026-09-17 - 맥락 꾸러미의 Slack 처리 범위 표시 수정
 
 - Revision: 이 항목을 포함한 커밋. 실제 어댑터가 있는 Slack을 미연결 목록에서
