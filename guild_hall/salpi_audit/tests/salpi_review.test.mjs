@@ -267,7 +267,7 @@ describe('review regressions (fresh review 2026-09-19)', () => {
 });
 
 describe('review CLI', () => {
-  it('builds the packet and judges a review locally, exit 0 only for a valid CONFIRMED review', () => {
+  it('builds the packet and judges a review locally; a held packet exits 2 even when the review is valid and CONFIRMED', () => {
     const dir = mkdtempSync(join(tmpdir(), 'salpi-review-'));
     scratch.push(dir);
     const projectionFile = join(dir, 'projection.json');
@@ -281,13 +281,53 @@ describe('review CLI', () => {
     writeFileSync(reviewFile, JSON.stringify(confirmingReview({ packet, digest })));
     const check = (extra = []) => spawnSync(process.execPath, [CLI, 'check-review', '--projection', projectionFile,
       '--review', reviewFile, '--audited-at', AUDITED_AT, ...extra], { encoding: 'utf8' });
+    // The 2026-09-19 live case: valid, CONFIRMED, canonical HOLD -> exit 2 (HOLD), not 0.
     const good = check();
-    assert.equal(good.status, 0, good.stdout);
-    assert.equal(JSON.parse(good.stdout).overall, 'HOLD');
+    assert.equal(good.status, 2, good.stdout);
+    const goodOutcome = JSON.parse(good.stdout);
+    assert.equal(goodOutcome.review_valid, true);
+    assert.equal(goodOutcome.review_status, 'CONFIRMED');
+    assert.equal(goodOutcome.canonical_overall, 'HOLD');
+    assert.equal(goodOutcome.overall, 'HOLD');
+    assert.deepEqual(goodOutcome.hold_codes, ['salpi_conflict_unresolved']);
 
     writeFileSync(reviewFile, JSON.stringify({ ...confirmingReview({ packet, digest }), unknowns: [] }));
     const bad = check();
     assert.equal(bad.status, 2);
     assert.ok(JSON.parse(bad.stdout).hold_codes.includes(O.reviewRejected));
+  });
+
+  // Runs check-review for one projection and one review built from its packet.
+  function checkReviewCli(projection, makeReview) {
+    const dir = mkdtempSync(join(tmpdir(), 'salpi-review-'));
+    scratch.push(dir);
+    const projectionFile = join(dir, 'projection.json');
+    const reviewFile = join(dir, 'review.json');
+    writeFileSync(projectionFile, JSON.stringify(projection));
+    writeFileSync(reviewFile, JSON.stringify(makeReview(build(projection))));
+    const run = spawnSync(process.execPath, [CLI, 'check-review', '--projection', projectionFile, '--review', reviewFile,
+      '--audited-at', AUDITED_AT], { encoding: 'utf8' });
+    return { status: run.status, outcome: JSON.parse(run.stdout) };
+  }
+
+  it('exits 0 only when the final overall is OK', () => {
+    const ok = checkReviewCli(consistentProjection(), confirmingReview);
+    assert.equal(ok.outcome.overall, 'OK');
+    assert.equal(ok.status, 0);
+  });
+
+  it('a valid disagreement on an OK packet holds and exits 2', () => {
+    const held = checkReviewCli(consistentProjection(), (built) => ({ ...confirmingReview(built), review_status: 'CONFLICT_WITH_INPUT' }));
+    assert.equal(held.outcome.canonical_overall, 'OK');
+    assert.equal(held.outcome.overall, 'HOLD');
+    assert.equal(held.status, 2);
+  });
+
+  it('a non-OK, non-HOLD final overall (WARN) is not a pass', () => {
+    const partial = goldenProjection({ ...consistentProjection(), flags: { dedupe_present: true, receipt_partial: true } });
+    const warn = checkReviewCli(partial, confirmingReview);
+    assert.equal(warn.outcome.review_valid, true);
+    assert.equal(warn.outcome.overall, 'WARN');
+    assert.equal(warn.status, 2);
   });
 });

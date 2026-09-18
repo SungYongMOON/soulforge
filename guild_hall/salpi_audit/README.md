@@ -115,3 +115,19 @@ Hermes가 모델에게 알려 주는 context 폴더는 여전히 기존 작업 �
 ```
 npm run validate:salpi-audit
 ```
+
+`check-review`의 종료 코드는 최종 판정을 따른다. 최종 overall이 `OK`일 때만 0이고, 모델 답이 유효하고 `CONFIRMED`여도
+canonical 판정이 HOLD(또는 WARN·UNKNOWN)이면 2다. 답 자체의 유효성은 출력의 `review_valid`·`review_status`로 본다.
+
+## 실제 1회 검증 (2026-09-19, metadata만)
+
+- 검증 코드: `87052964`(review contract v1). 입력은 합성 골든 projection뿐이며 실데이터·raw는 쓰지 않았다.
+- 모델 `gpt-reserve` / provider `openai-codex`(모델 계열은 UNKNOWN). dry-run gate C1~C6 PASS, 요청·렌더링 도구 모두 `todo`,
+  API 호출 1회·도구 호출 0회.
+- projection `sha256:31021b6cb5fd3921a95985019ef52484abf13630a9def533e70a26bfb108001d`,
+  canonical packet `sha256:7e69792e7a6b49559d8535f6536da59567ab312843e113a838084988f0913327`.
+- canonical finding 4 · CONFIRMED 4 · 추가 0 · 삭제 0 · 변경 0. `check-review` review_valid true, 위반 0,
+  canonical/final overall `HOLD`, hold code `salpi_conflict_unresolved`. 봇·runtime 설정 변경 없음.
+- metadata-only 영수증: `<TARGET_SOULFORGE_ROOT>/local-recovery/salpi-live-review-20260919/live_review_receipt.json`
+  (private, sha256 `5217c3f6cc45127064ce0fc2053a685c5d57e25707c876fa76c3eaa7ed3bbbd6`). 프롬프트·query·projection 본문·대화 기록은 남기지 않았다.
+- 당시 `check-review`는 이 HOLD에 종료 코드 0을 냈다(이후 수정, 위 문단). 판정 JSON은 같다.

@@ -9,7 +9,8 @@
 //   review-packet --projection <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
 //                (the canonical findings the model reviews, built by the deterministic checker)
 //   check-review --projection <file> --review <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
-//                (rebuilds the packet, validates the model review, prints the outcome)
+//                (rebuilds the packet, validates the model review, prints the outcome; exit 0 only when
+//                the final overall is OK — a valid CONFIRMED review of a held packet still exits 2)
 //   launch-plan  --projection <file> --hermes-home <dir> --hermes-root <dir> --hermes-python <exe>
 //                --run-root <dir> --dev-assist-workdir <dir> --audited-at <utc>
 //                [--previous <file>] [--max-receipt-age-seconds <n>]  (must match the later check-review)
@@ -131,7 +132,9 @@ async function main() {
     if (command === 'review-packet') { emit({ status: 'OK', digest: built.digest, packet: built.packet }, true); return; }
     if (!options.review) usage('--review is required');
     const outcome = decideSalpiOutcome(built.packet, await readJson(options.review));
-    emit(outcome, outcome.review_valid && outcome.review_status === 'CONFIRMED');
+    // The exit code follows the final verdict, not the review's validity: review_valid and
+    // review_status are in the printed outcome for callers that need them.
+    emit(outcome, outcome.overall === 'OK');
     return;
   }
   if (!options.report) usage('--report is required');
