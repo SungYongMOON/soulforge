@@ -11,6 +11,7 @@ import {
   validateRecoveryBinding,
 } from "./recovery_runtime.mjs";
 import { composeTopologyHealth } from "./watchtower.mjs";
+import { EXAMPLE_BINDING } from "./cli.mjs";
 import { BACKUP_ACTIVATION_ERROR_CODES } from "../backup_controller/activation.mjs";
 
 
@@ -1388,4 +1389,77 @@ test("startRecoveryCompanion hands its evidence root and Watchtower pointer to t
   assert.equal(received[1].evidenceRoot, evidenceRoot);
   assert.equal(received[1].watchtowerPointerPath, watchtowerPointerPath);
   assert.equal(received[1].projectRoot, projectRoot, "the owner root stays the project root for _workmeta checks");
+});
+
+// store_mail_events carrying only the new-event/store mismatch: degraded, but never a restart.
+async function mailStoreSnapshot(projectRoot, completedAt, now) {
+  const file = path.join(projectRoot, "store_mail_events.json");
+  await writeFile(file, JSON.stringify({
+    schema_version: "soulforge.ingress.store_validity.v1",
+    lane: "store_mail_events",
+    validation_scope: "mail_event_tail_set_validity",
+    status: "ok",
+    attempted_at: completedAt,
+    completed_at: completedAt,
+    last_success_at: completedAt,
+    error_codes: [],
+    activity_changed: false,
+    validation_digest: "c".repeat(64),
+    validated_count: 3,
+    new_event_store_check: {
+      state: "store_unchanged", reason_code: null, reported_new_events: 2,
+      store_unchanged_new_event_count: 2, comparison_scope: "a".repeat(64),
+    },
+  }));
+  const { resident_task: _task, ...probe } = { ...EXAMPLE_BINDING.probes.store_mail_events, path: file };
+  return composeTopologyHealth({
+    schema_version: "soulforge.watchtower.binding.v1",
+    state_root: path.join(projectRoot, "state"),
+    probes: { store_mail_events: probe },
+  }, { now });
+}
+
+test("a store_mail_events new-event mismatch alone is degraded and starts no task; stale still restarts", async () => {
+  const { projectRoot } = await fixture();
+  const now = Date.parse("2026-08-14T00:05:00.000Z");
+  const mailBinding = {
+    schema_version: RECOVERY_BINDING_SCHEMA_VERSION,
+    mode: "safe-repair",
+    task_bindings: { store_mail_events: { task_name: "Synthetic Ingress", action_digest: "a".repeat(64) } },
+  };
+  const readyTask = async () => ({
+    exists: true, enabled: true, state: "ready", action_digest: "a".repeat(64), last_run_at: null, last_task_result: null,
+  });
+
+  const mismatch = await mailStoreSnapshot(projectRoot, "2026-08-14T00:04:00.000Z", now);
+  const mailNode = mismatch.nodes.find((node) => node.id === "store_mail_events");
+  assert.equal(mailNode.health.state, "degraded");
+  assert.deepEqual(mailNode.health.reasons, ["count_store_unchanged_new_event_count_2"]);
+  let starts = 0;
+  const result = await runRecoveryCycle({
+    repoRoot: projectRoot, projectRoot, binding: mailBinding,
+    evidenceRoot: path.join(projectRoot, "evidence"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer.json"),
+    runWatchtower: async () => mismatch,
+    inspectTask: readyTask,
+    startTask: async () => { starts += 1; return { ok: true }; },
+    now: () => new Date(now),
+  });
+  assert.equal(starts, 0);
+  assert.deepEqual(result.recovery, []);
+
+  // Control: the same node going stale is still a restart candidate.
+  const stale = await mailStoreSnapshot(projectRoot, "2026-08-13T20:00:00.000Z", now);
+  assert.equal(stale.nodes.find((node) => node.id === "store_mail_events").health.state, "stale");
+  let staleStarts = 0;
+  await runRecoveryCycle({
+    repoRoot: projectRoot, projectRoot, binding: mailBinding,
+    evidenceRoot: path.join(projectRoot, "evidence-stale"),
+    watchtowerPointerPath: path.join(projectRoot, "pointer-stale.json"),
+    runWatchtower: async () => stale,
+    inspectTask: readyTask,
+    startTask: async () => { staleStarts += 1; return { ok: true }; },
+    now: () => new Date(now),
+  });
+  assert.equal(staleStarts, 1);
 });
