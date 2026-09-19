@@ -2044,10 +2044,10 @@ export function mailNewEventStoreCheck({ mailResult, succeeded, validationDigest
     || !Number.isSafeInteger(newEvents) || newEvents < 0) {
     return result("not_comparable", "mail_result_unavailable", null);
   }
-  if (newEvents === 0) return result("no_new_events_reported", null, 0);
   if (!succeeded || typeof validationDigest !== "string") {
     return result("not_comparable", "store_validation_failed", newEvents);
   }
+  if (newEvents === 0) return result("no_new_events_reported", null, 0);
   if (prior?.status !== "ok" || typeof prior?.validation_digest !== "string") {
     return result("not_comparable", "no_valid_prior_observation", newEvents);
   }

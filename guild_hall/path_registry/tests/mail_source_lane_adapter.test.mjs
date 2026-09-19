@@ -293,6 +293,10 @@ test("the optional new-event/store cross-check block is accepted but never chang
     /mail_store_receipt_shape_invalid/,
   );
   assert.throws(
+    () => adapt({ store_receipt: { ...STORE, new_event_store_check: { ...check, state: "store_changed" } } }),
+    /mail_store_receipt_shape_invalid/,
+  );
+  assert.throws(
     () => adapt({ store_receipt: { ...STORE, status: "error", new_event_store_check: check } }),
     /mail_store_receipt_not_accepted/,
   );

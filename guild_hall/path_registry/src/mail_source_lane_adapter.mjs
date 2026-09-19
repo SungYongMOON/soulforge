@@ -192,6 +192,7 @@ function validateStoreNewEventCheck(check) {
       || (record.reason_code !== null && (typeof record.reason_code !== "string" || !/^[a-z][a-z0-9_]{0,63}$/u.test(record.reason_code)))
       || (record.reported_new_events !== null && (!Number.isSafeInteger(record.reported_new_events) || record.reported_new_events < 0))
       || !Number.isSafeInteger(record.store_unchanged_new_event_count) || record.store_unchanged_new_event_count < 0
+      || (record.state === "store_unchanged") !== (record.store_unchanged_new_event_count > 0)
       || typeof record.comparison_scope !== "string" || !/^[0-9a-f]{64}$/u.test(record.comparison_scope)) {
     fail("mail_store_receipt_shape_invalid");
   }

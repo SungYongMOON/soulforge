@@ -3570,12 +3570,14 @@ test("new-event store check: no valid previous observation is not comparable, ne
   }
 });
 
-test("new-event store check: a failed store validation is not comparable", () => {
-  const check = mailNewEventStoreCheck({
-    mailResult: okMail(1), succeeded: false, validationDigest: null, prior: okPrior("d1"), comparisonScope: SCOPE_A,
-  });
-  assert.equal(check.state, "not_comparable");
-  assert.equal(check.reason_code, "store_validation_failed");
+test("new-event store check: a failed store validation is not comparable, even with zero new events", () => {
+  for (const newEvents of [1, 0]) {
+    const check = mailNewEventStoreCheck({
+      mailResult: okMail(newEvents), succeeded: false, validationDigest: null, prior: okPrior("d1"), comparisonScope: SCOPE_A,
+    });
+    assert.equal(check.state, "not_comparable");
+    assert.equal(check.reason_code, "store_validation_failed");
+  }
 });
 
 test("new-event store check: a different or unrecorded comparison scope is not comparable", () => {
