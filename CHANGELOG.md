@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-09-19 - 살핌이 운영감시: 메일 신규 보고–저장소 불일치 전달
+
+- Revision: 이 항목을 포함한 커밋. `guild_hall/watchtower/mail_new_event_notice.mjs`가 Watchtower 스냅샷의 `store_mail_events`
+  판정(`count_store_unchanged_new_event_count_<n>`)을 읽어, 기존 `planAlerts` 억제·재보고 정책으로 고정 문장 한 줄만 낸다.
+  불일치는 이후 `store_changed` 영수증 전까지 미해결로 유지하고, 신규 0건·비교 불가를 해소로 보지 않는다. 모델을 호출하지 않는다.
+- `guild_hall/watchtower/ops/salpi_mail_new_event_notice.py`는 Hermes dev-assist `no_agent` cron shim이다. 실패 시 고정 코드만 출력한다.
+- 새 source lane spec `guild_hall/deployment_pack/lanes/salpi_mail_notice_lane.spec.json`(`salpi-mail-notice-v1`).
+- 관련 경로: `guild_hall/watchtower/`, `guild_hall/deployment_pack/lanes/`, `package.json`(`validate:watchtower`).
+
 ## 2026-09-19 - ingress 메일 저장소 신규 이벤트 대조 (new_event_store_check)
 
 - Revision: 이 항목을 포함한 커밋. `guild_hall/ingress/continuous_runner.mjs`가 같은 실행의 메일 bridge `total_new_events`와

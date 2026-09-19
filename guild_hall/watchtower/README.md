@@ -42,6 +42,8 @@ CLI의 종료 코드 2는 down 노드를 포함한 검사 완료다. 실행 영�
 | `local_evidence.mjs` | Watchtower 실행 계약, five-field metadata 원장, `_workmeta` payload policy의 독립 검증 receipt |
 | `recovery_diagnostics.mjs` | 4대 장애군(`scheduled_task_action_drift`, `usage_event_duplicate_conflict`, `standing_receipt_expired`, `auth_refresh`) 순수 진단 분류기 (public-safe, 경로/secret/원문 무노출) |
 | `recovery_runtime.mjs` | ignored local binding을 읽는 5분 evidence/recovery companion; exact task digest와 사전·사후 검증 없이는 실행 거부 |
+| `mail_new_event_notice.mjs` | 살핌이 운영감시 메일 알림. Watchtower `store_mail_events`의 `count_store_unchanged_new_event_count_<n>` 판정을 읽어 기존 `planAlerts`(전환 시 발송·1h/4h/1d 재보고·보고된 것만 해소 통지)로 고정 문장 한 줄을 낸다. 불일치는 이후 `store_changed` 영수증이 올 때까지 미해결로 유지하며, 신규 0건·비교 불가로는 해소하지 않는다. 모델 호출 없음 |
+| `ops/salpi_mail_new_event_notice.py` | 위 모듈을 Hermes dev-assist `no_agent` cron에서 실행하는 shim. 호스트 경로는 곁의 비공개 config에서 읽고, 실패 시 고정 코드만 출력 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |
 | `watchtower.test.mjs` | 합성 판정·경로 미노출·원자 기록 회귀 |
 
@@ -134,6 +136,7 @@ Antigravity DB ────────────> usage_antigravity_collector
 - Workspace Board(team-ops-board)의 `시스템 토폴로지` 탭 —
   `src/server/topology-adapter.mjs`가 loopback 전용
   `GET /topology-health.snapshot.json`으로 probe 결과를 중계한다.
+- 살핌이 운영감시(Hermes dev-assist `no_agent` cron) — 스냅샷의 `store_mail_events` 판정만 읽어 기존 Buzz 창구로 전달한다(`mail_new_event_notice.mjs`).
 - 수집기·워커의 node-scoped `상태 관찰` 관계는 Watchtower W1의 왼쪽 입력으로 들어가며,
   Watchtower는 오른쪽으로 `판정 스냅샷`만 내보낸다. 이 간선은 검사·표시
   관계이며 self-heal이나 복구 권한을 뜻하지 않는다.
