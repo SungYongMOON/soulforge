@@ -74,11 +74,23 @@ export function readResolutionEvidence(receipt) {
 
 function readLatch(ledger) {
   const latch = ledger?.mail_new_event_latch;
-  if (!latch || typeof latch !== "object") return { open: false };
-  const openedAt = isoMs(latch.opened_at);
-  return latch.open === true && openedAt !== null
-    ? { open: true, opened_at: latch.opened_at, reported_new_events: Number.isSafeInteger(latch.reported_new_events) ? latch.reported_new_events : null }
-    : { open: false };
+  const lastChanged = isoMs(latch?.last_store_changed_at) === null ? null : latch.last_store_changed_at;
+  if (latch && typeof latch === "object" && latch.open === true && isoMs(latch.opened_at) !== null) {
+    return {
+      open: true,
+      opened_at: latch.opened_at,
+      reported_new_events: Number.isSafeInteger(latch.reported_new_events) ? latch.reported_new_events : null,
+      last_store_changed_at: lastChanged,
+    };
+  }
+  // A ledger whose latch is missing or damaged but whose alert row shows a reported, still-open
+  // fault stays open: silence or a "recovered" line must never come from lost state.
+  const row = ledger?.nodes?.[NOTICE_NODE_ID];
+  if (row?.last_state === "degraded" && Number.isSafeInteger(row.notify_count) && row.notify_count > 0
+    && isoMs(row.since) !== null) {
+    return { open: true, opened_at: row.since, reported_new_events: null, last_store_changed_at: lastChanged };
+  }
+  return { open: false, last_store_changed_at: lastChanged };
 }
 
 function elapsedText(fromMs, now) {
@@ -109,27 +121,43 @@ export function renderNotice(request, latch, now) {
   return lines.join("\n");
 }
 
-// Pure decision: returns { text | null, ledger }.
+// Pure decision: returns { text | null, ledger | null }. A null ledger means "do not write":
+// an unusable snapshot decides nothing and leaves the stored state as it was.
 export function decideNotice({ snapshot, receipt, ledger, now }) {
   const judgement = readJudgement(snapshot, now);
+  if (!judgement.usable) return { text: null, ledger: null, decision: judgement.code };
   const prior = ledger?.schema_version === ALERT_LEDGER_SCHEMA ? ledger : createEmptyAlertLedger();
-  if (!judgement.usable) return { text: null, ledger: prior, decision: judgement.code };
   let latch = readLatch(prior);
   const evidence = readResolutionEvidence(receipt);
+  // Remember the newest store change seen, so a later no-new-events run overwriting the receipt
+  // between ticks cannot hide the resolution evidence.
+  let lastChanged = latch.last_store_changed_at;
+  if (evidence?.state === "store_changed" && (lastChanged === null || evidence.completedAt > Date.parse(lastChanged))) {
+    lastChanged = new Date(evidence.completedAt).toISOString();
+  }
   if (judgement.mismatchCount > 0) {
+    // Anchor the fault to when it was observed, not to this tick: the mismatching receipt's
+    // completion when the receipt still shows it, else the snapshot that judged it.
+    const anchor = evidence?.state === "store_unchanged"
+      ? new Date(evidence.completedAt).toISOString()
+      : new Date(Date.parse(snapshot.observed_at)).toISOString();
     latch = latch.open
       ? { ...latch, reported_new_events: judgement.mismatchCount }
-      : { open: true, opened_at: new Date(now).toISOString(), reported_new_events: judgement.mismatchCount };
-  } else if (latch.open && evidence?.state === "store_changed" && evidence.completedAt > Date.parse(latch.opened_at)) {
+      : { open: true, opened_at: anchor, reported_new_events: judgement.mismatchCount };
+  } else if (latch.open && lastChanged !== null && Date.parse(lastChanged) > Date.parse(latch.opened_at)) {
     latch = { open: false };
   }
+  latch = { ...latch, last_store_changed_at: lastChanged };
   const node = {
     id: NOTICE_NODE_ID,
     label: NOTICE_LABEL,
     health: { state: latch.open ? "degraded" : "ok", reasons: latch.open ? ["store_unchanged_with_new_events"] : [], age_seconds: null },
   };
   const plan = planAlerts({ snapshot: { nodes: [node] }, ledger: prior, now });
-  const nextLedger = { ...plan.ledger, mail_new_event_latch: latch.open ? latch : { open: false } };
+  const nextLedger = {
+    ...plan.ledger,
+    mail_new_event_latch: latch.open ? latch : { open: false, last_store_changed_at: latch.last_store_changed_at },
+  };
   const request = plan.requests[0];
   return {
     text: request ? renderNotice(request, latch, now) : null,
@@ -140,6 +168,20 @@ export function decideNotice({ snapshot, receipt, ledger, now }) {
 
 async function readJsonOrNull(path) {
   try { return JSON.parse(await readFile(path, "utf8")); } catch { return null; }
+}
+
+// Absent ledger = first run. A ledger that exists but cannot be read is a failure: resetting it
+// would silently forget an open fault.
+async function readLedger(path) {
+  let text;
+  try { text = await readFile(path, "utf8"); } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw Object.assign(new Error("ledger_unreadable"), { code: "ledger_unreadable" });
+  }
+  let value;
+  try { value = JSON.parse(text); } catch { throw Object.assign(new Error("ledger_invalid"), { code: "ledger_invalid" }); }
+  if (value?.schema_version !== ALERT_LEDGER_SCHEMA) throw Object.assign(new Error("ledger_invalid"), { code: "ledger_invalid" });
+  return value;
 }
 
 async function writeJsonAtomic(path, value) {
@@ -169,17 +211,20 @@ export async function main(argv, { now = Date.now(), stdout = process.stdout } =
   const result = decideNotice({
     snapshot: await readJsonOrNull(snapshotPath),
     receipt: await readJsonOrNull(receiptPath),
-    ledger: await readJsonOrNull(ledgerPath),
+    ledger: await readLedger(ledgerPath),
     now,
   });
-  await writeJsonAtomic(ledgerPath, result.ledger);
+  // The ledger is saved before the line is handed to the channel: a lost delivery is re-sent
+  // by the existing backoff, while a saved-after-send crash would send the same line twice.
+  if (result.ledger !== null) await writeJsonAtomic(ledgerPath, result.ledger);
   if (result.text) stdout.write(`${result.text}\n`);
   return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, () => {
+  main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error) => {
+    // Exit 3 marks a ledger that must be looked at; the shim reports only the exit code.
     process.stderr.write("mail_new_event_notice: failed\n");
-    process.exitCode = 1;
+    process.exitCode = String(error?.code).startsWith("ledger_") ? 3 : 1;
   });
 }

@@ -104,10 +104,10 @@ test("a stale or unreadable snapshot decides nothing and keeps the ledger", () =
   const stale = decideNotice({ snapshot: snapshot(T0, []), receipt: receipt("store_changed", later), ledger: first.ledger, now: later });
   assert.equal(stale.text, null);
   assert.equal(stale.decision, "snapshot_not_current");
-  assert.deepEqual(stale.ledger, first.ledger);
+  assert.equal(stale.ledger, null, "nothing is written on an unusable snapshot");
   const unreadable = decideNotice({ snapshot: null, receipt: null, ledger: first.ledger, now: T0 });
   assert.equal(unreadable.decision, "snapshot_invalid");
-  assert.deepEqual(unreadable.ledger, first.ledger);
+  assert.equal(unreadable.ledger, null);
 });
 
 test("older receipts without the cross-check never open or close anything", () => {
@@ -182,6 +182,52 @@ test("the Hermes shim passes the module's stdout through and fails with a fixed 
     assert.equal(second.stdout, "");
     const connection = runShim(["--connection-test"]);
     assert.equal(connection.stdout, `${CONNECTION_TEST_TEXT}\n`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("review: the fault is anchored to the observed mismatch, so a store change right after it resolves", () => {
+  // Snapshot still shows the old mismatch while the receipt already has a later store change.
+  const results = run([
+    { at: T0 + 20 * MIN, snap: snapshot(T0 + 20 * MIN, MISMATCH), rec: receipt("store_unchanged", T0) },
+    { at: T0 + 25 * MIN, snap: snapshot(T0 + 25 * MIN), rec: receipt("store_changed", T0 + 16 * MIN) },
+  ]);
+  assert.equal(results[0].ledger.mail_new_event_latch.opened_at, new Date(T0).toISOString());
+  assert.match(results[1].text, /해소됐습니다/u);
+});
+
+test("review: a store change seen between ticks is remembered even if a later run overwrites the receipt", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0, MISMATCH), rec: receipt("store_unchanged", T0 - MIN) },
+    // Snapshot still carries the mismatch, but the receipt already shows the later store change.
+    { at: T0 + 10 * MIN, snap: snapshot(T0 + 10 * MIN, MISMATCH), rec: receipt("store_changed", T0 + 8 * MIN) },
+    // Next tick: that receipt was overwritten by a no-new-events run.
+    { at: T0 + 25 * MIN, snap: snapshot(T0 + 25 * MIN), rec: receipt("no_new_events_reported", T0 + 23 * MIN) },
+  ]);
+  assert.equal(results[1].text, null);
+  assert.match(results[2].text, /해소됐습니다/u);
+});
+
+test("review: a lost latch with a reported open fault stays open, never recovered", () => {
+  const first = decideNotice({ snapshot: snapshot(T0, MISMATCH), receipt: receipt("store_unchanged", T0 - MIN), ledger: null, now: T0 });
+  const damaged = { ...first.ledger };
+  delete damaged.mail_new_event_latch;
+  const next = decideNotice({ snapshot: snapshot(T0 + 15 * MIN), receipt: receipt("no_new_events_reported", T0 + 13 * MIN), ledger: damaged, now: T0 + 15 * MIN });
+  assert.equal(next.ledger.mail_new_event_latch.open, true);
+  assert.equal(next.text, null);
+});
+
+test("review: a corrupt ledger fails closed instead of being reset", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "mail-notice-ledger-"));
+  try {
+    const files = { snap: path.join(root, "snap.json"), rec: path.join(root, "rec.json"), ledger: path.join(root, "ledger.json") };
+    await writeFile(files.snap, JSON.stringify(snapshot(T0)));
+    await writeFile(files.rec, JSON.stringify(receipt("no_new_events_reported", T0)));
+    await writeFile(files.ledger, "{ truncated");
+    await assert.rejects(main(["--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger], { now: T0, stdout: { write() {} } }),
+      (error) => error.code === "ledger_invalid");
+    assert.equal(await readFile(files.ledger, "utf8"), "{ truncated", "the ledger is left untouched");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
