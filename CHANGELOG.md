@@ -2,11 +2,11 @@
 
 ## 2026-09-19 - 살핌이 정기 보고 (정상이어도 보고, 관측 불가 구분)
 
-- Revision: 이 항목을 포함한 커밋. \`mail_new_event_notice.mjs --report\`가 예약 실행마다 정기 보고를 낸다. 정상이면 짧게,
+- Revision: 이 항목을 포함한 커밋. `mail_new_event_notice.mjs --report`가 예약 실행마다 정기 보고를 낸다. 정상이면 짧게,
   Watchtower 판정·대조 기록을 못 읽거나 비교 불가면 "확인 불가"로 적고 정상으로 쓰지 않는다. 불일치는 새로 발견/계속 미해결로 나누고,
   신규 0건·비교 불가는 해소로 보지 않는다. 지난 보고 이후 구간은 ingress 실행 영수증 건수로 요약하되 실행별 대조 기록이 없어 확인 불가로 명시한다.
 - 보고 원장은 "생성"만 기록하고 전달 결과는 Hermes 작업 기록(last_delivery_error)을 다음 보고가 읽어 알린다. 보고 주기는 Hermes 작업 일정이 유일한 기준이다.
-- 관련 경로: \`guild_hall/watchtower/mail_new_event_notice.mjs\`, \`guild_hall/watchtower/ops/salpi_mail_new_event_notice.py\`.
+- 관련 경로: `guild_hall/watchtower/mail_new_event_notice.mjs`, `guild_hall/watchtower/ops/salpi_mail_new_event_notice.py`.
 
 ## 2026-09-19 - 살핌이 운영감시: 메일 신규 보고–저장소 불일치 전달
 
