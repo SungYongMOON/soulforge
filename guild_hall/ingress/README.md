@@ -433,6 +433,21 @@ If a spawned child times out or returns an invalid summary, the receipt marks
 the run partial with `write_count_known: false`; aggregate writes become an
 explicit lower bound and are never reported as an exact zero.
 
+### Mail new-event store check
+
+Each v2 run writes `state/health/store_mail_events.json`. Its `status`, `error_codes`,
+`last_success_at` and `activity_changed` keep their meaning: format validity of the event
+file tails, and whether the validation digest differs from the previous receipt.
+
+The separate `new_event_store_check` block cross-checks this run's mail bridge
+`total_new_events` against that digest comparison. `store_unchanged` means new events were
+reported while the store is unchanged since a valid previous observation of the same store scope;
+Watchtower shows it as `degraded` (`count_store_unchanged_new_event_count_<n>`), which is not a
+restart trigger. `store_changed` only means some event file changed since then — it does not
+prove every reported event was stored or loaded downstream. A first observation, a failed
+validation, an unusable or disabled mail result, or a changed/unrecorded scope is
+`not_comparable` with a reason code, never a pass.
+
 ## Legacy mail custody materialization
 
 `legacy_mail_custody_materializer.mjs` moves an explicitly frozen legacy mail

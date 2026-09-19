@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-09-19 - ingress 메일 저장소 신규 이벤트 대조 (new_event_store_check)
+
+- Revision: 이 항목을 포함한 커밋. `guild_hall/ingress/continuous_runner.mjs`가 같은 실행의 메일 bridge `total_new_events`와
+  store validity digest 비교를 대조해 `store_mail_events.json`에 `new_event_store_check`를 따로 기록한다.
+  `status`·`error_codes`·`last_success_at`·`activity_changed`의 의미는 바꾸지 않는다.
+- 새 이벤트를 보고했는데 같은 범위의 유효한 이전 관측 이후 저장소가 그대로면 `store_unchanged`. Watchtower 예시 binding의
+  `store_mail_events`가 `degrade_when`으로 degraded 표시하며 재시작 사유는 아니다. 최초 관측·검증 실패·메일 결과 불가·범위 불일치는
+  `not_comparable`. `store_changed`는 전량 저장이나 core_mail 적재를 뜻하지 않는다.
+- `path_registry` 메일 lane adapter는 이 블록을 선택 필드로 받되 수락 판정은 바꾸지 않는다. salpi_audit README에 운영 미연결과
+  누적 규칙 보류를 적었다.
+- 운영 영향: 코드만. 운영 lane·예약작업·실제 Watchtower binding은 바꾸지 않았다(배포 시 binding에 같은 `degrade_when` 한 줄 필요).
+- 관련 경로: `guild_hall/ingress/`, `guild_hall/watchtower/cli.mjs`, `guild_hall/path_registry/src/mail_source_lane_adapter.mjs`,
+  `guild_hall/salpi_audit/README.md`.
+
 ## 2026-09-19 - 살피미 정답 소유권을 결정론 checker로 이동 (review contract v1)
 
 - Revision: 이 항목을 포함한 커밋. 새 `guild_hall/salpi_audit/src/salpi_review.mjs`가 결정론 checklist 결과를

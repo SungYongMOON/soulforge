@@ -23,6 +23,7 @@ import {
   EDGE_DELIVERY_STATES,
 } from "./topology.mjs";
 import { EXAMPLE_BINDING, USAGE_PRODUCER_HEALTH_PERIOD_SECONDS } from "./cli.mjs";
+import { classifyRuntimeNodeReason } from "./recovery_diagnostics.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 
@@ -1059,4 +1060,38 @@ test("codex retention report probe contract evaluates missing as unmonitored, PA
   assert.equal(exampleProbe.missing_is_unmonitored, true);
   assert.equal(exampleProbe.resident_task, undefined, "codex_retention_report has no resident_task");
   assert.equal(exampleProbe.scheduled_task, undefined, "codex_retention_report has no scheduled_task");
+});
+
+test("store_mail_events shows a new-event/store mismatch as degraded without a restart reason", async () => {
+  const root = await tempRoot();
+  const file = path.join(root, "store_mail_events.json");
+  const { resident_task: _task, ...probe } = { ...EXAMPLE_BINDING.probes.store_mail_events, path: file };
+  const receipt = (check) => JSON.stringify({
+    schema_version: "soulforge.ingress.store_validity.v1",
+    lane: "store_mail_events",
+    validation_scope: "mail_event_tail_set_validity",
+    status: "ok",
+    attempted_at: new Date(NOW - 70_000).toISOString(),
+    completed_at: new Date(NOW - 60_000).toISOString(),
+    last_success_at: new Date(NOW - 60_000).toISOString(),
+    error_codes: [],
+    activity_changed: false,
+    validation_digest: "c".repeat(64),
+    validated_count: 3,
+    ...(check === undefined ? {} : { new_event_store_check: check }),
+  });
+  const check = (state, count) => ({
+    state, reason_code: null, reported_new_events: count || 2, store_unchanged_new_event_count: count,
+    comparison_scope: "a".repeat(64),
+  });
+
+  await writeFile(file, receipt(undefined));
+  assert.equal((await runProbe(probe, { now: NOW })).state, "ok", "older receipts without the block stay ok");
+  await writeFile(file, receipt(check("store_changed", 0)));
+  assert.equal((await runProbe(probe, { now: NOW })).state, "ok");
+  await writeFile(file, receipt(check("store_unchanged", 2)));
+  const flagged = await runProbe(probe, { now: NOW });
+  assert.equal(flagged.state, "degraded");
+  assert.deepEqual(flagged.reasons, ["count_store_unchanged_new_event_count_2"]);
+  for (const reason of flagged.reasons) assert.equal(classifyRuntimeNodeReason(reason), null);
 });

@@ -2013,9 +2013,60 @@ async function priorStoreValidity(path) {
   }
 }
 
+// Cross-check of this run's reported new mail events against the mail store observation.
+//
+// It reuses two existing signals and changes neither: the mail bridge result of this run
+// (`total_new_events`, counts known) and the store validation digest compared with the previous
+// store receipt (the same comparison `activity_changed` makes). The digest covers each event
+// file's path, size and last event id, so a changed digest means some event file changed since
+// the previous observation — it does not prove every reported event was stored, and it says
+// nothing about downstream loads (events -> core_mail).
+//
+// Only a mismatch is flagged: new events reported while the store is unchanged since a valid
+// previous observation of the same store scope. First observations, failed validations, an
+// unusable mail result and a scope change are `not_comparable`, never a pass. The block is kept
+// apart from `status`/`error_codes`/`last_success_at`, which stay the format-validity verdict.
+export const MAIL_NEW_EVENT_STORE_CHECK_STATES = Object.freeze([
+  "store_changed", "store_unchanged", "no_new_events_reported", "not_comparable",
+]);
+
+export function mailNewEventStoreCheck({ mailResult, succeeded, validationDigest, prior, comparisonScope }) {
+  const result = (state, reasonCode, reported) => ({
+    state,
+    reason_code: reasonCode,
+    reported_new_events: reported,
+    store_unchanged_new_event_count: state === "store_unchanged" ? reported : 0,
+    comparison_scope: comparisonScope,
+  });
+  const newEvents = mailResult?.total_new_events;
+  if (mailResult?.status === "disabled") return result("not_comparable", "mail_disabled", null);
+  if (!["ok", "partial"].includes(mailResult?.status) || mailResult?.write_count_known !== true
+    || !Number.isSafeInteger(newEvents) || newEvents < 0) {
+    return result("not_comparable", "mail_result_unavailable", null);
+  }
+  if (newEvents === 0) return result("no_new_events_reported", null, 0);
+  if (!succeeded || typeof validationDigest !== "string") {
+    return result("not_comparable", "store_validation_failed", newEvents);
+  }
+  if (prior?.status !== "ok" || typeof prior?.validation_digest !== "string") {
+    return result("not_comparable", "no_valid_prior_observation", newEvents);
+  }
+  const priorScope = prior?.new_event_store_check?.comparison_scope;
+  if (typeof priorScope !== "string") return result("not_comparable", "prior_scope_unrecorded", newEvents);
+  if (priorScope !== comparisonScope) return result("not_comparable", "comparison_scope_mismatch", newEvents);
+  return prior.validation_digest === validationDigest
+    ? result("store_unchanged", null, newEvents)
+    : result("store_changed", null, newEvents);
+}
+
+function mailStoreComparisonScope(dataRoot) {
+  const mailboxRoot = comparable(resolve(dataRoot, "ingress", "mailbox"));
+  return createHash("sha256").update(`mail_event_tail_set_validity\0${mailboxRoot}`, "utf8").digest("hex");
+}
+
 async function writeStoreValidity(binding, lane, {
   attemptedAt, completedAt, succeeded, validationDigest = null, validatedCount = null,
-  errorCodes = [], assertFence = async () => {},
+  errorCodes = [], assertFence = async () => {}, mailResult,
 }) {
   const target = resolve(binding.dataRoot, "state", "health", `${lane}.json`);
   const prior = await priorStoreValidity(target);
@@ -2037,6 +2088,12 @@ async function writeStoreValidity(binding, lane, {
     validation_digest: succeeded ? validationDigest : prior?.validation_digest ?? null,
     validated_count: succeeded ? validatedCount : prior?.validated_count ?? null,
   };
+  if (lane === "store_mail_events") {
+    record.new_event_store_check = mailNewEventStoreCheck({
+      mailResult, succeeded, validationDigest, prior,
+      comparisonScope: mailStoreComparisonScope(binding.dataRoot),
+    });
+  }
   await atomicJson(binding.dataRoot, target, record, assertFence, {
     phase: "before_store_validity_publish", artifact: lane, target,
   });
@@ -2669,6 +2726,7 @@ export async function runContinuousIngress(options = {}) {
         validatedCount: mailValidation?.fileCount ?? null,
         errorCodes: mailValidation ? [] : [mailValidationCode],
         assertFence: storeValidityFence,
+        mailResult,
       });
     }
     let voiceValidation = null;

@@ -109,6 +109,12 @@ Hermes가 모델에게 알려 주는 context 폴더는 여전히 기존 작업 �
 - 이 모듈은 코드와 테스트다. launcher는 dry-run뿐이며 상용 모델 호출·실데이터 pilot은 아직 없다.
   평소 dev-assist(Buzz·cli) 실행의 도구와 지침은 그대로이고 바뀌지 않는다.
 - 맥락이·강도담·다른 봇, scheduler/launcher, 메일 수집 순서, 공용 tool policy는 바꾸지 않는다.
+- 운영 미연결(2026-09-19 결정): 살피미 모델 호출·실메일 pilot·운영 연결은 하지 않는다. 기존 heartbeat·Watchtower를 재사용한다.
+- 누적 raw/events·dedupe 기반 규칙(`raw_exceeds_materialized_events`·`dedupe_orphan_candidate`)은 보존기간이 다르고
+  (raw 730일, ads 180일·quarantine 365일 events, dedupe 최근 5만 개) inbox는 메일함끼리 공유하는데 영수증·dedupe는 메일함별이라
+  같은 범위·기간의 값이 아니다. 운영 적용을 보류한다.
+- 운영에 필요한 한 가지(새 메일을 보고했는데 저장소가 그대로인 경우)는 ingress 실행기의
+  `store_mail_events.new_event_store_check`로 옮겼다(`guild_hall/ingress/README.md`).
 
 ## 검증
 
