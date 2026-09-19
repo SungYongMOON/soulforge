@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
-  CONNECTION_TEST_TEXT, SNAPSHOT_MAX_AGE_SECONDS, decideNotice, main,
+  CONNECTION_TEST_TEXT, SNAPSHOT_MAX_AGE_SECONDS, buildPeriodicReport, decideNotice, main,
 } from "./mail_new_event_notice.mjs";
 
 const T0 = Date.parse("2026-09-19T10:00:00.000Z");
@@ -228,6 +228,115 @@ test("review: a corrupt ledger fails closed instead of being reset", async () =>
     await assert.rejects(main(["--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger], { now: T0, stdout: { write() {} } }),
       (error) => error.code === "ledger_invalid");
     assert.equal(await readFile(files.ledger, "utf8"), "{ truncated", "the ledger is left untouched");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ---- periodic report (살핌이 정기 보고) ----
+const JOB = Object.freeze({ schedule: { kind: "interval", minutes: 180 }, last_delivery_error: null });
+const EMPTY_LEDGER = null;
+const report = (args) => buildPeriodicReport({ job: JOB, runs: [], ...args });
+
+test("report: a normal run still produces a short report with scope, result and next time", () => {
+  const r = report({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0 - MIN), ledger: EMPTY_LEDGER, now: T0 });
+  assert.equal(r.status, "정상");
+  assert.match(r.text, /^\[살핌이 정기 보고\] 09-19 19:00 \(KST\)/u);
+  assert.match(r.text, /Soulforge 전체 상태가 아님/u);
+  assert.match(r.text, /- 결과: 정상/u);
+  assert.match(r.text, /다음 정기 보고: 09-19 22:00 무렵 \(간격 3시간\)/u);
+  assert.equal(r.ledger.last_report_generated_at, new Date(T0).toISOString());
+});
+
+test("report: unobservable inputs are reported as 확인 불가, never as normal", () => {
+  const stale = { ...snapshot(T0), observed_at: new Date(T0 - 3600_000).toISOString() };
+  const noNode = { ...snapshot(T0), nodes: [] };
+  const notComparable = receipt("not_comparable", T0 - MIN);
+  notComparable.new_event_store_check.reason_code = "no_valid_prior_observation";
+  const oldReceipt = { schema_version: "soulforge.ingress.store_validity.v1", status: "ok", completed_at: new Date(T0).toISOString() };
+  const cases = [
+    [{ snapshot: null, receipt: receipt("no_new_events_reported", T0) }, /Watchtower 판정을 읽지 못했습니다/u],
+    [{ snapshot: stale, receipt: receipt("no_new_events_reported", T0) }, /30분 넘게 갱신되지 않았습니다/u],
+    [{ snapshot: noNode, receipt: receipt("no_new_events_reported", T0) }, /메일 event 원장 항목이 없습니다/u],
+    [{ snapshot: snapshot(T0), receipt: null }, /대조 기록을 읽지 못했습니다/u],
+    [{ snapshot: snapshot(T0), receipt: oldReceipt }, /대조 기록이 아직 생성되지 않았습니다/u],
+    [{ snapshot: snapshot(T0), receipt: notComparable }, /판단할 근거가 없습니다 \(비교할 이전 관측 없음\)/u],
+  ];
+  for (const [input, expected] of cases) {
+    const r = report({ ...input, ledger: EMPTY_LEDGER, now: T0 });
+    assert.equal(r.status, "확인 불가", expected.source);
+    assert.match(r.text, expected);
+    assert.doesNotMatch(r.text, /- 결과: 정상/u);
+  }
+});
+
+test("report: a mismatch is new once, then continuing; later no-new or not_comparable keep it unresolved", () => {
+  const first = report({ snapshot: snapshot(T0, MISMATCH), receipt: receipt("store_unchanged", T0 - MIN), ledger: EMPTY_LEDGER, now: T0 });
+  assert.equal(first.status, "이상");
+  assert.match(first.text, /새로 발견한 이상: 신규 메일 보고\(2건\)/u);
+  const later = T0 + 3 * 3600_000;
+  const second = report({ snapshot: snapshot(later), receipt: receipt("no_new_events_reported", later - MIN), ledger: first.ledger, now: later });
+  assert.equal(second.status, "이상");
+  assert.match(second.text, /계속 남아 있는 미해결: 신규 보고–저장소 불일치 \(3시간째\)/u);
+  const nc = receipt("not_comparable", later + 3 * 3600_000 - MIN);
+  nc.new_event_store_check.reason_code = "store_validation_failed";
+  const third = report({ snapshot: snapshot(later + 3 * 3600_000), receipt: nc, ledger: second.ledger, now: later + 3 * 3600_000 });
+  assert.equal(third.status, "이상");
+  assert.match(third.text, /계속 남아 있는 미해결/u);
+  assert.match(third.text, /확인 불가: 이번 저장소 대조를 판단할 근거가 없습니다 \(저장소 검증 실패\)/u);
+  const resolvedAt = later + 6 * 3600_000;
+  const fourth = report({ snapshot: snapshot(resolvedAt), receipt: receipt("store_changed", resolvedAt - MIN), ledger: third.ledger, now: resolvedAt });
+  assert.equal(fourth.status, "정상");
+});
+
+test("report: the interval since the previous report is summarised from run receipts, gaps stay 확인 불가", () => {
+  const ledger = { schema_version: "soulforge.watchtower.alert_ledger.v1", nodes: {}, last_report_generated_at: new Date(T0 - 3 * 3600_000).toISOString() };
+  const runs = [
+    { status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 2 } },
+    { status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 0 } },
+    { status: "error", mail: { status: "failed", write_count_known: false, total_new_events: 0 } },
+  ];
+  const r = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0 - MIN), ledger, now: T0, runs, job: JOB });
+  assert.match(r.text, /수집 실행 3회, 실패 1회, 신규 메일 보고 2건, 결과를 알 수 없는 실행 1회/u);
+  assert.match(r.text, /사이 구간의 불일치는 확인 불가/u);
+  const unread = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0 - MIN), ledger, now: T0, runs: null, job: JOB });
+  assert.match(unread.text, /수집 실행 기록을 읽지 못해 확인 불가/u);
+});
+
+test("report: a previous delivery failure is carried into the next report; a missing schedule is stated", () => {
+  const r = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0), ledger: null, now: T0, runs: [],
+    job: { schedule: { kind: "interval", minutes: 90 }, last_delivery_error: "relay error" } });
+  assert.match(r.text, /직전 보고: 전달 실패 기록이 있습니다/u);
+  assert.match(r.text, /간격 90분/u);
+  assert.doesNotMatch(r.text, /relay error/u);
+  const noJob = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0), ledger: null, now: T0, runs: [], job: null });
+  assert.match(noJob.text, /예약 설정을 읽지 못함/u);
+});
+
+test("report CLI: reads run receipts after the previous report and this job's schedule, never prints paths", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "mail-report-"));
+  try {
+    const runsDir = path.join(root, "runs");
+    const { mkdir: mk } = await import("node:fs/promises");
+    await mk(runsDir, { recursive: true });
+    const name = (ms, seq) => `${new Date(ms).toISOString().replace(/[-:]/gu, "").replace(".", "")}_hpp-primary-01_${seq}.json`;
+    await writeFile(path.join(runsDir, name(T0 - 4 * 3600_000, 1)), JSON.stringify({ status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 9 } }));
+    await writeFile(path.join(runsDir, name(T0 - 3600_000, 2)), JSON.stringify({ status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 1 } }));
+    const files = {
+      snap: path.join(root, "snap.json"), rec: path.join(root, "rec.json"), ledger: path.join(root, "ledger.json"), jobs: path.join(root, "jobs.json"),
+    };
+    await writeFile(files.snap, JSON.stringify(snapshot(T0)));
+    await writeFile(files.rec, JSON.stringify(receipt("no_new_events_reported", T0 - MIN)));
+    await writeFile(files.ledger, JSON.stringify({ schema_version: "soulforge.watchtower.alert_ledger.v1", nodes: {}, last_report_generated_at: new Date(T0 - 3 * 3600_000).toISOString() }));
+    await writeFile(files.jobs, JSON.stringify({ jobs: [{ name: "salpi-report", schedule: { kind: "interval", minutes: 180 }, last_delivery_error: null }] }));
+    let out = "";
+    await main(["--report", "--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger, "--runs-dir", runsDir,
+      "--jobs-file", files.jobs, "--job-name", "salpi-report"], { now: T0, stdout: { write: (text) => { out += text; } } });
+    assert.match(out, /수집 실행 1회, 신규 메일 보고 1건/u);
+    assert.match(out, /간격 3시간/u);
+    assert.equal(out.includes(root), false);
+    const ledger = JSON.parse(await readFile(files.ledger, "utf8"));
+    assert.equal(ledger.last_report_generated_at, new Date(T0).toISOString());
   } finally {
     await rm(root, { recursive: true, force: true });
   }

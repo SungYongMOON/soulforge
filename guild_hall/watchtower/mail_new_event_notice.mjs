@@ -23,8 +23,8 @@
 // Output never carries paths, identities, digests or free text from inputs: only fixed
 // sentences, the reported count and elapsed time.
 
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
@@ -196,6 +196,144 @@ function option(argv, name) {
   return index >= 0 ? argv[index + 1] : undefined;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Periodic report (살핌이 정기 보고). Sent on every scheduled run, normal or not, so silence can
+// never be mistaken for health. Scope is the mail new-event/store check only.
+
+export const REPORT_PREFIX = "[살핌이 정기 보고]";
+const UNOBSERVABLE_TEXT = Object.freeze({
+  snapshot_invalid: "Watchtower 판정을 읽지 못했습니다",
+  snapshot_not_current: "Watchtower 판정이 30분 넘게 갱신되지 않았습니다",
+  node_absent: "Watchtower 판정에 메일 event 원장 항목이 없습니다",
+  receipt_unreadable: "메일 저장소 대조 기록을 읽지 못했습니다",
+  receipt_without_check: "메일 저장소 대조 기록이 아직 생성되지 않았습니다",
+});
+const NOT_COMPARABLE_TEXT = Object.freeze({
+  mail_disabled: "메일 수집이 꺼져 있음",
+  mail_result_unavailable: "이번 수집 결과를 쓸 수 없음",
+  store_validation_failed: "저장소 검증 실패",
+  no_valid_prior_observation: "비교할 이전 관측 없음",
+  prior_scope_unrecorded: "이전 관측의 비교 범위 기록 없음",
+  comparison_scope_mismatch: "이전 관측과 비교 범위가 다름",
+});
+// Run receipt file names start with their UTC time: 20260919T114945022Z_<node>_<seq>.json
+const RUN_RECEIPT_NAME = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z_[A-Za-z0-9_.-]+\.json$/u;
+
+export function runReceiptTime(name) {
+  const m = RUN_RECEIPT_NAME.exec(name);
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], +m[7]) : null;
+}
+
+// Counts only: runs, failed runs, reported new mail events. Nothing else is read out.
+export function summarizeRuns(receipts) {
+  let runs = 0; let failed = 0; let newEvents = 0; let unknown = 0;
+  for (const receipt of receipts) {
+    runs += 1;
+    if (receipt?.status !== "ok") failed += 1;
+    const mail = receipt?.mail;
+    if (["ok", "partial"].includes(mail?.status) && mail?.write_count_known === true && Number.isSafeInteger(mail?.total_new_events)) {
+      newEvents += mail.total_new_events;
+    } else {
+      unknown += 1;
+    }
+  }
+  return { runs, failed, newEvents, unknown };
+}
+
+const KST = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+});
+const kst = (ms) => {
+  const part = Object.fromEntries(KST.formatToParts(new Date(ms)).map((item) => [item.type, item.value]));
+  return `${part.month}-${part.day} ${part.hour === "24" ? "00" : part.hour}:${part.minute}`;
+};
+
+function intervalText(minutes) {
+  if (!Number.isSafeInteger(minutes) || minutes <= 0) return null;
+  if (minutes % 60 === 0) return `${minutes / 60}시간`;
+  return `${minutes}분`;
+}
+
+// Pure: returns { text, ledger }. `job` is this report's own Hermes job record (schedule, previous
+// delivery outcome); `runs` are the ingress run receipts completed since the previous report.
+export function buildPeriodicReport({ snapshot, receipt, ledger, now, runs = null, job = null }) {
+  const prior = ledger?.schema_version === ALERT_LEDGER_SCHEMA ? ledger : createEmptyAlertLedger();
+  const lastReportAt = isoMs(prior.last_report_generated_at);
+  const decided = decideNotice({ snapshot, receipt, ledger: prior, now });
+  const next = decided.ledger ?? prior;
+  const latch = readLatch(next);
+
+  const unobservable = [];
+  if (decided.ledger === null) unobservable.push(UNOBSERVABLE_TEXT[decided.decision] ?? "Watchtower 판정을 확인하지 못했습니다");
+  const evidenceRaw = receipt?.new_event_store_check;
+  let checkLine = null;
+  if (!receipt || typeof receipt !== "object") unobservable.push(UNOBSERVABLE_TEXT.receipt_unreadable);
+  else if (!evidenceRaw) unobservable.push(UNOBSERVABLE_TEXT.receipt_without_check);
+  else if (evidenceRaw.state === "not_comparable") {
+    unobservable.push(`이번 저장소 대조를 판단할 근거가 없습니다 (${NOT_COMPARABLE_TEXT[evidenceRaw.reason_code] ?? "사유 미상"})`);
+  } else if (evidenceRaw.state === "store_changed") checkLine = "최근 수집에서 신규 메일 보고와 함께 저장소 변화가 관측됐습니다 (전량 저장을 뜻하지는 않음)";
+  else if (evidenceRaw.state === "no_new_events_reported") checkLine = "최근 수집에서 신규 메일 보고가 없었습니다";
+
+  const isOpen = latch.open === true;
+  const status = isOpen ? "이상" : unobservable.length > 0 ? "확인 불가" : "정상";
+  const lines = [`${REPORT_PREFIX} ${kst(now)} (KST)`, "- 확인 범위: 메일 수집의 신규 보고–저장소 관측 대조만 (Soulforge 전체 상태가 아님)"];
+  lines.push(`- 결과: ${status}`);
+  if (isOpen) {
+    const openedAt = Date.parse(latch.opened_at);
+    const count = latch.reported_new_events === null ? "알 수 없음" : `${latch.reported_new_events}건`;
+    if (lastReportAt === null || openedAt > lastReportAt) {
+      lines.push(`- 새로 발견한 이상: 신규 메일 보고(${count})가 있었는데 같은 저장소의 이전 관측 이후 변화가 없음. 원인·누락 건수는 확정하지 않음`);
+    } else {
+      lines.push(`- 계속 남아 있는 미해결: 신규 보고–저장소 불일치 (${elapsedText(openedAt, now)}). 이후 저장소 변화가 관측되기 전까지 유지`);
+    }
+  } else if (checkLine && status === "정상") {
+    lines.push(`- ${checkLine}`);
+  }
+  for (const item of unobservable) lines.push(`- 확인 불가: ${item}`);
+  if (runs === null) {
+    lines.push("- 지난 보고 이후 구간: 수집 실행 기록을 읽지 못해 확인 불가");
+  } else if (lastReportAt === null) {
+    lines.push("- 지난 보고 이후 구간: 직전 보고 기록이 없어 이번 시점만 확인");
+  } else {
+    const s = summarizeRuns(runs);
+    const unknown = s.unknown > 0 ? `, 결과를 알 수 없는 실행 ${s.unknown}회` : "";
+    const failed = s.failed > 0 ? `, 실패 ${s.failed}회` : "";
+    lines.push(`- 지난 보고 이후 구간: 수집 실행 ${s.runs}회${failed}, 신규 메일 보고 ${s.newEvents}건${unknown}. 실행별 저장소 대조 기록은 남지 않아 사이 구간의 불일치는 확인 불가`);
+  }
+  if (job && typeof job.last_delivery_error === "string" && job.last_delivery_error.length > 0) {
+    lines.push("- 직전 보고: 전달 실패 기록이 있습니다");
+  }
+  const minutes = job?.schedule?.kind === "interval" ? job.schedule.minutes : null;
+  const every = intervalText(minutes);
+  lines.push(every
+    ? `- 다음 정기 보고: ${kst(now + minutes * 60_000)} 무렵 (간격 ${every})`
+    : "- 다음 정기 보고: 예약 설정을 읽지 못함");
+  return {
+    text: lines.join("\n"),
+    ledger: { ...next, last_report_generated_at: new Date(now).toISOString() },
+    status,
+  };
+}
+
+async function readRunsSince(dir, sinceMs, nowMs) {
+  let names;
+  try { names = await readdir(dir); } catch { return null; }
+  const picked = names
+    .map((name) => ({ name, at: runReceiptTime(name) }))
+    .filter((item) => item.at !== null && item.at > sinceMs && item.at <= nowMs)
+    .sort((a, b) => a.at - b.at)
+    .slice(-2000);
+  const receipts = [];
+  for (const item of picked) receipts.push(await readJsonOrNull(join(dir, item.name)));
+  return receipts;
+}
+
+async function readJob(jobsFile, jobName) {
+  const jobs = await readJsonOrNull(jobsFile);
+  const list = Array.isArray(jobs?.jobs) ? jobs.jobs : [];
+  return list.find((item) => item?.name === jobName) ?? null;
+}
+
 export async function main(argv, { now = Date.now(), stdout = process.stdout } = {}) {
   if (argv.includes("--connection-test")) {
     stdout.write(`${CONNECTION_TEST_TEXT}\n`);
@@ -207,6 +345,26 @@ export async function main(argv, { now = Date.now(), stdout = process.stdout } =
   if (!snapshotPath || !receiptPath || !ledgerPath) {
     process.stderr.write("mail_new_event_notice: --snapshot, --receipt and --ledger are required\n");
     return 1;
+  }
+  if (argv.includes("--report")) {
+    const ledger = await readLedger(ledgerPath);
+    const lastReportAt = isoMs(ledger?.last_report_generated_at);
+    const runsDir = option(argv, "--runs-dir");
+    const jobsFile = option(argv, "--jobs-file");
+    const jobName = option(argv, "--job-name");
+    const report = buildPeriodicReport({
+      snapshot: await readJsonOrNull(snapshotPath),
+      receipt: await readJsonOrNull(receiptPath),
+      ledger,
+      now,
+      runs: runsDir && lastReportAt !== null ? await readRunsSince(runsDir, lastReportAt, now) : (runsDir ? [] : null),
+      job: jobsFile && jobName ? await readJob(jobsFile, jobName) : null,
+    });
+    // Recorded as generated, not delivered: delivery outcome is Hermes' own job record, which the
+    // next report reads back. A report is never suppressed by an earlier one.
+    await writeJsonAtomic(ledgerPath, report.ledger);
+    stdout.write(`${report.text}\n`);
+    return 0;
   }
   const result = decideNotice({
     snapshot: await readJsonOrNull(snapshotPath),

@@ -8,7 +8,12 @@ that sits next to it:
 
   salpi_mail_new_event_notice.config.json
   {"node": "<node.exe>", "lane_root": "<installed lane>", "snapshot": "<watchtower snapshot>",
-   "receipt": "<store_mail_events.json>", "ledger": "<notice ledger>"}
+   "receipt": "<store_mail_events.json>", "ledger": "<notice ledger>",
+   "mode": "report", "runs_dir": "<ingress run receipts>", "jobs_file": "<profile cron/jobs.json>",
+   "job_name": "<this Hermes job's name>"}
+
+With mode "report" every run prints a periodic report (normal included). The report interval is
+the Hermes job's own schedule; change it with `hermes -p dev-assist cron edit <id> --schedule ...`.
 
 On any failure it prints one fixed code and exits non-zero. Hermes forwards a failed
 script's output to the channel, so no exception text, path or child stderr is ever printed.
@@ -49,6 +54,14 @@ def main():
         fail("runtime_missing")
     argv = [config["node"], module, "--snapshot", config["snapshot"], "--receipt", config["receipt"],
             "--ledger", config["ledger"]]
+    # mode "report": a periodic 살핌이 report on every run (normal included), reading the ingress
+    # run receipts since the previous report and this job's own Hermes record for its schedule.
+    if config.get("mode") == "report":
+        extra = ("runs_dir", "jobs_file", "job_name")
+        if any(not isinstance(config.get(key), str) or not config[key] for key in extra):
+            fail("config_invalid")
+        argv += ["--report", "--runs-dir", config["runs_dir"], "--jobs-file", config["jobs_file"],
+                 "--job-name", config["job_name"]]
     if "--connection-test" in sys.argv[1:]:
         argv = [config["node"], module, "--connection-test"]
     try:
