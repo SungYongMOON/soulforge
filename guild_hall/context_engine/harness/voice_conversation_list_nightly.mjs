@@ -10,10 +10,14 @@
 // finished (`transcript_absent`), when it is shorter than
 // `MIN_TRANSCRIPT_SECONDS` (`duration_below_30s`), or when it already has a
 // verified run (`skipped_existing`, read the same way `voice_conversation_list_
-// cli.mjs show` reads one). Everything else runs through the same per-session
-// pipeline the CLI's `run` command calls, sequentially -- there is one local
-// model behind this, and a pass over two sessions at once would just make both
-// wait for the same server.
+// cli.mjs show` reads one). A session whose manifest cannot be read at all is
+// reported `failed` (`session_manifest_unreadable`) rather than silently
+// disappearing from the plan. Everything else runs through the same
+// per-session pipeline the CLI's `run` command calls, sequentially -- there is
+// one local model behind this, and a pass over two sessions at once would just
+// make both wait for the same server. `--max-sessions` bounds how many
+// sessions actually reach the model, not how many candidates this pass looks
+// at: a night that is mostly skips still gets to do its real work.
 //
 // One receipt JSON lands in `--receipts` per night, naming every session this
 // pass looked at and what became of it. A lock file in the same directory keeps
@@ -30,7 +34,7 @@
 // usage:
 //   node voice_conversation_list_nightly.mjs --root-table <file> --tools-config <file>
 //        --pipeline-config <file> --receipts <dir> [--date YYYY-MM-DD]
-//        [--max-sessions N] [--dry]
+//        [--root-table-sha256 sha256:...] [--max-sessions N] [--dry]
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -56,7 +60,9 @@ export const BACKLOG_WINDOW_DAYS = 7;
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/u;
 const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_CONFIG_BYTES = 1024 * 1024;
-const LOCK_FILE_NAME = 'nightly.lock.json';
+// No `.json` extension: a receipt consumer that globs `*.json` in this
+// directory must never trip over the lock file.
+const LOCK_FILE_NAME = 'nightly.lock';
 
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const hex = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -86,11 +92,31 @@ export function defaultTargetDate(nowIso) {
 }
 
 // ------------------------------------------------------------------ plan
+/** Wraps a cause that is not the benign "this directory does not exist yet". */
+function sessionsRootError(cause) {
+  const error = new ConversationListError('voice_conversation_list_nightly_sessions_root_unreadable');
+  error.cause_code = typeof cause?.code === 'string' ? cause.code : null;
+  return error;
+}
+
+/**
+ * Directory names directly below one address. A directory that simply does
+ * not exist yet (`ENOENT`) lists as empty -- that is the ordinary shape of "no
+ * sessions here yet". Anything else (the sessions root renamed to a file, a
+ * permission refusal, a moved subtree) is not silently read as "empty"; it is
+ * thrown, so a plan that could not actually be built never gets reported as a
+ * plan with nothing in it.
+ */
 function listDirNames(io, address) {
   let where;
-  try { where = io.path(address, true); } catch { return []; }
+  try { where = io.path(address, true); }
+  catch (error) { throw sessionsRootError(error); }
   let entries;
-  try { entries = readdirSync(where, { withFileTypes: true }); } catch { return []; }
+  try { entries = readdirSync(where, { withFileTypes: true }); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw sessionsRootError(error);
+  }
   return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
 }
 
@@ -101,6 +127,11 @@ function listDirNames(io, address) {
  * whether a session actually needs a run is `classifySession`'s question, asked
  * once per candidate rather than while building this list, so a directory this
  * lane cannot read yet still shows up as a plan entry with its own reason.
+ *
+ * Throws `voice_conversation_list_nightly_sessions_root_unreadable` when a
+ * directory this lane needed to list could not be listed for any reason other
+ * than it simply not existing yet; the caller decides what a broken plan means
+ * for the night's status.
  */
 export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS, targetDate,
   backlogWindowDays = BACKLOG_WINDOW_DAYS } = {}) {
@@ -125,16 +156,19 @@ export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS,
 // ------------------------------------------------------------ classification
 /**
  * What this pass will do with one candidate session, decided before any model
- * is called. Returns `null` when the directory this lane found is not a
- * readable session at all (no manifest, or a manifest naming a different
- * session) -- that is not this session's outcome, it is not a session.
+ * is called. Every candidate this lane found becomes a row -- a manifest that
+ * cannot be read or that names a different session is `failed`
+ * (`session_manifest_unreadable`) rather than a session that quietly vanishes
+ * from the plan.
  */
 export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_ADDRESS, date, sessionId }) {
   const address = `${sessionsAddress}/${date}/${sessionId}`;
+  const unreadable = () => ({ session_id: sessionId, date, title: sessionId, duration_seconds: null,
+    existing_run_id: null, classification: 'failed', reason: 'session_manifest_unreadable' });
   let manifest;
   try { manifest = JSON.parse(io.read(`${address}/session_manifest.json`, MAX_MANIFEST_BYTES)); }
-  catch { return null; }
-  if (manifest?.session_id !== sessionId) return null;
+  catch { return unreadable(); }
+  if (manifest?.session_id !== sessionId) return unreadable();
   const title = typeof manifest.source_page_title === 'string' && manifest.source_page_title.trim()
     ? manifest.source_page_title : sessionId;
   const durationSeconds = Number.isFinite(manifest.duration_seconds) ? manifest.duration_seconds : null;
@@ -163,28 +197,64 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
   return { ...base, classification: 'run', reason: null, existing_run_id: existing?.run_id ?? null };
 }
 
+/**
+ * Classifies plan items in order, stopping once `maxSessions` of them have
+ * been classified `run` (`null` means no cap). Skip, existing and failed
+ * classifications never count against the cap and never stop this pass from
+ * reaching the sessions that do need a run -- the cap bounds how much work
+ * reaches the model, not how much of the plan this pass is allowed to look at.
+ */
+function classifyPlan({ io, tools, sessionsAddress, plan, maxSessions }) {
+  const rows = [];
+  let runCount = 0;
+  for (const item of plan) {
+    if (maxSessions !== null && runCount >= maxSessions) break;
+    const described = classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id });
+    rows.push({ item, described });
+    if (described.classification === 'run') runCount += 1;
+  }
+  return rows;
+}
+
 // ------------------------------------------------------------------- lock
+function wrapLockError(cause) {
+  const error = new ConversationListError('voice_conversation_list_nightly_lock_unavailable');
+  error.cause_code = typeof cause?.code === 'string' ? cause.code : null;
+  return error;
+}
+
 /**
  * One receipts directory holds one lock. A fresh lock refuses this run; a
- * stale one (older than `STALE_LOCK_MS`, or unreadable) is reclaimed and the
- * previous holder is carried into the receipt rather than silently overwritten.
+ * stale one (older than `STALE_LOCK_MS`, or unreadable) is reclaimed
+ * atomically -- the stale file is removed and a fresh one created with `wx`,
+ * so two passes racing on the same stale lock cannot both believe they
+ * reclaimed it -- and the previous holder is carried into the receipt rather
+ * than silently overwritten. A `wx` failure other than "someone just created
+ * it" (`EEXIST`) is a real error, thrown rather than reported as merely held.
  */
 export function acquireLock(receiptsDir, now) {
   mkdirSync(receiptsDir, { recursive: true });
   const lockFile = path.join(receiptsDir, LOCK_FILE_NAME);
-  let existing = null;
   if (existsSync(lockFile)) {
+    let existing;
     try { existing = JSON.parse(readFileSync(lockFile, 'utf8')); } catch { existing = {}; }
     const startedAt = typeof existing?.started_at === 'string' ? Date.parse(existing.started_at) : NaN;
     const ageMs = Number.isFinite(startedAt) ? Math.max(0, Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
     if (ageMs <= STALE_LOCK_MS) return { held: true, existing, age_ms: ageMs };
+    try { rmSync(lockFile, { force: true }); } catch (error) { throw wrapLockError(error); }
     try {
-      writeFileSync(lockFile, encode({ pid: process.pid, started_at: now, reclaimed_from: existing }));
-    } catch { return { held: true, existing, age_ms: ageMs }; }
+      writeFileSync(lockFile, encode({ pid: process.pid, started_at: now, reclaimed_from: existing }), { flag: 'wx' });
+    } catch (error) {
+      if (error?.code === 'EEXIST') return { held: true, existing, age_ms: ageMs };
+      throw wrapLockError(error);
+    }
     return { held: false, reclaimed: true, previous: existing, age_ms: ageMs };
   }
   try { writeFileSync(lockFile, encode({ pid: process.pid, started_at: now }), { flag: 'wx' }); }
-  catch { return { held: true, existing: null, age_ms: 0 }; }
+  catch (error) {
+    if (error?.code === 'EEXIST') return { held: true, existing: null, age_ms: 0 };
+    throw wrapLockError(error);
+  }
   return { held: false, reclaimed: false, previous: null, age_ms: null };
 }
 
@@ -201,6 +271,13 @@ async function defaultRunSession({ io, tools, config, prompts, promptDigests, co
 }
 
 // -------------------------------------------------------------------- run
+const totalsFor = (rows, classificationKey, transcriptAbsentClassification) => ({
+  skipped_existing: rows.filter(row => row[classificationKey] === 'skipped_existing').length,
+  skipped_short: rows.filter(row => row[classificationKey] === 'skipped_short').length,
+  transcript_absent: rows.filter(row => row[classificationKey] === transcriptAbsentClassification
+    && row.reason === 'transcript_absent').length,
+  failed: rows.filter(row => row[classificationKey] === 'failed').length });
+
 /**
  * One night. `runSession` is the only place this ever calls a model; tests
  * replace it with a scripted function and never touch `createLocalChat`.
@@ -208,24 +285,25 @@ async function defaultRunSession({ io, tools, config, prompts, promptDigests, co
 export async function runNightly({ io, tools, config, prompts, promptDigests, configSha256,
   sessionsAddress = VOICE_SESSIONS_ADDRESS, receiptsDir, targetDate, maxSessions = null, dry = false,
   now = new Date().toISOString(), runSession = defaultRunSession, log = () => {} } = {}) {
-  const plan = buildSessionPlan({ io, sessionsAddress, targetDate });
-  const capped = typeof maxSessions === 'number' && maxSessions >= 0 ? plan.slice(0, maxSessions) : plan;
-
   if (dry) {
-    const rows = [];
-    for (const item of capped) {
-      const described = classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id });
-      if (described === null) continue;
-      rows.push(described);
-      const label = described.classification === 'run' ? 'would_run' : described.classification;
-      log(`${item.date} ${item.session_id} ${label}${described.reason ? ` ${described.reason}` : ''}`);
+    let plan = [], planError = null;
+    try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
+    catch (error) {
+      planError = typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_plan_failed';
+      plan = [];
     }
-    return { status: 'DRY', lock: null, sessions: rows, receipt: null,
+    const rows = [];
+    if (planError === null) {
+      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions })) {
+        rows.push(described);
+        const label = described.classification === 'run' ? 'would_run' : described.classification;
+        log(`${item.date} ${item.session_id} ${label}${described.reason ? ` ${described.reason}` : ''}`);
+      }
+    }
+    return { status: planError === null ? 'DRY' : 'FAILED', lock: null, sessions: rows, receipt: null,
       totals: { considered: rows.length, would_run: rows.filter(row => row.classification === 'run').length,
-        skipped_existing: rows.filter(row => row.classification === 'skipped_existing').length,
-        skipped_short: rows.filter(row => row.classification === 'skipped_short').length,
-        failed: rows.filter(row => row.classification === 'failed').length },
-      plan: { candidates: plan.length, capped: capped.length } };
+        ...totalsFor(rows, 'classification', 'skipped_short') },
+      plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError } };
   }
 
   const lock = acquireLock(receiptsDir, now);
@@ -234,34 +312,41 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     return { status: 'LOCK_HELD', lock, sessions: [], receipt: null };
   }
 
+  let plan = [], planError = null;
   const rows = [];
   try {
-    for (const item of capped) {
-      const described = classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id });
-      if (described === null) continue;
-      if (described.classification !== 'run') {
-        const row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
-          outcome: described.classification, reason: described.reason, llm_calls: null, seconds: null,
-          run_id: described.existing_run_id, verified: described.classification === 'skipped_existing' ? true : null };
+    try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
+    catch (error) {
+      planError = typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_plan_failed';
+      plan = [];
+      log(`sessions plan unreadable: ${planError}`);
+    }
+    if (planError === null) {
+      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions })) {
+        if (described.classification !== 'run') {
+          const row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
+            outcome: described.classification, reason: described.reason, llm_calls: null, seconds: null,
+            run_id: described.existing_run_id, verified: described.classification === 'skipped_existing' ? true : null };
+          rows.push(row);
+          log(`${item.date} ${row.session_id} ${row.outcome}${row.reason ? ` ${row.reason}` : ''}`);
+          continue;
+        }
+        let row;
+        try {
+          const ran = await runSession({ io, tools, config, prompts, promptDigests, configSha256, sessionId: item.session_id });
+          row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
+            outcome: 'ran', reason: null, llm_calls: Number.isFinite(ran.llm_calls) ? ran.llm_calls : null,
+            seconds: Number.isFinite(ran.elapsed_ms) ? Math.round(ran.elapsed_ms / 1000) : null,
+            run_id: ran.run_id ?? null, verified: ran.verified === true };
+        } catch (error) {
+          row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
+            outcome: 'failed', reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_run_failed',
+            llm_calls: null, seconds: null, run_id: null, verified: null };
+        }
         rows.push(row);
-        log(`${item.date} ${row.session_id} ${row.outcome}${row.reason ? ` ${row.reason}` : ''}`);
-        continue;
+        log(`${item.date} ${row.session_id} ${row.outcome}${row.reason ? ` ${row.reason}` : ''}`
+          + ` calls=${row.llm_calls ?? '-'} sec=${row.seconds ?? '-'}`);
       }
-      let row;
-      try {
-        const ran = await runSession({ io, tools, config, prompts, promptDigests, configSha256, sessionId: item.session_id });
-        row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
-          outcome: 'ran', reason: null, llm_calls: Number.isFinite(ran.llm_calls) ? ran.llm_calls : null,
-          seconds: Number.isFinite(ran.elapsed_ms) ? Math.round(ran.elapsed_ms / 1000) : null,
-          run_id: ran.run_id ?? null, verified: ran.verified === true };
-      } catch (error) {
-        row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
-          outcome: 'failed', reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_run_failed',
-          llm_calls: null, seconds: null, run_id: null, verified: null };
-      }
-      rows.push(row);
-      log(`${item.date} ${row.session_id} ${row.outcome}${row.reason ? ` ${row.reason}` : ''}`
-        + ` calls=${row.llm_calls ?? '-'} sec=${row.seconds ?? '-'}`);
     }
   } finally {
     releaseLock(receiptsDir);
@@ -272,15 +357,13 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     lock: { reclaimed_stale: lock.reclaimed === true,
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
-    plan: { candidates: plan.length, capped: capped.length, max_sessions: maxSessions },
+    plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
     sessions: rows,
     totals: { ran: rows.filter(row => row.outcome === 'ran').length,
-      skipped_existing: rows.filter(row => row.outcome === 'skipped_existing').length,
-      skipped_short: rows.filter(row => row.outcome === 'skipped_short').length,
-      failed,
+      ...totalsFor(rows, 'outcome', 'skipped_short'),
       llm_calls: rows.reduce((sum, row) => sum + (row.llm_calls ?? 0), 0),
       seconds: rows.reduce((sum, row) => sum + (row.seconds ?? 0), 0) },
-    status: failed > 0 ? 'FAILED' : 'OK' };
+    status: planError !== null ? 'FAILED' : (failed > 0 ? 'FAILED' : 'OK') };
   mkdirSync(receiptsDir, { recursive: true });
   writeFileSync(path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`), encode(receipt));
   return { status: receipt.status, lock, sessions: rows, receipt };
@@ -302,7 +385,9 @@ export async function runNightlyCli(argv, { runSession, now } = {}) {
   const flags = options(argv);
   const tablePath = String(flags.get('root-table') ?? '');
   if (!tablePath) fail('voice_conversation_list_nightly_root_table_required');
-  const rootTable = readRootTable({ tablePath, expectedSha256: sha256(readFileSync(tablePath)) });
+  const expectedRootTableSha256 = flags.get('root-table-sha256');
+  const rootTable = readRootTable({ tablePath,
+    expectedSha256: typeof expectedRootTableSha256 === 'string' ? expectedRootTableSha256 : sha256(readFileSync(tablePath)) });
   const io = createAliasedStoreIo(rootTable);
 
   const toolsPath = String(flags.get('tools-config') ?? '');
@@ -324,8 +409,14 @@ export async function runNightlyCli(argv, { runSession, now } = {}) {
   const dateFlag = flags.get('date');
   const targetDate = typeof dateFlag === 'string' ? dateFlag : defaultTargetDate(nowIso);
   const maxSessionsFlag = flags.get('max-sessions');
-  const maxSessions = typeof maxSessionsFlag === 'string' && Number.isFinite(Number(maxSessionsFlag))
-    ? Math.max(0, Math.trunc(Number(maxSessionsFlag))) : null;
+  let maxSessions = null;
+  if (maxSessionsFlag !== undefined) {
+    const parsed = typeof maxSessionsFlag === 'string' ? Number(maxSessionsFlag) : NaN;
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+      fail('voice_conversation_list_nightly_max_sessions_invalid');
+    }
+    maxSessions = parsed;
+  }
 
   const lines = [];
   const result = await runNightly({ io, tools, config, prompts, promptDigests: digests,

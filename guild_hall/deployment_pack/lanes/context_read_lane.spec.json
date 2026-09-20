@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-read-v2",
-  "description": "v2 (2026-09-15, main d1cbbf5d): the read lane now also carries the voice conversation-list pipeline (voice_conversation_list_cli.mjs, prompts/voice_conversation_list/) and the voice route CLI, and the read CLI answers --voice-session --conversation-list --corrections. The lane the context bot's skill calls to read: guild_hall/context_engine/harness/estate_graph_query.mjs finds an item and guild_hall/context_engine/harness/estate_original_read.mjs reads that item back to its original, including the attachment list and one attachment's text or page images. No scheduled task runs this lane — it is called per question, which is why it is separate from graph-sync-v1 (the 30-minute writer) rather than folded into it: a read lane can be rebuilt without touching the lane that is holding a lease. tracked_paths are the context engine plus exactly the dependency files its own runtime closure records, the same set graph-sync-v1 carries, so the two lanes stay byte-comparable where they overlap. There are no carried_forward_prefixes: every module imports node: builtins only.",
+  "lane_id": "context-read-v3",
+  "description": "v3 (2026-09-20): adds the voice conversation-list nightly harness and its scheduled-task registrar (harness/voice_conversation_list_nightly.mjs, ops/register-voice-conversation-list-task.ps1, ops/run-voice-conversation-list-hidden.vbs) as named entry points, so a built lane's Resolve-CanonicalFile can find them; this spec bump registers no task by itself. v2 (2026-09-15, main d1cbbf5d): the read lane now also carries the voice conversation-list pipeline (voice_conversation_list_cli.mjs, prompts/voice_conversation_list/) and the voice route CLI, and the read CLI answers --voice-session --conversation-list --corrections. The lane the context bot's skill calls to read: guild_hall/context_engine/harness/estate_graph_query.mjs finds an item and guild_hall/context_engine/harness/estate_original_read.mjs reads that item back to its original, including the attachment list and one attachment's text or page images. No scheduled task runs this lane — it is called per question, which is why it is separate from graph-sync-v1 (the 30-minute writer) rather than folded into it: a read lane can be rebuilt without touching the lane that is holding a lease. tracked_paths are the context engine plus exactly the dependency files its own runtime closure records, the same set graph-sync-v1 carries, so the two lanes stay byte-comparable where they overlap. There are no carried_forward_prefixes: every module imports node: builtins only.",
   "tracked_paths": [
     "guild_hall/context_engine/",
     "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -47,6 +47,9 @@
     "guild_hall/context_engine/ops/context-read/tools.v0.example.json",
     "guild_hall/context_engine/harness/voice_conversation_list_cli.mjs",
     "guild_hall/context_engine/harness/voice_route_cli.mjs",
-    "guild_hall/context_engine/src/runtime/voice_conversation_list.mjs"
+    "guild_hall/context_engine/src/runtime/voice_conversation_list.mjs",
+    "guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs",
+    "guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1",
+    "guild_hall/context_engine/ops/run-voice-conversation-list-hidden.vbs"
   ]
 }
