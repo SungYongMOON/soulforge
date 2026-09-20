@@ -240,7 +240,14 @@ $CurrentSid = $CurrentIdentity.User.Value
 # time zone or a string format.
 $DailyAt = [DateTime]::Today.AddHours(3)
 $Trigger = New-ScheduledTaskTrigger -Daily -At $DailyAt
-$ExpectedStartBoundaryTime = ([string]$Trigger.StartBoundary).Substring(11, 8)
+# The in-memory trigger serialises its StartBoundary as UTC ("...T18:00:00Z") while the
+# exported task XML carries local time with an offset ("...T03:00:00+09:00"), so both sides
+# are parsed and compared as the local time of day rather than as raw substrings.
+function Get-LocalTimeOfDay {
+  param([Parameter(Mandatory = $true)][string]$Boundary)
+  return ([DateTimeOffset]::Parse($Boundary, [Globalization.CultureInfo]::InvariantCulture)).ToLocalTime().ToString("HH:mm:ss")
+}
+$ExpectedStartBoundaryTime = Get-LocalTimeOfDay -Boundary ([string]$Trigger.StartBoundary)
 $Principal = New-ScheduledTaskPrincipal -UserId $CurrentUser -LogonType Interactive -RunLevel Limited
 $Settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 6) `
   -StartWhenAvailable -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
@@ -299,7 +306,8 @@ try {
   $RegisteredStartBoundaryTime = ""
   $RegisteredDaysInterval = ""
   if ($TriggerNodes.Count -eq 1) {
-    $RegisteredStartBoundaryTime = (Get-XmlNodeText -Parent $TriggerNodes[0] -XPath "./*[local-name()='StartBoundary']").PadRight(19).Substring(11, 8)
+    $RegisteredBoundaryText = Get-XmlNodeText -Parent $TriggerNodes[0] -XPath "./*[local-name()='StartBoundary']"
+    if ($RegisteredBoundaryText -ne "") { $RegisteredStartBoundaryTime = Get-LocalTimeOfDay -Boundary $RegisteredBoundaryText }
     $RegisteredDaysInterval = Get-XmlNodeText -Parent $TriggerNodes[0] -XPath "./*[local-name()='ScheduleByDay']/*[local-name()='DaysInterval']"
   }
   $RegisteredRunLevel = Get-XmlNodeText -Parent $PrincipalNode -XPath "./*[local-name()='RunLevel']"
