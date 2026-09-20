@@ -111,7 +111,7 @@ Git으로 복제하지 않는다. Git에는 코드와 metadata만 두며, raw가
 | target route status | 의미 | 허용되는 다음 단계 |
 | --- | --- | --- |
 | `ai_provisional_project_route` | AI가 프로젝트 context card와 복수 근거를 이용해 내부 작업용 route를 임시 확정했다. 사람 승인이나 공식 사실이 아니다. | 회의/주제 구간별 project draft, 담당자·할일 후보, 재검증 |
-| `exception_review_required` | 서로 다른 프로젝트 근거가 충돌하거나(`strong_conflict`), 새 프로젝트 신호(`new_project_candidate`), 필수 맥락 누락(`missing_context`), 카드가 말한 날짜·금액이 전사 구간과 어긋남(`content_mismatch`), 또는 중요한데 아직 안 풀림(`important_and_unresolved`/조건부·인용이면 `conditional_or_reported`)이 있다(판정 규칙 v1). | 자동 진행 보류, 예외 검토함 |
+| `exception_review_required` | 판정 규칙 v1의 일곱 가지 이유 중 하나: 구간이 둘로 나뉘어야 함(`needs_split`), 서로 다른 프로젝트 근거가 충돌함(`strong_conflict`), 새 프로젝트 신호(`new_project_candidate`), 필수 맥락 누락(`missing_context`), 카드가 말한 날짜·금액이 전사 구간과 어긋남(`content_mismatch`), 중요한데 아직 안 풀림(`important_and_unresolved`), 또는 그 표지가 조건문·인용·부정·미완임(`conditional_or_reported`). | 자동 진행 보류, 예외 검토함 |
 
 AI 임시 확정은 `accepted_by`, `accepted_at`을 쓰지 않는다. 대신 사용한 source ref,
 project context version, 모델/규칙 version, confidence band, 반대 근거, 재검증 시각을
@@ -130,20 +130,26 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    요구하지 않는다. — **구현됨**(카드 생성·후보 표시: `voice_conversation_list_nightly.mjs`, 예약작업
    `SoulforgeVoiceConversationList` 03:00) / **계획**(strong 후보를 `ai_provisional_project_route`로
    올리는 writer).
-2. **예외만 아침에 모아 묻기.** (판정 규칙 v1, 2026-09-20 밤 정정 — 회신 09·10) 처음엔 "(a) weak/미분류
-   AND (b) 위험 표지"였다. 그 입구가 좁아서 새 과제 신호나 필수 맥락 누락, 카드가 말한 날짜·금액이
-   실제 발화와 어긋나는 것까지는 못 잡았다 — 이제 다섯 갈래로 넓혔다: (1) strong 후보 둘이 서로 다른
-   과제(`strong_conflict`, 기존), (2) 후보가 전혀 없는데 등록되지 않은 과제코드 모양 식별자가 보임
-   (`new_project_candidate`), (3) 위험 표지는 있는데 후보도 없고 표지 자신 말고는 아무것도 구체적으로
-   안 적힘(`missing_context`), (4) strong 후보 하나뿐이어도 카드가 적은 날짜·금액이 그 구간의 전사
+2. **예외만 아침에 모아 묻기.** (판정 규칙 v1, 2026-09-20 밤 정정 — 회신 09·10, 그리고 그 다음 신선한 눈
+   검토) 처음엔 "(a) weak/미분류 AND (b) 위험 표지"였다. 그 입구가 좁아서 새 과제 신호나 필수 맥락
+   누락, 카드가 말한 날짜·금액이 실제 발화와 어긋나는 것까지는 못 잡았다 — 이제 일곱 가지 이유로
+   넓혔다: (1) 구간이 실은 둘 이상의 대화가 섞였음 — `mixed` 성격에 2개 이상 후보가 있거나, 결정·
+   금액·계약류 표지가 있으면(`needs_split`); 마감·약속류 표지 하나뿐이고 후보가 전혀 없으면 그 정도로는
+   부족하다고 보고 `candidate`(`mixed_unsplit`)로 낮춘다. (2) strong 후보 둘이 서로 다른 과제
+   (`strong_conflict`, 기존). (3) 후보가 전혀 없는데 등록되지 않은 과제코드 모양 식별자가 보임
+   (`new_project_candidate` — 등록된 과제 목록을 아예 못 불러온 회차는 이 검사 자체를 끈다, 없다고
+   전부 새 과제로 보지 않는다). (4) 위험 표지는 있는데 후보도 없고 표지 자신 말고는 아무것도 구체적으로
+   안 적힘(`missing_context`). (5) strong 후보 하나뿐이어도 카드가 적은 날짜·금액이 그 구간의 전사
    창에 없음(`content_mismatch` — **유일한 strong이면 무조건 provisional이던 것을 이 검사가 먼저
-   막는다**, 전사 창을 못 구하면 `provisional`은 유지하되 `내용확인: 미확인`으로만 표시), (5) 남는
-   weak/미분류에 위험 표지가 있는데 아직 안 풀림(`important_and_unresolved`, 조건문·인용·부정이면
-   `conditional_or_reported`로 구분 — 둘 다 예외로 남지만 "조건부/인용"과 "결정"은 다른 질문이다).
-   메일/Linear 대조는 이제 근거(cue)로만 남고 provisional로 올리지 않는다. 아침 브리핑 끝에 "어제
-   애매한 것 N건"으로 묻는다. 답이 없으면 후보로 남고 아무 일도 일어나지 않는다. 해당 건이 없는 날은
-   그 줄이 없다. — **구현됨**(다섯 갈래 판정, `src/runtime/voice_attribution_policy.mjs` v1; 목록은
-   `estate_voice_card_reconcile.mjs`가 매 회차 영수증의 `exception_review`에 쌓는다) / **계획**(아침
+   막는다**, 전사 창을 못 구하면 `provisional`은 유지하되 `내용확인: 미확인`으로만 표시, 카드에 날짜·
+   금액이 아예 없으면 `내용확인: 검사대상없음`으로 구분해 "확인했다"는 거짓 주장을 하지 않는다). (6)
+   남는 weak/미분류에 위험 표지가 있는데 아직 안 풀림(`important_and_unresolved`). (7) 그 표지가
+   조건문·인용·부정·미완 안에 있으면 (6) 대신 `conditional_or_reported`로 구분 — 둘 다 예외로 남지만
+   "조건부/인용"과 "결정"은 다른 질문이다. 메일/Linear 대조는 이제 근거(cue)로만 남고 provisional로
+   올리지 않는다. 아침 브리핑 끝에 "어제 애매한 것 N건"으로 묻는다. 답이 없으면 후보로 남고 아무 일도
+   일어나지 않는다. 해당 건이 없는 날은 그 줄이 없다. — **구현됨**(일곱 가지 판정,
+   `src/runtime/voice_attribution_policy.mjs` v1; 목록은 `estate_voice_card_reconcile.mjs`가 매 회차
+   영수증의 `exception_review`에 쌓는다) / **계획**(아침
    브리핑이 그 목록을 읽어 묻는 연결).
 3. **정정은 반드시 카드에 반영.** DM 한 줄 답("그거 KVDS야")은 `voice_route_cli` confirm/withdraw로
    이어져야 한다. 반영되지 않는 정정은 없다. — **부분 구현됨**: `withdraw`가 남긴 기록(ledger의

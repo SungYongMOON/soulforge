@@ -47,9 +47,13 @@
 //          the kind of thing that needs a stronger re-transcription pass, not
 //          silence.
 //        - `nature === 'mixed'` -- `exception`/`needs_split` when the segment
-//          carries any risk marker or names two or more project candidates
+//          names two or more project candidates, or carries a risk marker
+//          that is not only a deadline (`DEADLINE_PATTERN`) or a bare '약속'
 //          (both are signs the boundary step should have cut this into more
-//          than one conversation); otherwise `candidate`/`mixed_unsplit`.
+//          than one conversation); a deadline/약속-only marker with zero
+//          candidates besides is not proof enough on its own, so that case is
+//          `candidate`/`mixed_unsplit` instead (a decision/money/contract
+//          marker, or two or more candidates, still forces `needs_split`).
 //        - `project_work`/`team_operations` -- proceeds to steps 4-7.
 //        - anything else (`idea`, `daily`, `undetermined`, an unknown value)
 //          -- `skip`/`nature_not_project_or_team`, UNLESS the text carries a
@@ -66,8 +70,13 @@
 //          (`IDENTIFIER_LIKE`, the same shape
 //          `harness/estate_shared_terms.mjs` uses) that matches none of the
 //          caller's `registeredProjectCodes` -- `exception`/`new_project_candidate`.
-//          A hyphenated code-like token nothing here has ever seen is a
-//          signal a new project may need creating, not a guess this module
+//          Only checked when `registeredProjectCodes` is non-empty (S8): an
+//          empty set almost always means the caller could not load a
+//          registry at all, not that this estate genuinely has none, and
+//          flagging every identifier-shaped token in that case would be
+//          noise, not signal. A hyphenated code-like token nothing here has
+//          ever seen is a signal a new project may need creating, not a guess
+//          this module
 //          should make on its own.
 //        - no candidate at all, a risk marker present, and not one
 //          distinctive word (`distinctiveTerms`) anywhere in the text once
@@ -88,20 +97,17 @@
 //   5. content verification gate (the point of Step 3): before a *unique*
 //      strong candidate (no conflict, survived step 4) is ever handed back as
 //      `provisional`, the card's own stated dates and amounts (title +
-//      description; `extractDates`/`extractAmounts`) are compared against
+//      description) are reduced to canonical values and compared against
 //      `transcriptText` -- the segment's own utterance-window text, supplied
 //      by the caller (read-only; this module still never reads a transcript
-//      itself). A card-stated date or amount that does not appear
-//      (normalised: whitespace/commas stripped) anywhere in that window's own
-//      text is `exception`/`content_mismatch`, with every mismatching value
-//      named in `content_mismatches`. `transcriptText === null` (nothing to
-//      compare against) never manufactures a mismatch -- it answers
-//      `content_check: 'unverified'`, an honest "not checked", never a claim
-//      of verification.
+//      itself) -- see `contentCheck`'s own doc for its four states
+//      (`nothing_to_check`/`unverified`/`mismatch`/`confirmed`). A canonical
+//      mismatch is `exception`/`content_mismatch`, with every mismatching
+//      value (in the card's own words) named in `content_mismatches`.
 //   6. unique strong, unresolved by nothing above -- `provisional`/
 //      `strong_candidate`, carrying whatever `content_check` step 5 computed
-//      (`'confirmed'` or `'unverified'`; `'mismatch'` already exited at
-//      step 5).
+//      (`'confirmed'`, `'unverified'` or `'nothing_to_check'`; `'mismatch'`
+//      already exited at step 5).
 //   7. everything else is weak/unclassified. Corroboration (an independent
 //      mail or Linear record from the ±1-day window; still computed by the
 //      caller and handed in as `corroboration`) never promotes a segment to
@@ -345,18 +351,101 @@ function identifierLikeTokens(text) {
   return [...new Set(tokens.filter(token => IDENTIFIER_LIKE.test(token)))];
 }
 
-// Card-declared dates this module can extract and compare against a
-// transcript window (the content-check gate, step 5): Korean month-day, ISO
-// date, and a relative-week reference. Not a general date parser -- three
-// concrete, checkable forms.
-const DATE_TOKEN_PATTERN = /\d{1,2}\s?월\s?\d{1,2}\s?일|\d{4}-\d{2}-\d{2}|(?:다음|이번|지난)\s?주/gu;
+// R2 (fresh review): card-declared dates this module can extract and reduce
+// to a canonical `{ month, day }` pair, so "9월 18일" (the card's words) and
+// "9/18" (the transcript's) compare equal without a raw-substring match ever
+// having to agree character-for-character. Recognised forms: `YYYY-MM-DD`,
+// `YYYY.M.D`, `M월 D일`, `M/D`, `M.D`, and a bare `D일` when a month was
+// already named earlier in the *same* text (the day inherits it, tracked as
+// this pattern is scanned left to right) -- anything else this pattern
+// matches but cannot reduce to a valid month/day is `unparseable`, named but
+// never silently dropped and never turned into a manufactured mismatch (see
+// `contentCheck` below). `year` is extracted but not used to compare: a
+// segment's own transcript window rarely states a year at all, so requiring
+// one to match would manufacture false mismatches and never catch a real
+// one. A relative-week reference ("다음 주"/"이번 주"/"지난 주") is
+// deliberately NOT matched at all -- which week depends on when `now` was,
+// which this pure module is never given, so it is documented here as simply
+// not checked rather than guessed at.
+const DATE_TOKEN_PATTERN = new RegExp(
+  '(?<isoY>\\d{4})[.\\-](?<isoM>\\d{1,2})[.\\-](?<isoD>\\d{1,2})'
+  + '|(?<kmM>\\d{1,2})\\s?월\\s?(?<kmD>\\d{1,2})\\s?일'
+  + '|(?<slM>\\d{1,2})\\s?/\\s?(?<slD>\\d{1,2})'
+  + '|(?<dotM>\\d{1,2})\\.(?<dotD>\\d{1,2})'
+  + '|(?<bareD>\\d{1,2})\\s?일'
+  // A month named on its own ("9월에 논의했고"), with no day directly
+  // against it -- matched last (kmM above already wins whenever a day IS
+  // directly against it) purely to update `lastMonth` for a later bare
+  // `D일` in the same text; it never becomes a tuple of its own (a month
+  // alone is not a date this pass expects to find restated in a transcript
+  // window) and is never counted as `unparseable`.
+  + '|(?<bareM>\\d{1,2})\\s?월',
+  'gu');
 
-const normalizeForCompare = value => String(value ?? '').replace(/[\s,]+/gu, '');
-
-/** Every date-like token `DATE_TOKEN_PATTERN` finds in `text`, trimmed and deduplicated, in order. */
-export function extractDates(text) {
+/**
+ * Every date-like match of `DATE_TOKEN_PATTERN` in `text`, reduced to a
+ * canonical `{ month, day, year, raw }` when it parses to a real calendar
+ * month/day, or added to `unparseable` (its raw text) otherwise -- a bare
+ * `D일` with no month named earlier in this same text is the one case that
+ * actually reaches `unparseable` today.
+ */
+function extractDateTuples(text) {
   const value = String(text ?? '');
-  return [...new Set([...value.matchAll(DATE_TOKEN_PATTERN)].map(match => match[0].trim()))];
+  const tuples = [], unparseable = [];
+  let lastMonth = null;
+  for (const match of value.matchAll(DATE_TOKEN_PATTERN)) {
+    const raw = match[0].trim();
+    const g = match.groups;
+    let month = null, day = null, year = null;
+    if (g.isoM !== undefined) { month = Number(g.isoM); day = Number(g.isoD); year = Number(g.isoY); }
+    else if (g.kmM !== undefined) { month = Number(g.kmM); day = Number(g.kmD); }
+    else if (g.slM !== undefined) { month = Number(g.slM); day = Number(g.slD); }
+    else if (g.dotM !== undefined) { month = Number(g.dotM); day = Number(g.dotD); }
+    else if (g.bareD !== undefined) { day = Number(g.bareD); month = lastMonth; }
+    else if (g.bareM !== undefined) {
+      const month0 = Number(g.bareM);
+      if (Number.isInteger(month0) && month0 >= 1 && month0 <= 12) lastMonth = month0;
+      continue;
+    }
+    const valid = Number.isInteger(month) && month >= 1 && month <= 12
+      && Number.isInteger(day) && day >= 1 && day <= 31;
+    if (valid) { tuples.push({ month, day, year, raw }); lastMonth = month; }
+    else unparseable.push(raw);
+  }
+  return { tuples, unparseable };
+}
+
+/** Every date-like raw substring `DATE_TOKEN_PATTERN` finds in `text` that reduces to a real month/day, deduplicated, in order. */
+export function extractDates(text) {
+  return [...new Set(extractDateTuples(text).tuples.map(tuple => tuple.raw))];
+}
+
+// R2: an amount in won, with 만/억 expanded -- "50만원" is 500000, "1억" is
+// 100000000, "5,000원" is 5000. `null` (unparseable) should not be reachable
+// for anything `MONEY_PATTERN` itself matched (its own three alternatives
+// are exactly these three unit forms), but is handled rather than assumed.
+function parseAmountToWon(raw) {
+  const cleaned = String(raw ?? '').replace(/[\s,]+/gu, '');
+  let match = /^(\d+(?:\.\d+)?)억$/u.exec(cleaned);
+  if (match !== null) return Math.round(Number(match[1]) * 100000000);
+  match = /^(\d+(?:\.\d+)?)만원$/u.exec(cleaned);
+  if (match !== null) return Math.round(Number(match[1]) * 10000);
+  match = /^(\d+(?:\.\d+)?)원$/u.exec(cleaned);
+  if (match !== null) return Math.round(Number(match[1]));
+  return null;
+}
+
+/** Every `MONEY_PATTERN` match in `text`, reduced to `{ won, raw }` (or `unparseable` raw text -- not expected in practice, see `parseAmountToWon`). */
+function extractAmountTuples(text) {
+  const value = String(text ?? '');
+  const moneyPatternGlobal = new RegExp(MONEY_PATTERN.source, `${MONEY_PATTERN.flags}g`);
+  const tuples = [], unparseable = [];
+  for (const match of value.matchAll(moneyPatternGlobal)) {
+    const raw = match[0].trim();
+    const won = parseAmountToWon(raw);
+    if (won === null) unparseable.push(raw); else tuples.push({ won, raw });
+  }
+  return { tuples, unparseable };
 }
 
 /** Every `MONEY_PATTERN` amount in `text`, trimmed and deduplicated, in order. */
@@ -369,27 +458,58 @@ export function extractAmounts(text) {
 /**
  * Compares `cardText`'s own stated dates and amounts against `transcriptText`
  * (the segment's own utterance-window text, read-only, supplied by the
- * caller -- this module never reads a transcript itself). `transcriptText`
- * being `null`/`undefined` (the caller had none to give, or chose not to
- * look) answers `'unverified'`, not `'confirmed'` -- an honest state, not a
- * claim this module checked something it did not. A date or amount the card
- * states that does not appear (normalised: whitespace and commas stripped)
- * anywhere in the transcript text answers `'mismatch'`, with every
- * mismatching value named in `mismatches`. This is a literal string-
- * containment check against the given window's own text -- not audio, not an
- * independent record, and not any other project's own similar wording.
+ * caller -- this module never reads a transcript itself), by canonical value
+ * (`extractDateTuples`/`extractAmountTuples`), not raw substring. Four
+ * states, in the order they are decided:
+ *   `'nothing_to_check'` -- the card names no date or amount at all (not
+ *     even an unparseable one). R1: this used to read `'confirmed'`, which
+ *     claimed a check that never actually ran against anything.
+ *   `'unverified'` -- `transcriptText` is `null`/empty/whitespace-only
+ *     (nothing to compare against at all); or the card itself has a date
+ *     token this pattern could not reduce to a real month/day (never
+ *     silently ignored, and never turned into a manufactured mismatch); or
+ *     the card states an amount but the transcript window names no amount
+ *     in digits at all -- one spoken entirely in Korean number words
+ *     ("오천만 원") is not parsed here (known gap, not guessed at), so an
+ *     all-words window can neither confirm nor rule out a card amount.
+ *   `'mismatch'` -- a card date or amount whose canonical value genuinely
+ *     does not appear among the window's own canonical dates/amounts, named
+ *     in `mismatches` by its original card text. Checked, and reported,
+ *     ahead of the `'unverified'`-by-all-words-amount case above: a real,
+ *     checkable mismatch (most often a date) is never hidden behind an
+ *     unrelated amount this pass could not verify either way.
+ *   `'confirmed'` -- everything the card stated was found.
  */
 export function contentCheck({ cardText, transcriptText } = {}) {
-  if (transcriptText === null || transcriptText === undefined) return { status: 'unverified', mismatches: [] };
-  const normalizedTranscript = normalizeForCompare(transcriptText);
+  const cardDates = extractDateTuples(cardText);
+  const cardAmounts = extractAmountTuples(cardText);
+  if (cardDates.tuples.length === 0 && cardAmounts.tuples.length === 0
+    && cardDates.unparseable.length === 0 && cardAmounts.unparseable.length === 0) {
+    return { status: 'nothing_to_check', mismatches: [] };
+  }
+  const trimmedTranscript = typeof transcriptText === 'string' ? transcriptText.trim() : '';
+  if (trimmedTranscript === '') return { status: 'unverified', mismatches: [] };
+  if (cardDates.unparseable.length > 0 || cardAmounts.unparseable.length > 0) {
+    return { status: 'unverified', mismatches: [] };
+  }
+  const transcriptDates = extractDateTuples(transcriptText);
+  const transcriptAmounts = extractAmountTuples(transcriptText);
+  const dateKey = tuple => `${tuple.month}-${tuple.day}`;
+  const transcriptDateKeys = new Set(transcriptDates.tuples.map(dateKey));
   const mismatches = [];
-  for (const date of extractDates(cardText)) {
-    if (!normalizedTranscript.includes(normalizeForCompare(date))) mismatches.push({ kind: 'date', value: date });
+  for (const date of cardDates.tuples) {
+    if (!transcriptDateKeys.has(dateKey(date))) mismatches.push({ kind: 'date', value: date.raw });
   }
-  for (const amount of extractAmounts(cardText)) {
-    if (!normalizedTranscript.includes(normalizeForCompare(amount))) mismatches.push({ kind: 'amount', value: amount });
+  const amountsUnverifiable = cardAmounts.tuples.length > 0 && transcriptAmounts.tuples.length === 0;
+  if (!amountsUnverifiable) {
+    const transcriptAmountSet = new Set(transcriptAmounts.tuples.map(tuple => tuple.won));
+    for (const amount of cardAmounts.tuples) {
+      if (!transcriptAmountSet.has(amount.won)) mismatches.push({ kind: 'amount', value: amount.raw });
+    }
   }
-  return { status: mismatches.length > 0 ? 'mismatch' : 'confirmed', mismatches };
+  if (mismatches.length > 0) return { status: 'mismatch', mismatches };
+  if (amountsUnverifiable) return { status: 'unverified', mismatches: [] };
+  return { status: 'confirmed', mismatches: [] };
 }
 
 // Step 7's modality tags, checked in this order (first match wins) -- coarse,
@@ -502,10 +622,19 @@ export function classifyAttribution(segment, corroboration = null, options = {})
   }
   if (segment.nature === 'mixed') {
     const risks = matchedRiskMarkers(text);
-    if (risks.length > 0 || candidates.length >= 2) {
+    // S7 (fresh review): a deadline mention or a bare '약속' is a weaker
+    // signal that this segment truly needs splitting than a decision,
+    // money or contract marker is -- with zero project candidates besides,
+    // it reads as one still-unresolved topic to fold in, not as proof two
+    // conversations were run together. Any other marker (결정/확정/기한/
+    // 납기/발주/계약/제출/미완료/... , or a money amount), or two or more
+    // candidates on their own, still needs a person to split it.
+    const deadlineOrPromiseOnly = risks.length > 0
+      && risks.every(marker => DEADLINE_PATTERN.test(marker) || marker === '약속');
+    if (candidates.length >= 2 || (risks.length > 0 && !(candidates.length === 0 && deadlineOrPromiseOnly))) {
       return { ...base, classification: 'exception', reason: 'needs_split', risk_markers: risks, ...emptyFields, modality };
     }
-    return { ...base, classification: 'candidate', reason: 'mixed_unsplit', risk_markers: [], ...emptyFields, modality };
+    return { ...base, classification: 'candidate', reason: 'mixed_unsplit', risk_markers: risks, ...emptyFields, modality };
   }
   if (!ATTRIBUTABLE_NATURES.includes(segment.nature)) {
     const risks = matchedRiskMarkers(text, COMMITMENT_MARKERS);
@@ -521,10 +650,20 @@ export function classifyAttribution(segment, corroboration = null, options = {})
     return { ...base, classification: 'exception', reason: 'strong_conflict', risk_markers: [], ...emptyFields, modality };
   }
   if (candidates.length === 0) {
-    const identifiers = identifierLikeTokens(text).filter(token => !registeredCodes.has(token));
-    if (identifiers.length > 0) {
-      return { ...base, classification: 'exception', reason: 'new_project_candidate', risk_markers: [], modality,
-        cues, content_check: null, content_mismatches: [], new_project_signal: identifiers[0] };
+    // S8 (fresh review): an empty `registeredCodes` almost always means the
+    // caller could not load a registry at all, not that this estate
+    // genuinely has zero projects -- treating every identifier-shaped token
+    // as "unregistered" in that case would flag routine text on every call
+    // that forgot (or failed) to load one. The check only runs when the
+    // caller actually handed in at least one known code; the harness
+    // records `new_project_check: 'disabled_no_registry'` in the receipt
+    // when it does not.
+    if (registeredCodes.size > 0) {
+      const identifiers = identifierLikeTokens(text).filter(token => !registeredCodes.has(token));
+      if (identifiers.length > 0) {
+        return { ...base, classification: 'exception', reason: 'new_project_candidate', risk_markers: [], modality,
+          cues, content_check: null, content_mismatches: [], new_project_signal: identifiers[0] };
+      }
     }
     const risks = matchedRiskMarkers(text);
     if (risks.length > 0) {

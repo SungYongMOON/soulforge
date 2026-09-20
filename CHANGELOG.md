@@ -32,6 +32,33 @@
   (`row.reconcile`), `estate_original_read.mjs`의 `renderVoice`가 `판정:`/`내용확인:` 줄과 철회
   후보의 `[철회]` 표시로 사람이 읽는 표에도 낸다. 답 합성·모델 호출 없음 — 맥락이가 "이 카드는
   예외·미확인"임을 인용 전에 보는 것까지다.
+- 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 4건·should 7건·nit 2건: (R1) 카드에 날짜·금액이
+  아예 없으면 `content_check`가 `'confirmed'`였다(아무것도 안 봤는데 확인했다는 거짓) — 네 번째 값
+  `'nothing_to_check'`을 더하고 `totals.content_nothing_to_check`로 센다. (R2) 날짜·금액 대조가 원문
+  부분일치였다 — `(month, day)`/won 정수로 정규화해 `M/D`·`YYYY.M.D`·`M.D`·문맥 있는 `D일`까지 같은 값으로
+  비교하고(연도는 비교엔 안 씀), 파싱 못 하는 카드 토큰은 `'unverified'`(불일치 아님)로 둔다. 한글
+  숫자("오천만 원")는 파싱하지 않기로 결정했다 — 전사 창에 숫자로 쓴 금액이 없으면 카드 금액은
+  `'unverified'`로 남는다. "다음 주"류는 여전히 검사 대상이 아님을 문서화만 한다. (R3) 전사 창이
+  `max_characters_per_call`(12000자)에서 잘리는데 `next_window`를 안 따라갔다 —
+  `MAX_TRANSCRIPT_WINDOW_CHARS`(200,000자)까지 페이지를 넘기고, 그래도 잘림이 남으면 `content_check`를
+  강제로 `'unverified'`로 만들고 `totals.content_window_truncated`로 센다. 세션 하나의 전사는 이 회차
+  안에서 세션당 한 번만 읽는다(`readSessionTranscriptCached`, S11). (R4) 빈/공백만 있는 전사 텍스트는
+  `null`과 같이 `'unverified'`로 다룬다. (S5) `row.reconcile`이 `modality`·`input`도 옮긴다 —
+  `input.valid === false`면 `입력무효(<이유>)`를, 아니면 `판정: ... · 조건부/인용/부정/보류`를 낸다.
+  (S6) 원장 basis·영수증 필드가 `corroborated=true`/`corroboration_refs` 대신 `cues=<n>`/`cue_refs`로
+  말한다(refs는 그대로 남음) — v1은 대조를 승격에 안 쓰므로 "확인됐다"는 낱말이 남으면 안 됐다. (S7)
+  `mixed` 구간에서 표지가 마감(`DEADLINE_PATTERN`)이나 맨 '약속'뿐이고 후보가 0개면 `needs_split`
+  대신 `candidate`/`mixed_unsplit`로 낮춘다(결정·금액·계약류 표지나 후보 2개 이상은 그대로
+  `needs_split`) — 실 9/18 "휴식 및 이동 관련 잡담"(c004) 행을 확인했고, 매칭 표지가 '결정'뿐이라
+  이 정정으로도 그대로 `needs_split`이다(바뀌지 않음). (S8) `registeredProjectCodes`가 비어 있으면
+  (대개 레지스트리를 못 불러온 것) `new_project_candidate` 검사 자체를 끄고 영수증에
+  `new_project_check: 'disabled_no_registry'`·`totals.registered_project_codes_count`를 남긴다. 코드
+  추출 경계도 `mailCodesIn`과 같은 규칙으로 넓혔다. (S9) `voice_session_read.mjs`의 영수증 읽기에
+  `MAX_RECONCILE_RECEIPT_BYTES`(선언만 되고 안 쓰이던 상한)를 적용했다. (S10) 상태 모델 표와 09-20
+  절 항목 2가 일곱 가지 예외 이유(needs_split·strong_conflict·new_project_candidate·missing_context·
+  content_mismatch·important_and_unresolved·conditional_or_reported)를 모두 나열하도록 고치고
+  "다섯 갈래" 표현을 정정했다. (N12) 대조 영수증의 `ran_at`을 판정 줄에 같이 낸다. (N13)
+  `estate_voice_card_reconcile.mjs` 머리말의 낡은 영수증 스키마 표기(v1)를 v2로 고쳤다.
 - 운영 영향: 코드만. 새 필드를 실제로 쓰는 예약작업 등록·아침 브리핑 연결은 이 변경에 없다.
 - 관련 경로: `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
   `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,

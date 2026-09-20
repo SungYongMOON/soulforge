@@ -181,7 +181,7 @@ test('a real run writes candidate-status ledger rows and a receipt, never confir
   assert.equal(receipt.totals.provisional, 1);
 });
 
-test('mail and Linear corroboration turn a weak candidate provisional and write refs, never body text', async () => {
+test('mail and Linear corroboration write refs as cues (never body text), without promoting a weak candidate (v1)', async () => {
   const est = await estate();
   await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
   await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
@@ -197,9 +197,9 @@ test('mail and Linear corroboration turn a weak candidate provisional and write 
   assert.equal(result.status, 'OK');
   const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger;
   const row = ledger.segments.find(item => item.segment_id === 'c001');
-  assert.equal(row.status, 'candidate');
+  assert.equal(row.status, 'candidate'); // never 'provisional' -- that classification is a receipt-only label
   assert.ok(row.project_candidates[0].evidence_refs.includes('mail:evt-1'));
-  assert.match(row.project_candidates[0].basis, /corroborated=true/u);
+  assert.match(row.project_candidates[0].basis, /cues=1/u);
   assert.ok(!JSON.stringify(ledger).includes('절대 읽히지 않아야 한다'));
   const receiptFiles = (await readdir(est.receiptsDir)).filter(name => name !== 'reconcile.lock');
   const receipt = JSON.parse(await readFile(path.join(est.receiptsDir, receiptFiles[0]), 'utf8'));
@@ -619,6 +619,41 @@ test('S3: an identifier-shaped token with no card candidate, matching no Linear-
   assert.notEqual(registered.reason, 'new_project_candidate');
   const exceptionEntry = result.receipt.exception_review.find(row => row.segment_id === 'c001');
   assert.equal(exceptionEntry.why, 'new_project_candidate');
+});
+
+test('S8: registered_project_codes_count and new_project_check land in the receipt, and the check is disabled with no Linear projects loaded at all', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', title: 'XZ-77 신규 거래처 협의', description: '', project_candidates: [] }),
+  ] });
+  // No writeLinearProject call at all -- registeredProjectCodes ends up empty.
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.new_project_check, 'disabled_no_registry');
+  assert.equal(result.receipt.totals.registered_project_codes_count, 0);
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.notEqual(row.reason, 'new_project_candidate', 'the check is disabled, not permissive');
+});
+
+test('R1: a card with no date or amount at all is content_check nothing_to_check, counted separately from unverified', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', title: '담당자 논의', description: '',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(row.classification, 'provisional');
+  assert.equal(row.content_check, 'nothing_to_check');
+  assert.equal(result.receipt.totals.content_nothing_to_check, 1);
+  assert.equal(result.receipt.totals.content_unverified, 0);
 });
 
 test('S3: a modality-tagged risk marker reaches the receipt and exception_review as conditional_or_reported, not important_and_unresolved', async () => {

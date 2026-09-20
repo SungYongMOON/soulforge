@@ -39,6 +39,37 @@
   표에도 낸다. 답 합성도 모델 호출도 없다 — 맥락이가 "이 카드는 예외·미확인"임을 인용 전에 보게 하는
   것까지다.
 
+신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 4건·should 7건·nit 2건:
+- (R1) 카드에 날짜·금액이 아예 없으면 `content_check`가 `'confirmed'`였다(아무것도 안 봤는데 "확인했다"는
+  거짓). 네 번째 값 `'nothing_to_check'`을 더하고 영수증 `totals.content_nothing_to_check`로 따로 센다.
+- (R2) 날짜·금액 대조가 원문 부분일치였다(`M월 D일`/`YYYY-MM-DD`/"다음 주"만, 공백·쉼표만 정규화). 이제
+  `(month, day)`/won 정수로 정규화해 `M/D`·`YYYY.M.D`·`M.D`·문맥 있는 `D일`까지 같은 값으로 비교한다(연도는
+  뽑되 비교엔 안 씀). 파싱 못 하는 카드 토큰은 `'unverified'`(불일치 아님). "다음 주"류는 여전히 검사
+  대상이 아님을 문서화만 한다. 한글 숫자("오천만 원")는 파싱하지 않는다 — 전사 창에 숫자로 쓴 금액이
+  하나도 없으면 카드 금액은 `'unverified'`로 남는다(한글 숫자 파서는 만들지 않기로 결정).
+- (R3) 전사 창이 `max_characters_per_call`(12000자)에서 잘리는데 `next_window`를 안 따라갔다.
+  `MAX_TRANSCRIPT_WINDOW_CHARS`(200,000자)까지 페이지를 넘기고, 그래도 잘림이 남으면 `content_check`를
+  강제로 `'unverified'`로 만들고 `totals.content_window_truncated`로 센다. 세션 하나의 전사는 이 회차 안에서
+  세션당 한 번만 읽어(`readSessionTranscriptCached`) 구간마다 다시 열지 않는다(S11).
+- (R4) 빈 문자열/공백만 있는 전사 텍스트는 `null`과 같이 `'unverified'`로 다룬다(빈 문자열과 실제 대조하지
+  않음).
+- (S5) `voice_session_read.mjs`의 `row.reconcile`이 `modality`·`input`도 옮긴다. `input.valid === false`면
+  살아있는 판정 대신 `입력무효(<이유>)`를 낸다; 아니면 `판정: ... · 조건부/인용/부정/보류`를 붙인다.
+- (S6) 원장 basis 텍스트와 영수증 필드가 `corroborated=true`/`corroboration_refs` 대신 `cues=<n>`/`cue_refs`로
+  말한다 — v1은 대조를 승격에 안 쓰므로 "확인됐다"는 낱말이 남으면 안 됐다. refs 자체는 그대로 남는다.
+- (S7) `mixed` 구간에서 표지가 `DEADLINE_PATTERN` 마감이나 맨 '약속'뿐이고 후보가 0개면 `needs_split` 대신
+  `candidate`/`mixed_unsplit`로 낮춘다. 결정·금액·계약류 표지나 후보 2개 이상은 그대로 `needs_split`. 실제
+  9/18 "휴식 및 이동 관련 잡담"(c004) 행을 다시 확인했다 — 매칭 표지는 '결정'(결정형, deadline/약속 아님)
+  하나뿐이라 이 정정으로도 그대로 `needs_split`이다(바뀌지 않음, 확인함).
+- (S8) `registeredProjectCodes`가 비어 있으면(대개 레지스트리를 못 불러온 것이지 과제가 0개인 게 아님)
+  `new_project_candidate` 검사 자체를 끄고 영수증에 `new_project_check: 'disabled_no_registry'`와
+  `totals.registered_project_codes_count`를 남긴다. 코드 추출 경계도 `mailCodesIn`과 같은 규칙(뒤에 식별자
+  글자가 안 이어지면 됨, 공백 필수 아님)으로 넓혔다.
+- (S9) `voice_session_read.mjs`의 영수증 읽기에 이 파일의 다른 모든 읽기와 같은 `MAX_RECONCILE_RECEIPT_BYTES`
+  상한을 적용했다(선언만 되고 안 쓰이고 있었음).
+- (N12) 대조 영수증의 `ran_at`을 판정 줄에 같이 낸다(`· <ran_at> 기준`).
+- (N13) `estate_voice_card_reconcile.mjs` 머리말의 낡은 영수증 스키마 표기(v1)를 실제 값(v2)으로 고쳤다.
+
 시험: `tests/voice_attribution_policy.test.mjs`(판정 규칙 전체 분기 + S3-3 CE-22/CE-30 반례 10여 개),
 `tests/estate_voice_card_reconcile.test.mjs`(대조기 연결), `tests/voice_session_read.test.mjs`(S3-4 읽기
 경로·렌더).

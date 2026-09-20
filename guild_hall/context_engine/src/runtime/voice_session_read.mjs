@@ -504,10 +504,11 @@ const MAX_RECONCILE_RECEIPT_BYTES = 8 * 1024 * 1024;
 
 /**
  * The reconcile harness's own latest verdict for each segment of one
- * session, per segment_id -- `{ classification, reason, content_check }` --
- * read from whichever reconcile receipt in `receiptsDir` (the same plain
- * directory path `estate_voice_card_reconcile.mjs --receipts` names, never
- * an `io`-aliased address) most recently mentioned this session, so a bot
+ * session, per segment_id -- `{ classification, reason, content_check,
+ * modality, input }` -- read from whichever reconcile receipt in
+ * `receiptsDir` (the same plain directory path
+ * `estate_voice_card_reconcile.mjs --receipts` names, never an
+ * `io`-aliased address) most recently mentioned this session, so a bot
  * reading a card can see "이 카드는 예외·미확인" before citing it, without
  * synthesising an answer or calling a model itself. `receiptsDir` absent, or
  * no receipt ever mentioning this session, reads as "no verdict yet" --
@@ -517,23 +518,39 @@ export function readLatestReconcileResults(receiptsDir, sessionId) {
   if (typeof receiptsDir !== 'string' || receiptsDir === '') return new Map();
   let names;
   try { names = readdirSync(receiptsDir); } catch { return new Map(); }
-  let latestSegments = null;
+  let latestSegments = null, latestRanAt = null;
   // Receipt filenames are the reconcile harness's own zero-padded timestamp,
   // so a plain lexicographic sort is a chronological one -- the last file
   // that names this session is its most recent verdict.
   for (const name of names.filter(entry => entry.endsWith('.json')).sort()) {
-    let body;
-    try { body = JSON.parse(readFileSync(path.join(receiptsDir, name), 'utf8')); } catch { continue; }
+    let bytes, body;
+    try { bytes = readFileSync(path.join(receiptsDir, name)); } catch { continue; }
+    // S9: bounded the same way every other reader in this file is -- a
+    // corrupt or adversarial receipt this large is skipped, not parsed.
+    if (bytes.length > MAX_RECONCILE_RECEIPT_BYTES) continue;
+    try { body = JSON.parse(bytes.toString('utf8')); } catch { continue; }
     if (body?.schema_version !== RECONCILE_RECEIPT_SCHEMA || !Array.isArray(body.sessions)) continue;
     const found = body.sessions.find(row => row?.session_id === sessionId && Array.isArray(row.segments));
-    if (found !== undefined) latestSegments = found.segments;
+    if (found !== undefined) { latestSegments = found.segments; latestRanAt = typeof body.ran_at === 'string' ? body.ran_at : null; }
   }
   const bySegment = new Map();
   for (const segment of latestSegments ?? []) {
     if (typeof segment?.segment_id !== 'string') continue;
     bySegment.set(segment.segment_id, { classification: typeof segment.classification === 'string' ? segment.classification : null,
       reason: typeof segment.reason === 'string' ? segment.reason : null,
-      content_check: typeof segment.content_check === 'string' ? segment.content_check : null });
+      content_check: typeof segment.content_check === 'string' ? segment.content_check : null,
+      modality: typeof segment.modality === 'string' ? segment.modality : null,
+      // N12: this receipt's own `ran_at`, so a reader (and the render path)
+      // can see how fresh this 판정 is without opening the receipt file.
+      ran_at: latestRanAt,
+      // S5: `input.valid === false` (a stale/identity-changed segment the
+      // reconcile harness itself refused to write) matters as much to a
+      // reader as the classification does -- carried through so the render
+      // path can say "입력무효" instead of a live verdict that pass never
+      // actually acted on.
+      input: (segment.input !== null && typeof segment.input === 'object' && typeof segment.input.valid === 'boolean')
+        ? { valid: segment.input.valid, reason: typeof segment.input.reason === 'string' ? segment.input.reason : null }
+        : null });
   }
   return bySegment;
 }
@@ -589,10 +606,11 @@ export function conversationRow(row, recordedAtLocal, withdrawnCodes = new Set()
       .map(item => ({ label: String(item.label),
         source_segment_ids: Array.isArray(item.source_segment_ids) ? item.source_segment_ids : [] })),
     derived_summary: true, characters: [...description].length, text: description,
-    // S3-4: the reconcile harness's own latest 판정 for this exact segment,
-    // when one exists -- never derived or guessed here.
+    // S3-4/S5: the reconcile harness's own latest 판정 for this exact
+    // segment, when one exists -- never derived or guessed here.
     reconcile: reconcileResult === null ? null : { classification: reconcileResult.classification,
-      reason: reconcileResult.reason, content_check: reconcileResult.content_check },
+      reason: reconcileResult.reason, content_check: reconcileResult.content_check,
+      modality: reconcileResult.modality, input: reconcileResult.input, ran_at: reconcileResult.ran_at },
   };
 }
 

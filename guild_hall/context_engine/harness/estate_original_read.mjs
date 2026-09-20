@@ -186,9 +186,15 @@ const spoken = value => {
   return `${Math.floor(total / 60)}분 ${String(total % 60).padStart(2, '0')}초`;
 };
 
-// S3-4: the reconcile harness's own `content_check` values, in the words a
-// person reading this table asks for.
-const CONTENT_CHECK_KO = { confirmed: '확인됨', unverified: '미확인', mismatch: '불일치' };
+// S3-4/R1: the reconcile harness's own `content_check` values, in the words a
+// person reading this table asks for. `nothing_to_check` (R1) is not the
+// same fact as `confirmed` -- nothing here was actually checked against
+// anything, so it gets its own label rather than reading as a pass.
+const CONTENT_CHECK_KO = { confirmed: '확인됨', unverified: '미확인', mismatch: '불일치', nothing_to_check: '검사대상없음' };
+// S5: the reconcile harness's `modality` tag -- none of these read as a
+// present, live decision, so the morning question can ask about them
+// differently than it asks about an unresolved one.
+const MODALITY_KO = { conditional: '조건부', reported: '인용', negated: '부정', pending: '보류' };
 
 /**
  * One window of a voice session. The head says which transcript answered and
@@ -337,8 +343,18 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
     // shown. A bot answering from this row must see "예외·미확인" before it
     // cites the row as settled.
     if (row.reconcile !== null) {
-      lines.push(`  판정: ${row.reconcile.classification}${row.reconcile.reason ? ` (${row.reconcile.reason})` : ''}`
-        + `${row.reconcile.content_check ? ` · 내용확인: ${CONTENT_CHECK_KO[row.reconcile.content_check] ?? row.reconcile.content_check}` : ''}`);
+      // S5: an input-invalid segment (stale/identity-changed) is one this
+      // pass's own reconcile harness refused to write anything for -- its
+      // classification is not this pass's word to stand behind, so it never
+      // renders as a live verdict at all.
+      if (row.reconcile.input !== null && row.reconcile.input.valid === false) {
+        lines.push(`  입력무효(${row.reconcile.input.reason ?? '-'})`);
+      } else {
+        lines.push(`  판정: ${row.reconcile.classification}${row.reconcile.reason ? ` (${row.reconcile.reason})` : ''}`
+          + `${row.reconcile.modality ? ` · ${MODALITY_KO[row.reconcile.modality] ?? row.reconcile.modality}` : ''}`
+          + `${row.reconcile.content_check ? ` · 내용확인: ${CONTENT_CHECK_KO[row.reconcile.content_check] ?? row.reconcile.content_check}` : ''}`
+          + `${row.reconcile.ran_at ? ` · ${row.reconcile.ran_at} 기준` : ''}`);
+      }
     }
     if (row.agenda.length > 0) {
       lines.push(`  안건: ${row.agenda.map(item => `${line(item.label, 40)}`

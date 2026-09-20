@@ -220,24 +220,45 @@ test('linearCorroborates is false when nothing distinctive overlaps, or the titl
   assert.equal(linearCorroborates({ title: '' }, '저주파 처리장치 이슈'), false);
 });
 
-// ---------------------------------------------------------------- v1: dates/amounts
-test('extractDates finds M월 D일, YYYY-MM-DD and relative-week forms', () => {
-  assert.deepEqual(extractDates('9월 20일까지 완료, 2026-09-20 확인, 다음 주에 재논의'), ['9월 20일', '2026-09-20', '다음 주']);
+// ---------------------------------------------------------------- v1/R2: dates/amounts
+test('extractDates finds M월 D일 and YYYY-MM-DD, but not a relative-week reference (documented as not checked)', () => {
+  assert.deepEqual(extractDates('9월 20일까지 완료, 2026-09-20 확인, 다음 주에 재논의'), ['9월 20일', '2026-09-20']);
   assert.deepEqual(extractDates('별다른 날짜 없음'), []);
+});
+
+test('extractDates also finds M/D, YYYY.M.D, M.D and a bare D일 once a month was named earlier in the same text', () => {
+  assert.deepEqual(extractDates('9/18 확인'), ['9/18']);
+  assert.deepEqual(extractDates('2026.9.18 확인'), ['2026.9.18']);
+  assert.deepEqual(extractDates('9.18 확인'), ['9.18']);
+  assert.deepEqual(extractDates('9월에 논의하고 20일까지 완료'), ['20일']);
+  // A bare day with no month named anywhere earlier does not reduce to a
+  // real date -- not silently dropped (see contentCheck's own unverified
+  // case), but not returned by extractDates either, which only ever answers
+  // with dates it could actually parse.
+  assert.deepEqual(extractDates('20일까지 완료'), []);
 });
 
 test('extractAmounts reuses MONEY_PATTERN', () => {
   assert.deepEqual(extractAmounts('자재비 500,000원, 인건비 5,000 만원'), ['500,000원', '5,000 만원']);
 });
 
-// ---------------------------------------------------------------- v1: content check
+// ---------------------------------------------------------------- v1/R2: content check
 test('contentCheck answers unverified when no transcript text was supplied, never a claim of confirmation', () => {
   const result = contentCheck({ cardText: '9월 20일까지 완료', transcriptText: null });
   assert.deepEqual(result, { status: 'unverified', mismatches: [] });
 });
 
-test('contentCheck answers confirmed when every card-stated date and amount appears in the transcript window', () => {
-  const result = contentCheck({ cardText: '9월 20일까지 500,000원 집행', transcriptText: '9월 20일까지 500,000원을 집행하기로 했습니다' });
+test('contentCheck answers unverified (not nothing_to_check) for whitespace-only transcript text, same as no text at all (R4)', () => {
+  assert.deepEqual(contentCheck({ cardText: '9월 20일까지 완료', transcriptText: '   ' }), { status: 'unverified', mismatches: [] });
+});
+
+test('contentCheck answers confirmed when every card-stated date and amount appears in the transcript window, by canonical value not raw substring (R2)', () => {
+  // The card says "9월 20일"/"500,000원"; the transcript states the same
+  // date and amount in different surface forms (M/D, no thousands comma,
+  // and with a space before the trailing particle so MONEY_PATTERN can
+  // still find it) -- still confirmed, because the comparison is by
+  // canonical value.
+  const result = contentCheck({ cardText: '9월 20일까지 500,000원 집행', transcriptText: '9/20 까지 500000원 정도로 집행하기로 했습니다' });
   assert.deepEqual(result, { status: 'confirmed', mismatches: [] });
 });
 
@@ -246,15 +267,37 @@ test('contentCheck normalises whitespace and commas before comparing', () => {
   assert.equal(result.status, 'confirmed');
 });
 
-test('contentCheck answers mismatch and names every value the transcript window does not contain', () => {
-  const result = contentCheck({ cardText: '9월 20일까지 500,000원', transcriptText: '9월 25일에 다시 논의하기로 했습니다' });
+test('contentCheck answers mismatch and names every value (in the card\'s own words) the transcript window does not contain', () => {
+  const result = contentCheck({ cardText: '9월 20일까지 500,000원 정도', transcriptText: '9월 25일에 500,000원 정도로 다시 논의하기로 했습니다' });
   assert.equal(result.status, 'mismatch');
-  assert.deepEqual(result.mismatches, [{ kind: 'date', value: '9월 20일' }, { kind: 'amount', value: '500,000원' }]);
+  assert.deepEqual(result.mismatches, [{ kind: 'date', value: '9월 20일' }]);
 });
 
-test('contentCheck with no dates or amounts in the card text is confirmed even against unrelated transcript text', () => {
+test('contentCheck with no dates or amounts in the card text at all is nothing_to_check, not confirmed (R1)', () => {
   assert.deepEqual(contentCheck({ cardText: '시험 일정 공유', transcriptText: '전혀 다른 이야기' }),
-    { status: 'confirmed', mismatches: [] });
+    { status: 'nothing_to_check', mismatches: [] });
+  assert.deepEqual(contentCheck({ cardText: '시험 일정 공유', transcriptText: null }),
+    { status: 'nothing_to_check', mismatches: [] }, 'nothing_to_check even with no transcript at all');
+});
+
+test('contentCheck: a card date with no month context (a bare D일 alone) is unverified, never a manufactured mismatch (R2)', () => {
+  const result = contentCheck({ cardText: '20일까지 완료', transcriptText: '20일에 완료 예정입니다' });
+  assert.deepEqual(result, { status: 'unverified', mismatches: [] });
+});
+
+test('contentCheck: a card amount the transcript window states only in Korean number words (오천만 원) is unverified, not mismatch or confirmed (R2)', () => {
+  // Design choice, documented rather than silently assumed: this module
+  // does not parse Korean numeral words (오천만 = 50,000,000) into a
+  // comparable amount, so a transcript window with no digit-written amount
+  // at all cannot rule a card amount in or out -- it is `unverified`.
+  const result = contentCheck({ cardText: '5,000만원 집행', transcriptText: '오천만 원 정도로 이야기했습니다' });
+  assert.deepEqual(result, { status: 'unverified', mismatches: [] });
+});
+
+test('contentCheck: a genuine date mismatch is reported even when the card also names an amount the transcript cannot verify either way (R2)', () => {
+  const result = contentCheck({ cardText: '9월 20일까지 5,000만원', transcriptText: '9월 25일에 오천만 원 정도로 이야기했습니다' });
+  assert.equal(result.status, 'mismatch');
+  assert.deepEqual(result.mismatches, [{ kind: 'date', value: '9월 20일' }]);
 });
 
 // ---------------------------------------------------------------- v1: modality
@@ -344,6 +387,30 @@ test('classifyAttribution: mixed nature with no risk marker and fewer than two c
   assert.equal(result.reason, 'mixed_unsplit');
 });
 
+test('classifyAttribution: mixed nature whose only marker is a deadline or a bare 약속, with zero candidates, is candidate/mixed_unsplit, not needs_split (S7)', () => {
+  const deadlineOnly = classifyAttribution(segment({ nature: 'mixed', title: '내일까지 확인', description: '' }));
+  assert.equal(deadlineOnly.classification, 'candidate');
+  assert.equal(deadlineOnly.reason, 'mixed_unsplit');
+  assert.deepEqual(deadlineOnly.risk_markers, ['내일까지']);
+
+  const promiseOnly = classifyAttribution(segment({ nature: 'mixed', title: '약속 잡기', description: '' }));
+  assert.equal(promiseOnly.classification, 'candidate');
+  assert.equal(promiseOnly.reason, 'mixed_unsplit');
+});
+
+test('classifyAttribution: mixed nature with a decision/money/contract marker still needs_split even with zero candidates (S7)', () => {
+  const decision = classifyAttribution(segment({ nature: 'mixed', title: '결정 필요', description: '' }));
+  assert.equal(decision.reason, 'needs_split');
+  const money = classifyAttribution(segment({ nature: 'mixed', title: '500,000원 지출', description: '' }));
+  assert.equal(money.reason, 'needs_split');
+});
+
+test('classifyAttribution: mixed nature with a deadline marker AND two or more candidates still needs_split (S7)', () => {
+  const result = classifyAttribution(segment({ nature: 'mixed', title: '내일까지 확인', description: '',
+    project_candidates: [weakCandidate, { ...weakCandidate, project_code: 'P23-043' }] }));
+  assert.equal(result.reason, 'needs_split');
+});
+
 test('classifyAttribution: idea/daily/other natures skip unless a commitment/request marker is present', () => {
   for (const nature of ['idea', 'personal', 'daily', 'undetermined']) {
     const result = classifyAttribution(segment({ nature, title: '점심 메뉴 이야기', description: '잘 부탁드립니다' }));
@@ -406,9 +473,13 @@ test('classifyAttribution: the same identifier already in registeredProjectCodes
   assert.notEqual(result.reason, 'new_project_candidate');
 });
 
-test('classifyAttribution: with no registeredProjectCodes supplied, any identifier-shaped token reads as unregistered', () => {
+test('classifyAttribution: with no registeredProjectCodes supplied at all, the new-project check is disabled rather than flagging every identifier as new (S8)', () => {
+  // An empty registry almost always means the caller could not load one at
+  // all, not that this estate genuinely has zero projects -- flagging every
+  // identifier-shaped token in that case would be noise on every call that
+  // forgot (or failed) to pass one in.
   const result = classifyAttribution(segment({ title: 'XY-9 신규 건', description: '', project_candidates: [] }));
-  assert.equal(result.reason, 'new_project_candidate');
+  assert.notEqual(result.reason, 'new_project_candidate');
 });
 
 test('classifyAttribution: a risk marker with no candidate and nothing else named in the text is exception/missing_context', () => {
@@ -450,15 +521,12 @@ test('classifyAttribution: a unique strong candidate whose card content the tran
   assert.equal(result.content_check, 'confirmed');
 });
 
-test('classifyAttribution: a unique strong candidate with no date/amount in the card text at all is provisional, confirmed by default', () => {
-  // The default segment() description ("다음 주 일정 공유") itself contains a
-  // relative-week date token -- overridden here to something with no
-  // date/amount at all, which is the case this test means to cover.
+test('classifyAttribution: a unique strong candidate with no date/amount in the card text at all is provisional, content_check nothing_to_check (R1)', () => {
   const result = classifyAttribution(
     segment({ title: '담당자 논의', description: '', project_candidates: [strongCandidate] }), null,
     { transcriptText: '전혀 관련 없는 다른 이야기' });
   assert.equal(result.classification, 'provisional');
-  assert.equal(result.content_check, 'confirmed');
+  assert.equal(result.content_check, 'nothing_to_check');
 });
 
 // -------------------------------------------------------------- classification: step 7 (weak/unclassified)

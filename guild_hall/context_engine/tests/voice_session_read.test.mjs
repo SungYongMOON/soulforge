@@ -757,19 +757,62 @@ test('S3-4: the reconcile harness’s latest 판정 for a segment reaches the re
     // the newer one's verdict is the one that should surface.
     await writeFile(path.join(receiptsDir, '20260103000000.json'), JSON.stringify({
       schema_version: 'soulforge.voice_card_reconcile_receipt.v2', sessions: [{ session_id: SESSION,
-        segments: [{ segment_id: 'conv_1', classification: 'candidate', reason: 'weak_or_unclassified_no_risk', content_check: null }] }] }));
+        segments: [{ segment_id: 'conv_1', classification: 'candidate', reason: 'weak_or_unclassified_no_risk', content_check: null,
+          modality: null, input: { valid: true, reason: null } }] }] }));
     await writeFile(path.join(receiptsDir, '20260104000000.json'), JSON.stringify({
-      schema_version: 'soulforge.voice_card_reconcile_receipt.v2', sessions: [{ session_id: SESSION,
-        segments: [{ segment_id: 'conv_1', classification: 'exception', reason: 'content_mismatch', content_check: 'mismatch' }] }] }));
+      schema_version: 'soulforge.voice_card_reconcile_receipt.v2', ran_at: '2026-01-04T00:00:00.000Z',
+      sessions: [{ session_id: SESSION,
+        segments: [{ segment_id: 'conv_1', classification: 'exception', reason: 'content_mismatch', content_check: 'mismatch',
+          modality: null, input: { valid: true, reason: null } }] }] }));
     const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot,
       reconcileReceiptsPath: receiptsDir });
     assert.equal(answer.status, 'ok');
     const [first] = answer.conversation_list.rows;
-    assert.deepEqual(first.reconcile, { classification: 'exception', reason: 'content_mismatch', content_check: 'mismatch' });
+    assert.deepEqual(first.reconcile, { classification: 'exception', reason: 'content_mismatch', content_check: 'mismatch',
+      modality: null, input: { valid: true, reason: null }, ran_at: '2026-01-04T00:00:00.000Z' });
     const rendered = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' }, toolsSha256: sha(Buffer.from('tools')) });
     assert.match(rendered, /판정: exception/u);
     assert.match(rendered, /content_mismatch/u);
     assert.match(rendered, /내용확인: 불일치/u);
+  } finally { await inbox.cleanup(); }
+});
+
+test('S5: a modality tag renders after 판정, and an input-invalid segment renders 입력무효 instead of a live verdict', async () => {
+  const inbox = await withConversationList();
+  try {
+    const receiptsDir = path.join(inbox.controlRoot, 'reconcile-receipts');
+    await mkdir(receiptsDir, { recursive: true });
+    await writeFile(path.join(receiptsDir, '20260104000000.json'), JSON.stringify({
+      schema_version: 'soulforge.voice_card_reconcile_receipt.v2', ran_at: '2026-01-04T00:00:00.000Z',
+      sessions: [{ session_id: SESSION,
+        segments: [{ segment_id: 'conv_1', classification: 'exception', reason: 'conditional_or_reported', content_check: null,
+          modality: 'conditional', input: { valid: false, reason: 'segment_identity_changed' } }] }] }));
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot,
+      reconcileReceiptsPath: receiptsDir });
+    assert.equal(answer.status, 'ok');
+    const [first] = answer.conversation_list.rows;
+    assert.deepEqual(first.reconcile.modality, 'conditional');
+    assert.deepEqual(first.reconcile.input, { valid: false, reason: 'segment_identity_changed' });
+    const rendered = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' }, toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(rendered, /입력무효\(segment_identity_changed\)/u);
+    assert.equal(rendered.includes('판정: exception'), false, '입력무효 replaces the live verdict, not adds to it');
+  } finally { await inbox.cleanup(); }
+});
+
+test('S5: a modality tag on an input-valid segment renders after 판정', async () => {
+  const inbox = await withConversationList();
+  try {
+    const receiptsDir = path.join(inbox.controlRoot, 'reconcile-receipts');
+    await mkdir(receiptsDir, { recursive: true });
+    await writeFile(path.join(receiptsDir, '20260104000000.json'), JSON.stringify({
+      schema_version: 'soulforge.voice_card_reconcile_receipt.v2', ran_at: '2026-01-04T00:00:00.000Z',
+      sessions: [{ session_id: SESSION,
+        segments: [{ segment_id: 'conv_1', classification: 'exception', reason: 'conditional_or_reported', content_check: null,
+          modality: 'negated', input: { valid: true, reason: null } }] }] }));
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot,
+      reconcileReceiptsPath: receiptsDir });
+    const rendered = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' }, toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(rendered, /판정: exception \(conditional_or_reported\) · 부정/u);
   } finally { await inbox.cleanup(); }
 });
 

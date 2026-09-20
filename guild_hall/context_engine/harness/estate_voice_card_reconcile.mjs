@@ -11,10 +11,10 @@
 //     segment, through `voice_route_cli.mjs`'s own `import` and `set` commands
 //     (never a status this harness invents, never `confirmed`) -- this harness
 //     never writes the ledger file itself.
-//   - the receipts directory gets one `soulforge.voice_card_reconcile_receipt.v1`
+//   - the receipts directory gets one `soulforge.voice_card_reconcile_receipt.v2`
 //     JSON naming every session and segment this pass looked at, its
 //     classification, the mail/Linear refs (ids only, never body text or
-//     transcript) that corroborated it, and an `exception_review` array: the
+//     transcript) that cued it, and an `exception_review` array: the
 //     morning-briefing input, "어제 애매한 것 N건".
 //
 // `provisional` and `exception` are receipt-only labels. The ledger's
@@ -93,6 +93,17 @@ export const RECONCILE_STALE_LOCK_MS = 3 * 60 * 60 * 1000;
 const LOCK_FILE_NAME = 'reconcile.lock';
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/u;
 const MAX_JSON_BYTES = 8 * 1024 * 1024;
+// R3: the content-check gate's own read bound. `readVoiceSession` clamps any
+// one call far below this (its own `max_characters_per_call`); this pass
+// pages through `next_window` to gather more, but stops here rather than
+// walking an entire multi-hour recording's transcript one page at a time for
+// a single segment's worth of comparison text.
+const MAX_TRANSCRIPT_WINDOW_CHARS = 200000;
+// A hard ceiling on how many pages one session's read is ever allowed to take
+// -- not expected to bind before MAX_TRANSCRIPT_WINDOW_CHARS does, but a
+// caller that somehow returned `next_window` forever must not loop this pass
+// forever either.
+const MAX_TRANSCRIPT_WINDOW_PAGES = 64;
 // A single JSONL mail-event line this large is not a normal row; it is
 // skipped rather than parsed, so one corrupt or adversarial line cannot pull
 // an unbounded string into memory.
@@ -552,11 +563,16 @@ export function corroborationFor({ segment, mailEvents, linearIssues, aliasByCod
 }
 
 // -------------------------------------------------------------- ledger write
+// S6 (fresh review): v1's mail/Linear corroboration never promotes a
+// classification any more (see voice_attribution_policy.mjs) -- it is a cue,
+// so the basis text says `cues=<n>`, not `corroborated=<bool>`, which read
+// as a claim this candidate had been confirmed by an independent source
+// rather than merely pointed at by one.
 const basisFor = ({ classification, candidate, refs }) => {
   const cardBasis = Array.isArray(candidate?.basis) ? candidate.basis.join('+') : 'none';
   const text = `reconcile:${VOICE_ATTRIBUTION_POLICY_VERSION} classification=${classification}`
     + ` card_strength=${candidate?.strength ?? 'none'} card_basis=${cardBasis || 'none'}`
-    + ` corroborated=${refs.length > 0}`;
+    + ` cues=${refs.length}`;
   return [...text].slice(0, VOICE_ROUTE_LIMITS.basis_characters).join('').trim();
 };
 
@@ -655,6 +671,62 @@ function writeSegment({ tablePath, tableSha256, sessionId, segment, classificati
   return { calls, skipped_human: skippedHuman, skipped_withdrawn: skippedWithdrawn.sort(), retired: retired.sort() };
 }
 
+// ---------------------------------------------------------- content check
+/**
+ * R3/S11: one session's transcript rows, read once per session (per
+ * `runReconcile` call -- `cache` lives for the whole pass, not across
+ * passes) and reused for every segment's own content-check window, rather
+ * than one fresh `readVoiceSession` call -- itself re-opening the source
+ * root and re-parsing the transcript file -- per segment. Pages through
+ * `next_window` (never a guessed stride) until the transcript is exhausted,
+ * `MAX_TRANSCRIPT_WINDOW_PAGES` pages is reached, or the accumulated
+ * character count passes `MAX_TRANSCRIPT_WINDOW_CHARS`; any of the latter
+ * two, or any individual page `readVoiceSession` itself reported as
+ * `truncated`, or a read that failed outright, marks the session
+ * `truncated: true` -- a segment whose own window happens to sit entirely in
+ * the part that *was* read faithfully is still marked unverified rather than
+ * risk a false `confirmed`/`mismatch` built on a partial read.
+ */
+async function readSessionTranscriptCached(cache, { io, sessionId, derivedRoot, now }) {
+  if (cache.has(sessionId)) return cache.get(sessionId);
+  const rows = [];
+  let truncated = false;
+  let window = { from: 0, to: null };
+  let totalChars = 0;
+  for (let page = 0; window !== null && page < MAX_TRANSCRIPT_WINDOW_PAGES; page += 1) {
+    let read;
+    try { read = await readVoiceSession({ io, sessionId, derivedRoot, from: window.from, to: window.to, now }); }
+    catch { truncated = true; break; }
+    if (read.status === 'window_without_speech') { window = null; break; }
+    if (read.status !== 'ok') { truncated = true; break; }
+    for (const row of read.segments ?? []) {
+      rows.push(row);
+      totalChars += Number.isSafeInteger(row.shown) ? row.shown : 0;
+      if (row.truncated === true) truncated = true;
+    }
+    if (totalChars >= MAX_TRANSCRIPT_WINDOW_CHARS) { truncated = read.next_window !== null; break; }
+    window = read.next_window === null ? null : { from: read.next_window.from, to: read.next_window.to ?? null };
+  }
+  if (window !== null) truncated = true; // the page-count guard tripped before next_window ran out
+  const cached = Object.freeze({ rows, truncated });
+  cache.set(sessionId, cached);
+  return cached;
+}
+
+/**
+ * The transcript text of exactly one segment's own window, sliced from the
+ * cached session rows above -- `null` (never an empty string) when nothing
+ * in the cache overlaps this window at all, or when the session-level read
+ * was truncated (R3: content-check must not trust a partial read, even for a
+ * segment whose own window looks intact).
+ */
+function segmentTranscriptText(cached, { startSeconds, endSeconds }) {
+  if (cached.truncated) return null;
+  const inWindow = cached.rows.filter(row => row.end_seconds > startSeconds && row.start_seconds < endSeconds);
+  if (inWindow.length === 0) return null;
+  return inWindow.map(row => row.text).join(' ');
+}
+
 // -------------------------------------------------------------------- run
 /**
  * One night's reconcile pass. `runVoiceRouteCliFor` is the seam tests use to
@@ -716,22 +788,47 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
     // `provisional` for, with no transcript window text to check its card
     // dates/amounts against -- an honest "not checked" count, not a claim
     // every provisional segment's content was verified.
-    content_unverified: 0 };
+    content_unverified: 0,
+    // R1: the card named no date or amount at all -- there was nothing this
+    // gate could have checked either way, which is not the same fact as
+    // "checked and nothing was wrong" (`confirmed`) or "something was named
+    // but could not be checked" (`content_unverified`).
+    content_nothing_to_check: 0,
+    // R3: a content check this pass forced to `unverified` because the
+    // transcript window it read was still truncated after paging up to the
+    // bound below.
+    content_window_truncated: 0 };
   // Every project code this estate's Linear projects declare -- "P24-049
   // SAS 처리장치 ..." names project P24-049 -- for classifyAttribution's
   // new-project-candidate check (step 4). Computed once, from the same
-  // `linear.projects` the alias table below already reads; a leading
-  // identifier-shaped token not in this set is a project this estate has
-  // never registered.
+  // `linear.projects` table `aliasTermsByCode`/`projectAliasTerms` already
+  // read for this pass (this estate has no other project/alias source) --
+  // the boundary after a matched code mirrors `mailCodesIn`'s own (anything
+  // that is not itself an identifier character), not "must be followed by
+  // whitespace", so "P24-049(SAS)" or "P24-049_v2" register the code too.
   const registeredProjectCodes = (() => {
-    const leading = /^([A-Za-z][0-9A-Za-z]*(?:-[0-9A-Za-z]+)+)(?=\s|$)/u;
+    const leading = /^[A-Za-z][0-9A-Za-z]*(?:-[0-9A-Za-z]+)+/u;
+    const continues = ch => ch !== '' && /[0-9A-Za-z-]/u.test(ch);
     const codes = new Set();
     for (const row of linear.projects) {
-      const match = leading.exec(typeof row?.name === 'string' ? row.name.trim() : '');
-      if (match !== null) codes.add(match[1]);
+      const name = typeof row?.name === 'string' ? row.name.trim() : '';
+      const match = leading.exec(name);
+      if (match !== null && !continues(name.slice(match[0].length, match[0].length + 1))) codes.add(match[0]);
     }
     return codes;
   })();
+  totals.registered_project_codes_count = registeredProjectCodes.size;
+  // S8: an empty registry almost always means this pass could not load one
+  // at all (no Linear projects in the day window, or a coverage gap), not
+  // that this estate genuinely has zero projects -- `classifyAttribution`
+  // itself already skips the new-project check in that case; this is the
+  // one place that says so in the receipt, since the module has no receipt
+  // of its own to write it into.
+  const newProjectCheckState = registeredProjectCodes.size > 0 ? 'enabled' : 'disabled_no_registry';
+  // R3/S11: one session's transcript, read (and paged) at most once per pass
+  // and reused across every one of its segments -- see
+  // `readSessionTranscriptCached`'s own doc.
+  const transcriptCache = new Map();
   // Alias terms depend on which project codes actually appear on a card, which
   // is only known after the card is read -- so they are built once codes are seen.
   const aliasCache = new Map();
@@ -856,18 +953,21 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       const strongCodesOnSegment = new Set((classifiedSegment.project_candidates ?? [])
         .filter(row => row?.strength === 'strong' && typeof row.project_code === 'string' && row.project_code !== '')
         .map(row => row.project_code));
-      let transcriptText = null;
+      let transcriptText = null, windowTruncated = false;
       if (strongCodesOnSegment.size === 1) {
         try {
-          const read = await readVoiceSession({ io, sessionId, derivedRoot: tools.derived_root,
-            from: segment.start_seconds, to: segment.end_seconds, now });
-          if (read.status === 'ok') transcriptText = (read.segments ?? []).map(row => row.text).join(' ');
+          const cached = await readSessionTranscriptCached(transcriptCache,
+            { io, sessionId, derivedRoot: tools.derived_root, now });
+          if (cached.truncated) windowTruncated = true;
+          transcriptText = segmentTranscriptText(cached, { startSeconds: segment.start_seconds, endSeconds: segment.end_seconds });
         } catch { transcriptText = null; } // unreadable here reads as "not supplied", never a hard failure
       }
       const result = classifyAttribution(classifiedSegment, corroboration,
         { staleReason, transcriptText, registeredProjectCodes });
       totals[result.classification] = (totals[result.classification] ?? 0) + 1;
       if (result.content_check === 'unverified') totals.content_unverified += 1;
+      else if (result.content_check === 'nothing_to_check') totals.content_nothing_to_check += 1;
+      if (windowTruncated && result.content_check === 'unverified') totals.content_window_truncated += 1;
 
       let ledgerWrite = 'none', writeError = null, skippedHuman = [], skippedWithdrawn = [], retiredCandidates = [];
       if (result.classification !== 'skip') {
@@ -953,7 +1053,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
         }
       }
       const row = { segment_id: segment.segment_id, classification: result.classification, reason: result.reason,
-        risk_markers: result.risk_markers, corroboration_refs: corroboration.refs, ledger_write: ledgerWrite,
+        risk_markers: result.risk_markers, cue_refs: corroboration.refs, ledger_write: ledgerWrite,
         write_error: writeError, skipped_human_candidates: skippedHuman,
         skipped_withdrawn_projects: skippedWithdrawn, retired_candidates: retiredCandidates,
         // S3-1/S3-4: the modality tag (never a present decision when set),
@@ -979,6 +1079,9 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   const sourcesUnreadable = [...mail.unreadable, ...linear.unreadable];
   const receipt = { schema_version: RECONCILE_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry,
     policy_version: VOICE_ATTRIBUTION_POLICY_VERSION,
+    // S8: this pass's own project registry state, once, rather than only
+    // implied by a totals count a reader would have to know the meaning of.
+    new_project_check: newProjectCheckState,
     lock: lock === null ? null : { reclaimed_stale: lock.reclaimed === true,
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
