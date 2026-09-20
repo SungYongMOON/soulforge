@@ -147,10 +147,17 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    조건문·인용·부정·미완 안에 있으면 (6) 대신 `conditional_or_reported`로 구분 — 둘 다 예외로 남지만
    "조건부/인용"과 "결정"은 다른 질문이다. 메일/Linear 대조는 이제 근거(cue)로만 남고 provisional로
    올리지 않는다. 아침 브리핑 끝에 "어제 애매한 것 N건"으로 묻는다. 답이 없으면 후보로 남고 아무 일도
-   일어나지 않는다. 해당 건이 없는 날은 그 줄이 없다. — **구현됨**(일곱 가지 판정,
-   `src/runtime/voice_attribution_policy.mjs` v1; 목록은 `estate_voice_card_reconcile.mjs`가 매 회차
-   영수증의 `exception_review`에 쌓는다) / **계획**(아침
-   브리핑이 그 목록을 읽어 묻는 연결).
+   일어나지 않는다. 해당 건이 없는 날은 그 줄이 없다. N은 채울 할당량이 아니라 상한(기본 10, 설정 가능)
+   이며 한 답으로 풀리는 독립 판단 수를 센다 — 회신 09·10의 EXT-72. **구현됨**(일곱 가지 판정,
+   `src/runtime/voice_attribution_policy.mjs` v1이 목록을 만들고 `estate_voice_card_reconcile.mjs`가 매
+   회차 영수증의 `exception_review`에 쌓는다; N≤10 선택기와 markdown 출력은 Step 4 —
+   `src/runtime/voice_morning_questions.mjs`의 `selectQuestions`가 세션+판정 종류+과제 후보 집합이 같은
+   행만 한 질문으로 묶고, 긴급(납기·마감·기한·계약·발주·금액 또는 content_mismatch)을 먼저, 나머지는
+   오래 기다린 순으로 상한까지 보여주고 나머지는 이월(`carried_over`)이나 긴급 초과(`urgent_overflow`)
+   로 보존한다 — 상한을 조용히 늘리지 않는다; 답한 질문은 대상(session_id+run_id+segment_id)이 그대로면
+   다시 묻지 않는다(`resolved_by_reuse`, 빠른 고리 — 색인도 검색도 없이 원장 재사용); `harness/
+   voice_question_cli.mjs present`가 markdown을 찍는다) / **계획**(아침 브리핑이 이 markdown을 읽어 실제
+   사람에게 보내는 연결, DM·Hermes·게이트웨이 발송 자체 — Step 4b).
 3. **정정은 반드시 카드에 반영.** DM 한 줄 답("그거 KVDS야")은 `voice_route_cli` confirm/withdraw로
    이어져야 한다. 반영되지 않는 정정은 없다. — **부분 구현됨**: `withdraw`가 남긴 기록(ledger의
    `withdrawn: [{project_code, withdrawn_by, withdrawn_at}]`, 다른 과제로 재확정(A→B)하면 A도 자동
@@ -164,7 +171,17 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    segment의 철회 기록은 16개까지이며, 그 이상은 가장 오래된 것을 밀어내지 않고 거부한다
    (`voice_route_withdrawn_limit_reached`) — 밀어내면 그 항목이 막던 과제가 조용히 다시 열리기 때문이다.
    **계획**으로 남은 것: DM 한 줄 답 자체가 `confirm`/`withdraw` 호출로 이어지는 고리(사람이 지금은 CLI를
-   직접 친다), grant·검색 색인에서의 제거(비동기, L2).
+   직접 친다), grant·검색 색인에서의 제거(비동기, L2). Step 4에서 더해진 것 — **부분 구현됨**: 사람이
+   아침 질문에 답하는 CLI `harness/voice_question_cli.mjs answer`가 생겼다. 귀속 질문은 기존
+   `voice_route_cli.mjs confirm`(과제 선택)이나 `set --drop-project`(업무 아님 — 후보를 전부 내림, 없는
+   상태 자체가 ledger에 없어 `withdraw`를 못 씀)만 호출하고, 이 파일 자신은 ledger에 절대 쓰지 않는다.
+   내용확인·분할·조건확인 질문은 카드가 적은 값을 확인/정정하는 것이 아니라 판정 그 자체에 대한
+   답이라 과제 route를 쓸 이유가 없어 질문 원장에만 남긴다(라우트 변경 없음). 대상
+   (session_id+run_id+segment_id)이 답변 시점에 최신 대조 영수증과 달라졌으면(재전사 등) 거부하고
+   (`question_targets_stale`) 질문을 철회로 남긴다. 같은 답을 두 번 보내도 두 번째는 아무것도 다시
+   쓰지 않는다(멱등). `--by`는 대조기 자신의 actor나 `actor:context-engine:`/`actor:bot:`/`actor:machine:`
+   모양이면 거부한다(신원 증명이 아니라 CLI 단의 형식 검사). **계획**으로 남은 것: DM 한 줄 답 자체가
+   이 `answer` 호출로 이어지는 자동 경로(사람이 지금은 CLI를 직접 친다).
 4. **확정은 정본에 쓸 때만.** 과제 폴더 `10_입력자료/VOICE`와 `30_프로젝트맥락` 페이지에 들어가는
    것은 `accepted_project_route` 또는 strong 근거의 `ai_provisional_project_route`뿐이다. 예외 검토함에
    있는 구간의 결정·마감·금액은 답이 오기 전에는 페이지에 쓰지 않는다. — **계획**.

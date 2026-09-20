@@ -1,5 +1,43 @@
 # CHANGELOG
 
+## 2026-09-21 - 카드 대조 4단계: N≤10 질문 선택기 + 빠른 고리
+
+- Revision: 이 항목을 포함한 커밋. `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 네 번째 조각
+  (외부 회신 09·10의 EXT-70·72·73·74, CE-29·31·32·34 반례 채택). 예외함과 아침 브리핑 사이의 "질문 집계·
+  선택" 단계와, 답을 즉시 재사용하는 빠른 고리(색인·검색 없이 원장만)까지다. 느린 고리(수락 사례→색인
+  세대)는 다음 조각(Step 5).
+- (S4-0) Step 3에서 미룬 시험을 먼저 채웠다: 전사 창이 문자 상한에서 잘려 돌아오면
+  `content_check`가 `'unverified'`로 강제되고 `content_window_truncated`로 세는지, 실제 접근 선언·
+  실제 세션/전사 픽스처로 확인한다. 동시에 `estate_voice_card_reconcile.mjs`의 페이징 루프를 고쳤다 —
+  한 페이지 안에서 발화 하나가 문자 단위로 잘리면(`row.truncated`) `next_window`의 `character_bound`가
+  같은 시작점을 새 예산으로 다시 청구할 뿐 진행하지 않으므로(이미 보여준 만큼의 오프셋이 없음), 더
+  페이지를 넘기지 않고 그 자리에서 바로 잘림으로 확정한다(전에는 최대 64페이지를 헛돌 수 있었다).
+- (S4-1) 새 `src/runtime/voice_morning_questions.mjs`의 `selectQuestions({ exceptions, ledger, now, cap,
+  tz })`는 순수 함수다. 대조 영수증들의 `exception_review` 전체(자름 없음)를 세션+판정 종류(귀속/
+  내용확인/분할/조건확인)+과제 후보 집합으로만 묶고, 질문 id는 (종류, 정렬된 대상) 안정 해시라 같은 날
+  다시 돌려도 같은 id다. 긴급(납기·마감·기한·계약·발주·금액 표지 또는 `content_mismatch`) 먼저, 그
+  다음 오래 기다린 순으로 상한까지 보여주고, 나머지는 `urgent_overflow`/`carried_over`로 보존한다(상한을
+  조용히 늘리지 않음). 이미 답한(같은 대상) 질문은 `resolved_by_reuse`. run_id가 바뀌거나 같은 구간에
+  새 판정 이유가 붙으면 새 id로 다시 열리고 `reopened_from`을 남긴다.
+- (S4-2/S4-3) `harness/voice_question_cli.mjs`가 질문 원장(`control_root/voice-questions/questions.v0.json`,
+  락+staging+rename)을 관리한다. `present`가 markdown을 찍고("어제 애매한 것 N건 (이월 M, 긴급 초과 K)"
+  머리글, 사람이 읽는 줄엔 id 없음, 끝에 포인터 줄 `[q:<id> ...]`) 원장을 갱신한다(`--dry`는 아무것도 안
+  씀). `answer`가 CE-34대로 대상의 run_id를 최신 대조 영수증과 대조해 다르면 거부·철회하고, 귀속
+  질문은 기존 `voice_route_cli.mjs confirm`/`set --drop-project`만 부르며(이 파일 자신은 ledger를 절대
+  안 씀), 내용확인·분할·조건확인 질문은 어떤 선택지든 원장에만 남긴다. 같은 답 재전송은 멱등, 대상
+  하나 실패는 `partial`로 남기고 `answered`로 안 넘어간다. `--by`는 대조기 actor나
+  `actor:context-engine:`/`actor:bot:`/`actor:machine:` 모양이면 거부한다(신원 증명 아님, CLI 단 형식
+  검사로 문서화).
+- 운영 영향: 코드만. markdown을 실제로 어딘가에 보내는 연결(Step 4b, Hermes·DM·게이트웨이)과 예약작업
+  등록은 이 변경에 없다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/voice_morning_questions.mjs`,
+  `guild_hall/context_engine/harness/voice_question_cli.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/tests/voice_morning_questions.test.mjs`,
+  `guild_hall/context_engine/tests/voice_question_cli.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/README.md`, `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
+
 ## 2026-09-20 - 카드 대조 3단계: 판정 규칙 v1 + 답변 소비 최소 경계
 
 - Revision: 이 항목을 포함한 커밋. `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 세 번째 조각

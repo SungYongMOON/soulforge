@@ -52,6 +52,57 @@ async function writeSessionDir(dataRoot, date, sessionId) {
   await mkdir(path.join(dataRoot, 'ingress', 'plaud', 'sessions', date, sessionId), { recursive: true });
 }
 
+// S4-0: the raw session a real `readVoiceSession` call needs -- a manifest
+// declaring a completed independent local run, and that run's own transcript
+// plus its manifest, in the exact shape `voice_session_read.mjs` reads
+// (mirrors `voice_session_read.test.mjs`'s own fixtures). Only what the
+// content-check gate's read path touches; nothing else about a real PLAUD
+// session is modelled here.
+const transcriptSegmentLine = ({ id, start, end, content }) => JSON.stringify({
+  schema_version: 'soulforge.voice_transcript_segment.v0', segment_id: id, start_seconds: start,
+  end_seconds: end, speaker: 'UNKNOWN', content, source: 'synthetic' });
+
+async function writeRawSession(dataRoot, { date, sessionId, runId, duration, rows }) {
+  const dir = path.join(dataRoot, 'ingress', 'plaud', 'sessions', date, sessionId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'session_manifest.json'), JSON.stringify({
+    schema_version: 'soulforge.voice_capture_session.v0', session_id: sessionId, source: 'synthetic_import',
+    source_page_title: '합성 세션', recorded_at_local: `${date}T09:00:00+09:00`, duration_seconds: duration,
+    audio: { status: 'source_present', ref: 'sessions/x/audio/source.mp3' },
+    transcript: { status: 'provider_transcript_present_unverified', evidence_role: 'auxiliary_unverified',
+      quality: 'provider_machine_transcript_unverified', segment_count: rows.length,
+      time_basis: 'seconds_from_recording_start_rounded_by_provider_cli' },
+    provider_summary: { status: 'provider_output_present_untrusted', evidence_role: 'quarantined_untrusted' },
+    speaker_diarization: { status: 'provider_labels_present_unverified', labels: ['UNKNOWN'],
+      warning: 'Provider labels are alignment hints, not verified human identities.' },
+    canonicalization: { state: 'independent_transcript_ready_project_match_and_review_required',
+      plaud_transcript_is_canonical: false },
+    meeting_context: { meeting_type: 'unclassified_voice_recording' },
+    independent_transcription: { status: 'completed', run_id: runId,
+      evidence_role: 'independent_machine_transcript_unverified', segment_count: rows.length } }, null, 2));
+  // A provider transcript is required for the fallback chain even though
+  // this test only ever exercises the independent (local) one.
+  await writeFile(path.join(dir, 'transcript.jsonl'),
+    `${rows.map(transcriptSegmentLine).join('\n')}\n`);
+  const runDir = path.join(dir, 'analysis', 'local_asr', runId);
+  await mkdir(runDir, { recursive: true });
+  const bytes = Buffer.from(`${rows.map(transcriptSegmentLine).join('\n')}\n`);
+  await writeFile(path.join(runDir, 'transcript.jsonl'), bytes);
+  await writeFile(path.join(runDir, 'analysis_manifest.json'), JSON.stringify({
+    schema_version: 'soulforge.local_asr_run.v0', session_id: sessionId, run_id: runId, engine: 'whisper.cpp',
+    model_id: 'synthetic-model', state: 'completed', segment_count: rows.length,
+    transcript_sha256: hex(bytes), evidence_role: 'independent_machine_transcript_unverified',
+    quality: 'machine_transcript_unverified_attention_required', claim_ceiling: 'observed' }, null, 2));
+}
+
+async function writeVoiceInboxAccess(controlRoot, { maxSecondsPerCall = 600, maxCharactersPerCall = 12000 } = {}) {
+  await mkdir(path.join(controlRoot, 'voice-routes'), { recursive: true });
+  await writeFile(path.join(controlRoot, 'voice-routes', 'inbox_access.v0.json'), JSON.stringify({
+    schema: 'soulforge.voice_inbox_access.v0', actor_ref: 'actor:owner:context-reader',
+    purpose: 'voice_route_review', root: 'data_root/ingress/plaud/sessions', granted_by: 'synthetic',
+    max_seconds_per_call: maxSecondsPerCall, max_characters_per_call: maxCharactersPerCall }, null, 2));
+}
+
 async function writeCard(derivedRoot, sessionId, runId, { verified = true, segments = [segment()] } = {}) {
   const dir = path.join(derivedRoot, 'voice', sessionId, runId);
   await mkdir(dir, { recursive: true });
@@ -597,6 +648,31 @@ test('S3: a unique strong candidate with no transcript access declared reads con
   assert.equal(result.receipt.totals.content_unverified, 1);
   const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger;
   assert.equal(ledger.segments.find(item => item.segment_id === 'c001').status, 'candidate');
+});
+
+test('S4-0: a transcript window read that comes back character-truncated forces content_check unverified, counted as window_truncated (R3, real access)', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  // A real access declaration, but with a character budget far smaller than
+  // the one utterance this session holds -- `readVoiceSession` itself
+  // reports that row `truncated: true`, and the caching read gate must not
+  // trust the partial text it did get.
+  await writeVoiceInboxAccess(est.controlRoot, { maxSecondsPerCall: 600, maxCharactersPerCall: 40 });
+  await writeRawSession(est.dataRoot, { date: '2026-09-19', sessionId: 'sess1', runId: 'whispercpp_test_v1',
+    duration: 30, rows: [{ id: 1, start: 0, end: 30, content: `9월 20일까지 완료하기로 했습니다. ${'다'.repeat(200)}` }] });
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', title: '9월 20일까지 완료', description: '', start_seconds: 0, end_seconds: 30,
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(row.classification, 'provisional');
+  assert.equal(row.content_check, 'unverified');
+  assert.equal(result.receipt.totals.content_window_truncated, 1);
+  assert.equal(result.receipt.totals.content_unverified, 1);
 });
 
 test('S3: an identifier-shaped token with no card candidate, matching no Linear-registered project code, is exception/new_project_candidate -- a registered one is not', async () => {

@@ -1,5 +1,47 @@
 # Context Engine
 
+## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
+
+`VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 네 번째 조각(외부 회신 09·10의 EXT-70·72·73·74).
+예외함과 아침 브리핑 사이의 "질문 집계·선택" 단계와, 사람 답을 즉시 재사용하는 빠른 고리
+(색인·검색 없이 원장만). 느린 고리(수락 사례→색인 세대)는 여기 없다(Step 5).
+
+- **선택기(S4-1)**: `src/runtime/voice_morning_questions.mjs`의 `selectQuestions`는 순수 함수다(I/O·모델
+  없음, 같은 입력→같은 출력). 입력은 대조 영수증들의 `exception_review` 전체(**절대 안 자름**, 몇 회차든)와
+  질문 원장. 묶음(질문 하나) 기준은 같은 `session_id` AND 같은 판정 종류(`kind`) AND 같은 과제 후보
+  집합뿐 — 제목·날짜만으로는 절대 안 묶는다. 판정 종류는 이유(reason)의 네 갈래: 귀속
+  (`strong_conflict`/`important_and_unresolved`/`missing_context`/`new_project_candidate`), 내용확인
+  (`content_mismatch`), 분할(`needs_split`), 조건확인(`conditional_or_reported`). 질문 id는
+  (종류, 정렬된 대상 목록(`session_id+run_id+segment_id`)) 안정 해시 — 같은 날 다시 돌려도 같은 id,
+  새 질문 0건. 우선순위: (1) 납기·마감·기한·계약·발주·금액 표지가 있거나 `content_mismatch`인 것(긴급)
+  먼저, (2) 그 다음 `first_seen`이 오래된 순. 상한(`cap`, 기본 10)을 넘는 것은 조용히 늘리지 않고 긴급이면
+  `urgent_overflow`, 아니면 `carried_over`로 보존한다. **빠른 고리(재사용)**: 원장에 이미 `answered`이고
+  대상이 그대로인 질문은 `resolved_by_reuse`로 다시 안 묻는다 — 색인도 검색도 없다. run_id가 바뀌거나
+  같은 구간에 새 판정 이유가 생기면(모순) 새 id로 다시 열리며 `reopened_from`에 옛 id를 남긴다.
+- **질문 원장(S4-2)**: `harness/voice_question_cli.mjs`가 `control_root/voice-questions/questions.v0.json`
+  하나에 쓴다(스키마 `soulforge.voice_question_ledger.v0`, 상한·락 파일·staging+rename은 다른 ledger들과
+  같은 방식). 행: `question_id`, `kind`, `targets[{session_id, run_id, segment_id, receipt_ran_at}]`,
+  `options`, `representative{time, title}`(제목·설명 텍스트뿐, 전사 원문 없음), `status`
+  (proposed|presented|answered|withdrawn), `first_seen`, `presented_on[]`(재노출한 날짜들, 지우지 않고
+  누적), `answered{by, at, choice}`, `reopened_from`.
+- **CLI(S4-3)**: `present`가 선택기를 돌려 markdown을 찍는다 — `어제 애매한 것 N건 (이월 M, 긴급 초과 K)`
+  머리글, 줄마다 `n. HH:MM 제목 — 질문 종류 — 선택지: ...`(사람이 읽는 줄엔 id 없음), 끝에 포인터 줄
+  `[q:<id> ...]`. 0건이면 `없음`. `answer --question <id> --choice <code|other:<code>|none|not_work|split|
+  confirm_content> --by <actor>`가 원장을 읽어 CE-34대로 먼저 대상의 run_id가 최신 대조 영수증과 같은지
+  확인하고(다르면 `question_targets_stale`로 거부하고 질문을 `withdrawn`으로 남김), 귀속 질문의 과제
+  코드 답은 기존 `voice_route_cli.mjs confirm --project`만, `not_work`는 그 질문이 내걸었던 후보마다
+  `set --drop-project`만 부른다 — 이 파일 자신은 voice route ledger를 절대 안 쓴다. 내용확인·분할·
+  조건확인 질문은 어떤 선택지든 원장에만 기록하고 route는 안 건드린다(카드 값 확인이지 과제 배정이
+  아니므로). 같은 답을 다시 보내면 아무것도 다시 안 쓴다(멱등, 상태 먼저 확인). 대상 하나가 실패하면
+  (예: 그 구간 ledger 행이 아직 없음) 그 대상만 실패로 기록하고 질문은 `presented`에 `partial` 메모를
+  남긴 채 `answered`로 넘어가지 않는다. `--by`는 대조기 자신의 actor나 `actor:context-engine:`/
+  `actor:bot:`/`actor:machine:` 모양이면 거부한다(신원 증명이 아니라 CLI 단 형식 검사, 문서화된 그대로).
+  명령마다 `--receipts` 아래에 스키마 v1 영수증을 남긴다. **markdown을 어딘가로 보내는 것(Step 4b)과
+  예약작업 등록은 이 조각에 없다.**
+
+시험: `tests/voice_morning_questions.test.mjs`(선택기 전체 규칙, CE-30~34 반례별 1개씩),
+`tests/voice_question_cli.test.mjs`(원장·CLI 연결, 재사용·재전사·부분실패·기계 actor 거부).
+
 ## 카드 대조 3단계 — 판정 규칙 v1 + 답변 소비 최소 경계 (0.22.5)
 
 `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 세 번째 조각(외부 회신 09·10). 여전히 네 분류

@@ -699,11 +699,19 @@ async function readSessionTranscriptCached(cache, { io, sessionId, derivedRoot, 
     catch { truncated = true; break; }
     if (read.status === 'window_without_speech') { window = null; break; }
     if (read.status !== 'ok') { truncated = true; break; }
+    let rowTruncated = false;
     for (const row of read.segments ?? []) {
       rows.push(row);
       totalChars += Number.isSafeInteger(row.shown) ? row.shown : 0;
-      if (row.truncated === true) truncated = true;
+      if (row.truncated === true) rowTruncated = true;
     }
+    // A row `readVoiceSession` itself reported as character-clipped mid-
+    // utterance is already an incomplete read -- `next_window`'s own
+    // `character_bound` case re-requests the same starting point with a
+    // fresh budget rather than an offset into what was already shown, so
+    // paging further here would not make progress, only spend calls
+    // reading the same partial text again.
+    if (rowTruncated) { truncated = true; break; }
     if (totalChars >= MAX_TRANSCRIPT_WINDOW_CHARS) { truncated = read.next_window !== null; break; }
     window = read.next_window === null ? null : { from: read.next_window.from, to: read.next_window.to ?? null };
   }
@@ -1065,10 +1073,15 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
         project_candidates: (segment.project_candidates ?? []).map(row2 => row2.project_code) };
       segmentRows.push(row);
       if (result.classification === 'exception') {
-        exceptionReview.push({ session_id: sessionId, segment_id: segment.segment_id, title: segment.title,
+        // S4-1: every field the morning-question selector needs to name and
+        // group this exception without re-opening the card -- `run_id` and
+        // `clock` (the segment's own declared start-of-conversation time)
+        // are new here, additive to the existing fields.
+        exceptionReview.push({ session_id: sessionId, run_id: found.run_id, segment_id: segment.segment_id,
+          title: segment.title, clock: segment.clock ?? null,
           candidates: (segment.project_candidates ?? []).map(row2 => row2.project_code),
           risk_markers: result.risk_markers, why: result.reason, modality: result.modality,
-          content_mismatches: result.content_mismatches });
+          content_mismatches: result.content_mismatches, receipt_ran_at: now });
       }
       log(`${sessionId} ${segment.segment_id} ${result.classification}${ledgerWrite !== 'none' ? ` ${ledgerWrite}` : ''}`);
     }
