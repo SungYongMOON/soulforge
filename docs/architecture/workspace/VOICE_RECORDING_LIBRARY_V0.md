@@ -142,9 +142,14 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    철회 기록)이 실제로 세 곳에 반영된다 — 대조기가 철회된 과제를 다시 후보로 올리지 않고
    (`skipped_withdrawn_project`), 카드가 그 과제를 strong으로 읽어도 판정에서 strong으로 치지 않으며,
    대화 목록 읽기 경로가 후보마다 `withdrawn: true/false`를 표시한다(`estate_voice_card_reconcile.mjs`,
-   `src/runtime/voice_attribution_policy.mjs` 머리말, `src/runtime/voice_session_read.mjs`). **계획**으로
-   남은 것: DM 한 줄 답 자체가 `confirm`/`withdraw` 호출로 이어지는 고리(사람이 지금은 CLI를 직접 친다),
-   grant·검색 색인에서의 제거(비동기, L2).
+   `src/runtime/voice_attribution_policy.mjs` 머리말, `src/runtime/voice_session_read.mjs`). 철회를 지우는
+   쪽: 같은 과제를 다시 `confirm`하면 지워지고, **사람이 직접**(기계가 아니라) `voice_route_cli set
+   --project`로 같은 과제를 다시 올려도 지워진다(재확인과 같은 무게의 결정으로 취급) — 대조기 자신의
+   machine-basis `set`은 절대 지우지 않는다, 그러면 철회가 기계 손으로 스스로 풀리는 구멍이 된다. 한
+   segment의 철회 기록은 16개까지이며, 그 이상은 가장 오래된 것을 밀어내지 않고 거부한다
+   (`voice_route_withdrawn_limit_reached`) — 밀어내면 그 항목이 막던 과제가 조용히 다시 열리기 때문이다.
+   **계획**으로 남은 것: DM 한 줄 답 자체가 `confirm`/`withdraw` 호출로 이어지는 고리(사람이 지금은 CLI를
+   직접 친다), grant·검색 색인에서의 제거(비동기, L2).
 4. **확정은 정본에 쓸 때만.** 과제 폴더 `10_입력자료/VOICE`와 `30_프로젝트맥락` 페이지에 들어가는
    것은 `accepted_project_route` 또는 strong 근거의 `ai_provisional_project_route`뿐이다. 예외 검토함에
    있는 구간의 결정·마감·금액은 답이 오기 전에는 페이지에 쓰지 않는다. — **계획**.

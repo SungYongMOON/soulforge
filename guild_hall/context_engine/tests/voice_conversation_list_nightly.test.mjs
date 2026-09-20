@@ -359,12 +359,18 @@ test('runNightly: runs the fresh session, skips the rest, writes one receipt, re
   const ranRow = receipt.sessions.find(row => row.session_id === 'S_run');
   assert.equal(ranRow.outcome, 'ran');
   assert.equal(ranRow.run_id, 'vcl_1111111111111111');
+  // R2: every row names its own plan date, not just the night's target_date
+  // -- this is what a backlog reconcile pass reads to pick the right
+  // mail/Linear window for a session that may be days older than tonight.
+  assert.equal(ranRow.date, target);
   const existingRow = receipt.sessions.find(row => row.session_id === 'S_existing');
   assert.equal(existingRow.outcome, 'skipped_existing');
   assert.equal(existingRow.run_id, existingRunId);
+  assert.equal(existingRow.date, target);
   const shortRow = receipt.sessions.find(row => row.session_id === 'S_short');
   assert.equal(shortRow.outcome, 'skipped_short');
   assert.equal(shortRow.reason, 'duration_below_30s');
+  assert.equal(shortRow.date, target);
 
   const written = await readdir(est.receiptsDir);
   const receiptFiles = written.filter(name => name.endsWith('.json'));

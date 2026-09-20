@@ -20,7 +20,13 @@
 // at: a night that is mostly skips still gets to do its real work.
 //
 // One receipt JSON lands in `--receipts` per night, naming every session this
-// pass looked at and what became of it. A lock file in the same directory keeps
+// pass looked at and what became of it. Every real (non-`--dry`) session row
+// carries the session's own plan `date` (the day-folder it actually lives
+// under, which for a backlog-window row is earlier than `target_date`) --
+// `harness/estate_voice_card_reconcile.mjs`'s `--nightly-receipts` backlog
+// mode reads it to know which day's mail/Linear window a session needs,
+// falling back to the session id's own `YYYYMMDD_` prefix for a receipt
+// written before this field existed. A lock file in the same directory keeps
 // two nightly runs from overlapping; a lock older than three hours is treated as
 // abandoned and reclaimed, with a note of that in the receipt. `--dry` reports
 // the same plan and classification without calling the model or writing
@@ -372,7 +378,8 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     if (planError === null) {
       for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests })) {
         if (described.classification !== 'run') {
-          const row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
+          const row = { session_id: item.session_id, date: item.date, title: described.title,
+            duration_seconds: described.duration_seconds,
             outcome: described.classification, reason: described.reason, llm_calls: null, seconds: null,
             run_id: described.existing_run_id, verified: described.classification === 'skipped_existing' ? true : null };
           rows.push(row);
@@ -386,13 +393,15 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
           // out `verified` (a budget ran out, a check failed) is not the same
           // outcome as one that did -- counting it as plain `ran` let a night
           // with real, unresolved work in it still report OK.
-          row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
+          row = { session_id: item.session_id, date: item.date, title: described.title,
+            duration_seconds: described.duration_seconds,
             outcome: ran.verified === true ? 'ran' : 'ran_unverified', reason: null,
             llm_calls: Number.isFinite(ran.llm_calls) ? ran.llm_calls : null,
             seconds: Number.isFinite(ran.elapsed_ms) ? Math.round(ran.elapsed_ms / 1000) : null,
             run_id: ran.run_id ?? null, verified: ran.verified === true };
         } catch (error) {
-          row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
+          row = { session_id: item.session_id, date: item.date, title: described.title,
+            duration_seconds: described.duration_seconds,
             outcome: 'failed', reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_run_failed',
             llm_calls: null, seconds: null, run_id: null, verified: null };
         }

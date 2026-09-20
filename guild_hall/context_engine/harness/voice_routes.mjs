@@ -180,24 +180,40 @@ function validSegment(segment) {
   return segment.confirmed_by === null && segment.confirmed_at === null;
 }
 
-/** Admits one ledger body exactly as written, or refuses it naming what was wrong. */
+/**
+ * Admits one ledger body exactly as written, or refuses it naming what was
+ * wrong -- except `withdrawn` (S2-4), which is additive: a segment on disk
+ * from before that field existed has none, and that is not a broken ledger,
+ * it reads exactly as if nothing on it had ever been withdrawn. Every writer
+ * in this file has emitted the field since S2-4 (`validSegment` below still
+ * requires it via `exactKeys`, so a segment missing anything else is still
+ * refused), so the gap only ever shows up on read -- normalised to `[]` once,
+ * here, before validation, which is the one place every read and every write
+ * of a ledger body passes through. A real ledger this old was reproduced by
+ * a fresh review with a 10-segment fixture that otherwise validates cleanly;
+ * before this normalisation every one of its commands (`show`, `set`,
+ * `confirm`, `import`, `withdraw`) threw `voice_route_segment_invalid` and
+ * reconcile reported the session `ledger_unreadable`.
+ */
 export function validateVoiceRouteLedger(body, { sessionId = null } = {}) {
   if (!exactKeys(body, LEDGER_FIELDS) || body.schema_version !== VOICE_ROUTE_LEDGER_SCHEMA
     || !SESSION_ID.test(body.session_id ?? '') || body.session_id.includes(SEGMENT_ITEM_SEPARATOR)
     || !Array.isArray(body.segments) || body.segments.length > VOICE_ROUTE_LIMITS.segments
     || (body.updated_at !== null && !isInstant(body.updated_at))) fail('voice_route_ledger_invalid');
   if (sessionId !== null && body.session_id !== sessionId) fail('voice_route_session_mismatch');
-  if (!body.segments.every(validSegment)) fail('voice_route_segment_invalid');
-  const ids = body.segments.map(segment => segment.segment_id);
+  const segments = body.segments.map(segment => (plain(segment) && !Object.hasOwn(segment, 'withdrawn'))
+    ? { ...segment, withdrawn: [] } : segment);
+  if (!segments.every(validSegment)) fail('voice_route_segment_invalid');
+  const ids = segments.map(segment => segment.segment_id);
   if (new Set(ids).size !== ids.length) fail('voice_route_segment_id_repeated');
   // A related id that names nothing in this recording is a dangling link, and a
   // reader would have to guess what it meant.
   const known = new Set(ids);
-  for (const segment of body.segments) {
+  for (const segment of segments) {
     if (!segment.related_segment_ids.every(id => known.has(id))) fail('voice_route_related_segment_unknown');
   }
   return Object.freeze({ ...structuredClone(body),
-    segments: Object.freeze(body.segments.map(segment => Object.freeze({ ...structuredClone(segment) }))) });
+    segments: Object.freeze(segments.map(segment => Object.freeze({ ...structuredClone(segment) }))) });
 }
 
 /** The segments of one ledger a person confirmed for one project, in recording order. */

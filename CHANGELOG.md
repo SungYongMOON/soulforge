@@ -10,10 +10,11 @@
   전에 기존 검증 run의 `run_manifest.json`(전사 run id·설정 sha256·프롬프트 다이제스트)을 이번 세션의 선언값과
   대조한다. 다르면 `run`/`existing_run_stale:<필드>`로 재실행하고, 옛 run은 지우지 않는다. 모델 pin 비교는
   의도적으로 포함하지 않았다(분류가 모델 호출 전에 끝난다는 기존 설계를 유지).
-- (S2-2) `harness/voice_route_cli.mjs`의 `import`(`mergeConversationList`)가 기존 ledger 행과
-  `source_segment_ids`가 달라진 segment_id 재사용을 거부하고 `identity_changed` 목록으로 보고한다.
-  `estate_voice_card_reconcile.mjs`는 그 목록의 구간을 `skipped_segment_identity_changed`로 건너뛰고 ledger에
-  새 슈퍼시드 필드를 더하지 않는다 — 확정된 행은 이 경로로 자동 대체되지 않는다는 것이 유일한 규칙이다.
+- (S2-2) `harness/voice_route_cli.mjs`의 `import`(`mergeConversationList`)가 기존(미확정) ledger 행과 간격
+  **또는** `source_segment_ids`가 달라진 segment_id 재사용을 거부하고(`sameScope`가 둘 다 비교) `identity_changed`
+  목록으로 보고한다. `estate_voice_card_reconcile.mjs`는 그 목록의 구간을 `skipped_segment_identity_changed`로
+  건너뛰고 ledger에 새 슈퍼시드 필드를 더하지 않는다 — 확정된 행은 이 경로로 자동 대체되지 않는다는 것이 유일한
+  규칙이다.
 - (S2-3) 대조기가 카드에서 사라진 기계 작성 후보(`basis`가 `reconcile:`/`voice_conversation_list:`로 시작)를
   기존 `dropProject` 경로로 회수하고 `retired_candidates`에 남긴다. 사람이 쓴 후보는 카드가 빠뜨려도 회수하지
   않는다.
@@ -29,6 +30,32 @@
   걸친 메일/Linear 창은 발견된 날짜들의 ±1일 합집합), 이 대조기 자신의 과거 영수증에 이미 기록된
   `(session_id, run_id)` 쌍은 `already_reconciled_run`으로 건너뛴다(run_id가 바뀌면 다시 대조). `--date`는
   그대로 수동/기본 모드다.
+- 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 2건·should 4건·nit 3건: (R1, 실제 데이터 깨짐) `withdrawn`을
+  `exactKeys`로 필수 취급해 그 필드 없는 기존 ledger가 전부(`show`/`set`/`confirm`/`import`/`withdraw`)
+  `voice_route_segment_invalid`로 죽었다(검토가 실 10구간 ledger로 재현). `validateVoiceRouteLedger`가 읽기·쓰기
+  공통 진입점에서 없는 `withdrawn`을 검증 전에 `[]`로 채우도록 고쳤다 — 옛 ledger를 시험 픽스처로 재현해
+  `show`가 통과하고 `set`을 거쳐 필드가 채워진 채 다시 쓰이는 것을 확인했다. (R2, 대조 창 오분류) 야간 lane
+  영수증의 세션 행에 `date`(그 세션이 실제로 속한 날짜 폴더)를 더했다 — 이전엔 receipt의 `target_date` 하나로
+  ±1일 창을 잡아서, backlog 세션(최대 7일 전)이 자기 날짜가 아니라 receipt가 도는 날짜로 대조되고 있었다.
+  `date` 없는 옛 행은 session_id의 `YYYYMMDD_` 접두부로 대신 끌어온다(`plan.date_derivation`에 어느 쪽을
+  몇 건 썼는지 남김). (S3) `readAlreadyReconciledPairs`가 매번 영수증 전체를 다시 파싱하던 것을, 이 harness가
+  매 회차 갱신하는 압축 색인 `reconciled_runs.index.json`(최신 5000쌍, 넘치면 오래된 것부터 제거하고
+  `evicted_total` 누적)로 바꿨다 — 색인이 없으면 한 번 전체 스캔 뒤 그 결과로 색인을 만든다. (S4) 대조기가
+  `ran`만 backlog 후보로 셌는데, `skipped_existing`(검증됨)인데 원래 `ran` 영수증이 사라진 세션은 영영 후보에
+  못 들었다 — 이제 `outcome ran 또는 skipped_existing` + `verified: true`를 함께 후보로 삼고, 어디서도 정산되지
+  못한 야간 행은 이유와 함께 영수증 `not_considered`에 남긴다. (S5) S2-2의 사람 처리 절차(수정: `set
+  --source-segments ... --from ... --to ...`로 같은 segment_id를 새 범위로 다시 쓰거나, `remove`로 지우고
+  다음 import가 새로 들이게 함 — 자동 명령은 의도적으로 추가하지 않음)를 README·`voice_route_cli.mjs` 사용법
+  머리말에 적었고, `sameScope`가 간격과 `source_segment_ids` 둘 다 비교한다고(하나였다고 잘못 적었던 것) 고쳤다.
+  (S6) `withdraw` 사용법 줄에 이제 필수인 `--by`가 빠져 있던 것을 채웠다. (N7) 대조기가 철회-스킵만 있고 실제
+  기계 후보 write는 없이 회수(`--drop-project`)만 일어난 밤을 `set_partial_human_protected`(사람 보호 후보가
+  없는데도)로 잘못 적던 것을, `retired_only`/`retired_withdrawn_only`/`set_partial_withdrawn_project`로
+  정확히 나눴다. (N8) 같은 과제를 사람이 직접(기계 basis 아님) `set --project`로 다시 올려도 이제 그 과제의
+  철회 기록이 지워진다(재확인과 같은 무게)고 정하고 구현했다 — 대조기 자신의 machine-basis `set`은 지우지
+  않는다. 16개 상한을 넘는 철회는 가장 오래된 것을 조용히 밀어내지 않고
+  `voice_route_withdrawn_limit_reached`로 거부한다(밀어내면 그 항목이 막던 과제가 조용히 풀린다). (N9)
+  `RECONCILE_RECEIPT_SCHEMA`를 v2로 올렸다(`reconciled_runs`·`not_considered`·`plan.date_derivation` 등 v1엔
+  없던 필드들 — grep으로 확인한 외부 소비자 없음).
 - 운영 영향: 코드만. 새 플래그·필드를 실제로 쓰는 예약작업 등록은 이 변경에 없다.
 - 관련 경로: `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
   `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
@@ -39,7 +66,8 @@
   `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
   `guild_hall/context_engine/tests/voice_grant.test.mjs`,
   `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
-  `guild_hall/context_engine/tests/voice_session_read.test.mjs`, `guild_hall/context_engine/README.md`.
+  `guild_hall/context_engine/tests/voice_session_read.test.mjs`, `guild_hall/context_engine/README.md`,
+  `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
 
 ## 2026-09-20 - 야간 카드 대조 첫 조각 (voice_attribution_policy v0)
 

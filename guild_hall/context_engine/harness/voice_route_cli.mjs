@@ -24,11 +24,28 @@
 //                                    --by <actor> [--title …] [--nature …] [--quality …] [...] [--dry]
 //   node voice_route_cli.mjs import  --session <id> --run <run id> --by <actor>
 //                                    --tools-config <file> [--now <iso>] [--dry] [--json]
-//   node voice_route_cli.mjs withdraw --session <id> --segment <id> [--now <iso>] [--dry]
+//   node voice_route_cli.mjs withdraw --session <id> --segment <id> --by <actor> [--now <iso>] [--dry]
 //   node voice_route_cli.mjs remove   --session <id> --segment <id> [--now <iso>] [--dry]
 //
 // `--routes-dir` is for a fixture or a rehearsal; on an estate the folder is
 // `control_root/voice-routes`, which the root table locates.
+//
+// segment identity after a regeneration (S2-2): `import` refuses to let a
+// regenerated run reuse a segment_id whose existing (non-confirmed) row
+// covers a different interval or a different `source_segment_ids` list
+// (`mergeConversationList`'s `sameScope` compares both; either one alone
+// disagreeing is enough), and reports it in `identity_changed` rather than
+// silently keeping the old row or silently overwriting it. The reconcile
+// harness (`estate_voice_card_reconcile.mjs`) then skips that segment every
+// night (`skipped_segment_identity_changed`) until a person resolves it by
+// hand -- there is no command that does this automatically. Either:
+//   `set --session <id> --segment <segment_id> --source-segments <ids>
+//        --from <s> --to <s> --by <actor> --status candidate`
+//   to re-address the same segment_id at the new run's scope (both
+//   `--source-segments` and `--from`/`--to` have to move together, or the
+//   next `import` will flag it again), or
+//   `remove --session <id> --segment <segment_id>`
+//   to drop the stale row and let the next `import` add it back fresh.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +80,14 @@ const ACTOR = /^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,199}$/u;
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const fail = code => { throw new VoiceRouteError(code); };
 const encode = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+
+// Duplicated from `estate_voice_card_reconcile.mjs`'s own copy rather than
+// imported -- that harness already imports this file, and the other
+// direction would be circular. A basis starting with one of these was
+// written by a machine (this pass's own `import`, or the reconcile harness),
+// not a person naming a project with their own words.
+const MACHINE_BASIS_PREFIXES = Object.freeze(['reconcile:', 'voice_conversation_list:']);
+const isMachineWrittenBasis = basis => basis === null || MACHINE_BASIS_PREFIXES.some(prefix => basis.startsWith(prefix));
 
 function options(argv) {
   const flags = new Map();
@@ -100,15 +125,23 @@ const blankSegment = segmentId => ({ segment_id: segmentId, source_segment_ids: 
 const order = (a, b) => a.start_seconds - b.start_seconds || a.segment_id.localeCompare(b.segment_id);
 
 /**
- * `existing` plus `additions`, oldest entries dropped first once the log
- * passes `VOICE_ROUTE_LIMITS.withdrawn_entries` -- an append-only record of
- * withdrawal events, not a deduplicated set, so a project withdrawn twice
- * keeps both entries (bounded, not unbounded).
+ * `existing` plus `additions` -- an append-only record of withdrawal events,
+ * not a deduplicated set, so a project withdrawn twice keeps both entries.
+ * Bounded, but not by silently evicting the oldest: a fresh review found that
+ * dropping the oldest entry once the log passed
+ * `VOICE_ROUTE_LIMITS.withdrawn_entries` would silently un-block whichever
+ * project that dropped entry was the only record of withdrawing, exactly the
+ * thing this field exists to prevent. Past the limit, a further withdrawal is
+ * refused outright (`voice_route_withdrawn_limit_reached`) rather than
+ * accepted and quietly losing history -- sixteen withdrawal *events* on one
+ * segment (not sixteen distinct projects still withdrawn; re-confirming a
+ * project removes its entries, see `applySegmentDecision`) is not a limit any
+ * real session is expected to reach.
  */
 function appendWithdrawn(existing, additions) {
   const combined = [...(existing ?? []), ...additions];
-  const limit = VOICE_ROUTE_LIMITS.withdrawn_entries;
-  return combined.length > limit ? combined.slice(combined.length - limit) : combined;
+  if (combined.length > VOICE_ROUTE_LIMITS.withdrawn_entries) fail('voice_route_withdrawn_limit_reached');
+  return combined;
 }
 
 /**
@@ -191,6 +224,15 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
   const previousProject = base.status === 'confirmed' ? (base.project_candidates[0]?.project_code ?? null) : null;
   const withdrawnByThisConfirm = confirming && previousProject !== null && previousProject !== project
     ? [{ project_code: previousProject, withdrawn_by: by, withdrawn_at: now }] : [];
+  // N8: a person naming a project through plain `set` -- a basis that is not
+  // one of the machine prefixes above -- is a considered act at the same
+  // weight as confirming it, so it un-blocks that project the same way
+  // re-confirming does. A machine-written `set` (`import`, or the reconcile
+  // harness) never un-blocks a withdrawn project on its own; only a person's
+  // confirm or a person's own `set` does. Documented in
+  // VOICE_RECORDING_LIBRARY_V0.md item 3 and this file's README section.
+  const humanUnblock = project !== null && !confirming && !isMachineWrittenBasis(basis) ? project : null;
+  const unblockCodes = new Set([...(confirming ? [project] : []), ...(humanUnblock === null ? [] : [humanUnblock])]);
   if (confirming) {
     if (project === null) fail('voice_route_project_required');
     candidates = candidates.filter(row => row.project_code === project);
@@ -203,10 +245,11 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
     nature: nature === undefined ? base.nature : nature,
     project_candidates: candidates.sort((a, b) => a.project_code.localeCompare(b.project_code)),
     status: confirming ? 'confirmed' : status,
-    // Confirming a project un-withdraws it (a person's most recent decision
-    // wins), on top of whatever this same confirm just withdrew above.
+    // Confirming a project, or a person's own `set` naming one, un-withdraws
+    // it (a person's most recent decision wins), on top of whatever this
+    // same confirm just withdrew above.
     withdrawn: appendWithdrawn(
-      confirming ? (base.withdrawn ?? []).filter(entry => entry.project_code !== project) : (base.withdrawn ?? []),
+      (base.withdrawn ?? []).filter(entry => !unblockCodes.has(entry.project_code)),
       withdrawnByThisConfirm),
     quality: { transcript: quality === undefined ? base.quality.transcript : quality,
       correction_state: correctionState === undefined ? base.quality.correction_state : correctionState },

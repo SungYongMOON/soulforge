@@ -18,7 +18,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
@@ -731,6 +731,33 @@ test('a confirmed segment cannot be rewritten by set: the row stays exactly as t
   assert.deepEqual(reconfirmedRow.withdrawn, [], 'reconfirming the same project withdraws nothing');
 });
 
+// ------------------------------------------------------------------- R1
+test('a ledger segment written before `withdrawn` existed validates as-is, and is written back with the field once touched', async () => {
+  const dirs = await estate();
+  const { withdrawn, ...oldShapeSegment } = segment('seg-a', 0, 40,
+    { status: 'candidate', project_candidates: [candidate(MINE)] });
+  assert.ok(!Object.hasOwn(oldShapeSegment, 'withdrawn'), 'the fixture really is missing the field');
+  await writeLedger(dirs, ledgerFor('sess-old-shape', [oldShapeSegment]));
+
+  // A read path (`show`) succeeds against the old-shape file on disk rather
+  // than throwing `voice_route_segment_invalid` -- a fresh review reproduced
+  // this with a real 10-segment ledger, where every command (`show`, `set`,
+  // `confirm`, `import`, `withdraw`) threw and reconcile reported the
+  // session `ledger_unreadable`.
+  const shown = runVoiceRouteCli(['show', '--routes-dir', dirs.routesDir, '--session', 'sess-old-shape']);
+  assert.equal(shown.segments, 1);
+  assert.deepEqual(shown.segment_rows[0].withdrawn, [], 'a missing field reads as empty, not absent');
+
+  // A round-trip through `set` (a write path) succeeds too, and writes the
+  // field back explicitly this time -- every writer has emitted it since
+  // S2-4, so the gap only ever shows up on a read of an old file.
+  runVoiceRouteCli(['set', '--routes-dir', dirs.routesDir, '--session', 'sess-old-shape', '--segment', 'seg-a',
+    '--status', 'candidate', '--by', 'actor:owner', '--drop-project', MINE]);
+  const onDisk = JSON.parse(await readFile(path.join(dirs.routesDir, 'sess-old-shape.json'), 'utf8'));
+  assert.ok(Object.hasOwn(onDisk.segments[0], 'withdrawn'), 'the field is present on disk after any write');
+  assert.deepEqual(onDisk.segments[0].withdrawn, []);
+});
+
 // ------------------------------------------------------------- S2-4 withdraw
 test('withdraw records the confirmed project as withdrawn, bounded and append-only', () => {
   const confirmed = applySegmentDecision(emptyLedger('sess-withdraw-1'), { command: 'confirm', segmentId: 'seg-a',
@@ -769,20 +796,52 @@ test('confirming a different project than the one already confirmed is an explic
   assert.deepEqual(backRow.withdrawn.map(entry => entry.project_code), [OTHER], 'A is un-withdrawn; B is now withdrawn instead');
 });
 
-test('withdrawn entries are bounded: the oldest fall off once the limit is passed', () => {
+test('withdrawn entries are bounded: a further withdrawal past the limit is refused, not silently evicted', () => {
   // A different project every time, so every confirm genuinely withdraws the
   // one before it (confirming the *same* project again would only un-withdraw
   // and re-withdraw it, never growing the log).
   let ledger = applySegmentDecision(emptyLedger('sess-withdraw-3'), { command: 'confirm', segmentId: 'seg-a',
     from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: 'P00-SEED', basis: 'x',
     title: 't', nature: 'project_work', quality: 'independent_fast', now: NOW });
-  for (let index = 0; index < VOICE_ROUTE_LIMITS.withdrawn_entries + 3; index++) {
+  for (let index = 0; index < VOICE_ROUTE_LIMITS.withdrawn_entries; index++) {
     ledger = applySegmentDecision(ledger, { command: 'confirm', segmentId: 'seg-a', by: 'actor:owner',
       project: `P9${index}-A`, basis: `회차 ${index}`, title: 't', nature: 'project_work',
       quality: 'independent_fast', now: `2026-09-${String(16 + (index % 10)).padStart(2, '0')}T00:00:00.000Z` });
   }
   const row = ledger.segments.find(item => item.segment_id === 'seg-a');
   assert.equal(row.withdrawn.length, VOICE_ROUTE_LIMITS.withdrawn_entries);
+  // A fresh review found the old behaviour (drop the oldest entry) would
+  // silently un-block whichever project that dropped entry was the only
+  // record of withdrawing -- exactly what this field exists to prevent. The
+  // 17th withdrawal on this one segment is refused outright instead, and the
+  // ledger this pass already has is unchanged.
+  assert.throws(() => applySegmentDecision(ledger, { command: 'confirm', segmentId: 'seg-a', by: 'actor:owner',
+    project: 'P99-OVERFLOW', basis: 'one too many', title: 't', nature: 'project_work',
+    quality: 'independent_fast', now: '2026-09-30T00:00:00.000Z' }),
+  /voice_route_withdrawn_limit_reached/u);
+  assert.equal(ledger.segments.find(item => item.segment_id === 'seg-a').withdrawn.length,
+    VOICE_ROUTE_LIMITS.withdrawn_entries, 'the refused call left the prior ledger value untouched');
+});
+
+test('a person naming a withdrawn project through their own `set` un-blocks it, the same weight as confirming; the reconcile actor’s own machine-basis `set` does not', () => {
+  const confirmed = applySegmentDecision(emptyLedger('sess-unblock'), { command: 'confirm', segmentId: 'seg-a',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '처음 확인',
+    title: '시험 일정 합의', nature: 'project_work', quality: 'independent_strong', now: NOW });
+  const withdrawn = applySegmentDecision(confirmed, { command: 'withdraw', segmentId: 'seg-a', by: 'actor:owner', now: NOW });
+  assert.deepEqual(withdrawn.segments.find(row => row.segment_id === 'seg-a').withdrawn.map(entry => entry.project_code),
+    [MINE]);
+
+  // The reconcile actor's own machine-written `set` never un-blocks it.
+  const machineSet = applySegmentDecision(withdrawn, { command: 'set', segmentId: 'seg-a', status: 'candidate',
+    by: 'actor:context-engine:voice-card-reconcile-v0', project: MINE,
+    basis: 'reconcile:v0 classification=provisional', now: '2026-09-16T00:00:00.000Z' });
+  assert.deepEqual(machineSet.segments.find(row => row.segment_id === 'seg-a').withdrawn.map(entry => entry.project_code),
+    [MINE], 'a machine-basis set never un-blocks a withdrawn project');
+
+  // A person's own `set`, with a basis in their own words, does.
+  const humanSet = applySegmentDecision(machineSet, { command: 'set', segmentId: 'seg-a', status: 'candidate',
+    by: 'actor:owner', project: MINE, basis: '다시 확인해보니 맞음', now: '2026-09-17T00:00:00.000Z' });
+  assert.deepEqual(humanSet.segments.find(row => row.segment_id === 'seg-a').withdrawn, []);
 });
 
 test('mergeConversationList (import) never reaches a segment already in the ledger, confirmed or not', () => {

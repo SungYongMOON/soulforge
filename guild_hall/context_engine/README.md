@@ -11,31 +11,52 @@
   `run`/`existing_run_stale:<필드>`로 재실행 대상이 되고, 옛 run은 지우지 않는다. manifest를 못 읽으면
   `existing_run_stale:manifest_unreadable`. 모델 pin 자체는 비교하지 않는다(분류는 모델을 부르기 전에 끝난다는
   `classifySession`의 기존 설계를 그대로 따름).
-- **재생성판 구간 정체성(S2-2)**: `harness/voice_route_cli.mjs`의 `import`가 기존 ledger 행과 `source_segment_ids`가
-  다른 segment_id 재사용을 거부한다(`identity_changed`로 보고). 대조기는 이 목록을 받아 그 구간을
+- **재생성판 구간 정체성(S2-2)**: `harness/voice_route_cli.mjs`의 `import`(`mergeConversationList`)가 기존
+  (미확정) ledger 행과 간격(`start_seconds`/`end_seconds`) **또는** `source_segment_ids` 둘 중 하나라도 다른
+  segment_id 재사용을 거부한다(`sameScope`가 둘 다 비교하고, 하나라도 어긋나면 거부 — 둘 다 같아야만 "같은
+  구간"이다). 거부는 `identity_changed`로 보고된다. 대조기는 이 목록을 받아 그 구간을
   `skipped_segment_identity_changed`로 건너뛰고 사람이 풀 때까지 기다린다 — 확정된 행은 이 경로로 자동으로
-  대체되지 않는다("가장 단순하고 안전한 규칙": 새 슈퍼시드 필드를 schema에 더하지 않음).
+  대체되지 않는다("가장 단순하고 안전한 규칙": 새 슈퍼시드 필드를 schema에 더하지 않음). **사람이 푸는
+  절차(자동 명령 없음, 의도적으로 추가하지 않았다)**: 그 구간이 새 run에서 실제로 어디를 가리키는지 확인한
+  뒤 `voice_route_cli.mjs set --session <id> --segment <segment_id> --source-segments <새 발화 id들>
+  --from <새 시작초> --to <새 끝초> --by <actor> --status candidate`로 같은 segment_id를 새 범위로 다시
+  씌우거나(source_segment_ids와 간격을 함께 갱신해야 `identity_changed`가 다음 밤부터 그치는데, 그러면
+  다음 `import`가 이 행을 같은 것으로 다시 인식한다), 또는 `remove --session <id> --segment <segment_id>
+  --by <actor>`로 옛 행을 지우고 다음 `import`가 새 행으로 다시 들이게 한다. 어느 쪽도 자동화하지 않았다.
 - **사라진 기계 후보 정리(S2-3)**: 대조기가 매 구간마다, 카드가 더는 나열하지 않는 기계 작성 후보
   (`basis`가 `reconcile:` 또는 `voice_conversation_list:`로 시작)를 기존 `dropProject` 경로로 회수한다
   (`retired_candidates`). 사람이 직접 쓴 후보는 카드가 빠뜨려도 절대 회수하지 않는다.
 - **철회 = 즉시 차단(S2-4)**: ledger 구간에 부가 필드 `withdrawn: [{project_code, withdrawn_by, withdrawn_at}]`
-  (bounded, `voice_routes.mjs`가 검증)를 더했다. `voice_route_cli withdraw`가 쓰고, 다른 과제로의 재확정
-  (A→B 정정)도 A를 자동으로 철회 기록한다. 세 소비처: (a) 대조기는 철회된 과제에 `set --project`를 쓰지 않고
-  `skipped_withdrawn_project`로 남긴다; (b) `classifyAttribution`은 철회를 모른다 — 대조기가 호출 전에
-  철회된 과제의 카드 `strength: 'strong'`을 weak로 낮춰서 넘긴다(체크 순서 변경 아님, 근거는
-  `src/runtime/voice_attribution_policy.mjs` 머리말); (c) `voice_session_read.mjs`의 읽기 경로가 후보마다
-  `withdrawn: true/false`를 표시한다. grant·색인 제거는 여전히 비동기(L2, 나중) — 이 조각은 ledger와 읽기
-  경로까지다.
+  (bounded 16개, `voice_routes.mjs`가 검증하되 **없어도 유효** — 읽는 쪽에서 `[]`로 채워 넣는다, R1 참고)를
+  더했다. `voice_route_cli withdraw`(이제 `--by` 필수)가 쓰고, 다른 과제로의 재확정(A→B 정정)도 A를 자동으로
+  철회 기록한다. 세 소비처: (a) 대조기는 철회된 과제에 `set --project`를 쓰지 않고 `skipped_withdrawn_project`로
+  남긴다; (b) `classifyAttribution`은 철회를 모른다 — 대조기가 호출 전에 철회된 과제의 카드 `strength:
+  'strong'`을 weak로 낮춰서 넘긴다(체크 순서 변경 아님, 근거는 `src/runtime/voice_attribution_policy.mjs`
+  머리말); (c) `voice_session_read.mjs`의 읽기 경로가 후보마다 `withdrawn: true/false`를 표시한다. 무엇이
+  철회를 지우는지: 같은 과제를 다시 `confirm`하면 그 항목이 지워지고, **사람이 직접**(기계 basis가 아닌)
+  `set --project`로 같은 과제를 다시 올려도 지워진다(그래야 대조기가 계속 막지 않는다) — 그러나 대조기 자신의
+  `set`(basis가 `reconcile:`)은 지우지 않는다, 그러면 철회가 기계에 의해 스스로 풀리는 구멍이 된다. 16개
+  상한을 넘는 추가 철회는 가장 오래된 것을 조용히 밀어내지 않고 **거부한다**
+  (`voice_route_withdrawn_limit_reached`) — 밀어내면 그 항목이 막던 과제가 조용히 다시 열린다. grant·색인
+  제거는 여전히 비동기(L2, 나중) — 이 조각은 ledger와 읽기 경로까지다.
 - **backlog이 2단계에 닿기(S2-5)**: `estate_voice_card_reconcile.mjs`에 `--nightly-receipts <dir>`을 더했다.
   주면 이 대조기는 `--date` 하루치 대신, 그 디렉터리에 있는 모든 야간 lane 영수증
-  (`soulforge.voice_conversation_list_nightly_receipt.v1`)이 `ran`/`verified: true`로 보고한 세션 전체를
-  대상으로 삼는다(여러 날짜에 걸침 — 메일/Linear 창은 발견된 모든 날짜의 ±1일 합집합). 자기 자신의 과거
-  영수증에서 이미 끝낸 `(session_id, run_id)` 쌍은 다시 하지 않고(`already_reconciled_run`으로 건너뜀), 세션이
-  재전사되어 run_id가 바뀌면 다시 대조한다. `--date`는 그대로 수동/기본 모드로 남는다.
+  (`soulforge.voice_conversation_list_nightly_receipt.v1`)이 `ran` 또는 `skipped_existing`이면서
+  `verified: true`로 보고한 세션 전체를 대상으로 삼는다. 각 세션의 메일/Linear ±1일 창은 그 세션 자신의
+  날짜(receipt 행의 `date` 필드, R2 — 야간 lane이 03-04 사이 며칠 지난 backlog 세션을 함께 처리하므로 receipt
+  자체의 `target_date`가 아니다)로 계산하고, 여러 날짜에 걸치면 그 합집합이다. `date`가 없는 옛 receipt 행은
+  session_id의 `YYYYMMDD_` 접두부에서 날짜를 끌어온다(`plan.date_derivation`에 어느 쪽으로 몇 건 골랐는지
+  남는다). 자기 자신의 과거 영수증에서 이미 끝낸 `(session_id, run_id)` 쌍은 다시 하지 않고
+  (`already_reconciled_run`으로 건너뜀) — 읽기는 이 harness가 매 회차 갱신하는 압축 색인
+  `reconciled_runs.index.json`(최신 5000쌍만 유지, 넘치면 오래된 것부터 제거하고 누적 제거 수를 기록)로
+  하고, 색인이 없으면 (첫 회차거나 못 읽으면) 한 번 영수증 전체를 훑어 만든다 — 세션이 재전사되어 run_id가
+  바뀌면 다시 대조한다. 정산되지 못한 채 남은 야간 lane 행(전사 없음·짧음·실패·미검증)은 영수증의
+  `not_considered`에 이유와 함께 남는다(다른 receipt에서 그 세션이 정산됐으면 빠진다). `--date`는 그대로
+  수동/기본 모드로 남는다.
 
-시험: `tests/voice_conversation_list_nightly.test.mjs`(S2-1), `tests/voice_grant.test.mjs`(S2-2/S2-4,
-`voice_route_cli`/`voice_routes` 쪽), `tests/estate_voice_card_reconcile.test.mjs`(S2-2~S2-5 통합),
-`tests/voice_session_read.test.mjs`(S2-4 읽기 경로).
+시험: `tests/voice_conversation_list_nightly.test.mjs`(S2-1·R2), `tests/voice_grant.test.mjs`(S2-2/S2-4/N8,
+`voice_route_cli`/`voice_routes` 쪽), `tests/estate_voice_card_reconcile.test.mjs`(S2-2~S2-5·R1·R2·S3·S4·N7
+통합), `tests/voice_session_read.test.mjs`(S2-4 읽기 경로).
 
 ## 카드 대조(2단계 첫 조각) (0.22.3)
 

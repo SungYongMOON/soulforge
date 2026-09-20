@@ -59,7 +59,8 @@
 //        [--linear-root <alias address>] [--sessions-address <alias address>]
 //        [--root-table-sha256 sha256:...] [--now <iso>] [--dry]
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync,
+  writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -75,7 +76,12 @@ import { latestPerObject, linearProjectsFor } from './estate_inventory.mjs';
 import { readLedgerFile, runVoiceRouteCli } from './voice_route_cli.mjs';
 import { VOICE_ROUTE_LIMITS, VOICE_ROUTES_ADDRESS } from './voice_routes.mjs';
 
-export const RECONCILE_RECEIPT_SCHEMA = 'soulforge.voice_card_reconcile_receipt.v1';
+// v2 (fresh review, same slice, pre-merge): the receipt shape changed
+// (`reconciled_runs`, `not_considered`, `plan.mode`/`plan.dates`/
+// `plan.date_derivation`, `target_date` nullable in backlog mode) enough
+// that a v1-shaped body should not be read as v2 by anything that checks
+// this string. No known external consumer reads this schema string yet.
+export const RECONCILE_RECEIPT_SCHEMA = 'soulforge.voice_card_reconcile_receipt.v2';
 // Who this pass writes the ledger as. Not a person: `confirm` stays a person's
 // word, and this actor id only ever reaches `set`/`import`'s `judged_by`.
 export const RECONCILE_ACTOR = 'actor:context-engine:voice-card-reconcile-v0';
@@ -215,16 +221,46 @@ function listFileNamesReporting(io, address, unreadable) {
 const RECONCILED_PAIR_SEP = String.fromCharCode(31);
 const reconciledPairKey = (sessionId, runId) => `${sessionId}${RECONCILED_PAIR_SEP}${runId}`;
 
+// A PLAUD session id's own leading `YYYYMMDD_` (every real session id in this
+// estate carries one) read as a date. Used only as a fallback for a nightly
+// receipt session row with no `date` of its own (R2) -- a receipt written
+// before that field existed.
+const SESSION_ID_DATE_PREFIX = /^(\d{4})(\d{2})(\d{2})_/u;
+const dateFromSessionId = sessionId => {
+  const match = SESSION_ID_DATE_PREFIX.exec(sessionId);
+  return match === null ? null : `${match[1]}-${match[2]}-${match[3]}`;
+};
+
 /**
  * Every session_id a nightly-lane receipt in `nightlyReceiptsDir` (the same
  * plain directory path the nightly lane's own `--receipts` names -- not an
  * `io` alias address, since the nightly lane's receipts are not addressed
- * through the root table either) reported outcome `ran` and `verified:
- * true`, across every receipt file found there, deduplicated. `--date`
- * remains this harness's fallback/manual mode; this is the alternative
- * session source `--nightly-receipts` selects, reaching whatever the nightly
- * lane actually finished (any date, any backlog night) rather than only
- * today's own date folder.
+ * through the root table either) reported settled, across every receipt file
+ * found there, deduplicated. `--date` remains this harness's fallback/manual
+ * mode; this is the alternative session source `--nightly-receipts` selects,
+ * reaching whatever the nightly lane actually finished (any date, any
+ * backlog night) rather than only today's own date folder.
+ *
+ * "Settled" (S4) is outcome `ran` or `skipped_existing`, either way with
+ * `verified: true`: a `skipped_existing` row's card is exactly as usable as
+ * one this pass freshly ran, and excluding it meant a session whose original
+ * `ran` receipt had aged out (or was never in this directory to begin with)
+ * was never reconciled at all. The pair-dedupe against this harness's own
+ * past receipts (`readAlreadyReconciledPairs`) is what stops rework, not a
+ * narrower candidate set here. Every other row (short, absent, failed,
+ * unverified) is named in the returned `notConsidered`, with its reason,
+ * unless some other receipt in this same directory shows that same
+ * session_id settled -- receipt filenames sort chronologically (the nightly
+ * lane's own zero-padded timestamp, like this harness's), so the last row
+ * seen for a session_id is its most recent outcome.
+ *
+ * Each settled row's own `date` (R2) -- not the receipt's `target_date` --
+ * decides which day's mail/Linear window it needs: a backlog receipt's
+ * sessions can span up to the nightly lane's own `BACKLOG_WINDOW_DAYS`
+ * earlier dates than the night the receipt itself ran on. A row from before
+ * `date` existed falls back to `dateFromSessionId`; `derivation` counts which
+ * source every settled row's date actually came from, for the receipt to
+ * show its work.
  *
  * A directory that simply does not exist yet (the nightly lane has never run)
  * plans zero sessions, the same as an absent date folder does; any other
@@ -234,56 +270,131 @@ function collectBacklogSessions(nightlyReceiptsDir) {
   let names;
   try { names = readdirSync(nightlyReceiptsDir); }
   catch (error) {
-    if (error?.code === 'ENOENT') return { sessionIds: [], dates: [] };
+    if (error?.code === 'ENOENT') {
+      return { sessionIds: [], dates: [], derivation: { declared: 0, session_id_prefix: 0, undated: 0 },
+        notConsidered: [] };
+    }
     throw new DirListError('voice_card_reconcile_nightly_receipts_unreadable', error?.code ?? null);
   }
   const ids = new Set(), dates = new Set();
-  for (const name of names.filter(entry => entry.endsWith('.json'))) {
+  const derivation = { declared: 0, session_id_prefix: 0, undated: 0 };
+  const unsettled = new Map();
+  for (const name of names.filter(entry => entry.endsWith('.json')).sort()) {
     let body;
     try { body = JSON.parse(readFileSync(path.join(nightlyReceiptsDir, name), 'utf8')); } catch { continue; }
     if (body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA || !Array.isArray(body.sessions)) continue;
-    let contributed = false;
     for (const row of body.sessions) {
-      if (row?.outcome === 'ran' && row?.verified === true && typeof row.session_id === 'string') {
-        ids.add(row.session_id);
-        contributed = true;
+      if (typeof row?.session_id !== 'string') continue;
+      const settled = (row.outcome === 'ran' || row.outcome === 'skipped_existing') && row.verified === true;
+      if (!settled) {
+        unsettled.set(row.session_id, row.reason ?? row.outcome ?? 'nightly_lane_reason_unknown');
+        continue;
       }
+      ids.add(row.session_id);
+      unsettled.delete(row.session_id);
+      let date = DATE_DIR.test(row.date ?? '') ? row.date : null;
+      if (date !== null) derivation.declared += 1;
+      else {
+        date = dateFromSessionId(row.session_id);
+        if (date !== null) derivation.session_id_prefix += 1; else derivation.undated += 1;
+      }
+      if (date !== null) dates.add(date);
     }
-    // The mail/Linear day window has to cover every night this pass actually
-    // draws sessions from, not just one caller-given date.
-    if (contributed && DATE_DIR.test(body.target_date ?? '')) dates.add(body.target_date);
   }
-  return { sessionIds: [...ids].sort(), dates: [...dates].sort() };
+  const notConsidered = [...unsettled.entries()].map(([session_id, reason]) => ({ session_id, reason }))
+    .sort((a, b) => a.session_id.localeCompare(b.session_id));
+  return { sessionIds: [...ids].sort(), dates: [...dates].sort(), derivation, notConsidered };
+}
+
+// A compact cache of every `(session_id, run_id)` pair this harness has ever
+// finished reconciling, so a backlog pass across months of nightly history
+// does not have to re-parse every past receipt just to skip what it already
+// did. Bounded (S3): only the newest `MAX_RECONCILED_INDEX_PAIRS` are kept,
+// oldest evicted first, and `evicted_total` (cumulative, carried forward on
+// every write) says how many across this index's whole life -- an evicted
+// pair is not lost in any harmful sense, it is simply reconciled again the
+// next time its session_id turns up in the nightly lane's receipts.
+export const RECONCILED_INDEX_FILE = 'reconciled_runs.index.json';
+export const RECONCILED_INDEX_SCHEMA = 'soulforge.voice_card_reconcile_runs_index.v1';
+export const MAX_RECONCILED_INDEX_PAIRS = 5000;
+
+function readReconciledIndex(receiptsDir) {
+  let body;
+  try { body = JSON.parse(readFileSync(path.join(receiptsDir, RECONCILED_INDEX_FILE), 'utf8')); }
+  catch { return null; }
+  if (body?.schema_version !== RECONCILED_INDEX_SCHEMA || !Array.isArray(body.pairs)) return null;
+  const pairs = body.pairs.filter(row => typeof row?.session_id === 'string' && typeof row?.run_id === 'string'
+    && typeof row?.recorded_at === 'string');
+  return { pairs, evicted_total: Number.isSafeInteger(body.evicted_total) ? body.evicted_total : 0 };
 }
 
 /**
  * Every `(session_id, run_id)` pair a past run of *this* harness already
- * recorded as reconciled, read from every receipt already sitting in
- * `receiptsDir`. Used only in `--nightly-receipts` backlog mode: reconcile
- * re-evaluates today's own date-folder sessions every night regardless (mail
- * arriving, a person confirming or withdrawing something changes what the
- * right answer is even for the same run_id), but a backlog scan across
- * months of nightly history must not silently redo everything it already
- * finished every single pass -- exactly the pairs a person or the nightly
- * lane has not touched since are skipped, and a session whose run_id changed
- * (S2-1 staleness, a fresh transcript, ...) is reconciled again because its
- * new run_id was never recorded.
+ * recorded as reconciled. Used only in `--nightly-receipts` backlog mode:
+ * reconcile re-evaluates today's own date-folder sessions every night
+ * regardless (mail arriving, a person confirming or withdrawing something
+ * changes what the right answer is even for the same run_id), but a backlog
+ * scan across months of nightly history must not silently redo everything it
+ * already finished every single pass -- exactly the pairs a person or the
+ * nightly lane has not touched since are skipped, and a session whose run_id
+ * changed (S2-1 staleness, a fresh transcript, ...) is reconciled again
+ * because its new run_id was never recorded.
+ *
+ * Reads the compact index above (S3) when one is present and this harness
+ * can make sense of it; falls back once to a full scan of every past receipt
+ * in `receiptsDir` otherwise (a directory with no index yet, or one this
+ * harness does not recognise) -- slower, but the same pairs the index would
+ * have reported, ignoring any file that does not declare this harness's own
+ * schema. `writeReconciledIndex` always rewrites the index after a non-dry
+ * pass, index-derived or freshly scanned, so the slow path is paid at most
+ * once per directory.
  */
 function readAlreadyReconciledPairs(receiptsDir) {
-  const seen = new Set();
+  const index = readReconciledIndex(receiptsDir);
+  if (index !== null) return { pairs: index.pairs, evictedTotal: index.evicted_total, fromIndex: true };
+  const pairs = [];
   let names;
-  try { names = readdirSync(receiptsDir); } catch { return seen; }
-  for (const name of names.filter(entry => entry.endsWith('.json'))) {
+  try { names = readdirSync(receiptsDir); } catch { return { pairs: [], evictedTotal: 0, fromIndex: false }; }
+  for (const name of names.filter(entry => entry.endsWith('.json') && entry !== RECONCILED_INDEX_FILE)) {
     let body;
     try { body = JSON.parse(readFileSync(path.join(receiptsDir, name), 'utf8')); } catch { continue; }
     if (body?.schema_version !== RECONCILE_RECEIPT_SCHEMA || !Array.isArray(body.reconciled_runs)) continue;
+    const recordedAt = typeof body.ran_at === 'string' ? body.ran_at : '1970-01-01T00:00:00.000Z';
     for (const pair of body.reconciled_runs) {
       if (typeof pair?.session_id === 'string' && typeof pair?.run_id === 'string') {
-        seen.add(reconciledPairKey(pair.session_id, pair.run_id));
+        pairs.push({ session_id: pair.session_id, run_id: pair.run_id, recorded_at: recordedAt });
       }
     }
   }
-  return seen;
+  return { pairs, evictedTotal: 0, fromIndex: false };
+}
+
+/**
+ * Rewrites the pair index: `priorPairs` (whatever `readAlreadyReconciledPairs`
+ * found, index or full scan) plus this pass's own newly-reconciled pairs,
+ * deduplicated by `(session_id, run_id)` -- a repeated pair keeps the newer
+ * `recorded_at` -- then bounded to the newest `MAX_RECONCILED_INDEX_PAIRS`.
+ * Called after every non-dry backlog pass, even one that reconciled nothing
+ * new, so a directory that only ever had a full scan gets an index from then
+ * on. Written through a staging file and rename, the same as the ledger.
+ */
+function writeReconciledIndex(receiptsDir, priorPairs, priorEvictedTotal, additions, now) {
+  const byKey = new Map(priorPairs.map(row => [reconciledPairKey(row.session_id, row.run_id), row]));
+  for (const pair of additions) {
+    byKey.set(reconciledPairKey(pair.session_id, pair.run_id),
+      { session_id: pair.session_id, run_id: pair.run_id, recorded_at: now });
+  }
+  const ordered = [...byKey.values()].sort((a, b) => a.recorded_at.localeCompare(b.recorded_at)
+    || reconciledPairKey(a.session_id, a.run_id).localeCompare(reconciledPairKey(b.session_id, b.run_id)));
+  const evictedThisWrite = Math.max(0, ordered.length - MAX_RECONCILED_INDEX_PAIRS);
+  const kept = evictedThisWrite > 0 ? ordered.slice(evictedThisWrite) : ordered;
+  const body = { schema_version: RECONCILED_INDEX_SCHEMA, updated_at: now, pairs: kept,
+    evicted_total: priorEvictedTotal + evictedThisWrite };
+  mkdirSync(receiptsDir, { recursive: true });
+  const file = path.join(receiptsDir, RECONCILED_INDEX_FILE);
+  const staging = `${file}.writing`;
+  writeFileSync(staging, encode(body));
+  renameSync(staging, file);
 }
 
 // -------------------------------------------------------------------- mail
@@ -565,9 +676,12 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   // a wrong `--nightly-receipts` (S2-5), is a configuration error, not "no
   // sessions today": it fails the whole pass, the same distinction
   // `buildSessionPlan` already makes for the nightly conversation-list lane.
-  let sessionIds = [], sessionsErrorCode = null, backlogDates = [];
+  let sessionIds = [], sessionsErrorCode = null, backlogDates = [], backlogDateDerivation = null, notConsidered = [];
   if (backlogMode) {
-    try { ({ sessionIds, dates: backlogDates } = collectBacklogSessions(nightlyReceiptsDir)); }
+    try {
+      ({ sessionIds, dates: backlogDates, derivation: backlogDateDerivation, notConsidered }
+        = collectBacklogSessions(nightlyReceiptsDir));
+    }
     catch (error) {
       sessionsErrorCode = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_nightly_receipts_unreadable';
     }
@@ -586,7 +700,9 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   // sessions every time regardless (see collectBacklogSessions's own doc).
   // Read in `--dry` too, so a backlog preview does not claim work a real pass
   // would actually skip.
-  const alreadyReconciled = backlogMode ? readAlreadyReconciledPairs(receiptsDir) : new Set();
+  const reconciledIndexRead = backlogMode ? readAlreadyReconciledPairs(receiptsDir)
+    : { pairs: [], evictedTotal: 0, fromIndex: false };
+  const alreadyReconciled = new Set(reconciledIndexRead.pairs.map(row => reconciledPairKey(row.session_id, row.run_id)));
   const reconciledRunsThisPass = [];
 
   const sessions = [];
@@ -744,13 +860,28 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
               skippedHuman = written.skipped_human;
               skippedWithdrawn = written.skipped_withdrawn;
               retiredCandidates = written.retired;
-              if (written.calls > 0) {
-                ledgerWrite = written.skipped_human.length === 0 && written.skipped_withdrawn.length === 0
-                  ? 'set' : 'set_partial_human_protected';
-              } else if (written.skipped_withdrawn.length > 0 && written.skipped_human.length === 0) {
-                ledgerWrite = 'skipped_withdrawn_project';
+              // N7: `written.calls` mixes two different kinds of write --
+              // setting a status/project for a card candidate, and retiring a
+              // stale one (S2-3) -- and only the first kind is what
+              // `set_partial_human_protected` used to mean. A night where
+              // every card candidate was withdrawn-skipped, and the only
+              // ledger call this pass made was retiring a candidate the card
+              // no longer lists, is not "a human candidate was protected" --
+              // nothing here even looked at a human-written row.
+              const wroteCandidate = written.calls - written.retired.length > 0;
+              if (written.calls === 0) {
+                // Nothing at all was written for this segment -- every
+                // candidate was skipped, not partially. Human protection is
+                // named even alongside a withdrawn skip, same as before.
+                ledgerWrite = written.skipped_human.length > 0 ? 'skipped_human_candidate' : 'skipped_withdrawn_project';
+              } else if (written.skipped_human.length > 0) {
+                ledgerWrite = 'set_partial_human_protected';
+              } else if (!wroteCandidate) {
+                ledgerWrite = written.skipped_withdrawn.length > 0 ? 'retired_withdrawn_only' : 'retired_only';
+              } else if (written.skipped_withdrawn.length > 0) {
+                ledgerWrite = 'set_partial_withdrawn_project';
               } else {
-                ledgerWrite = 'skipped_human_candidate';
+                ledgerWrite = 'set';
               }
             } catch (error) {
               const code = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_write_failed';
@@ -790,7 +921,8 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
     plan: backlogMode
-      ? { mode: 'backlog', nightly_receipts_dir: nightlyReceiptsDir, dates: backlogDates, error: sessionsErrorCode }
+      ? { mode: 'backlog', nightly_receipts_dir: nightlyReceiptsDir, dates: backlogDates,
+          date_derivation: backlogDateDerivation, error: sessionsErrorCode }
       : { mode: 'date', sessions_address: `${sessionsAddress}/${targetDate}`, error: sessionsErrorCode },
     sources: { mail_roots: [...mailRoots], linear_root: linearRoot, mail_events_scanned: mail.scanned,
       mail_events_in_window: mail.events.length, linear_issues_scanned: linear.scanned,
@@ -799,14 +931,29 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       // from `exception_review`/`sessions` is not "checked, found nothing".
       sources_unreadable: sourcesUnreadable },
     seoul_days: [...seoulDays].sort(), sessions, exception_review: exceptionReview, totals,
+    // S4: every nightly-lane session row this pass saw but never settled
+    // (anywhere in `--nightly-receipts`) and so never reconciled at all --
+    // named with the reason, not silently absent from both this receipt and
+    // the nightly lane's own. Backlog mode only; a --date pass has no
+    // nightly-receipts rows to compare against.
+    not_considered: notConsidered,
     // S2-5: every (session_id, run_id) this pass actually finished
     // reconciling, so a later backlog pass -- reading this same receipt back
-    // via `readAlreadyReconciledPairs` -- does not redo it.
+    // via `readAlreadyReconciledPairs`, or more often its compact index
+    // (`reconciled_runs.index.json`, S3) -- does not redo it.
     reconciled_runs: reconciledRunsThisPass,
     status: sessionsErrorCode !== null || totals.failed > 0 ? 'FAILED' : 'OK' };
   if (!dry) {
     mkdirSync(receiptsDir, { recursive: true });
     writeFileSync(path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`), encode(receipt));
+    // Refreshed every non-dry pass, backlog or not -- a --date pass makes no
+    // pairs to add, but still normalises a directory that only ever had a
+    // full scan onto an index, so the very next backlog pass pays the slow
+    // path at most once.
+    if (backlogMode) {
+      writeReconciledIndex(receiptsDir, reconciledIndexRead.pairs, reconciledIndexRead.evictedTotal,
+        reconciledRunsThisPass, now);
+    }
   }
   return receipt;
 }
