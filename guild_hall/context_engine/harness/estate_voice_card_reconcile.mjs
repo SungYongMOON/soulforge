@@ -150,12 +150,62 @@ export function releaseLock(receiptsDir) {
 }
 
 // -------------------------------------------------------------- sessions
-function listDirNames(io, address) {
+export class DirListError extends Error {
+  constructor(code, causeCode = null) { super(code); this.name = 'DirListError'; this.code = code; this.cause_code = causeCode; }
+}
+
+/**
+ * Directory names directly below one address. A directory that simply does
+ * not exist yet (`ENOENT` on the `readdir`) lists as empty -- that is the
+ * ordinary shape of "nothing here yet" (no sessions today, no mail filed for
+ * this source yet). Anything else -- the alias itself unresolvable (a wrong
+ * `--sessions-address`/`--mail-root`/`--linear-root`), a permission refusal,
+ * the address renamed to a file -- is not silently read as "empty"; it is
+ * thrown, the same distinction `voice_conversation_list_nightly.mjs`'s own
+ * `listDirNames` already makes for exactly this reason.
+ */
+function listDirNamesOrThrow(io, address) {
   let where;
-  try { where = io.path(address, true); } catch { return []; }
+  try { where = io.path(address, true); }
+  catch (error) { throw new DirListError('voice_card_reconcile_alias_unresolvable', error?.code ?? null); }
   let entries;
-  try { entries = readdirSync(where, { withFileTypes: true }); } catch { return []; }
+  try { entries = readdirSync(where, { withFileTypes: true }); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw new DirListError('voice_card_reconcile_dir_unreadable', error?.code ?? null);
+  }
   return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
+}
+
+/**
+ * The same listing, for a source this pass treats as optional corroboration
+ * input rather than core session data: a bad `--mail-root`/`--linear-root`
+ * value, or one team's `projects`/`issues` folder gone missing, does not stop
+ * the night -- but it is not silently read as "checked, found nothing"
+ * either. `unreadable` collects `{ address, code, cause_code }` for the
+ * receipt's `sources_unreadable`, so a reader can tell "no exceptions" from
+ * "this source was never actually read".
+ */
+function listDirNamesReporting(io, address, unreadable) {
+  try { return listDirNamesOrThrow(io, address); }
+  catch (error) { unreadable.push({ address, code: error.code, cause_code: error.cause_code ?? null }); return []; }
+}
+
+/** File (not directory) names directly below one address, with the same ENOENT-benign, else-reported shape. */
+function listFileNamesReporting(io, address, unreadable) {
+  let where;
+  try { where = io.path(address, true); }
+  catch (error) {
+    unreadable.push({ address, code: 'voice_card_reconcile_alias_unresolvable', cause_code: error?.code ?? null });
+    return [];
+  }
+  try {
+    return readdirSync(where, { withFileTypes: true }).filter(entry => entry.isFile()).map(entry => entry.name).sort();
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    unreadable.push({ address, code: 'voice_card_reconcile_dir_unreadable', cause_code: error?.code ?? null });
+    return [];
+  }
 }
 
 // -------------------------------------------------------------------- mail
@@ -169,15 +219,18 @@ function fromDisplayOf(from) {
  * files directly, the same convention `harness/estate_inventory.mjs` reads)
  * whose `received_at` falls on one of `seoulDays`. Only `event_id`, `subject`,
  * `from` and `received_at` are ever read out of a row; `body_text` and every
- * other field the collector wrote are never touched.
+ * other field the collector wrote are never touched. Every root or year
+ * folder this pass could not actually read is named in the returned
+ * `unreadable` list rather than folded into "no mail this window".
  */
 async function readMailWindow({ io, mailRoots, seoulDays }) {
   const events = [];
+  const unreadable = [];
   let scanned = 0;
   for (const root of mailRoots) {
-    for (const year of listDirNames(io, root)) {
-      let files;
-      try { files = readdirSync(io.path(`${root}/${year}`, true)); } catch { files = []; }
+    for (const year of listDirNamesReporting(io, root, unreadable)) {
+      const yearAddress = `${root}/${year}`;
+      const files = listFileNamesReporting(io, yearAddress, unreadable);
       for (const file of files.filter(name => name.endsWith('.jsonl')).sort()) {
         const address = `${root}/${year}/${file}`;
         let where;
@@ -198,17 +251,17 @@ async function readMailWindow({ io, mailRoots, seoulDays }) {
       }
     }
   }
-  return { events, scanned };
+  return { events, scanned, unreadable };
 }
 
 // ------------------------------------------------------------------ linear
 const readJson = (io, address, max = MAX_JSON_BYTES) => JSON.parse(io.read(address, max));
 
 /** Every `.json` custody record under one folder, read the way `estate_inventory.mjs` reads them. */
-function custodyRecords(io, address) {
+function custodyRecords(io, address, unreadable) {
   const rows = [];
   const walk = rel => {
-    for (const entry of listDirNames2(io, rel)) {
+    for (const entry of listDirNames2(io, rel, unreadable)) {
       const child = `${rel}/${entry.name}`;
       if (entry.isDirectory) { walk(child); continue; }
       if (!entry.name.endsWith('.json')) continue;
@@ -218,11 +271,21 @@ function custodyRecords(io, address) {
   walk(address);
   return rows;
 }
-function listDirNames2(io, address) {
+function listDirNames2(io, address, unreadable) {
   let where;
-  try { where = io.path(address, true); } catch { return []; }
-  if (!existsSync(where) || !statSync(where).isDirectory()) return [];
-  return readdirSync(where, { withFileTypes: true }).map(entry => ({ name: entry.name, isDirectory: entry.isDirectory() }));
+  try { where = io.path(address, true); }
+  catch (error) { unreadable.push({ address, code: 'voice_card_reconcile_alias_unresolvable', cause_code: error?.code ?? null }); return []; }
+  if (!existsSync(where)) return []; // not yet created for this team/kind: ordinary, not an error
+  if (!statSync(where).isDirectory()) {
+    unreadable.push({ address, code: 'voice_card_reconcile_dir_unreadable', cause_code: 'not_a_directory' });
+    return [];
+  }
+  try {
+    return readdirSync(where, { withFileTypes: true }).map(entry => ({ name: entry.name, isDirectory: entry.isDirectory() }));
+  } catch (error) {
+    unreadable.push({ address, code: 'voice_card_reconcile_dir_unreadable', cause_code: error?.code ?? null });
+    return [];
+  }
 }
 
 /**
@@ -233,16 +296,17 @@ function listDirNames2(io, address) {
  * (falling back to `created_at`), read in Asia/Seoul days -- the target day
  * plus one day either side. Only `identifier`, `title`, `project_id` and that
  * time are ever read out of an issue; no comment, no change-log entry, no
- * description.
+ * description. Every team/kind folder this pass could not actually read is
+ * named in the returned `unreadable` list.
  */
 function readLinearWindow({ io, linearRoot, seoulDays }) {
-  const projects = [], issues = [];
+  const projects = [], issues = [], unreadable = [];
   let scanned = 0;
-  for (const team of listDirNames(io, linearRoot)) {
-    for (const row of latestPerObject(custodyRecords(io, `${linearRoot}/${team}/projects`))) {
+  for (const team of listDirNamesReporting(io, linearRoot, unreadable)) {
+    for (const row of latestPerObject(custodyRecords(io, `${linearRoot}/${team}/projects`, unreadable))) {
       projects.push({ id: row.object_id ?? null, name: row.object?.name ?? null });
     }
-    for (const row of latestPerObject(custodyRecords(io, `${linearRoot}/${team}/issues`))) {
+    for (const row of latestPerObject(custodyRecords(io, `${linearRoot}/${team}/issues`, unreadable))) {
       scanned += 1;
       const when = row.object?.updated_at ?? row.object?.created_at ?? null;
       const day = typeof when === 'string' ? seoulDateFor(when) : null;
@@ -251,7 +315,7 @@ function readLinearWindow({ io, linearRoot, seoulDays }) {
         project_id: row.object?.project_id ?? null, day });
     }
   }
-  return { projects, issues, scanned };
+  return { projects, issues, scanned, unreadable };
 }
 
 // -------------------------------------------------------------- corroboration
@@ -382,15 +446,23 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   if (!DATE_DIR.test(targetDate ?? '')) fail('voice_card_reconcile_date_invalid');
   const seoulDays = new Set([shiftDate(targetDate, -1), targetDate, shiftDate(targetDate, 1)]);
 
-  const sessionIds = listDirNames(io, `${sessionsAddress}/${targetDate}`);
-  const mail = await readMailWindow({ io, mailRoots, seoulDays });
-  const linear = readLinearWindow({ io, linearRoot, seoulDays });
+  // A wrong `--sessions-address` (or its alias gone from the root table) is a
+  // configuration error, not "no sessions today": it fails the whole pass,
+  // the same distinction `buildSessionPlan` already makes for the nightly
+  // conversation-list lane.
+  let sessionIds = [], sessionsErrorCode = null;
+  try { sessionIds = listDirNamesOrThrow(io, `${sessionsAddress}/${targetDate}`); }
+  catch (error) { sessionsErrorCode = error.code; }
+  const mail = sessionsErrorCode === null ? await readMailWindow({ io, mailRoots, seoulDays })
+    : { events: [], scanned: 0, unreadable: [] };
+  const linear = sessionsErrorCode === null ? readLinearWindow({ io, linearRoot, seoulDays })
+    : { projects: [], issues: [], scanned: 0, unreadable: [] };
 
   const sessions = [];
   const exceptionReview = [];
   const totals = { sessions: sessionIds.length, cards_read: 0, segments_considered: 0,
-    provisional: 0, candidate: 0, exception: 0, skip: 0, already_confirmed: 0, ledger_calls: 0, failed: 0,
-    human_protected_candidates: 0 };
+    provisional: 0, candidate: 0, exception: 0, skip: 0, already_confirmed: 0, confirmed_at_write: 0,
+    ledger_calls: 0, failed: 0, human_protected_candidates: 0 };
   // Alias terms depend on which project codes actually appear on a card, which
   // is only known after the card is read -- so they are built once codes are seen.
   const aliasCache = new Map();
@@ -477,19 +549,42 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
         if (confirmedIds.has(segment.segment_id)) { ledgerWrite = 'skipped_confirmed'; totals.already_confirmed += 1; }
         else if (dry) { ledgerWrite = 'skipped_dry'; }
         else {
-          try {
-            const written = writeSegment({ tablePath, tableSha256, sessionId, segment,
-              classification: result.classification, refsByCode, now, existingLedger,
-              skipProjects: result.reason === 'strong_conflict' });
-            totals.ledger_calls += written.calls;
-            totals.human_protected_candidates += written.skipped_human.length;
-            skippedHuman = written.skipped_human;
-            ledgerWrite = written.skipped_human.length === 0 ? 'set'
-              : (written.calls === 0 ? 'skipped_human_candidate' : 'set_partial_human_protected');
-          } catch (error) {
-            ledgerWrite = 'failed';
-            writeError = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_write_failed';
-            totals.failed += 1;
+          // The confirmedIds check above is only as fresh as the read this
+          // session started with; a person can confirm a segment at any
+          // moment this loop is still working through the others. Re-reading
+          // right before the write -- not relying only on that start-of-
+          // session snapshot -- is what actually catches it, and
+          // `applySegmentDecision`'s own `voice_route_segment_confirmed_locked`
+          // guard (its every call already re-reads the file fresh) is the
+          // backstop for the gap between this re-check and the write itself.
+          let confirmedNow = false;
+          try { confirmedNow = readLedgerFile(routesDir, sessionId).ledger.segments
+            .some(row => row.segment_id === segment.segment_id && row.status === 'confirmed'); }
+          catch { confirmedNow = false; } // unreadable here is caught the same as any other write failure below
+          if (confirmedNow) {
+            ledgerWrite = 'skipped_confirmed_at_write';
+            totals.confirmed_at_write += 1;
+          } else {
+            try {
+              const written = writeSegment({ tablePath, tableSha256, sessionId, segment,
+                classification: result.classification, refsByCode, now, existingLedger,
+                skipProjects: result.reason === 'strong_conflict' });
+              totals.ledger_calls += written.calls;
+              totals.human_protected_candidates += written.skipped_human.length;
+              skippedHuman = written.skipped_human;
+              ledgerWrite = written.skipped_human.length === 0 ? 'set'
+                : (written.calls === 0 ? 'skipped_human_candidate' : 'set_partial_human_protected');
+            } catch (error) {
+              const code = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_write_failed';
+              if (code === 'voice_route_segment_confirmed_locked') {
+                ledgerWrite = 'skipped_confirmed_at_write';
+                totals.confirmed_at_write += 1;
+              } else {
+                ledgerWrite = 'failed';
+                writeError = code;
+                totals.failed += 1;
+              }
+            }
           }
         }
       }
@@ -508,16 +603,21 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
     sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'reconciled', reason: null, segments: segmentRows });
   }
 
+  const sourcesUnreadable = [...mail.unreadable, ...linear.unreadable];
   const receipt = { schema_version: RECONCILE_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry,
     policy_version: VOICE_ATTRIBUTION_POLICY_VERSION,
     lock: lock === null ? null : { reclaimed_stale: lock.reclaimed === true,
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
+    plan: { sessions_address: `${sessionsAddress}/${targetDate}`, error: sessionsErrorCode },
     sources: { mail_roots: [...mailRoots], linear_root: linearRoot, mail_events_scanned: mail.scanned,
       mail_events_in_window: mail.events.length, linear_issues_scanned: linear.scanned,
-      linear_issues_in_window: linear.issues.length },
+      linear_issues_in_window: linear.issues.length,
+      // A source named here was never actually read this pass -- its absence
+      // from `exception_review`/`sessions` is not "checked, found nothing".
+      sources_unreadable: sourcesUnreadable },
     seoul_days: [...seoulDays].sort(), sessions, exception_review: exceptionReview, totals,
-    status: totals.failed > 0 ? 'FAILED' : 'OK' };
+    status: sessionsErrorCode !== null || totals.failed > 0 ? 'FAILED' : 'OK' };
   if (!dry) {
     mkdirSync(receiptsDir, { recursive: true });
     writeFileSync(path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`), encode(receipt));

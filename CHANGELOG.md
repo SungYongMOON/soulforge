@@ -39,12 +39,37 @@
   `FAILED`/실패 종료코드를 낸다(전에는 항상 `DRY`/0). 대조기 CLI에도 `log` 콜백을 주입할 수 있고
   `main()`은 즉시 stdout에 쓴다. 매뉴얼은 strong/weak 임계값이 아직 `voice_conversation_list.mjs`
   안에 있다고 정정했다(판정 모듈로 옮기는 것은 계획).
+- 외부 코드 리뷰(회신 09) 확인 후 정정, 실제 버그 4건(같은 슬라이스, 병합 전):
+  (B1) `voice_route_cli.mjs`의 `applySegmentDecision`이 `confirmed` 행을 `set`으로 조용히 `candidate`로
+  되돌리고 `confirmed_by`를 지웠다. 이제 `held.status === 'confirmed'`이고 명령이 `confirm`이 아니면
+  `voice_route_segment_confirmed_locked`로 거부한다(재확인은 여전히 허용). `import`(`mergeConversationList`)는
+  원래도 이미 아는 segment_id는 건드리지 않아 안전했음을 시험으로 확인했다. 대조기는 쓰기 직전에 ledger를
+  다시 읽어 그 사이 사람이 확정한 구간을 `skipped_confirmed_at_write`로 넘긴다(세션 시작 때 스냅샷만
+  믿지 않음). (B2) 야간 lane `--dry`가 세션 행이 `failed`(예: `session_manifest_unreadable`)여도 항상
+  `DRY`/0을 반환했다. 이제 그 경우 `FAILED`를 낸다. `verified: false`로 끝난 회차는 `ran`이 아니라
+  `ran_unverified`로 세고(새 totals 필드) 그 밤 전체를 `FAILED`로 둔다 — 별도 `PARTIAL` 상태는 만들지
+  않았다(등록기 preflight가 아직 그 값을 모르므로, 등록기를 건드리지 않는 이 수정 범위에서는 기존에
+  이미 차단하는 `FAILED`로 접는 쪽을 택함). (B3) 대조기의 디렉터리 목록 함수가 `io.path`/`readdir` 오류를
+  전부 빈 배열로 삼켜 잘못된 `--sessions-address`가 세션 0건짜리 DRY로 보였다. 이제 alias 자체가
+  안 묶였거나 ENOENT 아닌 오류면 세션 목록은 전체 실패(`plan.error`)로, 메일/Linear 루트는 세션은 계속
+  진행하되 영수증 `sources.sources_unreadable`에 근거 없는 항목으로 남긴다("예외 0건"이 "확인해서 0건"과
+  같은 뜻이 되지 않게). (B4) `matchedRiskMarkers`가 "3원소"→"3원", "회신 감사합니다"→"회신"을 잘못
+  잡고 "5000 원"은 놓쳤다. MONEY_PATTERN에 뒤따르는 한글 음절 금지(`(?![가-힣])`)를 더하고, 숫자가
+  4자리 이상이거나 천단위 콤마가 있을 때만 숫자-원 사이 공백 하나를 허용한다("1 원문"/"3 원본"은 여전히
+  제외). '회신'은 `회신 요청|회신 바랍|회신해 주|회신 부탁|까지 회신` 형태일 때만 표지로 센다. 알려진
+  한계(고치지 않고 문서화만): "500,000원과"처럼 조사가 바로 붙으면 놓치고, "회신 주세요"(해 없이)나
+  "내일까지 보내 주세요"처럼 다른 말투의 같은 요청은 여전히 못 잡는다 — 규칙-v1 결정으로 남김.
+  매뉴얼의 "확정은 `confirm`뿐" 문장에는 CLI가 `--by`의 실제 사람 여부를 암호학적으로 검증하지 않으며
+  그 보장은 실행 경로(lock)·OS 파일 권한의 조합이라는 것을 덧붙였다(actor 검증은 계획).
 - 운영 영향: 코드만. 새 CLI를 등록·실행하기 전에는 기존 야간 lane·ledger 동작을 바꾸지 않는다.
 - 관련 경로: `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
   `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
   `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/voice_route_cli.mjs`,
   `guild_hall/context_engine/tests/voice_attribution_policy.test.mjs`,
   `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/tests/voice_grant.test.mjs`,
   `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`, `guild_hall/context_engine/README.md`.
 
 ## 2026-09-19 - 살핌이 정기 보고 (정상이어도 보고, 관측 불가 구분)

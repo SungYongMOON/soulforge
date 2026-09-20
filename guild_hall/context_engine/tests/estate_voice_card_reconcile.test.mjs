@@ -11,7 +11,7 @@ import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import {
   RECONCILE_RECEIPT_SCHEMA, aliasTermsByCode, corroborationFor, runReconcile, runReconcileCli,
 } from '../harness/estate_voice_card_reconcile.mjs';
-import { readLedgerFile } from '../harness/voice_route_cli.mjs';
+import { readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
 import { VOICE_ROUTE_LEDGER_SCHEMA } from '../harness/voice_routes.mjs';
 
 const hex = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -446,6 +446,55 @@ test('a session with no card, or an unverified one, is skipped and reported with
   assert.equal(byId.unverified.reason, 'card_not_verified');
 });
 
+test('a date folder that simply does not exist yet plans zero sessions, cleanly, not an error', async () => {
+  const est = await estate();
+  // No writeSessionDir call at all for this date: the whole plaud/sessions
+  // tree, or just this one day, may not exist yet -- ordinary, not a failure.
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19', '--dry']);
+  assert.equal(result.status, 'DRY');
+  assert.equal(result.receipt.totals.sessions, 0);
+  assert.deepEqual(result.receipt.sessions, []);
+});
+
+test('a wrong --sessions-address (an alias never bound in this root table) fails the whole pass with a code, not sessions=0', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  const dryRun = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--sessions-address', 'project_work_root/ingress/plaud/sessions', '--dry']);
+  assert.equal(dryRun.result.status, 'FAILED');
+  assert.equal(dryRun.result.receipt.plan.error, 'voice_card_reconcile_alias_unresolvable');
+  assert.deepEqual(dryRun.result.receipt.sessions, []);
+
+  const realRun = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--sessions-address', 'project_work_root/ingress/plaud/sessions', '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(realRun.result.status, 'FAILED');
+  assert.equal(realRun.result.receipt.plan.error, 'voice_card_reconcile_alias_unresolvable');
+});
+
+test('a wrong --mail-root or --linear-root is recorded as a coverage gap, not a silent "no exceptions" and not a run failure', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--mail-root', 'project_work_root/ingress/mail/gmail', '--linear-root', 'project_work_root/ingress/linear',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK'); // a corroboration source being unreadable does not fail the run
+  const gaps = result.receipt.sources.sources_unreadable;
+  assert.equal(gaps.length, 2);
+  assert.ok(gaps.some(gap => gap.address === 'project_work_root/ingress/mail/gmail'));
+  assert.ok(gaps.some(gap => gap.address === 'project_work_root/ingress/linear'));
+  for (const gap of gaps) assert.equal(gap.code, 'voice_card_reconcile_alias_unresolvable');
+  // Zero exceptions is not the same claim as "every source was actually read".
+  assert.deepEqual(result.receipt.exception_review, []);
+});
+
 // -------------------------------------------------------------------- lock
 test('a held lock stops a second real run and is reported', async () => {
   const est = await estate();
@@ -515,4 +564,47 @@ test('an injected log callback receives every line, in the same order, as the re
   assert.equal(result.status, 'OK');
   assert.ok(lines.length > 0);
   assert.deepEqual(streamed, lines);
+});
+
+// -------------------------------------------------------- confirm mid-loop
+test('a human confirm landing between two segments is caught by the write-time re-check: skipped_confirmed_at_write, not a crash, row stays confirmed', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+    segment({ segment_id: 'c002', title: '두 번째 구간', description: '',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [2] }] }),
+  ] });
+  const routesDir = path.join(est.controlRoot, 'voice-routes');
+  let fired = false;
+  // Simulates a person confirming c002 in the moment reconcile has just
+  // finished c001 but has not yet reached c002 -- the exact race the
+  // write-time re-check (and applySegmentDecision's own lock, as a backstop)
+  // exists for. `confirm` is synchronous, so the ledger file is updated on
+  // disk before this callback returns control to the loop.
+  const hookLog = line => {
+    if (!fired && line.includes(' c001 ')) {
+      fired = true;
+      runVoiceRouteCli(['confirm', '--routes-dir', routesDir, '--session', 'sess1', '--segment', 'c002',
+        '--project', 'P24-049', '--basis', '사람이 회의에서 직접 확인함', '--title', '두 번째 구간(사람 확인)',
+        '--nature', 'project_work', '--quality', 'independent_fast', '--by', 'actor:owner',
+        '--now', '2026-09-20T17:59:59.000Z']);
+    }
+  };
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z'], { log: hookLog });
+  assert.equal(fired, true, 'the hook actually fired');
+  assert.equal(result.status, 'OK'); // a race caught cleanly is not a run failure
+  const c001Row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  const c002Row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c002');
+  assert.equal(c001Row.ledger_write, 'set');
+  assert.equal(c002Row.ledger_write, 'skipped_confirmed_at_write');
+  assert.equal(result.receipt.totals.confirmed_at_write, 1);
+  const ledger = readLedgerFile(routesDir, 'sess1').ledger;
+  const ledgerC002 = ledger.segments.find(item => item.segment_id === 'c002');
+  assert.equal(ledgerC002.status, 'confirmed');
+  assert.equal(ledgerC002.confirmed_by, 'actor:owner');
+  assert.equal(ledgerC002.title, '두 번째 구간(사람 확인)'); // the human's write, untouched
 });

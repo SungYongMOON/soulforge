@@ -137,6 +137,12 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
 
   if (!ACTOR.test(by ?? '')) fail('voice_route_actor_required');
   const confirming = command === 'confirm';
+  // A confirmed segment is a person's word. `set` (and, by the same call,
+  // anything that reaches this function through it) may not silently demote
+  // it back to a proposal or rewrite its content -- only `confirm` (a person
+  // confirming again, e.g. to refresh it) and the explicit `withdraw` command
+  // above may change a confirmed row.
+  if (held !== null && held.status === 'confirmed' && !confirming) fail('voice_route_segment_confirmed_locked');
   const base = held ?? blankSegment(segmentId);
   const start = from === null ? base.start_seconds : from;
   const end = to === null ? base.end_seconds : to;

@@ -331,6 +331,24 @@ test('runNightly: a session with an unreadable manifest is reported failed, not 
   assert.equal(result.receipt.totals.ran, 1);
 });
 
+test('runNightly: a run that finishes but comes back verified: false is ran_unverified, counted separately, and FAILs the night', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_unverified', { durationSeconds: 40 });
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_6666666666666666', verified: false, llm_calls: 3, elapsed_ms: 100 }),
+    log: () => {} });
+  assert.equal(result.status, 'FAILED'); // a night with real, unresolved work in it is not OK
+  const row = result.receipt.sessions.find(item => item.session_id === 'S_unverified');
+  assert.equal(row.outcome, 'ran_unverified');
+  assert.equal(row.verified, false);
+  assert.equal(result.receipt.totals.ran, 0);
+  assert.equal(result.receipt.totals.ran_unverified, 1);
+  assert.equal(result.receipt.totals.failed, 0); // it is not the same outcome as a thrown error either
+});
+
 test('runNightly: a failed per-session run is reported and FAILs the night, and sessions run in plan order', async () => {
   const est = await estate();
   const { io, tools } = await ioAndToolsFor(est);
@@ -426,6 +444,25 @@ test('runNightly --dry: an unreadable sessions root is reported FAILED too, and 
   assert.equal(result.status, 'FAILED');
   assert.equal(result.plan.error, 'voice_conversation_list_nightly_sessions_root_unreadable');
   assert.equal(existsSync(est.receiptsDir), false);
+});
+
+test('runNightly --dry: a session_manifest_unreadable row makes the whole preview FAILED, not DRY/exit 0', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeMalformedSession(est.dataRoot, target, 'S_broken');
+  await writeSession(est.dataRoot, target, 'S_ok', { durationSeconds: 40 });
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, dry: true, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => { throw new Error('must not be called'); }, log: () => {} });
+  // A plan-level problem (an unreadable root) already returned FAILED before
+  // this fix; a single broken session's own row, found while otherwise
+  // walking a readable plan, did not -- this closes that gap.
+  assert.equal(result.status, 'FAILED');
+  assert.equal(result.receipt, null);
+  const row = result.sessions.find(item => item.session_id === 'S_broken');
+  assert.equal(row.classification, 'failed');
+  assert.equal(row.reason, 'session_manifest_unreadable');
 });
 
 test('runNightly --dry: reports the plan, calls no session, and writes nothing at all', async () => {

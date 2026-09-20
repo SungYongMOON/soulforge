@@ -27,7 +27,9 @@ test('exports carry the version this whole module answers for', () => {
 test('hasRiskMarker and matchedRiskMarkers read the default list', () => {
   assert.equal(hasRiskMarker('금요일까지 마감입니다'), true);
   assert.equal(hasRiskMarker('점심 맛있게 드세요'), false);
-  assert.deepEqual(matchedRiskMarkers('결정된 예산 금액을 회신 주세요'), ['결정', '금액', '회신']);
+  // '회신 주세요' (without '해') is not one of the recognised request forms --
+  // a known miss, not a bug (see RISK_MARKERS's own comment).
+  assert.deepEqual(matchedRiskMarkers('결정된 예산 금액을 회신 주세요'), ['결정', '금액']);
   assert.deepEqual(matchedRiskMarkers('점심 맛있게 드세요'), []);
 });
 
@@ -74,7 +76,32 @@ test('MONEY_PATTERN does not mistake a date or a version number for an amount', 
 });
 
 test('matchedRiskMarkers collects more than one amount in the same text', () => {
-  assert.deepEqual(matchedRiskMarkers('자재비 500,000원과 인건비 5,000 만원 모두 집행'), ['500,000원', '5,000 만원']);
+  assert.deepEqual(matchedRiskMarkers('자재비 500,000원, 인건비 5,000 만원 모두 집행'), ['500,000원', '5,000 만원']);
+});
+
+test('MONEY_PATTERN does not follow the unit into another word (원소/원인/원본 are not amounts)', () => {
+  assert.equal(MONEY_PATTERN.test('3원소 배열'), false);
+  assert.equal(matchedRiskMarkers('3원소 배열').length, 0);
+  // A real amount immediately against a following Hangul particle, with no
+  // space or punctuation, is the traded-away case -- known miss, documented
+  // in MONEY_PATTERN's own comment, not asserted here as a false claim of
+  // correctness either way.
+});
+
+test('MONEY_PATTERN allows one space between digits and a bare 원, but only for a number large enough to plausibly be an amount', () => {
+  assert.equal(MONEY_PATTERN.test('5000 원'), true);
+  assert.equal(MONEY_PATTERN.test('5,000 원'), true);
+  assert.equal(MONEY_PATTERN.test('1 원문을 참고'), false);
+  assert.equal(MONEY_PATTERN.test('자료 3 원본 확인'), false);
+});
+
+test('회신 only counts as a risk marker in a recognised request/deadline form, not on its own', () => {
+  assert.deepEqual(matchedRiskMarkers('회신 감사합니다'), []);
+  assert.deepEqual(matchedRiskMarkers('빠른 회신 요청드립니다'), ['회신 요청']);
+  assert.deepEqual(matchedRiskMarkers('회신 바랍니다'), ['회신 바랍']);
+  assert.deepEqual(matchedRiskMarkers('회신해 주세요'), ['회신해 주']);
+  assert.deepEqual(matchedRiskMarkers('회신 부탁드립니다'), ['회신 부탁']);
+  assert.deepEqual(matchedRiskMarkers('금요일까지 회신 주세요'), ['까지 회신']);
 });
 
 // ----------------------------------------------------------- distinctive terms

@@ -146,9 +146,13 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 **독립 모듈**로 두고, 이 절이 그 모듈 하나를 가리킨다. 규칙을 바꿀 때는 그 모듈과 이 절만 바뀐다
 (DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **부분 구현됨**: 예외 조건 (a)(b)(카드 후보
 weak/미분류 + 결정·마감·금액·대외약속), strong 후보 둘이 서로 다른 과제를 가리키는 충돌
-(`strong_conflict`)과 확정 경로(사람만 `voice_route_cli.mjs confirm`)는
+(`strong_conflict`)과 확정 경로(`voice_route_cli.mjs confirm`이 유일한 쓰기 경로이고, `set`·`import`는
+이미 `confirmed`인 행을 거부한다 — `voice_route_segment_confirmed_locked`)는
 `src/runtime/voice_attribution_policy.mjs` v0(대조기 `harness/estate_voice_card_reconcile.mjs`)가
-구현했다. strong/weak 임계값 자체(무엇을 strong으로 볼지의 근거 수·근거 종류 규칙)는 아직
+구현했다. 다만 "사람만 확정한다"는 실행 경로(`confirm` 명령을 실제로 손으로 치는 사람)와 그 호출자를
+막는 lock·OS 파일 권한의 조합이 만드는 보장이며, CLI 자체가 `--by` 문자열이 실제 사람인지 암호학적으로
+검증하지는 않는다(어떤 스크립트든 `confirm`을 호출하면 값을 쓸 수 있다) — actor 신원을 코드로
+검증하는 것은 계획이다. strong/weak 임계값 자체(무엇을 strong으로 볼지의 근거 수·근거 종류 규칙)는 아직
 `src/runtime/voice_conversation_list.mjs`의 `checkCandidates` 안에 있으며, 판정 모듈로 옮기는 것은
 계획이다 — 매뉴얼은 지금도 실제 코드 위치와 일치해야 하므로, 임계값을 옮기기 전에는 이 문장도
 바꾸지 않는다.

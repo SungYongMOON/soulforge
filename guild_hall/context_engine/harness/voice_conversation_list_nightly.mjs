@@ -300,7 +300,12 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
         log(`${item.date} ${item.session_id} ${label}${described.reason ? ` ${described.reason}` : ''}`);
       }
     }
-    return { status: planError === null ? 'DRY' : 'FAILED', lock: null, sessions: rows, receipt: null,
+    // A session `classifySession` could not even classify (an unreadable or
+    // mismatched manifest, `session_manifest_unreadable`) is `failed` here
+    // too, the same as a real pass would report it -- a --dry preview that
+    // hides that behind DRY/exit 0 is not a preview a preflight can trust.
+    const anyRowFailed = rows.some(row => row.classification === 'failed');
+    return { status: planError !== null || anyRowFailed ? 'FAILED' : 'DRY', lock: null, sessions: rows, receipt: null,
       totals: { considered: rows.length, would_run: rows.filter(row => row.classification === 'run').length,
         ...totalsFor(rows, 'classification', 'skipped_short') },
       plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError } };
@@ -334,8 +339,13 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
         let row;
         try {
           const ran = await runSession({ io, tools, config, prompts, promptDigests, configSha256, sessionId: item.session_id });
+          // A pipeline pass that finished without throwing but did not come
+          // out `verified` (a budget ran out, a check failed) is not the same
+          // outcome as one that did -- counting it as plain `ran` let a night
+          // with real, unresolved work in it still report OK.
           row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
-            outcome: 'ran', reason: null, llm_calls: Number.isFinite(ran.llm_calls) ? ran.llm_calls : null,
+            outcome: ran.verified === true ? 'ran' : 'ran_unverified', reason: null,
+            llm_calls: Number.isFinite(ran.llm_calls) ? ran.llm_calls : null,
             seconds: Number.isFinite(ran.elapsed_ms) ? Math.round(ran.elapsed_ms / 1000) : null,
             run_id: ran.run_id ?? null, verified: ran.verified === true };
         } catch (error) {
@@ -353,17 +363,24 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
   }
 
   const failed = rows.filter(row => row.outcome === 'failed').length;
+  const ranUnverified = rows.filter(row => row.outcome === 'ran_unverified').length;
   const receipt = { schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry: false,
     lock: { reclaimed_stale: lock.reclaimed === true,
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
     plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
     sessions: rows,
-    totals: { ran: rows.filter(row => row.outcome === 'ran').length,
+    totals: { ran: rows.filter(row => row.outcome === 'ran').length, ran_unverified: ranUnverified,
       ...totalsFor(rows, 'outcome', 'skipped_short'),
       llm_calls: rows.reduce((sum, row) => sum + (row.llm_calls ?? 0), 0),
       seconds: rows.reduce((sum, row) => sum + (row.seconds ?? 0), 0) },
-    status: planError !== null ? 'FAILED' : (failed > 0 ? 'FAILED' : 'OK') };
+    // No distinct PARTIAL status: this receipt's only consumers today are the
+    // registrar's preflight gate and a human reading the receipt, and both
+    // already know what to do with FAILED. A PARTIAL value would need that
+    // (unowned by this change) gate updated to treat it as "do not register"
+    // too, which is exactly the registrar edit this fix does not make -- so
+    // an unverified run folds into FAILED, the status that already blocks it.
+    status: planError !== null || failed > 0 || ranUnverified > 0 ? 'FAILED' : 'OK' };
   mkdirSync(receiptsDir, { recursive: true });
   writeFileSync(path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`), encode(receipt));
   return { status: receipt.status, lock, sessions: rows, receipt };

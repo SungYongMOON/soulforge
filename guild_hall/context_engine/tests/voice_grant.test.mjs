@@ -28,7 +28,8 @@ import { grantCandidates } from '../harness/estate_inventory.mjs';
 import { VOICE_ROUTE_LEDGER_SCHEMA, confirmedSegments, segmentItemId, splitSegmentItemId,
   validateVoiceRouteLedger } from '../harness/voice_routes.mjs';
 import { readSemanticSegmentDrafts, sessionAddress, transcriptRunFrom } from '../harness/voice_segment_drafts.mjs';
-import { applySegmentDecision, emptyLedger, readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
+import { applySegmentDecision, emptyLedger, mergeConversationList, readLedgerFile,
+  runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { SOURCE_GRANT_SCHEMA, validateSourceDocument } from '../src/runtime/source_documents.mjs';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
@@ -697,4 +698,47 @@ test('one decision applied to one ledger changes that conversation and nothing a
     status: 'candidate', by: 'actor:owner', now: NOW }), /voice_route_source_segments_required/u);
   // The ids stay when a later decision does not mention them.
   assert.deepEqual(both.segments.find(row => row.segment_id === 'seg-a').source_segment_ids, [1, 2]);
+});
+
+test('a confirmed segment cannot be rewritten by set: the row stays exactly as the person left it', () => {
+  const confirmed = applySegmentDecision(emptyLedger('sess-lock'), { command: 'confirm', segmentId: 'seg-a',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '회신 메일과 같은 시험',
+    title: '시험 일정 합의', nature: 'project_work', quality: 'independent_strong', now: NOW });
+  const before = confirmed.segments.find(row => row.segment_id === 'seg-a');
+  assert.equal(before.status, 'confirmed');
+
+  // A machine (or anyone) trying to `set` over it is refused outright, not
+  // silently downgraded to candidate with confirmed_by dropped.
+  assert.throws(() => applySegmentDecision(confirmed, { command: 'set', segmentId: 'seg-a', status: 'candidate',
+    by: 'actor:bot:context-planner', project: MINE, basis: 'reconcile:v0 overwrite attempt', now: NOW }),
+  /voice_route_segment_confirmed_locked/u);
+  const untouched = confirmed.segments.find(row => row.segment_id === 'seg-a');
+  assert.deepEqual(untouched, before, 'the ledger is unchanged after the refused write');
+  assert.equal(untouched.status, 'confirmed');
+
+  // A person confirming it again (e.g. to refresh it) is still allowed --
+  // only `set` (and `import`, which never reaches an already-known segment at
+  // all) is locked out, not `confirm` itself.
+  const reconfirmed = applySegmentDecision(confirmed, { command: 'confirm', segmentId: 'seg-a', by: 'actor:owner',
+    project: MINE, basis: '회신 메일과 같은 시험', title: '시험 일정 합의', nature: 'project_work',
+    quality: 'independent_strong', now: '2026-09-16T00:00:00.000Z' });
+  const reconfirmedRow = reconfirmed.segments.find(row => row.segment_id === 'seg-a');
+  assert.equal(reconfirmedRow.status, 'confirmed');
+  assert.equal(reconfirmedRow.confirmed_at, '2026-09-16T00:00:00.000Z');
+});
+
+test('mergeConversationList (import) never reaches a segment already in the ledger, confirmed or not', () => {
+  const confirmed = applySegmentDecision(emptyLedger('sess-lock2'), { command: 'confirm', segmentId: 'seg-a',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '회신 메일과 같은 시험',
+    title: '시험 일정 합의', nature: 'project_work', quality: 'independent_strong', now: NOW });
+  const before = confirmed.segments.find(row => row.segment_id === 'seg-a');
+  const list = { schema: 'soulforge.voice_conversation_list.v0', session_id: 'sess-lock2', segments: [
+    { segment_id: 'seg-a', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 40, title: '다른 제목',
+      description: '', nature: 'project_work', status: 'candidate',
+      project_candidates: [{ project_code: MINE, strength: 'strong', basis: ['key_terms'], evidence_row_ids: [9] }],
+      related_segment_ids: [], refs: { transcript_run_id: null }, quality: { transcript_kind: 'independent_fast' } }] };
+  const merged = mergeConversationList(confirmed, list, { runId: 'vcl_1111111111111111', by: 'actor:machine', now: NOW });
+  assert.equal(merged.added, 0, 'a segment_id already in the ledger is never re-imported');
+  const after = merged.ledger.segments.find(row => row.segment_id === 'seg-a');
+  assert.deepEqual(after, before);
 });

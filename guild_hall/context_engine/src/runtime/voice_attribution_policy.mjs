@@ -47,28 +47,48 @@ export const MIN_CORROBORATION = 1;
 //
 // A bare '원' is deliberately not in this list: it is the last syllable of
 // many ordinary words that have nothing to do with money (지원, 원본, 직원,
-// 원인). Money is instead matched by `MONEY_PATTERN` below, which requires a
-// digit immediately before the unit -- "500,000원"/"5,000 만원" is a risk
-// marker, "지원"/"원본" and "3 원본" (a digit merely nearby, not adjacent) are
-// not.
+// 원인). Money is instead matched by `MONEY_PATTERN` below.
+//
+// A bare '회신' is deliberately not in this list either: "회신 감사합니다"
+// (thanking someone *for* a reply already received) is not a pending request
+// for one. Only a request/deadline form counts -- '회신 요청', '회신 바랍'(니다),
+// '회신해 주'(세요), '회신 부탁'(드립니다), or a deadline stated as '...까지 회신'.
+// Known miss, left for a rule-v1 decision rather than fixed here: an
+// unlisted phrasing of the same request ("회신 주세요" without '해', "답장
+// 부탁드립니다") does not match. So does any semantically equivalent request
+// that never uses '회신'/'답장' at all ("내일까지 보내 주세요"). This module
+// only matches literal marker phrases and a strict money pattern; it does not
+// parse intent.
 export const RISK_MARKERS = Object.freeze(['결정', '확정', '마감', '기한', '납기', '금액', '발주',
-  '계약', '회신', '약속', '제출']);
+  '계약', '회신 요청', '회신 바랍', '회신해 주', '회신 부탁', '까지 회신', '약속', '제출']);
 
 // A digit run (with optional thousands separators and one decimal part)
-// immediately followed by a currency unit -- '만원' may have one space
-// between '만' and '원', and one more before '만' itself ("5,000 만원"), but a
-// bare '원' or '억' must sit directly against the last digit. That last rule
-// is what keeps a list number or a sentence that merely happens to have a
-// digit nearby from matching: "1. 원인" has a digit and a '원' in the same
-// sentence, but not a digit immediately before it, so it does not match, and
-// neither does "3 원본" or "0.1.7" or "10월 12일". Checked in addition to
-// `RISK_MARKERS`, never in place of it, by both `hasRiskMarker` and
-// `matchedRiskMarkers` -- it is not itself a member of `RISK_MARKERS` since it
-// is a pattern, not a literal substring. Not global: a shared global regex's
-// `lastIndex` is exactly the kind of hidden state a caller could trip over by
-// reusing it, so `matchedRiskMarkers` builds its own global copy to collect
-// every amount in one text rather than only the first.
-export const MONEY_PATTERN = /\d[\d,]*(?:\.\d+)?(?:\s?만\s?원|억|원)/u;
+// immediately followed by a currency unit, with two guards:
+//   - a bare '원' or '억' must sit directly against the last digit UNLESS the
+//     number is large enough to plausibly be an amount on its own (4+ plain
+//     digits, or thousands-comma-grouped), in which case exactly one space is
+//     also allowed -- "5000원"/"5,000원" and now "5000 원"/"5,000 원" all
+//     match, but "3 원본"/"1 원문" (a short, unspaced-in-writing number) do
+//     not, because a short number followed by a space is far more often a
+//     list index or a stray digit than an amount written with a space before
+//     its unit.
+//   - the unit must not be followed immediately by another Hangul syllable:
+//     "3원소"/"원인"/"원본" is a different word starting with or containing
+//     '원', not an amount followed by more text. Known trade-off, not a bug:
+//     a real amount directly against a following particle with no space or
+//     punctuation ("500,000원과", "50만원이") is now also a miss. Real
+//     Korean writing usually puts a space or punctuation after an amount
+//     before continuing the sentence ("500,000원, ...", "500,000원 지출"),
+//     which still matches; the tighter case is left for rule-v1.
+// Checked in addition to `RISK_MARKERS`, never in place of it, by both
+// `hasRiskMarker` and `matchedRiskMarkers` -- it is not itself a member of
+// `RISK_MARKERS` since it is a pattern, not a literal substring. Not global: a
+// shared global regex's `lastIndex` is exactly the kind of hidden state a
+// caller could trip over by reusing it, so `matchedRiskMarkers` builds its
+// own global copy to collect every amount in one text rather than only the
+// first.
+export const MONEY_PATTERN =
+  /\d[\d,]*(?:\.\d+)?(?:\s?만\s?원|억)(?![가-힣])|\d[\d,]*(?:\.\d+)?원(?![가-힣])|(?:\d{4,}|\d{1,3}(?:,\d{3})+)(?:\.\d+)?\s원(?![가-힣])/u;
 
 // The two natures the 2026-09-20 policy ever attributes. Everything else --
 // `idea`, `personal`/`daily`, `mixed`, `unreadable`, or an unknown value -- is
