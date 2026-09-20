@@ -118,6 +118,36 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 남겨야 한다. 같은 녹음 안의 서로 다른 구간은 서로 다른 프로젝트 route를 가질 수
 있다.
 
+## 2026-09-20 운영 방침: 카드 귀속·확정·정정 (Owner 확정)
+
+2026-09-20 Owner가 확정한 운영 방침이다. 위 상태 모델의 목표 상태(`ai_provisional_project_route`,
+`exception_review_required`)를 실제로 어떻게 쓰는지 정한다. 이 절과 구현이 따로 돌면 안 되므로
+각 항목에 **구현됨 / 계획**을 표시한다.
+
+1. **기본은 해 놓기.** 야간 lane이 전날 녹음마다 대화 목록(카드)을 만들고 구간별 과제 후보를
+   붙인다(`candidate`, 근거 등급 strong/weak/미분류). 맥락이는 답에서 이 후보를 그대로 인용하며,
+   읽기·답변에는 사람 확정이 필요 없다. Owner는 읽다가 틀린 것만 한 줄로 고친다. 매 건 검토를
+   요구하지 않는다. — **구현됨**(카드 생성·후보 표시: `voice_conversation_list_nightly.mjs`, 예약작업
+   `SoulforgeVoiceConversationList` 03:00) / **계획**(strong 후보를 `ai_provisional_project_route`로
+   올리는 writer).
+2. **예외만 아침에 모아 묻기.** 두 조건이 모두 맞는 구간만 예외 검토함(`exception_review_required`)에
+   넣고 아침 브리핑 끝에 "어제 애매한 것 N건"으로 묻는다: (a) 과제 후보가 weak 또는 미분류,
+   (b) 그 구간에 결정·마감·금액·대외 약속이 있다. 답이 없으면 후보로 남고 아무 일도 일어나지
+   않는다. 해당 건이 없는 날은 그 줄이 없다. — **계획**.
+3. **정정은 반드시 카드에 반영.** DM 한 줄 답("그거 KVDS야")은 `voice_route_cli` confirm/withdraw로
+   이어져야 한다. 반영되지 않는 정정은 없다. — **계획**(명령은 있음, DM→명령 고리 없음).
+4. **확정은 정본에 쓸 때만.** 과제 폴더 `10_입력자료/VOICE`와 `30_프로젝트맥락` 페이지에 들어가는
+   것은 `accepted_project_route` 또는 strong 근거의 `ai_provisional_project_route`뿐이다. 예외 검토함에
+   있는 구간의 결정·마감·금액은 답이 오기 전에는 페이지에 쓰지 않는다. — **계획**.
+
+판정 규칙(strong/weak 임계값, 예외 조건 (a)(b), 확정 경로)은 `guild_hall/context_engine` 안의
+**독립 모듈**로 두고, 이 절이 그 모듈 하나를 가리킨다. 규칙을 바꿀 때는 그 모듈과 이 절만 바뀐다
+(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **계획**(현재 임계값은
+`src/runtime/voice_conversation_list.mjs` 안에 있음).
+
+측정 근거: 2026-09-20 두 회의 시험(`<TARGET_SOULFORGE_ROOT>/dev/handoff/CONTEXT_BASELINE_TEST_2026-09-19/05_RUNS/2026-09-20/pass1_trial/RESULT.md`) —
+경계 자르기는 정확, 귀속은 보수적(잘못 붙인 0건, 못 붙인 2건), 30개 구간 중 예외 조건에 걸리는 것 1건.
+
 ## 처리 순서
 
 1. 녹음 또는 import 결과를 session 으로 만든다.
