@@ -48,17 +48,27 @@ export const MIN_CORROBORATION = 1;
 // A bare '원' is deliberately not in this list: it is the last syllable of
 // many ordinary words that have nothing to do with money (지원, 원본, 직원,
 // 원인). Money is instead matched by `MONEY_PATTERN` below, which requires a
-// digit immediately before the unit -- "5000원"/"5,000 만원" is a risk marker,
-// "지원" is not.
+// digit immediately before the unit -- "500,000원"/"5,000 만원" is a risk
+// marker, "지원"/"원본" and "3 원본" (a digit merely nearby, not adjacent) are
+// not.
 export const RISK_MARKERS = Object.freeze(['결정', '확정', '마감', '기한', '납기', '금액', '발주',
   '계약', '회신', '약속', '제출']);
 
-// A digit run (with optional thousands separators or internal spaces)
-// immediately followed by a currency unit. Checked in addition to
+// A digit run (with optional thousands separators and one decimal part)
+// immediately followed by a currency unit -- '만원' may have one space
+// between '만' and '원', and one more before '만' itself ("5,000 만원"), but a
+// bare '원' or '억' must sit directly against the last digit. That last rule
+// is what keeps a list number or a sentence that merely happens to have a
+// digit nearby from matching: "1. 원인" has a digit and a '원' in the same
+// sentence, but not a digit immediately before it, so it does not match, and
+// neither does "3 원본" or "0.1.7" or "10월 12일". Checked in addition to
 // `RISK_MARKERS`, never in place of it, by both `hasRiskMarker` and
 // `matchedRiskMarkers` -- it is not itself a member of `RISK_MARKERS` since it
-// is a pattern, not a literal substring.
-export const MONEY_PATTERN = /\d[\d,.\s]*(원|만원|억)/u;
+// is a pattern, not a literal substring. Not global: a shared global regex's
+// `lastIndex` is exactly the kind of hidden state a caller could trip over by
+// reusing it, so `matchedRiskMarkers` builds its own global copy to collect
+// every amount in one text rather than only the first.
+export const MONEY_PATTERN = /\d[\d,]*(?:\.\d+)?(?:\s?만\s?원|억|원)/u;
 
 // The two natures the 2026-09-20 policy ever attributes. Everything else --
 // `idea`, `personal`/`daily`, `mixed`, `unreadable`, or an unknown value -- is
@@ -86,14 +96,15 @@ export function hasRiskMarker(text, markers = RISK_MARKERS) {
 
 /**
  * Every marker in `markers` (default `RISK_MARKERS`) that actually occurs in
- * `text`, in list order, followed by the matched money substring (trimmed) if
- * `MONEY_PATTERN` also matched.
+ * `text`, in list order, followed by every `MONEY_PATTERN` amount found (each
+ * trimmed), in the order they occur -- "500,000원과 50만원" reports both.
  */
 export function matchedRiskMarkers(text, markers = RISK_MARKERS) {
   const value = String(text ?? '');
   const hits = markers.filter(marker => value.includes(marker));
-  const money = MONEY_PATTERN.exec(value);
-  return money === null ? hits : [...hits, money[0].trim()];
+  const moneyPatternGlobal = new RegExp(MONEY_PATTERN.source, `${MONEY_PATTERN.flags}g`);
+  const money = [...value.matchAll(moneyPatternGlobal)].map(match => match[0].trim());
+  return [...hits, ...money];
 }
 
 /**
@@ -214,7 +225,13 @@ export function classifyAttribution(segment, corroboration = null) {
       risk_markers: [] };
   }
   const candidates = Array.isArray(segment.project_candidates) ? segment.project_candidates : [];
-  const strongCodes = new Set(candidates.filter(row => row?.strength === 'strong').map(row => row.project_code));
+  // A malformed row with no real `project_code` is excluded here rather than
+  // counted: two such rows must not collapse into "one strong candidate" by
+  // both mapping to `undefined`, and one paired with a real strong code must
+  // not manufacture a conflict between a project and nothing.
+  const strongCodes = new Set(candidates
+    .filter(row => row?.strength === 'strong' && typeof row.project_code === 'string' && row.project_code !== '')
+    .map(row => row.project_code));
   // Two different projects both marked strong is not "extra confident", it is
   // a disagreement this module has no basis to break -- so it is the very
   // first thing checked, ahead of corroboration and ahead of the single-strong

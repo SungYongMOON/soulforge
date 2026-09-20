@@ -265,6 +265,10 @@ test('a session whose existing ledger cannot be read is aborted (failed, ledger_
 
   const dryRun = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
     '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19', '--dry']);
+  // A --dry preview over a session it could not even read is not a clean
+  // preview: it fails the same way (and the same exit-code mapping) a real
+  // pass over the same broken ledger would, rather than reporting DRY/0.
+  assert.equal(dryRun.result.status, 'FAILED');
   assert.equal(dryRun.result.receipt.sessions[0].outcome, 'failed');
   assert.equal(dryRun.result.receipt.sessions[0].reason, 'ledger_unreadable');
   assert.equal(dryRun.result.receipt.sessions[0].segments.length, 0);
@@ -328,6 +332,41 @@ test('two strong candidates for different projects become exception/strong_confl
   for (const candidate of ledgerRow.project_candidates) assert.ok(!candidate.basis.startsWith('reconcile:'));
 });
 
+test('a strong_conflict segment that later resolves to a single strong candidate is overwritten, not stuck as human-protected', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', status: 'candidate', project_candidates: [
+      { project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] },
+      { project_code: 'P23-043', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [2] },
+    ] }),
+  ] });
+  const nightOne = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(nightOne.result.status, 'OK');
+  const afterNightOne = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger
+    .segments.find(item => item.segment_id === 'c001');
+  assert.equal(afterNightOne.project_candidates.find(item => item.project_code === 'P24-049').basis
+    .startsWith('voice_conversation_list:'), true); // import's own machine-written basis, from the conflict night
+
+  // The card is regenerated and the conflict is gone: only P24-049 is strong now.
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  const nightTwo = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-21T18:00:00.000Z']);
+  assert.equal(nightTwo.result.status, 'OK');
+  const row = nightTwo.result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(row.classification, 'provisional');
+  assert.equal(row.ledger_write, 'set'); // not skipped_human_candidate, even though import never confirmed anything here
+  const ledgerRow = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger
+    .segments.find(item => item.segment_id === 'c001');
+  assert.match(ledgerRow.project_candidates.find(item => item.project_code === 'P24-049').basis, /^reconcile:v0/u);
+});
+
 test('a candidate a person already wrote by hand is never overwritten, and is reported skipped_human_candidate', async () => {
   const est = await estate();
   await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
@@ -356,6 +395,41 @@ test('a candidate a person already wrote by hand is never overwritten, and is re
   const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger;
   const ledgerRow = ledger.segments.find(item => item.segment_id === 'c001');
   assert.equal(ledgerRow.project_candidates[0].basis, '사람이 직접 확인함, 아직 확정 전');
+});
+
+test('a segment with one human-protected candidate and one new candidate is set_partial_human_protected', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', project_candidates: [
+      { project_code: 'P24-049', strength: 'weak', basis: ['key_terms'], evidence_row_ids: [1] },
+      { project_code: 'P23-043', strength: 'weak', basis: ['key_terms'], evidence_row_ids: [2] },
+    ] }),
+  ] });
+  // Only P24-049 exists in the ledger already, written by a person; P23-043 is new to this ledger.
+  await mkdir(path.join(est.controlRoot, 'voice-routes'), { recursive: true });
+  await writeFile(path.join(est.controlRoot, 'voice-routes', 'sess1.json'), JSON.stringify({
+    schema_version: VOICE_ROUTE_LEDGER_SCHEMA, session_id: 'sess1', updated_at: '2026-09-19T21:00:00.000Z',
+    segments: [{ segment_id: 'c001', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 30,
+      title: '내가 확인 중', description: null, derived_summary: true, nature: 'project_work',
+      project_candidates: [{ project_code: 'P24-049', evidence_refs: [], basis: '사람이 직접 확인함, 아직 확정 전' }],
+      status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'none' },
+      transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
+      judged_by: 'actor:owner:someone', judged_at: '2026-09-19T21:00:00.000Z',
+      confirmed_by: null, confirmed_at: null }] }, null, 2));
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(row.ledger_write, 'set_partial_human_protected');
+  assert.deepEqual(row.skipped_human_candidates, ['P24-049']);
+  const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger;
+  const ledgerRow = ledger.segments.find(item => item.segment_id === 'c001');
+  const p24 = ledgerRow.project_candidates.find(item => item.project_code === 'P24-049');
+  const p23 = ledgerRow.project_candidates.find(item => item.project_code === 'P23-043');
+  assert.equal(p24.basis, '사람이 직접 확인함, 아직 확정 전'); // untouched
+  assert.match(p23.basis, /^reconcile:v0/u); // newly written
 });
 
 test('a session with no card, or an unverified one, is skipped and reported with a reason', async () => {
@@ -423,4 +497,22 @@ test('an unparseable --now, or one containing a path separator, is refused', asy
   await assert.rejects(() => runReconcileCli([...base, '--now', 'not-a-real-instant']));
   await assert.rejects(() => runReconcileCli([...base, '--now', '2026-09-20T18:00:00.000Z/../evil']));
   await assert.rejects(() => runReconcileCli([...base, '--now', '2026\\09\\20']));
+});
+
+// --------------------------------------------------------------------- log
+test('an injected log callback receives every line, in the same order, as the returned lines', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+    segment({ segment_id: 'c002', nature: 'idea', title: '아이디어', description: '' }),
+  ] });
+  const streamed = [];
+  const { result, lines } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z'], { log: line => streamed.push(line) });
+  assert.equal(result.status, 'OK');
+  assert.ok(lines.length > 0);
+  assert.deepEqual(streamed, lines);
 });

@@ -4,9 +4,11 @@
 
 - Revision: 이 항목을 포함한 커밋. 새 `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`가
   `VOICE_RECORDING_LIBRARY_V0.md`의 "2026-09-20 운영 방침"을 구현하는 교체 가능 규칙 모듈이다. 대화 목록 카드 구간을
-  `provisional`(카드 후보가 strong이거나, 약함/미분류이지만 당일±1일 메일·Linear로 뒷받침됨) · `candidate`(약함/미분류,
-  위험 표지 없음) · `exception`(약함/미분류이면서 결정·마감·금액 같은 위험 표지 있음) · `skip`(과제업무/팀운영이 아니거나
-  판독 불가)로 분류한다. 모델을 호출하지 않는 순수 함수이며 모든 분기를 단위시험으로 덮었다.
+  `provisional`(strong 후보가 정확히 하나이거나, 약함/미분류이지만 당일±1일 메일·Linear로 뒷받침됨) ·
+  `candidate`(약함/미분류, 위험 표지 없음) · `exception`(약함/미분류이면서 결정·마감·금액 같은 위험 표지가
+  있거나, 서로 다른 과제를 가리키는 strong 후보가 둘 이상이라 이 모듈이 풀 수 없는 충돌인 경우) ·
+  `skip`(과제업무/팀운영이 아니거나 판독 불가)로 분류한다. 모델을 호출하지 않는 순수 함수이며 모든 분기를
+  단위시험으로 덮었다.
 - 새 `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`가 하룻밤치 verified 카드마다 메일·Linear의
   당일±1일 자료를 직접 읽어(수집 admission grant가 아니라 `harness/estate_inventory.mjs`와 같은 alias-address 방식)
   대조하고, `voice_route_cli.mjs`의 `import`/`set` 명령만으로 `voice_route_ledger`에 `candidate` 상태 행을 쓴다.
@@ -27,6 +29,16 @@
   `failed`(`ledger_unreadable`)로 중단하고(`--dry`도 동일), `import` 실패도 세션을 `failed`로 남긴다. 사람이
   직접 쓴 후보(`basis`가 `reconcile:`로 시작하지 않음)는 절대 덮어쓰지 않고 `skipped_human_candidate`로 남긴다.
   영수증에 잠금 회수 기록을 더했고 `--now`를 검증한다.
+- 두 번째 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전): 위 MONEY_PATTERN이 실은 숫자와 안 붙어도
+  맞았다("1. 원인"→"1. 원", "3 원본"→"3 원"). 숫자 바로 뒤에 오는 `원/만원/억`만 잡도록 다시 고치고
+  (만원 앞뒤 공백은 허용, 날짜·버전은 여전히 제외) 여러 금액을 모두 모으게 했다. `strong_conflict`
+  판정에서 `project_code`가 없는 잘못된 행은 세지 않는다. 사람이 직접 쓴 후보 판정은 `reconcile:` 뿐
+  아니라 `voice_conversation_list:`(=`import`가 쓴 것)도 기계 작성으로 인정해, 충돌 밤에는
+  `set --status candidate`만 쓰고 지나간 구간이 다음 밤 충돌이 풀렸을 때도 영원히
+  `skipped_human_candidate`로 막히지 않게 했다. `--dry`도 세션이 하나라도 `ledger_unreadable`이면
+  `FAILED`/실패 종료코드를 낸다(전에는 항상 `DRY`/0). 대조기 CLI에도 `log` 콜백을 주입할 수 있고
+  `main()`은 즉시 stdout에 쓴다. 매뉴얼은 strong/weak 임계값이 아직 `voice_conversation_list.mjs`
+  안에 있다고 정정했다(판정 모듈로 옮기는 것은 계획).
 - 운영 영향: 코드만. 새 CLI를 등록·실행하기 전에는 기존 야간 lane·ledger 동작을 바꾸지 않는다.
 - 관련 경로: `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
   `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,

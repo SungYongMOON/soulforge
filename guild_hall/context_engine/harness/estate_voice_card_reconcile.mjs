@@ -28,14 +28,17 @@
 //
 // A segment already `confirmed` by a person is never touched -- this pass reads
 // the ledger before writing (in `--dry` too, so its `already_confirmed` total
-// is honest) and skips any segment a person has already decided. A project
-// candidate a person already wrote by hand -- `set --project X --basis "..."`,
-// left at `candidate` rather than confirmed -- is also left alone: this pass
-// only ever overwrites a candidate whose existing basis it wrote itself
-// (`basis` starting with `reconcile:`), and records `skipped_human_candidate`
-// or `set_partial_human_protected` rather than silently replacing it. If the
-// existing ledger cannot be read at all, the session is aborted as `failed`
-// (`ledger_unreadable`) rather than treated as having nothing confirmed.
+// is honest, and a `--dry` pass that could not even read a session's ledger
+// reports `FAILED` rather than a clean preview) and skips any segment a person
+// has already decided. A project candidate a person already wrote by hand --
+// `set --project X --basis "..."`, left at `candidate` rather than confirmed --
+// is also left alone: this pass only ever overwrites a candidate whose
+// existing basis is machine-written (`reconcile:...`, this pass's own, or
+// `voice_conversation_list:...`, `import`'s), and records
+// `skipped_human_candidate` or `set_partial_human_protected` rather than
+// silently replacing it. If the existing ledger cannot be read at all, the
+// session is aborted as `failed` (`ledger_unreadable`) rather than treated as
+// having nothing confirmed.
 //
 // Two of a card's own project candidates both marked `strong` for different
 // projects is a conflict this pass does not resolve
@@ -315,6 +318,16 @@ function existingCandidateBasis(existingLedger, segmentId, projectCode) {
   return typeof found?.basis === 'string' ? found.basis : null;
 }
 
+// A candidate whose existing basis starts with one of these was written by a
+// machine, not a person: `reconcile:` is this pass's own basis, and
+// `voice_conversation_list:` is `voice_route_cli.mjs`'s `import` command
+// seeding a fresh row straight from the card (see its `ledgerSegmentFrom`).
+// Both are safe for this pass to overwrite; anything else -- most often a
+// person's own `set --project X --basis "..."`, left at `candidate` rather
+// than confirmed -- is not, and `writeSegment` below leaves it alone.
+const MACHINE_BASIS_PREFIXES = Object.freeze(['reconcile:', 'voice_conversation_list:']);
+const isMachineWrittenBasis = basis => basis === null || MACHINE_BASIS_PREFIXES.some(prefix => basis.startsWith(prefix));
+
 /**
  * One or more 'set' calls, through the CLI's own command -- never a direct
  * ledger write. `skipProjects` is `strong_conflict`'s case: `--status
@@ -323,10 +336,13 @@ function existingCandidateBasis(existingLedger, segmentId, projectCode) {
  * left exactly as they were.
  *
  * Otherwise, one card project candidate is one `set --project`, except a
- * candidate whose *existing* ledger basis was not written by this pass
- * (`existingCandidateBasis` not starting with `reconcile:` -- a person's own
- * `set --project X --basis "..."`, left at `candidate` rather than confirmed)
- * is left untouched and counted in `skipped_human` instead.
+ * candidate whose *existing* ledger basis is not machine-written
+ * (`isMachineWrittenBasis`) is left untouched and counted in `skipped_human`
+ * instead -- which is why a segment this pass once wrote only `status:
+ * candidate` for (a `strong_conflict` night) is not stuck forever: the row
+ * `import` seeded still carries its own `voice_conversation_list:` basis,
+ * recognised as machine-written, so a later night where the conflict is gone
+ * can still overwrite it.
  */
 function writeSegment({ tablePath, tableSha256, sessionId, segment, classification, refsByCode, now,
   existingLedger, skipProjects = false }) {
@@ -341,7 +357,7 @@ function writeSegment({ tablePath, tableSha256, sessionId, segment, classificati
   const skippedHuman = [];
   for (const candidate of candidates) {
     const existingBasis = existingCandidateBasis(existingLedger, segment.segment_id, candidate.project_code);
-    if (existingBasis !== null && !existingBasis.startsWith('reconcile:')) {
+    if (!isMachineWrittenBasis(existingBasis)) {
       skippedHuman.push(candidate.project_code);
       continue;
     }
@@ -510,7 +526,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
 }
 
 // -------------------------------------------------------------------- CLI
-export async function runReconcileCli(argv, { now } = {}) {
+export async function runReconcileCli(argv, { now, log: onLine } = {}) {
   const flags = options(argv);
   const tablePath = String(flags.get('root-table') ?? '');
   if (!tablePath) fail('voice_card_reconcile_root_table_required');
@@ -540,13 +556,21 @@ export async function runReconcileCli(argv, { now } = {}) {
   const mailRoots = listOf(flags.get('mail-root'));
   const linearRoot = String(flags.get('linear-root') ?? 'data_root/ingress/linear');
 
+  // A line is kept in `lines` for a caller that reads the return value (tests,
+  // programmatic callers), and also handed to `onLine` the moment it is
+  // produced -- `main` below passes one that writes straight to stdout, the
+  // same streaming shape `voice_conversation_list_nightly.mjs`'s CLI uses.
   const lines = [];
-  const log = line => lines.push(line);
+  const log = line => { lines.push(line); if (onLine) onLine(line); };
 
   if (dry) {
     const receipt = await runReconcile({ io, tools, tablePath, tableSha256, sessionsAddress, mailRoots, linearRoot,
       receiptsDir, targetDate, dry: true, now: nowIso, log });
-    return { result: { status: 'DRY', receipt }, lines, targetDate };
+    // A `--dry` preview that could not even read every session's ledger is
+    // not a preview of a run that would succeed -- it fails the same way a
+    // real pass would, exit code included, rather than reporting `DRY`/0
+    // over a session it never actually looked at.
+    return { result: { status: receipt.status === 'FAILED' ? 'FAILED' : 'DRY', receipt }, lines, targetDate };
   }
 
   const lock = acquireLock(receiptsDir, nowIso);
@@ -564,8 +588,7 @@ export async function runReconcileCli(argv, { now } = {}) {
 }
 
 async function main() {
-  const { result, lines } = await runReconcileCli(process.argv.slice(2));
-  for (const line of lines) process.stdout.write(`${line}\n`);
+  const { result } = await runReconcileCli(process.argv.slice(2), { log: line => process.stdout.write(`${line}\n`) });
   if (result.status === 'LOCK_HELD') return 3;
   return result.status === 'FAILED' ? 2 : 0;
 }

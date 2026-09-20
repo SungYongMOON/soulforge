@@ -56,6 +56,27 @@ test('MONEY_PATTERN and hasRiskMarker/matchedRiskMarkers catch a digit-adjacent 
   assert.deepEqual(matchedRiskMarkers('결정된 예산은 1억 규모입니다'), ['결정', '1억']);
 });
 
+test('MONEY_PATTERN requires the digit immediately before the unit, not merely nearby in the sentence', () => {
+  assert.equal(MONEY_PATTERN.test('항목 1. 원인 분석'), false);
+  assert.equal(MONEY_PATTERN.test('자료 3 원본 확인'), false);
+  assert.equal(MONEY_PATTERN.test('1 원문을 참고'), false);
+  assert.equal(hasRiskMarker('항목 1. 원인 분석'), false);
+  assert.equal(hasRiskMarker('자료 3 원본 확인'), false);
+  assert.equal(hasRiskMarker('1 원문을 참고'), false);
+});
+
+test('MONEY_PATTERN matches every listed amount form, with or without a space before 만원', () => {
+  for (const text of ['500,000원', '5,000만원', '5,000 만원', '3억']) assert.equal(MONEY_PATTERN.test(text), true);
+});
+
+test('MONEY_PATTERN does not mistake a date or a version number for an amount', () => {
+  for (const text of ['10월 12일', '0.1.7', '2026년']) assert.equal(MONEY_PATTERN.test(text), false);
+});
+
+test('matchedRiskMarkers collects more than one amount in the same text', () => {
+  assert.deepEqual(matchedRiskMarkers('자재비 500,000원과 인건비 5,000 만원 모두 집행'), ['500,000원', '5,000 만원']);
+});
+
 // ----------------------------------------------------------- distinctive terms
 test('distinctiveTerms lowercases, splits on non-word characters, and drops short/numeric/generic tokens', () => {
   assert.deepEqual(distinctiveTerms('P24-049 SAS 처리장치 (저주파 SAS)'), ['p24', 'sas', '처리장치', '저주파']);
@@ -176,6 +197,18 @@ test('classifyAttribution returns exception with strong_conflict for two differe
   assert.equal(result.classification, 'exception');
   assert.equal(result.reason, 'strong_conflict');
   assert.deepEqual(result.risk_markers, []);
+});
+
+test('classifyAttribution ignores a malformed strong row with no real project_code, for both single-strong and conflict decisions', () => {
+  const malformed = { strength: 'strong', basis: ['key_terms'], evidence_row_ids: [9] }; // no project_code at all
+  const oneMalformedOnly = segment({ project_candidates: [malformed, { ...malformed }] });
+  assert.notEqual(classifyAttribution(oneMalformedOnly, null).classification, 'provisional');
+  assert.notEqual(classifyAttribution(oneMalformedOnly, null).reason, 'strong_conflict');
+
+  const realPlusMalformed = segment({ project_candidates: [strongCandidate, malformed] });
+  const result = classifyAttribution(realPlusMalformed, null);
+  assert.equal(result.classification, 'provisional');
+  assert.equal(result.reason, 'strong_candidate');
 });
 
 test('classifyAttribution returns provisional for a weak candidate corroborated by one independent source', () => {

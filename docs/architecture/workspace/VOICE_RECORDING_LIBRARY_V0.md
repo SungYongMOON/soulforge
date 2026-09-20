@@ -144,8 +144,14 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 
 판정 규칙(strong/weak 임계값, 예외 조건 (a)(b), 확정 경로)은 `guild_hall/context_engine` 안의
 **독립 모듈**로 두고, 이 절이 그 모듈 하나를 가리킨다. 규칙을 바꿀 때는 그 모듈과 이 절만 바뀐다
-(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **구현됨**(판정 모듈
-`src/runtime/voice_attribution_policy.mjs` v0, 대조기 `harness/estate_voice_card_reconcile.mjs`).
+(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **부분 구현됨**: 예외 조건 (a)(b)(카드 후보
+weak/미분류 + 결정·마감·금액·대외약속), strong 후보 둘이 서로 다른 과제를 가리키는 충돌
+(`strong_conflict`)과 확정 경로(사람만 `voice_route_cli.mjs confirm`)는
+`src/runtime/voice_attribution_policy.mjs` v0(대조기 `harness/estate_voice_card_reconcile.mjs`)가
+구현했다. strong/weak 임계값 자체(무엇을 strong으로 볼지의 근거 수·근거 종류 규칙)는 아직
+`src/runtime/voice_conversation_list.mjs`의 `checkCandidates` 안에 있으며, 판정 모듈로 옮기는 것은
+계획이다 — 매뉴얼은 지금도 실제 코드 위치와 일치해야 하므로, 임계값을 옮기기 전에는 이 문장도
+바꾸지 않는다.
 
 측정 근거: 2026-09-20 두 회의 시험(`<TARGET_SOULFORGE_ROOT>/dev/handoff/CONTEXT_BASELINE_TEST_2026-09-19/05_RUNS/2026-09-20/pass1_trial/RESULT.md`) —
 경계 자르기는 정확, 귀속은 보수적(잘못 붙인 0건, 못 붙인 2건), 30개 구간 중 예외 조건에 걸리는 것 1건.
