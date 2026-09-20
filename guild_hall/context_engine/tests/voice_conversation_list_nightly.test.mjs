@@ -512,6 +512,25 @@ test('runNightlyCli: end-to-end with real config files, an injected runSession, 
   assert.ok(written.some(name => name.endsWith('.json') && name !== 'nightly.lock'));
 });
 
+test('runNightlyCli: an injected log callback receives every line, in the same order, as the returned lines', async () => {
+  const est = await estate();
+  const target = '2026-09-19';
+  await writeSession(est.dataRoot, target, 'S_cli_stream_a', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, target, 'S_cli_stream_b', { durationSeconds: 5 }); // skipped_short
+  const now = '2026-09-20T00:00:00.000Z';
+
+  const argv = ['--root-table', est.tablePath, '--tools-config', est.toolsPath,
+    '--pipeline-config', est.configPath, '--receipts', est.receiptsDir];
+  const streamed = [];
+  const { result, lines } = await runNightlyCli(argv, { now,
+    runSession: async () => ({ run_id: 'vcl_5555555555555555', verified: true, llm_calls: 1, elapsed_ms: 10 }),
+    log: line => streamed.push(line) });
+
+  assert.equal(result.status, 'OK');
+  assert.ok(lines.length > 0);
+  assert.deepEqual(streamed, lines);
+});
+
 test('runNightlyCli: an explicit --root-table-sha256 that does not match the file is refused', async () => {
   const est = await estate();
   const argv = ['--root-table', est.tablePath, '--root-table-sha256', `sha256:${'0'.repeat(64)}`,

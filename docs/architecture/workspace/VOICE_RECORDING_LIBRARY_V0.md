@@ -133,7 +133,9 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 2. **예외만 아침에 모아 묻기.** 두 조건이 모두 맞는 구간만 예외 검토함(`exception_review_required`)에
    넣고 아침 브리핑 끝에 "어제 애매한 것 N건"으로 묻는다: (a) 과제 후보가 weak 또는 미분류,
    (b) 그 구간에 결정·마감·금액·대외 약속이 있다. 답이 없으면 후보로 남고 아무 일도 일어나지
-   않는다. 해당 건이 없는 날은 그 줄이 없다. — **계획**.
+   않는다. 해당 건이 없는 날은 그 줄이 없다. — **계획**(목록 자체는
+   `estate_voice_card_reconcile.mjs`가 매 회차 영수증의 `exception_review`에 이미 쌓는다 — 구현됨.
+   아침 브리핑이 그 목록을 읽어 묻는 연결은 아직 계획).
 3. **정정은 반드시 카드에 반영.** DM 한 줄 답("그거 KVDS야")은 `voice_route_cli` confirm/withdraw로
    이어져야 한다. 반영되지 않는 정정은 없다. — **계획**(명령은 있음, DM→명령 고리 없음).
 4. **확정은 정본에 쓸 때만.** 과제 폴더 `10_입력자료/VOICE`와 `30_프로젝트맥락` 페이지에 들어가는
@@ -142,8 +144,8 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 
 판정 규칙(strong/weak 임계값, 예외 조건 (a)(b), 확정 경로)은 `guild_hall/context_engine` 안의
 **독립 모듈**로 두고, 이 절이 그 모듈 하나를 가리킨다. 규칙을 바꿀 때는 그 모듈과 이 절만 바뀐다
-(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **계획**(현재 임계값은
-`src/runtime/voice_conversation_list.mjs` 안에 있음).
+(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **구현됨**(판정 모듈
+`src/runtime/voice_attribution_policy.mjs` v0, 대조기 `harness/estate_voice_card_reconcile.mjs`).
 
 측정 근거: 2026-09-20 두 회의 시험(`<TARGET_SOULFORGE_ROOT>/dev/handoff/CONTEXT_BASELINE_TEST_2026-09-19/05_RUNS/2026-09-20/pass1_trial/RESULT.md`) —
 경계 자르기는 정확, 귀속은 보수적(잘못 붙인 0건, 못 붙인 2건), 30개 구간 중 예외 조건에 걸리는 것 1건.

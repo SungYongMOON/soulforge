@@ -19,6 +19,14 @@
 - 아직 계획(구현 아님): 아침 브리핑에 `exception_review` 연결, DM 정정 한 줄 → `voice_route_cli confirm` 반영 고리,
   `ai_provisional_project_route` 상태 자체의 activation. 이 슬라이스는 ledger `candidate` 상태 기록과 영수증까지다.
   예약작업 등록은 이 변경에 포함하지 않았다.
+- 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전): 금액 표지는 맨 '원' 대신 숫자에 붙은 `원/만원/억`만 위험
+  표지로 본다(지원/원본/직원 같은 단어 오탐 제거). Linear 대조는 공통 업무 단어(시험·회의·검토·일정·자료 등)를
+  제너릭 목록에 더하고 겹치는 단어 2개 이상이거나 프로젝트 별칭 단어 1개를 요구한다. 메일 대조는 프로젝트 코드
+  자체(`P24-049`)가 제목·발신자에 경계 매칭으로 나오는 것도 근거로 센다. 서로 다른 두 프로젝트가 모두 strong이면
+  `exception`(`strong_conflict`)으로 두고 ledger 프로젝트를 쓰지 않는다. 기존 ledger를 못 읽으면 그 세션은
+  `failed`(`ledger_unreadable`)로 중단하고(`--dry`도 동일), `import` 실패도 세션을 `failed`로 남긴다. 사람이
+  직접 쓴 후보(`basis`가 `reconcile:`로 시작하지 않음)는 절대 덮어쓰지 않고 `skipped_human_candidate`로 남긴다.
+  영수증에 잠금 회수 기록을 더했고 `--now`를 검증한다.
 - 운영 영향: 코드만. 새 CLI를 등록·실행하기 전에는 기존 야간 lane·ledger 동작을 바꾸지 않는다.
 - 관련 경로: `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
   `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,

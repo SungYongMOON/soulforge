@@ -1,7 +1,8 @@
 // Dev harness and lane entry point: the first slice of VOICE_RECORDING_LIBRARY_V0.md's
 // "2026-09-20 운영 방침" -- for one night's conversation-list cards, look for
-// same-day mail and Linear corroboration and turn each card segment into a
-// classification (`provisional`/`candidate`/`exception`/`skip`, via
+// mail and Linear corroboration from the target day plus one day either side,
+// and turn each card segment into a classification
+// (`provisional`/`candidate`/`exception`/`skip`, via
 // `src/runtime/voice_attribution_policy.mjs`).
 //
 // What it writes and where:
@@ -26,11 +27,25 @@
 // provisional/exception, not the ledger.
 //
 // A segment already `confirmed` by a person is never touched -- this pass reads
-// the ledger before writing and skips any segment a person has already decided.
+// the ledger before writing (in `--dry` too, so its `already_confirmed` total
+// is honest) and skips any segment a person has already decided. A project
+// candidate a person already wrote by hand -- `set --project X --basis "..."`,
+// left at `candidate` rather than confirmed -- is also left alone: this pass
+// only ever overwrites a candidate whose existing basis it wrote itself
+// (`basis` starting with `reconcile:`), and records `skipped_human_candidate`
+// or `set_partial_human_protected` rather than silently replacing it. If the
+// existing ledger cannot be read at all, the session is aborted as `failed`
+// (`ledger_unreadable`) rather than treated as having nothing confirmed.
+//
+// Two of a card's own project candidates both marked `strong` for different
+// projects is a conflict this pass does not resolve
+// (`src/runtime/voice_attribution_policy.mjs`'s `strong_conflict`): the
+// segment becomes `exception` and this pass writes only `status: candidate`,
+// leaving whatever project candidates the ledger already held untouched.
 //
 // Mail and Linear are read directly, not through a source-document admission
-// grant: this pass is building a same-day corroboration signal for a nightly
-// pass, not admitting a document into a project's graph. The address convention
+// grant: this pass is building a corroboration signal for a nightly pass, not
+// admitting a document into a project's graph. The address convention
 // (`--mail-root`/`--linear-root` as alias addresses, one root per mail source,
 // one root holding a Linear custody folder per team) matches
 // `harness/estate_inventory.mjs`, which reads the same two stores the same way.
@@ -53,7 +68,7 @@ import { classifyAttribution, linearCorroborates, mailCorroborates, projectAlias
 import { defaultTargetDate, seoulDateFor, shiftDate } from './voice_conversation_list_nightly.mjs';
 import { readRun } from './voice_conversation_list_cli.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
-import { linearProjectsFor } from './estate_inventory.mjs';
+import { latestPerObject, linearProjectsFor } from './estate_inventory.mjs';
 import { readLedgerFile, runVoiceRouteCli } from './voice_route_cli.mjs';
 import { VOICE_ROUTE_LIMITS, VOICE_ROUTES_ADDRESS } from './voice_routes.mjs';
 
@@ -67,10 +82,14 @@ export const RECONCILE_ACTOR = 'actor:context-engine:voice-card-reconcile-v0';
 export const RECONCILE_STALE_LOCK_MS = 3 * 60 * 60 * 1000;
 const LOCK_FILE_NAME = 'reconcile.lock';
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/u;
-const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_JSON_BYTES = 8 * 1024 * 1024;
-const MAX_MAIL_LINE_FILE_BYTES = 512 * 1024 * 1024;
+// A single JSONL mail-event line this large is not a normal row; it is
+// skipped rather than parsed, so one corrupt or adversarial line cannot pull
+// an unbounded string into memory.
+const MAX_MAIL_LINE_BYTES = 8 * 1024 * 1024;
 const MAIL_EVENT_SCHEMA = 'email.fetch.event.v1';
+// `--now` may come from a scheduler or a human; it is never a path.
+const PATH_SEPARATOR = /[\\/]/u;
 
 export class VoiceCardReconcileError extends Error {
   constructor(code) { super(code); this.name = 'VoiceCardReconcileError'; this.code = code; }
@@ -163,6 +182,7 @@ async function readMailWindow({ io, mailRoots, seoulDays }) {
         const reader = createInterface({ input: createReadStream(where), crlfDelay: Infinity });
         for await (const line of reader) {
           if (!line.trim()) continue;
+          if (Buffer.byteLength(line, 'utf8') > MAX_MAIL_LINE_BYTES) continue;
           let event;
           try { event = JSON.parse(line); } catch { continue; }
           if (event?.schema_version !== MAIL_EVENT_SCHEMA || typeof event.event_id !== 'string') continue;
@@ -202,26 +222,15 @@ function listDirNames2(io, address) {
   return readdirSync(where, { withFileTypes: true }).map(entry => ({ name: entry.name, isDirectory: entry.isDirectory() }));
 }
 
-/** The latest revision per Linear object id, from the objects `custodyRecords` found. */
-export function latestPerObject(rows) {
-  const byId = new Map();
-  for (const { record } of rows) {
-    const id = record?.object_id;
-    if (typeof id !== 'string' || !id) continue;
-    const held = byId.get(id);
-    const when = String(record.object?.updated_at ?? '');
-    if (!held || when >= String(held.object?.updated_at ?? '')) byId.set(id, record);
-  }
-  return [...byId.values()];
-}
-
 /**
  * Linear projects and same-window issues under `linearRoot` (one team folder
  * per subdirectory, each with `projects/` and `issues/` custody folders -- the
- * layout `harness/estate_inventory.mjs` reads). An issue counts as "same
- * window" by its own `updated_at` (falling back to `created_at`), read in
- * Asia/Seoul days. Only `identifier`, `title`, `project_id` and that time are
- * ever read out of an issue; no comment, no change-log entry, no description.
+ * layout `harness/estate_inventory.mjs` reads, and whose `latestPerObject` is
+ * reused here unchanged). An issue is in the window by its own `updated_at`
+ * (falling back to `created_at`), read in Asia/Seoul days -- the target day
+ * plus one day either side. Only `identifier`, `title`, `project_id` and that
+ * time are ever read out of an issue; no comment, no change-log entry, no
+ * description.
  */
 function readLinearWindow({ io, linearRoot, seoulDays }) {
   const projects = [], issues = [];
@@ -255,7 +264,8 @@ export function aliasTermsByCode(codes, projects) {
 }
 
 /**
- * The independent same-day sources that corroborate one segment, across every
+ * The independent sources, from the day window `mailEvents`/`linearIssues`
+ * were already filtered to, that corroborate one segment -- across every
  * project code its card already named. `refsByCode` lets the caller build one
  * ledger `set` per project with only that project's own refs; `corroboration`
  * is what `classifyAttribution` reads -- corroboration of any of the segment's
@@ -269,14 +279,14 @@ export function corroborationFor({ segment, mailEvents, linearIssues, aliasByCod
     const refs = [];
     const aliasTerms = aliasByCode.get(code) ?? [];
     for (const event of mailEvents) {
-      if (mailCorroborates({ subject: event.subject, fromDisplay: event.fromDisplay }, aliasTerms)) {
+      if (mailCorroborates({ subject: event.subject, fromDisplay: event.fromDisplay }, aliasTerms, code)) {
         refs.push(`mail:${event.event_id}`);
       }
     }
     const linearIds = linearIdsByCode.get(code) ?? [];
     for (const issue of linearIssues) {
       if (issue.project_id === null || !linearIds.includes(issue.project_id) || issue.identifier === null) continue;
-      if (linearCorroborates({ title: issue.title }, segmentText)) refs.push(`linear:${issue.identifier}`);
+      if (linearCorroborates({ title: issue.title }, segmentText, aliasTerms)) refs.push(`linear:${issue.identifier}`);
     }
     refsByCode.set(code, [...new Set(refs)]);
   }
@@ -298,17 +308,43 @@ const evidenceRefsFor = ({ candidate, refs }) => {
   return [...new Set([...cardRefs, ...refs])].slice(0, VOICE_ROUTE_LIMITS.evidence_refs);
 };
 
-/** One 'import' + zero or more 'set' calls, through the CLI's own commands -- never a direct ledger write. */
-function writeSegment({ tablePath, tableSha256, sessionId, segment, classification, refsByCode, now }) {
+/** The existing ledger's own basis text for one segment's one project candidate, or `null` if there is none yet. */
+function existingCandidateBasis(existingLedger, segmentId, projectCode) {
+  const row = existingLedger?.segments?.find(item => item.segment_id === segmentId);
+  const found = row?.project_candidates?.find(item => item.project_code === projectCode);
+  return typeof found?.basis === 'string' ? found.basis : null;
+}
+
+/**
+ * One or more 'set' calls, through the CLI's own command -- never a direct
+ * ledger write. `skipProjects` is `strong_conflict`'s case: `--status
+ * candidate` only, no `--project` at all, so whatever project candidates the
+ * ledger already held (from a person, from a previous pass, or nothing) are
+ * left exactly as they were.
+ *
+ * Otherwise, one card project candidate is one `set --project`, except a
+ * candidate whose *existing* ledger basis was not written by this pass
+ * (`existingCandidateBasis` not starting with `reconcile:` -- a person's own
+ * `set --project X --basis "..."`, left at `candidate` rather than confirmed)
+ * is left untouched and counted in `skipped_human` instead.
+ */
+function writeSegment({ tablePath, tableSha256, sessionId, segment, classification, refsByCode, now,
+  existingLedger, skipProjects = false }) {
   const common = ['--root-table', tablePath, '--root-table-sha256', tableSha256, '--session', sessionId,
     '--segment', segment.segment_id, '--by', RECONCILE_ACTOR, '--now', now];
-  const candidates = Array.isArray(segment.project_candidates) ? segment.project_candidates : [];
+  const candidates = skipProjects ? [] : (Array.isArray(segment.project_candidates) ? segment.project_candidates : []);
   if (candidates.length === 0) {
     runVoiceRouteCli(['set', ...common, '--status', 'candidate']);
-    return { calls: 1 };
+    return { calls: 1, skipped_human: [] };
   }
   let calls = 0;
+  const skippedHuman = [];
   for (const candidate of candidates) {
+    const existingBasis = existingCandidateBasis(existingLedger, segment.segment_id, candidate.project_code);
+    if (existingBasis !== null && !existingBasis.startsWith('reconcile:')) {
+      skippedHuman.push(candidate.project_code);
+      continue;
+    }
     const refs = refsByCode.get(candidate.project_code) ?? [];
     const argv = ['set', ...common, '--status', 'candidate', '--project', candidate.project_code,
       '--basis', basisFor({ classification, candidate, refs })];
@@ -316,7 +352,7 @@ function writeSegment({ tablePath, tableSha256, sessionId, segment, classificati
     runVoiceRouteCli(argv);
     calls += 1;
   }
-  return { calls };
+  return { calls, skipped_human: skippedHuman };
 }
 
 // -------------------------------------------------------------------- run
@@ -326,7 +362,7 @@ function writeSegment({ tablePath, tableSha256, sessionId, segment, classificati
  */
 export async function runReconcile({ io, tools, tablePath, tableSha256, sessionsAddress = VOICE_SESSIONS_ADDRESS,
   mailRoots = [], linearRoot = 'data_root/ingress/linear', receiptsDir, targetDate, dry = false,
-  now = new Date().toISOString(), log = () => {} } = {}) {
+  now = new Date().toISOString(), lock = null, log = () => {} } = {}) {
   if (!DATE_DIR.test(targetDate ?? '')) fail('voice_card_reconcile_date_invalid');
   const seoulDays = new Set([shiftDate(targetDate, -1), targetDate, shiftDate(targetDate, 1)]);
 
@@ -337,7 +373,8 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   const sessions = [];
   const exceptionReview = [];
   const totals = { sessions: sessionIds.length, cards_read: 0, segments_considered: 0,
-    provisional: 0, candidate: 0, exception: 0, skip: 0, already_confirmed: 0, ledger_calls: 0, failed: 0 };
+    provisional: 0, candidate: 0, exception: 0, skip: 0, already_confirmed: 0, ledger_calls: 0, failed: 0,
+    human_protected_candidates: 0 };
   // Alias terms depend on which project codes actually appear on a card, which
   // is only known after the card is read -- so they are built once codes are seen.
   const aliasCache = new Map();
@@ -349,8 +386,10 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
     return aliasCache.get(code);
   };
 
+  // Read regardless of `--dry`: a preview whose `already_confirmed`/protected
+  // totals do not match what a real pass would see is not a preview.
   let routesDir = null;
-  if (!dry) { try { routesDir = io.path(VOICE_ROUTES_ADDRESS, true); } catch { routesDir = null; } }
+  try { routesDir = io.path(VOICE_ROUTES_ADDRESS, true); } catch { routesDir = null; }
 
   for (const sessionId of sessionIds) {
     let found;
@@ -367,8 +406,25 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       continue;
     }
     totals.cards_read += 1;
-    let existingLedger = null;
-    if (!dry && routesDir !== null) { try { existingLedger = readLedgerFile(routesDir, sessionId).ledger; } catch { existingLedger = null; } }
+
+    // The existing ledger decides what a person already confirmed and which
+    // candidates a person already wrote by hand -- if it cannot be read at
+    // all, this pass has no safe basis for either question, in `--dry` or
+    // not, so the session is aborted rather than treated as having nothing
+    // confirmed and nothing protected.
+    let existingLedger = null, ledgerReadCode = null;
+    if (routesDir === null) ledgerReadCode = 'voice_card_reconcile_routes_dir_unavailable';
+    else {
+      try { existingLedger = readLedgerFile(routesDir, sessionId).ledger; }
+      catch (error) { ledgerReadCode = typeof error?.code === 'string' ? error.code : 'voice_route_ledger_unreadable'; }
+    }
+    if (ledgerReadCode !== null) {
+      sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'failed', reason: 'ledger_unreadable',
+        detail: ledgerReadCode, segments: [] });
+      totals.failed += 1;
+      log(`${sessionId} failed ledger_unreadable ${ledgerReadCode}`);
+      continue;
+    }
     const confirmedIds = new Set((existingLedger?.segments ?? []).filter(row => row.status === 'confirmed')
       .map(row => row.segment_id));
 
@@ -377,7 +433,13 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
         runVoiceRouteCli(['import', '--root-table', tablePath, '--root-table-sha256', tableSha256,
           '--tools-config', tools.tools_config_path, '--session', sessionId, '--run', found.run_id,
           '--by', RECONCILE_ACTOR, '--now', now]);
-      } catch (error) { log(`${sessionId} import_failed ${error?.code ?? error?.message ?? 'unknown'}`); }
+      } catch (error) {
+        const code = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_import_failed';
+        sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'failed', reason: code, segments: [] });
+        totals.failed += 1;
+        log(`${sessionId} failed ${code}`);
+        continue;
+      }
     }
 
     const segmentRows = [];
@@ -394,16 +456,20 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       const result = classifyAttribution(segment, corroboration);
       totals[result.classification] = (totals[result.classification] ?? 0) + 1;
 
-      let ledgerWrite = 'none', writeError = null;
+      let ledgerWrite = 'none', writeError = null, skippedHuman = [];
       if (result.classification !== 'skip') {
         if (confirmedIds.has(segment.segment_id)) { ledgerWrite = 'skipped_confirmed'; totals.already_confirmed += 1; }
         else if (dry) { ledgerWrite = 'skipped_dry'; }
         else {
           try {
-            const written = writeSegment({ tablePath, tableSha256, sessionId,
-              segment, classification: result.classification, refsByCode, now });
-            ledgerWrite = 'set';
+            const written = writeSegment({ tablePath, tableSha256, sessionId, segment,
+              classification: result.classification, refsByCode, now, existingLedger,
+              skipProjects: result.reason === 'strong_conflict' });
             totals.ledger_calls += written.calls;
+            totals.human_protected_candidates += written.skipped_human.length;
+            skippedHuman = written.skipped_human;
+            ledgerWrite = written.skipped_human.length === 0 ? 'set'
+              : (written.calls === 0 ? 'skipped_human_candidate' : 'set_partial_human_protected');
           } catch (error) {
             ledgerWrite = 'failed';
             writeError = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_write_failed';
@@ -413,7 +479,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       }
       const row = { segment_id: segment.segment_id, classification: result.classification, reason: result.reason,
         risk_markers: result.risk_markers, corroboration_refs: corroboration.refs, ledger_write: ledgerWrite,
-        write_error: writeError,
+        write_error: writeError, skipped_human_candidates: skippedHuman,
         project_candidates: (segment.project_candidates ?? []).map(row2 => row2.project_code) };
       segmentRows.push(row);
       if (result.classification === 'exception') {
@@ -428,6 +494,9 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
 
   const receipt = { schema_version: RECONCILE_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry,
     policy_version: VOICE_ATTRIBUTION_POLICY_VERSION,
+    lock: lock === null ? null : { reclaimed_stale: lock.reclaimed === true,
+      previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
+      previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
     sources: { mail_roots: [...mailRoots], linear_root: linearRoot, mail_events_scanned: mail.scanned,
       mail_events_in_window: mail.events.length, linear_issues_scanned: linear.scanned,
       linear_issues_in_window: linear.issues.length },
@@ -461,6 +530,10 @@ export async function runReconcileCli(argv, { now } = {}) {
   const dry = flags.get('dry') === true;
   const nowFlag = flags.get('now');
   const nowIso = now ?? (typeof nowFlag === 'string' ? nowFlag : new Date().toISOString());
+  // A scheduler or a human supplies this; it is never a path, and it always
+  // has to be a real instant -- a lock's staleness and every timestamp this
+  // pass writes are computed from it.
+  if (!Number.isFinite(Date.parse(nowIso)) || PATH_SEPARATOR.test(nowIso)) fail('voice_card_reconcile_now_invalid');
   const dateFlag = flags.get('date');
   const targetDate = typeof dateFlag === 'string' ? dateFlag : defaultTargetDate(nowIso);
   const sessionsAddress = String(flags.get('sessions-address') ?? VOICE_SESSIONS_ADDRESS);
@@ -483,7 +556,7 @@ export async function runReconcileCli(argv, { now } = {}) {
   let receipt;
   try {
     receipt = await runReconcile({ io, tools, tablePath, tableSha256, sessionsAddress, mailRoots, linearRoot,
-      receiptsDir, targetDate, dry: false, now: nowIso, log });
+      receiptsDir, targetDate, dry: false, now: nowIso, lock, log });
   } finally {
     releaseLock(receiptsDir);
   }

@@ -1,25 +1,34 @@
 // The swappable rule module behind VOICE_RECORDING_LIBRARY_V0.md's
 // "2026-09-20 운영 방침" section: what a conversation-list card segment becomes
 // once the reconcile harness (`harness/estate_voice_card_reconcile.mjs`) has
-// looked for same-day corroboration in mail and Linear. This module does no I/O
+// looked for corroboration in mail and Linear records from the same day
+// window (the target day plus one day either side). This module does no I/O
 // and calls no model -- it only classifies what the caller already found.
 //
 // Four outcomes, in the order this module checks them:
 //   skip         the segment's nature is not `project_work` or `team_operations`
 //                (includes `unreadable`), or the segment itself could not be read.
-//   provisional  the card's own strongest project candidate is `strong`, OR the
-//                candidates are weak/absent but an independent same-day mail or
-//                Linear record corroborates one of them.
-//   exception    weak/absent candidates, no corroboration, and the segment's
+//   exception    either (a) two of the card's own project candidates are both
+//                `strong` for two different projects -- a conflict this module
+//                does not resolve (VOICE_RECORDING_LIBRARY_V0.md §승인된 목표
+//                처리선 item 10, `reason: 'strong_conflict'`), checked before
+//                anything else so a conflict is never quietly resolved by
+//                picking whichever candidate happened to be strong "enough"; or
+//                (b) weak/absent candidates, no corroboration, and the segment's
 //                title or description names a risk marker (a decision, a
 //                deadline, an amount, an external commitment).
+//   provisional  exactly one candidate is `strong` (no conflict), OR the
+//                candidates are weak/absent but an independent mail or Linear
+//                record from the same day window corroborates one of them.
 //   candidate    weak/absent candidates, no corroboration, no risk marker.
 //
 // `classifyAttribution` never decides `confirmed` -- that stays a person's word,
 // written only through `harness/voice_route_cli.mjs confirm`. It also never
 // reads a transcript: everything it looks at is the card's own derived title,
 // description, nature and project candidates, plus a corroboration verdict the
-// caller already computed with `mailCorroborates`/`linearCorroborates` below.
+// caller already computed with `mailCorroborates`/`linearCorroborates` below,
+// which look at mail and Linear records from the target day plus one day
+// either side, never only the target day itself.
 //
 // If this file's rules change, this file and the VOICE_RECORDING_LIBRARY_V0.md
 // section it implements are the only two places that change
@@ -32,13 +41,24 @@ export const VOICE_ATTRIBUTION_POLICY_VERSION = 'v0';
 export const MIN_CORROBORATION = 1;
 
 // Substring markers, matched case-sensitively against the segment's own title
-// and description (never the transcript). Deliberately blunt: '원' alone matches
-// inside many ordinary words, which is the trade this first slice makes in
-// favour of not missing an amount. Callers that want a sharper list pass their
-// own `markers` argument to `hasRiskMarker`/`matchedRiskMarkers` rather than
-// editing the segment text.
-export const RISK_MARKERS = Object.freeze(['결정', '확정', '마감', '기한', '납기', '금액', '원', '발주',
+// and description (never the transcript). Callers that want a sharper or
+// broader list pass their own `markers` argument to
+// `hasRiskMarker`/`matchedRiskMarkers` rather than editing the segment text.
+//
+// A bare '원' is deliberately not in this list: it is the last syllable of
+// many ordinary words that have nothing to do with money (지원, 원본, 직원,
+// 원인). Money is instead matched by `MONEY_PATTERN` below, which requires a
+// digit immediately before the unit -- "5000원"/"5,000 만원" is a risk marker,
+// "지원" is not.
+export const RISK_MARKERS = Object.freeze(['결정', '확정', '마감', '기한', '납기', '금액', '발주',
   '계약', '회신', '약속', '제출']);
+
+// A digit run (with optional thousands separators or internal spaces)
+// immediately followed by a currency unit. Checked in addition to
+// `RISK_MARKERS`, never in place of it, by both `hasRiskMarker` and
+// `matchedRiskMarkers` -- it is not itself a member of `RISK_MARKERS` since it
+// is a pattern, not a literal substring.
+export const MONEY_PATTERN = /\d[\d,.\s]*(원|만원|억)/u;
 
 // The two natures the 2026-09-20 policy ever attributes. Everything else --
 // `idea`, `personal`/`daily`, `mixed`, `unreadable`, or an unknown value -- is
@@ -46,24 +66,34 @@ export const RISK_MARKERS = Object.freeze(['결정', '확정', '마감', '기한
 const ATTRIBUTABLE_NATURES = Object.freeze(['project_work', 'team_operations']);
 
 // Tokens dropped from `distinctiveTerms` even though they clear the length
-// floor: common connective and time words that would otherwise make two
-// unrelated records look linked. Short on purpose -- this is not a stoplist for
-// natural-language search, only for "is this the same one word" corroboration.
+// floor: common connective, time and generic-work words that would otherwise
+// make two unrelated records look linked (a mail about a completely different
+// project's "시험 일정" shares nothing with a card segment's "시험 일정" beyond
+// the fact that both are about doing some project's work). Short on purpose --
+// this is not a stoplist for natural-language search, only for "is this the
+// same one word" corroboration.
 export const GENERIC_TERMS = Object.freeze(['그리고', '그런데', '그래서', '오늘', '내일', '어제', '지금',
-  '저희', '우리', '합니다', '했습니다', '있습니다', '됩니다', '부탁드립니다', '감사합니다']);
+  '저희', '우리', '합니다', '했습니다', '있습니다', '됩니다', '부탁드립니다', '감사합니다',
+  '시험', '회의', '검토', '일정', '자료', '확인', '보고', '계획', '진행', '준비', '데이터']);
 
 const glyphs = value => [...String(value ?? '')];
 
-/** Whether `text` contains any of `markers` (default `RISK_MARKERS`) as a plain substring. */
+/** Whether `text` contains any of `markers` (default `RISK_MARKERS`) as a plain substring, or a `MONEY_PATTERN` match. */
 export function hasRiskMarker(text, markers = RISK_MARKERS) {
   const value = String(text ?? '');
-  return markers.some(marker => value.includes(marker));
+  return markers.some(marker => value.includes(marker)) || MONEY_PATTERN.test(value);
 }
 
-/** Every marker in `markers` (default `RISK_MARKERS`) that actually occurs in `text`, in list order. */
+/**
+ * Every marker in `markers` (default `RISK_MARKERS`) that actually occurs in
+ * `text`, in list order, followed by the matched money substring (trimmed) if
+ * `MONEY_PATTERN` also matched.
+ */
 export function matchedRiskMarkers(text, markers = RISK_MARKERS) {
   const value = String(text ?? '');
-  return markers.filter(marker => value.includes(marker));
+  const hits = markers.filter(marker => value.includes(marker));
+  const money = MONEY_PATTERN.exec(value);
+  return money === null ? hits : [...hits, money[0].trim()];
 }
 
 /**
@@ -104,31 +134,57 @@ export function projectAliasTerms(projectName, code = null) {
   return distinctiveTerms(projectName).filter(term => !codeTokens.has(term));
 }
 
-/**
- * Whether a mail event corroborates a project: one of `aliasTerms` appears in
- * the subject, or in the flattened sender text the caller supplies (display
- * name and/or address, already joined -- this function reads no mail body and
- * takes none).
- */
-export function mailCorroborates({ subject, fromDisplay } = {}, aliasTerms = []) {
-  if (!Array.isArray(aliasTerms) || aliasTerms.length === 0) return false;
-  const subjectValue = String(subject ?? '').toLowerCase();
-  const fromValue = String(fromDisplay ?? '').toLowerCase();
-  return aliasTerms.some(term => subjectValue.includes(term) || fromValue.includes(term));
+// Whether `code` appears in `text` as a standalone token -- neither neighbour
+// of the match continues an identifier character. Mirrors
+// `harness/estate_inventory.mjs`'s `mailCodesIn` boundary rule rather than
+// importing it: `projectAliasTerms` deliberately strips a project code's own
+// tokens out of its alias-term list (a code is not a "word" a project is
+// known by), so a mail that names the code verbatim -- "P24-049 관련" -- needs
+// this separate, exact check to corroborate at all.
+function codeAppearsIn(text, code) {
+  if (typeof code !== 'string' || code === '') return false;
+  const value = String(text ?? '');
+  const boundary = ch => ch === '' || !/[0-9A-Za-z-]/u.test(ch);
+  const pieces = value.split(code);
+  return pieces.length > 1 && pieces.slice(0, -1)
+    .some((piece, index) => boundary(piece.slice(-1)) && boundary(pieces[index + 1].slice(0, 1)));
 }
 
 /**
- * Whether a Linear issue corroborates a segment: its title shares a distinctive
- * term with the segment's own title/description text. The project match itself
- * (is this issue even that project's) is the caller's job -- this function only
- * asks whether the words line up once the caller has already narrowed to one
+ * Whether a mail event corroborates a project: `code` (the project code, e.g.
+ * `P24-049`) appears verbatim as a standalone token in the subject or the
+ * flattened sender text, OR one of `aliasTerms` appears in either (matched
+ * case-insensitively, unlike the code check). The sender text is whatever the
+ * caller already flattened (display name and/or address); this function reads
+ * no mail body and takes none.
+ */
+export function mailCorroborates({ subject, fromDisplay } = {}, aliasTerms = [], code = null) {
+  const subjectValue = String(subject ?? '');
+  const fromValue = String(fromDisplay ?? '');
+  if (codeAppearsIn(subjectValue, code) || codeAppearsIn(fromValue, code)) return true;
+  if (!Array.isArray(aliasTerms) || aliasTerms.length === 0) return false;
+  const subjectLower = subjectValue.toLowerCase();
+  const fromLower = fromValue.toLowerCase();
+  return aliasTerms.some(term => subjectLower.includes(term) || fromLower.includes(term));
+}
+
+/**
+ * Whether a Linear issue corroborates a segment: its title and the segment's
+ * own title/description text share at least two distinct distinctive terms,
+ * or share exactly one that is also one of the project's own `aliasTerms`. A
+ * single ordinary shared word ("시스템", or any word `GENERIC_TERMS` missed) is
+ * cheap to get by coincidence across two unrelated records; a shared word the
+ * project is actually known by is not. The project match itself (is this
+ * issue even that project's) is the caller's job -- this function only asks
+ * whether the words line up once the caller has already narrowed to one
  * project's issues.
  */
-export function linearCorroborates({ title } = {}, segmentText) {
-  const issueTerms = distinctiveTerms(title);
-  if (issueTerms.length === 0) return false;
-  const segmentTerms = new Set(distinctiveTerms(segmentText));
-  return issueTerms.some(term => segmentTerms.has(term));
+export function linearCorroborates({ title } = {}, segmentText, aliasTerms = []) {
+  const issueTerms = new Set(distinctiveTerms(title));
+  if (issueTerms.size === 0) return false;
+  const shared = distinctiveTerms(segmentText).filter(term => issueTerms.has(term));
+  if (shared.length >= 2) return true;
+  return shared.length === 1 && Array.isArray(aliasTerms) && aliasTerms.includes(shared[0]);
 }
 
 /** Whether `segment` is the shape this module can classify at all. */
@@ -158,11 +214,17 @@ export function classifyAttribution(segment, corroboration = null) {
       risk_markers: [] };
   }
   const candidates = Array.isArray(segment.project_candidates) ? segment.project_candidates : [];
-  const hasStrong = candidates.some(row => row?.strength === 'strong');
+  const strongCodes = new Set(candidates.filter(row => row?.strength === 'strong').map(row => row.project_code));
+  // Two different projects both marked strong is not "extra confident", it is
+  // a disagreement this module has no basis to break -- so it is the very
+  // first thing checked, ahead of corroboration and ahead of the single-strong
+  // case, rather than silently resolved by whichever candidate the caller
+  // happened to list first.
+  if (strongCodes.size >= 2) return { ...base, classification: 'exception', reason: 'strong_conflict', risk_markers: [] };
   const corroborated = corroboration !== null && corroboration !== undefined
     && corroboration.corroborated === true
     && Array.isArray(corroboration.refs) && corroboration.refs.length >= MIN_CORROBORATION;
-  if (hasStrong) return { ...base, classification: 'provisional', reason: 'strong_candidate', risk_markers: [] };
+  if (strongCodes.size === 1) return { ...base, classification: 'provisional', reason: 'strong_candidate', risk_markers: [] };
   if (corroborated) return { ...base, classification: 'provisional', reason: 'corroborated', risk_markers: [] };
   const text = `${segment.title ?? ''}\n${segment.description ?? ''}`;
   const risks = matchedRiskMarkers(text);

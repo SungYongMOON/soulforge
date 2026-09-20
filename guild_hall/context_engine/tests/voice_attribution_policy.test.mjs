@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  GENERIC_TERMS, MIN_CORROBORATION, RISK_MARKERS, VOICE_ATTRIBUTION_POLICY_VERSION,
+  GENERIC_TERMS, MIN_CORROBORATION, MONEY_PATTERN, RISK_MARKERS, VOICE_ATTRIBUTION_POLICY_VERSION,
   classifyAttribution, distinctiveTerms, hasRiskMarker, linearCorroborates, mailCorroborates,
   matchedRiskMarkers, projectAliasTerms,
 } from '../src/runtime/voice_attribution_policy.mjs';
@@ -12,6 +12,7 @@ const segment = (overrides = {}) => ({ nature: 'project_work', title: '시험 �
   project_candidates: [], ...overrides });
 const strongCandidate = { project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] };
 const weakCandidate = { project_code: 'P24-049', strength: 'weak', basis: ['key_terms'], evidence_row_ids: [1] };
+const strongCandidateOtherProject = { project_code: 'P23-043', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [2] };
 
 // --------------------------------------------------------------- constants
 test('exports carry the version this whole module answers for', () => {
@@ -19,6 +20,7 @@ test('exports carry the version this whole module answers for', () => {
   assert.equal(MIN_CORROBORATION, 1);
   assert.ok(RISK_MARKERS.includes('결정'));
   assert.ok(RISK_MARKERS.includes('마감'));
+  assert.ok(!RISK_MARKERS.includes('원'));
 });
 
 // -------------------------------------------------------------- risk markers
@@ -41,6 +43,19 @@ test('hasRiskMarker and matchedRiskMarkers tolerate non-string input', () => {
   assert.deepEqual(matchedRiskMarkers(42), []);
 });
 
+test('a bare 원 inside an ordinary word is never a risk marker on its own', () => {
+  assert.equal(hasRiskMarker('외부 지원 인력을 확인했습니다'), false);
+  assert.equal(hasRiskMarker('원본 파일과 직원 명단을 원인 분석에 씁니다'), false);
+});
+
+test('MONEY_PATTERN and hasRiskMarker/matchedRiskMarkers catch a digit-adjacent currency amount', () => {
+  assert.equal(MONEY_PATTERN.test('지원'), false);
+  assert.equal(hasRiskMarker('자재비 500,000원 지출 예정'), true);
+  assert.deepEqual(matchedRiskMarkers('자재비 500,000원 지출 예정'), ['500,000원']);
+  assert.deepEqual(matchedRiskMarkers('예산 50만원 정도'), ['50만원']);
+  assert.deepEqual(matchedRiskMarkers('결정된 예산은 1억 규모입니다'), ['결정', '1억']);
+});
+
 // ----------------------------------------------------------- distinctive terms
 test('distinctiveTerms lowercases, splits on non-word characters, and drops short/numeric/generic tokens', () => {
   assert.deepEqual(distinctiveTerms('P24-049 SAS 처리장치 (저주파 SAS)'), ['p24', 'sas', '처리장치', '저주파']);
@@ -50,7 +65,13 @@ test('distinctiveTerms lowercases, splits on non-word characters, and drops shor
 });
 
 test('distinctiveTerms deduplicates repeated tokens', () => {
-  assert.deepEqual(distinctiveTerms('시험 시험 일정 시험'), ['시험', '일정']);
+  assert.deepEqual(distinctiveTerms('저주파 저주파 처리장치 저주파'), ['저주파', '처리장치']);
+});
+
+test('GENERIC_TERMS includes the everyday work words that would otherwise link unrelated records', () => {
+  for (const term of ['시험', '회의', '검토', '일정', '자료', '확인', '보고', '계획', '진행', '준비', '데이터']) {
+    assert.ok(GENERIC_TERMS.includes(term), term);
+  }
 });
 
 test('GENERIC_TERMS tokens never survive distinctiveTerms', () => {
@@ -80,14 +101,35 @@ test('mailCorroborates is false with no alias term present or no alias terms giv
   assert.equal(mailCorroborates({ subject: 'SAS 관련', fromDisplay: '' }, []), false);
 });
 
-// ------------------------------------------------------------ linear corroboration
-test('linearCorroborates matches a shared distinctive term between issue title and segment text', () => {
-  assert.equal(linearCorroborates({ title: 'SAS 처리장치 저주파 시험 준비' }, '시험 일정 공유 SAS 검토'), true);
+test('mailCorroborates matches the project code itself as a standalone token, even with no alias terms', () => {
+  assert.equal(mailCorroborates({ subject: 'P24-049 검토 요청', fromDisplay: '' }, [], 'P24-049'), true);
+  assert.equal(mailCorroborates({ subject: '검토 요청', fromDisplay: '담당자 <team@example.com> P24-049' }, [], 'P24-049'), true);
 });
 
-test('linearCorroborates is false when nothing distinctive overlaps', () => {
-  assert.equal(linearCorroborates({ title: '오늘 점심 메뉴' }, '시험 일정 공유'), false);
-  assert.equal(linearCorroborates({ title: '' }, '시험 일정 공유'), false);
+test('mailCorroborates does not match a code that only appears as part of a longer token, or in the wrong case', () => {
+  assert.equal(mailCorroborates({ subject: 'P24-0491 다른 과제 건' }, [], 'P24-049'), false);
+  assert.equal(mailCorroborates({ subject: 'XP24-049 안내' }, [], 'P24-049'), false);
+  assert.equal(mailCorroborates({ subject: '관련 없음' }, [], 'P24-049'), false);
+  assert.equal(mailCorroborates({ subject: '검토 요청', fromDisplay: '담당자 <p24-049-team@example.com>' }, [], 'P24-049'), false);
+});
+
+// ------------------------------------------------------------ linear corroboration
+test('linearCorroborates is true with two distinct shared distinctive terms', () => {
+  assert.equal(linearCorroborates({ title: 'SAS 처리장치 저주파 음향' }, '저주파 음향 관련 이슈'), true);
+});
+
+test('linearCorroborates is true with exactly one shared term when it is also a project alias term', () => {
+  assert.equal(linearCorroborates({ title: 'SAS 처리장치 관련 논의' }, '이슈 정리 SAS', ['sas', '처리장치', '저주파']), true);
+});
+
+test('linearCorroborates is false with exactly one shared term that is not a project alias term', () => {
+  assert.equal(linearCorroborates({ title: 'SAS 처리장치 관련 논의' }, '이슈 정리 SAS', []), false);
+  assert.equal(linearCorroborates({ title: 'SAS 처리장치 관련 논의' }, '이슈 정리 SAS'), false);
+});
+
+test('linearCorroborates is false when nothing distinctive overlaps, or the title is empty', () => {
+  assert.equal(linearCorroborates({ title: '점심 메뉴 이야기' }, '저주파 처리장치 이슈'), false);
+  assert.equal(linearCorroborates({ title: '' }, '저주파 처리장치 이슈'), false);
 });
 
 // -------------------------------------------------------------- classification
@@ -118,6 +160,21 @@ test('classifyAttribution returns provisional for a strong candidate, corroborat
   const result = classifyAttribution(withStrong, null);
   assert.equal(result.classification, 'provisional');
   assert.equal(result.reason, 'strong_candidate');
+  assert.deepEqual(result.risk_markers, []);
+});
+
+test('classifyAttribution treats two strong rows naming the same project as one candidate, not a conflict', () => {
+  const duplicated = segment({ project_candidates: [strongCandidate, { ...strongCandidate, basis: ['other'] }] });
+  const result = classifyAttribution(duplicated, null);
+  assert.equal(result.classification, 'provisional');
+  assert.equal(result.reason, 'strong_candidate');
+});
+
+test('classifyAttribution returns exception with strong_conflict for two different strong candidates, even when corroborated', () => {
+  const conflicting = segment({ project_candidates: [strongCandidate, strongCandidateOtherProject] });
+  const result = classifyAttribution(conflicting, { corroborated: true, refs: ['mail:evt-1'] });
+  assert.equal(result.classification, 'exception');
+  assert.equal(result.reason, 'strong_conflict');
   assert.deepEqual(result.risk_markers, []);
 });
 
@@ -158,5 +215,18 @@ test('classifyAttribution returns candidate for weak/unclassified with no risk m
 
 test('classifyAttribution returns candidate for a fully unclassified segment with no risk marker', () => {
   const result = classifyAttribution(segment({ project_candidates: [], title: '점심 메뉴 논의', description: '' }));
+  assert.equal(result.classification, 'candidate');
+});
+
+test('classifyAttribution treats a bare money amount, with no listed word, as a risk marker', () => {
+  const withWeak = segment({ project_candidates: [weakCandidate], title: '자재비 500,000원 지출', description: '' });
+  const result = classifyAttribution(withWeak, null);
+  assert.equal(result.classification, 'exception');
+  assert.deepEqual(result.risk_markers, ['500,000원']);
+});
+
+test('classifyAttribution does not treat an ordinary word ending in 원 as a risk marker', () => {
+  const withWeak = segment({ project_candidates: [weakCandidate], title: '외부 지원 인력 확인', description: '' });
+  const result = classifyAttribution(withWeak, null);
   assert.equal(result.classification, 'candidate');
 });
