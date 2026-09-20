@@ -75,6 +75,38 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 새 Context store를 만들지 않는다. 기존 generation/수락 receipt/ACL 검사는
 그대로 남으며 실제 actor·source grant가 없으면 실제 연결 완료가 아니다.
 
+## 대화 목록 야간 lane (2026-09-20)
+
+`harness/voice_conversation_list_nightly.mjs`는 `voice_conversation_list_cli.mjs`의 `run` 명령이 한 세션에 하는 일
+(`runConversationList`)을 하룻밤치 세션에 대해 순서대로 돌린다. 로컬 모델 하나가 뒤에 있으므로 절대 동시에 두 세션을
+돌리지 않는다.
+
+- 계획: 대상 날짜(기본은 Asia/Seoul 기준 어제)의 세션 전부, 그리고 뒤이어 `BACKLOG_WINDOW_DAYS`(7일) 안에서 아직
+  끝내지 못한 세션을 날짜가 오래된 쪽부터. 세션 판별은 `data_root/ingress/plaud/sessions/<날짜>/<세션>/`의
+  `session_manifest.json`만 읽는다 — 전사나 그래프 색인을 열지 않는다.
+- 건너뛰기: `independent_transcription.status`가 `completed`가 아니면 `transcript_absent`, `duration_seconds`가
+  30초 미만이면 `duration_below_30s`(둘 다 `skipped_short`). 이미 검증된(`verified: true`) run이 있으면
+  `skipped_existing` — 판별은 `voice_conversation_list_cli.mjs`의 `show`가 읽는 것과 같은 `readRun`(최신
+  `generated_at`)이다. 검증 전 run만 있으면 다시 돈다.
+- 잠금: `--receipts` 아래 `nightly.lock.json` 하나가 같은 밤 두 회차가 겹치는 것을 막는다. 3시간(`STALE_LOCK_MS`)
+  넘은 잠금은 버려진 것으로 보고 이전 값을 receipt에 남긴 뒤 회수한다. 잠금을 잡지 못하면 아무 것도 부르지 않고
+  종료코드 3이다.
+- 영수증: 밤마다 receipts에 `soulforge.voice_conversation_list_nightly_receipt.v1` 파일 하나. 세션마다 id·제목·
+  길이·`outcome`(`ran`·`skipped_existing`·`skipped_short`·`failed`)·이유·모델 호출 수·걸린 초를 담는다. 실패가
+  하나라도 있으면 종료코드 2, 전부 끝나면 0.
+- `--dry`는 계획과 판별만 보여주고 모델을 부르지 않으며 잠금·영수증·`derived_root` 어디에도 쓰지 않는다. 등록기의
+  preflight가 이 모드다.
+- 등록: `ops/register-voice-conversation-list-task.ps1` (+ 숨은 실행기 `ops/run-voice-conversation-list-hidden.vbs`)이
+  `SoulforgeGraphSync` 등록기와 같은 모양으로 `SoulforgeVoiceConversationList`를 매일 03:00 로컬, 숨김,
+  `--max-sessions 40`으로 등록한다. lane manifest·Node·root table·tools config·pipeline config 다섯 다 digest
+  대조 후에만 `--dry` preflight를 돌리고, `-Register`는 그 preflight의 plan digest를 그대로 돌려받아야 진행하며
+  등록 뒤 내보낸 XML을 계획과 다시 대조해 다르면 이전 정의로 되돌린다. 이 스크립트는 절대 task를 시작하지 않는다.
+- 소비: `estate_original_read.mjs --voice-session <세션> --conversation-list`가 이 lane이 만든
+  `<derived_root>/voice/<세션>/<run>/conversation_list.v0.json`을 읽는다(hermes-skill `SKILL.md` §7-a). 이 야간
+  lane은 그 파일을 채우는 쪽이고, 읽는 쪽 계약은 바꾸지 않는다.
+- 시험: `tests/voice_conversation_list_nightly.test.mjs`. 모든 "run" 경로는 `runSession`을 주입해 실제 모델을
+  부르지 않는다.
+
 ## 과제를 넘나드는 공통 용어 등록부
 
 여러 과제가 같은 일을 하니 같은 말을 쓴다. CDR·수신부·앰프·해상시험이 그렇고, 그런 말 하나로는 어떤 기록이

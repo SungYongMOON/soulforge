@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-09-20 - 대화 목록 야간 lane 추가
+
+- Revision: 이 항목을 포함한 커밋. Context Engine의 대화 목록 파이프라인(`voice_conversation_list_cli.mjs`)을
+  하룻밤치 PLAUD 세션에 대해 순서대로 돌리는 하니스 `voice_conversation_list_nightly.mjs`를 추가한다. 대상
+  날짜(기본 Asia/Seoul 어제)와 밀린 세션(최근 7일 안에 아직 못 끝낸 것)을 계획하고, 전사 부재·30초 미만·이미
+  검증된 run을 건너뛴 뒤 나머지를 하나씩 돈다.
+- 잠금 파일로 같은 밤 두 회차가 겹치지 않게 하며, 3시간 넘은 잠금은 버려진 것으로 보고 회수한다. `--dry`는 계획만
+  보여주고 모델 호출·잠금·영수증·파생 출력 어디에도 쓰지 않는다.
+- 등록기 `ops/register-voice-conversation-list-task.ps1`(+ 숨은 실행기 `ops/run-voice-conversation-list-hidden.vbs`)이
+  기존 그래프 동기화 등록기와 같은 방식으로 `SoulforgeVoiceConversationList`를 매일 03:00 로컬, 숨김으로 등록할 수
+  있게 한다. 이 변경 자체는 어떤 예약작업도 등록하지 않는다.
+- 운영 영향: 등록은 별도 operator 조치다. lane manifest·Node·root table·tools config·pipeline config 다섯
+  digest를 대조한 뒤에만 `--dry` preflight를 돌리고, `-Register`는 그 plan digest를 그대로 돌려받아야 한다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/ops/run-voice-conversation-list-hidden.vbs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`.
+
 ## 2026-09-17 - Slack 최신 구간 수집과 과거 페이지 진행 복구
 
 - Revision: 이 항목을 포함한 커밋. 최신 시각 이후의 head 구간을 먼저 수집하고,
