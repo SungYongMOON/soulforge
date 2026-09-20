@@ -68,7 +68,7 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { classifyAttribution, linearCorroborates, mailCorroborates, projectAliasTerms,
   VOICE_ATTRIBUTION_POLICY_VERSION } from '../src/runtime/voice_attribution_policy.mjs';
-import { defaultTargetDate, seoulDateFor, shiftDate } from './voice_conversation_list_nightly.mjs';
+import { NIGHTLY_RECEIPT_SCHEMA, defaultTargetDate, seoulDateFor, shiftDate } from './voice_conversation_list_nightly.mjs';
 import { readRun } from './voice_conversation_list_cli.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
 import { latestPerObject, linearProjectsFor } from './estate_inventory.mjs';
@@ -206,6 +206,84 @@ function listFileNamesReporting(io, address, unreadable) {
     unreadable.push({ address, code: 'voice_card_reconcile_dir_unreadable', cause_code: error?.code ?? null });
     return [];
   }
+}
+
+// -------------------------------------------------------------- S2-5 backlog
+// A session_id may not contain this character (safe-segment id patterns
+// elsewhere in this file are alphanumerics, '.', '_', '-' only), so it cannot
+// collide with either half of the pair it separates.
+const RECONCILED_PAIR_SEP = String.fromCharCode(31);
+const reconciledPairKey = (sessionId, runId) => `${sessionId}${RECONCILED_PAIR_SEP}${runId}`;
+
+/**
+ * Every session_id a nightly-lane receipt in `nightlyReceiptsDir` (the same
+ * plain directory path the nightly lane's own `--receipts` names -- not an
+ * `io` alias address, since the nightly lane's receipts are not addressed
+ * through the root table either) reported outcome `ran` and `verified:
+ * true`, across every receipt file found there, deduplicated. `--date`
+ * remains this harness's fallback/manual mode; this is the alternative
+ * session source `--nightly-receipts` selects, reaching whatever the nightly
+ * lane actually finished (any date, any backlog night) rather than only
+ * today's own date folder.
+ *
+ * A directory that simply does not exist yet (the nightly lane has never run)
+ * plans zero sessions, the same as an absent date folder does; any other
+ * read failure is a real configuration error and is thrown.
+ */
+function collectBacklogSessions(nightlyReceiptsDir) {
+  let names;
+  try { names = readdirSync(nightlyReceiptsDir); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return { sessionIds: [], dates: [] };
+    throw new DirListError('voice_card_reconcile_nightly_receipts_unreadable', error?.code ?? null);
+  }
+  const ids = new Set(), dates = new Set();
+  for (const name of names.filter(entry => entry.endsWith('.json'))) {
+    let body;
+    try { body = JSON.parse(readFileSync(path.join(nightlyReceiptsDir, name), 'utf8')); } catch { continue; }
+    if (body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA || !Array.isArray(body.sessions)) continue;
+    let contributed = false;
+    for (const row of body.sessions) {
+      if (row?.outcome === 'ran' && row?.verified === true && typeof row.session_id === 'string') {
+        ids.add(row.session_id);
+        contributed = true;
+      }
+    }
+    // The mail/Linear day window has to cover every night this pass actually
+    // draws sessions from, not just one caller-given date.
+    if (contributed && DATE_DIR.test(body.target_date ?? '')) dates.add(body.target_date);
+  }
+  return { sessionIds: [...ids].sort(), dates: [...dates].sort() };
+}
+
+/**
+ * Every `(session_id, run_id)` pair a past run of *this* harness already
+ * recorded as reconciled, read from every receipt already sitting in
+ * `receiptsDir`. Used only in `--nightly-receipts` backlog mode: reconcile
+ * re-evaluates today's own date-folder sessions every night regardless (mail
+ * arriving, a person confirming or withdrawing something changes what the
+ * right answer is even for the same run_id), but a backlog scan across
+ * months of nightly history must not silently redo everything it already
+ * finished every single pass -- exactly the pairs a person or the nightly
+ * lane has not touched since are skipped, and a session whose run_id changed
+ * (S2-1 staleness, a fresh transcript, ...) is reconciled again because its
+ * new run_id was never recorded.
+ */
+function readAlreadyReconciledPairs(receiptsDir) {
+  const seen = new Set();
+  let names;
+  try { names = readdirSync(receiptsDir); } catch { return seen; }
+  for (const name of names.filter(entry => entry.endsWith('.json'))) {
+    let body;
+    try { body = JSON.parse(readFileSync(path.join(receiptsDir, name), 'utf8')); } catch { continue; }
+    if (body?.schema_version !== RECONCILE_RECEIPT_SCHEMA || !Array.isArray(body.reconciled_runs)) continue;
+    for (const pair of body.reconciled_runs) {
+      if (typeof pair?.session_id === 'string' && typeof pair?.run_id === 'string') {
+        seen.add(reconciledPairKey(pair.session_id, pair.run_id));
+      }
+    }
+  }
+  return seen;
 }
 
 // -------------------------------------------------------------------- mail
@@ -409,30 +487,60 @@ const isMachineWrittenBasis = basis => basis === null || MACHINE_BASIS_PREFIXES.
  * can still overwrite it.
  */
 function writeSegment({ tablePath, tableSha256, sessionId, segment, classification, refsByCode, now,
-  existingLedger, skipProjects = false }) {
+  existingLedger, skipProjects = false, withdrawnCodes = new Set() }) {
   const common = ['--root-table', tablePath, '--root-table-sha256', tableSha256, '--session', sessionId,
     '--segment', segment.segment_id, '--by', RECONCILE_ACTOR, '--now', now];
   const candidates = skipProjects ? [] : (Array.isArray(segment.project_candidates) ? segment.project_candidates : []);
+  const existingRow = existingLedger?.segments?.find(item => item.segment_id === segment.segment_id) ?? null;
+  const currentCodes = new Set(candidates.map(candidate => candidate.project_code));
+  let calls = 0;
+  const skippedHuman = [], skippedWithdrawn = [];
+
   if (candidates.length === 0) {
     runVoiceRouteCli(['set', ...common, '--status', 'candidate']);
-    return { calls: 1, skipped_human: [] };
-  }
-  let calls = 0;
-  const skippedHuman = [];
-  for (const candidate of candidates) {
-    const existingBasis = existingCandidateBasis(existingLedger, segment.segment_id, candidate.project_code);
-    if (!isMachineWrittenBasis(existingBasis)) {
-      skippedHuman.push(candidate.project_code);
-      continue;
-    }
-    const refs = refsByCode.get(candidate.project_code) ?? [];
-    const argv = ['set', ...common, '--status', 'candidate', '--project', candidate.project_code,
-      '--basis', basisFor({ classification, candidate, refs })];
-    for (const ref of evidenceRefsFor({ candidate, refs })) argv.push('--evidence', ref);
-    runVoiceRouteCli(argv);
     calls += 1;
+  } else {
+    for (const candidate of candidates) {
+      // A person already took this project back for this segment (S2-4);
+      // this pass does not re-propose it, whatever the card still says.
+      if (withdrawnCodes.has(candidate.project_code)) {
+        skippedWithdrawn.push(candidate.project_code);
+        continue;
+      }
+      const existingBasis = existingCandidateBasis(existingLedger, segment.segment_id, candidate.project_code);
+      if (!isMachineWrittenBasis(existingBasis)) {
+        skippedHuman.push(candidate.project_code);
+        continue;
+      }
+      const refs = refsByCode.get(candidate.project_code) ?? [];
+      const argv = ['set', ...common, '--status', 'candidate', '--project', candidate.project_code,
+        '--basis', basisFor({ classification, candidate, refs })];
+      for (const ref of evidenceRefsFor({ candidate, refs })) argv.push('--evidence', ref);
+      runVoiceRouteCli(argv);
+      calls += 1;
+    }
   }
-  return { calls, skipped_human: skippedHuman };
+
+  // A candidate this pass itself wrote (or `import` seeded) on an earlier
+  // night, for a project the current card no longer lists at all, is retired
+  // via the ledger's own `--drop-project` rather than left to sit forever --
+  // this is exactly what closed CE-33's A/B strong-conflict case (B stayed in
+  // the ledger even after the next card was A-only). Never touches a
+  // candidate a person wrote by hand, and `skipProjects` (a `strong_conflict`
+  // night) retires nothing either: that night writes only `status: candidate`
+  // and leaves every existing project candidate exactly where it was.
+  const retired = [];
+  if (!skipProjects) {
+    for (const existingCandidate of existingRow?.project_candidates ?? []) {
+      if (currentCodes.has(existingCandidate.project_code)) continue;
+      if (!isMachineWrittenBasis(existingCandidate.basis)) continue;
+      runVoiceRouteCli(['set', ...common, '--status', 'candidate', '--drop-project', existingCandidate.project_code]);
+      calls += 1;
+      retired.push(existingCandidate.project_code);
+    }
+  }
+
+  return { calls, skipped_human: skippedHuman, skipped_withdrawn: skippedWithdrawn.sort(), retired: retired.sort() };
 }
 
 // -------------------------------------------------------------------- run
@@ -441,28 +549,52 @@ function writeSegment({ tablePath, tableSha256, sessionId, segment, classificati
  * inspect (or refuse) every ledger call without touching a real ledger file.
  */
 export async function runReconcile({ io, tools, tablePath, tableSha256, sessionsAddress = VOICE_SESSIONS_ADDRESS,
-  mailRoots = [], linearRoot = 'data_root/ingress/linear', receiptsDir, targetDate, dry = false,
+  mailRoots = [], linearRoot = 'data_root/ingress/linear', receiptsDir, targetDate = null,
+  nightlyReceiptsDir = null, dry = false,
   now = new Date().toISOString(), lock = null, log = () => {} } = {}) {
-  if (!DATE_DIR.test(targetDate ?? '')) fail('voice_card_reconcile_date_invalid');
-  const seoulDays = new Set([shiftDate(targetDate, -1), targetDate, shiftDate(targetDate, 1)]);
+  const backlogMode = nightlyReceiptsDir !== null;
+  // `--date` is the fallback/manual mode's own required input; in backlog
+  // mode the sessions (and the dates whose mail/Linear window matters) come
+  // from the nightly lane's receipts instead, so `--date` is not required --
+  // but if given anyway (nothing here forbids it), it still has to be a
+  // real date.
+  if (!backlogMode && !DATE_DIR.test(targetDate ?? '')) fail('voice_card_reconcile_date_invalid');
+  if (backlogMode && targetDate !== null && !DATE_DIR.test(targetDate)) fail('voice_card_reconcile_date_invalid');
 
-  // A wrong `--sessions-address` (or its alias gone from the root table) is a
-  // configuration error, not "no sessions today": it fails the whole pass,
-  // the same distinction `buildSessionPlan` already makes for the nightly
-  // conversation-list lane.
-  let sessionIds = [], sessionsErrorCode = null;
-  try { sessionIds = listDirNamesOrThrow(io, `${sessionsAddress}/${targetDate}`); }
-  catch (error) { sessionsErrorCode = error.code; }
+  // A wrong `--sessions-address` (or its alias gone from the root table), or
+  // a wrong `--nightly-receipts` (S2-5), is a configuration error, not "no
+  // sessions today": it fails the whole pass, the same distinction
+  // `buildSessionPlan` already makes for the nightly conversation-list lane.
+  let sessionIds = [], sessionsErrorCode = null, backlogDates = [];
+  if (backlogMode) {
+    try { ({ sessionIds, dates: backlogDates } = collectBacklogSessions(nightlyReceiptsDir)); }
+    catch (error) {
+      sessionsErrorCode = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_nightly_receipts_unreadable';
+    }
+  } else {
+    try { sessionIds = listDirNamesOrThrow(io, `${sessionsAddress}/${targetDate}`); }
+    catch (error) { sessionsErrorCode = error.code; }
+  }
+  const seoulDays = backlogMode
+    ? new Set(backlogDates.flatMap(date => [shiftDate(date, -1), date, shiftDate(date, 1)]))
+    : new Set([shiftDate(targetDate, -1), targetDate, shiftDate(targetDate, 1)]);
   const mail = sessionsErrorCode === null ? await readMailWindow({ io, mailRoots, seoulDays })
     : { events: [], scanned: 0, unreadable: [] };
   const linear = sessionsErrorCode === null ? readLinearWindow({ io, linearRoot, seoulDays })
     : { projects: [], issues: [], scanned: 0, unreadable: [] };
+  // Only consulted in backlog mode; a plain --date pass re-evaluates today's
+  // sessions every time regardless (see collectBacklogSessions's own doc).
+  // Read in `--dry` too, so a backlog preview does not claim work a real pass
+  // would actually skip.
+  const alreadyReconciled = backlogMode ? readAlreadyReconciledPairs(receiptsDir) : new Set();
+  const reconciledRunsThisPass = [];
 
   const sessions = [];
   const exceptionReview = [];
   const totals = { sessions: sessionIds.length, cards_read: 0, segments_considered: 0,
     provisional: 0, candidate: 0, exception: 0, skip: 0, already_confirmed: 0, confirmed_at_write: 0,
-    ledger_calls: 0, failed: 0, human_protected_candidates: 0 };
+    ledger_calls: 0, failed: 0, human_protected_candidates: 0, segment_identity_changed: 0, retired_candidates: 0,
+    withdrawn_projects_skipped: 0 };
   // Alias terms depend on which project codes actually appear on a card, which
   // is only known after the card is read -- so they are built once codes are seen.
   const aliasCache = new Map();
@@ -493,6 +625,15 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       log(`${sessionId} skipped card_not_verified`);
       continue;
     }
+    // S2-5: this exact (session_id, run_id) pair was already fully
+    // reconciled by an earlier backlog pass. A --date pass never reaches
+    // here (alreadyReconciled is empty outside backlog mode) -- today's own
+    // sessions are always re-evaluated.
+    if (alreadyReconciled.has(reconciledPairKey(sessionId, found.run_id))) {
+      sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'skipped', reason: 'already_reconciled_run', segments: [] });
+      log(`${sessionId} skipped already_reconciled_run`);
+      continue;
+    }
     totals.cards_read += 1;
 
     // The existing ledger decides what a person already confirmed and which
@@ -516,18 +657,25 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
     const confirmedIds = new Set((existingLedger?.segments ?? []).filter(row => row.status === 'confirmed')
       .map(row => row.segment_id));
 
-    if (!dry) {
-      try {
-        runVoiceRouteCli(['import', '--root-table', tablePath, '--root-table-sha256', tableSha256,
-          '--tools-config', tools.tools_config_path, '--session', sessionId, '--run', found.run_id,
-          '--by', RECONCILE_ACTOR, '--now', now]);
-      } catch (error) {
-        const code = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_import_failed';
-        sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'failed', reason: code, segments: [] });
-        totals.failed += 1;
-        log(`${sessionId} failed ${code}`);
-        continue;
-      }
+    // Always run through the CLI's own `import` -- with `--dry` in dry mode,
+    // so it writes nothing there -- rather than skip it: `import`'s
+    // `identity_changed` (a machine-drafted row this run's card would reuse a
+    // segment_id for, but over a different stretch of the recording) has to
+    // be known before the per-segment loop decides what to write, and a
+    // `--dry` preview that never checked is not a preview of what a real pass
+    // would actually do.
+    let identityChanged = new Set();
+    try {
+      const imported = runVoiceRouteCli(['import', '--root-table', tablePath, '--root-table-sha256', tableSha256,
+        '--tools-config', tools.tools_config_path, '--session', sessionId, '--run', found.run_id,
+        '--by', RECONCILE_ACTOR, '--now', now, ...(dry ? ['--dry'] : [])]);
+      identityChanged = new Set(imported?.identity_changed ?? []);
+    } catch (error) {
+      const code = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_import_failed';
+      sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'failed', reason: code, segments: [] });
+      totals.failed += 1;
+      log(`${sessionId} failed ${code}`);
+      continue;
     }
 
     const segmentRows = [];
@@ -541,12 +689,32 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       }
       const { corroboration, refsByCode } = corroborationFor({ segment, mailEvents: mail.events,
         linearIssues: linear.issues, aliasByCode, linearIdsByCode });
-      const result = classifyAttribution(segment, corroboration);
+      // A project a person already took back for this exact segment (S2-4:
+      // `withdraw`, or an explicit A->B correction) is not this pass's to
+      // re-propose. It is filtered into the classifier's own input rather
+      // than checked after the fact: a withdrawn `strong` candidate reads as
+      // `weak` here, so the segment cannot ride straight to `provisional` on
+      // a candidate a person has already said no to -- classifyAttribution's
+      // own check order is unchanged, only what it is handed is.
+      const existingSegmentRow = existingLedger?.segments?.find(item => item.segment_id === segment.segment_id) ?? null;
+      const withdrawnCodes = new Set((existingSegmentRow?.withdrawn ?? []).map(entry => entry.project_code));
+      const classifiedSegment = withdrawnCodes.size === 0 ? segment : { ...segment,
+        project_candidates: (segment.project_candidates ?? []).map(candidate => withdrawnCodes.has(candidate.project_code)
+          && candidate.strength === 'strong' ? { ...candidate, strength: 'weak' } : candidate) };
+      const result = classifyAttribution(classifiedSegment, corroboration);
       totals[result.classification] = (totals[result.classification] ?? 0) + 1;
 
-      let ledgerWrite = 'none', writeError = null, skippedHuman = [];
+      let ledgerWrite = 'none', writeError = null, skippedHuman = [], skippedWithdrawn = [], retiredCandidates = [];
       if (result.classification !== 'skip') {
-        if (confirmedIds.has(segment.segment_id)) { ledgerWrite = 'skipped_confirmed'; totals.already_confirmed += 1; }
+        // `import` already refused to reuse this segment_id for this run's
+        // scope (a machine-drafted row addressing a different stretch of the
+        // recording): writing to it here would attach this run's judgement to
+        // the wrong conversation. Left for a person to resolve.
+        if (identityChanged.has(segment.segment_id)) {
+          ledgerWrite = 'skipped_segment_identity_changed';
+          totals.segment_identity_changed += 1;
+        }
+        else if (confirmedIds.has(segment.segment_id)) { ledgerWrite = 'skipped_confirmed'; totals.already_confirmed += 1; }
         else if (dry) { ledgerWrite = 'skipped_dry'; }
         else {
           // The confirmedIds check above is only as fresh as the read this
@@ -568,12 +736,22 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
             try {
               const written = writeSegment({ tablePath, tableSha256, sessionId, segment,
                 classification: result.classification, refsByCode, now, existingLedger,
-                skipProjects: result.reason === 'strong_conflict' });
+                skipProjects: result.reason === 'strong_conflict', withdrawnCodes });
               totals.ledger_calls += written.calls;
               totals.human_protected_candidates += written.skipped_human.length;
+              totals.withdrawn_projects_skipped += written.skipped_withdrawn.length;
+              totals.retired_candidates += written.retired.length;
               skippedHuman = written.skipped_human;
-              ledgerWrite = written.skipped_human.length === 0 ? 'set'
-                : (written.calls === 0 ? 'skipped_human_candidate' : 'set_partial_human_protected');
+              skippedWithdrawn = written.skipped_withdrawn;
+              retiredCandidates = written.retired;
+              if (written.calls > 0) {
+                ledgerWrite = written.skipped_human.length === 0 && written.skipped_withdrawn.length === 0
+                  ? 'set' : 'set_partial_human_protected';
+              } else if (written.skipped_withdrawn.length > 0 && written.skipped_human.length === 0) {
+                ledgerWrite = 'skipped_withdrawn_project';
+              } else {
+                ledgerWrite = 'skipped_human_candidate';
+              }
             } catch (error) {
               const code = typeof error?.code === 'string' ? error.code : 'voice_card_reconcile_write_failed';
               if (code === 'voice_route_segment_confirmed_locked') {
@@ -591,6 +769,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       const row = { segment_id: segment.segment_id, classification: result.classification, reason: result.reason,
         risk_markers: result.risk_markers, corroboration_refs: corroboration.refs, ledger_write: ledgerWrite,
         write_error: writeError, skipped_human_candidates: skippedHuman,
+        skipped_withdrawn_projects: skippedWithdrawn, retired_candidates: retiredCandidates,
         project_candidates: (segment.project_candidates ?? []).map(row2 => row2.project_code) };
       segmentRows.push(row);
       if (result.classification === 'exception') {
@@ -601,6 +780,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       log(`${sessionId} ${segment.segment_id} ${result.classification}${ledgerWrite !== 'none' ? ` ${ledgerWrite}` : ''}`);
     }
     sessions.push({ session_id: sessionId, run_id: found.run_id, outcome: 'reconciled', reason: null, segments: segmentRows });
+    reconciledRunsThisPass.push({ session_id: sessionId, run_id: found.run_id });
   }
 
   const sourcesUnreadable = [...mail.unreadable, ...linear.unreadable];
@@ -609,7 +789,9 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
     lock: lock === null ? null : { reclaimed_stale: lock.reclaimed === true,
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
-    plan: { sessions_address: `${sessionsAddress}/${targetDate}`, error: sessionsErrorCode },
+    plan: backlogMode
+      ? { mode: 'backlog', nightly_receipts_dir: nightlyReceiptsDir, dates: backlogDates, error: sessionsErrorCode }
+      : { mode: 'date', sessions_address: `${sessionsAddress}/${targetDate}`, error: sessionsErrorCode },
     sources: { mail_roots: [...mailRoots], linear_root: linearRoot, mail_events_scanned: mail.scanned,
       mail_events_in_window: mail.events.length, linear_issues_scanned: linear.scanned,
       linear_issues_in_window: linear.issues.length,
@@ -617,6 +799,10 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       // from `exception_review`/`sessions` is not "checked, found nothing".
       sources_unreadable: sourcesUnreadable },
     seoul_days: [...seoulDays].sort(), sessions, exception_review: exceptionReview, totals,
+    // S2-5: every (session_id, run_id) this pass actually finished
+    // reconciling, so a later backlog pass -- reading this same receipt back
+    // via `readAlreadyReconciledPairs` -- does not redo it.
+    reconciled_runs: reconciledRunsThisPass,
     status: sessionsErrorCode !== null || totals.failed > 0 ? 'FAILED' : 'OK' };
   if (!dry) {
     mkdirSync(receiptsDir, { recursive: true });
@@ -650,8 +836,16 @@ export async function runReconcileCli(argv, { now, log: onLine } = {}) {
   // has to be a real instant -- a lock's staleness and every timestamp this
   // pass writes are computed from it.
   if (!Number.isFinite(Date.parse(nowIso)) || PATH_SEPARATOR.test(nowIso)) fail('voice_card_reconcile_now_invalid');
+  // S2-5: `--nightly-receipts <dir>` switches this pass to backlog mode --
+  // sessions come from the nightly lane's own receipts instead of a single
+  // day's session listing, so an explicit `--date` is optional (kept only as
+  // the window-validation input `runReconcile` already accepts) and the
+  // usual "yesterday" default is not forced onto a backlog pass.
+  const nightlyReceiptsFlag = flags.get('nightly-receipts');
+  const nightlyReceiptsDir = typeof nightlyReceiptsFlag === 'string' ? nightlyReceiptsFlag : null;
   const dateFlag = flags.get('date');
-  const targetDate = typeof dateFlag === 'string' ? dateFlag : defaultTargetDate(nowIso);
+  const targetDate = typeof dateFlag === 'string' ? dateFlag
+    : (nightlyReceiptsDir !== null ? null : defaultTargetDate(nowIso));
   const sessionsAddress = String(flags.get('sessions-address') ?? VOICE_SESSIONS_ADDRESS);
   const mailRoots = listOf(flags.get('mail-root'));
   const linearRoot = String(flags.get('linear-root') ?? 'data_root/ingress/linear');
@@ -665,7 +859,7 @@ export async function runReconcileCli(argv, { now, log: onLine } = {}) {
 
   if (dry) {
     const receipt = await runReconcile({ io, tools, tablePath, tableSha256, sessionsAddress, mailRoots, linearRoot,
-      receiptsDir, targetDate, dry: true, now: nowIso, log });
+      receiptsDir, targetDate, nightlyReceiptsDir, dry: true, now: nowIso, log });
     // A `--dry` preview that could not even read every session's ledger is
     // not a preview of a run that would succeed -- it fails the same way a
     // real pass would, exit code included, rather than reporting `DRY`/0
@@ -680,7 +874,7 @@ export async function runReconcileCli(argv, { now, log: onLine } = {}) {
   let receipt;
   try {
     receipt = await runReconcile({ io, tools, tablePath, tableSha256, sessionsAddress, mailRoots, linearRoot,
-      receiptsDir, targetDate, dry: false, now: nowIso, lock, log });
+      receiptsDir, targetDate, nightlyReceiptsDir, dry: false, now: nowIso, lock, log });
   } finally {
     releaseLock(receiptsDir);
   }

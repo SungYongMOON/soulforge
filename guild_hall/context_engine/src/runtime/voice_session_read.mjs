@@ -85,6 +85,12 @@ const MAX_TRANSCRIPT_BYTES = 32 * 1024 * 1024;
 const MAX_LABEL_BYTES = 32 * 1024 * 1024;
 const MAX_CONVERSATION_BYTES = 32 * 1024 * 1024;
 const CONVERSATION_FILE = 'conversation_list.v0.json';
+const MAX_LEDGER_BYTES = 4 * 1024 * 1024;
+// Mirrors `harness/voice_routes.mjs`'s own `VOICE_ROUTES_ADDRESS` -- not
+// imported from there so this read-only, best-effort marking stays a leaf
+// (`src/runtime` reading the harness layer would run the dependency the
+// other way around from everywhere else in this module tree).
+const VOICE_ROUTES_ADDRESS = 'control_root/voice-routes';
 const CORRECTIONS_FILE = 'corrections.v0.json';
 const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
@@ -464,8 +470,39 @@ export function correctionRow(row) {
     status: String(row?.status ?? 'proposed') };
 }
 
-/** One row of that list, with the audio reference dropped: this tool never hands one out. */
-export function conversationRow(row, recordedAtLocal) {
+/**
+ * The project codes a person has withdrawn (S2-4), per segment_id, read
+ * best-effort from this session's voice route ledger -- a different address
+ * than the card this whole read is otherwise about, under the same `io`. An
+ * absent or unreadable ledger is not a reason to fail a card read that
+ * otherwise succeeded; it reads as "nothing known withdrawn yet", the same
+ * shape a session with no ledger row at all is in.
+ */
+export function readWithdrawnBySegment(io, sessionId) {
+  let body;
+  try { body = JSON.parse(io.read(`${VOICE_ROUTES_ADDRESS}/${sessionId}.json`, MAX_LEDGER_BYTES)); }
+  catch { return new Map(); }
+  if (!Array.isArray(body?.segments)) return new Map();
+  const bySegment = new Map();
+  for (const segment of body.segments) {
+    if (typeof segment?.segment_id !== 'string' || !Array.isArray(segment.withdrawn)) continue;
+    const codes = new Set(segment.withdrawn
+      .filter(entry => typeof entry?.project_code === 'string').map(entry => entry.project_code));
+    if (codes.size > 0) bySegment.set(segment.segment_id, codes);
+  }
+  return bySegment;
+}
+
+/**
+ * One row of that list, with the audio reference dropped: this tool never
+ * hands one out. `withdrawnCodes` (from `readWithdrawnBySegment`, this row's
+ * own segment_id) marks a matching candidate `withdrawn: true` -- a person
+ * has already said no to it, so a reader (a bot answering from this row) must
+ * not cite it as live. Grant admission and any index built from an earlier
+ * confirmation of a since-withdrawn project are not touched here: that
+ * cleanup is a separate, async step (L2), not this read.
+ */
+export function conversationRow(row, recordedAtLocal, withdrawnCodes = new Set()) {
   const start = Number(row.start_seconds ?? row.start ?? 0);
   const end = Number(row.end_seconds ?? row.end ?? start);
   const computed = clockAt(recordedAtLocal, start);
@@ -483,7 +520,9 @@ export function conversationRow(row, recordedAtLocal) {
     project_candidates: (Array.isArray(row.project_candidates) ? row.project_candidates : []).map(candidate => ({
       project_code: String(candidate.project_code ?? '-'), strength: String(candidate.strength ?? '-'),
       basis: Array.isArray(candidate.basis) ? candidate.basis.map(String) : [],
-      evidence_rows: Array.isArray(candidate.evidence_row_ids) ? candidate.evidence_row_ids.length : 0 })),
+      evidence_rows: Array.isArray(candidate.evidence_row_ids) ? candidate.evidence_row_ids.length : 0,
+      // 철회: a person already withdrew this project for this exact segment.
+      withdrawn: withdrawnCodes.has(candidate.project_code) })),
     unclassified_reason: row.unclassified_reason === undefined || row.unclassified_reason === null
       ? null : String(row.unclassified_reason),
     quality: { transcript_kind: quality.transcript_kind === undefined ? null : String(quality.transcript_kind),
@@ -602,7 +641,9 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
         checks: found.checks, rows: [] }
       : { status: found.status, detail: found.detail, rows: [] };
     if (found.status === 'ok') {
-      conversationRows = found.rows.map(row => conversationRow(row, start))
+      const withdrawnBySegment = readWithdrawnBySegment(io, sessionId);
+      conversationRows = found.rows.map(row => conversationRow(row, start,
+          withdrawnBySegment.get(String(row.segment_id ?? row.draft_id ?? row.id ?? '')) ?? new Set()))
         .filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo)
         .sort((a, b) => a.start_seconds - b.start_seconds || a.conversation_id.localeCompare(b.conversation_id));
     }

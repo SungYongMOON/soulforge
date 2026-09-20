@@ -1,5 +1,42 @@
 # Context Engine
 
+## 카드 대조 2단계 — 구간·판본·철회·backlog 결속 (0.22.4)
+
+`VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 두 번째 조각. 판정 규칙(`voice_attribution_policy.mjs`)의
+분기 순서는 이 조각에서 바꾸지 않았다(그건 3단계).
+
+- **재생성 시 규정 밖 재사용 감지(S2-1)**: `harness/voice_conversation_list_nightly.mjs`의 `classifySession`이
+  기존 검증 run을 스킵(`skipped_existing`)하기 전에 새 `staleReasonFor`로 그 run의 `run_manifest.json`이 기록한
+  전사 run id·설정 sha256·프롬프트 다이제스트를 이번 세션의 선언값과 대조한다. 하나라도 다르면
+  `run`/`existing_run_stale:<필드>`로 재실행 대상이 되고, 옛 run은 지우지 않는다. manifest를 못 읽으면
+  `existing_run_stale:manifest_unreadable`. 모델 pin 자체는 비교하지 않는다(분류는 모델을 부르기 전에 끝난다는
+  `classifySession`의 기존 설계를 그대로 따름).
+- **재생성판 구간 정체성(S2-2)**: `harness/voice_route_cli.mjs`의 `import`가 기존 ledger 행과 `source_segment_ids`가
+  다른 segment_id 재사용을 거부한다(`identity_changed`로 보고). 대조기는 이 목록을 받아 그 구간을
+  `skipped_segment_identity_changed`로 건너뛰고 사람이 풀 때까지 기다린다 — 확정된 행은 이 경로로 자동으로
+  대체되지 않는다("가장 단순하고 안전한 규칙": 새 슈퍼시드 필드를 schema에 더하지 않음).
+- **사라진 기계 후보 정리(S2-3)**: 대조기가 매 구간마다, 카드가 더는 나열하지 않는 기계 작성 후보
+  (`basis`가 `reconcile:` 또는 `voice_conversation_list:`로 시작)를 기존 `dropProject` 경로로 회수한다
+  (`retired_candidates`). 사람이 직접 쓴 후보는 카드가 빠뜨려도 절대 회수하지 않는다.
+- **철회 = 즉시 차단(S2-4)**: ledger 구간에 부가 필드 `withdrawn: [{project_code, withdrawn_by, withdrawn_at}]`
+  (bounded, `voice_routes.mjs`가 검증)를 더했다. `voice_route_cli withdraw`가 쓰고, 다른 과제로의 재확정
+  (A→B 정정)도 A를 자동으로 철회 기록한다. 세 소비처: (a) 대조기는 철회된 과제에 `set --project`를 쓰지 않고
+  `skipped_withdrawn_project`로 남긴다; (b) `classifyAttribution`은 철회를 모른다 — 대조기가 호출 전에
+  철회된 과제의 카드 `strength: 'strong'`을 weak로 낮춰서 넘긴다(체크 순서 변경 아님, 근거는
+  `src/runtime/voice_attribution_policy.mjs` 머리말); (c) `voice_session_read.mjs`의 읽기 경로가 후보마다
+  `withdrawn: true/false`를 표시한다. grant·색인 제거는 여전히 비동기(L2, 나중) — 이 조각은 ledger와 읽기
+  경로까지다.
+- **backlog이 2단계에 닿기(S2-5)**: `estate_voice_card_reconcile.mjs`에 `--nightly-receipts <dir>`을 더했다.
+  주면 이 대조기는 `--date` 하루치 대신, 그 디렉터리에 있는 모든 야간 lane 영수증
+  (`soulforge.voice_conversation_list_nightly_receipt.v1`)이 `ran`/`verified: true`로 보고한 세션 전체를
+  대상으로 삼는다(여러 날짜에 걸침 — 메일/Linear 창은 발견된 모든 날짜의 ±1일 합집합). 자기 자신의 과거
+  영수증에서 이미 끝낸 `(session_id, run_id)` 쌍은 다시 하지 않고(`already_reconciled_run`으로 건너뜀), 세션이
+  재전사되어 run_id가 바뀌면 다시 대조한다. `--date`는 그대로 수동/기본 모드로 남는다.
+
+시험: `tests/voice_conversation_list_nightly.test.mjs`(S2-1), `tests/voice_grant.test.mjs`(S2-2/S2-4,
+`voice_route_cli`/`voice_routes` 쪽), `tests/estate_voice_card_reconcile.test.mjs`(S2-2~S2-5 통합),
+`tests/voice_session_read.test.mjs`(S2-4 읽기 경로).
+
 ## 카드 대조(2단계 첫 조각) (0.22.3)
 
 `VOICE_RECORDING_LIBRARY_V0.md`의 "2026-09-20 운영 방침"이 정한 방식 1(기본은 해 놓기)·2(예외만 모아 묻기)의 첫

@@ -153,7 +153,7 @@ export function readSemanticSegmentDrafts({ io, session, sessionId, runId = null
           status: 'unclassified', quality: { transcript: quality, correction_state: 'none' },
           transcript_ref: transcriptRun, audio_ref: null, related_segment_ids: [],
           draft_source: { kind: 'semantic_labels', run_id: chosen, unit_id: unit.unit_id },
-          judged_by: null, judged_at: null, confirmed_by: null, confirmed_at: null },
+          judged_by: null, judged_at: null, confirmed_by: null, confirmed_at: null, withdrawn: [] },
         // For the person reading the draft. None of it is content: kinds and
         // counts, the codes the lane assigned, and what it said about review.
         hints: { source_segment_count: Array.isArray(unit.source_segment_ids) ? unit.source_segment_ids.length : 0,

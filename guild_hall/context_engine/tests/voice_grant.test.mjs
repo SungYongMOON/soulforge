@@ -25,7 +25,7 @@ import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_t
 import { buildPlaudSessionId, parsePlaudTranscript } from '../../voice_capture/plaud_ingest.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { grantCandidates } from '../harness/estate_inventory.mjs';
-import { VOICE_ROUTE_LEDGER_SCHEMA, confirmedSegments, segmentItemId, splitSegmentItemId,
+import { VOICE_ROUTE_LEDGER_SCHEMA, VOICE_ROUTE_LIMITS, confirmedSegments, segmentItemId, splitSegmentItemId,
   validateVoiceRouteLedger } from '../harness/voice_routes.mjs';
 import { readSemanticSegmentDrafts, sessionAddress, transcriptRunFrom } from '../harness/voice_segment_drafts.mjs';
 import { applySegmentDecision, emptyLedger, mergeConversationList, readLedgerFile,
@@ -123,7 +123,7 @@ const segment = (segmentId, from, to, extra = {}) => ({ segment_id: segmentId,
   nature: 'project_work', project_candidates: [], status: 'unclassified',
   quality: { transcript: 'independent_fast', correction_state: 'none' },
   transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
-  judged_by: 'actor:bot:context-planner', judged_at: NOW, confirmed_by: null, confirmed_at: null,
+  judged_by: 'actor:bot:context-planner', judged_at: NOW, confirmed_by: null, confirmed_at: null, withdrawn: [],
   ...(({ transcript, ...rest }) => rest)(extra) });
 
 const confirmed = (segmentId, from, to, code, extra = {}) => segment(segmentId, from, to,
@@ -667,12 +667,15 @@ test('the CLI is the writer: a proposal, a person’s decision, a withdrawal, an
   assert.deepEqual([items.length, items[0].scope],
     [1, { start_seconds: 0, end_seconds: 40, segment_ids: [1, 2] }]);
 
-  // Withdrawing returns it to a proposal rather than erasing the investigation.
-  const back = runVoiceRouteCli(['withdraw', ...base]);
+  // Withdrawing returns it to a proposal rather than erasing the investigation,
+  // and requires an actor -- it is recording who took the project back.
+  assert.throws(() => runVoiceRouteCli(['withdraw', ...base]), /voice_route_actor_required/u);
+  const back = runVoiceRouteCli(['withdraw', ...base, '--by', 'actor:owner']);
   assert.deepEqual([back.confirmed, back.candidate, back.segment_rows[0].judged_by],
     [0, 1, 'actor:bot:context-planner']);
   assert.deepEqual([...candidatesFor(dirs, MINE)], []);
-  assert.throws(() => runVoiceRouteCli(['withdraw', ...base]), /voice_route_segment_not_confirmed/u);
+  assert.deepEqual(back.segment_rows[0].withdrawn, [{ project_code: MINE, withdrawn_by: 'actor:owner', withdrawn_at: NOW }]);
+  assert.throws(() => runVoiceRouteCli(['withdraw', ...base, '--by', 'actor:owner']), /voice_route_segment_not_confirmed/u);
   runVoiceRouteCli(['remove', ...base]);
   assert.equal(readLedgerFile(dirs.routesDir, mine.sessionId).ledger.segments.length, 0);
 });
@@ -725,6 +728,61 @@ test('a confirmed segment cannot be rewritten by set: the row stays exactly as t
   const reconfirmedRow = reconfirmed.segments.find(row => row.segment_id === 'seg-a');
   assert.equal(reconfirmedRow.status, 'confirmed');
   assert.equal(reconfirmedRow.confirmed_at, '2026-09-16T00:00:00.000Z');
+  assert.deepEqual(reconfirmedRow.withdrawn, [], 'reconfirming the same project withdraws nothing');
+});
+
+// ------------------------------------------------------------- S2-4 withdraw
+test('withdraw records the confirmed project as withdrawn, bounded and append-only', () => {
+  const confirmed = applySegmentDecision(emptyLedger('sess-withdraw-1'), { command: 'confirm', segmentId: 'seg-a',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '회신 메일과 같은 시험',
+    title: '시험 일정 합의', nature: 'project_work', quality: 'independent_strong', now: NOW });
+  assert.throws(() => applySegmentDecision(confirmed, { command: 'withdraw', segmentId: 'seg-a', now: NOW }),
+    /voice_route_actor_required/u, 'withdraw records who, so it requires an actor');
+  const withdrawn = applySegmentDecision(confirmed, { command: 'withdraw', segmentId: 'seg-a', by: 'actor:owner', now: NOW });
+  const row = withdrawn.segments.find(item => item.segment_id === 'seg-a');
+  assert.equal(row.status, 'candidate');
+  assert.equal(row.confirmed_by, null);
+  assert.deepEqual(row.withdrawn, [{ project_code: MINE, withdrawn_by: 'actor:owner', withdrawn_at: NOW }]);
+  // The candidate itself is not erased -- the investigation stays, only the
+  // decision is taken back.
+  assert.equal(row.project_candidates[0].project_code, MINE);
+});
+
+test('confirming a different project than the one already confirmed is an explicit A->B correction: A is recorded withdrawn, B is not', () => {
+  const confirmedA = applySegmentDecision(emptyLedger('sess-withdraw-2'), { command: 'confirm', segmentId: 'seg-a',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '처음에는 이 과제로 판단',
+    title: '시험 일정 합의', nature: 'project_work', quality: 'independent_strong', now: NOW });
+  const correctedToB = applySegmentDecision(confirmedA, { command: 'confirm', segmentId: 'seg-a', by: 'actor:owner',
+    project: OTHER, basis: '알고 보니 이 과제', title: '시험 일정 합의(정정)', nature: 'project_work',
+    quality: 'independent_strong', now: '2026-09-16T00:00:00.000Z' });
+  const row = correctedToB.segments.find(item => item.segment_id === 'seg-a');
+  assert.equal(row.status, 'confirmed');
+  assert.equal(row.project_candidates.length, 1);
+  assert.equal(row.project_candidates[0].project_code, OTHER);
+  assert.deepEqual(row.withdrawn, [{ project_code: MINE, withdrawn_by: 'actor:owner', withdrawn_at: '2026-09-16T00:00:00.000Z' }]);
+
+  // If a person later confirms A again, A is taken back off the withdrawn log.
+  const correctedBackToA = applySegmentDecision(correctedToB, { command: 'confirm', segmentId: 'seg-a', by: 'actor:owner',
+    project: MINE, basis: '다시 확인해보니 이 과제', title: '시험 일정 합의(재정정)', nature: 'project_work',
+    quality: 'independent_strong', now: '2026-09-17T00:00:00.000Z' });
+  const backRow = correctedBackToA.segments.find(item => item.segment_id === 'seg-a');
+  assert.deepEqual(backRow.withdrawn.map(entry => entry.project_code), [OTHER], 'A is un-withdrawn; B is now withdrawn instead');
+});
+
+test('withdrawn entries are bounded: the oldest fall off once the limit is passed', () => {
+  // A different project every time, so every confirm genuinely withdraws the
+  // one before it (confirming the *same* project again would only un-withdraw
+  // and re-withdraw it, never growing the log).
+  let ledger = applySegmentDecision(emptyLedger('sess-withdraw-3'), { command: 'confirm', segmentId: 'seg-a',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: 'P00-SEED', basis: 'x',
+    title: 't', nature: 'project_work', quality: 'independent_fast', now: NOW });
+  for (let index = 0; index < VOICE_ROUTE_LIMITS.withdrawn_entries + 3; index++) {
+    ledger = applySegmentDecision(ledger, { command: 'confirm', segmentId: 'seg-a', by: 'actor:owner',
+      project: `P9${index}-A`, basis: `회차 ${index}`, title: 't', nature: 'project_work',
+      quality: 'independent_fast', now: `2026-09-${String(16 + (index % 10)).padStart(2, '0')}T00:00:00.000Z` });
+  }
+  const row = ledger.segments.find(item => item.segment_id === 'seg-a');
+  assert.equal(row.withdrawn.length, VOICE_ROUTE_LIMITS.withdrawn_entries);
 });
 
 test('mergeConversationList (import) never reaches a segment already in the ledger, confirmed or not', () => {
@@ -741,4 +799,50 @@ test('mergeConversationList (import) never reaches a segment already in the ledg
   assert.equal(merged.added, 0, 'a segment_id already in the ledger is never re-imported');
   const after = merged.ledger.segments.find(row => row.segment_id === 'seg-a');
   assert.deepEqual(after, before);
+});
+
+// ------------------------------------------------------- S2-2 segment identity
+const cardList = (sessionId, segments) => ({ schema: 'soulforge.voice_conversation_list.v0', session_id: sessionId, segments });
+const cardSegment = (overrides = {}) => ({ segment_id: 'c001', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 40,
+  title: '재생성된 판단', description: '', nature: 'project_work', status: 'candidate',
+  project_candidates: [{ project_code: MINE, strength: 'strong', basis: ['key_terms'], evidence_row_ids: [9] }],
+  related_segment_ids: [], refs: { transcript_run_id: null }, quality: { transcript_kind: 'independent_fast' }, ...overrides });
+
+test('mergeConversationList: a regenerated run reusing a segment_id with the same scope is a no-op, identity_changed empty', () => {
+  const seeded = mergeConversationList(emptyLedger('sess-scope-1'),
+    cardList('sess-scope-1', [cardSegment()]), { runId: 'vcl_1111111111111111', by: 'actor:machine', now: NOW });
+  const before = seeded.ledger.segments.find(row => row.segment_id === 'c001');
+  // Same source_segment_ids and interval, different run, different title.
+  const merged = mergeConversationList(seeded.ledger,
+    cardList('sess-scope-1', [cardSegment({ title: '두 번째 회차, 같은 구간' })]),
+    { runId: 'vcl_2222222222222222', by: 'actor:machine', now: NOW });
+  assert.deepEqual(merged.identity_changed, []);
+  assert.equal(merged.added, 0);
+  assert.deepEqual(merged.ledger.segments.find(row => row.segment_id === 'c001'), before, 'the old row is not rewritten either way');
+});
+
+test('mergeConversationList: a regenerated run reusing a segment_id with a different scope on a machine row is refused, recorded, and the old row is untouched', () => {
+  const seeded = mergeConversationList(emptyLedger('sess-scope-2'),
+    cardList('sess-scope-2', [cardSegment()]), { runId: 'vcl_1111111111111111', by: 'actor:machine', now: NOW });
+  const before = seeded.ledger.segments.find(row => row.segment_id === 'c001');
+  // The boundary step drew c001 differently this time: different source ids.
+  const merged = mergeConversationList(seeded.ledger,
+    cardList('sess-scope-2', [cardSegment({ source_segment_ids: [5, 6], start_seconds: 120, end_seconds: 160 })]),
+    { runId: 'vcl_3333333333333333', by: 'actor:machine', now: NOW });
+  assert.deepEqual(merged.identity_changed, ['c001']);
+  assert.equal(merged.added, 0);
+  assert.deepEqual(merged.ledger.segments.find(row => row.segment_id === 'c001'), before, 'refused, not silently reassigned');
+});
+
+test('mergeConversationList: a different scope on a CONFIRMED row is never flagged and the row is untouched', () => {
+  const confirmed = applySegmentDecision(emptyLedger('sess-scope-3'), { command: 'confirm', segmentId: 'c001',
+    from: 0, to: 40, sourceSegmentIds: [1, 2], by: 'actor:owner', project: MINE, basis: '사람이 직접 확인',
+    title: '사람이 확정', nature: 'project_work', quality: 'independent_strong', now: NOW });
+  const before = confirmed.segments.find(row => row.segment_id === 'c001');
+  const merged = mergeConversationList(confirmed,
+    cardList('sess-scope-3', [cardSegment({ source_segment_ids: [9, 10], start_seconds: 300, end_seconds: 340 })]),
+    { runId: 'vcl_4444444444444444', by: 'actor:machine', now: NOW });
+  assert.deepEqual(merged.identity_changed, [], 'a confirmed row is a person’s word, not a conflict to name');
+  assert.equal(merged.added, 0);
+  assert.deepEqual(merged.ledger.segments.find(row => row.segment_id === 'c001'), before);
 });

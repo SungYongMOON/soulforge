@@ -17,7 +17,7 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import {
   BACKLOG_WINDOW_DAYS, MIN_TRANSCRIPT_SECONDS, NIGHTLY_RECEIPT_SCHEMA, STALE_LOCK_MS,
-  acquireLock, buildSessionPlan, classifySession, defaultTargetDate, releaseLock, runNightly,
+  acquireLock, buildSessionPlan, classifySession, defaultTargetDate, releaseLock, runNightly, staleReasonFor,
   runNightlyCli, seoulDateFor, shiftDate,
 } from '../harness/voice_conversation_list_nightly.mjs';
 
@@ -80,12 +80,20 @@ async function makeDateEntryAFile(dataRoot, date) {
   await writeFile(path.join(parent, date), 'not a directory');
 }
 
+// The manifest defaults match what `writeSession`'s own default declares
+// (`independent_transcription.run_id: 'whispercpp_test_v1'`) and what
+// `DUMMY_PIPELINE` below computes (`configSha256: 'deadbeef'`, empty
+// `promptDigests`), so every existing "skipped_existing" test stays fresh by
+// default; the new staleness tests override one field at a time.
 async function writeExistingRun(derivedRoot, sessionId,
-  { runId = 'vcl_aaaaaaaaaaaaaaaa', verified = true, generatedAt = '2026-01-01T00:00:00.000Z' } = {}) {
+  { runId = 'vcl_aaaaaaaaaaaaaaaa', verified = true, generatedAt = '2026-01-01T00:00:00.000Z',
+    transcriptRunId = 'whispercpp_test_v1', configSha256 = 'deadbeef', prompts = {} } = {}) {
   const dir = path.join(derivedRoot, 'voice', sessionId, runId);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, 'conversation_list.v0.json'),
     JSON.stringify({ generated_at: generatedAt, verified, session_id: sessionId, run_id: runId }));
+  await writeFile(path.join(dir, 'run_manifest.json'), JSON.stringify({
+    transcript: { run_id: transcriptRunId }, config_sha256: `sha256:${configSha256}`, prompts }));
   return runId;
 }
 
@@ -205,6 +213,72 @@ test('classifySession: a verified existing run is skipped_existing; an unverifie
   const partial = classifySession({ io, tools, sessionsAddress: SESSIONS_ADDRESS, date: '2026-09-20', sessionId: 'S_partial' });
   assert.equal(partial.classification, 'run');
   assert.equal(partial.existing_run_id, partialRunId);
+});
+
+// ---------------------------------------------------------- S2-1 staleness
+test('staleReasonFor checks transcript run id, config sha and prompt digests, each independently', () => {
+  const fresh = { transcript: { run_id: 'whispercpp_test_v1' }, config_sha256: 'sha256:deadbeef', prompts: { boundary: 'd1' } };
+  assert.equal(staleReasonFor({ manifest: fresh, transcriptRunId: 'whispercpp_test_v1',
+    configSha256: 'deadbeef', promptDigests: { boundary: 'd1' } }), null);
+  assert.equal(staleReasonFor({ manifest: fresh, transcriptRunId: 'whispercpp_test_v2' }), 'transcript_run_id');
+  assert.equal(staleReasonFor({ manifest: fresh, transcriptRunId: 'whispercpp_test_v1', configSha256: 'cafefeed' }), 'config');
+  assert.equal(staleReasonFor({ manifest: fresh, transcriptRunId: 'whispercpp_test_v1',
+    promptDigests: { boundary: 'd2' } }), 'prompts');
+  assert.equal(staleReasonFor({ manifest: null, transcriptRunId: 'whispercpp_test_v1' }), 'manifest_unreadable');
+  // Omitted signals are not checked -- a caller with no configSha256/promptDigests
+  // to compare against does not manufacture staleness out of absence.
+  assert.equal(staleReasonFor({ manifest: fresh, transcriptRunId: 'whispercpp_test_v1' }), null);
+});
+
+test('classifySession: a re-transcribed session (new independent_transcription.run_id) is run again, not skipped_existing', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  await writeSession(est.dataRoot, '2026-09-20', 'S_retranscribed');
+  const oldRunId = await writeExistingRun(est.derivedRoot, 'S_retranscribed', { verified: true });
+  // The session now declares a different transcript run than the card was built from.
+  await writeFile(path.join(est.dataRoot, 'ingress', 'plaud', 'sessions', '2026-09-20', 'S_retranscribed', 'session_manifest.json'),
+    JSON.stringify({ schema_version: 'soulforge.voice_capture_session.v0', session_id: 'S_retranscribed',
+      source: 'plaud_cli_import', source_page_title: 't', recorded_at_local: '2026-09-20T09:00:00+09:00',
+      duration_seconds: 40, independent_transcription: { status: 'completed', run_id: 'whispercpp_test_v2_redo' } }));
+  const described = classifySession({ io, tools, sessionsAddress: SESSIONS_ADDRESS, date: '2026-09-20',
+    sessionId: 'S_retranscribed', configSha256: 'deadbeef', promptDigests: {} });
+  assert.equal(described.classification, 'run');
+  assert.equal(described.reason, 'existing_run_stale:transcript_run_id');
+  assert.equal(described.existing_run_id, oldRunId);
+  // The stale run directory is a record, not a mistake to clean up here.
+  assert.equal(existsSync(path.join(est.derivedRoot, 'voice', 'S_retranscribed', oldRunId, 'conversation_list.v0.json')), true);
+});
+
+test('classifySession: a changed pipeline config sha, or a changed prompt file digest, is also existing_run_stale', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  await writeSession(est.dataRoot, '2026-09-20', 'S_config_changed');
+  await writeExistingRun(est.derivedRoot, 'S_config_changed', { verified: true, configSha256: 'oldconfig' });
+  const configChanged = classifySession({ io, tools, sessionsAddress: SESSIONS_ADDRESS, date: '2026-09-20',
+    sessionId: 'S_config_changed', configSha256: 'newconfig', promptDigests: {} });
+  assert.equal(configChanged.classification, 'run');
+  assert.equal(configChanged.reason, 'existing_run_stale:config');
+
+  await writeSession(est.dataRoot, '2026-09-20', 'S_prompt_changed');
+  await writeExistingRun(est.derivedRoot, 'S_prompt_changed', { verified: true, prompts: { boundary: 'old-digest' } });
+  const promptChanged = classifySession({ io, tools, sessionsAddress: SESSIONS_ADDRESS, date: '2026-09-20',
+    sessionId: 'S_prompt_changed', configSha256: 'deadbeef', promptDigests: { boundary: 'new-digest' } });
+  assert.equal(promptChanged.classification, 'run');
+  assert.equal(promptChanged.reason, 'existing_run_stale:prompts');
+});
+
+test('classifySession: a verified run with no readable run_manifest.json is treated as stale rather than trusted blindly', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  await writeSession(est.dataRoot, '2026-09-20', 'S_no_manifest');
+  const dir = path.join(est.derivedRoot, 'voice', 'S_no_manifest', 'vcl_aaaaaaaaaaaaaaaa');
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'conversation_list.v0.json'),
+    JSON.stringify({ generated_at: '2026-01-01T00:00:00.000Z', verified: true, session_id: 'S_no_manifest', run_id: 'vcl_aaaaaaaaaaaaaaaa' }));
+  // No run_manifest.json written at all -- a partial or very old run directory.
+  const described = classifySession({ io, tools, sessionsAddress: SESSIONS_ADDRESS, date: '2026-09-20', sessionId: 'S_no_manifest' });
+  assert.equal(described.classification, 'run');
+  assert.equal(described.reason, 'existing_run_stale:manifest_unreadable');
 });
 
 // -------------------------------------------------------------------- lock

@@ -95,9 +95,21 @@ const blankSegment = segmentId => ({ segment_id: segmentId, source_segment_ids: 
   title: null, description: null, derived_summary: true, nature: 'undetermined', project_candidates: [],
   status: 'unclassified', quality: { transcript: 'unknown', correction_state: 'none' },
   transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
-  judged_by: null, judged_at: null, confirmed_by: null, confirmed_at: null });
+  judged_by: null, judged_at: null, confirmed_by: null, confirmed_at: null, withdrawn: [] });
 
 const order = (a, b) => a.start_seconds - b.start_seconds || a.segment_id.localeCompare(b.segment_id);
+
+/**
+ * `existing` plus `additions`, oldest entries dropped first once the log
+ * passes `VOICE_ROUTE_LIMITS.withdrawn_entries` -- an append-only record of
+ * withdrawal events, not a deduplicated set, so a project withdrawn twice
+ * keeps both entries (bounded, not unbounded).
+ */
+function appendWithdrawn(existing, additions) {
+  const combined = [...(existing ?? []), ...additions];
+  const limit = VOICE_ROUTE_LIMITS.withdrawn_entries;
+  return combined.length > limit ? combined.slice(combined.length - limit) : combined;
+}
 
 /**
  * Applies one decision to one ledger body and returns the next body. Pure: the
@@ -129,8 +141,18 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
   if (command === 'withdraw') {
     if (held === null) fail('voice_route_segment_absent');
     if (held.status !== 'confirmed') fail('voice_route_segment_not_confirmed');
-    // Back to a proposal, not to nothing: the investigation that led here stays.
-    const next = { ...held, status: 'candidate', confirmed_by: null, confirmed_at: null };
+    if (!ACTOR.test(by ?? '')) fail('voice_route_actor_required');
+    // Back to a proposal, not to nothing: the investigation that led here
+    // stays. The project a person is taking back is recorded immediately --
+    // this is the block itself, not a projection of one: a caller (the
+    // reconcile harness) reads this same field to refuse re-proposing it,
+    // and the read path marks it 철회 so nothing downstream cites it. Index
+    // or grant removal for material already admitted under the withdrawn
+    // decision is a separate, async step (L2, not this one).
+    const withdrawnProject = held.project_candidates[0]?.project_code ?? null;
+    const next = { ...held, status: 'candidate', confirmed_by: null, confirmed_at: null,
+      withdrawn: appendWithdrawn(held.withdrawn, withdrawnProject === null ? []
+        : [{ project_code: withdrawnProject, withdrawn_by: by, withdrawn_at: now }]) };
     return validateVoiceRouteLedger({ ...ledger, segments: [...rest, next].sort(order), updated_at: now },
       { sessionId: ledger.session_id });
   }
@@ -161,6 +183,14 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
     candidates = [...candidates.filter(row => row.project_code !== project),
       { project_code: project, evidence_refs: [...evidenceRefs], basis }];
   }
+  // An explicit A -> B correction: confirming a different project than the
+  // one already confirmed here takes A back the same way `withdraw` does,
+  // recorded in the same instant as the correction itself rather than left
+  // for a separate call. Confirming the *same* project again is a refresh,
+  // not a correction, and withdraws nothing.
+  const previousProject = base.status === 'confirmed' ? (base.project_candidates[0]?.project_code ?? null) : null;
+  const withdrawnByThisConfirm = confirming && previousProject !== null && previousProject !== project
+    ? [{ project_code: previousProject, withdrawn_by: by, withdrawn_at: now }] : [];
   if (confirming) {
     if (project === null) fail('voice_route_project_required');
     candidates = candidates.filter(row => row.project_code === project);
@@ -173,6 +203,11 @@ export function applySegmentDecision(ledger, { command, segmentId, from = null, 
     nature: nature === undefined ? base.nature : nature,
     project_candidates: candidates.sort((a, b) => a.project_code.localeCompare(b.project_code)),
     status: confirming ? 'confirmed' : status,
+    // Confirming a project un-withdraws it (a person's most recent decision
+    // wins), on top of whatever this same confirm just withdrew above.
+    withdrawn: appendWithdrawn(
+      confirming ? (base.withdrawn ?? []).filter(entry => entry.project_code !== project) : (base.withdrawn ?? []),
+      withdrawnByThisConfirm),
     quality: { transcript: quality === undefined ? base.quality.transcript : quality,
       correction_state: correctionState === undefined ? base.quality.correction_state : correctionState },
     transcript_ref: transcriptRef === undefined ? base.transcript_ref : transcriptRef,
@@ -239,7 +274,7 @@ export function ledgerSegmentFrom(row, { runId, by, now }) {
     transcript_ref: runRef, audio_ref: null,
     related_segment_ids: Array.isArray(row.related_segment_ids) ? row.related_segment_ids.map(String) : [],
     draft_source: { kind: 'conversation_list', run_id: runId, unit_id: String(row.segment_id) },
-    judged_by: by, judged_at: now, confirmed_by: null, confirmed_at: null };
+    judged_by: by, judged_at: now, confirmed_by: null, confirmed_at: null, withdrawn: [] };
 }
 
 /** Merges drafts into a ledger as unplaced segments, never touching one already there. */
@@ -253,12 +288,41 @@ export function mergeDrafts(ledger, drafts, { by, now }) {
   return { ledger: next, added: added.length, kept: ledger.segments.length };
 }
 
+// Whether two ledger segment shapes address the same stretch of the
+// recording: the same source utterance ids, in the same order, over the same
+// whole-second interval. Ids are the real identity (interval is derived from
+// them); both are compared because a transcript re-run can in principle shift
+// timing even when boundary ids happened to land the same, and either
+// disagreeing is enough to call it a different conversation.
+function sameScope(a, b) {
+  return a.start_seconds === b.start_seconds && a.end_seconds === b.end_seconds
+    && a.source_segment_ids.length === b.source_segment_ids.length
+    && a.source_segment_ids.every((id, index) => id === b.source_segment_ids[index]);
+}
+
 /**
  * The pipeline's list for one run, as ledger segments a person can then decide on.
  *
- * Like `draft`, it never reopens what is already in the ledger: a segment id that
- * is already there is kept as it is, so importing the same run twice changes
- * nothing and importing a second run does not overwrite the first run's rows.
+ * Like `draft`, it never reopens what is already in the ledger: a segment id
+ * that is already there is kept exactly as it is, so importing the same run
+ * twice changes nothing and importing a second run does not overwrite the
+ * first run's rows -- confirmed or not.
+ *
+ * A regenerated run can reuse a `segment_id` (`c001`, ...) for a *different*
+ * stretch of the recording than the row already holding that id -- the
+ * boundary step redrew where conversations start and end. Silently keeping
+ * the old row would be fine on its own (nothing here ever overwrites it), but
+ * a caller that goes on to `set --project X` against that same segment_id,
+ * believing it addresses the *new* run's conversation, would attach a fresh
+ * judgement to the *old* scope instead. So a machine-drafted row (`status`
+ * anything but `confirmed`) whose incoming counterpart names a different
+ * scope is named in the returned `identity_changed` list rather than
+ * silently accepted or silently ignored -- the caller (the reconcile harness)
+ * is the one with a duty not to write to it until a person resolves which
+ * conversation the id now means. A confirmed row is a person's word and is
+ * never flagged here at all: reconcile already leaves it alone entirely, and
+ * a scope disagreement under a person's own decision is not this function's
+ * conflict to name.
  */
 export function mergeConversationList(ledger, list, { runId, by, now }) {
   if (!ACTOR.test(by ?? '')) fail('voice_route_actor_required');
@@ -266,10 +330,16 @@ export function mergeConversationList(ledger, list, { runId, by, now }) {
     fail('voice_conversation_list_invalid');
   }
   if (list.session_id !== ledger.session_id) fail('voice_route_session_mismatch');
-  const known = new Set(ledger.segments.map(segment => segment.segment_id));
+  const known = new Map(ledger.segments.map(segment => [segment.segment_id, segment]));
   const incoming = list.segments.map(row => ledgerSegmentFrom(row, { runId, by, now }));
-  const added = incoming.filter(segment => !known.has(segment.segment_id));
-  const names = new Set([...known, ...added.map(segment => segment.segment_id)]);
+  const added = [], identityChanged = [];
+  for (const segment of incoming) {
+    const existing = known.get(segment.segment_id);
+    if (existing === undefined) { added.push(segment); continue; }
+    if (existing.status === 'confirmed') continue;
+    if (!sameScope(existing, segment)) identityChanged.push(segment.segment_id);
+  }
+  const names = new Set([...known.keys(), ...added.map(segment => segment.segment_id)]);
   const next = validateVoiceRouteLedger({ ...ledger,
     // A link to a conversation that was not imported would dangle, so it is
     // dropped here rather than refused at the validator.
@@ -278,7 +348,8 @@ export function mergeConversationList(ledger, list, { runId, by, now }) {
       .sort(order), updated_at: now }, { sessionId: ledger.session_id });
   return { ledger: next, added: added.length, kept: ledger.segments.length,
     candidate: added.filter(segment => segment.status === 'candidate').length,
-    unclassified: added.filter(segment => segment.status === 'unclassified').length };
+    unclassified: added.filter(segment => segment.status === 'unclassified').length,
+    identity_changed: identityChanged.sort() };
 }
 
 /** Where the ledgers live: an explicit folder, or `control_root/voice-routes`. */
@@ -432,6 +503,7 @@ export function runVoiceRouteCli(argv) {
     return { command, dry, ...summarize(merged.ledger), run_id: runId,
       list_verified: list.verified === true, added: merged.added, kept: merged.kept,
       added_candidate: merged.candidate, added_unclassified: merged.unclassified,
+      identity_changed: merged.identity_changed,
       file_sha256: written?.sha256 ?? null,
       segment_rows: merged.ledger.segments.map(segment => ({ ...segment })),
       ...(json ? {} : { text: [
@@ -439,6 +511,7 @@ export function runVoiceRouteCli(argv) {
         + ` | verified ${list.verified === true} | 더함 ${merged.added}`
         + ` (후보 ${merged.candidate} · 미분류 ${merged.unclassified}) | 이미 있던 구간 ${merged.kept}`,
         '확정(confirmed)은 이 명령이 쓰지 않습니다 — 사람이 confirm으로만 씁니다.',
+        ...(merged.identity_changed.length ? [`구간 정체 바뀜(재기록 전까지 건너뜀): ${merged.identity_changed.join(', ')}`] : []),
         ...merged.ledger.segments.map(segmentLine)].join('\n') }) };
   }
 

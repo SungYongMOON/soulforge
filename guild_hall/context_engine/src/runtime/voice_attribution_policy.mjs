@@ -30,6 +30,20 @@
 // which look at mail and Linear records from the target day plus one day
 // either side, never only the target day itself.
 //
+// This module has no concept of "withdrawn" (VOICE_RECORDING_LIBRARY_V0.md's
+// 2026-09-20 방침, S2-4) and never will -- it is not a fifth check and it does
+// not change the four-outcome order above. A project a person withdrew from a
+// segment is kept off the strong-candidate path entirely by the *caller*
+// (`harness/estate_voice_card_reconcile.mjs`), which downgrades a withdrawn
+// project's card-declared `strength: 'strong'` to weak in the
+// `project_candidates` it hands to `classifyAttribution`, before this module
+// ever sees the segment. So a withdrawn project cannot resolve a
+// `strong_conflict`, cannot make a segment `provisional` on its own, and can
+// still surface as a `candidate`/`exception` through corroboration or a risk
+// marker like any other weak candidate -- withdrawal removes standing, not
+// visibility. The filtered-out project is recorded by the caller as
+// `skipped_withdrawn_project`, never silently dropped.
+//
 // If this file's rules change, this file and the VOICE_RECORDING_LIBRARY_V0.md
 // section it implements are the only two places that change
 // (DOCUMENT_OWNERSHIP's "교체 알고리즘" ownership).

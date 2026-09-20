@@ -137,7 +137,14 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    `estate_voice_card_reconcile.mjs`가 매 회차 영수증의 `exception_review`에 이미 쌓는다 — 구현됨.
    아침 브리핑이 그 목록을 읽어 묻는 연결은 아직 계획).
 3. **정정은 반드시 카드에 반영.** DM 한 줄 답("그거 KVDS야")은 `voice_route_cli` confirm/withdraw로
-   이어져야 한다. 반영되지 않는 정정은 없다. — **계획**(명령은 있음, DM→명령 고리 없음).
+   이어져야 한다. 반영되지 않는 정정은 없다. — **부분 구현됨**: `withdraw`가 남긴 기록(ledger의
+   `withdrawn: [{project_code, withdrawn_by, withdrawn_at}]`, 다른 과제로 재확정(A→B)하면 A도 자동
+   철회 기록)이 실제로 세 곳에 반영된다 — 대조기가 철회된 과제를 다시 후보로 올리지 않고
+   (`skipped_withdrawn_project`), 카드가 그 과제를 strong으로 읽어도 판정에서 strong으로 치지 않으며,
+   대화 목록 읽기 경로가 후보마다 `withdrawn: true/false`를 표시한다(`estate_voice_card_reconcile.mjs`,
+   `src/runtime/voice_attribution_policy.mjs` 머리말, `src/runtime/voice_session_read.mjs`). **계획**으로
+   남은 것: DM 한 줄 답 자체가 `confirm`/`withdraw` 호출로 이어지는 고리(사람이 지금은 CLI를 직접 친다),
+   grant·검색 색인에서의 제거(비동기, L2).
 4. **확정은 정본에 쓸 때만.** 과제 폴더 `10_입력자료/VOICE`와 `30_프로젝트맥락` 페이지에 들어가는
    것은 `accepted_project_route` 또는 strong 근거의 `ai_provisional_project_route`뿐이다. 예외 검토함에
    있는 구간의 결정·마감·금액은 답이 오기 전에는 페이지에 쓰지 않는다. — **계획**.

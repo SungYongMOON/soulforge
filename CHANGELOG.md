@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026-09-20 - 카드 대조 2단계: 구간·판본·철회·backlog 결속
+
+- Revision: 이 항목을 포함한 커밋. `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 두 번째 조각(외부
+  회신 10의 순서 1단계=버그 수정 병합 뒤). `classifyAttribution`의 4분류(`provisional`/`candidate`/`exception`/
+  `skip`) 체크 순서는 이 조각에서 바꾸지 않았고, 새 다섯 번째 분류도 만들지 않았다 — `staleReasonFor`가 보는
+  판본 낡음은 별도 축(입력 유효성)으로 다뤘다.
+- (S2-1) `harness/voice_conversation_list_nightly.mjs`: 새 `staleReasonFor`가 `skipped_existing`으로 넘어가기
+  전에 기존 검증 run의 `run_manifest.json`(전사 run id·설정 sha256·프롬프트 다이제스트)을 이번 세션의 선언값과
+  대조한다. 다르면 `run`/`existing_run_stale:<필드>`로 재실행하고, 옛 run은 지우지 않는다. 모델 pin 비교는
+  의도적으로 포함하지 않았다(분류가 모델 호출 전에 끝난다는 기존 설계를 유지).
+- (S2-2) `harness/voice_route_cli.mjs`의 `import`(`mergeConversationList`)가 기존 ledger 행과
+  `source_segment_ids`가 달라진 segment_id 재사용을 거부하고 `identity_changed` 목록으로 보고한다.
+  `estate_voice_card_reconcile.mjs`는 그 목록의 구간을 `skipped_segment_identity_changed`로 건너뛰고 ledger에
+  새 슈퍼시드 필드를 더하지 않는다 — 확정된 행은 이 경로로 자동 대체되지 않는다는 것이 유일한 규칙이다.
+- (S2-3) 대조기가 카드에서 사라진 기계 작성 후보(`basis`가 `reconcile:`/`voice_conversation_list:`로 시작)를
+  기존 `dropProject` 경로로 회수하고 `retired_candidates`에 남긴다. 사람이 쓴 후보는 카드가 빠뜨려도 회수하지
+  않는다.
+- (S2-4) ledger 구간에 부가·bounded 필드 `withdrawn: [{project_code, withdrawn_by, withdrawn_at}]`을 더했다
+  (`voice_routes.mjs` 검증). `voice_route_cli withdraw`가 `--by` 필수로 쓰고, 다른 과제로의 재확정(A→B)도 A를
+  자동으로 철회 기록한다. 세 소비처: 대조기는 철회된 과제에 `set --project`를 쓰지 않고
+  `skipped_withdrawn_project`로 남기며; `classifyAttribution` 자신은 철회를 모른 채로 두고 대조기가 호출 전에
+  철회된 과제의 카드 `strength: 'strong'`을 weak로 낮춰 넘긴다(체크 순서 변경 아님, 근거는
+  `src/runtime/voice_attribution_policy.mjs` 머리말에 문서화); `voice_session_read.mjs` 읽기 경로가 후보마다
+  `withdrawn: true/false`를 표시한다. grant·색인 제거는 여전히 비동기(L2, 나중)로 남겨 두었다.
+- (S2-5) `estate_voice_card_reconcile.mjs`에 `--nightly-receipts <dir>`을 더했다. 주면 `--date` 하루치 대신
+  그 디렉터리의 모든 야간 lane 영수증이 `ran`/`verified: true`로 보고한 세션 전체를 대상으로 삼고(여러 날짜에
+  걸친 메일/Linear 창은 발견된 날짜들의 ±1일 합집합), 이 대조기 자신의 과거 영수증에 이미 기록된
+  `(session_id, run_id)` 쌍은 `already_reconciled_run`으로 건너뛴다(run_id가 바뀌면 다시 대조). `--date`는
+  그대로 수동/기본 모드다.
+- 운영 영향: 코드만. 새 플래그·필드를 실제로 쓰는 예약작업 등록은 이 변경에 없다.
+- 관련 경로: `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/voice_route_cli.mjs`, `guild_hall/context_engine/harness/voice_routes.mjs`,
+  `guild_hall/context_engine/harness/voice_segment_drafts.mjs`,
+  `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
+  `guild_hall/context_engine/src/runtime/voice_session_read.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/tests/voice_grant.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/tests/voice_session_read.test.mjs`, `guild_hall/context_engine/README.md`.
+
 ## 2026-09-20 - 야간 카드 대조 첫 조각 (voice_attribution_policy v0)
 
 - Revision: 이 항목을 포함한 커밋. 새 `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`가

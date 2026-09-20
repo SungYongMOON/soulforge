@@ -700,7 +700,7 @@ test('대화 목록이 있으면 그것으로 답하고, 원 발화 자리는 �
     assert.equal(first.status, 'candidate');
     assert.equal(first.derived_summary, true);
     assert.deepEqual(first.project_candidates, [{ project_code: 'S00-001', strength: 'strong',
-      basis: ['equipment', 'purpose'], evidence_rows: 2 }]);
+      basis: ['equipment', 'purpose'], evidence_rows: 2, withdrawn: false }]);
     assert.equal(first.quality.correction_state, 'proposed');
     assert.deepEqual(first.refs.source_segment_ids, [11, 12]);
     // A long conversation's agenda travels, so a reader can find the part they wanted.
@@ -712,6 +712,38 @@ test('대화 목록이 있으면 그것으로 답하고, 원 발화 자리는 �
     assert.deepEqual(first.related, ['conv_2']);
     assert.equal(second.unclassified_reason, '단서가 공통 용어뿐입니다');
     assert.equal(second.project_candidates.length, 0);
+  } finally { await inbox.cleanup(); }
+});
+
+test('사람이 철회한 과제 후보는 대화 목록 읽기에서 withdrawn: true로 표시된다 (S2-4)', async () => {
+  const inbox = await withConversationList();
+  try {
+    await inbox.put(`control_root/voice-routes/${SESSION}.json`, json({
+      schema_version: 'soulforge.voice_route_ledger.v0', session_id: SESSION, updated_at: '2026-01-05T00:00:00.000Z',
+      segments: [{ segment_id: 'conv_1', source_segment_ids: [11, 12], start_seconds: 0, end_seconds: 70,
+        title: '사람이 확인했던 제목', description: null, derived_summary: true, nature: 'project_work',
+        project_candidates: [{ project_code: 'S00-001', evidence_refs: [], basis: '사람이 직접 확인함' }],
+        status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'none' },
+        transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
+        judged_by: 'actor:owner:someone', judged_at: '2026-01-05T00:00:00.000Z', confirmed_by: null, confirmed_at: null,
+        withdrawn: [{ project_code: 'S00-001', withdrawn_by: 'actor:owner:someone', withdrawn_at: '2026-01-05T00:00:00.000Z' }] }] }));
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.status, 'ok');
+    const [first] = answer.conversation_list.rows;
+    assert.equal(first.conversation_id, 'conv_1');
+    assert.deepEqual(first.project_candidates, [{ project_code: 'S00-001', strength: 'strong',
+      basis: ['equipment', 'purpose'], evidence_rows: 2, withdrawn: true }]);
+  } finally { await inbox.cleanup(); }
+});
+
+test('철회 원장이 없거나 읽을 수 없어도 대화 목록 읽기는 그대로 답한다 (withdrawn: false)', async () => {
+  const inbox = await withConversationList();
+  try {
+    // No ledger file written at all for this session.
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.status, 'ok');
+    const [first] = answer.conversation_list.rows;
+    assert.equal(first.project_candidates[0].withdrawn, false);
   } finally { await inbox.cleanup(); }
 });
 

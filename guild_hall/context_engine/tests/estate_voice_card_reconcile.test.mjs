@@ -11,6 +11,7 @@ import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import {
   RECONCILE_RECEIPT_SCHEMA, aliasTermsByCode, corroborationFor, runReconcile, runReconcileCli,
 } from '../harness/estate_voice_card_reconcile.mjs';
+import { NIGHTLY_RECEIPT_SCHEMA } from '../harness/voice_conversation_list_nightly.mjs';
 import { readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
 import { VOICE_ROUTE_LEDGER_SCHEMA } from '../harness/voice_routes.mjs';
 
@@ -83,6 +84,23 @@ async function writeLinearIssue(dataRoot, team, issueId, object) {
 const mailEvent = (eventId, subject, receivedAt, from = [{ name: 'Someone', address: 'a@example.com' }]) => ({
   schema_version: 'email.fetch.event.v1', event_id: eventId, source: 'gmail', subject, from, to: [], cc: [],
   attachments: [], received_at: receivedAt, ingested_at: receivedAt, body_text: '본문은 절대 읽히지 않아야 한다' });
+
+// S2-5: a synthetic nightly-lane receipt, the same shape
+// `voice_conversation_list_nightly.mjs`'s own CLI writes -- only the fields
+// `collectBacklogSessions` actually reads are populated with real values.
+async function writeNightlyReceipt(nightlyReceiptsDir, name, { targetDate, sessions }) {
+  await mkdir(nightlyReceiptsDir, { recursive: true });
+  await writeFile(path.join(nightlyReceiptsDir, name), JSON.stringify({
+    schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: `${targetDate}T21:00:00.000Z`, target_date: targetDate,
+    dry: false, lock: { reclaimed_stale: false, previous_lock: null, previous_lock_age_ms: null },
+    plan: { candidates: sessions.length, processed: sessions.length, max_sessions: 50, error: null },
+    sessions, totals: { ran: sessions.filter(row => row.outcome === 'ran').length, ran_unverified: 0,
+      llm_calls: 0, seconds: 0 } }, null, 2));
+}
+
+const nightlyRow = (sessionId, runId, overrides = {}) => ({ session_id: sessionId, title: 'title',
+  duration_seconds: 30, outcome: 'ran', reason: null, llm_calls: 1, seconds: 1, run_id: runId, verified: true,
+  ...overrides });
 
 // -------------------------------------------------------------- pure helpers
 test('aliasTermsByCode builds terms only from project names starting with the code', () => {
@@ -217,7 +235,7 @@ test('a segment a person already confirmed is left untouched', async () => {
       status: 'confirmed', quality: { transcript: 'independent_fast', correction_state: 'human_corrected' },
       transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
       judged_by: 'actor:owner:someone', judged_at: '2026-09-19T21:00:00.000Z',
-      confirmed_by: 'actor:owner:someone', confirmed_at: '2026-09-19T21:00:00.000Z' }] }, null, 2));
+      confirmed_by: 'actor:owner:someone', confirmed_at: '2026-09-19T21:00:00.000Z', withdrawn: [] }] }, null, 2));
   const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
     '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
     '--now', '2026-09-20T18:00:00.000Z']);
@@ -246,7 +264,7 @@ test('--dry reads the existing ledger too, so already_confirmed is faithful to a
       status: 'confirmed', quality: { transcript: 'independent_fast', correction_state: 'human_corrected' },
       transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
       judged_by: 'actor:owner:someone', judged_at: '2026-09-19T21:00:00.000Z',
-      confirmed_by: 'actor:owner:someone', confirmed_at: '2026-09-19T21:00:00.000Z' }] }, null, 2));
+      confirmed_by: 'actor:owner:someone', confirmed_at: '2026-09-19T21:00:00.000Z', withdrawn: [] }] }, null, 2));
   const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
     '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19', '--dry']);
   assert.equal(result.status, 'DRY');
@@ -362,9 +380,14 @@ test('a strong_conflict segment that later resolves to a single strong candidate
   const row = nightTwo.result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
   assert.equal(row.classification, 'provisional');
   assert.equal(row.ledger_write, 'set'); // not skipped_human_candidate, even though import never confirmed anything here
+  // S2-3: the conflicting P23-043 candidate the card no longer lists is
+  // retired now that this night actually touches this segment's candidates.
+  assert.deepEqual(row.retired_candidates, ['P23-043']);
   const ledgerRow = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger
     .segments.find(item => item.segment_id === 'c001');
   assert.match(ledgerRow.project_candidates.find(item => item.project_code === 'P24-049').basis, /^reconcile:v0/u);
+  assert.equal(ledgerRow.project_candidates.find(item => item.project_code === 'P23-043'), undefined, 'B is gone');
+  assert.equal(ledgerRow.project_candidates.length, 1);
 });
 
 test('a candidate a person already wrote by hand is never overwritten, and is reported skipped_human_candidate', async () => {
@@ -383,7 +406,7 @@ test('a candidate a person already wrote by hand is never overwritten, and is re
       status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'none' },
       transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
       judged_by: 'actor:owner:someone', judged_at: '2026-09-19T21:00:00.000Z',
-      confirmed_by: null, confirmed_at: null }] }, null, 2));
+      confirmed_by: null, confirmed_at: null, withdrawn: [] }] }, null, 2));
   const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
     '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
     '--now', '2026-09-20T18:00:00.000Z']);
@@ -416,7 +439,7 @@ test('a segment with one human-protected candidate and one new candidate is set_
       status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'none' },
       transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
       judged_by: 'actor:owner:someone', judged_at: '2026-09-19T21:00:00.000Z',
-      confirmed_by: null, confirmed_at: null }] }, null, 2));
+      confirmed_by: null, confirmed_at: null, withdrawn: [] }] }, null, 2));
   const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
     '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
     '--now', '2026-09-20T18:00:00.000Z']);
@@ -430,6 +453,217 @@ test('a segment with one human-protected candidate and one new candidate is set_
   const p23 = ledgerRow.project_candidates.find(item => item.project_code === 'P23-043');
   assert.equal(p24.basis, '사람이 직접 확인함, 아직 확정 전'); // untouched
   assert.match(p23.basis, /^reconcile:v0/u); // newly written
+});
+
+// -------------------------------------------------------- S2-2 segment identity
+test('a regenerated card reusing a segment_id for a different stretch of the recording is skipped (segment_identity_changed), old row untouched, in --dry and for real', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_bbbbbbbbbbbbbbbb', { segments: [
+    segment({ segment_id: 'c001', source_segment_ids: [5, 6], start_seconds: 120, end_seconds: 160,
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // A prior night's machine-drafted row for the same segment_id, over the
+  // completely different scope an earlier run's boundary step drew.
+  await mkdir(path.join(est.controlRoot, 'voice-routes'), { recursive: true });
+  await writeFile(path.join(est.controlRoot, 'voice-routes', 'sess1.json'), JSON.stringify({
+    schema_version: VOICE_ROUTE_LEDGER_SCHEMA, session_id: 'sess1', updated_at: '2026-09-19T21:00:00.000Z',
+    segments: [{ segment_id: 'c001', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 30,
+      title: '이전 회차 구간', description: null, derived_summary: true, nature: 'project_work',
+      project_candidates: [{ project_code: 'P24-049', evidence_refs: [], basis: 'voice_conversation_list:vcl_aaaaaaaaaaaaaaaa:c001 strength=strong basis=key_terms' }],
+      status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'none' },
+      transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: { kind: 'conversation_list', run_id: 'vcl_aaaaaaaaaaaaaaaa', unit_id: 'c001' },
+      judged_by: 'actor:context-engine:voice-card-reconcile-v0', judged_at: '2026-09-19T21:00:00.000Z',
+      confirmed_by: null, confirmed_at: null, withdrawn: [] }] }, null, 2));
+
+  const dryRun = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19', '--dry']);
+  assert.equal(dryRun.result.status, 'DRY');
+  const dryRow = dryRun.result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(dryRow.ledger_write, 'skipped_segment_identity_changed');
+  assert.equal(dryRun.result.receipt.totals.segment_identity_changed, 1);
+
+  const realRun = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(realRun.result.status, 'OK');
+  const realRow = realRun.result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(realRow.ledger_write, 'skipped_segment_identity_changed');
+  assert.equal(realRun.result.receipt.totals.segment_identity_changed, 1);
+  const ledgerRow = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger
+    .segments.find(item => item.segment_id === 'c001');
+  assert.deepEqual(ledgerRow.source_segment_ids, [1, 2]); // the old scope, exactly
+  assert.equal(ledgerRow.title, '이전 회차 구간');
+});
+
+// -------------------------------------------------------- S2-3 vanished candidates
+test('a machine candidate the current card no longer lists is retired; a human candidate never is, even if the card also drops it', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await mkdir(path.join(est.controlRoot, 'voice-routes'), { recursive: true });
+  await writeFile(path.join(est.controlRoot, 'voice-routes', 'sess1.json'), JSON.stringify({
+    schema_version: VOICE_ROUTE_LEDGER_SCHEMA, session_id: 'sess1', updated_at: '2026-09-19T21:00:00.000Z',
+    segments: [{ segment_id: 'c001', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 30,
+      title: '지난 회차', description: null, derived_summary: true, nature: 'project_work',
+      project_candidates: [
+        { project_code: 'P23-043', evidence_refs: [], basis: 'reconcile:v0 classification=candidate corroborated=false' },
+        { project_code: 'P26-014', evidence_refs: [], basis: '사람이 직접 확인함' },
+      ],
+      status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'none' },
+      transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
+      judged_by: 'actor:context-engine:voice-card-reconcile-v0', judged_at: '2026-09-19T21:00:00.000Z',
+      confirmed_by: null, confirmed_at: null, withdrawn: [] }] }, null, 2));
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.deepEqual(row.retired_candidates, ['P23-043']);
+  assert.equal(result.receipt.totals.retired_candidates, 1);
+  const ledgerRow = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger
+    .segments.find(item => item.segment_id === 'c001');
+  const codes = ledgerRow.project_candidates.map(item => item.project_code).sort();
+  assert.deepEqual(codes, ['P24-049', 'P26-014']); // P23-043 gone, P26-014 (human, absent from card) kept
+});
+
+// -------------------------------------------------------------- S2-4 withdraw
+test('a withdrawn project is never re-proposed by reconcile, and a strong card candidate for it does not read as strong', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // A person confirmed P24-049, then took it back.
+  const routesDir = path.join(est.controlRoot, 'voice-routes');
+  await mkdir(routesDir, { recursive: true });
+  await writeFile(path.join(routesDir, 'sess1.json'), JSON.stringify({
+    schema_version: VOICE_ROUTE_LEDGER_SCHEMA, session_id: 'sess1', updated_at: '2026-09-19T21:00:00.000Z',
+    segments: [{ segment_id: 'c001', source_segment_ids: [1, 2], start_seconds: 0, end_seconds: 30,
+      title: '사람이 확인했던 제목', description: null, derived_summary: true, nature: 'project_work',
+      project_candidates: [{ project_code: 'P24-049', evidence_refs: [], basis: '사람이 직접 확인함' }],
+      status: 'candidate', quality: { transcript: 'independent_fast', correction_state: 'human_corrected' },
+      transcript_ref: null, audio_ref: null, related_segment_ids: [], draft_source: null,
+      judged_by: 'actor:owner:someone', judged_at: '2026-09-19T21:00:00.000Z', confirmed_by: null, confirmed_at: null,
+      withdrawn: [{ project_code: 'P24-049', withdrawn_by: 'actor:owner:someone', withdrawn_at: '2026-09-19T22:00:00.000Z' }] }] }, null, 2));
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  // The card's own strength was `strong`, but with the project withdrawn it
+  // must not ride the strong-candidate path to `provisional` unchallenged.
+  assert.notEqual(row.classification, 'provisional');
+  assert.equal(row.ledger_write, 'skipped_withdrawn_project');
+  assert.deepEqual(row.skipped_withdrawn_projects, ['P24-049']);
+  assert.equal(result.receipt.totals.withdrawn_projects_skipped, 1);
+  const ledgerRow = readLedgerFile(routesDir, 'sess1').ledger.segments.find(item => item.segment_id === 'c001');
+  assert.equal(ledgerRow.project_candidates[0].basis, '사람이 직접 확인함'); // untouched
+  assert.equal(ledgerRow.title, '사람이 확인했던 제목'); // untouched
+});
+
+
+test('--nightly-receipts reconciles every session three nightly receipts report as ran/verified, across three different dates, instead of one --date folder', async () => {
+  const est = await estate();
+  const nightlyReceiptsDir = path.join(est.controlRoot, 'nightly-receipts');
+  await writeCard(est.derivedRoot, 'sess-a', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await writeCard(est.derivedRoot, 'sess-b', 'vcl_bbbbbbbbbbbbbbbb', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await writeCard(est.derivedRoot, 'sess-c', 'vcl_cccccccccccccccc', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // Deliberately no writeSessionDir for any of these -- a --date pass would
+  // find zero sessions for any single day; only the nightly receipts name them.
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r1.json', { targetDate: '2026-09-17',
+    sessions: [nightlyRow('sess-a', 'vcl_aaaaaaaaaaaaaaaa')] });
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r2.json', { targetDate: '2026-09-18',
+    sessions: [nightlyRow('sess-b', 'vcl_bbbbbbbbbbbbbbbb')] });
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r3.json', { targetDate: '2026-09-19',
+    sessions: [nightlyRow('sess-c', 'vcl_cccccccccccccccc')] });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir,
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.plan.mode, 'backlog');
+  assert.equal(result.receipt.plan.nightly_receipts_dir, nightlyReceiptsDir);
+  assert.deepEqual(result.receipt.plan.dates, ['2026-09-17', '2026-09-18', '2026-09-19']);
+  const bySession = Object.fromEntries(result.receipt.sessions.map(row => [row.session_id, row]));
+  assert.equal(bySession['sess-a'].outcome, 'reconciled');
+  assert.equal(bySession['sess-b'].outcome, 'reconciled');
+  assert.equal(bySession['sess-c'].outcome, 'reconciled');
+  assert.deepEqual(new Set(result.receipt.reconciled_runs.map(row => row.session_id)),
+    new Set(['sess-a', 'sess-b', 'sess-c']));
+  for (const sessionId of ['sess-a', 'sess-b', 'sess-c']) {
+    const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), sessionId).ledger;
+    assert.equal(ledger.segments.find(item => item.segment_id === 'c001').status, 'candidate');
+  }
+});
+
+test('a (session_id, run_id) pair a backlog pass already reconciled is skipped by the next pass, but reconciled again once its run_id changes', async () => {
+  const est = await estate();
+  const nightlyReceiptsDir = path.join(est.controlRoot, 'nightly-receipts');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_1111111111111111', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r1.json', { targetDate: '2026-09-18',
+    sessions: [nightlyRow('sess1', 'vcl_1111111111111111')] });
+  const first = (await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir,
+    '--now', '2026-09-19T05:00:00.000Z'])).result;
+  assert.equal(first.status, 'OK');
+  assert.equal(first.receipt.sessions[0].outcome, 'reconciled');
+  assert.deepEqual(first.receipt.reconciled_runs, [{ session_id: 'sess1', run_id: 'vcl_1111111111111111' }]);
+
+  // A second backlog pass, same receipts directory, same run: it must not be
+  // redone (no fresh ledger_write on a segment already settled), and it is
+  // reported skipped with the S2-5 reason rather than silently dropped.
+  const second = (await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir,
+    '--now', '2026-09-19T06:00:00.000Z'])).result;
+  assert.equal(second.status, 'OK');
+  assert.equal(second.receipt.sessions[0].outcome, 'skipped');
+  assert.equal(second.receipt.sessions[0].reason, 'already_reconciled_run');
+  assert.deepEqual(second.receipt.reconciled_runs, []);
+
+  // The session gets re-transcribed (S2-1): a new run_id lands in the card
+  // and a new nightly receipt reports it. That pair was never recorded, so
+  // it is reconciled again even though the session_id repeats.
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_2222222222222222', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r2.json', { targetDate: '2026-09-19',
+    sessions: [nightlyRow('sess1', 'vcl_2222222222222222')] });
+  const third = (await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir,
+    '--now', '2026-09-19T20:00:00.000Z'])).result;
+  assert.equal(third.status, 'OK');
+  assert.equal(third.receipt.sessions[0].outcome, 'reconciled');
+  assert.equal(third.receipt.sessions[0].run_id, 'vcl_2222222222222222');
+  assert.deepEqual(third.receipt.reconciled_runs, [{ session_id: 'sess1', run_id: 'vcl_2222222222222222' }]);
+});
+
+test('a --nightly-receipts directory that does not exist yet plans zero sessions in backlog mode, cleanly, not an error', async () => {
+  const est = await estate();
+  const nightlyReceiptsDir = path.join(est.controlRoot, 'nightly-receipts-never-written');
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir, '--dry']);
+  assert.equal(result.status, 'DRY');
+  assert.equal(result.receipt.plan.mode, 'backlog');
+  assert.equal(result.receipt.totals.sessions, 0);
+  assert.deepEqual(result.receipt.sessions, []);
+  assert.deepEqual(result.receipt.plan.dates, []);
 });
 
 test('a session with no card, or an unverified one, is skipped and reported with a reason', async () => {

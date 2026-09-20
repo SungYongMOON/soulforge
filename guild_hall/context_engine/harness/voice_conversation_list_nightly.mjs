@@ -155,13 +155,50 @@ export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS,
 
 // ------------------------------------------------------------ classification
 /**
+ * Whether an existing verified run is still the answer for what the session
+ * currently declares, checked only against what is already in hand -- the
+ * existing run's own `run_manifest.json` (already read by `readRun`, not a
+ * new file) and the two things a caller of this whole night already computed
+ * once (`configSha256`, `promptDigests`). Returns the field name that
+ * disagreed, or `null` when nothing checked here disagrees.
+ *
+ * Deliberately narrower than `runIdFor`'s own canonical hash: recomputing
+ * that exactly would mean re-reading the transcript and semantic-label run
+ * and pinning the model, which is exactly the model-free, cheap-read shape
+ * this whole classification step exists to keep. Transcript identity is
+ * compared by the *transcript run id* the session currently declares
+ * (`independent_transcription.run_id`, already read from the session
+ * manifest) against the run's own recorded `manifest.transcript.run_id` --
+ * not by re-hashing the transcript bytes. The model/prompt pin itself is not
+ * compared either (pinning would call the model service); only the prompt
+ * *file* digests are, since the caller already has them for the real run.
+ */
+export function staleReasonFor({ manifest, transcriptRunId, configSha256 = null, promptDigests = null }) {
+  if (manifest === null) return 'manifest_unreadable';
+  if (typeof transcriptRunId === 'string' && transcriptRunId
+    && manifest.transcript?.run_id !== transcriptRunId) return 'transcript_run_id';
+  if (configSha256 !== null && manifest.config_sha256 !== `sha256:${configSha256}`) return 'config';
+  if (promptDigests !== null) {
+    for (const [name, digest] of Object.entries(promptDigests)) {
+      if (manifest.prompts?.[name] !== digest) return 'prompts';
+    }
+  }
+  return null;
+}
+
+/**
  * What this pass will do with one candidate session, decided before any model
  * is called. Every candidate this lane found becomes a row -- a manifest that
  * cannot be read or that names a different session is `failed`
  * (`session_manifest_unreadable`) rather than a session that quietly vanishes
- * from the plan.
+ * from the plan. `configSha256`/`promptDigests`, when given, additionally bind
+ * an existing verified run to the inputs the night is actually running with
+ * (see `staleReasonFor`); a run whose inputs have moved on is planned `run`
+ * again (`existing_run_stale:<field>`) instead of `skipped_existing`, and its
+ * old run directory is never touched, let alone deleted.
  */
-export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_ADDRESS, date, sessionId }) {
+export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_ADDRESS, date, sessionId,
+  configSha256 = null, promptDigests = null }) {
   const address = `${sessionsAddress}/${date}/${sessionId}`;
   const unreadable = () => ({ session_id: sessionId, date, title: sessionId, duration_seconds: null,
     existing_run_id: null, classification: 'failed', reason: 'session_manifest_unreadable' });
@@ -192,7 +229,12 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
     }
   }
   if (existing !== null && existing.list?.verified === true) {
-    return { ...base, classification: 'skipped_existing', reason: null, existing_run_id: existing.run_id };
+    const staleField = staleReasonFor({ manifest: existing.manifest,
+      transcriptRunId: manifest.independent_transcription?.run_id ?? null, configSha256, promptDigests });
+    if (staleField === null) {
+      return { ...base, classification: 'skipped_existing', reason: null, existing_run_id: existing.run_id };
+    }
+    return { ...base, classification: 'run', reason: `existing_run_stale:${staleField}`, existing_run_id: existing.run_id };
   }
   return { ...base, classification: 'run', reason: null, existing_run_id: existing?.run_id ?? null };
 }
@@ -204,12 +246,13 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
  * reaching the sessions that do need a run -- the cap bounds how much work
  * reaches the model, not how much of the plan this pass is allowed to look at.
  */
-function classifyPlan({ io, tools, sessionsAddress, plan, maxSessions }) {
+function classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256 = null, promptDigests = null }) {
   const rows = [];
   let runCount = 0;
   for (const item of plan) {
     if (maxSessions !== null && runCount >= maxSessions) break;
-    const described = classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id });
+    const described = classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id,
+      configSha256, promptDigests });
     rows.push({ item, described });
     if (described.classification === 'run') runCount += 1;
   }
@@ -294,7 +337,7 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     }
     const rows = [];
     if (planError === null) {
-      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions })) {
+      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests })) {
         rows.push(described);
         const label = described.classification === 'run' ? 'would_run' : described.classification;
         log(`${item.date} ${item.session_id} ${label}${described.reason ? ` ${described.reason}` : ''}`);
@@ -327,7 +370,7 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       log(`sessions plan unreadable: ${planError}`);
     }
     if (planError === null) {
-      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions })) {
+      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests })) {
         if (described.classification !== 'run') {
           const row = { session_id: item.session_id, title: described.title, duration_seconds: described.duration_seconds,
             outcome: described.classification, reason: described.reason, llm_calls: null, seconds: null,

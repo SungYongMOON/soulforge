@@ -56,7 +56,11 @@ export const LIBRARY_ACCEPTED_STATUS = 'accepted_project_route';
 export const VOICE_ROUTE_LIMITS = Object.freeze({ segments: 200, project_candidates: 8, evidence_refs: 32,
   related_segment_ids: 16, ref_characters: 512, title_characters: 200, description_characters: 1000,
   basis_characters: 500, ledger_bytes: 4 * 1024 * 1024, index_bytes: 64 * 1024 * 1024, ref_segments: 8,
-  source_segment_ids: 4000 });
+  source_segment_ids: 4000,
+  // A per-segment append-only log of withdrawal events (`withdraw`, or a
+  // confirm of a different project correcting an earlier one) -- bounded so
+  // it cannot grow without limit; the oldest entries fall off first.
+  withdrawn_entries: 16 });
 
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u;
@@ -79,8 +83,10 @@ const text = (value, max) => value === null || (typeof value === 'string' && val
 const LEDGER_FIELDS = ['schema_version', 'session_id', 'segments', 'updated_at'];
 export const SEGMENT_FIELDS = Object.freeze(['segment_id', 'source_segment_ids', 'start_seconds', 'end_seconds',
   'title', 'description', 'derived_summary', 'nature', 'project_candidates', 'status', 'quality', 'transcript_ref',
-  'audio_ref', 'related_segment_ids', 'draft_source', 'judged_by', 'judged_at', 'confirmed_by', 'confirmed_at']);
+  'audio_ref', 'related_segment_ids', 'draft_source', 'judged_by', 'judged_at', 'confirmed_by', 'confirmed_at',
+  'withdrawn']);
 const CANDIDATE_FIELDS = ['project_code', 'evidence_refs', 'basis'];
+const WITHDRAWN_FIELDS = ['project_code', 'withdrawn_by', 'withdrawn_at'];
 
 /**
  * Which utterances a conversation is made of, as the transcript's own ids.
@@ -121,6 +127,17 @@ function validQuality(quality) {
     && VOICE_CORRECTION_STATES.includes(quality.correction_state);
 }
 
+// One withdrawal event: a project a person confirmed and then took back --
+// either by `withdraw` (the segment itself demoted to `candidate`) or by
+// `confirm`-ing a different project on the same segment (an explicit A->B
+// correction, which records A here). Not deduplicated by project_code: this
+// is an append-only log of events, not a set, so a project withdrawn twice
+// keeps both entries.
+function validWithdrawnEntry(entry) {
+  return exactKeys(entry, WITHDRAWN_FIELDS) && PROJECT_CODE.test(entry.project_code ?? '')
+    && ACTOR.test(entry.withdrawn_by ?? '') && isInstant(entry.withdrawn_at);
+}
+
 function validSegment(segment) {
   // Whole seconds: the interval becomes a grant scope, and a grant is identified
   // by its canonical bytes, which hold only safe integers. Rounding therefore
@@ -150,7 +167,9 @@ function validSegment(segment) {
     || (segment.draft_source !== null && !(exactKeys(segment.draft_source, ['kind', 'run_id', 'unit_id'])
       && typeof segment.draft_source.kind === 'string' && isSafeSegment(segment.draft_source.run_id ?? '')
       && SEGMENT_ID.test(segment.draft_source.unit_id ?? '')))
-    || !ACTOR.test(segment.judged_by ?? '') || !isInstant(segment.judged_at)) return false;
+    || !ACTOR.test(segment.judged_by ?? '') || !isInstant(segment.judged_at)
+    || !Array.isArray(segment.withdrawn) || segment.withdrawn.length > VOICE_ROUTE_LIMITS.withdrawn_entries
+    || !segment.withdrawn.every(validWithdrawnEntry)) return false;
   // Confirmation is a person's act, so it is a person's fields, and it places the
   // segment with exactly one project. Two candidates is not a decision and none
   // is not either.
