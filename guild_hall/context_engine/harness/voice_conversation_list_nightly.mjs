@@ -381,7 +381,7 @@ function options(argv) {
   return flags;
 }
 
-export async function runNightlyCli(argv, { runSession, now } = {}) {
+export async function runNightlyCli(argv, { runSession, now, log: onLine } = {}) {
   const flags = options(argv);
   const tablePath = String(flags.get('root-table') ?? '');
   if (!tablePath) fail('voice_conversation_list_nightly_root_table_required');
@@ -418,16 +418,21 @@ export async function runNightlyCli(argv, { runSession, now } = {}) {
     maxSessions = parsed;
   }
 
+  // A line is kept in `lines` for a caller that reads the return value (tests,
+  // programmatic callers), and also handed to `onLine` the moment it is
+  // produced -- `main` below passes one that writes straight to stdout, so a
+  // long night's progress is visible as it happens rather than only after the
+  // whole run (or a 56-minute silence) ends.
   const lines = [];
+  const log = line => { lines.push(line); if (onLine) onLine(line); };
   const result = await runNightly({ io, tools, config, prompts, promptDigests: digests,
     configSha256: hex(configBytes), receiptsDir, targetDate, maxSessions, dry, now: nowIso,
-    ...(runSession ? { runSession } : {}), log: line => lines.push(line) });
+    ...(runSession ? { runSession } : {}), log });
   return { result, lines, targetDate };
 }
 
 async function main() {
-  const { result, lines } = await runNightlyCli(process.argv.slice(2));
-  for (const line of lines) process.stdout.write(`${line}\n`);
+  const { result } = await runNightlyCli(process.argv.slice(2), { log: line => process.stdout.write(`${line}\n`) });
   if (result.status === 'LOCK_HELD') return 3;
   return result.status === 'FAILED' ? 2 : 0;
 }
