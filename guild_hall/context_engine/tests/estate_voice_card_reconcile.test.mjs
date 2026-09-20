@@ -1074,6 +1074,84 @@ test('a wrong --mail-root or --linear-root is recorded as a coverage gap, not a 
   assert.deepEqual(result.receipt.exception_review, []);
 });
 
+// ---------------------------------------------------------- linear layout
+// The 2026-09-18 first real run's own anomaly: `--linear-root` pointed
+// straight at a team's own folder (single_team), but the reader used to
+// assume only the nested layout (multi_team) and silently found nothing.
+test('single_team: --linear-root pointed directly at a team folder (issues/projects live right under it) is still read, not silently zero', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-18', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // writeLinearProject/writeLinearIssue's own shape already mirrors the real
+  // custody file names (object_id + a 64-hex-char content-hash file); here
+  // 'sonartech-team-1' is passed as --linear-root directly, one level
+  // deeper than the default, matching the real 09-18 invocation exactly.
+  await writeLinearProject(est.dataRoot, 'sonartech-team-1', 'proj-1',
+    { name: 'P24-049 SAS 처리장치', updated_at: '2026-09-17T00:00:00.000Z' });
+  await writeLinearIssue(est.dataRoot, 'sonartech-team-1', 'issue-1',
+    { identifier: 'ENG-1', title: '동기화 일정', project_id: 'proj-1', updated_at: '2026-09-18T09:00:00.000Z' });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-18',
+    '--linear-root', 'data_root/ingress/linear/sonartech-team-1', '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.sources.linear_layout, 'single_team');
+  assert.equal(result.receipt.sources.linear_issues_scanned, 1);
+  assert.equal(result.receipt.sources.linear_issues_in_window, 1);
+  assert.equal(result.receipt.totals.registered_project_codes_count, 1,
+    'the projects/ reader shares readLinearWindow\'s output, so the same fix un-blocks it too');
+  assert.deepEqual(result.receipt.sources.sources_unreadable, []);
+});
+
+test('multi_team: --linear-root at the parent of team folders is still read exactly as before (regression)', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa');
+  await writeLinearProject(est.dataRoot, 'acme', 'proj-1', { name: 'P24-049 SAS', updated_at: '2026-09-01T00:00:00.000Z' });
+  await writeLinearIssue(est.dataRoot, 'acme', 'issue-1',
+    { identifier: 'ENG-1', title: '동기화 일정', project_id: 'proj-1', updated_at: '2026-09-19T09:00:00.000Z' });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--linear-root', 'data_root/ingress/linear', '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.sources.linear_layout, 'multi_team');
+  assert.equal(result.receipt.sources.linear_issues_scanned, 1);
+});
+
+test('empty: no Linear data collected yet under --linear-root is "empty", not a coverage gap', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa');
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.sources.linear_layout, 'empty');
+  assert.deepEqual(result.receipt.sources.sources_unreadable, []);
+});
+
+test('unrecognized: a non-empty --linear-root with no issues/projects folder anywhere under it is a named coverage gap, not silent 0', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa');
+  // Real entries exist under linearRoot (comments/, labels/, ...), but none
+  // of them -- nor linearRoot itself -- is an issues/projects custody folder.
+  await mkdir(path.join(est.dataRoot, 'ingress', 'linear', 'sonartech-team-1', 'comments', 'c1'), { recursive: true });
+  await writeFile(path.join(est.dataRoot, 'ingress', 'linear', 'sonartech-team-1', 'comments', 'c1', `${'2'.repeat(64)}.json`),
+    JSON.stringify({ object_id: 'c1', object: { body: 'x' } }));
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--linear-root', 'data_root/ingress/linear/sonartech-team-1', '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK'); // a coverage gap does not fail the run
+  assert.equal(result.receipt.sources.linear_layout, 'unrecognized');
+  assert.equal(result.receipt.sources.linear_issues_scanned, 0);
+  const gaps = result.receipt.sources.sources_unreadable;
+  assert.ok(gaps.some(gap => gap.address === 'data_root/ingress/linear/sonartech-team-1'
+    && gap.code === 'linear_layout_unrecognized'));
+});
+
 // -------------------------------------------------------------------- lock
 test('a held lock stops a second real run and is reported', async () => {
   const est = await estate();

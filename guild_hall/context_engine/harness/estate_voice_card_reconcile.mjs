@@ -489,25 +489,55 @@ function listDirNames2(io, address, unreadable) {
   }
 }
 
+/** Whether `${address}` exists and is a directory -- used only to detect
+ * which Linear layout is present, never to read its content. */
+function hasCustodyDir(io, address) {
+  let where;
+  try { where = io.path(address, true); } catch { return false; }
+  try { return existsSync(where) && statSync(where).isDirectory(); } catch { return false; }
+}
+
 /**
- * Linear projects and same-window issues under `linearRoot` (one team folder
- * per subdirectory, each with `projects/` and `issues/` custody folders -- the
- * layout `harness/estate_inventory.mjs` reads, and whose `latestPerObject` is
- * reused here unchanged). An issue is in the window by its own `updated_at`
- * (falling back to `created_at`), read in Asia/Seoul days -- the target day
- * plus one day either side. Only `identifier`, `title`, `project_id` and that
- * time are ever read out of an issue; no comment, no change-log entry, no
+ * Linear projects and same-window issues under `linearRoot`. Two layouts are
+ * recognised, detected rather than assumed:
+ *   - `single_team`: `linearRoot` itself directly holds `issues/`/`projects/`
+ *     custody folders -- `linearRoot` already names one team.
+ *   - `multi_team`: `linearRoot`'s own immediate children are team folders,
+ *     each holding its own `issues/`/`projects/` -- the layout
+ *     `harness/estate_inventory.mjs` reads, and whose `latestPerObject` is
+ *     reused here unchanged.
+ * This distinction exists because of the 2026-09-18 first real run's own
+ * anomaly: `--linear-root` was pointed straight at a team's own folder
+ * (`.../linear/sonartech-team-1`, which directly holds `issues/`/
+ * `projects/`), but this reader assumed only `multi_team` -- it walked
+ * `sonartech-team-1`'s own entries (`issues`, `projects`, `comments`, ...)
+ * as if each one were a *team name*, found no `issues/`/`projects/` folder
+ * under any of them, and reported `linear_issues_scanned: 0` with no error
+ * at all, because a computed path that simply does not exist reads as
+ * ordinary ("not yet created for this team/kind"), not as unreadable.
+ * `layout` (`single_team`/`multi_team`/`empty`/`unrecognized`) is returned
+ * so a caller can record which one a given root actually was.
+ * `unrecognized` -- `linearRoot` resolves to a non-empty directory but
+ * neither shape's `issues`/`projects` folder was ever found anywhere under
+ * it -- is a named coverage gap (`linear_layout_unrecognized` in
+ * `unreadable`), never a silent zero.
+ *
+ * An issue is in the window by its own `updated_at` (falling back to
+ * `created_at`), read in Asia/Seoul days -- the target day plus one day
+ * either side. Only `identifier`, `title`, `project_id` and that time are
+ * ever read out of an issue; no comment, no change-log entry, no
  * description. Every team/kind folder this pass could not actually read is
  * named in the returned `unreadable` list.
  */
 function readLinearWindow({ io, linearRoot, seoulDays }) {
   const projects = [], issues = [], unreadable = [];
   let scanned = 0;
-  for (const team of listDirNamesReporting(io, linearRoot, unreadable)) {
-    for (const row of latestPerObject(custodyRecords(io, `${linearRoot}/${team}/projects`, unreadable))) {
+
+  const readTeam = teamAddress => {
+    for (const row of latestPerObject(custodyRecords(io, `${teamAddress}/projects`, unreadable))) {
       projects.push({ id: row.object_id ?? null, name: row.object?.name ?? null });
     }
-    for (const row of latestPerObject(custodyRecords(io, `${linearRoot}/${team}/issues`, unreadable))) {
+    for (const row of latestPerObject(custodyRecords(io, `${teamAddress}/issues`, unreadable))) {
       scanned += 1;
       const when = row.object?.updated_at ?? row.object?.created_at ?? null;
       const day = typeof when === 'string' ? seoulDateFor(when) : null;
@@ -515,8 +545,32 @@ function readLinearWindow({ io, linearRoot, seoulDays }) {
       issues.push({ identifier: row.object?.identifier ?? null, title: row.object?.title ?? null,
         project_id: row.object?.project_id ?? null, day });
     }
+  };
+
+  let layout;
+  if (hasCustodyDir(io, `${linearRoot}/issues`) || hasCustodyDir(io, `${linearRoot}/projects`)) {
+    layout = 'single_team';
+    readTeam(linearRoot);
+  } else {
+    const teamDirs = listDirNamesReporting(io, linearRoot, unreadable);
+    const teamsWithCustody = teamDirs.filter(team =>
+      hasCustodyDir(io, `${linearRoot}/${team}/issues`) || hasCustodyDir(io, `${linearRoot}/${team}/projects`));
+    if (teamsWithCustody.length > 0) {
+      layout = 'multi_team';
+      for (const team of teamsWithCustody) readTeam(`${linearRoot}/${team}`);
+    } else if (teamDirs.length === 0) {
+      // Nothing under linearRoot at all (missing, or genuinely empty): the
+      // ordinary "no Linear collected yet" shape, not a coverage gap.
+      layout = 'empty';
+    } else {
+      // linearRoot exists and has entries, but none of them is a team
+      // folder either shape recognises -- named, not silently zero.
+      layout = 'unrecognized';
+      unreadable.push({ address: linearRoot, code: 'linear_layout_unrecognized', cause_code: null });
+    }
   }
-  return { projects, issues, scanned, unreadable };
+
+  return { projects, issues, scanned, unreadable, layout };
 }
 
 // -------------------------------------------------------------- corroboration
@@ -776,7 +830,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   const mail = sessionsErrorCode === null ? await readMailWindow({ io, mailRoots, seoulDays })
     : { events: [], scanned: 0, unreadable: [] };
   const linear = sessionsErrorCode === null ? readLinearWindow({ io, linearRoot, seoulDays })
-    : { projects: [], issues: [], scanned: 0, unreadable: [] };
+    : { projects: [], issues: [], scanned: 0, unreadable: [], layout: null };
   // Only consulted in backlog mode; a plain --date pass re-evaluates today's
   // sessions every time regardless (see collectBacklogSessions's own doc).
   // Read in `--dry` too, so a backlog preview does not claim work a real pass
@@ -1104,7 +1158,7 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       : { mode: 'date', sessions_address: `${sessionsAddress}/${targetDate}`, error: sessionsErrorCode },
     sources: { mail_roots: [...mailRoots], linear_root: linearRoot, mail_events_scanned: mail.scanned,
       mail_events_in_window: mail.events.length, linear_issues_scanned: linear.scanned,
-      linear_issues_in_window: linear.issues.length,
+      linear_issues_in_window: linear.issues.length, linear_layout: linear.layout ?? null,
       // A source named here was never actually read this pass -- its absence
       // from `exception_review`/`sessions` is not "checked, found nothing".
       sources_unreadable: sourcesUnreadable },
