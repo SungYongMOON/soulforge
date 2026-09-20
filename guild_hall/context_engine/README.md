@@ -1,5 +1,35 @@
 # Context Engine
 
+## 카드 대조(2단계 첫 조각) (0.22.3)
+
+`VOICE_RECORDING_LIBRARY_V0.md`의 "2026-09-20 운영 방침"이 정한 방식 1(기본은 해 놓기)·2(예외만 모아 묻기)의 첫
+조각이다. 세 조각으로 나뉜다.
+
+- 규칙: `src/runtime/voice_attribution_policy.mjs`. 모델도 I/O도 없는 순수 함수뿐이고, 카드 구간(`nature`,
+  `title`/`description`, `project_candidates`)과 caller가 이미 계산한 corroboration 결과만 받아
+  `provisional`/`candidate`/`exception`/`skip` 중 하나로 분류한다. `RISK_MARKERS`·`MIN_CORROBORATION`이
+  임계값이고, `distinctiveTerms`/`projectAliasTerms`/`mailCorroborates`/`linearCorroborates`가 "뒷받침됐다"의
+  정의다. 판정 규칙을 바꿀 때는 이 파일과 위 문서 절만 바뀐다(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위).
+- 대조: `harness/estate_voice_card_reconcile.mjs`. 하루치(대상 날짜) verified 카드마다 당일±1일 메일·Linear
+  자료를 직접 읽어(수집 admission grant가 아니라 `harness/estate_inventory.mjs`와 같은 alias-address 방식으로,
+  `--mail-root`는 반복 가능, `--linear-root` 기본값은 `data_root/ingress/linear`) 위 규칙을 적용한다.
+  mail 이벤트는 `subject`/`from`/`received_at`만 읽고 `body_text`는 어떤 출력에도 옮기지 않는다.
+- 기록: 이 harness는 ledger를 직접 쓰지 않고 `harness/voice_route_cli.mjs`의 `import`/`set` 명령을 그대로 부른다.
+  `skip`이 아닌 모든 구간은 ledger에 `candidate` 상태로 남는다(카드가 이미 `unclassified`였어도). 이미 사람이
+  `confirmed`로 확정한 구간은 읽기만 하고 절대 건드리지 않는다. `provisional`/`exception` 구분은 ledger schema에
+  필드를 더하지 않고 `basis` 자유텍스트와 영수증에만 남는다 — 스키마를 더 넓히는 판단은 이 슬라이스의 범위 밖이다.
+  `--receipts`에 회차마다 `soulforge.voice_card_reconcile_receipt.v1` 하나를 쓰며, `exception` 구간은
+  `exception_review` 배열(아침 브리핑 "어제 애매한 것 N건"의 입력 후보)에 모인다. `--dry`는 계산과 로그만 하고
+  잠금·영수증·ledger 어디에도 쓰지 않는다.
+
+확정(`confirmed`)은 여전히 사람의 말이며 `voice_route_cli.mjs confirm`으로만 만들어진다 — 이 대조는 후보를
+늘릴 뿐 아무것도 확정하지 않는다. 아침 브리핑에 `exception_review`를 잇는 것, DM 정정 한 줄을
+`voice_route_cli confirm`으로 반영하는 고리, `ai_provisional_project_route` 상태 자체의 activation은 계획이며 이
+슬라이스에 없다. 예약작업 등록도 없다.
+
+시험: `tests/voice_attribution_policy.test.mjs`(규칙의 모든 분기), `tests/estate_voice_card_reconcile.test.mjs`
+(합성 estate, 실제 상태 root나 모델 호출 없음).
+
 ## Slack 처리 범위의 단일·실제 상태 표시 (0.22.2)
 
 맥락 꾸러미의 Slack coverage는 실제 준비 기록과 검색·본문 사용 수에서 한 행으로

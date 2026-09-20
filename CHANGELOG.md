@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2026-09-20 - 야간 카드 대조 첫 조각 (voice_attribution_policy v0)
+
+- Revision: 이 항목을 포함한 커밋. 새 `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`가
+  `VOICE_RECORDING_LIBRARY_V0.md`의 "2026-09-20 운영 방침"을 구현하는 교체 가능 규칙 모듈이다. 대화 목록 카드 구간을
+  `provisional`(카드 후보가 strong이거나, 약함/미분류이지만 당일±1일 메일·Linear로 뒷받침됨) · `candidate`(약함/미분류,
+  위험 표지 없음) · `exception`(약함/미분류이면서 결정·마감·금액 같은 위험 표지 있음) · `skip`(과제업무/팀운영이 아니거나
+  판독 불가)로 분류한다. 모델을 호출하지 않는 순수 함수이며 모든 분기를 단위시험으로 덮었다.
+- 새 `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`가 하룻밤치 verified 카드마다 메일·Linear의
+  당일±1일 자료를 직접 읽어(수집 admission grant가 아니라 `harness/estate_inventory.mjs`와 같은 alias-address 방식)
+  대조하고, `voice_route_cli.mjs`의 `import`/`set` 명령만으로 `voice_route_ledger`에 `candidate` 상태 행을 쓴다.
+  `confirmed`는 절대 쓰지 않으며, 이미 사람이 확정한 구간은 읽기만 하고 건드리지 않는다. `provisional`/`exception`
+  구분은 ledger schema를 확장하지 않고 영수증(`soulforge.voice_card_reconcile_receipt.v1`)에만 남기며, 위험 표지가
+  있는 예외 구간은 영수증의 `exception_review`(아침 브리핑 "어제 애매한 것 N건" 입력 후보)에 모은다. mail 이벤트는
+  `subject`/`from`/`received_at`만 읽고 `body_text`는 절대 출력에 옮기지 않는다.
+- `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`는 세션별 로그 줄을 회차 끝에 모아 쓰지 않고
+  만들어지는 즉시 stdout에 쓴다. 56분짜리 회차가 끝나기 전까지 아무 것도 보이지 않던 것을 고친다. 영수증 내용은 그대로다.
+- 아직 계획(구현 아님): 아침 브리핑에 `exception_review` 연결, DM 정정 한 줄 → `voice_route_cli confirm` 반영 고리,
+  `ai_provisional_project_route` 상태 자체의 activation. 이 슬라이스는 ledger `candidate` 상태 기록과 영수증까지다.
+  예약작업 등록은 이 변경에 포함하지 않았다.
+- 운영 영향: 코드만. 새 CLI를 등록·실행하기 전에는 기존 야간 lane·ledger 동작을 바꾸지 않는다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/tests/voice_attribution_policy.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`, `guild_hall/context_engine/README.md`.
+
 ## 2026-09-19 - 살핌이 정기 보고 (정상이어도 보고, 관측 불가 구분)
 
 - Revision: 이 항목을 포함한 커밋. `mail_new_event_notice.mjs --report`가 예약 실행마다 정기 보고를 낸다. 정상이면 짧게,
