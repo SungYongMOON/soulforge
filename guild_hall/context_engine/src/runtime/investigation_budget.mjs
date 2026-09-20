@@ -105,7 +105,7 @@ export function chargeInvestigation({ receiptsRoot, cli, env = process.env, devR
   const base = { schema_version: INVESTIGATION_BUDGET_SCHEMA, ts: started, cli, key: identity.key,
     bucket: identity.bucket, call: previous.length + 1, limit, arguments: { ...args } };
   write(directory, ledgerPath, { ...base, phase: 'start', outcome: null,
-    internal: { parser_calls: 0, render_calls: 0, model_calls: 0 } });
+    internal: { parser_calls: 0, parser_calls_scope: 'attachment_derivation_only', render_calls: 0, model_calls: 0 } });
   let closed = false;
   return Object.freeze({
     bucket: identity.bucket, key: identity.key, call: base.call, remaining: limit - base.call, ledger_path: ledgerPath,
@@ -116,7 +116,8 @@ export function chargeInvestigation({ receiptsRoot, cli, env = process.env, devR
       if (closed) return;
       closed = true;
       write(directory, ledgerPath, { ...base, ts: now().toISOString(), phase: 'end', outcome: String(outcome ?? 'unknown'),
-        internal: { parser_calls: Number(internal.parser_calls ?? 0), render_calls: Number(internal.render_calls ?? 0),
+        internal: { parser_calls: Number(internal.parser_calls ?? 0), parser_calls_scope: 'attachment_derivation_only',
+          render_calls: Number(internal.render_calls ?? 0),
           model_calls: 0 } });
     },
   });

@@ -50,6 +50,7 @@ import { EXPLICIT_LINK_RULES, inspectGraphDatabase, linkExplicitReferences,
   materializeGraphIndex } from '../src/runtime/graph_database.mjs';
 import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { validateSourceGrant, SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
+import { validateDocumentTools } from '../src/runtime/document_tools.mjs';
 import { grantCandidates } from './estate_inventory.mjs';
 
 export const GRAPH_SYNC_SCHEMA = 'soulforge.context_graph_sync_receipt.v1';
@@ -185,6 +186,14 @@ export function refreshCandidates({ held, project, manifest, now }) {
     approved: body.approved.length, applied_by_this_pass: 0 } };
 }
 
+/** The sync preflight uses the exact host-only parser binding the update path uses. */
+export async function prepareSyncSources({ binding, grant, roots, now, admission }) {
+  let documentTools;
+  try { documentTools = validateDocumentTools(binding?.document_tools); }
+  catch { fail('graph_sync_binding_invalid'); }
+  return prepareSourceDocuments({ grant, roots, now, admission, documentTools });
+}
+
 async function applyLink({ io, bindingAddress, bindingSha256, projectRef, graphBinding, runWorker }) {
   const view = () => openGraphIndex({ io, bindingAddress, bindingSha256,
     request: { actor_ref: READER, project_ref: projectRef, purpose: 'context_query' } });
@@ -215,6 +224,7 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
   let bindingBytes;
   try { bindingBytes = io.read(bindingAddress, 1024 * 1024); } catch { fail('graph_sync_binding_unavailable'); }
   const binding = JSON.parse(bindingBytes);
+  try { validateDocumentTools(binding.document_tools); } catch { fail('graph_sync_binding_invalid'); }
   const grant = JSON.parse(io.read(binding.grant.path, MAX_JSON_BYTES));
   // Read every pass: an admission or an ACL the Owner narrowed since last time is
   // a change in what may be read, and it has to reach this pass's grant.
@@ -296,7 +306,7 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
 
     // The preparer first, with nothing written: a record it cannot read is taken
     // out before any model is asked about anything.
-    const prepared = await prepareSourceDocuments({ grant: proposed, roots: binding.source_roots, now, admission });
+    const prepared = await prepareSyncSources({ binding, grant: proposed, roots: binding.source_roots, now, admission });
     const owners = new Map(prepared.documents.map(document =>
       [document.doc_key, { root_ref: document.root_ref, item_id: document.item_id }]));
     const unreadable = prepared.coverage.items.filter(row => row.status !== 'prepared')

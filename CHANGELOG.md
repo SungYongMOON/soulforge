@@ -1,5 +1,110 @@
 # CHANGELOG
 
+## 2026-09-19 - 살핌이 정기 보고 (정상이어도 보고, 관측 불가 구분)
+
+- Revision: 이 항목을 포함한 커밋. `mail_new_event_notice.mjs --report`가 예약 실행마다 정기 보고를 낸다. 정상이면 짧게,
+  Watchtower 판정·대조 기록을 못 읽거나 비교 불가면 "확인 불가"로 적고 정상으로 쓰지 않는다. 불일치는 새로 발견/계속 미해결로 나누고,
+  신규 0건·비교 불가는 해소로 보지 않는다. 지난 보고 이후 구간은 ingress 실행 영수증 건수로 요약하되 실행별 대조 기록이 없어 확인 불가로 명시한다.
+- 보고 원장은 "생성"만 기록하고 전달 결과는 Hermes 작업 기록(last_delivery_error)을 다음 보고가 읽어 알린다. 보고 주기는 Hermes 작업 일정이 유일한 기준이다.
+- 관련 경로: `guild_hall/watchtower/mail_new_event_notice.mjs`, `guild_hall/watchtower/ops/salpi_mail_new_event_notice.py`.
+
+## 2026-09-19 - 살핌이 운영감시: 메일 신규 보고–저장소 불일치 전달
+
+- Revision: 이 항목을 포함한 커밋. `guild_hall/watchtower/mail_new_event_notice.mjs`가 Watchtower 스냅샷의 `store_mail_events`
+  판정(`count_store_unchanged_new_event_count_<n>`)을 읽어, 기존 `planAlerts` 억제·재보고 정책으로 고정 문장 한 줄만 낸다.
+  불일치는 이후 `store_changed` 영수증 전까지 미해결로 유지하고, 신규 0건·비교 불가를 해소로 보지 않는다. 모델을 호출하지 않는다.
+- `guild_hall/watchtower/ops/salpi_mail_new_event_notice.py`는 Hermes dev-assist `no_agent` cron shim이다. 실패 시 고정 코드만 출력한다.
+- 새 source lane spec `guild_hall/deployment_pack/lanes/salpi_mail_notice_lane.spec.json`(`salpi-mail-notice-v1`).
+- 관련 경로: `guild_hall/watchtower/`, `guild_hall/deployment_pack/lanes/`, `package.json`(`validate:watchtower`).
+
+## 2026-09-19 - ingress 메일 저장소 신규 이벤트 대조 (new_event_store_check)
+
+- Revision: 이 항목을 포함한 커밋. `guild_hall/ingress/continuous_runner.mjs`가 같은 실행의 메일 bridge `total_new_events`와
+  store validity digest 비교를 대조해 `store_mail_events.json`에 `new_event_store_check`를 따로 기록한다.
+  `status`·`error_codes`·`last_success_at`·`activity_changed`의 의미는 바꾸지 않는다.
+- 새 이벤트를 보고했는데 같은 범위의 유효한 이전 관측 이후 저장소가 그대로면 `store_unchanged`. Watchtower 예시 binding의
+  `store_mail_events`가 `degrade_when`으로 degraded 표시하며 재시작 사유는 아니다. 최초 관측·검증 실패·메일 결과 불가·범위 불일치는
+  `not_comparable`. `store_changed`는 전량 저장이나 core_mail 적재를 뜻하지 않는다.
+- `path_registry` 메일 lane adapter는 이 블록을 선택 필드로 받되 수락 판정은 바꾸지 않는다. salpi_audit README에 운영 미연결과
+  누적 규칙 보류를 적었다.
+- 운영 영향: 코드만. 운영 lane·예약작업·실제 Watchtower binding은 바꾸지 않았다(배포 시 binding에 같은 `degrade_when` 한 줄 필요).
+- 관련 경로: `guild_hall/ingress/`, `guild_hall/watchtower/cli.mjs`, `guild_hall/path_registry/src/mail_source_lane_adapter.mjs`,
+  `guild_hall/salpi_audit/README.md`.
+
+## 2026-09-19 - 살피미 정답 소유권을 결정론 checker로 이동 (review contract v1)
+
+- Revision: 이 항목을 포함한 커밋. 새 `guild_hall/salpi_audit/src/salpi_review.mjs`가 결정론 checklist 결과를
+  canonical review packet(`soulforge.salpi.review_packet.v1`, finding id `F01`…)으로 고정한다. 모델 출력은
+  `soulforge.salpi.review.v1`로 줄어, finding_id별 `CONFIRMED`·`INSUFFICIENT_PROJECTION`·`CONFLICT_WITH_INPUT`과
+  그보다 느슨할 수 없는 `review_status`만 쓴다. finding·evidence·UNKNOWN·status·overall·hold 필드를 쓰면 HOLD다.
+- `decideSalpiOutcome`은 canonical 판정을 바꾸지 않고, 거부된 답이나 CONFIRMED가 아닌 답에만 HOLD를 더해 Owner에게 넘긴다.
+  launcher 쿼리는 packet을 싣고 새 출력 계약을 요구하며, CLI에 `review-packet`·`check-review`가 추가됐다.
+- 계기: 2026-09-18 실제 1회 실행에서 모델이 미지원 finding·지어낸 UNKNOWN·증거 포인터 변경을 내 검사기가 HOLD로 막음.
+- 운영 영향: 없음. 모델 호출·dev-assist 설정·게이트웨이는 바꾸지 않았고, 검증은 synthetic 테스트뿐이다.
+- 관련 경로: `guild_hall/salpi_audit/`, `package.json`(`validate:salpi-audit`).
+
+## 2026-09-18 - 살피미 실행 1회용 dry-run launcher
+
+- Revision: 이 항목을 포함한 커밋. `guild_hall/salpi_audit/src/salpi_launcher.mjs`가 기존 `dev-assist` Hermes
+  프로필을 유지한 채 살피미 감사 실행 한 번에만 도구를 `todo`로 줄이는 명령을 조립하고, 여섯 조건
+  (고정 명령·최소 도구·kanban 차단·hook 없음·전용 run 폴더·자동 주입 context 안전)을 검사한다.
+- 자동 주입 context는 `hermes_probe/prompt_closure_probe.py`가 Hermes 코드로 렌더링해 메타데이터만 보고한다.
+  모델을 호출하지 않고 프로필 파일에 쓰지 않는다.
+- 운영 영향: dev-assist·맥락이·강도담 설정, 게이트웨이, scheduler는 바꾸지 않는다. 실행 경로는 없고
+  dry-run만 있다. 알려진 잔여는 프로필 `terminal.cwd`가 context cwd를 기존 작업 폴더로 고정하는 점이다.
+- 관련 경로: `guild_hall/salpi_audit/`, `package.json`(`validate:salpi-audit`).
+
+## 2026-09-18 - 살피미 v2 Safe Projection 감사 경계
+
+- Revision: 이 항목을 포함한 커밋. 새 `guild_hall/salpi_audit/`가 메일 수집기 상태(raw·events·
+  run summary·dedupe·cursor)를 로컬 결정론 코드로 읽어 숫자·digest·고정 locator·코드만 담은
+  `soulforge.salpi.safe_projection.v1`로 투영한다. 스키마에는 자유 텍스트 칸이 없고, 알 수 없는
+  키와 내용처럼 보이는 키는 fail closed로 거부한다.
+- 살피미 역할 계약 v2(`salpi_role_contract.v2.json`), checklist 기준 판정, 모델 보고서 검사기
+  (원인 서술·발명·누락·HOLD 해제·UNKNOWN 채우기 거부)와 메일 골든 케이스 테스트를 더한다.
+- 운영 영향: 코드와 테스트만이다. 살피미 봇의 도구 권한·입력 통로, 맥락이·강도담·다른 봇,
+  scheduler·launcher, 메일 수집 처리 순서, 공용 guard는 바꾸지 않는다(공용 guard는 import만).
+- 관련 경로: `guild_hall/salpi_audit/`, `package.json`(`validate:salpi-audit`), `guild_hall/README.md`.
+
+## 2026-09-17 - 맥락 꾸러미의 Slack 처리 범위 표시 수정
+
+- Revision: 이 항목을 포함한 커밋. 실제 어댑터가 있는 Slack을 미연결 목록에서
+  제거해 출처별 coverage가 중복 없이 실제 준비·검색·본문 사용 수를 보고한다.
+- 실패한 준비와 범위 내 자료 없음은 구분하며 미지원 Buzz의 미연결 표시는 유지한다.
+- 운영 영향: 색인을 재추출하거나 업무 상태를 바꾸지 않는다. 실제 호출 lane에
+  반영되기 전 코드 검증을 운영 완료로 보지 않는다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/context_planner.mjs`.
+
+## 2026-09-17 - 문서 동기화 설정과 원문 읽기 근거 보완
+
+- Revision: 이 항목을 포함한 커밋. 문서 준비의 동기화 선행 단계도 명시적인 host
+  도구 설정을 전달하고, 관련 binding과 직접 호출에서 도구 설정의 형태를 검사한다.
+- 원문 읽기에 PDF·DOCX의 실제 locator를 보존하고, 도구 미설정과 실제 판본 변경을
+  구분한다. 저장본을 제공한 경우 원문을 새로 읽은 것으로 표시하지 않는다.
+- 운영 영향: 기존 도구 미설정 상태를 유지한다. 이 코드 변경만으로 운영 수집기·DB·
+  수락 포인터를 바꾸지 않는다. 실제 파서 증거와 합성 검증은 실업무 합격과 구분한다.
+- 관련 경로: `guild_hall/context_engine/{src,harness,tests,release}`.
+
+## 2026-09-17 - 맥락 APP의 제한형 Word 본문·표 준비
+
+- Revision: 이 항목을 포함한 커밋. DOCX의 기본 본문 문단과 단순 표를 고정된
+  로컬 parser로 준비하고 XML 블록·표·셀 위치와 원본 판본을 보존한다.
+- 지원하지 않는 내용, 구조·압축 상한 위반은 부분 성공 대신 명시적인 실패로
+  남긴다. 기존 PDF와 함께 source-document 계약과 준비 저장 경로를 사용한다.
+- 운영 영향: 명시 host binding이 있어야 동작한다. 설치·예약작업·운영 DB·수락
+  권한은 바꾸지 않으며 모든 Word 형식이나 원문 의미 검증 완료를 주장하지 않는다.
+- 관련 경로: `guild_hall/context_engine/{algorithms,src,tests,release}`.
+
+## 2026-09-17 - 맥락 APP의 명시 PDF 문서 준비 연결
+
+- Revision: 이 항목을 포함한 커밋. 일반 문서 준비가 신뢰된 host 설정 아래 기존
+  고정 PDF parser를 사용하고 본문·표 셀의 원문 위치와 파생 판본을 유지한다.
+- 준비 실행의 코드 증거에 Python worker를 포함하고, 비활성 저장 하니스와 검색
+  세대 준비가 같은 binding을 사용한다. 원문 내용 검증과 무결성 검증은 구분한다.
+- 운영 영향: 기존 도구 미설정 상태는 유지된다. 설치·예약작업·운영 DB·수락 writer는
+  변경하지 않는다. Word/OCR·문서 자동 편입·실업무 검증은 별도 후속 범위다.
+- 관련 경로: `guild_hall/context_engine/{src,algorithms,harness,tests,release}`.
+
 ## 2026-09-20 - 대화 목록 야간 lane 추가
 
 - Revision: 이 항목을 포함한 커밋. Context Engine의 대화 목록 파이프라인(`voice_conversation_list_cli.mjs`)을

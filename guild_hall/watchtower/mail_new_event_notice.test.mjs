@@ -1,0 +1,343 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+import {
+  CONNECTION_TEST_TEXT, SNAPSHOT_MAX_AGE_SECONDS, buildPeriodicReport, decideNotice, main,
+} from "./mail_new_event_notice.mjs";
+
+const T0 = Date.parse("2026-09-19T10:00:00.000Z");
+const MIN = 60_000;
+
+function snapshot(now, reasons = [], state = reasons.length ? "degraded" : "ok") {
+  return {
+    schema_version: "soulforge.watchtower.topology_health.v2",
+    observed_at: new Date(now - MIN).toISOString(),
+    nodes: [
+      { id: "store_mail_events", label: "메일 event 원장", health: { state, reasons, age_seconds: 60 } },
+      { id: "ingress_supervisor", health: { state: "ok", reasons: [], age_seconds: 30 } },
+    ],
+  };
+}
+const MISMATCH = ["count_store_unchanged_new_event_count_2"];
+const receipt = (state, completedAt) => ({
+  schema_version: "soulforge.ingress.store_validity.v1",
+  status: "ok",
+  completed_at: new Date(completedAt).toISOString(),
+  new_event_store_check: {
+    state, reason_code: null, reported_new_events: state === "no_new_events_reported" ? 0 : 2,
+    store_unchanged_new_event_count: state === "store_unchanged" ? 2 : 0, comparison_scope: "a".repeat(64),
+  },
+});
+
+// Runs a sequence of ticks, carrying the ledger like the cron job does.
+function run(ticks) {
+  let ledger = null;
+  return ticks.map(({ at, snap, rec }) => {
+    const result = decideNotice({ snapshot: snap, receipt: rec, ledger, now: at });
+    ledger = result.ledger;
+    return result;
+  });
+}
+
+test("quiet while the store check is healthy; nothing is sent for normal heartbeats", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0), rec: receipt("no_new_events_reported", T0 - 2 * MIN) },
+    { at: T0 + 15 * MIN, snap: snapshot(T0 + 15 * MIN), rec: receipt("store_changed", T0 + 13 * MIN) },
+  ]);
+  assert.deepEqual(results.map((r) => r.text), [null, null]);
+});
+
+test("a mismatch is sent once, then suppressed while unchanged", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0, MISMATCH), rec: receipt("store_unchanged", T0 - 2 * MIN) },
+    { at: T0 + 5 * MIN, snap: snapshot(T0 + 5 * MIN, MISMATCH), rec: receipt("store_unchanged", T0 - 2 * MIN) },
+  ]);
+  assert.match(results[0].text, /^\[살핌이·운영감시\] 메일 신규 보고와 저장소 관측이 맞지 않습니다\./u);
+  assert.match(results[0].text, /신규 메일: 2건/u);
+  assert.match(results[0].text, /원인·누락 건수는 확정하지 않았습니다/u);
+  assert.equal(results[1].text, null);
+  assert.equal(results[1].decision, "suppressed_open");
+});
+
+test("no new events or not_comparable later does not resolve; the reminder follows the existing backoff", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0, MISMATCH), rec: receipt("store_unchanged", T0 - 2 * MIN) },
+    { at: T0 + 15 * MIN, snap: snapshot(T0 + 15 * MIN), rec: receipt("no_new_events_reported", T0 + 13 * MIN) },
+    { at: T0 + 30 * MIN, snap: snapshot(T0 + 30 * MIN), rec: receipt("not_comparable", T0 + 28 * MIN) },
+    { at: T0 + 61 * MIN, snap: snapshot(T0 + 61 * MIN), rec: receipt("no_new_events_reported", T0 + 58 * MIN) },
+  ]);
+  assert.equal(results[1].text, null);
+  assert.equal(results[2].text, null);
+  assert.equal(results[1].ledger.mail_new_event_latch.open, true);
+  assert.equal(results[2].ledger.mail_new_event_latch.open, true);
+  assert.match(results[3].text, /아직 해소되지 않았습니다 \(1시간째\)/u);
+  assert.doesNotMatch(results.map((r) => r.text ?? "").join("\n"), /해소됐습니다/u);
+});
+
+test("only a later store_changed resolves it, and the recovery line makes no completeness claim", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0, MISMATCH), rec: receipt("store_unchanged", T0 - 2 * MIN) },
+    { at: T0 + 15 * MIN, snap: snapshot(T0 + 15 * MIN), rec: receipt("store_changed", T0 + 13 * MIN) },
+    { at: T0 + 30 * MIN, snap: snapshot(T0 + 30 * MIN), rec: receipt("store_changed", T0 + 28 * MIN) },
+  ]);
+  assert.match(results[1].text, /불일치가 해소됐습니다/u);
+  assert.match(results[1].text, /모두 저장됐거나 core_mail에 적재됐다는 뜻이 아닙니다/u);
+  assert.equal(results[1].ledger.mail_new_event_latch.open, false);
+  assert.equal(results[2].text, null);
+});
+
+test("a store_changed receipt older than the latch does not resolve it", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0, MISMATCH), rec: receipt("store_unchanged", T0 - 2 * MIN) },
+    { at: T0 + 5 * MIN, snap: snapshot(T0 + 5 * MIN), rec: receipt("store_changed", T0 - 10 * MIN) },
+  ]);
+  assert.equal(results[1].ledger.mail_new_event_latch.open, true);
+  assert.equal(results[1].text, null);
+});
+
+test("a stale or unreadable snapshot decides nothing and keeps the ledger", () => {
+  const first = decideNotice({ snapshot: snapshot(T0, MISMATCH), receipt: receipt("store_unchanged", T0), ledger: null, now: T0 });
+  const later = T0 + (SNAPSHOT_MAX_AGE_SECONDS + 600) * 1000;
+  const stale = decideNotice({ snapshot: snapshot(T0, []), receipt: receipt("store_changed", later), ledger: first.ledger, now: later });
+  assert.equal(stale.text, null);
+  assert.equal(stale.decision, "snapshot_not_current");
+  assert.equal(stale.ledger, null, "nothing is written on an unusable snapshot");
+  const unreadable = decideNotice({ snapshot: null, receipt: null, ledger: first.ledger, now: T0 });
+  assert.equal(unreadable.decision, "snapshot_invalid");
+  assert.equal(unreadable.ledger, null);
+});
+
+test("older receipts without the cross-check never open or close anything", () => {
+  const old = { schema_version: "soulforge.ingress.store_validity.v1", status: "ok", completed_at: new Date(T0).toISOString() };
+  const results = run([{ at: T0, snap: snapshot(T0), rec: old }]);
+  assert.equal(results[0].text, null);
+  assert.equal(results[0].ledger.mail_new_event_latch.open, false);
+});
+
+test("the CLI prints only fixed text, keeps paths out, and persists the ledger", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "mail-notice-"));
+  try {
+    const files = { snap: path.join(root, "snap.json"), rec: path.join(root, "rec.json"), ledger: path.join(root, "state", "ledger.json") };
+    await writeFile(files.snap, JSON.stringify(snapshot(T0, MISMATCH)));
+    await writeFile(files.rec, JSON.stringify(receipt("store_unchanged", T0 - MIN)));
+    let out = "";
+    const code = await main(["--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger],
+      { now: T0, stdout: { write: (text) => { out += text; } } });
+    assert.equal(code, 0);
+    assert.match(out, /맞지 않습니다/u);
+    assert.equal(out.includes(root), false);
+    assert.equal(/[A-Za-z]:[\\/]|sha256|comparison_scope/u.test(out), false);
+    const ledger = JSON.parse(await readFile(files.ledger, "utf8"));
+    assert.equal(ledger.schema_version, "soulforge.watchtower.alert_ledger.v1");
+    assert.equal(ledger.mail_new_event_latch.open, true);
+
+    let again = "";
+    await main(["--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger],
+      { now: T0 + MIN, stdout: { write: (text) => { again += text; } } });
+    assert.equal(again, "", "the same fault is not sent twice");
+
+    let test = "";
+    await main(["--connection-test"], { stdout: { write: (text) => { test += text; } } });
+    assert.equal(test, `${CONNECTION_TEST_TEXT}\n`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("the Hermes shim passes the module's stdout through and fails with a fixed code only", async (t) => {
+  const { spawnSync } = await import("node:child_process");
+  const { copyFile, mkdir: mk } = await import("node:fs/promises");
+  const { fileURLToPath } = await import("node:url");
+  const python = ["python", "python3"].find((cmd) => spawnSync(cmd, ["--version"]).status === 0);
+  if (!python) { t.skip("python unavailable"); return; }
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const root = await mkdtemp(path.join(os.tmpdir(), "mail-notice-shim-"));
+  try {
+    const scripts = path.join(root, "scripts");
+    await mk(scripts, { recursive: true });
+    const shim = path.join(scripts, "salpi_mail_new_event_notice.py");
+    await copyFile(path.join(repoRoot, "guild_hall", "watchtower", "ops", "salpi_mail_new_event_notice.py"), shim);
+    const runShim = (args = []) => spawnSync(python, [shim, ...args], { encoding: "utf8" });
+
+    const missing = runShim();
+    assert.equal(missing.status, 1);
+    assert.equal(missing.stdout, "mail_new_event_notice_failed:config_unreadable\n");
+
+    const snap = path.join(root, "snap.json");
+    const rec = path.join(root, "rec.json");
+    await writeFile(snap, JSON.stringify(snapshot(Date.now(), MISMATCH)));
+    await writeFile(rec, JSON.stringify(receipt("store_unchanged", Date.now() - MIN)));
+    await writeFile(path.join(scripts, "salpi_mail_new_event_notice.config.json"), JSON.stringify({
+      node: process.execPath, lane_root: repoRoot, snapshot: snap, receipt: rec, ledger: path.join(root, "ledger.json"),
+    }));
+    const first = runShim();
+    assert.equal(first.status, 0, first.stdout);
+    assert.match(first.stdout, /^\[살핌이·운영감시\] 메일 신규 보고와 저장소 관측이 맞지 않습니다\./u);
+    assert.equal(first.stdout.includes(root), false);
+    const second = runShim();
+    assert.equal(second.status, 0);
+    assert.equal(second.stdout, "");
+    const connection = runShim(["--connection-test"]);
+    assert.equal(connection.stdout, `${CONNECTION_TEST_TEXT}\n`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("review: the fault is anchored to the observed mismatch, so a store change right after it resolves", () => {
+  // Snapshot still shows the old mismatch while the receipt already has a later store change.
+  const results = run([
+    { at: T0 + 20 * MIN, snap: snapshot(T0 + 20 * MIN, MISMATCH), rec: receipt("store_unchanged", T0) },
+    { at: T0 + 25 * MIN, snap: snapshot(T0 + 25 * MIN), rec: receipt("store_changed", T0 + 16 * MIN) },
+  ]);
+  assert.equal(results[0].ledger.mail_new_event_latch.opened_at, new Date(T0).toISOString());
+  assert.match(results[1].text, /해소됐습니다/u);
+});
+
+test("review: a store change seen between ticks is remembered even if a later run overwrites the receipt", () => {
+  const results = run([
+    { at: T0, snap: snapshot(T0, MISMATCH), rec: receipt("store_unchanged", T0 - MIN) },
+    // Snapshot still carries the mismatch, but the receipt already shows the later store change.
+    { at: T0 + 10 * MIN, snap: snapshot(T0 + 10 * MIN, MISMATCH), rec: receipt("store_changed", T0 + 8 * MIN) },
+    // Next tick: that receipt was overwritten by a no-new-events run.
+    { at: T0 + 25 * MIN, snap: snapshot(T0 + 25 * MIN), rec: receipt("no_new_events_reported", T0 + 23 * MIN) },
+  ]);
+  assert.equal(results[1].text, null);
+  assert.match(results[2].text, /해소됐습니다/u);
+});
+
+test("review: a lost latch with a reported open fault stays open, never recovered", () => {
+  const first = decideNotice({ snapshot: snapshot(T0, MISMATCH), receipt: receipt("store_unchanged", T0 - MIN), ledger: null, now: T0 });
+  const damaged = { ...first.ledger };
+  delete damaged.mail_new_event_latch;
+  const next = decideNotice({ snapshot: snapshot(T0 + 15 * MIN), receipt: receipt("no_new_events_reported", T0 + 13 * MIN), ledger: damaged, now: T0 + 15 * MIN });
+  assert.equal(next.ledger.mail_new_event_latch.open, true);
+  assert.equal(next.text, null);
+});
+
+test("review: a corrupt ledger fails closed instead of being reset", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "mail-notice-ledger-"));
+  try {
+    const files = { snap: path.join(root, "snap.json"), rec: path.join(root, "rec.json"), ledger: path.join(root, "ledger.json") };
+    await writeFile(files.snap, JSON.stringify(snapshot(T0)));
+    await writeFile(files.rec, JSON.stringify(receipt("no_new_events_reported", T0)));
+    await writeFile(files.ledger, "{ truncated");
+    await assert.rejects(main(["--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger], { now: T0, stdout: { write() {} } }),
+      (error) => error.code === "ledger_invalid");
+    assert.equal(await readFile(files.ledger, "utf8"), "{ truncated", "the ledger is left untouched");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ---- periodic report (살핌이 정기 보고) ----
+const JOB = Object.freeze({ schedule: { kind: "interval", minutes: 180 }, last_delivery_error: null });
+const EMPTY_LEDGER = null;
+const report = (args) => buildPeriodicReport({ job: JOB, runs: [], ...args });
+
+test("report: a normal run still produces a short report with scope, result and next time", () => {
+  const r = report({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0 - MIN), ledger: EMPTY_LEDGER, now: T0 });
+  assert.equal(r.status, "정상");
+  assert.match(r.text, /^\[살핌이 정기 보고\] 09-19 19:00 \(KST\)/u);
+  assert.match(r.text, /Soulforge 전체 상태가 아님/u);
+  assert.match(r.text, /- 결과: 정상/u);
+  assert.match(r.text, /다음 정기 보고: 09-19 22:00 무렵 \(간격 3시간\)/u);
+  assert.equal(r.ledger.last_report_generated_at, new Date(T0).toISOString());
+});
+
+test("report: unobservable inputs are reported as 확인 불가, never as normal", () => {
+  const stale = { ...snapshot(T0), observed_at: new Date(T0 - 3600_000).toISOString() };
+  const noNode = { ...snapshot(T0), nodes: [] };
+  const notComparable = receipt("not_comparable", T0 - MIN);
+  notComparable.new_event_store_check.reason_code = "no_valid_prior_observation";
+  const oldReceipt = { schema_version: "soulforge.ingress.store_validity.v1", status: "ok", completed_at: new Date(T0).toISOString() };
+  const cases = [
+    [{ snapshot: null, receipt: receipt("no_new_events_reported", T0) }, /Watchtower 판정을 읽지 못했습니다/u],
+    [{ snapshot: stale, receipt: receipt("no_new_events_reported", T0) }, /30분 넘게 갱신되지 않았습니다/u],
+    [{ snapshot: noNode, receipt: receipt("no_new_events_reported", T0) }, /메일 event 원장 항목이 없습니다/u],
+    [{ snapshot: snapshot(T0), receipt: null }, /대조 기록을 읽지 못했습니다/u],
+    [{ snapshot: snapshot(T0), receipt: oldReceipt }, /대조 기록이 아직 생성되지 않았습니다/u],
+    [{ snapshot: snapshot(T0), receipt: notComparable }, /판단할 근거가 없습니다 \(비교할 이전 관측 없음\)/u],
+  ];
+  for (const [input, expected] of cases) {
+    const r = report({ ...input, ledger: EMPTY_LEDGER, now: T0 });
+    assert.equal(r.status, "확인 불가", expected.source);
+    assert.match(r.text, expected);
+    assert.doesNotMatch(r.text, /- 결과: 정상/u);
+  }
+});
+
+test("report: a mismatch is new once, then continuing; later no-new or not_comparable keep it unresolved", () => {
+  const first = report({ snapshot: snapshot(T0, MISMATCH), receipt: receipt("store_unchanged", T0 - MIN), ledger: EMPTY_LEDGER, now: T0 });
+  assert.equal(first.status, "이상");
+  assert.match(first.text, /새로 발견한 이상: 신규 메일 보고\(2건\)/u);
+  const later = T0 + 3 * 3600_000;
+  const second = report({ snapshot: snapshot(later), receipt: receipt("no_new_events_reported", later - MIN), ledger: first.ledger, now: later });
+  assert.equal(second.status, "이상");
+  assert.match(second.text, /계속 남아 있는 미해결: 신규 보고–저장소 불일치 \(3시간째\)/u);
+  const nc = receipt("not_comparable", later + 3 * 3600_000 - MIN);
+  nc.new_event_store_check.reason_code = "store_validation_failed";
+  const third = report({ snapshot: snapshot(later + 3 * 3600_000), receipt: nc, ledger: second.ledger, now: later + 3 * 3600_000 });
+  assert.equal(third.status, "이상");
+  assert.match(third.text, /계속 남아 있는 미해결/u);
+  assert.match(third.text, /확인 불가: 이번 저장소 대조를 판단할 근거가 없습니다 \(저장소 검증 실패\)/u);
+  const resolvedAt = later + 6 * 3600_000;
+  const fourth = report({ snapshot: snapshot(resolvedAt), receipt: receipt("store_changed", resolvedAt - MIN), ledger: third.ledger, now: resolvedAt });
+  assert.equal(fourth.status, "정상");
+});
+
+test("report: the interval since the previous report is summarised from run receipts, gaps stay 확인 불가", () => {
+  const ledger = { schema_version: "soulforge.watchtower.alert_ledger.v1", nodes: {}, last_report_generated_at: new Date(T0 - 3 * 3600_000).toISOString() };
+  const runs = [
+    { status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 2 } },
+    { status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 0 } },
+    { status: "error", mail: { status: "failed", write_count_known: false, total_new_events: 0 } },
+  ];
+  const r = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0 - MIN), ledger, now: T0, runs, job: JOB });
+  assert.match(r.text, /수집 실행 3회, 실패 1회, 신규 메일 보고 2건, 결과를 알 수 없는 실행 1회/u);
+  assert.match(r.text, /사이 구간의 불일치는 확인 불가/u);
+  const unread = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0 - MIN), ledger, now: T0, runs: null, job: JOB });
+  assert.match(unread.text, /수집 실행 기록을 읽지 못해 확인 불가/u);
+});
+
+test("report: a previous delivery failure is carried into the next report; a missing schedule is stated", () => {
+  const r = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0), ledger: null, now: T0, runs: [],
+    job: { schedule: { kind: "interval", minutes: 90 }, last_delivery_error: "relay error" } });
+  assert.match(r.text, /직전 보고: 전달 실패 기록이 있습니다/u);
+  assert.match(r.text, /간격 90분/u);
+  assert.doesNotMatch(r.text, /relay error/u);
+  const noJob = buildPeriodicReport({ snapshot: snapshot(T0), receipt: receipt("no_new_events_reported", T0), ledger: null, now: T0, runs: [], job: null });
+  assert.match(noJob.text, /예약 설정을 읽지 못함/u);
+});
+
+test("report CLI: reads run receipts after the previous report and this job's schedule, never prints paths", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "mail-report-"));
+  try {
+    const runsDir = path.join(root, "runs");
+    const { mkdir: mk } = await import("node:fs/promises");
+    await mk(runsDir, { recursive: true });
+    const name = (ms, seq) => `${new Date(ms).toISOString().replace(/[-:]/gu, "").replace(".", "")}_hpp-primary-01_${seq}.json`;
+    await writeFile(path.join(runsDir, name(T0 - 4 * 3600_000, 1)), JSON.stringify({ status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 9 } }));
+    await writeFile(path.join(runsDir, name(T0 - 3600_000, 2)), JSON.stringify({ status: "ok", mail: { status: "ok", write_count_known: true, total_new_events: 1 } }));
+    const files = {
+      snap: path.join(root, "snap.json"), rec: path.join(root, "rec.json"), ledger: path.join(root, "ledger.json"), jobs: path.join(root, "jobs.json"),
+    };
+    await writeFile(files.snap, JSON.stringify(snapshot(T0)));
+    await writeFile(files.rec, JSON.stringify(receipt("no_new_events_reported", T0 - MIN)));
+    await writeFile(files.ledger, JSON.stringify({ schema_version: "soulforge.watchtower.alert_ledger.v1", nodes: {}, last_report_generated_at: new Date(T0 - 3 * 3600_000).toISOString() }));
+    await writeFile(files.jobs, JSON.stringify({ jobs: [{ name: "salpi-report", schedule: { kind: "interval", minutes: 180 }, last_delivery_error: null }] }));
+    let out = "";
+    await main(["--report", "--snapshot", files.snap, "--receipt", files.rec, "--ledger", files.ledger, "--runs-dir", runsDir,
+      "--jobs-file", files.jobs, "--job-name", "salpi-report"], { now: T0, stdout: { write: (text) => { out += text; } } });
+    assert.match(out, /수집 실행 1회, 신규 메일 보고 1건/u);
+    assert.match(out, /간격 3시간/u);
+    assert.equal(out.includes(root), false);
+    const ledger = JSON.parse(await readFile(files.ledger, "utf8"));
+    assert.equal(ledger.last_report_generated_at, new Date(T0).toISOString());
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

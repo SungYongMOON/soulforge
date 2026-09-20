@@ -28,12 +28,13 @@ import { prepareSourceDocuments } from './source_preparation.mjs';
 import { mailAttachmentEntries, openAttachmentRoots, readMailAttachment, readSlackAttachment,
   slackAttachmentEntries } from './attachment_access.mjs';
 import { deriveAttachment, formatFor } from './attachment_derivation.mjs';
+import { validateDocumentTools } from './document_tools.mjs';
 
 export const ORIGINAL_READ_SCHEMA = 'soulforge.context_estate_original_read.v1';
 /** Every status this CLI may report. A caller adds none and renames none. */
 export const ORIGINAL_READ_STATUSES = Object.freeze(['ok', 'attachments_none', 'attachment_list_unavailable',
   'bytes_not_collected', 'access_denied', 'hash_mismatch', 'unsupported_format', 'revision_mismatch',
-  'not_in_scope', 'investigation_budget_exhausted']);
+  'tool_configuration_missing', 'reread_unavailable', 'not_in_scope', 'investigation_budget_exhausted']);
 /** Kinds whose custody stores attachment pointers this tool can follow. */
 export const ATTACHMENT_KINDS = Object.freeze(['slack', 'mail']);
 export const DEFAULT_MAX_CHARACTERS = 6000;
@@ -79,7 +80,7 @@ function narrowGrant(grant, row) {
   return { grant: { ...grant, sources: [{ kind: source.kind, root_ref: source.root_ref, items: [item] }] }, item };
 }
 
-async function rereadOriginal({ io, binding, row, now }) {
+async function rereadOriginal({ io, binding, row, now, documentTools }) {
   const narrowed = narrowGrant(readPinned(io, binding.grant, MAX_GRANT_BYTES, 'original_read_grant_unavailable'), row);
   if (narrowed === null) return { document: null, code: 'item_not_in_grant', rootPath: null };
   const rootPath = binding.source_roots?.[row.root_ref] ?? null;
@@ -89,7 +90,7 @@ async function rereadOriginal({ io, binding, row, now }) {
   let prepared;
   try {
     prepared = await prepareSourceDocuments({ grant: narrowed.grant, roots: { [row.root_ref]: rootPath },
-      now, admission });
+      now, admission, documentTools });
   } catch (error) { return { document: null, code: String(error?.code ?? 'original_reread_failed'), rootPath }; }
   const document = prepared.documents[0] ?? null;
   const result = prepared.coverage.items[0] ?? null;
@@ -107,6 +108,7 @@ function renderUnits(document, { unitId, maxChars }) {
     const shown = budget <= 0 ? 0 : Math.min(characters, budget);
     budget -= shown;
     rows.push({ unit_id: unit.unit_id, unit_kind: unit.unit_kind, occurred_at: unit.occurred_at ?? null,
+      locator: structuredClone(unit.locator),
       characters, shown, truncated: shown < characters,
       text: shown === characters ? unit.text : [...unit.text].slice(0, shown).join('') });
   }
@@ -211,6 +213,9 @@ export async function readOriginal({ io, project, itemId, unitId = null, maxChar
   let bindingBytes;
   try { bindingBytes = io.read(bindingAddress, MAX_BINDING_BYTES); } catch { fail('original_read_binding_unavailable'); }
   const binding = JSON.parse(bindingBytes);
+  let documentTools;
+  try { documentTools = validateDocumentTools(binding.document_tools); }
+  catch { fail('original_read_binding_invalid'); }
   let generationRef;
   if (generationId !== null) {
     if (!GENERATION_ID.test(generationId)) fail('original_read_generation_invalid');
@@ -236,13 +241,18 @@ export async function readOriginal({ io, project, itemId, unitId = null, maxChar
       internal: { parser_calls: 0, render_calls: 0, model_calls: 0 } });
   }
   const row = rows[0];
-  const reread = await rereadOriginal({ io, binding, row, now });
+  const reread = await rereadOriginal({ io, binding, row, now, documentTools });
   const stored = reread.document === null ? view.readDocument(row.doc_key) : null;
   const document = reread.document ?? stored;
   const matches = reread.document !== null && reread.document.doc_key === row.doc_key;
-  const status = matches ? 'ok' : 'revision_mismatch';
+  const toolMissing = ['pdf_preparation_not_connected', 'docx_preparation_not_connected'].includes(reread.code);
+  const status = matches ? 'ok' : reread.document !== null ? 'revision_mismatch'
+    : toolMissing ? 'tool_configuration_missing' : 'reread_unavailable';
   const rendered = renderUnits(document, { unitId, maxChars });
-  const internal = { parser_calls: 0, render_calls: 0, model_calls: 0 };
+  // Historical counters measure attachment derivation only. Source-adapter
+  // rereads may now launch PDF/DOCX parsers; do not imply a measured total.
+  const internal = { parser_calls: 0, parser_calls_scope: 'attachment_derivation_only',
+    render_calls: 0, model_calls: 0 };
   let attachments = { status: 'attachment_list_unavailable', entries: [], detail: 'not requested' };
   let attachment = null;
   if (wantAttachments || attachmentSelector !== null) {
@@ -277,7 +287,9 @@ export async function readOriginal({ io, project, itemId, unitId = null, maxChar
       doc_key: document.doc_key, manifest_doc_key: row.doc_key, doc_key_matches: matches,
       units_total: document.units.length, characters_total: rendered.characters_total,
       units_from: reread.document !== null ? 'original_reread' : 'generation_document',
-      reread_code: reread.code, duplicates_in_manifest: rows.length - 1,
+      reread_code: reread.code, stored_fallback: reread.document === null,
+      revision_check: matches ? 'match' : toolMissing ? 'not_run_missing_tool' : reread.document === null ? 'not_run_reread_failed' : 'mismatch',
+      duplicates_in_manifest: rows.length - 1,
     },
     units: rendered.units, requested_unit_found: rendered.requested_unit_found,
     characters_shown: rendered.characters_shown, attachments, attachment, internal,

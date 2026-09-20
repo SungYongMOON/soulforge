@@ -29,6 +29,7 @@ import { rootedStore, safeStoreRel } from '../src/runtime/pair_store.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 import { sha256Canonical } from '../../shared/project_history_envelope.mjs';
+import { validateDocumentTools } from '../src/runtime/document_tools.mjs';
 
 export const PREPARATION_FLOW_SCHEMA = 'soulforge.context_preparation_flow_receipt.v1';
 const SHA = /^sha256:[0-9a-f]{64}$/u;
@@ -54,6 +55,9 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
   const bindingBytes = reader.read(bindingAddress);
   if (digest(bindingBytes) !== bindingSha256) fail('preparation_flow_binding_mismatch');
   const binding = JSON.parse(bindingBytes);
+  let documentTools;
+  try { documentTools = validateDocumentTools(binding.document_tools); }
+  catch { fail('preparation_flow_binding_invalid'); }
   // The exact grant: the one the binding pins, or one the caller names by
   // address and digest (a batch of items for the same project). Either way the
   // bytes are checked against a digest before anything reads them.
@@ -74,7 +78,10 @@ export async function runPreparationFlow({ io = null, storeRoot = null, bindingS
   const storeArgs = { io, storeRoot, bindingSha256, bindingAddress, request };
 
   // 1. prepare (real data classes pass only with an admission the preparer accepts)
-  const preparation = await prepareSourceDocuments({ grant, roots: binding.source_roots, now, runId, clock, admission });
+  // Executable configuration comes only from the already hash-pinned host
+  // binding, never from the grant, document or CLI request.
+  const preparation = await prepareSourceDocuments({ grant, roots: binding.source_roots, now, runId, clock, admission,
+    documentTools });
   if (!preparation.run) fail('preparation_flow_run_unavailable');
   // 2. land, inactive
   const landed = await writePreparationGeneration({ ...storeArgs, preparation });

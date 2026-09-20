@@ -178,10 +178,33 @@ function validateCaptureReceipt(raw) {
   return { receipt, started, completed };
 }
 
+// Optional since the ingress runner started recording the new-event/store cross-check. It is a
+// separate signal from the format validity accepted here, so its state does not change acceptance.
+const STORE_NEW_EVENT_CHECK_FIELDS = Object.freeze([
+  "comparison_scope", "reason_code", "reported_new_events", "state", "store_unchanged_new_event_count",
+]);
+const STORE_NEW_EVENT_CHECK_STATES = new Set(["store_changed", "store_unchanged", "no_new_events_reported", "not_comparable"]);
+
+function validateStoreNewEventCheck(check) {
+  const record = plainRecord(check, "mail_store_receipt_shape_invalid");
+  assertExactKeys(record, STORE_NEW_EVENT_CHECK_FIELDS, "mail_store_receipt_shape_invalid");
+  if (!STORE_NEW_EVENT_CHECK_STATES.has(record.state)
+      || (record.reason_code !== null && (typeof record.reason_code !== "string" || !/^[a-z][a-z0-9_]{0,63}$/u.test(record.reason_code)))
+      || (record.reported_new_events !== null && (!Number.isSafeInteger(record.reported_new_events) || record.reported_new_events < 0))
+      || !Number.isSafeInteger(record.store_unchanged_new_event_count) || record.store_unchanged_new_event_count < 0
+      || (record.state === "store_unchanged") !== (record.store_unchanged_new_event_count > 0)
+      || typeof record.comparison_scope !== "string" || !/^[0-9a-f]{64}$/u.test(record.comparison_scope)) {
+    fail("mail_store_receipt_shape_invalid");
+  }
+}
+
 function validateStoreReceipt(raw) {
   const receipt = plainRecord(raw, "mail_store_receipt_invalid");
   assertBodyFree(receipt);
-  assertExactKeys(receipt, STORE_FIELDS, "mail_store_receipt_shape_invalid");
+  const hasNewEventCheck = Object.hasOwn(receipt, "new_event_store_check");
+  if (hasNewEventCheck) validateStoreNewEventCheck(receipt.new_event_store_check);
+  assertExactKeys(receipt, hasNewEventCheck ? [...STORE_FIELDS, "new_event_store_check"] : STORE_FIELDS,
+    "mail_store_receipt_shape_invalid");
   if (receipt.schema_version !== STORE_RECEIPT_SCHEMA
       || receipt.lane !== "store_mail_events"
       || receipt.validation_scope !== "mail_event_tail_set_validity"

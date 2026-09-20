@@ -138,6 +138,10 @@ export const EXAMPLE_BINDING = {
       required_timestamp_fields: ["attempted_at", "completed_at"],
       nullable_timestamp_fields: ["last_success_at"],
       timestamp_field: "completed_at", status_field: "status", ok_values: ["ok"],
+      // New events reported by this run while the store is unchanged since a valid previous
+      // observation of the same scope. Shows as degraded (reason count_store_unchanged_...);
+      // it is not a restart trigger. Absent in older receipts, so the rule stays quiet there.
+      degrade_when: [{ field: "new_event_store_check.store_unchanged_new_event_count", above: 0 }],
       period_seconds: 1200, grace_seconds: 1200, missing_is_unmonitored: true,
       resident_task: "Soulforge-Continuous-Five-Lane-Ingress",
     },

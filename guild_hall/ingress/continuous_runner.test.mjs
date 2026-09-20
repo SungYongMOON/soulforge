@@ -30,6 +30,7 @@ import {
   continuousLeaseInstancePath,
   loadContinuousBinding,
   inspectContinuousIngress,
+  mailNewEventStoreCheck,
   plaudSessionCustodyPrefixes,
   resolveWindowsProcessInstanceToken,
   runContinuousIngress as runContinuousIngressImpl,
@@ -3512,6 +3513,157 @@ test("public continuous binding schema accepts exact v1, v2, and v3 shapes only"
     writer.payload.plaud.writer_enabled = false;
     assert.equal(validate(writer.payload), false);
     assert.equal(validate({ ...mail.payload, unexpected: true }), false);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+// New-event / store cross-check. Synthetic values only.
+const SCOPE_A = "a".repeat(64);
+const SCOPE_B = "b".repeat(64);
+const okMail = (newEvents) => ({ status: "ok", write_count_known: true, total_new_events: newEvents });
+const okPrior = (digest, scope = SCOPE_A) => ({
+  status: "ok", validation_digest: digest, new_event_store_check: { comparison_scope: scope },
+});
+
+test("new-event store check: reported new events with a changed store is store_changed, not a completeness claim", () => {
+  const check = mailNewEventStoreCheck({
+    mailResult: okMail(3), succeeded: true, validationDigest: "d2", prior: okPrior("d1"), comparisonScope: SCOPE_A,
+  });
+  assert.deepEqual(check, {
+    state: "store_changed", reason_code: null, reported_new_events: 3,
+    store_unchanged_new_event_count: 0, comparison_scope: SCOPE_A,
+  });
+});
+
+test("new-event store check: reported new events with an unchanged store is flagged", () => {
+  const check = mailNewEventStoreCheck({
+    mailResult: okMail(2), succeeded: true, validationDigest: "d1", prior: okPrior("d1"), comparisonScope: SCOPE_A,
+  });
+  assert.equal(check.state, "store_unchanged");
+  assert.equal(check.store_unchanged_new_event_count, 2);
+  const partial = mailNewEventStoreCheck({
+    mailResult: { ...okMail(1), status: "partial" }, succeeded: true, validationDigest: "d1", prior: okPrior("d1"),
+    comparisonScope: SCOPE_A,
+  });
+  assert.equal(partial.state, "store_unchanged");
+});
+
+test("new-event store check: zero reported new events makes no store claim", () => {
+  for (const digest of ["d1", "d2"]) {
+    const check = mailNewEventStoreCheck({
+      mailResult: okMail(0), succeeded: true, validationDigest: digest, prior: okPrior("d1"), comparisonScope: SCOPE_A,
+    });
+    assert.equal(check.state, "no_new_events_reported");
+    assert.equal(check.store_unchanged_new_event_count, 0);
+  }
+});
+
+test("new-event store check: no valid previous observation is not comparable, never a pass", () => {
+  for (const prior of [null, { status: "error", validation_digest: "d1" }, { status: "ok", validation_digest: null }]) {
+    const check = mailNewEventStoreCheck({
+      mailResult: okMail(1), succeeded: true, validationDigest: "d1", prior, comparisonScope: SCOPE_A,
+    });
+    assert.equal(check.state, "not_comparable");
+    assert.equal(check.reason_code, "no_valid_prior_observation");
+    assert.equal(check.store_unchanged_new_event_count, 0);
+  }
+});
+
+test("new-event store check: a failed store validation is not comparable, even with zero new events", () => {
+  for (const newEvents of [1, 0]) {
+    const check = mailNewEventStoreCheck({
+      mailResult: okMail(newEvents), succeeded: false, validationDigest: null, prior: okPrior("d1"), comparisonScope: SCOPE_A,
+    });
+    assert.equal(check.state, "not_comparable");
+    assert.equal(check.reason_code, "store_validation_failed");
+  }
+});
+
+test("new-event store check: a different or unrecorded comparison scope is not comparable", () => {
+  const mismatch = mailNewEventStoreCheck({
+    mailResult: okMail(1), succeeded: true, validationDigest: "d1", prior: okPrior("d1", SCOPE_B), comparisonScope: SCOPE_A,
+  });
+  assert.equal(mismatch.state, "not_comparable");
+  assert.equal(mismatch.reason_code, "comparison_scope_mismatch");
+  const unrecorded = mailNewEventStoreCheck({
+    mailResult: okMail(1), succeeded: true, validationDigest: "d1",
+    prior: { status: "ok", validation_digest: "d1" }, comparisonScope: SCOPE_A,
+  });
+  assert.equal(unrecorded.state, "not_comparable");
+  assert.equal(unrecorded.reason_code, "prior_scope_unrecorded");
+});
+
+test("new-event store check: an unusable or disabled mail result is not comparable", () => {
+  const cases = [
+    [{ status: "failed", write_count_known: false, total_new_events: 0 }, "mail_result_unavailable"],
+    [{ status: "ok", write_count_known: false, total_new_events: 1 }, "mail_result_unavailable"],
+    [{ status: "ok", write_count_known: true, total_new_events: -1 }, "mail_result_unavailable"],
+    [undefined, "mail_result_unavailable"],
+    [{ status: "disabled", write_count_known: true, total_new_events: 0 }, "mail_disabled"],
+  ];
+  for (const [mailResult, reason] of cases) {
+    const check = mailNewEventStoreCheck({
+      mailResult, succeeded: true, validationDigest: "d1", prior: okPrior("d1"), comparisonScope: SCOPE_A,
+    });
+    assert.equal(check.state, "not_comparable");
+    assert.equal(check.reason_code, reason);
+  }
+});
+
+test("store_mail_events receipt carries the cross-check apart from format validity across runs", async () => {
+  const f = await fixture();
+  try {
+    const authority = await activateWriterAuthority(f);
+    const mail = await v2Binding(f, authority);
+    await mkdir(join(f.voiceRoot, "sessions"));
+    await writeFile(join(f.voiceRoot, "sessions", "voice.bin"), "synthetic-voice");
+    const mailStorePath = join(f.dataRoot, "ingress", "mailbox", "company", "mail", "events", "hiworks", "2026", "2026-08.jsonl");
+    await mkdir(dirname(mailStorePath), { recursive: true });
+    const eventLine = (id) => `${JSON.stringify({
+      schema_version: "email.fetch.event.v1", event_id: id, source: "hiworks",
+      provider_message_id: `message-${id}`, ingested_at: "2026-08-11T00:00:00.000Z",
+    })}\n`;
+    await writeFile(mailStorePath, eventLine("event-1"));
+    mail.payload.voice.enabled = true;
+    await writeBinding(f, mail.payload);
+    const clock = advancingClock();
+    // The fake collector reports one new event but writes nothing: only the test appends lines.
+    const run = () => runContinuousIngress({
+      bindingPath: f.bindingPath, apply: true, now: clock,
+      mailExecutor: async () => ({ exitCode: 0, stdout: JSON.stringify(syntheticMailSummary()), stderr: "" }),
+    });
+    const storeReceipt = async () => JSON.parse(await readFile(join(f.dataRoot, "state", "health", "store_mail_events.json"), "utf8"));
+
+    await run();
+    const first = await storeReceipt();
+    assert.equal(first.status, "ok");
+    assert.deepEqual(first.error_codes, []);
+    assert.equal(first.activity_changed, null);
+    assert.equal(first.new_event_store_check.state, "not_comparable");
+    assert.equal(first.new_event_store_check.reason_code, "no_valid_prior_observation");
+    assert.match(first.new_event_store_check.comparison_scope, /^[0-9a-f]{64}$/u);
+
+    await run();
+    const second = await storeReceipt();
+    assert.equal(second.status, "ok", "the cross-check never turns format validity into an error");
+    assert.deepEqual(second.error_codes, []);
+    assert.equal(second.last_success_at, second.completed_at);
+    assert.equal(second.activity_changed, false);
+    assert.equal(second.new_event_store_check.state, "store_unchanged");
+    assert.equal(second.new_event_store_check.store_unchanged_new_event_count, 1);
+    assert.equal(second.new_event_store_check.comparison_scope, first.new_event_store_check.comparison_scope);
+
+    await writeFile(mailStorePath, eventLine("event-1") + eventLine("event-2"));
+    await run();
+    const third = await storeReceipt();
+    assert.equal(third.activity_changed, true);
+    assert.equal(third.new_event_store_check.state, "store_changed");
+    assert.equal(third.new_event_store_check.store_unchanged_new_event_count, 0);
+
+    const voice = JSON.parse(await readFile(join(f.dataRoot, "state", "health", "store_voice_custody.json"), "utf8"));
+    assert.equal(Object.hasOwn(voice, "new_event_store_check"), false);
+    assert.equal(JSON.stringify(third).includes(f.dataRoot), false);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

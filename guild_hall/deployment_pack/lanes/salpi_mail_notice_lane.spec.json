@@ -1,0 +1,16 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "salpi-mail-notice-v1",
+  "description": "v1 (2026-09-19): the 살핌이 운영감시 mail new-event notice. guild_hall/watchtower/mail_new_event_notice.mjs reads the Watchtower topology snapshot (store_mail_events judgement) and the ingress store_mail_events.json cross-check state, reuses the existing Watchtower alert policy (planAlerts) for suppression and re-notify backoff, and prints at most one fixed-text line. It is launched by the Hermes dev-assist no_agent cron shim guild_hall/watchtower/ops/salpi_mail_new_event_notice.py (copied into the profile's scripts/ folder); no scheduled task runs this lane and no model is called. There are no carried_forward_prefixes: the two modules import node: builtins and each other only.",
+  "tracked_paths": [
+    "guild_hall/watchtower/alert_policy.mjs",
+    "guild_hall/watchtower/mail_new_event_notice.mjs",
+    "guild_hall/watchtower/ops/salpi_mail_new_event_notice.py"
+  ],
+  "tracked_excludes": [],
+  "carried_forward_prefixes": [],
+  "entry_points": [
+    "guild_hall/watchtower/mail_new_event_notice.mjs",
+    "guild_hall/watchtower/ops/salpi_mail_new_event_notice.py"
+  ]
+}

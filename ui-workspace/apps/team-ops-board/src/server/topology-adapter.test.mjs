@@ -10,6 +10,9 @@ import {
   validateTopologyHealthSnapshot,
   runWatchtowerProbe,
 } from "./topology-adapter.mjs";
+import { describeTopologyReason } from "../core/topology-view.mjs";
+import { composeTopologyHealth } from "../../../../../guild_hall/watchtower/watchtower.mjs";
+import { EXAMPLE_BINDING } from "../../../../../guild_hall/watchtower/cli.mjs";
 
 const NOW = Date.parse("2026-08-08T06:00:00.000Z");
 
@@ -912,4 +915,43 @@ test("the board probes read-only and never writes the shared runtime snapshot", 
   assert.ok(capturedArgs.includes("--no-write"), `probe must be read-only, got ${JSON.stringify(capturedArgs)}`);
   assert.ok(capturedArgs.includes("--json"));
   assert.equal(capturedArgs.indexOf("probe"), 1);
+});
+
+test("a Watchtower store_mail_events new-event mismatch passes board validation with its reason intact", async () => {
+  const root = await mkdtemp(join(tmpdir(), "board-mail-store-"));
+  try {
+    const file = join(root, "store_mail_events.json");
+    const completedAt = new Date(NOW - 60_000).toISOString();
+    await writeFile(file, JSON.stringify({
+      schema_version: "soulforge.ingress.store_validity.v1",
+      lane: "store_mail_events",
+      validation_scope: "mail_event_tail_set_validity",
+      status: "ok",
+      attempted_at: completedAt,
+      completed_at: completedAt,
+      last_success_at: completedAt,
+      error_codes: [],
+      activity_changed: false,
+      validation_digest: "c".repeat(64),
+      validated_count: 3,
+      new_event_store_check: {
+        state: "store_unchanged", reason_code: null, reported_new_events: 2,
+        store_unchanged_new_event_count: 2, comparison_scope: "a".repeat(64),
+      },
+    }));
+    const { resident_task: _task, ...probe } = { ...EXAMPLE_BINDING.probes.store_mail_events, path: file };
+    const snapshot = await composeTopologyHealth({
+      schema_version: "soulforge.watchtower.binding.v1",
+      state_root: join(root, "state"),
+      probes: { store_mail_events: probe },
+    }, { now: NOW });
+    assert.equal(validateTopologyHealthSnapshot(snapshot, { now: NOW }), snapshot);
+    const node = snapshot.nodes.find((item) => item.id === "store_mail_events");
+    assert.equal(node.health.state, "degraded");
+    assert.deepEqual(node.health.reasons, ["count_store_unchanged_new_event_count_2"]);
+    assert.equal(node.tracking.reason_code, "count_store_unchanged_new_event_count_2");
+    assert.equal(describeTopologyReason(node.health.reasons[0]), "수치 초과: store_unchanged_new_event_count_2");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

@@ -1,0 +1,150 @@
+#!/usr/bin/env node
+// salpi audit CLI. Local only; nothing is sent anywhere.
+//
+//   project-mail --runtime-root <dir> --workspace-root <dir> --source <gmail|hiworks|o365> --scope-id <id> [--observed-at <utc>]
+//   validate     --projection <file>
+//   audit        --projection <file> [--previous <file>] [--audited-at <utc>] [--max-receipt-age-seconds <n>]
+//   check-report --projection <file> --report <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//                (strict comparator for a full audit report; the model no longer writes one)
+//   review-packet --projection <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//                (the canonical findings the model reviews, built by the deterministic checker)
+//   check-review --projection <file> --review <file> --audited-at <utc> [--previous <file>] [--max-receipt-age-seconds <n>]
+//                (rebuilds the packet, validates the model review, prints the outcome; exit 0 only when
+//                the final overall is OK — a valid CONFIRMED review of a held packet still exits 2)
+//   launch-plan  --projection <file> --hermes-home <dir> --hermes-root <dir> --hermes-python <exe>
+//                --run-root <dir> --dev-assist-workdir <dir> --audited-at <utc>
+//                [--previous <file>] [--max-receipt-age-seconds <n>]  (must match the later check-review)
+//                (dry-run only: renders the prompt closure with Hermes' code, never calls a model)
+//
+// Exit code 0 = OK, 2 = HOLD, 1 = usage error. Output is JSON on stdout. A rejected projection is
+// reported by its hold code only; the rejected content is never printed.
+
+import { readFile } from 'node:fs/promises';
+import process from 'node:process';
+
+import { projectMailPipeline } from './src/mail_pipeline_projector.mjs';
+import { auditMailProjection, validateSalpiAuditReport } from './src/salpi_audit.mjs';
+import { planSalpiLaunch } from './src/salpi_launcher.mjs';
+import { buildCanonicalReviewPacket, decideSalpiOutcome } from './src/salpi_review.mjs';
+import { validateSafeProjection } from './src/safe_projection.mjs';
+
+const COMMANDS = Object.freeze({
+  'project-mail': ['runtime-root', 'workspace-root', 'source', 'scope-id', 'observed-at'],
+  validate: ['projection'],
+  audit: ['projection', 'previous', 'audited-at', 'max-receipt-age-seconds'],
+  'check-report': ['projection', 'report', 'audited-at', 'previous', 'max-receipt-age-seconds'],
+  'review-packet': ['projection', 'audited-at', 'previous', 'max-receipt-age-seconds'],
+  'check-review': ['projection', 'review', 'audited-at', 'previous', 'max-receipt-age-seconds'],
+  'launch-plan': ['projection', 'hermes-home', 'hermes-root', 'hermes-python', 'run-root', 'dev-assist-workdir', 'audited-at',
+    'previous', 'max-receipt-age-seconds'],
+});
+
+function usage(message) {
+  process.stderr.write(`salpi_audit: ${message}\n`);
+  process.exit(1);
+}
+
+function parseArgs(argv) {
+  const [command, ...rest] = argv;
+  if (!(command in COMMANDS)) usage('unknown command');
+  const options = {};
+  for (let index = 0; index < rest.length; index += 2) {
+    const flag = rest[index];
+    const value = rest[index + 1];
+    if (!flag?.startsWith('--') || value === undefined) usage('flags take one value each');
+    const name = flag.slice(2);
+    if (!COMMANDS[command].includes(name)) usage('unknown flag');
+    options[name] = value;
+  }
+  return { command, options };
+}
+
+async function readJson(path) {
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    usage('input file is not readable JSON');
+    return undefined;
+  }
+}
+
+const emit = (value, ok) => {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  process.exitCode = ok ? 0 : 2;
+};
+
+function positiveInt(value) {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) usage('max-receipt-age-seconds must be a positive integer');
+  return parsed;
+}
+
+async function main() {
+  const { command, options } = parseArgs(process.argv.slice(2));
+  if (command === 'project-mail') {
+    for (const name of ['runtime-root', 'workspace-root', 'source', 'scope-id']) if (!options[name]) usage(`--${name} is required`);
+    const verdict = await projectMailPipeline({
+      runtimeRoot: options['runtime-root'],
+      workspaceRoot: options['workspace-root'],
+      source: options.source,
+      scopeId: options['scope-id'],
+      observedAt: options['observed-at'],
+    });
+    if (verdict.status === 'OK') emit(verdict.value, true);
+    else emit({ status: 'HOLD', hold_code: verdict.hold_code }, false);
+    return;
+  }
+  if (!options.projection) usage('--projection is required');
+  const projection = await readJson(options.projection);
+  if (command === 'validate') {
+    const verdict = validateSafeProjection(projection);
+    emit(verdict.status === 'OK' ? { status: 'OK', digest: verdict.digest } : { status: 'HOLD', hold_code: verdict.hold_code }, verdict.status === 'OK');
+    return;
+  }
+  if (command === 'launch-plan') {
+    for (const name of COMMANDS['launch-plan'].slice(0, 7)) if (!options[name]) usage(`--${name} is required`);
+    const plan = planSalpiLaunch({
+      projection,
+      hermesHome: options['hermes-home'],
+      hermesRoot: options['hermes-root'],
+      hermesPython: options['hermes-python'],
+      runRoot: options['run-root'],
+      devAssistWorkdir: options['dev-assist-workdir'],
+      auditedAt: options['audited-at'],
+      previous: options.previous ? await readJson(options.previous) : undefined,
+      maxReceiptAgeSeconds: positiveInt(options['max-receipt-age-seconds']),
+    });
+    emit(plan, plan.status === 'OK');
+    return;
+  }
+  const previous = options.previous ? await readJson(options.previous) : undefined;
+  const maxReceiptAgeSeconds = positiveInt(options['max-receipt-age-seconds']);
+  if (command === 'audit') {
+    const report = auditMailProjection(projection, { auditedAt: options['audited-at'], maxReceiptAgeSeconds, previous });
+    emit(report, report.overall !== 'HOLD');
+    return;
+  }
+  if (command === 'review-packet' || command === 'check-review') {
+    if (!options['audited-at']) usage('--audited-at is required: the audit clock belongs to the caller');
+    const built = buildCanonicalReviewPacket(projection, { auditedAt: options['audited-at'], maxReceiptAgeSeconds, previous });
+    if (built.status !== 'OK') { emit(built, false); return; }
+    if (command === 'review-packet') { emit({ status: 'OK', digest: built.digest, packet: built.packet }, true); return; }
+    if (!options.review) usage('--review is required');
+    const outcome = decideSalpiOutcome(built.packet, await readJson(options.review));
+    // The exit code follows the final verdict, not the review's validity: review_valid and
+    // review_status are in the printed outcome for callers that need them.
+    emit(outcome, outcome.overall === 'OK');
+    return;
+  }
+  if (!options.report) usage('--report is required');
+  if (!options['audited-at']) usage('--audited-at is required: the audit clock belongs to the caller');
+  const report = await readJson(options.report);
+  const verdict = validateSalpiAuditReport(report, projection, { auditedAt: options['audited-at'], maxReceiptAgeSeconds, previous });
+  emit(verdict, verdict.status === 'OK');
+}
+
+main().catch(() => {
+  process.stderr.write('salpi_audit: failed\n');
+  process.exit(1);
+});

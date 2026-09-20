@@ -276,3 +276,28 @@ test("stale, future, partial, failed, and inconsistent receipts reject", () => {
     /mail_store_receipt_not_accepted/,
   );
 });
+
+test("the optional new-event/store cross-check block is accepted but never changes acceptance", () => {
+  const check = {
+    state: "store_unchanged", reason_code: null, reported_new_events: 1,
+    store_unchanged_new_event_count: 1, comparison_scope: "a".repeat(64),
+  };
+  assert.doesNotThrow(() => adapt({ store_receipt: { ...STORE, new_event_store_check: check } }));
+  assert.doesNotThrow(() => adapt({ store_receipt: STORE }));
+  assert.throws(
+    () => adapt({ store_receipt: { ...STORE, new_event_store_check: { ...check, note: "free text" } } }),
+    /mail_store_receipt_shape_invalid/,
+  );
+  assert.throws(
+    () => adapt({ store_receipt: { ...STORE, new_event_store_check: { ...check, state: "all_stored" } } }),
+    /mail_store_receipt_shape_invalid/,
+  );
+  assert.throws(
+    () => adapt({ store_receipt: { ...STORE, new_event_store_check: { ...check, state: "store_changed" } } }),
+    /mail_store_receipt_shape_invalid/,
+  );
+  assert.throws(
+    () => adapt({ store_receipt: { ...STORE, status: "error", new_event_store_check: check } }),
+    /mail_store_receipt_not_accepted/,
+  );
+});

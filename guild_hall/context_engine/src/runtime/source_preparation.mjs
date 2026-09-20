@@ -12,6 +12,7 @@ import { readVoiceSourceDocuments } from '../adapters/sources/voice_session_sour
 import { readMailSourceDocuments } from '../adapters/sources/mail_event_source.mjs';
 import { readDocumentSourceDocuments } from '../adapters/sources/document_file_source.mjs';
 import { readSlackSourceDocuments } from '../adapters/sources/slack_custody_source.mjs';
+import { validateDocumentTools } from './document_tools.mjs';
 
 export const SOURCE_ADAPTERS = Object.freeze({ document: readDocumentSourceDocuments, linear: readLinearSourceDocuments,
   mail: readMailSourceDocuments, slack: readSlackSourceDocuments, voice: readVoiceSourceDocuments });
@@ -22,7 +23,8 @@ export const SYNTHETIC_DATA_CLASS = 'public_synthetic';
 // result: a record for documents the preparer did not emit cannot be produced
 // through this surface. `clock` exists so a test can fix the observed interval.
 export async function prepareSourceDocuments({ grant, roots, now, previousCoverage = null,
-  runId = null, clock = () => new Date(), admission = null } = {}) {
+  runId = null, clock = () => new Date(), admission = null, documentTools = null } = {}) {
+  const trustedDocumentTools = validateDocumentTools(documentTools);
   const startedAt = clock().toISOString();
   // The grant's bytes are its identity, so a path segment that canonical JSON
   // cannot render (a macOS NFD filename, a name truncated mid-surrogate-pair)
@@ -52,7 +54,8 @@ export async function prepareSourceDocuments({ grant, roots, now, previousCovera
       root_ref: source.root_ref, item_id: item.item_id, status: 'failed', code }));
     if (!adapter) { unavailable('adapter_not_connected'); continue; }
     if (typeof rootPath !== 'string') { unavailable('source_root_unbound'); continue; }
-    const output = await adapter({ admitted, source, rootPath });
+    const output = await adapter({ admitted, source, rootPath,
+      ...(source.kind === 'document' ? { documentTools: trustedDocumentTools } : {}) });
     documents.push(...output.documents);
     results.push(...output.results);
   }

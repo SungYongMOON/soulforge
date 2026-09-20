@@ -1,5 +1,38 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-17 CURRENT (Context Engine 0.22.2 Slack coverage reporting):
+> the working-context pack reports one Slack row from actual source preparation,
+> search and body-use evidence. Failed preparation and none-in-scope remain
+> distinct from an unsupported source kind; Buzz stays not_connected. This is a
+> reporting correction, not collection freshness, complete recall or live rollout
+> acceptance. Existing graph generations do not need extraction for this change.
+
+> 2026-09-17 CURRENT (Context Engine 0.22.1 document path consistency candidate):
+> the sync preflight uses the same explicit host document tools as preparation,
+> index update and original reread. Closed tool-configuration validation rejects
+> malformed settings before parsing. Original-read units retain their locators;
+> missing parser configuration, other reread failures and stored-unit fallback
+> are distinguished from an actual fresh-source revision mismatch. Windows
+> interpreter paths must be fully qualified. This remains a bounded development change:
+> source fidelity, automatic document discovery, live rollout and the business
+> A/B/C evaluation require their own evidence.
+
+> 2026-09-17 CURRENT (Context Engine 0.22.0 bounded DOCX candidate):
+> trusted host-only DOCX preparation adds body paragraphs and simple rectangular
+> tables to the existing document contract. Package/structure checks reject
+> unsupported content rather than silently omitting it; locators name XML blocks
+> and table cells, never inferred pages. Original-fidelity acceptance, general
+> Office support, operational source discovery and rollout remain separate gates.
+
+> 2026-09-17 CURRENT (Context Engine 0.21.0 document preparation candidate):
+> explicit trusted PDF tool binding connects the generic document adapter to the
+> existing pinned parser. Original bytes and page/table locators stay bound to
+> exact revisions; parser-worker bytes participate in preparation evidence.
+> Inactive preparation and graph-index callers pass the same hash-pinned host
+> binding. This is a development candidate: runtime installation, live document
+> discovery, DOCX/OCR support, source-fidelity acceptance and business A/B/C
+> evaluation are not established by this change. Operating writers remain unchanged.
+
 > 2026-09-17 CURRENT (Slack head-window and replayed-tail recovery):
 > the batch collector checks newer messages before continuing bounded historical
 > traversal. A replayed historical page advances its cursor instead of leaving the

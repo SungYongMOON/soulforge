@@ -1,5 +1,93 @@
 # Context Engine
 
+## Slack 처리 범위의 단일·실제 상태 표시 (0.22.2)
+
+맥락 꾸러미의 Slack coverage는 실제 준비 기록과 검색·본문 사용 수에서 한 행으로
+작성한다. 준비 실패는 실패 수로, 범위에 자료가 없으면 `none_in_scope`로 표시한다.
+Slack을 미연결 종류로 다시 추가해 중복된 0건 행을 만들지 않는다. 아직 어댑터가
+없는 Buzz는 `not_connected`로 유지한다. 이 표시는 출처 전체의 완전성·최신성을
+증명하지 않으며 수집·판본·실제 호출의 검증은 별개다.
+
+## 문서 준비 경로 일치와 원문 위치 반환 (0.22.1)
+
+문서 도구 설정은 host binding의 `document_tools`에만 둔다. 준비 flow, 동기화의
+선행 준비, 색인 갱신과 원문 재읽기가 같은 설정을 사용하며, 허용하지 않은 형식
+키나 잘못된 도구 값은 파서를 실행하기 전에 거부한다. 도구를 선언하지 않은 기존
+binding은 유지되지만 PDF/DOCX에는 해당 형식의 명시 설정이 필요하다.
+
+원문 읽기는 각 단위의 `locator`를 반환한다. PDF는 실제 페이지·문단·표/셀 위치,
+DOCX는 XML part·블록·문단·표/행/열이며 DOCX 렌더링 페이지 번호는 만들지 않는다.
+도구 미설정으로 재읽지 못한 경우는 `tool_configuration_missing`으로 구분하고
+저장된 단위를 제공하면 `units_from: generation_document`로 표시한다. 그 밖의 재읽기
+실패는 상세 오류와 함께 `reread_unavailable`로 알린다. `revision_mismatch`는 실제로
+새로 읽은 결과의 판본이 다를 때만 사용한다. 비교를 못 한 상태를 변경 확인으로 읽지 않는다.
+
+이 연결은 일반 문서 자동 발견, 독립 내용 충실도, 실제 업무 A/B/C 또는 운영 배포의
+완료를 뜻하지 않는다. 파서 시험은 명시한 Python 환경에서 실행해야 하며 로컬 실행
+로그와 CI의 실행·skip 여부를 구분한다.
+
+실제 파서의 로컬 실행 로그·도구 판본·검증 한계는
+[PR18 검증 기록](docs/evidence/DOCUMENT_PREPARATION_PR18.md)에 남긴다.
+
+## 제한형 DOCX 본문·표 준비 (0.22.0)
+
+`documentTools.docx`는 기존 PDF 설정과 나란히 놓이는 별도 host 도구 설정이다.
+`interpreterPath`, `extractionProfile: 'python-docx-structure-v1'`,
+`disableSiteStartup`으로 고정 worker를 호출한다. grant와 원문은 실행 파일을
+선택하지 않으며 원본 bytes만 stdin으로 전달한다. DOCX도 준비·비활성 저장·검색
+준비에서 같은 source-document 계약을 사용한다.
+
+이 profile은 **본문 문단과 단순 직사각형 표의 텍스트**만 처리한다. XML 블록과
+표·행·열 위치를 보존하며 렌더링하지 않았으므로 페이지 번호를 만들지 않는다.
+ZIP의 멤버·크기·실제 압축 해제량·CRC와 XML·관계·본문 구조를 먼저 검사한다.
+인식하지 못하는 내용 wrapper, 추적 변경, 수식·그림·필드·외부 관계, 숨김·목록
+스타일, 병합·중첩 표 등은 명시적으로 거부한다. 일부만 읽고 완전한 문서로 내지 않는다.
+worker·parser 판본과 추출 결과는 문서 신원에 포함되며 실행 전후 worker 변경을 거부한다.
+
+`SOULFORGE_TEST_DOCX_PYTHON`에 `python-docx`가 설치된 해석기를 명시하고
+`npm run validate:context-docx-preparation`으로 공개 합성 문서를 검증한다.
+독립 문서 원문 내용 검사는 여전히 `not_run`이다. 이 변경은 모든 Word 형식, `.doc`,
+HWPX, OCR, Office 표시 충실도, 일반 문서 자동 편입 또는 운영 배포를 보장하지 않는다.
+뒤의 0.21.0·기존 설명은 해당 시점 이력이며 이 절이 제한형 DOCX 연결을 보완한다.
+
+## 명시적으로 연결한 PDF 문서 준비 (0.21.0)
+
+일반 문서 어댑터는 기존 TXT/Markdown 경로를 유지하고, 신뢰된 host 설정의
+`documentTools.pdf`가 있을 때만 고정 `pdfplumber-tables-v1` 추출기를 호출한다.
+설정은 `prepareSourceDocuments`의 별도 인자이며 grant·자료 본문·요청이 실행 경로를
+선택하지 않는다. 저장 준비 하니스와 그래프 색인 갱신은 해시로 고정한 binding의
+`document_tools`에서 같은 설정을 전달한다. 기존 설정에는 새 실행이 생기지 않는다.
+검색한 항목의 원문을 되읽는 reader도 같은 고정 binding에서 도구 설정을 받아
+PDF/DOCX가 색인에는 있지만 원문 재읽기는 미연결인 상태를 만들지 않는다.
+원문 읽기 응답과 조사 영수증의 `parser_calls`는 기존 첨부 파생 계수이며,
+`parser_calls_scope: attachment_derivation_only`로 범위를 명시한다. 원본 문서
+재추출을 포함한 총 parser 호출 수로 해석하지 않는다.
+
+```js
+documentTools: {
+  pdf: {
+    interpreterPath: '<approved-absolute-python-path>',
+    extractionProfile: 'pdfplumber-tables-v1',
+    disableSiteStartup: true // Windows; false on other platforms
+  }
+}
+```
+
+원본 bytes는 경로·크기·읽기 전후 동일성을 검사한 reader로 읽고 exact grant hash를
+대조한다. 문단과 표 셀은 원본 상대 위치, 페이지·문단 또는 표·행·열·좌표를 보존한다.
+고정 Python worker와 추출 profile/version은 파생 문서의 판본에 결속하며 준비 실행
+기록의 code closure에도 worker를 포함한다. 원본·운영 설정·수락 기록은 쓰지 않는다.
+
+실제 parser를 사용하는 공개 합성 PDF로 준비→비활성 저장→되읽기→무결성 검증,
+준비→canned graph worker→어휘 검색→재실행 경로를 검사한다. 후자는 실제 모델·Neo4j
+품질 시험이 아니며 문서의 독립 원문 내용 검사는 여전히 `not_run`으로 남긴다.
+`SOULFORGE_TEST_PDF_PYTHON`을 명시하고 `npm run validate:context-document-preparation`을
+실행한다. 해석기가 없으면 실제 PDF 시험은 SKIP이며 완료 근거가 아니다.
+
+미연결·읽기 실패·내용 상한 초과를 성공한 준비로 바꾸지 않는다. OCR, DOCX/HWPX,
+일반 문서 자동 발견, 운영 배포·활성화, 실제 업무 A/B/C 평가는 이 변경의 완료 범위가
+아니다. 다음 기존 버전별 설명은 구현 이력이며 이 절이 PDF 연결 부분을 보완한다.
+
 프로젝트의 승인된 입력·수락 기록을 검사하고, 허용된 근거·기억·충돌·부족을
 한정된 Context Pack으로 반환하는 APP이다. 독립 APP home은 Owner 계획 v0.7
 §19.18의 고정 구조를 따른다. 운영 서비스나 새로운 수락 권한을 만들지 않는다.
