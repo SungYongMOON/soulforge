@@ -186,6 +186,10 @@ const spoken = value => {
   return `${Math.floor(total / 60)}분 ${String(total % 60).padStart(2, '0')}초`;
 };
 
+// S3-4: the reconcile harness's own `content_check` values, in the words a
+// person reading this table asks for.
+const CONTENT_CHECK_KO = { confirmed: '확인됨', unverified: '미확인', mismatch: '불일치' };
+
 /**
  * One window of a voice session. The head says which transcript answered and
  * what that chain allows a reader to claim; the rows are intervals, and the
@@ -325,8 +329,17 @@ export function renderVoice(answer, { budget, toolsSha256 }) {
     if (row.truncated) lines.push(`  [잘림: ${row.characters}자 중 ${row.shown}자]`);
     lines.push(row.project_candidates.length
       ? `  과제 후보 ${row.project_candidates.map(candidate => `${candidate.project_code}(${candidate.strength}`
-        + `${candidate.basis.length ? `, ${candidate.basis.join('+')}` : ''}, 근거 ${candidate.evidence_rows}행)`).join(' · ')}`
+        + `${candidate.basis.length ? `, ${candidate.basis.join('+')}` : ''}, 근거 ${candidate.evidence_rows}행)`
+        + `${candidate.withdrawn ? ' [철회]' : ''}`).join(' · ')}`
       : `  과제 후보 없음${row.unclassified_reason ? ` — ${line(row.unclassified_reason, 80)}` : ''}`);
+    // S3-4 답변 소비 최소 경계: this pass's own 판정, when the reconcile
+    // harness has one for this exact segment -- never re-derived here, only
+    // shown. A bot answering from this row must see "예외·미확인" before it
+    // cites the row as settled.
+    if (row.reconcile !== null) {
+      lines.push(`  판정: ${row.reconcile.classification}${row.reconcile.reason ? ` (${row.reconcile.reason})` : ''}`
+        + `${row.reconcile.content_check ? ` · 내용확인: ${CONTENT_CHECK_KO[row.reconcile.content_check] ?? row.reconcile.content_check}` : ''}`);
+    }
     if (row.agenda.length > 0) {
       lines.push(`  안건: ${row.agenda.map(item => `${line(item.label, 40)}`
         + `${item.source_segment_ids.length ? ` (발화 ${item.source_segment_ids[0]}–${item.source_segment_ids.at(-1)})` : ''}`)
@@ -402,6 +415,7 @@ async function voiceMain({ flags, io, tools, toolsSha256 }) {
     const answer = await readVoiceSession({ io, sessionId, from, to, transcriptKind: kind, units: wantUnits,
       conversationList: wantList, corrections: wantCorrections, derivedRoot: tools.derived_root ?? null,
       sharedTermsPath: tools.shared_terms_path ?? null,
+      reconcileReceiptsPath: tools.reconcile_receipts_path ?? null,
       maxChars: flags.get('max-chars') === undefined ? null : Number.parseInt(String(flags.get('max-chars')), 10) });
     budget.finish(answer.status, answer.internal);
     process.stdout.write(flags.get('json') === true

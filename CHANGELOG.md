@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## 2026-09-20 - 카드 대조 3단계: 판정 규칙 v1 + 답변 소비 최소 경계
+
+- Revision: 이 항목을 포함한 커밋. `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 세 번째 조각
+  (외부 회신 09·10, CE-22·CE-30 반례 채택). 네 분류(`provisional`/`candidate`/`exception`/`skip`)는 그대로고
+  다섯 번째는 만들지 않았다. "stale"(입력 유효성)은 분류가 아니라 `result.input`에 얹는 별도 축이다.
+- (S3-1) `src/runtime/voice_attribution_policy.mjs`가 v1로 올라가며 검사 순서를 바꿨다: ①입력 유효성
+  (구조상 못 읽으면 `skip`, 대조기가 아는 stale/구간 재사용은 판정은 그대로 내되 `input.valid: false`) →
+  ②사람 결정(확정은 이 모듈에 안 옴, 철회는 대조기가 미리 필터) → ③업무성(판독 불가·품질 나쁨은
+  `skip`이 아니라 `candidate`/`needs_recovery`, `mixed`는 위험 표지나 후보 2개 이상이면
+  `needs_split` 아니면 `mixed_unsplit`, idea·daily 등은 원칙 `skip`이나 요청·기한·발주·계약 표지가
+  있으면 `candidate`/`work_signal_outside_project_nature`로 보존) → ④예외 먼저(`strong_conflict`,
+  후보 전무+미등록 식별자 모양이면 `new_project_candidate`, 후보 전무+위험 표지만 있고 그 밖엔
+  아무것도 구체적이지 않으면 `missing_context`) → ⑤유일 strong이어도 카드 날짜·금액이 그 구간
+  전사 창 텍스트에 없으면 `content_mismatch`(전사 창을 못 구하면 `provisional`은 유지하되
+  `content_check: 'unverified'`) → ⑥유일 strong → `provisional` → ⑦남는 weak/미분류+위험 표지는
+  `important_and_unresolved`(구 `risk_marker_without_corroboration`), 표지가 조건문·인용/전언·부정/
+  금지·미완 안에 있으면 `conditional_or_reported`로 구분하고 `modality` 필드에 어느 쪽인지 남긴다.
+  메일/Linear 대조는 `cues`로만 남고 `provisional` 승격에 관여하지 않는다(v0의 승격 분기 삭제).
+  `RISK_MARKERS`에 '미완료'·'완료되지 않'을, 새 `DEADLINE_PATTERN`으로 회신 없이도 "내일까지"류
+  상대날짜 마감을 잡는다(둘 다 CE-26 known miss를 v1에서 고침).
+- (대조기 연결) `estate_voice_card_reconcile.mjs`가 세그먼트마다 `staleReason`(S2-2
+  `identity_changed`를 이 한 값으로 일반화, 대조기의 쓰기-건너뜀 검사도 `result.input.valid`
+  하나로 통합), `registeredProjectCodes`(이미 읽은 Linear 프로젝트 이름의 앞 코드 집합),
+  `transcriptText`(유일 strong 구간만, `voice_session_read.mjs`의 같은 읽기 경로로 그 구간 창만
+  read-only로 읽음)를 넘긴다. 영수증에 `modality`/`content_check`/`content_mismatches`/
+  `new_project_signal`/`input`을 구간마다 남기고 `content_unverified` 총계를 센다.
+- (S3-4) `attachment_derivation.mjs` tools config에 선택 필드 `reconcile_receipts_path`(대조기
+  `--receipts`와 같은 평범한 경로, io 별칭 아님)를 더했다. 주어지면 `voice_session_read.mjs`의
+  대화 목록 읽기가 그 세션을 마지막으로 언급한 대조 영수증에서 구간별 최신 판정을 찾아 행에 얹고
+  (`row.reconcile`), `estate_original_read.mjs`의 `renderVoice`가 `판정:`/`내용확인:` 줄과 철회
+  후보의 `[철회]` 표시로 사람이 읽는 표에도 낸다. 답 합성·모델 호출 없음 — 맥락이가 "이 카드는
+  예외·미확인"임을 인용 전에 보는 것까지다.
+- 운영 영향: 코드만. 새 필드를 실제로 쓰는 예약작업 등록·아침 브리핑 연결은 이 변경에 없다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/voice_attribution_policy.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/src/runtime/voice_session_read.mjs`,
+  `guild_hall/context_engine/src/runtime/attachment_derivation.mjs`,
+  `guild_hall/context_engine/harness/estate_original_read.mjs`,
+  `guild_hall/context_engine/tests/voice_attribution_policy.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/tests/voice_session_read.test.mjs`, `guild_hall/context_engine/README.md`,
+  `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
+
 ## 2026-09-20 - 카드 대조 2단계: 구간·판본·철회·backlog 결속
 
 - Revision: 이 항목을 포함한 커밋. `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 두 번째 조각(외부

@@ -747,6 +747,44 @@ test('철회 원장이 없거나 읽을 수 없어도 대화 목록 읽기는 �
   } finally { await inbox.cleanup(); }
 });
 
+// ------------------------------------------------------------- S3-4 reconcile
+test('S3-4: the reconcile harness’s latest 판정 for a segment reaches the read path and its rendered table', async () => {
+  const inbox = await withConversationList();
+  try {
+    const receiptsDir = path.join(inbox.controlRoot, 'reconcile-receipts');
+    await mkdir(receiptsDir, { recursive: true });
+    // An older receipt for a DIFFERENT segment, and a newer one for conv_1 --
+    // the newer one's verdict is the one that should surface.
+    await writeFile(path.join(receiptsDir, '20260103000000.json'), JSON.stringify({
+      schema_version: 'soulforge.voice_card_reconcile_receipt.v2', sessions: [{ session_id: SESSION,
+        segments: [{ segment_id: 'conv_1', classification: 'candidate', reason: 'weak_or_unclassified_no_risk', content_check: null }] }] }));
+    await writeFile(path.join(receiptsDir, '20260104000000.json'), JSON.stringify({
+      schema_version: 'soulforge.voice_card_reconcile_receipt.v2', sessions: [{ session_id: SESSION,
+        segments: [{ segment_id: 'conv_1', classification: 'exception', reason: 'content_mismatch', content_check: 'mismatch' }] }] }));
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot,
+      reconcileReceiptsPath: receiptsDir });
+    assert.equal(answer.status, 'ok');
+    const [first] = answer.conversation_list.rows;
+    assert.deepEqual(first.reconcile, { classification: 'exception', reason: 'content_mismatch', content_check: 'mismatch' });
+    const rendered = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' }, toolsSha256: sha(Buffer.from('tools')) });
+    assert.match(rendered, /판정: exception/u);
+    assert.match(rendered, /content_mismatch/u);
+    assert.match(rendered, /내용확인: 불일치/u);
+  } finally { await inbox.cleanup(); }
+});
+
+test('S3-4: no reconcile receipt for this session (or no receipts path given) reads and renders as no verdict, never a guess', async () => {
+  const inbox = await withConversationList();
+  try {
+    const answer = await read(inbox.io, { conversationList: true, derivedRoot: inbox.derivedRoot });
+    assert.equal(answer.status, 'ok');
+    const [first] = answer.conversation_list.rows;
+    assert.equal(first.reconcile, null);
+    const rendered = renderVoice(answer, { budget: { call: 1, remaining: 5, bucket: 'dev' }, toolsSha256: sha(Buffer.from('tools')) });
+    assert.equal(rendered.includes('판정:'), false);
+  } finally { await inbox.cleanup(); }
+});
+
 test('대화 목록의 오디오 참조는 어떤 출력에도 실리지 않는다', async () => {
   const inbox = await withConversationList();
   try {

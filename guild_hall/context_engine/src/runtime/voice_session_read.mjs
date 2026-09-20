@@ -28,7 +28,8 @@
 // apart -- not so that a name in that column becomes who owns the work.
 import { createHash } from 'node:crypto';
 import { openSourceRoot, isSafeSegment, SourceReadError } from '../adapters/sources/guarded_files.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 import { classifyTerms, loadSharedTerms } from './shared_terms.mjs';
 
 // The registry module reports absence as null and refuses a malformed file by
@@ -493,6 +494,50 @@ export function readWithdrawnBySegment(io, sessionId) {
   return bySegment;
 }
 
+// S3-4 답변 소비 최소 경계: the same reconcile receipt schema string
+// `harness/estate_voice_card_reconcile.mjs` exports as `RECONCILE_RECEIPT_
+// SCHEMA` -- duplicated rather than imported, since that harness already
+// imports `readVoiceSession` from this file (for its own content-check
+// gate), and the other direction would be circular.
+const RECONCILE_RECEIPT_SCHEMA = 'soulforge.voice_card_reconcile_receipt.v2';
+const MAX_RECONCILE_RECEIPT_BYTES = 8 * 1024 * 1024;
+
+/**
+ * The reconcile harness's own latest verdict for each segment of one
+ * session, per segment_id -- `{ classification, reason, content_check }` --
+ * read from whichever reconcile receipt in `receiptsDir` (the same plain
+ * directory path `estate_voice_card_reconcile.mjs --receipts` names, never
+ * an `io`-aliased address) most recently mentioned this session, so a bot
+ * reading a card can see "이 카드는 예외·미확인" before citing it, without
+ * synthesising an answer or calling a model itself. `receiptsDir` absent, or
+ * no receipt ever mentioning this session, reads as "no verdict yet" --
+ * never a claim this pass looked and found nothing wrong.
+ */
+export function readLatestReconcileResults(receiptsDir, sessionId) {
+  if (typeof receiptsDir !== 'string' || receiptsDir === '') return new Map();
+  let names;
+  try { names = readdirSync(receiptsDir); } catch { return new Map(); }
+  let latestSegments = null;
+  // Receipt filenames are the reconcile harness's own zero-padded timestamp,
+  // so a plain lexicographic sort is a chronological one -- the last file
+  // that names this session is its most recent verdict.
+  for (const name of names.filter(entry => entry.endsWith('.json')).sort()) {
+    let body;
+    try { body = JSON.parse(readFileSync(path.join(receiptsDir, name), 'utf8')); } catch { continue; }
+    if (body?.schema_version !== RECONCILE_RECEIPT_SCHEMA || !Array.isArray(body.sessions)) continue;
+    const found = body.sessions.find(row => row?.session_id === sessionId && Array.isArray(row.segments));
+    if (found !== undefined) latestSegments = found.segments;
+  }
+  const bySegment = new Map();
+  for (const segment of latestSegments ?? []) {
+    if (typeof segment?.segment_id !== 'string') continue;
+    bySegment.set(segment.segment_id, { classification: typeof segment.classification === 'string' ? segment.classification : null,
+      reason: typeof segment.reason === 'string' ? segment.reason : null,
+      content_check: typeof segment.content_check === 'string' ? segment.content_check : null });
+  }
+  return bySegment;
+}
+
 /**
  * One row of that list, with the audio reference dropped: this tool never
  * hands one out. `withdrawnCodes` (from `readWithdrawnBySegment`, this row's
@@ -500,9 +545,12 @@ export function readWithdrawnBySegment(io, sessionId) {
  * has already said no to it, so a reader (a bot answering from this row) must
  * not cite it as live. Grant admission and any index built from an earlier
  * confirmation of a since-withdrawn project are not touched here: that
- * cleanup is a separate, async step (L2), not this read.
+ * cleanup is a separate, async step (L2), not this read. `reconcileResult`
+ * (from `readLatestReconcileResults`, this row's own segment_id) is the
+ * reconcile harness's latest 판정 for this exact segment, `null` when there
+ * is none -- never a synthesised or guessed verdict.
  */
-export function conversationRow(row, recordedAtLocal, withdrawnCodes = new Set()) {
+export function conversationRow(row, recordedAtLocal, withdrawnCodes = new Set(), reconcileResult = null) {
   const start = Number(row.start_seconds ?? row.start ?? 0);
   const end = Number(row.end_seconds ?? row.end ?? start);
   const computed = clockAt(recordedAtLocal, start);
@@ -541,6 +589,10 @@ export function conversationRow(row, recordedAtLocal, withdrawnCodes = new Set()
       .map(item => ({ label: String(item.label),
         source_segment_ids: Array.isArray(item.source_segment_ids) ? item.source_segment_ids : [] })),
     derived_summary: true, characters: [...description].length, text: description,
+    // S3-4: the reconcile harness's own latest 판정 for this exact segment,
+    // when one exists -- never derived or guessed here.
+    reconcile: reconcileResult === null ? null : { classification: reconcileResult.classification,
+      reason: reconcileResult.reason, content_check: reconcileResult.content_check },
   };
 }
 
@@ -555,7 +607,7 @@ export function conversationRow(row, recordedAtLocal, withdrawnCodes = new Set()
  */
 export async function readVoiceSession({ io, sessionId, from = null, to = null, transcriptKind = null,
   units = false, conversationList = false, corrections = false, derivedRoot = null, maxChars = null,
-  sharedTermsPath = null,
+  sharedTermsPath = null, reconcileReceiptsPath = null,
   actorRef = VOICE_READER_ACTOR, accessAddress = VOICE_ACCESS_ADDRESS,
   now = new Date().toISOString() } = {}) {
   if (typeof sessionId !== 'string' || !SESSION_ID.test(sessionId) || !isSafeSegment(sessionId)) {
@@ -642,8 +694,10 @@ export async function readVoiceSession({ io, sessionId, from = null, to = null, 
       : { status: found.status, detail: found.detail, rows: [] };
     if (found.status === 'ok') {
       const withdrawnBySegment = readWithdrawnBySegment(io, sessionId);
+      const reconcileBySegment = readLatestReconcileResults(reconcileReceiptsPath, sessionId);
       conversationRows = found.rows.map(row => conversationRow(row, start,
-          withdrawnBySegment.get(String(row.segment_id ?? row.draft_id ?? row.id ?? '')) ?? new Set()))
+          withdrawnBySegment.get(String(row.segment_id ?? row.draft_id ?? row.id ?? '')) ?? new Set(),
+          reconcileBySegment.get(String(row.segment_id ?? row.draft_id ?? row.id ?? '')) ?? null))
         .filter(row => row.end_seconds > requestedFrom && row.start_seconds < windowTo)
         .sort((a, b) => a.start_seconds - b.start_seconds || a.conversation_id.localeCompare(b.conversation_id));
     }

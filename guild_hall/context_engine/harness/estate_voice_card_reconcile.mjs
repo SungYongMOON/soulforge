@@ -69,6 +69,7 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { classifyAttribution, linearCorroborates, mailCorroborates, projectAliasTerms,
   VOICE_ATTRIBUTION_POLICY_VERSION } from '../src/runtime/voice_attribution_policy.mjs';
+import { readVoiceSession } from '../src/runtime/voice_session_read.mjs';
 import { NIGHTLY_RECEIPT_SCHEMA, defaultTargetDate, seoulDateFor, shiftDate } from './voice_conversation_list_nightly.mjs';
 import { readRun } from './voice_conversation_list_cli.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
@@ -710,7 +711,27 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
   const totals = { sessions: sessionIds.length, cards_read: 0, segments_considered: 0,
     provisional: 0, candidate: 0, exception: 0, skip: 0, already_confirmed: 0, confirmed_at_write: 0,
     ledger_calls: 0, failed: 0, human_protected_candidates: 0, segment_identity_changed: 0, retired_candidates: 0,
-    withdrawn_projects_skipped: 0 };
+    withdrawn_projects_skipped: 0,
+    // S3-1/S3-4: a unique-strong segment classifyAttribution returned
+    // `provisional` for, with no transcript window text to check its card
+    // dates/amounts against -- an honest "not checked" count, not a claim
+    // every provisional segment's content was verified.
+    content_unverified: 0 };
+  // Every project code this estate's Linear projects declare -- "P24-049
+  // SAS 처리장치 ..." names project P24-049 -- for classifyAttribution's
+  // new-project-candidate check (step 4). Computed once, from the same
+  // `linear.projects` the alias table below already reads; a leading
+  // identifier-shaped token not in this set is a project this estate has
+  // never registered.
+  const registeredProjectCodes = (() => {
+    const leading = /^([A-Za-z][0-9A-Za-z]*(?:-[0-9A-Za-z]+)+)(?=\s|$)/u;
+    const codes = new Set();
+    for (const row of linear.projects) {
+      const match = leading.exec(typeof row?.name === 'string' ? row.name.trim() : '');
+      if (match !== null) codes.add(match[1]);
+    }
+    return codes;
+  })();
   // Alias terms depend on which project codes actually appear on a card, which
   // is only known after the card is read -- so they are built once codes are seen.
   const aliasCache = new Map();
@@ -817,17 +838,51 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
       const classifiedSegment = withdrawnCodes.size === 0 ? segment : { ...segment,
         project_candidates: (segment.project_candidates ?? []).map(candidate => withdrawnCodes.has(candidate.project_code)
           && candidate.strength === 'strong' ? { ...candidate, strength: 'weak' } : candidate) };
-      const result = classifyAttribution(classifiedSegment, corroboration);
+      // S3-1 step 1 (input validity): `import` already named this exact
+      // segment_id as reusing a scope from a different run
+      // (`identityChanged`, S2-2) -- the one stale reason this harness can
+      // give classifyAttribution today. Passed through rather than checked
+      // only here, so `result.input` is the one place -- receipt included --
+      // that says a segment's classification is not this pass's to act on.
+      const staleReason = identityChanged.has(segment.segment_id) ? 'segment_identity_changed' : null;
+      // S3-1 step 5 (content verification gate): only worth the read for a
+      // segment that could actually reach the gate -- a unique strong
+      // candidate, the same narrow condition classifyAttribution itself
+      // checks before using it. Read-only, through the same access-declared
+      // path (`voice_session_read.mjs`) the answer CLI uses; a session with
+      // no grant, or nothing found for this exact window, is `null` text --
+      // classifyAttribution then answers `content_check: 'unverified'`,
+      // never a false claim of a mismatch it could not actually check.
+      const strongCodesOnSegment = new Set((classifiedSegment.project_candidates ?? [])
+        .filter(row => row?.strength === 'strong' && typeof row.project_code === 'string' && row.project_code !== '')
+        .map(row => row.project_code));
+      let transcriptText = null;
+      if (strongCodesOnSegment.size === 1) {
+        try {
+          const read = await readVoiceSession({ io, sessionId, derivedRoot: tools.derived_root,
+            from: segment.start_seconds, to: segment.end_seconds, now });
+          if (read.status === 'ok') transcriptText = (read.segments ?? []).map(row => row.text).join(' ');
+        } catch { transcriptText = null; } // unreadable here reads as "not supplied", never a hard failure
+      }
+      const result = classifyAttribution(classifiedSegment, corroboration,
+        { staleReason, transcriptText, registeredProjectCodes });
       totals[result.classification] = (totals[result.classification] ?? 0) + 1;
+      if (result.content_check === 'unverified') totals.content_unverified += 1;
 
       let ledgerWrite = 'none', writeError = null, skippedHuman = [], skippedWithdrawn = [], retiredCandidates = [];
       if (result.classification !== 'skip') {
-        // `import` already refused to reuse this segment_id for this run's
-        // scope (a machine-drafted row addressing a different stretch of the
-        // recording): writing to it here would attach this run's judgement to
-        // the wrong conversation. Left for a person to resolve.
-        if (identityChanged.has(segment.segment_id)) {
-          ledgerWrite = 'skipped_segment_identity_changed';
+        // S3-1 step 1: `result.input.valid === false` is this pass's one
+        // gate for "not this pass's to write" -- today that is only ever
+        // `import`'s own `identity_changed` refusal (a machine-drafted row
+        // this run's card would reuse a segment_id for, but over a different
+        // stretch of the recording; writing here would attach this run's
+        // judgement to the wrong conversation, left for a person to
+        // resolve), carried through as `staleReason` above, but any future
+        // stale reason classifyAttribution is ever handed reaches the same
+        // gate without a second check having to be added here.
+        if (result.input.valid === false) {
+          ledgerWrite = result.input.reason === 'segment_identity_changed' ? 'skipped_segment_identity_changed'
+            : 'skipped_stale_input';
           totals.segment_identity_changed += 1;
         }
         else if (confirmedIds.has(segment.segment_id)) { ledgerWrite = 'skipped_confirmed'; totals.already_confirmed += 1; }
@@ -901,12 +956,19 @@ export async function runReconcile({ io, tools, tablePath, tableSha256, sessions
         risk_markers: result.risk_markers, corroboration_refs: corroboration.refs, ledger_write: ledgerWrite,
         write_error: writeError, skipped_human_candidates: skippedHuman,
         skipped_withdrawn_projects: skippedWithdrawn, retired_candidates: retiredCandidates,
+        // S3-1/S3-4: the modality tag (never a present decision when set),
+        // the content-check gate's own state, and the new-project signal --
+        // all carried into the receipt so the morning question (and the
+        // answer CLI's read path, S3-4) never has to re-derive them.
+        modality: result.modality, content_check: result.content_check, content_mismatches: result.content_mismatches,
+        new_project_signal: result.new_project_signal, input: result.input,
         project_candidates: (segment.project_candidates ?? []).map(row2 => row2.project_code) };
       segmentRows.push(row);
       if (result.classification === 'exception') {
         exceptionReview.push({ session_id: sessionId, segment_id: segment.segment_id, title: segment.title,
           candidates: (segment.project_candidates ?? []).map(row2 => row2.project_code),
-          risk_markers: result.risk_markers, why: result.reason });
+          risk_markers: result.risk_markers, why: result.reason, modality: result.modality,
+          content_mismatches: result.content_mismatches });
       }
       log(`${sessionId} ${segment.segment_id} ${result.classification}${ledgerWrite !== 'none' ? ` ${ledgerWrite}` : ''}`);
     }

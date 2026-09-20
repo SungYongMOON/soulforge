@@ -1,5 +1,48 @@
 # Context Engine
 
+## 카드 대조 3단계 — 판정 규칙 v1 + 답변 소비 최소 경계 (0.22.5)
+
+`VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 세 번째 조각(외부 회신 09·10). 여전히 네 분류
+(`provisional`/`candidate`/`exception`/`skip`) 뿐이고 다섯 번째는 없다. "stale"(입력 유효성)은 분류가 아니라
+별도 축으로 `result.input`에 얹힌다.
+
+- **판정 모듈 v1(S3-1)**: `src/runtime/voice_attribution_policy.mjs`의 `classifyAttribution`이 새 검사 순서로
+  바뀌었다(머리말에 전체 서술). 굵직한 것만: 판독 불가 나 품질이 나쁘면 `skip`이 아니라
+  `candidate`/`needs_recovery`(CE-26 — 판독 불가는 다시 검토할 일이지 조용히 사라질 일이 아니다);
+  `mixed`는 위험 표지나 후보 2개 이상이면 `exception`/`needs_split`, 아니면 `candidate`/`mixed_unsplit`;
+  idea·daily 등은 원칙 `skip`이나 요청·기한·발주·계약 같은 표지가 있으면
+  `candidate`/`work_signal_outside_project_nature`로 보존한다(마찬가지로 CE-26); 후보가 전혀 없는데
+  `estate_shared_terms.mjs`의 `IDENTIFIER` 모양(글자+숫자+하이픈)이면서 등록된 과제 코드가 아닌 토큰이
+  있으면 `exception`/`new_project_candidate`; 후보 없이 위험 표지만 있고 그 표지 말고는 아무것도 구체적
+  으로 안 적혔으면 `exception`/`missing_context`; **유일한 strong 후보여도** 카드가 적은 날짜·금액이 그
+  구간의 전사 창 텍스트에 없으면(정규화 문자열 대조, 오디오도 다른 프로젝트 기록도 아님)
+  `exception`/`content_mismatch` — 전사 창을 못 구했으면 `provisional`은 유지하되 `content_check:
+  'unverified'`로 정직하게 표시한다(확인했다는 거짓 주장 아님). 메일/Linear 대조(corroboration)는 이제
+  `cues`로만 남고 `provisional` 승격에 전혀 관여하지 않는다(v0에서는 승격시켰다). 남는 weak/미분류에
+  위험 표지가 있으면 `exception`이되, 표지가 조건문("만약 …면")·인용/전언("…다고 말했다")·부정/금지
+  ("하지 마", "하지 않")·미완("아직 …") 안에 있으면 `reason: 'conditional_or_reported'`와 `modality`
+  필드로 구분한다(같은 예외지만 "결정"이 아니라 "조건부/인용"임을 안다) — 그 외에는
+  `important_and_unresolved`(구 `risk_marker_without_corroboration`). `RISK_MARKERS`에 '미완료'·'완료되지
+  않'을, 새 `DEADLINE_PATTERN`으로 "내일까지"류 상대날짜 마감을 더했다(둘 다 CE-26 known miss).
+- **대조기 연결**: `estate_voice_card_reconcile.mjs`가 세그먼트마다 `staleReason`(오늘은 S2-2
+  `identity_changed`뿐 — 그 값이 있으면 판정은 그대로 계산하되 `result.input.valid === false`가 되고
+  대조기는 쓰지 않는다, 기존 identity_changed 전용 검사를 이 한 검사로 일반화), `registeredProjectCodes`
+  (이미 읽은 Linear 프로젝트 이름의 앞 코드 집합), `transcriptText`(유일 strong 구간만,
+  `voice_session_read.mjs`의 같은 읽기 경로로 그 구간 창만 읽음, read-only)를 넘긴다. 영수증에
+  `modality`/`content_check`/`content_mismatches`/`new_project_signal`/`input`을 구간마다 남기고,
+  `content_check: 'unverified'`는 `totals.content_unverified`로 센다.
+- **답변 소비 최소 경계(S3-4)**: `attachment_derivation.mjs`의 tools config에 선택 필드
+  `reconcile_receipts_path`(대조기 `--receipts`와 같은 평범한 파일시스템 경로, io 별칭 아님)를 더했다.
+  주어지면 `voice_session_read.mjs`의 대화 목록 읽기가 그 세션을 마지막으로 언급한 대조 영수증에서 각
+  구간의 최신 판정을 찾아 행에 얹고(`row.reconcile`), `estate_original_read.mjs`의 `renderVoice`가
+  `판정: <분류> (<이유>) · 내용확인: 확인됨|미확인|불일치` 줄과 철회 후보의 `[철회]` 표시로 사람이 읽는
+  표에도 낸다. 답 합성도 모델 호출도 없다 — 맥락이가 "이 카드는 예외·미확인"임을 인용 전에 보게 하는
+  것까지다.
+
+시험: `tests/voice_attribution_policy.test.mjs`(판정 규칙 전체 분기 + S3-3 CE-22/CE-30 반례 10여 개),
+`tests/estate_voice_card_reconcile.test.mjs`(대조기 연결), `tests/voice_session_read.test.mjs`(S3-4 읽기
+경로·렌더).
+
 ## 카드 대조 2단계 — 구간·판본·철회·backlog 결속 (0.22.4)
 
 `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 두 번째 조각. 판정 규칙(`voice_attribution_policy.mjs`)의

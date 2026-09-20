@@ -78,6 +78,16 @@ export function readToolsConfig(bytes) {
   // a wrong one -- but a path that is present and not absolute is a typo, not a hold.
   if (config.shared_terms_path !== undefined && config.shared_terms_path !== null
     && (typeof config.shared_terms_path !== 'string' || !isAbsolute(config.shared_terms_path))) fail('tools_config_path_invalid');
+  // Optional (S3-4): the reconcile harness's `--receipts` directory, the same
+  // plain filesystem path convention `derived_root` and `receipts_root` use
+  // (not an `io`-aliased address -- the reconcile harness's own receipts
+  // never were one either). A host with no reconcile lane configured yet has
+  // no path, and the read CLI then shows no verdict for a card rather than a
+  // wrong one.
+  if (config.reconcile_receipts_path !== undefined && config.reconcile_receipts_path !== null
+    && (typeof config.reconcile_receipts_path !== 'string' || !isAbsolute(config.reconcile_receipts_path))) {
+    fail('tools_config_path_invalid');
+  }
   if (config.formats === null || typeof config.formats !== 'object') fail('tools_config_formats_invalid');
   if (!Number.isSafeInteger(config.max_attachment_bytes) || config.max_attachment_bytes < 1
     || config.max_attachment_bytes > MAX_WORKER_OUTPUT_BYTES) fail('tools_config_bounds_invalid');
@@ -98,6 +108,8 @@ export function readToolsConfig(bytes) {
     // Absent means no marking, which is a smaller answer and never a guess.
     shared_terms_path: typeof config.shared_terms_path === 'string' && isAbsolute(config.shared_terms_path)
       ? config.shared_terms_path : null,
+    reconcile_receipts_path: typeof config.reconcile_receipts_path === 'string' && isAbsolute(config.reconcile_receipts_path)
+      ? config.reconcile_receipts_path : null,
     derived_root_alias: typeof config.derived_root_alias === 'string' && config.derived_root_alias
       ? config.derived_root_alias : 'derived_root',
     derived_root_status: typeof config.derived_root_status === 'string' ? config.derived_root_status : 'declared',

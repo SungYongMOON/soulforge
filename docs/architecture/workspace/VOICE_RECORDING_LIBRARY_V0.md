@@ -111,7 +111,7 @@ Git으로 복제하지 않는다. Git에는 코드와 metadata만 두며, raw가
 | target route status | 의미 | 허용되는 다음 단계 |
 | --- | --- | --- |
 | `ai_provisional_project_route` | AI가 프로젝트 context card와 복수 근거를 이용해 내부 작업용 route를 임시 확정했다. 사람 승인이나 공식 사실이 아니다. | 회의/주제 구간별 project draft, 담당자·할일 후보, 재검증 |
-| `exception_review_required` | 서로 다른 프로젝트 근거가 충돌하거나 새 프로젝트·낮은 신뢰도·필수 맥락 누락이 있다. | 자동 진행 보류, 예외 검토함 |
+| `exception_review_required` | 서로 다른 프로젝트 근거가 충돌하거나(`strong_conflict`), 새 프로젝트 신호(`new_project_candidate`), 필수 맥락 누락(`missing_context`), 카드가 말한 날짜·금액이 전사 구간과 어긋남(`content_mismatch`), 또는 중요한데 아직 안 풀림(`important_and_unresolved`/조건부·인용이면 `conditional_or_reported`)이 있다(판정 규칙 v1). | 자동 진행 보류, 예외 검토함 |
 
 AI 임시 확정은 `accepted_by`, `accepted_at`을 쓰지 않는다. 대신 사용한 source ref,
 project context version, 모델/규칙 version, confidence band, 반대 근거, 재검증 시각을
@@ -130,12 +130,21 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    요구하지 않는다. — **구현됨**(카드 생성·후보 표시: `voice_conversation_list_nightly.mjs`, 예약작업
    `SoulforgeVoiceConversationList` 03:00) / **계획**(strong 후보를 `ai_provisional_project_route`로
    올리는 writer).
-2. **예외만 아침에 모아 묻기.** 두 조건이 모두 맞는 구간만 예외 검토함(`exception_review_required`)에
-   넣고 아침 브리핑 끝에 "어제 애매한 것 N건"으로 묻는다: (a) 과제 후보가 weak 또는 미분류,
-   (b) 그 구간에 결정·마감·금액·대외 약속이 있다. 답이 없으면 후보로 남고 아무 일도 일어나지
-   않는다. 해당 건이 없는 날은 그 줄이 없다. — **계획**(목록 자체는
-   `estate_voice_card_reconcile.mjs`가 매 회차 영수증의 `exception_review`에 이미 쌓는다 — 구현됨.
-   아침 브리핑이 그 목록을 읽어 묻는 연결은 아직 계획).
+2. **예외만 아침에 모아 묻기.** (판정 규칙 v1, 2026-09-20 밤 정정 — 회신 09·10) 처음엔 "(a) weak/미분류
+   AND (b) 위험 표지"였다. 그 입구가 좁아서 새 과제 신호나 필수 맥락 누락, 카드가 말한 날짜·금액이
+   실제 발화와 어긋나는 것까지는 못 잡았다 — 이제 다섯 갈래로 넓혔다: (1) strong 후보 둘이 서로 다른
+   과제(`strong_conflict`, 기존), (2) 후보가 전혀 없는데 등록되지 않은 과제코드 모양 식별자가 보임
+   (`new_project_candidate`), (3) 위험 표지는 있는데 후보도 없고 표지 자신 말고는 아무것도 구체적으로
+   안 적힘(`missing_context`), (4) strong 후보 하나뿐이어도 카드가 적은 날짜·금액이 그 구간의 전사
+   창에 없음(`content_mismatch` — **유일한 strong이면 무조건 provisional이던 것을 이 검사가 먼저
+   막는다**, 전사 창을 못 구하면 `provisional`은 유지하되 `내용확인: 미확인`으로만 표시), (5) 남는
+   weak/미분류에 위험 표지가 있는데 아직 안 풀림(`important_and_unresolved`, 조건문·인용·부정이면
+   `conditional_or_reported`로 구분 — 둘 다 예외로 남지만 "조건부/인용"과 "결정"은 다른 질문이다).
+   메일/Linear 대조는 이제 근거(cue)로만 남고 provisional로 올리지 않는다. 아침 브리핑 끝에 "어제
+   애매한 것 N건"으로 묻는다. 답이 없으면 후보로 남고 아무 일도 일어나지 않는다. 해당 건이 없는 날은
+   그 줄이 없다. — **구현됨**(다섯 갈래 판정, `src/runtime/voice_attribution_policy.mjs` v1; 목록은
+   `estate_voice_card_reconcile.mjs`가 매 회차 영수증의 `exception_review`에 쌓는다) / **계획**(아침
+   브리핑이 그 목록을 읽어 묻는 연결).
 3. **정정은 반드시 카드에 반영.** DM 한 줄 답("그거 KVDS야")은 `voice_route_cli` confirm/withdraw로
    이어져야 한다. 반영되지 않는 정정은 없다. — **부분 구현됨**: `withdraw`가 남긴 기록(ledger의
    `withdrawn: [{project_code, withdrawn_by, withdrawn_at}]`, 다른 과제로 재확정(A→B)하면 A도 자동
@@ -154,20 +163,33 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    것은 `accepted_project_route` 또는 strong 근거의 `ai_provisional_project_route`뿐이다. 예외 검토함에
    있는 구간의 결정·마감·금액은 답이 오기 전에는 페이지에 쓰지 않는다. — **계획**.
 
-판정 규칙(strong/weak 임계값, 예외 조건 (a)(b), 확정 경로)은 `guild_hall/context_engine` 안의
+판정 규칙(strong/weak 임계값, 예외 입구, 확정 경로)은 `guild_hall/context_engine` 안의
 **독립 모듈**로 두고, 이 절이 그 모듈 하나를 가리킨다. 규칙을 바꿀 때는 그 모듈과 이 절만 바뀐다
-(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **부분 구현됨**: 예외 조건 (a)(b)(카드 후보
-weak/미분류 + 결정·마감·금액·대외약속), strong 후보 둘이 서로 다른 과제를 가리키는 충돌
-(`strong_conflict`)과 확정 경로(`voice_route_cli.mjs confirm`이 유일한 쓰기 경로이고, `set`·`import`는
-이미 `confirmed`인 행을 거부한다 — `voice_route_segment_confirmed_locked`)는
-`src/runtime/voice_attribution_policy.mjs` v0(대조기 `harness/estate_voice_card_reconcile.mjs`)가
-구현했다. 다만 "사람만 확정한다"는 실행 경로(`confirm` 명령을 실제로 손으로 치는 사람)와 그 호출자를
-막는 lock·OS 파일 권한의 조합이 만드는 보장이며, CLI 자체가 `--by` 문자열이 실제 사람인지 암호학적으로
-검증하지는 않는다(어떤 스크립트든 `confirm`을 호출하면 값을 쓸 수 있다) — actor 신원을 코드로
-검증하는 것은 계획이다. strong/weak 임계값 자체(무엇을 strong으로 볼지의 근거 수·근거 종류 규칙)는 아직
-`src/runtime/voice_conversation_list.mjs`의 `checkCandidates` 안에 있으며, 판정 모듈로 옮기는 것은
-계획이다 — 매뉴얼은 지금도 실제 코드 위치와 일치해야 하므로, 임계값을 옮기기 전에는 이 문장도
-바꾸지 않는다.
+(DOCUMENT_OWNERSHIP의 "교체 알고리즘" 소유 범위). — **부분 구현됨**: 확정 경로
+(`voice_route_cli.mjs confirm`이 유일한 쓰기 경로이고, `set`·`import`는 이미 `confirmed`인 행을 거부한다
+— `voice_route_segment_confirmed_locked`)와 판정 규칙 v1의 검사 순서 전체는
+`src/runtime/voice_attribution_policy.mjs`(대조기 `harness/estate_voice_card_reconcile.mjs`)가 구현했다:
+① 입력 유효성(구조상 못 읽으면 `skip`, 대조기가 알려준 stale·구간 재사용은 판정은 그대로 내되
+`input.valid: false`로만 표시하고 대조기가 쓰지 않음 — 다섯 번째 분류가 아니라 별도 축) → ② 사람
+결정(확정 구간은 이 모듈에 아예 안 옴, 철회 과제는 대조기가 미리 걸러 넘김) → ③ 업무성(판독 불가
+나 판독 불가 품질은 `skip`이 아니라 `candidate`/`needs_recovery`; `mixed`는 위험 표지나 후보 2개
+이상이면 `needs_split`, 아니면 `mixed_unsplit`; idea·daily 등은 원칙 `skip`이나 요청·기한·발주·계약
+같은 표지가 있으면 `candidate`/`work_signal_outside_project_nature`로 보존) → ④ 예외 먼저
+(`strong_conflict`, `new_project_candidate`, `missing_context`) → ⑤ 유일 strong이어도 카드의
+날짜·금액이 그 구간 전사 창과 다르면 `content_mismatch`(`content_check`가 `unverified`면 그대로
+`provisional`, 절대 확인했다는 거짓 주장은 안 함) → ⑥ 유일 strong → `provisional` → ⑦ 남는
+weak/미분류는 위험 표지가 있으면 `important_and_unresolved`(조건문·인용·부정·미완이면
+`conditional_or_reported`로, `modality` 필드에 어느 쪽인지). 메일/Linear 대조는 이제 근거(`cues`)로만
+쓰고 판정을 절대 올리지 않는다. "사람만 확정한다"는 실행 경로(`confirm` 명령을 실제로 손으로 치는
+사람)와 그 호출자를 막는 lock·OS 파일 권한의 조합이 만드는 보장이며, CLI 자체가 `--by` 문자열이 실제
+사람인지 암호학적으로 검증하지는 않는다(어떤 스크립트든 `confirm`을 호출하면 값을 쓸 수 있다) —
+actor 신원을 코드로 검증하는 것은 계획이다. strong/weak 임계값 자체(무엇을 strong으로 볼지의 근거
+수·근거 종류 규칙)는 아직 `src/runtime/voice_conversation_list.mjs`의 `checkCandidates` 안에 있으며,
+판정 모듈로 옮기는 것은 계획이다 — 매뉴얼은 지금도 실제 코드 위치와 일치해야 하므로, 임계값을 옮기기
+전에는 이 문장도 바꾸지 않는다. S3-4(답변 소비 최소 경계): 대조기 영수증이 있으면
+`src/runtime/voice_session_read.mjs`의 대화 목록 읽기 경로(맥락이가 쓰는 CLI, `estate_original_read.mjs`
+`renderVoice`)가 구간마다 그 판정·이유·내용확인을 그대로 보여준다(`판정:`/`내용확인:` 줄) — 답 합성이나
+모델 호출은 없다. 이 연결이 아직 없는 것은 아침 브리핑 쪽뿐이다(위 항목 2 참고).
 
 측정 근거: 2026-09-20 두 회의 시험(`<TARGET_SOULFORGE_ROOT>/dev/handoff/CONTEXT_BASELINE_TEST_2026-09-19/05_RUNS/2026-09-20/pass1_trial/RESULT.md`) —
 경계 자르기는 정확, 귀속은 보수적(잘못 붙인 0건, 못 붙인 2건), 30개 구간 중 예외 조건에 걸리는 것 1건.

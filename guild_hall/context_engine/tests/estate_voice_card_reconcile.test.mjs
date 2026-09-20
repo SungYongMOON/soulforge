@@ -173,7 +173,7 @@ test('a real run writes candidate-status ledger rows and a receipt, never confir
   assert.equal(row.confirmed_by, null);
   assert.equal(row.project_candidates.length, 1);
   assert.equal(row.project_candidates[0].project_code, 'P24-049');
-  assert.match(row.project_candidates[0].basis, /^reconcile:v0 classification=provisional/u);
+  assert.match(row.project_candidates[0].basis, /^reconcile:v1 classification=provisional/u);
   const receiptFiles = (await readdir(est.receiptsDir)).filter(name => name !== 'reconcile.lock');
   assert.equal(receiptFiles.length, 1);
   const receipt = JSON.parse(await readFile(path.join(est.receiptsDir, receiptFiles[0]), 'utf8'));
@@ -391,7 +391,7 @@ test('a strong_conflict segment that later resolves to a single strong candidate
   assert.deepEqual(row.retired_candidates, ['P23-043']);
   const ledgerRow = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger
     .segments.find(item => item.segment_id === 'c001');
-  assert.match(ledgerRow.project_candidates.find(item => item.project_code === 'P24-049').basis, /^reconcile:v0/u);
+  assert.match(ledgerRow.project_candidates.find(item => item.project_code === 'P24-049').basis, /^reconcile:v1/u);
   assert.equal(ledgerRow.project_candidates.find(item => item.project_code === 'P23-043'), undefined, 'B is gone');
   assert.equal(ledgerRow.project_candidates.length, 1);
 });
@@ -458,7 +458,7 @@ test('a segment with one human-protected candidate and one new candidate is set_
   const p24 = ledgerRow.project_candidates.find(item => item.project_code === 'P24-049');
   const p23 = ledgerRow.project_candidates.find(item => item.project_code === 'P23-043');
   assert.equal(p24.basis, '사람이 직접 확인함, 아직 확정 전'); // untouched
-  assert.match(p23.basis, /^reconcile:v0/u); // newly written
+  assert.match(p23.basis, /^reconcile:v1/u); // newly written
 });
 
 // -------------------------------------------------------- S2-2 segment identity
@@ -574,6 +574,69 @@ test('N7: a night that only retires a stale machine candidate behind a withdrawn
   assert.deepEqual(row.skipped_human_candidates, []);
   const ledgerRow = readLedgerFile(routesDir, 'sess1').ledger.segments.find(item => item.segment_id === 'c001');
   assert.deepEqual(ledgerRow.project_candidates, [], 'the stale machine candidate is gone and nothing replaced it');
+});
+
+// -------------------------------------------------------------------- S3
+test('S3: a unique strong candidate with no transcript access declared reads content_check unverified, counted in totals, and still writes as usual', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', title: '9월 20일까지 완료', description: '',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // No voice-inbox access declaration written for this estate at all --
+  // readVoiceSession answers access_denied, and the gate reads that as
+  // "nothing to check", not a manufactured mismatch.
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(row.classification, 'provisional');
+  assert.equal(row.content_check, 'unverified');
+  assert.equal(result.receipt.totals.content_unverified, 1);
+  const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), 'sess1').ledger;
+  assert.equal(ledger.segments.find(item => item.segment_id === 'c001').status, 'candidate');
+});
+
+test('S3: an identifier-shaped token with no card candidate, matching no Linear-registered project code, is exception/new_project_candidate -- a registered one is not', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', title: 'XZ-77 신규 거래처 협의', description: '', project_candidates: [] }),
+    segment({ segment_id: 'c002', title: 'P24-049 관련 후속 논의', description: '', project_candidates: [] }),
+  ] });
+  await writeLinearProject(est.dataRoot, 'acme', 'proj-1', { name: 'P24-049 SAS 처리장치', updated_at: '2026-09-01T00:00:00.000Z' });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--linear-root', 'data_root/ingress/linear', '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const segments = result.receipt.sessions[0].segments;
+  const newProject = segments.find(item => item.segment_id === 'c001');
+  assert.equal(newProject.classification, 'exception');
+  assert.equal(newProject.reason, 'new_project_candidate');
+  const registered = segments.find(item => item.segment_id === 'c002');
+  assert.notEqual(registered.reason, 'new_project_candidate');
+  const exceptionEntry = result.receipt.exception_review.find(row => row.segment_id === 'c001');
+  assert.equal(exceptionEntry.why, 'new_project_candidate');
+});
+
+test('S3: a modality-tagged risk marker reaches the receipt and exception_review as conditional_or_reported, not important_and_unresolved', async () => {
+  const est = await estate();
+  await writeSessionDir(est.dataRoot, '2026-09-19', 'sess1');
+  await writeCard(est.derivedRoot, 'sess1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001', title: '만약 승인되면 발주', description: '', project_candidates: [] }),
+  ] });
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--date', '2026-09-19',
+    '--now', '2026-09-20T18:00:00.000Z']);
+  assert.equal(result.status, 'OK');
+  const row = result.receipt.sessions[0].segments.find(item => item.segment_id === 'c001');
+  assert.equal(row.classification, 'exception');
+  assert.equal(row.reason, 'conditional_or_reported');
+  assert.equal(row.modality, 'conditional');
+  const exceptionEntry = result.receipt.exception_review.find(item => item.segment_id === 'c001');
+  assert.equal(exceptionEntry.modality, 'conditional');
 });
 
 // -------------------------------------------------------------- S2-4 withdraw
