@@ -25,22 +25,43 @@
   (proposed|presented|answered|withdrawn), `first_seen`, `presented_on[]`(재노출한 날짜들, 지우지 않고
   누적), `answered{by, at, choice}`, `reopened_from`.
 - **CLI(S4-3)**: `present`가 선택기를 돌려 markdown을 찍는다 — `어제 애매한 것 N건 (이월 M, 긴급 초과 K)`
-  머리글, 줄마다 `n. HH:MM 제목 — 질문 종류 — 선택지: ...`(사람이 읽는 줄엔 id 없음), 끝에 포인터 줄
-  `[q:<id> ...]`. 0건이면 `없음`. `answer --question <id> --choice <code|other:<code>|none|not_work|split|
-  confirm_content> --by <actor>`가 원장을 읽어 CE-34대로 먼저 대상의 run_id가 최신 대조 영수증과 같은지
-  확인하고(다르면 `question_targets_stale`로 거부하고 질문을 `withdrawn`으로 남김), 귀속 질문의 과제
-  코드 답은 기존 `voice_route_cli.mjs confirm --project`만, `not_work`는 그 질문이 내걸었던 후보마다
-  `set --drop-project`만 부른다 — 이 파일 자신은 voice route ledger를 절대 안 쓴다. 내용확인·분할·
-  조건확인 질문은 어떤 선택지든 원장에만 기록하고 route는 안 건드린다(카드 값 확인이지 과제 배정이
-  아니므로). 같은 답을 다시 보내면 아무것도 다시 안 쓴다(멱등, 상태 먼저 확인). 대상 하나가 실패하면
-  (예: 그 구간 ledger 행이 아직 없음) 그 대상만 실패로 기록하고 질문은 `presented`에 `partial` 메모를
-  남긴 채 `answered`로 넘어가지 않는다. `--by`는 대조기 자신의 actor나 `actor:context-engine:`/
-  `actor:bot:`/`actor:machine:` 모양이면 거부한다(신원 증명이 아니라 CLI 단 형식 검사, 문서화된 그대로).
-  명령마다 `--receipts` 아래에 스키마 v1 영수증을 남긴다. **markdown을 어딘가로 보내는 것(Step 4b)과
-  예약작업 등록은 이 조각에 없다.**
+  머리글, 줄마다 `n. HH:MM 제목 — 질문 종류 — 선택지: ...`(사람이 읽는 줄엔 id 없음, 제목은 줄바꿈·`|`·
+  선행 "N. "을 지운 한 줄·80자 상한이라 제목 텍스트가 가짜 줄이나 가짜 포인터를 만들 수 없다), 끝에
+  포인터 줄 `[q:<id> ...]`. 0건이면 `없음`. `answer --question <id> --choice <code|other:<code>|none|
+  not_work|split|keep|confirm_content> --by <actor>`가 먼저 그 질문의 종류·선택지에 맞는 답인지 검사하고
+  (귀속은 그 질문이 내건 코드/`other:<code>`/`none`/`not_work`, 내용확인·조건확인은 `confirm_content`/
+  `none`, 분할은 `split`/`keep`뿐 — 다른 모양은 어떤 쓰기도 하기 전에 `question_choice_invalid`이며
+  `other:<code>`는 이번에 읽은 대조 영수증들이 실제로 후보로 제안한 과제 코드일 때만 받는다), CE-34대로
+  대상의 run_id가 최신 대조 영수증과 같은지 확인한다(다르면 `question_targets_stale`로 거부하고 질문을
+  `withdrawn`으로 남김 — 같은 run_id에 더 최신 영수증이 있는 것만으로는 정지가 아니다, 그 영수증의
+  `ran_at`까지 더 최신이어야 정지). 귀속 질문의 과제 코드 답은 기존 `voice_route_cli.mjs confirm
+  --project`만 부르며, confirm이 실제로 거부하는 세 값(제목 null·성격 undetermined·품질 unknown)이 현재
+  구간 행에 이미 없을 때만 채운다(제목은 질문의 대표 제목, 성격은 `project_work`, 품질은
+  `independent_fast`) — 행이 이미 가진 값을 이 CLI가 덮어쓰는 일은 없다. `not_work`는 그 구간이 이미
+  `confirmed`면 `question_target_confirmed`로 거부하고 "withdraw 먼저"를 안내하며, 확정되지 않았다면
+  *현재* ledger 행의 후보 중 기계가 쓴 것(`reconcile:`/`voice_conversation_list:` basis)만
+  `set --drop-project`로 지우고 사람이 손으로 남긴 후보는 건드리지 않는다 — 이 파일 자신은 voice route
+  ledger를 절대 안 쓴다. 내용확인·분할·조건확인 질문은 어떤 선택지든 원장에만 기록하고 route는 안
+  건드린다(카드 값 확인이지 과제 배정이 아니므로). 같은 답을 다시 보내면 아무것도 다시 안 쓴다(멱등, 상태
+  먼저 확인). 대상 하나가 실패하면(예: 그 구간 ledger 행이 아직 없음) 그 대상만 실패로 기록하고 질문은
+  `presented`에 `partial`(고른 선택지도 함께) 메모를 남긴 채 `answered`로 넘어가지 않으며, `present`는
+  그 메모를 다음 노출에서 지우지 않고, 재시도는 그 메모의 이미 성공한 대상을 다시 쓰지 않고 실패했던
+  대상만 다시 부른다. `--by`는 대조기 자신의 actor나 `actor:context-engine:`/`actor:bot:`/
+  `actor:machine:` 모양이면 거부한다(신원 증명이 아니라 CLI 단 형식 검사, 문서화된 그대로). `--dry`는
+  실제로 쓰지 않고 대상마다 `would_apply`(실제로 라우트 쓰기를 시도할지)와 미리 알 수 있는 거부 사유를
+  보고한다 — 가짜 `ok:true`를 찍지 않는다. 명령마다 `--receipts` 아래에 스키마 v1 영수증을 남긴다(밀리초
+  단위 파일명 + 충돌 시 번호 접미사라 같은 초 안 두 번 호출이 서로 덮어쓰지 않음). **markdown을 어딘가로
+  보내는 것(Step 4b)과 예약작업 등록은 이 조각에 없다.**
+- **원장 잠금·상한(S4-4 정정)**: `questions.lock`은 `estate_voice_card_reconcile.mjs`의 자기 잠금
+  회수(`harness/estate_voice_card_reconcile.mjs:141-160`)를 거울로 옮겨, 3시간(`QUESTION_LEDGER_STALE_
+  LOCK_MS`) 넘은 잠금은 버려진 것으로 보고 회수하며 받아간 쪽을 영수증의 `lock.reclaimed_stale`/
+  `previous_lock`에 남긴다. 원장이 `MAX_LEDGER_BYTES`/`MAX_QUESTIONS`를 넘기며 쓰일 때는 답변/철회 후
+  90일 지난 행을 같은 폴더의 `questions.archive.<date>.json`(append-only)로 옮기고 나서 쓴다 — 살아있는
+  원장 파일이 다음 읽기에서 "너무 큼"으로 거부될 상태로 남는 일은 없다.
 
-시험: `tests/voice_morning_questions.test.mjs`(선택기 전체 규칙, CE-30~34 반례별 1개씩),
-`tests/voice_question_cli.test.mjs`(원장·CLI 연결, 재사용·재전사·부분실패·기계 actor 거부).
+시험: `tests/voice_morning_questions.test.mjs`(선택기 전체 규칙, CE-30~34 반례별 1개씩, 후보 집합이
+다르면 id도 다름, tz-aware "오늘"), `tests/voice_question_cli.test.mjs`(원장·CLI 연결, 재사용·재전사·
+부분실패·기계 actor 거부, 종류별 선택지 검사, 잠금 회수, 원장 archive, 제목 위조 방지, not_work 정련).
 
 ## 카드 대조 3단계 — 판정 규칙 v1 + 답변 소비 최소 경계 (0.22.5)
 

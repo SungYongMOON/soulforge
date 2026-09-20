@@ -10,7 +10,9 @@
 // question ledger the caller already read, and returns what to present, what
 // still waits, and what a fresh review of the same inputs would answer
 // identically -- same inputs, same output, every time (`now` and `cap` are
-// themselves inputs, never read from a clock or a config file in here).
+// themselves inputs, never read from a clock or a config file in here; `now`
+// is required for exactly that reason -- a default of `new Date()` would
+// make this module's own output depend on when it happened to run).
 //
 // One question groups one or more exception rows that share:
 //   - the same `session_id` (never across sessions -- a person's answer
@@ -29,12 +31,15 @@
 // title or date alone, and never merged across kinds even for the one
 // segment they both name.
 //
-// A question's id is a stable hash of (`kind`, its sorted target list) --
-// never a random id, and never derived from `now` -- so the same exception
-// pool, read again on the same or a later day, produces the exact same id
-// for the exact same group. That stability is the whole of the "fast loop":
-// the caller looks the id up in the ledger, and an already-`answered`
-// question whose targets are unchanged is never re-asked
+// A question's id is a stable hash of (`kind`, its sorted candidate set, its
+// sorted target list) -- never a random id, and never derived from `now` --
+// so the same exception pool, read again on the same or a later day,
+// produces the exact same id for the exact same group. Candidates are part
+// of that hash (R2): two groups that share a session, kind and target set
+// but differ only in candidate set are two different questions with two
+// different option lists, not one id shared by both. That stability is the
+// whole of the "fast loop": the caller looks the id up in the ledger, and an
+// already-`answered` question whose targets are unchanged is never re-asked
 // (`resolved_by_reuse`), with no search, no index, no model call.
 import { createHash } from 'node:crypto';
 
@@ -68,12 +73,27 @@ function isReadableExceptionRow(row) {
     && typeof row.why === 'string' && Object.hasOwn(REASON_KIND, row.why);
 }
 
-const targetKey = target => `${target.session_id}${target.run_id}${target.segment_id}`;
+// A control-byte field separator, built with `String.fromCharCode` rather
+// than written as a literal escape in source -- a literal control character
+// typed into an Edit-tool-authored file has landed as a real embedded byte
+// before in this codebase (this file's own previous revision did exactly
+// that in every key below), which is unreadable in a diff and easy to get
+// wrong silently. Built once and reused everywhere a field boundary needs to
+// be unambiguous: `"ab"+"c"` must never equal `"a"+"bc"`.
+const SEP = String.fromCharCode(31);
+const targetKey = target => `${target.session_id}${SEP}${target.run_id}${SEP}${target.segment_id}`;
 
-/** A stable id: `kind` plus every target's key, sorted -- never the row order they arrived in. */
-export function questionIdFor(kind, targets) {
+/**
+ * A stable id: `kind`, the sorted candidate set and every target's key,
+ * sorted -- never the row order they arrived in, and never `kind` + targets
+ * alone (R2, see the header comment above).
+ */
+export function questionIdFor(kind, targets, candidates = []) {
   const sortedKeys = [...targets].map(targetKey).sort();
-  const hash = createHash('sha256').update(`${kind}${sortedKeys.join('')}`).digest('hex');
+  const sortedCandidates = [...new Set(candidates)].sort();
+  const hash = createHash('sha256')
+    .update(`${kind}${SEP}${sortedCandidates.join(SEP)}${SEP}${sortedKeys.join(SEP)}`)
+    .digest('hex');
   return `q_${hash.slice(0, 20)}`;
 }
 
@@ -97,7 +117,7 @@ function groupExceptions(exceptions) {
     const kind = REASON_KIND[row.why];
     const codes = [...new Set(Array.isArray(row.candidates) ? row.candidates.filter(code => typeof code === 'string') : [])]
       .sort();
-    const groupKey = `${row.session_id}${kind}${codes.join(',')}`;
+    const groupKey = `${row.session_id}${SEP}${kind}${SEP}${codes.join(',')}`;
     let group = groups.get(groupKey);
     if (group === undefined) {
       group = { kind, sessionId: row.session_id, candidates: codes, rows: [], urgent: false };
@@ -147,8 +167,19 @@ function optionsFor(kind, candidates) {
 
 /** Whether every one of `targets` appears, unchanged (same run_id), among `question.targets`. */
 function coversTargets(question, targets) {
-  const covered = new Map(question.targets.map(target => [`${target.session_id}${target.segment_id}`, target.run_id]));
-  return targets.every(target => covered.get(`${target.session_id}${target.segment_id}`) === target.run_id);
+  const covered = new Map(question.targets.map(target => [`${target.session_id}${SEP}${target.segment_id}`, target.run_id]));
+  return targets.every(target => covered.get(`${target.session_id}${SEP}${target.segment_id}`) === target.run_id);
+}
+
+/** `now` (an ISO instant, required) as a `YYYY-MM-DD` date string in `tz` --
+ * `Intl.DateTimeFormat` with the `en-CA` locale formats exactly that shape,
+ * so this needs no manual offset arithmetic and stays correct for any IANA
+ * zone the caller passes (Asia/Seoul has no DST, but this makes no special
+ * case of that). `2026-09-21T14:30:00Z` (23:30 KST) is still `2026-09-21`;
+ * `2026-09-21T15:30:00Z` (00:30 KST the next day) is `2026-09-22`. */
+export function todayInTz(nowIso, tz) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(nowIso));
 }
 
 /**
@@ -157,19 +188,22 @@ function coversTargets(question, targets) {
  * chose to read -- this module never truncates the pool, only what it
  * *presents*). `ledger` is `{ questions: [...] }` as read from the question
  * ledger store (S4-2) -- this module never writes it; the caller persists
- * whatever it decides to do with this result. `cap` (default 10) is a
- * ceiling on how many *independent judgements* are shown today, not a quota
- * to fill.
+ * whatever it decides to do with this result. `now` (an ISO instant) is
+ * required, never defaulted from a clock (see the header comment). `cap`
+ * (default 10, must be a positive integer -- 0 and negative are refused,
+ * not "present nothing") is a ceiling on how many *independent judgements*
+ * are shown today, not a quota to fill. `tz` (default Asia/Seoul) is the
+ * zone "today" is computed in.
  *
  * Returns `{ presented, carried_over, urgent_overflow, resolved_by_reuse,
  * metrics }`. Every list holds question objects in the same shape a caller
  * would write to the ledger (`question_id`, `kind`, `targets`, `options`,
  * `representative`, `first_seen`, `urgent`, `reopened_from`).
  */
-export function selectQuestions({ exceptions = [], ledger = { questions: [] }, now = new Date().toISOString(),
-  cap = 10, tz = 'Asia/Seoul' } = {}) {
-  if (!Number.isSafeInteger(cap) || cap < 0) throw new TypeError('voice_morning_questions_cap_invalid');
-  const today = new Date(now).toISOString().slice(0, 10);
+export function selectQuestions({ exceptions = [], ledger = { questions: [] }, now, cap = 10, tz = 'Asia/Seoul' } = {}) {
+  if (typeof now !== 'string' || !Number.isFinite(Date.parse(now))) throw new TypeError('voice_morning_questions_now_required');
+  if (!Number.isSafeInteger(cap) || cap < 1) throw new TypeError('voice_morning_questions_cap_invalid');
+  const today = todayInTz(now, tz);
   const ledgerQuestions = Array.isArray(ledger?.questions) ? ledger.questions : [];
   const byId = new Map(ledgerQuestions.map(question => [question.question_id, question]));
   // For CE-34's reopen link: the most recent settled (answered/withdrawn)
@@ -180,7 +214,7 @@ export function selectQuestions({ exceptions = [], ledger = { questions: [] }, n
   for (const question of ledgerQuestions) {
     if (question.status !== 'answered' && question.status !== 'withdrawn') continue;
     for (const target of question.targets) {
-      settledByTarget.set(`${target.session_id}${target.segment_id}${question.kind}`, question.question_id);
+      settledByTarget.set(`${target.session_id}${SEP}${target.segment_id}${SEP}${question.kind}`, question.question_id);
     }
   }
 
@@ -191,7 +225,7 @@ export function selectQuestions({ exceptions = [], ledger = { questions: [] }, n
 
   for (const group of groups) {
     const targets = targetsFor(group);
-    const questionId = questionIdFor(group.kind, targets);
+    const questionId = questionIdFor(group.kind, targets, group.candidates);
     const existing = byId.get(questionId);
     if (existing !== undefined && existing.status === 'answered' && coversTargets(existing, targets)) {
       resolvedByReuse.push(existing);
@@ -200,7 +234,7 @@ export function selectQuestions({ exceptions = [], ledger = { questions: [] }, n
     const rep = representativeRow(group);
     const reopenedFrom = (() => {
       for (const target of targets) {
-        const previous = settledByTarget.get(`${target.session_id}${target.segment_id}${group.kind}`);
+        const previous = settledByTarget.get(`${target.session_id}${SEP}${target.segment_id}${SEP}${group.kind}`);
         if (previous !== undefined && previous !== questionId) return previous;
       }
       return null;

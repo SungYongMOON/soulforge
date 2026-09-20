@@ -3,7 +3,7 @@
 // Each test names the CE-30..34 bullet (S4-4) it covers in its own title.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { selectQuestions, questionIdFor } from '../src/runtime/voice_morning_questions.mjs';
+import { selectQuestions, questionIdFor, todayInTz } from '../src/runtime/voice_morning_questions.mjs';
 
 const NOW = '2026-09-20T18:00:00.000Z';
 const row = (overrides = {}) => ({ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001',
@@ -136,7 +136,7 @@ test('a deadline/decision marker (납기/마감/기한/계약/발주/금액), or
 
 test('within the same urgency, the oldest first_seen is presented first when the cap forces a choice', () => {
   const ledger = { questions: [
-    { question_id: questionIdFor('귀속', [{ session_id: 'sess-old', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001' }]),
+    { question_id: questionIdFor('귀속', [{ session_id: 'sess-old', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001' }], ['P24-049']),
       kind: '귀속', first_seen: '2026-09-01T00:00:00.000Z', status: 'presented', presented_on: ['2026-09-01'],
       targets: [{ session_id: 'sess-old', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001', receipt_ran_at: NOW }],
       options: [], representative: {}, answered: null, reopened_from: null },
@@ -150,7 +150,7 @@ test('within the same urgency, the oldest first_seen is presented first when the
 // --------------------------------------------------------------- reuse/reopen
 test('CE-30: an answered question whose targets are unchanged is resolved_by_reuse, not re-asked', () => {
   const targets = [{ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001', receipt_ran_at: NOW }];
-  const questionId = questionIdFor('귀속', targets);
+  const questionId = questionIdFor('귀속', targets, ['P24-049']);
   const ledger = { questions: [{ question_id: questionId, kind: '귀속', targets, options: ['P24-049'],
     representative: { time: '09:00', title: '구간' }, status: 'answered', first_seen: '2026-09-19T00:00:00.000Z',
     presented_on: ['2026-09-19'], answered: { by: 'actor:owner:someone', at: '2026-09-19T21:00:00.000Z', choice: 'P24-049' },
@@ -164,7 +164,7 @@ test('CE-30: an answered question whose targets are unchanged is resolved_by_reu
 
 test('CE-30: unanswered persists across days with its original first_seen kept, not reset', () => {
   const targets = [{ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001', receipt_ran_at: NOW }];
-  const questionId = questionIdFor('귀속', targets);
+  const questionId = questionIdFor('귀속', targets, ['P24-049']);
   const ledger = { questions: [{ question_id: questionId, kind: '귀속', targets, options: ['P24-049'],
     representative: { time: '09:00', title: '구간' }, status: 'presented', first_seen: '2026-09-10T00:00:00.000Z',
     presented_on: ['2026-09-10'], answered: null, reopened_from: null }] };
@@ -175,7 +175,7 @@ test('CE-30: unanswered persists across days with its original first_seen kept, 
 
 test('a run_id change on the same segment reopens as a new question id, linking back with reopened_from', () => {
   const oldTargets = [{ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001', receipt_ran_at: NOW }];
-  const oldId = questionIdFor('귀속', oldTargets);
+  const oldId = questionIdFor('귀속', oldTargets, ['P24-049']);
   const ledger = { questions: [{ question_id: oldId, kind: '귀속', targets: oldTargets, options: ['P24-049'],
     representative: { time: '09:00', title: '구간' }, status: 'answered', first_seen: '2026-09-19T00:00:00.000Z',
     presented_on: ['2026-09-19'], answered: { by: 'actor:owner:someone', at: '2026-09-19T21:00:00.000Z', choice: 'P24-049' },
@@ -191,7 +191,7 @@ test('a run_id change on the same segment reopens as a new question id, linking 
 
 test('a new contradiction (a new exception reason on the same segment) reopens as its own new-kind question, not folded into the answered one', () => {
   const targets = [{ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001', receipt_ran_at: NOW }];
-  const answeredId = questionIdFor('귀속', targets);
+  const answeredId = questionIdFor('귀속', targets, ['P24-049']);
   const ledger = { questions: [{ question_id: answeredId, kind: '귀속', targets, options: ['P24-049'],
     representative: { time: '09:00', title: '구간' }, status: 'answered', first_seen: '2026-09-19T00:00:00.000Z',
     presented_on: ['2026-09-19'], answered: { by: 'actor:owner:someone', at: '2026-09-19T21:00:00.000Z', choice: 'P24-049' },
@@ -213,12 +213,40 @@ test('metrics report every field the CLI receipt needs, consistently with the re
   assert.equal(result.metrics.total_unresolved, exceptions.length);
 });
 
-test('cap 0 presents nothing, every candidate becomes carried_over or urgent_overflow', () => {
+test('nit: cap 0 is refused (voice_morning_questions_cap_invalid), not treated as "present nothing"', () => {
   const exceptions = [row({ session_id: 'a' }), row({ session_id: 'b', risk_markers: ['마감'] })];
-  const result = selectQuestions({ exceptions, now: NOW, cap: 0 });
-  assert.equal(result.presented.length, 0);
-  assert.equal(result.carried_over.length, 1);
-  assert.equal(result.urgent_overflow.length, 1);
+  assert.throws(() => selectQuestions({ exceptions, now: NOW, cap: 0 }), /voice_morning_questions_cap_invalid/u);
+});
+
+test('nit: a negative cap is refused the same way', () => {
+  assert.throws(() => selectQuestions({ exceptions: [row()], now: NOW, cap: -1 }), /voice_morning_questions_cap_invalid/u);
+});
+
+test('nit: `now` is required -- no clock default in this pure module', () => {
+  assert.throws(() => selectQuestions({ exceptions: [row()], cap: 10 }), /voice_morning_questions_now_required/u);
+  assert.throws(() => selectQuestions({ exceptions: [row()], now: 'not-a-date', cap: 10 }), /voice_morning_questions_now_required/u);
+});
+
+test('nit: "today" is computed in Asia/Seoul, not raw UTC -- 14:30Z is still 09-21 KST, 15:30Z is already 09-22 KST', () => {
+  assert.equal(todayInTz('2026-09-21T14:30:00.000Z', 'Asia/Seoul'), '2026-09-21');
+  assert.equal(todayInTz('2026-09-21T15:30:00.000Z', 'Asia/Seoul'), '2026-09-22');
+});
+
+test('nit: selectQuestions itself uses the tz-aware "today" for presented_on, not a UTC slice', () => {
+  const result = selectQuestions({ exceptions: [row({ session_id: 'kst-boundary' })], now: '2026-09-21T15:30:00.000Z', cap: 10 });
+  assert.deepEqual(result.presented[0].presented_on, ['2026-09-22']);
+});
+
+// ----------------------------------------------------------------------- R2
+test('R2: the same segment under two different candidate sets is two questions with two different ids (candidates are part of the id)', () => {
+  const a = row({ segment_id: 'c001', candidates: ['P24-049'] });
+  const b = row({ segment_id: 'c001', candidates: ['P26-014'] });
+  const idA = questionIdFor('귀속', [{ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001' }], ['P24-049']);
+  const idB = questionIdFor('귀속', [{ session_id: 'sess1', run_id: 'vcl_aaaaaaaaaaaaaaaa', segment_id: 'c001' }], ['P26-014']);
+  assert.notEqual(idA, idB, 'kind+targets alone used to collide; candidates in the hash now separate them');
+  const result = selectQuestions({ exceptions: [a, b], now: NOW, cap: 10 });
+  assert.equal(result.presented.length, 2, 'two ledger rows, one per candidate set');
+  assert.deepEqual(result.presented.map(question => question.question_id).sort(), [idA, idB].sort());
 });
 
 test('an empty exception pool with an empty ledger presents nothing, cleanly', () => {

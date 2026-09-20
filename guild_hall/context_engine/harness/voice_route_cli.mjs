@@ -86,8 +86,8 @@ const encode = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 // direction would be circular. A basis starting with one of these was
 // written by a machine (this pass's own `import`, or the reconcile harness),
 // not a person naming a project with their own words.
-const MACHINE_BASIS_PREFIXES = Object.freeze(['reconcile:', 'voice_conversation_list:']);
-const isMachineWrittenBasis = basis => basis === null || MACHINE_BASIS_PREFIXES.some(prefix => basis.startsWith(prefix));
+export const MACHINE_BASIS_PREFIXES = Object.freeze(['reconcile:', 'voice_conversation_list:']);
+export const isMachineWrittenBasis = basis => basis === null || MACHINE_BASIS_PREFIXES.some(prefix => basis.startsWith(prefix));
 
 function options(argv) {
   const flags = new Map();

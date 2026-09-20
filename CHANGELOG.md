@@ -37,6 +37,23 @@
   `guild_hall/context_engine/tests/voice_question_cli.test.mjs`,
   `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
   `guild_hall/context_engine/README.md`, `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
+- 신선한 눈 검토 후 정정(필수 3·권고 7·사소 다수, 같은 날 커밋 하나로 반영): `answer`의 귀속 확정이 매번
+  `--title '사람 확인' --nature project_work --quality independent_fast`를 무조건 실어 보내 실제 제목/성격/
+  전사 품질을 지워버리던 것을 고쳐, confirm이 실제로 막는 세 값(제목 null·성격 undetermined·품질 unknown)이
+  현재 행에 이미 없을 때만 채운다(제목은 질문의 대표 제목에서, 성격은 project_work, 품질은
+  independent_fast로, 이유를 코드 주석에 남김). 질문 id 해시가 대상만 보고 과제 후보 집합을 안 봐 같은
+  세션+종류+다른 후보 집합 두 그룹이 id 하나로 충돌하던 것을 해시 입력에 후보 집합을 넣어 고쳤다.
+  `questions.lock`에 오래된 잠금 회수(age-based reclaim)가 없어 죽은 프로세스의 잠금이 영원히 막던 것을
+  `estate_voice_card_reconcile.mjs`의 자기 잠금 회수를 거울로 옮겨 고쳤다(3시간 초과 시 회수, 영수증에
+  `lock.reclaimed_stale`로 남김). 그 밖에: `present`가 재노출마다 `partial` 부분실패 기록을 지우던 것,
+  재시도가 이미 성공한 대상까지 다시 쓰던 것, `--choice`가 질문의 실제 종류·선택지와 무관하게 모양만
+  봐서 통과되던 것(이제 종류별로 검사하고 `other:<code>`는 이번 영수증들이 실제로 제안한 과제 코드만
+  받는다), 원장 상한을 넘는 쓰기를 그냥 거부하던 것(이제 90일 지난 답변/철회 행을 같은 날짜 archive
+  파일로 옮기고 씀), 대표 제목의 줄바꿈·`|`·"N. "이 markdown 줄이나 포인터를 위조할 수 있던 것, 정지
+  판정이 run_id만 보고 최신 영수증의 실제 시각은 안 봐 오탐할 수 있던 것(같은 run_id는 더 최신 영수증이
+  있어도 정지 아님), `not_work`가 이미 확정된 구간을 건드리거나 사람이 손으로 남긴 과제 후보까지
+  지우던 것(확정 구간은 `question_target_confirmed`로 거부하고 "withdraw 먼저" 안내, 기계가 쓴 후보만
+  지움)을 고쳤다.
 
 ## 2026-09-20 - 카드 대조 3단계: 판정 규칙 v1 + 답변 소비 최소 경계
 
