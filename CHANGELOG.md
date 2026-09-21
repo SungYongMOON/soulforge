@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-09-21 - main CI 적색 복구: 야간 음성 lane 순환 import 절단, 장부 모듈 경로 가림의 Linux 이식성
+
+- Revision: 이 항목을 포함한 커밋. main의 CI(`done:check`)가 09-21 병합 두 건 뒤 적색이었다. 로컬 `done:check`는
+  알려진 다른 실패(deployment-pack의 universal-client bundle drift)에서 먼저 멈춰 뒤 단계를 보여 주지 않았고,
+  병합 전 검증은 개별 validator만 돌렸기 때문에 놓쳤다.
+- 무엇이 바뀌었는가: **(1)** `estate_voice_card_reconcile.mjs`가 `voice_conversation_list_nightly.mjs`에서 영수증
+  schema 이름과 날짜 도우미를 import하고, nightly는 `--chain-reconcile`에서 reconcile을 동적 import해 순환이
+  생겼다(`module_operability`의 "import graph has ZERO cycles" 실패). 공용 조각(`NIGHTLY_RECEIPT_SCHEMA`,
+  `NIGHTLY_RECEIPT_SCHEMA_V1`, `seoulDateFor`, `shiftDate`, `defaultTargetDate`)을 새 leaf 모듈
+  `harness/voice_nightly_shared.mjs`로 옮기고 nightly는 그대로 re-export한다(기존 importer 무변경).
+  **(2)** `workspace_ledgers`의 `redactHostPaths`가 `path.basename`을 써서 POSIX 호스트에서는 Windows·UNC 경로를
+  역슬래시로 나누지 못했고, Linux CI에서 드라이브 문자 경로가 가려지지 않은 채 남았다. 구분자 둘 다로 직접
+  나누는 `lastPathSegment`로 바꿨다(동작은 Windows에서 동일).
+- 검증: `validate:module-operability` 8/8, 야간·대조 시험 145/145, `validate:workspace-ledgers` 139/139,
+  `release/closure.mjs --check` 통과(harness는 고정 closure 밖이라 digest·module_version 불변).
+- 남은 것: 로컬 `done:check`가 deployment-pack에서 멈춰 뒤 단계를 가리는 문제는 그대로다. 병합 전에는 모든
+  단계를 끝까지 돌려 보는 절차가 필요하다.
+
 ## 2026-09-21 - 대화 목록 야간 lane 네 번째 신선한 눈 검토 정정: merge-ready, aging 근거 구분, 중복 집계 방지, 버전 상향
 
 - Revision: 이 항목을 포함한 커밋(같은 슬라이스, 네 번째 병합 전 신선한 눈 검토 — 필수 0건, should 4건, 저렴한

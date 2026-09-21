@@ -71,7 +71,7 @@ import { classifyAttribution, linearCorroborates, mailCorroborates, projectAlias
   VOICE_ATTRIBUTION_POLICY_VERSION } from '../src/runtime/voice_attribution_policy.mjs';
 import { readVoiceSession } from '../src/runtime/voice_session_read.mjs';
 import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, defaultTargetDate, seoulDateFor, shiftDate }
-  from './voice_conversation_list_nightly.mjs';
+  from './voice_nightly_shared.mjs';
 import { readRun } from './voice_conversation_list_cli.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
 import { latestPerObject, linearProjectsFor } from './estate_inventory.mjs';

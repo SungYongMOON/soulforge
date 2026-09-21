@@ -130,6 +130,8 @@ import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { ConversationListError, readPipelineConfig } from '../src/runtime/voice_conversation_list.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
 import { readPrompts, readRun, runConversationList } from './voice_conversation_list_cli.mjs';
+import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, defaultTargetDate, seoulDateFor, shiftDate }
+  from './voice_nightly_shared.mjs';
 
 // v2 (2026-09-21 review, N5): `status` gained `SKIPPED_PAST_DEADLINE` and the
 // receipt gained `chain`/`backlog`/`warnings` and a richer `deadline` block --
@@ -139,8 +141,8 @@ import { readPrompts, readRun, runConversationList } from './voice_conversation_
 // reconcile.mjs`'s `--nightly-receipts` backlog mode, which only ever reads
 // the unchanged `sessions` array) can accept both explicitly instead of
 // silently going blind to every receipt this file writes from now on.
-export const NIGHTLY_RECEIPT_SCHEMA_V1 = 'soulforge.voice_conversation_list_nightly_receipt.v1';
-export const NIGHTLY_RECEIPT_SCHEMA = 'soulforge.voice_conversation_list_nightly_receipt.v2';
+// (defined in `voice_nightly_shared.mjs`, re-exported below so existing importers keep working)
+export { NIGHTLY_RECEIPT_SCHEMA_V1, NIGHTLY_RECEIPT_SCHEMA, seoulDateFor, shiftDate, defaultTargetDate };
 // How long a lock may sit before this lane treats it as abandoned rather than
 // held by a run that is still going, when no `--deadline` is configured (see
 // `staleLockMsFor` for the deadline-derived threshold used when one is).
@@ -317,26 +319,7 @@ export function atomicWriteFileSync(filePath, buffer, deps = {}) {
 }
 
 // ------------------------------------------------------------------ dates
-/** "Today" as a calendar date in Asia/Seoul (fixed +09:00, no DST) for one instant. */
-export function seoulDateFor(nowIso) {
-  const at = Date.parse(nowIso);
-  if (!Number.isFinite(at)) fail('voice_conversation_list_nightly_now_invalid');
-  return new Date(at + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-/** One `YYYY-MM-DD` shifted by whole calendar days, in no particular time zone. */
-export function shiftDate(dateStr, deltaDays) {
-  if (!DATE_DIR.test(dateStr ?? '')) fail('voice_conversation_list_nightly_date_invalid');
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const at = new Date(Date.UTC(year, month - 1, day));
-  at.setUTCDate(at.getUTCDate() + deltaDays);
-  return at.toISOString().slice(0, 10);
-}
-
-/** The default target date: yesterday, read in Asia/Seoul. */
-export function defaultTargetDate(nowIso) {
-  return shiftDate(seoulDateFor(nowIso), -1);
-}
+// `seoulDateFor`, `shiftDate`, `defaultTargetDate` live in `voice_nightly_shared.mjs`.
 
 // -------------------------------------------------------------- deadline
 const DEADLINE_HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/u;
