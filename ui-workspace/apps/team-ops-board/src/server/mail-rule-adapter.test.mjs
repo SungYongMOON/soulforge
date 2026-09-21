@@ -131,7 +131,11 @@ test('validateDraft accepts an absent, null, single-object or array yields_to an
   assert.throws(() => validateDraft({ exact: [], hint: [], yields_to: 'nope' }));
 });
 
-test('findProjectFolders accepts a forward-slash root spelling on the same real directory (not a symlink escape)', async t => {
+// Only meaningful where the native separator is not already '/': on POSIX the "forward-slash
+// spelling" IS the native spelling, so the two roots are identical and there is no bug to exercise.
+const SEPARATOR_SPELLING_SKIP = path.sep === '/' ? 'separator spelling only differs from the native one on Windows' : false;
+
+test('findProjectFolders accepts a forward-slash root spelling on the same real directory (not a symlink escape)', { skip: SEPARATOR_SPELLING_SKIP }, async t => {
   const f = await fixture(t);
   await mkdir(path.join(f.workspacesRoot, 'P00-005_슬래시'));
   const forwardSlashRoot = f.workspacesRoot.split(path.sep).join('/');
