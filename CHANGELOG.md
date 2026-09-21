@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 두 번째 신선한 비저자 검토: 필수 2건 + should/nit 다수
+
+- Revision: 이 항목을 포함한 커밋(직전 commit a10bfc76에 대한 두 번째 별도 비저자 검토).
+- 무엇이 바뀌었는가: 필수 2건 모두 고쳤다(각 항목 회귀 시험 포함). (1) `common_folder_name`/
+  `general_work_folder_name`이 검증 없이 그대로 `path.join`돼, `resolveSafePath`가
+  이미 탈출한 base를 대상으로 파일명만 검사하는 바람에 `"../../escaped"` 같은 폴더
+  이름이 두 root 밖에 status ok로 썼다 -- `buildCommonConfig`가 두 폴더 이름을
+  `isSafeFileName`으로 config 빌드 시점에 검증해 즉시 실패시키고(`OrgConfigValueError`),
+  `refreshCommon`도 쓰기 루프 직전에 `resolveSafePath(workspacesRoot, folder)`·
+  `resolveSafePath(workmetaRoot, folder)`를 다시 확인한다(R2와 같은 2중 방어).
+  (2) 충돌 키가 대소문자만 접었지 유니코드 정규화는 안 했다 -- 조합형/분해형 한글(맥
+  붙여넣기에서 흔함)이 서로 다른 장부 파일을 만들거나 정규화 무시 파일시스템에서
+  서로 덮어썼다 -- `owner_tables.mjs`가 거래처명·작업태그를 읽는 시점에 NFC로
+  정규화해(그 뒤로는 매 소비처가 같은 바이트열을 본다) 둘을 자동으로 같은 조직으로
+  합치고, 충돌 키 자체도 NFC + 소문자로 한 번 더 방어한다.
+  should/nit 다수도 반영: S3 `degraded_owner_tables_allowed`를 성공 영수증에도 기록,
+  S4 스레드 상속 표기를 직접 매치(`거래처(자동)`)와 구분(`거래처(자동, 같은 대화)`),
+  S5 body_preview가 완전히 인용/헤더 모양 본문에서도 빈 문자열을 반환하지 않도록
+  원문 줄로 대체, S6 수락된 거래처/태그 파일명도 거부된 것과 같은 기준으로 해시,
+  S8 판독 결정이 있으면(라우팅 실패해도) 광고 버킷으로 절대 떨어지지 않게,
+  S9 대소문자만 다른 결정값 정규화 + 알 수 없는 값은 `invalid_decision_levels`로
+  집계, NIT 11 공백뿐인 거래처명/태그 행 제거, NIT 12 `isSafeFileName`이 DEL·
+  제로폭·양방향 제어 코드포인트도 거부, NIT 13 알 수 없는 코드를 가진 묶음 행이
+  같은 구절의 뒤 유효 행을 가리지 않도록, NIT 14 공통 폴더의 lineage project_code를
+  하드코딩 대신 폴더 이름에서 유도.
+- 보류한 항목: should 7번(project 장부가 묶음/판독 귀속 메일도 포함하도록
+  `refresh()`와 공통 분류기를 하나로 합치는 "one classification, two writers" 아키텍처
+  변경 -- 코디네이터가 "가장 큰 항목"이라 명시했고 `refresh.mjs`(7차례 신선한 검토를
+  거친 매우 정교한 모듈)에 공개 시그니처를 지키면서 주입 가능한 의존성을 추가하고
+  `previewRule` 응답에 테이블 귀속 건수를 분리해서 보고하는 등 별도 아키텍처 작업이
+  필요함)와 NIT 10(대소문자만 다른 조직명 rename 시 메일 ID로 메모 셀 이전)은 이번
+  라운드의 남은 시간 안에 안전하게 마칠 수 없어 미룬다 -- 코디네이터에게 별도 작업으로
+  분리해 달라고 보고한다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/common_classifier.mjs`,
+  `common_ledgers.mjs`, `common_refresh.mjs`, `owner_tables.mjs`, `triage.mjs`, 각
+  대응 `tests/*.test.mjs`(새 `tests/common_ledgers.test.mjs` 포함).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 신선한 비저자 검토 반영: 필수 5건·should 7건·nit 3건
 
 - Revision: 이 항목을 포함한 커밋(직전 commit 500d678c에 대한 별도 비저자 검토).

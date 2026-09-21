@@ -473,3 +473,62 @@ test('refreshCommon (S3, fresh non-author review): a vendor_only reading decisio
     assert.equal(receipt.bucket_counts.vendor_only, 0); // never routes there without an organisation match
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+test('refreshCommon (required-review item 1, second fresh review): a path-traversal-shaped common_folder_name fails the whole run closed before any write', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: {}, family: {},
+      common_ledgers: { common_folder_name: '../../escaped', general_work_folder_name: GENERAL_WORK_FOLDER },
+    }));
+    assert.throws(() => classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath,
+    }), error => error instanceof CommonRefreshError && error.code === 'workspace_ledgers_org_config_value_invalid');
+    // nothing was ever created outside the intended workspaces root.
+    const escaped = path.resolve(fixture.workspacesRoot, '../../escaped');
+    assert.throws(() => readFileSync(path.join(escaped, '아무개.csv'), 'utf8'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (S4, fresh non-author review): the vendor ledger row distinguishes a thread-inherited match from a direct one', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 's4.jsonl'), jsonl([
+      event({ id: 's4-direct', subject: 'XYZ 협의', from: 'sales@vendor.example', at: '2026-09-01T20:00:00Z' }),
+      event({ id: 's4-forward', subject: 'Fwd: XYZ 협의', from: 'colleague@example.com', at: '2026-09-01T20:05:00Z' }),
+    ]));
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    assert.equal(receipt.status, 'ok');
+    const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
+    const vendorView = decodeCsv(readFileSync(path.join(commonBase, '거래처_거래처A.csv'), 'utf8'));
+    const directRow = vendorView.rows.find(row => row[9] === 's4-direct'); // 메일소스ID column
+    const forwardRow = vendorView.rows.find(row => row[9] === 's4-forward');
+    assert.equal(directRow[3], '거래처(자동)'); // 과제근거 -- direct address match
+    assert.equal(forwardRow[3], '거래처(자동, 같은 대화)'); // thread-inherited match, distinguishable
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (S6, fresh non-author review): an ACCEPTED vendor/tag file name is hashed in the receipt too, not just a rejected one', () => {
+  const fixture = makeFixture();
+  try {
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    const vendorEntry = receipt.files.find(entry => entry.file.includes('거래처_'));
+    assert.ok(vendorEntry);
+    assert.ok(!vendorEntry.file.includes('거래처A')); // the real vendor name never appears
+    assert.match(vendorEntry.file, /거래처_[0-9a-f]{12}\.csv$/u);
+    // an ordinary fixed ledger name (not Owner/vendor/tag-derived) stays readable.
+    const adminEntry = receipt.files.find(entry => entry.file.endsWith('사내행정.csv'));
+    assert.ok(adminEntry);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});

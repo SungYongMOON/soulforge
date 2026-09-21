@@ -60,7 +60,14 @@ const SIGNATURE_LINE = /^(={6,}|-{6,}|감사합니다\.?|Best regards|Kind regar
 const SIGNATURE_TAIL_FRACTION = 0.6;
 
 function buildBodyPreview(bodyText, maxChars) {
-  const lines = String(bodyText ?? '').replace(/\r/gu, '').split('\n').map(line => line.trim()).filter(line => line && !QUOTE_HEADER_LINE.test(line));
+  const rawLines = String(bodyText ?? '').replace(/\r/gu, '').split('\n').map(line => line.trim()).filter(Boolean);
+  const stripped = rawLines.filter(line => !QUOTE_HEADER_LINE.test(line));
+  // S5 (fresh non-author review, 2026-09-21): a forward with no comment of its own is
+  // ENTIRELY quoted/header-shaped content -- stripping it all away used to return an
+  // empty preview even though the mail plainly has content (just none of it is the
+  // forwarder's own words). Falling back to the unstripped lines means a reader still
+  // sees SOMETHING (the forwarded material itself), rather than nothing at all.
+  const lines = stripped.length > 0 ? stripped : rawLines;
   if (lines.length === 0) return '';
   const tailStart = Math.floor(lines.length * SIGNATURE_TAIL_FRACTION);
   let cutIndex = -1;
@@ -98,6 +105,22 @@ function buildBodyPreview(bodyText, maxChars) {
  * capped to the first `maxParticipants` (default 6) names to keep a very large
  * recipient list from dominating the preview.
  */
+/**
+ * S8/S3 (fresh non-author review, 2026-09-21): why an `unclassified`/
+ * `organisation_undecided` mail already has a reading decision that did not (and
+ * cannot, without a person editing the CSV) route it anywhere -- distinct from having
+ * no decision at all, and distinct from `hold_owner_review` (a legitimate "I looked,
+ * I do not know yet" pending state, not a broken one). `null` for every other case.
+ */
+function alreadyDecidedInvalidReason(projectResult) {
+  const reading = projectResult.reading;
+  if (!reading) return null;
+  if (reading.level === 'vendor_only' && projectResult.vendors.length === 0) return 'vendor_only_without_organisation';
+  if (reading.level === 'exclude') return 'unroutable_exclude_target';
+  if (projectResult.unknownReadingTarget) return 'unknown_reading_target';
+  return null;
+}
+
 export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
   bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null,
   limit = DEFAULT_LIST_LIMIT, bodyPreviewChars = DEFAULT_BODY_PREVIEW_CHARS, maxParticipants = 6,
@@ -123,9 +146,9 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
       // for the same id as a duplicate (spec: correcting a row is a person editing the
       // CSV by hand). Flagged here so a reader knows NOT to call `appendReadingDecision`
       // again for it (it will only fail) -- the existing row needs a person to edit it
-      // directly instead. `null` for every other item (no existing, unroutable decision).
-      already_decided_invalid: (projectResult.reading?.level === 'vendor_only' && projectResult.vendors.length === 0)
-        ? 'vendor_only_without_organisation' : null,
+      // directly instead. `null` for every other item (no existing decision, or a
+      // legitimate `hold_owner_review` -- that one is working as intended, not broken).
+      already_decided_invalid: alreadyDecidedInvalidReason(projectResult),
       received_at: mail.at,
       subject: mail.subject,
       from: mail.from ? { name: mail.from.name, email: mail.from.email } : null,

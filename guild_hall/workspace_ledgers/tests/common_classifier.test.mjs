@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compileRule, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import {
-  addressesOfMail, buildCommonConfig, classifyProjectHits, detectSystemSource, OrgConfigPatternError, participantEmailsOf,
-  resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
+  addressesOfMail, buildCommonConfig, classifyProjectHits, detectSystemSource, OrgConfigPatternError, OrgConfigValueError,
+  participantEmailsOf, resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
 } from '../src/common_classifier.mjs';
 
 function rule(code, exactPairs) {
@@ -252,13 +252,35 @@ test('resolvePrimaryBucket (S2): an explicit vendor_only reading decision wins o
   assert.equal(outcome.decisionOverrodePattern, true);
 });
 
-test('resolvePrimaryBucket (S2): a hold_owner_review reading decision does NOT override a pattern bucket -- it is explicitly "no decision yet"', () => {
+test('resolvePrimaryBucket (S2): a hold_owner_review reading decision does NOT override a system-source pattern bucket -- it is explicitly "no decision yet"', () => {
+  const configWithSystem = buildCommonConfig({ common_ledgers: { system_notification_sources: [{ name: '시스템X', sender_domains: ['sys.example'] }] } });
+  const reading = { level: 'hold_owner_review', target: '', why: '' };
+  const outcome = resolvePrimaryBucket(mail({ subject: '무관', fromDomain: 'sys.example' }),
+    { ...noProject(), vendors: [], reading }, configWithSystem, { ourDomain: 'example.com' });
+  assert.equal(outcome.bucket, 'system');
+  assert.equal(outcome.decisionOverrodePattern, undefined);
+});
+
+test('resolvePrimaryBucket (S8, fresh non-author review): a reading decision that exists but does not route (vendor_only, no organisation) never falls into ads -- stays unclassified', () => {
+  const configWithAds = buildCommonConfig({ common_ledgers: { ads_sender_domains: ['ads.example'] } });
+  const reading = { level: 'vendor_only', target: '', why: '' };
+  const outcome = resolvePrimaryBucket(mail({ subject: '무관', fromDomain: 'ads.example' }),
+    { ...noProject(), vendors: [], reading }, configWithAds, { ourDomain: 'example.com' });
+  assert.equal(outcome.bucket, 'unclassified'); // not 'ads' -- the mail is not lost with no artifact
+});
+
+test('resolvePrimaryBucket (S8): even a hold_owner_review decision suppresses the ads fallback', () => {
   const configWithAds = buildCommonConfig({ common_ledgers: { ads_sender_domains: ['ads.example'] } });
   const reading = { level: 'hold_owner_review', target: '', why: '' };
   const outcome = resolvePrimaryBucket(mail({ subject: '무관', fromDomain: 'ads.example' }),
     { ...noProject(), vendors: [], reading }, configWithAds, { ourDomain: 'example.com' });
+  assert.equal(outcome.bucket, 'unclassified');
+});
+
+test('resolvePrimaryBucket: with no reading decision at all, an ads pattern match still excludes normally', () => {
+  const configWithAds = buildCommonConfig({ common_ledgers: { ads_sender_domains: ['ads.example'] } });
+  const outcome = resolvePrimaryBucket(mail({ subject: '무관', fromDomain: 'ads.example' }), noProject(), configWithAds, { ourDomain: 'example.com' });
   assert.equal(outcome.bucket, 'ads');
-  assert.equal(outcome.decisionOverrodePattern, undefined);
 });
 
 // ------------------------------------------------------------------------------- S7
@@ -277,4 +299,34 @@ test('buildCommonConfig (S7): a structurally unsafe pattern (nested quantifier) 
 test('participantEmailsOf: collects every from/to/cc address, lowercased', () => {
   const emails = participantEmailsOf({ from: { email: 'A@x.example' }, to: [{ email: 'b@x.example' }], cc: [{ email: 'C@y.example' }] });
   assert.deepEqual([...emails].sort(), ['a@x.example', 'b@x.example', 'c@y.example']);
+});
+
+// ------------------------------------------------------- required-review item 1
+test('buildCommonConfig (required-review item 1, second fresh review): a path-traversal-shaped common_folder_name is rejected at config-build time, naming the config key only', () => {
+  assert.throws(() => buildCommonConfig({ common_ledgers: { common_folder_name: '../../escaped' } }),
+    error => error instanceof OrgConfigValueError && error.code === 'workspace_ledgers_org_config_value_invalid'
+      && error.configKey === 'common_ledgers.common_folder_name');
+});
+
+test('buildCommonConfig (required-review item 1): the same rejection applies to general_work_folder_name', () => {
+  assert.throws(() => buildCommonConfig({ common_ledgers: { general_work_folder_name: 'a/b' } }),
+    error => error instanceof OrgConfigValueError && error.configKey === 'common_ledgers.general_work_folder_name');
+});
+
+test('buildCommonConfig (required-review item 1): a safe folder name is accepted', () => {
+  const config = buildCommonConfig({ common_ledgers: { common_folder_name: 'P00-000_공통', general_work_folder_name: 'general_work_일반업무' } });
+  assert.equal(config.commonFolderName, 'P00-000_공통');
+  assert.equal(config.generalWorkFolderName, 'general_work_일반업무');
+});
+
+// ------------------------------------------------------- required-review item 2
+test('classifyProjectHits (required-review item 2): bundle rows with a phrase match but unknown codes never shadow a later, valid row with an overlapping phrase (NIT 13)', () => {
+  const bundles = [
+    { phrase: '회의', codes: ['P99-999'], why: '모르는 코드' }, // matches first, but P99-999 unknown
+    { phrase: '분기 회의', codes: ['P00-001'], why: '실제 결정' },
+  ];
+  const result = classifyProjectHits({ id: 'nit13', subject: '2026 분기 회의 자료', body: '', addresses: [] },
+    { compiledRules: [RULE_A, RULE_B], bundles, readings: new Map(), vendorLookup: new Map() });
+  assert.deepEqual(result.hits.map(hit => hit.project_code), ['P00-001']);
+  assert.equal(result.unknownBundleTarget, false); // a valid match was found, so this is not "unknown"
 });

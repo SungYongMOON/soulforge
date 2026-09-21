@@ -259,6 +259,24 @@ test('listUnclassified (S5): a genuine trailing signature block is still cut', (
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('listUnclassified (S5, fresh non-author review): a forward that is entirely quoted/header-shaped content never returns an empty preview', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 's5c.jsonl'), jsonl([
+      {
+        event_id: 's5-3', subject: '완전히 무관한 제목 넷', from: 'x@client.example', to: ['me@example.com'], cc: [],
+        received_at: '2026-09-01T06:00:00Z',
+        body_text: 'From: original@client.example\nSent: 2026-09-01\nTo: someone@example.com\nSubject: 원본 제목',
+        attachments: [],
+      },
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath });
+    const item = result.items.find(entry => entry.mail_source_id === 's5-3');
+    assert.ok(item);
+    assert.notEqual(item.body_preview, ''); // falls back to the unstripped lines rather than returning nothing
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('listUnclassified (N3, fresh non-author review): ordinary prose starting with a header-like word (no colon) is kept in the body preview', () => {
   const fixture = makeFixture();
   try {
@@ -286,5 +304,24 @@ test('appendReadingDecision (S6, fresh non-author review): reader is length-capp
       workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
       id: 'u1', level: 'exclude', target: '광고', why: 'x', reader: 'r'.repeat(1001),
     }), error => error instanceof TriageError && error.code === 'workspace_ledgers_triage_reader_too_long');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('listUnclassified (S8, fresh non-author review): already_decided_invalid also covers an unroutable exclude target and an unknown-code include, not just vendor_only', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 's8.jsonl'), jsonl([
+      { event_id: 's8-exclude', subject: '완전히 무관한 제목 A', from: 'x@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T06:00:00Z', body_text: '', attachments: [] },
+      { event_id: 's8-unknown', subject: '완전히 무관한 제목 B', from: 'x@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(fixture.readingTablePath, encodeCsv(READING_HEADERS, [
+      ['s8-exclude', '2026-09-01', '완전히 무관한 제목 A', 'exclude', '알 수 없는 분류', '분류 불명', 'tester', '2026-09-21', ''],
+      ['s8-unknown', '2026-09-01', '완전히 무관한 제목 B', 'include', 'P99-999', '잘못된 코드', 'tester', '2026-09-21', ''],
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, readingTablePath: fixture.readingTablePath });
+    const excludeItem = result.items.find(item => item.mail_source_id === 's8-exclude');
+    const unknownItem = result.items.find(item => item.mail_source_id === 's8-unknown');
+    assert.equal(excludeItem.already_decided_invalid, 'unroutable_exclude_target');
+    assert.equal(unknownItem.already_decided_invalid, 'unknown_reading_target');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

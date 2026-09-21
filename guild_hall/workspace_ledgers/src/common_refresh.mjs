@@ -19,11 +19,11 @@ import { domainOf, makeOrgLookup, normalizeSubject } from './ledgers.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
 import { loadOwnerTables } from './owner_tables.mjs';
 import {
-  addressesOfMail, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, participantEmailsOf,
-  PRIMARY_BUCKETS, resolvePrimaryBucket, workTagsOf,
+  addressesOfMail, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, OrgConfigValueError, participantEmailsOf,
+  PRIMARY_BUCKETS, resolvePrimaryBucket, THREAD_VENDOR_INHERITANCE_MARKER, workTagsOf,
 } from './common_classifier.mjs';
 import {
-  buildCommonRow, fileNameHash, HELD_FILE_NAME, headersFor, memoIndexFor, resolveSafePath,
+  buildCommonRow, categoryOf, fileNameHash, HELD_FILE_NAME, headersFor, isViewFile, memoIndexFor, resolveSafePath,
   vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';
 import {
@@ -45,6 +45,12 @@ export class CommonRefreshError extends Error {
   }
 }
 const fail = (code, detail) => { throw new CommonRefreshError(code, detail); };
+
+/** The code segment before a folder name's first `_` (e.g. "P00-000_공통" -> "P00-000"), the same convention `rule_store.mjs`'s `listProjects` uses -- falls back to the whole name when there is no `_` at all. */
+function projectCodeOfFolder(folderName) {
+  const index = folderName.indexOf('_');
+  return index > 0 ? folderName.slice(0, index) : folderName;
+}
 
 function readOrgConfig(orgConfigPath) {
   let text;
@@ -113,7 +119,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   let commonConfig;
   try { commonConfig = buildCommonConfig(orgConfig); }
   catch (error) {
-    if (error instanceof OrgConfigPatternError) fail(error.code, error.configKey);
+    if (error instanceof OrgConfigPatternError || error instanceof OrgConfigValueError) fail(error.code, error.configKey);
     throw error;
   }
   const { ourDomain } = makeOrgLookup(orgConfig);
@@ -201,7 +207,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
       for (const vendor of candidate.vendors) inherited.set(vendor.name, vendor);
     }
     if (inherited.size > 0) {
-      entry.projectResult = { ...entry.projectResult, vendors: [...inherited.values()], basis: `${entry.projectResult.basis}(같은 대화의 거래처)` };
+      entry.projectResult = { ...entry.projectResult, vendors: [...inherited.values()], basis: `${entry.projectResult.basis}${THREAD_VENDOR_INHERITANCE_MARKER}` };
     }
   }
 
@@ -237,7 +243,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     unreadableDirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
     scanned: hiworks.scanned + gmail.scanned, duplicatesDropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
     totalMails: records.length, bucketTally, classified, threadBuckets, workTagPool: owner.workTags,
-    unknownTargets, decisionOverrodePattern, vendorOnlyWithoutOrganisation,
+    unknownTargets, decisionOverrodePattern, vendorOnlyWithoutOrganisation, invalidDecisionLevels: owner.invalidDecisionLevels,
   };
 }
 
@@ -363,6 +369,26 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       return receipt;
     }
 
+    // Required-review item 1: defense-in-depth, independent of `buildCommonConfig`'s
+    // own `isSafeFileName` check on the folder names (config-build time) -- assert
+    // both folder names actually resolve safely under BOTH roots right before any
+    // write, the same two-layer contract R2 already gives every ledger FILE name
+    // (`isSafeFileName` at build time, `resolveSafePath` again at write time).
+    for (const folderName of [commonConfig.commonFolderName, commonConfig.generalWorkFolderName]) {
+      if (!resolveSafePath(workspacesRoot, folderName) || !resolveSafePath(workmetaRoot, folderName)) {
+        const receipt = {
+          ...baseReceipt(), status: 'failed',
+          error: { code: 'workspace_ledgers_org_config_folder_name_unsafe', message: 'common_folder_name/general_work_folder_name resolved outside its root' },
+          scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
+          unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
+          rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+          bucket_counts: pass.bucketTally, files: [],
+        };
+        emitReceipt(receipt);
+        return receipt;
+      }
+    }
+
     // file name -> { folder, rows: [] }
     const grouped = new Map();
     const put = (folder, fileName, row) => {
@@ -407,9 +433,17 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
     // Detected across the whole grouped map before anything is written; every
     // colliding file name is rejected (never written), named in the receipt by hash
     // only (R2: this text is Owner-typed organisation/tag data, private).
+    //
+    // Required-review item 2: the collision key is Unicode-normalised (NFC) before
+    // case-folding -- `owner_tables.mjs` already normalises every vendor name/tag to
+    // NFC at read time (so two table ROWS that differ only by composition are already
+    // the same string well before this point), but this key is the last line of
+    // defense against any other source of a non-NFC file name reaching this far, and
+    // makes the actual collision RULE explicit: same organisation/tag under NFC +
+    // lower-case is one file, never two.
     const byFolderLowerName = new Map();
     for (const { folder, fileName } of grouped.values()) {
-      const bucketKey = `${folder}::${fileName.toLowerCase()}`;
+      const bucketKey = `${folder}::${fileName.normalize('NFC').toLowerCase()}`;
       const names = byFolderLowerName.get(bucketKey) ?? new Set();
       names.add(fileName);
       byFolderLowerName.set(bucketKey, names);
@@ -439,13 +473,29 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       }
 
       const headers = headersFor(fileName);
+      // NIT 14 (fresh non-author review, 2026-09-21): the common folder's lineage
+      // `project_code` used to hardcode the literal "P00-000" while its own folder
+      // name is fully configurable (`common_folder_name`) -- derived from the
+      // folder name's own code part instead (the segment before its first `_`,
+      // the same convention `rule_store.mjs`'s `listProjects` uses to read a
+      // project's own code off its folder name).
+      const code = folder === commonConfig.generalWorkFolderName ? 'general_work' : projectCodeOfFolder(commonConfig.commonFolderName);
       const result = writeLedgerCsv({
         filePath: csvPath, lineagePath, headers, rows, keyIndex: 0, preserveIndices: [memoIndexFor(fileName)],
-        code: folder === commonConfig.generalWorkFolderName ? 'general_work' : 'P00-000', folder,
+        code, folder,
         relPath: `020_MGMT/027_수신이력_이동이력/${fileName}`, now, dry, allowEmpty: allowEmptyFiles.has(fileName),
         partialSourcesInEffect,
       });
-      files.push({ file: `${folder}/020_MGMT/027_수신이력_이동이력/${fileName}`, ...result });
+      // S6 (fresh non-author review, 2026-09-21): an ACCEPTED organisation-/tag-
+      // derived file name used to be written verbatim into the receipt while a
+      // REJECTED one (R2/R3) was already hashed -- an inconsistent privacy stance on
+      // the exact same category of Owner-typed text. Every 거래처_*/작업_* entry now
+      // records the fixed folder part plus a short hash instead of the name itself;
+      // every OTHER (fixed, non-Owner-derived) ledger name -- 사내행정.csv,
+      // 미분류.csv, 시스템알림_<source>.csv (source names come from the org config,
+      // not Owner mail data), 과제외_<label>.csv, etc. -- stays readable, unchanged.
+      const displayFileName = isViewFile(fileName) ? `${categoryOf(fileName).split(':')[0]}_${fileNameHash(fileName)}.csv` : fileName;
+      files.push({ file: `${folder}/020_MGMT/027_수신이력_이동이력/${displayFileName}`, ...result });
     }
 
     const receipt = {
@@ -457,7 +507,12 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
       bucket_counts: pass.bucketTally, files, rejected_files: rejectedFiles,
       unknown_targets: pass.unknownTargets, decision_overrode_pattern: pass.decisionOverrodePattern,
-      vendor_only_without_organisation: pass.vendorOnlyWithoutOrganisation,
+      vendor_only_without_organisation: pass.vendorOnlyWithoutOrganisation, invalid_decision_levels: pass.invalidDecisionLevels,
+      // S3: symmetric with `allow_partial_sources_applied` -- present on the success
+      // path too (not only R4's own failure-and-no-write receipt above), so a caller
+      // reading a run that DID write can still tell whether it did so only because
+      // `allowDegradedOwnerTables` was explicitly passed.
+      degraded_owner_tables_allowed: pass.ownerTableFailures.length > 0 && allowDegradedOwnerTables,
     };
     emitReceipt(receipt);
     return receipt;

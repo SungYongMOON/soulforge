@@ -59,24 +59,52 @@ export function buildBundleTable(rows) {
   })).filter(entry => entry.phrase && entry.codes.length > 0);
 }
 
-/** `Map(메일소스ID -> { level, target, why, reader, readAt, ownerConfirmed })`. A later row for the same id overwrites an earlier one (last write wins, matching a plain CSV append-then-edit history). */
+// S9 (fresh non-author review, 2026-09-21): a hand-typed 결정 value in the wrong case
+// (e.g. "Include", "EXCLUDE") is normalised to its canonical lowercase form here, the
+// one place every downstream consumer (`classifyProjectHits`'s level switch) reads it
+// from. A value that is neither a case-only variant nor an exact match of any
+// recognised level is kept AS TYPED (matching every other case `classifyProjectHits`'s
+// generic reading branch already treats as "not a routing decision" -- the mail stays
+// in the triage queue either way, per R1) but counted, so it is visible in the receipt
+// instead of silently blending in with a genuine `hold_owner_review`.
+const LOWERCASE_TO_CANONICAL_LEVEL = new Map(READING_LEVELS.map(level => [level.toLowerCase(), level]));
+
+/**
+ * `Map(메일소스ID -> { level, target, why, reader, readAt, ownerConfirmed })`. A later
+ * row for the same id overwrites an earlier one (last write wins, matching a plain CSV
+ * append-then-edit history). The returned Map also carries an `invalidLevelCount`
+ * property (S9) -- the number of rows whose 결정 value was neither empty nor a
+ * recognised level (case-insensitively).
+ */
 export function buildReadingTable(rows) {
   const map = new Map();
+  let invalidLevelCount = 0;
   for (const row of rows) {
     const id = row['메일소스ID'];
     if (!id) continue;
+    const rawLevel = String(row['결정'] ?? '');
+    const canonical = LOWERCASE_TO_CANONICAL_LEVEL.get(rawLevel.trim().toLowerCase());
+    if (!canonical && rawLevel.trim() !== '') invalidLevelCount += 1;
     map.set(id, {
-      id, receivedAt: row['수신일'] ?? '', subject: row['제목'] ?? '', level: row['결정'] ?? '',
+      id, receivedAt: row['수신일'] ?? '', subject: row['제목'] ?? '', level: canonical ?? rawLevel,
       target: row['과제_또는_분류'] ?? '', why: row['이유'] ?? '', reader: row['판독자'] ?? '',
       readAt: row['판독일'] ?? '', ownerConfirmed: row['Owner확인'] ?? '',
     });
   }
+  map.invalidLevelCount = invalidLevelCount;
   return map;
 }
 
-/** Array of non-empty 태그 strings. */
+/**
+ * Array of non-empty 태그 strings, normalised to Unicode NFC (required-review item 2,
+ * 2026-09-21): composed vs decomposed Hangul (routine after a macOS paste) must not
+ * produce two different-looking tags that are really the same one -- `workTagFileName`
+ * and `workTagsOf`'s `[태그]` subject match both run on this already-normalised form,
+ * so grouping, the file name, and the row key all agree. NIT 11: a whitespace-only tag
+ * (indistinguishable from "no tag" once trimmed) is dropped, not kept as an empty one.
+ */
 export function buildWorkTagTable(rows) {
-  return rows.map(row => String(row['태그'] ?? '').trim()).filter(Boolean);
+  return rows.map(row => String(row['태그'] ?? '').normalize('NFC').trim()).filter(Boolean);
 }
 
 /**
@@ -86,13 +114,25 @@ export function buildWorkTagTable(rows) {
  * real Owner table's header is the plain `도메인`) -- both are valid lookup keys,
  * matched against a mail's own domains/addresses (`vendorsOfMail` in
  * `common_classifier.mjs`) the same way.
+ *
+ * Required-review item 2 (2026-09-21): `거래처명` is normalised to Unicode NFC here,
+ * the one place every downstream consumer (vendor grouping/dedup by name in
+ * `vendorsOfAddresses`, `vendorFileName`, the row key, the case-insensitive collision
+ * check) reads it from -- two rows naming "the same" organisation under different
+ * Unicode compositions (composed vs decomposed Hangul, routine after a macOS paste)
+ * become byte-identical strings after this normalisation and are therefore already
+ * treated as one organisation by every later `Map`/`Set` keyed on the name, without
+ * needing a separate merge step. NIT 11: a row whose name is empty/whitespace-only
+ * after normalising is dropped -- it identifies no organisation to file anything under.
  */
 export function buildVendorTable(rows) {
   const map = new Map();
   for (const row of rows) {
     const key = String(row['도메인'] ?? '').trim().toLowerCase();
     if (!key) continue;
-    map.set(key, { key, name: row['거래처명'] ?? '', kind: row['구분'] ?? '', memo: row['메모'] ?? '' });
+    const name = String(row['거래처명'] ?? '').normalize('NFC').trim();
+    if (!name) continue;
+    map.set(key, { key, name, kind: row['구분'] ?? '', memo: row['메모'] ?? '' });
   }
   return map;
 }
@@ -116,11 +156,17 @@ export function loadOwnerTables({ bundleTablePath = null, vendorTablePath = null
   const vendorResult = load(vendorTablePath, VENDOR_HEADERS, '거래처_대응표.csv');
   const readingResult = load(readingTablePath, READING_HEADERS, '판독_결정표.csv');
   const workTagResult = load(workTagTablePath, WORKTAG_HEADERS, '작업태그_목록.csv');
+  const readings = readingResult.ok ? buildReadingTable(readingResult.rows) : new Map();
   return {
     bundles: bundleResult.ok ? buildBundleTable(bundleResult.rows) : [],
     vendors: vendorResult.ok ? buildVendorTable(vendorResult.rows) : new Map(),
-    readings: readingResult.ok ? buildReadingTable(readingResult.rows) : new Map(),
+    readings,
     workTags: workTagResult.ok ? buildWorkTagTable(workTagResult.rows) : [],
     failures,
+    // S9: surfaced separately from `failures` -- an invalid 결정 value degrades that
+    // ONE row (it behaves like hold_owner_review, per `classifyProjectHits`'s generic
+    // reading branch -- the mail stays in the triage queue either way), it does not
+    // fail the whole table the way a header/encoding/shape problem does.
+    invalidDecisionLevels: readings.invalidLevelCount ?? 0,
   };
 }

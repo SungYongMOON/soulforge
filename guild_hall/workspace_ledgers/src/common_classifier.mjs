@@ -10,6 +10,14 @@
 // (see `examples/org_config.example.json`'s `common_ledgers` block).
 import { classifyMail, compileTerm, RuleCompileError } from './classifier.mjs';
 import { domainOf, normalizeSubject } from './ledgers.mjs';
+import { isSafeFileName } from './common_ledgers.mjs';
+
+// Suffix `common_refresh.mjs`'s thread-vendor inheritance (spec section 2, S4) appends
+// to `projectResult.basis` when a mail's vendor list came from another mail in the
+// same thread rather than its own from/to/cc address. Shared here so
+// `resolvePrimaryBucket` can tell an inherited match from a direct one (S4, fresh
+// non-author review, 2026-09-21) without the two modules' text drifting apart.
+export const THREAD_VENDOR_INHERITANCE_MARKER = '(같은 대화의 거래처)';
 
 export const PRIMARY_BUCKETS = Object.freeze([
   'project', 'held', 'system', 'ads', 'internal_admin', 'external_notice', 'out_of_project',
@@ -109,16 +117,20 @@ export function classifyProjectHits({ id, subject, body, addresses }, { compiled
   // multi-project bundle row must surface as "nothing matched", not a partial,
   // possibly-wrong attribution.
   const normalized = normalizeSubject(subject);
-  const bundle = bundles.find(entry => normalized.includes(entry.phrase));
-  if (bundle) {
-    const allKnown = bundle.codes.every(knownCode);
-    if (allKnown) {
-      const label = `묶음 확정: ${bundle.why}${bundle.codes.length > 1 ? ` (공유 ${bundle.codes.join(';')})` : ''}`;
-      return { hits: bundle.codes.map(code => ({ project_code: code, label })), held: false, basis: '묶음 확정', vendors, candidates: [],
-        unknownBundleTarget, unknownReadingTarget: false };
-    }
-    unknownBundleTarget = true;
+  // NIT 13 (fresh non-author review, 2026-09-21): `.find()` used to stop at the FIRST
+  // phrase match regardless of whether it was usable -- an earlier row naming an
+  // unknown code shadowed a later, genuinely valid row sharing (or containing) the
+  // same phrase, which never even got looked at. Every matching row is considered;
+  // the first one with ALL known codes wins, and only when NONE of the matches was
+  // usable is this counted as an unknown bundle target.
+  const matchingBundles = bundles.filter(entry => normalized.includes(entry.phrase));
+  const validBundle = matchingBundles.find(entry => entry.codes.every(knownCode));
+  if (validBundle) {
+    const label = `묶음 확정: ${validBundle.why}${validBundle.codes.length > 1 ? ` (공유 ${validBundle.codes.join(';')})` : ''}`;
+    return { hits: validBundle.codes.map(code => ({ project_code: code, label })), held: false, basis: '묶음 확정', vendors, candidates: [],
+      unknownBundleTarget, unknownReadingTarget: false };
   }
+  if (matchingBundles.length > 0) unknownBundleTarget = true;
 
   // Step 3: reading-decision table (판독_결정표.csv), keyed by mail source id.
   const reading = readings.get(id) ?? null;
@@ -183,6 +195,34 @@ export class OrgConfigPatternError extends Error {
 }
 
 /**
+ * Required-review item 1 (fresh non-author review, 2026-09-21): `common_folder_name`/
+ * `general_work_folder_name` used to be `path.join`ed straight into every ledger's
+ * base directory with NO validation -- `resolveSafePath` (R2) then only ever checked
+ * the FILE name against a base that had ALREADY escaped
+ * (`common_folder_name: "../../escaped"` wrote outside both `workspacesRoot` and
+ * `workmetaRoot` while the receipt still said `written: true`). Thrown by
+ * `buildCommonConfig` the moment either folder name fails the exact same
+ * `isSafeFileName` segment-safety rules a ledger file name gets (R2) -- naming only
+ * the config key, never the value, and failing the WHOLE run before any classification
+ * or write happens (a config-load failure, same as `OrgConfigPatternError`, is not a
+ * per-mail/per-table situation this module can isolate).
+ */
+export class OrgConfigValueError extends Error {
+  constructor(configKey, reasonCode) {
+    super(`workspace_ledgers_org_config_value_invalid: ${configKey}`);
+    this.name = 'OrgConfigValueError';
+    this.code = 'workspace_ledgers_org_config_value_invalid';
+    this.configKey = configKey;
+    this.reasonCode = reasonCode;
+  }
+}
+
+function requireSafeFolderName(name, configKey) {
+  if (!isSafeFileName(name)) throw new OrgConfigValueError(configKey, 'workspace_ledgers_org_config_folder_name_unsafe');
+  return name;
+}
+
+/**
  * S7 (fresh non-author review, 2026-09-21): an org-config pattern used to be compiled
  * with a bare `new RegExp(pattern, 'iu')` -- no length/complexity bound, no nested-
  * quantifier/backreference/lookbehind/alternation-count check, and no ReDoS timing
@@ -233,10 +273,13 @@ function lowerSet(list) { return new Set((Array.isArray(list) ? list : []).map(v
  */
 export function buildCommonConfig(orgConfig) {
   const config = orgConfig?.common_ledgers ?? {};
+  const commonFolderName = typeof config.common_folder_name === 'string' && config.common_folder_name ? config.common_folder_name : 'P00-000_공통';
+  const generalWorkFolderName = typeof config.general_work_folder_name === 'string' && config.general_work_folder_name
+    ? config.general_work_folder_name : 'general_work_일반업무';
+  requireSafeFolderName(commonFolderName, 'common_ledgers.common_folder_name');
+  requireSafeFolderName(generalWorkFolderName, 'common_ledgers.general_work_folder_name');
   return {
-    commonFolderName: typeof config.common_folder_name === 'string' && config.common_folder_name ? config.common_folder_name : 'P00-000_공통',
-    generalWorkFolderName: typeof config.general_work_folder_name === 'string' && config.general_work_folder_name
-      ? config.general_work_folder_name : 'general_work_일반업무',
+    commonFolderName, generalWorkFolderName,
     knowledgeFolderNames: lowerSet(config.knowledge_folder_names),
     systemSources: (Array.isArray(config.system_notification_sources) ? config.system_notification_sources : [])
       .filter(source => source && typeof source.name === 'string' && source.name.trim() !== '')
@@ -355,7 +398,17 @@ export function resolvePrimaryBucket(mail, projectResult, commonConfig, { ourDom
     // ordinary pattern-based cascade below, same as having no decision at all.
   }
 
-  if (patternBucket) return patternBucket;
+  // S8 (fresh non-author review, 2026-09-21): whenever ANY reading decision exists on
+  // this mail at all (including `hold_owner_review`) -- whether it routed above,
+  // failed to route, or is explicitly still pending -- it must never fall into `ads`
+  // from here. `ads` has no file and no other artifact; a mail someone already tried
+  // to decide disappearing entirely because it also happens to match an ads pattern
+  // is worse than a mail with no decision at all disappearing the same way. System-
+  // source detection is unaffected (an objective fact about the mail's sender,
+  // independent of any decision) and the rest of the cascade still applies, ultimately
+  // reaching `unclassified` (flagged by `triage.mjs`'s `already_decided_invalid` when
+  // there was a genuine unrouted decision) if nothing else matches.
+  if (patternBucket && !(projectResult.reading && patternBucket.bucket === 'ads')) return patternBucket;
 
   const pendingLabel = firstLabelMatch(commonConfig.codePendingPatterns, mail.subject);
   if (pendingLabel) return { bucket: 'code_pending', detail: pendingLabel, fileName: '과제코드대기.csv' };
@@ -395,7 +448,14 @@ export function resolvePrimaryBucket(mail, projectResult, commonConfig, { ourDom
   // independently of the primary bucket) -- only the PRIMARY bucket, and therefore
   // triage visibility, changes here.
   if (!projectResult.reading && projectResult.vendors.length > 0) {
-    return { bucket: 'organisation_undecided', detail: null, fileName: null, basisOverride: '거래처(자동)' };
+    // S4 (fresh non-author review, 2026-09-21): a thread-inherited vendor match
+    // (`common_refresh.mjs`'s thread-vendor inheritance) is distinguishable in the
+    // basisOverride from a direct one -- the marker used to be computed onto
+    // `projectResult.basis`, but `basisOverride` unconditionally REPLACED that text
+    // wholesale, so the distinction never actually reached the ledger row.
+    const inherited = String(projectResult.basis ?? '').includes(THREAD_VENDOR_INHERITANCE_MARKER);
+    return { bucket: 'organisation_undecided', detail: null, fileName: null,
+      basisOverride: inherited ? '거래처(자동, 같은 대화)' : '거래처(자동)' };
   }
 
   // No signal placed this mail in any other primary bucket, and it touches no known

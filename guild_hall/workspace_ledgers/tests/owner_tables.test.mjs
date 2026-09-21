@@ -101,3 +101,41 @@ test('loadOwnerTables: a table with all four files present loads all four lookup
     assert.deepEqual(result.failures, []);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// --------------------------------------------------------- required-review item 2
+test('buildVendorTable (required-review item 2): a decomposed-Hangul 거래처명 is normalised to NFC, matching the composed form', () => {
+  const composed = '가나다'; // NFC (typed directly -- ordinary precomposed Hangul, not a special codepoint)
+  const decomposed = composed.normalize('NFD'); // same text, decomposed jamo sequence -- what a macOS paste routinely produces
+  assert.notEqual(composed, decomposed); // sanity: they really are different byte sequences before normalisation
+  const rows = [{ '도메인': 'vendor.example', '거래처명': decomposed, '구분': '부품', '메모': '' }];
+  const table = buildVendorTable(rows);
+  const entry = table.get('vendor.example');
+  assert.equal(entry.name, composed); // stored in NFC regardless of the source row's own form
+  assert.equal(entry.name.normalize('NFC'), entry.name);
+});
+
+test('buildVendorTable (NIT 11): a whitespace-only 거래처명 row is dropped', () => {
+  const rows = [{ '도메인': 'vendor.example', '거래처명': '   ', '구분': '부품', '메모': '' }];
+  assert.equal(buildVendorTable(rows).size, 0);
+});
+
+test('buildWorkTagTable (required-review item 2): a decomposed-Hangul tag is normalised to NFC', () => {
+  const composed = '작업태그';
+  const decomposed = composed.normalize('NFD');
+  const tags = buildWorkTagTable([{ '태그': decomposed, '설명': '' }]);
+  assert.deepEqual(tags, [composed]);
+});
+
+test('buildReadingTable (S9, fresh non-author review): a case-only 결정 variant is normalised to its canonical form, not counted as invalid', () => {
+  const rows = [{ '메일소스ID': 'm1', '수신일': '', '제목': '', '결정': 'Include', '과제_또는_분류': 'P00-001', '이유': '', '판독자': '', '판독일': '', 'Owner확인': '' }];
+  const table = buildReadingTable(rows);
+  assert.equal(table.get('m1').level, 'include');
+  assert.equal(table.invalidLevelCount, 0);
+});
+
+test('buildReadingTable (S9): an unrecognised 결정 value is kept (behaves like hold_owner_review downstream) but counted as invalid', () => {
+  const rows = [{ '메일소스ID': 'm1', '수신일': '', '제목': '', '결정': '확인필요', '과제_또는_분류': '', '이유': '', '판독자': '', '판독일': '', 'Owner확인': '' }];
+  const table = buildReadingTable(rows);
+  assert.equal(table.get('m1').level, '확인필요');
+  assert.equal(table.invalidLevelCount, 1);
+});

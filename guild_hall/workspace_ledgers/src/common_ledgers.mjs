@@ -85,16 +85,41 @@ export function workTagFileName(tag) { return `작업_${tag}.csv`; }
 // lineage path as a second, independent assertion -- even a future gap in
 // `isSafeFileName` cannot walk a write outside its intended base directory.
 const RESERVED_DEVICE_NAME = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/iu;
-// The control-byte range (codepoint zero through codepoint thirty-one, the NUL
-// through Unit-Separator control characters) is built with String.fromCharCode and
-// numeric hex literals below, never typed as a control-character source escape --
-// an editing tool can turn that kind of escape into the actual raw control byte in
-// the FILE's own source (this module's own byte-hygiene test correctly flags that as
-// an accident; classifier.mjs's own history describes the same trap for its
-// mismatch-candidate array).
+// Every non-printable/invisible codepoint checked below is built with
+// String.fromCharCode and a numeric literal, never typed as a control-character
+// source escape directly -- an editing tool can turn that kind of escape into the
+// actual raw codepoint in the FILE's own source (this module's own byte-hygiene test
+// correctly flags that as an accident; classifier.mjs's own history describes the
+// same trap for its mismatch-candidate array).
+//
+// The control-byte range: codepoint zero through codepoint thirty-one (NUL through
+// Unit Separator).
 const CONTROL_RANGE_START = String.fromCharCode(0x00);
 const CONTROL_RANGE_END = String.fromCharCode(0x1F);
-const UNSAFE_NAME_CHARS = new RegExp(`[\\\\/:*?"<>|${CONTROL_RANGE_START}-${CONTROL_RANGE_END}]`, 'u');
+// NIT 12 (fresh non-author review, 2026-09-21): a file name built from Owner-typed
+// text could also carry the DEL codepoint, or an invisible/bidi-control codepoint --
+// none of these are rejected by the plain ASCII-punctuation/control-byte check above,
+// yet a zero-width or bidi-override codepoint in a file name is exactly the kind of
+// thing that makes two visually-identical-looking names actually different bytes (or
+// makes one name's DISPLAYED text lie about its actual byte order). Rejected here:
+// DEL (codepoint 127); the zero-width joiners/space and word joiner
+// (`tests/byte_hygiene.test.mjs` already treats these as an accident in tracked
+// SOURCE -- here they are rejected in Owner-typed DATA for the same reason: invisible
+// in an editor, but a real, distinguishing byte on disk); the BOM/zero-width
+// no-break space; the left-to-right/right-to-left marks; and the bidi
+// embedding/override/isolate control block.
+const DEL_CHAR = String.fromCharCode(0x7F);
+const ZERO_WIDTH_CHARS = [0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF].map(code => String.fromCharCode(code)).join('');
+const BIDI_MARK_CHARS = [0x200E, 0x200F].map(code => String.fromCharCode(code)).join('');
+const BIDI_EMBEDDING_RANGE_START = String.fromCharCode(0x202A);
+const BIDI_EMBEDDING_RANGE_END = String.fromCharCode(0x202E);
+const BIDI_ISOLATE_RANGE_START = String.fromCharCode(0x2066);
+const BIDI_ISOLATE_RANGE_END = String.fromCharCode(0x2069);
+const UNSAFE_NAME_CHARS = new RegExp(
+  `[\\\\/:*?"<>|${CONTROL_RANGE_START}-${CONTROL_RANGE_END}${DEL_CHAR}${ZERO_WIDTH_CHARS}${BIDI_MARK_CHARS}`
+  + `${BIDI_EMBEDDING_RANGE_START}-${BIDI_EMBEDDING_RANGE_END}${BIDI_ISOLATE_RANGE_START}-${BIDI_ISOLATE_RANGE_END}]`,
+  'u',
+);
 const MAX_FILE_NAME_LENGTH = 150;
 
 /**
