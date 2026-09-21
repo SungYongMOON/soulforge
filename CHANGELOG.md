@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-09-21 - 메일 분류 키워드 패널: yields_to 배열화 + 상태 배지 어휘 확장 대응
+
+- Revision: 이 항목을 포함한 커밋 (직전 "운영 콘솔에 프로젝트별 메일 분류 키워드 패널 추가" 커밋의
+  바로 다음 후속 수정).
+- 무엇이 바뀌었는가: 실제 규칙 파일에서 `yields_to`가 단일 객체/`null`에서 배열
+  (`[{project_code, when:{label,kind,value,flags?}}, …]`, 없으면 `[]`)로 바뀐 것을 반영했다.
+  `src/server/mail-rule-adapter.mjs`의 `validateRuleDocument`는 새 `normalizeYieldsTo`로
+  `null`·단일 객체·배열 세 형태를 모두 받아 배열로 정규화해 응답에 싣는다(항목당 기존 term 한도,
+  전체 최대 8개). `validateDraft`도 초안의 `yields_to`가 있으면 같은 세 형태를 검증만 하고
+  값 자체는 그대로 통과시킨다(이 슬라이스에서는 편집 불가). UI(`src/operations-mail-rules.tsx`)는
+  `yields_to` 배열 각 항목마다 "같은 메일에 `<label>`이 있으면 이 과제가 아니라
+  `<project_code>`로 본다" 문장을 하나씩 렌더링하도록 바꿨고, 상태 배지는 새 헬퍼
+  `mailRuleStatusLabel`/`mailRuleStatusTone`(`src/core/mail-rule-chip-editor.mjs`)로
+  `draft*` 접두 상태는 초안, `confirmed`/`accepted`는 확정, 그 외는 원문 그대로 표시하도록
+  확장했다(실 파일은 `draft_open_items` 같은 더 넓은 상태 어휘를 쓴다). 칩 편집 상태
+  (`initialChipEditorState`/`toDraft`)는 `yields_to`를 그대로 실어 나른다.
+- 운영 영향: 없음 — 여전히 읽기 경로만 실제로 응답하고, 쓰기 경로는 core 모듈 미병합으로
+  `503`(또는 `TEAM_OPS_MAIL_RULE_WRITE` 꺼짐이면 그 전에 `403`)을 반환한다. `core`를 연결할
+  때 필요한 `CORE_MODULE_SPECIFIER` 한 줄은 아직 그대로이며 최종 경로는 별도로 전달받는다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+- 검증: 앱 `npm test`(1082/1082), 루트 `npm run validate:team-ops-app`(동일, 1082/1082),
+  `tsc --noEmit` 통과, `npx vite build --config operations-preview.config.ts` 통과, 루트
+  `npm run ui:done:check` 통과(PASS ui-workspace acceptance check), 루트
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(변경 5파일,
+  violations 0) 통과. 이번 라운드는 실제 자료 대조 수동 확인을 반복 요청받지 않아 별도로
+  수행하지 않았다(직전 커밋에서 11개 과제·`yields_to` 실측 확인 완료).
+
 ## 2026-09-21 - 운영 콘솔에 프로젝트별 메일 분류 키워드 패널 추가 (읽기 완료 · 쓰기 뼈대만)
 
 - Revision: 이 항목을 포함한 커밋.

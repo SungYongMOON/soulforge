@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   createMailRuleReader, createMailRulePlugin, validateRuleDocument, parseBulletSection,
-  validateDraft, findProjectFolders, createDefaultMailRuleCore,
+  validateDraft, findProjectFolders, createDefaultMailRuleCore, normalizeYieldsTo,
   MAIL_RULES_SNAPSHOT_PATH, MAIL_RULE_SNAPSHOT_PATH, MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH,
 } from './mail-rule-adapter.mjs';
 
@@ -51,14 +51,38 @@ const MD_FIXTURE = `# P00-001 메일 분류 규칙
 
 test('validateRuleDocument accepts a well-formed document and rejects shape/schema/project mismatches', () => {
   const doc = ruleDoc();
-  assert.equal(validateRuleDocument(doc, 'P00-001'), doc);
+  assert.deepEqual(validateRuleDocument(doc, 'P00-001'), { ...doc, yields_to: [] });
   assert.throws(() => validateRuleDocument({ ...doc, schema_version: 'wrong' }, 'P00-001'));
   assert.throws(() => validateRuleDocument({ ...doc, project_code: 'P00-002' }, 'P00-001'));
   assert.throws(() => validateRuleDocument({ ...doc, exact: [{ label: 'x' }] }, 'P00-001'));
   assert.throws(() => validateRuleDocument(null, 'P00-001'));
-  assert.throws(() => validateRuleDocument({ ...doc, yields_to: { project_code: 'P00-002' } }, 'P00-001'));
-  const withYield = ruleDoc({ yields_to: { project_code: 'P00-002', when: { label: 'a', kind: 'literal', value: 'a' } } });
-  assert.equal(validateRuleDocument(withYield, 'P00-001'), withYield);
+  assert.throws(() => validateRuleDocument({ ...doc, yields_to: { project_code: 'P00-002' } }, 'P00-001'), 'a bare object missing `when` is still invalid');
+});
+
+// yields_to changed shape after the panel's first slice: it is now an array of hand-over
+// rules, but older files on disk may still carry `null` or a single bare object. All three
+// must normalize onto the same array shape.
+test('normalizeYieldsTo accepts null, a single object, or an array — and only those', () => {
+  const entry = { project_code: 'P00-002', when: { label: '견적', kind: 'literal', value: '견적' } };
+  assert.deepEqual(normalizeYieldsTo(null), []);
+  assert.deepEqual(normalizeYieldsTo(undefined), []);
+  assert.deepEqual(normalizeYieldsTo(entry), [entry]);
+  assert.deepEqual(normalizeYieldsTo([entry, entry]), [entry, entry]);
+  assert.deepEqual(normalizeYieldsTo([]), []);
+  assert.throws(() => normalizeYieldsTo('P00-002'));
+  assert.throws(() => normalizeYieldsTo({ project_code: 'P00-002' })); // missing `when`
+  assert.throws(() => normalizeYieldsTo([{ project_code: 'not-a-code', when: entry.when }]));
+  assert.throws(() => normalizeYieldsTo(Array.from({ length: 9 }, () => entry)), 'over the 8-entry cap');
+  assert.deepEqual(normalizeYieldsTo(Array.from({ length: 8 }, () => entry)).length, 8, 'exactly at the cap is fine');
+});
+
+test('validateRuleDocument normalizes all three yields_to shapes onto the same array', () => {
+  const entry = { project_code: 'P00-002', when: { label: '견적', kind: 'literal', value: '견적' } };
+  assert.deepEqual(validateRuleDocument(ruleDoc({ yields_to: null }), 'P00-001').yields_to, []);
+  assert.deepEqual(validateRuleDocument(ruleDoc({ yields_to: entry }), 'P00-001').yields_to, [entry]);
+  assert.deepEqual(validateRuleDocument(ruleDoc({ yields_to: [entry] }), 'P00-001').yields_to, [entry]);
+  assert.deepEqual(validateRuleDocument(ruleDoc({ yields_to: [] }), 'P00-001').yields_to, []);
+  assert.deepEqual(validateRuleDocument(ruleDoc({ yields_to: [entry, entry] }), 'P00-001').yields_to, [entry, entry]);
 });
 
 test('parseBulletSection reads only the named section, drops overlong bullets and caps the count', () => {
@@ -87,6 +111,20 @@ test('validateDraft enforces literal/regex limits, unique labels and compiles re
   assert.throws(() => validateDraft({ exact: [], hint: [], note: 'x'.repeat(501) }));
   const regexOk = { exact: [{ label: 'r', kind: 'regex', value: '^abc$', flags: 'iu' }], hint: [] };
   assert.equal(validateDraft(regexOk), regexOk);
+});
+
+test('validateDraft accepts an absent, null, single-object or array yields_to and rejects an invalid one', () => {
+  const entry = { project_code: 'P00-002', when: { label: '견적', kind: 'literal', value: '견적' } };
+  const noKey = { exact: [], hint: [] };
+  assert.equal(validateDraft(noKey), noKey, 'no yields_to key at all is fine');
+  const withNull = { exact: [], hint: [], yields_to: null };
+  assert.equal(validateDraft(withNull), withNull, 'yields_to is passed through unchanged, not normalized, by the draft validator');
+  const withObject = { exact: [], hint: [], yields_to: entry };
+  assert.equal(validateDraft(withObject), withObject);
+  const withArray = { exact: [], hint: [], yields_to: [entry] };
+  assert.equal(validateDraft(withArray), withArray);
+  assert.throws(() => validateDraft({ exact: [], hint: [], yields_to: { project_code: 'not-a-code', when: entry.when } }));
+  assert.throws(() => validateDraft({ exact: [], hint: [], yields_to: 'nope' }));
 });
 
 test('findProjectFolders accepts a forward-slash root spelling on the same real directory (not a symlink escape)', async t => {

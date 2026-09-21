@@ -1,13 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft, MAX_TERMS, MAX_LITERAL_CHARS } from './mail-rule-chip-editor.mjs';
+import {
+  initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft, MAX_TERMS, MAX_LITERAL_CHARS,
+  mailRuleStatusLabel, mailRuleStatusTone,
+} from './mail-rule-chip-editor.mjs';
 
-test('initialChipEditorState seeds chips from the rule and starts with an empty note', () => {
-  const state = initialChipEditorState({ exact: [{ label: 'a', kind: 'literal', value: 'a' }], hint: [{ label: 'r', kind: 'regex', value: '^x', flags: 'u' }] });
+test('initialChipEditorState seeds chips and yields_to from the rule and starts with an empty note', () => {
+  const yieldsTo = [{ project_code: 'P00-002', when: { label: '견적', kind: 'literal', value: '견적' } }];
+  const state = initialChipEditorState({ exact: [{ label: 'a', kind: 'literal', value: 'a' }], hint: [{ label: 'r', kind: 'regex', value: '^x', flags: 'u' }], yields_to: yieldsTo });
   assert.deepEqual(state.exact, [{ label: 'a', kind: 'literal', value: 'a' }]);
   assert.deepEqual(state.hint, [{ label: 'r', kind: 'regex', value: '^x', flags: 'u' }]);
   assert.equal(state.note, '');
-  assert.deepEqual(initialChipEditorState(undefined), { exact: [], hint: [], note: '' });
+  assert.equal(state.yields_to, yieldsTo, 'carried through by reference, not editable in this slice');
+  assert.deepEqual(initialChipEditorState(undefined), { exact: [], hint: [], note: '', yields_to: [] });
+});
+
+test('mailRuleStatusLabel/Tone map draft*/confirmed/accepted and pass unknown statuses through as-is', () => {
+  assert.equal(mailRuleStatusLabel('draft_open_items'), '초안');
+  assert.equal(mailRuleStatusLabel('draft_owner_answers_applied_no_open_items'), '초안');
+  assert.equal(mailRuleStatusLabel('confirmed'), '확정');
+  assert.equal(mailRuleStatusLabel('accepted'), '확정');
+  assert.equal(mailRuleStatusLabel('archived'), 'archived');
+  assert.equal(mailRuleStatusLabel(''), '미확인');
+  assert.equal(mailRuleStatusLabel(undefined), '미확인');
+  assert.equal(mailRuleStatusTone('confirmed'), 'green');
+  assert.equal(mailRuleStatusTone('accepted'), 'green');
+  assert.equal(mailRuleStatusTone('draft_open_items'), 'amber');
+  assert.equal(mailRuleStatusTone('archived'), 'amber');
 });
 
 test('addLiteralChip adds a trimmed literal chip and is a no-op for empty, oversized or duplicate values', () => {
@@ -41,10 +60,12 @@ test('removeChip removes by label from the named group only, and is a no-op for 
   assert.deepEqual(noop.hint, []);
 });
 
-test('setNote trims to the character cap and toDraft omits an empty note', () => {
+test('setNote trims to the character cap and toDraft omits an empty note but always carries yields_to', () => {
   let state = initialChipEditorState(undefined);
   state = setNote(state, 'x'.repeat(600));
   assert.equal(state.note.length, 500);
-  assert.deepEqual(toDraft(initialChipEditorState(undefined)), { exact: [], hint: [] });
-  assert.deepEqual(toDraft(setNote(initialChipEditorState(undefined), '사유')), { exact: [], hint: [], note: '사유' });
+  assert.deepEqual(toDraft(initialChipEditorState(undefined)), { exact: [], hint: [], yields_to: [] });
+  assert.deepEqual(toDraft(setNote(initialChipEditorState(undefined), '사유')), { exact: [], hint: [], yields_to: [], note: '사유' });
+  const withYields = initialChipEditorState({ yields_to: [{ project_code: 'P00-002', when: { label: 'a', kind: 'literal', value: 'a' } }] });
+  assert.deepEqual(toDraft(withYields).yields_to, [{ project_code: 'P00-002', when: { label: 'a', kind: 'literal', value: 'a' } }]);
 });

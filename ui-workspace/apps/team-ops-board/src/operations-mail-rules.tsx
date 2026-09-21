@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Tag, X, ChevronDown, RefreshCw } from 'lucide-react';
 import { when } from './operations-workspace';
-import { initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft } from './core/mail-rule-chip-editor.mjs';
+import { initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft, mailRuleStatusLabel, mailRuleStatusTone } from './core/mail-rule-chip-editor.mjs';
 import './operations-mail-rules.css';
 type Row = Record<string, any>;
 
@@ -114,7 +114,7 @@ export function MailRulePanel({ project }: { project?: string }) {
   return <section className="cx-card mr-panel" aria-label="메일 분류 키워드">
     <header className="cx-section-heading">
       <div><h2>메일 분류 키워드</h2><p>{project} · 판본 {rule.rule_version}</p></div>
-      <span className={`cx-status is-${rule.status === '확정' ? 'green' : 'amber'}`}>{rule.status === '확정' ? '확정' : rule.status === '초안' ? '초안' : rule.status}</span>
+      <span className={`cx-status is-${mailRuleStatusTone(rule.status)}`}>{mailRuleStatusLabel(rule.status)}</span>
       {!editing && <button onClick={beginEdit} disabled={!!editDisabledReason} title={editDisabledReason ?? undefined}><Tag size={14} />편집</button>}
     </header>
 
@@ -125,7 +125,9 @@ export function MailRulePanel({ project }: { project?: string }) {
       onRemove={label => setChipState((s: Row) => removeChip(s, 'hint', label))}
       onAdd={value => setChipState((s: Row) => addLiteralChip(s, 'hint', value))} />
 
-    {rule.yields_to && <p className="cx-footnote">단, {rule.yields_to.when?.label} 조건이면 {rule.yields_to.project_code} 과제로 넘깁니다.</p>}
+    {(rule.yields_to ?? []).map((y: Row, i: number) => <p className="cx-footnote" key={`${y.project_code}-${i}`}>
+      같은 메일에 {y.when?.label}이 있으면 이 과제가 아니라 {y.project_code}로 본다
+    </p>)}
 
     <details open={decisionsOpen} onToggle={e => setDecisionsOpen((e.target as HTMLDetailsElement).open)}>
       <summary>Owner 확인 기록 <ChevronDown size={13} /></summary>

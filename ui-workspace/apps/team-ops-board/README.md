@@ -849,7 +849,12 @@ operational 4192 lane stays exactly as read-only as before this change:
   `"<code>_"` prefix match, never by a path the caller supplies, and more than
   one matching folder is reported `unavailable` (ambiguous) rather than guessed.
   Both files are read through the existing `readStableFile` (symlink/hardlink/
-  reparse-safe, 256KB cap).
+  reparse-safe, 256KB cap). `yields_to` is an array of hand-over rules
+  (`[{ project_code, when:{label,kind,value,flags?} }, …]`, `[]` when there are
+  none, capped at 8 entries) as of 2026-09-21; `validateRuleDocument` also
+  accepts the earlier `null` (no hand-over) or single bare object (one
+  hand-over) shapes still found in some files and normalizes all three onto the
+  array before the response leaves the server (`normalizeYieldsTo`).
 - `POST /mail-rule/preview` and `POST /mail-rule/save` fully validate the
   request (loopback + same-origin, `Content-Type: application/json`, body
   ≤64KB, draft shape: ≤60 exact + ≤60 hint terms, literal ≤80 chars, regex
@@ -883,13 +888,21 @@ panel on the project overview only when a project is selected
 (`nav.project` from `operations-console.tsx`, threaded into
 `OperationsDashboard` as a new `project` prop). It shows the rule version and
 status badge, two chip groups ("확정 키워드" / "검토 힌트", with a `정규식` tag
-on regex terms), the `yields_to` exception as a sentence, and the two md-twin
-sections collapsed by default. Edit mode lets the Owner add/remove literal
-chips only (existing regex terms can be removed but never authored in the UI),
-write a note, and run "미리보기"/"새 판으로 저장" — both disabled with a
-one-line reason ("쓰기 꺼짐" / core `503`) whenever `write_enabled` is false or
-the core call answers unavailable. The chip add/remove/dedupe/limit arithmetic
-is the pure, DOM-free `src/core/mail-rule-chip-editor.mjs`. Styling lives in
+on regex terms), one sentence per `yields_to` hand-over ("같은 메일에 `<label>`이
+있으면 이 과제가 아니라 `<project_code>`로 본다"), and the two md-twin sections
+collapsed by default. `yields_to` is read-only in this slice — edit mode
+carries the rule's existing hand-over list through the draft unchanged rather
+than letting the Owner add or remove entries. The status badge maps any
+status starting with `draft` to 초안, `confirmed`/`accepted` to 확정, and
+shows anything else as-is (`mailRuleStatusLabel`/`mailRuleStatusTone`) — real
+files already use a wider vocabulary than the original 초안/확정 pair (e.g.
+`draft_open_items`). Edit mode lets the Owner add/remove literal chips only
+(existing regex terms can be removed but never authored in the UI), write a
+note, and run "미리보기"/"새 판으로 저장" — both disabled with a one-line
+reason ("쓰기 꺼짐" / core `503`) whenever `write_enabled` is false or the core
+call answers unavailable. The chip add/remove/dedupe/limit arithmetic and the
+status-label mapping are the pure, DOM-free `src/core/mail-rule-chip-editor.mjs`.
+Styling lives in
 `src/operations-mail-rules.css`.
 
 ### Optional local tailnet Host allowlist

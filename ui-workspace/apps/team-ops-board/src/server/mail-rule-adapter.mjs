@@ -33,6 +33,7 @@ const MAX_TERM_ITEMS = 500; // defensive cap on a stored rule's exact/hint array
 const MAX_TERM_VALUE_CHARS = 4096;
 const MAX_MD_BULLET_CHARS = 300;
 const MAX_MD_BULLETS = 30;
+const MAX_YIELDS_TO_ENTRIES = 8; // a hand-over list this long already needs a conflict_policy rethink
 const CACHE_TTL_MS = 60_000;
 
 // Draft (POST body) limits, per the 2026-09-21 owner decision on what an Owner may author
@@ -97,6 +98,30 @@ function validateTermItem(item, maxValueChars) {
   return true;
 }
 
+function validateYieldsToEntry(entry) {
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return false;
+  if (typeof entry.project_code !== 'string' || !PROJECT_CODE.test(entry.project_code)) return false;
+  return validateTermItem(entry.when, MAX_TERM_VALUE_CHARS);
+}
+
+// `yields_to` changed shape after this panel's first slice: it is now an array of hand-over
+// rules (empty when there are none), but older files on disk may still carry `null` (no
+// hand-over) or a single bare object (exactly one hand-over). All three are accepted and
+// normalized to an array here, so every caller downstream — the snapshot response, the panel,
+// and the draft round-trip — only ever sees the array shape.
+export function normalizeYieldsTo(value) {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) {
+    if (value.length > MAX_YIELDS_TO_ENTRIES || !value.every(validateYieldsToEntry)) throw new Error('rule_shape_invalid');
+    return value;
+  }
+  if (typeof value === 'object') {
+    if (!validateYieldsToEntry(value)) throw new Error('rule_shape_invalid');
+    return [value];
+  }
+  throw new Error('rule_shape_invalid');
+}
+
 export function validateRuleDocument(doc, expectedCode) {
   if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('rule_shape_invalid');
   if (doc.schema_version !== RULE_SCHEMA) throw new Error('rule_schema_mismatch');
@@ -112,13 +137,9 @@ export function validateRuleDocument(doc, expectedCode) {
   if (!Array.isArray(doc.hint) || doc.hint.length > MAX_TERM_ITEMS || !doc.hint.every(item => validateTermItem(item, MAX_TERM_VALUE_CHARS))) {
     throw new Error('rule_shape_invalid');
   }
-  if (doc.yields_to !== null) {
-    if (doc.yields_to === undefined || typeof doc.yields_to !== 'object' || Array.isArray(doc.yields_to)) throw new Error('rule_shape_invalid');
-    if (typeof doc.yields_to.project_code !== 'string' || !PROJECT_CODE.test(doc.yields_to.project_code)) throw new Error('rule_shape_invalid');
-    if (!validateTermItem(doc.yields_to.when, MAX_TERM_VALUE_CHARS)) throw new Error('rule_shape_invalid');
-  }
+  const yieldsTo = normalizeYieldsTo(doc.yields_to);
   if (doc.conflict_policy !== undefined && typeof doc.conflict_policy !== 'string') throw new Error('rule_shape_invalid');
-  return doc;
+  return { ...doc, yields_to: yieldsTo };
 }
 
 // ---------- mail_routing_rule.md twin: two fixed bullet-list sections ----------
@@ -162,6 +183,13 @@ export function validateDraft(draft) {
     }
   }
   if (draft.note !== undefined && !(typeof draft.note === 'string' && draft.note.length <= MAX_NOTE_CHARS)) throw new Error('draft_invalid');
+  // yields_to is not editable in this slice: the panel round-trips whatever shape the rule
+  // already carried. Validate it (same null/object/array shapes as a stored rule, same term
+  // limits) but leave the value itself untouched — normalizing it is the reader's job, not
+  // the draft's, since a draft with no yields_to key at all is also valid (nothing to carry).
+  if (draft.yields_to !== undefined) {
+    try { normalizeYieldsTo(draft.yields_to); } catch { throw new Error('draft_invalid'); }
+  }
   return draft;
 }
 
