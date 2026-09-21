@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 실제 평면 parity 재확인이 드러낸 결함: 같은 대화 거래처 상속 누락
+
+- Revision: 이 항목을 포함한 커밋(코디네이터가 `거래처_대응표.csv`의 깨진 행 1개를
+  private plane에서 직접 고친 뒤 요청한 재확인).
+- 무엇이 바뀌었는가: 헤더·행 모양이 모두 정상인 실제 `거래처_대응표.csv`로
+  parity를 재확인하자 `vendor_only`가 실제 38건 중 31건만 맞고 7건이 미분류로
+  샜다. 7건 전부가 실제로 거래처 주소가 걸린 다른 메일과 같은 정규화 제목
+  스레드에 속함을 확인했다 -- 스펙 2절의 "같은 대화(정규화 제목)의 다른 메일에
+  거래처가 있으면 사내 전달·수신확인도 그 거래처로 본다"를 Step 1 첫 커밋에서
+  빠뜨렸던 것이다(private 참고 스크립트의 `THREAD_VENDORS` 상속과 동일한 기능).
+  `common_refresh.mjs`의 `classifyAllCommonMail`에 2-패스 구조를 추가했다: 1패스는
+  기존과 같이 메일마다 직접 주소로 거래처를 매기고, 그 결과에서 거래처가 걸린
+  스레드의 목록(`threadVendors`)을 만든 뒤, 2패스에서 거래처가 없는 메일이 같은
+  스레드에 있으면 그 거래처를 상속해(`basis`에 `(같은 대화의 거래처)` 덧붙임)
+  이후의 주 분류(`vendor_only`/`organisation_undecided`)·보조 거래처 장부 배정에만
+  쓴다 -- `classifyProjectHits`의 1-5단계 과제 귀속 자체는 다시 돌리지 않는다(참고
+  스크립트와 동일하게, 상속은 분류가 끝난 결과에만 적용). 테스트 1건(같은 스레드의
+  내부 전달 메일이 자기 주소 없이도 거래처를 상속받아 organisation_undecided로
+  가는지) 추가.
+- Real-plane parity 재확인(dry, 읽기 전용, `owner_table_failures: []`):
+  `vendor_only` 38/38(오차 0, 코디네이터 예상대로 일치), `no_code_confirmed` 2/2,
+  `general_work` 5/5 유지, `organisation_undecided` 1건(소수, 예상대로).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` Step 1 코디네이터 후속 지적 4건 반영
 
 - Revision: 이 항목을 포함한 커밋(직전 Step 1 커밋 96a64430에 대한 코디네이터 검토).

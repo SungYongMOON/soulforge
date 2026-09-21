@@ -719,6 +719,20 @@ per-project ledgers get, via `refresh.mjs`'s exported `writeLedgerCsv` -- the pr
 column is always `메모` (the last column of every common-ledger header shape,
 `src/common_ledgers.mjs`'s `memoIndexFor`).
 
+**Thread-vendor inheritance** (`classifyAllCommonMail`, spec section 2:
+"같은 대화(정규화 제목)의 다른 메일에 거래처가 있으면 사내 전달·수신확인도 그
+거래처로 본다"): a mail's vendor match is normally address-based (`거래처_대응표.csv`
+against from/to/cc), but an internal forward or read-receipt in the same
+normalised-subject thread as a mail that DOES have a direct vendor-address match no
+longer carries that address itself -- it inherits the thread's vendors for OUTER
+bucket routing (`vendor_only`/`organisation_undecided` resolution, and the vendor
+secondary-view assignment) only, appending `(같은 대화의 거래처)` to `basis`; it never
+re-runs `classifyProjectHits`'s own step 1-5 project attribution, which already used
+the mail's own direct vendors when it ran (step 4's supplier-body confirmation is
+unaffected). Caught by the 2026-09-21 real-plane parity check: without this, `모듈
+vendor_only` undercounted the real plane by exactly the number of thread-forwarded
+mails with no vendor address of their own.
+
 **Owner tables** (`src/owner_tables.mjs`) are read-only from this module's side (the
 one exception: `판독_결정표.csv`, which `triage.mjs`'s `appendReadingDecision` appends
 to one row at a time). A table that is missing or has zero data rows is skipped (that

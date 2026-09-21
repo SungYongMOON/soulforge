@@ -294,3 +294,30 @@ test('classifyAllCommonMail (coordinator, 2026-09-21): --hiworks-events and --gm
     }), error => error instanceof CommonRefreshError && error.code === 'workspace_ledgers_custody_dirs_overlap');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+test('classifyAllCommonMail (spec section 2, thread-vendor inheritance): an internal forward carrying no vendor address of its own still inherits the vendor from another mail in the same normalised-subject thread', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'thread-vendor.jsonl'), jsonl([
+      // Direct hit: from the vendor's own address.
+      event({ id: 'v-direct', subject: 'ABC 협의', from: 'sales@vendor.example', at: '2026-09-01T20:00:00Z' }),
+      // Same conversation, forwarded internally -- no vendor address anywhere on this
+      // mail's own from/to/cc, only the normalised subject ties it to the thread above.
+      event({ id: 'v-forward', subject: 'Fwd: ABC 협의', from: 'colleague@example.com', at: '2026-09-01T20:05:00Z' }),
+    ]));
+    const vendorTablePath = path.join(fixture.root, 'vendor2.csv');
+    writeFileSync(vendorTablePath, encodeCsv(VENDOR_HEADERS, [['vendor.example', '거래처A', '부품', '']]));
+
+    const pass = classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, vendorTablePath,
+    });
+    const direct = pass.classified.find(entry => entry.mail.event_id === 'v-direct');
+    const forwarded = pass.classified.find(entry => entry.mail.event_id === 'v-forward');
+    assert.deepEqual(direct.projectResult.vendors.map(v => v.name), ['거래처A']);
+    // Without inheritance this would be 'unclassified' (no vendor address of its own).
+    assert.deepEqual(forwarded.projectResult.vendors.map(v => v.name), ['거래처A']);
+    assert.equal(forwarded.outcome.bucket, 'organisation_undecided');
+    assert.match(forwarded.projectResult.basis, /같은 대화의 거래처/);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});

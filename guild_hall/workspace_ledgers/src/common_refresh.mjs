@@ -119,7 +119,8 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   const classified = [];
   const threadBuckets = new Map();
 
-  for (const record of records) {
+  // Pass 1: classify every mail's own (direct-address) project hits/vendors.
+  const prepared = records.map(record => {
     const addresses = addressesOfMail(record);
     const fromDomain = domainOf(record.from?.email ?? '');
     const mail = { ...record, fromDomain, addresses };
@@ -127,7 +128,38 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
       { id: record.event_id, subject: record.subject, body: record.body_text, addresses },
       { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors },
     );
+    return { mail, projectResult };
+  });
 
+  // Thread-level vendor inheritance (spec section 2, 거래처_대응표.csv's own contract:
+  // "같은 대화(정규화 제목)의 다른 메일에 거래처가 있으면 사내 전달·수신확인도 그
+  // 거래처로 본다"). Built from every mail that has a DIRECT vendor-address match,
+  // keyed by normalised subject; a mail with none (an internal forward or a
+  // read-receipt that no longer carries the vendor's own address in from/to/cc)
+  // inherits its thread's vendors for OUTER bucket routing (vendor_only/
+  // organisation_undecided resolution and the vendor secondary-view assignment
+  // below) only -- this never re-runs `classifyProjectHits`'s own step 1-5 project
+  // attribution, which already ran using the mail's own direct vendors (step 4's
+  // supplier-body confirmation is unaffected, matching the private reference: there
+  // this inheritance is applied strictly AFTER classification, to the already-
+  // computed result, never fed back into it).
+  const threadVendors = new Map();
+  for (const { mail, projectResult } of prepared) {
+    if (projectResult.vendors.length === 0) continue;
+    const key = normalizeSubject(mail.subject);
+    const bucket = threadVendors.get(key) ?? new Map();
+    for (const vendor of projectResult.vendors) bucket.set(vendor.name, vendor);
+    threadVendors.set(key, bucket);
+  }
+  for (const entry of prepared) {
+    if (entry.projectResult.vendors.length > 0) continue;
+    const inherited = threadVendors.get(normalizeSubject(entry.mail.subject));
+    if (inherited) {
+      entry.projectResult = { ...entry.projectResult, vendors: [...inherited.values()], basis: `${entry.projectResult.basis}(같은 대화의 거래처)` };
+    }
+  }
+
+  for (const { mail, projectResult } of prepared) {
     let outcome;
     if (projectResult.held) {
       outcome = { bucket: 'held', detail: null, fileName: HELD_FILE_NAME };
@@ -138,10 +170,10 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     }
     bucketTally[outcome.bucket] += 1;
 
-    const workTags = workTagsOf(record.subject, owner.workTags);
+    const workTags = workTagsOf(mail.subject, owner.workTags);
     classified.push({ mail, projectResult, outcome, workTags });
 
-    const threadKey = normalizeSubject(record.subject);
+    const threadKey = normalizeSubject(mail.subject);
     const set = threadBuckets.get(threadKey) ?? new Set();
     set.add(outcome.bucket === 'project' ? `과제:${outcome.projectCodes.join(';')}` : (outcome.fileName ?? outcome.bucket));
     threadBuckets.set(threadKey, set);
