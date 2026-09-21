@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { ROOT_TABLE_SCHEMA, readRootTable } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
+import { DEFAULT_CHAT_TIMEOUT_MS } from '../src/adapters/local_model/ollama_chat.mjs';
 import {
   AGING_SOON_NIGHTS, BACKLOG_WINDOW_DAYS, CHAIN_ALLOWANCE_MS, DEFAULT_NO_START_WITHIN_MINUTES,
   HARD_STOP_GRACE_MINUTES, MAX_AGED_OUT_LOOKBACK_DAYS, MIN_DEADLINE_STALE_LOCK_MS, MIN_TRANSCRIPT_SECONDS,
@@ -1148,27 +1149,85 @@ test('register-voice-conversation-list-task.ps1: S2/S4/S6/N3 review fixes are wi
   assert.match(registrar, /chain_mail_roots = \[object\[\]\]\$\(if \(\$MailRoot\) \{ @\(\$MailRoot\) \} else \{ , @\(\) \}\)/);
 });
 
-test('register-voice-conversation-list-task.ps1: R1a-1 exit-code propagation fix is wired', async () => {
+test('register-voice-conversation-list-task.ps1: R1a-1/R1 exit-code propagation fix is wired', async () => {
   const registrarPath = path.join(path.dirname(fileURLToPath(import.meta.url)),
     '..', 'ops', 'register-voice-conversation-list-task.ps1');
   const registrar = await readFile(registrarPath, 'utf8');
 
-  // R1a-1 (2026-09-21 review, measured end to end): `powershell.exe -Command
-  // "& node ..."` does not propagate node's own exit code -- verified live
-  // in this same review round (without the trailing `exit`, a script
-  // process.exitCode = 4 collapsed to a bare 1 through this exact
-  // construction; with it, the caller correctly saw 4). The `$LASTEXITCODE`
-  // piece must be built from a single-quoted (unexpanded) literal, not
-  // interpolated into this registrar's own current value.
-  assert.match(registrar, /\+ "; exit " \+ '\$LASTEXITCODE'/);
+  // R1a-1 (2026-09-21 review, round 2, measured end to end): `powershell.exe
+  // -Command "& node ..."` does not propagate node's own exit code at all
+  // without an explicit trailing `exit`.
+  // R1 (round 3, measured end to end through the real hidden launcher): a
+  // bare `exit $LASTEXITCODE` turns a node *launch* failure (missing/renamed
+  // node.exe -- `&` never sets `$LASTEXITCODE` when nothing ran to set it)
+  // into exit 0, since `$LASTEXITCODE` is still `$null` and `exit $null` is
+  // 0. Guarding first makes that case exit 1 instead, while every real exit
+  // code (4, 0, 2 all separately measured) still passes through unchanged --
+  // see the hermetic end-to-end test below for the actual measurement.
+  assert.match(registrar,
+    /\+ '; if \(\$null -eq \$LASTEXITCODE\) \{ exit 1 \}; exit \$LASTEXITCODE'/);
   // This exact trailing text becomes part of $CommandScript, which flows
   // into $HiddenActionArgumentLine -- already covered by the existing
   // action_sha256 plan-digest field and the post-registration XML
-  // attestation's byte-for-byte Arguments comparison, both asserted above
-  // and unchanged by this fix, so no separate plan/attestation wiring is
-  // needed for the new text to be pinned.
+  // attestation's byte-for-byte Arguments comparison, so no separate plan/
+  // attestation wiring is needed for the new text to be pinned.
   assert.match(registrar, /action_sha256 = Get-Sha256Text -Value \(\$WScriptExe \+ "`n" \+ \$HiddenActionArgumentLine\)/);
 });
+
+// R1 (2026-09-21 review, round 3): a real, hermetic, end-to-end measurement
+// through the actual hidden VBS launcher -- not just a source regex. This
+// mirrors the registrar's own `ConvertTo-SingleQuotedLiteral`/`ConvertTo-
+// TaskArgument`/`$CommandScript` construction (the exact trailing fragment
+// is asserted against the live registrar source above, so the two cannot
+// silently drift apart) and drives `wscript.exe` exactly as Task Scheduler
+// would -- `windowsVerbatimArguments: true` so Node passes this test's own
+// pre-quoted argv through unmodified, the same shape a single Task Scheduler
+// "Arguments" string is, rather than Node's own (different) Windows argv
+// quoting mangling an already-quoted `-Command` value.
+test('register-voice-conversation-list-task.ps1: exit-code propagation, measured live through the real hidden VBS launcher (R1)',
+  { skip: process.platform !== 'win32' }, async t => {
+    const { spawnSync } = await import('node:child_process');
+    const convertToSingleQuotedLiteral = value => `'${value.replaceAll("'", "''")}'`;
+    const convertToTaskArgument = value => {
+      if (value.includes('"')) throw new Error('task argument contains an unsupported quote character');
+      if (!/\s/.test(value)) return value;
+      return `"${value.replace(/(\\+)$/, '$1$1')}"`;
+    };
+    const hiddenLauncher = path.join(path.dirname(fileURLToPath(import.meta.url)),
+      '..', 'ops', 'run-voice-conversation-list-hidden.vbs');
+    const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
+    if (!systemRoot) return; // no Windows system root in env; nothing to measure
+    const powershellExe = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const wscriptExe = path.join(systemRoot, 'System32', 'wscript.exe');
+    if (!existsSync(powershellExe) || !existsSync(wscriptExe)) return; // not this Windows layout; nothing to measure
+
+    const est = await estate();
+    const scriptFor = code => path.join(est.controlRoot, `exit-${code}.mjs`);
+    await writeFile(scriptFor(4), 'process.exitCode = 4;\n');
+    await writeFile(scriptFor(0), 'process.exitCode = 0;\n');
+    await writeFile(scriptFor(2), 'process.exitCode = 2;\n');
+
+    const runThrough = (nodePath, entryPath) => {
+      const commandScript = `& ${convertToSingleQuotedLiteral(nodePath)} ${convertToSingleQuotedLiteral(entryPath)}`
+        + '; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE';
+      const argLine = ['//B', '//NoLogo', hiddenLauncher, powershellExe,
+        '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass',
+        '-Command', commandScript].map(convertToTaskArgument);
+      return spawnSync(wscriptExe, argLine,
+        { timeout: 30000, windowsHide: true, encoding: 'utf8', windowsVerbatimArguments: true });
+    };
+
+    const nodePath = process.execPath; // this same test's own node.exe -- real, always present
+    const exit4 = runThrough(nodePath, scriptFor(4));
+    assert.equal(exit4.status, 4, exit4.stderr);
+    const exit0 = runThrough(nodePath, scriptFor(0));
+    assert.equal(exit0.status, 0, exit0.stderr);
+    const exit2 = runThrough(nodePath, scriptFor(2));
+    assert.equal(exit2.status, 2, exit2.stderr);
+
+    const missing = runThrough(path.join(est.controlRoot, 'does-not-exist-node.exe'), scriptFor(4));
+    assert.notEqual(missing.status, 0, 'a node launch failure must never propagate as a clean exit 0');
+  });
 
 // ============================================================ R1 (review)
 // ---------------------------------------------------- R1a: SKIPPED_PAST_DEADLINE
@@ -1213,11 +1272,15 @@ test('runNightly: backlog aging visibility -- aging_out_soon counts unprocessed 
 
   assert.equal(result.status, 'OK');
   assert.equal(result.receipt.backlog.aging_out_soon, 1); // only S_aging_soon -- S_aging_but_done already has a run
-  // R1b-1 (2026-09-21 review): no prior receipt exists yet in this fresh
-  // receipts dir, so the look-back falls back to the full
-  // MAX_AGED_OUT_LOOKBACK_DAYS (7) -- every one of those days is checked,
-  // grouped by date, and only 2026-09-12 actually has anything in it.
-  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 7);
+  // R1b-1 (2026-09-21 review, round 3 first-run nit): no prior receipt
+  // exists yet in this fresh receipts dir -- this is this lane's first-ever
+  // night, not a lane that has been silently down for a week, so the
+  // look-back is exactly 1 (the ordinary, no-gap shape) and `first_run` says
+  // so; 2026-09-12 is that single edge day, and it is the one day that
+  // actually has anything unprocessed in it.
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 1);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, null);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.first_run, true);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 1);
   assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.by_date,
     [{ date: '2026-09-12', count: 1, session_ids: ['S_aged_out_unprocessed'] }]);
@@ -1252,11 +1315,64 @@ test('runNightly: aged_out_unprocessed looks back as many nights as the gap sinc
   // 2026-09-20 (tonight's own Seoul date) is 2 days -- both edge days
   // (2026-09-12 and 2026-09-11) are checked.
   assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 2);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, 2); // nit: recorded alongside lookback_nights
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.first_run, false);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 2);
   assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.by_date, [
     { date: '2026-09-12', count: 1, session_ids: ['S_newest_edge_aged_out'] },
     { date: '2026-09-11', count: 1, session_ids: ['S_missed_night_aged_out'] },
   ]);
+});
+
+test('runNightly: a gap larger than MAX_AGED_OUT_LOOKBACK_DAYS still records the real (uncapped) gap, while the scan itself stays capped (nit)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  // A prior receipt 30 days ago -- far more than MAX_AGED_OUT_LOOKBACK_DAYS (7).
+  await mkdir(est.receiptsDir, { recursive: true });
+  await writeFile(path.join(est.receiptsDir, '20260821000000000.json'), JSON.stringify({
+    schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: '2026-08-21T00:00:00.000Z', target_date: '2026-08-21',
+    dry: false, lock: {}, plan: {}, deadline: null, backlog: null, sessions: [], warnings: [],
+    totals: {}, chain: null, status: 'OK' }));
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T10:00:00.000Z',
+    runSession: async () => { throw new Error('must not run: no sessions this night'); }, log: () => {} });
+
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, MAX_AGED_OUT_LOOKBACK_DAYS);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, 30, 'the real gap is visible even though the scan itself stayed capped');
+});
+
+test('runNightly: a receipt whose ran_at is in the future relative to now is never treated as the most recent real run (S4)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await mkdir(est.receiptsDir, { recursive: true });
+  // A genuinely older receipt (2026-09-18) plus a bogus one dated *after*
+  // tonight's own `now` (a clock skew or a hand-edited fixture) -- the
+  // future one must be ignored, or the measured gap would shrink to 0/1 and
+  // hide the day that actually fell out during the missed 09-19 night.
+  await writeFile(path.join(est.receiptsDir, '20260918000000000.json'), JSON.stringify({
+    schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: '2026-09-18T00:00:00.000Z', target_date: '2026-09-18',
+    dry: false, lock: {}, plan: {}, deadline: null, backlog: null, sessions: [], warnings: [],
+    totals: {}, chain: null, status: 'OK' }));
+  await writeFile(path.join(est.receiptsDir, '20260925000000000.json'), JSON.stringify({
+    schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: '2026-09-25T00:00:00.000Z', target_date: '2026-09-25',
+    dry: false, lock: {}, plan: {}, deadline: null, backlog: null, sessions: [], warnings: [],
+    totals: {}, chain: null, status: 'OK' }));
+  await writeSession(est.dataRoot, '2026-09-11', 'S_missed_night_aged_out', { durationSeconds: 40 });
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T10:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_1111111111111111', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  assert.equal(result.status, 'OK');
+  // Anchored to 09-18 (the real newest *not-in-the-future* receipt), not
+  // 09-25 (which would compute a nonsensical negative/near-zero gap and miss
+  // 2026-09-11 entirely).
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, 2);
+  assert.ok(result.receipt.backlog.aged_out_unprocessed.by_date.some(entry => entry.date === '2026-09-11'));
 });
 
 test('runNightly --dry: backlog aging is reported in the preview too (a preflight can see it before registering)', async () => {
@@ -1379,7 +1495,53 @@ test('atomicWriteFileSync: falls back to a direct overwrite once retries are exh
   assert.deepEqual(leftover, [], 'the temp file is removed even on the fallback path');
 });
 
-test('atomicWriteFileSync: a non-retryable rename error is thrown immediately (no retry, no silent fallback), and the temp file is still removed', async () => {
+test('atomicWriteFileSync: S1 (round 3) -- when the overwrite AND the recovery write both fail, the temp file is preserved (not destroyed) and both attempted paths are on the error', async () => {
+  const est = await estate();
+  const target = path.join(est.controlRoot, 'receipt.json');
+  await writeFile(target, 'previous content that must survive, untouched');
+  const deps = {
+    renameFn: () => { const error = new Error('perm'); error.code = 'EPERM'; throw error; },
+    writeFn: (filePath, buffer) => {
+      if (filePath === target) { const error = new Error('perm'); error.code = 'EPERM'; throw error; }
+      if (filePath.endsWith('.recovered.json')) { const error = new Error('perm'); error.code = 'EPERM'; throw error; }
+      writeFileSync(filePath, buffer); // the initial temp-file write still happens normally
+    },
+    sleepFn: () => {},
+  };
+  let thrown = null;
+  try { atomicWriteFileSync(target, Buffer.from('{"good":true}\n'), deps); } catch (error) { thrown = error; }
+  assert.ok(thrown);
+  assert.equal(typeof thrown.tmp_path, 'string');
+  assert.equal(existsSync(thrown.tmp_path), true, 'the one good copy survives');
+  assert.equal(await readFile(thrown.tmp_path, 'utf8'), '{"good":true}\n');
+  assert.equal(await readFile(target, 'utf8'), 'previous content that must survive, untouched',
+    'the pre-existing target is not truncated by a failed direct write');
+  assert.ok(thrown.recovered_path_attempted?.endsWith('.recovered.json'));
+});
+
+test('atomicWriteFileSync: S2 (round 3) -- when both the overwrite and the direct target fail (a reader holding the destination), the content survives at a sibling .recovered.json path', async () => {
+  const est = await estate();
+  const target = path.join(est.controlRoot, 'receipt.json');
+  const deps = {
+    renameFn: () => { const error = new Error('perm'); error.code = 'EPERM'; throw error; },
+    writeFn: (filePath, buffer) => {
+      if (filePath === target) { const error = new Error('perm'); error.code = 'EPERM'; throw error; }
+      writeFileSync(filePath, buffer); // temp write and the recovered-path write both use this
+    },
+    sleepFn: () => {},
+  };
+  let thrown = null;
+  try { atomicWriteFileSync(target, Buffer.from('{"recovered":true}\n'), deps); } catch (error) { thrown = error; }
+  assert.equal(thrown?.code, 'voice_conversation_list_nightly_receipt_write_recovered');
+  assert.equal(thrown.recovered_path, path.join(est.controlRoot, 'receipt.recovered.json'));
+  assert.equal(await readFile(thrown.recovered_path, 'utf8'), '{"recovered":true}\n');
+  assert.equal(existsSync(target), false, 'the primary path was never written -- the record is only at the recovered path');
+  // The recovery write succeeded, so the temp file (now redundant) is cleaned up.
+  const leftover = (await readdir(est.controlRoot)).filter(name => name.includes('.tmp-'));
+  assert.deepEqual(leftover, []);
+});
+
+test('atomicWriteFileSync: a non-retryable rename error is thrown immediately (no retry, no silent fallback), and the temp file is preserved with its path on the error (S1, round 3)', async () => {
   const est = await estate();
   const target = path.join(est.controlRoot, 'receipt.json');
   let renameCalls = 0, directWriteCalls = 0;
@@ -1391,11 +1553,18 @@ test('atomicWriteFileSync: a non-retryable rename error is thrown immediately (n
     },
     sleepFn: () => { throw new Error('must not sleep for a non-retryable error'); },
   };
-  assert.throws(() => atomicWriteFileSync(target, Buffer.from('{}'), deps), error => error.code === 'ENOSPC');
+  let thrown = null;
+  try { atomicWriteFileSync(target, Buffer.from('{}'), deps); } catch (error) { thrown = error; }
+  assert.equal(thrown?.code, 'ENOSPC');
   assert.equal(renameCalls, 1, 'no retry for a code that is not EPERM/EACCES/EBUSY');
   assert.equal(directWriteCalls, 0, 'no silent fallback for a real error');
-  const leftover = (await readdir(est.controlRoot)).filter(name => name.includes('.tmp-'));
-  assert.deepEqual(leftover, [], 'the temp file is still cleaned up even when the error propagates');
+  // S1 (round 3): the temp file is the one intact copy -- it is deliberately
+  // NOT removed here (removing it would destroy the only good content while
+  // the real target was never actually written), and its path is on the
+  // thrown error for whoever reads it next.
+  assert.equal(typeof thrown.tmp_path, 'string');
+  assert.equal(existsSync(thrown.tmp_path), true, 'the temp file survives a non-retryable error');
+  assert.equal(await readFile(thrown.tmp_path, 'utf8'), '{}');
 });
 
 // ---------------------------------------------- S2: refuse deadline == scheduled-start
@@ -1535,6 +1704,12 @@ test('staleLockMsFor: no deadline falls back to the fixed STALE_LOCK_MS', () => 
   assert.equal(
     staleLockMsFor({ deadline: null, scheduledStart: null, deadlineAt: null, now: '2026-09-20T18:00:00.000Z', chainReconcile: false }),
     STALE_LOCK_MS);
+});
+
+test('staleLockMsFor: no deadline but --chain-reconcile still adds the chain allowance (nit, round 3)', () => {
+  assert.equal(
+    staleLockMsFor({ deadline: null, scheduledStart: null, deadlineAt: null, now: '2026-09-20T18:00:00.000Z', chainReconcile: true }),
+    STALE_LOCK_MS + CHAIN_ALLOWANCE_MS);
 });
 
 test('staleLockMsFor: a short deadline span is floored at MIN_DEADLINE_STALE_LOCK_MS (S5-1)', () => {
@@ -1717,4 +1892,23 @@ test('runNightly: no worst-case warning when the pipeline\'s worst case fits wit
 
   assert.equal(result.receipt.deadline.worst_case_session_minutes, 5);
   assert.ok(!result.receipt.warnings.some(entry => entry.code === 'worst_case_session_exceeds_margin'));
+});
+
+test('runNightly: worst_case_session_minutes falls back to DEFAULT_CHAT_TIMEOUT_MS when the pipeline config omits model.timeout_ms (S3, round 3)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  // readPipelineConfig never defaults model.timeout_ms itself, and this is
+  // exactly the shape a config omitting it takes -- worst_case_session_
+  // minutes must not silently read as `null`/dead just because this one key
+  // is missing; it uses the same DEFAULT_CHAT_TIMEOUT_MS createLocalChat's
+  // own binding validation (ollama_chat.mjs) falls back to at call time.
+  const config = { limits: { llm_calls: 60 }, model: {} };
+  const result = await runNightly({ io, tools, config, prompts: {}, promptDigests: {}, configSha256: 'deadbeef',
+    sessionsAddress: SESSIONS_ADDRESS, receiptsDir: est.receiptsDir, targetDate: target,
+    now: '2026-09-19T15:00:00.000Z', deadline: '10:00', scheduledStart: '00:00',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  assert.equal(result.receipt.deadline.worst_case_session_minutes, Math.round((60 * DEFAULT_CHAT_TIMEOUT_MS) / 60000));
 });

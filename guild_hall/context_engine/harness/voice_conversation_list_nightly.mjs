@@ -125,6 +125,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
+import { DEFAULT_CHAT_TIMEOUT_MS } from '../src/adapters/local_model/ollama_chat.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { ConversationListError, readPipelineConfig } from '../src/runtime/voice_conversation_list.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
@@ -214,37 +215,82 @@ function sleepSync(ms) {
  * receipt writes in one run, or two runs against the same directory) never
  * collide on the same temp path.
  *
- * S1-1 (2026-09-21 review): a `rename` over an existing target has been
- * measured to fail with `EPERM` on Windows when something else briefly has
- * the file open -- retried a few times with a short delay rather than
+ * S1-1 (2026-09-21 review, round 2): a `rename` over an existing target has
+ * been measured to fail with `EPERM` on Windows when something else briefly
+ * has the file open -- retried a few times with a short delay rather than
  * thrown straight through (which used to escape `runNightly` entirely,
  * leaving `chain: RUNNING` on disk forever, an orphaned temp file, and a
  * clean night reported as failed). If every retry still fails, this falls
- * back to a direct, non-atomic overwrite of the target -- a receipt that is
- * momentarily not atomically replaced is still far better than one that
- * never gets written at all. The temp file is always removed in `finally`,
- * whichever path was taken (a no-op once `rename` already moved it away).
- * `deps` exists only for tests to inject a scripted rename/sleep without
- * touching the real filesystem or actually waiting.
+ * back to a direct, non-atomic overwrite of the target.
+ *
+ * S1 (round 3): the temp file -- the one surviving intact copy whenever
+ * anything past this point still fails -- is **only ever removed once its
+ * content is confirmed to have actually landed** at the real target (via
+ * `rename`, the direct overwrite, or the recovery write below), never in a
+ * blanket `finally`. A fallback overwrite that itself throws partway through
+ * used to still have its temp file deleted in that `finally` -- destroying
+ * the one good copy while leaving the real target possibly truncated. Every
+ * thrown error from here on carries `error.tmp_path` so whoever reads it
+ * knows exactly where the surviving copy is.
+ *
+ * S2 (round 3): the direct-overwrite fallback does not cover this file's own
+ * motivating case -- a reader holding the destination file open can deny
+ * both `rename` and a direct overwrite of the very same path. When that
+ * happens, this writes to a sibling `<name>.recovered.json` path instead (a
+ * different filename, so it is never blocked by whatever is holding the
+ * original open) so the night's record survives somewhere discoverable, and
+ * a chain result folded into this write is not left silently stuck at
+ * `RUNNING` in a receipt nobody can read. `estate_voice_card_reconcile.mjs`'s
+ * `--nightly-receipts` backlog scan deliberately *handles* this suffix (not
+ * ignores it): it already matches its own plain `.json` glob, and the
+ * receipt's schema and shape are unchanged, so reading it is exactly reading
+ * one more ordinary nightly receipt. Even the recovery write throwing does
+ * not touch the temp file -- it remains the last resort, named in the error.
+ *
+ * `deps` exists only for tests to inject a scripted rename/write/sleep
+ * without touching the real filesystem or actually waiting.
  */
 export function atomicWriteFileSync(filePath, buffer, deps = {}) {
   const { renameFn = renameSync, writeFn = writeFileSync, removeFn = rmSync, sleepFn = sleepSync,
     retries = RENAME_RETRY_ATTEMPTS, delayMs = RENAME_RETRY_DELAY_MS } = deps;
   const tmpPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.tmp-${randomUUID()}`);
   writeFn(tmpPath, buffer);
-  try {
-    for (let attempt = 0; ; attempt++) {
-      try { renameFn(tmpPath, filePath); return; }
-      catch (error) {
-        if (!RETRYABLE_RENAME_CODES.has(error?.code)) throw error; // a real error, not a transient lock
-        if (attempt >= retries - 1) break; // retries exhausted: fall through to the direct-overwrite fallback
-        sleepFn(delayMs);
-      }
+
+  for (let attempt = 0; ; attempt++) {
+    try { renameFn(tmpPath, filePath); return; } // success: rename already moved the temp file away
+    catch (error) {
+      if (!RETRYABLE_RENAME_CODES.has(error?.code)) { error.tmp_path = tmpPath; throw error; } // a real error, not a transient lock
+      if (attempt >= retries - 1) break; // retries exhausted: fall through to the direct-overwrite fallback
+      sleepFn(delayMs);
     }
-    writeFn(filePath, buffer);
-  } finally {
-    try { removeFn(tmpPath, { force: true }); } catch { /* best-effort cleanup only */ }
   }
+
+  let overwriteError;
+  try {
+    writeFn(filePath, buffer);
+    try { removeFn(tmpPath, { force: true }); } catch { /* best-effort cleanup only */ }
+    return;
+  } catch (error) { overwriteError = error; }
+
+  // S2: the motivating case -- the direct overwrite above failed too (the
+  // same reader that blocked `rename` can just as easily block an overwrite
+  // of the identical path). One more attempt, at a path nothing already has
+  // open.
+  const recoveredPath = filePath.replace(/\.json$/u, '.recovered.json');
+  try {
+    writeFn(recoveredPath, buffer);
+  } catch (recoveredError) {
+    overwriteError.tmp_path = tmpPath;
+    overwriteError.recovered_path_attempted = recoveredPath;
+    overwriteError.recovered_error_code = typeof recoveredError?.code === 'string' ? recoveredError.code : null;
+    throw overwriteError;
+  }
+  try { removeFn(tmpPath, { force: true }); } catch { /* best-effort cleanup only */ }
+  const recoveredNotice = new ConversationListError('voice_conversation_list_nightly_receipt_write_recovered');
+  recoveredNotice.recovered_path = recoveredPath;
+  recoveredNotice.primary_path = filePath;
+  recoveredNotice.primary_error_code = typeof overwriteError?.code === 'string' ? overwriteError.code : null;
+  throw recoveredNotice;
 }
 
 // ------------------------------------------------------------------ dates
@@ -445,15 +491,33 @@ export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS,
  * silently loses coverage the moment one night is missed entirely: that
  * night never ran to check its own edge day, and by the *following* night
  * that day is already two days past the edge, not one, so a check that only
- * ever looks one day back never catches it. No prior receipt at all (a fresh
- * receipts directory, or one this pass could not read) falls back to the
- * full `MAX_AGED_OUT_LOOKBACK_DAYS`, which is also this function's ceiling
- * regardless of how large a real gap measures -- a receipts directory idle
- * for months must not make this pass scan an unbounded number of days.
+ * ever looks one day back never catches it.
+ *
+ * S4 (2026-09-21 review, round 3): a receipt whose own `ran_at` is *after*
+ * `now` (a clock skew, a hand-edited fixture, a run whose own `now` was
+ * itself wrong) is never treated as "the most recent real run" -- letting it
+ * count would shrink the measured gap below what actually happened and
+ * could hide a real aged-out day behind a receipt that, chronologically,
+ * has not happened yet.
+ *
+ * No prior receipt at all is the *first* night this lane has ever run in
+ * this receipts directory, not a lane that has been silently down for
+ * `MAX_AGED_OUT_LOOKBACK_DAYS` -- treating it as the latter (the original
+ * R1b-1 shape) reported a full week of "aged out" candidates a lane that
+ * never ran before never had any chance to process. `firstRun: true` looks
+ * back exactly one night (the ordinary, no-gap shape) and says so plainly,
+ * rather than presenting that single day's count as if it meant a missed
+ * week. `uncappedGapDays` is kept alongside the capped `nights` returned to
+ * the caller so the receipt can show *how large* an unusually long gap
+ * actually was, not just that it hit the (`MAX_AGED_OUT_LOOKBACK_DAYS`)
+ * ceiling -- a receipts directory idle for months must still not make this
+ * pass scan an unbounded number of days, only *report* how unbounded the
+ * real gap was.
  */
-function agedOutLookbackNights(receiptsDir, now) {
+function agedOutLookback(receiptsDir, now) {
   let entries;
-  try { entries = readdirSync(receiptsDir); } catch { return MAX_AGED_OUT_LOOKBACK_DAYS; }
+  try { entries = readdirSync(receiptsDir); } catch { return { nights: 1, uncappedGapDays: null, firstRun: true }; }
+  const nowMs = Date.parse(now);
   let newestRanAtMs = null;
   for (const name of entries) {
     if (!name.endsWith('.json')) continue;
@@ -461,14 +525,14 @@ function agedOutLookbackNights(receiptsDir, now) {
     try { body = JSON.parse(readFileSync(path.join(receiptsDir, name), 'utf8')); } catch { continue; }
     if (body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA && body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA_V1) continue;
     const ranAtMs = typeof body.ran_at === 'string' ? Date.parse(body.ran_at) : NaN;
-    if (Number.isFinite(ranAtMs) && (newestRanAtMs === null || ranAtMs > newestRanAtMs)) newestRanAtMs = ranAtMs;
+    if (Number.isFinite(ranAtMs) && ranAtMs <= nowMs && (newestRanAtMs === null || ranAtMs > newestRanAtMs)) newestRanAtMs = ranAtMs;
   }
-  if (newestRanAtMs === null) return MAX_AGED_OUT_LOOKBACK_DAYS;
+  if (newestRanAtMs === null) return { nights: 1, uncappedGapDays: null, firstRun: true };
   const previousSeoulDate = seoulDateFor(new Date(newestRanAtMs).toISOString());
   const todaySeoulDate = seoulDateFor(now);
-  const gapDays = Math.round(
+  const uncappedGapDays = Math.round(
     (Date.parse(`${todaySeoulDate}T00:00:00.000Z`) - Date.parse(`${previousSeoulDate}T00:00:00.000Z`)) / (24 * 60 * 60 * 1000));
-  return Math.min(MAX_AGED_OUT_LOOKBACK_DAYS, Math.max(1, gapDays));
+  return { nights: Math.min(MAX_AGED_OUT_LOOKBACK_DAYS, Math.max(1, uncappedGapDays)), uncappedGapDays, firstRun: false };
 }
 
 /**
@@ -478,11 +542,13 @@ function agedOutLookbackNights(receiptsDir, now) {
  * so the count is accurate even when the cap would stop classification
  * before reaching them) and will fall out of the backlog window within
  * `AGING_SOON_NIGHTS` nights if not run tonight. `aged_out_unprocessed`
- * (R1b-1) looks back `agedOutLookbackNights` calendar days from the window
- * edge -- every one of those, not just the single newest -- and reports any
- * session there still lacking a verified run, grouped by date; the scan
- * stops (recording `error`) at the first day it cannot read rather than
- * silently reporting a partial answer as if it were complete.
+ * (R1b-1) looks back `agedOutLookback` calendar days from the window edge --
+ * every one of those, not just the single newest -- and reports any session
+ * there still lacking a verified run, grouped by date; the scan stops
+ * (recording `error`) at the first day it cannot read rather than silently
+ * reporting a partial answer as if it were complete -- `count` is `null`
+ * whenever `error` is set, precisely so no partial number sits next to it
+ * looking like a complete one.
  */
 function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, receiptsDir, now,
   backlogWindowDays = BACKLOG_WINDOW_DAYS, configSha256 = null, promptDigests = null }) {
@@ -493,10 +559,10 @@ function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, rece
       configSha256, promptDigests }).classification === 'run')
     .length;
 
-  const lookbackNights = agedOutLookbackNights(receiptsDir, now);
+  const lookback = agedOutLookback(receiptsDir, now);
   const byDate = [];
   let agedOutErrorCode = null;
-  for (let night = 1; night <= lookbackNights; night++) {
+  for (let night = 1; night <= lookback.nights; night++) {
     const agedOutDate = shiftDate(targetDate, -(backlogWindowDays + night));
     try {
       const sessionIds = listDirNames(io, `${sessionsAddress}/${agedOutDate}`)
@@ -509,8 +575,9 @@ function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, rece
     }
   }
   return { aging_out_soon: agingOutSoon,
-    aged_out_unprocessed: { lookback_nights: lookbackNights,
-      count: byDate.reduce((sum, entry) => sum + entry.count, 0), by_date: byDate, error: agedOutErrorCode } };
+    aged_out_unprocessed: { lookback_nights: lookback.nights, uncapped_gap_days: lookback.uncappedGapDays,
+      first_run: lookback.firstRun, count: agedOutErrorCode !== null ? null : byDate.reduce((sum, entry) => sum + entry.count, 0),
+      by_date: byDate, error: agedOutErrorCode } };
 }
 
 // ------------------------------------------------------------ classification
@@ -681,7 +748,11 @@ export function acquireLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) {
  * the fixed `STALE_LOCK_MS`, unchanged from before this review.
  */
 export function staleLockMsFor({ deadline, scheduledStart = null, deadlineAt = null, now, chainReconcile = false }) {
-  if (deadline === null) return STALE_LOCK_MS;
+  // nit (2026-09-21 review, round 3): `--chain-reconcile` without
+  // `--deadline` still holds this lock through the chain after card
+  // generation -- the fixed no-deadline default must account for that same
+  // extra time, not just the deadline-derived branch below.
+  if (deadline === null) return STALE_LOCK_MS + (chainReconcile ? CHAIN_ALLOWANCE_MS : 0);
   const spanMs = deadlineSpanMs({ scheduledStart, deadlineAt, now });
   const graceMs = HARD_STOP_GRACE_MINUTES * 60 * 1000;
   const chainMs = chainReconcile ? CHAIN_ALLOWANCE_MS : 0;
@@ -864,9 +935,16 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
   // call in its budget actually spent the full per-call timeout -- not a
   // prediction of how long a session actually takes (most finish in a
   // fraction of this), a ceiling this pipeline's own config already commits
-  // to. `null` when the pipeline config does not declare both numbers.
-  const worstCaseSessionMinutes = Number.isFinite(config?.limits?.llm_calls) && Number.isFinite(config?.model?.timeout_ms)
-    ? Math.round((config.limits.llm_calls * config.model.timeout_ms) / 60000) : null;
+  // to. `null` only when the pipeline config does not even declare
+  // `limits.llm_calls`. S3 (2026-09-21 review, round 3): `readPipelineConfig`
+  // never defaults `model.timeout_ms` itself, and the config this lane
+  // actually runs with in practice omits it -- `DEFAULT_CHAT_TIMEOUT_MS` is
+  // the exact number `createLocalChat`'s own binding validation
+  // (`validateChatBinding`, `ollama_chat.mjs`) falls back to at call time, so
+  // using anything else here would silently under- or over-state the real
+  // worst case for the common, undeclared-timeout config shape.
+  const worstCaseSessionMinutes = Number.isFinite(config?.limits?.llm_calls)
+    ? Math.round((config.limits.llm_calls * (config?.model?.timeout_ms ?? DEFAULT_CHAT_TIMEOUT_MS)) / 60000) : null;
 
   // A defensive catch around the *call itself*, not just inside the default
   // implementation: an injected `runReconcileChain` (a test double, or a
@@ -890,7 +968,7 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       hard_stop_at: hardStopAt, worst_case_session_minutes: worstCaseSessionMinutes, ...extra }
     : null);
   const agingCheckFailed = error => ({ aging_out_soon: null,
-    aged_out_unprocessed: { lookback_nights: null, count: null, by_date: [],
+    aged_out_unprocessed: { lookback_nights: null, uncapped_gap_days: null, first_run: null, count: null, by_date: [],
       error: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_aging_check_failed' } });
 
   if (dry) {

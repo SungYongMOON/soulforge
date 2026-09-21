@@ -135,17 +135,49 @@
 
 등록기가 실제로 만드는 마지막 명령줄(자리표시자, exit code 전달 확인용):
 ```
-wscript.exe //B //NoLogo "<lane>\ops\run-voice-conversation-list-hidden.vbs" "<System32>\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "& '<node.exe>' '<lane>\...\voice_conversation_list_nightly.mjs' '--root-table' '<root_table.json>' '--root-table-sha256' 'sha256:<...>' '--tools-config' '<tools.json>' '--pipeline-config' '<pipeline.json>' '--receipts' '<receipts_dir>' '--max-sessions' '40' '--deadline' '04:00' '--scheduled-start' '00:00' ; exit $LASTEXITCODE"
+wscript.exe //B //NoLogo "<lane>\ops\run-voice-conversation-list-hidden.vbs" "<System32>\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "& '<node.exe>' '<lane>\...\voice_conversation_list_nightly.mjs' '--root-table' '<root_table.json>' '--root-table-sha256' 'sha256:<...>' '--tools-config' '<tools.json>' '--pipeline-config' '<pipeline.json>' '--receipts' '<receipts_dir>' '--max-sessions' '40' '--deadline' '04:00' '--scheduled-start' '00:00' ; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE"
 ```
+
+세 번째 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전) — 필수 1건, should 4건·저렴한 nit 5건:
+- (R1, 필수) round 2의 `; exit $LASTEXITCODE`는 node.exe 자체가 뜨지 못하는 경우(예: 경로가 틀림)를 놓쳤다
+  — `&`(호출 연산자)는 네이티브 프로세스가 실제로 실행돼 끝났을 때만 `$LASTEXITCODE`를 채우므로, 실행 자체가
+  실패하면 그 변수는 세션 시작 값인 `$null`로 남고 `exit $null`은 종료코드 0이다(round 1의 무조건 1보다
+  나쁘다 — 실패가 성공으로 보고된다). 생성된 명령 끝을 `; if ($null -eq $LASTEXITCODE) { exit 1 }; exit
+  $LASTEXITCODE`로 고쳤다. 실측(직접 PowerShell `Start-Process -Wait -PassThru` + 숨은 `.vbs` 런처 그대로를
+  부르는 새 hermetic 시험 둘 다로): node exit 4→4, node exit 0→0, node exit 2→2, node.exe 경로 없음→1.
+- (S1) `atomicWriteFileSync`의 옛 `finally`가 대체 쓰기(overwrite)가 도중에 실패해도 임시 파일을 무조건
+  지웠다 — 대상이 잘렸는데 유일하게 온전한 사본까지 같이 사라지는 경우였다. 이제 성공한 경로(rename 성공·
+  overwrite 성공·recovery 쓰기 성공)에서만 지우고, 실패 경로는 전부 `tmp_path`를 오류에 실어 보존한다.
+- (S2) 두 대체 경로(rename·직접 덮어쓰기)가 모두 막히는 경우(대상을 쥔 reader가 rename도 overwrite도 거부)를
+  다루지 못했다 — 이제 형제 경로 `<파일명>.recovered.json`에 마지막으로 써서 그 밤의 기록을 살린다. 대조기의
+  `.json` 글롭이 `.recovered.json`도 이미 그대로 집으므로(확장자가 같은 패턴이라 우연이 아니라 그대로
+  두기로 결정) 읽기 쪽은 손대지 않았다 — README의 "영수증" 절에 그 한계를 좁혀 적었다(원래 경로는 갱신되지
+  않는다).
+- (S3) `worst_case_session_minutes`는 정상 설정에서 죽어 있었다 — `config.model.timeout_ms`가 `readPipelineConfig`
+  기본값에 없어서다. 실제 런타임 기본값은 `src/adapters/local_model/ollama_chat.mjs`의
+  `binding.timeout_ms ?? 600000`뿐이었다. 그 상수를 `DEFAULT_CHAT_TIMEOUT_MS`로 내보내 두 자리에서 공유한다
+  (숫자를 복제하지 않는다).
+- (S4) `agedOutLookback`(구 `agedOutLookbackNights`)이 `now`보다 미래인 `ran_at`을 가진 영수증도 "가장 최근
+  실행"으로 셀 수 있었다 — 미래 timestamp는 이제 무시한다.
+- 저렴한 nit 5건: (1) `uncapped_gap_days`를 `lookback_nights`와 나란히 기록한다(둘 다 캡 전/후를 보여준다).
+  (2) 이전 영수증이 전혀 없는 첫 회차는 7일 lookback 대신 `first_run: true` + `nights: 1`로 보고한다(이
+  lane이 한 번도 못 본 세션을 "이 lane 밑에서 aged out"이라 말하지 않는다). (3) aging 스캔이 `error`를
+  안고 있으면 `count`를 `null`로 비운다(오류 옆에 반쪽짜리 숫자를 두지 않는다). (4) `staleLockMsFor`는
+  `--deadline` 없이 `--chain-reconcile`만 줘도 `CHAIN_ALLOWANCE_MS`를 더한다. (5)
+  `context_read_lane.spec.json` v5 설명의 "두 파일"을 "세 파일"로 고쳤다(이 회차가
+  `voice_conversation_list_nightly.mjs`·`register-voice-conversation-list-task.ps1`·
+  `estate_voice_card_reconcile.mjs` 셋을 건드리므로).
 
 시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 8건, 마감 정지·다음 밤
 픽업·마감 미도달·지각 시작 즉시 정지 4건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 실
 reconcile/present 종단 시험 2건, 등록기 구조 시험 3건(-DailyAt/-Deadline/-ChainReconcile·S2/S4/S6/N3·
-R1a-1, 전부 PowerShell 실행 없이 소스 텍스트 대조), R1(필수) 5건, S1 1건, S2 2건, S3 1건, S4 3건, S5 2건,
-N1 1건, S1-1(재시도·대체 쓰기·정리) 3건, S5-1(`staleLockMsFor` 3건 + 통합 1건 + `releaseLock` 소유권 3건),
-R1b-1(다중일 lookback) 1건, nit1/2(CLI 엄격 검사) 2건, nit3(margin≥span 거부) 1건, nit4(worst-case 경고)
-2건 — 총 86건, 전부 통과. `tests/estate_voice_card_reconcile.test.mjs`에 nit5(schema v1/v2 겸용 수용)
-1건 추가, 47건 전부 통과.
+R1a-1, 전부 PowerShell 실행 없이 소스 텍스트 대조) + R1 hermetic 실측 1건(Windows에서만 돎), R1(필수) 5건,
+S1 1건, S2 2건, S3 1건, S4 3건, S5 2건, N1 1건, S1-1(재시도·대체 쓰기·정리) 3건, S5-1(`staleLockMsFor` 3건
++ 통합 1건 + `releaseLock` 소유권 3건), R1b-1(다중일 lookback) 1건, nit1/2(CLI 엄격 검사) 2건, nit3
+(margin≥span 거부) 1건, nit4(worst-case 경고) 2건, round 3 R1(exit-code 실측) 2건, S1/S2(원자적 쓰기
+3단 대체) 3건, S3(timeout 기본값 공유) 1건, S4(미래 ran_at 무시) 1건, nit(uncapped gap) 1건, nit(첫 회차
+first_run) 1건, nit(chain allowance without deadline) 1건 — 총 93건, 전부 통과. `tests/estate_voice_card_reconcile.test.mjs`에
+nit5(schema v1/v2 겸용 수용) 1건 추가, 47건 전부 통과(round 3에서 새 실패 없음).
 
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 
@@ -325,7 +357,8 @@ R1b-1(다중일 lookback) 1건, nit1/2(CLI 엄격 검사) 2건, nit3(margin≥sp
   제거는 여전히 비동기(L2, 나중) — 이 조각은 ledger와 읽기 경로까지다.
 - **backlog이 2단계에 닿기(S2-5)**: `estate_voice_card_reconcile.mjs`에 `--nightly-receipts <dir>`을 더했다.
   주면 이 대조기는 `--date` 하루치 대신, 그 디렉터리에 있는 모든 야간 lane 영수증
-  (`soulforge.voice_conversation_list_nightly_receipt.v1`)이 `ran` 또는 `skipped_existing`이면서
+  (`soulforge.voice_conversation_list_nightly_receipt.v2`, 구 `.v1`도 하위호환으로 읽는다)이 `ran` 또는
+  `skipped_existing`이면서
   `verified: true`로 보고한 세션 전체를 대상으로 삼는다. 각 세션의 메일/Linear ±1일 창은 그 세션 자신의
   날짜(receipt 행의 `date` 필드, R2 — 야간 lane이 03-04 사이 며칠 지난 backlog 세션을 함께 처리하므로 receipt
   자체의 `target_date`가 아니다)로 계산하고, 여러 날짜에 걸치면 그 합집합이다. `date`가 없는 옛 receipt 행은
@@ -548,12 +581,22 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
   30초 미만이면 `duration_below_30s`(둘 다 `skipped_short`). 이미 검증된(`verified: true`) run이 있으면
   `skipped_existing` — 판별은 `voice_conversation_list_cli.mjs`의 `show`가 읽는 것과 같은 `readRun`(최신
   `generated_at`)이다. 검증 전 run만 있으면 다시 돈다.
-- 잠금: `--receipts` 아래 `nightly.lock.json` 하나가 같은 밤 두 회차가 겹치는 것을 막는다. 3시간(`STALE_LOCK_MS`)
-  넘은 잠금은 버려진 것으로 보고 이전 값을 receipt에 남긴 뒤 회수한다. 잠금을 잡지 못하면 아무 것도 부르지 않고
-  종료코드 3이다.
-- 영수증: 밤마다 receipts에 `soulforge.voice_conversation_list_nightly_receipt.v1` 파일 하나. 세션마다 id·제목·
-  길이·`outcome`(`ran`·`skipped_existing`·`skipped_short`·`failed`)·이유·모델 호출 수·걸린 초를 담는다. 실패가
-  하나라도 있으면 종료코드 2, 전부 끝나면 0.
+- 잠금: `--receipts` 아래 `nightly.lock`(확장자 없음) 하나가 같은 밤 두 회차가 겹치는 것을 막는다. stale
+  문턱은 고정 3시간이 아니라 `staleLockMsFor`가 그 밤의 구성에서 유도한다 — `--deadline`이 없으면
+  `STALE_LOCK_MS`(기본 3시간, `--chain-reconcile`이면 `CHAIN_ALLOWANCE_MS` 추가), 있으면 예약된 시작→마감
+  스팬 + hard-stop grace(+ 연쇄면 `CHAIN_ALLOWANCE_MS`)를 최저 `MIN_DEADLINE_STALE_LOCK_MS`(8시간)로 내림
+  제한한 값이다(S5-1). 넘은 잠금은 버려진 것으로 보고 이전 값을 receipt에 남긴 뒤 회수하되, 그 회수는 디스크의
+  pid·started_at이 이 회차가 실제로 쥔 값과 같을 때만 지운다(`releaseLock`). 잠금을 잡지 못하면 아무 것도
+  부르지 않고 종료코드 3이다.
+- 영수증: 밤마다 receipts에 `soulforge.voice_conversation_list_nightly_receipt.v2`(구 `.v1`도 읽기 쪽에서
+  하위호환) 파일 하나. 세션마다 id·제목·길이·`outcome`(`ran`·`skipped_existing`·`skipped_short`·`failed`)·
+  이유·모델 호출 수·걸린 초를 담는다. 실패가 하나라도 있으면 종료코드 2, 전부 끝나면 0. 쓰기는 임시 파일 +
+  rename이 기본이며, rename이 재시도 끝에도 막히면 대상에 직접 덮어쓰기로, 그마저 막히면(예: 읽는 쪽이 대상을
+  쥐고 있어 둘 다 거부) 형제 경로 `<파일명>.recovered.json`에 마지막으로 써서 그 밤의 기록 자체는 남긴다 —
+  이 경우 원래 경로는 갱신되지 않으므로 `chain` 등 그 receipt를 참조하는 상태는 다음 판단 전까지 낡아 있을 수
+  있다(좁힌 주장, S2 round 3). 대조기(`estate_voice_card_reconcile.mjs`)의 `--nightly-receipts` 글롭은
+  `.recovered.json`도 `.json`로 그대로 집어 읽는다(무시하지 않고 명시적으로 처리) — 스키마·모양이 원본과
+  같기 때문이다.
 - `--dry`는 계획과 판별만 보여주고 모델을 부르지 않으며 잠금·영수증·`derived_root` 어디에도 쓰지 않는다. 등록기의
   preflight가 이 모드다.
 - 등록: `ops/register-voice-conversation-list-task.ps1` (+ 숨은 실행기 `ops/run-voice-conversation-list-hidden.vbs`)이

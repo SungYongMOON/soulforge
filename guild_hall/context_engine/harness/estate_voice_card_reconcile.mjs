@@ -292,6 +292,13 @@ function collectBacklogSessions(nightlyReceiptsDir) {
   const ids = new Set(), dates = new Set();
   const derivation = { declared: 0, session_id_prefix: 0, undated: 0 };
   const unsettled = new Map();
+  // S2 (2026-09-21 review, round 3): a `<name>.recovered.json` file --
+  // `voice_conversation_list_nightly.mjs`'s `atomicWriteFileSync` writing to
+  // a sibling path once both the atomic rename and a direct overwrite of the
+  // primary path were denied -- is deliberately *handled* here, not ignored:
+  // it already matches this plain `.json` glob, and its schema and shape are
+  // exactly one more ordinary nightly receipt, so nothing extra is needed
+  // for a night that only survived at its recovered path to still be found.
   for (const name of names.filter(entry => entry.endsWith('.json')).sort()) {
     let body;
     try { body = JSON.parse(readFileSync(path.join(nightlyReceiptsDir, name), 'utf8')); } catch { continue; }

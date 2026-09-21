@@ -282,13 +282,29 @@ $WScriptExe = Join-Path $env:WINDIR "System32\wscript.exe"
 # DEADLINE's 4 included) collapsed to a bare 1 without this. `&` sets
 # `$LASTEXITCODE`; an explicit `exit` is what actually makes this
 # `-Command` invocation (and so `wscript.exe`'s own wait, and Task
-# Scheduler's own "last result") carry it. The trailing piece is built as
-# its own single-quoted (unexpanded) literal so `$LASTEXITCODE` reaches the
-# generated script text verbatim, not this registrar's own current value.
+# Scheduler's own "last result") carry it.
+#
+# R1 (round 3): a bare `exit $LASTEXITCODE` is not enough -- when `node.exe`
+# itself cannot even be *launched* (a missing/renamed path, for instance),
+# `&` never sets `$LASTEXITCODE` at all (nothing ran to set it), so it stays
+# whatever it was before this script started -- `$null` in a fresh
+# `-NoProfile -NonInteractive` process -- and `exit $null` is exit **0**,
+# reporting a launch failure as a clean run. Measured end to end through the
+# real hidden launcher both ways: a bare trailing `exit $LASTEXITCODE` gave 0
+# for a missing node path (worse than this registrar's very first version,
+# which at least collapsed everything non-zero to a bare 1); guarding first
+# with `if ($null -eq $LASTEXITCODE) { exit 1 }` gives a non-zero exit for
+# that case while still passing every real exit code (4, 0, 2 all measured
+# to come through unchanged) on to the final `exit $LASTEXITCODE`. The whole
+# trailing piece is one single-quoted (unexpanded) literal -- `ConvertTo-
+# TaskArgument` still accepts it as-is (no embedded double quotes, so it is
+# just wrapped, braces included, in one escaped double-quoted argument) --
+# so `$null`/`$LASTEXITCODE`/the `if` block reach the generated script text
+# verbatim, not this registrar's own current values.
 $CommandScript = "& " + (ConvertTo-SingleQuotedLiteral -Value $NodePath) + " " `
   + (ConvertTo-SingleQuotedLiteral -Value $Entry) + " " `
   + (($NightlyArguments | ForEach-Object { ConvertTo-SingleQuotedLiteral -Value ([string]$_) }) -join " ") `
-  + "; exit " + '$LASTEXITCODE'
+  + '; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE'
 $HiddenActionArgumentLine = (@(
   "//B", "//NoLogo", $HiddenLauncher, $PowerShellExe,
   "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",

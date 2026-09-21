@@ -1,5 +1,60 @@
 # CHANGELOG
 
+## 2026-09-21 - 대화 목록 야간 lane 세 번째 신선한 눈 검토 정정: exit code null 함정, 3단 쓰기 대체, timeout 기본값 공유
+
+- Revision: 이 항목을 포함한 커밋(같은 슬라이스, 세 번째 병합 전 신선한 눈 검토 — 필수 1건, should 4건, 저렴한
+  nit 5건 정정).
+- 무엇이 바뀌었는가: **(필수, R1)** round 2의 `; exit $LASTEXITCODE`가 node.exe 자체가 뜨지 못하는 launch
+  실패를 놓쳤다 — `&`(호출 연산자)는 네이티브 프로세스가 실제로 실행돼 끝났을 때만 `$LASTEXITCODE`를
+  채우므로, 실행 자체가 실패하면 그 변수는 세션 시작 값 `$null`로 남고 `exit $null`은 종료코드 0이다(round
+  1의 무조건 1보다 나쁘다 — 실패가 성공으로 보고됨을 실측: 숨은 `.vbs` 런처 전체 경로로 확인). 생성된 명령
+  끝을 `; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE`로 고쳤다. `ops/register-voice-
+  conversation-list-task.ps1` 수정, 실측 4건(직접 PowerShell + 새 hermetic Node 시험 둘 다로): node exit
+  4→4, node exit 0→0, node exit 2→2, node.exe 경로 없음→1. **(S1)** `atomicWriteFileSync`의 옛 `finally`가
+  대체 쓰기(overwrite) 실패에도 임시 파일을 무조건 지워 유일하게 온전한 사본까지 파괴할 수 있었다 — 이제
+  성공한 경로에서만 지우고, 실패 경로는 `tmp_path`를 오류에 실어 보존한다. **(S2)** rename·직접 덮어쓰기가
+  모두 막히는 경우(대상을 쥔 reader가 둘 다 거부)를 다루지 못했다 — 형제 경로 `<파일명>.recovered.json`에
+  마지막으로 써서 그 밤의 기록을 살린다; 대조기(`estate_voice_card_reconcile.mjs`)의 `.json` 글롭이
+  `.recovered.json`도 그대로 집어 읽음을 확인하고 명시적으로 주석을 남겼다(무시가 아니라 처리). **(S3)**
+  `worst_case_session_minutes`가 정상 설정에서 죽어 있었다(`config.model.timeout_ms`가 `readPipelineConfig`
+  기본값에 없어서) — 실제 런타임 기본값(`src/adapters/local_model/ollama_chat.mjs`의
+  `binding.timeout_ms ?? 600000`)을 `DEFAULT_CHAT_TIMEOUT_MS`로 내보내 두 자리에서 공유한다(숫자 복제 금지).
+  **(S4)** `agedOutLookback`이 `now`보다 미래인 `ran_at`을 최근 실행으로 잘못 셀 수 있었다 — 미래
+  timestamp는 이제 무시한다. 저렴한 nit 5건: (1) `uncapped_gap_days`를 `lookback_nights`와 나란히 기록.
+  (2) 이전 영수증이 아예 없는 첫 회차는 7일 lookback 대신 `first_run: true` + `nights: 1`로 보고(이 lane이
+  한 번도 못 본 세션을 "aged out"이라 말하지 않는다). (3) aging 스캔에 `error`가 있으면 `count`를 `null`로
+  비움. (4) `staleLockMsFor`는 `--deadline` 없이 `--chain-reconcile`만 줘도 `CHAIN_ALLOWANCE_MS`를 더함.
+  (5) `guild_hall/deployment_pack/lanes/context_read_lane.spec.json` v5 설명의 "두 파일"을 "세 파일"로
+  정정(이 회차가 `voice_conversation_list_nightly.mjs`·`register-voice-conversation-list-task.ps1`·
+  `estate_voice_card_reconcile.mjs` 셋을 건드림). 부수 정리: `ollama_chat.mjs` 편집으로 그 파일의 sha256이
+  바뀌어 `guild_hall/context_engine/release/runtime-closure.json`에 박힌 `closure_sha256`이 낡았음을
+  확인(다른 어디에도 같은 digest가 박혀 있지 않음을 먼저 grep으로 확인) — 손편집 대신 프로젝트 자신의
+  emitter(`node guild_hall/context_engine/release/closure.mjs --write`)로 재생성했고, 그 emitter가 이미
+  0.22.3인 `module.manifest.json`의 `module_version`을 반영해 `context-engine-v1.spec.json`의 `lane_id`도
+  `context-engine-v0-22-2`→`context-engine-v0-22-3`으로 같이 갱신됐다(이 커밋이 만든 드리프트가 아니라
+  emitter가 이미 있던 버전 불일치를 재생성 시점에 함께 바로잡은 것). 새 hermetic 시험이 처음엔 `powershell.exe`/
+  `wscript.exe`를 Windows 시스템 루트 아래 절대경로 리터럴로 박아 `local_absolute_path_policy` 위반이 났다 — 기존
+  관례(`release_rehearsal.mjs`/`release_rehearsal.test.mjs`)를 따라 `process.env.SystemRoot ?? process.env.WINDIR`에서
+  유도하도록 고쳤다.
+- 운영 영향: 코드·문서·생성 산출물(runtime-closure.json/spec) 변경뿐이다. 실제 예약작업은 이 커밋으로 손대지
+  않았다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/release/runtime-closure.json`,
+  `guild_hall/context_engine/release/context-engine-v1.spec.json`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`,
+  `guild_hall/context_engine/README.md`.
+- 검증: `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`(93/93 pass,
+  exit 0), `node --test guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`(47/47 pass,
+  exit 0), `npm run validate:context-engine`(678 tests, 670 pass·8 skip·0 fail, `ok:true`, exit 0), `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations, exit 0), `node
+  guild_hall/validate/boot_digest_guard.mjs`(OK, exit 0), PowerShell 5.1
+  `[System.Management.Automation.Language.Parser]::ParseFile`로 등록기 구문 확인(`PARSE_OK`). 실제
+  `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
 ## 2026-09-21 - 대화 목록 야간 lane 두 번째 신선한 눈 검토 정정: 재시도 쓰기, lock 문턱, 다중일 aging, exit code 전달
 
 - Revision: 이 항목을 포함한 커밋(같은 슬라이스, 두 번째 병합 전 신선한 눈 검토 — 첫 검토는 필수 없음으로
