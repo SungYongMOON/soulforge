@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 두 번째 신선한 검토(non-author) 반영: 무결성·ReDoS·잠금 범위
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 두 커밋에 대한 별도(non-author) fresh review의 필수 3·
+  should 9·nit 1건과 Owner 문맥 변경 2건을 반영했다. (1) `--hiworks-events` 오타 등
+  읽을 수 없는 custody 디렉터리를 `unreadable_dirs`로 영수증에 노출하고 `status`를
+  `'failed'`로 만들며, 기존에 행이 있던 대장이 새로 0행이 되는 경우 `--allow-empty`
+  없이는 fail-closed한다(R1). (2) 정적 모양 검사만으로 못 잡는 ReDoS
+  패턴(`^(a|a)+$`류)을 컴파일 시 `node:vm` `timeout`으로 실제 중단 가능한 타이밍
+  카나리로 추가 차단한다(R2). (3) 빈 event_id의 합성 id를 전체 원본 줄 해시로
+  바꾸고, history 생성 직전에 신선한(fresh) 행 자체의 중복 키도 감지해 쓰기 전에
+  막는다(R3). (4) event_id만으로 중복제거하지 않고 지문(정규화 제목+시각+발신
+  주소, 첨부수는 제외)이 다르면 `id_collisions_kept`로 별도 집계하며 둘 다
+  보존한다(S4). (5) `unreadable_dirs` 무력화 버그를 고치고, 실행 중 예외가 나도
+  `status:'failed'` 영수증을 먼저 쓴 뒤 다시 던진다(S5). (6) `preview-rule` CLI는
+  기본으로 실제 제목이 들어있는 `samples`를 출력하지 않고 `--show-samples`를 요구한다
+  (S6). (7) `saveRuleVersion`의 Owner 절 carry-forward가 불릿 줄만 유지하던 것을
+  표·중첩 불릿·산문까지 원문 그대로 복사하도록 고쳤다(S7). (8) 셀 안 줄바꿈이
+  encodeCsv에서 공백으로 눌리던 것을 quoted cell로 왕복 보존하게 했다(S8). (9)
+  refresh 잠금을 `--receipts`가 아니라 `workspacesRoot` 루트의 점파일로 옮겨, 서로
+  다른 receipts 디렉터리를 쓰는 CLI·UI adapter가 같은 대장을 동시에 덮어쓰지
+  못하게 했다(S9). (10) 시스템 발신자 차단 목록을 org config의
+  `system_sender_domains`로 재정의 가능하게 하고 예시 파일에 중립 placeholder를
+  추가했다(nit). Owner 문맥: `participant_domains`는 이제 항상 빈 값으로 저장되며
+  이 모듈은 계속 무시만 한다(코드 변경 없음); 스레드 정규화에 읽음 영수증
+  접두(읽음:/Read:)를 RE/FW와 함께 추가했다.
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`의 새 잠금 파일이
+  `workspacesRoot` 루트에 일시적으로 생겼다 지워지는 점(예약작업 연결 시 참고),
+  `--allow-empty`/`--show-samples` 새 플래그, `receipt.status`가 이제
+  `unreadable_dirs`만으로도 `'failed'`가 될 수 있는 점을 Owner가 알아야 한다.
+  실제 대상면 `--dry --fields subject` 재확인에서 이전 17개 `ledger_failures`가
+  전부 사라졌다(코디네이터가 실제 대장을 오늘 중복제거해 재생성).
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README·examples),
+  `package.json`.
+- 검증: `npm run validate:workspace-ledgers`(83 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 실제 대상면 `--dry --fields subject` 재확인(쓰기 없음,
+  일시적 잠금 파일만 생성 후 정상 삭제 확인).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` custody 중복 event_id 근본 원인 반영
 
 - Revision: 이 항목을 포함한 커밋.

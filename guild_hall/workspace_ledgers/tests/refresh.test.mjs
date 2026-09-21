@@ -204,7 +204,10 @@ test('refresh: preserves Owner-entered columns by key, archives to history only 
 test('refresh: lock held by a fresh lock refuses; a stale lock is reclaimed', () => {
   const fixture = makeFixture();
   try {
-    const lockFile = path.join(fixture.receiptsDir, 'refresh.lock');
+    // S9 (fresh-review-2): the lock lives under workspacesRoot (a dot-file at its
+    // root), not receiptsDir -- so a CLI run and a UI adapter using different
+    // receipts directories still serialise against each other.
+    const lockFile = path.join(fixture.workspacesRoot, '.workspace_ledgers_refresh.lock');
     writeFileSync(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-09-02T00:00:00.000Z' }));
     assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
@@ -396,9 +399,12 @@ test('refresh: a key that leaves custody drops its Owner-entered cell, counted i
       { event_id: 'h4', subject: '[P00-002] 다른과제 공지', from: 'other@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T04:00:00Z', body_text: '', attachments: [] },
     ]));
     writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), jsonl([]));
+    // P00-001 now has zero fresh mails at all -- allowEmpty is required (REQ 1) since
+    // its ledgers previously had content; this test is specifically about the drop
+    // accounting, not about the new empty-refresh guard (covered separately).
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
-      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowEmpty: true });
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.contacts.owner_cells_dropped_with_row, 1);
     // survives only in the history archive, per README
@@ -431,5 +437,120 @@ test('refresh (S13): a history archive collision at the same stamp appends a cou
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
     assert.equal(readFileSync(path.join(historyDir, `연락처_장부.csv.${stamp}.csv`), 'utf8'), 'pre-existing-content'); // untouched
     assert.equal(existsSync(path.join(historyDir, `연락처_장부.csv.${stamp}-1.csv`)), true); // counter-suffixed instead
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// -------------------------------------------------------- fresh-review-2 regressions
+test('refresh (fresh-review-2 #1): an unreadable custody directory is receipt-visible and blocked from emptying populated ledgers', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const before = readFileSync(cPath, 'utf8');
+
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const gmailTypoDir = path.join(fixture.gmailDir, 'typo-does-not-exist');
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [typoDir], gmailSentDirs: [gmailTypoDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.unreadable_dirs.length, 2);
+    assert.equal(receipt.events_scanned.hiworks, 0);
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, true);
+    assert.equal(reportA.contacts.code, 'workspace_ledgers_ledger_empty_refresh_blocked');
+    assert.equal(readFileSync(cPath, 'utf8'), before); // untouched -- never silently emptied
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-2 #1): allowEmpty explicitly overrides the empty-refresh guard, but unreadable_dirs still marks the run failed', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const gmailTypoDir = path.join(fixture.gmailDir, 'typo-does-not-exist');
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [typoDir], gmailSentDirs: [gmailTypoDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowEmpty: true });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false);
+    assert.equal(reportA.contacts.rows, 0); // genuinely rebuilt empty, as explicitly allowed
+    assert.equal(receipt.status, 'failed'); // still failed -- the unreadable dirs themselves are the visible signal
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-2 #3): two byte-identical no-id custody lines fail closed on a fresh duplicate key rather than corrupt the ledger', () => {
+  const fixture = makeFixture();
+  try {
+    const line = { subject: '[P00-001] 반복 접수', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T08:00:00Z', body_text: '', attachments: [] };
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'),
+      `${readFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), 'utf8')}\n${JSON.stringify(line)}\n${JSON.stringify(line)}`);
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.received_history.failed, true);
+    assert.equal(reportA.received_history.code, 'workspace_ledgers_ledger_fresh_duplicate_key');
+    assert.equal(receipt.status, 'failed');
+    assert.equal(existsSync(recvPath(fixture.workspacesRoot, FOLDER_A)), false); // never written in the first place
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-2 #5): a thrown error still leaves a status:failed receipt on disk before propagating', () => {
+  const fixture = makeFixture();
+  try {
+    // Corrupt project A's rule json so reading the rule set throws mid-run, after the
+    // lock is already held.
+    const ruleJsonPath = path.join(fixture.workspacesRoot, FOLDER_A, RULE_DIR, 'mail_routing_rule.json');
+    writeFileSync(ruleJsonPath, 'not valid json{{{');
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' }));
+    const receiptFiles = readdirSync(fixture.receiptsDir).filter(name => name.endsWith('.json'));
+    assert.equal(receiptFiles.length, 1);
+    const body = JSON.parse(readFileSync(path.join(fixture.receiptsDir, receiptFiles[0]), 'utf8'));
+    assert.equal(body.status, 'failed');
+    assert.ok(body.error && typeof body.error.code === 'string');
+    // the lock must still be released even though the run threw
+    assert.equal(existsSync(path.join(fixture.workspacesRoot, '.workspace_ledgers_refresh.lock')), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-2 #9): the lock blocks a second caller using a *different* receipts directory', () => {
+  const fixture = makeFixture();
+  const otherReceiptsDir = path.join(fixture.root, 'other-receipts');
+  mkdirSync(otherReceiptsDir, { recursive: true });
+  try {
+    writeFileSync(path.join(fixture.workspacesRoot, '.workspace_ledgers_refresh.lock'),
+      JSON.stringify({ pid: 999999, started_at: '2026-09-02T00:00:00.000Z' }));
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: otherReceiptsDir, now: '2026-09-02T00:01:00.000Z' }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_refresh_lock_held');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-2 #10/nit): system_sender_domains from the org config overrides the built-in skip list', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'vendor.jsonl'), jsonl([
+      { event_id: 'v1', subject: '[P00-001] 예시장비 알림', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
+      system_sender_domains: ['vendor.example'],
+    }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    // v1 would otherwise have matched P00-001 -- it must be skipped as a system sender instead.
+    assert.equal(receipt.skipped_system, 1);
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.mails, 2); // unchanged from the base fixture (h1 + g1) -- v1 did not attribute
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

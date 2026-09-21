@@ -21,7 +21,10 @@ Per project, under `_workspaces/<project_code>_<짧은한글명>/020_MGMT/`:
   attributed mail (received / sent), with Owner-editable `단계`/`작업상태` columns.
 - `027_수신이력_이동이력/회신_현황.csv` -- one row per external thread needing 답필요
   (we owe a reply) or 회신대기 (waiting on their reply), with Owner-editable
-  `처리상태(Owner기입)`/`메모` columns.
+  `처리상태(Owner기입)`/`메모` columns. Threads group by normalised subject
+  (`src/ledgers.mjs`'s `normalizeSubject`), which strips Re/Fw/답장/전달/회신/Remind
+  prefixes and read-receipt prefixes (읽음:/Read:, Owner decision 2026-09-21) before
+  hashing.
 
 Byte lineage for every one of those files (sha256, bytes, previous_sha256, who/why)
 lives at `_workmeta/<same folder name>/lineage/<file>.lineage.json`, per
@@ -43,6 +46,11 @@ a preserved Owner-entered cell round-trips unchanged. A genuine value that itsel
 started with an apostrophe immediately followed by a trigger character (`'=already
 guarded`) is indistinguishable from a guarded one and is treated as guarded on
 read -- a deliberately rare, documented edge case, not a data-loss risk.
+
+An embedded newline in a cell (most often a soft-wrapped Owner note typed in Excel)
+round-trips through a quoted cell -- `encodeCsv` used to flatten it to a single space
+unconditionally, which silently lost it on the very next refresh; `decodeCsv` already
+read a quoted embedded newline back correctly, so this was purely a lossy write path.
 
 ## Person merge rules (연락처_장부.csv)
 
@@ -120,7 +128,10 @@ function -- neither function reads the existing rule's `exact`/`hint`/`yields_to
 merges it with `draft`'s. Unknown top-level fields on `draft` (e.g. a
 not-yet-schema-committed `participant_domains`) pass through untouched into the saved
 json -- this module does not validate, strip or build behaviour on any field outside
-the schema above.
+the schema above. `participant_domains` specifically: Owner decision (2026-09-21) is
+that a supplier/partner domain must never confirm a project by itself, so saved rules
+now always carry it empty -- this module keeps ignoring it either way and does not
+build attribution logic on it.
 
 `saveRuleVersion`'s optional `measured` (folded into the rendered md's 근거 line)
 accepts either shape: `previewRule`'s own return value passed straight through
@@ -135,7 +146,11 @@ object matching neither shape) renders the same "값 없음 (UNKNOWN)" line as b
 
 `refresh` is **not** create-only -- unlike the rule store, the four ledgers are
 rewritten from custody on every run, while **preserving Owner-entered columns by
-key**:
+key**. A short-lived lock (a dot-file at `workspacesRoot`'s own root -- never inside
+any project folder `listProjects` would enumerate, and never scoped to
+`--receipts`, since two callers with different receipts directories -- the CLI and a
+UI adapter, say -- must still serialise against each other when they can both
+rewrite the same ledgers) prevents two concurrent refreshes.
 
 | CSV | key | preserved columns |
 | --- | --- | --- |
@@ -199,6 +214,20 @@ Classification always considers **every** onboarded project's rule (so held/yiel
 decisions are correct), even when `--projects` restricts which projects' files are
 actually written.
 
+**Unreadable custody directories and empty refreshes.** A directory
+`loadMailEvents` could not read at all -- most dangerously, a `--hiworks-events` typo
+pointing at a path that simply does not exist -- is recorded in `receipt
+.unreadable_dirs`, and its presence alone sets `receipt.status` to `'failed'`: an
+input directory silently reading as empty must never look identical to a genuinely
+mail-free window. Separately, if a ledger's freshly-built rows come out to zero while
+its existing file on disk has rows, that file **fails closed** too
+(`workspace_ledgers_ledger_empty_refresh_blocked`, left untouched) unless the caller
+explicitly passes `allowEmpty: true` (`--allow-empty` on the CLI) -- the same
+protection, applied per file, for any other cause that could make custody look empty.
+A `refresh()` call that throws for any other reason still writes a best-effort
+`status: 'failed'` receipt (with an `error` field) before the error propagates, so a
+crash never leaves zero audit trail either.
+
 ## Performance
 
 - `classifier.mjs` lowercases each mail's field text at most once per unique
@@ -219,12 +248,20 @@ actually written.
 
 - **Custody itself repeats mails** -- the same `event_id` can appear on more than one
   line (across custody files or within one; observed for real). `mail_events.mjs`
-  dedupes custody candidates by their raw `event_id` *before* classification, keeping
-  the candidate with the most attachments per repeated id (a tie keeps the later
-  line); a missing `event_id` never groups with another missing one. `duplicates_dropped`
-  (the count of lines dropped this way) is reported in both the `refresh()` receipt
-  and `previewRule`'s return -- `previewRule`'s counts are always computed on the
-  deduped mail, never the raw repeated lines.
+  dedupes custody candidates that share a non-empty `event_id`, but only after
+  checking a cheap fingerprint (normalised subject + timestamp + sender address,
+  deliberately **excluding attachment count** -- real custody has been observed
+  repeating a mail's `event_id` with only that column differing). Candidates whose
+  fingerprint agrees are genuine duplicates: the one with the most attachments is kept
+  (a tie keeps the later line), counted in `duplicates_dropped`. Candidates that share
+  an `event_id` but disagree on the fingerprint are treated as an **id collision**, not
+  a duplicate -- a namespace collision across sources, or corrupt custody -- and both
+  are kept, counted in `id_collisions_kept`; every copy after the first has its
+  `event_id` disambiguated (`<id>#2`, `<id>#3`, ...) so the two mails never collide on
+  the same downstream 이력키. A missing `event_id` never groups with another missing
+  one. Both counts are reported in the `refresh()` receipt and `previewRule`'s return
+  -- `previewRule`'s counts are always computed on the deduped mail, never the raw
+  repeated lines.
 - A rule's `exact` terms decide attribution; `hint` terms are review-only signal,
   never attribution. Two projects' `exact` terms matching one mail means `held` -- no
   automatic attribution, ever (`conflict_policy`).
@@ -249,8 +286,20 @@ actually written.
   over that still contains whitespace or `<` after parsing is dropped rather than kept
   as a malformed "address".
 - A custody record with no `event_id` gets a stable content-derived id
-  (`synthetic:<sha256 prefix of source+timestamp+normalised subject+from address>`),
-  so two such events never collide on the same 이력키.
+  (`synthetic:<sha256 prefix of source+the full raw custody line>`) -- hashing the
+  entire raw line, not a handful of derived fields, means two lines differing in
+  *anything at all* (including fields this module never otherwise inspects, like
+  recipients) get different ids. This is vanishingly unlikely to collide, not a
+  cryptographic guarantee; two genuinely byte-identical no-id lines still hash the
+  same (correctly -- they are the same record repeated), and if that or any other
+  cause ever produces two fresh rows under one key, `refresh.mjs` refuses to write
+  that ledger (`workspace_ledgers_ledger_fresh_duplicate_key`) rather than silently
+  overwrite one of them.
+- The system-sender skip list (senders like `noreply@...` that are never a real
+  routing signal) defaults to a small built-in list of known vendor domains, but an
+  org config's own `system_sender_domains` (an array of domains) overrides it
+  entirely when `refresh()` is the caller -- see `examples/org_config.example.json`.
+  `previewRule` has no org config to read and always uses the built-in default.
 
 ### Regex term safety
 
@@ -266,6 +315,15 @@ A `kind: 'regex'` term is compiled defensively, not merely length-capped:
 - **Backreferences** (`\1`, `\k<name>`) and **lookbehind** (`(?<=...)`, `(?<!...)`) are
   refused outright.
 - **Alternation branches are capped** at `MAX_ALTERNATION_BRANCHES` (12).
+- **Every regex is timed against canary inputs at compile time**, under a hard
+  wall-clock budget (`REDOS_CANARY_BUDGET_MS`, 200ms) -- the shape checks above catch
+  the textbook ReDoS patterns, but not every one: `^(a|a)+$` and `^([a-z]|[a-z])+$`
+  have no nested quantifier and a tiny alternation, yet both blow up catastrophically
+  (an observed ~50s on a 31-char non-match). A plain JS loop cannot interrupt a
+  runaway synchronous regex match; the canary run happens inside a `node:vm` context
+  with a `timeout`, which V8's own execution-interrupt mechanism can actually stop
+  mid-flight. A term that overruns the budget on any canary is refused
+  (`workspace_ledgers_term_regex_timing_unsafe`).
 - The existing quantifier-count cap (`MAX_REGEX_QUANTIFIERS`, 20) and value-length cap
   (`MAX_TERM_VALUE_LENGTH`, 200) still apply.
 
@@ -277,10 +335,10 @@ All of this lives in `src/classifier.mjs`'s `compileTerm`; `rule_store.mjs`'s
 ```
 node cli.mjs refresh --workspaces-root <dir> --workmeta-root <dir> \
   --hiworks-events <dir> --gmail-sent-events <dir> --org-config <file> \
-  [--projects a,b] [--fields subject|all] [--dry] --receipts <dir>
+  [--projects a,b] [--fields subject|all] [--dry] [--allow-empty] --receipts <dir>
 
 node cli.mjs preview-rule --code <CODE> --draft <file> --workspaces-root <dir> \
-  --hiworks-events <dir> --gmail-sent-events <dir> [--fields subject|all]
+  --hiworks-events <dir> --gmail-sent-events <dir> [--fields subject|all] [--show-samples]
 
 node cli.mjs save-rule --code <CODE> --draft <file> \
   --workspaces-root <dir> --workmeta-root <dir> --by <actor> --note <text> \
@@ -292,11 +350,21 @@ always-applied machine-actor refusal -- e.g. a console pinning saves to `--by ow
 --allowed-actors owner`. Omitted (the default), any non-machine actor string is
 accepted, as before.
 
+`--allow-empty` explicitly permits `refresh` to rebuild a ledger down to zero rows
+when custody genuinely produced none; omitted (the default), 0 fresh rows where the
+existing ledger had content fails closed instead of silently emptying it (see
+"Unreadable custody directories and empty refreshes" above).
+
+`--show-samples` also prints `previewRule`'s `samples` (real mail subjects, up to 10
+per category); omitted (the default), `preview-rule` prints counts only.
+`previewRule` the library function always returns `samples` -- the console UI needs
+it -- but it is private data and the CLI does not print it unless asked.
+
 Exit codes: `0` success, `2` usage/config error (bad flags, unreadable/invalid input
 that never reached a write) **or** `refresh` completing with one or more ledger files
-that failed strict validation (R4 above -- `status: 'failed'` in the receipt), `3`
-runtime failure (lock held, write failure, or a rule store error reached after the
-arguments were valid).
+that failed strict validation (R4 above), or any unreadable custody directory
+(`status: 'failed'` in the receipt either way), `3` runtime failure (lock held, write
+failure, or a rule store error reached after the arguments were valid).
 
 ## Not yet wired (계획)
 
@@ -316,9 +384,9 @@ environment.
 
 - `listProjects({ workspacesRoot })` -> `[{ project_code, folder_name, rule_json_path, rule_md_path }]`
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
-- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, samples }`
-- `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`
-- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `ledger_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`)
+- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report)
+- `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`. `draft` (and `previewRule`'s `draft`) must be the **complete** rule document, never a partial patch -- see "Rule versioning and lineage" above.
+- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `ledger_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`)
 
 `src/index.mjs` also re-exports `validateRule`, `isMachineActor`, `RuleStoreError`,
 `RefreshError`, `clearCustodyCache`, `classifyMail`/`compileRule`/`compileRules`/

@@ -23,10 +23,10 @@ export function splitTitle(name) {
   return { base, title };
 }
 
-/** Strips reply/forward/remind prefixes and collapses whitespace, for thread grouping. */
+/** Strips reply/forward/remind/read-receipt prefixes and collapses whitespace, for thread grouping. */
 export function normalizeSubject(subject) {
   return String(subject ?? '')
-    .replace(/^\s*((re|fw|fwd|답장|전달|회신|re-?mind|remind)\s*[:：]\s*|\[\s*re-?mind\s*\]\s*)+/giu, '')
+    .replace(/^\s*((re|fw|fwd|답장|전달|회신|읽음|read|re-?mind|remind)\s*[:：]\s*|\[\s*re-?mind\s*\]\s*)+/giu, '')
     .replace(/\s+/gu, ' ')
     .trim()
     .toLowerCase();
@@ -51,10 +51,17 @@ const FORMULA_TRIGGER = /^[ \t]*[=+\-@]/u;
 const guardFormula = text => (FORMULA_TRIGGER.test(text) ? `'${text}` : text);
 const unguardFormula = text => (text.startsWith("'") && FORMULA_TRIGGER.test(text.slice(1)) ? text.slice(1) : text);
 
+// S8 (fresh-review-2): an embedded newline in a cell -- most often a soft-wrapped
+// Owner note typed in Excel -- used to be flattened to a space unconditionally, which
+// silently lost it on the very next refresh (decodeCsv reads a quoted embedded
+// newline back correctly; encodeCsv was the lossy side). CRLF is normalised to LF so
+// the row's own `\r\n` separator can never be ambiguous with an in-cell line break,
+// but the line break itself is kept -- RFC4180 quoting (below) already handles an
+// embedded newline exactly like it handles an embedded comma or quote.
 function cell(value) {
-  const text = value === null || value === undefined ? '' : String(value).replace(/\r?\n/gu, ' ');
+  const text = value === null || value === undefined ? '' : String(value).replace(/\r\n?/gu, '\n');
   const guarded = guardFormula(text);
-  return /[",]/u.test(guarded) ? `"${guarded.replace(/"/gu, '""')}"` : guarded;
+  return /[",\n]/u.test(guarded) ? `"${guarded.replace(/"/gu, '""')}"` : guarded;
 }
 
 /** UTF-8 BOM + CRLF CSV, Excel- and machine-readable alike (one copy, per Owner decision). */

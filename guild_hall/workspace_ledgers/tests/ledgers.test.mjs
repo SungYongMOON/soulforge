@@ -25,6 +25,14 @@ test('normalizeSubject / threadKey: strips Re/Fw/답장/전달/회신/Remind pre
   assert.notEqual(threadKey('hello'), threadKey('goodbye'));
 });
 
+test('normalizeSubject: also strips read-receipt prefixes (읽음:/Read:) alongside RE/FW (Owner note, 2026-09-21)', () => {
+  assert.equal(normalizeSubject('읽음: hello'), 'hello');
+  assert.equal(normalizeSubject('Read: hello'), 'hello');
+  assert.equal(normalizeSubject('read: 읽음: RE: hello'), 'hello'); // stacked prefixes
+  assert.equal(threadKey('읽음: hello'), threadKey('hello'));
+  assert.equal(threadKey('Read: hello'), threadKey('hello'));
+});
+
 test('encodeCsv / decodeCsv: BOM, CRLF, quote escaping round trip', () => {
   const headers = ['a', 'b'];
   const rows = [['simple', 'has,comma'], ['has"quote', 'multi\nline']];
@@ -34,7 +42,7 @@ test('encodeCsv / decodeCsv: BOM, CRLF, quote escaping round trip', () => {
   const decoded = decodeCsv(text);
   assert.deepEqual(decoded.headers, headers);
   assert.deepEqual(decoded.rows[0], ['simple', 'has,comma']);
-  assert.deepEqual(decoded.rows[1], ['has"quote', 'multi line']); // encodeCsv flattens embedded newlines to spaces
+  assert.deepEqual(decoded.rows[1], ['has"quote', 'multi\nline']); // S8: embedded newlines round-trip, not flattened
 });
 
 test('encodeCsv / decodeCsv: formula-injection trigger cells are guarded on write and unguarded on read (R1)', () => {
@@ -55,6 +63,15 @@ test('encodeCsv / decodeCsv: formula-injection trigger cells are guarded on writ
   assert.match(text, /'@mention/u);
   const decoded = decodeCsv(text);
   assert.deepEqual(decoded.rows, rows); // round trip strips the guard back off
+});
+
+test('encodeCsv / decodeCsv: an embedded newline round-trips via a quoted cell (fresh-review-2 #8/S8)', () => {
+  const headers = ['key', '메모'];
+  const rows = [['k1', '첫 줄\n둘째 줄\n셋째 줄']];
+  const text = encodeCsv(headers, rows);
+  assert.match(text, /"첫 줄\n둘째 줄\n셋째 줄"/u); // kept as a real newline inside a quoted cell, not flattened
+  const decoded = decodeCsv(text);
+  assert.deepEqual(decoded.rows, rows);
 });
 
 test('seoulDateOf: derives the Asia/Seoul calendar date from a UTC instant, crossing midnight both ways (S12)', () => {

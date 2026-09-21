@@ -7,10 +7,16 @@
 // Exit codes: 0 success, 2 usage/config error (bad flags, unreadable/invalid input
 // that never reached a write) OR `refresh` finishing with one or more ledger files
 // that failed strict validation (R4 -- left untouched, every other file still
-// refreshed), 3 runtime failure during execution (lock held, write failure, rule
-// store error after args were valid).
+// refreshed) OR an unreadable custody directory, 3 runtime failure during execution
+// (lock held, write failure, rule store error after args were valid).
+// `refresh` accepts an optional `--allow-empty` to explicitly permit rebuilding a
+// ledger to zero rows when custody genuinely produced none (fresh-review-2 #1) --
+// without it, 0 fresh rows where the existing ledger had content fails closed.
 // `save-rule` accepts an optional `--allowed-actors a,b,c` (N16) to further restrict
 // `--by` to that exact list, on top of the always-applied machine-actor refusal.
+// `preview-rule` prints counts only by default; `--show-samples` also prints
+// `samples`, which carries real mail subjects (fresh-review-2 #6) -- private, not for
+// casual/automated logging.
 import { readFileSync } from 'node:fs';
 import { MATCH_FIELDS } from './src/classifier.mjs';
 import { previewRule, refresh, RefreshError } from './src/refresh.mjs';
@@ -74,9 +80,10 @@ function runRefresh(flags) {
   const projectsRaw = flags.get('projects');
   const projects = typeof projectsRaw === 'string' ? projectsRaw.split(',').map(item => item.trim()).filter(Boolean) : null;
   const dry = flags.get('dry') === true || flags.get('dry') === 'true';
+  const allowEmpty = flags.get('allow-empty') === true || flags.get('allow-empty') === 'true';
   try {
     const receipt = refresh({ workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents],
-      orgConfigPath, projects, fields, dry, receiptsDir });
+      orgConfigPath, projects, fields, dry, receiptsDir, allowEmpty });
     console.log(JSON.stringify(receipt));
     // R4: one or more ledger files failed strict validation and were left untouched;
     // every other file still refreshed. That is a real failure for automation to
@@ -102,9 +109,13 @@ function runPreviewRule(flags) {
   if (fields === null) return;
   const draft = readDraft(draftPath);
   if (draft === undefined) return;
+  const showSamples = flags.get('show-samples') === true || flags.get('show-samples') === 'true';
   try {
     const result = previewRule({ workspacesRoot, code, draft, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], fields });
-    console.log(JSON.stringify(result));
+    // fresh-review-2 #6: `samples` carries real mail subjects -- printed only when
+    // explicitly asked for, never by default.
+    const { samples, ...counts } = result;
+    console.log(JSON.stringify(showSamples ? result : counts));
   } catch (error) {
     console.error(`workspace_ledgers_preview_rule_failed: ${error.code ?? error.message}`);
     process.exitCode = error instanceof RefreshError ? exitCodeFor(error.code) : 3;

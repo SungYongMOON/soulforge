@@ -130,17 +130,27 @@ export function releaseRuleSaveLock(ruleDir) {
 }
 
 // --------------------------------------------------------------------- rendering
+/**
+ * S7 (fresh-review-2): the raw lines of one `## ` section, verbatim -- prose,
+ * tables, nested bullets, blank lines between paragraphs, everything an Owner may
+ * have written there, not only lines that happen to start with `- `. A previous
+ * version that filtered to bullet-only lines silently dropped anything else an Owner
+ * wrote in "Owner 확인 기록"/"Owner 확인이 필요한 것" on the very next save. Leading
+ * and trailing blank lines are trimmed; internal blank lines (paragraph/table
+ * separators) are kept.
+ */
 function extractSection(mdText, headingPrefix) {
   const lines = String(mdText ?? '').split(/\r?\n/u);
   const startIndex = lines.findIndex(line => line.trim().startsWith(headingPrefix));
   if (startIndex === -1) return [];
-  const items = [];
+  const sectionLines = [];
   for (let index = startIndex + 1; index < lines.length; index += 1) {
-    const trimmed = lines[index].trim();
-    if (/^##\s/u.test(trimmed)) break;
-    if (trimmed.startsWith('- ')) items.push(trimmed.slice(2).trim());
+    if (/^##\s/u.test(lines[index].trim())) break;
+    sectionLines.push(lines[index]);
   }
-  return items;
+  while (sectionLines.length > 0 && sectionLines[0].trim() === '') sectionLines.shift();
+  while (sectionLines.length > 0 && sectionLines[sectionLines.length - 1].trim() === '') sectionLines.pop();
+  return sectionLines;
 }
 
 const MEASURED_UNKNOWN_LINE = '- 실측: 이번 저장에서 preview-rule을 실행하지 않아 측정값 없음 (UNKNOWN).';
@@ -177,7 +187,11 @@ function renderMeasuredLine(measured, now) {
 
 function renderRuleMarkdown({ json, decided, open, note, by, now, measured }) {
   const list = (items, empty) => (items.length ? items.map(item => `- ${item}`).join('\n') : `- ${empty}`);
-  const decidedWithNote = [...decided, `${note} (${by}, ${now.slice(0, 10)})`];
+  // S7: `decided`/`open` are verbatim lines from the previous md (see `extractSection`
+  // above) -- copied as-is, never re-wrapped as if every line were a plain bullet.
+  const noteLine = `- ${note} (${by}, ${now.slice(0, 10)})`;
+  const decidedBlock = decided.length ? `${decided.join('\n')}\n${noteLine}` : `- (이 과제에 대한 개별 확인 없음)\n${noteLine}`;
+  const openBlock = open.length ? open.join('\n') : '- 없음';
   const measuredLine = renderMeasuredLine(measured, now);
   return [
     `# 메일 라우팅 규칙 — ${json.project_code}`,
@@ -205,11 +219,11 @@ function renderRuleMarkdown({ json, decided, open, note, by, now, measured }) {
     '',
     '## Owner 확인 기록',
     '',
-    list(decidedWithNote, '(이 과제에 대한 개별 확인 없음)'),
+    decidedBlock,
     '',
     '## Owner 확인이 필요한 것',
     '',
-    list(open, '없음'),
+    openBlock,
     '',
     '## 처리 순서와 기록 자리',
     '',

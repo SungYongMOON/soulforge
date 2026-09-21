@@ -3,6 +3,7 @@
 // classifies one mail record (subject/body_text/attachment_names) against a set of
 // compiled rules. No filesystem access here -- `mail_events.mjs` and `rule_store.mjs`
 // own I/O and call into this module.
+import vm from 'node:vm';
 
 export const RULE_SCHEMA_VERSION = 'soulforge.project_mail_routing_rule.v0';
 export const MATCH_FIELDS = Object.freeze(['subject', 'body_text', 'attachment_names']);
@@ -30,6 +31,16 @@ export const MAX_YIELDS_TO_ENTRIES = 8;
 // leading prefix. A mail whose routing keyword sits past this prefix is not matched on
 // body text -- documented in README as a known limit, not silently unbounded.
 export const MAX_BODY_TEXT_CHARS = 20000;
+// Fresh-review-2 #2: the shape checks above (`hasNestedQuantifier` etc.) catch the
+// textbook ReDoS shapes, but not every one -- `^(a|a)+$` and `^([a-z]|[a-z])+$` have
+// no nested quantifier and a tiny alternation, yet both blow up catastrophically (an
+// observed ~50s on a 31-char non-match). Shape-matching cannot enumerate every
+// backtracking trap, so every regex term is additionally timed against canary inputs
+// under a hard wall-clock budget at compile time (below). A plain JS loop cannot
+// interrupt a runaway synchronous regex match; `node:vm`'s `timeout` option can,
+// because it is backed by V8's own execution-interrupt mechanism.
+export const REDOS_CANARY_BUDGET_MS = 200;
+export const REDOS_CANARY_LENGTH = 40;
 
 export class RuleCompileError extends Error {
   constructor(code, detail) {
@@ -102,6 +113,31 @@ function unescapedPipeCount(source) {
 const BACKREFERENCE = /\\([1-9]\d*|k<)/u;
 const LOOKBEHIND = /\(\?<[=!]/u;
 
+/** Canary inputs designed to trigger catastrophic backtracking in a vulnerable pattern: a uniform run (the classic trigger) and a mixed run (breaks patterns keyed to one specific repeated character). Neither ends with a character that lets a well-formed routing-keyword regex match early. */
+function redosCanaryInputs() {
+  return [
+    `${'a'.repeat(REDOS_CANARY_LENGTH)}!`,
+    `${'a'.repeat(REDOS_CANARY_LENGTH - 1)}b!`,
+  ];
+}
+
+/**
+ * Times `compiled.test(input)` for each canary input inside a fresh `vm` context with
+ * a hard wall-clock `timeout` -- `vm`'s timeout is enforced by V8's execution-
+ * interrupt mechanism, so (unlike a plain loop with a `Date.now()` check) it can
+ * actually stop a runaway synchronous regex match mid-flight. Returns `true` only if
+ * every canary finishes within budget; a timeout, or any other error, is treated as
+ * unsafe.
+ */
+function isRegexTimingSafe(compiled) {
+  for (const input of redosCanaryInputs()) {
+    const sandbox = vm.createContext({ regex: compiled, input });
+    try { vm.runInContext('regex.test(input)', sandbox, { timeout: REDOS_CANARY_BUDGET_MS }); }
+    catch { return false; }
+  }
+  return true;
+}
+
 /**
  * Compiles one rule term ({label, kind:'literal'|'regex', value, flags?}) into a
  * matcher with a `test(text)` function. Literal terms match case-insensitively
@@ -134,6 +170,7 @@ export function compileTerm(term) {
     let compiled;
     try { compiled = new RegExp(source, flags); }
     catch (error) { fail('workspace_ledgers_term_regex_invalid', error.message); }
+    if (!isRegexTimingSafe(compiled)) fail('workspace_ledgers_term_regex_timing_unsafe', term.label);
     return { label: term.label, kind: 'regex', value: source, flags, test: text => compiled.test(text) };
   }
   fail('workspace_ledgers_term_kind_unknown', String(term?.kind));

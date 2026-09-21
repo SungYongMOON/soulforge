@@ -127,16 +127,20 @@ test('loadMailEvents: two custody lines sharing one event_id dedupe to one event
 test('loadMailEvents: a tie on attachment count keeps the later line', () => {
   const dir = tempDir();
   try {
+    // same fingerprint (subject/at/from) so this is recognised as a genuine duplicate,
+    // not an id collision; the two `to` lists (not part of the fingerprint) tell us
+    // which copy survived.
     const lines = [
-      { event_id: 'dup-2', subject: 'first version', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'a.pdf' }] },
-      { event_id: 'dup-2', subject: 'second version', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'b.pdf' }] },
+      { event_id: 'dup-2', subject: 'same subject', from: 'a@example.com', to: ['first@example.com'], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'a.pdf' }] },
+      { event_id: 'dup-2', subject: 'same subject', from: 'a@example.com', to: ['second@example.com'], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'b.pdf' }] },
     ];
     writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
     const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
-    const { events, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    const { events, duplicatesDropped, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
     assert.equal(events.length, 1);
     assert.equal(duplicatesDropped, 1);
-    assert.equal(events[0].subject, 'second version'); // the later line wins the tie
+    assert.equal(idCollisionsKept, 0);
+    assert.equal(events[0].to[0]?.email, 'second@example.com'); // the later line wins the tie
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -154,6 +158,63 @@ test('loadMailEvents: distinct missing-event_id lines are never treated as dupli
     const { events, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
     assert.equal(events.length, 2);
     assert.equal(duplicatesDropped, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (fresh-review-2 #4/S4): two different mails coincidentally sharing an event_id are both kept, never silently collapsed', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { event_id: 'shared-id', subject: 'first distinct mail', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'shared-id', subject: 'a completely different mail', from: 'b@example.com', to: [], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, duplicatesDropped, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 2); // both kept
+    assert.equal(duplicatesDropped, 0); // this is not a duplicate
+    assert.equal(idCollisionsKept, 1);
+    const ids = events.map(event => event.event_id);
+    assert.equal(new Set(ids).size, 2); // disambiguated -- never collide downstream
+    assert.ok(ids.includes('shared-id'));
+    assert.ok(ids.some(id => id === 'shared-id#2'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (fresh-review-2 #4): an id collision fingerprint ignores attachment count (real custody repeats a mail with only that differing)', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { event_id: 'same-mail', subject: 'identical mail', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'same-mail', subject: 'identical mail', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'x.pdf' }] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, duplicatesDropped, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 1); // treated as the same mail, not a collision
+    assert.equal(duplicatesDropped, 1);
+    assert.equal(idCollisionsKept, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (fresh-review-2 #3): the synthesised id folds in the full raw line, so two no-id lines differing only in recipients never collide', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { subject: 'same subject', from: 'a@example.com', to: ['first@example.com'], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+      { subject: 'same subject', from: 'a@example.com', to: ['second@example.com'], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 2);
+    assert.notEqual(events[0].event_id, events[1].event_id); // different raw lines -> different synthetic ids
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -180,13 +241,16 @@ test('loadMailEvents: custody timestamps normalise to UTC instants that sort chr
   }
 });
 
-test('loadMailEvents: a missing directory reads as no events, not an error', () => {
+test('loadMailEvents (fresh-review-2 #1): a missing directory is reported as unreadable, never silently empty', () => {
   const dir = tempDir();
   try {
     const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
-    const { events, unreadableDirs } = loadMailEvents({ dirs: [path.join(dir, 'does-not-exist')], source: 'test', compiledRules: compiled });
+    const missing = path.join(dir, 'does-not-exist');
+    const { events, unreadableDirs } = loadMailEvents({ dirs: [missing], source: 'test', compiledRules: compiled });
     assert.deepEqual(events, []);
-    assert.deepEqual(unreadableDirs, []);
+    assert.equal(unreadableDirs.length, 1);
+    assert.equal(unreadableDirs[0].dir, missing);
+    assert.equal(unreadableDirs[0].code, 'ENOENT');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

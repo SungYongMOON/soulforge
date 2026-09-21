@@ -101,24 +101,59 @@ function normalizeTimestamp(raw) {
   return Number.isNaN(parsed) ? raw : new Date(parsed).toISOString();
 }
 
-/** S7: a stable content-derived id for an event whose custody record carries no `event_id`, so two such events never collide on the same 이력키 (`ledgers.mjs`'s `historyKey`). */
-function syntheticEventId({ source, at, subject, fromEmail }) {
-  const digest = createHash('sha256').update([source, at, normalizeSubject(subject), fromEmail].join('|')).digest('hex');
+/**
+ * S7 / fresh-review-2 fix #3: a content-derived id for an event whose custody record
+ * carries no `event_id`. Hashes the *entire raw custody line* (not a handful of
+ * derived fields) so two lines that differ in any way at all -- including fields this
+ * module does not otherwise inspect, like recipients -- get different ids; only two
+ * genuinely byte-identical lines can still collide, which is correct (they are the
+ * same record repeated). This is vanishingly unlikely to collide in the general case,
+ * not a cryptographic uniqueness guarantee -- `refresh.mjs`'s pre-write duplicate-key
+ * check on the freshly built rows is the actual safety net if it ever does.
+ */
+function syntheticEventId({ source, rawLine }) {
+  const digest = createHash('sha256').update(`${source}|${rawLine}`).digest('hex');
   return `synthetic:${digest.slice(0, 16)}`;
 }
 
-function* readJsonlDir(dir) {
-  let names;
-  try { names = readdirSync(dir).filter(name => name.endsWith('.jsonl')).sort(); }
-  catch (error) { if (error?.code === 'ENOENT') return; throw error; }
+/**
+ * Every parsed JSONL record directly under `dir` (`*.jsonl` files, sorted by name),
+ * paired with its own raw line text. A plain (non-generator) function: `readdirSync`
+ * and every `readFileSync` run eagerly inside this call, so any directory-read error
+ * -- including a directory that does not exist at all (a `--hiworks-events` typo, most
+ * dangerously) -- is thrown synchronously from *this call* and cannot slip past a
+ * `try` that only wraps a generator's lazy construction. `loadMailEvents` below is the
+ * only caller, and always treats a thrown error here as `unreadableDirs`, never as
+ * "this directory is simply empty".
+ */
+function readJsonlDir(dir) {
+  const names = readdirSync(dir).filter(name => name.endsWith('.jsonl')).sort();
+  const records = [];
   for (const name of names) {
     const text = readFileSync(path.join(dir, name), 'utf8');
     for (const line of text.split('\n')) {
       if (!line.trim()) continue;
       if (Buffer.byteLength(line, 'utf8') > MAX_LINE_BYTES) continue;
-      try { yield JSON.parse(line); } catch { /* skip malformed line */ }
+      try { records.push({ raw: JSON.parse(line), rawLine: line }); } catch { /* skip malformed line */ }
     }
   }
+  return records;
+}
+
+/** Cheap, order-independent identity fingerprint for a candidate: normalised subject + timestamp + sender address. Deliberately excludes attachment count -- real custody has been observed recording the same `event_id` twice with only the attachment count differing, and that must still count as one mail, not two. */
+function fingerprintOf(candidate) {
+  return `${normalizeSubject(candidate.subject)}|${candidate.at}|${candidate.from?.email ?? ''}`;
+}
+
+/** Collapses one fingerprint-agreeing group (genuine duplicates) to its single best candidate: most attachments wins, a tie keeps the later line. Returns `{ kept, droppedCount }`. */
+function collapseDuplicateGroup(group) {
+  let kept = group[0];
+  let droppedCount = 0;
+  for (const candidate of group.slice(1)) {
+    droppedCount += 1;
+    if (candidate.attachmentNames.length >= kept.attachmentNames.length) kept = candidate;
+  }
+  return { kept, droppedCount };
 }
 
 /**
@@ -127,19 +162,24 @@ function* readJsonlDir(dir) {
  * returned event (e.g. `하이웍스_수집`, `Gmail_보낸메일_수집`). `compiledRules` and
  * `fields` are passed straight to `classifyMail` per (deduped) candidate.
  *
- * Custody itself repeats mails: the same `event_id` can appear on more than one
- * line (across files or within one), and the real hiworks custody has been observed
- * doing exactly this. Candidates are deduped by their raw (non-empty) `event_id`
- * *before* classification -- classifying, then counting, would double-count a
- * repeated mail. Within one `event_id` group, the candidate with the most
- * attachments is kept; a tie keeps the later line (custody append order). A missing
- * `event_id` is never grouped with another missing one -- each such candidate is
- * unique on its own and gets its own synthesised id (S7) below.
+ * Custody itself repeats mails: the same `event_id` can appear on more than one line
+ * (across files or within one), and the real hiworks custody has been observed doing
+ * exactly this. Candidates sharing a non-empty `event_id` are grouped and checked
+ * against a cheap fingerprint (`fingerprintOf`) before being treated as duplicates --
+ * an `event_id` *coincidentally* shared by two genuinely different mails (a namespace
+ * collision across sources, or corrupt custody) is not silently collapsed. A group
+ * whose members all share one fingerprint is a real duplicate: the richer (most
+ * attachments; ties keep the later line) candidate survives, counted in
+ * `duplicatesDropped`. A group with more than one distinct fingerprint keeps every
+ * fingerprint-subgroup, counted in `id_collisions_kept`; every subgroup after the
+ * first gets its `event_id` disambiguated (`<id>#2`, `<id>#3`, ...) so two genuinely
+ * different mails never collide on the same downstream 이력키. A missing `event_id`
+ * is never grouped with another missing one -- each such candidate gets its own
+ * content-derived synthetic id (see `syntheticEventId`).
  *
- * Returns `{ events, scanned, skippedSystem, duplicatesDropped, unreadableDirs }`.
- * `events[]` never carries `body_text` or attachment names -- only
- * `attachment_count` and the classification result. `event_id` is synthesised (S7)
- * when custody recorded none; `at` is always a UTC instant (S12).
+ * Returns `{ events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept,
+ * unreadableDirs }`. `events[]` never carries `body_text` or attachment names -- only
+ * `attachment_count` and the classification result. `at` is always a UTC instant (S12).
  */
 export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIELDS,
   systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS }) {
@@ -147,9 +187,10 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
   let scanned = 0, skippedSystem = 0;
   const candidates = [];
   for (const dir of dirs) {
-    let iterator;
-    try { iterator = readJsonlDir(dir); } catch (error) { unreadableDirs.push({ dir, code: error?.code ?? 'workspace_ledgers_mail_dir_unreadable' }); continue; }
-    for (const raw of iterator) {
+    let records;
+    try { records = readJsonlDir(dir); }
+    catch (error) { unreadableDirs.push({ dir, code: error?.code ?? 'workspace_ledgers_mail_dir_unreadable' }); continue; }
+    for (const { raw, rawLine } of records) {
       const subject = String(raw.subject ?? '');
       if (!subject) continue;
       scanned += 1;
@@ -166,29 +207,55 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
       const bodyText = String(raw.body_text ?? '');
       const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
       const rawEventId = String(raw.event_id ?? '').trim();
-      candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at });
+      candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, rawLine });
     }
   }
 
-  const byDedupKey = new Map();
-  let duplicatesDropped = 0;
-  candidates.forEach((candidate, index) => {
-    const key = candidate.rawEventId !== '' ? `id:${candidate.rawEventId}` : `noid:${index}`;
-    const existing = byDedupKey.get(key);
-    if (!existing) { byDedupKey.set(key, candidate); return; }
-    duplicatesDropped += 1;
-    // most attachments wins; a tie keeps the later line (this candidate, since the
-    // forEach walks candidates in the order they were read from custody).
-    if (candidate.attachmentNames.length >= existing.attachmentNames.length) byDedupKey.set(key, candidate);
+  // Group by raw event_id (non-empty only); a missing id never groups with another.
+  const byRawId = new Map();
+  const noIdCandidates = [];
+  candidates.forEach(candidate => {
+    if (candidate.rawEventId === '') { noIdCandidates.push(candidate); return; }
+    const list = byRawId.get(candidate.rawEventId) ?? [];
+    list.push(candidate);
+    byRawId.set(candidate.rawEventId, list);
   });
 
+  let duplicatesDropped = 0;
+  let idCollisionsKept = 0;
+  const survivors = []; // { candidate, effectiveEventId: string | null }
+
+  for (const [rawId, group] of byRawId) {
+    if (group.length === 1) { survivors.push({ candidate: group[0], effectiveEventId: rawId }); continue; }
+    const byFingerprint = new Map();
+    for (const candidate of group) {
+      const fp = fingerprintOf(candidate);
+      const list = byFingerprint.get(fp) ?? [];
+      list.push(candidate);
+      byFingerprint.set(fp, list);
+    }
+    let subgroupIndex = 0;
+    for (const fingerprintGroup of byFingerprint.values()) {
+      subgroupIndex += 1;
+      const { kept, droppedCount } = collapseDuplicateGroup(fingerprintGroup);
+      duplicatesDropped += droppedCount;
+      if (subgroupIndex === 1) {
+        survivors.push({ candidate: kept, effectiveEventId: rawId });
+      } else {
+        idCollisionsKept += 1;
+        survivors.push({ candidate: kept, effectiveEventId: `${rawId}#${subgroupIndex}` });
+      }
+    }
+  }
+  for (const candidate of noIdCandidates) survivors.push({ candidate, effectiveEventId: null });
+
   const events = [];
-  for (const candidate of byDedupKey.values()) {
-    const { rawEventId, subject, from, to, cc, attachmentNames, bodyText, at } = candidate;
+  for (const { candidate, effectiveEventId } of survivors) {
+    const { subject, from, to, cc, attachmentNames, bodyText, at, rawLine } = candidate;
     const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
-    const eventId = rawEventId !== '' ? rawEventId : syntheticEventId({ source, at, subject, fromEmail: from?.email ?? '' });
+    const eventId = effectiveEventId ?? syntheticEventId({ source, rawLine });
     events.push({ source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match });
     // bodyText / attachmentNames go out of scope here: never attached to `events`.
   }
-  return { events, scanned, skippedSystem, duplicatesDropped, unreadableDirs };
+  return { events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs };
 }

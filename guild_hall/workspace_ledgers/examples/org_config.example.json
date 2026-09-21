@@ -8,5 +8,9 @@
   },
   "family": {
     "partner-old.example": "partner-new.example"
-  }
+  },
+  "system_sender_domains": [
+    "notifications.example.com",
+    "noreply.example.com"
+  ]
 }

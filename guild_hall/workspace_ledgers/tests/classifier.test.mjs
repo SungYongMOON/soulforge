@@ -113,6 +113,16 @@ test('compileTerm: rejects nested quantifiers (ReDoS shapes), backreferences, lo
   assert.equal(safe.test('기0탐'), true);
 });
 
+test('compileTerm (fresh-review-2 #2): a timing canary catches ReDoS shapes the static shape checks miss', () => {
+  // `(a|a)+`: the quantified group's own body is a plain alternation, not itself
+  // quantified, so hasNestedQuantifier does not flag it -- yet it backtracks
+  // catastrophically. The static shape checks alone would let this compile.
+  assert.throws(() => compileTerm(rx('redos-alt-1', '^(a|a)+$')), error =>
+    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe');
+  assert.throws(() => compileTerm(rx('redos-alt-2', '^([a-z]|[a-z])+$')), error =>
+    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe');
+});
+
 test('compileTerm: every regex term in examples/rule.example.json still validates', () => {
   const examplePath = new URL('../examples/rule.example.json', import.meta.url);
   const example = JSON.parse(readFileSync(examplePath, 'utf8'));

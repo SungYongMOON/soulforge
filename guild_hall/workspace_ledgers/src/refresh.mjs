@@ -8,12 +8,17 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from 'node:path';
 import { compileRules, MATCH_FIELDS } from './classifier.mjs';
 import { listProjects, readRule, validateRule, LINEAGE_SCHEMA } from './rule_store.mjs';
-import { loadMailEvents } from './mail_events.mjs';
+import { DEFAULT_SYSTEM_SENDER_PATTERNS, loadMailEvents } from './mail_events.mjs';
 import { buildContacts, buildHistory, buildReplyStatus, decodeCsv, domainOf, encodeCsv, LEDGER_SCHEMA, makeOrgLookup } from './ledgers.mjs';
 
 export const REFRESH_RECEIPT_SCHEMA = 'soulforge.workspace_ledgers_refresh_receipt.v1';
 export const REFRESH_STALE_LOCK_MS = 30 * 60 * 1000;
-const LOCK_FILE_NAME = 'refresh.lock';
+// Fresh-review-2 #9: scoped to `workspacesRoot`, not `receiptsDir` -- two callers with
+// different receipts directories (the CLI and a UI adapter, say) must still serialise
+// against each other, since they can both rewrite the same ledgers. A dot-prefixed
+// name at the workspaces root, never a subfolder, so it can never look like (or sit
+// inside) a project folder `listProjects` would enumerate.
+const LOCK_FILE_NAME = '.workspace_ledgers_refresh.lock';
 
 const CONTACTS_REL = '020_MGMT/023_연락처_이해관계자/연락처_장부.csv';
 const RECV_REL = '020_MGMT/027_수신이력_이동이력/메일_수신이력.csv';
@@ -48,9 +53,9 @@ function atomicWriteText(filePath, text) {
 }
 
 // -------------------------------------------------------------------------- lock
-export function acquireRefreshLock(receiptsDir, now) {
-  mkdirSync(receiptsDir, { recursive: true });
-  const lockFile = path.join(receiptsDir, LOCK_FILE_NAME);
+export function acquireRefreshLock(workspacesRoot, now) {
+  mkdirSync(workspacesRoot, { recursive: true });
+  const lockFile = path.join(workspacesRoot, LOCK_FILE_NAME);
   if (existsSync(lockFile)) {
     let existing;
     try { existing = JSON.parse(readFileSync(lockFile, 'utf8')); } catch { existing = {}; }
@@ -66,8 +71,8 @@ export function acquireRefreshLock(receiptsDir, now) {
   catch (error) { if (error?.code === 'EEXIST') return { held: true, age_ms: 0 }; fail('workspace_ledgers_refresh_lock_unavailable', error?.code); }
   return { held: false, reclaimed: false, age_ms: null };
 }
-export function releaseRefreshLock(receiptsDir) {
-  try { rmSync(path.join(receiptsDir, LOCK_FILE_NAME), { force: true }); } catch { /* nothing to release */ }
+export function releaseRefreshLock(workspacesRoot) {
+  try { rmSync(path.join(workspacesRoot, LOCK_FILE_NAME), { force: true }); } catch { /* nothing to release */ }
 }
 
 // ------------------------------------------------------------------ shared reading
@@ -80,14 +85,32 @@ function readOrgConfig(orgConfigPath) {
   return null;
 }
 
+/**
+ * Nit #10: the system-sender skip list used to be only the hardcoded vendor domains
+ * in `mail_events.mjs`'s tracked source, with no way to override it from `refresh`/
+ * the CLI. When the org config names its own `system_sender_domains`, those are used
+ * instead; otherwise the module's built-in default list is unchanged. Only used by
+ * `refresh()` -- `previewRule` has no org config to read and keeps the built-in
+ * default, same as before.
+ */
+function systemSenderPatternsFromConfig(orgConfig) {
+  const domains = Array.isArray(orgConfig?.system_sender_domains)
+    ? orgConfig.system_sender_domains.filter(domain => typeof domain === 'string' && domain.trim() !== '')
+    : [];
+  if (domains.length === 0) return DEFAULT_SYSTEM_SENDER_PATTERNS;
+  const escaped = domains.map(domain => domain.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'));
+  return [new RegExp(`@(${escaped.join('|')})$`, 'iu')];
+}
+
 function readAllRuleJson(workspacesRoot) {
   const projects = listProjects({ workspacesRoot });
   return projects.map(project => ({ project, json: readRule({ workspacesRoot, code: project.project_code }).json }));
 }
 
-function classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields }) {
-  const hiworks = loadMailEvents({ dirs: hiworksDirs, source: '하이웍스_수집', compiledRules, fields });
-  const gmail = loadMailEvents({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집', compiledRules, fields });
+function classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns }) {
+  const options = systemSenderPatterns ? { systemSenderPatterns } : {};
+  const hiworks = loadMailEvents({ dirs: hiworksDirs, source: '하이웍스_수집', compiledRules, fields, ...options });
+  const gmail = loadMailEvents({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집', compiledRules, fields, ...options });
   return { events: [...hiworks.events, ...gmail.events], hiworks, gmail };
 }
 
@@ -177,6 +200,10 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     // set differs -- so deduping the same repeated custody lines drops the same count
     // either way; reported once here rather than as a redundant before/after pair.
     duplicates_dropped: before.hiworks.duplicatesDropped + before.gmail.duplicatesDropped,
+    id_collisions_kept: before.hiworks.idCollisionsKept + before.gmail.idCollisionsKept,
+    // `samples` carries real mail subjects. It is here because the console UI needs
+    // it, not for casual printing -- `cli.mjs`'s preview-rule prints counts only
+    // unless the caller explicitly asks for `--show-samples`.
     samples: { moved_in: movedIn.slice(0, 10), moved_out: movedOut.slice(0, 10), newly_held: newlyHeld.slice(0, 10) },
   };
 }
@@ -312,7 +339,27 @@ function archiveHistoryCreateOnly({ historyDir, baseName, stamp, bytes }) {
   return null;
 }
 
-function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry }) {
+/** Count of rows whose `keyIndex` value repeats within `rows` itself (independent of any existing file). */
+function countDuplicateKeys(rows, keyIndex) {
+  const seen = new Set();
+  let count = 0;
+  for (const row of rows) {
+    const key = row[keyIndex];
+    if (seen.has(key)) count += 1; else seen.add(key);
+  }
+  return count;
+}
+
+function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry, allowEmpty }) {
+  // Fresh-review-2 #3 (second half): a broken key source (a synthetic id collision
+  // that somehow still occurred, or any future bug) must not silently produce two
+  // rows under one key and write a corrupt ledger -- caught here, before this file's
+  // existing content is even read, let alone merged into.
+  const freshDuplicateCount = countDuplicateKeys(rows, keyIndex);
+  if (freshDuplicateCount > 0) {
+    return { failed: true, code: 'workspace_ledgers_ledger_fresh_duplicate_key', fresh_duplicate_count: freshDuplicateCount,
+      file: `${folder}/${relPath}`, written: false, changed: false };
+  }
   const merge = preserveMerge({ existingPath: filePath, headers, rows, keyIndex, preserveIndices });
   if (merge.invalid) {
     // R4: fail closed for this one file -- do not write, do not archive, do not touch
@@ -320,6 +367,14 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
     // many distinct keys had rows disagreeing on an Owner-entered column -- the reason
     // this file, specifically, could not be safely deduped and merged.
     return { failed: true, code: merge.invalid.code, conflict_groups: merge.invalid.conflictGroups,
+      file: `${folder}/${relPath}`, written: false, changed: false };
+  }
+  // Fresh-review-2 #1 (second half): zero fresh rows where the existing ledger had
+  // content is exactly what a missing/misconfigured custody directory (or any other
+  // silent input failure) produces -- indistinguishable, from here, from a genuinely
+  // mail-free refresh. Fail closed unless the caller explicitly opted in.
+  if (merge.rows.length === 0 && merge.beforeRowCount > 0 && !allowEmpty) {
+    return { failed: true, code: 'workspace_ledgers_ledger_empty_refresh_blocked', before_rows: merge.beforeRowCount,
       file: `${folder}/${relPath}`, written: false, changed: false };
   }
   const newText = encodeCsv(headers, merge.rows);
@@ -356,20 +411,37 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
  * R4: a single ledger file that fails strict validation (see `validateExistingCsv`)
  * is skipped -- left untouched, recorded in `receipt.ledger_failures` -- while every
  * other file for every other project still refreshes normally. `receipt.status` is
- * `'failed'` whenever `ledger_failures` is non-empty; this function still returns the
- * receipt rather than throwing, so a caller sees exactly what succeeded and what did
- * not. The CLI (`cli.mjs`) maps `status: 'failed'` to exit code 2.
+ * `'failed'` whenever `ledger_failures` is non-empty, or when any custody directory
+ * could not be read (`unreadable_dirs`) -- a directory that silently reads as empty
+ * would otherwise make a `--hiworks-events` typo indistinguishable from a genuinely
+ * mail-free window, and rebuild every ledger header-only. This function still
+ * returns the receipt rather than throwing for either case, so a caller sees exactly
+ * what succeeded and what did not; the CLI maps `status: 'failed'` to exit code 2.
+ * If something unexpected throws mid-run instead, a best-effort failure receipt
+ * (`status: 'failed'`, an `error` field) is still written before the error
+ * propagates -- a thrown error never means "no audit trail at all".
  */
 export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects: onlyProjects = null,
-  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString() }) {
+  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = false }) {
+  if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
   if (typeof receiptsDir !== 'string' || receiptsDir.trim() === '') fail('workspace_ledgers_receipts_dir_required');
   const orgConfig = readOrgConfig(orgConfigPath);
   const { ourDomain } = makeOrgLookup(orgConfig);
+  const systemSenderPatterns = systemSenderPatternsFromConfig(orgConfig);
 
-  const lock = acquireRefreshLock(receiptsDir, now);
+  const lock = acquireRefreshLock(workspacesRoot, now);
   if (lock.held) fail('workspace_ledgers_refresh_lock_held');
+
+  const writeReceiptFile = body => {
+    try {
+      mkdirSync(receiptsDir, { recursive: true });
+      const stamp = now.replace(/[:.]/gu, '-');
+      atomicWriteText(path.join(receiptsDir, `refresh-${stamp}${dry ? '-dry' : ''}.json`), encodeJson(body));
+    } catch { /* best effort: a receipt-write failure must never mask the original error */ }
+  };
+
   try {
     const all = readAllRuleJson(workspacesRoot);
     if (all.length === 0) fail('workspace_ledgers_no_projects_found', workspacesRoot);
@@ -378,7 +450,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       for (const code of selectedCodes) if (!all.some(row => row.project.project_code === code)) fail('workspace_ledgers_unknown_project', code);
     }
     const compiledRules = compileRules(all.map(row => row.json));
-    const { events, hiworks, gmail } = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields });
+    const { events, hiworks, gmail } = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns });
 
     const buckets = new Map();
     let heldCount = 0, unattributed = 0;
@@ -407,7 +479,9 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     const projectReports = [];
     const ledgerFailures = [];
     const recordResult = result => {
-      if (result.failed) ledgerFailures.push({ file: result.file, code: result.code, conflict_groups: result.conflict_groups ?? null });
+      if (result.failed) {
+        ledgerFailures.push({ file: result.file, code: result.code, conflict_groups: result.conflict_groups ?? null });
+      }
       return result;
     };
     for (const { project, json } of all) {
@@ -424,22 +498,22 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       const contactsResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, CONTACTS_REL), lineagePath: path.join(lineageBase, '연락처_장부.csv.lineage.json'),
         headers: contacts.headers, rows: contacts.rows, keyIndex: CONTACTS_KEY_INDEX, preserveIndices: CONTACTS_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry,
+        code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry, allowEmpty,
       }));
       const recvResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, RECV_REL), lineagePath: path.join(lineageBase, '메일_수신이력.csv.lineage.json'),
         headers: history.headers, rows: history.received.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: RECV_REL, now, dry,
+        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty,
       }));
       const sentResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, SENT_REL), lineagePath: path.join(lineageBase, '메일_발송이력.csv.lineage.json'),
         headers: history.headers, rows: history.sent.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: SENT_REL, now, dry,
+        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty,
       }));
       const replyResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, REPLY_REL), lineagePath: path.join(lineageBase, '회신_현황.csv.lineage.json'),
         headers: reply.headers, rows: reply.rows, keyIndex: REPLY_KEY_INDEX, preserveIndices: REPLY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: REPLY_REL, now, dry,
+        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty,
       }));
 
       projectReports.push({
@@ -451,19 +525,27 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       });
     }
 
+    const unreadableDirs = [...hiworks.unreadableDirs, ...gmail.unreadableDirs];
     const receipt = {
-      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields, status: ledgerFailures.length > 0 ? 'failed' : 'ok',
+      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields,
+      status: (ledgerFailures.length > 0 || unreadableDirs.length > 0) ? 'failed' : 'ok',
       events_scanned: { hiworks: hiworks.scanned, gmail_sent: gmail.scanned },
       skipped_system: hiworks.skippedSystem + gmail.skippedSystem,
       duplicates_dropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
-      unreadable_dirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
+      id_collisions_kept: hiworks.idCollisionsKept + gmail.idCollisionsKept,
+      unreadable_dirs: unreadableDirs,
       held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     };
-    mkdirSync(receiptsDir, { recursive: true });
-    const stamp = now.replace(/[:.]/gu, '-');
-    atomicWriteText(path.join(receiptsDir, `refresh-${stamp}${dry ? '-dry' : ''}.json`), encodeJson(receipt));
+    writeReceiptFile(receipt);
     return receipt;
+  } catch (error) {
+    // S5 (fresh-review-2): whatever went wrong, the run still leaves an audit trail.
+    writeReceiptFile({
+      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields, status: 'failed',
+      error: { code: error?.code ?? 'workspace_ledgers_refresh_unexpected_error', message: error?.message ?? String(error) },
+    });
+    throw error;
   } finally {
-    releaseRefreshLock(receiptsDir);
+    releaseRefreshLock(workspacesRoot);
   }
 }

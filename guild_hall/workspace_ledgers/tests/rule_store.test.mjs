@@ -170,6 +170,46 @@ test('saveRuleVersion: measured also accepts the legacy {subjects, exact, hint_o
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('saveRuleVersion (fresh-review-2 #7/S7): carries prose, a table and nested bullets in Owner sections verbatim, not bullet-only', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const richMd = [
+      '# 메일 라우팅 규칙 — P00-001',
+      '',
+      '- 상태: 초안 v1',
+      '',
+      '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)',
+      '',
+      '- `P00-001`',
+      '',
+      '## Owner 확인 기록',
+      '',
+      '2026-09-20 회의에서 아래와 같이 확인했다:',
+      '',
+      '| 항목 | 결정 |',
+      '| --- | --- |',
+      '| 범위 | 전부 포함 |',
+      '',
+      '- 결정 A',
+      '  - 세부 사항 1',
+      '  - 세부 사항 2',
+      '',
+      '## Owner 확인이 필요한 것',
+      '',
+      '- 미결 항목 1',
+      '',
+    ].join('\n');
+    writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), richMd);
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: '새 메모', now: '2026-09-22T00:00:00.000Z' });
+    const newMd = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(newMd, /2026-09-20 회의에서 아래와 같이 확인했다:/u); // prose line
+    assert.match(newMd, /\| 항목 \| 결정 \|/u); // table header
+    assert.match(newMd, /\| 범위 \| 전부 포함 \|/u); // table row
+    assert.match(newMd, /- 결정 A\n {2}- 세부 사항 1\n {2}- 세부 사항 2/u); // nested bullets, verbatim indentation
+    assert.match(newMd, /새 메모/u); // new note still appended
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('saveRuleVersion: a missing measured renders the UNKNOWN line, never undefined', () => {
   const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
   try {
