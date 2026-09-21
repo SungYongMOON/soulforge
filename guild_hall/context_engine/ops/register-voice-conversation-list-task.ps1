@@ -56,6 +56,11 @@ param(
   # HH:mm, local; passed through to the nightly harness's own `--deadline`
   # unverbatim. Left unset, no `--deadline` reaches the harness at all.
   [string]$Deadline,
+  # Minutes before the (possibly `-Deadline`-anchored) deadline that this
+  # pass will not *start* a new session; passed through to the harness's own
+  # `--no-start-within` only when `-Deadline` is also given (S4, 2026-09-21
+  # review). Left unset, the harness applies its own default.
+  [string]$NoStartWithinMinutes,
   [switch]$ChainReconcile,
   [string]$ReconcileReceiptsRoot,
   [string]$LinearRoot,
@@ -79,6 +84,16 @@ if ($ChainReconcile -and -not $ReconcileReceiptsRoot) {
 }
 if (-not $ChainReconcile -and ($ReconcileReceiptsRoot -or $LinearRoot -or $MailRoot -or $QuestionsCap)) {
   throw "voice conversation list nightly chain pass-through arguments require -ChainReconcile"
+}
+if (-not $Deadline -and $NoStartWithinMinutes) {
+  throw "voice conversation list nightly -NoStartWithinMinutes requires -Deadline"
+}
+# S2 (2026-09-21 review): equal to -DailyAt, the harness would anchor the
+# deadline to "the next occurrence of that same time" -- a full day later --
+# silently granting this run a 24-hour runway instead of the same-night stop
+# its own two values look like they should mean.
+if ($Deadline -and $Deadline -eq $DailyAt) {
+  throw "voice conversation list nightly -Deadline must not equal -DailyAt (it would silently grant a 24-hour runway)"
 }
 
 function Assert-NoReparsePath {
@@ -241,7 +256,10 @@ $NightlyArguments = @(
 # anchoring the harness's deadline to anything else would defeat the point
 # (a late-starting run's deadline must be pinned to when it was *scheduled*
 # to start, not to whenever this registrar's caller happened to also type).
-if ($Deadline) { $NightlyArguments += @("--deadline", $Deadline, "--scheduled-start", $DailyAt) }
+if ($Deadline) {
+  $NightlyArguments += @("--deadline", $Deadline, "--scheduled-start", $DailyAt)
+  if ($NoStartWithinMinutes) { $NightlyArguments += @("--no-start-within", $NoStartWithinMinutes) }
+}
 if ($ChainReconcile) {
   $NightlyArguments += @("--chain-reconcile", "--reconcile-receipts", $ReconcileReceiptsRoot)
   if ($LinearRoot) { $NightlyArguments += @("--linear-root", $LinearRoot) }
@@ -296,6 +314,14 @@ $CurrentSid = $CurrentIdentity.User.Value
 # time zone or a string format.
 $DailyAtParts = $DailyAt.Split(":")
 $DailyAtBoundary = [DateTime]::Today.AddHours([int]$DailyAtParts[0]).AddMinutes([int]$DailyAtParts[1])
+# S6 (2026-09-21 review): a `StartBoundary` earlier today (registering after
+# that time already passed today) combined with `-StartWhenAvailable` can
+# make Task Scheduler treat today's already-passed boundary as a missed run
+# and fire right after registration -- rolled forward to the next *future*
+# occurrence instead. The post-registration attestation (`Get-LocalTimeOfDay`
+# below) compares only the time-of-day, never the date, so this stays
+# verifiable regardless of which calendar day the boundary itself lands on.
+if ($DailyAtBoundary -le (Get-Date)) { $DailyAtBoundary = $DailyAtBoundary.AddDays(1) }
 $Trigger = New-ScheduledTaskTrigger -Daily -At $DailyAtBoundary
 # The in-memory trigger serialises its StartBoundary as UTC ("...T18:00:00Z") while the
 # exported task XML carries local time with an offset ("...T03:00:00+09:00"), so both sides
@@ -332,10 +358,19 @@ $Plan = [ordered]@{
   # pass-through path and alias address included); this block only carries
   # what is safe to echo and what is not itself a host-local path.
   deadline = $(if ($Deadline) { $Deadline } else { $null })
+  no_start_within_minutes = $(if ($NoStartWithinMinutes) { $NoStartWithinMinutes } else { $null })
   chain_reconcile = [bool]$ChainReconcile
   chain_reconcile_receipts_configured = [bool]$ReconcileReceiptsRoot
   chain_linear_root = $(if ($LinearRoot) { $LinearRoot } else { $null })
-  chain_mail_roots = $(if ($MailRoot) { @($MailRoot) } else { @() })
+  # N3 (2026-09-21 review): PowerShell 5.1's ConvertTo-Json unwraps a
+  # one-element array to its own bare element when assigned as a plain
+  # hashtable value, and a zero-element array from an `if`/`else`
+  # subexpression's empty-array branch collapses to no output at all (so the
+  # whole property reads back as `$null`, serialising as JSON `null`) unless
+  # that branch is comma-prefixed to force it to stay an array. `[object[]]`
+  # on top forces real array serialisation (`[]`/`["x"]`/`["x","y"]`)
+  # regardless of element count -- both fixes are needed together.
+  chain_mail_roots = [object[]]$(if ($MailRoot) { @($MailRoot) } else { , @() })
   chain_questions_cap = $(if ($QuestionsCap) { $QuestionsCap } else { $null })
   action_sha256 = Get-Sha256Text -Value ($WScriptExe + "`n" + $HiddenActionArgumentLine)
   existing_task_sha256 = $ActualExistingTaskSha256
@@ -346,6 +381,7 @@ $PlanDigest = Get-Sha256Text -Value ($Plan | ConvertTo-Json -Depth 4 -Compress)
 if (-not $Register) {
   Write-Output ("voice conversation list nightly task dry-run attested: plan_digest=$PlanDigest " `
     + "daily_at=$ExpectedStartBoundaryTime max_sessions=$MaxSessions deadline=$($Plan.deadline) " `
+    + "no_start_within_minutes=$($Plan.no_start_within_minutes) " `
     + "chain_reconcile=$($Plan.chain_reconcile) chain_linear_root=$($Plan.chain_linear_root) " `
     + "chain_mail_roots=$($Plan.chain_mail_roots -join ',') chain_questions_cap=$($Plan.chain_questions_cap) " `
     + "mutation=false")

@@ -16,9 +16,10 @@ import { ROOT_TABLE_SCHEMA, readRootTable } from '../../path_registry/src/root_t
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import {
-  BACKLOG_WINDOW_DAYS, MIN_TRANSCRIPT_SECONDS, NIGHTLY_RECEIPT_SCHEMA, STALE_LOCK_MS,
-  acquireLock, buildSessionPlan, classifySession, defaultTargetDate, nextDeadlineInstant, releaseLock, runNightly,
-  staleReasonFor, runNightlyCli, seoulDateFor, shiftDate,
+  AGING_SOON_NIGHTS, BACKLOG_WINDOW_DAYS, DEFAULT_NO_START_WITHIN_MINUTES, HARD_STOP_GRACE_MINUTES,
+  MIN_TRANSCRIPT_SECONDS, NIGHTLY_RECEIPT_SCHEMA, STALE_LOCK_MS,
+  acquireLock, agingOutSoonThreshold, buildSessionPlan, classifySession, defaultTargetDate, nextDeadlineInstant,
+  releaseLock, runNightly, staleReasonFor, runNightlyCli, seoulDateFor, shiftDate,
 } from '../harness/voice_conversation_list_nightly.mjs';
 
 const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts', 'voice_conversation_list');
@@ -756,7 +757,11 @@ test('runNightly: a late-starting run with --scheduled-start stops immediately (
     runSession: async ({ sessionId }) => { calls.push(sessionId);
       return { run_id: `vcl_${sessionId}`, verified: true, llm_calls: 1, elapsed_ms: 1 }; }, log: () => {} });
 
-  assert.equal(result.status, 'OK'); // a deadline stop alone is never a failure, even an immediate one
+  // R1a (2026-09-21 review): zero sessions attempted because the deadline
+  // was already behind at the very start is its own status -- not `OK`
+  // (which Task Scheduler and a receipt-reading watcher would both read as
+  // "ran fine") and not `FAILED` either (nothing actually went wrong).
+  assert.equal(result.status, 'SKIPPED_PAST_DEADLINE');
   assert.deepEqual(calls, [], 'not a single session ran -- the deadline had already passed at the very start');
   assert.equal(result.receipt.deadline.configured, '04:00');
   assert.equal(result.receipt.deadline.scheduled_start, '00:00');
@@ -1111,4 +1116,331 @@ test('register-voice-conversation-list-task.ps1: -DailyAt/-Deadline/-ChainReconc
   assert.match(registrar, /chain_reconcile = \[bool\]\$ChainReconcile/);
   assert.match(registrar,
     /Get-XmlNodeText -Parent \$ExecNode -XPath "\.\/\*\[local-name\(\)='Arguments'\]"\) -eq \$HiddenActionArgumentLine/);
+});
+
+test('register-voice-conversation-list-task.ps1: S2/S4/S6/N3 review fixes are wired', async () => {
+  const registrarPath = path.join(path.dirname(fileURLToPath(import.meta.url)),
+    '..', 'ops', 'register-voice-conversation-list-task.ps1');
+  const registrar = await readFile(registrarPath, 'utf8');
+
+  // S2: refuses -Deadline equal to -DailyAt.
+  assert.match(registrar, /if \(\$Deadline -and \$Deadline -eq \$DailyAt\) \{/);
+  assert.match(registrar, /must not equal -DailyAt/);
+
+  // S4: -NoStartWithinMinutes exists, requires -Deadline, and is passed
+  // through as --no-start-within only alongside --deadline.
+  assert.match(registrar, /\[string\]\$NoStartWithinMinutes/);
+  assert.match(registrar, /-NoStartWithinMinutes requires -Deadline/);
+  assert.match(registrar, /"--no-start-within", \$NoStartWithinMinutes/);
+
+  // S6: the StartBoundary rolls forward to the next future occurrence rather
+  // than registering an already-passed time today, and the attestation stays
+  // a time-of-day-only comparison (unchanged, re-checked here too).
+  assert.match(registrar, /if \(\$DailyAtBoundary -le \(Get-Date\)\) \{ \$DailyAtBoundary = \$DailyAtBoundary\.AddDays\(1\) \}/);
+  assert.match(registrar, /\$RegisteredStartBoundaryTime -eq \$ExpectedStartBoundaryTime/);
+
+  // N3: the mail-roots array is force-serialised as a real JSON array
+  // (`[object[]]` plus a comma-guarded empty branch) rather than PowerShell
+  // 5.1's own ConvertTo-Json unwrapping a 0- or 1-element array.
+  assert.match(registrar, /chain_mail_roots = \[object\[\]\]\$\(if \(\$MailRoot\) \{ @\(\$MailRoot\) \} else \{ , @\(\) \}\)/);
+});
+
+// ============================================================ R1 (review)
+// ---------------------------------------------------- R1a: SKIPPED_PAST_DEADLINE
+test('runNightly: a classification failure alongside an already-passed deadline still reports FAILED, not SKIPPED_PAST_DEADLINE', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeMalformedSession(est.dataRoot, target, 'S_a_broken');
+  await writeSession(est.dataRoot, target, 'S_b_run', { durationSeconds: 40 });
+  const now = '2026-09-20T19:10:00.000Z'; // Seoul 2026-09-21T04:10 -- already behind a 00:00-anchored 04:00 deadline
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '04:00', scheduledStart: '00:00',
+    clock: () => now, runSession: async () => { throw new Error('must not run'); }, log: () => {} });
+  assert.equal(result.status, 'FAILED'); // a real failure always outranks the deadline-only status
+  assert.equal(result.receipt.totals.failed, 1);
+  assert.equal(result.receipt.deadline.stopped, true);
+});
+
+// --------------------------------------------------------------- R1b: aging
+test('runNightly: backlog aging visibility -- aging_out_soon counts unprocessed candidates near the window edge, aged_out_unprocessed flags what just fell out', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  // Aging-soon band (T-7..T-6 = 2026-09-13..2026-09-14, AGING_SOON_NIGHTS=2):
+  await writeSession(est.dataRoot, '2026-09-13', 'S_aging_soon', { durationSeconds: 40 }); // T-7: still needs a run
+  await writeSession(est.dataRoot, '2026-09-14', 'S_aging_but_done', { durationSeconds: 40 }); // T-6: already has one
+  await writeExistingRun(est.derivedRoot, 'S_aging_but_done', { verified: true });
+  // Not aging soon yet (T-5, three more nights before it would fall out):
+  await writeSession(est.dataRoot, '2026-09-15', 'S_not_aging_yet', { durationSeconds: 40 });
+  // The one day that was in *last* night's window and is not in tonight's (T-8):
+  await writeSession(est.dataRoot, '2026-09-12', 'S_aged_out_unprocessed', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, '2026-09-12', 'S_aged_out_but_done', { durationSeconds: 40 });
+  await writeExistingRun(est.derivedRoot, 'S_aged_out_but_done', { verified: true });
+  await writeSession(est.dataRoot, target, 'S_today', { durationSeconds: 40 });
+
+  assert.equal(agingOutSoonThreshold(target), '2026-09-14');
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_1111111111111111', verified: true, llm_calls: 1, elapsed_ms: 1 }),
+    log: () => {} });
+
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.backlog.aging_out_soon, 1); // only S_aging_soon -- S_aging_but_done already has a run
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.date, '2026-09-12');
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 1);
+  assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.session_ids, ['S_aged_out_unprocessed']);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.error, null);
+});
+
+test('runNightly --dry: backlog aging is reported in the preview too (a preflight can see it before registering)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, '2026-09-13', 'S_aging_soon', { durationSeconds: 40 });
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z', dry: true,
+    runSession: async () => { throw new Error('must not be called in dry mode'); }, log: () => {} });
+  assert.equal(result.backlog.aging_out_soon, 1);
+});
+
+// --------------------------------------------------------- R1c: reordering
+test('buildSessionPlan: a backlog candidate about to age out is ordered before the new day\'s own sessions', async () => {
+  const est = await estate();
+  const { io } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_today');
+  await writeSession(est.dataRoot, '2026-09-13', 'S_aging_soon'); // T-7: ages out after tonight if not run
+  await writeSession(est.dataRoot, '2026-09-16', 'S_backlog_normal'); // T-4: not aging soon
+
+  const plan = buildSessionPlan({ io, sessionsAddress: SESSIONS_ADDRESS, targetDate: target });
+  assert.deepEqual(plan.map(item => item.session_id), ['S_aging_soon', 'S_today', 'S_backlog_normal']);
+});
+
+test('buildSessionPlan: with --max-sessions, the reordering means an aging-soon backlog session is reached before the cap excludes it', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_today_a', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, target, 'S_today_b', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, '2026-09-13', 'S_aging_soon', { durationSeconds: 40 });
+
+  const calls = [];
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, maxSessions: 1, now: '2026-09-20T18:00:00.000Z',
+    runSession: async ({ sessionId }) => { calls.push(sessionId);
+      return { run_id: 'vcl_2222222222222222', verified: true, llm_calls: 1, elapsed_ms: 1 }; }, log: () => {} });
+  assert.equal(result.status, 'OK');
+  assert.deepEqual(calls, ['S_aging_soon']); // not S_today_a, which would have won under the old plain order
+});
+
+// ============================================================ S (should)
+// --------------------------------------------- S1: RUNNING placeholder + atomic write
+test('runNightly --chain-reconcile: the receipt carries chain: {status: RUNNING} before the chain call, overwritten with the real result after', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+
+  let snapshotDuringChain = null;
+  const runReconcileChain = chainStub(() => {
+    const written = readdirSync(est.receiptsDir).filter(name => name.endsWith('.json'));
+    snapshotDuringChain = written.length === 1
+      ? JSON.parse(readFileSync(path.join(est.receiptsDir, written[0]), 'utf8')) : null;
+    return { status: 'OK', stage: null, reason: null, reconcile: { status: 'OK' }, present: { status: 'OK' } };
+  });
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir, runReconcileChain });
+
+  assert.equal(result.status, 'OK');
+  assert.ok(snapshotDuringChain !== null, 'a receipt already existed by the time the chain ran');
+  assert.equal(snapshotDuringChain.chain.status, 'RUNNING');
+  assert.ok(typeof snapshotDuringChain.chain.started_at === 'string');
+  assert.deepEqual(result.receipt.chain, { status: 'OK', stage: null, reason: null,
+    reconcile: { status: 'OK' }, present: { status: 'OK' } });
+  // No orphaned temp file from the atomic write survives a clean run.
+  const leftover = (await readdir(est.receiptsDir)).filter(name => name.includes('.tmp-'));
+  assert.deepEqual(leftover, []);
+});
+
+// ---------------------------------------------- S2: refuse deadline == scheduled-start
+test('nextDeadlineInstant: refuses a deadline equal to scheduled-start (would silently grant a 24h runway)', () => {
+  assert.throws(() => nextDeadlineInstant('2026-09-20T15:00:00.000Z', '00:00', '00:00'),
+    error => error.code === 'voice_conversation_list_nightly_deadline_equals_scheduled_start');
+});
+
+test('runNightly: refuses when --deadline equals --scheduled-start', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  await assert.rejects(() => runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: '2026-09-20', now: '2026-09-20T15:00:00.000Z',
+    deadline: '00:00', scheduledStart: '00:00',
+    runSession: async () => { throw new Error('must not run'); }, log: () => {} }),
+    error => error.code === 'voice_conversation_list_nightly_deadline_equals_scheduled_start');
+});
+
+// --------------------------------------- S3: strict --deadline/--scheduled-start/--no-start-within usage
+test('runNightlyCli: --deadline/--scheduled-start/--no-start-within with no value, or repeated, fails loud rather than silently disabling', async () => {
+  const est = await estate();
+  const base = ['--root-table', est.tablePath, '--tools-config', est.toolsPath,
+    '--pipeline-config', est.configPath, '--receipts', est.receiptsDir];
+  await assert.rejects(() => runNightlyCli([...base, '--deadline'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_deadline_usage_invalid');
+  await assert.rejects(
+    () => runNightlyCli([...base, '--deadline', '04:00', '--deadline', '05:00'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_deadline_usage_invalid');
+  await assert.rejects(() => runNightlyCli([...base, '--scheduled-start'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_scheduled_start_usage_invalid');
+  await assert.rejects(
+    () => runNightlyCli([...base, '--scheduled-start', '00:00', '--scheduled-start', '01:00'],
+      { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_scheduled_start_usage_invalid');
+  await assert.rejects(() => runNightlyCli([...base, '--no-start-within'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_usage_invalid');
+  await assert.rejects(() => runNightlyCli([...base, '--no-start-within', '-5'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_invalid');
+});
+
+// ------------------------------------------------------------------- S4
+test('runNightly: --no-start-within holds back a new session once inside the margin, even though the raw deadline has not passed yet', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const now = '2026-09-20T10:00:00.000Z';
+  const clock = () => '2026-09-20T10:35:00.000Z'; // inside the default 30m margin, before the raw deadline
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '20:00', clock,
+    runSession: async () => { throw new Error('must not start inside the margin'); }, log: () => {} });
+  assert.equal(result.status, 'SKIPPED_PAST_DEADLINE');
+  assert.equal(result.receipt.deadline.no_start_within_minutes, DEFAULT_NO_START_WITHIN_MINUTES);
+  assert.equal(result.receipt.deadline.at, '2026-09-20T11:00:00.000Z');
+  assert.equal(result.receipt.deadline.stop_starting_at, '2026-09-20T10:30:00.000Z');
+  assert.ok(Date.parse(clock()) < Date.parse(result.receipt.deadline.at), 'the raw deadline itself had not passed yet');
+});
+
+test('runNightly: --no-start-within 0 disables the margin explicitly, running right up to the raw deadline', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const now = '2026-09-20T10:00:00.000Z';
+  const clock = () => '2026-09-20T10:35:00.000Z'; // would be inside the default margin, but it is disabled
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '20:00', noStartWithinMinutes: 0, clock,
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.deadline.no_start_within_minutes, 0);
+  assert.equal(result.receipt.deadline.stop_starting_at, result.receipt.deadline.at);
+});
+
+test('runNightly: a session that finishes past the hard stop is recorded as a warning, never abandoned (the pipeline cannot be interrupted cleanly)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const now = '2026-09-20T10:00:00.000Z'; // deadlineAt = 11:00Z; hardStopAt = 12:00Z (+60m grace)
+  const clockTimes = ['2026-09-20T10:05:00.000Z', '2026-09-20T12:30:00.000Z'];
+  let calls = 0;
+  const clock = () => clockTimes[Math.min(calls++, clockTimes.length - 1)];
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '20:00', noStartWithinMinutes: 0, clock,
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+  assert.equal(result.status, 'OK'); // an overrun is a warning, not a failure
+  const row = result.receipt.sessions.find(item => item.session_id === 'S_run');
+  assert.equal(row.overran_hard_stop, true);
+  assert.equal(result.receipt.warnings.length, 1);
+  assert.equal(result.receipt.warnings[0].code, 'session_overran_hard_stop');
+  assert.equal(result.receipt.warnings[0].session_id, 'S_run');
+  assert.equal(result.receipt.deadline.hard_stop_at, '2026-09-20T12:00:00.000Z');
+});
+
+// ---------------------------------------- S5: lock held across chain + LOCK_HELD non-failure
+test('runNightly --chain-reconcile: reconcile LOCK_HELD is a distinct non-failure chain status, and present is skipped', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+  const runReconcileChain = chainStub(() => ({ status: 'LOCK_HELD', stage: 'reconcile', reason: 'reconcile_lock_held',
+    reconcile: { status: 'LOCK_HELD' }, present: null }));
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir, runReconcileChain });
+  assert.equal(result.status, 'OK'); // not FAILED
+  assert.equal(result.receipt.chain.status, 'LOCK_HELD');
+  assert.equal(result.receipt.chain.present, null);
+});
+
+test('runNightly --chain-reconcile: the nightly lock is still held while the chain runs, only released after', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+  let lockExistedDuringChain = null;
+  const runReconcileChain = chainStub(() => {
+    lockExistedDuringChain = existsSync(path.join(est.receiptsDir, 'nightly.lock'));
+    return { status: 'OK', stage: null, reason: null, reconcile: { status: 'OK' }, present: { status: 'OK' } };
+  });
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir, runReconcileChain });
+  assert.equal(result.status, 'OK');
+  assert.equal(lockExistedDuringChain, true);
+  assert.equal(existsSync(path.join(est.receiptsDir, 'nightly.lock')), false, 'released after the chain finishes');
+});
+
+// ============================================================ N (nits)
+test('runNightly: deadline.sessions_left counts only the still-unrun remainder, not a skipped/existing row left uniterated (N1)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  // Alphabetical plan order: S_a_run, S_b_existing (skip), S_c_run.
+  await writeSession(est.dataRoot, target, 'S_a_run', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, target, 'S_b_existing', { durationSeconds: 40 });
+  await writeExistingRun(est.derivedRoot, 'S_b_existing', { verified: true });
+  await writeSession(est.dataRoot, target, 'S_c_run', { durationSeconds: 40 });
+
+  const now = '2026-09-20T13:00:00.000Z';
+  const clockTimes = ['2026-09-20T13:05:00.000Z', '2026-09-20T15:00:00.000Z'];
+  let calls = 0;
+  const clock = () => clockTimes[Math.min(calls++, clockTimes.length - 1)];
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '00:00', noStartWithinMinutes: 0, clock,
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  // S_a_run runs; S_b_existing is classified and logged (skipped_existing);
+  // the deadline trips right before S_c_run -- only S_c_run is real
+  // remaining work, so sessions_left is 1, not 2.
+  assert.equal(result.receipt.deadline.sessions_left, 1);
+});
+
+test('runNightly --chain-reconcile: a null rootTableSha256 is omitted from the chain argv rather than embedding a literal null (N2)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+
+  // No `runReconcileChain` injected: exercises the real `defaultRunReconcileChain`
+  // and its real dynamic-imported reconcile/present CLIs end to end.
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: null,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir });
+
+  assert.equal(result.status, 'OK'); // would have thrown or failed on a literal "null" sha before the fix
+  assert.equal(result.receipt.chain.status, 'OK');
 });

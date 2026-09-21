@@ -42,16 +42,28 @@
 // as the next occurrence after this run's own start -- a 00:00 start with
 // `--deadline 04:00` stops at that same morning's 04:00, and a 23:30 start
 // with `--deadline 01:00` stops at the 01:00 that follows midnight, not one
-// already behind it (`nextDeadlineInstant`). The deadline is only ever
-// checked right before this pass would start a session's own card generation
-// (never mid-classification, which is cheap file reads, not model calls); once
-// it has passed, this pass stops for the night rather than starting another
+// already behind it (`nextDeadlineInstant`). `--deadline` equal to
+// `--scheduled-start` is refused outright (S2, 2026-09-21 review): it would
+// resolve to a full day later, silently granting a 24-hour runway. The
+// deadline (minus `--no-start-within`'s margin, below) is only ever checked
+// right before this pass would start a session's own card generation (never
+// mid-classification, which is cheap file reads, not model calls); once it
+// has passed, this pass stops for the night rather than starting another
 // session, and the receipt's `deadline` block says how many sessions it
-// finished and how many it left. A session left this way carries no run yet,
-// so the very same `classifySession` logic that already re-offers a session
-// past `--max-sessions` offers it again the next night -- nothing about the
-// deadline needs its own separate pickup mechanism. A deadline stop is not a
-// failure: this pass still exits 0 for one.
+// finished and how many still-unrun ones it left. A session left this way
+// carries no run yet, so the very same `classifySession` logic that already
+// re-offers a session past `--max-sessions` offers it again the next night --
+// nothing about the deadline needs its own separate pickup mechanism.
+//
+// A run that reaches its very first deadline check with zero sessions
+// already attempted (the deadline, possibly anchored via `--scheduled-start`
+// below, was already behind before this pass could start even one) exits
+// with a *distinct* status and exit code (`SKIPPED_PAST_DEADLINE`, exit 4 --
+// see `main`'s own doc) rather than the exit-0 `OK` a deadline reached
+// mid-run gets (R1a, 2026-09-21 review): `OK`/0 is what Task Scheduler and a
+// receipt-reading watcher both read as "ran fine", which a night that did
+// zero real work is not, however clean the reason. Neither shape is
+// `FAILED`: nothing went wrong, the deadline is simply doing its job.
 //
 // `--scheduled-start HH:MM` (optional) anchors the deadline to the *trigger*
 // time rather than to whenever this process actually started -- see
@@ -61,34 +73,54 @@
 // quietly get a fresh multi-hour runway it was never granted. With it, the
 // deadline stays pinned to the scheduled 00:00's own day (04:00 that same
 // morning), already behind the 04:10 wake-up, so this run stops immediately
-// -- everything left for the next night, exactly as a deadline reached
-// mid-run would leave it. The registrar passes this through from `-DailyAt`.
+// (`SKIPPED_PAST_DEADLINE`) -- everything left for the next night. The
+// registrar passes this through from `-DailyAt` automatically.
+//
+// `--no-start-within MINUTES` (S4, 2026-09-21 review; default 30 once a
+// deadline is set, 0 otherwise) holds back the *start* of a new session once
+// fewer than that many minutes remain before the deadline -- the same stop
+// as the deadline itself, just that many minutes earlier. This pass cannot
+// interrupt a session already running: `runConversationList` (the pipeline
+// `defaultRunSession` calls) takes no abort signal or wall-clock budget
+// anywhere in its per-call loop, so a session that started just inside the
+// margin and then runs long is not abandoned mid-flight -- it is left to
+// finish, and if it finishes more than `HARD_STOP_GRACE_MINUTES` (60,
+// currently not a flag) past the deadline, that overrun is only *recorded*
+// (the session row's own `overran_hard_stop` and a `receipt.warnings` entry),
+// never cut short and never re-offered with a partial card -- the card it
+// produced is the real one.
 //
 // `--chain-reconcile` runs pass-2 reconcile (`estate_voice_card_reconcile.mjs`)
 // and then the morning-question "present" step (`voice_question_cli.mjs
 // present`) in this same process, immediately after card generation ends
-// (normally or by deadline) -- both against this same night's own `--receipts`
-// directory (reconcile's `--nightly-receipts` backlog mode) and a separate
-// `--reconcile-receipts` directory that becomes both reconcile's `--receipts`
-// and present's `--receipts` (present reads its exception pool from exactly
-// the directory reconcile just wrote to). Neither call is retried or undone
-// here, and a failure at either stage never re-runs or reverts card
-// generation -- it is recorded in this receipt's `chain` block and makes this
-// whole pass exit non-zero, the same as a session failure does. `--dry`
-// propagates: a `--dry --chain-reconcile` run previews the whole chain (both
-// sub-calls in their own `--dry`) without writing anything, which is what a
-// registrar preflight checks before it registers this chained shape.
+// (normally, by deadline, or `SKIPPED_PAST_DEADLINE`) -- both against this
+// same night's own `--receipts` directory (reconcile's `--nightly-receipts`
+// backlog mode) and a separate `--reconcile-receipts` directory that becomes
+// both reconcile's `--receipts` and present's `--receipts` (present reads its
+// exception pool from exactly the directory reconcile just wrote to). This
+// pass's own lock is held across the whole chain, not released before it
+// (S5, 2026-09-21 review), so a second nightly run cannot start real
+// card-generation work while the chain is still going; reconcile's own,
+// separate lock being held by someone else (a concurrent manual reconcile
+// run) is its own non-failure `LOCK_HELD` chain status, not a spurious
+// failure of this pass. Neither call is retried or undone here, and a
+// failure at either stage never re-runs or reverts card generation -- it is
+// recorded in this receipt's `chain` block and makes this whole pass exit
+// non-zero, the same as a session failure does. `--dry` propagates: a
+// `--dry --chain-reconcile` run previews the whole chain (both sub-calls in
+// their own `--dry`) without writing anything, which is what a registrar
+// preflight checks before it registers this chained shape.
 //
 // usage:
 //   node voice_conversation_list_nightly.mjs --root-table <file> --tools-config <file>
 //        --pipeline-config <file> --receipts <dir> [--date YYYY-MM-DD]
 //        [--root-table-sha256 sha256:...] [--max-sessions N]
-//        [--deadline HH:MM [--scheduled-start HH:MM]] [--dry]
+//        [--deadline HH:MM [--scheduled-start HH:MM] [--no-start-within MINUTES]] [--dry]
 //        [--chain-reconcile --reconcile-receipts <dir>
 //         [--linear-root <alias address>] [--mail-root <alias address>]...
 //         [--questions-cap N]]
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
@@ -109,6 +141,18 @@ export const MIN_TRANSCRIPT_SECONDS = 30;
 // How many days back this lane looks for a session it has not finished yet,
 // beyond the target date itself.
 export const BACKLOG_WINDOW_DAYS = 7;
+// How many nights ahead counts as "about to age out" for `aging_out_soon`/
+// plan reordering (R1b/R1c, 2026-09-21 review).
+export const AGING_SOON_NIGHTS = 2;
+// `--no-start-within`'s default when `--deadline` is set and the caller gave
+// no explicit value (S4, 2026-09-21 review): do not *start* a session this
+// close to the deadline.
+export const DEFAULT_NO_START_WITHIN_MINUTES = 30;
+// How far past the deadline a session that already started is allowed to
+// keep running before this pass records a warning about it (S4). Not an
+// abort: see `defaultRunSession`'s neighbouring doc for why this pass never
+// interrupts a session already in flight.
+export const HARD_STOP_GRACE_MINUTES = 60;
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/u;
 const MAX_MANIFEST_BYTES = 8 * 1024 * 1024;
 const MAX_CONFIG_BYTES = 1024 * 1024;
@@ -120,6 +164,20 @@ const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex
 const hex = bytes => createHash('sha256').update(bytes).digest('hex');
 const encode = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const fail = code => { throw new ConversationListError(code); };
+
+/**
+ * Writes via a temp file in the same directory, then `rename`s it into place
+ * (S1, 2026-09-21 review) -- a crash or kill mid-write leaves the temp file
+ * orphaned, never a half-written receipt at the real path. The temp name
+ * includes a random id so two writes racing in the same millisecond (two
+ * receipt writes in one run, or two runs against the same directory) never
+ * collide on the same temp path.
+ */
+function atomicWriteFileSync(filePath, buffer) {
+  const tmpPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.tmp-${randomUUID()}`);
+  writeFileSync(tmpPath, buffer);
+  renameSync(tmpPath, filePath);
+}
 
 // ------------------------------------------------------------------ dates
 /** "Today" as a calendar date in Asia/Seoul (fixed +09:00, no DST) for one instant. */
@@ -193,9 +251,16 @@ function lastOccurrenceAtOrBefore(anchorIso, hhmm) {
  * unanchored behaviour, unchanged for every existing caller.
  */
 export function nextDeadlineInstant(nowIso, hhmm, scheduledStart = null) {
-  const anchorIso = scheduledStart !== null ? lastOccurrenceAtOrBefore(nowIso, scheduledStart) : nowIso;
   const match = DEADLINE_HHMM.exec(hhmm ?? '');
   if (match === null) fail('voice_conversation_list_nightly_deadline_invalid');
+  // S2 (2026-09-21 review): a deadline equal to the scheduled start would
+  // resolve to "the next occurrence of that same time", i.e. a full day
+  // later -- silently granting this run a 24-hour runway instead of the
+  // same-night stop its own two values look like they should mean.
+  if (scheduledStart !== null && scheduledStart === hhmm) {
+    fail('voice_conversation_list_nightly_deadline_equals_scheduled_start');
+  }
+  const anchorIso = scheduledStart !== null ? lastOccurrenceAtOrBefore(nowIso, scheduledStart) : nowIso;
   const seoulAnchorMs = seoulMsFor(anchorIso, 'voice_conversation_list_nightly_deadline_invalid');
   const seoulAnchor = new Date(seoulAnchorMs);
   const candidateSeoulMs = Date.UTC(seoulAnchor.getUTCFullYear(), seoulAnchor.getUTCMonth(), seoulAnchor.getUTCDate(),
@@ -247,8 +312,22 @@ function listDirNames(io, address) {
  * than it simply not existing yet; the caller decides what a broken plan means
  * for the night's status.
  */
+/**
+ * The last calendar day (`YYYY-MM-DD`) a backlog candidate can carry and
+ * still be more than `nightsAhead` nights from falling out of the
+ * `backlogWindowDays`-day window, as of `targetDate`. A candidate whose
+ * `date` is at or before this threshold will drop out of the window within
+ * `nightsAhead` future nights if it is not run before then (R1b/R1c,
+ * 2026-09-21 review) -- see `buildSessionPlan`'s and `backlogAgingReport`'s
+ * own doc for what that is used for.
+ */
+export function agingOutSoonThreshold(targetDate, backlogWindowDays = BACKLOG_WINDOW_DAYS,
+  nightsAhead = AGING_SOON_NIGHTS) {
+  return shiftDate(targetDate, nightsAhead - backlogWindowDays - 1);
+}
+
 export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS, targetDate,
-  backlogWindowDays = BACKLOG_WINDOW_DAYS } = {}) {
+  backlogWindowDays = BACKLOG_WINDOW_DAYS, agingSoonNights = AGING_SOON_NIGHTS } = {}) {
   if (!DATE_DIR.test(targetDate ?? '')) fail('voice_conversation_list_nightly_date_invalid');
   const primary = listDirNames(io, `${sessionsAddress}/${targetDate}`)
     .map(sessionId => ({ date: targetDate, session_id: sessionId }));
@@ -264,7 +343,54 @@ export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS,
       backlog.push({ date, session_id: sessionId });
     }
   }
-  return [...primary, ...backlog];
+  // R1c (2026-09-21 review): a backlog candidate within `agingSoonNights` of
+  // falling out of the window goes *before* the new day's own sessions --
+  // otherwise a plan bigger than `--max-sessions` every night can push the
+  // very oldest backlog candidates past the cap night after night until they
+  // age out unprocessed and silently vanish (see `agingOutSoonThreshold`).
+  // `backlog` is already oldest-first, so the urgent slice is exactly its own
+  // prefix; nothing about the ordering *within* either slice changes.
+  const agingThreshold = agingOutSoonThreshold(targetDate, backlogWindowDays, agingSoonNights);
+  const urgentBacklog = backlog.filter(item => item.date <= agingThreshold);
+  const restBacklog = backlog.filter(item => item.date > agingThreshold);
+  return [...urgentBacklog, ...primary, ...restBacklog];
+}
+
+/**
+ * Backlog-aging visibility (R1b, 2026-09-21 review). `aging_out_soon` counts
+ * candidates already in tonight's `plan` that still need a run (classified
+ * fresh here, not read off `classifyPlan`'s own `--max-sessions`-capped pass,
+ * so the count is accurate even when the cap would stop classification
+ * before reaching them) and will fall out of the backlog window within
+ * `AGING_SOON_NIGHTS` nights if not run tonight. `aged_out_unprocessed` looks
+ * at exactly the one calendar day that was inside *last* night's window and
+ * is not inside tonight's -- any session there still lacking a verified run
+ * has just aged out unseen. This second check is stateless (no earlier
+ * receipt is read): that one day's membership is the complete, sufficient
+ * signal, because a session's own presence in that day's folder never
+ * changes once written.
+ */
+function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan,
+  backlogWindowDays = BACKLOG_WINDOW_DAYS, configSha256 = null, promptDigests = null }) {
+  const agingThreshold = agingOutSoonThreshold(targetDate, backlogWindowDays);
+  const agingOutSoon = plan
+    .filter(item => item.date !== targetDate && item.date <= agingThreshold)
+    .filter(item => classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id,
+      configSha256, promptDigests }).classification === 'run')
+    .length;
+
+  const agedOutDate = shiftDate(targetDate, -(backlogWindowDays + 1));
+  let agedOutSessionIds = [], agedOutErrorCode = null;
+  try {
+    agedOutSessionIds = listDirNames(io, `${sessionsAddress}/${agedOutDate}`)
+      .filter(sessionId => classifySession({ io, tools, sessionsAddress, date: agedOutDate, sessionId,
+        configSha256, promptDigests }).classification === 'run');
+  } catch (error) {
+    agedOutErrorCode = typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_aging_check_failed';
+  }
+  return { aging_out_soon: agingOutSoon,
+    aged_out_unprocessed: { date: agedOutDate, count: agedOutSessionIds.length,
+      session_ids: agedOutSessionIds, error: agedOutErrorCode } };
 }
 
 // ------------------------------------------------------------ classification
@@ -449,7 +575,13 @@ async function defaultRunReconcileChain({ tablePath, rootTableSha256, toolsConfi
   let reconcileResult;
   try {
     const { runReconcileCli } = await import('./estate_voice_card_reconcile.mjs');
-    const reconcileArgv = ['--root-table', tablePath, '--root-table-sha256', rootTableSha256,
+    const reconcileArgv = ['--root-table', tablePath,
+      // N2 (2026-09-21 review): a programmatic caller with no sha in hand
+      // (not this file's own CLI wrapper, which always resolves one) must
+      // never put a literal `null` into this argv -- omitted, reconcile's
+      // own CLI falls back to hashing the table file itself, its documented
+      // default for this exact flag.
+      ...(rootTableSha256 ? ['--root-table-sha256', rootTableSha256] : []),
       '--tools-config', toolsConfigPath, '--receipts', reconcileReceiptsDir,
       '--nightly-receipts', nightlyReceiptsDir, '--now', now,
       ...(linearRoot ? ['--linear-root', linearRoot] : []),
@@ -462,6 +594,15 @@ async function defaultRunReconcileChain({ tablePath, rootTableSha256, toolsConfi
       reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_chain_reconcile_failed',
       reconcile: null, present: null };
   }
+  if (reconcileResult.status === 'LOCK_HELD') {
+    // S5 (2026-09-21 review): reconcile's own, separate lock
+    // (`reconcile.lock`) held by another process -- a concurrent manual
+    // reconcile run, say -- is not this chain's failure. `present` is
+    // skipped rather than reading a stale exception pool reconcile never
+    // touched this pass.
+    return { status: 'LOCK_HELD', stage: 'reconcile', reason: 'reconcile_lock_held',
+      reconcile: { status: 'LOCK_HELD' }, present: null };
+  }
   if (reconcileResult.status !== 'OK' && reconcileResult.status !== 'DRY') {
     return { status: 'FAILED', stage: 'reconcile', reason: reconcileResult.status,
       reconcile: { status: reconcileResult.status }, present: null };
@@ -469,7 +610,8 @@ async function defaultRunReconcileChain({ tablePath, rootTableSha256, toolsConfi
 
   try {
     const { runVoiceQuestionCli } = await import('./voice_question_cli.mjs');
-    const presentArgv = ['present', '--root-table', tablePath, '--root-table-sha256', rootTableSha256,
+    const presentArgv = ['present', '--root-table', tablePath,
+      ...(rootTableSha256 ? ['--root-table-sha256', rootTableSha256] : []),
       '--tools-config', toolsConfigPath, '--receipts', reconcileReceiptsDir, '--now', now,
       ...(questionsCap !== null ? ['--cap', String(questionsCap)] : []),
       ...(dry ? ['--dry'] : [])];
@@ -499,18 +641,29 @@ const totalsFor = (rows, classificationKey, transcriptAbsentClassification) => (
 /**
  * One night. `runSession` is the only place this ever calls a model; tests
  * replace it with a scripted function and never touch `createLocalChat`.
- * `clock` is read once per candidate (never cached) to decide whether
- * `deadline` has passed -- tests inject a scripted one so a deadline stop is
+ * `clock` is read fresh (never cached) every time this checks whether a
+ * threshold has passed -- tests inject a scripted one so a deadline stop is
  * provable without an actual multi-hour wait. `chainReconcile` needs real
  * file paths (`tablePath`/`rootTableSha256`/`toolsConfigPath`,
  * `reconcileReceiptsDir`), not the already-resolved `io`/`tools` this
  * function otherwise runs on, because its two sub-calls are the reconcile and
  * present CLIs, each reading its own root table and tools config from disk.
+ *
+ * `noStartWithinMinutes` (S4, 2026-09-21 review; `null` picks the default --
+ * `DEFAULT_NO_START_WITHIN_MINUTES` when a deadline is set, otherwise no
+ * margin) holds back the *start* of a new session once fewer than that many
+ * minutes remain before the deadline. This pass never interrupts a session
+ * already running -- `defaultRunSession`'s pipeline (`runConversationList`)
+ * takes no abort signal or wall-clock budget anywhere in its per-call loop
+ * (checked directly against its source), so a session that started just
+ * inside the margin and then runs long is only ever *recorded*, via
+ * `HARD_STOP_GRACE_MINUTES`, never abandoned mid-flight -- see the loop body
+ * below for exactly what that recording is.
  */
 export async function runNightly({ io, tools, config, prompts, promptDigests, configSha256,
   sessionsAddress = VOICE_SESSIONS_ADDRESS, receiptsDir, targetDate, maxSessions = null, dry = false,
   now = new Date().toISOString(), runSession = defaultRunSession, log = () => {},
-  deadline = null, scheduledStart = null, clock = () => new Date().toISOString(),
+  deadline = null, scheduledStart = null, noStartWithinMinutes = null, clock = () => new Date().toISOString(),
   chainReconcile = false, runReconcileChain = defaultRunReconcileChain,
   tablePath = null, rootTableSha256 = null, toolsConfigPath = null, reconcileReceiptsDir = null,
   linearRoot = null, mailRoots = [], questionsCap = null } = {}) {
@@ -522,6 +675,17 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
   // `nextDeadlineInstant`'s own doc for why that distinction matters for a
   // late-starting run.
   const deadlineAt = deadline !== null ? nextDeadlineInstant(now, deadline, scheduledStart) : null;
+  const effectiveNoStartWithinMinutes = noStartWithinMinutes !== null ? noStartWithinMinutes
+    : (deadline !== null ? DEFAULT_NO_START_WITHIN_MINUTES : 0);
+  // The instant this pass stops *starting* new sessions -- the deadline
+  // itself when no margin applies, or that many minutes earlier. Checked in
+  // place of the raw deadline everywhere a "may this pass start one more
+  // session" question is asked; `deadlineAt` itself stays the value the
+  // receipt reports as the actual configured deadline.
+  const stopStartingAt = deadlineAt !== null
+    ? new Date(Date.parse(deadlineAt) - effectiveNoStartWithinMinutes * 60 * 1000).toISOString() : null;
+  const hardStopAt = deadlineAt !== null
+    ? new Date(Date.parse(deadlineAt) + HARD_STOP_GRACE_MINUTES * 60 * 1000).toISOString() : null;
 
   // A defensive catch around the *call itself*, not just inside the default
   // implementation: an injected `runReconcileChain` (a test double, or a
@@ -539,6 +703,11 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
         reconcile: null, present: null };
     }
   };
+  const deadlineReceiptBlock = extra => (deadline !== null
+    ? { configured: deadline, scheduled_start: scheduledStart, at: deadlineAt,
+      no_start_within_minutes: effectiveNoStartWithinMinutes, stop_starting_at: stopStartingAt,
+      hard_stop_at: hardStopAt, ...extra }
+    : null);
 
   if (dry) {
     let plan = [], planError = null;
@@ -548,7 +717,13 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       plan = [];
     }
     const rows = [];
+    let backlog = null;
     if (planError === null) {
+      try { backlog = backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, configSha256, promptDigests }); }
+      catch (error) {
+        backlog = { aging_out_soon: null, aged_out_unprocessed: { date: null, count: null, session_ids: [],
+          error: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_aging_check_failed' } };
+      }
       for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests })) {
         rows.push(described);
         const label = described.classification === 'run' ? 'would_run' : described.classification;
@@ -564,13 +739,13 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     // whatever this receipts directory already holds from a prior real
     // night -- this run wrote nothing new to it, `--dry` never does.
     const chain = chainReconcile ? await runChain(true) : null;
-    return { status: planError !== null || anyRowFailed || (chain !== null && chain.status !== 'OK') ? 'FAILED' : 'DRY',
+    const chainIsFailure = chain !== null && chain.status !== 'OK' && chain.status !== 'DRY' && chain.status !== 'LOCK_HELD';
+    return { status: planError !== null || anyRowFailed || chainIsFailure ? 'FAILED' : 'DRY',
       lock: null, sessions: rows, receipt: null,
       totals: { considered: rows.length, would_run: rows.filter(row => row.classification === 'run').length,
         ...totalsFor(rows, 'classification', 'skipped_short') },
       plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
-      deadline: deadline !== null ? { configured: deadline, scheduled_start: scheduledStart, at: deadlineAt } : null,
-      chain };
+      deadline: deadlineReceiptBlock({}), backlog, chain };
   }
 
   const lock = acquireLock(receiptsDir, now);
@@ -579,8 +754,15 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     return { status: 'LOCK_HELD', lock, sessions: [], receipt: null };
   }
 
-  let plan = [], planError = null, deadlineStopped = false;
+  let plan = [], planError = null, deadlineStopped = false, attemptedCount = 0, sessionsLeft = 0;
   const rows = [];
+  const warnings = [];
+  let backlog = null;
+  // Held across the chain (S5, 2026-09-21 review), not just the loop below:
+  // releasing this lock before the chain runs would let a second nightly run
+  // start real card-generation work while this pass's chain is still
+  // reading/writing, which is exactly the race that made a concurrent
+  // reconcile's own `LOCK_HELD` look like a spurious failure of this run.
   try {
     try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
     catch (error) {
@@ -589,7 +771,14 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       log(`sessions plan unreadable: ${planError}`);
     }
     if (planError === null) {
-      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests })) {
+      try { backlog = backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, configSha256, promptDigests }); }
+      catch (error) {
+        backlog = { aging_out_soon: null, aged_out_unprocessed: { date: null, count: null, session_ids: [],
+          error: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_aging_check_failed' } };
+      }
+      const describedRows = classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests });
+      for (let index = 0; index < describedRows.length; index++) {
+        const { item, described } = describedRows[index];
         if (described.classification !== 'run') {
           const row = { session_id: item.session_id, date: item.date, title: described.title,
             duration_seconds: described.duration_seconds,
@@ -606,11 +795,19 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
         // entry after it) out of `rows` entirely, not marked `failed` or
         // `skipped` -- the session still has no verified run, so the plan's
         // own `classifySession` offers it again next time, unprompted.
-        if (deadlineAt !== null && Date.parse(clock()) >= Date.parse(deadlineAt)) {
+        // `stopStartingAt` folds in the start margin (S4): the same stop
+        // fires that many minutes early when one is configured.
+        if (stopStartingAt !== null && Date.parse(clock()) >= Date.parse(stopStartingAt)) {
           deadlineStopped = true;
-          log(`deadline ${deadline} reached before ${item.session_id}; stopping for tonight`);
+          // N1 (2026-09-21 review): counts only the classified rows that
+          // still needed a run, not every remaining plan entry -- a
+          // `skipped_existing`/`skipped_short` row left uniterated is not
+          // pending work.
+          sessionsLeft = describedRows.slice(index).filter(entry => entry.described.classification === 'run').length;
+          log(`deadline ${deadline} (margin ${effectiveNoStartWithinMinutes}m) reached before ${item.session_id}; stopping for tonight`);
           break;
         }
+        attemptedCount += 1;
         let row;
         try {
           const ran = await runSession({ io, tools, config, prompts, promptDigests, configSha256, sessionId: item.session_id });
@@ -630,57 +827,79 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
             outcome: 'failed', reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_run_failed',
             llm_calls: null, seconds: null, run_id: null, verified: null };
         }
+        // S4 fallback: this pass cannot interrupt `runSession` mid-flight (see
+        // this function's own doc), so an overrun is recorded, never
+        // abandoned -- the session's own outcome above is untouched.
+        if (hardStopAt !== null && Date.parse(clock()) >= Date.parse(hardStopAt)) {
+          row.overran_hard_stop = true;
+          warnings.push({ code: 'session_overran_hard_stop', session_id: item.session_id,
+            detail: `finished past the hard stop (deadline ${deadlineAt} + ${HARD_STOP_GRACE_MINUTES}m grace); `
+              + 'the pipeline cannot be interrupted cleanly, so it ran to completion instead of being abandoned' });
+        }
         rows.push(row);
         log(`${item.date} ${row.session_id} ${row.outcome}${row.reason ? ` ${row.reason}` : ''}`
           + ` calls=${row.llm_calls ?? '-'} sec=${row.seconds ?? '-'}`);
       }
     }
+
+    const failed = rows.filter(row => row.outcome === 'failed').length;
+    const ranUnverified = rows.filter(row => row.outcome === 'ran_unverified').length;
+    // R1a (2026-09-21 review): a run that never got to start a single session
+    // because the (possibly margin-anchored) deadline had already passed is
+    // its own status, not `OK` -- `OK`/exit 0 is what Task Scheduler reads as
+    // "ran fine", which a night that did zero real work is not, however
+    // clean the reason. A genuine failure (an unreadable plan, or a session
+    // classification failure that happened before the deadline was even
+    // checked) still outranks it.
+    const cardGenStatus = planError !== null || failed > 0 || ranUnverified > 0 ? 'FAILED'
+      : (deadlineStopped && attemptedCount === 0) ? 'SKIPPED_PAST_DEADLINE' : 'OK';
+    const baseReceipt = { schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry: false,
+      lock: { reclaimed_stale: lock.reclaimed === true,
+        previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
+        previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
+      plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
+      deadline: deadlineReceiptBlock({ stopped: deadlineStopped, sessions_done: rows.length, sessions_left: sessionsLeft }),
+      backlog, sessions: rows, warnings,
+      totals: { ran: rows.filter(row => row.outcome === 'ran').length, ran_unverified: ranUnverified,
+        ...totalsFor(rows, 'outcome', 'skipped_short'),
+        llm_calls: rows.reduce((sum, row) => sum + (row.llm_calls ?? 0), 0),
+        seconds: rows.reduce((sum, row) => sum + (row.seconds ?? 0), 0) },
+      // S1 (2026-09-21 review): a placeholder, not `null`, when chaining --
+      // `null` here is indistinguishable from "this night never chained at
+      // all", so a crash mid-chain (between this write and the next one)
+      // would read as a clean, non-chained night rather than an interrupted
+      // one. Overwritten below with the real result once the chain finishes.
+      chain: chainReconcile ? { status: 'RUNNING', started_at: clock() } : null,
+      // No distinct PARTIAL status: this receipt's only consumers today are the
+      // registrar's preflight gate and a human reading the receipt, and both
+      // already know what to do with FAILED. A PARTIAL value would need that
+      // (unowned by this change) gate updated to treat it as "do not register"
+      // too, which is exactly the registrar edit this fix does not make -- so
+      // an unverified run, or a deadline stop by itself, folds into OK/FAILED/
+      // SKIPPED_PAST_DEADLINE the same way a full clean night or a real
+      // failure already does; a deadline stop is never by itself a reason for
+      // FAILED (`SKIPPED_PAST_DEADLINE` is not `FAILED`).
+      status: cardGenStatus };
+    const receiptPath = path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`);
+    mkdirSync(receiptsDir, { recursive: true });
+    atomicWriteFileSync(receiptPath, encode(baseReceipt));
+    if (!chainReconcile) return { status: baseReceipt.status, lock, sessions: rows, receipt: baseReceipt };
+
+    // The chain runs after this receipt is already on disk (reconcile's own
+    // `--nightly-receipts` backlog mode reads tonight's sessions from exactly
+    // this file) -- but still under this function's own lock (S5; see the
+    // comment above the lock's own `try`). Its outcome is folded into the
+    // same receipt file with a second atomic write, never a second file, so
+    // a failure there is recorded in the one receipt this night produced,
+    // not a partial extra artifact next to it.
+    const chain = await runChain(false);
+    const chainIsFailure = chain.status !== 'OK' && chain.status !== 'DRY' && chain.status !== 'LOCK_HELD';
+    const receipt = { ...baseReceipt, chain, status: chainIsFailure ? 'FAILED' : baseReceipt.status };
+    atomicWriteFileSync(receiptPath, encode(receipt));
+    return { status: receipt.status, lock, sessions: rows, receipt };
   } finally {
     releaseLock(receiptsDir);
   }
-
-  const failed = rows.filter(row => row.outcome === 'failed').length;
-  const ranUnverified = rows.filter(row => row.outcome === 'ran_unverified').length;
-  const baseReceipt = { schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry: false,
-    lock: { reclaimed_stale: lock.reclaimed === true,
-      previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
-      previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
-    plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
-    deadline: deadline !== null ? { configured: deadline, scheduled_start: scheduledStart, at: deadlineAt,
-      stopped: deadlineStopped, sessions_done: rows.length, sessions_left: Math.max(0, plan.length - rows.length) }
-      : null,
-    sessions: rows,
-    totals: { ran: rows.filter(row => row.outcome === 'ran').length, ran_unverified: ranUnverified,
-      ...totalsFor(rows, 'outcome', 'skipped_short'),
-      llm_calls: rows.reduce((sum, row) => sum + (row.llm_calls ?? 0), 0),
-      seconds: rows.reduce((sum, row) => sum + (row.seconds ?? 0), 0) },
-    chain: null,
-    // No distinct PARTIAL status: this receipt's only consumers today are the
-    // registrar's preflight gate and a human reading the receipt, and both
-    // already know what to do with FAILED. A PARTIAL value would need that
-    // (unowned by this change) gate updated to treat it as "do not register"
-    // too, which is exactly the registrar edit this fix does not make -- so
-    // an unverified run, or a deadline stop by itself, folds into OK/FAILED
-    // the same way a full clean night or a real failure already does; a
-    // deadline stop is never by itself a reason for FAILED.
-    status: planError !== null || failed > 0 || ranUnverified > 0 ? 'FAILED' : 'OK' };
-  const receiptPath = path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`);
-  mkdirSync(receiptsDir, { recursive: true });
-  writeFileSync(receiptPath, encode(baseReceipt));
-  if (!chainReconcile) return { status: baseReceipt.status, lock, sessions: rows, receipt: baseReceipt };
-
-  // The chain runs after this receipt is already on disk (reconcile's own
-  // `--nightly-receipts` backlog mode reads tonight's sessions from exactly
-  // this file) and after the lock above is released (reconcile keeps its own,
-  // independent lock -- see its file's own doc). Its outcome is folded into
-  // the same receipt file with a second write, never a second file, so a
-  // failure there is recorded in the one receipt this night produced, not a
-  // partial extra artifact next to it.
-  const chain = await runChain(false);
-  const receipt = { ...baseReceipt, chain,
-    status: baseReceipt.status === 'FAILED' || chain.status !== 'OK' ? 'FAILED' : 'OK' };
-  writeFileSync(receiptPath, encode(receipt));
-  return { status: receipt.status, lock, sessions: rows, receipt };
 }
 
 // -------------------------------------------------------------------- CLI
@@ -741,10 +960,34 @@ export async function runNightlyCli(argv, { runSession, runReconcileChain, clock
     }
     maxSessions = parsed;
   }
+  // S3 (2026-09-21 review): `--deadline`/`--scheduled-start`/`--no-start-
+  // within` given with no value (the `options()` parser then hands back
+  // `true`) or repeated (an array) must fail loud, the same as `--max-
+  // sessions`/`--questions-cap` already do -- silently falling back to
+  // "disabled" here is exactly how a deadline stops applying without anyone
+  // noticing.
   const deadlineFlag = flags.get('deadline');
-  const deadline = typeof deadlineFlag === 'string' ? deadlineFlag : null;
+  let deadline = null;
+  if (deadlineFlag !== undefined) {
+    if (typeof deadlineFlag !== 'string') fail('voice_conversation_list_nightly_deadline_usage_invalid');
+    deadline = deadlineFlag;
+  }
   const scheduledStartFlag = flags.get('scheduled-start');
-  const scheduledStart = typeof scheduledStartFlag === 'string' ? scheduledStartFlag : null;
+  let scheduledStart = null;
+  if (scheduledStartFlag !== undefined) {
+    if (typeof scheduledStartFlag !== 'string') fail('voice_conversation_list_nightly_scheduled_start_usage_invalid');
+    scheduledStart = scheduledStartFlag;
+  }
+  const noStartWithinFlag = flags.get('no-start-within');
+  let noStartWithinMinutes = null;
+  if (noStartWithinFlag !== undefined) {
+    if (typeof noStartWithinFlag !== 'string') fail('voice_conversation_list_nightly_no_start_within_usage_invalid');
+    const parsed = Number(noStartWithinFlag);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+      fail('voice_conversation_list_nightly_no_start_within_invalid');
+    }
+    noStartWithinMinutes = parsed;
+  }
 
   const chainReconcile = flags.get('chain-reconcile') === true;
   const reconcileReceiptsFlag = flags.get('reconcile-receipts');
@@ -772,16 +1015,25 @@ export async function runNightlyCli(argv, { runSession, runReconcileChain, clock
   const log = line => { lines.push(line); if (onLine) onLine(line); };
   const result = await runNightly({ io, tools, config, prompts, promptDigests: digests,
     configSha256: hex(configBytes), receiptsDir, targetDate, maxSessions, dry, now: nowIso,
-    deadline, scheduledStart, chainReconcile, tablePath, rootTableSha256: resolvedRootTableSha256, toolsConfigPath: toolsPath,
+    deadline, scheduledStart, noStartWithinMinutes, chainReconcile, tablePath,
+    rootTableSha256: resolvedRootTableSha256, toolsConfigPath: toolsPath,
     reconcileReceiptsDir, linearRoot, mailRoots, questionsCap,
     ...(runSession ? { runSession } : {}), ...(runReconcileChain ? { runReconcileChain } : {}),
     ...(clock ? { clock } : {}), log });
   return { result, lines, targetDate };
 }
 
+// Exit codes: 0 OK, 2 FAILED (a real problem -- an unreadable plan, a session
+// failure, an unverified run, or a chain failure), 3 LOCK_HELD (another
+// nightly run already holds this receipts directory's lock), 4
+// SKIPPED_PAST_DEADLINE (R1a, 2026-09-21 review -- the deadline had already
+// passed before this pass started a single session; distinct from both 0,
+// which Task Scheduler and a watcher would read as "ran fine", and 2, since
+// nothing actually failed).
 async function main() {
   const { result } = await runNightlyCli(process.argv.slice(2), { log: line => process.stdout.write(`${line}\n`) });
   if (result.status === 'LOCK_HELD') return 3;
+  if (result.status === 'SKIPPED_PAST_DEADLINE') return 4;
   return result.status === 'FAILED' ? 2 : 0;
 }
 

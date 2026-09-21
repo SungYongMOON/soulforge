@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 2026-09-21 - 대화 목록 야간 lane 신선한 눈 검토 정정: 마감-지남 상태, backlog aging 가시성, 연쇄 lock/원자적 쓰기
+
+- Revision: 이 항목을 포함한 커밋(직전 커밋 b57c4160/6fac8506의 같은 슬라이스, 병합 전 신선한 눈 검토 정정).
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`에 필수 1건(3
+  부분)·should 6건·nit 3건을 고쳤다. **(필수, R1)** Task Scheduler가 로그온 종속 `-StartWhenAvailable`
+  트리거라 재부팅·로그오프 밤엔 00:00 트리거가 04:00 넘어 로그온 때야 실행될 수 있는데, 그런 회차가 세션을
+  하나도 못 돌려도 기존엔 `OK`/exit 0라 7일 backlog·40 cap과 겹치면 밀리는 세션이 조용히 사라질 수 있었다.
+  (a) 세션을 하나도 시도하기 전에 이미 마감이 지났으면 별도 영수증 상태 `SKIPPED_PAST_DEADLINE`과 별도
+  종료코드 4(0/OK·2/FAILED·3/LOCK_HELD와 구분, `main`에 문서화)를 낸다. (b) 매 밤 영수증에
+  `backlog.{aging_out_soon, aged_out_unprocessed}`를 낸다 — 전자는 2일 안에 window를 벗어날 미완 후보 수(cap과
+  무관하게 정확히 재분류), 후자는 어젯밤엔 window 안이었는데 오늘 밤엔 아닌 바로 그 하루에 여전히 미완인
+  세션의 날짜·수·id(과거 영수증을 안 읽는 무상태 검사). (c) `buildSessionPlan`이 aging-soon backlog 후보를
+  새 날의 자기 세션보다 앞에 두도록 순서를 바꿔(`agingOutSoonThreshold`), cap 아래에서도 urgent 후보가 먼저
+  밀려나지 않는다. **(should)** S1: 연쇄 첫 쓰기를 `chain: {status:'RUNNING', started_at}`로(기존 `null`은
+  죽음과 미연쇄를 구분 못 함), 두 쓰기 다 `atomicWriteFileSync`(임시 파일+rename)로. S2:
+  `--deadline`이 `--scheduled-start`(등록기는 `-DailyAt`)와 같으면 24시간 여유를 조용히 주므로 harness·등록기
+  둘 다 거부. S3: `--deadline`/`--scheduled-start`/`--no-start-within`을 값 없이 주거나 반복하면
+  `--questions-cap`처럼 큰 소리로 거부(조용히 비활성화하지 않음). S4: `--no-start-within MINUTES`(마감 있으면
+  기본 30)로 마감 그만큼 전부터 새 세션을 시작하지 않는다 — 실제 mid-flight 중단은
+  `runConversationList`(파이프라인)에 abort 신호·벽시계 예산이 전혀 없어(직접 확인) 구현하지 않고, 리뷰가
+  명시적으로 허용한 대안(시작 여유 + `HARD_STOP_GRACE_MINUTES`=60 지나 끝난 세션에 `overran_hard_stop`
+  경고)만 넣었다. S5: 연쇄 전에 풀던 이 밤의 lock을 연쇄가 끝날 때까지 쥐고, reconcile 자신의(별도) lock이
+  잡혀 있으면 실패가 아닌 별도 `LOCK_HELD` chain 상태로 처리(이전엔 가짜 FAILED). **등록기**
+  `ops/register-voice-conversation-list-task.ps1`: S2(위와 같음), S4(`-NoStartWithinMinutes`, `-Deadline`
+  필요), S6(`-StartWhenAvailable`+`-DailyAt 00:00`이면 오늘 이미 지난 StartBoundary로 등록 직후 바로 발동할
+  수 있어 다음 미래 발생 시각으로 미룸, 사후 XML 대조는 원래도 시각만 비교해 그대로 검증 가능), N3(PS 5.1
+  `ConvertTo-Json`이 mail-root 배열 0/1개를 `{}`/맨 원소로 잘못 펼치고 `if/else`의 빈 배열 가지가 쉼표 없이는
+  `$null`로 무너지는 함정까지 있어 `[object[]]$(if (...) {...} else { , @() })`로 정정, 0/1/2개 모두 실제 PS
+  5.1 세션에서 직접 재확인). N1: `deadline.sessions_left`가 멈춘 뒤 남은 계획 항목 전부(skip/existing 포함)를
+  세던 것을 실제 `run`-분류만 세도록. N2: 프로그래밍 호출자의 `null` rootTableSha256이 연쇄 argv에 문자
+  그대로 박힐 뻔한 것을 없으면 그 인자 자체를 생략하도록(reconcile 자신의 파일 해시 기본값 사용).
+- 운영 영향: 코드·registrar 파라미터·문서 변경뿐이다. 실제 예약작업은 이 커밋으로 손대지 않았다. 리뷰가
+  확인한 실제 상태: 현재 운영 중인 `SoulforgeVoiceConversationList`는 이 등록기를 거치지 않고 트리거를 직접
+  편집해 이미 00:00로 재시각됐다 — 이 등록기로 다시 등록하려면 `-ExpectedExistingTaskSha256`에
+  `%WINDIR%\System32\Tasks\SoulforgeVoiceConversationList` 파일의 SHA-256(접두사 없는 64자)을 주고,
+  `-Register` 없이 한 번 불러 plan digest를 얻은 뒤, 그 digest를 `-ExpectedDryRunDigest`로 얹고 `-Register`를
+  더해 같은 명령을 다시 부른다. **경고**: `-DailyAt`을 빼면 sha 대조는 걸리지 않은 채 조용히 03:00로
+  되돌아간다 — 재등록 전 찍히는 `daily_at=` 줄이 그걸 미리 보여주는 유일한 자리다(README 등록기 절에 반영).
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/README.md`.
+- 검증: `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`(69/69 pass),
+  `npm run validate:context-engine`(653 tests, 645 pass·8 skip·0 fail — skip은 기존 T5 PDF 해석기 미설치 분),
+  `npm run validate:source-lane`(14/14 pass), `npm run validate:voice-conversation-list`(51/51 pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations, 8850 scanned),
+  PowerShell 5.1 파서(`[System.Management.Automation.Language.Parser]::ParseFile`)로 등록기 구문 확인(오류
+  0) + 실제 PS 5.1 세션에서 `ConvertTo-Json` 배열 직렬화 함정(N3)과 등록기 `$Plan` 블록의 정확한 재현을 직접
+  검증. `npm run validate:deployment-pack`은 이 변경과 무관한 기존 "Universal Client transport bundle
+  drifted" 실패에서 멈춘다(직전 커밋에서 이미 origin/main 기준으로 재현 확인). 등록기의 실제
+  `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
 ## 2026-09-21 - 대화 목록 야간 lane에 마감(deadline)과 대조·질문 연쇄(chain-reconcile) 추가
 
 - Revision: 이 항목을 포함한 커밋.
@@ -36,9 +88,11 @@
   `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
   `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`, `guild_hall/context_engine/README.md`,
   `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
-- 검증: `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0 violations),
-  `npm run validate:context-engine`(636 tests, 628 pass·8 skip·0 fail — skip은 기존 T5 PDF 해석기 미설치
-  분), `npm run validate:source-lane`(14/14 pass), `npm run validate:voice-conversation-list`(51/51 pass),
+- 검증: `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(N7 2026-09-21 정정: 이 항목이
+  가리키는 커밋 이후엔 `--scope changed`가 이미 커밋된 diff 0건을 보게 되므로 `--scope tracked`로 인용한다,
+  0 violations), `npm run validate:context-engine`(636 tests, 628 pass·8 skip·0 fail — skip은 기존 T5 PDF
+  해석기 미설치 분), `npm run validate:source-lane`(14/14 pass), `npm run validate:voice-conversation-list`
+  (51/51 pass),
   PowerShell 5.1 파서(`[System.Management.Automation.Language.Parser]::ParseFile`)로 등록기 구문 확인(오류
   0, 앵커링 로직 재확인 후 재검사 포함). `guild_hall/context_engine/tests/voice_conversation_list_nightly.
   test.mjs`에 등록기 소스 텍스트를 PowerShell 실행 없이 정규식으로 대조하는 구조 시험을 더했다(기존

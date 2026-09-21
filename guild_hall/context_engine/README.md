@@ -43,11 +43,68 @@
   spec `context_read_lane.spec.json`은 `context-read-v5`로 올렸다 — 새 tracked_paths·entry_points는 없다(두
   harness/registrar 파일이 이미 v4에 이름 올라 있었다).
 
-시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 7건(기본 4건 + 정시 00:00/
-04:00·정시 23:30/01:00·지각 시작 앵커링 3건), 마감 정지·다음 밤 픽업·마감 미도달·지각 시작 즉시 정지 4건, 연쇄
-순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 스텁 없이 실제 reconcile/present CLI를 부르는 종단 시험
-1건, 등록기 `-DailyAt`/`-Deadline`/`-ChainReconcile`/`--scheduled-start` 연결의 구조 시험 1건(PowerShell 실행
-없이 소스 텍스트 대조).
+신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 1건(3부분)·should 6건·nit 4건:
+- (R1, 필수) **"마감 이후 시작"이 조용한 성공으로 보였다.** Task Scheduler는 `-StartWhenAvailable`이 걸린
+  로그온 종속 트리거라 재부팅·로그오프 밤이면 00:00 트리거가 04:00 넘어 로그온 때야 겨우 실행될 수 있는데,
+  그런 회차가 세션을 하나도 못 돌려도 기존엔 `OK`/exit 0였다 — 7일 backlog·40 cap과 겹치면 매번 밀리는
+  세션이 조용히 사라질 수 있었다. 세 부분으로 고쳤다. **(a)** 이번 밤이 세션을 단 하나도 시도하기 전에 이미
+  마감이 지났으면(마감 자체가 mid-run에 지난 것과 구분) `SKIPPED_PAST_DEADLINE`이라는 별도 영수증 상태와
+  별도 종료코드(4 — 0/OK, 2/FAILED, 3/LOCK_HELD와 구분, `main`의 주석에 문서화)를 낸다. 진짜 실패(계획을
+  못 읽음·분류 실패·검증 안 된 run)가 있으면 여전히 `FAILED`가 우선한다. **(b)** 매 밤 영수증에
+  `backlog.{aging_out_soon, aged_out_unprocessed}`를 낸다 — `aging_out_soon`은 `AGING_SOON_NIGHTS`(2)일
+  안에 window를 벗어날 아직 미완 후보 수(`--max-sessions` cap과 무관하게 정확히 다시 분류해서 셈),
+  `aged_out_unprocessed`는 **어젯밤엔 window 안이었는데 오늘 밤엔 아닌 바로 그 하루**(과거 영수증을 읽지
+  않는 무상태 검사, 그 하루의 존재 자체가 충분한 신호이므로)에 여전히 verified run이 없는 세션의 날짜·수·id
+  목록이다 — 절대 조용히 넘어가지 않는다. **(c)** `buildSessionPlan`이 aging-soon 후보를 새 날의 자기 세션
+  보다 앞에 놓도록 순서를 바꿨다(`agingOutSoonThreshold`) — backlog는 이미 오래된 순 정렬이라 urgent
+  부분은 그 배열 자신의 앞부분일 뿐이다. `--max-sessions` 아래에서도 이제 urgent 후보가 cap에 먼저 밀려나지
+  않는다.
+- (S1) 연쇄 첫 쓰기가 `chain: null`이라 연쇄 도중 죽으면 연쇄 안 한 깨끗한 밤과 구분이 안 됐다. 이제 첫 쓰기가
+  `chain: {status: 'RUNNING', started_at}`이고 연쇄가 끝나면 실제 결과로 덮어쓴다. 두 쓰기 다
+  `atomicWriteFileSync`(같은 디렉터리에 임시 파일 쓰고 rename)라 죽어도 반쯤 쓰인 영수증이 실경로에 남지 않는다.
+- (S2) `--deadline`이 `--scheduled-start`와 같으면 "그 시각의 다음 발생"이 하루 뒤가 돼 24시간 여유를 조용히
+  준다 — `nextDeadlineInstant`와 등록기(`-Deadline`/`-DailyAt`) 둘 다 이제 거부한다.
+- (S3) `--deadline`/`--scheduled-start`/`--no-start-within`을 값 없이 주거나 반복하면(`options()`가 `true`나
+  배열을 돌려줌) `--questions-cap`처럼 조용히 무시하지 않고 큰 소리로 거부한다(`*_usage_invalid`).
+- (S4) 세션 하나의 벽시계 예산이 없어 03:59에 시작한 세션이 기본 한도로 ~10시간 돌 수 있었고, 늦은 시작은
+  실제 시작 시각부터 세는 6시간 task 한도로만 막혀 06:40 브리핑까지 넘어갈 수 있었다. `--no-start-within
+  MINUTES`(마감이 있으면 기본 30, `DEFAULT_NO_START_WITHIN_MINUTES`)를 더해 마감 그만큼 전부터는 **새
+  세션을 시작하지 않는다**. 실제 mid-flight 중단(`abandoned_at_hard_stop`)은 만들지 않았다 —
+  `runConversationList`(파이프라인)를 직접 확인한 결과 호출 루프 어디에도 abort 신호·벽시계 예산이 없어
+  깨끗하게 끊을 수 없으므로, 리뷰가 명시적으로 허용한 대안(시작 여유 + 영수증 경고)만 구현했다: 세션이
+  `HARD_STOP_GRACE_MINUTES`(60, 고정값·아직 플래그 아님)를 넘겨 끝나면 그 행에 `overran_hard_stop: true`와
+  `receipt.warnings`에 한 줄을 남길 뿐, 자르지도 다시 올리지도 않는다 — 만든 카드가 진짜 카드다.
+- (S5) 연쇄 전에 이 밤의 lock을 풀어서, 다른 수동 회차가 연쇄 도중 진짜 카드 생성을 새로 시작할 수 있었고
+  reconcile 자신의(별도) lock이 동시에 잡히면 이 밤 전체가 가짜 FAILED로 보였다. 이제 이 밤의 lock은 연쇄가
+  끝날 때까지 쥔 채로 두고(reconcile의 독립 lock은 그대로 별개), reconcile의 `LOCK_HELD`는
+  실패가 아닌 별도 chain 상태(present는 건너뜀)로 처리한다.
+- (S6) `-StartWhenAvailable` + `-DailyAt 00:00`이면 오늘 이미 지난 StartBoundary로 인해
+  등록 직후 바로 발동할 수 있었다(그러면 연쇄의 `present`가 그날 아침 질문 슬롯을 낮에 미리 써버린다).
+  StartBoundary를 다음 **미래** 발생 시각으로 미루도록 고쳤다 — 사후 XML 대조는 원래도 시각만(날짜 무시)
+  비교해 그대로 검증 가능하다.
+- (N1) `deadline.sessions_left`가 멈춘 뒤 남은 계획 항목 전부를 셌다(skip/existing까지) — 이제 그 나머지 중
+  실제로 `run`으로 분류된 것만 센다.
+- (N2) 프로그래밍 호출자가 `rootTableSha256`를 안 주면(`null`) 연쇄 argv에 문자 그대로 `null`이 들어갈 뻔했다
+  — 이제 없으면 그 인자 자체를 아예 안 넣어 reconcile 자신의 파일 해시 기본값을 쓰게 둔다.
+  실 reconcile/present CLI로 end-to-end 확인.
+- (N3) PowerShell 5.1의 `ConvertTo-Json`이 mail-root 배열을 0개/1개일 때 각각 `{}`/맨 원소로 잘못 펼쳤다
+  (그리고 `if/else`의 빈 배열 가지가 쉼표로 감싸지 않으면 아예 `$null`로 무너지는 별도 함정도 있었다) —
+  `[object[]]$(if (...) {...} else { , @() })`로 0/1/2개 다 정확히 `[]`/`["x"]`/`["x","y"]`로 찍힌다.
+  검증: 실제 PS 5.1 세션에서 세 경우 모두 직접 확인.
+
+등록기 운영 참고(리뷰가 확인한 실제 상태): **현재 운영 중인 예약작업은 이 등록기를 거치지 않고 트리거를 직접
+편집해 00:00로 이미 재시각됐다.** 이 등록기로 다시 등록하려면: (1) `-ExpectedExistingTaskSha256`에
+`%WINDIR%\System32\Tasks\SoulforgeVoiceConversationList` 파일의 SHA-256(접두사 없는 64자 16진수 그대로)을
+준다, (2) `-Register` 없이 한 번 불러 plan digest를 얻는다, (3) 그 digest를 `-ExpectedDryRunDigest`로 얹고
+`-Register`를 더해 똑같은 명령을 다시 부른다. **경고**: `-DailyAt`을 빼면 sha 대조는 걸리지 않은 채로 조용히
+03:00로 되돌아간다 — 재등록 전 찍히는 `daily_at=` 줄이 그걸 미리 보여주는 유일한 자리다.
+
+시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 8건(기본 4건 + 정시
+00:00/04:00·정시 23:30/01:00·지각 시작 앵커링·동일값 거부), 마감 정지·다음 밤 픽업·마감 미도달·지각 시작
+즉시 정지 4건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 스텁 없이 실제 reconcile/present
+CLI를 부르는 종단 시험 2건(연쇄 기본 + null sha), 등록기 구조 시험 2건(PowerShell 실행 없이 소스 텍스트
+대조), R1(필수) 5건, S1(RUNNING+원자적 쓰기) 1건, S2(동일값 거부) 2건, S3(엄격한 flag) 1건, S4(시작 여유
++hard-stop 경고) 3건, S5(lock 유지+LOCK_HELD) 2건, N1(sessions_left) 1건.
 
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 
