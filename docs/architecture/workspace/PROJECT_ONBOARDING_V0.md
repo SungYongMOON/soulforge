@@ -82,9 +82,14 @@ ln -s "$target" "_workspaces/$project_code"
   - 예산, 집행, 행정 정산 자료를 둔다.
 - `020_MGMT/025_통합로그_의사결정조치`
   - 회의 결과, 공문, action item, 조치 이력을 통합 기록한다.
+  - 이 폴더에 `작업_장부.csv`(작업 장부)를 두고, 실제로 한 일을 한 행씩 남긴다: 누가, 언제, 어떤 task, 무엇을 근거로 했는지, 무엇이 나왔는지, 다음 action.
+  - 그 작업을 한 주체가 직접 행을 쓴다(사람 또는 AI). AI 가 작업을 끝내면 작업 장부에 한 행을 남기고 후속이 필요하면 할일 장부에 추가하며, AI 작업의 완료 여부는 사람이 확인한다.
 - `020_MGMT/026_상태_진행현황`
   - 사람이 읽는 current project status board 로 본다.
   - 현재 단계, 주요 blocker, next action, 진행 현황 요약을 둔다.
+  - 이 폴더에 `할일_장부.csv`(할일 장부)를 두고, 앞으로 해야 할 항목을 한 행씩 남긴다: 항목, 담당자, 마감일, SE stage, 어디서 나온 항목인지, 완료 기준, 상태.
+  - 팀이 보는 to-do 화면은 issue tracker 를 그대로 쓰고, 할일 장부는 그 항목의 출처(메일 이력 key, 회의, 산출물, tracker issue)와 연결을 기록한다.
+  - AI 가 만든 할일은 바로 확정하지 않고 제안 상태로 시작하며, 사람이 수락·수정·거절한다.
 - `020_MGMT/027_수신이력_이동이력`
   - project-side mail receive history 와 자료 move history 를 append-only 로 둔다.
   - 실제 intake, stage inbox 이동, 최종 폴더 승격 이력을 남긴다.
@@ -103,6 +108,15 @@ ln -s "$target" "_workspaces/$project_code"
 - 실행면이 D: 로 이관되면서 legacy `_workmeta/system/bindings/mail_project_router.yaml` 바인딩은 새 실행면으로 이관되지 않았다.
 - 새 ingress lane은 project router를 호출하지 않고 메일을 저장한다(구현됨). 그 결과 색인 귀속은 리터럴 코드 규칙으로만 fallback 한다(구현됨).
 - 과제별 `021_자동화설정_운영규칙` 규칙 파일이 이 귀속 단계가 읽어야 할 정본 소스로 지정됐지만, 그 연결(wiring)은 아직 구현되지 않았다 — 계획 상태(계획)로만 본다.
+
+### 작업 장부·할일 장부 (2026-09-21)
+
+- 두 장부는 project 폴더뿐 아니라 공용 자료를 두는 폴더와 project-less 일반업무 폴더(`P00-000_INBOX` 류)에도 동일하게 둔다.
+- 장부에는 포인터만 남긴다(경로, 링크, 메일 이력 key). 메일 본문, 첨부, 개인정보, secret 은 어떤 장부에도 적지 않는다.
+- 사본은 하나만 두고(UTF-8 BOM, CRLF), 행은 지우지 않고 사유와 함께 정정한다. 헤더 행은 Owner 결정 없이 바꾸지 않는다.
+- 새 프로젝트 폴더를 만들 때 두 장부(헤더만 있는 빈 파일)도 함께 만든다.
+- 칸(column) 단위 작성 규칙은 이 문서가 아니라 프로젝트 폴더 옆 private workspace plane 이 소유한다.
+- 방향: 내부 이력·문서·맥락을 보는 local model 이 할일을 찾고 작업을 하고 이 장부를 쓰는 것을 지향한다. 외부 chat 서비스 예약작업이 plug-in 으로만 할일을 만드는 현재 방식은 임시 pilot 이다.
 
 ## 단계 inbox 해석
 
