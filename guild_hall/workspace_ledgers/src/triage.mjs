@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { hintCodes, MATCH_FIELDS } from './classifier.mjs';
 import { listProjects } from './rule_store.mjs';
-import { decodeCsv, encodeCsv, normalizeSubject } from './ledgers.mjs';
+import { decodeCsv, encodeCsv, normalizeSubject, seoulDateOf } from './ledgers.mjs';
 import { classifyAllCommonMail } from './common_refresh.mjs';
 import { READING_HEADERS, READING_LEVELS } from './owner_tables.mjs';
 import { acquireRefreshLock, releaseRefreshLock } from './refresh.mjs';
@@ -289,6 +289,22 @@ function sha256Hex(text) { return createHash('sha256').update(text).digest('hex'
  * fixture, which stays synthetic per the private-plane-only scope of this change)
  * simply omits them -- both default to `''`, matching the previous, always-empty
  * behaviour exactly.
+ *
+ * `receivedAt` (2026-09-22 date-format fix): normalised to the Seoul calendar date
+ * (`seoulDateOf`) the same way every other display date this module writes already
+ * is -- every pre-existing row in the Owner's table carries a plain `YYYY-MM-DD`, and
+ * a caller (the bot wrapper, `cli.mjs triage decide --received-at`) that hands in a
+ * full ISO instant used to write that instant verbatim. An already-`YYYY-MM-DD` value
+ * round-trips unchanged through `seoulDateOf` (it parses as a UTC midnight, and +9h
+ * never crosses a day boundary from there), so an existing caller passing that shape
+ * sees no change. A genuinely unparseable non-empty value keeps this function's
+ * previous behaviour -- passed through as typed, length-capped -- rather than being
+ * refused; only an EMPTY value stays empty. (The bot wrapper additionally maps a
+ * missing/unparseable `received_at` to `''` before it ever reaches this function, so
+ * this function's own "keep unparseable text as typed" branch is reached only via a
+ * caller, such as the CLI, that passes free text directly.) `판독일` (the decision
+ * date, `now`) is likewise `seoulDateOf(now)`, not a raw UTC slice -- a decision made
+ * before 09:00 UTC (before local midnight in Seoul) used to record yesterday's date.
  */
 export function appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath = null, id, level, target, why, reader,
   receivedAt = '', subject = '', humanActors = null, now = new Date().toISOString() }) {
@@ -340,9 +356,11 @@ export function appendReadingDecision({ workspacesRoot, readingTablePath, lineag
       if (rows.some(row => row[0] === id)) fail('workspace_ledgers_triage_decision_duplicate', id);
     }
 
-    const receivedAtText = String(receivedAt ?? '').trim().slice(0, MAX_WHY_LENGTH);
+    const receivedAtTrimmed = String(receivedAt ?? '').trim();
+    const receivedAtText = receivedAtTrimmed === '' ? ''
+      : (Number.isNaN(Date.parse(receivedAtTrimmed)) ? receivedAtTrimmed.slice(0, MAX_WHY_LENGTH) : seoulDateOf(receivedAtTrimmed));
     const subjectText = String(subject ?? '').trim().slice(0, MAX_WHY_LENGTH);
-    const newRow = [id, receivedAtText, subjectText, level, targetText, why, reader, now.slice(0, 10), ''];
+    const newRow = [id, receivedAtText, subjectText, level, targetText, why, reader, seoulDateOf(now), ''];
     const nextRows = [...rows, newRow];
     const newText = encodeCsv(headers, nextRows);
 

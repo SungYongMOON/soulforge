@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 첫 실사용 후속 수정: 수신일/판독일 서울 날짜(lane v3)·꼬리말 정정(SKILL 0.1.1)
+
+- Revision: 봇 판독 도구의 첫 실사용(라이브 시험) 뒤에 드러난 겉보기 결함 3건. 모두 분류
+  결과에는 영향이 없는, 표시·서식 수정이다.
+- 무엇이 바뀌었는가: **(1)** `ops/bot_triage.mjs`의 `runDecide`가 `appendReadingDecision`에
+  `수신일`로 원시 ISO 순간(`item.received_at`, 예전엔 `2026-01-02T03:04:05.000Z` 꼴)을 그대로
+  넘겨, 판독표의 기존 줄(전부 `YYYY-MM-DD` 서울 달력 날짜)과 다르게 보였다 -- 이 모듈이 이미
+  쓰던 `src/ledgers.mjs`의 `seoulDateOf`로 변환하고(새 날짜 헬퍼를 만들지 않았다), 그 메일의
+  `received_at`이 없거나 파싱되지 않으면 던지거나 값이 이상해지는 대신 빈 문자열을 적는다.
+  `cli.mjs triage decide --received-at`(사람/에이전트 CLI 경로)도 같은 문제가 있어 --
+  `src/triage.mjs`의 `appendReadingDecision` 안에서 똑같이 정규화했다: 이미 `YYYY-MM-DD`인
+  값은 그대로 통과하고, 파싱되는 전체 ISO 순간은 서울 날짜로 바뀌고, 파싱되지 않는 비어
+  있지 않은 값은 이전과 똑같이 입력 그대로 남는다(예전에 받아 주던 자유 문자열을 새로
+  거부하기 시작하지 않는다). **(2)** 같은 함수가 판독일(`판독일` 칸)을 `now.slice(0, 10)`
+  (UTC 날짜)로 찍어, UTC 09:00 이전(서울 자정 이전)에 판정하면 어제 날짜가 찍혔다 -- 이
+  모듈의 다른 모든 표시 날짜와 같이 `seoulDateOf(now)`로 고쳤다. 두 칸 모두 이 모듈의 어떤
+  분류 경로에서도 읽히지 않는다(`common_classifier.mjs`는 `reading.level`/`.target`/`.why`만
+  읽는다) -- 직접 확인했고, base/head 분류 결과는 바이트까지 그대로다. **(3)** 봇의 답이
+  이따금 `호출 3/6 (실패 0)` 같은, 같은 봇 프로필에 설치된 **다른** 스킬(맥락 검색 스킬의
+  조사 예산)의 꼬리말로 끝났다 -- `ops/bot-skill/SKILL.md`의 §보고 형식에 답의 마지막 줄은
+  도구 출력의 `오늘 판독 n/cap건`을 그대로 옮긴 한 줄뿐이며 호출수·조사예산 꼬리말은 붙이지
+  않는다고 명시했다. 템플릿 자리표시자(`<lane>`·`<config>`·`<config sha256>`·`<guideline>`)는
+  그대로라 `install_skill.mjs --check` 의미는 바뀌지 않는다; `SKILL.md` 앞머리 `version`을
+  0.1.0 -> 0.1.1로 올렸다. lane 명세를 `workspace-ledgers-v2` -> `workspace-ledgers-v3`로
+  올렸다(lane은 제자리에서 다시 빌드하지 않는다는 원칙에 따라 새 디렉터리를 받도록).
+- 검증: `npm run validate:workspace-ledgers` -- 376건 시험 중 375 통과·1 skip·0 실패(끝값
+  0), 이번에 추가한 회귀 시험 3건(수신일 정규화 2건 + 판독일 서울 날짜 2개 시각 경계) 포함.
+  `validate:source-lane`·`validate:module-operability`·`validate:path-policy:all`·
+  `validate:canon`·`validate:display-terms`·`node guild_hall/validate/boot_digest_guard.mjs`
+  모두 끝값 0. lane을 임시 디렉터리에 새로 빌드하고 `--verify`까지 통과.
+- 운영 영향: 없음 -- 코드·lane 명세·문서·시험만 바뀌었다. 설치된 스킬 사본을 새로 렌더해
+  넣는 것, lane을 다시 빌드해 예약작업에 올리는 것은 모두 Owner의 행위이며 이 변경 밖이다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/triage.mjs`,
+  `guild_hall/workspace_ledgers/ops/bot_triage.mjs`,
+  `guild_hall/workspace_ledgers/ops/bot-skill/SKILL.md`,
+  `guild_hall/workspace_ledgers/cli.mjs`,
+  `guild_hall/workspace_ledgers/tests/triage.test.mjs`,
+  `guild_hall/workspace_ledgers/tests/bot_triage.test.mjs`,
+  `guild_hall/workspace_ledgers/tests/daily_refresh_lane.test.mjs`,
+  `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`,
+  `guild_hall/workspace_ledgers/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 2차 검토 반영: 영수증 메일id 온전 기록(S-6)·붙이기 전 영수증 쓰기 증명(S-7)·설정 실패 stderr 정화(N-5)
 
 - Revision: 직전 커밋(1차 검토 반영)에 대한 2차 신선한 눈 검토 -- "병합 가능, 다만 lane 빌드

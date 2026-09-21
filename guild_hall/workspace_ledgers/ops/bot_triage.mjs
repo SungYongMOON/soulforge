@@ -693,6 +693,17 @@ function runDecide(config, { id, level, target, why, now, deps = {} }) {
   // The only call that writes. `reader`/`humanActors` come from the config and have
   // no flag; `receivedAt`/`subject` come from the queue entry, so the Owner-facing
   // table reads as mail rather than as opaque ids.
+  //
+  // 2026-09-22 (date-format fix): `item.received_at` is a raw ISO instant (custody's
+  // own `mail.at`), but every pre-existing row in the Owner's table carries a plain
+  // Seoul calendar date -- writing the instant verbatim made a bot row visibly
+  // different from every row a person wrote. Converted with the module's own
+  // `seoulDateOf` (already used elsewhere in this file for display), the same way
+  // every other display date in this module is computed; a missing or unparseable
+  // `received_at` becomes `''` rather than throwing or writing a slice of garbage
+  // text (`appendReadingDecision`'s own fallback for an unparseable NON-empty value
+  // is meant for a caller typing free text directly, not for this wrapper).
+  const receivedAtSeoul = Number.isNaN(Date.parse(item.received_at ?? '')) ? '' : seoulDateOf(item.received_at);
   const result = appendReadingDecision({
     workspacesRoot: config.workspacesRoot,
     readingTablePath: config.readingTablePath,
@@ -702,7 +713,7 @@ function runDecide(config, { id, level, target, why, now, deps = {} }) {
     why: cleanWhy,
     reader: config.readerLabel,
     humanActors: config.humanActors,
-    receivedAt: item.received_at,
+    receivedAt: receivedAtSeoul,
     subject: item.subject,
     now,
   });

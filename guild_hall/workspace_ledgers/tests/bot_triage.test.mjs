@@ -228,6 +228,10 @@ test('decide: appends exactly one row with an empty Owner확인 and the pinned r
     assert.equal(row[READING_HEADERS.indexOf('과제_또는_분류')], 'P00-001');
     assert.equal(row[READING_HEADERS.indexOf('판독자')], '판독봇');
     assert.equal(row[READING_HEADERS.indexOf('제목')], FIXTURE_SUBJECT);
+    // 2026-09-22 date-format fix: 수신일 is the Seoul calendar date derived from the
+    // mail's own received_at ('2026-09-01T01:00:00Z' -> 2026-09-01 10:00 KST), never
+    // the raw ISO instant.
+    assert.equal(row[READING_HEADERS.indexOf('수신일')], '2026-09-01');
     assert.equal(row[READING_HEADERS.indexOf('Owner확인')], '');
 
     // The same call again: u1 is no longer unclassified, so the wrapper refuses before
@@ -236,6 +240,25 @@ test('decide: appends exactly one row with an empty Owner확인 and the pinned r
     assert.equal(second.code, 2);
     assert.match(second.stderr, /id_not_in_queue/u);
     assert.equal(readingRows(fixture.readingTablePath).rows.length, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('decide (2026-09-22 date-format fix): an unparseable or missing received_at is written as an empty 수신일, never a raw slice or an Invalid Date literal', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'garbled.jsonl'), jsonl([
+      { event_id: 'garbled-date', subject: '완전히 무관한 제목', from: 'x@client.example', to: ['me@example.com'], cc: [], received_at: '이상한값', body_text: '', attachments: [] },
+      { event_id: 'no-date', subject: '완전히 무관한 제목 둘', from: 'x@client.example', to: ['me@example.com'], cc: [], body_text: '', attachments: [] },
+    ]));
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    assert.equal(run(['decide', ...pin, '--id', 'garbled-date', '--level', 'exclude', '--target', '과제미정', '--why', '단서 없음']).code, 0);
+    assert.equal(run(['decide', ...pin, '--id', 'no-date', '--level', 'exclude', '--target', '과제미정', '--why', '단서 없음']).code, 0);
+    const table = readingRows(fixture.readingTablePath);
+    const garbled = table.rows.find(row => row[READING_HEADERS.indexOf('메일소스ID')] === 'garbled-date');
+    const noDate = table.rows.find(row => row[READING_HEADERS.indexOf('메일소스ID')] === 'no-date');
+    assert.equal(garbled[READING_HEADERS.indexOf('수신일')], '');
+    assert.equal(noDate[READING_HEADERS.indexOf('수신일')], '');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 

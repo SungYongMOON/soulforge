@@ -484,6 +484,10 @@ function runTriageDecide(flags) {
   // nit (coordinator, fresh review round 2): fills 수신일/제목 in the written row when
   // the caller (a lane wrapper that already has this from its own `triage list` call)
   // supplies them -- omitted (the default), both stay empty, unchanged from before.
+  // 2026-09-22: `appendReadingDecision` itself now normalises `--received-at` to the
+  // Seoul calendar date when it parses as a date at all (an already-YYYY-MM-DD value
+  // passes through unchanged) -- this CLI passes the raw flag value straight through
+  // and lets that one shared normalisation decide, rather than duplicating it here.
   const receivedAtRaw = flags.get('received-at');
   const receivedAt = typeof receivedAtRaw === 'string' ? receivedAtRaw : '';
   const subjectRaw = flags.get('subject');

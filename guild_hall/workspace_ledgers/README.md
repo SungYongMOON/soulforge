@@ -1863,13 +1863,15 @@ triage list|decide`가 이미 있는데 따로 만든 이유는 하나다 -- 그
 - `reader_label`은 판독표의 `판독자` 칸에 그대로 들어가는 표시 이름이다.
 - `list_limit_cap`은 `--limit`의 상한이다(요청이 더 커도 상한이 이긴다).
 
-### lane v2 빌드
+### lane v3 빌드
 
 lane 명세는 `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`이고,
-이번 변경으로 `workspace-ledgers-v2`가 됐다(v1의 네 진입점은 그대로, 여기에
-`ops/bot_triage.mjs`·`ops/bot-skill/SKILL.md`·`ops/bot-skill/install_skill.mjs`가 더해졌다).
-import closure는 다시 걸었다 -- 새 두 `.mjs`는 이 모듈 안(`src/*.mjs`)과 `node:` 기본
-모듈만 읽으므로 `tracked_paths`는 그대로 모듈 통째다.
+현재 `workspace-ledgers-v3`다(v2에서 `ops/bot_triage.mjs`·`ops/bot-skill/SKILL.md`가
+아래 "2026-09-22 봇 판독 도구 날짜 서식 수정" 절의 세 결함을 고치며 바뀌었을 뿐, v1의 네
+진입점과 v2가 더한 세 진입점 모두 그대로다). lane은 제자리에서 다시 빌드하지 않으므로 --
+바이트가 바뀐 소스를 담는 lane은 항상 새 id·새 디렉터리다. import closure는 그대로다 --
+바뀐 두 파일 모두 이 모듈 안(`src/*.mjs`)과 `node:` 기본 모듈만 읽으므로 `tracked_paths`는
+그대로 모듈 통째다.
 
 ```
 node guild_hall/deployment_pack/tools/build_source_lane.mjs --spec guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json --out <lane_root> --repo <repo_root>
@@ -1905,6 +1907,35 @@ node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --
 **설치와 활성화는 이 변경 밖이다.** 렌더된 `SKILL.md`를 실제 봇 프로필(`<bot_profile>`)에
 넣고 그 프로필에서 켜는 것, 설정 파일과 지침 문서를 실제 경로에 두는 것, 예약작업을 거는
 것은 전부 **Owner의 행위**다. 이 변경은 어떤 것도 설치하지 않고 등록하지 않는다.
+
+### 2026-09-22 봇 판독 도구 날짜 서식 수정 (첫 실사용 뒤)
+
+첫 실사용에서 드러난, 분류 결과에는 영향 없는 결함 셋을 고쳤다(lane `workspace-ledgers-v3`).
+
+1. **수신일 서식.** 판독표의 기존 줄은 모두 `수신일`을 서울 달력 날짜(`YYYY-MM-DD`)로
+   적는다. `ops/bot_triage.mjs`(`runDecide`)는 그 칸에 원시 ISO 순간(`2026-01-02T03:04:
+   05.000Z` 꼴)을 그대로 넘겼다 -- 이제 이 모듈이 이미 쓰던 `src/ledgers.mjs`의
+   `seoulDateOf`로 변환한다(새 날짜 헬퍼를 만들지 않았다). 그 메일의 `received_at`이
+   없거나 파싱되지 않으면 던지거나 "Invalid Date" 같은 값을 적는 대신 빈 문자열을
+   적는다. `cli.mjs triage decide --received-at`(사람/에이전트 CLI 경로)도 같은 문제가
+   있어 -- `src/triage.mjs`의 `appendReadingDecision` 안에서 똑같이 정규화한다: 이미
+   `YYYY-MM-DD`인 값은 그대로 통과하고, 파싱되는 전체 ISO 순간은 서울 날짜로 바뀌고,
+   파싱되지 않는 비어 있지 않은 값은 이전과 같이 입력 그대로 남는다(이 함수가 예전에
+   받아 주던 자유 문자열을 새로 거부하지 않는다) -- 오직 완전히 빈 값만 빈 채로 남는다.
+2. **판독일이 UTC였다.** `appendReadingDecision`이 판독일(`판독일` 칸)을 `now.slice(0,
+   10)`(UTC 날짜)로 찍어, UTC 09:00 이전(서울 자정 이전)에 판정하면 어제 날짜가 찍혔다.
+   이 모듈의 다른 모든 표시 날짜와 같이 `seoulDateOf(now)`로 고쳤다.
+   두 칸(`수신일`·`판독일`) 모두 이 모듈의 어떤 분류 경로에서도 읽히지 않는다 -- 순전히
+   정보용이며, `common_classifier.mjs`는 `reading.level`/`reading.target`/`reading.why`만
+   읽는다(위 "Owner tables" 절 참고). 그래서 이 수정은 base/head 분류 결과를 바이트까지
+   그대로 둔다.
+3. **엉뚱한 꼬리말.** 봇의 답이 이따금 `호출 3/6 (실패 0)` 같은 줄로 끝났다 -- 같은 봇
+   프로필에 설치된 다른 스킬(맥락 검색 스킬의 조사 예산)의 관례가 새어 나온 것으로, 이
+   스킬과는 무관하다. `ops/bot-skill/SKILL.md`의 §보고 형식에 명시적으로 적었다: 답은
+   도구 출력에서 그대로 가져온 `오늘 판독 n/cap건.` 한 줄로 끝내고, `호출 n/6` 같은
+   호출수·조사예산 꼬리말은 (다른 스킬 소관이니) 붙이지 않는다. 템플릿 자리표시자는
+   그대로다 -- `install_skill.mjs --check`가 비교하는 대상(렌더된 바이트 전체)은 바뀌지
+   않는다. `SKILL.md`의 앞머리 `version`을 0.1.0 -> 0.1.1로 올렸다.
 
 ## Not yet wired (계획)
 

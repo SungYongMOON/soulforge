@@ -1,7 +1,7 @@
 ---
 name: soulforge-mail-triage
 description: Work the unclassified mail queue of the workspace ledgers - read one mail, decide what it is, and record exactly one reading-decision row through a pinned wrapper that fixes the reader identity, the tables and the daily budget. Never corrects an existing row; never writes the Owner-confirmation column.
-version: 0.1.0
+version: 0.1.1
 author: Soulforge workspace ledgers, 2026-09-22 KST
 license: Soulforge internal
 platforms: [windows]
@@ -187,6 +187,11 @@ Owner가 "그거 P00-002야", "그건 광고였어"라고 하면 **표를 다시
 
 아이디가 아니라 **사람 말**로 보고한다. 메일id는 Owner가 되물을 때만 덧붙인다.
 
+**답의 마지막 줄은 도구 출력에 찍힌 `오늘 판독 n/cap건`을 그대로 가져온 한 줄,
+`오늘 판독 n/cap건.`뿐이다.** 그 뒤에 다른 줄을 덧붙이지 않는다 -- 특히 `호출 3/6 (실패
+0)` 같은 **호출수·조사예산 꼬리말은 붙이지 않는다.** 그것은 같은 봇 프로필에 함께 설치된
+맥락 검색 스킬의 관례이고 이 스킬과는 무관하다.
+
 ```
 미분류 12건 중 5건을 봤습니다.
 
@@ -201,7 +206,7 @@ Owner가 "그거 P00-002야", "그건 광고였어"라고 하면 **표를 다시
 - 9/2 가나무역 "견적 회신" → 한 통에 두 과제 견적이 같이 있어 어느 쪽으로도 넣지 않았습니다.
 - 9/3 (이름 없음)(@example.vendor) "모형장비 A 납기" → 품목 이름만 있고 어느 과제 것인지 단서가 없습니다.
 
-오늘 판독 4/20건. 남은 7건은 내일 이어서 보겠습니다.
+오늘 판독 4/20건.
 ```
 
 남긴 것에는 **반드시 이유를 붙인다.** "모르겠습니다"만 적지 않는다.

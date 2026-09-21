@@ -160,6 +160,66 @@ test('appendReadingDecision (nit, coordinator fresh review round 2): fills 수�
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('appendReadingDecision (2026-09-22 date-format fix): 판독일 is the Seoul calendar date of `now`, not a raw UTC slice', () => {
+  const fixture = makeFixture();
+  try {
+    // 19:30 UTC is already past midnight in Seoul (UTC+9) -- the decision date must be
+    // the NEXT day, not the UTC day.
+    const result = appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'hold_owner_review', target: '', why: '보류', reader: 'tester',
+      now: '2026-01-01T19:30:00.000Z',
+    });
+    const decoded = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    assert.equal(decoded.rows[0][7], '2026-01-02'); // 판독일
+    assert.equal(result.id, 'u1');
+
+    // 14:59:59 UTC is still the same calendar day in Seoul (23:59:59 KST).
+    const result2 = appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u2', level: 'hold_owner_review', target: '', why: '보류', reader: 'tester',
+      now: '2026-01-01T14:59:59.000Z',
+    });
+    const decoded2 = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    const u2Row = decoded2.rows.find(row => row[0] === 'u2');
+    assert.equal(u2Row[7], '2026-01-01'); // 판독일
+    assert.equal(result2.id, 'u2');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('appendReadingDecision (2026-09-22 date-format fix): receivedAt is normalised to the Seoul calendar date -- a full ISO instant converts, an already-YYYY-MM-DD value passes through unchanged, and an unparseable non-empty value keeps the previous (as-typed) behaviour rather than being refused', () => {
+  const fixture = makeFixture();
+  try {
+    // A full ISO instant: 2026-01-01T19:30:00Z is 2026-01-02 04:30 KST.
+    appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'hold_owner_review', target: '', why: '보류', reader: 'tester',
+      receivedAt: '2026-01-01T19:30:00.000Z',
+    });
+    const decoded = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    assert.equal(decoded.rows.find(row => row[0] === 'u1')[1], '2026-01-02'); // 수신일
+
+    // Already a Seoul calendar date -- round-trips unchanged.
+    appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u2', level: 'hold_owner_review', target: '', why: '보류', reader: 'tester',
+      receivedAt: '2026-01-02',
+    });
+    const decoded2 = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    assert.equal(decoded2.rows.find(row => row[0] === 'u2')[1], '2026-01-02');
+
+    // Unparseable, non-empty -- never refused, kept as typed (today's behaviour before
+    // this fix), not silently emptied and not an "Invalid Date" literal.
+    appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1-dup-safe', level: 'hold_owner_review', target: '', why: '보류', reader: 'tester',
+      receivedAt: '알수없음',
+    });
+    const decoded3 = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    assert.equal(decoded3.rows.find(row => row[0] === 'u1-dup-safe')[1], '알수없음');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('appendReadingDecision (A2 item 2): the renamed "과제미정" exclude target is accepted, same as the old "과제없음"', () => {
   const fixture = makeFixture();
   try {
