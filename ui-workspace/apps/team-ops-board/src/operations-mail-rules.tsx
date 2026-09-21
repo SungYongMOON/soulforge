@@ -106,7 +106,7 @@ function PreviewResult({ result }: { result: Row }) {
   const rows: [string, any][] = [
     ['지금', result.matched_before], ['바뀌면', result.matched_after],
     ...(hasSplit ? ([
-      ['이 규칙으로', result.rule_matched_after], ['표·판독으로 추가', result.table_attributed_after],
+      ['이 규칙으로', result.rule_matched_after], ['표·판독·본문으로 추가', result.table_attributed_after],
     ] as [string, any][]) : []),
     ['새로 들어옴', result.moved_in], ['빠짐', result.moved_out], ['보류', result.newly_held],
   ];
@@ -114,11 +114,13 @@ function PreviewResult({ result }: { result: Row }) {
   // sender -- K2's own point is that this is informational only, never subtracted from
   // the counts above, so it renders as its own separate line, not folded into "바뀌면".
   const systemSenderCount = typeof result.matched_from_system_senders === 'number' ? result.matched_from_system_senders : null;
-  // NIT (fresh review round 4): the adapter sends `tables_used: []` explicitly when
-  // `orgConfigPath` was never configured (so no Owner table could possibly have been
-  // consulted) -- shown as a plain, low-emphasis note rather than left for the Owner to
-  // infer from the counts alone.
-  const tablesNotApplied = Array.isArray(result.tables_used) && result.tables_used.length === 0;
+  // NIT (fresh review round 5): `previewRule` itself now reports `owner_tables_used`
+  // (it already resolves the Owner-table paths internally, S-b) -- empty whenever no
+  // table was actually read, whether that is because `orgConfigPath` was never
+  // configured, or because an org config exists but declares no `owner_tables` entries
+  // at all. Either way this renders as a plain, low-emphasis note rather than leaving
+  // the Owner to infer it from the counts alone.
+  const tablesNotApplied = Array.isArray(result.owner_tables_used) && result.owner_tables_used.length === 0;
   return <div className="mr-preview">
     {Array.isArray(result.rule_failures) && result.rule_failures.length > 0 && <p className="cx-notice">
       주의: 다른 과제 규칙 {result.rule_failures.length}건이 컴파일 실패해 이번 실측에서 제외됨(보류/양보 판단이 바뀔 수 있음).

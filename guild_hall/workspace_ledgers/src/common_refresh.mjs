@@ -19,7 +19,7 @@ import { loadRawMailRecords } from './common_events.mjs';
 import { loadOwnerTables, ownerTableUsageEntry, resolveOwnerTablePaths } from './owner_tables.mjs';
 import {
   addressesOfMail, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, OrgConfigValueError, participantEmailsOf,
-  PRIMARY_BUCKETS, resolvePrimaryBucket, THREAD_VENDOR_INHERITANCE_MARKER, workTagsOf,
+  PRIMARY_BUCKETS, resolvePrimaryBucket, STEP1_TITLE_BASIS, THREAD_VENDOR_INHERITANCE_MARKER, workTagsOf,
 } from './common_classifier.mjs';
 import {
   buildCommonRow, categoryOf, fileNameHash, HELD_FILE_NAME, headersFor, isViewFile, memoIndexFor, resolveSafePath,
@@ -294,7 +294,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     // -- this increments at most once per MAIL (this loop iterates records, not hits),
     // regardless of how many projects a table hit named.
     const ownerConfirmedReading = projectResult.reading && String(projectResult.reading.ownerConfirmed ?? '').trim() !== '';
-    if ((outcome.bucket === 'project' && projectResult.basis === '제목') || projectResult.basis === '묶음 확정' || ownerConfirmedReading) {
+    if ((outcome.bucket === 'project' && projectResult.basis === STEP1_TITLE_BASIS) || projectResult.basis === '묶음 확정' || ownerConfirmedReading) {
       commonSearchEligibleAttributions += 1;
     }
     // S3: a mail with an EXPLICIT vendor_only reading decision but no matched

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -108,6 +108,22 @@ test('cli preview-rule (K1): --fields subject is still accepted explicitly (back
     const out = execFileSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' });
     const result = JSON.parse(out);
     assert.equal(typeof result.matched_before, 'number');
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('cli preview-rule (SHOULD, coordinator fresh review round 5): an owner_table_failures entry prints the same class of stderr caveat rule_failures already gets', () => {
+  const fixture = makeFixture();
+  try {
+    const bundleTablePath = path.join(fixture.root, '묶음_확정표.csv');
+    writeFileSync(bundleTablePath, encodeCsv(['잘못된헤더'], [['x']])); // header mismatch -- a real owner_table_failures entry
+    const args = ['preview-rule', '--workspaces-root', fixture.workspacesRoot, '--code', CODE, '--draft', fixture.draftPath,
+      '--hiworks-events', fixture.hiworksDir, '--gmail-sent-events', fixture.gmailDir, '--bundle-table', bundleTablePath];
+    const result = spawnSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' });
+    assert.equal(result.status, 0); // a malformed table never throws previewRule -- it is reported, not fatal
+    assert.match(result.stderr, /workspace_ledgers_preview_rule_partial_owner_table_failures/u);
+    assert.match(result.stderr, /workspace_ledgers_owner_table_header_mismatch/u); // the code, never the table's own content
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }

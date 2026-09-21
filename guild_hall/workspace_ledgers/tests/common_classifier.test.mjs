@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { compileRule, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import {
   addressesOfMail, buildCommonConfig, classifyByOwnerTables, classifyProjectHits, detectSystemSource, OrgConfigPatternError,
-  OrgConfigValueError, participantEmailsOf, resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
+  OrgConfigValueError, participantEmailsOf, resolvePrimaryBucket, STEP1_TITLE_BASIS, vendorsOfAddresses, workTagsOf,
 } from '../src/common_classifier.mjs';
 
 function rule(code, exactPairs) {
@@ -22,7 +22,8 @@ test('classifyProjectHits step 1: a single title trigger wins, basis is 제목',
   const result = classifyProjectHits({ id: 'm1', subject: 'A트리거 안내', body: '', addresses: [] },
     { compiledRules: [RULE_A, RULE_B], bundles: [], readings: new Map(), vendorLookup: new Map() });
   assert.equal(result.held, false);
-  assert.equal(result.basis, '제목');
+  assert.equal(result.basis, STEP1_TITLE_BASIS);
+  assert.equal(STEP1_TITLE_BASIS, '제목'); // pins the exported constant's actual value
   assert.deepEqual(result.hits.map(hit => hit.project_code), ['P00-001']);
 });
 

@@ -65,6 +65,20 @@ test('listProjects: finds folders with a 021 rule json, skips folders without on
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('listProjects (NIT, coordinator fresh review round 5): a workspacesRoot whose parent segment is a regular file reports no projects, not a thrown error -- assert the module behaviour only, never a raw errno', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-rule-store-'));
+  try {
+    // `readdirSync` on a path passing THROUGH a regular file reports ENOTDIR on Linux
+    // but ENOENT on Windows for the same misconfiguration -- this test deliberately
+    // never inspects `error.code` itself, only the library's own resulting behaviour,
+    // so it passes identically on both platforms.
+    const regularFile = path.join(root, 'not-a-directory');
+    writeFileSync(regularFile, 'x');
+    const bogusWorkspacesRoot = path.join(regularFile, 'sub', '_workspaces');
+    assert.deepEqual(listProjects({ workspacesRoot: bogusWorkspacesRoot }), []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('readRule: returns parsed json, md text and sha256 digests', () => {
   const { root, workspacesRoot } = makeFixture();
   try {
@@ -194,6 +208,23 @@ test('saveRuleVersion (R4, coordinator decision, fresh review round 4): the meas
     const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
     assert.match(md, /이 규칙 제목어로 확정 1건, 표·판독·본문으로 추가 2건\(합계 3건\), 새로 매칭 0건, 매칭 해제 0건, 새로 보류 0건/u);
     assert.doesNotMatch(md, /^- 실측: 확정/mu); // never the pre-R4 single-number phrasing when the split fields are present
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (NIT, coordinator fresh review round 5): the measured line still renders "표·판독·본문으로 추가 0건" when no table contributes anything at all', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    // A rule matching 3 mails entirely on its own subject terms, with no Owner table
+    // (or step 4) adding anything -- table_attributed_after is genuinely 0, not
+    // omitted or undefined, and the line must say so explicitly rather than reading as
+    // if the split fields were simply absent.
+    const measured = {
+      rule_matched_before: 3, rule_matched_after: 3, matched_before: 3, matched_after: 3,
+      table_attributed_after: 0, matched_from_system_senders: 0, moved_in: 0, moved_out: 0, newly_held: 0,
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /이 규칙 제목어로 확정 3건, 표·판독·본문으로 추가 0건\(합계 3건\), 새로 매칭 0건, 매칭 해제 0건, 새로 보류 0건/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

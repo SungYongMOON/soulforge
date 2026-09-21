@@ -474,30 +474,32 @@ test('R3: preview() omits orgConfigPath when it is not configured, rather than f
   assert.equal('orgConfigPath' in seenArgs, false);
 });
 
-test('NIT (fresh review round 4): preview() adds tables_used: [] explicitly when orgConfigPath is not configured (no table could possibly have been consulted)', async t => {
+test('NIT (fresh review round 5): preview() passes the core\'s own owner_tables_used straight through, unconfigured orgConfigPath case (empty)', async t => {
   const f = await fixture(t);
   const hiworksDir = path.join(f.root, 'events', 'hiworks'), gmailDir = path.join(f.root, 'events', 'gmail_sent');
   await mkdir(hiworksDir, { recursive: true }); await mkdir(gmailDir, { recursive: true });
   await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
   const fakeCore = {
-    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {}, owner_tables_used: [] }),
     saveRuleVersion: async () => ({}), refresh: async () => ({}),
   };
   const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot, hiworksEventsDir: hiworksDir, gmailSentEventsDir: gmailDir, core: fakeCore });
   const result = await reader.preview('P00-001', { exact: [], hint: [] });
-  assert.deepEqual(result.tables_used, []);
+  assert.deepEqual(result.owner_tables_used, []);
+  assert.equal('tables_used' in result, false); // the round-4 adapter-invented field is gone
 });
 
-test('NIT (fresh review round 4): preview() does NOT invent tables_used when orgConfigPath IS configured -- the core\'s own return passes through untouched', async t => {
+test('NIT (fresh review round 5): preview() passes owner_tables_used through unchanged when the core reports a table was actually read', async t => {
   const f = await custodyFixture(t);
   await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const usage = [{ table: 'bundle', file: '묶음_확정표.csv', sha256: `sha256:${'a'.repeat(64)}` }];
   const fakeCore = {
-    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {}, owner_tables_used: usage }),
     saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture([]),
   };
   const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore }));
   const result = await reader.preview('P00-001', { exact: [], hint: [] });
-  assert.equal('tables_used' in result, false);
+  assert.deepEqual(result.owner_tables_used, usage);
 });
 
 // ---------- S1: optimistic concurrency ----------

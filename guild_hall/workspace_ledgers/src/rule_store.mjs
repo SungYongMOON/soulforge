@@ -54,7 +54,11 @@ function ruleMdPath(workspacesRoot, folder) { return path.join(workspacesRoot, f
 export function listProjects({ workspacesRoot }) {
   let entries;
   try { entries = readdirSync(workspacesRoot, { withFileTypes: true }); }
-  catch (error) { if (error?.code === 'ENOENT') return []; throw error; }
+  // NIT (coordinator, fresh review round 5): a `workspacesRoot` whose parent segment is
+  // a regular file (not a directory) reports `ENOTDIR` on Linux but `ENOENT` on Windows
+  // for the same "this path is not a usable directory" situation -- treated the same
+  // way here (no projects found) so both platforms behave identically.
+  catch (error) { if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') return []; throw error; }
   const projects = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;

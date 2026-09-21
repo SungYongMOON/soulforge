@@ -20,7 +20,7 @@ import { buildContacts, buildHistory, buildReplyStatus, decodeCsv, domainOf, enc
 // AFTER classification -- for a mail `classifyProjectHits` left unresolved in
 // `refresh()`'s own accounting, and for `previewRule()`'s `matched_from_system_senders`
 // (K2).
-import { addressesOfMail, buildSystemSenderConfig, classifyProjectHits, detectSystemSender } from './common_classifier.mjs';
+import { addressesOfMail, buildSystemSenderConfig, classifyProjectHits, detectSystemSender, STEP1_TITLE_BASIS } from './common_classifier.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
 import { loadOwnerTables, ownerTableUsageEntry, resolveOwnerTablePaths } from './owner_tables.mjs';
 
@@ -410,6 +410,16 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   const systemSenderConfig = buildSystemSenderConfig(orgConfig ?? {});
   const resolvedTables = resolveOwnerTablePaths({ bundleTablePath, readingTablePath, vendorTablePath }, { orgConfig, workspacesRoot });
   const owner = loadOwnerTables(resolvedTables);
+  // NIT (coordinator, fresh review round 5): the receipt-safe summary of which table
+  // files THIS call actually used -- previewRule already resolves them via
+  // `resolveOwnerTablePaths` above, so it can report this itself instead of a caller
+  // (the console adapter) inventing its own `tables_used` guess. Empty whenever no
+  // table was actually read, whether that is because none was configured at all OR
+  // because an org config exists but declares no `owner_tables` entries -- either way
+  // the panel's "표 미적용" should show.
+  const ownerTablesUsed = ['bundle', 'reading', 'vendor']
+    .map(table => ownerTableUsageEntry(table, resolvedTables[`${table}TablePath`]))
+    .filter(Boolean);
 
   const beforeJson = all.map(row => row.json);
   const afterJson = target ? beforeJson.map(row => (row.project_code === code ? nextDraft : row)) : [...beforeJson, nextDraft];
@@ -425,14 +435,6 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   ));
   const beforeResults = classifyEach(compiledBefore, owner);
   const afterResults = classifyEach(compiledAfter, owner);
-  // R4 (coordinator decision, fresh review round 4): a SECOND classification pass with
-  // every Owner table emptied out -- steps 2-4 can then never contribute a hit, so this
-  // isolates step 1 (the draft's OWN subject terms) alone. Still runs against the FULL
-  // compiled rule set (every other onboarded project's rule too), because a two-project
-  // subject collision is still a hold even with no tables in play -- only the table
-  // CONTRIBUTION is being subtracted out here, not the hold-detection behaviour.
-  const NO_TABLES = { bundles: [], readings: new Map(), vendors: new Map() };
-  const ruleOnlyAfterResults = classifyEach(compiledAfter, NO_TABLES);
 
   const sample = record => ({ at: record.at, subject: record.subject.length > 80 ? record.subject.slice(0, 80) : record.subject });
   let matchedBefore = 0, matchedAfter = 0, matchedFromSystemSenders = 0, ruleMatchedBefore = 0, ruleMatchedAfter = 0;
@@ -459,14 +461,17 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     if (afterHit && !beforeHit) movedIn.push(sample(record));
     if (beforeHit && !afterHit) movedOut.push(sample(record));
     if (afterInvolvedInHold && !beforeInvolvedInHold) newlyHeld.push(sample(record));
-    // R4: `rule_matched_before` is the currently-SAVED rule's own step-1-only count --
-    // told apart from a table/step-4 contribution via `beforeR.basis === '제목'` (the
-    // exact basis `classifyProjectHits` sets only for a genuine step-1 title-rule hit,
-    // never for a bundle/reading/body attribution -- see its own doc). `rule_matched_
-    // after` instead reads off the dedicated no-tables pass above (run against
-    // `compiledAfter`, the draft).
-    if (beforeHit && beforeR.basis === '제목') ruleMatchedBefore += 1;
-    if (ruleOnlyAfterResults[index].hits.some(hit => hit.project_code === code)) ruleMatchedAfter += 1;
+    // SHOULD (coordinator, fresh review round 5): `rule_matched_before`/`rule_matched_
+    // after` are both told apart from a table/step-4 contribution the same way -- via
+    // `basis === STEP1_TITLE_BASIS` (the exact basis `classifyProjectHits` sets ONLY
+    // for a genuine step-1 title-rule hit, never for a bundle/reading/body attribution
+    // -- see that function's own doc). A separate no-tables classification pass for
+    // `rule_matched_after` is unnecessary: step 1 always runs first and, when it
+    // resolves a mail (one hit, no hold), no later step is ever reached -- so a
+    // step-1-title-basis hit under the WITH-tables pass is exactly the same mail a
+    // no-tables pass would have found, at half the classification work.
+    if (beforeHit && beforeR.basis === STEP1_TITLE_BASIS) ruleMatchedBefore += 1;
+    if (afterHit && afterR.basis === STEP1_TITLE_BASIS) ruleMatchedAfter += 1;
   }
   return {
     // R4 (coordinator decision, fresh review round 4): TWO views, never conflated.
@@ -511,6 +516,7 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     // way one taken with another project's rule excluded is.
     rule_failures: ruleFailures,
     owner_table_failures: owner.failures,
+    owner_tables_used: ownerTablesUsed,
   };
 }
 
@@ -1130,7 +1136,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       // filled in count as search/RAG-eligible; a bare (not-yet-Owner-confirmed)
       // reading decision, and a step-4 body tie-break, do not.
       const readingOwnerConfirmed = result.reading && String(result.reading.ownerConfirmed ?? '').trim() !== '';
-      if (result.basis === '제목' || result.basis === '묶음 확정' || readingOwnerConfirmed) projectSearchEligibleAttributions += 1;
+      if (result.basis === STEP1_TITLE_BASIS || result.basis === '묶음 확정' || readingOwnerConfirmed) projectSearchEligibleAttributions += 1;
       const direction = record.source === 'Gmail_보낸메일_수집' || (record.from && domainOf(record.from.email) === ourDomain) ? 'sent' : 'received';
       // A1: a hit can name more than one project (공유 A;B, or -- new, D-a -- a
       // shared subject-rule outcome is impossible, but a shared bundle/reading hit

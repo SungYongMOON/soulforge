@@ -174,7 +174,13 @@ export function readOwnerTable(filePath, expectedHeaders, { missingIsFailure = f
   let rawText;
   try { rawText = readFileSync(filePath, 'utf8'); }
   catch (error) {
-    if (error?.code === 'ENOENT') {
+    // NIT (coordinator, fresh review round 5): a path whose PARENT segment is a
+    // regular file (not a directory) reports `ENOTDIR` on Linux but `ENOENT` on
+    // Windows for the exact same "this path does not exist as I expect it" situation
+    // -- treated identically here so both platforms report the same module code for
+    // the same misconfiguration, rather than Linux CI seeing `workspace_ledgers_owner_
+    // table_unreadable` where a Windows run would have seen the missing-table path.
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
       return missingIsFailure ? { present: true, ok: false, code: 'workspace_ledgers_owner_table_configured_but_missing' } : { present: false };
     }
     return { present: true, ok: false, code: 'workspace_ledgers_owner_table_unreadable' };

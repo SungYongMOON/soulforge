@@ -303,15 +303,19 @@ test('previewRule (fresh-review-3 #6): orgConfigPath resolves system_sender_doma
     assert.equal(withOrgConfig.matched_before, withoutOrgConfig.matched_before);
     assert.equal(withOrgConfig.matched_after, withoutOrgConfig.matched_after);
     assert.equal(withOrgConfig.matched_from_system_senders, 1);
-    // NIT (coordinator, fresh review round 4): pin K2's own claim against the REAL
-    // written rows, not just previewRule's in-memory count -- a real refresh() run
-    // against the exact same custody/rule/org config must write exactly
-    // `matched_after` mails into project A's own ledgers.
+    // REQUIRED (coordinator, fresh review round 5): pin K2's own claim against the REAL
+    // written rows on disk, not just the receipt's own `mails` count (which is computed
+    // in memory by the same code path being tested, so it is not independent proof) --
+    // decode the actual written 메일_수신이력.csv/메일_발송이력.csv for project A and
+    // count their rows directly, via the module's own `decodeCsv`.
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: orgConfigWithVendorSkip,
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
-    assert.equal(reportA.mails, withOrgConfig.matched_after);
+    assert.equal(reportA.mails, withOrgConfig.matched_after); // receipt-level claim, kept
+    const recvRows = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8')).rows.length;
+    const sentRows = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8')).rows.length;
+    assert.equal(recvRows + sentRows, withOrgConfig.matched_after);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -1837,6 +1841,10 @@ test('previewRule (R4, coordinator decision, fresh review round 4): rule_matched
     const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
     const result = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
+    // SHOULD (coordinator, fresh review round 5): pin rule_matched_before too, not
+    // only rule_matched_after -- the draft here has the same terms as the currently
+    // SAVED rule, so the "before" (saved-rule) view sees the same single step-1 hit.
+    assert.equal(result.rule_matched_before, 1); // h-rule-only alone, via the saved rule
     assert.equal(result.rule_matched_after, 1); // h-rule-only alone
     assert.equal(result.matched_after, 3); // + the two bundle-table mails
     assert.equal(result.table_attributed_after, 2);
@@ -1849,8 +1857,32 @@ test('previewRule (R4, coordinator decision, fresh review round 4): rule_matched
     const emptiedDraft = rule(CODE_A, FOLDER_A, [['자리표시자', '자리표시자-절대-매치-안됨']]);
     const emptiedResult = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft: emptiedDraft,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
+    // rule_matched_before is unaffected by the DRAFT change -- it always reflects the
+    // currently SAVED rule, which was never touched.
+    assert.equal(emptiedResult.rule_matched_before, 1);
     assert.equal(emptiedResult.rule_matched_after, 0);
     assert.equal(emptiedResult.matched_after, 2);
     assert.equal(emptiedResult.table_attributed_after, 2);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('previewRule (NIT, coordinator fresh review round 5): owner_tables_used reports the tables actually read, empty when none was', () => {
+  const fixture = makeFixture();
+  try {
+    const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
+    const withoutTables = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    assert.deepEqual(withoutTables.owner_tables_used, []);
+
+    const { bundleTablePath } = tablesPaths(fixture.root);
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [['전혀 다른', CODE_A, 'Owner 확인 완료', '2026-09-01', '']]));
+    const withTable = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
+    assert.equal(withTable.owner_tables_used.length, 1);
+    assert.equal(withTable.owner_tables_used[0].table, 'bundle');
+    assert.equal(withTable.owner_tables_used[0].file, path.basename(bundleTablePath));
+    assert.match(withTable.owner_tables_used[0].sha256, /^sha256:[0-9a-f]{64}$/u);
+    // never a host-local path.
+    assert.equal(JSON.stringify(withTable.owner_tables_used).includes(fixture.root), false);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

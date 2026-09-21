@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { encodeCsv } from '../src/ledgers.mjs';
 import {
   BUNDLE_HEADERS, BUNDLE_HEADERS_V2, buildBundleTable, buildReadingTable, buildVendorTable, buildWorkTagTable,
-  isValidCalendarDateString, loadOwnerTables, OwnerTableConfigError, READING_HEADERS, resolveOwnerTablePaths,
+  isValidCalendarDateString, loadOwnerTables, OwnerTableConfigError, READING_HEADERS, readOwnerTable, resolveOwnerTablePaths,
   VENDOR_HEADERS, WORKTAG_HEADERS,
 } from '../src/owner_tables.mjs';
 
@@ -14,6 +14,22 @@ function tmpFile(name) {
   const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-'));
   return { dir, filePath: path.join(dir, name) };
 }
+
+test('readOwnerTable (NIT, coordinator fresh review round 5): a path whose parent segment is a regular file is treated the same as a missing file -- assert the module behaviour only, never a raw errno', () => {
+  const { dir } = tmpFile('unused');
+  try {
+    // `readFileSync` on a path passing THROUGH a regular file reports ENOTDIR on Linux
+    // but ENOENT on Windows for the same misconfiguration -- this test never inspects
+    // `error.code` itself, only `readOwnerTable`'s own resulting shape, so it passes
+    // identically on both platforms.
+    const regularFile = path.join(dir, 'not-a-directory');
+    writeFileSync(regularFile, 'x');
+    const bogusPath = path.join(regularFile, 'sub', '묶음_확정표.csv');
+    assert.deepEqual(readOwnerTable(bogusPath, BUNDLE_HEADERS_V2), { present: false }); // ordinary "skip" -- not configuredPaths
+    assert.deepEqual(readOwnerTable(bogusPath, BUNDLE_HEADERS_V2, { missingIsFailure: true }),
+      { present: true, ok: false, code: 'workspace_ledgers_owner_table_configured_but_missing' }); // S3 fail-closed path
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 test('resolveOwnerTablePaths (NIT, coordinator fresh review round 4): a relative config value that escapes workspacesRoot throws workspace_ledgers_owner_table_config_path_escape', () => {
   const workspacesRoot = path.join(tmpdir(), 'workspace-ledgers-owner-tables-root');

@@ -231,6 +231,13 @@ function runPreviewRule(flags) {
     if (result.rule_failures?.length > 0) {
       console.error(`workspace_ledgers_preview_rule_partial_rule_failures: ${JSON.stringify(result.rule_failures)}`);
     }
+    // SHOULD (coordinator, fresh review round 5): S1's own caveat, mirrored here -- an
+    // Owner table that failed to load makes these counts just as incomplete as an
+    // excluded project's rule does. Counts/codes only, matching `owner_table_failures`'s
+    // own shape (`{ table, code }`) -- never a table's own file content or path.
+    if (result.owner_table_failures?.length > 0) {
+      console.error(`workspace_ledgers_preview_rule_partial_owner_table_failures: ${JSON.stringify(result.owner_table_failures)}`);
+    }
   } catch (error) {
     console.error(`workspace_ledgers_preview_rule_failed: ${error.code ?? error.message}`);
     // NIT (fresh review round 4): see runRefresh's own identical note -- classify by

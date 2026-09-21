@@ -194,6 +194,15 @@ export function classifyByOwnerTables({ id, subject, at = null }, { bundles, rea
  * `DEFAULT_MATCH_FIELDS`). Step 4 (body) is unaffected either way -- it is always
  * tested against `body_text` alone, per its own narrower (vendor-gated) contract.
  */
+// SHOULD (coordinator, fresh review round 5): the exact `basis` string this function
+// sets ONLY for a genuine step-1 title-rule hit (never a bundle/reading/body
+// attribution) -- exported so every caller that needs to tell "this hit came from the
+// rule's own subject terms" apart from a table/step-4 attribution compares against
+// ONE named constant instead of re-typing the literal `'제목'` in each file (the
+// fragility a fresh reviewer named: a typo or a future rename of this string would
+// silently desync any comparison still spelling it out by hand).
+export const STEP1_TITLE_BASIS = '제목';
+
 export function classifyProjectHits({ id, subject, body, addresses, at = null }, { compiledRules, bundles, readings, vendorLookup, fields = DEFAULT_MATCH_FIELDS }) {
   assertSubjectOnlyFields(fields);
   const vendors = vendorsOfAddresses(addresses, vendorLookup);
@@ -204,7 +213,7 @@ export function classifyProjectHits({ id, subject, body, addresses, at = null },
   // subject means held -- never automatic attribution.
   const titleResult = classifyMail({ subject, body_text: '', attachment_names: [] }, compiledRules, { fields });
   if (titleResult.hits.length === 1) {
-    return { hits: titleResult.hits, held: false, basis: '제목', vendors, candidates: [], unknownBundleTarget: false, unknownReadingTarget: false };
+    return { hits: titleResult.hits, held: false, basis: STEP1_TITLE_BASIS, vendors, candidates: [], unknownBundleTarget: false, unknownReadingTarget: false };
   }
   if (titleResult.hits.length > 1) {
     return { hits: [], held: true, basis: '제목(두 과제 겹침)', vendors, candidates: titleResult.hits.map(hit => hit.project_code),

@@ -479,9 +479,12 @@ column and this is always `0` there.
 ## Performance
 
 - `classifier.mjs` lowercases each mail's field text at most once per unique
-  `match_fields` combination per mail (in practice once total, since every rule
-  declares the same three fields), not once per term -- a cache scoped to a single
-  `classifyMail`/`hintCodes` call.
+  `match_fields` combination per mail, not once per term -- a cache scoped to a single
+  `classifyMail`/`hintCodes` call. Under K1 (coordinator, fresh review round 3) there
+  are exactly two combinations ever in play across a custody sweep, not one: step 1
+  (`classifyProjectHits`'s title-rule check) always calls with `['subject']`, and step
+  4 (the supplier-body tie-break) always calls with `['body_text']` -- a rule's own
+  `match_fields` no longer widens step 1's own combination the way it did before K1.
 - `body_text`, `subject`, and the joined attachment-names text are all bounded to the
   first `MAX_BODY_TEXT_CHARS` (20,000) characters (N-2, fresh-review-4: subject and
   attachment names used to be unbounded -- an adversarial or malformed 100k-character
@@ -1509,16 +1512,84 @@ verbatim).
   `workspace_ledgers_owner_table_config_workspaces_root_required`, a clear module
   error code, never a raw `TypeError` from `path.join(undefined, ...)`.
 - `mail-rule-adapter.mjs`'s `preview()` already passed `orgConfigPath` whenever it was
-  configured (no change needed there); when it is NOT configured, the response now
-  carries `tables_used: []` explicitly -- without `orgConfigPath`, no
-  `orgConfig.common_ledgers.owner_tables` entry can possibly have been resolved (this
-  adapter never passes an explicit table path either), so the panel can render "표
-  미적용" instead of leaving the Owner to infer that from field absence.
+  configured (no change needed there); when it is NOT configured, the response used to
+  carry an adapter-invented `tables_used: []`. Superseded in round 5 by `previewRule`
+  itself reporting `owner_tables_used` (see "부록 A round 5" below) -- the adapter now
+  passes the core's own field straight through instead.
 - The K2 test (`previewRule (fresh-review-3 #6)` in `tests/refresh.test.mjs`) used to
   only probe `previewRule`'s own in-memory counts -- now also runs a real `refresh()`
-  against the exact same custody/rule/org config and asserts the written project
-  ledger's row count equals `previewRule`'s own `matched_after`, pinning the claim the
-  reviewer had verified by hand.
+  against the exact same custody/rule/org config, decodes project A's actual
+  `메일_수신이력.csv`/`메일_발송이력.csv` bytes on disk (via the module's own
+  `decodeCsv`), and asserts their combined row count equals `previewRule`'s own
+  `matched_after` -- not merely the receipt's own in-memory `mails` count (round 5,
+  coordinator: the receipt figure alone is computed by the same code path being
+  tested, so it was not independent proof; both assertions are kept).
+
+## 부록 A round 5 (fresh review, coordinator) -- merge-ready, K2 test made real, SHOULD/nits
+
+A fifth fresh review of round 4's commit (ed6776e9) found every round-4 item verified
+correct (R4's own semantics checked hard), no Linux-only hazard, and clean hygiene --
+MERGE-READY with one cheap REQUIRED, three SHOULD, and five nits.
+
+**REQUIRED -- the K2 test's own claim was not yet true.** README and the round-4
+CHANGELOG entry both said the K2 test "asserts the written project ledger's row count
+equals `previewRule`'s `matched_after`", but the test itself only asserted
+`receipt.projects[].mails` -- the RECEIPT's own in-memory figure, computed by the same
+code path under test, never independent proof. Fixed: the test now decodes project A's
+actual `메일_수신이력.csv`/`메일_발송이력.csv` bytes on disk (via `decodeCsv`) and sums
+their real row counts, asserting that combined figure equals `matched_after` -- the
+receipt-level assertion is kept alongside it, not replaced.
+
+### SHOULD items
+
+- Dropped the redundant third classification pass `previewRule` ran just to compute
+  `rule_matched_after` (a whole second `classifyProjectHits` sweep with every Owner
+  table emptied out). `common_classifier.mjs` now exports `STEP1_TITLE_BASIS` (`'제목'`)
+  -- the exact `basis` value `classifyProjectHits` sets ONLY for a genuine step-1
+  title-rule hit, never for a bundle/reading/body attribution. `rule_matched_after` is
+  now computed the same way `rule_matched_before` already was: `afterHit && afterR.basis
+  === STEP1_TITLE_BASIS`, off the SAME with-tables classification pass `matched_after`
+  itself uses -- correct because step 1 always runs first and, once it resolves a mail
+  (one hit, no hold), no later step is ever reached, so a step-1-basis hit under the
+  with-tables pass is exactly the same mail a no-tables pass would have found. Every
+  other literal `'제목'` basis comparison in `common_refresh.mjs`/`refresh.mjs` now uses
+  the same exported constant instead of re-typing the string (the fragility the
+  reviewer named).
+- `rule_matched_before` is now pinned with a real assertion in the R4 test (it was
+  computed and returned correctly all along, just never checked directly).
+- `cli.mjs`'s `preview-rule` now prints the same class of stderr caveat for
+  `owner_table_failures` that it already printed for `rule_failures`
+  (`workspace_ledgers_preview_rule_partial_owner_table_failures`, counts/codes only,
+  never a table's own content).
+
+### Nits
+
+- Panel label corrected to `표·판독·본문으로 추가` (matching the `.md` line exactly --
+  step 4's own supplier-body attributions are included in `table_attributed_after`
+  too, not just bundle/reading).
+- The adapter-invented `tables_used` field is gone. `previewRule` itself now returns
+  `owner_tables_used` (`[{ table, file, sha256 }]`, same shape/no-host-path convention
+  as `refresh()`'s own field of the same name -- it already resolves the tables via
+  `resolveOwnerTablePaths` internally, S-b) -- empty whenever no table was actually
+  read, covering BOTH "no `orgConfigPath` at all" and "an org config exists but
+  declares no `owner_tables` entries" in one check. `mail-rule-adapter.mjs`'s
+  `preview()` passes the core's own field straight through; the panel renders "표
+  미적용" whenever it is empty.
+- README's "Performance" section still described the pre-K1 world ("in practice once
+  [lowercase-cache population] total, since every rule declares the same three
+  fields") -- fixed: under K1 there are exactly two `match_fields` combinations ever in
+  play across a sweep (`['subject']` for step 1, `['body_text']` for step 4), not one.
+- `owner_tables.mjs`'s `readOwnerTable` and `rule_store.mjs`'s `listProjects` now treat
+  `ENOTDIR` the same as `ENOENT` when deciding "missing" -- a path whose PARENT segment
+  is a regular file (not a directory) reports `ENOTDIR` on Linux but `ENOENT` on
+  Windows for the exact same misconfiguration; both platforms now report the same
+  module code. Tests assert the library's own resulting behaviour only, never the raw
+  errno, so they pass identically on both platforms without needing to reproduce the
+  platform-specific error code itself.
+- Added a test for the 0-additions rendering of the measured line (a rule matching
+  entirely on its own, `table_attributed_after: 0`) -- confirms the line still reads
+  "...표·판독·본문으로 추가 0건(합계 N건)..." explicitly rather than omitting the
+  clause when there is nothing to add.
 
 ## Byte hygiene (tracked source, not data)
 
@@ -1564,7 +1635,7 @@ environment.
 
 - `listProjects({ workspacesRoot })` -> `[{ project_code, folder_name, rule_json_path, rule_md_path }]`
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
-- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath?, bundleTablePath?, readingTablePath?, vendorTablePath? })` -> `{ rule_matched_before, rule_matched_after, matched_before, matched_after, table_attributed_after, matched_from_system_senders, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples, rule_failures, owner_table_failures }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report. `rule_failures`/`owner_table_failures` -- fresh-review-5 #7 / S1, fresh review round 4 -- list any OTHER project's rule, or any Owner table, excluded from this comparison because it failed to compile/load; either non-empty means these counts are incomplete, and should be rendered with a caveat, not as fact). `fields` is accepted only for backward compatibility and must be exactly `['subject']`/omitted -- K1, throws `workspace_ledgers_fields_not_supported` otherwise. `orgConfigPath` (optional) resolves the merged system-sender list the same way a real `refresh()` against that config would (K2: `matched_before`/`matched_after` are never reduced by this -- `matched_from_system_senders` reports that population separately). `bundleTablePath`/`readingTablePath`/`vendorTablePath` (all optional, all fall back to `orgConfig.common_ledgers.owner_tables` when omitted -- S-b, S3 for a config-resolved-but-missing path) fold table/step-4 attribution directly into `matched_before`/`matched_after` (D-a: one classification function). R4 (coordinator decision, fresh review round 4): `rule_matched_before`/`rule_matched_after` are step 1 ONLY (this rule's own subject terms, every Owner table emptied out); `table_attributed_after` (`= matched_after - rule_matched_after`, clamped at 0) is the portion of `matched_after` an Owner table or step 4 explains that the rule's own terms do not. There is no `table_attributed` field any more (replaced by this split).
+- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath?, bundleTablePath?, readingTablePath?, vendorTablePath? })` -> `{ rule_matched_before, rule_matched_after, matched_before, matched_after, table_attributed_after, matched_from_system_senders, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples, rule_failures, owner_table_failures, owner_tables_used }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report. `rule_failures`/`owner_table_failures` -- fresh-review-5 #7 / S1, fresh review round 4 -- list any OTHER project's rule, or any Owner table, excluded from this comparison because it failed to compile/load; either non-empty means these counts are incomplete, and should be rendered with a caveat, not as fact). `fields` is accepted only for backward compatibility and must be exactly `['subject']`/omitted -- K1, throws `workspace_ledgers_fields_not_supported` otherwise. `orgConfigPath` (optional) resolves the merged system-sender list the same way a real `refresh()` against that config would (K2: `matched_before`/`matched_after` are never reduced by this -- `matched_from_system_senders` reports that population separately). `bundleTablePath`/`readingTablePath`/`vendorTablePath` (all optional, all fall back to `orgConfig.common_ledgers.owner_tables` when omitted -- S-b, S3 for a config-resolved-but-missing path) fold table/step-4 attribution directly into `matched_before`/`matched_after` (D-a: one classification function). R4 (coordinator decision, fresh review round 4): `rule_matched_before`/`rule_matched_after` are step 1 ONLY (this rule's own subject terms, every Owner table emptied out); `table_attributed_after` (`= matched_after - rule_matched_after`, clamped at 0) is the portion of `matched_after` an Owner table or step 4 explains that the rule's own terms do not. There is no `table_attributed` field any more (replaced by this split). `owner_tables_used` (NIT, fresh review round 5) is `[{ table, file, sha256 }]` for every table THIS call actually read (empty whenever none was, whether none was configured at all, or an org config exists but declares no `owner_tables` entries) -- the console panel renders "표 미적용" whenever it is empty, reading this field directly rather than an adapter-invented one.
 - `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`. `draft` (and `previewRule`'s `draft`) must be the **complete** rule document, never a partial patch -- see "Rule versioning and lineage" above.
 - `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources?, bundleTablePath?, readingTablePath?, vendorTablePath?, allowDegradedOwnerTables? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied` (fresh-review-7 R3: true only when an unreadable dir actually put this run into a partial-sources state, not merely because the caller passed the flag), `allow_empty_applied_to`, `shrink_allowed_applied_to` (fresh-review-7 S1), `ledger_failures`, `rule_failures`, `owner_table_failures`, `owner_tables_used` (S-b: `[{ table, file, sha256 }]`), `table_attributed_mails`, `project_search_eligible_attributions`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`/`owner_cells_ambiguous` (fresh-review-7 R1/R2, contacts.csv only)). No `match_timeouts`/`match_run_budget_exceeded` any more -- removed along with the per-mail timeout machinery (see "Design simplification" above). `fields` is accepted only for backward compatibility and must be exactly `['subject']`/omitted -- K1. `allowEmpty` is a list of project codes (not a boolean, and every code must be a real onboarded project whose rule did not itself fail this run -- S-5/S-8); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above. `bundleTablePath`/`readingTablePath`/`vendorTablePath` (all optional) fall back to `orgConfig.common_ledgers.owner_tables` when omitted (S-b) -- run `refresh` and `common-refresh` against the SAME resolved table set, see 부록 A round 3 above.
 

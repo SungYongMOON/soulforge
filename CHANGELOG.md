@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 다섯 번째 신선한 눈 검토 반영: K2 시험 실증, 재검사 제거, ENOTDIR 이식성
+
+- Revision: 이 항목을 포함한 커밋(직전 commit ed6776e9에 대한 다섯 번째 별도 신선한 눈 검토 -- 4차 라운드
+  전 항목 재검증 통과, R4 자체 의미 재확인, Linux 전용 위험 없음, 위생 깨끗함, merge-ready 판정 + 필수 1건
+  (값싼 것)·should 3건·nit 5건 정정). origin/main을 다시 병합했다(답변 평가 하네스 v0가 새로 들어왔고,
+  CHANGELOG 한 곳만 충돌).
+- 무엇이 바뀌었는가: **(필수)** README와 4차 라운드 CHANGELOG 문장이 "K2 시험이 실제로 쓰여진 과제 장부의
+  행 수를 `previewRule`의 `matched_after`와 대조한다"고 주장했지만, 시험 자체는 영수증의 `mails`
+  숫자만(검증 대상과 같은 코드 경로가 만든 값이라 독립 증명이 아니다) 대조하고 있었다 -- 실제 디스크
+  `메일_수신이력.csv`/`메일_발송이력.csv` 바이트를 `decodeCsv`로 디코드해 그 합계를 `matched_after`와
+  대조하도록 고쳤다(영수증 대조는 그대로 유지).
+  should: 불필요한 세 번째 분류 재실행(`rule_matched_after`만 구하려고 표를 전부 비운 채 다시 돌리던
+  `classifyProjectHits` 전체 재스캔)을 없앴다 -- `common_classifier.mjs`가 `STEP1_TITLE_BASIS`(`'제목'`)
+  상수를 새로 내보내고, `rule_matched_after`도 `rule_matched_before`와 같은 방식(`afterHit &&
+  afterR.basis === STEP1_TITLE_BASIS`)으로, 표까지 포함한 기존 한 번의 분류 결과에서 그대로 구한다 --
+  1단계가 항상 먼저 돌고 한 번 풀리면(단일 히트, 보류 아님) 뒤 단계는 절대 안 돌기 때문에 표 포함 패스의
+  1단계-근거 히트는 표 없는 패스가 찾았을 바로 그 메일과 같다. `common_refresh.mjs`/`refresh.mjs`의 다른
+  `'제목'` 리터럴 비교도 전부 이 상수로 바꿨다(리뷰어가 지적한 취약점). `rule_matched_before`도 R4 시험에
+  실제 단언을 추가해 고정했다. `cli.mjs`의 `preview-rule`이 이제 `rule_failures`와 같은 종류의 stderr
+  주의문을 `owner_table_failures`에도 찍는다(개수·코드만).
+  nit: 패널 라벨을 `.md` 줄과 맞춰 `표·판독·본문으로 추가`로 고쳤다(4단계 본문 귀속도 포함되므로). 어댑터가
+  지어내던 `tables_used`를 없애고 `previewRule` 자신이 `owner_tables_used`(파일명+sha256, 호스트 경로
+  없음 -- 이미 표 경로를 내부에서 풀고 있으므로)를 돌려주게 했다 -- org config가 아예 없을 때와 있지만
+  `owner_tables`를 하나도 선언하지 않았을 때를 한 검사로 함께 커버한다; 어댑터는 core 값을 그대로 통과시키고
+  패널은 그 목록이 비면 "표 미적용"을 보여준다. README "Performance" 절의 "실질적으로 규칙마다 같은 세 필드를
+  쓰니 한 번뿐"이라는 K1 이전 세계 서술을 고쳤다(K1 아래서는 1단계 `['subject']`·4단계 `['body_text']` 두
+  조합이 항상 함께 쓰인다). `owner_tables.mjs`의 `readOwnerTable`과 `rule_store.mjs`의 `listProjects`가
+  이제 `ENOTDIR`도 `ENOENT`와 똑같이 "없음"으로 본다 -- 부모 경로 한 세그먼트가 일반 파일인 경로는 Linux에서
+  `ENOTDIR`, Windows에서 `ENOENT`를 내는 같은 상황이라, 두 플랫폼이 같은 모듈 코드를 내도록 했다. 새 시험은
+  raw errno를 검사하지 않고 모듈 자신의 결과 모양만 단언해 두 플랫폼에서 동일하게 통과한다. 측정값 렌더링에
+  표·판독·본문 추가가 정확히 0건인 경우("...표·판독·본문으로 추가 0건(합계 N건)...")를 명시로 보여주는지
+  시험을 추가했다.
+- 운영 영향: 없음 -- 새 예약작업·서버·writer 없음, 코드·문서·테스트만 바뀌었고 실행 경로는 라이브러리
+  함수 호출(읽기)과 호출자가 지정한 receipts 디렉터리 쓰기뿐이다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/common_classifier.mjs`, `common_refresh.mjs`, `owner_tables.mjs`,
+  `refresh.mjs`, `rule_store.mjs`, `cli.mjs`, `README.md`, 각 대응 `tests/*.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`(및 그 테스트).
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 네 번째 신선한 눈 검토 반영: 규칙 근거·표 근거 분리(R4), 문서 동기화(R1-R3), Owner 표 미설정 경로 강화(S1·S3)
 
 - Revision: 이 항목을 포함한 커밋(직전 commit bd3676d5에 대한 네 번째 별도 신선한 눈 검토 -- K1/K2/S-a..S-e는
@@ -39,7 +78,17 @@
   자체가 없는데 상대값을 쓰면 raw TypeError 대신 모듈 에러 코드. `mail-rule-adapter.mjs`의 `preview()`는
   `orgConfigPath` 미설정 시 응답에 `tables_used: []`를 명시로 실어 패널이 "표 미적용"을 보여줄 수 있게
   했다(설정 시엔 core 반환을 그대로 통과, 없는 필드를 지어내지 않음). K2 시험(`previewRule (fresh-review-3
-  #6)`)은 이제 `previewRule`의 메모리 상 개수뿐 아니라 실제 `refresh()`가 쓴 장부 행 수까지 대조한다.
+  #6)`)은 이제 `previewRule`의 메모리 상 개수뿐 아니라 실제 `refresh()`의 영수증 `mails` 수까지 대조한다
+  (5차 라운드 정정: 그 영수증 숫자 자체가 검증 대상과 같은 코드 경로가 만든 값이라 독립 증명이 아니었다 --
+  실제 디스크 CSV 바이트 대조는 5차 라운드에서 추가했다, 아래 항목 참조).
+- 운영 영향: 없음 -- 새 예약작업·서버·writer 없음, 코드·문서·테스트만 바뀌었고 실행 경로는 라이브러리
+  함수 호출(읽기)과 호출자가 지정한 receipts 디렉터리 쓰기(기존과 동일한 `refresh()`/`refreshCommon()`
+  영수증 기록)뿐이다. 참고: 이 모듈의 예전 규칙("콘솔/어댑터 branch `claude/ops-mail-rule-panel-v0`는
+  이 모듈이 직접 건드리지 않고, 그쪽이 따라야 할 변경만 여기 적는다" -- 위 2026-08 항목들 참고)은 그
+  패널이 `origin/main`에 병합돼 `ui-workspace/apps/team-ops-board`로 이 브랜치 안에 직접 들어온 뒤로는
+  더 이상 적용되지 않는다 -- 코디네이터가 이번 라운드부터 패널 파일(`operations-mail-rules.tsx`,
+  `mail-rule-adapter.mjs`)을 직접 편집 범위에 포함하도록 명시로 승인했다(의도된 결정이지 범위 이탈이
+  아니다).
 - 관련 경로: `guild_hall/workspace_ledgers/src/index.mjs`, `common_refresh.mjs`, `owner_tables.mjs`,
   `refresh.mjs`, `rule_store.mjs`, `README.md`, 각 대응 `tests/*.test.mjs`(신규 `tests/index.test.mjs` 포함),
   `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
@@ -93,6 +142,9 @@
   `readAllRuleJsonSafely`와 `common_refresh.mjs`의 `readAllRulesSafely`는 안전한 기계적 병합으로
   판단해 하나(`readAllRuleJsonSafely`, `refresh.mjs`에서 export)로 합쳤다 -- `classifyAllCommonMail`의
   `ruleFailures`가 `term_ref`까지 갖게 되는 진짜 상위집합이라 기존 필드 손실은 없다.
+- 운영 영향: 없음(5차 라운드 정정으로 추가) -- 새 예약작업·서버·writer 없음, 코드·문서·테스트만 바뀌었고
+  실행 경로는 기존 `refresh()`/`refreshCommon()`/`previewRule()` 호출(읽기)과 호출자가 지정한 receipts
+  디렉터리 쓰기뿐이다.
 - 관련 경로: `guild_hall/workspace_ledgers/src/classifier.mjs`, `common_classifier.mjs`, `common_ledgers.mjs`,
   `common_refresh.mjs`, `mail_events.mjs`, `owner_tables.mjs`, `refresh.mjs`, `cli.mjs`, `README.md`,
   각 대응 `tests/*.test.mjs`.
