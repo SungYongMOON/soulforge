@@ -1,0 +1,59 @@
+// Single entry point for external callers (e.g. a console/UI adapter) of this module.
+// Every exported function takes one options object with paths/directories passed
+// explicitly -- nothing in this library reads environment variables or other implicit
+// config, so a caller (this process or another) fully controls what gets read/written.
+//
+// Required signatures (workspacesRoot/workmetaRoot and custody directories are always
+// explicit arguments, never inferred):
+//   listProjects({ workspacesRoot })
+//     -> [{ project_code, folder_name, rule_json_path, rule_md_path }]
+//   readRule({ workspacesRoot, code })
+//     -> { project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }
+//   previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })
+//     -> { matched_before, matched_after, moved_in, moved_out, newly_held, samples, rule_failures }
+//        `orgConfigPath` (optional) resolves the same `system_sender_domains` merge a
+//        real `refresh()` against that config would use; omitted, only the built-in
+//        default skip list applies. `rule_failures` (fresh-review-5 #7) lists any OTHER
+//        project whose own saved rule failed to read/compile and was excluded from this
+//        comparison -- non-empty means the counts above are computed with fewer rules
+//        in play than normal; render it as a caveat (or don't render `measured` at all)
+//        rather than presenting the counts as complete, the same way `saveRuleVersion`
+//        does when it renders `measured` into the Owner-facing rule `.md`.
+//   saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })
+//     -> { project_code, folder_name, previous_version, rule_version, json_path, md_path,
+//          history_json_path, history_md_path, sha256_json, sha256_md }
+//   refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
+//             projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })
+//     -> the refresh receipt body (soulforge.workspace_ledgers_refresh_receipt.v1);
+//        `receipt.status` is `'failed'` when one or more ledger files failed strict
+//        validation (`receipt.ledger_failures`), when any custody directory could not
+//        be read (`receipt.unreadable_dirs`), or when a saved rule for one project
+//        failed to read/compile (`receipt.rule_failures` -- that project alone is
+//        excluded, S-8) -- every other file for every other project still refreshed in
+//        each case. fresh-review-5 (design simplification): there is no per-mail match
+//        timeout and no cumulative match-time run budget any more -- matching is a
+//        direct call now (see `classifier.mjs`'s `classifyMail` doc for why).
+//        `rule_failures[].term_ref` (fresh-review-5 #9), when present, is
+//        `{ list, index, label_hash }` -- never the term's own label text, which is
+//        Owner-authored routing keyword text and may itself be a real name.
+//        REQUIRED CHANGE (fresh-review-4 S-5): `allowEmpty` MUST be an array of
+//        project codes now -- a bare `true` (if this adapter was passing one) now
+//        THROWS `workspace_ledgers_allow_empty_must_be_list` instead of silently
+//        matching no projects. Pass `[]` for "no override", or the exact codes that
+//        need one; every code must be a real, currently-onboarded project whose rule
+//        did NOT fail this run, or the call throws `workspace_ledgers_unknown_project`
+//        (code does not exist) / `workspace_ledgers_allow_empty_targets_rule_failure`
+//        (fresh-review-5 #8: code exists but that project's own rule failed to compile
+//        this run -- check `receipt.rule_failures` first). Codes that actually needed
+//        the override are echoed in `receipt.allow_empty_applied_to`.
+//        `allowPartialSources` (default false): an unreadable custody directory blocks
+//        every write for the whole run unless this is explicitly true, in which case
+//        the run proceeds on whatever custody was readable
+//        (`receipt.allow_partial_sources_applied`).
+export { isMachineActor, listProjects, readRule, RuleStoreError, saveRuleVersion, validateRule } from './rule_store.mjs';
+export { clearCustodyCache, previewRule, refresh, RefreshError } from './refresh.mjs';
+export {
+  classifyMail, compileRule, compileRules, hintCodes, MATCH_FIELDS, normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
+} from './classifier.mjs';
+export { buildContacts, buildHistory, buildReplyStatus, decodeCsv, encodeCsv, LEDGER_SCHEMA, seoulDateOf } from './ledgers.mjs';
+export { loadMailEvents, parseAddressField } from './mail_events.mjs';

@@ -1,0 +1,16 @@
+{
+  "our_domain": "example.com",
+  "organisations": {
+    "example.com": "Example Corp",
+    "partner-old.example": "Partner Co (구 사명)",
+    "partner-new.example": "Partner Co",
+    "client.example": "Client Inc"
+  },
+  "family": {
+    "partner-old.example": "partner-new.example"
+  },
+  "system_sender_domains": [
+    "notifications.example.com",
+    "noreply.example.com"
+  ]
+}
