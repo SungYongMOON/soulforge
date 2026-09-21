@@ -77,6 +77,7 @@ test('refresh: classifies custody, writes per-project CSVs, and a receipt with t
     assert.equal(receipt.dry, false);
     assert.equal(receipt.held_two_projects, 1); // h2 mentions both P00-001 and P00-002
     assert.equal(receipt.skipped_system, 1); // h3 from slack
+    assert.equal(receipt.duplicates_dropped, 0); // no repeated event_id in this fixture
     assert.equal(receipt.projects.length, 2);
 
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
@@ -98,6 +99,26 @@ test('refresh: classifies custody, writes per-project CSVs, and a receipt with t
     assert.equal(recvCsv.rows.length, 1);
     const sentCsv = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
     assert.equal(sentCsv.rows.length, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (follow-up): two custody lines sharing one event_id yield exactly one ledger row, counted in duplicates_dropped', () => {
+  const fixture = makeFixture();
+  try {
+    // append a second, richer-attachment copy of h1 under the same event_id
+    const original = readFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), 'utf8');
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), `${original}\n${JSON.stringify(
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [{ name: 'x.pdf' }] },
+    )}`);
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.duplicates_dropped, 1);
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.received, 1); // still exactly one received row for h1, not two
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    assert.equal(recvCsv.rows.filter(row => row[6] === 'h1').length, 1);
+    assert.equal(recvCsv.rows.find(row => row[6] === 'h1')[16], '1'); // 첨부수 from the richer (kept) copy
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -299,16 +320,62 @@ test('refresh (R4): CP949-looking mojibake (U+FFFD) fails closed as an encoding 
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('refresh (R4): a duplicate key row fails closed', () => {
+test('refresh (R4/follow-up): a duplicate key whose rows disagree on an Owner-entered column fails closed', () => {
   const fixture = makeFixture();
   try {
-    const { cPath, corruptedText } = corruptContacts(fixture, decoded => { decoded.rows.push([...decoded.rows[0]]); });
+    const { cPath, corruptedText } = corruptContacts(fixture, decoded => {
+      const duplicate = [...decoded.rows[0]];
+      duplicate[12] = '다른 담당자'; // 과제내역할(Owner기입) -- genuinely conflicting Owner-entered value
+      decoded.rows.push(duplicate);
+    });
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
     assert.equal(receipt.status, 'failed');
     assert.equal(receipt.ledger_failures[0].code, 'workspace_ledgers_ledger_duplicate_key');
-    assert.equal(readFileSync(cPath, 'utf8'), corruptedText);
+    assert.equal(receipt.ledger_failures[0].conflict_groups, 1); // one key, one conflicting group
+    assert.equal(readFileSync(cPath, 'utf8'), corruptedText); // left untouched
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (follow-up): duplicate rows that are byte-identical collapse to one row and refresh proceeds', () => {
+  const fixture = makeFixture();
+  try {
+    const { cPath } = corruptContacts(fixture, decoded => { decoded.rows.push([...decoded.rows[0]]); });
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(receipt.status, 'ok');
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false);
+    assert.equal(reportA.contacts.collapsed_identical_rows, 1);
+    // no duplicate key survives in the rewritten file
+    const finalDecoded = decodeCsv(readFileSync(cPath, 'utf8'));
+    const keys = finalDecoded.rows.map(row => row[5]);
+    assert.equal(new Set(keys).size, keys.length);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (follow-up): duplicate rows differing only in a machine-owned column collapse and the fresh row wins', () => {
+  const fixture = makeFixture();
+  let staffEmail;
+  try {
+    const { cPath } = corruptContacts(fixture, decoded => {
+      staffEmail = decoded.rows[0][5];
+      const duplicate = [...decoded.rows[0]];
+      duplicate[7] = '999'; // 발신수 -- machine-owned, stale/bogus value from a hand-broken duplicate row
+      decoded.rows.push(duplicate);
+    });
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(receipt.status, 'ok');
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false);
+    const finalDecoded = decodeCsv(readFileSync(cPath, 'utf8'));
+    const row = finalDecoded.rows.find(candidate => candidate[5] === staffEmail);
+    // the freshly generated 발신수 must win, never the stale "999" from the broken duplicate
+    assert.notEqual(row?.[7], '999');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 

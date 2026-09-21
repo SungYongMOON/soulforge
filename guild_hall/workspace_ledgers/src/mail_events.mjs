@@ -125,18 +125,27 @@ function* readJsonlDir(dir) {
  * Loads and classifies mail events from `dirs` (each a directory directly holding
  * `*.jsonl` custody files). `source` is a caller-chosen label attached to every
  * returned event (e.g. `하이웍스_수집`, `Gmail_보낸메일_수집`). `compiledRules` and
- * `fields` are passed straight to `classifyMail` per event.
+ * `fields` are passed straight to `classifyMail` per (deduped) candidate.
  *
- * Returns `{ events, scanned, skippedSystem, unreadableDirs }`. `events[]` never
- * carries `body_text` or attachment names -- only `attachment_count` and the
- * classification result. `event_id` is synthesised (S7) when custody recorded none;
- * `at` is always a UTC instant (S12).
+ * Custody itself repeats mails: the same `event_id` can appear on more than one
+ * line (across files or within one), and the real hiworks custody has been observed
+ * doing exactly this. Candidates are deduped by their raw (non-empty) `event_id`
+ * *before* classification -- classifying, then counting, would double-count a
+ * repeated mail. Within one `event_id` group, the candidate with the most
+ * attachments is kept; a tie keeps the later line (custody append order). A missing
+ * `event_id` is never grouped with another missing one -- each such candidate is
+ * unique on its own and gets its own synthesised id (S7) below.
+ *
+ * Returns `{ events, scanned, skippedSystem, duplicatesDropped, unreadableDirs }`.
+ * `events[]` never carries `body_text` or attachment names -- only
+ * `attachment_count` and the classification result. `event_id` is synthesised (S7)
+ * when custody recorded none; `at` is always a UTC instant (S12).
  */
 export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIELDS,
   systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS }) {
-  const events = [];
   const unreadableDirs = [];
   let scanned = 0, skippedSystem = 0;
+  const candidates = [];
   for (const dir of dirs) {
     let iterator;
     try { iterator = readJsonlDir(dir); } catch (error) { unreadableDirs.push({ dir, code: error?.code ?? 'workspace_ledgers_mail_dir_unreadable' }); continue; }
@@ -155,23 +164,31 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
         ? raw.attachments.map(entry => String(typeof entry === 'string' ? entry : entry?.name ?? entry?.filename ?? '')).filter(Boolean)
         : [];
       const bodyText = String(raw.body_text ?? '');
-      const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
       const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
       const rawEventId = String(raw.event_id ?? '').trim();
-      const eventId = rawEventId !== '' ? rawEventId : syntheticEventId({ source, at, subject, fromEmail: from?.email ?? '' });
-      events.push({
-        source,
-        event_id: eventId,
-        at,
-        subject,
-        from,
-        to,
-        cc,
-        attachment_count: attachmentNames.length,
-        match,
-      });
-      // bodyText / attachmentNames go out of scope here: never attached to `events`.
+      candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at });
     }
   }
-  return { events, scanned, skippedSystem, unreadableDirs };
+
+  const byDedupKey = new Map();
+  let duplicatesDropped = 0;
+  candidates.forEach((candidate, index) => {
+    const key = candidate.rawEventId !== '' ? `id:${candidate.rawEventId}` : `noid:${index}`;
+    const existing = byDedupKey.get(key);
+    if (!existing) { byDedupKey.set(key, candidate); return; }
+    duplicatesDropped += 1;
+    // most attachments wins; a tie keeps the later line (this candidate, since the
+    // forEach walks candidates in the order they were read from custody).
+    if (candidate.attachmentNames.length >= existing.attachmentNames.length) byDedupKey.set(key, candidate);
+  });
+
+  const events = [];
+  for (const candidate of byDedupKey.values()) {
+    const { rawEventId, subject, from, to, cc, attachmentNames, bodyText, at } = candidate;
+    const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
+    const eventId = rawEventId !== '' ? rawEventId : syntheticEventId({ source, at, subject, fromEmail: from?.email ?? '' });
+    events.push({ source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match });
+    // bodyText / attachmentNames go out of scope here: never attached to `events`.
+  }
+  return { events, scanned, skippedSystem, duplicatesDropped, unreadableDirs };
 }

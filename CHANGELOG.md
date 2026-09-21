@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` custody 중복 event_id 근본 원인 반영
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋의 실제 대상면 `--dry` 재확인에서 발견된 17개
+  `workspace_ledgers_ledger_duplicate_key` 실패의 근본 원인(custody 자체가 메일을
+  중복 기록함 — 하이웍스 이벤트 2,590줄 중 distinct event_id는 1,995개, 595줄
+  초과분, 0개 빈 id, 겹치는 쌍은 첨부수 컬럼 1건 빼고 전부 byte-identical)을
+  반영했다. (1) `src/mail_events.mjs`가 분류 전에 raw event_id로 custody 후보를
+  중복제거한다 — 같은 event_id면 첨부수가 더 많은 쪽을 남기고, 동률이면 더 늦은
+  줄을 남긴다; `duplicates_dropped`를 `refresh()` 영수증과 `previewRule` 반환값에
+  노출했다. (2) `src/refresh.mjs`의 기존 CSV 중복 키 검증을 세분화했다 — 완전히
+  byte-identical한 중복 행은 하나로 합치고(`collapsed_identical_rows`), 기계
+  소유 열에서만 다른 중복은 새로 만든 행을 그대로 쓰며(합치되 갈등 아님), Owner
+  기입 열 자체가 서로 다른 경우에만 fail-closed를 유지하고(`conflict_groups`),
+  나머지 R4 보안 수정(R1–R5·S6–S14·N15–N17)과 `measured` shape 수정은 유지된다.
+  synthetic 데이터로 세 경우(동일·기계열만 다름·갈등) 전부와 "custody 두 줄→대장
+  한 행" 테스트를 추가했다.
+- 운영 영향: 코드·테스트·문서만 바뀌었다. 실제 대상면에 대한 `--dry --fields
+  subject` 재확인에서 이전 17개 실패가 모두 사라졌다(중복제거+동일/기계열-only
+  구분 적용). 세부 수치는 보고문에만 남기고 여기에는 옮기지 않는다(실제 메일
+  제목·이름 없음 원칙 유지, 수치만도 이 changelog 범위 밖).
+- 관련 경로: `guild_hall/workspace_ledgers/src/mail_events.mjs`,
+  `guild_hall/workspace_ledgers/src/refresh.mjs`,
+  `guild_hall/workspace_ledgers/tests/**`, `guild_hall/workspace_ledgers/README.md`.
+- 검증: `npm run validate:workspace-ledgers`(69 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 실제 대상면 `--dry --fields subject` 재확인(쓰기 없음).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 신선한 검토 반영: 보안·데이터 무결성·타임스탬프 수정
 
 - Revision: 이 항목을 포함한 커밋(이전 커밋의 fresh review 필수 5·should 9·nit 4건 전부 반영).

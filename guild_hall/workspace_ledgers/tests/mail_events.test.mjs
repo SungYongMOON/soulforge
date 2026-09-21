@@ -105,6 +105,60 @@ test('loadMailEvents: a missing event_id is synthesised from content, and two di
   }
 });
 
+test('loadMailEvents: two custody lines sharing one event_id dedupe to one event, keeping the one with more attachments', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { event_id: 'dup-1', subject: '[P00-001] repeated mail', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'dup-1', subject: '[P00-001] repeated mail', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'x.pdf' }, { name: 'y.pdf' }] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, scanned, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(scanned, 2); // both lines were read
+    assert.equal(events.length, 1); // but only one event survives
+    assert.equal(duplicatesDropped, 1);
+    assert.equal(events[0].attachment_count, 2); // the one with more attachments was kept
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents: a tie on attachment count keeps the later line', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { event_id: 'dup-2', subject: 'first version', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'a.pdf' }] },
+      { event_id: 'dup-2', subject: 'second version', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'b.pdf' }] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 1);
+    assert.equal(duplicatesDropped, 1);
+    assert.equal(events[0].subject, 'second version'); // the later line wins the tie
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents: distinct missing-event_id lines are never treated as duplicates of each other', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { subject: 'first', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+      { subject: 'second', from: 'b@example.com', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 2);
+    assert.equal(duplicatesDropped, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('loadMailEvents: custody timestamps normalise to UTC instants that sort chronologically regardless of offset (S12)', () => {
   const dir = tempDir();
   try {

@@ -169,15 +169,31 @@ or addresses leak into the receipt this way).
 **Fail-closed validation (R4).** Before merging into any existing ledger CSV, that
 file is strictly validated: no `U+FFFD` anywhere in its bytes (a common CP949/EUC-KR-
 as-UTF-8 mojibake signature), its header row matches the builder's own headers
-exactly, every row has exactly the header's column count, and no two rows share the
-same key. A file that fails any of these checks is **not merged into, not written to,
-not archived** -- it is left exactly as found, and `{file, code}` (one of
-`workspace_ledgers_ledger_header_mismatch`, `..._row_shape`, `..._encoding`,
-`..._duplicate_key`) is recorded in the receipt's `ledger_failures` array. This is
-per-file, not per-project or per-run: every other ledger for every other project still
-refreshes normally in the same call. `receipt.status` is `'failed'` whenever
-`ledger_failures` is non-empty; `refresh()` still returns the receipt (it does not
-throw for this), and the CLI maps `status: 'failed'` to exit code 2.
+exactly, and every row has exactly the header's column count. A file that fails
+either of these checks is **not merged into, not written to, not archived** -- it is
+left exactly as found, and `{file, code}` (`workspace_ledgers_ledger_header_mismatch`,
+`..._row_shape`, or `..._encoding`) is recorded in the receipt's `ledger_failures`
+array. This is per-file, not per-project or per-run: every other ledger for every
+other project still refreshes normally in the same call. `receipt.status` is
+`'failed'` whenever `ledger_failures` is non-empty; `refresh()` still returns the
+receipt (it does not throw for this), and the CLI maps `status: 'failed'` to exit
+code 2.
+
+**Duplicate-key rows.** Custody itself repeats mails (below), and the ledgers this
+module first met (written by the one-time scratch-script generation) still carry
+duplicate-key rows as a result. A repeated key's rows are handled per group, not
+failed closed outright:
+
+- **Byte-identical** rows (every column matches) collapse to one, counted in
+  `collapsed_identical_rows` per ledger in the receipt.
+- Rows that differ **only in a machine-owned column** (not one of that ledger's
+  Owner-entered/preserved columns) also collapse to one representative -- this
+  refresh's freshly-built row supersedes every machine-owned column regardless of
+  which duplicate is picked, so no reconciliation is needed.
+- Rows that disagree on an **Owner-entered column itself** are a genuine conflict --
+  which edit is authoritative cannot be inferred -- and still fail closed with
+  `workspace_ledgers_ledger_duplicate_key` (plus `conflict_groups`, how many distinct
+  keys had a real conflict) in `ledger_failures`, the same as any other R4 violation.
 
 Classification always considers **every** onboarded project's rule (so held/yield
 decisions are correct), even when `--projects` restricts which projects' files are
@@ -201,6 +217,14 @@ actually written.
 
 ## Mail matching (`src/classifier.mjs`, `src/mail_events.mjs`)
 
+- **Custody itself repeats mails** -- the same `event_id` can appear on more than one
+  line (across custody files or within one; observed for real). `mail_events.mjs`
+  dedupes custody candidates by their raw `event_id` *before* classification, keeping
+  the candidate with the most attachments per repeated id (a tie keeps the later
+  line); a missing `event_id` never groups with another missing one. `duplicates_dropped`
+  (the count of lines dropped this way) is reported in both the `refresh()` receipt
+  and `previewRule`'s return -- `previewRule`'s counts are always computed on the
+  deduped mail, never the raw repeated lines.
 - A rule's `exact` terms decide attribution; `hint` terms are review-only signal,
   never attribution. Two projects' `exact` terms matching one mail means `held` -- no
   automatic attribution, ever (`conflict_policy`).
@@ -292,9 +316,9 @@ environment.
 
 - `listProjects({ workspacesRoot })` -> `[{ project_code, folder_name, rule_json_path, rule_md_path }]`
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
-- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, samples }`
+- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, samples }`
 - `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`
-- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now? })` -> the receipt body (`status: 'ok' | 'failed'`, `ledger_failures`)
+- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `ledger_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`)
 
 `src/index.mjs` also re-exports `validateRule`, `isMachineActor`, `RuleStoreError`,
 `RefreshError`, `clearCustodyCache`, `classifyMail`/`compileRule`/`compileRules`/

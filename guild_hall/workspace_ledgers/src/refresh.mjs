@@ -173,6 +173,10 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   return {
     matched_before: matchedBefore, matched_after: matchedAfter,
     moved_in: movedIn.length, moved_out: movedOut.length, newly_held: newlyHeld.length,
+    // The raw custody window is identical for `before` and `after` -- only the rule
+    // set differs -- so deduping the same repeated custody lines drops the same count
+    // either way; reported once here rather than as a redundant before/after pair.
+    duplicates_dropped: before.hiworks.duplicatesDropped + before.gmail.duplicatesDropped,
     samples: { moved_in: movedIn.slice(0, 10), moved_out: movedOut.slice(0, 10), newly_held: newlyHeld.slice(0, 10) },
   };
 }
@@ -180,17 +184,42 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
 // -------------------------------------------------------------------- CSV write
 const REPLACEMENT_CHARACTER = '�';
 
+function rowsEqual(a, b) { return a.length === b.length && a.every((value, index) => value === b[index]); }
+
 /**
- * R4: strictly validates an existing ledger CSV before any merge is attempted, so a
- * corrupted or hand-broken file is never merged into and never silently overwritten.
- * Returns `{ present: false }` when there is nothing to validate yet (first refresh),
- * `{ present: true, ok: false, code }` on any violation, or `{ present: true, ok:
- * true, decoded, rawText }` when the file is safe to merge against. Checked, in order:
- * encoding (no U+FFFD anywhere -- a common CP949/EUC-KR-as-UTF-8 mojibake signature),
- * the header row equals the builder's own headers exactly, every row has exactly the
- * header's column count, and no two rows share the same key.
+ * Classifies one group of >=2 rows that all share the same key: `'identical'` (every
+ * column matches -- a pure duplicate, safe to collapse), `'machine_only_diff'` (every
+ * `preserveIndices` -- Owner-entered -- column agrees across the group; only other,
+ * machine-owned columns differ), or `'conflict'` (a `preserveIndices` column itself
+ * disagrees -- genuinely ambiguous which Owner edit is authoritative).
  */
-function validateExistingCsv({ existingPath, headers, keyIndex }) {
+function classifyDuplicateGroup(groupRows, preserveIndices) {
+  if (groupRows.every(row => rowsEqual(row, groupRows[0]))) return 'identical';
+  if (preserveIndices.every(index => groupRows.every(row => row[index] === groupRows[0][index]))) return 'machine_only_diff';
+  return 'conflict';
+}
+
+/**
+ * R4 (fail-closed) + the duplicate-key follow-up: strictly validates an existing
+ * ledger CSV before any merge is attempted, so a corrupted or hand-broken file is
+ * never merged into and never silently overwritten. Returns `{ present: false }`
+ * when there is nothing to validate yet (first refresh), `{ present: true, ok: false,
+ * code, conflictGroups? }` on a violation, or `{ present: true, ok: true, decoded,
+ * rawText, rawRowCount, collapsedIdenticalRows }` when the file is safe to merge
+ * against. Checked, in order: encoding (no U+FFFD anywhere -- a common CP949/EUC-KR-
+ * as-UTF-8 mojibake signature), the header row equals the builder's own headers
+ * exactly, every row has exactly the header's column count.
+ *
+ * Custody itself repeats mails (`mail_events.mjs` now dedupes on read), and the
+ * already-shipped ledgers this module first met still carry the resulting duplicate-
+ * key rows. A key's duplicate rows are handled per `classifyDuplicateGroup`:
+ * `'identical'` rows collapse to one (counted in `collapsedIdenticalRows`);
+ * `'machine_only_diff'` rows also collapse to one representative (the later line) --
+ * this refresh's freshly-built row supersedes every machine-owned column anyway, so
+ * which duplicate is picked does not matter; only a genuine `'conflict'` (the
+ * Owner-entered columns themselves disagree) still fails closed.
+ */
+function validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices }) {
   if (!existsSync(existingPath)) return { present: false };
   const rawText = readFileSync(existingPath, 'utf8');
   if (rawText.includes(REPLACEMENT_CHARACTER)) return { present: true, ok: false, code: 'workspace_ledgers_ledger_encoding' };
@@ -201,20 +230,42 @@ function validateExistingCsv({ existingPath, headers, keyIndex }) {
   if (decoded.rows.some(row => row.length !== headers.length)) {
     return { present: true, ok: false, code: 'workspace_ledgers_ledger_row_shape' };
   }
-  const seenKeys = new Set();
-  for (const row of decoded.rows) {
+
+  const groupsByKey = new Map();
+  decoded.rows.forEach(row => {
     const key = row[keyIndex];
-    if (seenKeys.has(key)) return { present: true, ok: false, code: 'workspace_ledgers_ledger_duplicate_key' };
-    seenKeys.add(key);
+    const group = groupsByKey.get(key) ?? [];
+    group.push(row);
+    groupsByKey.set(key, group);
+  });
+
+  let collapsedIdenticalRows = 0;
+  let conflictGroups = 0;
+  const dedupedRows = [];
+  for (const groupRows of groupsByKey.values()) {
+    if (groupRows.length === 1) { dedupedRows.push(groupRows[0]); continue; }
+    const classification = classifyDuplicateGroup(groupRows, preserveIndices);
+    if (classification === 'conflict') { conflictGroups += 1; continue; }
+    if (classification === 'identical') collapsedIdenticalRows += groupRows.length - 1;
+    dedupedRows.push(groupRows[groupRows.length - 1]); // later line represents the group
   }
-  return { present: true, ok: true, decoded, rawText };
+  if (conflictGroups > 0) return { present: true, ok: false, code: 'workspace_ledgers_ledger_duplicate_key', conflictGroups };
+  return {
+    present: true, ok: true, decoded: { headers: decoded.headers, rows: dedupedRows }, rawText,
+    rawRowCount: decoded.rows.length, collapsedIdenticalRows,
+  };
 }
 
 function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices }) {
-  const validated = validateExistingCsv({ existingPath, headers, keyIndex });
-  if (!validated.present) return { invalid: null, rows, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, oldText: null };
-  if (!validated.ok) return { invalid: { code: validated.code }, rows: null, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, oldText: null };
-  const { decoded, rawText } = validated;
+  const validated = validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices });
+  if (!validated.present) {
+    return { invalid: null, rows, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
+  }
+  if (!validated.ok) {
+    return { invalid: { code: validated.code, conflictGroups: validated.conflictGroups ?? null }, rows: null,
+      preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
+  }
+  const { decoded, rawText, rawRowCount, collapsedIdenticalRows } = validated;
   const byKey = new Map();
   for (const oldRow of decoded.rows) byKey.set(oldRow[keyIndex], oldRow);
   const newKeys = new Set(rows.map(row => row[keyIndex]));
@@ -239,7 +290,7 @@ function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices 
     }
     return out;
   });
-  return { invalid: null, rows: merged, preservedCount, ownerCellsDroppedWithRow, beforeRowCount: decoded.rows.length, oldText: rawText };
+  return { invalid: null, rows: merged, preservedCount, ownerCellsDroppedWithRow, beforeRowCount: rawRowCount, collapsedIdenticalRows, oldText: rawText };
 }
 
 /**
@@ -265,13 +316,17 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
   const merge = preserveMerge({ existingPath: filePath, headers, rows, keyIndex, preserveIndices });
   if (merge.invalid) {
     // R4: fail closed for this one file -- do not write, do not archive, do not touch
-    // lineage. The file is left exactly as it was found.
-    return { failed: true, code: merge.invalid.code, file: `${folder}/${relPath}`, written: false, changed: false };
+    // lineage. The file is left exactly as it was found. `conflict_groups` counts how
+    // many distinct keys had rows disagreeing on an Owner-entered column -- the reason
+    // this file, specifically, could not be safely deduped and merged.
+    return { failed: true, code: merge.invalid.code, conflict_groups: merge.invalid.conflictGroups,
+      file: `${folder}/${relPath}`, written: false, changed: false };
   }
   const newText = encodeCsv(headers, merge.rows);
   const changed = merge.oldText !== newText;
   const result = { failed: false, rows: merge.rows.length, before_rows: merge.beforeRowCount,
     preserved_owner_cells: merge.preservedCount, owner_cells_dropped_with_row: merge.ownerCellsDroppedWithRow,
+    collapsed_identical_rows: merge.collapsedIdenticalRows,
     changed, sha256: sha256(newText) };
   if (dry || !changed) return { ...result, written: false };
   if (merge.oldText !== null) {
@@ -351,7 +406,10 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
 
     const projectReports = [];
     const ledgerFailures = [];
-    const recordResult = result => { if (result.failed) ledgerFailures.push({ file: result.file, code: result.code }); return result; };
+    const recordResult = result => {
+      if (result.failed) ledgerFailures.push({ file: result.file, code: result.code, conflict_groups: result.conflict_groups ?? null });
+      return result;
+    };
     for (const { project, json } of all) {
       const code = project.project_code;
       if (selectedCodes && !selectedCodes.has(code)) continue;
@@ -397,6 +455,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields, status: ledgerFailures.length > 0 ? 'failed' : 'ok',
       events_scanned: { hiworks: hiworks.scanned, gmail_sent: gmail.scanned },
       skipped_system: hiworks.skippedSystem + gmail.skippedSystem,
+      duplicates_dropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
       unreadable_dirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
       held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     };
