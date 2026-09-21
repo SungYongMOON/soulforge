@@ -1,28 +1,35 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
 <#
   Registers the one scheduled task that runs one night's worth of the voice
-  conversation-list lane: `SoulforgeVoiceConversationList`, daily at 03:00
-  local, hidden, running this lane's
+  conversation-list lane: `SoulforgeVoiceConversationList`, daily at
+  `-DailyAt` (default 03:00) local, hidden, running this lane's
   `harness/voice_conversation_list_nightly.mjs` bounded to at most 40 sessions
-  a night.
+  a night. `-Deadline` (HH:mm) and `-ChainReconcile` are optional: with
+  neither given, this registers exactly the same shape it always has.
 
   What it checks before it registers anything:
     * every path it was given is canonical and free of reparse points, and the
-      lane root and the receipts root do not overlap
+      lane root and the receipts root (and, with `-ChainReconcile`, the
+      reconcile receipts root) do not overlap
     * the lane's own manifest hashes to the digest the caller names, so the
       task is pinned to a built lane rather than to whatever is at that path
     * Node, the root table, the tools config and the pipeline config each hash
       to the digest the caller names
     * the nightly harness runs once in `--dry` mode and exits 0 -- a preflight
-      that enumerates and classifies the plan, calls no model, and writes
+      that enumerates and classifies the plan (and, with `-ChainReconcile`,
+      previews the reconcile + present chain too), calls no model, and writes
       nothing (not even the lock)
-    * without -Register it stops here and prints a plan digest; -Register only
-      proceeds when the caller passes that exact digest back
+    * without -Register it stops here and prints the full plan (every value
+      above, including `-DailyAt`/`-Deadline`/`-ChainReconcile` and its
+      pass-through arguments) and a plan digest; -Register only proceeds when
+      the caller passes that exact digest back
 
   After registering it re-reads the task's exported XML and checks the
-  trigger, the action line, the working directory, the principal and the
-  settings against what it planned; anything that does not match rolls the
-  task back to its previous definition (or removes it when there was none).
+  trigger, the action line (which carries every nightly-harness argument,
+  `--deadline`/`--chain-reconcile`/its pass-through included), the working
+  directory, the principal and the settings against what it planned; anything
+  that does not match rolls the task back to its previous definition (or
+  removes it when there was none).
 
   It never starts the task, never writes into `--receipts` or the pipeline's
   derived root, and never calls a model. It is run from a non-packaged
@@ -42,6 +49,23 @@ param(
   [Parameter(Mandatory = $true)][string]$PipelineConfigSha256,
   [Parameter(Mandatory = $true)][string]$ReceiptsRoot,
   [string]$TaskName = "SoulforgeVoiceConversationList",
+  # HH:mm, local, every day. Kept at the prior fixed value by default so a
+  # caller that passes none of the new parameters registers exactly the same
+  # task this registrar always has.
+  [string]$DailyAt = "03:00",
+  # HH:mm, local; passed through to the nightly harness's own `--deadline`
+  # unverbatim. Left unset, no `--deadline` reaches the harness at all.
+  [string]$Deadline,
+  # Minutes before the (possibly `-Deadline`-anchored) deadline that this
+  # pass will not *start* a new session; passed through to the harness's own
+  # `--no-start-within` only when `-Deadline` is also given (S4, 2026-09-21
+  # review). Left unset, the harness applies its own default.
+  [string]$NoStartWithinMinutes,
+  [switch]$ChainReconcile,
+  [string]$ReconcileReceiptsRoot,
+  [string]$LinearRoot,
+  [string[]]$MailRoot,
+  [string]$QuestionsCap,
   [string]$ExpectedDryRunDigest,
   [string]$ExpectedExistingTaskSha256,
   [switch]$Register
@@ -54,6 +78,23 @@ $ErrorActionPreference = "Stop"
 # raising it is a lane-behaviour decision, not a registration-time choice, and
 # the dry-run preflight below runs against this exact value.
 $MaxSessions = "40"
+
+if ($ChainReconcile -and -not $ReconcileReceiptsRoot) {
+  throw "voice conversation list nightly -ChainReconcile requires -ReconcileReceiptsRoot"
+}
+if (-not $ChainReconcile -and ($ReconcileReceiptsRoot -or $LinearRoot -or $MailRoot -or $QuestionsCap)) {
+  throw "voice conversation list nightly chain pass-through arguments require -ChainReconcile"
+}
+if (-not $Deadline -and $NoStartWithinMinutes) {
+  throw "voice conversation list nightly -NoStartWithinMinutes requires -Deadline"
+}
+# S2 (2026-09-21 review): equal to -DailyAt, the harness would anchor the
+# deadline to "the next occurrence of that same time" -- a full day later --
+# silently granting this run a 24-hour runway instead of the same-night stop
+# its own two values look like they should mean.
+if ($Deadline -and $Deadline -eq $DailyAt) {
+  throw "voice conversation list nightly -Deadline must not equal -DailyAt (it would silently grant a 24-hour runway)"
+}
 
 function Assert-NoReparsePath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -112,6 +153,15 @@ function Assert-Sha256 {
   if ($Value -notmatch '^sha256:[0-9a-f]{64}$') { throw "$Label digest is invalid" }
 }
 
+# Same "HH:mm" shape the nightly harness's own `--deadline`/target-date
+# arithmetic expects (00-23 hours, 00-59 minutes); checked here too so a
+# malformed value is a registration-time error, not something only the
+# harness's own dry preflight would have caught.
+function Assert-HHmm {
+  param([Parameter(Mandatory = $true)][string]$Value, [Parameter(Mandatory = $true)][string]$Label)
+  if ($Value -notmatch '^([01][0-9]|2[0-3]):[0-5][0-9]$') { throw "$Label must be HH:mm (00:00-23:59)" }
+}
+
 function Get-Sha256File {
   param([Parameter(Mandatory = $true)][string]$Path)
   $Stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
@@ -159,6 +209,8 @@ foreach ($Spec in @(
   @{ Value = $ToolsConfigSha256; Label = "tools config" },
   @{ Value = $PipelineConfigSha256; Label = "pipeline config" }
 )) { Assert-Sha256 -Value $Spec.Value -Label $Spec.Label }
+Assert-HHmm -Value $DailyAt -Label "-DailyAt"
+if ($Deadline) { Assert-HHmm -Value $Deadline -Label "-Deadline" }
 
 $LaneRoot = Resolve-CanonicalDirectory -Path $LaneRoot
 $NodePath = Resolve-CanonicalFile -Path $NodePath
@@ -173,6 +225,12 @@ $HiddenLauncher = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "guild_hall\c
 
 Assert-DisjointPath -Left $LaneRoot -Right $ReceiptsRoot
 Assert-DisjointPath -Left $LaneRoot -Right ([IO.Path]::GetDirectoryName($RootTablePath))
+if ($ChainReconcile) {
+  $ReconcileReceiptsRoot = [IO.Path]::GetFullPath($ReconcileReceiptsRoot)
+  Assert-NoReparsePath -Path $ReconcileReceiptsRoot
+  Assert-DisjointPath -Left $LaneRoot -Right $ReconcileReceiptsRoot
+  Assert-DisjointPath -Left $ReceiptsRoot -Right $ReconcileReceiptsRoot
+}
 
 $ActualLaneManifestSha256 = Get-Sha256File -Path $LaneManifest
 if ($ActualLaneManifestSha256 -ne $LaneManifestSha256) { throw "voice conversation list nightly lane manifest SHA-256 changed" }
@@ -193,6 +251,21 @@ $NightlyArguments = @(
   "--receipts", $ReceiptsRoot,
   "--max-sessions", $MaxSessions
 )
+# `--scheduled-start` is always `-DailyAt` itself, never a separate value a
+# caller could let drift from the trigger this registrar actually registers:
+# anchoring the harness's deadline to anything else would defeat the point
+# (a late-starting run's deadline must be pinned to when it was *scheduled*
+# to start, not to whenever this registrar's caller happened to also type).
+if ($Deadline) {
+  $NightlyArguments += @("--deadline", $Deadline, "--scheduled-start", $DailyAt)
+  if ($NoStartWithinMinutes) { $NightlyArguments += @("--no-start-within", $NoStartWithinMinutes) }
+}
+if ($ChainReconcile) {
+  $NightlyArguments += @("--chain-reconcile", "--reconcile-receipts", $ReconcileReceiptsRoot)
+  if ($LinearRoot) { $NightlyArguments += @("--linear-root", $LinearRoot) }
+  foreach ($OneMailRoot in $MailRoot) { $NightlyArguments += @("--mail-root", $OneMailRoot) }
+  if ($QuestionsCap) { $NightlyArguments += @("--questions-cap", $QuestionsCap) }
+}
 
 # Preflight: the same entry point, in the mode that calls no model and writes
 # nothing -- not even the lock.
@@ -203,9 +276,35 @@ if ($LASTEXITCODE -ne 0) {
 
 $PowerShellExe = [IO.Path]::GetFullPath((Get-Command powershell.exe -ErrorAction Stop).Source)
 $WScriptExe = Join-Path $env:WINDIR "System32\wscript.exe"
+# R1a-1 (2026-09-21 review): `powershell.exe -Command "& node ..."` does NOT
+# propagate the native command's own exit code as its own -- measured
+# end to end through the hidden launcher, every non-zero code (SKIPPED_PAST_
+# DEADLINE's 4 included) collapsed to a bare 1 without this. `&` sets
+# `$LASTEXITCODE`; an explicit `exit` is what actually makes this
+# `-Command` invocation (and so `wscript.exe`'s own wait, and Task
+# Scheduler's own "last result") carry it.
+#
+# R1 (round 3): a bare `exit $LASTEXITCODE` is not enough -- when `node.exe`
+# itself cannot even be *launched* (a missing/renamed path, for instance),
+# `&` never sets `$LASTEXITCODE` at all (nothing ran to set it), so it stays
+# whatever it was before this script started -- `$null` in a fresh
+# `-NoProfile -NonInteractive` process -- and `exit $null` is exit **0**,
+# reporting a launch failure as a clean run. Measured end to end through the
+# real hidden launcher both ways: a bare trailing `exit $LASTEXITCODE` gave 0
+# for a missing node path (worse than this registrar's very first version,
+# which at least collapsed everything non-zero to a bare 1); guarding first
+# with `if ($null -eq $LASTEXITCODE) { exit 1 }` gives a non-zero exit for
+# that case while still passing every real exit code (4, 0, 2 all measured
+# to come through unchanged) on to the final `exit $LASTEXITCODE`. The whole
+# trailing piece is one single-quoted (unexpanded) literal -- `ConvertTo-
+# TaskArgument` still accepts it as-is (no embedded double quotes, so it is
+# just wrapped, braces included, in one escaped double-quoted argument) --
+# so `$null`/`$LASTEXITCODE`/the `if` block reach the generated script text
+# verbatim, not this registrar's own current values.
 $CommandScript = "& " + (ConvertTo-SingleQuotedLiteral -Value $NodePath) + " " `
   + (ConvertTo-SingleQuotedLiteral -Value $Entry) + " " `
-  + (($NightlyArguments | ForEach-Object { ConvertTo-SingleQuotedLiteral -Value ([string]$_) }) -join " ")
+  + (($NightlyArguments | ForEach-Object { ConvertTo-SingleQuotedLiteral -Value ([string]$_) }) -join " ") `
+  + '; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE'
 $HiddenActionArgumentLine = (@(
   "//B", "//NoLogo", $HiddenLauncher, $PowerShellExe,
   "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",
@@ -234,12 +333,22 @@ if ($Existing) {
 $CurrentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $CurrentUser = $CurrentIdentity.Name
 $CurrentSid = $CurrentIdentity.User.Value
-# 03:00 local, every day. The trigger object's own StartBoundary (whatever form
+# `-DailyAt` local, every day (default 03:00, unchanged from before this
+# parameter existed). The trigger object's own StartBoundary (whatever form
 # the platform serialises it in) is what both the plan digest and the
 # post-registration attestation compare against -- neither one hardcodes a
 # time zone or a string format.
-$DailyAt = [DateTime]::Today.AddHours(3)
-$Trigger = New-ScheduledTaskTrigger -Daily -At $DailyAt
+$DailyAtParts = $DailyAt.Split(":")
+$DailyAtBoundary = [DateTime]::Today.AddHours([int]$DailyAtParts[0]).AddMinutes([int]$DailyAtParts[1])
+# S6 (2026-09-21 review): a `StartBoundary` earlier today (registering after
+# that time already passed today) combined with `-StartWhenAvailable` can
+# make Task Scheduler treat today's already-passed boundary as a missed run
+# and fire right after registration -- rolled forward to the next *future*
+# occurrence instead. The post-registration attestation (`Get-LocalTimeOfDay`
+# below) compares only the time-of-day, never the date, so this stays
+# verifiable regardless of which calendar day the boundary itself lands on.
+if ($DailyAtBoundary -le (Get-Date)) { $DailyAtBoundary = $DailyAtBoundary.AddDays(1) }
+$Trigger = New-ScheduledTaskTrigger -Daily -At $DailyAtBoundary
 # The in-memory trigger serialises its StartBoundary as UTC ("...T18:00:00Z") while the
 # exported task XML carries local time with an offset ("...T03:00:00+09:00"), so both sides
 # are parsed and compared as the local time of day rather than as raw substrings.
@@ -269,6 +378,26 @@ $Plan = [ordered]@{
   tools_config_sha256 = $ToolsConfigSha256
   pipeline_config_sha256 = $PipelineConfigSha256
   max_sessions = $MaxSessions
+  # A raw absolute path (`$ReconcileReceiptsRoot`) is never put in this
+  # hashtable -- the same posture `$ReceiptsRoot` itself already has here.
+  # `action_sha256` below already binds the exact command line (every
+  # pass-through path and alias address included); this block only carries
+  # what is safe to echo and what is not itself a host-local path.
+  deadline = $(if ($Deadline) { $Deadline } else { $null })
+  no_start_within_minutes = $(if ($NoStartWithinMinutes) { $NoStartWithinMinutes } else { $null })
+  chain_reconcile = [bool]$ChainReconcile
+  chain_reconcile_receipts_configured = [bool]$ReconcileReceiptsRoot
+  chain_linear_root = $(if ($LinearRoot) { $LinearRoot } else { $null })
+  # N3 (2026-09-21 review): PowerShell 5.1's ConvertTo-Json unwraps a
+  # one-element array to its own bare element when assigned as a plain
+  # hashtable value, and a zero-element array from an `if`/`else`
+  # subexpression's empty-array branch collapses to no output at all (so the
+  # whole property reads back as `$null`, serialising as JSON `null`) unless
+  # that branch is comma-prefixed to force it to stay an array. `[object[]]`
+  # on top forces real array serialisation (`[]`/`["x"]`/`["x","y"]`)
+  # regardless of element count -- both fixes are needed together.
+  chain_mail_roots = [object[]]$(if ($MailRoot) { @($MailRoot) } else { , @() })
+  chain_questions_cap = $(if ($QuestionsCap) { $QuestionsCap } else { $null })
   action_sha256 = Get-Sha256Text -Value ($WScriptExe + "`n" + $HiddenActionArgumentLine)
   existing_task_sha256 = $ActualExistingTaskSha256
   existing_task_xml_sha256 = $ExistingTaskXmlSha256
@@ -276,7 +405,12 @@ $Plan = [ordered]@{
 $PlanDigest = Get-Sha256Text -Value ($Plan | ConvertTo-Json -Depth 4 -Compress)
 
 if (-not $Register) {
-  Write-Output "voice conversation list nightly task dry-run attested: plan_digest=$PlanDigest daily_at=$ExpectedStartBoundaryTime max_sessions=$MaxSessions mutation=false"
+  Write-Output ("voice conversation list nightly task dry-run attested: plan_digest=$PlanDigest " `
+    + "daily_at=$ExpectedStartBoundaryTime max_sessions=$MaxSessions deadline=$($Plan.deadline) " `
+    + "no_start_within_minutes=$($Plan.no_start_within_minutes) " `
+    + "chain_reconcile=$($Plan.chain_reconcile) chain_linear_root=$($Plan.chain_linear_root) " `
+    + "chain_mail_roots=$($Plan.chain_mail_roots -join ',') chain_questions_cap=$($Plan.chain_questions_cap) " `
+    + "mutation=false")
   return
 }
 if (-not $ExpectedDryRunDigest -or $ExpectedDryRunDigest -ne $PlanDigest) {
@@ -329,7 +463,8 @@ try {
     -and (Get-XmlNodeText -Parent $ExecNode -XPath "./*[local-name()='WorkingDirectory']") -eq $LaneRoot
   if (-not $RegistrationValid) { throw "the registered voice conversation list nightly task failed exported XML attestation" }
   Write-Output ("voice conversation list nightly task registered and XML-attested: daily_at=$ExpectedStartBoundaryTime " `
-    + "max_sessions=$MaxSessions exported_xml_sha256=" + (Get-Sha256Text -Value $ExportedTaskXml))
+    + "max_sessions=$MaxSessions deadline=$($Plan.deadline) chain_reconcile=$($Plan.chain_reconcile) " `
+    + "exported_xml_sha256=" + (Get-Sha256Text -Value $ExportedTaskXml))
 } catch {
   $RegistrationFailure = $_
   $RollbackFailure = $null

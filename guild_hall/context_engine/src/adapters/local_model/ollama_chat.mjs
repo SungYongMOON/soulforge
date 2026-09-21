@@ -21,6 +21,13 @@ const THINK_VALUES = new Set([false, true, 'low', 'medium', 'high', null]);
 const TRANSPORTS = new Set(['ollama', 'openai_chat']);
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_ALLOWED_CHAT_HOSTS = 8;
+// The effective per-call timeout a binding gets when it declares no
+// `timeout_ms` of its own -- exported (not just inlined below) so a caller
+// that needs to reason about a session's worst-case duration without a
+// declared timeout (`voice_conversation_list_nightly.mjs`'s
+// `worst_case_session_minutes`, 2026-09-21 review) uses this exact same
+// number rather than a second, independently-drifting copy of it.
+export const DEFAULT_CHAT_TIMEOUT_MS = 600000;
 const sha = text => `sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`;
 
 export class LocalModelError extends Error {
@@ -104,7 +111,7 @@ export function validateChatBinding(binding) {
   const transport = binding.transport === undefined ? 'ollama' : binding.transport;
   const think = binding.think === undefined ? false : binding.think;
   const options = binding.options === undefined ? { temperature: 0, seed: 7, num_predict: 4096 } : binding.options;
-  const timeoutMs = binding.timeout_ms ?? 600000;
+  const timeoutMs = binding.timeout_ms ?? DEFAULT_CHAT_TIMEOUT_MS;
   if (!TRANSPORTS.has(transport) || !THINK_VALUES.has(think) || typeof options !== 'object' || options === null || Array.isArray(options)
     || !Object.values(options).every(value => ['string', 'boolean'].includes(typeof value) || Number.isFinite(value))
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3600000) fail('chat_binding_invalid');
