@@ -9,7 +9,7 @@
 // `buildCommonConfig` -- never hardcoded here, so this module ships no real org data
 // (see `examples/org_config.example.json`'s `common_ledgers` block).
 import { classifyMail, compileTerm, RuleCompileError } from './classifier.mjs';
-import { domainOf, normalizeSubject } from './ledgers.mjs';
+import { domainOf, normalizeSubject, seoulDateOf } from './ledgers.mjs';
 import { isSafeFileName } from './common_ledgers.mjs';
 
 // Suffix `common_refresh.mjs`'s thread-vendor inheritance (spec section 2, S4) appends
@@ -77,6 +77,91 @@ export function workTagsOf(subject, workTags) {
 }
 
 /**
+ * Steps 2-3 of the classification order (spec section 1): the Owner-confirmed
+ * conversation-bundle table, then the reading-decision table. Factored out of
+ * `classifyProjectHits` (A1, 2026-09-21 night addition) so `refresh.mjs`'s own
+ * per-project ledger attribution can reuse the exact same bundle/reading logic --
+ * "한 곳에서만 정한다" (spec section 1's own header) -- instead of a second,
+ * potentially-drifting copy. `refresh.mjs` only ever calls this for an event its OWN
+ * subject-rule classification (every `match_fields` the project's saved rule itself
+ * declares, not restricted to `subject` the way `classifyProjectHits`'s own step 1
+ * is) already left with zero hits and no hold -- so a bundle/reading decision can
+ * never override a subject-rule attribution or a two-project hold either way (spec
+ * A1: "판독 결정이 제목 규칙을 뒤집지 못한다").
+ *
+ * `at` (A2 item 1, optional) is the mail's own normalised receipt instant -- compared,
+ * as a Seoul calendar date, against a matching bundle row's `적용끝` (if any): a mail
+ * received AFTER that date does not get that bundle's confirmation (Owner: the same
+ * title phrase/vendor may cover unrelated future work; a bundle is one episode's
+ * mail set, not a standing rule). A row with no `적용끝` (`appliesUntil: null` --
+ * either the column was blank or the table is the legacy 4-column shape) applies
+ * indefinitely, unchanged. `at` omitted/unparseable and a row that DOES carry
+ * `적용끝` never excludes the mail on that basis alone (permissive default -- an
+ * unknown receipt date is not evidence the mail arrived after the cutoff).
+ *
+ * Always returns an object, never bare `null` -- `decided: false` (with `hits: []`,
+ * `basis: null`, `reading: null`) when neither table decided anything (no matching
+ * bundle row usable, and no reading-table row at all for `id`); the caller proceeds
+ * to its own next step (`classifyProjectHits`'s step 4; `refresh.mjs` treats
+ * `decided: false` the same as "still unattributed"). `unknownBundleTarget` can be
+ * `true` even when `decided` is `false` (a bundle phrase matched but every match named
+ * an unknown code, and there was no reading-table row either) -- always read off this
+ * return, never assumed `false` just because nothing was decided.
+ */
+export function classifyByOwnerTables({ id, subject, at = null }, { bundles, readings, knownCode }) {
+  let unknownBundleTarget = false;
+  const normalized = normalizeSubject(subject);
+  const receiptDate = at ? seoulDateOf(at) : null;
+  // NIT 13 (fresh non-author review, 2026-09-21): `.find()` used to stop at the FIRST
+  // phrase match regardless of whether it was usable -- an earlier row naming an
+  // unknown code shadowed a later, genuinely valid row sharing (or containing) the
+  // same phrase, which never even got looked at. Every matching, still-in-effect row
+  // is considered; the first one with ALL known codes wins, and only when NONE of the
+  // matches was usable is this counted as an unknown bundle target.
+  const matchingBundles = bundles.filter(entry => {
+    if (!normalized.includes(entry.phrase)) return false;
+    // A2 item 1: a row past its own 적용끝 never matches at all -- not even as an
+    // "unknown target" candidate -- for a mail received after that date.
+    if (entry.appliesUntil && receiptDate && receiptDate > entry.appliesUntil) return false;
+    return true;
+  });
+  const validBundle = matchingBundles.find(entry => entry.codes.every(knownCode));
+  if (validBundle) {
+    const label = `묶음 확정: ${validBundle.why}${validBundle.codes.length > 1 ? ` (공유 ${validBundle.codes.join(';')})` : ''}`;
+    return { decided: true, hits: validBundle.codes.map(code => ({ project_code: code, label })), basis: '묶음 확정',
+      unknownBundleTarget, unknownReadingTarget: false, reading: null };
+  }
+  if (matchingBundles.length > 0) unknownBundleTarget = true;
+
+  // Step 3: reading-decision table (판독_결정표.csv), keyed by mail source id.
+  const reading = readings.get(id) ?? null;
+  if (reading) {
+    const readingCodes = String(reading.target ?? '').split(';').map(code => code.trim()).filter(Boolean);
+    if (reading.level === 'include' || reading.level === 'include_with_review') {
+      if (readingCodes.length > 0 && readingCodes.every(knownCode)) {
+        const reviewSuffix = reading.level === 'include_with_review' ? '(검토 필요)' : '';
+        const shareSuffix = readingCodes.length > 1 ? `(공유 ${readingCodes.join(';')})` : '';
+        const label = `판독${reviewSuffix}${shareSuffix}: ${reading.why}`;
+        return { decided: true, hits: readingCodes.map(code => ({ project_code: code, label })),
+          basis: reading.level === 'include' ? '판독' : '판독(검토 필요)', unknownBundleTarget, unknownReadingTarget: false, reading };
+      }
+      // S1: an include/include_with_review row naming an unknown (or empty) code
+      // falls through to the generic reading branch below (basis "판독: 보류") --
+      // now explicitly counted as an unknown reading target rather than silently
+      // degrading to the same shape a genuine hold_owner_review row has.
+      return { decided: true, hits: [], basis: '판독: 보류', unknownBundleTarget, unknownReadingTarget: true, reading };
+    }
+    if (reading.level === 'vendor_only') {
+      return { decided: true, hits: [], basis: '판독: 거래처만', unknownBundleTarget, unknownReadingTarget: false, reading };
+    }
+    return { decided: true, hits: [], basis: reading.level === 'exclude' ? '판독: 과제 아님' : '판독: 보류',
+      unknownBundleTarget, unknownReadingTarget: false, reading };
+  }
+
+  return { decided: false, hits: [], basis: null, unknownBundleTarget, unknownReadingTarget: false, reading: null };
+}
+
+/**
  * The five-step classification order (spec section 1, items 1-5), mirroring the
  * behavioural reference's `classify()`. `compiledRules` is every onboarded project's
  * rule, compiled via `classifier.mjs`'s `compileRule` (reused here rather than
@@ -94,71 +179,36 @@ export function workTagsOf(subject, workTags) {
  * through to the generic "판독: 보류"-shaped branch below before this fix; now that
  * fall-through is also counted, not just silently absorbed).
  */
-export function classifyProjectHits({ id, subject, body, addresses }, { compiledRules, bundles, readings, vendorLookup }) {
+export function classifyProjectHits({ id, subject, body, addresses, at = null }, { compiledRules, bundles, readings, vendorLookup }) {
   const vendors = vendorsOfAddresses(addresses, vendorLookup);
   const bodyOk = vendors.some(vendor => !SUPPLIER_KIND_EXCLUDE.test(vendor.kind));
   const knownCode = code => compiledRules.some(rule => rule.project_code === code);
-  let unknownBundleTarget = false;
 
   // Step 1: the project's own title rule. Two projects' exact triggers on the same
   // subject means held -- never automatic attribution.
   const titleResult = classifyMail({ subject, body_text: '', attachment_names: [] }, compiledRules, { fields: ['subject'] });
   if (titleResult.hits.length === 1) {
-    return { hits: titleResult.hits, held: false, basis: '제목', vendors, candidates: [], unknownBundleTarget, unknownReadingTarget: false };
+    return { hits: titleResult.hits, held: false, basis: '제목', vendors, candidates: [], unknownBundleTarget: false, unknownReadingTarget: false };
   }
   if (titleResult.hits.length > 1) {
     return { hits: [], held: true, basis: '제목(두 과제 겹침)', vendors, candidates: titleResult.hits.map(hit => hit.project_code),
-      unknownBundleTarget, unknownReadingTarget: false };
+      unknownBundleTarget: false, unknownReadingTarget: false };
   }
 
-  // Step 2: Owner-confirmed conversation bundle table (묶음_확정표.csv) -- may name
-  // several projects at once (공유). S1: a row naming even ONE unknown code is not a
-  // match at all (never silently attribute the known subset) -- an Owner typo in a
-  // multi-project bundle row must surface as "nothing matched", not a partial,
-  // possibly-wrong attribution.
-  const normalized = normalizeSubject(subject);
-  // NIT 13 (fresh non-author review, 2026-09-21): `.find()` used to stop at the FIRST
-  // phrase match regardless of whether it was usable -- an earlier row naming an
-  // unknown code shadowed a later, genuinely valid row sharing (or containing) the
-  // same phrase, which never even got looked at. Every matching row is considered;
-  // the first one with ALL known codes wins, and only when NONE of the matches was
-  // usable is this counted as an unknown bundle target.
-  const matchingBundles = bundles.filter(entry => normalized.includes(entry.phrase));
-  const validBundle = matchingBundles.find(entry => entry.codes.every(knownCode));
-  if (validBundle) {
-    const label = `묶음 확정: ${validBundle.why}${validBundle.codes.length > 1 ? ` (공유 ${validBundle.codes.join(';')})` : ''}`;
-    return { hits: validBundle.codes.map(code => ({ project_code: code, label })), held: false, basis: '묶음 확정', vendors, candidates: [],
-      unknownBundleTarget, unknownReadingTarget: false };
+  // Steps 2-3: Owner-confirmed conversation bundle table, then the reading-decision
+  // table -- shared with `refresh.mjs` via `classifyByOwnerTables` above.
+  const tableResult = classifyByOwnerTables({ id, subject, at }, { bundles, readings, knownCode });
+  if (tableResult.decided) {
+    return {
+      hits: tableResult.hits, held: false, basis: tableResult.basis, vendors, candidates: [],
+      unknownBundleTarget: tableResult.unknownBundleTarget, unknownReadingTarget: tableResult.unknownReadingTarget,
+      ...(tableResult.reading ? { reading: tableResult.reading } : {}),
+    };
   }
-  if (matchingBundles.length > 0) unknownBundleTarget = true;
-
-  // Step 3: reading-decision table (판독_결정표.csv), keyed by mail source id.
-  const reading = readings.get(id) ?? null;
-  if (reading) {
-    const readingCodes = String(reading.target ?? '').split(';').map(code => code.trim()).filter(Boolean);
-    if (reading.level === 'include' || reading.level === 'include_with_review') {
-      if (readingCodes.length > 0 && readingCodes.every(knownCode)) {
-        const reviewSuffix = reading.level === 'include_with_review' ? '(검토 필요)' : '';
-        const shareSuffix = readingCodes.length > 1 ? `(공유 ${readingCodes.join(';')})` : '';
-        const label = `판독${reviewSuffix}${shareSuffix}: ${reading.why}`;
-        return { hits: readingCodes.map(code => ({ project_code: code, label })), held: false,
-          basis: reading.level === 'include' ? '판독' : '판독(검토 필요)', vendors, candidates: [],
-          unknownBundleTarget, unknownReadingTarget: false };
-      }
-      // S1: an include/include_with_review row naming an unknown (or empty) code
-      // falls through to the generic reading branch below (basis "판독: 보류") --
-      // now explicitly counted as an unknown reading target rather than silently
-      // degrading to the same shape a genuine hold_owner_review row has.
-      return { hits: [], held: false, basis: '판독: 보류', vendors, candidates: [], reading,
-        unknownBundleTarget, unknownReadingTarget: true };
-    }
-    if (reading.level === 'vendor_only') {
-      return { hits: [], held: false, basis: '판독: 거래처만', vendors, candidates: [], reading,
-        unknownBundleTarget, unknownReadingTarget: false };
-    }
-    return { hits: [], held: false, basis: reading.level === 'exclude' ? '판독: 과제 아님' : '판독: 보류', vendors, candidates: [], reading,
-      unknownBundleTarget, unknownReadingTarget: false };
-  }
+  // NIT 13/S1 (unchanged behaviour, just no longer silently dropped by the extraction
+  // above): a matched-but-unknown bundle phrase still needs to be counted even though
+  // classification itself falls all the way through to steps 4-5.
+  const unknownBundleTarget = tableResult.unknownBundleTarget;
 
   // Step 4: supplier-only body confirmation -- only when exactly one project's exact
   // term appears in the body text, and only for a supplier-type vendor (never a
@@ -347,7 +397,14 @@ function resolveReadingDecision(reading, vendors) {
     if (target === '일반업무' || target.startsWith('일반업무:')) {
       return { bucket: 'general_work', detail: target.includes(':') ? target.slice(target.indexOf(':') + 1) : '단발 지원', fileName: '일반업무_메일.csv' };
     }
-    if (target === '과제없음') return { bucket: 'no_code_confirmed', detail: reading.why, fileName: '과제없음_확인함.csv' };
+    // A2 item 2 (2026-09-21 night addition, rename): this bucket now means "read, but
+    // which project is still unknown" (과제미정 / 판독_과제미정.csv), not "confirmed
+    // there is no project at all" -- that confirmed case is expressed with an
+    // 일반업무/과제외:... target instead (see those branches below), not this one.
+    // The OLD target token `과제없음` is still read the same (new) way -- a row
+    // already written under the old name keeps working; a new decision may use either
+    // token, both land here.
+    if (target === '과제없음' || target === '과제미정') return { bucket: 'no_code_confirmed', detail: reading.why, fileName: '판독_과제미정.csv' };
     if (target === '사내행정') return { bucket: 'internal_admin', detail: `판독: ${reading.why}`, fileName: '사내행정.csv' };
     if (target.startsWith('과제코드대기:')) return { bucket: 'code_pending', detail: target.slice('과제코드대기:'.length), fileName: '과제코드대기.csv' };
     if (target.startsWith('과제외:')) {

@@ -912,6 +912,105 @@ ordinary prose with no colon following; now requires a colon (half- or full-widt
 immediately after the label (or a literal `>`/dash-or-equals fence), matching only
 actual mail-client-generated header lines.
 
+## 부록 A (2026-09-21 night addition) -- project ledgers also attribute via the tables
+
+Spec: the same handoff file's own "부록 A" section (A1-A3; A4 lists what this round did
+NOT do -- no real-plane writes, no lane/scheduled-task work, no Hermes wiring, no index
+linking, no work/to-do ledger population).
+
+**A1 -- `refresh()`'s project ledgers now also attribute via the bundle/reading
+tables.** Previously `refresh()` attributed mail to a project's four ledgers using only
+that project's own saved subject/body/attachment rule (`src/mail_events.mjs`'s
+`loadMailEvents`); the common-folder pipeline's own classification
+(`classifyProjectHits`, steps 1-5) already went further -- an Owner-confirmed bundle
+table row (step 2) or a reading-decision table row (step 3) could also attribute a
+mail to a project, so the real per-project ledgers (once regenerated for real) and the
+common pipeline's own "project" bucket count were never the same population. Steps 2-3
+are now factored into their own function, `src/common_classifier.mjs`'s
+`classifyByOwnerTables` (also used by `classifyProjectHits` itself, so there is still
+only one place the classification order is defined), and `refresh()` calls it for any
+event its own subject-rule classification left with zero hits and no hold -- a bundle/
+reading decision can never override a subject-rule hit or a two-project hold either
+way. A table hit can name more than one project at once (공유); the mail lands in every
+named project's ledgers, not just the first.
+
+`refresh()` gains three new, independently-defaulted optional params --
+`bundleTablePath`/`readingTablePath` (both `null`, meaning "read no table, exactly
+today's behaviour") and `allowDegradedOwnerTables` (default `false`) -- so an existing
+caller (the console/UI adapter) that never passes them keeps byte-identical results;
+proved by `tests/refresh.test.mjs`'s own regression test that runs the same fixture
+both with the params omitted and with them pointing at files that do not exist, and
+diffs both the receipt and every written ledger's bytes. A malformed table (bad header/
+encoding/row-shape) blocks the WHOLE run (receipt only, `status: 'failed'`,
+`owner_table_failures` named) unless `allowDegradedOwnerTables: true` is passed --
+mirroring `refreshCommon`'s own R4 gate, for the same reason: a silent degrade would
+lose the table-attributed mail from every project's ledgers, not merely leave them
+stale. The receipt also gains `table_attributed_mails` (how many mails this run
+attributed via a table, not a rule) and `search_eligible_attributions` (A2 item 5,
+below).
+
+`previewRule` keeps comparing the draft rule's own subject-rule effect only (unchanged);
+it gains an optional `table_attributed` count in its return, computed only when the
+caller supplies `bundleTablePath`/`readingTablePath` -- the return object gains no new
+key otherwise, so an existing caller keeps a byte-identical result too.
+
+`cli.mjs`'s `parity` command's `project` row now compares like-with-like populations: a
+mail shared across two projects (공유) is one row in EACH of those projects' own
+`메일_수신이력.csv`/`메일_발송이력.csv` (a real, distinct row per project), while the
+module's per-mail `bucketTally.project` counts that same mail once. `classifyAllCommonMail`
+now also returns `projectAttributionRows` (the row-sum equivalent -- summed
+`outcome.projectCodes.length` over every mail resolving to `project`), and `parity` uses
+that, not `bucketTally.project`, for this one bucket's `module` figure. `refresh --bundle-
+table`/`--reading-table`/`--allow-degraded-owner-tables` and `preview-rule --bundle-
+table`/`--reading-table` are new CLI flags exposing the same params.
+
+**A2 -- Owner-table/classification changes from the same night.**
+
+1. `묶음_확정표.csv`'s real 5th column, `적용끝` (YYYY-MM-DD, may be blank), scopes a
+   bundle confirmation to mail received ON OR BEFORE that date (Owner: the same title
+   phrase/vendor may take on unrelated work later; a bundle is one episode's mail set,
+   not a standing rule) -- compared as a Seoul calendar date
+   (`ledgers.mjs`'s `seoulDateOf`) against the mail's own receipt instant, not the
+   private scratch reference's raw UTC date slice (a deliberate, spec-silent choice,
+   consistent with every other display date this module already computes in Seoul
+   time). `owner_tables.mjs`'s `readOwnerTable` now accepts either a single expected
+   header array (every other table, unchanged) or an array of them (the bundle table
+   only) -- tried in order, so a file written under the current 5-column shape and one
+   still under the legacy 4-column shape (no `적용끝` column at all, meaning "applies
+   indefinitely") both load.
+2. Renamed: the bucket/file previously named "과제없음"/`과제없음_확인함.csv`
+   ("confirmed no project") now means "read, but which project is still unknown"
+   (과제미정 / `판독_과제미정.csv`) -- a genuinely confirmed "no project" is expressed
+   via an `일반업무`/`과제외:...` reading target instead (unchanged). The OLD target
+   token `과제없음` is still read the exact same (new) way, so an existing row keeps
+   working; `resolvePrimaryBucket` accepts both tokens. `classifyAllCommonMail` (and
+   `refreshCommon`'s receipt) gain three triage-progress counts, independent of the
+   primary-bucket tally: `unreadCount`/`unread_count` (no 판독_결정표 row at all),
+   `readUndeterminedCount`/`read_undetermined_count` (`hold_owner_review`, or the
+   renamed 과제미정 bucket), `noProjectConfirmedCount`/`no_project_confirmed_count` (an
+   `exclude` reading decision that positively routed to 일반업무/과제외).
+3. `일반업무:<세부>` exclude targets (e.g. `일반업무:제품지원 <제품>`) already worked --
+   `resolveReadingDecision` split the detail after the first `:` before this round;
+   regression-tested here, not newly built.
+4. `triage.mjs`'s `appendReadingDecision` gains an optional `humanActors` (array of
+   reader names/ids considered human, default `null` = no restriction, unchanged for an
+   existing caller): a `level: 'include'` from a `reader` NOT on that list is refused
+   (`workspace_ledgers_triage_include_requires_human_reader`), pointing the caller at
+   `include_with_review` instead -- an AI reader's (맥락이's) positive attribution must
+   start one notch weaker than an Owner-confirmed one. `cli.mjs triage decide` gains
+   `--human-actors a,b,c`.
+5. `search_eligible_attributions`/`search_eligible_attributions` (`refresh()`'s and
+   `refreshCommon()`'s receipts respectively): a mail whose attribution is solid enough
+   to use as RAG/search evidence -- an approved subject-rule hit, an approved bundle-
+   table hit, or ANY reading decision whose own `Owner확인` cell is filled in (an
+   Owner-confirmed exclusion is just as usable as evidence a mail does NOT belong to a
+   project as an included one is that it does). Index/search wiring itself is still out
+   of scope (A4) -- this is a count only.
+
+**A3 (deferred, not implemented).** Carrying a vendor-name memo cell forward by mail ID
+across a case/normalisation-only rename is left for a later round, per the spec's own
+"미뤄 둔 것".
+
 ## Byte hygiene (tracked source, not data)
 
 `tests/byte_hygiene.test.mjs` walks every file directly under this module's own

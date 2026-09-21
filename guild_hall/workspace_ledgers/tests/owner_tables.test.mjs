@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { encodeCsv } from '../src/ledgers.mjs';
 import {
-  BUNDLE_HEADERS, buildBundleTable, buildReadingTable, buildVendorTable, buildWorkTagTable,
+  BUNDLE_HEADERS, BUNDLE_HEADERS_V2, buildBundleTable, buildReadingTable, buildVendorTable, buildWorkTagTable,
   loadOwnerTables, READING_HEADERS, VENDOR_HEADERS, WORKTAG_HEADERS,
 } from '../src/owner_tables.mjs';
 
@@ -138,4 +138,34 @@ test('buildReadingTable (S9): an unrecognised 결정 value is kept (behaves like
   const table = buildReadingTable(rows);
   assert.equal(table.get('m1').level, '확인필요');
   assert.equal(table.invalidLevelCount, 1);
+});
+
+// ------------------------------------------------------ A2 item 1 (2026-09-21 night)
+test('loadOwnerTables (A2 item 1): a bundle table written under the current 5-column shape (with 적용끝) loads', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-bundle-v2-'));
+  try {
+    const bundlePath = path.join(dir, 'bundle.csv');
+    writeFileSync(bundlePath, encodeCsv(BUNDLE_HEADERS_V2, [['ABC 회의', 'P00-001', '근거', '2026-09-21', '2026-10-01']]));
+    const result = loadOwnerTables({ bundleTablePath: bundlePath });
+    assert.deepEqual(result.failures, []);
+    assert.equal(result.bundles.length, 1);
+    assert.equal(result.bundles[0].appliesUntil, '2026-10-01');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('loadOwnerTables (A2 item 1): a legacy 4-column bundle table (no 적용끝 column at all) still loads, appliesUntil is null (무기한)', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-bundle-legacy-'));
+  try {
+    const bundlePath = path.join(dir, 'bundle.csv');
+    writeFileSync(bundlePath, encodeCsv(BUNDLE_HEADERS, [['ABC 회의', 'P00-001', '근거', '2026-09-21']]));
+    const result = loadOwnerTables({ bundleTablePath: bundlePath });
+    assert.deepEqual(result.failures, []);
+    assert.equal(result.bundles.length, 1);
+    assert.equal(result.bundles[0].appliesUntil, null);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('buildBundleTable (A2 item 1): a blank 적용끝 cell also parses to appliesUntil: null', () => {
+  const rows = [{ '제목구절': 'x', '과제': 'P00-001', '근거': '', '확정일': '', '적용끝': '  ' }];
+  assert.equal(buildBundleTable(rows)[0].appliesUntil, null);
 });

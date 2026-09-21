@@ -177,7 +177,9 @@ export function whereLabelFor(outcome) {
     case 'external_notice': return outcome.detail ? `외부안내(${outcome.detail})` : '외부안내';
     case 'out_of_project': return `과제외:${outcome.detail}`;
     case 'code_pending': return outcome.detail ? `과제코드대기(${outcome.detail})` : '과제코드대기';
-    case 'no_code_confirmed': return '과제없음';
+    // A2 item 2 (rename, 2026-09-21 night addition): this bucket means "read, project
+    // still undetermined" now, not "confirmed no project" -- see `resolveReadingDecision`.
+    case 'no_code_confirmed': return '과제미정';
     case 'general_work': return outcome.detail ? `일반업무:${outcome.detail}` : '일반업무';
     case 'vendor_only': return outcome.detail ? `거래처만(${outcome.detail})` : '거래처만';
     // Coordinator (2026-09-21): a mail filed under a known organisation with no

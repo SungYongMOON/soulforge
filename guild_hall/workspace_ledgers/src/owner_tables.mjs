@@ -15,7 +15,17 @@
 import { readFileSync } from 'node:fs';
 import { decodeCsv } from './ledgers.mjs';
 
+// A2 item 1 (2026-09-21 night addition): the real 묶음_확정표.csv now carries a 5th
+// column, `적용끝` (YYYY-MM-DD, may be blank) -- Owner: the same title-phrase/vendor
+// may take on different, unrelated work later, so a bundle confirmation is scoped to
+// "this particular episode", not a standing rule (external review: a bundle is the
+// set of mails from that one event, not a general rule). `BUNDLE_HEADERS` (4 columns)
+// is kept as the LEGACY shape a table saved before this change still has --
+// `readOwnerTable` accepts either shape (see its own doc) so a file with no 적용끝
+// column at all still loads, meaning "applies indefinitely" (spec: "열이 없으면
+// 무기한").
 export const BUNDLE_HEADERS = Object.freeze(['제목구절', '과제', '근거', '확정일']);
+export const BUNDLE_HEADERS_V2 = Object.freeze(['제목구절', '과제', '근거', '확정일', '적용끝']);
 export const READING_HEADERS = Object.freeze(['메일소스ID', '수신일', '제목', '결정', '과제_또는_분류', '이유', '판독자', '판독일', 'Owner확인']);
 export const WORKTAG_HEADERS = Object.freeze(['태그', '설명']);
 export const VENDOR_HEADERS = Object.freeze(['도메인', '거래처명', '구분', '메모']);
@@ -26,11 +36,18 @@ const REPLACEMENT_CHARACTER = '�';
 
 /**
  * Reads and strictly validates one Owner table CSV against its expected header.
+ * `expectedHeaders` is normally a single header array (unchanged for the vendor/
+ * reading/work-tag tables); the bundle table (A2 item 1) instead passes an ARRAY OF
+ * header arrays (tried in order, first exact match wins) so a file written under the
+ * new 5-column shape (with `적용끝`) and a file still written under the legacy
+ * 4-column shape both load, each validated against its own matching column count for
+ * the row-shape check below.
+ *
  * Returns `{ present: false }` when the file does not exist or has zero data rows
  * (spec: "표가 없거나 비어 있으면 그 단계는 건너뛴다" -- skip, not fail); `{ present:
  * true, ok: false, code }` on a header/encoding mismatch (fail-closed for this table
- * only); `{ present: true, ok: true, rows }` (array of plain objects keyed by header)
- * otherwise.
+ * only, matching NEITHER variant when more than one is offered); `{ present: true,
+ * ok: true, rows }` (array of plain objects keyed by header) otherwise.
  */
 export function readOwnerTable(filePath, expectedHeaders) {
   let rawText;
@@ -39,23 +56,34 @@ export function readOwnerTable(filePath, expectedHeaders) {
   if (rawText.trim() === '') return { present: false };
   if (rawText.includes(REPLACEMENT_CHARACTER)) return { present: true, ok: false, code: 'workspace_ledgers_owner_table_encoding' };
   const decoded = decodeCsv(rawText);
-  if (JSON.stringify(decoded.headers) !== JSON.stringify(expectedHeaders)) {
-    return { present: true, ok: false, code: 'workspace_ledgers_owner_table_header_mismatch' };
-  }
-  if (decoded.rows.some(row => row.length !== expectedHeaders.length)) {
+  const variants = Array.isArray(expectedHeaders[0]) ? expectedHeaders : [expectedHeaders];
+  const matchedHeaders = variants.find(variant => JSON.stringify(decoded.headers) === JSON.stringify(variant));
+  if (!matchedHeaders) return { present: true, ok: false, code: 'workspace_ledgers_owner_table_header_mismatch' };
+  if (decoded.rows.some(row => row.length !== matchedHeaders.length)) {
     return { present: true, ok: false, code: 'workspace_ledgers_owner_table_row_shape' };
   }
   if (decoded.rows.length === 0) return { present: false };
-  const rows = decoded.rows.map(row => Object.fromEntries(expectedHeaders.map((header, index) => [header, row[index] ?? ''])));
+  const rows = decoded.rows.map(row => Object.fromEntries(matchedHeaders.map((header, index) => [header, row[index] ?? ''])));
   return { present: true, ok: true, rows };
 }
 
-/** `{ phrase: lowercased 제목구절, codes: [project_code,...], why }`, entries with an empty phrase or no codes dropped. */
+/**
+ * `{ phrase: lowercased 제목구절, codes: [project_code,...], why, appliesUntil }`,
+ * entries with an empty phrase or no codes dropped. A2 item 1: `appliesUntil` is the
+ * (trimmed) `적용끝` cell -- `null` when the column is absent (a legacy 4-column
+ * table -- `row['적용끝']` is simply `undefined` on the row object) or blank, meaning
+ * "applies indefinitely" either way (spec: "값이 있으면 그 날짜 이후에 받은 메일에는
+ * 적용하지 않는다" / "열이 없으면 무기한"). The actual cutoff comparison against a
+ * mail's own receipt date lives in `common_classifier.mjs`'s `classifyByOwnerTables`
+ * (the one place bundle matching happens), not here -- this module only parses the
+ * table.
+ */
 export function buildBundleTable(rows) {
   return rows.map(row => ({
     phrase: String(row['제목구절'] ?? '').toLowerCase(),
     codes: String(row['과제'] ?? '').split(';').map(code => code.trim()).filter(Boolean),
     why: row['근거'] ?? '',
+    appliesUntil: typeof row['적용끝'] === 'string' && row['적용끝'].trim() !== '' ? row['적용끝'].trim() : null,
   })).filter(entry => entry.phrase && entry.codes.length > 0);
 }
 
@@ -152,7 +180,9 @@ export function loadOwnerTables({ bundleTablePath = null, vendorTablePath = null
     if (result.present && !result.ok) failures.push({ table, code: result.code });
     return result;
   };
-  const bundleResult = load(bundleTablePath, BUNDLE_HEADERS, '묶음_확정표.csv');
+  // A2 item 1: try the current 5-column shape first, fall back to the legacy 4-column
+  // shape -- `readOwnerTable` matches whichever the file's own header row actually is.
+  const bundleResult = load(bundleTablePath, [BUNDLE_HEADERS_V2, BUNDLE_HEADERS], '묶음_확정표.csv');
   const vendorResult = load(vendorTablePath, VENDOR_HEADERS, '거래처_대응표.csv');
   const readingResult = load(readingTablePath, READING_HEADERS, '판독_결정표.csv');
   const workTagResult = load(workTagTablePath, WORKTAG_HEADERS, '작업태그_목록.csv');

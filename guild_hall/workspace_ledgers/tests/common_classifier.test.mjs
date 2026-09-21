@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compileRule, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import {
-  addressesOfMail, buildCommonConfig, classifyProjectHits, detectSystemSource, OrgConfigPatternError, OrgConfigValueError,
-  participantEmailsOf, resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
+  addressesOfMail, buildCommonConfig, classifyByOwnerTables, classifyProjectHits, detectSystemSource, OrgConfigPatternError,
+  OrgConfigValueError, participantEmailsOf, resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
 } from '../src/common_classifier.mjs';
 
 function rule(code, exactPairs) {
@@ -41,6 +41,33 @@ test('classifyProjectHits step 2: a bundle-table phrase confirms one or more pro
   assert.equal(result.basis, '묶음 확정');
   assert.deepEqual(result.hits.map(hit => hit.project_code).sort(), ['P00-001', 'P00-002']);
   assert.match(result.hits[0].label, /공유 P00-001;P00-002/);
+});
+
+// ------------------------------------------------------ A2 item 1 (2026-09-21 night)
+test('classifyByOwnerTables (A2 item 1): a bundle row past its own 적용끝 does not match a mail received after that date, but still matches on/before it', () => {
+  const bundles = [{ phrase: '분기 회의', codes: ['P00-001'], why: 'Owner 확인', appliesUntil: '2026-09-15' }];
+  const knownCode = code => code === 'P00-001';
+  const onCutoff = classifyByOwnerTables({ id: 'm1', subject: '2026 분기 회의 자료', at: '2026-09-15T23:00:00+09:00' }, { bundles, readings: new Map(), knownCode });
+  assert.equal(onCutoff.decided, true);
+  assert.equal(onCutoff.basis, '묶음 확정');
+  const afterCutoff = classifyByOwnerTables({ id: 'm2', subject: '2026 분기 회의 자료', at: '2026-09-16T00:01:00Z' }, { bundles, readings: new Map(), knownCode });
+  assert.equal(afterCutoff.decided, false); // no reading row either, so nothing decided at all
+});
+
+test('classifyByOwnerTables (A2 item 1): appliesUntil: null (legacy table, or a blank cell) applies indefinitely regardless of `at`', () => {
+  const bundles = [{ phrase: '분기 회의', codes: ['P00-001'], why: 'Owner 확인', appliesUntil: null }];
+  const knownCode = code => code === 'P00-001';
+  const farFuture = classifyByOwnerTables({ id: 'm1', subject: '2026 분기 회의 자료', at: '2030-01-01T00:00:00Z' }, { bundles, readings: new Map(), knownCode });
+  assert.equal(farFuture.decided, true);
+  assert.equal(farFuture.basis, '묶음 확정');
+});
+
+test('classifyByOwnerTables: matches neither table returns decided:false but still surfaces unknownBundleTarget when a phrase matched an unknown code', () => {
+  const bundles = [{ phrase: '분기 회의', codes: ['P99-999'], why: 'x', appliesUntil: null }];
+  const knownCode = code => code === 'P00-001';
+  const result = classifyByOwnerTables({ id: 'm1', subject: '2026 분기 회의 자료' }, { bundles, readings: new Map(), knownCode });
+  assert.equal(result.decided, false);
+  assert.equal(result.unknownBundleTarget, true);
 });
 
 test('classifyProjectHits step 3: reading table include/include_with_review attributes, vendor_only and exclude do not', () => {
@@ -154,6 +181,17 @@ test('resolvePrimaryBucket: reading exclude target routes to the matching common
   assert.equal(outcome.bucket, 'general_work');
   assert.equal(outcome.fileName, '일반업무_메일.csv');
   assert.equal(outcome.detail, '단발 지원');
+});
+
+test('resolvePrimaryBucket (A2 item 2, rename): both the old "과제없음" target and the new "과제미정" token route to the renamed 판독_과제미정.csv bucket', () => {
+  const oldToken = resolvePrimaryBucket(mail({ subject: '무관' }), { ...noProject(), reading: { level: 'exclude', target: '과제없음', why: '아직 모름' } },
+    COMMON_CONFIG, { ourDomain: 'example.com' });
+  assert.equal(oldToken.bucket, 'no_code_confirmed');
+  assert.equal(oldToken.fileName, '판독_과제미정.csv');
+  const newToken = resolvePrimaryBucket(mail({ subject: '무관' }), { ...noProject(), reading: { level: 'exclude', target: '과제미정', why: '아직 모름' } },
+    COMMON_CONFIG, { ourDomain: 'example.com' });
+  assert.equal(newToken.bucket, 'no_code_confirmed');
+  assert.equal(newToken.fileName, '판독_과제미정.csv');
 });
 
 test('resolvePrimaryBucket: reading vendor_only with a matched vendor routes to vendor_only (no file)', () => {

@@ -153,6 +153,50 @@ test('classifyAllCommonMail: every primary bucket is reachable and the reconcili
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+// ------------------------------------------------------ A2 items 2/5 (2026-09-21 night)
+test('classifyAllCommonMail (A2 items 2/5): unreadCount/readUndeterminedCount/noProjectConfirmedCount/searchEligibleAttributions/projectAttributionRows on the standard fixture', () => {
+  const fixture = makeFixture();
+  try {
+    const pass = classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath, vendorTablePath: fixture.vendorTablePath,
+      readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+    });
+    // 3 of the 13 fixture mails have a 판독_결정표 row at all (r-general, r-nocode,
+    // r-vendoronly) -- every other mail is genuinely 미판독 (never read at all).
+    assert.equal(pass.unreadCount, 10);
+    // r-nocode's row (exclude:과제없음, the OLD token) now resolves to the renamed
+    // "read, project still undetermined" bucket -- exactly the read_undetermined case.
+    assert.equal(pass.readUndeterminedCount, 1);
+    // r-general's row (exclude:일반업무:단발 지원) positively confirms "no project" via
+    // an actual reading decision, not a pattern match.
+    assert.equal(pass.noProjectConfirmedCount, 1);
+    // Only h-project resolves to the project bucket via an approved subject-rule hit;
+    // none of the reading decisions in this fixture have their own Owner확인 filled.
+    assert.equal(pass.searchEligibleAttributions, 1);
+    // No 공유 (multi-project) mail in this fixture, so the row-sum metric equals the
+    // per-mail project bucket count.
+    assert.equal(pass.projectAttributionRows, pass.bucketTally.project);
+    assert.equal(pass.projectAttributionRows, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (A2 items 2/5): the same counts are threaded into the receipt', () => {
+  const fixture = makeFixture();
+  try {
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    assert.equal(receipt.unread_count, 10);
+    assert.equal(receipt.read_undetermined_count, 1);
+    assert.equal(receipt.no_project_confirmed_count, 1);
+    assert.equal(receipt.search_eligible_attributions, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('refreshCommon: writes the expected primary-bucket and secondary-view ledgers with the spec headers', () => {
   const fixture = makeFixture();
   try {
@@ -191,7 +235,11 @@ test('refreshCommon: writes the expected primary-bucket and secondary-view ledge
     assert.equal(codePending.rows.length, 1);
     assert.equal(codePending.rows[0][2], '후보');
 
-    const noCodeConfirmed = decodeCsv(readFileSync(path.join(commonBase, '과제없음_확인함.csv'), 'utf8'));
+    // A2 item 2 (rename, 2026-09-21 night addition): this bucket's file is now
+    // 판독_과제미정.csv ("read, project still undetermined"), not the old
+    // 과제없음_확인함.csv ("confirmed no project") -- the fixture's r-nocode row still
+    // types the OLD target token 과제없음, which reads the same (new) way.
+    const noCodeConfirmed = decodeCsv(readFileSync(path.join(commonBase, '판독_과제미정.csv'), 'utf8'));
     assert.equal(noCodeConfirmed.rows.length, 1);
 
     const generalWork = decodeCsv(readFileSync(path.join(generalWorkBase, '일반업무_메일.csv'), 'utf8'));

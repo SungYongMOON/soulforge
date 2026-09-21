@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import { decodeCsv, encodeCsv } from '../src/ledgers.mjs';
 import { clearCustodyCache, previewRule, redactHostPaths, REFRESH_RECEIPT_SCHEMA, refresh, RefreshError } from '../src/refresh.mjs';
+import { BUNDLE_HEADERS, BUNDLE_HEADERS_V2, READING_HEADERS } from '../src/owner_tables.mjs';
 
 function rule(code, folder, exactPairs) {
   return {
@@ -1529,5 +1530,153 @@ test('readOrgConfig (fresh-review-7 N3): the org-config-unreadable failure never
     const sourcePath = fileURLToPath(new URL('../src/refresh.mjs', import.meta.url));
     const source = readFileSync(sourcePath, 'utf8');
     assert.match(source, /error\?\.code \?\? path\.basename\(orgConfigPath\)/u);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ============================================================ A1 (2026-09-21 night)
+// Project ledgers now also attribute mail via the common pipeline's bundle/reading
+// Owner tables, dependency-injected through two new, independently-defaulted params.
+
+function tablesPaths(root) {
+  return { bundleTablePath: path.join(root, '묶음_확정표.csv'), readingTablePath: path.join(root, '판독_결정표.csv') };
+}
+
+test('refresh (A1): omitting bundleTablePath/readingTablePath and passing paths to files that do not exist yield byte-identical receipts and ledger bytes', () => {
+  const fixtureOld = makeFixture();
+  const fixtureNew = makeFixture();
+  try {
+    const args = fixture => ({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const receiptOld = refresh(args(fixtureOld));
+    const { bundleTablePath, readingTablePath } = tablesPaths(fixtureNew.root); // neither file is ever created
+    const receiptNew = refresh({ ...args(fixtureNew), bundleTablePath, readingTablePath });
+    assert.deepEqual(receiptOld, receiptNew);
+    for (const folder of [FOLDER_A, FOLDER_B]) {
+      for (const getPath of [contactsPath, recvPath, sentPath, replyPath]) {
+        assert.deepEqual(readFileSync(getPath(fixtureOld.workspacesRoot, folder)), readFileSync(getPath(fixtureNew.workspacesRoot, folder)));
+      }
+    }
+  } finally { rmSync(fixtureOld.root, { recursive: true, force: true }); rmSync(fixtureNew.root, { recursive: true, force: true }); }
+});
+
+test('refresh (A1): a bundle-table row attributes an otherwise-unmatched mail into the named project ledgers, basis "묶음 확정: ..."', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'table-events.jsonl'), jsonl([
+      { event_id: 'h-bundle', subject: '전혀 다른 내용의 문의', from: 'random@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const { bundleTablePath } = tablesPaths(fixture.root);
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [['전혀 다른', CODE_A, 'Owner 확인 완료', '2026-09-01', '']]));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', bundleTablePath });
+    assert.equal(receipt.table_attributed_mails, 1);
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.mails, 3); // h1 + g1 (already there) + h-bundle
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const bundleRow = recvCsv.rows.find(row => row[6] === 'h-bundle');
+    assert.ok(bundleRow, 'the bundle-attributed mail must appear in project A\'s received history');
+    assert.match(bundleRow[18], /^묶음 확정: Owner 확인 완료$/u); // 적용규칙 column
+    // Never attributed to project B, which the bundle row did not name.
+    const recvCsvB = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_B), 'utf8'));
+    assert.equal(recvCsvB.rows.some(row => row[6] === 'h-bundle'), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (A1): a reading-table include_with_review row attributes with "(검토 필요)" in the basis, and a shared (공유) row lands in every named project', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'table-events.jsonl'), jsonl([
+      { event_id: 'h-review', subject: '검토 필요한 문의 건', from: 'random@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T08:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h-shared', subject: '공유 프로젝트 안내 요청', from: 'random@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const { readingTablePath } = tablesPaths(fixture.root);
+    writeFileSync(readingTablePath, encodeCsv(READING_HEADERS, [
+      ['h-review', '2026-09-01', '검토 필요한 문의 건', 'include_with_review', CODE_B, '추정 근거', 'tester', '2026-09-21', ''],
+      ['h-shared', '2026-09-01', '공유 프로젝트 안내 요청', 'include', `${CODE_A};${CODE_B}`, '두 과제 공동', 'tester', '2026-09-21', 'owner-ok'],
+    ]));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', readingTablePath });
+    assert.equal(receipt.table_attributed_mails, 2);
+
+    const recvB = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_B), 'utf8'));
+    const reviewRow = recvB.rows.find(row => row[6] === 'h-review');
+    assert.ok(reviewRow);
+    assert.match(reviewRow[18], /^판독\(검토 필요\): 추정 근거$/u);
+
+    const recvA = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    assert.ok(recvA.rows.some(row => row[6] === 'h-shared'), 'shared mail must land in project A too');
+    assert.ok(recvB.rows.some(row => row[6] === 'h-shared'), 'shared mail must land in project B too');
+    const sharedRowA = recvA.rows.find(row => row[6] === 'h-shared');
+    assert.match(sharedRowA[18], /^판독\(공유 P00-001;P00-002\): 두 과제 공동$/u);
+
+    // Owner확인-filled reading decisions are search-eligible (A2 item 5); the
+    // include_with_review row above has no Owner확인 and is not.
+    assert.ok(receipt.search_eligible_attributions >= 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (A1): a reading/bundle decision never overrides a subject-rule hit or a two-project subject collision (still held)', () => {
+  const fixture = makeFixture();
+  try {
+    const { bundleTablePath, readingTablePath } = tablesPaths(fixture.root);
+    // h1 already matches project A's own rule exactly -- a bundle row also naming
+    // project B for the same subject phrase must never be consulted.
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS, [['예시장비', CODE_B, '표 시도', '2026-09-01']]));
+    // h2 is a two-project subject collision (held by the rule engine) -- a reading
+    // decision trying to rescue it into project A alone must never override the hold.
+    writeFileSync(readingTablePath, encodeCsv(READING_HEADERS, [
+      ['h2', '2026-09-01', 'P00-001 그리고 P00-002 동시 언급', 'include', CODE_A, '시도', 'tester', '2026-09-21', ''],
+    ]));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', bundleTablePath, readingTablePath });
+    assert.equal(receipt.held_two_projects, 1); // h2 still held, not rescued
+    assert.equal(receipt.table_attributed_mails, 0); // neither table override ever ran
+    const recvCsvB = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_B), 'utf8'));
+    assert.equal(recvCsvB.rows.some(row => row[6] === 'h1'), false); // h1 stays project A only
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (A1): a malformed Owner table fails the whole run closed unless allowDegradedOwnerTables is passed', () => {
+  const fixture = makeFixture();
+  try {
+    const { bundleTablePath } = tablesPaths(fixture.root);
+    writeFileSync(bundleTablePath, encodeCsv(['잘못된헤더'], [['x']]));
+    const args = { workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', bundleTablePath };
+    const failed = refresh(args);
+    assert.equal(failed.status, 'failed');
+    assert.equal(failed.owner_table_failures.length, 1);
+    assert.equal(failed.owner_table_failures[0].code, 'workspace_ledgers_owner_table_header_mismatch');
+    assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false); // nothing written
+
+    const degraded = refresh({ ...args, allowDegradedOwnerTables: true });
+    assert.equal(degraded.status, 'ok');
+    assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), true);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('previewRule (A1): table_attributed is omitted unless a table path is supplied, and counts mail this project would gain via the tables', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'table-events.jsonl'), jsonl([
+      { event_id: 'h-preview-bundle', subject: '전혀 다른 내용의 문의', from: 'random@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
+    const withoutTables = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    assert.equal('table_attributed' in withoutTables, false);
+
+    const { bundleTablePath } = tablesPaths(fixture.root);
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [['전혀 다른', CODE_A, 'Owner 확인 완료', '2026-09-01', '']]));
+    const withTables = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
+    assert.equal(withTables.table_attributed, 1);
+    // The draft's own subject-rule comparison is untouched by the table.
+    assert.equal(withTables.matched_after, withoutTables.matched_after);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

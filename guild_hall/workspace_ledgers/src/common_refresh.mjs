@@ -146,6 +146,27 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   const unknownTargets = { bundle: 0, reading: 0 };
   let decisionOverrodePattern = 0;
   let vendorOnlyWithoutOrganisation = 0;
+  // A2 item 2 (2026-09-21 night addition): triage-progress counts, reported separately
+  // in the receipt rather than folded into the primary-bucket tally (a mail can be
+  // "미판독"/"판독했으나 미정"/neither, independent of which primary bucket it lands in).
+  // - unreadCount (미판독): no 판독_결정표 row at all for this mail, whatever bucket it
+  //   ends up in -- genuinely never looked at by anyone.
+  // - readUndeterminedCount (판독했으나 미정): either an explicit `hold_owner_review`
+  //   decision, or one that resolved to the renamed 과제미정 bucket -- read, but which
+  //   project (if any) is still not decided.
+  // - noProjectConfirmedCount (과제 없음 확인): a reading decision that positively
+  //   routed the mail to 일반업무/과제외:... -- "read, and confirmed there is no
+  //   project", the case A2 item 2 separates from 과제미정.
+  let unreadCount = 0;
+  let readUndeterminedCount = 0;
+  let noProjectConfirmedCount = 0;
+  // A2 item 5: "검색 근거로 쓸 수 있는 귀속" -- a mail whose project attribution (if
+  // any) is solid enough to use as RAG/search evidence: an approved subject-rule hit,
+  // an Owner-confirmed bundle-table hit, or ANY reading decision whose own Owner확인
+  // cell is filled in (regardless of which bucket that reading decision routed to --
+  // an Owner-confirmed 일반업무/과제외 exclusion is just as usable as evidence that a
+  // mail does NOT belong to a project as an included one is that it does).
+  let searchEligibleAttributions = 0;
 
   // Pass 1: classify every mail's own (direct-address) project hits/vendors.
   const prepared = records.map(record => {
@@ -153,7 +174,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     const fromDomain = domainOf(record.from?.email ?? '');
     const mail = { ...record, fromDomain, addresses };
     const projectResult = classifyProjectHits(
-      { id: record.event_id, subject: record.subject, body: record.body_text, addresses },
+      { id: record.event_id, subject: record.subject, body: record.body_text, addresses, at: record.at },
       { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors },
     );
     if (projectResult.unknownBundleTarget) unknownTargets.bundle += 1;
@@ -211,6 +232,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     }
   }
 
+  let projectAttributionRows = 0;
   for (const { mail, projectResult } of prepared) {
     let outcome;
     if (projectResult.held) {
@@ -222,6 +244,28 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     }
     bucketTally[outcome.bucket] += 1;
     if (outcome.decisionOverrodePattern) decisionOverrodePattern += 1;
+    // N1 (2026-09-21 night addition, cli.mjs `parity`'s "like with like" project row):
+    // the real per-project ledgers record one ROW per project a mail is attributed to
+    // (a 공유 A;B mail is a row in BOTH project A's and project B's own history CSV),
+    // while `bucketTally.project` counts the mail once no matter how many projects it
+    // shares. Summed separately here so a caller comparing against the real files' row
+    // counts (which necessarily double-count a shared mail) is comparing the same
+    // population, not silently comparing a per-mail count against a per-row sum.
+    if (outcome.bucket === 'project') projectAttributionRows += outcome.projectCodes.length;
+
+    // A2 item 2: triage-progress counts (see this function's own header note).
+    if (!projectResult.reading) {
+      unreadCount += 1;
+    } else if (projectResult.reading.level === 'hold_owner_review' || outcome.bucket === 'no_code_confirmed') {
+      readUndeterminedCount += 1;
+    } else if (projectResult.reading.level === 'exclude' && (outcome.bucket === 'general_work' || outcome.bucket === 'out_of_project')) {
+      noProjectConfirmedCount += 1;
+    }
+    // A2 item 5: search-eligible attribution (see this function's own header note).
+    const ownerConfirmedReading = projectResult.reading && String(projectResult.reading.ownerConfirmed ?? '').trim() !== '';
+    if ((outcome.bucket === 'project' && projectResult.basis === '제목') || projectResult.basis === '묶음 확정' || ownerConfirmedReading) {
+      searchEligibleAttributions += 1;
+    }
     // S3: a mail with an EXPLICIT vendor_only reading decision but no matched
     // organisation at all -- it can never route to `vendor_only` (there is no ledger
     // to put it in) and stays `unclassified`, but it is not an ordinary "never looked
@@ -244,6 +288,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     scanned: hiworks.scanned + gmail.scanned, duplicatesDropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
     totalMails: records.length, bucketTally, classified, threadBuckets, workTagPool: owner.workTags,
     unknownTargets, decisionOverrodePattern, vendorOnlyWithoutOrganisation, invalidDecisionLevels: owner.invalidDecisionLevels,
+    projectAttributionRows, unreadCount, readUndeterminedCount, noProjectConfirmedCount, searchEligibleAttributions,
   };
 }
 
@@ -508,6 +553,13 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       bucket_counts: pass.bucketTally, files, rejected_files: rejectedFiles,
       unknown_targets: pass.unknownTargets, decision_overrode_pattern: pass.decisionOverrodePattern,
       vendor_only_without_organisation: pass.vendorOnlyWithoutOrganisation, invalid_decision_levels: pass.invalidDecisionLevels,
+      // A2 item 2: triage-progress counts, separate from the primary-bucket tally.
+      unread_count: pass.unreadCount, read_undetermined_count: pass.readUndeterminedCount,
+      no_project_confirmed_count: pass.noProjectConfirmedCount,
+      // A2 item 5: mail whose project attribution is solid enough to use as search/RAG
+      // evidence (approved subject rule, approved bundle table, or any reading decision
+      // with its own Owner확인 cell filled in).
+      search_eligible_attributions: pass.searchEligibleAttributions,
       // S3: symmetric with `allow_partial_sources_applied` -- present on the success
       // path too (not only R4's own failure-and-no-write receipt above), so a caller
       // reading a run that DID write can still tell whether it did so only because

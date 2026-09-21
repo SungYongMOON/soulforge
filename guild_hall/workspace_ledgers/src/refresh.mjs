@@ -12,6 +12,14 @@ import { compileRule, compileRules, MATCH_FIELDS } from './classifier.mjs';
 import { listProjects, readRule, validateRule, LINEAGE_SCHEMA } from './rule_store.mjs';
 import { DEFAULT_SYSTEM_SENDER_PATTERNS, loadMailEvents } from './mail_events.mjs';
 import { buildContacts, buildHistory, buildReplyStatus, decodeCsv, domainOf, encodeCsv, LEDGER_SCHEMA, makeOrgLookup } from './ledgers.mjs';
+// A1 (2026-09-21 night addition): the common-folder pipeline's bundle/reading-table
+// attribution (spec section 1 steps 2-3), reused here so a mail's project ledgers get
+// the exact same table-based attribution the common pipeline already computes for its
+// own classification -- "한 곳에서만 정한다" (spec section 1's own header), not a
+// second, drifting copy. See `classifyByOwnerTables`'s own doc for exactly what it
+// does and does not decide.
+import { classifyByOwnerTables } from './common_classifier.mjs';
+import { loadOwnerTables } from './owner_tables.mjs';
 
 export const REFRESH_RECEIPT_SCHEMA = 'soulforge.workspace_ledgers_refresh_receipt.v1';
 export const REFRESH_STALE_LOCK_MS = 30 * 60 * 1000;
@@ -375,7 +383,8 @@ function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fiel
  * rule `.md` as `measured` "fact"; a count computed while some other project's rule
  * was silently excluded needs to say so, not be presented as complete.
  */
-export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gmailSentDirs = [], fields = MATCH_FIELDS, orgConfigPath = null }) {
+export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gmailSentDirs = [], fields = MATCH_FIELDS, orgConfigPath = null,
+  bundleTablePath = null, readingTablePath = null }) {
   const { ok: all, ruleFailures } = readAllRuleJsonSafely(workspacesRoot);
   const target = all.find(row => row.project.project_code === code);
   const folderName = target ? target.project.folder_name : draft.folder_name ?? null;
@@ -408,7 +417,7 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     if (beforeHit && !afterHit) movedOut.push(sample(beforeEvent));
     if (afterHit && afterEvent.match.held && !(beforeHit && beforeEvent.match.held)) newlyHeld.push(sample(afterEvent));
   }
-  return {
+  const result = {
     matched_before: matchedBefore, matched_after: matchedAfter,
     moved_in: movedIn.length, moved_out: movedOut.length, newly_held: newlyHeld.length,
     // The raw custody window is identical for `before` and `after` -- only the rule
@@ -424,6 +433,29 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     // checking this first -- see `saveRuleVersion`'s `measured` handling.
     rule_failures: ruleFailures,
   };
+  // A1 (2026-09-21 night addition): `previewRule` keeps comparing the DRAFT rule's own
+  // subject-rule effect only (everything above this line is unchanged) -- but a UI
+  // showing `matched_after` next to a real project's mail count would otherwise be
+  // misread as "the whole story", when `refresh()` now also attributes mail via the
+  // bundle/reading tables (independent of the draft). `table_attributed` is that
+  // separate count -- how many of the `after` custody window's mails that this
+  // project's rule itself does NOT match (and that are not held) are ALSO attributed
+  // to `code` via the tables -- computed only when the caller supplies at least one
+  // table path; the return object gains NO new key otherwise, so an existing caller
+  // that never passes these two (unchanged) params gets a byte-identical result.
+  if (bundleTablePath || readingTablePath) {
+    const owner = loadOwnerTables({ bundleTablePath, readingTablePath });
+    const knownCode = candidate => all.some(row => row.project.project_code === candidate) || candidate === code;
+    let tableAttributed = 0;
+    for (const event of after.events) {
+      if (event.match.held || event.match.hits.some(hit => hit.project_code === code)) continue;
+      const tableResult = classifyByOwnerTables({ id: event.event_id, subject: event.subject, at: event.at },
+        { bundles: owner.bundles, readings: owner.readings, knownCode });
+      if (tableResult && tableResult.hits.some(hit => hit.project_code === code)) tableAttributed += 1;
+    }
+    result.table_attributed = tableAttributed;
+  }
+  return result;
 }
 
 // -------------------------------------------------------------------- CSV write
@@ -795,7 +827,18 @@ export function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex,
  * row) than the ReDoS risk it guarded against, for this loopback, Owner-only tool.
  */
 export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects: onlyProjects = null,
-  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [], allowPartialSources = false }) {
+  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [], allowPartialSources = false,
+  // A1 (2026-09-21 night addition): dependency-injected table attribution (spec
+  // section 1 steps 2-3), plumbed through as three new, independently-defaulted
+  // optional params -- every existing positional/keyword name above this line is
+  // unchanged. `bundleTablePath`/`readingTablePath` omitted (both `null`, the
+  // default): no table is read, no table attribution runs, and every returned/written
+  // byte is identical to before this addition (proved in
+  // `tests/refresh.test.mjs`'s own byte-identical regression test). Supplying either
+  // path opts in; `allowDegradedOwnerTables` (default `false`) mirrors
+  // `refreshCommon`'s own R4 gate -- see the pre-write gate below for why a silent
+  // partial degrade is actively dangerous here too.
+  bundleTablePath = null, readingTablePath = null, allowDegradedOwnerTables = false }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
@@ -848,6 +891,12 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
   // R3: the boolean the shrink guard must actually gate on -- an unreadable custody
   // dir DID force a partial run, not merely "the caller happened to pass the flag".
   let partialSourcesInEffect = false;
+  // A1 (2026-09-21 night addition): hoisted for the same reason every other running
+  // total above is -- the catch block below must still report whatever this run had
+  // already computed before an unexpected throw.
+  let ownerTableFailures = [];
+  let tableAttributedTotal = 0;
+  let searchEligibleAttributions = 0;
 
   try {
     // S-8: a bad saved rule for one project is excluded (recorded in ruleFailures),
@@ -875,6 +924,17 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       fail('workspace_ledgers_unknown_project', code);
     }
 
+    // A1 (2026-09-21 night addition): load the two Owner tables `refresh()`'s own
+    // project attribution now also consults, the same fail-closed-per-table contract
+    // `owner_tables.mjs` already documents (missing/empty -> skip; bad header/encoding
+    // -> `ownerTableFailures`, never thrown). `bundleTablePath`/`readingTablePath` both
+    // `null` (the default) reads neither file at all -- `owner.bundles`/`owner.readings`
+    // come back empty and `ownerTableFailures` stays `[]`, so the gate below never
+    // trips and every mail's classification is unchanged from before this addition.
+    const owner = loadOwnerTables({ bundleTablePath, readingTablePath });
+    ownerTableFailures = owner.failures;
+    const knownProjectCode = candidate => all.some(row => row.project.project_code === candidate);
+
     // fresh-review-3 #5: saved rules are compiled without re-running the (non-
     // deterministic) ReDoS timing canaries -- they were already timed when saved
     // (`saveRuleVersion` -> `validateRule`, default `timeSafety: true`). Matching
@@ -899,6 +959,30 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [],
         shrink_allowed_applied_to: [],
         rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
+        owner_table_failures: ownerTableFailures, table_attributed_mails: 0, search_eligible_attributions: 0,
+      };
+      writeReceiptFile(receipt);
+      return receipt;
+    }
+
+    // A1 (2026-09-21 night addition), mirrors `refreshCommon`'s own R4 gate: a
+    // malformed Owner table would otherwise silently degrade classification -- mail
+    // that used to attribute via that table falls back to `unattributed` instead, and
+    // this run would then rewrite every project ledger to match (losing that mail from
+    // every project's ledgers, not merely leaving it stale). Blocks every write for the
+    // whole run (receipt only, `status: 'failed'`, the failing table(s) named) unless
+    // the caller explicitly opts back into the old (degraded but writing) behaviour via
+    // `allowDegradedOwnerTables: true`.
+    if (ownerTableFailures.length > 0 && !allowDegradedOwnerTables) {
+      const receipt = {
+        ...baseReceipt(), status: 'failed',
+        events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
+        skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
+        unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: partialSourcesInEffect, allow_empty_applied_to: [],
+        shrink_allowed_applied_to: [],
+        rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
+        owner_table_failures: ownerTableFailures, table_attributed_mails: 0, search_eligible_attributions: 0,
+        degraded_owner_tables_allowed: false,
       };
       writeReceiptFile(receipt);
       return receipt;
@@ -907,12 +991,41 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     const buckets = new Map();
     for (const event of events) {
       if (event.match.held) { heldCount += 1; continue; }
-      if (event.match.hits.length === 0) { unattributed += 1; continue; }
-      const hit = event.match.hits[0];
+      let hits = event.match.hits;
+      // A1: an event the project's OWN subject rule already attributed (or held, above)
+      // never consults the tables at all -- a reading/bundle decision cannot override a
+      // subject-rule attribution or a two-project hold (spec: "판독 결정이 제목 규칙을
+      // 뒤집지 못한다"). Only a mail that rule-matching left with zero hits is offered
+      // to the tables; a table match may legitimately name MORE THAN ONE project at
+      // once (공유), unlike a rule hit, which is always exactly one project here (two
+      // would already have been `held` above).
+      let tableResult = null;
+      if (hits.length === 0) {
+        tableResult = classifyByOwnerTables({ id: event.event_id, subject: event.subject, at: event.at },
+          { bundles: owner.bundles, readings: owner.readings, knownCode: knownProjectCode });
+        if (tableResult && tableResult.hits.length > 0) {
+          hits = tableResult.hits;
+          tableAttributedTotal += 1;
+        } else {
+          tableResult = null;
+        }
+      }
+      if (hits.length === 0) { unattributed += 1; continue; }
+      // A2 item 5: "검색 근거로 쓸 수 있는 귀속" -- an approved subject-rule hit, an
+      // approved bundle-table hit, or a reading-table hit whose OWN Owner확인 cell is
+      // filled in count as search/RAG-eligible; a bare (not-yet-Owner-confirmed)
+      // reading decision does not.
+      const readingOwnerConfirmed = tableResult?.reading && String(tableResult.reading.ownerConfirmed ?? '').trim() !== '';
+      if (!tableResult || tableResult.basis === '묶음 확정' || readingOwnerConfirmed) searchEligibleAttributions += 1;
       const direction = event.source === 'Gmail_보낸메일_수집' || (event.from && domainOf(event.from.email) === ourDomain) ? 'sent' : 'received';
-      const bucket = buckets.get(hit.project_code) ?? [];
-      bucket.push({ ...event, direction, label: hit.label });
-      buckets.set(hit.project_code, bucket);
+      // A1: a table hit can name more than one project (공유 A;B) -- every hit gets its
+      // own bucket entry, so the mail lands in EACH named project's ledgers (an
+      // ordinary rule hit is always exactly one entry here, unchanged).
+      for (const hit of hits) {
+        const bucket = buckets.get(hit.project_code) ?? [];
+        bucket.push({ ...event, direction, label: hit.label });
+        buckets.set(hit.project_code, bucket);
+      }
     }
     for (const bucket of buckets.values()) bucket.sort((a, b) => a.at.localeCompare(b.at));
 
@@ -990,6 +1103,10 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: partialSourcesInEffect,
       allow_empty_applied_to: [...allowEmptyAppliedTo], shrink_allowed_applied_to: [...shrinkAllowedAppliedTo],
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
+      // A1/A2 (2026-09-21 night addition): both `0` when `bundleTablePath`/
+      // `readingTablePath` were never supplied (no table read at all this run).
+      owner_table_failures: ownerTableFailures, table_attributed_mails: tableAttributedTotal,
+      search_eligible_attributions: searchEligibleAttributions,
     };
     writeReceiptFile(receipt);
     return receipt;
@@ -1005,6 +1122,8 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [...allowEmptyAppliedTo],
       shrink_allowed_applied_to: [...shrinkAllowedAppliedTo],
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
+      owner_table_failures: ownerTableFailures, table_attributed_mails: tableAttributedTotal,
+      search_eligible_attributions: searchEligibleAttributions,
     });
     throw error;
   } finally {

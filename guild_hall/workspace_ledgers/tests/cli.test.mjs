@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
+import { BUNDLE_HEADERS_V2 } from '../src/owner_tables.mjs';
+import { encodeCsv } from '../src/ledgers.mjs';
 
 const CLI_PATH = fileURLToPath(new URL('../cli.mjs', import.meta.url));
 const CODE = 'P00-001';
@@ -95,6 +97,27 @@ test('cli refresh (S-6, fresh-review-4): an unreadable custody directory prints 
     assert.match(error.stderr, /workspace_ledgers_refresh_unreadable_dirs/u);
     assert.match(error.stderr, /--allow-partial-sources/u);
     assert.equal(error.stderr.includes('workspace_ledgers_refresh_ledger_validation_failed'), false);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('cli refresh (A1, 2026-09-21 night addition): --bundle-table wires bundle-table attribution through, --dry receipt reports table_attributed_mails', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), JSON.stringify({
+      event_id: 'h-bundle', subject: '전혀 무관한 별도 문의', from: 'other@example.com', to: [], cc: [],
+      received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [],
+    }));
+    const bundleTablePath = path.join(fixture.root, '묶음_확정표.csv');
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [['전혀 무관한', CODE, 'Owner 확인', '2026-09-01', '']]));
+    const args = ['refresh', '--workspaces-root', fixture.workspacesRoot, '--workmeta-root', fixture.workmetaRoot,
+      '--hiworks-events', fixture.hiworksDir, '--gmail-sent-events', fixture.gmailDir, '--org-config', fixture.orgConfigPath,
+      '--receipts', fixture.receiptsDir, '--dry', '--bundle-table', bundleTablePath];
+    const out = execFileSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' });
+    const receipt = JSON.parse(out);
+    assert.equal(receipt.status, 'ok');
+    assert.equal(receipt.table_attributed_mails, 1);
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }

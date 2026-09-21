@@ -9,8 +9,10 @@
 //     -> [{ project_code, folder_name, rule_json_path, rule_md_path }]
 //   readRule({ workspacesRoot, code })
 //     -> { project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }
-//   previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })
-//     -> { matched_before, matched_after, moved_in, moved_out, newly_held, samples, rule_failures }
+//   previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath?,
+//                 bundleTablePath?, readingTablePath? })
+//     -> { matched_before, matched_after, moved_in, moved_out, newly_held, samples, rule_failures,
+//          table_attributed? }
 //        `orgConfigPath` (optional) resolves the same `system_sender_domains` merge a
 //        real `refresh()` against that config would use; omitted, only the built-in
 //        default skip list applies. `rule_failures` (fresh-review-5 #7) lists any OTHER
@@ -19,11 +21,18 @@
 //        in play than normal; render it as a caveat (or don't render `measured` at all)
 //        rather than presenting the counts as complete, the same way `saveRuleVersion`
 //        does when it renders `measured` into the Owner-facing rule `.md`.
+//        `bundleTablePath`/`readingTablePath` (부록 A1, 2026-09-21 night addition,
+//        both optional): when either is supplied, the return gains `table_attributed`
+//        -- how many mails this project would ALSO gain via the Owner tables, on top
+//        of (never instead of) the draft's own subject-rule comparison above, which is
+//        unaffected either way. Omitted (the default), no new key is added at all, so
+//        an existing caller's result is unchanged.
 //   saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })
 //     -> { project_code, folder_name, previous_version, rule_version, json_path, md_path,
 //          history_json_path, history_md_path, sha256_json, sha256_md }
 //   refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
-//             projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })
+//             projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources?,
+//             bundleTablePath?, readingTablePath?, allowDegradedOwnerTables? })
 //     -> the refresh receipt body (soulforge.workspace_ledgers_refresh_receipt.v1);
 //        `receipt.status` is `'failed'` when one or more ledger files failed strict
 //        validation (`receipt.ledger_failures`), when any custody directory could not
@@ -50,6 +59,15 @@
 //        every write for the whole run unless this is explicitly true, in which case
 //        the run proceeds on whatever custody was readable
 //        (`receipt.allow_partial_sources_applied`).
+//        `bundleTablePath`/`readingTablePath` (부록 A1, 2026-09-21 night addition, both
+//        `null` by default): omitted, no table is read and every result is byte-
+//        identical to before this addition. Supplying either also attributes mail via
+//        the common pipeline's bundle/reading tables (spec section 1 steps 2-3) into
+//        the four project ledgers -- never overriding a subject-rule hit or a
+//        two-project hold. A malformed table blocks the whole run
+//        (`receipt.owner_table_failures`, `status: 'failed'`) unless
+//        `allowDegradedOwnerTables: true` is passed. `receipt.table_attributed_mails`
+//        and `receipt.search_eligible_attributions` (부록 A2 item 5) are always present.
 export { isMachineActor, listProjects, readRule, RuleStoreError, saveRuleVersion, validateRule } from './rule_store.mjs';
 export { clearCustodyCache, previewRule, refresh, RefreshError } from './refresh.mjs';
 export {
@@ -65,7 +83,7 @@ export { loadMailEvents, parseAddressField } from './mail_events.mjs';
 // argument shape unchanged, so the console/UI adapter's existing calls
 // (`listProjects`, `readRule`, `previewRule`, `saveRuleVersion`, `refresh`) are
 // unaffected.
-export { buildCommonConfig, classifyProjectHits, PRIMARY_BUCKETS, resolvePrimaryBucket, workTagsOf } from './common_classifier.mjs';
+export { buildCommonConfig, classifyByOwnerTables, classifyProjectHits, PRIMARY_BUCKETS, resolvePrimaryBucket, workTagsOf } from './common_classifier.mjs';
 export {
   categoryOf, headersFor as commonLedgerHeadersFor, vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';

@@ -97,6 +97,54 @@ test('appendReadingDecision: validation rejects an unknown level, an unknown pro
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('appendReadingDecision (A2 item 2): the renamed "과제미정" exclude target is accepted, same as the old "과제없음"', () => {
+  const fixture = makeFixture();
+  try {
+    const result = appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'exclude', target: '과제미정', why: '아직 모름', reader: 'tester',
+    });
+    assert.equal(result.target, '과제미정');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('appendReadingDecision (A2 item 4): with humanActors supplied, an "include" from a reader NOT on the list is refused -- must use include_with_review', () => {
+  const fixture = makeFixture();
+  try {
+    assert.throws(() => appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'include', target: 'P00-001', why: 'AI 추정', reader: '맥락이', humanActors: ['owner', 'teammate'],
+    }), error => error instanceof TriageError && error.code === 'workspace_ledgers_triage_include_requires_human_reader');
+    // include_with_review from the same non-human reader is fine.
+    const result = appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'include_with_review', target: 'P00-001', why: 'AI 추정', reader: '맥락이', humanActors: ['owner', 'teammate'],
+    });
+    assert.equal(result.level, 'include_with_review');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('appendReadingDecision (A2 item 4): a reader ON the humanActors list may still use "include"; omitting humanActors applies no restriction at all', () => {
+  const fixture = makeFixture();
+  try {
+    const result = appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'include', target: 'P00-001', why: '사람 확인', reader: 'owner', humanActors: ['owner'],
+    });
+    assert.equal(result.level, 'include');
+
+    // A second, independent fixture: no humanActors passed at all -- unchanged default.
+    const fixture2 = makeFixture();
+    try {
+      const result2 = appendReadingDecision({
+        workspacesRoot: fixture2.workspacesRoot, readingTablePath: fixture2.readingTablePath,
+        id: 'u1', level: 'include', target: 'P00-001', why: 'AI 추정', reader: '맥락이',
+      });
+      assert.equal(result2.level, 'include');
+    } finally { rmSync(fixture2.root, { recursive: true, force: true }); }
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('appendReadingDecision: a valid decision appends a row, creating the table fresh when it does not exist yet', () => {
   const fixture = makeFixture();
   try {

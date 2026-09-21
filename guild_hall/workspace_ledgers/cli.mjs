@@ -110,9 +110,19 @@ function runRefresh(flags) {
   if (allowEmptyRaw === true) { usageError('--allow-empty requires a comma-separated project-code list, e.g. --allow-empty P00-001,P00-002'); return; }
   const allowEmpty = typeof allowEmptyRaw === 'string' ? allowEmptyRaw.split(',').map(item => item.trim()).filter(Boolean) : [];
   const allowPartialSources = flags.get('allow-partial-sources') === true || flags.get('allow-partial-sources') === 'true';
+  // A1/A2 (2026-09-21 night addition): both optional and both omitted by default --
+  // `refresh()` reads no table and behaves exactly as before this addition unless one
+  // is explicitly given (see `refresh.mjs`'s own doc on `bundleTablePath`/
+  // `readingTablePath`).
+  const bundleTableRaw = flags.get('bundle-table');
+  const bundleTablePath = typeof bundleTableRaw === 'string' ? bundleTableRaw : null;
+  const readingTableRaw = flags.get('reading-table');
+  const readingTablePath = typeof readingTableRaw === 'string' ? readingTableRaw : null;
+  const allowDegradedOwnerTables = flags.get('allow-degraded-owner-tables') === true || flags.get('allow-degraded-owner-tables') === 'true';
   try {
     const receipt = refresh({ workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents],
-      orgConfigPath, projects, fields, dry, receiptsDir, allowEmpty, allowPartialSources });
+      orgConfigPath, projects, fields, dry, receiptsDir, allowEmpty, allowPartialSources,
+      bundleTablePath, readingTablePath, allowDegradedOwnerTables });
     console.log(JSON.stringify(receipt));
     // S-6: `status: 'failed'` has more than one possible cause now -- branch on which
     // one(s) actually applied instead of always naming `ledger_failures` (which is
@@ -124,6 +134,10 @@ function runRefresh(flags) {
       }
       if (receipt.rule_failures?.length > 0) {
         console.error(`workspace_ledgers_refresh_rule_failures: ${JSON.stringify(receipt.rule_failures)}`);
+      }
+      if (receipt.owner_table_failures?.length > 0) {
+        console.error(`workspace_ledgers_refresh_owner_table_failures: ${JSON.stringify(receipt.owner_table_failures)}`
+          + ' -- pass --allow-degraded-owner-tables to proceed with degraded table attribution');
       }
       if (receipt.ledger_failures?.length > 0) {
         console.error(`workspace_ledgers_refresh_ledger_validation_failed: ${JSON.stringify(receipt.ledger_failures)}`);
@@ -150,8 +164,15 @@ function runPreviewRule(flags) {
   const showSamples = flags.get('show-samples') === true || flags.get('show-samples') === 'true';
   const orgConfigRaw = flags.get('org-config');
   const orgConfigPath = typeof orgConfigRaw === 'string' ? orgConfigRaw : null;
+  // A1 (2026-09-21 night addition): both optional, both omitted by default -- see
+  // `previewRule`'s own doc on `table_attributed` for what supplying either one adds.
+  const bundleTableRaw = flags.get('bundle-table');
+  const bundleTablePath = typeof bundleTableRaw === 'string' ? bundleTableRaw : null;
+  const readingTableRaw = flags.get('reading-table');
+  const readingTablePath = typeof readingTableRaw === 'string' ? readingTableRaw : null;
   try {
-    const result = previewRule({ workspacesRoot, code, draft, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], fields, orgConfigPath });
+    const result = previewRule({ workspacesRoot, code, draft, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], fields, orgConfigPath,
+      bundleTablePath, readingTablePath });
     // fresh-review-2 #6: `samples` carries real mail subjects -- printed only when
     // explicitly asked for, never by default.
     const { samples, ...counts } = result;
@@ -298,8 +319,19 @@ function runParity(flags) {
       general_work: realRowCount(path.join(generalWorkBase, '일반업무_메일.csv')),
       vendor_only: realVendorOnlyCount(commonBase),
     };
+    // A1 (2026-09-21 night addition): "그 뒤 parity의 과제 행은 같은 모집단끼리
+    // 비교한다" -- `real.project` sums each onboarded project's OWN
+    // 메일_수신이력.csv/메일_발송이력.csv row count, which necessarily counts a mail
+    // shared across two projects (묶음/판독 공유 A;B) ONCE PER PROJECT it landed in
+    // (it is a genuinely separate row in each project's own ledger). `bucketTally`
+    // counts that same mail once, no matter how many projects it shares -- comparing
+    // it directly against `real.project` would always show a "module < real" gap sized
+    // exactly by however much sharing exists, which is not a defect. Use
+    // `projectAttributionRows` (the row-sum equivalent) for this one bucket only, so
+    // both sides count the same thing: ledger rows, not deduped mails.
+    const moduleCountFor = bucket => (bucket === 'project' ? pass.projectAttributionRows : pass.bucketTally[bucket]);
     const comparison = Object.fromEntries(Object.entries(real).map(([bucket, realCount]) => [
-      bucket, { module: pass.bucketTally[bucket], real: realCount, diff: realCount === null ? null : pass.bucketTally[bucket] - realCount },
+      bucket, { module: moduleCountFor(bucket), real: realCount, diff: realCount === null ? null : moduleCountFor(bucket) - realCount },
     ]));
     console.log(JSON.stringify({
       total_mails: pass.totalMails, scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped,
@@ -356,8 +388,13 @@ function runTriageDecide(flags) {
   const target = typeof targetRaw === 'string' ? targetRaw : '';
   const lineageRaw = flags.get('lineage');
   const lineagePath = typeof lineageRaw === 'string' ? lineageRaw : null;
+  // A2 item 4 (2026-09-21 night addition): a comma-separated allowlist of reader
+  // names/ids this CLI invocation considers human -- omitted (the default, `null`), no
+  // restriction applies, matching today's behaviour exactly.
+  const humanActorsRaw = flags.get('human-actors');
+  const humanActors = typeof humanActorsRaw === 'string' ? humanActorsRaw.split(',').map(item => item.trim()).filter(Boolean) : null;
   try {
-    const result = appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath, id, level, target, why, reader });
+    const result = appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath, id, level, target, why, reader, humanActors });
     console.log(JSON.stringify(result));
   } catch (error) {
     console.error(`workspace_ledgers_triage_decide_failed: ${error.code ?? error.message}`);

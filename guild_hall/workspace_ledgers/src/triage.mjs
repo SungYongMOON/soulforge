@@ -162,7 +162,11 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
   return { total: unclassified.length, items };
 }
 
-const EXCLUDE_FIXED_TARGETS = new Set(['광고', '알림', '테스트', '일반업무', '과제없음', '사내행정']);
+// A2 item 2 (rename, 2026-09-21 night addition): '과제미정' is the current token for
+// "read, project still undetermined"; '과제없음' is kept accepted too (a row already
+// written under the old name, or a caller that has not switched yet) -- both resolve
+// to the same bucket (`common_classifier.mjs`'s `resolveReadingDecision`).
+const EXCLUDE_FIXED_TARGETS = new Set(['광고', '알림', '테스트', '일반업무', '과제없음', '과제미정', '사내행정']);
 const EXCLUDE_PREFIXES = ['일반업무:', '과제코드대기:', '과제외:'];
 
 function isAllowedExcludeTarget(target) {
@@ -195,8 +199,19 @@ function sha256Hex(text) { return createHash('sha256').update(text).digest('hex'
  * archive. Locking reuses `refresh.mjs`'s own refresh lock, scoped to `workspacesRoot`
  * (spec: "잠금은 refresh와 같은 잠금") -- a triage decision and a refresh/common-refresh
  * can never run concurrently and race on the same tables/ledgers.
+ *
+ * `humanActors` (A2 item 4, 2026-09-21 night addition, optional): when supplied (an
+ * array of reader names/ids the caller considers human), a `level: 'include'` decision
+ * from a `reader` NOT in that list is refused
+ * (`workspace_ledgers_triage_include_requires_human_reader`) -- an AI reader's
+ * positive attribution must start at `include_with_review`, never the stronger
+ * `include`, which this codebase treats the same as an Owner-confirmed subject-rule
+ * hit (`refresh.mjs`'s `search_eligible_attributions`, A2 item 5). Omitted (the
+ * default, `null`), no restriction applies -- unchanged from before this addition, so
+ * an existing caller that never passes it keeps exactly today's behaviour.
  */
-export function appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath = null, id, level, target, why, reader, now = new Date().toISOString() }) {
+export function appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath = null, id, level, target, why, reader,
+  humanActors = null, now = new Date().toISOString() }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (typeof readingTablePath !== 'string' || readingTablePath.trim() === '') fail('workspace_ledgers_reading_table_path_required');
   if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_triage_id_required');
@@ -205,6 +220,9 @@ export function appendReadingDecision({ workspacesRoot, readingTablePath, lineag
   if (reader.length > MAX_READER_LENGTH) fail('workspace_ledgers_triage_reader_too_long');
   if (typeof why !== 'string' || why.trim() === '') fail('workspace_ledgers_triage_why_required');
   if (why.length > MAX_WHY_LENGTH) fail('workspace_ledgers_triage_why_too_long');
+  if (level === 'include' && Array.isArray(humanActors) && !humanActors.includes(reader)) {
+    fail('workspace_ledgers_triage_include_requires_human_reader', reader);
+  }
 
   const targetText = String(target ?? '').trim();
   if (level === 'include' || level === 'include_with_review') {
