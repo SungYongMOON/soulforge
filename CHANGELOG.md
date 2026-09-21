@@ -52,6 +52,31 @@
   `common_refresh.mjs`, `mail_events.mjs`, `owner_tables.mjs`, `refresh.mjs`, `cli.mjs`, `README.md`,
   각 대응 `tests/*.test.mjs`.
 
+## 2026-09-21 - CI에 context-engine·rag PDF profile 검증 5종 배선(약 680개 미실행 테스트 격차 해소)
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: `.github/workflows/validate.yml`이 부르는 `npm run done:check`(`guild_hall/validate/run_root_acceptance.mjs`)의 `validate`·`done-check` 두 모드 어디에도 context-engine suite가 배선돼 있지 않아, `validate:context-engine`(graph index/database/extraction, planner, accepted-context pack, voice nightly lane, estate voice card reconcile, release closure-digest 포함 616 tests), `validate:context-original-read`(57), `validate:context-document-preparation`(58), `validate:context-docx-preparation`(47) 네 스크립트가 CI에서 한 번도 실행되지 않고 있었다. `rag` 단계 바로 뒤에 두 모드 모두 같은 자리로 배선했다. 같은 조사에서 `guild_hall/rag`의 PDF 관련 test 파일 6개(`project_document_ingest`, `project_document_pdf_profile`, `project_pdf_admission`, `project_pdf_rag_tracer`, `project_pdf_requirement_index`, `project_pdf_launch_authoring`)가 `validate:rag`에서 `node --check`로만 문법 검사되고 `node --test`로는 실행되지 않던 것도 확인했다: `project_document_pdf_profile`만 독립 실행에서 통과해(5 pass, 1 skip — pdfplumber 인터프리터가 없어도 안전하게 skip) 새 script `validate:project-document-pdf-profile`을 추가해 같이 배선했다. 나머지 다섯은 각자 기존 `validate:project-pdf-*`/`validate:project-document-ingest` 스크립트가 있었지만 독립 실행에서 전부 실패 중이라(`project_document_ingest` 12개 중 5개 실패 — "not a readable pdf"; `project_pdf_admission` 17개 중 2개 — 추출 완료 여부 불일치; `project_pdf_rag_tracer` 10개 중 6개; `project_pdf_requirement_index` 12개 중 9개 — null 접근; `project_pdf_launch_authoring` 7개 중 1개 — "extraction is refused") 이번에는 배선하지 않았다(프로덕션 코드 수정은 이번 범위 밖). `validate:context-engine-t5`(context_memory_t5* 3개, 35 tests)도 검토했으나, fixture(`guild_hall/context_engine/harness/fixtures/context_memory_t5_fixture.mjs`의 `documentInputs()`)가 `SOULFORGE_TEST_PDF_PYTHON`이 없으면 형제 suite들처럼 node:test skip을 쓰지 않고 무조건 throw해 이 Windows 로컬에서도 35/35 전부 실패했다 — CI도 그 환경변수를 주지 않으므로 배선하면 곧바로 적색이 된다. 플랫폼 안전 점검: 배선한 네 suite와 새 rag script의 test는 이미 `process.platform==='win32'` 분기 또는 명시적 env-gate(`SOULFORGE_TEST_NEO4J_URI`/`SOULFORGE_TEST_OLLAMA_HOST`/`SOULFORGE_PDF_TEST_PYTHON` 등) skip으로 python/LibreOffice/Neo4j/Ollama/junction 의존을 처리하고 있었고(CI workflow도 그 변수들을 주지 않아 동일하게 skip), `.gitattributes`가 `*.pdf`·`*.docx`를 binary 고정해 fixture SHA256 핀이 플랫폼 간 checkout에서 안전함을 확인했다. chmod/0o600, CRLF 리터럴 가정, 대소문자 비교, 타임존 의존은 발견하지 못했다. 로컬 WSL 배포판(BuzzServer, SoulforgeGraph — docker-desktop 제외)엔 Node.js가 없고 설치는 금지돼 있어 Linux 실측 교차검증은 하지 못했고, step 2 정적 점검에 의존했다.
+- 운영 영향: 없음 — 검증 파이프라인 배선과 문서만 바뀌었고 프로덕션 코드는 손대지 않았다. 로컬 측정 실행 시간 합은 약 34초(context-engine 24s + context-original-read 6s + context-document-preparation 2s + context-docx-preparation 2s + project-document-pdf-profile <1s)로 10분 예산 안이라 별도 CI job 분리는 제안하지 않는다.
+- 관련 경로: `package.json`, `guild_hall/validate/run_root_acceptance.mjs`, `guild_hall/validate/README.md`, `CHANGELOG.md`.
+- 검증: `node --test guild_hall/validate/run_root_acceptance_steps.test.mjs`(5/5) · `npm run validate:context-engine`(616 tests, 608 pass/8 skip, exit 0) · `npm run validate:context-original-read`(57/57, exit 0) · `npm run validate:context-document-preparation`(58 tests, 53 pass/5 skip, exit 0) · `npm run validate:context-docx-preparation`(47 tests, 39 pass/8 skip, exit 0) · `npm run validate:project-document-pdf-profile`(6 tests, 5 pass/1 skip, exit 0) · `npm run done:check`(exit 1 — 기존에 있던 무관한 `deployment-pack`/Universal Client transport bundle drift에서 먼저 멈춰 이번에 추가한 단계까지 로컬에서 도달하지 못함, 위 5개를 개별 실행해 대신 확인함) · `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations, exit 0) · `node guild_hall/validate/boot_digest_guard.mjs`(OK, `AGENT_BOOT_DIGEST_V0.md`의 4개 source 문서 중 어느 것도 이번 변경분에 없어 재서명 불필요, exit 0). Linux(GitHub Actions ubuntu-latest) 실측은 이번 PR의 첫 CI 실행에서 확인 필요 — 로컬에서는 검증하지 못했다.
+## 2026-09-21 - main CI 적색 복구: 야간 음성 lane 순환 import 절단, 장부 모듈 경로 가림의 Linux 이식성
+
+- Revision: 이 항목을 포함한 커밋. main의 CI(`done:check`)가 09-21 병합 두 건 뒤 적색이었다. 로컬 `done:check`는
+  알려진 다른 실패(deployment-pack의 universal-client bundle drift)에서 먼저 멈춰 뒤 단계를 보여 주지 않았고,
+  병합 전 검증은 개별 validator만 돌렸기 때문에 놓쳤다.
+- 무엇이 바뀌었는가: **(1)** `estate_voice_card_reconcile.mjs`가 `voice_conversation_list_nightly.mjs`에서 영수증
+  schema 이름과 날짜 도우미를 import하고, nightly는 `--chain-reconcile`에서 reconcile을 동적 import해 순환이
+  생겼다(`module_operability`의 "import graph has ZERO cycles" 실패). 공용 조각(`NIGHTLY_RECEIPT_SCHEMA`,
+  `NIGHTLY_RECEIPT_SCHEMA_V1`, `seoulDateFor`, `shiftDate`, `defaultTargetDate`)을 새 leaf 모듈
+  `harness/voice_nightly_shared.mjs`로 옮기고 nightly는 그대로 re-export한다(기존 importer 무변경).
+  **(2)** `workspace_ledgers`의 `redactHostPaths`가 `path.basename`을 써서 POSIX 호스트에서는 Windows·UNC 경로를
+  역슬래시로 나누지 못했고, Linux CI에서 드라이브 문자 경로가 가려지지 않은 채 남았다. 구분자 둘 다로 직접
+  나누는 `lastPathSegment`로 바꿨다(Windows 동작은 같고, 드라이브 루트만 있는 경로는 빈 문자열 대신 `D:`가 남는다).
+- 검증: `validate:module-operability` 8/8, 야간·대조 시험 145/145, `validate:workspace-ledgers` 139/139,
+  `release/closure.mjs --check` 통과(harness는 고정 closure 밖이라 digest·module_version 불변).
+- 남은 것: 로컬 `done:check`가 deployment-pack에서 멈춰 뒤 단계를 가리는 문제는 그대로다. 병합 전에는 모든
+  단계를 끝까지 돌려 보는 절차가 필요하다.
+
 ## 2026-09-21 - 대화 목록 야간 lane 네 번째 신선한 눈 검토 정정: merge-ready, aging 근거 구분, 중복 집계 방지, 버전 상향
 
 - Revision: 이 항목을 포함한 커밋(같은 슬라이스, 네 번째 병합 전 신선한 눈 검토 — 필수 0건, should 4건, 저렴한
