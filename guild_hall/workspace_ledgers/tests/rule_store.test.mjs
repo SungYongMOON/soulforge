@@ -403,3 +403,36 @@ test('saveRuleVersion (fresh-review-3 #13): a "## " line inside a fenced code bl
     assert.match(newMd, /- 펜스 뒤에 이어지는 진짜 항목/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('saveRuleVersion (R-2, fresh-review-4): a heading that only STARTS WITH a fixed no-parenthetical stem is not mistaken for that fixed section', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    // "## 근거" is a fixed, no-parenthetical heading this renderer always regenerates.
+    // "## 근거자료 목록" merely starts with the same two characters plus more words --
+    // it must be treated as an unrecognised Owner section (carried forward verbatim),
+    // never silently folded into (and lost behind) the regenerated "## 근거" section.
+    const mdWithLookalikeHeading = [
+      '# 메일 라우팅 규칙 — P00-001', '', '- 상태: 초안 v1', '',
+      '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)', '', '- `P00-001`', '',
+      '## 근거자료 목록', '', '- 예시 근거자료 A', '- 예시 근거자료 B', '',
+      '## Owner 메모 (수동 추가)', '', '이 절도 살아남아야 한다.', '',
+    ].join('\n');
+    writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), mdWithLookalikeHeading);
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x',
+    });
+    const newMd = readFileSync(result.md_path, 'utf8');
+    // The lookalike heading's own body survived verbatim.
+    assert.match(newMd, /## 근거자료 목록/u);
+    assert.match(newMd, /- 예시 근거자료 A/u);
+    assert.match(newMd, /- 예시 근거자료 B/u);
+    // The OTHER unrecognised Owner section also survived (reviewer: "another Owner
+    // section survived" -- confirming the bug was specific to the lookalike-prefix
+    // heading, not a blanket loss of every unknown section).
+    assert.match(newMd, /## Owner 메모 \(수동 추가\)/u);
+    assert.match(newMd, /이 절도 살아남아야 한다\./u);
+    // The renderer's OWN regenerated "## 근거" (실측) section is still present and
+    // distinct from the lookalike heading above.
+    assert.match(newMd, /## 근거\n/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

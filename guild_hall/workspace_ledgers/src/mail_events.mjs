@@ -11,7 +11,9 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { classifyMail, classifyMailBounded, compiledRulesHaveRegex, MATCH_FIELDS } from './classifier.mjs';
+import {
+  classifyMail, compiledRulesHaveRegex, createBoundedClassifier, MATCH_FIELDS, MAX_BODY_TEXT_CHARS,
+} from './classifier.mjs';
 import { normalizeSubject } from './ledgers.mjs';
 
 export const DEFAULT_SYSTEM_SENDER_PATTERNS = Object.freeze([
@@ -104,29 +106,50 @@ function normalizeTimestamp(raw) {
 const sha256Hex = text => createHash('sha256').update(text).digest('hex');
 
 /**
- * S7 / fresh-review-2 #3: a content-derived id for an event whose custody record
- * carries no `event_id`. Built from a hash of the *entire raw custody line*, not a
- * handful of derived fields, so two lines that differ in any way at all -- including
- * fields this module does not otherwise inspect, like recipients -- get different ids.
- * (fresh-review-3 #8: only the hash is ever held in memory, never the raw line text
- * itself -- see `readJsonlDir`.) This is vanishingly unlikely to collide in the
- * general case, not a cryptographic uniqueness guarantee; two genuinely byte-identical
- * no-id lines still hash the same, which is correct (see the raw-line-hash collapse in
- * `loadMailEvents` below) -- `refresh.mjs`'s pre-write duplicate-key check on the
- * freshly built rows is the remaining safety net for any other cause.
+ * N-1 (fresh-review-4): a stable, key-order-independent serialisation of a parsed JSON
+ * value -- object keys sorted recursively, arrays kept in their own order (array order
+ * is meaningful; object key order is not). Used (below) to hash a custody record's
+ * *content*, not its raw on-disk byte sequence, so the same mail re-serialised with a
+ * different key order (a common effect of custody being re-exported by a different
+ * tool version) still hashes identically and collapses as the same duplicate, instead
+ * of silently becoming two permanently-distinct synthetic ids for one real mail.
  */
-function syntheticEventId({ source, rawLineHash }) {
-  return `synthetic:${sha256Hex(`${source}|${rawLineHash}`).slice(0, 16)}`;
+function canonicalJsonStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJsonStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalJsonStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 /**
- * S8 (fresh-review-3): lazily yields `{ raw, rawLineHash }` for every JSONL record
+ * S7 / fresh-review-2 #3: a content-derived id for an event whose custody record
+ * carries no `event_id`. Built from a hash of the *entire canonicalised record*
+ * (N-1), not a handful of derived fields, so two records that differ in any way at
+ * all -- including fields this module does not otherwise inspect, like recipients --
+ * get different ids, while a re-serialisation with reordered keys does not.
+ * (fresh-review-3 #8: only the hash is ever held in memory, never the raw line text
+ * itself -- see `readJsonlDir`.) This is vanishingly unlikely to collide in the
+ * general case, not a cryptographic uniqueness guarantee; two genuinely identical
+ * records still hash the same, which is correct (see the canonical-hash collapse in
+ * `loadMailEvents` below) -- `refresh.mjs`'s pre-write duplicate-key check on the
+ * freshly built rows is the remaining safety net for any other cause.
+ */
+function syntheticEventId({ source, canonicalHash }) {
+  return `synthetic:${sha256Hex(`${source}|${canonicalHash}`).slice(0, 16)}`;
+}
+
+/**
+ * S8 (fresh-review-3): lazily yields `{ raw, canonicalHash }` for every JSONL record
  * directly under `dir` (`*.jsonl` files, sorted by name) -- a generator, so a large
  * custody directory's files are read and discarded one at a time rather than all held
- * in memory together, and only a hash of each raw line is ever kept (never the line
- * text itself: `body_text` is already necessarily held per candidate for matching, and
- * holding the *entire* raw line as well, for every candidate, for the whole pass,
- * doubled that for no benefit once a hash suffices for identity).
+ * in memory together, and only a hash of each record's canonicalised content is ever
+ * kept (never the raw line text itself: `body_text` is already necessarily held per
+ * candidate for matching, and holding the entire raw line as well, for every
+ * candidate, for the whole pass, doubled that for no benefit once a hash suffices for
+ * identity). N-1: the hash is of the canonicalised (sorted-key) object, not the raw
+ * line bytes, so re-serialisation order never defeats de-duplication.
  *
  * The one part of this that must NOT be lazy: `readdirSync(dir)` itself. It is called
  * eagerly, synchronously, at the top of this function (before the generator's first
@@ -145,11 +168,10 @@ function* readJsonlDir(dir) {
       if (Buffer.byteLength(line, 'utf8') > MAX_LINE_BYTES) continue;
       let raw;
       try { raw = JSON.parse(line); } catch { continue; }
-      yield { raw, rawLineHash: sha256Hex(line) };
+      yield { raw, canonicalHash: sha256Hex(canonicalJsonStringify(raw)) };
     }
   }
 }
-
 
 /** Cheap, order-independent identity fingerprint for a candidate: normalised subject + timestamp + sender address. Deliberately excludes attachment count -- real custody has been observed recording the same `event_id` twice with only the attachment count differing, and that must still count as one mail, not two. */
 function fingerprintOf(candidate) {
@@ -168,14 +190,44 @@ function collapseDuplicateGroup(group) {
 }
 
 /**
+ * N-5 (fresh-review-4): a short, stable hash of a fingerprint -- used (below) to
+ * disambiguate an id-collision subgroup's effective id. Previously the disambiguating
+ * suffix was a positional ordinal (`#2`, `#3`, ...) assigned by iterating fingerprints
+ * in sorted-string order; that made the suffix depend on *how many* other subgroups
+ * exist and where each one's fingerprint happens to sort, not just on the subgroup's
+ * own content -- a newly-arriving colliding mail whose fingerprint sorts earlier than
+ * an existing subgroup's could shift that EXISTING subgroup's ordinal, silently
+ * changing its downstream 이력키 even though nothing about that subgroup's own data
+ * changed. A hash of the fingerprint itself never depends on any other subgroup, so an
+ * existing subgroup's effective id never moves just because a new one appeared.
+ */
+function collisionSuffix(fingerprint) {
+  return sha256Hex(fingerprint).slice(0, 8);
+}
+
+/**
  * Loads and classifies mail events from `dirs` (each a directory directly holding
  * `*.jsonl` custody files). `source` is a caller-chosen label attached to every
  * returned event (e.g. `하이웍스_수집`, `Gmail_보낸메일_수집`). `compiledRules` and
- * `fields` are passed straight to classification per (deduped) candidate; matching
- * runs under a per-mail `vm` timeout (`classifyMailBounded`) whenever `compiledRules`
- * contains any regex term (`compiledRulesHaveRegex`) -- literal-only rule sets use the
- * plain, faster `classifyMail` directly, since literal `.includes` matching cannot
- * ReDoS.
+ * `fields` are passed straight to classification per (deduped) candidate.
+ *
+ * S-3 (fresh-review-4): matching runs under a bounded (`node:vm`-timed) classifier
+ * whenever `compiledRules` contains any regex term (`compiledRulesHaveRegex`) --
+ * literal-only rule sets use the plain, faster `classifyMail` directly, since literal
+ * `.includes` matching cannot ReDoS. The bounded classifier hoists its `vm` context and
+ * precompiled script once and reuses it for every mail (see `createBoundedClassifier`
+ * in `classifier.mjs`); pass `boundedClassifier` (a `createBoundedClassifier(...)`
+ * instance) to *share* that hoisting -- and its cumulative timing/slow-term stats --
+ * across more than one `loadMailEvents` call in the same run (`refresh.mjs`'s
+ * `classifyCustody` does this across the hiworks and gmail-sent directories); omitted,
+ * this call creates and hoists its own for just this call.
+ *
+ * S-1: a single mail whose matching overruns the bounded classifier's per-mail budget
+ * no longer aborts this whole call. That one mail is skipped (never added to `events`)
+ * and recorded in the returned `matchTimeouts` array as
+ * `{ source, event_id, project_code, term_label }` (the id used is whatever this
+ * mail's own event id would have been -- its real/synthetic id, already computed
+ * before classification runs); every other mail in the run still processes normally.
  *
  * Custody itself repeats mails: the same `event_id` can appear on more than one line
  * (across files or within one), and the real hiworks custody has been observed doing
@@ -186,35 +238,40 @@ function collapseDuplicateGroup(group) {
  * whose members all share one fingerprint is a real duplicate: the richer (most
  * attachments; ties keep the later line) candidate survives, counted in
  * `duplicatesDropped`. A group with more than one distinct fingerprint keeps every
- * fingerprint-subgroup, counted in `id_collisions_kept`; subgroups are ordered by their
- * own fingerprint *string* (fresh-review-3 #9), not by custody read order -- read order
- * depends on which files exist and how they sort, so keying the `#2`/`#3` suffix on it
- * meant adding an earlier-sorting custody file could silently renumber an existing
- * subgroup and drop whatever Owner cell was keyed to its old 이력키. Every subgroup
- * after the first (in that deterministic order) gets its `event_id` disambiguated
- * (`<id>#2`, `<id>#3`, ...) so two genuinely different mails never collide on the same
- * downstream 이력키.
+ * fingerprint-subgroup, counted in `id_collisions_kept`; each subgroup's effective id
+ * is disambiguated by a stable hash of its own fingerprint (N-5, above), never by an
+ * ordinal that depends on the other subgroups present.
  *
- * A missing `event_id` never groups with a *different* raw line, but two lines with no
- * `event_id` that are byte-identical are still the same repeated mail (custody is
- * append-only, so this recurs on every future run) -- they are grouped by a hash of
- * their raw line and collapsed exactly like any other duplicate, also counted in
+ * A missing `event_id` never groups with a *different* raw line, but two records with
+ * no `event_id` that are content-identical (N-1: canonicalised, so key reordering does
+ * not defeat this) are still the same repeated mail (custody is append-only, so this
+ * recurs on every future run) -- they are grouped by a hash of their canonicalised
+ * content and collapsed exactly like any other duplicate, also counted in
  * `duplicatesDropped`. A no-id candidate that survives gets a content-derived synthetic
  * id (`syntheticEventId`).
  *
  * Returns `{ events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept,
- * unreadableDirs }`. `events[]` never carries `body_text` or attachment names -- only
- * `attachment_count` and the classification result. `at` is always a UTC instant (S12).
+ * unreadableDirs, matchTimeouts, matchMs, slowestMatches }`. `events[]` never carries
+ * `body_text` or attachment names -- only `attachment_count` and the classification
+ * result. `at` is always a UTC instant (S12). N-4: `body_text` is capped to
+ * `MAX_BODY_TEXT_CHARS` the moment it is read off a candidate, not merely at match
+ * time -- candidates held in memory for the whole pass never carry more of a body than
+ * matching could ever consult anyway.
  */
 export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIELDS,
-  systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS }) {
+  systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS,
+  boundedClassifier = null }) {
   const unreadableDirs = [];
   let scanned = 0, skippedSystem = 0;
   const candidates = [];
   const useBoundedMatch = compiledRulesHaveRegex(compiledRules);
-  const classify = mail => (useBoundedMatch ? classifyMailBounded(mail, compiledRules, { fields }) : classifyMail(mail, compiledRules, { fields }));
+  // S-3: a classifier passed in by the caller is reused as-is (its vm context/script
+  // hoisting and cumulative stats span whatever other calls the caller also feeds it);
+  // one created here is scoped to just this call.
+  const classifier = useBoundedMatch ? (boundedClassifier ?? createBoundedClassifier(compiledRules)) : null;
+  const classify = mail => (classifier ? classifier.classify(mail, fields) : classifyMail(mail, compiledRules, { fields }));
 
-  const consumeRecord = ({ raw, rawLineHash }, into) => {
+  const consumeRecord = ({ raw, canonicalHash }, into) => {
     const subject = String(raw.subject ?? '');
     if (!subject) return;
     into.scanned += 1;
@@ -228,10 +285,13 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     const attachmentNames = Array.isArray(raw.attachments)
       ? raw.attachments.map(entry => String(typeof entry === 'string' ? entry : entry?.name ?? entry?.filename ?? '')).filter(Boolean)
       : [];
-    const bodyText = String(raw.body_text ?? '');
+    // N-4: capped here, at read time -- not merely at match time (classifier.mjs's
+    // own `fieldText` also bounds it, defense in depth) -- so a candidate never holds
+    // more of a body in memory, for the whole pass, than matching could ever consult.
+    const bodyText = String(raw.body_text ?? '').slice(0, MAX_BODY_TEXT_CHARS);
     const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
     const rawEventId = String(raw.event_id ?? '').trim();
-    into.candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, rawLineHash });
+    into.candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash });
   };
 
   for (const dir of dirs) {
@@ -240,7 +300,7 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     // already-consumed records silently mixed into the result while it is also
     // reported as unreadable -- either the whole directory's records commit, or none
     // of them do. This does not defeat the laziness above: only one directory's worth
-    // of records is ever ​buffered at a time, not every directory's at once.
+    // of records is ever buffered at a time, not every directory's at once.
     const local = { candidates: [], scanned: 0, skippedSystem: 0 };
     try {
       const iterator = readJsonlDir(dir);
@@ -261,14 +321,17 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     skippedSystem += local.skippedSystem;
   }
 
-  // Group by raw event_id (non-empty only); a missing id groups by raw-line hash instead.
+  // S-4 (fresh-review-4): grouping is naturally scoped to THIS call (one source) --
+  // a cross-source id collision (the same event_id present in both hiworks and
+  // gmail-sent custody) is handled one level up, by `refresh.mjs`'s `classifyCustody`,
+  // once both sources' events are in hand.
   const byRawId = new Map();
-  const byRawLineHash = new Map();
+  const byCanonicalHash = new Map();
   candidates.forEach(candidate => {
     if (candidate.rawEventId === '') {
-      const list = byRawLineHash.get(candidate.rawLineHash) ?? [];
+      const list = byCanonicalHash.get(candidate.canonicalHash) ?? [];
       list.push(candidate);
-      byRawLineHash.set(candidate.rawLineHash, list);
+      byCanonicalHash.set(candidate.canonicalHash, list);
       return;
     }
     const list = byRawId.get(candidate.rawEventId) ?? [];
@@ -289,31 +352,48 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
       list.push(candidate);
       byFingerprint.set(fp, list);
     }
-    const sortedFingerprints = [...byFingerprint.keys()].sort();
-    sortedFingerprints.forEach((fp, index) => {
+    const fingerprints = [...byFingerprint.keys()];
+    if (fingerprints.length > 1) idCollisionsKept += fingerprints.length - 1;
+    for (const fp of fingerprints) {
       const { kept, droppedCount } = collapseDuplicateGroup(byFingerprint.get(fp));
       duplicatesDropped += droppedCount;
-      if (index === 0) {
-        survivors.push({ candidate: kept, effectiveEventId: rawId });
-      } else {
-        idCollisionsKept += 1;
-        survivors.push({ candidate: kept, effectiveEventId: `${rawId}#${index + 1}` });
-      }
-    });
+      // N-5: no subgroup keeps the bare rawId once a real collision is known to exist
+      // for this rawId -- every subgroup's id depends only on rawId + its OWN
+      // fingerprint, never on how many sibling subgroups exist or their sort order.
+      const effectiveEventId = fingerprints.length === 1 ? rawId : `${rawId}~fp:${collisionSuffix(fp)}`;
+      survivors.push({ candidate: kept, effectiveEventId });
+    }
   }
-  for (const group of byRawLineHash.values()) {
+  for (const group of byCanonicalHash.values()) {
     const { kept, droppedCount } = collapseDuplicateGroup(group);
     duplicatesDropped += droppedCount;
     survivors.push({ candidate: kept, effectiveEventId: null });
   }
 
   const events = [];
+  const matchTimeouts = [];
   for (const { candidate, effectiveEventId } of survivors) {
-    const { subject, from, to, cc, attachmentNames, bodyText, at, rawLineHash } = candidate;
-    const match = classify({ subject, body_text: bodyText, attachment_names: attachmentNames });
-    const eventId = effectiveEventId ?? syntheticEventId({ source, rawLineHash });
+    const { subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash } = candidate;
+    const eventId = effectiveEventId ?? syntheticEventId({ source, canonicalHash });
+    let match;
+    try {
+      match = classify({ subject, body_text: bodyText, attachment_names: attachmentNames });
+    } catch (error) {
+      // S-1: a per-mail match timeout skips only this mail -- it is never added to
+      // `events` -- rather than propagating out of this call and aborting the entire
+      // run before any project's ledgers are even considered.
+      if (error?.code === 'workspace_ledgers_term_regex_timing_unsafe_at_match') {
+        matchTimeouts.push({ source, event_id: eventId, project_code: error.project_code ?? null, term_label: error.term_label ?? null });
+        continue;
+      }
+      throw error;
+    }
     events.push({ source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match });
-    // bodyText / attachmentNames / rawLineHash go out of scope here: never attached to `events`.
+    // bodyText / attachmentNames / canonicalHash go out of scope here: never attached to `events`.
   }
-  return { events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs };
+  const runStats = classifier ? classifier.stats() : { totalMs: 0, slow: [] };
+  return {
+    events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs,
+    matchTimeouts, matchMs: runStats.totalMs, slowestMatches: runStats.slow,
+  };
 }

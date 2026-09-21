@@ -539,19 +539,44 @@ test('refresh (fresh-review-3 #2): two byte-identical no-id custody lines collap
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('refresh (fresh-review-2 #5): a thrown error still leaves a status:failed receipt on disk before propagating', () => {
+test('refresh (S-8, fresh-review-4): a corrupted saved rule for one project no longer aborts the whole run -- it is excluded and recorded in rule_failures', () => {
   const fixture = makeFixture();
   try {
-    // Corrupt project A's rule json so reading the rule set throws mid-run, after the
-    // lock is already held.
+    // Corrupt project A's rule json only.
     const ruleJsonPath = path.join(fixture.workspacesRoot, FOLDER_A, RULE_DIR, 'mail_routing_rule.json');
     writeFileSync(ruleJsonPath, 'not valid json{{{');
-    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
-      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' }));
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.rule_failures.length, 1);
+    assert.equal(receipt.rule_failures[0].project_code, CODE_A);
+    assert.equal(typeof receipt.rule_failures[0].code, 'string');
+    // project A is excluded entirely -- no report, no ledgers written for it
+    assert.equal(receipt.projects.some(row => row.project_code === CODE_A), false);
+    assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false);
+    // project B is unaffected and still refreshes normally
+    const reportB = receipt.projects.find(row => row.project_code === CODE_B);
+    assert.ok(reportB);
+    assert.equal(reportB.contacts.failed, false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-2 #5): an unexpected throw (not a bad rule) still leaves a status:failed receipt on disk before propagating', () => {
+  const fixture = makeFixture();
+  try {
+    // Point both custody flags at the same directory -- S-4's usage-error guard
+    // throws synchronously from inside the main try block, after the lock is held,
+    // exercising the same "unexpected throw mid-run" receipt path fresh-review-2 #5
+    // originally targeted (a corrupted rule json is no longer such a path -- see S-8).
+    const receiptsBefore = readdirSync(fixture.receiptsDir).filter(name => name.endsWith('.json')).length;
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.hiworksDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_custody_dirs_overlap');
     const receiptFiles = readdirSync(fixture.receiptsDir).filter(name => name.endsWith('.json'));
-    assert.equal(receiptFiles.length, 1);
-    const body = JSON.parse(readFileSync(path.join(fixture.receiptsDir, receiptFiles[0]), 'utf8'));
+    assert.equal(receiptFiles.length, receiptsBefore + 1);
+    const body = JSON.parse(readFileSync(path.join(fixture.receiptsDir, receiptFiles[receiptFiles.length - 1]), 'utf8'));
     assert.equal(body.status, 'failed');
     assert.ok(body.error && typeof body.error.code === 'string');
     // the lock must still be released even though the run threw
@@ -664,5 +689,110 @@ test('refresh (fresh-review-3 #11): system_sender_domains from the org config ME
     assert.equal(receipt.skipped_system, 2);
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.mails, 2); // unchanged from the base fixture (h1 + g1) -- v1 did not attribute
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+function regexRule(code, folder, label, value) {
+  return {
+    schema_version: RULE_SCHEMA_VERSION, project_code: code, folder_name: folder, rule_version: 'v1', status: 'draft',
+    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [{ label, kind: 'regex', value }], hint: [],
+    yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+  };
+}
+
+test('refresh (S-2, fresh-review-4): a cumulative match-time budget gates the whole run and names the slowest terms, without writing anything', () => {
+  const fixture = makeFixture();
+  try {
+    // Give project A a regex rule (any regex rule set routes through the bounded,
+    // timed classifier) so totalMatchMs is genuinely nonzero -- then set the budget
+    // to -1 so even a few real milliseconds of matching trips the gate deterministically,
+    // without needing an actual multi-minute run to prove the mechanism works.
+    writeFileSync(path.join(fixture.workspacesRoot, FOLDER_A, RULE_DIR, 'mail_routing_rule.json'),
+      `${JSON.stringify(regexRule(CODE_A, FOLDER_A, 'code', 'P00-001'), null, 2)}\n`);
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', matchRunBudgetMs: -1 });
+    assert.equal(receipt.status, 'failed');
+    assert.ok(receipt.match_run_budget_exceeded);
+    assert.equal(receipt.match_run_budget_exceeded.budget_ms, -1);
+    assert.ok(receipt.match_run_budget_exceeded.total_ms >= 0);
+    assert.ok(Array.isArray(receipt.match_run_budget_exceeded.slowest));
+    // gated exactly like the unreadable-dirs case -- nothing written for any project.
+    assert.equal(receipt.projects.length, 0);
+    assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S-4, fresh-review-4): the same event_id present in both custody sources becomes two distinct rows instead of a permanent fresh_duplicate_key block', () => {
+  const fixture = makeFixture();
+  try {
+    // A genuinely different mail in each source, coincidentally sharing an event_id --
+    // NOT the same-directory mistake (S-4's other half, covered by the
+    // custody_dirs_overlap test above).
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'cross-source-shared', subject: '[P00-001] 하이웍스 쪽', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), jsonl([
+      { event_id: 'cross-source-shared', subject: '[P00-001] Gmail 쪽', from: 'me@example.com', to: ['staff@client.example'], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.status, 'ok'); // never a permanent fresh_duplicate_key block
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.mails, 2);
+    assert.equal(reportA.received_history.failed, false);
+    assert.equal(reportA.sent_history.failed, false);
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const sentCsv = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    assert.equal(recvCsv.rows.length, 1);
+    assert.equal(sentCsv.rows.length, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S-5, fresh-review-4): allowEmpty must be an array, and every code in it must be a real project', () => {
+  const fixture = makeFixture();
+  try {
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', allowEmpty: true }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_allow_empty_must_be_list');
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', allowEmpty: ['P00-999-does-not-exist'] }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_unknown_project');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S-7, fresh-review-4): a caught error message with a host-local path is redacted to a basename in the failure receipt', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    // Replace workmetaRoot itself with a plain FILE -- when the per-project write loop
+    // tries to build ANY project's lineage directory under it, mkdirSync throws a
+    // Node fs error (ENOTDIR) whose own .message embeds the full host-local
+    // workmetaRoot path (this fixture's own mkdtempSync-created absolute temp path).
+    rmSync(fixture.workmetaRoot, { recursive: true, force: true });
+    writeFileSync(fixture.workmetaRoot, 'not-a-directory');
+    // Force at least one file to actually need (re)writing on the next call -- an
+    // unchanged refresh returns before ever touching the lineage path, which would
+    // never exercise the corrupted workmetaRoot below.
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h9', subject: '[P00-001] 추가 문의', from: 'new-person@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T06:00:00Z', body_text: '', attachments: [] },
+    ]));
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' }));
+    const receiptFiles = readdirSync(fixture.receiptsDir).filter(name => name.endsWith('.json')).sort();
+    const latest = JSON.parse(readFileSync(path.join(fixture.receiptsDir, receiptFiles[receiptFiles.length - 1]), 'utf8'));
+    assert.equal(latest.status, 'failed');
+    assert.ok(latest.error && typeof latest.error.code === 'string');
+    assert.equal(typeof latest.error.message, 'string');
+    // the host-local temp-dir path must never appear verbatim in the receipt
+    assert.equal(latest.error.message.includes(fixture.root), false);
+    assert.equal(latest.error.message.includes(fixture.workmetaRoot), false);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

@@ -35,7 +35,12 @@ function makeFixture() {
   writeFileSync(path.join(gmailDir, 'events.jsonl'), '');
   const draftPath = path.join(root, 'draft.json');
   writeFileSync(draftPath, JSON.stringify({ ...rule, exact: [...rule.exact, { label: '새트리거', kind: 'literal', value: '새트리거' }] }));
-  return { root, workspacesRoot, hiworksDir, gmailDir, draftPath };
+  const workmetaRoot = path.join(root, '_workmeta');
+  const receiptsDir = path.join(root, 'receipts');
+  mkdirSync(receiptsDir, { recursive: true });
+  const orgConfigPath = path.join(root, 'org_config.json');
+  writeFileSync(orgConfigPath, JSON.stringify({ our_domain: 'example.com', organisations: {}, family: {} }));
+  return { root, workspacesRoot, workmetaRoot, hiworksDir, gmailDir, draftPath, receiptsDir, orgConfigPath };
 }
 
 test('cli preview-rule (fresh-review-2 #6): samples are hidden by default, shown only with --show-samples', () => {
@@ -53,6 +58,43 @@ test('cli preview-rule (fresh-review-2 #6): samples are hidden by default, shown
     const shownOut = execFileSync(process.execPath, [CLI_PATH, ...baseArgs, '--show-samples'], { encoding: 'utf8' });
     const shownResult = JSON.parse(shownOut);
     assert.equal('samples' in shownResult, true);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('cli refresh (S-5, fresh-review-4): a valueless --allow-empty is a usage error, exit code 2, no receipt written', () => {
+  const fixture = makeFixture();
+  try {
+    const args = ['refresh', '--workspaces-root', fixture.workspacesRoot, '--workmeta-root', fixture.workmetaRoot,
+      '--hiworks-events', fixture.hiworksDir, '--gmail-sent-events', fixture.gmailDir, '--org-config', fixture.orgConfigPath,
+      '--receipts', fixture.receiptsDir, '--dry', '--allow-empty'];
+    let error;
+    try { execFileSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' }); }
+    catch (thrown) { error = thrown; }
+    assert.ok(error, 'expected the CLI to exit non-zero');
+    assert.equal(error.status, 2);
+    assert.match(error.stderr, /--allow-empty requires a comma-separated project-code list/u);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('cli refresh (S-6, fresh-review-4): an unreadable custody directory prints the --allow-partial-sources hint, not the ledger-validation message', () => {
+  const fixture = makeFixture();
+  try {
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const args = ['refresh', '--workspaces-root', fixture.workspacesRoot, '--workmeta-root', fixture.workmetaRoot,
+      '--hiworks-events', typoDir, '--gmail-sent-events', fixture.gmailDir, '--org-config', fixture.orgConfigPath,
+      '--receipts', fixture.receiptsDir, '--dry'];
+    let error;
+    try { execFileSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' }); }
+    catch (thrown) { error = thrown; }
+    assert.ok(error, 'expected the CLI to exit non-zero');
+    assert.equal(error.status, 2);
+    assert.match(error.stderr, /workspace_ledgers_refresh_unreadable_dirs/u);
+    assert.match(error.stderr, /--allow-partial-sources/u);
+    assert.equal(error.stderr.includes('workspace_ledgers_refresh_ledger_validation_failed'), false);
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }

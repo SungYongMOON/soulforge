@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { compileRules, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
+import { compileRules, createBoundedClassifier, MAX_BODY_TEXT_CHARS, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import { loadMailEvents, parseAddressField } from '../src/mail_events.mjs';
 
 function tempDir() {
@@ -15,6 +15,15 @@ function rule(code, folder, exact) {
     schema_version: RULE_SCHEMA_VERSION, project_code: code, folder_name: folder, rule_version: 'v1', status: 'draft',
     match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
     exact: exact.map(([label, value]) => ({ label, kind: 'literal', value })), hint: [],
+    yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+  };
+}
+
+function regexRule(code, folder, label, value) {
+  return {
+    schema_version: RULE_SCHEMA_VERSION, project_code: code, folder_name: folder, rule_version: 'v1', status: 'draft',
+    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [{ label, kind: 'regex', value }], hint: [],
     yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
   };
 }
@@ -199,31 +208,40 @@ test('loadMailEvents (fresh-review-3 #8): a later-file read failure discards tha
   }
 });
 
-test('loadMailEvents (fresh-review-3 #9): id-collision subgroup numbering is ordered by fingerprint string, not custody read order', () => {
+test('loadMailEvents (N-5, fresh-review-4): id-collision subgroup ids are a stable hash of their own fingerprint, never an ordinal that shifts when a sibling subgroup appears', () => {
   const dir = tempDir();
   try {
-    // Two files, read in name order: "b-later" sorts after "a-earlier". Both share the
-    // same event_id but have different fingerprints (different subjects). If the
-    // #2 suffix were assigned by read order, "a-earlier"'s content would be #1 and
-    // "b-later"'s would be #2. Ordering by fingerprint string instead makes the
-    // assignment depend only on content, so adding a new, earlier-sorting file later
-    // cannot silently renumber an existing subgroup.
     const zSubjectLine = { event_id: 'shared', subject: '[P00-001] z 나중 정렬 제목', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] };
     const aSubjectLine = { event_id: 'shared', subject: '[P00-001] a 먼저 정렬 제목', from: 'b@example.com', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] };
-    // File read order: a-earlier.jsonl (zSubjectLine) then b-later.jsonl (aSubjectLine) --
-    // deliberately the opposite of fingerprint-sort order.
     writeFileSync(path.join(dir, 'a-earlier.jsonl'), JSON.stringify(zSubjectLine));
     writeFileSync(path.join(dir, 'b-later.jsonl'), JSON.stringify(aSubjectLine));
     const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
-    const { events, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
-    assert.equal(events.length, 2);
+    const { events: firstRun, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(firstRun.length, 2);
     assert.equal(idCollisionsKept, 1);
-    // fingerprint("a 먼저...") sorts before fingerprint("z 나중...") lexically -> the
-    // "a 먼저" mail (read *second*, from b-later.jsonl) must be the unsuffixed #1.
-    const aEvent = events.find(event => event.subject.includes('a 먼저'));
-    const zEvent = events.find(event => event.subject.includes('z 나중'));
-    assert.equal(aEvent.event_id, 'shared');
-    assert.equal(zEvent.event_id, 'shared#2');
+    // Neither subgroup keeps the bare "shared" id once a real collision exists --
+    // both are suffixed by a hash of their OWN fingerprint, and never `shared#2`/`#3`.
+    const aEventIdFirstRun = firstRun.find(event => event.subject.includes('a 먼저')).event_id;
+    const zEventIdFirstRun = firstRun.find(event => event.subject.includes('z 나중')).event_id;
+    assert.notEqual(aEventIdFirstRun, 'shared');
+    assert.notEqual(zEventIdFirstRun, 'shared');
+    assert.match(aEventIdFirstRun, /^shared~fp:[0-9a-f]{8}$/u);
+    assert.match(zEventIdFirstRun, /^shared~fp:[0-9a-f]{8}$/u);
+    assert.notEqual(aEventIdFirstRun, zEventIdFirstRun);
+
+    // A THIRD mail arrives, sharing the same event_id, with a fingerprint that sorts
+    // before both existing ones (an ordinal scheme would renumber #1 vs #2 here).
+    writeFileSync(path.join(dir, '0-newest.jsonl'), JSON.stringify(
+      { event_id: 'shared', subject: '[P00-001] 0 새로 도착 제목', from: 'c@example.com', to: [], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+    ));
+    const { events: secondRun } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(secondRun.length, 3);
+    const aEventIdSecondRun = secondRun.find(event => event.subject.includes('a 먼저')).event_id;
+    const zEventIdSecondRun = secondRun.find(event => event.subject.includes('z 나중')).event_id;
+    // The two PRE-EXISTING subgroups' ids are unchanged by the new arrival -- neither
+    // Owner-entered cell keyed to their old 이력키 would be silently dropped.
+    assert.equal(aEventIdSecondRun, aEventIdFirstRun);
+    assert.equal(zEventIdSecondRun, zEventIdFirstRun);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -244,8 +262,8 @@ test('loadMailEvents (fresh-review-2 #4/S4): two different mails coincidentally 
     assert.equal(idCollisionsKept, 1);
     const ids = events.map(event => event.event_id);
     assert.equal(new Set(ids).size, 2); // disambiguated -- never collide downstream
-    assert.ok(ids.includes('shared-id'));
-    assert.ok(ids.some(id => id === 'shared-id#2'));
+    // N-5: neither copy keeps the bare "shared-id" -- both carry a fingerprint-hash suffix.
+    for (const id of ids) assert.match(id, /^shared-id~fp:[0-9a-f]{8}$/u);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -319,5 +337,93 @@ test('loadMailEvents (fresh-review-2 #1): a missing directory is reported as unr
     assert.equal(unreadableDirs[0].code, 'ENOENT');
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (N-1, fresh-review-4): the same no-id mail re-serialised with a different key order still collapses as one duplicate', () => {
+  const dir = tempDir();
+  try {
+    // Same content, different key insertion order -- JSON.stringify preserves
+    // insertion order, so these two lines are byte-different but content-identical.
+    const forward = { subject: '[P00-001] 재직렬화 테스트', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] };
+    const reordered = { attachments: [], body_text: '', cc: [], to: [], from: 'a@example.com', received_at: '2026-09-01T00:00:00Z', subject: '[P00-001] 재직렬화 테스트' };
+    assert.notEqual(JSON.stringify(forward), JSON.stringify(reordered)); // sanity: genuinely different bytes
+    writeFileSync(path.join(dir, 'events.jsonl'), `${JSON.stringify(forward)}\n${JSON.stringify(reordered)}`);
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 1);
+    assert.equal(duplicatesDropped, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (N-4, fresh-review-4): a body far past MAX_BODY_TEXT_CHARS still classifies correctly on content within the bound', () => {
+  const dir = tempDir();
+  try {
+    const padding = 'x'.repeat(MAX_BODY_TEXT_CHARS * 3); // several times the bound
+    const line = { event_id: 'e1', subject: 'no subject match', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: `needle-up-front ${padding}`, attachments: [] };
+    writeFileSync(path.join(dir, 'events.jsonl'), JSON.stringify(line));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['NEEDLE', 'needle-up-front']])]);
+    const { events } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled, fields: ['body_text'] });
+    assert.equal(events.length, 1);
+    assert.equal(events[0].match.hits.length, 1); // the keyword, safely within the bound, still matches
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (S-1, fresh-review-4): a per-mail match timeout skips only that mail and is recorded in matchTimeouts, not thrown', () => {
+  const dir = tempDir();
+  try {
+    const badLine = { event_id: 'bad', subject: 'trigger bad', body_text: `${'a'.repeat(35)}!`, from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', attachments: [] };
+    const goodLine = { event_id: 'good', subject: 'trigger good', body_text: `${'a'.repeat(35)}!`, from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', attachments: [] };
+    writeFileSync(path.join(dir, 'events.jsonl'), `${JSON.stringify(badLine)}\n${JSON.stringify(goodLine)}`);
+    // Two rules: one whose only term is a catastrophic-backtracking ReDoS shape that
+    // slipped past compile-time timing (timeSafety:false, as refresh() compiles saved
+    // rules), one a plain literal that both custody lines' bodies actually contain
+    // (both bodies are identical 'a' runs, so BOTH lines would time out on the ReDoS
+    // rule -- this test only needs to show neither one aborts the whole call).
+    const compiled = compileRules(
+      [regexRule('P00-001', 'P00-001_x', 'redos-alt-1', '^(a|a)+$')],
+      { timeSafety: false },
+    );
+    const { events, matchTimeouts } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled, fields: ['body_text'] });
+    assert.equal(events.length, 0); // both mails' matching overran -- neither produced an event
+    assert.equal(matchTimeouts.length, 2);
+    const ids = matchTimeouts.map(entry => entry.event_id).sort();
+    assert.deepEqual(ids, ['bad', 'good']);
+    for (const entry of matchTimeouts) {
+      assert.equal(entry.source, 'test');
+      assert.equal(entry.project_code, 'P00-001');
+      assert.equal(entry.term_label, 'redos-alt-1');
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (S-2/S-3, fresh-review-4): a caller-supplied boundedClassifier is reused and its stats accumulate across two loadMailEvents calls', () => {
+  const dirA = tempDir();
+  const dirB = tempDir();
+  try {
+    const line = subject => ({ event_id: `e-${subject}`, subject, from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] });
+    writeFileSync(path.join(dirA, 'events.jsonl'), JSON.stringify(line('[P00-001] hiworks 쪽 메일')));
+    writeFileSync(path.join(dirB, 'events.jsonl'), JSON.stringify(line('[P00-001] gmail 쪽 메일')));
+    const compiled = compileRules([regexRule('P00-001', 'P00-001_x', 'code', '\\[P00-001\\]')]);
+    const shared = createBoundedClassifier(compiled);
+    const first = loadMailEvents({ dirs: [dirA], source: 'source-a', compiledRules: compiled, fields: ['subject'], boundedClassifier: shared });
+    const second = loadMailEvents({ dirs: [dirB], source: 'source-b', compiledRules: compiled, fields: ['subject'], boundedClassifier: shared });
+    assert.equal(first.events.length, 1);
+    assert.equal(second.events.length, 1);
+    // Both calls report the SAME shared classifier's cumulative stats -- the second
+    // call's totalMs is at least the first's (time only accumulates), proving the vm
+    // context/script was reused across both calls rather than recreated per call.
+    assert.ok(second.matchMs >= first.matchMs);
+    assert.ok(Array.isArray(first.slowestMatches));
+    assert.ok(Array.isArray(second.slowestMatches));
+  } finally {
+    rmSync(dirA, { recursive: true, force: true });
+    rmSync(dirB, { recursive: true, force: true });
   }
 });

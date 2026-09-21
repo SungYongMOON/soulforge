@@ -1,5 +1,75 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 네 번째 신선한 검토(non-author) 반영: 바이너리 파일 사고·잠금 시간 예산·범위 축소
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(0c666783)에 대한 네 번째 별도(non-author) fresh
+  review의 필수 2·should 8·nit 5건을 반영했다. (1) `src/classifier.mjs`의
+  `CANARY_MISMATCH_CANDIDATES` 배열에 이스케이프 시퀀스 대신 실제 NUL·0x1F 바이트가
+  박혀 있어 git이 이 파일을 바이너리로 취급했다(`git show --stat`가 "Bin", `git
+  diff`가 "Binary files differ", grep이 무응답). 원본 바이트를
+  `String.fromCharCode(0)`/`String.fromCharCode(31)` 호출로 바꾸고, tracked 파일
+  전체에서 tab/LF/CR 외 제어 바이트와 U+200B(제로폭 공백, `mail_events.mjs` 주석
+  한 곳)를 스캔하는 테스트(`tests/byte_hygiene.test.mjs`)를 추가했다(R-1). (2)
+  `rule_store.mjs`의 `isFixedHeading`이 괄호 없는 고정 헤딩(`## 근거` 등)까지
+  `startsWith`로 비교해, 그 접두어로 시작하는 Owner 작성 헤딩이 고정 절로
+  오인되어 저장 때 통째로 사라지는 버그를 고쳤다 -- 괄호 있는 두 헤딩만
+  `startsWith`를 유지하고 나머지는 완전 일치를 요구한다(R-2). (3) 정규식 매칭
+  타임아웃이 refresh 전체를 프로젝트 루프 앞에서 막던 것을, mail_events.mjs가
+  메일 단위로 잡아 그 메일만 건너뛰고 `receipt.match_timeouts`(발신원·id·과제
+  코드·트리거 라벨)에 기록하며 나머지는 계속 처리하도록 고쳤다(S-1). (4) 메일
+  1건당 500ms 상한은 있어도 누적 시간 상한이 없어, 통과된(하지만 느린) 정규식이
+  수천 통 메일에 걸쳐 분 단위로 잠금을 붙잡을 수 있었다 -- 한 실행 전체의 누적
+  매칭 시간이 `MATCH_RUN_BUDGET_MS`(60초)를 넘으면 가장 느렸던 트리거들을 이름과
+  함께 영수증에 남기고 아무것도 쓰지 않은 채 실행을 막는다(S-2). (5)
+  `classifyMailBounded`가 메일마다 새 `vm.createContext`를 만들던 것을,
+  `createBoundedClassifier`로 한 실행(양쪽 custody 소스 전체)당 컨텍스트·스크립트
+  하나만 만들어 재사용하도록 고쳤다 -- 실측 오버헤드가 약 82%에서 약 18%로
+  줄었다(S-3). (6) 같은 event_id가 하이웍스·Gmail 두 소스 모두에 존재하면
+  영구적으로 `fresh_duplicate_key`가 나던 것을, 같은 디렉터리를 두 플래그에 준
+  실수는 즉시 사용 오류로 거부하고, 서로 다른 디렉터리에서 우연히 같은 id가
+  겹치는 경우는 소스를 접두해 서로 다른 행으로 만들도록 고쳤다(S-4). (7)
+  `--allow-empty`에 이전 boolean API(`true`)를 넘기면 조용히 빈 목록으로 무시되던
+  것을 `workspace_ledgers_allow_empty_must_be_list` 오류로 바꾸고, 값 없이 플래그만
+  쓴 CLI 호출도 거부하며, 목록의 각 코드를 `--projects`처럼 실제 과제와
+  대조한다(S-5). (8) CLI가 실패 원인과 무관하게 항상
+  `ledger_validation_failed`만 출력하던 것을, 원인별(읽기 불가 디렉터리·매칭
+  예산 초과·규칙 실패·매칭 타임아웃·원장 검증 실패)로 나누고 읽기 불가
+  디렉터리일 때는 `--allow-partial-sources` 힌트를 함께 출력하도록 고쳤다(S-6).
+  (9) 실행 중 예외의 원본 `.message`가 host-local 절대경로를 그대로 영수증에
+  남기던 것을, `error.code`는 그대로 두고 경로만 파일명(basename)으로 지우도록
+  고쳤다(S-7). (10) 저장된 규칙 하나가 깨지면 전체 refresh가 멈추던 것을, 규칙을
+  프로젝트별로 개별 컴파일해 실패한 프로젝트만 이번 실행에서 빼고(분류·쓰기
+  모두 제외) `receipt.rule_failures`(과제·코드·트리거 라벨)에 남기며 나머지
+  프로젝트는 정상 진행하도록 고쳤다(S-8). (11) id 없는 중복 메일이 원본 줄
+  바이트가 완전히 같을 때만 합쳐지던 것을, 키 순서를 정렬한 표준화 객체 해시로
+  바꿔 재직렬화로 키 순서만 바뀐 같은 메일도 합쳐지게 했다(nit1). (12) 제목과
+  첨부명 합친 텍스트가 무제한이던 것을 본문처럼 `MAX_BODY_TEXT_CHARS`로
+  제한했다(nit2). (13) README에 `classifyMailBounded`·매칭 예산·
+  `..._at_match` 오류를 운영자가 실제로 마주칠 실패로 문서화했다(nit3). (14)
+  본문을 매칭 시점이 아니라 읽는 시점에 바로 잘라, 후보가 패스 내내 필요
+  이상으로 큰 본문을 들고 있지 않게 했다(nit4). (15) id 충돌 하위그룹의 `#2`/`#3`
+  접미사가 정렬 순서에 따른 서수라 나중에 도착한 충돌 메일이 기존 행의 키를
+  밀어낼 수 있던 것을, 그 하위그룹 자신의 지문(fingerprint) 해시로 바꿔 다른
+  형제 그룹이 몇 개든 키가 절대 움직이지 않게 했다(nit5).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`를 `src/index.mjs`로 호출하는
+  콘솔/어댑터(branch `claude/ops-mail-rule-panel-v0`)는 `allowEmpty`를 이제 배열로
+  넘겨야 한다 -- boolean `true`를 넘기던 호출은 이제 던진다(하위호환 없음,
+  의도적; `src/index.mjs`의 `refresh` 문서 주석에 명시). 영수증에
+  `rule_failures`·`match_timeouts`·`match_run_budget_exceeded` 세 필드가
+  새로 생겼다. 실제 대상면 `--dry --fields subject` 재확인에서 세 필드 모두
+  빈 값/`null`이었고 상태는 `ok`. `previewRule` 실측(같은 대상면,
+  P26-014, 캐시 비운 콜드 호출): `fields=subject` 1.84초, `fields=all` 2.17초 --
+  둘 다 ~5초 목표 안. 같은 규칙·custody에 대한 바로 다음 호출(S10 캐시 적중)은
+  27~30ms.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README),
+  `package.json`.
+- 검증: `npm run validate:workspace-ledgers`(117 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0
+  violations), `npm run validate:canon`(0 errors/warnings), 실제 대상면
+  `--dry --fields subject` 재확인(건수만, 쓰기 없음, 잠금 파일 생성 후 정상
+  삭제 확인, 대장 파일 mtime 불변 확인).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 세 번째 신선한 검토(non-author) 반영: 쓰기 전 게이트·ReDoS 실측 경로·범위 축소
 
 - Revision: 이 항목을 포함한 커밋.

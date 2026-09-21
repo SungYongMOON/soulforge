@@ -21,11 +21,22 @@
 //             projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })
 //     -> the refresh receipt body (soulforge.workspace_ledgers_refresh_receipt.v1);
 //        `receipt.status` is `'failed'` when one or more ledger files failed strict
-//        validation and were left untouched (`receipt.ledger_failures`), or when any
-//        custody directory could not be read (`receipt.unreadable_dirs`) -- every other
-//        file for every other project still refreshed. `allowEmpty` is a list of
-//        project codes (not a boolean) allowed to rebuild down to zero rows; codes that
-//        actually needed it are echoed in `receipt.allow_empty_applied_to`.
+//        validation (`receipt.ledger_failures`), when any custody directory could not
+//        be read (`receipt.unreadable_dirs`), when a saved rule for one project failed
+//        to read/compile (`receipt.rule_failures` -- that project alone is excluded,
+//        S-8), or when one mail's matching overran its per-mail budget
+//        (`receipt.match_timeouts`, S-1) -- every other file for every other project
+//        still refreshed in each case. `receipt.match_run_budget_exceeded` (S-2, non-
+//        null only when it triggered) is a harder gate: it means nothing was written
+//        for ANY project this run, same as an unreadable custody directory without
+//        `allowPartialSources`.
+//        REQUIRED CHANGE (fresh-review-4 S-5): `allowEmpty` MUST be an array of
+//        project codes now -- a bare `true` (if this adapter was passing one) now
+//        THROWS `workspace_ledgers_allow_empty_must_be_list` instead of silently
+//        matching no projects. Pass `[]` for "no override", or the exact codes that
+//        need one; every code must be a real, currently-onboarded project or the call
+//        throws `workspace_ledgers_unknown_project`. Codes that actually needed the
+//        override are echoed in `receipt.allow_empty_applied_to`.
 //        `allowPartialSources` (default false): an unreadable custody directory blocks
 //        every write for the whole run unless this is explicitly true, in which case
 //        the run proceeds on whatever custody was readable

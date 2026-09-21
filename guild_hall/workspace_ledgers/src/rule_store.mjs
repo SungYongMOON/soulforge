@@ -30,6 +30,11 @@ export class RuleStoreError extends Error {
     super(detail ? `${code}: ${detail}` : code);
     this.name = 'RuleStoreError';
     this.code = code;
+    // S-8 (fresh-review-4): exposed as a field (not just folded into the message
+    // string) so a caller wrapping a per-rule read (e.g. `refresh.mjs` excluding one
+    // bad project's rule rather than aborting every project) can report the detail
+    // structurally instead of parsing it back out of `error.message`.
+    this.detail = detail ?? null;
   }
 }
 const fail = (code, detail) => { throw new RuleStoreError(code, detail); };
@@ -138,14 +143,25 @@ export function releaseRuleSaveLock(ruleDir) {
 // --------------------------------------------------------------------- rendering
 // The exact heading text `renderRuleMarkdown` always emits for its fixed, machine-
 // regenerated sections (everything except "Owner 확인 기록"/"Owner 확인이 필요한 것",
-// which are Owner-editable and carried forward verbatim by `saveRuleVersion`). Since
-// this store is the only writer of this markdown, comparing by literal prefix is
-// reliable -- it is never hand-authored free text.
-const FIXED_HEADING_PREFIXES = [
-  '## 확정 트리거', '## 검토 힌트', '## 사람·발신자 원칙',
-  '## Owner 확인 기록', '## Owner 확인이 필요한 것', '## 처리 순서와 기록 자리', '## 근거',
+// which are Owner-editable and carried forward verbatim by `saveRuleVersion`).
+//
+// R-2 (fresh-review-4): only "확정 트리거"/"검토 힌트" render with a trailing
+// parenthetical (`## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)`), so a
+// `startsWith` match against their short stem is safe -- nothing else can legitimately
+// begin with that exact stem. Every OTHER fixed heading renders with no parenthetical
+// at all (`## 근거`, `## Owner 확인 기록`, ...), so `startsWith` against those short
+// stems was wrong: an Owner-authored heading that merely happens to start with the
+// same stem plus more words (e.g. an evidence-adjacent heading beginning with the
+// same two characters as "## 근거") matched `startsWith('## 근거')` and was silently
+// treated as the fixed 근거 section -- its body dropped on the very next save, while a
+// heading that did NOT share a fixed stem's prefix correctly survived. Those five
+// headings now require exact equality.
+const FIXED_HEADING_PREFIXES_WITH_PARENTHETICAL = ['## 확정 트리거', '## 검토 힌트'];
+const FIXED_HEADINGS_EXACT = [
+  '## 사람·발신자 원칙', '## Owner 확인 기록', '## Owner 확인이 필요한 것', '## 처리 순서와 기록 자리', '## 근거',
 ];
-const isFixedHeading = heading => FIXED_HEADING_PREFIXES.some(prefix => heading.startsWith(prefix));
+const isFixedHeading = heading => FIXED_HEADINGS_EXACT.includes(heading)
+  || FIXED_HEADING_PREFIXES_WITH_PARENTHETICAL.some(prefix => heading.startsWith(prefix));
 
 /**
  * S7 (fresh-review-2) + N13 (fresh-review-3): splits a rule markdown body into its

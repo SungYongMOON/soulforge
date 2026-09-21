@@ -118,7 +118,14 @@ already past UTC midnight.
    ever looked for those two known headings and silently dropped anything else on the
    very next save. Section splitting is fence-aware: a `## ` line inside a ` ``` `/`~~~`
    fenced code block (e.g. an Owner pasting a markdown snippet as an example) is never
-   mistaken for a section boundary.
+   mistaken for a section boundary. Recognising a *fixed* (machine-regenerated)
+   heading uses exact equality for every heading that renders with no trailing
+   parenthetical (`## 근거`, `## Owner 확인 기록`, ...) -- a `startsWith` match against
+   those short stems (R-2, fresh-review-4) let an Owner heading that merely began with
+   the same stem plus more words (e.g. one starting with the same two characters as
+   "## 근거") get mistaken for the fixed section and silently dropped. Only the two
+   headings that DO render with a fixed trailing parenthetical ("## 확정 트리거 (...)",
+   "## 검토 힌트 (...)") still match by prefix.
 4. Writes fresh lineage files recording `sha256`, `bytes`, `previous_sha256`, `by`
    and `note`.
 
@@ -232,6 +239,53 @@ Classification always considers **every** onboarded project's rule (so held/yiel
 decisions are correct), even when `--projects` restricts which projects' files are
 actually written.
 
+**A bad saved rule for one project (S-8).** Each onboarded project's saved rule is
+read and compiled *individually*. A project whose rule fails to read (corrupted json,
+schema mismatch) or fails to compile (a term that somehow became invalid after it was
+saved) is excluded from this run entirely -- its terms take no part in classification
+for ANY project, and its own ledgers are not written -- while every other project's
+rule still loads and every other project still refreshes normally. Recorded in
+`receipt.rule_failures` as `{ project_code, code, term_label }` (`term_label` is the
+specific term that failed to compile, when the failure was term-specific; `null`
+otherwise); `receipt.status` is `'failed'` whenever this is non-empty.
+
+**Custody directories that overlap or coincide (S-4).** `--hiworks-events` and
+`--gmail-sent-events` pointing at the exact same directory (a copy/paste mistake) is
+rejected immediately with `workspace_ledgers_custody_dirs_overlap`, before any
+classification happens -- every event would otherwise be read and classified twice.
+Separately, the same `event_id` genuinely appearing in *both* sources (a different
+directory each, but coincidentally sharing an id -- e.g. a sent mail synced by both
+channels with the same provider id) is detected once both sources' events are merged:
+the first occurrence keeps its id unchanged (the common, non-colliding case never
+shifts an existing ledger key), and every later occurrence gets `source` folded into
+its id so the two never collide on the same downstream 이력키.
+
+**A single mail's matching overruns its budget (S-1).** `mail_events.mjs` catches a
+per-mail timeout (below) and skips only that one mail -- it never becomes an event for
+any project -- rather than letting the failure propagate out and abort the whole run
+before any project's ledgers are even considered. Recorded in
+`receipt.match_timeouts` as `{ source, event_id, project_code, term_label }`;
+`receipt.status` is `'failed'` whenever this is non-empty, but every other mail (and
+every project's write) still proceeds normally.
+
+**A cumulative match-time budget for the whole run (S-2).** The per-mail timeout
+(below) stops one pathological match; it does nothing about a *canary-passing* term
+that is merely expensive (tens of milliseconds against a long body) costing minutes in
+aggregate across a multi-thousand-mail refresh -- all of it spent holding the refresh
+lock. `classifyCustody` sums the wall time actually spent matching across every mail
+in the run (both custody sources); if that total exceeds `MATCH_RUN_BUDGET_MS` (60s),
+the run is gated exactly like the unreadable-custody case above -- nothing is written
+for any project -- and `receipt.match_run_budget_exceeded` names the total and the
+slowest individual term tests observed (`{ project_code, label, ms }`, up to 5),
+so an Owner knows which term to fix without needing a separate profiling pass.
+
+**`allowEmpty` validation (S-5).** `allowEmpty` must be an array of project codes; a
+bare `true` (the previous API) now throws `workspace_ledgers_allow_empty_must_be_list`
+instead of silently behaving like an empty list (which looked identical to never
+having asked for the override at all). Every code named in it must be a real,
+currently-onboarded project -- an unrecognised code is `workspace_ledgers_unknown_project`,
+the same check `--projects` already gets.
+
 **Unreadable custody directories (pre-write gate).** A directory `loadMailEvents`
 could not read at all -- most dangerously, a `--hiworks-events` typo pointing at a
 path that simply does not exist -- is recorded in `receipt.unreadable_dirs`, and its
@@ -265,6 +319,10 @@ A `refresh()` call that throws for any other reason still writes a best-effort
 crash never leaves zero audit trail either -- and that receipt still carries
 `receipt.projects` for whichever earlier projects in the run had already completed
 (alphabetical by project code) before the throw, not a bare `{status, error}`.
+`error.code` is kept verbatim; `error.message` (S-7, fresh-review-4) has any
+host-local absolute path cut down to its basename first -- a raw filesystem error
+(`ENOENT`/`EACCES`/...) commonly embeds the full path it failed on, and that receipt
+is exactly the kind of thing that could otherwise leak one.
 
 ## Performance
 
@@ -272,10 +330,23 @@ crash never leaves zero audit trail either -- and that receipt still carries
   `match_fields` combination per mail (in practice once total, since every rule
   declares the same three fields), not once per term -- a cache scoped to a single
   `classifyMail`/`hintCodes` call.
-- `body_text` matching is bounded to the first `MAX_BODY_TEXT_CHARS` (20,000)
-  characters; a routing keyword that only appears later in a long mail body is not
-  matched on body text. Subject and attachment-name matching are not bounded (those
-  are always short).
+- `body_text`, `subject`, and the joined attachment-names text are all bounded to the
+  first `MAX_BODY_TEXT_CHARS` (20,000) characters (N-2, fresh-review-4: subject and
+  attachment names used to be unbounded -- an adversarial or malformed 100k-character
+  subject cost exactly the matching time, and tripped exactly the same per-mail
+  timeout, that an unbounded body would). `body_text` is additionally capped at
+  *read* time, not merely at match time (N-4) -- a candidate held in memory for the
+  rest of the pass never carries more of a body than matching could ever consult. A
+  routing keyword that only appears past the bound is not matched.
+- `createBoundedClassifier` (S-3, fresh-review-4) hoists one `vm.createContext` and
+  one precompiled `vm.Script` for a whole run and reuses them for every mail --
+  re-creating both per mail (the previous shape) cost the reviewer ~82% overhead on a
+  2,000-mail x 13-project real-plane run, well past `previewRule`'s ~5s interactive
+  target; hoisting brought it to ~18%. `mail_events.mjs`'s `loadMailEvents` accepts an
+  externally-created instance (`boundedClassifier`) so `refresh.mjs`'s
+  `classifyCustody` can share ONE across both the hiworks and gmail-sent directories
+  in one run, which is also what makes S-2's cumulative-match-time budget (above)
+  meaningful -- its stats span the whole run, not one source's half of it.
 - `previewRule` (called interactively, once or twice per keystroke-adjacent draft
   edit) caches a classified custody read for up to `CUSTODY_CACHE_TTL_MS` (60s),
   keyed on the actual rule JSON compared plus a directory signature (file names, sizes
@@ -294,12 +365,17 @@ crash never leaves zero audit trail either -- and that receipt still carries
   (a tie keeps the later line), counted in `duplicates_dropped`. Candidates that share
   an `event_id` but disagree on the fingerprint are treated as an **id collision**, not
   a duplicate -- a namespace collision across sources, or corrupt custody -- and both
-  are kept, counted in `id_collisions_kept`; every copy after the first has its
-  `event_id` disambiguated (`<id>#2`, `<id>#3`, ...) so the two mails never collide on
-  the same downstream 이력키. A missing `event_id` never groups with another missing
-  one. Both counts are reported in the `refresh()` receipt and `previewRule`'s return
-  -- `previewRule`'s counts are always computed on the deduped mail, never the raw
-  repeated lines.
+  are kept, counted in `id_collisions_kept`; every subgroup's effective id is
+  disambiguated by a short, stable hash of that subgroup's own fingerprint (`<id>~fp:
+  <hash>`), never by a positional ordinal (N-5, fresh-review-4: an ordinal like `#2`/
+  `#3`, assigned by iterating fingerprints in sorted order, depended on *how many*
+  sibling subgroups existed and where each one's fingerprint happened to sort -- a
+  newly-arriving colliding mail whose fingerprint sorted earlier could silently shift
+  an already-existing subgroup's ordinal, and with it its downstream 이력키, even
+  though nothing about that subgroup's own data changed). A missing `event_id` never
+  groups with another missing one. Both counts are reported in the `refresh()` receipt
+  and `previewRule`'s return -- `previewRule`'s counts are always computed on the
+  deduped mail, never the raw repeated lines.
 - A rule's `exact` terms decide attribution; `hint` terms are review-only signal,
   never attribution. Two projects' `exact` terms matching one mail means `held` -- no
   automatic attribution, ever (`conflict_policy`).
@@ -324,15 +400,20 @@ crash never leaves zero audit trail either -- and that receipt still carries
   over that still contains whitespace or `<` after parsing is dropped rather than kept
   as a malformed "address".
 - A custody record with no `event_id` gets a stable content-derived id
-  (`synthetic:<sha256 prefix of source+the full raw custody line>`) -- hashing the
-  entire raw line, not a handful of derived fields, means two lines differing in
-  *anything at all* (including fields this module never otherwise inspects, like
-  recipients) get different ids. This is vanishingly unlikely to collide, not a
-  cryptographic guarantee; two genuinely byte-identical no-id lines still hash the
-  same (correctly -- they are the same record repeated), and if that or any other
-  cause ever produces two fresh rows under one key, `refresh.mjs` refuses to write
-  that ledger (`workspace_ledgers_ledger_fresh_duplicate_key`) rather than silently
-  overwrite one of them.
+  (`synthetic:<sha256 prefix of source+a canonicalised hash of the record>`) --
+  hashing the entire record, not a handful of derived fields, means two records
+  differing in *anything at all* (including fields this module never otherwise
+  inspects, like recipients) get different ids. The hash is of a canonicalised
+  (recursively sorted-key) serialisation of the parsed record, not its raw on-disk
+  bytes (N-1, fresh-review-4) -- the same mail re-serialised by a different custody
+  export with its object keys in a different order still hashes identically, instead
+  of permanently becoming two distinct synthetic ids for one real mail. This is
+  vanishingly unlikely to collide, not a cryptographic guarantee; two genuinely
+  content-identical no-id records still hash the same (correctly -- they are the same
+  record repeated), and if that or any other cause ever produces two fresh rows under
+  one key, `refresh.mjs` refuses to write that ledger
+  (`workspace_ledgers_ledger_fresh_duplicate_key`) rather than silently overwrite one
+  of them.
 - The system-sender skip list (senders like `noreply@...` that are never a real
   routing signal) is a small built-in list of known vendor domains. An org config's
   own `system_sender_domains` (an array of domains) is **merged into** that list, never
@@ -371,6 +452,22 @@ A `kind: 'regex'` term is compiled defensively, not merely length-capped:
 All of this lives in `src/classifier.mjs`'s `compileTerm`; `rule_store.mjs`'s
 `validateRule` surfaces the same errors for a draft rule before it is ever saved.
 
+**What actually happens on the real match path (N-3, fresh-review-4).** Compile-time
+canaries catch most dangerous patterns before a rule is ever saved, but a *saved*
+rule's terms are recompiled by `refresh()` without re-running them (non-deterministic
+timing checks on already-trusted state is the wrong tradeoff -- see `compileTerm`'s
+`timeSafety` doc above), and a term that slipped past canaries entirely is always
+possible. The operator-facing failure this produces, if it ever does, is
+`workspace_ledgers_term_regex_timing_unsafe_at_match`: `createBoundedClassifier`
+(`classifier.mjs`) runs each mail's classification inside a `node:vm` context with a
+`MATCH_TIMEOUT_BUDGET_MS` (500ms) wall-clock timeout; `mail_events.mjs` catches this
+per mail (S-1, above) rather than letting it abort a whole `refresh()`, so this code
+shows up in `receipt.match_timeouts`, not as a thrown error reaching the CLI. Only two
+things actually throw it out of `refresh()`/`previewRule()`: the cumulative-budget gate
+(S-2, `MATCH_RUN_BUDGET_MS`, above) and a bug in this module's own error handling --
+an operator should never need to debug a raw stack trace here, only read
+`receipt.match_timeouts`/`receipt.match_run_budget_exceeded`.
+
 ## CLI
 
 ```
@@ -397,7 +494,9 @@ accepted, as before.
 projects' ledgers down to zero rows when custody genuinely produced none for them;
 omitted (the default, an empty list), 0 fresh rows where a project's existing ledger
 had content fails closed instead of silently emptying it, for every project (see
-"Empty refreshes" above).
+"Empty refreshes" above). A valueless `--allow-empty` (no list after it) is a usage
+error (S-5, fresh-review-4), not a silent no-op; every code in the list must be a real,
+currently-onboarded project.
 
 `--allow-partial-sources` lets `refresh` proceed on whatever custody was readable when
 one or more custody directories could not be read at all; omitted (the default), any
@@ -414,10 +513,28 @@ per category); omitted (the default), `preview-rule` prints counts only.
 it -- but it is private data and the CLI does not print it unless asked.
 
 Exit codes: `0` success, `2` usage/config error (bad flags, unreadable/invalid input
-that never reached a write) **or** `refresh` completing with one or more ledger files
-that failed strict validation (R4 above), or any unreadable custody directory
-(`status: 'failed'` in the receipt either way), `3` runtime failure (lock held, write
-failure, or a rule store error reached after the arguments were valid).
+that never reached a write) **or** `refresh` completing with `status: 'failed'` for any
+reason (R4 ledger validation, an unreadable custody directory, the cumulative match
+budget, a bad saved rule, or a per-mail match timeout -- the CLI prints a message
+naming which one(s) applied (S-6, fresh-review-4), including an `--allow-partial-
+sources` hint specifically when the cause is unreadable custody), `3` runtime failure
+(lock held, write failure, or a rule store error reached after the arguments were
+valid).
+
+## Byte hygiene (tracked source, not data)
+
+`tests/byte_hygiene.test.mjs` scans every file `git ls-files` reports as tracked under
+this module for stray control bytes (anything below `0x20` other than tab/LF/CR) and
+for U+200B (zero-width space). A raw NUL byte in a source file makes git treat that
+whole file as binary -- `git show --stat` prints "Bin", `git diff` prints "Binary files
+differ", and grep-family tools return nothing from it at all (fresh-review-4 R-1: this
+happened to `src/classifier.mjs`'s `CANARY_MISMATCH_CANDIDATES` array, introduced by an
+editing tool turning what was meant to be a JS-level `String.fromCharCode(...)` call
+into an actual control byte). A stray zero-width space is quieter -- invisible in an
+editor and in a diff -- but still a real byte in the tracked file
+(`src/mail_events.mjs` carried one in a comment). Neither class of problem is data
+this module ever handles; both are purely accidents in the source itself, so the test
+scans source files, not custody or ledger content.
 
 ## Not yet wired (계획)
 
@@ -439,7 +556,7 @@ environment.
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
 - `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report). `orgConfigPath` (optional) resolves `system_sender_domains` the same way a real `refresh()` against that config would.
 - `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`. `draft` (and `previewRule`'s `draft`) must be the **complete** rule document, never a partial patch -- see "Rule versioning and lineage" above.
-- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied`, `allow_empty_applied_to`, `ledger_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`). `allowEmpty` is a list of project codes (not a boolean); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above.
+- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied`, `allow_empty_applied_to`, `ledger_failures`, `rule_failures`, `match_timeouts`, `match_run_budget_exceeded`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`). `allowEmpty` is a list of project codes (not a boolean, and every code must be a real onboarded project -- S-5); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above.
 
 `src/index.mjs` also re-exports `validateRule`, `isMachineActor`, `RuleStoreError`,
 `RefreshError`, `clearCustodyCache`, `classifyMail`/`compileRule`/`compileRules`/
