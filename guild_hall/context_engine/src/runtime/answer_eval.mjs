@@ -15,7 +15,9 @@
 // question, `summarize` folds a run's results into totals, and `compareRuns`
 // says what moved between two runs. No I/O, no clock, no model, no child
 // process -- `harness/answer_eval.mjs` owns all of that. Same inputs, same
-// output, every time.
+// output, every time. Every import here is either `node:`-builtin or a
+// sibling inside `guild_hall/context_engine/`, which is what the two built
+// lanes carrying this directory actually ship.
 //
 // What it deliberately does NOT do (also in the README, because a number is
 // dangerous when its limits are not written next to it):
@@ -31,14 +33,13 @@
 // Matching is on NFKC-normalised, case-folded, whitespace-collapsed text.
 // Korean is matched by plain containment with no word-boundary assumption (a
 // noun takes particles straight onto its tail: 납기 inside 납기일); an ASCII
-// token like an issue id is matched with boundaries, so `EX-1` does not match
-// `EX-15`. Regex items are compiled through the repo's existing draft-time
-// regex safety scan (`guild_hall/workspace_ledgers/src/classifier.mjs`'s
-// `compileTerm`) rather than a second, weaker copy of one: length cap, no
-// nested quantifiers, no backreferences or lookbehind, bounded alternation,
-// and a ReDoS timing canary.
+// token like an issue id is matched with boundaries, so `EX-1` matches
+// neither `EX-15` nor `EX-1-2` nor `EX-1.5`, while `EX-1.` at the end of a
+// sentence still matches (see `tokenIncludes`). Regex items are compiled
+// through `safe_pattern.mjs`, which refuses the catastrophic-backtracking
+// shapes at compile time and never runs on the measured path.
 import { createHash } from 'node:crypto';
-import { compileTerm } from '../../../workspace_ledgers/src/classifier.mjs';
+import { compileSafePattern } from './safe_pattern.mjs';
 
 export const ANSWER_EVAL_QUESTIONS_SCHEMA = 'soulforge.context_answer_eval_questions.v1';
 export const ANSWER_EVAL_RECEIPT_SCHEMA = 'soulforge.context_answer_eval_receipt.v1';
@@ -52,8 +53,8 @@ export const ANSWER_EVAL_TOOL_VERSION = 'answer_eval/v0';
 export const MAX_QUESTIONS = 200;
 export const MAX_KEYS_PER_GROUP = 50;
 export const MAX_ANY_OF = 32;
-// Same cap the shared regex safety scan applies to a term value, restated
-// here so a literal is bounded by the same number as a pattern.
+// The same cap `safe_pattern.mjs` applies to a pattern source, restated here
+// so a literal is bounded by the same number as a pattern.
 export const MAX_PATTERN_CHARS = 200;
 export const MAX_PROMPT_CHARS = 8000;
 export const MAX_NOTE_CHARS = 400;
@@ -61,24 +62,33 @@ export const MAX_NOTE_CHARS = 400;
 // with `answer_truncated` set -- never silently scored on a partial read.
 export const MAX_ANSWER_BYTES = 1024 * 1024;
 // The conservative default for "the bot asked me a question back instead of
-// answering". Both halves must hold: short, AND ending in a question mark.
+// answering". See `looksLikeClarification` for all three conditions.
 export const DEFAULT_CLARIFICATION_MAX_CHARS = 400;
 
 const ID = /^[A-Za-z0-9._-]{1,64}$/u;
 const KEY = /^[A-Za-z0-9._:-]{1,64}$/u;
 const LABEL = /^[A-Za-z0-9 ._-]{1,60}$/u;
-// `/source/flags` -- the only way to write a pattern instead of a literal. A
-// literal that both starts and ends with `/` therefore needs
-// `match: "substring"`... no: it needs to not look like this, which in
-// practice means it never comes up. Documented in the README.
+// `/source/flags` -- the only way to write a pattern instead of a literal.
 const REGEX_ITEM = /^\/(.+)\/([a-z]*)$/su;
-// A needle that is safe to match with ASCII token boundaries: pure ASCII
-// word/id shape. Tested against the *normalised* (lower-cased) needle.
+// A needle safe to match with ASCII token boundaries: pure ASCII word/id
+// shape. Tested against the *normalised* (lower-cased) needle.
 const ASCII_TOKEN = /^[a-z0-9][a-z0-9._-]*$/u;
-// What may not sit directly against an ASCII-token match. Deliberately ASCII
-// only: Korean text attaches straight onto an id (`EX-1건`) and that is still
-// a mention of `EX-1`.
-const TOKEN_BLOCKING = /[0-9a-z_]/u;
+// A calendar date written the ISO way is an ASCII token by shape, but it is
+// normal for one to sit directly against other characters -- `2026-02-13T09:00`
+// in a timestamp, `2026-02-13(금)` in Korean prose. Token boundaries would
+// make both of those a miss for no good reason, so a date-shaped needle
+// matches by containment under `auto`. `match: "token"` still forces
+// boundaries if an author really wants them.
+const ISO_DATE_NEEDLE = /^\d{4}-\d{2}-\d{2}$/u;
+// Hard boundary: an ASCII word character directly against the match means
+// this is a different, longer token (`EX-15` for `EX-1`, `P00-014A` for
+// `P00-014`, `EX-1_2`).
+const HARD_BOUNDARY = /[0-9a-z]/u;
+const UNDERSCORE_OR_WORD = /[0-9a-z_]/u;
+// Soft boundary: `.` and `-` continue an id only when a word character
+// follows them on the outward side (`EX-1.5`, `EX-1-2`). A sentence-final
+// `EX-1.` or a dash used as punctuation is still a mention.
+const SOFT_BOUNDARY = /[.-]/u;
 const MATCH_MODES = Object.freeze(['auto', 'substring', 'token']);
 
 export class AnswerEvalError extends Error {
@@ -98,22 +108,38 @@ export const sha256Hex = bytes => createHash('sha256').update(bytes).digest('hex
 
 /**
  * The one normalisation both sides of every comparison go through: NFKC (so a
- * full-width digit and its ASCII twin are one string), case-folded, every run
- * of whitespace collapsed to one space, trimmed. An answer that wrapped a
- * phrase across a line break still contains that phrase afterwards.
+ * full-width digit and its ASCII twin are one string, and `ＥＸ－１` becomes
+ * `ex-1`), case-folded, every run of whitespace collapsed to one space,
+ * trimmed. An answer that wrapped a phrase across a line break still contains
+ * that phrase afterwards.
  */
 export function normalizeText(raw) {
   return String(raw ?? '').normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim();
 }
 
-/** True when `needle` occurs in `text` with neither side touching an ASCII word character. */
-function tokenIncludes(text, needle) {
+/**
+ * Whether the character on one side of a match continues an id-like token.
+ * `outward` is the character one step further out, used only to decide
+ * whether a `.` or `-` is part of the token (`EX-1.5`) or punctuation
+ * (`EX-1.` ending a sentence).
+ */
+function continuesToken(adjacent, outward) {
+  if (adjacent === '') return false;
+  if (UNDERSCORE_OR_WORD.test(adjacent)) return true;
+  return SOFT_BOUNDARY.test(adjacent) && outward !== '' && HARD_BOUNDARY.test(outward);
+}
+
+/** True when `needle` occurs in `text` with neither side continuing an id-like token. */
+export function tokenIncludes(text, needle) {
   for (let from = 0; ; from += 1) {
     const at = text.indexOf(needle, from);
     if (at < 0) return false;
+    const end = at + needle.length;
     const before = at > 0 ? text[at - 1] : '';
-    const after = at + needle.length < text.length ? text[at + needle.length] : '';
-    if (!TOKEN_BLOCKING.test(before) && !TOKEN_BLOCKING.test(after)) return true;
+    const beforeOutward = at > 1 ? text[at - 2] : '';
+    const after = end < text.length ? text[end] : '';
+    const afterOutward = end + 1 < text.length ? text[end + 1] : '';
+    if (!continuesToken(before, beforeOutward) && !continuesToken(after, afterOutward)) return true;
     from = at;
   }
 }
@@ -122,12 +148,12 @@ function tokenIncludes(text, needle) {
  * One `any_of` entry into a matcher over already-normalised text.
  *
  * `mode` is the owning key's `match`: `auto` (the default) uses token
- * boundaries for an ASCII-token needle and plain containment for everything
- * else -- which is what makes `EX-1` miss `EX-15` while 납기 still hits
- * 납기일. `substring` forces containment (needed for an ASCII needle that
- * legitimately sits against other word characters, e.g. a date inside an ISO
- * timestamp); `token` forces boundaries and refuses a needle that is not an
- * ASCII token, rather than quietly doing something else.
+ * boundaries for an ASCII-token needle, containment for a date-shaped needle
+ * and for everything non-ASCII -- which is what makes `EX-1` miss `EX-15`
+ * while 납기 still hits 납기일 and `2026-02-13` still hits inside a
+ * timestamp. `substring` forces containment; `token` forces boundaries and
+ * refuses a needle that is not an ASCII token, rather than quietly doing
+ * something else.
  */
 export function compileItem(raw, { mode = 'auto', where = 'item' } = {}) {
   if (typeof raw !== 'string' || raw.trim() === '') fail('answer_eval_pattern_empty', where);
@@ -135,26 +161,26 @@ export function compileItem(raw, { mode = 'auto', where = 'item' } = {}) {
   const asRegex = REGEX_ITEM.exec(raw);
   if (asRegex) {
     const [, source, rawFlags] = asRegex;
-    // Text is already lower-cased by `normalizeText`, so an author's
-    // upper-case pattern would silently never match; `i` is added rather than
-    // left as a trap. `u` is added by the shared compiler itself.
-    const flags = rawFlags.includes('u') ? 'iu' : 'i';
     if ([...rawFlags].some(flag => flag !== 'i' && flag !== 'u')) {
       fail('answer_eval_pattern_flags_not_allowed', `${where}:${rawFlags}`);
     }
-    let term;
-    try { term = compileTerm({ label: where, kind: 'regex', value: source, flags }); }
+    // Text is already lower-cased by `normalizeText`, so an author's
+    // upper-case pattern would silently never match; `i` is added rather than
+    // left as a trap. `u` is added by the compiler itself.
+    const flags = rawFlags.includes('u') ? 'iu' : 'i';
+    let compiled;
+    try { compiled = compileSafePattern(source, flags, { label: where }); }
     catch (error) { fail('answer_eval_pattern_regex_unsafe', `${where}:${error?.code ?? 'unknown'}`); }
-    return { kind: 'regex', test: text => term.test(text) };
+    return { kind: 'regex', source: raw, test: text => compiled.test(text) };
   }
   const needle = normalizeText(raw);
   if (needle === '') fail('answer_eval_pattern_empty', where);
   const isToken = ASCII_TOKEN.test(needle);
   if (mode === 'token' && !isToken) fail('answer_eval_pattern_not_a_token', where);
-  const useToken = mode === 'token' || (mode === 'auto' && isToken);
+  const useToken = mode === 'token' || (mode === 'auto' && isToken && !ISO_DATE_NEEDLE.test(needle));
   return useToken
-    ? { kind: 'token', test: text => tokenIncludes(text, needle) }
-    : { kind: 'substring', test: text => text.includes(needle) };
+    ? { kind: 'token', source: raw, test: text => tokenIncludes(text, needle) }
+    : { kind: 'substring', source: raw, test: text => text.includes(needle) };
 }
 
 const KEY_FIELDS = Object.freeze(['key', 'any_of', 'weight', 'note', 'match']);
@@ -195,8 +221,24 @@ function compileKeyGroup(raw, { group, questionId, required }) {
     // reminder of what the key means, it can quote source material, and it
     // has no business in a receipt that is meant to be safe to paste in a
     // public log.
-    return { key: entry.key, weight, matchers: entry.any_of.map((item, index) => compileItem(item, { mode, where: `${at}[${index}]` })) };
+    return { key: entry.key, weight, mode, matchers: entry.any_of.map((item, index) => compileItem(item, { mode, where: `${at}[${index}]` })) };
   });
+}
+
+/**
+ * A stable digest of everything about one question that decides a score:
+ * its id, and for each group, every key's name, weight, match mode and
+ * `any_of` sources in order. Two runs whose question digests agree were
+ * scored by the same rules and can be compared key by key; two that disagree
+ * cannot, and `compareRuns` refuses rather than reporting a rewritten key as
+ * a regression. The digest is a hash, so a receipt carrying it still carries
+ * no question text.
+ */
+function questionKeyDigest(question) {
+  const group = entries => entries.map(entry => [entry.key, entry.weight, entry.mode, entry.matchers.map(m => m.source)]);
+  return `sha256:${sha256Hex(Buffer.from(JSON.stringify([question.id,
+    group(question.must_find), group(question.must_cite), group(question.must_not),
+    question.max_minutes, question.expect_clarification])))}`;
 }
 
 const QUESTION_FIELDS = Object.freeze(['id', 'prompt', 'must_find', 'must_cite', 'must_not', 'max_minutes', 'expect_clarification', 'note']);
@@ -266,8 +308,10 @@ export function validateQuestionSet(body) {
     if (raw.note !== undefined && (typeof raw.note !== 'string' || raw.note.length > MAX_NOTE_CHARS)) {
       fail('answer_eval_note_invalid', raw.id);
     }
-    return { id: raw.id, prompt: raw.prompt, must_find: mustFind, must_cite: mustCite, must_not: mustNot,
+    const question = { id: raw.id, prompt: raw.prompt, must_find: mustFind, must_cite: mustCite, must_not: mustNot,
       max_minutes: maxMinutes, expect_clarification: raw.expect_clarification === true };
+    question.key_digest = questionKeyDigest(question);
+    return question;
   });
   return { schema: body.schema, set_id: body.set_id, created_at: body.created_at, clarification, questions };
 }
@@ -298,13 +342,19 @@ function scoreGroup(entries, normalized) {
 
 /**
  * Whether this answer reads as a counter-question rather than an answer.
- * Conservative on purpose, and reported as a flag next to the numbers rather
- * than folded into them: both the length bound and the shape have to hold, so
- * a long answer that happens to end on a rhetorical question is not flagged,
- * and a question the author marked `expect_clarification: true` is never
- * flagged at all.
+ * Three conditions, all required, because the first version of this flag fired
+ * on complete Korean answers that ended with an ordinary courtesy question
+ * ("…입니다. 더 필요하신 것 있으실까요?"):
+ *   1. the answer hit no `must_find` and no `must_cite` key at all -- an
+ *      answer that actually said something the key names is an answer,
+ *      whatever punctuation it ends on,
+ *   2. it is short (`clarification.max_chars`), and
+ *   3. it ends in a question mark, or matches one of the set's own patterns.
+ * It is reported as a flag next to the numbers, never folded into them, and a
+ * question marked `expect_clarification: true` is never flagged.
  */
-export function looksLikeClarification(normalized, clarification) {
+export function looksLikeClarification(normalized, clarification, { anyKeyHit = false } = {}) {
+  if (anyKeyHit) return false;
   if (normalized.length === 0) return false;
   if (normalized.length > clarification.max_chars) return false;
   if (/[?？]$/u.test(normalized)) return true;
@@ -319,7 +369,8 @@ export function looksLikeClarification(normalized, clarification) {
  * is never mistaken for a merely bad answer.
  */
 export function scoreAnswer({ question, clarification, answerText = null, answerSha256 = null,
-  answerTruncated = false, elapsedSeconds = null, toolCalls = null, outcome = 'answered', reason = null } = {}) {
+  answerTruncated = false, elapsedSeconds = null, toolCalls = null, outcome = 'answered', reason = null,
+  exitCode = null } = {}) {
   const present = typeof answerText === 'string';
   const normalized = present ? normalizeText(answerText) : '';
   const found = scoreGroup(question.must_find, normalized);
@@ -327,9 +378,13 @@ export function scoreAnswer({ question, clarification, answerText = null, answer
   const wrong = scoreGroup(question.must_not, normalized);
   const overTime = question.max_minutes !== null && elapsedSeconds !== null
     && elapsedSeconds > question.max_minutes * 60;
-  const clarified = present && !question.expect_clarification && looksLikeClarification(normalized, clarification);
+  // Computed after the group scores, so condition 1 above can use them.
+  const clarified = present && !question.expect_clarification
+    && looksLikeClarification(normalized, clarification,
+      { anyKeyHit: found.hit.length > 0 || cited.hit.length > 0 });
   return {
     question_id: question.id,
+    key_digest: question.key_digest,
     outcome,
     reason,
     found: { share: found.share, weight_hit: found.weight_hit, weight_total: found.weight_total,
@@ -343,7 +398,9 @@ export function scoreAnswer({ question, clarification, answerText = null, answer
       over_time: overTime,
       answer_truncated: answerTruncated === true,
       answer_absent: !present,
+      ask_command_nonzero_exit: exitCode !== null && exitCode !== 0,
     },
+    exit_code: exitCode,
     elapsed_seconds: elapsedSeconds,
     tool_calls: toolCalls,
     max_minutes: question.max_minutes,
@@ -368,6 +425,7 @@ export function summarize(results) {
     over_time: results.filter(row => row.flags.over_time).length,
     clarifications: results.filter(row => row.flags.clarification_instead_of_answer).length,
     answers_absent: results.filter(row => row.flags.answer_absent).length,
+    nonzero_exit: results.filter(row => row.flags.ask_command_nonzero_exit).length,
     failed: results.filter(row => row.outcome === 'failed').length,
   };
 }
@@ -377,27 +435,54 @@ export function summarize(results) {
 // same number, not a change.
 const EPSILON = 1e-9;
 const shareDelta = (now, before) => (now === null || before === null ? null : now - before);
+const blank = (id, state) => ({ question_id: id, state, found_delta: null, cited_delta: null,
+  errors_delta: null, regressed: false, newly_missed: [], newly_found: [] });
 
 /**
- * What moved between two runs, question by question. A question present in
- * only one of the two runs is reported as added/removed and is never a
- * regression -- the sets being different is a fact about the runs, not about
- * the bot. A regression is: `found` down, `cited` down, or `errors` up.
+ * What moved between two runs, question by question.
+ *
+ * Two runs are only comparable when they scored the same question set. Joining
+ * on `question_id` alone was the first shape of this and it was wrong: an
+ * author who rewrites a key's `any_of` (fixing a typo, adding a spelling)
+ * changes what "hit" means for that question, and the next comparison reads
+ * that as a regression the bot caused, or as an improvement it did not. So a
+ * differing `questions_sha256` is refused outright unless the caller passes
+ * `allowSetChange`, and even then only questions whose `key_digest` is
+ * byte-identical on both sides get deltas; the rest are reported
+ * `key_changed`, and `regressed` is forced false for the whole comparison
+ * because a partial view is not a verdict.
+ *
+ * A question present in only one of the two runs is `added`/`removed` and is
+ * never a regression -- the sets being different is a fact about the runs, not
+ * about the bot.
  */
-export function compareRuns(previous, current) {
+export function compareRuns(previous, current, { allowSetChange = false } = {}) {
+  const previousSha = previous?.questions_sha256 ?? null;
+  const currentSha = current?.questions_sha256 ?? null;
+  const setChanged = previousSha !== null && currentSha !== null && previousSha !== currentSha;
+  if (setChanged && !allowSetChange) fail('answer_eval_compare_question_set_differs');
   const before = new Map((previous?.results ?? []).map(row => [row.question_id, row]));
   const now = new Map((current?.results ?? []).map(row => [row.question_id, row]));
   const questions = [];
+  let keyChanged = 0;
   for (const [id, row] of now) {
     const was = before.get(id) ?? null;
-    if (was === null) { questions.push({ question_id: id, state: 'added', found_delta: null, cited_delta: null, errors_delta: null, regressed: false, newly_missed: [], newly_found: [] }); continue; }
+    if (was === null) { questions.push(blank(id, 'added')); continue; }
+    // When the set moved, only a question whose scoring rules are provably
+    // identical may be compared. A receipt written before `key_digest`
+    // existed has none, which is itself "cannot prove identical".
+    if (setChanged && (was.key_digest == null || row.key_digest == null || was.key_digest !== row.key_digest)) {
+      questions.push(blank(id, 'key_changed'));
+      keyChanged += 1;
+      continue;
+    }
     const foundDelta = shareDelta(row.found.share, was.found.share);
     const citedDelta = shareDelta(row.cited.share, was.cited.share);
     const errorsDelta = row.errors.count - was.errors.count;
     const wasHit = new Set([...was.found.hit_keys, ...was.cited.hit_keys]);
+    const wasMissed = new Set([...was.found.missed_keys, ...was.cited.missed_keys]);
     const nowHit = new Set([...row.found.hit_keys, ...row.cited.hit_keys]);
     const nowMissed = [...row.found.missed_keys, ...row.cited.missed_keys];
-    const wasMissed = [...was.found.missed_keys, ...was.cited.missed_keys];
     questions.push({
       question_id: id,
       state: 'compared',
@@ -408,20 +493,24 @@ export function compareRuns(previous, current) {
         || (citedDelta !== null && citedDelta < -EPSILON)
         || errorsDelta > 0,
       newly_missed: nowMissed.filter(key => wasHit.has(key)).sort(),
-      newly_found: [...nowHit].filter(key => wasMissed.includes(key)).sort(),
+      newly_found: [...nowHit].filter(key => wasMissed.has(key)).sort(),
     });
   }
   for (const id of before.keys()) {
-    if (!now.has(id)) questions.push({ question_id: id, state: 'removed', found_delta: null, cited_delta: null, errors_delta: null, regressed: false, newly_missed: [], newly_found: [] });
+    if (!now.has(id)) questions.push(blank(id, 'removed'));
   }
   questions.sort((a, b) => (a.question_id < b.question_id ? -1 : a.question_id > b.question_id ? 1 : 0));
   const totals = {
-    mean_found_delta: shareDelta(current?.totals?.mean_found ?? null, previous?.totals?.mean_found ?? null),
-    mean_cited_delta: shareDelta(current?.totals?.mean_cited ?? null, previous?.totals?.mean_cited ?? null),
-    errors_delta: (current?.totals?.errors_total ?? 0) - (previous?.totals?.errors_total ?? 0),
-    minutes_delta: (current?.totals?.minutes_total ?? 0) - (previous?.totals?.minutes_total ?? 0),
+    mean_found_delta: setChanged ? null : shareDelta(current?.totals?.mean_found ?? null, previous?.totals?.mean_found ?? null),
+    mean_cited_delta: setChanged ? null : shareDelta(current?.totals?.mean_cited ?? null, previous?.totals?.mean_cited ?? null),
+    errors_delta: setChanged ? null : (current?.totals?.errors_total ?? 0) - (previous?.totals?.errors_total ?? 0),
+    minutes_delta: setChanged ? null : (current?.totals?.minutes_total ?? 0) - (previous?.totals?.minutes_total ?? 0),
   };
-  return { questions, totals, regressed: questions.some(row => row.regressed),
+  return { questions, totals,
+    // A partial view is not a verdict: when the set moved, this comparison
+    // never gates anything, however bad the surviving numbers look.
+    regressed: setChanged ? false : questions.some(row => row.regressed),
+    set_changed: setChanged, key_changed: keyChanged,
     previous_label: previous?.label ?? null, previous_started_at: previous?.started_at ?? null };
 }
 
@@ -435,7 +524,7 @@ export const MAX_ASK_ARGV = 64;
 /**
  * Validates an ask-command template. The harness never builds a shell string
  * out of this: `argv[0]` is the executable and the rest are argument vector
- * entries handed to `execFile` as an array, so nothing a question prompt
+ * entries handed to `spawn` as an array, so nothing a question prompt
  * contains can become a command. The prompt never reaches the argument vector
  * at all -- `{prompt_file}` is replaced by the path of a temp file the
  * harness wrote it to.

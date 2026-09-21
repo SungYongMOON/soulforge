@@ -14,17 +14,17 @@
       "note": "Hangul containment (납기 must also hit 납기일), an ASCII date, and a person name.",
       "must_find": [
         { "key": "project_code", "any_of": ["P00-001"], "weight": 2 },
-        { "key": "deadline_date", "any_of": ["2026-02-13", "2026년 2월 13일", "2026. 2. 13"], "match": "substring", "note": "substring, not token: the date may sit inside an ISO timestamp" },
+        { "key": "deadline_date", "any_of": ["2026-02-13", "2026년 2월 13일", "2026. 2. 13"], "note": "no match override needed: an ISO-date-shaped needle matches by containment under auto, so 2026-02-13T09:00 and 2026-02-13(금) both count" },
         { "key": "owner_person", "any_of": ["김예시"] },
         { "key": "deliverable", "any_of": ["중간보고서", "중간 보고서"] }
       ],
       "must_cite": [
-        { "key": "kickoff_mail", "any_of": ["1월 9일", "2026-01-09"], "match": "substring", "note": "the kickoff mail is dated 9 Jan" },
+        { "key": "kickoff_mail", "any_of": ["1월 9일", "2026-01-09"], "note": "cite a source the way a person says it: a date plus a sender, not an internal id" },
         { "key": "kickoff_sender", "any_of": ["박표본", "pyo@example.com"] }
       ],
       "must_not": [
         { "key": "wrong_project", "any_of": ["P00-002"] },
-        { "key": "wrong_month", "any_of": ["3월 13일", "2026-03-13"], "match": "substring" }
+        { "key": "wrong_month", "any_of": ["3월 13일", "2026-03-13"] }
       ],
       "max_minutes": 4
     },

@@ -8,17 +8,22 @@
 // here calls a model or a bot.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ANSWER_EVAL_QUESTIONS_SCHEMA, ANSWER_EVAL_ASK_COMMAND_SCHEMA, ANSWER_EVAL_RECEIPT_SCHEMA,
-  AnswerEvalError, MAX_ANSWER_BYTES, compareRuns, normalizeText, scoreAnswer, summarize,
+  AnswerEvalError, MAX_ANSWER_BYTES, compareRuns, compileItem, normalizeText, scoreAnswer, summarize,
   validateAskCommand, validateQuestionSet,
 } from '../src/runtime/answer_eval.mjs';
-import { latestReceipt, renderComparison, renderTable, runAnswerEval, runAnswerEvalCli } from '../harness/answer_eval.mjs';
+import { compileSafePattern } from '../src/runtime/safe_pattern.mjs';
+import { killProcessTree, latestReceipt, renderComparison, renderTable, runAnswerEval, runAnswerEvalCli, writeReceipt } from '../harness/answer_eval.mjs';
 
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
 const NOW = '2026-02-01T00:00:00.000Z';
 const tmp = prefix => realpathSync(mkdtempSync(path.join(os.tmpdir(), prefix)));
 
@@ -49,21 +54,46 @@ function estate({ set = simpleSet() } = {}) {
 const writeAnswer = (dir, id, text) => writeFileSync(path.join(dir, `${id}.md`), text);
 
 // A bot that is not a bot: writes whatever it was told to write, or misbehaves
-// in one named way. Started only through `process.execPath`.
+// in one named way. Started only through `process.execPath`. `spawn-grandchild`
+// starts an ordinary (non-detached) child of its own that would outlive it and
+// write a marker file -- the orphan a timeout has to kill too.
 function fakeBot(root) {
   const file = path.join(root, 'fake_bot.mjs');
-  writeFileSync(file, `import { writeFileSync } from 'node:fs';
+  writeFileSync(file, `import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 const argv = process.argv.slice(2);
 const at = name => argv[argv.indexOf(name) + 1];
 const mode = at('--mode');
 const answerFile = at('--answer-file');
 if (mode === 'exit-nonzero') process.exit(7);
 if (mode === 'no-output') process.exit(0);
-if (mode === 'hang') { setInterval(() => {}, 1000); }
+if (mode === 'exit-with-answer') {
+  writeFileSync(answerFile, '2026-02-13 김예시 1월 9일 EX-1 EX-15 추적기');
+  process.exit(9);
+}
+if (mode === 'spawn-grandchild') {
+  spawn(process.execPath, [at('--grandchild'), at('--marker')], { stdio: 'ignore' });
+  setInterval(() => {}, 1000);
+} else if (mode === 'hang') { setInterval(() => {}, 1000); }
 else if (mode === 'huge') { writeFileSync(answerFile, 'EX-1 ' + 'x'.repeat(${MAX_ANSWER_BYTES} + 4096)); }
 else { writeFileSync(answerFile, '2026-02-13 김예시 1월 9일 EX-1 EX-15 추적기'); }
 `);
   return file;
+}
+
+/** A stand-in child process, for the outcomes a real one cannot be made to produce on cue. */
+function stubSpawner({ code = 0, signal = null, delayMs = 5, writeAnswer = null } = {}) {
+  return (executable, args) => {
+    const child = new EventEmitter();
+    child.pid = 424242;
+    child.kill = () => true;
+    setTimeout(() => {
+      // Every template in this file puts the answer file last.
+      if (writeAnswer !== null) writeFileSync(args[args.length - 1], writeAnswer);
+      child.emit('close', code, signal);
+    }, delayMs);
+    return child;
+  };
 }
 
 function askCommandFile(root, botFile, mode, timeoutSeconds = 20) {
@@ -168,11 +198,15 @@ test('an ASCII id is matched with boundaries: EX-1 does not match EX-15', () => 
 });
 
 test('match: "substring" turns the boundary off for an ASCII needle that sits inside a longer token', () => {
-  const tokenSet = validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x', must_find: keys(['d', '2026-02-13']) }]));
-  assert.deepEqual(scoreOne(tokenSet.questions[0], '마감 2026-02-13T09:00 입니다.').found.missed_keys, ['d']);
+  const tokenSet = validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x', must_find: keys(['v', 'rev-3']) }]));
+  assert.deepEqual(scoreOne(tokenSet.questions[0], '문서는 rev-3b 입니다.').found.missed_keys, ['v']);
   const subSet = validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x',
-    must_find: [{ key: 'd', any_of: ['2026-02-13'], match: 'substring' }] }]));
-  assert.deepEqual(scoreOne(subSet.questions[0], '마감 2026-02-13T09:00 입니다.').found.hit_keys, ['d']);
+    must_find: [{ key: 'v', any_of: ['rev-3'], match: 'substring' }] }]));
+  assert.deepEqual(scoreOne(subSet.questions[0], '문서는 rev-3b 입니다.').found.hit_keys, ['v']);
+  // A date-shaped needle is the one ASCII token that matches by containment
+  // under `auto`, because a date normally sits against other characters.
+  const dateSet = validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x', must_find: keys(['d', '2026-02-13']) }]));
+  assert.deepEqual(scoreOne(dateSet.questions[0], '마감 2026-02-13T09:00 입니다.').found.hit_keys, ['d']);
 });
 
 test('weights decide the share, and an empty group is null rather than a free 100%', () => {
@@ -193,23 +227,63 @@ test('must_not hits are counted as errors and never touch the found/cited shares
   assert.deepEqual(row.errors.keys, ['wrong', 'also']);
 });
 
-test('a counter-question is flagged conservatively and never scored against, unless it was expected', () => {
+test('a complete answer that ends with a courtesy question is not a clarification; a pure counter-question is', () => {
   const set = validateQuestionSet(questionSet([
-    { id: 'q1', prompt: 'x', must_find: keys(['a', '가']) },
-    { id: 'q2', prompt: 'y', must_find: keys(['a', '가']), expect_clarification: true },
-  ], { clarification: { max_chars: 60, patterns: ['어느 과제'] } }));
-  const short = scoreIn(set, 0, '어느 과제를 말씀하시는 건가요?');
-  assert.equal(short.flags.clarification_instead_of_answer, true);
-  // A short answer that is not a question, and does not match a pattern, is not flagged.
-  assert.equal(scoreIn(set, 0, '가 입니다.').flags.clarification_instead_of_answer, false);
+    { id: 'q1', prompt: 'x', must_find: keys(['deadline', '2026-02-13'], ['owner', '김예시']) },
+    { id: 'q2', prompt: 'y', must_find: keys(['deadline', '2026-02-13']), expect_clarification: true },
+  ], { clarification: { max_chars: 200, patterns: ['어느 과제'] } }));
+  // The three sentences the fresh review used. The first two answer the
+  // question and then ask a courtesy question; only the third asks instead of
+  // answering.
+  const courteous = scoreIn(set, 0, '납기는 2026-02-13이고 담당은 김예시입니다. 더 필요하신 것 있으실까요?');
+  assert.equal(courteous.flags.clarification_instead_of_answer, false);
+  assert.equal(courteous.found.share, 1);
+  const shortCourteous = scoreIn(set, 0, '2026-02-13까지입니다. 추가로 확인해 드릴까요?');
+  assert.equal(shortCourteous.flags.clarification_instead_of_answer, false);
+  assert.equal(shortCourteous.found.hit_keys.includes('deadline'), true);
+  const counterQuestion = scoreIn(set, 0, '어느 과제를 말씀하시는 건가요?');
+  assert.equal(counterQuestion.flags.clarification_instead_of_answer, true);
+  assert.deepEqual(counterQuestion.found.hit_keys, []);
+
+  // A short answer that hits nothing, is not a question and matches no
+  // pattern is still not flagged.
+  assert.equal(scoreIn(set, 0, '해당 기록을 찾지 못했습니다.').flags.clarification_instead_of_answer, false);
   // Long answers are never flagged, even ending in a question mark.
-  const long = scoreIn(set, 0, `${'가'.repeat(200)} 그렇지 않을까요?`);
-  assert.equal(long.flags.clarification_instead_of_answer, false);
+  assert.equal(scoreIn(set, 0, `${'나'.repeat(300)} 그렇지 않을까요?`).flags.clarification_instead_of_answer, false);
   // The pattern branch is length-gated too.
-  const longPattern = scoreIn(set, 0, `어느 과제인지 ${'가'.repeat(200)}.`);
-  assert.equal(longPattern.flags.clarification_instead_of_answer, false);
+  assert.equal(scoreIn(set, 0, `어느 과제인지 ${'나'.repeat(300)}.`).flags.clarification_instead_of_answer, false);
   // A question that expects one is never flagged.
   assert.equal(scoreIn(set, 1, '어느 과제를 말씀하시는 건가요?').flags.clarification_instead_of_answer, false);
+});
+
+test('ASCII token boundaries: the full 16-case table, favourable and unfavourable', () => {
+  // [needle, answer text, should match, why]
+  const cases = [
+    ['EX-1', '열린 것은 EX-15 하나뿐입니다.', false, 'a longer id is a different id'],
+    ['EX-1', 'EX-1은 열림입니다.', true, 'a Korean particle is not a token continuation'],
+    ['EX-1', 'EX-1(마감) 확인', true, 'punctuation is not a token continuation'],
+    ['EX-1', 'EX-1-2 를 보라', false, 'a hyphen followed by a digit continues the id'],
+    ['EX-1', 'EX-1.5 참조', false, 'a dot followed by a digit continues the id'],
+    ['EX-1', '마지막은 EX-1.', true, 'a sentence-final dot does not continue the id'],
+    ['EX-1', 'EX-1_2 참조', false, 'an underscore always continues the id'],
+    ['EX-1', '항목 ex-1 확인', true, 'case is folded'],
+    ['EX-1', 'ＥＸ－１ 확인', true, 'full width folds to ASCII through NFKC'],
+    ['P00-014', 'P00-014A 는 다른 것', false, 'a trailing letter is a different code'],
+    ['2026-02-13', '마감 2026-02-13T09:00 입니다.', true, 'a date sits inside an ISO timestamp'],
+    ['2026-02-13', '마감 2026-02-13(금) 입니다.', true, 'a date takes a Korean day marker'],
+    ['홍길동', '홍길동이 맡습니다.', true, 'Korean takes particles with no boundary'],
+    ['홍길동', '홍길동과 상의했습니다.', true, 'the same for a different particle'],
+    ['납기', '납기일은 다음 주입니다.', true, 'a Korean noun inside a longer noun'],
+    ['P00-001 킥오프', 'P00-001\n킥오프 메일', true, 'a phrase wrapped across a line break'],
+  ];
+  assert.equal(cases.length, 16);
+  for (const [needle, text, expected, why] of cases) {
+    const matcher = compileItem(needle, { where: 'case' });
+    assert.equal(matcher.test(normalizeText(text)), expected, `${needle} in ${JSON.stringify(text)}: ${why}`);
+  }
+  // The overrides still work in both directions.
+  assert.equal(compileItem('EX-1', { mode: 'substring' }).test(normalizeText('EX-1-2')), true);
+  assert.equal(compileItem('2026-02-13', { mode: 'token' }).test(normalizeText('2026-02-13T09:00')), false);
 });
 
 test('over_time uses max_minutes and elapsed seconds, and is a flag not a score', () => {
@@ -520,7 +594,7 @@ test('the receipt is written through a neighbour and a rename, and two runs in t
   assert.equal(names.length, 2);
   assert.equal(names.some(name => name.endsWith('.writing')), false);
   assert.equal(JSON.parse(readFileSync(one.receiptFile, 'utf8')).label, 'one');
-  assert.equal(latestReceipt(est.receiptsDir), path.join(est.receiptsDir, names.sort()[names.length - 1]));
+  assert.equal(latestReceipt(est.receiptsDir).file, path.join(est.receiptsDir, names.sort()[names.length - 1]));
 });
 
 test('the example question set this repo ships validates and scores, and its EX-1 key is not satisfied by EX-15', async () => {
@@ -555,4 +629,298 @@ test('the printed tables carry the components separately, including answer lengt
   const comparison = renderComparison(compareRuns(receipt, receipt)).join('\n');
   assert.ok(comparison.includes('newly missed: none'));
   assert.ok(comparison.includes('newly found:  none'));
+});
+
+// ------------------------------------------------------------ lane closure
+/**
+ * Copies exactly what one deployment-pack lane spec says it carries into a
+ * scratch tree. `tracked_paths` entries ending in `/` are directory prefixes;
+ * `tracked_excludes` are prefixes removed from those.
+ */
+function buildLaneTree(specRef, destRoot) {
+  const spec = JSON.parse(readFileSync(path.join(REPO_ROOT, specRef), 'utf8'));
+  const excludes = spec.tracked_excludes ?? [];
+  const posixRel = from => path.relative(REPO_ROOT, from).split(path.sep).join('/');
+  const excluded = rel => excludes.some(prefix => rel === prefix.replace(/\/$/u, '') || rel.startsWith(prefix));
+  for (const tracked of spec.tracked_paths) {
+    const source = path.join(REPO_ROOT, tracked);
+    if (!existsSync(source)) continue;
+    const destination = path.join(destRoot, tracked);
+    if (tracked.endsWith('/')) {
+      cpSync(source, destination, { recursive: true,
+        filter: from => !excluded(posixRel(from) + (statSync(from).isDirectory() ? '/' : '')) });
+    } else {
+      mkdirSync(path.dirname(destination), { recursive: true });
+      cpSync(source, destination);
+    }
+  }
+  return spec;
+}
+
+test('the harness imports inside a tree built from only what each lane spec carries', () => {
+  // A cross-module import that every test in the repo can resolve, and a built
+  // lane cannot, is invisible until the lane runs. So: build the lane, import
+  // the harness there, and let the import resolver be the judge.
+  for (const specRef of ['guild_hall/deployment_pack/lanes/context_read_lane.spec.json',
+    'guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json']) {
+    const root = tmp('ae-lane-');
+    const spec = buildLaneTree(specRef, root);
+    assert.ok(spec.tracked_paths.includes('guild_hall/context_engine/'), `${specRef} should carry the context engine`);
+    const harness = path.join(root, 'guild_hall', 'context_engine', 'harness', 'answer_eval.mjs');
+    assert.equal(existsSync(harness), true, `${specRef} did not carry the harness`);
+    // Not carried by either lane -- so an import of it must not exist.
+    assert.equal(existsSync(path.join(root, 'guild_hall', 'workspace_ledgers')), false,
+      `${specRef} unexpectedly carries workspace_ledgers`);
+    execFileSync(process.execPath, ['--check', harness], { stdio: 'ignore' });
+    const probe = path.join(root, 'lane_probe.mjs');
+    writeFileSync(probe, `import { runAnswerEval } from './guild_hall/context_engine/harness/answer_eval.mjs';
+import { validateQuestionSet } from './guild_hall/context_engine/src/runtime/answer_eval.mjs';
+if (typeof runAnswerEval !== 'function' || typeof validateQuestionSet !== 'function') process.exit(3);
+validateQuestionSet(JSON.parse(process.argv[2]));
+process.stdout.write('LANE_IMPORT_OK');
+`);
+    const probeSet = JSON.stringify(questionSet([{ id: 'q1', prompt: 'x',
+      must_find: [{ key: 'a', any_of: ['/ex-\\d{1,3}/'] }] }]));
+    const out = execFileSync(process.execPath, [probe, probeSet], { cwd: root, encoding: 'utf8' });
+    assert.equal(out.trim(), 'LANE_IMPORT_OK', `${specRef} could not import or compile a pattern`);
+  }
+});
+
+test('the regex safety scan lives inside the context engine and still refuses the same shapes', () => {
+  assert.ok(compileSafePattern('ex-\\d{1,4}', 'i') instanceof RegExp);
+  for (const [source, code] of [['(a+)+', 'safe_pattern_nested_quantifier'], ['(a)\\1', 'safe_pattern_backreference'],
+    ['(?<=a)b', 'safe_pattern_lookbehind'], ['x'.repeat(201), 'safe_pattern_too_long'],
+    ['a|b|c|d|e|f|g|h|i|j|k|l|m', 'safe_pattern_too_many_alternations'], ['[', 'safe_pattern_invalid']]) {
+    assert.throws(() => compileSafePattern(source, ''), error => error.code === code, `${source} -> ${code}`);
+  }
+  assert.throws(() => compileSafePattern('a', 'g'), error => error.code === 'safe_pattern_flags_not_allowed');
+  // The canary catches a shape no static scan does.
+  assert.throws(() => compileSafePattern('^(a|a)+$', ''), error => error.code === 'safe_pattern_timing_unsafe');
+});
+
+// -------------------------------------------------- compare: question set
+const withKeyDigest = (sha, questionId, digest, found) => ({
+  label: 'x', started_at: NOW, questions_sha256: sha,
+  totals: { mean_found: found, mean_cited: null, errors_total: 0, minutes_total: 1 },
+  results: [{ question_id: questionId, key_digest: digest,
+    found: { share: found, hit_keys: found === 1 ? ['k'] : [], missed_keys: found === 1 ? [] : ['k'] },
+    cited: { share: null, hit_keys: [], missed_keys: [] }, errors: { count: 0, keys: [] } }] });
+
+test('comparing two runs that scored different question sets is refused, not reported as a regression', () => {
+  const before = withKeyDigest('sha256:aaa', 'q1', 'sha256:k1', 1);
+  const after = withKeyDigest('sha256:bbb', 'q1', 'sha256:k2', 0);
+  refusal(() => compareRuns(before, after), 'answer_eval_compare_question_set_differs');
+  // Same set sha: ordinary comparison, and this one really is a regression.
+  const same = compareRuns(before, { ...after, questions_sha256: 'sha256:aaa' });
+  assert.equal(same.regressed, true);
+  assert.equal(same.set_changed, false);
+});
+
+test('--allow-set-change compares only byte-identical keys, says so loudly, and can never report a regression', () => {
+  const before = withKeyDigest('sha256:aaa', 'q1', 'sha256:k1', 1);
+  before.results.push({ question_id: 'q2', key_digest: 'sha256:stable',
+    found: { share: 1, hit_keys: ['s'], missed_keys: [] },
+    cited: { share: null, hit_keys: [], missed_keys: [] }, errors: { count: 0, keys: [] } });
+  const after = withKeyDigest('sha256:bbb', 'q1', 'sha256:k2-rewritten', 0);
+  after.results.push({ question_id: 'q2', key_digest: 'sha256:stable',
+    found: { share: 0, hit_keys: [], missed_keys: ['s'] },
+    cited: { share: null, hit_keys: [], missed_keys: [] }, errors: { count: 0, keys: [] } });
+  const comparison = compareRuns(before, after, { allowSetChange: true });
+  assert.equal(comparison.set_changed, true);
+  assert.equal(comparison.key_changed, 1);
+  assert.equal(comparison.regressed, false, 'a partial view never gates');
+  const byId = Object.fromEntries(comparison.questions.map(row => [row.question_id, row]));
+  assert.equal(byId.q1.state, 'key_changed');
+  assert.equal(byId.q1.found_delta, null);
+  // q2's keys did not move, so its real drop is still reported as a delta.
+  assert.equal(byId.q2.state, 'compared');
+  assert.equal(byId.q2.found_delta, -1);
+  assert.deepEqual(byId.q2.newly_missed, ['s']);
+  assert.equal(comparison.totals.mean_found_delta, null, 'totals are not comparable across sets');
+  const rendered = renderComparison(comparison).join('\n');
+  assert.ok(rendered.includes('!! QUESTION SET CHANGED'));
+  assert.ok(rendered.includes('never report a regression'));
+});
+
+test('a receipt written before key_digest existed is never silently compared across a set change', () => {
+  const before = withKeyDigest('sha256:aaa', 'q1', 'sha256:k1', 1);
+  delete before.results[0].key_digest;
+  const after = withKeyDigest('sha256:bbb', 'q1', 'sha256:k1', 0);
+  const comparison = compareRuns(before, after, { allowSetChange: true });
+  assert.equal(comparison.questions[0].state, 'key_changed');
+});
+
+test('end to end: editing a key refuses the comparison until --allow-set-change is given', async () => {
+  const est = estate();
+  writeAnswer(est.answersDir, 'q1', '납기는 2026-02-13, 담당은 김예시. 1월 9일.');
+  writeAnswer(est.answersDir, 'q2', 'EX-1 과 EX-15, 추적기.');
+  const before = await runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'before'], { now: '2026-02-01T00:00:00.000Z' });
+  // The author adds a spelling to one key. Nothing about the bot changed.
+  const edited = simpleSet();
+  edited.questions[0].must_find[1].any_of.push('김 예시');
+  writeFileSync(est.questionsFile, `${JSON.stringify(edited, null, 2)}\n`);
+  await assert.rejects(runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'after', '--compare', 'latest'], { now: '2026-02-02T00:00:00.000Z' }),
+  error => error.code === 'answer_eval_compare_question_set_differs');
+  // The refused run still wrote its own receipt -- the run happened, only the
+  // comparison was refused -- so `latest` is now that run, scored by the new
+  // keys. The next run therefore names the old receipt outright.
+  const allowed = await runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'after2', '--compare', before.result.receiptFile,
+    '--allow-set-change', '--fail-on-regression'], { now: '2026-02-03T00:00:00.000Z' });
+  assert.equal(allowed.exitCode, 0);
+  assert.equal(allowed.comparison.set_changed, true);
+  const byId = Object.fromEntries(allowed.comparison.questions.map(row => [row.question_id, row]));
+  assert.equal(byId.q1.state, 'key_changed');
+  assert.equal(byId.q2.state, 'compared', 'the untouched question is still comparable');
+});
+
+// ------------------------------------------------------ latest: order, status
+test('every receipt name carries a suffix, so a same-second collision cannot sort before the first one', async () => {
+  const est = estate();
+  writeAnswer(est.answersDir, 'q1', '납기는 2026-02-13, 담당은 김예시. 1월 9일.');
+  const one = await runAnswerEval({ questionsFile: est.questionsFile, answersDir: est.answersDir,
+    receiptsDir: est.receiptsDir, label: 'one', now: NOW });
+  const two = await runAnswerEval({ questionsFile: est.questionsFile, answersDir: est.answersDir,
+    receiptsDir: est.receiptsDir, label: 'two', now: NOW });
+  const names = readdirSync(est.receiptsDir).sort();
+  assert.deepEqual(names, ['20260201T000000-000.json', '20260201T000000-001.json']);
+  assert.equal(names.some(name => name.includes('.writing')), false);
+  // Lexicographic name order and real order agree, and `latest` picks the second.
+  assert.equal(latestReceipt(est.receiptsDir).file, two.receiptFile);
+  assert.equal(latestReceipt(est.receiptsDir, { exclude: two.receiptFile }).file, one.receiptFile);
+  assert.equal(JSON.parse(readFileSync(one.receiptFile, 'utf8')).label, 'one');
+});
+
+test('latest orders by started_at, not by the filename stamp, when the two disagree', () => {
+  const dir = path.join(tmp('ae-order-'), 'receipts');
+  const base = { schema_version: ANSWER_EVAL_RECEIPT_SCHEMA, status: 'OK', results: [], totals: {} };
+  // Same second in the name, sub-second apart in the receipt, written in the
+  // order that makes filename-only sorting get it wrong.
+  writeReceipt(dir, { ...base, label: 'later', started_at: '2026-02-01T00:00:00.900Z' });
+  writeReceipt(dir, { ...base, label: 'earlier', started_at: '2026-02-01T00:00:00.100Z' });
+  assert.equal(latestReceipt(dir).receipt.label, 'later');
+});
+
+test('latest skips a receipt that is not OK, and says which it skipped and which it chose', async () => {
+  const est = estate();
+  const bot = fakeBot(est.root);
+  writeAnswer(est.answersDir, 'q1', '납기는 2026-02-13, 담당은 김예시. 1월 9일.');
+  writeAnswer(est.answersDir, 'q2', 'EX-1 과 EX-15, 추적기.');
+  const good = await runAnswerEval({ questionsFile: est.questionsFile, answersDir: est.answersDir,
+    receiptsDir: est.receiptsDir, label: 'good', now: '2026-02-01T00:00:00.000Z' });
+  // A run where the bot failed everything: a receipt full of zeroes.
+  const broken = await runAnswerEval({ questionsFile: est.questionsFile,
+    askCommandFile: askCommandFile(est.root, bot, 'exit-nonzero'), receiptsDir: est.receiptsDir,
+    label: 'broken', now: '2026-02-02T00:00:00.000Z' });
+  assert.equal(broken.receipt.status, 'ASK_FAILED');
+  const found = latestReceipt(est.receiptsDir);
+  assert.equal(found.file, good.receiptFile, 'an ASK_FAILED run must never become the baseline');
+  assert.deepEqual(found.skipped.map(row => row.why), ['status_ask_failed']);
+
+  // And through the CLI, both facts are printed.
+  const next = await runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'next', '--compare', 'latest', '--fail-on-regression'],
+  { now: '2026-02-03T00:00:00.000Z' });
+  assert.equal(next.exitCode, 0, 'comparing against the good run is not a regression');
+  assert.ok(next.lines.some(line => line.startsWith('compare: skipped') && line.includes('status_ask_failed')));
+  assert.ok(next.lines.some(line => line.startsWith('compare: baseline') && line.includes('label good')));
+});
+
+test('a directory with nothing usable in it reports that rather than comparing against noise', async () => {
+  const est = estate();
+  writeAnswer(est.answersDir, 'q1', '납기는 2026-02-13, 담당은 김예시. 1월 9일.');
+  mkdirSync(est.receiptsDir, { recursive: true });
+  writeFileSync(path.join(est.receiptsDir, '20260101T000000-000.json'), '{ not json');
+  const run = await runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--compare', 'latest'], { now: NOW });
+  assert.equal(run.exitCode, 0);
+  assert.equal(run.comparison, null);
+  assert.ok(run.lines.some(line => line.includes('(unreadable)')));
+  assert.ok(run.lines.includes('compare: no usable earlier receipt in this directory'));
+});
+
+// ------------------------------------------------------------- child tree
+test('a non-zero exit that still wrote an answer keeps the answer and records the exit code', async () => {
+  const est = estate();
+  const ask = askCommandFile(est.root, fakeBot(est.root), 'exit-with-answer');
+  const { result, exitCode } = await runAnswerEvalCli(['--questions', est.questionsFile,
+    '--ask-command', ask, '--receipts', est.receiptsDir], { now: NOW });
+  const row = rowOf(result.receipt, 'q1');
+  assert.equal(row.outcome, 'answered', 'a valid answer is not thrown away over an exit code');
+  assert.equal(row.found.share, 1);
+  assert.equal(row.exit_code, 9);
+  assert.equal(row.flags.ask_command_nonzero_exit, true);
+  assert.equal(result.receipt.totals.nonzero_exit, 2);
+  assert.equal(exitCode, 0);
+  assert.ok(renderTable(result.receipt).join('\n').includes('exit:9'));
+});
+
+test('a child killed by something other than this harness is a signal, not a timeout', async () => {
+  const est = estate();
+  const ask = askCommandFile(est.root, fakeBot(est.root), 'ok', 60);
+  const { result, exitCode } = await runAnswerEvalCli(['--questions', est.questionsFile,
+    '--ask-command', ask, '--receipts', est.receiptsDir],
+  { now: NOW, spawner: stubSpawner({ code: null, signal: 'SIGTERM' }) });
+  assert.equal(rowOf(result.receipt, 'q1').reason, 'ask_command_signal');
+  assert.equal(rowOf(result.receipt, 'q1').outcome, 'failed');
+  assert.equal(exitCode, 4);
+});
+
+test('killProcessTree names the mechanism it used and degrades instead of throwing', () => {
+  assert.equal(killProcessTree(null), 'no_pid');
+  assert.equal(killProcessTree({ pid: 0 }), 'no_pid');
+  // A pid far outside any real range: every tree mechanism fails, and the
+  // direct kill is the fallback -- reported as `direct`, never thrown.
+  let directCalls = 0;
+  const stub = { pid: 2 ** 30, kill: () => { directCalls += 1; return true; } };
+  assert.equal(killProcessTree(stub, { platform: 'win32', env: { SystemRoot: tmp('ae-nosys-') } }), 'direct');
+  assert.equal(killProcessTree(stub, { platform: 'linux', env: {} }), 'direct');
+  assert.equal(directCalls, 2);
+});
+
+test('a timeout kills the grandchild too, so an orphan cannot hold the one model slot', async () => {
+  const est = estate();
+  const bot = fakeBot(est.root);
+  const grandchild = path.join(est.root, 'grandchild.mjs');
+  const marker = path.join(est.root, 'grandchild-ran.txt');
+  // Sleeps well past the timeout, then leaves a marker. If the tree kill
+  // works, this file never appears.
+  //
+  // What this proves depends on the host, and that is worth writing down.
+  // On POSIX -- where CI runs -- a killed parent leaves its children alone, so
+  // the marker is a real control: without the process-group kill it appears.
+  // On Windows it is weaker: libuv already places a non-detached child in a
+  // job object that closes with it, so the grandchild dies either way
+  // (measured on the Windows host this was written on: with no kill at all
+  // the marker appears; with a direct-child-only kill it does not). `taskkill
+  // /T` still earns its place there for a bot that is a launcher script
+  // rather than a Node child -- but this assertion is not what proves that,
+  // and the mechanism test above is.
+  writeFileSync(grandchild, `import { writeFileSync } from 'node:fs';
+setTimeout(() => writeFileSync(process.argv[2], 'orphan survived'), 2500);
+`);
+  const ask = path.join(est.root, 'ask-tree.json');
+  writeFileSync(ask, JSON.stringify({ schema: ANSWER_EVAL_ASK_COMMAND_SCHEMA,
+    argv: [process.execPath, bot, '--mode', 'spawn-grandchild', '--grandchild', grandchild, '--marker', marker,
+      '--prompt-file', '{prompt_file}', '--answer-file', '{answer_file}'],
+    timeout_seconds: 0.5, env: [] }));
+  const { result } = await runAnswerEvalCli(['--questions', est.questionsFile, '--ask-command', ask,
+    '--receipts', est.receiptsDir, '--only', 'q1'], { now: NOW });
+  assert.equal(rowOf(result.receipt, 'q1').reason, 'ask_command_timeout');
+  await new Promise(resolve => setTimeout(resolve, 4000));
+  assert.equal(existsSync(marker), false, 'the grandchild outlived the tree kill');
+});
+
+test('a spawn that cannot start at all is a named failure, not a crash', async () => {
+  const est = estate();
+  const ask = path.join(est.root, 'ask-missing.json');
+  writeFileSync(ask, JSON.stringify({ schema: ANSWER_EVAL_ASK_COMMAND_SCHEMA,
+    argv: [path.join(est.root, 'no-such-executable'), '--prompt-file', '{prompt_file}', '--answer-file', '{answer_file}'],
+    timeout_seconds: 10, env: [] }));
+  const { result, exitCode } = await runAnswerEvalCli(['--questions', est.questionsFile,
+    '--ask-command', ask, '--receipts', est.receiptsDir, '--only', 'q1'], { now: NOW });
+  assert.equal(rowOf(result.receipt, 'q1').reason, 'ask_command_spawn_failed');
+  assert.equal(exitCode, 4);
 });
