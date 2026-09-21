@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 신설: 과제별 메일 라우팅 규칙·관리 대장 CSV 엔진
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 오늘 두 scratch 스크립트(`gen_mail_rules_20260921.mjs`,
+  `gen_mgmt_ledgers_20260921.mjs`, repo 밖 handoff 경로)가 실제로 만들어 낸 과제별
+  021 메일 라우팅 규칙(json+md 쌍)과 023·027 관리 대장 CSV 4종을 새 정본 모듈
+  `guild_hall/workspace_ledgers/`로 제품화했다. `src/classifier.mjs`(순수 규칙
+  컴파일·분류, `yields_to` null/단일객체/배열 정규화 포함), `src/mail_events.mjs`(custody
+  JSONL 읽기+분류, 본문·첨부 바이트는 절대 반환하지 않음), `src/ledgers.mjs`(CSV 빌더 4종,
+  담당자 병합 규칙), `src/rule_store.mjs`(규칙 버전관리: never-overwrite+history
+  create-only+lineage), `src/refresh.mjs`(REFRESH 의미론: Owner 기입 열 키 보존+변경 시에만
+  history 보관+영수증), `src/index.mjs`(외부 콘솔/UI adapter용 단일 진입점:
+  `listProjects`/`readRule`/`previewRule`/`saveRuleVersion`/`refresh`), `cli.mjs`(refresh·
+  preview-rule·save-rule 세 서브커맨드). 합성 example(`P00-001_예시과제`,
+  `example.com`)만 tracked, 실제 project code·조직명·사람 이름은 어디에도 없다.
+  `npm run validate:workspace-ledgers`를 추가하고 `guild_hall/validate/run_root_acceptance.mjs`의
+  `validate`/`done-check` 두 단계 목록에 같은 스텝을 연결했다.
+- 운영 영향: 이 커밋은 라이브러리·CLI만 추가했고 아직 아무 예약작업·nightly 체인에도
+  연결하지 않았다(README의 "Not yet wired" 절). 실제 D: 대상면(`<TARGET_SOULFORGE_ROOT>/_workspaces`,
+  `<private_root>/ingress/mailbox/...`)에 대해서는 `--dry` 읽기 전용 비교만
+  수행했고 아무 파일도 쓰지 않았다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`, `package.json`,
+  `guild_hall/validate/run_root_acceptance.mjs`,
+  `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`.
+- 검증: `npm run validate:workspace-ledgers`(39 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 그리고 실제 대상면에 대한 `--dry` 비교 실행(쓰기 없음).
+
 ## 2026-09-21 - 과제별 관리 폴더(021·023·027) 규칙 문서화 + SE 프로젝트 폴더명 규칙
 
 - Revision: 이 항목을 포함한 커밋.

@@ -1,0 +1,220 @@
+import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { test } from 'node:test';
+import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
+import {
+  isMachineActor, listProjects, readRule, RuleStoreError, saveRuleVersion, validateRule,
+} from '../src/rule_store.mjs';
+
+const CODE = 'P00-001';
+const FOLDER = 'P00-001_예시과제';
+const RULE_DIR = '020_MGMT/021_자동화설정_운영규칙';
+
+function baseRuleJson(version = 'v1') {
+  return {
+    schema_version: RULE_SCHEMA_VERSION, project_code: CODE, folder_name: FOLDER, rule_version: version,
+    status: 'draft_open_items', match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [{ label: 'P00-001', kind: 'literal', value: 'P00-001' }, { label: '예시장비', kind: 'literal', value: '예시장비' }],
+    hint: [{ label: '예시', kind: 'literal', value: '예시' }], yields_to: null,
+    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+    human_text: 'mail_routing_rule.md', generated_at: '2026-09-21T00:00:00.000Z',
+  };
+}
+
+const BASE_MD = [
+  '# 메일 라우팅 규칙 — P00-001',
+  '',
+  '- 상태: 초안 v1',
+  '',
+  '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)',
+  '',
+  '- `P00-001`',
+  '',
+  '## Owner 확인 기록',
+  '',
+  '- 예시 결정 A',
+  '- 예시 결정 B',
+  '',
+  '## Owner 확인이 필요한 것',
+  '',
+  '- 예시 미결 항목',
+  '',
+].join('\n');
+
+function makeFixture() {
+  const root = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-rule-store-'));
+  const workspacesRoot = path.join(root, '_workspaces');
+  const workmetaRoot = path.join(root, '_workmeta');
+  const ruleDir = path.join(workspacesRoot, FOLDER, RULE_DIR);
+  mkdirSync(ruleDir, { recursive: true });
+  writeFileSync(path.join(ruleDir, 'mail_routing_rule.json'), `${JSON.stringify(baseRuleJson(), null, 2)}\n`);
+  writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), BASE_MD);
+  // a folder with no rule json must not be listed
+  mkdirSync(path.join(workspacesRoot, 'P00-002_규칙없음', '020_MGMT'), { recursive: true });
+  return { root, workspacesRoot, workmetaRoot, ruleDir };
+}
+
+test('listProjects: finds folders with a 021 rule json, skips folders without one', () => {
+  const { root, workspacesRoot } = makeFixture();
+  try {
+    const projects = listProjects({ workspacesRoot });
+    assert.deepEqual(projects.map(p => p.project_code), ['P00-001']);
+    assert.equal(projects[0].folder_name, FOLDER);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('readRule: returns parsed json, md text and sha256 digests', () => {
+  const { root, workspacesRoot } = makeFixture();
+  try {
+    const rule = readRule({ workspacesRoot, code: CODE });
+    assert.equal(rule.json.rule_version, 'v1');
+    assert.equal(rule.md, BASE_MD);
+    assert.match(rule.sha256_json, /^sha256:[0-9a-f]{64}$/u);
+    assert.match(rule.sha256_md, /^sha256:[0-9a-f]{64}$/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('validateRule: accepts a well-formed draft, rejects schema/version/policy problems', () => {
+  const good = validateRule(baseRuleJson(), { folderName: FOLDER });
+  assert.equal(good.valid, true);
+
+  const badSchema = validateRule({ ...baseRuleJson(), schema_version: 'wrong' }, { folderName: FOLDER });
+  assert.equal(badSchema.valid, false);
+  assert.ok(badSchema.errors.includes('workspace_ledgers_rule_schema_mismatch'));
+
+  const badFolder = validateRule({ ...baseRuleJson(), folder_name: 'X99-999_다른과제' }, { folderName: FOLDER });
+  assert.equal(badFolder.valid, false);
+
+  const badVersion = validateRule({ ...baseRuleJson(), rule_version: 'draft' }, { folderName: FOLDER });
+  assert.equal(badVersion.valid, false);
+  assert.ok(badVersion.errors.includes('workspace_ledgers_rule_version_format'));
+
+  const noExact = validateRule({ ...baseRuleJson(), exact: [] }, { folderName: FOLDER });
+  assert.equal(noExact.valid, false);
+});
+
+test('isMachineActor: flags the actor: convention, accepts a plain human name', () => {
+  assert.equal(isMachineActor('actor:context-engine:voice-card-reconcile-v0'), true);
+  assert.equal(isMachineActor('ACTOR:something'), true);
+  assert.equal(isMachineActor(''), true);
+  assert.equal(isMachineActor(undefined), true);
+  assert.equal(isMachineActor('홍길동'), false);
+});
+
+test('saveRuleVersion: archives previous pair, bumps version, carries decisions/open-items forward, appends note', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const draft = { ...baseRuleJson(), exact: [...baseRuleJson().exact, { label: '새트리거', kind: 'literal', value: '새트리거' }] };
+    const result = saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft, by: '홍길동', note: '새 트리거 추가', now: '2026-09-22T00:00:00.000Z' });
+    assert.equal(result.previous_version, 'v1');
+    assert.equal(result.rule_version, 'v2');
+
+    const historyJson = path.join(ruleDir, 'history', 'mail_routing_rule.v1.json');
+    const historyMd = path.join(ruleDir, 'history', 'mail_routing_rule.v1.md');
+    assert.equal(existsSync(historyJson), true);
+    assert.equal(existsSync(historyMd), true);
+    assert.equal(JSON.parse(readFileSync(historyJson, 'utf8')).rule_version, 'v1');
+    assert.equal(readFileSync(historyMd, 'utf8'), BASE_MD);
+
+    const newJson = JSON.parse(readFileSync(path.join(ruleDir, 'mail_routing_rule.json'), 'utf8'));
+    assert.equal(newJson.rule_version, 'v2');
+    assert.ok(newJson.exact.some(term => term.label === '새트리거'));
+
+    const newMd = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(newMd, /예시 결정 A/u); // carried decisions
+    assert.match(newMd, /예시 결정 B/u);
+    assert.match(newMd, /예시 미결 항목/u); // carried open items
+    assert.match(newMd, /새 트리거 추가/u); // new note appended
+    assert.match(newMd, /홍길동/u);
+
+    const jsonLineage = JSON.parse(readFileSync(path.join(workmetaRoot, FOLDER, 'lineage', 'mail_routing_rule.json.lineage.json'), 'utf8'));
+    assert.equal(jsonLineage.rule_version, 'v2');
+    assert.equal(jsonLineage.previous_rule_version, 'v1');
+    assert.match(jsonLineage.previous_sha256, /^sha256:[0-9a-f]{64}$/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: refuses a machine actor', () => {
+  const { root, workspacesRoot, workmetaRoot } = makeFixture();
+  try {
+    assert.throws(() => saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(),
+      by: 'actor:context-engine:voice-card-reconcile-v0', note: 'x',
+    }), error => error instanceof RuleStoreError && error.code === 'workspace_ledgers_actor_not_human');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: never overwrites an existing history pair', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    mkdirSync(path.join(ruleDir, 'history'), { recursive: true });
+    writeFileSync(path.join(ruleDir, 'history', 'mail_routing_rule.v1.json'), 'pre-existing');
+    assert.throws(() => saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x',
+    }), error => error instanceof RuleStoreError && error.code === 'workspace_ledgers_rule_history_collision');
+    // the canonical file must be untouched -- still v1
+    const stillV1 = JSON.parse(readFileSync(path.join(ruleDir, 'mail_routing_rule.json'), 'utf8'));
+    assert.equal(stillV1.rule_version, 'v1');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('readRule: normalises a legacy single-object yields_to on disk into an array', () => {
+  const { root, workspacesRoot, ruleDir } = makeFixture();
+  try {
+    const legacy = { ...baseRuleJson(), yields_to: { project_code: 'P00-999', when: { label: 'LEGACY', kind: 'literal', value: 'legacy' } } };
+    writeFileSync(path.join(ruleDir, 'mail_routing_rule.json'), `${JSON.stringify(legacy, null, 2)}\n`);
+    const rule = readRule({ workspacesRoot, code: CODE });
+    assert.deepEqual(rule.json.yields_to, [{ project_code: 'P00-999', when: { label: 'LEGACY', kind: 'literal', value: 'legacy' } }]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: always writes the array form of yields_to and renders one 넘김 line per entry', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const draft = {
+      ...baseRuleJson(),
+      yields_to: [
+        { project_code: 'P00-010', when: { label: 'HANDOVER-A', kind: 'literal', value: '핸드오버A' } },
+        { project_code: 'P00-011', when: { label: 'HANDOVER-B', kind: 'literal', value: '핸드오버B' } },
+      ],
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft, by: '홍길동', note: '넘김 추가', now: '2026-09-22T00:00:00.000Z' });
+    const newJson = JSON.parse(readFileSync(path.join(ruleDir, 'mail_routing_rule.json'), 'utf8'));
+    assert.equal(Array.isArray(newJson.yields_to), true);
+    assert.equal(newJson.yields_to.length, 2);
+    const newMd = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(newMd, /넘김: 같은 메일에 `HANDOVER-A`이 있으면 이 과제가 아니라 `P00-010`로 본다\./u);
+    assert.match(newMd, /넘김: 같은 메일에 `HANDOVER-B`이 있으면 이 과제가 아니라 `P00-011`로 본다\./u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: also normalises a legacy single-object draft yields_to into an array on write', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const draft = { ...baseRuleJson(), yields_to: { project_code: 'P00-010', when: { label: 'HANDOVER-A', kind: 'literal', value: '핸드오버A' } } };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft, by: '홍길동', note: '레거시 넘김', now: '2026-09-22T00:00:00.000Z' });
+    const newJson = JSON.parse(readFileSync(path.join(ruleDir, 'mail_routing_rule.json'), 'utf8'));
+    assert.deepEqual(newJson.yields_to, [{ project_code: 'P00-010', when: { label: 'HANDOVER-A', kind: 'literal', value: '핸드오버A' } }]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: lock held by a fresh lock refuses; a stale lock is reclaimed', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const lockFile = path.join(ruleDir, 'rule_save.lock');
+    writeFileSync(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-09-22T00:00:00.000Z' }));
+    assert.throws(() => saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', now: '2026-09-22T00:01:00.000Z',
+    }), error => error instanceof RuleStoreError && error.code === 'workspace_ledgers_lock_held');
+
+    // a lock far older than the stale window is reclaimed and the save proceeds
+    writeFileSync(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-01-01T00:00:00.000Z' }));
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', now: '2026-09-22T00:01:00.000Z',
+    });
+    assert.equal(result.rule_version, 'v2');
+    assert.equal(existsSync(lockFile), false); // released after the save completes
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
