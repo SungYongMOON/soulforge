@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { hintCodes, MATCH_FIELDS } from './classifier.mjs';
 import { listProjects } from './rule_store.mjs';
 import { decodeCsv, encodeCsv, normalizeSubject } from './ledgers.mjs';
 import { classifyAllCommonMail } from './common_refresh.mjs';
@@ -186,6 +187,26 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
       body_preview: buildBodyPreview(mail.body_text, bodyPreviewChars),
       same_thread_routing: routing,
       vendors: projectResult.vendors.map(vendor => vendor.name),
+      // 2026-09-22 (bot-wrapper addition): the project codes `classifyProjectHits`
+      // already computed as CANDIDATES for this mail but did not attribute to it --
+      // a two-project subject collision (step 1's hold) or several projects' terms in
+      // the body (step 4's ambiguity). Additive: every field above keeps its name and
+      // meaning, so an existing caller is unaffected. Always an array (`[]` when the
+      // classifier found none), never `null`, so a caller can iterate unconditionally.
+      candidates: [...projectResult.candidates],
+      // 2026-09-22 (bot-wrapper addition): `classifier.mjs`'s own review-only signal --
+      // projects whose HINT terms matched this mail while their exact terms did not.
+      // Never attribution (that is exactly what `hintCodes`' own doc says it is not);
+      // it is the "maybe look here" list a reader wants before opening a mail, and the
+      // one thing the classification pass computes that a triage caller could not
+      // otherwise see. Run over the SAME compiled rule set this pass classified with,
+      // and over all three fields -- subject-only (K1) constrains step 1's LEDGER
+      // PLACEMENT, not a review hint, and a hint term appearing in the body or an
+      // attachment name is precisely what a reader is looking for here.
+      hint_codes: hintCodes(
+        { subject: mail.subject, body_text: mail.body_text, attachment_names: mail.attachment_names },
+        pass.compiledRules, { fields: MATCH_FIELDS },
+      ),
     };
   });
   return { total: unclassified.length, items, owner_table_failures: pass.ownerTableFailures };
@@ -195,10 +216,20 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
 // "read, project still undetermined"; '과제없음' is kept accepted too (a row already
 // written under the old name, or a caller that has not switched yet) -- both resolve
 // to the same bucket (`common_classifier.mjs`'s `resolveReadingDecision`).
-const EXCLUDE_FIXED_TARGETS = new Set(['광고', '알림', '테스트', '일반업무', '과제없음', '과제미정', '사내행정']);
-const EXCLUDE_PREFIXES = ['일반업무:', '과제코드대기:', '과제외:'];
+// Exported (2026-09-22, bot-wrapper addition) so a caller that has to OFFER these
+// tokens -- rather than merely have one validated after the fact -- enumerates them
+// FROM this module instead of copying the list into its own source, where the two
+// would drift the first time a token changes here. `ops/bot_triage.mjs` is the one
+// such caller today: a local model picks an exclude category from a fixed menu, and
+// that menu has to be this set.
+export const EXCLUDE_FIXED_TARGETS = new Set(['광고', '알림', '테스트', '일반업무', '과제없음', '과제미정', '사내행정']);
+// The superseded spelling of 과제미정 (A2 item 2's rename): still ACCEPTED below, so a
+// row written before the rename keeps working, but named separately so a caller
+// building a menu of what to WRITE NOW can leave it out.
+export const EXCLUDE_LEGACY_TARGETS = new Set(['과제없음']);
+export const EXCLUDE_PREFIXES = Object.freeze(['일반업무:', '과제코드대기:', '과제외:']);
 
-function isAllowedExcludeTarget(target) {
+export function isAllowedExcludeTarget(target) {
   const trimmed = String(target ?? '').trim();
   if (EXCLUDE_FIXED_TARGETS.has(trimmed)) return true;
   return EXCLUDE_PREFIXES.some(prefix => trimmed.startsWith(prefix) && trimmed.length > prefix.length);

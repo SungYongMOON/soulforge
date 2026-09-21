@@ -314,7 +314,12 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   }
 
   return {
-    orgConfig, commonConfig, ourDomain, ruleFailures, ownerTableFailures: owner.failures, ownerTablesUsed,
+    // `compiledRules` (2026-09-22, additive): every onboarded project's compiled rule
+    // this pass actually used. Returned so a read-only caller (`triage.mjs`) can run
+    // this codebase's own review-only primitive (`classifier.mjs`'s `hintCodes`) over
+    // the SAME rule set this classification used, rather than compiling a second,
+    // possibly-divergent set of its own. No existing field changed.
+    orgConfig, commonConfig, compiledRules, ourDomain, ruleFailures, ownerTableFailures: owner.failures, ownerTablesUsed,
     unreadableDirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
     scanned: hiworks.scanned + gmail.scanned, duplicatesDropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
     idCollisionsKept: (hiworks.idCollisionsKept ?? 0) + (gmail.idCollisionsKept ?? 0),

@@ -1,7 +1,7 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "workspace-ledgers-v1",
-  "description": "v1 (2026-09-22): the daily unattended runner for guild_hall/workspace_ledgers (ops/daily_refresh.mjs, calling refresh() then refreshCommon() from one org config -- see the module README's \"매일 갱신 lane\" section) plus its scheduled-task registrar and hidden launcher (ops/register-workspace-ledgers-task.ps1, ops/run-workspace-ledgers-hidden.vbs). Import closure walked from ops/daily_refresh.mjs and cli.mjs: every relative import in guild_hall/workspace_ledgers/src/*.mjs and guild_hall/workspace_ledgers/ops/daily_refresh.mjs resolves to another file inside guild_hall/workspace_ledgers/ itself (confirmed by grep over every `from './...'`/`from '../...'` import line in src/, ops/ and cli.mjs -- none reaches outside the module; the only imports outside that are node: builtins). tracked_paths is therefore the whole module directory, wholesale, the same shape context-read-v5/graph-sync-v1 use for guild_hall/context_engine/ -- there is no carried_forward_prefixes entry because nothing here needs node_modules or any other untracked closure. This spec bump registers no task and builds no lane by itself.",
+  "lane_id": "workspace-ledgers-v2",
+  "description": "v2 (2026-09-22): the lane now also carries the bot-facing 판독 wrapper (ops/bot_triage.mjs -- a fixed, config-pinned list/show/decide surface a local chat bot is given INSTEAD of cli.mjs's free-argument `triage` subcommands, so the reader identity, the tables and the daily budget are pinned by this lane rather than asserted by the model) and its skill template plus installer (ops/bot-skill/SKILL.md, ops/bot-skill/install_skill.mjs). Import closure walked again from the two new .mjs entry points: ops/bot_triage.mjs imports only ../src/{ledgers,owner_tables,refresh,rule_store,triage}.mjs -- every one already inside this module -- plus node: builtins, and ops/bot-skill/install_skill.mjs imports node: builtins only, so tracked_paths needed no new entries (the whole-module prefix below already carries both new files and the skill folder). entry_points gains the three new files so a built lane's Resolve-CanonicalFile can find them; every v1 entry point below is kept unchanged. This bump registers no task, installs no skill into any bot profile and builds no lane by itself -- rendering the skill into a profile directory and enabling it there is a separate Owner action. v1 (2026-09-22): the daily unattended runner for guild_hall/workspace_ledgers (ops/daily_refresh.mjs, calling refresh() then refreshCommon() from one org config -- see the module README's \"매일 갱신 lane\" section) plus its scheduled-task registrar and hidden launcher (ops/register-workspace-ledgers-task.ps1, ops/run-workspace-ledgers-hidden.vbs). Import closure walked from ops/daily_refresh.mjs and cli.mjs: every relative import in guild_hall/workspace_ledgers/src/*.mjs and guild_hall/workspace_ledgers/ops/daily_refresh.mjs resolves to another file inside guild_hall/workspace_ledgers/ itself (confirmed by grep over every `from './...'`/`from '../...'` import line in src/, ops/ and cli.mjs -- none reaches outside the module; the only imports outside that are node: builtins). tracked_paths is therefore the whole module directory, wholesale, the same shape context-read-v5/graph-sync-v1 use for guild_hall/context_engine/ -- there is no carried_forward_prefixes entry because nothing here needs node_modules or any other untracked closure. This spec bump registers no task and builds no lane by itself.",
   "tracked_paths": [
     "guild_hall/workspace_ledgers/"
   ],
@@ -13,6 +13,9 @@
     "guild_hall/workspace_ledgers/cli.mjs",
     "guild_hall/workspace_ledgers/ops/daily_refresh.mjs",
     "guild_hall/workspace_ledgers/ops/register-workspace-ledgers-task.ps1",
-    "guild_hall/workspace_ledgers/ops/run-workspace-ledgers-hidden.vbs"
+    "guild_hall/workspace_ledgers/ops/run-workspace-ledgers-hidden.vbs",
+    "guild_hall/workspace_ledgers/ops/bot_triage.mjs",
+    "guild_hall/workspace_ledgers/ops/bot-skill/SKILL.md",
+    "guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs"
   ]
 }

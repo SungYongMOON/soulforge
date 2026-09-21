@@ -1,5 +1,64 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구: 설정 고정 wrapper(`ops/bot_triage.mjs`)+봇 스킬 템플릿·설치기+lane `workspace-ledgers-v2`
+
+- 무엇이 바뀌었는가: 미분류 메일 대기줄을 **로컬 챗봇**이 처리할 수 있는 좁은 표면
+  `guild_hall/workspace_ledgers/ops/bot_triage.mjs`를 더했다. 기존 `cli.mjs triage
+  list|decide`는 `--reader`·`--human-actors`·`--workspaces-root`·`--reading-table`을 자유
+  인자로 받고 다섯 판정 수준을 모두 허용하므로, 모델에게 그대로 주면 모델이 자기 정체·대상
+  표·귀속 강도를 스스로 주장하게 된다(모듈 README: reader는 호출자가 주장하는 값이며 lane
+  wrapper가 고정해야 한다). 새 wrapper는 명령을 `list`/`show`/`decide` 셋으로 닫고, 정체와
+  경로와 한도를 digest로 고정된 설정 파일 하나
+  (`soulforge.workspace_ledgers_bot_triage_config.v1`)에서만 읽는다. 울타리: 판독자 이름은
+  설정의 `reader_label` 고정이며 덮어쓸 flag가 아예 없다(명령별 허용 flag 목록이 닫혀 있어
+  `--reader` 같은 인자는 무시가 아니라 거부), `include`는 전용 코드로 거부(AI의 긍정 귀속은
+  `include_with_review`까지), `--target`은 언제나 닫힌 목록(등재 과제 코드 하나·모듈 자신의
+  고정 분류 토큰·그 메일에 이미 잡힌 거래처 이름)에서만, `--why` 필수·한 줄·200자,
+  대기줄에 없는 메일은 거부(재판정 구조적 차단), 하루 한도는 자신의 영수증에서 서울 날짜로
+  계수, Owner 표 적재 실패는 라이브러리 코드 그대로 올려 거부. 출력에는 주소 지역부를 지우는
+  통과가 걸려 있어 이름과 도메인까지만 나간다. 호출마다 영수증 하나
+  (`soulforge.workspace_ledgers_bot_triage_receipt.v1`)를 원자적으로 쓰되 제목·본문·주소·
+  호스트 경로는 담지 않는다(자유 문자열일 수 있는 거래처 target은 짧은 해시로). 끝값은
+  0 기록·2 거부·4 설정/digest 문제(시작도 못 함, 영수증도 안 씀)다. 정정 명령은 **의도적으로
+  없다** -- Owner가 고치라고 하면 봇은 적용할 줄만 답으로 돌려주고 아무것도 쓰지 않는다
+  (`Owner확인` 칸과 모든 정정은 사람 전용). 봇용 스킬 템플릿
+  `ops/bot-skill/SKILL.md`(한국어, 자리표시자 `<lane>`·`<config>`·`<config sha256>`·
+  `<guideline>`, 분류 원칙 요약과 Owner 지침 문서 선독 지시, 합성 메일 예시 3건)와 설치기
+  `ops/bot-skill/install_skill.mjs`(`--out`로 받은 폴더에 렌더, 쓴 것의 sha256 출력, `--check`
+  드리프트 비교)를 `guild_hall/context_engine/ops/hermes-skill`의 방식대로 더했다 -- 다만
+  설치본 안에 시각을 넣지 않아 렌더가 (템플릿 바이트, 인자)의 순수 함수가 되고 `--check`가
+  정확한 바이트 비교가 된다. source lane 명세를 `workspace-ledgers-v2`로 올려(import closure
+  재확인: 새 두 `.mjs`는 모듈 안과 `node:` 기본 모듈만 읽어 `tracked_paths` 변화 없음) 새 세
+  파일을 진입점에 더했고, lane 모양 import 시험이 빌드한 lane에서 `bot_triage.mjs`까지
+  import하고 합성 자료로 `list`+`decide`를 실행한다. 라이브러리 변경은 둘 다 가산이다 --
+  `src/triage.mjs`가 `EXCLUDE_FIXED_TARGETS`/`EXCLUDE_LEGACY_TARGETS`/`EXCLUDE_PREFIXES`/
+  `isAllowedExcludeTarget`를 내보내(분류 메뉴를 복제하지 않고 모듈에서 읽게 하고),
+  `listUnclassified` 항목에 검토 전용 신호 둘 -- `candidates`(분류기 자신의 모호성 후보)와
+  `hint_codes`(`classifier.mjs`의 `hintCodes`, 힌트어만 맞고 정확어는 안 맞은 과제) -- 을
+  더했다(둘 다 귀속이 아니다). 후자를 위해 `classifyAllCommonMail`이 이번 pass가 실제로 쓴
+  `compiledRules`를 함께 돌려준다 -- 호출자가 규칙을 따로 컴파일해 갈라지지 않게. 기존
+  export의 이름·모양·뜻은 그대로다.
+- 검증: 새 시험 두 벌(`tests/bot_triage.test.mjs` 16건, `tests/bot_skill_install.test.mjs`
+  7건)을 `validate:workspace-ledgers`에 물렸다 -- 울타리 전수(include 거부·분류 이름 거부·
+  없는 과제 코드 거부·이유 누락·판정된 메일 거부·한도 도달·추가 인자로도 판독자 못 바꿈·
+  Owner 표 실패 거부·설정 digest 불일치는 끝값 4에 아무것도 안 씀), `list`/`show` 출력에
+  전체 주소가 없고 상한이 지켜짐, 영수증을 고정 문자열로 훑어 제목·본문·주소·호스트 경로가
+  없음, `decide`가 `Owner확인` 빈 칸과 고정 판독자로 한 줄만 붙이고 이력을 보관하며 같은
+  호출을 두 번째로 거부함, 설치기 자리표시자 치환과 `--check`.
+- 운영 영향: 없음 -- 이 변경은 아무것도 설치하지 않고 등록하지 않는다. 봇 프로필에 스킬을
+  넣고 켜는 것, 설정 파일과 지침 문서를 실제 경로에 두는 것, 예약작업을 거는 것은 모두
+  Owner의 행위로 이 변경 밖에 있다. 운영 lane은 재빌드 전까지 이전 판본 그대로다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/bot_triage.mjs`(신규),
+  `guild_hall/workspace_ledgers/ops/bot-skill/SKILL.md`(신규),
+  `guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs`(신규),
+  `guild_hall/workspace_ledgers/tests/bot_triage.test.mjs`(신규),
+  `guild_hall/workspace_ledgers/tests/bot_skill_install.test.mjs`(신규),
+  `guild_hall/workspace_ledgers/src/triage.mjs`, `guild_hall/workspace_ledgers/src/index.mjs`,
+  `guild_hall/workspace_ledgers/README.md`,
+  `guild_hall/workspace_ledgers/tests/daily_refresh_lane.test.mjs`,
+  `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`, `package.json`,
+  `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 매일 갱신 lane 두 번째 신선한 눈 검토 반영: 쓸 수 없는 --receipts 사전 거부(R-1)+lock rename 누수·자가치유(S-1)·not_started 구분(S-2)+nit 3건
 
 - Revision: 직전 커밋(첫 신선한 눈 검토 반영)에 대한 재검토 -- probe로 R1-R4·S1-S6·nit 전부 재확인 통과, 새

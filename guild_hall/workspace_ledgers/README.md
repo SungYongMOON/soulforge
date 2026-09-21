@@ -1754,6 +1754,127 @@ file is never reported `held` here when a real run would in fact reclaim it. A
 classifying dry run (would this rule compile, would this custody read) is `cli.mjs
 refresh --dry` / `common-refresh --dry`, run by hand against the same inputs.
 
+## 봇 판독 도구 (`ops/bot_triage.mjs`, `ops/bot-skill/`)
+
+미분류 대기줄을 **로컬 챗봇**이 직접 처리할 수 있게 하는, 고정된 좁은 표면이다. `cli.mjs
+triage list|decide`가 이미 있는데 따로 만든 이유는 하나다 -- 그 CLI는 `--reader`,
+`--human-actors`, `--workspaces-root`, `--reading-table`을 **자유 인자**로 받고 다섯 판정
+수준을 전부 허용한다. 그대로 모델에게 주면 모델이 자기가 누구인지, 어느 표에 쓰는지, 자기
+귀속이 얼마나 강한지를 스스로 주장하게 된다. 이 모듈의 판독 API 문서가 말하는 "reader는
+호출자가 주장하는 값이며 lane wrapper가 고정해야 한다"의 그 wrapper가 이 파일이다.
+
+명령은 셋뿐이고, 정체·경로·한도는 **digest로 고정된 설정 파일 하나**에서만 온다.
+
+| 명령 | 하는 일 | 쓰기 |
+| --- | --- | --- |
+| `list [--limit N]` | 미분류 대기줄 한 줄씩 (id·수신일·보낸이 이름+도메인·제목·첨부 이름·후보 과제·거래처) -- `후보`는 모듈이 이미 계산한 **검토용** 신호 둘(분류기의 `candidates`와 `hintCodes`)의 합집합이며 귀속이 아니다 | 영수증만 |
+| `show --id <id> [--max-chars N]` | 그 메일의 머리와 본문(상한 있음) | 영수증만 |
+| `decide --id <id> --level <판정> --target <값> --why "<이유>"` | `appendReadingDecision`으로 판독표에 **한 줄** | 판독표 한 줄 + 영수증 |
+
+`correct`는 **없다.** Owner가 판정을 고치라고 하면 봇은 표를 다시 쓰지 않고, 적용할 줄을
+그대로 답으로 돌려주고 아무것도 기록하지 않는다(`Owner확인` 칸과 모든 정정은 사람 전용).
+`correct`를 부르면 그 이유를 적은 거부로 멈춘다.
+
+### 울타리 (모델이 아니라 wrapper가 지킨다)
+
+- **판독자 이름은 설정의 `reader_label` 고정.** 덮어쓸 flag가 없다 -- 명령마다 허용 flag
+  목록이 닫혀 있어 `--reader`/`--human-actors`/`--workspaces-root` 같은 인자는 조용히
+  무시되는 것이 아니라 **거부**된다(`..._unknown_flag`). `humanActors`도 설정 값 고정이다.
+- **`include` 금지.** 이 wrapper가 쓰는 판정은 `include_with_review`·`exclude`·
+  `vendor_only`·`hold_owner_review` 넷뿐이고, `include`는 전용 코드로 거부한다(라이브러리의
+  `humanActors` 검사보다 한 걸음 앞에서, 권한 오류가 아니라 지시로 돌려주기 위해).
+- **`--target`은 언제나 닫힌 목록에서 온다.** `include_with_review`는 현재 등재된 과제 코드
+  **하나**(`A;B` 공유는 사람 몫이라 거부), `exclude`는 모듈 자신의 고정 분류 토큰
+  (`triage.mjs`의 `EXCLUDE_FIXED_TARGETS`에서 그대로 읽어 오고, 옛 표기 `과제없음`은 새로
+  쓰지 않으므로 메뉴에서 뺀다 -- `일반업무:<세부>` 같은 자유 문자열 접두 형식도 제외),
+  `vendor_only`는 **그 메일에 이미 잡힌 거래처 이름**, `hold_owner_review`는 비우거나 실재
+  과제 코드 하나.
+- **`--why` 필수**, 한 줄, 200자 상한.
+- **대기줄에 있는 메일만.** 이미 판정된 메일은 대기줄에 없으므로 재판정이 구조적으로 막힌다
+  (라이브러리의 중복 거부에 닿기 전에 여기서 멈춘다). 이미 쓸 수 없는 판정줄이 있는 메일
+  (`already_decided_invalid`)도 거부하고 사람에게 넘긴다.
+- **하루 한도.** 설정의 `daily_decision_cap`을, 이 wrapper 자신의 영수증에서 서울 날짜로
+  센다(성공한 기록만 센다 -- 거부가 예산을 깎으면 잘못된 반복 한 번으로 그날 하루가 막힌다).
+- **Owner 표가 깨져 있으면 거부.** `allowDegradedOwnerTables`를 절대 넘기지 않으므로
+  라이브러리의 `workspace_ledgers_triage_owner_table_failures`가 그대로 올라온다.
+- **주소는 도메인까지만.** 출력 전체에 지역부(`@` 앞)를 지우는 한 번의 통과가 걸려 있어
+  제목·첨부 이름·본문에 섞인 주소까지 같이 지워진다.
+
+호출마다 작은 영수증 하나(`soulforge.workspace_ledgers_bot_triage_receipt.v1`)가
+`receipts_dir`에 원자적으로 쓰인다. 담는 것은 명령·메일 id·판정·분류 어휘·결과 코드·계수뿐,
+**제목·본문·주소·호스트 경로는 담지 않는다.** 자유 문자열일 수 있는 `vendor_only`의 target은
+값 대신 짧은 해시로 남긴다. 끝값은 `0` 기록함, `2` 거부됨(울타리 또는 라이브러리 거부),
+`4` 설정·digest 문제로 **시작도 못 함**(영수증조차 쓰지 않는다).
+
+### 설정 스키마 `soulforge.workspace_ledgers_bot_triage_config.v1`
+
+```json
+{
+  "schema_version": "soulforge.workspace_ledgers_bot_triage_config.v1",
+  "workspaces_root": "<workspaces_root>",
+  "org_config": "<control_root>/workspace-ledgers/org_config.json",
+  "org_config_sha256": "sha256:<64자리>",
+  "custody": {
+    "hiworks_events": ["<control_root>/ingress/hiworks"],
+    "gmail_sent_events": ["<control_root>/ingress/gmail_sent"]
+  },
+  "reading_table": null,
+  "receipts_dir": "<control_root>/receipts/workspace-ledgers-bot-triage",
+  "reader_label": "<bot_profile>",
+  "human_actors": ["<owner_name>"],
+  "daily_decision_cap": 20,
+  "list_limit_cap": 10
+}
+```
+
+- `org_config`는 `org_config_sha256`으로 고정된다 -- 어긋나면 끝값 4, 아무것도 안 쓴다.
+- `reading_table`이 `null`이면 그 org config의 `common_ledgers.owner_tables.reading`에서
+  푼다. 어느 쪽이든 **한 번만 풀어** 대기줄 읽기와 판독표 쓰기에 같은 경로를 쓴다 -- 목록을
+  만든 표와 판정이 들어가는 표가 갈라지는 일이 없다(모듈의 "hard operating rule"을 이
+  wrapper에 적용한 것).
+- `reader_label`은 판독표의 `판독자` 칸에 그대로 들어가는 표시 이름이다.
+- `list_limit_cap`은 `--limit`의 상한이다(요청이 더 커도 상한이 이긴다).
+
+### lane v2 빌드
+
+lane 명세는 `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`이고,
+이번 변경으로 `workspace-ledgers-v2`가 됐다(v1의 네 진입점은 그대로, 여기에
+`ops/bot_triage.mjs`·`ops/bot-skill/SKILL.md`·`ops/bot-skill/install_skill.mjs`가 더해졌다).
+import closure는 다시 걸었다 -- 새 두 `.mjs`는 이 모듈 안(`src/*.mjs`)과 `node:` 기본
+모듈만 읽으므로 `tracked_paths`는 그대로 모듈 통째다.
+
+```
+node guild_hall/deployment_pack/tools/build_source_lane.mjs --spec guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json --out <lane_root> --repo <repo_root>
+node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <lane_root>
+```
+
+빌드는 **깨끗한 커밋**을 요구한다(`tests/daily_refresh_lane.test.mjs`의 마지막 시험이 같은
+일을 자동으로 하고, 작업 트리가 더러우면 스스로 건너뛴다 -- 그 시험은 빌드한 lane에서
+`bot_triage.mjs list`와 `decide` 한 번까지 합성 자료로 돌려 본다).
+
+### 설치본 스킬 폴더 만들기
+
+`ops/bot-skill/SKILL.md`는 **템플릿**이다. `<lane>`·`<config>`·`<config sha256>`·
+`<guideline>` 자리표시자를 설치 시점에 채운다.
+
+```
+node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --lane <lane_root> --config <control_root>/workspace-ledgers/bot_triage.config.json --config-sha256 sha256:<64자리> --guideline <workspaces_root>/<공통폴더>/020_MGMT/021_자동화설정_운영규칙/메일_내용판독_분류지침.md --out <설치할 스킬 폴더> --receipt <control_root>/receipts/bot-skill-install.json
+```
+
+렌더는 (템플릿 바이트, 인자)만의 순수 함수다 -- 파일 안에 시각을 넣지 않으므로 같은 입력은
+언제나 같은 바이트가 되고, 그래서 드리프트 점검이 정확한 바이트 비교로 가능하다.
+
+```
+node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --check --lane <lane_root> --config <설정 파일> --config-sha256 sha256:<64자리> --guideline <지침 문서> --out <설치된 스킬 폴더>
+```
+
+끝값은 `0` 같다, `3` 달라졌다(또는 설치본이 없다), `2` 인자·템플릿 문제다. 두 모드 다 쓴
+것의 sha256을 JSON 영수증으로 찍는다.
+
+**설치와 활성화는 이 변경 밖이다.** 렌더된 `SKILL.md`를 실제 봇 프로필(`<bot_profile>`)에
+넣고 그 프로필에서 켜는 것, 설정 파일과 지침 문서를 실제 경로에 두는 것, 예약작업을 거는
+것은 전부 **Owner의 행위**다. 이 변경은 어떤 것도 설치하지 않고 등록하지 않는다.
+
 ## Not yet wired (계획)
 
 - Attribution into the project document/index store is **planned**, not implemented
@@ -1793,3 +1914,19 @@ existing name and argument shape):** `refreshCommon`/`classifyAllCommonMail`/
 `context-read` lane's tool bundle in Step 3) that needs the common-folder pipeline
 directly rather than through the CLI. See "Common-folder (P00-000) classification and
 the triage API (Step 1)" above.
+
+**2026-09-22 (봇 판독 도구) additions, both additive:** `src/index.mjs` also re-exports
+`EXCLUDE_FIXED_TARGETS`/`EXCLUDE_LEGACY_TARGETS`/`EXCLUDE_PREFIXES`/
+`isAllowedExcludeTarget` (`src/triage.mjs`), so a caller that must OFFER a menu of
+exclude categories reads the vocabulary from this module rather than copying the
+tokens into its own source; and `listUnclassified`'s items gained two review-only
+arrays -- `candidates` (the project codes `classifyProjectHits` computed as candidates
+for a mail it did not attribute: a two-project subject collision, or several projects'
+terms in the body) and `hint_codes` (`classifier.mjs`'s own `hintCodes` -- projects
+whose HINT terms matched while their exact terms did not, run over the same compiled
+rule set the pass classified with, which `classifyAllCommonMail` now also returns as
+`compiledRules`). **Neither is attribution** -- both are "maybe read this project"
+signals for a human/AI reader, exactly what `hintCodes`' own doc says it is for. A
+hint term only matches inside the fields that rule's OWN `match_fields` declares, so a
+subject-only rule contributes a subject-only hint. No existing export changed name,
+shape or meaning. See "봇 판독 도구" above.

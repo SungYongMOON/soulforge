@@ -166,4 +166,12 @@ export {
 } from './common_ledgers.mjs';
 export { loadOwnerTables, OwnerTableConfigError, READING_LEVELS, resolveOwnerTablePaths } from './owner_tables.mjs';
 export { classifyAllCommonMail, CommonRefreshError, refreshCommon } from './common_refresh.mjs';
-export { appendReadingDecision, listUnclassified, TriageError } from './triage.mjs';
+// 2026-09-22 (bot-wrapper addition): the exclude-target vocabulary is exported so a
+// wrapper that OFFERS a fixed menu of categories to a local model reads it from here
+// rather than copying the tokens into its own source. `listUnclassified`'s items also
+// gained an additive `candidates` array (the classifier's own candidate project codes
+// for a mail it did not attribute) -- no existing field changed.
+export {
+  appendReadingDecision, EXCLUDE_FIXED_TARGETS, EXCLUDE_LEGACY_TARGETS, EXCLUDE_PREFIXES,
+  isAllowedExcludeTarget, listUnclassified, TriageError,
+} from './triage.mjs';
