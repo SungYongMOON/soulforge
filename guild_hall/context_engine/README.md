@@ -1,5 +1,74 @@
 # Context Engine
 
+## 대화 목록 외부 agent-step 하네스 — backlog 전용 (0.22.8)
+
+Owner가 기록한 일회성 예외: 오래된 backlog 세션은 로컬 모델 대신 **외부 agent**(코디네이터가 운영하는
+Claude Opus sub-agent)가 답한다. `harness/voice_conversation_list_cli.mjs`의 `runConversationList`는
+평소대로 그대로다 — 이 harness는 그 함수에 새 `chatFor`/`pinFor`를 주입해 부르는 **새 파일**
+(`harness/voice_conversation_list_agent_step.mjs`)이며, 기존 CLI·야간 lane·파이프라인 runtime 코드는
+한 글자도 바뀌지 않았다. 기존 CLI·야간 lane은 원래도 `agent_step` transport를 거부한다
+(`src/adapters/local_model/ollama_chat.mjs`의 `validateChatBinding`이 `ollama`/`openai_chat`만 안다) —
+이 조각은 그 위에 우회로를 뚫은 게 아니라, `createLocalChat`을 아예 부르지 않는 별도 경로를 하나 더 낸
+것이고, 그 거부가 실제로 일어남을 시험으로 확인했다(`tests/voice_conversation_list_agent_step.test.mjs`).
+
+장수명 프로세스도 폴링도 없다. 매 호출은 디스크의 캐시를 그대로 재생하고, 아직 아무도 답하지 않은 첫
+질문에서 멈춰 그 질문 하나를 `<run dir>/pending/<key>.request.json`에 쓴 뒤 파이프라인이 이미 아는
+"예산 소진" 상태를 돌려준다 — 그래서 이번 pass는 실패로 표시되지 않고 깨끗이 끝난다. 외부 agent는
+`answer`로 모델의 JSON을 파이프라인 자신의 답 캐시(`makeAsk`가 읽는 바로 그 자리·모양)에 직접 써 넣을
+뿐이라, 캐싱·예산·검증 어느 것도 이 harness가 다시 구현하지 않는다.
+
+- **`plan --from <YYYY-MM-DD> --to <YYYY-MM-DD> [--order oldest|newest] [--limit N] [--json]`** — 그
+  날짜 범위의 세션마다 분류를 매긴다(읽기 전용, 아무것도 쓰지 않는다): `skipped_short`(30초 미만),
+  `transcript_absent`, `skipped_existing`(**어느 모델·설정으로 만들었든** 검증된 run이 이미 있으면),
+  `failed`(세션 manifest를 못 읽음), 나머지는 `todo`. 세션 발견·분류는 야간 lane의
+  `classifySession`을 그대로 재사용하되 `configSha256`/`promptDigests`를 둘 다 `null`로 넘긴다 — 그러면
+  `staleReasonFor`의 모델/설정/프롬프트 대조가 전혀 걸리지 않아 "어느 pin으로 만들었든 검증된 run이면
+  skip"이 된다. 이것은 야간 lane 자신의 기본 동작(pin이 바뀌면 `existing_run_stale:<field>`로 다시
+  돎)과 **의도적으로 다르다** — backlog의 목적은 오래된 세션마다 검증된 카드 하나를 한 번 만드는
+  것이지, 어떤 설정으로 다음에 답하든 최신으로 유지하는 것이 아니다.
+- **`step --session <id> [--with-system]`** — 캐시 hit는 그대로 재생하고, 첫 miss에서 pending 요청
+  하나만 쓴다(`asked` 플래그로, 같은 pass의 이후 모든 호출은 다시 쓰지 않고 `budget_exhausted`만
+  돌려준다 — 로컬 모델이 예산 소진 뒤에 하는 것과 정확히 같은 모양). stdout:
+  `STATUS=need_answer KEY=<key> STEP=<step> PROMPT=<prompt_name> PROMPT_SHA256=<hex>
+  SCHEMA_FILE=<path> REQUEST_FILE=<path>` 다음 줄에 `user` 본문만(`--with-system`을 주면 `system`도
+  같이). 끝났으면 `STATUS=done RUN_ID=<id> VERIFIED=<true|false> CONVERSATIONS=<n>
+  LLM_ANSWERS=<n>`. exit: `10` 답 필요, `0` 완료+검증됨, `2` 완료+미검증 또는 그 밖의 실패, `3` lock
+  보유 중, `4` 인자/설정 오류. 세션당 lock 파일(`<derived_root>/voice/<session>/agent_step.lock`)이
+  같은 세션을 두 agent가 동시에 stepping하는 것을 막는다 — 30분 넘은 lock은 버려진 것으로 보고
+  회수한다.
+- **`answer --session <id> --key <key> (--file <json file> | --stdin)`** — 그 pending 요청이 실어온
+  JSON Schema(subset: object/required/additionalProperties:false/properties, array/items, string,
+  integer, boolean, enum, `["string","null"]` 같은 type 배열)로 직접 짠 작은 엄격 검사기로 대조한다.
+  통과하면 `makeAsk`가 읽는 바로 그 형식·자리(`<run dir>/cache/<step>/<key>.json`)에 쓰고 pending 요청을
+  지운 뒤 `STATUS=accepted` exit 0. 실패하면(모르는 키·이미 답한 키·`\n`/`\t` 밖의 제어문자·200KB
+  초과·스키마 불일치 전부) `STATUS=rejected REASON=<...>` exit 5이며 pending 요청은 그대로 남는다 —
+  답 내용을 절대 실행·해석하지 않는다(구조 검사뿐).
+- **`status --session <id>`** — 대기 중인 요청과 현재 run의 완료 상태를 보여준다.
+
+**정직한 출처**: 파이프라인 설정은 이 경로에서 `model: { model: "<별칭>", transport: "agent_step" }`을
+호스트 없이 준다(전송할 host가 없으므로). 자체 `pinFor`는 `{ digest: null,
+pin_kind: 'external_agent_unpinned', alias }`만 돌려준다 — 갖지 않은 가중치 다이제스트를 주장하지
+않는다. `run_manifest.json`/`conversation_list.v0.json`은 그래서 로컬 모델이 만든 run과 매니페스트만
+보고 구분할 수 있다. 설정은 `model.transport !== 'agent_step'`이거나 명시적 Owner 예외 블록
+(`offhost_transcripts: { allowed: true, decided_by, decided_at: "YYYY-MM-DD", scope }`)이 없거나
+`allowed`가 `true`가 아니면 그 자리에서 exit 4로 거부한다 — 로컬 파이프라인은 원래 전사 원문의 host
+밖 반출을 금지하며, 이 harness는 그 기록된 예외 아래에서만 존재한다. `prompts_dir`가 상대경로면 이
+harness 자신의 파일 위치에서 3단계 위(dev checkout이든 빌드된 lane이든 둘 다 그 지점이 저장소/lane
+루트다)를 기준으로 푼다 — 절대경로는 그대로 쓴다.
+
+시험: `tests/voice_conversation_list_agent_step.test.mjs`(16건, 전부 통과) — 한 답씩 몰아가는 전 과정
+(boundary·nature·correction 세 질문, 정확히), 재실행 시 같은 pending key로의 결정성, 거부된 답 뒤
+재개, 중복·모르는 키 거부, 스키마 검사기의 다섯 규칙, 제어문자 거부, 200KB 초과 거부, lock 보유·stale
+회수, transport/예외 블록 거부 두 가지, 상대 `prompts_dir` 해석, **기존 CLI와 야간 lane 경로 둘 다
+`agent_step`을 실제로 거부함**(코드 변경 없이), `plan`의 `skipped_existing`(다른 설정으로 만든 run도
+포함)·`transcript_absent`/`skipped_short` 분리·정렬·상한, 그리고 실 subprocess로 몬 `answer --stdin`을
+통한 따옴표·줄바꿈 섞인 한글 답의 바이트 그대로 왕복. `npm run validate:context-engine`에 들어 있다.
+lane spec `context_read_lane.spec.json`은 `context-read-v6`로 올렸다 — 새 harness가 이미 통째로 추적되는
+`guild_hall/context_engine/` 아래에 있고 그 import closure가 기존 tracked_paths만으로 이미 덮이므로
+(`spec_closure_lib.mjs`의 `moduleClosure()`로 직접 확인) tracked_paths 추가는 없고, entry_points에만
+한 줄이 늘었다. 이 lane 전용 `emit_*_spec.mjs` 생성기는 애초에 없어(hpp/team-client/backup-recovery와
+달리) v2~v5와 같은 방식으로 손으로 유지했다.
+
 ## 답변 평가 하네스 v0
 
 2026-09-20에 황금 질문 3개를 두 모델에 손으로 돌려 하루를 쓰고, 답을 산문으로 비교하고, 점수 칸은

@@ -158,6 +158,50 @@
   `guild_hall/context_engine/README.md`,
   `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`, `package.json`
 
+## 2026-09-22 - 대화 목록 파이프라인용 외부 agent-step 하네스 추가(backlog 전용, lane v6)
+
+- Revision: Owner가 기록한 일회성 예외 -- 오래된 backlog 세션의 대화 목록은 로컬 모델 대신
+  외부 agent(코디네이터가 운영하는 Claude Opus sub-agent)가 답한다. 이 경로를 새 harness
+  파일 하나로 얹었다.
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_agent_step.mjs`
+  (신규)가 `plan`/`step`/`answer`/`status` 네 명령을 낸다. `step`은 캐시 hit는 재생하고 첫
+  miss에서 `pending/<key>.request.json` 하나만 쓴 뒤 파이프라인이 이미 아는 "예산 소진"
+  상태로 깨끗이 멈춘다(exit 10). `answer`는 그 요청의 JSON Schema를 손으로 짠 작은 엄격
+  검사기로 대조해 `makeAsk`가 읽는 바로 그 캐시 자리·모양에 쓴다(exit 0 accepted, exit 5
+  rejected -- 모르는 키·이미 답한 키·`\n`/`\t` 밖 제어문자·200KB 초과·스키마 불일치 전부).
+  `plan`은 날짜 범위의 세션을 야간 lane의 `classifySession`으로 분류하되
+  `configSha256`/`promptDigests`를 둘 다 `null`로 넘겨 "어느 모델·설정으로 만들었든 검증된
+  run이면 skip"으로 일부러 야간 lane의 기본 동작(pin이 바뀌면 다시 돎)과 다르게 만든다.
+  자체 `pinFor`는 `{ digest: null, pin_kind: 'external_agent_unpinned', alias }`만 돌려줘
+  갖지 않은 가중치 다이제스트를 주장하지 않으며, 설정은 `model.transport === 'agent_step'`과
+  명시적 Owner 예외 블록(`offhost_transcripts: { allowed: true, decided_by, decided_at,
+  scope }`)이 둘 다 있어야만 통과한다(exit 4). `prompts_dir` 상대경로는 이 파일 자신의 위치
+  3단계 위(dev checkout이든 빌드된 lane이든 같은 지점)를 기준으로 푼다.
+  `harness/voice_conversation_list_cli.mjs`·`harness/voice_conversation_list_nightly.mjs`·
+  `src/runtime/voice_conversation_list.mjs`는 한 글자도 바뀌지 않았다 -- 기존 CLI와 야간
+  lane은 원래도 `agent_step` transport를 거부하며(`ollama_chat.mjs`의 `validateChatBinding`이
+  `ollama`/`openai_chat`만 안다), 이번에 그 거부가 실제로 일어남을 시험으로 확인했을 뿐이다.
+- 검증: `tests/voice_conversation_list_agent_step.test.mjs` 신규 16건, 전부 통과(한 답씩
+  몰아가는 전 과정, 결정성, 거부 뒤 재개, 중복·모르는 키 거부, 스키마 검사기 다섯 규칙,
+  제어문자·200KB 초과 거부, lock 보유·stale 회수, transport·예외 블록 거부, 상대
+  `prompts_dir` 해석, 기존 CLI·야간 lane 경로가 `agent_step`을 실제로 거부함, `plan`의
+  `skipped_existing`/`transcript_absent`/`skipped_short`/정렬·상한, 실 subprocess로 몬
+  `answer --stdin`의 한글·따옴표·줄바꿈 바이트 그대로 왕복). `npm run validate:context-engine`
+  759건 중 751 통과·8 skip·0 실패(끝값 0, 이 신규 16건 포함) -- `verify_module.mjs`의
+  runtime-closure 대조까지 포함하며 drift 없음(harness는 애초에 그 closure 밖, `src/app.mjs`
+  에서 닿지 않는다), 그래서 `module.manifest.json`의 `module_version`은 올리지 않았다.
+  `validate:context-original-read`·`validate:source-lane`·`validate:module-operability`·
+  `validate:path-policy:all`·`validate:canon`·`validate:display-terms`·
+  `node guild_hall/validate/boot_digest_guard.mjs` 모두 끝값 0. lane을 임시 디렉터리에 새로
+  빌드하고 `--verify`까지 통과(커밋 뒤 갱신).
+- 운영 영향: 없음 -- 새 harness 파일 하나와 시험·문서·lane 명세만 늘었다. 실제로 이 harness로
+  backlog를 돌리는 것, 그 결과를 외부 agent가 답하게 코디네이터를 붙이는 것은 모두 Owner/
+  코디네이터의 행위이며 이 변경 밖이다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_agent_step.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_agent_step.test.mjs`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`, `package.json`,
+  `guild_hall/context_engine/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 첫 실사용 후속 수정: 수신일/판독일 서울 날짜(lane v3)·꼬리말 정정(SKILL 0.1.1)
 
 - Revision: 봇 판독 도구의 첫 실사용(라이브 시험) 뒤에 드러난 겉보기 결함 3건. 모두 분류
