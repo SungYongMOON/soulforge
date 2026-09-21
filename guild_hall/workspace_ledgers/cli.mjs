@@ -32,10 +32,14 @@
 // casual/automated logging. `preview-rule` accepts an optional `--org-config` so its
 // counts use the same `system_sender_domains` skip list a real `refresh` against that
 // config would (fresh-review-3 #6); omitted, only the built-in default list applies.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 import { MATCH_FIELDS } from './src/classifier.mjs';
 import { previewRule, refresh, RefreshError } from './src/refresh.mjs';
 import { RuleStoreError, saveRuleVersion } from './src/rule_store.mjs';
+import { classifyAllCommonMail, CommonRefreshError, refreshCommon } from './src/common_refresh.mjs';
+import { decodeCsv } from './src/ledgers.mjs';
+import { appendReadingDecision, listUnclassified, TriageError } from './src/triage.mjs';
 
 function parseArgs(argv) {
   const flags = new Map();
@@ -184,13 +188,170 @@ function runSaveRule(flags) {
   }
 }
 
+// --------------------------------------------------------------------------------
+// Step 1 additions: common-refresh (org-wide/common-folder ledgers), parity (real-
+// plane read-only comparison), and the "triage" (판독) API's CLI surface (spec
+// section 7). `refresh`/`preview-rule`/`save-rule` above are untouched.
+
+function commonTablesFromFlags(flags) {
+  const get = name => (typeof flags.get(name) === 'string' ? flags.get(name) : null);
+  return {
+    bundleTablePath: get('bundle-table'), vendorTablePath: get('vendor-table'),
+    readingTablePath: get('reading-table'), workTagTablePath: get('work-tag-table'),
+  };
+}
+
+function runCommonRefresh(flags) {
+  const workspacesRoot = requireFlag(flags, 'workspaces-root');
+  const workmetaRoot = requireFlag(flags, 'workmeta-root');
+  const hiworksEvents = requireFlag(flags, 'hiworks-events');
+  const gmailSentEvents = requireFlag(flags, 'gmail-sent-events');
+  const orgConfigPath = requireFlag(flags, 'org-config');
+  const receiptsDir = requireFlag(flags, 'receipts');
+  if (!workspacesRoot || !workmetaRoot || !hiworksEvents || !gmailSentEvents || !orgConfigPath || !receiptsDir) return;
+  const dry = flags.get('dry') === true || flags.get('dry') === 'true';
+  const allowEmptyRaw = flags.get('allow-empty');
+  if (allowEmptyRaw === true) { usageError('--allow-empty requires a comma-separated ledger-file-name list'); return; }
+  const allowEmpty = typeof allowEmptyRaw === 'string' ? allowEmptyRaw.split(',').map(item => item.trim()).filter(Boolean) : [];
+  try {
+    const receipt = refreshCommon({
+      workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], orgConfigPath,
+      ...commonTablesFromFlags(flags), dry, receiptsDir, allowEmpty,
+    });
+    console.log(JSON.stringify(receipt));
+    if (receipt.status === 'failed') process.exitCode = 2;
+  } catch (error) {
+    console.error(`workspace_ledgers_common_refresh_failed: ${error.code ?? error.message}`);
+    process.exitCode = error instanceof CommonRefreshError ? 3 : 3;
+  }
+}
+
+/** Row count of a real ledger CSV at `filePath`, or `null` when the file does not exist -- never thrown, so a still-unwritten bucket file reads as "no real data yet" rather than a parity-check crash. */
+function realRowCount(filePath) {
+  let text;
+  try { text = readFileSync(filePath, 'utf8'); } catch { return null; }
+  return decodeCsv(text).rows.length;
+}
+
+/** Sums every 거래처_*.csv row whose 과제 cell is exactly "거래처만" or starts with "거래처만(" -- there is no single dedicated file for this bucket (spec: 거래처 장부에만 둔다), so parity for it means counting across every vendor ledger. */
+function realVendorOnlyCount(baseDir) {
+  let names;
+  try { names = readdirSync(baseDir).filter(name => /^거래처_.*\.csv$/u.test(name)); } catch { return null; }
+  let total = 0;
+  let anyFound = false;
+  for (const name of names) {
+    let text;
+    try { text = readFileSync(path.join(baseDir, name), 'utf8'); } catch { continue; }
+    anyFound = true;
+    const { headers, rows } = decodeCsv(text);
+    const projectIndex = headers.indexOf('과제');
+    if (projectIndex === -1) continue;
+    for (const row of rows) {
+      const cell = String(row[projectIndex] ?? '');
+      if (cell === '거래처만' || cell.startsWith('거래처만(')) total += 1;
+    }
+  }
+  return anyFound ? total : null;
+}
+
+function runParity(flags) {
+  const workspacesRoot = requireFlag(flags, 'workspaces-root');
+  const hiworksEvents = requireFlag(flags, 'hiworks-events');
+  const gmailSentEvents = requireFlag(flags, 'gmail-sent-events');
+  const orgConfigPath = requireFlag(flags, 'org-config');
+  if (!workspacesRoot || !hiworksEvents || !gmailSentEvents || !orgConfigPath) return;
+  try {
+    const pass = classifyAllCommonMail({
+      workspacesRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], orgConfigPath, ...commonTablesFromFlags(flags),
+    });
+    const { commonFolderName } = pass.commonConfig;
+    const commonBase = path.join(workspacesRoot, commonFolderName, '020_MGMT/027_수신이력_이동이력');
+    const generalWorkBase = path.join(workspacesRoot, pass.commonConfig.generalWorkFolderName, '020_MGMT/027_수신이력_이동이력');
+    const real = {
+      unclassified: realRowCount(path.join(commonBase, '미분류.csv')),
+      code_pending: realRowCount(path.join(commonBase, '과제코드대기.csv')),
+      no_code_confirmed: realRowCount(path.join(commonBase, '과제없음_확인함.csv')),
+      general_work: realRowCount(path.join(generalWorkBase, '일반업무_메일.csv')),
+      vendor_only: realVendorOnlyCount(commonBase),
+    };
+    const comparison = Object.fromEntries(Object.entries(real).map(([bucket, realCount]) => [
+      bucket, { module: pass.bucketTally[bucket], real: realCount, diff: realCount === null ? null : pass.bucketTally[bucket] - realCount },
+    ]));
+    console.log(JSON.stringify({
+      total_mails: pass.totalMails, scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped,
+      bucket_counts: pass.bucketTally, real_plane_comparison: comparison,
+      rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures, unreadable_dirs: pass.unreadableDirs,
+    }));
+  } catch (error) {
+    console.error(`workspace_ledgers_parity_failed: ${error.code ?? error.message}`);
+    process.exitCode = error instanceof CommonRefreshError ? 3 : 3;
+  }
+}
+
+function runTriageList(flags) {
+  const workspacesRoot = requireFlag(flags, 'workspaces-root');
+  const hiworksEvents = requireFlag(flags, 'hiworks-events');
+  const gmailSentEvents = requireFlag(flags, 'gmail-sent-events');
+  const orgConfigPath = requireFlag(flags, 'org-config');
+  if (!workspacesRoot || !hiworksEvents || !gmailSentEvents || !orgConfigPath) return;
+  const limitRaw = flags.get('limit');
+  const limit = typeof limitRaw === 'string' ? Number(limitRaw) : undefined;
+  const asJson = flags.get('json') === true || flags.get('json') === 'true';
+  try {
+    const result = listUnclassified({
+      workspacesRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], orgConfigPath,
+      ...commonTablesFromFlags(flags), ...(limit !== undefined ? { limit } : {}),
+    });
+    // `list`'s default output carries subject/names (spec section 7) -- printed to
+    // stdout only, never written to a receipts/log file by this command.
+    if (asJson) { console.log(JSON.stringify(result)); return; }
+    console.log(`총 미분류 ${result.total}건, ${result.items.length}건 표시`);
+    for (const item of result.items) {
+      console.log(`- ${item.mail_source_id} ${item.received_at} ${item.subject} | ${item.from?.name ?? item.from?.email ?? ''}`);
+    }
+  } catch (error) {
+    console.error(`workspace_ledgers_triage_list_failed: ${error.code ?? error.message}`);
+    process.exitCode = 3;
+  }
+}
+
+function runTriageDecide(flags) {
+  const workspacesRoot = requireFlag(flags, 'workspaces-root');
+  const readingTablePath = requireFlag(flags, 'reading-table');
+  const id = requireFlag(flags, 'id');
+  const level = requireFlag(flags, 'level');
+  const why = requireFlag(flags, 'why');
+  const reader = requireFlag(flags, 'reader');
+  if (!workspacesRoot || !readingTablePath || !id || !level || !why || !reader) return;
+  const targetRaw = flags.get('target');
+  const target = typeof targetRaw === 'string' ? targetRaw : '';
+  const lineageRaw = flags.get('lineage');
+  const lineagePath = typeof lineageRaw === 'string' ? lineageRaw : null;
+  try {
+    const result = appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath, id, level, target, why, reader });
+    console.log(JSON.stringify(result));
+  } catch (error) {
+    console.error(`workspace_ledgers_triage_decide_failed: ${error.code ?? error.message}`);
+    process.exitCode = error instanceof TriageError ? exitCodeFor(error.code) : 3;
+  }
+}
+
 function main() {
-  const [command, ...rest] = process.argv.slice(2);
-  const flags = parseArgs(rest);
+  const [command, sub, ...rest] = process.argv.slice(2);
+  if (command === 'triage') {
+    const flags = parseArgs(rest);
+    if (sub === 'list') { runTriageList(flags); return; }
+    if (sub === 'decide') { runTriageDecide(flags); return; }
+    usageError(`unknown "triage" subcommand "${sub ?? ''}" (expected list | decide)`);
+    return;
+  }
+  const flags = parseArgs([sub, ...rest].filter(token => token !== undefined));
   if (command === 'refresh') { runRefresh(flags); return; }
   if (command === 'preview-rule') { runPreviewRule(flags); return; }
   if (command === 'save-rule') { runSaveRule(flags); return; }
-  usageError(`unknown command "${command ?? ''}" (expected refresh | preview-rule | save-rule)`);
+  if (command === 'common-refresh') { runCommonRefresh(flags); return; }
+  if (command === 'parity') { runParity(flags); return; }
+  usageError(`unknown command "${command ?? ''}" (expected refresh | preview-rule | save-rule | common-refresh | parity | triage)`);
 }
 
 main();

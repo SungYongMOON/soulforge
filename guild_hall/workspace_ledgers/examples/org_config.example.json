@@ -12,5 +12,28 @@
   "system_sender_domains": [
     "notifications.example.com",
     "noreply.example.com"
-  ]
+  ],
+  "common_ledgers": {
+    "common_folder_name": "P00-000_공통",
+    "general_work_folder_name": "general_work_일반업무",
+    "knowledge_folder_names": ["knowledge_지식자료"],
+    "system_notification_sources": [
+      { "name": "예시알림원천", "sender_domains": ["notify.vendor.example"], "subject_patterns": ["^\\s*\\[예시알림\\]"] },
+      { "name": "기타알림", "sender_domains": ["accounts.vendor.example"], "subject_patterns": ["(verify|보안 ?알림|로그인|sign-?in)"] }
+    ],
+    "ads_sender_domains": ["marketing.vendor.example", "newsletter.vendor.example"],
+    "ads_sender_keywords": ["marketing", "newsletter", "promo"],
+    "ads_subject_patterns": ["^\\s*(\\(광고\\)|\\[광고\\])"],
+    "agency_notice_sender_domains": ["agency.example"],
+    "internal_admin_subject_patterns": [
+      { "label": "급여", "pattern": "급여명세서|급여|연말정산" },
+      { "label": "근태", "pattern": "근태|연차|휴가" }
+    ],
+    "out_of_project_subject_patterns": [
+      { "label": "구매", "pattern": "발주서|제품 구매 문의" }
+    ],
+    "code_pending_subject_patterns": [
+      { "label": "신규 과제 후보", "pattern": "신규 ?과제 ?후보" }
+    ]
+  }
 }

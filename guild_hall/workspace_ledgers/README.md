@@ -622,6 +622,97 @@ fresh-review-5: there is no cumulative match budget or per-mail match timeout an
 to be a cause), `3` runtime failure (lock held, write failure, or a rule store error
 reached after the arguments were valid).
 
+## Common-folder (P00-000) classification and the triage API (Step 1)
+
+Spec: `docs/architecture/.../handoff/CONTEXT_BASELINE_TEST_2026-09-19/18_WORKSPACE_LEDGERS_PORT_SPEC_2026-09-21.md`
+(private handoff folder, not tracked here) sections 1-7. This is the org-wide
+counterpart to the per-project pipeline above: `refresh()` writes each onboarded
+project's four ledgers; `refreshCommon()` (`src/common_refresh.mjs`) writes everything
+that does NOT resolve to exactly one project.
+
+**Classification order** (`src/common_classifier.mjs`'s `classifyProjectHits`, spec
+section 1): (1) a project's own title rule (two projects' exact triggers on one
+subject means held, never automatic attribution -- reuses `classifier.mjs`'s
+`classifyMail` directly, restricted to `fields: ['subject']`); (2) an Owner-confirmed
+conversation-bundle table (`묶음_확정표.csv`, may name several projects at once,
+공유); (3) a reading-decision table (`판독_결정표.csv`, keyed by mail source id --
+`include`/`include_with_review` attribute, `vendor_only`/`exclude`/`hold_owner_review`
+do not); (4) for a supplier-type vendor only (never a customer/agency/school --
+`거래처_대응표.csv`'s `구분` column), exactly one project's exact term in the mail
+BODY; (5) otherwise undetermined (미정).
+
+**Primary-bucket resolution** (`resolvePrimaryBucket`, spec section 3) then places any
+mail that did not resolve to a project into exactly one of: 시스템 알림 (per-source
+file), 광고 (excluded, no file), 사내행정 (자사 도메인 발신만) / 외부안내,
+과제외_\<분류\>, 과제코드대기, 과제없음_확인함, 일반업무 (separate
+`general_work_일반업무` folder, `일반업무_메일.csv`), 거래처만 (no dedicated file --
+represented only in that vendor's secondary ledger), or 미분류. A held mail
+(step 1's two-project collision) gets its own `보류.csv` -- a deliberate addition over
+the private scratch-script reference (which wrote held mail nowhere), so "sum of every
+primary bucket's count == deduped mail count" is a provable invariant, not merely true
+by omission. Every organisation-specific pattern behind this (system-sender
+domains/subjects, ad domains, agency-notice domains, internal-admin/out-of-project/
+code-pending subject patterns, the common/general-work folder names) comes from the
+org config's `common_ledgers` block (`buildCommonConfig`) -- never hardcoded; see
+`examples/org_config.example.json`.
+
+Vendor (`거래처_<이름>.csv`) and work-tag (`작업_<태그>.csv`, from `[태그]` literally
+in the subject, matched against `작업태그_목록.csv`) ledgers are secondary VIEWS,
+independent of a mail's primary bucket -- the same mail can appear in one primary
+ledger and any number of vendor/work-tag views at once (spec section 3). Every
+common-folder ledger (primary or secondary) gets the exact same Owner-column-preserve/
+fail-closed-validate/create-only-history-archive/atomic-write contract the four
+per-project ledgers get, via `refresh.mjs`'s exported `writeLedgerCsv` -- the preserved
+column is always `메모` (the last column of every common-ledger header shape,
+`src/common_ledgers.mjs`'s `memoIndexFor`).
+
+**Owner tables** (`src/owner_tables.mjs`) are read-only from this module's side (the
+one exception: `판독_결정표.csv`, which `triage.mjs`'s `appendReadingDecision` appends
+to one row at a time). A table that is missing or has zero data rows is skipped (that
+classification step simply contributes nothing); a table with a wrong header or
+CP949/EUC-KR-as-UTF-8 mojibake (`U+FFFD`) fails closed for THAT table only (recorded in
+`loadOwnerTables`'s `failures`), never aborting classification for every other table or
+every other mail.
+
+**The triage ("판독") API** (`src/triage.mjs`, spec section 7): `listUnclassified`
+returns a read-only preview of the 미분류 bucket (mail source id, received date,
+subject, from/to names, attachment names, a signature/quote-stripped body preview
+bounded in length, which bucket every other mail in the same normalised-subject thread
+ended up in, and any matched vendor) for a loopback AI reader (맥락이) or a human to
+read before deciding. `appendReadingDecision` validates `level` (one of `include` /
+`include_with_review` / `exclude` / `vendor_only` / `hold_owner_review`), that an
+`include*` target names only real, currently-onboarded project codes, that an `exclude`
+target is one of the fixed routing tokens `resolvePrimaryBucket` itself recognises,
+and that `why`/`reader` are non-empty -- then refuses a mail id that already has a row
+(correcting one is a person editing the CSV by hand, never this API) and always writes
+`Owner확인` empty (this API can never fill it). Locking reuses `refresh.mjs`'s own
+refresh lock (`acquireRefreshLock`/`releaseRefreshLock`, scoped to `workspacesRoot`),
+so a triage decision, a per-project `refresh()`, and a `refreshCommon()` can never run
+concurrently and race on the same tables/ledgers.
+
+**CLI additions**: `node cli.mjs common-refresh --workspaces-root <dir>
+--workmeta-root <dir> --hiworks-events <dir> --gmail-sent-events <dir> --org-config
+<file> [--bundle-table <file>] [--vendor-table <file>] [--reading-table <file>]
+[--work-tag-table <file>] [--dry] [--allow-empty file1,file2] --receipts <dir>`;
+`node cli.mjs parity --workspaces-root <dir> --hiworks-events <dir>
+--gmail-sent-events <dir> --org-config <file> [tables...]` (read-only: the module's own
+per-primary-bucket dry-run counts vs. the row counts of whichever real ledger CSVs
+already exist on disk, numbers only); `node cli.mjs triage list [--limit N] [--json]`
+and `node cli.mjs triage decide --id <id> --level <level> [--target <codes-or-token>]
+--why <text> --reader <name>` (`triage list`'s default output carries subject/names --
+stdout only, never written to a receipts/log file).
+
+Design decisions where the spec was silent, and known scope limits of this first cut:
+the custody-directory-overlap guard (`refresh.mjs`'s S-4) is not yet ported to
+`refreshCommon`'s path; `거래처_대응표.csv`'s address column header follows spec
+section 2's literal text (`도메인(또는 주소 전체)`) rather than the private
+scratch-script's older `도메인` header, so a real-plane vendor table generated by that
+script fails closed (header mismatch) against this module until it is renamed or
+regenerated -- a coordinator decision, not something this module should silently paper
+over. Step 2 (lane spec, scheduled-task registration, runbook) and Step 3's Hermes
+tool-wiring (`context-read` lane's tool bundle, bot instructions) are untouched per the
+spec's own phasing -- this module exposes the triage API's library/CLI surface only.
+
 ## Byte hygiene (tracked source, not data)
 
 `tests/byte_hygiene.test.mjs` walks every file directly under this module's own
@@ -675,3 +766,14 @@ environment.
 `normalizeYieldsTo`, the CSV builders/encoders and `seoulDateOf` from
 `src/ledgers.mjs`, and `loadMailEvents`/`parseAddressField` from `src/mail_events.mjs`,
 for callers that need them.
+
+**Step 1 additions (all new exports -- every export documented above keeps its
+existing name and argument shape):** `refreshCommon`/`classifyAllCommonMail`/
+`CommonRefreshError` (`src/common_refresh.mjs`), `listUnclassified`/
+`appendReadingDecision`/`TriageError` (`src/triage.mjs`), `loadOwnerTables`/
+`READING_LEVELS` (`src/owner_tables.mjs`), and `buildCommonConfig`/
+`classifyProjectHits`/`resolvePrimaryBucket`/`workTagsOf`/`PRIMARY_BUCKETS`
+(`src/common_classifier.mjs`) for a caller (a future console/UI adapter, or the
+`context-read` lane's tool bundle in Step 3) that needs the common-folder pipeline
+directly rather than through the CLI. See "Common-folder (P00-000) classification and
+the triage API (Step 1)" above.

@@ -591,7 +591,13 @@ function countDuplicateKeys(rows, keyIndex) {
   return count;
 }
 
-function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry,
+// Exported (not just a `refresh()`-internal helper) so `common_refresh.mjs` can write
+// the common-folder/vendor/work-tag/general-work ledgers through the exact same
+// fail-closed-validate + Owner-column-preserve + create-only-history-archive +
+// atomic-write path the four per-project ledgers already use, rather than a second,
+// divergent implementation of the same contract (spec Step 1's "hard rules": every new
+// ledger gets the same Owner-data guarantees as the existing ones).
+export function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry,
   allowEmpty, allowPartialSources = false, alternateKeysOf = null }) {
   // Fresh-review-2 #3 (second half): a broken key source (a synthetic id collision
   // that somehow still occurred, or any future bug) must not silently produce two

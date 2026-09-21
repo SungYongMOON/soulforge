@@ -55,5 +55,20 @@ export { clearCustodyCache, previewRule, refresh, RefreshError } from './refresh
 export {
   classifyMail, compileRule, compileRules, hintCodes, MATCH_FIELDS, normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
 } from './classifier.mjs';
-export { buildContacts, buildHistory, buildReplyStatus, decodeCsv, encodeCsv, LEDGER_SCHEMA, seoulDateOf } from './ledgers.mjs';
+export { buildContacts, buildHistory, buildReplyStatus, decodeCsv, encodeCsv, LEDGER_SCHEMA, normalizeSubject, seoulDateOf } from './ledgers.mjs';
 export { loadMailEvents, parseAddressField } from './mail_events.mjs';
+
+// ---------------------------------------------------------------------------------
+// Step 1 (common-folder / org-wide classification, spec
+// `18_WORKSPACE_LEDGERS_PORT_SPEC_2026-09-21.md` sections 1-7) additions below. These
+// are new exports -- every function above this line keeps its existing name and
+// argument shape unchanged, so the console/UI adapter's existing calls
+// (`listProjects`, `readRule`, `previewRule`, `saveRuleVersion`, `refresh`) are
+// unaffected.
+export { buildCommonConfig, classifyProjectHits, PRIMARY_BUCKETS, resolvePrimaryBucket, workTagsOf } from './common_classifier.mjs';
+export {
+  categoryOf, headersFor as commonLedgerHeadersFor, vendorFileName, whereLabelFor, workTagFileName,
+} from './common_ledgers.mjs';
+export { loadOwnerTables, READING_LEVELS } from './owner_tables.mjs';
+export { classifyAllCommonMail, CommonRefreshError, refreshCommon } from './common_refresh.mjs';
+export { appendReadingDecision, listUnclassified, TriageError } from './triage.mjs';

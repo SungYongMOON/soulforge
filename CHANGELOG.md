@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers`에 공통(P00-000_공통) 분류·판독 API 포팅 (Step 1)
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: `handoff/CONTEXT_BASELINE_TEST_2026-09-19/18_WORKSPACE_LEDGERS_PORT_SPEC_2026-09-21.md`의
+  Step 1(섹션 1-7)을 이 모듈에 포팅했다. 그동안 scratch 생성기(`*_20260921.mjs`,
+  private, 실제 키워드 포함)에만 있던 org-wide 분류 순서와 공통 폴더 장부 생성을
+  모듈 코드로 옮기고, 조직 고유 값(시스템 발신 패턴, 광고·기관 안내 도메인, 사내행정·
+  과제외·과제코드대기 제목 패턴, 공통·일반업무 폴더 이름)은 전부 private org config
+  (`examples/org_config.example.json`의 `common_ledgers` 블록, 자리표시자만)에서
+  읽도록 했다. 새 파일: `src/owner_tables.mjs`(묶음_확정표·판독_결정표·작업태그_목록·
+  거래처_대응표 4종 읽기, fail-closed per table), `src/common_classifier.mjs`(분류
+  순서 1-5단계 + 주 분류 결정), `src/common_events.mjs`(본문을 보존하는 별도 custody
+  로더 -- `mail_events.mjs`의 "본문은 절대 반환하지 않는다" 불변조건을 건드리지
+  않기 위해 분리), `src/common_ledgers.mjs`(공통 장부 CSV 헤더/행 shaping),
+  `src/common_refresh.mjs`(`classifyAllCommonMail` 공유 분류 패스 + `refreshCommon`
+  쓰기), `src/triage.mjs`(판독 API -- `listUnclassified`/`appendReadingDecision`).
+  `refresh.mjs`는 `writeLedgerCsv`(이미 있던 fail-closed·Owner컬럼보존·이력보관
+  계약을 공통 장부도 그대로 쓰도록 export만 추가)와 `acquireRefreshLock`/
+  `releaseRefreshLock`(판독 API가 같은 잠금을 공유하도록, 이미 export돼 있었음)만
+  건드렸다 -- 기존 로직은 한 줄도 바꾸지 않았다. `src/index.mjs`는 기존 export
+  이름·인자를 그대로 두고 새 export만 追加했다(콘솔 UI 브랜치의 `listProjects`/
+  `readRule`/`previewRule`/`saveRuleVersion`/`refresh` 호출은 무영향). `cli.mjs`에
+  `common-refresh`/`parity`/`triage list`/`triage decide`를 추가했다.
+  실제 평면 프로덕션 쓰기는 하지 않았다(dry-run만) -- 이 커밋은 어떤 기존
+  `_workspaces`/`_workmeta` 파일도 만들거나 고치지 않는다.
+- 설계 결정(스펙이 침묵한 부분): (1) 두 과제 겹침으로 보류된 메일을 위해 새
+  `보류.csv` 파일을 도입했다 -- scratch 스크립트는 보류 메일을 어떤 공통 장부에도
+  쓰지 않아 "주 분류 합 = 메일 수" 불변조건을 검증할 수 없었다. (2) 벤더 주소만
+  있고 다른 신호가 없는 메일은(scratch 스크립트가 미분류.csv에서 건너뛰던 것과
+  달리) 여전히 미분류.csv에 남긴다 -- 거래처 보조 보기는 주 분류와 무관하게
+  독립적으로 채워지므로 정보 손실은 없고, 주 분류 집합이 스펙 3절이 나열한 목록과
+  정확히 일치한다. (3) `거래처_대응표.csv`의 주소 칼럼 헤더는 스펙 2절 문구를
+  글자 그대로 따라 `도메인(또는 주소 전체)`로 썼다 -- 오늘 낮에 scratch 스크립트가
+  이미 만들어 둔 실제 평면 파일은 옛 헤더(`도메인`)라서, 병합 전까지는 그 표
+  하나만 fail-closed로 건너뛴다(의도된 동작, 아래 parity 보고 참조). (4) custody
+  디렉터리 겹침 검사(`refresh.mjs`의 S-4)는 공통 리프레시 경로에는 아직 포팅하지
+  않았다 -- Step 1 첫 판에서 범위를 좁힌 것.
+- 구현하지 못한 것: 없음(Step 1 섹션 1-7 전부 구현). Step 2(lane·예약작업)와
+  Step 3의 Hermes 연결(도구 배선·지침 포인터)은 스펙 지시대로 손대지 않았다.
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 여섯 번째 신선한 검토 반영: 연락처 키 흔들림·경로 잔재·트레일링 빈 줄·shrink 가드
 
 - Revision: 이 항목을 포함한 커밋.
