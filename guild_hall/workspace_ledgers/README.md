@@ -1768,7 +1768,7 @@ triage list|decide`가 이미 있는데 따로 만든 이유는 하나다 -- 그
 | 명령 | 하는 일 | 쓰기 |
 | --- | --- | --- |
 | `list [--limit N]` | 미분류 대기줄 한 줄씩 (id·수신일·보낸이 이름+도메인·제목·첨부 이름·후보 과제·거래처) -- `후보`는 모듈이 이미 계산한 **검토용** 신호 둘(분류기의 `candidates`와 `hintCodes`)의 합집합이며 귀속이 아니다 | 영수증만 |
-| `show --id <id> [--max-chars N]` | 그 메일의 머리와 본문(상한 있음) | 영수증만 |
+| `show --id <id> [--max-chars N]` | 그 메일의 머리와 본문 -- 본문은 머리와 **따로** 예산을 받아(최소 400자 보장) 잘릴지언정 사라지지 않는다(S-3) | 영수증만 |
 | `decide --id <id> --level <판정> --target <값> --why "<이유>"` | `appendReadingDecision`으로 판독표에 **한 줄** | 판독표 한 줄 + 영수증 |
 
 `correct`는 **없다.** Owner가 판정을 고치라고 하면 봇은 표를 다시 쓰지 않고, 적용할 줄을
@@ -1789,10 +1789,26 @@ triage list|decide`가 이미 있는데 따로 만든 이유는 하나다 -- 그
   쓰지 않으므로 메뉴에서 뺀다 -- `일반업무:<세부>` 같은 자유 문자열 접두 형식도 제외),
   `vendor_only`는 **그 메일에 이미 잡힌 거래처 이름**, `hold_owner_review`는 비우거나 실재
   과제 코드 하나.
-- **`--why` 필수**, 한 줄, 200자 상한.
-- **대기줄에 있는 메일만.** 이미 판정된 메일은 대기줄에 없으므로 재판정이 구조적으로 막힌다
-  (라이브러리의 중복 거부에 닿기 전에 여기서 멈춘다). 이미 쓸 수 없는 판정줄이 있는 메일
+- **`--why` 필수**, 한 줄, 200자 상한. 줄바꿈뿐 아니라 **모든 C0/C1 제어문자**(NUL·TAB·ESC
+  등)를 거부한다 -- 지우지 않고 거부한다(R-1). 같은 검사를 `--id`와 `vendor_only`의
+  `--target`에도 건다(`..._why_control_characters`·`..._id_control_characters`·
+  `..._target_control_characters`). 판독표는 Owner가 직접 여는 CSV이고 stdout은 사람이 읽는
+  화면이라, 제어 바이트 하나가 파일을 못 열게 만들거나 화면을 다시 그릴 수 있다.
+- **대기줄에 있는 메일만.** 판정된 메일은 **대개** 대기줄에서 빠지지만 전부는 아니다 --
+  `hold_owner_review`처럼 귀속하지 않는 판정은 메일을 그대로 대기줄에 남긴다(S-2). 그런
+  메일은 `already_decided_level`로 표시되고, 재판정은 라이브러리의 중복 거부
+  (`workspace_ledgers_triage_decision_duplicate`)에 닿기 전에 이 wrapper가
+  `..._mail_already_decided`로 막는다. 이미 쓸 수 없는 판정줄이 있는 메일
   (`already_decided_invalid`)도 거부하고 사람에게 넘긴다.
+- **설정은 실행 중에도 고정.** 라이브러리가 org config를 자기 몫으로 다시 읽으므로, 대기줄을
+  읽은 직후 같은 digest를 다시 대조하고 어긋나면 **한 줄도 붙이지 않고** 멈춘다
+  (`..._org_config_changed_during_run`, 끝값 2 -- 시작 전 거부가 아니라 "돌다가 실패"라서).
+  `ops/daily_refresh.mjs`가 단계마다 하는 것과 같은 모양이며, 라이브러리 서명은 건드리지
+  않으므로 `refresh`/`common-refresh`의 분류 결과는 이 변경 전후로 바이트까지 같다.
+- **영수증을 못 쓰면 실패다(경고가 아니다).** 하루 한도를 그 영수증에서 세므로, 못 쓴 영수증은
+  예산이 조용히 되살아나는 것과 같다. 특히 `decide`가 이미 줄을 붙인 뒤 영수증 쓰기가
+  실패하면 전용 코드(`..._receipt_write_failed_after_append`)와 "판독표는 이미 바뀌었다"는
+  한 줄을 stderr에 남기고 끝값 2로 끝낸다 -- 같은 메일을 다시 판정하지 않게 하려는 것이다.
 - **하루 한도.** 설정의 `daily_decision_cap`을, 이 wrapper 자신의 영수증에서 서울 날짜로
   센다(성공한 기록만 센다 -- 거부가 예산을 깎으면 잘못된 반복 한 번으로 그날 하루가 막힌다).
 - **Owner 표가 깨져 있으면 거부.** `allowDegradedOwnerTables`를 절대 넘기지 않으므로
@@ -1868,8 +1884,11 @@ node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --
 node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --check --lane <lane_root> --config <설정 파일> --config-sha256 sha256:<64자리> --guideline <지침 문서> --out <설치된 스킬 폴더>
 ```
 
-끝값은 `0` 같다, `3` 달라졌다(또는 설치본이 없다), `2` 인자·템플릿 문제다. 두 모드 다 쓴
-것의 sha256을 JSON 영수증으로 찍는다.
+끝값은 `0` 같다, `3` 달라졌다(또는 설치본이 없다), `2` 인자·템플릿 문제다. 인자는 닫힌
+목록이라 모르는 flag나 중복 flag는 **아무것도 쓰지 않고** 거부한다(S-4 -- `--chek` 같은
+오타가 조용히 진짜 설치를 해 버리던 것을 막는다). 두 모드 다 쓴 것의 sha256을 JSON
+영수증으로 찍는다. 그 영수증은 **Owner용이라 호스트 경로를 그대로 담는다**(봇용 영수증과
+반대다) -- 봇이 읽는 자리나 public 트리에 두지 않는다.
 
 **설치와 활성화는 이 변경 밖이다.** 렌더된 `SKILL.md`를 실제 봇 프로필(`<bot_profile>`)에
 넣고 그 프로필에서 켜는 것, 설정 파일과 지침 문서를 실제 경로에 두는 것, 예약작업을 거는
@@ -1925,7 +1944,10 @@ for a mail it did not attribute: a two-project subject collision, or several pro
 terms in the body) and `hint_codes` (`classifier.mjs`'s own `hintCodes` -- projects
 whose HINT terms matched while their exact terms did not, run over the same compiled
 rule set the pass classified with, which `classifyAllCommonMail` now also returns as
-`compiledRules`). **Neither is attribution** -- both are "maybe read this project"
+`compiledRules`) -- plus `already_decided_level`, the `결정` of a reading-table row the
+mail already carries (`null` when it carries none), which tells "nobody has looked at
+this" apart from "somebody looked and said wait". **Neither candidate array is
+attribution** -- both are "maybe read this project"
 signals for a human/AI reader, exactly what `hintCodes`' own doc says it is for. A
 hint term only matches inside the fields that rule's OWN `match_fields` declares, so a
 subject-only rule contributes a subject-only hint. No existing export changed name,

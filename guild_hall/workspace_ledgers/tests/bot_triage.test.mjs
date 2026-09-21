@@ -102,12 +102,21 @@ function writeConfig(fixture, overrides = {}, fileName = 'bot_triage.config.json
 }
 
 /** Runs the wrapper in-process, capturing what it would have printed. */
-function run(argv, { now = '2026-09-10T02:00:00.000Z' } = {}) {
+function run(argv, { now = '2026-09-10T02:00:00.000Z', deps = {} } = {}) {
   const out = [];
   const err = [];
-  const code = runCli(argv, { now, stdout: line => out.push(String(line)), stderr: line => err.push(String(line)) });
+  const code = runCli(argv, { now, deps, stdout: line => out.push(String(line)), stderr: line => err.push(String(line)) });
   return { code, stdout: out.join('\n'), stderr: err.join('\n') };
 }
+
+// Control characters are BUILT here, never typed as literals into this source -- a raw
+// NUL or ESC in a tracked file is exactly what byte_hygiene.test.mjs refuses, and it
+// is also the class of byte R-1 exists to keep out of the Owner's CSV.
+const NUL = String.fromCharCode(0);
+const ESC = String.fromCharCode(27);
+const TAB = String.fromCharCode(9);
+const VERTICAL_TAB = String.fromCharCode(11);
+const C1_CONTROL = String.fromCharCode(0x85);
 
 const receiptFiles = receiptsDir => readdirSync(receiptsDir).filter(name => name.startsWith('bot_triage-') && name.endsWith('.json'));
 function readReceipts(receiptsDir) {
@@ -426,6 +435,206 @@ test('the file runs as its own process and returns the documented exit codes', (
 
     const badPin = spawnSync(process.execPath, [BOT_TRIAGE, 'list', '--config', configPath, '--config-sha256', 'sha256:zz'], { encoding: 'utf8' });
     assert.equal(badPin.status, 4);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- R-1: control characters
+test('R-1: every C0/C1 control character in --why is refused (TAB included), never stripped, and nothing is written', () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    for (const character of [NUL, ESC, TAB, VERTICAL_TAB, C1_CONTROL]) {
+      const result = run(['decide', ...pin, '--id', 'u1', '--level', 'exclude', '--target', '과제미정',
+        '--why', `앞${character}뒤`]);
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /workspace_ledgers_bot_triage_why_control_characters/u);
+      assert.equal(result.stderr.includes(character), false, 'the refusal itself must not echo the control character');
+    }
+    // CR/LF keeps its own, more specific code -- the two mistakes stay distinguishable.
+    const multiline = run(['decide', ...pin, '--id', 'u1', '--level', 'exclude', '--target', '과제미정', '--why', '앞\n뒤']);
+    assert.equal(multiline.code, 2);
+    assert.match(multiline.stderr, /why_not_single_line/u);
+
+    assert.equal(existsSync(fixture.readingTablePath), false, 'no control-character refusal may write a row');
+    const serialised = receiptFiles(fixture.receiptsDir)
+      .map(name => readFileSync(path.join(fixture.receiptsDir, name), 'utf8')).join('');
+    for (const character of [NUL, ESC, VERTICAL_TAB, C1_CONTROL]) {
+      assert.equal(serialised.includes(character), false, 'a receipt must not carry a raw control character');
+    }
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('R-1: --id and a vendor_only --target are control-character checked too', () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    const badId = run(['decide', ...pin, '--id', `u1${ESC}`, '--level', 'exclude', '--target', '과제미정', '--why', '이유']);
+    assert.equal(badId.code, 2);
+    assert.match(badId.stderr, /workspace_ledgers_bot_triage_id_control_characters/u);
+
+    const badShow = run(['show', ...pin, '--id', `u1${NUL}`]);
+    assert.equal(badShow.code, 2);
+    assert.match(badShow.stderr, /workspace_ledgers_bot_triage_id_control_characters/u);
+
+    const badTarget = run(['decide', ...pin, '--id', 'u1', '--level', 'vendor_only', '--target', `가나${NUL}`, '--why', '이유']);
+    assert.equal(badTarget.code, 2);
+    assert.match(badTarget.stderr, /workspace_ledgers_bot_triage_target_control_characters/u);
+
+    assert.equal(existsSync(fixture.readingTablePath), false);
+    const serialised = receiptFiles(fixture.receiptsDir)
+      .map(name => readFileSync(path.join(fixture.receiptsDir, name), 'utf8')).join('');
+    for (const character of [NUL, ESC]) {
+      assert.equal(serialised.includes(character), false, 'a refused id/target must not reach a receipt raw');
+    }
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('N-1: a raw --level is stripped and bounded before it reaches a receipt or stderr', () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const blob = `${ESC}[31m${'x'.repeat(500)}`;
+    const result = run(['decide', '--config', configPath, '--config-sha256', configSha256,
+      '--id', 'u1', '--level', blob, '--target', '과제미정', '--why', '이유']);
+    assert.equal(result.code, 2);
+    assert.match(result.stderr, /workspace_ledgers_bot_triage_level_not_allowed/u);
+    assert.equal(result.stderr.includes(ESC), false);
+    assert.ok(result.stderr.length < 400, `stderr should be bounded, got ${result.stderr.length}`);
+    const receipt = readReceipts(fixture.receiptsDir).at(-1);
+    assert.equal(receipt.level.includes(ESC), false);
+    assert.ok(receipt.level.length <= 80, `a recorded level should be bounded, got ${receipt.level.length}`);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('N-2: the unknown-flag and unexpected-argument branches redact host paths too', () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    const stray = run(['decide', ...pin, fixture.readingTablePath]);
+    assert.equal(stray.code, 2);
+    assert.match(stray.stderr, /workspace_ledgers_bot_triage_unexpected_argument/u);
+    assert.equal(stray.stderr.includes(fixture.root), false, 'a stray argument must not print a host path');
+
+    const unknown = run(['decide', ...pin, '--reading-table', fixture.readingTablePath]);
+    assert.equal(unknown.code, 2);
+    assert.match(unknown.stderr, /workspace_ledgers_bot_triage_unknown_flag/u);
+    assert.equal(unknown.stderr.includes(fixture.root), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- S-1: receipt write failure
+test('S-1: a receipt that cannot be written is a hard failure, and after a successful append it says the row WAS added', () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    const boom = () => { throw new Error('receipt write refused'); };
+
+    const decided = run(['decide', ...pin, '--id', 'u1', '--level', 'exclude', '--target', '과제미정', '--why', '단서 없음'],
+      { deps: { writeReceipt: boom } });
+    assert.equal(decided.code, 2, 'a silently lost decide receipt must never exit 0');
+    assert.match(decided.stderr, /workspace_ledgers_bot_triage_receipt_write_failed_after_append/u);
+    assert.match(decided.stderr, /판독표에는 줄이 이미 추가되었습니다/u);
+    // The row really is there -- which is exactly why the operator has to be told.
+    assert.equal(readingRows(fixture.readingTablePath).rows.length, 1);
+
+    // A read-only command gets the plain code (no row was appended).
+    const listed = run(['list', ...pin], { deps: { writeReceipt: boom } });
+    assert.equal(listed.code, 2);
+    assert.match(listed.stderr, /workspace_ledgers_bot_triage_receipt_write_failed(?!_after_append)/u);
+    assert.equal(listed.stderr.includes('판독표에는'), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- S-2: an existing usable decision
+test('S-2: an existing hold_owner_review row is marked on the queue line and re-deciding is refused by the wrapper', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(fixture.readingTablePath, encodeCsv(READING_HEADERS, [
+      ['u1', '2026-09-01', '분류 안 되는 메일', 'hold_owner_review', '', '사람 확인 필요', '오너', '2026-09-05', ''],
+    ]));
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+
+    const listed = run(['list', ...pin]);
+    assert.equal(listed.code, 0, listed.stderr);
+    const line = listed.stdout.split('\n').find(entry => entry.includes('u1'));
+    assert.match(line, /이미판정\(hold_owner_review\)/u);
+
+    const shown = run(['show', ...pin, '--id', 'u1']);
+    assert.equal(shown.code, 0, shown.stderr);
+    assert.match(shown.stdout, /이미 판독줄이 있습니다\(hold_owner_review\)/u);
+
+    const again = run(['decide', ...pin, '--id', 'u1', '--level', 'exclude', '--target', '과제미정', '--why', '이유']);
+    assert.equal(again.code, 2);
+    assert.match(again.stderr, /workspace_ledgers_bot_triage_mail_already_decided(?!_invalid)/u);
+    // Refused by the wrapper, so the library's own duplicate check is never reached.
+    assert.equal(again.stderr.includes('workspace_ledgers_triage_decision_duplicate'), false);
+    assert.equal(readingRows(fixture.readingTablePath).rows.length, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- S-3: the body gets its own budget
+test('S-3: show renders a body at the documented --max-chars maximum, truncating rather than dropping it', () => {
+  const fixture = makeFixture();
+  try {
+    // A body far longer than the whole stdout budget, in its own custody file.
+    writeFileSync(path.join(fixture.hiworksDir, 'long.jsonl'), jsonl([{
+      event_id: 'u3', subject: '긴 본문 메일', from: 'long@client.example', to: ['me@example.com'], cc: [],
+      received_at: '2026-09-04T01:00:00Z', body_text: '가나다라마바사'.repeat(2000), attachments: [],
+    }]));
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const result = run(['show', '--config', configPath, '--config-sha256', configSha256, '--id', 'u3', '--max-chars', '6000']);
+    assert.equal(result.code, 0, result.stderr);
+    const lines = result.stdout.split('\n');
+    const labelIndex = lines.findIndex(line => line.startsWith('본문(최대'));
+    assert.notEqual(labelIndex, -1, 'the body label line must survive');
+    const body = lines.slice(labelIndex + 1).join('\n');
+    assert.ok(body.length > 400, `the body must actually render, got ${body.length} chars`);
+    assert.match(body, /본문 \d+자 중 \d+자/u, 'a truncated body says how much was cut');
+    assert.ok(result.stdout.length <= 6000, `total output must stay within the cap, got ${result.stdout.length}`);
+    const receipt = readReceipts(fixture.receiptsDir).at(-1);
+    assert.equal(receipt.counts.body_truncated, true);
+    assert.ok(receipt.counts.body_chars > 400);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- S-5: org-config TOCTOU
+test('S-5: an org config that changes after the digest check fails closed with nothing appended', async () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    const { listUnclassified } = await import('../src/triage.mjs');
+    // Rewrites the pinned org config from INSIDE the queue read -- the exact window
+    // the re-check exists for, reproduced without a timing race (the same technique
+    // ops/daily_refresh.mjs's own TOCTOU test uses).
+    const movingQueue = (config, options) => {
+      const queue = listUnclassified({
+        workspacesRoot: config.workspacesRoot, hiworksDirs: config.hiworksDirs,
+        gmailSentDirs: config.gmailSentDirs, orgConfigPath: config.orgConfigPath,
+        readingTablePath: config.readingTablePath, limit: 500, ...(options ?? {}),
+      });
+      writeFileSync(fixture.orgConfigPath, JSON.stringify({ our_domain: 'moved.example', organisations: {}, family: {} }));
+      return queue;
+    };
+
+    const decided = run(['decide', ...pin, '--id', 'u1', '--level', 'exclude', '--target', '과제미정', '--why', '이유'],
+      { deps: { readQueue: movingQueue } });
+    assert.equal(decided.code, 2, 'exit 2 -- this run started, then failed; it is not a refuse-before-start 4');
+    assert.match(decided.stderr, /workspace_ledgers_bot_triage_org_config_changed_during_run/u);
+    assert.equal(existsSync(fixture.readingTablePath), false, 'nothing may be appended after the config moved');
+
+    // Put the pinned bytes back: the run above left the moved copy on disk, which
+    // `loadBotConfig` would (correctly) refuse up front as an exit 4 before the
+    // mid-run re-check this test is about could ever fire.
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({ our_domain: 'example.com', organisations: {}, family: {} }));
+    const listed = run(['list', ...pin], { deps: { readQueue: movingQueue } });
+    assert.equal(listed.code, 2);
+    assert.match(listed.stderr, /org_config_changed_during_run/u);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 

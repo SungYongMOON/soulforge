@@ -31,7 +31,10 @@
 // replies with the line a person should apply and writes nothing -- the Owner確認
 // column and every correction stay human-only (see ops/bot-skill/SKILL.md).
 //
-// Exit codes: 0 ok; 2 refused (a guardrail here, or a refusal raised by the library);
+// Exit codes: 0 ok; 2 refused (a guardrail here, or a refusal raised by the library),
+// or this wrapper could not write its own receipt (S-1: the receipts directory IS the
+// daily-cap ledger, so an unwritten receipt is never a warning -- and when the row had
+// already been appended, the code says so and stderr states that the table changed);
 // 4 a config/digest problem -- the run never started and nothing, not even a receipt,
 // was written.
 import { createHash, randomUUID } from 'node:crypto';
@@ -80,6 +83,16 @@ const MAX_SHOW_CHARS = 6000;
 // renders into this budget and says how much it left out.
 export const MAX_STDOUT_CHARS = 6000;
 const MAX_WHY_CHARS = 200;
+// N-1: how much of a rejected, unvalidated value (a raw `--level`, a raw `--id`) may
+// reach a receipt or stderr at all.
+const MAX_RECORDED_LABEL_CHARS = 80;
+// S-3: `show` gives the body its OWN budget rather than letting it share one with the
+// headers -- at the documented maximum the headers used to consume the whole stdout
+// cap and the body line was dropped entirely, which is the one thing `show` is for.
+const MIN_BODY_BUDGET = 400;
+// Room for the `본문(최대 N자):` label line and the truncation note appended to the
+// body, so neither can push the rendered total past `MAX_STDOUT_CHARS`.
+const BODY_LABEL_RESERVE = 80;
 const MAX_SUBJECT_CHARS = 60;
 const MAX_ATTACHMENTS_SHOWN = 5;
 const MAX_RECIPIENTS_SHOWN = 4;
@@ -131,6 +144,33 @@ export function recipientLabel(entry) {
   const text = String(entry ?? '').trim();
   const domain = /^[^\s@]+@[^\s@]+$/u.test(text) ? domainOf(text) : '';
   return domain === '' ? text : `(이름 없음) @${domain}`;
+}
+
+// ------------------------------------------------------- control characters
+// R-1 (2026-09-22 fresh review): only CR/LF used to be refused, so any other C0/C1
+// control character a model can type -- NUL, ESC, VT, TAB, a terminal escape
+// sequence's introducer -- travelled straight into the Owner's reading-decision CSV
+// (where a raw control byte makes the file unopenable in some editors and makes git
+// treat it as binary, the exact class of damage this module's own byte_hygiene test
+// exists to catch), into a receipt, and onto stdout, where an escape sequence can
+// rewrite what the operator sees. Every free-text value the bot supplies is checked;
+// TAB is refused like the rest rather than stripped, because silently rewriting what
+// a reader said is worse than telling it to retype.
+const CONTROL_CHARACTER = /\p{Cc}/u;
+const CONTROL_CHARACTER_GLOBAL = /\p{Cc}/gu;
+export function hasControlCharacters(value) {
+  return CONTROL_CHARACTER.test(String(value ?? ''));
+}
+/**
+ * N-1: the LAST line of defence for a value that is about to be recorded or printed
+ * even though the call is already failing -- a refused `--level`/`--id` still reaches
+ * the receipt and stderr, and it must not carry a control byte or an unbounded blob
+ * there either. Validation (above) is what refuses; this only makes the record of the
+ * refusal safe, and never runs on a value that passed validation unchanged.
+ */
+export function safeLabel(value, max = MAX_RECORDED_LABEL_CHARS) {
+  if (value === null || value === undefined) return null;
+  return String(value).replace(CONTROL_CHARACTER_GLOBAL, '').slice(0, max);
 }
 
 // ------------------------------------------------------------------ config
@@ -231,6 +271,9 @@ export function loadBotConfig({ configPath, configSha256 }) {
     configSha256,
     workspacesRoot,
     orgConfigPath,
+    // S-5: kept so every command can re-verify the SAME digest after the library has
+    // re-read the file for itself (see `assertOrgConfigUnchanged`).
+    orgConfigSha256,
     hiworksDirs,
     gmailSentDirs,
     receiptsDir,
@@ -260,8 +303,11 @@ export function buildReceipt({ at, command, config, mailId = null, level = null,
     command,
     reader_label: config.readerLabel,
     config_sha256: config.configSha256,
-    mail_id: mailId,
-    level,
+    // N-1: `mail_id`/`level` can be raw, never-validated argument text when this
+    // receipt records a REFUSAL -- stripped of control characters and bounded here,
+    // in the one place every receipt goes through, rather than at each call site.
+    mail_id: safeLabel(mailId),
+    level: safeLabel(level),
     target: targetView.target,
     target_kind: targetView.kind,
     target_hash: targetView.hash,
@@ -273,7 +319,10 @@ export function buildReceipt({ at, command, config, mailId = null, level = null,
 
 /** Which of a target's two natures this one is: closed module vocabulary (recorded as itself) or Owner-typed free text (recorded as a hash). */
 export function describeTarget(level, target) {
-  const text = String(target ?? '').trim();
+  // N-1: `safeLabel` here is belt-and-braces -- `runCli` only ever passes a target
+  // that `validateTarget` already accepted (closed vocabulary, control-character
+  // checked), and passes `null` on every refusal.
+  const text = String(safeLabel(target) ?? '').trim();
   if (text === '') return { target: null, kind: 'none', hash: null };
   if (level === 'include_with_review' || level === 'hold_owner_review') return { target: text, kind: 'project_code', hash: null };
   if (level === 'exclude') return { target: text, kind: 'exclude_category', hash: null };
@@ -369,6 +418,13 @@ function listLine(index, item) {
     `후보 ${candidateCodes(item).length > 0 ? candidateCodes(item).join('/') : '없음'}`,
     `거래처 ${item.vendors.length > 0 ? item.vendors.join('/') : '없음'}`,
   ];
+  // S-2 (2026-09-22 fresh review): a mail that already HAS a usable reading decision
+  // (a `hold_owner_review` row, most often) stays in the 미분류 queue by design -- the
+  // library only attributes on `include*`. It used to look identical to a never-read
+  // mail, so a bot would decide it again and get an opaque library duplicate refusal.
+  // Both states are now marked, and differently: `이미판정` is "a row exists, leave
+  // it", `손질필요` is "a row exists and is broken, a person must fix it".
+  if (item.already_decided_level) parts.push(`이미판정(${item.already_decided_level})`);
   if (item.already_decided_invalid) parts.push(`손질필요(${item.already_decided_invalid})`);
   return parts.join(' · ');
 }
@@ -391,6 +447,32 @@ function readQueue(config, { bodyPreviewChars } = {}) {
   });
 }
 
+/**
+ * S-5 (2026-09-22 fresh review), TOCTOU: `loadBotConfig` verifies the org config's
+ * digest, and then `listUnclassified` re-READS that same file from disk for itself
+ * (through `classifyAllCommonMail`'s own `readOrgConfig`). Between those two moments
+ * the file can change, and the queue the bot then decides from -- which buckets,
+ * which vendor table, which reading table -- would have been computed against a
+ * version nobody pinned.
+ *
+ * Re-verified after every library call that reads it, fail-closed, mirroring what
+ * `ops/daily_refresh.mjs` does after each of its own steps (its S1). Deliberately NOT
+ * done by handing the parsed object down into the library: that would change
+ * `classifyAllCommonMail`'s signature, which `refresh()`/`refreshCommon()` also reach,
+ * and this wrapper must not alter what those two classify. Nothing here touches the
+ * library, so base and head classify byte-identically.
+ *
+ * The code does not start with this file's `..._config` prefix on purpose -- it is an
+ * exit 2 ("this run started, then something failed"), not an exit 4 ("refused before
+ * start"), the same split `daily_refresh.mjs` draws for the same situation.
+ */
+function assertOrgConfigUnchanged(config) {
+  let actual;
+  try { actual = sha256Of(readFileSync(config.orgConfigPath)); }
+  catch { fail('workspace_ledgers_bot_triage_org_config_unreadable_during_run'); }
+  if (actual !== config.orgConfigSha256) fail('workspace_ledgers_bot_triage_org_config_changed_during_run');
+}
+
 function findQueueItem(queue, id) {
   const item = queue.items.find(entry => entry.mail_source_id === id);
   if (item) return item;
@@ -399,10 +481,11 @@ function findQueueItem(queue, id) {
 }
 
 // ------------------------------------------------------------------ commands
-function runList(config, { limit, now }) {
+function runList(config, { limit, now, deps = {} }) {
   if (limit !== null && (!Number.isInteger(limit) || limit < 1)) fail('workspace_ledgers_bot_triage_limit_invalid', String(limit));
   const effectiveLimit = Math.min(limit ?? config.listLimitCap, config.listLimitCap);
-  const queue = readQueue(config);
+  const queue = (deps.readQueue ?? readQueue)(config);
+  assertOrgConfigUnchanged(config);
   const shown = queue.items.slice(0, effectiveLimit);
   const decisionsToday = countDecisionsToday(config.receiptsDir, now);
   const header = `미분류 ${queue.total}건 · 아래 ${shown.length}건 표시 · 오늘 판독 ${decisionsToday}/${config.dailyDecisionCap}건`;
@@ -414,16 +497,17 @@ function runList(config, { limit, now }) {
   };
 }
 
-function runShow(config, { id, maxChars }) {
-  if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_bot_triage_id_required');
+function runShow(config, { id, maxChars, deps = {} }) {
+  assertId(id);
   if (maxChars !== null && (!Number.isInteger(maxChars) || maxChars < 1 || maxChars > MAX_SHOW_CHARS)) {
     fail('workspace_ledgers_bot_triage_max_chars_invalid', String(maxChars));
   }
   const bodyChars = maxChars ?? DEFAULT_SHOW_CHARS;
-  const queue = readQueue(config, { bodyPreviewChars: bodyChars });
+  const queue = (deps.readQueue ?? readQueue)(config, { bodyPreviewChars: bodyChars });
+  assertOrgConfigUnchanged(config);
   const item = findQueueItem(queue, id);
   const recipients = item.to.length > 0 ? item.to.map(recipientLabel).join(', ') : '(없음)';
-  const lines = [
+  const headerLines = [
     `${item.mail_source_id} · ${seoulDateOf(item.received_at)} · 대기줄 ${item.bucket}`,
     `보낸이: ${senderLabel(item.from)}`,
     `받는이: ${shorten(recipients, 120)}`,
@@ -431,25 +515,59 @@ function runShow(config, { id, maxChars }) {
     attachmentsLabel(item.attachment_names),
     `후보 ${candidateCodes(item).length > 0 ? candidateCodes(item).join('/') : '없음'} · 거래처 ${item.vendors.length > 0 ? item.vendors.join('/') : '없음'}`
       + ` · 같은 대화 ${item.same_thread_routing.length > 0 ? item.same_thread_routing.join('/') : '없음'}`,
+    ...(item.already_decided_level ? [`주의: 이미 판독줄이 있습니다(${item.already_decided_level}) — 다시 판정하지 말고 그대로 보고하십시오.`] : []),
     ...(item.already_decided_invalid ? [`주의: 이미 판독줄이 있으나 쓸 수 없는 상태다(${item.already_decided_invalid}) — 사람이 표를 고쳐야 한다.`] : []),
-    `본문(최대 ${bodyChars}자):`,
-    item.body_preview === '' ? '(본문 없음)' : item.body_preview,
   ];
+  // S-3 (2026-09-22 fresh review): the headers and the body no longer share one
+  // budget. At the documented maximum (`--max-chars 6000`, the stdout cap itself) the
+  // headers used to be rendered first and the body line dropped whole by
+  // `boundedOutput`, so the one thing `show` exists to print never appeared. The
+  // headers now render into a budget that RESERVES `MIN_BODY_BUDGET` for the body,
+  // and the body is truncated (and says by how much) rather than dropped.
+  const headerText = boundedOutput(headerLines, { budget: MAX_STDOUT_CHARS - MIN_BODY_BUDGET - BODY_LABEL_RESERVE, moreLabel: '줄이' });
+  const bodyBudget = Math.max(MIN_BODY_BUDGET, MAX_STDOUT_CHARS - headerText.length - BODY_LABEL_RESERVE);
+  const preview = maskAddresses(item.body_preview);
+  const truncated = preview.length > bodyBudget;
+  const body = preview === '' ? '(본문 없음)'
+    : (truncated ? `${preview.slice(0, bodyBudget)}… (본문 ${preview.length}자 중 ${bodyBudget}자)` : preview);
   return {
-    stdout: boundedOutput(lines, { moreLabel: '줄이' }),
-    counts: { queue_total: queue.total, body_chars: Math.min(item.body_preview.length, bodyChars) },
+    stdout: [headerText, `본문(최대 ${bodyChars}자):`, body].join('\n'),
+    counts: {
+      queue_total: queue.total,
+      body_chars: preview === '' ? 0 : Math.min(preview.length, bodyBudget),
+      body_truncated: truncated,
+    },
   };
+}
+
+/** R-1: `--id` reaches the reading-decision CSV's key column, a receipt and stdout. */
+function assertId(id) {
+  if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_bot_triage_id_required');
+  if (hasControlCharacters(id)) fail('workspace_ledgers_bot_triage_id_control_characters');
+  return id;
 }
 
 function validateWhy(why) {
   if (typeof why !== 'string' || why.trim() === '') fail('workspace_ledgers_bot_triage_why_required');
+  // CR/LF keeps its own, more specific code -- "you wrote several lines" is a
+  // different mistake from "you smuggled a control byte", and a model can act on the
+  // first without being told about the second. Checked first for exactly that reason.
   if (/[\r\n]/u.test(why)) fail('workspace_ledgers_bot_triage_why_not_single_line');
+  // R-1 (2026-09-22 fresh review): every OTHER C0/C1 control character -- NUL, TAB,
+  // ESC, VT and the rest -- is refused too, never stripped.
+  if (hasControlCharacters(why)) fail('workspace_ledgers_bot_triage_why_control_characters');
   if (why.length > MAX_WHY_CHARS) fail('workspace_ledgers_bot_triage_why_too_long', String(MAX_WHY_CHARS));
   return why.trim();
 }
 
 /** The target vocabulary each allowed level accepts -- a closed set in every case, never free text the model composes. */
 function validateTarget(config, { level, target, item }) {
+  // R-1: checked BEFORE the vocabulary checks, so the refusal names the real problem
+  // even when the smuggled control byte would also have made the value unknown. The
+  // closed vocabularies below cannot themselves contain one, but `vendor_only`'s
+  // target is compared against Owner-typed vendor names and would otherwise be the
+  // one value a model could feed a control byte into and have accepted.
+  if (hasControlCharacters(target)) fail('workspace_ledgers_bot_triage_target_control_characters');
   const text = String(target ?? '').trim();
   const knownCodes = new Set(listProjects({ workspacesRoot: config.workspacesRoot }).map(project => project.project_code));
   if (level === 'include_with_review') {
@@ -479,19 +597,31 @@ function validateTarget(config, { level, target, item }) {
   return text;
 }
 
-function runDecide(config, { id, level, target, why, now }) {
-  if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_bot_triage_id_required');
+function runDecide(config, { id, level, target, why, now, deps = {} }) {
+  assertId(id);
   if (level === 'include') fail('workspace_ledgers_bot_triage_level_include_refused');
-  if (!BOT_ALLOWED_LEVELS.includes(level)) fail('workspace_ledgers_bot_triage_level_not_allowed', String(level));
+  // N-1: `safeLabel` on the detail, so a control byte or a blob in `--level` cannot
+  // reach stderr (or, via `buildReceipt`, a receipt) just because the call failed.
+  if (!BOT_ALLOWED_LEVELS.includes(level)) fail('workspace_ledgers_bot_triage_level_not_allowed', safeLabel(level));
   const cleanWhy = validateWhy(why);
   const decisionsToday = countDecisionsToday(config.receiptsDir, now);
   if (decisionsToday >= config.dailyDecisionCap) {
     fail('workspace_ledgers_bot_triage_daily_cap_reached', `${decisionsToday}/${config.dailyDecisionCap}`);
   }
-  const queue = readQueue(config);
+  const queue = (deps.readQueue ?? readQueue)(config);
+  // S-5: fail closed BEFORE appending if the pinned org config moved under the
+  // library's own re-read of it (see `assertOrgConfigUnchanged`).
+  assertOrgConfigUnchanged(config);
   const item = findQueueItem(queue, id);
   if (item.already_decided_invalid) {
     fail('workspace_ledgers_bot_triage_mail_already_decided_invalid', item.already_decided_invalid);
+  }
+  // S-2: a mail that already carries a usable decision (typically `hold_owner_review`,
+  // which legitimately leaves it in the queue) is refused HERE, with a code that says
+  // what is already there -- rather than reaching the library and coming back as the
+  // bare `workspace_ledgers_triage_decision_duplicate` a bot cannot act on.
+  if (item.already_decided_level) {
+    fail('workspace_ledgers_bot_triage_mail_already_decided', item.already_decided_level);
   }
   const cleanTarget = validateTarget(config, { level, target, item });
 
@@ -579,7 +709,16 @@ export function exitCodeFor(code) {
 
 const COMMAND_RUNNERS = { list: runList, show: runShow, decide: runDecide };
 
-export function runCli(argv, { now = new Date().toISOString(), stdout = console.log, stderr = console.error } = {}) {
+/**
+ * `deps` (optional, tests only) injects the two steps a test cannot otherwise reach
+ * from outside the process -- the receipt write (S-1: proving what happens when it
+ * fails AFTER a row was appended) and the queue read (S-5: proving the org-config
+ * re-check fires when the file moves mid-run). Same shape `ops/daily_refresh.mjs`'s
+ * own `runDailyRefresh({...}, deps)` uses, and for the same reason its CHANGELOG
+ * gives: reproducing these by real timing would be a race, while a stub that rewrites
+ * the file inside the step is deterministic. Nothing production passes `deps`.
+ */
+export function runCli(argv, { now = new Date().toISOString(), stdout = console.log, stderr = console.error, deps = {} } = {}) {
   const [command, ...rest] = argv;
   if (command === 'correct') {
     // Deliberately absent, and said so rather than reported as "unknown": a
@@ -589,13 +728,18 @@ export function runCli(argv, { now = new Date().toISOString(), stdout = console.
     return 2;
   }
   if (!Object.hasOwn(COMMAND_RUNNERS, String(command))) {
-    stderr(`workspace_ledgers_bot_triage_unknown_command: ${String(command ?? '')} (list | show | decide)`);
+    // N-2: the offending token is argument text -- it can be a host path, and it has
+    // never been validated. Redacted and label-safed like every other detail.
+    stderr(`workspace_ledgers_bot_triage_unknown_command: ${safeDetail(command)} (list | show | decide)`);
     return 2;
   }
 
   let flags;
   try { flags = parseStrictArgs(command, rest); }
-  catch (error) { stderr(`${error.code}${error.detail ? `: ${error.detail}` : ''}`); return 2; }
+  // N-2: `unknown_flag`/`unexpected_argument`/`flag_value_required` all carry a raw
+  // argument token as their detail, and this branch used to print it unredacted --
+  // the one stderr path in this file that skipped `redactHostPaths`.
+  catch (error) { stderr(`${error.code}${error.detail ? `: ${safeDetail(error.detail)}` : ''}`); return 2; }
 
   let config;
   try { config = loadBotConfig({ configPath: flags.get('config') ?? null, configSha256: flags.get('config-sha256') ?? null }); }
@@ -611,6 +755,7 @@ export function runCli(argv, { now = new Date().toISOString(), stdout = console.
   try {
     outcome = COMMAND_RUNNERS[command](config, {
       now,
+      deps,
       limit: integerFlagSafe(flags, 'limit'),
       maxChars: integerFlagSafe(flags, 'max-chars'),
       id: flags.get('id') ?? null,
@@ -633,15 +778,43 @@ export function runCli(argv, { now = new Date().toISOString(), stdout = console.
     code: failure ? (failure.code ?? 'workspace_ledgers_bot_triage_failed') : null,
     counts: failure ? {} : (outcome.counts ?? {}),
   });
-  try { writeReceipt(config.receiptsDir, receipt); }
-  catch (error) { stderr(`workspace_ledgers_bot_triage_receipt_write_failed: ${redactHostPaths(String(error?.message ?? error))}`); }
+  // S-1 (2026-09-22 fresh review): a receipt that could not be written is NOT a
+  // warning. The daily cap is counted from these receipts, so an unwritten one is a
+  // decision this wrapper will never see again -- the budget silently regrows. Worse,
+  // for a successful `decide` the row is ALREADY in the Owner's table at this point:
+  // returning 0 there would tell the bot "recorded, and everything is fine" about a
+  // decision that has no trace in the receipts directory at all. Both cases are now a
+  // hard non-zero, and the post-append case gets its own code plus a line stating
+  // plainly that the table DID change, so nobody retries the same mail.
+  let receiptFailure = null;
+  try { (deps.writeReceipt ?? writeReceipt)(config.receiptsDir, receipt); }
+  catch (error) { receiptFailure = error; }
 
   if (failure) {
-    stderr(`${failure.code ?? 'workspace_ledgers_bot_triage_failed'}${failure.detail ? `: ${redactHostPaths(String(failure.detail))}` : ''}`);
+    stderr(`${failure.code ?? 'workspace_ledgers_bot_triage_failed'}${failure.detail ? `: ${safeDetail(failure.detail)}` : ''}`);
+    if (receiptFailure) {
+      stderr(`workspace_ledgers_bot_triage_receipt_write_failed: ${redactHostPaths(String(receiptFailure?.message ?? receiptFailure))}`);
+    }
     return exitCodeFor(failure.code);
+  }
+  if (receiptFailure) {
+    const appended = command === 'decide';
+    const code = appended
+      ? 'workspace_ledgers_bot_triage_receipt_write_failed_after_append'
+      : 'workspace_ledgers_bot_triage_receipt_write_failed';
+    stderr(`${code}: ${redactHostPaths(String(receiptFailure?.message ?? receiptFailure))}`);
+    if (appended) {
+      stderr('-- 판독표에는 줄이 이미 추가되었습니다. 같은 메일을 다시 판정하지 마시고 Owner에게 그대로 알리십시오.');
+    }
+    return 2;
   }
   stdout(outcome.stdout);
   return 0;
+}
+
+/** One place for "this string came from an argument or an error and is about to be printed": host paths redacted, control characters stripped, bounded. */
+function safeDetail(value) {
+  return redactHostPaths(safeLabel(value, MAX_WHY_CHARS) ?? '');
 }
 
 /** `integerFlag` for a flag the current command may not even declare -- absent is always `null`, never a parse failure. */

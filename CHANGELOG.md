@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 신선한 눈 검토 반영: 제어문자 전면 거부(R-1)+영수증 실패 은폐(S-1)·이미판정 표시(S-2)·본문 예산(S-3)·설치기 인자(S-4)·설정 TOCTOU(S-5)+nit 4건
+
+- Revision: 직전 커밋(봇 판독 도구 추가)에 대한 별도 신선한 눈 검토 -- 필수 1건·should 5건·
+  nit 4건 지적, 지적마다 회귀 시험을 붙여 반영.
+- 무엇이 바뀌었는가: **(R-1)** `validateWhy`가 CR/LF만 거부해서 그 밖의 C0/C1 제어문자
+  (NUL·TAB·ESC·VT 등)는 Owner가 여는 판독표 CSV에 그대로 들어가고 stdout에도 그대로 찍혔다
+  (제어 바이트 하나로 파일이 안 열리거나 git이 binary로 보게 되는, 이 모듈의 byte_hygiene
+  시험이 잡으려는 바로 그 손상이며 ESC는 화면을 다시 그릴 수 있다). `\p{Cc}` 전체를
+  `..._why_control_characters`로 **지우지 않고 거부**하며(TAB 포함), 같은 검사를 CSV·영수증·
+  stdout에 닿는 나머지 자유 입력인 `--id`와 `vendor_only`의 `--target`에도 걸었다
+  (`..._id_control_characters`·`..._target_control_characters`). CR/LF는 더 구체적인 기존
+  코드를 유지해 "여러 줄"과 "제어 바이트"를 구분한다.
+  should: **(S-1)** `decide`가 줄을 붙인 **뒤** 영수증 쓰기가 실패하면 끝값 0으로 끝나
+  그 판정이 하루 한도 계수에서 영영 사라졌다(예산이 조용히 되살아남) -- 영수증 쓰기 실패를
+  전 명령에서 끝값 2로 올리고, 이미 붙인 경우에는 전용 코드
+  `..._receipt_write_failed_after_append`와 "판독표에는 줄이 이미 추가되었습니다" 한 줄을
+  stderr에 남긴다. **(S-2)** 귀속하지 않는 판정(`hold_owner_review` 등)은 메일을 대기줄에
+  남기는데 표시가 없어, 봇이 다시 판정하고 라이브러리의 불투명한
+  `workspace_ledgers_triage_decision_duplicate`만 돌려받았다 -- `listUnclassified` 항목에
+  `already_decided_level`(가산)을 더해 목록·`show`에 `이미판정(...)`으로 찍고, 라이브러리에
+  닿기 전에 `..._mail_already_decided`로 거부하며, 두 코드를 SKILL 오류표에 올리고 "재판정이
+  구조적으로 막힌다"던 README·SKILL 문장을 정정했다. **(S-3)** `show --max-chars 6000`
+  (문서화된 최댓값)에서 머리글이 stdout 예산을 먼저 다 써 본문 줄이 통째로 사라졌다 --
+  본문에 자체 예산을 주고(머리글 예산이 최소 400자를 본문 몫으로 남긴다) 사라지는 대신
+  잘리며 얼마를 잘랐는지 적는다. **(S-4)** 설치기가 모르는 인자를 조용히 무시해
+  `--chek`(오타)이 진짜 설치를 해 버렸다 -- `bot_triage.mjs`와 같은 닫힌 허용목록으로 바꿔
+  `skill_install_unknown_flag`/`..._repeated_flag`는 아무것도 쓰지 않고 끝값 2다.
+  **(S-5)** org config를 digest로 고정해 놓고 라이브러리가 자기 몫으로 디스크에서 다시 읽는
+  TOCTOU가 있었다 -- 라이브러리 서명을 바꾸지 않는 쪽(대기줄 읽기 직후 같은 digest 재대조,
+  `ops/daily_refresh.mjs`의 단계별 재검사와 같은 모양)을 골라
+  `..._org_config_changed_during_run`으로 한 줄도 붙이지 않고 멈춘다.
+  `refresh`/`common-refresh`의 분류는 변경 전후 바이트까지 동일하다.
+  nit: 거부된 원시 `--level`을 영수증·stderr에 넣기 전에 제어문자를 걷고 80자로 자른다(N-1,
+  `buildReceipt` 한 곳에서). `unknown_flag`/`unexpected_argument` stderr 분기에도
+  `redactHostPaths`를 걸었다(N-2). 설치기 영수증이 호스트 경로를 **의도적으로** 담는다는
+  것(Owner용이며 봇용 영수증과 반대 규약)을 머리말과 README에 적었다(N-3). 직전 항목의 시험
+  건수 표기를 실제 값으로 고쳤다(N-4).
+- 검증: `tests/bot_triage.test.mjs` 26건·`tests/bot_skill_install.test.mjs` 8건 전부 통과.
+  새 회귀 시험은 지적별로 하나씩이며, 제어문자는 소스에 리터럴로 박지 않고
+  `String.fromCharCode`로 만든다(byte_hygiene 규약). S-1·S-5는 타이밍 레이스 대신 주입한
+  단계(영수증 쓰기·대기줄 읽기) 안에서 재현한다 -- `ops/daily_refresh.mjs`의 TOCTOU 시험과
+  같은 방식이며, 주입 경로는 시험 전용이고 운영 경로는 기본값을 쓴다.
+- 운영 영향: 없음 -- 이번 라운드도 코드·문서·시험만 바뀌었다. 설치·등록·활성화는 여전히
+  이 변경 밖이다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/bot_triage.mjs`,
+  `guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs`,
+  `guild_hall/workspace_ledgers/ops/bot-skill/SKILL.md`,
+  `guild_hall/workspace_ledgers/src/triage.mjs`,
+  `guild_hall/workspace_ledgers/tests/bot_triage.test.mjs`,
+  `guild_hall/workspace_ledgers/tests/bot_skill_install.test.mjs`,
+  `guild_hall/workspace_ledgers/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구: 설정 고정 wrapper(`ops/bot_triage.mjs`)+봇 스킬 템플릿·설치기+lane `workspace-ledgers-v2`
 
 - 무엇이 바뀌었는가: 미분류 메일 대기줄을 **로컬 챗봇**이 처리할 수 있는 좁은 표면
@@ -14,7 +66,8 @@
   `--reader` 같은 인자는 무시가 아니라 거부), `include`는 전용 코드로 거부(AI의 긍정 귀속은
   `include_with_review`까지), `--target`은 언제나 닫힌 목록(등재 과제 코드 하나·모듈 자신의
   고정 분류 토큰·그 메일에 이미 잡힌 거래처 이름)에서만, `--why` 필수·한 줄·200자,
-  대기줄에 없는 메일은 거부(재판정 구조적 차단), 하루 한도는 자신의 영수증에서 서울 날짜로
+  대기줄에 없는 메일은 거부(재판정 차단 -- 다만 대기줄에 남는 판정도 있다, 바로 위 항목의
+  S-2 참조), 하루 한도는 자신의 영수증에서 서울 날짜로
   계수, Owner 표 적재 실패는 라이브러리 코드 그대로 올려 거부. 출력에는 주소 지역부를 지우는
   통과가 걸려 있어 이름과 도메인까지만 나간다. 호출마다 영수증 하나
   (`soulforge.workspace_ledgers_bot_triage_receipt.v1`)를 원자적으로 쓰되 제목·본문·주소·
@@ -38,8 +91,9 @@
   더했다(둘 다 귀속이 아니다). 후자를 위해 `classifyAllCommonMail`이 이번 pass가 실제로 쓴
   `compiledRules`를 함께 돌려준다 -- 호출자가 규칙을 따로 컴파일해 갈라지지 않게. 기존
   export의 이름·모양·뜻은 그대로다.
-- 검증: 새 시험 두 벌(`tests/bot_triage.test.mjs` 16건, `tests/bot_skill_install.test.mjs`
-  7건)을 `validate:workspace-ledgers`에 물렸다 -- 울타리 전수(include 거부·분류 이름 거부·
+- 검증: 새 시험 두 벌(`tests/bot_triage.test.mjs`, `tests/bot_skill_install.test.mjs`)을
+  `validate:workspace-ledgers`에 물렸다(건수는 바로 위 검토 반영 항목의 26건·8건이 현재
+  값이다) -- 울타리 전수(include 거부·분류 이름 거부·
   없는 과제 코드 거부·이유 누락·판정된 메일 거부·한도 도달·추가 인자로도 판독자 못 바꿈·
   Owner 표 실패 거부·설정 digest 불일치는 끝값 4에 아무것도 안 씀), `list`/`show` 출력에
   전체 주소가 없고 상한이 지켜짐, 영수증을 고정 문자열로 훑어 제목·본문·주소·호스트 경로가

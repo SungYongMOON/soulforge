@@ -41,8 +41,18 @@
 //   node install_skill.mjs --check --lane ... --config ... --config-sha256 ...
 //        --guideline ... --out <skill directory> [--source <SKILL.md>]
 //
-// Exit codes: 0 ok (or `--check` matched); 2 bad arguments or a broken template;
+// Exit codes: 0 ok (or `--check` matched); 2 bad arguments (including an unknown or
+// repeated flag -- S-4: nothing is written in that case) or a broken template;
 // 3 `--check` found the installed copy different from what these arguments render.
+//
+// N-3: the JSON receipt this prints (and writes with `--receipt`) carries FULL host
+// paths on purpose -- lane root, config file, guideline document, install target,
+// source. It is an Owner-facing install record, not a bot-facing one: it exists so
+// the person who ran the install can see exactly which lane and which config the
+// installed copy was rendered against, and it never goes anywhere a bot reads. That
+// is the opposite convention from `ops/bot_triage.mjs`'s per-call receipts, which a
+// bot lane writes unattended and which therefore carry no host path at all. Keep it
+// out of the public tree and out of any bot-readable directory.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -93,12 +103,23 @@ export function renderInstalledSkill({ source, lane, configPath, configSha256, g
   return `${body.replace(/\n+$/u, '\n')}\n<!-- installed from ${INSTALLED_FILE_NAME} ${sourceSha256} -->\n`;
 }
 
+// S-4 (2026-09-22 fresh review): a closed allow-list, the same shape
+// `ops/bot_triage.mjs`'s own `parseStrictArgs` uses. An unknown flag used to be
+// accepted and then simply never read -- so `--chek`, a one-letter typo for
+// `--check`, quietly performed a REAL install and overwrote the very file the
+// operator was asking it to compare.
+export const ALLOWED_FLAGS = Object.freeze([
+  'source', 'lane', 'config', 'config-sha256', 'guideline', 'out', 'receipt', 'check', 'dry-run',
+]);
+
 function options(argv) {
   const flags = new Map();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith('--')) fail('skill_install_unexpected_argument', token);
     const name = token.slice(2);
+    if (!ALLOWED_FLAGS.includes(name)) fail('skill_install_unknown_flag', name);
+    if (flags.has(name)) fail('skill_install_repeated_flag', name);
     const next = argv[index + 1];
     const value = next === undefined || next.startsWith('--') ? true : (index += 1, next);
     flags.set(name, value);

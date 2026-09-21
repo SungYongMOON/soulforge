@@ -12,7 +12,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-  INSTALLED_FILE_NAME, SKILL_INSTALL_SCHEMA, renderInstalledSkill, runCli, shellPath,
+  ALLOWED_FLAGS, INSTALLED_FILE_NAME, SKILL_INSTALL_SCHEMA, renderInstalledSkill, runCli, shellPath,
 } from '../ops/bot-skill/install_skill.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -161,6 +161,39 @@ test('missing arguments, a broken template and a bad digest shape all exit 2', (
     const missingSource = capture(args.argv(['--source', path.join(root, 'nope.md')]));
     assert.equal(missingSource.code, 2);
     assert.match(missingSource.stderr, /skill_install_source_unreadable/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('S-4: an unknown or repeated flag is refused and writes nothing -- a --chek typo can never install', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'wl-bot-skill-'));
+  try {
+    const args = makeArgs(root);
+    const target = path.join(args.outDir, INSTALLED_FILE_NAME);
+
+    // The exact typo: one letter off `--check`, which used to be accepted, ignored,
+    // and therefore silently performed a REAL install over the file being compared.
+    const typo = capture(args.argv(['--chek']));
+    assert.equal(typo.code, 2);
+    assert.match(typo.stderr, /skill_install_unknown_flag/u);
+    assert.equal(existsSync(target), false, 'an unknown flag must not install anything');
+
+    const repeated = capture([...args.argv(), '--out', path.join(root, 'elsewhere')]);
+    assert.equal(repeated.code, 2);
+    assert.match(repeated.stderr, /skill_install_repeated_flag/u);
+    assert.equal(existsSync(target), false);
+    assert.equal(existsSync(path.join(root, 'elsewhere', INSTALLED_FILE_NAME)), false);
+
+    const stray = capture([...args.argv(), 'positional']);
+    assert.equal(stray.code, 2);
+    assert.match(stray.stderr, /skill_install_unexpected_argument/u);
+
+    // Every flag the file documents is still accepted, so the allow-list is complete.
+    assert.equal(capture(args.argv()).code, 0);
+    assert.equal(existsSync(target), true);
+    assert.equal(capture(args.argv(['--check'])).code, 0);
+    assert.equal(capture(args.argv(['--dry-run'])).code, 0);
+    assert.equal(capture(args.argv(['--receipt', path.join(root, 'r.json')])).code, 0);
+    for (const flag of ALLOWED_FLAGS) assert.equal(typeof flag, 'string');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

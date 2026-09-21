@@ -74,7 +74,12 @@ cat '<guideline>'
 - `include`를 쓰지 않는다. 도구가 거부한다 — 확실해 보여도 `include_with_review`까지다.
   마지막 한 칸(확정)은 사람의 몫이다.
 - 판독표 파일을 직접 열거나 고치지 않는다.
-- 이미 판정이 있는 메일을 다시 판정하지 않는다(대기줄에 없으면 이미 판정된 것이다).
+- **이미 판정이 있는 메일을 다시 판정하지 않는다.** 판정된 메일은 보통 대기줄에서 빠지지만
+  **빠지지 않는 것도 있다** — `hold_owner_review`처럼 "사람이 봐야 한다"로 적힌 줄은 그대로
+  대기줄에 남는다. 그런 메일에는 `이미판정(...)` 표시가 붙는다. **표시가 붙어 있으면
+  건드리지 말고** §보고의 "남긴 것"에 그대로 올린다.
+- 이유(`--why`)에 줄바꿈·탭·그 밖의 제어문자를 넣지 않는다. 사람이 읽는 **한 줄 문장**만
+  쓴다(메일id·분류 이름도 마찬가지다).
 - 한 통에 판정을 둘 적지 않는다. **메일 하나 = 판정 하나.**
 - 과제 코드를 둘 이상 적지 않는다(`A;B`는 거부된다). 공유는 사람이 정한다.
 - 목록에 없는 과제 코드, 표에 없는 분류 이름을 지어내지 않는다.
@@ -107,8 +112,11 @@ node '<lane>/guild_hall/workspace_ledgers/ops/bot_triage.mjs' list --config '<co
 여러 과제 말이 나오거나, 어느 과제의 "힌트말"이 걸렸을 때). 후보는 **근거가 아니라 읽어 볼
 곳**이다 -- 후보가 하나뿐이어도 그것만으로 `include_with_review`를 쓰지 않는다. 본문을
 읽어 그 과제 일이라고 말하는 부분을 찾고, 그 부분을 `--why`에 적는다.
-`손질필요(...)`가 붙은 줄은 이미 쓸 수 없는 판정줄이 있는 메일이다 — 건드리지 말고 §보고에
-그대로 올린다.
+줄 끝에 붙는 표시가 둘 있다. 둘 다 **판정하지 말라는 뜻**이고, §보고의 "남긴 것"에 올린다.
+
+- `이미판정(<판정>)` — 쓸 수 있는 판독줄이 이미 있다(대개 `hold_owner_review`, 곧 사람이
+  봐야 한다는 뜻). 그대로 둔다.
+- `손질필요(<이유>)` — 판독줄이 있는데 **쓸 수 없는 상태**다. 사람이 표를 고쳐야 한다.
 
 ### 2) 한 통 읽기
 
@@ -251,12 +259,18 @@ node '<lane>/guild_hall/workspace_ledgers/ops/bot_triage.mjs' decide --config '<
 | `..._target_not_a_matched_vendor` | 그 거래처가 이 메일에 잡혀 있지 않다 | `show`의 `거래처` 칸 이름을 그대로 쓴다 |
 | `..._vendor_only_without_organisation` | 거래처가 안 잡힌 메일이다 | `hold_owner_review`로 바꾼다 |
 | `..._why_required` · `..._why_too_long` · `..._why_not_single_line` | 이유가 없거나 길거나 여러 줄이다 | 한 줄 200자 안으로 |
+| `..._why_control_characters` · `..._id_control_characters` · `..._target_control_characters` | 값에 탭·제어문자가 섞였다(도구는 지우지 않고 거부한다) | 사람이 읽는 글자만 남겨 한 번만 다시 실행 |
 | `..._id_not_in_queue` | 그 메일은 대기줄에 없다(이미 판정됨) | 다시 판정하지 않는다. `list`를 다시 본다 |
+| `..._mail_already_decided` | 쓸 수 있는 판독줄이 이미 있다(`이미판정` 표시) | **다시 판정하지 않는다.** 그대로 보고에 올린다 |
+| `workspace_ledgers_triage_decision_duplicate` | 라이브러리가 같은 메일의 중복 줄을 막았다 | 위와 같다 — 다시 시도하지 말고 Owner에게 알린다 |
 | `..._mail_already_decided_invalid` | 이미 쓸 수 없는 판정줄이 있다 | 사람이 표를 고쳐야 한다 — 보고에 올린다 |
 | `..._daily_cap_reached` | 오늘 한도를 다 썼다 | **멈춘다.** 남은 건수를 보고한다 |
 | `..._unknown_flag` | 이 도구에 없는 인자를 넣었다 | 이 문서의 줄을 그대로 다시 복사한다 |
 | `..._correct_not_supported` | 정정을 시도했다 | §정정은 사람이 한다 |
 | `workspace_ledgers_triage_owner_table_failures` | Owner 표 하나가 깨져 있다 | **판정하지 않는다.** 그대로 Owner 확인 요청 |
+| `..._org_config_changed_during_run` | 실행 도중 설정 파일이 바뀌었다 | 아무것도 안 쓰였다. 그대로 Owner 확인 요청 |
+| `..._receipt_write_failed_after_append` | **판독표에는 줄이 이미 들어갔는데** 기록을 못 남겼다 | **다시 실행하지 않는다.** 그 메일은 판정이 끝난 것으로 보고 Owner 확인 요청 |
+| `..._receipt_write_failed` | 기록을 못 남겼다(판독표는 안 바뀌었다) | 그대로 Owner 확인 요청 |
 | `..._config_*` (끝값 4) | 설정 파일이나 해시가 어긋났다 | 아무것도 안 쓰였다. 그대로 Owner 확인 요청 |
 
 모르는 코드가 나오면 "이 스킬로는 원인을 못 좁혔습니다, Owner 확인이 필요합니다"라고 답하고

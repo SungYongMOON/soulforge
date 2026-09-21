@@ -179,6 +179,16 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
       // directly instead. `null` for every other item (no existing decision, or a
       // legitimate `hold_owner_review` -- that one is working as intended, not broken).
       already_decided_invalid: alreadyDecidedInvalidReason(projectResult),
+      // S-2 (2026-09-22 fresh review, additive): the `결정` of a reading-table row this
+      // mail ALREADY carries, or `null` when it carries none. A mail can legitimately
+      // keep a row and still sit in this queue -- `hold_owner_review` is exactly that
+      // case, and so is any decision that did not attribute -- and without this field
+      // an automated reader cannot tell "nobody has looked at this" from "somebody
+      // looked and said wait", so it decides the mail again and gets back only
+      // `appendReadingDecision`'s bare `..._decision_duplicate`. Distinct from
+      // `already_decided_invalid`, which says the existing row is BROKEN and needs a
+      // person; this one says a perfectly usable row is already there.
+      already_decided_level: projectResult.reading ? projectResult.reading.level : null,
       received_at: mail.at,
       subject: mail.subject,
       from: mail.from ? { name: mail.from.name, email: mail.from.email } : null,
