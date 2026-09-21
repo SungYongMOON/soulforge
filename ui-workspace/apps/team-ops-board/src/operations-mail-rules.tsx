@@ -29,10 +29,21 @@ function writeRouteErrorMessage(status: number, body: Row | null, fallback: stri
   if (body?.state === 'write_disabled') return '쓰기가 꺼져 있어 실행할 수 없습니다.';
   if (body?.state === 'custody_unconfigured') return '메일 자료 연결이 설정되지 않아 실행할 수 없습니다.';
   if (body?.state === 'core_module_unavailable') return '핵심 모듈 연결 전이라 실행할 수 없습니다.';
+  if (body?.state === 'workspaces_root_invalid') return '워크스페이스 경로를 찾을 수 없어 실행할 수 없습니다.';
+  if (body?.state === 'workmeta_root_invalid') return '워크메타 경로를 찾을 수 없어 실행할 수 없습니다.';
   if (body?.state === 'busy') return '다른 요청을 처리 중입니다. 잠시 후 다시 시도하세요.';
   if (status === 413) return '요청이 너무 큽니다.';
   if (body?.reason) return `${fallback} (${body.reason})`;
   return fallback;
+}
+
+// S-b (second round): a refresh receipt with an empty `projects` array is not automatically an
+// error (the adapter's directory-existence gate already rules out the "typo'd path" cause), but
+// it is never nothing-to-report either — a real root that legitimately has zero onboarded
+// projects still deserves a visible "found nothing" signal instead of reading identically to
+// "everything is fine."
+function refreshFoundNoProjects(refresh: Row | undefined): boolean {
+  return Array.isArray(refresh?.projects) && refresh.projects.length === 0;
 }
 
 function ChipGroup({ label, chipState, group, editing, onRemove, onAdd, addPlaceholder }: {
@@ -165,7 +176,8 @@ export function MailRulePanel({ project }: { project?: string }) {
     fetchJson('/mail-rule/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
       .then(({ ok, status, body: resBody }) => {
         if (ok && resBody?.state === 'saved') {
-          setSaveOutcome({ kind: 'saved', previousVersion: resBody.previous_version, ruleVersion: resBody.rule_version, changedFiles: resBody.refresh?.changed_files });
+          setSaveOutcome({ kind: 'saved', previousVersion: resBody.previous_version, ruleVersion: resBody.rule_version,
+            changedFiles: resBody.refresh?.changed_files, foundNoProjects: refreshFoundNoProjects(resBody.refresh) });
           setActionState('idle'); setEditing(false); load(); return;
         }
         if (ok && resBody?.state === 'saved_refresh_failed') {
@@ -178,14 +190,30 @@ export function MailRulePanel({ project }: { project?: string }) {
           setActionState('idle'); setEditing(false); load(); return;
         }
         if (status === 409 && resBody?.state === 'rule_changed') {
+          // nit (second round): a reload here used to call `load()`, which resets `editing` and
+          // wipes `chipState` — silently discarding whatever the Owner had typed at exactly the
+          // moment they most need it kept. The reload button below instead only refreshes
+          // `snapshot` (so `rule.rule_version`/`snapshot.sha256_json` are current for a retry);
+          // the Owner's chips, note, and preview result are left exactly as they were.
           setActionState('error'); setConflict(true);
-          setActionMessage('다른 곳에서 이 규칙이 먼저 바뀌었습니다. 다시 불러온 뒤 다시 시도하세요.');
+          setActionMessage('다른 곳에서 이 규칙이 먼저 바뀌었습니다. 아래에서 새로 불러온 뒤(입력한 내용은 유지됩니다) 다시 저장하세요.');
           return;
         }
         setActionState('error');
         setActionMessage(writeRouteErrorMessage(status, resBody, '저장하지 못했습니다.'));
       })
       .catch(() => { setActionState('error'); setActionMessage('저장하지 못했습니다.'); });
+  };
+  // The "다시 불러오기" reload after a 409 rule_changed conflict. Unlike `load()`, this never
+  // touches `editing`/`chipState`/`previewResult` — only `snapshot` (and therefore `rule` and
+  // `snapshot.sha256_json`, what the next save attempt will be checked against) is refreshed, so
+  // the Owner's typed chips and note stay exactly as they were and can simply be saved again.
+  const reloadKeepingDraft = () => {
+    if (!project) return;
+    fetchJson(`/mail-rule.snapshot.json?project=${encodeURIComponent(project)}`)
+      .then(({ body }) => { if (body?.state === 'ready') setSnapshot(body); })
+      .catch(() => {})
+      .finally(() => { setConflict(false); setActionMessage(null); setActionState('idle'); });
   };
   const runRefreshRetry = () => {
     setActionState('retrying'); setActionMessage(null);
@@ -194,7 +222,8 @@ export function MailRulePanel({ project }: { project?: string }) {
         if (ok && (body?.state === 'ready' || body?.state === 'refresh_partial')) {
           setSaveOutcome((prev: Row | null) => {
             if (!prev) return null;
-            if (body.state === 'ready') return { kind: 'saved', previousVersion: prev.previousVersion, ruleVersion: prev.ruleVersion, changedFiles: body.refresh?.changed_files };
+            if (body.state === 'ready') return { kind: 'saved', previousVersion: prev.previousVersion, ruleVersion: prev.ruleVersion,
+              changedFiles: body.refresh?.changed_files, foundNoProjects: refreshFoundNoProjects(body.refresh) };
             return { kind: 'saved_refresh_partial', ruleVersion: prev.ruleVersion, previousVersion: prev.previousVersion,
               ledgerFailures: body.refresh?.ledger_failures, ruleFailures: body.refresh?.rule_failures, unreadableDirs: body.refresh?.unreadable_dirs };
           });
@@ -218,7 +247,9 @@ export function MailRulePanel({ project }: { project?: string }) {
     </header>
 
     <div aria-live="polite">
-      {saveOutcome?.kind === 'saved' && <p className="mr-save-outcome">v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion} 저장됨, 장부 갱신 {saveOutcome.changedFiles ?? 0}개 파일</p>}
+      {saveOutcome?.kind === 'saved' && (saveOutcome.foundNoProjects
+        ? <p className="mr-save-outcome is-warning">v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion} 저장됨, 그러나 과제를 찾지 못했습니다(장부 갱신 대상 0개) — 워크스페이스·워크메타 경로 설정을 확인하세요.</p>
+        : <p className="mr-save-outcome">v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion} 저장됨, 장부 갱신 {saveOutcome.changedFiles ?? 0}개 파일</p>)}
       {saveOutcome?.kind === 'saved_refresh_failed' && <p className="mr-save-outcome is-warning">규칙은 저장됨(v{saveOutcome.ruleVersion}), 장부 갱신 실패 — <button onClick={runRefreshRetry} disabled={busy}>다시 시도</button></p>}
       {saveOutcome?.kind === 'saved_refresh_partial' && <p className="mr-save-outcome is-warning">
         규칙은 저장됨(v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion}), 장부 갱신 일부 실패
@@ -227,10 +258,14 @@ export function MailRulePanel({ project }: { project?: string }) {
       </p>}
     </div>
 
-    <ChipGroup label="확정 키워드" chipState={editing && chipState ? chipState : { exact: exactItems, hint: hintItems }} group="exact" editing={editing} addPlaceholder="새 키워드"
+    {/* nit (second round): keyed on `editing` so ChipGroup's own local draftValue/addError state
+        (not lifted here — it belongs to the in-progress add attempt, not the chip list) resets
+        on every edit-mode transition, instead of a cancelled or completed edit leaving stale
+        typed text or an old rejection message sitting in the input the next time editing starts. */}
+    <ChipGroup key={`exact-${editing}`} label="확정 키워드" chipState={editing && chipState ? chipState : { exact: exactItems, hint: hintItems }} group="exact" editing={editing} addPlaceholder="새 키워드"
       onRemove={index => setChipState((s: Row) => removeChip(s, 'exact', index))}
       onAdd={value => setChipState((s: Row) => addLiteralChip(s, 'exact', value))} />
-    <ChipGroup label="검토 힌트" chipState={editing && chipState ? chipState : { exact: exactItems, hint: hintItems }} group="hint" editing={editing} addPlaceholder="새 힌트"
+    <ChipGroup key={`hint-${editing}`} label="검토 힌트" chipState={editing && chipState ? chipState : { exact: exactItems, hint: hintItems }} group="hint" editing={editing} addPlaceholder="새 힌트"
       onRemove={index => setChipState((s: Row) => removeChip(s, 'hint', index))}
       onAdd={value => setChipState((s: Row) => addLiteralChip(s, 'hint', value))} />
 
@@ -259,7 +294,7 @@ export function MailRulePanel({ project }: { project?: string }) {
       {!editDisabledReason && !canSave && <p className="cx-footnote">현재 초안으로 미리보기를 실행하고 사유를 입력해야 저장할 수 있습니다.</p>}
       <p className="cx-footnote" aria-live="polite">
         {actionMessage && <span className={actionState === 'error' ? 'cx-notice' : 'cx-footnote'}>{actionMessage}</span>}
-        {conflict && <button onClick={load} style={{ marginLeft: '0.5em' }}>다시 불러오기</button>}
+        {conflict && <button onClick={reloadKeepingDraft} disabled={busy} style={{ marginLeft: '0.5em' }}>다시 불러오기</button>}
       </p>
       {previewResult && <div className={previewIsFresh ? undefined : 'mr-preview-stale'}>
         {!previewIsFresh && <p className="cx-footnote">초안이 바뀌어 이 결과는 오래되었습니다. 다시 미리보기하세요.</p>}

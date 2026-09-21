@@ -927,7 +927,11 @@ reachable over HTTP.)
     that *throws* after a successful save does **not** roll the save back (the
     rule is already the source of truth on disk) — the response is
     `200 {"state":"saved_refresh_failed","rule_version","error_code"}` instead
-    of the success shape below. A `refresh` call that instead *returns
+    of the success shape below. `error_code` is normalised through the exact
+    same lowercase_with_underscores check as `sendWriteRouteError`'s `reason`
+    (second review round S-d — this branch used to send `error?.code` verbatim,
+    the one write-route failure path that bypassed that normalisation). A
+    `refresh` call that instead *returns
     normally* but with `receipt.status !== 'ok'` (fresh review R2 — R4 ledger
     validation, an unreadable custody directory, or one project's own saved
     rule failing to compile; `refresh()` does not throw for any of these) is a
@@ -948,18 +952,31 @@ reachable over HTTP.)
     is `'ok'` or `{"state":"refresh_partial", refresh:{…}}` (still `200`, not
     an HTTP error) otherwise.
 
-### Optimistic concurrency (S1)
+### Optimistic concurrency (S1, S-a)
 
 `POST /mail-rule/save` requires `rule_version` and `sha256_json` in the body,
 alongside `project`/`draft` — the exact values the panel read from the most
 recent `GET /mail-rule.snapshot.json` response (which now also returns
 `sha256_json`, the sha256 of the rule file's raw on-disk bytes at read time).
-Before doing anything else, the save route re-reads the current rule **fresh**
-— never through the 60s GET cache, which could already be serving a version
-older than what the caller loaded — and compares both fields; a mismatch
-refuses `409 {"state":"rule_changed"}` before any core call, rather than
-silently overwriting a more recent save with a draft built against a stale
-rule. The panel shows a "다시 불러오기" (reload) prompt on that response. A
+The save route re-reads the current rule **fresh** — never through the 60s
+GET cache, which could already be serving a version older than what the
+caller loaded — and compares both fields **twice**: once before calling the
+core's `previewRule` (to build the draft that call measures), and once more
+**immediately before** `saveRuleVersion` (second fresh-review round, S-a).
+`previewRule` against real custody can take a while, and that gap is a window
+for a concurrent CLI `save-rule` to land — reading and comparing only once,
+before that call started, would silently revert every field the UI draft
+does not itself carry (`schema_version`, `status`, `conflict_policy`,
+`sender_policy`, … — anything besides `exact`/`hint`/`yields_to`) back onto
+the CLI's more recent version the moment this call finally writes. Either
+check refuses `409 {"state":"rule_changed"}` before any write, and the second
+one specifically means `saveRuleVersion` is only ever called with a draft
+built from the version confirmed present *immediately* beforehand, not from
+whatever was on disk when the (possibly slow) measurement pass started. The
+panel keeps the Owner's typed chips, note and preview result exactly as they
+were on this response (second round nit) — the "다시 불러오기" button only
+refreshes the snapshot the next save will be checked against, it does not
+call the ordinary reload path that would otherwise reset the whole edit. A
 request missing either field, or with a `sha256_json` that is not a
 64-character lowercase hex string, is refused
 `400 {"state":"denied","reason":"expected_version_missing"}` before the
@@ -967,6 +984,26 @@ concurrency check even runs. At the `createMailRuleReader(...).save(...)`
 reader level this `expected` argument is optional — a direct/internal caller
 with no prior read to compare against can still save without it — the HTTP
 route above is what actually requires it.
+
+### Real, existing custody roots (S-b, S-c)
+
+`save`/`refresh` require `workspacesRoot` and `workmetaRoot` to each resolve
+to a real, existing, non-symlink directory (`requireRealDirectory`, the same
+`admitRealDirectory` the read path already used) — refusing
+`503 {"state":"workspaces_root_invalid"}` /
+`503 {"state":"workmeta_root_invalid"}` before any core call otherwise.
+Before this, both paths were only checked for being non-empty strings — a
+typo'd path passed that check exactly as well as a real one, and
+`refreshAll()` in particular handed such a path straight to the core's
+`refresh()` unguarded, which (like most Node fs-writing code) creates rather
+than fails on a missing directory: the typo silently produced a new, empty
+directory on the private plane and the panel showed a plain "0 files changed"
+success. A refresh receipt with a genuinely empty `projects` array — now that
+the directory itself is confirmed real — still gets its own visible signal
+rather than reading identically to success: the panel shows "저장됨, 그러나
+과제를 찾지 못했습니다" (save) or an equivalent warning (retry) whenever
+`refresh.projects` comes back empty, pointing at the workspaces/workmeta path
+configuration rather than presenting a quiet zero as if nothing were wrong.
 
 ### Synchronous core calls (S5)
 
@@ -983,7 +1020,27 @@ fail against a core-level lock. Because the underlying call really is
 synchronous, that busy call also blocks the whole preview server's event loop
 for its duration — this is accepted as the cost of a loopback, single-Owner
 tool exercising a module explicitly designed with no internal wall-clock
-guard on its real match path.
+guard on its real match path. A thrown core call still releases the lock (a
+`finally` around the guarded call, not a success-only unlock), so a single
+failed save/preview never wedges every later call behind a busy state that
+would otherwise never clear (second review round nit).
+
+`save`'s note check (an empty/whitespace-only `note` refuses
+`workspace_ledgers_note_missing`, the same code `saveRuleVersion` would
+eventually produce) runs before the custody-directory checks' async I/O and
+well before the potentially slow `previewRule` call — there is no reason to
+pay for either just to reject a request that was always going to fail on the
+note alone (second review round nit).
+
+`refresh()`'s actual argument list today is exactly `{workspacesRoot,
+workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, fields,
+receiptsDir}` — everything this adapter is configured with. If
+`guild_hall/workspace_ledgers`'s `refresh()` ever gains optional
+bundle/custody-reading-table paths beyond those, this adapter passes none of
+them today, so the console's refresh would silently do less than the CLI's
+until a follow-up change wires the new paths through from configuration too
+(second review round nit — see the near-identical sentence in
+`mail-rule-adapter.mjs`'s own header comment).
 
 `TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`, `TEAM_OPS_MAIL_RULE_WRITE`,
 `TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR`, `TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR`,
@@ -1036,21 +1093,33 @@ naming only the count of other-project rule compile failures excluded from
 the comparison, never which projects or terms (S2). The preview area shows
 the three sample-title lists (`moved_in`/`moved_out`/`newly_held`, ≤80 chars
 each) under collapsed headings. After a successful save the panel reloads the
-snapshot and shows "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일"; after a
-save whose refresh step threw it shows "규칙은 저장됨, 장부 갱신 실패" with a
-"다시 시도" button that calls `POST /mail-rule/refresh`, and after a save
-whose refresh step returned normally but reported failure
-(`saved_refresh_partial`) it shows the same retry button alongside the
-rule/unreadable-dir/ledger failure counts. A `409 rule_changed` save response
-shows a "다시 불러오기" reload prompt (S1); a `409 busy` response (S5) shows
-the same "다른 요청을 처리 중입니다" message as any other write-route
-failure. The save outcome banner and the action-status line are both
+snapshot and shows "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일" — or, if
+the refresh receipt's `projects` came back empty (S-b — a real,
+directory-confirmed root that genuinely has no onboarded projects, not a
+typo), a warning instead ("저장됨, 그러나 과제를 찾지 못했습니다") rather
+than the same line as a normal success; after a save whose refresh step threw
+it shows "규칙은 저장됨, 장부 갱신 실패" with a "다시 시도" button that calls
+`POST /mail-rule/refresh`, and after a save whose refresh step returned
+normally but reported failure (`saved_refresh_partial`) it shows the same
+retry button alongside the rule/unreadable-dir/ledger failure counts. A `409
+rule_changed` save response shows a "다시 불러오기" reload prompt (S1) that —
+unlike the panel's ordinary reload — refreshes only the on-disk snapshot the
+next save attempt is checked against, leaving the Owner's typed chips, note
+and preview result exactly as they were so the edit can simply be retried
+(second review round nit, "keep the draft visible"); a `409 busy` response
+(S5) shows the same "다른 요청을 처리 중입니다" message as any other
+write-route failure. The save outcome banner and the action-status line are
+both
 `aria-live="polite"` (S6), and the chip-add text input carries an
 `aria-label` naming its group and placeholder. Chip React keys are
 `${index}-${label}`, not the label alone, and removal (`removeChip`) is by
 index — a hand-edited rule file's group can carry duplicate labels, and a
 label-keyed removal would have deleted every chip sharing the clicked one's
-label instead of only it. The chip add/remove/dedupe/limit arithmetic and the
+label instead of only it. Each `ChipGroup` instance itself is keyed on
+`editing` (second review round nit) — its own local "currently typed"
+add-value and rejection-reason state belongs to one in-progress add attempt,
+not to the chip list, and would otherwise survive (stale) across a cancelled
+edit or into the next one. The chip add/remove/dedupe/limit arithmetic and the
 status-label mapping are the pure, DOM-free
 `src/core/mail-rule-chip-editor.mjs`. Styling lives in
 `src/operations-mail-rules.css`.

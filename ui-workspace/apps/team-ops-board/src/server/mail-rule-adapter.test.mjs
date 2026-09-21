@@ -243,7 +243,10 @@ async function custodyFixture(t) {
   const gmailDir = path.join(f.root, 'events', 'gmail_sent');
   const receiptsDir = path.join(f.root, 'receipts');
   const workmetaRoot = path.join(f.root, 'workmeta');
-  for (const dir of [hiworksDir, gmailDir, receiptsDir]) await mkdir(dir, { recursive: true });
+  // Second review round S-b/S-c: `workmetaRoot` used to never actually be created here — this
+  // slipped by only because nothing checked it existed on disk before now. `requireRealDirectory`
+  // does, so every save/refresh test needs a real directory here, the same as the other three.
+  for (const dir of [hiworksDir, gmailDir, receiptsDir, workmetaRoot]) await mkdir(dir, { recursive: true });
   const orgConfigPath = path.join(f.root, 'org_config.json');
   await writeFile(orgConfigPath, JSON.stringify({ our_domain: 'example.com', organisations: { 'example.com': 'Example Corp' }, family: {} }));
   return { ...f, hiworksDir, gmailDir, receiptsDir, orgConfigPath, workmetaRoot };
@@ -434,7 +437,7 @@ test('R1: save and refresh answer custody_unconfigured (never touching the core)
   // through a write (fresh review R1's exact failure mode).
   const call = harness(options);
   const res = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: 'v1', sha256_json: 'a'.repeat(64) }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, rule_version: 'v1', sha256_json: 'a'.repeat(64) }) });
   assert.equal(res.statusCode, 503);
   assert.deepEqual(JSON.parse(res.body), { state: 'custody_unconfigured' });
   assert.equal(coreCalled, false);
@@ -515,17 +518,17 @@ test('S1: the HTTP save route requires rule_version and sha256_json in the body,
   const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
 
   const missing = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모' }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' } }) });
   assert.equal(missing.statusCode, 400);
   assert.deepEqual(JSON.parse(missing.body), { state: 'denied', reason: 'expected_version_missing' });
 
   const stale = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: 'v0-stale', sha256_json: 'a'.repeat(64) }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, rule_version: 'v0-stale', sha256_json: 'a'.repeat(64) }) });
   assert.equal(stale.statusCode, 409);
   assert.deepEqual(JSON.parse(stale.body), { state: 'rule_changed' });
 
   const fresh = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }) });
   assert.equal(fresh.statusCode, 200);
   assert.equal(JSON.parse(fresh.body).state, 'saved');
 });
@@ -550,6 +553,174 @@ test('S5: a second concurrent preview/save/refresh call is refused 409 busy rath
   await first;
   // Once the first call has released the lock, a new call is accepted again.
   await reader.preview('P00-001', { exact: [], hint: [] });
+});
+
+// nit (second round): a thrown core call must still release the mutex — a save that fails must
+// not permanently wedge every later preview/save/refresh call behind a busy lock that will never
+// clear.
+test('nit: a thrown core error still releases the mutex — a following preview succeeds', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const explodingCore = {
+    previewRule: async () => { const error = new Error('boom'); error.code = 'workspace_ledgers_boom'; throw error; },
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => refreshReceiptFixture(['P00-001']),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: explodingCore, writeEnabled: true }));
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, '메모',
+    { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }));
+  // A different core, still the same reader instance — proves the lock was actually released,
+  // not merely that a second call against the same failing core also fails.
+  const workingCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture([]) };
+  reader.core.previewRule = workingCore.previewRule; // swap the stub in place; same closure, same lock
+  await reader.preview('P00-001', { exact: [], hint: [] });
+});
+
+// ---------- S-a (second round): re-check the expected version immediately before the write ----------
+
+test('S-a: a rule change that lands during the (slow) previewRule call is caught by a second check before saveRuleVersion, and saveRuleVersion is never called', async t => {
+  const f = await custodyFixture(t);
+  const folder = 'P00-001_예시과제';
+  const initialDoc = ruleDoc();
+  await writeProject(f.workspacesRoot, folder, initialDoc);
+  const expected = { rule_version: initialDoc.rule_version, sha256_json: sha256Of(JSON.stringify(initialDoc)) };
+  let saveCalled = false;
+  const racingCore = {
+    // Simulates a concurrent CLI `save-rule` landing while this call's own previewRule is still
+    // running against real custody — exactly the window a single up-front check cannot close.
+    previewRule: async () => {
+      await writeProject(f.workspacesRoot, folder, ruleDoc({ rule_version: 'v2-from-cli' }));
+      return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} };
+    },
+    saveRuleVersion: async () => { saveCalled = true; return { rule_version: 'v3', previous_version: 'v2-from-cli' }; },
+    refresh: async () => refreshReceiptFixture(['P00-001']),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: racingCore, writeEnabled: true }));
+  await assert.rejects(reader.save('P00-001', { exact: [{ label: 'x', kind: 'literal', value: 'x' }], hint: [] }, '메모', expected),
+    error => error.code === 'rule_changed');
+  assert.equal(saveCalled, false, 'the race is caught before saveRuleVersion, not after');
+  const onDisk = JSON.parse(await readFile(path.join(f.workspacesRoot, folder, ...RULE_DIR, 'mail_routing_rule.json'), 'utf8'));
+  assert.equal(onDisk.rule_version, 'v2-from-cli', 'the CLI save on disk is untouched — never silently reverted');
+});
+
+test('S-a: when nothing changes during previewRule, the second check passes and the write proceeds normally', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const expected = { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) };
+  let previewRuleCalls = 0;
+  const fakeCore = {
+    previewRule: async () => { previewRuleCalls += 1; return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }; },
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => refreshReceiptFixture(['P00-001']),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모', expected);
+  assert.equal(outcome.kind, 'saved');
+  assert.equal(previewRuleCalls, 1, 'the race-window re-check reads the file again, it does not call previewRule a second time');
+});
+
+// ---------- S-b/S-c (second round): workspacesRoot/workmetaRoot must be real, existing directories ----------
+
+test('S-b: refreshAll() refuses when workspacesRoot does not exist, and never invokes the core (no silent mkdir)', async t => {
+  const f = await custodyFixture(t);
+  const typoRoot = path.join(f.root, 'workspces-typo'); // never created
+  assert.equal(existsSync(typoRoot), false);
+  let coreCalled = false;
+  const trapCore = { previewRule: async () => { coreCalled = true; return {}; }, saveRuleVersion: async () => { coreCalled = true; return {}; },
+    refresh: async () => { coreCalled = true; return refreshReceiptFixture([]); } };
+  const reader = createMailRuleReader({ ...custodyOptions(f, { core: trapCore, writeEnabled: true }), workspacesRoot: typoRoot });
+  await assert.rejects(reader.refreshAll(), error => error.code === 'workspaces_root_invalid');
+  assert.equal(coreCalled, false, 'the core (which would mkdir the typo path) is never reached');
+  assert.equal(existsSync(typoRoot), false, 'the typo path was not created as a side effect of the failed call');
+});
+
+test('S-b: the HTTP /mail-rule/refresh route answers 503 workspaces_root_invalid for the same typo, before any core call', async t => {
+  const f = await custodyFixture(t);
+  const typoRoot = path.join(f.root, 'workspces-typo-2');
+  let coreCalled = false;
+  const trapCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => { coreCalled = true; return refreshReceiptFixture([]); } };
+  const call = harness({ ...custodyOptions(f, { core: trapCore, writeEnabled: true }), workspacesRoot: typoRoot });
+  const res = await call(MAIL_RULE_REFRESH_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(res.statusCode, 503);
+  assert.deepEqual(JSON.parse(res.body), { state: 'workspaces_root_invalid' });
+  assert.equal(coreCalled, false);
+  assert.equal(existsSync(typoRoot), false);
+});
+
+test('S-c: save() and refreshAll() refuse when workmetaRoot does not exist (a real, existing workspacesRoot alone is not enough)', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const typoWorkmeta = path.join(f.root, 'workmeta-typo'); // never created
+  assert.equal(existsSync(typoWorkmeta), false);
+  let coreCalled = false;
+  const trapCore = { previewRule: async () => { coreCalled = true; return {}; }, saveRuleVersion: async () => { coreCalled = true; return {}; },
+    refresh: async () => { coreCalled = true; return refreshReceiptFixture([]); } };
+  const reader = createMailRuleReader({ ...custodyOptions(f, { core: trapCore, writeEnabled: true }), workmetaRoot: typoWorkmeta });
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, '메모', { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }),
+    error => error.code === 'workmeta_root_invalid');
+  await assert.rejects(reader.refreshAll(), error => error.code === 'workmeta_root_invalid');
+  assert.equal(coreCalled, false, 'saveRuleVersion never gets a chance to write the rule and then fail on lineage');
+  assert.equal(existsSync(typoWorkmeta), false);
+});
+
+// ---------- S-b: an empty projects list from a genuinely-configured refresh is a distinct outcome ----------
+
+test('S-b: a refresh receipt with zero projects is reported truthfully (empty projects array), distinguishable from a non-empty one at the data level the panel renders from', async t => {
+  const f = await custodyFixture(t);
+  const emptyCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture([]) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: emptyCore, writeEnabled: true }));
+  const receipt = await reader.refreshAll();
+  assert.deepEqual(receipt.projects, [], 'zero onboarded projects really is zero, once workspacesRoot/workmetaRoot are both confirmed real');
+  assert.equal(receipt.status, 'ok', 'a real root that legitimately has no onboarded projects is not itself a failure');
+});
+
+// ---------- S-d (second round): saved_refresh_failed's error_code is normalised, not sent verbatim ----------
+
+test('S-d: a refresh throw with a non-lowercase_with_underscores code reports error_code:internal_error, not the raw code', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => { const error = new TypeError('boom'); error.code = 'ERR_INVALID_ARG_TYPE'; throw error; },
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모', { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) });
+  assert.equal(outcome.kind, 'saved_refresh_failed');
+  assert.equal(outcome.error_code, 'internal_error', 'the raw ERR_INVALID_ARG_TYPE never reaches the panel verbatim');
+});
+
+test('S-d: a refresh throw with no .code at all still falls back to the safe workspace_ledgers_refresh_failed code (already lowercase_with_underscores, passes through unchanged)', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => { throw new Error('boom, no code'); },
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모', { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) });
+  assert.equal(outcome.error_code, 'workspace_ledgers_refresh_failed');
+});
+
+// ---------- second round: note is checked before the expensive previewRule call ----------
+
+test('save() refuses an empty/missing note before calling previewRule at all', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let previewRuleCalled = false;
+  const trapCore = { previewRule: async () => { previewRuleCalled = true; return {}; }, saveRuleVersion: async () => ({}), refresh: async () => ({}) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: trapCore, writeEnabled: true }));
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, ''), error => error.code === 'workspace_ledgers_note_missing');
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, '   '), error => error.code === 'workspace_ledgers_note_missing');
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, undefined), error => error.code === 'workspace_ledgers_note_missing');
+  assert.equal(previewRuleCalled, false, 'the note check happens before any core call, expensive or not');
 });
 
 // ---------- default core loader ----------
@@ -691,7 +862,7 @@ test('POST /mail-rule/save: success answers state:saved with version and refresh
     saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }), refresh: async () => refreshReceiptFixture(['P00-001']) };
   const okCall = harness(custodyOptions(f, { writeEnabled: true, core: okCore }));
   const saved = await okCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', ...expected }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, ...expected }) });
   assert.equal(saved.statusCode, 200);
   assert.deepEqual(JSON.parse(saved.body), { state: 'saved', rule_version: 'v2', previous_version: 'v1',
     refresh: { projects: ['P00-001'], changed_files: 2, status: 'ok', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 0 } });
@@ -700,7 +871,7 @@ test('POST /mail-rule/save: success answers state:saved with version and refresh
     refresh: async () => { const error = new Error('boom'); error.code = 'workspace_ledgers_refresh_lock_held'; throw error; } };
   const failCall = harness(custodyOptions(f, { writeEnabled: true, core: failingCore }));
   const savedButRefreshFailed = await failCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', ...expected }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, ...expected }) });
   assert.equal(savedButRefreshFailed.statusCode, 200, 'the rule itself is already saved; this is not an HTTP error');
   assert.deepEqual(JSON.parse(savedButRefreshFailed.body), { state: 'saved_refresh_failed', rule_version: 'v2', error_code: 'workspace_ledgers_refresh_lock_held' });
 
@@ -708,7 +879,7 @@ test('POST /mail-rule/save: success answers state:saved with version and refresh
     refresh: async () => failedRefreshReceiptFixture(['P00-001']) };
   const partialCall = harness(custodyOptions(f, { writeEnabled: true, core: partialCore }));
   const savedButRefreshPartial = await partialCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', ...expected }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, ...expected }) });
   assert.equal(savedButRefreshPartial.statusCode, 200, 'the rule is saved; refresh returning normally with a failure is still not an HTTP error');
   const partialBody = JSON.parse(savedButRefreshPartial.body);
   assert.equal(partialBody.state, 'saved_refresh_partial');
@@ -750,9 +921,59 @@ test('nit: a code that is not this module\'s own lowercase_with_underscores shap
     refresh: async () => refreshReceiptFixture([]) };
   const call = harness(custodyOptions(f, { writeEnabled: true, core: explodingCore }));
   const res = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }) });
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: '메모' }, rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }) });
   assert.equal(res.statusCode, 400);
   assert.deepEqual(JSON.parse(res.body), { state: 'denied', reason: 'internal_error' });
+});
+
+// nit: HTTP-level coverage for the two 409 states and the 503 core-unavailable state — previously
+// only exercised at the reader level.
+test('nit: HTTP busy answers 409, and core_module_unavailable answers 503', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const slowCore = {
+    previewRule: async () => { await gate; return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }; },
+    saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture([]),
+  };
+  const busyCall = harness(custodyOptions(f, { writeEnabled: true, core: slowCore }));
+  const firstPreview = busyCall(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } }) });
+  const secondPreview = await busyCall(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } }) });
+  assert.equal(secondPreview.statusCode, 409);
+  assert.deepEqual(JSON.parse(secondPreview.body), { state: 'busy' });
+  release();
+  await firstPreview;
+
+  const unavailableCall = harness({ workspacesRoot: f.workspacesRoot, workmetaRoot: f.workmetaRoot, hiworksEventsDir: f.hiworksDir,
+    gmailSentEventsDir: f.gmailDir, ledgerOrgConfigPath: f.orgConfigPath, ledgerReceiptsDir: f.receiptsDir, writeEnabled: true,
+    core: createDefaultMailRuleCore({ importModule: async () => { throw new Error('not found'); } }) });
+  const res = await unavailableCall(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } }) });
+  assert.equal(res.statusCode, 503);
+  assert.deepEqual(JSON.parse(res.body), { state: 'core_module_unavailable' });
+});
+
+test('nit: GET on any of the three write-only paths answers 405, not 200 or a silent fallthrough', async t => {
+  const call = harness({});
+  for (const p of [MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH]) {
+    const res = await call(p, { method: 'GET' });
+    assert.equal(res.statusCode, 405, p);
+  }
+});
+
+test('nit: an oversized body answers 413 on the save and refresh routes too, not only preview', async t => {
+  const f = await custodyFixture(t);
+  const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => ({}) };
+  const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
+  const oversizedBody = JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [], note: 'x'.repeat(64 * 1024) } });
+  for (const p of [MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH]) {
+    const res = await call(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: oversizedBody });
+    assert.equal(res.statusCode, 413, p);
+  }
 });
 
 // ---------- integration: the REAL guild_hall/workspace_ledgers core module, no injected core ----------

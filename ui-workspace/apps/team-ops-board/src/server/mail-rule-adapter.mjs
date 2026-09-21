@@ -25,13 +25,25 @@
 // can never reach `saveRuleVersion`'s lineage write and throw partway through (fresh review
 // R1: that used to write a new rule version, then throw building the lineage path, leaving the
 // private plane holding an unversioned-lineage write while the panel reported a plain 400).
-// `save` additionally re-reads the current rule uncached and refuses 409 `rule_changed` when
-// the caller's `rule_version`/`sha256_json` no longer match what is on disk (optimistic
+// `save`/`refresh` additionally require `workspacesRoot`/`workmetaRoot` to each resolve to a
+// real, existing directory (503 `workspaces_root_invalid`/`workmeta_root_invalid` otherwise,
+// second review round S-b/S-c) — a merely-non-empty but typo'd path used to reach the core's
+// `refresh()` unguarded, which creates rather than fails on a missing directory, so a typo
+// silently produced a new empty directory on the private plane and a green "0 files" success.
+// `save` re-reads the current rule uncached and compares against the caller's `rule_version`/
+// `sha256_json` **twice** — once before the core's `previewRule` call and once more immediately
+// before `saveRuleVersion` (second round S-a: `previewRule` against real custody can be slow,
+// and that gap was a window for a concurrent CLI save to land and be silently reverted on every
+// field the UI draft does not itself carry) — refusing 409 `rule_changed` either time (optimistic
 // concurrency — see "Optimistic concurrency" in the README). At most one preview/save/refresh
 // call runs at a time; a second concurrent call is refused 409 `busy` rather than queued or
 // interleaved, because the core module's own matching and file-write paths are synchronous,
 // blocking calls with no internal concurrency control of their own (see "Synchronous core
-// calls" in the README).
+// calls" in the README). If `guild_hall/workspace_ledgers`' `refresh()` ever grows optional
+// bundle/custody-reading-table paths beyond the ones this adapter already wires
+// (`hiworksDirs`/`gmailSentDirs`/`orgConfigPath`/`receiptsDir`), this adapter passes none of
+// them today — the console's refresh would silently do less than the CLI until a follow-up
+// change wires them from configuration too.
 
 import { createHash } from 'node:crypto';
 import { lstat, opendir, realpath } from 'node:fs/promises';
@@ -75,6 +87,15 @@ const asNonEmptyString = (value, max) => typeof value === 'string' && value.leng
 const safeFolderName = name => typeof name === 'string' && name.length > 0 && name.length <= 255
   && !/[\\/:\x00-\x1f\x7f]/u.test(name) && !/[. ]$/u.test(name);
 
+// Shared by every place that decides whether an error `.code` is safe to surface verbatim as a
+// `reason`/`error_code` — this module's own codes, plus every core error code, are all
+// lowercase_with_underscores; a bare Node error code (`ERR_INVALID_ARG_TYPE`, `ENOENT`, …) or an
+// unset `.code` never is. Used by `sendWriteRouteError` below and by `save()`'s
+// `saved_refresh_failed` branch (fresh review, second round S-d — that branch used to send
+// `error?.code` verbatim, bypassing this exact normalisation).
+const SAFE_ERROR_CODE = /^[a-z0-9_]+$/u;
+const normalizeErrorCode = code => (typeof code === 'string' && SAFE_ERROR_CODE.test(code)) ? code : 'internal_error';
+
 // ---------- workspace folder resolution (never follows a path supplied by the caller) ----------
 
 // realpath() always returns an OS-normalized, separator-consistent path; the configured root
@@ -95,6 +116,19 @@ async function admitRealDirectory(target) {
   try { real = await realpath(target); } catch { throw new Error('unsafe_directory'); }
   if (!pathsEqual(real, target)) throw new Error('unsafe_directory');
   return stat;
+}
+
+// Fresh review, second round S-b/S-c: `fullCustodyReady`/`previewCustodyReady` only check that
+// `workspacesRoot`/`workmetaRoot` are non-empty strings — a typo'd path passes that check just
+// as well as a real one. `refreshAll()` in particular never touched either path at all before
+// handing them straight to the core's `refresh()`, which (like most Node fs-writing code) is
+// happy to `mkdir` a path that does not exist yet — so a typo silently created a new, empty
+// directory on the private plane and the panel showed a green "0 files" success rather than any
+// error. Throws a tagged error (`code`) rather than returning a boolean, so callers can `await`
+// it directly ahead of any core call and let it propagate through the normal error path.
+async function requireRealDirectory(target, code) {
+  try { await admitRealDirectory(target); }
+  catch { const error = new Error(code); error.code = code; throw error; }
 }
 
 // Direct children of workspacesRoot whose name starts with "<code>_". Zero, one, or more
@@ -473,28 +507,63 @@ export function createMailRuleReader({ workspacesRoot, workmetaRoot, writeEnable
   // refresh actually does moments later.
   //
   // S1 optimistic concurrency: `expected` (when the caller supplies it) is `{rule_version,
-  // sha256_json}` read by the panel at load time. This reads the current rule fresh — never
-  // through the 60s GET cache, which could already be serving a version older than what the
-  // caller loaded — and refuses `rule_changed` if either no longer matches, before any core
-  // call. `expected` is optional at this reader level (a direct/internal caller with no prior
-  // read to compare against can still save); the HTTP route below requires it.
+  // sha256_json}` read by the panel at load time. Refuses `rule_changed` if a fresh read no
+  // longer matches either field, before any core call. `expected` is optional at this reader
+  // level (a direct/internal caller with no prior read to compare against can still save); the
+  // HTTP route below requires it. `checkExpectedVersion` is called twice — see S-a below.
+  function checkExpectedVersion(currentSnapshot, expectedVersion) {
+    if (!expectedVersion) return;
+    const changed = String(expectedVersion.rule_version) !== String(currentSnapshot.rule.rule_version)
+      || expectedVersion.sha256_json !== currentSnapshot.sha256_json;
+    if (changed) { const error = new Error('mail_rule_changed'); error.code = 'rule_changed'; throw error; }
+  }
+
+  function requireReadySnapshot(snapshot) {
+    if (snapshot.state !== 'ready') {
+      const error = new Error('mail_rule_current_unreadable');
+      error.code = snapshot.state === 'no_rule' ? 'no_current_rule' : 'current_rule_unavailable';
+      throw error;
+    }
+  }
+
   async function save(code, uiDraft, note, expected) {
     requireCustody(fullCustodyReady);
+    // S-b/S-c (second round): a typo'd workspacesRoot/workmetaRoot is a truthy string, so the
+    // sync check above alone would let it through; the core would then happily `mkdir` it. This
+    // path is already indirectly guarded for workspacesRoot by `findProjectFolders` inside
+    // `buildProjectSnapshot` below, but checking both explicitly, before any read or write,
+    // keeps the guarantee obvious rather than incidental and covers workmetaRoot too (nothing
+    // else in `save` ever reads it before handing it to `saveRuleVersion`).
+    await requireRealDirectory(workspacesRoot, 'workspaces_root_invalid');
+    await requireRealDirectory(workmetaRoot, 'workmeta_root_invalid');
+    // Second round nit: the note is checked here — before the potentially slow `previewRule`
+    // call below — even though `saveRuleVersion` would eventually refuse the same way
+    // (`workspace_ledgers_note_missing`); there is no reason to pay for a full custody
+    // classification pass just to reject a request that was always going to fail on this alone.
+    if (typeof note !== 'string' || note.trim() === '') {
+      const error = new Error('workspace_ledgers_note_missing'); error.code = 'workspace_ledgers_note_missing'; throw error;
+    }
     return withCoreLock(async () => {
       const current = await buildProjectSnapshot(code);
-      if (current.state !== 'ready') {
-        const error = new Error('mail_rule_current_unreadable');
-        error.code = current.state === 'no_rule' ? 'no_current_rule' : 'current_rule_unavailable';
-        throw error;
-      }
-      if (expected) {
-        const changed = String(expected.rule_version) !== String(current.rule.rule_version) || expected.sha256_json !== current.sha256_json;
-        if (changed) { const error = new Error('mail_rule_changed'); error.code = 'rule_changed'; throw error; }
-      }
+      requireReadySnapshot(current);
+      checkExpectedVersion(current, expected);
       const draft = mergeDraftOntoRule(current.rule, uiDraft);
       const measured = await resolvedCore.previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs,
         fields: MATCH_FIELDS_SUBJECT_ONLY, orgConfigPath: ledgerOrgConfigPath });
-      const saved = await resolvedCore.saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by: 'owner', note, measured,
+      // S-a (second round): `previewRule` above can take a while against real custody, and the
+      // uncached read + version compare happened *before* it started — a concurrent CLI save
+      // landing in that window would otherwise be silently reverted (every field `uiDraft`
+      // doesn't carry, which is everything except exact/hint/yields_to, still came from the
+      // pre-previewRule `current.rule`). Re-reading and re-comparing now, immediately before the
+      // actual write, closes that window; a mismatch here still means no core write happens.
+      // `previewRule`'s own `measured` result stays valid either way — it was computed against
+      // whichever draft `current.rule` produced, and this second check either confirms that
+      // rule is still the one on disk or refuses before `saveRuleVersion` is ever called.
+      const beforeWrite = await buildProjectSnapshot(code);
+      requireReadySnapshot(beforeWrite);
+      checkExpectedVersion(beforeWrite, expected);
+      const finalDraft = mergeDraftOntoRule(beforeWrite.rule, uiDraft);
+      const saved = await resolvedCore.saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft: finalDraft, by: 'owner', note, measured,
         allowedActors: ['owner'] });
       cache.delete(`project:${code}`);
       cache.delete('list');
@@ -505,7 +574,12 @@ export function createMailRuleReader({ workspacesRoot, workmetaRoot, writeEnable
         const kind = refreshSummary.status === 'ok' ? 'saved' : 'saved_refresh_partial';
         return { kind, rule_version: saved.rule_version, previous_version: saved.previous_version, refresh: refreshSummary };
       } catch (error) {
-        return { kind: 'saved_refresh_failed', rule_version: saved.rule_version, error_code: error?.code ?? 'workspace_ledgers_refresh_failed' };
+        // S-d (second round): this used to send `error?.code` verbatim — a bare Node error code
+        // (or none at all) would leak straight through instead of going through the same
+        // lowercase_with_underscores normalisation `sendWriteRouteError` applies to every other
+        // write-route failure.
+        return { kind: 'saved_refresh_failed', rule_version: saved.rule_version,
+          error_code: normalizeErrorCode(error?.code ?? 'workspace_ledgers_refresh_failed') };
       }
     });
   }
@@ -515,6 +589,12 @@ export function createMailRuleReader({ workspacesRoot, workmetaRoot, writeEnable
   // rule.json, so the GET-path cache (keyed on the rule, not the ledgers) is left alone.
   async function refreshAll() {
     requireCustody(fullCustodyReady);
+    // S-b/S-c (second round): see the identical comment in `save` above — `refreshAll` had no
+    // check of either path's real existence at all before this, so a typo'd `workspacesRoot`
+    // reached the core's `refresh()` unguarded, which creates the directory rather than failing,
+    // and the panel showed a plain "0 files changed" success instead of any error.
+    await requireRealDirectory(workspacesRoot, 'workspaces_root_invalid');
+    await requireRealDirectory(workmetaRoot, 'workmeta_root_invalid');
     return withCoreLock(async () => {
       const receipt = await resolvedCore.refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs,
         orgConfigPath: ledgerOrgConfigPath, fields: MATCH_FIELDS_SUBJECT_ONLY, receiptsDir: ledgerReceiptsDir });
@@ -537,27 +617,31 @@ function originIsSelf(req) {
     && /^(127\.0\.0\.1|localhost)(:\d+)?$/u.test(req.headers.host || '');
 }
 
-// Status codes shared by every POST-route failure. `custody_unconfigured` and
-// `core_module_unavailable` are both "not ready", not the caller's fault — 503.
-// `rule_changed` (S1: the on-disk rule no longer matches what the caller loaded) is a genuine
-// conflict — 409, like `busy` (S5: another preview/save/refresh is already running). Everything
-// else classified here as a caller/data problem is 400, with the module's own structured error
-// code surfaced as `reason` for the UI/operator. Fresh review R1: every code reaching this
-// function is now expected to be one of this module's own lowercase_with_underscores codes
-// (nit: `validateDraft` and the plain `project_invalid`/`expected_version_missing` throws below
-// all set `.code` for exactly this reason) — but a code that still fails that shape (e.g. a
-// bare Node error like `ERR_INVALID_ARG_TYPE` from somewhere this module did not anticipate, or
-// no `.code` at all) is never leaked verbatim: it maps to the stable `internal_error` reason
-// instead of silently omitting `reason`, so the panel and any log always see *some* signal
-// rather than a bare `{state:'denied'}` that looks identical to "no reason to give."
+// Status codes shared by every POST-route failure. `custody_unconfigured`,
+// `core_module_unavailable`, `workspaces_root_invalid` and `workmeta_root_invalid` are all "not
+// ready", not the caller's fault — 503 (the latter two, second round S-b/S-c: a configured but
+// non-existent root, caught by `requireRealDirectory` before any core call). `rule_changed` (S1:
+// the on-disk rule no longer matches what the caller loaded) is a genuine conflict — 409, like
+// `busy` (S5: another preview/save/refresh is already running). Everything else classified here
+// as a caller/data problem is 400, with the module's own structured error code surfaced as
+// `reason` for the UI/operator, normalised through the shared `normalizeErrorCode` (fresh review
+// R1: every code reaching this function is now expected to be one of this module's own
+// lowercase_with_underscores codes — `validateDraft` and the plain `project_invalid`/
+// `expected_version_missing` throws below all set `.code` for exactly this reason — but a code
+// that still fails that shape, e.g. a bare Node error like `ERR_INVALID_ARG_TYPE` from somewhere
+// this module did not anticipate, or no `.code` at all, is never leaked verbatim: it maps to the
+// stable `internal_error` reason instead of silently omitting `reason`). `save()`'s
+// `saved_refresh_failed` branch uses the exact same `normalizeErrorCode` (S-d, second round) —
+// this function is not the only place a core error code reaches the panel.
 function sendWriteRouteError(res, send, error) {
   if (error?.code === 'custody_unconfigured') { res.statusCode = 503; send({ state: 'custody_unconfigured' }); return; }
   if (error?.code === 'core_module_unavailable') { res.statusCode = 503; send({ state: 'core_module_unavailable' }); return; }
+  if (error?.code === 'workspaces_root_invalid') { res.statusCode = 503; send({ state: 'workspaces_root_invalid' }); return; }
+  if (error?.code === 'workmeta_root_invalid') { res.statusCode = 503; send({ state: 'workmeta_root_invalid' }); return; }
   if (error?.code === 'body_too_large') { res.statusCode = 413; send({ state: 'denied' }); return; }
   if (error?.code === 'rule_changed') { res.statusCode = 409; send({ state: 'rule_changed' }); return; }
   if (error?.code === 'busy') { res.statusCode = 409; send({ state: 'busy' }); return; }
-  const reason = typeof error?.code === 'string' && /^[a-z0-9_]+$/u.test(error.code) ? error.code : 'internal_error';
-  res.statusCode = 400; send({ state: 'denied', reason });
+  res.statusCode = 400; send({ state: 'denied', reason: normalizeErrorCode(error?.code) });
 }
 
 // S1: the save route requires the rule_version/sha256_json the panel loaded, alongside `draft`.

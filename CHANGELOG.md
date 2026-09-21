@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-09-21 - 메일 분류 키워드 패널: 두 번째 신선한 검토 지적(필수 1건·S-a~S-d·nit) 반영
+
+- Revision: 이 항목을 포함한 커밋. 직전 커밋(6c5ee109)에 대한 두 번째 신선한 검토가 필수 1건
+  (문서 오기)과 권장 4건(S-a~S-d), nit 6건을 남겼고 전부 반영했다.
+- 무엇이 바뀌었는가: 필수 — 바로 아래 커밋(직전 항목)의 검증 줄이 실제 관측치가 아니라
+  "133/133"으로 잘못 적혀 있었다(실제는 88/88이었음). 이번 커밋에서 실제로 관측한 최종
+  수치(101/101, 이 항목 자체의 검증 줄에도 동일하게 반영)로 정정했다. 권장 — (S-a) `save()`의
+  버전/해시 재확인이 느릴 수 있는 core `previewRule` 호출 *이전*에만 있었던 것을, 호출 직후
+  `saveRuleVersion` 직전에 한 번 더(`buildProjectSnapshot` 재실행 + 재비교) 수행하도록
+  했다 — 그 사이 CLI가 먼저 저장하면 UI 초안이 담지 않는 필드(상태·정책 등)가 조용히
+  되돌려지던 창을 닫았다. (S-b) `refreshAll()`이 `workspacesRoot`가 실제 존재하는
+  디렉터리인지 전혀 확인하지 않아, 오타 경로를 core `refresh()`에 그대로 넘기면 core가
+  그 경로를 `mkdir`해버리고 화면은 "0 files" 성공으로 보이던 문제를 `admitRealDirectory`
+  기반의 `requireRealDirectory`로 막았다(503 `workspaces_root_invalid`). 과제 0건 응답도
+  화면에서 "과제를 찾지 못했습니다" 경고로 구분해 보여준다. (S-c) 같은 검사를
+  `workmetaRoot`에도 적용해 `save`가 core에 규칙을 쓴 뒤 lineage에서만 실패하는 경로를
+  막았다(503 `workmeta_root_invalid`). (S-d) `saved_refresh_failed` 응답이 core의
+  `error?.code`를 그대로 보내던 것을, `sendWriteRouteError`와 같은
+  `/^[a-z0-9_]+$/` → `internal_error` 정규화를 거치도록 했다. nit 6건 — core 예외가
+  뮤텍스를 반드시 해제하는지(던진 뒤 다음 preview가 성공하는지) 시험 추가; HTTP 수준에서
+  busy→409·core_module_unavailable→503·POST 전용 경로에 GET→405·save/refresh의 413을
+  각각 시험; `409 rule_changed`에서 "다시 불러오기"가 더 이상 `load()`를 호출해 입력 중이던
+  칩·사유·미리보기를 지우지 않고 스냅샷(버전/해시)만 새로 읽도록 분리(`reloadKeepingDraft`);
+  `ChipGroup`을 `editing` 값으로 key잡아 편집 취소·재진입 시 입력칸·오류 메시지가 남지 않게
+  함; `save()`의 사유(note) 빈값 검사를 비용이 큰 `previewRule` 호출보다 먼저 수행;
+  어댑터 헤더 주석과 README에 "core `refresh()`가 번들/읽기표 선택 경로를 추가하면 이
+  어댑터는 아직 아무것도 넘기지 않아 콘솔 갱신이 CLI보다 덜 하게 된다"는 한 문장을 남겼다
+  (아직 core에 없는 기능에 대한 전망 메모, 코드 변경 없음). 테스트 픽스처 `custodyFixture`가
+  `workmetaRoot`를 실제로 `mkdir`하지 않던 것도 같이 고쳤다(새 존재-확인 검사가 기존 테스트를
+  전부 깨뜨려 드러남) — 직전 커밋의 R1 수정이 놓쳤던 같은 종류의 픽스처 공백이었다.
+- 운영 영향: 없음 — 쓰기는 여전히 기본 꺼짐이고, `guild_hall/workspace_ledgers` 코어 파일은
+  이번에도 건드리지 않았다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/README.md`, `CHANGELOG.md`.
+- 검증: 앱 패널 4파일 `node --test`(101/101), `tsc --noEmit` 통과, 루트
+  `npm run validate:workspace-ledgers`(139/139, core 자체 테스트 — 파일 미변경), 루트
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations),
+  루트 `node guild_hall/validate/boot_digest_guard.mjs`(OK). 정확한 pass/fail·exit code는
+  커밋 메시지 본문 참고.
+
 ## 2026-09-21 - 메일 분류 키워드 패널: main 재기반 뒤 신선한 검토 지적(R1~R4·S1~S7·nit) 반영
 
 - Revision: 이 항목을 포함한 커밋. `claude/ops-mail-rule-panel-v0`을 origin/main 위로
@@ -47,7 +89,7 @@
   `ui-workspace/apps/team-ops-board/src/server/loopback-request-guard.test.mjs`,
   `ui-workspace/apps/team-ops-board/README.md`, `CHANGELOG.md`.
 - 검증: 앱 패널 4파일 `node --test`(mail-rule-adapter/mail-rule-chip-editor/
-  operations-read-configuration/loopback-request-guard, 133/133 — 실제 core 모듈 통합
+  operations-read-configuration/loopback-request-guard, 101/101 — 실제 core 모듈 통합
   테스트 1개 포함), `tsc --noEmit` 통과, 루트 `npm run validate:workspace-ledgers`
   (139/139, core 자체 테스트 — 파일 미변경), 루트
   `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`, 루트
