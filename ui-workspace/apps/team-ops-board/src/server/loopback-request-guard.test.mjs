@@ -44,6 +44,7 @@ const ADAPTER_TABLE = Object.freeze([
   { module: "forge-world-coverage-adapter.mjs", factory: "createWorldCoverageAdapterPlugin", url: "/project-coverage.snapshot.json", options: { stateRoot: SERVER_DIR, projectCodes: [] } },
   { module: "host-stats-adapter.mjs", factory: "createHostStatsAdapterPlugin", url: "/host-stats.snapshot.json" },
   { module: "live-thread-adapter.mjs", factory: "createLiveThreadAdapterPlugin", url: "/codex-threads.snapshot.json" },
+  { module: "mail-rule-adapter.mjs", factory: "createMailRulePlugin", url: "/mail-rule.snapshot.json" },
   { module: "operations-directory-adapter.mjs", factory: "createOperationsDirectoryPlugin", url: "/operations-directory.json" },
   { module: "operations-graph-receipts-adapter.mjs", factory: "createGraphReceiptPlugin", url: "/operations-graph-receipts.json" },
   { module: "rag-operations-adapter.mjs", factory: "createRagOperationsPlugin", url: "/rag-operations.json" },

@@ -274,6 +274,708 @@
   origin/main에서도 동일하게 재현 확인, 08169918 이후 기존 상태). 등록기의 실제 `-Register`/scheduled task
   등록·재등록은 실행하지 않았다(작업 범위 제외).
 
+## 2026-09-21 - 메일 분류 키워드 패널: 두 번째 신선한 검토 지적(필수 1건·S-a~S-d·nit) 반영
+
+- Revision: 이 항목을 포함한 커밋. 직전 커밋(6c5ee109)에 대한 두 번째 신선한 검토가 필수 1건
+  (문서 오기)과 권장 4건(S-a~S-d), nit 6건을 남겼고 전부 반영했다.
+- 무엇이 바뀌었는가: 필수 — 바로 아래 커밋(직전 항목)의 검증 줄이 실제 관측치가 아니라
+  "133/133"으로 잘못 적혀 있었다(실제는 88/88이었음). 이번 커밋에서 실제로 관측한 최종
+  수치(101/101, 이 항목 자체의 검증 줄에도 동일하게 반영)로 정정했다. 권장 — (S-a) `save()`의
+  버전/해시 재확인이 느릴 수 있는 core `previewRule` 호출 *이전*에만 있었던 것을, 호출 직후
+  `saveRuleVersion` 직전에 한 번 더(`buildProjectSnapshot` 재실행 + 재비교) 수행하도록
+  했다 — 그 사이 CLI가 먼저 저장하면 UI 초안이 담지 않는 필드(상태·정책 등)가 조용히
+  되돌려지던 창을 닫았다. (S-b) `refreshAll()`이 `workspacesRoot`가 실제 존재하는
+  디렉터리인지 전혀 확인하지 않아, 오타 경로를 core `refresh()`에 그대로 넘기면 core가
+  그 경로를 `mkdir`해버리고 화면은 "0 files" 성공으로 보이던 문제를 `admitRealDirectory`
+  기반의 `requireRealDirectory`로 막았다(503 `workspaces_root_invalid`). 과제 0건 응답도
+  화면에서 "과제를 찾지 못했습니다" 경고로 구분해 보여준다. (S-c) 같은 검사를
+  `workmetaRoot`에도 적용해 `save`가 core에 규칙을 쓴 뒤 lineage에서만 실패하는 경로를
+  막았다(503 `workmeta_root_invalid`). (S-d) `saved_refresh_failed` 응답이 core의
+  `error?.code`를 그대로 보내던 것을, `sendWriteRouteError`와 같은
+  `/^[a-z0-9_]+$/` → `internal_error` 정규화를 거치도록 했다. nit 6건 — core 예외가
+  뮤텍스를 반드시 해제하는지(던진 뒤 다음 preview가 성공하는지) 시험 추가; HTTP 수준에서
+  busy→409·core_module_unavailable→503·POST 전용 경로에 GET→405·save/refresh의 413을
+  각각 시험; `409 rule_changed`에서 "다시 불러오기"가 더 이상 `load()`를 호출해 입력 중이던
+  칩·사유·미리보기를 지우지 않고 스냅샷(버전/해시)만 새로 읽도록 분리(`reloadKeepingDraft`);
+  `ChipGroup`을 `editing` 값으로 key잡아 편집 취소·재진입 시 입력칸·오류 메시지가 남지 않게
+  함; `save()`의 사유(note) 빈값 검사를 비용이 큰 `previewRule` 호출보다 먼저 수행;
+  어댑터 헤더 주석과 README에 "core `refresh()`가 번들/읽기표 선택 경로를 추가하면 이
+  어댑터는 아직 아무것도 넘기지 않아 콘솔 갱신이 CLI보다 덜 하게 된다"는 한 문장을 남겼다
+  (아직 core에 없는 기능에 대한 전망 메모, 코드 변경 없음). 테스트 픽스처 `custodyFixture`가
+  `workmetaRoot`를 실제로 `mkdir`하지 않던 것도 같이 고쳤다(새 존재-확인 검사가 기존 테스트를
+  전부 깨뜨려 드러남) — 직전 커밋의 R1 수정이 놓쳤던 같은 종류의 픽스처 공백이었다.
+- 운영 영향: 없음 — 쓰기는 여전히 기본 꺼짐이고, `guild_hall/workspace_ledgers` 코어 파일은
+  이번에도 건드리지 않았다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/README.md`, `CHANGELOG.md`.
+- 검증: 앱 패널 4파일 `node --test`(101/101), `tsc --noEmit` 통과, 루트
+  `npm run validate:workspace-ledgers`(139/139, core 자체 테스트 — 파일 미변경), 루트
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations),
+  루트 `node guild_hall/validate/boot_digest_guard.mjs`(OK). 정확한 pass/fail·exit code는
+  커밋 메시지 본문 참고.
+
+## 2026-09-21 - 메일 분류 키워드 패널: main 재기반 뒤 신선한 검토 지적(R1~R4·S1~S7·nit) 반영
+
+- Revision: 이 항목을 포함한 커밋. `claude/ops-mail-rule-panel-v0`을 origin/main 위로
+  재구성한 직후 받은 신선한 검토(4개 필수 + 7개 권장 + 7개 자잘한 지적)를 반영했다.
+- 무엇이 바뀌었는가: 필수 4건 — (R1) `fullCustodyReady`가 `workspacesRoot`/`workmetaRoot`를
+  빠뜨려, `workmetaRoot` 미설정 상태에서 `save`가 core에 새 판을 실제로 쓴 뒤 lineage 경로를
+  만들다 `ERR_INVALID_ARG_TYPE`로 던지는 사이 화면은 평범한 400만 보여주던 문제를, 두 값을
+  custody 검사에 넣어 모든 core 호출 전에 `503 custody_unconfigured`로 막았다(코어를 절대
+  건드리지 않고, 검사만 앞으로 옮김). (R2) `summarizeRefreshReceipt`가 `receipt.status`·
+  `ledger_failures`·`rule_failures`·`unreadable_dirs`(있으면 `owner_table_failures`도)를
+  버리던 것을, 반환값에 실어 `saved`/`saved_refresh_partial`(신설)로 구분하고
+  `POST /mail-rule/refresh`도 `refresh_partial` 상태를 답하도록 했다 — custody 전부 읽기
+  실패로 `projects`가 빈 배열이 되는 경우가 "변경 0건"과 더는 구분 불가능하지 않게 했다.
+  (R3) `save`의 내부 `previewRule` 호출(측정용 `measured`)에 `orgConfigPath`를 항상 넘기고
+  (직후 `refresh`가 쓰는 것과 같아야 렌더링되는 "근거" 줄이 어긋나지 않는다), `preview`도
+  설정돼 있으면 넘기도록 했다. (R4) IME 조합 중 Enter가 칩으로 커밋되던 문제를 순수 헬퍼
+  `shouldCommitChipOnKeyDown`(`isComposing` + Windows `keyCode===229` 대체 신호)으로 막고
+  `operations-mail-rules.tsx`에 연결했다.
+  권장 7건 — (S1) 저장 요청에 패널이 읽은 `rule_version`/`sha256_json`을 함께 보내게 하고,
+  서버는 캐시를 거치지 않고 다시 읽어 불일치 시 `409 rule_changed`로 거부한다(화면은 "다시
+  불러오기" 안내). (S2) `previewRule`의 `rule_failures`를 개수만 캐치프레이즈로 표시.
+  (S3) 초안이 바뀌면 이전 미리보기 결과를 지우지 않고 반투명 처리 + 재실행 안내.
+  (S4) 칩 추가가 no-op일 때 입력값을 지우지 않고 이유(`describeChipAddRejection`)를 보여준다.
+  (S5) preview/save/refresh 동시 1개만 실행하는 프로세스 내 락을 추가, 두 번째 동시 요청은
+  `409 busy`(README에 core 호출이 동기·블로킹이라는 점을 명문화). (S6) 칩 입력에 aria-label,
+  저장 결과·작업 메시지 줄에 aria-live="polite". (S7) README의 "미리보기 선행 게이트가
+  서버에서도 강제된다"는 잘못된 문장을 "사유 비어있음만 서버 강제, 미리보기 선행은 클라이언트
+  UX일 뿐, 서버는 저장 직전 스스로 다시 측정한다"로 정정.
+  자잘한 지적 7건 — `validateDraft`/`project_invalid`/`expected_version_missing`에 `.code`를
+  실어 `reason`이 화면까지 전달되게 했고, 그 외 알 수 없는 코드는 `internal_error`로 고정.
+  `operations-spaces-adapter.mjs`처럼 `Referrer-Policy: no-referrer` 추가. `saveRuleVersion`에
+  `allowedActors:['owner']` 전달. 소비자가 없던 `GET /mail-rules.snapshot.json`(과제 목록)
+  라우트는 제거했고(`listProjects()` 자체는 내부 빌딩 블록으로 유지, `truncated` 플래그 추가),
+  가드 표의 해당 행은 남은 라우트로 갱신. 칩 React key를 `index-label`로(라벨만으로는 손편집
+  파일의 중복 라벨과 충돌), `removeChip`도 라벨이 아니라 인덱스로 딱 하나만 지우게 함.
+  CHANGELOG의 "포트 4196"을 4194로, 실제 과제 코드처럼 보이던 한 줄을 `<project_code>`로.
+- 운영 영향: 없음 — 쓰기는 여전히 기본 꺼짐(`TEAM_OPS_MAIL_RULE_WRITE` 미설정)이고, 이번
+  변경은 core 파일을 전혀 건드리지 않았다(어댑터·패널·테스트·문서만).
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.css`,
+  `ui-workspace/apps/team-ops-board/src/server/loopback-request-guard.test.mjs`,
+  `ui-workspace/apps/team-ops-board/README.md`, `CHANGELOG.md`.
+- 검증: 앱 패널 4파일 `node --test`(mail-rule-adapter/mail-rule-chip-editor/
+  operations-read-configuration/loopback-request-guard, 101/101 — 실제 core 모듈 통합
+  테스트 1개 포함), `tsc --noEmit` 통과, 루트 `npm run validate:workspace-ledgers`
+  (139/139, core 자체 테스트 — 파일 미변경), 루트
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`, 루트
+  `node guild_hall/validate/boot_digest_guard.mjs`. 정확한 pass/fail·exit code는 커밋
+  메시지 본문 참고.
+
+## 2026-09-21 - 메일 분류 키워드 패널을 `guild_hall/workspace_ledgers` 핵심 모듈에 실제 연결
+
+- Revision: 이 항목을 포함한 커밋 (`claude/workspace-ledgers-v0`(d08f7441)을
+  `claude/ops-mail-rule-panel-v0`에 병합 후 이어지는 배선 커밋).
+- 무엇이 바뀌었는가: `src/server/mail-rule-adapter.mjs`의 `POST /mail-rule/preview`·
+  `POST /mail-rule/save`를 이제 실제 `guild_hall/workspace_ledgers/src/index.mjs`
+  (`previewRule`/`saveRuleVersion`/`refresh`)로 연결했고 `POST /mail-rule/refresh`
+  (재시도 전용) 경로를 새로 추가했다. `CORE_MODULE_SPECIFIER`를 추정 경로에서
+  실제 경로로 바꾸고, 새 설정 4종(`TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR`,
+  `TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR`, `TEAM_OPS_LEDGER_ORG_CONFIG`,
+  `TEAM_OPS_LEDGER_RECEIPTS_DIR`)를 기존 5개 키와 같은 예약작업 바인딩 파일에
+  추가했다. `previewRule`/`saveRuleVersion`은 편집한 부분만이 아니라 전체 규칙
+  문서를 요구하므로, 새 `buildFullDraft`가 저장된 현재 규칙 위에 UI 초안의
+  `{exact,hint,yields_to}`만 덮어써 core에 넘긴다(현재 규칙이 없으면
+  `no_current_rule`로 거부 — 이 모듈은 기존 규칙의 버전만 올리고 최초 작성은
+  하지 않는다). 매칭은 Owner 승인 기본값인 제목(subject)만 사용한다(core
+  빌더 실측: 본문·첨부까지 포함하면 전체 일치는 약 5%만 늘지만 두 과제 동시
+  확정 충돌(보류)이 1건에서 98건으로 늘어남). 저장은 core의 `previewRule`을
+  서버에서 다시 실행해 얻은 `measured`로 `saveRuleVersion`을 호출한 뒤,
+  `refresh`를 `projects`를 생략해(core의 기본값 = 전체 과제) 호출한다 —
+  previewRule 결과에는 영향받은 다른 과제 코드가 없어 더 좁힐 근거가 없다.
+  저장은 성공했는데 refresh만 실패하면 롤백하지 않고
+  `{state:'saved_refresh_failed', rule_version, error_code}`를 반환하며,
+  화면은 "규칙은 저장됨, 장부 갱신 실패 — 다시 시도" 배지와 `POST
+  /mail-rule/refresh` 재시도 버튼을 보여준다. 쓰기 경로(save·refresh)는
+  여전히 `TEAM_OPS_MAIL_RULE_WRITE==='1'`이 아니면 다른 처리보다 먼저
+  `403 write_disabled`로 거부하고(preview는 이 게이트가 없음), custody
+  디렉터리가 설정되지 않으면 세 경로 모두 `503 custody_unconfigured`를
+  반환한다. UI(`operations-mail-rules.tsx`)는 저장 성공 후 스냅샷을 다시
+  읽고 "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일"을 보여주며, "새 판으로
+  저장" 버튼은 현재 초안으로 미리보기를 실제로 실행하고 사유를 입력해야
+  활성화된다. 미리보기 표본 3종(새로 들어옴/빠짐/보류)은 접이식 목록으로
+  표시한다.
+- 운영 영향: 쓰기는 기본 꺼짐(`TEAM_OPS_MAIL_RULE_WRITE` 미설정)이라 이 커밋
+  자체로는 아무 실제 규칙·장부 파일도 바꾸지 않는다. 읽기 전용 수동 확인에서
+  `<project_code>`의 현재 규칙을 변경 없이 미리보기했을 때 `matched_before ==
+  matched_after`(35 == 35), 이동 0건을 확인했고, 저장 시도는 예상대로
+  `403 write_disabled`였다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.css`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+- 검증: 앱 `npm test`(1091/1091, 실제 core 모듈로 preview→save→refresh를
+  끝까지 실행하는 통합 테스트 1개 포함), 루트 `npm run validate:team-ops-app`
+  (동일), `tsc --noEmit` 통과, `npx vite build --config
+  operations-preview.config.ts` 통과, 루트 `npm run ui:done:check` 통과(PASS
+  ui-workspace acceptance check), 루트 `npm run validate:workspace-ledgers`
+  (39/39 통과, 이 저장소의 기존 core 모듈 자체 테스트), 루트 `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(변경
+  6파일, violations 0) 통과. 포트 4194 수동 확인은 실제 워크스페이스·custody
+  플레인을 읽기 전용으로만 사용했고(쓰기 플래그 미설정) 키워드·제목 등
+  실자료 내용은 어디에도 출력하지 않았다.
+
+## 2026-09-21 - 메일 분류 키워드 패널: yields_to 배열화 + 상태 배지 어휘 확장 대응
+
+- Revision: 이 항목을 포함한 커밋 (직전 "운영 콘솔에 프로젝트별 메일 분류 키워드 패널 추가" 커밋의
+  바로 다음 후속 수정).
+- 무엇이 바뀌었는가: 실제 규칙 파일에서 `yields_to`가 단일 객체/`null`에서 배열
+  (`[{project_code, when:{label,kind,value,flags?}}, …]`, 없으면 `[]`)로 바뀐 것을 반영했다.
+  `src/server/mail-rule-adapter.mjs`의 `validateRuleDocument`는 새 `normalizeYieldsTo`로
+  `null`·단일 객체·배열 세 형태를 모두 받아 배열로 정규화해 응답에 싣는다(항목당 기존 term 한도,
+  전체 최대 8개). `validateDraft`도 초안의 `yields_to`가 있으면 같은 세 형태를 검증만 하고
+  값 자체는 그대로 통과시킨다(이 슬라이스에서는 편집 불가). UI(`src/operations-mail-rules.tsx`)는
+  `yields_to` 배열 각 항목마다 "같은 메일에 `<label>`이 있으면 이 과제가 아니라
+  `<project_code>`로 본다" 문장을 하나씩 렌더링하도록 바꿨고, 상태 배지는 새 헬퍼
+  `mailRuleStatusLabel`/`mailRuleStatusTone`(`src/core/mail-rule-chip-editor.mjs`)로
+  `draft*` 접두 상태는 초안, `confirmed`/`accepted`는 확정, 그 외는 원문 그대로 표시하도록
+  확장했다(실 파일은 `draft_open_items` 같은 더 넓은 상태 어휘를 쓴다). 칩 편집 상태
+  (`initialChipEditorState`/`toDraft`)는 `yields_to`를 그대로 실어 나른다.
+- 운영 영향: 없음 — 여전히 읽기 경로만 실제로 응답하고, 쓰기 경로는 core 모듈 미병합으로
+  `503`(또는 `TEAM_OPS_MAIL_RULE_WRITE` 꺼짐이면 그 전에 `403`)을 반환한다. `core`를 연결할
+  때 필요한 `CORE_MODULE_SPECIFIER` 한 줄은 아직 그대로이며 최종 경로는 별도로 전달받는다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+- 검증: 앱 `npm test`(1082/1082), 루트 `npm run validate:team-ops-app`(동일, 1082/1082),
+  `tsc --noEmit` 통과, `npx vite build --config operations-preview.config.ts` 통과, 루트
+  `npm run ui:done:check` 통과(PASS ui-workspace acceptance check), 루트
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(변경 5파일,
+  violations 0) 통과. 이번 라운드는 실제 자료 대조 수동 확인을 반복 요청받지 않아 별도로
+  수행하지 않았다(직전 커밋에서 11개 과제·`yields_to` 실측 확인 완료).
+
+## 2026-09-21 - 운영 콘솔에 프로젝트별 메일 분류 키워드 패널 추가 (읽기 완료 · 쓰기 뼈대만)
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: team-ops-board 운영 콘솔(`operations-console.html`) 프로젝트 개요 화면에
+  "메일 분류 키워드" 패널을 추가했다. 새 Vite 플러그인 `src/server/mail-rule-adapter.mjs`가
+  `GET /mail-rules.snapshot.json`(과제 목록 요약)과 `GET /mail-rule.snapshot.json?project=<CODE>`
+  (개별 과제의 `mail_routing_rule.json` + `mail_routing_rule.md`의 "Owner 확인 기록"/"Owner 확인이
+  필요한 것" 두 절)를 loopback GET 전용으로 읽는다. 프로젝트 코드는 정규식으로 검증하고 폴더는
+  `<workspacesRoot>`의 직접 자식 중 `"<code>_"` 접두어의 유일한 실제 디렉터리로만 해석하며(둘 이상
+  매칭 시 `unavailable`), 두 파일은 기존 `readStableFile`(symlink/hardlink/reparse 안전, 256KB
+  cap)로만 읽는다. `POST /mail-rule/preview`·`POST /mail-rule/save`는 요청을 전부 검증(loopback·
+  Origin·Content-Type·64KB 본문·초안 한도)한 뒤 주입 가능한 `core` 객체
+  (`previewRule`/`saveRuleVersion`/`refresh`)로 위임한다. 이 core를 구현할 `guild_hall/workspace_ledgers`
+  모듈이 아직 main에 없어(브랜치 `claude/workspace-ledgers-v0`, 미병합) 기본 core는 추정 경로
+  import를 시도하고 실패하면 `503 core_module_unavailable`을 반환한다. `POST /mail-rule/save`는
+  `TEAM_OPS_MAIL_RULE_WRITE`가 정확히 `'1'`이 아니면 다른 어떤 처리보다 먼저 `403 write_disabled`로
+  거부한다. 이 세 설정(+`TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`)은 기존 5개 키와 같은
+  `operations-read-configuration.mjs` 예약작업 바인딩 파일 경로를 공유한다. 플러그인은
+  `operations-preview.config.ts`에만 등록했고 설치된 read-only Board의 `vite.config.ts`는 건드리지
+  않았다. UI는 `src/operations-mail-rules.tsx`(`MailRulePanel`, `nav.project`를
+  `OperationsDashboard`의 새 `project` prop으로 전달)와 순수 칩 편집 리듀서
+  `src/core/mail-rule-chip-editor.mjs`(literal keyword 추가/삭제/중복 제거/한도)로 구성했다.
+  정규식 항목은 화면에서 제거만 가능하고 새로 작성할 수 없다.
+- 운영 영향: 읽기 경로는 바로 사용 가능하나(설정 시), 쓰기 경로는 core 모듈이 병합되기 전까지
+  항상 `503`을 반환한다(기본 `TEAM_OPS_MAIL_RULE_WRITE` 꺼짐이라 `save`는 그 전에 이미 `403`).
+  운영 4192 lane과 예약작업은 이 커밋으로 갱신되지 않는다(별도 미리보기 lane인
+  `operations-preview.config.ts`만 해당).
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.mjs`,
+  `ui-workspace/apps/team-ops-board/operations-preview.config.ts`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.css`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-dashboard.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-console.tsx`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+- 검증: 앱 `npm test`(server+core+design, 1077/1077), 루트 `npm run validate:team-ops-app`(동일,
+  1077/1077 — 새 cross-adapter guard 표(`loopback-request-guard.test.mjs`) 항목 포함), `tsc --noEmit`
+  통과, `npx vite build --config operations-preview.config.ts` 통과, 루트 `npm run ui:done:check`
+  통과(validate/lint(read-only boundary lint 포함)/docs/build×4/theme-pack 전부 PASS). 합성 과제
+  `P00-001_예시과제`로만 수동 확인했고 실제 과제 자료는 이 커밋에 없다.
+
+## 2026-09-21 - AGENTS.md target 평면 문구 갱신 + 027 append-only 오기 정정
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: (1) `AGENTS.md` "안전·저장 경계" 절의 future target
+  `_workspaces`/`_workmeta` 불변 원칙 bullet을 갱신했다. Owner가 2026-09-12에
+  legacy 평면을 더 이상 정본으로 보지 않고 새 target 평면을 직접 쌓기로
+  결정했고, 2026-09-21에 정본 기록을 한 종류씩 반영하기로 결정한 것을
+  반영해, 지금 target에 쓸 수 있는 것을 과제별 SE 폴더트리 고정 `020_MGMT`
+  관리 기록(021 규칙·운영, 023 연락처, 025 작업 장부, 026 할일 장부, 027
+  메일 이력)과 공용/일반업무 폴더의 같은 장부, 지식 폴더 아래 회사 PJT
+  관리 대장 사본(모두 pointer-only 사본 1개 + target `_workmeta`
+  byte-lineage)으로 좁혀 명시했다. run/worklog/battle/collector 원본
+  출력/analytics/procedure-capture/메일 본문/첨부/secret은 여전히 금지고,
+  목록 밖 다른 target 기록은 별도 Owner 채택 전까지, 일반 경로는 여전히
+  W-AUTH·Canonical Empty-State Genesis·해당 Legacy Freeze 채택이다.
+  hash-pinned `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`의 같은
+  요약 문장도 같은 뜻으로 고치고 `node
+  guild_hall/validate/boot_digest_guard.mjs --update`로 manifest를
+  재서명했다. (2) 외부 검토에서 지적된 대로,
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`와 두 교육 매뉴얼
+  (`guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `manager_training.v0.md`)이 `027_수신이력_이동이력`의 메일 이력을
+  append-only라고 잘못 설명하고 있었다 — 실제로는
+  `guild_hall/workspace_ledgers`의 `refresh()`가 매 실행마다 수집
+  custody에서 다시 만드는 현재 시점 view이며(Owner기입 칸 보존, 이전
+  파일은 `history/`에 보관), append-only인 것은 그 아래 수집 메일
+  custody와 정정 이력이라 라우팅 규칙이 바뀌면 한 행이 다른 프로젝트로
+  옮겨가며 현재 view에서 빠질 수 있다. 세 문서 모두 이 사실에 맞게 1~2
+  문장을 고쳤다. 매뉴얼 두 개의 최종 bytes로 sha256을 다시 계산해
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`의
+  `content_digest`를 재고정했다(교체 전 각 옛 해시가 파일에 정확히 한 번씩만
+  나오는 것을 먼저 확인).
+- 운영 영향: 문서만 바뀌었다. 코드·구현 동작은 바뀌지 않았다 — target
+  `020_MGMT` 기록 자체는 `guild_hall/workspace_ledgers`가 2026-09-21에 이미
+  구현해 두었고, 이번 변경은 그 사실을 AGENTS.md/boot digest/온보딩
+  문서·매뉴얼의 문구에 맞춘 것이다.
+- 관련 경로: `AGENTS.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`,
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`,
+  `guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manager_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`.
+- 검증: `node guild_hall/validate/boot_digest_guard.mjs`(OK), `npm run
+  validate:manual-release`, `npm run validate:manual-projection`, `npm run
+  validate:canon`, `npm run validate:display-terms:changed`(커밋 전, 변경
+  스코프), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(커밋 전, 변경 스코프).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 일곱 번째 신선한 검토 반영: 분리된 사람의 Owner 셀 중복·대체주소 그림자·shrink 가드 게이트
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(30d71df0)에 대한 좁은 범위의 일곱 번째
+  fresh review — 검증기는 초록(130/130)이었지만, 이번 라운드가 새로 추가한
+  코드 안에 필수 3건이 남아 merge-ready가 아니었다 — 를 반영했다.
+  필수: (1) `preserveMerge`의 옛 행 매칭이 한 번 매칭된 행을 "소비됨"으로
+  표시하지 않아, 병합돼 있던 한 사람(주소1이 메일, 주소2가 다른메일, Owner
+  역할 채움)이 나중에 두 명으로 갈라지면 Owner 셀이 새 행 둘 다에 복사되고
+  `owner_cells_dropped_with_row`도 이중 집계됐다. 정확한 키 매칭(메일 열)을
+  모든 신규 행에 대해 먼저 돌리고, 이미 소비된 옛 행은 제외한 채 아직
+  매칭되지 않은 신규 행에 대해서만 대체주소 매칭을 두 번째로 돌리도록 고쳤다
+  — 옛 행 하나는 최대 한 번만 매칭된다. 두 신규 행이 대체주소로 같은 옛
+  행을 놓고 경합하면 둘 다 받지 못하고, 새 `owner_cells_ambiguous` 필드로
+  집계해 영수증에 실었다. (2) 대체주소 색인이 파일에 쓰인 순서대로
+  first-wins이라 모호성 검사가 전혀 없었다 — 기존 행 A(메일 a, 다른메일 c,
+  역할 X)와 행 C(메일 c, 역할 Y)가 있을 때 새 행이 c로만 들어오면 A가 c를
+  먼저 선점해 역할 X가 조용히 쓰였다. 정확한 키 매칭이 항상 대체주소 매칭을
+  이기도록(위 두 단계 순서가 이를 보장) 고쳤고, 색인을 만들 때 한 대체주소가
+  서로 다른 옛 행 두 개에 걸치거나 다른 옛 행의 진짜 키 열과 겹치면 그
+  주소를 색인에서 아예 제거해(다시는 매칭에 쓰이지 않음) `owner_cells_ambiguous`로
+  세도록 고쳤다 — 파일 전체를 막지는 않는다. (3) shrink 가드가 "실제로 적용
+  중인지"가 아니라 요청 플래그 자체로 판정해, 모든 custody 디렉터리가 읽히고
+  `allowPartialSources:true`만 습관적으로 넘긴 정상적인 7→1 축소(규칙 변경에
+  의한)까지 막고 실패로 보고했다. 이미 계산돼 있던 "실제 적용 중" 불리언
+  (읽지 못한 디렉터리가 있고 AND allowPartialSources가 참)으로 게이트를
+  옮기고 그 값을 `writeLedgerCsv`에 넘기도록 고쳤으며, README 문장도 사실에
+  맞게 고쳤다.
+  should: (4) shrink 가드를 `allowEmpty`로 넘긴 경우 영수증에 아무 흔적도
+  남지 않았다 — 새 `receipt.shrink_allowed_applied_to` 필드에 그 과제를
+  기록하고 테스트로 확인했다. (5) shrink 기준값이 collapse 이전의 원시 행수를
+  써서, 레거시 중복 행이 기준을 부풀렸다 — `before_rows`를 중복 collapse
+  이후의 행수로 바꿨다(5줄이 4행으로 collapse되면 4를 기준으로 삼는다).
+  (6) 트레일링 빈 줄 트림이 공백만 있는 마지막 줄은 놓쳤다 — 그 한 필드에
+  `trim()`을 적용해 잡도록 고쳤다.
+  nit: (7) `contactsAlternateKeys`가 공백 하나로만 분리하고 trim/대소문자
+  정규화가 없었다 — 공백/쉼표/세미콜론/줄바꿈으로 분리하고 양쪽 다
+  trim + 소문자 변환하도록 고쳤다(Owner가 손으로 편집한 셀도 매칭되도록).
+  (8) `decodeCsv`의 트레일링 트림이 열이 2개 이상이라고 가정했다 — 헤더가
+  한 열뿐이면 트림을 아예 건너뛰도록 고치고 JSDoc에 명시했다(진짜 한 열짜리
+  빈 행과 구별할 수 없으므로). (9) `readOrgConfig`가 여전히 캐치된 에러에
+  `.code`가 없을 때 orgConfigPath 전체를 detail로 남겼다 — `path.basename(...)`으로
+  고쳤다(이 Node 런타임에서는 모든 실제 fs 에러가 `.code`를 갖고 있어 실행
+  경로로는 사실상 도달 불가능하지만, 소스 자체를 직접 검사하는 테스트로
+  회귀를 막았다).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `writeLedgerCsv`의 `allowPartialSources`
+  매개변수명이 `partialSourcesInEffect`로 바뀌었다(모듈 내부 전용, 공개
+  `refresh()`/`previewRule()` 시그니처는 변경 없음). 영수증에
+  `owner_cells_ambiguous`(연락처_장부.csv 전용, 기본 0)와
+  `shrink_allowed_applied_to`(기본 빈 배열) 필드가 새로 붙었다 — 기존
+  소비자는 무시해도 무방하다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·README).
+- 검증: 클린 체크아웃에서 `npm run validate:workspace-ledgers`(139 tests
+  pass), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(0 violations), `npm run validate:canon`(0 errors/warnings), 실제
+  대상면 `--dry --fields subject` 재확인(건수만).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 여섯 번째 신선한 검토 반영: 연락처 키 흔들림·경로 잔재·트레일링 빈 줄·shrink 가드
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(13d6f772)에 대한 여섯 번째 별도(non-author) fresh
+  review — 검증기는 초록(120/120)이었고 다섯 번째 라운드의 설계 단순화도 정확히
+  확인됐지만, 필수 1건이 남아 merge-ready가 아니었다 — 를 반영했다.
+  필수: (1) `src/ledgers.mjs`의 `buildContacts`가 병합된 사람의 연락처_장부.csv 키
+  (메일)를 "가장 최근에 활동한 주소"로 매긴다. 시나리오: org config의 family가
+  옛 도메인을 새 도메인에 매핑 → 한 사람이 두 주소 모두로 메일을 보냄 → refresh가
+  새 주소로 키가 잡힌 행 하나를 쓰고 → Owner가 과제내역할(Owner기입) 셀을 채움 →
+  옛 주소로 새 메일 한 통이 도착 → 다음 refresh는 여전히 한 행을 유지하지만
+  키가 옛 주소로 바뀌고 Owner 셀이 비어버린다(그 사람이 실제로는 떠나지 않았는데도
+  `owner_cells_dropped_with_row`로 집계됨). `refresh.mjs`의 `preserveMerge`에
+  `alternateKeysOf`(연락처 전용)를 추가해, 옛 행을 찾을 때 현재 키뿐 아니라
+  그 행의 병합 주소 집합(메일 + 다른메일의 모든 주소) 중 아무거나와 일치해도
+  같은 사람으로 보고 Owner 셀을 새 행에 그대로 옮기도록 고쳤다. 네 가지
+  시나리오(원 흐름, 역방향 전환, 서로 다른 두 사람이 각각 두 주소를 가진 경우의
+  교차오염 없음, 병합 집합이 세 번째 주소로 늘어나는 경우)를 각각 테스트로
+  확인했다. README의 "연락처 키는 내용 안정적"이라는 문장도 이 예외를 명시하도록
+  고쳤다.
+  should: (2) `redactHostPaths`가 따옴표 없고 공백이 있는 경로에서는 조각을
+  남겼다 -- `workspace_ledgers_no_projects_found`와 히스토리 아카이브 고갈
+  `fail()` 두 곳에 `path.basename(...)`을 직접 넘기도록 고쳤다. (3) Owner가
+  저장한 CSV 끝에 빈 줄 하나만 있어도 row-shape 오류로 그 대장 전체가 막혔다 --
+  `decodeCsv`가 필드 하나짜리 빈 문자열인 트레일링 레코드(빈 줄)를 실제 행이
+  아닌 것으로 보고 버리도록 고쳤다(CRLF 파일에 CRLF 한 줄 추가, LF 파일에 LF
+  두 줄 추가 두 경우 모두 테스트). (4) `allowPartialSources`가 켜져 있을 때
+  기존의 빈-대장 가드는 정확히 0행일 때만 작동해, 6행짜리 연락처 대장이 1행으로
+  줄어드는 경우를 막지 못했다 -- `allowPartialSources`가 적용 중이고 대장의
+  새 행수가 이전 행수의 50% 미만이면(그리고 해당 과제가 `allowEmpty`에도
+  없으면) 그 파일을 닫힌 채로 막고(건드리지 않음) 별도 코드
+  (`workspace_ledgers_ledger_partial_sources_shrink_blocked`)로
+  `ledger_failures`에 남기며, 영수증에 before/after 행수를 함께 기록하도록
+  고쳤다.
+  nit: (5) `src/ledgers.mjs`의 낡은 주석이 여전히 "임베디드 줄바꿈은 cell()이
+  공백으로 눌러 담는다"고 말하고 있었다 -- 3라운드(S8)에서 이미 따옴표로 감싸
+  보존하도록 고쳐졌으므로 주석을 맞췄다. (6) 렌더링된 규칙 md가 닫는 코드
+  펜스 바로 뒤에 빈 줄 없이 메모 불릿을 붙였다 -- carried decided 내용의 마지막
+  줄이 닫는 펜스일 때만 빈 줄을 하나 끼워 넣도록 고쳤다.
+- 운영 영향: 코드·테스트·문서만 바뀌었다. 연락처_장부.csv의 메일 키는 여전히
+  "가장 최근 활동 주소"로 표시되지만(변경 없음), Owner 셀 보존 매칭은 더 이상
+  그 표시 키에만 의존하지 않는다. `ledger_failures` 항목에
+  `before_rows`/`after_rows`/`fresh_duplicate_count` 필드가 (해당하는 경우) 새로
+  붙었다 — 기존 소비자는 무시해도 무방하다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·README).
+- 검증: 클린 체크아웃에서 `npm run validate:workspace-ledgers`(130 tests
+  pass), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(0 violations), `npm run validate:canon`(0 errors/warnings), 실제
+  대상면 `--dry --fields subject` 재확인(건수만).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 다섯 번째 신선한 검토 반영 + 설계 단순화: 메일당 타임아웃·누적 예산 제거
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(e5364d37)에 대한 다섯 번째 별도(non-author) fresh
+  review — 이 모듈 자체 검증기가 커밋된 상태로 RED(116/117)였고, 필수 2건·should
+  6건이 추가로 나왔다 — 를 반영했다. **코디네이터 설계 결정**: 5라운드에 걸쳐 메일당
+  매칭 타임아웃(`node:vm` 기반)이 매번 자신이 고치려던 문제보다 더 나쁜 실패
+  모드를 만들어냈다(한 과제의 트리거에 대한 wall-clock 인터럽트가 다른 과제의
+  대장 행을 지우는 사고). 이 모듈은 loopback·Owner 전용 도구이므로, vm 경계
+  매칭 경로·메일당 타임아웃(`match_timeouts`)·누적 실행 예산
+  (`match_run_budget_exceeded`)을 전부 제거하고 매칭을 직접 호출로 되돌렸다.
+  결정적(deterministic)인 방어만 남겼다: 정적 모양 검사, 초안 시점에만 도는
+  다중 알파벳 카나리 타이밍(`validateRule`/`previewRule` 초안/`saveRuleVersion`),
+  플래그 화이트리스트, 읽기 시점 `subject`/`attachment_names`/`body_text` 길이
+  상한. 저장된 규칙은 refresh 시 타이밍 재검사 없이 신뢰하며(compile-only), 프로젝트별
+  개별 컴파일과 `rule_failures`는 그대로 유지했다. README·CHANGELOG에서
+  "즉시 잠금 반환" 같은 이제는 거짓인 서술을 지우고 이 설계를 그대로 문서화했다.
+  필수: (1) `tests/byte_hygiene.test.mjs:57`가 U+200B를 리터럴로 직접 심어
+  자기 자신에게 걸리는 버그였다 -- 모든 탐지 바늘을 `String.fromCharCode`로
+  만들고, U+FEFF·U+200C·U+200D·U+2060까지 스캔 범위를 넓히고,
+  `src/ledgers.mjs`의 CSV BOM 두 곳도 raw 문자 대신 `String.fromCharCode(0xFEFF)`로
+  다시 써서 별도 allow-list 없이 통과하게 했으며, `git ls-files`뿐 아니라 모듈
+  디렉터리의 미추적 파일까지 스캔하도록 고쳤다(R-1). (2) `rule_store.mjs`의
+  `findSectionLines`가 여전히 `startsWith`를 써서, 가짜 헤딩이 진짜 헤딩보다
+  앞에 있으면 진짜 절의 본문이 사라지고 가짜 절의 본문이 두 번 쓰였다 --
+  `isFixedHeading`과 같은 완전 일치 목록으로 맞췄다(R-2). (3) 프로젝트 A의 행과
+  Owner 셀이 프로젝트 B의 규칙 내용과 무관하게(B 자신의 규칙 컴파일 실패로 B만
+  제외되는 경우를 제외하고) 보존됨을 직접 증명하는 테스트를 추가했다(설계
+  단순화로 이미 해결되었음을 확인).
+  should: (4) 이 모듈이 실제로 쓴 운영 대장이 아직 없으므로(대상면은 별도
+  스크립트 산출물이며 한 번 더 재생성 예정) 마이그레이션은 만들지 않되, 교차
+  소스 id 구분 접미사를 위치 기반 `#count`에서 내용 기반 해시로 바꾸고(키가
+  이후로 다시는 움직이지 않도록), 이 커밋 이후로만 키가 안정적이라고 README에
+  명시했다(S-4). (5) 동일-디렉터리 가드가 이 저장소 자체가 쓰는 정션/심볼릭
+  링크에 의해 무력화될 수 있었다 -- `fs.realpathSync.native()`로 비교하고,
+  `toLowerCase()`는 win32에서만 적용한다(S-5). (6) `redactHostPaths`가 공백
+  없는 드라이브 문자 경로만 처리했다 -- POSIX 절대경로·UNC 경로를 추가하고,
+  따옴표 안 공백 포함 경로는 따옴표로 감싼 구간 전체를 지우도록 고쳤다(S-6).
+  (7) `previewRule`이 `rule_failures`를 버렸는데, 그 실측치가 나중에
+  Owner용 규칙 md에 사실처럼 렌더링됐다 -- `previewRule`이 `rule_failures`를
+  반환하고, 비어있지 않으면 실측 줄에 주의 문구를 덧붙이도록 고쳤다(S-7).
+  (8) `allowEmpty`가 규칙 실패로 제외된 프로젝트를 가리키면 `unknown_project`를
+  던졌다 -- 실제 원인(`workspace_ledgers_allow_empty_targets_rule_failure`)을
+  가리키도록 고쳤다(S-8, 원 발견 번호와 겹치지만 별도 항목). (9) 영수증의
+  `rule_failures[].term_label`이 Owner가 지은 라우팅 키워드(실명일 수 있음)를
+  그대로 담고 있었다 -- 라벨 텍스트 대신 `{list, index, label_hash}`로
+  바꾸고 README에 명시했다(S-9, 원 발견 번호와 겹치지만 별도 항목).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`/`previewRule()`을
+  `src/index.mjs`로 호출하는 콘솔/어댑터(branch `claude/ops-mail-rule-panel-v0`)는:
+  `allowEmpty`를 여전히 프로젝트 코드 배열로 넘겨야 하고(라운드 4와 동일,
+  변경 없음), `orgConfigPath`는 선택값으로 이전과 동일하게 넘기면 되며,
+  제거된 옵션은 없다(이 모듈은 애초에 `matchRunBudgetMs`를 CLI 표면에 노출한
+  적이 없다 -- 테스트 전용 인자였고 이번에 함께 제거됨). `previewRule`의 반환값에
+  `rule_failures` 필드가 새로 생겼으므로, 그 결과를 `saveRuleVersion`의
+  `measured`로 그대로 넘기는 흐름은 자동으로 주의 문구를 받게 된다(코드 변경
+  불필요, 값을 그대로 전달만 하면 됨).
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README).
+- 검증: 클린 체크아웃에서 `npm run validate:workspace-ledgers`(120 tests
+  pass), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(0 violations), `npm run validate:canon`(0 errors/warnings), 실제
+  대상면 `--dry --fields subject` 재확인(건수만).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 네 번째 신선한 검토(non-author) 반영: 바이너리 파일 사고·잠금 시간 예산·범위 축소
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(0c666783)에 대한 네 번째 별도(non-author) fresh
+  review의 필수 2·should 8·nit 5건을 반영했다. (1) `src/classifier.mjs`의
+  `CANARY_MISMATCH_CANDIDATES` 배열에 이스케이프 시퀀스 대신 실제 NUL·0x1F 바이트가
+  박혀 있어 git이 이 파일을 바이너리로 취급했다(`git show --stat`가 "Bin", `git
+  diff`가 "Binary files differ", grep이 무응답). 원본 바이트를
+  `String.fromCharCode(0)`/`String.fromCharCode(31)` 호출로 바꾸고, tracked 파일
+  전체에서 tab/LF/CR 외 제어 바이트와 U+200B(제로폭 공백, `mail_events.mjs` 주석
+  한 곳)를 스캔하는 테스트(`tests/byte_hygiene.test.mjs`)를 추가했다(R-1). (2)
+  `rule_store.mjs`의 `isFixedHeading`이 괄호 없는 고정 헤딩(`## 근거` 등)까지
+  `startsWith`로 비교해, 그 접두어로 시작하는 Owner 작성 헤딩이 고정 절로
+  오인되어 저장 때 통째로 사라지는 버그를 고쳤다 -- 괄호 있는 두 헤딩만
+  `startsWith`를 유지하고 나머지는 완전 일치를 요구한다(R-2). (3) 정규식 매칭
+  타임아웃이 refresh 전체를 프로젝트 루프 앞에서 막던 것을, mail_events.mjs가
+  메일 단위로 잡아 그 메일만 건너뛰고 `receipt.match_timeouts`(발신원·id·과제
+  코드·트리거 라벨)에 기록하며 나머지는 계속 처리하도록 고쳤다(S-1). (4) 메일
+  1건당 500ms 상한은 있어도 누적 시간 상한이 없어, 통과된(하지만 느린) 정규식이
+  수천 통 메일에 걸쳐 분 단위로 잠금을 붙잡을 수 있었다 -- 한 실행 전체의 누적
+  매칭 시간이 `MATCH_RUN_BUDGET_MS`(60초)를 넘으면 가장 느렸던 트리거들을 이름과
+  함께 영수증에 남기고 아무것도 쓰지 않은 채 실행을 막는다(S-2). (5)
+  `classifyMailBounded`가 메일마다 새 `vm.createContext`를 만들던 것을,
+  `createBoundedClassifier`로 한 실행(양쪽 custody 소스 전체)당 컨텍스트·스크립트
+  하나만 만들어 재사용하도록 고쳤다 -- 실측 오버헤드가 약 82%에서 약 18%로
+  줄었다(S-3). (6) 같은 event_id가 하이웍스·Gmail 두 소스 모두에 존재하면
+  영구적으로 `fresh_duplicate_key`가 나던 것을, 같은 디렉터리를 두 플래그에 준
+  실수는 즉시 사용 오류로 거부하고, 서로 다른 디렉터리에서 우연히 같은 id가
+  겹치는 경우는 소스를 접두해 서로 다른 행으로 만들도록 고쳤다(S-4). (7)
+  `--allow-empty`에 이전 boolean API(`true`)를 넘기면 조용히 빈 목록으로 무시되던
+  것을 `workspace_ledgers_allow_empty_must_be_list` 오류로 바꾸고, 값 없이 플래그만
+  쓴 CLI 호출도 거부하며, 목록의 각 코드를 `--projects`처럼 실제 과제와
+  대조한다(S-5). (8) CLI가 실패 원인과 무관하게 항상
+  `ledger_validation_failed`만 출력하던 것을, 원인별(읽기 불가 디렉터리·매칭
+  예산 초과·규칙 실패·매칭 타임아웃·원장 검증 실패)로 나누고 읽기 불가
+  디렉터리일 때는 `--allow-partial-sources` 힌트를 함께 출력하도록 고쳤다(S-6).
+  (9) 실행 중 예외의 원본 `.message`가 host-local 절대경로를 그대로 영수증에
+  남기던 것을, `error.code`는 그대로 두고 경로만 파일명(basename)으로 지우도록
+  고쳤다(S-7). (10) 저장된 규칙 하나가 깨지면 전체 refresh가 멈추던 것을, 규칙을
+  프로젝트별로 개별 컴파일해 실패한 프로젝트만 이번 실행에서 빼고(분류·쓰기
+  모두 제외) `receipt.rule_failures`(과제·코드·트리거 라벨)에 남기며 나머지
+  프로젝트는 정상 진행하도록 고쳤다(S-8). (11) id 없는 중복 메일이 원본 줄
+  바이트가 완전히 같을 때만 합쳐지던 것을, 키 순서를 정렬한 표준화 객체 해시로
+  바꿔 재직렬화로 키 순서만 바뀐 같은 메일도 합쳐지게 했다(nit1). (12) 제목과
+  첨부명 합친 텍스트가 무제한이던 것을 본문처럼 `MAX_BODY_TEXT_CHARS`로
+  제한했다(nit2). (13) README에 `classifyMailBounded`·매칭 예산·
+  `..._at_match` 오류를 운영자가 실제로 마주칠 실패로 문서화했다(nit3). (14)
+  본문을 매칭 시점이 아니라 읽는 시점에 바로 잘라, 후보가 패스 내내 필요
+  이상으로 큰 본문을 들고 있지 않게 했다(nit4). (15) id 충돌 하위그룹의 `#2`/`#3`
+  접미사가 정렬 순서에 따른 서수라 나중에 도착한 충돌 메일이 기존 행의 키를
+  밀어낼 수 있던 것을, 그 하위그룹 자신의 지문(fingerprint) 해시로 바꿔 다른
+  형제 그룹이 몇 개든 키가 절대 움직이지 않게 했다(nit5).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`를 `src/index.mjs`로 호출하는
+  콘솔/어댑터(branch `claude/ops-mail-rule-panel-v0`)는 `allowEmpty`를 이제 배열로
+  넘겨야 한다 -- boolean `true`를 넘기던 호출은 이제 던진다(하위호환 없음,
+  의도적; `src/index.mjs`의 `refresh` 문서 주석에 명시). 영수증에
+  `rule_failures`·`match_timeouts`·`match_run_budget_exceeded` 세 필드가
+  새로 생겼다. 실제 대상면 `--dry --fields subject` 재확인에서 세 필드 모두
+  빈 값/`null`이었고 상태는 `ok`. `previewRule` 실측(같은 대상면,
+  과제 1개, 캐시 비운 콜드 호출): `fields=subject` 1.84초, `fields=all` 2.17초 --
+  둘 다 ~5초 목표 안. 같은 규칙·custody에 대한 바로 다음 호출(S10 캐시 적중)은
+  27~30ms.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README),
+  `package.json`.
+- 검증: `npm run validate:workspace-ledgers`(117 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0
+  violations), `npm run validate:canon`(0 errors/warnings), 실제 대상면
+  `--dry --fields subject` 재확인(건수만, 쓰기 없음, 잠금 파일 생성 후 정상
+  삭제 확인, 대장 파일 mtime 불변 확인).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 세 번째 신선한 검토(non-author) 반영: 쓰기 전 게이트·ReDoS 실측 경로·범위 축소
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋에 대한 세 번째 별도(non-author) fresh review의 필수
+  3·should 6·nit 5건을 반영했다. (1) 읽을 수 없는 custody 디렉터리가 있으면
+  `refresh()`가 어떤 프로젝트도 쓰기 전에 전체를 멈추도록 게이트를 custody 분류
+  직후, per-project 쓰기 루프보다 앞으로 옮겼다 -- 이전에는 오타 난 디렉터리
+  때문에 다른 프로젝트 대장은 이미 다 다시 쓰인 뒤에야 실패가 드러났다. 명시적
+  `allowPartialSources`(`--allow-partial-sources`)로만 부분 읽기 상태에서 진행할
+  수 있고, 그 사실은 영수증의 `allow_partial_sources_applied`에 남는다(R1). (2)
+  event_id 없는 두 줄이 완전히 동일한 바이트일 때 custody 읽기 단계
+  (`mail_events.mjs`)에서 원본 줄 해시로 미리 합쳐 하나의 사건으로 취급하도록
+  고쳤다 -- 이전에는 이 경우가 refresh의 "신선한 중복 키" 가드까지 그대로
+  넘어가 대장 쓰기 자체를 영구히 막았다(R2). (3) 초안 저장(`saveRuleVersion`)이
+  호출하는 컴파일은 여전히 ReDoS 타이밍 카나리를 돌리지만, 실제 custody 재분류
+  경로(`refresh()`가 이미 저장된 규칙을 다시 컴파일하는 경우, `previewRule`이
+  "before" 규칙 집합을 컴파일하는 경우)는 `timeSafety:false`로 카나리를 건너뛰고,
+  대신 실제 메일 매칭 한 건 한 건이 `node:vm` `timeout` 기반
+  `classifyMailBounded`로 실행되어 컴파일 시점을 통과한 위험한 정규식도 실제
+  매칭 중 잡아낸다(R3, R2 연속). (4) `--allow-empty`를 boolean에서 프로젝트 코드
+  배열로 바꿔, 한 프로젝트에 준 예외가 다른 프로젝트의 대장까지 조용히 비우지
+  않도록 범위를 좁혔다. 실제로 예외가 쓰인 코드만 영수증의
+  `allow_empty_applied_to`에 남는다(S4). (5) `previewRule`이 `orgConfigPath`를
+  받아 `refresh()`와 같은 `system_sender_domains` 병합 목록을 쓰도록 하고, S10
+  custody 읽기 캐시의 키에도 이를 포함시켰다(S6). (6) 실행 중 예상 밖 예외가
+  나도 그때까지 완료된 프로젝트별 보고가 실패 영수증에 남도록
+  `projectReports`/카운터를 catch 블록이 볼 수 있는 위치로 끌어올렸다(S7). (7)
+  `receipt.unreadable_dirs`가 host-local 절대경로 대신 파일명(basename)과 어느
+  플래그(`hiworks-events`/`gmail-sent-events`)에서 왔는지만 남기도록 고쳤다
+  (nit10). (8) org config의 `system_sender_domains`가 내장 벤더 도메인 목록을
+  대체하던 것을 병합으로 고쳤다(nit11). (9) `refresh.mjs`·`rule_store.mjs` 두
+  잠금 모두, `started_at`이 `now`보다 미래인(시계 오차·손상된 잠금 데이터) 경우
+  나이를 0으로 clamp해 "방금 생긴 새 잠금"처럼 보이던 버그를 고쳐 즉시 stale로
+  회수하게 했다(nit12). (10) 잠금이 이미 걸려 있어 조기 종료하는 경로도
+  `status:'failed'` 영수증을 먼저 쓴 뒤 던지도록 했다 -- 이전에는 이 경로에서
+  아무 영수증도 남지 않았다(nit14). (11) `rule_store.mjs`의 Owner 절 파싱을
+  두 헤딩만 알아보던 방식에서, Owner가 손으로 추가한 다른 `## ` 절도 원문 그대로
+  다음 저장에 이어지도록(펜스 코드블록 안의 `## `은 절 경계로 오인하지 않음)
+  범용 섹션 파서로 다시 썼다(nit13).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`를 호출하는 자동화가
+  `--allow-empty`를 boolean으로 넘기고 있었다면 이제 프로젝트 코드 목록으로
+  바꿔야 한다(하위호환 없음, 의도적). custody 디렉터리 오타가 있는 자동화는
+  이제 아무 대장도 쓰지 않고 실패하며, 기존처럼 부분 진행하려면
+  `--allow-partial-sources`를 명시해야 한다. 이 모듈은 여전히 020_MGMT의 고정
+  4개 상대경로(연락처_장부.csv, 메일_수신/발송이력.csv, 회신_현황.csv)와 021
+  규칙 파일 쌍만 읽고 쓴다 -- 그 폴더의 다른 파일(조직별·업무태그별 대장 등)은
+  나열조차 하지 않으므로 손대지 않는다. 프로젝트 폴더 수는
+  `listProjects`가 매 호출마다 workspacesRoot를 다시 스캔해 동적으로 세므로
+  실제 대상면에 프로젝트가 늘어나도(11 -> 12) 코드 변경이 필요 없다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README).
+- 검증: `npm run validate:workspace-ledgers`(98 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0
+  violations), `npm run validate:canon`, 실제 대상면 `--dry --fields subject`
+  재확인(건수만, 쓰기 없음).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 두 번째 신선한 검토(non-author) 반영: 무결성·ReDoS·잠금 범위
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 두 커밋에 대한 별도(non-author) fresh review의 필수 3·
+  should 9·nit 1건과 Owner 문맥 변경 2건을 반영했다. (1) `--hiworks-events` 오타 등
+  읽을 수 없는 custody 디렉터리를 `unreadable_dirs`로 영수증에 노출하고 `status`를
+  `'failed'`로 만들며, 기존에 행이 있던 대장이 새로 0행이 되는 경우 `--allow-empty`
+  없이는 fail-closed한다(R1). (2) 정적 모양 검사만으로 못 잡는 ReDoS
+  패턴(`^(a|a)+$`류)을 컴파일 시 `node:vm` `timeout`으로 실제 중단 가능한 타이밍
+  카나리로 추가 차단한다(R2). (3) 빈 event_id의 합성 id를 전체 원본 줄 해시로
+  바꾸고, history 생성 직전에 신선한(fresh) 행 자체의 중복 키도 감지해 쓰기 전에
+  막는다(R3). (4) event_id만으로 중복제거하지 않고 지문(정규화 제목+시각+발신
+  주소, 첨부수는 제외)이 다르면 `id_collisions_kept`로 별도 집계하며 둘 다
+  보존한다(S4). (5) `unreadable_dirs` 무력화 버그를 고치고, 실행 중 예외가 나도
+  `status:'failed'` 영수증을 먼저 쓴 뒤 다시 던진다(S5). (6) `preview-rule` CLI는
+  기본으로 실제 제목이 들어있는 `samples`를 출력하지 않고 `--show-samples`를 요구한다
+  (S6). (7) `saveRuleVersion`의 Owner 절 carry-forward가 불릿 줄만 유지하던 것을
+  표·중첩 불릿·산문까지 원문 그대로 복사하도록 고쳤다(S7). (8) 셀 안 줄바꿈이
+  encodeCsv에서 공백으로 눌리던 것을 quoted cell로 왕복 보존하게 했다(S8). (9)
+  refresh 잠금을 `--receipts`가 아니라 `workspacesRoot` 루트의 점파일로 옮겨, 서로
+  다른 receipts 디렉터리를 쓰는 CLI·UI adapter가 같은 대장을 동시에 덮어쓰지
+  못하게 했다(S9). (10) 시스템 발신자 차단 목록을 org config의
+  `system_sender_domains`로 재정의 가능하게 하고 예시 파일에 중립 placeholder를
+  추가했다(nit). Owner 문맥: `participant_domains`는 이제 항상 빈 값으로 저장되며
+  이 모듈은 계속 무시만 한다(코드 변경 없음); 스레드 정규화에 읽음 영수증
+  접두(읽음:/Read:)를 RE/FW와 함께 추가했다.
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`의 새 잠금 파일이
+  `workspacesRoot` 루트에 일시적으로 생겼다 지워지는 점(예약작업 연결 시 참고),
+  `--allow-empty`/`--show-samples` 새 플래그, `receipt.status`가 이제
+  `unreadable_dirs`만으로도 `'failed'`가 될 수 있는 점을 Owner가 알아야 한다.
+  실제 대상면 `--dry --fields subject` 재확인에서 이전 17개 `ledger_failures`가
+  전부 사라졌다(코디네이터가 실제 대장을 오늘 중복제거해 재생성).
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README·examples),
+  `package.json`.
+- 검증: `npm run validate:workspace-ledgers`(83 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 실제 대상면 `--dry --fields subject` 재확인(쓰기 없음,
+  일시적 잠금 파일만 생성 후 정상 삭제 확인).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` custody 중복 event_id 근본 원인 반영
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋의 실제 대상면 `--dry` 재확인에서 발견된 17개
+  `workspace_ledgers_ledger_duplicate_key` 실패의 근본 원인(custody 자체가 메일을
+  중복 기록함 — 하이웍스 이벤트 2,590줄 중 distinct event_id는 1,995개, 595줄
+  초과분, 0개 빈 id, 겹치는 쌍은 첨부수 컬럼 1건 빼고 전부 byte-identical)을
+  반영했다. (1) `src/mail_events.mjs`가 분류 전에 raw event_id로 custody 후보를
+  중복제거한다 — 같은 event_id면 첨부수가 더 많은 쪽을 남기고, 동률이면 더 늦은
+  줄을 남긴다; `duplicates_dropped`를 `refresh()` 영수증과 `previewRule` 반환값에
+  노출했다. (2) `src/refresh.mjs`의 기존 CSV 중복 키 검증을 세분화했다 — 완전히
+  byte-identical한 중복 행은 하나로 합치고(`collapsed_identical_rows`), 기계
+  소유 열에서만 다른 중복은 새로 만든 행을 그대로 쓰며(합치되 갈등 아님), Owner
+  기입 열 자체가 서로 다른 경우에만 fail-closed를 유지하고(`conflict_groups`),
+  나머지 R4 보안 수정(R1–R5·S6–S14·N15–N17)과 `measured` shape 수정은 유지된다.
+  synthetic 데이터로 세 경우(동일·기계열만 다름·갈등) 전부와 "custody 두 줄→대장
+  한 행" 테스트를 추가했다.
+- 운영 영향: 코드·테스트·문서만 바뀌었다. 실제 대상면에 대한 `--dry --fields
+  subject` 재확인에서 이전 17개 실패가 모두 사라졌다(중복제거+동일/기계열-only
+  구분 적용). 세부 수치는 보고문에만 남기고 여기에는 옮기지 않는다(실제 메일
+  제목·이름 없음 원칙 유지, 수치만도 이 changelog 범위 밖).
+- 관련 경로: `guild_hall/workspace_ledgers/src/mail_events.mjs`,
+  `guild_hall/workspace_ledgers/src/refresh.mjs`,
+  `guild_hall/workspace_ledgers/tests/**`, `guild_hall/workspace_ledgers/README.md`.
+- 검증: `npm run validate:workspace-ledgers`(69 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 실제 대상면 `--dry --fields subject` 재확인(쓰기 없음).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 신선한 검토 반영: 보안·데이터 무결성·타임스탬프 수정
+
+- Revision: 이 항목을 포함한 커밋(이전 커밋의 fresh review 필수 5·should 9·nit 4건 전부 반영).
+- 무엇이 바뀌었는가: (1) CSV/수식 삽입(formula injection) 가드 — `=`/`+`/`-`/`@`로 시작하는
+  셀을 `'`로 무력화하고 decode 시 정확히 그 가드만 벗김(R1). (2) 정규식 term의 flags를
+  화이트리스트(`''|'i'|'u'|'iu'|'ui'`)로 제한하고 항상 `u`로 컴파일(R2), 중첩 quantifier·
+  backreference·lookbehind·과도한 alternation을 거부(R3). (3) `refresh()`의 기존 CSV
+  병합 전 strict 검증(헤더 불일치·행 컬럼수 불일치·U+FFFD 인코딩·중복 키) — 위반 시 그
+  파일만 건드리지 않고 receipt의 `ledger_failures`에 기록, 다른 파일은 계속 refresh,
+  `status:'failed'`면 CLI exit 2(R4). (4) 테스트 fixture에서 실제 발주처 조직명 1건 제거,
+  전체 모듈 grep 재확인(R5). (5) 수신인 문자열 다중 분리(S6), 빈 event_id 콘텐츠 파생
+  합성(S7), 담당자 병합 시 동일조직 내 다른 로컬파트 namesake 위험 플래그(S8), 키가
+  custody를 벗어난 행의 Owner 셀 손실 카운트 `owner_cells_dropped_with_row`(S9),
+  `previewRule` 커스터디 읽기 캐시(TTL 60s)(S10), body_text 매칭 20,000자 prefix 제한+
+  mail당 1회 lowercase(S11), 커스터디 타임스탬프 UTC 정규화+Asia/Seoul 달력일 파생(S12),
+  history 아카이브 create-only+충돌 시 카운터 접미사(S13). (6) `saveRuleVersion`이 두
+  twin 파일을 모두 staging한 뒤 rename하고 두 번째 rename 실패 시 json을 아카이브본으로
+  롤백(N15), `allowedActors` 옵션으로 저장 주체를 제한 가능(N16). (7) 별도 지시로,
+  `saveRuleVersion`의 `measured`가 `previewRule`의 실제 반환 shape
+  (`matched_before/after`, `moved_in/out`, `newly_held`, `samples`)와 예전
+  `{subjects, exact, hint_only}` shape를 모두 받고, `samples`(실제 메일 제목)는 절대
+  렌더링하지 않으며, 빠진 필드는 `undefined` 대신 그냥 생략한다. README에 CSV 1부 원칙·
+  병합 규칙·refresh/보존 의미론·타임스탬프·성능·`draft`는 부분 patch가 아니라 완전한
+  규칙 문서여야 한다는 점을 반영했다.
+- 운영 영향: 코드·테스트·문서만 바뀌었고 예약작업 연결은 여전히 없다(계획 상태 유지).
+  실제 D: 대상면에 대한 `--dry` 읽기 전용 재확인에서 R4의 strict 검증이 기존
+  `메일_수신/발송이력.csv` 17개 파일에서 `workspace_ledgers_ledger_duplicate_key`를
+  발견했다 — 이 커밋 이전(2026-09-21 scratch 스크립트 1회 생성)부터 있던 실제 데이터
+  문제이며, 이 모듈이 만들지도 고치지도 않았다(읽기 전용 검증이 그 파일들을 건드리지
+  않고 실패로만 기록). Owner 판단 필요.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README·examples).
+- 검증: `npm run validate:workspace-ledgers`(63 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 실제 대상면 `--dry --fields subject`/`--dry --fields all`
+  재확인(쓰기 없음, 위 duplicate_key 발견 포함).
+
+## 2026-09-21 - `guild_hall/workspace_ledgers` 신설: 과제별 메일 라우팅 규칙·관리 대장 CSV 엔진
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 오늘 두 scratch 스크립트(`gen_mail_rules_20260921.mjs`,
+  `gen_mgmt_ledgers_20260921.mjs`, repo 밖 handoff 경로)가 실제로 만들어 낸 과제별
+  021 메일 라우팅 규칙(json+md 쌍)과 023·027 관리 대장 CSV 4종을 새 정본 모듈
+  `guild_hall/workspace_ledgers/`로 제품화했다. `src/classifier.mjs`(순수 규칙
+  컴파일·분류, `yields_to` null/단일객체/배열 정규화 포함), `src/mail_events.mjs`(custody
+  JSONL 읽기+분류, 본문·첨부 바이트는 절대 반환하지 않음), `src/ledgers.mjs`(CSV 빌더 4종,
+  담당자 병합 규칙), `src/rule_store.mjs`(규칙 버전관리: never-overwrite+history
+  create-only+lineage), `src/refresh.mjs`(REFRESH 의미론: Owner 기입 열 키 보존+변경 시에만
+  history 보관+영수증), `src/index.mjs`(외부 콘솔/UI adapter용 단일 진입점:
+  `listProjects`/`readRule`/`previewRule`/`saveRuleVersion`/`refresh`), `cli.mjs`(refresh·
+  preview-rule·save-rule 세 서브커맨드). 합성 example(`P00-001_예시과제`,
+  `example.com`)만 tracked, 실제 project code·조직명·사람 이름은 어디에도 없다.
+  `npm run validate:workspace-ledgers`를 추가하고 `guild_hall/validate/run_root_acceptance.mjs`의
+  `validate`/`done-check` 두 단계 목록에 같은 스텝을 연결했다.
+- 운영 영향: 이 커밋은 라이브러리·CLI만 추가했고 아직 아무 예약작업·nightly 체인에도
+  연결하지 않았다(README의 "Not yet wired" 절). 실제 D: 대상면(`<TARGET_SOULFORGE_ROOT>/_workspaces`,
+  `<private_root>/ingress/mailbox/...`)에 대해서는 `--dry` 읽기 전용 비교만
+  수행했고 아무 파일도 쓰지 않았다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`, `package.json`,
+  `guild_hall/validate/run_root_acceptance.mjs`,
+  `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`.
+- 검증: `npm run validate:workspace-ledgers`(39 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(전체 tracked
+  트리 9104개 파일 대상, violations 0 — N17: `--scope changed`가 아니라 전체 tracked
+  범위로 재확인),
+  `npm run validate:canon`, 그리고 실제 대상면에 대한 `--dry` 비교 실행(쓰기 없음).
+
 ## 2026-09-21 - 과제별 관리 폴더(021·023·027) 규칙 문서화 + SE 프로젝트 폴더명 규칙
 
 - Revision: 이 항목을 포함한 커밋.
@@ -710,6 +1412,32 @@
 - 운영 영향: 기존 도구 미설정 상태는 유지된다. 설치·예약작업·운영 DB·수락 writer는
   변경하지 않는다. Word/OCR·문서 자동 편입·실업무 검증은 별도 후속 범위다.
 - 관련 경로: `guild_hall/context_engine/{src,algorithms,harness,tests,release}`.
+
+## 2026-09-21 - 과제 폴더 작업 장부·할일 장부(025·026) 정책 문서화
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 2026-09-21 Owner 결정(과제 폴더 `020_MGMT` 025/026에 두 CSV 장부)을 문서에 반영했다. (1)
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`의 관리 폴더 quick map 025 bullet에 `작업_장부.csv`
+  (누가·언제·task·근거·결과·다음 action)를, 026 bullet에 `할일_장부.csv`(항목·담당자·마감일·SE stage·출처·완료
+  기준·상태)를 추가하고, 작성 주체(사람 또는 AI, AI 작업 완료는 사람이 확인)·AI 제안 할일 수락 절차·팀 to-do
+  화면(issue tracker)과의 관계·공용/일반업무 폴더 적용·포인터 전용 원칙(메일 본문·첨부·개인정보·secret 금지)·
+  단일 사본(UTF-8 BOM, CRLF)·행 정정(사유 병기, 삭제 금지)·헤더 변경(Owner 결정 필요)·신규 프로젝트 폴더 생성 시
+  빈 장부 동반 생성·칸 단위 작성 규칙 소유(private workspace plane)·local model 지향과 외부 chat 서비스 예약작업
+  임시 pilot 위치를 담은 "작업 장부·할일 장부 (2026-09-21)" 절을 추가했다. (2) 배포 매뉴얼
+  `new_hire_training.v0.md`·`manager_training.v0.md`에 같은 내용을 쉬운 한글로 요약한 "과제 폴더의 작업
+  장부·할일 장부" 절을 추가하고(매니저판은 AI 작업 완료 확인·AI 제안 할일 판단 문장 추가), 두 manual의
+  `manual_release_catalog.v0.json` `content_digest`를 재계산해 갱신했다.
+- 운영 영향: 문서·매뉴얼 변경뿐이며 코드·바인딩·예약작업·boot digest manifest는 건드리지 않았다(두 문서 모두
+  `guild_hall/validate/boot_digest_guard.mjs`의 원본 목록 밖이라 드리프트 없음, `--update` 불필요). 장부 CSV
+  자체의 실제 생성과 칸 단위 작성 규칙은 private workspace plane 몫으로 남는다.
+- 관련 경로: `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`,
+  `guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manager_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`.
+- 검증: `npm run validate:manual-release`(12/12), `npm run validate:manual-projection`(5/5),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0 violations),
+  `npm run validate:canon`(138 checked, 0 errors), `node guild_hall/validate/boot_digest_guard.mjs`(OK — 드리프트
+  없음) 전부 통과. catalog 안의 두 sha256은 두 manual 파일을 직접 재해시해 맞췄다(hand-edit 아님).
 
 ## 2026-09-20 - 대화 목록 야간 lane 추가
 

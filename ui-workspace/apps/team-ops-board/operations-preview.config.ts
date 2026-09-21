@@ -14,6 +14,7 @@ import { createRagOperationsPlugin } from './src/server/rag-operations-adapter.m
 import { createOperationsSpacesPlugin } from './src/server/operations-spaces-adapter.mjs';
 import { createLocalModelStatusPlugin } from './src/server/local-model-status-adapter.mjs';
 import { createCodexQuotaPlugin } from './src/server/codex-quota-read.mjs';
+import { createMailRulePlugin } from './src/server/mail-rule-adapter.mjs';
 import { readOperationsReadConfiguration } from './src/server/operations-read-configuration.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,7 @@ export default defineConfig(async () => {
       }),
       createGraphReceiptPlugin(operationsRead.graph),
       createOperationsDirectoryPlugin(operationsRead.directory),
+      createMailRulePlugin(operationsRead.mailRule),
     ],
     server: { host: '127.0.0.1', port: 4194, strictPort: true, open: false },
     preview: { host: '127.0.0.1', port: 4194, strictPort: true },
