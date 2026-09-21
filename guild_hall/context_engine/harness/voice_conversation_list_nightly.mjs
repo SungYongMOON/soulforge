@@ -37,10 +37,43 @@
 // `derived_root`; it never touches the transcript, the semantic label run, or
 // any project store.
 //
+// `--deadline HH:MM` bounds real (calls-a-model) work by wall clock rather
+// than by session count: it names a local Asia/Seoul time of day, interpreted
+// as the next occurrence after this run's own start -- a 22:00 start with
+// `--deadline 00:00` stops at the midnight that follows, not the one twenty-
+// two hours behind it (`nextDeadlineInstant`). The deadline is only ever
+// checked right before this pass would start a session's own card generation
+// (never mid-classification, which is cheap file reads, not model calls); once
+// it has passed, this pass stops for the night rather than starting another
+// session, and the receipt's `deadline` block says how many sessions it
+// finished and how many it left. A session left this way carries no run yet,
+// so the very same `classifySession` logic that already re-offers a session
+// past `--max-sessions` offers it again the next night -- nothing about the
+// deadline needs its own separate pickup mechanism. A deadline stop is not a
+// failure: this pass still exits 0 for one.
+//
+// `--chain-reconcile` runs pass-2 reconcile (`estate_voice_card_reconcile.mjs`)
+// and then the morning-question "present" step (`voice_question_cli.mjs
+// present`) in this same process, immediately after card generation ends
+// (normally or by deadline) -- both against this same night's own `--receipts`
+// directory (reconcile's `--nightly-receipts` backlog mode) and a separate
+// `--reconcile-receipts` directory that becomes both reconcile's `--receipts`
+// and present's `--receipts` (present reads its exception pool from exactly
+// the directory reconcile just wrote to). Neither call is retried or undone
+// here, and a failure at either stage never re-runs or reverts card
+// generation -- it is recorded in this receipt's `chain` block and makes this
+// whole pass exit non-zero, the same as a session failure does. `--dry`
+// propagates: a `--dry --chain-reconcile` run previews the whole chain (both
+// sub-calls in their own `--dry`) without writing anything, which is what a
+// registrar preflight checks before it registers this chained shape.
+//
 // usage:
 //   node voice_conversation_list_nightly.mjs --root-table <file> --tools-config <file>
 //        --pipeline-config <file> --receipts <dir> [--date YYYY-MM-DD]
-//        [--root-table-sha256 sha256:...] [--max-sessions N] [--dry]
+//        [--root-table-sha256 sha256:...] [--max-sessions N] [--deadline HH:MM] [--dry]
+//        [--chain-reconcile --reconcile-receipts <dir>
+//         [--linear-root <alias address>] [--mail-root <alias address>]...
+//         [--questions-cap N]]
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -95,6 +128,30 @@ export function shiftDate(dateStr, deltaDays) {
 /** The default target date: yesterday, read in Asia/Seoul. */
 export function defaultTargetDate(nowIso) {
   return shiftDate(seoulDateFor(nowIso), -1);
+}
+
+// -------------------------------------------------------------- deadline
+const DEADLINE_HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/u;
+
+/**
+ * The next local Asia/Seoul wall-clock instant matching `hhmm` ("HH:MM")
+ * strictly after `nowIso` -- "next occurrence after start", never the one
+ * already behind it. Uses the same fixed +09:00 arithmetic `seoulDateFor`/
+ * `shiftDate` already use, so a deadline and this lane's own "today" never
+ * disagree about what calendar day it is.
+ */
+export function nextDeadlineInstant(nowIso, hhmm) {
+  const match = DEADLINE_HHMM.exec(hhmm ?? '');
+  if (match === null) fail('voice_conversation_list_nightly_deadline_invalid');
+  const nowMs = Date.parse(nowIso);
+  if (!Number.isFinite(nowMs)) fail('voice_conversation_list_nightly_deadline_invalid');
+  const seoulNowMs = nowMs + 9 * 60 * 60 * 1000;
+  const seoulNow = new Date(seoulNowMs);
+  const candidateSeoulMs = Date.UTC(seoulNow.getUTCFullYear(), seoulNow.getUTCMonth(), seoulNow.getUTCDate(),
+    Number(match[1]), Number(match[2]), 0, 0);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const deadlineSeoulMs = candidateSeoulMs <= seoulNowMs ? candidateSeoulMs + oneDayMs : candidateSeoulMs;
+  return new Date(deadlineSeoulMs - 9 * 60 * 60 * 1000).toISOString();
 }
 
 // ------------------------------------------------------------------ plan
@@ -319,6 +376,67 @@ async function defaultRunSession({ io, tools, config, prompts, promptDigests, co
     llm_calls: result.manifest.calls.total, elapsed_ms: result.manifest.elapsed_ms };
 }
 
+// --------------------------------------------------------------- chain
+/**
+ * Pass-2 reconcile, then the morning-question "present" step -- the two real
+ * calls `--chain-reconcile` makes, each the exact same CLI entry point a
+ * human running them by hand would call
+ * (`estate_voice_card_reconcile.mjs`'s and `voice_question_cli.mjs`'s own
+ * `runReconcileCli`/`runVoiceQuestionCli`), imported lazily so a plain
+ * (non-chaining) nightly run never loads either module. `present`'s
+ * `--receipts` is always the same `reconcileReceiptsDir` reconcile itself
+ * just wrote to -- that is where `present` reads its exception pool from,
+ * not this night's own `--receipts`. `linearRoot` is passed through only
+ * when the caller actually gave one; left out, reconcile applies its own
+ * documented default (`data_root/ingress/linear`) rather than this file
+ * repeating that default and risking the two drifting apart. present never
+ * runs when reconcile did not reach `OK`/`DRY`; nothing here retries or
+ * undoes either call.
+ */
+async function defaultRunReconcileChain({ tablePath, rootTableSha256, toolsConfigPath, nightlyReceiptsDir,
+  reconcileReceiptsDir, linearRoot, mailRoots = [], questionsCap = null, dry, now, log }) {
+  let reconcileResult;
+  try {
+    const { runReconcileCli } = await import('./estate_voice_card_reconcile.mjs');
+    const reconcileArgv = ['--root-table', tablePath, '--root-table-sha256', rootTableSha256,
+      '--tools-config', toolsConfigPath, '--receipts', reconcileReceiptsDir,
+      '--nightly-receipts', nightlyReceiptsDir, '--now', now,
+      ...(linearRoot ? ['--linear-root', linearRoot] : []),
+      ...mailRoots.flatMap(root => ['--mail-root', root]),
+      ...(dry ? ['--dry'] : [])];
+    const reconcileRun = await runReconcileCli(reconcileArgv, { log: line => log(`[reconcile] ${line}`) });
+    reconcileResult = reconcileRun.result;
+  } catch (error) {
+    return { status: 'FAILED', stage: 'reconcile',
+      reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_chain_reconcile_failed',
+      reconcile: null, present: null };
+  }
+  if (reconcileResult.status !== 'OK' && reconcileResult.status !== 'DRY') {
+    return { status: 'FAILED', stage: 'reconcile', reason: reconcileResult.status,
+      reconcile: { status: reconcileResult.status }, present: null };
+  }
+
+  try {
+    const { runVoiceQuestionCli } = await import('./voice_question_cli.mjs');
+    const presentArgv = ['present', '--root-table', tablePath, '--root-table-sha256', rootTableSha256,
+      '--tools-config', toolsConfigPath, '--receipts', reconcileReceiptsDir, '--now', now,
+      ...(questionsCap !== null ? ['--cap', String(questionsCap)] : []),
+      ...(dry ? ['--dry'] : [])];
+    const presentRun = await runVoiceQuestionCli(presentArgv, { log: line => log(`[present] ${line}`) });
+    const presentStatus = presentRun.result.status;
+    if (presentStatus !== 'OK' && presentStatus !== 'DRY') {
+      return { status: 'FAILED', stage: 'present', reason: presentStatus,
+        reconcile: { status: reconcileResult.status }, present: { status: presentStatus } };
+    }
+    return { status: 'OK', stage: null, reason: null,
+      reconcile: { status: reconcileResult.status }, present: { status: presentStatus } };
+  } catch (error) {
+    return { status: 'FAILED', stage: 'present',
+      reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_chain_present_failed',
+      reconcile: { status: reconcileResult.status }, present: null };
+  }
+}
+
 // -------------------------------------------------------------------- run
 const totalsFor = (rows, classificationKey, transcriptAbsentClassification) => ({
   skipped_existing: rows.filter(row => row[classificationKey] === 'skipped_existing').length,
@@ -330,10 +448,43 @@ const totalsFor = (rows, classificationKey, transcriptAbsentClassification) => (
 /**
  * One night. `runSession` is the only place this ever calls a model; tests
  * replace it with a scripted function and never touch `createLocalChat`.
+ * `clock` is read once per candidate (never cached) to decide whether
+ * `deadline` has passed -- tests inject a scripted one so a deadline stop is
+ * provable without an actual multi-hour wait. `chainReconcile` needs real
+ * file paths (`tablePath`/`rootTableSha256`/`toolsConfigPath`,
+ * `reconcileReceiptsDir`), not the already-resolved `io`/`tools` this
+ * function otherwise runs on, because its two sub-calls are the reconcile and
+ * present CLIs, each reading its own root table and tools config from disk.
  */
 export async function runNightly({ io, tools, config, prompts, promptDigests, configSha256,
   sessionsAddress = VOICE_SESSIONS_ADDRESS, receiptsDir, targetDate, maxSessions = null, dry = false,
-  now = new Date().toISOString(), runSession = defaultRunSession, log = () => {} } = {}) {
+  now = new Date().toISOString(), runSession = defaultRunSession, log = () => {},
+  deadline = null, clock = () => new Date().toISOString(),
+  chainReconcile = false, runReconcileChain = defaultRunReconcileChain,
+  tablePath = null, rootTableSha256 = null, toolsConfigPath = null, reconcileReceiptsDir = null,
+  linearRoot = null, mailRoots = [], questionsCap = null } = {}) {
+  if (chainReconcile && (!tablePath || !toolsConfigPath || !reconcileReceiptsDir)) {
+    fail('voice_conversation_list_nightly_chain_config_required');
+  }
+  const deadlineAt = deadline !== null ? nextDeadlineInstant(now, deadline) : null;
+
+  // A defensive catch around the *call itself*, not just inside the default
+  // implementation: an injected `runReconcileChain` (a test double, or a
+  // future caller's own wiring) that throws instead of returning a
+  // structured result must still be recorded in the receipt and still exit
+  // non-zero -- never an uncaught rejection that skips the second write below
+  // and leaves the chain's fate undocumented.
+  const runChain = async chainDry => {
+    try { return await runReconcileChain({ tablePath, rootTableSha256, toolsConfigPath,
+      nightlyReceiptsDir: receiptsDir, reconcileReceiptsDir, linearRoot, mailRoots, questionsCap,
+      dry: chainDry, now: clock(), log }); }
+    catch (error) {
+      return { status: 'FAILED', stage: 'chain',
+        reason: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_chain_failed',
+        reconcile: null, present: null };
+    }
+  };
+
   if (dry) {
     let plan = [], planError = null;
     try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
@@ -354,10 +505,16 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     // too, the same as a real pass would report it -- a --dry preview that
     // hides that behind DRY/exit 0 is not a preview a preflight can trust.
     const anyRowFailed = rows.some(row => row.classification === 'failed');
-    return { status: planError !== null || anyRowFailed ? 'FAILED' : 'DRY', lock: null, sessions: rows, receipt: null,
+    // The chain previews too (both sub-calls in their own `--dry`), against
+    // whatever this receipts directory already holds from a prior real
+    // night -- this run wrote nothing new to it, `--dry` never does.
+    const chain = chainReconcile ? await runChain(true) : null;
+    return { status: planError !== null || anyRowFailed || (chain !== null && chain.status !== 'OK') ? 'FAILED' : 'DRY',
+      lock: null, sessions: rows, receipt: null,
       totals: { considered: rows.length, would_run: rows.filter(row => row.classification === 'run').length,
         ...totalsFor(rows, 'classification', 'skipped_short') },
-      plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError } };
+      plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
+      deadline: deadline !== null ? { configured: deadline, at: deadlineAt } : null, chain };
   }
 
   const lock = acquireLock(receiptsDir, now);
@@ -366,7 +523,7 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     return { status: 'LOCK_HELD', lock, sessions: [], receipt: null };
   }
 
-  let plan = [], planError = null;
+  let plan = [], planError = null, deadlineStopped = false;
   const rows = [];
   try {
     try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
@@ -385,6 +542,18 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
           rows.push(row);
           log(`${item.date} ${row.session_id} ${row.outcome}${row.reason ? ` ${row.reason}` : ''}`);
           continue;
+        }
+        // Checked only here, right before this pass would actually start a
+        // session's own card generation (the model-calling step) -- never
+        // during classification, which is cheap file reads regardless of how
+        // close the deadline is. A stop here leaves this row (and every plan
+        // entry after it) out of `rows` entirely, not marked `failed` or
+        // `skipped` -- the session still has no verified run, so the plan's
+        // own `classifySession` offers it again next time, unprompted.
+        if (deadlineAt !== null && Date.parse(clock()) >= Date.parse(deadlineAt)) {
+          deadlineStopped = true;
+          log(`deadline ${deadline} reached before ${item.session_id}; stopping for tonight`);
+          break;
         }
         let row;
         try {
@@ -416,47 +585,76 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
 
   const failed = rows.filter(row => row.outcome === 'failed').length;
   const ranUnverified = rows.filter(row => row.outcome === 'ran_unverified').length;
-  const receipt = { schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry: false,
+  const baseReceipt = { schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: now, target_date: targetDate, dry: false,
     lock: { reclaimed_stale: lock.reclaimed === true,
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
     plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
+    deadline: deadline !== null ? { configured: deadline, at: deadlineAt, stopped: deadlineStopped,
+      sessions_done: rows.length, sessions_left: Math.max(0, plan.length - rows.length) } : null,
     sessions: rows,
     totals: { ran: rows.filter(row => row.outcome === 'ran').length, ran_unverified: ranUnverified,
       ...totalsFor(rows, 'outcome', 'skipped_short'),
       llm_calls: rows.reduce((sum, row) => sum + (row.llm_calls ?? 0), 0),
       seconds: rows.reduce((sum, row) => sum + (row.seconds ?? 0), 0) },
+    chain: null,
     // No distinct PARTIAL status: this receipt's only consumers today are the
     // registrar's preflight gate and a human reading the receipt, and both
     // already know what to do with FAILED. A PARTIAL value would need that
     // (unowned by this change) gate updated to treat it as "do not register"
     // too, which is exactly the registrar edit this fix does not make -- so
-    // an unverified run folds into FAILED, the status that already blocks it.
+    // an unverified run, or a deadline stop by itself, folds into OK/FAILED
+    // the same way a full clean night or a real failure already does; a
+    // deadline stop is never by itself a reason for FAILED.
     status: planError !== null || failed > 0 || ranUnverified > 0 ? 'FAILED' : 'OK' };
+  const receiptPath = path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`);
   mkdirSync(receiptsDir, { recursive: true });
-  writeFileSync(path.join(receiptsDir, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`), encode(receipt));
+  writeFileSync(receiptPath, encode(baseReceipt));
+  if (!chainReconcile) return { status: baseReceipt.status, lock, sessions: rows, receipt: baseReceipt };
+
+  // The chain runs after this receipt is already on disk (reconcile's own
+  // `--nightly-receipts` backlog mode reads tonight's sessions from exactly
+  // this file) and after the lock above is released (reconcile keeps its own,
+  // independent lock -- see its file's own doc). Its outcome is folded into
+  // the same receipt file with a second write, never a second file, so a
+  // failure there is recorded in the one receipt this night produced, not a
+  // partial extra artifact next to it.
+  const chain = await runChain(false);
+  const receipt = { ...baseReceipt, chain,
+    status: baseReceipt.status === 'FAILED' || chain.status !== 'OK' ? 'FAILED' : 'OK' };
+  writeFileSync(receiptPath, encode(receipt));
   return { status: receipt.status, lock, sessions: rows, receipt };
 }
 
 // -------------------------------------------------------------------- CLI
+// Same shape as `estate_voice_card_reconcile.mjs`'s own local `options()`:
+// repeated flags accumulate into an array (`listOf`) rather than last-wins,
+// which is what `--mail-root` (chain pass-through, repeatable) needs. Every
+// existing single-value flag keeps behaving exactly as before -- only a flag
+// actually repeated on the command line is affected.
 function options(argv) {
   const flags = new Map();
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
     if (!token.startsWith('--')) continue;
+    const name = token.slice(2);
     const next = argv[index + 1];
-    flags.set(token.slice(2), next === undefined || next.startsWith('--') ? true : (index++, next));
+    const value = next === undefined || next.startsWith('--') ? true : (index++, next);
+    if (flags.has(name)) flags.set(name, [...[flags.get(name)].flat(), value]);
+    else flags.set(name, value);
   }
   return flags;
 }
+const listOf = value => (value === undefined || value === true ? [] : [value].flat().map(String));
 
-export async function runNightlyCli(argv, { runSession, now, log: onLine } = {}) {
+export async function runNightlyCli(argv, { runSession, runReconcileChain, clock, now, log: onLine } = {}) {
   const flags = options(argv);
   const tablePath = String(flags.get('root-table') ?? '');
   if (!tablePath) fail('voice_conversation_list_nightly_root_table_required');
   const expectedRootTableSha256 = flags.get('root-table-sha256');
-  const rootTable = readRootTable({ tablePath,
-    expectedSha256: typeof expectedRootTableSha256 === 'string' ? expectedRootTableSha256 : sha256(readFileSync(tablePath)) });
+  const resolvedRootTableSha256 = typeof expectedRootTableSha256 === 'string' ? expectedRootTableSha256
+    : sha256(readFileSync(tablePath));
+  const rootTable = readRootTable({ tablePath, expectedSha256: resolvedRootTableSha256 });
   const io = createAliasedStoreIo(rootTable);
 
   const toolsPath = String(flags.get('tools-config') ?? '');
@@ -486,6 +684,25 @@ export async function runNightlyCli(argv, { runSession, now, log: onLine } = {})
     }
     maxSessions = parsed;
   }
+  const deadlineFlag = flags.get('deadline');
+  const deadline = typeof deadlineFlag === 'string' ? deadlineFlag : null;
+
+  const chainReconcile = flags.get('chain-reconcile') === true;
+  const reconcileReceiptsFlag = flags.get('reconcile-receipts');
+  const reconcileReceiptsDir = typeof reconcileReceiptsFlag === 'string' ? reconcileReceiptsFlag : null;
+  if (chainReconcile && !reconcileReceiptsDir) fail('voice_conversation_list_nightly_reconcile_receipts_required');
+  const linearRootFlag = flags.get('linear-root');
+  const linearRoot = typeof linearRootFlag === 'string' ? linearRootFlag : null;
+  const mailRoots = listOf(flags.get('mail-root'));
+  const questionsCapFlag = flags.get('questions-cap');
+  let questionsCap = null;
+  if (questionsCapFlag !== undefined) {
+    const parsed = typeof questionsCapFlag === 'string' ? Number(questionsCapFlag) : NaN;
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+      fail('voice_conversation_list_nightly_questions_cap_invalid');
+    }
+    questionsCap = parsed;
+  }
 
   // A line is kept in `lines` for a caller that reads the return value (tests,
   // programmatic callers), and also handed to `onLine` the moment it is
@@ -496,7 +713,10 @@ export async function runNightlyCli(argv, { runSession, now, log: onLine } = {})
   const log = line => { lines.push(line); if (onLine) onLine(line); };
   const result = await runNightly({ io, tools, config, prompts, promptDigests: digests,
     configSha256: hex(configBytes), receiptsDir, targetDate, maxSessions, dry, now: nowIso,
-    ...(runSession ? { runSession } : {}), log });
+    deadline, chainReconcile, tablePath, rootTableSha256: resolvedRootTableSha256, toolsConfigPath: toolsPath,
+    reconcileReceiptsDir, linearRoot, mailRoots, questionsCap,
+    ...(runSession ? { runSession } : {}), ...(runReconcileChain ? { runReconcileChain } : {}),
+    ...(clock ? { clock } : {}), log });
   return { result, lines, targetDate };
 }
 

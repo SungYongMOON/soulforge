@@ -1,5 +1,42 @@
 # Context Engine
 
+## 대화 목록 야간 lane — 마감(deadline)과 대조·질문 연쇄(chain) (0.22.7)
+
+`13_SCHEDULE_AND_RAG_COVERAGE_PLAN_2026-09-21.md` A안의 코드 조각. `harness/voice_conversation_list_nightly.mjs`가
+벽시계 마감과, 카드 생성이 끝난 뒤 2단계 대조·아침 질문 제시를 같은 프로세스에서 잇는 연쇄를 얻었다. 예약작업
+재등록이나 실제 시각 전환은 이 조각에 없다 — Owner 실행 몫으로 남긴다.
+
+- **마감(`--deadline HH:MM`)**: Asia/Seoul 기준 시작 이후 다음 그 시각(`nextDeadlineInstant`) — 22:00 시작 +
+  00:00 마감이면 22시간 전이 아니라 그 뒤에 오는 자정에서 멈춘다. 세션 하나의 카드 생성을 실제로 *시작하기
+  직전*에만 검사한다(분류 자체는 값싼 파일 읽기라 검사하지 않음, 모델을 부르는 단계만). 넘겼으면 그 세션과
+  이후 계획 항목 전부를 이번 밤 영수증에서 빼고 깨끗이 멈춘다 — exit 0, 실패가 아니다. 남은 세션은 별도 장치
+  없이 기존 backlog 메커니즘이 다음 밤에 그대로 다시 집는다(그 세션은 여전히 verified run이 없으므로) — 시험이
+  실제로 두 번째 `runNightly` 호출로 그 픽업을 확인한다(가정이 아니라 관찰). 영수증에
+  `deadline.{configured,at,stopped,sessions_done,sessions_left}`.
+- **연쇄(`--chain-reconcile`)**: 카드 생성이 끝난 뒤(정상 종료든 마감 정지든) `--reconcile-receipts <dir>`에
+  대해 `estate_voice_card_reconcile.mjs`를 `--nightly-receipts <이 밤의 --receipts>`로 부르고, 이어서
+  `voice_question_cli.mjs present`를 **같은** reconcile receipts 디렉터리로 부른다(present가 예외 풀을 읽는
+  자리가 그곳이라). 두 호출 다 동적 `import()`로 같은 node 프로세스 안에서, 상대경로만 써서 부른다 — lane
+  폐포에 새 파일이 늘지 않는다(둘 다 이미 v4에 named entry point). reconcile은 이 밤의 영수증이 디스크에 실제로
+  쓰인 **뒤에** 돌아 자기 backlog 모드가 방금 끝낸 세션을 볼 수 있고, 그 결과는 같은 영수증 파일에 두 번째
+  쓰기로 접힌다(새 파일이 아니다). `--linear-root`는 준 것만 넘기고 안 주면 reconcile 자신의 기본값
+  (`data_root/ingress/linear`)을 그대로 쓴다(기본값을 이 파일이 다시 적어 드리프트를 만들지 않는다). 실패는
+  (reconcile·present가 실패로 돌아오든, 연쇄 함수 자체가 예외를 던지든 방어적으로 잡는다) 영수증
+  `chain.{status,stage,reason}`에 남고 이 밤 전체를 FAILED·비영 종료코드로 만들되 카드 생성 결과는 절대 다시
+  돌거나 되돌려지지 않는다. `--dry`는 두 하위 호출에도 그대로 전파된다(둘 다 자기 `--dry`로 미리보기 — 등록기
+  preflight가 검사하는 그 모양).
+- **등록기**: `ops/register-voice-conversation-list-task.ps1`에 `-DailyAt`(기본 03:00, 안 주면 이전과 완전히
+  같은 모양으로 등록), `-Deadline`, `-ChainReconcile`(+ `-ReconcileReceiptsRoot`/`-LinearRoot`/`-MailRoot`/
+  `-QuestionsCap`)를 더했다. 기존 pin(레인 매니페스트·Node·root table·tools config·pipeline config sha256·
+  dry-run plan digest·기존 task sha256)은 전부 그대로 유지되고, 새 값은 plan hashtable과 `-Register` 뒤 XML
+  대조(action 인자 줄 전체 비교이므로 자동으로 포함)에 함께 들어간다. `-Register` 없이 부르면 새 값을 포함한
+  전체 plan을 찍는다. lane spec `context_read_lane.spec.json`은 `context-read-v5`로 올렸다 — 새
+  tracked_paths·entry_points는 없다(두 harness/registrar 파일이 이미 v4에 이름 올라 있었다).
+
+시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 4건, 마감 정지·다음 밤
+픽업·마감 미도달 3건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 스텁 없이 실제
+reconcile/present CLI를 부르는 종단 시험 1건.
+
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 
 `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 네 번째 조각(외부 회신 09·10의 EXT-70·72·73·74).

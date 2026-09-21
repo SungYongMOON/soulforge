@@ -128,7 +128,11 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
    붙인다(`candidate`, 근거 등급 strong/weak/미분류). 맥락이는 답에서 이 후보를 그대로 인용하며,
    읽기·답변에는 사람 확정이 필요 없다. Owner는 읽다가 틀린 것만 한 줄로 고친다. 매 건 검토를
    요구하지 않는다. — **구현됨**(카드 생성·후보 표시: `voice_conversation_list_nightly.mjs`, 예약작업
-   `SoulforgeVoiceConversationList` 03:00) / **계획**(strong 후보를 `ai_provisional_project_route`로
+   `SoulforgeVoiceConversationList` 03:00. 2026-09-21: harness에 벽시계 `--deadline HH:MM`과, 카드 생성이
+   끝난 뒤 대조(`estate_voice_card_reconcile.mjs`)·아침 질문 제시(`voice_question_cli.mjs present`)를 같은
+   프로세스로 잇는 `--chain-reconcile`이 더해졌고, 등록기(`ops/register-voice-conversation-list-task.ps1`)도
+   `-DailyAt`/`-Deadline`/`-ChainReconcile`을 받는다 — 코드 차원 구현이며, 실제 03:00→22:00 재등록과 마감·
+   연쇄 활성화는 아직 Owner 실행 대기다) / **계획**(strong 후보를 `ai_provisional_project_route`로
    올리는 writer).
 2. **예외만 아침에 모아 묻기.** (판정 규칙 v1, 2026-09-20 밤 정정 — 회신 09·10, 그리고 그 다음 신선한 눈
    검토) 처음엔 "(a) weak/미분류 AND (b) 위험 표지"였다. 그 입구가 좁아서 새 과제 신호나 필수 맥락

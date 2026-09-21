@@ -1,28 +1,35 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
 <#
   Registers the one scheduled task that runs one night's worth of the voice
-  conversation-list lane: `SoulforgeVoiceConversationList`, daily at 03:00
-  local, hidden, running this lane's
+  conversation-list lane: `SoulforgeVoiceConversationList`, daily at
+  `-DailyAt` (default 03:00) local, hidden, running this lane's
   `harness/voice_conversation_list_nightly.mjs` bounded to at most 40 sessions
-  a night.
+  a night. `-Deadline` (HH:mm) and `-ChainReconcile` are optional: with
+  neither given, this registers exactly the same shape it always has.
 
   What it checks before it registers anything:
     * every path it was given is canonical and free of reparse points, and the
-      lane root and the receipts root do not overlap
+      lane root and the receipts root (and, with `-ChainReconcile`, the
+      reconcile receipts root) do not overlap
     * the lane's own manifest hashes to the digest the caller names, so the
       task is pinned to a built lane rather than to whatever is at that path
     * Node, the root table, the tools config and the pipeline config each hash
       to the digest the caller names
     * the nightly harness runs once in `--dry` mode and exits 0 -- a preflight
-      that enumerates and classifies the plan, calls no model, and writes
+      that enumerates and classifies the plan (and, with `-ChainReconcile`,
+      previews the reconcile + present chain too), calls no model, and writes
       nothing (not even the lock)
-    * without -Register it stops here and prints a plan digest; -Register only
-      proceeds when the caller passes that exact digest back
+    * without -Register it stops here and prints the full plan (every value
+      above, including `-DailyAt`/`-Deadline`/`-ChainReconcile` and its
+      pass-through arguments) and a plan digest; -Register only proceeds when
+      the caller passes that exact digest back
 
   After registering it re-reads the task's exported XML and checks the
-  trigger, the action line, the working directory, the principal and the
-  settings against what it planned; anything that does not match rolls the
-  task back to its previous definition (or removes it when there was none).
+  trigger, the action line (which carries every nightly-harness argument,
+  `--deadline`/`--chain-reconcile`/its pass-through included), the working
+  directory, the principal and the settings against what it planned; anything
+  that does not match rolls the task back to its previous definition (or
+  removes it when there was none).
 
   It never starts the task, never writes into `--receipts` or the pipeline's
   derived root, and never calls a model. It is run from a non-packaged
@@ -42,6 +49,18 @@ param(
   [Parameter(Mandatory = $true)][string]$PipelineConfigSha256,
   [Parameter(Mandatory = $true)][string]$ReceiptsRoot,
   [string]$TaskName = "SoulforgeVoiceConversationList",
+  # HH:mm, local, every day. Kept at the prior fixed value by default so a
+  # caller that passes none of the new parameters registers exactly the same
+  # task this registrar always has.
+  [string]$DailyAt = "03:00",
+  # HH:mm, local; passed through to the nightly harness's own `--deadline`
+  # unverbatim. Left unset, no `--deadline` reaches the harness at all.
+  [string]$Deadline,
+  [switch]$ChainReconcile,
+  [string]$ReconcileReceiptsRoot,
+  [string]$LinearRoot,
+  [string[]]$MailRoot,
+  [string]$QuestionsCap,
   [string]$ExpectedDryRunDigest,
   [string]$ExpectedExistingTaskSha256,
   [switch]$Register
@@ -54,6 +73,13 @@ $ErrorActionPreference = "Stop"
 # raising it is a lane-behaviour decision, not a registration-time choice, and
 # the dry-run preflight below runs against this exact value.
 $MaxSessions = "40"
+
+if ($ChainReconcile -and -not $ReconcileReceiptsRoot) {
+  throw "voice conversation list nightly -ChainReconcile requires -ReconcileReceiptsRoot"
+}
+if (-not $ChainReconcile -and ($ReconcileReceiptsRoot -or $LinearRoot -or $MailRoot -or $QuestionsCap)) {
+  throw "voice conversation list nightly chain pass-through arguments require -ChainReconcile"
+}
 
 function Assert-NoReparsePath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -112,6 +138,15 @@ function Assert-Sha256 {
   if ($Value -notmatch '^sha256:[0-9a-f]{64}$') { throw "$Label digest is invalid" }
 }
 
+# Same "HH:mm" shape the nightly harness's own `--deadline`/target-date
+# arithmetic expects (00-23 hours, 00-59 minutes); checked here too so a
+# malformed value is a registration-time error, not something only the
+# harness's own dry preflight would have caught.
+function Assert-HHmm {
+  param([Parameter(Mandatory = $true)][string]$Value, [Parameter(Mandatory = $true)][string]$Label)
+  if ($Value -notmatch '^([01][0-9]|2[0-3]):[0-5][0-9]$') { throw "$Label must be HH:mm (00:00-23:59)" }
+}
+
 function Get-Sha256File {
   param([Parameter(Mandatory = $true)][string]$Path)
   $Stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
@@ -159,6 +194,8 @@ foreach ($Spec in @(
   @{ Value = $ToolsConfigSha256; Label = "tools config" },
   @{ Value = $PipelineConfigSha256; Label = "pipeline config" }
 )) { Assert-Sha256 -Value $Spec.Value -Label $Spec.Label }
+Assert-HHmm -Value $DailyAt -Label "-DailyAt"
+if ($Deadline) { Assert-HHmm -Value $Deadline -Label "-Deadline" }
 
 $LaneRoot = Resolve-CanonicalDirectory -Path $LaneRoot
 $NodePath = Resolve-CanonicalFile -Path $NodePath
@@ -173,6 +210,12 @@ $HiddenLauncher = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "guild_hall\c
 
 Assert-DisjointPath -Left $LaneRoot -Right $ReceiptsRoot
 Assert-DisjointPath -Left $LaneRoot -Right ([IO.Path]::GetDirectoryName($RootTablePath))
+if ($ChainReconcile) {
+  $ReconcileReceiptsRoot = [IO.Path]::GetFullPath($ReconcileReceiptsRoot)
+  Assert-NoReparsePath -Path $ReconcileReceiptsRoot
+  Assert-DisjointPath -Left $LaneRoot -Right $ReconcileReceiptsRoot
+  Assert-DisjointPath -Left $ReceiptsRoot -Right $ReconcileReceiptsRoot
+}
 
 $ActualLaneManifestSha256 = Get-Sha256File -Path $LaneManifest
 if ($ActualLaneManifestSha256 -ne $LaneManifestSha256) { throw "voice conversation list nightly lane manifest SHA-256 changed" }
@@ -193,6 +236,13 @@ $NightlyArguments = @(
   "--receipts", $ReceiptsRoot,
   "--max-sessions", $MaxSessions
 )
+if ($Deadline) { $NightlyArguments += @("--deadline", $Deadline) }
+if ($ChainReconcile) {
+  $NightlyArguments += @("--chain-reconcile", "--reconcile-receipts", $ReconcileReceiptsRoot)
+  if ($LinearRoot) { $NightlyArguments += @("--linear-root", $LinearRoot) }
+  foreach ($OneMailRoot in $MailRoot) { $NightlyArguments += @("--mail-root", $OneMailRoot) }
+  if ($QuestionsCap) { $NightlyArguments += @("--questions-cap", $QuestionsCap) }
+}
 
 # Preflight: the same entry point, in the mode that calls no model and writes
 # nothing -- not even the lock.
@@ -234,12 +284,14 @@ if ($Existing) {
 $CurrentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $CurrentUser = $CurrentIdentity.Name
 $CurrentSid = $CurrentIdentity.User.Value
-# 03:00 local, every day. The trigger object's own StartBoundary (whatever form
+# `-DailyAt` local, every day (default 03:00, unchanged from before this
+# parameter existed). The trigger object's own StartBoundary (whatever form
 # the platform serialises it in) is what both the plan digest and the
 # post-registration attestation compare against -- neither one hardcodes a
 # time zone or a string format.
-$DailyAt = [DateTime]::Today.AddHours(3)
-$Trigger = New-ScheduledTaskTrigger -Daily -At $DailyAt
+$DailyAtParts = $DailyAt.Split(":")
+$DailyAtBoundary = [DateTime]::Today.AddHours([int]$DailyAtParts[0]).AddMinutes([int]$DailyAtParts[1])
+$Trigger = New-ScheduledTaskTrigger -Daily -At $DailyAtBoundary
 # The in-memory trigger serialises its StartBoundary as UTC ("...T18:00:00Z") while the
 # exported task XML carries local time with an offset ("...T03:00:00+09:00"), so both sides
 # are parsed and compared as the local time of day rather than as raw substrings.
@@ -269,6 +321,17 @@ $Plan = [ordered]@{
   tools_config_sha256 = $ToolsConfigSha256
   pipeline_config_sha256 = $PipelineConfigSha256
   max_sessions = $MaxSessions
+  # A raw absolute path (`$ReconcileReceiptsRoot`) is never put in this
+  # hashtable -- the same posture `$ReceiptsRoot` itself already has here.
+  # `action_sha256` below already binds the exact command line (every
+  # pass-through path and alias address included); this block only carries
+  # what is safe to echo and what is not itself a host-local path.
+  deadline = $(if ($Deadline) { $Deadline } else { $null })
+  chain_reconcile = [bool]$ChainReconcile
+  chain_reconcile_receipts_configured = [bool]$ReconcileReceiptsRoot
+  chain_linear_root = $(if ($LinearRoot) { $LinearRoot } else { $null })
+  chain_mail_roots = $(if ($MailRoot) { @($MailRoot) } else { @() })
+  chain_questions_cap = $(if ($QuestionsCap) { $QuestionsCap } else { $null })
   action_sha256 = Get-Sha256Text -Value ($WScriptExe + "`n" + $HiddenActionArgumentLine)
   existing_task_sha256 = $ActualExistingTaskSha256
   existing_task_xml_sha256 = $ExistingTaskXmlSha256
@@ -276,7 +339,11 @@ $Plan = [ordered]@{
 $PlanDigest = Get-Sha256Text -Value ($Plan | ConvertTo-Json -Depth 4 -Compress)
 
 if (-not $Register) {
-  Write-Output "voice conversation list nightly task dry-run attested: plan_digest=$PlanDigest daily_at=$ExpectedStartBoundaryTime max_sessions=$MaxSessions mutation=false"
+  Write-Output ("voice conversation list nightly task dry-run attested: plan_digest=$PlanDigest " `
+    + "daily_at=$ExpectedStartBoundaryTime max_sessions=$MaxSessions deadline=$($Plan.deadline) " `
+    + "chain_reconcile=$($Plan.chain_reconcile) chain_linear_root=$($Plan.chain_linear_root) " `
+    + "chain_mail_roots=$($Plan.chain_mail_roots -join ',') chain_questions_cap=$($Plan.chain_questions_cap) " `
+    + "mutation=false")
   return
 }
 if (-not $ExpectedDryRunDigest -or $ExpectedDryRunDigest -ne $PlanDigest) {
@@ -329,7 +396,8 @@ try {
     -and (Get-XmlNodeText -Parent $ExecNode -XPath "./*[local-name()='WorkingDirectory']") -eq $LaneRoot
   if (-not $RegistrationValid) { throw "the registered voice conversation list nightly task failed exported XML attestation" }
   Write-Output ("voice conversation list nightly task registered and XML-attested: daily_at=$ExpectedStartBoundaryTime " `
-    + "max_sessions=$MaxSessions exported_xml_sha256=" + (Get-Sha256Text -Value $ExportedTaskXml))
+    + "max_sessions=$MaxSessions deadline=$($Plan.deadline) chain_reconcile=$($Plan.chain_reconcile) " `
+    + "exported_xml_sha256=" + (Get-Sha256Text -Value $ExportedTaskXml))
 } catch {
   $RegistrationFailure = $_
   $RollbackFailure = $null

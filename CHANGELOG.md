@@ -1,5 +1,43 @@
 # CHANGELOG
 
+## 2026-09-21 - 대화 목록 야간 lane에 마감(deadline)과 대조·질문 연쇄(chain-reconcile) 추가
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`(대화 목록 야간
+  lane)에 두 가지를 더했다. (1) 벽시계 `--deadline HH:MM`(Asia/Seoul 기준 시작 이후 다음 그 시각, 22:00
+  시작+00:00 마감이면 그날 밤 자정에서 멈춤) — 세션 하나의 카드 생성을 실제로 시작하기 직전에만 검사하고,
+  넘겼으면 그 세션과 이후 계획 항목을 이번 밤 영수증에서 빼고 exit 0으로 깨끗이 멈춘다(실패 아님). 남은
+  세션은 기존 backlog 메커니즘이 다음 밤에 그대로 다시 집는다(시험이 실제 두 번째 실행으로 확인). (2)
+  `--chain-reconcile` — 카드 생성이 끝난 뒤(정상이든 마감 정지든) `estate_voice_card_reconcile.mjs`를
+  `--nightly-receipts`로, 이어서 `voice_question_cli.mjs present`를 같은 reconcile receipts 디렉터리로
+  같은 프로세스에서 동적 `import()`로 부른다. reconcile은 이 밤의 영수증이 디스크에 쓰인 뒤에 돌고, 결과는
+  같은 영수증 파일에 두 번째 쓰기로 접힌다. 실패(예외 포함)는 영수증 `chain.{status,stage,reason}`에 남고
+  비영 종료코드를 내되 카드 생성 결과는 절대 다시 돌거나 되돌려지지 않는다. `--dry`는 두 하위 호출에도
+  전파된다. 등록기 `ops/register-voice-conversation-list-task.ps1`에 `-DailyAt`(기본 03:00, 생략 시 이전과
+  동일하게 등록), `-Deadline`, `-ChainReconcile`(+ `-ReconcileReceiptsRoot`/`-LinearRoot`/`-MailRoot`/
+  `-QuestionsCap`)를 더했다 — 기존 pin(레인 매니페스트·Node·root table·tools config·pipeline config
+  sha256·dry-run plan digest·기존 task sha256)은 그대로 두고, 새 값은 plan hashtable과 `-Register` 뒤 XML
+  대조(action 인자 줄 전체 비교라 자동 포함)에 들어간다. lane spec `guild_hall/deployment_pack/lanes/
+  context_read_lane.spec.json`은 `context-read-v5`로 올렸다(새 tracked_paths·entry_points 없음, 이미 v4에
+  이름 올라 있던 harness·registrar 파일 두 개가 제자리에서 바뀐 것뿐).
+- 운영 영향: 코드·registrar 파라미터·lane spec 문서 변경뿐이다. 실제 예약작업
+  `SoulforgeVoiceConversationList`은 이 커밋으로 재등록되지 않았고(여전히 03:00, deadline·chain 없이
+  등록된 채로 있음), lane도 새로 빌드하지 않았다. 03:00→22:00 전환과 `-Deadline 00:00 -ChainReconcile`
+  실제 활성화는 Owner의 별도 재등록 실행이 필요하다(`docs/architecture/workspace/
+  VOICE_RECORDING_LIBRARY_V0.md` 2026-09-20 운영 방침 1항에 코드 구현/미적용을 구분해 반영).
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`, `guild_hall/context_engine/README.md`,
+  `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
+- 검증: `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0 violations),
+  `npm run validate:context-engine`(631 tests, 623 pass·8 skip·0 fail — skip은 기존 T5 PDF 해석기 미설치
+  분),`npm run validate:source-lane`(14/14 pass), `npm run validate:voice-conversation-list`(51/51 pass),
+  PowerShell 5.1 파서(`[System.Management.Automation.Language.Parser]::ParseFile`)로 등록기 구문 확인(오류
+  0). `npm run validate:deployment-pack`은 이 변경과 무관한 기존 "Universal Client transport bundle
+  drifted" 실패에서 멈춘다(이 변경 적용 전 origin/main에서도 동일하게 재현 확인, 08169918 이후 기존
+  상태). 등록기의 실제 `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
 ## 2026-09-21 - 과제별 관리 폴더(021·023·027) 규칙 문서화 + SE 프로젝트 폴더명 규칙
 
 - Revision: 이 항목을 포함한 커밋.

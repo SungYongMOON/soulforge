@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,8 +17,8 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import {
   BACKLOG_WINDOW_DAYS, MIN_TRANSCRIPT_SECONDS, NIGHTLY_RECEIPT_SCHEMA, STALE_LOCK_MS,
-  acquireLock, buildSessionPlan, classifySession, defaultTargetDate, releaseLock, runNightly, staleReasonFor,
-  runNightlyCli, seoulDateFor, shiftDate,
+  acquireLock, buildSessionPlan, classifySession, defaultTargetDate, nextDeadlineInstant, releaseLock, runNightly,
+  staleReasonFor, runNightlyCli, seoulDateFor, shiftDate,
 } from '../harness/voice_conversation_list_nightly.mjs';
 
 const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts', 'voice_conversation_list');
@@ -676,4 +676,321 @@ test('runNightlyCli --dry: the same argv, in dry mode, calls no model and writes
 
   assert.equal(result.status, 'DRY');
   assert.equal(existsSync(est.receiptsDir), false);
+});
+
+// --------------------------------------------------------------- deadline
+test('nextDeadlineInstant: a 22:00 start with a 00:00 deadline lands on the midnight that follows, not the one behind it', () => {
+  assert.equal(nextDeadlineInstant('2026-09-20T13:00:00.000Z', '00:00'), '2026-09-20T15:00:00.000Z');
+});
+
+test('nextDeadlineInstant: a deadline later the same Seoul day stays on that day', () => {
+  // Start 09:00 Seoul (2026-09-20T00:00:00.000Z); deadline 23:00 Seoul, same calendar day.
+  assert.equal(nextDeadlineInstant('2026-09-20T00:00:00.000Z', '23:00'), '2026-09-20T14:00:00.000Z');
+});
+
+test('nextDeadlineInstant: a deadline already behind the start time rolls to tomorrow, never today again', () => {
+  // Start 22:00 Seoul (2026-09-20T13:00:00.000Z); deadline 06:00 Seoul is hours behind -> next day's 06:00 Seoul.
+  assert.equal(nextDeadlineInstant('2026-09-20T13:00:00.000Z', '06:00'), '2026-09-20T21:00:00.000Z');
+});
+
+test('nextDeadlineInstant: rejects a malformed HH:MM or a non-instant now', () => {
+  assert.throws(() => nextDeadlineInstant('2026-09-20T13:00:00.000Z', '24:00'),
+    error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
+  assert.throws(() => nextDeadlineInstant('2026-09-20T13:00:00.000Z', 'midnight'),
+    error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
+  assert.throws(() => nextDeadlineInstant('2026-09-20T13:00:00.000Z', ''),
+    error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
+  assert.throws(() => nextDeadlineInstant('not-a-date', '00:00'),
+    error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
+});
+
+test('runNightly: a deadline reached before a session stops the night cleanly (status OK, not a failure)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  // Alphabetical plan order: S_run_a before S_run_b.
+  await writeSession(est.dataRoot, target, 'S_run_a', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, target, 'S_run_b', { durationSeconds: 40 });
+
+  const now = '2026-09-20T13:00:00.000Z'; // 22:00 Seoul; --deadline 00:00 -> 2026-09-20T15:00:00.000Z
+  const clockTimes = ['2026-09-20T13:05:00.000Z', '2026-09-20T15:00:00.000Z'];
+  let clockCalls = 0;
+  const clock = () => clockTimes[Math.min(clockCalls++, clockTimes.length - 1)];
+
+  const calls = [];
+  const runSession = async ({ sessionId }) => { calls.push(sessionId);
+    return { run_id: `vcl_${sessionId}`, verified: true, llm_calls: 1, elapsed_ms: 1 }; };
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '00:00', clock, runSession, log: () => {} });
+
+  assert.equal(result.status, 'OK'); // a deadline stop alone is never a failure
+  assert.deepEqual(calls, ['S_run_a']);
+  assert.equal(result.receipt.deadline.configured, '00:00');
+  assert.equal(result.receipt.deadline.at, '2026-09-20T15:00:00.000Z');
+  assert.equal(result.receipt.deadline.stopped, true);
+  assert.equal(result.receipt.deadline.sessions_done, 1);
+  assert.equal(result.receipt.deadline.sessions_left, 1);
+  assert.ok(!result.receipt.sessions.some(row => row.session_id === 'S_run_b'),
+    'the session past the deadline is left out of tonight\'s receipt entirely, not marked failed or skipped');
+});
+
+test('runNightly: a session left behind by a deadline stop is picked up by the very next run, through the existing backlog mechanism', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run_a', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, target, 'S_run_b', { durationSeconds: 40 });
+
+  const clockTimes = ['2026-09-20T13:05:00.000Z', '2026-09-20T15:00:00.000Z'];
+  let clockCalls = 0;
+  const stoppingClock = () => clockTimes[Math.min(clockCalls++, clockTimes.length - 1)];
+  const firstCalls = [];
+  const first = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T13:00:00.000Z', deadline: '00:00',
+    clock: stoppingClock, runSession: async ({ sessionId }) => { firstCalls.push(sessionId);
+      return { run_id: `vcl_${sessionId}_1`, verified: true, llm_calls: 1, elapsed_ms: 1 }; }, log: () => {} });
+  assert.equal(first.status, 'OK');
+  assert.deepEqual(firstCalls, ['S_run_a']);
+  // The injected `runSession` above (like every other test in this file)
+  // never actually writes a run to `derivedRoot` -- only the real pipeline
+  // does. Recording S_run_a's run here stands in for that real write, so the
+  // second run's own `classifySession` (not this test) is what proves the
+  // pickup: S_run_b still has no run at all and is offered again unprompted.
+  await writeExistingRun(est.derivedRoot, 'S_run_a', { runId: 'vcl_aaaa111111111111', verified: true });
+
+  // Next run: no deadline pressure. It must find S_run_b again (no verified
+  // run exists for it yet) and must not re-run S_run_a (it already has one).
+  const secondCalls = [];
+  const second = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-21T13:00:00.000Z',
+    runSession: async ({ sessionId }) => { secondCalls.push(sessionId);
+      return { run_id: `vcl_${sessionId}_2`, verified: true, llm_calls: 1, elapsed_ms: 1 }; }, log: () => {} });
+
+  assert.equal(second.status, 'OK');
+  assert.deepEqual(secondCalls, ['S_run_b']);
+  assert.equal(second.receipt.sessions.find(row => row.session_id === 'S_run_b').outcome, 'ran');
+  assert.equal(second.receipt.sessions.find(row => row.session_id === 'S_run_a').outcome, 'skipped_existing');
+});
+
+test('runNightly: a configured deadline that is never reached during the run changes nothing about the outcome', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T13:00:00.000Z', deadline: '00:00',
+    clock: () => '2026-09-20T13:01:00.000Z', // always well before the 15:00Z deadline
+    runSession: async () => ({ run_id: 'vcl_x', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.deadline.stopped, false);
+  assert.equal(result.receipt.deadline.sessions_done, 1);
+  assert.equal(result.receipt.deadline.sessions_left, 0);
+});
+
+test('runNightly --dry: with no deadline configured, the receipt carries no deadline block (default behaviour unchanged)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  await writeSession(est.dataRoot, '2026-09-20', 'S_run', { durationSeconds: 40 });
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: '2026-09-20', now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_x', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+  assert.equal(result.receipt.deadline, null);
+  assert.equal(result.receipt.chain, null);
+});
+
+// ------------------------------------------------------------------ chain
+function chainStub(script) {
+  const calls = [];
+  const fn = async args => { calls.push(args); return script(args, calls.length); };
+  fn.calls = calls;
+  return fn;
+}
+
+test('runNightly --chain-reconcile: runs after card generation, against this same receipts dir, and forwards every pass-through argument', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+
+  // Ordering is captured (not asserted) inside the stub: an assertion thrown
+  // in here would be swallowed by `runChain`'s own defensive catch and turn
+  // into a confusing `chain.status === 'FAILED'` in the caller instead of
+  // this test's own failure message, so the snapshot is checked afterward.
+  let snapshotAtChainStart = null;
+  const runReconcileChain = chainStub(() => {
+    const written = readdirSync(est.receiptsDir).filter(name => name.endsWith('.json'));
+    snapshotAtChainStart = written.length === 1
+      ? JSON.parse(readFileSync(path.join(est.receiptsDir, written[0]), 'utf8')) : null;
+    return { status: 'OK', stage: null, reason: null, reconcile: { status: 'OK' }, present: { status: 'OK' } };
+  });
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir,
+    linearRoot: 'data_root/ingress/linear-custom', mailRoots: ['data_root/ingress/mail-a', 'data_root/ingress/mail-b'],
+    questionsCap: 5, runReconcileChain });
+
+  assert.equal(result.status, 'OK');
+  // Ordering: by the time the chain ran, this night's own receipt was
+  // already the one and only file on disk, with tonight's real outcome in it.
+  assert.ok(snapshotAtChainStart !== null);
+  assert.equal(snapshotAtChainStart.sessions[0].session_id, 'S_run');
+  assert.equal(snapshotAtChainStart.sessions[0].outcome, 'ran');
+  assert.equal(runReconcileChain.calls.length, 1);
+  const call = runReconcileChain.calls[0];
+  assert.equal(call.tablePath, est.tablePath);
+  assert.equal(call.toolsConfigPath, est.toolsPath);
+  assert.equal(call.nightlyReceiptsDir, est.receiptsDir);
+  assert.equal(call.reconcileReceiptsDir, reconcileReceiptsDir);
+  assert.equal(call.linearRoot, 'data_root/ingress/linear-custom');
+  assert.deepEqual(call.mailRoots, ['data_root/ingress/mail-a', 'data_root/ingress/mail-b']);
+  assert.equal(call.questionsCap, 5);
+  assert.equal(call.dry, false);
+  assert.deepEqual(result.receipt.chain, { status: 'OK', stage: null, reason: null,
+    reconcile: { status: 'OK' }, present: { status: 'OK' } });
+
+  // And the chain's outcome landed in the very receipt already on disk (a
+  // second write to the same path, not a second file).
+  const written = (await readdir(est.receiptsDir)).filter(name => name.endsWith('.json'));
+  assert.equal(written.length, 1);
+  const onDisk = JSON.parse(await readFile(path.join(est.receiptsDir, written[0]), 'utf8'));
+  assert.deepEqual(onDisk.chain, result.receipt.chain);
+});
+
+test('runNightly --chain-reconcile: a reconcile or present failure is recorded in the receipt and FAILs the night, without touching card generation results', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+
+  const runReconcileChain = chainStub(() =>
+    ({ status: 'FAILED', stage: 'present', reason: 'voice_question_ledger_locked', reconcile: { status: 'OK' }, present: { status: 'FAILED' } }));
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir, runReconcileChain });
+
+  assert.equal(result.status, 'FAILED'); // non-zero exit at the CLI boundary
+  assert.equal(result.receipt.chain.status, 'FAILED');
+  assert.equal(result.receipt.chain.stage, 'present');
+  // Card generation itself is untouched: the session still shows as cleanly ran.
+  const row = result.receipt.sessions.find(item => item.session_id === 'S_run');
+  assert.equal(row.outcome, 'ran');
+  assert.equal(row.verified, true);
+});
+
+test('runNightly --chain-reconcile: a chain function that throws (instead of returning a status) is still caught, recorded, and never reruns card generation', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const calls = [];
+  const runReconcileChain = async () => { calls.push(1);
+    throw Object.assign(new Error('boom'), { code: 'voice_card_reconcile_root_table_required' }); };
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir: path.join(est.controlRoot, 'reconcile-receipts'),
+    runReconcileChain });
+
+  assert.equal(calls.length, 1);
+  assert.equal(result.status, 'FAILED');
+  assert.equal(result.receipt.chain.status, 'FAILED');
+  assert.equal(result.receipt.chain.stage, 'chain');
+  assert.equal(result.receipt.chain.reason, 'voice_card_reconcile_root_table_required');
+  const row = result.receipt.sessions.find(item => item.session_id === 'S_run');
+  assert.equal(row.outcome, 'ran'); // card generation itself is untouched
+});
+
+test('runNightly --dry --chain-reconcile: dry propagates into both chain sub-calls, and nothing real is written', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+
+  const runReconcileChain = chainStub(args => {
+    assert.equal(args.dry, true);
+    return { status: 'OK', stage: null, reason: null, reconcile: { status: 'DRY' }, present: { status: 'DRY' } };
+  });
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T18:00:00.000Z', dry: true,
+    runSession: async () => { throw new Error('must not be called in dry mode'); }, log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir, runReconcileChain });
+
+  assert.equal(result.status, 'DRY');
+  assert.equal(runReconcileChain.calls.length, 1);
+  assert.deepEqual(result.chain, { status: 'OK', stage: null, reason: null, reconcile: { status: 'DRY' }, present: { status: 'DRY' } });
+  assert.equal(existsSync(est.receiptsDir), false);
+});
+
+test('runNightlyCli --chain-reconcile: rejects when --reconcile-receipts is missing, and a malformed --deadline is a usage error', async () => {
+  const est = await estate();
+  const base = ['--root-table', est.tablePath, '--tools-config', est.toolsPath,
+    '--pipeline-config', est.configPath, '--receipts', est.receiptsDir];
+  await assert.rejects(() => runNightlyCli([...base, '--chain-reconcile'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_reconcile_receipts_required');
+  await assert.rejects(() => runNightlyCli([...base, '--deadline', 'not-a-time'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
+});
+
+test('runNightlyCli --chain-reconcile: end-to-end argv wiring reaches the injected chain with repeated --mail-root values', async () => {
+  const est = await estate();
+  const target = '2026-09-19';
+  await writeSession(est.dataRoot, target, 'S_cli_chain', { durationSeconds: 40 });
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+  const runReconcileChain = chainStub(() =>
+    ({ status: 'OK', stage: null, reason: null, reconcile: { status: 'OK' }, present: { status: 'OK' } }));
+
+  const argv = ['--root-table', est.tablePath, '--tools-config', est.toolsPath,
+    '--pipeline-config', est.configPath, '--receipts', est.receiptsDir,
+    '--chain-reconcile', '--reconcile-receipts', reconcileReceiptsDir,
+    '--mail-root', 'data_root/ingress/mail-a', '--mail-root', 'data_root/ingress/mail-b',
+    '--questions-cap', '3'];
+  const { result } = await runNightlyCli(argv, { now: '2026-09-20T00:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_cli', verified: true, llm_calls: 1, elapsed_ms: 1 }), runReconcileChain });
+
+  assert.equal(result.status, 'OK');
+  assert.equal(runReconcileChain.calls.length, 1);
+  assert.deepEqual(runReconcileChain.calls[0].mailRoots, ['data_root/ingress/mail-a', 'data_root/ingress/mail-b']);
+  assert.equal(runReconcileChain.calls[0].questionsCap, 3);
+  assert.equal(runReconcileChain.calls[0].reconcileReceiptsDir, reconcileReceiptsDir);
+});
+
+test('runNightly --chain-reconcile: the real (non-stubbed) reconcile and present CLIs wire together end-to-end with zero sessions', async () => {
+  // No `runReconcileChain` injected: this exercises `defaultRunReconcileChain`
+  // itself, its dynamic imports of `estate_voice_card_reconcile.mjs` and
+  // `voice_question_cli.mjs`, and the real argv each one is called with --
+  // proof the chain works, not just that this file's own stub-based tests
+  // above agree with each other.
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const reconcileReceiptsDir = path.join(est.controlRoot, 'reconcile-receipts');
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: '2026-09-20', now: '2026-09-20T18:00:00.000Z',
+    runSession: async () => { throw new Error('must not be called: no sessions plan this night'); }, log: () => {},
+    chainReconcile: true, tablePath: est.tablePath, rootTableSha256: `sha256:${hex(await readFile(est.tablePath))}`,
+    toolsConfigPath: est.toolsPath, reconcileReceiptsDir });
+
+  assert.equal(result.status, 'OK');
+  assert.ok(result.receipt.chain !== null);
+  assert.equal(result.receipt.chain.status, 'OK');
+  assert.equal(result.receipt.chain.reconcile.status, 'OK');
+  assert.equal(result.receipt.chain.present.status, 'OK');
+  // present's own receipt lands in the *reconcile* receipts dir (where it
+  // read its exception pool from), never in this night's own `--receipts`.
+  const presentReceipts = (await readdir(reconcileReceiptsDir)).filter(name => name.endsWith('.json'));
+  assert.ok(presentReceipts.length >= 1);
 });
