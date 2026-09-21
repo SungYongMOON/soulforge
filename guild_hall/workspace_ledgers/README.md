@@ -1646,10 +1646,16 @@ than letting the two steps silently classify against two different versions of i
 visible name) serialises two invocations of THIS runner against the same receipts
 directory; a stale one (its recorded start older than the runner's own threshold, or
 a future-dated one from clock skew) is reclaimed and the reclaim is recorded in the
-combined receipt's `lock` block. This is one layer among several, not the only thing
-preventing overlap: the registrar's own `IgnoreNew` multiple-instances policy on the
-scheduled task, and `refresh()`/`refreshCommon()`'s own separate internal lock at
-`workspacesRoot`'s root, both also apply independently.
+combined receipt's `lock` block. Reclaiming renames the stale lock to a dot-file
+sibling (`.daily_refresh.lock.stale-<uuid>`) first and only writes a fresh lock once
+that rename succeeded, then cleans the renamed-away file up (recursively -- a stale
+lock can itself be a directory); any such sibling a PRIOR run failed to clean up (a
+crash mid-cleanup, say) is swept the same way on the next acquire, once it is itself
+past the same staleness threshold, so a leak self-heals rather than accumulating
+forever. This is one layer among several, not the only thing preventing overlap: the
+registrar's own `IgnoreNew` multiple-instances policy on the scheduled task, and
+`refresh()`/`refreshCommon()`'s own separate internal lock at `workspacesRoot`'s
+root, both also apply independently.
 
 **Where the private org config lives.** `<control_root>/workspace-ledgers/
 org_config.private.json` -- never committed, never referenced by a real path in this
@@ -1707,20 +1713,29 @@ subject, name, address or host path. `refresh`'s counts include
 `ledger_failures` field at all, so its per-file failure signal is
 `failed_files_count` (from `files[].failed`) and `rejected_files_count` (an unsafe or
 colliding ledger NAME refused before it was ever written, a different failure class).
-`common_refresh.ran` is `false` with `reason: 'previous_step_failed_closed'` whenever
-`refresh` itself failed and step 2 never started at all; if a step was attempted but
-THREW before returning its own receipt (rather than returning a `status: 'failed'`
-receipt, the ordinary fail-closed shape), that step's own entry is instead
-`{ ran: true, status: 'failed', reason: 'threw' }` -- a distinct, rarer shape from an
-unexpected error, not the ordinary "the previous step already failed closed" case.
+`common_refresh`'s `ran`/`reason` distinguish three situations, never collapsed into
+one shape: `{ ran: false, status: null, reason: 'previous_step_failed_closed' }` --
+the ORDINARY case, `refresh()` returned its own `status: 'failed'` receipt and
+`refreshCommon()` was deliberately never called; `{ ran: true, status: 'failed',
+reason: 'threw' }` -- it WAS attempted and threw before returning any receipt of its
+own; `{ ran: false, status: null, reason: 'not_started' }` -- reached only from an
+unexpected-error path, it never even got the chance to be attempted because
+something else (`refresh()` itself throwing, or the org-config TOCTOU re-check after
+step 1 failing) already stopped the run first. `refresh`'s own two possible shapes in
+that same unexpected-error case mirror the last two of those (it is always at least
+attempted, so it is never `reason: 'not_started'`).
 Exit codes: `0` ok; `2` failed -- either step's own receipt reports `status:
 'failed'` (unreadable custody, a bad saved rule, a malformed Owner table, or an R4
 ledger-validation failure), the org config changed mid-run (the TOCTOU re-check
 above), or a LIBRARY error code (not one of this runner's own) reached during either
 step; `3` daily lock held, or an unexpected error acquiring/reclaiming it; `4`
 refused before start -- ONLY this runner's own pre-lock validation codes ever map
-here: a malformed `--now`, an org-config digest mismatch, or a missing
-`--workspaces-root`/`--workmeta-root`.
+here: a malformed/impossible-calendar-date/present-but-valueless `--now`, an
+org-config digest mismatch, a missing `--workspaces-root`/`--workmeta-root`, or a
+`--receipts` that could never actually be written to (it exists and is not a
+directory, or its nearest existing ancestor is not a directory) -- checked write-free,
+so `--dry` refuses on this too, rather than green-lighting a registration that could
+never write a receipt.
 
 **`--dry` writes nothing, deliberately more strictly than `refresh --dry`/
 `common-refresh --dry`.** Those two still write their own audit-trail receipt file
@@ -1728,9 +1743,11 @@ even in dry mode (documented as intentional in their own doc comments); `ops/
 daily_refresh.mjs --dry` is what a registrar preflight checks before it ever
 registers anything, so it never calls `refresh()`/`refreshCommon()` at all -- it only
 checks that every required argument is present and well-shaped (`--now` must be a
-real ISO-8601 instant -- it reaches a receipt filename and every lock-age
-computation on a real run), that the org-config digest matches, and that
-`--workspaces-root`/`--workmeta-root` exist, and reports (without acquiring,
+real, calendar-valid ISO-8601 instant, given a genuine value -- it reaches a receipt
+filename and every lock-age computation on a real run), that the org-config digest
+matches, that `--workspaces-root`/`--workmeta-root` exist, and that `--receipts`
+could actually be written to (write-free: it must either already be a directory, or
+not exist yet under an existing-directory ancestor), and reports (without acquiring,
 reclaiming or releasing it) whether the daily lock currently looks held -- computed
 the identical way a real run's own lock acquisition would, so an unreadable lock
 file is never reported `held` here when a real run would in fact reclaim it. A

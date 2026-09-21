@@ -117,6 +117,20 @@ function Assert-DisjointPath {
   }
 }
 
+# R-1 (2026-09-22 review, round 2): the daily runner's own `--receipts`
+# usability check (`ops/daily_refresh.mjs`'s `assertReceiptsDirUsable`) would
+# already catch this through the `--dry` preflight below, but only as a
+# generic "dry preflight failed" throw -- this earlier, PowerShell-level
+# check gives the operator a clear, specific reason before ever spawning
+# node at all. A path that does not exist yet is fine here (the daily
+# runner creates it); only an EXISTING non-directory is refused.
+function Assert-NotAFile {
+  param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$Label)
+  if ((Test-Path -LiteralPath $Path) -and -not (Test-Path -LiteralPath $Path -PathType Container)) {
+    throw "$Label exists and is not a directory: $Path"
+  }
+}
+
 function Assert-Sha256 {
   param([Parameter(Mandatory = $true)][string]$Value, [Parameter(Mandatory = $true)][string]$Label)
   if ($Value -notmatch '^sha256:[0-9a-f]{64}$') { throw "$Label digest is invalid" }
@@ -183,6 +197,7 @@ $HiworksEventsPath = Resolve-CanonicalDirectory -Path $HiworksEventsPath
 $GmailSentEventsPath = Resolve-CanonicalDirectory -Path $GmailSentEventsPath
 $ReceiptsRoot = [IO.Path]::GetFullPath($ReceiptsRoot)
 Assert-NoReparsePath -Path $ReceiptsRoot
+Assert-NotAFile -Path $ReceiptsRoot -Label "-ReceiptsRoot"
 $LaneManifest = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "LANE_MANIFEST.sha256")
 $Entry = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "guild_hall\workspace_ledgers\ops\daily_refresh.mjs")
 $HiddenLauncher = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "guild_hall\workspace_ledgers\ops\run-workspace-ledgers-hidden.vbs")

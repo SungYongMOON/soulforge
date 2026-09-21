@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
-  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -541,4 +541,165 @@ test('nit: refreshCommon() throwing is recorded distinctly from previous_step_fa
     assert.equal(receipt.steps.common_refresh.reason, 'threw');
     assert.notEqual(receipt.steps.common_refresh.reason, 'previous_step_failed_closed');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ==================================================== 2026-09-22 review, round 2
+
+function runCliArgs(fixture, extraArgs = []) {
+  return [CLI,
+    '--workspaces-root', fixture.workspacesRoot, '--workmeta-root', fixture.workmetaRoot,
+    '--org-config', fixture.orgConfigPath, '--org-config-sha256', fixture.orgConfigSha256,
+    '--hiworks-events', fixture.hiworksDir, '--gmail-sent-events', fixture.gmailDir,
+    '--receipts', fixture.receiptsDir, ...extraArgs];
+}
+
+function cliExitStatus(args) {
+  try { execFileSync(process.execPath, args, { stdio: 'pipe' }); return 0; }
+  catch (error) { return error.status; }
+}
+
+// -------------------------------------------------------------------- R-1
+test('R-1: an existing regular file as --receipts refuses before start (exit 4), nothing written, errno-agnostic', () => {
+  const fixture = makeFixture();
+  try {
+    const receiptsAsFile = path.join(fixture.root, 'receipts-is-a-file');
+    writeFileSync(receiptsAsFile, 'not a directory');
+
+    assert.throws(() => runDailyRefresh(baseArgs(fixture, { receiptsDir: receiptsAsFile })),
+      error => error.code === 'workspace_ledgers_daily_receipts_unusable');
+    assert.throws(() => runDailyRefresh(baseArgs(fixture, { receiptsDir: receiptsAsFile, dry: true })),
+      error => error.code === 'workspace_ledgers_daily_receipts_unusable');
+    assert.equal(exitCodeFor('workspace_ledgers_daily_receipts_unusable'), 4);
+
+    assert.equal(cliExitStatus(runCliArgs({ ...fixture, receiptsDir: receiptsAsFile }, ['--now', '2026-09-22T00:00:00.000Z'])), 4);
+    assert.equal(cliExitStatus(runCliArgs({ ...fixture, receiptsDir: receiptsAsFile }, ['--now', '2026-09-22T00:00:00.000Z', '--dry'])), 4);
+
+    // Nothing written: the file at receiptsAsFile is untouched (still a plain file, same content), and no sibling lock/receipt exists.
+    assert.equal(statSync(receiptsAsFile).isFile(), true);
+    assert.equal(readFileSync(receiptsAsFile, 'utf8'), 'not a directory');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('R-1: --receipts nested under a regular file refuses before start (exit 4), nothing written, errno-agnostic', () => {
+  const fixture = makeFixture();
+  try {
+    const blockingFile = path.join(fixture.root, 'blocking-file');
+    writeFileSync(blockingFile, 'x');
+    const nestedReceipts = path.join(blockingFile, 'receipts'); // a path segment above this is a regular file, not a directory
+
+    assert.throws(() => runDailyRefresh(baseArgs(fixture, { receiptsDir: nestedReceipts })),
+      error => error.code === 'workspace_ledgers_daily_receipts_unusable');
+    assert.throws(() => runDailyRefresh(baseArgs(fixture, { receiptsDir: nestedReceipts, dry: true })),
+      error => error.code === 'workspace_ledgers_daily_receipts_unusable');
+
+    assert.equal(cliExitStatus(runCliArgs({ ...fixture, receiptsDir: nestedReceipts }, ['--now', '2026-09-22T00:00:00.000Z'])), 4);
+    assert.equal(cliExitStatus(runCliArgs({ ...fixture, receiptsDir: nestedReceipts }, ['--now', '2026-09-22T00:00:00.000Z', '--dry'])), 4);
+
+    assert.equal(existsSync(nestedReceipts), false, 'nothing must be created under the blocking file');
+    assert.equal(statSync(blockingFile).isFile(), true);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('R-1: a --receipts directory that simply does not exist yet (the ordinary case) is still accepted', () => {
+  const fixture = makeFixture();
+  try {
+    const freshReceipts = path.join(fixture.root, 'not-created-yet', 'receipts');
+    const receipt = runDailyRefresh(baseArgs(fixture, { receiptsDir: freshReceipts }));
+    assert.equal(receipt.status, 'ok');
+    assert.equal(existsSync(freshReceipts), true);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// -------------------------------------------------------------------- S-1 (round 2)
+test('S-1 (round 2): a stale lock that is a DIRECTORY is reclaimed and its rename-away sibling is fully (recursively) cleaned up', () => {
+  const fixture = makeFixture();
+  try {
+    const lockPath = path.join(fixture.receiptsDir, 'daily_refresh.lock');
+    mkdirSync(path.join(lockPath, 'nested'), { recursive: true }); // a non-empty directory where the lock file should be
+    writeFileSync(path.join(lockPath, 'nested', 'leftover.txt'), 'x');
+
+    const lock = acquireDailyLock(fixture.receiptsDir, '2026-09-22T00:00:00.000Z');
+    assert.equal(lock.held, false);
+    assert.equal(lock.reclaimed, true);
+
+    assert.equal(statSync(lockPath).isFile(), true, 'the lock path must now hold a real lock FILE, not the old directory');
+    const staleLeftovers = readdirSync(fixture.receiptsDir).filter(name => name.startsWith('.daily_refresh.lock.stale-'));
+    assert.deepEqual(staleLeftovers, [], 'the renamed-away directory must be fully cleaned up, not left behind');
+
+    releaseDailyLock(fixture.receiptsDir, lock.ownership);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('S-1 (round 2): an old leaked stale-rename entry self-heals (is swept) on the next acquire; a recent one is left alone', () => {
+  const fixture = makeFixture();
+  try {
+    const now = '2026-09-22T00:00:00.000Z';
+    const oldLeak = path.join(fixture.receiptsDir, '.daily_refresh.lock.stale-old-leak');
+    const recentLeak = path.join(fixture.receiptsDir, '.daily_refresh.lock.stale-recent-leak');
+    mkdirSync(fixture.receiptsDir, { recursive: true });
+    writeFileSync(oldLeak, 'leaked');
+    writeFileSync(recentLeak, 'leaked');
+    // Both mtimes are set explicitly relative to the fixture's own fixed
+    // `now` -- the file's REAL (wall-clock) creation mtime is irrelevant
+    // and must not be relied on, since `now` here is a fixed fixture value
+    // that generally does not equal the real current time.
+    const threeHoursAgo = new Date(Date.parse(now) - 3 * 60 * 60 * 1000);
+    const oneMinuteAgo = new Date(Date.parse(now) - 60 * 1000);
+    utimesSync(oldLeak, threeHoursAgo, threeHoursAgo);
+    utimesSync(recentLeak, oneMinuteAgo, oneMinuteAgo);
+
+    const lock = acquireDailyLock(fixture.receiptsDir, now);
+    assert.equal(lock.held, false);
+    assert.equal(existsSync(oldLeak), false, 'an old leaked stale-rename entry must self-heal (be swept) on the next acquire');
+    assert.equal(existsSync(recentLeak), true, 'a recent stale-rename entry (not yet past the threshold) must be left alone');
+
+    releaseDailyLock(fixture.receiptsDir, lock.ownership);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// -------------------------------------------------------------------- S-2
+test('S-2: common_refresh that never started because refresh() itself threw is reason "not_started", distinct from "threw"', () => {
+  const fixture = makeFixture();
+  try {
+    const rawError = new Error('boom, no path in this one');
+    let threw;
+    try { runDailyRefresh(baseArgs(fixture, { deps: { refresh: () => { throw rawError; } } })); }
+    catch (error) { threw = error; }
+    assert.ok(threw);
+    const files = dailyReceiptFiles(fixture.receiptsDir);
+    const receipt = JSON.parse(readFileSync(path.join(fixture.receiptsDir, files[0]), 'utf8'));
+    assert.equal(receipt.steps.refresh.ran, true);
+    assert.equal(receipt.steps.refresh.reason, 'threw');
+    assert.equal(receipt.steps.common_refresh.ran, false);
+    assert.equal(receipt.steps.common_refresh.status, null);
+    assert.equal(receipt.steps.common_refresh.reason, 'not_started');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------- nits (round 2)
+test('nit: an impossible calendar date in --now (2026-02-30, which Date.parse silently rolls to March) is refused, exit 4', () => {
+  const fixture = makeFixture();
+  try {
+    assert.throws(() => runDailyRefresh(baseArgs(fixture, { now: '2026-02-30T00:00:00.000Z' })),
+      error => error.code === 'workspace_ledgers_daily_now_invalid');
+    // An out-of-range time field (shape-valid, calendar-invalid) is caught the same way.
+    assert.throws(() => runDailyRefresh(baseArgs(fixture, { now: '2026-09-22T99:99:99.000Z' })),
+      error => error.code === 'workspace_ledgers_daily_now_invalid');
+    assert.equal(dailyReceiptFiles(fixture.receiptsDir).length, 0);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('nit: a present-but-valueless --now never silently falls back to the wall clock', () => {
+  const fixture = makeFixture();
+  try {
+    // --now immediately followed by another flag (no value token for --now at all).
+    assert.equal(cliExitStatus(runCliArgs(fixture, ['--now', '--dry'])), 4);
+    // --now as the very last argument (nothing after it).
+    assert.equal(cliExitStatus(runCliArgs(fixture, ['--dry', '--now'])), 4);
+    assert.equal(dailyReceiptFiles(fixture.receiptsDir).length, 0);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('nit: workspace_ledgers_daily_run_failed is explicitly mapped to exit 2', () => {
+  assert.equal(exitCodeFor('workspace_ledgers_daily_run_failed'), 2);
 });

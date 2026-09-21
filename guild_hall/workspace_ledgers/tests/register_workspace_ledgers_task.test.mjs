@@ -61,6 +61,20 @@ test('register-workspace-ledgers-task.ps1: digests are pinned and asserted, and 
   assert.match(registrar, /Assert-DisjointPath -Left \$ReceiptsRoot -Right \$WorkmetaRoot/);
 });
 
+test('register-workspace-ledgers-task.ps1 (R-1, 2026-09-22 review, round 2): -ReceiptsRoot is rejected up front when it exists and is not a directory', async () => {
+  const registrar = await registrarSource();
+  assert.match(registrar, /function Assert-NotAFile \{/);
+  assert.match(registrar, /Assert-NotAFile -Path \$ReceiptsRoot -Label "-ReceiptsRoot"/);
+  // Called right after -ReceiptsRoot is resolved to a full path, before any
+  // digest check or the --dry preflight -- a clear, specific PowerShell-level
+  // reason instead of a generic "dry preflight failed" from the node process.
+  const resolveIndex = registrar.indexOf('$ReceiptsRoot = [IO.Path]::GetFullPath($ReceiptsRoot)');
+  const assertIndex = registrar.indexOf('Assert-NotAFile -Path $ReceiptsRoot -Label "-ReceiptsRoot"');
+  const preflightIndex = registrar.indexOf('$PreflightOutput = @(& $NodePath $Entry @DailyArguments "--dry" 2>&1)');
+  assert.ok(resolveIndex >= 0 && assertIndex > resolveIndex, 'Assert-NotAFile must run after -ReceiptsRoot is resolved');
+  assert.ok(assertIndex < preflightIndex, 'Assert-NotAFile must run before the --dry preflight');
+});
+
 test('register-workspace-ledgers-task.ps1 (R4, 2026-09-22 review): the two custody roots and the org-config directory are actually checked disjoint from the lane/receipts roots, matching the header\'s own claim', async () => {
   const registrar = await registrarSource();
   // The doc header at the top of this file already claims "the two custody

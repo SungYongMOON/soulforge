@@ -69,7 +69,7 @@
 // `--workmeta-root`) -- ONLY this runner's own pre-lock validation codes ever
 // map to 4.
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { redactHostPaths, refresh } from '../src/refresh.mjs';
@@ -138,11 +138,53 @@ export function atomicWriteJson(filePath, value) {
  * already won the race (the source is already gone), reported as `held:
  * true` rather than racing a second `wx` write that might spuriously
  * "succeed" against a lock file a moment away from being deleted out from
- * under it. The renamed-away file is then a best-effort cleanup, never load-
- * bearing for correctness.
+ * under it.
+ *
+ * S-1 (2026-09-22 review, round 2): the renamed-away file is a dot-file
+ * (`.daily_refresh.lock.stale-<uuid>`) this function itself is responsible
+ * for cleaning up -- it used to be cleaned only on the ordinary success
+ * path. Two of the three ways out of the post-rename code (the `wx` write
+ * losing the race with `EEXIST`, and the `wx` write failing for any other
+ * reason) returned/threw without ever reaching that cleanup, leaking one
+ * stale-named file per occurrence forever. `cleanupStaleRename` is now
+ * called on every post-rename exit, and uses `{ recursive: true, force:
+ * true }` -- the previous single non-recursive `rmSync` silently failed
+ * (and was silently swallowed) whenever the STALE LOCK ITSELF was a
+ * directory rather than a file, which `renameSync` happily renames intact;
+ * every run against a directory-shaped stale lock leaked one more directory
+ * forever without this. `sweepStaleRenames` (called once at the top of
+ * every acquire, success or not) additionally cleans up anything already
+ * leaked by an OLDER run -- self-healing rather than requiring a manual
+ * cleanup -- by removing any `.daily_refresh.lock.stale-*` entry whose own
+ * mtime is not within the fresh window (`ageMs >= 0 && ageMs <=
+ * staleLockMs`, the exact same freshness test this file's own lock uses,
+ * including R2's no-clamping posture for a future-dated mtime).
  */
+const STALE_RENAME_PREFIX = `.${LOCK_FILE_NAME}.stale-`;
+
+/** Best-effort, recursive (a stale-renamed lock can be a directory, not only a file) -- never throws, never load-bearing for correctness. */
+function cleanupStaleRename(staleName) {
+  try { rmSync(staleName, { recursive: true, force: true }); } catch { /* best-effort cleanup only */ }
+}
+
+/** Removes any leaked `.daily_refresh.lock.stale-*` entry from a prior run whose own mtime is not within the fresh window -- self-healing for the leaks `cleanupStaleRename`'s call sites now close off going forward. */
+function sweepStaleRenames(receiptsDir, now, staleLockMs) {
+  let entries;
+  try { entries = readdirSync(receiptsDir); } catch { return; }
+  const nowMs = Date.parse(now);
+  for (const name of entries) {
+    if (!name.startsWith(STALE_RENAME_PREFIX)) continue;
+    const fullPath = path.join(receiptsDir, name);
+    let stat;
+    try { stat = statSync(fullPath); } catch { continue; }
+    const ageMs = Number.isFinite(nowMs) ? (nowMs - stat.mtimeMs) : Number.POSITIVE_INFINITY;
+    if (!(ageMs >= 0 && ageMs <= staleLockMs)) cleanupStaleRename(fullPath);
+  }
+}
+
 export function acquireDailyLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) {
   mkdirSync(receiptsDir, { recursive: true });
+  sweepStaleRenames(receiptsDir, now, staleLockMs);
   const lockFile = path.join(receiptsDir, LOCK_FILE_NAME);
   if (existsSync(lockFile)) {
     let existing;
@@ -150,7 +192,7 @@ export function acquireDailyLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) 
     const startedAt = typeof existing?.started_at === 'string' ? Date.parse(existing.started_at) : NaN;
     const ageMs = Number.isFinite(startedAt) ? (Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
     if (ageMs >= 0 && ageMs <= staleLockMs) return { held: true, existing, age_ms: ageMs, reclaimed: false };
-    const staleName = path.join(receiptsDir, `.${LOCK_FILE_NAME}.stale-${randomUUID()}`);
+    const staleName = path.join(receiptsDir, `${STALE_RENAME_PREFIX}${randomUUID()}`);
     try { renameSync(lockFile, staleName); }
     catch (error) {
       if (error?.code === 'ENOENT') return { held: true, existing, age_ms: ageMs, reclaimed: false };
@@ -159,10 +201,11 @@ export function acquireDailyLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) 
     const ownership = { pid: process.pid, started_at: now, reclaimed_from: existing };
     try { writeFileSync(lockFile, encode(ownership), { flag: 'wx' }); }
     catch (error) {
+      cleanupStaleRename(staleName);
       if (error?.code === 'EEXIST') return { held: true, existing, age_ms: ageMs, reclaimed: false };
       fail('workspace_ledgers_daily_lock_unavailable', redactHostPaths(error?.code ?? String(error?.message ?? error)));
     }
-    try { rmSync(staleName, { force: true }); } catch { /* best-effort cleanup only */ }
+    cleanupStaleRename(staleName);
     return { held: false, reclaimed: true, previous: existing, age_ms: ageMs, ownership };
   }
   const ownership = { pid: process.pid, started_at: now };
@@ -275,6 +318,55 @@ function assertDirectoryExists(dirPath, code) {
   if (!stat.isDirectory()) fail(code, path.basename(dirPath));
 }
 
+/** The nearest ancestor of `dirPath` (possibly `dirPath` itself) that currently exists on disk -- write-free, `statSync`/`path.dirname` walk only. */
+function nearestExistingAncestor(dirPath) {
+  let cursor = path.resolve(dirPath);
+  for (;;) {
+    if (existsSync(cursor)) return cursor;
+    const parent = path.dirname(cursor);
+    if (parent === cursor) return cursor; // reached the filesystem root without finding anything -- should not normally happen
+    cursor = parent;
+  }
+}
+
+/**
+ * R-1 (2026-09-22 review, round 2): a `--receipts` this run could never
+ * actually write a receipt into used to be discovered only once
+ * `acquireDailyLock`'s own unguarded `mkdirSync(receiptsDir, { recursive:
+ * true })` threw -- OUTSIDE this file's `try` block, so nothing was caught,
+ * no receipt was written, and the raw filesystem error code (`EEXIST` for
+ * an existing regular file at that path, `ENOTDIR` on Linux / `ENOENT` on
+ * Windows for a path nested under a regular file -- the same platform split
+ * `listProjects`'s own NIT already documents) fell through to
+ * `exitCodeFor`'s default of 2, looking exactly like an ordinary "ran, and
+ * a step failed" day instead of "this could never have run". Worse, `--dry`
+ * never looked at this directory at all, so a registrar's preflight would
+ * cheerfully green-light registering a task that can never write a receipt.
+ * This check is write-free (no `mkdirSync`, only `statSync`/`existsSync`)
+ * and runs from `validateInputs`, so BOTH `--dry` and a real run refuse
+ * up front, exit 4, before ever reaching the lock: if `receiptsDir` exists,
+ * it must be a directory; if it does not exist yet (the ordinary case),
+ * its nearest EXISTING ancestor must be a directory -- otherwise
+ * `receiptsDir` itself could never be created under it.
+ */
+function assertReceiptsDirUsable(receiptsDir) {
+  let stat;
+  try { stat = statSync(receiptsDir); }
+  catch {
+    // Does not exist (ENOENT), or a path segment above it is not a
+    // directory (ENOTDIR on Linux for "nested under a regular file", where
+    // the same shape throws ENOENT on Windows instead) -- either way, walk
+    // up to what actually exists and require THAT to be a directory.
+    const ancestor = nearestExistingAncestor(receiptsDir);
+    let ancestorStat;
+    try { ancestorStat = statSync(ancestor); }
+    catch { fail('workspace_ledgers_daily_receipts_unusable', path.basename(receiptsDir)); return; }
+    if (!ancestorStat.isDirectory()) fail('workspace_ledgers_daily_receipts_unusable', path.basename(receiptsDir));
+    return;
+  }
+  if (!stat.isDirectory()) fail('workspace_ledgers_daily_receipts_unusable', path.basename(receiptsDir));
+}
+
 function assertOrgConfigDigest(orgConfigPath, expectedSha256) {
   if (!/^sha256:[0-9a-f]{64}$/u.test(expectedSha256 ?? '')) fail('workspace_ledgers_daily_org_config_sha256_invalid');
   let actual;
@@ -295,7 +387,34 @@ function assertOrgConfigDigest(orgConfigPath, expectedSha256) {
 // of that in either receipt. Re-checked after step 1 and again after step 2
 // (before the final receipt is built), fail-closed, exit 2 -- this is a
 // run that STARTED and then hit a genuine problem, not a refusal to start.
-const ISO_8601_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/u;
+const ISO_8601_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/u;
+
+/**
+ * Nit (2026-09-22 review, round 2): the shape-only regex accepted an
+ * impossible calendar date/time (`2026-02-30`, which `Date.parse` silently
+ * rolls forward to March 2nd; an hour/minute/second field also had no
+ * range check at all -- `99:99:99` matched the shape). This receipt
+ * filename embeds `now` VERBATIM (only `:`/`.` swapped for `-`), so a
+ * silently-rolled value means the filename names one date while every
+ * library receipt this run produced is stamped with the date Node actually
+ * parsed -- a different one. Round-trips the captured calendar fields
+ * through `Date.UTC` and requires every field to read back unchanged;
+ * `Date.UTC` never throws for out-of-range input, it NORMALISES it (exactly
+ * the rollover this check exists to catch), so a mismatch after the round
+ * trip is the only way to detect it.
+ */
+function isValidNowInstant(now) {
+  const match = ISO_8601_INSTANT.exec(now ?? '');
+  if (match === null) return false;
+  const [, yearStr, monthStr, dayStr, hourStr, minuteStr, secondStr] = match;
+  const year = Number(yearStr), month = Number(monthStr), day = Number(dayStr);
+  const hour = Number(hourStr), minute = Number(minuteStr), second = Number(secondStr);
+  const roundTrip = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const roundTripOk = roundTrip.getUTCFullYear() === year && roundTrip.getUTCMonth() === month - 1
+    && roundTrip.getUTCDate() === day && roundTrip.getUTCHours() === hour
+    && roundTrip.getUTCMinutes() === minute && roundTrip.getUTCSeconds() === second;
+  return roundTripOk && Number.isFinite(Date.parse(now));
+}
 
 function assertOrgConfigUnchanged(orgConfigPath, expectedSha256) {
   let actual;
@@ -317,12 +436,19 @@ function validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfig
   assertRequiredString(hiworksEvents, 'workspace_ledgers_daily_hiworks_events_required');
   assertRequiredString(gmailSentEvents, 'workspace_ledgers_daily_gmail_sent_events_required');
   assertRequiredString(receiptsDir, 'workspace_ledgers_daily_receipts_required');
-  // S6 (2026-09-22 review): `now` reaches a receipt FILENAME (via a naive
-  // `:`/`.` -> `-` replace) and every lock-age computation above -- a
+  // S6/nit (2026-09-22 review): `now` reaches a receipt FILENAME (via a
+  // naive `:`/`.` -> `-` replace) and every lock-age computation above -- a
   // malformed value would produce either a broken filename or a NaN age that
-  // silently reads as "infinitely old" (always stale). Refused up front,
-  // exit 4, rather than discovered as a strange side effect later.
-  if (!ISO_8601_INSTANT.test(now ?? '') || !Number.isFinite(Date.parse(now))) fail('workspace_ledgers_daily_now_invalid');
+  // silently reads as "infinitely old" (always stale), and an IMPOSSIBLE but
+  // shape-valid value (`2026-02-30`) would silently roll to a different date
+  // than the filename names. Refused up front, exit 4, rather than
+  // discovered as a strange side effect later.
+  if (!isValidNowInstant(now)) fail('workspace_ledgers_daily_now_invalid');
+  // R-1 (2026-09-22 review, round 2): write-free, runs under --dry too --
+  // see the function's own doc for why this closes an actual measured gap
+  // (a `--receipts` that could never work used to reach `acquireDailyLock`'s
+  // unguarded `mkdirSync` outside any try, or sail straight through `--dry`).
+  assertReceiptsDirUsable(receiptsDir);
   // Only the two ROOTS refuse before start (exit 4) when missing -- an
   // unreadable/missing custody directory is deliberately left for
   // refresh()'s own pre-write gate to catch (it reports that as `unreadable_
@@ -409,6 +535,21 @@ export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, o
     // stays `false`); if `commonAttempted` is `true` but `commonReceipt` is
     // still `null`, `refreshCommon()` itself threw, distinct from
     // `previous_step_failed_closed`.
+    //
+    // S-2 (2026-09-22 review, round 2): `common_refresh`'s three possible
+    // shapes in a failed combined receipt, and what each one means:
+    //   - `{ ran: true, ...commonCounts }` -- it ran and returned its own
+    //     receipt (that receipt's own `status` may itself be `'failed'`).
+    //   - `{ ran: true, status: 'failed', reason: 'threw' }` -- it was
+    //     attempted and threw before returning a receipt at all.
+    //   - `{ ran: false, status: null, reason: 'not_started' }` -- it was
+    //     never attempted, because something ELSE already stopped this run
+    //     first (`refresh()` itself threw, or step 1's own TOCTOU re-check
+    //     failed) -- reached only from THIS catch block. The try block's
+    //     own ordinary fail-closed shape (`refresh()` returned a `status:
+    //     'failed'` receipt, so `refreshCommon()` was deliberately never
+    //     called) is a different, non-exceptional path with its own
+    //     `reason: 'previous_step_failed_closed'`, above.
     const combined = {
       schema_version: DAILY_RECEIPT_SCHEMA, generated_at: now, dry: false, status: 'failed',
       org_config_sha256: orgConfigSha256,
@@ -418,7 +559,9 @@ export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, o
         refresh: refreshReceipt ? { ran: true, ...refreshCounts(refreshReceipt) } : { ran: true, status: 'failed', reason: 'threw' },
         common_refresh: commonReceipt
           ? { ran: true, ...commonCounts(commonReceipt) }
-          : (commonAttempted ? { ran: true, status: 'failed', reason: 'threw' } : { ran: false, status: null }),
+          : (commonAttempted
+            ? { ran: true, status: 'failed', reason: 'threw' }
+            : { ran: false, status: null, reason: 'not_started' }),
       },
       // R1 (2026-09-22 review): a raw thrown error's `.message` can carry a
       // full host-local path (a bare fs error, or a bubbled-up error from
@@ -472,6 +615,11 @@ const EXIT_CODE_BY_DAILY_CODE = {
   workspace_ledgers_daily_hiworks_events_required: 4,
   workspace_ledgers_daily_gmail_sent_events_required: 4,
   workspace_ledgers_daily_receipts_required: 4,
+  // R-1 (2026-09-22 review, round 2): a --receipts that exists and is not a
+  // directory, or whose nearest existing ancestor is not a directory, could
+  // never have written a receipt -- refused before start, same as any other
+  // pre-lock validation failure.
+  workspace_ledgers_daily_receipts_unusable: 4,
   workspace_ledgers_daily_now_invalid: 4,
   workspace_ledgers_daily_workspaces_root_missing: 4,
   workspace_ledgers_daily_workmeta_root_missing: 4,
@@ -491,6 +639,13 @@ const EXIT_CODE_BY_DAILY_CODE = {
   // S1: the org config changed while this run was already in progress --
   // this run STARTED, so it is a 2 ("ran, and something failed"), never a 4.
   workspace_ledgers_daily_org_config_changed_during_run: 2,
+  // Nit (2026-09-22 review, round 2): the one daily_* literal this file
+  // itself can throw (the generic catch-all in runDailyRefresh's own catch
+  // block, when a thrown error carries no `.code` of its own) is listed
+  // here explicitly, even though the map's own default already resolves it
+  // to 2 -- so a reader scanning this table for "which daily_* codes exist"
+  // finds it, rather than having to know the default applies to it too.
+  workspace_ledgers_daily_run_failed: 2,
 };
 
 export function exitCodeFor(code) {
@@ -500,8 +655,22 @@ export function exitCodeFor(code) {
 export function runCli(argv) {
   const flags = parseArgs(argv);
   const dry = flags.get('dry') === true || flags.get('dry') === 'true';
-  const nowRaw = stringFlag(flags, 'now');
-  const now = nowRaw ?? new Date().toISOString();
+  // Nit (2026-09-22 review, round 2): `--now` OMITTED ENTIRELY (the ordinary
+  // case) defaults to the wall clock, by design. `--now` GIVEN with no value
+  // (a trailing flag, or immediately followed by another `--flag`) is a
+  // DIFFERENT situation -- `parseArgs` sets it to the boolean `true`, and
+  // `stringFlag` used to collapse both cases to the same `null`, silently
+  // handing the caller the wall clock when they had actually typed `--now`
+  // and meant to pin a specific instant (a scripted invocation, a test
+  // rerun). `flags.has('now')` is checked directly here so the two cases
+  // stay distinguishable: present-but-valueless is passed through as
+  // whatever non-string value `parseArgs` gave it, which `isValidNowInstant`
+  // (via `validateInputs`) always refuses -- `workspace_ledgers_daily_now_
+  // invalid`, exit 4, the same as any other malformed `--now`, never a
+  // silent fallback.
+  const now = flags.has('now')
+    ? (typeof flags.get('now') === 'string' ? flags.get('now') : String(flags.get('now')))
+    : new Date().toISOString();
   try {
     const receipt = runDailyRefresh({
       workspacesRoot: stringFlag(flags, 'workspaces-root'), workmetaRoot: stringFlag(flags, 'workmeta-root'),

@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 매일 갱신 lane 두 번째 신선한 눈 검토 반영: 쓸 수 없는 --receipts 사전 거부(R-1)+lock rename 누수·자가치유(S-1)·not_started 구분(S-2)+nit 3건
+
+- Revision: 직전 커밋(첫 신선한 눈 검토 반영)에 대한 재검토 -- probe로 R1-R4·S1-S6·nit 전부 재확인 통과, 새
+  필수 1건 발견.
+- 무엇이 바뀌었는가: **(R-1)** `--receipts`가 실제로는 절대 못 쓰는 경로(이미 있는 일반 파일이거나, 일반
+  파일 아래 중첩된 경로)일 때 `acquireDailyLock`의 무방비 `mkdirSync`(try 밖, R-1 이전엔 어떤 receipts 인자로도
+  통과)까지 가서야 raw EEXIST/ENOTDIR로 죽었다 -- 영수증 없음, exit 2(라이브러리 코드처럼 분류), `--dry`는
+  이 경로를 전혀 보지 않아 registrar가 영원히 못 쓸 lane을 등록할 수 있었다. `validateInputs`에 쓰기 없는
+  사용성 검사(`assertReceiptsDirUsable` -- 존재하면 디렉터리여야, 없으면 가장 가까운 존재하는 조상이
+  디렉터리여야)를 추가해 `workspace_ledgers_daily_receipts_unusable`(exit 4로 명시 매핑)로 시작 전 거부하며
+  `--dry`에도 똑같이 적용된다(errno가 Linux는 ENOTDIR·Windows는 ENOENT/EEXIST로 갈리므로 시험은 errno
+  비의존). registrar에도 `Assert-NotAFile` 스타일 점검을 추가해 `-ReceiptsRoot`가 존재하면서 디렉터리가
+  아니면 `--dry` preflight 전에 구체적 이유로 거부한다.
+  should: **(S-1)** stale lock rename-reclaim이 세 가지 종료 경로 중 두 곳('wx' 경쟁 패배·그 외 실패)에서
+  `.daily_refresh.lock.stale-<uuid>`를 청소하지 않고 누수시켰고, 유일한 청소도 비재귀+예외 무시라 stale
+  lock 자체가 디렉터리면(비어있지 않아도) 매번 하나씩 남았다 -- 청소를 `cleanupStaleRename` 헬퍼(재귀+force)
+  로 통합해 rename 이후 모든 종료 경로에서 호출하고, acquire 시작 시 stale 임계값보다 오래된
+  `.daily_refresh.lock.stale-*` 잔재를 쓸어 자가치유하도록 `sweepStaleRenames`를 추가했다. **(S-2)** catch
+  경로에서 common_refresh가 아예 시작도 못 한 경우(refresh() 자체가 던졌거나 1단계 뒤 TOCTOU 재검사가
+  실패)가 시도했다가 던진 경우와 똑같은 `{ran:false,status:null}` 모양이었다 -- `reason:'not_started'`를
+  추가해 `'threw'`(시도했으나 던짐)·`'previous_step_failed_closed'`(정상 fail-closed, try 블록 자체 경로)와
+  구분했다.
+  nit: `--now`가 달력상 불가능한 날짜(2026-02-30, Date.parse가 조용히 3월로 굴림)나 범위 밖 시각(99:99:99)을
+  모양만 맞으면 통과시켰다 -- 캡처한 필드를 `Date.UTC`로 왕복시켜 그대로 읽히는지 확인하는 방식으로 고쳤다
+  (영수증 파일명이 `now`를 그대로 쓰므로 굴러간 값과 파일명이 어긋나는 것을 막는다). `--now`가 값 없이
+  주어진 경우(바로 다음이 다른 `--flag`이거나 인자열의 끝)를 CLI가 생략된 경우와 똑같이 취급해 조용히 벽시계로
+  대체했다 -- `flags.has('now')`로 존재 여부를 직접 확인해 값 없이 준 경우는 `now_invalid`로 거부하도록
+  고쳤다(생략은 여전히 벽시계 기본값). exit 코드 표에서 이 파일 자신이 던질 수 있는 유일한 `daily_*` 리터럴인
+  `workspace_ledgers_daily_run_failed`가 빠져 있었다 -- 기본값(2)과 같은 값이지만 표에 명시로 올렸다.
+  README "매일 갱신 lane" 절의 lock 문단(stale rename 이름이 dot-file, 자가치유 설명)과 exit 코드/영수증
+  의미 문단(`receipts_unusable`·`not_started` 추가)을 갱신했다.
+- 운영 영향: 없음 -- 이번 라운드도 코드·문서·테스트만 바뀌었다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/daily_refresh.mjs`, `ops/register-workspace-ledgers-task.ps1`,
+  `guild_hall/workspace_ledgers/tests/daily_refresh.test.mjs`, `tests/register_workspace_ledgers_task.test.mjs`,
+  `guild_hall/workspace_ledgers/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 매일 갱신 lane 첫 신선한 눈 검토 반영: 호스트경로 재감사(R1)·미래시각 lock clamp(R2)·common 실패 카운트(R3)·registrar 격리 점검(R4)+S1-S6
 
 - Revision: 직전 커밋(daily runner·registrar·source lane 추가)에 대한 첫 별도 신선한 눈 검토 -- 실제로
