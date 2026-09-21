@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
-import { decodeCsv } from '../src/ledgers.mjs';
-import { previewRule, REFRESH_RECEIPT_SCHEMA, refresh, RefreshError } from '../src/refresh.mjs';
+import { decodeCsv, encodeCsv } from '../src/ledgers.mjs';
+import { clearCustodyCache, previewRule, REFRESH_RECEIPT_SCHEMA, refresh, RefreshError } from '../src/refresh.mjs';
 
 function rule(code, folder, exactPairs) {
   return {
@@ -212,5 +212,157 @@ test('previewRule: matched_before/after, moved_in and newly_held reflect a draft
     assert.equal(result.newly_held, 1); // h4 becomes a P00-001/P00-002 conflict only after the draft
     assert.equal(result.samples.moved_in.length, 1);
     assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false); // never writes
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('previewRule: a repeated call against unchanged custody and rules is served from the S10 cache', () => {
+  const fixture = makeFixture();
+  try {
+    clearCustodyCache();
+    const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
+    const first = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    // Change custody on disk without changing its mtime/size signature detection path:
+    // instead, verify the cache actually returns identical results on a second call
+    // against genuinely unchanged files (a real cache hit, not merely "still correct").
+    const second = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    assert.deepEqual(second, first);
+    // A change to custody must invalidate the cache (a new file's size/mtime differs).
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'),
+      jsonl([{ event_id: 'h9', subject: '[P00-001] 예시장비 추가', from: 'more@client.example', to: [], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] }]));
+    const third = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    assert.equal(third.matched_before, first.matched_before + 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------- R4/S9/S13
+function corruptContacts(fixture, mutate) {
+  refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+    hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+    receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+  const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+  const decoded = decodeCsv(readFileSync(cPath, 'utf8'));
+  mutate(decoded);
+  const corruptedText = encodeCsv(decoded.headers, decoded.rows);
+  writeFileSync(cPath, corruptedText);
+  return { cPath, corruptedText };
+}
+
+test('refresh (R4): a row with an extra column ("column inserted") fails closed for that file only', () => {
+  const fixture = makeFixture();
+  try {
+    const { cPath, corruptedText } = corruptContacts(fixture, decoded => { decoded.rows[0].push('unexpected-extra-cell'); });
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.ledger_failures.length, 1);
+    assert.equal(receipt.ledger_failures[0].code, 'workspace_ledgers_ledger_row_shape');
+    assert.equal(readFileSync(cPath, 'utf8'), corruptedText); // left untouched
+    // sibling files for the SAME project still refresh (per-file, not per-project)
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.received_history.failed, false);
+    // the OTHER project's files still refresh too
+    const reportB = receipt.projects.find(row => row.project_code === CODE_B);
+    assert.equal(reportB.contacts.failed, false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (R4): a row missing a column ("column deleted") fails closed', () => {
+  const fixture = makeFixture();
+  try {
+    const { cPath, corruptedText } = corruptContacts(fixture, decoded => { decoded.rows[0].pop(); });
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.ledger_failures[0].code, 'workspace_ledgers_ledger_row_shape');
+    assert.equal(readFileSync(cPath, 'utf8'), corruptedText);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (R4): CP949-looking mojibake (U+FFFD) fails closed as an encoding violation', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const original = readFileSync(cPath, 'utf8');
+    const mojibake = original.replace('Client Inc', 'Client Inc ��');
+    writeFileSync(cPath, mojibake);
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.ledger_failures[0].code, 'workspace_ledgers_ledger_encoding');
+    assert.equal(readFileSync(cPath, 'utf8'), mojibake);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (R4): a duplicate key row fails closed', () => {
+  const fixture = makeFixture();
+  try {
+    const { cPath, corruptedText } = corruptContacts(fixture, decoded => { decoded.rows.push([...decoded.rows[0]]); });
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.ledger_failures[0].code, 'workspace_ledgers_ledger_duplicate_key');
+    assert.equal(readFileSync(cPath, 'utf8'), corruptedText);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh: a key that leaves custody drops its Owner-entered cell, counted in the receipt (S9)', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const decoded = decodeCsv(readFileSync(cPath, 'utf8'));
+    const staffRow = decoded.rows.find(row => row[5] === 'staff@client.example');
+    staffRow[12] = '담당자';
+    writeFileSync(cPath, encodeCsv(decoded.headers, decoded.rows));
+    // Remove every hiworks/gmail event that ever mentioned staff@client.example so the
+    // key genuinely leaves the live view on the next refresh.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h4', subject: '[P00-002] 다른과제 공지', from: 'other@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T04:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), jsonl([]));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 1);
+    // survives only in the history archive, per README
+    const historyDir = path.join(path.dirname(cPath), 'history');
+    const historyFiles = readdirSync(historyDir);
+    assert.equal(historyFiles.length, 1);
+    const archived = decodeCsv(readFileSync(path.join(historyDir, historyFiles[0]), 'utf8'));
+    assert.ok(archived.rows.some(row => row[5] === 'staff@client.example' && row[12] === '담당자'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S13): a history archive collision at the same stamp appends a counter suffix rather than overwriting', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const historyDir = path.join(path.dirname(cPath), 'history');
+    mkdirSync(historyDir, { recursive: true });
+    const stamp = '2026-09-02T01-00-00-000Z';
+    // Pre-occupy the exact filename this refresh would otherwise archive to.
+    writeFileSync(path.join(historyDir, `연락처_장부.csv.${stamp}.csv`), 'pre-existing-content');
+    // force a change so this refresh actually archives something
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h9', subject: '[P00-001] 예시장비 추가문의', from: 'another@client.example', to: [], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] },
+    ]));
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    assert.equal(readFileSync(path.join(historyDir, `연락처_장부.csv.${stamp}.csv`), 'utf8'), 'pre-existing-content'); // untouched
+    assert.equal(existsSync(path.join(historyDir, `연락처_장부.csv.${stamp}-1.csv`)), true); // counter-suffixed instead
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

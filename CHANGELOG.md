@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 신선한 검토 반영: 보안·데이터 무결성·타임스탬프 수정
+
+- Revision: 이 항목을 포함한 커밋(이전 커밋의 fresh review 필수 5·should 9·nit 4건 전부 반영).
+- 무엇이 바뀌었는가: (1) CSV/수식 삽입(formula injection) 가드 — `=`/`+`/`-`/`@`로 시작하는
+  셀을 `'`로 무력화하고 decode 시 정확히 그 가드만 벗김(R1). (2) 정규식 term의 flags를
+  화이트리스트(`''|'i'|'u'|'iu'|'ui'`)로 제한하고 항상 `u`로 컴파일(R2), 중첩 quantifier·
+  backreference·lookbehind·과도한 alternation을 거부(R3). (3) `refresh()`의 기존 CSV
+  병합 전 strict 검증(헤더 불일치·행 컬럼수 불일치·U+FFFD 인코딩·중복 키) — 위반 시 그
+  파일만 건드리지 않고 receipt의 `ledger_failures`에 기록, 다른 파일은 계속 refresh,
+  `status:'failed'`면 CLI exit 2(R4). (4) 테스트 fixture에서 실제 발주처 조직명 1건 제거,
+  전체 모듈 grep 재확인(R5). (5) 수신인 문자열 다중 분리(S6), 빈 event_id 콘텐츠 파생
+  합성(S7), 담당자 병합 시 동일조직 내 다른 로컬파트 namesake 위험 플래그(S8), 키가
+  custody를 벗어난 행의 Owner 셀 손실 카운트 `owner_cells_dropped_with_row`(S9),
+  `previewRule` 커스터디 읽기 캐시(TTL 60s)(S10), body_text 매칭 20,000자 prefix 제한+
+  mail당 1회 lowercase(S11), 커스터디 타임스탬프 UTC 정규화+Asia/Seoul 달력일 파생(S12),
+  history 아카이브 create-only+충돌 시 카운터 접미사(S13). (6) `saveRuleVersion`이 두
+  twin 파일을 모두 staging한 뒤 rename하고 두 번째 rename 실패 시 json을 아카이브본으로
+  롤백(N15), `allowedActors` 옵션으로 저장 주체를 제한 가능(N16). (7) 별도 지시로,
+  `saveRuleVersion`의 `measured`가 `previewRule`의 실제 반환 shape
+  (`matched_before/after`, `moved_in/out`, `newly_held`, `samples`)와 예전
+  `{subjects, exact, hint_only}` shape를 모두 받고, `samples`(실제 메일 제목)는 절대
+  렌더링하지 않으며, 빠진 필드는 `undefined` 대신 그냥 생략한다. README에 CSV 1부 원칙·
+  병합 규칙·refresh/보존 의미론·타임스탬프·성능·`draft`는 부분 patch가 아니라 완전한
+  규칙 문서여야 한다는 점을 반영했다.
+- 운영 영향: 코드·테스트·문서만 바뀌었고 예약작업 연결은 여전히 없다(계획 상태 유지).
+  실제 D: 대상면에 대한 `--dry` 읽기 전용 재확인에서 R4의 strict 검증이 기존
+  `메일_수신/발송이력.csv` 17개 파일에서 `workspace_ledgers_ledger_duplicate_key`를
+  발견했다 — 이 커밋 이전(2026-09-21 scratch 스크립트 1회 생성)부터 있던 실제 데이터
+  문제이며, 이 모듈이 만들지도 고치지도 않았다(읽기 전용 검증이 그 파일들을 건드리지
+  않고 실패로만 기록). Owner 판단 필요.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README·examples).
+- 검증: `npm run validate:workspace-ledgers`(63 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `npm run validate:canon`, 실제 대상면 `--dry --fields subject`/`--dry --fields all`
+  재확인(쓰기 없음, 위 duplicate_key 발견 포함).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 신설: 과제별 메일 라우팅 규칙·관리 대장 CSV 엔진
 
 - Revision: 이 항목을 포함한 커밋.
@@ -25,7 +61,9 @@
   `guild_hall/validate/run_root_acceptance.mjs`,
   `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`.
 - 검증: `npm run validate:workspace-ledgers`(39 tests pass),
-  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(전체 tracked
+  트리 9104개 파일 대상, violations 0 — N17: `--scope changed`가 아니라 전체 tracked
+  범위로 재확인),
   `npm run validate:canon`, 그리고 실제 대상면에 대한 `--dry` 비교 실행(쓰기 없음).
 
 ## 2026-09-21 - 과제별 관리 폴더(021·023·027) 규칙 문서화 + SE 프로젝트 폴더명 규칙

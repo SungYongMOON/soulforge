@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -136,6 +136,50 @@ test('saveRuleVersion: archives previous pair, bumps version, carries decisions/
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('saveRuleVersion: measured accepts previewRule\'s own return shape, never renders samples, never renders undefined', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    // exactly what previewRule({...}) returns -- the UI adapter passes this straight through as `measured`.
+    const measured = {
+      matched_before: 10, matched_after: 12, moved_in: 3, moved_out: 1, newly_held: 2,
+      samples: { moved_in: [{ at: '2026-09-21T00:00:00Z', subject: 'REAL SUBJECT SHOULD NEVER APPEAR' }], moved_out: [], newly_held: [] },
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /확정 12건/u);
+    assert.match(md, /새로 매칭 3건/u);
+    assert.match(md, /매칭 해제 1건/u);
+    assert.match(md, /새로 보류 2건/u);
+    assert.doesNotMatch(md, /undefined/u);
+    assert.doesNotMatch(md, /REAL SUBJECT SHOULD NEVER APPEAR/u); // samples must never render
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: measured also accepts the legacy {subjects, exact, hint_only} shape', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x',
+      measured: { subjects: 100, exact: 7, hint_only: 2 }, now: '2026-09-22T00:00:00.000Z',
+    });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /메일 100건 중/u);
+    assert.match(md, /이 과제 확정 7건/u);
+    assert.match(md, /힌트만 2건/u);
+    assert.doesNotMatch(md, /undefined/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion: a missing measured renders the UNKNOWN line, never undefined', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /측정값 없음 \(UNKNOWN\)/u);
+    assert.doesNotMatch(md, /undefined/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('saveRuleVersion: refuses a machine actor', () => {
   const { root, workspacesRoot, workmetaRoot } = makeFixture();
   try {
@@ -197,6 +241,43 @@ test('saveRuleVersion: also normalises a legacy single-object draft yields_to in
     saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft, by: '홍길동', note: '레거시 넘김', now: '2026-09-22T00:00:00.000Z' });
     const newJson = JSON.parse(readFileSync(path.join(ruleDir, 'mail_routing_rule.json'), 'utf8'));
     assert.deepEqual(newJson.yields_to, [{ project_code: 'P00-010', when: { label: 'HANDOVER-A', kind: 'literal', value: '핸드오버A' } }]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (N16): allowedActors pins who may save, machine-actor refusal still always applies', () => {
+  const { root, workspacesRoot, workmetaRoot } = makeFixture();
+  try {
+    assert.throws(() => saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '아무개', note: 'x', allowedActors: ['owner'],
+    }), error => error instanceof RuleStoreError && error.code === 'workspace_ledgers_actor_not_allowed');
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: 'owner', note: 'pinned actor', allowedActors: ['owner'],
+    });
+    assert.equal(result.rule_version, 'v2');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (N15): a failure on the second (md) rename rolls the json twin back to its archived version', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    let renameCalls = 0;
+    const failSecondRename = (src, dest) => {
+      renameCalls += 1;
+      if (renameCalls === 2) { const error = new Error('injected failure'); error.code = 'EINJECTED'; throw error; }
+      return renameSync(src, dest);
+    };
+    assert.throws(() => saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x',
+      _renameTwinFn: failSecondRename,
+    }), error => error instanceof RuleStoreError && error.code === 'workspace_ledgers_rule_save_write_failed');
+    // json must be rolled back to the original v1 content -- never left at v2 while md stayed at v1.
+    const jsonAfter = JSON.parse(readFileSync(path.join(ruleDir, 'mail_routing_rule.json'), 'utf8'));
+    assert.equal(jsonAfter.rule_version, 'v1');
+    const mdAfter = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.equal(mdAfter, BASE_MD); // md was never touched by the failed second rename
+    // no leftover staging/rollback temp files
+    const entries = readdirSync(ruleDir);
+    assert.deepEqual(entries.filter(name => name.includes('.writing-') || name.includes('.rollback-')), []);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

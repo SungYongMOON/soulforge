@@ -8,12 +8,15 @@
   "case_insensitive_literals": true,
   "exact": [
     { "label": "P00-001", "kind": "literal", "value": "P00-001" },
-    { "label": "예시장비", "kind": "literal", "value": "예시장비" }
+    { "label": "예시장비", "kind": "literal", "value": "예시장비" },
+    { "label": "예시장비 표기변형", "kind": "regex", "value": "예시\\s?장비[-_]?\\d*", "flags": "iu" }
   ],
   "hint": [
     { "label": "예시", "kind": "literal", "value": "예시" }
   ],
-  "yields_to": null,
+  "yields_to": [
+    { "project_code": "P00-002", "when": { "label": "예시장비 업그레이드", "kind": "literal", "value": "업그레이드" } }
+  ],
   "conflict_policy": "two_projects_exact_on_one_mail_means_hold_no_attribution",
   "sender_policy": "hint_only",
   "human_text": "mail_routing_rule.md",

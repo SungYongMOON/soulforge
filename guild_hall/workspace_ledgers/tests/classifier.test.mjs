@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  classifyMail, compileRule, compileRules, compileTerm, hintCodes, MAX_YIELDS_TO_ENTRIES,
+  classifyMail, compileRule, compileRules, compileTerm, hintCodes, MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES,
   normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
 } from '../src/classifier.mjs';
 
@@ -26,7 +27,7 @@ test('compileTerm: literal matches case-insensitively', () => {
 test('compileTerm: regex compiles and tests with unicode flag', () => {
   const term = compileTerm(rx('mask', '기[0Oo]탐', 'u'));
   assert.equal(term.test('기0탐 device'), true);
-  assert.equal(term.test('기뢰'), false);
+  assert.equal(term.test('unrelated text'), false); // R5: avoid any real domain keyword in tracked fixtures
 });
 
 test('compileTerm: rejects empty value and overlong value', () => {
@@ -80,11 +81,53 @@ test('classifyMail: fields option reproduces subject-only numbers even when body
 });
 
 test('classifyMail: attachment_names field participates when requested', () => {
-  const rule = ruleJson({ code: 'P00-001', folder: 'P00-001_a', exact: [lit('BOARD', 'PMOD BOARD')] });
+  const rule = ruleJson({ code: 'P00-001', folder: 'P00-001_a', exact: [lit('BOARD', 'SAMPLE BOARD')] });
   const compiled = compileRules([rule]);
-  const mail = { subject: 'quote', body_text: '', attachment_names: ['PMOD BOARD spec.pdf'] };
+  const mail = { subject: 'quote', body_text: '', attachment_names: ['SAMPLE BOARD spec.pdf'] };
   assert.equal(classifyMail(mail, compiled, { fields: ['subject'] }).hits.length, 0);
   assert.equal(classifyMail(mail, compiled, { fields: ['attachment_names'] }).hits.length, 1);
+});
+
+test('compileTerm: regex flags are whitelisted, always compiled with u', () => {
+  assert.throws(() => compileTerm(rx('bad-flags', 'a', 'gu')), RuleCompileError); // R2: g refused
+  assert.throws(() => compileTerm(rx('bad-flags', 'a', 'y')), RuleCompileError);
+  assert.throws(() => compileTerm(rx('bad-flags', 'a', 'm')), RuleCompileError);
+  for (const flags of ['', 'i', 'u', 'iu', 'ui']) {
+    const term = compileTerm(rx('ok', 'a', flags));
+    assert.equal(term.flags.includes('u'), true); // always compiled with u regardless of what was asked
+  }
+});
+
+test('compileTerm: rejects nested quantifiers (ReDoS shapes), backreferences, lookbehind, too many alternations', () => {
+  assert.throws(() => compileTerm(rx('redos1', '^(a+)+$')), RuleCompileError); // R3
+  assert.throws(() => compileTerm(rx('redos2', '(.*)*')), RuleCompileError);
+  assert.throws(() => compileTerm(rx('redos3', '(\\w+\\s?)+')), RuleCompileError);
+  assert.throws(() => compileTerm(rx('backref', '(a)\\1')), RuleCompileError);
+  assert.throws(() => compileTerm(rx('backref-named', '(?<x>a)\\k<x>')), RuleCompileError);
+  assert.throws(() => compileTerm(rx('lookbehind-pos', '(?<=a)b')), RuleCompileError);
+  assert.throws(() => compileTerm(rx('lookbehind-neg', '(?<!a)b')), RuleCompileError);
+  const manyAlternations = Array.from({ length: 20 }, (_, index) => `x${index}`).join('|');
+  assert.throws(() => compileTerm(rx('alt', manyAlternations)), RuleCompileError);
+  // a safe, non-nested regex must still compile fine
+  const safe = compileTerm(rx('safe', '기[0Oo]탐', 'u'));
+  assert.equal(safe.test('기0탐'), true);
+});
+
+test('compileTerm: every regex term in examples/rule.example.json still validates', () => {
+  const examplePath = new URL('../examples/rule.example.json', import.meta.url);
+  const example = JSON.parse(readFileSync(examplePath, 'utf8'));
+  for (const term of [...example.exact, ...example.hint]) {
+    assert.doesNotThrow(() => compileTerm(term), `${term.label} must still compile`);
+  }
+});
+
+test('classifyMail: body_text matching is bounded to a leading prefix (S11)', () => {
+  const rule = ruleJson({ code: 'P00-001', folder: 'P00-001_a', exact: [lit('TAIL', 'needle-at-the-tail')] });
+  const compiled = compileRules([rule]);
+  const padding = 'x'.repeat(MAX_BODY_TEXT_CHARS + 100);
+  const mail = { subject: '', body_text: `${padding}needle-at-the-tail`, attachment_names: [] };
+  const result = classifyMail(mail, compiled, { fields: ['body_text'] });
+  assert.equal(result.hits.length, 0); // the keyword sits past the scanned prefix
 });
 
 test('normalizeYieldsTo: accepts null/undefined/object/array, caps entry count', () => {

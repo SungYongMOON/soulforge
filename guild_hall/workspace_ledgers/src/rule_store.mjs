@@ -143,12 +143,42 @@ function extractSection(mdText, headingPrefix) {
   return items;
 }
 
+const MEASURED_UNKNOWN_LINE = '- 실측: 이번 저장에서 preview-rule을 실행하지 않아 측정값 없음 (UNKNOWN).';
+
+/**
+ * Renders the 근거 section's measured line from either shape `measured` may arrive
+ * in: `previewRule`'s own return (`{matched_before, matched_after, moved_in,
+ * moved_out, newly_held, samples}` -- the UI adapter passes this straight through) or
+ * the older CLI convenience shape (`{subjects, exact, hint_only}`). `samples` (real
+ * mail subjects) is never rendered under any shape. Any field absent from whichever
+ * shape is present renders nothing for that field, never the literal `undefined`; a
+ * `measured` object with no recognised field at all falls back to the same "not
+ * measured" line as `measured` being absent entirely.
+ */
+function renderMeasuredLine(measured, now) {
+  if (!measured || typeof measured !== 'object') return MEASURED_UNKNOWN_LINE;
+  const dateSuffix = `(측정 ${now.slice(0, 10)})`;
+  const isPreviewShape = ['matched_before', 'matched_after', 'moved_in', 'moved_out', 'newly_held']
+    .some(field => measured[field] !== undefined);
+  if (isPreviewShape) {
+    const parts = [];
+    if (measured.matched_after !== undefined) parts.push(`확정 ${measured.matched_after}건`);
+    if (measured.moved_in !== undefined) parts.push(`새로 매칭 ${measured.moved_in}건`);
+    if (measured.moved_out !== undefined) parts.push(`매칭 해제 ${measured.moved_out}건`);
+    if (measured.newly_held !== undefined) parts.push(`새로 보류 ${measured.newly_held}건`);
+    return parts.length ? `- 실측: ${parts.join(', ')} ${dateSuffix}.` : MEASURED_UNKNOWN_LINE;
+  }
+  const parts = [];
+  if (measured.subjects !== undefined) parts.push(`메일 ${measured.subjects}건 중`);
+  if (measured.exact !== undefined) parts.push(`이 과제 확정 ${measured.exact}건`);
+  if (measured.hint_only !== undefined) parts.push(`힌트만 ${measured.hint_only}건`);
+  return parts.length ? `- 실측: ${parts.join(', ')} ${dateSuffix}.` : MEASURED_UNKNOWN_LINE;
+}
+
 function renderRuleMarkdown({ json, decided, open, note, by, now, measured }) {
   const list = (items, empty) => (items.length ? items.map(item => `- ${item}`).join('\n') : `- ${empty}`);
   const decidedWithNote = [...decided, `${note} (${by}, ${now.slice(0, 10)})`];
-  const measuredLine = measured
-    ? `- 실측: 메일 ${measured.subjects}건 중 이 과제 확정 ${measured.exact}건, 힌트만 ${measured.hint_only}건 (측정 ${now.slice(0, 10)}).`
-    : '- 실측: 이번 저장에서 preview-rule을 실행하지 않아 측정값 없음 (UNKNOWN).';
+  const measuredLine = renderMeasuredLine(measured, now);
   return [
     `# 메일 라우팅 규칙 — ${json.project_code}`,
     '',
@@ -214,15 +244,58 @@ function archiveCreateOnly(sourcePath, destPath) {
 }
 
 /**
+ * N15: stages both twin files (json + md), then renames both into place. If the json
+ * rename succeeds but the md rename then fails, json is rolled back to its just-
+ * archived previous-version bytes (`historyJsonPath`) before the failure is reported
+ * -- the pair must never be left at two different versions. `renameFn` is an
+ * injectable seam (default the real `renameSync`) purely so a test can force the
+ * second rename to fail deterministically; it is not part of this module's stable API.
+ */
+function commitTwinFiles({ jsonPath, jsonText, mdPath, mdText, historyJsonPath, renameFn }) {
+  mkdirSync(path.dirname(jsonPath), { recursive: true });
+  mkdirSync(path.dirname(mdPath), { recursive: true });
+  const jsonStaging = `${jsonPath}.writing-${process.pid}-${Date.now()}`;
+  const mdStaging = `${mdPath}.writing-${process.pid}-${Date.now()}`;
+  writeFileSync(jsonStaging, jsonText);
+  writeFileSync(mdStaging, mdText);
+  try {
+    renameFn(jsonStaging, jsonPath);
+  } catch (error) {
+    try { rmSync(jsonStaging, { force: true }); } catch { /* best effort cleanup */ }
+    try { rmSync(mdStaging, { force: true }); } catch { /* best effort cleanup */ }
+    fail('workspace_ledgers_rule_save_write_failed', error?.code ?? error?.message);
+  }
+  try {
+    renameFn(mdStaging, mdPath);
+  } catch (error) {
+    try {
+      const rollbackBytes = readFileSync(historyJsonPath);
+      const rollbackStaging = `${jsonPath}.rollback-${process.pid}-${Date.now()}`;
+      writeFileSync(rollbackStaging, rollbackBytes);
+      renameSync(rollbackStaging, jsonPath);
+    } catch (rollbackError) {
+      fail('workspace_ledgers_rule_save_rollback_failed', rollbackError?.code ?? rollbackError?.message);
+    }
+    try { rmSync(mdStaging, { force: true }); } catch { /* best effort cleanup */ }
+    fail('workspace_ledgers_rule_save_write_failed', error?.code ?? error?.message);
+  }
+}
+
+/**
  * Saves a new version of one project's mail routing rule. Requires a prior version to
  * exist (this store versions an existing rule; it does not author the first one).
  * `draft` is the caller's proposed rule body (schema fields only -- `project_code`,
  * `folder_name`, `rule_version` are set/overwritten by this function). `measured`
  * (optional) is a `{ subjects, exact, hint_only }` preview-rule result folded into the
- * rendered md's 근거 section.
+ * rendered md's 근거 section. `allowedActors` (N16, optional) further restricts `by`
+ * to an explicit allowlist (e.g. a console pinning `by: 'owner'` to exactly `['owner']`)
+ * on top of the always-applied machine-actor refusal; omitted (the default), any
+ * non-machine actor string is accepted, as before.
  */
-export function saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now = new Date().toISOString(), measured = null }) {
+export function saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now = new Date().toISOString(),
+  measured = null, allowedActors = undefined, _renameTwinFn = renameSync }) {
   if (isMachineActor(by)) fail('workspace_ledgers_actor_not_human', by);
+  if (Array.isArray(allowedActors) && !allowedActors.includes(by)) fail('workspace_ledgers_actor_not_allowed', by);
   if (typeof note !== 'string' || note.trim() === '') fail('workspace_ledgers_note_missing');
   let previous;
   try { previous = readRule({ workspacesRoot, code }); }
@@ -256,8 +329,8 @@ export function saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by,
     const newMd = renderRuleMarkdown({ json: nextDraft, decided, open, note, by, now, measured });
     const newJsonText = `${JSON.stringify(nextDraft, null, 2)}\n`;
 
-    atomicWrite(previous.json_path, newJsonText);
-    atomicWrite(previous.md_path, newMd);
+    commitTwinFiles({ jsonPath: previous.json_path, jsonText: newJsonText, mdPath: previous.md_path, mdText: newMd,
+      historyJsonPath, renameFn: _renameTwinFn });
 
     const lineageDir = path.join(workmetaRoot, folder, 'lineage');
     const jsonLineage = {

@@ -4,7 +4,7 @@
 // (via `rule_store.mjs`) so held/yield decisions consider the whole rule set, not just
 // the projects a caller selected to refresh.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { compileRules, MATCH_FIELDS } from './classifier.mjs';
 import { listProjects, readRule, validateRule, LINEAGE_SCHEMA } from './rule_store.mjs';
@@ -91,6 +91,46 @@ function classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields }) 
   return { events: [...hiworks.events, ...gmail.events], hiworks, gmail };
 }
 
+// ---------------------------------------------------------- S10: custody read cache
+// `previewRule` is called interactively (a console iterating on one draft rule) and
+// classifies the *same* custody window twice per call (once for the saved rules,
+// once with the draft substituted); repeated calls in a short span very often share
+// the "before" ruleset (and sometimes the exact same draft) entirely unchanged. This
+// cache keys on the actual rule JSON compared plus a cheap directory signature (file
+// names + size + mtime, not content), so a change to either invalidates the entry
+// immediately -- it never serves custody or rule state that could have changed.
+// `refresh()` (which writes real files) intentionally never reads through this cache.
+export const CUSTODY_CACHE_TTL_MS = 60 * 1000;
+const CUSTODY_CACHE_MAX_ENTRIES = 20;
+const custodyCache = new Map();
+
+/** Test/host seam: drops every cached entry, so a test never observes another test's cached read. */
+export function clearCustodyCache() { custodyCache.clear(); }
+
+function dirSignature(dir) {
+  let names;
+  try { names = readdirSync(dir).filter(name => name.endsWith('.jsonl')).sort(); }
+  catch { return `${dir}::absent`; }
+  const parts = names.map(name => {
+    try { const stat = statSync(path.join(dir, name)); return `${name}:${stat.size}:${stat.mtimeMs}`; }
+    catch { return `${name}:unreadable`; }
+  });
+  return `${dir}::${parts.join(',')}`;
+}
+function dirsSignature(dirs) { return dirs.map(dirSignature).join('|'); }
+
+function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, ruleJsonList, now = Date.now() }) {
+  const key = JSON.stringify({
+    rules: ruleJsonList, fields, hiworks: dirsSignature(hiworksDirs), gmail: dirsSignature(gmailSentDirs),
+  });
+  const cached = custodyCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.value;
+  const value = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields });
+  custodyCache.set(key, { value, expiresAt: now + CUSTODY_CACHE_TTL_MS });
+  if (custodyCache.size > CUSTODY_CACHE_MAX_ENTRIES) custodyCache.delete(custodyCache.keys().next().value);
+  return value;
+}
+
 // ----------------------------------------------------------------- preview-rule
 /**
  * Read-only comparison of one project's saved rule against a draft, over the full
@@ -111,8 +151,8 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   const compiledBefore = compileRules(beforeJson);
   const compiledAfter = compileRules(afterJson);
 
-  const before = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledBefore, fields });
-  const after = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledAfter, fields });
+  const before = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledBefore, fields, ruleJsonList: beforeJson });
+  const after = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledAfter, fields, ruleJsonList: afterJson });
   const keyOf = (event, index) => (event.event_id ? `id:${event.event_id}` : `idx:${index}:${event.subject}`);
   const beforeByKey = new Map(before.events.map((event, index) => [keyOf(event, index), event]));
   const afterByKey = new Map(after.events.map((event, index) => [keyOf(event, index), event]));
@@ -138,12 +178,56 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
 }
 
 // -------------------------------------------------------------------- CSV write
-function preserveMerge({ existingPath, rows, keyIndex, preserveIndices }) {
-  if (!existsSync(existingPath)) return { rows, preservedCount: 0, beforeRowCount: 0, oldText: null };
-  const oldText = readFileSync(existingPath, 'utf8');
-  const decoded = decodeCsv(oldText);
+const REPLACEMENT_CHARACTER = '�';
+
+/**
+ * R4: strictly validates an existing ledger CSV before any merge is attempted, so a
+ * corrupted or hand-broken file is never merged into and never silently overwritten.
+ * Returns `{ present: false }` when there is nothing to validate yet (first refresh),
+ * `{ present: true, ok: false, code }` on any violation, or `{ present: true, ok:
+ * true, decoded, rawText }` when the file is safe to merge against. Checked, in order:
+ * encoding (no U+FFFD anywhere -- a common CP949/EUC-KR-as-UTF-8 mojibake signature),
+ * the header row equals the builder's own headers exactly, every row has exactly the
+ * header's column count, and no two rows share the same key.
+ */
+function validateExistingCsv({ existingPath, headers, keyIndex }) {
+  if (!existsSync(existingPath)) return { present: false };
+  const rawText = readFileSync(existingPath, 'utf8');
+  if (rawText.includes(REPLACEMENT_CHARACTER)) return { present: true, ok: false, code: 'workspace_ledgers_ledger_encoding' };
+  const decoded = decodeCsv(rawText);
+  if (JSON.stringify(decoded.headers) !== JSON.stringify(headers)) {
+    return { present: true, ok: false, code: 'workspace_ledgers_ledger_header_mismatch' };
+  }
+  if (decoded.rows.some(row => row.length !== headers.length)) {
+    return { present: true, ok: false, code: 'workspace_ledgers_ledger_row_shape' };
+  }
+  const seenKeys = new Set();
+  for (const row of decoded.rows) {
+    const key = row[keyIndex];
+    if (seenKeys.has(key)) return { present: true, ok: false, code: 'workspace_ledgers_ledger_duplicate_key' };
+    seenKeys.add(key);
+  }
+  return { present: true, ok: true, decoded, rawText };
+}
+
+function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices }) {
+  const validated = validateExistingCsv({ existingPath, headers, keyIndex });
+  if (!validated.present) return { invalid: null, rows, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, oldText: null };
+  if (!validated.ok) return { invalid: { code: validated.code }, rows: null, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, oldText: null };
+  const { decoded, rawText } = validated;
   const byKey = new Map();
-  for (const oldRow of decoded.rows) if (oldRow[keyIndex] !== undefined) byKey.set(oldRow[keyIndex], oldRow);
+  for (const oldRow of decoded.rows) byKey.set(oldRow[keyIndex], oldRow);
+  const newKeys = new Set(rows.map(row => row[keyIndex]));
+  // S9: a key present before but not in this refresh's fresh rows means that mail/
+  // person/thread left the live view (e.g. re-attributed elsewhere); any Owner-entered
+  // value on that row is not carried forward -- it survives only in the history
+  // archive this refresh is about to write, and this count says how many rows that
+  // happened to (never which rows, to avoid surfacing subjects/names in the receipt).
+  let ownerCellsDroppedWithRow = 0;
+  for (const oldRow of decoded.rows) {
+    if (newKeys.has(oldRow[keyIndex])) continue;
+    if (preserveIndices.some(index => oldRow[index] !== undefined && oldRow[index] !== '')) ownerCellsDroppedWithRow += 1;
+  }
   let preservedCount = 0;
   const merged = rows.map(newRow => {
     const oldRow = byKey.get(newRow[keyIndex]);
@@ -155,21 +239,44 @@ function preserveMerge({ existingPath, rows, keyIndex, preserveIndices }) {
     }
     return out;
   });
-  return { rows: merged, preservedCount, beforeRowCount: decoded.rows.length, oldText };
+  return { invalid: null, rows: merged, preservedCount, ownerCellsDroppedWithRow, beforeRowCount: decoded.rows.length, oldText: rawText };
+}
+
+/**
+ * S13: archives `bytes` under `<historyDir>/<baseName>.<stamp>.csv`, create-only like
+ * `rule_store.mjs`'s history archive. If that exact name is already taken (two
+ * refreshes sharing the same `now` stamp, e.g. two calls in the same process tick),
+ * a numeric counter suffix is appended until a free name is found, rather than
+ * overwriting the earlier archive.
+ */
+function archiveHistoryCreateOnly({ historyDir, baseName, stamp, bytes }) {
+  mkdirSync(historyDir, { recursive: true });
+  for (let counter = 0; counter <= 1000; counter += 1) {
+    const suffix = counter === 0 ? '' : `-${counter}`;
+    const candidate = path.join(historyDir, `${baseName}.${stamp}${suffix}.csv`);
+    try { writeFileSync(candidate, bytes, { flag: 'wx' }); return candidate; }
+    catch (error) { if (error?.code !== 'EEXIST') throw error; }
+  }
+  fail('workspace_ledgers_history_archive_exhausted', `${historyDir}/${baseName}.${stamp}`);
+  return null;
 }
 
 function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry }) {
-  const merge = preserveMerge({ existingPath: filePath, rows, keyIndex, preserveIndices });
+  const merge = preserveMerge({ existingPath: filePath, headers, rows, keyIndex, preserveIndices });
+  if (merge.invalid) {
+    // R4: fail closed for this one file -- do not write, do not archive, do not touch
+    // lineage. The file is left exactly as it was found.
+    return { failed: true, code: merge.invalid.code, file: `${folder}/${relPath}`, written: false, changed: false };
+  }
   const newText = encodeCsv(headers, merge.rows);
   const changed = merge.oldText !== newText;
-  const result = { rows: merge.rows.length, before_rows: merge.beforeRowCount, preserved_owner_cells: merge.preservedCount,
+  const result = { failed: false, rows: merge.rows.length, before_rows: merge.beforeRowCount,
+    preserved_owner_cells: merge.preservedCount, owner_cells_dropped_with_row: merge.ownerCellsDroppedWithRow,
     changed, sha256: sha256(newText) };
   if (dry || !changed) return { ...result, written: false };
   if (merge.oldText !== null) {
-    const historyDir = path.join(path.dirname(filePath), 'history');
-    mkdirSync(historyDir, { recursive: true });
     const stamp = now.replace(/[:.]/gu, '-');
-    writeFileSync(path.join(historyDir, `${path.basename(filePath)}.${stamp}.csv`), merge.oldText);
+    archiveHistoryCreateOnly({ historyDir: path.join(path.dirname(filePath), 'history'), baseName: path.basename(filePath), stamp, bytes: merge.oldText });
   }
   atomicWriteText(filePath, newText);
   const lineage = {
@@ -190,6 +297,13 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
  * Returns the receipt body (also written to `receiptsDir` unless the caller wants it
  * suppressed -- this function always writes the receipt, dry or not, so a `--dry`
  * pass leaves an audit trail of what it previewed).
+ *
+ * R4: a single ledger file that fails strict validation (see `validateExistingCsv`)
+ * is skipped -- left untouched, recorded in `receipt.ledger_failures` -- while every
+ * other file for every other project still refreshes normally. `receipt.status` is
+ * `'failed'` whenever `ledger_failures` is non-empty; this function still returns the
+ * receipt rather than throwing, so a caller sees exactly what succeeded and what did
+ * not. The CLI (`cli.mjs`) maps `status: 'failed'` to exit code 2.
  */
 export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects: onlyProjects = null,
   fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString() }) {
@@ -236,6 +350,8 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     }
 
     const projectReports = [];
+    const ledgerFailures = [];
+    const recordResult = result => { if (result.failed) ledgerFailures.push({ file: result.file, code: result.code }); return result; };
     for (const { project, json } of all) {
       const code = project.project_code;
       if (selectedCodes && !selectedCodes.has(code)) continue;
@@ -247,41 +363,42 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       const history = buildHistory({ code, mails, orgConfig, ruleVersion: json.rule_version });
       const reply = buildReplyStatus({ code, mails, orgConfig, now });
 
-      const contactsResult = writeLedgerCsv({
+      const contactsResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, CONTACTS_REL), lineagePath: path.join(lineageBase, '연락처_장부.csv.lineage.json'),
         headers: contacts.headers, rows: contacts.rows, keyIndex: CONTACTS_KEY_INDEX, preserveIndices: CONTACTS_PRESERVE_INDICES,
         code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry,
-      });
-      const recvResult = writeLedgerCsv({
+      }));
+      const recvResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, RECV_REL), lineagePath: path.join(lineageBase, '메일_수신이력.csv.lineage.json'),
         headers: history.headers, rows: history.received.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
         code, folder: project.folder_name, relPath: RECV_REL, now, dry,
-      });
-      const sentResult = writeLedgerCsv({
+      }));
+      const sentResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, SENT_REL), lineagePath: path.join(lineageBase, '메일_발송이력.csv.lineage.json'),
         headers: history.headers, rows: history.sent.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
         code, folder: project.folder_name, relPath: SENT_REL, now, dry,
-      });
-      const replyResult = writeLedgerCsv({
+      }));
+      const replyResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, REPLY_REL), lineagePath: path.join(lineageBase, '회신_현황.csv.lineage.json'),
         headers: reply.headers, rows: reply.rows, keyIndex: REPLY_KEY_INDEX, preserveIndices: REPLY_PRESERVE_INDICES,
         code, folder: project.folder_name, relPath: REPLY_REL, now, dry,
-      });
+      }));
 
       projectReports.push({
         project_code: code, folder_name: project.folder_name, rule_version: json.rule_version,
-        mails: mails.length, received: recvResult.rows, sent: sentResult.rows, people: contactsResult.rows,
+        mails: mails.length, received: recvResult.failed ? null : recvResult.rows, sent: sentResult.failed ? null : sentResult.rows,
+        people: contactsResult.failed ? null : contactsResult.rows,
         need_reply: reply.rows.filter(row => row[1] === '답필요').length, waiting_reply: reply.rows.filter(row => row[1] === '회신대기').length,
         contacts: contactsResult, received_history: recvResult, sent_history: sentResult, reply_status: replyResult,
       });
     }
 
     const receipt = {
-      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields,
+      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields, status: ledgerFailures.length > 0 ? 'failed' : 'ok',
       events_scanned: { hiworks: hiworks.scanned, gmail_sent: gmail.scanned },
       skipped_system: hiworks.skippedSystem + gmail.skippedSystem,
       unreadable_dirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
-      held_two_projects: heldCount, unattributed, projects: projectReports,
+      held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     };
     mkdirSync(receiptsDir, { recursive: true });
     const stamp = now.replace(/[:.]/gu, '-');

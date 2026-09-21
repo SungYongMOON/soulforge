@@ -26,6 +26,24 @@ test('parseAddressField: string and object shapes, drops entries without an addr
   assert.deepEqual(parseAddressField(null), []);
 });
 
+test('parseAddressField: a multi-recipient single string splits on top-level commas/semicolons (S6)', () => {
+  assert.deepEqual(parseAddressField('"Hong" <hong@example.com>, "Kim" <kim@example.com>'), [
+    { name: 'Hong', email: 'hong@example.com' },
+    { name: 'Kim', email: 'kim@example.com' },
+  ]);
+  assert.deepEqual(parseAddressField('a@example.com; b@example.com'), [
+    { name: '', email: 'a@example.com' },
+    { name: '', email: 'b@example.com' },
+  ]);
+  // a quoted display name containing a comma must not be split on
+  assert.deepEqual(parseAddressField('"Kim, S." <kim@example.com>'), [{ name: 'Kim, S.', email: 'kim@example.com' }]);
+});
+
+test('parseAddressField: an unparseable residue (leftover whitespace or <) is dropped, never kept as an address (S6)', () => {
+  assert.deepEqual(parseAddressField('not an address at all'), []);
+  assert.deepEqual(parseAddressField('broken <unterminated'), []);
+});
+
 test('loadMailEvents: skips system senders and [Plaud-AutoFlow] subjects, classifies the rest', () => {
   const dir = tempDir();
   try {
@@ -63,6 +81,46 @@ test('loadMailEvents: returned events never carry body_text or attachment names'
     assert.equal(event.attachment_count, 1);
     assert.deepEqual(JSON.stringify(event).includes('SECRET BODY TEXT'), false);
     assert.deepEqual(JSON.stringify(event).includes('secret_attachment.pdf'), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents: a missing event_id is synthesised from content, and two different mails never collide (S7)', () => {
+  const dir = tempDir();
+  try {
+    const lines = [
+      { subject: 'first mail', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+      { subject: 'second mail', from: 'b@example.com', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 2);
+    assert.notEqual(events[0].event_id, '');
+    assert.notEqual(events[1].event_id, '');
+    assert.notEqual(events[0].event_id, events[1].event_id);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents: custody timestamps normalise to UTC instants that sort chronologically regardless of offset (S12)', () => {
+  const dir = tempDir();
+  try {
+    // 2026-09-01T23:30:00+09:00 is 2026-09-01T14:30:00Z -- earlier than the Z event below,
+    // even though its raw string, compared lexically, would sort *after* it.
+    const lines = [
+      { event_id: 'later', subject: 'late', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T15:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'earlier', subject: 'early', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T23:30:00+09:00', body_text: '', attachments: [] },
+    ];
+    writeFileSync(path.join(dir, 'events.jsonl'), lines.map(line => JSON.stringify(line)).join('\n'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    const earlier = events.find(event => event.event_id === 'earlier');
+    const later = events.find(event => event.event_id === 'later');
+    assert.equal(earlier.at, '2026-09-01T14:30:00.000Z'); // normalised to a canonical UTC instant
+    assert.ok(earlier.at.localeCompare(later.at) < 0); // and now sorts correctly as the earlier one
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

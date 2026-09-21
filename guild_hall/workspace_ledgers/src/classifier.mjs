@@ -13,10 +13,23 @@ export const SENDER_POLICY = 'hint_only';
 // compile into a pathologically expensive or unbounded matcher.
 export const MAX_TERM_VALUE_LENGTH = 200;
 export const MAX_REGEX_QUANTIFIERS = 20;
+// A nested quantifier (`(a+)+`, `(.*)*`, `(\w+\s?)+`) and unbounded alternation are the
+// classic ReDoS shapes; both are rejected outright rather than merely counted.
+export const MAX_ALTERNATION_BRANCHES = 12;
+// Only case-insensitivity is a meaningful knob for this module's matching; every other
+// flag (`g`/`y` especially -- a stateful `lastIndex` shared across calls would silently
+// corrupt matching for a term reused across many mails) is refused. `u` is always
+// compiled in regardless of what the draft asked for.
+export const ALLOWED_REGEX_FLAGS = Object.freeze(['', 'i', 'u', 'iu', 'ui']);
 // `yields_to` may be one hand-over rule or several (e.g. a project that yields to
 // different targets depending on which variant term shows up); a rule with more than
 // this many hand-overs is almost certainly a mistake, not a real routing need.
 export const MAX_YIELDS_TO_ENTRIES = 8;
+// S11: a regex (and a literal `.includes`) still has to scan `body_text` in full
+// otherwise; custody bodies can be arbitrarily large, so matching is bounded to a
+// leading prefix. A mail whose routing keyword sits past this prefix is not matched on
+// body text -- documented in README as a known limit, not silently unbounded.
+export const MAX_BODY_TEXT_CHARS = 20000;
 
 export class RuleCompileError extends Error {
   constructor(code, detail) {
@@ -38,10 +51,65 @@ function quantifierCount(source) {
   return matches ? matches.length : 0;
 }
 
+// ---------------------------------------------------------------- regex safety scan
+// These scans are deliberately simple (single left-to-right pass, escape-aware,
+// character-class-aware) rather than a full regex parser: good enough to catch the
+// shapes this module needs to reject, not a general regex analyser.
+
+/** Index pairs of every `(...)` group in `source`, matching parens while skipping escaped parens and character classes. */
+function findGroups(source) {
+  const groups = [];
+  const stack = [];
+  let inClass = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '\\') { index += 1; continue; }
+    if (inClass) { if (char === ']') inClass = false; continue; }
+    if (char === '[') { inClass = true; continue; }
+    if (char === '(') { stack.push(index); continue; }
+    if (char === ')') { const start = stack.pop(); if (start !== undefined) groups.push({ start, end: index }); }
+  }
+  return groups;
+}
+
+function quantifierAt(source, pos) {
+  const char = source[pos];
+  if (char === '*' || char === '+' || char === '?') return true;
+  if (char === '{') return /^\{\d+(?:,\d*)?\}/u.test(source.slice(pos));
+  return false;
+}
+
+/** True when some group is itself quantified (`(...)+` etc.) and its own body also contains a quantifier -- `(a+)+`, `(.*)*`, `(\w+\s?)+`. */
+function hasNestedQuantifier(source) {
+  return findGroups(source).some(group =>
+    quantifierAt(source, group.end + 1) && quantifierCount(source.slice(group.start + 1, group.end)) > 0);
+}
+
+/** Count of top-level, non-class, unescaped `|` alternation separators. */
+function unescapedPipeCount(source) {
+  let count = 0;
+  let inClass = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '\\') { index += 1; continue; }
+    if (inClass) { if (char === ']') inClass = false; continue; }
+    if (char === '[') { inClass = true; continue; }
+    if (char === '|') count += 1;
+  }
+  return count;
+}
+
+const BACKREFERENCE = /\\([1-9]\d*|k<)/u;
+const LOOKBEHIND = /\(\?<[=!]/u;
+
 /**
  * Compiles one rule term ({label, kind:'literal'|'regex', value, flags?}) into a
  * matcher with a `test(text)` function. Literal terms match case-insensitively
- * (mirrors the `case_insensitive_literals: true` convention every rule declares).
+ * (mirrors the `case_insensitive_literals: true` convention every rule declares) and
+ * also carry `lowerValue` -- the classifier's hot path (`classifyMail`) matches
+ * against a text already lowercased once per mail rather than calling `test` (which
+ * lowercases its argument itself) once per term; `test` stays correct and self-
+ * contained for direct/standalone callers such as this module's own tests.
  */
 export function compileTerm(term) {
   if (!term || typeof term.label !== 'string' || term.label.trim() === '') {
@@ -50,15 +118,23 @@ export function compileTerm(term) {
   if (term.kind === 'literal') {
     assertBoundedValue(term.value);
     const needle = String(term.value).toLowerCase();
-    return { label: term.label, kind: 'literal', value: term.value, test: text => text.toLowerCase().includes(needle) };
+    return { label: term.label, kind: 'literal', value: term.value, lowerValue: needle, test: text => text.toLowerCase().includes(needle) };
   }
   if (term.kind === 'regex') {
     assertBoundedValue(term.value);
-    if (quantifierCount(term.value) > MAX_REGEX_QUANTIFIERS) fail('workspace_ledgers_term_regex_too_complex', term.label);
+    const source = term.value;
+    if (quantifierCount(source) > MAX_REGEX_QUANTIFIERS) fail('workspace_ledgers_term_regex_too_complex', term.label);
+    if (hasNestedQuantifier(source)) fail('workspace_ledgers_term_regex_nested_quantifier', term.label);
+    if (BACKREFERENCE.test(source)) fail('workspace_ledgers_term_regex_backreference', term.label);
+    if (LOOKBEHIND.test(source)) fail('workspace_ledgers_term_regex_lookbehind', term.label);
+    if (unescapedPipeCount(source) + 1 > MAX_ALTERNATION_BRANCHES) fail('workspace_ledgers_term_regex_too_many_alternations', term.label);
+    const rawFlags = term.flags ?? '';
+    if (!ALLOWED_REGEX_FLAGS.includes(rawFlags)) fail('workspace_ledgers_term_regex_flags_not_allowed', rawFlags);
+    const flags = rawFlags.includes('u') ? rawFlags : `${rawFlags}u`;
     let compiled;
-    try { compiled = new RegExp(term.value, term.flags ?? 'u'); }
+    try { compiled = new RegExp(source, flags); }
     catch (error) { fail('workspace_ledgers_term_regex_invalid', error.message); }
-    return { label: term.label, kind: 'regex', value: term.value, flags: term.flags ?? 'u', test: text => compiled.test(text) };
+    return { label: term.label, kind: 'regex', value: source, flags, test: text => compiled.test(text) };
   }
   fail('workspace_ledgers_term_kind_unknown', String(term?.kind));
   return null; // unreachable, keeps linters happy about a missing return path
@@ -114,7 +190,7 @@ export function compileRules(ruleJsonList) {
 
 function fieldText(mail, field) {
   if (field === 'subject') return String(mail.subject ?? '');
-  if (field === 'body_text') return String(mail.body_text ?? '');
+  if (field === 'body_text') return String(mail.body_text ?? '').slice(0, MAX_BODY_TEXT_CHARS);
   if (field === 'attachment_names') return Array.isArray(mail.attachment_names) ? mail.attachment_names.join('\n') : '';
   return '';
 }
@@ -122,6 +198,29 @@ function fieldText(mail, field) {
 function ruleText(mail, rule, fields) {
   const effective = rule.match_fields.filter(field => fields.includes(field));
   return effective.map(field => fieldText(mail, field)).join('\n');
+}
+
+/**
+ * One mail's field text, computed and lowercased at most once per unique field
+ * combination (almost always once total, since every rule in practice declares the
+ * same three `match_fields`) rather than once per term (S11). `cache` is scoped to a
+ * single `classifyMail`/`hintCodes` call -- never shared across mails.
+ */
+function textEntryFor(mail, rule, fields, cache) {
+  const effective = rule.match_fields.filter(field => fields.includes(field));
+  const key = effective.join('|');
+  let entry = cache.get(key);
+  if (!entry) {
+    const raw = effective.map(field => fieldText(mail, field)).join('\n');
+    entry = { raw, lower: raw.toLowerCase() };
+    cache.set(key, entry);
+  }
+  return entry;
+}
+
+/** Matches one compiled term against a cached text entry without re-lowercasing a literal's needle text per call. */
+function termMatchesEntry(term, entry) {
+  return term.kind === 'literal' ? entry.lower.includes(term.lowerValue) : term.test(entry.raw);
 }
 
 /**
@@ -139,11 +238,12 @@ function ruleText(mail, rule, fields) {
  * exact triggers on one mail means hold, never automatic attribution.
  */
 export function classifyMail(mail, compiledRules, { fields = MATCH_FIELDS } = {}) {
+  const textCache = new Map();
   const hits = [];
   for (const rule of compiledRules) {
-    const text = ruleText(mail, rule, fields);
-    if (rule.yields_to.some(entry => entry.when.test(text))) continue;
-    const matchedTerm = rule.exact.find(term => term.test(text));
+    const entry = textEntryFor(mail, rule, fields, textCache);
+    if (rule.yields_to.some(handover => termMatchesEntry(handover.when, entry))) continue;
+    const matchedTerm = rule.exact.find(term => termMatchesEntry(term, entry));
     if (matchedTerm) hits.push({ project_code: rule.project_code, folder_name: rule.folder_name, label: matchedTerm.label });
   }
   return { hits, held: hits.length > 1 };
@@ -156,11 +256,12 @@ export function classifyMail(mail, compiledRules, { fields = MATCH_FIELDS } = {}
 export function hintCodes(mail, compiledRules, { fields = MATCH_FIELDS } = {}) {
   const { hits } = classifyMail(mail, compiledRules, { fields });
   const exactCodes = new Set(hits.map(hit => hit.project_code));
+  const textCache = new Map();
   const codes = [];
   for (const rule of compiledRules) {
     if (exactCodes.has(rule.project_code)) continue;
-    const text = ruleText(mail, rule, fields);
-    if (rule.hint.some(term => term.test(text))) codes.push(rule.project_code);
+    const entry = textEntryFor(mail, rule, fields, textCache);
+    if (rule.hint.some(term => termMatchesEntry(term, entry))) codes.push(rule.project_code);
   }
   return codes;
 }

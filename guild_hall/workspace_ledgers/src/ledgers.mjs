@@ -36,9 +36,25 @@ export function threadKey(subject) {
   return `th_${createHash('sha256').update(normalizeSubject(subject)).digest('hex').slice(0, 12)}`;
 }
 
+// R1: CSV/formula injection guard. A cell whose content -- after any leading spaces
+// or tabs -- starts with `=`, `+`, `-` or `@` is a formula trigger in Excel/Sheets/
+// LibreOffice (`=cmd|' /C calc'!A0`, a `+82-10...` phone number, a `-5` negative
+// figure, an `@name` mention). Every such cell is guarded with a single leading `'`,
+// which every one of those applications renders as literal text. `decodeCsv` strips
+// exactly that single guard back off on the way in, so a preserved Owner-entered cell
+// round-trips unchanged. A genuine value that itself started with `'=...` (a real
+// leading apostrophe immediately followed by a trigger character) is indistinguishable
+// from a guarded one and is accepted as guarded -- a deliberately rare, documented
+// edge case, not a data-loss risk (the apostrophe was already there to say "treat as
+// text" in the spreadsheet sense).
+const FORMULA_TRIGGER = /^[ \t]*[=+\-@]/u;
+const guardFormula = text => (FORMULA_TRIGGER.test(text) ? `'${text}` : text);
+const unguardFormula = text => (text.startsWith("'") && FORMULA_TRIGGER.test(text.slice(1)) ? text.slice(1) : text);
+
 function cell(value) {
   const text = value === null || value === undefined ? '' : String(value).replace(/\r?\n/gu, ' ');
-  return /[",]/u.test(text) ? `"${text.replace(/"/gu, '""')}"` : text;
+  const guarded = guardFormula(text);
+  return /[",]/u.test(guarded) ? `"${guarded.replace(/"/gu, '""')}"` : guarded;
 }
 
 /** UTF-8 BOM + CRLF CSV, Excel- and machine-readable alike (one copy, per Owner decision). */
@@ -48,14 +64,16 @@ export function encodeCsv(headers, rows) {
 
 /**
  * Decodes CSV text written by `encodeCsv` (BOM, CRLF, `"` quoting with `""` escape,
- * embedded newlines already flattened to spaces by `cell()`) back into
- * `{ headers, rows }`. Used by `refresh.mjs` to read an existing ledger before
- * preserving its Owner-entered columns -- not a general-purpose CSV parser.
+ * embedded newlines already flattened to spaces by `cell()`, formula-injection guard
+ * stripped by `unguardFormula`) back into `{ headers, rows }`. Used by `refresh.mjs`
+ * to read an existing ledger before preserving its Owner-entered columns -- not a
+ * general-purpose CSV parser.
  */
 export function decodeCsv(text) {
   const source = String(text ?? '').replace(/^﻿/u, '');
   const records = [];
   let record = [], field = '', inQuotes = false;
+  const pushField = () => { record.push(unguardFormula(field)); field = ''; };
   for (let index = 0; index < source.length; index += 1) {
     const char = source[index];
     if (inQuotes) {
@@ -65,18 +83,29 @@ export function decodeCsv(text) {
       continue;
     }
     if (char === '"') { inQuotes = true; }
-    else if (char === ',') { record.push(field); field = ''; }
+    else if (char === ',') { pushField(); }
     else if (char === '\r') { /* consumed alongside the following \n */ }
-    else if (char === '\n') { record.push(field); records.push(record); record = []; field = ''; }
+    else if (char === '\n') { pushField(); records.push(record); record = []; }
     else field += char;
   }
-  if (field !== '' || record.length > 0) { record.push(field); records.push(record); }
+  if (field !== '' || record.length > 0) { pushField(); records.push(record); }
   const [headers, ...rows] = records;
   return { headers: headers ?? [], rows };
 }
 
 export function domainOf(email) {
   return String(email ?? '').split('@')[1] ?? '';
+}
+
+// S12: `mail_events.mjs` normalises every `at` to a UTC instant on read; display
+// dates (처음등장/마지막등장/마지막메일일) are Asia/Seoul calendar dates derived from
+// that instant, not a raw UTC slice -- Seoul is a fixed UTC+9 offset with no DST, so a
+// plain millisecond shift is exact.
+const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
+export function seoulDateOf(isoInstant) {
+  const parsed = Date.parse(isoInstant);
+  if (Number.isNaN(parsed)) return String(isoInstant ?? '').slice(0, 10);
+  return new Date(parsed + SEOUL_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 /** Builds `{ ourDomain, familyOf, orgOf }` lookups from an org config (see examples/org_config.example.json). */
@@ -123,6 +152,11 @@ export function buildContacts({ code, mails, orgConfig, presenceByEmail = new Ma
   }
   const bestName = record => [...record.names]
     .sort((x, y) => (/[가-힣]/u.test(y[0]) ? 1 : 0) - (/[가-힣]/u.test(x[0]) ? 1 : 0) || y[1] - x[1])[0]?.[0] ?? '';
+  // S8: the plain-frequency winner, without the Korean-first tiebreak `bestName` uses.
+  // Two different addresses can each carry a rare/minority spelling that happens to be
+  // identical (e.g. an initials-only signature) while their own *dominant* spelling
+  // differs -- that coincidence is exactly the risky merge `noteOf` below flags.
+  const dominantName = record => [...record.names].sort((x, y) => y[1] - x[1])[0]?.[0] ?? '';
   const localFamily = email => `${email.split('@')[0]}@${familyOf(email)}`;
   const nameByLocal = new Map();
   for (const record of byEmail.values()) {
@@ -133,12 +167,14 @@ export function buildContacts({ code, mails, orgConfig, presenceByEmail = new Ma
   for (const record of byEmail.values()) {
     const name = bestName(record) || (nameByLocal.get(localFamily(record.email)) ?? '');
     const key = name ? `${name}@${familyOf(record.email)}` : record.email;
-    const group = people.get(key) ?? { key, name, title: '', titleAt: '', emails: new Map(), from: 0, to: 0, cc: 0, first: record.first, last: record.last };
+    const group = people.get(key) ?? { key, name, title: '', titleAt: '', emails: new Map(), from: 0, to: 0, cc: 0, first: record.first, last: record.last, offDominantEmails: new Set() };
     if (record.title && record.titleAt >= group.titleAt) { group.title = record.title; group.titleAt = record.titleAt; }
     group.emails.set(record.email, record.last);
     group.from += record.from; group.to += record.to; group.cc += record.cc;
     if (record.first < group.first) group.first = record.first;
     if (record.last > group.last) group.last = record.last;
+    const recordDominant = dominantName(record);
+    if (name && recordDominant && recordDominant !== name) group.offDominantEmails.add(record.email);
     people.set(key, group);
   }
   const nameCount = new Map();
@@ -148,12 +184,18 @@ export function buildContacts({ code, mails, orgConfig, presenceByEmail = new Ma
     return { ...group, email: emails[0], others: emails.slice(1), total: group.from + group.to + group.cc };
   }).filter(row => row.total >= 2 || row.from >= 1)
     .sort((a, b) => (domainOf(a.email) === ourDomain ? 0 : 1) - (domainOf(b.email) === ourDomain ? 0 : 1) || b.total - a.total);
+  // S8: a merged person pooling >=2 addresses whose local parts differ (so the merge
+  // did not come from the safe "same local-part through a rename" path) where at least
+  // one pooled address's own dominant spelling disagrees with the merged name is an
+  // intra-family namesake risk, not a confirmed rename -- flagged, never un-merged.
+  const localPartsOf = row => new Set([row.email, ...row.others].map(email => email.split('@')[0]));
   const noteOf = row => [
     row.others.some(email => familyOf(email) === familyOf(row.email) && domainOf(email) !== domainOf(row.email)) ? '회사명·도메인 변경 전 주소 포함' : '',
     (nameCount.get(row.name) ?? 0) > 1 ? '같은 이름이 다른 소속으로도 있음 — 동일인 확인 필요' : '',
+    (row.offDominantEmails.size > 0 && localPartsOf(row).size > 1) ? '같은 이름·같은 조직의 다른 주소 — 동일인 확인 필요' : '',
   ].filter(Boolean).join(' / ');
   const csvRows = rows.map(row => [code, domainOf(row.email) === ourDomain ? '사내' : '외부', row.name, row.title, orgOf(row.email),
-    row.email, row.others.join(' '), row.from, row.to, row.cc, row.first.slice(0, 10), row.last.slice(0, 10), '',
+    row.email, row.others.join(' '), row.from, row.to, row.cc, seoulDateOf(row.first), seoulDateOf(row.last), '',
     [...new Set([row.email, ...row.others].flatMap(email => [...(presenceByEmail.get(email) ?? [])]))].filter(c => c !== code).join(' '),
     noteOf(row)]);
   return { headers: CONTACTS_HEADERS, rows: csvRows, records: rows, keyOf: row => row[5] /* 메일 */ };
@@ -216,8 +258,8 @@ export function buildReplyStatus({ code, mails, orgConfig, now }) {
     const kind = last.direction === 'received' && last.from && domainOf(last.from.email) !== ourDomain ? '답필요'
       : last.direction === 'sent' ? '회신대기' : null;
     if (kind === null) continue;
-    rows.push([code, kind, last.at.slice(0, 10), days(last.at), last.subject, last.from?.name ?? '',
-      last.from ? orgOf(last.from.email) : '', group.length, group[0].at.slice(0, 10), key, '', '']);
+    rows.push([code, kind, seoulDateOf(last.at), days(last.at), last.subject, last.from?.name ?? '',
+      last.from ? orgOf(last.from.email) : '', group.length, seoulDateOf(group[0].at), key, '', '']);
   }
   rows.sort((a, b) => (a[1] === b[1] ? String(b[2]).localeCompare(String(a[2])) : a[1] === '답필요' ? -1 : 1));
   return { headers: REPLY_HEADERS, rows, keyOf: row => row[9] /* 스레드 */ };

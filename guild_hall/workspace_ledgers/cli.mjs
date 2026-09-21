@@ -5,8 +5,12 @@
 //   save-rule     version-bump a project's saved mail routing rule
 //
 // Exit codes: 0 success, 2 usage/config error (bad flags, unreadable/invalid input
-// that never reached a write), 3 runtime failure during execution (lock held, write
-// failure, rule store error after args were valid).
+// that never reached a write) OR `refresh` finishing with one or more ledger files
+// that failed strict validation (R4 -- left untouched, every other file still
+// refreshed), 3 runtime failure during execution (lock held, write failure, rule
+// store error after args were valid).
+// `save-rule` accepts an optional `--allowed-actors a,b,c` (N16) to further restrict
+// `--by` to that exact list, on top of the always-applied machine-actor refusal.
 import { readFileSync } from 'node:fs';
 import { MATCH_FIELDS } from './src/classifier.mjs';
 import { previewRule, refresh, RefreshError } from './src/refresh.mjs';
@@ -74,6 +78,13 @@ function runRefresh(flags) {
     const receipt = refresh({ workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents],
       orgConfigPath, projects, fields, dry, receiptsDir });
     console.log(JSON.stringify(receipt));
+    // R4: one or more ledger files failed strict validation and were left untouched;
+    // every other file still refreshed. That is a real failure for automation to
+    // notice, even though this call did not throw.
+    if (receipt.status === 'failed') {
+      console.error(`workspace_ledgers_refresh_ledger_validation_failed: ${JSON.stringify(receipt.ledger_failures)}`);
+      process.exitCode = 2;
+    }
   } catch (error) {
     console.error(`workspace_ledgers_refresh_failed: ${error.code ?? error.message}`);
     process.exitCode = error instanceof RefreshError ? exitCodeFor(error.code) : 3;
@@ -110,8 +121,10 @@ function runSaveRule(flags) {
   if (!workspacesRoot || !workmetaRoot || !code || !draftPath || !by || !note) return;
   const draft = readDraft(draftPath);
   if (draft === undefined) return;
+  const allowedActorsRaw = flags.get('allowed-actors');
+  const allowedActors = typeof allowedActorsRaw === 'string' ? allowedActorsRaw.split(',').map(item => item.trim()).filter(Boolean) : undefined;
   try {
-    const result = saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note });
+    const result = saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, allowedActors });
     console.log(JSON.stringify(result));
   } catch (error) {
     console.error(`workspace_ledgers_save_rule_failed: ${error.code ?? error.message}`);
