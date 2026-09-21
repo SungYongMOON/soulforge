@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync,
+  writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,10 +17,12 @@ import { ROOT_TABLE_SCHEMA, readRootTable } from '../../path_registry/src/root_t
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import {
-  AGING_SOON_NIGHTS, BACKLOG_WINDOW_DAYS, DEFAULT_NO_START_WITHIN_MINUTES, HARD_STOP_GRACE_MINUTES,
-  MIN_TRANSCRIPT_SECONDS, NIGHTLY_RECEIPT_SCHEMA, STALE_LOCK_MS,
-  acquireLock, agingOutSoonThreshold, buildSessionPlan, classifySession, defaultTargetDate, nextDeadlineInstant,
-  releaseLock, runNightly, staleReasonFor, runNightlyCli, seoulDateFor, shiftDate,
+  AGING_SOON_NIGHTS, BACKLOG_WINDOW_DAYS, CHAIN_ALLOWANCE_MS, DEFAULT_NO_START_WITHIN_MINUTES,
+  HARD_STOP_GRACE_MINUTES, MAX_AGED_OUT_LOOKBACK_DAYS, MIN_DEADLINE_STALE_LOCK_MS, MIN_TRANSCRIPT_SECONDS,
+  NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, STALE_LOCK_MS,
+  acquireLock, agingOutSoonThreshold, atomicWriteFileSync, buildSessionPlan, classifySession, defaultTargetDate,
+  nextDeadlineInstant, releaseLock, runNightly, staleLockMsFor, staleReasonFor, runNightlyCli, seoulDateFor,
+  shiftDate,
 } from '../harness/voice_conversation_list_nightly.mjs';
 
 const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts', 'voice_conversation_list');
@@ -1145,6 +1148,28 @@ test('register-voice-conversation-list-task.ps1: S2/S4/S6/N3 review fixes are wi
   assert.match(registrar, /chain_mail_roots = \[object\[\]\]\$\(if \(\$MailRoot\) \{ @\(\$MailRoot\) \} else \{ , @\(\) \}\)/);
 });
 
+test('register-voice-conversation-list-task.ps1: R1a-1 exit-code propagation fix is wired', async () => {
+  const registrarPath = path.join(path.dirname(fileURLToPath(import.meta.url)),
+    '..', 'ops', 'register-voice-conversation-list-task.ps1');
+  const registrar = await readFile(registrarPath, 'utf8');
+
+  // R1a-1 (2026-09-21 review, measured end to end): `powershell.exe -Command
+  // "& node ..."` does not propagate node's own exit code -- verified live
+  // in this same review round (without the trailing `exit`, a script
+  // process.exitCode = 4 collapsed to a bare 1 through this exact
+  // construction; with it, the caller correctly saw 4). The `$LASTEXITCODE`
+  // piece must be built from a single-quoted (unexpanded) literal, not
+  // interpolated into this registrar's own current value.
+  assert.match(registrar, /\+ "; exit " \+ '\$LASTEXITCODE'/);
+  // This exact trailing text becomes part of $CommandScript, which flows
+  // into $HiddenActionArgumentLine -- already covered by the existing
+  // action_sha256 plan-digest field and the post-registration XML
+  // attestation's byte-for-byte Arguments comparison, both asserted above
+  // and unchanged by this fix, so no separate plan/attestation wiring is
+  // needed for the new text to be pinned.
+  assert.match(registrar, /action_sha256 = Get-Sha256Text -Value \(\$WScriptExe \+ "`n" \+ \$HiddenActionArgumentLine\)/);
+});
+
 // ============================================================ R1 (review)
 // ---------------------------------------------------- R1a: SKIPPED_PAST_DEADLINE
 test('runNightly: a classification failure alongside an already-passed deadline still reports FAILED, not SKIPPED_PAST_DEADLINE', async () => {
@@ -1188,10 +1213,50 @@ test('runNightly: backlog aging visibility -- aging_out_soon counts unprocessed 
 
   assert.equal(result.status, 'OK');
   assert.equal(result.receipt.backlog.aging_out_soon, 1); // only S_aging_soon -- S_aging_but_done already has a run
-  assert.equal(result.receipt.backlog.aged_out_unprocessed.date, '2026-09-12');
+  // R1b-1 (2026-09-21 review): no prior receipt exists yet in this fresh
+  // receipts dir, so the look-back falls back to the full
+  // MAX_AGED_OUT_LOOKBACK_DAYS (7) -- every one of those days is checked,
+  // grouped by date, and only 2026-09-12 actually has anything in it.
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 7);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 1);
-  assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.session_ids, ['S_aged_out_unprocessed']);
+  assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.by_date,
+    [{ date: '2026-09-12', count: 1, session_ids: ['S_aged_out_unprocessed'] }]);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.error, null);
+});
+
+test('runNightly: aged_out_unprocessed looks back as many nights as the gap since the newest prior receipt, catching a day a missed night would otherwise lose (R1b-1)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  // A prior receipt exists for 2026-09-18 (two nights ago -- 09-19 was
+  // missed entirely). The day that fell out of *that* missed night's own
+  // window (2026-09-19 - 8 = 2026-09-11) must still be caught tonight, not
+  // just the single newest edge day (2026-09-12) a one-day-only check would
+  // have found.
+  await mkdir(est.receiptsDir, { recursive: true });
+  await writeFile(path.join(est.receiptsDir, '20260918000000000.json'), JSON.stringify({
+    schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: '2026-09-18T00:00:00.000Z', target_date: '2026-09-18',
+    dry: false, lock: {}, plan: {}, deadline: null, backlog: null, sessions: [], warnings: [],
+    totals: {}, chain: null, status: 'OK' }));
+  await writeSession(est.dataRoot, '2026-09-11', 'S_missed_night_aged_out', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, '2026-09-12', 'S_newest_edge_aged_out', { durationSeconds: 40 });
+
+  // Seoul date, not the raw UTC date: 10:00Z is 19:00 Seoul, still 2026-09-20.
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T10:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_1111111111111111', verified: true, llm_calls: 1, elapsed_ms: 1 }),
+    log: () => {} });
+
+  assert.equal(result.status, 'OK');
+  // Gap from 2026-09-18 (the newest prior receipt's ran_at, Seoul date) to
+  // 2026-09-20 (tonight's own Seoul date) is 2 days -- both edge days
+  // (2026-09-12 and 2026-09-11) are checked.
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 2);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 2);
+  assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.by_date, [
+    { date: '2026-09-12', count: 1, session_ids: ['S_newest_edge_aged_out'] },
+    { date: '2026-09-11', count: 1, session_ids: ['S_missed_night_aged_out'] },
+  ]);
 });
 
 test('runNightly --dry: backlog aging is reported in the preview too (a preflight can see it before registering)', async () => {
@@ -1267,6 +1332,70 @@ test('runNightly --chain-reconcile: the receipt carries chain: {status: RUNNING}
   // No orphaned temp file from the atomic write survives a clean run.
   const leftover = (await readdir(est.receiptsDir)).filter(name => name.includes('.tmp-'));
   assert.deepEqual(leftover, []);
+});
+
+// ------------------------------------------------------------------ S1-1
+test('atomicWriteFileSync: retries a transient EPERM/EACCES/EBUSY rename a few times, then succeeds, and always removes the temp file', async () => {
+  const est = await estate();
+  const target = path.join(est.controlRoot, 'receipt.json');
+  let renameCalls = 0, sleptMs = [];
+  const deps = {
+    renameFn: (from, to) => {
+      renameCalls += 1;
+      if (renameCalls < 3) { const error = new Error('busy'); error.code = 'EBUSY'; throw error; }
+      renameSync(from, to); // the real rename, used only once the stub lets one through
+    },
+    sleepFn: ms => sleptMs.push(ms),
+  };
+  atomicWriteFileSync(target, Buffer.from('{"a":1}\n'), deps);
+
+  assert.equal(renameCalls, 3);
+  assert.equal(sleptMs.length, 2); // slept between attempts 1->2 and 2->3, not before the first or after success
+  assert.equal(await readFile(target, 'utf8'), '{"a":1}\n');
+  const leftover = (await readdir(est.controlRoot)).filter(name => name.includes('.tmp-'));
+  assert.deepEqual(leftover, [], 'the temp file is removed once rename finally succeeds');
+});
+
+test('atomicWriteFileSync: falls back to a direct overwrite once retries are exhausted on a retryable code, and still removes the temp file', async () => {
+  const est = await estate();
+  const target = path.join(est.controlRoot, 'receipt.json');
+  await writeFile(target, 'previous content that must be replaced');
+  let renameCalls = 0, directWriteCalls = 0, sleptCalls = 0;
+  const deps = {
+    renameFn: () => { renameCalls += 1; const error = new Error('perm'); error.code = 'EPERM'; throw error; },
+    writeFn: (filePath, buffer) => {
+      if (filePath === target) { directWriteCalls += 1; writeFileSync(filePath, buffer); return; }
+      writeFileSync(filePath, buffer); // the initial temp-file write still happens normally
+    },
+    sleepFn: () => { sleptCalls += 1; },
+  };
+  atomicWriteFileSync(target, Buffer.from('{"b":2}\n'), deps);
+
+  assert.equal(renameCalls, 4); // RENAME_RETRY_ATTEMPTS
+  assert.equal(sleptCalls, 3); // one fewer than the attempts -- no sleep after the last failure
+  assert.equal(directWriteCalls, 1, 'fell back to writing the target directly');
+  assert.equal(await readFile(target, 'utf8'), '{"b":2}\n');
+  const leftover = (await readdir(est.controlRoot)).filter(name => name.includes('.tmp-'));
+  assert.deepEqual(leftover, [], 'the temp file is removed even on the fallback path');
+});
+
+test('atomicWriteFileSync: a non-retryable rename error is thrown immediately (no retry, no silent fallback), and the temp file is still removed', async () => {
+  const est = await estate();
+  const target = path.join(est.controlRoot, 'receipt.json');
+  let renameCalls = 0, directWriteCalls = 0;
+  const deps = {
+    renameFn: () => { renameCalls += 1; const error = new Error('nope'); error.code = 'ENOSPC'; throw error; },
+    writeFn: (filePath, buffer) => {
+      if (filePath === target) directWriteCalls += 1;
+      writeFileSync(filePath, buffer);
+    },
+    sleepFn: () => { throw new Error('must not sleep for a non-retryable error'); },
+  };
+  assert.throws(() => atomicWriteFileSync(target, Buffer.from('{}'), deps), error => error.code === 'ENOSPC');
+  assert.equal(renameCalls, 1, 'no retry for a code that is not EPERM/EACCES/EBUSY');
+  assert.equal(directWriteCalls, 0, 'no silent fallback for a real error');
+  const leftover = (await readdir(est.controlRoot)).filter(name => name.includes('.tmp-'));
+  assert.deepEqual(leftover, [], 'the temp file is still cleaned up even when the error propagates');
 });
 
 // ---------------------------------------------- S2: refuse deadline == scheduled-start
@@ -1401,6 +1530,72 @@ test('runNightly --chain-reconcile: the nightly lock is still held while the cha
   assert.equal(existsSync(path.join(est.receiptsDir, 'nightly.lock')), false, 'released after the chain finishes');
 });
 
+// ------------------------------------------------------------------ S5-1
+test('staleLockMsFor: no deadline falls back to the fixed STALE_LOCK_MS', () => {
+  assert.equal(
+    staleLockMsFor({ deadline: null, scheduledStart: null, deadlineAt: null, now: '2026-09-20T18:00:00.000Z', chainReconcile: false }),
+    STALE_LOCK_MS);
+});
+
+test('staleLockMsFor: a short deadline span is floored at MIN_DEADLINE_STALE_LOCK_MS (S5-1)', () => {
+  // 00:00 start, 04:00 deadline -- span 4h + 60m grace (no chain) = 5h, well under the 8h floor.
+  const now = '2026-09-19T15:00:00.000Z'; // Seoul 2026-09-20T00:00:00
+  const deadlineAt = nextDeadlineInstant(now, '04:00', '00:00');
+  const ms = staleLockMsFor({ deadline: '04:00', scheduledStart: '00:00', deadlineAt, now, chainReconcile: false });
+  assert.equal(ms, MIN_DEADLINE_STALE_LOCK_MS);
+});
+
+test('staleLockMsFor: a long enough span exceeds the floor and is used as-is, with the chain allowance added', () => {
+  // 00:00 start, 10:00 deadline -- span 10h + 60m grace + 30m chain allowance = 11.5h > 8h floor.
+  const now = '2026-09-19T15:00:00.000Z'; // Seoul 2026-09-20T00:00:00
+  const deadlineAt = nextDeadlineInstant(now, '10:00', '00:00');
+  const ms = staleLockMsFor({ deadline: '10:00', scheduledStart: '00:00', deadlineAt, now, chainReconcile: true });
+  assert.equal(ms, (10 * 60 + HARD_STOP_GRACE_MINUTES) * 60 * 1000 + CHAIN_ALLOWANCE_MS);
+});
+
+test('runNightly: a lock old enough to be "stale" under the fixed 3h default is correctly still-live under a deadline-derived threshold (S5-1)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const now = '2026-09-20T18:00:00.000Z';
+  const fourHoursAgo = new Date(Date.parse(now) - 4 * 60 * 60 * 1000).toISOString();
+  acquireLock(est.receiptsDir, fourHoursAgo); // an existing lock, 4h old as of `now` -- stale under the old fixed 3h
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: '2026-09-20', now, deadline: '04:00', scheduledStart: '00:00',
+    runSession: async () => { throw new Error('must not run: the lock is still legitimately held'); }, log: () => {} });
+  assert.equal(result.status, 'LOCK_HELD');
+});
+
+test('releaseLock: only removes the lock when its pid/started_at still match this run\'s own (S5-1)', async () => {
+  const est = await estate();
+  const now = '2026-09-20T10:00:00.000Z';
+  acquireLock(est.receiptsDir, now); // this run's own lock (pid = this test process's own pid)
+  const lockFile = path.join(est.receiptsDir, 'nightly.lock');
+  // Simulate a second run having already reclaimed this (apparently stale)
+  // lock and written its own live one in its place.
+  await writeFile(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-09-20T15:00:00.000Z' }));
+  releaseLock(est.receiptsDir, { pid: process.pid, started_at: now }); // the first run's own (now stale) ownership
+  assert.equal(existsSync(lockFile), true, "the second run's live lock must survive the first run's release");
+  const remaining = JSON.parse(await readFile(lockFile, 'utf8'));
+  assert.equal(remaining.pid, 999999);
+});
+
+test('releaseLock: removes the lock when its pid/started_at match (the normal, single-run case)', async () => {
+  const est = await estate();
+  const now = '2026-09-20T10:00:00.000Z';
+  acquireLock(est.receiptsDir, now);
+  releaseLock(est.receiptsDir, { pid: process.pid, started_at: now });
+  assert.equal(existsSync(path.join(est.receiptsDir, 'nightly.lock')), false);
+});
+
+test('releaseLock: with no ownership given, removes the lock unconditionally (the prior, simpler behaviour)', async () => {
+  const est = await estate();
+  await mkdir(est.receiptsDir, { recursive: true });
+  await writeFile(path.join(est.receiptsDir, 'nightly.lock'),
+    JSON.stringify({ pid: 999999, started_at: '2026-09-20T15:00:00.000Z' }));
+  releaseLock(est.receiptsDir);
+  assert.equal(existsSync(path.join(est.receiptsDir, 'nightly.lock')), false);
+});
+
 // ============================================================ N (nits)
 test('runNightly: deadline.sessions_left counts only the still-unrun remainder, not a skipped/existing row left uniterated (N1)', async () => {
   const est = await estate();
@@ -1443,4 +1638,83 @@ test('runNightly --chain-reconcile: a null rootTableSha256 is omitted from the c
 
   assert.equal(result.status, 'OK'); // would have thrown or failed on a literal "null" sha before the fix
   assert.equal(result.receipt.chain.status, 'OK');
+});
+
+test('runNightlyCli: --scheduled-start or --no-start-within without --deadline is refused, and a lone malformed --scheduled-start is format-checked (nit 1)', async () => {
+  const est = await estate();
+  const base = ['--root-table', est.tablePath, '--tools-config', est.toolsPath,
+    '--pipeline-config', est.configPath, '--receipts', est.receiptsDir];
+  await assert.rejects(() => runNightlyCli([...base, '--scheduled-start', '00:00'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_scheduled_start_requires_deadline');
+  await assert.rejects(() => runNightlyCli([...base, '--no-start-within', '15'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_requires_deadline');
+  // Malformed, and with no --deadline at all -- format is still checked
+  // rather than passing through silently unvalidated.
+  await assert.rejects(() => runNightlyCli([...base, '--scheduled-start', 'not-a-time'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_scheduled_start_invalid');
+});
+
+test('runNightlyCli: --no-start-within must match /^\\d+$/ -- an empty value is refused, not silently read as 0 (nit 2)', async () => {
+  const est = await estate();
+  const base = ['--root-table', est.tablePath, '--tools-config', est.toolsPath,
+    '--pipeline-config', est.configPath, '--receipts', est.receiptsDir, '--deadline', '04:00'];
+  await assert.rejects(() => runNightlyCli([...base, '--no-start-within', ''], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_invalid');
+  await assert.rejects(() => runNightlyCli([...base, '--no-start-within', '-5'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_invalid');
+  await assert.rejects(() => runNightlyCli([...base, '--no-start-within', '3.5'], { now: '2026-09-20T18:00:00.000Z' }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_invalid');
+});
+
+test('runNightly: refuses a --no-start-within margin at or past the whole scheduled-start-to-deadline span (nit 3)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  // 00:00 start, 04:00 deadline: a 4-hour (240-minute) span.
+  await assert.rejects(() => runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: '2026-09-20', now: '2026-09-19T15:00:00.000Z',
+    deadline: '04:00', scheduledStart: '00:00', noStartWithinMinutes: 240,
+    runSession: async () => { throw new Error('must not run'); }, log: () => {} }),
+    error => error.code === 'voice_conversation_list_nightly_no_start_within_exceeds_span');
+  // Comfortably under the span is fine.
+  const ok = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: '2026-09-20', now: '2026-09-19T15:00:00.000Z',
+    deadline: '04:00', scheduledStart: '00:00', noStartWithinMinutes: 30,
+    runSession: async () => { throw new Error('must not run: no sessions this night'); }, log: () => {} });
+  assert.notEqual(ok.status, undefined); // did not throw
+});
+
+test('runNightly: records worst_case_session_minutes in the deadline block and warns when it exceeds no_start_within + hard-stop grace (nit 4)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  // DUMMY_PIPELINE has no config.limits/model, so build a pipeline whose
+  // worst case (llm_calls x timeout_ms) is deliberately huge: 60 calls x
+  // 120000ms = 7200000ms = 120 minutes, well past no_start_within (30m
+  // default) + HARD_STOP_GRACE_MINUTES (60m) = 90m.
+  const config = { limits: { llm_calls: 60 }, model: { timeout_ms: 120000 } };
+  const result = await runNightly({ io, tools, config, prompts: {}, promptDigests: {}, configSha256: 'deadbeef',
+    sessionsAddress: SESSIONS_ADDRESS, receiptsDir: est.receiptsDir, targetDate: target,
+    now: '2026-09-19T15:00:00.000Z', deadline: '10:00', scheduledStart: '00:00',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  assert.equal(result.receipt.deadline.worst_case_session_minutes, 120);
+  const warning = result.receipt.warnings.find(entry => entry.code === 'worst_case_session_exceeds_margin');
+  assert.ok(warning, 'a warning is recorded when the worst case exceeds no_start_within + grace');
+});
+
+test('runNightly: no worst-case warning when the pipeline\'s worst case fits within no_start_within + hard-stop grace (nit 4)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  // 5 calls x 60000ms = 300000ms = 5 minutes, well inside 30m + 60m = 90m.
+  const config = { limits: { llm_calls: 5 }, model: { timeout_ms: 60000 } };
+  const result = await runNightly({ io, tools, config, prompts: {}, promptDigests: {}, configSha256: 'deadbeef',
+    sessionsAddress: SESSIONS_ADDRESS, receiptsDir: est.receiptsDir, targetDate: target,
+    now: '2026-09-19T15:00:00.000Z', deadline: '10:00', scheduledStart: '00:00',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  assert.equal(result.receipt.deadline.worst_case_session_minutes, 5);
+  assert.ok(!result.receipt.warnings.some(entry => entry.code === 'worst_case_session_exceeds_margin'));
 });

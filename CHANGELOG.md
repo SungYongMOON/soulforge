@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2026-09-21 - 대화 목록 야간 lane 두 번째 신선한 눈 검토 정정: 재시도 쓰기, lock 문턱, 다중일 aging, exit code 전달
+
+- Revision: 이 항목을 포함한 커밋(같은 슬라이스, 두 번째 병합 전 신선한 눈 검토 — 첫 검토는 필수 없음으로
+  merge-ready 판정, 이 커밋은 should 4건과 저렴한 nit 5건 정정).
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`. **S1-1**:
+  `renameSync`가 대상 파일이 열려 있으면 Windows에서 `EPERM`으로 실패함을 실측 — 고치기 전엔 그 throw가
+  `runNightly` 밖으로 빠져나가 `chain: RUNNING`을 영원히 남기고 임시 파일을 고아로 만들고 깨끗한 밤을
+  FAILED로 보고했다. `atomicWriteFileSync`가 `EPERM`/`EACCES`/`EBUSY`를 최대 4회, 50ms 간격(`Atomics.wait`
+  동기 슬립)으로 재시도하고, 그래도 안 되면 대상에 직접 덮어쓰기로 물러난다(임시 파일은 어느 경로든
+  `finally`에서 항상 삭제). 재시도 대상이 아닌 오류는 즉시 그대로 던진다. **S5-1**: 고정 `STALE_LOCK_MS`
+  (3시간)는 00:00 시작+04:00 마감+60분 grace+연쇄가 이 lock을 약 5.5시간 쥘 수 있는 실제 구성보다 짧아,
+  수동 회차가 살아있는 lock을 stale로 오판해 가로채고 첫 회차의 `releaseLock`이 그 두 번째 lock을 지울 수
+  있었다. stale 문턱을 이 밤의 구성(예약된 시작→마감 스팬 + hard-stop grace + 연쇄면
+  `CHAIN_ALLOWANCE_MS`, 최저 `MIN_DEADLINE_STALE_LOCK_MS`=8시간)에서 유도하고(`staleLockMsFor`),
+  `releaseLock`은 디스크의 lock이 정확히 이 회차가 쓴 pid·started_at과 같을 때만 지운다. **R1b-1**:
+  `aged_out_unprocessed`가 정확히 하루만 봐서 이 필드가 존재하는 바로 그 경우(하룻밤 통째로 거름)에 하루를
+  조용히 잃었다 — 가장 최근 이전 영수증의 `ran_at`부터의 간격만큼(없으면 `MAX_AGED_OUT_LOOKBACK_DAYS`=7로
+  대체, 항상 7일 상한) 여러 날을 되돌아보고 날짜별로 묶어(`by_date`) 보고한다. **R1a-1**: exit code 4가
+  Task Scheduler까지 절대 닿지 않음을 실측 —
+  `ops/register-voice-conversation-list-task.ps1`의 `powershell.exe -Command "& node ..."`가 네이티브
+  명령의 종료 코드를 물려주지 않아(실측: 숨은 `.vbs` 런처까지 전체 경로로 확인, 모든 비영 코드가 맨 1로
+  뭉개짐) 생성된 명령 끝에 `; exit $LASTEXITCODE`를 더했다(실측: 이러면 4가 그대로 전달됨) — 기존
+  `action_sha256`/사후 XML 대조에 자동 포함되므로 별도 배선은 없었다. nit 5건: (1) harness가 `--deadline`
+  없는 `--no-start-within`/`--scheduled-start`를 거부하고 단독 `--scheduled-start`도 형식 검사, (2)
+  `--no-start-within`이 `/^\d+$/`만 받아 빈 문자열이 0으로 조용히 통과하던 것을 막음, (3) margin이 예약된
+  시작→마감 스팬 이상이면 거부, (4) `limits.llm_calls × model.timeout_ms`를
+  `worst_case_session_minutes`로 `deadline` 블록에 기록하고 `no_start_within + hard-stop grace`를 넘으면
+  경고, (5) 영수증 `schema_version`을 v2로(`status`가 값을 얻고 `chain`/`backlog`/`warnings`가 늘었으므로)
+  — `estate_voice_card_reconcile.mjs`의 배경 스캔이 `NIGHTLY_RECEIPT_SCHEMA_V1`도 같이 받아들이도록 고쳤다.
+- 운영 영향: 코드·문서 변경뿐이다. 실제 예약작업은 이 커밋으로 손대지 않았다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/README.md`.
+- 검증: `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`(86/86
+  pass), `npm run validate:context-engine`(671 tests, 663 pass·8 skip·0 fail), `npm run
+  validate:source-lane`(14/14), `npm run validate:voice-conversation-list`(51/51), `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations), PowerShell 5.1
+  파서로 등록기 구문 확인(`PARSE_OK`) + `; exit $LASTEXITCODE`를 실제 PowerShell 5.1 세션에서 node 종료
+  코드 4로 독립 실측(문구 없이는 1, 있으면 4). `npm run validate:deployment-pack`은 이 변경과 무관한 기존
+  "Universal Client transport bundle drifted"에서 멈춘다(이전 커밋에서 이미 origin/main 기준 재현 확인).
+  실제 `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
 ## 2026-09-21 - 대화 목록 야간 lane 신선한 눈 검토 정정: 마감-지남 상태, backlog aging 가시성, 연쇄 lock/원자적 쓰기
 
 - Revision: 이 항목을 포함한 커밋(직전 커밋 b57c4160/6fac8506의 같은 슬라이스, 병합 전 신선한 눈 검토 정정).

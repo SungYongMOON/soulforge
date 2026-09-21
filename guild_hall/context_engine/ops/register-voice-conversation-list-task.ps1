@@ -276,9 +276,19 @@ if ($LASTEXITCODE -ne 0) {
 
 $PowerShellExe = [IO.Path]::GetFullPath((Get-Command powershell.exe -ErrorAction Stop).Source)
 $WScriptExe = Join-Path $env:WINDIR "System32\wscript.exe"
+# R1a-1 (2026-09-21 review): `powershell.exe -Command "& node ..."` does NOT
+# propagate the native command's own exit code as its own -- measured
+# end to end through the hidden launcher, every non-zero code (SKIPPED_PAST_
+# DEADLINE's 4 included) collapsed to a bare 1 without this. `&` sets
+# `$LASTEXITCODE`; an explicit `exit` is what actually makes this
+# `-Command` invocation (and so `wscript.exe`'s own wait, and Task
+# Scheduler's own "last result") carry it. The trailing piece is built as
+# its own single-quoted (unexpanded) literal so `$LASTEXITCODE` reaches the
+# generated script text verbatim, not this registrar's own current value.
 $CommandScript = "& " + (ConvertTo-SingleQuotedLiteral -Value $NodePath) + " " `
   + (ConvertTo-SingleQuotedLiteral -Value $Entry) + " " `
-  + (($NightlyArguments | ForEach-Object { ConvertTo-SingleQuotedLiteral -Value ([string]$_) }) -join " ")
+  + (($NightlyArguments | ForEach-Object { ConvertTo-SingleQuotedLiteral -Value ([string]$_) }) -join " ") `
+  + "; exit " + '$LASTEXITCODE'
 $HiddenActionArgumentLine = (@(
   "//B", "//NoLogo", $HiddenLauncher, $PowerShellExe,
   "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",

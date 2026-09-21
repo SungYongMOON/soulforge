@@ -70,7 +70,8 @@ import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { classifyAttribution, linearCorroborates, mailCorroborates, projectAliasTerms,
   VOICE_ATTRIBUTION_POLICY_VERSION } from '../src/runtime/voice_attribution_policy.mjs';
 import { readVoiceSession } from '../src/runtime/voice_session_read.mjs';
-import { NIGHTLY_RECEIPT_SCHEMA, defaultTargetDate, seoulDateFor, shiftDate } from './voice_conversation_list_nightly.mjs';
+import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, defaultTargetDate, seoulDateFor, shiftDate }
+  from './voice_conversation_list_nightly.mjs';
 import { readRun } from './voice_conversation_list_cli.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
 import { latestPerObject, linearProjectsFor } from './estate_inventory.mjs';
@@ -294,7 +295,13 @@ function collectBacklogSessions(nightlyReceiptsDir) {
   for (const name of names.filter(entry => entry.endsWith('.json')).sort()) {
     let body;
     try { body = JSON.parse(readFileSync(path.join(nightlyReceiptsDir, name), 'utf8')); } catch { continue; }
-    if (body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA || !Array.isArray(body.sessions)) continue;
+    // nit 5 (2026-09-21 review): the nightly receipt schema moved to v2
+    // (`status` gained `SKIPPED_PAST_DEADLINE`, and the receipt gained
+    // `chain`/`backlog`/`warnings`) -- this reader only ever touches the
+    // unchanged `sessions` array below, so both versions are accepted
+    // rather than this pass silently going blind to every v2 receipt.
+    if ((body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA && body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA_V1)
+      || !Array.isArray(body.sessions)) continue;
     for (const row of body.sessions) {
       if (typeof row?.session_id !== 'string') continue;
       const settled = (row.outcome === 'ran' || row.outcome === 'skipped_existing') && row.verified === true;

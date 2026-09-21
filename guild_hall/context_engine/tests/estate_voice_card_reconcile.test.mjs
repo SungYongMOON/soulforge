@@ -12,7 +12,7 @@ import {
   MAX_RECONCILED_INDEX_PAIRS, RECONCILE_RECEIPT_SCHEMA, RECONCILED_INDEX_FILE, RECONCILED_INDEX_SCHEMA,
   aliasTermsByCode, corroborationFor, runReconcile, runReconcileCli,
 } from '../harness/estate_voice_card_reconcile.mjs';
-import { NIGHTLY_RECEIPT_SCHEMA } from '../harness/voice_conversation_list_nightly.mjs';
+import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1 } from '../harness/voice_conversation_list_nightly.mjs';
 import { readLedgerFile, runVoiceRouteCli } from '../harness/voice_route_cli.mjs';
 import { VOICE_ROUTE_LEDGER_SCHEMA } from '../harness/voice_routes.mjs';
 
@@ -827,6 +827,45 @@ test('--nightly-receipts reconciles every session three nightly receipts report 
     const ledger = readLedgerFile(path.join(est.controlRoot, 'voice-routes'), sessionId).ledger;
     assert.equal(ledger.segments.find(item => item.segment_id === 'c001').status, 'candidate');
   }
+});
+
+// nit 5 (2026-09-21 review): the nightly receipt schema moved to v2, and
+// this reader must not go blind to every v1-shaped receipt already sitting
+// in a real receipts directory -- both versions are accepted since this
+// reader only ever touches the `sessions` array, unchanged across the bump.
+test('--nightly-receipts accepts both the old (v1) and current (v2) nightly receipt schema_version', async () => {
+  const est = await estate();
+  const nightlyReceiptsDir = path.join(est.controlRoot, 'nightly-receipts');
+  await writeCard(est.derivedRoot, 'sess-v1', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await writeCard(est.derivedRoot, 'sess-v2', 'vcl_bbbbbbbbbbbbbbbb', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // A receipt written by a pre-bump nightly harness -- `schema_version` is
+  // literally the old string, not `NIGHTLY_RECEIPT_SCHEMA_V1`-derived, so
+  // this genuinely exercises the on-disk shape rather than the constant.
+  await mkdir(nightlyReceiptsDir, { recursive: true });
+  await writeFile(path.join(nightlyReceiptsDir, 'v1.json'), JSON.stringify({
+    schema_version: 'soulforge.voice_conversation_list_nightly_receipt.v1', ran_at: '2026-09-17T21:00:00.000Z',
+    target_date: '2026-09-17', dry: false, lock: {}, plan: { candidates: 1, processed: 1, max_sessions: 50, error: null },
+    sessions: [nightlyRow('sess-v1', 'vcl_aaaaaaaaaaaaaaaa', { date: '2026-09-17' })],
+    totals: { ran: 1, ran_unverified: 0, llm_calls: 0, seconds: 0 } }, null, 2));
+  assert.equal(NIGHTLY_RECEIPT_SCHEMA_V1, 'soulforge.voice_conversation_list_nightly_receipt.v1');
+  await writeNightlyReceipt(nightlyReceiptsDir, 'v2.json', { targetDate: '2026-09-18',
+    sessions: [nightlyRow('sess-v2', 'vcl_bbbbbbbbbbbbbbbb')] });
+  assert.notEqual(NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1); // the two really do differ
+
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir,
+    '--now', '2026-09-20T18:00:00.000Z']);
+
+  assert.equal(result.status, 'OK');
+  const bySession = Object.fromEntries(result.receipt.sessions.map(row => [row.session_id, row]));
+  assert.equal(bySession['sess-v1'].outcome, 'reconciled', 'the v1-schema receipt was not silently ignored');
+  assert.equal(bySession['sess-v2'].outcome, 'reconciled');
 });
 
 test('a (session_id, run_id) pair a backlog pass already reconciled is skipped by the next pass, but reconciled again once its run_id changes', async () => {

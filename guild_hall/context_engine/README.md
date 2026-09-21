@@ -99,12 +99,53 @@
 `-Register`를 더해 똑같은 명령을 다시 부른다. **경고**: `-DailyAt`을 빼면 sha 대조는 걸리지 않은 채로 조용히
 03:00로 되돌아간다 — 재등록 전 찍히는 `daily_at=` 줄이 그걸 미리 보여주는 유일한 자리다.
 
-시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 8건(기본 4건 + 정시
-00:00/04:00·정시 23:30/01:00·지각 시작 앵커링·동일값 거부), 마감 정지·다음 밤 픽업·마감 미도달·지각 시작
-즉시 정지 4건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 스텁 없이 실제 reconcile/present
-CLI를 부르는 종단 시험 2건(연쇄 기본 + null sha), 등록기 구조 시험 2건(PowerShell 실행 없이 소스 텍스트
-대조), R1(필수) 5건, S1(RUNNING+원자적 쓰기) 1건, S2(동일값 거부) 2건, S3(엄격한 flag) 1건, S4(시작 여유
-+hard-stop 경고) 3건, S5(lock 유지+LOCK_HELD) 2건, N1(sessions_left) 1건.
+두 번째 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전) — merge-ready 판정, 필수 없음, should 4건·저렴한 nit
+5건:
+- (S1-1) `renameSync`가 대상 파일이 이미 열려 있으면 Windows에서 `EPERM`으로 실패하는 것을 실측했다 — 고치기
+  전에는 그 throw가 `runNightly` 밖으로 그대로 빠져나가 `chain: RUNNING`을 영원히 남기고 임시 파일을 고아로
+  만들고 깨끗한 밤을 FAILED로 보고했다. `atomicWriteFileSync`가 이제 `EPERM`/`EACCES`/`EBUSY`를 몇 번(기본
+  4회) 짧은 지연(50ms, `Atomics.wait` 동기 슬립)을 두고 재시도하고, 그래도 안 되면 대상에 직접 덮어쓰기로
+  물러난다. 임시 파일은 어느 경로든 `finally`에서 항상 지운다. 재시도 대상이 아닌 오류(예: `ENOSPC`)는 즉시
+  그대로 던진다 — 조용한 대체 쓰기로 감추지 않는다.
+- (S5-1) `STALE_LOCK_MS`(3시간)는 00:00 시작+04:00 마감+60분 grace+연쇄가 이 lock을 약 5.5시간 쥘 수 있는
+  실제 구성보다 짧다 — 수동 회차가 살아있는 lock을 stale로 오판해 가로채고, 첫 회차가 자기 `releaseLock`으로
+  그 두 번째 회차의 새 lock을 지워버릴 수 있었다. 이제 stale 문턱은 이 밤의 구성(예약된 시작→마감 스팬 +
+  hard-stop grace + 연쇄면 `CHAIN_ALLOWANCE_MS`, 최저 `MIN_DEADLINE_STALE_LOCK_MS`=8시간)에서 유도한다
+  (`staleLockMsFor`). `releaseLock`은 이제 디스크의 lock이 정확히 이 회차가 쓴 pid·started_at과 같을 때만
+  지운다 — 다른 회차가 이미 가로챈 살아있는 lock은 그대로 둔다.
+- (R1b-1) `aged_out_unprocessed`가 정확히 하루(window 밖으로 막 떨어진 날)만 봐서, 이 필드가 존재하는 바로 그
+  경우(하룻밤을 통째로 걸러 뜀)에 하루를 조용히 잃었다. 이제 가장 최근 이전 영수증의 `ran_at`부터 오늘까지의
+  간격만큼(없으면 `MAX_AGED_OUT_LOOKBACK_DAYS`=7로 대체, 항상 7일 상한) 여러 날을 되돌아보고, 찾은 모든
+  미완 세션을 날짜별로 묶어(`by_date`) 보고한다.
+- (R1a-1) exit code 4가 Task Scheduler까지 절대 닿지 않았다 — `powershell.exe -Command "& node ..."`는
+  네이티브 명령의 종료 코드를 그대로 물려주지 않는다(실측: 숨은 `.vbs` 런처까지 전체 경로로 확인, 모든
+  비영 코드가 맨 1로 뭉개짐). 생성된 명령 스크립트 끝에 `; exit $LASTEXITCODE`를 더했다(실측: 이 문구가
+  있으면 4가 그대로 전달됨). 이 문구는 `$CommandScript`/`$HiddenActionArgumentLine`의 일부라 기존
+  `action_sha256` plan digest와 사후 XML 대조(인자 줄 전체 비교)에 별도 배선 없이 자동으로 포함된다.
+  exit code가 실제로 보이는지 이 파일 스스로는 검증할 수 없다는 점을 `main`의 주석에 정직하게 남겼다.
+- 저렴한 nit 5건: (1) harness가 `--deadline` 없이 준 `--no-start-within`/`--scheduled-start`를 거부하고,
+  단독 `--scheduled-start`도 형식 검사한다. (2) `--no-start-within`이 `/^\d+$/`만 받는다(빈 문자열이
+  `Number('')`=0으로 조용히 통과하던 것을 막음). (3) 마감 여유(margin)가 예약된 시작→마감 스팬 이상이면
+  거부한다(`deadlineSpanMs` 공유). (4) 파이프라인 설정의 `limits.llm_calls × model.timeout_ms`를
+  `worst_case_session_minutes`로 영수증 `deadline` 블록에 남기고, `no_start_within + hard-stop grace`를
+  넘으면 경고를 남긴다(브리핑까지의 여유는 계산하지 않는다, 요청대로). (5) 영수증 `schema_version`을
+  v2로 올렸다(`status`가 값을 얻고 `chain`/`backlog`/`warnings` 블록이 늘었으므로) —
+  `estate_voice_card_reconcile.mjs`의 배경 스캔은 `NIGHTLY_RECEIPT_SCHEMA_V1`도 같이 받아들이도록 고쳤다
+  (읽는 `sessions` 배열 자체는 안 바뀌었으므로).
+
+등록기가 실제로 만드는 마지막 명령줄(자리표시자, exit code 전달 확인용):
+```
+wscript.exe //B //NoLogo "<lane>\ops\run-voice-conversation-list-hidden.vbs" "<System32>\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "& '<node.exe>' '<lane>\...\voice_conversation_list_nightly.mjs' '--root-table' '<root_table.json>' '--root-table-sha256' 'sha256:<...>' '--tools-config' '<tools.json>' '--pipeline-config' '<pipeline.json>' '--receipts' '<receipts_dir>' '--max-sessions' '40' '--deadline' '04:00' '--scheduled-start' '00:00' ; exit $LASTEXITCODE"
+```
+
+시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 8건, 마감 정지·다음 밤
+픽업·마감 미도달·지각 시작 즉시 정지 4건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 실
+reconcile/present 종단 시험 2건, 등록기 구조 시험 3건(-DailyAt/-Deadline/-ChainReconcile·S2/S4/S6/N3·
+R1a-1, 전부 PowerShell 실행 없이 소스 텍스트 대조), R1(필수) 5건, S1 1건, S2 2건, S3 1건, S4 3건, S5 2건,
+N1 1건, S1-1(재시도·대체 쓰기·정리) 3건, S5-1(`staleLockMsFor` 3건 + 통합 1건 + `releaseLock` 소유권 3건),
+R1b-1(다중일 lookback) 1건, nit1/2(CLI 엄격 검사) 2건, nit3(margin≥span 거부) 1건, nit4(worst-case 경고)
+2건 — 총 86건, 전부 통과. `tests/estate_voice_card_reconcile.test.mjs`에 nit5(schema v1/v2 겸용 수용)
+1건 추가, 47건 전부 통과.
 
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 
