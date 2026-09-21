@@ -820,6 +820,78 @@ sends `initialize` then `initialized`, and cursor-paginates `thread/list`. It
 prefers `useStateDbOnly`; a server that rejects that parameter is retried once
 without it.
 
+### 메일 분류 키워드 (per-project mail routing rule panel)
+
+The 2026-09-21 owner decision put each project's mail classification rule on the
+private D: workspace plane as a file pair, one per project folder:
+`<workspacesRoot>/<CODE>_<짧은한글명>/020_MGMT/021_자동화설정_운영규칙/mail_routing_rule.json`
+(schema `soulforge.project_mail_routing_rule.v0`) with a human twin
+`mail_routing_rule.md` whose `## Owner 확인 기록 (…)` and
+`## Owner 확인이 필요한 것` sections are bullet lists. This slice makes those
+keywords visible on the project overview and scaffolds — but does not yet
+enable — editing them there.
+
+`src/server/mail-rule-adapter.mjs` (`createMailRulePlugin`) owns four loopback
+routes, all registered **only in `operations-preview.config.ts`** — the
+installed read-only Board's `vite.config.ts` does not carry this plugin, so the
+operational 4192 lane stays exactly as read-only as before this change:
+
+- `GET /mail-rules.snapshot.json` lists every direct child of
+  `TEAM_OPS_WORKSPACES_ROOT` whose name matches `^<CODE>_` and that resolves to
+  a real (non-symlink) directory holding a valid rule file; a project without a
+  rule file, or with an invalid one, is silently excluded rather than listed as
+  broken. Bounded to 500 scanned folders and 200 opened rule files.
+- `GET /mail-rule.snapshot.json?project=<CODE>` returns the parsed rule plus
+  `decisions`/`open_items` parsed from the md twin's two sections (bullets only,
+  ≤300 chars each, ≤30 per section — an overlong bullet is dropped, not
+  truncated) and `write_enabled`. The project code must match
+  `^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$`; the folder is resolved by an exact
+  `"<code>_"` prefix match, never by a path the caller supplies, and more than
+  one matching folder is reported `unavailable` (ambiguous) rather than guessed.
+  Both files are read through the existing `readStableFile` (symlink/hardlink/
+  reparse-safe, 256KB cap).
+- `POST /mail-rule/preview` and `POST /mail-rule/save` fully validate the
+  request (loopback + same-origin, `Content-Type: application/json`, body
+  ≤64KB, draft shape: ≤60 exact + ≤60 hint terms, literal ≤80 chars, regex
+  ≤120 chars and must compile, unique labels, note ≤500 chars) and then call an
+  injectable `core` object (`{ previewRule, saveRuleVersion, refresh }`). The
+  sibling `guild_hall/workspace_ledgers` module that will implement those three
+  calls is not merged yet (branch `claude/workspace-ledgers-v0` as of
+  2026-09-21), so the default `core` is a loader that tries
+  `import('../../../../../guild_hall/workspace_ledgers/src/mail_routing_rules.mjs')`
+  and answers `503 {"state":"core_module_unavailable"}` on every call until that
+  import resolves to a module exporting all three functions. **That exact
+  specifier string is a guess** (matched to the domain, not a confirmed file
+  name) — the one-line change to wire the real module is updating the
+  `CORE_MODULE_SPECIFIER` constant near the top of `mail-rule-adapter.mjs` to
+  the module's actual path once it lands (and, if its export names differ,
+  updating `CORE_EXPORTS` alongside it). No other file needs to change; tests
+  inject a fake `core` object directly and do not depend on that path.
+  `POST /mail-rule/save` refuses with `403 {"state":"write_disabled"}` before
+  any body parsing when `TEAM_OPS_MAIL_RULE_WRITE` is not the exact string
+  `'1'` (default off). The write path is a new-version contract: `saveRuleVersion`
+  is expected to append a new `rule_version`, never overwrite the current file
+  in place.
+
+`TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`, and
+`TEAM_OPS_MAIL_RULE_WRITE` ride the same allowlisted scheduled-runtime binding
+file as the five existing `operations-read-configuration.mjs` keys (explicit
+environment still wins over the binding file).
+
+`src/operations-mail-rules.tsx` (`MailRulePanel`) renders the "메일 분류 키워드"
+panel on the project overview only when a project is selected
+(`nav.project` from `operations-console.tsx`, threaded into
+`OperationsDashboard` as a new `project` prop). It shows the rule version and
+status badge, two chip groups ("확정 키워드" / "검토 힌트", with a `정규식` tag
+on regex terms), the `yields_to` exception as a sentence, and the two md-twin
+sections collapsed by default. Edit mode lets the Owner add/remove literal
+chips only (existing regex terms can be removed but never authored in the UI),
+write a note, and run "미리보기"/"새 판으로 저장" — both disabled with a
+one-line reason ("쓰기 꺼짐" / core `503`) whenever `write_enabled` is false or
+the core call answers unavailable. The chip add/remove/dedupe/limit arithmetic
+is the pure, DOM-free `src/core/mail-rule-chip-editor.mjs`. Styling lives in
+`src/operations-mail-rules.css`.
+
 ### Optional local tailnet Host allowlist
 
 Development and preview keep Vite's default Host policy unless the local process

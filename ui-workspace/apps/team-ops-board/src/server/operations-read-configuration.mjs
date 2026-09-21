@@ -3,6 +3,7 @@ import { readStableFile } from './receipt-expiry-adapter.mjs';
 const KEYS = Object.freeze([
   'TEAM_OPS_DIRECTORY_ROOT_TABLE', 'TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256',
   'TEAM_OPS_GRAPH_RECEIPTS_ROOT', 'TEAM_OPS_GRAPH_PROJECTS', 'TEAM_OPS_RESPONSE_AGENT_LABEL',
+  'TEAM_OPS_WORKSPACES_ROOT', 'TEAM_OPS_WORKMETA_ROOT', 'TEAM_OPS_MAIL_RULE_WRITE',
 ]);
 
 // The scheduled runtime deliberately strips arbitrary environment variables.
@@ -26,5 +27,10 @@ export async function readOperationsReadConfiguration({ bindingPath, env = proce
     graph: { receiptsRoot: settings.TEAM_OPS_GRAPH_RECEIPTS_ROOT,
       projects: (settings.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean),
       responseAgentLabel: settings.TEAM_OPS_RESPONSE_AGENT_LABEL },
+    // Per-project mail classification rule panel (2026-09-21 owner decision). The scheduled
+    // runtime cannot forward arbitrary env vars, so these three settings ride the same
+    // allowlisted binding file as the five keys above instead of raw process.env only.
+    mailRule: { workspacesRoot: settings.TEAM_OPS_WORKSPACES_ROOT, workmetaRoot: settings.TEAM_OPS_WORKMETA_ROOT,
+      writeEnabled: settings.TEAM_OPS_MAIL_RULE_WRITE === '1' },
   };
 }

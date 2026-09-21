@@ -9,6 +9,7 @@ import {sourceChoices,SourcesChart,SourceRecent} from './operations-source-panel
 import {OperationsJudgment,RagPipeline,LocalModels} from './operations-control';
 import {OperationsSummary} from './operations-summary';
 import {OperationsHostStrip} from './operations-host-strip';
+import {MailRulePanel} from './operations-mail-rules';
 type Row=Record<string,any>;
 type Open=(title:string,body:ReactNode)=>void;
 const number=(v:any)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ko-KR'):'—';
@@ -67,7 +68,7 @@ export function ServerStrip({data,failed=false}:{data?:Row;failed?:boolean}){
   return <><div className="vd-servers" aria-label="모델 서버 상태"><span className="vd-strip-label"><Server size={14}/>모델 API</span>{data?.hosts?.map((h:Row)=><button key={h.id} onClick={()=>open(h.label,<HostFacts host={h} retained={failed}/>)}><span className={`vd-dot ${failed?'muted':h.connection==='responding'?'blue':h.connection==='refused'?'red':'amber'}`}/><strong>{h.id==='gpu-response'?'GPU PC':h.id==='local-ollama'?'PC Ollama':h.label.replace(' · RAG 모델','')}</strong><small>{failed?'보존값':h.connection==='responding'?`정상 · ${number(h.elapsed_ms)} ms · ${h.resident_count===0?'메모리에 없음':typeof h.resident_count==='number'?h.resident_count+'개 메모리 사용':'메모리 상태 모름'}`:h.connection==='refused'?'이상 · 접속 거부':h.connection==='timeout'?'이상 · 응답 지연':'미확인'}</small><ChevronRight size={12}/></button>)}{!data?.hosts?.length&&<span className="vd-muted">조회 대기</span>}</div>{detail&&<Detail value={detail} close={close}/>}</>;
 }
 
-export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:Row;failed:string[];go:(n:any)=>void}){
+export function OperationsDashboard({model,inputs,failed,go,project}:{model:Row;inputs:Row;failed:string[];go:(n:any)=>void;project?:string}){
   const {detail,open,close}=useDetail(),[selectedDay,setSelectedDay]=useState<string|null>(null),[sourceId,setSourceId]=useState('all');
   const sources=sourceChoices(inputs);
   const work=dashboardWork(inputs,failed);
@@ -81,6 +82,7 @@ export function OperationsDashboard({model,inputs,failed,go}:{model:Row;inputs:R
   return <div className="vd-dashboard">
     <OperationsHostStrip snapshot={inputs.host} failed={failed.includes('host')}/>
     <OperationsSummary model={model} inputs={inputs} failed={failed} />
+    {project&&<MailRulePanel project={project}/>}
     <div className="oc-resource-layer"><QuotaStrip inputs={inputs} failed={failed}/><section className="vd-panel vd-usage"><header><h2>사용 추이</h2><Info label="사용량 기준" open={open}><p>기존 사용량 원장의 토큰 이력입니다. 모델/제공자와 7일/30일 전환을 유지합니다.</p><p>AG 요청은 같은 그래프 위의 선으로, 오른쪽 ‘회’ 축을 사용합니다. 왼쪽 토큰 합계에는 포함하지 않습니다. 날짜는 대화 관측일 기준이며, 토큰 미측정과 날짜 귀속 범위는 집계 범위에서 확인합니다.</p><p>관측 {when(inputs.usage?.history?.generated_at)}</p></Info><button className="vd-header-link" onClick={()=>go({screen:'usage',node:null})}>사용 이력<ArrowUpRight size={14}/></button></header>
       {failed.includes('usage')&&<span className="vd-small-state">보존 이력 · 새 조회 실패</span>}<UsageTrendChart usage={inputs.usage} onSelection={chooseUsage} compact collectorStatus={agCollectorStatus} />
     </section></div>

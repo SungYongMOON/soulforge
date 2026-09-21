@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-09-21 - 운영 콘솔에 프로젝트별 메일 분류 키워드 패널 추가 (읽기 완료 · 쓰기 뼈대만)
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: team-ops-board 운영 콘솔(`operations-console.html`) 프로젝트 개요 화면에
+  "메일 분류 키워드" 패널을 추가했다. 새 Vite 플러그인 `src/server/mail-rule-adapter.mjs`가
+  `GET /mail-rules.snapshot.json`(과제 목록 요약)과 `GET /mail-rule.snapshot.json?project=<CODE>`
+  (개별 과제의 `mail_routing_rule.json` + `mail_routing_rule.md`의 "Owner 확인 기록"/"Owner 확인이
+  필요한 것" 두 절)를 loopback GET 전용으로 읽는다. 프로젝트 코드는 정규식으로 검증하고 폴더는
+  `<workspacesRoot>`의 직접 자식 중 `"<code>_"` 접두어의 유일한 실제 디렉터리로만 해석하며(둘 이상
+  매칭 시 `unavailable`), 두 파일은 기존 `readStableFile`(symlink/hardlink/reparse 안전, 256KB
+  cap)로만 읽는다. `POST /mail-rule/preview`·`POST /mail-rule/save`는 요청을 전부 검증(loopback·
+  Origin·Content-Type·64KB 본문·초안 한도)한 뒤 주입 가능한 `core` 객체
+  (`previewRule`/`saveRuleVersion`/`refresh`)로 위임한다. 이 core를 구현할 `guild_hall/workspace_ledgers`
+  모듈이 아직 main에 없어(브랜치 `claude/workspace-ledgers-v0`, 미병합) 기본 core는 추정 경로
+  import를 시도하고 실패하면 `503 core_module_unavailable`을 반환한다. `POST /mail-rule/save`는
+  `TEAM_OPS_MAIL_RULE_WRITE`가 정확히 `'1'`이 아니면 다른 어떤 처리보다 먼저 `403 write_disabled`로
+  거부한다. 이 세 설정(+`TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`)은 기존 5개 키와 같은
+  `operations-read-configuration.mjs` 예약작업 바인딩 파일 경로를 공유한다. 플러그인은
+  `operations-preview.config.ts`에만 등록했고 설치된 read-only Board의 `vite.config.ts`는 건드리지
+  않았다. UI는 `src/operations-mail-rules.tsx`(`MailRulePanel`, `nav.project`를
+  `OperationsDashboard`의 새 `project` prop으로 전달)와 순수 칩 편집 리듀서
+  `src/core/mail-rule-chip-editor.mjs`(literal keyword 추가/삭제/중복 제거/한도)로 구성했다.
+  정규식 항목은 화면에서 제거만 가능하고 새로 작성할 수 없다.
+- 운영 영향: 읽기 경로는 바로 사용 가능하나(설정 시), 쓰기 경로는 core 모듈이 병합되기 전까지
+  항상 `503`을 반환한다(기본 `TEAM_OPS_MAIL_RULE_WRITE` 꺼짐이라 `save`는 그 전에 이미 `403`).
+  운영 4192 lane과 예약작업은 이 커밋으로 갱신되지 않는다(별도 미리보기 lane인
+  `operations-preview.config.ts`만 해당).
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.mjs`,
+  `ui-workspace/apps/team-ops-board/operations-preview.config.ts`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.css`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-dashboard.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-console.tsx`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+- 검증: 앱 `npm test`(server+core+design, 1077/1077), 루트 `npm run validate:team-ops-app`(동일,
+  1077/1077 — 새 cross-adapter guard 표(`loopback-request-guard.test.mjs`) 항목 포함), `tsc --noEmit`
+  통과, `npx vite build --config operations-preview.config.ts` 통과, 루트 `npm run ui:done:check`
+  통과(validate/lint(read-only boundary lint 포함)/docs/build×4/theme-pack 전부 PASS). 합성 과제
+  `P00-001_예시과제`로만 수동 확인했고 실제 과제 자료는 이 커밋에 없다.
+
 ## 2026-09-21 - AGENTS.md target 평면 문구 갱신 + 027 append-only 오기 정정
 
 - Revision: 이 항목을 포함한 커밋.
