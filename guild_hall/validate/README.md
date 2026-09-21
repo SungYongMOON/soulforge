@@ -14,6 +14,7 @@
   - root `validate` / `done:check` 단계 실행기
   - path-policy, role-boundary, canon, snapshot, activity, knowledge-access, town_crier, UI, gateway harness 를 한 entrypoint 로 묶음
   - AX·SE, Quality Readiness, Database Engineering과 P5 context-generation candidate Engine gate를 먼저 실행한 뒤 Watchtower federation과 Team Ops Board 소비자를 검증하여 생성물 drift를 fail-closed 처리
+  - (2026-09-21) `validate:context-engine`(graph index/database/extraction, planner, accepted-context pack, voice nightly lane, reconcile, release closure-digest 포함), `validate:context-original-read`, `validate:context-document-preparation`, `validate:context-docx-preparation`, `validate:project-document-pdf-profile` 를 `rag` 단계 바로 뒤에 배선해 두 모드 모두에서 실행. `validate:context-engine-t5` 는 실제 `pdfplumber` 가능 Python(`SOULFORGE_TEST_PDF_PYTHON`)이 로컬·CI 어디에도 없어 fixture가 무조건 실패하므로(다른 suite처럼 skip 처리되지 않음) 이번에는 배선하지 않았다 — gating 수정 전 별도 검토 필요
 - `local_absolute_path_policy.mjs`
   - concrete local absolute paths such as Windows drive-root paths, POSIX user-volume paths, and local file URI paths 를 차단
   - 기본 `changed` scope 는 현재 변경분만 검사해서 새 upload 후보에 절대경로가 섞이는 것을 막음
