@@ -60,8 +60,11 @@ export function acquireRefreshLock(workspacesRoot, now) {
     let existing;
     try { existing = JSON.parse(readFileSync(lockFile, 'utf8')); } catch { existing = {}; }
     const startedAt = typeof existing?.started_at === 'string' ? Date.parse(existing.started_at) : NaN;
-    const ageMs = Number.isFinite(startedAt) ? Math.max(0, Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
-    if (ageMs <= REFRESH_STALE_LOCK_MS) return { held: true, age_ms: ageMs };
+    // fresh-review-3 #12: a lock whose recorded start is in the *future* relative to
+    // `now` (clock skew, or corrupted data) must not be treated as fresh just because
+    // clamping a negative age to 0 makes it look brand new -- it is stale immediately.
+    const ageMs = Number.isFinite(startedAt) ? (Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
+    if (ageMs >= 0 && ageMs <= REFRESH_STALE_LOCK_MS) return { held: true, age_ms: ageMs };
     try { rmSync(lockFile, { force: true }); } catch (error) { fail('workspace_ledgers_refresh_lock_unavailable', error?.code); }
     try { writeFileSync(lockFile, encodeJson({ pid: process.pid, started_at: now, reclaimed_from: existing }), { flag: 'wx' }); }
     catch (error) { if (error?.code === 'EEXIST') return { held: true, age_ms: ageMs }; fail('workspace_ledgers_refresh_lock_unavailable', error?.code); }
@@ -86,12 +89,12 @@ function readOrgConfig(orgConfigPath) {
 }
 
 /**
- * Nit #10: the system-sender skip list used to be only the hardcoded vendor domains
- * in `mail_events.mjs`'s tracked source, with no way to override it from `refresh`/
- * the CLI. When the org config names its own `system_sender_domains`, those are used
- * instead; otherwise the module's built-in default list is unchanged. Only used by
- * `refresh()` -- `previewRule` has no org config to read and keeps the built-in
- * default, same as before.
+ * Nit #10/#11: the system-sender skip list used to be only the hardcoded vendor
+ * domains in `mail_events.mjs`'s tracked source, with no way to extend it from
+ * `refresh`/the CLI. When the org config names its own `system_sender_domains`, those
+ * are *merged into* the built-in list (never a replacement -- the built-in vendor
+ * domains are still real noise regardless of what an org config additionally names).
+ * `previewRule` (fresh-review-3 #6) reads this too, when given `orgConfigPath`.
  */
 function systemSenderPatternsFromConfig(orgConfig) {
   const domains = Array.isArray(orgConfig?.system_sender_domains)
@@ -99,7 +102,7 @@ function systemSenderPatternsFromConfig(orgConfig) {
     : [];
   if (domains.length === 0) return DEFAULT_SYSTEM_SENDER_PATTERNS;
   const escaped = domains.map(domain => domain.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'));
-  return [new RegExp(`@(${escaped.join('|')})$`, 'iu')];
+  return [...DEFAULT_SYSTEM_SENDER_PATTERNS, new RegExp(`@(${escaped.join('|')})$`, 'iu')];
 }
 
 function readAllRuleJson(workspacesRoot) {
@@ -114,14 +117,23 @@ function classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, sy
   return { events: [...hiworks.events, ...gmail.events], hiworks, gmail };
 }
 
+/** fresh-review-3 #10: `dir` (a full host-local path) never leaves this module -- only its basename and which flag it came from. */
+function redactUnreadableDirs(hiworksEntries, gmailEntries) {
+  return [
+    ...hiworksEntries.map(entry => ({ source: 'hiworks-events', dir: path.basename(entry.dir), code: entry.code })),
+    ...gmailEntries.map(entry => ({ source: 'gmail-sent-events', dir: path.basename(entry.dir), code: entry.code })),
+  ];
+}
+
 // ---------------------------------------------------------- S10: custody read cache
 // `previewRule` is called interactively (a console iterating on one draft rule) and
 // classifies the *same* custody window twice per call (once for the saved rules,
 // once with the draft substituted); repeated calls in a short span very often share
 // the "before" ruleset (and sometimes the exact same draft) entirely unchanged. This
-// cache keys on the actual rule JSON compared plus a cheap directory signature (file
-// names + size + mtime, not content), so a change to either invalidates the entry
-// immediately -- it never serves custody or rule state that could have changed.
+// cache keys on the actual rule JSON compared, a cheap directory signature (file
+// names + size + mtime, not content), and the resolved system-sender patterns
+// (fresh-review-3 #6) -- a change to any of those invalidates the entry immediately;
+// it never serves custody or rule state that could have changed.
 // `refresh()` (which writes real files) intentionally never reads through this cache.
 export const CUSTODY_CACHE_TTL_MS = 60 * 1000;
 const CUSTODY_CACHE_MAX_ENTRIES = 20;
@@ -141,14 +153,18 @@ function dirSignature(dir) {
   return `${dir}::${parts.join(',')}`;
 }
 function dirsSignature(dirs) { return dirs.map(dirSignature).join('|'); }
+function systemSenderSignature(patterns) {
+  return Array.isArray(patterns) ? patterns.map(pattern => `${pattern.source}//${pattern.flags}`).join(',') : 'default';
+}
 
-function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, ruleJsonList, now = Date.now() }) {
+function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, ruleJsonList, systemSenderPatterns, now = Date.now() }) {
   const key = JSON.stringify({
     rules: ruleJsonList, fields, hiworks: dirsSignature(hiworksDirs), gmail: dirsSignature(gmailSentDirs),
+    senders: systemSenderSignature(systemSenderPatterns),
   });
   const cached = custodyCache.get(key);
   if (cached && cached.expiresAt > now) return cached.value;
-  const value = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields });
+  const value = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns });
   custodyCache.set(key, { value, expiresAt: now + CUSTODY_CACHE_TTL_MS });
   if (custodyCache.size > CUSTODY_CACHE_MAX_ENTRIES) custodyCache.delete(custodyCache.keys().next().value);
   return value;
@@ -160,8 +176,22 @@ function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fiel
  * custody window. Classification always considers every onboarded project's rule (so
  * held/yield behaviour is accurate), but only `code`'s hit/miss transitions are
  * reported. Never writes.
+ *
+ * `orgConfigPath` (fresh-review-3 #6, optional) resolves `system_sender_domains` the
+ * same way `refresh()` does -- omitted, this uses the built-in default list only, as
+ * before. Passing it keeps `previewRule`'s counts consistent with what an actual
+ * `refresh()` against the same org config would produce; `saveRuleVersion` can render
+ * `previewRule`'s counts straight into the rule's markdown (`measured`), so a mismatch
+ * here would otherwise show up there.
+ *
+ * Saved rules (`beforeJson`, and every entry of `afterJson` except the draft itself)
+ * are compiled without re-running the ReDoS timing canaries (fresh-review-3 #5) --
+ * `validateRule` above already timed the draft when it validated it; re-timing
+ * everything here would be redundant for the draft and non-deterministic validation of
+ * already-trusted saved rules. The real per-mail matching still runs under
+ * `classifyMailBounded`'s timeout (via `mail_events.mjs`) regardless.
  */
-export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gmailSentDirs = [], fields = MATCH_FIELDS }) {
+export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gmailSentDirs = [], fields = MATCH_FIELDS, orgConfigPath = null }) {
   const all = readAllRuleJson(workspacesRoot);
   const target = all.find(row => row.project.project_code === code);
   const folderName = target ? target.project.folder_name : draft.folder_name ?? null;
@@ -169,13 +199,14 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   const validation = validateRule(nextDraft, { folderName });
   if (!validation.valid) fail('workspace_ledgers_rule_invalid', validation.errors.join(','));
 
+  const systemSenderPatterns = orgConfigPath ? systemSenderPatternsFromConfig(readOrgConfig(orgConfigPath)) : undefined;
   const beforeJson = all.map(row => row.json);
   const afterJson = target ? beforeJson.map(row => (row.project_code === code ? nextDraft : row)) : [...beforeJson, nextDraft];
-  const compiledBefore = compileRules(beforeJson);
-  const compiledAfter = compileRules(afterJson);
+  const compiledBefore = compileRules(beforeJson, { timeSafety: false });
+  const compiledAfter = compileRules(afterJson, { timeSafety: false });
 
-  const before = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledBefore, fields, ruleJsonList: beforeJson });
-  const after = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledAfter, fields, ruleJsonList: afterJson });
+  const before = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledBefore, fields, ruleJsonList: beforeJson, systemSenderPatterns });
+  const after = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledAfter, fields, ruleJsonList: afterJson, systemSenderPatterns });
   const keyOf = (event, index) => (event.event_id ? `id:${event.event_id}` : `idx:${index}:${event.subject}`);
   const beforeByKey = new Map(before.events.map((event, index) => [keyOf(event, index), event]));
   const afterByKey = new Map(after.events.map((event, index) => [keyOf(event, index), event]));
@@ -372,8 +403,10 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
   // Fresh-review-2 #1 (second half): zero fresh rows where the existing ledger had
   // content is exactly what a missing/misconfigured custody directory (or any other
   // silent input failure) produces -- indistinguishable, from here, from a genuinely
-  // mail-free refresh. Fail closed unless the caller explicitly opted in.
-  if (merge.rows.length === 0 && merge.beforeRowCount > 0 && !allowEmpty) {
+  // mail-free refresh. Fail closed unless the caller explicitly opted in (S4: scoped
+  // per project by the caller -- `allowEmpty` here is already that per-project boolean).
+  const emptyRefreshApplies = merge.rows.length === 0 && merge.beforeRowCount > 0;
+  if (emptyRefreshApplies && !allowEmpty) {
     return { failed: true, code: 'workspace_ledgers_ledger_empty_refresh_blocked', before_rows: merge.beforeRowCount,
       file: `${folder}/${relPath}`, written: false, changed: false };
   }
@@ -381,7 +414,7 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
   const changed = merge.oldText !== newText;
   const result = { failed: false, rows: merge.rows.length, before_rows: merge.beforeRowCount,
     preserved_owner_cells: merge.preservedCount, owner_cells_dropped_with_row: merge.ownerCellsDroppedWithRow,
-    collapsed_identical_rows: merge.collapsedIdenticalRows,
+    collapsed_identical_rows: merge.collapsedIdenticalRows, empty_allowed_applied: emptyRefreshApplies && allowEmpty,
     changed, sha256: sha256(newText) };
   if (dry || !changed) return { ...result, written: false };
   if (merge.oldText !== null) {
@@ -408,31 +441,45 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
  * suppressed -- this function always writes the receipt, dry or not, so a `--dry`
  * pass leaves an audit trail of what it previewed).
  *
+ * `allowEmpty` (fresh-review-3 #4) is a *list of project codes*, not a global switch
+ * -- only those projects may have a ledger rebuilt down to zero rows when it
+ * previously had content; every code that actually needed the override is echoed back
+ * in `receipt.allow_empty_applied_to`.
+ *
+ * fresh-review-3 #1: custody is classified *before* any file is written, and if any
+ * custody directory could not be read at all, this function writes the failed receipt
+ * and writes nothing else -- no ledger, no lineage, not even a header-only file for a
+ * brand-new project -- unless `allowPartialSources` is explicitly passed, in which
+ * case the run proceeds on whatever custody *was* readable and
+ * `receipt.allow_partial_sources_applied` is `true`. This closes the gap where a
+ * `--hiworks-events` typo used to let every other project's ledger already get
+ * rewritten (and only fail the empty-refresh guard, or not even that, on a
+ * still-being-onboarded project) before the run's overall failure was ever visible.
+ *
  * R4: a single ledger file that fails strict validation (see `validateExistingCsv`)
  * is skipped -- left untouched, recorded in `receipt.ledger_failures` -- while every
  * other file for every other project still refreshes normally. `receipt.status` is
  * `'failed'` whenever `ledger_failures` is non-empty, or when any custody directory
- * could not be read (`unreadable_dirs`) -- a directory that silently reads as empty
- * would otherwise make a `--hiworks-events` typo indistinguishable from a genuinely
- * mail-free window, and rebuild every ledger header-only. This function still
- * returns the receipt rather than throwing for either case, so a caller sees exactly
- * what succeeded and what did not; the CLI maps `status: 'failed'` to exit code 2.
- * If something unexpected throws mid-run instead, a best-effort failure receipt
- * (`status: 'failed'`, an `error` field) is still written before the error
- * propagates -- a thrown error never means "no audit trail at all".
+ * could not be read (`unreadable_dirs`, always true regardless of
+ * `allowPartialSources` -- the override changes what got written, not the visibility
+ * of the problem). This function still returns the receipt rather than throwing for
+ * either case, so a caller sees exactly what succeeded and what did not; the CLI maps
+ * `status: 'failed'` to exit code 2. If something unexpected throws mid-run instead, a
+ * best-effort failure receipt (`status: 'failed'`, an `error` field, and whatever
+ * project reports had already completed -- fresh-review-3 #7) is still written before
+ * the error propagates; the lock-held case (fresh-review-3 #14) gets the same
+ * treatment even though it never reaches the main try block.
  */
 export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects: onlyProjects = null,
-  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = false }) {
+  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [], allowPartialSources = false }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
   if (typeof receiptsDir !== 'string' || receiptsDir.trim() === '') fail('workspace_ledgers_receipts_dir_required');
+  const allowEmptyCodes = new Set(Array.isArray(allowEmpty) ? allowEmpty : []);
   const orgConfig = readOrgConfig(orgConfigPath);
   const { ourDomain } = makeOrgLookup(orgConfig);
   const systemSenderPatterns = systemSenderPatternsFromConfig(orgConfig);
-
-  const lock = acquireRefreshLock(workspacesRoot, now);
-  if (lock.held) fail('workspace_ledgers_refresh_lock_held');
 
   const writeReceiptFile = body => {
     try {
@@ -441,6 +488,33 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       atomicWriteText(path.join(receiptsDir, `refresh-${stamp}${dry ? '-dry' : ''}.json`), encodeJson(body));
     } catch { /* best effort: a receipt-write failure must never mask the original error */ }
   };
+  const baseReceipt = () => ({ schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields });
+
+  // fresh-review-3 #14: the lock-held case throws before the main try block below --
+  // it still gets a receipt of its own, since "refresh did not run because another
+  // one is in progress" is exactly the kind of thing an audit trail should say.
+  let lock;
+  try {
+    lock = acquireRefreshLock(workspacesRoot, now);
+  } catch (error) {
+    writeReceiptFile({ ...baseReceipt(), status: 'failed',
+      error: { code: error?.code ?? 'workspace_ledgers_refresh_lock_unavailable', message: error?.message ?? String(error) } });
+    throw error;
+  }
+  if (lock.held) {
+    writeReceiptFile({ ...baseReceipt(), status: 'failed',
+      error: { code: 'workspace_ledgers_refresh_lock_held', message: 'refresh lock already held' } });
+    fail('workspace_ledgers_refresh_lock_held');
+  }
+
+  // fresh-review-3 #7: hoisted so the catch block below can still report whatever
+  // completed before an unexpected throw, instead of a bare {status, error}.
+  const projectReports = [];
+  const ledgerFailures = [];
+  const allowEmptyAppliedTo = new Set();
+  let eventsScannedHiworks = 0, eventsScannedGmail = 0, skippedSystemTotal = 0;
+  let duplicatesDroppedTotal = 0, idCollisionsKeptTotal = 0, heldCount = 0, unattributed = 0;
+  let unreadableDirsRedacted = [];
 
   try {
     const all = readAllRuleJson(workspacesRoot);
@@ -449,11 +523,34 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     if (selectedCodes) {
       for (const code of selectedCodes) if (!all.some(row => row.project.project_code === code)) fail('workspace_ledgers_unknown_project', code);
     }
-    const compiledRules = compileRules(all.map(row => row.json));
+    // fresh-review-3 #5: saved rules are compiled without re-running the (non-
+    // deterministic) ReDoS timing canaries -- they were already timed when saved
+    // (`saveRuleVersion` -> `validateRule`, default `timeSafety: true`). The real
+    // per-mail matching below still runs under `classifyMailBounded`'s timeout.
+    const compiledRules = compileRules(all.map(row => row.json), { timeSafety: false });
     const { events, hiworks, gmail } = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns });
+    eventsScannedHiworks = hiworks.scanned; eventsScannedGmail = gmail.scanned;
+    skippedSystemTotal = hiworks.skippedSystem + gmail.skippedSystem;
+    duplicatesDroppedTotal = hiworks.duplicatesDropped + gmail.duplicatesDropped;
+    idCollisionsKeptTotal = hiworks.idCollisionsKept + gmail.idCollisionsKept;
+    unreadableDirsRedacted = redactUnreadableDirs(hiworks.unreadableDirs, gmail.unreadableDirs);
+
+    // fresh-review-3 #1: pre-write gate. An unreadable custody directory stops every
+    // write for this run -- not just the ones that happen to compute to zero rows --
+    // unless the caller explicitly opted into a partial-sources run.
+    if (unreadableDirsRedacted.length > 0 && !allowPartialSources) {
+      const receipt = {
+        ...baseReceipt(), status: 'failed',
+        events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
+        skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
+        unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [],
+        held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
+      };
+      writeReceiptFile(receipt);
+      return receipt;
+    }
 
     const buckets = new Map();
-    let heldCount = 0, unattributed = 0;
     for (const event of events) {
       if (event.match.held) { heldCount += 1; continue; }
       if (event.match.hits.length === 0) { unattributed += 1; continue; }
@@ -476,8 +573,6 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       }
     }
 
-    const projectReports = [];
-    const ledgerFailures = [];
     const recordResult = result => {
       if (result.failed) {
         ledgerFailures.push({ file: result.file, code: result.code, conflict_groups: result.conflict_groups ?? null });
@@ -490,6 +585,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       const mails = buckets.get(code) ?? [];
       const base = path.join(workspacesRoot, project.folder_name);
       const lineageBase = path.join(workmetaRoot, project.folder_name, 'lineage');
+      const allowEmptyForProject = allowEmptyCodes.has(code);
 
       const contacts = buildContacts({ code, mails, orgConfig, presenceByEmail });
       const history = buildHistory({ code, mails, orgConfig, ruleVersion: json.rule_version });
@@ -498,23 +594,24 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       const contactsResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, CONTACTS_REL), lineagePath: path.join(lineageBase, '연락처_장부.csv.lineage.json'),
         headers: contacts.headers, rows: contacts.rows, keyIndex: CONTACTS_KEY_INDEX, preserveIndices: CONTACTS_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry, allowEmpty,
+        code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry, allowEmpty: allowEmptyForProject,
       }));
       const recvResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, RECV_REL), lineagePath: path.join(lineageBase, '메일_수신이력.csv.lineage.json'),
         headers: history.headers, rows: history.received.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty,
+        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty: allowEmptyForProject,
       }));
       const sentResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, SENT_REL), lineagePath: path.join(lineageBase, '메일_발송이력.csv.lineage.json'),
         headers: history.headers, rows: history.sent.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty,
+        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty: allowEmptyForProject,
       }));
       const replyResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, REPLY_REL), lineagePath: path.join(lineageBase, '회신_현황.csv.lineage.json'),
         headers: reply.headers, rows: reply.rows, keyIndex: REPLY_KEY_INDEX, preserveIndices: REPLY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty,
+        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty: allowEmptyForProject,
       }));
+      if ([contactsResult, recvResult, sentResult, replyResult].some(result => result.empty_allowed_applied)) allowEmptyAppliedTo.add(code);
 
       projectReports.push({
         project_code: code, folder_name: project.folder_name, rule_version: json.rule_version,
@@ -525,24 +622,27 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       });
     }
 
-    const unreadableDirs = [...hiworks.unreadableDirs, ...gmail.unreadableDirs];
     const receipt = {
-      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields,
-      status: (ledgerFailures.length > 0 || unreadableDirs.length > 0) ? 'failed' : 'ok',
-      events_scanned: { hiworks: hiworks.scanned, gmail_sent: gmail.scanned },
-      skipped_system: hiworks.skippedSystem + gmail.skippedSystem,
-      duplicates_dropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
-      id_collisions_kept: hiworks.idCollisionsKept + gmail.idCollisionsKept,
-      unreadable_dirs: unreadableDirs,
+      ...baseReceipt(),
+      status: (ledgerFailures.length > 0 || unreadableDirsRedacted.length > 0) ? 'failed' : 'ok',
+      events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
+      skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
+      unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: unreadableDirsRedacted.length > 0 && allowPartialSources,
+      allow_empty_applied_to: [...allowEmptyAppliedTo],
       held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     };
     writeReceiptFile(receipt);
     return receipt;
   } catch (error) {
-    // S5 (fresh-review-2): whatever went wrong, the run still leaves an audit trail.
+    // S5 / fresh-review-3 #7: whatever went wrong, the run still leaves an audit
+    // trail -- including whatever project reports had already completed.
     writeReceiptFile({
-      schema_version: REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, fields, status: 'failed',
+      ...baseReceipt(), status: 'failed',
       error: { code: error?.code ?? 'workspace_ledgers_refresh_unexpected_error', message: error?.message ?? String(error) },
+      events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
+      skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
+      unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [...allowEmptyAppliedTo],
+      held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     });
     throw error;
   } finally {

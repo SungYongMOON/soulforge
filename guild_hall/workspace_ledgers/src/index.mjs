@@ -9,17 +9,27 @@
 //     -> [{ project_code, folder_name, rule_json_path, rule_md_path }]
 //   readRule({ workspacesRoot, code })
 //     -> { project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }
-//   previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields? })
+//   previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })
 //     -> { matched_before, matched_after, moved_in, moved_out, newly_held, samples }
+//        `orgConfigPath` (optional) resolves the same `system_sender_domains` merge a
+//        real `refresh()` against that config would use; omitted, only the built-in
+//        default skip list applies.
 //   saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })
 //     -> { project_code, folder_name, previous_version, rule_version, json_path, md_path,
 //          history_json_path, history_md_path, sha256_json, sha256_md }
 //   refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
-//             projects?, fields?, dry?, receiptsDir, now? })
+//             projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })
 //     -> the refresh receipt body (soulforge.workspace_ledgers_refresh_receipt.v1);
 //        `receipt.status` is `'failed'` when one or more ledger files failed strict
-//        validation and were left untouched (`receipt.ledger_failures`) -- every other
-//        file for every other project still refreshed.
+//        validation and were left untouched (`receipt.ledger_failures`), or when any
+//        custody directory could not be read (`receipt.unreadable_dirs`) -- every other
+//        file for every other project still refreshed. `allowEmpty` is a list of
+//        project codes (not a boolean) allowed to rebuild down to zero rows; codes that
+//        actually needed it are echoed in `receipt.allow_empty_applied_to`.
+//        `allowPartialSources` (default false): an unreadable custody directory blocks
+//        every write for the whole run unless this is explicitly true, in which case
+//        the run proceeds on whatever custody was readable
+//        (`receipt.allow_partial_sources_applied`).
 export { isMachineActor, listProjects, readRule, RuleStoreError, saveRuleVersion, validateRule } from './rule_store.mjs';
 export { clearCustodyCache, previewRule, refresh, RefreshError } from './refresh.mjs';
 export {

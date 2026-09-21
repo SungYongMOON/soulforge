@@ -1,5 +1,60 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 세 번째 신선한 검토(non-author) 반영: 쓰기 전 게이트·ReDoS 실측 경로·범위 축소
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋에 대한 세 번째 별도(non-author) fresh review의 필수
+  3·should 6·nit 5건을 반영했다. (1) 읽을 수 없는 custody 디렉터리가 있으면
+  `refresh()`가 어떤 프로젝트도 쓰기 전에 전체를 멈추도록 게이트를 custody 분류
+  직후, per-project 쓰기 루프보다 앞으로 옮겼다 -- 이전에는 오타 난 디렉터리
+  때문에 다른 프로젝트 대장은 이미 다 다시 쓰인 뒤에야 실패가 드러났다. 명시적
+  `allowPartialSources`(`--allow-partial-sources`)로만 부분 읽기 상태에서 진행할
+  수 있고, 그 사실은 영수증의 `allow_partial_sources_applied`에 남는다(R1). (2)
+  event_id 없는 두 줄이 완전히 동일한 바이트일 때 custody 읽기 단계
+  (`mail_events.mjs`)에서 원본 줄 해시로 미리 합쳐 하나의 사건으로 취급하도록
+  고쳤다 -- 이전에는 이 경우가 refresh의 "신선한 중복 키" 가드까지 그대로
+  넘어가 대장 쓰기 자체를 영구히 막았다(R2). (3) 초안 저장(`saveRuleVersion`)이
+  호출하는 컴파일은 여전히 ReDoS 타이밍 카나리를 돌리지만, 실제 custody 재분류
+  경로(`refresh()`가 이미 저장된 규칙을 다시 컴파일하는 경우, `previewRule`이
+  "before" 규칙 집합을 컴파일하는 경우)는 `timeSafety:false`로 카나리를 건너뛰고,
+  대신 실제 메일 매칭 한 건 한 건이 `node:vm` `timeout` 기반
+  `classifyMailBounded`로 실행되어 컴파일 시점을 통과한 위험한 정규식도 실제
+  매칭 중 잡아낸다(R3, R2 연속). (4) `--allow-empty`를 boolean에서 프로젝트 코드
+  배열로 바꿔, 한 프로젝트에 준 예외가 다른 프로젝트의 대장까지 조용히 비우지
+  않도록 범위를 좁혔다. 실제로 예외가 쓰인 코드만 영수증의
+  `allow_empty_applied_to`에 남는다(S4). (5) `previewRule`이 `orgConfigPath`를
+  받아 `refresh()`와 같은 `system_sender_domains` 병합 목록을 쓰도록 하고, S10
+  custody 읽기 캐시의 키에도 이를 포함시켰다(S6). (6) 실행 중 예상 밖 예외가
+  나도 그때까지 완료된 프로젝트별 보고가 실패 영수증에 남도록
+  `projectReports`/카운터를 catch 블록이 볼 수 있는 위치로 끌어올렸다(S7). (7)
+  `receipt.unreadable_dirs`가 host-local 절대경로 대신 파일명(basename)과 어느
+  플래그(`hiworks-events`/`gmail-sent-events`)에서 왔는지만 남기도록 고쳤다
+  (nit10). (8) org config의 `system_sender_domains`가 내장 벤더 도메인 목록을
+  대체하던 것을 병합으로 고쳤다(nit11). (9) `refresh.mjs`·`rule_store.mjs` 두
+  잠금 모두, `started_at`이 `now`보다 미래인(시계 오차·손상된 잠금 데이터) 경우
+  나이를 0으로 clamp해 "방금 생긴 새 잠금"처럼 보이던 버그를 고쳐 즉시 stale로
+  회수하게 했다(nit12). (10) 잠금이 이미 걸려 있어 조기 종료하는 경로도
+  `status:'failed'` 영수증을 먼저 쓴 뒤 던지도록 했다 -- 이전에는 이 경로에서
+  아무 영수증도 남지 않았다(nit14). (11) `rule_store.mjs`의 Owner 절 파싱을
+  두 헤딩만 알아보던 방식에서, Owner가 손으로 추가한 다른 `## ` 절도 원문 그대로
+  다음 저장에 이어지도록(펜스 코드블록 안의 `## `은 절 경계로 오인하지 않음)
+  범용 섹션 파서로 다시 썼다(nit13).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`를 호출하는 자동화가
+  `--allow-empty`를 boolean으로 넘기고 있었다면 이제 프로젝트 코드 목록으로
+  바꿔야 한다(하위호환 없음, 의도적). custody 디렉터리 오타가 있는 자동화는
+  이제 아무 대장도 쓰지 않고 실패하며, 기존처럼 부분 진행하려면
+  `--allow-partial-sources`를 명시해야 한다. 이 모듈은 여전히 020_MGMT의 고정
+  4개 상대경로(연락처_장부.csv, 메일_수신/발송이력.csv, 회신_현황.csv)와 021
+  규칙 파일 쌍만 읽고 쓴다 -- 그 폴더의 다른 파일(조직별·업무태그별 대장 등)은
+  나열조차 하지 않으므로 손대지 않는다. 프로젝트 폴더 수는
+  `listProjects`가 매 호출마다 workspacesRoot를 다시 스캔해 동적으로 세므로
+  실제 대상면에 프로젝트가 늘어나도(11 -> 12) 코드 변경이 필요 없다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README).
+- 검증: `npm run validate:workspace-ledgers`(98 tests pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0
+  violations), `npm run validate:canon`, 실제 대상면 `--dry --fields subject`
+  재확인(건수만, 쓰기 없음).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 두 번째 신선한 검토(non-author) 반영: 무결성·ReDoS·잠금 범위
 
 - Revision: 이 항목을 포함한 커밋.

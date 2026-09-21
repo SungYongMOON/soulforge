@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -158,6 +158,72 @@ test('loadMailEvents: distinct missing-event_id lines are never treated as dupli
     const { events, duplicatesDropped } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
     assert.equal(events.length, 2);
     assert.equal(duplicatesDropped, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (fresh-review-3 #2): two byte-identical no-id lines collapse as a duplicate, not a permanent fresh-duplicate-key failure', () => {
+  const dir = tempDir();
+  try {
+    // Custody is append-only: re-running against the same two identical lines every
+    // day must keep collapsing to one event, not fail every single run.
+    const line = { subject: '[P00-001] 반복', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] };
+    writeFileSync(path.join(dir, 'events.jsonl'), `${JSON.stringify(line)}\n${JSON.stringify(line)}`);
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, duplicatesDropped, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 1);
+    assert.equal(duplicatesDropped, 1);
+    assert.equal(idCollisionsKept, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (fresh-review-3 #8): a later-file read failure discards that whole directory, not just the failing file', () => {
+  const dir = tempDir();
+  try {
+    writeFileSync(path.join(dir, 'a-first.jsonl'), JSON.stringify(
+      { event_id: 'a1', subject: '[P00-001] 첫 파일', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] },
+    ));
+    // A later-sorting "file" that is actually a directory: readFileSync on it throws
+    // EISDIR once the generator reaches it.
+    mkdirSync(path.join(dir, 'b-second.jsonl'));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, unreadableDirs } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(unreadableDirs.length, 1);
+    assert.equal(unreadableDirs[0].dir, dir);
+    assert.equal(events.length, 0); // the readable first file's record is not silently kept either
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadMailEvents (fresh-review-3 #9): id-collision subgroup numbering is ordered by fingerprint string, not custody read order', () => {
+  const dir = tempDir();
+  try {
+    // Two files, read in name order: "b-later" sorts after "a-earlier". Both share the
+    // same event_id but have different fingerprints (different subjects). If the
+    // #2 suffix were assigned by read order, "a-earlier"'s content would be #1 and
+    // "b-later"'s would be #2. Ordering by fingerprint string instead makes the
+    // assignment depend only on content, so adding a new, earlier-sorting file later
+    // cannot silently renumber an existing subgroup.
+    const zSubjectLine = { event_id: 'shared', subject: '[P00-001] z 나중 정렬 제목', from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] };
+    const aSubjectLine = { event_id: 'shared', subject: '[P00-001] a 먼저 정렬 제목', from: 'b@example.com', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] };
+    // File read order: a-earlier.jsonl (zSubjectLine) then b-later.jsonl (aSubjectLine) --
+    // deliberately the opposite of fingerprint-sort order.
+    writeFileSync(path.join(dir, 'a-earlier.jsonl'), JSON.stringify(zSubjectLine));
+    writeFileSync(path.join(dir, 'b-later.jsonl'), JSON.stringify(aSubjectLine));
+    const compiled = compileRules([rule('P00-001', 'P00-001_x', [['P00-001', 'P00-001']])]);
+    const { events, idCollisionsKept } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled });
+    assert.equal(events.length, 2);
+    assert.equal(idCollisionsKept, 1);
+    // fingerprint("a 먼저...") sorts before fingerprint("z 나중...") lexically -> the
+    // "a 먼저" mail (read *second*, from b-later.jsonl) must be the unsuffixed #1.
+    const aEvent = events.find(event => event.subject.includes('a 먼저'));
+    const zEvent = events.find(event => event.subject.includes('z 나중'));
+    assert.equal(aEvent.event_id, 'shared');
+    assert.equal(zEvent.event_id, 'shared#2');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

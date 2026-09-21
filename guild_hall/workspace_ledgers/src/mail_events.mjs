@@ -11,7 +11,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { classifyMail, MATCH_FIELDS } from './classifier.mjs';
+import { classifyMail, classifyMailBounded, compiledRulesHaveRegex, MATCH_FIELDS } from './classifier.mjs';
 import { normalizeSubject } from './ledgers.mjs';
 
 export const DEFAULT_SYSTEM_SENDER_PATTERNS = Object.freeze([
@@ -101,44 +101,55 @@ function normalizeTimestamp(raw) {
   return Number.isNaN(parsed) ? raw : new Date(parsed).toISOString();
 }
 
+const sha256Hex = text => createHash('sha256').update(text).digest('hex');
+
 /**
- * S7 / fresh-review-2 fix #3: a content-derived id for an event whose custody record
- * carries no `event_id`. Hashes the *entire raw custody line* (not a handful of
- * derived fields) so two lines that differ in any way at all -- including fields this
- * module does not otherwise inspect, like recipients -- get different ids; only two
- * genuinely byte-identical lines can still collide, which is correct (they are the
- * same record repeated). This is vanishingly unlikely to collide in the general case,
- * not a cryptographic uniqueness guarantee -- `refresh.mjs`'s pre-write duplicate-key
- * check on the freshly built rows is the actual safety net if it ever does.
+ * S7 / fresh-review-2 #3: a content-derived id for an event whose custody record
+ * carries no `event_id`. Built from a hash of the *entire raw custody line*, not a
+ * handful of derived fields, so two lines that differ in any way at all -- including
+ * fields this module does not otherwise inspect, like recipients -- get different ids.
+ * (fresh-review-3 #8: only the hash is ever held in memory, never the raw line text
+ * itself -- see `readJsonlDir`.) This is vanishingly unlikely to collide in the
+ * general case, not a cryptographic uniqueness guarantee; two genuinely byte-identical
+ * no-id lines still hash the same, which is correct (see the raw-line-hash collapse in
+ * `loadMailEvents` below) -- `refresh.mjs`'s pre-write duplicate-key check on the
+ * freshly built rows is the remaining safety net for any other cause.
  */
-function syntheticEventId({ source, rawLine }) {
-  const digest = createHash('sha256').update(`${source}|${rawLine}`).digest('hex');
-  return `synthetic:${digest.slice(0, 16)}`;
+function syntheticEventId({ source, rawLineHash }) {
+  return `synthetic:${sha256Hex(`${source}|${rawLineHash}`).slice(0, 16)}`;
 }
 
 /**
- * Every parsed JSONL record directly under `dir` (`*.jsonl` files, sorted by name),
- * paired with its own raw line text. A plain (non-generator) function: `readdirSync`
- * and every `readFileSync` run eagerly inside this call, so any directory-read error
- * -- including a directory that does not exist at all (a `--hiworks-events` typo, most
- * dangerously) -- is thrown synchronously from *this call* and cannot slip past a
- * `try` that only wraps a generator's lazy construction. `loadMailEvents` below is the
- * only caller, and always treats a thrown error here as `unreadableDirs`, never as
- * "this directory is simply empty".
+ * S8 (fresh-review-3): lazily yields `{ raw, rawLineHash }` for every JSONL record
+ * directly under `dir` (`*.jsonl` files, sorted by name) -- a generator, so a large
+ * custody directory's files are read and discarded one at a time rather than all held
+ * in memory together, and only a hash of each raw line is ever kept (never the line
+ * text itself: `body_text` is already necessarily held per candidate for matching, and
+ * holding the *entire* raw line as well, for every candidate, for the whole pass,
+ * doubled that for no benefit once a hash suffices for identity).
+ *
+ * The one part of this that must NOT be lazy: `readdirSync(dir)` itself. It is called
+ * eagerly, synchronously, at the top of this function (before the generator's first
+ * `yield`), so a directory that cannot even be listed -- most dangerously, a
+ * `--hiworks-events` typo pointing at a path that does not exist -- throws
+ * synchronously from *this call*, not from the first iteration step. `loadMailEvents`
+ * wraps the call (not just iteration) in `try`, and treats any thrown error as
+ * `unreadableDirs`, never as "this directory is simply empty".
  */
-function readJsonlDir(dir) {
+function* readJsonlDir(dir) {
   const names = readdirSync(dir).filter(name => name.endsWith('.jsonl')).sort();
-  const records = [];
   for (const name of names) {
     const text = readFileSync(path.join(dir, name), 'utf8');
     for (const line of text.split('\n')) {
       if (!line.trim()) continue;
       if (Buffer.byteLength(line, 'utf8') > MAX_LINE_BYTES) continue;
-      try { records.push({ raw: JSON.parse(line), rawLine: line }); } catch { /* skip malformed line */ }
+      let raw;
+      try { raw = JSON.parse(line); } catch { continue; }
+      yield { raw, rawLineHash: sha256Hex(line) };
     }
   }
-  return records;
 }
+
 
 /** Cheap, order-independent identity fingerprint for a candidate: normalised subject + timestamp + sender address. Deliberately excludes attachment count -- real custody has been observed recording the same `event_id` twice with only the attachment count differing, and that must still count as one mail, not two. */
 function fingerprintOf(candidate) {
@@ -160,7 +171,11 @@ function collapseDuplicateGroup(group) {
  * Loads and classifies mail events from `dirs` (each a directory directly holding
  * `*.jsonl` custody files). `source` is a caller-chosen label attached to every
  * returned event (e.g. `하이웍스_수집`, `Gmail_보낸메일_수집`). `compiledRules` and
- * `fields` are passed straight to `classifyMail` per (deduped) candidate.
+ * `fields` are passed straight to classification per (deduped) candidate; matching
+ * runs under a per-mail `vm` timeout (`classifyMailBounded`) whenever `compiledRules`
+ * contains any regex term (`compiledRulesHaveRegex`) -- literal-only rule sets use the
+ * plain, faster `classifyMail` directly, since literal `.includes` matching cannot
+ * ReDoS.
  *
  * Custody itself repeats mails: the same `event_id` can appear on more than one line
  * (across files or within one), and the real hiworks custody has been observed doing
@@ -171,11 +186,21 @@ function collapseDuplicateGroup(group) {
  * whose members all share one fingerprint is a real duplicate: the richer (most
  * attachments; ties keep the later line) candidate survives, counted in
  * `duplicatesDropped`. A group with more than one distinct fingerprint keeps every
- * fingerprint-subgroup, counted in `id_collisions_kept`; every subgroup after the
- * first gets its `event_id` disambiguated (`<id>#2`, `<id>#3`, ...) so two genuinely
- * different mails never collide on the same downstream 이력키. A missing `event_id`
- * is never grouped with another missing one -- each such candidate gets its own
- * content-derived synthetic id (see `syntheticEventId`).
+ * fingerprint-subgroup, counted in `id_collisions_kept`; subgroups are ordered by their
+ * own fingerprint *string* (fresh-review-3 #9), not by custody read order -- read order
+ * depends on which files exist and how they sort, so keying the `#2`/`#3` suffix on it
+ * meant adding an earlier-sorting custody file could silently renumber an existing
+ * subgroup and drop whatever Owner cell was keyed to its old 이력키. Every subgroup
+ * after the first (in that deterministic order) gets its `event_id` disambiguated
+ * (`<id>#2`, `<id>#3`, ...) so two genuinely different mails never collide on the same
+ * downstream 이력키.
+ *
+ * A missing `event_id` never groups with a *different* raw line, but two lines with no
+ * `event_id` that are byte-identical are still the same repeated mail (custody is
+ * append-only, so this recurs on every future run) -- they are grouped by a hash of
+ * their raw line and collapsed exactly like any other duplicate, also counted in
+ * `duplicatesDropped`. A no-id candidate that survives gets a content-derived synthetic
+ * id (`syntheticEventId`).
  *
  * Returns `{ events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept,
  * unreadableDirs }`. `events[]` never carries `body_text` or attachment names -- only
@@ -186,36 +211,66 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
   const unreadableDirs = [];
   let scanned = 0, skippedSystem = 0;
   const candidates = [];
-  for (const dir of dirs) {
-    let records;
-    try { records = readJsonlDir(dir); }
-    catch (error) { unreadableDirs.push({ dir, code: error?.code ?? 'workspace_ledgers_mail_dir_unreadable' }); continue; }
-    for (const { raw, rawLine } of records) {
-      const subject = String(raw.subject ?? '');
-      if (!subject) continue;
-      scanned += 1;
-      const from = parseAddressField(raw.from)[0] ?? null;
-      if (isSystemSender(from, systemSenderPatterns) || isSkippedSubject(subject, skipSubjectPatterns)) {
-        skippedSystem += 1;
-        continue;
-      }
-      const to = parseAddressField(raw.to);
-      const cc = parseAddressField(raw.cc);
-      const attachmentNames = Array.isArray(raw.attachments)
-        ? raw.attachments.map(entry => String(typeof entry === 'string' ? entry : entry?.name ?? entry?.filename ?? '')).filter(Boolean)
-        : [];
-      const bodyText = String(raw.body_text ?? '');
-      const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
-      const rawEventId = String(raw.event_id ?? '').trim();
-      candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, rawLine });
+  const useBoundedMatch = compiledRulesHaveRegex(compiledRules);
+  const classify = mail => (useBoundedMatch ? classifyMailBounded(mail, compiledRules, { fields }) : classifyMail(mail, compiledRules, { fields }));
+
+  const consumeRecord = ({ raw, rawLineHash }, into) => {
+    const subject = String(raw.subject ?? '');
+    if (!subject) return;
+    into.scanned += 1;
+    const from = parseAddressField(raw.from)[0] ?? null;
+    if (isSystemSender(from, systemSenderPatterns) || isSkippedSubject(subject, skipSubjectPatterns)) {
+      into.skippedSystem += 1;
+      return;
     }
+    const to = parseAddressField(raw.to);
+    const cc = parseAddressField(raw.cc);
+    const attachmentNames = Array.isArray(raw.attachments)
+      ? raw.attachments.map(entry => String(typeof entry === 'string' ? entry : entry?.name ?? entry?.filename ?? '')).filter(Boolean)
+      : [];
+    const bodyText = String(raw.body_text ?? '');
+    const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
+    const rawEventId = String(raw.event_id ?? '').trim();
+    into.candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, rawLineHash });
+  };
+
+  for (const dir of dirs) {
+    // Buffered per directory (not per whole call): a mid-directory read failure (a
+    // later file in an otherwise-readable directory) must not leave that directory's
+    // already-consumed records silently mixed into the result while it is also
+    // reported as unreadable -- either the whole directory's records commit, or none
+    // of them do. This does not defeat the laziness above: only one directory's worth
+    // of records is ever ​buffered at a time, not every directory's at once.
+    const local = { candidates: [], scanned: 0, skippedSystem: 0 };
+    try {
+      const iterator = readJsonlDir(dir);
+      // Forces `readdirSync` (and, for a non-empty directory, the first file's first
+      // line) to run *now*, so a directory-level error surfaces from this very call --
+      // everything after this first step stays lazy, one record at a time, per S8.
+      const probe = iterator.next();
+      if (!probe.done) {
+        consumeRecord(probe.value, local);
+        for (const record of iterator) consumeRecord(record, local);
+      }
+    } catch (error) {
+      unreadableDirs.push({ dir, code: error?.code ?? 'workspace_ledgers_mail_dir_unreadable' });
+      continue;
+    }
+    candidates.push(...local.candidates);
+    scanned += local.scanned;
+    skippedSystem += local.skippedSystem;
   }
 
-  // Group by raw event_id (non-empty only); a missing id never groups with another.
+  // Group by raw event_id (non-empty only); a missing id groups by raw-line hash instead.
   const byRawId = new Map();
-  const noIdCandidates = [];
+  const byRawLineHash = new Map();
   candidates.forEach(candidate => {
-    if (candidate.rawEventId === '') { noIdCandidates.push(candidate); return; }
+    if (candidate.rawEventId === '') {
+      const list = byRawLineHash.get(candidate.rawLineHash) ?? [];
+      list.push(candidate);
+      byRawLineHash.set(candidate.rawLineHash, list);
+      return;
+    }
     const list = byRawId.get(candidate.rawEventId) ?? [];
     list.push(candidate);
     byRawId.set(candidate.rawEventId, list);
@@ -234,28 +289,31 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
       list.push(candidate);
       byFingerprint.set(fp, list);
     }
-    let subgroupIndex = 0;
-    for (const fingerprintGroup of byFingerprint.values()) {
-      subgroupIndex += 1;
-      const { kept, droppedCount } = collapseDuplicateGroup(fingerprintGroup);
+    const sortedFingerprints = [...byFingerprint.keys()].sort();
+    sortedFingerprints.forEach((fp, index) => {
+      const { kept, droppedCount } = collapseDuplicateGroup(byFingerprint.get(fp));
       duplicatesDropped += droppedCount;
-      if (subgroupIndex === 1) {
+      if (index === 0) {
         survivors.push({ candidate: kept, effectiveEventId: rawId });
       } else {
         idCollisionsKept += 1;
-        survivors.push({ candidate: kept, effectiveEventId: `${rawId}#${subgroupIndex}` });
+        survivors.push({ candidate: kept, effectiveEventId: `${rawId}#${index + 1}` });
       }
-    }
+    });
   }
-  for (const candidate of noIdCandidates) survivors.push({ candidate, effectiveEventId: null });
+  for (const group of byRawLineHash.values()) {
+    const { kept, droppedCount } = collapseDuplicateGroup(group);
+    duplicatesDropped += droppedCount;
+    survivors.push({ candidate: kept, effectiveEventId: null });
+  }
 
   const events = [];
   for (const { candidate, effectiveEventId } of survivors) {
-    const { subject, from, to, cc, attachmentNames, bodyText, at, rawLine } = candidate;
-    const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
-    const eventId = effectiveEventId ?? syntheticEventId({ source, rawLine });
+    const { subject, from, to, cc, attachmentNames, bodyText, at, rawLineHash } = candidate;
+    const match = classify({ subject, body_text: bodyText, attachment_names: attachmentNames });
+    const eventId = effectiveEventId ?? syntheticEventId({ source, rawLineHash });
     events.push({ source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match });
-    // bodyText / attachmentNames go out of scope here: never attached to `events`.
+    // bodyText / attachmentNames / rawLineHash go out of scope here: never attached to `events`.
   }
   return { events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs };
 }

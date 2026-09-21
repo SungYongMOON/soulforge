@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  classifyMail, compileRule, compileRules, compileTerm, hintCodes, MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES,
-  normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
+  classifyMail, classifyMailBounded, compiledRulesHaveRegex, compileRule, compileRules, compileTerm, hintCodes,
+  MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES, normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
 } from '../src/classifier.mjs';
 
 const lit = (label, value) => ({ label, kind: 'literal', value });
@@ -121,6 +121,60 @@ test('compileTerm (fresh-review-2 #2): a timing canary catches ReDoS shapes the 
     error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe');
   assert.throws(() => compileTerm(rx('redos-alt-2', '^([a-z]|[a-z])+$')), error =>
     error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe');
+});
+
+test('compileTerm (fresh-review-3 #3): multi-alphabet canaries catch ReDoS patterns an ASCII-only canary would miss', () => {
+  // An 'a'-only canary never enters a Hangul or digit character class, so it never
+  // backtracks against either of these -- this module is mostly Korean keywords, so
+  // this gap mattered in practice.
+  assert.throws(() => compileTerm(rx('redos-hangul', '^([가-힣]|[가-힣])+$')), error =>
+    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe');
+  assert.throws(() => compileTerm(rx('redos-digit', '^([0-9]|[0-9])+-([0-9]|[0-9])+$')), error =>
+    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe');
+});
+
+test('compileTerm/compileRule/compileRules (fresh-review-3 #5): timeSafety:false skips the canary run (draft-only timing)', () => {
+  // A saved rule is re-compiled at refresh time without re-running the (non-
+  // deterministic, GC-stall-sensitive) timing canaries -- it relies on the bounded
+  // real-match path instead. With timeSafety:false, even a known-bad pattern compiles.
+  const term = compileTerm(rx('redos-alt-1', '^(a|a)+$'), { timeSafety: false });
+  assert.equal(term.kind, 'regex');
+
+  const badRule = {
+    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
+    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [rx('redos-alt-1', '^(a|a)+$')], hint: [], yields_to: null,
+    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+  };
+  assert.throws(() => compileRule(badRule)); // default timeSafety:true still rejects it
+  const compiled = compileRule(badRule, { timeSafety: false }); // explicit opt-out compiles
+  assert.equal(compiled.project_code, 'P00-001');
+  const compiledList = compileRules([badRule], { timeSafety: false });
+  assert.equal(compiledList.length, 1);
+});
+
+test('classifyMailBounded (fresh-review-3 #3, second half): catches a runaway regex on the real match path even if it slipped past compile time', () => {
+  const badRuleJson = {
+    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
+    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [rx('redos-alt-1', '^(a|a)+$')], hint: [], yields_to: null,
+    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+  };
+  const compiled = compileRules([badRuleJson], { timeSafety: false });
+  assert.equal(compiledRulesHaveRegex(compiled), true);
+  const mail = { subject: '', body_text: `${'a'.repeat(35)}!`, attachment_names: [] };
+  assert.throws(() => classifyMailBounded(mail, compiled, { fields: ['body_text'] }), error =>
+    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe_at_match');
+});
+
+test('compiledRulesHaveRegex: false for a literal-only rule set', () => {
+  const literalRule = {
+    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
+    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [lit('X', 'widget')], hint: [], yields_to: null,
+    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+  };
+  assert.equal(compiledRulesHaveRegex(compileRules([literalRule])), false);
 });
 
 test('compileTerm: every regex term in examples/rule.example.json still validates', () => {

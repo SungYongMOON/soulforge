@@ -258,6 +258,32 @@ test('previewRule: a repeated call against unchanged custody and rules is served
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('previewRule (fresh-review-3 #6): orgConfigPath resolves system_sender_domains the same way a real refresh() would', () => {
+  const fixture = makeFixture();
+  try {
+    clearCustodyCache();
+    writeFileSync(path.join(fixture.hiworksDir, 'vendor.jsonl'), jsonl([
+      { event_id: 'v1', subject: '[P00-001] 예시장비 알림', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
+    // Without orgConfigPath, only the built-in skip list applies -- vendor.example is
+    // not in it, so v1 is classified and counted.
+    const withoutOrgConfig = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    const orgConfigWithVendorSkip = path.join(fixture.root, 'org_config_vendor_skip.json');
+    writeFileSync(orgConfigWithVendorSkip, JSON.stringify({
+      our_domain: 'example.com', organisations: {}, family: {}, system_sender_domains: ['vendor.example'],
+    }));
+    // With orgConfigPath, vendor.example is skipped too (merged with the built-in
+    // list per NIT11) -- v1 must no longer contribute to matched_before, and the S10
+    // cache (keyed partly on the resolved sender patterns) must not serve the
+    // no-orgConfigPath result for this differently-configured call.
+    const withOrgConfig = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: orgConfigWithVendorSkip });
+    assert.equal(withOrgConfig.matched_before, withoutOrgConfig.matched_before - 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 // ---------------------------------------------------------------------- R4/S9/S13
 function corruptContacts(fixture, mutate) {
   refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
@@ -404,7 +430,7 @@ test('refresh: a key that leaves custody drops its Owner-entered cell, counted i
     // accounting, not about the new empty-refresh guard (covered separately).
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
-      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowEmpty: true });
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowEmpty: [CODE_A] });
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.contacts.owner_cells_dropped_with_row, 1);
     // survives only in the history archive, per README
@@ -441,7 +467,7 @@ test('refresh (S13): a history archive collision at the same stamp appends a cou
 });
 
 // -------------------------------------------------------- fresh-review-2 regressions
-test('refresh (fresh-review-2 #1): an unreadable custody directory is receipt-visible and blocked from emptying populated ledgers', () => {
+test('refresh (fresh-review-3 #1): by default, an unreadable custody directory blocks every write for the whole run', () => {
   const fixture = makeFixture();
   try {
     refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
@@ -449,6 +475,7 @@ test('refresh (fresh-review-2 #1): an unreadable custody directory is receipt-vi
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
     const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
     const before = readFileSync(cPath, 'utf8');
+    const beforeMtime = readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8');
 
     const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
     const gmailTypoDir = path.join(fixture.gmailDir, 'typo-does-not-exist');
@@ -458,15 +485,18 @@ test('refresh (fresh-review-2 #1): an unreadable custody directory is receipt-vi
 
     assert.equal(receipt.status, 'failed');
     assert.equal(receipt.unreadable_dirs.length, 2);
+    assert.equal(receipt.allow_partial_sources_applied, false);
     assert.equal(receipt.events_scanned.hiworks, 0);
-    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
-    assert.equal(reportA.contacts.failed, true);
-    assert.equal(reportA.contacts.code, 'workspace_ledgers_ledger_empty_refresh_blocked');
+    // Pre-write gate: no project is even attempted -- not "attempted and blocked by
+    // the empty-refresh guard" (the old per-file behaviour), but never reached at all.
+    assert.equal(receipt.projects.length, 0);
+    assert.equal(receipt.ledger_failures.length, 0);
     assert.equal(readFileSync(cPath, 'utf8'), before); // untouched -- never silently emptied
+    assert.equal(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'), beforeMtime);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('refresh (fresh-review-2 #1): allowEmpty explicitly overrides the empty-refresh guard, but unreadable_dirs still marks the run failed', () => {
+test('refresh (fresh-review-3 #1/#4): allowPartialSources proceeds on whatever custody was readable, scoped by allowEmpty per project', () => {
   const fixture = makeFixture();
   try {
     refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
@@ -476,15 +506,22 @@ test('refresh (fresh-review-2 #1): allowEmpty explicitly overrides the empty-ref
     const gmailTypoDir = path.join(fixture.gmailDir, 'typo-does-not-exist');
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [typoDir], gmailSentDirs: [gmailTypoDir], orgConfigPath: fixture.orgConfigPath,
-      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowEmpty: true });
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowPartialSources: true, allowEmpty: [CODE_A] });
+    assert.equal(receipt.status, 'failed'); // unreadable_dirs is still the visible signal
+    assert.equal(receipt.allow_partial_sources_applied, true);
+    assert.deepEqual(receipt.allow_empty_applied_to, [CODE_A]);
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.contacts.failed, false);
-    assert.equal(reportA.contacts.rows, 0); // genuinely rebuilt empty, as explicitly allowed
-    assert.equal(receipt.status, 'failed'); // still failed -- the unreadable dirs themselves are the visible signal
+    assert.equal(reportA.contacts.rows, 0); // genuinely rebuilt empty, as explicitly allowed for CODE_A
+    // CODE_B was NOT named in allowEmpty -- it still fails closed rather than being
+    // silently emptied just because CODE_A's override was granted (S4: scoped, not global).
+    const reportB = receipt.projects.find(row => row.project_code === CODE_B);
+    assert.equal(reportB.contacts.failed, true);
+    assert.equal(reportB.contacts.code, 'workspace_ledgers_ledger_empty_refresh_blocked');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('refresh (fresh-review-2 #3): two byte-identical no-id custody lines fail closed on a fresh duplicate key rather than corrupt the ledger', () => {
+test('refresh (fresh-review-3 #2): two byte-identical no-id custody lines collapse upstream (mail_events) and refresh succeeds', () => {
   const fixture = makeFixture();
   try {
     const line = { subject: '[P00-001] 반복 접수', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T08:00:00Z', body_text: '', attachments: [] };
@@ -493,11 +530,12 @@ test('refresh (fresh-review-2 #3): two byte-identical no-id custody lines fail c
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.status, 'ok');
+    assert.equal(receipt.duplicates_dropped, 1); // the two byte-identical lines collapse to one event upstream
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
-    assert.equal(reportA.received_history.failed, true);
-    assert.equal(reportA.received_history.code, 'workspace_ledgers_ledger_fresh_duplicate_key');
-    assert.equal(receipt.status, 'failed');
-    assert.equal(existsSync(recvPath(fixture.workspacesRoot, FOLDER_A)), false); // never written in the first place
+    assert.equal(reportA.received_history.failed, false);
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    assert.equal(recvCsv.rows.filter(row => row[10] === '[P00-001] 반복 접수').length, 1); // one row, not two
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -521,6 +559,79 @@ test('refresh (fresh-review-2 #5): a thrown error still leaves a status:failed r
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('refresh (fresh-review-3 #10): unreadable_dirs never carries a host-local path, only a basename and which flag it came from', () => {
+  const fixture = makeFixture();
+  try {
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const gmailTypoDir = path.join(fixture.gmailDir, 'typo-does-not-exist');
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [typoDir], gmailSentDirs: [gmailTypoDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.unreadable_dirs.length, 2);
+    for (const entry of receipt.unreadable_dirs) {
+      assert.equal(entry.dir, 'typo-does-not-exist'); // basename only -- never the full host path
+      assert.equal(entry.dir.includes(path.sep), false);
+      assert.ok(['hiworks-events', 'gmail-sent-events'].includes(entry.source)); // which flag it came from
+      assert.ok(typeof entry.code === 'string');
+    }
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-3 #12): a refresh lock whose started_at is in the future relative to now is treated as stale', () => {
+  const fixture = makeFixture();
+  try {
+    const lockFile = path.join(fixture.workspacesRoot, '.workspace_ledgers_refresh.lock');
+    writeFileSync(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-09-02T00:10:00.000Z' }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.status, 'ok');
+    assert.equal(existsSync(lockFile), false); // reclaimed and released, not left held
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-3 #14): the lock-held early exit still writes a failure receipt', () => {
+  const fixture = makeFixture();
+  try {
+    const lockFile = path.join(fixture.workspacesRoot, '.workspace_ledgers_refresh.lock');
+    writeFileSync(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-09-02T00:00:00.000Z' }));
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:01:00.000Z' }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_refresh_lock_held');
+    const receiptFiles = readdirSync(fixture.receiptsDir).filter(name => name.endsWith('.json'));
+    assert.equal(receiptFiles.length, 1); // previously: nothing was written for this early-exit path
+    const body = JSON.parse(readFileSync(path.join(fixture.receiptsDir, receiptFiles[0]), 'utf8'));
+    assert.equal(body.status, 'failed');
+    assert.equal(body.error.code, 'workspace_ledgers_refresh_lock_held');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-3 #7): an unexpected throw mid-run still reports whichever earlier projects completed', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    // Replace project B's contacts folder with a plain file so writing project B's
+    // ledger throws mid-run (ENOTDIR), well after project A (processed first,
+    // alphabetically) has already completed and been recorded.
+    const badDir = path.join(fixture.workspacesRoot, FOLDER_B, '020_MGMT', '023_연락처_이해관계자');
+    rmSync(badDir, { recursive: true, force: true });
+    writeFileSync(badDir, 'not-a-directory');
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' }));
+    const receiptFiles = readdirSync(fixture.receiptsDir).filter(name => name.endsWith('.json')).sort();
+    const latest = JSON.parse(readFileSync(path.join(fixture.receiptsDir, receiptFiles[receiptFiles.length - 1]), 'utf8'));
+    assert.equal(latest.status, 'failed');
+    assert.ok(latest.error && typeof latest.error.code === 'string');
+    const reportA = latest.projects.find(row => row.project_code === CODE_A);
+    assert.ok(reportA, "project A's report must survive in the failure receipt even though the run then threw on project B");
+    assert.equal(reportA.contacts.failed, false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('refresh (fresh-review-2 #9): the lock blocks a second caller using a *different* receipts directory', () => {
   const fixture = makeFixture();
   const otherReceiptsDir = path.join(fixture.root, 'other-receipts');
@@ -535,7 +646,7 @@ test('refresh (fresh-review-2 #9): the lock blocks a second caller using a *diff
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('refresh (fresh-review-2 #10/nit): system_sender_domains from the org config overrides the built-in skip list', () => {
+test('refresh (fresh-review-3 #11): system_sender_domains from the org config MERGES into the built-in skip list, never replaces it', () => {
   const fixture = makeFixture();
   try {
     writeFileSync(path.join(fixture.hiworksDir, 'vendor.jsonl'), jsonl([
@@ -548,8 +659,9 @@ test('refresh (fresh-review-2 #10/nit): system_sender_domains from the org confi
     const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
-    // v1 would otherwise have matched P00-001 -- it must be skipped as a system sender instead.
-    assert.equal(receipt.skipped_system, 1);
+    // h3 (from the built-in default noreply@slack.com) AND v1 (from the org config's
+    // own vendor.example) are both skipped -- a merge, not one replacing the other.
+    assert.equal(receipt.skipped_system, 2);
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.mails, 2); // unchanged from the base fixture (h1 + g1) -- v1 did not attribute
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }

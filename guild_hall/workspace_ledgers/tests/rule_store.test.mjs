@@ -339,3 +339,67 @@ test('saveRuleVersion: lock held by a fresh lock refuses; a stale lock is reclai
     assert.equal(existsSync(lockFile), false); // released after the save completes
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('saveRuleVersion (fresh-review-3 #12): a lock whose started_at is in the future relative to now is treated as stale, not fresh', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const lockFile = path.join(ruleDir, 'rule_save.lock');
+    // started_at is 10 minutes AFTER now -- clock skew or corrupted lock data. The old
+    // clamp-negative-age-to-0 behaviour made this look brand new (age 0) and therefore
+    // un-reclaimable for up to RULE_SAVE_STALE_LOCK_MS past that future time; it must
+    // instead be reclaimed immediately, exactly like any other stale lock.
+    writeFileSync(lockFile, JSON.stringify({ pid: 999999, started_at: '2026-09-22T00:10:00.000Z' }));
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', now: '2026-09-22T00:00:00.000Z',
+    });
+    assert.equal(result.rule_version, 'v2');
+    assert.equal(existsSync(lockFile), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (fresh-review-3 #13): an unrecognised ## section an Owner added is carried forward verbatim, not dropped', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const mdWithCustomSection = [
+      '# 메일 라우팅 규칙 — P00-001', '', '- 상태: 초안 v1', '',
+      '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)', '', '- `P00-001`', '',
+      '## Owner 확인 기록', '', '- 예시 결정 A', '',
+      '## Owner 메모 (수동 추가)', '', '이것은 Owner가 손으로 추가한 절이다.', '- 하위 항목도 있다.', '',
+      '## Owner 확인이 필요한 것', '', '- 예시 미결 항목', '',
+    ].join('\n');
+    writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), mdWithCustomSection);
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x',
+    });
+    const newMd = readFileSync(result.md_path, 'utf8');
+    assert.match(newMd, /## Owner 메모 \(수동 추가\)/u);
+    assert.match(newMd, /이것은 Owner가 손으로 추가한 절이다\./u);
+    assert.match(newMd, /- 하위 항목도 있다\./u);
+    // still carries the known sections forward/regenerates them as usual
+    assert.match(newMd, /## Owner 확인 기록/u);
+    assert.match(newMd, /예시 결정 A/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (fresh-review-3 #13): a "## " line inside a fenced code block does not truncate the section early', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const mdWithFence = [
+      '# 메일 라우팅 규칙 — P00-001', '', '- 상태: 초안 v1', '',
+      '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)', '', '- `P00-001`', '',
+      '## Owner 확인이 필요한 것', '',
+      '예시 md 조각:', '```', '## 이것은 코드블록 안의 가짜 제목', '실제 절 경계가 아니다', '```',
+      '- 펜스 뒤에 이어지는 진짜 항목', '',
+    ].join('\n');
+    writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), mdWithFence);
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x',
+    });
+    const newMd = readFileSync(result.md_path, 'utf8');
+    // the fenced "## " line survived inside the carried-forward "Owner 확인이 필요한 것"
+    // section instead of being mistaken for a new section boundary that would have
+    // truncated the block right after it and dropped the real trailing bullet.
+    assert.match(newMd, /## 이것은 코드블록 안의 가짜 제목/u);
+    assert.match(newMd, /- 펜스 뒤에 이어지는 진짜 항목/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

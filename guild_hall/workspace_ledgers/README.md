@@ -30,6 +30,12 @@ Byte lineage for every one of those files (sha256, bytes, previous_sha256, who/w
 lives at `_workmeta/<same folder name>/lineage/<file>.lineage.json`, per
 `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`.
 
+This module only ever reads/writes the fixed relative paths above -- it never lists
+or globs `020_MGMT/`'s own contents, so any other file a person or a different tool
+keeps there (e.g. per-organisation or per-work-tag tables the Owner maintains
+separately) is never touched, read, or even enumerated by `refresh`, `previewRule`, or
+`saveRuleVersion`.
+
 ## The CSV-one-copy rule
 
 Each ledger is **one** CSV: UTF-8 with BOM, CRLF line endings, Korean headers (Owner
@@ -106,7 +112,13 @@ already past UTC midnight.
    atomically (staging file + rename) and bumps `rule_version` (`vN` -> `vN+1`).
 3. Renders the new `.md` from the new `.json` plus the previous `.md`'s "Owner 확인
    기록" / "Owner 확인이 필요한 것" sections, carried forward verbatim, with the new
-   save's `note` appended to the decisions list.
+   save's `note` appended to the decisions list. Any **other** `## ` section an Owner
+   added by hand (one the renderer does not itself regenerate) is also carried forward
+   verbatim, right after the two Owner-editable sections -- a previous version only
+   ever looked for those two known headings and silently dropped anything else on the
+   very next save. Section splitting is fence-aware: a `## ` line inside a ` ``` `/`~~~`
+   fenced code block (e.g. an Owner pasting a markdown snippet as an example) is never
+   mistaken for a section boundary.
 4. Writes fresh lineage files recording `sha256`, `bytes`, `previous_sha256`, `by`
    and `note`.
 
@@ -116,7 +128,10 @@ already past UTC midnight.
 exact list (N16) -- e.g. a console pinning saves to a single `'owner'` actor. A
 short-lived lock (`rule_save.lock`, stale-reclaimed after 15 minutes, the same reclaim
 shape as `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`'s lock)
-prevents two concurrent saves on the same rule folder.
+prevents two concurrent saves on the same rule folder. A lock whose recorded
+`started_at` is in the *future* relative to the caller's `now` (clock skew, or
+corrupted lock data) is treated as stale immediately, not as freshly held -- the same
+fix applies to `refresh.mjs`'s own lock, below.
 
 **`draft` must be a complete rule document, not a partial patch.** `previewRule` and
 `saveRuleVersion` both take `draft` as the *entire* proposed rule body (schema fields:
@@ -150,7 +165,10 @@ key**. A short-lived lock (a dot-file at `workspacesRoot`'s own root -- never in
 any project folder `listProjects` would enumerate, and never scoped to
 `--receipts`, since two callers with different receipts directories -- the CLI and a
 UI adapter, say -- must still serialise against each other when they can both
-rewrite the same ledgers) prevents two concurrent refreshes.
+rewrite the same ledgers) prevents two concurrent refreshes. A future-dated lock is
+stale immediately (see above). The lock-held case writes its own failure receipt
+before throwing -- "another refresh is already running" is exactly the kind of thing
+an audit trail should record, not a silent early exit.
 
 | CSV | key | preserved columns |
 | --- | --- | --- |
@@ -214,19 +232,39 @@ Classification always considers **every** onboarded project's rule (so held/yiel
 decisions are correct), even when `--projects` restricts which projects' files are
 actually written.
 
-**Unreadable custody directories and empty refreshes.** A directory
-`loadMailEvents` could not read at all -- most dangerously, a `--hiworks-events` typo
-pointing at a path that simply does not exist -- is recorded in `receipt
-.unreadable_dirs`, and its presence alone sets `receipt.status` to `'failed'`: an
-input directory silently reading as empty must never look identical to a genuinely
-mail-free window. Separately, if a ledger's freshly-built rows come out to zero while
-its existing file on disk has rows, that file **fails closed** too
+**Unreadable custody directories (pre-write gate).** A directory `loadMailEvents`
+could not read at all -- most dangerously, a `--hiworks-events` typo pointing at a
+path that simply does not exist -- is recorded in `receipt.unreadable_dirs`, and its
+presence alone sets `receipt.status` to `'failed'`. Custody is classified **before**
+any file is written, and by default an unreadable directory blocks every write for
+the whole run -- not a single project, not a single file: `receipt.projects` is empty
+and nothing on disk is touched. This closes a gap where a typo in one custody flag
+used to let every *other* project's ledgers already get rewritten (and only the
+typo'd project's files fail the empty-refresh guard below, or not even that) before
+the run's overall failure was visible at all. An explicit `allowPartialSources: true`
+(`--allow-partial-sources` on the CLI) opts into the old behaviour -- the run proceeds
+on whatever custody *was* readable, and `receipt.allow_partial_sources_applied` is
+`true` so that choice is visible in the audit trail. `receipt.unreadable_dirs` entries
+never carry a host-local path -- only `{ source: 'hiworks-events' | 'gmail-sent-events',
+dir: <basename>, code }`, so which flag pointed at a bad path is clear without leaking
+where on disk it lives.
+
+**Empty refreshes.** If a ledger's freshly-built rows come out to zero while its
+existing file on disk has rows, that file **fails closed**
 (`workspace_ledgers_ledger_empty_refresh_blocked`, left untouched) unless the caller
-explicitly passes `allowEmpty: true` (`--allow-empty` on the CLI) -- the same
-protection, applied per file, for any other cause that could make custody look empty.
+explicitly names that project in `allowEmpty` (an array of project codes, not a
+boolean -- `--allow-empty P00-001,P00-002` on the CLI). The override is scoped: naming
+one project never silently empties another project's ledgers too. Every project code
+that actually needed the override (its rows really did come out to zero where the
+file had content before) is echoed back in `receipt.allow_empty_applied_to`, so a
+caller can tell which projects were genuinely affected without having to diff every
+file.
+
 A `refresh()` call that throws for any other reason still writes a best-effort
 `status: 'failed'` receipt (with an `error` field) before the error propagates, so a
-crash never leaves zero audit trail either.
+crash never leaves zero audit trail either -- and that receipt still carries
+`receipt.projects` for whichever earlier projects in the run had already completed
+(alphabetical by project code) before the throw, not a bare `{status, error}`.
 
 ## Performance
 
@@ -296,10 +334,13 @@ crash never leaves zero audit trail either.
   that ledger (`workspace_ledgers_ledger_fresh_duplicate_key`) rather than silently
   overwrite one of them.
 - The system-sender skip list (senders like `noreply@...` that are never a real
-  routing signal) defaults to a small built-in list of known vendor domains, but an
-  org config's own `system_sender_domains` (an array of domains) overrides it
-  entirely when `refresh()` is the caller -- see `examples/org_config.example.json`.
-  `previewRule` has no org config to read and always uses the built-in default.
+  routing signal) is a small built-in list of known vendor domains. An org config's
+  own `system_sender_domains` (an array of domains) is **merged into** that list, never
+  replaces it -- see `examples/org_config.example.json`. `previewRule` accepts an
+  optional `orgConfigPath` that resolves the same merged list a real `refresh()` against
+  that config would use (also folded into the S10 custody-read cache's key, so a call
+  with a different `orgConfigPath` never serves another call's cached result); omitted,
+  `previewRule` uses the built-in default list only.
 
 ### Regex term safety
 
@@ -335,10 +376,12 @@ All of this lives in `src/classifier.mjs`'s `compileTerm`; `rule_store.mjs`'s
 ```
 node cli.mjs refresh --workspaces-root <dir> --workmeta-root <dir> \
   --hiworks-events <dir> --gmail-sent-events <dir> --org-config <file> \
-  [--projects a,b] [--fields subject|all] [--dry] [--allow-empty] --receipts <dir>
+  [--projects a,b] [--fields subject|all] [--dry] \
+  [--allow-empty P00-001,P00-002] [--allow-partial-sources] --receipts <dir>
 
 node cli.mjs preview-rule --code <CODE> --draft <file> --workspaces-root <dir> \
-  --hiworks-events <dir> --gmail-sent-events <dir> [--fields subject|all] [--show-samples]
+  --hiworks-events <dir> --gmail-sent-events <dir> [--org-config <file>] \
+  [--fields subject|all] [--show-samples]
 
 node cli.mjs save-rule --code <CODE> --draft <file> \
   --workspaces-root <dir> --workmeta-root <dir> --by <actor> --note <text> \
@@ -350,10 +393,20 @@ always-applied machine-actor refusal -- e.g. a console pinning saves to `--by ow
 --allowed-actors owner`. Omitted (the default), any non-machine actor string is
 accepted, as before.
 
-`--allow-empty` explicitly permits `refresh` to rebuild a ledger down to zero rows
-when custody genuinely produced none; omitted (the default), 0 fresh rows where the
-existing ledger had content fails closed instead of silently emptying it (see
-"Unreadable custody directories and empty refreshes" above).
+`--allow-empty P00-001,P00-002` explicitly permits `refresh` to rebuild just those
+projects' ledgers down to zero rows when custody genuinely produced none for them;
+omitted (the default, an empty list), 0 fresh rows where a project's existing ledger
+had content fails closed instead of silently emptying it, for every project (see
+"Empty refreshes" above).
+
+`--allow-partial-sources` lets `refresh` proceed on whatever custody was readable when
+one or more custody directories could not be read at all; omitted (the default), any
+unreadable directory blocks every write for the whole run (see "Unreadable custody
+directories (pre-write gate)" above).
+
+`--org-config` on `preview-rule` (optional) resolves `system_sender_domains` the same
+way a real `refresh` against that config would; omitted, only the built-in default
+skip list applies.
 
 `--show-samples` also prints `previewRule`'s `samples` (real mail subjects, up to 10
 per category); omitted (the default), `preview-rule` prints counts only.
@@ -384,9 +437,9 @@ environment.
 
 - `listProjects({ workspacesRoot })` -> `[{ project_code, folder_name, rule_json_path, rule_md_path }]`
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
-- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report)
+- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report). `orgConfigPath` (optional) resolves `system_sender_domains` the same way a real `refresh()` against that config would.
 - `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`. `draft` (and `previewRule`'s `draft`) must be the **complete** rule document, never a partial patch -- see "Rule versioning and lineage" above.
-- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `ledger_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`)
+- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied`, `allow_empty_applied_to`, `ledger_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`). `allowEmpty` is a list of project codes (not a boolean); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above.
 
 `src/index.mjs` also re-exports `validateRule`, `isMachineActor`, `RuleStoreError`,
 `RefreshError`, `clearCustodyCache`, `classifyMail`/`compileRule`/`compileRules`/
