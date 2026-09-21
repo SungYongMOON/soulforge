@@ -106,7 +106,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "1545b0dac08928416c949a43335551640f8543ba74bb6c877585a3d68659169a"
+      "sha256": "7b769d4a5ced333c28f671767b540578ce80b25a01118722193f26df009be6b2"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -119,6 +119,18 @@
     {
       "path": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
       "sha256": "0436f9a1083de18f6e9e045221c32ed3582370b0d51779000940afdcde9a1329"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/data.mjs",
+      "sha256": "d67ebee544cfabcdce5e1cba304485ffb6f84776643760a44ba6e628b1394281"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
+      "sha256": "36e35585f2d3167cdb72bd934234b0bfa49e8fbb154ef4912406e48768dae722"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
+      "sha256": "e3216e7cf0bb3c839c01c0634edadfc50408cfb1b85870d1d0817480bdb5fdd8"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",
@@ -325,7 +337,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "d46a897571d85e74ca500e6ab366e68e7aa13ed961e7d526c1c5911079d47330",
+  "closure_sha256": "b4a494ae7bc278b10e6d9b6a6310e6f2b4ce2955cccb4d08d281bdc774b61b0e",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -572,6 +584,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/index.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs"
     },
     {
@@ -668,6 +684,18 @@
     },
     {
       "from": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
+      "to": "guild_hall/engineering_engine/kernel/identity.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
       "to": "guild_hall/engineering_engine/kernel/identity.mjs"
     },
     {

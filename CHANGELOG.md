@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-09-22 - 자동 정리본 K1 승인 구간 연결
+
+- Revision: 이 항목을 포함한 커밋. 명시적으로 승인된 단위 목록을 과제·판본·위치·해시로 검증한다.
+- 운영 영향: 순수 계산·명시 API만 추가. source 탐색·수집·DB·기존 처리 경로 변경 없음.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer`, `tests/knowledge_layer`. 모듈 0.22.6.
+
 ## 2026-09-22 - 자동 정리본 K0 합성 평가
 
 - Revision: 이 항목을 포함한 커밋. 기존 answer_eval을 재사용하는 두 합성 과제의 작은 평가 세트를 추가한다.
