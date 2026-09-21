@@ -1,5 +1,60 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 신선한 비저자 검토 반영: 필수 5건·should 7건·nit 3건
+
+- Revision: 이 항목을 포함한 커밋(직전 commit 500d678c에 대한 별도 비저자 검토).
+- 무엇이 바뀌었는가: 검증기는 초록(182/182)이었지만 merge-ready는 아니었던 필수 5건과
+  should 7건을 모두 고쳤다(각 항목 회귀 시험 1개씩).
+  필수: (1) `organisation_undecided`가 `hold_owner_review`·알 수 없는 코드의
+  `include`·라우팅 안 되는 `exclude` 결정을 삼켜 판독 대기열에서 사라지게 하던 문제 --
+  이제 판독 결정이 전혀 없을 때만 이 분류로 간다. (2) `거래처_<이름>.csv`/`작업_
+  <태그>.csv`/`과제외_<분류>.csv` 파일명이 Owner가 입력한 텍스트에서 그대로 만들어져
+  경로 탈출(`../../../../escape`)·하위 폴더 생성(`a/b`)이 가능했다 -- 안전한 세그먼트
+  검사(`isSafeFileName`)와 base 디렉터리 이탈 여부를 독립적으로 재확인하는
+  `resolveSafePath`를 CSV·lineage 양쪽에 적용, 거부된 이름은 해시로만 영수증에 남긴다.
+  (3) 대소문자만 다른 거래처/태그 이름이 Windows에서 서로의 장부를 덮어쓰면서도 영수증은
+  둘 다 `written: true`라고 했다 -- 쓰기 전에 폴더별 대소문자 무시 충돌을 감지해 둘 다
+  닫힌 채로 막는다. (4) 깨진 Owner 표 하나가 있어도 `refreshCommon`이 나머지 장부를 계속
+  다시 썼다 -- 그 표가 먹이던 장부는 옛 행이 남고 잘못 분류된 메일은 다른 장부에
+  새로 쓰여, 같은 메일이 디스크 위 두 장부에 동시에 남는데도 영수증은 `ok`였다 -- 이제
+  Owner 표 중 하나라도 실패하면(옵트인 `allowDegradedOwnerTables` 없이는) 공통 장부를
+  전혀 쓰지 않는다(영수증만, 실패한 표 이름 기록); 과제 장부용 `refresh()` 경로는 무관.
+  (5) `refreshCommon`에 `allowPartialSources` 게이트가 전혀 없어 커스터디 디렉터리를
+  못 읽어도 부분 자료로 계속 썼다 -- `refresh()`와 동일하게 옵트인 없이는 전혀 쓰지
+  않고, 옵트인 시 shrink 가드가 실제로 작동하도록 `partialSourcesInEffect`를 넘긴다.
+  should: (6) 묶음_확정표 행의 과제 코드 중 하나라도 모르는 코드면 아는 부분집합만
+  조용히 귀속시키던 것을 행 전체 불일치로 바꾸고 `unknown_targets`로 집계. (7) 명시적
+  판독 결정(vendor_only/exclude)이 시스템·광고 패턴에 밀려 조용히 재분류되던 순서를
+  뒤집고 `decision_overrode_pattern`으로 집계. (8) 거래처 없는 vendor_only 결정이
+  미분류에 갇혀 재판독 시도도 중복으로 거부되는 교착을 `already_decided_invalid`
+  표시와 `vendor_only_without_organisation` 집계로 드러냈다. (9) 같은 정규화 제목만
+  보고 거래처를 상속하던 것에 참여자 주소 공유 또는 30일 이내 수신이라는 실제 신호
+  요건을 추가. (10) 서명 자르기가 평평하게 이어붙인 전체 텍스트를 검색해 짧은 답장
+  맨 앞의 "감사합니다"가 본문 전체를 지워버릴 수 있었다 -- 줄 단위로, 뒤쪽 40%에서만
+  찾도록 고치고 내용이 있는데 빈 미리보기를 반환하지 않도록 보장. (11) `reader`도
+  `why`처럼 길이 상한 적용. (12) org config 정규식을 규칙 term과 같은 정적 검사 +
+  초안 시점 ReDoS 카나리아로 컴파일하고, 실패 시 패턴 텍스트가 아니라 설정 키만
+  이름 붙여 실패.
+  nit: (13) parity가 12개 주 분류 중 5개만 비교했다 -- `project`(모든 과제
+  메일_수신/발송이력.csv 합)를 추가. (14) 같은 refresh 잠금 조건이 `triage.mjs`에서만
+  다른 코드(`workspace_ledgers_lock_held`)를 냈다 -- `workspace_ledgers_refresh_lock_
+  held`로 통일. (15) 인용 헤더 줄 필터가 콜론 없이 흔한 단어로만 시작해도 걸러 일반
+  산문을 지웠다 -- 콜론이 뒤따르는 `Label:` 모양일 때만 걸러지도록 좁혔다.
+  merge 커밋의 세 core nit도 함께 반영: `owner_cells_ambiguous`의 README 설명이
+  "withheld cell 수"라고 과장했던 것을 인덱스 위생 카운트임을 밝히도록 다시 썼고,
+  `common_classifier.mjs`의 한 줄짜리 JSDoc 런온 문장을 여러 문장으로 쪼갰다.
+  `refresh.mjs`의 "post-loop shadow check"로 지목된 dead code는 여러 각도로
+  찾아봤지만(사용 카운트 정적 분석, 커밋 diff 추적, 논리적 도달 가능성 추론) 확정하지
+  못했다 -- 아래 "구현하지 못한 것" 참조.
+- 구현하지 못한 것: 위 dead-code nit. `preserveMerge`의 alt-key 사후 루프(526줄 부근,
+  `byAltKey`가 `byKey`의 정확 키와 충돌하는 항목을 제거하는 두 번째 루프)를 가장
+  유력한 후보로 검토했으나, 실제로 도달 가능하고 필요한 코드임을 직접 확인했다
+  (별도 old row의 정확 키와 겹치는 stale alt-key를 제거하는, R2가 고치기 전 버그의
+  근본 원인이었던 바로 그 검사). 코디네이터가 정확한 줄 번호를 알려주면 다시 본다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/common_classifier.mjs`,
+  `common_ledgers.mjs`, `common_refresh.mjs`, `triage.mjs`, `cli.mjs`, `README.md`,
+  각 대응 `tests/*.test.mjs`.
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 실제 평면 parity 재확인이 드러낸 결함: 같은 대화 거래처 상속 누락
 
 - Revision: 이 항목을 포함한 커밋(코디네이터가 `거래처_대응표.csv`의 깨진 행 1개를

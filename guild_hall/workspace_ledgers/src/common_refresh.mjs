@@ -3,9 +3,9 @@
 // per-project pipeline: that module writes each onboarded project's four ledgers;
 // this one writes everything that does NOT resolve to exactly one project (system
 // notifications, ads-excluded, internal admin, external notice, out-of-project,
-// code-pending, no-code-confirmed, general work, vendor-only, unclassified, and held)
-// plus the vendor/work-tag secondary view ledgers, all under the common folder (and
-// the separate general-work folder for 일반업무_메일.csv).
+// code-pending, no-code-confirmed, general work, vendor-only, organisation-undecided,
+// unclassified, and held) plus the vendor/work-tag secondary view ledgers, all under
+// the common folder (and the separate general-work folder for 일반업무_메일.csv).
 //
 // `classifyAllCommonMail` is the shared read-only classification pass -- both
 // `refreshCommon` (writes) and `triage.mjs`'s `listUnclassified` (never writes) call
@@ -19,16 +19,23 @@ import { domainOf, makeOrgLookup, normalizeSubject } from './ledgers.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
 import { loadOwnerTables } from './owner_tables.mjs';
 import {
-  addressesOfMail, buildCommonConfig, classifyProjectHits, PRIMARY_BUCKETS, resolvePrimaryBucket, workTagsOf,
+  addressesOfMail, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, participantEmailsOf,
+  PRIMARY_BUCKETS, resolvePrimaryBucket, workTagsOf,
 } from './common_classifier.mjs';
 import {
-  buildCommonRow, HELD_FILE_NAME, headersFor, memoIndexFor, vendorFileName, whereLabelFor, workTagFileName,
+  buildCommonRow, fileNameHash, HELD_FILE_NAME, headersFor, memoIndexFor, resolveSafePath,
+  vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';
 import {
   acquireRefreshLock, assertNoOverlappingCustodyDirs, releaseRefreshLock, redactHostPaths, RefreshError, writeLedgerCsv,
 } from './refresh.mjs';
 
 export const COMMON_REFRESH_RECEIPT_SCHEMA = 'soulforge.workspace_common_ledger_refresh_receipt.v1';
+// S4: a thread-inherited vendor (no direct address match on the mail itself) is only
+// trusted within this window of a direct-match mail in the same thread -- a generic
+// subject shared across unrelated conversations months apart must not inherit an
+// unrelated organisation just because the normalised subject happens to collide.
+const THREAD_VENDOR_INHERITANCE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class CommonRefreshError extends Error {
   constructor(code, detail) {
@@ -82,12 +89,19 @@ function readAllRulesSafely(workspacesRoot) {
  *
  * Returns `{ ourDomain, commonConfig, ruleFailures, ownerTableFailures,
  * unreadableDirs, scanned, duplicatesDropped, totalMails, bucketTally, classified,
- * threadBuckets }`. `classified[]` entries are `{ mail, projectResult, outcome,
- * workTags }` -- `mail` still carries `body_text` (this pass's whole point is to
- * support classification and triage preview; `common_events.mjs`'s loader is the one
- * that keeps it, unlike `mail_events.mjs`). `threadBuckets` maps a normalised subject
- * to the set of short labels every mail in that thread ended up under -- what
- * `triage.mjs`'s `listUnclassified` calls "같은 대화의 다른 메일이 어디로 분류됐는지".
+ * threadBuckets, unknownTargets, decisionOverrodePattern, vendorOnlyWithoutOrganisation
+ * }`. `classified[]` entries are `{ mail, projectResult, outcome, workTags }` --
+ * `mail` still carries `body_text` (this pass's whole point is to support
+ * classification and triage preview; `common_events.mjs`'s loader is the one that
+ * keeps it, unlike `mail_events.mjs`). `threadBuckets` maps a normalised subject to the
+ * set of short labels every mail in that thread ended up under -- what `triage.mjs`'s
+ * `listUnclassified` calls "같은 대화의 다른 메일이 어디로 분류됐는지".
+ *
+ * S7 (fresh non-author review): `buildCommonConfig` can throw `OrgConfigPatternError`
+ * when an org-config pattern fails the same static-shape/ReDoS-canary checks a rule
+ * term would -- re-thrown here as `CommonRefreshError` (`workspace_ledgers_org_config_
+ * pattern_invalid`, naming only the offending config key), failing the WHOLE run
+ * before any classification happens, not just the one pattern.
  */
 export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
   bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null }) {
@@ -96,7 +110,12 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
 
   const orgConfig = readOrgConfig(orgConfigPath);
-  const commonConfig = buildCommonConfig(orgConfig);
+  let commonConfig;
+  try { commonConfig = buildCommonConfig(orgConfig); }
+  catch (error) {
+    if (error instanceof OrgConfigPatternError) fail(error.code, error.configKey);
+    throw error;
+  }
   const { ourDomain } = makeOrgLookup(orgConfig);
   const { ok: ruleRows, ruleFailures } = readAllRulesSafely(workspacesRoot);
   const compiledRules = ruleRows.map(row => row.compiled);
@@ -118,6 +137,9 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   const bucketTally = Object.fromEntries(PRIMARY_BUCKETS.map(bucket => [bucket, 0]));
   const classified = [];
   const threadBuckets = new Map();
+  const unknownTargets = { bundle: 0, reading: 0 };
+  let decisionOverrodePattern = 0;
+  let vendorOnlyWithoutOrganisation = 0;
 
   // Pass 1: classify every mail's own (direct-address) project hits/vendors.
   const prepared = records.map(record => {
@@ -128,6 +150,8 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
       { id: record.event_id, subject: record.subject, body: record.body_text, addresses },
       { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors },
     );
+    if (projectResult.unknownBundleTarget) unknownTargets.bundle += 1;
+    if (projectResult.unknownReadingTarget) unknownTargets.reading += 1;
     return { mail, projectResult };
   });
 
@@ -143,18 +167,40 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   // supplier-body confirmation is unaffected, matching the private reference: there
   // this inheritance is applied strictly AFTER classification, to the already-
   // computed result, never fed back into it).
-  const threadVendors = new Map();
+  //
+  // S4 (fresh non-author review, 2026-09-21): keying on normalised subject ALONE lets
+  // a generic, commonly-reused subject inherit an unrelated organisation from a
+  // different conversation that merely happens to share the same words. A candidate
+  // direct-match mail only donates its vendors to a subject-mate when they ALSO share
+  // at least one participant address (from/to/cc overlap -- the actual signal that
+  // they are the same real conversation), OR were received within
+  // `THREAD_VENDOR_INHERITANCE_WINDOW_MS` (30 days) of each other. Either alone is
+  // sufficient (an internal forward days later, with the same participants, or a
+  // same-day reply from a slightly different participant set, are both legitimate).
+  const threadCandidates = new Map();
   for (const { mail, projectResult } of prepared) {
     if (projectResult.vendors.length === 0) continue;
     const key = normalizeSubject(mail.subject);
-    const bucket = threadVendors.get(key) ?? new Map();
-    for (const vendor of projectResult.vendors) bucket.set(vendor.name, vendor);
-    threadVendors.set(key, bucket);
+    const list = threadCandidates.get(key) ?? [];
+    const atMs = Date.parse(mail.at);
+    list.push({ vendors: projectResult.vendors, participants: participantEmailsOf(mail), atMs: Number.isNaN(atMs) ? null : atMs });
+    threadCandidates.set(key, list);
   }
   for (const entry of prepared) {
     if (entry.projectResult.vendors.length > 0) continue;
-    const inherited = threadVendors.get(normalizeSubject(entry.mail.subject));
-    if (inherited) {
+    const candidates = threadCandidates.get(normalizeSubject(entry.mail.subject));
+    if (!candidates) continue;
+    const myParticipants = participantEmailsOf(entry.mail);
+    const myAtMs = (() => { const parsed = Date.parse(entry.mail.at); return Number.isNaN(parsed) ? null : parsed; })();
+    const inherited = new Map();
+    for (const candidate of candidates) {
+      const sharesParticipant = [...candidate.participants].some(address => myParticipants.has(address));
+      const withinWindow = myAtMs !== null && candidate.atMs !== null
+        && Math.abs(myAtMs - candidate.atMs) <= THREAD_VENDOR_INHERITANCE_WINDOW_MS;
+      if (!sharesParticipant && !withinWindow) continue;
+      for (const vendor of candidate.vendors) inherited.set(vendor.name, vendor);
+    }
+    if (inherited.size > 0) {
       entry.projectResult = { ...entry.projectResult, vendors: [...inherited.values()], basis: `${entry.projectResult.basis}(같은 대화의 거래처)` };
     }
   }
@@ -169,6 +215,13 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
       outcome = resolvePrimaryBucket(mail, projectResult, commonConfig, { ourDomain });
     }
     bucketTally[outcome.bucket] += 1;
+    if (outcome.decisionOverrodePattern) decisionOverrodePattern += 1;
+    // S3: a mail with an EXPLICIT vendor_only reading decision but no matched
+    // organisation at all -- it can never route to `vendor_only` (there is no ledger
+    // to put it in) and stays `unclassified`, but it is not an ordinary "never looked
+    // at" unclassified mail either: someone already tried to decide it. Counted here
+    // (receipt-visible) and flagged per-item by `triage.mjs`'s `listUnclassified`.
+    if (projectResult.reading?.level === 'vendor_only' && projectResult.vendors.length === 0) vendorOnlyWithoutOrganisation += 1;
 
     const workTags = workTagsOf(mail.subject, owner.workTags);
     classified.push({ mail, projectResult, outcome, workTags });
@@ -184,7 +237,19 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     unreadableDirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
     scanned: hiworks.scanned + gmail.scanned, duplicatesDropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
     totalMails: records.length, bucketTally, classified, threadBuckets, workTagPool: owner.workTags,
+    unknownTargets, decisionOverrodePattern, vendorOnlyWithoutOrganisation,
   };
+}
+
+function writeReceiptFile({ receiptsDir, now, dry, body }) {
+  try {
+    mkdirSync(receiptsDir, { recursive: true });
+    const stamp = now.replace(/[:.]/gu, '-');
+    const target = path.join(receiptsDir, `common-refresh-${stamp}${dry ? '-dry' : ''}.json`);
+    const staging = `${target}.writing-${process.pid}-${Date.now()}`;
+    writeFileSync(staging, `${JSON.stringify(body, null, 2)}\n`);
+    renameSync(staging, target);
+  } catch { /* best effort: a receipt-write failure must never mask the original error */ }
 }
 
 /**
@@ -206,35 +271,57 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
  * to be rewritten down to zero rows even when it previously had content -- the same
  * per-target opt-in `refresh()`'s `allowEmpty` (project codes) uses, scoped to file
  * names here since there is no single "project" a common-folder file belongs to.
+ *
+ * `allowPartialSources` (R5, default `false`, mirrors `refresh()`): an unreadable
+ * custody directory blocks EVERY write for the whole run -- receipt only, `status:
+ * 'failed'`, `unreadable_dirs` named -- unless this is explicitly `true`, in which case
+ * the run proceeds on whatever custody was readable and `partialSourcesInEffect`
+ * (`unreadableDirs.length > 0 && allowPartialSources`) is threaded into every
+ * `writeLedgerCsv` call so its shrink guard actually activates (before this fix,
+ * `refreshCommon` had no gate at all -- a typo'd custody flag silently wrote whatever
+ * partial custody it DID read as if it were the complete picture, and never passed the
+ * in-effect boolean writeLedgerCsv's shrink guard needs to do anything).
+ *
+ * `allowDegradedOwnerTables` (R4, default `false`): a malformed Owner table (bad
+ * header/encoding/row-shape) makes `loadOwnerTables` substitute an EMPTY table, which
+ * silently degrades classification -- mail that used to route through that table (a
+ * vendor match, a bundle confirmation, a reading decision) falls to a different bucket
+ * instead, and a normal refresh would then rewrite every ledger to match: the file(s)
+ * that table used to feed lose their rows, while the mail's NEW (wrong) bucket's file
+ * gains them -- so the same mail ends up recorded in two different ledgers on disk,
+ * with the receipt still saying `status: 'ok'`/`written: true` throughout. By default,
+ * ANY `ownerTableFailures` blocks every ledger write for the whole run (receipt only,
+ * `status: 'failed'`, the failing table(s) named) -- the project ledgers `refresh()`'s
+ * own pipeline produces are a completely separate code path and are never affected by
+ * this gate either way. Passing `true` opts into the old (degraded but writing)
+ * behaviour explicitly, for a caller that has already decided it wants best-effort
+ * output despite a known-bad table.
  */
 export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
   bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null,
-  dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [] }) {
+  dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [],
+  allowPartialSources = false, allowDegradedOwnerTables = false }) {
   if (typeof workmetaRoot !== 'string' || workmetaRoot.trim() === '') fail('workspace_ledgers_workmeta_root_required');
   if (typeof receiptsDir !== 'string' || receiptsDir.trim() === '') fail('workspace_ledgers_receipts_dir_required');
   if (!Array.isArray(allowEmpty)) fail('workspace_ledgers_allow_empty_must_be_list', typeof allowEmpty);
   const allowEmptyFiles = new Set(allowEmpty);
 
-  const writeReceiptFile = body => {
-    try {
-      mkdirSync(receiptsDir, { recursive: true });
-      const stamp = now.replace(/[:.]/gu, '-');
-      const target = path.join(receiptsDir, `common-refresh-${stamp}${dry ? '-dry' : ''}.json`);
-      const staging = `${target}.writing-${process.pid}-${Date.now()}`;
-      writeFileSync(staging, `${JSON.stringify(body, null, 2)}\n`);
-      renameSync(staging, target);
-    } catch { /* best effort: a receipt-write failure must never mask the original error */ }
-  };
+  const emitReceipt = body => writeReceiptFile({ receiptsDir, now, dry, body });
+  const baseReceipt = () => ({ schema_version: COMMON_REFRESH_RECEIPT_SCHEMA, generated_at: now, dry });
 
   let lock;
   try { lock = acquireRefreshLock(workspacesRoot, now); }
   catch (error) {
-    writeReceiptFile({ schema_version: COMMON_REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, status: 'failed',
+    emitReceipt({ ...baseReceipt(), status: 'failed',
       error: { code: error?.code ?? 'workspace_ledgers_refresh_lock_unavailable', message: redactHostPaths(error?.message ?? String(error)) } });
     throw error;
   }
   if (lock.held) {
-    writeReceiptFile({ schema_version: COMMON_REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, status: 'failed',
+    // N2: the same lock-held condition must carry the same code everywhere it can be
+    // observed (`refresh.mjs`'s own lock-held path, and `triage.mjs`'s
+    // `appendReadingDecision`, both reuse this exact lock) -- unified on
+    // `workspace_ledgers_refresh_lock_held`.
+    emitReceipt({ ...baseReceipt(), status: 'failed',
       error: { code: 'workspace_ledgers_refresh_lock_held', message: 'refresh lock already held' } });
     fail('workspace_ledgers_refresh_lock_held');
   }
@@ -243,6 +330,38 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
     const pass = classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
       bundleTablePath, vendorTablePath, readingTablePath, workTagTablePath });
     const { commonConfig } = pass;
+
+    // R5 pre-write gate (mirrors refresh()'s own): an unreadable custody directory
+    // blocks every write for the whole run unless the caller explicitly opted into a
+    // partial-sources run.
+    if (pass.unreadableDirs.length > 0 && !allowPartialSources) {
+      const receipt = {
+        ...baseReceipt(), status: 'failed',
+        scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
+        unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: false,
+        rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+        bucket_counts: pass.bucketTally, files: [],
+      };
+      emitReceipt(receipt);
+      return receipt;
+    }
+    const partialSourcesInEffect = pass.unreadableDirs.length > 0 && allowPartialSources;
+
+    // R4 pre-write gate: any malformed Owner table blocks every write for the whole
+    // run unless the caller explicitly opted into degraded output -- see this
+    // function's own doc above for why a partial write here is actively dangerous
+    // (the same mail ending up recorded in two different ledgers on disk).
+    if (pass.ownerTableFailures.length > 0 && !allowDegradedOwnerTables) {
+      const receipt = {
+        ...baseReceipt(), status: 'failed',
+        scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
+        unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
+        rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+        bucket_counts: pass.bucketTally, files: [], degraded_owner_tables_allowed: false,
+      };
+      emitReceipt(receipt);
+      return receipt;
+    }
 
     // file name -> { folder, rows: [] }
     const grouped = new Map();
@@ -281,16 +400,50 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       }
     }
 
+    // R3: a case-insensitive collision between two DIFFERENT file names in the same
+    // folder (an Owner-typed organisation/tag differing only by letter case, e.g.
+    // "거래처_ABC.csv" vs "거래처_abc.csv") would overwrite each other's ledger on a
+    // case-insensitive filesystem (Windows) while both looked like they wrote fine.
+    // Detected across the whole grouped map before anything is written; every
+    // colliding file name is rejected (never written), named in the receipt by hash
+    // only (R2: this text is Owner-typed organisation/tag data, private).
+    const byFolderLowerName = new Map();
+    for (const { folder, fileName } of grouped.values()) {
+      const bucketKey = `${folder}::${fileName.toLowerCase()}`;
+      const names = byFolderLowerName.get(bucketKey) ?? new Set();
+      names.add(fileName);
+      byFolderLowerName.set(bucketKey, names);
+    }
+    const caseCollisionNames = new Set();
+    for (const names of byFolderLowerName.values()) {
+      if (names.size > 1) for (const name of names) caseCollisionNames.add(name);
+    }
+
+    const rejectedFiles = [];
     const files = [];
     for (const { folder, fileName, rows } of grouped.values()) {
-      const headers = headersFor(fileName);
+      if (caseCollisionNames.has(fileName)) {
+        rejectedFiles.push({ folder, file_name_hash: fileNameHash(fileName), code: 'workspace_ledgers_ledger_name_case_collision' });
+        continue;
+      }
+      // R2: reject (never "fix up") an unsafe file name, and independently assert the
+      // resolved CSV/lineage paths never escape their base directories -- defense in
+      // depth even if `isSafeFileName` itself ever had a gap.
       const base = path.join(workspacesRoot, folder, '020_MGMT/027_수신이력_이동이력');
       const lineageBase = path.join(workmetaRoot, folder, 'lineage');
+      const csvPath = resolveSafePath(base, fileName);
+      const lineagePath = resolveSafePath(lineageBase, `${fileName}.lineage.json`);
+      if (!csvPath || !lineagePath) {
+        rejectedFiles.push({ folder, file_name_hash: fileNameHash(fileName), code: 'workspace_ledgers_ledger_name_unsafe' });
+        continue;
+      }
+
+      const headers = headersFor(fileName);
       const result = writeLedgerCsv({
-        filePath: path.join(base, fileName), lineagePath: path.join(lineageBase, `${fileName}.lineage.json`),
-        headers, rows, keyIndex: 0, preserveIndices: [memoIndexFor(fileName)],
+        filePath: csvPath, lineagePath, headers, rows, keyIndex: 0, preserveIndices: [memoIndexFor(fileName)],
         code: folder === commonConfig.generalWorkFolderName ? 'general_work' : 'P00-000', folder,
         relPath: `020_MGMT/027_수신이력_이동이력/${fileName}`, now, dry, allowEmpty: allowEmptyFiles.has(fileName),
+        partialSourcesInEffect,
       });
       files.push({ file: `${folder}/020_MGMT/027_수신이력_이동이력/${fileName}`, ...result });
     }
@@ -298,15 +451,18 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
     const receipt = {
       schema_version: COMMON_REFRESH_RECEIPT_SCHEMA, generated_at: now, dry,
       status: (pass.ruleFailures.length > 0 || pass.ownerTableFailures.length > 0
-        || pass.unreadableDirs.length > 0 || files.some(file => file.failed)) ? 'failed' : 'ok',
+        || pass.unreadableDirs.length > 0 || rejectedFiles.length > 0 || files.some(file => file.failed)) ? 'failed' : 'ok',
       scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
-      unreadable_dirs: pass.unreadableDirs, rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
-      bucket_counts: pass.bucketTally, files,
+      unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
+      rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+      bucket_counts: pass.bucketTally, files, rejected_files: rejectedFiles,
+      unknown_targets: pass.unknownTargets, decision_overrode_pattern: pass.decisionOverrodePattern,
+      vendor_only_without_organisation: pass.vendorOnlyWithoutOrganisation,
     };
-    writeReceiptFile(receipt);
+    emitReceipt(receipt);
     return receipt;
   } catch (error) {
-    writeReceiptFile({ schema_version: COMMON_REFRESH_RECEIPT_SCHEMA, generated_at: now, dry, status: 'failed',
+    emitReceipt({ ...baseReceipt(), status: 'failed',
       error: { code: error?.code ?? 'workspace_ledgers_common_refresh_unexpected_error', message: redactHostPaths(error?.message ?? String(error)) } });
     throw error;
   } finally {

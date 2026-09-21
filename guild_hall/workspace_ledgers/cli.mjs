@@ -36,7 +36,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { MATCH_FIELDS } from './src/classifier.mjs';
 import { previewRule, refresh, RefreshError } from './src/refresh.mjs';
-import { RuleStoreError, saveRuleVersion } from './src/rule_store.mjs';
+import { listProjects, RuleStoreError, saveRuleVersion } from './src/rule_store.mjs';
 import { classifyAllCommonMail, CommonRefreshError, refreshCommon } from './src/common_refresh.mjs';
 import { decodeCsv } from './src/ledgers.mjs';
 import { appendReadingDecision, listUnclassified, TriageError } from './src/triage.mjs';
@@ -213,10 +213,12 @@ function runCommonRefresh(flags) {
   const allowEmptyRaw = flags.get('allow-empty');
   if (allowEmptyRaw === true) { usageError('--allow-empty requires a comma-separated ledger-file-name list'); return; }
   const allowEmpty = typeof allowEmptyRaw === 'string' ? allowEmptyRaw.split(',').map(item => item.trim()).filter(Boolean) : [];
+  const allowPartialSources = flags.get('allow-partial-sources') === true || flags.get('allow-partial-sources') === 'true';
+  const allowDegradedOwnerTables = flags.get('allow-degraded-owner-tables') === true || flags.get('allow-degraded-owner-tables') === 'true';
   try {
     const receipt = refreshCommon({
       workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], orgConfigPath,
-      ...commonTablesFromFlags(flags), dry, receiptsDir, allowEmpty,
+      ...commonTablesFromFlags(flags), dry, receiptsDir, allowEmpty, allowPartialSources, allowDegradedOwnerTables,
     });
     console.log(JSON.stringify(receipt));
     if (receipt.status === 'failed') process.exitCode = 2;
@@ -231,6 +233,27 @@ function realRowCount(filePath) {
   let text;
   try { text = readFileSync(filePath, 'utf8'); } catch { return null; }
   return decodeCsv(text).rows.length;
+}
+
+// N1 (fresh non-author review, 2026-09-21): the parity report used to compare only
+// five of the twelve primary buckets -- the largest one (`project`, the mail that DID
+// resolve to a project and is written by refresh()'s own per-project pipeline, not
+// this module) was never checked at all. Sums every onboarded project's
+// 메일_수신이력.csv + 메일_발송이력.csv row count (deduped by construction -- each
+// project's own two files never share a mail).
+const PROJECT_RECV_REL = '020_MGMT/027_수신이력_이동이력/메일_수신이력.csv';
+const PROJECT_SENT_REL = '020_MGMT/027_수신이력_이동이력/메일_발송이력.csv';
+function realProjectMailCount(workspacesRoot) {
+  const projects = listProjects({ workspacesRoot });
+  let total = 0;
+  let anyFound = false;
+  for (const project of projects) {
+    for (const rel of [PROJECT_RECV_REL, PROJECT_SENT_REL]) {
+      const count = realRowCount(path.join(workspacesRoot, project.folder_name, rel));
+      if (count !== null) { total += count; anyFound = true; }
+    }
+  }
+  return anyFound ? total : null;
 }
 
 /** Sums every 거래처_*.csv row whose 과제 cell is exactly "거래처만" or starts with "거래처만(" -- there is no single dedicated file for this bucket (spec: 거래처 장부에만 둔다), so parity for it means counting across every vendor ledger. */
@@ -268,6 +291,7 @@ function runParity(flags) {
     const commonBase = path.join(workspacesRoot, commonFolderName, '020_MGMT/027_수신이력_이동이력');
     const generalWorkBase = path.join(workspacesRoot, pass.commonConfig.generalWorkFolderName, '020_MGMT/027_수신이력_이동이력');
     const real = {
+      project: realProjectMailCount(workspacesRoot),
       unclassified: realRowCount(path.join(commonBase, '미분류.csv')),
       code_pending: realRowCount(path.join(commonBase, '과제코드대기.csv')),
       no_code_confirmed: realRowCount(path.join(commonBase, '과제없음_확인함.csv')),

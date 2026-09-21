@@ -26,20 +26,53 @@ const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 500;
 const DEFAULT_BODY_PREVIEW_CHARS = 400;
 const MAX_WHY_LENGTH = 1000;
+// S6 (fresh non-author review, 2026-09-21): `reader` was unbounded -- capped the same
+// way `why`/`target` already are (a shorter cap is enough for a name/identifier, but
+// using the same constant keeps this module's validation limits to one number).
+const MAX_READER_LENGTH = MAX_WHY_LENGTH;
 
 // Lines that are quote-header/signature noise, not the mail's own content -- stripped
 // before building `body_preview` (mirrors the private reference's own dump script,
 // with no real values carried over -- these are structural mail-client conventions,
 // not org-specific text).
-const QUOTE_HEADER_LINE = /^(>|From:|Sent:|To:|Cc:|Subject:|보낸 ?사람|받는 ?사람|참조|제목|날짜|-{5,})/iu;
-const SIGNATURE_CUT = /\n?(={6,}|-{6,}|감사합니다\.?|Best regards|Kind regards|Regards,)/iu;
+//
+// N3 (fresh non-author review, 2026-09-21): the Korean alternatives here used to match
+// as a bare word prefix (`^제목`, `^날짜`, ...), so an ordinary prose line that simply
+// STARTED with one of those common words (e.g. a sentence opening with "제목" or "날짜"
+// as its first word, not a mail-client-generated header) was silently dropped from the
+// preview. Restricted to header-SHAPED lines only: `>` (a blockquote marker), a run of
+// 5+ dashes/equals (a separator fence), or `Label:`/`Label：` at the very start of the
+// line (a colon -- half- or full-width -- immediately after the label is what actually
+// distinguishes a mail-client-generated header line from prose that merely starts with
+// the same word).
+const QUOTE_HEADER_LINE = /^(>|(={6,}|-{6,})|(From|Sent|To|Cc|Subject|보낸 ?사람|받는 ?사람|참조|제목|날짜)\s*[:：])/iu;
+// S5: tested per LINE (already newline-free after splitting), not against a flattened
+// multi-line string -- anchored at line start, so only a line that IS itself a
+// signature marker counts, never a line that merely CONTAINS one of these words
+// somewhere in its middle.
+const SIGNATURE_LINE = /^(={6,}|-{6,}|감사합니다\.?|Best regards|Kind regards|Regards,)/iu;
+// S5: the signature cut only ever looks at the trailing 40% of the (already
+// quote-header-stripped) lines, and always at a LINE boundary -- a courtesy phrase
+// ("감사합니다") near the START of a short reply (e.g. "감사합니다, 확인 부탁드립니다:
+// ...") must never discard the real content that follows it. If no signature line is
+// found in that trailing window, nothing is cut; a mail whose ONLY content happens to
+// look like a signature line still returns that line rather than an empty preview.
+const SIGNATURE_TAIL_FRACTION = 0.6;
 
 function buildBodyPreview(bodyText, maxChars) {
   const lines = String(bodyText ?? '').replace(/\r/gu, '').split('\n').map(line => line.trim()).filter(line => line && !QUOTE_HEADER_LINE.test(line));
-  let joined = lines.join(' / ');
-  const cut = joined.search(SIGNATURE_CUT);
-  if (cut >= 0) joined = joined.slice(0, cut);
-  return joined.replace(/\s+/gu, ' ').slice(0, maxChars);
+  if (lines.length === 0) return '';
+  const tailStart = Math.floor(lines.length * SIGNATURE_TAIL_FRACTION);
+  let cutIndex = -1;
+  for (let index = tailStart; index < lines.length; index += 1) {
+    if (SIGNATURE_LINE.test(lines[index])) { cutIndex = index; break; }
+  }
+  const kept = cutIndex === -1 ? lines : lines.slice(0, cutIndex);
+  // Never return empty when real content exists -- a cut that would leave nothing
+  // (every line before the signature marker was itself blank/stripped) keeps the
+  // full line set instead of discarding it.
+  const finalLines = kept.length > 0 ? kept : lines;
+  return finalLines.join(' / ').replace(/\s+/gu, ' ').trim().slice(0, maxChars);
 }
 
 /**
@@ -83,6 +116,16 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
       // `includeOrganisationUndecided` pulled both in; lets a caller tell "no home
       // yet" apart from "already filed under a vendor, just no project".
       bucket: outcome.bucket,
+      // S3 (fresh non-author review, 2026-09-21): a mail whose 판독_결정표 row already
+      // says `vendor_only` but names no organisation this module can match can never
+      // route to `vendor_only` (there is no ledger to put it in) -- it sits in
+      // `unclassified` forever, and `appendReadingDecision` refuses a second decision
+      // for the same id as a duplicate (spec: correcting a row is a person editing the
+      // CSV by hand). Flagged here so a reader knows NOT to call `appendReadingDecision`
+      // again for it (it will only fail) -- the existing row needs a person to edit it
+      // directly instead. `null` for every other item (no existing, unroutable decision).
+      already_decided_invalid: (projectResult.reading?.level === 'vendor_only' && projectResult.vendors.length === 0)
+        ? 'vendor_only_without_organisation' : null,
       received_at: mail.at,
       subject: mail.subject,
       from: mail.from ? { name: mail.from.name, email: mail.from.email } : null,
@@ -136,6 +179,7 @@ export function appendReadingDecision({ workspacesRoot, readingTablePath, lineag
   if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_triage_id_required');
   if (!READING_LEVELS.includes(level)) fail('workspace_ledgers_triage_level_invalid', String(level));
   if (typeof reader !== 'string' || reader.trim() === '') fail('workspace_ledgers_triage_reader_required');
+  if (reader.length > MAX_READER_LENGTH) fail('workspace_ledgers_triage_reader_too_long');
   if (typeof why !== 'string' || why.trim() === '') fail('workspace_ledgers_triage_why_required');
   if (why.length > MAX_WHY_LENGTH) fail('workspace_ledgers_triage_why_too_long');
 
@@ -153,7 +197,12 @@ export function appendReadingDecision({ workspacesRoot, readingTablePath, lineag
   if (targetText.length > MAX_WHY_LENGTH) fail('workspace_ledgers_triage_target_too_long');
 
   const lock = acquireRefreshLock(workspacesRoot, now);
-  if (lock.held) fail('workspace_ledgers_lock_held');
+  // N2 (fresh non-author review, 2026-09-21): the same underlying condition (this
+  // module's own refresh lock already held by another caller) used to raise a
+  // DIFFERENT code here (`workspace_ledgers_lock_held`) than `refresh.mjs`'s and
+  // `common_refresh.mjs`'s own lock-held path (`workspace_ledgers_refresh_lock_held`)
+  // -- unified on the latter, since all three share the literal same lock file.
+  if (lock.held) fail('workspace_ledgers_refresh_lock_held');
   try {
     let headers = READING_HEADERS;
     let rows = [];

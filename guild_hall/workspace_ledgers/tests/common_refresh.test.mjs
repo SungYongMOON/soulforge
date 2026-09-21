@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -265,7 +265,7 @@ test('refreshCommon --dry writes a receipt but never touches disk', () => {
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('refreshCommon: a header-mismatched Owner table fails closed for the affected bucket only, without aborting the whole run', () => {
+test('refreshCommon (R4, fresh non-author review): a header-mismatched Owner table blocks EVERY common-folder ledger write, not just the affected one', () => {
   const fixture = makeFixture();
   try {
     writeFileSync(fixture.vendorTablePath, encodeCsv(['잘못된헤더'], [['x']]));
@@ -278,7 +278,28 @@ test('refreshCommon: a header-mismatched Owner table fails closed for the affect
     assert.equal(receipt.status, 'failed');
     assert.equal(receipt.owner_table_failures.length, 1);
     assert.equal(receipt.owner_table_failures[0].code, 'workspace_ledgers_owner_table_header_mismatch');
-    // every other ledger still refreshed -- 미분류.csv (unaffected by the vendor table) still exists.
+    assert.deepEqual(receipt.files, []);
+    // R4: NOTHING is written this run -- not even 미분류.csv, which the (broken)
+    // vendor table has no direct bearing on. Writing it anyway while the vendor
+    // table's own ledgers go stale is exactly the "same mail in two ledgers on disk"
+    // bug this gate exists to prevent.
+    const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
+    assert.throws(() => readFileSync(path.join(commonBase, '미분류.csv'), 'utf8'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (R4): allowDegradedOwnerTables: true opts back into writing despite a malformed Owner table', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(fixture.vendorTablePath, encodeCsv(['잘못된헤더'], [['x']]));
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z', allowDegradedOwnerTables: true,
+    });
+    assert.equal(receipt.status, 'failed'); // still failed (owner_table_failures non-empty), but files ARE written
+    assert.ok(receipt.files.length > 0);
     const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
     assert.doesNotThrow(() => readFileSync(path.join(commonBase, '미분류.csv'), 'utf8'));
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
@@ -319,5 +340,136 @@ test('classifyAllCommonMail (spec section 2, thread-vendor inheritance): an inte
     assert.deepEqual(forwarded.projectResult.vendors.map(v => v.name), ['거래처A']);
     assert.equal(forwarded.outcome.bucket, 'organisation_undecided');
     assert.match(forwarded.projectResult.basis, /같은 대화의 거래처/);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('classifyAllCommonMail (S4, fresh non-author review): a generic shared subject does NOT inherit an unrelated organisation -- no shared participant and >30 days apart', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'thread-vendor-negative.jsonl'), jsonl([
+      { event_id: 'g-direct', subject: '회의 안내', from: 'sales@vendor.example', to: ['teamA@example.com'], cc: [], received_at: '2026-01-01T00:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'g-unrelated', subject: '회의 안내', from: 'someoneElse@client.example', to: ['teamB@example.com'], cc: [], received_at: '2026-06-01T00:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const vendorTablePath = path.join(fixture.root, 'vendor3.csv');
+    writeFileSync(vendorTablePath, encodeCsv(VENDOR_HEADERS, [['vendor.example', '거래처B', '부품', '']]));
+
+    const pass = classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, vendorTablePath,
+    });
+    const unrelated = pass.classified.find(entry => entry.mail.event_id === 'g-unrelated');
+    assert.equal(unrelated.projectResult.vendors.length, 0); // no participant overlap, >30 days apart -- must not inherit 거래처B
+    assert.equal(unrelated.outcome.bucket, 'unclassified');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (R2, fresh non-author review): a path-traversal-shaped vendor name is rejected, never written outside the ledger folder', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'traversal.jsonl'), jsonl([
+      event({ id: 'trav-1', subject: '완전히 무관한 제목', from: 'sales@traversal.example', at: '2026-09-01T14:00:00Z' }),
+    ]));
+    writeFileSync(fixture.vendorTablePath, encodeCsv(VENDOR_HEADERS, [['traversal.example', '../../../../escape', '부품', '']]));
+
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    assert.equal(receipt.status, 'failed');
+    assert.ok(receipt.rejected_files.some(entry => entry.code === 'workspace_ledgers_ledger_name_unsafe'));
+    // never wrote anything outside the intended base -- the escape target (four
+    // levels up from the ledger folder) must not exist.
+    const escapedPath = path.resolve(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR, '../../../../escape.csv');
+    assert.throws(() => readFileSync(escapedPath, 'utf8'));
+    // and no file literally named with the raw traversal text landed inside the ledger folder either.
+    const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
+    assert.ok(!readdirSync(commonBase).some(name => name.includes('..')));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (R3, fresh non-author review): two vendor names differing only by letter case are rejected as a collision, neither written', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'case-collision.jsonl'), jsonl([
+      event({ id: 'case-1', subject: '완전히 무관한 제목 A', from: 'a@case-x.example', at: '2026-09-01T14:00:00Z' }),
+      event({ id: 'case-2', subject: '완전히 무관한 제목 B', from: 'b@case-y.example', at: '2026-09-01T15:00:00Z' }),
+    ]));
+    writeFileSync(fixture.vendorTablePath, encodeCsv(VENDOR_HEADERS, [
+      ['case-x.example', 'CaseVendor', '부품', ''],
+      ['case-y.example', 'casevendor', '부품', ''],
+    ]));
+
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    assert.equal(receipt.status, 'failed');
+    const collisions = receipt.rejected_files.filter(entry => entry.code === 'workspace_ledgers_ledger_name_case_collision');
+    assert.equal(collisions.length, 2); // both variants rejected, neither privileged over the other
+    const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
+    assert.throws(() => readFileSync(path.join(commonBase, '거래처_CaseVendor.csv'), 'utf8'));
+    assert.throws(() => readFileSync(path.join(commonBase, '거래처_casevendor.csv'), 'utf8'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (R5, fresh non-author review): an unreadable custody directory blocks every write unless allowPartialSources is set, and partialSourcesInEffect only when it actually applies', () => {
+  const fixture = makeFixture();
+  try {
+    const missingDir = path.join(fixture.root, 'does-not-exist');
+    const blocked = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir, missingDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    assert.equal(blocked.status, 'failed');
+    assert.equal(blocked.unreadable_dirs.length, 1);
+    assert.deepEqual(blocked.files, []);
+    assert.equal(blocked.allow_partial_sources_applied, false);
+    const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
+    assert.throws(() => readFileSync(path.join(commonBase, '미분류.csv'), 'utf8'));
+
+    const allowed = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir, missingDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T01:00:00.000Z', allowPartialSources: true,
+    });
+    assert.equal(allowed.allow_partial_sources_applied, true);
+    assert.ok(allowed.files.length > 0);
+
+    // partialSourcesInEffect is FALSE (not merely the flag being passed) when every
+    // custody directory actually IS readable -- a normal, fully-readable run.
+    const fullyReadable = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T02:00:00.000Z', allowPartialSources: true,
+    });
+    assert.equal(fullyReadable.allow_partial_sources_applied, false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refreshCommon (S3, fresh non-author review): a vendor_only reading decision with no matched organisation is counted in the receipt, not silently dropped', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 's3.jsonl'), jsonl([
+      event({ id: 's3-noorg', subject: '완전히 무관한 제목', from: 'x@client.example', at: '2026-09-01T14:00:00Z' }),
+    ]));
+    writeFileSync(fixture.readingTablePath, encodeCsv(READING_HEADERS, [
+      ['s3-noorg', '2026-09-01', '완전히 무관한 제목', 'vendor_only', '', '거래처 표기 없음', 'tester', '2026-09-21', ''],
+    ]));
+    const receipt = refreshCommon({
+      workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot, hiworksDirs: [fixture.hiworksDir],
+      gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath,
+      vendorTablePath: fixture.vendorTablePath, readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
+    });
+    assert.ok(receipt.vendor_only_without_organisation >= 1);
+    assert.equal(receipt.bucket_counts.vendor_only, 0); // never routes there without an organisation match
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compileRule, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import {
-  addressesOfMail, buildCommonConfig, classifyProjectHits, detectSystemSource, resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
+  addressesOfMail, buildCommonConfig, classifyProjectHits, detectSystemSource, OrgConfigPatternError, participantEmailsOf,
+  resolvePrimaryBucket, vendorsOfAddresses, workTagsOf,
 } from '../src/common_classifier.mjs';
 
 function rule(code, exactPairs) {
@@ -195,4 +196,85 @@ test('resolvePrimaryBucket (coordinator correction): a mail touching a known org
   assert.equal(outcome.bucket, 'organisation_undecided');
   assert.equal(outcome.fileName, null); // no primary file -- represented only in that vendor's own secondary ledger
   assert.equal(outcome.basisOverride, '거래처(자동)');
+});
+
+test('resolvePrimaryBucket (R1, fresh review): a mail touching a known organisation but with a hold_owner_review/unroutable reading decision stays in the triage queue (미분류), not organisation_undecided', () => {
+  const vendors = [{ name: 'Vendor Co' }];
+  const holdReading = { level: 'hold_owner_review', target: '', why: '' };
+  const held = resolvePrimaryBucket(mail({ subject: '완전히 무관한 제목' }),
+    { ...noProject(), vendors, reading: holdReading }, COMMON_CONFIG, { ourDomain: 'example.com' });
+  assert.equal(held.bucket, 'unclassified');
+  assert.equal(held.fileName, '미분류.csv');
+
+  // An 'exclude' row whose target matches none of the routing prefixes -- also stays
+  // in the triage queue rather than silently disappearing into organisation_undecided.
+  const unroutableExclude = { level: 'exclude', target: '알 수 없는 분류', why: '' };
+  const unroutable = resolvePrimaryBucket(mail({ subject: '완전히 무관한 제목' }),
+    { ...noProject(), vendors, reading: unroutableExclude }, COMMON_CONFIG, { ourDomain: 'example.com' });
+  assert.equal(unroutable.bucket, 'unclassified');
+
+  // An 'include' row naming an unknown project code -- classifyProjectHits already
+  // falls this through to the same generic reading branch (basis '판독: 보류'),
+  // still carrying `reading`; resolvePrimaryBucket must not treat that as "no
+  // decision" either.
+  const unknownCodeReading = { level: 'include', target: 'P99-999', why: '' };
+  const unknownCode = resolvePrimaryBucket(mail({ subject: '완전히 무관한 제목' }),
+    { ...noProject(), vendors, reading: unknownCodeReading }, COMMON_CONFIG, { ourDomain: 'example.com' });
+  assert.equal(unknownCode.bucket, 'unclassified');
+});
+
+// ------------------------------------------------------------------------------- S1
+test('classifyProjectHits (S1): a bundle row naming ANY unknown code is not a match at all -- never attributes the known subset', () => {
+  const bundles = [{ phrase: '분기 회의', codes: ['P00-001', 'P99-999'], why: 'Owner 확인' }];
+  const result = classifyProjectHits({ id: 'm-s1a', subject: '2026 분기 회의 자료', body: '', addresses: [] },
+    { compiledRules: [RULE_A, RULE_B], bundles, readings: new Map(), vendorLookup: new Map() });
+  assert.equal(result.hits.length, 0);
+  assert.equal(result.unknownBundleTarget, true);
+  assert.equal(result.basis, '미정'); // falls all the way through to step 5 (no reading/body signal in this fixture)
+});
+
+test('classifyProjectHits (S1): an include reading row naming an unknown code is counted as unknownReadingTarget, not silently absorbed', () => {
+  const readings = new Map([['m-s1b', { level: 'include', target: 'P99-999', why: 'x' }]]);
+  const result = classifyProjectHits({ id: 'm-s1b', subject: '무관한 제목', body: '', addresses: [] },
+    { compiledRules: [RULE_A, RULE_B], bundles: [], readings, vendorLookup: new Map() });
+  assert.equal(result.hits.length, 0);
+  assert.equal(result.unknownReadingTarget, true);
+  assert.equal(result.basis, '판독: 보류');
+});
+
+// ------------------------------------------------------------------------------- S2
+test('resolvePrimaryBucket (S2): an explicit vendor_only reading decision wins over a system-source pattern match, and is flagged decisionOverrodePattern', () => {
+  const configWithSystemSource = buildCommonConfig({ common_ledgers: { system_notification_sources: [{ name: '시스템X', sender_domains: ['sys.example'] }] } });
+  const reading = { level: 'vendor_only', target: '', why: '' };
+  const outcome = resolvePrimaryBucket(mail({ subject: '무관', fromDomain: 'sys.example' }),
+    { ...noProject(), vendors: [{ name: 'V' }], reading }, configWithSystemSource, { ourDomain: 'example.com' });
+  assert.equal(outcome.bucket, 'vendor_only');
+  assert.equal(outcome.decisionOverrodePattern, true);
+});
+
+test('resolvePrimaryBucket (S2): a hold_owner_review reading decision does NOT override a pattern bucket -- it is explicitly "no decision yet"', () => {
+  const configWithAds = buildCommonConfig({ common_ledgers: { ads_sender_domains: ['ads.example'] } });
+  const reading = { level: 'hold_owner_review', target: '', why: '' };
+  const outcome = resolvePrimaryBucket(mail({ subject: '무관', fromDomain: 'ads.example' }),
+    { ...noProject(), vendors: [], reading }, configWithAds, { ourDomain: 'example.com' });
+  assert.equal(outcome.bucket, 'ads');
+  assert.equal(outcome.decisionOverrodePattern, undefined);
+});
+
+// ------------------------------------------------------------------------------- S7
+test('buildCommonConfig (S7): a ReDoS-unsafe org-config pattern is rejected at config-load time with the config key, never the pattern text', () => {
+  assert.throws(() => buildCommonConfig({ common_ledgers: { ads_subject_patterns: ['^(a|a)+$'] } }),
+    error => error instanceof OrgConfigPatternError && error.code === 'workspace_ledgers_org_config_pattern_invalid'
+      && error.configKey === 'common_ledgers.ads_subject_patterns[0]');
+});
+
+test('buildCommonConfig (S7): a structurally unsafe pattern (nested quantifier) in a labeled list is also rejected, naming its own config key', () => {
+  assert.throws(() => buildCommonConfig({ common_ledgers: { internal_admin_subject_patterns: [{ label: '급여', pattern: '(a+)+' }] } }),
+    error => error instanceof OrgConfigPatternError
+      && error.configKey === 'common_ledgers.internal_admin_subject_patterns[0]');
+});
+
+test('participantEmailsOf: collects every from/to/cc address, lowercased', () => {
+  const emails = participantEmailsOf({ from: { email: 'A@x.example' }, to: [{ email: 'b@x.example' }], cc: [{ email: 'C@y.example' }] });
+  assert.deepEqual([...emails].sort(), ['a@x.example', 'b@x.example', 'c@y.example']);
 });

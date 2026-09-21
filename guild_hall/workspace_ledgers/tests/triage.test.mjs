@@ -204,3 +204,87 @@ test('listUnclassified (coordinator, 2026-09-21): organisation_undecided mail is
     assert.deepEqual(v1.vendors, ['거래처A']);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+test('listUnclassified (S3, fresh non-author review): a vendor_only reading decision with no matched organisation is flagged already_decided_invalid', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(fixture.readingTablePath, encodeCsv(READING_HEADERS, [
+      ['u1', '2026-09-01', '분류 안 되는 메일', 'vendor_only', '', '거래처 표기 없음', 'tester', '2026-09-21', ''],
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, readingTablePath: fixture.readingTablePath });
+    const u1 = result.items.find(item => item.mail_source_id === 'u1');
+    assert.ok(u1);
+    assert.equal(u1.already_decided_invalid, 'vendor_only_without_organisation');
+    // a mail with no reading decision at all is not flagged.
+    const u2 = result.items.find(item => item.mail_source_id === 'u2');
+    assert.equal(u2.already_decided_invalid, null);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('listUnclassified (S5, fresh non-author review): a courtesy phrase near the START of a short reply never discards the real content after it', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 's5.jsonl'), jsonl([
+      {
+        event_id: 's5-1', subject: '완전히 무관한 제목', from: 'x@client.example', to: ['me@example.com'], cc: [],
+        received_at: '2026-09-01T03:00:00Z',
+        body_text: '감사합니다.\n\n본론: 실제 중요한 내용입니다.\n\n추가로 확인 부탁드립니다.',
+        attachments: [],
+      },
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath });
+    const item = result.items.find(entry => entry.mail_source_id === 's5-1');
+    assert.ok(item);
+    assert.notEqual(item.body_preview, '');
+    assert.ok(item.body_preview.includes('실제 중요한 내용입니다'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('listUnclassified (S5): a genuine trailing signature block is still cut', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 's5b.jsonl'), jsonl([
+      {
+        event_id: 's5-2', subject: '완전히 무관한 제목 둘', from: 'x@client.example', to: ['me@example.com'], cc: [],
+        received_at: '2026-09-01T04:00:00Z',
+        body_text: '본론: 실제 중요한 내용입니다.\n\n추가 설명입니다.\n\n감사합니다.\n김담당 드림',
+        attachments: [],
+      },
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath });
+    const item = result.items.find(entry => entry.mail_source_id === 's5-2');
+    assert.ok(item);
+    assert.ok(!item.body_preview.includes('감사합니다'));
+    assert.ok(item.body_preview.includes('실제 중요한 내용입니다'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('listUnclassified (N3, fresh non-author review): ordinary prose starting with a header-like word (no colon) is kept in the body preview', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'n3.jsonl'), jsonl([
+      {
+        event_id: 'n3-1', subject: '완전히 무관한 제목 셋', from: 'x@client.example', to: ['me@example.com'], cc: [],
+        received_at: '2026-09-01T05:00:00Z',
+        body_text: '제목이 아직 정해지지 않았습니다.\n날짜는 다음 주로 조정하겠습니다.',
+        attachments: [],
+      },
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath });
+    const item = result.items.find(entry => entry.mail_source_id === 'n3-1');
+    assert.ok(item);
+    // neither line is a "Label: value" mail-client header -- both must survive.
+    assert.ok(item.body_preview.includes('제목이 아직 정해지지 않았습니다'));
+    assert.ok(item.body_preview.includes('날짜는 다음 주로 조정하겠습니다'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('appendReadingDecision (S6, fresh non-author review): reader is length-capped the same way why is', () => {
+  const fixture = makeFixture();
+  try {
+    assert.throws(() => appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'exclude', target: '광고', why: 'x', reader: 'r'.repeat(1001),
+    }), error => error instanceof TriageError && error.code === 'workspace_ledgers_triage_reader_too_long');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});

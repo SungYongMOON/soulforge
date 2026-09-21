@@ -9,6 +9,7 @@
 // ledger gets the same Owner-column-preserve/fail-closed/history/receipt contract the
 // four per-project ledgers already have).
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 
 export const COMMON_LEDGER_SCHEMA = 'soulforge.workspace_common_ledger_csv.v1';
 
@@ -70,6 +71,71 @@ export function buildCommonRow({ folderScope, fileName, mail, detail = '', proje
 export function vendorFileName(vendorName) { return `거래처_${vendorName}.csv`; }
 /** Work-tag ledger file name for one tag (spec: 작업_<태그>.csv). */
 export function workTagFileName(tag) { return `작업_${tag}.csv`; }
+
+// ------------------------------------------------------------------------ R2: path safety
+// R2 (fresh non-author review, 2026-09-21): every dynamic file name above is built
+// from Owner-typed text (a 거래처_대응표.csv 거래처명, an 작업태그_목록.csv 태그, or a
+// 판독_결정표.csv reading target's free-text tail after `과제외:`) with NO
+// sanitisation. A name like `x/../../../../escape` walked the written CSV outside the
+// ledger folder (and its lineage file outside the workmeta root) while the receipt
+// still said `written: true`; a name containing a literal `/`/`\` (e.g. `a/b`) silently
+// created a subdirectory instead of a file. `common_refresh.mjs` runs every file name
+// through `isSafeFileName` (reject, never "fix up") before it ever reaches
+// `writeLedgerCsv`, and through `resolveSafePath` for BOTH the CSV path and the
+// lineage path as a second, independent assertion -- even a future gap in
+// `isSafeFileName` cannot walk a write outside its intended base directory.
+const RESERVED_DEVICE_NAME = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/iu;
+// The control-byte range (codepoint zero through codepoint thirty-one, the NUL
+// through Unit-Separator control characters) is built with String.fromCharCode and
+// numeric hex literals below, never typed as a control-character source escape --
+// an editing tool can turn that kind of escape into the actual raw control byte in
+// the FILE's own source (this module's own byte-hygiene test correctly flags that as
+// an accident; classifier.mjs's own history describes the same trap for its
+// mismatch-candidate array).
+const CONTROL_RANGE_START = String.fromCharCode(0x00);
+const CONTROL_RANGE_END = String.fromCharCode(0x1F);
+const UNSAFE_NAME_CHARS = new RegExp(`[\\\\/:*?"<>|${CONTROL_RANGE_START}-${CONTROL_RANGE_END}]`, 'u');
+const MAX_FILE_NAME_LENGTH = 150;
+
+/**
+ * True when `fileName` (a full `<stem>.csv` ledger file name) is safe to use as a
+ * single path segment directly under a fixed base directory. Rejects: any of
+ * `\ / : * ? " < > |` or a control byte; `.`/`..` as the whole name; a trailing dot or
+ * space (Windows silently strips these, so two different-looking names can collide on
+ * disk); a Windows reserved device stem (`CON`/`PRN`/`AUX`/`NUL`/`COM1-9`/`LPT1-9`,
+ * case-insensitive, checked before the first `.`); an empty or overlong name.
+ */
+export function isSafeFileName(fileName) {
+  const name = String(fileName ?? '');
+  if (!name || name.length > MAX_FILE_NAME_LENGTH) return false;
+  if (UNSAFE_NAME_CHARS.test(name)) return false;
+  if (name === '.' || name === '..') return false;
+  if (/[. ]$/u.test(name)) return false;
+  const stem = name.split('.')[0];
+  if (RESERVED_DEVICE_NAME.test(stem)) return false;
+  return true;
+}
+
+/**
+ * Resolves `fileName` under `baseDir` and asserts the result is still actually inside
+ * `baseDir` (`path.relative` never starts with `..` and is never itself absolute) --
+ * the defense-in-depth check that actually stops a write from landing outside the
+ * intended folder, independent of whether `isSafeFileName` itself has a gap. Returns
+ * the resolved absolute path, or `null` if either check fails.
+ */
+export function resolveSafePath(baseDir, fileName) {
+  if (!isSafeFileName(fileName)) return null;
+  const resolvedBase = path.resolve(baseDir);
+  const resolved = path.resolve(resolvedBase, fileName);
+  const rel = path.relative(resolvedBase, resolved);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return resolved;
+}
+
+/** A short, stable, content-only identifier for a rejected file name in a receipt -- never the name itself (R2: an Owner/organisation/tag name is private data). */
+export function fileNameHash(fileName) {
+  return createHash('sha256').update(String(fileName ?? '')).digest('hex').slice(0, 12);
+}
 
 /**
  * The `과제` cell a vendor/work-tag secondary view shows when no project code applies

@@ -458,12 +458,21 @@ Owner cell, never both. Within the alternate-address index itself, an address th
 would resolve to more than one existing row, or that collides with a DIFFERENT
 existing row's own exact key column, is removed from the index entirely and never used
 for matching (this is what stops a stale 다른메일 entry on one row from silently
-shadowing a second row that is genuinely, exactly keyed on that same address). Any of
-these ambiguous situations -- an index collision, or two still-unmatched fresh rows
-genuinely contending for the same not-yet-consumed existing row -- means none of the
-contenders gets the Owner cell, and is counted in the per-ledger `owner_cells_ambiguous`
-field of the receipt (contacts.csv only; every other ledger keys on an exact, non-
-alternate column and this is always `0` there).
+shadowing a second row that is genuinely, exactly keyed on that same address).
+
+**What `owner_cells_ambiguous` actually counts (nit, fresh non-author review,
+2026-09-21).** Not "how many Owner cells were withheld this run" -- it is a hygiene
+count over the alternate-address INDEX itself, not a per-row outcome. Three distinct
+situations add to it: (1) an address removed from the index because it would resolve
+to more than one existing row, or collides with a different existing row's own exact
+key column -- counted the moment the collision is detected, regardless of whether any
+fresh row this run actually needed that address; (2) a fresh row itself reaching more
+than one still-available existing row through the alternate-address match; (3) two or
+more fresh rows genuinely contending for the same not-yet-consumed existing row. Only
+(2) and (3) correspond to a fresh row that concretely lost a match this run; (1) can
+fire even when nothing this run was ever at risk of matching through that address.
+Per-ledger, contacts.csv only -- every other ledger keys on an exact, non-alternate
+column and this is always `0` there.
 
 ## Performance
 
@@ -766,7 +775,8 @@ concurrently and race on the same tables/ledgers.
 **CLI additions**: `node cli.mjs common-refresh --workspaces-root <dir>
 --workmeta-root <dir> --hiworks-events <dir> --gmail-sent-events <dir> --org-config
 <file> [--bundle-table <file>] [--vendor-table <file>] [--reading-table <file>]
-[--work-tag-table <file>] [--dry] [--allow-empty file1,file2] --receipts <dir>`;
+[--work-tag-table <file>] [--dry] [--allow-empty file1,file2]
+[--allow-partial-sources] [--allow-degraded-owner-tables] --receipts <dir>`;
 `node cli.mjs parity --workspaces-root <dir> --hiworks-events <dir>
 --gmail-sent-events <dir> --org-config <file> [tables...]` (read-only: the module's own
 per-primary-bucket dry-run counts vs. the row counts of whichever real ledger CSVs
@@ -784,6 +794,123 @@ used the spec's descriptive wording as if it were the header itself).
 Step 2 (lane spec, scheduled-task registration, runbook) and Step 3's Hermes
 tool-wiring (`context-read` lane's tool bundle, bot instructions) are untouched per the
 spec's own phasing -- this module exposes the triage API's library/CLI surface only.
+
+### Fresh non-author review fixes (2026-09-21, after the first Step 1 commit)
+
+A separate reviewer (not the original author) found five REQUIRED and seven SHOULD
+issues in commit `500d678c`; all are fixed here, each with its own regression test.
+
+**R1 -- `organisation_undecided` no longer swallows an unresolved reading decision.**
+`resolvePrimaryBucket` used to gate this bucket on `projectResult.vendors.length > 0`
+alone. A mail with `reading.level === 'hold_owner_review'` (genuinely awaiting a
+decision), an `include`/`include_with_review` row naming an unknown project code, or an
+`exclude` row whose target matched none of the routing prefixes, all reach this point
+still carrying `projectResult.reading` -- and, if the mail also touched a known
+organisation, used to vanish from the triage queue (`listUnclassified`'s default view
+never returns `organisation_undecided`). Now gated on `!projectResult.reading &&
+projectResult.vendors.length > 0` -- any mail with an unresolved reading decision stays
+`unclassified` regardless of organisation match, while still showing up in that
+organisation's own secondary ledger (computed independently of the primary bucket).
+
+**R2 -- ledger file names are sanitised before use.** A `거래처_<이름>.csv`/
+`작업_<태그>.csv`/`과제외_<분류>.csv` file name embeds Owner-typed text (a vendor name,
+a work tag, a reading-table target's free-text tail) with no prior sanitisation --
+`src/common_ledgers.mjs`'s `isSafeFileName` now rejects (never "fixes up") a name
+containing `\ / : * ? " < > |` or a control byte, `.`/`..` as the whole name, a trailing
+dot/space, a Windows reserved device stem, or an overlong name; `resolveSafePath`
+independently asserts the resolved CSV/lineage path is still under its intended base
+directory (`path.relative` never starts with `..`) as defense in depth. A rejected name
+is recorded in the receipt's `rejected_files` by a short hash only, never the name
+itself (private, Owner-typed data).
+
+**R3 -- case-insensitive file-name collisions fail closed.** Two organisation/tag
+names differing only by letter case (`ABC` vs `abc`) build two different-looking file
+names that are the SAME file on a case-insensitive filesystem (Windows) -- detected
+across the whole grouped-by-file-name map before anything is written; every colliding
+name is rejected (neither privileged over the other), named in the receipt by hash.
+
+**R4 -- a malformed Owner table blocks every common-folder ledger write.**
+`loadOwnerTables` substitutes an empty table on a bad header/encoding/row-shape, which
+degrades classification silently -- mail that used to route through that table lands in
+a DIFFERENT bucket's file, while the table's own ledgers go stale, so the same mail ends
+up recorded in two ledgers on disk at once, with the receipt still saying `status:
+'ok'`. `refreshCommon` now writes NOTHING for the whole run when `ownerTableFailures`
+is non-empty (receipt only, `status: 'failed'`, the failing table(s) named), unless the
+caller passes `allowDegradedOwnerTables: true` to opt back into the old behaviour
+explicitly. Project ledgers produced by `refresh()`'s own pipeline are a separate code
+path, never affected by this gate.
+
+**R5 -- partial-custody gate, mirroring `refresh()`.** `refreshCommon` had no
+`allowPartialSources` gate at all -- an unreadable custody directory silently wrote
+whatever partial custody it DID read as if it were complete, and never passed a
+"partial sources actually in effect" boolean into `writeLedgerCsv`, so its shrink
+guard could never activate for common ledgers. Now: an unreadable custody directory
+blocks every write (receipt only, `status: 'failed'`) unless `allowPartialSources:
+true` is passed, in which case `partialSourcesInEffect` (`unreadableDirs.length > 0 &&
+allowPartialSources`) is threaded into every `writeLedgerCsv` call.
+
+**S1 -- unknown targets are counted, and a bundle row needs ALL codes known.** A
+묶음_확정표 row naming even one unknown project code alongside known ones used to
+silently attribute the known subset; now the whole row does not match (falls through
+to step 3), and `receipt.unknown_targets.{bundle,reading}` counts how often this (and
+an `include`/`include_with_review` reading row naming an unknown code) happened.
+
+**S2 -- an explicit reading decision wins over system/ads pattern buckets.**
+`detectSystemSource`/`isAds` used to be checked before the reading-decision cascade, so
+an Owner's explicit `vendor_only`/`exclude` decision on a specific mail could be
+silently overridden by a general pattern match. Reordered so any reading decision other
+than `hold_owner_review` (which is explicitly "no decision yet") resolves first;
+`receipt.decision_overrode_pattern` counts how often a decision that DID win would
+otherwise have matched a pattern bucket too.
+
+**S3 -- `vendor_only` with no matched organisation is visible, not a dead end.** Such
+a mail can never route to `vendor_only` (there is no ledger to put it in) and stays
+`unclassified` -- counted in `receipt.vendor_only_without_organisation`, and flagged
+per-item in `listUnclassified`'s `already_decided_invalid: 'vendor_only_without_
+organisation'` so a reader knows NOT to call `appendReadingDecision` again for it (it
+will only fail as a duplicate) -- the existing row needs a person to edit it by hand.
+
+**S4 -- thread-vendor inheritance requires a real signal, not just a shared subject.**
+A generic, commonly-reused subject used to inherit an unrelated organisation from any
+other mail that merely normalised to the same words. A candidate now only donates its
+vendors when it ALSO shares at least one participant address with the inheriting mail,
+or was received within 30 days of it; the inherited row's `basis` still carries
+`(같은 대화의 거래처)`.
+
+**S5 -- `body_preview` never returns empty when content exists.** The signature cut
+used to search the whole flattened (newline-joined) text for a courtesy phrase --
+"감사합니다" appearing near the very START of a short reply could discard all of it. Now
+line-based: only the trailing 40% of the (quote-header-stripped) lines are searched,
+the cut always lands on a whole line, and a cut that would leave nothing keeps the full
+line set instead.
+
+**S6 -- `reader` is length-capped** the same way `why`/`target` already are
+(`workspace_ledgers_triage_reader_too_long`).
+
+**S7 -- org-config regex patterns get the same safety checks as rule terms.** A
+`system_notification_sources[].subject_patterns`/`ads_subject_patterns`/labeled-pattern
+entry used to compile with a bare `new RegExp(pattern, 'iu')` -- no nested-quantifier/
+backreference/lookbehind/alternation-count check, no ReDoS timing canary, unlike every
+rule term this codebase otherwise compiles. `buildCommonConfig` now runs each pattern
+through `classifier.mjs`'s `compileTerm` (as a `kind: 'regex'` term, `timeSafety: true`)
+and throws `OrgConfigPatternError`/`workspace_ledgers_org_config_pattern_invalid`,
+naming only the config key (e.g. `common_ledgers.ads_subject_patterns[2]`, never the
+pattern text) before any classification or write happens.
+
+**N1 -- `parity` now also compares the `project` bucket** (summed from every onboarded
+project's own 메일_수신이력.csv + 메일_발송이력.csv row counts) -- previously only five
+of the twelve primary buckets were checked.
+
+**N2 -- the refresh-lock-held condition raises one code everywhere.**
+`triage.mjs`'s `appendReadingDecision` used to raise `workspace_ledgers_lock_held` for
+the exact same underlying lock `refresh.mjs`/`common_refresh.mjs` raise
+`workspace_ledgers_refresh_lock_held` for -- unified on the latter.
+
+**N3 -- the quote-header line filter only strips header-SHAPED lines.** It used to drop
+any line merely STARTING with a common header word (`제목`, `날짜`, `From`, ...) even in
+ordinary prose with no colon following; now requires a colon (half- or full-width)
+immediately after the label (or a literal `>`/dash-or-equals fence), matching only
+actual mail-client-generated header lines.
 
 ## Byte hygiene (tracked source, not data)
 
