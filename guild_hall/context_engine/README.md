@@ -1,5 +1,133 @@
 # Context Engine
 
+## 답변 평가 하네스 v0 (0.23.0)
+
+2026-09-20에 황금 질문 3개를 두 모델에 손으로 돌려 하루를 쓰고, 답을 산문으로 비교하고, 점수 칸은
+끝내 못 채웠다. 카드 대조·메일 요약·메일 귀속을 고칠 때마다 필요한 것은 "지난번보다 나은가 나쁜가"를
+몇 분 안에 말해 주는 물건이다. `harness/answer_eval.mjs`(+ 순수 규칙은
+`src/runtime/answer_eval.mjs`)가 그 물건이다. **v0에는 LLM 심판이 없다** — 심판 자신이 드리프트하는
+물건이고 그러면 그 심판을 또 평가해야 하기 때문이다. 손으로 쓴 정답 열쇠와 문자열 대조뿐이다.
+
+### 무엇을 재고 무엇을 못 재는가
+
+재는 것은 셋뿐이고 **하나로 합친 점수는 일부러 없다**(찾음이 오르면서 오답이 같이 늘어난 변경이
+비긴 것으로 보이면 안 되므로):
+
+- **found** — `must_find` 열쇠 중 답에 들어 있는 것의 가중 비율. "이 사실/날짜/사람/항목번호를 말했는가".
+- **cited** — `must_cite` 열쇠의 같은 비율. 근거를 사람 말로(날짜 + 보낸이·제목 조각) 또는 id로 가리켰는가.
+- **errors** — `must_not` 열쇠 적중 수. 이미 틀린 줄 아는 주장을 했는가.
+
+곁들이는 것: `minutes`(경과), `over_time`(`max_minutes` 초과), `answer_chars`(답 길이),
+`clarification`(답 대신 되물었는가), `truncated`, `absent`, 그리고 못 맞힌 열쇠 이름들.
+
+못 재는 것 — 문서에 같이 적지 않으면 숫자가 위험해지므로 분명히 적는다:
+
+- **추론의 질도 말투도 못 잰다.** 열쇠 문자열이 있는지 없는지만 본다.
+- **열쇠를 쓴 사람만큼만 좋다.** 정답 열쇠가 틀리면 점수도 같이 틀린다. 열쇠는 코드가 아니라 자료다.
+- **많이 인용하면 열쇠는 맞는다.** 그래서 `answer_chars`를 항상 같이 낸다 — found 100%에 4,000자면
+  답한 게 아니라 퍼온 것이다.
+- **되물음 판정은 보수적인 표시일 뿐 점수가 아니다.** 짧고(기본 400자) *그리고* 물음표로 끝나거나
+  질문 세트가 명시한 짧은 패턴에 걸릴 때만 붙는다. `expect_clarification: true`인 질문에는 안 붙는다.
+
+### 대조 규칙
+
+대조는 NFKC 정규화 + 소문자화 + 공백 축약된 문자열 위에서 한다(답이 줄바꿈으로 끊어 쓴 구절도 걸린다).
+
+- **한글은 경계 없이 포함 대조**다. 조사가 바로 붙으므로 `납기`는 `납기일`에 걸린다.
+- **ASCII 토큰(항목번호 등)은 경계 대조**다. `EX-1`은 `EX-15`에 안 걸린다. 경계를 막는 것은 ASCII
+  `[0-9a-z_]`뿐이라 `EX-1의`는 걸린다. 열쇠에 `"match": "substring"`을 주면 경계를 끄고(ISO 타임스탬프
+  안의 날짜처럼 ASCII 토큰에 붙어 사는 값), `"match": "token"`을 주면 강제하며 토큰이 아닌 값은 거부한다.
+- **정규식 항목**은 `"/ex-\d{1,4}/"`처럼 `/…/플래그` 모양으로 쓴다. 새 검사기를 또 만들지 않고
+  `guild_hall/workspace_ledgers/src/classifier.mjs`의 초안 검사(`compileTerm`)를 그대로 쓴다 — 길이 상한
+  200자, 중첩 수량자·역참조·lookbehind 거부, 교대 분기 상한, ReDoS 타이밍 canary. 플래그는 `i`/`u`만
+  받고 `i`는 자동으로 붙는다(본문이 이미 소문자라 대문자 패턴이 조용히 안 맞는 함정을 막는다).
+
+### 질문 세트 쓰는 법
+
+스키마 `soulforge.context_answer_eval_questions.v1`. **실제 세트는 private이며 repo 밖에 둔다.** repo에
+들어 있는 것은 완전히 합성된 예시 하나뿐이다: `harness/fixtures/answer_eval_questions.example.json`
+(가공 과제코드 P00-001, 가공 인명, example.com). 형태:
+
+```json
+{
+  "schema": "soulforge.context_answer_eval_questions.v1",
+  "set_id": "example-v1",
+  "created_at": "2026-01-02T00:00:00.000Z",
+  "clarification": { "max_chars": 400, "patterns": ["어느 과제"] },
+  "questions": [{
+    "id": "q1-deadline",
+    "prompt": "봇에게 그대로 주는 질문 텍스트",
+    "must_find": [{ "key": "deadline_date", "any_of": ["2026-02-13", "2026년 2월 13일"],
+                    "weight": 2, "match": "substring", "note": "사람이 보는 메모(영수증엔 안 들어감)" }],
+    "must_cite": [{ "key": "kickoff_mail", "any_of": ["1월 9일"] }],
+    "must_not":  [{ "key": "wrong_project", "any_of": ["P00-002"] }],
+    "max_minutes": 4,
+    "expect_clarification": false
+  }]
+}
+```
+
+- `any_of`는 "이 중 하나라도 있으면 맞음"이다. 같은 사실을 여러 표기로 적어 둔다.
+- `weight`(기본 1)로 핵심 열쇠를 무겁게 준다. 빈 그룹은 0%가 아니라 `null`("안 쟀음")이고 평균을 안 끌어내린다.
+- 모르는 필드 이름은 조용히 무시하지 않고 거부한다(`answer_eval_question_field_unknown`) — 오타 난 열쇠는
+  "재고 있다고 믿는데 안 재는" 상태를 만들고, 이 하네스는 바로 그걸 막으려고 있다.
+- 열쇠가 하나도 없는 질문도 거부한다(공짜 100%가 되므로).
+
+### 두 가지 모드
+
+**(1) `--answers-dir` — 이미 있는 답 파일 채점.** 모델도 명령도 필요 없다. 그래서 **지난 회차 답을 오늘
+소급 채점**해 지금 회차와 비교할 수 있다. 기본 규약은 `<질문 id>.md`이고, 폴더에 `answers.json`이 있으면
+그 대응표를 쓴다(`{"q1": {"path": "run-5b/first.txt", "elapsed_seconds": 200, "tool_calls": 4}}` — 경로는
+답 폴더 기준 상대경로이며 폴더 밖을 가리키면 거부한다). 답 파일 하나가 없으면 그 질문은 `absent`로
+전부 못 맞힌 것으로 세고, **전부** 없으면 결과가 아니라 배선 실수이므로 거부한다(exit 2).
+
+**(2) `--ask-command` — 답을 먼저 만든다.** argv 배열 템플릿(JSON, 스키마
+`soulforge.context_answer_eval_ask_command.v1`)을 주면 질문마다 한 번씩 실행한다. **셸을 안 쓴다**:
+`execFile`에 argv 배열을 그대로 넘기고 문자열을 이어 붙이지 않으며, 질문 텍스트는 argv에 아예 안 들어간다
+(임시 파일에 써서 `{prompt_file}` 자리에 그 경로만 들어간다). 답은 `{answer_file}`에서 읽는다.
+`timeout_seconds`를 넘기면 죽인다. `env`는 변수 **이름** 허용목록이고 값은 읽지도 기록하지도 않는다.
+**순차 실행만 한다** — 로컬 모델 서버는 슬롯이 하나라 둘을 동시에 돌리면 둘 다 기다릴 뿐이다.
+이 하네스는 특정 봇에 대해 아무것도 모른다. 아는 순간이 버그다 — 템플릿이 그 이음매다.
+예시: `harness/fixtures/answer_eval_ask_command.example.json`.
+
+### 비교하는 법
+
+회차마다 `--label`(`5b`, `after-card-reconcile` 같은 것)을 주고 `--receipts` 폴더에 영수증을 쌓는다.
+`--compare latest`(같은 폴더의 직전 영수증)나 `--compare <영수증 경로>`를 주면 나란히 놓은 증감표와
+**새로 놓친 열쇠·새로 맞힌 열쇠** 목록을 같이 찍는다. `--fail-on-regression`을 주면 질문 하나라도
+found/cited가 내려가거나 errors가 올라갔을 때 exit 3이다. 양쪽 중 한쪽에만 있는 질문은 added/removed이지
+퇴행이 아니다.
+
+영수증(`soulforge.context_answer_eval_receipt.v1`)은 staging + rename으로 원자적으로 쓰이고 **열쇠 이름과
+숫자만** 담는다 — 질문 텍스트도, 답 텍스트도, 맞은 문자열도, `note`도, 답 폴더 경로도, argv도 안 들어간다
+(argv는 digest와 길이만). 공개 로그에 그대로 붙여도 되도록 만든 것이고, 답 자체는 sha256과 길이로만 가리킨다.
+
+### 실행
+
+```
+node guild_hall/context_engine/harness/answer_eval.mjs \
+  --questions <private>/answer_eval/questions.v1.json \
+  --answers-dir <private>/answer_eval/runs/5b \
+  --label 5b --receipts <private>/answer_eval/receipts \
+  --compare latest --fail-on-regression
+
+node guild_hall/context_engine/harness/answer_eval.mjs \
+  --questions <private>/answer_eval/questions.v1.json \
+  --ask-command <private>/answer_eval/ask_bot.v1.json \
+  --label after-card-reconcile --receipts <private>/answer_eval/receipts \
+  --only q1-deadline,q3-open-items --compare latest
+```
+
+`--dry`는 질문 세트를 검사하고 무엇이 돌 것인지만 찍는다(영수증도 안 쓰고 명령도 안 부른다).
+exit code: `0` 돌았음 · `2` 사용법/검증 거부 · `3` 비교 대상 대비 퇴행(`--fail-on-regression`일 때) ·
+`4` ask-command 실패·타임아웃. 4가 3보다 우선한다(답을 못 만든 회차의 숫자는 비교할 값이 아니므로).
+
+시험: `tests/answer_eval.test.mjs`(질문 세트 거부 규칙, 한글·혼합 문자 대조, ASCII id 경계, 정규식 안전
+거부, 두 모드 — ask-command는 테스트가 직접 써서 `process.execPath`로 띄우는 작은 가짜 봇으로만 돌린다,
+비교·퇴행 exit code, 영수증에 원문이 없음, 원자적 쓰기, 저장된 예시 세트 자체 검증). `npm run
+validate:context-engine`에 들어 있다. **주의: `validate:context-engine`은 `npm run done:check`와 CI
+(`.github/workflows/validate.yml`)에 포함돼 있지 않다** — 이 하네스를 바꿀 때는 그 스크립트를 따로 돌려야 한다.
+
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 
 `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 네 번째 조각(외부 회신 09·10의 EXT-70·72·73·74).

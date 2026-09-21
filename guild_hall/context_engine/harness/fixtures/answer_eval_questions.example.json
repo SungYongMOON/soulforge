@@ -1,0 +1,68 @@
+{
+  "schema": "soulforge.context_answer_eval_questions.v1",
+  "set_id": "example-v1",
+  "created_at": "2026-01-02T00:00:00.000Z",
+  "note": "Fully synthetic example. Invented project codes (P00-001/P00-002), invented people, example.com. A real question set is private and lives outside this repo.",
+  "clarification": {
+    "max_chars": 400,
+    "patterns": ["어느 과제", "which project"]
+  },
+  "questions": [
+    {
+      "id": "q1-deadline",
+      "prompt": "P00-001 과제의 다음 납기가 언제이고, 그 납기를 맡고 있는 사람은 누구인가?",
+      "note": "Hangul containment (납기 must also hit 납기일), an ASCII date, and a person name.",
+      "must_find": [
+        { "key": "project_code", "any_of": ["P00-001"], "weight": 2 },
+        { "key": "deadline_date", "any_of": ["2026-02-13", "2026년 2월 13일", "2026. 2. 13"], "match": "substring", "note": "substring, not token: the date may sit inside an ISO timestamp" },
+        { "key": "owner_person", "any_of": ["김예시"] },
+        { "key": "deliverable", "any_of": ["중간보고서", "중간 보고서"] }
+      ],
+      "must_cite": [
+        { "key": "kickoff_mail", "any_of": ["1월 9일", "2026-01-09"], "match": "substring", "note": "the kickoff mail is dated 9 Jan" },
+        { "key": "kickoff_sender", "any_of": ["박표본", "pyo@example.com"] }
+      ],
+      "must_not": [
+        { "key": "wrong_project", "any_of": ["P00-002"] },
+        { "key": "wrong_month", "any_of": ["3월 13일", "2026-03-13"], "match": "substring" }
+      ],
+      "max_minutes": 4
+    },
+    {
+      "id": "q2-decision",
+      "prompt": "지난 달 P00-002 회의에서 외주 범위에 대해 무엇이 결정되었고, 누가 그렇게 말했는가?",
+      "must_find": [
+        { "key": "decision", "any_of": ["축소", "줄이기로", "범위를 줄"], "weight": 2 },
+        { "key": "speaker", "any_of": ["이참고"] },
+        { "key": "scope_item", "any_of": ["시험 치구", "치구"] }
+      ],
+      "must_cite": [
+        { "key": "meeting_date", "any_of": ["1월 21일", "2026-01-21"], "match": "substring" },
+        { "key": "meeting_title", "any_of": ["외주 범위 검토", "외주범위 검토"] }
+      ],
+      "must_not": [
+        { "key": "opposite_decision", "any_of": ["범위를 넓", "확대하기로"] }
+      ],
+      "max_minutes": 6
+    },
+    {
+      "id": "q3-open-items",
+      "prompt": "지금 나에게 열려 있는 추적기 항목을 전부 나열해 달라. 번호와 제목을 같이 적어 달라.",
+      "note": "EX-1 must not be satisfied by EX-15; the regex item catches any EX id at all.",
+      "must_find": [
+        { "key": "item_ex_1", "any_of": ["EX-1"], "match": "token", "weight": 2 },
+        { "key": "item_ex_15", "any_of": ["EX-15"], "match": "token" },
+        { "key": "any_tracker_id", "any_of": ["/ex-\\d{1,4}/"] },
+        { "key": "item_ex_1_title", "any_of": ["치구 도면 검토"] }
+      ],
+      "must_cite": [
+        { "key": "tracker", "any_of": ["추적기", "tracker"] }
+      ],
+      "must_not": [
+        { "key": "closed_item", "any_of": ["EX-7"], "match": "token", "note": "EX-7 was closed last month; naming it as open is a known-wrong claim" }
+      ],
+      "max_minutes": 3,
+      "expect_clarification": false
+    }
+  ]
+}

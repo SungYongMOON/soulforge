@@ -1,0 +1,14 @@
+{
+  "schema": "soulforge.context_answer_eval_ask_command.v1",
+  "note": "Synthetic example. argv[0] is the executable and the rest are argument-vector entries; there is no shell, so nothing here is ever parsed as a command line. The harness writes the prompt to {prompt_file} and reads the answer back from {answer_file}. A real template names a real bot entry point and is kept next to the private question set, outside this repo.",
+  "argv": [
+    "node",
+    "ask_bot.mjs",
+    "--prompt-file",
+    "{prompt_file}",
+    "--answer-file",
+    "{answer_file}"
+  ],
+  "timeout_seconds": 300,
+  "env": ["ANSWER_BOT_PROFILE"]
+}
