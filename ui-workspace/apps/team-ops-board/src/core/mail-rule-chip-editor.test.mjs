@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft, MAX_TERMS, MAX_LITERAL_CHARS,
-  mailRuleStatusLabel, mailRuleStatusTone,
+  mailRuleStatusLabel, mailRuleStatusTone, describeChipAddRejection, shouldCommitChipOnKeyDown,
 } from './mail-rule-chip-editor.mjs';
 
 test('initialChipEditorState seeds chips and yields_to from the rule and starts with an empty note', () => {
@@ -52,12 +52,46 @@ test('addLiteralChip refuses once a group reaches MAX_TERMS', () => {
   assert.equal(atLimit, state);
 });
 
-test('removeChip removes by label from the named group only, and is a no-op for an unknown label', () => {
+test('removeChip removes by index from the named group only, and is a no-op for an out-of-range index', () => {
   let state = initialChipEditorState({ exact: [{ label: 'a', kind: 'literal', value: 'a' }, { label: 'b', kind: 'literal', value: 'b' }], hint: [] });
-  const removed = removeChip(state, 'exact', 'a');
+  const removed = removeChip(state, 'exact', 0);
   assert.deepEqual(removed.exact, [{ label: 'b', kind: 'literal', value: 'b' }]);
-  const noop = removeChip(state, 'hint', 'a');
-  assert.deepEqual(noop.hint, []);
+  const noop = removeChip(state, 'hint', 0);
+  assert.equal(noop, state, 'out-of-range index is a no-op, same state reference');
+  assert.equal(removeChip(state, 'exact', -1), state);
+  assert.equal(removeChip(state, 'exact', 2.5), state);
+});
+
+// nit: a hand-edited rule file can carry duplicate labels within one group; removing by index
+// (not by label) must remove only the specific chip that was clicked, never every chip sharing
+// that label.
+test('removeChip removes only the one clicked chip even when two chips in the same group share a label', () => {
+  const state = initialChipEditorState({ exact: [
+    { label: 'dup', kind: 'literal', value: 'dup' }, { label: 'mid', kind: 'literal', value: 'mid' }, { label: 'dup', kind: 'literal', value: 'dup' },
+  ], hint: [] });
+  const removedFirst = removeChip(state, 'exact', 0);
+  assert.deepEqual(removedFirst.exact, [{ label: 'mid', kind: 'literal', value: 'mid' }, { label: 'dup', kind: 'literal', value: 'dup' }]);
+  const removedLast = removeChip(state, 'exact', 2);
+  assert.deepEqual(removedLast.exact, [{ label: 'dup', kind: 'literal', value: 'dup' }, { label: 'mid', kind: 'literal', value: 'mid' }]);
+});
+
+test('describeChipAddRejection names why addLiteralChip would no-op, in the same order addLiteralChip checks, and returns null when it would succeed', () => {
+  let state = initialChipEditorState({ exact: [{ label: '견적', kind: 'literal', value: '견적' }], hint: [] });
+  assert.equal(describeChipAddRejection(state, 'exact', '   '), 'empty');
+  assert.equal(describeChipAddRejection(state, 'exact', 'x'.repeat(MAX_LITERAL_CHARS + 1)), 'too_long');
+  assert.equal(describeChipAddRejection(state, 'exact', '견적'), 'duplicate');
+  assert.equal(describeChipAddRejection(state, 'exact', '새 키워드'), null, 'a value that would actually add has no rejection reason');
+  for (let i = 0; i < MAX_TERMS; i++) state = addLiteralChip(state, 'hint', `term-${i}`);
+  assert.equal(describeChipAddRejection(state, 'hint', 'one-more'), 'at_max');
+});
+
+test('shouldCommitChipOnKeyDown fires only on a real Enter, never mid-IME-composition (isComposing or the Windows keyCode 229 replay)', () => {
+  assert.equal(shouldCommitChipOnKeyDown({ key: 'Enter', isComposing: false, keyCode: 13 }), true);
+  assert.equal(shouldCommitChipOnKeyDown({ key: 'Enter' }), true, 'missing isComposing/keyCode defaults to a real commit');
+  assert.equal(shouldCommitChipOnKeyDown({ key: 'Enter', isComposing: true, keyCode: 13 }), false, 'still composing');
+  assert.equal(shouldCommitChipOnKeyDown({ key: 'Enter', isComposing: false, keyCode: 229 }), false, 'Windows IME commit replay');
+  assert.equal(shouldCommitChipOnKeyDown({ key: 'a', isComposing: false, keyCode: 65 }), false, 'not Enter at all');
+  assert.equal(shouldCommitChipOnKeyDown(undefined), false);
 });
 
 test('setNote trims to the character cap and toDraft omits an empty note but always carries yields_to', () => {

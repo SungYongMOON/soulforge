@@ -1,5 +1,59 @@
 # CHANGELOG
 
+## 2026-09-21 - 메일 분류 키워드 패널: main 재기반 뒤 신선한 검토 지적(R1~R4·S1~S7·nit) 반영
+
+- Revision: 이 항목을 포함한 커밋. `claude/ops-mail-rule-panel-v0`을 origin/main 위로
+  재구성한 직후 받은 신선한 검토(4개 필수 + 7개 권장 + 7개 자잘한 지적)를 반영했다.
+- 무엇이 바뀌었는가: 필수 4건 — (R1) `fullCustodyReady`가 `workspacesRoot`/`workmetaRoot`를
+  빠뜨려, `workmetaRoot` 미설정 상태에서 `save`가 core에 새 판을 실제로 쓴 뒤 lineage 경로를
+  만들다 `ERR_INVALID_ARG_TYPE`로 던지는 사이 화면은 평범한 400만 보여주던 문제를, 두 값을
+  custody 검사에 넣어 모든 core 호출 전에 `503 custody_unconfigured`로 막았다(코어를 절대
+  건드리지 않고, 검사만 앞으로 옮김). (R2) `summarizeRefreshReceipt`가 `receipt.status`·
+  `ledger_failures`·`rule_failures`·`unreadable_dirs`(있으면 `owner_table_failures`도)를
+  버리던 것을, 반환값에 실어 `saved`/`saved_refresh_partial`(신설)로 구분하고
+  `POST /mail-rule/refresh`도 `refresh_partial` 상태를 답하도록 했다 — custody 전부 읽기
+  실패로 `projects`가 빈 배열이 되는 경우가 "변경 0건"과 더는 구분 불가능하지 않게 했다.
+  (R3) `save`의 내부 `previewRule` 호출(측정용 `measured`)에 `orgConfigPath`를 항상 넘기고
+  (직후 `refresh`가 쓰는 것과 같아야 렌더링되는 "근거" 줄이 어긋나지 않는다), `preview`도
+  설정돼 있으면 넘기도록 했다. (R4) IME 조합 중 Enter가 칩으로 커밋되던 문제를 순수 헬퍼
+  `shouldCommitChipOnKeyDown`(`isComposing` + Windows `keyCode===229` 대체 신호)으로 막고
+  `operations-mail-rules.tsx`에 연결했다.
+  권장 7건 — (S1) 저장 요청에 패널이 읽은 `rule_version`/`sha256_json`을 함께 보내게 하고,
+  서버는 캐시를 거치지 않고 다시 읽어 불일치 시 `409 rule_changed`로 거부한다(화면은 "다시
+  불러오기" 안내). (S2) `previewRule`의 `rule_failures`를 개수만 캐치프레이즈로 표시.
+  (S3) 초안이 바뀌면 이전 미리보기 결과를 지우지 않고 반투명 처리 + 재실행 안내.
+  (S4) 칩 추가가 no-op일 때 입력값을 지우지 않고 이유(`describeChipAddRejection`)를 보여준다.
+  (S5) preview/save/refresh 동시 1개만 실행하는 프로세스 내 락을 추가, 두 번째 동시 요청은
+  `409 busy`(README에 core 호출이 동기·블로킹이라는 점을 명문화). (S6) 칩 입력에 aria-label,
+  저장 결과·작업 메시지 줄에 aria-live="polite". (S7) README의 "미리보기 선행 게이트가
+  서버에서도 강제된다"는 잘못된 문장을 "사유 비어있음만 서버 강제, 미리보기 선행은 클라이언트
+  UX일 뿐, 서버는 저장 직전 스스로 다시 측정한다"로 정정.
+  자잘한 지적 7건 — `validateDraft`/`project_invalid`/`expected_version_missing`에 `.code`를
+  실어 `reason`이 화면까지 전달되게 했고, 그 외 알 수 없는 코드는 `internal_error`로 고정.
+  `operations-spaces-adapter.mjs`처럼 `Referrer-Policy: no-referrer` 추가. `saveRuleVersion`에
+  `allowedActors:['owner']` 전달. 소비자가 없던 `GET /mail-rules.snapshot.json`(과제 목록)
+  라우트는 제거했고(`listProjects()` 자체는 내부 빌딩 블록으로 유지, `truncated` 플래그 추가),
+  가드 표의 해당 행은 남은 라우트로 갱신. 칩 React key를 `index-label`로(라벨만으로는 손편집
+  파일의 중복 라벨과 충돌), `removeChip`도 라벨이 아니라 인덱스로 딱 하나만 지우게 함.
+  CHANGELOG의 "포트 4196"을 4194로, 실제 과제 코드처럼 보이던 한 줄을 `<project_code>`로.
+- 운영 영향: 없음 — 쓰기는 여전히 기본 꺼짐(`TEAM_OPS_MAIL_RULE_WRITE` 미설정)이고, 이번
+  변경은 core 파일을 전혀 건드리지 않았다(어댑터·패널·테스트·문서만).
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.mjs`,
+  `ui-workspace/apps/team-ops-board/src/core/mail-rule-chip-editor.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.css`,
+  `ui-workspace/apps/team-ops-board/src/server/loopback-request-guard.test.mjs`,
+  `ui-workspace/apps/team-ops-board/README.md`, `CHANGELOG.md`.
+- 검증: 앱 패널 4파일 `node --test`(mail-rule-adapter/mail-rule-chip-editor/
+  operations-read-configuration/loopback-request-guard, 133/133 — 실제 core 모듈 통합
+  테스트 1개 포함), `tsc --noEmit` 통과, 루트 `npm run validate:workspace-ledgers`
+  (139/139, core 자체 테스트 — 파일 미변경), 루트
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`, 루트
+  `node guild_hall/validate/boot_digest_guard.mjs`. 정확한 pass/fail·exit code는 커밋
+  메시지 본문 참고.
+
 ## 2026-09-21 - 메일 분류 키워드 패널을 `guild_hall/workspace_ledgers` 핵심 모듈에 실제 연결
 
 - Revision: 이 항목을 포함한 커밋 (`claude/workspace-ledgers-v0`(d08f7441)을
@@ -35,7 +89,7 @@
   표시한다.
 - 운영 영향: 쓰기는 기본 꺼짐(`TEAM_OPS_MAIL_RULE_WRITE` 미설정)이라 이 커밋
   자체로는 아무 실제 규칙·장부 파일도 바꾸지 않는다. 읽기 전용 수동 확인에서
-  P26-005의 현재 규칙을 변경 없이 미리보기했을 때 `matched_before ==
+  `<project_code>`의 현재 규칙을 변경 없이 미리보기했을 때 `matched_before ==
   matched_after`(35 == 35), 이동 0건을 확인했고, 저장 시도는 예상대로
   `403 write_disabled`였다.
 - 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
@@ -52,7 +106,7 @@
   ui-workspace acceptance check), 루트 `npm run validate:workspace-ledgers`
   (39/39 통과, 이 저장소의 기존 core 모듈 자체 테스트), 루트 `node
   guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(변경
-  6파일, violations 0) 통과. 포트 4196 수동 확인은 실제 워크스페이스·custody
+  6파일, violations 0) 통과. 포트 4194 수동 확인은 실제 워크스페이스·custody
   플레인을 읽기 전용으로만 사용했고(쓰기 플래그 미설정) 키워드·제목 등
   실자료 내용은 어디에도 출력하지 않았다.
 

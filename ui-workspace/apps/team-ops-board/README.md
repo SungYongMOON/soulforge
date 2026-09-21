@@ -833,23 +833,31 @@ through to `guild_hall/workspace_ledgers` (merged to main 2026-09-21 as
 `b453abef`, after eight fresh-review rounds) for the actual preview/save/
 refresh work — see that module's own README for its rule/ledger contract.
 
-`src/server/mail-rule-adapter.mjs` (`createMailRulePlugin`) owns five loopback
+`src/server/mail-rule-adapter.mjs` (`createMailRulePlugin`) owns four loopback
 routes, all registered **only in `operations-preview.config.ts`** — the
 installed read-only Board's `vite.config.ts` does not carry this plugin, so the
-operational 4192 lane stays exactly as read-only as before this change:
+operational 4192 lane stays exactly as read-only as before this change. Every
+route also sets `Referrer-Policy: no-referrer` (nit, matching
+`operations-spaces-adapter.mjs`) alongside the existing `Cache-Control:
+no-store`/`X-Content-Type-Options: nosniff`.
 
-- `GET /mail-rules.snapshot.json` lists every direct child of
-  `TEAM_OPS_WORKSPACES_ROOT` whose name matches `^<CODE>_` and that resolves to
-  a real (non-symlink) directory holding a valid rule file; a project without a
-  rule file, or with an invalid one, is silently excluded rather than listed as
-  broken. Bounded to 500 scanned folders and 200 opened rule files. This read
-  path is independent of the core module below — it reads the two files
-  directly and does not call into `workspace_ledgers`.
-- `GET /mail-rule.snapshot.json?project=<CODE>` returns the parsed rule plus
-  `decisions`/`open_items` parsed from the md twin's two sections (bullets only,
-  ≤300 chars each, ≤30 per section — an overlong bullet is dropped, not
-  truncated) and `write_enabled`. The project code must match
-  `^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$`; the folder is resolved by an exact
+(An earlier `GET /mail-rules.snapshot.json` project-list route — every direct
+child of `TEAM_OPS_WORKSPACES_ROOT` whose name matches `^<CODE>_` and resolves
+to a real directory holding a valid rule file, bounded to 500 scanned folders
+and 200 opened rule files — was removed: the UI never grew a project-picker
+screen to call it, so it sat on this loopback server with no consumer.
+`createMailRuleReader(...).listProjects()` is kept as an internal,
+independently tested building block for if/when such a screen exists —
+including a `truncated: true` flag when either bound above was hit, so a
+future caller can tell a cut-off scan from a complete one — but is no longer
+reachable over HTTP.)
+
+- `GET /mail-rule.snapshot.json?project=<CODE>` returns the parsed rule (plus
+  `sha256_json`, the raw file's sha256 at read time — see "Optimistic
+  concurrency" below) and `decisions`/`open_items` parsed from the md twin's
+  two sections (bullets only, ≤300 chars each, ≤30 per section — an overlong
+  bullet is dropped, not truncated) and `write_enabled`. The project code must
+  match `^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$`; the folder is resolved by an exact
   `"<code>_"` prefix match, never by a path the caller supplies, and more than
   one matching folder is reported `unavailable` (ambiguous) rather than guessed.
   Both files are read through the existing `readStableFile` (symlink/hardlink/
@@ -878,37 +886,104 @@ operational 4192 lane stays exactly as read-only as before this change:
   `403 {"state":"write_disabled"}` before any body parsing when
   `TEAM_OPS_MAIL_RULE_WRITE` is not the exact string `'1'` (default off);
   `POST /mail-rule/preview` never writes and has no such gate. All three refuse
-  with `503 {"state":"custody_unconfigured"}` when the mail-event directories
-  (and, for save/refresh, the org config and receipts directory) are not set.
+  with `503 {"state":"custody_unconfigured"}` when `workspacesRoot` is not
+  set, or the mail-event directories are not set, or — save/refresh only —
+  `workmetaRoot`, the org config, or the receipts directory are not set. This
+  check runs before any core call (fresh review R1: it used to omit
+  `workmetaRoot`, so a save with everything else configured but no
+  `workmetaRoot` would let `saveRuleVersion` write the new rule version to
+  disk and only then throw building the lineage path — a new version with no
+  lineage record, reported to the panel as a plain `400`).
   - `previewRule`/`saveRuleVersion` take a *full* rule document, not just the
-    edited fields — `mail-rule-adapter.mjs`'s `buildFullDraft` merges the UI's
-    `{exact, hint, yields_to}` draft onto the project's current on-disk rule
-    (read through the same GET path above) before calling either. This module
-    only versions an *existing* rule; a project with no current rule answers
+    edited fields — `mail-rule-adapter.mjs` merges the UI's `{exact, hint,
+    yields_to}` draft onto the project's current on-disk rule before calling
+    either. `POST /mail-rule/preview` reads that current rule through the same
+    60s GET-path cache as the GET route; `POST /mail-rule/save` always reads
+    it fresh instead (see "Optimistic concurrency" below). This module only
+    versions an *existing* rule; a project with no current rule answers
     `400 {"state":"denied","reason":"no_current_rule"}`.
   - Matching is subject-only (`fields: ['subject']`) on every preview/save/
     refresh call — the Owner-approved default: the core module's builder
     measured that adding body/attachment matching raises overall matches by
     only ~5% but raises two-project conflicts (held, no auto-attribution) from
-    1 to 98.
+    1 to 98. `orgConfigPath` is forwarded to every `previewRule`/`refresh`
+    call that has one configured (fresh review R3) — `POST /mail-rule/preview`
+    omits it when the org config is not set (preview's custody requirement
+    does not include it), but `POST /mail-rule/save`'s internal `previewRule`
+    call always includes it, because that call's `measured` result is what
+    gets rendered into the saved rule's markdown "근거" line and must resolve
+    `system_sender_domains` the exact same way the `refresh()` call moments
+    later does, or the two could disagree.
   - `POST /mail-rule/save` re-runs `previewRule` server-side (never trusts a
     client-supplied preview result) to obtain `measured` for the saved rule's
     rendered markdown "근거" line, calls `saveRuleVersion({by:'owner', note,
-    measured})`, invalidates this adapter's own GET-path cache for that
-    project, then calls `refresh(...)` **omitting `projects`** — the core
-    module's own default for an omitted `projects` is "every onboarded
-    project", which is also the correct fallback here: `previewRule`'s return
-    shape carries counts and title samples only, never the *other* project
-    codes whose custody attribution shifted, so there is no narrower list this
-    adapter could construct instead. A `refresh` failure after a successful
-    save does **not** roll the save back (the rule is already the source of
-    truth on disk) — the response is
+    measured, allowedActors:['owner']})`, invalidates this adapter's own
+    GET-path cache for that project, then calls `refresh(...)` **omitting
+    `projects`** — the core module's own default for an omitted `projects` is
+    "every onboarded project", which is also the correct fallback here:
+    `previewRule`'s return shape carries counts and title samples only, never
+    the *other* project codes whose custody attribution shifted, so there is
+    no narrower list this adapter could construct instead. A `refresh` call
+    that *throws* after a successful save does **not** roll the save back (the
+    rule is already the source of truth on disk) — the response is
     `200 {"state":"saved_refresh_failed","rule_version","error_code"}` instead
-    of the success shape
-    `200 {"state":"saved","rule_version","previous_version","refresh":{"projects","changed_files"}}`.
-    `POST /mail-rule/refresh` is the UI's "다시 시도" retry after that failure;
-    it ignores its body and always refreshes every onboarded project too, for
-    the same reason.
+    of the success shape below. A `refresh` call that instead *returns
+    normally* but with `receipt.status !== 'ok'` (fresh review R2 — R4 ledger
+    validation, an unreadable custody directory, or one project's own saved
+    rule failing to compile; `refresh()` does not throw for any of these) is a
+    third, distinct outcome:
+    `200 {"state":"saved_refresh_partial","rule_version","previous_version","refresh":{…}}`.
+    Every success/partial `refresh` object now also carries `status` (`'ok'`
+    or `'failed'`) and the three failure counts `ledger_failures`,
+    `rule_failures`, `unreadable_dirs` (plus `owner_table_failures` when the
+    core's own receipt happens to carry it — anticipating a pending second
+    core review round; never invented when absent) alongside `projects` and
+    `changed_files` — before R2 this summary reported only `{projects,
+    changed_files}`, so an empty `projects` list caused entirely by every
+    custody directory being unreadable rendered identically to a genuinely
+    quiet "0 files changed" run. `POST /mail-rule/refresh` is the UI's "다시
+    시도" retry after either failure kind; it ignores its body, always
+    refreshes every onboarded project for the same reason as above, and
+    answers `{"state":"ready", refresh:{…}}` when the retried receipt's status
+    is `'ok'` or `{"state":"refresh_partial", refresh:{…}}` (still `200`, not
+    an HTTP error) otherwise.
+
+### Optimistic concurrency (S1)
+
+`POST /mail-rule/save` requires `rule_version` and `sha256_json` in the body,
+alongside `project`/`draft` — the exact values the panel read from the most
+recent `GET /mail-rule.snapshot.json` response (which now also returns
+`sha256_json`, the sha256 of the rule file's raw on-disk bytes at read time).
+Before doing anything else, the save route re-reads the current rule **fresh**
+— never through the 60s GET cache, which could already be serving a version
+older than what the caller loaded — and compares both fields; a mismatch
+refuses `409 {"state":"rule_changed"}` before any core call, rather than
+silently overwriting a more recent save with a draft built against a stale
+rule. The panel shows a "다시 불러오기" (reload) prompt on that response. A
+request missing either field, or with a `sha256_json` that is not a
+64-character lowercase hex string, is refused
+`400 {"state":"denied","reason":"expected_version_missing"}` before the
+concurrency check even runs. At the `createMailRuleReader(...).save(...)`
+reader level this `expected` argument is optional — a direct/internal caller
+with no prior read to compare against can still save without it — the HTTP
+route above is what actually requires it.
+
+### Synchronous core calls (S5)
+
+`guild_hall/workspace_ledgers`'s matching and file-write paths are
+synchronous, blocking calls (see that module's README, "Design
+simplification" — there is no per-mail timeout or wall-clock guard on the
+real match path any more) with no concurrency control of their own beyond
+short-lived file locks (`rule_save.lock`, the refresh lock) that only let a
+second concurrent caller fail later and more confusingly than necessary. This
+adapter enforces at most one `preview`/`save`/`refresh` call at a time with a
+single in-process flag: a second concurrent call is refused
+`409 {"state":"busy"}` immediately rather than queued, interleaved, or left to
+fail against a core-level lock. Because the underlying call really is
+synchronous, that busy call also blocks the whole preview server's event loop
+for its duration — this is accepted as the cost of a loopback, single-Owner
+tool exercising a module explicitly designed with no internal wall-clock
+guard on its real match path.
 
 `TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`, `TEAM_OPS_MAIL_RULE_WRITE`,
 `TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR`, `TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR`,
@@ -935,17 +1010,49 @@ shows anything else as-is (`mailRuleStatusLabel`/`mailRuleStatusTone`) — real
 files already use a wider vocabulary than the original 초안/확정 pair (e.g.
 `draft_open_items`). Edit mode lets the Owner add/remove literal chips only
 (existing regex terms can be removed but never authored in the UI) and write a
-note; "새 판으로 저장" stays disabled until "미리보기" has actually run against
-the *current* draft (tracked by a snapshot key, invalidated by any further
-chip edit) and the note is non-empty — both are also enforced server-side
-(an empty note refuses the underlying `saveRuleVersion` call). The preview
-area shows the three sample-title lists (`moved_in`/`moved_out`/`newly_held`,
-≤80 chars each) under collapsed headings. After a successful save the panel
-reloads the snapshot and shows "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일";
-after a save whose refresh step failed it shows "규칙은 저장됨, 장부 갱신 실패"
-with a "다시 시도" button that calls `POST /mail-rule/refresh`. The chip
-add/remove/dedupe/limit arithmetic and the status-label mapping are the pure,
-DOM-free `src/core/mail-rule-chip-editor.mjs`. Styling lives in
+note. Adding a chip on Enter is guarded against Korean (or any) IME
+composition (fresh review R4) — a still-composing Enter never commits a
+half-typed syllable block as its own chip, checked by the pure
+`shouldCommitChipOnKeyDown` (`isComposing`, and the `keyCode === 229`
+composition-commit replay some Windows IME/browser combinations send after
+`isComposing` has already gone false). A no-op add attempt (empty, over the
+80-char limit, at the term cap, or a duplicate label) keeps the typed text in
+the field and shows why, via the same pure `describeChipAddRejection` (S4),
+instead of silently clearing the input as if nothing happened. "새 판으로
+저장" stays disabled until "미리보기" has actually run against the *current*
+draft (tracked by a snapshot key, invalidated by any further chip edit) and
+the note is non-empty; the non-empty-note half is also enforced server-side
+(an empty note refuses the underlying `saveRuleVersion` call), but the
+preview-first half is **client-side UX only** — the server has no way to know
+or check whether a preview ran before a particular save call reached it
+(fresh review S7). What *is* always true server-side is that `POST
+/mail-rule/save` re-measures `previewRule` itself immediately before saving
+(see above), so the saved rule's rendered "근거" line never trusts a
+client-supplied preview result either way. If the draft changes after a
+preview ran, the shown preview result is greyed out with a "다시
+미리보기하세요" note instead of being cleared outright (S3), and any
+`rule_failures` on the result renders as a caveat sentence next to the counts,
+naming only the count of other-project rule compile failures excluded from
+the comparison, never which projects or terms (S2). The preview area shows
+the three sample-title lists (`moved_in`/`moved_out`/`newly_held`, ≤80 chars
+each) under collapsed headings. After a successful save the panel reloads the
+snapshot and shows "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일"; after a
+save whose refresh step threw it shows "규칙은 저장됨, 장부 갱신 실패" with a
+"다시 시도" button that calls `POST /mail-rule/refresh`, and after a save
+whose refresh step returned normally but reported failure
+(`saved_refresh_partial`) it shows the same retry button alongside the
+rule/unreadable-dir/ledger failure counts. A `409 rule_changed` save response
+shows a "다시 불러오기" reload prompt (S1); a `409 busy` response (S5) shows
+the same "다른 요청을 처리 중입니다" message as any other write-route
+failure. The save outcome banner and the action-status line are both
+`aria-live="polite"` (S6), and the chip-add text input carries an
+`aria-label` naming its group and placeholder. Chip React keys are
+`${index}-${label}`, not the label alone, and removal (`removeChip`) is by
+index — a hand-edited rule file's group can carry duplicate labels, and a
+label-keyed removal would have deleted every chip sharing the clicked one's
+label instead of only it. The chip add/remove/dedupe/limit arithmetic and the
+status-label mapping are the pure, DOM-free
+`src/core/mail-rule-chip-editor.mjs`. Styling lives in
 `src/operations-mail-rules.css`.
 
 ### Optional local tailnet Host allowlist

@@ -2,13 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   createMailRuleReader, createMailRulePlugin, validateRuleDocument, parseBulletSection,
   validateDraft, findProjectFolders, createDefaultMailRuleCore, normalizeYieldsTo,
-  MAIL_RULES_SNAPSHOT_PATH, MAIL_RULE_SNAPSHOT_PATH, MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH,
+  MAIL_RULE_SNAPSHOT_PATH, MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH,
 } from './mail-rule-adapter.mjs';
+
+const sha256Of = text => createHash('sha256').update(text, 'utf8').digest('hex');
 
 const RULE_DIR = ['020_MGMT', '021_자동화설정_운영규칙'];
 
@@ -176,6 +179,25 @@ test('listProjects is unconfigured without a root, lists only folders with a val
   assert.deepEqual(refreshed.projects.map(p => p.project_code).sort(), ['P00-001', 'P00-004']);
 });
 
+// nit: when the folder scan itself is cut off by MAX_FOLDER_SCAN (bounded work per call), the
+// caller has no way to tell "fewer than 500 folders, all examined" from "cut off partway
+// through, there may be more" without this flag.
+test('listProjects sets truncated:true when the folder scan is cut off by MAX_FOLDER_SCAN', async t => {
+  const f = await fixture(t);
+  await Promise.all(Array.from({ length: 501 }, (_, i) => mkdir(path.join(f.workspacesRoot, `unrelated-${String(i).padStart(4, '0')}`))));
+  const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot });
+  const result = await reader.listProjects();
+  assert.equal(result.state, 'ready');
+  assert.equal(result.truncated, true);
+});
+
+test('listProjects sets truncated:false when the scan completes without hitting a cap', async t => {
+  const f = await fixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot });
+  assert.equal((await reader.listProjects()).truncated, false);
+});
+
 test('readProject rejects invalid codes, reports no_rule, ambiguous folders, and returns the parsed rule plus md sections', async t => {
   const f = await fixture(t);
   const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot, writeEnabled: true });
@@ -227,12 +249,28 @@ async function custodyFixture(t) {
   return { ...f, hiworksDir, gmailDir, receiptsDir, orgConfigPath, workmetaRoot };
 }
 function custodyOptions(f, extra = {}) {
-  return { workspacesRoot: f.workspacesRoot, hiworksEventsDir: f.hiworksDir, gmailSentEventsDir: f.gmailDir,
+  // R1: `workmetaRoot` belongs here — fullCustodyReady now requires it (a save/refresh call
+  // with it missing must answer custody_unconfigured before ever reaching the core), and this
+  // helper is what almost every save/refresh test below builds its options from. Before this
+  // fix, every one of those tests was unknowingly exercising `save`/`refresh` with no
+  // `workmetaRoot` at all — exactly the gap R1 found, just never surfaced because
+  // `fullCustodyReady` did not check it yet either.
+  return { workspacesRoot: f.workspacesRoot, workmetaRoot: f.workmetaRoot, hiworksEventsDir: f.hiworksDir, gmailSentEventsDir: f.gmailDir,
     ledgerOrgConfigPath: f.orgConfigPath, ledgerReceiptsDir: f.receiptsDir, ...extra };
 }
-function refreshReceiptFixture(codes) {
-  return { projects: codes.map(project_code => ({ project_code,
-    contacts: { written: true }, received_history: { written: false }, sent_history: { written: true }, reply_status: { written: false } })) };
+// A `refresh()` receipt on the success path: every project written, no failures of any kind.
+function refreshReceiptFixture(codes, overrides = {}) {
+  return { status: 'ok', ledger_failures: [], rule_failures: [], unreadable_dirs: [],
+    projects: codes.map(project_code => ({ project_code,
+      contacts: { written: true }, received_history: { written: false }, sent_history: { written: true }, reply_status: { written: false } })),
+    ...overrides };
+}
+// R2: a receipt that returns *normally* (refresh() never throws for this) but reports
+// `status: 'failed'` — R4 ledger validation, an unreadable custody directory, or a bad saved
+// rule for one project. `codes` are the projects that still completed despite the failure
+// (often none, when every custody directory was unreadable).
+function failedRefreshReceiptFixture(codes, failureOverrides = {}) {
+  return refreshReceiptFixture(codes, { status: 'failed', ledger_failures: [{ file: 'contacts.csv', code: 'workspace_ledgers_ledger_header_mismatch' }], ...failureOverrides });
 }
 
 test('buildFullDraft (via preview) merges the UI draft onto the current on-disk rule, preserving unedited fields; throws when there is no current rule', async t => {
@@ -263,22 +301,71 @@ test('preview requires custody dirs and answers a tagged custody_unconfigured er
 test('save re-runs preview server-side for `measured`, saves, then refreshes every onboarded project (omitting `projects` means "all")', async t => {
   const f = await custodyFixture(t);
   await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
-  let refreshArgs, saveArgs, previewCount = 0;
+  let refreshArgs, saveArgs, previewArgs, previewCount = 0;
   const measuredStub = { matched_before: 3, matched_after: 4, moved_in: 1, moved_out: 0, newly_held: 0, samples: {} };
   const fakeCore = {
-    previewRule: async () => { previewCount += 1; return measuredStub; },
+    previewRule: async args => { previewCount += 1; previewArgs = args; return measuredStub; },
     saveRuleVersion: async args => { saveArgs = args; return { rule_version: 'v2', previous_version: 'v1' }; },
     refresh: async args => { refreshArgs = args; return refreshReceiptFixture(['P00-001', 'P00-002']); },
   };
   const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
   const outcome = await reader.save('P00-001', { exact: [{ label: 'a', kind: 'literal', value: 'a' }], hint: [] }, '메모');
   assert.equal(previewCount, 1, 'preview is re-run server-side exactly once to obtain measured');
+  assert.equal(previewArgs.orgConfigPath, f.orgConfigPath, 'R3: the internal measured-preview call resolves system_sender_domains the same way refresh() below does');
   assert.deepEqual(saveArgs.measured, measuredStub);
   assert.equal(saveArgs.by, 'owner');
   assert.equal(saveArgs.note, '메모');
+  assert.deepEqual(saveArgs.allowedActors, ['owner'], 'nit: pin saves to the single owner actor');
   assert.equal(refreshArgs.projects, undefined, 'projects is omitted so refresh() covers every onboarded project, not a guessed subset');
   assert.equal(refreshArgs.fields[0], 'subject');
-  assert.deepEqual(outcome, { kind: 'saved', rule_version: 'v2', previous_version: 'v1', refresh: { projects: ['P00-001', 'P00-002'], changed_files: 4 } });
+  assert.deepEqual(outcome, { kind: 'saved', rule_version: 'v2', previous_version: 'v1',
+    refresh: { projects: ['P00-001', 'P00-002'], changed_files: 4, status: 'ok', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 0 } });
+});
+
+test('R2: a refresh receipt that returns normally with status "failed" reports saved_refresh_partial, not the plain saved success', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => failedRefreshReceiptFixture(['P00-001']),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모');
+  assert.equal(outcome.kind, 'saved_refresh_partial', 'a structurally-successful refresh that itself reports failure is not the same as a clean saved');
+  assert.equal(outcome.refresh.status, 'failed');
+  assert.equal(outcome.refresh.ledger_failures, 1);
+});
+
+test('R2: an empty projects list caused entirely by unreadable custody directories is distinguishable from a genuinely quiet 0-files-changed run', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => ({ status: 'failed', projects: [], ledger_failures: [], rule_failures: [],
+      unreadable_dirs: [{ source: 'hiworks-events', dir: 'events', code: 'workspace_ledgers_custody_dir_unreadable' }] }),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모');
+  assert.equal(outcome.kind, 'saved_refresh_partial');
+  assert.deepEqual(outcome.refresh, { projects: [], changed_files: 0, status: 'failed', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 1 },
+    'an empty projects list from unreadable custody must carry status:failed and unreadable_dirs:1, never look identical to a quiet run');
+
+  const retryReceipt = await reader.refreshAll();
+  assert.deepEqual(retryReceipt, { projects: [], changed_files: 0, status: 'failed', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 1 });
+});
+
+test('R2: an owner_table_failures count present on the receipt is carried through; absent, no such field is invented', async t => {
+  const f = await custodyFixture(t);
+  const withField = { status: 'ok', projects: [], ledger_failures: [], rule_failures: [], unreadable_dirs: [], owner_table_failures: [{ code: 'x' }] };
+  const withoutField = refreshReceiptFixture([]);
+  const reader = createMailRuleReader(custodyOptions(f, {
+    core: { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => withField }, writeEnabled: true }));
+  assert.equal((await reader.refreshAll()).owner_table_failures, 1);
+  const reader2 = createMailRuleReader(custodyOptions(f, {
+    core: { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => withoutField }, writeEnabled: true }));
+  assert.equal('owner_table_failures' in (await reader2.refreshAll()), false);
 });
 
 test('a refresh failure after a successful save reports saved_refresh_failed and does not roll the save back', async t => {
@@ -312,11 +399,157 @@ test('save invalidates this adapter\'s own GET cache for the project and the lis
   assert.equal(after.rule.rule_version, 'v2', 'not served from the pre-save cache entry');
 });
 
-test('refreshAll summarizes the receipt into project codes and a changed-file count', async t => {
+test('refreshAll summarizes the receipt into project codes, a changed-file count, and the status/failure counts', async t => {
   const f = await custodyFixture(t);
   const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture(['P00-001', 'P00-002', 'P00-003']) };
   const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore }));
-  assert.deepEqual(await reader.refreshAll(), { projects: ['P00-001', 'P00-002', 'P00-003'], changed_files: 6 });
+  assert.deepEqual(await reader.refreshAll(), { projects: ['P00-001', 'P00-002', 'P00-003'], changed_files: 6,
+    status: 'ok', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 0 });
+});
+
+// ---------- R1: fullCustodyReady requires workspacesRoot and workmetaRoot ----------
+
+test('R1: save and refresh answer custody_unconfigured (never touching the core) when workmetaRoot is missing; preview still works', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let coreCalled = false;
+  const trapCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => { coreCalled = true; throw new Error('saveRuleVersion must never be reached when workmetaRoot is missing'); },
+    refresh: async () => { coreCalled = true; throw new Error('refresh must never be reached when workmetaRoot is missing'); },
+  };
+  const options = { ...custodyOptions(f, { core: trapCore, writeEnabled: true }), workmetaRoot: undefined };
+  const reader = createMailRuleReader(options);
+  assert.equal(reader.fullCustodyReady, false, 'fullCustodyReady must be false with no workmetaRoot');
+  assert.equal(reader.previewCustodyReady, true, 'previewCustodyReady does not require workmetaRoot');
+
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, '메모', { rule_version: 'v1', sha256_json: 'x'.repeat(64) }),
+    error => error.code === 'custody_unconfigured');
+  await assert.rejects(reader.refreshAll(), error => error.code === 'custody_unconfigured');
+  await reader.preview('P00-001', { exact: [], hint: [] }); // does not throw: preview needs no workmetaRoot
+  assert.equal(coreCalled, false, 'saveRuleVersion/refresh were never invoked — nothing was written before the custody check ran');
+
+  // The same gap, exercised over real HTTP: a save POST with everything else configured but a
+  // missing workmetaRoot answers 503 before any core call, not a 400 from a core throw partway
+  // through a write (fresh review R1's exact failure mode).
+  const call = harness(options);
+  const res = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: 'v1', sha256_json: 'a'.repeat(64) }) });
+  assert.equal(res.statusCode, 503);
+  assert.deepEqual(JSON.parse(res.body), { state: 'custody_unconfigured' });
+  assert.equal(coreCalled, false);
+});
+
+// ---------- R3: orgConfigPath forwarded to previewRule ----------
+
+test('R3: preview() forwards orgConfigPath to previewRule when configured', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let seenArgs;
+  const fakeCore = { previewRule: async args => { seenArgs = args; return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }; },
+    saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture([]) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore }));
+  await reader.preview('P00-001', { exact: [], hint: [] });
+  assert.equal(seenArgs.orgConfigPath, f.orgConfigPath,
+    'without this, previewRule would resolve system_sender_domains differently than a later refresh() using the same org config');
+});
+
+test('R3: preview() omits orgConfigPath when it is not configured, rather than forwarding undefined', async t => {
+  const f = await fixture(t);
+  const hiworksDir = path.join(f.root, 'events', 'hiworks'), gmailDir = path.join(f.root, 'events', 'gmail_sent');
+  await mkdir(hiworksDir, { recursive: true }); await mkdir(gmailDir, { recursive: true });
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let seenArgs;
+  const fakeCore = { previewRule: async args => { seenArgs = args; return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }; },
+    saveRuleVersion: async () => ({}), refresh: async () => ({}) };
+  const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot, hiworksEventsDir: hiworksDir, gmailSentEventsDir: gmailDir, core: fakeCore });
+  await reader.preview('P00-001', { exact: [], hint: [] });
+  assert.equal('orgConfigPath' in seenArgs, false);
+});
+
+// ---------- S1: optimistic concurrency ----------
+
+test('S1: save refuses rule_changed when the caller-supplied rule_version/sha256_json no longer match the fresh on-disk read', async t => {
+  const f = await custodyFixture(t);
+  const initialDoc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', initialDoc);
+  const staleExpected = { rule_version: initialDoc.rule_version, sha256_json: sha256Of(JSON.stringify(initialDoc)) };
+  // Someone else's write lands between the panel's load and this save's call.
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc({ rule_version: 'v2' }));
+  let coreCalled = false;
+  const trapCore = { previewRule: async () => { coreCalled = true; return {}; },
+    saveRuleVersion: async () => { coreCalled = true; return {}; }, refresh: async () => { coreCalled = true; return refreshReceiptFixture([]); } };
+  const reader = createMailRuleReader(custodyOptions(f, { core: trapCore, writeEnabled: true }));
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, '메모', staleExpected), error => error.code === 'rule_changed');
+  assert.equal(coreCalled, false, 'no core call happens once the version mismatch is caught');
+});
+
+test('S1: save proceeds when the caller-supplied rule_version/sha256_json still match the fresh on-disk read', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const freshExpected = { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) };
+  const fakeCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }), refresh: async () => refreshReceiptFixture(['P00-001']) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모', freshExpected);
+  assert.equal(outcome.kind, 'saved');
+});
+
+test('S1: save with no expected version supplied at the reader level skips the check (the HTTP route requires it instead)', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }), refresh: async () => refreshReceiptFixture(['P00-001']) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모');
+  assert.equal(outcome.kind, 'saved');
+});
+
+test('S1: the HTTP save route requires rule_version and sha256_json in the body, and refuses 409 rule_changed on a stale pair', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const fakeCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }), refresh: async () => refreshReceiptFixture(['P00-001']) };
+  const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
+
+  const missing = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모' }) });
+  assert.equal(missing.statusCode, 400);
+  assert.deepEqual(JSON.parse(missing.body), { state: 'denied', reason: 'expected_version_missing' });
+
+  const stale = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: 'v0-stale', sha256_json: 'a'.repeat(64) }) });
+  assert.equal(stale.statusCode, 409);
+  assert.deepEqual(JSON.parse(stale.body), { state: 'rule_changed' });
+
+  const fresh = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }) });
+  assert.equal(fresh.statusCode, 200);
+  assert.equal(JSON.parse(fresh.body).state, 'saved');
+});
+
+// ---------- S5: one preview/save/refresh call at a time ----------
+
+test('S5: a second concurrent preview/save/refresh call is refused 409 busy rather than run alongside the first', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const slowCore = {
+    previewRule: async () => { await gate; return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }; },
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => refreshReceiptFixture(['P00-001']),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: slowCore, writeEnabled: true }));
+  const first = reader.preview('P00-001', { exact: [], hint: [] });
+  await assert.rejects(reader.preview('P00-001', { exact: [], hint: [] }), error => error.code === 'busy');
+  await assert.rejects(reader.refreshAll(), error => error.code === 'busy');
+  release();
+  await first;
+  // Once the first call has released the lock, a new call is accepted again.
+  await reader.preview('P00-001', { exact: [], hint: [] });
 });
 
 // ---------- default core loader ----------
@@ -356,18 +589,27 @@ test('GET routes reject mutation, proxy passage, cross-origin and rebinding host
     ['GET', { 'x-forwarded-for': '1.2.3.4' }, 403],
     ['GET', { origin: 'https://evil.test' }, 403],
   ]) {
-    const res = await call(MAIL_RULES_SNAPSHOT_PATH, { method, headers });
+    const res = await call(MAIL_RULE_SNAPSHOT_PATH, { method, headers });
     assert.equal(res.statusCode, code, `${method} ${JSON.stringify(headers)}`);
   }
 });
 
-test('GET /mail-rules.snapshot.json and /mail-rule.snapshot.json reject unexpected query keys with 400', async () => {
+test('GET /mail-rule.snapshot.json rejects unexpected query keys with 400', async () => {
   const call = harness({});
-  assert.equal((await call(`${MAIL_RULES_SNAPSHOT_PATH}?x=1`)).statusCode, 400);
   assert.equal((await call(`${MAIL_RULE_SNAPSHOT_PATH}?other=1`)).statusCode, 400);
 });
 
-test('GET /mail-rule.snapshot.json returns the ready projection for a configured project', async t => {
+// nit: the earlier GET /mail-rules.snapshot.json project-list route had no UI consumer and was
+// removed (see the top-of-file comment); this pins that it is genuinely gone rather than merely
+// undocumented — a request to it now passes straight through to `next()`, the same as any other
+// unrelated path, instead of being intercepted and answered by this plugin.
+test('the removed GET /mail-rules.snapshot.json route is no longer intercepted', async () => {
+  const call = harness({});
+  const res = await call('/mail-rules.snapshot.json');
+  assert.equal(res.passedThrough, true);
+});
+
+test('GET /mail-rule.snapshot.json returns the ready projection for a configured project, with the security headers every route sets', async t => {
   const f = await fixture(t);
   await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc(), MD_FIXTURE);
   const call = harness({ workspacesRoot: f.workspacesRoot });
@@ -376,8 +618,11 @@ test('GET /mail-rule.snapshot.json returns the ready projection for a configured
   const body = JSON.parse(res.body);
   assert.equal(body.state, 'ready');
   assert.equal(body.rule.project_code, 'P00-001');
+  assert.equal(typeof body.sha256_json, 'string', 'S1: the GET path carries the digest the save route will later compare against');
+  assert.match(body.sha256_json, /^[0-9a-f]{64}$/u);
   assert.equal(res.headers['Cache-Control'], 'no-store');
   assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+  assert.equal(res.headers['Referrer-Policy'], 'no-referrer', 'nit: matches operations-spaces-adapter.mjs');
 });
 
 test('POST /mail-rule/save and /mail-rule/refresh both refuse write_disabled before any body parsing when the write flag is off; preview does not', async t => {
@@ -399,7 +644,10 @@ test('POST /mail-rule/preview, /mail-rule/save and /mail-rule/refresh all answer
   await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
   const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => ({ projects: [] }) };
   const call = harness({ workspacesRoot: f.workspacesRoot, writeEnabled: true, core: fakeCore });
-  const body = JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } });
+  // rule_version/sha256_json included so the save leg reaches the custody check (503) rather
+  // than being turned away earlier by the request-shape check (400 expected_version_missing) —
+  // this test is specifically about the custody gate, not body validation.
+  const body = JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, rule_version: 'v1', sha256_json: 'a'.repeat(64) });
   for (const p of [MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH]) {
     const res = await call(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
     assert.equal(res.statusCode, 503, p);
@@ -434,22 +682,38 @@ test('POST routes validate content-type, oversized bodies and invalid drafts wit
   assert.deepEqual(JSON.parse(ok.body).result, { matched_before: 1, matched_after: 2, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} });
 });
 
-test('POST /mail-rule/save: success answers state:saved with version and refresh summary; a refresh failure answers state:saved_refresh_failed', async t => {
+test('POST /mail-rule/save: success answers state:saved with version and refresh summary; a refresh failure answers state:saved_refresh_failed; a refresh that returns failed answers state:saved_refresh_partial', async t => {
   const f = await custodyFixture(t);
-  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const expected = { rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) };
   const okCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
     saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }), refresh: async () => refreshReceiptFixture(['P00-001']) };
   const okCall = harness(custodyOptions(f, { writeEnabled: true, core: okCore }));
-  const saved = await okCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모' }) });
+  const saved = await okCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', ...expected }) });
   assert.equal(saved.statusCode, 200);
-  assert.deepEqual(JSON.parse(saved.body), { state: 'saved', rule_version: 'v2', previous_version: 'v1', refresh: { projects: ['P00-001'], changed_files: 2 } });
+  assert.deepEqual(JSON.parse(saved.body), { state: 'saved', rule_version: 'v2', previous_version: 'v1',
+    refresh: { projects: ['P00-001'], changed_files: 2, status: 'ok', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 0 } });
 
   const failingCore = { previewRule: okCore.previewRule, saveRuleVersion: okCore.saveRuleVersion,
     refresh: async () => { const error = new Error('boom'); error.code = 'workspace_ledgers_refresh_lock_held'; throw error; } };
   const failCall = harness(custodyOptions(f, { writeEnabled: true, core: failingCore }));
-  const savedButRefreshFailed = await failCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모' }) });
+  const savedButRefreshFailed = await failCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', ...expected }) });
   assert.equal(savedButRefreshFailed.statusCode, 200, 'the rule itself is already saved; this is not an HTTP error');
   assert.deepEqual(JSON.parse(savedButRefreshFailed.body), { state: 'saved_refresh_failed', rule_version: 'v2', error_code: 'workspace_ledgers_refresh_lock_held' });
+
+  const partialCore = { previewRule: okCore.previewRule, saveRuleVersion: okCore.saveRuleVersion,
+    refresh: async () => failedRefreshReceiptFixture(['P00-001']) };
+  const partialCall = harness(custodyOptions(f, { writeEnabled: true, core: partialCore }));
+  const savedButRefreshPartial = await partialCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', ...expected }) });
+  assert.equal(savedButRefreshPartial.statusCode, 200, 'the rule is saved; refresh returning normally with a failure is still not an HTTP error');
+  const partialBody = JSON.parse(savedButRefreshPartial.body);
+  assert.equal(partialBody.state, 'saved_refresh_partial');
+  assert.equal(partialBody.refresh.status, 'failed');
+  assert.equal(partialBody.refresh.ledger_failures, 1);
 });
 
 test('POST /mail-rule/refresh (retry) requires the write flag, ignores its body, and returns the same project/changed_files summary', async t => {
@@ -460,8 +724,35 @@ test('POST /mail-rule/refresh (retry) requires the write flag, ignores its body,
   const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
   const res = await call(MAIL_RULE_REFRESH_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(JSON.parse(res.body), { state: 'ready', refresh: { projects: ['P00-001', 'P00-002'], changed_files: 4 } });
+  assert.deepEqual(JSON.parse(res.body), { state: 'ready',
+    refresh: { projects: ['P00-001', 'P00-002'], changed_files: 4, status: 'ok', ledger_failures: 0, rule_failures: 0, unreadable_dirs: 0 } });
   assert.equal(sawProjectsArg, undefined, 'retry also refreshes every onboarded project, not a remembered subset');
+});
+
+test('R2: POST /mail-rule/refresh (retry) answers state:refresh_partial (still 200) when the receipt reports status failed', async t => {
+  const f = await custodyFixture(t);
+  const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}),
+    refresh: async () => failedRefreshReceiptFixture(['P00-001']) };
+  const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
+  const res = await call(MAIL_RULE_REFRESH_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(res.statusCode, 200, 'a structurally-successful refresh call is not an HTTP error even when its receipt reports failure');
+  const body = JSON.parse(res.body);
+  assert.equal(body.state, 'refresh_partial');
+  assert.equal(body.refresh.status, 'failed');
+});
+
+test('nit: a code that is not this module\'s own lowercase_with_underscores shape maps to the stable internal_error reason instead of a bare denied', async t => {
+  const f = await custodyFixture(t);
+  const doc = ruleDoc();
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', doc);
+  const explodingCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => { const error = new TypeError('The "path" argument must be of type string'); error.code = 'ERR_INVALID_ARG_TYPE'; throw error; },
+    refresh: async () => refreshReceiptFixture([]) };
+  const call = harness(custodyOptions(f, { writeEnabled: true, core: explodingCore }));
+  const res = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모', rule_version: doc.rule_version, sha256_json: sha256Of(JSON.stringify(doc)) }) });
+  assert.equal(res.statusCode, 400);
+  assert.deepEqual(JSON.parse(res.body), { state: 'denied', reason: 'internal_error' });
 });
 
 // ---------- integration: the REAL guild_hall/workspace_ledgers core module, no injected core ----------

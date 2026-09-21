@@ -48,8 +48,47 @@ export function addLiteralChip(state, group, rawValue) {
   return withGroup(state, group, [...list, { label: value, kind: 'literal', value }]);
 }
 
-export function removeChip(state, group, label) {
-  return withGroup(state, group, groupOf(state, group).filter(item => item.label !== label));
+// S4: `addLiteralChip` above silently no-ops (same state reference) on empty/too-long/at-max/
+// duplicate input, by design — but a caller still needs to know *why*, to keep the typed text
+// on screen and say something instead of just doing nothing. This classifies the same four
+// cases `addLiteralChip` checks, in the same order, without touching state or the input value
+// itself (that stays the caller's job — see operations-mail-rules.tsx's ChipGroup). Returns
+// `null` when the add would actually succeed.
+export function describeChipAddRejection(state, group, rawValue) {
+  const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+  if (!value) return 'empty';
+  if (value.length > MAX_LITERAL_CHARS) return 'too_long';
+  const list = groupOf(state, group);
+  if (list.length >= MAX_TERMS) return 'at_max';
+  if (list.some(item => item.label === value)) return 'duplicate';
+  return null;
+}
+
+// Removes by array index, not by label (nit): a hand-edited rule file can carry duplicate
+// labels within one group (this module never de-duplicates what it reads off disk, only what
+// it adds), and removing "the chip with this label" would have silently removed every chip
+// sharing it instead of only the one the Owner actually clicked. A no-op (same state reference)
+// for an out-of-range index, consistent with `addLiteralChip`'s no-op convention above.
+export function removeChip(state, group, index) {
+  const list = groupOf(state, group);
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) return state;
+  return withGroup(state, group, list.filter((_, i) => i !== index));
+}
+
+// R4: whether a keydown event's Enter should commit the currently-typed chip value. Guards
+// Korean (or any) IME composition — a still-composing Enter must never be treated as "the Owner
+// finished typing," or it adds a half-composed syllable block as its own chip. Two signals,
+// because browsers are inconsistent: `isComposing` is the modern, reliable one (Firefox/Safari/
+// Chromium all set it on the composing keydown), but some IME/browser combinations on Windows
+// instead replay the composition-committing Enter with `keyCode === 229` and `isComposing`
+// already false by then — checking only `isComposing` misses that replay. Takes a plain
+// `{key, isComposing, keyCode}` object (the caller extracts these from its own event) rather
+// than a DOM event, so this stays framework-free and testable with no DOM at all.
+export function shouldCommitChipOnKeyDown({ key, isComposing, keyCode } = {}) {
+  if (key !== 'Enter') return false;
+  if (isComposing) return false;
+  if (keyCode === 229) return false;
+  return true;
 }
 
 export function setNote(state, rawNote) {

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Tag, X, ChevronDown, RefreshCw } from 'lucide-react';
 import { when } from './operations-workspace';
-import { initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft, mailRuleStatusLabel, mailRuleStatusTone } from './core/mail-rule-chip-editor.mjs';
+import {
+  initialChipEditorState, addLiteralChip, removeChip, setNote, toDraft, mailRuleStatusLabel, mailRuleStatusTone,
+  describeChipAddRejection, shouldCommitChipOnKeyDown, MAX_LITERAL_CHARS,
+} from './core/mail-rule-chip-editor.mjs';
 import './operations-mail-rules.css';
 type Row = Record<string, any>;
 
@@ -11,6 +14,14 @@ async function fetchJson(url: string, init?: RequestInit) {
   return { ok: response.ok, status: response.status, body };
 }
 
+// One plain-Korean line per no-op reason `describeChipAddRejection` can return (S4).
+const ADD_REJECTION_LABELS: Row = {
+  empty: '빈 값은 추가할 수 없습니다.',
+  too_long: `${MAX_LITERAL_CHARS}자를 넘을 수 없습니다.`,
+  at_max: '더 추가할 수 없습니다(최대 개수 도달).',
+  duplicate: '이미 있는 키워드입니다.',
+};
+
 // A preview/save/refresh failure's `state` maps to one plain-Korean line. `denied` carries a
 // `reason` (one of this module's own structured error codes, e.g. `workspace_ledgers_note_missing`)
 // that is shown verbatim as a fallback — better than a blank message, not meant to be pretty.
@@ -18,30 +29,51 @@ function writeRouteErrorMessage(status: number, body: Row | null, fallback: stri
   if (body?.state === 'write_disabled') return '쓰기가 꺼져 있어 실행할 수 없습니다.';
   if (body?.state === 'custody_unconfigured') return '메일 자료 연결이 설정되지 않아 실행할 수 없습니다.';
   if (body?.state === 'core_module_unavailable') return '핵심 모듈 연결 전이라 실행할 수 없습니다.';
+  if (body?.state === 'busy') return '다른 요청을 처리 중입니다. 잠시 후 다시 시도하세요.';
   if (status === 413) return '요청이 너무 큽니다.';
   if (body?.reason) return `${fallback} (${body.reason})`;
   return fallback;
 }
 
-function ChipGroup({ label, items, editing, onRemove, onAdd, addPlaceholder }: {
-  label: string; items: Row[]; editing: boolean; onRemove: (l: string) => void; onAdd?: (v: string) => void; addPlaceholder: string;
+function ChipGroup({ label, chipState, group, editing, onRemove, onAdd, addPlaceholder }: {
+  label: string; chipState: Row; group: 'exact' | 'hint'; editing: boolean;
+  onRemove: (index: number) => void; onAdd?: (v: string) => void; addPlaceholder: string;
 }) {
+  const items: Row[] = chipState[group];
   const [draftValue, setDraftValue] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // S4: on a no-op add (empty, too long, at max, duplicate) the typed text stays in the input
+  // and the reason is shown, instead of silently clearing the field as if nothing happened.
+  const attemptAdd = () => {
+    if (!onAdd) return;
+    const rejection = describeChipAddRejection(chipState, group, draftValue);
+    if (rejection) { setAddError(rejection); return; }
+    setAddError(null);
+    onAdd(draftValue);
+    setDraftValue('');
+  };
+
   return <div className="mr-chip-group">
     <h3>{label} <span className="mr-count">{items.length}</span></h3>
     <div className="mr-chips">
-      {items.map(item => <span className="mr-chip" key={item.label}>
+      {items.map((item, index) => <span className="mr-chip" key={`${index}-${item.label}`}>
         {item.kind === 'regex' && <em className="mr-regex-tag">정규식</em>}
         <span>{item.label}</span>
-        {editing && <button type="button" aria-label={`${item.label} 제거`} onClick={() => onRemove(item.label)}><X size={12} /></button>}
+        {editing && <button type="button" aria-label={`${item.label} 제거`} onClick={() => onRemove(index)}><X size={12} /></button>}
       </span>)}
       {!items.length && <span className="cx-muted">등록된 키워드가 없습니다.</span>}
     </div>
     {editing && onAdd && <div className="mr-chip-add">
-      <input type="text" value={draftValue} maxLength={80} placeholder={addPlaceholder}
-        onChange={e => setDraftValue(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAdd(draftValue); setDraftValue(''); } }} />
-      <button type="button" onClick={() => { onAdd(draftValue); setDraftValue(''); }}>추가</button>
+      <input type="text" value={draftValue} maxLength={80} placeholder={addPlaceholder} aria-label={`${label} ${addPlaceholder}`}
+        onChange={e => { setDraftValue(e.target.value); setAddError(null); }}
+        onKeyDown={e => {
+          if (!shouldCommitChipOnKeyDown({ key: e.key, isComposing: e.nativeEvent.isComposing, keyCode: e.nativeEvent.keyCode })) return;
+          e.preventDefault();
+          attemptAdd();
+        }} />
+      <button type="button" onClick={attemptAdd}>추가</button>
+      {addError && <p className="cx-notice" aria-live="polite">{ADD_REJECTION_LABELS[addError] ?? addError}</p>}
     </div>}
   </div>;
 }
@@ -54,6 +86,9 @@ function PreviewResult({ result }: { result: Row }) {
     ['빠짐', result.moved_out], ['보류', result.newly_held],
   ];
   return <div className="mr-preview">
+    {Array.isArray(result.rule_failures) && result.rule_failures.length > 0 && <p className="cx-notice">
+      주의: 다른 과제 규칙 {result.rule_failures.length}건이 컴파일 실패해 이번 실측에서 제외됨(보류/양보 판단이 바뀔 수 있음).
+    </p>}
     <dl className="mr-preview-counts">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{typeof v === 'number' ? `${v.toLocaleString('ko-KR')}통` : '미확인'}</dd></div>)}</dl>
     {result.samples && <div className="mr-preview-samples">
       {Object.entries(result.samples).map(([group, items]) => Array.isArray(items) && items.length > 0 && <details key={group}>
@@ -73,6 +108,7 @@ export function MailRulePanel({ project }: { project?: string }) {
   const [previewedKey, setPreviewedKey] = useState<string | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'previewing' | 'saving' | 'retrying' | 'error'>('idle');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [saveOutcome, setSaveOutcome] = useState<Row | null>(null);
   const [decisionsOpen, setDecisionsOpen] = useState(false);
   const [openItemsOpen, setOpenItemsOpen] = useState(false);
@@ -81,7 +117,7 @@ export function MailRulePanel({ project }: { project?: string }) {
     if (!project) return;
     setLoading(true);
     fetchJson(`/mail-rule.snapshot.json?project=${encodeURIComponent(project)}`)
-      .then(({ body }) => { setSnapshot(body ?? { state: 'unavailable' }); setEditing(false); setPreviewResult(null); setPreviewedKey(null); })
+      .then(({ body }) => { setSnapshot(body ?? { state: 'unavailable' }); setEditing(false); setPreviewResult(null); setPreviewedKey(null); setConflict(false); })
       .catch(() => setSnapshot({ state: 'unavailable' }))
       .finally(() => setLoading(false));
   };
@@ -100,15 +136,16 @@ export function MailRulePanel({ project }: { project?: string }) {
 
   const draftKey = (state: Row | null) => state ? JSON.stringify({ exact: state.exact, hint: state.hint, yields_to: state.yields_to }) : null;
   const currentDraftKey = editing ? draftKey(chipState) : null;
+  const previewIsFresh = previewedKey !== null && previewedKey === currentDraftKey;
   const notePresent = Boolean(chipState?.note && chipState.note.trim());
-  const canSave = editing && previewedKey !== null && previewedKey === currentDraftKey && notePresent;
+  const canSave = editing && previewIsFresh && notePresent;
 
-  const beginEdit = () => { setChipState(initialChipEditorState(rule)); setPreviewResult(null); setPreviewedKey(null); setActionMessage(null); setActionState('idle'); setSaveOutcome(null); setEditing(true); };
-  const cancelEdit = () => { setEditing(false); setChipState(null); setPreviewResult(null); setPreviewedKey(null); };
+  const beginEdit = () => { setChipState(initialChipEditorState(rule)); setPreviewResult(null); setPreviewedKey(null); setActionMessage(null); setActionState('idle'); setConflict(false); setSaveOutcome(null); setEditing(true); };
+  const cancelEdit = () => { setEditing(false); setChipState(null); setPreviewResult(null); setPreviewedKey(null); setConflict(false); };
 
   const runPreview = () => {
     if (!chipState) return;
-    setActionState('previewing'); setActionMessage(null);
+    setActionState('previewing'); setActionMessage(null); setConflict(false);
     const key = draftKey(chipState);
     fetchJson('/mail-rule/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project, draft: toDraft(chipState) }) })
       .then(({ ok, status, body }) => {
@@ -120,19 +157,33 @@ export function MailRulePanel({ project }: { project?: string }) {
   };
   const runSave = () => {
     if (!chipState || !canSave) return;
-    setActionState('saving'); setActionMessage(null);
-    fetchJson('/mail-rule/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project, draft: toDraft(chipState) }) })
-      .then(({ ok, status, body }) => {
-        if (ok && body?.state === 'saved') {
-          setSaveOutcome({ kind: 'saved', previousVersion: body.previous_version, ruleVersion: body.rule_version, changedFiles: body.refresh?.changed_files });
+    setActionState('saving'); setActionMessage(null); setConflict(false);
+    // S1 optimistic concurrency: the panel sends back exactly the rule_version/sha256_json it
+    // loaded (from the GET snapshot); the server refuses 409 rule_changed if either no longer
+    // matches a fresh read, rather than silently overwriting someone else's more recent save.
+    const body = JSON.stringify({ project, draft: toDraft(chipState), rule_version: rule.rule_version, sha256_json: snapshot.sha256_json });
+    fetchJson('/mail-rule/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+      .then(({ ok, status, body: resBody }) => {
+        if (ok && resBody?.state === 'saved') {
+          setSaveOutcome({ kind: 'saved', previousVersion: resBody.previous_version, ruleVersion: resBody.rule_version, changedFiles: resBody.refresh?.changed_files });
           setActionState('idle'); setEditing(false); load(); return;
         }
-        if (ok && body?.state === 'saved_refresh_failed') {
-          setSaveOutcome({ kind: 'saved_refresh_failed', ruleVersion: body.rule_version, errorCode: body.error_code });
+        if (ok && resBody?.state === 'saved_refresh_failed') {
+          setSaveOutcome({ kind: 'saved_refresh_failed', ruleVersion: resBody.rule_version, errorCode: resBody.error_code });
           setActionState('idle'); setEditing(false); load(); return;
+        }
+        if (ok && resBody?.state === 'saved_refresh_partial') {
+          setSaveOutcome({ kind: 'saved_refresh_partial', ruleVersion: resBody.rule_version, previousVersion: resBody.previous_version,
+            ledgerFailures: resBody.refresh?.ledger_failures, ruleFailures: resBody.refresh?.rule_failures, unreadableDirs: resBody.refresh?.unreadable_dirs });
+          setActionState('idle'); setEditing(false); load(); return;
+        }
+        if (status === 409 && resBody?.state === 'rule_changed') {
+          setActionState('error'); setConflict(true);
+          setActionMessage('다른 곳에서 이 규칙이 먼저 바뀌었습니다. 다시 불러온 뒤 다시 시도하세요.');
+          return;
         }
         setActionState('error');
-        setActionMessage(writeRouteErrorMessage(status, body, '저장하지 못했습니다.'));
+        setActionMessage(writeRouteErrorMessage(status, resBody, '저장하지 못했습니다.'));
       })
       .catch(() => { setActionState('error'); setActionMessage('저장하지 못했습니다.'); });
   };
@@ -140,8 +191,13 @@ export function MailRulePanel({ project }: { project?: string }) {
     setActionState('retrying'); setActionMessage(null);
     fetchJson('/mail-rule/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       .then(({ ok, status, body }) => {
-        if (ok && body?.state === 'ready') {
-          setSaveOutcome((prev: Row | null) => prev ? { kind: 'saved', previousVersion: prev.previousVersion, ruleVersion: prev.ruleVersion, changedFiles: body.refresh?.changed_files } : null);
+        if (ok && (body?.state === 'ready' || body?.state === 'refresh_partial')) {
+          setSaveOutcome((prev: Row | null) => {
+            if (!prev) return null;
+            if (body.state === 'ready') return { kind: 'saved', previousVersion: prev.previousVersion, ruleVersion: prev.ruleVersion, changedFiles: body.refresh?.changed_files };
+            return { kind: 'saved_refresh_partial', ruleVersion: prev.ruleVersion, previousVersion: prev.previousVersion,
+              ledgerFailures: body.refresh?.ledger_failures, ruleFailures: body.refresh?.rule_failures, unreadableDirs: body.refresh?.unreadable_dirs };
+          });
           setActionState('idle'); return;
         }
         setActionState('error');
@@ -161,14 +217,21 @@ export function MailRulePanel({ project }: { project?: string }) {
       {!editing && <button onClick={beginEdit} disabled={!!editDisabledReason} title={editDisabledReason ?? undefined}><Tag size={14} />편집</button>}
     </header>
 
-    {saveOutcome?.kind === 'saved' && <p className="mr-save-outcome">v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion} 저장됨, 장부 갱신 {saveOutcome.changedFiles ?? 0}개 파일</p>}
-    {saveOutcome?.kind === 'saved_refresh_failed' && <p className="mr-save-outcome is-warning">규칙은 저장됨(v{saveOutcome.ruleVersion}), 장부 갱신 실패 — <button onClick={runRefreshRetry} disabled={busy}>다시 시도</button></p>}
+    <div aria-live="polite">
+      {saveOutcome?.kind === 'saved' && <p className="mr-save-outcome">v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion} 저장됨, 장부 갱신 {saveOutcome.changedFiles ?? 0}개 파일</p>}
+      {saveOutcome?.kind === 'saved_refresh_failed' && <p className="mr-save-outcome is-warning">규칙은 저장됨(v{saveOutcome.ruleVersion}), 장부 갱신 실패 — <button onClick={runRefreshRetry} disabled={busy}>다시 시도</button></p>}
+      {saveOutcome?.kind === 'saved_refresh_partial' && <p className="mr-save-outcome is-warning">
+        규칙은 저장됨(v{saveOutcome.previousVersion} → v{saveOutcome.ruleVersion}), 장부 갱신 일부 실패
+        (규칙 실패 {saveOutcome.ruleFailures ?? 0}건 · 읽기 실패 폴더 {saveOutcome.unreadableDirs ?? 0}건 · 장부 검증 실패 {saveOutcome.ledgerFailures ?? 0}건)
+        — <button onClick={runRefreshRetry} disabled={busy}>다시 시도</button>
+      </p>}
+    </div>
 
-    <ChipGroup label="확정 키워드" items={exactItems} editing={editing} addPlaceholder="새 키워드"
-      onRemove={label => setChipState((s: Row) => removeChip(s, 'exact', label))}
+    <ChipGroup label="확정 키워드" chipState={editing && chipState ? chipState : { exact: exactItems, hint: hintItems }} group="exact" editing={editing} addPlaceholder="새 키워드"
+      onRemove={index => setChipState((s: Row) => removeChip(s, 'exact', index))}
       onAdd={value => setChipState((s: Row) => addLiteralChip(s, 'exact', value))} />
-    <ChipGroup label="검토 힌트" items={hintItems} editing={editing} addPlaceholder="새 힌트"
-      onRemove={label => setChipState((s: Row) => removeChip(s, 'hint', label))}
+    <ChipGroup label="검토 힌트" chipState={editing && chipState ? chipState : { exact: exactItems, hint: hintItems }} group="hint" editing={editing} addPlaceholder="새 힌트"
+      onRemove={index => setChipState((s: Row) => removeChip(s, 'hint', index))}
       onAdd={value => setChipState((s: Row) => addLiteralChip(s, 'hint', value))} />
 
     {(rule.yields_to ?? []).map((y: Row, i: number) => <p className="cx-footnote" key={`${y.project_code}-${i}`}>
@@ -194,8 +257,14 @@ export function MailRulePanel({ project }: { project?: string }) {
       </div>
       {editDisabledReason && <p className="cx-notice">{editDisabledReason}</p>}
       {!editDisabledReason && !canSave && <p className="cx-footnote">현재 초안으로 미리보기를 실행하고 사유를 입력해야 저장할 수 있습니다.</p>}
-      {actionMessage && <p className={actionState === 'error' ? 'cx-notice' : 'cx-footnote'}>{actionMessage}</p>}
-      {previewResult && <PreviewResult result={previewResult} />}
+      <p className="cx-footnote" aria-live="polite">
+        {actionMessage && <span className={actionState === 'error' ? 'cx-notice' : 'cx-footnote'}>{actionMessage}</span>}
+        {conflict && <button onClick={load} style={{ marginLeft: '0.5em' }}>다시 불러오기</button>}
+      </p>
+      {previewResult && <div className={previewIsFresh ? undefined : 'mr-preview-stale'}>
+        {!previewIsFresh && <p className="cx-footnote">초안이 바뀌어 이 결과는 오래되었습니다. 다시 미리보기하세요.</p>}
+        <PreviewResult result={previewResult} />
+      </div>}
     </div>}
     <p className="cx-footnote">확인 {when(snapshot.observed_at)}</p>
   </section>;
