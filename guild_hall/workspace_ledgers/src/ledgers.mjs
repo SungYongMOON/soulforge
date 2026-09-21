@@ -107,18 +107,25 @@ export function decodeCsv(text) {
     else field += char;
   }
   if (field !== '' || record.length > 0) { pushField(); records.push(record); }
-  // fresh-review-6 #3: a trailing blank line (one extra CRLF/LF at the end of a file --
-  // easy for an Owner to add by hand in Excel/a text editor, or for a save to leave
-  // behind) parses as one extra all-empty record: a single field that is the empty
-  // string. That is not a row -- there is no comma-separated content on that line at
-  // all -- but without this trim it fails the row-shape check downstream (its length,
-  // 1, never matches the header count) and blocks the whole ledger. Multiple trailing
-  // blank lines are trimmed the same way; a genuine data row is never a single empty
-  // field (every header row in this module has more than one column).
-  while (records.length > 0) {
-    const last = records[records.length - 1];
-    if (last.length === 1 && last[0] === '') records.pop();
-    else break;
+  // fresh-review-6 #3 + fresh-review-7 S3/N2: a trailing blank line (one extra CRLF/LF
+  // at the end of a file -- easy for an Owner to add by hand in Excel/a text editor, or
+  // for a save to leave behind) parses as one extra all-empty record: a single field
+  // that is the empty string, or (S3) whitespace an editor left behind before EOF
+  // (`trim()` catches both). That is not a row -- there is no comma-separated content
+  // on that line at all -- but without this trim it fails the row-shape check
+  // downstream (its length, 1, never matches the header count) and blocks the whole
+  // ledger. Multiple trailing blank lines are trimmed the same way; a genuine data row
+  // is never a single empty/blank field IN THIS MODULE, because every header row it
+  // builds has more than one column (N2) -- with a single-column header a real one-
+  // column row's own blank value would be indistinguishable from a trailing blank line,
+  // so the trim is skipped entirely in that shape rather than risk dropping real data.
+  const singleColumnHeader = records.length > 0 && records[0].length === 1;
+  if (!singleColumnHeader) {
+    while (records.length > 0) {
+      const last = records[records.length - 1];
+      if (last.length === 1 && last[0].trim() === '') records.pop();
+      else break;
+    }
   }
   const [headers, ...rows] = records;
   return { headers: headers ?? [], rows };

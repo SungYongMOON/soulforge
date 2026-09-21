@@ -48,9 +48,17 @@ const REPLY_PRESERVE_INDICES = [10, 11]; // 처리상태(Owner기입), 메모
  * `preserveMerge` (below) can match an old row to a new row by ANY shared address,
  * not only by the one address that happens to be "primary" in each snapshot.
  */
+// N1 (fresh-review-7): this module only ever WRITES 다른메일 space-separated, but it
+// must READ whatever an Owner's editor actually left behind -- a comma or semicolon
+// typed as a separator, a wrapped line, mixed case in an address. Split on any run of
+// whitespace/comma/semicolon/newline, trim and lower-case both the primary and every
+// alternate so a merely-cosmetic difference never defeats a real match.
 function contactsAlternateKeys(row) {
-  const primary = row[CONTACTS_KEY_INDEX];
-  const others = String(row[CONTACTS_OTHER_EMAILS_INDEX] ?? '').split(' ').filter(Boolean);
+  const primary = String(row[CONTACTS_KEY_INDEX] ?? '').trim().toLowerCase();
+  const others = String(row[CONTACTS_OTHER_EMAILS_INDEX] ?? '')
+    .split(/[\s,;]+/u)
+    .map(entry => entry.trim().toLowerCase())
+    .filter(Boolean);
   return [primary, ...others].filter(Boolean);
 }
 
@@ -137,8 +145,11 @@ export function releaseRefreshLock(workspacesRoot) {
 // ------------------------------------------------------------------ shared reading
 function readOrgConfig(orgConfigPath) {
   let text;
+  // N3 (fresh-review-7): the fallback used to be the full path when the caught error
+  // had no `.code` -- the same host-local-path leak `redactHostPaths` exists to close
+  // everywhere else in this module's own error messages.
   try { text = readFileSync(orgConfigPath, 'utf8'); }
-  catch (error) { fail('workspace_ledgers_org_config_unreadable', error?.code ?? orgConfigPath); }
+  catch (error) { fail('workspace_ledgers_org_config_unreadable', error?.code ?? path.basename(orgConfigPath)); }
   try { return JSON.parse(text); }
   catch (error) { fail('workspace_ledgers_org_config_invalid_json', error.message); }
   return null;
@@ -439,8 +450,8 @@ function classifyDuplicateGroup(groupRows, preserveIndices) {
  * never merged into and never silently overwritten. Returns `{ present: false }`
  * when there is nothing to validate yet (first refresh), `{ present: true, ok: false,
  * code, conflictGroups? }` on a violation, or `{ present: true, ok: true, decoded,
- * rawText, rawRowCount, collapsedIdenticalRows }` when the file is safe to merge
- * against. Checked, in order: encoding (no U+FFFD anywhere -- a common CP949/EUC-KR-
+ * rawText, beforeRowCount, collapsedIdenticalRows }` when the file is safe to merge
+ * against (`beforeRowCount` is the row count AFTER collapsing duplicates -- S2). Checked, in order: encoding (no U+FFFD anywhere -- a common CP949/EUC-KR-
  * as-UTF-8 mojibake signature), the header row equals the builder's own headers
  * exactly, every row has exactly the header's column count.
  *
@@ -484,9 +495,15 @@ function validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices 
     dedupedRows.push(groupRows[groupRows.length - 1]); // later line represents the group
   }
   if (conflictGroups > 0) return { present: true, ok: false, code: 'workspace_ledgers_ledger_duplicate_key', conflictGroups };
+  // S2 (fresh-review-7): `beforeRowCount` is reported to callers (including the shrink
+  // guard below) as "how many rows this ledger had" -- that must be the count AFTER
+  // collapsing legacy duplicate rows, not the raw line count. A ledger carrying old
+  // duplicate-key rows (round-trip debt from before `collapsedIdenticalRows` existed)
+  // otherwise inflates the baseline and can silently change whether a later shrink
+  // looks past or under the 50% guard.
   return {
     present: true, ok: true, decoded: { headers: decoded.headers, rows: dedupedRows }, rawText,
-    rawRowCount: decoded.rows.length, collapsedIdenticalRows,
+    beforeRowCount: dedupedRows.length, collapsedIdenticalRows,
   };
 }
 
@@ -504,59 +521,115 @@ function validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices 
 function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices, alternateKeysOf = null }) {
   const validated = validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices });
   if (!validated.present) {
-    return { invalid: null, rows, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
+    return { invalid: null, rows, preservedCount: 0, ownerCellsDroppedWithRow: 0, ownerCellsAmbiguous: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
   }
   if (!validated.ok) {
     return { invalid: { code: validated.code, conflictGroups: validated.conflictGroups ?? null }, rows: null,
-      preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
+      preservedCount: 0, ownerCellsDroppedWithRow: 0, ownerCellsAmbiguous: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
   }
-  const { decoded, rawText, rawRowCount, collapsedIdenticalRows } = validated;
+  const { decoded, rawText, beforeRowCount, collapsedIdenticalRows } = validated;
   const byKey = new Map();
   for (const oldRow of decoded.rows) byKey.set(oldRow[keyIndex], oldRow);
+
+  // fresh-review-7 R2: an alternate address is only ever safe to match on when it
+  // resolves to exactly ONE old row and does not equal a DIFFERENT old row's own exact
+  // key column -- either collision means a fresh row reaching that address could
+  // silently inherit the wrong old row's Owner cells (the reported incident: an old
+  // row's stale alternate address kept shadowing a second old row that was later keyed
+  // exactly on that same address, because the index was first-wins by file order with
+  // no collision check). Such an address is removed from the index entirely -- never
+  // used for matching, by either pass below -- and counted, regardless of whether any
+  // fresh row this run actually goes on to need it.
   let byAltKey = null;
+  let ownerCellsAmbiguous = 0;
   if (alternateKeysOf) {
     byAltKey = new Map();
+    const unsafeAltKeys = new Set();
     for (const oldRow of decoded.rows) {
       for (const altKey of alternateKeysOf(oldRow)) {
-        if (altKey && !byAltKey.has(altKey)) byAltKey.set(altKey, oldRow);
+        if (!altKey || unsafeAltKeys.has(altKey)) continue;
+        const existing = byAltKey.get(altKey);
+        if (existing === undefined) { byAltKey.set(altKey, oldRow); continue; }
+        if (existing === oldRow) continue; // the same row listing its own alt key twice
+        byAltKey.delete(altKey);
+        unsafeAltKeys.add(altKey);
       }
     }
-  }
-  const matchOldRow = newRow => {
-    if (!alternateKeysOf) return byKey.get(newRow[keyIndex]);
-    for (const altKey of alternateKeysOf(newRow)) {
-      const found = byAltKey.get(altKey);
-      if (found) return found;
+    for (const [altKey, oldRow] of byAltKey) {
+      const keyOwner = byKey.get(altKey);
+      if (keyOwner && keyOwner !== oldRow) { byAltKey.delete(altKey); unsafeAltKeys.add(altKey); }
     }
-    return undefined;
-  };
+    ownerCellsAmbiguous += unsafeAltKeys.size;
+  }
+
+  // fresh-review-7 R1: two passes, so an old row is matched to AT MOST ONE fresh row --
+  // the bug report was a formerly-merged old row (primary + alternate addresses, one
+  // Owner cell) splitting into two separate fresh people and BOTH silently inheriting
+  // the same Owner cell. Pass 1 (exact key-column match) always wins and runs for every
+  // fresh row first, consuming whichever old row it lands on. Pass 2 (alternate-address
+  // match) only ever looks at fresh rows pass 1 left unmatched, and only at old rows
+  // pass 1 did not already consume -- so a split's OTHER half legitimately gets no
+  // match at all (not ambiguous -- pass 1 already, unambiguously, resolved it). Within
+  // pass 2 itself, a fresh row reaching more than one still-available old row, or two
+  // fresh rows both reaching the very same one, is exactly the unsafe shape R2 already
+  // guards the index against: neither/none of the contenders gets a match, and each
+  // contended attempt is counted rather than resolved by whichever fresh row happened
+  // to be processed first.
+  const consumedOldRows = new Set();
+  const matchedOldRowOf = new Array(rows.length).fill(undefined);
+  rows.forEach((newRow, index) => {
+    const oldRow = byKey.get(newRow[keyIndex]);
+    if (oldRow && !consumedOldRows.has(oldRow)) { matchedOldRowOf[index] = oldRow; consumedOldRows.add(oldRow); }
+  });
+
+  if (byAltKey) {
+    const candidateOf = new Map(); // fresh-row index -> its one unambiguous candidate
+    rows.forEach((newRow, index) => {
+      if (matchedOldRowOf[index] !== undefined) return;
+      const candidates = new Set();
+      for (const altKey of alternateKeysOf(newRow)) {
+        const found = byAltKey.get(altKey);
+        if (found && !consumedOldRows.has(found)) candidates.add(found);
+      }
+      if (candidates.size === 1) candidateOf.set(index, [...candidates][0]);
+      else if (candidates.size > 1) ownerCellsAmbiguous += 1; // this fresh row itself is torn between old identities
+    });
+    const wantedBy = new Map();
+    for (const [index, oldRow] of candidateOf) {
+      const contenders = wantedBy.get(oldRow) ?? [];
+      contenders.push(index);
+      wantedBy.set(oldRow, contenders);
+    }
+    for (const [oldRow, indices] of wantedBy) {
+      if (indices.length === 1) { matchedOldRowOf[indices[0]] = oldRow; consumedOldRows.add(oldRow); }
+      else ownerCellsAmbiguous += indices.length; // genuine contention: none of them get it
+    }
+  }
 
   let preservedCount = 0;
-  const matchedOldRows = new Set();
-  const merged = rows.map(newRow => {
-    const oldRow = matchOldRow(newRow);
+  const merged = rows.map((newRow, index) => {
+    const oldRow = matchedOldRowOf[index];
     if (!oldRow) return newRow;
-    matchedOldRows.add(oldRow);
     const out = [...newRow];
-    for (const index of preserveIndices) {
-      const oldValue = oldRow[index];
-      if (oldValue !== undefined && oldValue !== '') { out[index] = oldValue; preservedCount += 1; }
+    for (const preserveIndex of preserveIndices) {
+      const oldValue = oldRow[preserveIndex];
+      if (oldValue !== undefined && oldValue !== '') { out[preserveIndex] = oldValue; preservedCount += 1; }
     }
     return out;
   });
   // S9 (fresh-review-6 #1: matched by identity -- alternate addresses included when
   // `alternateKeysOf` applies -- not merely by literal key-column equality): an old
-  // row no fresh row matched means that mail/person/thread genuinely left the live
-  // view (e.g. re-attributed elsewhere); any Owner-entered value on that row is not
-  // carried forward -- it survives only in the history archive this refresh is about
-  // to write, and this count says how many rows that happened to (never which rows,
-  // to avoid surfacing subjects/names in the receipt).
+  // row no fresh row ended up matched to -- whether it genuinely left the live view
+  // (e.g. re-attributed elsewhere) or lost a pass-2 contention above -- carries its
+  // Owner-entered value no further; it survives only in the history archive this
+  // refresh is about to write, and this count says how many rows that happened to
+  // (never which rows, to avoid surfacing subjects/names in the receipt).
   let ownerCellsDroppedWithRow = 0;
   for (const oldRow of decoded.rows) {
-    if (matchedOldRows.has(oldRow)) continue;
+    if (consumedOldRows.has(oldRow)) continue;
     if (preserveIndices.some(index => oldRow[index] !== undefined && oldRow[index] !== '')) ownerCellsDroppedWithRow += 1;
   }
-  return { invalid: null, rows: merged, preservedCount, ownerCellsDroppedWithRow, beforeRowCount: rawRowCount, collapsedIdenticalRows, oldText: rawText };
+  return { invalid: null, rows: merged, preservedCount, ownerCellsDroppedWithRow, ownerCellsAmbiguous, beforeRowCount, collapsedIdenticalRows, oldText: rawText };
 }
 
 /**
@@ -601,7 +674,7 @@ function countDuplicateKeys(rows, keyIndex) {
 // divergent implementation of the same contract (spec Step 1's "hard rules": every new
 // ledger gets the same Owner-data guarantees as the existing ones).
 export function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry,
-  allowEmpty, allowPartialSources = false, alternateKeysOf = null }) {
+  allowEmpty, partialSourcesInEffect = false, alternateKeysOf = null }) {
   // Fresh-review-2 #3 (second half): a broken key source (a synthetic id collision
   // that somehow still occurred, or any future bug) must not silently produce two
   // rows under one key and write a corrupt ledger -- caught here, before this file's
@@ -630,14 +703,18 @@ export function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex,
     return { failed: true, code: 'workspace_ledgers_ledger_empty_refresh_blocked', before_rows: merge.beforeRowCount,
       after_rows: merge.rows.length, file: `${folder}/${relPath}`, written: false, changed: false };
   }
-  // fresh-review-6 #4: the empty-refresh guard above only catches an EXACT zero --
-  // with `allowPartialSources`, some custody source was unreadable and skipped
-  // entirely, which can make a ledger's fresh row count crater to a small fraction of
-  // what it was (a 6-row ledger rewritten to 1 row) without ever hitting exact zero.
-  // Only checked when `allowPartialSources` is actually in effect for this run -- a
-  // normal full-custody refresh can legitimately shrink a ledger a lot (mail
-  // re-attributed elsewhere) and is not second-guessed here.
-  const shrinkGuardApplies = allowPartialSources && merge.beforeRowCount > 0 && merge.rows.length > 0
+  // fresh-review-6 #4 + fresh-review-7 R3: the empty-refresh guard above only catches
+  // an EXACT zero -- when some custody source was unreadable and skipped entirely, a
+  // ledger's fresh row count can crater to a small fraction of what it was (a 6-row
+  // ledger rewritten to 1 row) without ever hitting exact zero. `partialSourcesInEffect`
+  // is the caller's already-computed "an unreadable dir actually forced a partial run"
+  // boolean (unreadable dirs non-empty AND the caller passed allowPartialSources) --
+  // R3: gating on the raw `allowPartialSources` REQUEST flag instead used to block a
+  // legitimate large shrink (a rule change moving most mail elsewhere) on any run where
+  // the caller passed the flag out of habit but every custody dir was, in fact,
+  // perfectly readable. A normal full-custody refresh can legitimately shrink a ledger
+  // a lot and is not second-guessed here.
+  const shrinkGuardApplies = partialSourcesInEffect && merge.beforeRowCount > 0 && merge.rows.length > 0
     && merge.rows.length < merge.beforeRowCount * 0.5;
   if (shrinkGuardApplies && !allowEmpty) {
     return { failed: true, code: 'workspace_ledgers_ledger_partial_sources_shrink_blocked', before_rows: merge.beforeRowCount,
@@ -647,7 +724,12 @@ export function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex,
   const changed = merge.oldText !== newText;
   const result = { failed: false, rows: merge.rows.length, before_rows: merge.beforeRowCount,
     preserved_owner_cells: merge.preservedCount, owner_cells_dropped_with_row: merge.ownerCellsDroppedWithRow,
-    collapsed_identical_rows: merge.collapsedIdenticalRows, empty_allowed_applied: emptyRefreshApplies && allowEmpty,
+    owner_cells_ambiguous: merge.ownerCellsAmbiguous, collapsed_identical_rows: merge.collapsedIdenticalRows,
+    empty_allowed_applied: emptyRefreshApplies && allowEmpty,
+    // S1: a shrink the guard WOULD have blocked, but that `allowEmpty` overrode for this
+    // project, used to leave no trace at all in the receipt -- indistinguishable from a
+    // shrink that never came close to the guard in the first place.
+    shrink_allowed_applied: shrinkGuardApplies && allowEmpty,
     changed, sha256: sha256(newText) };
   if (dry || !changed) return { ...result, written: false };
   if (merge.oldText !== null) {
@@ -758,10 +840,14 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
   const projectReports = [];
   const ledgerFailures = [];
   const allowEmptyAppliedTo = new Set();
+  const shrinkAllowedAppliedTo = new Set(); // S1
   let eventsScannedHiworks = 0, eventsScannedGmail = 0, skippedSystemTotal = 0;
   let duplicatesDroppedTotal = 0, idCollisionsKeptTotal = 0, heldCount = 0, unattributed = 0;
   let unreadableDirsRedacted = [];
   let ruleFailures = [];
+  // R3: the boolean the shrink guard must actually gate on -- an unreadable custody
+  // dir DID force a partial run, not merely "the caller happened to pass the flag".
+  let partialSourcesInEffect = false;
 
   try {
     // S-8: a bad saved rule for one project is excluded (recorded in ruleFailures),
@@ -800,6 +886,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     duplicatesDroppedTotal = hiworks.duplicatesDropped + gmail.duplicatesDropped;
     idCollisionsKeptTotal = hiworks.idCollisionsKept + gmail.idCollisionsKept;
     unreadableDirsRedacted = redactUnreadableDirs(hiworks.unreadableDirs, gmail.unreadableDirs);
+    partialSourcesInEffect = unreadableDirsRedacted.length > 0 && allowPartialSources;
 
     // fresh-review-3 #1: pre-write gate. An unreadable custody directory stops every
     // write for this run -- not just the ones that happen to compute to zero rows --
@@ -810,6 +897,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
         skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
         unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [],
+        shrink_allowed_applied_to: [],
         rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
       };
       writeReceiptFile(receipt);
@@ -865,24 +953,25 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         filePath: path.join(base, CONTACTS_REL), lineagePath: path.join(lineageBase, '연락처_장부.csv.lineage.json'),
         headers: contacts.headers, rows: contacts.rows, keyIndex: CONTACTS_KEY_INDEX, preserveIndices: CONTACTS_PRESERVE_INDICES,
         code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry, allowEmpty: allowEmptyForProject,
-        allowPartialSources, alternateKeysOf: contactsAlternateKeys,
+        partialSourcesInEffect, alternateKeysOf: contactsAlternateKeys,
       }));
       const recvResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, RECV_REL), lineagePath: path.join(lineageBase, '메일_수신이력.csv.lineage.json'),
         headers: history.headers, rows: history.received.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty: allowEmptyForProject, allowPartialSources,
+        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty: allowEmptyForProject, partialSourcesInEffect,
       }));
       const sentResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, SENT_REL), lineagePath: path.join(lineageBase, '메일_발송이력.csv.lineage.json'),
         headers: history.headers, rows: history.sent.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty: allowEmptyForProject, allowPartialSources,
+        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty: allowEmptyForProject, partialSourcesInEffect,
       }));
       const replyResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, REPLY_REL), lineagePath: path.join(lineageBase, '회신_현황.csv.lineage.json'),
         headers: reply.headers, rows: reply.rows, keyIndex: REPLY_KEY_INDEX, preserveIndices: REPLY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty: allowEmptyForProject, allowPartialSources,
+        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty: allowEmptyForProject, partialSourcesInEffect,
       }));
       if ([contactsResult, recvResult, sentResult, replyResult].some(result => result.empty_allowed_applied)) allowEmptyAppliedTo.add(code);
+      if ([contactsResult, recvResult, sentResult, replyResult].some(result => result.shrink_allowed_applied)) shrinkAllowedAppliedTo.add(code); // S1
 
       projectReports.push({
         project_code: code, folder_name: project.folder_name, rule_version: json.rule_version,
@@ -898,8 +987,8 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       status: (ledgerFailures.length > 0 || unreadableDirsRedacted.length > 0 || ruleFailures.length > 0) ? 'failed' : 'ok',
       events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
       skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
-      unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: unreadableDirsRedacted.length > 0 && allowPartialSources,
-      allow_empty_applied_to: [...allowEmptyAppliedTo],
+      unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: partialSourcesInEffect,
+      allow_empty_applied_to: [...allowEmptyAppliedTo], shrink_allowed_applied_to: [...shrinkAllowedAppliedTo],
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     };
     writeReceiptFile(receipt);
@@ -914,6 +1003,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
       skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
       unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [...allowEmptyAppliedTo],
+      shrink_allowed_applied_to: [...shrinkAllowedAppliedTo],
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     });
     throw error;

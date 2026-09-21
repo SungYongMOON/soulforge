@@ -381,18 +381,32 @@ file had content before) is echoed back in `receipt.allow_empty_applied_to`, so 
 caller can tell which projects were genuinely affected without having to diff every
 file.
 
-**Partial-sources shrink guard (fresh-review-6 #4).** The empty-refresh guard above
-only catches an EXACT zero. With `allowPartialSources` (some custody source was
-unreadable and skipped entirely, per "Unreadable custody directories" above), a
-ledger's fresh row count can crater to a small fraction of what it was -- a 6-row
-ledger rewritten to 1 row -- without ever hitting exact zero. Only checked when
-`allowPartialSources` is actually in effect for the run (a normal full-custody refresh
-can legitimately shrink a ledger a lot, e.g. mail re-attributed elsewhere, and is not
-second-guessed): if a ledger's fresh row count comes out below 50% of its previous row
-count, that file **fails closed** too (`workspace_ledgers_ledger_partial_sources_shrink_blocked`,
+**Partial-sources shrink guard (fresh-review-6 #4, corrected fresh-review-7 R3/S2).**
+The empty-refresh guard above only catches an EXACT zero. With `allowPartialSources`
+(some custody source was unreadable and skipped entirely, per "Unreadable custody
+directories" above), a ledger's fresh row count can crater to a small fraction of what
+it was -- a 6-row ledger rewritten to 1 row -- without ever hitting exact zero. Only
+checked when an unreadable directory **actually forced** a partial run this call --
+`receipt.unreadable_dirs` non-empty AND the caller passed `allowPartialSources` -- not
+merely on the raw request flag: a caller that always passes `allowPartialSources: true`
+out of habit, on a run where every custody directory was in fact fully readable, no
+longer has a legitimate large shrink (a rule change moving most mail elsewhere) blocked
+by this guard (fresh-review-7 R3 -- gating on the request flag alone used to do exactly
+that). A normal full-custody refresh can legitimately shrink a ledger a lot and is not
+second-guessed. When it IS in effect: if a ledger's fresh row count comes out below 50%
+of its previous row count -- **after** collapsing any legacy duplicate-key rows the
+existing file may still carry (fresh-review-7 S2: a ledger with 5 raw lines that
+collapse to 4 distinct rows uses 4 as the baseline, not 5, so stale round-trip debt in
+the file never changes whether a later shrink looks past or under the guard) -- that
+file **fails closed** too (`workspace_ledgers_ledger_partial_sources_shrink_blocked`,
 left untouched) unless the project is also named in `allowEmpty`. The failure entry in
-`receipt.ledger_failures` (and the per-file result) records both `before_rows` and
-`after_rows`, so a caller can see the shrink without having to diff the file.
+`receipt.ledger_failures` (and the per-file result) records both `before_rows` (the
+post-collapse baseline) and `after_rows`, so a caller can see the shrink without having
+to diff the file. When `allowEmpty` overrides this guard for a project, that project is
+recorded in `receipt.shrink_allowed_applied_to` (fresh-review-7 S1) -- distinct from
+`allow_empty_applied_to`, which is only for the exact-zero empty-refresh guard -- so the
+override itself leaves a trace instead of looking identical to a shrink that never came
+near the guard.
 
 A `refresh()` call that throws for any other reason still writes a best-effort
 `status: 'failed'` receipt (with an `error` field) before the error propagates, so a
@@ -428,10 +442,28 @@ legitimately change from one refresh to the next as new mail arrives (see "Perso
 merge rules" above) while the same real person is still present. Owner-cell
 preservation for this one ledger does **not** rely on that key column being stable --
 `refresh.mjs` matches an existing row to a fresh one by ANY address in the merged
-person's own set (메일 plus every 다른메일 entry), so the Owner cell still survives a
-key-column change caused by this reason specifically (fresh-review-6 #1). It is only
-counted as genuinely dropped when the person's WHOLE address set no longer appears at
-all.
+person's own set (메일 plus every 다른메일 entry, split on whitespace/comma/semicolon,
+trimmed and case-folded -- fresh-review-7 N1 -- so a hand-edited cell still matches),
+so the Owner cell still survives a key-column change caused by this reason
+specifically (fresh-review-6 #1). It is only counted as genuinely dropped when the
+person's WHOLE address set no longer appears at all.
+
+**Matching order and ambiguity (fresh-review-7 R1/R2).** An existing row can be matched
+to at most one fresh row per refresh. The exact 메일 key-column match always runs
+first and always wins; the alternate-address match only ever considers fresh rows the
+exact pass left unmatched, and only existing rows the exact pass did not already
+consume -- so when a formerly-merged existing row's identity later splits into two
+separate fresh people, at most one of them (whichever exact-matches) inherits the
+Owner cell, never both. Within the alternate-address index itself, an address that
+would resolve to more than one existing row, or that collides with a DIFFERENT
+existing row's own exact key column, is removed from the index entirely and never used
+for matching (this is what stops a stale 다른메일 entry on one row from silently
+shadowing a second row that is genuinely, exactly keyed on that same address). Any of
+these ambiguous situations -- an index collision, or two still-unmatched fresh rows
+genuinely contending for the same not-yet-consumed existing row -- means none of the
+contenders gets the Owner cell, and is counted in the per-ledger `owner_cells_ambiguous`
+field of the receipt (contacts.csv only; every other ledger keys on an exact, non-
+alternate column and this is always `0` there).
 
 ## Performance
 
@@ -785,7 +817,7 @@ environment.
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
 - `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples, rule_failures }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report. `rule_failures` -- fresh-review-5 #7 -- lists any OTHER project excluded from this comparison because its own saved rule failed to compile; non-empty means these counts are incomplete, and should be rendered with a caveat, not as fact). `orgConfigPath` (optional) resolves `system_sender_domains` the same way a real `refresh()` against that config would.
 - `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`. `draft` (and `previewRule`'s `draft`) must be the **complete** rule document, never a partial patch -- see "Rule versioning and lineage" above.
-- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied`, `allow_empty_applied_to`, `ledger_failures`, `rule_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`). No `match_timeouts`/`match_run_budget_exceeded` any more -- removed along with the per-mail timeout machinery (see "Design simplification" above). `allowEmpty` is a list of project codes (not a boolean, and every code must be a real onboarded project whose rule did not itself fail this run -- S-5/S-8); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above.
+- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied` (fresh-review-7 R3: true only when an unreadable dir actually put this run into a partial-sources state, not merely because the caller passed the flag), `allow_empty_applied_to`, `shrink_allowed_applied_to` (fresh-review-7 S1), `ledger_failures`, `rule_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`/`owner_cells_ambiguous` (fresh-review-7 R1/R2, contacts.csv only)). No `match_timeouts`/`match_run_budget_exceeded` any more -- removed along with the per-mail timeout machinery (see "Design simplification" above). `allowEmpty` is a list of project codes (not a boolean, and every code must be a real onboarded project whose rule did not itself fail this run -- S-5/S-8); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above.
 
 `src/index.mjs` also re-exports `validateRule`, `isMachineActor`, `RuleStoreError`,
 `RefreshError`, `clearCustodyCache`, `classifyMail`/`compileRule`/`compileRules`/

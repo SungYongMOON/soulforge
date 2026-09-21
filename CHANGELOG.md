@@ -68,6 +68,63 @@
 - 구현하지 못한 것: 없음(Step 1 섹션 1-7 전부 구현). Step 2(lane·예약작업)와
   Step 3의 Hermes 연결(도구 배선·지침 포인터)은 스펙 지시대로 손대지 않았다.
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 일곱 번째 신선한 검토 반영: 분리된 사람의 Owner 셀 중복·대체주소 그림자·shrink 가드 게이트
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(30d71df0)에 대한 좁은 범위의 일곱 번째
+  fresh review — 검증기는 초록(130/130)이었지만, 이번 라운드가 새로 추가한
+  코드 안에 필수 3건이 남아 merge-ready가 아니었다 — 를 반영했다.
+  필수: (1) `preserveMerge`의 옛 행 매칭이 한 번 매칭된 행을 "소비됨"으로
+  표시하지 않아, 병합돼 있던 한 사람(주소1이 메일, 주소2가 다른메일, Owner
+  역할 채움)이 나중에 두 명으로 갈라지면 Owner 셀이 새 행 둘 다에 복사되고
+  `owner_cells_dropped_with_row`도 이중 집계됐다. 정확한 키 매칭(메일 열)을
+  모든 신규 행에 대해 먼저 돌리고, 이미 소비된 옛 행은 제외한 채 아직
+  매칭되지 않은 신규 행에 대해서만 대체주소 매칭을 두 번째로 돌리도록 고쳤다
+  — 옛 행 하나는 최대 한 번만 매칭된다. 두 신규 행이 대체주소로 같은 옛
+  행을 놓고 경합하면 둘 다 받지 못하고, 새 `owner_cells_ambiguous` 필드로
+  집계해 영수증에 실었다. (2) 대체주소 색인이 파일에 쓰인 순서대로
+  first-wins이라 모호성 검사가 전혀 없었다 — 기존 행 A(메일 a, 다른메일 c,
+  역할 X)와 행 C(메일 c, 역할 Y)가 있을 때 새 행이 c로만 들어오면 A가 c를
+  먼저 선점해 역할 X가 조용히 쓰였다. 정확한 키 매칭이 항상 대체주소 매칭을
+  이기도록(위 두 단계 순서가 이를 보장) 고쳤고, 색인을 만들 때 한 대체주소가
+  서로 다른 옛 행 두 개에 걸치거나 다른 옛 행의 진짜 키 열과 겹치면 그
+  주소를 색인에서 아예 제거해(다시는 매칭에 쓰이지 않음) `owner_cells_ambiguous`로
+  세도록 고쳤다 — 파일 전체를 막지는 않는다. (3) shrink 가드가 "실제로 적용
+  중인지"가 아니라 요청 플래그 자체로 판정해, 모든 custody 디렉터리가 읽히고
+  `allowPartialSources:true`만 습관적으로 넘긴 정상적인 7→1 축소(규칙 변경에
+  의한)까지 막고 실패로 보고했다. 이미 계산돼 있던 "실제 적용 중" 불리언
+  (읽지 못한 디렉터리가 있고 AND allowPartialSources가 참)으로 게이트를
+  옮기고 그 값을 `writeLedgerCsv`에 넘기도록 고쳤으며, README 문장도 사실에
+  맞게 고쳤다.
+  should: (4) shrink 가드를 `allowEmpty`로 넘긴 경우 영수증에 아무 흔적도
+  남지 않았다 — 새 `receipt.shrink_allowed_applied_to` 필드에 그 과제를
+  기록하고 테스트로 확인했다. (5) shrink 기준값이 collapse 이전의 원시 행수를
+  써서, 레거시 중복 행이 기준을 부풀렸다 — `before_rows`를 중복 collapse
+  이후의 행수로 바꿨다(5줄이 4행으로 collapse되면 4를 기준으로 삼는다).
+  (6) 트레일링 빈 줄 트림이 공백만 있는 마지막 줄은 놓쳤다 — 그 한 필드에
+  `trim()`을 적용해 잡도록 고쳤다.
+  nit: (7) `contactsAlternateKeys`가 공백 하나로만 분리하고 trim/대소문자
+  정규화가 없었다 — 공백/쉼표/세미콜론/줄바꿈으로 분리하고 양쪽 다
+  trim + 소문자 변환하도록 고쳤다(Owner가 손으로 편집한 셀도 매칭되도록).
+  (8) `decodeCsv`의 트레일링 트림이 열이 2개 이상이라고 가정했다 — 헤더가
+  한 열뿐이면 트림을 아예 건너뛰도록 고치고 JSDoc에 명시했다(진짜 한 열짜리
+  빈 행과 구별할 수 없으므로). (9) `readOrgConfig`가 여전히 캐치된 에러에
+  `.code`가 없을 때 orgConfigPath 전체를 detail로 남겼다 — `path.basename(...)`으로
+  고쳤다(이 Node 런타임에서는 모든 실제 fs 에러가 `.code`를 갖고 있어 실행
+  경로로는 사실상 도달 불가능하지만, 소스 자체를 직접 검사하는 테스트로
+  회귀를 막았다).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `writeLedgerCsv`의 `allowPartialSources`
+  매개변수명이 `partialSourcesInEffect`로 바뀌었다(모듈 내부 전용, 공개
+  `refresh()`/`previewRule()` 시그니처는 변경 없음). 영수증에
+  `owner_cells_ambiguous`(연락처_장부.csv 전용, 기본 0)와
+  `shrink_allowed_applied_to`(기본 빈 배열) 필드가 새로 붙었다 — 기존
+  소비자는 무시해도 무방하다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·README).
+- 검증: 클린 체크아웃에서 `npm run validate:workspace-ledgers`(139 tests
+  pass), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(0 violations), `npm run validate:canon`(0 errors/warnings), 실제
+  대상면 `--dry --fields subject` 재확인(건수만).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 여섯 번째 신선한 검토 반영: 연락처 키 흔들림·경로 잔재·트레일링 빈 줄·shrink 가드
 
 - Revision: 이 항목을 포함한 커밋.
