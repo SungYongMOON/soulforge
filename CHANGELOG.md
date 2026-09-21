@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 매일 갱신 lane 추가: daily runner·예약작업 등록기·source lane
+
+- Revision: builder 세션 한 커밋. `refresh()`/`refreshCommon()` 라이브러리 자체(위 다섯 번의 신선한 눈
+  검토를 거친 코드)는 바꾸지 않았고, 하루 한 번 무인 실행하는 새 얇은 caller와 그 운영면(예약작업 등록기·
+  숨김 launcher·source lane spec)만 추가했다.
+- 무엇이 바뀌었는가: `ops/daily_refresh.mjs`(신규) -- `refresh()`를 모든 onboarded 과제에 돌리고, 성공했을
+  때만(첫 단계가 fail-closed면 두 번째는 아예 안 돎, 영수증에 `previous_step_failed_closed`로 기록)
+  `refreshCommon()`을 돌린다. 두 호출 모두 같은 `--org-config` 파일 하나만 받고 `--bundle-table`/
+  `--reading-table`/`--vendor-table` 오버라이드 플래그 자체가 없다 -- 두 writer가 서로 다른 표 집합으로
+  같은 메일을 다르게 분류할 수 없는 구조(README "hard operating rule")를 플래그를 아예 안 만드는 방식으로
+  강제했다. `allowDegradedOwnerTables`는 어느 쪽에도 절대 넘기지 않는다. `--org-config-sha256`으로 설정
+  파일을 고정하고(불일치=exit 4, 시작 전 거부), 자체 daily lock(receipts 디렉터리 dot-file, 2시간 stale
+  reclaim, 재사용 시 영수증에 기록)을 두어 두 인스턴스 동시 실행을 막는다. 한 영수증
+  (`soulforge.workspace_ledgers_daily_receipt.v1`)에 두 단계의 status·개수만 담고(제목·이름·주소·호스트
+  경로 없음) atomic write. `--dry`는 `refresh()`/`refreshCommon()` 자체를 호출하지 않는다(그 둘은 dry에서도
+  자기 감사 영수증 파일을 쓰므로) -- org-config 다이제스트와 두 root 존재만 확인하고 아무것도 쓰지 않는다.
+  종료 코드: 0 정상, 2 실패(두 단계 중 하나라도 `status:'failed'`), 3 lock 보유중, 4 시작 전 거부.
+  `ops/register-workspace-ledgers-task.ps1`(신규, `SoulforgeWorkspaceLedgers` 고정 이름) + `ops/
+  run-workspace-ledgers-hidden.vbs`(신규) -- voice/graph-sync 예약작업 등록기와 같은 모양: dry-run 계획
+  다이제스트 → `-Register -ExpectedDryRunDigest` → 등록 뒤 export된 XML 재검증 → 실패 시 이전 정의로 자동
+  롤백, `IgnoreNew` 다중 인스턴스 정책, 로그온 사용자 컨텍스트에서만 실행, PowerShell 5.1 호환(`&&`·삼항
+  연산자 없음)·ASCII 전용, `-DailyAt` 기본 05:30(00:00-04:00 음성 lane과 06:40 briefing 사이). `guild_hall/
+  deployment_pack/lanes/workspace_ledgers_lane.spec.json`(신규, `workspace-ledgers-v1`) -- import closure를
+  직접 따라간 결과 `guild_hall/workspace_ledgers/` 밖으로 나가는 상대 import가 하나도 없어서(전부 `node:`
+  builtin) `tracked_paths`는 모듈 통째로(`tests/` 제외), `carried_forward_prefixes`는 빈 배열. `build_source_
+  lane.mjs`로 실제로 빌드해 `--verify` 통과, 빌드된 lane에서 `ops/daily_refresh.mjs --dry`를 합성 fixture
+  plane(os.tmpdir() 안, 실 plane 아님)에 대해 실행해 exit 0을 확인했다(같은 시험이 자동화 테스트로도 들어가
+  있음: `tests/daily_refresh_lane.test.mjs`, 클린 커밋이 아니면 스스로 skip). 새 hermetic 테스트 3개 파일
+  (`tests/daily_refresh.test.mjs`, `tests/daily_refresh_lane.test.mjs`, `tests/register_workspace_ledgers_
+  task.test.mjs`, 마지막 파일은 Windows에서만 도는 실제 VBS launcher 종단 종료코드 측정 1건 포함)을
+  `validate:workspace-ledgers`에 연결했다. README에 "매일 갱신 lane" 절을 추가(빌드·dry-run 다이제스트·
+  등록·롤백·영수증 의미·hard operating rule).
+- 운영 영향: **있음 -- 이 커밋은 새 예약작업 등록기와 새 writer lane 코드를 추가한다.** 다만 이 커밋 자체는
+  아무 예약작업도 등록하지 않았고 아무 writer도 활성화하지 않았다 -- `register-workspace-ledgers-task.ps1`은
+  `-Register`를 명시로 넘기고 정확한 dry-run 다이제스트를 맞출 때만 실제로 등록하며, 그 실행은 Owner의 별도
+  단계다. 이 커밋으로 어떤 호스트의 스케줄러 상태도 바뀌지 않았다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/daily_refresh.mjs`, `ops/register-workspace-ledgers-task.ps1`,
+  `ops/run-workspace-ledgers-hidden.vbs`, `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`,
+  `guild_hall/workspace_ledgers/tests/daily_refresh.test.mjs`, `tests/daily_refresh_lane.test.mjs`,
+  `tests/register_workspace_ledgers_task.test.mjs`, `guild_hall/workspace_ledgers/README.md`, `package.json`
+  (`validate:workspace-ledgers`).
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 다섯 번째 신선한 눈 검토 반영: K2 시험 실증, 재검사 제거, ENOTDIR 이식성
 
 - Revision: 이 항목을 포함한 커밋(직전 commit ed6776e9에 대한 다섯 번째 별도 신선한 눈 검토 -- 4차 라운드

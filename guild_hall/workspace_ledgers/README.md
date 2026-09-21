@@ -1617,11 +1617,100 @@ likewise built from `String.fromCharCode(0xFEFF)` rather than a raw BOM characte
 source, so the scan needs no allow-list for them at all -- there is genuinely nothing
 for it to find there.
 
+## 매일 갱신 lane (daily refresh)
+
+`ops/daily_refresh.mjs` is the unattended daily runner: `refresh()` for every
+onboarded project, then `refreshCommon()` for the common-folder ledgers, both from
+ONE org config file. It is a thin caller of the two library functions above -- it
+adds no classification logic of its own, only ordering (refresh first, common
+second, second skipped when the first failed closed), a combined receipt, and its
+own daily lock. See the file's own header comment for the full design rationale;
+this section is the operating summary.
+
+**Hard operating rule, enforced by construction.** Neither call is ever given an
+explicit `--bundle-table`/`--reading-table`/`--vendor-table` override -- both fall
+back to reading the SAME `--org-config` file's own `common_ledgers.owner_tables`
+block (see "부록 A round 3"/S-b above). Because the daily runner deliberately has no
+CLI flag that could override either call's table paths independently, `refresh` and
+`refreshCommon` structurally cannot classify the same custody window under two
+different table sets -- the divergence the README's "Owner tables" section warns
+against cannot happen through this entry point at all. `allowDegradedOwnerTables` is
+never passed (never `true`) to either call; a malformed Owner table fails the whole
+day's run closed.
+
+**Where the private org config lives.** `<control_root>/workspace-ledgers/
+org_config.private.json` -- never committed, never referenced by a real path in this
+repo. `examples/org_config.example.json` shows the shape with placeholders only.
+
+**Build the lane.**
+```
+node guild_hall/deployment_pack/tools/build_source_lane.mjs \
+  --spec guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json \
+  --out <lane_root> --repo <this checkout>
+node guild_hall/deployment_pack/tools/build_source_lane.mjs --verify <lane_root>
+```
+`tracked_paths` carries `guild_hall/workspace_ledgers/` wholesale (its whole import
+closure is internal to the module -- every relative import in `src/`, `ops/` and
+`cli.mjs` resolves to another file inside the module itself; the only imports outside
+that are `node:` builtins), excluding `tests/`. There is no `carried_forward_prefixes`
+entry -- nothing here needs `node_modules` or any other untracked closure.
+
+**Get the dry-run digest, then register.**
+```
+powershell -File guild_hall/workspace_ledgers/ops/register-workspace-ledgers-task.ps1 `
+  -LaneRoot <lane_root> -LaneManifestSha256 sha256:<...> `
+  -NodePath <node.exe> -NodeSha256 sha256:<...> `
+  -WorkspacesRoot <target _workspaces> -WorkmetaRoot <target _workmeta> `
+  -OrgConfigPath <control_root>/workspace-ledgers/org_config.private.json -OrgConfigSha256 sha256:<...> `
+  -HiworksEventsPath <hiworks custody dir> -GmailSentEventsPath <gmail-sent custody dir> `
+  -ReceiptsRoot <receipts dir>
+# prints: workspace ledgers daily task dry-run attested: plan_digest=<digest> ...
+
+powershell -File guild_hall/workspace_ledgers/ops/register-workspace-ledgers-task.ps1 `
+  <same parameters as above> -Register -ExpectedDryRunDigest <digest from above>
+```
+Re-registering over an existing task additionally requires `-ExpectedExistingTaskSha256`
+(the current task file's own SHA-256, printed by the registrar's own error message
+when omitted). The task name is fixed (`SoulforgeWorkspaceLedgers`); `-DailyAt`
+defaults to `05:30` local -- after the 00:00-04:00 voice conversation-list lane and
+before a 06:40 briefing lane.
+
+**Roll back.** The registrar rolls back automatically on any registration failure
+(restores the prior task XML, or removes the new task if there was none, verified by
+re-export) -- no separate manual rollback step is needed for a failed `-Register`
+call. To remove a successfully registered task by hand: `Unregister-ScheduledTask
+-TaskName SoulforgeWorkspaceLedgers -Confirm:$false`.
+
+**What the receipt means.** One `daily-<timestamp>[-failed].json` per run in
+`--receipts`, schema `soulforge.workspace_ledgers_daily_receipt.v1`: `status` (`'ok'`
+only when both steps report `status: 'ok'`), `lock` (whether a stale daily lock was
+reclaimed this run), and `steps.refresh`/`steps.common_refresh` -- each `{ ran,
+status, ...counts }`, never a subject, name, address or host path (only status and
+numeric counts, e.g. `ledger_failures_count`, `bucket_counts`). `common_refresh.ran`
+is `false` with `reason: 'previous_step_failed_closed'` whenever `refresh` itself
+failed -- the second step never runs in that case. Exit codes: `0` ok; `2` failed
+(either step's own receipt reports `status: 'failed'` -- unreadable custody, a bad
+saved rule, a malformed Owner table, or an R4 ledger-validation failure); `3` daily
+lock held; `4` refused before start (an org-config digest mismatch, or a missing
+`--workspaces-root`/`--workmeta-root`).
+
+**`--dry` writes nothing, deliberately more strictly than `refresh --dry`/
+`common-refresh --dry`.** Those two still write their own audit-trail receipt file
+even in dry mode (documented as intentional in their own doc comments); `ops/
+daily_refresh.mjs --dry` is what a registrar preflight checks before it ever
+registers anything, so it never calls `refresh()`/`refreshCommon()` at all -- it only
+checks that the org-config digest matches and that `--workspaces-root`/
+`--workmeta-root` exist, and reports (without acquiring) whether the daily lock is
+currently held. A classifying dry run (would this rule compile, would this custody
+read) is `cli.mjs refresh --dry` / `common-refresh --dry`, run by hand against the
+same inputs.
+
 ## Not yet wired (계획)
 
-- Attribution into the project document/index store and the nightly automation chain
-  is **planned**, not implemented here. This module is the ledger/rule engine a UI
-  adapter or a future nightly lane calls into; it does not itself schedule anything.
+- Attribution into the project document/index store is **planned**, not implemented
+  here. `ops/daily_refresh.mjs` above is the nightly automation chain for the ledger
+  writers themselves; a project document/index adapter consuming those ledgers is a
+  separate, still-future piece.
 - Initial rule *authoring* for a brand-new project (before any `v1` exists) is out of
   scope -- `saveRuleVersion` versions an existing rule.
 

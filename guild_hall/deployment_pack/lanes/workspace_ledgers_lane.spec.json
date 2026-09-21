@@ -1,0 +1,18 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "workspace-ledgers-v1",
+  "description": "v1 (2026-09-22): the daily unattended runner for guild_hall/workspace_ledgers (ops/daily_refresh.mjs, calling refresh() then refreshCommon() from one org config -- see the module README's \"매일 갱신 lane\" section) plus its scheduled-task registrar and hidden launcher (ops/register-workspace-ledgers-task.ps1, ops/run-workspace-ledgers-hidden.vbs). Import closure walked from ops/daily_refresh.mjs and cli.mjs: every relative import in guild_hall/workspace_ledgers/src/*.mjs and guild_hall/workspace_ledgers/ops/daily_refresh.mjs resolves to another file inside guild_hall/workspace_ledgers/ itself (confirmed by grep over every `from './...'`/`from '../...'` import line in src/, ops/ and cli.mjs -- none reaches outside the module; the only imports outside that are node: builtins). tracked_paths is therefore the whole module directory, wholesale, the same shape context-read-v5/graph-sync-v1 use for guild_hall/context_engine/ -- there is no carried_forward_prefixes entry because nothing here needs node_modules or any other untracked closure. This spec bump registers no task and builds no lane by itself.",
+  "tracked_paths": [
+    "guild_hall/workspace_ledgers/"
+  ],
+  "tracked_excludes": [
+    "guild_hall/workspace_ledgers/tests/"
+  ],
+  "carried_forward_prefixes": [],
+  "entry_points": [
+    "guild_hall/workspace_ledgers/cli.mjs",
+    "guild_hall/workspace_ledgers/ops/daily_refresh.mjs",
+    "guild_hall/workspace_ledgers/ops/register-workspace-ledgers-task.ps1",
+    "guild_hall/workspace_ledgers/ops/run-workspace-ledgers-hidden.vbs"
+  ]
+}
