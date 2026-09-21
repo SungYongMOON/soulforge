@@ -15,8 +15,8 @@ import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import { decodeCsv, encodeCsv } from '../src/ledgers.mjs';
 import { READING_HEADERS } from '../src/owner_tables.mjs';
 import {
-  BOT_ALLOWED_LEVELS, BOT_TRIAGE_CONFIG_SCHEMA, BOT_TRIAGE_RECEIPT_SCHEMA, botExcludeTargets,
-  maskAddresses, recipientLabel, runCli,
+  assertReceiptsWritable, BOT_ALLOWED_LEVELS, BOT_TRIAGE_CONFIG_SCHEMA, BOT_TRIAGE_RECEIPT_SCHEMA,
+  botExcludeTargets, isValidMailId, maskAddresses, MAX_MAIL_ID_CHARS, recipientLabel, runCli,
 } from '../ops/bot_triage.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -546,6 +546,131 @@ test('S-1: a receipt that cannot be written is a hard failure, and after a succe
     assert.equal(listed.code, 2);
     assert.match(listed.stderr, /workspace_ledgers_bot_triage_receipt_write_failed(?!_after_append)/u);
     assert.equal(listed.stderr.includes('판독표에는'), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- S-6: a valid long id is recorded whole
+test('S-6: a valid mail id is recorded in the receipt in FULL, so the receipt still matches its row', () => {
+  const fixture = makeFixture();
+  try {
+    // 122 characters: past the 80-char label bound that used to truncate every id,
+    // well inside the explicit ceiling. The loader's synthetic ids can be this long.
+    const longId = `evt-${'a'.repeat(118)}`;
+    assert.equal(longId.length, 122);
+    writeFileSync(path.join(fixture.hiworksDir, 'long-id.jsonl'), jsonl([{
+      event_id: longId, subject: '긴 아이디 메일', from: 'x@client.example', to: ['me@example.com'], cc: [],
+      received_at: '2026-09-05T01:00:00Z', body_text: '내용', attachments: [],
+    }]));
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+
+    const decided = run(['decide', ...pin, '--id', longId, '--level', 'exclude', '--target', '과제미정', '--why', '단서 없음']);
+    assert.equal(decided.code, 0, decided.stderr);
+
+    const row = readingRows(fixture.readingTablePath).rows[0];
+    const csvId = row[READING_HEADERS.indexOf('메일소스ID')];
+    const receipt = readReceipts(fixture.receiptsDir).find(entry => entry.command === 'decide');
+    assert.equal(csvId, longId, 'the CSV keeps the whole id');
+    assert.equal(receipt.mail_id, longId, 'the receipt must keep the whole id too, or it cannot be matched to its row');
+    assert.equal(receipt.mail_id, csvId);
+
+    // A never-validated id (a refusal path) is still bounded and control-free.
+    const refused = run(['decide', ...pin, '--id', `${ESC}${'z'.repeat(400)}`, '--level', 'exclude', '--target', '과제미정', '--why', '이유']);
+    assert.equal(refused.code, 2);
+    // Selected by code, not by directory order -- several runs wrote receipts here.
+    const refusedReceipt = readReceipts(fixture.receiptsDir)
+      .find(entry => entry.code === 'workspace_ledgers_bot_triage_id_control_characters');
+    assert.ok(refusedReceipt, 'the refused run should have left its own receipt');
+    assert.ok(refusedReceipt.mail_id.length <= 80, `a refused id stays bounded, got ${refusedReceipt.mail_id.length}`);
+    assert.equal(refusedReceipt.mail_id.includes(ESC), false);
+
+    // ... and "full" is itself bounded: past the explicit ceiling the id is refused.
+    const tooLong = run(['decide', ...pin, '--id', 'y'.repeat(MAX_MAIL_ID_CHARS + 1), '--level', 'exclude', '--target', '과제미정', '--why', '이유']);
+    assert.equal(tooLong.code, 2);
+    assert.match(tooLong.stderr, /workspace_ledgers_bot_triage_id_too_long/u);
+    assert.equal(isValidMailId(longId), true);
+    assert.equal(isValidMailId('y'.repeat(MAX_MAIL_ID_CHARS + 1)), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------- S-7: no receipt, no row
+test('S-7: decide proves the receipts directory is writable BEFORE appending, so an unwritable one can never leave rows without receipts', async () => {
+  const fixture = makeFixture();
+  try {
+    const { configPath, configSha256 } = writeConfig(fixture, { daily_decision_cap: 3 });
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    const { listUnclassified } = await import('../src/triage.mjs');
+    // The real sequence this guards: the config verified the directory, and then it
+    // stopped being one. Staged inside the queue read (the same technique the S-5 test
+    // uses) so the REAL probe -- not a stub -- is what refuses.
+    const breakReceiptsDir = (config, options) => {
+      const queue = listUnclassified({
+        workspacesRoot: config.workspacesRoot, hiworksDirs: config.hiworksDirs,
+        gmailSentDirs: config.gmailSentDirs, orgConfigPath: config.orgConfigPath,
+        readingTablePath: config.readingTablePath, limit: 500, ...(options ?? {}),
+      });
+      rmSync(config.receiptsDir, { recursive: true, force: true });
+      writeFileSync(config.receiptsDir, '');
+      return queue;
+    };
+
+    // The old behaviour: three decides against a cap of 3 left three rows and no
+    // receipts at all, so the budget never advanced. Now the first one refuses.
+    for (const id of ['u1', 'u2']) {
+      // Put the directory back first: the previous run left a regular file there, and
+      // `loadBotConfig` would (correctly) refuse that up front as an exit 4 before the
+      // mid-run probe this test is about could ever fire.
+      rmSync(fixture.receiptsDir, { recursive: true, force: true });
+      mkdirSync(fixture.receiptsDir, { recursive: true });
+      const result = run(['decide', ...pin, '--id', id, '--level', 'exclude', '--target', '과제미정', '--why', '단서 없음'],
+        { deps: { readQueue: breakReceiptsDir } });
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /workspace_ledgers_bot_triage_receipts_unwritable_before_append/u);
+    }
+    assert.equal(existsSync(fixture.readingTablePath), false, 'no receipt means no row, ever');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('S-7: the probe creates an absent directory, removes its own file, and leaves nothing the daily-cap count can see', () => {
+  const fixture = makeFixture();
+  try {
+    // Absent directory: created, exactly as the real receipt write would.
+    const fresh = path.join(fixture.root, 'brand', 'new', 'receipts');
+    assertReceiptsWritable(fresh);
+    assert.equal(existsSync(fresh), true);
+    assert.deepEqual(readdirSync(fresh), [], 'the probe file must not survive');
+
+    // A path that cannot be created because an ancestor is a regular file. Both
+    // platforms fail here; the errno differs (ENOTDIR / ENOENT / EEXIST) and nothing
+    // below depends on which.
+    const blocker = path.join(fixture.root, 'blocker');
+    writeFileSync(blocker, '');
+    assert.throws(() => assertReceiptsWritable(path.join(blocker, 'receipts')),
+      error => error.code === 'workspace_ledgers_bot_triage_receipts_unwritable_before_append');
+
+    // A leftover probe from a crashed run is invisible to the daily-cap count and
+    // never breaks it (it is not JSON, and it matches neither half of the filter).
+    const { configPath, configSha256 } = writeConfig(fixture);
+    const pin = ['--config', configPath, '--config-sha256', configSha256];
+    assert.equal(run(['decide', ...pin, '--id', 'u1', '--level', 'exclude', '--target', '과제미정', '--why', '이유']).code, 0);
+    writeFileSync(path.join(fixture.receiptsDir, '.bot_triage_probe-leftover.tmp'), 'not json at all');
+    const listed = run(['list', ...pin]);
+    assert.equal(listed.code, 0, listed.stderr);
+    assert.match(listed.stdout, /오늘 판독 1\/5건/u, 'a leftover probe is neither counted nor a parse error');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('N-5: the config-failure stderr branch redacts and bounds its detail too', () => {
+  const fixture = makeFixture();
+  try {
+    // An unreadable org config reports its basename -- derived from caller-supplied
+    // path text, so it goes through the same safeDetail as every other printed detail.
+    const { configPath, configSha256 } = writeConfig(fixture, { org_config: path.join(fixture.root, 'missing', 'org_config.json') });
+    const result = run(['list', '--config', configPath, '--config-sha256', configSha256]);
+    assert.equal(result.code, 4);
+    assert.match(result.stderr, /workspace_ledgers_bot_triage_config_org_config_unreadable/u);
+    assert.equal(result.stderr.includes(fixture.root), false, 'a config failure must not print a host path');
+    assert.equal(result.stderr.includes(ESC), false);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 

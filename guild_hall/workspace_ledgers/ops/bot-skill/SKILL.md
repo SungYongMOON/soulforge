@@ -260,6 +260,7 @@ node '<lane>/guild_hall/workspace_ledgers/ops/bot_triage.mjs' decide --config '<
 | `..._vendor_only_without_organisation` | 거래처가 안 잡힌 메일이다 | `hold_owner_review`로 바꾼다 |
 | `..._why_required` · `..._why_too_long` · `..._why_not_single_line` | 이유가 없거나 길거나 여러 줄이다 | 한 줄 200자 안으로 |
 | `..._why_control_characters` · `..._id_control_characters` · `..._target_control_characters` | 값에 탭·제어문자가 섞였다(도구는 지우지 않고 거부한다) | 사람이 읽는 글자만 남겨 한 번만 다시 실행 |
+| `..._id_too_long` | 메일id 자리에 메일id가 아닌 것이 들어갔다 | `list`에 찍힌 id를 그대로 복사해 한 번만 다시 실행 |
 | `..._id_not_in_queue` | 그 메일은 대기줄에 없다(이미 판정됨) | 다시 판정하지 않는다. `list`를 다시 본다 |
 | `..._mail_already_decided` | 쓸 수 있는 판독줄이 이미 있다(`이미판정` 표시) | **다시 판정하지 않는다.** 그대로 보고에 올린다 |
 | `workspace_ledgers_triage_decision_duplicate` | 라이브러리가 같은 메일의 중복 줄을 막았다 | 위와 같다 — 다시 시도하지 말고 Owner에게 알린다 |
@@ -269,6 +270,7 @@ node '<lane>/guild_hall/workspace_ledgers/ops/bot_triage.mjs' decide --config '<
 | `..._correct_not_supported` | 정정을 시도했다 | §정정은 사람이 한다 |
 | `workspace_ledgers_triage_owner_table_failures` | Owner 표 하나가 깨져 있다 | **판정하지 않는다.** 그대로 Owner 확인 요청 |
 | `..._org_config_changed_during_run` | 실행 도중 설정 파일이 바뀌었다 | 아무것도 안 쓰였다. 그대로 Owner 확인 요청 |
+| `..._receipts_unwritable_before_append` | 기록을 남길 수 없는 상태라 **판정을 아예 안 했다**(판독표 그대로) | 다시 시도하지 말고 그대로 Owner 확인 요청 |
 | `..._receipt_write_failed_after_append` | **판독표에는 줄이 이미 들어갔는데** 기록을 못 남겼다 | **다시 실행하지 않는다.** 그 메일은 판정이 끝난 것으로 보고 Owner 확인 요청 |
 | `..._receipt_write_failed` | 기록을 못 남겼다(판독표는 안 바뀌었다) | 그대로 Owner 확인 요청 |
 | `..._config_*` (끝값 4) | 설정 파일이나 해시가 어긋났다 | 아무것도 안 쓰였다. 그대로 Owner 확인 요청 |

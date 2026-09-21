@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 2차 검토 반영: 영수증 메일id 온전 기록(S-6)·붙이기 전 영수증 쓰기 증명(S-7)·설정 실패 stderr 정화(N-5)
+
+- Revision: 직전 커밋(1차 검토 반영)에 대한 2차 신선한 눈 검토 -- "병합 가능, 다만 lane 빌드
+  전 소소한 후속 3건". 지적마다 회귀 시험을 붙여 반영.
+- 무엇이 바뀌었는가: **(S-6)** 영수증의 `mail_id`가 N-1의 80자 라벨 상한을 **유효한** id에도
+  적용해서, 122자짜리 `event_id`는 판독표에 통째로 들어가고 영수증에는 잘려 들어갔다 --
+  영수증을 그 줄과 대조할 수 없게 되어 영수증이 할 일을 잃는다. `assertId`를 통과한 id는
+  통째로 기록하고, 잘라 담는 것은 검사를 안 거친 거부 경로에만 남겼다. "통째"가 무한이 되지
+  않도록 `assertId`에 명시 상한 512자(`..._id_too_long`)를 두고, 같은 규칙을 한 곳에서만
+  정의하도록 `isValidMailId`를 내보낸다. **(S-7)** 하루 한도의 장부가 영수증 디렉터리뿐이라,
+  그 디렉터리가 계속 못 쓰는 상태이면 매 `decide`가 줄만 남기고 한도는 오르지 않았다(한도 3에
+  줄 3·영수증 0). `decide`가 모든 검사와 org-config 재대조를 마친 뒤 **붙이기 직전에**
+  영수증 디렉터리에 고유 이름의 probe 파일을 만들었다 지워 쓸 수 있음을 증명하고, 실패하면
+  `..._receipts_unwritable_before_append`로 한 줄도 붙이지 않고 멈춘다(끝값 2, 디렉터리가
+  없으면 실제 영수증 쓰기와 똑같이 만든다). probe 이름은 계수기가 읽는 `bot_triage-*.json`과
+  접두·확장자 양쪽이 어긋나므로 충돌로 남은 잔재가 세어지거나 계수를 깨뜨리지 않는다. 붙인
+  **뒤**의 실패(S-1)는 두 번째 방어선으로 그대로 남는다. **(N-5)** 설정 실패 stderr 분기만
+  `error.detail`을 그대로 찍고 있었다 -- `safeDetail`로 보내고, "이 파일의 마지막 미정화
+  경로"라고 주장하던 윗 주석을 정정했다.
+- 검증: `tests/bot_triage.test.mjs` 30건·`tests/bot_skill_install.test.mjs` 8건 전부 통과.
+  S-7은 실제 probe가 거부하도록 "설정 검증 뒤에 디렉터리가 일반 파일로 바뀌는" 순서를 주입한
+  대기줄 읽기 안에서 재현하고(S-5 시험과 같은 방식), probe 자체는 없는 디렉터리 생성·probe
+  파일 제거·잔재 무시까지 따로 시험한다. errno에 기대는 단정은 없다.
+- 운영 영향: 없음 -- 코드·문서·시험만 바뀌었다. 설치·등록·활성화는 여전히 이 변경 밖이다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/bot_triage.mjs`,
+  `guild_hall/workspace_ledgers/ops/bot-skill/SKILL.md`,
+  `guild_hall/workspace_ledgers/tests/bot_triage.test.mjs`,
+  `guild_hall/workspace_ledgers/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 신선한 눈 검토 반영: 제어문자 전면 거부(R-1)+영수증 실패 은폐(S-1)·이미판정 표시(S-2)·본문 예산(S-3)·설치기 인자(S-4)·설정 TOCTOU(S-5)+nit 4건
 
 - Revision: 직전 커밋(봇 판독 도구 추가)에 대한 별도 신선한 눈 검토 -- 필수 1건·should 5건·
@@ -37,7 +66,8 @@
   `redactHostPaths`를 걸었다(N-2). 설치기 영수증이 호스트 경로를 **의도적으로** 담는다는
   것(Owner용이며 봇용 영수증과 반대 규약)을 머리말과 README에 적었다(N-3). 직전 항목의 시험
   건수 표기를 실제 값으로 고쳤다(N-4).
-- 검증: `tests/bot_triage.test.mjs` 26건·`tests/bot_skill_install.test.mjs` 8건 전부 통과.
+- 검증: `tests/bot_triage.test.mjs`·`tests/bot_skill_install.test.mjs` 전부 통과(건수는 바로
+  위 2차 검토 항목의 30건·8건이 현재 값이다).
   새 회귀 시험은 지적별로 하나씩이며, 제어문자는 소스에 리터럴로 박지 않고
   `String.fromCharCode`로 만든다(byte_hygiene 규약). S-1·S-5는 타이밍 레이스 대신 주입한
   단계(영수증 쓰기·대기줄 읽기) 안에서 재현한다 -- `ops/daily_refresh.mjs`의 TOCTOU 시험과
@@ -92,8 +122,8 @@
   `compiledRules`를 함께 돌려준다 -- 호출자가 규칙을 따로 컴파일해 갈라지지 않게. 기존
   export의 이름·모양·뜻은 그대로다.
 - 검증: 새 시험 두 벌(`tests/bot_triage.test.mjs`, `tests/bot_skill_install.test.mjs`)을
-  `validate:workspace-ledgers`에 물렸다(건수는 바로 위 검토 반영 항목의 26건·8건이 현재
-  값이다) -- 울타리 전수(include 거부·분류 이름 거부·
+  `validate:workspace-ledgers`에 물렸다(건수는 맨 위 2차 검토 항목의 30건·8건이 현재 값이다)
+  -- 울타리 전수(include 거부·분류 이름 거부·
   없는 과제 코드 거부·이유 누락·판정된 메일 거부·한도 도달·추가 인자로도 판독자 못 바꿈·
   Owner 표 실패 거부·설정 digest 불일치는 끝값 4에 아무것도 안 씀), `list`/`show` 출력에
   전체 주소가 없고 상한이 지켜짐, 영수증을 고정 문자열로 훑어 제목·본문·주소·호스트 경로가

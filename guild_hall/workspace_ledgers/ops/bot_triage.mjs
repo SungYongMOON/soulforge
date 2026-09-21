@@ -38,7 +38,7 @@
 // 4 a config/digest problem -- the run never started and nothing, not even a receipt,
 // was written.
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { seoulDateOf } from '../src/ledgers.mjs';
@@ -303,10 +303,18 @@ export function buildReceipt({ at, command, config, mailId = null, level = null,
     command,
     reader_label: config.readerLabel,
     config_sha256: config.configSha256,
-    // N-1: `mail_id`/`level` can be raw, never-validated argument text when this
-    // receipt records a REFUSAL -- stripped of control characters and bounded here,
-    // in the one place every receipt goes through, rather than at each call site.
-    mail_id: safeLabel(mailId),
+    // S-6 (2026-09-22 round-2 review): a mail id that PASSED `assertId` is recorded in
+    // FULL. `safeLabel`'s 80-character bound used to apply to every id, so a valid but
+    // long `event_id` (the loader's synthetic ids can run well past that) landed
+    // truncated in the receipt while the CSV kept the whole thing -- and the receipt
+    // could then no longer be matched to the row it is the evidence for, which is the
+    // only job it has. "Full" is still bounded, by `assertId`'s own explicit ceiling
+    // (`MAX_MAIL_ID_CHARS`), so an unbounded blob can never reach a receipt either way.
+    //
+    // N-1: the label-safe truncation stays for the REFUSAL paths, where the id (and
+    // `level`, which has no validated form at all when the call failed) is raw,
+    // never-validated argument text. One place, rather than at each call site.
+    mail_id: isValidMailId(mailId) ? mailId : safeLabel(mailId),
     level: safeLabel(level),
     target: targetView.target,
     target_kind: targetView.kind,
@@ -327,6 +335,40 @@ export function describeTarget(level, target) {
   if (level === 'include_with_review' || level === 'hold_owner_review') return { target: text, kind: 'project_code', hash: null };
   if (level === 'exclude') return { target: text, kind: 'exclude_category', hash: null };
   return { target: null, kind: 'vendor', hash: `sha256:${sha256Hex(text).slice(0, 16)}` };
+}
+
+// S-7 (2026-09-22 round-2 review): the probe file's name must be invisible to
+// `countDecisionsToday`, which reads `bot_triage-*.json`. This prefix is dot-led (so
+// it also sorts with the staging files `writeReceipt` uses) and the suffix is `.tmp`,
+// so a leftover probe from a crashed run fails that filter twice over -- it is never
+// parsed, never counted, and never an error.
+const RECEIPT_PROBE_PREFIX = '.bot_triage_probe-';
+
+/**
+ * S-7: proves the receipts directory can actually be written to, BEFORE a row is
+ * appended.
+ *
+ * S-1 made a failed receipt write a loud failure, but only after the fact: the daily
+ * cap is ledgered nowhere except this directory, so a directory that stays unwritable
+ * let every call append its row and record nothing, and the cap never advanced -- a
+ * bot could work straight through a 3-decision budget and leave 3 rows and 0 receipts
+ * behind. Refusing here makes the budget structural rather than best-effort: no
+ * receipt, no row. The after-append path in `runCli` stays as the second line of
+ * defence for whatever fails between this probe and the real write.
+ *
+ * Creates the directory if it is absent, exactly as the real receipt write would, so
+ * a first-ever run is not refused for the directory simply not existing yet.
+ */
+export function assertReceiptsWritable(receiptsDir) {
+  const probePath = path.join(receiptsDir, `${RECEIPT_PROBE_PREFIX}${randomUUID()}.tmp`);
+  try {
+    mkdirSync(receiptsDir, { recursive: true });
+    writeFileSync(probePath, '');
+  } catch { fail('workspace_ledgers_bot_triage_receipts_unwritable_before_append'); }
+  // A probe that cannot be removed is not itself a reason to refuse -- the write
+  // succeeded, which is the whole question, and the leftover matches no pattern any
+  // reader in this file uses.
+  try { rmSync(probePath, { force: true }); } catch { /* see above */ }
 }
 
 export function writeReceipt(receiptsDir, receipt) {
@@ -540,10 +582,29 @@ function runShow(config, { id, maxChars, deps = {} }) {
   };
 }
 
+/**
+ * S-6 (2026-09-22 round-2 review): an explicit, generous ceiling on a mail id, so
+ * "record the id in full" (see `buildReceipt`) is still a bounded promise. Well above
+ * anything `common_events.mjs`'s loader produces -- a real `event_id`, or the
+ * content-derived synthetic id plus a collision suffix -- and far below "a model
+ * pasted a document into `--id`".
+ */
+export const MAX_MAIL_ID_CHARS = 512;
+
+/**
+ * Whether `id` is exactly what `assertId` accepts. Exported and shared so the receipt
+ * writer can tell a validated id (recorded whole) from raw argument text (truncated),
+ * without re-stating the rule and letting the two drift apart.
+ */
+export function isValidMailId(id) {
+  return typeof id === 'string' && id.trim() !== '' && !hasControlCharacters(id) && id.length <= MAX_MAIL_ID_CHARS;
+}
+
 /** R-1: `--id` reaches the reading-decision CSV's key column, a receipt and stdout. */
 function assertId(id) {
   if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_bot_triage_id_required');
   if (hasControlCharacters(id)) fail('workspace_ledgers_bot_triage_id_control_characters');
+  if (id.length > MAX_MAIL_ID_CHARS) fail('workspace_ledgers_bot_triage_id_too_long', String(MAX_MAIL_ID_CHARS));
   return id;
 }
 
@@ -624,6 +685,10 @@ function runDecide(config, { id, level, target, why, now, deps = {} }) {
     fail('workspace_ledgers_bot_triage_mail_already_decided', item.already_decided_level);
   }
   const cleanTarget = validateTarget(config, { level, target, item });
+  // S-7: the last gate before the append -- after every validation and after the
+  // org-config re-verify, so a run that is about to be refused for any other reason
+  // never leaves a probe file behind. No receipt, no row.
+  (deps.assertReceiptsWritable ?? assertReceiptsWritable)(config.receiptsDir);
 
   // The only call that writes. `reader`/`humanActors` come from the config and have
   // no flag; `receivedAt`/`subject` come from the queue entry, so the Owner-facing
@@ -737,8 +802,10 @@ export function runCli(argv, { now = new Date().toISOString(), stdout = console.
   let flags;
   try { flags = parseStrictArgs(command, rest); }
   // N-2: `unknown_flag`/`unexpected_argument`/`flag_value_required` all carry a raw
-  // argument token as their detail, and this branch used to print it unredacted --
-  // the one stderr path in this file that skipped `redactHostPaths`.
+  // argument token as their detail, and this branch used to print it unredacted.
+  // (N-5, round-2 review: the config branch just below was the actual last one --
+  // this comment used to claim otherwise.) Every stderr path in this file now goes
+  // through `safeDetail`.
   catch (error) { stderr(`${error.code}${error.detail ? `: ${safeDetail(error.detail)}` : ''}`); return 2; }
 
   let config;
@@ -746,7 +813,10 @@ export function runCli(argv, { now = new Date().toISOString(), stdout = console.
   catch (error) {
     // Exit 4 and nothing written -- including no receipt, because the receipts
     // directory is itself one of the config facts that just failed to verify.
-    stderr(`${error.code ?? 'workspace_ledgers_bot_triage_config_invalid'}${error.detail ? `: ${error.detail}` : ''}`);
+    // N-5: the detail here is a basename or a config KEY NAME, but it is derived from
+    // caller-supplied text either way (`path.basename` of an argument path), so it
+    // gets the same treatment as every other printed detail rather than a special case.
+    stderr(`${error.code ?? 'workspace_ledgers_bot_triage_config_invalid'}${error.detail ? `: ${safeDetail(error.detail)}` : ''}`);
     return exitCodeFor(error.code ?? 'workspace_ledgers_bot_triage_config_invalid');
   }
 
