@@ -91,7 +91,7 @@ ln -s "$target" "_workspaces/$project_code"
   - 팀이 보는 to-do 화면은 issue tracker 를 그대로 쓰고, 할일 장부는 그 항목의 출처(메일 이력 key, 회의, 산출물, tracker issue)와 연결을 기록한다.
   - AI 가 만든 할일은 바로 확정하지 않고 제안 상태로 시작하며, 사람이 수락·수정·거절한다.
 - `020_MGMT/027_수신이력_이동이력`
-  - project-side mail receive history 와 자료 move history 를 append-only 로 둔다.
+  - project-side mail receive history 와 자료 move history 를 둔다. 메일 수신/발송 이력은 매 refresh마다 수집된 메일에서 다시 만드는 현재 시점 view이며(Owner기입 칸 보존, 이전 파일은 `history/`에 보관), append-only인 것은 그 아래 수집 메일 custody와 정정 이력이다 — 라우팅 규칙이 바뀌면 그 메일이 다른 프로젝트로 옮겨가면서 한 행이 현재 view에서 빠질 수 있다.
   - 실제 intake, stage inbox 이동, 최종 폴더 승격 이력을 남긴다.
 - `020_MGMT/029_보류_미분류`
   - 바로 분류하지 못한 자료나 보류 항목을 둔다.
@@ -106,7 +106,7 @@ ln -s "$target" "_workspaces/$project_code"
 ### 배경 — 이관 후 메일 라우팅 연결 상태 (2026-09-21 기록)
 
 - 실행면이 D: 로 이관되면서 legacy `_workmeta/system/bindings/mail_project_router.yaml` 바인딩은 새 실행면으로 이관되지 않았다.
-- 새 ingress lane은 project router를 호출하지 않고 메일을 저장한다(구현됨). 그 결과 색인 귀속은 리터럴 코드 규칙으로만 fallback 한다(구현됨).
+- 새 Tributary(수집 lane)은 project router를 호출하지 않고 메일을 저장한다(구현됨). 그 결과 색인 귀속은 리터럴 코드 규칙으로만 fallback 한다(구현됨).
 - 과제별 `021_자동화설정_운영규칙` 규칙 파일이 이 귀속 단계가 읽어야 할 정본 소스로 지정됐지만, 그 연결(wiring)은 아직 구현되지 않았다 — 계획 상태(계획)로만 본다.
 
 ### 작업 장부·할일 장부 (2026-09-21)
