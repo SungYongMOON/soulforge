@@ -80,6 +80,7 @@ export const ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES = Object.freeze([
   "-medium",
   "-high",
   "-tiered",
+  "-control",
 ]);
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
@@ -1052,12 +1053,23 @@ export function retainCanonicalAntigravityObservation(existing, incoming) {
     && SAFE_ID.test(existing.organization_id);
   if (!sameOrg && !orgDowngrade) return null;
 
+  const baseAntigravityModelId = (id) => {
+    if (typeof id !== "string") return id;
+    for (const suffix of ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES) {
+      if (id.endsWith(suffix)) return id.slice(0, -suffix.length);
+    }
+    return id;
+  };
   const sameModel = existing.model?.id === incoming.model?.id;
+  const existingBase = baseAntigravityModelId(existing.model?.id);
+  const incomingBase = baseAntigravityModelId(incoming.model?.id);
   const modelTierDowngrade = typeof incoming.model?.id === "string"
     && typeof existing.model?.id === "string"
-    && ANTIGRAVITY_ALLOWED_MODEL_TIER_SUFFIXES.some((suffix) => (
-      existing.model.id === `${incoming.model.id}${suffix}`
-    ));
+    && existingBase === incomingBase
+    && (
+      (incoming.model.id === existingBase && existing.model.id !== existingBase)
+      || (incoming.model.id !== incomingBase && existing.model.id !== existingBase)
+    );
   if (!sameModel && !modelTierDowngrade) return null;
 
   const normalizedIncoming = structuredClone(incoming);
@@ -1473,12 +1485,21 @@ export async function findCodexSessionFiles(sessionsRoot, { maxAgeDays = null, n
     path.basename(file).startsWith("rollout-") && file.endsWith(".jsonl")
   ));
   if (!Number.isSafeInteger(maxAgeDays) || maxAgeDays <= 0) return files;
-  const cutoff = (typeof now === "function" ? now() : now) - (maxAgeDays * 86400000);
+  const nowMs = typeof now === "function" ? now() : now;
+  const cutoff = nowMs - (maxAgeDays * 86400000);
   const kept = [];
   for (const file of files) {
     try {
       const info = await stat(file);
-      if (info.mtimeMs >= cutoff) kept.push(file);
+      const match = path.basename(file).match(/^rollout-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})/u);
+      let sessionTimeMs = null;
+      if (match) {
+        const iso = match[1].replace(/T(\d{2})-(\d{2})-(\d{2})/u, "T$1:$2:$3Z");
+        const parsed = Date.parse(iso);
+        if (Number.isFinite(parsed)) sessionTimeMs = parsed;
+      }
+      const effectiveTimeMs = sessionTimeMs !== null ? Math.min(info.mtimeMs, sessionTimeMs) : info.mtimeMs;
+      if (effectiveTimeMs >= cutoff) kept.push(file);
     } catch {
       // An unreadable entry is kept rather than dropped: the sweep must not
       // silently shrink because a file could not be stat'ed.

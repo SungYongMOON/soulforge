@@ -35,6 +35,7 @@ import {
 import {
   collectAntigravityUsageEvents,
   defaultAntigravityCliRoot,
+  defaultAntigravityCliRoots,
 } from "./antigravity_collector.mjs";
 import {
   loadUsageBindingSet,
@@ -295,6 +296,26 @@ async function readJsonFile(filePath, code = "json_input_invalid") {
 async function loadEffectiveConfig(options, { repoRoot = null } = {}) {
   const configPath = value(options, "config", process.env.SOULFORGE_AI_USAGE_METER_CONFIG || null);
   if (configPath) return loadConfig(configPath);
+  const bindings = [];
+  const projectRootOption = value(options, "project-root");
+  if (projectRootOption) {
+    bindings.push({ cwd_prefix: path.resolve(String(projectRootOption)), project_id: "soulforge" });
+  }
+  if (repoRoot) {
+    const resolvedRepoRoot = path.resolve(repoRoot);
+    if (!bindings.some((b) => b.cwd_prefix.toLowerCase() === resolvedRepoRoot.toLowerCase())) {
+      bindings.push({ cwd_prefix: resolvedRepoRoot, project_id: "soulforge" });
+    }
+  }
+  try {
+    const override = readSoulforgeRootOverride();
+    if (override?.ownerRoot) {
+      const resolvedOwner = path.resolve(override.ownerRoot);
+      if (!bindings.some((b) => b.cwd_prefix.toLowerCase() === resolvedOwner.toLowerCase())) {
+        bindings.push({ cwd_prefix: resolvedOwner, project_id: "soulforge" });
+      }
+    }
+  } catch {}
   return normalizeConfig({
     organization_id: process.env.SOULFORGE_AI_USAGE_ORGANIZATION || "soulforge",
     default_team_id: process.env.SOULFORGE_AI_USAGE_TEAM || "unassigned",
@@ -302,9 +323,7 @@ async function loadEffectiveConfig(options, { repoRoot = null } = {}) {
     node_id: process.env.SOULFORGE_AI_USAGE_NODE || "local-node",
     service_tier: process.env.SOULFORGE_AI_USAGE_SERVICE_TIER
       || value(options, "service-tier", "standard"),
-    project_bindings: value(options, "project-root")
-      ? [{ cwd_prefix: path.resolve(String(value(options, "project-root"))), project_id: "soulforge" }]
-      : repoRoot ? [{ cwd_prefix: repoRoot, project_id: "soulforge" }] : [],
+    project_bindings: bindings,
   });
 }
 
@@ -601,9 +620,13 @@ async function collectClaudeCommand(options) {
   }
   const events = filterEvents(collected.events, options);
   let persistence = null;
+  const isolateConflicts = flag(options, "isolate-conflicts");
   if (flag(options, "apply")) {
     if (resolvedStateRoot === null) fail("state_root_required_for_apply");
-    persistence = await persistUsageEvents(resolvedStateRoot, events);
+    persistence = await persistUsageEvents(resolvedStateRoot, events, { isolateConflicts });
+    if (isolateConflicts && Array.isArray(persistence?.issues) && persistence.issues.length > 0) {
+      collected.issues.push(...persistence.issues);
+    }
   }
   return {
     schema_version: "soulforge.ai_usage_meter_collect_claude_result.v1",
@@ -623,16 +646,23 @@ async function collectClaudeCommand(options) {
 }
 
 async function collectAntigravityCommand(options) {
-  const cliRoot = path.resolve(String(value(options, "cli-root", defaultAntigravityCliRoot())));
+  const cliRootRaw = value(options, "cli-root", null);
+  const cliRoots = cliRootRaw !== null
+    ? [path.resolve(String(cliRootRaw))]
+    : defaultAntigravityCliRoots();
   const maxAgeDays = positiveIntegerOption(options, "max-age-days", 45);
   const stateRoot = stateRootOption(options);
   const config = await loadEffectiveConfig(options, { repoRoot: null });
-  const collected = await collectAntigravityUsageEvents({ cliRoot, config, maxAgeDays });
+  const collected = await collectAntigravityUsageEvents({ cliRoots, config, maxAgeDays });
   const events = filterEvents(collected.events, options);
   let persistence = null;
+  const isolateConflicts = flag(options, "isolate-conflicts");
   if (flag(options, "apply")) {
     if (stateRoot === null) fail("state_root_required_for_apply");
-    persistence = await persistUsageEvents(path.resolve(String(stateRoot)), events);
+    persistence = await persistUsageEvents(path.resolve(String(stateRoot)), events, { isolateConflicts });
+    if (isolateConflicts && Array.isArray(persistence?.issues) && persistence.issues.length > 0) {
+      collected.issues.push(...persistence.issues);
+    }
   }
   return {
     schema_version: "soulforge.ai_usage_meter_collect_antigravity_result.v1",

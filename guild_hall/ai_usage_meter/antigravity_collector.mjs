@@ -36,6 +36,16 @@ function loadSqliteModule() {
   return sqliteModulePromise;
 }
 
+export function defaultAntigravityCliRoots(env = process.env) {
+  const override = env.ANTIGRAVITY_CLI_ROOT;
+  if (typeof override === "string" && override.trim() !== "") return [path.resolve(override)];
+  const geminiDir = path.join(os.homedir(), ".gemini");
+  return [
+    path.join(geminiDir, "antigravity"),
+    path.join(geminiDir, "antigravity-cli"),
+  ];
+}
+
 export function defaultAntigravityCliRoot(env = process.env) {
   const override = env.ANTIGRAVITY_CLI_ROOT;
   if (typeof override === "string" && override.trim() !== "") return path.resolve(override);
@@ -208,118 +218,129 @@ function antigravityUsageEvent(conversationId, idx, modelId, summary, normalized
 }
 
 export async function collectAntigravityUsageEvents({
-  cliRoot = defaultAntigravityCliRoot(),
+  cliRoot = null,
+  cliRoots = null,
   config = {},
   maxAgeDays = 45,
   now = Date.now,
 } = {}) {
+  const rawRoots = cliRoots ?? (cliRoot !== null ? (Array.isArray(cliRoot) ? cliRoot : [cliRoot]) : defaultAntigravityCliRoots());
+  const roots = [...new Set((Array.isArray(rawRoots) ? rawRoots : [rawRoots]).map((r) => path.resolve(r)))];
   const normalizedConfig = normalizeConfig(config);
-  const root = path.resolve(cliRoot);
-  const indexPath = path.join(root, "conversation_summaries.db");
-  const conversationsDir = path.join(root, "conversations");
-  const empty = {
-    events: [],
-    issues: [],
-    conversation_db_count: 0,
-    indexed_conversation_count: 0,
-    skipped_conversation_count: 0,
-    fallback_conversation_count: 0,
-    observed_row_count: 0,
-  };
   const { DatabaseSync } = await loadSqliteModule();
-  // Antigravity 2.0은 구 인덱스에 새 대화를 쓰지 않는다 — 인덱스는 있으면 쓰는 보조 소스일 뿐,
-  // 없거나 비어도 파일 생성시각 폴백으로 수집을 계속한다.
-  let index = new Map();
-  const issues = [];
-  try {
-    const info = await stat(indexPath);
-    if (info.isFile()) index = readConversationIndex(DatabaseSync, indexPath);
-  } catch (error) {
-    if (error?.code !== "ENOENT") {
-      issues.push({
-        source_ref: "conversation_summaries",
-        code: String(error?.code || error?.message || "antigravity_index_unreadable").slice(0, 120),
-      });
-    }
-  }
   const nowMs = now();
   const cutoffMs = nowMs - Math.max(1, maxAgeDays) * 86_400_000;
-  let entries = [];
-  try {
-    entries = await readdir(conversationsDir, { withFileTypes: true });
-  } catch (error) {
-    if (error?.code !== "ENOENT") throw error;
-  }
-  const dbFiles = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".db"))
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b, "en"));
+
   const events = [];
+  const issues = [];
+  let conversationDbCount = 0;
+  let indexedConversationCount = 0;
   let skippedConversationCount = 0;
   let fallbackConversationCount = 0;
   let observedRowCount = 0;
-  for (const name of dbFiles) {
-    const conversationId = name.slice(0, -3);
-    if (!SAFE_ID.test(conversationId)) {
-      skippedConversationCount += 1;
-      continue;
-    }
-    let summary = index.get(conversationId) ?? null;
-    if (summary !== null && summary.started_at === null) summary = null;
-    if (summary === null) {
-      // 인덱스 미포함 대화(2.0 경로): 최근 파일 관측 시각을 사용한다.
-      // 생성일이 오래됐어도 최근에 이어 쓴 대화는 수집 창에서 제외하지 않는다.
-      // 이미 저장된 요청은 persistence가 최초 관측 시각을 보존한다.
-      // 수집 창 밖이거나 시각을 얻지 못하면 건너뛴다.
-      let fileStats = null;
-      try {
-        fileStats = await stat(path.join(conversationsDir, name));
-      } catch {
-        fileStats = null;
-      }
-      const birthMs = Number.isFinite(fileStats?.birthtimeMs) && fileStats.birthtimeMs > MIN_VALID_EPOCH_MS
-        ? fileStats.birthtimeMs
-        : Infinity;
-      const modifiedMs = Number.isFinite(fileStats?.mtimeMs) && fileStats.mtimeMs > MIN_VALID_EPOCH_MS
-        ? fileStats.mtimeMs
-        : Infinity;
-      const validTimes=[birthMs,modifiedMs].filter(Number.isFinite);
-      const observedMs=validTimes.length?Math.max(...validTimes):Infinity;
-      if (!Number.isFinite(observedMs) || observedMs < cutoffMs || observedMs > nowMs + 60_000) {
-        skippedConversationCount += 1;
-        continue;
-      }
-      fallbackConversationCount += 1;
-      summary = {
-        started_at: new Date(observedMs).toISOString(),
-        project_id: "unassigned",
-      };
-    }
-    let rows;
+  const seenConversationIds = new Set();
+  const seenEventIds = new Set();
+
+  for (const root of roots) {
+    const indexPath = path.join(root, "conversation_summaries.db");
+    const conversationsDir = path.join(root, "conversations");
+    let index = new Map();
     try {
-      rows = readGenerationRows(DatabaseSync, path.join(conversationsDir, name));
+      const info = await stat(indexPath);
+      if (info.isFile()) index = readConversationIndex(DatabaseSync, indexPath);
     } catch (error) {
-      issues.push({
-        source_ref: conversationId,
-        code: String(error?.code || error?.message || "antigravity_conversation_unreadable").slice(0, 120),
-      });
-      continue;
-    }
-    for (const row of rows) {
-      const idx = Number(row.idx);
-      if (!Number.isSafeInteger(idx) || idx < 0) continue;
-      observedRowCount += 1;
-      const modelId = extractAntigravityModelId(row.data);
-      try {
-        events.push(antigravityUsageEvent(conversationId, idx, modelId, summary, normalizedConfig));
-      } catch (error) {
+      if (error?.code !== "ENOENT") {
         issues.push({
-          source_ref: conversationId,
-          code: String(error?.code || error?.message || "antigravity_usage_event_invalid").slice(0, 120),
+          source_ref: "conversation_summaries",
+          code: String(error?.code || error?.message || "antigravity_index_unreadable").slice(0, 120),
         });
       }
     }
+    indexedConversationCount += index.size;
+
+    let entries = [];
+    try {
+      entries = await readdir(conversationsDir, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    const dbFiles = entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".db"))
+      .map((entry) => entry.name)
+      .sort((a, b) => a.localeCompare(b, "en"));
+
+    conversationDbCount += dbFiles.length;
+
+    for (const name of dbFiles) {
+      const conversationId = name.slice(0, -3);
+      if (!SAFE_ID.test(conversationId)) {
+        skippedConversationCount += 1;
+        continue;
+      }
+      if (seenConversationIds.has(conversationId)) {
+        skippedConversationCount += 1;
+        continue;
+      }
+      seenConversationIds.add(conversationId);
+
+      let summary = index.get(conversationId) ?? null;
+      if (summary !== null && summary.started_at === null) summary = null;
+      if (summary === null) {
+        let fileStats = null;
+        try {
+          fileStats = await stat(path.join(conversationsDir, name));
+        } catch {
+          fileStats = null;
+        }
+        const birthMs = Number.isFinite(fileStats?.birthtimeMs) && fileStats.birthtimeMs > MIN_VALID_EPOCH_MS
+          ? fileStats.birthtimeMs
+          : Infinity;
+        const modifiedMs = Number.isFinite(fileStats?.mtimeMs) && fileStats.mtimeMs > MIN_VALID_EPOCH_MS
+          ? fileStats.mtimeMs
+          : Infinity;
+        const validTimes = [birthMs, modifiedMs].filter(Number.isFinite);
+        const observedMs = validTimes.length ? Math.max(...validTimes) : Infinity;
+        if (!Number.isFinite(observedMs) || observedMs < cutoffMs || observedMs > nowMs + 60_000) {
+          skippedConversationCount += 1;
+          continue;
+        }
+        fallbackConversationCount += 1;
+        summary = {
+          started_at: new Date(observedMs).toISOString(),
+          project_id: "unassigned",
+        };
+      }
+      let rows;
+      try {
+        rows = readGenerationRows(DatabaseSync, path.join(conversationsDir, name));
+      } catch (error) {
+        issues.push({
+          source_ref: conversationId,
+          code: String(error?.code || error?.message || "antigravity_conversation_unreadable").slice(0, 120),
+        });
+        continue;
+      }
+      for (const row of rows) {
+        const idx = Number(row.idx);
+        if (!Number.isSafeInteger(idx) || idx < 0) continue;
+        observedRowCount += 1;
+        const eventId = `aue-ag-${conversationId}-${idx}`.slice(0, 120);
+        if (seenEventIds.has(eventId)) continue;
+        const modelId = extractAntigravityModelId(row.data);
+        try {
+          const event = antigravityUsageEvent(conversationId, idx, modelId, summary, normalizedConfig);
+          seenEventIds.add(event.event_id);
+          events.push(event);
+        } catch (error) {
+          issues.push({
+            source_ref: conversationId,
+            code: String(error?.code || error?.message || "antigravity_usage_event_invalid").slice(0, 120),
+          });
+        }
+      }
+    }
   }
+
   events.sort((a, b) => (
     (a.time.started_at ?? "").localeCompare(b.time.started_at ?? "", "en")
     || a.event_id.localeCompare(b.event_id, "en")
@@ -327,8 +348,8 @@ export async function collectAntigravityUsageEvents({
   return {
     events,
     issues: issues.sort((a, b) => a.source_ref.localeCompare(b.source_ref, "en")),
-    conversation_db_count: dbFiles.length,
-    indexed_conversation_count: index.size,
+    conversation_db_count: conversationDbCount,
+    indexed_conversation_count: indexedConversationCount,
     skipped_conversation_count: skippedConversationCount,
     fallback_conversation_count: fallbackConversationCount,
     observed_row_count: observedRowCount,

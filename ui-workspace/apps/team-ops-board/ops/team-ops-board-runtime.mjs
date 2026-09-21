@@ -1591,9 +1591,13 @@ export async function resolveScheduledRuntimeRoots(env = process.env, {
       }
       if (!info.isDirectory()) fail("owner_root_override_invalid");
     }
+    const resolvedOwner = override.ownerRoot
+      ?? (typeof env?.SOULFORGE_AI_USAGE_PROJECT_ROOT === "string" && path.isAbsolute(env.SOULFORGE_AI_USAGE_PROJECT_ROOT)
+        ? env.SOULFORGE_AI_USAGE_PROJECT_ROOT
+        : codeRoot);
     return {
       source: override.source,
-      ownerRoot: override.ownerRoot ?? codeRoot,
+      ownerRoot: resolvedOwner,
       stateRoot: override.stateRoot,
     };
   }
@@ -2123,6 +2127,7 @@ async function runWorker(runId, env = process.env) {
     recoveryCompanion = startRecoveryCompanion({
       repoRoot: SOULFORGE_ROOT,
       projectRoot: workerEnv.SOULFORGE_AI_USAGE_PROJECT_ROOT,
+      env: workerEnv,
       ...(operationsStateRoot === undefined ? {} : {
         bindingPath: path.join(operationsStateRoot, "watchtower", "recovery.binding.json"),
         evidenceRoot: path.join(operationsStateRoot, "watchtower", "external_evidence"),

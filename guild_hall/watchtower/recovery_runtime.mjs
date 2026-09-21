@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import { readSoulforgeRootOverride } from "../shared/soulforge_state_root.mjs";
 import { reconcile } from "./health_recovery_coordinator.mjs";
 import { classifyRecoveryDiagnostic, classifyRuntimeNodeReason } from "./recovery_diagnostics.mjs";
 import {
@@ -245,6 +246,8 @@ export function completedWatchtowerDiagnostic(error) {
 export async function runRecoveryCycle({
   repoRoot,
   projectRoot = repoRoot,
+  workmetaRoot = null,
+  env = process.env,
   binding,
   evidenceRoot = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "external_evidence"),
   watchtowerPointerPath = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "binding.pointer.json"),
@@ -260,7 +263,8 @@ export async function runRecoveryCycle({
   now = () => new Date(),
 } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "")
-    || !path.isAbsolute(evidenceRoot ?? "") || !path.isAbsolute(watchtowerPointerPath ?? "")) {
+    || !path.isAbsolute(evidenceRoot ?? "") || !path.isAbsolute(watchtowerPointerPath ?? "")
+    || (workmetaRoot !== null && !path.isAbsolute(workmetaRoot ?? ""))) {
     throw new TypeError("recovery_root_invalid");
   }
   const validatedBinding = validateRecoveryBinding(binding);
@@ -275,9 +279,29 @@ export async function runRecoveryCycle({
     watchtowerResult = initialSnapshot ? validateWatchtowerExecution(initialSnapshot)
       : { ok: false, error_codes: ["watchtower_execution_failed"], validated_count: 0 };
   }
+  let effectiveWorkmetaRoot = workmetaRoot;
+  if (!effectiveWorkmetaRoot) {
+    const candidate = path.join(projectRoot, "_workmeta");
+    let candidateExists = false;
+    try {
+      const s = await stat(candidate);
+      candidateExists = s.isDirectory();
+    } catch {}
+    if (candidateExists) {
+      effectiveWorkmetaRoot = candidate;
+    } else {
+      let override = null;
+      try {
+        override = readSoulforgeRootOverride(env);
+      } catch {}
+      effectiveWorkmetaRoot = override?.ownerRoot
+        ? path.join(override.ownerRoot, "_workmeta")
+        : candidate;
+    }
+  }
   const [fiveFieldResult, workmetaResult] = await Promise.all([
-    validateFiveFieldLedgerSet({ workmetaRoot: path.join(projectRoot, "_workmeta") }),
-    validateWorkmetaStore({ repoRoot: projectRoot, workmetaRoot: path.join(projectRoot, "_workmeta") }),
+    validateFiveFieldLedgerSet({ workmetaRoot: effectiveWorkmetaRoot }),
+    validateWorkmetaStore({ repoRoot: projectRoot, workmetaRoot: effectiveWorkmetaRoot }),
   ]);
   const evidenceResults = {
     watchtower_self: watchtowerResult,
@@ -665,6 +689,8 @@ export async function runRecoveryCycle({
 export function startRecoveryCompanion({
   repoRoot,
   projectRoot = repoRoot,
+  workmetaRoot = null,
+  env = process.env,
   bindingPath = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "recovery.binding.json"),
   evidenceRoot = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "external_evidence"),
   watchtowerPointerPath = path.join(projectRoot, "guild_hall", "state", "operations", "watchtower", "binding.pointer.json"),
@@ -685,7 +711,7 @@ export function startRecoveryCompanion({
     if (stopped || inFlight !== null) return inFlight;
     const attemptedAt = now().toISOString();
     inFlight = Promise.resolve(loadBinding())
-      .then((binding) => runCycle({ repoRoot, projectRoot, binding, evidenceRoot, watchtowerPointerPath }))
+      .then((binding) => runCycle({ repoRoot, projectRoot, workmetaRoot, env, binding, evidenceRoot, watchtowerPointerPath }))
       .then(
         () => receipt(attemptedAt, "ok", null),
         (error) => receipt(attemptedAt, "error", safeSupervisorErrorCode(error)),

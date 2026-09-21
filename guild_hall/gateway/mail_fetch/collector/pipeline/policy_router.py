@@ -242,6 +242,13 @@ def _attachment_extension(attachment: Attachment) -> str:
         ext = _path_extension(candidate)
         if ext:
             return ext
+    # body_link entries carry no file bytes: the URL is a link target, not a
+    # filename, so its path suffix (e.g. an email address such as
+    # ".../email/user@example.com") must not be read as an
+    # attachment extension. Materialized name/local_path are still checked
+    # above, so a body_link that produced a file on disk keeps full policy.
+    if str(attachment.type or "").strip().lower() == "body_link":
+        return ""
     url = str(attachment.url or "").strip()
     if url:
         ext = _path_extension(urlparse(url).path)

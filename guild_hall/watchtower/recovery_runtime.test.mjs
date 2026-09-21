@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -1462,4 +1462,26 @@ test("a store_mail_events new-event mismatch alone is degraded and starts no tas
     now: () => new Date(now),
   });
   assert.equal(staleStarts, 1);
+});
+
+test("runRecoveryCycle resolves workmetaRoot from SOULFORGE_OWNER_ROOT when absent in projectRoot", async () => {
+  const { projectRoot: ownerRoot, snapshot } = await fixture();
+  const separateCheckout = await mkdtemp(path.join(os.tmpdir(), "soulforge-separate-checkout-"));
+  try {
+    const result = await runRecoveryCycle({
+      repoRoot: separateCheckout,
+      projectRoot: separateCheckout,
+      binding: binding("observe"),
+      evidenceRoot: path.join(separateCheckout, "evidence"),
+      watchtowerPointerPath: path.join(separateCheckout, "pointer.json"),
+      env: { SOULFORGE_OWNER_ROOT: ownerRoot },
+      runWatchtower: async () => snapshot,
+      now: () => new Date("2026-08-14T00:01:00.000Z"),
+    });
+    assert.equal(result.evidence.gate_five_field.status, "ok");
+    assert.equal(result.evidence.store_workmeta.status, "ok");
+  } finally {
+    await rm(separateCheckout, { recursive: true, force: true });
+    await rm(ownerRoot, { recursive: true, force: true });
+  }
 });

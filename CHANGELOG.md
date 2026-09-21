@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-09-21 - 개발 checkout에 남아 있던 작성자 미상 제자리 수정 10개 파일 회수
+
+- Revision: 이 항목을 포함한 커밋. 개발 checkout 작업 트리에 2026-09-18~20 사이 커밋 없이 남아 있던
+  수정(작성자·의도 기록 없음)을 최신 main 위에 3-way로 옮겼다. 원본 checkout, 운영 lane, 예약작업은
+  건드리지 않았다. 같은 내용이 운영 lane(`operations-lane-v9`)의 파일 5개(`ai_usage_meter`의
+  `cli.mjs`·`usage_meter.mjs`·`antigravity_collector.mjs`, `recovery_runtime.mjs`,
+  `team-ops-board-runtime.mjs`)에 제자리 수정으로 이미 들어가 있음을 sha256 대조로 확인했다(lane manifest
+  불일치는 그대로 남아 있다). lane의 `operations-preview.config.ts`는 더 옛 판본이라 해당 없다.
+- 사용량 계측(`guild_hall/ai_usage_meter`): Antigravity 수집 root를 `~/.gemini` 아래 두 자리로 넓히고
+  대화·이벤트 id 중복을 거른다. 모델 tier 접미사에 `-control` 추가, 같은 base 모델의 서로 다른 tier
+  관측도 같은 모델로 취급. Codex 세션 수집 창은 파일 수정시각과 파일명 시작시각 중 이른 쪽으로 자른다
+  (오래 전에 시작해 최근에 이어 쓴 세션은 창 밖으로 빠질 수 있다 — 회수 시 그대로 둔 동작 변경).
+  `collect-claude`/`collect-antigravity`에 `--isolate-conflicts`. config가 없을 때 과제 binding에
+  project-root·repo root·owner root override를 함께 넣는다.
+- 메일 수집 정책(`policy_router.py`): `body_link` 첨부는 URL 경로 끝(예: 수신확인 링크의 메일 주소
+  `...@example.com`)을 파일 확장자로 읽지 않는다. 실제 이름·`local_path`가 있으면 기존 차단이 그대로 걸린다.
+- Vigil(Watchtower) 복구(`recovery_runtime.mjs`): `_workmeta`가 projectRoot에 없으면 owner root
+  override에서 찾는다(`workmetaRoot`·`env` 인자 추가). 운영판 실행기(`team-ops-board-runtime.mjs`)가
+  worker env를 넘기고, owner root가 없으면 `SOULFORGE_AI_USAGE_PROJECT_ROOT`를 먼저 쓴다.
+- 운영 미리보기 설정(`operations-preview.config.ts`): 읽기 설정을 `operations_read_config.json`
+  binding/env 공용 판독기로 읽는다.
+- 회수하면서 고친 것(원본 제자리 수정과 다른 점): (1) 메일 시험 픽스처에 들어 있던 실제 수신확인 URL·
+  메일 주소·제목을 합성 값으로 교체, (2) `cli.mjs`에 박혀 있던 드라이브 절대경로 기본 binding 2개 제거와
+  시험의 절대경로 리터럴을 임시 폴더 경로로 교체(path-policy 위반), (3) 문서화된
+  `TEAM_OPS_REMOTE_MODEL_LABEL`이 조용히 무시되지 않게 우선 적용, (4) `recovery_runtime.test.mjs`는 main의
+  새 시험과 충돌해 양쪽 시험을 모두 유지.
+- 운영 영향: 코드만. lane 재빌드·재등록은 이 변경에 없다. 다음 lane 빌드는 (2) 때문에 드라이브 root
+  기본 binding이 빠지므로 필요하면 usage meter config의 `project_bindings`로 지정한다.
+- 검증: `validate:ai-usage-meter` 160/160, `validate:watchtower` 177/177, `validate:gateway:mail-fetch`
+  164 passed·3 skipped, `validate:team-ops-app` 1054/1054, `validate:path-policy` 위반 0(변경 10개 파일).
+  `usage_meter.mjs`의 새 동작(tier 비교·`-control`·세션 창)은 전용 시험이 없다.
+
 ## 2026-09-21 - 카드 대조 4단계: N≤10 질문 선택기 + 빠른 고리
 
 - Revision: 이 항목을 포함한 커밋. `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 네 번째 조각

@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   antigravityTimestampToIso,
   collectAntigravityUsageEvents,
+  defaultAntigravityCliRoots,
   extractAntigravityModelId,
 } from "./antigravity_collector.mjs";
 import { runCli } from "./cli.mjs";
@@ -238,5 +239,48 @@ test("continuing a conversation preserves old request dates and still appends ne
     await assert.rejects(runCli(['collect-antigravity','--cli-root',cliRoot,'--state-root',stateRoot,'--apply']),{code:'usage_event_conflict'});
   } finally {
     for(const root of [cliRoot,stateRoot]){assert.equal(path.dirname(root),path.resolve(os.tmpdir()));assert.ok(path.basename(root).startsWith('sf-ag-continued-'));await rm(root,{recursive:true,force:true});}
+  }
+});
+
+test("defaultAntigravityCliRoots defaults to antigravity and antigravity-cli in ~/.gemini", () => {
+  const roots = defaultAntigravityCliRoots({});
+  assert.equal(roots.length, 2);
+  assert.ok(roots[0].endsWith(path.join(".gemini", "antigravity")));
+  assert.ok(roots[1].endsWith(path.join(".gemini", "antigravity-cli")));
+
+  const customRoot = path.join(os.tmpdir(), "sf-ag-custom-root");
+  const overridden = defaultAntigravityCliRoots({ ANTIGRAVITY_CLI_ROOT: customRoot });
+  assert.equal(overridden.length, 1);
+  assert.equal(overridden[0], path.resolve(customRoot));
+});
+
+test("Antigravity collector scans multiple roots and aggregates events cleanly", async () => {
+  const rootA = await mkdtemp(path.join(os.tmpdir(), "sf-ag-root-a-"));
+  const rootB = await mkdtemp(path.join(os.tmpdir(), "sf-ag-root-b-"));
+  try {
+    await mkdir(path.join(rootA, "conversations"), { recursive: true });
+    const dbA = new DatabaseSync(path.join(rootA, "conversations", `${CONV_A}.db`));
+    dbA.exec("CREATE TABLE gen_metadata (idx INTEGER, data BLOB)");
+    dbA.prepare("INSERT INTO gen_metadata VALUES (?, ?)").run(0, modelBlob("gemini-3.8-flash"));
+    dbA.close();
+
+    await mkdir(path.join(rootB, "conversations"), { recursive: true });
+    const dbB = new DatabaseSync(path.join(rootB, "conversations", `${CONV_B}.db`));
+    dbB.exec("CREATE TABLE gen_metadata (idx INTEGER, data BLOB)");
+    dbB.prepare("INSERT INTO gen_metadata VALUES (?, ?)").run(0, modelBlob("gemini-3.8-flash-high"));
+    dbB.close();
+
+    const result = await collectAntigravityUsageEvents({
+      cliRoots: [rootA, rootB],
+      config: { organization_id: "org-test", default_team_id: "team-test", node_id: "node-test" },
+    });
+
+    assert.equal(result.conversation_db_count, 2);
+    assert.equal(result.events.length, 2);
+    assert.ok(result.events.some((e) => e.thread_id === CONV_A && e.model.id === "gemini-3.8-flash"));
+    assert.ok(result.events.some((e) => e.thread_id === CONV_B && e.model.id === "gemini-3.8-flash-high"));
+  } finally {
+    await rm(rootA, { recursive: true, force: true });
+    await rm(rootB, { recursive: true, force: true });
   }
 });
