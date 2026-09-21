@@ -70,8 +70,9 @@ ln -s "$target" "_workspaces/$project_code"
 ## 관리 폴더 quick map
 
 - `020_MGMT/021_자동화설정_운영규칙`
-  - project-local routing rule, 분류 기준, 운영 메모를 둔다.
-  - 정본 metadata 는 `_workmeta/<project_code>/rules/` 에 두고, 현장 폴더에는 mirror 또는 pointer 를 둘 수 있다.
+  - project-local routing rule, 분류 기준, 운영 메모를 둔다(2026-03-23/24 결정, 신규 규칙 아님).
+  - legacy plane: 정본 metadata 는 `_workmeta/<project_code>/rules/` 에 두고, 현장 폴더에는 mirror 또는 pointer 를 둘 수 있었다.
+  - D: target plane(2026-09-21 결정): 규칙 파일 원문(byte)은 `<TARGET_SOULFORGE_ROOT>/_workspaces/<project 폴더>/020_MGMT/021_자동화설정_운영규칙/`에 두고, 그 byte lineage(sha256·출처·상태·Owner 결정)는 `<TARGET_SOULFORGE_ROOT>/_workmeta/<project 폴더>/lineage/`에 둔다. 새 프로젝트별 규칙은 새 폴더 체계를 만들지 않고 이 고정 관리 폴더를 쓴다.
 - `020_MGMT/022_INBOX_원본수집`
   - project 로 라우팅된 메일/자료의 first landing path 다.
   - stage 가 아직 미판정인 intake 자료를 임시 보관한다.
@@ -89,6 +90,19 @@ ln -s "$target" "_workspaces/$project_code"
   - 실제 intake, stage inbox 이동, 최종 폴더 승격 이력을 남긴다.
 - `020_MGMT/029_보류_미분류`
   - 바로 분류하지 못한 자료나 보류 항목을 둔다.
+
+### 과제별 규칙 파일 (2026-09-21)
+
+- D: target plane에 과제별 정본 자료를 하나씩 배치 중이며, 첫 항목은 과제별 메일 라우팅 규칙(mail routing rule)이고 파일명은 `mail_routing_rule.md`다.
+- 파일 안 상태값은 `초안 vN`으로 시작하고, Owner 확인이 필요한 항목이 모두 비면 `확정`으로 올린다.
+- 규칙 파일은 다음 절을 둔다: 상태·적용 범위 / 확정 트리거(제목·본문·첨부명) / 검토 힌트(단독 귀속 금지) / 사람·발신자 원칙(발신자는 힌트로만 쓰고 연락처 정본은 `023_연락처_이해관계자`) / Owner 확인 기록 / Owner 확인이 필요한 것 / 처리 순서와 기록 자리(`022_INBOX_원본수집` 최초 투입, `027_수신이력_이동이력` 이력) / 근거(실측 건수).
+- 두 프로젝트의 정확한 트리거가 같은 메일에 함께 걸리면 자동 귀속하지 않고 아침 질문으로 보류한다. 제품명 하나나 광의의 일반어, 프로젝트 코드 단독은 정확한 트리거로 쓰지 않는다 — 발주처 정책상 메일 제목에 과제 코드 표기가 금지되는 경우가 흔해 코드 문자열 하나에만 기대어 귀속하지 않는다.
+
+### 배경 — 이관 후 메일 라우팅 연결 상태 (2026-09-21 기록)
+
+- 실행면이 D: 로 이관되면서 legacy `_workmeta/system/bindings/mail_project_router.yaml` 바인딩은 새 실행면으로 이관되지 않았다.
+- 새 ingress lane은 project router를 호출하지 않고 메일을 저장한다(구현됨). 그 결과 색인 귀속은 리터럴 코드 규칙으로만 fallback 한다(구현됨).
+- 과제별 `021_자동화설정_운영규칙` 규칙 파일이 이 귀속 단계가 읽어야 할 정본 소스로 지정됐지만, 그 연결(wiring)은 아직 구현되지 않았다 — 계획 상태(계획)로만 본다.
 
 ## 단계 inbox 해석
 

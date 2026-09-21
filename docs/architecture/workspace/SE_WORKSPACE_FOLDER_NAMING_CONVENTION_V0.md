@@ -130,6 +130,16 @@ _workspaces/SE_TEMPLATE_LIBRARY/
   resolve to the same shared view. PC-local experiments and cache belong under
   `_workspaces/_local/<node_id>/`.
 
+## Project Root Folder Name (D: target plane)
+
+This section records the 2026-09-21 decision on how a project root folder is named on the D: target plane's `_workspaces` and `_workmeta`.
+
+- Name shape: `<project_code>_<짧은 한글명>` — the project code always comes first, followed by one underscore, then a short Korean name. No spaces.
+- Keep the whole folder name short because of the path length policy (`guild_hall/validate/path_length_policy.mjs`); a long Korean name plus deep SE stage/artifact subpaths can exceed the platform path length limit.
+- A machine resolves a project folder by `startsWith(project_code + '_')`; it does not parse or depend on the Korean part.
+- Public docs use only a synthetic example such as `P00-000_예시과제`. Never list a real project name, a real person, a customer, a real keyword, or a host-local path in tracked documents; use `<TARGET_SOULFORGE_ROOT>`, `<project_code>`, `<private_root>` placeholders instead.
+- Renaming an already-active, OneDrive-backed project folder to fit this shape still follows this document's [Rename Workflow](#rename-workflow): dry-run rename map, pointer migration plan, and owner approval before any physical rename.
+
 ## Metadata To Record Outside The Folder Name
 
 When a visible folder name hides provenance, record the provenance separately.

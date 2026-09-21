@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-09-21 - 과제별 관리 폴더(021·023·027) 규칙 문서화 + SE 프로젝트 폴더명 규칙
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 2026-09-21 Owner 결정을 문서에 반영했다. (1)
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`의 관리 폴더 quick map 021 항목을
+  legacy plane(`_workmeta/<project_code>/rules/`)과 D: target plane(규칙 원문은
+  `_workspaces/<project 폴더>/020_MGMT/021_자동화설정_운영규칙/`, byte lineage는
+  `_workmeta/<project 폴더>/lineage/`)으로 나누고, 과제별 규칙 파일(첫 항목: 메일 라우팅 규칙,
+  파일명 `mail_routing_rule.md`)의 절 구성·상태값(초안 vN→확정)을 적은 "과제별 규칙 파일" 절과, 이관 후
+  legacy `mail_project_router.yaml` 바인딩이 새 실행면으로 옮겨지지 않아 색인 귀속이 리터럴 코드
+  fallback에 머물러 있고 021 규칙 파일 연결은 아직 계획 단계라는 배경 절을 추가했다. (2)
+  `docs/architecture/workspace/SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`에 D: target plane
+  프로젝트 루트 폴더명 규칙(`<project_code>_<짧은 한글명>`, machine은 `startsWith(code + '_')`로 해석,
+  합성 예시만 공개 문서에 사용) 절을 추가했다. (3) `AGENTS.md` 작업별 라우팅에 두 문서로 가리키는 짧은
+  bullet 한 줄을 추가하고 `guild_hall/validate/boot_digest_guard.mjs --update`로 boot digest manifest를
+  재서명했다. (4) 배포 매뉴얼 `new_hire_training.v0.md`·`manager_training.v0.md`에 같은 내용을 쉬운 한글로
+  요약한 "과제 폴더에서 규칙·연락처·메일 이력의 자리" 절을 추가하고, `manual_release_catalog.v0.json`의
+  두 manual `content_digest`를 재계산해 갱신했다.
+- 운영 영향: 문서·매뉴얼·boot digest manifest 변경뿐이며 코드·바인딩·예약작업은 건드리지 않았다.
+  legacy 메일 프로젝트 라우터 바인딩의 미이관, 021 규칙 파일 연결 미구현은 이 커밋에서 해소되지 않은
+  기존 상태이며 문서화만 했다(계획).
+- 관련 경로: `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`,
+  `docs/architecture/workspace/SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`, `AGENTS.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`,
+  `guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manager_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`.
+- 검증: `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`,
+  `node guild_hall/validate/boot_digest_guard.mjs`, `npm run validate:manual-release`(및 확인용
+  `node --test guild_hall/deployment_pack/tests/manual_html_projection.test.mjs`) 전부 통과.
+  `npm run validate:canon`은 `yaml` 패키지가 필요해 이 worktree(node_modules 없음)에서 실행하지 못했다
+  (UNKNOWN). `build_pack.test.mjs`의 실제 pack 빌드/설치 바이트 대조는 `ajv` 의존성이 없어 실행하지
+  못했다(UNKNOWN) — catalog 안의 sha256은 두 manual 파일을 직접 재해시해 맞췄다.
+
 ## 2026-09-21 - 개발 checkout에 남아 있던 작성자 미상 제자리 수정 10개 파일 회수
 
 - Revision: 이 항목을 포함한 커밋. 개발 checkout 작업 트리에 2026-09-18~20 사이 커밋 없이 남아 있던

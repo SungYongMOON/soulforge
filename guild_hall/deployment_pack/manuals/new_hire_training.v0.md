@@ -31,6 +31,19 @@ npm.cmd run validate:authority-taxonomy
 - `guild_hall/authority_taxonomy/README.md` distinguishes action shape (A0–A6) from risk (R0–R4); it grants no authority.
 - `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json` shows candidate/HOLD/release status and must not be treated as an access-control system.
 
+## 과제 폴더에서 규칙·연락처·메일 이력의 자리
+
+SE 프로젝트 폴더에는 `020_MGMT` 아래 고정 관리 폴더가 있고, 과제별 운영 자료는 항상 그 안에 둔다.
+
+- `021_자동화설정_운영규칙`: 그 과제의 메일 라우팅 규칙 같은 운영 규칙 파일 자리. 규칙 파일은 `상태`(초안 vN → 확정)와 `Owner 확인 기록`을 안에 적어 두므로, 상태를 확인하려면 파일을 직접 열어 본다.
+- `022_INBOX_원본수집`: 그 과제로 들어온 메일·원본 자료가 맨 처음 닿는 자리.
+- `023_연락처_이해관계자`: 연락처, 조직, 담당자 같은 이해관계자 정보의 정본 자리.
+- `027_수신이력_이동이력`: 메일 수신 이력과 파일 이동 이력을 append-only 로 쌓는 자리.
+
+프로젝트 폴더 이름은 `project_code` 다음에 밑줄과 짧은 한글명을 붙이는 형태로, 코드가 항상 먼저 온다.
+
+새 분류 기준이나 새 연락처 장부가 필요해 보여도 새 폴더 체계를 만들지 말고 이 고정 자리에 둔다. 자리를 못 찾겠으면 `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`의 관리 폴더 quick map을 먼저 확인한다.
+
 ## Expected readback and evidence
 
 - The trainee can name the difference between source/asset, candidate, receipt, review, acceptance, task truth, and backup/restore.

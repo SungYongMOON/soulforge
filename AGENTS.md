@@ -44,6 +44,7 @@
 - Hammer/AX 표시 용어는 `docs/architecture/foundation/SHARED_GLOSSARY_V0.md`를 따른다.
 - Soulforge 최신화·다른 PC 준비 요청은 설치된 `soulforge-github-down` skill, `docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md`, `docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md`를 따른다.
 - SE 폴더 생성·정리·rename은 `docs/architecture/workspace/SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`를 따르며 실제 rename 전 dry-run, pointer migration plan과 Owner 승인을 요구한다.
+- 과제별 규칙·연락처·메일 수신/이동 이력은 SE 폴더 트리 고정 관리 폴더(021·023·027)에 두고 새 폴더 체계를 만들지 않는다(`docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`). 프로젝트 폴더명은 `<project_code>_<짧은 한글명>`(`docs/architecture/workspace/SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`).
 
 ## 팀원·봇·조직 라우팅
 

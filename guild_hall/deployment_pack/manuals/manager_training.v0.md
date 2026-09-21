@@ -31,6 +31,19 @@ npm.cmd run validate:watch-bastion
 - `guild_hall/forge_intent/src/forge_intent_core.mjs` makes approval, assignment, and Work Brief binding separate steps.
 - `guild_hall/watch_panel_contract/src/watch_panel_contract.mjs` and `guild_hall/bastion_action/src/bastion_action_gate.mjs` separate a filed request from an executed action.
 
+## 과제 폴더에서 규칙·연락처·메일 이력의 자리
+
+SE 프로젝트 폴더의 `020_MGMT` 아래 고정 관리 폴더가 과제별 운영 자료의 정본 자리다. 매니저가 새 규칙판·연락처판을 별도로 만들라고 지시하지 않도록 이 구조를 알아 둔다.
+
+- `021_자동화설정_운영규칙`: 메일 라우팅 규칙 등 운영 규칙 파일. 파일 안에 `상태`(초안 vN → 확정)와 `Owner 확인 기록`이 있으므로, 확정 여부는 그 파일을 읽어서 판단하지 감으로 판단하지 않는다.
+- `022_INBOX_원본수집`: 과제로 들어온 메일·원본의 first landing 자리.
+- `023_연락처_이해관계자`: 연락처·조직·담당자 정본 자리.
+- `027_수신이력_이동이력`: 메일 수신 이력·자료 이동 이력의 append-only 기록 자리.
+
+프로젝트 폴더 이름은 `project_code` 다음에 밑줄과 짧은 한글명을 붙이는 형태로, 코드가 항상 먼저 온다.
+
+새 폴더 규칙을 만들지 말고 이 자리에 둔다. 배분 전 규칙 파일의 상태와 Owner 확인 기록을 먼저 확인해, 미확정 규칙에 기대어 승인·배분하지 않는다.
+
 ## Expected readback and evidence
 
 - The manager can identify the source of truth for a scenario and name the exact owner/writer/reviewer/acceptance role instead of using a general manager label.
