@@ -12,6 +12,7 @@ const hash = value => 'sha256:' + createHash('sha256').update(value, 'utf8').dig
 const keys = (value, names) => value !== null && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).length === names.length && names.every(name => Object.hasOwn(value, name));
 const validBinding = value => keys(value, ['source_revision_ref', 'source_span_ref', 'locator'])
+  && keys(value.source_revision_ref, ['entity_id', 'revision_id', 'content_id', 'content_hash_alg'])
   && exactRefIdentityKey(value.source_revision_ref) !== null && SHA.test(value.source_revision_ref.content_id)
   && text(value.source_span_ref) && text(value.locator);
 const normalize = value => value.replace(/[ \t\r\n]+/gu, ' ').replace(/^ | $/gu, '');

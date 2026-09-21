@@ -968,7 +968,7 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 - `approvedSpans`: `{ binding, text, span_sha256 }` 배열(최대 100개).
   `binding`은 기존 accepted reader/readback의 `source_revision_ref`, `source_span_ref`,
   `locator` 세 필드를 그대로 옮긴다. source ref의 `entity_id`, `revision_id`,
-  `content_id`, `content_hash_alg`는 기존 Rune exact-ref 계약을 따른다.
+  `content_id`, `content_hash_alg`는 기존 Rune exact-ref 계약을 따른다. ref의 추가 필드는 거부한다.
   `content_id`는 원본 전체 bytes의 해시이며 `span_sha256`는 공급된 `text`의 UTF-8
   SHA-256(`sha256:<64 lowercase hex>`)이다. 부분 구간만으로 전체 원본 해시를 재검증했다고
   주장하지 않는다. 원본 판본/ACL/과제/시점 확인과 locator에 맞는 구간 선택은 호출자 책임이다.

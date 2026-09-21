@@ -103,6 +103,16 @@ test('snapshot is detached from caller mutations and returned references', () =>
   assert.equal(verifier.verify(citation).status, 'exact_match');
 });
 
+test('foreign fields cannot enter or be echoed through the nested exact revision ref', () => {
+  const f = fixture();
+  const verifier = createCitationVerifier({ approvedSpans: [f.span] });
+  const foreignCitation = structuredClone(f.citation);
+  foreignCitation.binding.source_revision_ref.foreign_result_type = 'external-engine-result';
+  assert.throws(() => verifier.verify(foreignCitation), /invalid_citation_input/);
+  f.span.binding.source_revision_ref.foreign_result_type = 'external-engine-result';
+  assert.throws(() => createCitationVerifier({ approvedSpans: [f.span] }), /invalid_citation_input/);
+});
+
 test('a replacement adapter sees only strings and preserves all four outcomes', () => {
   let calls = 0;
   const matcher = { id: 'synthetic/alternative', matches(pair) {
