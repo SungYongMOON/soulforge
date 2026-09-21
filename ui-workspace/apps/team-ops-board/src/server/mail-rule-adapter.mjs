@@ -220,9 +220,10 @@ async function readJsonBody(req, maxBytes) {
 
 // ---------- default core loader ----------
 
-// `guild_hall/workspace_ledgers/src/index.mjs` merged 2026-09-21 (branch
-// claude/workspace-ledgers-v0, commit d08f7441) exporting exactly these three names among
-// others; see that module's README for full option semantics.
+// `guild_hall/workspace_ledgers/src/index.mjs` merged to main 2026-09-21 as b453abef
+// (eight fresh-review rounds after the earlier pre-merge commit this adapter was first
+// wired against) exporting exactly these three names among others; see that module's
+// README for full option semantics.
 const CORE_MODULE_SPECIFIER = '../../../../../guild_hall/workspace_ledgers/src/index.mjs';
 const CORE_EXPORTS = ['previewRule', 'saveRuleVersion', 'refresh'];
 

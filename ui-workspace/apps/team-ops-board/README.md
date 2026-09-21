@@ -829,8 +829,8 @@ private D: workspace plane as a file pair, one per project folder:
 `mail_routing_rule.md` whose `## Owner 확인 기록 (…)` and
 `## Owner 확인이 필요한 것` sections are bullet lists. The panel shows this rule
 on the project overview and can edit its literal keywords there, calling
-through to `guild_hall/workspace_ledgers` (merged 2026-09-21, branch
-`claude/workspace-ledgers-v0`, commit `d08f7441`) for the actual preview/save/
+through to `guild_hall/workspace_ledgers` (merged to main 2026-09-21 as
+`b453abef`, after eight fresh-review rounds) for the actual preview/save/
 refresh work — see that module's own README for its rule/ledger contract.
 
 `src/server/mail-rule-adapter.mjs` (`createMailRulePlugin`) owns five loopback
