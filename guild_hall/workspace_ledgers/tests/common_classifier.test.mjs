@@ -183,8 +183,16 @@ test('resolvePrimaryBucket: an agency-notice sender domain (no admin pattern mat
   assert.equal(outcome.detail, '기관 안내');
 });
 
-test('resolvePrimaryBucket: nothing matches falls to 미분류', () => {
+test('resolvePrimaryBucket: nothing matches and no vendor touches the mail falls to 미분류', () => {
   const outcome = resolvePrimaryBucket(mail({ subject: '완전히 무관한 제목' }), noProject(), COMMON_CONFIG, { ourDomain: 'example.com' });
   assert.equal(outcome.bucket, 'unclassified');
   assert.equal(outcome.fileName, '미분류.csv');
+});
+
+test('resolvePrimaryBucket (coordinator correction): a mail touching a known organisation, with no project/hold/reading decision, is organisation_undecided -- not 미분류', () => {
+  const outcome = resolvePrimaryBucket(mail({ subject: '완전히 무관한 제목' }),
+    { ...noProject(), vendors: [{ name: 'Vendor Co' }] }, COMMON_CONFIG, { ourDomain: 'example.com' });
+  assert.equal(outcome.bucket, 'organisation_undecided');
+  assert.equal(outcome.fileName, null); // no primary file -- represented only in that vendor's own secondary ledger
+  assert.equal(outcome.basisOverride, '거래처(자동)');
 });

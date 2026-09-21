@@ -13,7 +13,7 @@ import { domainOf, normalizeSubject } from './ledgers.mjs';
 
 export const PRIMARY_BUCKETS = Object.freeze([
   'project', 'held', 'system', 'ads', 'internal_admin', 'external_notice', 'out_of_project',
-  'code_pending', 'no_code_confirmed', 'general_work', 'vendor_only', 'unclassified',
+  'code_pending', 'no_code_confirmed', 'general_work', 'vendor_only', 'organisation_undecided', 'unclassified',
 ]);
 
 // A vendor/organisation address never decides a project by itself (spec section 1
@@ -248,14 +248,26 @@ export function resolvePrimaryBucket(mail, projectResult, commonConfig, { ourDom
     return { bucket: 'external_notice', detail: '기관 안내', fileName: '외부안내.csv' };
   }
 
-  // No signal placed this mail in any other primary bucket -- it is unclassified
-  // (awaiting either an Owner bundle-table entry or a 판독_결정표 reading decision via
-  // the triage API, spec section 7). A vendor address or work tag touching this mail
-  // (if any) still places it in that vendor's/tag's SECONDARY view ledger regardless
-  // of its primary bucket (spec section 3: "거래처별·작업별 장부는 주 분류와 별개의
-  // 보조 보기다") -- deliberately simpler than the scratch-script reference, which
-  // skips 미분류 entirely for any vendor-touched mail; keeping every unresolved mail
-  // in 미분류 (even when a vendor view also shows it) keeps the primary-bucket set
-  // exactly the spec's enumerated list and the reconciliation invariant provable.
+  // Coordinator correction (2026-09-21, after the first Step 1 commit): a mail that
+  // touches a KNOWN organisation (a vendor/customer/agency/school address matched
+  // against 거래처_대응표.csv) but has no project, is not held, and has no reading
+  // decision at all is NOT unclassified -- it is already filed under that
+  // organisation. This is a genuine primary bucket of its own
+  // (`organisation_undecided`), distinct from `vendor_only` (an Owner/reader's
+  // EXPLICIT 판독_결정표 decision that a mail belongs to the vendor ledger only): same
+  // ledger destination (that vendor's/those vendors' secondary view only, no primary
+  // file of its own -- see `common_refresh.mjs`), 과제 cell always `미정`, 과제근거
+  // cell always `거래처(자동)` regardless of whatever `classifyProjectHits`'s own
+  // `basis`/`candidates` happened to compute (a body match against >1 project, say --
+  // this bucket's whole point is "an organisation is known, a project is not", so its
+  // row never repeats that detail). `basisOverride` here is what
+  // `common_refresh.mjs`'s row-building reads instead of `projectResult.basis`.
+  if (projectResult.vendors.length > 0) {
+    return { bucket: 'organisation_undecided', detail: null, fileName: null, basisOverride: '거래처(자동)' };
+  }
+
+  // No signal placed this mail in any other primary bucket, and it touches no known
+  // organisation either -- truly unclassified (awaiting either an Owner bundle-table
+  // entry or a 판독_결정표 reading decision via the triage API, spec section 7).
   return { bucket: 'unclassified', detail: null, fileName: '미분류.csv' };
 }

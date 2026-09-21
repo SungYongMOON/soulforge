@@ -71,8 +71,8 @@ test('buildReadingTable: keyed by 메일소스ID, a later row for the same id ov
   assert.equal(table.get('m1').level, 'include');
 });
 
-test('buildVendorTable: keyed by lowercased 도메인(또는 주소 전체)', () => {
-  const rows = [{ '도메인(또는 주소 전체)': 'Vendor.Example', '거래처명': 'Vendor Co', '구분': '부품', '메모': '' }];
+test('buildVendorTable: keyed by lowercased 도메인 (may hold a bare domain or a full address)', () => {
+  const rows = [{ '도메인': 'Vendor.Example', '거래처명': 'Vendor Co', '구분': '부품', '메모': '' }];
   const table = buildVendorTable(rows);
   assert.equal(table.get('vendor.example').name, 'Vendor Co');
 });

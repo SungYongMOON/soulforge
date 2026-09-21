@@ -8,7 +8,7 @@ import { decodeCsv, encodeCsv } from '../src/ledgers.mjs';
 import { listProjects } from '../src/rule_store.mjs';
 import { PRIMARY_BUCKETS } from '../src/common_classifier.mjs';
 import { BUNDLE_HEADERS, READING_HEADERS, VENDOR_HEADERS, WORKTAG_HEADERS } from '../src/owner_tables.mjs';
-import { classifyAllCommonMail, refreshCommon } from '../src/common_refresh.mjs';
+import { classifyAllCommonMail, CommonRefreshError, refreshCommon } from '../src/common_refresh.mjs';
 
 function rule(code, folder, exactPairs) {
   return {
@@ -145,7 +145,11 @@ test('classifyAllCommonMail: every primary bucket is reachable and the reconcili
     assert.equal(pass.bucketTally.general_work, 1);
     assert.equal(pass.bucketTally.no_code_confirmed, 1);
     assert.equal(pass.bucketTally.vendor_only, 1);
-    assert.equal(pass.bucketTally.unclassified, 2); // h-unclassified + h-vendor-secondary (vendor-touched but still primary-unclassified, spec-literal design decision)
+    // h-vendor-secondary touches a known vendor with no project/hold/reading decision
+    // -- organisation_undecided (coordinator correction), not 미분류; only
+    // h-unclassified (no vendor, no signal at all) is truly unclassified.
+    assert.equal(pass.bucketTally.organisation_undecided, 1);
+    assert.equal(pass.bucketTally.unclassified, 1);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -165,7 +169,7 @@ test('refreshCommon: writes the expected primary-bucket and secondary-view ledge
     const generalWorkBase = path.join(fixture.workspacesRoot, GENERAL_WORK_FOLDER, LEDGER_DIR);
 
     const unclassified = decodeCsv(readFileSync(path.join(commonBase, '미분류.csv'), 'utf8'));
-    assert.equal(unclassified.rows.length, 2);
+    assert.equal(unclassified.rows.length, 1); // h-vendor-secondary is organisation_undecided, not 미분류 (coordinator correction)
     assert.deepEqual(unclassified.headers, ['이력키', '분류', '수신시각', '제목', '발신자', '발신자메일', '첨부수', '메일소스ID', '원문복사여부', '메모']);
 
     const held = decodeCsv(readFileSync(path.join(commonBase, '보류.csv'), 'utf8'));
@@ -206,6 +210,10 @@ test('refreshCommon: writes the expected primary-bucket and secondary-view ledge
     assert.deepEqual(vendorView.headers, ['이력키', '분류', '과제', '과제근거', '수신시각', '제목', '발신자', '발신자메일', '첨부수', '메일소스ID', '원문복사여부', '메모']);
     const vendorProjectCells = vendorView.rows.map(row => row[2]).sort();
     assert.deepEqual(vendorProjectCells, ['거래처만', '미정']);
+    // the organisation_undecided row (h-vendor-secondary) carries the fixed
+    // basis "거래처(자동)", never classifyProjectHits' own '미정' text.
+    const orgUndecidedRow = vendorView.rows.find(row => row[2] === '미정');
+    assert.equal(orgUndecidedRow[3], '거래처(자동)');
 
     // Secondary work-tag view: only h-vendor-secondary carries [SMT].
     const workView = decodeCsv(readFileSync(path.join(commonBase, '작업_SMT.csv'), 'utf8'));
@@ -273,5 +281,16 @@ test('refreshCommon: a header-mismatched Owner table fails closed for the affect
     // every other ledger still refreshed -- 미분류.csv (unaffected by the vendor table) still exists.
     const commonBase = path.join(fixture.workspacesRoot, COMMON_FOLDER, LEDGER_DIR);
     assert.doesNotThrow(() => readFileSync(path.join(commonBase, '미분류.csv'), 'utf8'));
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('classifyAllCommonMail (coordinator, 2026-09-21): --hiworks-events and --gmail-sent-events pointing at the same real directory are rejected before any classification, mirroring refresh()\'s S-4 guard', () => {
+  const fixture = makeFixture();
+  try {
+    assert.throws(() => classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.hiworksDir],
+      orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath, vendorTablePath: fixture.vendorTablePath,
+      readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+    }), error => error instanceof CommonRefreshError && error.code === 'workspace_ledgers_custody_dirs_overlap');
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

@@ -18,7 +18,7 @@ import { decodeCsv } from './ledgers.mjs';
 export const BUNDLE_HEADERS = Object.freeze(['제목구절', '과제', '근거', '확정일']);
 export const READING_HEADERS = Object.freeze(['메일소스ID', '수신일', '제목', '결정', '과제_또는_분류', '이유', '판독자', '판독일', 'Owner확인']);
 export const WORKTAG_HEADERS = Object.freeze(['태그', '설명']);
-export const VENDOR_HEADERS = Object.freeze(['도메인(또는 주소 전체)', '거래처명', '구분', '메모']);
+export const VENDOR_HEADERS = Object.freeze(['도메인', '거래처명', '구분', '메모']);
 
 export const READING_LEVELS = Object.freeze(['include', 'include_with_review', 'exclude', 'vendor_only', 'hold_owner_review']);
 
@@ -80,15 +80,17 @@ export function buildWorkTagTable(rows) {
 }
 
 /**
- * `Map(lowercased domain-or-address -> { name, kind, memo })`. The 도메인(또는 주소
- * 전체) column may hold either a bare domain or a full address (spec section 2) --
- * both are valid lookup keys, matched against a mail's own domains/addresses
- * (`vendorsOfMail` in `common_classifier.mjs`) the same way.
+ * `Map(lowercased domain-or-address -> { name, kind, memo })`. The 도메인 column may
+ * hold either a bare domain or a full address (spec section 2's own description of
+ * this column, not a different header text -- coordinator correction 2026-09-21: the
+ * real Owner table's header is the plain `도메인`) -- both are valid lookup keys,
+ * matched against a mail's own domains/addresses (`vendorsOfMail` in
+ * `common_classifier.mjs`) the same way.
  */
 export function buildVendorTable(rows) {
   const map = new Map();
   for (const row of rows) {
-    const key = String(row['도메인(또는 주소 전체)'] ?? '').trim().toLowerCase();
+    const key = String(row['도메인'] ?? '').trim().toLowerCase();
     if (!key) continue;
     map.set(key, { key, name: row['거래처명'] ?? '', kind: row['구분'] ?? '', memo: row['메모'] ?? '' });
   }

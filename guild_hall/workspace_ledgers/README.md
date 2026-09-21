@@ -630,6 +630,17 @@ counterpart to the per-project pipeline above: `refresh()` writes each onboarded
 project's four ledgers; `refreshCommon()` (`src/common_refresh.mjs`) writes everything
 that does NOT resolve to exactly one project.
 
+**Custody sources read.** Unlike the private scratch-script reference (which built the
+common-folder ledgers from the company-inbox/hiworks custody only), this path reads
+BOTH `hiworksDirs` and `gmailSentDirs` -- the same two sources `refresh()`'s
+per-project pipeline already reads -- via `common_events.mjs`'s `loadRawMailRecords`.
+This is intentional (a sent mail can equally be a system notification reply, an
+internal-admin mail, etc.), but it means a raw real-plane parity comparison against
+ledgers the scratch script generated will run over a larger custody window than that
+script ever saw; a difference in `system`/`unclassified`/total counts from that alone
+is expected, not a classification defect (see the parity table in this module's own
+CHANGELOG entries for a worked example).
+
 **Classification order** (`src/common_classifier.mjs`'s `classifyProjectHits`, spec
 section 1): (1) a project's own title rule (two projects' exact triggers on one
 subject means held, never automatic attribution -- reuses `classifier.mjs`'s
@@ -645,16 +656,26 @@ BODY; (5) otherwise undetermined (미정).
 mail that did not resolve to a project into exactly one of: 시스템 알림 (per-source
 file), 광고 (excluded, no file), 사내행정 (자사 도메인 발신만) / 외부안내,
 과제외_\<분류\>, 과제코드대기, 과제없음_확인함, 일반업무 (separate
-`general_work_일반업무` folder, `일반업무_메일.csv`), 거래처만 (no dedicated file --
-represented only in that vendor's secondary ledger), or 미분류. A held mail
-(step 1's two-project collision) gets its own `보류.csv` -- a deliberate addition over
-the private scratch-script reference (which wrote held mail nowhere), so "sum of every
-primary bucket's count == deduped mail count" is a provable invariant, not merely true
-by omission. Every organisation-specific pattern behind this (system-sender
+`general_work_일반업무` folder, `일반업무_메일.csv`), 거래처만 (an EXPLICIT Owner/reader
+`vendor_only` reading decision -- no dedicated file, represented only in that vendor's
+secondary ledger), **organisation_undecided** (coordinator correction, 2026-09-21: a
+mail that touches a KNOWN organisation -- matched against `거래처_대응표.csv` -- but has
+no project, is not held, and has no reading decision AT ALL is already "filed" under
+that organisation, not truly unclassified; same no-file/secondary-ledger-only
+destination as 거래처만, but distinct in the receipt -- 과제 cell always `미정`, 과제근거
+cell always the fixed `거래처(자동)`, never `classifyProjectHits`'s own `basis`), or
+미분류 (truly no signal at all, including no known organisation). A held mail (step 1's
+two-project collision) gets its own `보류.csv` -- a deliberate addition over the private
+scratch-script reference (which wrote held mail nowhere), so "sum of every primary
+bucket's count == deduped mail count" is a provable invariant, not merely true by
+omission. Every organisation-specific pattern behind this (system-sender
 domains/subjects, ad domains, agency-notice domains, internal-admin/out-of-project/
 code-pending subject patterns, the common/general-work folder names) comes from the
 org config's `common_ledgers` block (`buildCommonConfig`) -- never hardcoded; see
-`examples/org_config.example.json`.
+`examples/org_config.example.json`. The real custody directory-overlap guard
+`refresh()`'s per-project pipeline runs (`--hiworks-events`/`--gmail-sent-events`
+pointing at the same real directory, compared by `fs.realpathSync.native()`) is reused
+as-is here too, via `refresh.mjs`'s exported `assertNoOverlappingCustodyDirs`.
 
 Vendor (`거래처_<이름>.csv`) and work-tag (`작업_<태그>.csv`, from `[태그]` literally
 in the subject, matched against `작업태그_목록.csv`) ledgers are secondary VIEWS,
@@ -679,7 +700,13 @@ returns a read-only preview of the 미분류 bucket (mail source id, received da
 subject, from/to names, attachment names, a signature/quote-stripped body preview
 bounded in length, which bucket every other mail in the same normalised-subject thread
 ended up in, and any matched vendor) for a loopback AI reader (맥락이) or a human to
-read before deciding. `appendReadingDecision` validates `level` (one of `include` /
+read before deciding. Default list is truly unclassified mail only; `{
+includeOrganisationUndecided: true }` (`--include-organisation-undecided` on the CLI)
+also pulls in `organisation_undecided` mail -- a different, opt-in sweep for a reader
+specifically going through organisation-filed mail to assign a project, not the
+default "mail with no home at all yet" triage. Each returned item carries `bucket`
+(`'unclassified'` or `'organisation_undecided'`) so a caller can tell them apart.
+`appendReadingDecision` validates `level` (one of `include` /
 `include_with_review` / `exclude` / `vendor_only` / `hold_owner_review`), that an
 `include*` target names only real, currently-onboarded project codes, that an `exclude`
 target is one of the fixed routing tokens `resolvePrimaryBucket` itself recognises,
@@ -697,19 +724,18 @@ concurrently and race on the same tables/ledgers.
 `node cli.mjs parity --workspaces-root <dir> --hiworks-events <dir>
 --gmail-sent-events <dir> --org-config <file> [tables...]` (read-only: the module's own
 per-primary-bucket dry-run counts vs. the row counts of whichever real ledger CSVs
-already exist on disk, numbers only); `node cli.mjs triage list [--limit N] [--json]`
-and `node cli.mjs triage decide --id <id> --level <level> [--target <codes-or-token>]
---why <text> --reader <name>` (`triage list`'s default output carries subject/names --
-stdout only, never written to a receipts/log file).
+already exist on disk, numbers only); `node cli.mjs triage list [--limit N] [--json]
+[--include-organisation-undecided]` and `node cli.mjs triage decide --id <id> --level
+<level> [--target <codes-or-token>] --why <text> --reader <name>` (`triage list`'s
+default output carries subject/names -- stdout only, never written to a receipts/log
+file).
 
-Design decisions where the spec was silent, and known scope limits of this first cut:
-the custody-directory-overlap guard (`refresh.mjs`'s S-4) is not yet ported to
-`refreshCommon`'s path; `거래처_대응표.csv`'s address column header follows spec
-section 2's literal text (`도메인(또는 주소 전체)`) rather than the private
-scratch-script's older `도메인` header, so a real-plane vendor table generated by that
-script fails closed (header mismatch) against this module until it is renamed or
-regenerated -- a coordinator decision, not something this module should silently paper
-over. Step 2 (lane spec, scheduled-task registration, runbook) and Step 3's Hermes
+`거래처_대응표.csv`'s columns are `도메인`, `거래처명`, `구분`, `메모` (`도메인` may hold
+either a bare domain or a full address, spec section 2's own description of that one
+column -- not a longer header text; corrected 2026-09-21 after the first Step 1 commit
+used the spec's descriptive wording as if it were the header itself).
+
+Step 2 (lane spec, scheduled-task registration, runbook) and Step 3's Hermes
 tool-wiring (`context-read` lane's tool bundle, bot instructions) are untouched per the
 spec's own phasing -- this module exposes the triage API's library/CLI surface only.
 

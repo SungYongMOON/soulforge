@@ -297,17 +297,22 @@ function runTriageList(flags) {
   const limitRaw = flags.get('limit');
   const limit = typeof limitRaw === 'string' ? Number(limitRaw) : undefined;
   const asJson = flags.get('json') === true || flags.get('json') === 'true';
+  // Default list = truly unclassified only (spec section 7); pass this to also pull
+  // in mail already filed under a known organisation but still missing a project
+  // (coordinator, 2026-09-21) -- a different, opt-in sweep.
+  const includeOrganisationUndecided = flags.get('include-organisation-undecided') === true
+    || flags.get('include-organisation-undecided') === 'true';
   try {
     const result = listUnclassified({
       workspacesRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], orgConfigPath,
-      ...commonTablesFromFlags(flags), ...(limit !== undefined ? { limit } : {}),
+      ...commonTablesFromFlags(flags), ...(limit !== undefined ? { limit } : {}), includeOrganisationUndecided,
     });
     // `list`'s default output carries subject/names (spec section 7) -- printed to
     // stdout only, never written to a receipts/log file by this command.
     if (asJson) { console.log(JSON.stringify(result)); return; }
-    console.log(`총 미분류 ${result.total}건, ${result.items.length}건 표시`);
+    console.log(`총 ${result.total}건, ${result.items.length}건 표시`);
     for (const item of result.items) {
-      console.log(`- ${item.mail_source_id} ${item.received_at} ${item.subject} | ${item.from?.name ?? item.from?.email ?? ''}`);
+      console.log(`- [${item.bucket}] ${item.mail_source_id} ${item.received_at} ${item.subject} | ${item.from?.name ?? item.from?.email ?? ''}`);
     }
   } catch (error) {
     console.error(`workspace_ledgers_triage_list_failed: ${error.code ?? error.message}`);

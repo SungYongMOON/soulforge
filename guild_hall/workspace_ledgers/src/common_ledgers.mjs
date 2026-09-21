@@ -89,6 +89,11 @@ export function whereLabelFor(outcome) {
     case 'no_code_confirmed': return '과제없음';
     case 'general_work': return outcome.detail ? `일반업무:${outcome.detail}` : '일반업무';
     case 'vendor_only': return outcome.detail ? `거래처만(${outcome.detail})` : '거래처만';
+    // Coordinator (2026-09-21): a mail filed under a known organisation with no
+    // project, no hold and no reading decision at all -- the 과제 cell is always the
+    // fixed `미정` (this is what `default` already returned; spelled out explicitly
+    // here so the case is not silently relying on the fallback).
+    case 'organisation_undecided': return '미정';
     default: return '미정';
   }
 }

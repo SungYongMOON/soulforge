@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` Step 1 코디네이터 후속 지적 4건 반영
+
+- Revision: 이 항목을 포함한 커밋(직전 Step 1 커밋 96a64430에 대한 코디네이터 검토).
+- 무엇이 바뀌었는가: (1) `거래처_대응표.csv` 헤더를 스펙 2절의 설명 문구
+  (`도메인(또는 주소 전체)`)를 그대로 헤더로 오인해 썼던 것을 실제 Owner 표의
+  헤더 `도메인`(값은 도메인이거나 전체 주소일 수 있다는 설명일 뿐)으로 고쳤다
+  (`src/owner_tables.mjs`의 `VENDOR_HEADERS`/`buildVendorTable`, README, 예시).
+  (2) Owner가 이 모듈 구현자는 알 수 없었던 결정을 알려왔다: 과제도 없고 판독
+  결정도 전혀 없지만 이미 아는 거래처가 걸린 메일은 미분류가 아니라 "이미 그
+  거래처 아래 정리돼 있는" 상태다 -- 새 주 분류 `organisation_undecided`를
+  추가했다(거래처만과 같은 목적지: 거래처 장부에만, 과제 칸 `미정`, 과제근거 칸
+  고정값 `거래처(자동)`, `판독_결정표`가 명시적으로 정한 `vendor_only`와는 영수증에서
+  구분됨). `triage list`에 `--include-organisation-undecided`를 추가했다(기본
+  목록은 여전히 진짜 미분류만). (3) `refresh.mjs`의 실제 디렉터리 겹침 가드
+  (S-4, `fs.realpathSync.native()` 비교)를 `assertNoOverlappingCustodyDirs`로
+  export해 `classifyAllCommonMail`이 커스터디를 읽기 전에 그대로 재사용하도록
+  포팅했다. (4) 다른 빌더의 `claude/workspace-ledgers-v0` 브랜치를 다시
+  머지했다(seventh fresh review, c273d963) -- 이번 항목 참조.
+- Real-plane parity 재확인(dry, 읽기 전용): `no_code_confirmed`(2/2)·
+  `general_work`(5/5) 일치 유지, `project`는 근접(오차 +2~3, 그 사이 새로 도착한
+  메일 때문). `거래처_대응표.csv` 헤더 수정 뒤 `vendor_only`/`organisation_undecided`
+  parity는 여전히 막혀 있다 -- 이제는 헤더가 아니라 그 표 자체의 데이터 결함
+  때문이다: 55개 데이터 행 중 1행(인덱스 39, 헤더 4열인데 5필드)이 메모 칸의
+  따옴표 없는 쉼표로 보인다. R4 fail-closed 규칙대로 그 표 전체를 건드리지 않고
+  건너뛰며(코드: `workspace_ledgers_owner_table_row_shape`), 다른 모든 표·장부는
+  정상 진행한다 -- Owner/코디네이터가 그 한 행을 손으로 고치거나 표를 재생성해야
+  풀린다.
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers`에 공통(P00-000_공통) 분류·판독 API 포팅 (Step 1)
 
 - Revision: 이 항목을 포함한 커밋.

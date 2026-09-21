@@ -24,7 +24,9 @@ import {
 import {
   buildCommonRow, HELD_FILE_NAME, headersFor, memoIndexFor, vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';
-import { acquireRefreshLock, releaseRefreshLock, redactHostPaths, writeLedgerCsv } from './refresh.mjs';
+import {
+  acquireRefreshLock, assertNoOverlappingCustodyDirs, releaseRefreshLock, redactHostPaths, RefreshError, writeLedgerCsv,
+} from './refresh.mjs';
 
 export const COMMON_REFRESH_RECEIPT_SCHEMA = 'soulforge.workspace_common_ledger_refresh_receipt.v1';
 
@@ -99,6 +101,15 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   const { ok: ruleRows, ruleFailures } = readAllRulesSafely(workspacesRoot);
   const compiledRules = ruleRows.map(row => row.compiled);
   const owner = loadOwnerTables({ bundleTablePath, vendorTablePath, readingTablePath, workTagTablePath });
+
+  // Same realpath-based overlap guard `refresh.mjs`'s per-project pipeline runs
+  // before classifying custody (coordinator, 2026-09-21) -- an operator pointing
+  // `--hiworks-events` and `--gmail-sent-events` at the same real directory would
+  // otherwise have every event read and classified twice here too.
+  try { assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs); }
+  catch (error) {
+    fail(error?.code ?? 'workspace_ledgers_custody_dirs_overlap', error instanceof RefreshError ? error.message : undefined);
+  }
 
   const hiworks = loadRawMailRecords({ dirs: hiworksDirs, source: '하이웍스_수집' });
   const gmail = loadRawMailRecords({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집' });
@@ -218,7 +229,13 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       }
       if (projectResult.vendors.length > 0 || workTags.length > 0) {
         const projectCell = outcome.bucket === 'project' ? outcome.projectCodes.join(';') : whereLabelFor(outcome);
-        const basisCell = projectResult.basis + (projectResult.candidates.length ? ` 후보 ${projectResult.candidates.join(';')}` : '');
+        // `outcome.basisOverride` (organisation_undecided only, spec-per-coordinator
+        // 2026-09-21): the row's basis is always the fixed "거래처(자동)", never
+        // whatever `classifyProjectHits` happened to compute (e.g. a body match
+        // against more than one project) -- this bucket's whole point is "an
+        // organisation is known, a project is not", not a record of why not.
+        const basisCell = outcome.basisOverride
+          ?? (projectResult.basis + (projectResult.candidates.length ? ` 후보 ${projectResult.candidates.join(';')}` : ''));
         for (const vendor of projectResult.vendors) {
           const fileName = vendorFileName(vendor.name);
           put(commonConfig.commonFolderName, fileName,

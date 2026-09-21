@@ -233,7 +233,10 @@ function realDirIdentity(dir) {
   try { real = realpathSync.native(dir); } catch { real = path.resolve(dir); }
   return process.platform === 'win32' ? real.toLowerCase() : real;
 }
-function assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs) {
+// Exported so `common_refresh.mjs`'s classification pass can run the exact same
+// realpath-based overlap guard on the exact same two custody-directory lists, rather
+// than a second, potentially-drifting reimplementation (coordinator, 2026-09-21).
+export function assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs) {
   const hiworksSet = new Set(hiworksDirs.map(realDirIdentity));
   const overlap = gmailSentDirs.find(dir => hiworksSet.has(realDirIdentity(dir)));
   if (overlap) fail('workspace_ledgers_custody_dirs_overlap', path.basename(overlap));

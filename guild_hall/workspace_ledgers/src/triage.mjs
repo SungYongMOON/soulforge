@@ -48,6 +48,15 @@ function buildBodyPreview(bodyText, maxChars) {
  * pass `refreshCommon` would (`common_refresh.mjs`'s `classifyAllCommonMail`) but
  * never writes -- this function's whole contract is "no side effects".
  *
+ * `includeOrganisationUndecided` (default `false`): the default list is truly
+ * unclassified mail only (`bucket === 'unclassified'`). Coordinator correction
+ * (2026-09-21): a mail already filed under a known organisation with no project yet
+ * (`bucket === 'organisation_undecided'`) is a DIFFERENT situation from truly
+ * unclassified mail -- it already has a home (that organisation's ledger), it is just
+ * missing a project. Passing `true` pulls those in too, for a reader who specifically
+ * wants to go decide a project for organisation-filed mail (not the default triage
+ * sweep, which is about mail with no home at all yet).
+ *
  * Returns `{ total, items: [{ mail_source_id, received_at, subject, from, to,
  * attachment_names, body_preview, same_thread_routing, vendors }] }`. `body_preview`
  * strips quote-header/signature lines and is capped at `bodyPreviewChars` (default
@@ -58,16 +67,22 @@ function buildBodyPreview(bodyText, maxChars) {
  */
 export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
   bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null,
-  limit = DEFAULT_LIST_LIMIT, bodyPreviewChars = DEFAULT_BODY_PREVIEW_CHARS, maxParticipants = 6 }) {
+  limit = DEFAULT_LIST_LIMIT, bodyPreviewChars = DEFAULT_BODY_PREVIEW_CHARS, maxParticipants = 6,
+  includeOrganisationUndecided = false }) {
   const boundedLimit = Math.max(0, Math.min(MAX_LIST_LIMIT, Number.isFinite(limit) ? limit : DEFAULT_LIST_LIMIT));
   const pass = classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
     bundleTablePath, vendorTablePath, readingTablePath, workTagTablePath });
-  const unclassified = pass.classified.filter(entry => entry.outcome.bucket === 'unclassified');
+  const wantedBuckets = includeOrganisationUndecided ? new Set(['unclassified', 'organisation_undecided']) : new Set(['unclassified']);
+  const unclassified = pass.classified.filter(entry => wantedBuckets.has(entry.outcome.bucket));
   const items = unclassified.slice(0, boundedLimit).map(entry => {
-    const { mail, projectResult } = entry;
+    const { mail, projectResult, outcome } = entry;
     const routing = [...(pass.threadBuckets.get(normalizeSubject(mail.subject)) ?? [])];
     return {
       mail_source_id: mail.event_id,
+      // 'unclassified' or 'organisation_undecided' -- only meaningful when
+      // `includeOrganisationUndecided` pulled both in; lets a caller tell "no home
+      // yet" apart from "already filed under a vendor, just no project".
+      bucket: outcome.bucket,
       received_at: mail.at,
       subject: mail.subject,
       from: mail.from ? { name: mail.from.name, email: mail.from.email } : null,

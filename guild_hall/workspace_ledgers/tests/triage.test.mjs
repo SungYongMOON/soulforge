@@ -177,3 +177,30 @@ test('a write via appendReadingDecision is reflected by the next classification 
     assert.deepEqual(afterEntry.outcome.projectCodes, ['P00-001']);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+test('listUnclassified (coordinator, 2026-09-21): organisation_undecided mail is excluded by default, included only with includeOrganisationUndecided', () => {
+  const fixture = makeFixture();
+  try {
+    const vendorTablePath = path.join(fixture.root, '거래처_대응표.csv');
+    writeFileSync(vendorTablePath, encodeCsv(['도메인', '거래처명', '구분', '메모'], [['vendor.example', '거래처A', '부품', '']]));
+    writeFileSync(path.join(fixture.hiworksDir, 'events2.jsonl'), jsonl([
+      { event_id: 'v1', subject: '거래처 문의', from: 'sales@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T03:00:00Z', body_text: '', attachments: [] },
+    ]));
+
+    const defaultList = listUnclassified({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, vendorTablePath,
+    });
+    assert.ok(!defaultList.items.some(item => item.mail_source_id === 'v1'));
+    assert.ok(defaultList.items.every(item => item.bucket === 'unclassified'));
+
+    const withOrgUndecided = listUnclassified({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, vendorTablePath, includeOrganisationUndecided: true,
+    });
+    const v1 = withOrgUndecided.items.find(item => item.mail_source_id === 'v1');
+    assert.ok(v1);
+    assert.equal(v1.bucket, 'organisation_undecided');
+    assert.deepEqual(v1.vendors, ['거래처A']);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
