@@ -18,3 +18,13 @@ exact source_revision_ref 4필드, locator, text_sha256으로 고정한다. unit
 결과는 불변 source_digest·span binding·원문 단위·coverage다. 빈 목록은 삭제 지시가 아니다.
 파일/네트워크/DB를 읽거나 source 승인을 발급하지 않는다. grant는 신뢰된 caller의 승인 증언이다.
 전체 source bytes hash는 보존만 하며 실제 검사하는 것은 제공된 unit text의 UTF-8 hash다.
+
+## K2 후보 검사
+
+`checkKnowledgeCandidates({bundle,candidates,now})`는 K1 bundle을 다시 검증한다. candidate는
+statement_id/unit_id/text/quote/impact_kinds/claim 필드만 받는다. claim은 null 또는 subject/key/value의
+검증되지 않은 lint 후보다. text와 원문 속 quote가 NFC·공백 정리 뒤 같을 때 위키에 사용할 수 있다.
+이는 출처가 그 문장을 말했다는 확인일 뿐 의미적 사실 검증·수락은 아니다. 자유 재서술은 미확인이다.
+결정/마감/금액/대외 약속 표지를 모델 태그와 합쳐 검사하고 근거가 약할 때만 exception_required를 낸다.
+구조화 claim은 항상 unverified_lint_candidate이며 사실로 승격하지 않는다. 실패 문장을 수정하지 않는다.
+source 부족·짧은 인용·부정/수치 변경은 원문과 함께 그대로 사유를 반환한다. DB/모델 호출은 없다.
