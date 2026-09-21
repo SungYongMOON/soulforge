@@ -26,7 +26,7 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 - public repo: 기능 코드/구조 문서/public-safe example 만.
 - current legacy `_workmeta/<project>/`는 private metadata-only 포인터·해시·상태, current legacy `_workspaces`는 과거 작업자료다. reference-in-place로 보존하며 과거 metadata를 현재 정본 lineage로 이식하지 않는다.
 - future target `_workspaces`에는 사람이 수락한 정확한 정본 bytes만, target `_workmeta`에는 그 bytes의 lineage만 둔다. 2026-09-12·09-21 Owner 채택으로 과제별 `020_MGMT` 관리 기록(021·023·025·026·027)과 공용/일반업무 폴더 장부, 지식 폴더 회사 PJT 관리 대장 사본은 pointer-only 사본 1개 + target `_workmeta` lineage로 지금 쓸 수 있다. 그 밖은 W-AUTH·빈 정본 시작·해당 legacy freeze 채택 전 target binding/write/materialization 금지다.
-- run·task·수집·worklog는 target에 쓰지 않고 명시된 비정본 control/사람·봇 작업 root를 쓴다. `_workmeta` 생성 전 write guard를 실행하며 문서·메일·첨부 원문 저장은 금지다.
+- run 산출물·수집 원본·장부가 아닌 raw worklog/task 원문은 target에 쓰지 않고 명시된 비정본 control/사람·봇 작업 root를 쓴다(위 Owner 채택 관리 장부는 예외). `_workmeta` 생성 전 write guard를 실행하며 문서·메일·첨부 원문 저장은 금지다.
 - `private-state/`는 cross-project 보호 데이터이며 애매하면 private으로 해석한다.
 - 지식 ontology package 정본은 승인 manifest/hash/revision을 갖춘 Google
   Drive release만, `.registry/knowledge`는 Git 실행 투영, NotebookLM은
