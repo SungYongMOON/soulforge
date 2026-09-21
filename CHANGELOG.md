@@ -12,7 +12,7 @@
   `harness/voice_nightly_shared.mjs`로 옮기고 nightly는 그대로 re-export한다(기존 importer 무변경).
   **(2)** `workspace_ledgers`의 `redactHostPaths`가 `path.basename`을 써서 POSIX 호스트에서는 Windows·UNC 경로를
   역슬래시로 나누지 못했고, Linux CI에서 드라이브 문자 경로가 가려지지 않은 채 남았다. 구분자 둘 다로 직접
-  나누는 `lastPathSegment`로 바꿨다(동작은 Windows에서 동일).
+  나누는 `lastPathSegment`로 바꿨다(Windows 동작은 같고, 드라이브 루트만 있는 경로는 빈 문자열 대신 `D:`가 남는다).
 - 검증: `validate:module-operability` 8/8, 야간·대조 시험 145/145, `validate:workspace-ledgers` 139/139,
   `release/closure.mjs --check` 통과(harness는 고정 closure 밖이라 digest·module_version 불변).
 - 남은 것: 로컬 `done:check`가 deployment-pack에서 멈춰 뒤 단계를 가리는 문제는 그대로다. 병합 전에는 모든
