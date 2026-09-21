@@ -173,11 +173,38 @@ test('classifyAllCommonMail (A2 items 2/5): unreadCount/readUndeterminedCount/no
     assert.equal(pass.noProjectConfirmedCount, 1);
     // Only h-project resolves to the project bucket via an approved subject-rule hit;
     // none of the reading decisions in this fixture have their own Owner확인 filled.
-    assert.equal(pass.searchEligibleAttributions, 1);
+    assert.equal(pass.commonSearchEligibleAttributions, 1);
     // No 공유 (multi-project) mail in this fixture, so the row-sum metric equals the
     // per-mail project bucket count.
     assert.equal(pass.projectAttributionRows, pass.bucketTally.project);
     assert.equal(pass.projectAttributionRows, 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('classifyAllCommonMail (S2, coordinator fresh review round 2): a rule-attributed mail that DOES have a reading-table row is not counted as unread', () => {
+  const fixture = makeFixture();
+  try {
+    // h-project already resolves via project A's own subject rule (step 1) -- adding
+    // a reading-table row for the SAME mail id must not make classification treat it
+    // any differently (a reading decision never overrides a subject-rule hit), but the
+    // mail genuinely now HAS a reading-table row, so it must no longer count as
+    // "미판독" -- the bug: the previous implementation checked
+    // `projectResult.reading`, which `classifyProjectHits` never populates on its
+    // step-1 early return, so this exact case silently miscounted as unread.
+    const readingRows = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    readingRows.rows.push(['h-project', '2026-09-01', '예시 프로젝트 안내', 'hold_owner_review', '', '이미 처리됨', 'tester', '2026-09-21', '']);
+    writeFileSync(fixture.readingTablePath, encodeCsv(readingRows.headers, readingRows.rows));
+
+    const pass = classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath, vendorTablePath: fixture.vendorTablePath,
+      readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+    });
+    // h-project still resolves to project P00-001 via its own subject rule -- a
+    // hold_owner_review row on it changes nothing about attribution.
+    assert.equal(pass.bucketTally.project, 1);
+    // But it is no longer "미판독": one fewer than the base fixture's 10.
+    assert.equal(pass.unreadCount, 9);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -193,7 +220,7 @@ test('refreshCommon (A2 items 2/5): the same counts are threaded into the receip
     assert.equal(receipt.unread_count, 10);
     assert.equal(receipt.read_undetermined_count, 1);
     assert.equal(receipt.no_project_confirmed_count, 1);
-    assert.equal(receipt.search_eligible_attributions, 1);
+    assert.equal(receipt.common_search_eligible_attributions, 1);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 

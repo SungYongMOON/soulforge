@@ -8,9 +8,10 @@
 // the common/general-work folder names) comes from the caller's org config via
 // `buildCommonConfig` -- never hardcoded here, so this module ships no real org data
 // (see `examples/org_config.example.json`'s `common_ledgers` block).
-import { classifyMail, compileTerm, RuleCompileError } from './classifier.mjs';
+import { classifyMail, compileTerm, DEFAULT_MATCH_FIELDS, RuleCompileError } from './classifier.mjs';
 import { domainOf, normalizeSubject, seoulDateOf } from './ledgers.mjs';
 import { isSafeFileName } from './common_ledgers.mjs';
+import { systemSenderPatternsFromConfig } from './mail_events.mjs';
 
 // Suffix `common_refresh.mjs`'s thread-vendor inheritance (spec section 2, S4) appends
 // to `projectResult.basis` when a mail's vendor list came from another mail in the
@@ -178,15 +179,27 @@ export function classifyByOwnerTables({ id, subject, at = null }, { bundles, rea
  * `include`/`include_with_review` reading row naming an unknown code (it already fell
  * through to the generic "판독: 보류"-shaped branch below before this fix; now that
  * fall-through is also counted, not just silently absorbed).
+ *
+ * D-a/D-b (coordinator, fresh review round 2): this is THE one function that runs the
+ * whole classification order 1-5 for a mail -- `refresh()`'s own project-ledger
+ * attribution calls it directly now (no separate, narrower step-1-only classifier of
+ * its own any more), so no path can run step 1 with different inputs. `fields`
+ * (new, default `DEFAULT_MATCH_FIELDS` = subject only) restricts which of a rule's
+ * own declared `match_fields` step 1 actually consults -- previously hardcoded to
+ * `['subject']` unconditionally here; now the SAME caller-supplied restriction
+ * `refresh()`'s own `fields` param (and `previewRule`'s) already uses, so a caller
+ * that widens it (`--fields all`) widens step 1 identically in both places. Step 4
+ * (body) is unaffected by `fields` -- it is always tested against `body_text` alone,
+ * per its own narrower (vendor-gated) contract, matching D-b.
  */
-export function classifyProjectHits({ id, subject, body, addresses, at = null }, { compiledRules, bundles, readings, vendorLookup }) {
+export function classifyProjectHits({ id, subject, body, addresses, at = null }, { compiledRules, bundles, readings, vendorLookup, fields = DEFAULT_MATCH_FIELDS }) {
   const vendors = vendorsOfAddresses(addresses, vendorLookup);
   const bodyOk = vendors.some(vendor => !SUPPLIER_KIND_EXCLUDE.test(vendor.kind));
   const knownCode = code => compiledRules.some(rule => rule.project_code === code);
 
   // Step 1: the project's own title rule. Two projects' exact triggers on the same
   // subject means held -- never automatic attribution.
-  const titleResult = classifyMail({ subject, body_text: '', attachment_names: [] }, compiledRules, { fields: ['subject'] });
+  const titleResult = classifyMail({ subject, body_text: '', attachment_names: [] }, compiledRules, { fields });
   if (titleResult.hits.length === 1) {
     return { hits: titleResult.hits, held: false, basis: '제목', vendors, candidates: [], unknownBundleTarget: false, unknownReadingTarget: false };
   }
@@ -309,6 +322,58 @@ function compileLabeledPatternList(list, configKeyPrefix) {
 function lowerSet(list) { return new Set((Array.isArray(list) ? list : []).map(value => String(value).toLowerCase())); }
 
 /**
+ * D-d (coordinator, fresh review round 2): the ONE merged system-sender check, built
+ * from BOTH existing org-config keys -- `common_ledgers.system_notification_sources`
+ * (named/labelled sources, each with its own sender-domain set and subject patterns --
+ * what `resolvePrimaryBucket` already consulted) and the legacy top-level
+ * `system_sender_domains` (a flat domain array -- previously consulted ONLY by
+ * `refresh()`'s own custody pre-filter via `mail_events.mjs`'s
+ * `systemSenderPatternsFromConfig`, never by the common pipeline at all). Both keys
+ * are still accepted, for compatibility with whichever an org config already uses;
+ * this is the one place that reads either of them for "is this a system sender".
+ *
+ * A match against a NAMED source keeps that source's own name (its own
+ * `시스템알림_<name>.csv` bucket, unchanged). A match against the legacy list alone
+ * (no specific named source) routes to the generic `기타알림` bucket -- the same file
+ * name `resolveReadingDecision`'s manual `알림` exclude target already uses, so a
+ * legacy-only match and an Owner's explicit "이건 그냥 알림이다" decision land in the
+ * same ledger.
+ */
+export function buildSystemSenderConfig(orgConfig) {
+  const config = orgConfig?.common_ledgers ?? {};
+  const systemSources = (Array.isArray(config.system_notification_sources) ? config.system_notification_sources : [])
+    .filter(source => source && typeof source.name === 'string' && source.name.trim() !== '')
+    .map((source, index) => ({
+      name: source.name, senderDomains: lowerSet(source.sender_domains),
+      subjectPatterns: compilePatternList(source.subject_patterns, `common_ledgers.system_notification_sources[${index}].subject_patterns`),
+    }));
+  return { systemSources, legacyPatterns: systemSenderPatternsFromConfig(orgConfig) };
+}
+
+/**
+ * The system-notification source name a mail belongs to (a configured source's own
+ * name, or the generic `기타알림` for a legacy-domain-only match), or `null` when
+ * neither list matches. `mail` needs `{ fromDomain, from: { email }, subject }`.
+ *
+ * D-d: this is the single detection point both `resolvePrimaryBucket` (via
+ * `detectSystemSource`, below) and `refresh()`'s own post-classification system-sender
+ * accounting call identically -- a mail one path would have judged "system" is system
+ * for the other too. Deliberately never called BEFORE the one classification function
+ * (`classifyProjectHits`) has run for a mail -- see that function's own D-a/D-b note,
+ * and `refresh.mjs`'s classification loop -- so an explicit reading/bundle decision on
+ * a system-sender mail (steps 1-3) is never pre-empted by this check.
+ */
+export function detectSystemSender(mail, systemSenderConfig) {
+  for (const source of systemSenderConfig.systemSources) {
+    if (source.senderDomains.has(mail.fromDomain)) return source.name;
+    if (source.subjectPatterns.some(term => term.test(mail.subject))) return source.name;
+  }
+  const fromEmail = mail.from?.email ?? '';
+  if (systemSenderConfig.legacyPatterns.some(pattern => pattern.test(fromEmail))) return '기타알림';
+  return null;
+}
+
+/**
  * Precompiles `orgConfig.common_ledgers` (spec section 3's last bullet: every
  * org-specific pattern/folder-name lives in the private org config, never hardcoded
  * here) into ready-to-use lookups. Every field has a safe, inert default (empty
@@ -328,15 +393,17 @@ export function buildCommonConfig(orgConfig) {
     ? config.general_work_folder_name : 'general_work_일반업무';
   requireSafeFolderName(commonFolderName, 'common_ledgers.common_folder_name');
   requireSafeFolderName(generalWorkFolderName, 'common_ledgers.general_work_folder_name');
+  // D-d: the merged system-sender check (named sources + legacy domain list) is built
+  // once here via `buildSystemSenderConfig` -- see that function's own doc -- and
+  // folded into this return so every existing reader of `commonConfig.systemSources`
+  // (this function's own long-standing field) is unaffected; `legacySystemSenderPatterns`
+  // is new.
+  const systemSenderConfig = buildSystemSenderConfig(orgConfig);
   return {
     commonFolderName, generalWorkFolderName,
     knowledgeFolderNames: lowerSet(config.knowledge_folder_names),
-    systemSources: (Array.isArray(config.system_notification_sources) ? config.system_notification_sources : [])
-      .filter(source => source && typeof source.name === 'string' && source.name.trim() !== '')
-      .map((source, index) => ({
-        name: source.name, senderDomains: lowerSet(source.sender_domains),
-        subjectPatterns: compilePatternList(source.subject_patterns, `common_ledgers.system_notification_sources[${index}].subject_patterns`),
-      })),
+    systemSources: systemSenderConfig.systemSources,
+    legacySystemSenderPatterns: systemSenderConfig.legacyPatterns,
     adsSenderDomains: lowerSet(config.ads_sender_domains),
     adsSenderKeywords: [...lowerSet(config.ads_sender_keywords)],
     adsSubjectPatterns: compilePatternList(config.ads_subject_patterns, 'common_ledgers.ads_subject_patterns'),
@@ -352,13 +419,15 @@ function firstLabelMatch(patterns, subject) {
   return found ? found.label : null;
 }
 
-/** The system-notification source name a mail belongs to, or `null`. */
+/**
+ * The system-notification source name a mail belongs to, or `null`. A thin wrapper
+ * over `detectSystemSender` using `commonConfig`'s own already-built
+ * `systemSources`/`legacySystemSenderPatterns` -- kept as its own named export
+ * (`resolvePrimaryBucket` and this module's own tests already call it this way) so
+ * `buildCommonConfig`'s existing shape does not need to change at every call site.
+ */
 export function detectSystemSource(mail, commonConfig) {
-  for (const source of commonConfig.systemSources) {
-    if (source.senderDomains.has(mail.fromDomain)) return source.name;
-    if (source.subjectPatterns.some(term => term.test(mail.subject))) return source.name;
-  }
-  return null;
+  return detectSystemSender(mail, { systemSources: commonConfig.systemSources, legacyPatterns: commonConfig.legacySystemSenderPatterns });
 }
 
 function isAds(mail, commonConfig) {

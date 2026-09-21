@@ -97,13 +97,25 @@ function buildBodyPreview(bodyText, maxChars) {
  * wants to go decide a project for organisation-filed mail (not the default triage
  * sweep, which is about mail with no home at all yet).
  *
- * Returns `{ total, items: [{ mail_source_id, received_at, subject, from, to,
- * attachment_names, body_preview, same_thread_routing, vendors }] }`. `body_preview`
- * strips quote-header/signature lines and is capped at `bodyPreviewChars` (default
- * 400) -- private mail content; a caller must keep this off any receipt/log the same
- * way `previewRule`'s `samples` already is (see `refresh.mjs`'s doc on that). `to` is
+ * Returns `{ total, items: [...], owner_table_failures }`. `body_preview` strips
+ * quote-header/signature lines and is capped at `bodyPreviewChars` (default 400) --
+ * private mail content; a caller must keep this off any receipt/log the same way
+ * `previewRule`'s `samples` already is (see `refresh.mjs`'s doc on that). `to` is
  * capped to the first `maxParticipants` (default 6) names to keep a very large
  * recipient list from dominating the preview.
+ *
+ * `owner_table_failures` (S6, coordinator fresh review round 2): the same `{table,
+ * code}` list `refreshCommon`'s own receipt carries. A malformed Owner table degrades
+ * classification the exact same way it does for `refreshCommon` (mail that used to
+ * route via that table lands in a different bucket instead) -- silently handing a
+ * reader a WRONG triage list is worse than refusing outright, so by default this
+ * function throws `workspace_ledgers_triage_owner_table_failures` when
+ * `ownerTableFailures` is non-empty, naming the failing table(s), rather than
+ * returning a list it cannot vouch for. `allowDegradedOwnerTables: true` opts back
+ * into the old (degraded but returning) behaviour explicitly, mirroring
+ * `refreshCommon`'s own `allowDegradedOwnerTables` -- and `owner_table_failures` is
+ * still present on the returned object in that case, so a caller that opted in can
+ * still tell.
  */
 /**
  * S8/S3 (fresh non-author review, 2026-09-21): why an `unclassified`/
@@ -115,6 +127,18 @@ function buildBodyPreview(bodyText, maxChars) {
 function alreadyDecidedInvalidReason(projectResult) {
   const reading = projectResult.reading;
   if (!reading) return null;
+  // S5 (coordinator, fresh review round 2): an unrecognised 결정 token (neither empty
+  // nor a case-insensitive match of any of the five recognised levels --
+  // `owner_tables.mjs`'s `buildReadingTable`/S9 keeps it AS TYPED rather than
+  // coercing it) used to fall through this function silently, reaching
+  // `appendReadingDecision`'s own duplicate-id refusal with no explanation -- a
+  // reader/AI calling this API again for the same mail id got only "already
+  // decided", with no way to tell that the EXISTING row is the actual problem (a typo
+  // in the 결정 cell that needs a person to fix by hand, not a real decision at all).
+  // Checked first, before any of the specific-level branches below -- an invalid
+  // level string never happens to equal one of the five recognised ones, so this
+  // never shadows a genuine case.
+  if (!READING_LEVELS.includes(reading.level)) return 'invalid_decision_level';
   if (reading.level === 'vendor_only' && projectResult.vendors.length === 0) return 'vendor_only_without_organisation';
   if (reading.level === 'exclude') return 'unroutable_exclude_target';
   if (projectResult.unknownReadingTarget) return 'unknown_reading_target';
@@ -124,10 +148,15 @@ function alreadyDecidedInvalidReason(projectResult) {
 export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
   bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null,
   limit = DEFAULT_LIST_LIMIT, bodyPreviewChars = DEFAULT_BODY_PREVIEW_CHARS, maxParticipants = 6,
-  includeOrganisationUndecided = false }) {
+  includeOrganisationUndecided = false, allowDegradedOwnerTables = false }) {
   const boundedLimit = Math.max(0, Math.min(MAX_LIST_LIMIT, Number.isFinite(limit) ? limit : DEFAULT_LIST_LIMIT));
   const pass = classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
     bundleTablePath, vendorTablePath, readingTablePath, workTagTablePath });
+  // S6: refuse rather than silently hand back a list computed against a known-broken
+  // table, unless the caller explicitly opts into the degraded view.
+  if (pass.ownerTableFailures.length > 0 && !allowDegradedOwnerTables) {
+    fail('workspace_ledgers_triage_owner_table_failures', pass.ownerTableFailures.map(entry => entry.table).join(','));
+  }
   const wantedBuckets = includeOrganisationUndecided ? new Set(['unclassified', 'organisation_undecided']) : new Set(['unclassified']);
   const unclassified = pass.classified.filter(entry => wantedBuckets.has(entry.outcome.bucket));
   const items = unclassified.slice(0, boundedLimit).map(entry => {
@@ -159,7 +188,7 @@ export function listUnclassified({ workspacesRoot, hiworksDirs, gmailSentDirs, o
       vendors: projectResult.vendors.map(vendor => vendor.name),
     };
   });
-  return { total: unclassified.length, items };
+  return { total: unclassified.length, items, owner_table_failures: pass.ownerTableFailures };
 }
 
 // A2 item 2 (rename, 2026-09-21 night addition): '과제미정' is the current token for
@@ -206,12 +235,22 @@ function sha256Hex(text) { return createHash('sha256').update(text).digest('hex'
  * (`workspace_ledgers_triage_include_requires_human_reader`) -- an AI reader's
  * positive attribution must start at `include_with_review`, never the stronger
  * `include`, which this codebase treats the same as an Owner-confirmed subject-rule
- * hit (`refresh.mjs`'s `search_eligible_attributions`, A2 item 5). Omitted (the
- * default, `null`), no restriction applies -- unchanged from before this addition, so
- * an existing caller that never passes it keeps exactly today's behaviour.
+ * hit (`refresh.mjs`'s `project_search_eligible_attributions`, A2 item 5). Omitted
+ * (the default, `null`), no restriction applies -- unchanged from before this
+ * addition, so an existing caller that never passes it keeps exactly today's
+ * behaviour.
+ *
+ * `receivedAt`/`subject` (nit, coordinator fresh review round 2, both optional):
+ * fill the 수신일/제목 columns from the mail actually being decided -- previously
+ * always written empty, which made the Owner-facing table unreadable (every row
+ * showed only an opaque mail-source id). `subject` is capped the same way `why`/
+ * `target` already are. A caller with no convenient subject/date at hand (or a test
+ * fixture, which stays synthetic per the private-plane-only scope of this change)
+ * simply omits them -- both default to `''`, matching the previous, always-empty
+ * behaviour exactly.
  */
 export function appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath = null, id, level, target, why, reader,
-  humanActors = null, now = new Date().toISOString() }) {
+  receivedAt = '', subject = '', humanActors = null, now = new Date().toISOString() }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (typeof readingTablePath !== 'string' || readingTablePath.trim() === '') fail('workspace_ledgers_reading_table_path_required');
   if (typeof id !== 'string' || id.trim() === '') fail('workspace_ledgers_triage_id_required');
@@ -260,7 +299,9 @@ export function appendReadingDecision({ workspacesRoot, readingTablePath, lineag
       if (rows.some(row => row[0] === id)) fail('workspace_ledgers_triage_decision_duplicate', id);
     }
 
-    const newRow = [id, '', '', level, targetText, why, reader, now.slice(0, 10), ''];
+    const receivedAtText = String(receivedAt ?? '').trim().slice(0, MAX_WHY_LENGTH);
+    const subjectText = String(subject ?? '').trim().slice(0, MAX_WHY_LENGTH);
+    const newRow = [id, receivedAtText, subjectText, level, targetText, why, reader, now.slice(0, 10), ''];
     const nextRows = [...rows, newRow];
     const newText = encodeCsv(headers, nextRows);
 

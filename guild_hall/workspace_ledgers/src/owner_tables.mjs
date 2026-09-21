@@ -34,6 +34,21 @@ export const READING_LEVELS = Object.freeze(['include', 'include_with_review', '
 
 const REPLACEMENT_CHARACTER = '�';
 
+// S4 (coordinator, fresh review round 2): `적용끝` must be a real calendar date in
+// YYYY-MM-DD shape, not merely digits-and-dashes -- "2026-13-40" is shape-valid but
+// not a real date, and a broken/garbage value must never be silently treated as "no
+// cutoff" (unlimited) or compared lexically against a mail's own date (which can give
+// a wrong yes/no answer that looks like a correct one). `Date.UTC` normalises an
+// out-of-range month/day (rolling June 31 into July 1, say) rather than rejecting it,
+// so the round-trip check below is what actually catches that shape.
+const CALENDAR_DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/u;
+export function isValidCalendarDateString(value) {
+  if (typeof value !== 'string' || !CALENDAR_DATE_SHAPE.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 /**
  * Reads and strictly validates one Owner table CSV against its expected header.
  * `expectedHeaders` is normally a single header array (unchanged for the vendor/
@@ -182,7 +197,20 @@ export function loadOwnerTables({ bundleTablePath = null, vendorTablePath = null
   };
   // A2 item 1: try the current 5-column shape first, fall back to the legacy 4-column
   // shape -- `readOwnerTable` matches whichever the file's own header row actually is.
-  const bundleResult = load(bundleTablePath, [BUNDLE_HEADERS_V2, BUNDLE_HEADERS], '묶음_확정표.csv');
+  let bundleResult = load(bundleTablePath, [BUNDLE_HEADERS_V2, BUNDLE_HEADERS], '묶음_확정표.csv');
+  // S4 (coordinator, fresh review round 2): a `적용끝` cell present (5-column shape
+  // only -- `'적용끝' in row` is `false` for every row under the legacy 4-column
+  // shape) but not a real YYYY-MM-DD calendar date fails the WHOLE bundle table
+  // closed, the same as a header/encoding/row-shape problem -- never silently
+  // ignored per-row (which would look identical to a genuine blank cell, "applies
+  // indefinitely") and never compared as if it were a valid date anyway.
+  if (bundleResult.ok) {
+    const badRow = bundleResult.rows.find(row => '적용끝' in row && row['적용끝'].trim() !== '' && !isValidCalendarDateString(row['적용끝'].trim()));
+    if (badRow) {
+      bundleResult = { present: true, ok: false, code: 'workspace_ledgers_owner_table_bundle_apply_until_invalid' };
+      failures.push({ table: '묶음_확정표.csv', code: bundleResult.code });
+    }
+  }
   const vendorResult = load(vendorTablePath, VENDOR_HEADERS, '거래처_대응표.csv');
   const readingResult = load(readingTablePath, READING_HEADERS, '판독_결정표.csv');
   const workTagResult = load(workTagTablePath, WORKTAG_HEADERS, '작업태그_목록.csv');

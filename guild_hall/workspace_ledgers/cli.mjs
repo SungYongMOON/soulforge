@@ -34,7 +34,7 @@
 // config would (fresh-review-3 #6); omitted, only the built-in default list applies.
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { MATCH_FIELDS } from './src/classifier.mjs';
+import { DEFAULT_MATCH_FIELDS, MATCH_FIELDS } from './src/classifier.mjs';
 import { previewRule, refresh, RefreshError } from './src/refresh.mjs';
 import { listProjects, RuleStoreError, saveRuleVersion } from './src/rule_store.mjs';
 import { classifyAllCommonMail, CommonRefreshError, refreshCommon } from './src/common_refresh.mjs';
@@ -65,9 +65,14 @@ function requireFlag(flags, name) {
   return value;
 }
 
+// D-b (coordinator, fresh review round 2): `--fields` OMITTED now defaults to subject
+// only (`DEFAULT_MATCH_FIELDS`), matching step 1's own new default (never body/
+// attachment_names unless a rule or a caller explicitly widens it) -- `--fields all`
+// still opts into the full `MATCH_FIELDS` enum explicitly.
 function fieldsOf(flags) {
   const raw = flags.get('fields');
-  if (raw === undefined || raw === 'all') return MATCH_FIELDS;
+  if (raw === undefined) return DEFAULT_MATCH_FIELDS;
+  if (raw === 'all') return MATCH_FIELDS;
   if (raw === 'subject') return ['subject'];
   usageError(`--fields must be "subject" or "all", got "${raw}"`);
   return null;
@@ -118,11 +123,16 @@ function runRefresh(flags) {
   const bundleTablePath = typeof bundleTableRaw === 'string' ? bundleTableRaw : null;
   const readingTableRaw = flags.get('reading-table');
   const readingTablePath = typeof readingTableRaw === 'string' ? readingTableRaw : null;
+  // D-a (coordinator, fresh review round 2): needed for step 4 (a supplier-type
+  // vendor mail whose body contains exactly one project's exact keyword) to
+  // attribute anything here -- omitted, step 4 never fires (see `refresh()`'s own doc).
+  const vendorTableRaw = flags.get('vendor-table');
+  const vendorTablePath = typeof vendorTableRaw === 'string' ? vendorTableRaw : null;
   const allowDegradedOwnerTables = flags.get('allow-degraded-owner-tables') === true || flags.get('allow-degraded-owner-tables') === 'true';
   try {
     const receipt = refresh({ workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents],
       orgConfigPath, projects, fields, dry, receiptsDir, allowEmpty, allowPartialSources,
-      bundleTablePath, readingTablePath, allowDegradedOwnerTables });
+      bundleTablePath, readingTablePath, vendorTablePath, allowDegradedOwnerTables });
     console.log(JSON.stringify(receipt));
     // S-6: `status: 'failed'` has more than one possible cause now -- branch on which
     // one(s) actually applied instead of always naming `ledger_failures` (which is
@@ -298,6 +308,26 @@ function realVendorOnlyCount(baseDir) {
   return anyFound ? total : null;
 }
 
+// R3 (coordinator, fresh review round 2): A2 item 2 renamed the on-disk bucket file
+// from `과제없음_확인함.csv` to `판독_과제미정.csv`; this parity check kept reading the
+// OLD name, which would silently under-report (or read stale content) forever on a
+// plane refreshed with the current code. Reads the NEW name; falls back to the OLD
+// name only when the new one is not present at all -- a plane that has not been
+// refreshed since the rename yet still has something meaningful to compare against.
+// The comparison KEY stays `no_code_confirmed` -- it is not a display label but the
+// exact `PRIMARY_BUCKETS`/`bucketTally` identifier `moduleCountFor` (below) looks up
+// by, and that identifier was never renamed (only the ON-DISK FILE name changed in
+// A2 item 2) -- so there is no separate "old key" to alias here; this comment is the
+// explicit record of that, so a future reader does not go looking for one.
+const NO_CODE_CONFIRMED_FILE_NAME = '판독_과제미정.csv';
+const LEGACY_NO_CODE_CONFIRMED_FILE_NAME = '과제없음_확인함.csv';
+function realNoCodeConfirmedCount(commonBase) {
+  const currentPath = path.join(commonBase, NO_CODE_CONFIRMED_FILE_NAME);
+  const currentCount = realRowCount(currentPath);
+  if (currentCount !== null) return currentCount;
+  return realRowCount(path.join(commonBase, LEGACY_NO_CODE_CONFIRMED_FILE_NAME));
+}
+
 function runParity(flags) {
   const workspacesRoot = requireFlag(flags, 'workspaces-root');
   const hiworksEvents = requireFlag(flags, 'hiworks-events');
@@ -315,7 +345,7 @@ function runParity(flags) {
       project: realProjectMailCount(workspacesRoot),
       unclassified: realRowCount(path.join(commonBase, '미분류.csv')),
       code_pending: realRowCount(path.join(commonBase, '과제코드대기.csv')),
-      no_code_confirmed: realRowCount(path.join(commonBase, '과제없음_확인함.csv')),
+      no_code_confirmed: realNoCodeConfirmedCount(commonBase),
       general_work: realRowCount(path.join(generalWorkBase, '일반업무_메일.csv')),
       vendor_only: realVendorOnlyCount(commonBase),
     };
@@ -358,10 +388,14 @@ function runTriageList(flags) {
   // (coordinator, 2026-09-21) -- a different, opt-in sweep.
   const includeOrganisationUndecided = flags.get('include-organisation-undecided') === true
     || flags.get('include-organisation-undecided') === 'true';
+  // S6 (coordinator, fresh review round 2): omitted (the default), a malformed Owner
+  // table refuses the whole call (see `listUnclassified`'s own doc) -- pass this to
+  // opt back into the old (degraded but returning) behaviour explicitly.
+  const allowDegradedOwnerTables = flags.get('allow-degraded-owner-tables') === true || flags.get('allow-degraded-owner-tables') === 'true';
   try {
     const result = listUnclassified({
       workspacesRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], orgConfigPath,
-      ...commonTablesFromFlags(flags), ...(limit !== undefined ? { limit } : {}), includeOrganisationUndecided,
+      ...commonTablesFromFlags(flags), ...(limit !== undefined ? { limit } : {}), includeOrganisationUndecided, allowDegradedOwnerTables,
     });
     // `list`'s default output carries subject/names (spec section 7) -- printed to
     // stdout only, never written to a receipts/log file by this command.
@@ -371,7 +405,13 @@ function runTriageList(flags) {
       console.log(`- [${item.bucket}] ${item.mail_source_id} ${item.received_at} ${item.subject} | ${item.from?.name ?? item.from?.email ?? ''}`);
     }
   } catch (error) {
+    // S6: a non-zero exit with a clear reason -- `workspace_ledgers_triage_owner_table_
+    // failures` names the failing table(s) in `error.message` (see `TriageError`'s own
+    // `code: detail` message shape).
     console.error(`workspace_ledgers_triage_list_failed: ${error.code ?? error.message}`);
+    if (error?.code === 'workspace_ledgers_triage_owner_table_failures') {
+      console.error('-- pass --allow-degraded-owner-tables to proceed with a degraded list');
+    }
     process.exitCode = 3;
   }
 }
@@ -393,8 +433,17 @@ function runTriageDecide(flags) {
   // restriction applies, matching today's behaviour exactly.
   const humanActorsRaw = flags.get('human-actors');
   const humanActors = typeof humanActorsRaw === 'string' ? humanActorsRaw.split(',').map(item => item.trim()).filter(Boolean) : null;
+  // nit (coordinator, fresh review round 2): fills 수신일/제목 in the written row when
+  // the caller (a lane wrapper that already has this from its own `triage list` call)
+  // supplies them -- omitted (the default), both stay empty, unchanged from before.
+  const receivedAtRaw = flags.get('received-at');
+  const receivedAt = typeof receivedAtRaw === 'string' ? receivedAtRaw : '';
+  const subjectRaw = flags.get('subject');
+  const subject = typeof subjectRaw === 'string' ? subjectRaw : '';
   try {
-    const result = appendReadingDecision({ workspacesRoot, readingTablePath, lineagePath, id, level, target, why, reader, humanActors });
+    const result = appendReadingDecision({
+      workspacesRoot, readingTablePath, lineagePath, id, level, target, why, reader, humanActors, receivedAt, subject,
+    });
     console.log(JSON.stringify(result));
   } catch (error) {
     console.error(`workspace_ledgers_triage_decide_failed: ${error.code ?? error.message}`);

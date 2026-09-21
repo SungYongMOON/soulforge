@@ -4,7 +4,7 @@
   "folder_name": "P00-001_예시과제",
   "rule_version": "v1",
   "status": "draft_open_items",
-  "match_fields": ["subject", "body_text", "attachment_names"],
+  "match_fields": ["subject"],
   "case_insensitive_literals": true,
   "exact": [
     { "label": "P00-001", "kind": "literal", "value": "P00-001" },

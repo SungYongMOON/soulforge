@@ -54,6 +54,18 @@ test('classifyByOwnerTables (A2 item 1): a bundle row past its own 적용끝 doe
   assert.equal(afterCutoff.decided, false); // no reading row either, so nothing decided at all
 });
 
+test('classifyByOwnerTables (S4, coordinator fresh review round 2): the tight UTC boundary around the Seoul-calendar cutoff day', () => {
+  const bundles = [{ phrase: '분기 회의', codes: ['P00-001'], why: 'Owner 확인', appliesUntil: '2026-09-15' }];
+  const knownCode = code => code === 'P00-001';
+  // 2026-09-15T14:59:59Z is 2026-09-15 23:59:59 KST -- still the cutoff day itself.
+  const stillOnDay = classifyByOwnerTables({ id: 'm1', subject: '2026 분기 회의 자료', at: '2026-09-15T14:59:59Z' }, { bundles, readings: new Map(), knownCode });
+  assert.equal(stillOnDay.decided, true);
+  // 2026-09-15T15:00:00Z is 2026-09-16 00:00:00 KST -- one second later in UTC, but
+  // already the NEXT Seoul calendar day, past the cutoff.
+  const nextDay = classifyByOwnerTables({ id: 'm2', subject: '2026 분기 회의 자료', at: '2026-09-15T15:00:00Z' }, { bundles, readings: new Map(), knownCode });
+  assert.equal(nextDay.decided, false);
+});
+
 test('classifyByOwnerTables (A2 item 1): appliesUntil: null (legacy table, or a blank cell) applies indefinitely regardless of `at`', () => {
   const bundles = [{ phrase: '분기 회의', codes: ['P00-001'], why: 'Owner 확인', appliesUntil: null }];
   const knownCode = code => code === 'P00-001';

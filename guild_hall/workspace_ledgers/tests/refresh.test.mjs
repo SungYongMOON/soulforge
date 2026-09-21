@@ -681,8 +681,12 @@ test('refresh (fresh-review-2 #9): the lock blocks a second caller using a *diff
 test('refresh (fresh-review-3 #11): system_sender_domains from the org config MERGES into the built-in skip list, never replaces it', () => {
   const fixture = makeFixture();
   try {
+    // D-d (coordinator, fresh review round 2): the subject deliberately carries NO
+    // project keyword -- this test is specifically about the system-sender MERGE, not
+    // about the (now correct, see the dedicated D-d test below) precedence a genuine
+    // classification signal has over the system-sender skip.
     writeFileSync(path.join(fixture.hiworksDir, 'vendor.jsonl'), jsonl([
-      { event_id: 'v1', subject: '[P00-001] 예시장비 알림', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'v1', subject: '정기 안내 메일', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
     ]));
     writeFileSync(fixture.orgConfigPath, JSON.stringify({
       our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
@@ -696,6 +700,25 @@ test('refresh (fresh-review-3 #11): system_sender_domains from the org config ME
     assert.equal(receipt.skipped_system, 2);
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.mails, 2); // unchanged from the base fixture (h1 + g1) -- v1 did not attribute
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (D-d, coordinator fresh review round 2): a mail from a system-sender domain is still attributed when its OWN subject matches a project rule -- classification runs before the system-sender check, never the other way around', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'vendor.jsonl'), jsonl([
+      { event_id: 'v2', subject: '[P00-001] 예시장비 알림', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:30:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
+      system_sender_domains: ['vendor.example'],
+    }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.mails, 3); // h1 + g1 + v2 -- v2 attributed despite its system-sender domain
+    assert.equal(receipt.skipped_system, 1); // only h3 (slack) -- v2 was never a candidate for this count
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -1614,7 +1637,7 @@ test('refresh (A1): a reading-table include_with_review row attributes with "(�
 
     // Owner확인-filled reading decisions are search-eligible (A2 item 5); the
     // include_with_review row above has no Owner확인 and is not.
-    assert.ok(receipt.search_eligible_attributions >= 1);
+    assert.ok(receipt.project_search_eligible_attributions >= 1);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 

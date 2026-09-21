@@ -3,15 +3,20 @@
 // to[], cc[], received_at, body_text, attachments[], event_id) and classifies each
 // event against compiled mail-routing rules in the same pass.
 //
-// Only event metadata (subject, participants, attachment count, classification) ever
-// leaves this module. `body_text` and attachment names are read solely to build the
-// text a rule's `match_fields` are tested against; both fall out of scope before this
-// module returns -- no caller ever receives mail body text or attachment names/bytes
-// from here.
+// `loadMailEvents` (used only by `previewRule` now, D-c/D-a coordinator decision):
+// only event metadata (subject, participants, attachment count, classification) ever
+// leaves it. `body_text` and attachment names are read solely to build the text a
+// rule's `match_fields` are tested against; both fall out of scope before it returns.
+// The lower-level pieces it is now built from -- `collectCandidatesFromDirs` and
+// `dedupeAndAssignIds`, both exported -- do NOT carry that same restriction: they are
+// the shared custody-reading/id-derivation primitives `common_events.mjs`'s loader
+// (the one both `refresh()` and the common pipeline read through) also uses, and that
+// loader's whole purpose requires keeping `body_text` (spec section 1 step 4's
+// supplier-body confirmation, now run by `refresh()` too -- D-a).
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { classifyMail, MATCH_FIELDS, MAX_BODY_TEXT_CHARS } from './classifier.mjs';
+import { classifyMail, DEFAULT_MATCH_FIELDS, MAX_BODY_TEXT_CHARS } from './classifier.mjs';
 import { normalizeSubject } from './ledgers.mjs';
 
 export const DEFAULT_SYSTEM_SENDER_PATTERNS = Object.freeze([
@@ -88,14 +93,41 @@ function isSkippedSubject(subject, patterns) {
 }
 
 /**
+ * D-d (coordinator, fresh review round 2): the legacy org-config key
+ * `system_sender_domains` (a flat array of domains -- historically the ONLY
+ * system-sender signal `refresh()`'s own custody loading consulted) merges into the
+ * built-in `DEFAULT_SYSTEM_SENDER_PATTERNS` list here, in ONE function, so both this
+ * loader's own (now-optional, see `loadMailEvents`'s own doc) pre-filter AND
+ * `common_classifier.mjs`'s `buildSystemSenderConfig` (the common pipeline's own
+ * system-sender check, folded into the ONE classification function's downstream
+ * bucket resolution) read the exact same merged legacy-domain list -- moved here
+ * (previously a `refresh.mjs`-private function) so `common_classifier.mjs` can import
+ * it without a circular dependency (this module never imports from either).
+ * `common_ledgers.system_notification_sources` (the OTHER existing org-config key,
+ * named/labelled sources) is a separate, additional signal folded in by
+ * `buildSystemSenderConfig` itself, not here -- this function only ever produces the
+ * legacy, unnamed-domain half of the merge.
+ */
+export function systemSenderPatternsFromConfig(orgConfig) {
+  const domains = Array.isArray(orgConfig?.system_sender_domains)
+    ? orgConfig.system_sender_domains.filter(domain => typeof domain === 'string' && domain.trim() !== '')
+    : [];
+  if (domains.length === 0) return DEFAULT_SYSTEM_SENDER_PATTERNS;
+  const escaped = domains.map(domain => domain.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'));
+  return [...DEFAULT_SYSTEM_SENDER_PATTERNS, new RegExp(`@(${escaped.join('|')})$`, 'iu')];
+}
+
+/**
  * S12: normalises a custody timestamp to a canonical UTC instant (`Date#toISOString`)
  * so every later comparison (sort, `<`/`>` for first/last-seen, `localeCompare`) is a
  * true chronological comparison rather than a lexical one -- a lexical comparison of
  * mixed `+09:00`/`Z` timestamps is wrong (a later UTC instant can sort as an earlier
  * string). An unparseable value passes through unchanged rather than being dropped;
- * downstream sort/compare on it is best-effort, not a hard failure.
+ * downstream sort/compare on it is best-effort, not a hard failure. Exported (D-c,
+ * coordinator) so `common_events.mjs`'s loader normalises a custody timestamp
+ * identically, rather than a second, potentially-drifting copy.
  */
-function normalizeTimestamp(raw) {
+export function normalizeTimestamp(raw) {
   if (typeof raw !== 'string' || raw.trim() === '') return '';
   const parsed = Date.parse(raw);
   return Number.isNaN(parsed) ? raw : new Date(parsed).toISOString();
@@ -244,11 +276,50 @@ function collisionSuffix(fingerprint) {
  * (S12). N-4: `body_text` is capped to `MAX_BODY_TEXT_CHARS` the moment it is read off
  * a candidate, not merely at match time -- candidates held in memory for the whole
  * pass never carry more of a body than matching could ever consult anyway.
+ *
+ * D-c (coordinator, fresh review round 2): the raw-candidate reading and the
+ * id-derivation/dedup/collision logic below are factored into `collectCandidatesFromDirs`
+ * and `dedupeAndAssignIds` (both exported) so `common_events.mjs`'s loader -- the one
+ * `refresh()` and the common pipeline both now read custody through -- uses the exact
+ * SAME synthetic-id recipe and collision-suffix rule this function always has, not a
+ * second, simpler one that could assign a different id to the same no-`event_id` mail.
+ * This function is now used only by `previewRule` (a per-rule comparison tool, not a
+ * second production classifier); its own system-sender/skip-subject pre-filter is
+ * unaffected by that split and still applies only here.
  */
-export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIELDS,
+export function loadMailEvents({ dirs, source, compiledRules, fields = DEFAULT_MATCH_FIELDS,
   systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS }) {
+  const skip = candidate => isSystemSender(candidate.from, systemSenderPatterns) || isSkippedSubject(candidate.subject, skipSubjectPatterns);
+  const { candidates, scanned, skipped: skippedSystem, unreadableDirs } = collectCandidatesFromDirs(dirs, { skip });
+  const { records, duplicatesDropped, idCollisionsKept } = dedupeAndAssignIds({ candidates, source });
+
+  const events = records.map(record => {
+    const { subject, from, to, cc, attachmentNames, bodyText, at, event_id: eventId } = record;
+    const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
+    return { source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match };
+    // bodyText / attachmentNames go out of scope here: never attached to `events`.
+  });
+  return { events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs };
+}
+
+/**
+ * D-c: reads every `*.jsonl` record directly under each of `dirs` (sorted by name,
+ * per directory) into raw candidates -- `{ rawEventId, subject, from, to, cc,
+ * attachmentNames, bodyText, at, canonicalHash }`, always carrying `bodyText`
+ * (bounded to `MAX_BODY_TEXT_CHARS` at read time -- N-4) and every parsed address,
+ * regardless of caller. `skip(candidate)` (optional) is a caller-supplied predicate --
+ * `loadMailEvents` uses it for its own system-sender/skip-subject pre-filter;
+ * `common_events.mjs`'s loader (the one both `refresh()` and the common pipeline read
+ * through) passes none, since neither path pre-filters any mail out of classification
+ * any more (D-d: a mail is only ever judged "system" AFTER the one classification
+ * function has had a chance to attribute it via an explicit reading/bundle decision).
+ * A directory that cannot even be listed is reported in `unreadableDirs`, never
+ * silently treated as empty (S8's own per-directory-atomic-commit contract, preserved
+ * from the original `loadMailEvents`).
+ */
+export function collectCandidatesFromDirs(dirs, { skip = null } = {}) {
   const unreadableDirs = [];
-  let scanned = 0, skippedSystem = 0;
+  let scanned = 0, skipped = 0;
   const candidates = [];
 
   const consumeRecord = ({ raw, canonicalHash }, into) => {
@@ -256,22 +327,17 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     if (!subject) return;
     into.scanned += 1;
     const from = parseAddressField(raw.from)[0] ?? null;
-    if (isSystemSender(from, systemSenderPatterns) || isSkippedSubject(subject, skipSubjectPatterns)) {
-      into.skippedSystem += 1;
-      return;
-    }
     const to = parseAddressField(raw.to);
     const cc = parseAddressField(raw.cc);
     const attachmentNames = Array.isArray(raw.attachments)
       ? raw.attachments.map(entry => String(typeof entry === 'string' ? entry : entry?.name ?? entry?.filename ?? '')).filter(Boolean)
       : [];
-    // N-4: capped here, at read time -- not merely at match time (classifier.mjs's
-    // own `fieldText` also bounds it, defense in depth) -- so a candidate never holds
-    // more of a body in memory, for the whole pass, than matching could ever consult.
     const bodyText = String(raw.body_text ?? '').slice(0, MAX_BODY_TEXT_CHARS);
     const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
     const rawEventId = String(raw.event_id ?? '').trim();
-    into.candidates.push({ rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash });
+    const candidate = { rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash };
+    if (skip && skip(candidate)) { into.skipped += 1; return; }
+    into.candidates.push(candidate);
   };
 
   for (const dir of dirs) {
@@ -281,7 +347,7 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     // reported as unreadable -- either the whole directory's records commit, or none
     // of them do. This does not defeat the laziness above: only one directory's worth
     // of records is ever buffered at a time, not every directory's at once.
-    const local = { candidates: [], scanned: 0, skippedSystem: 0 };
+    const local = { candidates: [], scanned: 0, skipped: 0 };
     try {
       const iterator = readJsonlDir(dir);
       // Forces `readdirSync` (and, for a non-empty directory, the first file's first
@@ -298,13 +364,26 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     }
     candidates.push(...local.candidates);
     scanned += local.scanned;
-    skippedSystem += local.skippedSystem;
+    skipped += local.skipped;
   }
+  return { candidates, scanned, skipped, unreadableDirs };
+}
 
-  // S-4 (fresh-review-4): grouping is naturally scoped to THIS call (one source) --
-  // a cross-source id collision (the same event_id present in both hiworks and
-  // gmail-sent custody) is handled one level up, by `refresh.mjs`'s `classifyCustody`,
-  // once both sources' events are in hand.
+/**
+ * D-c: the id-derivation/dedup/collision-suffix logic, generic over any candidate
+ * array shaped like `collectCandidatesFromDirs`'s output (`rawEventId`, `subject`,
+ * `from`, `at`, `canonicalHash`, plus whatever else the caller wants carried through
+ * unchanged). `source` is folded into a synthetic (no-`event_id`) candidate's id the
+ * same way it always was. Grouping/collision handling is scoped to THIS call (one
+ * source) -- a cross-source id collision (the same `event_id` present in both hiworks
+ * and gmail-sent custody) is handled one level up, once both sources' resolved
+ * records are in hand (`disambiguateCrossSourceIds`, exported from `refresh.mjs` and
+ * reused by `common_refresh.mjs` for the same reason -- D-c).
+ *
+ * Returns `{ records, duplicatesDropped, idCollisionsKept }` -- `records` are the
+ * input candidates (every original field preserved) plus a resolved `event_id`.
+ */
+export function dedupeAndAssignIds({ candidates, source }) {
   const byRawId = new Map();
   const byCanonicalHash = new Map();
   candidates.forEach(candidate => {
@@ -350,13 +429,9 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
     survivors.push({ candidate: kept, effectiveEventId: null });
   }
 
-  const events = [];
-  for (const { candidate, effectiveEventId } of survivors) {
-    const { subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash } = candidate;
-    const eventId = effectiveEventId ?? syntheticEventId({ source, canonicalHash });
-    const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
-    events.push({ source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match });
-    // bodyText / attachmentNames / canonicalHash go out of scope here: never attached to `events`.
-  }
-  return { events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs };
+  const records = survivors.map(({ candidate, effectiveEventId }) => ({
+    ...candidate,
+    event_id: effectiveEventId ?? syntheticEventId({ source, canonicalHash: candidate.canonicalHash }),
+  }));
+  return { records, duplicatesDropped, idCollisionsKept };
 }

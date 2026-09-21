@@ -6,7 +6,27 @@
 import vm from 'node:vm';
 
 export const RULE_SCHEMA_VERSION = 'soulforge.project_mail_routing_rule.v0';
+// MATCH_FIELDS: every field NAME a rule's `match_fields` may legally name (schema
+// validation only -- see `compileRule`'s `for (const field of matchFields)` check).
 export const MATCH_FIELDS = Object.freeze(['subject', 'body_text', 'attachment_names']);
+// D-b (coordinator decision, fresh review 2026-09-2x): step 1 (the project's own
+// title/subject rule -- the one function's first classification step, shared by
+// `refresh()` and the common pipeline, see `common_classifier.mjs`'s
+// `classifyProjectHits`) matches the SUBJECT ONLY by default. This is the behaviour
+// that actually produced the real plane, and what the Owner approved: addresses,
+// people and equipment names never decide a project on their own; body text is
+// consulted only in step 4 (a supplier-type vendor mail whose body contains exactly
+// one project's exact keyword -- a narrow, vendor-gated tie-break, never a general
+// step-1 signal), and attachment names are not a step-1 field at all. A rule
+// document may still declare a broader `match_fields` (e.g. to opt one project's own
+// rule into body/attachment matching too), and a caller may still widen `fields`
+// explicitly (`--fields all` on the CLI, or `fields: MATCH_FIELDS` in code) -- but
+// the DEFAULT, when neither says otherwise, is subject only. This is the one default
+// `compileRule` (a rule's own `match_fields`), `classifyMail`/`hintCodes` (the
+// `fields` restriction param), `common_classifier.mjs`'s `classifyProjectHits`,
+// `refresh()` and `previewRule` all now share -- changing it in one place changes it
+// everywhere the one classification function is reached from.
+export const DEFAULT_MATCH_FIELDS = Object.freeze(['subject']);
 export const CONFLICT_POLICY = 'two_projects_exact_on_one_mail_means_hold_no_attribution';
 export const SENDER_POLICY = 'hint_only';
 
@@ -264,8 +284,12 @@ export function compileRule(ruleJson, { timeSafety = true } = {}) {
   if (typeof ruleJson.project_code !== 'string' || ruleJson.project_code.trim() === '') {
     fail('workspace_ledgers_rule_project_code_missing');
   }
+  // D-b: a rule document with no `match_fields` at all now defaults to subject-only
+  // (`DEFAULT_MATCH_FIELDS`), not the full `MATCH_FIELDS` enum -- see that constant's
+  // own doc. A rule that explicitly declares a broader `match_fields` still gets it
+  // (still checked against the full `MATCH_FIELDS` enum below for a valid field name).
   const matchFields = Array.isArray(ruleJson.match_fields) && ruleJson.match_fields.length > 0
-    ? ruleJson.match_fields : MATCH_FIELDS;
+    ? ruleJson.match_fields : DEFAULT_MATCH_FIELDS;
   for (const field of matchFields) if (!MATCH_FIELDS.includes(field)) fail('workspace_ledgers_rule_match_field_unknown', field);
   const exact = Array.isArray(ruleJson.exact) ? ruleJson.exact.map(term => compileTerm(term, { timeSafety })) : [];
   if (exact.length === 0) fail('workspace_ledgers_rule_exact_empty');
@@ -375,7 +399,7 @@ function termMatchesEntry(term, entry) {
  * `attachment_names` at both read time (`mail_events.mjs`) and match time (`fieldText`
  * above), which is what actually keeps a single match cheap.
  */
-export function classifyMail(mail, compiledRules, { fields = MATCH_FIELDS } = {}) {
+export function classifyMail(mail, compiledRules, { fields = DEFAULT_MATCH_FIELDS } = {}) {
   const textCache = new Map();
   const hits = [];
   for (const rule of compiledRules) {
@@ -391,7 +415,7 @@ export function classifyMail(mail, compiledRules, { fields = MATCH_FIELDS } = {}
  * Project codes whose hint terms matched but whose exact terms did not (and which
  * are not already an exact hit) -- review-only signal, never used for attribution.
  */
-export function hintCodes(mail, compiledRules, { fields = MATCH_FIELDS } = {}) {
+export function hintCodes(mail, compiledRules, { fields = DEFAULT_MATCH_FIELDS } = {}) {
   const { hits } = classifyMail(mail, compiledRules, { fields });
   const exactCodes = new Set(hits.map(hit => hit.project_code));
   const textCache = new Map();

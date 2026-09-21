@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { encodeCsv } from '../src/ledgers.mjs';
 import {
   BUNDLE_HEADERS, BUNDLE_HEADERS_V2, buildBundleTable, buildReadingTable, buildVendorTable, buildWorkTagTable,
-  loadOwnerTables, READING_HEADERS, VENDOR_HEADERS, WORKTAG_HEADERS,
+  isValidCalendarDateString, loadOwnerTables, READING_HEADERS, VENDOR_HEADERS, WORKTAG_HEADERS,
 } from '../src/owner_tables.mjs';
 
 function tmpFile(name) {
@@ -168,4 +168,59 @@ test('loadOwnerTables (A2 item 1): a legacy 4-column bundle table (no 적용끝 
 test('buildBundleTable (A2 item 1): a blank 적용끝 cell also parses to appliesUntil: null', () => {
   const rows = [{ '제목구절': 'x', '과제': 'P00-001', '근거': '', '확정일': '', '적용끝': '  ' }];
   assert.equal(buildBundleTable(rows)[0].appliesUntil, null);
+});
+
+// ------------------------------------------------------------------------------ S4
+test('isValidCalendarDateString: shape-valid but non-existent dates (Feb 30, month 13) are rejected, real dates accepted', () => {
+  assert.equal(isValidCalendarDateString('2026-09-15'), true);
+  assert.equal(isValidCalendarDateString('2026-02-30'), false); // no such day
+  assert.equal(isValidCalendarDateString('2026-13-01'), false); // no such month
+  assert.equal(isValidCalendarDateString('2026-9-15'), false); // not zero-padded
+  assert.equal(isValidCalendarDateString(''), false);
+  assert.equal(isValidCalendarDateString('not-a-date'), false);
+});
+
+test('loadOwnerTables (S4, coordinator fresh review round 2): a 적용끝 cell that is shape-valid but not a real calendar date fails the WHOLE bundle table closed', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-s4-'));
+  try {
+    const bundlePath = path.join(dir, 'bundle.csv');
+    writeFileSync(bundlePath, encodeCsv(BUNDLE_HEADERS_V2, [
+      ['ABC 회의', 'P00-001', '근거', '2026-09-21', '2026-02-30'],
+    ]));
+    const result = loadOwnerTables({ bundleTablePath: bundlePath });
+    assert.deepEqual(result.bundles, []);
+    assert.equal(result.failures.length, 1);
+    assert.equal(result.failures[0].code, 'workspace_ledgers_owner_table_bundle_apply_until_invalid');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('loadOwnerTables (S4): a garbage (non-date-shaped) 적용끝 cell also fails the whole bundle table closed', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-s4b-'));
+  try {
+    const bundlePath = path.join(dir, 'bundle.csv');
+    writeFileSync(bundlePath, encodeCsv(BUNDLE_HEADERS_V2, [
+      ['ABC 회의', 'P00-001', '근거', '2026-09-21', '아무거나'],
+    ]));
+    const result = loadOwnerTables({ bundleTablePath: bundlePath });
+    assert.deepEqual(result.bundles, []);
+    assert.equal(result.failures[0].code, 'workspace_ledgers_owner_table_bundle_apply_until_invalid');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ------------------------------------------------------------------------------ S9
+test('loadOwnerTables (S9, coordinator fresh review round 2): a data row with an unquoted embedded comma (more fields than the header) fails closed as workspace_ledgers_owner_table_row_shape', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-rowshape-'));
+  try {
+    const bundlePath = path.join(dir, 'bundle.csv');
+    const bom = String.fromCharCode(0xFEFF);
+    // Raw CSV text, not built via `encodeCsv` -- simulates an Owner hand-typing a
+    // comma into a cell without quoting it (Excel would quote it automatically; a
+    // plain text editor will not), splitting one data row into 5 fields against a
+    // 4-column legacy header.
+    writeFileSync(bundlePath, `${bom}${BUNDLE_HEADERS.join(',')}\r\n제목, 구절,P00-001,근거,2026-09-21\r\n`);
+    const result = loadOwnerTables({ bundleTablePath: bundlePath });
+    assert.deepEqual(result.bundles, []);
+    assert.equal(result.failures.length, 1);
+    assert.equal(result.failures[0].code, 'workspace_ledgers_owner_table_row_shape');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

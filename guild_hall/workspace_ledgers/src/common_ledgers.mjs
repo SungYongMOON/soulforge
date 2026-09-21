@@ -18,10 +18,15 @@ const ADMIN_HEADERS = Object.freeze(['이력키', '분류', '세부분류', '수
 const VIEW_HEADERS = Object.freeze(['이력키', '분류', '과제', '과제근거', '수신시각', '제목', '발신자', '발신자메일', '첨부수', '메일소스ID', '원문복사여부', '메모']);
 
 // Files that carry a 세부분류 (sub-classification) column, spec section 3: 사내행정,
-// 외부안내, 과제코드대기, 과제없음_확인함, and the separate-folder 일반업무_메일. 보류
-// (mail held because two projects' exact triggers collided) has no sub-classification
-// of its own -- one bucket, no further split -- so it uses the base headers.
-const ADMIN_SHAPED_FILES = Object.freeze(new Set(['사내행정.csv', '외부안내.csv', '과제코드대기.csv', '과제없음_확인함.csv', '일반업무_메일.csv']));
+// 외부안내, 과제코드대기, 판독_과제미정 (A2 item 2's rename of 과제없음_확인함 -- R2,
+// coordinator fresh review round 2: this set still named the OLD file after the
+// rename, so the renamed bucket silently lost both its 세부분류 column and the
+// reader's own 이유 text -- `resolveReadingDecision` in `common_classifier.mjs`
+// already emits the NEW file name, this set just had not caught up), and the
+// separate-folder 일반업무_메일. 보류 (mail held because two projects' exact triggers
+// collided) has no sub-classification of its own -- one bucket, no further split --
+// so it uses the base headers.
+const ADMIN_SHAPED_FILES = Object.freeze(new Set(['사내행정.csv', '외부안내.csv', '과제코드대기.csv', '판독_과제미정.csv', '일반업무_메일.csv']));
 
 export const HELD_FILE_NAME = '보류.csv';
 export const UNCLASSIFIED_FILE_NAME = '미분류.csv';

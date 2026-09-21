@@ -97,6 +97,69 @@ test('appendReadingDecision: validation rejects an unknown level, an unknown pro
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('listUnclassified (S6, coordinator fresh review round 2): refuses (throws) when an Owner table failed, unless allowDegradedOwnerTables is passed; owner_table_failures is always present', () => {
+  const fixture = makeFixture();
+  try {
+    const bundleTablePath = path.join(fixture.root, '묶음_확정표.csv');
+    // Built with String.fromCharCode, not a raw BOM character typed in source --
+    // an editing tool can turn that kind of escape into an actual raw codepoint in
+    // this file's own tracked source (byte_hygiene.test.mjs flags that as an
+    // accident), same convention owner_tables.test.mjs already uses.
+    writeFileSync(bundleTablePath, `${String.fromCharCode(0xFEFF)}잘못된헤더\r\nx\r\n`);
+    assert.throws(() => listUnclassified({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, bundleTablePath,
+    }), error => error instanceof TriageError && error.code === 'workspace_ledgers_triage_owner_table_failures');
+
+    const degraded = listUnclassified({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir],
+      orgConfigPath: fixture.orgConfigPath, bundleTablePath, allowDegradedOwnerTables: true,
+    });
+    assert.equal(degraded.owner_table_failures.length, 1);
+    assert.equal(degraded.owner_table_failures[0].code, 'workspace_ledgers_owner_table_header_mismatch');
+
+    // A run with no malformed table at all still carries the (empty) field.
+    const clean = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath });
+    assert.deepEqual(clean.owner_table_failures, []);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('listUnclassified (S5, coordinator fresh review round 2): an unrecognised 결정 token on an unclassified mail is flagged already_decided_invalid: invalid_decision_level', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(fixture.readingTablePath, encodeCsv(READING_HEADERS, [
+      ['u1', '2026-09-01', '분류 안 되는 메일', '확인필요', '', '오타', 'tester', '2026-09-21', ''],
+    ]));
+    const result = listUnclassified({ workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath, readingTablePath: fixture.readingTablePath });
+    const item = result.items.find(entry => entry.mail_source_id === 'u1');
+    assert.ok(item);
+    assert.equal(item.already_decided_invalid, 'invalid_decision_level');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('appendReadingDecision (nit, coordinator fresh review round 2): fills 수신일/제목 from the mail being decided when supplied; omitted defaults to empty (unchanged)', () => {
+  const fixture = makeFixture();
+  try {
+    appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u1', level: 'hold_owner_review', target: '', why: '더 살펴봐야 함', reader: 'tester',
+      receivedAt: '2026-09-01', subject: '분류 안 되는 메일',
+    });
+    const decoded = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    assert.equal(decoded.rows[0][1], '2026-09-01'); // 수신일
+    assert.equal(decoded.rows[0][2], '분류 안 되는 메일'); // 제목
+
+    appendReadingDecision({
+      workspacesRoot: fixture.workspacesRoot, readingTablePath: fixture.readingTablePath,
+      id: 'u2', level: 'hold_owner_review', target: '', why: '더 살펴봐야 함', reader: 'tester',
+    });
+    const decoded2 = decodeCsv(readFileSync(fixture.readingTablePath, 'utf8'));
+    const u2Row = decoded2.rows.find(row => row[0] === 'u2');
+    assert.equal(u2Row[1], ''); // omitted -- still empty, unchanged default
+    assert.equal(u2Row[2], '');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('appendReadingDecision (A2 item 2): the renamed "과제미정" exclude target is accepted, same as the old "과제없음"', () => {
   const fixture = makeFixture();
   try {

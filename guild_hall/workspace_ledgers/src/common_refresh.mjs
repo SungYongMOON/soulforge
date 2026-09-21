@@ -11,9 +11,9 @@
 // `refreshCommon` (writes) and `triage.mjs`'s `listUnclassified` (never writes) call
 // it, so "what bucket is this mail in" is computed exactly once, the same way, in both
 // places.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { compileRule } from './classifier.mjs';
+import { compileRule, DEFAULT_MATCH_FIELDS } from './classifier.mjs';
 import { listProjects, readRule } from './rule_store.mjs';
 import { domainOf, makeOrgLookup, normalizeSubject } from './ledgers.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
@@ -27,8 +27,15 @@ import {
   vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';
 import {
-  acquireRefreshLock, assertNoOverlappingCustodyDirs, releaseRefreshLock, redactHostPaths, RefreshError, writeLedgerCsv,
+  acquireRefreshLock, assertNoOverlappingCustodyDirs, disambiguateCrossSourceIds, releaseRefreshLock, redactHostPaths,
+  RefreshError, writeLedgerCsv,
 } from './refresh.mjs';
+
+// S8 (coordinator, fresh review round 2): the pre-rename bucket file name -- a plane
+// still carrying it (from before this module's own A2 rename) is a migration signal,
+// not silently ignored and not auto-deleted (spec-adjacent hard rule: this module
+// never deletes anything on its own initiative).
+const LEGACY_NO_CODE_CONFIRMED_FILE_NAME = '과제없음_확인함.csv';
 
 export const COMMON_REFRESH_RECEIPT_SCHEMA = 'soulforge.workspace_common_ledger_refresh_receipt.v1';
 // S4: a thread-inherited vendor (no direct address match on the mail itself) is only
@@ -110,7 +117,7 @@ function readAllRulesSafely(workspacesRoot) {
  * before any classification happens, not just the one pattern.
  */
 export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDirs, orgConfigPath,
-  bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null }) {
+  bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null, fields = DEFAULT_MATCH_FIELDS }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
@@ -138,7 +145,12 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
 
   const hiworks = loadRawMailRecords({ dirs: hiworksDirs, source: '하이웍스_수집' });
   const gmail = loadRawMailRecords({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집' });
-  const records = [...hiworks.records, ...gmail.records];
+  // D-c (coordinator, fresh review round 2): the same cross-source id-collision
+  // disambiguation `refresh()`'s own classification loop runs, reused here rather than
+  // a second, potentially-drifting copy -- this pass had none at all before (a mail
+  // whose `event_id` genuinely collided across hiworks and gmail-sent custody could
+  // silently merge two different mails under one key downstream).
+  const records = disambiguateCrossSourceIds([...hiworks.records, ...gmail.records]);
 
   const bucketTally = Object.fromEntries(PRIMARY_BUCKETS.map(bucket => [bucket, 0]));
   const classified = [];
@@ -165,8 +177,11 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   // an Owner-confirmed bundle-table hit, or ANY reading decision whose own Owner확인
   // cell is filled in (regardless of which bucket that reading decision routed to --
   // an Owner-confirmed 일반업무/과제외 exclusion is just as usable as evidence that a
-  // mail does NOT belong to a project as an included one is that it does).
-  let searchEligibleAttributions = 0;
+  // mail does NOT belong to a project as an included one is that it does). S3: named
+  // `commonSearchEligibleAttributions` (receipt: `common_search_eligible_attributions`),
+  // deliberately distinct from `refresh()`'s own `project_search_eligible_attributions`
+  // -- the two count different (overlapping) populations and must never be summed.
+  let commonSearchEligibleAttributions = 0;
 
   // Pass 1: classify every mail's own (direct-address) project hits/vendors.
   const prepared = records.map(record => {
@@ -175,7 +190,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     const mail = { ...record, fromDomain, addresses };
     const projectResult = classifyProjectHits(
       { id: record.event_id, subject: record.subject, body: record.body_text, addresses, at: record.at },
-      { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors },
+      { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors, fields },
     );
     if (projectResult.unknownBundleTarget) unknownTargets.bundle += 1;
     if (projectResult.unknownReadingTarget) unknownTargets.reading += 1;
@@ -254,17 +269,37 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     if (outcome.bucket === 'project') projectAttributionRows += outcome.projectCodes.length;
 
     // A2 item 2: triage-progress counts (see this function's own header note).
-    if (!projectResult.reading) {
+    // S2 (coordinator, fresh review round 2): "unread" must mean "no 판독_결정표 row
+    // for this mail id AT ALL", checked directly against the reading table
+    // (`owner.readings`) -- NOT `projectResult.reading`, which `classifyProjectHits`
+    // only ever populates when classification actually reached step 3 (its own
+    // early-return steps -- step 1's title-rule hit, and the two-project hold -- never
+    // look the mail up in the reading table at all, so `projectResult.reading` being
+    // `undefined` there does NOT mean "no reading row exists"; it means "classification
+    // never checked"). The previous version read `!projectResult.reading` here, which
+    // counted every rule-attributed and every held mail as "미판독" even when a
+    // reading-table row genuinely existed for it (e.g. one recorded for search/audit
+    // purposes after the mail was already rule-attributed).
+    const hasReadingRow = owner.readings.has(mail.event_id);
+    if (!hasReadingRow) {
       unreadCount += 1;
-    } else if (projectResult.reading.level === 'hold_owner_review' || outcome.bucket === 'no_code_confirmed') {
+    } else if (projectResult.reading?.level === 'hold_owner_review' || outcome.bucket === 'no_code_confirmed') {
       readUndeterminedCount += 1;
-    } else if (projectResult.reading.level === 'exclude' && (outcome.bucket === 'general_work' || outcome.bucket === 'out_of_project')) {
+    } else if (projectResult.reading?.level === 'exclude' && (outcome.bucket === 'general_work' || outcome.bucket === 'out_of_project')) {
       noProjectConfirmedCount += 1;
     }
-    // A2 item 5: search-eligible attribution (see this function's own header note).
+    // A2 item 5 / S3 (coordinator, fresh review round 2): "common_search_eligible_
+    // attributions" -- see this function's own header note. Distinctly named from
+    // `refresh()`'s own `project_search_eligible_attributions` (S3: the two populations
+    // must never be summed -- this one is computed across EVERY mail this pass
+    // classified, project-bucket mail included, while `refresh()`'s own count is
+    // scoped to project-ledger mail only; a project-attributed mail is genuinely
+    // counted in both, by design, not a bug). Never double-counts a shared (공유) mail
+    // -- this increments at most once per MAIL (this loop iterates records, not hits),
+    // regardless of how many projects a table hit named.
     const ownerConfirmedReading = projectResult.reading && String(projectResult.reading.ownerConfirmed ?? '').trim() !== '';
     if ((outcome.bucket === 'project' && projectResult.basis === '제목') || projectResult.basis === '묶음 확정' || ownerConfirmedReading) {
-      searchEligibleAttributions += 1;
+      commonSearchEligibleAttributions += 1;
     }
     // S3: a mail with an EXPLICIT vendor_only reading decision but no matched
     // organisation at all -- it can never route to `vendor_only` (there is no ledger
@@ -286,9 +321,10 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     orgConfig, commonConfig, ourDomain, ruleFailures, ownerTableFailures: owner.failures,
     unreadableDirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
     scanned: hiworks.scanned + gmail.scanned, duplicatesDropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
+    idCollisionsKept: (hiworks.idCollisionsKept ?? 0) + (gmail.idCollisionsKept ?? 0),
     totalMails: records.length, bucketTally, classified, threadBuckets, workTagPool: owner.workTags,
     unknownTargets, decisionOverrodePattern, vendorOnlyWithoutOrganisation, invalidDecisionLevels: owner.invalidDecisionLevels,
-    projectAttributionRows, unreadCount, readUndeterminedCount, noProjectConfirmedCount, searchEligibleAttributions,
+    projectAttributionRows, unreadCount, readUndeterminedCount, noProjectConfirmedCount, commonSearchEligibleAttributions,
   };
 }
 
@@ -543,11 +579,22 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       files.push({ file: `${folder}/020_MGMT/027_수신이력_이동이력/${displayFileName}`, ...result });
     }
 
+    // S8 (coordinator, fresh review round 2): a plane that still carries the
+    // pre-rename bucket file (`과제없음_확인함.csv`, retired by A2 item 2's rename to
+    // `판독_과제미정.csv`) is a migration signal -- surfaced as a receipt warning, never
+    // auto-deleted or auto-migrated (this module never deletes anything on its own
+    // initiative). Checked in the common folder only, the one place that file ever
+    // lived.
+    const legacyBucketFilePath = path.join(workspacesRoot, commonConfig.commonFolderName,
+      '020_MGMT/027_수신이력_이동이력', LEGACY_NO_CODE_CONFIRMED_FILE_NAME);
+    const legacyBucketFilePresent = existsSync(legacyBucketFilePath);
+
     const receipt = {
       schema_version: COMMON_REFRESH_RECEIPT_SCHEMA, generated_at: now, dry,
       status: (pass.ruleFailures.length > 0 || pass.ownerTableFailures.length > 0
         || pass.unreadableDirs.length > 0 || rejectedFiles.length > 0 || files.some(file => file.failed)) ? 'failed' : 'ok',
-      scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
+      scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, id_collisions_kept: pass.idCollisionsKept,
+      total_mails: pass.totalMails,
       unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
       rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
       bucket_counts: pass.bucketTally, files, rejected_files: rejectedFiles,
@@ -556,10 +603,16 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       // A2 item 2: triage-progress counts, separate from the primary-bucket tally.
       unread_count: pass.unreadCount, read_undetermined_count: pass.readUndeterminedCount,
       no_project_confirmed_count: pass.noProjectConfirmedCount,
-      // A2 item 5: mail whose project attribution is solid enough to use as search/RAG
-      // evidence (approved subject rule, approved bundle table, or any reading decision
-      // with its own Owner확인 cell filled in).
-      search_eligible_attributions: pass.searchEligibleAttributions,
+      // A2 item 5 / S3: mail whose project attribution is solid enough to use as
+      // search/RAG evidence (approved subject rule, approved bundle table, or any
+      // reading decision with its own Owner확인 cell filled in) -- across every mail
+      // THIS pass classified (project-bucket mail included). Deliberately named
+      // differently from `refresh()`'s own `project_search_eligible_attributions`
+      // receipt field -- the two populations overlap by design and must never be summed.
+      common_search_eligible_attributions: pass.commonSearchEligibleAttributions,
+      // S8: `true` only means the OLD file is still present on disk -- this receipt
+      // never reads or writes it, and never implies anything about its content.
+      legacy_bucket_file_present: legacyBucketFilePresent,
       // S3: symmetric with `allow_partial_sources_applied` -- present on the success
       // path too (not only R4's own failure-and-no-write receipt above), so a caller
       // reading a run that DID write can still tell whether it did so only because

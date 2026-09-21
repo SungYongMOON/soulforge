@@ -612,16 +612,32 @@ describing a machinery this module no longer has.
 node cli.mjs refresh --workspaces-root <dir> --workmeta-root <dir> \
   --hiworks-events <dir> --gmail-sent-events <dir> --org-config <file> \
   [--projects a,b] [--fields subject|all] [--dry] \
-  [--allow-empty P00-001,P00-002] [--allow-partial-sources] --receipts <dir>
+  [--allow-empty P00-001,P00-002] [--allow-partial-sources] \
+  [--bundle-table <file>] [--reading-table <file>] [--vendor-table <file>] \
+  [--allow-degraded-owner-tables] --receipts <dir>
 
 node cli.mjs preview-rule --code <CODE> --draft <file> --workspaces-root <dir> \
   --hiworks-events <dir> --gmail-sent-events <dir> [--org-config <file>] \
-  [--fields subject|all] [--show-samples]
+  [--fields subject|all] [--show-samples] \
+  [--bundle-table <file>] [--reading-table <file>]
 
 node cli.mjs save-rule --code <CODE> --draft <file> \
   --workspaces-root <dir> --workmeta-root <dir> --by <actor> --note <text> \
   [--allowed-actors a,b,c]
 ```
+
+`--fields` (D-b, coordinator fresh review round 2) omitted now defaults to `subject`
+only, not the full three-field enum -- see "부록 A round 2" below for the full behaviour
+change. `--fields all` still opts into the previous (subject + body_text +
+attachment_names) matching explicitly.
+
+`--bundle-table`/`--reading-table` (부록 A1) opt `refresh`'s own project attribution
+into the common pipeline's Owner tables (steps 2-3); `--vendor-table` (부록 A round 2,
+D-a) additionally enables step 4 (a supplier-type vendor mail whose body contains
+exactly one project's exact keyword). All three omitted (the default): no table is
+read and matching is subject-only step 1 alone. `--allow-degraded-owner-tables` opts
+into writing anyway when one of those tables is malformed (default: the whole run
+fails closed, receipt only -- see "Owner tables" below).
 
 `--allowed-actors` (N16) further restricts `--by` to that exact list, on top of the
 always-applied machine-actor refusal -- e.g. a console pinning saves to `--by owner
@@ -665,8 +681,7 @@ reached after the arguments were valid).
 
 ## Common-folder (P00-000) classification and the triage API (Step 1)
 
-Spec: `docs/architecture/.../handoff/CONTEXT_BASELINE_TEST_2026-09-19/18_WORKSPACE_LEDGERS_PORT_SPEC_2026-09-21.md`
-(private handoff folder, not tracked here) sections 1-7. This is the org-wide
+Spec: a private handoff spec (not in this repo), sections 1-7. This is the org-wide
 counterpart to the per-project pipeline above: `refresh()` writes each onboarded
 project's four ledgers; `refreshCommon()` (`src/common_refresh.mjs`) writes everything
 that does NOT resolve to exactly one project.
@@ -999,17 +1014,225 @@ table`/`--reading-table` are new CLI flags exposing the same params.
    `include_with_review` instead -- an AI reader's (맥락이's) positive attribution must
    start one notch weaker than an Owner-confirmed one. `cli.mjs triage decide` gains
    `--human-actors a,b,c`.
-5. `search_eligible_attributions`/`search_eligible_attributions` (`refresh()`'s and
-   `refreshCommon()`'s receipts respectively): a mail whose attribution is solid enough
-   to use as RAG/search evidence -- an approved subject-rule hit, an approved bundle-
-   table hit, or ANY reading decision whose own `Owner확인` cell is filled in (an
-   Owner-confirmed exclusion is just as usable as evidence a mail does NOT belong to a
-   project as an included one is that it does). Index/search wiring itself is still out
-   of scope (A4) -- this is a count only.
+5. `project_search_eligible_attributions`/`common_search_eligible_attributions`
+   (`refresh()`'s and `refreshCommon()`'s receipts respectively -- renamed, S3 below, to
+   two distinct fields since they count different, overlapping populations): a mail
+   whose attribution is solid enough to use as RAG/search evidence -- an approved
+   subject-rule hit, an approved bundle-table hit, or ANY reading decision whose own
+   `Owner확인` cell is filled in (an Owner-confirmed exclusion is just as usable as
+   evidence a mail does NOT belong to a project as an included one is that it does).
+   Index/search wiring itself is still out of scope (A4) -- this is a count only.
 
 **A3 (deferred, not implemented).** Carrying a vendor-name memo cell forward by mail ID
 across a case/normalisation-only rename is left for a later round, per the spec's own
 "미뤄 둔 것".
+
+## 부록 A round 2 (fresh review, coordinator) -- one classifier, one custody loader
+
+A separate coordinator review of the round above (b585a6e6) found the "one
+classification, two writers" architecture was still, in practice, two SEPARATE
+classifiers: `refresh()` matched a project's own rule directly via
+`mail_events.mjs`'s `loadMailEvents` (step 1 only, body/attachment included by
+default), while the common pipeline ran the full `classifyProjectHits` (steps 1-5,
+subject-only step 1) on a DIFFERENT custody loader with a DIFFERENT (simpler)
+synthetic-id recipe. This round unifies both all the way down, per four coordinator
+design decisions (D-a through D-d, none re-litigated here):
+
+**D-a -- one function, one custody loader.** `refresh()`'s own project-ledger
+attribution now calls `common_classifier.mjs`'s `classifyProjectHits` (steps 1-5)
+directly, per mail, on custody read through `common_events.mjs`'s `loadRawMailRecords`
+-- the exact same loader `refreshCommon()`/`triage.mjs` already read through. A mail
+that resolves via step 4 (see D-b) now genuinely lands in a project's ledgers via
+`refresh()` too, with 적용규칙 `본문: <keyword>` -- previously step 4 only ever
+mattered for the common pipeline's own classification, never for the real project
+CSVs. `refresh()` gains a new optional `vendorTablePath` param (default `null` -- step
+4 never fires without it, matching the "omit everything, get yesterday's behaviour"
+philosophy the rest of this module already follows) so step 4 can actually attribute
+anything once a vendor table is supplied.
+
+**D-b -- step 1 is subject-only by DEFAULT now (a real, caller-visible behaviour
+change).** `classifier.mjs` gains `DEFAULT_MATCH_FIELDS = ['subject']`, and this is now
+the default wherever a "which fields does step 1 consult" default was previously
+`MATCH_FIELDS` (subject + body_text + attachment_names): a rule document's own
+`match_fields` (`compileRule`), `classifyMail`/`hintCodes`'s `fields` param,
+`classifyProjectHits`'s new `fields` param (previously hardcoded to `['subject']`
+unconditionally -- now it honours a rule's own `match_fields`, restricted by the
+caller's `fields`, IDENTICALLY to how `refresh()` already worked), `refresh()`'s own
+`fields` param, `previewRule`'s `fields` param, and `cli.mjs`'s `--fields` (omitted --
+`--fields all` still opts into the old full three-field default explicitly). Step 4
+(a supplier-type vendor mail's body) is completely unaffected by this default --
+D-b's own point is that body matching belongs ONLY there, never as an ordinary step-1
+signal (addresses, people and equipment names never decide a project on their own --
+the Owner-approved production behaviour). **Anything currently relying on the OLD
+default (a rule with no explicit `match_fields`, or a caller never passing `fields`,
+matching on body/attachment text) will match FEWER mails at step 1 after this change**
+-- either declare that rule's own `match_fields` explicitly in its saved json, or pass
+`fields: MATCH_FIELDS` (still exported, unchanged) explicitly to widen it back.
+
+**D-c -- one custody loader, one id recipe.** `mail_events.mjs`'s id-derivation/dedup/
+collision-suffix logic is factored into two exported, reusable pieces
+(`collectCandidatesFromDirs`, `dedupeAndAssignIds`); `common_events.mjs`'s
+`loadRawMailRecords` now calls them too, instead of its own simpler (no id-collision
+disambiguation) recipe. A no-`event_id` mail's synthetic id is now IDENTICAL whichever
+path derives it -- concretely, a reading-table row an AI/human reader writes from
+`triage list`'s own output (which goes through `loadRawMailRecords`) is now guaranteed
+findable by `refresh()`'s own classification pass (which reads through the very same
+loader). `refresh.mjs`'s own cross-source id-collision disambiguation
+(`disambiguateCrossSourceIds`) is exported and now also run by `common_refresh.mjs`'s
+`classifyAllCommonMail` (it had none before this round).
+
+**D-d -- one merged system-sender check, consulted only AFTER classification.**
+`refresh()` used to pre-filter system-sender/`[Plaud-AutoFlow]`-subject mail out of its
+OWN custody read entirely (via `mail_events.mjs`'s `loadMailEvents`), before that mail
+ever had a chance to match a rule or table -- the common pipeline never had this
+pre-filter (`detectSystemSource` only ever ran AFTER `classifyProjectHits`, on mail
+classification left unresolved). `refresh()`'s new classification loop matches this:
+every custody record is offered to `classifyProjectHits` first (steps 1-3 can rescue
+even a system-sender mail via an explicit title/bundle/reading decision), and only a
+record classification left with zero hits and no hold is THEN checked against the
+merged system-sender list (`common_classifier.mjs`'s new `buildSystemSenderConfig`/
+`detectSystemSender`, which folds BOTH existing org-config keys --
+`common_ledgers.system_notification_sources` and the legacy `system_sender_domains` --
+into one list; a legacy-only match routes to the generic `기타알림` bucket) for
+`refresh()`'s own `skipped_system` receipt count. **Caller-visible consequence:** a
+system-sender-domain mail whose SUBJECT happens to also match a project's exact rule
+term now attributes to that project instead of being silently dropped as noise --
+this was already true for the common pipeline; it is new for `refresh()`.
+
+**D-e -- proof.** `tests/classification_partition.test.mjs` runs both `refresh()` and
+`refreshCommon()` over one mixed synthetic fixture and asserts, for every classified
+mail, that project-ledger membership (read back from the real written CSVs) exactly
+matches the common pipeline's own classification -- never a project ledger AND a
+common bucket for the same mail. Covers the reviewer's three named cases directly: a
+body-only keyword with no vendor address never attributes (M1); a no-`event_id` mail's
+reading-table row (keyed by the id the common pipeline itself discovered) is found by
+`refresh()` too (M2); a system-sender-domain mail with an Owner-confirmed reading
+decision still attributes (M3).
+
+### R2/R3 -- two lookups that still named the pre-rename bucket
+
+- **R2.** `common_ledgers.mjs`'s `ADMIN_SHAPED_FILES` still listed the OLD file name
+  (`과제없음_확인함.csv`) after A2 item 2's rename to `판독_과제미정.csv` -- the renamed
+  bucket silently lost its 세부분류 column AND the reader's own 이유 text (fell back to
+  the base, non-admin header shape). Fixed; `tests/common_ledgers.test.mjs` regression-
+  tests both the header shape and that `detail` survives into the row.
+- **R3.** `cli.mjs`'s `parity` command's `no_code_confirmed` row still read the OLD file
+  name too. Now reads `판독_과제미정.csv` first, falling back to the OLD name only when
+  the new one is not present at all (an unmigrated real plane). The comparison KEY
+  stays `no_code_confirmed` -- it is the exact `PRIMARY_BUCKETS`/`bucketTally`
+  identifier the comparison's own `module` figure is looked up by, and that identifier
+  was never renamed (only the on-disk FILE name changed in A2) -- so there is no
+  separate "old key" needing an alias; `cli.mjs` carries an explicit comment recording
+  this so a future reader does not go looking for one.
+
+### SHOULD items
+
+- **S1.** `common_ledgers.ads_sender_domains` already existed (tests, example config)
+  before this round -- a real parity diff on `ads`/`unclassified` can also come from a
+  junk sender-domain list present only in the private scratch-script reference; the fix
+  for that is org-config DATA (adding domains to `ads_sender_domains`), never code.
+- **S2.** `unreadCount` used to read `!projectResult.reading`, which
+  `classifyProjectHits` only ever populates once classification reaches step 3 -- a
+  rule-attributed or held mail's early return never looks the mail up in the reading
+  table at all, so it counted as "미판독" even when a reading-table row genuinely
+  existed for that mail id. Fixed to check the reading table directly
+  (`owner.readings.has(mail.event_id)`), independent of how (or whether)
+  `classifyProjectHits` actually used that row. Regression test in
+  `tests/common_refresh.test.mjs`.
+- **S3.** `search_eligible_attributions` was one name for two different (overlapping)
+  populations -- renamed to `project_search_eligible_attributions` (`refresh()`) and
+  `common_search_eligible_attributions` (`refreshCommon()`), each documented not to be
+  summed with the other. Neither ever double-counts a shared (공유) mail -- both
+  increment at most once per mail, before any per-project fan-out.
+- **S4.** `적용끝` must be `^\d{4}-\d{2}-\d{2}$` AND a real calendar date (`2026-02-30`
+  is shape-valid but not real) -- `owner_tables.mjs`'s new `isValidCalendarDateString`;
+  a malformed cell fails the WHOLE bundle table closed
+  (`workspace_ledgers_owner_table_bundle_apply_until_invalid`), the same as a header/
+  encoding/row-shape problem, never silently ignored per-row. Tight boundary test at
+  the Seoul-calendar cutoff (`2026-09-15T14:59:59Z` vs `...T15:00:00Z`).
+- **S5.** An unrecognised 결정 token (S9, previous round) used to fall through
+  `alreadyDecidedInvalidReason` silently -- `triage list`/`listUnclassified` now flags
+  it `already_decided_invalid: 'invalid_decision_level'`, so a reader knows the
+  EXISTING row (not this API) needs a person to fix by hand, instead of dead-ending on
+  a generic duplicate-id refusal with no explanation.
+- **S6.** `listUnclassified`/`triage list` now REFUSE (throw
+  `workspace_ledgers_triage_owner_table_failures`, CLI: non-zero exit, a clear stderr
+  reason plus the `--allow-degraded-owner-tables` hint) when `ownerTableFailures` is
+  non-empty, unless `allowDegradedOwnerTables: true` is passed explicitly -- handing a
+  reader a WRONG list computed against a known-broken table is worse than refusing
+  outright. `owner_table_failures` is always present on the return object either way.
+- **S7.** Reader identity in `appendReadingDecision`'s `reader`/`humanActors` gate (A2
+  item 4) is entirely CALLER-ASSERTED -- this module has no way to verify who is
+  actually calling it. `humanActors` must be pinned by the lane wrapper/CLI invocation
+  (a fixed, Owner-controlled list baked into how the loopback lane invokes this API),
+  never derived from anything the model itself claims to be. The REAL gate against a
+  wrong attribution reaching search/RAG evidence is the `Owner확인` cell
+  (`project_search_eligible_attributions`/`common_search_eligible_attributions` only
+  count a reading decision once THAT cell is filled) -- `humanActors`/`include` vs
+  `include_with_review` is a labelling convention on top, not the actual trust
+  boundary. Separately: this module writes `판독_결정표.csv` via a create-only history
+  archive plus atomic rename, but does not itself coordinate with a person who has the
+  same file open in Excel at the moment of write -- an Owner editing the table by hand
+  while a `triage decide` call (or a scheduled refresh) writes to it can lose whichever
+  side saves last; the lock (`acquireRefreshLock`) only ever serialises this module's
+  OWN callers against each other, never against Excel.
+- **S8.** A plane still carrying the pre-rename file (`과제없음_확인함.csv`, from before
+  A2 item 2) now gets `refreshCommon`'s receipt field `legacy_bucket_file_present:
+  true` -- a migration SIGNAL only; this module never reads, writes or deletes that
+  file. **Migration note for an Owner/coordinator cutover:** once satisfied the renamed
+  file (`판독_과제미정.csv`) has fully taken over, the old file may be moved aside by
+  hand (or left in place, harmless but stale) -- this module will never do it
+  automatically.
+- **S9.** Two previously-uncovered fail-closed paths gained direct tests:
+  `owner_tables.mjs`'s `workspace_ledgers_owner_table_row_shape` (an unquoted embedded
+  comma in a hand-edited data row, producing more fields than the header) in
+  `tests/owner_tables.test.mjs`; `refreshCommon`'s folder-name pre-write gate
+  (`resolveSafePath(workspacesRoot, folderName)`/`resolveSafePath(workmetaRoot,
+  folderName)`, right before the write loop) is defense-in-depth ONLY -- every folder
+  name that could reach it already passed `buildCommonConfig`'s own `isSafeFileName`
+  check at config-build time (which throws first, before `refreshCommon` even gets a
+  classification pass back), so no org-config-reachable input independently exercises
+  this second gate; `resolveSafePath`'s own containment invariant is already covered
+  directly in `tests/common_ledgers.test.mjs`.
+
+### Nits
+
+- `appendReadingDecision` gains optional `receivedAt`/`subject` params (both default
+  `''`, matching the previous always-empty behaviour) to fill 수신일/제목 from the mail
+  actually being decided -- `cli.mjs triage decide` gains `--received-at`/`--subject`.
+  Private-plane usage only; every test fixture in this repo stays synthetic.
+- README/CLI usage block: `--bundle-table`/`--reading-table`/`--vendor-table`/
+  `--allow-degraded-owner-tables` documented above.
+- The stale README line citing the private spec under `docs/architecture/...` (it was
+  never actually there -- a placeholder path) now reads "a private handoff spec (not in
+  this repo)".
+
+### Every behaviour change a caller could notice (for the console/UI adapter branch)
+
+1. **D-b, the big one:** `refresh()`/`previewRule()`/`classifyProjectHits` step 1 now
+   matches SUBJECT ONLY by default. A caller that relies on the old default (matching a
+   rule with no explicit `match_fields` against body/attachment text) must either add
+   `match_fields` to that rule's own saved json, or pass `fields: MATCH_FIELDS`
+   explicitly to `refresh()`/`previewRule()` (library) or `--fields all` (CLI).
+2. `refresh()` gains a new optional `vendorTablePath` param and now runs step 4 when
+   it is supplied -- a supplier-vendor body-keyword mail can now land in a project's
+   ledgers via `refresh()` (previously only the common pipeline's own classification
+   ever saw this).
+3. `refresh()`'s `skipped_system` count now only counts mail classification left fully
+   unresolved AND system-sender -- a system-sender mail rescued by its own subject rule
+   or an explicit table/reading decision no longer counts there (D-d).
+4. `refresh()`'s receipt field `search_eligible_attributions` is renamed to
+   `project_search_eligible_attributions`; `refreshCommon()`'s is renamed to
+   `common_search_eligible_attributions` (S3) -- a caller reading either by the old
+   name will see `undefined`.
+5. `refreshCommon()`'s receipt gains `legacy_bucket_file_present` (S8) and
+   `id_collisions_kept` (new, mirrors `refresh()`'s own field); `listUnclassified`'s
+   return gains `owner_table_failures` and can now THROW where it previously always
+   returned (S6) -- a caller not passing `allowDegradedOwnerTables` must handle that.
+6. `triage.mjs`'s `already_decided_invalid` can now also be `'invalid_decision_level'`
+   (S5) -- a caller switching on the previous fixed set of values should add this case.
+7. `cli.mjs`'s `--fields` (omitted) now maps to subject-only, not the full enum (D-b);
+   `parity`'s `no_code_confirmed` row now reads the current file name first (R3).
 
 ## Byte hygiene (tracked source, not data)
 
