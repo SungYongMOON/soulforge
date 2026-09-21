@@ -69,6 +69,10 @@
       "sha256": "1a4568e079db9f5b8b514d7a40a1a4d90db109637c3790d47905a45301baa5a5"
     },
     {
+      "path": "guild_hall/context_engine/src/adapters/citation_matcher.mjs",
+      "sha256": "99bfa97551c68d416db7ca9871a517cc339eb12f7749cbe0390bfae600263ec2"
+    },
+    {
       "path": "guild_hall/context_engine/src/adapters/exact_source_readback.mjs",
       "sha256": "de75142a0252531451fc4e5801938f22ff71d5127b989dae27453aa7ea02a3c0"
     },
@@ -106,7 +110,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "45da1fce761b0af7f74b4794c41848cfac2c0d279e5f9058dd7c9481c889854d"
+      "sha256": "9eacf2111feacd2015c7434d04a5fed625ed783a30bfb32b6f57c9ca07180033"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -115,6 +119,10 @@
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_typed_memory.mjs",
       "sha256": "1a7f74bc2a50a0f686da0d228e020f949be484b3090f080448c47beae1ad6bd6"
+    },
+    {
+      "path": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
+      "sha256": "e4da51e468410c1ab828ff4c1647295d6f1e484f1f9339b3be4e1374b4a48e81"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",
@@ -321,7 +329,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "2e40700f93226e7c0235959251a489ab1f92c843bb5d35168ea2fe3765fd1f37",
+  "closure_sha256": "793ca644f2d5509fe715d2976591f333ecfea120ff68ce65c3e075f29137a461",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -564,6 +572,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/app.mjs",
+      "to": "guild_hall/context_engine/src/guards/citation_verifier.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/app.mjs",
       "to": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs"
     },
     {
@@ -657,6 +669,14 @@
     {
       "from": "guild_hall/context_engine/src/guards/accepted_context_typed_memory.mjs",
       "to": "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
+      "to": "guild_hall/context_engine/src/adapters/citation_matcher.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
+      "to": "guild_hall/engineering_engine/kernel/identity.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",

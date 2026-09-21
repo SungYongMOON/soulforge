@@ -2607,6 +2607,14 @@
   `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0 violations),
   `npm run validate:canon`(138 checked, 0 errors), `node guild_hall/validate/boot_digest_guard.mjs`(OK — 드리프트
   없음) 전부 통과. catalog 안의 두 sha256은 두 manual 파일을 직접 재해시해 맞췄다(hand-edit 아님).
+## 2026-09-22 - 승인된 원문 구간의 인용 대조
+
+- Revision: 이 항목을 포함한 커밋. Context Engine에 교체 가능한 문자열 인용 검증기를 추가한다.
+  기존 출처 판본 ref·근거 구간·locator와 해시를 보존하고 정확/허용 정규화/불일치/출처 누락을 구분한다.
+- 운영 영향: 명시적 호출용 API이며 기존 수락 경로·운영 설정·자료 저장소를 변경하지 않는다.
+  자동 수정·근사 일치·의미적 사실 검증·지식 수락은 하지 않는다. 배포와 병합은 Owner 검토 전 미수행이다.
+- 관련 경로: `guild_hall/context_engine/src/guards/citation_verifier.mjs`,
+  `src/adapters/citation_matcher.mjs`, `tests/citation_verifier.test.mjs`(뒤 두 경로도 Context Engine 기준).
 
 ## 2026-09-20 - 대화 목록 야간 lane 추가
 
