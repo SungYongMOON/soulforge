@@ -39,9 +39,10 @@
 //
 // `--deadline HH:MM` bounds real (calls-a-model) work by wall clock rather
 // than by session count: it names a local Asia/Seoul time of day, interpreted
-// as the next occurrence after this run's own start -- a 22:00 start with
-// `--deadline 00:00` stops at the midnight that follows, not the one twenty-
-// two hours behind it (`nextDeadlineInstant`). The deadline is only ever
+// as the next occurrence after this run's own start -- a 00:00 start with
+// `--deadline 04:00` stops at that same morning's 04:00, and a 23:30 start
+// with `--deadline 01:00` stops at the 01:00 that follows midnight, not one
+// already behind it (`nextDeadlineInstant`). The deadline is only ever
 // checked right before this pass would start a session's own card generation
 // (never mid-classification, which is cheap file reads, not model calls); once
 // it has passed, this pass stops for the night rather than starting another
@@ -51,6 +52,17 @@
 // past `--max-sessions` offers it again the next night -- nothing about the
 // deadline needs its own separate pickup mechanism. A deadline stop is not a
 // failure: this pass still exits 0 for one.
+//
+// `--scheduled-start HH:MM` (optional) anchors the deadline to the *trigger*
+// time rather than to whenever this process actually started -- see
+// `nextDeadlineInstant`'s own doc. Without it, a task whose process started
+// late (a machine that woke at 04:10 for a 00:00 trigger with a 04:00
+// deadline) would compute "the next 04:00 after 04:10", i.e. tomorrow, and
+// quietly get a fresh multi-hour runway it was never granted. With it, the
+// deadline stays pinned to the scheduled 00:00's own day (04:00 that same
+// morning), already behind the 04:10 wake-up, so this run stops immediately
+// -- everything left for the next night, exactly as a deadline reached
+// mid-run would leave it. The registrar passes this through from `-DailyAt`.
 //
 // `--chain-reconcile` runs pass-2 reconcile (`estate_voice_card_reconcile.mjs`)
 // and then the morning-question "present" step (`voice_question_cli.mjs
@@ -70,7 +82,8 @@
 // usage:
 //   node voice_conversation_list_nightly.mjs --root-table <file> --tools-config <file>
 //        --pipeline-config <file> --receipts <dir> [--date YYYY-MM-DD]
-//        [--root-table-sha256 sha256:...] [--max-sessions N] [--deadline HH:MM] [--dry]
+//        [--root-table-sha256 sha256:...] [--max-sessions N]
+//        [--deadline HH:MM [--scheduled-start HH:MM]] [--dry]
 //        [--chain-reconcile --reconcile-receipts <dir>
 //         [--linear-root <alias address>] [--mail-root <alias address>]...
 //         [--questions-cap N]]
@@ -133,24 +146,62 @@ export function defaultTargetDate(nowIso) {
 // -------------------------------------------------------------- deadline
 const DEADLINE_HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/u;
 
+function seoulMsFor(iso, invalidCode) {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) fail(invalidCode);
+  return ms + 9 * 60 * 60 * 1000;
+}
+
+/**
+ * The most recent local Asia/Seoul wall-clock instant matching `hhmm`
+ * ("HH:MM") at or before `anchorIso` -- "at or before", so a call made
+ * exactly at that minute anchors to itself, not the day before. The mirror
+ * image of `nextDeadlineInstant`'s own forward search, used to find which
+ * calendar day a *scheduled* start actually falls on when the process that
+ * woke up to run it did not start on time.
+ */
+function lastOccurrenceAtOrBefore(anchorIso, hhmm) {
+  const match = DEADLINE_HHMM.exec(hhmm ?? '');
+  if (match === null) fail('voice_conversation_list_nightly_scheduled_start_invalid');
+  const seoulAnchorMs = seoulMsFor(anchorIso, 'voice_conversation_list_nightly_scheduled_start_invalid');
+  const seoulAnchor = new Date(seoulAnchorMs);
+  const candidateSeoulMs = Date.UTC(seoulAnchor.getUTCFullYear(), seoulAnchor.getUTCMonth(), seoulAnchor.getUTCDate(),
+    Number(match[1]), Number(match[2]), 0, 0);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const resolvedSeoulMs = candidateSeoulMs > seoulAnchorMs ? candidateSeoulMs - oneDayMs : candidateSeoulMs;
+  return new Date(resolvedSeoulMs - 9 * 60 * 60 * 1000).toISOString();
+}
+
 /**
  * The next local Asia/Seoul wall-clock instant matching `hhmm` ("HH:MM")
- * strictly after `nowIso` -- "next occurrence after start", never the one
+ * strictly after the anchor -- "next occurrence after start", never the one
  * already behind it. Uses the same fixed +09:00 arithmetic `seoulDateFor`/
  * `shiftDate` already use, so a deadline and this lane's own "today" never
  * disagree about what calendar day it is.
+ *
+ * `scheduledStart` ("HH:MM", optional) anchors the search to the *scheduled*
+ * trigger time instead of to `nowIso` itself (`nowIso` is still what decides
+ * which calendar day that scheduled start falls on, via
+ * `lastOccurrenceAtOrBefore`). This matters for a task whose process actually
+ * started well after its trigger fired -- a machine that woke at 04:10 for a
+ * 00:00 trigger with a 04:00 deadline must not get a fresh multi-hour runway
+ * computed from *when it happened to wake up* (that would compute "the next
+ * 04:00 after 04:10", i.e. tomorrow); anchored to the 00:00 trigger, the
+ * deadline is today's 04:00, already behind the 04:10 wake-up, so this run
+ * stops immediately rather than silently getting a day it was never granted.
+ * Left out, `nowIso` is its own anchor -- this function's original,
+ * unanchored behaviour, unchanged for every existing caller.
  */
-export function nextDeadlineInstant(nowIso, hhmm) {
+export function nextDeadlineInstant(nowIso, hhmm, scheduledStart = null) {
+  const anchorIso = scheduledStart !== null ? lastOccurrenceAtOrBefore(nowIso, scheduledStart) : nowIso;
   const match = DEADLINE_HHMM.exec(hhmm ?? '');
   if (match === null) fail('voice_conversation_list_nightly_deadline_invalid');
-  const nowMs = Date.parse(nowIso);
-  if (!Number.isFinite(nowMs)) fail('voice_conversation_list_nightly_deadline_invalid');
-  const seoulNowMs = nowMs + 9 * 60 * 60 * 1000;
-  const seoulNow = new Date(seoulNowMs);
-  const candidateSeoulMs = Date.UTC(seoulNow.getUTCFullYear(), seoulNow.getUTCMonth(), seoulNow.getUTCDate(),
+  const seoulAnchorMs = seoulMsFor(anchorIso, 'voice_conversation_list_nightly_deadline_invalid');
+  const seoulAnchor = new Date(seoulAnchorMs);
+  const candidateSeoulMs = Date.UTC(seoulAnchor.getUTCFullYear(), seoulAnchor.getUTCMonth(), seoulAnchor.getUTCDate(),
     Number(match[1]), Number(match[2]), 0, 0);
   const oneDayMs = 24 * 60 * 60 * 1000;
-  const deadlineSeoulMs = candidateSeoulMs <= seoulNowMs ? candidateSeoulMs + oneDayMs : candidateSeoulMs;
+  const deadlineSeoulMs = candidateSeoulMs <= seoulAnchorMs ? candidateSeoulMs + oneDayMs : candidateSeoulMs;
   return new Date(deadlineSeoulMs - 9 * 60 * 60 * 1000).toISOString();
 }
 
@@ -459,14 +510,18 @@ const totalsFor = (rows, classificationKey, transcriptAbsentClassification) => (
 export async function runNightly({ io, tools, config, prompts, promptDigests, configSha256,
   sessionsAddress = VOICE_SESSIONS_ADDRESS, receiptsDir, targetDate, maxSessions = null, dry = false,
   now = new Date().toISOString(), runSession = defaultRunSession, log = () => {},
-  deadline = null, clock = () => new Date().toISOString(),
+  deadline = null, scheduledStart = null, clock = () => new Date().toISOString(),
   chainReconcile = false, runReconcileChain = defaultRunReconcileChain,
   tablePath = null, rootTableSha256 = null, toolsConfigPath = null, reconcileReceiptsDir = null,
   linearRoot = null, mailRoots = [], questionsCap = null } = {}) {
   if (chainReconcile && (!tablePath || !toolsConfigPath || !reconcileReceiptsDir)) {
     fail('voice_conversation_list_nightly_chain_config_required');
   }
-  const deadlineAt = deadline !== null ? nextDeadlineInstant(now, deadline) : null;
+  // Anchored to `scheduledStart` (the registered trigger time), not to `now`
+  // (when this process actually happened to start), when given -- see
+  // `nextDeadlineInstant`'s own doc for why that distinction matters for a
+  // late-starting run.
+  const deadlineAt = deadline !== null ? nextDeadlineInstant(now, deadline, scheduledStart) : null;
 
   // A defensive catch around the *call itself*, not just inside the default
   // implementation: an injected `runReconcileChain` (a test double, or a
@@ -514,7 +569,8 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       totals: { considered: rows.length, would_run: rows.filter(row => row.classification === 'run').length,
         ...totalsFor(rows, 'classification', 'skipped_short') },
       plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
-      deadline: deadline !== null ? { configured: deadline, at: deadlineAt } : null, chain };
+      deadline: deadline !== null ? { configured: deadline, scheduled_start: scheduledStart, at: deadlineAt } : null,
+      chain };
   }
 
   const lock = acquireLock(receiptsDir, now);
@@ -590,8 +646,9 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
       previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
     plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
-    deadline: deadline !== null ? { configured: deadline, at: deadlineAt, stopped: deadlineStopped,
-      sessions_done: rows.length, sessions_left: Math.max(0, plan.length - rows.length) } : null,
+    deadline: deadline !== null ? { configured: deadline, scheduled_start: scheduledStart, at: deadlineAt,
+      stopped: deadlineStopped, sessions_done: rows.length, sessions_left: Math.max(0, plan.length - rows.length) }
+      : null,
     sessions: rows,
     totals: { ran: rows.filter(row => row.outcome === 'ran').length, ran_unverified: ranUnverified,
       ...totalsFor(rows, 'outcome', 'skipped_short'),
@@ -686,6 +743,8 @@ export async function runNightlyCli(argv, { runSession, runReconcileChain, clock
   }
   const deadlineFlag = flags.get('deadline');
   const deadline = typeof deadlineFlag === 'string' ? deadlineFlag : null;
+  const scheduledStartFlag = flags.get('scheduled-start');
+  const scheduledStart = typeof scheduledStartFlag === 'string' ? scheduledStartFlag : null;
 
   const chainReconcile = flags.get('chain-reconcile') === true;
   const reconcileReceiptsFlag = flags.get('reconcile-receipts');
@@ -713,7 +772,7 @@ export async function runNightlyCli(argv, { runSession, runReconcileChain, clock
   const log = line => { lines.push(line); if (onLine) onLine(line); };
   const result = await runNightly({ io, tools, config, prompts, promptDigests: digests,
     configSha256: hex(configBytes), receiptsDir, targetDate, maxSessions, dry, now: nowIso,
-    deadline, chainReconcile, tablePath, rootTableSha256: resolvedRootTableSha256, toolsConfigPath: toolsPath,
+    deadline, scheduledStart, chainReconcile, tablePath, rootTableSha256: resolvedRootTableSha256, toolsConfigPath: toolsPath,
     reconcileReceiptsDir, linearRoot, mailRoots, questionsCap,
     ...(runSession ? { runSession } : {}), ...(runReconcileChain ? { runReconcileChain } : {}),
     ...(clock ? { clock } : {}), log });

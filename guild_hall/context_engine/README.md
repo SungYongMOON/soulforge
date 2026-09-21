@@ -4,15 +4,22 @@
 
 `13_SCHEDULE_AND_RAG_COVERAGE_PLAN_2026-09-21.md` A안의 코드 조각. `harness/voice_conversation_list_nightly.mjs`가
 벽시계 마감과, 카드 생성이 끝난 뒤 2단계 대조·아침 질문 제시를 같은 프로세스에서 잇는 연쇄를 얻었다. 예약작업
-재등록이나 실제 시각 전환은 이 조각에 없다 — Owner 실행 몫으로 남긴다.
+재등록이나 실제 시각 전환은 이 조각에 없다 — Owner 실행 몫으로 남긴다. 2026-09-21 Owner 정정: 계획한 야간
+시작은 22:00이 아니라 **00:00**(22:00은 Owner 자신의 근무 시간)이므로, 아래 예시는 00:00 시작·04:00 마감을 쓴다.
 
-- **마감(`--deadline HH:MM`)**: Asia/Seoul 기준 시작 이후 다음 그 시각(`nextDeadlineInstant`) — 22:00 시작 +
-  00:00 마감이면 22시간 전이 아니라 그 뒤에 오는 자정에서 멈춘다. 세션 하나의 카드 생성을 실제로 *시작하기
-  직전*에만 검사한다(분류 자체는 값싼 파일 읽기라 검사하지 않음, 모델을 부르는 단계만). 넘겼으면 그 세션과
-  이후 계획 항목 전부를 이번 밤 영수증에서 빼고 깨끗이 멈춘다 — exit 0, 실패가 아니다. 남은 세션은 별도 장치
-  없이 기존 backlog 메커니즘이 다음 밤에 그대로 다시 집는다(그 세션은 여전히 verified run이 없으므로) — 시험이
-  실제로 두 번째 `runNightly` 호출로 그 픽업을 확인한다(가정이 아니라 관찰). 영수증에
-  `deadline.{configured,at,stopped,sessions_done,sessions_left}`.
+- **마감(`--deadline HH:MM`)**: Asia/Seoul 기준 시작 이후 다음 그 시각(`nextDeadlineInstant`) — 00:00 시작 +
+  04:00 마감이면 같은 날 아침 04:00에서 멈추고, 23:30 시작 + 01:00 마감이면 자정을 넘겨 다음날 01:00에서
+  멈춘다(하루 전 01:00이 아니라). 세션 하나의 카드 생성을 실제로 *시작하기 직전*에만 검사한다(분류 자체는
+  값싼 파일 읽기라 검사하지 않음, 모델을 부르는 단계만). 넘겼으면 그 세션과 이후 계획 항목 전부를 이번 밤
+  영수증에서 빼고 깨끗이 멈춘다 — exit 0, 실패가 아니다. 남은 세션은 별도 장치 없이 기존 backlog 메커니즘이
+  다음 밤에 그대로 다시 집는다(그 세션은 여전히 verified run이 없으므로) — 시험이 실제로 두 번째 `runNightly`
+  호출로 그 픽업을 확인한다(가정이 아니라 관찰). 영수증에
+  `deadline.{configured,scheduled_start,at,stopped,sessions_done,sessions_left}`.
+- **`--scheduled-start HH:MM`(선택)**: 마감을 "실제 프로세스가 시작한 시각"이 아니라 "예약된 시작 시각"에
+  고정한다. 컴퓨터가 잠들어 있다가 00:00 트리거를 04:10에야 깨워 실행했다면, 안 주면(기존 동작) 마감이
+  "04:10 다음에 오는 04:00" 즉 **내일**로 계산돼 이 회차가 있지도 않던 여유 시간을 얻는다. 주면(등록기가
+  `-DailyAt`에서 항상 자동으로 넘긴다) 마감은 예약된 00:00 트리거 기준 그날 04:00에 고정되고, 04:10은 이미 그
+  마감을 10분 넘겼으므로 **세션을 단 하나도 돌리지 않고 즉시 멈춘다** — 계획 전체가 다음 밤으로 남는다.
 - **연쇄(`--chain-reconcile`)**: 카드 생성이 끝난 뒤(정상 종료든 마감 정지든) `--reconcile-receipts <dir>`에
   대해 `estate_voice_card_reconcile.mjs`를 `--nightly-receipts <이 밤의 --receipts>`로 부르고, 이어서
   `voice_question_cli.mjs present`를 **같은** reconcile receipts 디렉터리로 부른다(present가 예외 풀을 읽는
@@ -26,16 +33,21 @@
   돌거나 되돌려지지 않는다. `--dry`는 두 하위 호출에도 그대로 전파된다(둘 다 자기 `--dry`로 미리보기 — 등록기
   preflight가 검사하는 그 모양).
 - **등록기**: `ops/register-voice-conversation-list-task.ps1`에 `-DailyAt`(기본 03:00, 안 주면 이전과 완전히
-  같은 모양으로 등록), `-Deadline`, `-ChainReconcile`(+ `-ReconcileReceiptsRoot`/`-LinearRoot`/`-MailRoot`/
-  `-QuestionsCap`)를 더했다. 기존 pin(레인 매니페스트·Node·root table·tools config·pipeline config sha256·
-  dry-run plan digest·기존 task sha256)은 전부 그대로 유지되고, 새 값은 plan hashtable과 `-Register` 뒤 XML
-  대조(action 인자 줄 전체 비교이므로 자동으로 포함)에 함께 들어간다. `-Register` 없이 부르면 새 값을 포함한
-  전체 plan을 찍는다. lane spec `context_read_lane.spec.json`은 `context-read-v5`로 올렸다 — 새
-  tracked_paths·entry_points는 없다(두 harness/registrar 파일이 이미 v4에 이름 올라 있었다).
+  같은 모양으로 등록. Owner 정정으로 실제 새 예약값은 `00:00` 예정이나 이 파라미터의 기본값 자체는 바꾸지
+  않았다 — 안 주면 여전히 이전 task를 등록), `-Deadline`, `-ChainReconcile`(+ `-ReconcileReceiptsRoot`/
+  `-LinearRoot`/`-MailRoot`/`-QuestionsCap`)를 더했다. `-Deadline`을 주면 harness의 `--scheduled-start`를
+  항상 `-DailyAt` 그 값으로 자동으로 함께 넘긴다(호출자가 둘을 따로 입력해 서로 어긋날 길을 아예 없앤다). 기존
+  pin(레인 매니페스트·Node·root table·tools config·pipeline config sha256·dry-run plan digest·기존 task
+  sha256)은 전부 그대로 유지되고, 새 값은 plan hashtable과 `-Register` 뒤 XML 대조(action 인자 줄 전체
+  비교이므로 자동으로 포함)에 함께 들어간다. `-Register` 없이 부르면 새 값을 포함한 전체 plan을 찍는다. lane
+  spec `context_read_lane.spec.json`은 `context-read-v5`로 올렸다 — 새 tracked_paths·entry_points는 없다(두
+  harness/registrar 파일이 이미 v4에 이름 올라 있었다).
 
-시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 4건, 마감 정지·다음 밤
-픽업·마감 미도달 3건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 스텁 없이 실제
-reconcile/present CLI를 부르는 종단 시험 1건.
+시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 7건(기본 4건 + 정시 00:00/
+04:00·정시 23:30/01:00·지각 시작 앵커링 3건), 마감 정지·다음 밤 픽업·마감 미도달·지각 시작 즉시 정지 4건, 연쇄
+순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 스텁 없이 실제 reconcile/present CLI를 부르는 종단 시험
+1건, 등록기 `-DailyAt`/`-Deadline`/`-ChainReconcile`/`--scheduled-start` 연결의 구조 시험 1건(PowerShell 실행
+없이 소스 텍스트 대조).
 
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 

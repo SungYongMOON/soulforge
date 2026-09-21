@@ -236,7 +236,12 @@ $NightlyArguments = @(
   "--receipts", $ReceiptsRoot,
   "--max-sessions", $MaxSessions
 )
-if ($Deadline) { $NightlyArguments += @("--deadline", $Deadline) }
+# `--scheduled-start` is always `-DailyAt` itself, never a separate value a
+# caller could let drift from the trigger this registrar actually registers:
+# anchoring the harness's deadline to anything else would defeat the point
+# (a late-starting run's deadline must be pinned to when it was *scheduled*
+# to start, not to whenever this registrar's caller happened to also type).
+if ($Deadline) { $NightlyArguments += @("--deadline", $Deadline, "--scheduled-start", $DailyAt) }
 if ($ChainReconcile) {
   $NightlyArguments += @("--chain-reconcile", "--reconcile-receipts", $ReconcileReceiptsRoot)
   if ($LinearRoot) { $NightlyArguments += @("--linear-root", $LinearRoot) }

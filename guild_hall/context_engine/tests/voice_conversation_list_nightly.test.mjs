@@ -679,8 +679,9 @@ test('runNightlyCli --dry: the same argv, in dry mode, calls no model and writes
 });
 
 // --------------------------------------------------------------- deadline
-test('nextDeadlineInstant: a 22:00 start with a 00:00 deadline lands on the midnight that follows, not the one behind it', () => {
-  assert.equal(nextDeadlineInstant('2026-09-20T13:00:00.000Z', '00:00'), '2026-09-20T15:00:00.000Z');
+test('nextDeadlineInstant: a 00:00 start with a 04:00 deadline lands that same morning', () => {
+  // Start just after midnight, 2026-09-20T00:00:00 Seoul (2026-09-19T15:00:00.000Z).
+  assert.equal(nextDeadlineInstant('2026-09-19T15:00:00.000Z', '04:00'), '2026-09-19T19:00:00.000Z');
 });
 
 test('nextDeadlineInstant: a deadline later the same Seoul day stays on that day', () => {
@@ -702,6 +703,68 @@ test('nextDeadlineInstant: rejects a malformed HH:MM or a non-instant now', () =
     error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
   assert.throws(() => nextDeadlineInstant('not-a-date', '00:00'),
     error => error.code === 'voice_conversation_list_nightly_deadline_invalid');
+});
+
+// ------------------------------------------------------- scheduled-start anchor
+// 2026-09-21 Owner decision: the nightly start moves from 22:00 to 00:00.
+// These three cover exactly the cases Owner named: an on-time start right at
+// midnight with a same-day deadline, a start just before midnight with a
+// deadline that rolls into the next day, and a *late* start (the process
+// actually began well after its 00:00 trigger) whose deadline must still be
+// anchored to the scheduled trigger, not to whenever it happened to wake up.
+test('nextDeadlineInstant: on-time start at 00:00 with a 04:00 deadline lands the same day, anchored or not', () => {
+  const now = '2026-09-19T15:00:05.000Z'; // Seoul 2026-09-20T00:00:05 -- just after midnight
+  const expected = '2026-09-19T19:00:00.000Z'; // Seoul 2026-09-20T04:00:00, same day
+  assert.equal(nextDeadlineInstant(now, '04:00'), expected); // unanchored (no --scheduled-start)
+  assert.equal(nextDeadlineInstant(now, '04:00', '00:00'), expected); // anchored, same result when on time
+});
+
+test('nextDeadlineInstant: a start just before midnight (23:30) with a deadline after it (01:00) rolls to the next day, anchored or not', () => {
+  const now = '2026-09-21T14:30:05.000Z'; // Seoul 2026-09-21T23:30:05 -- just after the 23:30 trigger
+  const expected = '2026-09-21T16:00:00.000Z'; // Seoul 2026-09-22T01:00:00, the next day
+  assert.equal(nextDeadlineInstant(now, '01:00'), expected); // unanchored
+  assert.equal(nextDeadlineInstant(now, '01:00', '23:30'), expected); // anchored, same result when on time
+});
+
+test('nextDeadlineInstant: a late-starting run (00:00 trigger, process actually starts 04:10) anchors the 04:00 deadline to the trigger, not to the wake-up time', () => {
+  const now = '2026-09-21T19:10:00.000Z'; // Seoul 2026-09-22T04:10:00 -- the machine woke up late
+  // Anchored to the scheduled 00:00 trigger: the deadline is that same morning's 04:00 --
+  // already ten minutes behind the actual wake-up, not "tomorrow's 04:00".
+  const anchored = nextDeadlineInstant(now, '04:00', '00:00');
+  assert.equal(anchored, '2026-09-21T19:00:00.000Z'); // Seoul 2026-09-22T04:00:00
+  assert.ok(Date.parse(now) >= Date.parse(anchored), 'the late wake-up is already past the anchored deadline');
+  // Unanchored (no --scheduled-start), the same late `now` would instead compute
+  // "the next 04:00 after 04:10", i.e. tomorrow -- exactly the wrong runway a
+  // late-starting process must not quietly get.
+  const unanchored = nextDeadlineInstant(now, '04:00');
+  assert.equal(unanchored, '2026-09-22T19:00:00.000Z'); // Seoul 2026-09-23T04:00:00 -- a full day later
+  assert.notEqual(unanchored, anchored);
+});
+
+test('runNightly: a late-starting run with --scheduled-start stops immediately (everything left for the next night), instead of treating the deadline as tomorrow\'s', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-21';
+  await writeSession(est.dataRoot, target, 'S_run_a', { durationSeconds: 40 });
+  await writeSession(est.dataRoot, target, 'S_run_b', { durationSeconds: 40 });
+
+  const now = '2026-09-21T19:10:00.000Z'; // Seoul 2026-09-22T04:10:00 -- woke up late for a 00:00 trigger
+  const calls = [];
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now, deadline: '04:00', scheduledStart: '00:00',
+    clock: () => now, // no time passes during this scripted run; the late start alone is already past
+    runSession: async ({ sessionId }) => { calls.push(sessionId);
+      return { run_id: `vcl_${sessionId}`, verified: true, llm_calls: 1, elapsed_ms: 1 }; }, log: () => {} });
+
+  assert.equal(result.status, 'OK'); // a deadline stop alone is never a failure, even an immediate one
+  assert.deepEqual(calls, [], 'not a single session ran -- the deadline had already passed at the very start');
+  assert.equal(result.receipt.deadline.configured, '04:00');
+  assert.equal(result.receipt.deadline.scheduled_start, '00:00');
+  assert.equal(result.receipt.deadline.at, '2026-09-21T19:00:00.000Z');
+  assert.equal(result.receipt.deadline.stopped, true);
+  assert.equal(result.receipt.deadline.sessions_done, 0);
+  assert.equal(result.receipt.deadline.sessions_left, 2);
+  assert.deepEqual(result.receipt.sessions, []);
 });
 
 test('runNightly: a deadline reached before a session stops the night cleanly (status OK, not a failure)', async () => {
@@ -993,4 +1056,59 @@ test('runNightly --chain-reconcile: the real (non-stubbed) reconcile and present
   // read its exception pool from), never in this night's own `--receipts`.
   const presentReceipts = (await readdir(reconcileReceiptsDir)).filter(name => name.endsWith('.json'));
   assert.ok(presentReceipts.length >= 1);
+});
+
+// -------------------------------------------------------------- registrar
+// The registrar itself is PowerShell 5.1 and needs a built lane to actually
+// run (out of scope for this repository's Windows-agnostic node test run --
+// see `ops/register-voice-conversation-list-task.ps1`'s own header for the
+// manual `-DryRun`-shaped check: run it without `-Register` against a built
+// lane and real paths, and read the printed plan). What node *can* check
+// without executing PowerShell is the registrar's own source text -- the
+// same structural-regex approach `guild_hall/scheduled_hidden_launchers.
+// test.mjs` already uses for other lanes' registrars.
+test('register-voice-conversation-list-task.ps1: -DailyAt/-Deadline/-ChainReconcile are wired the way this harness expects', async () => {
+  const registrarPath = path.join(path.dirname(fileURLToPath(import.meta.url)),
+    '..', 'ops', 'register-voice-conversation-list-task.ps1');
+  const registrar = await readFile(registrarPath, 'utf8');
+
+  // -DailyAt defaults to 03:00 (2026-09-21 Owner decision: the *nightly
+  // start* this lane actually schedules moves to 00:00, but this parameter's
+  // own unchanged default is what keeps a caller who passes nothing
+  // registering exactly the prior task -- see CHANGELOG/README for the
+  // 00:00-start example this bump ships with instead).
+  assert.match(registrar, /\[string\]\$DailyAt = "03:00"/);
+  assert.match(registrar, /\[string\]\$Deadline/);
+  assert.match(registrar, /\[switch\]\$ChainReconcile/);
+  assert.match(registrar, /\[string\]\$ReconcileReceiptsRoot/);
+  assert.match(registrar, /\[string\]\$LinearRoot/);
+  assert.match(registrar, /\[string\[\]\]\$MailRoot/);
+  assert.match(registrar, /\[string\]\$QuestionsCap/);
+
+  // Both -DailyAt and, when given, -Deadline are format-checked before
+  // anything else runs.
+  assert.match(registrar, /Assert-HHmm -Value \$DailyAt -Label "-DailyAt"/);
+  assert.match(registrar, /if \(\$Deadline\) \{ Assert-HHmm -Value \$Deadline -Label "-Deadline" \}/);
+
+  // The harness's --deadline always carries --scheduled-start right next to
+  // it, and that scheduled-start is -DailyAt itself -- never a second value
+  // a caller could let drift from the trigger this registrar actually
+  // registers (2026-09-21 Owner correction: a late-starting run's deadline
+  // must anchor to when it was *scheduled*, not to whenever the process
+  // happened to wake up).
+  assert.match(registrar, /"--deadline", \$Deadline, "--scheduled-start", \$DailyAt/);
+
+  // -ChainReconcile requires -ReconcileReceiptsRoot, and the pass-through
+  // arguments refuse to be given without -ChainReconcile.
+  assert.match(registrar, /-ChainReconcile requires -ReconcileReceiptsRoot/);
+  assert.match(registrar, /chain pass-through arguments require -ChainReconcile/);
+
+  // The new values reach the plan hashtable (audit-visible in a -DryRun
+  // print) and the exported-XML re-attestation already re-checks the full
+  // action argument line byte for byte, which is where --deadline/
+  // --scheduled-start/--chain-reconcile and its pass-through actually live.
+  assert.match(registrar, /deadline = \$\(if \(\$Deadline\)/);
+  assert.match(registrar, /chain_reconcile = \[bool\]\$ChainReconcile/);
+  assert.match(registrar,
+    /Get-XmlNodeText -Parent \$ExecNode -XPath "\.\/\*\[local-name\(\)='Arguments'\]"\) -eq \$HiddenActionArgumentLine/);
 });
