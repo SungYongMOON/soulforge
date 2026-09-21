@@ -1,0 +1,237 @@
+{
+  "schema": "soulforge.knowledge_layer.synthetic_corpus.v1",
+  "id": "kl-small-v1",
+  "created_at": "2026-09-22T00:00:00.000Z",
+  "units": [
+    {
+      "project_ref": "SYN-A",
+      "unit_id": "a-mail",
+      "source_kind": "mail",
+      "locator": "paragraph:1",
+      "text": "메일 안내\n납기는 2026-10-09이며 아직 승인하지 않는다."
+    },
+    {
+      "project_ref": "SYN-A",
+      "unit_id": "a-voice",
+      "source_kind": "voice",
+      "locator": "utterance:1",
+      "text": "회의 기록\n장비 가형의 시험 전류는 10 mA로 유지한다."
+    },
+    {
+      "project_ref": "SYN-A",
+      "unit_id": "a-doc",
+      "source_kind": "document",
+      "locator": "paragraph:1",
+      "text": "문서 기록\n시제품 가형은 냉각 후 검사하고 출하 승인은 보류한다."
+    },
+    {
+      "project_ref": "SYN-B",
+      "unit_id": "b-mail",
+      "source_kind": "mail",
+      "locator": "paragraph:1",
+      "text": "메일 안내\n대금은 200 USD로 제안되었고 계약 금액은 미확정이다."
+    },
+    {
+      "project_ref": "SYN-B",
+      "unit_id": "b-voice",
+      "source_kind": "voice",
+      "locator": "utterance:1",
+      "text": "회의 기록\n장비 나형의 재시험 일정은 2026-11-12로 변경한다."
+    },
+    {
+      "project_ref": "SYN-B",
+      "unit_id": "b-doc",
+      "source_kind": "document",
+      "locator": "paragraph:1",
+      "text": "문서 기록\n장비 나형의 POWER ENABLE은 시험 중 활성화하지 않는다."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "project_ref": "SYN-A",
+      "unit_id": "a-mail",
+      "prompt": "납기는 언제이며 승인됐는가?",
+      "must_find": [
+        {
+          "key": "answer",
+          "any_of": [
+            "2026-10-09"
+          ]
+        }
+      ],
+      "must_cite": [
+        {
+          "key": "evidence",
+          "any_of": [
+            "a-mail"
+          ],
+          "match": "token"
+        }
+      ],
+      "must_not": [
+        {
+          "key": "invented",
+          "any_of": [
+            "모든 승인 완료"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "project_ref": "SYN-A",
+      "unit_id": "a-voice",
+      "prompt": "가형 시험전류는?",
+      "must_find": [
+        {
+          "key": "answer",
+          "any_of": [
+            "10 mA"
+          ]
+        }
+      ],
+      "must_cite": [
+        {
+          "key": "evidence",
+          "any_of": [
+            "a-voice"
+          ],
+          "match": "token"
+        }
+      ],
+      "must_not": [
+        {
+          "key": "invented",
+          "any_of": [
+            "모든 승인 완료"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "project_ref": "SYN-A",
+      "unit_id": "a-doc",
+      "prompt": "시제품검사조건은?",
+      "must_find": [
+        {
+          "key": "answer",
+          "any_of": [
+            "냉각 후 검사"
+          ]
+        }
+      ],
+      "must_cite": [
+        {
+          "key": "evidence",
+          "any_of": [
+            "a-doc"
+          ],
+          "match": "token"
+        }
+      ],
+      "must_not": [
+        {
+          "key": "invented",
+          "any_of": [
+            "모든 승인 완료"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "project_ref": "SYN-B",
+      "unit_id": "b-mail",
+      "prompt": "금액은 확정됐는가?",
+      "must_find": [
+        {
+          "key": "answer",
+          "any_of": [
+            "계약 금액은 미확정"
+          ]
+        }
+      ],
+      "must_cite": [
+        {
+          "key": "evidence",
+          "any_of": [
+            "b-mail"
+          ],
+          "match": "token"
+        }
+      ],
+      "must_not": [
+        {
+          "key": "invented",
+          "any_of": [
+            "모든 승인 완료"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "project_ref": "SYN-B",
+      "unit_id": "b-voice",
+      "prompt": "나형 재시험일정은?",
+      "must_find": [
+        {
+          "key": "answer",
+          "any_of": [
+            "2026-11-12"
+          ]
+        }
+      ],
+      "must_cite": [
+        {
+          "key": "evidence",
+          "any_of": [
+            "b-voice"
+          ],
+          "match": "token"
+        }
+      ],
+      "must_not": [
+        {
+          "key": "invented",
+          "any_of": [
+            "모든 승인 완료"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q6",
+      "project_ref": "SYN-B",
+      "unit_id": "b-doc",
+      "prompt": "POWER ENABLE 조건은?",
+      "must_find": [
+        {
+          "key": "answer",
+          "any_of": [
+            "활성화하지 않는다"
+          ]
+        }
+      ],
+      "must_cite": [
+        {
+          "key": "evidence",
+          "any_of": [
+            "b-doc"
+          ],
+          "match": "token"
+        }
+      ],
+      "must_not": [
+        {
+          "key": "invented",
+          "any_of": [
+            "모든 승인 완료"
+          ]
+        }
+      ]
+    }
+  ]
+}

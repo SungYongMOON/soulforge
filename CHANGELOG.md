@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-09-22 - 자동 정리본 K0 합성 평가
+
+- Revision: 이 항목을 포함한 커밋. 기존 answer_eval을 재사용하는 두 합성 과제의 작은 평가 세트를 추가한다.
+- 운영 영향: 개발 하니스와 root 검증 연결만 추가하며 모델·DB·운영 writer를 호출하지 않는다.
+- 관련 경로: `guild_hall/context_engine/harness/knowledge_layer_eval.mjs`, `tests/knowledge_layer`, 공개 examples.
+
 ## 2026-09-22 - 승인된 원문 구간 안의 인용 검색 (Context Engine 0.22.5)
 
 - Revision: 이 항목을 포함한 커밋. 승인 구간 안의 정확 포함, 없으면 Unicode 공백+NFC 정규화
