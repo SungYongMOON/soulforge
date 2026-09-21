@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  classifyMail, classifyMailBounded, compiledRulesHaveRegex, compileRule, compileRules, compileTerm,
-  createBoundedClassifier, hintCodes, MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES, normalizeYieldsTo,
-  RuleCompileError, RULE_SCHEMA_VERSION,
+  classifyMail, compileRule, compileRules, compileTerm, hintCodes, MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES,
+  normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
 } from '../src/classifier.mjs';
 
 const lit = (label, value) => ({ label, kind: 'literal', value });
@@ -154,29 +153,11 @@ test('compileTerm/compileRule/compileRules (fresh-review-3 #5): timeSafety:false
   assert.equal(compiledList.length, 1);
 });
 
-test('classifyMailBounded (fresh-review-3 #3, second half): catches a runaway regex on the real match path even if it slipped past compile time', () => {
-  const badRuleJson = {
-    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [rx('redos-alt-1', '^(a|a)+$')], hint: [], yields_to: null,
-    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-  const compiled = compileRules([badRuleJson], { timeSafety: false });
-  assert.equal(compiledRulesHaveRegex(compiled), true);
-  const mail = { subject: '', body_text: `${'a'.repeat(35)}!`, attachment_names: [] };
-  assert.throws(() => classifyMailBounded(mail, compiled, { fields: ['body_text'] }), error =>
-    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe_at_match');
-});
-
-test('compiledRulesHaveRegex: false for a literal-only rule set', () => {
-  const literalRule = {
-    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [lit('X', 'widget')], hint: [], yields_to: null,
-    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-  assert.equal(compiledRulesHaveRegex(compileRules([literalRule])), false);
-});
+// fresh-review-5 (design simplification): `classifyMailBounded`/`createBoundedClassifier`/
+// `compiledRulesHaveRegex` were removed by coordinator decision -- matching is a
+// direct classifyMail call now, never wrapped in a per-mail vm timeout. See
+// classifier.mjs's classifyMail doc for the reasoning and what still guards a bad
+// regex (draft-time canary timing only, plus the static shape checks below).
 
 test('compileTerm: every regex term in examples/rule.example.json still validates', () => {
   const examplePath = new URL('../examples/rule.example.json', import.meta.url);
@@ -209,62 +190,6 @@ test('classifyMail (N-2, fresh-review-4): subject and attachment_names are bound
   // and not an accidental blanket exclusion of these two fields.
   const shortSubject = { subject: 'needle-at-the-tail', body_text: '', attachment_names: [] };
   assert.equal(classifyMail(shortSubject, compiled, { fields: ['subject'] }).hits.length, 1);
-});
-
-test('createBoundedClassifier (S-1, fresh-review-4): a per-mail timeout names the project_code and term label that overran', () => {
-  const badRuleJson = {
-    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [rx('redos-alt-1', '^(a|a)+$')], hint: [], yields_to: null,
-    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-  const compiled = compileRules([badRuleJson], { timeSafety: false });
-  const classifier = createBoundedClassifier(compiled);
-  const mail = { subject: '', body_text: `${'a'.repeat(35)}!`, attachment_names: [] };
-  assert.throws(() => classifier.classify(mail, ['body_text']), error =>
-    error instanceof RuleCompileError && error.code === 'workspace_ledgers_term_regex_timing_unsafe_at_match'
-    && error.project_code === 'P00-001' && error.term_label === 'redos-alt-1');
-});
-
-test('createBoundedClassifier (S-3, fresh-review-4): one instance is safely reused across many mails, including recovering after a timeout', () => {
-  const badRuleJson = {
-    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [lit('OK', 'widget'), rx('redos-alt-1', '^(a|a)+$')], hint: [], yields_to: null,
-    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-  const compiled = compileRules([badRuleJson], { timeSafety: false });
-  const classifier = createBoundedClassifier(compiled);
-  const goodMail = { subject: 'a widget order', body_text: '', attachment_names: [] };
-  const first = classifier.classify(goodMail, ['subject']);
-  assert.equal(first.hits.length, 1);
-  const badMail = { subject: '', body_text: `${'a'.repeat(35)}!`, attachment_names: [] };
-  assert.throws(() => classifier.classify(badMail, ['body_text']));
-  // the SAME classifier instance still works correctly on the next mail after a
-  // timeout -- the hoisted vm context/script were not left in a broken state.
-  const second = classifier.classify(goodMail, ['subject']);
-  assert.equal(second.hits.length, 1);
-});
-
-test('createBoundedClassifier (S-2, fresh-review-4): stats() accumulates cumulative match time and the slowest terms across calls', () => {
-  const ruleJsonDoc = {
-    schema_version: RULE_SCHEMA_VERSION, project_code: 'P00-001', folder_name: 'P00-001_x', rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [rx('slowish', '기[0Oo]탐', 'u')], hint: [], yields_to: null,
-    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-  const compiled = compileRules([ruleJsonDoc]);
-  const classifier = createBoundedClassifier(compiled);
-  const mail = { subject: 'no match here', body_text: '', attachment_names: [] };
-  classifier.classify(mail, ['subject']);
-  classifier.classify(mail, ['subject']);
-  const stats = classifier.stats();
-  assert.ok(stats.totalMs >= 0);
-  assert.ok(Array.isArray(stats.slow));
-  assert.ok(stats.slow.length > 0);
-  assert.equal(stats.slow[0].project_code, 'P00-001');
-  assert.equal(stats.slow[0].label, 'slowish');
-  assert.ok(typeof stats.slow[0].ms === 'number');
 });
 
 test('normalizeYieldsTo: accepts null/undefined/object/array, caps entry count', () => {

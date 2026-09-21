@@ -4,11 +4,11 @@
 // (via `rule_store.mjs`) so held/yield decisions consider the whole rule set, not just
 // the projects a caller selected to refresh.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import {
-  compiledRulesHaveRegex, compileRule, compileRules, createBoundedClassifier, MATCH_FIELDS, MATCH_RUN_BUDGET_MS,
-} from './classifier.mjs';
+  existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
+} from 'node:fs';
+import path from 'node:path';
+import { compileRule, compileRules, MATCH_FIELDS } from './classifier.mjs';
 import { listProjects, readRule, validateRule, LINEAGE_SCHEMA } from './rule_store.mjs';
 import { DEFAULT_SYSTEM_SENDER_PATTERNS, loadMailEvents } from './mail_events.mjs';
 import { buildContacts, buildHistory, buildReplyStatus, decodeCsv, domainOf, encodeCsv, LEDGER_SCHEMA, makeOrgLookup } from './ledgers.mjs';
@@ -48,17 +48,38 @@ const sha256 = text => `sha256:${createHash('sha256').update(text).digest('hex')
 const encodeJson = value => `${JSON.stringify(value, null, 2)}\n`;
 
 /**
- * S-7 (fresh-review-4): a caught error's raw `.message` can (and, for a filesystem
- * error like ENOENT/EACCES, typically does) carry a full host-local absolute path --
- * exactly the kind of value `nit10`'s `unreadable_dirs` redaction already keeps out of
- * this module's receipts. Every failure receipt that includes `error.message` runs it
- * through this first: `error.code` is kept verbatim (it is never a path), but any
- * Windows-style drive-letter absolute-path substring in the message is cut down to its
- * basename.
+ * S-7 (fresh-review-4) + fresh-review-5 #6: a caught error's raw `.message` can (and,
+ * for a filesystem error like ENOENT/EACCES, typically does) carry a full host-local
+ * absolute path -- exactly the kind of value `nit10`'s `unreadable_dirs` redaction
+ * already keeps out of this module's receipts. Every failure receipt that includes
+ * `error.message` runs it through this first: `error.code` is kept verbatim (it is
+ * never a path), but any absolute-path-shaped substring is cut down to its basename.
+ *
+ * Node's own fs errors always single-quote the offending path (`ENOENT: ... open
+ * '<drive letter>:<backslash>Program Files<backslash>x.json'`), including when it
+ * contains spaces -- so the first pass here matches a QUOTED span that starts like a
+ * path (drive-letter, UNC `\\...`, or a POSIX `/...`) and redacts the whole span, not
+ * just up to the first space. A second, unquoted pass is defense-in-depth for a path
+ * this module's own code embeds in a message without quoting it.
  */
-function redactHostPaths(message) {
+const QUOTED_HOST_PATH = /(['"])((?:[A-Za-z]:[\\/]|\\\\|\/)[^'"]*)\1/gu;
+const UNQUOTED_WINDOWS_PATH = /[A-Za-z]:[\\/][^\s'"]+/gu;
+const UNQUOTED_UNC_PATH = /\\\\[^\s'"]+/gu;
+// A leading `/` alone is too common in ordinary prose (dates, fractions, "and/or") to
+// treat as a path; requiring a second `/` further in keeps this to things that look
+// like an actual multi-segment filesystem path.
+const UNQUOTED_POSIX_PATH = /(^|[\s(])(\/[^\s'")]+\/[^\s'")]*)/gu;
+
+// Exported as a test seam (fresh-review-5 #6 asks for direct coverage of all three
+// path shapes) -- not part of the module's documented public surface (`index.mjs`
+// does not re-export it); every real caller reaches it only through a failure receipt.
+export function redactHostPaths(message) {
   if (typeof message !== 'string') return message;
-  return message.replace(/[A-Za-z]:[\\/][^\s'"]+/gu, match => path.basename(match));
+  let out = message.replace(QUOTED_HOST_PATH, (match, quote, innerPath) => `${quote}${path.basename(innerPath)}${quote}`);
+  out = out.replace(UNQUOTED_WINDOWS_PATH, match => path.basename(match));
+  out = out.replace(UNQUOTED_UNC_PATH, match => path.basename(match));
+  out = out.replace(UNQUOTED_POSIX_PATH, (match, pre, p) => `${pre}${path.basename(p)}`);
+  return out;
 }
 
 function atomicWriteText(filePath, text) {
@@ -121,6 +142,19 @@ function systemSenderPatternsFromConfig(orgConfig) {
   return [...DEFAULT_SYSTEM_SENDER_PATTERNS, new RegExp(`@(${escaped.join('|')})$`, 'iu')];
 }
 
+/** Finds `{ list, index }` of the term named `label` within a rule json's `exact`/`hint` arrays, or `null`. */
+function locateTermByLabel(ruleJson, label) {
+  if (!ruleJson || typeof label !== 'string') return null;
+  const exact = Array.isArray(ruleJson.exact) ? ruleJson.exact : [];
+  const exactIndex = exact.findIndex(term => term?.label === label);
+  if (exactIndex !== -1) return { list: 'exact', index: exactIndex };
+  const hint = Array.isArray(ruleJson.hint) ? ruleJson.hint : [];
+  const hintIndex = hint.findIndex(term => term?.label === label);
+  if (hintIndex !== -1) return { list: 'hint', index: hintIndex };
+  return null;
+}
+const shortHash = value => createHash('sha256').update(String(value)).digest('hex').slice(0, 8);
+
 /**
  * S-8 (fresh-review-4): compiles each onboarded project's saved rule *individually*,
  * catching a failure per rule instead of letting one bad rule (a hand-edited/corrupted
@@ -128,24 +162,33 @@ function systemSenderPatternsFromConfig(orgConfig) {
  * other project's rule too. A project whose rule fails to read or compile is excluded
  * from the returned `ok` list -- it neither participates in classification for ANY
  * project this run, nor gets its own ledgers written -- and is recorded in
- * `ruleFailures` as `{ project_code, code, term_label }` (`term_label` from
- * `RuleCompileError`/`RuleStoreError`'s `.detail`, when the failure was term-specific;
- * `null` otherwise). Shared by both `refresh()` and `previewRule()`.
+ * `ruleFailures` as `{ project_code, code, term_ref }`.
+ *
+ * fresh-review-5 #9: `term_ref` is `{ list, index, label_hash }` (which list the failing
+ * term is in, its position, and a short hash of its label), never the label text
+ * itself. A receipt is written to disk and can be surfaced to a UI; a rule's term
+ * labels are Owner-authored routing keywords and may themselves be real project code
+ * names, partner names, or other identifying text -- the same reason `previewRule`'s
+ * `samples` are never printed by default. `null` when the failure was not term-specific
+ * (e.g. the json itself failed to parse) or the failing label could not be located.
+ * Shared by both `refresh()` and `previewRule()`.
  */
 function readAllRuleJsonSafely(workspacesRoot) {
   const projects = listProjects({ workspacesRoot });
   const ok = [];
   const ruleFailures = [];
   for (const project of projects) {
+    let json;
     try {
-      const { json } = readRule({ workspacesRoot, code: project.project_code });
+      json = readRule({ workspacesRoot, code: project.project_code }).json;
       const compiled = compileRule(json, { timeSafety: false });
       ok.push({ project, json, compiled });
     } catch (error) {
+      const located = locateTermByLabel(json, error?.detail);
       ruleFailures.push({
         project_code: project.project_code,
         code: error?.code ?? 'workspace_ledgers_rule_unreadable',
-        term_label: error?.detail ?? null,
+        term_ref: located ? { list: located.list, index: located.index, label_hash: shortHash(error.detail) } : null,
       });
     }
   }
@@ -153,16 +196,27 @@ function readAllRuleJsonSafely(workspacesRoot) {
 }
 
 /**
- * S-4 (fresh-review-4): the common, easy-to-make mistake -- an operator pointing
- * `--hiworks-events` and `--gmail-sent-events` at the very same directory -- is
- * rejected immediately with a clear usage error rather than being allowed to silently
- * double-count and then collide every event_id against itself. Only the offending
- * directory's *basename* is named, consistent with `nit10`'s path redaction elsewhere.
+ * S-4 (fresh-review-4) + fresh-review-5 #5: the common, easy-to-make mistake -- an
+ * operator pointing `--hiworks-events` and `--gmail-sent-events` at the very same
+ * directory -- is rejected immediately with a clear usage error rather than being
+ * allowed to silently double-count and then collide every event_id against itself.
+ * Compared by `fs.realpathSync.native()` (the actual OS-resolved target), not the
+ * literal path string -- this repo's own custody layout uses junctions/symlinks in
+ * places, and two differently-spelled paths that resolve to the same real directory
+ * are exactly the same mistake a literal-string (or even a `path.resolve`d) comparison
+ * would miss. Case-folded only on `win32` (POSIX paths are case-sensitive). A
+ * directory that does not exist yet falls back to the resolved (non-real) path --
+ * `loadMailEvents` reports that as `unreadableDirs` separately regardless. Only the
+ * offending directory's *basename* is named, consistent with `nit10`'s redaction.
  */
+function realDirIdentity(dir) {
+  let real;
+  try { real = realpathSync.native(dir); } catch { real = path.resolve(dir); }
+  return process.platform === 'win32' ? real.toLowerCase() : real;
+}
 function assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs) {
-  const normalize = dir => path.resolve(dir).toLowerCase(); // Windows paths are case-insensitive
-  const hiworksSet = new Set(hiworksDirs.map(normalize));
-  const overlap = gmailSentDirs.find(dir => hiworksSet.has(normalize(dir)));
+  const hiworksSet = new Set(hiworksDirs.map(realDirIdentity));
+  const overlap = gmailSentDirs.find(dir => hiworksSet.has(realDirIdentity(dir)));
   if (overlap) fail('workspace_ledgers_custody_dirs_overlap', path.basename(overlap));
 }
 
@@ -173,40 +227,38 @@ function assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs) {
  * both the hiworks and gmail-sent custody. `mail_events.mjs` dedupes/disambiguates
  * within one source only, so that collision is invisible until the two sources' events
  * are merged here. The FIRST occurrence of a given `event_id` in the merged list (in
- * concatenation order: hiworks events before gmail events) keeps its id unchanged --
- * this is by far the common, non-colliding case, and changing every id's shape would
- * shift every already-written real ledger's key. Only a genuine repeat gets `source`
- * folded into its id, so the two never collide on the same downstream 이력키.
+ * concatenation order: hiworks events before gmail events -- a fixed, source-identity-
+ * based convention, not a count that depends on how much custody exists) keeps its id
+ * unchanged -- this is by far the common, non-colliding case, and changing every id's
+ * shape would shift every already-written real ledger's key.
+ *
+ * fresh-review-5 #4: every occurrence AFTER the first used to be suffixed with a
+ * positional `#count` (`~src:<source>#2`, `#3`, ...); this module now folds a stable
+ * hash of the event's own content into the suffix instead, so a repeat's effective id
+ * depends only on that event's own data, never on how many other repeats exist or in
+ * what order they were read -- the same reasoning as N-5's fix to the per-source
+ * disambiguation in `mail_events.mjs`.
  */
 function disambiguateCrossSourceIds(events) {
-  const seenCount = new Map();
+  const seen = new Set();
   return events.map(event => {
-    const count = (seenCount.get(event.event_id) ?? 0) + 1;
-    seenCount.set(event.event_id, count);
-    if (count === 1) return event;
-    return { ...event, event_id: `${event.event_id}~src:${event.source}#${count}` };
+    if (!seen.has(event.event_id)) { seen.add(event.event_id); return event; }
+    const basis = `${event.source}|${event.subject}|${event.at}|${event.from?.email ?? ''}`;
+    return { ...event, event_id: `${event.event_id}~src:${event.source}~cs:${shortHash(basis)}` };
   });
 }
 
 /**
- * S-2/S-3 (fresh-review-4): one bounded classifier (hoisting one `vm.createContext`
- * and one precompiled `vm.Script`, per `createBoundedClassifier`) is created here, once
- * per `classifyCustody` call, and shared across BOTH the hiworks and gmail-sent
- * `loadMailEvents` calls below -- so its cumulative match-time and slowest-term stats
- * (`totalMatchMs`/`slowestMatches`, used by `refresh()`'s cumulative run-budget gate)
- * reflect the WHOLE custody window this call classifies, not just one source's half of
- * it. `matchTimeouts` (S-1) is the concatenation of both sources' per-mail timeouts.
+ * fresh-review-5 (design simplification): matching is a direct `classifyMail` call via
+ * `mail_events.mjs` -- no bounded/timed classifier to hoist or share here any more.
  */
 function classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns }) {
   assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs);
-  const boundedClassifier = compiledRulesHaveRegex(compiledRules) ? createBoundedClassifier(compiledRules) : null;
-  const options = { ...(systemSenderPatterns ? { systemSenderPatterns } : {}), ...(boundedClassifier ? { boundedClassifier } : {}) };
+  const options = systemSenderPatterns ? { systemSenderPatterns } : {};
   const hiworks = loadMailEvents({ dirs: hiworksDirs, source: '하이웍스_수집', compiledRules, fields, ...options });
   const gmail = loadMailEvents({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집', compiledRules, fields, ...options });
   const events = disambiguateCrossSourceIds([...hiworks.events, ...gmail.events]);
-  const matchTimeouts = [...hiworks.matchTimeouts, ...gmail.matchTimeouts];
-  const stats = boundedClassifier ? boundedClassifier.stats() : { totalMs: 0, slow: [] };
-  return { events, hiworks, gmail, matchTimeouts, totalMatchMs: stats.totalMs, slowestMatches: stats.slow };
+  return { events, hiworks, gmail };
 }
 
 /** fresh-review-3 #10: `dir` (a full host-local path) never leaves this module -- only its basename and which flag it came from. */
@@ -280,16 +332,18 @@ function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fiel
  * are compiled without re-running the ReDoS timing canaries (fresh-review-3 #5) --
  * `validateRule` above already timed the draft when it validated it; re-timing
  * everything here would be redundant for the draft and non-deterministic validation of
- * already-trusted saved rules. The real per-mail matching still runs under
- * `classifyMailBounded`'s timeout (via `mail_events.mjs`) regardless.
+ * already-trusted saved rules. Matching itself is a direct `classifyMail` call
+ * (fresh-review-5 design simplification -- see `classifier.mjs`'s `classifyMail` doc).
+ *
+ * fresh-review-5 #7: a project whose OWN saved rule fails to read/compile is excluded
+ * from the comparison set (same as `refresh()`), and is now surfaced in the return
+ * value's `rule_failures` -- a previous version silently dropped this, but
+ * `saveRuleVersion` can render `previewRule`'s return straight into the Owner-facing
+ * rule `.md` as `measured` "fact"; a count computed while some other project's rule
+ * was silently excluded needs to say so, not be presented as complete.
  */
 export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gmailSentDirs = [], fields = MATCH_FIELDS, orgConfigPath = null }) {
-  // S-8: a project whose OWN saved rule fails to read/compile is silently excluded
-  // from the comparison set here (same as `refresh()`) rather than aborting the whole
-  // preview -- `readAllRuleJsonSafely`'s `ruleFailures` is not surfaced in this
-  // function's return shape; a preview is best-effort read-only feedback, not an
-  // audited write, so there is no receipt for it to appear in.
-  const { ok: all } = readAllRuleJsonSafely(workspacesRoot);
+  const { ok: all, ruleFailures } = readAllRuleJsonSafely(workspacesRoot);
   const target = all.find(row => row.project.project_code === code);
   const folderName = target ? target.project.folder_name : draft.folder_name ?? null;
   const nextDraft = { ...draft, project_code: code, folder_name: folderName };
@@ -333,6 +387,9 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     // it, not for casual printing -- `cli.mjs`'s preview-rule prints counts only
     // unless the caller explicitly asks for `--show-samples`.
     samples: { moved_in: movedIn.slice(0, 10), moved_out: movedOut.slice(0, 10), newly_held: newlyHeld.slice(0, 10) },
+    // fresh-review-5 #7: never render straight into an Owner-facing doc without
+    // checking this first -- see `saveRuleVersion`'s `measured` handling.
+    rule_failures: ruleFailures,
   };
 }
 
@@ -558,31 +615,26 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
  * other file for every other project still refreshes normally. `receipt.status` is
  * `'failed'` whenever `ledger_failures` is non-empty, when any custody directory could
  * not be read (`unreadable_dirs`, always true regardless of `allowPartialSources` --
- * the override changes what got written, not the visibility of the problem), when any
- * project's saved rule failed to read/compile (`rule_failures`, S-8 -- that project is
- * excluded from classification and from being written this run, every other project
- * still refreshes), or when any individual mail's matching overran its per-mail budget
- * (`match_timeouts`, S-1 -- that one mail is skipped, everything else still processes).
- * This function still returns the receipt rather than throwing for any of those, so a
- * caller sees exactly what succeeded and what did not; the CLI maps `status: 'failed'`
- * to exit code 2. Separately (S-2), if the CUMULATIVE match time across every mail in
- * this run exceeds `MATCH_RUN_BUDGET_MS`, the run is gated exactly like the unreadable-
- * custody case -- nothing is written, `receipt.match_run_budget_exceeded` names the
- * total and the slowest observed terms -- since a run that pathological is understood
- * to be grinding rather than doing normal work, and releasing the lock promptly matters
- * more than whatever partial result it could still produce. If something unexpected
- * throws mid-run instead, a best-effort failure receipt (`status: 'failed'`, an `error`
- * field with any host-local path in its message redacted to a basename -- S-7 -- and
- * whatever project reports had already completed -- fresh-review-3 #7) is still written
- * before the error propagates; the lock-held case (fresh-review-3 #14) gets the same
- * treatment even though it never reaches the main try block.
+ * the override changes what got written, not the visibility of the problem), or when
+ * any project's saved rule failed to read/compile (`rule_failures`, S-8 -- that project
+ * is excluded from classification and from being written this run, every other project
+ * still refreshes). This function still returns the receipt rather than throwing for
+ * any of those, so a caller sees exactly what succeeded and what did not; the CLI maps
+ * `status: 'failed'` to exit code 2. If something unexpected throws mid-run instead, a
+ * best-effort failure receipt (`status: 'failed'`, an `error` field with any host-local
+ * path in its message redacted to a basename -- S-7 -- and whatever project reports had
+ * already completed -- fresh-review-3 #7) is still written before the error propagates;
+ * the lock-held case (fresh-review-3 #14) gets the same treatment even though it never
+ * reaches the main try block.
+ *
+ * fresh-review-5 (design simplification, coordinator decision): there is no longer a
+ * per-mail match timeout or a cumulative match-time run budget -- both were removed
+ * after three review rounds showed that machinery creating worse failure modes (a
+ * wall-clock interruption on one project's term deleting an unrelated project's ledger
+ * row) than the ReDoS risk it guarded against, for this loopback, Owner-only tool.
  */
 export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects: onlyProjects = null,
-  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [], allowPartialSources = false,
-  // S-2 test seam: overrides the exported MATCH_RUN_BUDGET_MS default so a test can
-  // exercise the cumulative-budget gate without an actual multi-thousand-mail,
-  // multi-minute run. Not part of the CLI surface.
-  matchRunBudgetMs = MATCH_RUN_BUDGET_MS }) {
+  fields = MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [], allowPartialSources = false }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
@@ -631,7 +683,6 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
   let duplicatesDroppedTotal = 0, idCollisionsKeptTotal = 0, heldCount = 0, unattributed = 0;
   let unreadableDirsRedacted = [];
   let ruleFailures = [];
-  let matchTimeouts = [];
 
   try {
     // S-8: a bad saved rule for one project is excluded (recorded in ruleFailures),
@@ -644,54 +695,42 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     if (selectedCodes) {
       for (const code of selectedCodes) if (!all.some(row => row.project.project_code === code)) fail('workspace_ledgers_unknown_project', code);
     }
-    // S-5: every code named in allowEmpty must be a real, currently-onboarded project
-    // -- the same treatment `--projects` already gets -- so a typo'd code silently
-    // granting no override (and looking identical to "did not ask for one") is instead
-    // a loud, immediate usage error.
-    for (const code of allowEmptyCodes) if (!all.some(row => row.project.project_code === code)) fail('workspace_ledgers_unknown_project', code);
+    // S-5 + fresh-review-5 #8: every code named in allowEmpty must be a real,
+    // currently-onboarded project -- the same treatment `--projects` already gets --
+    // so a typo'd code silently granting no override (and looking identical to "did
+    // not ask for one") is instead a loud, immediate usage error. A code that names a
+    // REAL project excluded THIS run only because its own rule failed to compile
+    // (`ruleFailures`) is a different situation, not a typo -- it gets its own code
+    // pointing at that, not `unknown_project`.
+    for (const code of allowEmptyCodes) {
+      if (all.some(row => row.project.project_code === code)) continue;
+      if (ruleFailures.some(entry => entry.project_code === code)) fail('workspace_ledgers_allow_empty_targets_rule_failure', code);
+      fail('workspace_ledgers_unknown_project', code);
+    }
 
     // fresh-review-3 #5: saved rules are compiled without re-running the (non-
     // deterministic) ReDoS timing canaries -- they were already timed when saved
-    // (`saveRuleVersion` -> `validateRule`, default `timeSafety: true`). The real
-    // per-mail matching below still runs under a bounded classifier's timeout.
+    // (`saveRuleVersion` -> `validateRule`, default `timeSafety: true`). Matching
+    // itself is a direct `classifyMail` call (fresh-review-5 design simplification).
     const compiledRules = all.map(row => row.compiled);
-    const { events, hiworks, gmail, matchTimeouts: classifyTimeouts, totalMatchMs, slowestMatches } =
-      classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns });
-    matchTimeouts = classifyTimeouts;
+    const { events, hiworks, gmail } = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns });
     eventsScannedHiworks = hiworks.scanned; eventsScannedGmail = gmail.scanned;
     skippedSystemTotal = hiworks.skippedSystem + gmail.skippedSystem;
     duplicatesDroppedTotal = hiworks.duplicatesDropped + gmail.duplicatesDropped;
     idCollisionsKeptTotal = hiworks.idCollisionsKept + gmail.idCollisionsKept;
     unreadableDirsRedacted = redactUnreadableDirs(hiworks.unreadableDirs, gmail.unreadableDirs);
 
-    const gatedReceipt = extra => ({
-      ...baseReceipt(), status: 'failed',
-      events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
-      skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
-      unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [],
-      rule_failures: ruleFailures, match_timeouts: matchTimeouts, match_run_budget_exceeded: null,
-      held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
-      ...extra,
-    });
-
     // fresh-review-3 #1: pre-write gate. An unreadable custody directory stops every
     // write for this run -- not just the ones that happen to compute to zero rows --
     // unless the caller explicitly opted into a partial-sources run.
     if (unreadableDirsRedacted.length > 0 && !allowPartialSources) {
-      const receipt = gatedReceipt({});
-      writeReceiptFile(receipt);
-      return receipt;
-    }
-
-    // S-2: a canary-passing term can still be merely expensive enough that, summed
-    // across a multi-thousand-mail run, it holds the refresh lock for minutes. This
-    // cumulative budget (unlike S-1's per-mail tolerance, below) gates the whole run --
-    // releasing the lock promptly matters more than a partial write once a run is this
-    // pathological.
-    if (totalMatchMs > matchRunBudgetMs) {
-      const receipt = gatedReceipt({
-        match_run_budget_exceeded: { total_ms: totalMatchMs, budget_ms: matchRunBudgetMs, slowest: slowestMatches },
-      });
+      const receipt = {
+        ...baseReceipt(), status: 'failed',
+        events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
+        skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
+        unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [],
+        rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
+      };
       writeReceiptFile(receipt);
       return receipt;
     }
@@ -770,14 +809,12 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
 
     const receipt = {
       ...baseReceipt(),
-      status: (ledgerFailures.length > 0 || unreadableDirsRedacted.length > 0 || ruleFailures.length > 0 || matchTimeouts.length > 0)
-        ? 'failed' : 'ok',
+      status: (ledgerFailures.length > 0 || unreadableDirsRedacted.length > 0 || ruleFailures.length > 0) ? 'failed' : 'ok',
       events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
       skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
       unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: unreadableDirsRedacted.length > 0 && allowPartialSources,
       allow_empty_applied_to: [...allowEmptyAppliedTo],
-      rule_failures: ruleFailures, match_timeouts: matchTimeouts, match_run_budget_exceeded: null,
-      held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
+      rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     };
     writeReceiptFile(receipt);
     return receipt;
@@ -791,8 +828,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       events_scanned: { hiworks: eventsScannedHiworks, gmail_sent: eventsScannedGmail },
       skipped_system: skippedSystemTotal, duplicates_dropped: duplicatesDroppedTotal, id_collisions_kept: idCollisionsKeptTotal,
       unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [...allowEmptyAppliedTo],
-      rule_failures: ruleFailures, match_timeouts: matchTimeouts, match_run_budget_exceeded: null,
-      held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
+      rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
     });
     throw error;
   } finally {

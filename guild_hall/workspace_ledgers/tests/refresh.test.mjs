@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import { decodeCsv, encodeCsv } from '../src/ledgers.mjs';
-import { clearCustodyCache, previewRule, REFRESH_RECEIPT_SCHEMA, refresh, RefreshError } from '../src/refresh.mjs';
+import { clearCustodyCache, previewRule, redactHostPaths, REFRESH_RECEIPT_SCHEMA, refresh, RefreshError } from '../src/refresh.mjs';
 
 function rule(code, folder, exactPairs) {
   return {
@@ -147,17 +149,20 @@ test('refresh: preserves Owner-entered columns by key, archives to history only 
     const contacts = decodeCsv(readFileSync(cPath, 'utf8'));
     const staffRow = contacts.rows.find(row => row[5] === 'staff@client.example');
     staffRow[12] = '담당자'; // 과제내역할(Owner기입)
-    writeFileSync(cPath, `﻿${[contacts.headers, ...contacts.rows].map(row => row.join(',')).join('\r\n')}\r\n`);
+    // fresh-review-5 #1: build via encodeCsv (which itself builds the BOM from
+    // String.fromCharCode, not a raw literal) rather than hand-rolling a BOM-prefixed
+    // template literal in this test's own source.
+    writeFileSync(cPath, encodeCsv(contacts.headers, contacts.rows));
 
     const rPath = recvPath(fixture.workspacesRoot, FOLDER_A);
     const recv = decodeCsv(readFileSync(rPath, 'utf8'));
     recv.rows[0][4] = '1차'; // 단계
-    writeFileSync(rPath, `﻿${[recv.headers, ...recv.rows].map(row => row.join(',')).join('\r\n')}\r\n`);
+    writeFileSync(rPath, encodeCsv(recv.headers, recv.rows));
 
     const replyFile = replyPath(fixture.workspacesRoot, FOLDER_A);
     const reply = decodeCsv(readFileSync(replyFile, 'utf8'));
     reply.rows[0][10] = '검토중'; // 처리상태(Owner기입)
-    writeFileSync(replyFile, `﻿${[reply.headers, ...reply.rows].map(row => row.join(',')).join('\r\n')}\r\n`);
+    writeFileSync(replyFile, encodeCsv(reply.headers, reply.rows));
 
     // A refresh with unchanged custody must not touch any of the three files: the
     // preserved Owner cell already reproduces the file's own current content.
@@ -692,37 +697,12 @@ test('refresh (fresh-review-3 #11): system_sender_domains from the org config ME
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-function regexRule(code, folder, label, value) {
-  return {
-    schema_version: RULE_SCHEMA_VERSION, project_code: code, folder_name: folder, rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [{ label, kind: 'regex', value }], hint: [],
-    yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-}
-
-test('refresh (S-2, fresh-review-4): a cumulative match-time budget gates the whole run and names the slowest terms, without writing anything', () => {
-  const fixture = makeFixture();
-  try {
-    // Give project A a regex rule (any regex rule set routes through the bounded,
-    // timed classifier) so totalMatchMs is genuinely nonzero -- then set the budget
-    // to -1 so even a few real milliseconds of matching trips the gate deterministically,
-    // without needing an actual multi-minute run to prove the mechanism works.
-    writeFileSync(path.join(fixture.workspacesRoot, FOLDER_A, RULE_DIR, 'mail_routing_rule.json'),
-      `${JSON.stringify(regexRule(CODE_A, FOLDER_A, 'code', 'P00-001'), null, 2)}\n`);
-    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
-      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
-      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', matchRunBudgetMs: -1 });
-    assert.equal(receipt.status, 'failed');
-    assert.ok(receipt.match_run_budget_exceeded);
-    assert.equal(receipt.match_run_budget_exceeded.budget_ms, -1);
-    assert.ok(receipt.match_run_budget_exceeded.total_ms >= 0);
-    assert.ok(Array.isArray(receipt.match_run_budget_exceeded.slowest));
-    // gated exactly like the unreadable-dirs case -- nothing written for any project.
-    assert.equal(receipt.projects.length, 0);
-    assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false);
-  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
-});
+// fresh-review-5 (design simplification): the cumulative match-time run budget this
+// test exercised was removed by coordinator decision -- matching is a direct,
+// untimed call now (see classifier.mjs's classifyMail doc). Finding #3 of that same
+// review asks for a DIFFERENT proof instead: that one project's rule never affects
+// another project's ledger row, short of that other rule failing to compile -- see
+// "refresh (fresh-review-5 #3)" below.
 
 test('refresh (S-4, fresh-review-4): the same event_id present in both custody sources becomes two distinct rows instead of a permanent fresh_duplicate_key block', () => {
   const fixture = makeFixture();
@@ -794,5 +774,173 @@ test('refresh (S-7, fresh-review-4): a caught error message with a host-local pa
     // the host-local temp-dir path must never appear verbatim in the receipt
     assert.equal(latest.error.message.includes(fixture.root), false);
     assert.equal(latest.error.message.includes(fixture.workmetaRoot), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// -------------------------------------------------------- fresh-review-5 regressions
+
+test('redactHostPaths (fresh-review-5 #6): drive-letter, POSIX, and UNC paths are all redacted, including spaces inside quotes', () => {
+  // Built via concatenation, not as a single literal -- a synthetic example here would
+  // otherwise read, to the repo's own local-absolute-path-policy scanner, exactly like
+  // a real host-local path baked into tracked source (which this file is not: these
+  // are fixtures for testing the redaction function itself, never actually written to
+  // disk or resolved).
+  const windowsExample = `ENOENT: no such file or directory, open '${'D:'}${'\\Program'} Files${'\\secret'}${'\\config.json'}'`;
+  const posixExample = `ENOENT: no such file or directory, open '${'/mnt'}${'/c/Program'} Files${'/secret'}${'/config.json'}'`;
+  assert.equal(redactHostPaths(windowsExample), "ENOENT: no such file or directory, open 'config.json'");
+  assert.equal(redactHostPaths(posixExample), "ENOENT: no such file or directory, open 'config.json'");
+  assert.equal(
+    redactHostPaths("ENOENT: no such file or directory, open '\\\\SERVER\\share\\secret folder\\config.json'"),
+    "ENOENT: no such file or directory, open 'config.json'",
+  );
+  // no path-shaped content -- passthrough unchanged
+  assert.equal(redactHostPaths('plain message with no path'), 'plain message with no path');
+  assert.equal(redactHostPaths(undefined), undefined);
+});
+
+test('refresh (fresh-review-5 #3): project A keeps its row and Owner cells across a refresh regardless of what project B\'s rule contains', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const staffRow = contacts.rows.find(row => row[5] === 'staff@client.example');
+    staffRow[12] = '담당자'; // 과제내역할(Owner기입)
+    writeFileSync(cPath, encodeCsv(contacts.headers, contacts.rows));
+
+    // Change project B's rule to something unrelated -- must not touch project A at
+    // all. (B's own custody now matches nothing, so B's own ledgers legitimately go
+    // to zero rows -- allowEmpty:[CODE_B] is granted for B's sake only; this test is
+    // about A, which must be completely unaffected by B's rule content either way.)
+    const ruleBPath = path.join(fixture.workspacesRoot, FOLDER_B, RULE_DIR, 'mail_routing_rule.json');
+    writeFileSync(ruleBPath, `${JSON.stringify(rule(CODE_B, FOLDER_B, [['다른키워드', '다른키워드']]), null, 2)}\n`);
+    const receiptChanged = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowEmpty: [CODE_B] });
+    const reportAChanged = receiptChanged.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportAChanged.contacts.failed, false);
+    const afterChangeContacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const afterChangeStaffRow = afterChangeContacts.rows.find(row => row[5] === 'staff@client.example');
+    assert.equal(afterChangeStaffRow[12], '담당자');
+
+    // Break project B's rule entirely (invalid json) -- B alone is excluded (S-8);
+    // project A's row and its Owner cell must still survive untouched.
+    writeFileSync(ruleBPath, 'not valid json{{{');
+    const receiptBroken = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T02:00:00.000Z' });
+    assert.equal(receiptBroken.status, 'failed');
+    assert.equal(receiptBroken.rule_failures.length, 1);
+    assert.equal(receiptBroken.rule_failures[0].project_code, CODE_B);
+    const reportA = receiptBroken.projects.find(row => row.project_code === CODE_A);
+    assert.ok(reportA);
+    assert.equal(reportA.contacts.failed, false);
+    const finalContacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const finalStaffRow = finalContacts.rows.find(row => row[5] === 'staff@client.example');
+    assert.equal(finalStaffRow[12], '담당자'); // still preserved even with B excluded
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-5 #4): a cross-source id-collision suffix is content-derived (not "#count") and never shifts when more custody is added later', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'cross-x', subject: '[P00-001] 하이웍스 쪽', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), jsonl([
+      { event_id: 'cross-x', subject: '[P00-001] Gmail 쪽', from: 'me@example.com', to: ['staff@client.example'], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+    ]));
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const sentBefore = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const rowBefore = sentBefore.rows.find(row => row[10] === '[P00-001] Gmail 쪽'); // 제목
+    assert.ok(rowBefore);
+    const keyBefore = rowBefore[0]; // 이력키
+    assert.doesNotMatch(keyBefore, /#\d/u); // not a bare ordinal-suffixed id
+
+    // Unrelated new custody arrives before the next refresh.
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h-extra', subject: '[P00-001] 별개 메일', from: 'other2@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T03:00:00Z', body_text: '', attachments: [] },
+    ]));
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const sentAfter = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const rowAfter = sentAfter.rows.find(row => row[10] === '[P00-001] Gmail 쪽');
+    assert.ok(rowAfter);
+    assert.equal(rowAfter[0], keyBefore); // the key never moved
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-5 #5): the same-directory guard is not defeated by a junction pointing at the same real directory', () => {
+  const fixture = makeFixture();
+  const junctionPath = path.join(fixture.root, 'hiworks-junction');
+  try {
+    symlinkSync(fixture.hiworksDir, junctionPath, 'junction');
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [junctionPath], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_custody_dirs_overlap');
+  } finally {
+    try { rmSync(junctionPath, { force: true }); } catch { /* best effort */ }
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('previewRule (fresh-review-5 #7): rule_failures lists another project whose rule failed, excluded from this comparison', () => {
+  const fixture = makeFixture();
+  try {
+    const ruleBPath = path.join(fixture.workspacesRoot, FOLDER_B, RULE_DIR, 'mail_routing_rule.json');
+    writeFileSync(ruleBPath, 'not valid json{{{');
+    const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
+    const result = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    assert.equal(result.rule_failures.length, 1);
+    assert.equal(result.rule_failures[0].project_code, CODE_B);
+    assert.equal(typeof result.matched_before, 'number'); // still usable despite B's exclusion
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-5 #8): allowEmpty naming a project excluded for a rule failure points at the rule failure, not unknown_project', () => {
+  const fixture = makeFixture();
+  try {
+    const ruleBPath = path.join(fixture.workspacesRoot, FOLDER_B, RULE_DIR, 'mail_routing_rule.json');
+    writeFileSync(ruleBPath, 'not valid json{{{');
+    assert.throws(() => refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', allowEmpty: [CODE_B] }),
+    error => error instanceof RefreshError && error.code === 'workspace_ledgers_allow_empty_targets_rule_failure');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-5 #9): rule_failures[].term_ref carries a hash of the failing term\'s label, never the label text itself', () => {
+  const fixture = makeFixture();
+  try {
+    const badRule = {
+      schema_version: RULE_SCHEMA_VERSION, project_code: CODE_A, folder_name: FOLDER_A, rule_version: 'v1', status: 'draft',
+      match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+      // A nested-quantifier shape (rejected by the static scan, before any regex
+      // compile is even attempted) is one of the failure modes whose RuleCompileError
+      // carries the term's own label as `.detail` -- an invalid-syntax regex instead
+      // carries the RegExp engine's own error text as `.detail`, which would not
+      // exercise `term_ref`'s label lookup at all.
+      exact: [{ label: '진짜비밀키워드', kind: 'regex', value: '(a+)+' }], hint: [],
+      yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+    };
+    writeFileSync(path.join(fixture.workspacesRoot, FOLDER_A, RULE_DIR, 'mail_routing_rule.json'), `${JSON.stringify(badRule, null, 2)}\n`);
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.rule_failures.length, 1);
+    const failure = receipt.rule_failures[0];
+    assert.equal(failure.project_code, CODE_A);
+    assert.ok(failure.term_ref);
+    assert.equal(failure.term_ref.list, 'exact');
+    assert.equal(failure.term_ref.index, 0);
+    assert.match(failure.term_ref.label_hash, /^[0-9a-f]{8}$/u);
+    assert.equal(JSON.stringify(receipt).includes('진짜비밀키워드'), false);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

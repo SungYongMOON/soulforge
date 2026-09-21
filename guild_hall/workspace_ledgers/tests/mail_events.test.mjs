@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { compileRules, createBoundedClassifier, MAX_BODY_TEXT_CHARS, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
+import { compileRules, MAX_BODY_TEXT_CHARS, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import { loadMailEvents, parseAddressField } from '../src/mail_events.mjs';
 
 function tempDir() {
@@ -15,15 +15,6 @@ function rule(code, folder, exact) {
     schema_version: RULE_SCHEMA_VERSION, project_code: code, folder_name: folder, rule_version: 'v1', status: 'draft',
     match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
     exact: exact.map(([label, value]) => ({ label, kind: 'literal', value })), hint: [],
-    yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
-  };
-}
-
-function regexRule(code, folder, label, value) {
-  return {
-    schema_version: RULE_SCHEMA_VERSION, project_code: code, folder_name: folder, rule_version: 'v1', status: 'draft',
-    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
-    exact: [{ label, kind: 'regex', value }], hint: [],
     yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
   };
 }
@@ -373,57 +364,8 @@ test('loadMailEvents (N-4, fresh-review-4): a body far past MAX_BODY_TEXT_CHARS 
   }
 });
 
-test('loadMailEvents (S-1, fresh-review-4): a per-mail match timeout skips only that mail and is recorded in matchTimeouts, not thrown', () => {
-  const dir = tempDir();
-  try {
-    const badLine = { event_id: 'bad', subject: 'trigger bad', body_text: `${'a'.repeat(35)}!`, from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', attachments: [] };
-    const goodLine = { event_id: 'good', subject: 'trigger good', body_text: `${'a'.repeat(35)}!`, from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', attachments: [] };
-    writeFileSync(path.join(dir, 'events.jsonl'), `${JSON.stringify(badLine)}\n${JSON.stringify(goodLine)}`);
-    // Two rules: one whose only term is a catastrophic-backtracking ReDoS shape that
-    // slipped past compile-time timing (timeSafety:false, as refresh() compiles saved
-    // rules), one a plain literal that both custody lines' bodies actually contain
-    // (both bodies are identical 'a' runs, so BOTH lines would time out on the ReDoS
-    // rule -- this test only needs to show neither one aborts the whole call).
-    const compiled = compileRules(
-      [regexRule('P00-001', 'P00-001_x', 'redos-alt-1', '^(a|a)+$')],
-      { timeSafety: false },
-    );
-    const { events, matchTimeouts } = loadMailEvents({ dirs: [dir], source: 'test', compiledRules: compiled, fields: ['body_text'] });
-    assert.equal(events.length, 0); // both mails' matching overran -- neither produced an event
-    assert.equal(matchTimeouts.length, 2);
-    const ids = matchTimeouts.map(entry => entry.event_id).sort();
-    assert.deepEqual(ids, ['bad', 'good']);
-    for (const entry of matchTimeouts) {
-      assert.equal(entry.source, 'test');
-      assert.equal(entry.project_code, 'P00-001');
-      assert.equal(entry.term_label, 'redos-alt-1');
-    }
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('loadMailEvents (S-2/S-3, fresh-review-4): a caller-supplied boundedClassifier is reused and its stats accumulate across two loadMailEvents calls', () => {
-  const dirA = tempDir();
-  const dirB = tempDir();
-  try {
-    const line = subject => ({ event_id: `e-${subject}`, subject, from: 'a@example.com', to: [], cc: [], received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] });
-    writeFileSync(path.join(dirA, 'events.jsonl'), JSON.stringify(line('[P00-001] hiworks 쪽 메일')));
-    writeFileSync(path.join(dirB, 'events.jsonl'), JSON.stringify(line('[P00-001] gmail 쪽 메일')));
-    const compiled = compileRules([regexRule('P00-001', 'P00-001_x', 'code', '\\[P00-001\\]')]);
-    const shared = createBoundedClassifier(compiled);
-    const first = loadMailEvents({ dirs: [dirA], source: 'source-a', compiledRules: compiled, fields: ['subject'], boundedClassifier: shared });
-    const second = loadMailEvents({ dirs: [dirB], source: 'source-b', compiledRules: compiled, fields: ['subject'], boundedClassifier: shared });
-    assert.equal(first.events.length, 1);
-    assert.equal(second.events.length, 1);
-    // Both calls report the SAME shared classifier's cumulative stats -- the second
-    // call's totalMs is at least the first's (time only accumulates), proving the vm
-    // context/script was reused across both calls rather than recreated per call.
-    assert.ok(second.matchMs >= first.matchMs);
-    assert.ok(Array.isArray(first.slowestMatches));
-    assert.ok(Array.isArray(second.slowestMatches));
-  } finally {
-    rmSync(dirA, { recursive: true, force: true });
-    rmSync(dirB, { recursive: true, force: true });
-  }
-});
+// fresh-review-5 (design simplification): the per-mail vm-timeout machinery two
+// tests here used to exercise (S-1's matchTimeouts, S-2/S-3's shared
+// boundedClassifier) was removed by coordinator decision -- see classifier.mjs's
+// classifyMail doc. Matching is a direct classifyMail call now; there is nothing left
+// to test a timeout or a shared bounded-classifier instance against.

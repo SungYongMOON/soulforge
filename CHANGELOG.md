@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 다섯 번째 신선한 검토 반영 + 설계 단순화: 메일당 타임아웃·누적 예산 제거
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(e5364d37)에 대한 다섯 번째 별도(non-author) fresh
+  review — 이 모듈 자체 검증기가 커밋된 상태로 RED(116/117)였고, 필수 2건·should
+  6건이 추가로 나왔다 — 를 반영했다. **코디네이터 설계 결정**: 5라운드에 걸쳐 메일당
+  매칭 타임아웃(`node:vm` 기반)이 매번 자신이 고치려던 문제보다 더 나쁜 실패
+  모드를 만들어냈다(한 과제의 트리거에 대한 wall-clock 인터럽트가 다른 과제의
+  대장 행을 지우는 사고). 이 모듈은 loopback·Owner 전용 도구이므로, vm 경계
+  매칭 경로·메일당 타임아웃(`match_timeouts`)·누적 실행 예산
+  (`match_run_budget_exceeded`)을 전부 제거하고 매칭을 직접 호출로 되돌렸다.
+  결정적(deterministic)인 방어만 남겼다: 정적 모양 검사, 초안 시점에만 도는
+  다중 알파벳 카나리 타이밍(`validateRule`/`previewRule` 초안/`saveRuleVersion`),
+  플래그 화이트리스트, 읽기 시점 `subject`/`attachment_names`/`body_text` 길이
+  상한. 저장된 규칙은 refresh 시 타이밍 재검사 없이 신뢰하며(compile-only), 프로젝트별
+  개별 컴파일과 `rule_failures`는 그대로 유지했다. README·CHANGELOG에서
+  "즉시 잠금 반환" 같은 이제는 거짓인 서술을 지우고 이 설계를 그대로 문서화했다.
+  필수: (1) `tests/byte_hygiene.test.mjs:57`가 U+200B를 리터럴로 직접 심어
+  자기 자신에게 걸리는 버그였다 -- 모든 탐지 바늘을 `String.fromCharCode`로
+  만들고, U+FEFF·U+200C·U+200D·U+2060까지 스캔 범위를 넓히고,
+  `src/ledgers.mjs`의 CSV BOM 두 곳도 raw 문자 대신 `String.fromCharCode(0xFEFF)`로
+  다시 써서 별도 allow-list 없이 통과하게 했으며, `git ls-files`뿐 아니라 모듈
+  디렉터리의 미추적 파일까지 스캔하도록 고쳤다(R-1). (2) `rule_store.mjs`의
+  `findSectionLines`가 여전히 `startsWith`를 써서, 가짜 헤딩이 진짜 헤딩보다
+  앞에 있으면 진짜 절의 본문이 사라지고 가짜 절의 본문이 두 번 쓰였다 --
+  `isFixedHeading`과 같은 완전 일치 목록으로 맞췄다(R-2). (3) 프로젝트 A의 행과
+  Owner 셀이 프로젝트 B의 규칙 내용과 무관하게(B 자신의 규칙 컴파일 실패로 B만
+  제외되는 경우를 제외하고) 보존됨을 직접 증명하는 테스트를 추가했다(설계
+  단순화로 이미 해결되었음을 확인).
+  should: (4) 이 모듈이 실제로 쓴 운영 대장이 아직 없으므로(대상면은 별도
+  스크립트 산출물이며 한 번 더 재생성 예정) 마이그레이션은 만들지 않되, 교차
+  소스 id 구분 접미사를 위치 기반 `#count`에서 내용 기반 해시로 바꾸고(키가
+  이후로 다시는 움직이지 않도록), 이 커밋 이후로만 키가 안정적이라고 README에
+  명시했다(S-4). (5) 동일-디렉터리 가드가 이 저장소 자체가 쓰는 정션/심볼릭
+  링크에 의해 무력화될 수 있었다 -- `fs.realpathSync.native()`로 비교하고,
+  `toLowerCase()`는 win32에서만 적용한다(S-5). (6) `redactHostPaths`가 공백
+  없는 드라이브 문자 경로만 처리했다 -- POSIX 절대경로·UNC 경로를 추가하고,
+  따옴표 안 공백 포함 경로는 따옴표로 감싼 구간 전체를 지우도록 고쳤다(S-6).
+  (7) `previewRule`이 `rule_failures`를 버렸는데, 그 실측치가 나중에
+  Owner용 규칙 md에 사실처럼 렌더링됐다 -- `previewRule`이 `rule_failures`를
+  반환하고, 비어있지 않으면 실측 줄에 주의 문구를 덧붙이도록 고쳤다(S-7).
+  (8) `allowEmpty`가 규칙 실패로 제외된 프로젝트를 가리키면 `unknown_project`를
+  던졌다 -- 실제 원인(`workspace_ledgers_allow_empty_targets_rule_failure`)을
+  가리키도록 고쳤다(S-8, 원 발견 번호와 겹치지만 별도 항목). (9) 영수증의
+  `rule_failures[].term_label`이 Owner가 지은 라우팅 키워드(실명일 수 있음)를
+  그대로 담고 있었다 -- 라벨 텍스트 대신 `{list, index, label_hash}`로
+  바꾸고 README에 명시했다(S-9, 원 발견 번호와 겹치지만 별도 항목).
+- 운영 영향: 코드·테스트·문서만 바뀌었다. `refresh()`/`previewRule()`을
+  `src/index.mjs`로 호출하는 콘솔/어댑터(branch `claude/ops-mail-rule-panel-v0`)는:
+  `allowEmpty`를 여전히 프로젝트 코드 배열로 넘겨야 하고(라운드 4와 동일,
+  변경 없음), `orgConfigPath`는 선택값으로 이전과 동일하게 넘기면 되며,
+  제거된 옵션은 없다(이 모듈은 애초에 `matchRunBudgetMs`를 CLI 표면에 노출한
+  적이 없다 -- 테스트 전용 인자였고 이번에 함께 제거됨). `previewRule`의 반환값에
+  `rule_failures` 필드가 새로 생겼으므로, 그 결과를 `saveRuleVersion`의
+  `measured`로 그대로 넘기는 흐름은 자동으로 주의 문구를 받게 된다(코드 변경
+  불필요, 값을 그대로 전달만 하면 됨).
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·cli.mjs·README).
+- 검증: 클린 체크아웃에서 `npm run validate:workspace-ledgers`(120 tests
+  pass), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(0 violations), `npm run validate:canon`(0 errors/warnings), 실제
+  대상면 `--dry --fields subject` 재확인(건수만).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 네 번째 신선한 검토(non-author) 반영: 바이너리 파일 사고·잠금 시간 예산·범위 축소
 
 - Revision: 이 항목을 포함한 커밋.

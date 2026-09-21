@@ -19,11 +19,12 @@
 // without it, any unreadable custody directory blocks every write for the whole run
 // (the failed receipt is still written); with it, the run proceeds on whatever
 // custody was readable, and the receipt records `allow_partial_sources_applied`.
-// `refresh`'s `status: 'failed'` can now have several distinct causes (unreadable
-// custody, a cumulative match-time budget overrun, a bad saved rule excluded for one
-// project, a per-mail match timeout, or R4's ledger validation) -- the CLI (S-6)
-// prints a message naming which one(s) actually applied, including the
+// `refresh`'s `status: 'failed'` can have several distinct causes (unreadable custody,
+// a bad saved rule excluded for one project, or R4's ledger validation) -- the CLI
+// (S-6) prints a message naming which one(s) actually applied, including the
 // `--allow-partial-sources` hint specifically for the unreadable-custody case.
+// fresh-review-5 (design simplification): there is no per-mail match timeout and no
+// cumulative match-time run budget any more -- matching is a direct, untimed call.
 // `save-rule` accepts an optional `--allowed-actors a,b,c` (N16) to further restrict
 // `--by` to that exact list, on top of the always-applied machine-actor refusal.
 // `preview-rule` prints counts only by default; `--show-samples` also prints
@@ -73,7 +74,8 @@ function exitCodeFor(code) {
   if (code.includes('lock')) return 3;
   if (code.includes('required') || code.includes('invalid') || code.includes('unknown_project')
     || code.includes('no_projects_found') || code.includes('not_found') || code.includes('unreadable')
-    || code.includes('allow_empty_must_be_list') || code.includes('custody_dirs_overlap')) return 2;
+    || code.includes('allow_empty_must_be_list') || code.includes('custody_dirs_overlap')
+    || code.includes('allow_empty_targets_rule_failure')) return 2;
   return 3;
 }
 
@@ -116,14 +118,8 @@ function runRefresh(flags) {
         console.error(`workspace_ledgers_refresh_unreadable_dirs: ${JSON.stringify(receipt.unreadable_dirs)}`
           + ' -- pass --allow-partial-sources to proceed on whatever custody was readable');
       }
-      if (receipt.match_run_budget_exceeded) {
-        console.error(`workspace_ledgers_refresh_match_run_budget_exceeded: ${JSON.stringify(receipt.match_run_budget_exceeded)}`);
-      }
       if (receipt.rule_failures?.length > 0) {
         console.error(`workspace_ledgers_refresh_rule_failures: ${JSON.stringify(receipt.rule_failures)}`);
-      }
-      if (receipt.match_timeouts?.length > 0) {
-        console.error(`workspace_ledgers_refresh_match_timeouts: ${JSON.stringify(receipt.match_timeouts)}`);
       }
       if (receipt.ledger_failures?.length > 0) {
         console.error(`workspace_ledgers_refresh_ledger_validation_failed: ${JSON.stringify(receipt.ledger_failures)}`);
@@ -156,6 +152,11 @@ function runPreviewRule(flags) {
     // explicitly asked for, never by default.
     const { samples, ...counts } = result;
     console.log(JSON.stringify(showSamples ? result : counts));
+    // fresh-review-5 #7: another project's rule failing to compile means these counts
+    // were computed with fewer rules in play than normal -- flagged, not silent.
+    if (result.rule_failures?.length > 0) {
+      console.error(`workspace_ledgers_preview_rule_partial_rule_failures: ${JSON.stringify(result.rule_failures)}`);
+    }
   } catch (error) {
     console.error(`workspace_ledgers_preview_rule_failed: ${error.code ?? error.message}`);
     process.exitCode = error instanceof RefreshError ? exitCodeFor(error.code) : 3;

@@ -64,9 +64,19 @@ function cell(value) {
   return /[",\n]/u.test(guarded) ? `"${guarded.replace(/"/gu, '""')}"` : guarded;
 }
 
+// fresh-review-5 #1: written as `String.fromCharCode(0xFEFF)`, not a raw BOM
+// character embedded in this source file -- a byte-hygiene scan over this module's
+// tracked *source* (tests/byte_hygiene.test.mjs) treats U+FEFF as a problem the same
+// way it treats a stray zero-width space, since either one is invisible in an editor
+// and in a diff. Writing it this way means the scanner never needs a special-case
+// allow-list for these two intentional spots -- there is simply no raw U+FEFF byte
+// anywhere in this module's source to find. The two CSV BOM bytes this module
+// actually WRITES into ledger files (data, not source) are unaffected.
+const CSV_BOM = String.fromCharCode(0xFEFF);
+
 /** UTF-8 BOM + CRLF CSV, Excel- and machine-readable alike (one copy, per Owner decision). */
 export function encodeCsv(headers, rows) {
-  return `﻿${[headers, ...rows].map(row => row.map(cell).join(',')).join('\r\n')}\r\n`;
+  return `${CSV_BOM}${[headers, ...rows].map(row => row.map(cell).join(',')).join('\r\n')}\r\n`;
 }
 
 /**
@@ -77,7 +87,8 @@ export function encodeCsv(headers, rows) {
  * general-purpose CSV parser.
  */
 export function decodeCsv(text) {
-  const source = String(text ?? '').replace(/^﻿/u, '');
+  const raw = String(text ?? '');
+  const source = raw.startsWith(CSV_BOM) ? raw.slice(CSV_BOM.length) : raw;
   const records = [];
   let record = [], field = '', inQuotes = false;
   const pushField = () => { record.push(unguardFormula(field)); field = ''; };

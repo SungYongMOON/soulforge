@@ -196,8 +196,21 @@ function parseSections(mdText) {
   return sections;
 }
 
-function findSectionLines(sections, headingPrefix) {
-  const found = sections.find(section => section.heading.startsWith(headingPrefix));
+/**
+ * fresh-review-5 #2: matches by EXACT heading equality, the same standard
+ * `isFixedHeading` already uses for these two no-parenthetical headings -- this
+ * function used to match by `startsWith`, so a lookalike heading placed BEFORE the
+ * genuine "## Owner 확인 기록"/"## Owner 확인이 필요한 것" in the file (e.g. an Owner
+ * heading that happens to start with the same stem) would be found first: its body
+ * became the "decided"/"open" content carried into the new save, the genuine
+ * section's own body was never found at all (silently dropped), and the lookalike's
+ * body was ALSO carried forward a second time as an "unknown section" by
+ * `unknownSections` (which, correctly, only ever treated the lookalike as unknown --
+ * never the genuine section, since `isFixedHeading` already required exact equality).
+ * Net effect: the lookalike's body appeared twice, the genuine section's body vanished.
+ */
+function findSectionLines(sections, heading) {
+  const found = sections.find(section => section.heading === heading);
   return found ? found.lines : [];
 }
 
@@ -214,18 +227,34 @@ function unknownSections(sections) { return sections.filter(section => !isFixedH
 const MEASURED_UNKNOWN_LINE = '- 실측: 이번 저장에서 preview-rule을 실행하지 않아 측정값 없음 (UNKNOWN).';
 
 /**
+ * fresh-review-5 #7: `measured.rule_failures` (`previewRule`'s own return field, see
+ * `refresh.mjs`) lists any OTHER project whose saved rule failed to read/compile and
+ * was excluded from the custody classification `measured`'s counts were computed
+ * against -- held/yield decisions (and so `newly_held`/`moved_in`/`moved_out`) can be
+ * wrong in that project's absence. Never render the counts as if they were complete
+ * without saying so; a caller supplying zero rule_failures (or omitting the field
+ * entirely -- the older CLI convenience shape never had it) renders exactly as before.
+ */
+function ruleFailureCaveat(measured) {
+  const failures = Array.isArray(measured?.rule_failures) ? measured.rule_failures : [];
+  if (failures.length === 0) return '';
+  return ` 주의: 다른 과제 규칙 ${failures.length}건이 컴파일 실패해 이번 실측에서 제외됨 (보류/양보 판단이 바뀔 수 있음).`;
+}
+
+/**
  * Renders the 근거 section's measured line from either shape `measured` may arrive
  * in: `previewRule`'s own return (`{matched_before, matched_after, moved_in,
- * moved_out, newly_held, samples}` -- the UI adapter passes this straight through) or
- * the older CLI convenience shape (`{subjects, exact, hint_only}`). `samples` (real
- * mail subjects) is never rendered under any shape. Any field absent from whichever
- * shape is present renders nothing for that field, never the literal `undefined`; a
- * `measured` object with no recognised field at all falls back to the same "not
- * measured" line as `measured` being absent entirely.
+ * moved_out, newly_held, samples, rule_failures}` -- the UI adapter passes this
+ * straight through) or the older CLI convenience shape (`{subjects, exact,
+ * hint_only}`). `samples` (real mail subjects) is never rendered under any shape. Any
+ * field absent from whichever shape is present renders nothing for that field, never
+ * the literal `undefined`; a `measured` object with no recognised field at all falls
+ * back to the same "not measured" line as `measured` being absent entirely.
  */
 function renderMeasuredLine(measured, now) {
   if (!measured || typeof measured !== 'object') return MEASURED_UNKNOWN_LINE;
   const dateSuffix = `(측정 ${now.slice(0, 10)})`;
+  const caveat = ruleFailureCaveat(measured);
   const isPreviewShape = ['matched_before', 'matched_after', 'moved_in', 'moved_out', 'newly_held']
     .some(field => measured[field] !== undefined);
   if (isPreviewShape) {
@@ -234,13 +263,13 @@ function renderMeasuredLine(measured, now) {
     if (measured.moved_in !== undefined) parts.push(`새로 매칭 ${measured.moved_in}건`);
     if (measured.moved_out !== undefined) parts.push(`매칭 해제 ${measured.moved_out}건`);
     if (measured.newly_held !== undefined) parts.push(`새로 보류 ${measured.newly_held}건`);
-    return parts.length ? `- 실측: ${parts.join(', ')} ${dateSuffix}.` : MEASURED_UNKNOWN_LINE;
+    return parts.length ? `- 실측: ${parts.join(', ')} ${dateSuffix}.${caveat}` : `${MEASURED_UNKNOWN_LINE}${caveat}`;
   }
   const parts = [];
   if (measured.subjects !== undefined) parts.push(`메일 ${measured.subjects}건 중`);
   if (measured.exact !== undefined) parts.push(`이 과제 확정 ${measured.exact}건`);
   if (measured.hint_only !== undefined) parts.push(`힌트만 ${measured.hint_only}건`);
-  return parts.length ? `- 실측: ${parts.join(', ')} ${dateSuffix}.` : MEASURED_UNKNOWN_LINE;
+  return parts.length ? `- 실측: ${parts.join(', ')} ${dateSuffix}.${caveat}` : `${MEASURED_UNKNOWN_LINE}${caveat}`;
 }
 
 function renderRuleMarkdown({ json, decided, open, note, by, now, measured, carriedSections = [] }) {

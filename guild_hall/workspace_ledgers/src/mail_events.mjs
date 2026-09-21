@@ -11,9 +11,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import {
-  classifyMail, compiledRulesHaveRegex, createBoundedClassifier, MATCH_FIELDS, MAX_BODY_TEXT_CHARS,
-} from './classifier.mjs';
+import { classifyMail, MATCH_FIELDS, MAX_BODY_TEXT_CHARS } from './classifier.mjs';
 import { normalizeSubject } from './ledgers.mjs';
 
 export const DEFAULT_SYSTEM_SENDER_PATTERNS = Object.freeze([
@@ -209,25 +207,15 @@ function collisionSuffix(fingerprint) {
  * Loads and classifies mail events from `dirs` (each a directory directly holding
  * `*.jsonl` custody files). `source` is a caller-chosen label attached to every
  * returned event (e.g. `하이웍스_수집`, `Gmail_보낸메일_수집`). `compiledRules` and
- * `fields` are passed straight to classification per (deduped) candidate.
- *
- * S-3 (fresh-review-4): matching runs under a bounded (`node:vm`-timed) classifier
- * whenever `compiledRules` contains any regex term (`compiledRulesHaveRegex`) --
- * literal-only rule sets use the plain, faster `classifyMail` directly, since literal
- * `.includes` matching cannot ReDoS. The bounded classifier hoists its `vm` context and
- * precompiled script once and reuses it for every mail (see `createBoundedClassifier`
- * in `classifier.mjs`); pass `boundedClassifier` (a `createBoundedClassifier(...)`
- * instance) to *share* that hoisting -- and its cumulative timing/slow-term stats --
- * across more than one `loadMailEvents` call in the same run (`refresh.mjs`'s
- * `classifyCustody` does this across the hiworks and gmail-sent directories); omitted,
- * this call creates and hoists its own for just this call.
- *
- * S-1: a single mail whose matching overruns the bounded classifier's per-mail budget
- * no longer aborts this whole call. That one mail is skipped (never added to `events`)
- * and recorded in the returned `matchTimeouts` array as
- * `{ source, event_id, project_code, term_label }` (the id used is whatever this
- * mail's own event id would have been -- its real/synthetic id, already computed
- * before classification runs); every other mail in the run still processes normally.
+ * `fields` are passed straight to classification per (deduped) candidate via a direct
+ * `classifyMail` call -- fresh-review-5 (design simplification): matching used to run
+ * under a per-mail `node:vm` timeout, removed by coordinator decision after three
+ * review rounds (fresh-review-3/4/5) showed that machinery creating worse failure
+ * modes (a timeout on one project's term deleting an unrelated project's ledger row)
+ * than the ReDoS risk it guarded against, for a loopback Owner-only tool. See
+ * `classifier.mjs`'s `classifyMail` doc for what still guards against a bad regex
+ * (draft-time canary timing, static shape checks, and the read-time/match-time
+ * `MAX_BODY_TEXT_CHARS` bound below).
  *
  * Custody itself repeats mails: the same `event_id` can appear on more than one line
  * (across files or within one), and the real hiworks custody has been observed doing
@@ -251,25 +239,17 @@ function collisionSuffix(fingerprint) {
  * id (`syntheticEventId`).
  *
  * Returns `{ events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept,
- * unreadableDirs, matchTimeouts, matchMs, slowestMatches }`. `events[]` never carries
- * `body_text` or attachment names -- only `attachment_count` and the classification
- * result. `at` is always a UTC instant (S12). N-4: `body_text` is capped to
- * `MAX_BODY_TEXT_CHARS` the moment it is read off a candidate, not merely at match
- * time -- candidates held in memory for the whole pass never carry more of a body than
- * matching could ever consult anyway.
+ * unreadableDirs }`. `events[]` never carries `body_text` or attachment names -- only
+ * `attachment_count` and the classification result. `at` is always a UTC instant
+ * (S12). N-4: `body_text` is capped to `MAX_BODY_TEXT_CHARS` the moment it is read off
+ * a candidate, not merely at match time -- candidates held in memory for the whole
+ * pass never carry more of a body than matching could ever consult anyway.
  */
 export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIELDS,
-  systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS,
-  boundedClassifier = null }) {
+  systemSenderPatterns = DEFAULT_SYSTEM_SENDER_PATTERNS, skipSubjectPatterns = DEFAULT_SKIP_SUBJECT_PATTERNS }) {
   const unreadableDirs = [];
   let scanned = 0, skippedSystem = 0;
   const candidates = [];
-  const useBoundedMatch = compiledRulesHaveRegex(compiledRules);
-  // S-3: a classifier passed in by the caller is reused as-is (its vm context/script
-  // hoisting and cumulative stats span whatever other calls the caller also feeds it);
-  // one created here is scoped to just this call.
-  const classifier = useBoundedMatch ? (boundedClassifier ?? createBoundedClassifier(compiledRules)) : null;
-  const classify = mail => (classifier ? classifier.classify(mail, fields) : classifyMail(mail, compiledRules, { fields }));
 
   const consumeRecord = ({ raw, canonicalHash }, into) => {
     const subject = String(raw.subject ?? '');
@@ -371,29 +351,12 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = MATCH_FIE
   }
 
   const events = [];
-  const matchTimeouts = [];
   for (const { candidate, effectiveEventId } of survivors) {
     const { subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash } = candidate;
     const eventId = effectiveEventId ?? syntheticEventId({ source, canonicalHash });
-    let match;
-    try {
-      match = classify({ subject, body_text: bodyText, attachment_names: attachmentNames });
-    } catch (error) {
-      // S-1: a per-mail match timeout skips only this mail -- it is never added to
-      // `events` -- rather than propagating out of this call and aborting the entire
-      // run before any project's ledgers are even considered.
-      if (error?.code === 'workspace_ledgers_term_regex_timing_unsafe_at_match') {
-        matchTimeouts.push({ source, event_id: eventId, project_code: error.project_code ?? null, term_label: error.term_label ?? null });
-        continue;
-      }
-      throw error;
-    }
+    const match = classifyMail({ subject, body_text: bodyText, attachment_names: attachmentNames }, compiledRules, { fields });
     events.push({ source, event_id: eventId, at, subject, from, to, cc, attachment_count: attachmentNames.length, match });
     // bodyText / attachmentNames / canonicalHash go out of scope here: never attached to `events`.
   }
-  const runStats = classifier ? classifier.stats() : { totalMs: 0, slow: [] };
-  return {
-    events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs,
-    matchTimeouts, matchMs: runStats.totalMs, slowestMatches: runStats.slow,
-  };
+  return { events, scanned, skippedSystem, duplicatesDropped, idCollisionsKept, unreadableDirs };
 }

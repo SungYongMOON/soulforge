@@ -48,15 +48,6 @@ export const REDOS_CANARY_LENGTH = 40;
 // character-class ranges (see `extractPatternChars`), capped so compile time stays
 // bounded even for a term with many distinct characters.
 export const MAX_CANARY_SEEDS = 8;
-// S-2 (fresh-review-4): the per-mail bound above (`MATCH_TIMEOUT_BUDGET_MS`) protects
-// against one pathological match; it does nothing to stop a *canary-passing* term that
-// is merely expensive (the reviewer measured ~77ms per 20k-char body) from costing
-// minutes in aggregate across a multi-thousand-mail refresh, all of it spent holding
-// the refresh lock. This is the ceiling on TOTAL match time summed across every mail
-// in one refresh run (both custody sources); exceeding it fails the run with the
-// slowest observed terms named (`refresh.mjs`), released promptly rather than after
-// the lock has been held for minutes.
-export const MATCH_RUN_BUDGET_MS = 60000;
 
 export class RuleCompileError extends Error {
   constructor(code, detail) {
@@ -229,8 +220,13 @@ function isRegexTimingSafe(compiled, source) {
  * bad pattern should be caught. `false` skips it -- used only when compiling an
  * already-saved, already-validated-at-save-time rule for `refresh()`, where a timing
  * check is *non-deterministic* validation of persisted state (a GC stall could turn a
- * genuinely safe saved rule into a spurious `timing_unsafe` failure); `refresh()`
- * instead relies on `classifyMailBounded`'s per-mail timeout on the real match path.
+ * genuinely safe saved rule into a spurious `timing_unsafe` failure).
+ *
+ * fresh-review-5 (design simplification): matching itself is no longer wrapped in a
+ * per-mail `vm` timeout -- see `classifyMail`'s header comment for why. A saved rule
+ * is trusted at `refresh()` time precisely because it already passed these canaries
+ * (with `timeSafety: true`) the moment it was saved; nothing re-times it on the real
+ * match path any more.
  */
 export function compileTerm(term, { timeSafety = true } = {}) {
   if (!term || typeof term.label !== 'string' || term.label.trim() === '') {
@@ -311,19 +307,11 @@ export function compileRules(ruleJsonList, { timeSafety = true } = {}) {
   return ruleJsonList.map(ruleJson => compileRule(ruleJson, { timeSafety }));
 }
 
-/** True when any compiled rule (exact, hint, or a yields_to condition) contains at least one regex term. Literal-only rule sets can never ReDoS, so `classifyMailBounded`'s per-mail `vm` overhead is worth paying only when this is true. */
-export function compiledRulesHaveRegex(compiledRules) {
-  return compiledRules.some(rule =>
-    rule.exact.some(term => term.kind === 'regex')
-    || rule.hint.some(term => term.kind === 'regex')
-    || rule.yields_to.some(entry => entry.when.kind === 'regex'));
-}
-
 // N-2 (fresh-review-4): `subject` and the joined attachment-names text were unbounded
 // -- a 100k-character subject (malformed custody, or an adversarial one) costs exactly
-// the same matching time a body that long would, including tripping the per-mail
-// `classifyMailBounded` timeout, even though S11 already bounded body_text for this
-// exact reason. All three fields now share the same bound.
+// the same matching time a body that long would, even though S11 already bounded
+// body_text for this exact reason. All three fields now share the same bound; this is
+// what actually keeps a single match cheap now that matching is a direct, untimed call.
 function fieldText(mail, field) {
   if (field === 'subject') return String(mail.subject ?? '').slice(0, MAX_BODY_TEXT_CHARS);
   if (field === 'body_text') return String(mail.body_text ?? '').slice(0, MAX_BODY_TEXT_CHARS);
@@ -356,44 +344,11 @@ function termMatchesEntry(term, entry) {
   return term.kind === 'literal' ? entry.lower.includes(term.lowerValue) : term.test(entry.raw);
 }
 
-// S-1/S-2 (fresh-review-4): `cursor`, when supplied, is written to right before every
-// single term test -- `{ project_code, label }` -- so that if the *caller* (an outer
-// `vm` timeout in `createBoundedClassifier`, below) interrupts execution mid-test, the
-// caller can read back which project/term was in flight at the moment of interruption
-// from this same (plain, host-held) object; the assignment itself always completes
-// before the slow `test()` call starts, so it survives an interrupt that aborts the
-// test call itself. `cursor.slow` (if present, an array pre-populated by the caller)
-// accumulates the run's slowest individual term tests, capped at a small fixed size,
-// so a caller can name "the slowest terms" across an entire multi-mail run without a
-// separate profiling pass -- see `recordSlow` below. Both are no-ops (and add no
-// measurable cost) when `cursor` is omitted, which every direct/test caller of
-// `classifyMail` still does.
-const SLOW_TERMS_TRACKED = 5;
-function recordSlow(cursor, project_code, label, ms) {
-  const slow = cursor.slow;
-  if (slow.length < SLOW_TERMS_TRACKED || ms > slow[slow.length - 1].ms) {
-    slow.push({ project_code, label, ms });
-    slow.sort((a, b) => b.ms - a.ms);
-    if (slow.length > SLOW_TERMS_TRACKED) slow.length = SLOW_TERMS_TRACKED;
-  }
-}
-
-function timedMatch(term, entry, rule, cursor) {
-  if (!cursor) return termMatchesEntry(term, entry);
-  cursor.project_code = rule.project_code;
-  cursor.label = term.label;
-  const startedAt = Date.now();
-  const matched = termMatchesEntry(term, entry);
-  recordSlow(cursor, rule.project_code, term.label, Date.now() - startedAt);
-  return matched;
-}
-
 /**
  * Classifies one mail ({subject, body_text, attachment_names}) against compiled rules.
  * `fields` restricts which of a rule's own `match_fields` are actually consulted --
  * `{fields: ['subject']}` reproduces subject-only routing numbers even for a rule
- * whose JSON declares body_text/attachment_names too. `cursor` -- see above -- is an
- * internal seam `createBoundedClassifier` uses; direct callers never need it.
+ * whose JSON declares body_text/attachment_names too.
  *
  * A rule with any `yields_to` entry whose `when` matches the same text is skipped
  * entirely for that mail (the mail belongs to that hand-over target instead, or to
@@ -403,95 +358,33 @@ function timedMatch(term, entry, rule, cursor) {
  * `Array.prototype.find`. `held` is true when more than one project's rule produced a
  * hit: two projects' exact triggers on one mail means hold, never automatic
  * attribution.
+ *
+ * fresh-review-5 (design simplification, coordinator decision): matching is a direct
+ * call, not wrapped in a per-mail `vm` timeout. Three review rounds (fresh-review-3/4/5)
+ * of that machinery kept producing worse failure modes than the ReDoS risk it guarded
+ * against on the real match path -- a wall-clock interruption on one project's term
+ * could delete an unrelated project's ledger row (and any Owner cell on it), which is
+ * a strictly worse outcome for this loopback, Owner-only tool than a slow refresh
+ * would ever be. The defences that stay, and are deterministic rather than timing-
+ * dependent: `compileTerm`'s static regex shape checks (nested quantifiers,
+ * backreferences, lookbehind, alternation cap, flag whitelist) always apply; the
+ * multi-alphabet canary timing (`isRegexTimingSafe`) still runs, but only when a draft
+ * is being validated (`validateRule`, `previewRule`'s draft, `saveRuleVersion`) --
+ * never against already-saved, already-trusted state, and never on the real per-mail
+ * match path. `MAX_BODY_TEXT_CHARS` still bounds `subject`/`body_text`/
+ * `attachment_names` at both read time (`mail_events.mjs`) and match time (`fieldText`
+ * above), which is what actually keeps a single match cheap.
  */
-export function classifyMail(mail, compiledRules, { fields = MATCH_FIELDS, cursor = null } = {}) {
+export function classifyMail(mail, compiledRules, { fields = MATCH_FIELDS } = {}) {
   const textCache = new Map();
   const hits = [];
   for (const rule of compiledRules) {
     const entry = textEntryFor(mail, rule, fields, textCache);
-    let yielded = false;
-    for (const handover of rule.yields_to) {
-      if (timedMatch(handover.when, entry, rule, cursor)) { yielded = true; break; }
-    }
-    if (yielded) continue;
-    let matchedTerm = null;
-    for (const term of rule.exact) {
-      if (timedMatch(term, entry, rule, cursor)) { matchedTerm = term; break; }
-    }
+    if (rule.yields_to.some(handover => termMatchesEntry(handover.when, entry))) continue;
+    const matchedTerm = rule.exact.find(term => termMatchesEntry(term, entry));
     if (matchedTerm) hits.push({ project_code: rule.project_code, folder_name: rule.folder_name, label: matchedTerm.label });
   }
   return { hits, held: hits.length > 1 };
-}
-
-// fresh-review-3 #3 (second half): even a term that passed every compile-time timing
-// canary could still misbehave on some particular real mail text the canaries did not
-// anticipate. A bounded classifier runs the real `classifyMail` call for one mail
-// inside a `node:vm` context with a hard wall-clock timeout, so a saved rule that
-// somehow still hangs on real data fails that one mail with a named code instead of
-// hanging indefinitely while holding the refresh lock. `mail_events.mjs` only uses
-// this -- rather than the plain, faster `classifyMail` -- when `compiledRulesHaveRegex`
-// is true; literal matching cannot ReDoS, so the per-mail `vm` overhead is not worth
-// paying otherwise.
-export const MATCH_TIMEOUT_BUDGET_MS = 500;
-
-/**
- * S-3 (fresh-review-4): `classifyMailBounded`'s previous implementation created a
- * fresh `vm.createContext` (and re-parsed the same one-line script) for *every single
- * mail* -- the reviewer measured this costing ~82% overhead over the unbounded path on
- * a 2,000-mail x 13-project real-plane run, well past the ~5s interactive target for
- * `previewRule`. `createBoundedClassifier` hoists exactly one `vm.createContext` and
- * one precompiled `vm.Script` for the *whole* run this classifier is used across (one
- * `refresh()`/`previewRule()` call, spanning both the hiworks and gmail-sent custody
- * directories via `classifyCustody` in `refresh.mjs`); each call reassigns the sandbox's
- * `mail`/`fields` and re-runs the same precompiled script (reviewer's re-measurement:
- * overhead dropped to ~18%).
- *
- * Returns `{ classify(mail, fields), stats() }`. `classify` throws a `RuleCompileError`
- * (`workspace_ledgers_term_regex_timing_unsafe_at_match`) with `.project_code`/
- * `.label` set to whichever term was mid-test at the moment of interruption (via the
- * shared `cursor`, above) when a single mail overruns `budgetMs` -- `mail_events.mjs`
- * catches this per mail (S-1) rather than letting it abort the whole run. `stats()`
- * returns `{ totalMs, slow }` -- `totalMs` is the cumulative wall time spent inside
- * `classify` across every call so far (S-2's cumulative run budget is checked against
- * this by the caller), `slow` the run's slowest individual term tests observed so far
- * (see `recordSlow`), regardless of whether any individual call ever timed out.
- */
-export function createBoundedClassifier(compiledRules, budgetMs = MATCH_TIMEOUT_BUDGET_MS) {
-  const cursor = { project_code: null, label: null, slow: [] };
-  const sandbox = vm.createContext({ classifyMail, compiledRules, cursor, mail: null, fields: MATCH_FIELDS });
-  const script = new vm.Script('classifyMail(mail, compiledRules, { fields, cursor })');
-  let totalMs = 0;
-  return {
-    classify(mail, fields = MATCH_FIELDS) {
-      sandbox.mail = mail;
-      sandbox.fields = fields;
-      cursor.project_code = null;
-      cursor.label = null;
-      const startedAt = Date.now();
-      try {
-        return script.runInContext(sandbox, { timeout: budgetMs });
-      } catch (error) {
-        const wrapped = new RuleCompileError('workspace_ledgers_term_regex_timing_unsafe_at_match', error?.message);
-        wrapped.project_code = cursor.project_code;
-        wrapped.term_label = cursor.label;
-        throw wrapped;
-      } finally {
-        totalMs += Date.now() - startedAt;
-      }
-    },
-    stats() { return { totalMs, slow: cursor.slow.slice() }; },
-  };
-}
-
-/**
- * Convenience one-shot wrapper over `createBoundedClassifier` for a single mail --
- * kept for direct/standalone callers (this module's own tests, `hintCodes`-style
- * ad hoc checks); `mail_events.mjs`'s real read path uses `createBoundedClassifier`
- * directly so the `vm` context is hoisted across the whole run (S-3), not recreated
- * here every call.
- */
-export function classifyMailBounded(mail, compiledRules, options = {}, budgetMs = MATCH_TIMEOUT_BUDGET_MS) {
-  return createBoundedClassifier(compiledRules, budgetMs).classify(mail, options.fields ?? MATCH_FIELDS);
 }
 
 /**

@@ -155,6 +155,32 @@ test('saveRuleVersion: measured accepts previewRule\'s own return shape, never r
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('saveRuleVersion (fresh-review-5 #7): measured.rule_failures renders as a caveat, not presented as a complete count', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const measured = {
+      matched_before: 10, matched_after: 12, moved_in: 3, moved_out: 1, newly_held: 2,
+      rule_failures: [{ project_code: 'P00-002', code: 'workspace_ledgers_rule_json_unparseable', term_ref: null }],
+      samples: { moved_in: [], moved_out: [], newly_held: [] },
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /확정 12건/u); // the counts are still shown
+    assert.match(md, /주의: 다른 과제 규칙 1건이 컴파일 실패해 이번 실측에서 제외됨/u); // but with a caveat
+    assert.doesNotMatch(md, /P00-002/u); // never names which project, its rule code, or any label text
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (fresh-review-5 #7): an EMPTY measured.rule_failures renders exactly as before -- no spurious caveat', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const measured = { matched_before: 5, matched_after: 5, moved_in: 0, moved_out: 0, newly_held: 0, rule_failures: [] };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.doesNotMatch(md, /주의:/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('saveRuleVersion: measured also accepts the legacy {subjects, exact, hint_only} shape', () => {
   const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
   try {
@@ -436,3 +462,49 @@ test('saveRuleVersion (R-2, fresh-review-4): a heading that only STARTS WITH a f
     assert.match(newMd, /## 근거\n/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+function countOccurrences(text, needle) {
+  return text.split(needle).length - 1;
+}
+
+/**
+ * fresh-review-5 #2: findSectionLines used to match "## Owner 확인 기록"/
+ * "## Owner 확인이 필요한 것" by `startsWith`, so a lookalike heading beginning with
+ * the same stem (e.g. "## Owner 확인 기록 (초안)") could be found INSTEAD of the
+ * genuine section -- whichever one `Array.prototype.find` reached first. Placed
+ * before the genuine heading, the lookalike's body became the carried "decided"/
+ * "open" content (the genuine section's own body was never found, silently lost),
+ * and the lookalike's body was ALSO carried forward separately as an unrecognised
+ * section by `unknownSections` -- appearing twice, while the genuine body appeared
+ * zero times. Three sequential saves (feeding each save's own output back in as the
+ * next save's input) prove the fix holds up over repeated saves, not just the first.
+ */
+for (const order of ['lookalike-before-real', 'real-before-lookalike']) {
+  test(`saveRuleVersion (fresh-review-5 #2): ${order} -- both bodies appear exactly once across three sequential saves`, () => {
+    const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+    try {
+      const genuineHeading = ['## Owner 확인 기록', '', '- 진짜 결정 마커', ''];
+      const lookalikeHeading = ['## Owner 확인 기록 (초안)', '', '- 가짜 결정 마커', ''];
+      const bothSections = order === 'lookalike-before-real'
+        ? [...lookalikeHeading, ...genuineHeading]
+        : [...genuineHeading, ...lookalikeHeading];
+      const initialMd = [
+        '# 메일 라우팅 규칙 — P00-001', '', '- 상태: 초안 v1', '',
+        '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)', '', '- `P00-001`', '',
+        ...bothSections,
+        '## Owner 확인이 필요한 것', '', '- 예시 미결 항목', '',
+      ].join('\n');
+      writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), initialMd);
+
+      for (let round = 1; round <= 3; round += 1) {
+        const result = saveRuleVersion({
+          workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: `저장 ${round}회차`,
+        });
+        const newMd = readFileSync(result.md_path, 'utf8');
+        assert.equal(countOccurrences(newMd, '- 진짜 결정 마커'), 1, `round ${round}: genuine body must appear exactly once`);
+        assert.equal(countOccurrences(newMd, '- 가짜 결정 마커'), 1, `round ${round}: lookalike body must appear exactly once`);
+        assert.equal(countOccurrences(newMd, '## Owner 확인 기록 (초안)'), 1, `round ${round}: lookalike heading must appear exactly once`);
+      }
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}

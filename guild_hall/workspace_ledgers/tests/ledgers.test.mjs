@@ -37,7 +37,7 @@ test('encodeCsv / decodeCsv: BOM, CRLF, quote escaping round trip', () => {
   const headers = ['a', 'b'];
   const rows = [['simple', 'has,comma'], ['has"quote', 'multi\nline']];
   const text = encodeCsv(headers, rows);
-  assert.equal(text.startsWith('﻿'), true);
+  assert.equal(text.startsWith(String.fromCharCode(0xfeff)), true); // fresh-review-5 #1: built, not a raw literal
   assert.equal(text.includes('\r\n'), true);
   const decoded = decodeCsv(text);
   assert.deepEqual(decoded.headers, headers);
