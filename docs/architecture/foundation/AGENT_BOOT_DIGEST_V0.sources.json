@@ -1,7 +1,7 @@
 {
   "schema": "boot_digest_guard.v0",
-  "updated_at": "2026-09-21T12:31:56.564Z",
-  "digest_sha256": "cb73cd40f3a11a993be8bc5d633fa044243ee043b462c69d0608478a00978753",
+  "updated_at": "2026-09-21T12:32:48.175Z",
+  "digest_sha256": "c4b7575d773d51ecd2d30686466b68babc13163f287572ec36c995a088962496",
   "sources": {
     "AGENTS.md": {
       "sha256": "f529f9fd634376964ffbf250ad998127cce0c5bf91896ed8f005e11d1a4b922a",
