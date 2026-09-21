@@ -97,15 +97,24 @@ const UNQUOTED_UNC_PATH = /\\\\[^\s'"]+/gu;
 // like an actual multi-segment filesystem path.
 const UNQUOTED_POSIX_PATH = /(^|[\s(])(\/[^\s'")]+\/[^\s'")]*)/gu;
 
+// `path.basename` is platform-bound: on a POSIX host it does not split a Windows or UNC
+// path on backslashes, so a drive-letter path in an error message survived redaction
+// whole on the Linux CI runner. A failure receipt can carry either shape regardless of
+// the host that reads it, so split on both separators ourselves.
+function lastPathSegment(value) {
+  const parts = String(value).split(/[\\/]+/u).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : String(value);
+}
+
 // Exported as a test seam (fresh-review-5 #6 asks for direct coverage of all three
 // path shapes) -- not part of the module's documented public surface (`index.mjs`
 // does not re-export it); every real caller reaches it only through a failure receipt.
 export function redactHostPaths(message) {
   if (typeof message !== 'string') return message;
-  let out = message.replace(QUOTED_HOST_PATH, (match, quote, innerPath) => `${quote}${path.basename(innerPath)}${quote}`);
-  out = out.replace(UNQUOTED_WINDOWS_PATH, match => path.basename(match));
-  out = out.replace(UNQUOTED_UNC_PATH, match => path.basename(match));
-  out = out.replace(UNQUOTED_POSIX_PATH, (match, pre, p) => `${pre}${path.basename(p)}`);
+  let out = message.replace(QUOTED_HOST_PATH, (match, quote, innerPath) => `${quote}${lastPathSegment(innerPath)}${quote}`);
+  out = out.replace(UNQUOTED_WINDOWS_PATH, match => lastPathSegment(match));
+  out = out.replace(UNQUOTED_UNC_PATH, match => lastPathSegment(match));
+  out = out.replace(UNQUOTED_POSIX_PATH, (match, pre, p) => `${pre}${lastPathSegment(p)}`);
   return out;
 }
 

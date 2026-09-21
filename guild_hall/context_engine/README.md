@@ -128,6 +128,185 @@ exit code: `0` 돌았음 · `2` 사용법/검증 거부 · `3` 비교 대상 대
 validate:context-engine`에 들어 있다. **주의: `validate:context-engine`은 `npm run done:check`와 CI
 (`.github/workflows/validate.yml`)에 포함돼 있지 않다** — 이 하네스를 바꿀 때는 그 스크립트를 따로 돌려야 한다.
 
+## 대화 목록 야간 lane — 마감(deadline)과 대조·질문 연쇄(chain) (0.22.7)
+
+`13_SCHEDULE_AND_RAG_COVERAGE_PLAN_2026-09-21.md` A안의 코드 조각. `harness/voice_conversation_list_nightly.mjs`가
+벽시계 마감과, 카드 생성이 끝난 뒤 2단계 대조·아침 질문 제시를 같은 프로세스에서 잇는 연쇄를 얻었다. 예약작업
+재등록이나 실제 시각 전환은 이 조각에 없다 — Owner 실행 몫으로 남긴다. 2026-09-21 Owner 정정: 계획한 야간
+시작은 22:00이 아니라 **00:00**(22:00은 Owner 자신의 근무 시간)이므로, 아래 예시는 00:00 시작·04:00 마감을 쓴다.
+
+- **마감(`--deadline HH:MM`)**: Asia/Seoul 기준 시작 이후 다음 그 시각(`nextDeadlineInstant`) — 00:00 시작 +
+  04:00 마감이면 같은 날 아침 04:00에서 멈추고, 23:30 시작 + 01:00 마감이면 자정을 넘겨 다음날 01:00에서
+  멈춘다(하루 전 01:00이 아니라). 세션 하나의 카드 생성을 실제로 *시작하기 직전*에만 검사한다(분류 자체는
+  값싼 파일 읽기라 검사하지 않음, 모델을 부르는 단계만). 넘겼으면 그 세션과 이후 계획 항목 전부를 이번 밤
+  영수증에서 빼고 깨끗이 멈춘다 — exit 0, 실패가 아니다. 남은 세션은 별도 장치 없이 기존 backlog 메커니즘이
+  다음 밤에 그대로 다시 집는다(그 세션은 여전히 verified run이 없으므로) — 시험이 실제로 두 번째 `runNightly`
+  호출로 그 픽업을 확인한다(가정이 아니라 관찰). 영수증에
+  `deadline.{configured,scheduled_start,at,stopped,sessions_done,sessions_left}`.
+- **`--scheduled-start HH:MM`(선택)**: 마감을 "실제 프로세스가 시작한 시각"이 아니라 "예약된 시작 시각"에
+  고정한다. 컴퓨터가 잠들어 있다가 00:00 트리거를 04:10에야 깨워 실행했다면, 안 주면(기존 동작) 마감이
+  "04:10 다음에 오는 04:00" 즉 **내일**로 계산돼 이 회차가 있지도 않던 여유 시간을 얻는다. 주면(등록기가
+  `-DailyAt`에서 항상 자동으로 넘긴다) 마감은 예약된 00:00 트리거 기준 그날 04:00에 고정되고, 04:10은 이미 그
+  마감을 10분 넘겼으므로 **세션을 단 하나도 돌리지 않고 즉시 멈춘다** — 계획 전체가 다음 밤으로 남는다.
+- **연쇄(`--chain-reconcile`)**: 카드 생성이 끝난 뒤(정상 종료든 마감 정지든) `--reconcile-receipts <dir>`에
+  대해 `estate_voice_card_reconcile.mjs`를 `--nightly-receipts <이 밤의 --receipts>`로 부르고, 이어서
+  `voice_question_cli.mjs present`를 **같은** reconcile receipts 디렉터리로 부른다(present가 예외 풀을 읽는
+  자리가 그곳이라). 두 호출 다 동적 `import()`로 같은 node 프로세스 안에서, 상대경로만 써서 부른다 — lane
+  폐포에 새 파일이 늘지 않는다(둘 다 이미 v4에 named entry point). reconcile은 이 밤의 영수증이 디스크에 실제로
+  쓰인 **뒤에** 돌아 자기 backlog 모드가 방금 끝낸 세션을 볼 수 있고, 그 결과는 같은 영수증 파일에 두 번째
+  쓰기로 접힌다(새 파일이 아니다). `--linear-root`는 준 것만 넘기고 안 주면 reconcile 자신의 기본값
+  (`data_root/ingress/linear`)을 그대로 쓴다(기본값을 이 파일이 다시 적어 드리프트를 만들지 않는다). 실패는
+  (reconcile·present가 실패로 돌아오든, 연쇄 함수 자체가 예외를 던지든 방어적으로 잡는다) 영수증
+  `chain.{status,stage,reason}`에 남고 이 밤 전체를 FAILED·비영 종료코드로 만들되 카드 생성 결과는 절대 다시
+  돌거나 되돌려지지 않는다. `--dry`는 두 하위 호출에도 그대로 전파된다(둘 다 자기 `--dry`로 미리보기 — 등록기
+  preflight가 검사하는 그 모양).
+- **등록기**: `ops/register-voice-conversation-list-task.ps1`에 `-DailyAt`(기본 03:00, 안 주면 이전과 완전히
+  같은 모양으로 등록. Owner 정정으로 실제 새 예약값은 `00:00` 예정이나 이 파라미터의 기본값 자체는 바꾸지
+  않았다 — 안 주면 여전히 이전 task를 등록), `-Deadline`, `-ChainReconcile`(+ `-ReconcileReceiptsRoot`/
+  `-LinearRoot`/`-MailRoot`/`-QuestionsCap`)를 더했다. `-Deadline`을 주면 harness의 `--scheduled-start`를
+  항상 `-DailyAt` 그 값으로 자동으로 함께 넘긴다(호출자가 둘을 따로 입력해 서로 어긋날 길을 아예 없앤다). 기존
+  pin(레인 매니페스트·Node·root table·tools config·pipeline config sha256·dry-run plan digest·기존 task
+  sha256)은 전부 그대로 유지되고, 새 값은 plan hashtable과 `-Register` 뒤 XML 대조(action 인자 줄 전체
+  비교이므로 자동으로 포함)에 함께 들어간다. `-Register` 없이 부르면 새 값을 포함한 전체 plan을 찍는다. lane
+  spec `context_read_lane.spec.json`은 `context-read-v5`로 올렸다 — 새 tracked_paths·entry_points는 없다(두
+  harness/registrar 파일이 이미 v4에 이름 올라 있었다).
+
+신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 1건(3부분)·should 6건·nit 4건:
+- (R1, 필수) **"마감 이후 시작"이 조용한 성공으로 보였다.** Task Scheduler는 `-StartWhenAvailable`이 걸린
+  로그온 종속 트리거라 재부팅·로그오프 밤이면 00:00 트리거가 04:00 넘어 로그온 때야 겨우 실행될 수 있는데,
+  그런 회차가 세션을 하나도 못 돌려도 기존엔 `OK`/exit 0였다 — 7일 backlog·40 cap과 겹치면 매번 밀리는
+  세션이 조용히 사라질 수 있었다. 세 부분으로 고쳤다. **(a)** 이번 밤이 세션을 단 하나도 시도하기 전에 이미
+  마감이 지났으면(마감 자체가 mid-run에 지난 것과 구분) `SKIPPED_PAST_DEADLINE`이라는 별도 영수증 상태와
+  별도 종료코드(4 — 0/OK, 2/FAILED, 3/LOCK_HELD와 구분, `main`의 주석에 문서화)를 낸다. 진짜 실패(계획을
+  못 읽음·분류 실패·검증 안 된 run)가 있으면 여전히 `FAILED`가 우선한다. **(b)** 매 밤 영수증에
+  `backlog.{aging_out_soon, aged_out_unprocessed}`를 낸다 — `aging_out_soon`은 `AGING_SOON_NIGHTS`(2)일
+  안에 window를 벗어날 아직 미완 후보 수(`--max-sessions` cap과 무관하게 정확히 다시 분류해서 셈),
+  `aged_out_unprocessed`는 **어젯밤엔 window 안이었는데 오늘 밤엔 아닌 바로 그 하루**(과거 영수증을 읽지
+  않는 무상태 검사, 그 하루의 존재 자체가 충분한 신호이므로)에 여전히 verified run이 없는 세션의 날짜·수·id
+  목록이다 — 절대 조용히 넘어가지 않는다. **(c)** `buildSessionPlan`이 aging-soon 후보를 새 날의 자기 세션
+  보다 앞에 놓도록 순서를 바꿨다(`agingOutSoonThreshold`) — backlog는 이미 오래된 순 정렬이라 urgent
+  부분은 그 배열 자신의 앞부분일 뿐이다. `--max-sessions` 아래에서도 이제 urgent 후보가 cap에 먼저 밀려나지
+  않는다.
+- (S1) 연쇄 첫 쓰기가 `chain: null`이라 연쇄 도중 죽으면 연쇄 안 한 깨끗한 밤과 구분이 안 됐다. 이제 첫 쓰기가
+  `chain: {status: 'RUNNING', started_at}`이고 연쇄가 끝나면 실제 결과로 덮어쓴다. 두 쓰기 다
+  `atomicWriteFileSync`(같은 디렉터리에 임시 파일 쓰고 rename)라 죽어도 반쯤 쓰인 영수증이 실경로에 남지 않는다.
+- (S2) `--deadline`이 `--scheduled-start`와 같으면 "그 시각의 다음 발생"이 하루 뒤가 돼 24시간 여유를 조용히
+  준다 — `nextDeadlineInstant`와 등록기(`-Deadline`/`-DailyAt`) 둘 다 이제 거부한다.
+- (S3) `--deadline`/`--scheduled-start`/`--no-start-within`을 값 없이 주거나 반복하면(`options()`가 `true`나
+  배열을 돌려줌) `--questions-cap`처럼 조용히 무시하지 않고 큰 소리로 거부한다(`*_usage_invalid`).
+- (S4) 세션 하나의 벽시계 예산이 없어 03:59에 시작한 세션이 기본 한도로 ~10시간 돌 수 있었고, 늦은 시작은
+  실제 시작 시각부터 세는 6시간 task 한도로만 막혀 06:40 브리핑까지 넘어갈 수 있었다. `--no-start-within
+  MINUTES`(마감이 있으면 기본 30, `DEFAULT_NO_START_WITHIN_MINUTES`)를 더해 마감 그만큼 전부터는 **새
+  세션을 시작하지 않는다**. 실제 mid-flight 중단(`abandoned_at_hard_stop`)은 만들지 않았다 —
+  `runConversationList`(파이프라인)를 직접 확인한 결과 호출 루프 어디에도 abort 신호·벽시계 예산이 없어
+  깨끗하게 끊을 수 없으므로, 리뷰가 명시적으로 허용한 대안(시작 여유 + 영수증 경고)만 구현했다: 세션이
+  `HARD_STOP_GRACE_MINUTES`(60, 고정값·아직 플래그 아님)를 넘겨 끝나면 그 행에 `overran_hard_stop: true`와
+  `receipt.warnings`에 한 줄을 남길 뿐, 자르지도 다시 올리지도 않는다 — 만든 카드가 진짜 카드다.
+- (S5) 연쇄 전에 이 밤의 lock을 풀어서, 다른 수동 회차가 연쇄 도중 진짜 카드 생성을 새로 시작할 수 있었고
+  reconcile 자신의(별도) lock이 동시에 잡히면 이 밤 전체가 가짜 FAILED로 보였다. 이제 이 밤의 lock은 연쇄가
+  끝날 때까지 쥔 채로 두고(reconcile의 독립 lock은 그대로 별개), reconcile의 `LOCK_HELD`는
+  실패가 아닌 별도 chain 상태(present는 건너뜀)로 처리한다.
+- (S6) `-StartWhenAvailable` + `-DailyAt 00:00`이면 오늘 이미 지난 StartBoundary로 인해
+  등록 직후 바로 발동할 수 있었다(그러면 연쇄의 `present`가 그날 아침 질문 슬롯을 낮에 미리 써버린다).
+  StartBoundary를 다음 **미래** 발생 시각으로 미루도록 고쳤다 — 사후 XML 대조는 원래도 시각만(날짜 무시)
+  비교해 그대로 검증 가능하다.
+- (N1) `deadline.sessions_left`가 멈춘 뒤 남은 계획 항목 전부를 셌다(skip/existing까지) — 이제 그 나머지 중
+  실제로 `run`으로 분류된 것만 센다.
+- (N2) 프로그래밍 호출자가 `rootTableSha256`를 안 주면(`null`) 연쇄 argv에 문자 그대로 `null`이 들어갈 뻔했다
+  — 이제 없으면 그 인자 자체를 아예 안 넣어 reconcile 자신의 파일 해시 기본값을 쓰게 둔다.
+  실 reconcile/present CLI로 end-to-end 확인.
+- (N3) PowerShell 5.1의 `ConvertTo-Json`이 mail-root 배열을 0개/1개일 때 각각 `{}`/맨 원소로 잘못 펼쳤다
+  (그리고 `if/else`의 빈 배열 가지가 쉼표로 감싸지 않으면 아예 `$null`로 무너지는 별도 함정도 있었다) —
+  `[object[]]$(if (...) {...} else { , @() })`로 0/1/2개 다 정확히 `[]`/`["x"]`/`["x","y"]`로 찍힌다.
+  검증: 실제 PS 5.1 세션에서 세 경우 모두 직접 확인.
+
+등록기 운영 참고(리뷰가 확인한 실제 상태): **현재 운영 중인 예약작업은 이 등록기를 거치지 않고 트리거를 직접
+편집해 00:00로 이미 재시각됐다.** 이 등록기로 다시 등록하려면: (1) `-ExpectedExistingTaskSha256`에
+`%WINDIR%\System32\Tasks\SoulforgeVoiceConversationList` 파일의 SHA-256(접두사 없는 64자 16진수 그대로)을
+준다, (2) `-Register` 없이 한 번 불러 plan digest를 얻는다, (3) 그 digest를 `-ExpectedDryRunDigest`로 얹고
+`-Register`를 더해 똑같은 명령을 다시 부른다. **경고**: `-DailyAt`을 빼면 sha 대조는 걸리지 않은 채로 조용히
+03:00로 되돌아간다 — 재등록 전 찍히는 `daily_at=` 줄이 그걸 미리 보여주는 유일한 자리다.
+
+두 번째 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전) — merge-ready 판정, 필수 없음, should 4건·저렴한 nit
+5건:
+- (S1-1) `renameSync`가 대상 파일이 이미 열려 있으면 Windows에서 `EPERM`으로 실패하는 것을 실측했다 — 고치기
+  전에는 그 throw가 `runNightly` 밖으로 그대로 빠져나가 `chain: RUNNING`을 영원히 남기고 임시 파일을 고아로
+  만들고 깨끗한 밤을 FAILED로 보고했다. `atomicWriteFileSync`가 이제 `EPERM`/`EACCES`/`EBUSY`를 몇 번(기본
+  4회) 짧은 지연(50ms, `Atomics.wait` 동기 슬립)을 두고 재시도하고, 그래도 안 되면 대상에 직접 덮어쓰기로
+  물러난다. 임시 파일은 어느 경로든 `finally`에서 항상 지운다. 재시도 대상이 아닌 오류(예: `ENOSPC`)는 즉시
+  그대로 던진다 — 조용한 대체 쓰기로 감추지 않는다.
+- (S5-1) `STALE_LOCK_MS`(3시간)는 00:00 시작+04:00 마감+60분 grace+연쇄가 이 lock을 약 5.5시간 쥘 수 있는
+  실제 구성보다 짧다 — 수동 회차가 살아있는 lock을 stale로 오판해 가로채고, 첫 회차가 자기 `releaseLock`으로
+  그 두 번째 회차의 새 lock을 지워버릴 수 있었다. 이제 stale 문턱은 이 밤의 구성(예약된 시작→마감 스팬 +
+  hard-stop grace + 연쇄면 `CHAIN_ALLOWANCE_MS`, 최저 `MIN_DEADLINE_STALE_LOCK_MS`=8시간)에서 유도한다
+  (`staleLockMsFor`). `releaseLock`은 이제 디스크의 lock이 정확히 이 회차가 쓴 pid·started_at과 같을 때만
+  지운다 — 다른 회차가 이미 가로챈 살아있는 lock은 그대로 둔다.
+- (R1b-1) `aged_out_unprocessed`가 정확히 하루(window 밖으로 막 떨어진 날)만 봐서, 이 필드가 존재하는 바로 그
+  경우(하룻밤을 통째로 걸러 뜀)에 하루를 조용히 잃었다. 이제 가장 최근 이전 영수증의 `ran_at`부터 오늘까지의
+  간격만큼(없으면 `MAX_AGED_OUT_LOOKBACK_DAYS`=7로 대체, 항상 7일 상한) 여러 날을 되돌아보고, 찾은 모든
+  미완 세션을 날짜별로 묶어(`by_date`) 보고한다.
+- (R1a-1) exit code 4가 Task Scheduler까지 절대 닿지 않았다 — `powershell.exe -Command "& node ..."`는
+  네이티브 명령의 종료 코드를 그대로 물려주지 않는다(실측: 숨은 `.vbs` 런처까지 전체 경로로 확인, 모든
+  비영 코드가 맨 1로 뭉개짐). 생성된 명령 스크립트 끝에 `; exit $LASTEXITCODE`를 더했다(실측: 이 문구가
+  있으면 4가 그대로 전달됨). 이 문구는 `$CommandScript`/`$HiddenActionArgumentLine`의 일부라 기존
+  `action_sha256` plan digest와 사후 XML 대조(인자 줄 전체 비교)에 별도 배선 없이 자동으로 포함된다.
+  exit code가 실제로 보이는지 이 파일 스스로는 검증할 수 없다는 점을 `main`의 주석에 정직하게 남겼다.
+- 저렴한 nit 5건: (1) harness가 `--deadline` 없이 준 `--no-start-within`/`--scheduled-start`를 거부하고,
+  단독 `--scheduled-start`도 형식 검사한다. (2) `--no-start-within`이 `/^\d+$/`만 받는다(빈 문자열이
+  `Number('')`=0으로 조용히 통과하던 것을 막음). (3) 마감 여유(margin)가 예약된 시작→마감 스팬 이상이면
+  거부한다(`deadlineSpanMs` 공유). (4) 파이프라인 설정의 `limits.llm_calls × model.timeout_ms`를
+  `worst_case_session_minutes`로 영수증 `deadline` 블록에 남기고, `no_start_within + hard-stop grace`를
+  넘으면 경고를 남긴다(브리핑까지의 여유는 계산하지 않는다, 요청대로). (5) 영수증 `schema_version`을
+  v2로 올렸다(`status`가 값을 얻고 `chain`/`backlog`/`warnings` 블록이 늘었으므로) —
+  `estate_voice_card_reconcile.mjs`의 배경 스캔은 `NIGHTLY_RECEIPT_SCHEMA_V1`도 같이 받아들이도록 고쳤다
+  (읽는 `sessions` 배열 자체는 안 바뀌었으므로).
+
+등록기가 실제로 만드는 마지막 명령줄(자리표시자, exit code 전달 확인용):
+```
+wscript.exe //B //NoLogo "<lane>\ops\run-voice-conversation-list-hidden.vbs" "<System32>\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "& '<node.exe>' '<lane>\...\voice_conversation_list_nightly.mjs' '--root-table' '<root_table.json>' '--root-table-sha256' 'sha256:<...>' '--tools-config' '<tools.json>' '--pipeline-config' '<pipeline.json>' '--receipts' '<receipts_dir>' '--max-sessions' '40' '--deadline' '04:00' '--scheduled-start' '00:00' ; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE"
+```
+
+세 번째 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전) — 필수 1건, should 4건·저렴한 nit 5건:
+- (R1, 필수) round 2의 `; exit $LASTEXITCODE`는 node.exe 자체가 뜨지 못하는 경우(예: 경로가 틀림)를 놓쳤다
+  — `&`(호출 연산자)는 네이티브 프로세스가 실제로 실행돼 끝났을 때만 `$LASTEXITCODE`를 채우므로, 실행 자체가
+  실패하면 그 변수는 세션 시작 값인 `$null`로 남고 `exit $null`은 종료코드 0이다(round 1의 무조건 1보다
+  나쁘다 — 실패가 성공으로 보고된다). 생성된 명령 끝을 `; if ($null -eq $LASTEXITCODE) { exit 1 }; exit
+  $LASTEXITCODE`로 고쳤다. 실측(직접 PowerShell `Start-Process -Wait -PassThru` + 숨은 `.vbs` 런처 그대로를
+  부르는 새 hermetic 시험 둘 다로): node exit 4→4, node exit 0→0, node exit 2→2, node.exe 경로 없음→1.
+- (S1) `atomicWriteFileSync`의 옛 `finally`가 대체 쓰기(overwrite)가 도중에 실패해도 임시 파일을 무조건
+  지웠다 — 대상이 잘렸는데 유일하게 온전한 사본까지 같이 사라지는 경우였다. 이제 성공한 경로(rename 성공·
+  overwrite 성공·recovery 쓰기 성공)에서만 지우고, 실패 경로는 전부 `tmp_path`를 오류에 실어 보존한다.
+- (S2) 두 대체 경로(rename·직접 덮어쓰기)가 모두 막히는 경우(대상을 쥔 reader가 rename도 overwrite도 거부)를
+  다루지 못했다 — 이제 형제 경로 `<파일명>.recovered.json`에 마지막으로 써서 그 밤의 기록을 살린다. 대조기의
+  `.json` 글롭이 `.recovered.json`도 이미 그대로 집으므로(확장자가 같은 패턴이라 우연이 아니라 그대로
+  두기로 결정) 읽기 쪽은 손대지 않았다 — README의 "영수증" 절에 그 한계를 좁혀 적었다(원래 경로는 갱신되지
+  않는다).
+- (S3) `worst_case_session_minutes`는 정상 설정에서 죽어 있었다 — `config.model.timeout_ms`가 `readPipelineConfig`
+  기본값에 없어서다. 실제 런타임 기본값은 `src/adapters/local_model/ollama_chat.mjs`의
+  `binding.timeout_ms ?? 600000`뿐이었다. 그 상수를 `DEFAULT_CHAT_TIMEOUT_MS`로 내보내 두 자리에서 공유한다
+  (숫자를 복제하지 않는다).
+- (S4) `agedOutLookback`(구 `agedOutLookbackNights`)이 `now`보다 미래인 `ran_at`을 가진 영수증도 "가장 최근
+  실행"으로 셀 수 있었다 — 미래 timestamp는 이제 무시한다.
+- 저렴한 nit 5건: (1) `uncapped_gap_days`를 `lookback_nights`와 나란히 기록한다(둘 다 캡 전/후를 보여준다).
+  (2) 이전 영수증이 전혀 없는 첫 회차는 7일 lookback 대신 `first_run: true` + `nights: 1`로 보고한다(이
+  lane이 한 번도 못 본 세션을 "이 lane 밑에서 aged out"이라 말하지 않는다). (3) aging 스캔이 `error`를
+  안고 있으면 `count`를 `null`로 비운다(오류 옆에 반쪽짜리 숫자를 두지 않는다). (4) `staleLockMsFor`는
+  `--deadline` 없이 `--chain-reconcile`만 줘도 `CHAIN_ALLOWANCE_MS`를 더한다. (5)
+  `context_read_lane.spec.json` v5 설명의 "두 파일"을 "세 파일"로 고쳤다(이 회차가
+  `voice_conversation_list_nightly.mjs`·`register-voice-conversation-list-task.ps1`·
+  `estate_voice_card_reconcile.mjs` 셋을 건드리므로).
+
+시험: `tests/voice_conversation_list_nightly.test.mjs` — `nextDeadlineInstant` 자체 8건, 마감 정지·다음 밤
+픽업·마감 미도달·지각 시작 즉시 정지 4건, 연쇄 순서·인자 전달·실패 기록·throw 방어·`--dry` 전파 5건, 실
+reconcile/present 종단 시험 2건, 등록기 구조 시험 3건(-DailyAt/-Deadline/-ChainReconcile·S2/S4/S6/N3·
+R1a-1, 전부 PowerShell 실행 없이 소스 텍스트 대조) + R1 hermetic 실측 1건(Windows에서만 돎), R1(필수) 5건,
+S1 1건, S2 2건, S3 1건, S4 3건, S5 2건, N1 1건, S1-1(재시도·대체 쓰기·정리) 3건, S5-1(`staleLockMsFor` 3건
++ 통합 1건 + `releaseLock` 소유권 3건), R1b-1(다중일 lookback) 1건, nit1/2(CLI 엄격 검사) 2건, nit3
+(margin≥span 거부) 1건, nit4(worst-case 경고) 2건, round 3 R1(exit-code 실측) 2건, S1/S2(원자적 쓰기
+3단 대체) 3건, S3(timeout 기본값 공유) 1건, S4(미래 ran_at 무시) 1건, nit(uncapped gap) 1건, nit(첫 회차
+first_run) 1건, nit(chain allowance without deadline) 1건 — 총 93건, 전부 통과. `tests/estate_voice_card_reconcile.test.mjs`에
+nit5(schema v1/v2 겸용 수용) 1건 추가, 47건 전부 통과(round 3에서 새 실패 없음).
+
 ## 카드 대조 4단계 — N≤10 질문 선택기 + 빠른 고리 (0.22.6)
 
 `VOICE_RECORDING_LIBRARY_V0.md` "2026-09-20 운영 방침"의 네 번째 조각(외부 회신 09·10의 EXT-70·72·73·74).
@@ -306,7 +485,8 @@ validate:context-engine`에 들어 있다. **주의: `validate:context-engine`�
   제거는 여전히 비동기(L2, 나중) — 이 조각은 ledger와 읽기 경로까지다.
 - **backlog이 2단계에 닿기(S2-5)**: `estate_voice_card_reconcile.mjs`에 `--nightly-receipts <dir>`을 더했다.
   주면 이 대조기는 `--date` 하루치 대신, 그 디렉터리에 있는 모든 야간 lane 영수증
-  (`soulforge.voice_conversation_list_nightly_receipt.v1`)이 `ran` 또는 `skipped_existing`이면서
+  (`soulforge.voice_conversation_list_nightly_receipt.v2`, 구 `.v1`도 하위호환으로 읽는다)이 `ran` 또는
+  `skipped_existing`이면서
   `verified: true`로 보고한 세션 전체를 대상으로 삼는다. 각 세션의 메일/Linear ±1일 창은 그 세션 자신의
   날짜(receipt 행의 `date` 필드, R2 — 야간 lane이 03-04 사이 며칠 지난 backlog 세션을 함께 처리하므로 receipt
   자체의 `target_date`가 아니다)로 계산하고, 여러 날짜에 걸치면 그 합집합이다. `date`가 없는 옛 receipt 행은
@@ -529,12 +709,22 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
   30초 미만이면 `duration_below_30s`(둘 다 `skipped_short`). 이미 검증된(`verified: true`) run이 있으면
   `skipped_existing` — 판별은 `voice_conversation_list_cli.mjs`의 `show`가 읽는 것과 같은 `readRun`(최신
   `generated_at`)이다. 검증 전 run만 있으면 다시 돈다.
-- 잠금: `--receipts` 아래 `nightly.lock.json` 하나가 같은 밤 두 회차가 겹치는 것을 막는다. 3시간(`STALE_LOCK_MS`)
-  넘은 잠금은 버려진 것으로 보고 이전 값을 receipt에 남긴 뒤 회수한다. 잠금을 잡지 못하면 아무 것도 부르지 않고
-  종료코드 3이다.
-- 영수증: 밤마다 receipts에 `soulforge.voice_conversation_list_nightly_receipt.v1` 파일 하나. 세션마다 id·제목·
-  길이·`outcome`(`ran`·`skipped_existing`·`skipped_short`·`failed`)·이유·모델 호출 수·걸린 초를 담는다. 실패가
-  하나라도 있으면 종료코드 2, 전부 끝나면 0.
+- 잠금: `--receipts` 아래 `nightly.lock`(확장자 없음) 하나가 같은 밤 두 회차가 겹치는 것을 막는다. stale
+  문턱은 고정 3시간이 아니라 `staleLockMsFor`가 그 밤의 구성에서 유도한다 — `--deadline`이 없으면
+  `STALE_LOCK_MS`(기본 3시간, `--chain-reconcile`이면 `CHAIN_ALLOWANCE_MS` 추가), 있으면 예약된 시작→마감
+  스팬 + hard-stop grace(+ 연쇄면 `CHAIN_ALLOWANCE_MS`)를 최저 `MIN_DEADLINE_STALE_LOCK_MS`(8시간)로 내림
+  제한한 값이다(S5-1). 넘은 잠금은 버려진 것으로 보고 이전 값을 receipt에 남긴 뒤 회수하되, 그 회수는 디스크의
+  pid·started_at이 이 회차가 실제로 쥔 값과 같을 때만 지운다(`releaseLock`). 잠금을 잡지 못하면 아무 것도
+  부르지 않고 종료코드 3이다.
+- 영수증: 밤마다 receipts에 `soulforge.voice_conversation_list_nightly_receipt.v2`(구 `.v1`도 읽기 쪽에서
+  하위호환) 파일 하나. 세션마다 id·제목·길이·`outcome`(`ran`·`skipped_existing`·`skipped_short`·`failed`)·
+  이유·모델 호출 수·걸린 초를 담는다. 실패가 하나라도 있으면 종료코드 2, 전부 끝나면 0. 쓰기는 임시 파일 +
+  rename이 기본이며, rename이 재시도 끝에도 막히면 대상에 직접 덮어쓰기로, 그마저 막히면(예: 읽는 쪽이 대상을
+  쥐고 있어 둘 다 거부) 형제 경로 `<파일명>.recovered.json`에 마지막으로 써서 그 밤의 기록 자체는 남긴다 —
+  이 경우 원래 경로는 갱신되지 않으므로 `chain` 등 그 receipt를 참조하는 상태는 다음 판단 전까지 낡아 있을 수
+  있다(좁힌 주장, S2 round 3). 대조기(`estate_voice_card_reconcile.mjs`)의 `--nightly-receipts` 글롭은
+  `.recovered.json`도 `.json`로 그대로 집어 읽는다(무시하지 않고 명시적으로 처리) — 스키마·모양이 원본과
+  같기 때문이다.
 - `--dry`는 계획과 판별만 보여주고 모델을 부르지 않으며 잠금·영수증·`derived_root` 어디에도 쓰지 않는다. 등록기의
   preflight가 이 모드다.
 - 등록: `ops/register-voice-conversation-list-task.ps1` (+ 숨은 실행기 `ops/run-voice-conversation-list-hidden.vbs`)이

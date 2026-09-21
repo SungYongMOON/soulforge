@@ -44,6 +44,298 @@
   `validate:context-engine`에 넣었고, **`validate:context-engine`은 `npm run done:check`와 CI에 포함돼
   있지 않다**(기존 상태, 이번 변경에서 바꾸지 않음) — 이 하네스를 고칠 때는 그 스크립트를 따로 돌려야 한다.
 
+## 2026-09-21 - main CI 적색 복구: 야간 음성 lane 순환 import 절단, 장부 모듈 경로 가림의 Linux 이식성
+
+- Revision: 이 항목을 포함한 커밋. main의 CI(`done:check`)가 09-21 병합 두 건 뒤 적색이었다. 로컬 `done:check`는
+  알려진 다른 실패(deployment-pack의 universal-client bundle drift)에서 먼저 멈춰 뒤 단계를 보여 주지 않았고,
+  병합 전 검증은 개별 validator만 돌렸기 때문에 놓쳤다.
+- 무엇이 바뀌었는가: **(1)** `estate_voice_card_reconcile.mjs`가 `voice_conversation_list_nightly.mjs`에서 영수증
+  schema 이름과 날짜 도우미를 import하고, nightly는 `--chain-reconcile`에서 reconcile을 동적 import해 순환이
+  생겼다(`module_operability`의 "import graph has ZERO cycles" 실패). 공용 조각(`NIGHTLY_RECEIPT_SCHEMA`,
+  `NIGHTLY_RECEIPT_SCHEMA_V1`, `seoulDateFor`, `shiftDate`, `defaultTargetDate`)을 새 leaf 모듈
+  `harness/voice_nightly_shared.mjs`로 옮기고 nightly는 그대로 re-export한다(기존 importer 무변경).
+  **(2)** `workspace_ledgers`의 `redactHostPaths`가 `path.basename`을 써서 POSIX 호스트에서는 Windows·UNC 경로를
+  역슬래시로 나누지 못했고, Linux CI에서 드라이브 문자 경로가 가려지지 않은 채 남았다. 구분자 둘 다로 직접
+  나누는 `lastPathSegment`로 바꿨다(Windows 동작은 같고, 드라이브 루트만 있는 경로는 빈 문자열 대신 `D:`가 남는다).
+- 검증: `validate:module-operability` 8/8, 야간·대조 시험 145/145, `validate:workspace-ledgers` 139/139,
+  `release/closure.mjs --check` 통과(harness는 고정 closure 밖이라 digest·module_version 불변).
+- 남은 것: 로컬 `done:check`가 deployment-pack에서 멈춰 뒤 단계를 가리는 문제는 그대로다. 병합 전에는 모든
+  단계를 끝까지 돌려 보는 절차가 필요하다.
+
+## 2026-09-21 - 대화 목록 야간 lane 네 번째 신선한 눈 검토 정정: merge-ready, aging 근거 구분, 중복 집계 방지, 버전 상향
+
+- Revision: 이 항목을 포함한 커밋(같은 슬라이스, 네 번째 병합 전 신선한 눈 검토 — 필수 0건, should 4건, 저렴한
+  nit 6건 정정). 네 번째 검토는 295d1565를 merge-ready로 판정했다(R1을 리뷰어가 직접 재실측: 0/2/4/노드
+  없음→1). 이 커밋으로 origin/main도 함께 합친다.
+- 무엇이 바뀌었는가: **(S-1)** `agedOutLookback`의 `firstRun: true`가 근거 없이 쓰일 수 있었다 — `readdirSync`가
+  `ENOENT`를 던지거나 디렉터리가 (후보 영수증 `.json` 기준으로) 비어 있으면 정말 첫 회차이지만, 그 외의
+  읽기 실패나 항목은 있는데 쓸 수 있는 `ran_at`/알려진 schema가 하나도 없는 경우는 *다른* 상황(뭔가 있는데
+  이번 스캔이 못 읽음)이라 첫 회차로 보고하면 그 못 읽은 영수증이 실제로 담고 있었을 내용을 감춘다. 이제 세
+  갈래로 나눈다: 없음/빈 디렉터리 → `lookback_basis: 'first_run'`(nights 1), 그 외 읽기 실패나 항목은 있지만
+  전부 못 읽음 → `lookback_basis: 'unreadable'`(안전한 상한 `MAX_AGED_OUT_LOOKBACK_DAYS`로 대체,
+  `firstRun` 주장 안 함), 정상 → `lookback_basis: 'prior_receipt'`. "비어 있음" 판정은 raw 디렉터리가 아니라
+  `.json` 항목 기준이다 — `acquireLock`이 이 스캔 전에 이미 `nightly.lock`을 같은 디렉터리에 써 두므로(비-dry
+  모드) 진짜 첫 회차도 문자 그대로 빈 디렉터리는 아니기 때문이다. 세 갈래 전부 시험 추가. **(S-2)**
+  `estate_voice_card_reconcile.mjs`에 회귀 시험 추가: `<이름>.recovered.json` 형제 파일이 실제로 집혀 backlog
+  세션에 반영되는지, 그리고 원본+recovered 쌍이 중복 집계되지 않는지(N-4와 함께). **(N-4)** `derivation`
+  카운터가 세션 단위가 아니라 행 단위로 증가해, 같은 session_id가 원본 파일과 그 `.recovered.json` 형제
+  둘 다에 정산된 것으로 나타나면(N-1의 orphan 시나리오가 만드는 바로 그 모양) 두 번 세었다 —
+  `sessionDerivationSource`로 각 session_id의 현재 소속 버킷을 기억해, 다시 보일 때 이전 버킷을 먼저 빼고
+  나서 새 버킷에 더한다(마지막으로 본 파일의 행이 최종 소속을 정하되, 한 번만 센다). 고친 뒤 없이 돌려
+  회귀 시험이 실제로 실패함을 확인했다(`git stash`로 고치기 전 코드만 되돌려 재현). **(S-3)** module_version을
+  `guild_hall/context_engine/module.manifest.json`에서 0.22.3 → 0.22.4로 올렸다 — "lane 이름은 하나의 byte
+  집합만 가리켜야 한다"는 원칙상, round 3 이후(특히 이번 회차) 바뀐 바이트가 이전 lane_id 뒤에 숨어 있으면
+  안 된다. 편집 전 박힌 곳을 전수 검색(`git grep -n` 전체 트리, 문자열 `0.22.3`/`0-22-3`/`context-engine-v0-22`,
+  `.sha256`/`.yaml`/`.yml`/`.ps1` 확장자 포함): 3곳 — `module.manifest.json`(고정값 자체, 직접 수정),
+  `context-engine-v1.spec.json`의 `lane_id`(emitter가 자동 파생, 직접 손대지 않음), 이전 회차 CHANGELOG
+  엔트리 문장(0.22.2→0.22.3 변경을 서술하는 과거 기록이라 그대로 둠). `guild_hall/context_engine/README.md`의
+  절 제목들(`(0.22.0)`~`(0.22.7)`)은 각 기능이 "그때" 착지한 버전을 가리키는 역사적 표식이지 지금의
+  `module_version`을 따라가는 값이 아니라서(맨 위 절이 이미 `(0.22.7)`을 쓰고 있는데 manifest는 0.22.3
+  이었다 — 이 회차 이전부터 있던 별개의 드리프트) 건드리지 않았다. `node
+  guild_hall/context_engine/release/closure.mjs --write`로 재생성해 `lane_id`가
+  `context-engine-v0-22-4`로 자동 갱신됐다(`runtime-closure.json`의 `closure_sha256`은 이번 회차 편집이
+  narrow `src/app.mjs` closure 밖의 harness 파일들이라 바뀌지 않았다). **(S-4)**
+  `worst_case_session_minutes`의 `config?.model?.timeout_ms ?? DEFAULT_CHAT_TIMEOUT_MS`는 `??`가
+  null/undefined에서만 대체돼, 선언은 됐지만 숫자가 아닌 값(문자열 등)은 그대로 곱셈에 들어가 `NaN`이나
+  문자열 이어붙이기로 샐 수 있었다 — `Number.isFinite`로 검사하도록 고치고 비-숫자 값 시험을 추가했다. 기존
+  "S3, round 3" 시험도 손으로 만든 JS 객체 대신 실제 디스크 JSON 파일을 `readPipelineConfig`로 읽어 통과하는
+  경로로 다시 썼다(N-3). 나머지 nit 6건: **(N-1)** S2 코드 주석에서 "chain 결과가 RUNNING에 갇히지 않는다"는
+  과대 주장을 좁혔다 — RUNNING placeholder를 쓴 첫 시도만 recovered 경로로 새고 이어지는 최종 쓰기가 원본
+  경로에 정상 성공하면, 그 recovered 파일은 다시 손대지 않아 RUNNING인 채 고아로 남는다(원본에는 실제
+  최종 결과가 있다). **(N-2)** `recoveredPathFor`를 분리 함수로 빼고, 입력이 `.json`으로 끝나지 않을 때도
+  `.replace`가 아무 것도 안 바꿔 원본과 같은 경로를 돌려주지 않도록(그러면 방금 실패한 바로 그 경로를
+  다시 쓰게 된다) 항상 `.recovered.json`을 붙이도록 보장, 시험 추가. **(N-5)** 새 hermetic 시험의 조건부
+  `return`을 `t.skip('이유')`로 바꿨다. **(N-6)** `staleLockMsFor`의 문서 주석이 "마감 없으면 고정
+  `STALE_LOCK_MS`, 이 검토 전과 동일"이라고 잘못 말하고 있었다 — round 3 nit(`--chain-reconcile`만 있어도
+  `CHAIN_ALLOWANCE_MS` 추가)와 모순되므로 바로잡았다.
+- Merge: `git fetch origin` 후 `origin/main`을 병합했다(머지 베이스 89707f9d, origin 15 커밋 앞섬 —
+  `workspace_ledgers` 신규 모듈, AGENT_BOOT_DIGEST 재서명, 문서 정리). 병합 전 두 브랜치의 변경 파일 목록을
+  전수 대조(`git diff --name-only <머지베이스> <각 쪽>`)해 겹치는 파일이 `CHANGELOG.md` 하나뿐임을 확인했다
+  (예상대로). 충돌은 `CHANGELOG.md`에서만 났고, origin/main의 모든 엔트리를 보존한 채 이 브랜치의 엔트리
+  4개를 기존 스타일대로 맨 위에 배치해 풀었다 — 충돌 마커 없음을 grep으로 확인. `runtime-closure.json`
+  closure 입력은 병합으로 달라지지 않아(origin/main 쪽 변경이 이 closure가 추적하는 파일 밖) emitter를
+  다시 돌릴 필요가 없었고, `boot_digest_guard`가 핀 고정하는 문서(`AGENTS.md` + `docs/architecture/foundation/`
+  3종)도 이 브랜치가 건드리지 않아 재서명이 필요 없었다(origin/main이 이미 자기 몫을 08ffee095에서
+  재서명해 왔다).
+- 운영 영향: 코드·문서·생성 산출물(`module.manifest.json`/`runtime-closure.json`/`context-engine-v1.spec.json`)
+  변경뿐이다. 실제 예약작업은 이 커밋으로 손대지 않았다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/module.manifest.json`,
+  `guild_hall/context_engine/release/context-engine-v1.spec.json`,
+  `guild_hall/context_engine/release/runtime-closure.json`.
+- 검증(병합 전, 이 커밋 범위만): `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`
+  (97/97 pass, exit 0), `node --test guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`
+  (48/48 pass, exit 0 — S-2/N-4 회귀 시험 포함), `npm run validate:context-engine`(683 tests, 675 pass·8
+  skip·0 fail, `ok:true`, exit 0), `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`
+  (0 violations, exit 0), `node guild_hall/validate/boot_digest_guard.mjs`(OK, exit 0), PowerShell 5.1
+  `Parser::ParseFile`로 등록기 구문 확인(`PARSE_OK`, 이 회차는 등록기 자체를 건드리지 않았지만 재확인).
+  origin/main 병합과 `validate:source-lane`/`validate:workspace-ledgers`/`validate:canon`/
+  `validate:deployment-pack`은 병합 뒤 별도 커밋에서 실행하고 그 결과를 최종 보고에 남긴다.
+
+## 2026-09-21 - 대화 목록 야간 lane 세 번째 신선한 눈 검토 정정: exit code null 함정, 3단 쓰기 대체, timeout 기본값 공유
+
+- Revision: 이 항목을 포함한 커밋(같은 슬라이스, 세 번째 병합 전 신선한 눈 검토 — 필수 1건, should 4건, 저렴한
+  nit 5건 정정).
+- 무엇이 바뀌었는가: **(필수, R1)** round 2의 `; exit $LASTEXITCODE`가 node.exe 자체가 뜨지 못하는 launch
+  실패를 놓쳤다 — `&`(호출 연산자)는 네이티브 프로세스가 실제로 실행돼 끝났을 때만 `$LASTEXITCODE`를
+  채우므로, 실행 자체가 실패하면 그 변수는 세션 시작 값 `$null`로 남고 `exit $null`은 종료코드 0이다(round
+  1의 무조건 1보다 나쁘다 — 실패가 성공으로 보고됨을 실측: 숨은 `.vbs` 런처 전체 경로로 확인). 생성된 명령
+  끝을 `; if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE`로 고쳤다. `ops/register-voice-
+  conversation-list-task.ps1` 수정, 실측 4건(직접 PowerShell + 새 hermetic Node 시험 둘 다로): node exit
+  4→4, node exit 0→0, node exit 2→2, node.exe 경로 없음→1. **(S1)** `atomicWriteFileSync`의 옛 `finally`가
+  대체 쓰기(overwrite) 실패에도 임시 파일을 무조건 지워 유일하게 온전한 사본까지 파괴할 수 있었다 — 이제
+  성공한 경로에서만 지우고, 실패 경로는 `tmp_path`를 오류에 실어 보존한다. **(S2)** rename·직접 덮어쓰기가
+  모두 막히는 경우(대상을 쥔 reader가 둘 다 거부)를 다루지 못했다 — 형제 경로 `<파일명>.recovered.json`에
+  마지막으로 써서 그 밤의 기록을 살린다; 대조기(`estate_voice_card_reconcile.mjs`)의 `.json` 글롭이
+  `.recovered.json`도 그대로 집어 읽음을 확인하고 명시적으로 주석을 남겼다(무시가 아니라 처리). **(S3)**
+  `worst_case_session_minutes`가 정상 설정에서 죽어 있었다(`config.model.timeout_ms`가 `readPipelineConfig`
+  기본값에 없어서) — 실제 런타임 기본값(`src/adapters/local_model/ollama_chat.mjs`의
+  `binding.timeout_ms ?? 600000`)을 `DEFAULT_CHAT_TIMEOUT_MS`로 내보내 두 자리에서 공유한다(숫자 복제 금지).
+  **(S4)** `agedOutLookback`이 `now`보다 미래인 `ran_at`을 최근 실행으로 잘못 셀 수 있었다 — 미래
+  timestamp는 이제 무시한다. 저렴한 nit 5건: (1) `uncapped_gap_days`를 `lookback_nights`와 나란히 기록.
+  (2) 이전 영수증이 아예 없는 첫 회차는 7일 lookback 대신 `first_run: true` + `nights: 1`로 보고(이 lane이
+  한 번도 못 본 세션을 "aged out"이라 말하지 않는다). (3) aging 스캔에 `error`가 있으면 `count`를 `null`로
+  비움. (4) `staleLockMsFor`는 `--deadline` 없이 `--chain-reconcile`만 줘도 `CHAIN_ALLOWANCE_MS`를 더함.
+  (5) `guild_hall/deployment_pack/lanes/context_read_lane.spec.json` v5 설명의 "두 파일"을 "세 파일"로
+  정정(이 회차가 `voice_conversation_list_nightly.mjs`·`register-voice-conversation-list-task.ps1`·
+  `estate_voice_card_reconcile.mjs` 셋을 건드림). 부수 정리: `ollama_chat.mjs` 편집으로 그 파일의 sha256이
+  바뀌어 `guild_hall/context_engine/release/runtime-closure.json`에 박힌 `closure_sha256`이 낡았음을
+  확인(다른 어디에도 같은 digest가 박혀 있지 않음을 먼저 grep으로 확인) — 손편집 대신 프로젝트 자신의
+  emitter(`node guild_hall/context_engine/release/closure.mjs --write`)로 재생성했고, 그 emitter가 이미
+  0.22.3인 `module.manifest.json`의 `module_version`을 반영해 `context-engine-v1.spec.json`의 `lane_id`도
+  `context-engine-v0-22-2`→`context-engine-v0-22-3`으로 같이 갱신됐다(이 커밋이 만든 드리프트가 아니라
+  emitter가 이미 있던 버전 불일치를 재생성 시점에 함께 바로잡은 것). 새 hermetic 시험이 처음엔 `powershell.exe`/
+  `wscript.exe`를 Windows 시스템 루트 아래 절대경로 리터럴로 박아 `local_absolute_path_policy` 위반이 났다 — 기존
+  관례(`release_rehearsal.mjs`/`release_rehearsal.test.mjs`)를 따라 `process.env.SystemRoot ?? process.env.WINDIR`에서
+  유도하도록 고쳤다.
+- 운영 영향: 코드·문서·생성 산출물(runtime-closure.json/spec) 변경뿐이다. 실제 예약작업은 이 커밋으로 손대지
+  않았다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/release/runtime-closure.json`,
+  `guild_hall/context_engine/release/context-engine-v1.spec.json`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`,
+  `guild_hall/context_engine/README.md`.
+- 검증: `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`(93/93 pass,
+  exit 0), `node --test guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`(47/47 pass,
+  exit 0), `npm run validate:context-engine`(678 tests, 670 pass·8 skip·0 fail, `ok:true`, exit 0), `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations, exit 0), `node
+  guild_hall/validate/boot_digest_guard.mjs`(OK, exit 0), PowerShell 5.1
+  `[System.Management.Automation.Language.Parser]::ParseFile`로 등록기 구문 확인(`PARSE_OK`). 실제
+  `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
+## 2026-09-21 - 대화 목록 야간 lane 두 번째 신선한 눈 검토 정정: 재시도 쓰기, lock 문턱, 다중일 aging, exit code 전달
+
+- Revision: 이 항목을 포함한 커밋(같은 슬라이스, 두 번째 병합 전 신선한 눈 검토 — 첫 검토는 필수 없음으로
+  merge-ready 판정, 이 커밋은 should 4건과 저렴한 nit 5건 정정).
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`. **S1-1**:
+  `renameSync`가 대상 파일이 열려 있으면 Windows에서 `EPERM`으로 실패함을 실측 — 고치기 전엔 그 throw가
+  `runNightly` 밖으로 빠져나가 `chain: RUNNING`을 영원히 남기고 임시 파일을 고아로 만들고 깨끗한 밤을
+  FAILED로 보고했다. `atomicWriteFileSync`가 `EPERM`/`EACCES`/`EBUSY`를 최대 4회, 50ms 간격(`Atomics.wait`
+  동기 슬립)으로 재시도하고, 그래도 안 되면 대상에 직접 덮어쓰기로 물러난다(임시 파일은 어느 경로든
+  `finally`에서 항상 삭제). 재시도 대상이 아닌 오류는 즉시 그대로 던진다. **S5-1**: 고정 `STALE_LOCK_MS`
+  (3시간)는 00:00 시작+04:00 마감+60분 grace+연쇄가 이 lock을 약 5.5시간 쥘 수 있는 실제 구성보다 짧아,
+  수동 회차가 살아있는 lock을 stale로 오판해 가로채고 첫 회차의 `releaseLock`이 그 두 번째 lock을 지울 수
+  있었다. stale 문턱을 이 밤의 구성(예약된 시작→마감 스팬 + hard-stop grace + 연쇄면
+  `CHAIN_ALLOWANCE_MS`, 최저 `MIN_DEADLINE_STALE_LOCK_MS`=8시간)에서 유도하고(`staleLockMsFor`),
+  `releaseLock`은 디스크의 lock이 정확히 이 회차가 쓴 pid·started_at과 같을 때만 지운다. **R1b-1**:
+  `aged_out_unprocessed`가 정확히 하루만 봐서 이 필드가 존재하는 바로 그 경우(하룻밤 통째로 거름)에 하루를
+  조용히 잃었다 — 가장 최근 이전 영수증의 `ran_at`부터의 간격만큼(없으면 `MAX_AGED_OUT_LOOKBACK_DAYS`=7로
+  대체, 항상 7일 상한) 여러 날을 되돌아보고 날짜별로 묶어(`by_date`) 보고한다. **R1a-1**: exit code 4가
+  Task Scheduler까지 절대 닿지 않음을 실측 —
+  `ops/register-voice-conversation-list-task.ps1`의 `powershell.exe -Command "& node ..."`가 네이티브
+  명령의 종료 코드를 물려주지 않아(실측: 숨은 `.vbs` 런처까지 전체 경로로 확인, 모든 비영 코드가 맨 1로
+  뭉개짐) 생성된 명령 끝에 `; exit $LASTEXITCODE`를 더했다(실측: 이러면 4가 그대로 전달됨) — 기존
+  `action_sha256`/사후 XML 대조에 자동 포함되므로 별도 배선은 없었다. nit 5건: (1) harness가 `--deadline`
+  없는 `--no-start-within`/`--scheduled-start`를 거부하고 단독 `--scheduled-start`도 형식 검사, (2)
+  `--no-start-within`이 `/^\d+$/`만 받아 빈 문자열이 0으로 조용히 통과하던 것을 막음, (3) margin이 예약된
+  시작→마감 스팬 이상이면 거부, (4) `limits.llm_calls × model.timeout_ms`를
+  `worst_case_session_minutes`로 `deadline` 블록에 기록하고 `no_start_within + hard-stop grace`를 넘으면
+  경고, (5) 영수증 `schema_version`을 v2로(`status`가 값을 얻고 `chain`/`backlog`/`warnings`가 늘었으므로)
+  — `estate_voice_card_reconcile.mjs`의 배경 스캔이 `NIGHTLY_RECEIPT_SCHEMA_V1`도 같이 받아들이도록 고쳤다.
+- 운영 영향: 코드·문서 변경뿐이다. 실제 예약작업은 이 커밋으로 손대지 않았다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/README.md`.
+- 검증: `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`(86/86
+  pass), `npm run validate:context-engine`(671 tests, 663 pass·8 skip·0 fail), `npm run
+  validate:source-lane`(14/14), `npm run validate:voice-conversation-list`(51/51), `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations), PowerShell 5.1
+  파서로 등록기 구문 확인(`PARSE_OK`) + `; exit $LASTEXITCODE`를 실제 PowerShell 5.1 세션에서 node 종료
+  코드 4로 독립 실측(문구 없이는 1, 있으면 4). `npm run validate:deployment-pack`은 이 변경과 무관한 기존
+  "Universal Client transport bundle drifted"에서 멈춘다(이전 커밋에서 이미 origin/main 기준 재현 확인).
+  실제 `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
+## 2026-09-21 - 대화 목록 야간 lane 신선한 눈 검토 정정: 마감-지남 상태, backlog aging 가시성, 연쇄 lock/원자적 쓰기
+
+- Revision: 이 항목을 포함한 커밋(직전 커밋 b57c4160/6fac8506의 같은 슬라이스, 병합 전 신선한 눈 검토 정정).
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`에 필수 1건(3
+  부분)·should 6건·nit 3건을 고쳤다. **(필수, R1)** Task Scheduler가 로그온 종속 `-StartWhenAvailable`
+  트리거라 재부팅·로그오프 밤엔 00:00 트리거가 04:00 넘어 로그온 때야 실행될 수 있는데, 그런 회차가 세션을
+  하나도 못 돌려도 기존엔 `OK`/exit 0라 7일 backlog·40 cap과 겹치면 밀리는 세션이 조용히 사라질 수 있었다.
+  (a) 세션을 하나도 시도하기 전에 이미 마감이 지났으면 별도 영수증 상태 `SKIPPED_PAST_DEADLINE`과 별도
+  종료코드 4(0/OK·2/FAILED·3/LOCK_HELD와 구분, `main`에 문서화)를 낸다. (b) 매 밤 영수증에
+  `backlog.{aging_out_soon, aged_out_unprocessed}`를 낸다 — 전자는 2일 안에 window를 벗어날 미완 후보 수(cap과
+  무관하게 정확히 재분류), 후자는 어젯밤엔 window 안이었는데 오늘 밤엔 아닌 바로 그 하루에 여전히 미완인
+  세션의 날짜·수·id(과거 영수증을 안 읽는 무상태 검사). (c) `buildSessionPlan`이 aging-soon backlog 후보를
+  새 날의 자기 세션보다 앞에 두도록 순서를 바꿔(`agingOutSoonThreshold`), cap 아래에서도 urgent 후보가 먼저
+  밀려나지 않는다. **(should)** S1: 연쇄 첫 쓰기를 `chain: {status:'RUNNING', started_at}`로(기존 `null`은
+  죽음과 미연쇄를 구분 못 함), 두 쓰기 다 `atomicWriteFileSync`(임시 파일+rename)로. S2:
+  `--deadline`이 `--scheduled-start`(등록기는 `-DailyAt`)와 같으면 24시간 여유를 조용히 주므로 harness·등록기
+  둘 다 거부. S3: `--deadline`/`--scheduled-start`/`--no-start-within`을 값 없이 주거나 반복하면
+  `--questions-cap`처럼 큰 소리로 거부(조용히 비활성화하지 않음). S4: `--no-start-within MINUTES`(마감 있으면
+  기본 30)로 마감 그만큼 전부터 새 세션을 시작하지 않는다 — 실제 mid-flight 중단은
+  `runConversationList`(파이프라인)에 abort 신호·벽시계 예산이 전혀 없어(직접 확인) 구현하지 않고, 리뷰가
+  명시적으로 허용한 대안(시작 여유 + `HARD_STOP_GRACE_MINUTES`=60 지나 끝난 세션에 `overran_hard_stop`
+  경고)만 넣었다. S5: 연쇄 전에 풀던 이 밤의 lock을 연쇄가 끝날 때까지 쥐고, reconcile 자신의(별도) lock이
+  잡혀 있으면 실패가 아닌 별도 `LOCK_HELD` chain 상태로 처리(이전엔 가짜 FAILED). **등록기**
+  `ops/register-voice-conversation-list-task.ps1`: S2(위와 같음), S4(`-NoStartWithinMinutes`, `-Deadline`
+  필요), S6(`-StartWhenAvailable`+`-DailyAt 00:00`이면 오늘 이미 지난 StartBoundary로 등록 직후 바로 발동할
+  수 있어 다음 미래 발생 시각으로 미룸, 사후 XML 대조는 원래도 시각만 비교해 그대로 검증 가능), N3(PS 5.1
+  `ConvertTo-Json`이 mail-root 배열 0/1개를 `{}`/맨 원소로 잘못 펼치고 `if/else`의 빈 배열 가지가 쉼표 없이는
+  `$null`로 무너지는 함정까지 있어 `[object[]]$(if (...) {...} else { , @() })`로 정정, 0/1/2개 모두 실제 PS
+  5.1 세션에서 직접 재확인). N1: `deadline.sessions_left`가 멈춘 뒤 남은 계획 항목 전부(skip/existing 포함)를
+  세던 것을 실제 `run`-분류만 세도록. N2: 프로그래밍 호출자의 `null` rootTableSha256이 연쇄 argv에 문자
+  그대로 박힐 뻔한 것을 없으면 그 인자 자체를 생략하도록(reconcile 자신의 파일 해시 기본값 사용).
+- 운영 영향: 코드·registrar 파라미터·문서 변경뿐이다. 실제 예약작업은 이 커밋으로 손대지 않았다. 리뷰가
+  확인한 실제 상태: 현재 운영 중인 `SoulforgeVoiceConversationList`는 이 등록기를 거치지 않고 트리거를 직접
+  편집해 이미 00:00로 재시각됐다 — 이 등록기로 다시 등록하려면 `-ExpectedExistingTaskSha256`에
+  `%WINDIR%\System32\Tasks\SoulforgeVoiceConversationList` 파일의 SHA-256(접두사 없는 64자)을 주고,
+  `-Register` 없이 한 번 불러 plan digest를 얻은 뒤, 그 digest를 `-ExpectedDryRunDigest`로 얹고 `-Register`를
+  더해 같은 명령을 다시 부른다. **경고**: `-DailyAt`을 빼면 sha 대조는 걸리지 않은 채 조용히 03:00로
+  되돌아간다 — 재등록 전 찍히는 `daily_at=` 줄이 그걸 미리 보여주는 유일한 자리다(README 등록기 절에 반영).
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/context_engine/README.md`.
+- 검증: `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`(69/69 pass),
+  `npm run validate:context-engine`(653 tests, 645 pass·8 skip·0 fail — skip은 기존 T5 PDF 해석기 미설치 분),
+  `npm run validate:source-lane`(14/14 pass), `npm run validate:voice-conversation-list`(51/51 pass),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(0 violations, 8850 scanned),
+  PowerShell 5.1 파서(`[System.Management.Automation.Language.Parser]::ParseFile`)로 등록기 구문 확인(오류
+  0) + 실제 PS 5.1 세션에서 `ConvertTo-Json` 배열 직렬화 함정(N3)과 등록기 `$Plan` 블록의 정확한 재현을 직접
+  검증. `npm run validate:deployment-pack`은 이 변경과 무관한 기존 "Universal Client transport bundle
+  drifted" 실패에서 멈춘다(직전 커밋에서 이미 origin/main 기준으로 재현 확인). 등록기의 실제
+  `-Register`/scheduled task 등록·재등록은 실행하지 않았다(작업 범위 제외).
+
+## 2026-09-21 - 대화 목록 야간 lane에 마감(deadline)과 대조·질문 연쇄(chain-reconcile) 추가
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`(대화 목록 야간
+  lane)에 세 가지를 더했다. (1) 벽시계 `--deadline HH:MM`(Asia/Seoul 기준 시작 이후 다음 그 시각, 00:00
+  시작+04:00 마감이면 같은 날 아침 04:00에서, 23:30 시작+01:00 마감이면 다음날 01:00에서 멈춤) — 세션
+  하나의 카드 생성을 실제로 시작하기 직전에만 검사하고, 넘겼으면 그 세션과 이후 계획 항목을 이번 밤
+  영수증에서 빼고 exit 0으로 깨끗이 멈춘다(실패 아님). 남은 세션은 기존 backlog 메커니즘이 다음 밤에 그대로
+  다시 집는다(시험이 실제 두 번째 실행으로 확인). (2) `--scheduled-start HH:MM`(선택, 등록기가 `-DailyAt`
+  값을 자동으로 함께 넘김) — 마감을 "실제 프로세스가 시작한 시각"이 아니라 "예약된 시작 시각"에 고정한다.
+  절전에서 깨어나 00:00 트리거를 04:10에야 실행한 회차는, 이게 없으면 마감이 "04:10 다음의 04:00" 즉
+  내일로 잘못 계산돼 있지도 않던 여유를 얻는다 — 있으면 마감이 예약된 00:00 기준 그날 04:00에 고정되고
+  04:10은 이미 그 마감을 넘겼으므로 세션을 하나도 돌리지 않고 즉시 멈춘다(전부 다음 밤으로). (3)
+  `--chain-reconcile` — 카드 생성이 끝난 뒤(정상이든 마감 정지든) `estate_voice_card_reconcile.mjs`를
+  `--nightly-receipts`로, 이어서 `voice_question_cli.mjs present`를 같은 reconcile receipts 디렉터리로
+  같은 프로세스에서 동적 `import()`로 부른다. reconcile은 이 밤의 영수증이 디스크에 쓰인 뒤에 돌고, 결과는
+  같은 영수증 파일에 두 번째 쓰기로 접힌다. 실패(예외 포함)는 영수증 `chain.{status,stage,reason}`에 남고
+  비영 종료코드를 내되 카드 생성 결과는 절대 다시 돌거나 되돌려지지 않는다. `--dry`는 두 하위 호출에도
+  전파된다. 등록기 `ops/register-voice-conversation-list-task.ps1`에 `-DailyAt`(기본 03:00, 생략 시 이전과
+  동일하게 등록), `-Deadline`, `-ChainReconcile`(+ `-ReconcileReceiptsRoot`/`-LinearRoot`/`-MailRoot`/
+  `-QuestionsCap`)를 더했다 — 기존 pin(레인 매니페스트·Node·root table·tools config·pipeline config
+  sha256·dry-run plan digest·기존 task sha256)은 그대로 두고, 새 값은 plan hashtable과 `-Register` 뒤 XML
+  대조(action 인자 줄 전체 비교라 자동 포함)에 들어간다. lane spec `guild_hall/deployment_pack/lanes/
+  context_read_lane.spec.json`은 `context-read-v5`로 올렸다(새 tracked_paths·entry_points 없음, 이미 v4에
+  이름 올라 있던 harness·registrar 파일 두 개가 제자리에서 바뀐 것뿐).
+- 운영 영향: 코드·registrar 파라미터·lane spec 문서 변경뿐이다. 실제 예약작업
+  `SoulforgeVoiceConversationList`은 이 커밋으로 재등록되지 않았고(여전히 03:00, deadline·chain 없이
+  등록된 채로 있음), lane도 새로 빌드하지 않았다. 03:00→**00:00**(2026-09-21 밤 Owner 정정: 22:00은 Owner
+  자신의 근무 시간이라 00:00 시작이 기준) 전환과 `-Deadline 04:00 -ChainReconcile` 실제 활성화는 Owner의
+  별도 재등록 실행이 필요하다(`docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md` 2026-09-20 운영
+  방침 1항에 코드 구현/미적용을 구분해 반영).
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/ops/register-voice-conversation-list-task.ps1`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`, `guild_hall/context_engine/README.md`,
+  `docs/architecture/workspace/VOICE_RECORDING_LIBRARY_V0.md`.
+- 검증: `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`(N7 2026-09-21 정정: 이 항목이
+  가리키는 커밋 이후엔 `--scope changed`가 이미 커밋된 diff 0건을 보게 되므로 `--scope tracked`로 인용한다,
+  0 violations), `npm run validate:context-engine`(636 tests, 628 pass·8 skip·0 fail — skip은 기존 T5 PDF
+  해석기 미설치 분), `npm run validate:source-lane`(14/14 pass), `npm run validate:voice-conversation-list`
+  (51/51 pass),
+  PowerShell 5.1 파서(`[System.Management.Automation.Language.Parser]::ParseFile`)로 등록기 구문 확인(오류
+  0, 앵커링 로직 재확인 후 재검사 포함). `guild_hall/context_engine/tests/voice_conversation_list_nightly.
+  test.mjs`에 등록기 소스 텍스트를 PowerShell 실행 없이 정규식으로 대조하는 구조 시험을 더했다(기존
+  `guild_hall/scheduled_hidden_launchers.test.mjs`와 같은 방식). `npm run validate:deployment-pack`은 이
+  변경과 무관한 기존 "Universal Client transport bundle drifted" 실패에서 멈춘다(이 변경 적용 전
+  origin/main에서도 동일하게 재현 확인, 08169918 이후 기존 상태). 등록기의 실제 `-Register`/scheduled task
+  등록·재등록은 실행하지 않았다(작업 범위 제외).
+
 ## 2026-09-21 - 메일 분류 키워드 패널: 두 번째 신선한 검토 지적(필수 1건·S-a~S-d·nit) 반영
 
 - Revision: 이 항목을 포함한 커밋. 직전 커밋(6c5ee109)에 대한 두 번째 신선한 검토가 필수 1건

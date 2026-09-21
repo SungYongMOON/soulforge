@@ -70,7 +70,8 @@ import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { classifyAttribution, linearCorroborates, mailCorroborates, projectAliasTerms,
   VOICE_ATTRIBUTION_POLICY_VERSION } from '../src/runtime/voice_attribution_policy.mjs';
 import { readVoiceSession } from '../src/runtime/voice_session_read.mjs';
-import { NIGHTLY_RECEIPT_SCHEMA, defaultTargetDate, seoulDateFor, shiftDate } from './voice_conversation_list_nightly.mjs';
+import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, defaultTargetDate, seoulDateFor, shiftDate }
+  from './voice_nightly_shared.mjs';
 import { readRun } from './voice_conversation_list_cli.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
 import { latestPerObject, linearProjectsFor } from './estate_inventory.mjs';
@@ -274,6 +275,20 @@ const dateFromSessionId = sessionId => {
  * source every settled row's date actually came from, for the receipt to
  * show its work.
  *
+ * N-4 (2026-09-21 review, round 4): a primary receipt and its
+ * `<name>.recovered.json` sibling (S2, above) can both name the exact same
+ * settled session_id with the exact same date -- the recovered file is the
+ * orphaned first write of the very same receipt the primary file's later,
+ * successful write also carries. `ids`/`dates` are Sets, so the session_id
+ * and date themselves are naturally deduplicated either way, but
+ * `derivation` is a running counter, not a set -- without tracking which
+ * bucket a session_id was already counted into, seeing that same session_id
+ * settled a second time (in the sibling file) would count it twice, so a
+ * primary+recovered pair would over-report its own `derivation` totals by
+ * one. `sessionDerivationSource` remembers each session_id's current bucket
+ * and backs it out before recording a new one, so a pair counts once no
+ * matter how many receipt files (chronologically) settle the same session.
+ *
  * A directory that simply does not exist yet (the nightly lane has never run)
  * plans zero sessions, the same as an absent date folder does; any other
  * read failure is a real configuration error and is thrown.
@@ -290,11 +305,25 @@ function collectBacklogSessions(nightlyReceiptsDir) {
   }
   const ids = new Set(), dates = new Set();
   const derivation = { declared: 0, session_id_prefix: 0, undated: 0 };
+  const sessionDerivationSource = new Map(); // N-4: session_id -> current derivation bucket, so a pair counts once
   const unsettled = new Map();
+  // S2 (2026-09-21 review, round 3): a `<name>.recovered.json` file --
+  // `voice_conversation_list_nightly.mjs`'s `atomicWriteFileSync` writing to
+  // a sibling path once both the atomic rename and a direct overwrite of the
+  // primary path were denied -- is deliberately *handled* here, not ignored:
+  // it already matches this plain `.json` glob, and its schema and shape are
+  // exactly one more ordinary nightly receipt, so nothing extra is needed
+  // for a night that only survived at its recovered path to still be found.
   for (const name of names.filter(entry => entry.endsWith('.json')).sort()) {
     let body;
     try { body = JSON.parse(readFileSync(path.join(nightlyReceiptsDir, name), 'utf8')); } catch { continue; }
-    if (body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA || !Array.isArray(body.sessions)) continue;
+    // nit 5 (2026-09-21 review): the nightly receipt schema moved to v2
+    // (`status` gained `SKIPPED_PAST_DEADLINE`, and the receipt gained
+    // `chain`/`backlog`/`warnings`) -- this reader only ever touches the
+    // unchanged `sessions` array below, so both versions are accepted
+    // rather than this pass silently going blind to every v2 receipt.
+    if ((body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA && body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA_V1)
+      || !Array.isArray(body.sessions)) continue;
     for (const row of body.sessions) {
       if (typeof row?.session_id !== 'string') continue;
       const settled = (row.outcome === 'ran' || row.outcome === 'skipped_existing') && row.verified === true;
@@ -305,11 +334,21 @@ function collectBacklogSessions(nightlyReceiptsDir) {
       ids.add(row.session_id);
       unsettled.delete(row.session_id);
       let date = DATE_DIR.test(row.date ?? '') ? row.date : null;
-      if (date !== null) derivation.declared += 1;
+      let source;
+      if (date !== null) source = 'declared';
       else {
         date = dateFromSessionId(row.session_id);
-        if (date !== null) derivation.session_id_prefix += 1; else derivation.undated += 1;
+        source = date !== null ? 'session_id_prefix' : 'undated';
       }
+      // N-4: back out this session_id's previous bucket (if any) before
+      // recording its new one -- a primary+recovered pair (or any other
+      // repeat sighting of the same settled session_id across receipt
+      // files) must count once, with the chronologically last file's row
+      // deciding the final bucket, not add a second count on top.
+      const previousSource = sessionDerivationSource.get(row.session_id);
+      if (previousSource !== undefined) derivation[previousSource] -= 1;
+      derivation[source] += 1;
+      sessionDerivationSource.set(row.session_id, source);
       if (date !== null) dates.add(date);
     }
   }
