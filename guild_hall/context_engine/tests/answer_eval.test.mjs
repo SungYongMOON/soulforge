@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventEmitter } from 'node:events';
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,7 @@ import {
   AnswerEvalError, MAX_ANSWER_BYTES, compareRuns, compileItem, normalizeText, scoreAnswer, summarize,
   validateAskCommand, validateQuestionSet,
 } from '../src/runtime/answer_eval.mjs';
-import { compileSafePattern } from '../src/runtime/safe_pattern.mjs';
+import { PatternTimeoutError, boundedMatcher, canarySeeds, compileSafePattern, literalRuns } from '../src/runtime/safe_pattern.mjs';
 import { killProcessTree, latestReceipt, renderComparison, renderTable, runAnswerEval, runAnswerEvalCli, writeReceipt } from '../harness/answer_eval.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -72,7 +72,7 @@ if (mode === 'exit-with-answer') {
   process.exit(9);
 }
 if (mode === 'spawn-grandchild') {
-  spawn(process.execPath, [at('--grandchild'), at('--marker')], { stdio: 'ignore' });
+  spawn(process.execPath, [at('--grandchild'), at('--started'), at('--marker')], { stdio: 'ignore' });
   setInterval(() => {}, 1000);
 } else if (mode === 'hang') { setInterval(() => {}, 1000); }
 else if (mode === 'huge') { writeFileSync(answerFile, 'EX-1 ' + 'x'.repeat(${MAX_ANSWER_BYTES} + 4096)); }
@@ -105,6 +105,15 @@ function askCommandFile(root, botFile, mode, timeoutSeconds = 20) {
 }
 
 const rowOf = (receipt, id) => receipt.results.find(row => row.question_id === id);
+/** Polls until `check()` is true or the deadline passes; returns what it last saw. */
+async function waitUntil(check, deadlineMs, stepMs = 50) {
+  const until = Date.now() + deadlineMs;
+  for (;;) {
+    if (check()) return true;
+    if (Date.now() >= until) return false;
+    await new Promise(resolve => setTimeout(resolve, stepMs));
+  }
+}
 const refusal = (fn, code) => {
   assert.throws(fn, error => {
     assert.ok(error instanceof AnswerEvalError, `not an AnswerEvalError: ${error?.message}`);
@@ -648,7 +657,9 @@ function buildLaneTree(specRef, destRoot) {
     const destination = path.join(destRoot, tracked);
     if (tracked.endsWith('/')) {
       cpSync(source, destination, { recursive: true,
-        filter: from => !excluded(posixRel(from) + (statSync(from).isDirectory() ? '/' : '')) });
+        // lstat, not stat: a symlink is classified as itself, so a link
+        // pointing outside the tree is never followed while deciding.
+        filter: from => !excluded(posixRel(from) + (lstatSync(from).isDirectory() ? '/' : '')) });
     } else {
       mkdirSync(path.dirname(destination), { recursive: true });
       cpSync(source, destination);
@@ -873,6 +884,10 @@ test('killProcessTree names the mechanism it used and degrades instead of throwi
   assert.equal(killProcessTree({ pid: 0 }), 'no_pid');
   // A pid far outside any real range: every tree mechanism fails, and the
   // direct kill is the fallback -- reported as `direct`, never thrown.
+  // Both branches are exercised on every platform on purpose: the forced
+  // `win32` branch finds no taskkill on Linux (ENOENT on both candidates) and
+  // the forced POSIX branch finds no such process group on Windows, so each
+  // one falls through to the same fallback wherever CI happens to run.
   let directCalls = 0;
   const stub = { pid: 2 ** 30, kill: () => { directCalls += 1; return true; } };
   assert.equal(killProcessTree(stub, { platform: 'win32', env: { SystemRoot: tmp('ae-nosys-') } }), 'direct');
@@ -898,19 +913,35 @@ test('a timeout kills the grandchild too, so an orphan cannot hold the one model
   // /T` still earns its place there for a bot that is a launcher script
   // rather than a Node child -- but this assertion is not what proves that,
   // and the mechanism test above is.
+  // The grandchild writes a "started" marker immediately and a "survived" one
+  // after a delay. Asserting the first exists before asserting the second does
+  // not keeps the test from passing vacuously: a grandchild that never ran at
+  // all (a typo in the script, a spawn that failed) would otherwise look
+  // exactly like a grandchild that was correctly killed.
+  const started = path.join(est.root, 'grandchild-started.txt');
   writeFileSync(grandchild, `import { writeFileSync } from 'node:fs';
-setTimeout(() => writeFileSync(process.argv[2], 'orphan survived'), 2500);
+writeFileSync(process.argv[2], 'started');
+setTimeout(() => writeFileSync(process.argv[3], 'orphan survived'), 3000);
 `);
   const ask = path.join(est.root, 'ask-tree.json');
+  // 1.5s, not a fraction of one: on a loaded CI runner two Node startups have
+  // to finish before the kill, or the grandchild never reaches its "started"
+  // write and this test flakes on its own setup rather than on the behaviour.
   writeFileSync(ask, JSON.stringify({ schema: ANSWER_EVAL_ASK_COMMAND_SCHEMA,
-    argv: [process.execPath, bot, '--mode', 'spawn-grandchild', '--grandchild', grandchild, '--marker', marker,
+    argv: [process.execPath, bot, '--mode', 'spawn-grandchild', '--grandchild', grandchild,
+      '--started', started, '--marker', marker,
       '--prompt-file', '{prompt_file}', '--answer-file', '{answer_file}'],
-    timeout_seconds: 0.5, env: [] }));
+    timeout_seconds: 1.5, env: [] }));
   const { result } = await runAnswerEvalCli(['--questions', est.questionsFile, '--ask-command', ask,
     '--receipts', est.receiptsDir, '--only', 'q1'], { now: NOW });
   assert.equal(rowOf(result.receipt, 'q1').reason, 'ask_command_timeout');
-  await new Promise(resolve => setTimeout(resolve, 4000));
-  assert.equal(existsSync(marker), false, 'the grandchild outlived the tree kill');
+  assert.equal(await waitUntil(() => existsSync(started), 4000), true,
+    'the grandchild never ran, so this test would have proved nothing');
+  // Poll to the deadline rather than sleeping a fixed span: this finishes as
+  // soon as the survival marker appears (a failure) and otherwise costs the
+  // grandchild's own delay plus a margin.
+  assert.equal(await waitUntil(() => existsSync(marker), 3500), false,
+    'the grandchild outlived the tree kill');
 });
 
 test('a spawn that cannot start at all is a named failure, not a crash', async () => {
@@ -923,4 +954,117 @@ test('a spawn that cannot start at all is a named failure, not a crash', async (
     '--ask-command', ask, '--receipts', est.receiptsDir, '--only', 'q1'], { now: NOW });
   assert.equal(rowOf(result.receipt, 'q1').reason, 'ask_command_spawn_failed');
   assert.equal(exitCode, 4);
+});
+
+// ------------------------------------------------- pattern safety, layer 2
+test('the canary is seeded from multi-character literals, so (ab|a|b)+z is refused', () => {
+  // The exact pattern the fresh review found: no nested quantifier, three
+  // alternation branches, two quantifiers -- and `test()` against
+  // 'ab'.repeat(30) + '!' does not finish in 25 seconds. The first version of
+  // the canary probed only single-character repeats and accepted it.
+  assert.ok(canarySeeds('(ab|a|b)+z').includes('ab'), 'the two-character literal run must be a seed');
+  assert.throws(() => compileSafePattern('(ab|a|b)+z', 'i'),
+    error => error.code === 'safe_pattern_timing_unsafe');
+  assert.throws(() => validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x',
+    must_find: [{ key: 'a', any_of: ['/(ab|a|b)+z/'] }] }])), error => error.code === 'answer_eval_pattern_regex_unsafe');
+});
+
+test('literal runs and seeds come from the pattern itself, longest first', () => {
+  assert.deepEqual(literalRuns('(ab|a|b)+z'), ['ab', 'a', 'b', 'z']);
+  assert.deepEqual(literalRuns('\\d{4}-\\d{2}'), ['-']);
+  const seeds = canarySeeds('(가나|가)+다');
+  assert.ok(seeds.includes('가나'), 'a Korean literal run is a seed too');
+});
+
+test('a plainly safe pattern is accepted 50 times in a row', () => {
+  // The canary budget is a wall clock, so this is the test that would catch a
+  // budget set so tight that a shared CI runner fails it at random.
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    assert.ok(compileSafePattern('ex-\\d{1,4}', 'i') instanceof RegExp, `attempt ${attempt}`);
+  }
+});
+
+test('a pattern that gets past the scan is bounded at match time, not left to hang', () => {
+  // Compiled with the scan switched off, which is exactly the situation the
+  // scan's own header warns about: it is a filter, not a guarantee.
+  const compiled = compileSafePattern('(ab|a|b)+z', 'i', { timeSafety: false });
+  const matcher = boundedMatcher(compiled, { label: 'unsafe', budgetMs: 300 });
+  const started = Date.now();
+  assert.throws(() => matcher('ab'.repeat(30) + '!'), error => error instanceof PatternTimeoutError);
+  assert.ok(Date.now() - started < 5000, 'the match must be stopped by the budget, not run to completion');
+  // And a normal match through the same wrapper still answers.
+  assert.equal(boundedMatcher(compiled)('abz'), true);
+});
+
+test('a key whose pattern blows its budget is a named per-key failure, never a hang', () => {
+  const set = validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x',
+    must_find: keys(['plain', '납기']) }]));
+  // Swap in a matcher that behaves the way a pattern past the scan would.
+  set.questions[0].must_find.push({ key: 'runaway', weight: 1, mode: 'auto',
+    matchers: [{ kind: 'regex', source: '/x/', test: () => { throw new PatternTimeoutError('runaway'); } }] });
+  const row = scoreAnswer({ question: set.questions[0], clarification: set.clarification,
+    answerText: '납기는 다음 주입니다.' });
+  assert.deepEqual(row.found.hit_keys, ['plain']);
+  assert.deepEqual(row.found.missed_keys, ['runaway'], 'a key that could not be checked counts as missed');
+  assert.deepEqual(row.pattern_timeout_keys, ['found/runaway']);
+  assert.equal(row.flags.pattern_timeout, true);
+  assert.equal(summarize([row]).pattern_timeouts, 1);
+});
+
+// --------------------------------------------------------- kill grace timer
+test('an unkillable child cannot hang the run: the grace timer settles it anyway', async () => {
+  const est = estate();
+  const ask = askCommandFile(est.root, fakeBot(est.root), 'ok', 0.2);
+  // A child that never emits `close` and shrugs off `kill` -- which is what an
+  // uninterruptible wait, or a taskkill that could not reach it, looks like
+  // from here.
+  const neverCloses = () => {
+    const child = new EventEmitter();
+    child.pid = 424243;
+    child.kill = () => true;
+    return child;
+  };
+  const started = Date.now();
+  const { result, exitCode } = await runAnswerEvalCli(['--questions', est.questionsFile,
+    '--ask-command', ask, '--receipts', est.receiptsDir, '--only', 'q1'],
+  { now: NOW, spawner: neverCloses, killTree: () => 'direct', killGraceMs: 300 });
+  assert.equal(rowOf(result.receipt, 'q1').reason, 'ask_command_timeout');
+  assert.equal(exitCode, 4);
+  assert.ok(Date.now() - started < 5000, 'the grace timer, not the child, ended this question');
+});
+
+// --------------------------------------------- key digest: prompt and set
+test('key_digest moves when the prompt moves, even with identical keys', () => {
+  const asked = prompt => validateQuestionSet(questionSet([{ id: 'q1', prompt,
+    must_find: keys(['a', '납기']) }])).questions[0].key_digest;
+  assert.equal(asked('언제인가?'), asked('언제인가?'), 'the digest is stable for the same input');
+  assert.notEqual(asked('언제인가?'), asked('누가 맡는가?'), 'a reworded question is a different measurement');
+});
+
+test('key_digest moves when the set-level clarification block moves', () => {
+  const withClarification = clarification => validateQuestionSet(questionSet([{ id: 'q1', prompt: 'x',
+    must_find: keys(['a', '납기']) }], { clarification })).questions[0].key_digest;
+  assert.notEqual(withClarification({ max_chars: 400 }), withClarification({ max_chars: 100 }));
+  assert.notEqual(withClarification({ max_chars: 400 }), withClarification({ max_chars: 400, patterns: ['어느 과제'] }));
+});
+
+test('end to end: rewording a prompt with identical keys is key_changed, not a score change', async () => {
+  const est = estate();
+  writeAnswer(est.answersDir, 'q1', '납기는 2026-02-13, 담당은 김예시. 1월 9일.');
+  writeAnswer(est.answersDir, 'q2', 'EX-1 과 EX-15, 추적기.');
+  const before = await runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'before'], { now: '2026-02-01T00:00:00.000Z' });
+  // Only the wording of q1 changes. Every key is byte-identical.
+  const reworded = simpleSet();
+  reworded.questions[0].prompt = '납기가 언제이고 담당이 누구인가?';
+  writeFileSync(est.questionsFile, `${JSON.stringify(reworded, null, 2)}\n`);
+  await assert.rejects(runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'after', '--compare', before.result.receiptFile],
+  { now: '2026-02-02T00:00:00.000Z' }), error => error.code === 'answer_eval_compare_question_set_differs');
+  const allowed = await runAnswerEvalCli(['--questions', est.questionsFile, '--answers-dir', est.answersDir,
+    '--receipts', est.receiptsDir, '--label', 'after2', '--compare', before.result.receiptFile,
+    '--allow-set-change'], { now: '2026-02-03T00:00:00.000Z' });
+  const byId = Object.fromEntries(allowed.comparison.questions.map(row => [row.question_id, row]));
+  assert.equal(byId.q1.state, 'key_changed', 'a reworded prompt is not comparable');
+  assert.equal(byId.q2.state, 'compared', 'the untouched question still is');
 });

@@ -39,7 +39,7 @@
 // through `safe_pattern.mjs`, which refuses the catastrophic-backtracking
 // shapes at compile time and never runs on the measured path.
 import { createHash } from 'node:crypto';
-import { compileSafePattern } from './safe_pattern.mjs';
+import { PatternTimeoutError, boundedMatcher, compileSafePattern } from './safe_pattern.mjs';
 
 export const ANSWER_EVAL_QUESTIONS_SCHEMA = 'soulforge.context_answer_eval_questions.v1';
 export const ANSWER_EVAL_RECEIPT_SCHEMA = 'soulforge.context_answer_eval_receipt.v1';
@@ -171,7 +171,11 @@ export function compileItem(raw, { mode = 'auto', where = 'item' } = {}) {
     let compiled;
     try { compiled = compileSafePattern(source, flags, { label: where }); }
     catch (error) { fail('answer_eval_pattern_regex_unsafe', `${where}:${error?.code ?? 'unknown'}`); }
-    return { kind: 'regex', source: raw, test: text => compiled.test(text) };
+    // Layer 2 of `safe_pattern.mjs`'s two layers: the compile-time scan is
+    // incomplete by nature, so the match itself runs under a wall-clock
+    // budget. A pattern that slipped through the scan costs one budget and is
+    // reported as a `pattern_timeout` on its own key -- never a hung run.
+    return { kind: 'regex', source: raw, test: boundedMatcher(compiled, { label: where }) };
   }
   const needle = normalizeText(raw);
   if (needle === '') fail('answer_eval_pattern_empty', where);
@@ -226,19 +230,36 @@ function compileKeyGroup(raw, { group, questionId, required }) {
 }
 
 /**
- * A stable digest of everything about one question that decides a score:
- * its id, and for each group, every key's name, weight, match mode and
- * `any_of` sources in order. Two runs whose question digests agree were
- * scored by the same rules and can be compared key by key; two that disagree
- * cannot, and `compareRuns` refuses rather than reporting a rewritten key as
- * a regression. The digest is a hash, so a receipt carrying it still carries
- * no question text.
+ * A stable digest of everything that decides one question's score. Two runs
+ * whose question digests agree were scored by the same rules and can be
+ * compared key by key; two that disagree cannot, and `compareRuns` refuses
+ * rather than reporting a rewritten key as a regression.
+ *
+ * It covers more than the keys, because more than the keys decides the score:
+ *   - the id, and each group's key names, weights, match modes and `any_of`
+ *     sources in order,
+ *   - `max_minutes` and `expect_clarification`,
+ *   - a hash of the **prompt**. Rewording the question changes what the bot
+ *     was asked; the same keys against a different question are not the same
+ *     measurement, and comparing them would credit or blame the bot for the
+ *     author's edit.
+ *   - a hash of the set-level **clarification** block, which decides one of
+ *     the flags and is shared by every question.
+ * Prompt and clarification patterns enter only as hashes, so a receipt
+ * carrying this digest still carries no question text.
  */
-function questionKeyDigest(question) {
+function questionKeyDigest(question, clarificationDigest) {
   const group = entries => entries.map(entry => [entry.key, entry.weight, entry.mode, entry.matchers.map(m => m.source)]);
   return `sha256:${sha256Hex(Buffer.from(JSON.stringify([question.id,
+    sha256Hex(Buffer.from(question.prompt)), clarificationDigest,
     group(question.must_find), group(question.must_cite), group(question.must_not),
     question.max_minutes, question.expect_clarification])))}`;
+}
+
+/** The clarification block's contribution to every question digest -- a hash, never its patterns. */
+function clarificationDigestOf(clarification) {
+  return sha256Hex(Buffer.from(JSON.stringify([clarification.max_chars,
+    clarification.patterns.map(matcher => matcher.source)])));
 }
 
 const QUESTION_FIELDS = Object.freeze(['id', 'prompt', 'must_find', 'must_cite', 'must_not', 'max_minutes', 'expect_clarification', 'note']);
@@ -278,6 +299,7 @@ export function validateQuestionSet(body) {
   if (!Array.isArray(body.questions) || body.questions.length === 0) fail('answer_eval_questions_empty');
   if (body.questions.length > MAX_QUESTIONS) fail('answer_eval_questions_too_many');
   const clarification = compileClarification(body.clarification);
+  const clarificationDigest = clarificationDigestOf(clarification);
   const ids = new Set();
   const questions = body.questions.map(raw => {
     if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) fail('answer_eval_question_not_an_object');
@@ -310,7 +332,7 @@ export function validateQuestionSet(body) {
     }
     const question = { id: raw.id, prompt: raw.prompt, must_find: mustFind, must_cite: mustCite, must_not: mustNot,
       max_minutes: maxMinutes, expect_clarification: raw.expect_clarification === true };
-    question.key_digest = questionKeyDigest(question);
+    question.key_digest = questionKeyDigest(question, clarificationDigest);
     return question;
   });
   return { schema: body.schema, set_id: body.set_id, created_at: body.created_at, clarification, questions };
@@ -327,17 +349,34 @@ function scoreGroup(entries, normalized) {
   let weightHit = 0;
   const hit = [];
   const missed = [];
+  const timedOut = [];
   for (const entry of entries) {
     weightTotal += entry.weight;
-    if (entry.matchers.some(matcher => matcher.test(normalized))) {
+    let matched = false;
+    let blewBudget = false;
+    for (const matcher of entry.matchers) {
+      try { if (matcher.test(normalized)) { matched = true; break; } }
+      catch (error) {
+        // A pattern that got past the compile-time scan and then blew its
+        // match budget. The key counts as missed -- this harness cannot say
+        // whether it would have matched -- but the reason is recorded per key
+        // rather than folded into an ordinary miss, because "the key is not in
+        // the answer" and "the key could not be checked" are different facts
+        // and the second one is a bug in the question set.
+        if (!(error instanceof PatternTimeoutError)) throw error;
+        blewBudget = true;
+      }
+    }
+    if (matched) {
       weightHit += entry.weight;
       hit.push(entry.key);
     } else {
       missed.push(entry.key);
+      if (blewBudget) timedOut.push(entry.key);
     }
   }
   return { share: weightTotal === 0 ? null : weightHit / weightTotal,
-    weight_hit: weightHit, weight_total: weightTotal, hit, missed };
+    weight_hit: weightHit, weight_total: weightTotal, hit, missed, timed_out: timedOut };
 }
 
 /**
@@ -358,7 +397,13 @@ export function looksLikeClarification(normalized, clarification, { anyKeyHit = 
   if (normalized.length === 0) return false;
   if (normalized.length > clarification.max_chars) return false;
   if (/[?？]$/u.test(normalized)) return true;
-  return clarification.patterns.some(matcher => matcher.test(normalized));
+  return clarification.patterns.some(matcher => {
+    // A clarification pattern that blows its budget means the flag could not
+    // be decided. Not flagging is the conservative answer, and the same as
+    // every other branch here: this is a flag, not a score.
+    try { return matcher.test(normalized); }
+    catch (error) { if (error instanceof PatternTimeoutError) return false; throw error; }
+  });
 }
 
 /**
@@ -392,6 +437,12 @@ export function scoreAnswer({ question, clarification, answerText = null, answer
     cited: { share: cited.share, weight_hit: cited.weight_hit, weight_total: cited.weight_total,
       hit_keys: cited.hit, missed_keys: cited.missed },
     errors: { count: wrong.hit.length, keys: wrong.hit },
+    // Keys whose pattern blew its match budget instead of answering. They are
+    // counted as missed above; this names them so a question set with a
+    // pathological pattern in it is visible as that, and not as a bot that
+    // suddenly stopped saying things.
+    pattern_timeout_keys: [...found.timed_out.map(key => `found/${key}`),
+      ...cited.timed_out.map(key => `cited/${key}`), ...wrong.timed_out.map(key => `wrong/${key}`)],
     flags: {
       clarification_instead_of_answer: clarified,
       expect_clarification: question.expect_clarification,
@@ -399,6 +450,7 @@ export function scoreAnswer({ question, clarification, answerText = null, answer
       answer_truncated: answerTruncated === true,
       answer_absent: !present,
       ask_command_nonzero_exit: exitCode !== null && exitCode !== 0,
+      pattern_timeout: found.timed_out.length + cited.timed_out.length + wrong.timed_out.length > 0,
     },
     exit_code: exitCode,
     elapsed_seconds: elapsedSeconds,
@@ -426,6 +478,7 @@ export function summarize(results) {
     clarifications: results.filter(row => row.flags.clarification_instead_of_answer).length,
     answers_absent: results.filter(row => row.flags.answer_absent).length,
     nonzero_exit: results.filter(row => row.flags.ask_command_nonzero_exit).length,
+    pattern_timeouts: results.reduce((sum, row) => sum + (row.pattern_timeout_keys?.length ?? 0), 0),
     failed: results.filter(row => row.outcome === 'failed').length,
   };
 }

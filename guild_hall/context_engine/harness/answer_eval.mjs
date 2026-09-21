@@ -56,6 +56,11 @@ export const MAX_ASK_COMMAND_FILE_BYTES = 64 * 1024;
 // How many `<stamp>-NNN.json` names one instant may hold before this gives up
 // rather than spinning.
 const MAX_RECEIPT_SUFFIX = 1000;
+// How long after the tree kill this harness waits for the child's `close`
+// before settling the question anyway. Long enough that an ordinary process
+// teardown reports itself properly, short enough that an unkillable child
+// costs one question rather than the run.
+export const ASK_KILL_GRACE_MS = 5000;
 // Environment names every spawned process gets regardless of the template's
 // own allowlist, because without them a child process does not reliably start
 // at all on the host it is started from. Values are copied, never inspected.
@@ -154,7 +159,10 @@ export function resolveAnswerPlan(answersDir, questionIds) {
  */
 export function killProcessTree(child, { platform = process.platform, env = process.env } = {}) {
   const pid = child?.pid;
-  if (!pid) return 'no_pid';
+  // `pid <= 1` as well as a missing one: on POSIX `process.kill(-1)` means
+  // "every process this user may signal" and pid 1 is init. A child object
+  // that somehow has no real pid must never be able to reach either.
+  if (!pid || pid <= 1) return 'no_pid';
   if (platform === 'win32') {
     const root = env.SystemRoot ?? env.windir ?? null;
     const candidates = root ? [path.join(root, 'System32', 'taskkill.exe'), 'taskkill'] : ['taskkill'];
@@ -190,8 +198,16 @@ export function killProcessTree(child, { platform = process.platform, env = proc
  * answer at all. A child killed by someone other than this harness's own
  * timer is reported `ask_command_signal`, which is a different fact from
  * "this bot is too slow".
+ *
+ * After the timeout fires and the tree is killed, a grace timer settles this
+ * promise anyway. `killTree` reports which mechanism it used, not that the
+ * process actually died: a child stuck in an uninterruptible wait, or one
+ * `taskkill` could not reach, would otherwise leave `close` unfired and hang
+ * the whole run -- and the whole of CI with it. The run is bounded by this
+ * harness, not by the goodwill of the thing it started.
  */
-export function askOne({ command, question, workDir, spawner = spawn, killTree = killProcessTree } = {}) {
+export function askOne({ command, question, workDir, spawner = spawn, killTree = killProcessTree,
+  killGraceMs = ASK_KILL_GRACE_MS } = {}) {
   const promptFile = path.join(workDir, `${question.id}.prompt.txt`);
   const answerFile = path.join(workDir, `${question.id}.answer.md`);
   rmSync(answerFile, { force: true });
@@ -206,10 +222,12 @@ export function askOne({ command, question, workDir, spawner = spawn, killTree =
     let settled = false;
     let timedOut = false;
     let timer = null;
+    let graceTimer = null;
     const finish = ({ reason, exitCode = null, readAnswer = false }) => {
       if (settled) return;
       settled = true;
       if (timer !== null) clearTimeout(timer);
+      if (graceTimer !== null) clearTimeout(graceTimer);
       const elapsedSeconds = Number(process.hrtime.bigint() - startedAt) / 1e9;
       if (readAnswer && existsSync(answerFile)) {
         const { bytes, truncated } = readCapped(answerFile, MAX_ANSWER_BYTES);
@@ -234,8 +252,12 @@ export function askOne({ command, question, workDir, spawner = spawn, killTree =
       return;
     }
     child.on('error', () => finish({ reason: 'ask_command_spawn_failed' }));
-    timer = setTimeout(() => { timedOut = true; killTree(child); },
-      Math.max(1, Math.round(command.timeout_seconds * 1000)));
+    timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child);
+      // Whether or not `close` ever arrives, this question is over.
+      graceTimer = setTimeout(() => finish({ reason: 'ask_command_timeout' }), killGraceMs);
+    }, Math.max(1, Math.round(command.timeout_seconds * 1000)));
     child.on('close', (code, signal) => {
       if (timedOut) { finish({ reason: 'ask_command_timeout' }); return; }
       if (signal) { finish({ reason: 'ask_command_signal' }); return; }
@@ -385,7 +407,7 @@ export function renderComparison(comparison) {
  */
 export async function runAnswerEval({ questionsFile, answersDir = null, askCommandFile = null, label = 'unlabeled',
   receiptsDir = null, only = null, dry = false, now = new Date().toISOString(),
-  spawner = spawn, killTree = killProcessTree, log = () => {} } = {}) {
+  spawner = spawn, killTree = killProcessTree, killGraceMs = ASK_KILL_GRACE_MS, log = () => {} } = {}) {
   validateLabel(label);
   if ((answersDir === null) === (askCommandFile === null)) fail('answer_eval_mode_required');
   const { body, bytes } = readJsonFile(questionsFile, MAX_QUESTION_FILE_BYTES, {
@@ -458,7 +480,7 @@ export async function runAnswerEval({ questionsFile, answersDir = null, askComma
             elapsedSeconds: entry.elapsed_seconds, toolCalls: entry.tool_calls });
         }
       } else {
-        const asked = await askOne({ command, question, workDir, spawner, killTree });
+        const asked = await askOne({ command, question, workDir, spawner, killTree, killGraceMs });
         scored = scoreAnswer({ question, clarification: set.clarification, answerText: asked.text,
           answerSha256: asked.sha256, answerTruncated: asked.truncated, elapsedSeconds: asked.elapsed_seconds,
           outcome: asked.reason === null ? 'answered' : 'failed', reason: asked.reason,
@@ -519,7 +541,7 @@ const stringFlag = (flags, name) => {
   return typeof value === 'string' ? value : null;
 };
 
-export async function runAnswerEvalCli(argv, { now, spawner, killTree, log: onLine } = {}) {
+export async function runAnswerEvalCli(argv, { now, spawner, killTree, killGraceMs, log: onLine } = {}) {
   const flags = options(argv);
   const lines = [];
   const log = line => { lines.push(line); if (onLine) onLine(line); };
@@ -540,7 +562,8 @@ export async function runAnswerEvalCli(argv, { now, spawner, killTree, log: onLi
   if (flags.get('compare') === true) fail('answer_eval_compare_invalid');
 
   const result = await runAnswerEval({ questionsFile, answersDir, askCommandFile, label, receiptsDir,
-    only, dry, ...(now ? { now } : {}), ...(spawner ? { spawner } : {}), ...(killTree ? { killTree } : {}), log });
+    only, dry, ...(now ? { now } : {}), ...(spawner ? { spawner } : {}), ...(killTree ? { killTree } : {}),
+    ...(killGraceMs === undefined ? {} : { killGraceMs }), log });
   if (result.status === 'DRY') return { result, lines, exitCode: 0 };
 
   for (const line of renderTable(result.receipt)) log(line);

@@ -19,7 +19,8 @@
 - **errors** — `must_not` 열쇠 적중 수. 이미 틀린 줄 아는 주장을 했는가.
 
 곁들이는 것: `minutes`(경과), `over_time`(`max_minutes` 초과), `answer_chars`(답 길이),
-`clarification`(답 대신 되물었는가), `truncated`, `absent`, `nonzero-exit`, 그리고 못 맞힌 열쇠 이름들.
+`clarification`(답 대신 되물었는가), `truncated`, `absent`, `nonzero-exit`, `pattern_timeout`(그 열쇠의
+정규식이 예산을 넘겨 확인 자체를 못 했음), 그리고 못 맞힌 열쇠 이름들.
 
 못 재는 것 — 문서에 같이 적지 않으면 숫자가 위험해지므로 분명히 적는다:
 
@@ -49,17 +50,28 @@
   `"match": "token"`을 준다.
 - **열쇠별 `match`로 무를 수 있다.** `"substring"`은 경계를 끄고, `"token"`은 강제하며 ASCII 토큰이
   아닌 값은 거부한다(조용히 다른 일을 하지 않는다).
-- **정규식 항목**은 `"/ex-\\d{1,4}/"`처럼 `/…/플래그` 모양으로 쓴다. `src/runtime/safe_pattern.mjs`가
-  컴파일 시점에 검사한다 — 길이 상한 200자, 중첩 수량자·역참조·lookbehind 거부, 교대 분기 상한,
-  그리고 정적 검사로는 못 잡는 `^(a|a)+$` 같은 모양을 잡는 ReDoS 타이밍 canary(`node:vm` 타임아웃).
-  canary는 컴파일 때 한 번만 돌고 **채점 중 대조 경로에는 `vm`이 전혀 없다**. 플래그는 `i`/`u`만 받고
-  `i`는 자동으로 붙는다(본문이 이미 소문자라 대문자 패턴이 조용히 안 맞는 함정을 막는다).
-  같은 검사가 `guild_hall/workspace_ledgers/src/classifier.mjs`에도 있지만 **import하지 않고 여기에
-  따로 둔다**: 이 디렉터리를 통째로 싣는 두 배포 lane(`guild_hall/deployment_pack/lanes/
-  context_read_lane.spec.json`, `graph_sync_lane.spec.json`)이 `workspace_ledgers`는 안 실어서,
-  cross-module import는 repo의 모든 시험을 통과하면서 **빌드된 lane 안에서만** `ERR_MODULE_NOT_FOUND`로
-  죽는다. `tests/answer_eval.test.mjs`가 각 lane spec의 `tracked_paths`만으로 임시 트리를 만들어 거기서
-  하네스를 실제로 import해 보는 시험을 갖고 있다.
+- **정규식 항목**은 `"/ex-\\d{1,4}/"`처럼 `/…/플래그` 모양으로 쓴다. 안전 장치는 `src/runtime/
+  safe_pattern.mjs`에 있고 **두 층이며, 실제로 버티는 것은 두 번째다.**
+  - *컴파일 시점(거르개)*: 길이 상한 200자, 중첩 수량자·역참조·lookbehind 거부, 교대 분기 상한, 그리고
+    정적 검사로는 못 잡는 모양을 잡는 ReDoS 타이밍 canary(`node:vm` 타임아웃, 예산 1초, 한 번 재시도).
+    canary 문자열은 그 패턴 자신의 알파벳에서 만든다 — **여러 글자짜리 리터럴 토막까지** 포함한다
+    (`(ab|a|b)+z`의 `ab`), 길이는 씨앗 120회 반복이다.
+  - *실행 시점(진짜 울타리)*: 모든 대조를 `node:vm` 타임아웃(1초) 안에서 돌린다. 거르개를 통과한
+    패턴이라도 답 하나당 예산 1초를 쓰고 그 열쇠에 `pattern_timeout`으로 보고될 뿐, 회차가 멈추지 않는다.
+    그 열쇠는 "못 맞힘"으로 세되 `pattern_timeout_keys`에 따로 이름을 남긴다 — "답에 없다"와 "확인을 못
+    했다"는 다른 사실이고, 뒤쪽은 봇이 아니라 질문 세트의 결함이다.
+  - **거르개는 보증이 아니다.** 임의의 정규식이 파국적으로 되짚는지는 모양 검사와 몇 개의 탐침으로
+    결정할 수 없다. 첫 판본이 그것을 증명했다: `(ab|a|b)+z`를 받아들였고, 그 `test()`는
+    `'ab'.repeat(30) + '!'`에 대해 25초 안에 끝나지 않았다(canary가 한 글자 반복만 써서 놓쳤다). 지금은
+    거르러 잡히지만, **거르개가 좋아졌다고 실행 시점 울타리를 걷으면 안 된다.**
+  - 플래그는 `i`/`u`만 받고 `i`는 자동으로 붙는다(본문이 이미 소문자라 대문자 패턴이 조용히 안 맞는
+    함정을 막는다).
+  - 같은 모양의 검사가 `guild_hall/workspace_ledgers/src/classifier.mjs`에도 있지만 **import하지 않고
+    여기에 따로 둔다**: 이 디렉터리를 통째로 싣는 두 배포 lane(`guild_hall/deployment_pack/lanes/
+    context_read_lane.spec.json`, `graph_sync_lane.spec.json`)이 `workspace_ledgers`는 안 실어서,
+    cross-module import는 repo의 모든 시험을 통과하면서 **빌드된 lane 안에서만**
+    `ERR_MODULE_NOT_FOUND`로 죽는다. `tests/answer_eval.test.mjs`가 각 lane spec의 `tracked_paths`만으로
+    임시 트리를 만들어 거기서 하네스를 실제로 import해 보는 시험을 갖고 있다.
 
 ### 질문 세트 쓰는 법
 
@@ -117,7 +129,10 @@
   나쁘다). 죽일 때는 **프로세스 나무 전체**를 죽인다: POSIX는 `detached`로 띄워 프로세스 그룹째
   (`kill(-pid)`), Windows는 `taskkill /T /F`(`SystemRoot`에서 찾고, 없으면 PATH, 그래도 안 되면 직계
   자식). 이유는 슬롯이 하나이기 때문이다 — 직계 자식만 죽이면 그 봇이 띄운 모델 클라이언트가 살아남아
-  **그 회차의 남은 질문을 전부 막는다**.
+  **그 회차의 남은 질문을 전부 막는다**. 죽인 뒤에는 유예 타이머(5초)가 돌아
+  자식의 `close`가 끝내 안 와도 그 질문을 `ask_command_timeout`으로 닫는다 — 죽이기 함수가 돌려주는
+  것은 "어떤 방법을 썼는가"이지 "정말 죽었는가"가 아니며, 안 죽는 자식 하나가 회차 전체(그리고 CI)를
+  멈춰 세우면 안 된다.
 - **다른 누군가가 보낸 시그널** → `ask_command_signal`. "이 봇이 느리다"와는 다른 사실이다.
 
 하네스는 특정 봇에 대해 아무것도 모른다. 아는 순간이 버그다 — 템플릿이 그 이음매다.
@@ -136,8 +151,11 @@
   좋아진 것)으로 읽는다.
 - **`--allow-set-change`**를 주면 큰 경고 배너를 찍고, **양쪽 `key_digest`가 바이트 단위로 같은 질문만**
   증감을 낸다. 나머지는 `key_changed`로 표시되고 총계는 `-`이며, 이 비교는 **어떤 경우에도 퇴행을
-  보고하지 않는다**(부분적으로만 보이는 것은 판정이 아니다). `key_digest`는 질문의 id·열쇠 이름·가중치·
-  `match`·`any_of` 원문을 해시한 값이라 영수증에는 여전히 질문 원문이 안 들어간다.
+  보고하지 않는다**(부분적으로만 보이는 것은 판정이 아니다). `key_digest`는 점수를 정하는 것 전부를
+  해시한 값이다 — 질문 id·열쇠 이름·가중치·`match`·`any_of` 원문에 더해 **질문 본문(prompt)의 해시**와
+  **세트 단위 `clarification` 블록의 해시**까지 들어간다(문구만 바꿔도 봇이 받은 질문이 달라지므로 같은
+  열쇠라도 같은 측정이 아니고, `clarification`은 표시 하나를 정하며 모든 질문이 공유한다). prompt와
+  패턴은 해시로만 들어가므로 영수증에는 여전히 질문 원문이 없다.
 - **`latest`는 `status`가 `OK`가 아닌 영수증을 건너뛴다.** 전부 타임아웃 난 회차는 0으로 가득한 영수증
   이고, 그것이 기준선이 되면 다음 회차가 가짜 개선이 되고 그 다음 진짜 퇴행이 가려진다. 무엇을 고르고
   무엇을 건너뛰었는지 `compare: baseline …` / `compare: skipped … (status_ask_failed)`로 찍는다.
@@ -174,9 +192,10 @@ exit code: `0` 돌았음 · `2` 사용법/검증 거부 · `3` 비교 대상 대
 안전 거부, 두 모드 — ask-command는 테스트가 직접 써서 `process.execPath`로 띄우는 작은 가짜 봇으로만
 돌린다, 프로세스 나무 kill, 비교·퇴행 exit code, 질문 세트 변경 거부, `latest`의 순서·건너뛰기, 영수증에
 원문이 없음, 원자적 쓰기, lane tracked_paths만으로 만든 트리에서의 import, 저장된 예시 세트 자체 검증).
-`npm run validate:context-engine`에 들어 있다. **주의: `validate:context-engine`은 `npm run done:check`와
-CI(`.github/workflows/validate.yml`)에 포함돼 있지 않다** — 이 하네스를 바꿀 때는 그 스크립트를 따로
-돌려야 한다.
+`npm run validate:context-engine`에 들어 있고, 그 suite는 `guild_hall/validate/run_root_acceptance.mjs`의
+`validate`·`done-check` 두 모드에 배선돼 있어 `npm run done:check`와 CI(`.github/workflows/validate.yml`,
+ubuntu-latest)에서 같이 돈다. **여기 시험들은 Linux에서 돈다** — 이 하네스를 고칠 때 Windows에서만 되는
+것을 넣으면 CI가 적색이 된다.
 
 ## 대화 목록 야간 lane — 마감(deadline)과 대조·질문 연쇄(chain) (0.22.7)
 
