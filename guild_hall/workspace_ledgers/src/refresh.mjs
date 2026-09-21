@@ -29,11 +29,30 @@ const REPLY_REL = '020_MGMT/027_수신이력_이동이력/회신_현황.csv';
 
 // Owner-entered columns preserved by key across a refresh (Owner 2026-09-21 refresh contract).
 const CONTACTS_KEY_INDEX = 5; // 메일
+const CONTACTS_OTHER_EMAILS_INDEX = 6; // 다른메일
 const CONTACTS_PRESERVE_INDICES = [12]; // 과제내역할(Owner기입) -- 비고(14) is machine-derived, not Owner-entered, and is not preserved
 const HISTORY_KEY_INDEX = 0; // 이력키
 const HISTORY_PRESERVE_INDICES = [4, 17]; // 단계, 작업상태
 const REPLY_KEY_INDEX = 9; // 스레드
 const REPLY_PRESERVE_INDICES = [10, 11]; // 처리상태(Owner기입), 메모
+
+/**
+ * fresh-review-6 #1: `ledgers.mjs`'s `buildContacts` keys the 연락처_장부.csv row on
+ * a merged person's most-recently-active address (see `CONTACTS_KEY_INDEX`'s own
+ * comment) -- which can change from one refresh to the next while the SAME merged
+ * person is still present, simply because their next mail happened to arrive on a
+ * DIFFERENT one of their already-merged addresses. An exact-key match alone then
+ * makes a still-present person look like they left custody (Owner cell dropped) and a
+ * "new" person arrived in their place. Returns every address this row's merged person
+ * is known by -- the key column plus every space-separated entry in 다른메일 -- so
+ * `preserveMerge` (below) can match an old row to a new row by ANY shared address,
+ * not only by the one address that happens to be "primary" in each snapshot.
+ */
+function contactsAlternateKeys(row) {
+  const primary = row[CONTACTS_KEY_INDEX];
+  const others = String(row[CONTACTS_OTHER_EMAILS_INDEX] ?? '').split(' ').filter(Boolean);
+  return [primary, ...others].filter(Boolean);
+}
 
 export class RefreshError extends Error {
   constructor(code, detail) {
@@ -468,7 +487,18 @@ function validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices 
   };
 }
 
-function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices }) {
+/**
+ * `alternateKeysOf` (fresh-review-6 #1, optional -- contacts.csv only) returns every
+ * address a row's merged person is known by; when supplied, an old row is matched to
+ * a new row whenever ANY of their addresses overlap, not only when their exact key
+ * columns agree. The exact-key column is always included as one of `alternateKeysOf`'s
+ * own entries, so an unchanged key still matches exactly as before -- this only
+ * changes behaviour for the case where the *identity* is the same but the *primary*
+ * (most-recently-active) address flipped to a different one of that identity's own
+ * already-merged addresses. Every other ledger (history, reply) omits
+ * `alternateKeysOf` and keeps plain exact-key matching, unaffected.
+ */
+function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices, alternateKeysOf = null }) {
   const validated = validateExistingCsv({ existingPath, headers, keyIndex, preserveIndices });
   if (!validated.present) {
     return { invalid: null, rows, preservedCount: 0, ownerCellsDroppedWithRow: 0, beforeRowCount: 0, collapsedIdenticalRows: 0, oldText: null };
@@ -480,21 +510,30 @@ function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices 
   const { decoded, rawText, rawRowCount, collapsedIdenticalRows } = validated;
   const byKey = new Map();
   for (const oldRow of decoded.rows) byKey.set(oldRow[keyIndex], oldRow);
-  const newKeys = new Set(rows.map(row => row[keyIndex]));
-  // S9: a key present before but not in this refresh's fresh rows means that mail/
-  // person/thread left the live view (e.g. re-attributed elsewhere); any Owner-entered
-  // value on that row is not carried forward -- it survives only in the history
-  // archive this refresh is about to write, and this count says how many rows that
-  // happened to (never which rows, to avoid surfacing subjects/names in the receipt).
-  let ownerCellsDroppedWithRow = 0;
-  for (const oldRow of decoded.rows) {
-    if (newKeys.has(oldRow[keyIndex])) continue;
-    if (preserveIndices.some(index => oldRow[index] !== undefined && oldRow[index] !== '')) ownerCellsDroppedWithRow += 1;
+  let byAltKey = null;
+  if (alternateKeysOf) {
+    byAltKey = new Map();
+    for (const oldRow of decoded.rows) {
+      for (const altKey of alternateKeysOf(oldRow)) {
+        if (altKey && !byAltKey.has(altKey)) byAltKey.set(altKey, oldRow);
+      }
+    }
   }
+  const matchOldRow = newRow => {
+    if (!alternateKeysOf) return byKey.get(newRow[keyIndex]);
+    for (const altKey of alternateKeysOf(newRow)) {
+      const found = byAltKey.get(altKey);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
   let preservedCount = 0;
+  const matchedOldRows = new Set();
   const merged = rows.map(newRow => {
-    const oldRow = byKey.get(newRow[keyIndex]);
+    const oldRow = matchOldRow(newRow);
     if (!oldRow) return newRow;
+    matchedOldRows.add(oldRow);
     const out = [...newRow];
     for (const index of preserveIndices) {
       const oldValue = oldRow[index];
@@ -502,6 +541,18 @@ function preserveMerge({ existingPath, headers, rows, keyIndex, preserveIndices 
     }
     return out;
   });
+  // S9 (fresh-review-6 #1: matched by identity -- alternate addresses included when
+  // `alternateKeysOf` applies -- not merely by literal key-column equality): an old
+  // row no fresh row matched means that mail/person/thread genuinely left the live
+  // view (e.g. re-attributed elsewhere); any Owner-entered value on that row is not
+  // carried forward -- it survives only in the history archive this refresh is about
+  // to write, and this count says how many rows that happened to (never which rows,
+  // to avoid surfacing subjects/names in the receipt).
+  let ownerCellsDroppedWithRow = 0;
+  for (const oldRow of decoded.rows) {
+    if (matchedOldRows.has(oldRow)) continue;
+    if (preserveIndices.some(index => oldRow[index] !== undefined && oldRow[index] !== '')) ownerCellsDroppedWithRow += 1;
+  }
   return { invalid: null, rows: merged, preservedCount, ownerCellsDroppedWithRow, beforeRowCount: rawRowCount, collapsedIdenticalRows, oldText: rawText };
 }
 
@@ -520,7 +571,12 @@ function archiveHistoryCreateOnly({ historyDir, baseName, stamp, bytes }) {
     try { writeFileSync(candidate, bytes, { flag: 'wx' }); return candidate; }
     catch (error) { if (error?.code !== 'EEXIST') throw error; }
   }
-  fail('workspace_ledgers_history_archive_exhausted', `${historyDir}/${baseName}.${stamp}`);
+  // fresh-review-6 #2: `redactHostPaths` only redacts a QUOTED span (Node's own fs
+  // errors always quote), or an unquoted span with no spaces -- an unquoted detail
+  // string containing a space (the common case for a real host path) left a fragment
+  // behind. Passed as a basename directly here instead, so there is no host-local
+  // path substring in the thrown error's message to begin with.
+  fail('workspace_ledgers_history_archive_exhausted', `${path.basename(historyDir)}/${baseName}.${stamp}`);
   return null;
 }
 
@@ -535,7 +591,8 @@ function countDuplicateKeys(rows, keyIndex) {
   return count;
 }
 
-function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry, allowEmpty }) {
+function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preserveIndices, code, folder, relPath, now, dry,
+  allowEmpty, allowPartialSources = false, alternateKeysOf = null }) {
   // Fresh-review-2 #3 (second half): a broken key source (a synthetic id collision
   // that somehow still occurred, or any future bug) must not silently produce two
   // rows under one key and write a corrupt ledger -- caught here, before this file's
@@ -545,7 +602,7 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
     return { failed: true, code: 'workspace_ledgers_ledger_fresh_duplicate_key', fresh_duplicate_count: freshDuplicateCount,
       file: `${folder}/${relPath}`, written: false, changed: false };
   }
-  const merge = preserveMerge({ existingPath: filePath, headers, rows, keyIndex, preserveIndices });
+  const merge = preserveMerge({ existingPath: filePath, headers, rows, keyIndex, preserveIndices, alternateKeysOf });
   if (merge.invalid) {
     // R4: fail closed for this one file -- do not write, do not archive, do not touch
     // lineage. The file is left exactly as it was found. `conflict_groups` counts how
@@ -562,7 +619,20 @@ function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex, preser
   const emptyRefreshApplies = merge.rows.length === 0 && merge.beforeRowCount > 0;
   if (emptyRefreshApplies && !allowEmpty) {
     return { failed: true, code: 'workspace_ledgers_ledger_empty_refresh_blocked', before_rows: merge.beforeRowCount,
-      file: `${folder}/${relPath}`, written: false, changed: false };
+      after_rows: merge.rows.length, file: `${folder}/${relPath}`, written: false, changed: false };
+  }
+  // fresh-review-6 #4: the empty-refresh guard above only catches an EXACT zero --
+  // with `allowPartialSources`, some custody source was unreadable and skipped
+  // entirely, which can make a ledger's fresh row count crater to a small fraction of
+  // what it was (a 6-row ledger rewritten to 1 row) without ever hitting exact zero.
+  // Only checked when `allowPartialSources` is actually in effect for this run -- a
+  // normal full-custody refresh can legitimately shrink a ledger a lot (mail
+  // re-attributed elsewhere) and is not second-guessed here.
+  const shrinkGuardApplies = allowPartialSources && merge.beforeRowCount > 0 && merge.rows.length > 0
+    && merge.rows.length < merge.beforeRowCount * 0.5;
+  if (shrinkGuardApplies && !allowEmpty) {
+    return { failed: true, code: 'workspace_ledgers_ledger_partial_sources_shrink_blocked', before_rows: merge.beforeRowCount,
+      after_rows: merge.rows.length, file: `${folder}/${relPath}`, written: false, changed: false };
   }
   const newText = encodeCsv(headers, merge.rows);
   const changed = merge.oldText !== newText;
@@ -690,7 +760,9 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
     const readAll = readAllRuleJsonSafely(workspacesRoot);
     const all = readAll.ok;
     ruleFailures = readAll.ruleFailures;
-    if (all.length === 0 && ruleFailures.length === 0) fail('workspace_ledgers_no_projects_found', workspacesRoot);
+    // fresh-review-6 #2: basename only -- see the same fix's note on the history-
+    // archive-exhausted fail() above.
+    if (all.length === 0 && ruleFailures.length === 0) fail('workspace_ledgers_no_projects_found', path.basename(workspacesRoot));
     const selectedCodes = Array.isArray(onlyProjects) && onlyProjects.length > 0 ? new Set(onlyProjects) : null;
     if (selectedCodes) {
       for (const code of selectedCodes) if (!all.some(row => row.project.project_code === code)) fail('workspace_ledgers_unknown_project', code);
@@ -760,7 +832,11 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
 
     const recordResult = result => {
       if (result.failed) {
-        ledgerFailures.push({ file: result.file, code: result.code, conflict_groups: result.conflict_groups ?? null });
+        ledgerFailures.push({
+          file: result.file, code: result.code, conflict_groups: result.conflict_groups ?? null,
+          fresh_duplicate_count: result.fresh_duplicate_count ?? null,
+          before_rows: result.before_rows ?? null, after_rows: result.after_rows ?? null,
+        });
       }
       return result;
     };
@@ -780,21 +856,22 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         filePath: path.join(base, CONTACTS_REL), lineagePath: path.join(lineageBase, '연락처_장부.csv.lineage.json'),
         headers: contacts.headers, rows: contacts.rows, keyIndex: CONTACTS_KEY_INDEX, preserveIndices: CONTACTS_PRESERVE_INDICES,
         code, folder: project.folder_name, relPath: CONTACTS_REL, now, dry, allowEmpty: allowEmptyForProject,
+        allowPartialSources, alternateKeysOf: contactsAlternateKeys,
       }));
       const recvResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, RECV_REL), lineagePath: path.join(lineageBase, '메일_수신이력.csv.lineage.json'),
         headers: history.headers, rows: history.received.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty: allowEmptyForProject,
+        code, folder: project.folder_name, relPath: RECV_REL, now, dry, allowEmpty: allowEmptyForProject, allowPartialSources,
       }));
       const sentResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, SENT_REL), lineagePath: path.join(lineageBase, '메일_발송이력.csv.lineage.json'),
         headers: history.headers, rows: history.sent.rows, keyIndex: HISTORY_KEY_INDEX, preserveIndices: HISTORY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty: allowEmptyForProject,
+        code, folder: project.folder_name, relPath: SENT_REL, now, dry, allowEmpty: allowEmptyForProject, allowPartialSources,
       }));
       const replyResult = recordResult(writeLedgerCsv({
         filePath: path.join(base, REPLY_REL), lineagePath: path.join(lineageBase, '회신_현황.csv.lineage.json'),
         headers: reply.headers, rows: reply.rows, keyIndex: REPLY_KEY_INDEX, preserveIndices: REPLY_PRESERVE_INDICES,
-        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty: allowEmptyForProject,
+        code, folder: project.folder_name, relPath: REPLY_REL, now, dry, allowEmpty: allowEmptyForProject, allowPartialSources,
       }));
       if ([contactsResult, recvResult, sentResult, replyResult].some(result => result.empty_allowed_applied)) allowEmptyAppliedTo.add(code);
 

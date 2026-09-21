@@ -81,10 +81,10 @@ export function encodeCsv(headers, rows) {
 
 /**
  * Decodes CSV text written by `encodeCsv` (BOM, CRLF, `"` quoting with `""` escape,
- * embedded newlines already flattened to spaces by `cell()`, formula-injection guard
- * stripped by `unguardFormula`) back into `{ headers, rows }`. Used by `refresh.mjs`
- * to read an existing ledger before preserving its Owner-entered columns -- not a
- * general-purpose CSV parser.
+ * an embedded newline kept and quoted rather than flattened -- see `cell()` above --
+ * formula-injection guard stripped by `unguardFormula`) back into `{ headers, rows }`.
+ * Used by `refresh.mjs` to read an existing ledger before preserving its Owner-entered
+ * columns -- not a general-purpose CSV parser.
  */
 export function decodeCsv(text) {
   const raw = String(text ?? '');
@@ -107,6 +107,19 @@ export function decodeCsv(text) {
     else field += char;
   }
   if (field !== '' || record.length > 0) { pushField(); records.push(record); }
+  // fresh-review-6 #3: a trailing blank line (one extra CRLF/LF at the end of a file --
+  // easy for an Owner to add by hand in Excel/a text editor, or for a save to leave
+  // behind) parses as one extra all-empty record: a single field that is the empty
+  // string. That is not a row -- there is no comma-separated content on that line at
+  // all -- but without this trim it fails the row-shape check downstream (its length,
+  // 1, never matches the header count) and blocks the whole ledger. Multiple trailing
+  // blank lines are trimmed the same way; a genuine data row is never a single empty
+  // field (every header row in this module has more than one column).
+  while (records.length > 0) {
+    const last = records[records.length - 1];
+    if (last.length === 1 && last[0] === '') records.pop();
+    else break;
+  }
   const [headers, ...rows] = records;
   return { headers: headers ?? [], rows };
 }

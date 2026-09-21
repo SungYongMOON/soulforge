@@ -124,6 +124,16 @@ Korean-first tiebreak `bestName` uses) disagrees with the row's chosen name -- w
 `비고` "같은 이름·같은 조직의 다른 주소 — 동일인 확인 필요". The row is never
 automatically split; a person resolves it by hand, the same as any other 비고 flag.
 
+**The 메일 column (the row's key) is the merged person's most-recently-active address,
+not a fixed identifier.** A merged person can have more than one address (다른메일
+lists every other one); which address is "primary" and shown in 메일 can change from
+one refresh to the next whenever their next mail happens to arrive on a different one
+of their own already-merged addresses. `refresh.mjs`'s Owner-cell preservation for
+this ledger is aware of this: it matches an existing row to a fresh one by ANY address
+in the row's merged set (메일 plus every 다른메일 entry), not only by the current 메일
+value, so 과제내역할(Owner기입) survives that kind of flip -- see "Key stability" below
+(fresh-review-6 #1).
+
 ## Timestamps
 
 Every custody timestamp is normalised to a canonical UTC instant on read
@@ -248,8 +258,10 @@ rewritten. Every refresh (dry or not) writes a receipt JSON
 before/after row counts, held/skipped-system counts, preserved-owner-cell counts, and
 `owner_cells_dropped_with_row` (below).
 
-**A key that leaves custody.** When a row's key (메일 / 이력키 / 스레드) was present in
-the previous refresh but is not among this refresh's freshly-built rows -- the mail no
+**A key that leaves custody.** When a row's key (메일 / 이력키 / 스레드 -- for
+연락처_장부.csv specifically, "key" here means the row's *whole* merged address set,
+not only its current 메일 column; see "Key stability" below) was present in the
+previous refresh but is not among this refresh's freshly-built rows -- the mail no
 longer classifies the same way, the person no longer appears, the thread's messages
 were re-attributed -- that row simply is not in the live CSV any more, and any
 Owner-entered value on it (과제내역할, 단계, 작업상태, 처리상태, 메모) does not carry
@@ -369,6 +381,19 @@ file had content before) is echoed back in `receipt.allow_empty_applied_to`, so 
 caller can tell which projects were genuinely affected without having to diff every
 file.
 
+**Partial-sources shrink guard (fresh-review-6 #4).** The empty-refresh guard above
+only catches an EXACT zero. With `allowPartialSources` (some custody source was
+unreadable and skipped entirely, per "Unreadable custody directories" above), a
+ledger's fresh row count can crater to a small fraction of what it was -- a 6-row
+ledger rewritten to 1 row -- without ever hitting exact zero. Only checked when
+`allowPartialSources` is actually in effect for the run (a normal full-custody refresh
+can legitimately shrink a ledger a lot, e.g. mail re-attributed elsewhere, and is not
+second-guessed): if a ledger's fresh row count comes out below 50% of its previous row
+count, that file **fails closed** too (`workspace_ledgers_ledger_partial_sources_shrink_blocked`,
+left untouched) unless the project is also named in `allowEmpty`. The failure entry in
+`receipt.ledger_failures` (and the per-file result) records both `before_rows` and
+`after_rows`, so a caller can see the shrink without having to diff the file.
+
 A `refresh()` call that throws for any other reason still writes a best-effort
 `status: 'failed'` receipt (with an `error` field) before the error propagates, so a
 crash never leaves zero audit trail either -- and that receipt still carries
@@ -396,6 +421,17 @@ change would (`owner_cells_dropped_with_row`). Every key-shape decision document
 this page is stable **from this commit onward** -- a mail that produces the same
 content today and next month gets the same key both times -- but is not guaranteed
 stable against ledgers this module rewrote under a previous commit.
+
+연락처_장부.csv's own key column (메일) is the one deliberate exception to "same
+content, same key": it is the merged person's most-recently-active address, which can
+legitimately change from one refresh to the next as new mail arrives (see "Person
+merge rules" above) while the same real person is still present. Owner-cell
+preservation for this one ledger does **not** rely on that key column being stable --
+`refresh.mjs` matches an existing row to a fresh one by ANY address in the merged
+person's own set (메일 plus every 다른메일 entry), so the Owner cell still survives a
+key-column change caused by this reason specifically (fresh-review-6 #1). It is only
+counted as genuinely dropped when the person's WHOLE address set no longer appears at
+all.
 
 ## Performance
 

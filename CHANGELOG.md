@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 여섯 번째 신선한 검토 반영: 연락처 키 흔들림·경로 잔재·트레일링 빈 줄·shrink 가드
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 직전 커밋(13d6f772)에 대한 여섯 번째 별도(non-author) fresh
+  review — 검증기는 초록(120/120)이었고 다섯 번째 라운드의 설계 단순화도 정확히
+  확인됐지만, 필수 1건이 남아 merge-ready가 아니었다 — 를 반영했다.
+  필수: (1) `src/ledgers.mjs`의 `buildContacts`가 병합된 사람의 연락처_장부.csv 키
+  (메일)를 "가장 최근에 활동한 주소"로 매긴다. 시나리오: org config의 family가
+  옛 도메인을 새 도메인에 매핑 → 한 사람이 두 주소 모두로 메일을 보냄 → refresh가
+  새 주소로 키가 잡힌 행 하나를 쓰고 → Owner가 과제내역할(Owner기입) 셀을 채움 →
+  옛 주소로 새 메일 한 통이 도착 → 다음 refresh는 여전히 한 행을 유지하지만
+  키가 옛 주소로 바뀌고 Owner 셀이 비어버린다(그 사람이 실제로는 떠나지 않았는데도
+  `owner_cells_dropped_with_row`로 집계됨). `refresh.mjs`의 `preserveMerge`에
+  `alternateKeysOf`(연락처 전용)를 추가해, 옛 행을 찾을 때 현재 키뿐 아니라
+  그 행의 병합 주소 집합(메일 + 다른메일의 모든 주소) 중 아무거나와 일치해도
+  같은 사람으로 보고 Owner 셀을 새 행에 그대로 옮기도록 고쳤다. 네 가지
+  시나리오(원 흐름, 역방향 전환, 서로 다른 두 사람이 각각 두 주소를 가진 경우의
+  교차오염 없음, 병합 집합이 세 번째 주소로 늘어나는 경우)를 각각 테스트로
+  확인했다. README의 "연락처 키는 내용 안정적"이라는 문장도 이 예외를 명시하도록
+  고쳤다.
+  should: (2) `redactHostPaths`가 따옴표 없고 공백이 있는 경로에서는 조각을
+  남겼다 -- `workspace_ledgers_no_projects_found`와 히스토리 아카이브 고갈
+  `fail()` 두 곳에 `path.basename(...)`을 직접 넘기도록 고쳤다. (3) Owner가
+  저장한 CSV 끝에 빈 줄 하나만 있어도 row-shape 오류로 그 대장 전체가 막혔다 --
+  `decodeCsv`가 필드 하나짜리 빈 문자열인 트레일링 레코드(빈 줄)를 실제 행이
+  아닌 것으로 보고 버리도록 고쳤다(CRLF 파일에 CRLF 한 줄 추가, LF 파일에 LF
+  두 줄 추가 두 경우 모두 테스트). (4) `allowPartialSources`가 켜져 있을 때
+  기존의 빈-대장 가드는 정확히 0행일 때만 작동해, 6행짜리 연락처 대장이 1행으로
+  줄어드는 경우를 막지 못했다 -- `allowPartialSources`가 적용 중이고 대장의
+  새 행수가 이전 행수의 50% 미만이면(그리고 해당 과제가 `allowEmpty`에도
+  없으면) 그 파일을 닫힌 채로 막고(건드리지 않음) 별도 코드
+  (`workspace_ledgers_ledger_partial_sources_shrink_blocked`)로
+  `ledger_failures`에 남기며, 영수증에 before/after 행수를 함께 기록하도록
+  고쳤다.
+  nit: (5) `src/ledgers.mjs`의 낡은 주석이 여전히 "임베디드 줄바꿈은 cell()이
+  공백으로 눌러 담는다"고 말하고 있었다 -- 3라운드(S8)에서 이미 따옴표로 감싸
+  보존하도록 고쳐졌으므로 주석을 맞췄다. (6) 렌더링된 규칙 md가 닫는 코드
+  펜스 바로 뒤에 빈 줄 없이 메모 불릿을 붙였다 -- carried decided 내용의 마지막
+  줄이 닫는 펜스일 때만 빈 줄을 하나 끼워 넣도록 고쳤다.
+- 운영 영향: 코드·테스트·문서만 바뀌었다. 연락처_장부.csv의 메일 키는 여전히
+  "가장 최근 활동 주소"로 표시되지만(변경 없음), Owner 셀 보존 매칭은 더 이상
+  그 표시 키에만 의존하지 않는다. `ledger_failures` 항목에
+  `before_rows`/`after_rows`/`fresh_duplicate_count` 필드가 (해당하는 경우) 새로
+  붙었다 — 기존 소비자는 무시해도 무방하다.
+- 관련 경로: `guild_hall/workspace_ledgers/**`(src·tests·README).
+- 검증: 클린 체크아웃에서 `npm run validate:workspace-ledgers`(130 tests
+  pass), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(0 violations), `npm run validate:canon`(0 errors/warnings), 실제
+  대상면 `--dry --fields subject` 재확인(건수만).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 다섯 번째 신선한 검토 반영 + 설계 단순화: 메일당 타임아웃·누적 예산 제거
 
 - Revision: 이 항목을 포함한 커밋.

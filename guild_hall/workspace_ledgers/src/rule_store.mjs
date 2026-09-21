@@ -277,7 +277,16 @@ function renderRuleMarkdown({ json, decided, open, note, by, now, measured, carr
   // S7: `decided`/`open` are verbatim lines from the previous md (see `parseSections`
   // above) -- copied as-is, never re-wrapped as if every line were a plain bullet.
   const noteLine = `- ${note} (${by}, ${now.slice(0, 10)})`;
-  const decidedBlock = decided.length ? `${decided.join('\n')}\n${noteLine}` : `- (이 과제에 대한 개별 확인 없음)\n${noteLine}`;
+  // fresh-review-6 #6: if the carried-forward decided content's own last line closes a
+  // fenced code block (an Owner pasted a markdown/code example as part of a decision),
+  // gluing the new note bullet directly onto the next line reads as if it were part of
+  // the fence. A blank line separates them in that case only; the common (non-fenced)
+  // case is unchanged.
+  const lastDecidedLine = decided.length ? decided[decided.length - 1].trim() : '';
+  const decidedEndsWithFence = /^(```|~~~)/u.test(lastDecidedLine);
+  const decidedBlock = decided.length
+    ? `${decided.join('\n')}${decidedEndsWithFence ? '\n' : ''}\n${noteLine}`
+    : `- (이 과제에 대한 개별 확인 없음)\n${noteLine}`;
   const openBlock = open.length ? open.join('\n') : '- 없음';
   const measuredLine = renderMeasuredLine(measured, now);
   // N13: any section an Owner added that this renderer does not itself know how to

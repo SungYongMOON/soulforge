@@ -45,6 +45,25 @@ test('encodeCsv / decodeCsv: BOM, CRLF, quote escaping round trip', () => {
   assert.deepEqual(decoded.rows[1], ['has"quote', 'multi\nline']); // S8: embedded newlines round-trip, not flattened
 });
 
+test('decodeCsv (fresh-review-6 #3): a trailing blank line is not parsed as a spurious extra row', () => {
+  const headers = ['a', 'b'];
+  const rows = [['x', 'y'], ['z', 'w']];
+  const bareText = encodeCsv(headers, rows);
+
+  // CRLF file with one extra trailing CRLF.
+  const withExtraCrlf = `${bareText}\r\n`;
+  const decodedCrlf = decodeCsv(withExtraCrlf);
+  assert.deepEqual(decodedCrlf.headers, headers);
+  assert.deepEqual(decodedCrlf.rows, rows); // no spurious ['' ] row appended
+
+  // LF-only file (an Owner's editor may normalise CRLF to LF) with two trailing LFs.
+  const lfText = bareText.replace(/\r\n/gu, '\n');
+  const withTwoTrailingLfs = `${lfText}\n\n`;
+  const decodedLf = decodeCsv(withTwoTrailingLfs);
+  assert.deepEqual(decodedLf.headers, headers);
+  assert.deepEqual(decodedLf.rows, rows);
+});
+
 test('encodeCsv / decodeCsv: formula-injection trigger cells are guarded on write and unguarded on read (R1)', () => {
   const headers = ['a', 'b'];
   const rows = [

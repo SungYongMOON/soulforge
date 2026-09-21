@@ -508,3 +508,25 @@ for (const order of ['lookalike-before-real', 'real-before-lookalike']) {
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
 }
+
+test('saveRuleVersion (fresh-review-6 #6): a blank line separates a closing code fence in carried decided content from the new note bullet', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const mdWithFenceEndingDecided = [
+      '# 메일 라우팅 규칙 — P00-001', '', '- 상태: 초안 v1', '',
+      '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)', '', '- `P00-001`', '',
+      '## Owner 확인 기록', '', '예시 코드:', '```', '단계1', '단계2', '```', '',
+      '## Owner 확인이 필요한 것', '', '- 예시 미결 항목', '',
+    ].join('\n');
+    writeFileSync(path.join(ruleDir, 'mail_routing_rule.md'), mdWithFenceEndingDecided);
+    const result = saveRuleVersion({
+      workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: '새 메모',
+    });
+    const newMd = readFileSync(result.md_path, 'utf8');
+    // The closing fence and the new note bullet are on separate lines with a blank
+    // line between them, not glued directly together.
+    assert.match(newMd, /```\n\n- 새 메모 \(홍길동, \d{4}-\d{2}-\d{2}\)/u);
+    // The fenced content itself still survived verbatim.
+    assert.match(newMd, /단계1\n단계2/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

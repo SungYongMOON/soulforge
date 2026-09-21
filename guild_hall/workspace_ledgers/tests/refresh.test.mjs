@@ -944,3 +944,312 @@ test('refresh (fresh-review-5 #9): rule_failures[].term_ref carries a hash of th
     assert.equal(JSON.stringify(receipt).includes('진짜비밀키워드'), false);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+// -------------------------------------------------------- fresh-review-6 regressions
+
+function writeOrgConfigWithFamily(orgConfigPath, family) {
+  writeFileSync(orgConfigPath, JSON.stringify({
+    our_domain: 'example.com', organisations: { 'example.com': 'Example Corp' }, family,
+  }));
+}
+
+/**
+ * fresh-review-6 #1: `buildContacts` keys 연락처_장부.csv on a merged person's
+ * most-recently-active address. When that person's next mail happens to arrive on a
+ * DIFFERENT one of their already-merged addresses, the key column's value changes even
+ * though the same real person is still present -- an exact-key match alone then makes
+ * them look like they left custody (Owner cell dropped) while a "new" person appears
+ * in their place. `preserveMerge`'s `alternateKeysOf` (contacts only) fixes this by
+ * matching on ANY address in the row's own merged set, not only the current key.
+ */
+test('refresh (fresh-review-6 #1): a merged person\'s Owner cell survives when their primary (key) address flips to another of their own addresses', () => {
+  const fixture = makeFixture();
+  try {
+    writeOrgConfigWithFamily(fixture.orgConfigPath, { 'client-old.example': 'client-new.example' });
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: '"김철수" <staff@client-new.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 이전 문의', from: '"김철수" <staff@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    const row1 = contacts1.rows.find(row => row[5] === 'staff@client-new.example');
+    assert.ok(row1, 'expected one merged row keyed on the currently-most-recent address');
+    assert.equal(row1[6], 'staff@client-old.example'); // 다른메일
+    assert.equal(contacts1.rows.length, 2); // the merged person + the internal 'me@example.com' recipient row
+    row1[12] = '담당자'; // Owner fills the role cell
+    writeFileSync(cPath, encodeCsv(contacts1.headers, contacts1.rows));
+
+    // A new mail arrives on the OLD address, later than anything seen so far -- the
+    // same merged person, now most-recently-active on their OTHER address.
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h3', subject: '[P00-001] 예시장비 추가 문의', from: '"김철수" <staff@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T10:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 0); // never counted as dropped
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 2); // still the same two rows, not a third
+    const row2 = contacts2.rows.find(row => row[5] === 'staff@client-old.example');
+    assert.ok(row2); // key flipped to the now-most-recent address
+    assert.equal(row2[6], 'staff@client-new.example');
+    assert.equal(row2[12], '담당자'); // Owner cell preserved across the flip
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-6 #1): the reverse flip -- OLD address primary first, then NEW address becomes most recent -- also preserves the Owner cell', () => {
+  const fixture = makeFixture();
+  try {
+    writeOrgConfigWithFamily(fixture.orgConfigPath, { 'client-old.example': 'client-new.example' });
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: '"김철수" <staff@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 이전 문의', from: '"김철수" <staff@client-new.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    const row1 = contacts1.rows.find(row => row[5] === 'staff@client-old.example');
+    assert.ok(row1);
+    row1[12] = '담당자';
+    writeFileSync(cPath, encodeCsv(contacts1.headers, contacts1.rows));
+
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h3', subject: '[P00-001] 예시장비 추가 문의', from: '"김철수" <staff@client-new.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T10:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 0);
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 2); // the merged person + the internal 'me@example.com' recipient row
+    const row2 = contacts2.rows.find(row => row[5] === 'staff@client-new.example');
+    assert.ok(row2);
+    assert.equal(row2[12], '담당자');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-6 #1): two different merged people, each with two addresses, never cross-contaminate Owner cells', () => {
+  const fixture = makeFixture();
+  try {
+    writeOrgConfigWithFamily(fixture.orgConfigPath, { 'client-old.example': 'client-new.example' });
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: '"김철수" <staff1@client-new.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 이전 문의', from: '"김철수" <staff1@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h3', subject: '[P00-001] 예시장비 견적 요청', from: '"이영희" <staff2@client-new.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T06:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h4', subject: '[P00-001] 예시장비 견적 문의', from: '"이영희" <staff2@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    // two distinct merged people (never merged into one) + the internal 'me@example.com' recipient row
+    assert.equal(contacts1.rows.length, 3);
+    const person1Row = contacts1.rows.find(row => row[5] === 'staff1@client-new.example');
+    const person2Row = contacts1.rows.find(row => row[5] === 'staff2@client-new.example');
+    assert.ok(person1Row); assert.ok(person2Row);
+    person1Row[12] = '담당자1';
+    person2Row[12] = '담당자2';
+    writeFileSync(cPath, encodeCsv(contacts1.headers, contacts1.rows));
+
+    // Only person 1's primary address flips; person 2 is untouched.
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h5', subject: '[P00-001] 예시장비 추가 문의', from: '"김철수" <staff1@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T10:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 0);
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 3);
+    const newPerson1Row = contacts2.rows.find(row => row[5] === 'staff1@client-old.example');
+    const newPerson2Row = contacts2.rows.find(row => row[5] === 'staff2@client-new.example');
+    assert.ok(newPerson1Row, 'person 1 must now be keyed on their old address');
+    assert.ok(newPerson2Row, 'person 2 is untouched and still keyed on their new address');
+    assert.equal(newPerson1Row[12], '담당자1'); // person 1's own cell, unchanged
+    assert.equal(newPerson2Row[12], '담당자2'); // person 2's own cell, unchanged -- never swapped
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-6 #1): a merged set growing by a third address still preserves the Owner cell', () => {
+  const fixture = makeFixture();
+  try {
+    writeOrgConfigWithFamily(fixture.orgConfigPath, { 'client-old.example': 'client-new.example' });
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: '"김철수" <staff@client-new.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 이전 문의', from: '"김철수" <staff@client-old.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    const row1 = contacts1.rows.find(row => row[5] === 'staff@client-new.example');
+    assert.ok(row1);
+    row1[12] = '담당자';
+    writeFileSync(cPath, encodeCsv(contacts1.headers, contacts1.rows));
+
+    // A THIRD address for the same person (same family, same name) arrives, more
+    // recent than either of the first two -- the merged set grows from {new, old} to
+    // {new, old, newer}, and 'newer' becomes the fresh primary key.
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h3', subject: '[P00-001] 예시장비 추가 문의', from: '"김철수" <staff@client-newer.example>', to: ['me@example.com'], cc: [], received_at: '2026-09-01T10:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeOrgConfigWithFamily(fixture.orgConfigPath, {
+      'client-old.example': 'client-newer.example', 'client-new.example': 'client-newer.example',
+    });
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 0);
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 2); // still one merged person + the internal 'me@example.com' row
+    const row2 = contacts2.rows.find(row => row[5] === 'staff@client-newer.example');
+    assert.ok(row2); // now the most-recent of all three
+    const otherAddresses = row2[6].split(' ');
+    assert.ok(otherAddresses.includes('staff@client-new.example'));
+    assert.ok(otherAddresses.includes('staff@client-old.example'));
+    assert.equal(row2[12], '담당자'); // preserved even though the set grew
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-6 #2): the no-projects-found error names only a basename, even when the path contains a space', () => {
+  const fixture = makeFixture();
+  try {
+    const emptyRoot = path.join(fixture.root, 'work spaces empty');
+    mkdirSync(emptyRoot, { recursive: true });
+    let caught;
+    try {
+      refresh({ workspacesRoot: emptyRoot, workmetaRoot: fixture.workmetaRoot,
+        hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+        receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    } catch (error) { caught = error; }
+    assert.ok(caught instanceof RefreshError);
+    assert.equal(caught.code, 'workspace_ledgers_no_projects_found');
+    assert.equal(caught.message.includes(emptyRoot), false); // no full (space-containing) path leaked
+    assert.equal(caught.message.includes('work spaces empty'), true); // the basename alone is fine to name
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-6 #2): the history-archive-exhausted error names only a basename, never the full historyDir path', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const historyDir = path.join(path.dirname(cPath), 'history');
+    mkdirSync(historyDir, { recursive: true });
+    const stamp = '2026-09-02T01-00-00-000Z';
+    // Occupy every counter slot (0..1000) so archiveHistoryCreateOnly is forced to exhaust.
+    for (let counter = 0; counter <= 1000; counter += 1) {
+      const suffix = counter === 0 ? '' : `-${counter}`;
+      writeFileSync(path.join(historyDir, `연락처_장부.csv.${stamp}${suffix}.csv`), 'x');
+    }
+    // force a change so this refresh actually tries to archive something
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h9', subject: '[P00-001] 예시장비 추가문의', from: 'another@client.example', to: [], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] },
+    ]));
+    let caught;
+    try {
+      refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+        hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+        receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    } catch (error) { caught = error; }
+    assert.ok(caught instanceof RefreshError);
+    assert.equal(caught.code, 'workspace_ledgers_history_archive_exhausted');
+    assert.equal(caught.message.includes(historyDir), false);
+    assert.equal(caught.message.includes(fixture.workspacesRoot), false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+/**
+ * fresh-review-6 #3: `decodeCsv` used to parse a trailing blank line (one extra
+ * CRLF/LF at the end of a hand-saved file) as an extra all-empty record, which then
+ * failed the strict row-shape check downstream and blocked the whole ledger.
+ */
+test('refresh (fresh-review-6 #3): a trailing blank line in an Owner-saved ledger no longer blocks it with a row-shape error', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const staffRow = contacts.rows.find(row => row[5] === 'staff@client.example');
+    staffRow[12] = '담당자';
+    // A CRLF file (encodeCsv's own format) with one extra trailing CRLF -- exactly
+    // what an Owner's editor might leave behind on save.
+    writeFileSync(cPath, `${encodeCsv(contacts.headers, contacts.rows)}\r\n`);
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false); // not blocked by a row-shape error
+    const finalContacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const finalStaffRow = finalContacts.rows.find(row => row[5] === 'staff@client.example');
+    assert.equal(finalStaffRow[12], '담당자'); // Owner cell merged cleanly, not lost
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-6 #4): allowPartialSources gates a ledger shrinking past 50% of its previous row count, unless the project is in allowEmpty', () => {
+  const fixture = makeFixture();
+  try {
+    // Build up a contacts ledger with several distinct people so a later run can
+    // shrink it well past 50%.
+    const manyMails = [
+      { event_id: 'h1', subject: '[P00-001] 예시 1', from: 'p1@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시 2', from: 'p2@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h3', subject: '[P00-001] 예시 3', from: 'p3@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T03:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h4', subject: '[P00-001] 예시 4', from: 'p4@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T04:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h5', subject: '[P00-001] 예시 5', from: 'p5@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h6', subject: '[P00-001] 예시 6', from: 'p6@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T06:00:00Z', body_text: '', attachments: [] },
+    ];
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl(manyMails));
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const before = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.ok(before.rows.length >= 6); // several distinct people (6 senders + 'me')
+
+    // Only ONE of those mails is still readable next time -- and the hiworks directory
+    // itself also has a typo'd sibling to force allowPartialSources into play.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([manyMails[0]]));
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const receiptShrunk = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir, typoDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowPartialSources: true });
+    const reportShrunk = receiptShrunk.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportShrunk.contacts.failed, true);
+    assert.equal(reportShrunk.contacts.code, 'workspace_ledgers_ledger_partial_sources_shrink_blocked');
+    assert.equal(reportShrunk.contacts.before_rows, before.rows.length);
+    assert.ok(reportShrunk.contacts.after_rows < before.rows.length / 2);
+    const untouched = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(untouched.rows.length, before.rows.length); // left exactly as found
+    const failureEntry = receiptShrunk.ledger_failures.find(entry => entry.code === 'workspace_ledgers_ledger_partial_sources_shrink_blocked');
+    assert.ok(failureEntry);
+    assert.equal(failureEntry.before_rows, before.rows.length);
+    assert.ok(failureEntry.after_rows < before.rows.length / 2);
+
+    // Naming the project in allowEmpty overrides the shrink guard.
+    const receiptAllowed = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir, typoDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T02:00:00.000Z', allowPartialSources: true, allowEmpty: [CODE_A] });
+    const reportAllowed = receiptAllowed.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportAllowed.contacts.failed, false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
