@@ -1,5 +1,202 @@
 # Context Engine
 
+## 답변 평가 하네스 v0
+
+2026-09-20에 황금 질문 3개를 두 모델에 손으로 돌려 하루를 쓰고, 답을 산문으로 비교하고, 점수 칸은
+끝내 못 채웠다. 카드 대조·메일 요약·메일 귀속을 고칠 때마다 필요한 것은 "지난번보다 나은가 나쁜가"를
+몇 분 안에 말해 주는 물건이다. `harness/answer_eval.mjs`(+ 순수 규칙은 `src/runtime/answer_eval.mjs`,
+정규식 안전 검사는 `src/runtime/safe_pattern.mjs`)가 그 물건이다. **v0에는 LLM 심판이 없다** — 심판
+자신이 드리프트하는 물건이고 그러면 그 심판을 또 평가해야 하기 때문이다. 손으로 쓴 정답 열쇠와 문자열
+대조뿐이다.
+
+### 무엇을 재고 무엇을 못 재는가
+
+재는 것은 셋뿐이고 **하나로 합친 점수는 일부러 없다**(찾음이 오르면서 오답이 같이 늘어난 변경이
+비긴 것으로 보이면 안 되므로):
+
+- **found** — `must_find` 열쇠 중 답에 들어 있는 것의 가중 비율. "이 사실/날짜/사람/항목번호를 말했는가".
+- **cited** — `must_cite` 열쇠의 같은 비율. 근거를 사람 말로(날짜 + 보낸이·제목 조각) 또는 id로 가리켰는가.
+- **errors** — `must_not` 열쇠 적중 수. 이미 틀린 줄 아는 주장을 했는가.
+
+곁들이는 것: `minutes`(경과), `over_time`(`max_minutes` 초과), `answer_chars`(답 길이),
+`clarification`(답 대신 되물었는가), `truncated`, `absent`, `nonzero-exit`, `pattern_timeout`(그 열쇠의
+정규식이 예산을 넘겨 확인 자체를 못 했음), 그리고 못 맞힌 열쇠 이름들.
+
+못 재는 것 — 문서에 같이 적지 않으면 숫자가 위험해지므로 분명히 적는다:
+
+- **추론의 질도 말투도 못 잰다.** 열쇠 문자열이 있는지 없는지만 본다.
+- **열쇠를 쓴 사람만큼만 좋다.** 정답 열쇠가 틀리면 점수도 같이 틀린다. 열쇠는 코드가 아니라 자료다.
+- **많이 인용하면 열쇠는 맞는다.** 그래서 `answer_chars`를 항상 같이 낸다 — found 100%에 4,000자면
+  답한 게 아니라 퍼온 것이다.
+- **되물음 판정은 보수적인 표시일 뿐 점수가 아니다.** 세 조건이 모두 맞을 때만 붙는다: (1) `must_find`·
+  `must_cite` 열쇠를 **하나도** 못 맞혔고, (2) 짧고(기본 400자), (3) 물음표로 끝나거나 질문 세트가
+  명시한 짧은 패턴에 걸릴 때. (1)이 없던 첫 판본은 "…입니다. 더 필요하신 것 있으실까요?"처럼 제대로
+  답하고 끝인사를 붙인 한국어 답을 되물음으로 찍었다. `expect_clarification: true`인 질문에는 안 붙는다.
+
+### 대조 규칙
+
+대조는 NFKC 정규화 + 소문자화 + 공백 축약된 문자열 위에서 한다(답이 줄바꿈으로 끊어 쓴 구절도 걸리고,
+전각 `ＥＸ－１`은 `ex-1`이 된다).
+
+- **한글은 경계 없이 포함 대조**다. 조사가 바로 붙으므로 `납기`는 `납기일`에, `홍길동`은 `홍길동이`·
+  `홍길동과`에 걸린다.
+- **ASCII 토큰(항목번호 등)은 경계 대조**다. 경계를 막는 것은 ASCII 낱말문자(`[0-9a-z_]`)와, **뒤에
+  낱말문자가 따라오는** `.`·`-`뿐이다. 유리한 쪽만 적지 않기 위해 양쪽을 다 적는다:
+  - 걸리지 **않는다**: `EX-1` ↛ `EX-15`, `EX-1-2`, `EX-1.5`, `EX-1_2`; `P00-014` ↛ `P00-014A`.
+  - 걸린다: `EX-1` → `EX-1은`, `EX-1(마감)`, `ex-1`, `ＥＸ－１`, 그리고 문장 끝의 `EX-1.`
+    (마침표 뒤에 낱말문자가 없으므로 토큰의 일부가 아니다).
+- **날짜 모양(`YYYY-MM-DD`) 열쇠는 예외로 포함 대조**다. 날짜는 다른 글자에 바로 붙어 사는 것이 정상
+  이므로 `2026-02-13`은 `2026-02-13T09:00`과 `2026-02-13(금)` 안에서도 걸린다. 경계를 강제하고 싶으면
+  `"match": "token"`을 준다.
+- **열쇠별 `match`로 무를 수 있다.** `"substring"`은 경계를 끄고, `"token"`은 강제하며 ASCII 토큰이
+  아닌 값은 거부한다(조용히 다른 일을 하지 않는다).
+- **정규식 항목**은 `"/ex-\\d{1,4}/"`처럼 `/…/플래그` 모양으로 쓴다. 안전 장치는 `src/runtime/
+  safe_pattern.mjs`에 있고 **두 층이며, 실제로 버티는 것은 두 번째다.**
+  - *컴파일 시점(거르개)*: 길이 상한 200자, 중첩 수량자·역참조·lookbehind 거부, 교대 분기 상한, 그리고
+    정적 검사로는 못 잡는 모양을 잡는 ReDoS 타이밍 canary(`node:vm` 타임아웃, 예산 1초, 한 번 재시도).
+    canary 문자열은 그 패턴 자신의 알파벳에서 만든다 — **여러 글자짜리 리터럴 토막까지** 포함한다
+    (`(ab|a|b)+z`의 `ab`), 길이는 씨앗 120회 반복이다.
+  - *실행 시점(진짜 울타리)*: 모든 대조를 `node:vm` 타임아웃(1초) 안에서 돌린다. 거르개를 통과한
+    패턴이라도 답 하나당 예산 1초를 쓰고 그 열쇠에 `pattern_timeout`으로 보고될 뿐, 회차가 멈추지 않는다.
+    그 열쇠는 "못 맞힘"으로 세되 `pattern_timeout_keys`에 따로 이름을 남긴다 — "답에 없다"와 "확인을 못
+    했다"는 다른 사실이고, 뒤쪽은 봇이 아니라 질문 세트의 결함이다.
+  - **거르개는 보증이 아니다.** 임의의 정규식이 파국적으로 되짚는지는 모양 검사와 몇 개의 탐침으로
+    결정할 수 없다. 첫 판본이 그것을 증명했다: `(ab|a|b)+z`를 받아들였고, 그 `test()`는
+    `'ab'.repeat(30) + '!'`에 대해 25초 안에 끝나지 않았다(canary가 한 글자 반복만 써서 놓쳤다). 지금은
+    거르러 잡히지만, **거르개가 좋아졌다고 실행 시점 울타리를 걷으면 안 된다.**
+  - 플래그는 `i`/`u`만 받고 `i`는 자동으로 붙는다(본문이 이미 소문자라 대문자 패턴이 조용히 안 맞는
+    함정을 막는다).
+  - 같은 모양의 검사가 `guild_hall/workspace_ledgers/src/classifier.mjs`에도 있지만 **import하지 않고
+    여기에 따로 둔다**: 이 디렉터리를 통째로 싣는 두 배포 lane(`guild_hall/deployment_pack/lanes/
+    context_read_lane.spec.json`, `graph_sync_lane.spec.json`)이 `workspace_ledgers`는 안 실어서,
+    cross-module import는 repo의 모든 시험을 통과하면서 **빌드된 lane 안에서만**
+    `ERR_MODULE_NOT_FOUND`로 죽는다. `tests/answer_eval.test.mjs`가 각 lane spec의 `tracked_paths`만으로
+    임시 트리를 만들어 거기서 하네스를 실제로 import해 보는 시험을 갖고 있다.
+
+### 질문 세트 쓰는 법
+
+스키마 `soulforge.context_answer_eval_questions.v1`. **실제 세트는 private이며 repo 밖에 둔다.** repo에
+들어 있는 것은 완전히 합성된 예시 하나뿐이다: `harness/fixtures/answer_eval_questions.example.json`
+(가공 과제코드 P00-001, 가공 인명, example.com). 형태:
+
+```json
+{
+  "schema": "soulforge.context_answer_eval_questions.v1",
+  "set_id": "example-v1",
+  "created_at": "2026-01-02T00:00:00.000Z",
+  "clarification": { "max_chars": 400, "patterns": ["어느 과제"] },
+  "questions": [{
+    "id": "q1-deadline",
+    "prompt": "봇에게 그대로 주는 질문 텍스트",
+    "must_find": [{ "key": "deadline_date", "any_of": ["2026-02-13", "2026년 2월 13일"],
+                    "weight": 2, "note": "사람이 보는 메모(영수증엔 안 들어감)" }],
+    "must_cite": [{ "key": "kickoff_mail", "any_of": ["1월 9일"] }],
+    "must_not":  [{ "key": "wrong_project", "any_of": ["P00-002"] }],
+    "max_minutes": 4,
+    "expect_clarification": false
+  }]
+}
+```
+
+- `any_of`는 "이 중 하나라도 있으면 맞음"이다. 같은 사실을 여러 표기로 적어 둔다.
+- `weight`(기본 1)로 핵심 열쇠를 무겁게 준다. 빈 그룹은 0%가 아니라 `null`("안 쟀음")이고 평균을 안 끌어내린다.
+- 모르는 필드 이름은 조용히 무시하지 않고 거부한다(`answer_eval_question_field_unknown`) — 오타 난 열쇠는
+  "재고 있다고 믿는데 안 재는" 상태를 만들고, 이 하네스는 바로 그걸 막으려고 있다.
+- 열쇠가 하나도 없는 질문도 거부한다(공짜 100%가 되므로).
+
+### 두 가지 모드
+
+**(1) `--answers-dir` — 이미 있는 답 파일 채점.** 모델도 명령도 필요 없다. 그래서 **지난 회차 답을 오늘
+소급 채점**해 지금 회차와 비교할 수 있다. 기본 규약은 `<질문 id>.md`이고, 폴더에 `answers.json`이 있으면
+그 대응표를 쓴다(`{"q1": {"path": "run-5b/first.txt", "elapsed_seconds": 200, "tool_calls": 4}}` — 경로는
+답 폴더 기준 상대경로이며 폴더 밖을 가리키면 거부한다). 답 파일 하나가 없으면 그 질문은 `absent`로
+전부 못 맞힌 것으로 세고, **전부** 없으면 결과가 아니라 배선 실수이므로 거부한다(exit 2).
+
+**(2) `--ask-command` — 답을 먼저 만든다.** argv 배열 템플릿(JSON, 스키마
+`soulforge.context_answer_eval_ask_command.v1`)을 주면 질문마다 한 번씩 실행한다. **셸을 안 쓴다**:
+`spawn`에 argv 배열을 그대로 넘기고 문자열을 이어 붙이지 않으며, 질문 텍스트는 argv에 아예 안 들어간다
+(임시 파일에 써서 `{prompt_file}` 자리에 그 경로만 들어간다). 답은 `{answer_file}`에서 읽는다.
+`env`는 변수 **이름** 허용목록이고 값은 읽지도 기록하지도 않는다. 자식의 stdio는 `ignore`다 — 봇의 콘솔
+출력은 답이 아니고(답은 파일이다), 그걸 여기서 버퍼링하면 하네스가 쓰러질 길만 하나 는다.
+**순차 실행만 한다** — 로컬 모델 서버는 슬롯이 하나라 둘을 동시에 돌리면 둘 다 기다릴 뿐이다.
+
+끝나는 방식 네 가지를 구분한다:
+
+- **정상 종료(0) + 답 파일** → 채점.
+- **0 아닌 종료 + 답 파일** → 답을 버리지 않고 채점하되 `nonzero-exit`/`exit:<코드>` 표시와
+  `exit_code`를 남긴다. 답이 없으면 그때가 실패(`ask_command_exit:<코드>`)다.
+- **타임아웃** → 답 파일을 **안 읽는다**(죽인 봇이 반쯤 쓴 파일을 답으로 채점하는 것이 답이 없는 것보다
+  나쁘다). 죽일 때는 **프로세스 나무 전체**를 죽인다: POSIX는 `detached`로 띄워 프로세스 그룹째
+  (`kill(-pid)`), Windows는 `taskkill /T /F`(`SystemRoot`에서 찾고, 없으면 PATH, 그래도 안 되면 직계
+  자식). 이유는 슬롯이 하나이기 때문이다 — 직계 자식만 죽이면 그 봇이 띄운 모델 클라이언트가 살아남아
+  **그 회차의 남은 질문을 전부 막는다**. 죽인 뒤에는 유예 타이머(5초)가 돌아
+  자식의 `close`가 끝내 안 와도 그 질문을 `ask_command_timeout`으로 닫는다 — 죽이기 함수가 돌려주는
+  것은 "어떤 방법을 썼는가"이지 "정말 죽었는가"가 아니며, 안 죽는 자식 하나가 회차 전체(그리고 CI)를
+  멈춰 세우면 안 된다.
+- **다른 누군가가 보낸 시그널** → `ask_command_signal`. "이 봇이 느리다"와는 다른 사실이다.
+
+하네스는 특정 봇에 대해 아무것도 모른다. 아는 순간이 버그다 — 템플릿이 그 이음매다.
+예시: `harness/fixtures/answer_eval_ask_command.example.json`.
+
+### 비교하는 법
+
+회차마다 `--label`(`5b`, `after-card-reconcile` 같은 것)을 주고 `--receipts` 폴더에 영수증을 쌓는다.
+`--compare latest`나 `--compare <영수증 경로>`를 주면 나란히 놓은 증감표와 **새로 놓친 열쇠·새로 맞힌
+열쇠** 목록을 같이 찍는다. `--fail-on-regression`을 주면 질문 하나라도 found/cited가 내려가거나 errors가
+올라갔을 때 exit 3이다. 양쪽 중 한쪽에만 있는 질문은 added/removed이지 퇴행이 아니다.
+
+- **같은 질문 세트로 채점한 두 회차만 비교한다.** `questions_sha256`이 다르면
+  `answer_eval_compare_question_set_differs`로 거부한다(exit 2). 열쇠의 `any_of`에 표기 하나를 더한 것만
+  으로도 그 질문에서 "맞음"의 뜻이 달라지는데, 질문 id로만 이어 붙이면 그 변화를 봇이 나빠진 것(또는
+  좋아진 것)으로 읽는다.
+- **`--allow-set-change`**를 주면 큰 경고 배너를 찍고, **양쪽 `key_digest`가 바이트 단위로 같은 질문만**
+  증감을 낸다. 나머지는 `key_changed`로 표시되고 총계는 `-`이며, 이 비교는 **어떤 경우에도 퇴행을
+  보고하지 않는다**(부분적으로만 보이는 것은 판정이 아니다). `key_digest`는 점수를 정하는 것 전부를
+  해시한 값이다 — 질문 id·열쇠 이름·가중치·`match`·`any_of` 원문에 더해 **질문 본문(prompt)의 해시**와
+  **세트 단위 `clarification` 블록의 해시**까지 들어간다(문구만 바꿔도 봇이 받은 질문이 달라지므로 같은
+  열쇠라도 같은 측정이 아니고, `clarification`은 표시 하나를 정하며 모든 질문이 공유한다). prompt와
+  패턴은 해시로만 들어가므로 영수증에는 여전히 질문 원문이 없다.
+- **`latest`는 `status`가 `OK`가 아닌 영수증을 건너뛴다.** 전부 타임아웃 난 회차는 0으로 가득한 영수증
+  이고, 그것이 기준선이 되면 다음 회차가 가짜 개선이 되고 그 다음 진짜 퇴행이 가려진다. 무엇을 고르고
+  무엇을 건너뛰었는지 `compare: baseline …` / `compare: skipped … (status_ask_failed)`로 찍는다.
+  순서는 파일 이름이 아니라 영수증의 `started_at` → 이름 접미사 순이다(이름의 시각은 초 단위라서).
+- 비교가 거부돼도 **그 회차의 영수증은 남는다**. 회차는 실제로 돌았고 거부된 것은 비교뿐이다.
+
+영수증(`soulforge.context_answer_eval_receipt.v1`)은 `<시각>-NNN.json`으로 항상 접미사를 달고
+(충돌 때만 붙이는 접미사는 원본 이름보다 **앞서** 정렬돼 "최신"을 뒤집는다) `wx`로 연 pid 포함 임시
+파일 + rename으로 원자적으로 쓰이며, **열쇠 이름과 숫자만** 담는다 — 질문 텍스트도, 답 텍스트도, 맞은
+문자열도, `note`도, 답 폴더 경로도, argv도 안 들어간다(argv는 digest와 길이만). 공개 로그에 그대로
+붙여도 되도록 만든 것이고, 답 자체는 sha256과 길이로만 가리킨다.
+
+### 실행
+
+```
+node guild_hall/context_engine/harness/answer_eval.mjs \
+  --questions <private>/answer_eval/questions.v1.json \
+  --answers-dir <private>/answer_eval/runs/5b \
+  --label 5b --receipts <private>/answer_eval/receipts \
+  --compare latest --fail-on-regression
+
+node guild_hall/context_engine/harness/answer_eval.mjs \
+  --questions <private>/answer_eval/questions.v1.json \
+  --ask-command <private>/answer_eval/ask_bot.v1.json \
+  --label after-card-reconcile --receipts <private>/answer_eval/receipts \
+  --only q1-deadline,q3-open-items --compare latest
+```
+
+`--dry`는 질문 세트를 검사하고 무엇이 돌 것인지만 찍는다(영수증도 안 쓰고 명령도 안 부른다).
+exit code: `0` 돌았음 · `2` 사용법/검증 거부 · `3` 비교 대상 대비 퇴행(`--fail-on-regression`일 때) ·
+`4` ask-command 실패·타임아웃. 4가 3보다 우선한다(답을 못 만든 회차의 숫자는 비교할 값이 아니므로).
+
+시험: `tests/answer_eval.test.mjs`(질문 세트 거부 규칙, 한글·혼합 문자 대조, ASCII 경계 16칸 표, 정규식
+안전 거부, 두 모드 — ask-command는 테스트가 직접 써서 `process.execPath`로 띄우는 작은 가짜 봇으로만
+돌린다, 프로세스 나무 kill, 비교·퇴행 exit code, 질문 세트 변경 거부, `latest`의 순서·건너뛰기, 영수증에
+원문이 없음, 원자적 쓰기, lane tracked_paths만으로 만든 트리에서의 import, 저장된 예시 세트 자체 검증).
+`npm run validate:context-engine`에 들어 있고, 그 suite는 `guild_hall/validate/run_root_acceptance.mjs`의
+`validate`·`done-check` 두 모드에 배선돼 있어 `npm run done:check`와 CI(`.github/workflows/validate.yml`,
+ubuntu-latest)에서 같이 돈다. **여기 시험들은 Linux에서 돈다** — 이 하네스를 고칠 때 Windows에서만 되는
+것을 넣으면 CI가 적색이 된다.
+
 ## 대화 목록 야간 lane — 마감(deadline)과 대조·질문 연쇄(chain) (0.22.7)
 
 `13_SCHEDULE_AND_RAG_COVERAGE_PLAN_2026-09-21.md` A안의 코드 조각. `harness/voice_conversation_list_nightly.mjs`가

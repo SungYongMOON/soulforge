@@ -97,6 +97,132 @@
   `common_refresh.mjs`, `mail_events.mjs`, `owner_tables.mjs`, `refresh.mjs`, `cli.mjs`, `README.md`,
   각 대응 `tests/*.test.mjs`.
 
+## 2026-09-21 - 답변 평가 하네스 v0: 손 비교를 재실행 가능한 결정론적 채점으로
+
+- Revision: 이 항목을 포함한 커밋들(최초 구현 + `origin/main` 병합 2회 + 신선한 검토 2회 반영). 기존 파일
+  수정은 `package.json` 한 줄과 `guild_hall/context_engine/README.md` 절 추가뿐이다.
+- 왜: 2026-09-20에 황금 질문 3개를 두 모델에 손으로 돌려 하루를 쓰고 산문으로 비교했으나 점수 칸은
+  끝내 못 채웠다. 카드 대조·메일 요약·메일 귀속을 고칠 때마다 "지난번보다 나은가 나쁜가"를 몇 분 안에
+  말해 줄 것이 필요하다.
+- 무엇이 바뀌었는가: `guild_hall/context_engine/harness/answer_eval.mjs`(I/O·CLI),
+  `src/runtime/answer_eval.mjs`(순수 규칙, I/O·시계·모델 없음), `src/runtime/safe_pattern.mjs`(정규식
+  안전 검사)를 더했다. **v0에 LLM 심판은 없다.** 손으로 쓴 정답 열쇠에 대한 문자열 대조뿐이고, 하나로
+  합친 점수도 일부러 두지 않았다 — `found`(must_find 가중 비율) · `cited`(must_cite) · `errors`(must_not
+  적중 수)를 따로 내서 "찾음은 올랐는데 오답도 늘었다"가 비긴 것으로 안 보이게 했다. 답 길이
+  (`answer_chars`)를 항상 같이 내어 "많이 퍼와서 열쇠만 맞은 답"이 보이게 했고, 되물음·시간초과·잘림·
+  부재·비정상종료는 점수가 아니라 표시(flag)다. 대조는 NFKC·소문자·공백축약 문자열 위에서 하며 한글은
+  경계 없이 포함(`납기`가 `납기일`에), ASCII 항목번호는 경계 대조(`EX-1`이 `EX-15`·`EX-1-2`·`EX-1.5`·
+  `EX-1_2`에 안 걸리되 `EX-1은`·`EX-1(마감)`·문장 끝 `EX-1.`에는 걸림), 날짜 모양 열쇠는 예외로 포함
+  대조(`2026-02-13`이 `2026-02-13T09:00` 안에서 걸림)다. 모드는 둘 — `--answers-dir`는 이미 있는 답
+  파일을 채점하므로 모델 없이 **지난 회차를 소급 채점**할 수 있고, `--ask-command`는 argv 배열 템플릿
+  (`{prompt_file}`/`{answer_file}`)으로 질문마다 한 번씩 `spawn`을 **셸 없이** 부른다(질문 텍스트는
+  argv에 안 들어가고 임시 파일 경로만 들어감, env는 이름 허용목록, 자식 stdio는 `ignore`, 로컬 모델
+  슬롯이 하나라 순차 실행만). 하네스는 특정 봇에 대해 아무것도 모른다.
+  영수증(`soulforge.context_answer_eval_receipt.v1`)은 `<시각>-NNN.json`으로 항상 접미사를 달고 `wx`로
+  연 pid 포함 임시 파일 + rename으로 원자적으로 쓰이며 **열쇠 이름과 숫자만** 담는다 — 질문·답 원문,
+  맞은 문자열, 열쇠 메모, 답 폴더 경로, argv 모두 안 들어간다(argv는 digest·길이만). exit code는
+  `0` 돌았음 · `2` 사용법/검증 거부 · `3` 비교 대상 대비 퇴행(`--fail-on-regression`) ·
+  `4` ask-command 실패·타임아웃이며 4가 3보다 우선한다.
+- 신선한 눈 검토 반영(같은 브랜치, 병합 전) — 필수 2건·권장 7건·nit 3건:
+  - (R1) 정규식 안전 검사를 `guild_hall/workspace_ledgers/src/classifier.mjs`에서 import하고 있었다.
+    이 디렉터리를 통째로 싣는 두 배포 lane(`deployment_pack/lanes/context_read_lane.spec.json`,
+    `graph_sync_lane.spec.json`)은 `workspace_ledgers`를 안 실어서, repo의 모든 시험을 통과하면서
+    **빌드된 lane 안에서만** `ERR_MODULE_NOT_FOUND`로 죽었다(검토자 재현). 검사를 context_engine 안의
+    `src/runtime/safe_pattern.mjs`로 옮겼다(workspace_ledgers 쪽은 그대로 둔다 — 그 모듈 자신의 계약이다).
+    각 lane spec의 `tracked_paths`/`tracked_excludes`만으로 임시 트리를 만들어 거기서 하네스를 실제로
+    import해 보는 시험을 더해, 이 부류의 파손이 다음에는 잡히게 했다.
+  - (R2) `--compare`가 두 영수증이 같은 질문 세트로 채점됐는지 전혀 안 봤다. 열쇠의 `any_of`에 표기
+    하나만 더해도 "맞음"의 뜻이 달라지는데 질문 id로만 이어 붙여 가짜 퇴행(exit 3)이나 가짜 개선이
+    나왔다. `questions_sha256`이 다르면 `answer_eval_compare_question_set_differs`로 거부하고(exit 2),
+    `--allow-set-change`를 주면 배너를 찍은 뒤 **양쪽 질문별 `key_digest`가 같은 질문만** 비교하며
+    퇴행은 절대 보고하지 않는다. 그 비교가 가능하도록 영수증 행마다 `key_digest`(질문 id·열쇠·가중치·
+    `match`·`any_of` 원문의 해시)를 남긴다.
+  - (S1·S2) `--compare latest`가 파일 이름으로만 정렬해, 충돌 때만 붙던 접미사가 원본 이름보다 앞서
+    정렬돼 "최신"을 뒤집었다. 이제 이름은 항상 `-000`부터 접미사를 달고, 최신은 영수증의 `started_at`
+    → 접미사 순으로 고른다. 그리고 `status`가 `OK`가 아닌 영수증은 기준선에서 건너뛰고(전부 타임아웃 난
+    0짜리 회차가 기준선이 되면 다음이 가짜 개선이 된다), 무엇을 고르고 무엇을 건너뛰었는지 찍는다.
+  - (S3) 타임아웃이 직계 자식만 죽였다. 슬롯이 하나인 로컬 모델에서 살아남은 손자 하나가 그 회차의 남은
+    질문을 전부 막는다. POSIX는 `detached`로 띄워 프로세스 그룹째(`kill(-pid)`), Windows는 `taskkill
+    /T /F`(`SystemRoot`에서 해석, 하드코딩 경로 없음)로 나무 전체를 죽인다.
+  - (S4) 자식 stdio를 `ignore`로 바꿔 봇 출력을 하네스가 전혀 버퍼링하지 않게 했고, 타임아웃이 아닌
+    실패에서는 `{answer_file}`이 있으면 그대로 읽어 채점하고 종료코드를 표시로만 남긴다(멀쩡한 답을
+    종료코드 때문에 버리지 않는다).
+  - (S5) 되물음 표시가 제대로 답하고 끝인사를 붙인 한국어 답("…입니다. 더 필요하신 것 있으실까요?")에
+    붙었다. 이제 `must_find`·`must_cite` 열쇠를 하나라도 맞힌 답에는 붙지 않으며, 판정은 그룹 점수를
+    낸 **뒤에** 한다.
+  - (S6) ASCII 경계가 `EX-1` vs `EX-15`만 막고 `EX-1-2`·`EX-1.5`는 통과시켰다. 뒤에 낱말문자가 따라오는
+    `.`·`-`도 토큰 연속으로 보되 문장 끝 마침표는 아니게 했고, 날짜 모양 열쇠는 기본 포함 대조로 바꿔
+    `2026-02-13T09:00`·`2026-02-13(금)`이 걸리게 했다. 검토자가 준 16칸 표를 시험으로 고정했고, 유리한
+    결론만 적었던 README 문장을 양쪽 다 적도록 고쳤다.
+  - (S7) 영수증 임시 파일을 `wx`로 열고 이름에 pid를 넣어, 같은 초에 두 하네스가 한 폴더에 써도 서로
+    덮어쓰지 않고 다음 접미사로 간다.
+  - nit — README 제목에서 지어낸 모듈 판본 번호를 뺐다(`module.manifest.json`은 0.22.4). 하네스 자신의
+    타이머가 아니라 외부에서 죽은 자식은 `ask_command_timeout`이 아니라 `ask_command_signal`로 보고한다.
+    `compareRuns`의 "놓친 쪽"도 배열 탐색 대신 `Set`으로 본다.
+  - 자체 점검: `safe_pattern.mjs`의 canary 꼬리 문자를 소스에 이스케이프로 적었더니 도구가 **실제 NUL
+    바이트**로 박아 넣었고, git이 그 파일을 바이너리로 보고 `local_absolute_path_policy`가 검사 대상에서
+    조용히 건너뛰었다(skipped 240 / scanned 8881). `String.fromCharCode(0)`으로 런타임에 만들도록 고쳐
+    다시 텍스트가 되었고 검사 대상에 들어왔다(skipped 239 / scanned 8882).
+- 두 번째 신선한 눈 검토 반영(같은 브랜치, 병합 전) — 필수 1건·권장 5건·nit 4건:
+  - (필수) 이 항목이 "`validate:context-engine`은 done:check·CI에 없다"고 적고 있었는데 그 사이
+    origin/main이 `guild_hall/validate/run_root_acceptance.mjs`의 `validate`·`done-check` 두 모드 모두에
+    배선했다. 사실로 바로잡았다(README도 같이) — **이 시험들은 이제 ubuntu CI에서 돈다.** 그 전제로 새
+    시험 전체를 Linux 관점에서 다시 읽었다: 프로세스 나무 kill 시험은 두 플랫폼 분기를 모두 강제로
+    돌려 어느 쪽에서든 같은 fallback에 닿는지 보고, 손자 시험은 CI 부하에서 Node 두 번 기동이 먼저
+    끝나도록 타임아웃을 1.5초로 올렸다. 하드코딩 경로·signal 가정·Windows 전용 호출은 없다.
+  - (S-a) canary가 **한 글자 반복만** 탐침으로 써서 `(ab|a|b)+z`를 통과시켰고, 그 패턴의 `test()`는
+    `'ab'.repeat(30)+'!'`에 대해 25초 안에 안 끝났다(재현 확인). canary 씨앗을 패턴 자신의 **여러 글자
+    리터럴 토막**(교대 분기에서 뽑음)과 리터럴 글자들의 2~3글자 조합까지로 넓히고 길이를 120회 반복으로
+    올렸다 — 이제 2초 안에 `safe_pattern_timing_unsafe`로 거부하며, 그 패턴 자체가 시험이다. 더 중요한
+    것은 **채점 경로에 울타리를 쳤다**는 것이다: 모든 정규식 대조가 `node:vm` 타임아웃(1초) 안에서 돌고,
+    거르개를 통과한 패턴은 그 열쇠에 `pattern_timeout`으로 보고될 뿐 회차를 멈추지 않는다(그 열쇠는
+    "못 맞힘"으로 세되 `pattern_timeout_keys`에 따로 이름을 남긴다 — "답에 없다"와 "확인을 못 했다"는
+    다른 사실이다). 모듈 머리말과 README에 **거르개는 보증이 아니며 거르개가 좋아져도 실행 시점 울타리를
+    걷으면 안 된다**고 적었다.
+  - (S-b) 나무를 죽인 뒤 유예 타이머(5초)를 걸어, 자식의 `close`가 끝내 안 와도 그 질문을
+    `ask_command_timeout`으로 닫는다. 죽이기 함수가 돌려주는 것은 "어떤 방법을 썼는가"이지 "정말
+    죽었는가"가 아니라서, 안 죽는 자식 하나가 회차와 CI를 멈춰 세울 수 있었다. `close`를 영영 안 보내는
+    stub 자식으로 시험한다.
+  - (S-c·S-d) `key_digest`에 **질문 본문(prompt)의 해시**와 **세트 단위 `clarification` 블록의 해시**를
+    더했다. 문구만 바꿔도 봇이 받은 질문이 달라지므로 같은 열쇠라도 같은 측정이 아니다. 둘 다 해시로만
+    들어가 영수증에는 여전히 질문 원문이 없다. 열쇠는 그대로 두고 prompt만 바꾼 회차가
+    `--allow-set-change`에서 `key_changed`로 나오는지 시험한다.
+  - (S-e) canary 예산 200ms는 공유 CI 러너에서 GC 한 번에 흔들리는 값이라 1000ms로 올리고 실패 시 한 번
+    재시도한 뒤에야 거부한다(진짜 지수 패턴은 두 번 다 넘긴다). 안전한 패턴이 연속 50회 받아들여지는지
+    시험한다.
+  - nit — `killProcessTree`는 `pid <= 1`도 `no_pid`로 거부한다(POSIX `kill(-1)`은 "보낼 수 있는 모든
+    프로세스"다). 손자 시험은 손자가 먼저 "started" 표시를 남기고 그것이 있는지 확인한 뒤에야 생존 표시의
+    부재를 주장한다(손자가 아예 안 돌았으면 시험이 공회전한다). 고정 4초 대기를 마감 있는 폴링으로 바꿨다.
+    lane 트리 복사 필터는 `statSync` 대신 `lstatSync`를 쓴다. `quantifierCount`가 `(?:`의 `?`도 센다는
+    사실을 주석에 적었다(느슨한 쪽이 아니라 빡빡한 쪽으로 틀리므로 그대로 둔다).
+- 공개 경계: repo에 들어가는 예시 질문 세트·명령 템플릿은 완전히 합성이다(가공 과제코드 P00-001·P00-002,
+  가공 인명, example.com). 실제 질문 세트와 답은 private이며 repo 밖에 둔다.
+- 운영 영향: 없음. 새 예약작업·서버·writer가 없고 읽기와 임시 파일 쓰기, 그리고 `--receipts` 폴더 쓰기뿐이다.
+  `guild_hall/context_engine/release/`의 런타임 폐포는 `src/app.mjs`에서 출발하는 import 추적이고 새 세
+  파일은 거기에 닿지 않는다 — `runtime-closure.json`에 `answer_eval`/`safe_pattern` 항목이 0건이고
+  `release/verify_module.mjs`가 고정 폐포와 실제 폐포의 일치를 확인했다(ok:true). 이번 브랜치가 고정
+  digest를 새로 만들거나 갱신하지 않는다.
+- 관련 경로: `guild_hall/context_engine/harness/answer_eval.mjs`,
+  `guild_hall/context_engine/src/runtime/answer_eval.mjs`,
+  `guild_hall/context_engine/src/runtime/safe_pattern.mjs`,
+  `guild_hall/context_engine/tests/answer_eval.test.mjs`,
+  `guild_hall/context_engine/harness/fixtures/answer_eval_questions.example.json`,
+  `guild_hall/context_engine/harness/fixtures/answer_eval_ask_command.example.json`,
+  `guild_hall/context_engine/README.md`, `package.json`, `CHANGELOG.md`.
+- 검증(전부 unpiped 실측): `node --test guild_hall/context_engine/tests/answer_eval.test.mjs` exit 0
+  (60/60, 벽시계 21초, 가장 느린 시험 5.9초 — 10초 상한 안),
+  `npm run validate:context-engine` exit 0(743 tests / 735 pass / 0 fail / 8 skipped — 이 작업 시작 전
+  baseline은 616/608/0/8, origin/main 병합분 포함),
+  `npm run validate:module-operability` exit 0(8/8, import scan 1825 files / 4142 edges, violations 0),
+  `npm run validate:source-lane` exit 0(14/14),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked` exit 0(violations 0, 8882 파일 검사),
+  `node guild_hall/validate/boot_digest_guard.mjs` exit 0(부트 요약 4문서 미변경),
+  `npm run validate:display-terms` exit 0(229 파일, baseline 면제 57건 그대로, 이번 변경이 더한 것 0건).
+  Linux 실측은 아직 없다 — 이 호스트는 Windows이고, CI의 첫 실행이 그 확인이다. 새 시험 파일은 `validate:context-engine`에 넣었고,
+  그 suite는 origin/main의 2026-09-21 배선부터 `guild_hall/validate/run_root_acceptance.mjs`의 `validate`·
+  `done-check` 두 모드 모두에 들어 있어 `npm run done:check`와 CI(`.github/workflows/validate.yml`,
+  ubuntu-latest)에서 함께 돈다 — **이 시험들은 Linux에서 실행된다.**
+
 ## 2026-09-21 - CI에 context-engine·rag PDF profile 검증 5종 배선(약 680개 미실행 테스트 격차 해소)
 
 - Revision: 이 항목을 포함한 커밋.
