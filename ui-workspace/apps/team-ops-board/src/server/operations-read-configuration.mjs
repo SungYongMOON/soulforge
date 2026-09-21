@@ -4,6 +4,8 @@ const KEYS = Object.freeze([
   'TEAM_OPS_DIRECTORY_ROOT_TABLE', 'TEAM_OPS_DIRECTORY_ROOT_TABLE_SHA256',
   'TEAM_OPS_GRAPH_RECEIPTS_ROOT', 'TEAM_OPS_GRAPH_PROJECTS', 'TEAM_OPS_RESPONSE_AGENT_LABEL',
   'TEAM_OPS_WORKSPACES_ROOT', 'TEAM_OPS_WORKMETA_ROOT', 'TEAM_OPS_MAIL_RULE_WRITE',
+  'TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR', 'TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR',
+  'TEAM_OPS_LEDGER_ORG_CONFIG', 'TEAM_OPS_LEDGER_RECEIPTS_DIR',
 ]);
 
 // The scheduled runtime deliberately strips arbitrary environment variables.
@@ -28,9 +30,14 @@ export async function readOperationsReadConfiguration({ bindingPath, env = proce
       projects: (settings.TEAM_OPS_GRAPH_PROJECTS || '').split(',').filter(Boolean),
       responseAgentLabel: settings.TEAM_OPS_RESPONSE_AGENT_LABEL },
     // Per-project mail classification rule panel (2026-09-21 owner decision). The scheduled
-    // runtime cannot forward arbitrary env vars, so these three settings ride the same
-    // allowlisted binding file as the five keys above instead of raw process.env only.
+    // runtime cannot forward arbitrary env vars, so these settings ride the same allowlisted
+    // binding file as the five keys above instead of raw process.env only. The custody dirs
+    // and ledger paths back the `guild_hall/workspace_ledgers` core module's preview/save/
+    // refresh calls (single directory strings here; the adapter wraps the two event dirs into
+    // the module's `hiworksDirs`/`gmailSentDirs` arrays).
     mailRule: { workspacesRoot: settings.TEAM_OPS_WORKSPACES_ROOT, workmetaRoot: settings.TEAM_OPS_WORKMETA_ROOT,
-      writeEnabled: settings.TEAM_OPS_MAIL_RULE_WRITE === '1' },
+      writeEnabled: settings.TEAM_OPS_MAIL_RULE_WRITE === '1',
+      hiworksEventsDir: settings.TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR, gmailSentEventsDir: settings.TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR,
+      ledgerOrgConfigPath: settings.TEAM_OPS_LEDGER_ORG_CONFIG, ledgerReceiptsDir: settings.TEAM_OPS_LEDGER_RECEIPTS_DIR },
   };
 }

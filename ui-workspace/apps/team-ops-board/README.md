@@ -827,11 +827,13 @@ private D: workspace plane as a file pair, one per project folder:
 `<workspacesRoot>/<CODE>_<짧은한글명>/020_MGMT/021_자동화설정_운영규칙/mail_routing_rule.json`
 (schema `soulforge.project_mail_routing_rule.v0`) with a human twin
 `mail_routing_rule.md` whose `## Owner 확인 기록 (…)` and
-`## Owner 확인이 필요한 것` sections are bullet lists. This slice makes those
-keywords visible on the project overview and scaffolds — but does not yet
-enable — editing them there.
+`## Owner 확인이 필요한 것` sections are bullet lists. The panel shows this rule
+on the project overview and can edit its literal keywords there, calling
+through to `guild_hall/workspace_ledgers` (merged 2026-09-21, branch
+`claude/workspace-ledgers-v0`, commit `d08f7441`) for the actual preview/save/
+refresh work — see that module's own README for its rule/ledger contract.
 
-`src/server/mail-rule-adapter.mjs` (`createMailRulePlugin`) owns four loopback
+`src/server/mail-rule-adapter.mjs` (`createMailRulePlugin`) owns five loopback
 routes, all registered **only in `operations-preview.config.ts`** — the
 installed read-only Board's `vite.config.ts` does not carry this plugin, so the
 operational 4192 lane stays exactly as read-only as before this change:
@@ -840,7 +842,9 @@ operational 4192 lane stays exactly as read-only as before this change:
   `TEAM_OPS_WORKSPACES_ROOT` whose name matches `^<CODE>_` and that resolves to
   a real (non-symlink) directory holding a valid rule file; a project without a
   rule file, or with an invalid one, is silently excluded rather than listed as
-  broken. Bounded to 500 scanned folders and 200 opened rule files.
+  broken. Bounded to 500 scanned folders and 200 opened rule files. This read
+  path is independent of the core module below — it reads the two files
+  directly and does not call into `workspace_ledgers`.
 - `GET /mail-rule.snapshot.json?project=<CODE>` returns the parsed rule plus
   `decisions`/`open_items` parsed from the md twin's two sections (bullets only,
   ≤300 chars each, ≤30 per section — an overlong bullet is dropped, not
@@ -854,34 +858,67 @@ operational 4192 lane stays exactly as read-only as before this change:
   none, capped at 8 entries) as of 2026-09-21; `validateRuleDocument` also
   accepts the earlier `null` (no hand-over) or single bare object (one
   hand-over) shapes still found in some files and normalizes all three onto the
-  array before the response leaves the server (`normalizeYieldsTo`).
-- `POST /mail-rule/preview` and `POST /mail-rule/save` fully validate the
-  request (loopback + same-origin, `Content-Type: application/json`, body
-  ≤64KB, draft shape: ≤60 exact + ≤60 hint terms, literal ≤80 chars, regex
-  ≤120 chars and must compile, unique labels, note ≤500 chars) and then call an
-  injectable `core` object (`{ previewRule, saveRuleVersion, refresh }`). The
-  sibling `guild_hall/workspace_ledgers` module that will implement those three
-  calls is not merged yet (branch `claude/workspace-ledgers-v0` as of
-  2026-09-21), so the default `core` is a loader that tries
-  `import('../../../../../guild_hall/workspace_ledgers/src/mail_routing_rules.mjs')`
-  and answers `503 {"state":"core_module_unavailable"}` on every call until that
-  import resolves to a module exporting all three functions. **That exact
-  specifier string is a guess** (matched to the domain, not a confirmed file
-  name) — the one-line change to wire the real module is updating the
-  `CORE_MODULE_SPECIFIER` constant near the top of `mail-rule-adapter.mjs` to
-  the module's actual path once it lands (and, if its export names differ,
-  updating `CORE_EXPORTS` alongside it). No other file needs to change; tests
-  inject a fake `core` object directly and do not depend on that path.
-  `POST /mail-rule/save` refuses with `403 {"state":"write_disabled"}` before
-  any body parsing when `TEAM_OPS_MAIL_RULE_WRITE` is not the exact string
-  `'1'` (default off). The write path is a new-version contract: `saveRuleVersion`
-  is expected to append a new `rule_version`, never overwrite the current file
-  in place.
+  array before the response leaves the server (`normalizeYieldsTo` — this
+  adapter's own copy, independent of `workspace_ledgers`' identically-named
+  one, since the GET path does not depend on that module).
+- `POST /mail-rule/preview`, `POST /mail-rule/save` and `POST /mail-rule/refresh`
+  fully validate the request (loopback + same-origin, `Content-Type:
+  application/json`, body ≤64KB; preview/save additionally validate the draft
+  shape: ≤60 exact + ≤60 hint terms, literal ≤80 chars, regex ≤120 chars and
+  must compile, unique labels, note ≤500 chars, and an optional `yields_to`
+  validated in the same three shapes as a stored rule but passed through
+  unedited) and then call an injectable `core` object
+  (`{ previewRule, saveRuleVersion, refresh }`) — by default a loader that
+  imports `guild_hall/workspace_ledgers/src/index.mjs` and answers
+  `503 {"state":"core_module_unavailable"}` if that import fails or the module
+  does not export all three functions. `CORE_MODULE_SPECIFIER`/`CORE_EXPORTS`
+  near the top of `mail-rule-adapter.mjs` are the one place that would need to
+  change if the module's entry file ever moves. `POST /mail-rule/save` and
+  `POST /mail-rule/refresh` both write and so both refuse with
+  `403 {"state":"write_disabled"}` before any body parsing when
+  `TEAM_OPS_MAIL_RULE_WRITE` is not the exact string `'1'` (default off);
+  `POST /mail-rule/preview` never writes and has no such gate. All three refuse
+  with `503 {"state":"custody_unconfigured"}` when the mail-event directories
+  (and, for save/refresh, the org config and receipts directory) are not set.
+  - `previewRule`/`saveRuleVersion` take a *full* rule document, not just the
+    edited fields — `mail-rule-adapter.mjs`'s `buildFullDraft` merges the UI's
+    `{exact, hint, yields_to}` draft onto the project's current on-disk rule
+    (read through the same GET path above) before calling either. This module
+    only versions an *existing* rule; a project with no current rule answers
+    `400 {"state":"denied","reason":"no_current_rule"}`.
+  - Matching is subject-only (`fields: ['subject']`) on every preview/save/
+    refresh call — the Owner-approved default: the core module's builder
+    measured that adding body/attachment matching raises overall matches by
+    only ~5% but raises two-project conflicts (held, no auto-attribution) from
+    1 to 98.
+  - `POST /mail-rule/save` re-runs `previewRule` server-side (never trusts a
+    client-supplied preview result) to obtain `measured` for the saved rule's
+    rendered markdown "근거" line, calls `saveRuleVersion({by:'owner', note,
+    measured})`, invalidates this adapter's own GET-path cache for that
+    project, then calls `refresh(...)` **omitting `projects`** — the core
+    module's own default for an omitted `projects` is "every onboarded
+    project", which is also the correct fallback here: `previewRule`'s return
+    shape carries counts and title samples only, never the *other* project
+    codes whose custody attribution shifted, so there is no narrower list this
+    adapter could construct instead. A `refresh` failure after a successful
+    save does **not** roll the save back (the rule is already the source of
+    truth on disk) — the response is
+    `200 {"state":"saved_refresh_failed","rule_version","error_code"}` instead
+    of the success shape
+    `200 {"state":"saved","rule_version","previous_version","refresh":{"projects","changed_files"}}`.
+    `POST /mail-rule/refresh` is the UI's "다시 시도" retry after that failure;
+    it ignores its body and always refreshes every onboarded project too, for
+    the same reason.
 
-`TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`, and
-`TEAM_OPS_MAIL_RULE_WRITE` ride the same allowlisted scheduled-runtime binding
-file as the five existing `operations-read-configuration.mjs` keys (explicit
-environment still wins over the binding file).
+`TEAM_OPS_WORKSPACES_ROOT`, `TEAM_OPS_WORKMETA_ROOT`, `TEAM_OPS_MAIL_RULE_WRITE`,
+`TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR`, `TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR`,
+`TEAM_OPS_LEDGER_ORG_CONFIG` and `TEAM_OPS_LEDGER_RECEIPTS_DIR` ride the same
+allowlisted scheduled-runtime binding file as the five existing
+`operations-read-configuration.mjs` keys (explicit environment still wins over
+the binding file). The two event-dir keys are single directory paths; the
+adapter wraps each into the one-element array `workspace_ledgers`'
+`hiworksDirs`/`gmailSentDirs` options expect (that module reads every
+`*.jsonl` file directly inside each given directory, non-recursively).
 
 `src/operations-mail-rules.tsx` (`MailRulePanel`) renders the "메일 분류 키워드"
 panel on the project overview only when a project is selected
@@ -897,12 +934,18 @@ status starting with `draft` to 초안, `confirmed`/`accepted` to 확정, and
 shows anything else as-is (`mailRuleStatusLabel`/`mailRuleStatusTone`) — real
 files already use a wider vocabulary than the original 초안/확정 pair (e.g.
 `draft_open_items`). Edit mode lets the Owner add/remove literal chips only
-(existing regex terms can be removed but never authored in the UI), write a
-note, and run "미리보기"/"새 판으로 저장" — both disabled with a one-line
-reason ("쓰기 꺼짐" / core `503`) whenever `write_enabled` is false or the core
-call answers unavailable. The chip add/remove/dedupe/limit arithmetic and the
-status-label mapping are the pure, DOM-free `src/core/mail-rule-chip-editor.mjs`.
-Styling lives in
+(existing regex terms can be removed but never authored in the UI) and write a
+note; "새 판으로 저장" stays disabled until "미리보기" has actually run against
+the *current* draft (tracked by a snapshot key, invalidated by any further
+chip edit) and the note is non-empty — both are also enforced server-side
+(an empty note refuses the underlying `saveRuleVersion` call). The preview
+area shows the three sample-title lists (`moved_in`/`moved_out`/`newly_held`,
+≤80 chars each) under collapsed headings. After a successful save the panel
+reloads the snapshot and shows "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일";
+after a save whose refresh step failed it shows "규칙은 저장됨, 장부 갱신 실패"
+with a "다시 시도" button that calls `POST /mail-rule/refresh`. The chip
+add/remove/dedupe/limit arithmetic and the status-label mapping are the pure,
+DOM-free `src/core/mail-rule-chip-editor.mjs`. Styling lives in
 `src/operations-mail-rules.css`.
 
 ### Optional local tailnet Host allowlist

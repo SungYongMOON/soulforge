@@ -25,13 +25,20 @@ test('mail rule panel settings default unconfigured, allow the scheduled binding
   t.after(()=>rm(root,{recursive:true,force:true}));
   const bindingPath=path.join(root,'read-settings.json');
   const unset=await readOperationsReadConfiguration({bindingPath,env:{}});
-  assert.deepEqual(unset.mailRule,{workspacesRoot:undefined,workmetaRoot:undefined,writeEnabled:false});
+  assert.deepEqual(unset.mailRule,{workspacesRoot:undefined,workmetaRoot:undefined,writeEnabled:false,
+    hiworksEventsDir:undefined,gmailSentEventsDir:undefined,ledgerOrgConfigPath:undefined,ledgerReceiptsDir:undefined});
   await writeFile(bindingPath,JSON.stringify({TEAM_OPS_WORKSPACES_ROOT:'/from/binding',TEAM_OPS_MAIL_RULE_WRITE:'yes'}));
   const fromBinding=await readOperationsReadConfiguration({bindingPath,env:{}});
   assert.equal(fromBinding.mailRule.workspacesRoot,'/from/binding');
   assert.equal(fromBinding.mailRule.writeEnabled,false,'only the exact string "1" enables writes');
-  const fromEnv=await readOperationsReadConfiguration({bindingPath,env:{TEAM_OPS_WORKSPACES_ROOT:'/from/env',TEAM_OPS_WORKMETA_ROOT:'/from/env/meta',TEAM_OPS_MAIL_RULE_WRITE:'1'}});
+  const fromEnv=await readOperationsReadConfiguration({bindingPath,env:{TEAM_OPS_WORKSPACES_ROOT:'/from/env',TEAM_OPS_WORKMETA_ROOT:'/from/env/meta',TEAM_OPS_MAIL_RULE_WRITE:'1',
+    TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR:'/from/env/hiworks',TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR:'/from/env/gmail',
+    TEAM_OPS_LEDGER_ORG_CONFIG:'/from/env/org.json',TEAM_OPS_LEDGER_RECEIPTS_DIR:'/from/env/receipts'}});
   assert.equal(fromEnv.mailRule.workspacesRoot,'/from/env','explicit environment overrides the scheduled binding');
   assert.equal(fromEnv.mailRule.workmetaRoot,'/from/env/meta');
   assert.equal(fromEnv.mailRule.writeEnabled,true);
+  assert.equal(fromEnv.mailRule.hiworksEventsDir,'/from/env/hiworks');
+  assert.equal(fromEnv.mailRule.gmailSentEventsDir,'/from/env/gmail');
+  assert.equal(fromEnv.mailRule.ledgerOrgConfigPath,'/from/env/org.json');
+  assert.equal(fromEnv.mailRule.ledgerReceiptsDir,'/from/env/receipts');
 });

@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## 2026-09-21 - 메일 분류 키워드 패널을 `guild_hall/workspace_ledgers` 핵심 모듈에 실제 연결
+
+- Revision: 이 항목을 포함한 커밋 (`claude/workspace-ledgers-v0`(d08f7441)을
+  `claude/ops-mail-rule-panel-v0`에 병합 후 이어지는 배선 커밋).
+- 무엇이 바뀌었는가: `src/server/mail-rule-adapter.mjs`의 `POST /mail-rule/preview`·
+  `POST /mail-rule/save`를 이제 실제 `guild_hall/workspace_ledgers/src/index.mjs`
+  (`previewRule`/`saveRuleVersion`/`refresh`)로 연결했고 `POST /mail-rule/refresh`
+  (재시도 전용) 경로를 새로 추가했다. `CORE_MODULE_SPECIFIER`를 추정 경로에서
+  실제 경로로 바꾸고, 새 설정 4종(`TEAM_OPS_MAIL_HIWORKS_EVENTS_DIR`,
+  `TEAM_OPS_MAIL_GMAIL_SENT_EVENTS_DIR`, `TEAM_OPS_LEDGER_ORG_CONFIG`,
+  `TEAM_OPS_LEDGER_RECEIPTS_DIR`)를 기존 5개 키와 같은 예약작업 바인딩 파일에
+  추가했다. `previewRule`/`saveRuleVersion`은 편집한 부분만이 아니라 전체 규칙
+  문서를 요구하므로, 새 `buildFullDraft`가 저장된 현재 규칙 위에 UI 초안의
+  `{exact,hint,yields_to}`만 덮어써 core에 넘긴다(현재 규칙이 없으면
+  `no_current_rule`로 거부 — 이 모듈은 기존 규칙의 버전만 올리고 최초 작성은
+  하지 않는다). 매칭은 Owner 승인 기본값인 제목(subject)만 사용한다(core
+  빌더 실측: 본문·첨부까지 포함하면 전체 일치는 약 5%만 늘지만 두 과제 동시
+  확정 충돌(보류)이 1건에서 98건으로 늘어남). 저장은 core의 `previewRule`을
+  서버에서 다시 실행해 얻은 `measured`로 `saveRuleVersion`을 호출한 뒤,
+  `refresh`를 `projects`를 생략해(core의 기본값 = 전체 과제) 호출한다 —
+  previewRule 결과에는 영향받은 다른 과제 코드가 없어 더 좁힐 근거가 없다.
+  저장은 성공했는데 refresh만 실패하면 롤백하지 않고
+  `{state:'saved_refresh_failed', rule_version, error_code}`를 반환하며,
+  화면은 "규칙은 저장됨, 장부 갱신 실패 — 다시 시도" 배지와 `POST
+  /mail-rule/refresh` 재시도 버튼을 보여준다. 쓰기 경로(save·refresh)는
+  여전히 `TEAM_OPS_MAIL_RULE_WRITE==='1'`이 아니면 다른 처리보다 먼저
+  `403 write_disabled`로 거부하고(preview는 이 게이트가 없음), custody
+  디렉터리가 설정되지 않으면 세 경로 모두 `503 custody_unconfigured`를
+  반환한다. UI(`operations-mail-rules.tsx`)는 저장 성공 후 스냅샷을 다시
+  읽고 "v\<old\> → v\<new\> 저장됨, 장부 갱신 n개 파일"을 보여주며, "새 판으로
+  저장" 버튼은 현재 초안으로 미리보기를 실제로 실행하고 사유를 입력해야
+  활성화된다. 미리보기 표본 3종(새로 들어옴/빠짐/보류)은 접이식 목록으로
+  표시한다.
+- 운영 영향: 쓰기는 기본 꺼짐(`TEAM_OPS_MAIL_RULE_WRITE` 미설정)이라 이 커밋
+  자체로는 아무 실제 규칙·장부 파일도 바꾸지 않는다. 읽기 전용 수동 확인에서
+  P26-005의 현재 규칙을 변경 없이 미리보기했을 때 `matched_before ==
+  matched_after`(35 == 35), 이동 0건을 확인했고, 저장 시도는 예상대로
+  `403 write_disabled`였다.
+- 관련 경로: `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.mjs`,
+  `ui-workspace/apps/team-ops-board/src/server/operations-read-configuration.test.mjs`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.css`,
+  `ui-workspace/apps/team-ops-board/README.md`.
+- 검증: 앱 `npm test`(1091/1091, 실제 core 모듈로 preview→save→refresh를
+  끝까지 실행하는 통합 테스트 1개 포함), 루트 `npm run validate:team-ops-app`
+  (동일), `tsc --noEmit` 통과, `npx vite build --config
+  operations-preview.config.ts` 통과, 루트 `npm run ui:done:check` 통과(PASS
+  ui-workspace acceptance check), 루트 `npm run validate:workspace-ledgers`
+  (39/39 통과, 이 저장소의 기존 core 모듈 자체 테스트), 루트 `node
+  guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(변경
+  6파일, violations 0) 통과. 포트 4196 수동 확인은 실제 워크스페이스·custody
+  플레인을 읽기 전용으로만 사용했고(쓰기 플래그 미설정) 키워드·제목 등
+  실자료 내용은 어디에도 출력하지 않았다.
+
 ## 2026-09-21 - 메일 분류 키워드 패널: yields_to 배열화 + 상태 배지 어휘 확장 대응
 
 - Revision: 이 항목을 포함한 커밋 (직전 "운영 콘솔에 프로젝트별 메일 분류 키워드 패널 추가" 커밋의

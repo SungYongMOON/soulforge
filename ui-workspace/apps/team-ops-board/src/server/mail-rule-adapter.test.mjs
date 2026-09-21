@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   createMailRuleReader, createMailRulePlugin, validateRuleDocument, parseBulletSection,
   validateDraft, findProjectFolders, createDefaultMailRuleCore, normalizeYieldsTo,
-  MAIL_RULES_SNAPSHOT_PATH, MAIL_RULE_SNAPSHOT_PATH, MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH,
+  MAIL_RULES_SNAPSHOT_PATH, MAIL_RULE_SNAPSHOT_PATH, MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH,
 } from './mail-rule-adapter.mjs';
 
 const RULE_DIR = ['020_MGMT', '021_자동화설정_운영규칙'];
@@ -212,6 +213,112 @@ test('a rule file missing its optional md twin still returns ready with empty de
   assert.deepEqual(result.open_items, []);
 });
 
+// ---------- preview / save / refresh (reader level, injected fake core) ----------
+
+async function custodyFixture(t) {
+  const f = await fixture(t);
+  const hiworksDir = path.join(f.root, 'events', 'hiworks');
+  const gmailDir = path.join(f.root, 'events', 'gmail_sent');
+  const receiptsDir = path.join(f.root, 'receipts');
+  const workmetaRoot = path.join(f.root, 'workmeta');
+  for (const dir of [hiworksDir, gmailDir, receiptsDir]) await mkdir(dir, { recursive: true });
+  const orgConfigPath = path.join(f.root, 'org_config.json');
+  await writeFile(orgConfigPath, JSON.stringify({ our_domain: 'example.com', organisations: { 'example.com': 'Example Corp' }, family: {} }));
+  return { ...f, hiworksDir, gmailDir, receiptsDir, orgConfigPath, workmetaRoot };
+}
+function custodyOptions(f, extra = {}) {
+  return { workspacesRoot: f.workspacesRoot, hiworksEventsDir: f.hiworksDir, gmailSentEventsDir: f.gmailDir,
+    ledgerOrgConfigPath: f.orgConfigPath, ledgerReceiptsDir: f.receiptsDir, ...extra };
+}
+function refreshReceiptFixture(codes) {
+  return { projects: codes.map(project_code => ({ project_code,
+    contacts: { written: true }, received_history: { written: false }, sent_history: { written: true }, reply_status: { written: false } })) };
+}
+
+test('buildFullDraft (via preview) merges the UI draft onto the current on-disk rule, preserving unedited fields; throws when there is no current rule', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc({ status: 'draft_open_items' }));
+  let seenDraft;
+  const fakeCore = { previewRule: async args => { seenDraft = args.draft; return { matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }; },
+    saveRuleVersion: async () => ({}), refresh: async () => ({ projects: [] }) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore }));
+  await reader.preview('P00-001', { exact: [{ label: 'new', kind: 'literal', value: 'new' }], hint: [] });
+  assert.deepEqual(seenDraft.exact, [{ label: 'new', kind: 'literal', value: 'new' }]);
+  assert.equal(seenDraft.status, 'draft_open_items', 'unedited fields (status, schema_version, conflict_policy, …) carry through from disk');
+  assert.equal(seenDraft.schema_version, 'soulforge.project_mail_routing_rule.v0');
+  assert.equal(seenDraft.project_code, 'P00-001');
+
+  await assert.rejects(reader.preview('P00-009', { exact: [], hint: [] }), error => error.code === 'no_current_rule');
+});
+
+test('preview requires custody dirs and answers a tagged custody_unconfigured error otherwise', async t => {
+  const f = await fixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot, core: { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => ({}) } });
+  await assert.rejects(reader.preview('P00-001', { exact: [], hint: [] }), error => error.code === 'custody_unconfigured');
+  await assert.rejects(reader.save('P00-001', { exact: [], hint: [] }, 'note'), error => error.code === 'custody_unconfigured');
+  await assert.rejects(reader.refreshAll(), error => error.code === 'custody_unconfigured');
+});
+
+test('save re-runs preview server-side for `measured`, saves, then refreshes every onboarded project (omitting `projects` means "all")', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let refreshArgs, saveArgs, previewCount = 0;
+  const measuredStub = { matched_before: 3, matched_after: 4, moved_in: 1, moved_out: 0, newly_held: 0, samples: {} };
+  const fakeCore = {
+    previewRule: async () => { previewCount += 1; return measuredStub; },
+    saveRuleVersion: async args => { saveArgs = args; return { rule_version: 'v2', previous_version: 'v1' }; },
+    refresh: async args => { refreshArgs = args; return refreshReceiptFixture(['P00-001', 'P00-002']); },
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [{ label: 'a', kind: 'literal', value: 'a' }], hint: [] }, '메모');
+  assert.equal(previewCount, 1, 'preview is re-run server-side exactly once to obtain measured');
+  assert.deepEqual(saveArgs.measured, measuredStub);
+  assert.equal(saveArgs.by, 'owner');
+  assert.equal(saveArgs.note, '메모');
+  assert.equal(refreshArgs.projects, undefined, 'projects is omitted so refresh() covers every onboarded project, not a guessed subset');
+  assert.equal(refreshArgs.fields[0], 'subject');
+  assert.deepEqual(outcome, { kind: 'saved', rule_version: 'v2', previous_version: 'v1', refresh: { projects: ['P00-001', 'P00-002'], changed_files: 4 } });
+});
+
+test('a refresh failure after a successful save reports saved_refresh_failed and does not roll the save back', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => { const error = new Error('refresh boom'); error.code = 'workspace_ledgers_refresh_lock_held'; throw error; },
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const outcome = await reader.save('P00-001', { exact: [], hint: [] }, '메모');
+  assert.deepEqual(outcome, { kind: 'saved_refresh_failed', rule_version: 'v2', error_code: 'workspace_ledgers_refresh_lock_held' });
+});
+
+test('save invalidates this adapter\'s own GET cache for the project and the list so a reload sees the new version', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  let version = 'v1';
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }),
+    refresh: async () => refreshReceiptFixture(['P00-001']),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore, writeEnabled: true }));
+  const before = await reader.readProject('P00-001');
+  assert.equal(before.rule.rule_version, 'v1');
+  await reader.save('P00-001', { exact: [], hint: [] }, '메모');
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc({ rule_version: 'v2' })); // stand-in for the real core's on-disk write
+  const after = await reader.readProject('P00-001');
+  assert.equal(after.rule.rule_version, 'v2', 'not served from the pre-save cache entry');
+});
+
+test('refreshAll summarizes the receipt into project codes and a changed-file count', async t => {
+  const f = await custodyFixture(t);
+  const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture(['P00-001', 'P00-002', 'P00-003']) };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore }));
+  assert.deepEqual(await reader.refreshAll(), { projects: ['P00-001', 'P00-002', 'P00-003'], changed_files: 6 });
+});
+
 // ---------- default core loader ----------
 
 test('the default core reports core_module_unavailable when the sibling module cannot be imported', async () => {
@@ -273,29 +380,38 @@ test('GET /mail-rule.snapshot.json returns the ready projection for a configured
   assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
 });
 
-test('POST /mail-rule/save refuses write_disabled before any body parsing when the write flag is off', async t => {
-  const f = await fixture(t);
-  const call = harness({ workspacesRoot: f.workspacesRoot, writeEnabled: false });
-  const res = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: 'not even json' });
-  assert.equal(res.statusCode, 403);
-  assert.deepEqual(JSON.parse(res.body), { state: 'write_disabled' });
+test('POST /mail-rule/save and /mail-rule/refresh both refuse write_disabled before any body parsing when the write flag is off; preview does not', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }), saveRuleVersion: async () => ({}), refresh: async () => ({ projects: [] }) };
+  const call = harness(custodyOptions(f, { writeEnabled: false, core: fakeCore }));
+  for (const p of [MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH]) {
+    const res = await call(p, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: 'not even json' });
+    assert.equal(res.statusCode, 403, p);
+    assert.deepEqual(JSON.parse(res.body), { state: 'write_disabled' }, p);
+  }
+  const previewOk = await call(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } }) });
+  assert.equal(previewOk.statusCode, 200, 'preview never writes and has no write-flag gate');
 });
 
-test('POST /mail-rule/preview and /mail-rule/save answer core_module_unavailable once validation passes and no core is wired', async t => {
+test('POST /mail-rule/preview, /mail-rule/save and /mail-rule/refresh all answer 503 custody_unconfigured when the mail-event directories are not set', async t => {
   const f = await fixture(t);
-  const call = harness({ workspacesRoot: f.workspacesRoot, writeEnabled: true });
-  const draft = { project: 'P00-001', draft: { exact: [{ label: 'a', kind: 'literal', value: 'a' }], hint: [] } };
-  for (const p of [MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH]) {
-    const res = await call(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(draft) });
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}), refresh: async () => ({ projects: [] }) };
+  const call = harness({ workspacesRoot: f.workspacesRoot, writeEnabled: true, core: fakeCore });
+  const body = JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } });
+  for (const p of [MAIL_RULE_PREVIEW_PATH, MAIL_RULE_SAVE_PATH, MAIL_RULE_REFRESH_PATH]) {
+    const res = await call(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
     assert.equal(res.statusCode, 503, p);
-    assert.deepEqual(JSON.parse(res.body), { state: 'core_module_unavailable' }, p);
+    assert.deepEqual(JSON.parse(res.body), { state: 'custody_unconfigured' }, p);
   }
 });
 
 test('POST routes validate content-type, oversized bodies and invalid drafts with an injected fake core', async t => {
-  const f = await fixture(t);
-  const fakeCore = { previewRule: async args => ({ matched_before: 1, matched_after: 2, args }), saveRuleVersion: async () => ({ rule_version: 'v2' }), refresh: async () => ({}) };
-  const call = harness({ workspacesRoot: f.workspacesRoot, writeEnabled: true, core: fakeCore });
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = { previewRule: async () => ({ matched_before: 1, matched_after: 2, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }), saveRuleVersion: async () => ({ rule_version: 'v2' }), refresh: async () => ({}) };
+  const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
 
   const wrongType = await call(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: '{}' });
   assert.equal(wrongType.statusCode, 415);
@@ -309,11 +425,105 @@ test('POST routes validate content-type, oversized bodies and invalid drafts wit
   const badProject = await call(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'not-a-code', draft: { exact: [], hint: [] } }) });
   assert.equal(badProject.statusCode, 400);
 
+  const noCurrentRule = await call(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-009', draft: { exact: [], hint: [] } }) });
+  assert.equal(noCurrentRule.statusCode, 400);
+  assert.deepEqual(JSON.parse(noCurrentRule.body), { state: 'denied', reason: 'no_current_rule' });
+
   const ok = await call(MAIL_RULE_PREVIEW_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [{ label: 'a', kind: 'literal', value: 'a' }], hint: [] } }) });
   assert.equal(ok.statusCode, 200);
-  assert.equal(JSON.parse(ok.body).state, 'ready');
+  assert.deepEqual(JSON.parse(ok.body).result, { matched_before: 1, matched_after: 2, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} });
+});
 
-  const saved = await call(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] } }) });
+test('POST /mail-rule/save: success answers state:saved with version and refresh summary; a refresh failure answers state:saved_refresh_failed', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const okCore = { previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({ rule_version: 'v2', previous_version: 'v1' }), refresh: async () => refreshReceiptFixture(['P00-001']) };
+  const okCall = harness(custodyOptions(f, { writeEnabled: true, core: okCore }));
+  const saved = await okCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모' }) });
   assert.equal(saved.statusCode, 200);
-  assert.deepEqual(JSON.parse(saved.body), { state: 'ready', result: { rule_version: 'v2' } });
+  assert.deepEqual(JSON.parse(saved.body), { state: 'saved', rule_version: 'v2', previous_version: 'v1', refresh: { projects: ['P00-001'], changed_files: 2 } });
+
+  const failingCore = { previewRule: okCore.previewRule, saveRuleVersion: okCore.saveRuleVersion,
+    refresh: async () => { const error = new Error('boom'); error.code = 'workspace_ledgers_refresh_lock_held'; throw error; } };
+  const failCall = harness(custodyOptions(f, { writeEnabled: true, core: failingCore }));
+  const savedButRefreshFailed = await failCall(MAIL_RULE_SAVE_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project: 'P00-001', draft: { exact: [], hint: [] }, note: '메모' }) });
+  assert.equal(savedButRefreshFailed.statusCode, 200, 'the rule itself is already saved; this is not an HTTP error');
+  assert.deepEqual(JSON.parse(savedButRefreshFailed.body), { state: 'saved_refresh_failed', rule_version: 'v2', error_code: 'workspace_ledgers_refresh_lock_held' });
+});
+
+test('POST /mail-rule/refresh (retry) requires the write flag, ignores its body, and returns the same project/changed_files summary', async t => {
+  const f = await custodyFixture(t);
+  let sawProjectsArg = 'unset';
+  const fakeCore = { previewRule: async () => ({}), saveRuleVersion: async () => ({}),
+    refresh: async args => { sawProjectsArg = args.projects; return refreshReceiptFixture(['P00-001', 'P00-002']); } };
+  const call = harness(custodyOptions(f, { writeEnabled: true, core: fakeCore }));
+  const res = await call(MAIL_RULE_REFRESH_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(res.body), { state: 'ready', refresh: { projects: ['P00-001', 'P00-002'], changed_files: 4 } });
+  assert.equal(sawProjectsArg, undefined, 'retry also refreshes every onboarded project, not a remembered subset');
+});
+
+// ---------- integration: the REAL guild_hall/workspace_ledgers core module, no injected core ----------
+// Synthetic temp workspace + synthetic custody fixture only — no real project data anywhere.
+
+test('integration: preview then save against the real core module actually versions the rule and refreshes ledgers on disk', async t => {
+  const f = await custodyFixture(t);
+  const code = 'P00-001', folder = 'P00-001_예시과제';
+  const baseRule = {
+    schema_version: 'soulforge.project_mail_routing_rule.v0', project_code: code, folder_name: folder, rule_version: 'v1',
+    status: 'draft_open_items', match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [{ label: 'P00-001', kind: 'literal', value: 'P00-001' }], hint: [],
+    yields_to: null, conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only',
+    human_text: 'mail_routing_rule.md', generated_at: '2026-09-21T00:00:00.000Z',
+  };
+  const baseMd = [
+    `# 메일 라우팅 규칙 — ${code}`, '', '- 상태: 초안 v1', '',
+    '## 확정 트리거 (제목·본문·첨부명에 있으면 이 과제로 본다)', '', '- `P00-001`', '',
+    '## Owner 확인 기록', '', '- 예시 결정 A', '',
+    '## Owner 확인이 필요한 것', '', '- 예시 미결 항목', '',
+  ].join('\n');
+  await writeProject(f.workspacesRoot, folder, baseRule, baseMd);
+  await writeFile(path.join(f.hiworksDir, 'events.jsonl'), [
+    { event_id: 'h1', subject: '[P00-001] 납품 안내', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    { event_id: 'h2', subject: '새로운 장비 문의', from: 'other@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+  ].map(line => JSON.stringify(line)).join('\n'));
+
+  const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot, workmetaRoot: f.workmetaRoot, writeEnabled: true,
+    hiworksEventsDir: f.hiworksDir, gmailSentEventsDir: f.gmailDir, ledgerOrgConfigPath: f.orgConfigPath, ledgerReceiptsDir: f.receiptsDir });
+  // No `core` option: this exercises the real default loader importing the real, now-merged
+  // guild_hall/workspace_ledgers/src/index.mjs — not a fake.
+  const draft = { exact: [{ label: 'P00-001', kind: 'literal', value: 'P00-001' }, { label: '새로운장비', kind: 'literal', value: '새로운 장비' }], hint: [] };
+
+  const preview = await reader.preview(code, draft);
+  assert.equal(preview.matched_before, 1, 'only h1 matches the current rule');
+  assert.equal(preview.matched_after, 2, 'h2 now also matches the draft\'s new term');
+  assert.equal(preview.moved_in, 1);
+  assert.equal(existsSync(path.join(f.workspacesRoot, folder, ...RULE_DIR, 'history')), false, 'preview never writes');
+
+  const outcome = await reader.save(code, draft, '실측 확인 후 확정 트리거 추가');
+  assert.equal(outcome.kind, 'saved');
+  assert.equal(outcome.previous_version, 'v1');
+  assert.equal(outcome.rule_version, 'v2');
+  assert.ok(outcome.refresh.changed_files > 0, 'the refresh actually rewrote at least one ledger CSV');
+  assert.ok(outcome.refresh.projects.includes(code));
+
+  const currentRuleText = await readFile(path.join(f.workspacesRoot, folder, ...RULE_DIR, 'mail_routing_rule.json'), 'utf8');
+  const currentRule = JSON.parse(currentRuleText);
+  assert.equal(currentRule.rule_version, 'v2', 'the canonical file now holds vN+1');
+  assert.deepEqual(currentRule.exact.map(term => term.label), ['P00-001', '새로운장비']);
+
+  const historyJsonPath = path.join(f.workspacesRoot, folder, ...RULE_DIR, 'history', 'mail_routing_rule.v1.json');
+  assert.equal(existsSync(historyJsonPath), true, 'history holds vN');
+  const historyRule = JSON.parse(await readFile(historyJsonPath, 'utf8'));
+  assert.equal(historyRule.rule_version, 'v1');
+  assert.deepEqual(historyRule.exact.map(term => term.label), ['P00-001'], 'the archived version is the pre-save rule, unedited');
+
+  const contactsCsvPath = path.join(f.workspacesRoot, folder, '020_MGMT/023_연락처_이해관계자/연락처_장부.csv');
+  assert.equal(existsSync(contactsCsvPath), true, 'refresh() wrote a ledger CSV, not just the receipt');
+
+  // The GET-path cache was invalidated by save(); a fresh readProject sees v2, not the
+  // pre-save v1 that would otherwise still be cached for up to 60 seconds.
+  const reread = await reader.readProject(code);
+  assert.equal(reread.rule.rule_version, 'v2');
 });
