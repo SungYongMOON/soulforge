@@ -188,12 +188,22 @@ $Entry = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "guild_hall\workspace_
 $HiddenLauncher = Resolve-CanonicalFile -Path (Join-Path $LaneRoot "guild_hall\workspace_ledgers\ops\run-workspace-ledgers-hidden.vbs")
 
 # A lane rebuild must never write into anything this task reads or writes,
-# and a receipt/lock write must never land inside the lane itself.
+# and a receipt/lock write must never land inside the lane itself. R4
+# (2026-09-22 review): this header has always CLAIMED the two custody roots
+# are checked disjoint too -- they were not, until now. Ported from the
+# sibling voice/graph-sync registrars' own root-table check: the org config's
+# own DIRECTORY (not the file itself, which -OrgConfigSha256 already pins)
+# must also never sit inside the lane root.
 Assert-DisjointPath -Left $LaneRoot -Right $ReceiptsRoot
 Assert-DisjointPath -Left $LaneRoot -Right $WorkspacesRoot
 Assert-DisjointPath -Left $LaneRoot -Right $WorkmetaRoot
+Assert-DisjointPath -Left $LaneRoot -Right $HiworksEventsPath
+Assert-DisjointPath -Left $LaneRoot -Right $GmailSentEventsPath
+Assert-DisjointPath -Left $LaneRoot -Right ([IO.Path]::GetDirectoryName($OrgConfigPath))
 Assert-DisjointPath -Left $ReceiptsRoot -Right $WorkspacesRoot
 Assert-DisjointPath -Left $ReceiptsRoot -Right $WorkmetaRoot
+Assert-DisjointPath -Left $ReceiptsRoot -Right $HiworksEventsPath
+Assert-DisjointPath -Left $ReceiptsRoot -Right $GmailSentEventsPath
 
 $ActualLaneManifestSha256 = Get-Sha256File -Path $LaneManifest
 if ($ActualLaneManifestSha256 -ne $LaneManifestSha256) { throw "workspace ledgers daily lane manifest SHA-256 changed" }
@@ -215,7 +225,26 @@ $DailyArguments = @(
 # Preflight: the same entry point, in the mode that checks the org-config
 # digest and the two roots and calls neither refresh() nor refreshCommon(),
 # writing nothing -- not even the daily lock.
-$PreflightOutput = @(& $NodePath $Entry @DailyArguments "--dry" 2>&1)
+#
+# Nit (2026-09-22 review): under `$ErrorActionPreference = "Stop"` (set at
+# the top of this script), `2>&1` on a NATIVE command turns anything it
+# writes to stderr into a terminating `NativeCommandError` -- the `throw`
+# below, which is meant to surface the daily runner's own "dry preflight
+# failed" message, never runs; PowerShell's own native-command error masks
+# it instead. `$ErrorActionPreference` is lowered to "Continue" for the
+# duration of this one call (native stderr is captured into $PreflightOutput
+# either way -- see the tool notes this repo's own agents already use: "avoid
+# 2>&1 on native executables ... stderr is already captured for you") and
+# restored immediately after in a `finally`, so this stays fail-closed: the
+# `$LASTEXITCODE` check right after still throws on any non-zero exit,
+# with the daily runner's own real message intact this time.
+$PriorErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+  $PreflightOutput = @(& $NodePath $Entry @DailyArguments "--dry" 2>&1)
+} finally {
+  $ErrorActionPreference = $PriorErrorActionPreference
+}
 if ($LASTEXITCODE -ne 0) {
   throw "workspace ledgers daily dry preflight failed: $($PreflightOutput -join ' ')"
 }
@@ -251,13 +280,19 @@ $ExistingTaskXml = $null
 $ExistingTaskXmlSha256 = $null
 if ($Existing) {
   if ($Existing.State -eq "Running") { throw "the existing workspace ledgers daily task is still running" }
-  if (-not $ExpectedExistingTaskSha256 -or $ExpectedExistingTaskSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
-    throw "replacing the existing workspace ledgers daily task requires its exact SHA-256"
-  }
   if (-not (Test-Path -LiteralPath $TaskFile -PathType Leaf)) { throw "the existing workspace ledgers daily task file is unavailable" }
+  # S4 (2026-09-22 review): computed BEFORE the -ExpectedExistingTaskSha256
+  # check (reordered from before, which checked the caller's value first and
+  # never computed this at all when it was missing) so an operator who omitted
+  # -ExpectedExistingTaskSha256 gets the actual current digest printed right
+  # in the error -- something to copy into the next invocation -- instead of a
+  # message that only says a digest is required without saying what it is.
   $ActualExistingTaskSha256 = (Get-Sha256File -Path $TaskFile).Substring(7).ToUpperInvariant()
+  if (-not $ExpectedExistingTaskSha256 -or $ExpectedExistingTaskSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+    throw "replacing the existing workspace ledgers daily task requires its exact SHA-256 (current: $ActualExistingTaskSha256)"
+  }
   if ($ActualExistingTaskSha256 -ne $ExpectedExistingTaskSha256.ToUpperInvariant()) {
-    throw "the existing workspace ledgers daily task SHA-256 changed"
+    throw "the existing workspace ledgers daily task SHA-256 changed (current: $ActualExistingTaskSha256)"
   }
   $ExistingTaskXml = Export-ScheduledTask -TaskName $TaskName
   $ExistingTaskXmlSha256 = Get-Sha256Text -Value $ExistingTaskXml

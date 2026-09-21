@@ -61,6 +61,21 @@ test('register-workspace-ledgers-task.ps1: digests are pinned and asserted, and 
   assert.match(registrar, /Assert-DisjointPath -Left \$ReceiptsRoot -Right \$WorkmetaRoot/);
 });
 
+test('register-workspace-ledgers-task.ps1 (R4, 2026-09-22 review): the two custody roots and the org-config directory are actually checked disjoint from the lane/receipts roots, matching the header\'s own claim', async () => {
+  const registrar = await registrarSource();
+  // The doc header at the top of this file already claims "the two custody
+  // roots are all pairwise disjoint from the lane root and from the receipts
+  // root" -- these are the checks that make that claim true, not just stated.
+  assert.match(registrar, /Assert-DisjointPath -Left \$LaneRoot -Right \$HiworksEventsPath/);
+  assert.match(registrar, /Assert-DisjointPath -Left \$LaneRoot -Right \$GmailSentEventsPath/);
+  assert.match(registrar, /Assert-DisjointPath -Left \$ReceiptsRoot -Right \$HiworksEventsPath/);
+  assert.match(registrar, /Assert-DisjointPath -Left \$ReceiptsRoot -Right \$GmailSentEventsPath/);
+  // Ported from the sibling voice/graph-sync registrars' own root-table
+  // directory check -- the org config's DIRECTORY, not the file (already
+  // pinned by -OrgConfigSha256), must not sit inside the lane root.
+  assert.match(registrar, /Assert-DisjointPath -Left \$LaneRoot -Right \(\[IO\.Path\]::GetDirectoryName\(\$OrgConfigPath\)\)/);
+});
+
 test('register-workspace-ledgers-task.ps1: the daily-runner argument line passes --org-config-sha256 and never allowDegradedOwnerTables', async () => {
   const registrar = await registrarSource();
   assert.match(registrar, /"--workspaces-root", \$WorkspacesRoot/);
@@ -85,6 +100,38 @@ test('register-workspace-ledgers-task.ps1: daily calendar trigger, plan-digest g
   assert.match(registrar, /if \(-not \$ExpectedDryRunDigest -or \$ExpectedDryRunDigest -ne \$PlanDigest\) \{\s*\n\s*throw/);
   assert.match(registrar, /the registered workspace ledgers daily task failed exported XML attestation/);
   assert.match(registrar, /the prior definition was restored or the new task removed/);
+});
+
+test('register-workspace-ledgers-task.ps1 (S4, 2026-09-22 review): the actual existing-task digest is computed BEFORE the -ExpectedExistingTaskSha256 check and printed in both error messages', async () => {
+  const registrar = await registrarSource();
+  const lines = registrar.split('\n');
+  const computeIndex = lines.findIndex(line => line.includes('$ActualExistingTaskSha256 = (Get-Sha256File -Path $TaskFile)'));
+  const omittedCheckIndex = lines.findIndex(line => line.includes('-not $ExpectedExistingTaskSha256'));
+  assert.ok(computeIndex >= 0, 'actual-digest computation not found');
+  assert.ok(omittedCheckIndex >= 0, '-ExpectedExistingTaskSha256 omitted-check not found');
+  assert.ok(computeIndex < omittedCheckIndex,
+    'the actual digest must be computed BEFORE the omitted-check, so the omitted-check error message can include it');
+  assert.match(registrar, /requires its exact SHA-256 \(current: \$ActualExistingTaskSha256\)/);
+  assert.match(registrar, /the existing workspace ledgers daily task SHA-256 changed \(current: \$ActualExistingTaskSha256\)/);
+});
+
+test('register-workspace-ledgers-task.ps1 (nit, 2026-09-22 review): the --dry preflight capture does not let PS 5.1 turn native stderr into a masking NativeCommandError', async () => {
+  const registrar = await registrarSource();
+  // $ErrorActionPreference is lowered to "Continue" around the one native
+  // call that still uses 2>&1, and restored in a finally -- if this were
+  // left at "Stop" (the script-wide default), any stderr line from that one
+  // node invocation becomes a terminating PowerShell error that pre-empts
+  // the intended "workspace ledgers daily dry preflight failed: ..." throw,
+  // masking the real message with a generic NativeCommandError instead.
+  assert.match(registrar, /\$PriorErrorActionPreference = \$ErrorActionPreference/);
+  assert.match(registrar, /\$ErrorActionPreference = "Continue"/);
+  const tryIndex = registrar.indexOf('$ErrorActionPreference = "Continue"');
+  const preflightCallIndex = registrar.indexOf('$PreflightOutput = @(& $NodePath $Entry @DailyArguments "--dry" 2>&1)');
+  const restoreIndex = registrar.indexOf('$ErrorActionPreference = $PriorErrorActionPreference');
+  assert.ok(tryIndex >= 0 && preflightCallIndex > tryIndex, 'preflight call must run after lowering ErrorActionPreference');
+  assert.ok(restoreIndex > preflightCallIndex, 'ErrorActionPreference must be restored after the preflight call');
+  // Still fail-closed: the exit-code check right after still throws.
+  assert.match(registrar, /if \(\$LASTEXITCODE -ne 0\) \{\s*\n\s*throw "workspace ledgers daily dry preflight failed/);
 });
 
 test('register-workspace-ledgers-task.ps1: exit-code propagation tail is present and not expanded at registration time', async () => {

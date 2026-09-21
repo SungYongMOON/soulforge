@@ -1,5 +1,52 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 매일 갱신 lane 첫 신선한 눈 검토 반영: 호스트경로 재감사(R1)·미래시각 lock clamp(R2)·common 실패 카운트(R3)·registrar 격리 점검(R4)+S1-S6
+
+- Revision: 직전 커밋(daily runner·registrar·source lane 추가)에 대한 첫 별도 신선한 눈 검토 -- 실제로
+  빌드해 dry/real/손상 표 실행과 VBS 종료코드(0/2/4/노드없음→1)를 재측정, import closure 확인, Linux 치명
+  가정 없음, 위생 깨끗함 판정 + 필수 4건·should 6건·nit 5건 정정.
+- 무엇이 바뀌었는가: **(R1)** `ops/daily_refresh.mjs`가 원시 fs 에러의 `error.message`(호스트 경로+과제
+  폴더명 포함 가능)를 그대로 실패 영수증과 stderr에 적고 있었다 -- 다른 모든 형제 writer가 쓰는
+  `src/refresh.mjs`의 `redactHostPaths`로 감쌌다(영수증의 `error.message`, CLI stderr 폴백 둘 다).
+  **(R2)** daily lock 나이 계산이 `Math.max(0, ...)`로 음수를 0으로 clamp해서, 시계가 미래로 어긋난 lock은
+  영원히 "신선함"으로 보여 이후 모든 실행이 exit 3으로 막혔다 -- `src/refresh.mjs`의 자체 lock과 같은 모양
+  (`ageMs >= 0 && ageMs <= staleLockMs`, clamp 없음)으로 `acquireDailyLock`/`inspectDailyLock` 둘 다 고쳤다.
+  **(R3)** `commonCounts`가 `refreshCommon()`이 아예 내보내지 않는 `receipt.ledger_failures`를 읽고 있어서
+  common 단계가 실패해도 모든 실패 카운터가 0으로 보였다 -- `failed_files_count`(`files[].failed`)와
+  `rejected_files_count`(`rejected_files`)를 대신 보고하고 항상 0이던 필드는 뺐으며, `legacy_bucket_file_
+  present`를 결합 영수증의 `warnings` 배열(실패 아님)로 올렸다. **(R4)** registrar 머리말이 이미 "두 custody
+  root가 lane root·receipts root와 서로 겹치지 않는다"고 주장했지만 코드는 그 둘을 실제로 검사하지 않았다 --
+  `-HiworksEventsPath`/`-GmailSentEventsPath`에 대해 `Assert-DisjointPath`를 추가하고, 형제 registrar(음성/
+  graph-sync)의 root-table 디렉터리 검사를 본떠 org-config 디렉터리도 lane root와 겹치지 않는지 확인했다.
+  should: **(S1)** org-config TOCTOU -- 1단계 직후·2단계 직후 두 번 다시 sha256을 대조해, 실행 도중 설정
+  파일이 바뀌면 `org_config_changed_during_run`으로 fail-closed(exit 2, 영수증에도 기록)한다. 테스트는 스텁된
+  단계 안에서 실제로 파일을 다시 쓰는 방식으로 재현했다(타이밍 레이스 불필요). **(S2)** `exitCodeFor`가
+  라이브러리 에러 코드를 부분 문자열로 잘못 분류하던 것을 이 러너 자신의 코드만 명시적으로 매핑하는 표로
+  바꿨다(그 외 전부 기본값 2) -- `daily_lock_unavailable`은 3(다른 lock 코드와 한 묶음으로 문서화), 2단계
+  중 던져진 라이브러리 `org_config_unreadable`은 이제 4가 아니라 2. **(S3)** stale lock 회수를 고유 이름으로
+  rename한 뒤 그 rename이 성공했을 때만 `wx`로 새로 쓰도록 바꿨고(동시 회수 레이스를 rename 단계에서 원자적
+  으로 차단), README 문구가 "이 lock만으로 단일 인스턴스가 보장된다"고 과장하지 않도록
+  `IgnoreNew`·라이브러리 자체 lock도 함께 작동한다고 명시했다. **(S4)** registrar가 기존 작업의 실제 SHA-256을
+  `-ExpectedExistingTaskSha256` 검사보다 먼저 계산하도록 순서를 바꿔, 생략했을 때 에러 메시지에 현재 값을
+  그대로 찍어준다. **(S5)** `--dry` 시험이 지정된 파일 몇 개만 보는 대신 fixture plane 전체를 재귀적으로
+  스냅샷(크기+mtime)해 전후 비교하도록 강화했고, `--receipts`가 아직 없는 경우 생성하지 않는지도 시험에
+  추가했다. **(S6)** `--now`를 `validateInputs`에서 엄격한 ISO-8601 정규식으로 검사한다(영수증 파일명과 lock
+  나이 계산에 그대로 쓰이므로) -- 형식이 틀리면 exit 4.
+  nit: `--dry`의 lock 점검(`inspectDailyLock`)이 읽을 수 없는 lock 파일을 `acquireDailyLock`과 다르게
+  "보유중"으로 보고하던 것을 같은 계산식으로 통일했다. catch 경로에서 `refreshCommon()`이 THROW한 경우를
+  `{ran:true, status:'failed', reason:'threw'}`로 `previous_step_failed_closed`와 구분해 기록하도록 고쳤다
+  (같은 논리를 `refresh()` 자신이 던진 경우에도 대칭으로 적용). `daily_refresh.mjs` 머리말에 이 lane의
+  fail-closed 사슬이 `allowDegradedOwnerTables`를 절대 넘기지 않는 데 실제로 의존한다는(라이브러리의
+  Owner-table 게이트가 먼저 작동) 설명을 추가했다. registrar의 `--dry` preflight 호출이 `$ErrorActionPreference
+  = "Stop"` 아래서 `2>&1`을 쓰면 native stderr가 NativeCommandError로 바뀌어 의도한 "dry preflight failed"
+  메시지를 가려버리던 것을, 그 호출 주변에서만 `$ErrorActionPreference`를 "Continue"로 낮췄다가 finally에서
+  복원하는 방식으로 고쳤다(fail-closed는 그대로 유지).
+- 운영 영향: 없음 -- 위 커밋과 마찬가지로 아무 예약작업도 등록하지 않았고 아무 writer도 활성화하지 않았다.
+  이번 라운드는 코드·문서·테스트만 바뀌었다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/daily_refresh.mjs`, `ops/register-workspace-ledgers-task.ps1`,
+  `guild_hall/workspace_ledgers/tests/daily_refresh.test.mjs`, `tests/register_workspace_ledgers_task.test.mjs`,
+  `guild_hall/workspace_ledgers/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 매일 갱신 lane 추가: daily runner·예약작업 등록기·source lane
 
 - Revision: builder 세션 한 커밋. `refresh()`/`refreshCommon()` 라이브러리 자체(위 다섯 번의 신선한 눈
@@ -11,8 +58,8 @@
   `--reading-table`/`--vendor-table` 오버라이드 플래그 자체가 없다 -- 두 writer가 서로 다른 표 집합으로
   같은 메일을 다르게 분류할 수 없는 구조(README "hard operating rule")를 플래그를 아예 안 만드는 방식으로
   강제했다. `allowDegradedOwnerTables`는 어느 쪽에도 절대 넘기지 않는다. `--org-config-sha256`으로 설정
-  파일을 고정하고(불일치=exit 4, 시작 전 거부), 자체 daily lock(receipts 디렉터리 dot-file, 2시간 stale
-  reclaim, 재사용 시 영수증에 기록)을 두어 두 인스턴스 동시 실행을 막는다. 한 영수증
+  파일을 고정하고(불일치=exit 4, 시작 전 거부), 자체 daily lock(receipts 디렉터리의 `daily_refresh.lock`
+  파일, 2시간 stale reclaim, 재사용 시 영수증에 기록)을 두어 두 인스턴스 동시 실행을 막는다. 한 영수증
   (`soulforge.workspace_ledgers_daily_receipt.v1`)에 두 단계의 status·개수만 담고(제목·이름·주소·호스트
   경로 없음) atomic write. `--dry`는 `refresh()`/`refreshCommon()` 자체를 호출하지 않는다(그 둘은 dry에서도
   자기 감사 영수증 파일을 쓰므로) -- org-config 다이제스트와 두 root 존재만 확인하고 아무것도 쓰지 않는다.

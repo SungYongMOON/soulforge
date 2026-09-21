@@ -15,7 +15,13 @@
 // `allowDegradedOwnerTables` is never passed (never `true`) to either call --
 // a malformed Owner table fails the whole day's run closed, on purpose (see
 // the module README's "Owner tables" section: the danger is a mail ending up
-// recorded in two different ledgers, or dropped from one silently).
+// recorded in two different ledgers, or dropped from one silently). This is
+// what this lane's own fail-closed posture actually rests on: `refresh()`/
+// `refreshCommon()` each check their own Owner-table load BEFORE writing
+// anything (their R4 pre-write gate), so a malformed table never reaches a
+// half-written ledger here -- this file adds no owner-table validation of
+// its own, it only never opts back into the degraded path the library
+// already gates.
 // `allowEmpty`/`allowPartialSources` are likewise never passed (both library
 // defaults: `[]`/`false`) -- an unattended daily job should fail closed on an
 // unreadable custody directory or a ledger that would empty out, not silently
@@ -49,17 +55,24 @@
 // rule -- that level of preflight is what `cli.mjs refresh --dry` /
 // `common-refresh --dry` are for, run by hand against the same inputs.
 //
-// Exit codes: 0 ok; 2 failed (either step's own receipt reports
-// `status: 'failed'` -- an unreadable custody directory, a bad saved rule, a
+// Exit codes: 0 ok; 2 failed -- either step's own receipt reports
+// `status: 'failed'` (an unreadable custody directory, a bad saved rule, a
 // malformed Owner table, or an R4 ledger-validation failure, all of which the
-// library already reports through that one status field); 3 lock held; 4
-// refused before start (bad/missing arguments, an org-config digest mismatch,
-// or a missing `--workspaces-root`/`--workmeta-root`).
+// library already reports through that one status field), the org config
+// changed mid-run (S1's TOCTOU re-check, `..._org_config_changed_during_run`),
+// or a library error reached during step 1/2 that is not one of this
+// runner's own codes (e.g. a library `..._org_config_unreadable` thrown
+// mid-run is a 2, never a 4 -- see `EXIT_CODE_BY_DAILY_CODE`'s own doc); 3
+// lock held (this runner's own daily lock, or an unexpected error acquiring
+// it); 4 refused before start (bad/missing arguments, a malformed `--now`,
+// an org-config digest mismatch, or a missing `--workspaces-root`/
+// `--workmeta-root`) -- ONLY this runner's own pre-lock validation codes ever
+// map to 4.
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { refresh } from '../src/refresh.mjs';
+import { redactHostPaths, refresh } from '../src/refresh.mjs';
 import { refreshCommon } from '../src/common_refresh.mjs';
 
 export const DAILY_RECEIPT_SCHEMA = 'soulforge.workspace_ledgers_daily_receipt.v1';
@@ -102,10 +115,31 @@ export function atomicWriteJson(filePath, value) {
  * of those two calls still acquires and releases on its own, in turn); this
  * one exists specifically to keep two invocations of THIS daily runner from
  * ever running concurrently against the same receipts directory, the same
- * shape `voice_conversation_list_nightly.mjs`'s own `acquireLock` uses. A
- * fresh lock refuses this run; a stale one (older than `staleLockMs`, or
- * unreadable) is reclaimed atomically, and the reclaim is recorded so the
- * combined receipt's own `lock` block can say so.
+ * shape `voice_conversation_list_nightly.mjs`'s own `acquireLock` uses --
+ * NOT the only thing standing between two overlapping runs: a scheduled
+ * task's own `IgnoreNew` multiple-instances policy (see the registrar) and
+ * `refresh()`/`refreshCommon()`'s own internal lock both also apply. A fresh
+ * lock refuses this run; a stale one is reclaimed, and the reclaim is
+ * recorded so the combined receipt's own `lock` block can say so.
+ *
+ * R2 (2026-09-22 review): age is computed the same way `src/refresh.mjs`'s
+ * own `acquireRefreshLock` computes it -- NOT clamped to a minimum of 0. A
+ * lock whose recorded `started_at` is in the FUTURE relative to `now` (clock
+ * skew, or corrupted lock data) produces a negative `ageMs`; clamping that to
+ * 0 with `Math.max(0, ...)` used to make it look brand new (`ageMs <=
+ * staleLockMs` trivially true), so a clock-skewed lock could never be
+ * reclaimed and every later run refused with exit 3 forever. The held check
+ * is now `ageMs >= 0 && ageMs <= staleLockMs`: a negative age fails that
+ * immediately and falls through to reclaim, same as the library.
+ *
+ * S3 (2026-09-22 review): the stale lock is renamed to a unique sibling name
+ * FIRST, and only proceeds to write a fresh lock (`wx`) when that rename
+ * itself succeeded -- an `ENOENT` on the rename means a concurrent reclaimer
+ * already won the race (the source is already gone), reported as `held:
+ * true` rather than racing a second `wx` write that might spuriously
+ * "succeed" against a lock file a moment away from being deleted out from
+ * under it. The renamed-away file is then a best-effort cleanup, never load-
+ * bearing for correctness.
  */
 export function acquireDailyLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) {
   mkdirSync(receiptsDir, { recursive: true });
@@ -114,22 +148,28 @@ export function acquireDailyLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) 
     let existing;
     try { existing = JSON.parse(readFileSync(lockFile, 'utf8')); } catch { existing = {}; }
     const startedAt = typeof existing?.started_at === 'string' ? Date.parse(existing.started_at) : NaN;
-    const ageMs = Number.isFinite(startedAt) ? Math.max(0, Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
-    if (ageMs <= staleLockMs) return { held: true, existing, age_ms: ageMs, reclaimed: false };
-    try { rmSync(lockFile, { force: true }); } catch (error) { fail('workspace_ledgers_daily_lock_unavailable', error?.code ?? error?.message); }
+    const ageMs = Number.isFinite(startedAt) ? (Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
+    if (ageMs >= 0 && ageMs <= staleLockMs) return { held: true, existing, age_ms: ageMs, reclaimed: false };
+    const staleName = path.join(receiptsDir, `.${LOCK_FILE_NAME}.stale-${randomUUID()}`);
+    try { renameSync(lockFile, staleName); }
+    catch (error) {
+      if (error?.code === 'ENOENT') return { held: true, existing, age_ms: ageMs, reclaimed: false };
+      fail('workspace_ledgers_daily_lock_unavailable', redactHostPaths(error?.code ?? String(error?.message ?? error)));
+    }
     const ownership = { pid: process.pid, started_at: now, reclaimed_from: existing };
     try { writeFileSync(lockFile, encode(ownership), { flag: 'wx' }); }
     catch (error) {
       if (error?.code === 'EEXIST') return { held: true, existing, age_ms: ageMs, reclaimed: false };
-      fail('workspace_ledgers_daily_lock_unavailable', error?.code ?? error?.message);
+      fail('workspace_ledgers_daily_lock_unavailable', redactHostPaths(error?.code ?? String(error?.message ?? error)));
     }
+    try { rmSync(staleName, { force: true }); } catch { /* best-effort cleanup only */ }
     return { held: false, reclaimed: true, previous: existing, age_ms: ageMs, ownership };
   }
   const ownership = { pid: process.pid, started_at: now };
   try { writeFileSync(lockFile, encode(ownership), { flag: 'wx' }); }
   catch (error) {
     if (error?.code === 'EEXIST') return { held: true, existing: null, age_ms: 0, reclaimed: false };
-    fail('workspace_ledgers_daily_lock_unavailable', error?.code ?? error?.message);
+    fail('workspace_ledgers_daily_lock_unavailable', redactHostPaths(error?.code ?? String(error?.message ?? error)));
   }
   return { held: false, reclaimed: false, previous: null, age_ms: null, ownership };
 }
@@ -144,15 +184,26 @@ export function releaseDailyLock(receiptsDir, ownership) {
   try { rmSync(lockFile, { force: true }); } catch { /* nothing to release */ }
 }
 
-/** Read-only: whether the daily lock currently looks held, without acquiring or releasing it -- what `--dry`'s plan reports. */
+/**
+ * Read-only: whether the daily lock currently looks held, without acquiring,
+ * reclaiming or releasing it -- what `--dry`'s plan reports. Nit (2026-09-22
+ * review): must compute "held" the exact same way `acquireDailyLock` does --
+ * an unreadable/unparsable lock file used to report `held: true` here while
+ * a real run would treat the same file as `existing = {}` (unparsable
+ * `started_at`, infinite age, therefore stale and reclaimable) and proceed.
+ * `--dry` disagreeing with what the real run would actually do defeats the
+ * point of a preflight. Same age formula as `acquireDailyLock` (R2): not
+ * clamped, so a future-dated lock reports `held: false` here too.
+ */
 function inspectDailyLock(receiptsDir, now, staleLockMs) {
   const lockFile = path.join(receiptsDir, LOCK_FILE_NAME);
   if (!existsSync(lockFile)) return { present: false, held: false, age_ms: null };
   let existing;
-  try { existing = JSON.parse(readFileSync(lockFile, 'utf8')); } catch { return { present: true, held: true, age_ms: null, unreadable: true }; }
+  try { existing = JSON.parse(readFileSync(lockFile, 'utf8')); } catch { existing = {}; }
   const startedAt = typeof existing?.started_at === 'string' ? Date.parse(existing.started_at) : NaN;
-  const ageMs = Number.isFinite(startedAt) ? Math.max(0, Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
-  return { present: true, held: ageMs <= staleLockMs, age_ms: Number.isFinite(ageMs) ? ageMs : null };
+  const ageMs = Number.isFinite(startedAt) ? (Date.parse(now) - startedAt) : Number.POSITIVE_INFINITY;
+  const held = ageMs >= 0 && ageMs <= staleLockMs;
+  return { present: true, held, age_ms: Number.isFinite(ageMs) ? ageMs : null };
 }
 
 // ---------------------------------------------------------------- receipts
@@ -173,13 +224,29 @@ function refreshCounts(receipt) {
   };
 }
 
+/**
+ * R3 (2026-09-22 review): `refreshCommon()`'s own receipt never has a
+ * `ledger_failures` field at all (that field is `refresh()`'s -- the two
+ * receipt shapes are not siblings) -- reading it here always read `undefined`
+ * and silently reported `ledger_failures_count: 0` even when the common pass
+ * failed a file. The common receipt's actual per-file failure signal is
+ * `files[]` (each `{ file, failed, code?, ... }` from `writeLedgerCsv`) and
+ * `rejected_files` (an unsafe/colliding ledger NAME refused before it was
+ * ever written, a different failure class from a file that failed to merge).
+ * `legacy_bucket_file_present` is not a failure at all -- the old pre-rename
+ * bucket file (`과제없음_확인함.csv`) still sitting on disk is a migration
+ * signal this module never acts on by itself -- surfaced as a warning on the
+ * combined receipt (see `collectWarnings`) rather than folded into either
+ * count.
+ */
 function commonCounts(receipt) {
   if (!receipt) return null;
   return {
     schema_version: receipt.schema_version ?? null, status: receipt.status ?? null,
     files_count: (receipt.files ?? []).length,
+    failed_files_count: (receipt.files ?? []).filter(file => file?.failed === true).length,
+    rejected_files_count: (receipt.rejected_files ?? []).length,
     bucket_counts: receipt.bucket_counts ?? null,
-    ledger_failures_count: (receipt.ledger_failures ?? []).length,
     rule_failures_count: (receipt.rule_failures ?? []).length,
     owner_table_failures_count: (receipt.owner_table_failures ?? []).length,
     unreadable_dirs_count: (receipt.unreadable_dirs ?? []).length,
@@ -187,6 +254,13 @@ function commonCounts(receipt) {
     duplicates_dropped: receipt.duplicates_dropped ?? null,
     total_mails: receipt.total_mails ?? null,
   };
+}
+
+/** Warning flags (never failures) surfaced at the top level of the combined receipt -- counts/booleans only, the same no-PII posture the rest of this receipt keeps. */
+function collectWarnings(commonReceipt) {
+  const warnings = [];
+  if (commonReceipt?.legacy_bucket_file_present === true) warnings.push('legacy_bucket_file_present');
+  return warnings;
 }
 
 // -------------------------------------------------------------- validation
@@ -211,12 +285,31 @@ function assertOrgConfigDigest(orgConfigPath, expectedSha256) {
   catch { fail('workspace_ledgers_daily_org_config_invalid_json'); }
 }
 
+// S1 (2026-09-22 review, TOCTOU): the org-config digest is checked once,
+// up front, in `validateInputs` -- but this run can take a while (two full
+// classification passes), and the SAME file staying pinned for the WHOLE run
+// is exactly what the "hard operating rule" (refresh/refreshCommon must
+// classify against the same table set) depends on. A caller (or an Owner)
+// editing `--org-config` mid-run would otherwise let `refresh()` classify
+// against one version and `refreshCommon()` against another, with no trace
+// of that in either receipt. Re-checked after step 1 and again after step 2
+// (before the final receipt is built), fail-closed, exit 2 -- this is a
+// run that STARTED and then hit a genuine problem, not a refusal to start.
+const ISO_8601_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/u;
+
+function assertOrgConfigUnchanged(orgConfigPath, expectedSha256) {
+  let actual;
+  try { actual = sha256File(orgConfigPath); }
+  catch { fail('workspace_ledgers_daily_org_config_changed_during_run', 'unreadable'); }
+  if (actual !== expectedSha256) fail('workspace_ledgers_daily_org_config_changed_during_run');
+}
+
 /**
  * Every precondition a real run refuses on before it ever acquires the lock
  * or touches a ledger -- shared by the real run (which then proceeds) and
  * `--dry` (which stops here).
  */
-function validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfigSha256, hiworksEvents, gmailSentEvents, receiptsDir }) {
+function validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfigSha256, hiworksEvents, gmailSentEvents, receiptsDir, now }) {
   assertRequiredString(workspacesRoot, 'workspace_ledgers_daily_workspaces_root_required');
   assertRequiredString(workmetaRoot, 'workspace_ledgers_daily_workmeta_root_required');
   assertRequiredString(orgConfigPath, 'workspace_ledgers_daily_org_config_required');
@@ -224,6 +317,12 @@ function validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfig
   assertRequiredString(hiworksEvents, 'workspace_ledgers_daily_hiworks_events_required');
   assertRequiredString(gmailSentEvents, 'workspace_ledgers_daily_gmail_sent_events_required');
   assertRequiredString(receiptsDir, 'workspace_ledgers_daily_receipts_required');
+  // S6 (2026-09-22 review): `now` reaches a receipt FILENAME (via a naive
+  // `:`/`.` -> `-` replace) and every lock-age computation above -- a
+  // malformed value would produce either a broken filename or a NaN age that
+  // silently reads as "infinitely old" (always stale). Refused up front,
+  // exit 4, rather than discovered as a strange side effect later.
+  if (!ISO_8601_INSTANT.test(now ?? '') || !Number.isFinite(Date.parse(now))) fail('workspace_ledgers_daily_now_invalid');
   // Only the two ROOTS refuse before start (exit 4) when missing -- an
   // unreadable/missing custody directory is deliberately left for
   // refresh()'s own pre-write gate to catch (it reports that as `unreadable_
@@ -236,9 +335,18 @@ function validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfig
 }
 
 // -------------------------------------------------------------------- run
+/**
+ * `deps` (test-only seam, never used by the CLI wrapper below): overrides
+ * for the two library calls, so a test can inject a stub that mutates the
+ * fixture (e.g. rewriting the org config file, for S1's TOCTOU coverage)
+ * from inside what looks like an ordinary `refresh()`/`refreshCommon()` call
+ * without needing a real concurrent process or a timing race.
+ */
 export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfigSha256, hiworksEvents,
-  gmailSentEvents, receiptsDir, dry = false, now = new Date().toISOString(), staleLockMs = STALE_LOCK_MS }) {
-  validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfigSha256, hiworksEvents, gmailSentEvents, receiptsDir });
+  gmailSentEvents, receiptsDir, dry = false, now = new Date().toISOString(), staleLockMs = STALE_LOCK_MS, deps = {} }) {
+  const refreshFn = deps.refresh ?? refresh;
+  const refreshCommonFn = deps.refreshCommon ?? refreshCommon;
+  validateInputs({ workspacesRoot, workmetaRoot, orgConfigPath, orgConfigSha256, hiworksEvents, gmailSentEvents, receiptsDir, now });
 
   if (dry) {
     // Report-only: never acquires, reclaims, or releases the lock; never
@@ -246,7 +354,7 @@ export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, o
     const lockState = inspectDailyLock(receiptsDir, now, staleLockMs);
     return {
       schema_version: DAILY_RECEIPT_SCHEMA, generated_at: now, dry: true, status: 'ok',
-      org_config_sha256: orgConfigSha256, lock: lockState,
+      org_config_sha256: orgConfigSha256, lock: lockState, warnings: [],
       steps: { refresh: { ran: false, status: null }, common_refresh: { ran: false, status: null } },
     };
   }
@@ -256,17 +364,25 @@ export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, o
 
   let refreshReceipt = null;
   let commonReceipt = null;
+  let commonAttempted = false;
   try {
-    refreshReceipt = refresh({
+    refreshReceipt = refreshFn({
       workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents],
       orgConfigPath, receiptsDir, dry: false, now,
     });
+    // S1: the file this whole run is pinned to must still be the file that
+    // was pinned when step 1 ran against it.
+    assertOrgConfigUnchanged(orgConfigPath, orgConfigSha256);
     const refreshOk = refreshReceipt.status !== 'failed';
     if (refreshOk) {
-      commonReceipt = refreshCommon({
+      commonAttempted = true;
+      commonReceipt = refreshCommonFn({
         workspacesRoot, workmetaRoot, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents],
         orgConfigPath, receiptsDir, dry: false, now,
       });
+      // S1: and still the same file after step 2 -- both steps must have
+      // classified against byte-identical bytes, not merely the same path.
+      assertOrgConfigUnchanged(orgConfigPath, orgConfigSha256);
     }
     const commonOk = commonReceipt !== null && commonReceipt.status !== 'failed';
     const status = (refreshOk && commonOk) ? 'ok' : 'failed';
@@ -274,6 +390,7 @@ export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, o
       schema_version: DAILY_RECEIPT_SCHEMA, generated_at: now, dry: false, status,
       org_config_sha256: orgConfigSha256,
       lock: { reclaimed: lock.reclaimed === true, stale_reclaimed: lock.reclaimed === true, age_ms: lock.age_ms ?? null },
+      warnings: collectWarnings(commonReceipt),
       steps: {
         refresh: { ran: true, ...refreshCounts(refreshReceipt) },
         common_refresh: refreshOk
@@ -284,15 +401,32 @@ export function runDailyRefresh({ workspacesRoot, workmetaRoot, orgConfigPath, o
     atomicWriteJson(path.join(receiptsDir, `daily-${now.replace(/[:.]/gu, '-')}${combined.status === 'failed' ? '-failed' : ''}.json`), combined);
     return combined;
   } catch (error) {
+    // Nit (2026-09-22 review): `refresh()` is unconditionally attempted, so a
+    // null `refreshReceipt` here always means it THREW (never returned), not
+    // that it never ran -- `ran: false` used to misreport that. Only
+    // `common_refresh` can legitimately be `ran: false` (the first step
+    // failed closed and this one never started at all, `commonAttempted`
+    // stays `false`); if `commonAttempted` is `true` but `commonReceipt` is
+    // still `null`, `refreshCommon()` itself threw, distinct from
+    // `previous_step_failed_closed`.
     const combined = {
       schema_version: DAILY_RECEIPT_SCHEMA, generated_at: now, dry: false, status: 'failed',
       org_config_sha256: orgConfigSha256,
       lock: { reclaimed: lock.reclaimed === true, stale_reclaimed: lock.reclaimed === true, age_ms: lock.age_ms ?? null },
+      warnings: collectWarnings(commonReceipt),
       steps: {
-        refresh: refreshReceipt ? { ran: true, ...refreshCounts(refreshReceipt) } : { ran: false, status: null },
-        common_refresh: commonReceipt ? { ran: true, ...commonCounts(commonReceipt) } : { ran: false, status: null },
+        refresh: refreshReceipt ? { ran: true, ...refreshCounts(refreshReceipt) } : { ran: true, status: 'failed', reason: 'threw' },
+        common_refresh: commonReceipt
+          ? { ran: true, ...commonCounts(commonReceipt) }
+          : (commonAttempted ? { ran: true, status: 'failed', reason: 'threw' } : { ran: false, status: null }),
       },
-      error: { code: error?.code ?? 'workspace_ledgers_daily_run_failed', message: String(error?.message ?? error) },
+      // R1 (2026-09-22 review): a raw thrown error's `.message` can carry a
+      // full host-local path (a bare fs error, or a bubbled-up error from
+      // this run's own filesystem calls) -- every sibling writer in this
+      // module redacts that down to the last path segment before it ever
+      // reaches a receipt (`src/refresh.mjs`'s `redactHostPaths`); this
+      // combined receipt must not be the one place in the lane that forgets.
+      error: { code: error?.code ?? 'workspace_ledgers_daily_run_failed', message: redactHostPaths(String(error?.message ?? error)) },
     };
     try { atomicWriteJson(path.join(receiptsDir, `daily-${now.replace(/[:.]/gu, '-')}-failed.json`), combined); } catch { /* best effort */ }
     throw error;
@@ -320,12 +454,47 @@ function stringFlag(flags, name) {
   return typeof value === 'string' ? value : null;
 }
 
-function exitCodeFor(code) {
-  if (typeof code !== 'string') return 2;
-  if (code.includes('lock_held')) return 3;
-  if (code.includes('required') || code.includes('missing') || code.includes('sha256_invalid')
-    || code.includes('sha256_mismatch') || code.includes('invalid_json') || code.includes('unreadable')) return 4;
-  return 2;
+// S2 (2026-09-22 review): an explicit map over THIS runner's own error
+// codes, never a substring match against a library error code -- substring
+// matching on words like "required"/"missing"/"unreadable" silently
+// misclassified a LIBRARY code that happens to contain the same word (e.g.
+// `refresh()`/`refreshCommon()` can throw their own `..._org_config_
+// unreadable`-shaped codes reached mid-step-2, well past "refused before
+// start") as a 4 (refuse-before-start) when it is actually a 2 (ran, and
+// something failed). Any code not in this map -- every library code
+// included -- defaults to 2, which is exactly right for "this run started
+// and something in it failed".
+const EXIT_CODE_BY_DAILY_CODE = {
+  workspace_ledgers_daily_workspaces_root_required: 4,
+  workspace_ledgers_daily_workmeta_root_required: 4,
+  workspace_ledgers_daily_org_config_required: 4,
+  workspace_ledgers_daily_org_config_sha256_required: 4,
+  workspace_ledgers_daily_hiworks_events_required: 4,
+  workspace_ledgers_daily_gmail_sent_events_required: 4,
+  workspace_ledgers_daily_receipts_required: 4,
+  workspace_ledgers_daily_now_invalid: 4,
+  workspace_ledgers_daily_workspaces_root_missing: 4,
+  workspace_ledgers_daily_workmeta_root_missing: 4,
+  workspace_ledgers_daily_org_config_sha256_invalid: 4,
+  workspace_ledgers_daily_org_config_unreadable: 4,
+  workspace_ledgers_daily_org_config_sha256_mismatch: 4,
+  workspace_ledgers_daily_org_config_invalid_json: 4,
+  workspace_ledgers_daily_lock_held: 3,
+  // S2: this is discovered only once the run has already passed every pure
+  // input-validation check above and is actively trying to acquire/reclaim
+  // the lock (an unexpected filesystem error on the lock file itself, not
+  // simply "another run already holds it") -- grouped under exit 3 so "3"
+  // keeps one coherent meaning across both codes ("something about the lock
+  // state stopped this run"), distinct from 4 ("refused before touching any
+  // runtime state") and 2 ("ran, and a step failed").
+  workspace_ledgers_daily_lock_unavailable: 3,
+  // S1: the org config changed while this run was already in progress --
+  // this run STARTED, so it is a 2 ("ran, and something failed"), never a 4.
+  workspace_ledgers_daily_org_config_changed_during_run: 2,
+};
+
+export function exitCodeFor(code) {
+  return EXIT_CODE_BY_DAILY_CODE[code] ?? 2;
 }
 
 export function runCli(argv) {
@@ -344,7 +513,10 @@ export function runCli(argv) {
     if (receipt.status === 'failed') { process.exitCode = 2; return; }
     process.exitCode = 0;
   } catch (error) {
-    console.error(`workspace_ledgers_daily_refresh_failed: ${error.code ?? error.message}`);
+    // R1: the same redaction the combined receipt's own `error.message` gets
+    // -- stderr is not exempt from the same host-local-path leak.
+    const safeMessage = redactHostPaths(String(error?.message ?? error));
+    console.error(`workspace_ledgers_daily_refresh_failed: ${error?.code ?? safeMessage}`);
     process.exitCode = exitCodeFor(error?.code);
   }
 }
