@@ -5,6 +5,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
 import { decodeCsv, encodeCsv } from '../src/ledgers.mjs';
 import { clearCustodyCache, previewRule, redactHostPaths, REFRESH_RECEIPT_SCHEMA, refresh, RefreshError } from '../src/refresh.mjs';
@@ -1251,5 +1252,282 @@ test('refresh (fresh-review-6 #4): allowPartialSources gates a ledger shrinking 
       receiptsDir: fixture.receiptsDir, now: '2026-09-02T02:00:00.000Z', allowPartialSources: true, allowEmpty: [CODE_A] });
     const reportAllowed = receiptAllowed.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportAllowed.contacts.failed, false);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+// -------------------------------------------------------- fresh-review-7 regressions
+
+test('refresh (fresh-review-7 R1): a formerly-merged old row splitting into two fresh people gives the Owner cell to AT MOST ONE of them', () => {
+  const fixture = makeFixture();
+  try {
+    writeOrgConfigWithFamily(fixture.orgConfigPath, { 'client-old.example': 'client-new.example' });
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: '"김철수" <staff@client-new.example>', to: [], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 이전 문의', from: '"김철수" <staff@client-old.example>', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts1.rows.length, 1); // merged into one person (family still maps old->new)
+    const merged = contacts1.rows[0];
+    assert.equal(merged[5], 'staff@client-new.example'); // keyed on the more-recent address
+    assert.equal(merged[6], 'staff@client-old.example'); // 다른메일
+    merged[12] = '담당자';
+    writeFileSync(cPath, encodeCsv(contacts1.headers, contacts1.rows));
+
+    // The family mapping is removed (an Owner correction: these two domains turn out
+    // NOT to be the same organisation after all) -- the same accumulated mail now
+    // classifies as two separate people, one per address, without any new custody.
+    writeOrgConfigWithFamily(fixture.orgConfigPath, {});
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 2); // now two distinct people
+    const newRow = contacts2.rows.find(row => row[5] === 'staff@client-new.example');
+    const oldRow = contacts2.rows.find(row => row[5] === 'staff@client-old.example');
+    assert.ok(newRow); assert.ok(oldRow);
+    // Exactly one of the two gets the Owner cell -- the old bug copied it onto BOTH.
+    const withRole = [newRow, oldRow].filter(row => row[12] === '담당자');
+    assert.equal(withRole.length, 1);
+    assert.equal(newRow[12], '담당자'); // specifically the one that exact-key-matches the old row
+    assert.equal(oldRow[12], ''); // the split's other half gets nothing, not a copy
+
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    // Pass 1 (exact key) already, unambiguously, resolved this -- not a genuine
+    // pass-2 contention, so it must not be flagged ambiguous.
+    assert.equal(reportA.contacts.owner_cells_ambiguous, 0);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 0); // the old row WAS matched, just not by both
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-7 R2): an alternate address that shadows a different row\'s own exact key never wins over that row\'s exact match', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 문의 A', from: 'person-a@client.example', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 문의 C', from: 'shared@client.example', to: [], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts1.rows.length, 2);
+    // Row A (index 0 in the file -- appears FIRST, which is what let it shadow Row C
+    // under the old first-wins-by-file-order index): claims 'shared@client.example' as
+    // one of ITS OWN alternate addresses, even though that address is really a
+    // different row's own exact key. This pathological state is what the fix must be
+    // robust to, however it arose.
+    const rowA = contacts1.rows.find(row => row[5] === 'person-a@client.example');
+    const rowC = contacts1.rows.find(row => row[5] === 'shared@client.example');
+    assert.ok(rowA); assert.ok(rowC);
+    rowA[6] = 'shared@client.example'; // 다른메일 -- the shadowing claim
+    rowA[12] = '담당자A';
+    rowC[12] = '담당자C';
+    const orderedRows = [rowA, rowC]; // A before C, matching the reported incident's order
+    writeFileSync(cPath, encodeCsv(contacts1.headers, orderedRows));
+
+    // Next refresh: only the shared address is still active.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h3', subject: '[P00-001] 예시장비 후속 문의', from: 'shared@client.example', to: [], cc: [], received_at: '2026-09-01T03:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    const sharedRow = contacts2.rows.find(row => row[5] === 'shared@client.example');
+    assert.ok(sharedRow);
+    // The bug: the shadowing alternate address won, giving role A. Fixed: the exact
+    // key-column match (Row C, genuinely keyed on this address) always wins.
+    assert.equal(sharedRow[12], '담당자C');
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.ok(reportA.contacts.owner_cells_ambiguous >= 1); // the shadowing alt key was removed from the index
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-7 R3): the shrink guard gates on unreadable dirs actually forcing a partial run, not merely on the allowPartialSources request flag', () => {
+  const fixture = makeFixture();
+  try {
+    const manyMails = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((who, index) => ({
+      event_id: `h${index + 1}`, subject: `[P00-001] 예시 ${index + 1}`, from: `${who}@client.example`, to: [], cc: [],
+      received_at: `2026-09-01T0${index + 1}:00:00Z`, body_text: '', attachments: [],
+    }));
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl(manyMails));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), ''); // clear the fixture's own default gmail mail
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const before = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(before.rows.length, 6);
+
+    // A legitimate rule/custody change: only ONE sender's mail is still present, and
+    // EVERY custody directory this run names is genuinely, fully readable -- no typo'd
+    // sibling. The caller still passes allowPartialSources:true (an operator who
+    // always sets it out of habit), which must NOT, by itself, put the shrink guard
+    // into effect.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([manyMails[0]]));
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowPartialSources: true });
+    assert.equal(receipt2.unreadable_dirs.length, 0);
+    assert.equal(receipt2.allow_partial_sources_applied, false); // requested, but never in effect
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false); // not blocked
+    const after = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(after.rows.length, 1); // the shrink went through
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (fresh-review-7 S1): an allowEmpty override of the shrink guard is recorded in the receipt', () => {
+  const fixture = makeFixture();
+  try {
+    const manyMails = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((who, index) => ({
+      event_id: `h${index + 1}`, subject: `[P00-001] 예시 ${index + 1}`, from: `${who}@client.example`, to: [], cc: [],
+      received_at: `2026-09-01T0${index + 1}:00:00Z`, body_text: '', attachments: [],
+    }));
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl(manyMails));
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([manyMails[0]]));
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const receiptAllowed = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir, typoDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowPartialSources: true, allowEmpty: [CODE_A] });
+    const reportA = receiptAllowed.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false);
+    // S1: this used to leave no trace at all that the shrink guard had fired and been
+    // overridden -- indistinguishable from a run that never came near it.
+    assert.deepEqual(receiptAllowed.shrink_allowed_applied_to, [CODE_A]);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('validateExistingCsv / preserveMerge (fresh-review-7 S2): the shrink guard baseline is the row count AFTER duplicate collapse, not the raw line count', () => {
+  const fixture = makeFixture();
+  try {
+    const fourMails = ['p1', 'p2', 'p3', 'p4'].map((who, index) => ({
+      event_id: `h${index + 1}`, subject: `[P00-001] 예시 ${index + 1}`, from: `${who}@client.example`, to: [], cc: [],
+      received_at: `2026-09-01T0${index + 1}:00:00Z`, body_text: '', attachments: [],
+    }));
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl(fourMails));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), ''); // clear the fixture's own default gmail mail
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts1.rows.length, 4); // deduped baseline: 4 distinct people
+
+    // A stale duplicate line for one of those four rows -- legacy round-trip debt, byte-
+    // identical to its twin, which `preserveMerge` collapses back to 4 on read. The raw
+    // line count in the file is 5.
+    const duplicateOfFirst = [...contacts1.rows[0]];
+    writeFileSync(cPath, encodeCsv(contacts1.headers, [...contacts1.rows, duplicateOfFirst]));
+
+    // Two senders' mail remains -- a shrink from a deduped baseline of 4 to 2 is
+    // EXACTLY 50%, which the guard's strict `<` does not block; from the inflated raw
+    // baseline of 5 it WOULD be 2/5 = 40%, which the guard would (wrongly) block.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([fourMails[0], fourMails[1]]));
+    const typoDir = path.join(fixture.hiworksDir, 'typo-does-not-exist');
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir, typoDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z', allowPartialSources: true });
+    const reportA = receipt2.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.contacts.failed, false); // not blocked -- the deduped baseline is used
+    assert.equal(reportA.contacts.before_rows, 4); // reported as the POST-collapse count, not 5
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 2);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('decodeCsv (fresh-review-7 S3): a trailing whitespace-only line is trimmed the same as a truly empty one', () => {
+  const headers = ['a', 'b'];
+  const rows = [['x', 'y'], ['z', 'w']];
+  const bareText = encodeCsv(headers, rows);
+  // An editor can leave spaces before EOF instead of a bare blank line.
+  const withWhitespaceTail = `${bareText}   \r\n`;
+  const decoded = decodeCsv(withWhitespaceTail);
+  assert.deepEqual(decoded.headers, headers);
+  assert.deepEqual(decoded.rows, rows);
+});
+
+test('decodeCsv (fresh-review-7 N2): the trailing-blank-line trim is skipped for a single-column header, so a genuine blank one-column row survives', () => {
+  const text = `${String.fromCharCode(0xfeff)}only_column\r\nfirst\r\n\r\n`;
+  // With >=2 columns this exact shape (one extra line, one empty field) is exactly the
+  // trailing-blank-line case (fresh-review-6 #3) and would be trimmed. With a single-
+  // column header, a genuine blank row is byte-identical to that trailing line, so the
+  // trim must not run at all here.
+  const decoded = decodeCsv(text);
+  assert.deepEqual(decoded.headers, ['only_column']);
+  assert.deepEqual(decoded.rows, [['first'], ['']]);
+});
+
+test('refresh (fresh-review-7 N1): a hand-edited 다른메일 cell (comma separator, stray spaces, different case) still matches on the next flip', () => {
+  const fixture = makeFixture();
+  try {
+    writeOrgConfigWithFamily(fixture.orgConfigPath, { 'client-old.example': 'client-new.example' });
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: '"김철수" <staff@client-new.example>', to: [], cc: [], received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h2', subject: '[P00-001] 예시장비 이전 문의', from: '"김철수" <staff@client-old.example>', to: [], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), '');
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts1 = decodeCsv(readFileSync(cPath, 'utf8'));
+    const row = contacts1.rows.find(row2 => row2[5] === 'staff@client-new.example');
+    assert.ok(row);
+    assert.equal(row[6], 'staff@client-old.example');
+    // Hand-edited as an Owner's spreadsheet save might leave it: different case, a
+    // trailing comma (an empty extra token), and no surrounding trim.
+    row[6] = ' STAFF@Client-Old.EXAMPLE, ';
+    row[12] = '담당자';
+    writeFileSync(cPath, encodeCsv(contacts1.headers, contacts1.rows));
+
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h3', subject: '[P00-001] 예시장비 추가 문의', from: '"김철수" <staff@client-old.example>', to: [], cc: [], received_at: '2026-09-01T10:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const receipt2 = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const contacts2 = decodeCsv(readFileSync(cPath, 'utf8'));
+    assert.equal(contacts2.rows.length, 1);
+    const flipped = contacts2.rows.find(row2 => row2[5] === 'staff@client-old.example');
+    assert.ok(flipped, 'the real (lowercase) old address must still match the hand-edited alternate');
+    assert.equal(flipped[12], '담당자'); // Owner cell preserved despite the cosmetic edit
+    const reportA = receipt2.projects.find(row2 => row2.project_code === CODE_A);
+    assert.equal(reportA.contacts.owner_cells_dropped_with_row, 0);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('readOrgConfig (fresh-review-7 N3): the org-config-unreadable failure never carries the real host path, and its no-`.code` fallback is a basename', () => {
+  const fixture = makeFixture();
+  try {
+    const missingPath = path.join(fixture.root, 'no-such-org-config-directory', 'org_config.json');
+    assert.throws(() => {
+      refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+        hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: missingPath,
+        receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    }, error => {
+      assert.equal(error.code, 'workspace_ledgers_org_config_unreadable');
+      assert.equal(String(error.message).includes(fixture.root), false);
+      return true;
+    });
+    // Every real fs error Node throws for a string path carries `.code` (ENOENT here),
+    // which makes the fallback branch below unreachable through the public API in this
+    // runtime (`fs.readFileSync` cannot be mocked to omit it either -- it is non-
+    // configurable). This still guards the exact source line against a regression back
+    // to the old `error?.code ?? orgConfigPath`, which leaked the full host path.
+    const sourcePath = fileURLToPath(new URL('../src/refresh.mjs', import.meta.url));
+    const source = readFileSync(sourcePath, 'utf8');
+    assert.match(source, /error\?\.code \?\? path\.basename\(orgConfigPath\)/u);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
