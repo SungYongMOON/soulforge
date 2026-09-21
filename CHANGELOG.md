@@ -437,6 +437,32 @@
   변경하지 않는다. Word/OCR·문서 자동 편입·실업무 검증은 별도 후속 범위다.
 - 관련 경로: `guild_hall/context_engine/{src,algorithms,harness,tests,release}`.
 
+## 2026-09-21 - 과제 폴더 작업 장부·할일 장부(025·026) 정책 문서화
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 2026-09-21 Owner 결정(과제 폴더 `020_MGMT` 025/026에 두 CSV 장부)을 문서에 반영했다. (1)
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`의 관리 폴더 quick map 025 bullet에 `작업_장부.csv`
+  (누가·언제·task·근거·결과·다음 action)를, 026 bullet에 `할일_장부.csv`(항목·담당자·마감일·SE stage·출처·완료
+  기준·상태)를 추가하고, 작성 주체(사람 또는 AI, AI 작업 완료는 사람이 확인)·AI 제안 할일 수락 절차·팀 to-do
+  화면(issue tracker)과의 관계·공용/일반업무 폴더 적용·포인터 전용 원칙(메일 본문·첨부·개인정보·secret 금지)·
+  단일 사본(UTF-8 BOM, CRLF)·행 정정(사유 병기, 삭제 금지)·헤더 변경(Owner 결정 필요)·신규 프로젝트 폴더 생성 시
+  빈 장부 동반 생성·칸 단위 작성 규칙 소유(private workspace plane)·local model 지향과 외부 chat 서비스 예약작업
+  임시 pilot 위치를 담은 "작업 장부·할일 장부 (2026-09-21)" 절을 추가했다. (2) 배포 매뉴얼
+  `new_hire_training.v0.md`·`manager_training.v0.md`에 같은 내용을 쉬운 한글로 요약한 "과제 폴더의 작업
+  장부·할일 장부" 절을 추가하고(매니저판은 AI 작업 완료 확인·AI 제안 할일 판단 문장 추가), 두 manual의
+  `manual_release_catalog.v0.json` `content_digest`를 재계산해 갱신했다.
+- 운영 영향: 문서·매뉴얼 변경뿐이며 코드·바인딩·예약작업·boot digest manifest는 건드리지 않았다(두 문서 모두
+  `guild_hall/validate/boot_digest_guard.mjs`의 원본 목록 밖이라 드리프트 없음, `--update` 불필요). 장부 CSV
+  자체의 실제 생성과 칸 단위 작성 규칙은 private workspace plane 몫으로 남는다.
+- 관련 경로: `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`,
+  `guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manager_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`.
+- 검증: `npm run validate:manual-release`(12/12), `npm run validate:manual-projection`(5/5),
+  `node guild_hall/validate/local_absolute_path_policy.mjs --scope changed`(0 violations),
+  `npm run validate:canon`(138 checked, 0 errors), `node guild_hall/validate/boot_digest_guard.mjs`(OK — 드리프트
+  없음) 전부 통과. catalog 안의 두 sha256은 두 manual 파일을 직접 재해시해 맞췄다(hand-edit 아님).
+
 ## 2026-09-20 - 대화 목록 야간 lane 추가
 
 - Revision: 이 항목을 포함한 커밋. Context Engine의 대화 목록 파이프라인(`voice_conversation_list_cli.mjs`)을
