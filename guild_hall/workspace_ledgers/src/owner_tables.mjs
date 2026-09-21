@@ -12,8 +12,61 @@
 // error); a table whose header or encoding is wrong is reported as a failure for THAT
 // table only (never thrown) so every other table, and every other classification step,
 // still runs normally.
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { decodeCsv } from './ledgers.mjs';
+
+/**
+ * S-b (coordinator, fresh review round 3): ONE place for the Owner-table paths --
+ * `orgConfig.common_ledgers.owner_tables.{bundle, reading, vendor}` (paths relative
+ * to `workspacesRoot`, or absolute on the private plane; `examples/org_config.example.json`
+ * shows the shape with placeholders only). Used by BOTH `refresh()` and
+ * `refreshCommon()`/`previewRule()` when the caller's own explicit
+ * `bundleTablePath`/`readingTablePath`/`vendorTablePath` is omitted -- an explicit
+ * value ALWAYS overrides the org-config one, never merged or combined field-by-field.
+ * `workTagTablePath` is deliberately NOT part of this (spec/coordinator scope: only
+ * the three tables `refresh()` itself can consult); a caller that wants the work-tag
+ * table still passes it explicitly (CLI `--work-tag-table`, unaffected).
+ *
+ * **Hard operating rule:** `refresh` and `common-refresh` (or `parity`/`triage`) must
+ * always run against the SAME resolved table set for the same custody window -- a
+ * caller that overrides one command's tables with explicit flags but leaves the other
+ * on the org-config default (or vice versa) will classify the exact same mail
+ * differently in the two writers, breaking the partition invariant
+ * (`tests/classification_partition.test.mjs`'s own D-e property) between the project
+ * ledgers and the common-folder ledgers. This resolver does not, and cannot, enforce
+ * that by itself -- it only makes "the same org config, the same explicit overrides"
+ * the natural way to get it right.
+ */
+export function resolveOwnerTablePaths({ bundleTablePath = null, readingTablePath = null, vendorTablePath = null } = {}, { orgConfig = null, workspacesRoot } = {}) {
+  const configured = orgConfig?.common_ledgers?.owner_tables ?? {};
+  const resolveOne = (explicit, key) => {
+    if (typeof explicit === 'string' && explicit.trim() !== '') return explicit;
+    const value = configured[key];
+    if (typeof value !== 'string' || value.trim() === '') return null;
+    return path.isAbsolute(value) ? value : path.join(workspacesRoot, value);
+  };
+  return {
+    bundleTablePath: resolveOne(bundleTablePath, 'bundle'),
+    readingTablePath: resolveOne(readingTablePath, 'reading'),
+    vendorTablePath: resolveOne(vendorTablePath, 'vendor'),
+  };
+}
+
+/**
+ * S-b: `{ table, file, sha256 }` for a resolved table path actually used this run, or
+ * `null` when `filePath` is `null`/unreadable -- the receipt-safe summary both
+ * `refresh()`'s and `refreshCommon()`'s receipts now carry (`owner_tables_used`).
+ * Never the host-local path itself (`file` is the basename only), matching every
+ * other path-redaction convention in this module.
+ */
+export function ownerTableUsageEntry(table, filePath) {
+  if (!filePath) return null;
+  let bytes;
+  try { bytes = readFileSync(filePath); } catch { return null; }
+  return { table, file: path.basename(filePath), sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}` };
+}
 
 // A2 item 1 (2026-09-21 night addition): the real 묶음_확정표.csv now carries a 5th
 // column, `적용끝` (YYYY-MM-DD, may be blank) -- Owner: the same title-phrase/vendor

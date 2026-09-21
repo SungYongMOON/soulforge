@@ -30,11 +30,29 @@
 // `preview-rule` prints counts only by default; `--show-samples` also prints
 // `samples`, which carries real mail subjects (fresh-review-2 #6) -- private, not for
 // casual/automated logging. `preview-rule` accepts an optional `--org-config` so its
-// counts use the same `system_sender_domains` skip list a real `refresh` against that
-// config would (fresh-review-3 #6); omitted, only the built-in default list applies.
+// counts use the same merged system-sender list a real `refresh` against that config
+// would (fresh-review-3 #6); omitted, only the built-in default list applies. K2
+// (coordinator, fresh review round 3): a system-sender mail is NEVER excluded from
+// `matched_before`/`matched_after` -- `preview-rule` reads custody through the exact
+// same loader/window `refresh` does, so its counts always equal what the next refresh
+// will write; `matched_from_system_senders` reports separately how many of those
+// matches came from a recognised system sender, for the Owner's own visibility.
+// K1 (settles round 2's D-b/R1): `--fields` omitted (or `subject`) is the only
+// supported value now -- step 1 matches the subject only, full stop; `--fields all`
+// is gone (see `fieldsOf`'s own doc below).
+// S-b: `--bundle-table`/`--reading-table`/`--vendor-table` (refresh/preview-rule) and
+// `--bundle-table`/`--reading-table`/`--vendor-table`/`--work-tag-table`
+// (common-refresh/parity/triage list) are all optional overrides -- omitted, each
+// command falls back to `orgConfig.common_ledgers.owner_tables.{bundle,reading,vendor}`
+// (see `owner_tables.mjs`'s `resolveOwnerTablePaths`). HARD OPERATING RULE: `refresh`
+// and `common-refresh` (and `parity`/`triage`) MUST be run against the SAME resolved
+// table set for the same custody window -- mixing an explicit override on one command
+// with the org-config default on the other classifies the same mail differently in the
+// two writers and breaks the partition invariant between the project ledgers and the
+// common-folder ledgers.
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_MATCH_FIELDS, MATCH_FIELDS } from './src/classifier.mjs';
+import { DEFAULT_MATCH_FIELDS } from './src/classifier.mjs';
 import { previewRule, refresh, RefreshError } from './src/refresh.mjs';
 import { listProjects, RuleStoreError, saveRuleVersion } from './src/rule_store.mjs';
 import { classifyAllCommonMail, CommonRefreshError, refreshCommon } from './src/common_refresh.mjs';
@@ -65,26 +83,34 @@ function requireFlag(flags, name) {
   return value;
 }
 
-// D-b (coordinator, fresh review round 2): `--fields` OMITTED now defaults to subject
-// only (`DEFAULT_MATCH_FIELDS`), matching step 1's own new default (never body/
-// attachment_names unless a rule or a caller explicitly widens it) -- `--fields all`
-// still opts into the full `MATCH_FIELDS` enum explicitly.
+// K1 (coordinator, fresh review round 3 -- settles round 2's D-b/R1): step 1 matches
+// the SUBJECT ONLY, full stop -- there is no wider mode any more. `--fields` OMITTED
+// defaults to subject-only (`DEFAULT_MATCH_FIELDS`); `--fields subject` is accepted
+// explicitly for the same value, for a caller/script that always passes it. `--fields
+// all` is GONE (round 2's widening mode never really matched step 1's own contract --
+// see `classifier.mjs`'s `DEFAULT_MATCH_FIELDS` doc) -- passing it, or any other value,
+// is a usage error here, matching the library's own `assertSubjectOnlyFields` throw
+// for a caller that reaches `refresh()`/`previewRule()` directly instead of through
+// this CLI.
 function fieldsOf(flags) {
   const raw = flags.get('fields');
   if (raw === undefined) return DEFAULT_MATCH_FIELDS;
-  if (raw === 'all') return MATCH_FIELDS;
   if (raw === 'subject') return ['subject'];
-  usageError(`--fields must be "subject" or "all", got "${raw}"`);
+  usageError(`--fields must be "subject" (or omitted) -- "all" is no longer supported (step 1 is subject-only, full stop), got "${raw}"`);
   return null;
 }
 
 function exitCodeFor(code) {
   if (typeof code !== 'string') return 3;
   if (code.includes('lock')) return 3;
+  // K1: a caller reaching the library directly with an unsupported `fields` value
+  // (this CLI's own `fieldsOf` already refuses it before ever calling in) throws
+  // `workspace_ledgers_fields_not_supported` -- a bad-input/usage error, same class as
+  // `invalid`/`required` below, never a runtime failure.
   if (code.includes('required') || code.includes('invalid') || code.includes('unknown_project')
     || code.includes('no_projects_found') || code.includes('not_found') || code.includes('unreadable')
     || code.includes('allow_empty_must_be_list') || code.includes('custody_dirs_overlap')
-    || code.includes('allow_empty_targets_rule_failure')) return 2;
+    || code.includes('allow_empty_targets_rule_failure') || code.includes('fields_not_supported')) return 2;
   return 3;
 }
 
@@ -174,15 +200,20 @@ function runPreviewRule(flags) {
   const showSamples = flags.get('show-samples') === true || flags.get('show-samples') === 'true';
   const orgConfigRaw = flags.get('org-config');
   const orgConfigPath = typeof orgConfigRaw === 'string' ? orgConfigRaw : null;
-  // A1 (2026-09-21 night addition): both optional, both omitted by default -- see
-  // `previewRule`'s own doc on `table_attributed` for what supplying either one adds.
+  // A1/D-a/S-b: all three optional, all omitted by default falling back to org-config
+  // (`resolveOwnerTablePaths`) -- D-a: `classifyProjectHits` is the ONE classification
+  // function `previewRule` and `refresh` both run, so a table's effect on
+  // matched_before/matched_after here is exactly what the next refresh would write
+  // (never a separate `table_attributed` field any more -- removed, K2/D-a).
   const bundleTableRaw = flags.get('bundle-table');
   const bundleTablePath = typeof bundleTableRaw === 'string' ? bundleTableRaw : null;
   const readingTableRaw = flags.get('reading-table');
   const readingTablePath = typeof readingTableRaw === 'string' ? readingTableRaw : null;
+  const vendorTableRaw = flags.get('vendor-table');
+  const vendorTablePath = typeof vendorTableRaw === 'string' ? vendorTableRaw : null;
   try {
     const result = previewRule({ workspacesRoot, code, draft, hiworksDirs: [hiworksEvents], gmailSentDirs: [gmailSentEvents], fields, orgConfigPath,
-      bundleTablePath, readingTablePath });
+      bundleTablePath, readingTablePath, vendorTablePath });
     // fresh-review-2 #6: `samples` carries real mail subjects -- printed only when
     // explicitly asked for, never by default.
     const { samples, ...counts } = result;

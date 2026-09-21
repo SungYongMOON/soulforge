@@ -13,11 +13,10 @@
 // places.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { compileRule, DEFAULT_MATCH_FIELDS } from './classifier.mjs';
-import { listProjects, readRule } from './rule_store.mjs';
+import { DEFAULT_MATCH_FIELDS } from './classifier.mjs';
 import { domainOf, makeOrgLookup, normalizeSubject } from './ledgers.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
-import { loadOwnerTables } from './owner_tables.mjs';
+import { loadOwnerTables, ownerTableUsageEntry, resolveOwnerTablePaths } from './owner_tables.mjs';
 import {
   addressesOfMail, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, OrgConfigValueError, participantEmailsOf,
   PRIMARY_BUCKETS, resolvePrimaryBucket, THREAD_VENDOR_INHERITANCE_MARKER, workTagsOf,
@@ -27,8 +26,8 @@ import {
   vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';
 import {
-  acquireRefreshLock, assertNoOverlappingCustodyDirs, disambiguateCrossSourceIds, releaseRefreshLock, redactHostPaths,
-  RefreshError, writeLedgerCsv,
+  acquireRefreshLock, assertNoOverlappingCustodyDirs, disambiguateCrossSourceIds, readAllRuleJsonSafely, releaseRefreshLock,
+  redactHostPaths, RefreshError, writeLedgerCsv,
 } from './refresh.mjs';
 
 // S8 (coordinator, fresh review round 2): the pre-rename bucket file name -- a plane
@@ -69,30 +68,6 @@ function readOrgConfig(orgConfigPath) {
 }
 
 /**
- * Compiles every onboarded project's saved rule individually -- the same per-rule
- * isolation `refresh.mjs`'s `readAllRuleJsonSafely` uses (S-8: a bad rule for one
- * project must not abort reading every other project's rule), kept as its own small
- * copy here rather than importing a refresh.mjs-internal helper (that function is not
- * part of `refresh.mjs`'s exported surface, and duplicating ~12 lines is cheaper than
- * widening that module's public API further for this one call site).
- */
-function readAllRulesSafely(workspacesRoot) {
-  const projects = listProjects({ workspacesRoot });
-  const ok = [];
-  const ruleFailures = [];
-  for (const project of projects) {
-    try {
-      const json = readRule({ workspacesRoot, code: project.project_code }).json;
-      const compiled = compileRule(json, { timeSafety: false });
-      ok.push({ project, json, compiled });
-    } catch (error) {
-      ruleFailures.push({ project_code: project.project_code, code: error?.code ?? 'workspace_ledgers_rule_unreadable' });
-    }
-  }
-  return { ok, ruleFailures };
-}
-
-/**
  * The shared, read-only classification pass. Reads every onboarded project's rule,
  * the four Owner tables, and every custody record from `hiworksDirs`/`gmailSentDirs`;
  * classifies each (deduped) mail through the spec section 1 order
@@ -130,9 +105,24 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     throw error;
   }
   const { ourDomain } = makeOrgLookup(orgConfig);
-  const { ok: ruleRows, ruleFailures } = readAllRulesSafely(workspacesRoot);
+  // NIT (coordinator, fresh review round 3): the same per-rule-isolated loader
+  // `refresh()`'s own pipeline uses (S-8), extracted as one shared helper rather than
+  // kept as a drifting twin -- this pass's `ruleFailures` now also carries `term_ref`
+  // (a hash of the failing term's label, never the label itself), matching
+  // `refresh()`'s own receipt shape.
+  const { ok: ruleRows, ruleFailures } = readAllRuleJsonSafely(workspacesRoot);
   const compiledRules = ruleRows.map(row => row.compiled);
-  const owner = loadOwnerTables({ bundleTablePath, vendorTablePath, readingTablePath, workTagTablePath });
+  // S-b (coordinator, fresh review round 3): the same one-place Owner-table-path
+  // resolution `refresh()` uses -- an explicit bundleTablePath/readingTablePath/
+  // vendorTablePath always wins; otherwise falls back to
+  // `orgConfig.common_ledgers.owner_tables.{bundle,reading,vendor}`. `workTagTablePath`
+  // stays explicit-only (out of this resolver's scope, see its own doc).
+  const resolvedTables = resolveOwnerTablePaths({ bundleTablePath, readingTablePath, vendorTablePath }, { orgConfig, workspacesRoot });
+  const owner = loadOwnerTables({ bundleTablePath: resolvedTables.bundleTablePath, vendorTablePath: resolvedTables.vendorTablePath,
+    readingTablePath: resolvedTables.readingTablePath, workTagTablePath });
+  const ownerTablesUsed = ['bundle', 'reading', 'vendor']
+    .map(table => ownerTableUsageEntry(table, resolvedTables[`${table}TablePath`]))
+    .filter(Boolean);
 
   // Same realpath-based overlap guard `refresh.mjs`'s per-project pipeline runs
   // before classifying custody (coordinator, 2026-09-21) -- an operator pointing
@@ -318,7 +308,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   }
 
   return {
-    orgConfig, commonConfig, ourDomain, ruleFailures, ownerTableFailures: owner.failures,
+    orgConfig, commonConfig, ourDomain, ruleFailures, ownerTableFailures: owner.failures, ownerTablesUsed,
     unreadableDirs: [...hiworks.unreadableDirs, ...gmail.unreadableDirs],
     scanned: hiworks.scanned + gmail.scanned, duplicatesDropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
     idCollisionsKept: (hiworks.idCollisionsKept ?? 0) + (gmail.idCollisionsKept ?? 0),
@@ -426,7 +416,7 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
         ...baseReceipt(), status: 'failed',
         scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
         unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: false,
-        rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+        rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures, owner_tables_used: pass.ownerTablesUsed,
         bucket_counts: pass.bucketTally, files: [],
       };
       emitReceipt(receipt);
@@ -443,7 +433,7 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
         ...baseReceipt(), status: 'failed',
         scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
         unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
-        rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+        rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures, owner_tables_used: pass.ownerTablesUsed,
         bucket_counts: pass.bucketTally, files: [], degraded_owner_tables_allowed: false,
       };
       emitReceipt(receipt);
@@ -462,7 +452,7 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
           error: { code: 'workspace_ledgers_org_config_folder_name_unsafe', message: 'common_folder_name/general_work_folder_name resolved outside its root' },
           scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, total_mails: pass.totalMails,
           unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
-          rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+          rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures, owner_tables_used: pass.ownerTablesUsed,
           bucket_counts: pass.bucketTally, files: [],
         };
         emitReceipt(receipt);
@@ -596,7 +586,7 @@ export function refreshCommon({ workspacesRoot, workmetaRoot, hiworksDirs, gmail
       scanned: pass.scanned, duplicates_dropped: pass.duplicatesDropped, id_collisions_kept: pass.idCollisionsKept,
       total_mails: pass.totalMails,
       unreadable_dirs: pass.unreadableDirs, allow_partial_sources_applied: partialSourcesInEffect,
-      rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures,
+      rule_failures: pass.ruleFailures, owner_table_failures: pass.ownerTableFailures, owner_tables_used: pass.ownerTablesUsed,
       bucket_counts: pass.bucketTally, files, rejected_files: rejectedFiles,
       unknown_targets: pass.unknownTargets, decision_overrode_pattern: pass.decisionOverrodePattern,
       vendor_only_without_organisation: pass.vendorOnlyWithoutOrganisation, invalid_decision_levels: pass.invalidDecisionLevels,

@@ -9,24 +9,63 @@ export const RULE_SCHEMA_VERSION = 'soulforge.project_mail_routing_rule.v0';
 // MATCH_FIELDS: every field NAME a rule's `match_fields` may legally name (schema
 // validation only -- see `compileRule`'s `for (const field of matchFields)` check).
 export const MATCH_FIELDS = Object.freeze(['subject', 'body_text', 'attachment_names']);
-// D-b (coordinator decision, fresh review 2026-09-2x): step 1 (the project's own
-// title/subject rule -- the one function's first classification step, shared by
-// `refresh()` and the common pipeline, see `common_classifier.mjs`'s
-// `classifyProjectHits`) matches the SUBJECT ONLY by default. This is the behaviour
-// that actually produced the real plane, and what the Owner approved: addresses,
-// people and equipment names never decide a project on their own; body text is
-// consulted only in step 4 (a supplier-type vendor mail whose body contains exactly
-// one project's exact keyword -- a narrow, vendor-gated tie-break, never a general
-// step-1 signal), and attachment names are not a step-1 field at all. A rule
-// document may still declare a broader `match_fields` (e.g. to opt one project's own
-// rule into body/attachment matching too), and a caller may still widen `fields`
-// explicitly (`--fields all` on the CLI, or `fields: MATCH_FIELDS` in code) -- but
-// the DEFAULT, when neither says otherwise, is subject only. This is the one default
-// `compileRule` (a rule's own `match_fields`), `classifyMail`/`hintCodes` (the
-// `fields` restriction param), `common_classifier.mjs`'s `classifyProjectHits`,
-// `refresh()` and `previewRule` all now share -- changing it in one place changes it
-// everywhere the one classification function is reached from.
+// K1 (coordinator, fresh review round 3 -- settles round 2's D-b/R1): step 1 (the
+// project's own title/subject rule -- the one function's first classification step,
+// shared by `refresh()` and the common pipeline, see `common_classifier.mjs`'s
+// `classifyProjectHits`) matches the SUBJECT ONLY, full stop -- not merely "by
+// default with an escape hatch". `DEFAULT_MATCH_FIELDS` is the one and only value
+// `classifyProjectHits`'s, `refresh()`'s and `previewRule()`'s own `fields` param may
+// ever hold; `assertSubjectOnlyFields` (below) throws
+// `workspace_ledgers_fields_not_supported` for anything else, at each of those three
+// entry points (and the CLI, which refuses `--fields all` before ever reaching the
+// library). This is the behaviour that actually produced the real plane, and what
+// the Owner approved: addresses, people and equipment names never decide a project on
+// their own; body text is consulted only in step 4 (a supplier-type vendor mail whose
+// body contains exactly one project's exact keyword -- a narrow, vendor-gated
+// tie-break, never a general step-1 signal), and attachment names are not a step-1
+// field at all.
+//
+// A rule document's own `match_fields` property (real, saved rules on the private
+// plane still carry `["subject", "body_text", "attachment_names"]`) stays
+// schema-valid -- `compileRule` still accepts and validates it, never rejects a rule
+// for having one -- but it is NOT CONSULTED for ledger placement any more: since the
+// caller-side `fields` restriction every match ultimately runs through is now always
+// exactly `['subject']`, a rule's own broader `match_fields` can only ever intersect
+// down to `['subject']` (or, in the pathological case of a rule that excludes
+// 'subject' from its own `match_fields`, to nothing at all -- that rule's step 1 then
+// never matches anything, which is the correct, honest consequence of declaring "this
+// rule does not consider the subject", not a bug). No code path re-widens matching
+// back out based on what a rule's own `match_fields` says.
 export const DEFAULT_MATCH_FIELDS = Object.freeze(['subject']);
+
+/**
+ * `true` only when `fields` is, by VALUE (not reference -- a caller-constructed
+ * literal array like `['subject']` must pass, not only the exported
+ * `DEFAULT_MATCH_FIELDS` constant itself), exactly the one-element subject-only
+ * array. Used by `classifyProjectHits`, `refresh()` and `previewRule()` (K1) to
+ * refuse any other value outright, rather than silently widening or narrowing
+ * matching to something the caller did not actually ask for.
+ */
+export function isSubjectOnlyFields(fields) {
+  return Array.isArray(fields) && fields.length === 1 && fields[0] === 'subject';
+}
+
+export const FIELDS_NOT_SUPPORTED_CODE = 'workspace_ledgers_fields_not_supported';
+
+/**
+ * Throws `FIELDS_NOT_SUPPORTED_CODE` (an error carrying `.code`, no host-local data,
+ * no rule content) when `fields` is not exactly `['subject']`. `fields` itself (an
+ * array of short fixed field-name strings, never Owner-authored free text) is safe to
+ * include in the thrown detail -- unlike a rule term's label, this is never real
+ * project/company/person text.
+ */
+export function assertSubjectOnlyFields(fields) {
+  if (isSubjectOnlyFields(fields)) return;
+  const error = new Error(`${FIELDS_NOT_SUPPORTED_CODE}: ${JSON.stringify(fields)}`);
+  error.name = 'FieldsNotSupportedError';
+  error.code = FIELDS_NOT_SUPPORTED_CODE;
+  throw error;
+}
 export const CONFLICT_POLICY = 'two_projects_exact_on_one_mail_means_hold_no_attribution';
 export const SENDER_POLICY = 'hint_only';
 

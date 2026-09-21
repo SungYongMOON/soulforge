@@ -82,6 +82,37 @@ test('cli refresh (S-5, fresh-review-4): a valueless --allow-empty is a usage er
   }
 });
 
+test('cli refresh (K1, coordinator fresh review round 3): --fields all is gone, a usage error, exit code 2', () => {
+  const fixture = makeFixture();
+  try {
+    const args = ['refresh', '--workspaces-root', fixture.workspacesRoot, '--workmeta-root', fixture.workmetaRoot,
+      '--hiworks-events', fixture.hiworksDir, '--gmail-sent-events', fixture.gmailDir, '--org-config', fixture.orgConfigPath,
+      '--receipts', fixture.receiptsDir, '--dry', '--fields', 'all'];
+    let error;
+    try { execFileSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' }); }
+    catch (thrown) { error = thrown; }
+    assert.ok(error, 'expected the CLI to exit non-zero');
+    assert.equal(error.status, 2);
+    assert.match(error.stderr, /--fields must be "subject"/u);
+    assert.match(error.stderr, /"all" is no longer supported/u);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('cli preview-rule (K1): --fields subject is still accepted explicitly (back-compat with the merged console adapter)', () => {
+  const fixture = makeFixture();
+  try {
+    const args = ['preview-rule', '--workspaces-root', fixture.workspacesRoot, '--code', CODE, '--draft', fixture.draftPath,
+      '--hiworks-events', fixture.hiworksDir, '--gmail-sent-events', fixture.gmailDir, '--fields', 'subject'];
+    const out = execFileSync(process.execPath, [CLI_PATH, ...args], { encoding: 'utf8' });
+    const result = JSON.parse(out);
+    assert.equal(typeof result.matched_before, 'number');
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 test('cli refresh (S-6, fresh-review-4): an unreadable custody directory prints the --allow-partial-sources hint, not the ledger-validation message', () => {
   const fixture = makeFixture();
   try {

@@ -161,6 +161,13 @@ test('D-e (coordinator, fresh review round 2): partition invariant over a mixed 
       event({ id: 'h-unclassified', subject: '전혀 상관없는 안내', from: 'x@client.example', at: '2026-09-01T11:00:00Z' }),
       // 공유 (deliberately shared): reading table names BOTH projects.
       event({ id: 'h-shared', subject: '공유 프로젝트 안내', from: 'x@client.example', at: '2026-09-01T12:00:00Z' }),
+      // S-a (coordinator, fresh review round 3): a supplier-type vendor address
+      // (vendor.example -> 거래처A, kind 부품, not excluded by SUPPLIER_KIND_EXCLUDE)
+      // with NO subject-rule/bundle-table signal at all, but its BODY contains exactly
+      // one project's exact keyword -- step 4's supplier-body tie-break must attribute
+      // it via refresh() too, basis "본문".
+      event({ id: 'm-supplier-body', subject: '부품 배송 안내', from: 'sales@vendor.example', at: '2026-09-01T12:30:00Z',
+        body: `${CODE_A} 관련 부품 배송 예정` }),
       // M1: the project A keyword appears ONLY in the body, and this mail touches NO
       // vendor address at all -- step 4 is vendor-gated (bodyOk requires a matched
       // vendor), so this must NOT attribute despite the body containing "P00-001".
@@ -196,7 +203,12 @@ test('D-e (coordinator, fresh review round 2): partition invariant over a mixed 
       workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
       receiptsDir: fixture.receiptsDir, now: '2026-09-21T00:00:00.000Z',
-      bundleTablePath: fixture.bundleTablePath, readingTablePath: fixture.readingTablePath,
+      // S-a: vendorTablePath passed to refresh() too (previously only readingTablePath/
+      // bundleTablePath were) -- without it, step 4 never fires and m-supplier-body
+      // would wrongly fall through to organisation_undecided/미분류 in refresh()'s own
+      // pipeline even though the common pipeline (which already got vendorTablePath)
+      // attributed it.
+      bundleTablePath: fixture.bundleTablePath, readingTablePath: fixture.readingTablePath, vendorTablePath: fixture.vendorTablePath,
     });
     assert.equal(refreshReceipt.status, 'ok');
     const commonReceipt = refreshCommon({
@@ -263,5 +275,23 @@ test('D-e (coordinator, fresh review round 2): partition invariant over a mixed 
     assert.ok(projectIds.get(CODE_A).has('h-shared'));
     assert.ok(projectIds.get(CODE_B).has('h-shared'));
     assert.equal(finalPass.classified.filter(entry => entry.mail.event_id === 'h-shared').length, 1);
+
+    // ---- S-a: m-supplier-body (a supplier-type vendor address, body-only keyword) --
+    // step 4 must attribute it via refresh() itself (not just the common pipeline),
+    // land it in project A's ledger, and it must never appear in 미분류.
+    const supplierEntry = finalPass.classified.find(entry => entry.mail.event_id === 'm-supplier-body');
+    assert.equal(supplierEntry.outcome.bucket, 'project');
+    assert.deepEqual(supplierEntry.outcome.projectCodes, [CODE_A]);
+    assert.ok(projectIds.get(CODE_A).has('m-supplier-body'), 'refresh() must have written the supplier-body-attributed mail into project A\'s own ledger');
+    assert.equal([...projectIds.values()].filter(ids => ids !== projectIds.get(CODE_A)).some(ids => ids.has('m-supplier-body')), false);
+    assert.notEqual(supplierEntry.outcome.fileName, '미분류.csv');
+    // the "본문:" basis label must show up somewhere in the WRITTEN received-history
+    // ledger for project A -- not just in the in-memory classification result.
+    const recvCsvPath = path.join(fixture.workspacesRoot, FOLDER_A, `${LEDGER_DIR}/메일_수신이력.csv`);
+    const recvDecoded = decodeCsv(readFileSync(recvCsvPath, 'utf8'));
+    const labelIndex = recvDecoded.headers.indexOf('적용규칙'); // buildHistoryRow's own `label` column
+    const supplierRow = recvDecoded.rows.find(row => row[recvDecoded.headers.indexOf('메일소스ID')] === 'm-supplier-body');
+    assert.ok(supplierRow, 'm-supplier-body must have its own row in project A\'s received-history ledger');
+    assert.match(supplierRow[labelIndex], /^본문:/u);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

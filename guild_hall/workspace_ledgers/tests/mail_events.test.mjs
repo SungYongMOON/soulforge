@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { compileRules, MAX_BODY_TEXT_CHARS, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
-import { loadMailEvents, parseAddressField } from '../src/mail_events.mjs';
+import { DEFAULT_SYSTEM_SENDER_DOMAINS, loadMailEvents, parseAddressField, systemSenderPatternsFromConfig } from '../src/mail_events.mjs';
 
 function tempDir() {
   return mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-mail-events-'));
@@ -42,6 +42,39 @@ test('parseAddressField: a multi-recipient single string splits on top-level com
 test('parseAddressField: an unparseable residue (leftover whitespace or <) is dropped, never kept as an address (S6)', () => {
   assert.deepEqual(parseAddressField('not an address at all'), []);
   assert.deepEqual(parseAddressField('broken <unterminated'), []);
+});
+
+test('systemSenderPatternsFromConfig (S-c, coordinator fresh review round 3): system_sender_exclude_domains removes a domain from the built-in list only', () => {
+  assert.equal(DEFAULT_SYSTEM_SENDER_DOMAINS.includes('slack.com'), true); // fixture assumption
+  const withoutExclude = systemSenderPatternsFromConfig({});
+  assert.equal(withoutExclude.some(pattern => pattern.test('noreply@slack.com')), true);
+  const withExclude = systemSenderPatternsFromConfig({ system_sender_exclude_domains: ['slack.com'] });
+  assert.equal(withExclude.some(pattern => pattern.test('noreply@slack.com')), false);
+  // a different built-in domain is untouched by excluding slack.com specifically
+  assert.equal(withExclude.some(pattern => pattern.test('noreply@linear.app')), true);
+});
+
+test('systemSenderPatternsFromConfig (S-c): system_sender_domains still applies for a domain the operator excluded from the built-in list', () => {
+  const patterns = systemSenderPatternsFromConfig({
+    system_sender_exclude_domains: ['slack.com'], system_sender_domains: ['slack.com'],
+  });
+  // the explicit re-add via system_sender_domains wins over the built-in exclusion --
+  // not a silent no-op.
+  assert.equal(patterns.some(pattern => pattern.test('noreply@slack.com')), true);
+});
+
+test('systemSenderPatternsFromConfig (S-c): system_sender_builtin: false drops the whole built-in list', () => {
+  const patterns = systemSenderPatternsFromConfig({ system_sender_builtin: false });
+  for (const domain of DEFAULT_SYSTEM_SENDER_DOMAINS) {
+    assert.equal(patterns.some(pattern => pattern.test(`noreply@${domain}`)), false);
+  }
+  assert.equal(patterns.length, 0); // no org-added domains either -- an empty pattern list, not a false-negative-prone empty regex
+});
+
+test('systemSenderPatternsFromConfig (S-c): system_sender_builtin: false still honours the org\'s own system_sender_domains', () => {
+  const patterns = systemSenderPatternsFromConfig({ system_sender_builtin: false, system_sender_domains: ['vendor.example'] });
+  assert.equal(patterns.some(pattern => pattern.test('noreply@vendor.example')), true);
+  assert.equal(patterns.some(pattern => pattern.test('noreply@slack.com')), false); // built-in still off
 });
 
 test('loadMailEvents: skips system senders and [Plaud-AutoFlow] subjects, classifies the rest', () => {

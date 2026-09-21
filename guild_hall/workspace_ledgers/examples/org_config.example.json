@@ -13,10 +13,20 @@
     "notifications.example.com",
     "noreply.example.com"
   ],
+  "_comment_system_sender_exclude_domains": "S-c (coordinator, fresh review round 3): opts specific domains OUT of the built-in DEFAULT_SYSTEM_SENDER_DOMAINS list only -- system_sender_domains above is unaffected and always still applies, even for the same domain.",
+  "system_sender_exclude_domains": [],
+  "_comment_system_sender_builtin": "S-c: false drops the built-in system-sender domain list entirely. Any value other than the literal false (including omitting this key) keeps it.",
+  "system_sender_builtin": true,
   "common_ledgers": {
     "common_folder_name": "P00-000_공통",
     "general_work_folder_name": "general_work_일반업무",
     "knowledge_folder_names": ["knowledge_지식자료"],
+    "_comment_owner_tables": "S-b (coordinator, fresh review round 3): ONE place for the Owner-table paths -- used by refresh()/refreshCommon()/previewRule() when the caller's own explicit bundleTablePath/readingTablePath/vendorTablePath is omitted. Each path is relative to workspacesRoot, or absolute on the private plane. Placeholders only -- real paths live on the private plane.",
+    "owner_tables": {
+      "bundle": "P00-000_공통/020_MGMT/021_자동화설정_운영규칙/묶음_확정표.csv",
+      "reading": "P00-000_공통/020_MGMT/021_자동화설정_운영규칙/판독_결정표.csv",
+      "vendor": "P00-000_공통/020_MGMT/023_연락처_이해관계자/거래처_대응표.csv"
+    },
     "system_notification_sources": [
       { "name": "예시알림원천", "sender_domains": ["notify.vendor.example"], "subject_patterns": ["^\\s*\\[예시알림\\]"] },
       { "name": "기타알림", "sender_domains": ["accounts.vendor.example"], "subject_patterns": ["(verify|보안 ?알림|로그인|sign-?in)"] }

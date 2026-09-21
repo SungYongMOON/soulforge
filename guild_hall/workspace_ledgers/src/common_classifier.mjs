@@ -8,7 +8,7 @@
 // the common/general-work folder names) comes from the caller's org config via
 // `buildCommonConfig` -- never hardcoded here, so this module ships no real org data
 // (see `examples/org_config.example.json`'s `common_ledgers` block).
-import { classifyMail, compileTerm, DEFAULT_MATCH_FIELDS, RuleCompileError } from './classifier.mjs';
+import { assertSubjectOnlyFields, classifyMail, compileTerm, DEFAULT_MATCH_FIELDS, RuleCompileError } from './classifier.mjs';
 import { domainOf, normalizeSubject, seoulDateOf } from './ledgers.mjs';
 import { isSafeFileName } from './common_ledgers.mjs';
 import { systemSenderPatternsFromConfig } from './mail_events.mjs';
@@ -83,12 +83,11 @@ export function workTagsOf(subject, workTags) {
  * `classifyProjectHits` (A1, 2026-09-21 night addition) so `refresh.mjs`'s own
  * per-project ledger attribution can reuse the exact same bundle/reading logic --
  * "한 곳에서만 정한다" (spec section 1's own header) -- instead of a second,
- * potentially-drifting copy. `refresh.mjs` only ever calls this for an event its OWN
- * subject-rule classification (every `match_fields` the project's saved rule itself
- * declares, not restricted to `subject` the way `classifyProjectHits`'s own step 1
- * is) already left with zero hits and no hold -- so a bundle/reading decision can
- * never override a subject-rule attribution or a two-project hold either way (spec
- * A1: "판독 결정이 제목 규칙을 뒤집지 못한다").
+ * potentially-drifting copy. `refresh.mjs` only ever calls this for an event
+ * `classifyProjectHits`'s OWN step 1 (subject-only, full stop -- K1) already left
+ * with zero hits and no hold -- so a bundle/reading decision can never override a
+ * subject-rule attribution or a two-project hold either way (spec A1: "판독 결정이
+ * 제목 규칙을 뒤집지 못한다").
  *
  * `at` (A2 item 1, optional) is the mail's own normalised receipt instant -- compared,
  * as a Seoul calendar date, against a matching bundle row's `적용끝` (if any): a mail
@@ -180,19 +179,23 @@ export function classifyByOwnerTables({ id, subject, at = null }, { bundles, rea
  * through to the generic "판독: 보류"-shaped branch below before this fix; now that
  * fall-through is also counted, not just silently absorbed).
  *
- * D-a/D-b (coordinator, fresh review round 2): this is THE one function that runs the
+ * D-a (coordinator, fresh review round 2): this is THE one function that runs the
  * whole classification order 1-5 for a mail -- `refresh()`'s own project-ledger
  * attribution calls it directly now (no separate, narrower step-1-only classifier of
- * its own any more), so no path can run step 1 with different inputs. `fields`
- * (new, default `DEFAULT_MATCH_FIELDS` = subject only) restricts which of a rule's
- * own declared `match_fields` step 1 actually consults -- previously hardcoded to
- * `['subject']` unconditionally here; now the SAME caller-supplied restriction
- * `refresh()`'s own `fields` param (and `previewRule`'s) already uses, so a caller
- * that widens it (`--fields all`) widens step 1 identically in both places. Step 4
- * (body) is unaffected by `fields` -- it is always tested against `body_text` alone,
- * per its own narrower (vendor-gated) contract, matching D-b.
+ * its own any more), so no path can run step 1 with different inputs.
+ *
+ * K1 (coordinator, fresh review round 3 -- settles round 2's D-b/R1): `fields` is
+ * accepted only for backward compatibility and must be exactly `DEFAULT_MATCH_FIELDS`
+ * (`['subject']`, checked by VALUE via `classifier.mjs`'s `assertSubjectOnlyFields`)
+ * -- any other value throws `workspace_ledgers_fields_not_supported` immediately.
+ * Step 1 matches the SUBJECT ONLY, full stop; this param does not, and never again
+ * will, widen or narrow that. A rule's own `match_fields` stays schema-valid but is
+ * NOT consulted for ledger placement (see `classifier.mjs`'s own doc on
+ * `DEFAULT_MATCH_FIELDS`). Step 4 (body) is unaffected either way -- it is always
+ * tested against `body_text` alone, per its own narrower (vendor-gated) contract.
  */
 export function classifyProjectHits({ id, subject, body, addresses, at = null }, { compiledRules, bundles, readings, vendorLookup, fields = DEFAULT_MATCH_FIELDS }) {
+  assertSubjectOnlyFields(fields);
   const vendors = vendorsOfAddresses(addresses, vendorLookup);
   const bodyOk = vendors.some(vendor => !SUPPLIER_KIND_EXCLUDE.test(vendor.kind));
   const knownCode = code => compiledRules.some(rule => rule.project_code === code);

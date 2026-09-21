@@ -1,7 +1,9 @@
 // CSV row/header shaping for the common-folder ledgers (spec section 3 of
 // `18_WORKSPACE_LEDGERS_PORT_SPEC_2026-09-21.md`): the primary-bucket files
 // (시스템알림_<원천>.csv, 사내행정.csv, 외부안내.csv, 과제외_<분류>.csv,
-// 과제코드대기.csv, 과제없음_확인함.csv, 미분류.csv, 보류.csv), the general-work
+// 과제코드대기.csv, 판독_과제미정.csv (A2 item 2's rename of the former
+// 과제없음_확인함.csv -- R2, coordinator fresh review round 2), 미분류.csv,
+// 보류.csv), the general-work
 // ledger (일반업무_메일.csv, a separate folder), and the secondary vendor/work-tag
 // view ledgers (거래처_<이름>.csv, 작업_<태그>.csv). Pure data shaping only --
 // `common_refresh.mjs` owns routing a classified mail to the right file name and

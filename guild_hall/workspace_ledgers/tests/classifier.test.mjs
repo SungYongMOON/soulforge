@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  classifyMail, compileRule, compileRules, compileTerm, hintCodes, MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES,
-  normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
+  assertSubjectOnlyFields, classifyMail, compileRule, compileRules, compileTerm, DEFAULT_MATCH_FIELDS,
+  FIELDS_NOT_SUPPORTED_CODE, hintCodes, isSubjectOnlyFields, MAX_BODY_TEXT_CHARS, MAX_YIELDS_TO_ENTRIES,
+  MATCH_FIELDS, normalizeYieldsTo, RuleCompileError, RULE_SCHEMA_VERSION,
 } from '../src/classifier.mjs';
 
 const lit = (label, value) => ({ label, kind: 'literal', value });
@@ -17,6 +18,22 @@ function ruleJson({ code, folder, exact, hint = [], yieldsTo = null, version = '
     sender_policy: 'hint_only',
   };
 }
+
+test('isSubjectOnlyFields / assertSubjectOnlyFields (K1, coordinator fresh review round 3): exactly [\'subject\'] passes, anything else throws FIELDS_NOT_SUPPORTED_CODE', () => {
+  assert.equal(isSubjectOnlyFields(['subject']), true);
+  assert.equal(isSubjectOnlyFields(DEFAULT_MATCH_FIELDS), true);
+  assert.equal(isSubjectOnlyFields(MATCH_FIELDS), false); // ['subject', 'body_text', 'attachment_names']
+  assert.equal(isSubjectOnlyFields(['subject', 'body_text']), false);
+  assert.equal(isSubjectOnlyFields([]), false);
+  assert.equal(isSubjectOnlyFields(null), false);
+  assert.equal(isSubjectOnlyFields(undefined), false);
+
+  assertSubjectOnlyFields(['subject']); // never throws
+  assert.throws(() => assertSubjectOnlyFields(MATCH_FIELDS), error => error.code === FIELDS_NOT_SUPPORTED_CODE);
+  assert.throws(() => assertSubjectOnlyFields(['subject', 'body_text']), error => error.code === FIELDS_NOT_SUPPORTED_CODE);
+  assert.throws(() => assertSubjectOnlyFields([]), error => error.code === FIELDS_NOT_SUPPORTED_CODE);
+  assert.throws(() => assertSubjectOnlyFields(undefined), error => error.code === FIELDS_NOT_SUPPORTED_CODE);
+});
 
 test('compileTerm: literal matches case-insensitively', () => {
   const term = compileTerm(lit('X', 'Widget'));

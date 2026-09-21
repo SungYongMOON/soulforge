@@ -3,10 +3,15 @@
 // to[], cc[], received_at, body_text, attachments[], event_id) and classifies each
 // event against compiled mail-routing rules in the same pass.
 //
-// `loadMailEvents` (used only by `previewRule` now, D-c/D-a coordinator decision):
-// only event metadata (subject, participants, attachment count, classification) ever
-// leaves it. `body_text` and attachment names are read solely to build the text a
-// rule's `match_fields` are tested against; both fall out of scope before it returns.
+// `loadMailEvents`: no longer called by `refresh()` or `previewRule` (K2, coordinator
+// fresh review round 3 -- both now read custody through `common_events.mjs`'s
+// `loadRawMailRecords` + `cachedLoadRecords`, the same loader/window the common
+// pipeline uses, so a rule preview matches exactly what the next refresh will write).
+// Kept as a public export (`index.mjs`) for external/back-compat callers and its own
+// tests -- only event metadata (subject, participants, attachment count,
+// classification) ever leaves it. `body_text` and attachment names are read solely to
+// build the text a rule's `match_fields` are tested against; both fall out of scope
+// before it returns.
 // The lower-level pieces it is now built from -- `collectCandidatesFromDirs` and
 // `dedupeAndAssignIds`, both exported -- do NOT carry that same restriction: they are
 // the shared custody-reading/id-derivation primitives `common_events.mjs`'s loader
@@ -19,9 +24,18 @@ import path from 'node:path';
 import { classifyMail, DEFAULT_MATCH_FIELDS, MAX_BODY_TEXT_CHARS } from './classifier.mjs';
 import { normalizeSubject } from './ledgers.mjs';
 
-export const DEFAULT_SYSTEM_SENDER_PATTERNS = Object.freeze([
-  /@(plaud\.ai|slack\.com|linear\.app|hiworks\.com|accounts\.google\.com|smartsheet\.com|go\.mathworks\.com|marketing\.analog\.com)$/iu,
+// S-c (coordinator, fresh review round 3): kept as its own named list (not just baked
+// into the regex below) so `systemSenderPatternsFromConfig` can filter it per-domain
+// for `system_sender_exclude_domains`, and drop it entirely for `system_sender_builtin:
+// false`.
+export const DEFAULT_SYSTEM_SENDER_DOMAINS = Object.freeze([
+  'plaud.ai', 'slack.com', 'linear.app', 'hiworks.com', 'accounts.google.com', 'smartsheet.com', 'go.mathworks.com', 'marketing.analog.com',
 ]);
+function domainAlternationPattern(domains) {
+  const escaped = domains.map(domain => domain.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'));
+  return new RegExp(`@(${escaped.join('|')})$`, 'iu');
+}
+export const DEFAULT_SYSTEM_SENDER_PATTERNS = Object.freeze([domainAlternationPattern(DEFAULT_SYSTEM_SENDER_DOMAINS)]);
 export const DEFAULT_SKIP_SUBJECT_PATTERNS = Object.freeze([/\[Plaud-AutoFlow\]/iu]);
 const MAX_LINE_BYTES = 4 * 1024 * 1024;
 
@@ -107,14 +121,33 @@ function isSkippedSubject(subject, patterns) {
  * named/labelled sources) is a separate, additional signal folded in by
  * `buildSystemSenderConfig` itself, not here -- this function only ever produces the
  * legacy, unnamed-domain half of the merge.
+ *
+ * S-c (coordinator, fresh review round 3): two more top-level org-config keys, same
+ * level as `system_sender_domains`:
+ * - `system_sender_builtin: false` drops `DEFAULT_SYSTEM_SENDER_DOMAINS` entirely from
+ *   the merge (an org whose own domain collides with a built-in one, or that wants to
+ *   own the whole list itself, opts out completely). Any value other than the literal
+ *   `false` (including omitted) keeps the built-in list, matching every other
+ *   opt-in-by-default org-config boolean in this codebase.
+ * - `system_sender_exclude_domains` (array of domain strings) removes specific
+ *   domains from the BUILT-IN list only. `system_sender_domains` (the org's own
+ *   additions) is never filtered by this -- re-adding an excluded domain there wins,
+ *   not a silent no-op, since an operator explicitly listing a domain is a stronger
+ *   signal than a generic exclusion.
  */
 export function systemSenderPatternsFromConfig(orgConfig) {
-  const domains = Array.isArray(orgConfig?.system_sender_domains)
-    ? orgConfig.system_sender_domains.filter(domain => typeof domain === 'string' && domain.trim() !== '')
+  const builtinEnabled = orgConfig?.system_sender_builtin !== false;
+  const excludeDomains = new Set(
+    (Array.isArray(orgConfig?.system_sender_exclude_domains) ? orgConfig.system_sender_exclude_domains : [])
+      .filter(domain => typeof domain === 'string' && domain.trim() !== '')
+      .map(domain => domain.trim().toLowerCase()),
+  );
+  const builtinDomains = builtinEnabled ? DEFAULT_SYSTEM_SENDER_DOMAINS.filter(domain => !excludeDomains.has(domain)) : [];
+  const configDomains = Array.isArray(orgConfig?.system_sender_domains)
+    ? orgConfig.system_sender_domains.filter(domain => typeof domain === 'string' && domain.trim() !== '').map(domain => domain.trim().toLowerCase())
     : [];
-  if (domains.length === 0) return DEFAULT_SYSTEM_SENDER_PATTERNS;
-  const escaped = domains.map(domain => domain.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'));
-  return [...DEFAULT_SYSTEM_SENDER_PATTERNS, new RegExp(`@(${escaped.join('|')})$`, 'iu')];
+  const allDomains = [...new Set([...builtinDomains, ...configDomains])];
+  return allDomains.length === 0 ? [] : [domainAlternationPattern(allDomains)];
 }
 
 /**

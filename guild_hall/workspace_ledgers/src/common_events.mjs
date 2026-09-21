@@ -6,15 +6,19 @@
 // is the exact same id `refresh()` derives for the exact same physical mail -- D-c:
 // "A reading-table row written from `triage list` output must be found by refresh()."
 //
-// Deliberately separate from `mail_events.mjs`'s own `loadMailEvents` (used only by
-// `previewRule` now): that function's contract is that body text never leaves it, and
-// it still applies its own system-sender/skip-subject PRE-filter for that narrower,
-// per-rule comparison tool. This loader's job -- org-wide classification, refresh()'s
-// project attribution, and Owner/AI triage reading -- explicitly needs the body (spec
-// section 1 step 4's supplier-body confirmation) and never pre-filters anything: D-d
-// requires that a mail be classified (steps 1-3, which can rescue it via an explicit
-// reading/bundle decision) BEFORE it is ever judged "system noise", so no caller of
-// this loader may drop a record before classification runs.
+// Deliberately separate from `mail_events.mjs`'s own `loadMailEvents` (K2, coordinator
+// fresh review round 3: no longer called by `previewRule` either -- that function now
+// reads through THIS loader too, via `refresh.mjs`'s `cachedLoadRecords`, so its
+// `matched_before`/`matched_after` reflect exactly what the next refresh will write.
+// `loadMailEvents` is kept only as a public export for external/back-compat callers;
+// its contract is that body text never leaves it, and it still applies its own
+// system-sender/skip-subject PRE-filter, which is exactly why it is no longer used
+// internally). This loader's job -- org-wide classification, refresh()'s project
+// attribution, previewRule's comparison, and Owner/AI triage reading -- explicitly
+// needs the body (spec section 1 step 4's supplier-body confirmation) and never
+// pre-filters anything: D-d requires that a mail be classified (steps 1-3, which can
+// rescue it via an explicit reading/bundle decision) BEFORE it is ever judged "system
+// noise", so no caller of this loader may drop a record before classification runs.
 //
 // The actual id-derivation/dedup/collision-suffix logic is NOT reimplemented here --
 // it is `mail_events.mjs`'s `collectCandidatesFromDirs`/`dedupeAndAssignIds` (D-c:

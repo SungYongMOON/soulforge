@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 2026-09-21 - `guild_hall/workspace_ledgers` 세 번째 신선한 눈 검토 반영: K1(제목 전용 고정)·K2(previewRule 정합), should 5건·nit 3건
+
+- Revision: 이 항목을 포함한 커밋(직전 commit c618fd0a에 대한 세 번째 별도 신선한 눈 검토 -- D-a·D-c·D-e·
+  R2·R3·S2-S6·S9는 이미 통과, merge-ready는 아니었던 필수 2건과 should 5건 정정).
+- 무엇이 바뀌었는가: **(K1)** 이전 라운드(D-b)가 남긴 "`--fields all`로 다시 넓힐 수 있다"는 문구를
+  걷어냈다 -- 1단계(제목 규칙)는 영구히 제목만 본다. `fields`는 `classifyProjectHits`/`refresh()`/
+  `previewRule()`/CLI `--fields` 어디서든 하위호환으로만 받고, 값이 정확히 `['subject']`(`DEFAULT_MATCH_FIELDS`,
+  참조가 아니라 값 비교)가 아니면 `workspace_ledgers_fields_not_supported`를 던진다. CLI `--fields all`은
+  이제 사용법 오류(exit 2)다. 저장된 규칙의 `match_fields`는 스키마상 계속 유효하지만(private plane의
+  기존 17개 규칙이 그대로 들고 있음) 더 이상 장부 배치에 반영되지 않는다는 점을 문서화했다(거부하지는
+  않는다). 병합된 콘솔 패널 어댑터(`mail-rule-adapter.mjs`)는 이미 `fields: ['subject']`를 명시로 넘기므로
+  그대로 동작한다. 회귀 시험: `assertSubjectOnlyFields`/`isSubjectOnlyFields` 단위 시험, `match_fields`에
+  `body_text`를 넣은 규칙 + 본문에만 있는 키워드가 두 파이프라인(`refresh()`/공통 파이프라인) 모두에서
+  1단계 히트가 되지 않음, `fields: ['subject', 'body_text']`가 두 파이프라인·CLI 모두에서 던짐.
+  **(K2)** `previewRule`이 `refresh()`와 다른 커스터디 로더(`mail_events.mjs`의 `loadMailEvents`, 시스템
+  발신자/제목 사전 필터 포함)로 비교를 만들고 있어, `matched_before`/`matched_after`가 시스템 발신자
+  메일을 조용히 빼먹고 실제 `refresh()`가 쓸 결과와 어긋날 수 있었다 -- `previewRule`도 `refresh.mjs`의
+  `cachedLoadRecords`(원시 레코드, 규칙과 무관하게 디렉터리 서명으로 캐시)로 옮겨 `classifyProjectHits`를
+  직접 돌리게 했다. 이제 `matched_before`/`matched_after`는 시스템 발신자 여부로 절대 줄지 않고(다음
+  `refresh()`가 실제로 쓸 값과 항상 같다), 대신 `matched_from_system_senders`를 새 필드로 분리해 그
+  하위집합 크기를 Owner에게 보여준다(held 메일은 `classifyProjectHits`가 `hits: []`를 돌려주므로 둘 다에서
+  올바르게 제외된다). 회귀 시험: 시스템 발신자 메일의 제목이 규칙에 걸리면 `previewRule`도 세고
+  `refresh()`도 같은 수를 쓴다는 고정 시험.
+  should: **(S-a)** 파티션 시험(`classification_partition.test.mjs`)의 `refresh()` 호출에도
+  `vendorTablePath`를 넘기고, 본문에만 과제 키워드가 있는 공급업체형 거래처 메일(`m-supplier-body`)을
+  추가해 실제로 쓰여진 과제 장부에 `본문:` 근거로 들어가는지, 미분류에는 안 남는지 확인. **(S-b)** Owner
+  표 경로를 한 곳으로 모았다 -- `orgConfig.common_ledgers.owner_tables.{bundle,reading,vendor}`(경로,
+  `owner_tables.mjs`의 새 `resolveOwnerTablePaths`)를 `refresh()`/`refreshCommon()`/`previewRule()`
+  셋 다 명시 인자가 없을 때 기본값으로 쓴다(명시 인자는 항상 우선). 두 영수증 모두 `owner_tables_used`
+  (`[{table, file, sha256}]`, 호스트 경로 없이 파일명만)를 새로 기록한다. 운영 규칙: `refresh`와
+  `common-refresh`(그리고 `parity`/`triage`)는 반드시 같은 표 조합으로 돌려야 분할 불변식이 깨지지
+  않는다 -- README/CLI 헤더 코멘트에 명시. **(S-c)** 내장 시스템 발신자 도메인 목록도 이제 공통 폴더
+  버킷을 결정하는데, org config로 일부만 뺄 수 있다(`system_sender_exclude_domains`) 또는 전체를 끌 수
+  있다(`system_sender_builtin: false`) -- 둘 다 시험 추가(`mail_events.test.mjs` 단위, `refresh.test.mjs`
+  end-to-end). **(S-e)** 이번 라운드의 규모 참고: D-d(2차 라운드)가 이미 걷어낸 `refresh()` 자체 사전
+  필터 때문에, 그리고 이번 S-b의 org-config 기본값 때문에, 이전엔 전혀 분류를 안 타던 메일이 이제
+  분류를 탄다 -- 참고 평면에서 이전에 건너뛰던 메일이 대략 천 건 단위로 분류에 진입했고 그중 수십 건이
+  새로 과제 장부 행이 됐다. 이 라운드 이후 첫 실제(비-`--dry`) 실행 전에는 `parity`와 `--dry refresh`부터
+  돌려 그 차이를 먼저 읽으라고 README에 명시했다.
+  nit: `common_ledgers.mjs`의 모듈 헤더 코멘트가 여전히 개명 전 파일명(`과제없음_확인함.csv`)을
+  가리키고 있어 고쳤다(`ADMIN_SHAPED_FILES` 자체는 2차 라운드 R2에서 이미 고쳐져 있었다). `DEFAULT_
+  SKIP_SUBJECT_PATTERNS`(`[Plaud-AutoFlow]` 제목 필터)가 `refresh()` 경로에 더 이상 적용되지 않음을
+  확인·문서화했다 -- D-a/D-c로 `refresh()`가 `loadMailEvents`를 아예 안 읽게 된 이후로는 원래도 적용될
+  자리가 없었으므로(고의 아닌 회귀가 아니라 사후 확인), 복원하지 않고 README에 그 판단 근거(plaud.ai는
+  `DEFAULT_SYSTEM_SENDER_DOMAINS`로 이미 시스템 발신자로 잡힘)와 함께 적었다. `refresh.mjs`의
+  `readAllRuleJsonSafely`와 `common_refresh.mjs`의 `readAllRulesSafely`는 안전한 기계적 병합으로
+  판단해 하나(`readAllRuleJsonSafely`, `refresh.mjs`에서 export)로 합쳤다 -- `classifyAllCommonMail`의
+  `ruleFailures`가 `term_ref`까지 갖게 되는 진짜 상위집합이라 기존 필드 손실은 없다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/classifier.mjs`, `common_classifier.mjs`, `common_ledgers.mjs`,
+  `common_refresh.mjs`, `mail_events.mjs`, `owner_tables.mjs`, `refresh.mjs`, `cli.mjs`, `README.md`,
+  각 대응 `tests/*.test.mjs`.
+
 ## 2026-09-21 - 대화 목록 야간 lane 네 번째 신선한 눈 검토 정정: merge-ready, aging 근거 구분, 중복 집계 방지, 버전 상향
 
 - Revision: 이 항목을 포함한 커밋(같은 슬라이스, 네 번째 병합 전 신선한 눈 검토 — 필수 0건, should 4건, 저렴한

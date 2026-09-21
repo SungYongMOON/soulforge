@@ -43,6 +43,22 @@ test('classifyProjectHits step 2: a bundle-table phrase confirms one or more pro
   assert.match(result.hits[0].label, /공유 P00-001;P00-002/);
 });
 
+test('classifyProjectHits (K1, coordinator fresh review round 3): step 1 matches the subject ONLY -- a keyword only in the body, even with body_text in the rule\'s own match_fields, is never a step-1 hit', () => {
+  const ruleWithBodyField = rule('P00-003', [['바디전용트리거', '바디전용트리거']]); // rule() above already sets match_fields to include body_text -- K1: not consulted for step 1
+  const result = classifyProjectHits({ id: 'm-k1', subject: '평범한 제목', body: '바디전용트리거가 여기 있음', addresses: [] },
+    { compiledRules: [ruleWithBodyField], bundles: [], readings: new Map(), vendorLookup: new Map() });
+  assert.equal(result.held, false);
+  assert.equal(result.hits.length, 0); // never a step-1 hit, no matter what the rule's own match_fields says
+});
+
+test('classifyProjectHits (K1): fields other than exactly [\'subject\'] throws workspace_ledgers_fields_not_supported', () => {
+  assert.throws(
+    () => classifyProjectHits({ id: 'm-k1b', subject: 'A트리거 안내', body: '', addresses: [] },
+      { compiledRules: [RULE_A], bundles: [], readings: new Map(), vendorLookup: new Map(), fields: ['subject', 'body_text'] }),
+    error => error.code === 'workspace_ledgers_fields_not_supported',
+  );
+});
+
 // ------------------------------------------------------ A2 item 1 (2026-09-21 night)
 test('classifyByOwnerTables (A2 item 1): a bundle row past its own 적용끝 does not match a mail received after that date, but still matches on/before it', () => {
   const bundles = [{ phrase: '분기 회의', codes: ['P00-001'], why: 'Owner 확인', appliesUntil: '2026-09-15' }];

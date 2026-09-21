@@ -8,22 +8,21 @@ import {
   existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
-import { compileRule, compileRules, DEFAULT_MATCH_FIELDS } from './classifier.mjs';
+import { assertSubjectOnlyFields, compileRule, compileRules, DEFAULT_MATCH_FIELDS } from './classifier.mjs';
 import { listProjects, readRule, validateRule, LINEAGE_SCHEMA } from './rule_store.mjs';
-import { loadMailEvents, systemSenderPatternsFromConfig } from './mail_events.mjs';
 import { buildContacts, buildHistory, buildReplyStatus, decodeCsv, domainOf, encodeCsv, LEDGER_SCHEMA, makeOrgLookup } from './ledgers.mjs';
-// D-a/D-b/D-c/D-d (coordinator, fresh review round 2): `refresh()`'s own project-ledger
-// attribution now calls THE ONE classification function (`classifyProjectHits`,
-// steps 1-5) directly, on custody read through the SAME loader (`loadRawMailRecords`)
-// the common pipeline reads through -- no separate, narrower step-1-only classifier
-// of its own any more. `classifyByOwnerTables` (steps 2-3 alone) is kept only for
-// `previewRule`'s own supplementary `table_attributed` count, which is deliberately
-// independent of the draft rule being compared. `buildSystemSenderConfig`/
+// D-a/D-c/D-d (coordinator, fresh review round 2) + K2 (round 3): both `refresh()`'s
+// own project-ledger attribution and `previewRule()` now call THE ONE classification
+// function (`classifyProjectHits`, steps 1-5) directly, on custody read through the
+// SAME loader (`loadRawMailRecords`) the common pipeline reads through -- no separate,
+// narrower classifier of its own anywhere any more. `buildSystemSenderConfig`/
 // `detectSystemSender` is the ONE merged system-sender check (D-d), consulted only
-// AFTER classification, for a mail `classifyProjectHits` left unresolved.
-import { addressesOfMail, buildSystemSenderConfig, classifyByOwnerTables, classifyProjectHits, detectSystemSender } from './common_classifier.mjs';
+// AFTER classification -- for a mail `classifyProjectHits` left unresolved in
+// `refresh()`'s own accounting, and for `previewRule()`'s `matched_from_system_senders`
+// (K2).
+import { addressesOfMail, buildSystemSenderConfig, classifyProjectHits, detectSystemSender } from './common_classifier.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
-import { loadOwnerTables } from './owner_tables.mjs';
+import { loadOwnerTables, ownerTableUsageEntry, resolveOwnerTablePaths } from './owner_tables.mjs';
 
 export const REFRESH_RECEIPT_SCHEMA = 'soulforge.workspace_ledgers_refresh_receipt.v1';
 export const REFRESH_STALE_LOCK_MS = 30 * 60 * 1000;
@@ -198,7 +197,7 @@ const shortHash = value => createHash('sha256').update(String(value)).digest('he
  * (e.g. the json itself failed to parse) or the failing label could not be located.
  * Shared by both `refresh()` and `previewRule()`.
  */
-function readAllRuleJsonSafely(workspacesRoot) {
+export function readAllRuleJsonSafely(workspacesRoot) {
   const projects = listProjects({ workspacesRoot });
   const ok = [];
   const ruleFailures = [];
@@ -283,19 +282,6 @@ export function disambiguateCrossSourceIds(events) {
   });
 }
 
-/**
- * fresh-review-5 (design simplification): matching is a direct `classifyMail` call via
- * `mail_events.mjs` -- no bounded/timed classifier to hoist or share here any more.
- */
-function classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns }) {
-  assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs);
-  const options = systemSenderPatterns ? { systemSenderPatterns } : {};
-  const hiworks = loadMailEvents({ dirs: hiworksDirs, source: '하이웍스_수집', compiledRules, fields, ...options });
-  const gmail = loadMailEvents({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집', compiledRules, fields, ...options });
-  const events = disambiguateCrossSourceIds([...hiworks.events, ...gmail.events]);
-  return { events, hiworks, gmail };
-}
-
 /** fresh-review-3 #10: `dir` (a full host-local path) never leaves this module -- only its basename and which flag it came from. */
 function redactUnreadableDirs(hiworksEntries, gmailEntries) {
   return [
@@ -305,15 +291,16 @@ function redactUnreadableDirs(hiworksEntries, gmailEntries) {
 }
 
 // ---------------------------------------------------------- S10: custody read cache
-// `previewRule` is called interactively (a console iterating on one draft rule) and
-// classifies the *same* custody window twice per call (once for the saved rules,
-// once with the draft substituted); repeated calls in a short span very often share
-// the "before" ruleset (and sometimes the exact same draft) entirely unchanged. This
-// cache keys on the actual rule JSON compared, a cheap directory signature (file
-// names + size + mtime, not content), and the resolved system-sender patterns
-// (fresh-review-3 #6) -- a change to any of those invalidates the entry immediately;
-// it never serves custody or rule state that could have changed.
-// `refresh()` (which writes real files) intentionally never reads through this cache.
+// `previewRule` is called interactively (a console iterating on one draft rule).
+// K2 (coordinator, fresh review round 3): `previewRule` now reads custody through the
+// exact same loader `refresh()` uses (`loadRawMailRecords`, no system-sender/
+// skip-subject pre-filter of any kind) -- and, unlike the OLD `loadMailEvents`-based
+// design, a raw record does not depend on which rule set is being compared, so the
+// SAME records are reused for both the "before" and "after" classification passes in
+// one call, and this cache only ever needs to key on the custody DIRECTORIES (a cheap
+// signature -- file names + size + mtime, not content), not on the rule set or any
+// system-sender config any more. `refresh()` (which writes real files) intentionally
+// never reads through this cache.
 export const CUSTODY_CACHE_TTL_MS = 60 * 1000;
 const CUSTODY_CACHE_MAX_ENTRIES = 20;
 const custodyCache = new Map();
@@ -332,18 +319,22 @@ function dirSignature(dir) {
   return `${dir}::${parts.join(',')}`;
 }
 function dirsSignature(dirs) { return dirs.map(dirSignature).join('|'); }
-function systemSenderSignature(patterns) {
-  return Array.isArray(patterns) ? patterns.map(pattern => `${pattern.source}//${pattern.flags}`).join(',') : 'default';
-}
 
-function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, ruleJsonList, systemSenderPatterns, now = Date.now() }) {
-  const key = JSON.stringify({
-    rules: ruleJsonList, fields, hiworks: dirsSignature(hiworksDirs), gmail: dirsSignature(gmailSentDirs),
-    senders: systemSenderSignature(systemSenderPatterns),
-  });
+/**
+ * K2: the one custody read `previewRule` needs -- `loadRawMailRecords` per source
+ * (the same loader `refresh()`'s own classification loop uses), merged and
+ * cross-source-disambiguated the same way. Cached by directory signature only
+ * (records are rule-independent, unlike the retired `loadMailEvents`-based design).
+ */
+function cachedLoadRecords({ hiworksDirs, gmailSentDirs, now = Date.now() }) {
+  const key = JSON.stringify({ hiworks: dirsSignature(hiworksDirs), gmail: dirsSignature(gmailSentDirs) });
   const cached = custodyCache.get(key);
   if (cached && cached.expiresAt > now) return cached.value;
-  const value = classifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fields, systemSenderPatterns });
+  assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs);
+  const hiworks = loadRawMailRecords({ dirs: hiworksDirs, source: '하이웍스_수집' });
+  const gmail = loadRawMailRecords({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집' });
+  const records = disambiguateCrossSourceIds([...hiworks.records, ...gmail.records]);
+  const value = { records, hiworks, gmail };
   custodyCache.set(key, { value, expiresAt: now + CUSTODY_CACHE_TTL_MS });
   if (custodyCache.size > CUSTODY_CACHE_MAX_ENTRIES) custodyCache.delete(custodyCache.keys().next().value);
   return value;
@@ -356,19 +347,38 @@ function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fiel
  * held/yield behaviour is accurate), but only `code`'s hit/miss transitions are
  * reported. Never writes.
  *
- * `orgConfigPath` (fresh-review-3 #6, optional) resolves `system_sender_domains` the
- * same way `refresh()` does -- omitted, this uses the built-in default list only, as
- * before. Passing it keeps `previewRule`'s counts consistent with what an actual
- * `refresh()` against the same org config would produce; `saveRuleVersion` can render
- * `previewRule`'s counts straight into the rule's markdown (`measured`), so a mismatch
- * here would otherwise show up there.
+ * K2 (coordinator, fresh review round 3 -- settles round 2's R2): this function now
+ * reads custody through the EXACT SAME loader `refresh()`'s own classification loop
+ * uses (`common_events.mjs`'s `loadRawMailRecords`, via the shared `cachedLoadRecords`
+ * above) -- no system-sender/skip-subject pre-filter of any kind, and classification
+ * runs through `classifyProjectHits` (steps 1-5, tables and step 4 included) exactly
+ * as `refresh()` runs it, so `matched_after` for `code` is what the NEXT `refresh()`
+ * call against the same inputs will actually write, not an approximation of it.
+ * `bundleTablePath`/`readingTablePath`/`vendorTablePath` (also resolvable from the org
+ * config -- S-b, see `owner_tables.mjs`'s `resolveOwnerTablePaths`) feed steps 2-4 the
+ * same way they do for `refresh()`; a table-attributed mail simply shows up as a hit
+ * directly now (the round-2 `table_attributed` supplementary field is retired -- it
+ * would only ever have duplicated what `matched_after` itself already counts).
+ *
+ * `orgConfigPath` (fresh-review-3 #6, optional) resolves the merged system-sender
+ * config (`common_classifier.mjs`'s `buildSystemSenderConfig`) the same way `refresh()`
+ * does -- omitted, this uses the built-in default list only. It is used for TWO
+ * things now: resolving `common_ledgers.owner_tables` (S-b) when no explicit table
+ * path is given, and computing `matched_from_system_senders` (K2) -- never to filter
+ * or exclude anything from matching any more.
+ *
+ * `matched_from_system_senders` (K2): of the mails counted in `matched_after`, how
+ * many are from a sender the merged system-sender config would call "system". A
+ * mail's own subject rule (or a table decision) can still legitimately attribute a
+ * system-sender-domain mail to a project (D-d) -- this field lets the Owner SEE that
+ * happening, rather than it being silently invisible the way the old pre-filter used
+ * to make it (by dropping such mail before it was ever compared at all).
  *
  * Saved rules (`beforeJson`, and every entry of `afterJson` except the draft itself)
  * are compiled without re-running the ReDoS timing canaries (fresh-review-3 #5) --
  * `validateRule` above already timed the draft when it validated it; re-timing
  * everything here would be redundant for the draft and non-deterministic validation of
- * already-trusted saved rules. Matching itself is a direct `classifyMail` call
- * (fresh-review-5 design simplification -- see `classifier.mjs`'s `classifyMail` doc).
+ * already-trusted saved rules.
  *
  * fresh-review-5 #7: a project whose OWN saved rule fails to read/compile is excluded
  * from the comparison set (same as `refresh()`), and is now surfaced in the return
@@ -378,7 +388,8 @@ function cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules, fiel
  * was silently excluded needs to say so, not be presented as complete.
  */
 export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gmailSentDirs = [], fields = DEFAULT_MATCH_FIELDS, orgConfigPath = null,
-  bundleTablePath = null, readingTablePath = null }) {
+  bundleTablePath = null, readingTablePath = null, vendorTablePath = null }) {
+  assertSubjectOnlyFields(fields);
   const { ok: all, ruleFailures } = readAllRuleJsonSafely(workspacesRoot);
   const target = all.find(row => row.project.project_code === code);
   const folderName = target ? target.project.folder_name : draft.folder_name ?? null;
@@ -386,39 +397,63 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   const validation = validateRule(nextDraft, { folderName });
   if (!validation.valid) fail('workspace_ledgers_rule_invalid', validation.errors.join(','));
 
-  const systemSenderPatterns = orgConfigPath ? systemSenderPatternsFromConfig(readOrgConfig(orgConfigPath)) : undefined;
+  const orgConfig = orgConfigPath ? readOrgConfig(orgConfigPath) : null;
+  const systemSenderConfig = buildSystemSenderConfig(orgConfig ?? {});
+  const resolvedTables = resolveOwnerTablePaths({ bundleTablePath, readingTablePath, vendorTablePath }, { orgConfig, workspacesRoot });
+  const owner = loadOwnerTables(resolvedTables);
+
   const beforeJson = all.map(row => row.json);
   const afterJson = target ? beforeJson.map(row => (row.project_code === code ? nextDraft : row)) : [...beforeJson, nextDraft];
   const compiledBefore = compileRules(beforeJson, { timeSafety: false });
   const compiledAfter = compileRules(afterJson, { timeSafety: false });
 
-  const before = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledBefore, fields, ruleJsonList: beforeJson, systemSenderPatterns });
-  const after = cachedClassifyCustody({ hiworksDirs, gmailSentDirs, compiledRules: compiledAfter, fields, ruleJsonList: afterJson, systemSenderPatterns });
-  const keyOf = (event, index) => (event.event_id ? `id:${event.event_id}` : `idx:${index}:${event.subject}`);
-  const beforeByKey = new Map(before.events.map((event, index) => [keyOf(event, index), event]));
-  const afterByKey = new Map(after.events.map((event, index) => [keyOf(event, index), event]));
+  // K2: ONE custody read (records are rule-independent) -- classified twice, once per
+  // rule set, through the exact same `classifyProjectHits` `refresh()` itself calls.
+  const { records, hiworks, gmail } = cachedLoadRecords({ hiworksDirs, gmailSentDirs });
+  const classifyEach = compiledRules => records.map(record => classifyProjectHits(
+    { id: record.event_id, subject: record.subject, body: record.body_text, addresses: addressesOfMail(record), at: record.at },
+    { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors, fields },
+  ));
+  const beforeResults = classifyEach(compiledBefore);
+  const afterResults = classifyEach(compiledAfter);
 
-  const sample = event => ({ at: event.at, subject: event.subject.length > 80 ? event.subject.slice(0, 80) : event.subject });
-  let matchedBefore = 0, matchedAfter = 0;
+  const sample = record => ({ at: record.at, subject: record.subject.length > 80 ? record.subject.slice(0, 80) : record.subject });
+  let matchedBefore = 0, matchedAfter = 0, matchedFromSystemSenders = 0;
   const movedIn = [], movedOut = [], newlyHeld = [];
-  for (const [key, beforeEvent] of beforeByKey) {
-    const afterEvent = afterByKey.get(key) ?? beforeEvent;
-    const beforeHit = beforeEvent.match.hits.some(hit => hit.project_code === code);
-    const afterHit = afterEvent.match.hits.some(hit => hit.project_code === code);
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    const beforeR = beforeResults[index];
+    const afterR = afterResults[index];
+    // `hits` is empty on a hold (`classifyProjectHits`'s own step-1 contract) -- a
+    // held mail never actually becomes a project row, so it correctly does not count
+    // toward matched_before/matched_after either (K2: matched_after must equal what
+    // refresh() will write). Whether `code` was one of the COLLIDING projects is
+    // read off `candidates` instead, for `newly_held` specifically.
+    const beforeHit = beforeR.hits.some(hit => hit.project_code === code);
+    const afterHit = afterR.hits.some(hit => hit.project_code === code);
+    const beforeInvolvedInHold = beforeR.held && beforeR.candidates.includes(code);
+    const afterInvolvedInHold = afterR.held && afterR.candidates.includes(code);
     if (beforeHit) matchedBefore += 1;
-    if (afterHit) matchedAfter += 1;
-    if (afterHit && !beforeHit) movedIn.push(sample(afterEvent));
-    if (beforeHit && !afterHit) movedOut.push(sample(beforeEvent));
-    if (afterHit && afterEvent.match.held && !(beforeHit && beforeEvent.match.held)) newlyHeld.push(sample(afterEvent));
+    if (afterHit) {
+      matchedAfter += 1;
+      const mailForSystemCheck = { fromDomain: domainOf(record.from?.email ?? ''), from: record.from, subject: record.subject };
+      if (detectSystemSender(mailForSystemCheck, systemSenderConfig)) matchedFromSystemSenders += 1;
+    }
+    if (afterHit && !beforeHit) movedIn.push(sample(record));
+    if (beforeHit && !afterHit) movedOut.push(sample(record));
+    if (afterInvolvedInHold && !beforeInvolvedInHold) newlyHeld.push(sample(record));
   }
-  const result = {
+  return {
     matched_before: matchedBefore, matched_after: matchedAfter,
+    // K2: how many of `matched_after` are from a system-sender domain -- visible now
+    // that there is no pre-filter to silently hide them.
+    matched_from_system_senders: matchedFromSystemSenders,
     moved_in: movedIn.length, moved_out: movedOut.length, newly_held: newlyHeld.length,
     // The raw custody window is identical for `before` and `after` -- only the rule
     // set differs -- so deduping the same repeated custody lines drops the same count
     // either way; reported once here rather than as a redundant before/after pair.
-    duplicates_dropped: before.hiworks.duplicatesDropped + before.gmail.duplicatesDropped,
-    id_collisions_kept: before.hiworks.idCollisionsKept + before.gmail.idCollisionsKept,
+    duplicates_dropped: hiworks.duplicatesDropped + gmail.duplicatesDropped,
+    id_collisions_kept: (hiworks.idCollisionsKept ?? 0) + (gmail.idCollisionsKept ?? 0),
     // `samples` carries real mail subjects. It is here because the console UI needs
     // it, not for casual printing -- `cli.mjs`'s preview-rule prints counts only
     // unless the caller explicitly asks for `--show-samples`.
@@ -426,30 +461,8 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     // fresh-review-5 #7: never render straight into an Owner-facing doc without
     // checking this first -- see `saveRuleVersion`'s `measured` handling.
     rule_failures: ruleFailures,
+    owner_table_failures: owner.failures,
   };
-  // A1 (2026-09-21 night addition): `previewRule` keeps comparing the DRAFT rule's own
-  // subject-rule effect only (everything above this line is unchanged) -- but a UI
-  // showing `matched_after` next to a real project's mail count would otherwise be
-  // misread as "the whole story", when `refresh()` now also attributes mail via the
-  // bundle/reading tables (independent of the draft). `table_attributed` is that
-  // separate count -- how many of the `after` custody window's mails that this
-  // project's rule itself does NOT match (and that are not held) are ALSO attributed
-  // to `code` via the tables -- computed only when the caller supplies at least one
-  // table path; the return object gains NO new key otherwise, so an existing caller
-  // that never passes these two (unchanged) params gets a byte-identical result.
-  if (bundleTablePath || readingTablePath) {
-    const owner = loadOwnerTables({ bundleTablePath, readingTablePath });
-    const knownCode = candidate => all.some(row => row.project.project_code === candidate) || candidate === code;
-    let tableAttributed = 0;
-    for (const event of after.events) {
-      if (event.match.held || event.match.hits.some(hit => hit.project_code === code)) continue;
-      const tableResult = classifyByOwnerTables({ id: event.event_id, subject: event.subject, at: event.at },
-        { bundles: owner.bundles, readings: owner.readings, knownCode });
-      if (tableResult && tableResult.hits.some(hit => hit.project_code === code)) tableAttributed += 1;
-    }
-    result.table_attributed = tableAttributed;
-  }
-  return result;
 }
 
 // -------------------------------------------------------------------- CSV write
@@ -822,22 +835,19 @@ export function writeLedgerCsv({ filePath, lineagePath, headers, rows, keyIndex,
  */
 export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects: onlyProjects = null,
   fields = DEFAULT_MATCH_FIELDS, dry = false, receiptsDir, now = new Date().toISOString(), allowEmpty = [], allowPartialSources = false,
-  // A1 (2026-09-21 night addition): dependency-injected table attribution (spec
-  // section 1 steps 2-3), plumbed through as independently-defaulted optional params --
-  // every existing positional/keyword name above this line is unchanged.
-  // `bundleTablePath`/`readingTablePath`/`vendorTablePath` omitted (all `null`, the
-  // default): no table is read, step 2/3/4 table-or-vendor attribution never fires, and
-  // (as of D-a/D-b, below) the only behaviour difference from before this addition is
-  // `fields`'s own new default (subject only, not all three fields -- see
-  // `classifier.mjs`'s `DEFAULT_MATCH_FIELDS`). Supplying any of the three table paths
-  // opts in; `allowDegradedOwnerTables` (default `false`) mirrors `refreshCommon`'s own
-  // R4 gate -- see the pre-write gate below for why a silent partial degrade is
-  // actively dangerous here too. `vendorTablePath` (new, D-a): needed for step 4 (a
+  // A1: dependency-injected table attribution (spec section 1 steps 2-3), plumbed
+  // through as independently-defaulted optional params -- every existing positional/
+  // keyword name above this line is unchanged. `bundleTablePath`/`readingTablePath`/
+  // `vendorTablePath` omitted (all `null`, the default): no table is read and step
+  // 2/3/4 table-or-vendor attribution never fires. Supplying any of the three opts
+  // in (also resolvable from the org config -- S-b, see `owner_tables.mjs`'s
+  // `resolveOwnerTablePaths`); `allowDegradedOwnerTables` (default `false`) mirrors
+  // `refreshCommon`'s own R4 gate. `vendorTablePath`: needed for step 4 (a
   // supplier-type vendor mail whose body contains exactly one project's exact
   // keyword) to attribute anything at all here -- omitted, step 4 never fires,
   // matching its own vendor-gated contract (`classifyProjectHits`'s own doc).
   //
-  // D-a/D-b/D-c/D-d (coordinator, fresh review round 2): `refresh()`'s own project
+  // D-a/D-c/D-d (coordinator, fresh review round 2): `refresh()`'s own project
   // attribution now calls `common_classifier.mjs`'s `classifyProjectHits` -- THE ONE
   // function that runs the whole classification order 1-5 -- on custody read through
   // the SAME loader (`common_events.mjs`'s `loadRawMailRecords`) the common pipeline
@@ -845,18 +855,26 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
   // the exact same id `refresh()` derives for the exact same physical mail, and a
   // system-sender mail with an explicit reading decision is rescued here exactly the
   // way the common pipeline already rescues it (see this function's own classification
-  // loop, below, for exactly how). Step 1 (the project's own title rule) now matches
-  // SUBJECT ONLY by default (`fields`'s new default) -- a rule that used to rely on the
-  // OLD default (matching subject+body+attachment_names) must now either declare its
-  // own broader `match_fields` in the saved rule json, or the caller must pass
-  // `fields: MATCH_FIELDS` (the full three-field enum, still importable from
-  // `classifier.mjs`) explicitly to widen it back. See this module's own README
-  // section on this for the full list of caller-visible behaviour changes.
+  // loop, below, for exactly how).
+  //
+  // K1 (coordinator, fresh review round 3 -- settles round 2's D-b/R1): `fields` is
+  // accepted only for backward compatibility -- step 1 matches the SUBJECT ONLY, full
+  // stop, and this param cannot widen or narrow that any more. Anything other than
+  // exactly `DEFAULT_MATCH_FIELDS` (`['subject']`, checked by value) throws
+  // `workspace_ledgers_fields_not_supported` immediately, before the lock is even
+  // acquired. A rule's own `match_fields` stays schema-valid (`compileRule` still
+  // accepts it) but is never consulted for ledger placement -- see
+  // `classifier.mjs`'s own doc on `DEFAULT_MATCH_FIELDS` for why. See this module's
+  // own README section for the full list of caller-visible behaviour changes.
   bundleTablePath = null, readingTablePath = null, vendorTablePath = null, allowDegradedOwnerTables = false }) {
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
   if (typeof receiptsDir !== 'string' || receiptsDir.trim() === '') fail('workspace_ledgers_receipts_dir_required');
+  // K1: refuse before any lock/write/receipt -- the same "pure usage error, no
+  // receipt at all" treatment the other required-argument checks above already get.
+  try { assertSubjectOnlyFields(fields); }
+  catch (error) { fail(error.code, JSON.stringify(fields)); }
   // S-5: the previous API accepted a bare boolean here and silently treated it (and
   // any other non-array) as an empty list -- a caller still passing `allowEmpty: true`
   // got no error and no override, which looks identical to "did not ask for one".
@@ -914,6 +932,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
   // total above is -- the catch block below must still report whatever this run had
   // already computed before an unexpected throw.
   let ownerTableFailures = [];
+  let ownerTablesUsed = [];
   let tableAttributedTotal = 0;
   // S3 (coordinator, fresh review round 2): scoped to PROJECT-ledger mail only (this
   // function never sees common-folder mail at all) -- deliberately, distinctly named
@@ -949,25 +968,34 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       fail('workspace_ledgers_unknown_project', code);
     }
 
-    // A1 (2026-09-21 night addition): load the two Owner tables `refresh()`'s own
-    // project attribution now also consults, the same fail-closed-per-table contract
-    // `owner_tables.mjs` already documents (missing/empty -> skip; bad header/encoding
-    // -> `ownerTableFailures`, never thrown). `bundleTablePath`/`readingTablePath` both
-    // `null` (the default) reads neither file at all -- `owner.bundles`/`owner.readings`
-    // come back empty and `ownerTableFailures` stays `[]`, so the gate below never
-    // trips and every mail's classification is unchanged from before this addition.
-    const owner = loadOwnerTables({ bundleTablePath, readingTablePath, vendorTablePath });
+    // A1 (2026-09-21 night addition) + S-b (round 3): load the Owner tables
+    // `refresh()`'s own project attribution now also consults, the same
+    // fail-closed-per-table contract `owner_tables.mjs` already documents (missing/
+    // empty -> skip; bad header/encoding -> `ownerTableFailures`, never thrown).
+    // `resolveOwnerTablePaths` prefers an explicit `bundleTablePath`/`readingTablePath`/
+    // `vendorTablePath` param, falling back to `orgConfig.common_ledgers.owner_tables`
+    // when a param is omitted -- all three still `null` in the end (no explicit param,
+    // no org-config entry either) reads no table at all, unchanged from before this
+    // addition.
+    const resolvedTables = resolveOwnerTablePaths({ bundleTablePath, readingTablePath, vendorTablePath }, { orgConfig, workspacesRoot });
+    const owner = loadOwnerTables(resolvedTables);
     ownerTableFailures = owner.failures;
+    // S-b: the receipt-safe summary of which table files this run actually used
+    // (basename + sha256, never a host-local path) -- so a caller can confirm
+    // `refresh` and `refreshCommon` ran against the same table set without either
+    // receipt leaking where those files live on disk.
+    ownerTablesUsed = ['bundle', 'reading', 'vendor']
+      .map(table => ownerTableUsageEntry(table, resolvedTables[`${table}TablePath`]))
+      .filter(Boolean);
 
     // fresh-review-3 #5: saved rules are compiled without re-running the (non-
     // deterministic) ReDoS timing canaries -- they were already timed when saved
     // (`saveRuleVersion` -> `validateRule`, default `timeSafety: true`). Matching
     // itself is a direct `classifyMail` call (fresh-review-5 design simplification).
     const compiledRules = all.map(row => row.compiled);
-    // D-a/D-c: custody read through the SAME loader the common pipeline reads
-    // through (`loadRawMailRecords`), with the same S-4 directory-overlap guard and
-    // the same cross-source id-collision disambiguation `classifyCustody` used to run
-    // (moved here since `classifyCustody`/`loadMailEvents` are `previewRule`-only now).
+    // D-a/D-c: custody read through the SAME loader the common pipeline (and, as of
+    // K2, `previewRule` too) reads through (`loadRawMailRecords`), with the same S-4
+    // directory-overlap guard and the same cross-source id-collision disambiguation.
     assertNoOverlappingCustodyDirs(hiworksDirs, gmailSentDirs);
     const hiworks = loadRawMailRecords({ dirs: hiworksDirs, source: '하이웍스_수집' });
     const gmail = loadRawMailRecords({ dirs: gmailSentDirs, source: 'Gmail_보낸메일_수집' });
@@ -989,7 +1017,8 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [],
         shrink_allowed_applied_to: [],
         rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
-        owner_table_failures: ownerTableFailures, table_attributed_mails: 0, project_search_eligible_attributions: 0,
+        owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: 0,
+        project_search_eligible_attributions: 0,
       };
       writeReceiptFile(receipt);
       return receipt;
@@ -1011,7 +1040,8 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: partialSourcesInEffect, allow_empty_applied_to: [],
         shrink_allowed_applied_to: [],
         rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
-        owner_table_failures: ownerTableFailures, table_attributed_mails: 0, project_search_eligible_attributions: 0,
+        owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: 0,
+        project_search_eligible_attributions: 0,
         degraded_owner_tables_allowed: false,
       };
       writeReceiptFile(receipt);
@@ -1141,7 +1171,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
       // A1/A2 (2026-09-21 night addition): both `0` when `bundleTablePath`/
       // `readingTablePath` were never supplied (no table read at all this run).
-      owner_table_failures: ownerTableFailures, table_attributed_mails: tableAttributedTotal,
+      owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: tableAttributedTotal,
       project_search_eligible_attributions: projectSearchEligibleAttributions,
     };
     writeReceiptFile(receipt);
@@ -1158,7 +1188,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       unreadable_dirs: unreadableDirsRedacted, allow_partial_sources_applied: false, allow_empty_applied_to: [...allowEmptyAppliedTo],
       shrink_allowed_applied_to: [...shrinkAllowedAppliedTo],
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
-      owner_table_failures: ownerTableFailures, table_attributed_mails: tableAttributedTotal,
+      owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: tableAttributedTotal,
       project_search_eligible_attributions: projectSearchEligibleAttributions,
     });
     throw error;

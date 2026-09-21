@@ -353,9 +353,11 @@ it gets its own code, `workspace_ledgers_allow_empty_targets_rule_failure`
 (fresh-review-5 #8), pointing at the actual cause instead of the generic
 `unknown_project`.
 
-**Unreadable custody directories (pre-write gate).** A directory `loadMailEvents`
-could not read at all -- most dangerously, a `--hiworks-events` typo pointing at a
-path that simply does not exist -- is recorded in `receipt.unreadable_dirs`, and its
+**Unreadable custody directories (pre-write gate).** A directory the custody loader
+(`common_events.mjs`'s `loadRawMailRecords`, the same one the common pipeline reads
+through -- D-a/D-c, round 2) could not read at all -- most dangerously, a
+`--hiworks-events` typo pointing at a path that simply does not exist -- is recorded in
+`receipt.unreadable_dirs`, and its
 presence alone sets `receipt.status` to `'failed'`. Custody is classified **before**
 any file is written, and by default an unreadable directory blocks every write for
 the whole run -- not a single project, not a single file: `receipt.projects` is empty
@@ -1055,19 +1057,37 @@ change).** `classifier.mjs` gains `DEFAULT_MATCH_FIELDS = ['subject']`, and this
 the default wherever a "which fields does step 1 consult" default was previously
 `MATCH_FIELDS` (subject + body_text + attachment_names): a rule document's own
 `match_fields` (`compileRule`), `classifyMail`/`hintCodes`'s `fields` param,
-`classifyProjectHits`'s new `fields` param (previously hardcoded to `['subject']`
-unconditionally -- now it honours a rule's own `match_fields`, restricted by the
-caller's `fields`, IDENTICALLY to how `refresh()` already worked), `refresh()`'s own
-`fields` param, `previewRule`'s `fields` param, and `cli.mjs`'s `--fields` (omitted --
-`--fields all` still opts into the old full three-field default explicitly). Step 4
-(a supplier-type vendor mail's body) is completely unaffected by this default --
-D-b's own point is that body matching belongs ONLY there, never as an ordinary step-1
-signal (addresses, people and equipment names never decide a project on their own --
-the Owner-approved production behaviour). **Anything currently relying on the OLD
-default (a rule with no explicit `match_fields`, or a caller never passing `fields`,
-matching on body/attachment text) will match FEWER mails at step 1 after this change**
--- either declare that rule's own `match_fields` explicitly in its saved json, or pass
-`fields: MATCH_FIELDS` (still exported, unchanged) explicitly to widen it back.
+`classifyProjectHits`'s new `fields` param, `refresh()`'s own `fields` param,
+`previewRule`'s `fields` param, and `cli.mjs`'s `--fields`. Step 4 (a supplier-type
+vendor mail's body) is completely unaffected by this default -- D-b's own point is that
+body matching belongs ONLY there, never as an ordinary step-1 signal (addresses, people
+and equipment names never decide a project on their own -- the Owner-approved
+production behaviour). **Anything relying on the OLD default (a rule with no explicit
+`match_fields`, or a caller never passing `fields`, matching on body/attachment text)
+matches FEWER mails at step 1 after this change** -- declare that rule's own
+`match_fields` explicitly in its saved json (it stays schema-valid, see K1 below for
+why it no longer widens step 1 itself).
+>
+> **K1 (coordinator, fresh review round 3 -- settles this section's own original
+> wording, and R1): there is no "pass `fields: MATCH_FIELDS` to widen it back" any
+> more.** Step 1 matches the SUBJECT ONLY, full stop, forever -- `fields` is accepted
+> by `classifyProjectHits`/`refresh()`/`previewRule()`/`cli.mjs`'s `--fields` only for
+> backward compatibility, and THROWS `workspace_ledgers_fields_not_supported`
+> (`classifier.mjs`'s `assertSubjectOnlyFields`) if it is anything other than exactly
+> `['subject']` (`DEFAULT_MATCH_FIELDS`, value-checked, not by reference). `--fields
+> all` is GONE from the CLI -- passing it is now a usage error (exit 2), not a widening
+> option. A rule's own `match_fields` stays schema-valid (existing saved rules on the
+> private plane keep carrying it) but is documented, not enforced, as NOT consulted for
+> ledger placement any more; a caller must not add `match_fields: ['subject',
+> 'body_text']` expecting it to matter. The merged console panel adapter
+> (`mail-rule-adapter.mjs`) already passes `fields: ['subject']` explicitly on every
+> `previewRule`/`refresh` call -- that keeps working unchanged. Receipts never echo a
+> `fields` list that was not actually applied (there is only ever one: subject-only).
+> Tests: `tests/classifier.test.mjs` (`assertSubjectOnlyFields`/`isSubjectOnlyFields`
+> unit coverage), `tests/common_classifier.test.mjs` and
+> `tests/classification_partition.test.mjs`'s own M1 (a rule with `body_text` in its
+> own `match_fields`, keyword only in the body -- never a step-1 hit, in BOTH
+> pipelines), `tests/cli.test.mjs` (`--fields all` is a usage error).
 
 **D-c -- one custody loader, one id recipe.** `mail_events.mjs`'s id-derivation/dedup/
 collision-suffix logic is factored into two exported, reusable pieces
@@ -1209,11 +1229,13 @@ decision still attributes (M3).
 
 ### Every behaviour change a caller could notice (for the console/UI adapter branch)
 
-1. **D-b, the big one:** `refresh()`/`previewRule()`/`classifyProjectHits` step 1 now
-   matches SUBJECT ONLY by default. A caller that relies on the old default (matching a
-   rule with no explicit `match_fields` against body/attachment text) must either add
-   `match_fields` to that rule's own saved json, or pass `fields: MATCH_FIELDS`
-   explicitly to `refresh()`/`previewRule()` (library) or `--fields all` (CLI).
+1. **D-b/K1, the big one:** `refresh()`/`previewRule()`/`classifyProjectHits` step 1
+   matches SUBJECT ONLY, full stop -- there is no widening mode any more. `fields` is
+   accepted only for backward compatibility and must be exactly `['subject']`
+   (`DEFAULT_MATCH_FIELDS`), or it THROWS `workspace_ledgers_fields_not_supported`; CLI
+   `--fields all` is a usage error (exit 2), not a widening option. A caller must pass
+   `fields: ['subject']` (or omit it) everywhere; a rule's own `match_fields` stays
+   schema-valid but is never consulted for step 1 placement.
 2. `refresh()` gains a new optional `vendorTablePath` param and now runs step 4 when
    it is supplied -- a supplier-vendor body-keyword mail can now land in a project's
    ledgers via `refresh()` (previously only the common pipeline's own classification
@@ -1233,6 +1255,154 @@ decision still attributes (M3).
    (S5) -- a caller switching on the previous fixed set of values should add this case.
 7. `cli.mjs`'s `--fields` (omitted) now maps to subject-only, not the full enum (D-b);
    `parity`'s `no_code_confirmed` row now reads the current file name first (R3).
+8. **K2 (round 3):** `previewRule`'s `matched_before`/`matched_after` NEVER exclude a
+   system-sender mail any more (they read custody through the exact same loader/window
+   `refresh()` does, with no system-sender pre-filter) -- a caller relying on the old
+   round-2 behaviour (a system-sender mail silently subtracted from the count once
+   `orgConfigPath` recognised it) will see a HIGHER `matched_before`/`matched_after` than
+   before for the same fixture. The new `matched_from_system_senders` field reports that
+   population separately instead.
+9. **D-a/round 3:** `previewRule`'s `table_attributed` field is REMOVED. A bundle-/
+   reading-table hit is now baked directly into `matched_before`/`matched_after` (both
+   `previewRule` and `refresh()` run the exact one `classifyProjectHits` order,
+   D-a) -- a caller reading `result.table_attributed` will see `undefined` where it used
+   to see a number (possibly `0`, which was itself distinguishable from "omitted"
+   before; that distinction is gone along with the field).
+10. **S-b (round 3):** `refresh()`'s and `refreshCommon()`'s receipts gain
+    `owner_tables_used` (`[{ table, file, sha256 }]`, `table` one of `'bundle'`/
+    `'reading'`/`'vendor'`, `file` a basename only) -- and both now fall back to
+    `orgConfig.common_ledgers.owner_tables.{bundle,reading,vendor}` when the
+    corresponding `bundleTablePath`/`readingTablePath`/`vendorTablePath` param is
+    omitted, where they previously read NO table at all in that case. A caller that
+    relied on "omitted means no table read" for an org config that now (or already)
+    declares `common_ledgers.owner_tables` will see table attribution start happening
+    where it did not before -- see the magnitude note in the round-3 section below.
+11. **S-c (round 3):** two new top-level org-config keys change what
+    `refresh()`'s/`refreshCommon()`'s/`previewRule()`'s system-sender accounting
+    considers a system sender: `system_sender_exclude_domains` (array, opts specific
+    domains OUT of the built-in list) and `system_sender_builtin: false` (drops the
+    built-in list entirely). Neither is set by default, so an org config that does not
+    use them sees no behaviour change.
+
+## 부록 A round 3 (fresh review, coordinator) -- K1/K2, one Owner-table place, system-sender opt-outs
+
+A third fresh review of round 2's commit (c618fd0a) found two REQUIRED fixes (K1, K2 --
+both covered by their own subsections inline above/below) plus five SHOULD items and
+three nits, all on the same "one classification, one custody window" architecture round
+2 already established. Nothing here re-opens D-a/D-c/D-e.
+
+See **D-b** above for K1's own full text (step 1 is subject-only, full stop -- `fields`
+only for backward compatibility, throws otherwise) and **D-d** above (this file's
+"Common-folder (P00-000) classification" section) for where the system-sender check
+sits in the classification order -- K2 changes what `previewRule` reports about it,
+never when it runs.
+
+**K2 -- `previewRule` reads custody through the SAME loader/window as `refresh()`, no
+system-sender/skip-subject pre-filter, ever.** Previously (round 2), `previewRule`
+still built its comparison off `mail_events.mjs`'s `loadMailEvents`, which applies its
+own system-sender/skip-subject pre-filter BEFORE classification -- so a system-sender
+mail matching the draft's own rule could be silently absent from `matched_before`/
+`matched_after`, even though a real `refresh()` (D-d, round 2: classification runs
+BEFORE the system-sender check) would still have written it. `previewRule` now shares
+`refresh.mjs`'s own `cachedLoadRecords` (raw, rule-independent custody records, cached
+by directory signature -- the S10 cache's underlying key changed shape but the cache
+itself still works the same way for a caller) and runs `classifyProjectHits` directly,
+identically to `refresh()`'s own loop. Two direct consequences:
+
+- `matched_before`/`matched_after` now NEVER exclude a system-sender mail -- they
+  always equal what the next `refresh()` would actually write (K2's own explicit
+  mandate). A held mail (two-project collision) is correctly excluded from both (K2
+  is also why: `classifyProjectHits` returns `hits: []` while held, so a mail moving
+  into or out of a hold is `newly_held`/no-longer-held, never a `matched_before`/
+  `matched_after` swing by itself).
+- `previewRule`'s return gains `matched_from_system_senders` -- of the mails counted in
+  `matched_after`, how many came from a sender `buildSystemSenderConfig` (the same
+  merged list D-d built) recognises, purely for the Owner's own visibility. It is
+  informational only; nothing is ever subtracted because of it.
+
+`previewRule` also gains the same `orgConfigPath`-driven Owner-table fallback S-b
+describes below (previously it only accepted explicit `bundleTablePath`/
+`readingTablePath`; `vendorTablePath` is new both as an explicit param and via the
+org-config fallback). `cli.mjs preview-rule` gains `--vendor-table` to match.
+
+### SHOULD items
+
+- **S-a.** `tests/classification_partition.test.mjs`'s own D-e fixture now also passes
+  `vendorTablePath` to its `refresh()` call (previously only `refreshCommon()`/
+  `classifyAllCommonMail()` got it -- an easy mismatch to reproduce for real, see the
+  hard operating rule in S-b below) and adds a supplier-type vendor mail
+  (`m-supplier-body`) whose body contains exactly one project's exact keyword with no
+  subject/bundle signal at all -- asserts it lands in that project's REAL, WRITTEN
+  ledger via `refresh()` (not just the common pipeline's in-memory classification), is
+  never also found in another project's ledger, and that the written row's own
+  `적용규칙` cell starts with `본문:` (step 4's own basis label).
+- **S-b.** ONE place for the Owner-table paths: `orgConfig.common_ledgers.owner_tables
+  { bundle, reading, vendor }` (each a path, relative to `workspacesRoot` or absolute on
+  the private plane -- `examples/org_config.example.json` shows the shape with
+  placeholders only; `owner_tables.mjs`'s new `resolveOwnerTablePaths`). `refresh()`,
+  `refreshCommon()`/`classifyAllCommonMail()`, and `previewRule()` ALL consult this when
+  the corresponding `bundleTablePath`/`readingTablePath`/`vendorTablePath` param is
+  omitted; an explicit param always wins outright (never merged field-by-field with the
+  config). `workTagTablePath` stays explicit-only (out of this resolver's scope -- only
+  `refreshCommon`/`triage list` ever read the work-tag table at all). Both `refresh()`'s
+  and `refreshCommon()`'s receipts gain `owner_tables_used` (`[{ table, file, sha256 }]`
+  for every table actually read this run -- `file` a basename only, never a host path).
+  **Hard operating rule:** `refresh`/`common-refresh` (and `parity`/`triage list`) MUST
+  run against the SAME resolved table set for the same custody window -- overriding one
+  command's tables with an explicit flag while leaving the other on the org-config
+  default (or vice versa) classifies the exact same mail differently in the two
+  writers, breaking the D-e partition invariant. This resolver cannot enforce that by
+  itself; it only makes "the same org config, the same explicit overrides" the natural
+  way to get it right. `cli.mjs`'s own usage-comment header states this rule too.
+- **S-c.** The built-in system vendor-domain list (`mail_events.mjs`'s
+  `DEFAULT_SYSTEM_SENDER_DOMAINS`, previously baked directly into a single fixed regex)
+  now decides a common-folder bucket the same way it always decided `refresh()`'s own
+  `skipped_system` count (D-d) -- and an org config can now opt out of it, two ways:
+  `system_sender_exclude_domains` (array) removes specific domains from the BUILT-IN
+  list only (the org's own `system_sender_domains` additions are never filtered by
+  this -- re-adding an excluded domain there wins, not a silent no-op); `system_sender_
+  builtin: false` drops the built-in list entirely. Neither is set by default. Tests:
+  `tests/mail_events.test.mjs` (`systemSenderPatternsFromConfig`, unit-level, both
+  knobs and their interaction) and `tests/refresh.test.mjs` (end-to-end via `refresh()`
+  and `receipt.skipped_system`).
+- **S-d.** CHANGELOG entry added at the top for this round (see `CHANGELOG.md`).
+- **S-e.** **Magnitude note for an operator's first run after this round.** D-d
+  (round 2) already removed `refresh()`'s own system-sender/skip-subject PRE-filter --
+  mail that used to never reach classification at all now does, and S-b's org-config
+  Owner-table fallback means a table that was previously only read when a flag was
+  passed explicitly may now be read by default. On the reference plane, this combination
+  moved on the order of a THOUSAND previously-skipped mails into classification, with a
+  few dozen of those newly becoming project-ledger rows (the rest resolved to a common-
+  folder bucket, same as before, just now via classification instead of a pre-filter).
+  **Before the first real (non-`--dry`) `refresh`/`common-refresh` run after upgrading
+  past this round, run `parity` and a `--dry refresh` first** and read the diff before
+  committing to a real write.
+
+### Nits
+
+- `common_ledgers.mjs`'s own module header comment still named the pre-rename bucket
+  file (`과제없음_확인함.csv`) as if it were current -- `ADMIN_SHAPED_FILES` itself
+  already had the renamed name (fixed in round 2's R2); only the prose comment above it
+  had not caught up. Fixed.
+- **`DEFAULT_SKIP_SUBJECT_PATTERNS` (the `[Plaud-AutoFlow]` subject skip) no longer
+  applies on `refresh()`'s own classification path.** This is an intentional
+  consequence of D-a/D-d (round 2), not restored: `refresh()` no longer reads through
+  `mail_events.mjs`'s `loadMailEvents` at all (that function is kept only as a public,
+  back-compat export -- see its own module header), so nothing on `refresh()`'s path
+  ever consulted `DEFAULT_SKIP_SUBJECT_PATTERNS` to begin with once D-a/D-c landed; this
+  round's audit just confirms and documents that, rather than treating it as a gap to
+  patch. A `[Plaud-AutoFlow]`-subject mail from `plaud.ai` is still recognised as a
+  system sender via `DEFAULT_SYSTEM_SENDER_DOMAINS` (`plaud.ai` is one of the built-in
+  domains) regardless -- the skip-subject pattern was always a narrower, redundant
+  second signal for that same sender, never the only one.
+- `refresh.mjs`'s `readAllRuleJsonSafely` and `common_refresh.mjs`'s own
+  `readAllRulesSafely` were near-identical twins (both read every onboarded project's
+  saved rule individually, isolating a bad one per S-8) -- confirmed a safe mechanical
+  merge (no caller distinguished the two return shapes beyond what the richer one
+  already provides) and extracted to the one, now-exported `readAllRuleJsonSafely`
+  (`refresh.mjs`), which `common_refresh.mjs` now calls too. `classifyAllCommonMail`'s
+  own `ruleFailures` gains `term_ref` as a result (previously `refresh()`-only) -- a
+  strict superset, no existing field removed.
 
 ## Byte hygiene (tracked source, not data)
 
@@ -1278,9 +1448,9 @@ environment.
 
 - `listProjects({ workspacesRoot })` -> `[{ project_code, folder_name, rule_json_path, rule_md_path }]`
 - `readRule({ workspacesRoot, code })` -> `{ project_code, folder_name, json, md, json_path, md_path, sha256_json, sha256_md }`
-- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath? })` -> `{ matched_before, matched_after, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples, rule_failures }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report. `rule_failures` -- fresh-review-5 #7 -- lists any OTHER project excluded from this comparison because its own saved rule failed to compile; non-empty means these counts are incomplete, and should be rendered with a caveat, not as fact). `orgConfigPath` (optional) resolves `system_sender_domains` the same way a real `refresh()` against that config would.
+- `previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields?, orgConfigPath?, bundleTablePath?, readingTablePath?, vendorTablePath? })` -> `{ matched_before, matched_after, matched_from_system_senders, moved_in, moved_out, newly_held, duplicates_dropped, id_collisions_kept, samples, rule_failures, owner_table_failures }` (`samples` is private -- real mail subjects; the console UI needs it, but never print it in a log/report. `rule_failures` -- fresh-review-5 #7 -- lists any OTHER project excluded from this comparison because its own saved rule failed to compile; non-empty means these counts are incomplete, and should be rendered with a caveat, not as fact). `fields` is accepted only for backward compatibility and must be exactly `['subject']`/omitted -- K1, throws `workspace_ledgers_fields_not_supported` otherwise. `orgConfigPath` (optional) resolves the merged system-sender list the same way a real `refresh()` against that config would (K2: `matched_before`/`matched_after` are never reduced by this -- `matched_from_system_senders` reports that population separately). `bundleTablePath`/`readingTablePath`/`vendorTablePath` (all optional, all fall back to `orgConfig.common_ledgers.owner_tables` when omitted -- S-b) fold table/step-4 attribution directly into `matched_before`/`matched_after` (D-a: one classification function -- there is no separate `table_attributed` field any more).
 - `saveRuleVersion({ workspacesRoot, workmetaRoot, code, draft, by, note, now?, measured?, allowedActors? })` -> `{ project_code, folder_name, previous_version, rule_version, json_path, md_path, history_json_path, history_md_path, sha256_json, sha256_md }`. `draft` (and `previewRule`'s `draft`) must be the **complete** rule document, never a partial patch -- see "Rule versioning and lineage" above.
-- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied` (fresh-review-7 R3: true only when an unreadable dir actually put this run into a partial-sources state, not merely because the caller passed the flag), `allow_empty_applied_to`, `shrink_allowed_applied_to` (fresh-review-7 S1), `ledger_failures`, `rule_failures`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`/`owner_cells_ambiguous` (fresh-review-7 R1/R2, contacts.csv only)). No `match_timeouts`/`match_run_budget_exceeded` any more -- removed along with the per-mail timeout machinery (see "Design simplification" above). `allowEmpty` is a list of project codes (not a boolean, and every code must be a real onboarded project whose rule did not itself fail this run -- S-5/S-8); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above.
+- `refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDirs, orgConfigPath, projects?, fields?, dry?, receiptsDir, now?, allowEmpty?, allowPartialSources?, bundleTablePath?, readingTablePath?, vendorTablePath?, allowDegradedOwnerTables? })` -> the receipt body (`status: 'ok' | 'failed'`, `duplicates_dropped`, `id_collisions_kept`, `unreadable_dirs`, `allow_partial_sources_applied` (fresh-review-7 R3: true only when an unreadable dir actually put this run into a partial-sources state, not merely because the caller passed the flag), `allow_empty_applied_to`, `shrink_allowed_applied_to` (fresh-review-7 S1), `ledger_failures`, `rule_failures`, `owner_table_failures`, `owner_tables_used` (S-b: `[{ table, file, sha256 }]`), `table_attributed_mails`, `project_search_eligible_attributions`, per-ledger `collapsed_identical_rows`/`owner_cells_dropped_with_row`/`owner_cells_ambiguous` (fresh-review-7 R1/R2, contacts.csv only)). No `match_timeouts`/`match_run_budget_exceeded` any more -- removed along with the per-mail timeout machinery (see "Design simplification" above). `fields` is accepted only for backward compatibility and must be exactly `['subject']`/omitted -- K1. `allowEmpty` is a list of project codes (not a boolean, and every code must be a real onboarded project whose rule did not itself fail this run -- S-5/S-8); `allowPartialSources` (default `false`) opts into writing on partially-readable custody -- see "Refresh semantics" above. `bundleTablePath`/`readingTablePath`/`vendorTablePath` (all optional) fall back to `orgConfig.common_ledgers.owner_tables` when omitted (S-b) -- run `refresh` and `common-refresh` against the SAME resolved table set, see 부록 A round 3 above.
 
 `src/index.mjs` also re-exports `validateRule`, `isMachineActor`, `RuleStoreError`,
 `RefreshError`, `clearCustodyCache`, `classifyMail`/`compileRule`/`compileRules`/

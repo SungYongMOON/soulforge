@@ -236,12 +236,18 @@ test('previewRule: matched_before/after, moved_in and newly_held reflect a draft
     const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비'], ['다른과제-겹침', '다른과제']]);
     const result = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
-    assert.equal(result.matched_before, 3); // h1, g1, h2 (h2 already hit P00-001 while held)
-    assert.equal(result.matched_after, 4); // + h4, now also matching via the new term
-    assert.equal(result.moved_in, 1);
+    // K2: classifyProjectHits clears hits to [] while a mail is held, so a two-project
+    // subject collision (h2: "P00-001 그리고 P00-002") never contributes to matched_*,
+    // in either the before or after count -- a held mail is never written to any ledger.
+    assert.equal(result.matched_before, 2); // h1, g1 (h2 is a held collision, not a hit)
+    // h4 ("[P00-002] 다른과제 공지") now matches the draft's new 다른과제 term too, which
+    // collides with project B's own P00-002 rule -- so h4 becomes newly held rather than
+    // a fresh hit, and matched_after stays at the same 2 (h1, g1).
+    assert.equal(result.matched_after, 2);
+    assert.equal(result.moved_in, 0);
     assert.equal(result.moved_out, 0);
     assert.equal(result.newly_held, 1); // h4 becomes a P00-001/P00-002 conflict only after the draft
-    assert.equal(result.samples.moved_in.length, 1);
+    assert.equal(result.samples.moved_in.length, 0);
     assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false); // never writes
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
@@ -273,21 +279,30 @@ test('previewRule (fresh-review-3 #6): orgConfigPath resolves system_sender_doma
       { event_id: 'v1', subject: '[P00-001] 예시장비 알림', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
     ]));
     const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
-    // Without orgConfigPath, only the built-in skip list applies -- vendor.example is
-    // not in it, so v1 is classified and counted.
+    // K2: classification (step 1-5) never consults the system-sender list -- it only
+    // decides classification AFTER the fact whether a hit came from a system sender, so
+    // it can be surfaced separately. v1's subject matches the rule either way, so it
+    // contributes to matched_before/matched_after regardless of orgConfigPath.
     const withoutOrgConfig = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir] });
+    // vendor.example is not in the built-in list, so v1 is not (yet) counted as a
+    // system sender.
+    assert.equal(withoutOrgConfig.matched_from_system_senders, 0);
     const orgConfigWithVendorSkip = path.join(fixture.root, 'org_config_vendor_skip.json');
     writeFileSync(orgConfigWithVendorSkip, JSON.stringify({
       our_domain: 'example.com', organisations: {}, family: {}, system_sender_domains: ['vendor.example'],
     }));
-    // With orgConfigPath, vendor.example is skipped too (merged with the built-in
-    // list per NIT11) -- v1 must no longer contribute to matched_before, and the S10
+    // With orgConfigPath, vendor.example merges into the system-sender list (per NIT11)
+    // -- previewRule must resolve it the same way refresh() would (K2), so v1 is now
+    // reported via matched_from_system_senders, but it is STILL a matched hit (the
+    // system-sender check never removes it from matched_before/matched_after). The S10
     // cache (keyed partly on the resolved sender patterns) must not serve the
     // no-orgConfigPath result for this differently-configured call.
     const withOrgConfig = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: orgConfigWithVendorSkip });
-    assert.equal(withOrgConfig.matched_before, withoutOrgConfig.matched_before - 1);
+    assert.equal(withOrgConfig.matched_before, withoutOrgConfig.matched_before);
+    assert.equal(withOrgConfig.matched_after, withoutOrgConfig.matched_after);
+    assert.equal(withOrgConfig.matched_from_system_senders, 1);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -719,6 +734,42 @@ test('refresh (D-d, coordinator fresh review round 2): a mail from a system-send
     const reportA = receipt.projects.find(row => row.project_code === CODE_A);
     assert.equal(reportA.mails, 3); // h1 + g1 + v2 -- v2 attributed despite its system-sender domain
     assert.equal(receipt.skipped_system, 1); // only h3 (slack) -- v2 was never a candidate for this count
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S-c, coordinator fresh review round 3): system_sender_exclude_domains removes a built-in domain from the skip list', () => {
+  const fixture = makeFixture();
+  try {
+    // h3 in the base fixture is already from the built-in noreply@slack.com. Excluding
+    // slack.com must stop it from being skipped -- and (h3's subject carries no project
+    // keyword) it now falls all the way through to 미분류, not into any project ledger.
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
+      system_sender_exclude_domains: ['slack.com'],
+    }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.skipped_system, 0); // h3 no longer counted as skipped-system
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S-c, coordinator fresh review round 3): system_sender_builtin: false drops the whole built-in list, the org\'s own system_sender_domains still applies', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'vendor.jsonl'), jsonl([
+      { event_id: 'v3', subject: '정기 안내 메일', from: 'noreply@vendor.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T09:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
+      system_sender_builtin: false, system_sender_domains: ['vendor.example'],
+    }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    // h3 (built-in noreply@slack.com) is no longer skipped -- built-in list is off --
+    // but v3 (the org's own system_sender_domains entry) still is: exactly 1.
+    assert.equal(receipt.skipped_system, 1);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -1683,7 +1734,7 @@ test('refresh (A1): a malformed Owner table fails the whole run closed unless al
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('previewRule (A1): table_attributed is omitted unless a table path is supplied, and counts mail this project would gain via the tables', () => {
+test('previewRule (A1): table attribution is baked into matched_before/matched_after (D-a: one classification function), and there is no separate table_attributed field', () => {
   const fixture = makeFixture();
   try {
     writeFileSync(path.join(fixture.hiworksDir, 'table-events.jsonl'), jsonl([
@@ -1698,8 +1749,12 @@ test('previewRule (A1): table_attributed is omitted unless a table path is suppl
     writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [['전혀 다른', CODE_A, 'Owner 확인 완료', '2026-09-01', '']]));
     const withTables = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
       hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
-    assert.equal(withTables.table_attributed, 1);
-    // The draft's own subject-rule comparison is untouched by the table.
-    assert.equal(withTables.matched_after, withoutTables.matched_after);
+    // D-a: classifyProjectHits runs the full 1-5 order for both before and after, so a
+    // bundle-table hit shows up in BOTH matched_before and matched_after (the table is
+    // not part of the draft being previewed, so it affects both sides equally) rather
+    // than in a separate table_attributed field, which no longer exists.
+    assert.equal('table_attributed' in withTables, false);
+    assert.equal(withTables.matched_before, withoutTables.matched_before + 1);
+    assert.equal(withTables.matched_after, withoutTables.matched_after + 1);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
