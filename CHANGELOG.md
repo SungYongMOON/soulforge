@@ -1,5 +1,54 @@
 # CHANGELOG
 
+## 2026-09-21 - AGENTS.md target 평면 문구 갱신 + 027 append-only 오기 정정
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: (1) `AGENTS.md` "안전·저장 경계" 절의 future target
+  `_workspaces`/`_workmeta` 불변 원칙 bullet을 갱신했다. Owner가 2026-09-12에
+  legacy 평면을 더 이상 정본으로 보지 않고 새 target 평면을 직접 쌓기로
+  결정했고, 2026-09-21에 정본 기록을 한 종류씩 반영하기로 결정한 것을
+  반영해, 지금 target에 쓸 수 있는 것을 과제별 SE 폴더트리 고정 `020_MGMT`
+  관리 기록(021 규칙·운영, 023 연락처, 025 작업 장부, 026 할일 장부, 027
+  메일 이력)과 공용/일반업무 폴더의 같은 장부, 지식 폴더 아래 회사 PJT
+  관리 대장 사본(모두 pointer-only 사본 1개 + target `_workmeta`
+  byte-lineage)으로 좁혀 명시했다. run/worklog/battle/collector 원본
+  출력/analytics/procedure-capture/메일 본문/첨부/secret은 여전히 금지고,
+  목록 밖 다른 target 기록은 별도 Owner 채택 전까지, 일반 경로는 여전히
+  W-AUTH·Canonical Empty-State Genesis·해당 Legacy Freeze 채택이다.
+  hash-pinned `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`의 같은
+  요약 문장도 같은 뜻으로 고치고 `node
+  guild_hall/validate/boot_digest_guard.mjs --update`로 manifest를
+  재서명했다. (2) 외부 검토에서 지적된 대로,
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`와 두 교육 매뉴얼
+  (`guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `manager_training.v0.md`)이 `027_수신이력_이동이력`의 메일 이력을
+  append-only라고 잘못 설명하고 있었다 — 실제로는
+  `guild_hall/workspace_ledgers`의 `refresh()`가 매 실행마다 수집
+  custody에서 다시 만드는 현재 시점 view이며(Owner기입 칸 보존, 이전
+  파일은 `history/`에 보관), append-only인 것은 그 아래 수집 메일
+  custody와 정정 이력이라 라우팅 규칙이 바뀌면 한 행이 다른 프로젝트로
+  옮겨가며 현재 view에서 빠질 수 있다. 세 문서 모두 이 사실에 맞게 1~2
+  문장을 고쳤다. 매뉴얼 두 개의 최종 bytes로 sha256을 다시 계산해
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`의
+  `content_digest`를 재고정했다(교체 전 각 옛 해시가 파일에 정확히 한 번씩만
+  나오는 것을 먼저 확인).
+- 운영 영향: 문서만 바뀌었다. 코드·구현 동작은 바뀌지 않았다 — target
+  `020_MGMT` 기록 자체는 `guild_hall/workspace_ledgers`가 2026-09-21에 이미
+  구현해 두었고, 이번 변경은 그 사실을 AGENTS.md/boot digest/온보딩
+  문서·매뉴얼의 문구에 맞춘 것이다.
+- 관련 경로: `AGENTS.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.md`,
+  `docs/architecture/foundation/AGENT_BOOT_DIGEST_V0.sources.json`,
+  `docs/architecture/workspace/PROJECT_ONBOARDING_V0.md`,
+  `guild_hall/deployment_pack/manuals/new_hire_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manager_training.v0.md`,
+  `guild_hall/deployment_pack/manuals/manual_release_catalog.v0.json`.
+- 검증: `node guild_hall/validate/boot_digest_guard.mjs`(OK), `npm run
+  validate:manual-release`, `npm run validate:manual-projection`, `npm run
+  validate:canon`, `npm run validate:display-terms:changed`(커밋 전, 변경
+  스코프), `node guild_hall/validate/local_absolute_path_policy.mjs --scope
+  changed`(커밋 전, 변경 스코프).
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 일곱 번째 신선한 검토 반영: 분리된 사람의 Owner 셀 중복·대체주소 그림자·shrink 가드 게이트
 
 - Revision: 이 항목을 포함한 커밋.
