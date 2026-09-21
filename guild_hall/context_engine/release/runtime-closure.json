@@ -69,10 +69,6 @@
       "sha256": "1a4568e079db9f5b8b514d7a40a1a4d90db109637c3790d47905a45301baa5a5"
     },
     {
-      "path": "guild_hall/context_engine/src/adapters/citation_matcher.mjs",
-      "sha256": "99bfa97551c68d416db7ca9871a517cc339eb12f7749cbe0390bfae600263ec2"
-    },
-    {
       "path": "guild_hall/context_engine/src/adapters/exact_source_readback.mjs",
       "sha256": "de75142a0252531451fc4e5801938f22ff71d5127b989dae27453aa7ea02a3c0"
     },
@@ -110,7 +106,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "9eacf2111feacd2015c7434d04a5fed625ed783a30bfb32b6f57c9ca07180033"
+      "sha256": "1545b0dac08928416c949a43335551640f8543ba74bb6c877585a3d68659169a"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -122,7 +118,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
-      "sha256": "2394e0d769c23bb9c8b55bf8497f026ae4c177de8c70acadff7e43da9327f513"
+      "sha256": "0436f9a1083de18f6e9e045221c32ed3582370b0d51779000940afdcde9a1329"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",
@@ -329,7 +325,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "4fc03d015ae1f1c72782d646b93c8d8b67847b2696603f279d96d09600df1af4",
+  "closure_sha256": "d46a897571d85e74ca500e6ab366e68e7aa13ed961e7d526c1c5911079d47330",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -669,10 +665,6 @@
     {
       "from": "guild_hall/context_engine/src/guards/accepted_context_typed_memory.mjs",
       "to": "guild_hall/engineering_engine/kernel/project_context_generation_candidate.mjs"
-    },
-    {
-      "from": "guild_hall/context_engine/src/guards/citation_verifier.mjs",
-      "to": "guild_hall/context_engine/src/adapters/citation_matcher.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/guards/citation_verifier.mjs",

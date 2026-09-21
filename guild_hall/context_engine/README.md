@@ -959,47 +959,54 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 새 Context store를 만들지 않는다. 기존 generation/수락 receipt/ACL 검사는
 그대로 남으며 실제 actor·source grant가 없으면 실제 연결 완료가 아니다.
 
-## 교체 가능한 인용 검증기
+## 승인 구간 안의 인용 검증기 (0.22.5)
 
-`src/app.mjs`의 `createCitationVerifier({ approvedSpans, normalization, matcher })`는
-호출자가 승인해 공급한 원문 구간과 인용문을 메모리 안에서 대조한다. 새 저장소나
-정본을 만들지 않으며 기존 query/수락 경로에 자동 삽입되지 않는다.
+`src/app.mjs`의 `createCitationVerifier({ approvedSpans })`는 호출자가 승인해 공급한
+원문 구간 **안에** 인용문이 포함되는지 메모리 안에서 대조한다. 새 저장소나 정본을
+만들지 않으며 기존 query/수락 경로에 자동 삽입되지 않는다.
 
 - `approvedSpans`: `{ binding, text, span_sha256 }` 배열(최대 100개).
   `binding`은 기존 accepted reader/readback의 `source_revision_ref`, `source_span_ref`,
-  `locator` 세 필드를 그대로 옮긴다. source ref의 `entity_id`, `revision_id`,
-  `content_id`, `content_hash_alg`는 기존 Rune exact-ref 계약을 따른다. ref의 추가 필드는 거부한다.
+  `locator` 세 필드를 옮긴다. source ref는 기존 Rune exact-ref 계약의
+  `entity_id`, `revision_id`, `content_id`, `content_hash_alg` 네 필드만 받는다.
   `content_id`는 원본 전체 bytes의 해시이며 `span_sha256`는 공급된 `text`의 UTF-8
-  SHA-256(`sha256:<64 lowercase hex>`)이다. 부분 구간만으로 전체 원본 해시를 재검증했다고
-  주장하지 않는다. 원본 판본/ACL/과제/시점 확인과 locator에 맞는 구간 선택은 호출자 책임이다.
-  기존 `createExactSourceReadback`의 full-source 검사를 마친 호출자가 이 연결부에 전달할 수 있다.
-- `verify({ binding, quote })`는 **선택한 구간 전체**와 비교한다. substring 검색이나
-  생략 인용은 지원하지 않으므로 호출자는 필요한 정확한 구간과 위치를 먼저 승인해야 한다.
-  표시용 따옴표를 자동 파싱/제거하지 않는다. 문자열은 20,000 UTF-16 code unit 이하다.
-- 결과 `status`: `exact_match` / `normalized_match` / `mismatch` / `source_missing`.
-  `reason`으로 판본/해시 불일치, 중복 binding, 엔진 오류를 구분한다. 허용 목록에 없는
-  출처/구간/위치는 모두 `source_missing`이다(실제 존재 여부를 뜻하지 않음).
-  잘못된 입력 형태·빈 인용·지원하지 않는 정책은 `TypeError`로 거부한다.
-- 기본 `normalization: 'none'`. 명시적 `ascii_whitespace_v1`만 U+0020 SPACE,
-  U+0009 TAB, U+000D CR, U+000A LF의 연속을 공백 하나로 바꾸고 양끝의 그 공백을
-  제거한다. 공백 경계를 없애지 않고 NBSP·Unicode 정규화·대소문자·숫자·단위·부호·
-  구두점·부정 표현은 바꾸지 않는다. 정규화는 비교용 사본에만 적용한다.
-- 입력은 수정하지 않으며 출력에는 요청 binding, 원래 인용/구간 해시, 정책과 matcher ID를
-  남긴다. 본문·수정 제안은 반환하지 않는다. `semantic_fact_verified`와
-  `knowledge_accepted`는 항상 false다. 문자열 일치가 의미의 진실이나 사람 수락은 아니다.
-- 교체 경계는 `src/adapters/citation_matcher.mjs`의 `{ id, matches({ quote, source }): boolean }`.
-  동기·신뢰된 in-process adapter만 지원한다. 외부 엔진 자료형은 adapter 내부에서 변환한다.
-  wrapper가 승인 범위·정규화·결과 일관성을 검사하므로 엔진의 근사 일치로 통과시킬 수 없다.
-  예외는 본문 없는 실패로 반환한다. 플러그인 sandbox나 네트워크 엔진 연결은 제공하지 않는다.
-  승인 목록은 생성 시 snapshot이므로 권한/판본이 바뀌면 호출자가 새 검증기를 만들어야 한다.
+  SHA-256(`sha256:<64 lowercase hex>`)이다. 부분 구간만으로 전체 원본 해시를
+  재검증했다고 주장하지 않는다. 원본 판본/ACL/과제/시점 확인과 locator에 맞는 구간
+  선택은 호출자 책임이다. 기존 `createExactSourceReadback` 검사를 마친 호출자가 연결할 수 있다.
+- `verify({ binding, quote })`는 먼저 글자 그대로의 포함을 찾고, 없을 때만 양쪽의
+  **NFC + Unicode White_Space** 정규화 후 포함을 찾는다. Unicode 속성 `White_Space`의
+  연속(전각 공백·NBSP·CR/LF·탭 포함)을 ASCII 공백 하나로 바꾸고 양끝 공백을 제거한다.
+  ZWSP/BOM은 이 속성에 포함되지 않는다. NFKC·대소문자·숫자/단위 변환·문장부호/따옴표
+  제거·근사 일치는 없다. 원문·인용문은 수정하지 않고 비교용 사본만 정규화한다.
+- 최소 인용 길이는 NFC 처리 후 Unicode 공백을 제외한 **코드 포인트 8개**다.
+  그보다 짧으면 `mismatch / quote_too_short`다. 문자열 상한은 20,000 UTF-16 code unit.
+- `status`: `exact_match` / `normalized_match` / `mismatch` / `source_missing`.
+  `reason`은 판본/해시 불일치와 중복 binding 등을 구분한다. 허용 목록에 없는
+  출처/구간/위치는 `source_missing`이다(실제 존재 여부 판정 아님).
+  잘못된 입력·빈 인용·폐기된 matcher/normalization 옵션은 `TypeError`로 거부한다.
+- 성공 결과의 `start`, `end`는 **공급된 원문 구간**에 대한 0-based UTF-16 인덱스
+  `[start, end)`다. `offset_unit: 'utf16_code_unit'`, `end_exclusive: true`를 명시한다.
+  정규화 후 일치도 원래 구간의 위치를 반환한다. `count`는 성공한 단계의 출현 횟수이며
+  겹치는 출현도 센다. 정확 일치가 있으면 정규화 단계의 변형 출현은 합산하지 않는다.
+  여러 번이면 원문의 첫 위치를 반환한다. 실패는 `start/end: null, count: 0`이다.
+  NFC 합성/재정렬/일대다 분해의 위치는 일치에 기여한 원문 문자를 모두 포함하는 최소
+  구간이다. 원문의 한 문자가 여러 정규화 문자로 분해되면 그 원문 문자를 쪼개지 않으므로
+  반환한 구간을 정규화한 문자열에는 일치 경계 밖의 결합문자가 함께 포함될 수 있다.
+- 출력은 요청 binding, 원래 인용/구간 해시, 적용 정규화와 위치를 보존한다. 본문이나
+  수정 제안은 반환하지 않는다. `semantic_fact_verified`와 `knowledge_accepted`는
+  항상 false다. 문자열 포함은 의미적 사실 검증이나 사람 수락이 아니다.
+- 별도 비교 엔진 교체 자리는 제거했다. 비교는 모듈 내부 함수이며 외부 엔진/자료형
+  의존성이 없다. 승인 목록은 생성 시 snapshot이므로 권한/판본이 바뀌면 새로 생성한다.
+  원문 읽기·저장·외부 검색·자동 수정·위키·기억 관리·사람/조직 노드는 제공하지 않는다.
 
 공개 참고: [GBrain d13aa742의 synthesize-verify.ts](https://github.com/garrytan/gbrain/blob/d13aa742fd68b71bfd6c98be3dda5813791f1d6c/src/core/cycle/synthesize-verify.ts).
-정확/정규화 대조의 단계 구분을 참고한 독립 구현이다. 그 코드의 case/Unicode folding,
+정확/정규화 대조의 단계 구분을 참고한 독립 구현이다. GBrain의 case/punctuation folding,
 near-match, 자동 치환, 따옴표 제거, 페이지 writer와 `BrainEngine` 타입은 도입하지 않았다.
 GBrain 패키지 실행이나 호환성 검증을 했다는 의미는 아니다.
 
-공개 합성 시험: `node --test guild_hall/context_engine/tests/citation_verifier.test.mjs`.
-정상 인용·공백·숫자/단위·한영 부정 반전·판본·허용 범위·해시·adapter 교체/실패를 확인한다.
+시험: `node --test guild_hall/context_engine/tests/citation_verifier.test.mjs`.
+공개 합성 자료로 위치·반복·겹침·Unicode 공백·NFC·최소 길이·변조/범위 거부를 확인한다.
+
 
 ## 대화 목록 야간 lane (2026-09-20)
 

@@ -1,6 +1,6 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-engine-v0-22-4",
+  "lane_id": "context-engine-v0-22-5",
   "description": "Standalone synthetic Context Engine installed update and query. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer.",
   "tracked_paths": [
     "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",
@@ -18,7 +18,6 @@
     "guild_hall/context_engine/src/adapters/accepted_context_project_runtime.mjs",
     "guild_hall/context_engine/src/adapters/accepted_context_synthetic_runtime.mjs",
     "guild_hall/context_engine/src/adapters/aliased_store_io.mjs",
-    "guild_hall/context_engine/src/adapters/citation_matcher.mjs",
     "guild_hall/context_engine/src/adapters/exact_source_readback.mjs",
     "guild_hall/context_engine/src/adapters/graphrag/worker_client.mjs",
     "guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs",
