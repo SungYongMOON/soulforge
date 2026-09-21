@@ -181,6 +181,65 @@ test('saveRuleVersion (fresh-review-5 #7): an EMPTY measured.rule_failures rende
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('saveRuleVersion (R4, coordinator decision, fresh review round 4): the measured line renders the rule\'s own evidence first and the table-derived total second', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    // The exact fixture the coordinator named: rule matches 1, a bundle table adds 2.
+    const measured = {
+      rule_matched_before: 1, rule_matched_after: 1, matched_before: 3, matched_after: 3,
+      table_attributed_after: 2, matched_from_system_senders: 0, moved_in: 0, moved_out: 0, newly_held: 0,
+      samples: { moved_in: [], moved_out: [], newly_held: [] },
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /이 규칙 제목어로 확정 1건, 표·판독·본문으로 추가 2건\(합계 3건\), 새로 매칭 0건, 매칭 해제 0건, 새로 보류 0건/u);
+    assert.doesNotMatch(md, /^- 실측: 확정/mu); // never the pre-R4 single-number phrasing when the split fields are present
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (R4): removing the rule\'s only term drops rule_matched_after to 0 while matched_after (table-only) stays put', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const measured = {
+      rule_matched_before: 1, rule_matched_after: 0, matched_before: 3, matched_after: 2,
+      table_attributed_after: 2, matched_from_system_senders: 0, moved_in: 0, moved_out: 1, newly_held: 0,
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /이 규칙 제목어로 확정 0건, 표·판독·본문으로 추가 2건\(합계 2건\)/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (S1, coordinator fresh review round 4): measured.owner_table_failures renders a caveat exactly like rule_failures does', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const measured = {
+      matched_before: 3, matched_after: 3, moved_in: 0, moved_out: 0, newly_held: 0,
+      owner_table_failures: [{ table: '묶음_확정표.csv', code: 'workspace_ledgers_owner_table_header_mismatch' }],
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /확정 3건/u); // the counts are still shown
+    assert.match(md, /주의: Owner 표 1개가 이번 실측에서 로드 실패해 제외됨/u);
+    assert.doesNotMatch(md, /묶음_확정표\.csv/u); // never names which table
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('saveRuleVersion (S1): rule_failures and owner_table_failures both present render both caveats', () => {
+  const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
+  try {
+    const measured = {
+      matched_before: 3, matched_after: 3, moved_in: 0, moved_out: 0, newly_held: 0,
+      rule_failures: [{ project_code: 'P00-002', code: 'workspace_ledgers_rule_json_unparseable', term_ref: null }],
+      owner_table_failures: [{ table: '판독_결정표.csv', code: 'workspace_ledgers_owner_table_encoding' }],
+    };
+    saveRuleVersion({ workspacesRoot, workmetaRoot, code: CODE, draft: baseRuleJson(), by: '홍길동', note: 'x', measured, now: '2026-09-22T00:00:00.000Z' });
+    const md = readFileSync(path.join(ruleDir, 'mail_routing_rule.md'), 'utf8');
+    assert.match(md, /주의: 다른 과제 규칙 1건이 컴파일 실패해 이번 실측에서 제외됨/u);
+    assert.match(md, /주의: Owner 표 1개가 이번 실측에서 로드 실패해 제외됨/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('saveRuleVersion: measured also accepts the legacy {subjects, exact, hint_only} shape', () => {
   const { root, workspacesRoot, workmetaRoot, ruleDir } = makeFixture();
   try {

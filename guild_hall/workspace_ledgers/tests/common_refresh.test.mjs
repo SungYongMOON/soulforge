@@ -391,6 +391,24 @@ test('classifyAllCommonMail (coordinator, 2026-09-21): --hiworks-events and --gm
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('classifyAllCommonMail (R1, coordinator fresh review round 4): an unsupported fields value throws up front, even with zero custody records (never only inside the per-record loop)', () => {
+  const fixture = makeFixture();
+  try {
+    // Empty both custody directories entirely -- the OLD (pre-R1) behaviour only
+    // asserted `fields` the first time `classifyProjectHits` was reached inside the
+    // per-mail loop, so a run with zero records would never have thrown at all.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([]));
+    const emptyGmailDir = path.join(fixture.root, 'empty-gmail');
+    mkdirSync(emptyGmailDir, { recursive: true });
+    assert.throws(() => classifyAllCommonMail({
+      workspacesRoot: fixture.workspacesRoot, hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [emptyGmailDir],
+      orgConfigPath: fixture.orgConfigPath, bundleTablePath: fixture.bundleTablePath, vendorTablePath: fixture.vendorTablePath,
+      readingTablePath: fixture.readingTablePath, workTagTablePath: fixture.workTagTablePath,
+      fields: ['subject', 'body_text'],
+    }), error => error instanceof CommonRefreshError && error.code === 'workspace_ledgers_fields_not_supported');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('classifyAllCommonMail (spec section 2, thread-vendor inheritance): an internal forward carrying no vendor address of its own still inherits the vendor from another mail in the same normalised-subject thread', () => {
   const fixture = makeFixture();
   try {

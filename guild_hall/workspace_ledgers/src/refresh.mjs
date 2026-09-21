@@ -419,15 +419,23 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
   // K2: ONE custody read (records are rule-independent) -- classified twice, once per
   // rule set, through the exact same `classifyProjectHits` `refresh()` itself calls.
   const { records, hiworks, gmail } = cachedLoadRecords({ hiworksDirs, gmailSentDirs });
-  const classifyEach = compiledRules => records.map(record => classifyProjectHits(
+  const classifyEach = (compiledRules, tables) => records.map(record => classifyProjectHits(
     { id: record.event_id, subject: record.subject, body: record.body_text, addresses: addressesOfMail(record), at: record.at },
-    { compiledRules, bundles: owner.bundles, readings: owner.readings, vendorLookup: owner.vendors, fields },
+    { compiledRules, bundles: tables.bundles, readings: tables.readings, vendorLookup: tables.vendors, fields },
   ));
-  const beforeResults = classifyEach(compiledBefore);
-  const afterResults = classifyEach(compiledAfter);
+  const beforeResults = classifyEach(compiledBefore, owner);
+  const afterResults = classifyEach(compiledAfter, owner);
+  // R4 (coordinator decision, fresh review round 4): a SECOND classification pass with
+  // every Owner table emptied out -- steps 2-4 can then never contribute a hit, so this
+  // isolates step 1 (the draft's OWN subject terms) alone. Still runs against the FULL
+  // compiled rule set (every other onboarded project's rule too), because a two-project
+  // subject collision is still a hold even with no tables in play -- only the table
+  // CONTRIBUTION is being subtracted out here, not the hold-detection behaviour.
+  const NO_TABLES = { bundles: [], readings: new Map(), vendors: new Map() };
+  const ruleOnlyAfterResults = classifyEach(compiledAfter, NO_TABLES);
 
   const sample = record => ({ at: record.at, subject: record.subject.length > 80 ? record.subject.slice(0, 80) : record.subject });
-  let matchedBefore = 0, matchedAfter = 0, matchedFromSystemSenders = 0;
+  let matchedBefore = 0, matchedAfter = 0, matchedFromSystemSenders = 0, ruleMatchedBefore = 0, ruleMatchedAfter = 0;
   const movedIn = [], movedOut = [], newlyHeld = [];
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index];
@@ -451,9 +459,38 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     if (afterHit && !beforeHit) movedIn.push(sample(record));
     if (beforeHit && !afterHit) movedOut.push(sample(record));
     if (afterInvolvedInHold && !beforeInvolvedInHold) newlyHeld.push(sample(record));
+    // R4: `rule_matched_before` is the currently-SAVED rule's own step-1-only count --
+    // told apart from a table/step-4 contribution via `beforeR.basis === '제목'` (the
+    // exact basis `classifyProjectHits` sets only for a genuine step-1 title-rule hit,
+    // never for a bundle/reading/body attribution -- see its own doc). `rule_matched_
+    // after` instead reads off the dedicated no-tables pass above (run against
+    // `compiledAfter`, the draft).
+    if (beforeHit && beforeR.basis === '제목') ruleMatchedBefore += 1;
+    if (ruleOnlyAfterResults[index].hits.some(hit => hit.project_code === code)) ruleMatchedAfter += 1;
   }
   return {
+    // R4 (coordinator decision, fresh review round 4): TWO views, never conflated.
+    // `rule_matched_before`/`rule_matched_after` -- mails this project's OWN subject
+    // terms alone (step 1) place here, with every other onboarded project's rule
+    // still in play for hold-detection but every Owner table emptied out. This is the
+    // number that actually reflects what EDITING THE RULE ITSELF changes -- trimming a
+    // term to 0 terms correctly drops this to 0, even when a bundle/reading table still
+    // holds some of those same mails (matched_after would stay > 0 in that case, on
+    // purpose -- see table_attributed_after below).
+    rule_matched_before: ruleMatchedBefore, rule_matched_after: ruleMatchedAfter,
+    // `matched_before`/`matched_after` -- what `refresh()` will ACTUALLY write for this
+    // project (every step: subject rule, bundle table, reading table, supplier-body
+    // tie-break). K2: never reduced by system-sender status either.
     matched_before: matchedBefore, matched_after: matchedAfter,
+    // R4: the portion of `matched_after` that is NOT explained by this rule's own
+    // subject terms -- an Owner table (or step 4's supplier-body tie-break) holding
+    // mail this rule itself no longer would. Clamped at 0: the full classification
+    // order always tries step 1 first, so a step-1 hit under `compiledAfter` is also a
+    // hit in the with-tables pass over the same rule set, meaning `matched_after` never
+    // actually falls below `rule_matched_after` in practice -- the clamp is defensive
+    // (this is an arithmetic derivation, not an independently-measured count) and must
+    // never go negative and look like a data bug to a caller.
+    table_attributed_after: Math.max(0, matchedAfter - ruleMatchedAfter),
     // K2: how many of `matched_after` are from a system-sender domain -- visible now
     // that there is no pre-filter to silently hide them.
     matched_from_system_senders: matchedFromSystemSenders,
@@ -468,7 +505,10 @@ export function previewRule({ workspacesRoot, code, draft, hiworksDirs = [], gma
     // unless the caller explicitly asks for `--show-samples`.
     samples: { moved_in: movedIn.slice(0, 10), moved_out: movedOut.slice(0, 10), newly_held: newlyHeld.slice(0, 10) },
     // fresh-review-5 #7: never render straight into an Owner-facing doc without
-    // checking this first -- see `saveRuleVersion`'s `measured` handling.
+    // checking this first -- see `saveRuleVersion`'s `measured` handling. S1 (fresh
+    // review round 4): `owner_table_failures` needs the exact same caveat treatment --
+    // a measurement taken while an Owner table failed to load is INCOMPLETE the same
+    // way one taken with another project's rule excluded is.
     rule_failures: ruleFailures,
     owner_table_failures: owner.failures,
   };

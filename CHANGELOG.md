@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 네 번째 신선한 눈 검토 반영: 규칙 근거·표 근거 분리(R4), 문서 동기화(R1-R3), Owner 표 미설정 경로 강화(S1·S3)
+
+- Revision: 이 항목을 포함한 커밋(직전 commit bd3676d5에 대한 네 번째 별도 신선한 눈 검토 -- K1/K2/S-a..S-e는
+  독립 프로브로 재검증 통과, 내보내기 표면 온전, origin/main 병합은 CHANGELOG 한 곳만 충돌·`lastPathSegment`
+  플랫폼 중립판 생존; 필수 4건·should 2건·nit 3건 정정. 병합으로 콘솔 패널(`ui-workspace/apps/team-ops-board`)이
+  이 브랜치에 처음 들어왔고, CI(ubuntu)가 이제 `validate:workspace-ledgers`와 패널 테스트를 함께 돈다).
+- 무엇이 바뀌었는가: **(R1)** `src/index.mjs`의 문서 주석이 여전히 2차 라운드 계약("`fields: MATCH_FIELDS`로
+  다시 넓힐 수 있다")을 서술해, 그대로 따르는 호출자가 `classifyMail`/`hintCodes`(1단계가 아니라 4단계의
+  저수준 원시 함수일 뿐, 자체 제목전용 검사가 없음)로 더 넓은 `fields`를 넘겨 본문/첨부명 매칭을 공개
+  표면으로 통과시킬 수 있었다 -- K1의 실제 계약대로 다시 썼고, `assertSubjectOnlyFields`/
+  `isSubjectOnlyFields`/`FIELDS_NOT_SUPPORTED_CODE`를 재노출했다. `classifyAllCommonMail`/`refreshCommon`도
+  이제 제목전용 단언을 맨 앞(어떤 규칙·표를 읽기도 전)에서 하도록 고쳤다 -- 이전엔 루프 안에서
+  `classifyProjectHits`에 처음 도달할 때만 암묵적으로 걸렸는데, 레코드가 0건이면 그 라운드는 아예 도달하지
+  않아 잘못된 `fields`가 조용히 통과했다. **(R2)** `src/index.mjs`가 3차 라운드에서 제거된 `previewRule`의
+  `table_attributed`를 여전히 계약으로 서술 -- R4 아래 실제 모양으로 동기화. **(R3)** README CLI 절이 여전히
+  `--fields subject|all`을 광고하고, `--fields all` 옵트인 문장과 "규칙에 `match_fields`를 선언하라"는(K1
+  아래서는 더 이상 아무 효과 없는) 낡은 행동지침이 남아 있었다 -- 전부 정정, `preview-rule` synopsis에
+  `--vendor-table`도 추가(라운드 3 K2 재작성 이후 이미 받고 있었지만 문서화가 안 됨). **(R4, 코디네이터
+  결정)** `saveRuleVersion`이 `previewRule`의 `matched_after`를 규칙 `.md`에 "확정 N건" 한 숫자로 렌더링했는데,
+  D-a(2차 라운드) 이후 그 숫자는 늘 Owner 표·4단계 귀속까지 합쳐진 값이라 규칙이 메일 1건만 매칭해도 표가
+  2건을 더 잡으면 "확정 3건"으로 보여, 규칙의 트리거를 지워도 표가 여전히 그 2건을 잡는다는 사실이 Owner
+  눈에 안 보였다 -- `previewRule`이 이제 두 값 다 돌려준다: `rule_matched_before`/`rule_matched_after`(이
+  규칙 자체 제목어만, Owner 표를 전부 비우고 1단계만 돌린 값)와 기존 `matched_before`/`matched_after`(실제
+  `refresh()`가 쓸 값), 그리고 `table_attributed_after`(= matched_after − rule_matched_after, 0 이하로는
+  안 내려감)와 기존 `matched_from_system_senders`. `table_attributed`(3차 라운드 필드)는 없앴다.
+  `renderMeasuredLine`은 이제 규칙 자체 근거를 먼저, 표 근거 합계를 나중에 쓴다: "이 규칙 제목어로 확정
+  1건, 표·판독·본문으로 추가 2건(합계 3건), ...". 콘솔 패널(`operations-mail-rules.tsx`)은 "지금"/"바뀌면"
+  옆에 "이 규칙으로"/"표·판독으로 추가" 행을 따로 보여주고, `matched_from_system_senders`도 "그중
+  시스템발신" 행으로 보여준다.
+  should: **(S1)** `owner_table_failures`도 `rule_failures`와 똑같은 주의 문구 처리를 받는다
+  (`renderMeasuredLine`과 패널 둘 다). **(S3)** org config가 가리키는 Owner 표 경로(`common_ledgers.
+  owner_tables.*`)가 실제로 없는 파일이면 더 이상 "표 미설정"과 똑같이 보이지 않는다 -- config에서
+  풀린 경로일 때만 `workspace_ledgers_owner_table_configured_but_missing`으로 닫힌 채 실패하고(다른 표
+  실패와 동일), 명시 인자로 넘긴 경로가 없는 경우는 기존 문서화된 스킵 동작을 유지한다.
+  nit: `owner_tables.mjs`의 상대 config 값은 이제 `workspacesRoot` 밖으로 못 벗어난다(`../../탈출` 같은
+  값은 `workspace_ledgers_owner_table_config_path_escape`로 거부, 절대경로는 그대로 허용); `workspacesRoot`
+  자체가 없는데 상대값을 쓰면 raw TypeError 대신 모듈 에러 코드. `mail-rule-adapter.mjs`의 `preview()`는
+  `orgConfigPath` 미설정 시 응답에 `tables_used: []`를 명시로 실어 패널이 "표 미적용"을 보여줄 수 있게
+  했다(설정 시엔 core 반환을 그대로 통과, 없는 필드를 지어내지 않음). K2 시험(`previewRule (fresh-review-3
+  #6)`)은 이제 `previewRule`의 메모리 상 개수뿐 아니라 실제 `refresh()`가 쓴 장부 행 수까지 대조한다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/index.mjs`, `common_refresh.mjs`, `owner_tables.mjs`,
+  `refresh.mjs`, `rule_store.mjs`, `README.md`, 각 대응 `tests/*.test.mjs`(신규 `tests/index.test.mjs` 포함),
+  `ui-workspace/apps/team-ops-board/src/operations-mail-rules.tsx`,
+  `ui-workspace/apps/team-ops-board/src/server/mail-rule-adapter.mjs`(및 그 테스트), 루트 `package.json`.
+
 ## 2026-09-21 - `guild_hall/workspace_ledgers` 세 번째 신선한 눈 검토 반영: K1(제목 전용 고정)·K2(previewRule 정합), should 5건·nit 3건
 
 - Revision: 이 항목을 포함한 커밋(직전 commit c618fd0a에 대한 세 번째 별도 신선한 눈 검토 -- D-a·D-c·D-e·

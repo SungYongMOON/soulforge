@@ -474,6 +474,32 @@ test('R3: preview() omits orgConfigPath when it is not configured, rather than f
   assert.equal('orgConfigPath' in seenArgs, false);
 });
 
+test('NIT (fresh review round 4): preview() adds tables_used: [] explicitly when orgConfigPath is not configured (no table could possibly have been consulted)', async t => {
+  const f = await fixture(t);
+  const hiworksDir = path.join(f.root, 'events', 'hiworks'), gmailDir = path.join(f.root, 'events', 'gmail_sent');
+  await mkdir(hiworksDir, { recursive: true }); await mkdir(gmailDir, { recursive: true });
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({}), refresh: async () => ({}),
+  };
+  const reader = createMailRuleReader({ workspacesRoot: f.workspacesRoot, hiworksEventsDir: hiworksDir, gmailSentEventsDir: gmailDir, core: fakeCore });
+  const result = await reader.preview('P00-001', { exact: [], hint: [] });
+  assert.deepEqual(result.tables_used, []);
+});
+
+test('NIT (fresh review round 4): preview() does NOT invent tables_used when orgConfigPath IS configured -- the core\'s own return passes through untouched', async t => {
+  const f = await custodyFixture(t);
+  await writeProject(f.workspacesRoot, 'P00-001_예시과제', ruleDoc());
+  const fakeCore = {
+    previewRule: async () => ({ matched_before: 0, matched_after: 0, moved_in: 0, moved_out: 0, newly_held: 0, samples: {} }),
+    saveRuleVersion: async () => ({}), refresh: async () => refreshReceiptFixture([]),
+  };
+  const reader = createMailRuleReader(custodyOptions(f, { core: fakeCore }));
+  const result = await reader.preview('P00-001', { exact: [], hint: [] });
+  assert.equal('tables_used' in result, false);
+});
+
 // ---------- S1: optimistic concurrency ----------
 
 test('S1: save refuses rule_changed when the caller-supplied rule_version/sha256_json no longer match the fresh on-disk read', async t => {

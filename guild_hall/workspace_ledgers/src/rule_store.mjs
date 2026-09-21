@@ -242,24 +242,63 @@ function ruleFailureCaveat(measured) {
 }
 
 /**
+ * S1 (coordinator, fresh review round 4): `measured.owner_table_failures`
+ * (`previewRule`'s own return field, from `loadOwnerTables`'s strict per-table
+ * validation) needs the exact same caveat treatment `rule_failures` already gets -- a
+ * measurement taken while a bundle/reading/vendor table failed to load is INCOMPLETE
+ * for the same reason: whatever that table would have attributed is silently missing
+ * from `matched_after`/`table_attributed_after` this run, just like an excluded
+ * project's rule is silently missing from hold/yield detection. Never names which
+ * table failed or why (matching `ruleFailureCaveat`'s own no-detail convention).
+ */
+function ownerTableFailureCaveat(measured) {
+  const failures = Array.isArray(measured?.owner_table_failures) ? measured.owner_table_failures : [];
+  if (failures.length === 0) return '';
+  return ` 주의: Owner 표 ${failures.length}개가 이번 실측에서 로드 실패해 제외됨 (표·판독 귀속이 실제보다 적게 잡혔을 수 있음).`;
+}
+
+function measuredCaveat(measured) { return `${ruleFailureCaveat(measured)}${ownerTableFailureCaveat(measured)}`; }
+
+/**
  * Renders the 근거 section's measured line from either shape `measured` may arrive
- * in: `previewRule`'s own return (`{matched_before, matched_after, moved_in,
- * moved_out, newly_held, samples, rule_failures}` -- the UI adapter passes this
- * straight through) or the older CLI convenience shape (`{subjects, exact,
- * hint_only}`). `samples` (real mail subjects) is never rendered under any shape. Any
- * field absent from whichever shape is present renders nothing for that field, never
- * the literal `undefined`; a `measured` object with no recognised field at all falls
- * back to the same "not measured" line as `measured` being absent entirely.
+ * in: `previewRule`'s own return -- `{rule_matched_before, rule_matched_after,
+ * matched_before, matched_after, table_attributed_after, matched_from_system_senders,
+ * moved_in, moved_out, newly_held, samples, rule_failures, owner_table_failures}` (R4,
+ * coordinator fresh review round 4 -- the UI adapter passes this straight through) --
+ * or the older CLI convenience shape (`{subjects, exact, hint_only}`). `samples` and
+ * `matched_from_system_senders` are never rendered into this one line under any shape
+ * (the panel renders `matched_from_system_senders` itself, see S2). Any field absent
+ * from whichever shape is present renders nothing for that field, never the literal
+ * `undefined`; a `measured` object with no recognised field at all falls back to the
+ * same "not measured" line as `measured` being absent entirely.
+ *
+ * R4: `rule_matched_after`/`table_attributed_after` are rendered as TWO separate
+ * numbers, the rule's own evidence first and the table-derived total second --
+ * `matched_after` alone used to conflate a rule's own subject-term matches with
+ * whatever an Owner table (or step 4's supplier-body tie-break) additionally holds, so
+ * a rule matching 1 mail with a table holding 2 more rendered "확정 3건", hiding the
+ * fact that trimming the rule's own term to nothing would not change what gets
+ * written. Falls back to the single pre-R4 "확정 N건" phrasing only when `measured`
+ * predates this round entirely (neither split field present at all -- an older
+ * synthetic fixture or a legacy adapter pass-through that has not been updated).
  */
 function renderMeasuredLine(measured, now) {
   if (!measured || typeof measured !== 'object') return MEASURED_UNKNOWN_LINE;
   const dateSuffix = `(측정 ${now.slice(0, 10)})`;
-  const caveat = ruleFailureCaveat(measured);
+  const caveat = measuredCaveat(measured);
   const isPreviewShape = ['matched_before', 'matched_after', 'moved_in', 'moved_out', 'newly_held']
     .some(field => measured[field] !== undefined);
   if (isPreviewShape) {
     const parts = [];
-    if (measured.matched_after !== undefined) parts.push(`확정 ${measured.matched_after}건`);
+    const hasSplitFields = measured.rule_matched_after !== undefined || measured.table_attributed_after !== undefined;
+    if (hasSplitFields) {
+      const ruleMatched = measured.rule_matched_after ?? 0;
+      const tableAttributed = measured.table_attributed_after ?? 0;
+      const total = measured.matched_after ?? (ruleMatched + tableAttributed);
+      parts.push(`이 규칙 제목어로 확정 ${ruleMatched}건, 표·판독·본문으로 추가 ${tableAttributed}건(합계 ${total}건)`);
+    } else if (measured.matched_after !== undefined) {
+      parts.push(`확정 ${measured.matched_after}건`);
+    }
     if (measured.moved_in !== undefined) parts.push(`새로 매칭 ${measured.moved_in}건`);
     if (measured.moved_out !== undefined) parts.push(`매칭 해제 ${measured.moved_out}건`);
     if (measured.newly_held !== undefined) parts.push(`새로 보류 ${measured.newly_held}건`);

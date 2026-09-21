@@ -17,6 +17,39 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { decodeCsv } from './ledgers.mjs';
 
+/** Thrown by `resolveOwnerTablePaths` for a config-only problem -- never a per-table classification failure (those go through `loadOwnerTables`'s `failures` array instead). */
+export class OwnerTableConfigError extends Error {
+  constructor(code) {
+    super(code);
+    this.name = 'OwnerTableConfigError';
+    this.code = code;
+  }
+}
+
+/**
+ * NIT (coordinator, fresh review round 4): a RELATIVE `orgConfig.common_ledgers.
+ * owner_tables.*` value must resolve INSIDE `workspacesRoot` -- `"../../escape"` (or
+ * any relative value whose resolved target lands outside `workspacesRoot`) throws
+ * `workspace_ledgers_owner_table_config_path_escape` rather than silently pointing a
+ * table read outside the intended tree. An ABSOLUTE value is unaffected (still
+ * allowed and documented -- the private plane's real table paths are absolute).
+ * `workspacesRoot` itself missing/blank with a relative value throws
+ * `workspace_ledgers_owner_table_config_workspaces_root_required` (a clear module
+ * error code, never a raw `TypeError` from `path.join(undefined, ...)`).
+ */
+function resolveConfiguredRelativePath(value, workspacesRoot) {
+  if (path.isAbsolute(value)) return value;
+  if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') {
+    throw new OwnerTableConfigError('workspace_ledgers_owner_table_config_workspaces_root_required');
+  }
+  const joined = path.join(workspacesRoot, value);
+  const rel = path.relative(path.resolve(workspacesRoot), path.resolve(joined));
+  if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+    throw new OwnerTableConfigError('workspace_ledgers_owner_table_config_path_escape');
+  }
+  return joined;
+}
+
 /**
  * S-b (coordinator, fresh review round 3): ONE place for the Owner-table paths --
  * `orgConfig.common_ledgers.owner_tables.{bundle, reading, vendor}` (paths relative
@@ -38,19 +71,28 @@ import { decodeCsv } from './ledgers.mjs';
  * ledgers and the common-folder ledgers. This resolver does not, and cannot, enforce
  * that by itself -- it only makes "the same org config, the same explicit overrides"
  * the natural way to get it right.
+ *
+ * Also returns `configuredPaths: { bundle, reading, vendor }` (booleans) -- `true`
+ * only when THAT table's resolved path came from org config, never from an explicit
+ * argument (S3, fresh review round 4: `loadOwnerTables` uses this to decide whether a
+ * missing file is a silent skip, the existing behaviour for an explicit path -- see
+ * README -- or a `workspace_ledgers_owner_table_configured_but_missing` failure).
  */
 export function resolveOwnerTablePaths({ bundleTablePath = null, readingTablePath = null, vendorTablePath = null } = {}, { orgConfig = null, workspacesRoot } = {}) {
   const configured = orgConfig?.common_ledgers?.owner_tables ?? {};
+  const configuredPaths = { bundle: false, reading: false, vendor: false };
   const resolveOne = (explicit, key) => {
     if (typeof explicit === 'string' && explicit.trim() !== '') return explicit;
     const value = configured[key];
     if (typeof value !== 'string' || value.trim() === '') return null;
-    return path.isAbsolute(value) ? value : path.join(workspacesRoot, value);
+    configuredPaths[key] = true;
+    return resolveConfiguredRelativePath(value, workspacesRoot);
   };
   return {
     bundleTablePath: resolveOne(bundleTablePath, 'bundle'),
     readingTablePath: resolveOne(readingTablePath, 'reading'),
     vendorTablePath: resolveOne(vendorTablePath, 'vendor'),
+    configuredPaths,
   };
 }
 
@@ -116,11 +158,27 @@ export function isValidCalendarDateString(value) {
  * true, ok: false, code }` on a header/encoding mismatch (fail-closed for this table
  * only, matching NEITHER variant when more than one is offered); `{ present: true,
  * ok: true, rows }` (array of plain objects keyed by header) otherwise.
+ *
+ * S3 (coordinator, fresh review round 4): `missingIsFailure` (default `false`) changes
+ * what a missing file (`ENOENT`) means -- when `true` (the path was resolved from org
+ * config, never an explicit caller argument -- see `loadOwnerTables`), a missing file
+ * is `{ present: true, ok: false, code: 'workspace_ledgers_owner_table_configured_but_
+ * missing' }` instead of the ordinary `{ present: false }` skip. An org config naming
+ * a table file that does not exist is a config error, not "no table configured" --
+ * conflating the two would silently look identical to an org that never configured a
+ * table at all, even though the Owner clearly intended one to be read. An EXPLICITLY
+ * passed path that is missing keeps the original skip behaviour (documented in
+ * README, proved by a byte-identical-results regression test).
  */
-export function readOwnerTable(filePath, expectedHeaders) {
+export function readOwnerTable(filePath, expectedHeaders, { missingIsFailure = false } = {}) {
   let rawText;
   try { rawText = readFileSync(filePath, 'utf8'); }
-  catch (error) { if (error?.code === 'ENOENT') return { present: false }; return { present: true, ok: false, code: 'workspace_ledgers_owner_table_unreadable' }; }
+  catch (error) {
+    if (error?.code === 'ENOENT') {
+      return missingIsFailure ? { present: true, ok: false, code: 'workspace_ledgers_owner_table_configured_but_missing' } : { present: false };
+    }
+    return { present: true, ok: false, code: 'workspace_ledgers_owner_table_unreadable' };
+  }
   if (rawText.trim() === '') return { present: false };
   if (rawText.includes(REPLACEMENT_CHARACTER)) return { present: true, ok: false, code: 'workspace_ledgers_owner_table_encoding' };
   const decoded = decodeCsv(rawText);
@@ -239,18 +297,26 @@ export function buildVendorTable(rows) {
  * code }` for each table that failed strict validation; the corresponding
  * bundles/vendors/readings/workTags entry for a failed table is empty (not partially
  * populated), so a caller never classifies against a half-parsed table.
+ *
+ * `configuredPaths` (S3, fresh review round 4, default `{}`): `{ bundle, reading,
+ * vendor }` booleans, from `resolveOwnerTablePaths`'s own return of the same name --
+ * `true` marks that table's path as org-config-resolved (not an explicit caller
+ * argument), so a MISSING file for it fails closed
+ * (`workspace_ledgers_owner_table_configured_but_missing`) instead of the ordinary
+ * "no table configured" skip. `workTagTablePath` is never config-resolved (S-b's own
+ * scope) and is unaffected either way.
  */
-export function loadOwnerTables({ bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null } = {}) {
+export function loadOwnerTables({ bundleTablePath = null, vendorTablePath = null, readingTablePath = null, workTagTablePath = null, configuredPaths = {} } = {}) {
   const failures = [];
-  const load = (filePath, headers, table) => {
+  const load = (filePath, headers, table, missingIsFailure) => {
     if (!filePath) return { present: false };
-    const result = readOwnerTable(filePath, headers);
+    const result = readOwnerTable(filePath, headers, { missingIsFailure });
     if (result.present && !result.ok) failures.push({ table, code: result.code });
     return result;
   };
   // A2 item 1: try the current 5-column shape first, fall back to the legacy 4-column
   // shape -- `readOwnerTable` matches whichever the file's own header row actually is.
-  let bundleResult = load(bundleTablePath, [BUNDLE_HEADERS_V2, BUNDLE_HEADERS], '묶음_확정표.csv');
+  let bundleResult = load(bundleTablePath, [BUNDLE_HEADERS_V2, BUNDLE_HEADERS], '묶음_확정표.csv', configuredPaths.bundle === true);
   // S4 (coordinator, fresh review round 2): a `적용끝` cell present (5-column shape
   // only -- `'적용끝' in row` is `false` for every row under the legacy 4-column
   // shape) but not a real YYYY-MM-DD calendar date fails the WHOLE bundle table
@@ -264,8 +330,8 @@ export function loadOwnerTables({ bundleTablePath = null, vendorTablePath = null
       failures.push({ table: '묶음_확정표.csv', code: bundleResult.code });
     }
   }
-  const vendorResult = load(vendorTablePath, VENDOR_HEADERS, '거래처_대응표.csv');
-  const readingResult = load(readingTablePath, READING_HEADERS, '판독_결정표.csv');
+  const vendorResult = load(vendorTablePath, VENDOR_HEADERS, '거래처_대응표.csv', configuredPaths.vendor === true);
+  const readingResult = load(readingTablePath, READING_HEADERS, '판독_결정표.csv', configuredPaths.reading === true);
   const workTagResult = load(workTagTablePath, WORKTAG_HEADERS, '작업태그_목록.csv');
   const readings = readingResult.ok ? buildReadingTable(readingResult.rows) : new Map();
   return {

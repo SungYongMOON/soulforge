@@ -110,7 +110,11 @@ function exitCodeFor(code) {
   if (code.includes('required') || code.includes('invalid') || code.includes('unknown_project')
     || code.includes('no_projects_found') || code.includes('not_found') || code.includes('unreadable')
     || code.includes('allow_empty_must_be_list') || code.includes('custody_dirs_overlap')
-    || code.includes('allow_empty_targets_rule_failure') || code.includes('fields_not_supported')) return 2;
+    || code.includes('allow_empty_targets_rule_failure') || code.includes('fields_not_supported')
+    // NIT (fresh review round 4): a bad org-config owner-table path (escape outside
+    // workspacesRoot) is a config error, same class as the others above --
+    // `..._workspaces_root_required` is already covered by the `required` check.
+    || code.includes('owner_table_config_path_escape')) return 2;
   return 3;
 }
 
@@ -182,7 +186,11 @@ function runRefresh(flags) {
     }
   } catch (error) {
     console.error(`workspace_ledgers_refresh_failed: ${error.code ?? error.message}`);
-    process.exitCode = error instanceof RefreshError ? exitCodeFor(error.code) : 3;
+    // NIT (fresh review round 4): a thrown `OwnerTableConfigError` (a bad org-config
+    // owner-table path) is not a `RefreshError`, but still carries a real `.code` --
+    // classify by code, not by class, so it still maps through `exitCodeFor` instead of
+    // always falling to the generic runtime-failure exit code.
+    process.exitCode = typeof error?.code === 'string' ? exitCodeFor(error.code) : 3;
   }
 }
 
@@ -225,7 +233,9 @@ function runPreviewRule(flags) {
     }
   } catch (error) {
     console.error(`workspace_ledgers_preview_rule_failed: ${error.code ?? error.message}`);
-    process.exitCode = error instanceof RefreshError ? exitCodeFor(error.code) : 3;
+    // NIT (fresh review round 4): see runRefresh's own identical note -- classify by
+    // `.code`, not by class, so `OwnerTableConfigError` also maps through `exitCodeFor`.
+    process.exitCode = typeof error?.code === 'string' ? exitCodeFor(error.code) : 3;
   }
 }
 

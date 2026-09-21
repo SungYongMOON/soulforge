@@ -482,12 +482,22 @@ export function createMailRuleReader({ workspacesRoot, workmetaRoot, writeEnable
   // Read-only: never writes. Subject-only fields per the Owner-approved default. `orgConfigPath`
   // (R3) is passed only when actually configured — preview's custody requirement does not
   // include it, so it can be absent here even when save's cannot.
+  //
+  // NIT (coordinator, fresh review round 4): without `orgConfigPath`, the core's `previewRule`
+  // has no way to resolve `orgConfig.common_ledgers.owner_tables` (S-b) at all, and this adapter
+  // never passes an explicit `bundleTablePath`/`readingTablePath`/`vendorTablePath` either — so
+  // NO table can possibly have been consulted this call, unambiguously. Rather than leave the
+  // panel to infer that from field absence, the response carries `tables_used: []` explicitly in
+  // that case, so the panel can render "표 미적용" (no table applied) instead of a silent blank.
+  // `refresh`/`refreshAll` stay unavailable in the same unconfigured state as today (unaffected
+  // by this — `fullCustodyReady` already requires `ledgerOrgConfigPath`).
   async function preview(code, uiDraft) {
     requireCustody(previewCustodyReady);
     return withCoreLock(async () => {
       const draft = await buildFullDraft(code, uiDraft);
-      return resolvedCore.previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields: MATCH_FIELDS_SUBJECT_ONLY,
+      const result = await resolvedCore.previewRule({ workspacesRoot, code, draft, hiworksDirs, gmailSentDirs, fields: MATCH_FIELDS_SUBJECT_ONLY,
         ...(ledgerOrgConfigPath ? { orgConfigPath: ledgerOrgConfigPath } : {}) });
+      return ledgerOrgConfigPath ? result : { ...result, tables_used: [] };
     });
   }
 

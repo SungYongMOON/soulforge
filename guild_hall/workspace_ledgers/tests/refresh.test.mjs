@@ -303,6 +303,15 @@ test('previewRule (fresh-review-3 #6): orgConfigPath resolves system_sender_doma
     assert.equal(withOrgConfig.matched_before, withoutOrgConfig.matched_before);
     assert.equal(withOrgConfig.matched_after, withoutOrgConfig.matched_after);
     assert.equal(withOrgConfig.matched_from_system_senders, 1);
+    // NIT (coordinator, fresh review round 4): pin K2's own claim against the REAL
+    // written rows, not just previewRule's in-memory count -- a real refresh() run
+    // against the exact same custody/rule/org config must write exactly
+    // `matched_after` mails into project A's own ledgers.
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: orgConfigWithVendorSkip,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.mails, withOrgConfig.matched_after);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -1734,6 +1743,55 @@ test('refresh (A1): a malformed Owner table fails the whole run closed unless al
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
+test('refresh (S-b, coordinator fresh review round 3): a bundle table path omitted from the call falls back to orgConfig.common_ledgers.owner_tables.bundle', () => {
+  const fixture = makeFixture();
+  try {
+    writeFileSync(path.join(fixture.hiworksDir, 'more.jsonl'), jsonl([
+      { event_id: 'h-cfg-bundle', subject: '전혀 무관한 문의', from: 'random@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T07:00:00Z', body_text: '', attachments: [] },
+    ]));
+    const bundleTablePath = path.join(fixture.root, '020_MGMT_묶음_확정표.csv');
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [['전혀 무관한', CODE_A, 'Owner 확인', '2026-09-01', '']]));
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
+      common_ledgers: { owner_tables: { bundle: bundleTablePath } }, // absolute, per S-b's own doc
+    }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' }); // no bundleTablePath param at all
+    assert.equal(receipt.status, 'ok');
+    assert.equal(receipt.table_attributed_mails, 1);
+    assert.deepEqual(receipt.owner_tables_used.map(entry => entry.table).sort(), ['bundle']);
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.mails, 3); // h1 + g1 + h-cfg-bundle
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh (S3, coordinator fresh review round 4): an org-config owner_tables entry naming a file that does not exist fails the run closed, distinct from "no table configured"', () => {
+  const fixture = makeFixture();
+  try {
+    const missingBundlePath = path.join(fixture.root, 'does-not-exist-묶음_확정표.csv'); // never created
+    writeFileSync(fixture.orgConfigPath, JSON.stringify({
+      our_domain: 'example.com', organisations: { 'example.com': 'Example Corp', 'client.example': 'Client Inc' }, family: {},
+      common_ledgers: { owner_tables: { bundle: missingBundlePath } },
+    }));
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.owner_table_failures.length, 1);
+    assert.equal(receipt.owner_table_failures[0].code, 'workspace_ledgers_owner_table_configured_but_missing');
+    assert.equal(existsSync(contactsPath(fixture.workspacesRoot, FOLDER_A)), false); // nothing written
+
+    // The SAME missing path, but passed as an EXPLICIT argument, keeps the pre-S3
+    // "no table configured" skip behaviour (documented in README, proved elsewhere).
+    const explicitReceipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z', bundleTablePath: missingBundlePath });
+    assert.equal(explicitReceipt.status, 'ok');
+    assert.deepEqual(explicitReceipt.owner_table_failures, []);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
 test('previewRule (A1): table attribution is baked into matched_before/matched_after (D-a: one classification function), and there is no separate table_attributed field', () => {
   const fixture = makeFixture();
   try {
@@ -1756,5 +1814,43 @@ test('previewRule (A1): table attribution is baked into matched_before/matched_a
     assert.equal('table_attributed' in withTables, false);
     assert.equal(withTables.matched_before, withoutTables.matched_before + 1);
     assert.equal(withTables.matched_after, withoutTables.matched_after + 1);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('previewRule (R4, coordinator decision, fresh review round 4): rule_matched_after / matched_after / table_attributed_after split the rule\'s own evidence from table evidence', () => {
+  const fixture = makeFixture();
+  try {
+    // Isolated from the shared base fixture's own h1/h2/h3/h4/g1 -- exactly one mail
+    // here matches the draft's own subject term (step 1); two more match nothing by
+    // subject at all and are attributed only via the bundle table.
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl([
+      { event_id: 'h-rule-only', subject: '[P00-001] 예시장비 납품 안내', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h-table-1', subject: '전혀 무관한 문의 1', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T02:00:00Z', body_text: '', attachments: [] },
+      { event_id: 'h-table-2', subject: '전혀 무관한 문의 2', from: 'staff@client.example', to: ['me@example.com'], cc: [], received_at: '2026-09-01T03:00:00Z', body_text: '', attachments: [] },
+    ]));
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), jsonl([]));
+    const { bundleTablePath } = tablesPaths(fixture.root);
+    writeFileSync(bundleTablePath, encodeCsv(BUNDLE_HEADERS_V2, [
+      ['전혀 무관한 문의 1', CODE_A, 'Owner 확인', '2026-09-01', ''],
+      ['전혀 무관한 문의 2', CODE_A, 'Owner 확인', '2026-09-01', ''],
+    ]));
+    const draft = rule(CODE_A, FOLDER_A, [['P00-001', 'P00-001'], ['예시장비', '예시장비']]);
+    const result = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
+    assert.equal(result.rule_matched_after, 1); // h-rule-only alone
+    assert.equal(result.matched_after, 3); // + the two bundle-table mails
+    assert.equal(result.table_attributed_after, 2);
+
+    // Removing the rule's only meaningful term (replaced with a placeholder that never
+    // matches this fixture's mail, since an empty `exact` array itself fails
+    // validateRule -- workspace_ledgers_rule_exact_empty) drops rule_matched_after to
+    // 0, while matched_after stays at exactly the bundle-table population (2) -- the
+    // table attribution is completely independent of the rule's own subject terms.
+    const emptiedDraft = rule(CODE_A, FOLDER_A, [['자리표시자', '자리표시자-절대-매치-안됨']]);
+    const emptiedResult = previewRule({ workspacesRoot: fixture.workspacesRoot, code: CODE_A, draft: emptiedDraft,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], bundleTablePath });
+    assert.equal(emptiedResult.rule_matched_after, 0);
+    assert.equal(emptiedResult.matched_after, 2);
+    assert.equal(emptiedResult.table_attributed_after, 2);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

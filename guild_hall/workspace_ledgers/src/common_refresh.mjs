@@ -13,7 +13,7 @@
 // places.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_MATCH_FIELDS } from './classifier.mjs';
+import { assertSubjectOnlyFields, DEFAULT_MATCH_FIELDS } from './classifier.mjs';
 import { domainOf, makeOrgLookup, normalizeSubject } from './ledgers.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
 import { loadOwnerTables, ownerTableUsageEntry, resolveOwnerTablePaths } from './owner_tables.mjs';
@@ -96,6 +96,12 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   if (typeof workspacesRoot !== 'string' || workspacesRoot.trim() === '') fail('workspace_ledgers_workspaces_root_required');
   if (!Array.isArray(hiworksDirs) || !Array.isArray(gmailSentDirs)) fail('workspace_ledgers_refresh_dirs_required');
   if (typeof orgConfigPath !== 'string' || orgConfigPath.trim() === '') fail('workspace_ledgers_org_config_required');
+  // R1 (coordinator, fresh review round 4): asserted up front, before any rule/table
+  // read or classification -- not only implicitly the first time `classifyProjectHits`
+  // itself is reached inside the per-record loop below (which would only fire once
+  // custody actually has a record, and only after every other setup step already ran).
+  try { assertSubjectOnlyFields(fields); }
+  catch (error) { fail(error.code, JSON.stringify(fields)); }
 
   const orgConfig = readOrgConfig(orgConfigPath);
   let commonConfig;
@@ -119,7 +125,7 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
   // stays explicit-only (out of this resolver's scope, see its own doc).
   const resolvedTables = resolveOwnerTablePaths({ bundleTablePath, readingTablePath, vendorTablePath }, { orgConfig, workspacesRoot });
   const owner = loadOwnerTables({ bundleTablePath: resolvedTables.bundleTablePath, vendorTablePath: resolvedTables.vendorTablePath,
-    readingTablePath: resolvedTables.readingTablePath, workTagTablePath });
+    readingTablePath: resolvedTables.readingTablePath, workTagTablePath, configuredPaths: resolvedTables.configuredPaths });
   const ownerTablesUsed = ['bundle', 'reading', 'vendor']
     .map(table => ownerTableUsageEntry(table, resolvedTables[`${table}TablePath`]))
     .filter(Boolean);

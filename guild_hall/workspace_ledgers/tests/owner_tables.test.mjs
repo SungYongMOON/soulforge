@@ -6,13 +6,69 @@ import { test } from 'node:test';
 import { encodeCsv } from '../src/ledgers.mjs';
 import {
   BUNDLE_HEADERS, BUNDLE_HEADERS_V2, buildBundleTable, buildReadingTable, buildVendorTable, buildWorkTagTable,
-  isValidCalendarDateString, loadOwnerTables, READING_HEADERS, VENDOR_HEADERS, WORKTAG_HEADERS,
+  isValidCalendarDateString, loadOwnerTables, OwnerTableConfigError, READING_HEADERS, resolveOwnerTablePaths,
+  VENDOR_HEADERS, WORKTAG_HEADERS,
 } from '../src/owner_tables.mjs';
 
 function tmpFile(name) {
   const dir = mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-owner-tables-'));
   return { dir, filePath: path.join(dir, name) };
 }
+
+test('resolveOwnerTablePaths (NIT, coordinator fresh review round 4): a relative config value that escapes workspacesRoot throws workspace_ledgers_owner_table_config_path_escape', () => {
+  const workspacesRoot = path.join(tmpdir(), 'workspace-ledgers-owner-tables-root');
+  assert.throws(
+    () => resolveOwnerTablePaths({}, { orgConfig: { common_ledgers: { owner_tables: { bundle: '../../escaped/묶음.csv' } } }, workspacesRoot }),
+    error => error instanceof OwnerTableConfigError && error.code === 'workspace_ledgers_owner_table_config_path_escape',
+  );
+});
+
+test('resolveOwnerTablePaths (NIT): an absolute config value is unaffected by the escape guard', () => {
+  const workspacesRoot = path.join(tmpdir(), 'workspace-ledgers-owner-tables-root');
+  const absolute = path.join(tmpdir(), 'elsewhere', '묶음.csv');
+  const resolved = resolveOwnerTablePaths({}, { orgConfig: { common_ledgers: { owner_tables: { bundle: absolute } } }, workspacesRoot });
+  assert.equal(resolved.bundleTablePath, absolute);
+  assert.equal(resolved.configuredPaths.bundle, true);
+});
+
+test('resolveOwnerTablePaths (NIT): a relative config value with workspacesRoot undefined throws a module error code, not a raw TypeError', () => {
+  assert.throws(
+    () => resolveOwnerTablePaths({}, { orgConfig: { common_ledgers: { owner_tables: { bundle: 'P00-000_공통/묶음.csv' } } }, workspacesRoot: undefined }),
+    error => error instanceof OwnerTableConfigError && error.code === 'workspace_ledgers_owner_table_config_workspaces_root_required',
+  );
+});
+
+test('resolveOwnerTablePaths: configuredPaths is false for an explicit argument, true only for an org-config fallback', () => {
+  const workspacesRoot = path.join(tmpdir(), 'workspace-ledgers-owner-tables-root');
+  const resolved = resolveOwnerTablePaths(
+    { bundleTablePath: '/explicit/묶음.csv' },
+    { orgConfig: { common_ledgers: { owner_tables: { bundle: 'x/묶음.csv', reading: 'x/판독.csv' } } }, workspacesRoot },
+  );
+  assert.equal(resolved.configuredPaths.bundle, false); // explicit argument wins, not config-sourced
+  assert.equal(resolved.configuredPaths.reading, true); // no explicit override -- config-sourced
+  assert.equal(resolved.configuredPaths.vendor, false); // neither explicit nor configured
+});
+
+test('loadOwnerTables (S3, coordinator fresh review round 4): a config-resolved path naming a file that does not exist fails closed, not "no table configured"', () => {
+  const { dir } = tmpFile('unused');
+  try {
+    const missingPath = path.join(dir, 'does-not-exist.csv');
+    const result = loadOwnerTables({ bundleTablePath: missingPath, configuredPaths: { bundle: true } });
+    assert.deepEqual(result.bundles, []);
+    assert.equal(result.failures.length, 1);
+    assert.equal(result.failures[0].code, 'workspace_ledgers_owner_table_configured_but_missing');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('loadOwnerTables (S3): the SAME missing path with no configuredPaths entry (an explicit caller argument) keeps the original silent-skip behaviour', () => {
+  const { dir } = tmpFile('unused');
+  try {
+    const missingPath = path.join(dir, 'does-not-exist.csv');
+    const result = loadOwnerTables({ bundleTablePath: missingPath }); // configuredPaths omitted entirely
+    assert.deepEqual(result.bundles, []);
+    assert.deepEqual(result.failures, []); // skip, not a failure
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 test('loadOwnerTables: a missing table is skipped (present: false), not a failure', () => {
   const { dir } = tmpFile('unused');

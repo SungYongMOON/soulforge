@@ -91,16 +91,47 @@ function ChipGroup({ label, chipState, group, editing, onRemove, onAdd, addPlace
 
 const SAMPLE_GROUP_LABELS: Row = { moved_in: '새로 들어옴', moved_out: '빠짐', newly_held: '보류' };
 
+// R4 (coordinator decision, fresh review round 4): previewRule now returns TWO views,
+// never conflated -- "지금"/"바뀌면" (matched_before/matched_after) are what refresh()
+// will actually write (every step: rule + table + reading + 본문), while "이
+// 규칙으로"(rule_matched_after) is THIS rule's own subject terms alone, and "표·판독으로
+// 추가"(table_attributed_after) is the gap between the two -- an Owner table (or step
+// 4's 본문 tie-break) holding mail the rule itself no longer would. Both shown next to
+// 지금/바뀌면 so trimming a term to zero visibly shows "이 규칙으로" drop to 0 while
+// "바뀌면" can still stay above 0 if a table holds the rest -- exactly the gap the
+// coordinator flagged (a rule matching 1 mail used to render "확정 3건" with no way to
+// see that 2 of those came from a table).
 function PreviewResult({ result }: { result: Row }) {
+  const hasSplit = result.rule_matched_after !== undefined || result.table_attributed_after !== undefined;
   const rows: [string, any][] = [
-    ['지금', result.matched_before], ['바뀌면', result.matched_after], ['새로 들어옴', result.moved_in],
-    ['빠짐', result.moved_out], ['보류', result.newly_held],
+    ['지금', result.matched_before], ['바뀌면', result.matched_after],
+    ...(hasSplit ? ([
+      ['이 규칙으로', result.rule_matched_after], ['표·판독으로 추가', result.table_attributed_after],
+    ] as [string, any][]) : []),
+    ['새로 들어옴', result.moved_in], ['빠짐', result.moved_out], ['보류', result.newly_held],
   ];
+  // S2 (fresh review round 4): of "바뀌면", how many came from a recognised system
+  // sender -- K2's own point is that this is informational only, never subtracted from
+  // the counts above, so it renders as its own separate line, not folded into "바뀌면".
+  const systemSenderCount = typeof result.matched_from_system_senders === 'number' ? result.matched_from_system_senders : null;
+  // NIT (fresh review round 4): the adapter sends `tables_used: []` explicitly when
+  // `orgConfigPath` was never configured (so no Owner table could possibly have been
+  // consulted) -- shown as a plain, low-emphasis note rather than left for the Owner to
+  // infer from the counts alone.
+  const tablesNotApplied = Array.isArray(result.tables_used) && result.tables_used.length === 0;
   return <div className="mr-preview">
     {Array.isArray(result.rule_failures) && result.rule_failures.length > 0 && <p className="cx-notice">
       주의: 다른 과제 규칙 {result.rule_failures.length}건이 컴파일 실패해 이번 실측에서 제외됨(보류/양보 판단이 바뀔 수 있음).
     </p>}
+    {/* S1 (fresh review round 4): owner_table_failures needs the exact same caveat
+        treatment rule_failures already gets -- a measurement taken while a bundle/
+        reading/vendor table failed to load is incomplete for the same reason. */}
+    {Array.isArray(result.owner_table_failures) && result.owner_table_failures.length > 0 && <p className="cx-notice">
+      주의: Owner 표 {result.owner_table_failures.length}개가 이번 실측에서 로드 실패해 제외됨(표·판독 귀속이 실제보다 적게 잡혔을 수 있음).
+    </p>}
     <dl className="mr-preview-counts">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{typeof v === 'number' ? `${v.toLocaleString('ko-KR')}통` : '미확인'}</dd></div>)}</dl>
+    {systemSenderCount !== null && <p className="cx-muted">그중 시스템발신: {systemSenderCount.toLocaleString('ko-KR')}통</p>}
+    {tablesNotApplied && <p className="cx-muted">표 미적용</p>}
     {result.samples && <div className="mr-preview-samples">
       {Object.entries(result.samples).map(([group, items]) => Array.isArray(items) && items.length > 0 && <details key={group}>
         <summary>{SAMPLE_GROUP_LABELS[group] ?? group} 표본 {items.length}건 <ChevronDown size={12} /></summary>
