@@ -430,6 +430,10 @@ test('without a session and without a declared run there is no bucket to charge'
   const gone = path.join(estate.receiptsRoot, 'gone');
   await rm(estate.receiptsRoot, { recursive: true, force: true });
   await writeFile(estate.receiptsRoot, 'not a directory', 'utf8');
+  // The receipts root is now a FILE, so the ledger path runs through a non-directory. Windows reports
+  // that as ENOENT on the read (no ledger yet) and the refusal comes from the write (`unwritable`);
+  // POSIX reports ENOTDIR on the read itself, which the ledger reader refuses as `unavailable`. Either
+  // way the invariant under test holds: the call is refused and nothing runs unrecorded.
   assert.throws(() => chargeInvestigation({ receiptsRoot: gone, cli: 'read', env: {}, devRun: 'regression-2', args: {} }),
-    /investigation_budget_unwritable/u);
+    /investigation_budget_(unwritable|unavailable)/u);
 });
