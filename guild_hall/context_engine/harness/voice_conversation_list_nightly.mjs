@@ -238,18 +238,41 @@ function sleepSync(ms) {
  * both `rename` and a direct overwrite of the very same path. When that
  * happens, this writes to a sibling `<name>.recovered.json` path instead (a
  * different filename, so it is never blocked by whatever is holding the
- * original open) so the night's record survives somewhere discoverable, and
- * a chain result folded into this write is not left silently stuck at
- * `RUNNING` in a receipt nobody can read. `estate_voice_card_reconcile.mjs`'s
+ * original open) so the night's record survives somewhere discoverable
+ * rather than being lost outright. `estate_voice_card_reconcile.mjs`'s
  * `--nightly-receipts` backlog scan deliberately *handles* this suffix (not
  * ignores it): it already matches its own plain `.json` glob, and the
  * receipt's schema and shape are unchanged, so reading it is exactly reading
  * one more ordinary nightly receipt. Even the recovery write throwing does
  * not touch the temp file -- it remains the last resort, named in the error.
  *
+ * N-1 (2026-09-21 review, round 4): narrowed claim -- `runNightly` writes
+ * this receipt twice under `--chain-reconcile` (a `chain: RUNNING`
+ * placeholder before the chain call, the real result after). If only the
+ * *first* write needs this fallback and the second succeeds normally at the
+ * primary path (a transient block that clears in between), the recovered
+ * file is not touched again -- it stays on disk holding the stale `RUNNING`
+ * placeholder forever, orphaned next to a primary receipt that already has
+ * the real final result. Only when the *last* write to land is the one that
+ * falls back here does the recovered copy hold the true final state.
+ *
  * `deps` exists only for tests to inject a scripted rename/write/sleep
  * without touching the real filesystem or actually waiting.
  */
+/**
+ * N-2 (2026-09-21 review, round 4): the recovery path must always be a
+ * *different* path from `filePath` -- if `filePath` does not end in
+ * `.json`, a plain `.replace(/\.json$/u, '.recovered.json')` is a no-op and
+ * silently hands back `filePath` itself, meaning the "last resort" write
+ * would retry the exact path that the overwrite above just failed on,
+ * defeating the whole point of the fallback. Guaranteed distinct: replace
+ * the suffix when present, otherwise append the full `.recovered.json`
+ * suffix onto the untouched name.
+ */
+export function recoveredPathFor(filePath) {
+  return /\.json$/u.test(filePath) ? filePath.replace(/\.json$/u, '.recovered.json') : `${filePath}.recovered.json`;
+}
+
 export function atomicWriteFileSync(filePath, buffer, deps = {}) {
   const { renameFn = renameSync, writeFn = writeFileSync, removeFn = rmSync, sleepFn = sleepSync,
     retries = RENAME_RETRY_ATTEMPTS, delayMs = RENAME_RETRY_DELAY_MS } = deps;
@@ -276,7 +299,7 @@ export function atomicWriteFileSync(filePath, buffer, deps = {}) {
   // same reader that blocked `rename` can just as easily block an overwrite
   // of the identical path). One more attempt, at a path nothing already has
   // open.
-  const recoveredPath = filePath.replace(/\.json$/u, '.recovered.json');
+  const recoveredPath = recoveredPathFor(filePath);
   try {
     writeFn(recoveredPath, buffer);
   } catch (recoveredError) {
@@ -513,26 +536,60 @@ export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS,
  * ceiling -- a receipts directory idle for months must still not make this
  * pass scan an unbounded number of days, only *report* how unbounded the
  * real gap was.
+ *
+ * S-1 (2026-09-21 review, round 4): `firstRun: true` is a specific claim --
+ * this lane has genuinely never written a receipt here -- and it must only
+ * be made when the evidence actually supports it: the receipts directory
+ * does not exist yet (`ENOENT`), or exists and is empty. Any other read
+ * failure (permissions, I/O error, ...) or a non-empty directory whose
+ * entries never yield a single usable `ran_at` under a known schema (bad
+ * JSON, unrecognized schema, unparseable/future-only timestamps) is a
+ * *different* situation -- something is there but this pass could not read
+ * it -- and must not be reported as a clean first run, which would hide
+ * whatever those unreadable receipts might have recorded. That case falls
+ * back to the full `MAX_AGED_OUT_LOOKBACK_DAYS` scan (the safe upper bound)
+ * with `lookbackBasis: 'unreadable'` so the receipt shows *why* the scan
+ * used the ceiling instead of a measured gap. The ordinary case carries
+ * `lookbackBasis: 'prior_receipt'`.
+ *
+ * "Empty" is judged on `.json` entries only, not the raw directory listing:
+ * `acquireLock` (the caller above this one in `runNightly`, non-dry mode)
+ * has already written `nightly.lock` into this same `receiptsDir` by the
+ * time this runs, so a directory that has never held a single receipt is
+ * not literally empty -- it holds exactly one non-`.json` file. Counting
+ * that as "non-empty" would misfile every genuine first run as
+ * `'unreadable'` for a file that was never a candidate receipt to begin
+ * with.
  */
 function agedOutLookback(receiptsDir, now) {
   let entries;
-  try { entries = readdirSync(receiptsDir); } catch { return { nights: 1, uncappedGapDays: null, firstRun: true }; }
+  try {
+    entries = readdirSync(receiptsDir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { nights: 1, uncappedGapDays: null, firstRun: true, lookbackBasis: 'first_run' };
+    return { nights: MAX_AGED_OUT_LOOKBACK_DAYS, uncappedGapDays: null, firstRun: false, lookbackBasis: 'unreadable' };
+  }
+  const jsonEntries = entries.filter(name => name.endsWith('.json'));
+  if (jsonEntries.length === 0) return { nights: 1, uncappedGapDays: null, firstRun: true, lookbackBasis: 'first_run' };
+
   const nowMs = Date.parse(now);
   let newestRanAtMs = null;
-  for (const name of entries) {
-    if (!name.endsWith('.json')) continue;
+  for (const name of jsonEntries) {
     let body;
     try { body = JSON.parse(readFileSync(path.join(receiptsDir, name), 'utf8')); } catch { continue; }
     if (body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA && body?.schema_version !== NIGHTLY_RECEIPT_SCHEMA_V1) continue;
     const ranAtMs = typeof body.ran_at === 'string' ? Date.parse(body.ran_at) : NaN;
     if (Number.isFinite(ranAtMs) && ranAtMs <= nowMs && (newestRanAtMs === null || ranAtMs > newestRanAtMs)) newestRanAtMs = ranAtMs;
   }
-  if (newestRanAtMs === null) return { nights: 1, uncappedGapDays: null, firstRun: true };
+  if (newestRanAtMs === null) {
+    return { nights: MAX_AGED_OUT_LOOKBACK_DAYS, uncappedGapDays: null, firstRun: false, lookbackBasis: 'unreadable' };
+  }
   const previousSeoulDate = seoulDateFor(new Date(newestRanAtMs).toISOString());
   const todaySeoulDate = seoulDateFor(now);
   const uncappedGapDays = Math.round(
     (Date.parse(`${todaySeoulDate}T00:00:00.000Z`) - Date.parse(`${previousSeoulDate}T00:00:00.000Z`)) / (24 * 60 * 60 * 1000));
-  return { nights: Math.min(MAX_AGED_OUT_LOOKBACK_DAYS, Math.max(1, uncappedGapDays)), uncappedGapDays, firstRun: false };
+  return { nights: Math.min(MAX_AGED_OUT_LOOKBACK_DAYS, Math.max(1, uncappedGapDays)), uncappedGapDays, firstRun: false,
+    lookbackBasis: 'prior_receipt' };
 }
 
 /**
@@ -576,7 +633,8 @@ function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, rece
   }
   return { aging_out_soon: agingOutSoon,
     aged_out_unprocessed: { lookback_nights: lookback.nights, uncapped_gap_days: lookback.uncappedGapDays,
-      first_run: lookback.firstRun, count: agedOutErrorCode !== null ? null : byDate.reduce((sum, entry) => sum + entry.count, 0),
+      first_run: lookback.firstRun, lookback_basis: lookback.lookbackBasis,
+      count: agedOutErrorCode !== null ? null : byDate.reduce((sum, entry) => sum + entry.count, 0),
       by_date: byDate, error: agedOutErrorCode } };
 }
 
@@ -745,7 +803,10 @@ export function acquireLock(receiptsDir, now, staleLockMs = STALE_LOCK_MS) {
  * always floored at `MIN_DEADLINE_STALE_LOCK_MS` so a short deadline span
  * never makes this lane more trigger-happy about its own lock than the
  * no-deadline default already is. No `--deadline` configured falls back to
- * the fixed `STALE_LOCK_MS`, unchanged from before this review.
+ * the fixed `STALE_LOCK_MS` -- itself still widened by `CHAIN_ALLOWANCE_MS`
+ * when `--chain-reconcile` is given without a deadline (round 3 nit, see
+ * below), since chaining holds this same lock past card generation either
+ * way.
  */
 export function staleLockMsFor({ deadline, scheduledStart = null, deadlineAt = null, now, chainReconcile = false }) {
   // nit (2026-09-21 review, round 3): `--chain-reconcile` without
@@ -942,9 +1003,18 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
   // the exact number `createLocalChat`'s own binding validation
   // (`validateChatBinding`, `ollama_chat.mjs`) falls back to at call time, so
   // using anything else here would silently under- or over-state the real
-  // worst case for the common, undeclared-timeout config shape.
+  // worst case for the common, undeclared-timeout config shape. S4 (2026-09-21
+  // review, round 4): `?? DEFAULT_CHAT_TIMEOUT_MS` only falls back on
+  // null/undefined -- a declared but non-numeric `model.timeout_ms` (a
+  // string, `NaN`, ...) would pass straight through into the multiplication
+  // and silently produce garbage (`NaN` or a string-concatenated result)
+  // instead of either a real number or the documented default. Checked with
+  // `Number.isFinite` instead so any non-numeric declared value falls back
+  // the same as an absent one.
+  const declaredTimeoutMs = config?.model?.timeout_ms;
+  const effectiveTimeoutMs = Number.isFinite(declaredTimeoutMs) ? declaredTimeoutMs : DEFAULT_CHAT_TIMEOUT_MS;
   const worstCaseSessionMinutes = Number.isFinite(config?.limits?.llm_calls)
-    ? Math.round((config.limits.llm_calls * (config?.model?.timeout_ms ?? DEFAULT_CHAT_TIMEOUT_MS)) / 60000) : null;
+    ? Math.round((config.limits.llm_calls * effectiveTimeoutMs) / 60000) : null;
 
   // A defensive catch around the *call itself*, not just inside the default
   // implementation: an injected `runReconcileChain` (a test double, or a
@@ -968,7 +1038,8 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       hard_stop_at: hardStopAt, worst_case_session_minutes: worstCaseSessionMinutes, ...extra }
     : null);
   const agingCheckFailed = error => ({ aging_out_soon: null,
-    aged_out_unprocessed: { lookback_nights: null, uncapped_gap_days: null, first_run: null, count: null, by_date: [],
+    aged_out_unprocessed: { lookback_nights: null, uncapped_gap_days: null, first_run: null, lookback_basis: null,
+      count: null, by_date: [],
       error: typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_aging_check_failed' } });
 
   if (dry) {

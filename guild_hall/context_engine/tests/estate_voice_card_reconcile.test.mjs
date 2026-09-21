@@ -829,6 +829,55 @@ test('--nightly-receipts reconciles every session three nightly receipts report 
   }
 });
 
+// S-2 (2026-09-21 review, round 4): a `<name>.recovered.json` sibling next
+// to its primary receipt -- the orphaned first write of a receipt whose
+// second, real write later landed normally at the primary path (N-1, see
+// `voice_conversation_list_nightly.mjs`) -- must still be picked up (this
+// harness's `.json` glob already matches it, deliberately), and a session
+// settled in *both* files must count once, not twice, in both the session
+// list and `plan.date_derivation`.
+test('--nightly-receipts picks up a <name>.recovered.json sibling, and a session settled in both the primary and its recovered pair counts once (S-2/N-4, round 4)', async () => {
+  const est = await estate();
+  const nightlyReceiptsDir = path.join(est.controlRoot, 'nightly-receipts');
+  await writeCard(est.derivedRoot, 'sess-a', 'vcl_aaaaaaaaaaaaaaaa', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  await writeCard(est.derivedRoot, 'sess-b', 'vcl_bbbbbbbbbbbbbbbb', { segments: [
+    segment({ segment_id: 'c001',
+      project_candidates: [{ project_code: 'P24-049', strength: 'strong', basis: ['key_terms'], evidence_row_ids: [1] }] }),
+  ] });
+  // r1.json and r1.recovered.json both settle sess-a with the identical
+  // date -- exactly the shape a real orphaned-then-superseded write leaves
+  // behind. r2.json settles a second, unrelated session so the count isn't
+  // trivially right by having only one session in play at all.
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r1.json', { targetDate: '2026-09-17',
+    sessions: [nightlyRow('sess-a', 'vcl_aaaaaaaaaaaaaaaa')] });
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r1.recovered.json', { targetDate: '2026-09-17',
+    sessions: [nightlyRow('sess-a', 'vcl_aaaaaaaaaaaaaaaa')] });
+  await writeNightlyReceipt(nightlyReceiptsDir, 'r2.json', { targetDate: '2026-09-18',
+    sessions: [nightlyRow('sess-b', 'vcl_bbbbbbbbbbbbbbbb')] });
+
+  const { result } = await runReconcileCli(['--root-table', est.tablePath, '--root-table-sha256', est.tableSha256,
+    '--tools-config', est.toolsPath, '--receipts', est.receiptsDir, '--nightly-receipts', nightlyReceiptsDir,
+    '--now', '2026-09-20T18:00:00.000Z']);
+
+  assert.equal(result.status, 'OK');
+  // sess-a must not be reconciled/reported twice just because it appeared
+  // settled in two files.
+  const sessAEntries = result.receipt.sessions.filter(row => row.session_id === 'sess-a');
+  assert.equal(sessAEntries.length, 1, 'a session settled in both a primary receipt and its .recovered.json sibling must appear once');
+  assert.equal(sessAEntries[0].outcome, 'reconciled');
+  assert.equal(result.receipt.sessions.filter(row => row.session_id === 'sess-b').length, 1);
+  assert.equal(result.receipt.reconciled_runs.filter(row => row.session_id === 'sess-a').length, 1);
+  // N-4: both nightly rows for sess-a declared date: '2026-09-17' -- the
+  // pair must contribute exactly one to `declared`, not two, alongside
+  // sess-b's own one.
+  assert.equal(result.receipt.plan.date_derivation.declared, 2);
+  assert.equal(result.receipt.plan.date_derivation.session_id_prefix, 0);
+  assert.equal(result.receipt.plan.date_derivation.undated, 0);
+});
+
 // nit 5 (2026-09-21 review): the nightly receipt schema moved to v2, and
 // this reader must not go blind to every v1-shaped receipt already sitting
 // in a real receipts directory -- both versions are accepted since this

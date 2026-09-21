@@ -1,5 +1,78 @@
 # CHANGELOG
 
+## 2026-09-21 - 대화 목록 야간 lane 네 번째 신선한 눈 검토 정정: merge-ready, aging 근거 구분, 중복 집계 방지, 버전 상향
+
+- Revision: 이 항목을 포함한 커밋(같은 슬라이스, 네 번째 병합 전 신선한 눈 검토 — 필수 0건, should 4건, 저렴한
+  nit 6건 정정). 네 번째 검토는 295d1565를 merge-ready로 판정했다(R1을 리뷰어가 직접 재실측: 0/2/4/노드
+  없음→1). 이 커밋으로 origin/main도 함께 합친다.
+- 무엇이 바뀌었는가: **(S-1)** `agedOutLookback`의 `firstRun: true`가 근거 없이 쓰일 수 있었다 — `readdirSync`가
+  `ENOENT`를 던지거나 디렉터리가 (후보 영수증 `.json` 기준으로) 비어 있으면 정말 첫 회차이지만, 그 외의
+  읽기 실패나 항목은 있는데 쓸 수 있는 `ran_at`/알려진 schema가 하나도 없는 경우는 *다른* 상황(뭔가 있는데
+  이번 스캔이 못 읽음)이라 첫 회차로 보고하면 그 못 읽은 영수증이 실제로 담고 있었을 내용을 감춘다. 이제 세
+  갈래로 나눈다: 없음/빈 디렉터리 → `lookback_basis: 'first_run'`(nights 1), 그 외 읽기 실패나 항목은 있지만
+  전부 못 읽음 → `lookback_basis: 'unreadable'`(안전한 상한 `MAX_AGED_OUT_LOOKBACK_DAYS`로 대체,
+  `firstRun` 주장 안 함), 정상 → `lookback_basis: 'prior_receipt'`. "비어 있음" 판정은 raw 디렉터리가 아니라
+  `.json` 항목 기준이다 — `acquireLock`이 이 스캔 전에 이미 `nightly.lock`을 같은 디렉터리에 써 두므로(비-dry
+  모드) 진짜 첫 회차도 문자 그대로 빈 디렉터리는 아니기 때문이다. 세 갈래 전부 시험 추가. **(S-2)**
+  `estate_voice_card_reconcile.mjs`에 회귀 시험 추가: `<이름>.recovered.json` 형제 파일이 실제로 집혀 backlog
+  세션에 반영되는지, 그리고 원본+recovered 쌍이 중복 집계되지 않는지(N-4와 함께). **(N-4)** `derivation`
+  카운터가 세션 단위가 아니라 행 단위로 증가해, 같은 session_id가 원본 파일과 그 `.recovered.json` 형제
+  둘 다에 정산된 것으로 나타나면(N-1의 orphan 시나리오가 만드는 바로 그 모양) 두 번 세었다 —
+  `sessionDerivationSource`로 각 session_id의 현재 소속 버킷을 기억해, 다시 보일 때 이전 버킷을 먼저 빼고
+  나서 새 버킷에 더한다(마지막으로 본 파일의 행이 최종 소속을 정하되, 한 번만 센다). 고친 뒤 없이 돌려
+  회귀 시험이 실제로 실패함을 확인했다(`git stash`로 고치기 전 코드만 되돌려 재현). **(S-3)** module_version을
+  `guild_hall/context_engine/module.manifest.json`에서 0.22.3 → 0.22.4로 올렸다 — "lane 이름은 하나의 byte
+  집합만 가리켜야 한다"는 원칙상, round 3 이후(특히 이번 회차) 바뀐 바이트가 이전 lane_id 뒤에 숨어 있으면
+  안 된다. 편집 전 박힌 곳을 전수 검색(`git grep -n` 전체 트리, 문자열 `0.22.3`/`0-22-3`/`context-engine-v0-22`,
+  `.sha256`/`.yaml`/`.yml`/`.ps1` 확장자 포함): 3곳 — `module.manifest.json`(고정값 자체, 직접 수정),
+  `context-engine-v1.spec.json`의 `lane_id`(emitter가 자동 파생, 직접 손대지 않음), 이전 회차 CHANGELOG
+  엔트리 문장(0.22.2→0.22.3 변경을 서술하는 과거 기록이라 그대로 둠). `guild_hall/context_engine/README.md`의
+  절 제목들(`(0.22.0)`~`(0.22.7)`)은 각 기능이 "그때" 착지한 버전을 가리키는 역사적 표식이지 지금의
+  `module_version`을 따라가는 값이 아니라서(맨 위 절이 이미 `(0.22.7)`을 쓰고 있는데 manifest는 0.22.3
+  이었다 — 이 회차 이전부터 있던 별개의 드리프트) 건드리지 않았다. `node
+  guild_hall/context_engine/release/closure.mjs --write`로 재생성해 `lane_id`가
+  `context-engine-v0-22-4`로 자동 갱신됐다(`runtime-closure.json`의 `closure_sha256`은 이번 회차 편집이
+  narrow `src/app.mjs` closure 밖의 harness 파일들이라 바뀌지 않았다). **(S-4)**
+  `worst_case_session_minutes`의 `config?.model?.timeout_ms ?? DEFAULT_CHAT_TIMEOUT_MS`는 `??`가
+  null/undefined에서만 대체돼, 선언은 됐지만 숫자가 아닌 값(문자열 등)은 그대로 곱셈에 들어가 `NaN`이나
+  문자열 이어붙이기로 샐 수 있었다 — `Number.isFinite`로 검사하도록 고치고 비-숫자 값 시험을 추가했다. 기존
+  "S3, round 3" 시험도 손으로 만든 JS 객체 대신 실제 디스크 JSON 파일을 `readPipelineConfig`로 읽어 통과하는
+  경로로 다시 썼다(N-3). 나머지 nit 6건: **(N-1)** S2 코드 주석에서 "chain 결과가 RUNNING에 갇히지 않는다"는
+  과대 주장을 좁혔다 — RUNNING placeholder를 쓴 첫 시도만 recovered 경로로 새고 이어지는 최종 쓰기가 원본
+  경로에 정상 성공하면, 그 recovered 파일은 다시 손대지 않아 RUNNING인 채 고아로 남는다(원본에는 실제
+  최종 결과가 있다). **(N-2)** `recoveredPathFor`를 분리 함수로 빼고, 입력이 `.json`으로 끝나지 않을 때도
+  `.replace`가 아무 것도 안 바꿔 원본과 같은 경로를 돌려주지 않도록(그러면 방금 실패한 바로 그 경로를
+  다시 쓰게 된다) 항상 `.recovered.json`을 붙이도록 보장, 시험 추가. **(N-5)** 새 hermetic 시험의 조건부
+  `return`을 `t.skip('이유')`로 바꿨다. **(N-6)** `staleLockMsFor`의 문서 주석이 "마감 없으면 고정
+  `STALE_LOCK_MS`, 이 검토 전과 동일"이라고 잘못 말하고 있었다 — round 3 nit(`--chain-reconcile`만 있어도
+  `CHAIN_ALLOWANCE_MS` 추가)와 모순되므로 바로잡았다.
+- Merge: `git fetch origin` 후 `origin/main`을 병합했다(머지 베이스 89707f9d, origin 15 커밋 앞섬 —
+  `workspace_ledgers` 신규 모듈, AGENT_BOOT_DIGEST 재서명, 문서 정리). 병합 전 두 브랜치의 변경 파일 목록을
+  전수 대조(`git diff --name-only <머지베이스> <각 쪽>`)해 겹치는 파일이 `CHANGELOG.md` 하나뿐임을 확인했다
+  (예상대로). 충돌은 `CHANGELOG.md`에서만 났고, origin/main의 모든 엔트리를 보존한 채 이 브랜치의 엔트리
+  4개를 기존 스타일대로 맨 위에 배치해 풀었다 — 충돌 마커 없음을 grep으로 확인. `runtime-closure.json`
+  closure 입력은 병합으로 달라지지 않아(origin/main 쪽 변경이 이 closure가 추적하는 파일 밖) emitter를
+  다시 돌릴 필요가 없었고, `boot_digest_guard`가 핀 고정하는 문서(`AGENTS.md` + `docs/architecture/foundation/`
+  3종)도 이 브랜치가 건드리지 않아 재서명이 필요 없었다(origin/main이 이미 자기 몫을 08ffee095에서
+  재서명해 왔다).
+- 운영 영향: 코드·문서·생성 산출물(`module.manifest.json`/`runtime-closure.json`/`context-engine-v1.spec.json`)
+  변경뿐이다. 실제 예약작업은 이 커밋으로 손대지 않았다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs`,
+  `guild_hall/context_engine/harness/estate_voice_card_reconcile.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`,
+  `guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`,
+  `guild_hall/context_engine/module.manifest.json`,
+  `guild_hall/context_engine/release/context-engine-v1.spec.json`,
+  `guild_hall/context_engine/release/runtime-closure.json`.
+- 검증(병합 전, 이 커밋 범위만): `node --test guild_hall/context_engine/tests/voice_conversation_list_nightly.test.mjs`
+  (97/97 pass, exit 0), `node --test guild_hall/context_engine/tests/estate_voice_card_reconcile.test.mjs`
+  (48/48 pass, exit 0 — S-2/N-4 회귀 시험 포함), `npm run validate:context-engine`(683 tests, 675 pass·8
+  skip·0 fail, `ok:true`, exit 0), `node guild_hall/validate/local_absolute_path_policy.mjs --scope tracked`
+  (0 violations, exit 0), `node guild_hall/validate/boot_digest_guard.mjs`(OK, exit 0), PowerShell 5.1
+  `Parser::ParseFile`로 등록기 구문 확인(`PARSE_OK`, 이 회차는 등록기 자체를 건드리지 않았지만 재확인).
+  origin/main 병합과 `validate:source-lane`/`validate:workspace-ledgers`/`validate:canon`/
+  `validate:deployment-pack`은 병합 뒤 별도 커밋에서 실행하고 그 결과를 최종 보고에 남긴다.
+
 ## 2026-09-21 - 대화 목록 야간 lane 세 번째 신선한 눈 검토 정정: exit code null 함정, 3단 쓰기 대체, timeout 기본값 공유
 
 - Revision: 이 항목을 포함한 커밋(같은 슬라이스, 세 번째 병합 전 신선한 눈 검토 — 필수 1건, should 4건, 저렴한

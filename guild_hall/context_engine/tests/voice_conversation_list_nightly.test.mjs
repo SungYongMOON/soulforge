@@ -17,13 +17,14 @@ import { ROOT_TABLE_SCHEMA, readRootTable } from '../../path_registry/src/root_t
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { DEFAULT_CHAT_TIMEOUT_MS } from '../src/adapters/local_model/ollama_chat.mjs';
+import { readPipelineConfig } from '../src/runtime/voice_conversation_list.mjs';
 import {
   AGING_SOON_NIGHTS, BACKLOG_WINDOW_DAYS, CHAIN_ALLOWANCE_MS, DEFAULT_NO_START_WITHIN_MINUTES,
   HARD_STOP_GRACE_MINUTES, MAX_AGED_OUT_LOOKBACK_DAYS, MIN_DEADLINE_STALE_LOCK_MS, MIN_TRANSCRIPT_SECONDS,
   NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, STALE_LOCK_MS,
   acquireLock, agingOutSoonThreshold, atomicWriteFileSync, buildSessionPlan, classifySession, defaultTargetDate,
-  nextDeadlineInstant, releaseLock, runNightly, staleLockMsFor, staleReasonFor, runNightlyCli, seoulDateFor,
-  shiftDate,
+  nextDeadlineInstant, recoveredPathFor, releaseLock, runNightly, staleLockMsFor, staleReasonFor, runNightlyCli,
+  seoulDateFor, shiftDate,
 } from '../harness/voice_conversation_list_nightly.mjs';
 
 const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts', 'voice_conversation_list');
@@ -1196,10 +1197,12 @@ test('register-voice-conversation-list-task.ps1: exit-code propagation, measured
     const hiddenLauncher = path.join(path.dirname(fileURLToPath(import.meta.url)),
       '..', 'ops', 'run-voice-conversation-list-hidden.vbs');
     const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
-    if (!systemRoot) return; // no Windows system root in env; nothing to measure
+    if (!systemRoot) { t.skip('no Windows system root in env; nothing to measure'); return; }
     const powershellExe = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
     const wscriptExe = path.join(systemRoot, 'System32', 'wscript.exe');
-    if (!existsSync(powershellExe) || !existsSync(wscriptExe)) return; // not this Windows layout; nothing to measure
+    if (!existsSync(powershellExe) || !existsSync(wscriptExe)) {
+      t.skip('not this Windows layout; nothing to measure'); return;
+    }
 
     const est = await estate();
     const scriptFor = code => path.join(est.controlRoot, `exit-${code}.mjs`);
@@ -1281,6 +1284,11 @@ test('runNightly: backlog aging visibility -- aging_out_soon counts unprocessed 
   assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 1);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, null);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.first_run, true);
+  // S-1 (2026-09-21 review, round 4): "empty" is judged on .json entries --
+  // acquireLock has already written nightly.lock into this same receiptsDir
+  // by this point (non-dry mode), so the directory is not literally empty,
+  // only empty of candidate receipts. Must still read as a genuine first run.
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_basis, 'first_run');
   assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 1);
   assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.by_date,
     [{ date: '2026-09-12', count: 1, session_ids: ['S_aged_out_unprocessed'] }]);
@@ -1317,6 +1325,7 @@ test('runNightly: aged_out_unprocessed looks back as many nights as the gap sinc
   assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, 2);
   assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, 2); // nit: recorded alongside lookback_nights
   assert.equal(result.receipt.backlog.aged_out_unprocessed.first_run, false);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_basis, 'prior_receipt'); // S-1, round 4
   assert.equal(result.receipt.backlog.aged_out_unprocessed.count, 2);
   assert.deepEqual(result.receipt.backlog.aged_out_unprocessed.by_date, [
     { date: '2026-09-12', count: 1, session_ids: ['S_newest_edge_aged_out'] },
@@ -1373,6 +1382,63 @@ test('runNightly: a receipt whose ran_at is in the future relative to now is nev
   // 2026-09-11 entirely).
   assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, 2);
   assert.ok(result.receipt.backlog.aged_out_unprocessed.by_date.some(entry => entry.date === '2026-09-11'));
+});
+
+test('runNightly: a receipts dir holding only unreadable/unrecognized .json entries is not claimed as a first run (S-1, round 4)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await mkdir(est.receiptsDir, { recursive: true });
+  // Malformed JSON, valid JSON under an unrecognized schema, and a valid
+  // schema with an unparseable ran_at -- none of these yields a usable
+  // "most recent run" timestamp, but something IS on disk, so this must not
+  // be reported as a clean first run (which would hide whatever these
+  // receipts might actually represent).
+  await writeFile(path.join(est.receiptsDir, '20260918000000000.json'), '{not valid json');
+  await writeFile(path.join(est.receiptsDir, '20260919000000000.json'), JSON.stringify({
+    schema_version: 'soulforge.some_other_receipt.v1', ran_at: '2026-09-19T00:00:00.000Z' }));
+  await writeFile(path.join(est.receiptsDir, '20260920000000000.json'), JSON.stringify({
+    schema_version: NIGHTLY_RECEIPT_SCHEMA, ran_at: 'not-a-date', target_date: '2026-09-18',
+    dry: false, lock: {}, plan: {}, deadline: null, backlog: null, sessions: [], warnings: [],
+    totals: {}, chain: null, status: 'OK' }));
+  await writeSession(est.dataRoot, '2026-09-11', 'S_would_be_missed_if_treated_as_first_run', { durationSeconds: 40 });
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T10:00:00.000Z',
+    runSession: async () => ({ run_id: 'vcl_1111111111111111', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  assert.equal(result.status, 'OK');
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.first_run, false);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_basis, 'unreadable');
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.lookback_nights, MAX_AGED_OUT_LOOKBACK_DAYS);
+  assert.equal(result.receipt.backlog.aged_out_unprocessed.uncapped_gap_days, null);
+  // The full MAX_AGED_OUT_LOOKBACK_DAYS scan still finds and reports the
+  // real backlog, unlike a first_run:true misclassification which would
+  // have looked back only one night and missed 2026-09-11 entirely.
+  assert.ok(result.receipt.backlog.aged_out_unprocessed.by_date.some(
+    entry => entry.date === '2026-09-11'));
+});
+
+test('runNightly: a receipts dir that cannot even be listed (a non-ENOENT readdir failure) also falls back to unreadable, not first_run (S-1, round 4)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  // A *file* where a directory is expected -- readdirSync on it throws
+  // ENOTDIR, not ENOENT, so this must take the conservative "unreadable"
+  // path (full MAX_AGED_OUT_LOOKBACK_DAYS scan), not the first-run path.
+  // acquireLock's own attempt to write the lock file into this same
+  // "directory" fails first, so drive backlogAgingReport's --dry path
+  // directly, which runs before any lock is taken.
+  await mkdir(path.dirname(est.receiptsDir), { recursive: true });
+  await writeFile(est.receiptsDir, 'not a directory');
+
+  const result = await runNightly({ io, tools, ...DUMMY_PIPELINE, sessionsAddress: SESSIONS_ADDRESS,
+    receiptsDir: est.receiptsDir, targetDate: target, now: '2026-09-20T10:00:00.000Z', dry: true,
+    runSession: async () => { throw new Error('must not run in dry mode'); }, log: () => {} });
+
+  assert.equal(result.backlog.aged_out_unprocessed.first_run, false);
+  assert.equal(result.backlog.aged_out_unprocessed.lookback_basis, 'unreadable');
+  assert.equal(result.backlog.aged_out_unprocessed.lookback_nights, MAX_AGED_OUT_LOOKBACK_DAYS);
 });
 
 test('runNightly --dry: backlog aging is reported in the preview too (a preflight can see it before registering)', async () => {
@@ -1565,6 +1631,19 @@ test('atomicWriteFileSync: a non-retryable rename error is thrown immediately (n
   assert.equal(typeof thrown.tmp_path, 'string');
   assert.equal(existsSync(thrown.tmp_path), true, 'the temp file survives a non-retryable error');
   assert.equal(await readFile(thrown.tmp_path, 'utf8'), '{}');
+});
+
+test('recoveredPathFor: always returns a path different from its input, even when the input does not end in .json (N-2, round 4)', () => {
+  // The normal case: suffix replaced, still ends in .json.
+  assert.equal(recoveredPathFor(path.join('a', 'b', 'receipt.json')), path.join('a', 'b', 'receipt.recovered.json'));
+  // A plain `.replace(/\.json$/u, ...)` is a silent no-op on any of these --
+  // handing back the exact same path the failed overwrite already tried,
+  // instead of one nothing else has open.
+  for (const input of ['receipt', 'receipt.JSON', 'receipt.txt', 'receiptjson', '']) {
+    const recovered = recoveredPathFor(input);
+    assert.notEqual(recovered, input, `recoveredPathFor(${JSON.stringify(input)}) must differ from its input`);
+    assert.ok(recovered.endsWith('.recovered.json'), `recoveredPathFor(${JSON.stringify(input)}) must still end in .recovered.json`);
+  }
 });
 
 // ---------------------------------------------- S2: refuse deadline == scheduled-start
@@ -1899,12 +1978,37 @@ test('runNightly: worst_case_session_minutes falls back to DEFAULT_CHAT_TIMEOUT_
   const { io, tools } = await ioAndToolsFor(est);
   const target = '2026-09-20';
   await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
-  // readPipelineConfig never defaults model.timeout_ms itself, and this is
-  // exactly the shape a config omitting it takes -- worst_case_session_
-  // minutes must not silently read as `null`/dead just because this one key
-  // is missing; it uses the same DEFAULT_CHAT_TIMEOUT_MS createLocalChat's
-  // own binding validation (ollama_chat.mjs) falls back to at call time.
-  const config = { limits: { llm_calls: 60 }, model: {} };
+  // N-3 (2026-09-21 review, round 4): go through the real `readPipelineConfig`
+  // against a real JSON file on disk -- not a hand-built JS object matching
+  // what a config *would* look like -- so this proves the fallback works on
+  // the actual config-loading path a real registered run takes, including
+  // readPipelineConfig's own freeze/defaulting behaviour, not just on this
+  // test's own idea of the shape.
+  const configPath = path.join(est.controlRoot, 'voice_pipeline_no_timeout.v0.json');
+  await writeFile(configPath, JSON.stringify({ schema: 'soulforge.voice_conversation_pipeline.v0',
+    model: { host: 'http://127.0.0.1:18080', model: 'test-model' }, prompts_dir: PROMPTS,
+    limits: { llm_calls: 60 } })); // model.timeout_ms deliberately omitted
+  const config = readPipelineConfig(readFileSync(configPath));
+  assert.equal(config.model.timeout_ms, undefined, 'the fixture must actually omit timeout_ms, not default it');
+
+  const result = await runNightly({ io, tools, config, prompts: {}, promptDigests: {}, configSha256: 'deadbeef',
+    sessionsAddress: SESSIONS_ADDRESS, receiptsDir: est.receiptsDir, targetDate: target,
+    now: '2026-09-19T15:00:00.000Z', deadline: '10:00', scheduledStart: '00:00',
+    runSession: async () => ({ run_id: 'vcl_run', verified: true, llm_calls: 1, elapsed_ms: 1 }), log: () => {} });
+
+  assert.equal(result.receipt.deadline.worst_case_session_minutes, Math.round((60 * DEFAULT_CHAT_TIMEOUT_MS) / 60000));
+});
+
+test('runNightly: worst_case_session_minutes falls back to DEFAULT_CHAT_TIMEOUT_MS when model.timeout_ms is declared but non-numeric (S-4, round 4)', async () => {
+  const est = await estate();
+  const { io, tools } = await ioAndToolsFor(est);
+  const target = '2026-09-20';
+  await writeSession(est.dataRoot, target, 'S_run', { durationSeconds: 40 });
+  // `?? DEFAULT_CHAT_TIMEOUT_MS` only falls back on null/undefined -- a
+  // declared-but-garbage value (here a string, since readPipelineConfig
+  // itself only validates model.host/model.model, not timeout_ms) must not
+  // be multiplied straight into the result as NaN or a concatenated string.
+  const config = { limits: { llm_calls: 60 }, model: { timeout_ms: 'not-a-number' } };
   const result = await runNightly({ io, tools, config, prompts: {}, promptDigests: {}, configSha256: 'deadbeef',
     sessionsAddress: SESSIONS_ADDRESS, receiptsDir: est.receiptsDir, targetDate: target,
     now: '2026-09-19T15:00:00.000Z', deadline: '10:00', scheduledStart: '00:00',

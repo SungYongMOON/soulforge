@@ -275,6 +275,20 @@ const dateFromSessionId = sessionId => {
  * source every settled row's date actually came from, for the receipt to
  * show its work.
  *
+ * N-4 (2026-09-21 review, round 4): a primary receipt and its
+ * `<name>.recovered.json` sibling (S2, above) can both name the exact same
+ * settled session_id with the exact same date -- the recovered file is the
+ * orphaned first write of the very same receipt the primary file's later,
+ * successful write also carries. `ids`/`dates` are Sets, so the session_id
+ * and date themselves are naturally deduplicated either way, but
+ * `derivation` is a running counter, not a set -- without tracking which
+ * bucket a session_id was already counted into, seeing that same session_id
+ * settled a second time (in the sibling file) would count it twice, so a
+ * primary+recovered pair would over-report its own `derivation` totals by
+ * one. `sessionDerivationSource` remembers each session_id's current bucket
+ * and backs it out before recording a new one, so a pair counts once no
+ * matter how many receipt files (chronologically) settle the same session.
+ *
  * A directory that simply does not exist yet (the nightly lane has never run)
  * plans zero sessions, the same as an absent date folder does; any other
  * read failure is a real configuration error and is thrown.
@@ -291,6 +305,7 @@ function collectBacklogSessions(nightlyReceiptsDir) {
   }
   const ids = new Set(), dates = new Set();
   const derivation = { declared: 0, session_id_prefix: 0, undated: 0 };
+  const sessionDerivationSource = new Map(); // N-4: session_id -> current derivation bucket, so a pair counts once
   const unsettled = new Map();
   // S2 (2026-09-21 review, round 3): a `<name>.recovered.json` file --
   // `voice_conversation_list_nightly.mjs`'s `atomicWriteFileSync` writing to
@@ -319,11 +334,21 @@ function collectBacklogSessions(nightlyReceiptsDir) {
       ids.add(row.session_id);
       unsettled.delete(row.session_id);
       let date = DATE_DIR.test(row.date ?? '') ? row.date : null;
-      if (date !== null) derivation.declared += 1;
+      let source;
+      if (date !== null) source = 'declared';
       else {
         date = dateFromSessionId(row.session_id);
-        if (date !== null) derivation.session_id_prefix += 1; else derivation.undated += 1;
+        source = date !== null ? 'session_id_prefix' : 'undated';
       }
+      // N-4: back out this session_id's previous bucket (if any) before
+      // recording its new one -- a primary+recovered pair (or any other
+      // repeat sighting of the same settled session_id across receipt
+      // files) must count once, with the chronologically last file's row
+      // deciding the final bucket, not add a second count on top.
+      const previousSource = sessionDerivationSource.get(row.session_id);
+      if (previousSource !== undefined) derivation[previousSource] -= 1;
+      derivation[source] += 1;
+      sessionDerivationSource.set(row.session_id, source);
       if (date !== null) dates.add(date);
     }
   }
