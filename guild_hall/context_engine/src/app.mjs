@@ -33,7 +33,9 @@ export { createProjectAcceptedContextRuntime } from './adapters/accepted_context
 export { createAcceptedContextReader } from './runtime/accepted_context_reader.mjs';
 export { createExactSourceReadback } from './adapters/exact_source_readback.mjs';
 export { createCitationVerifier } from './guards/citation_verifier.mjs';
-export { linkApprovedUnits, checkKnowledgeCandidates } from './knowledge_layer/index.mjs';
+export { linkApprovedUnits, checkKnowledgeCandidates, createWikiKnowledgeLayer,
+  createBoundedGenerator, createHttpGenerator, createMemoryArchive, createFileArchive,
+  createMemoryGraph, createNeo4jGraph } from './knowledge_layer/index.mjs';
 export { createObservedContextQuery } from './runtime/observed_context_query.mjs';
 export { createAcceptedContextPack, finalizeContextPackObservation, CONTEXT_PACK_POLICY, CONTEXT_PACK_LIMITS } from './runtime/accepted_context_pack.mjs';
 export { createAcceptedContextQuery, makeUniformNotAvailable, ACCEPTED_CONTEXT_QUERY_CODES,

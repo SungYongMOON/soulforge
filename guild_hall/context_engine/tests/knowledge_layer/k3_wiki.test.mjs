@@ -1,0 +1,133 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createMemoryGraph, createMemoryArchive, createWikiKnowledgeLayer, withdrawalFingerprint } from '../../src/knowledge_layer/index.mjs';
+import { hashText } from '../../src/knowledge_layer/data.mjs';
+import { evaluateKnowledgeAnswers, fixtureAnswers, readCorpus } from '../../harness/knowledge_layer_eval.mjs';
+import { BUDGET, extractiveFake, wikiFixture, wikiInput } from './wiki_fixture.mjs';
+function revise(input, unitId, text) {
+  const u = input.request.units.find(u => u.unit_id === unitId); u.text = text; u.text_sha256 = hashText(text);
+  u.source_revision_ref = { ...u.source_revision_ref, revision_id: 'revision:2', content_id: hashText(text) };
+  const g = input.request.grant.units.find(u => u.unit_id === unitId); g.text_sha256 = u.text_sha256; g.source_revision_ref = u.source_revision_ref;
+}
+test('K3 emits project/source two-section pages, index, append log and closed evidence graph', async () => {
+  const f = wikiFixture(), input = wikiInput(), before = structuredClone(input);
+  const result = await f.layer.generate(input); assert.equal(result.status, 'READY'); const c = result.record.content;
+  assert.equal(c.pages.length, 4); assert.equal(c.statements.length, 3); assert.equal(c.work_log.length, 1);
+  for (const p of c.pages) { assert.match(p.markdown, /## 정리본/); assert.match(p.markdown, /## 기록 \(추가 전용\)/); assert.equal(p.display_label, '자동 정리본'); }
+  assert.match(c.index_markdown, /source:source:a-mail/);
+  assert.equal(c.knowledge_accepted, false); assert.equal(c.semantic_fact_verified, false);
+  assert.ok(c.edges.filter(e => e.kind === 'SUPPORTED_BY').length === 3);
+  assert.deepEqual(input, before);
+  assert.deepEqual(await f.archive.get(result.record.generation_id), c);
+});
+test('same request is a no-op, no extra model calls or rewritten history', async () => {
+  const f = wikiFixture(), input = wikiInput(), one = await f.layer.generate(input), two = await f.layer.generate(input);
+  assert.equal(f.calls(), 1); assert.equal(two.unchanged, true); assert.equal(two.record.generation_id, one.record.generation_id);
+  assert.equal(two.record.content.work_log.length, 1);
+});
+test('two projects are isolated in pages, graph snapshots and source grants', async () => {
+  const f = wikiFixture(), a = await f.layer.generate(wikiInput()), b = await f.layer.generate(wikiInput('SYN-B'));
+  assert.notEqual(a.record.generation_id, b.record.generation_id);
+  const again = await f.layer.readCurrent(wikiInput()); assert.deepEqual(again.record, a.record);
+  assert.doesNotMatch(JSON.stringify(again.record.content.pages), /b-mail|200 USD/);
+  const mixed = wikiInput(); mixed.request.units.push(wikiInput('SYN-B').request.units[0]);
+  await assert.rejects(() => f.layer.generate(mixed));
+});
+test('correction creates a new revision and append log; prior content stays historical', async () => {
+  const f = wikiFixture(), input = wikiInput(), old = await f.layer.generate(input);
+  revise(input, 'a-mail', '메일 안내\n납기는 2026-10-16으로 정정하며 출하 승인은 보류한다.');
+  assert.equal((await f.layer.readCurrent(input)).reason, 'wiki_stale_or_withdrawn');
+  input.expected_previous = old.record.generation_id; const current = await f.layer.generate(input);
+  assert.equal(current.record.content.work_log.length, 2);
+  assert.deepEqual(current.record.content.work_log[0], old.record.content.work_log[0]);
+  const page = current.record.content.pages.find(p => p.page_id === 'source:source:a-mail');
+  assert.match(page.markdown, /2026-10-16/); assert.doesNotMatch(page.markdown.split('## 기록')[0], /2026-10-09/);
+  assert.ok(current.record.content.edges.some(e => e.kind === 'SUPERSEDES'));
+  assert.deepEqual(await f.archive.get(old.record.generation_id), old.record.content);
+});
+test('withdrawal survives graph loss, re-ingest, whitespace variants and rejects old restore', async () => {
+  const f = wikiFixture(), input = wikiInput(), old = await f.layer.generate(input);
+  const text = old.record.content.statements.find(s => s.unit_id === 'a-mail').text;
+  input.withdrawals = [withdrawalFingerprint(text)]; input.expected_previous = old.record.generation_id;
+  const current = await f.layer.generate(input); assert.equal(current.record.content.statements.length, 2);
+  await f.graph.clearTestNamespace();
+  const fresh = wikiInput();
+  await assert.rejects(() => f.layer.restore({ input: fresh, generation_id: old.record.generation_id }), /wiki_restore_stale/);
+  revise(fresh, 'a-mail', '메일 안내\n' + text.replaceAll(' ', '　'));
+  const regenerated = await f.layer.generate(fresh); assert.equal(regenerated.record.content.statements.length, 2);
+  assert.ok(regenerated.record.content.excluded.some(s => s.withdrawn));
+});
+test('empty input and empty model output cannot overwrite existing pages', async () => {
+  let empty = false; const f = wikiFixture({ generate: input => empty ? { candidates: [] } : extractiveFake(input) });
+  const input = wikiInput(), old = await f.layer.generate(input), blank = wikiInput();
+  blank.request.units = []; blank.request.grant.units = []; blank.expected_previous = old.record.generation_id;
+  assert.equal((await f.layer.generate(blank)).reason, 'empty_input');
+  empty = true; revise(input, 'a-mail', '새 안내\n새 납기는 아직 확정하지 않은 상태이다.'); input.expected_previous = old.record.generation_id;
+  assert.equal((await f.layer.generate(input)).reason, 'empty_generation');
+  assert.equal((await f.graph.read('SYN-A')).generation_id, old.record.generation_id);
+  assert.equal((await f.layer.readCurrent(input)).status, 'HOLD');
+});
+test('invalid sentences omitted; gaps and weak high-impact exceptions retained', async () => {
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates[0].text = '계약 금액은 900 USD로 확정한다.'; return out; } });
+  const result = await f.layer.generate(wikiInput()); const c = result.record.content;
+  assert.equal(c.excluded.length, 1); assert.equal(c.gaps.length, 1); assert.equal(c.exceptions.length, 1);
+  assert.doesNotMatch(c.pages[0].markdown, /900 USD/); assert.equal(c.exceptions[0].exception_required, true);
+});
+test('contradictory model-proposed claims create a possible-conflict lint, never a winner', async () => {
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates[0].claim = { subject: '가상대상', key: '상태', value: 'A' };
+    out.candidates[1].claim = { subject: '가상대상', key: '상태', value: 'B' }; return out; } });
+  const c = (await f.layer.generate(wikiInput())).record.content;
+  assert.equal(c.conflicts.length, 1); assert.equal(c.conflicts[0].meaning_verified, false); assert.equal(c.statements.length, 3);
+});
+test('concurrent changes require expected-prior and one CAS winner', async () => {
+  const f = wikiFixture(), first = wikiInput(), second = wikiInput(); revise(second, 'a-mail', '메일 안내\n납기는 2026-10-30으로 새로 제안되었다.');
+  const result = await Promise.allSettled([f.layer.generate(first), f.layer.generate(second)]);
+  assert.equal(result.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(result.filter(r => r.status === 'rejected').length, 1);
+});
+test('archive written before failed graph commit is safely retryable', async () => {
+  const graph = createMemoryGraph(); let broken = true;
+  const f = wikiFixture({ graph: { read: graph.read, async commit(...args) { if (broken) throw new Error('synthetic_failure'); return graph.commit(...args); } } });
+  await assert.rejects(() => f.layer.generate(wikiInput())); assert.equal(await graph.read('SYN-A'), null);
+  broken = false; assert.equal((await f.layer.generate(wikiInput())).status, 'READY');
+});
+test('stale or failed withdrawal writes leave current reads unchanged, with recovery intents separate', async () => {
+  const graph = createMemoryGraph(); let broken = false;
+  const f = wikiFixture({ graph: { read: graph.read, async commit(...args) { if (broken) throw new Error('synthetic_failure'); return graph.commit(...args); } } });
+  const input = wikiInput(), old = await f.layer.generate(input), withdrawn = wikiInput();
+  withdrawn.withdrawals = [withdrawalFingerprint(old.record.content.statements[0].text)];
+  withdrawn.expected_previous = 'sha256:' + 'f'.repeat(64);
+  await assert.rejects(() => f.layer.generate(withdrawn), /wiki_prior_mismatch/);
+  assert.deepEqual(await f.archive.getWithdrawals('SYN-A'), []); assert.deepEqual(await f.archive.getRecoveryWithdrawals('SYN-A'), []);
+  assert.equal((await f.layer.readCurrent(input)).status, 'READY');
+  withdrawn.expected_previous = old.record.generation_id; broken = true;
+  await assert.rejects(() => f.layer.generate(withdrawn));
+  assert.deepEqual(await f.archive.getWithdrawals('SYN-A'), []); assert.equal((await f.layer.readCurrent(input)).status, 'READY');
+  assert.deepEqual(await f.archive.getRecoveryWithdrawals('SYN-A'), withdrawn.withdrawals);
+  await graph.clearTestNamespace();
+  await assert.rejects(() => f.layer.restore({ input, generation_id: old.record.generation_id }), /wiki_restore_stale/);
+});
+test('archive restores current generation with equal bytes and project checks', async () => {
+  const f = wikiFixture(), input = wikiInput(), original = await f.layer.generate(input);
+  await f.graph.clearTestNamespace(); const restored = await f.layer.restore({ input, generation_id: original.record.generation_id });
+  assert.deepEqual(restored.record, original.record);
+  await assert.rejects(() => f.layer.restore({ input: wikiInput('SYN-B'), generation_id: original.record.generation_id }));
+});
+test('disabled, missing budget, input/output excess and hanging providers fail closed', async () => {
+  const disabled = wikiFixture({ enabled: false }); assert.equal((await disabled.layer.generate(wikiInput())).status, 'HOLD'); assert.equal(disabled.calls(), 0);
+  assert.throws(() => wikiFixture({ budget: {} }));
+  const small = wikiFixture({ budget: { ...BUDGET, max_input_characters: 10 } }); assert.equal((await small.layer.generate(wikiInput())).reason, 'generation_input_budget'); assert.equal(small.calls(), 0);
+  const big = wikiFixture({ budget: { ...BUDGET, max_output_characters: 10 } }); assert.equal((await big.layer.generate(wikiInput())).status, 'HOLD');
+  const hanging = wikiFixture({ budget: { ...BUDGET, timeout_ms: 15 }, generate: () => new Promise(() => {}) });
+  assert.equal((await hanging.layer.generate(wikiInput())).status, 'HOLD');
+});
+test('K0 before/after scores use actual generated source pages with the same pins', async () => {
+  const f = wikiFixture(), corpus = readCorpus(), generated = new Map();
+  for (const project of ['SYN-A', 'SYN-B']) generated.set(project, (await f.layer.generate(wikiInput(project))).record.content);
+  const answers = corpus.questions.map(q => ({ id: q.id, project_ref: q.project_ref,
+    text: generated.get(q.project_ref).pages.find(p => p.page_id.startsWith('source:') && p.source_unit_ids.includes(q.unit_id)).markdown }));
+  const before = evaluateKnowledgeAnswers({ corpus, answers: fixtureAnswers(corpus, 'headings') });
+  const after = evaluateKnowledgeAnswers({ corpus, answers });
+  assert.equal(before.corpus_sha256, after.corpus_sha256); assert.equal(before.model_id, after.model_id); assert.equal(before.budget, after.budget);
+  assert.equal(before.summary.mean_found, 0); assert.equal(after.summary.mean_found, 1); assert.equal(after.summary.mean_cited, 1); assert.equal(after.summary.errors_total, 0);
+});

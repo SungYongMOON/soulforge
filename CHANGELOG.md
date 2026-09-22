@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-22 - 자동 정리본 K3 위키 초안 저장
+
+- Revision: 이 항목을 포함한 커밋. 승인 단위로 원천/과제별 두 칸 위키·색인·기록·lint를 만든다.
+- 단일 저장 모듈 뒤에 graph/archive/model adapter를 두고 새 판·철회 지문·CAS·재적재 검사를 보존한다.
+- 운영 영향: 새 명시 API만. 실제 모델/Neo4j 기본 꺼짐, 임베더·기존 처리 경로·예약/운영 변경 없음.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer`, 개발 demo와 합성/opt-in 시험. 모듈 0.22.8.
+
 ## 2026-09-22 - 자동 정리본 K2 후보 검사
 
 - Revision: 이 항목을 포함한 커밋. 인용 포함·문장 출처·미요청 수락을 별도 검사축으로 반환한다.

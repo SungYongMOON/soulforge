@@ -28,3 +28,66 @@ statement_id/unit_id/text/quote/impact_kinds/claim 필드만 받는다. claim은
 결정/마감/금액/대외 약속 표지를 모델 태그와 합쳐 검사하고 근거가 약할 때만 exception_required를 낸다.
 구조화 claim은 항상 unverified_lint_candidate이며 사실로 승격하지 않는다. 실패 문장을 수정하지 않는다.
 source 부족·짧은 인용·부정/수치 변경은 원문과 함께 그대로 사유를 반환한다. DB/모델 호출은 없다.
+
+## K3 자동 위키 초안과 저장
+
+`createWikiKnowledgeLayer({graph,archive,generator})`가 지속 쓰기를 소유한다. 별도 store/DB를 찾아 연결하지 않는다.
+`generate({request,withdrawals,expected_previous})`의 request는 K1 입력 그대로이며 withdrawals는
+`withdrawalFingerprint(text)`의 과제별 철회 지문, expected_previous는 직전 generation hash 또는 null이다.
+source 단위가 없는 입력·문장이 없는 모델 응답은 HOLD이며 기존 페이지를 덮지 않는다.
+과제 전체 1페이지+원천 entity별 페이지, 색인, append 기록, possible_conflict/gap/exception을 생성한다.
+위 칸은 현재 정리본, 아래 칸은 추가 전용 기록이며 매번 불변 새 판이다. 실패 문장은 현재 페이지에서 제외한다.
+모순은 모델의 subject/key/value lint 후보끼리 감지하는 **가능성** 표시이며 의미적 모순 판정은 아니다.
+K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
+
+`readCurrent`도 같은 입력 계약을 요구한다. caller의 현재 source digest 또는 보존된 철회 집합이 다르면
+옛 페이지를 현행으로 반환하지 않는다. `restore({input,generation_id})`는 archive hash·과제·현재 source/철회를
+검사한 뒤 재적재한다. 복구에도 archive의 철회 파일을 함께 보존해야 한다. 정정 때 caller가 새 grant/판본을
+공급하지 않으면 이 모듈은 외부 변화를 탐지할 수 없다. 원천의 실제 변화 탐지는 연결 스레드 책임이다.
+
+### Adapters와 설정
+
+- `createMemoryGraph/createMemoryArchive`: CI 가짜. 실제 Neo4j 성능·잠금 검증을 대신하지 않는다.
+- `createFileArchive({root})`: 이미 존재하는 승인된 절대 디렉터리를 주입. generation hash.json과 페이지별
+  hash.md/색인.md, 과제별 withdrawal marker를 create-only로 보존한다. 원문 파일은 수정하지 않는다.
+  snapshot은 재적재 꾸러미, Markdown은 재생 가능한 표시물이다. root는 신뢰된 전용 archive여야 한다.
+- `createNeo4jGraph`: enabled 기본 false, loopback Query API endpoint, namespace, 정확한 allowed_origins,
+  timeout_ms(1~60000) 필요. 인증이 필요하면 승인된 fetchImpl이 헤더를 공급한다. 이 모듈은 secret/env를 읽지 않는다.
+  세 가지 사전 unique constraint가 필요하다: KLProject(namespace,project),
+  KLGeneration(namespace,project,generation), KLNode(namespace,project,generation,node_id).
+  자동 schema 설치 없음. endpoint는 Neo4j Query API `/db/<database>/query/v2`다.
+  HTTP 성공 코드만 믿지 않고 body errors/data를 검사한다. 고정 Cypher+parameters만 사용한다.
+- `createBoundedGenerator`: enabled 기본 false, id와 max_calls/max_input_characters/max_output_characters/timeout_ms
+  모두 필수다. generate는 세션의 호출수를 실제로 세며 실패 시도도 소비한다. createSession으로 새 작업의
+  한도 세션을 시작하며 K3는 새 세대당 새 세션에서 최대1회 호출하고 시간/입출력 상한을 다시 적용한다. id는 caller 표식이며
+  실제 weight digest를 검증한 증거가 아니다. 공급 함수는 신뢰된 in-process adapter다.
+- `createHttpGenerator`: 이번 버전은 loopback endpoint와 exact origin allowlist의 OpenAI-compatible wire. redirect 거부,
+  AbortSignal·응답 상한·JSON/K2 검사. 별도 환경/자격증명 자동 탐색 없음. 실제 호출은 기본 꺼짐이다.
+- 임베더는 K5 단계 대상이며 K0~K3에서는 호출하지 않는다. 사람이 넣는 파일은 연결 담당이 K1 단위로 전달한다.
+
+### 그래프와 한계
+
+물리 labels는 KLProject/KLGeneration/KLNode, edge는 KL_LINK(kind)다. NODE_KINDS/EDGE_KINDS의 닫힌 목록을 쓴다.
+각 노드에 namespace/project/generation/origin/state가 있고 공식 수락 flag는 false다. 원천/추출 node 9종과
+7관계의 기존 profile은 변경하지 않는다. 모델 노드와 deterministic projection은 origin으로 구별한다.
+expected-prior를 먼저 확인→archive 보존→graph CAS→철회 marker 확정 순서다. 실패한 graph commit은 기존
+current 읽기의 철회 상태를 바꾸지 않는다. 미완료 snapshot의 철회 intent는 current가 아니지만, graph 손실 후
+구판 restore는 그 intent까지 대조해 미확정 철회를 부활시키지 않는다(복구 HOLD 해소는 재시도/후속 K8 책임).
+graph 성공 뒤 marker 쓰기 실패는 graph_committed와 withdrawal_archive_pending으로 보고하며 재시도가 확정한다.
+Neo4j CAS 불일치는 같은 implicit transaction에서 오류를 발생시켜 초기 MERGE/lock까지 rollback한다.
+graph current와 archive는 단일 DB transaction이 아니므로 reader가 매번 둘을 재검사한다. 타 프로세스가 쓰는 신뢰되지 않은 archive root는
+지원하지 않는다. 이 디렉터리의 무결성·접근 통제·백업 책임은 binding owner다.
+현재 작업 기록은 세대200개, plain-data 검사는 전체문자500,000의 안전 상한이다. 넘으면 거부하고 조용히 자르지 않는다.
+
+### 시험과 시연
+
+`npm run validate:knowledge-layer`는 가짜 모델/메모리 graph, 임시 file archive와 전송 모의 시험을 실행한다.
+같은 저장 계약을 실제 Neo4j로 실행하려면 `SOULFORGE_KL_TEST_DISPOSABLE=1` 및
+`SOULFORGE_KL_TEST_NEO4J_URL`을 명시한다. 운영 인스턴스 사용 금지: 사전 constraint가 있는 disposable loopback
+인스턴스만 사용하고, 시험은 임의 kl-test namespace에서 돌며 finally에서 그 namespace만 제거한다.
+opt-in 없이는 SKIP이며 실제 DB 실행으로 보고하지 않는다. secret은 시험에서도 읽지 않는다.
+개발 시연은 빈 승인 출력 디렉터리를 주고 `node guild_hall/context_engine/harness/knowledge_layer_demo.mjs <owned-output>`.
+과제 2개 위키8페이지+색인2개와 평가 JSON을 만든다. 가짜 baseline found0→1은 배선 개선이며 실제 모델 성능이 아니다.
+
+공개 참고: [Neo4j Query API](https://neo4j.com/docs/query-api/current/query/)의 원자적 query/parameters/errors 계약.
+GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 참고했다. 옮긴 외부 코드 없음.
