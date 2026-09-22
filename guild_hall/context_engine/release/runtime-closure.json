@@ -11,7 +11,7 @@
   "files": [
     {
       "path": "guild_hall/context_engine/WIKI_SCHEMA.md",
-      "sha256": "ca1e0b0dab10159027bcf975814d840d7e849cff3ba084b1bfe26d19b0593c3e"
+      "sha256": "486c270c18cd26c007a8eea28deca6d90c8053f1c3656235eb61a64e76cdd03d"
     },
     {
       "path": "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",
@@ -159,7 +159,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
-      "sha256": "8a86d58d908220ab8843e64a82f0bb10b975ff2537e8fdc382aa1c00293bffda"
+      "sha256": "91e9d7e50464be9e01909a97295d5ddfa93343443b5addfad6136bfa5c307861"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
@@ -374,7 +374,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "e400605651f70b242495f6fcdcd322e382f63fec97b7bbe78c4f3242907af22a",
+  "closure_sha256": "db42d67a92a51634024dcf55309e445a467fd85709e816a44253626220bcf22b",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

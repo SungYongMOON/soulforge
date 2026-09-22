@@ -1074,6 +1074,18 @@ test('R3: a swapped offhost-approval file is refused at generate time', async ()
   assert.deepEqual(readdirSync(s.archiveDir), []);
 });
 
+test('generate refuses a preparation pinned to a different wiki rules digest', async () => {
+  const s = await preparedWork(), manifestPath = join(s.workDir, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  manifest.wiki_rules_sha256 = 'sha256:' + 'f'.repeat(64);
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  writeFileSync(join(s.workDir, 'manifest.sha256'), sha(readFileSync(manifestPath)) + '\n');
+  const answerPath = join(s.outDir, 'answer.json'); writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  await assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath })), /wiki_rules_sha256_mismatch/);
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+});
+
 test('R3: generate reports the recomputed digests, not blind copies -- they equal manifest.json only because nothing drifted', async () => {
   const s = await preparedWork();
   writeFileSync(join(s.outDir, 'answer.json'), JSON.stringify(answerFor(s.request)));

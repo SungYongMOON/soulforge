@@ -37,8 +37,30 @@ test('model topics replace source pages while preserving the project page, evide
   assert.deepEqual(build.source_unit_ids, ['a-doc', 'a-voice']);
   assert.deepEqual([...build.statement_ids].sort(), ['statement:a-doc', 'statement:a-voice']);
   assert.equal(build.materials.length, 2);
+  assert.deepEqual(build.materials.find(m => m.unit_id === 'a-doc').statement_ids, ['statement:a-doc']);
+  assert.deepEqual(build.materials.find(m => m.unit_id === 'a-voice').statement_ids, ['statement:a-voice']);
   assert.match(build.markdown, /^# 제작과 검사/mu);
+  assert.match(c.index_markdown, /제작과 검사/);
+  assert.match(c.index_markdown, /일정과 승인/);
   assert.ok(c.edges.filter(e => e.kind === 'SUPPORTED_BY').length === 3);
+});
+test('topic and project pages retain model review for a citation-rejected statement', async () => {
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input);
+    const accepted = out.candidates.find(s => s.unit_id === 'a-doc'); accepted.topic = '비용과 계약';
+    const rejected = out.candidates.find(s => s.unit_id === 'a-mail'); rejected.topic = '비용과 계약';
+    rejected.quote = '승인 원문에 없는 합성 인용문입니다.';
+    out.review.exceptions = [{ statement_id: rejected.statement_id, impact_kinds: ['amount'], reason: '모델이 보고한 근거 부족' }];
+    out.review.conflicts = [{ left: accepted.statement_id, right: rejected.statement_id, note: '포함 문장과 제외 문장의 모순 후보' }];
+    return out; } });
+  const c = (await f.layer.generate(wikiInput())).record.content;
+  assert.ok(c.excluded.some(s => s.statement_id === 'statement:a-mail'));
+  const project = c.pages.find(p => p.page_id === 'project:SYN-A'), topic = c.pages.find(p => p.topic === '비용과 계약');
+  for (const page of [project, topic]) {
+    assert.match(page.markdown, /모델이 보고한 근거 부족/);
+    assert.match(page.markdown, /포함 문장과 제외 문장의 모순 후보/);
+    assert.equal(page.statement_ids.includes('statement:a-mail'), false);
+  }
+  assert.deepEqual(topic.materials.find(m => m.unit_id === 'a-mail').statement_ids, []);
 });
 test('same request is a no-op, no extra model calls or rewritten history', async () => {
   const f = wikiFixture(), input = wikiInput(), one = await f.layer.generate(input);

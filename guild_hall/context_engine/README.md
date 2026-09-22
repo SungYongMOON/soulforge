@@ -49,6 +49,8 @@
 - 모델 답의 `text`는 원문 복사가 아니라 자기 말로 정리한 문장이고 `quote`는 이를 뒷받침하는 원문 구절이다.
   기계는 quote의 원문 포함만 확인하며 text의 의미 지지는 모델 책임으로 남긴다. candidate에 topic을 붙이면
   과제 전체+주제별 페이지를 만들고 원천별 정보는 재료 목록으로 보존한다. topic 없는 기존 응답은 원천별 페이지 호환을 유지한다.
+  인용 실패로 제외된 문장의 예외·모순도 확인 필요에서 보존한다. topic 제목은 색인에 표시하며 topic 이름 변경은 새 page_id다.
+  WIKI_SCHEMA가 바뀐 기존 준비물은 generate가 거부하므로 새 빈 폴더에서 prepare부터 다시 한다.
 - `generate --work <dir> --answer <file> --archive-root <dir> --model-id <alias>
   --now <ISO> --offhost-approval <file> --model-roles <config> [--expected-previous
   <hash|null>] [--neo4j-config <file>]` — 실제 `createWikiKnowledgeLayer`를

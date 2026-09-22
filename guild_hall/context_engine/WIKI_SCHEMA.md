@@ -23,7 +23,8 @@
 
 출력 JSON:
 
-- candidates: 문장 목록. 각 항목은 statement_id, unit_id, topic, text, quote 필수.
+- candidates: 문장 목록. 새 위키 초안은 각 항목에 statement_id, unit_id, topic, text, quote를 넣는다.
+  topic 없는 구형 응답은 호환을 위해 받을 수 있지만 새 초안은 topic을 생략하지 않는다.
   impact_kinds와 claim은 이전 형식과의 호환을 위해 받을 수 있다. 표지는 예외 후보에 합치며,
   claim이 있으면 근거를 약함으로 표시한다. 구조화 claim을 사실로 판정하지 않는다.
 - review: conflicts/gaps/exceptions 배열.
@@ -35,3 +36,4 @@
 인용이 대조되고 claim이 없으면 text가 quote와 달라도 source_attributed다. 인용 실패 또는 구조화 claim이 있으면 weak다.
 문자열 출처 귀속은 quote가 원문에 있다는 확인일 뿐, text의 의미 지지·사실 검증·정본 수락이 아니다.
 근거가 없으면 허위 인용을 만들지 말고 해당 재료의 빈틈을 보고한다. 빈 입력으로 기존 위키를 덮지 않는다.
+인용 대조에 실패한 문장은 정리본에서 제외되지만, 그 문장에 대해 보고한 예외·모순은 확인 필요에서 지우지 않는다.

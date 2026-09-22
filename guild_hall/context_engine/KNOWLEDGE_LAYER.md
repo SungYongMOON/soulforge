@@ -36,6 +36,8 @@ source 부족·짧은 인용·부정/수치 변경은 원문과 함께 그대로
 `withdrawalFingerprint(text)`의 과제별 철회 지문, expected_previous는 직전 generation hash 또는 null이다.
 source 단위가 없는 입력·문장이 없는 모델 응답은 HOLD이며 기존 페이지를 덮지 않는다.
 topic이 없는 기존 응답은 과제 전체 1페이지+원천 entity별 페이지를 유지한다. topic이 하나라도 있으면 과제 전체+topic별 페이지를 만들고 원천은 재료 목록으로 보존한다.
+인용 실패·철회로 정리본에서 제외된 문장의 모델 예외·모순도 과제 페이지와 해당 topic/원천 페이지 확인 필요에 보존한다.
+topic 페이지의 materials.statement_ids는 그 페이지에 실제 포함된 문장만 기록한다. 색인은 topic 제목과 안정 ID를 함께 표시한다.
 위 칸은 현재 정리본, 아래 칸은 추가 전용 기록이며 매번 불변 새 판이다. 실패 문장은 현재 페이지에서 제외한다.
 모순·빈틈은 모델의 review 출력이다. 예외는 모델 보고와 K2와 동일한 고정 KO/EN 표지 바닥의 합집합이다.
 인용 대조 성공·claim 없음이면 text와 quote가 달라도 source_attributed다. 인용 실패 또는 구조화 claim이 있으면 weak다.
@@ -171,3 +173,5 @@ human_correction_unit_ids는 현재 승인된 unit ID 목록만 받는다. 실�
 snapshot v2는 규칙 hash·재료 목록을 더한다. v1은 이전 판 이력으로 읽을 수 있으나 현재 정책에 맞는 새 v2 생성 전 current로 쓰지 않는다.
 같은 snapshot v2 안의 규칙·표시 판은 wiki_rules_sha256으로 식별한다. 규칙 hash가 바뀌면 view_digest도 바뀌어 이전 판을 current로 반환하지 않는다.
 운영 규칙 v4는 답장 인용 머리줄·서명·면책·인사말을 정리문에서 제외하고, 같은 스레드 반복은 가장 이른 근거 한 번만 쓰며, 시각 차이는 모순 또는 최신 상태로 표시하도록 모델에 요구한다.
+topic page_id는 topic 문자열 전체의 sha256으로 만들며 topic 이름을 바꾸면 새 페이지가 된다. 이름 변경을 같은 페이지의 SUPERSEDES로 추정하지 않는다.
+WIKI_SCHEMA 규칙 hash가 달라지면 기존 실제 준비 폴더는 wiki_rules_sha256_mismatch로 거부되므로 빈 폴더에서 prepare부터 다시 한다.
