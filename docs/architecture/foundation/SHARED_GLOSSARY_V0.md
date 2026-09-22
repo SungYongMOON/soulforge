@@ -40,6 +40,7 @@ knowledge or operating binding is moved or enabled by this document update.
 | 지식 | `knowledge` | 반복해서 다시 쓸 수 있는 개념, source 사용 방식, 판단 기준, relation, retrieval 단서 | 단순 대화 요약이나 AI 주장만으로 정본 지식이 되지 않는다. 위키 페이지·사실 장부·대상 후보는 지식이지 기억이 아니다(2026-09-22 Owner 정정). |
 | 기억 | `memory`, 봇 수첩 | 봇(에이전트)이 일하면서 스스로 적는 다음에 써먹을 것: 도구 요령, 시행착오, Owner 습관·서식 취향. 봇마다 자기 기억 파일(Hermes memory, Buzz 에이전트 memory)에 두고 그 봇이 다음 일을 시작할 때 읽는다. | 과제 사실은 기억이 아니라 지식이다. 기억에는 과제 식별자(과제 코드·문서명·발주처·사람·금액)를 적지 않는다. 대화에서 나온 과제 사실은 기억이 아니라 사람 입력으로 지식 장부에 제출한다. Neo4j Agent Memory가 "memory"라 부르는 것은 우리 말로 기록·지식·기억을 합친 것이며, 이 문서의 기억은 그중 봇 수첩만 가리킨다. |
 | 기록 | `record`, 대화 기록, 작업 일지, 영수증 | 무슨 말이 오갔고 무엇을 했는지를 그대로 남긴 것: 대화 기록(단기), 작업 일지·영수증·페이지 기록(추론 흔적). 날짜별로 쌓기만 하고 고치지 않는다. 기억(수첩)은 기록에서 다음에 써먹을 것만 걸러낸 것이고, 지식은 기록·원본에서 검증을 거쳐 만든 것이다. | 기록 자체는 기억도 지식도 아니다. 기록을 읽는다고 봇이 배운 것이 되지 않고, 기록에 적힌 주장이 지식이 되지 않는다. |
+| 이력 | `history`, 과제 이력, 맥락(정본 이름, sf-p05 맥락 엔진·맥락이의 "맥락") | 기록(메일·Slack·음성·Linear 같은 조각)을 엮어 "언제 무엇을 발주·시험·변경·결정했나"를 시간 순 문단으로 써 둔 과제 일기. 문단마다 근거 조각 목록이 붙고, 매일 밤 새 조각이 들어오면 새 판으로 자란다. 사실 장부·열린 일은 이력에서 뽑는다. 사람으로 치면 그 과제를 겪은 사람의 기억을 글로 적어 둔 것. | 지식이 아니다: 지식은 완결된 문서(사양서·보고서·회의록)에서 위키로 녹인 것이고, 이력은 조각에서 쓴 것이다. 기억(봇 수첩)도 아니다. 기록을 그대로 나열한 것도 아니다 — 근거가 붙은 글이다(2026-09-22 Owner 정정: 조각으로 위키를 만들려 한 첫 시도가 어색했던 이유). |
 | RAG | `Retrieval-Augmented Generation` | 질문이나 검토 전에 source/ref 를 찾아 답변에 연결하는 방식 | Soulforge 에서는 기본적으로 metadata-only 로 다루며, source text lane 은 owner-approved private 경계가 필요하다. |
 | Ledger Plane | 공통 장부 계층 | 세 제품과 아홉 portfolio의 사건을 안정된 ID·시간·관계로 연결하는 공통 기계 계약 | 네 번째 제품이나 하나의 전사 mega-database가 아니다. Domain 의미·수락·권한은 각 owner가 유지한다. |
 | Ledger Catalog | 장부 등록부 | 각 장부·receipt·cursor·state·projection·backup·dataset의 owner, SoR, writer, schema, scope, 저장·복구·분석 자격을 등록하는 중앙 metadata catalog | Event body를 한곳에 모으거나 source-local 정본을 대체하지 않는다. |
@@ -242,7 +243,7 @@ Quench와 Covenant가 단단하게 하고, Tongs만이 뜨거운 것을 잡으�
 | Reliquary | 백업, backup, DR(표시), 백업 세대 | `backup_controller`, `60_BACKUP_GENERATIONS`, "N차 백업본"(한국어 운영 표기는 유지) | Reliquary(백업) |
 | Canto I · The Kindling | 현재 phase, 현 단계(시대를 뜻할 때) | 없음 | Canto I · The Kindling |
 | Gram | 0.1.x(코드명 자리), internal RC 이름(보물을 뜻할 때) | 버전 문자열 0.1.x, 팩 번호 | Gram(0.1.x) |
-| 맥락·지식 | Context World Tree, 세계수 맥락(기능을 뜻할 때) | sf-p05, PROJECT_CONTEXT_GRAPH_V0.md, context.* MCP | 맥락·지식(sf-p05, 기존 Context World Tree) |
+| 맥락·지식 | Context World Tree, 세계수 맥락(기능을 뜻할 때) | sf-p05, PROJECT_CONTEXT_GRAPH_V0.md, context.* MCP | 맥락·지식(sf-p05, 기존 Context World Tree) 조각에서 쓴 과제 일기의 표시명은 `이력`(핵심 용어 표 참조). |
 
 그대로 두는 고유명(이름 안 바꿈): Soulforge, Buzz, Hermes, Linear, Codex, Claude, GPT,
 Main Node, HPP, Universal Client, Team Pilot 1, NAS. 외부 제품·물리 노드·출시 단위
