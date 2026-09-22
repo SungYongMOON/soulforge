@@ -259,6 +259,7 @@ function custodyBodyReader(root) {
     const starts = [[crlf, 4], [lf, 2]].filter(([at]) => at >= 0).sort((a, b) => a[0] - b[0]);
     if (!starts.length) refuse('custody_eml_body_separator_missing');
     const [at, width] = starts[0], body = bytes.subarray(at + width);
+    if (body.length === 0) refuse('custody_eml_body_empty');
     cache.set(sha, body); return body;
   };
 }
@@ -291,6 +292,7 @@ async function scanCustodyForIds({ dirs, wantedIds, sourceCustodyRoot = null }) 
   const ambiguous = new Set();
   const custodyShaDiffered = new Set();
   const collapsedIds = new Set();
+  const invalidIngestedIds = new Set(); let excludedInvalidIngested = 0;
   let filesScanned = 0;
   const EVENT_ID_RE = /"event_id"\s*:\s*"([A-Za-z0-9._:-]{1,200})"/u;
   for (const dir of dirs) {
@@ -312,6 +314,7 @@ async function scanCustodyForIds({ dirs, wantedIds, sourceCustodyRoot = null }) 
         try { raw = JSON.parse(line); } catch { continue; }
         const id = String(raw?.event_id ?? '').trim();
         if (id !== quick[1] || !wantedIds.has(id)) continue;
+        if (!toInstant(raw.ingested_at)) { invalidIngestedIds.add(id); excludedInvalidIngested++; continue; }
         if (ambiguous.has(id)) continue;
         const soft = softFingerprintOf(raw), sha = custodyShaOf(raw);
         const prior = found.get(id);
@@ -338,7 +341,8 @@ async function scanCustodyForIds({ dirs, wantedIds, sourceCustodyRoot = null }) 
     }
   }
   if (filesScanned === 0) refuse('custody_dirs_scanned_none');
-  return { found, ambiguous, custodyShaDiffered, collapsedIds, filesScanned };
+  if ([...invalidIngestedIds].some(id => !found.has(id) && !ambiguous.has(id))) refuse('mail_no_valid_ingested_at');
+  return { found, ambiguous, custodyShaDiffered, collapsedIds, filesScanned, excludedInvalidIngested };
 }
 
 // ---------------------------------------------------------------- unit building
@@ -540,7 +544,7 @@ export async function prepare({
 
   const dirs = [...hiworksEventsDirs.map(dir => ({ kind: 'hiworks', dir })),
     ...gmailSentEventsDirs.map(dir => ({ kind: 'gmail_sent', dir }))];
-  const { found, ambiguous, custodyShaDiffered, collapsedIds, filesScanned } = await scanCustodyForIds({ dirs: dirs.map(d => d.dir), wantedIds, sourceCustodyRoot });
+  const { found, ambiguous, custodyShaDiffered, collapsedIds, filesScanned, excludedInvalidIngested } = await scanCustodyForIds({ dirs: dirs.map(d => d.dir), wantedIds, sourceCustodyRoot });
 
   // Ambiguity (a genuine collision, or agreeing subject/time/sender but disagreeing
   // body bytes) is never tolerated by a count -- it means custody itself disagrees
@@ -622,6 +626,7 @@ export async function prepare({
       wanted_at_strength: wanted.length, files_scanned: filesScanned, ambiguous_in_custody: ambiguous.size,
       custody_sha_differed_across_records: custodyShaDiffered.size,
       collapsed_from_multiple_records: [...collapsedIds].length,
+      excluded_invalid_ingested_at: excludedInvalidIngested,
       selected_units: units.length, dropped_for_bounds: droppedForBudget,
       truncated_units: selected.filter(e => e.truncated).length,
       uncovered_by_custody: uncoveredByCustody,

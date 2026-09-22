@@ -390,6 +390,74 @@ test('a growing original mail cannot exceed its bounded read or pass its source 
   assert.deepEqual(readdirSync(s.outDir), []);
 });
 
+test('same-sha redelivery selects first stored derived values even if later parsing or classification differs', async () => {
+  const first = event({ id: 'same-sha-policy', subject: '합성 주제', body: '최초 파싱 본문을 그대로 사용합니다.', ingestedAt: '2026-09-01T02:00:00Z' });
+  const later = structuredClone(first);
+  later.ingested_at = '2026-09-01T05:00:00Z'; later.subject = 'RE: 합성 주제'; later.body_text = '나중 파싱 값은 자동 채택하지 않습니다.';
+  later.from[0].name = '가상 발신자 별칭'; later.to = [{ address: 'other@example.invalid', name: '가상 수신자' }];
+  later.metadata.classification = { bucket: 'different-synthetic-classification' };
+  const s = scenario({ events: [later, first], rows: [['same-sha-policy', [MINE], 'confirmed', '제목']] });
+  await prepare(prepareArgs(s, { project: MINE }));
+  const unit = JSON.parse(readFileSync(join(s.workDir, 'request.json'), 'utf8')).units[0];
+  assert.equal(unit.known_at, '2026-09-01T02:00:00.000Z');
+  assert.equal(unit.source_revision_ref.content_id, 'sha256:' + first.raw.source_custody.sha256);
+  assert.match(unit.text, /Subject: 합성 주제/); assert.match(unit.text, /최초 파싱 본문/); assert.doesNotMatch(unit.text, /나중 파싱|different-synthetic-classification|other@example/);
+});
+
+test('missing or invalid ingestion times exclude only those copies and count exclusions', async () => {
+  const s = headerVariantScenario(['동일 본문입니다.', '동일 본문입니다.', '동일 본문입니다.']);
+  delete s.records[0].ingested_at; s.records[1].ingested_at = 'invalid-instant'; custody(s.hiworksDir, s.records);
+  const manifest = await prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root }));
+  assert.equal(manifest.counts.excluded_invalid_ingested_at, 2); assert.equal(manifest.counts.selected_units, 1);
+  const unit = JSON.parse(readFileSync(join(s.workDir, 'request.json'), 'utf8')).units[0];
+  assert.equal(unit.source_revision_ref.content_id, 'sha256:' + s.records[2].raw.source_custody.sha256);
+});
+
+test('an id with no valid ingestion time left refuses even when uncovered sources are otherwise allowed', async () => {
+  const s = headerVariantScenario(['동일 본문입니다.', '동일 본문입니다.']);
+  delete s.records[0].ingested_at; s.records[1].ingested_at = 'invalid-instant'; custody(s.hiworksDir, s.records);
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root, allowUncovered: 1 })), /mail_no_valid_ingested_at/);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
+test('bad source-custody roots and missing original mail fail before any preparation output', async () => {
+  const s = headerVariantScenario(['동일 본문입니다.', '동일 본문입니다.']);
+  for (const root of [join(s.root, 'absent'), s.indexPath]) {
+    await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: root })), /source_custody_root_invalid/);
+  }
+  unlinkSync(join(s.root, ...s.records[1].raw.source_custody.storage_ref.split('/')));
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /custody_eml_path_invalid/);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
+test('a verified original without a body separator is refused', async () => {
+  const s = headerVariantScenario(['동일 본문입니다.', '동일 본문입니다.']);
+  const bytes = Buffer.from('Subject: synthetic\r\nReceived: no-separator\r\n');
+  const hex = createHash('sha256').update(bytes).digest('hex'), ref = `hiworks/sha256/${hex.slice(0, 2)}/${hex}.eml`;
+  const path = join(s.root, ...ref.split('/')); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, bytes);
+  Object.assign(s.records[0].raw.source_custody, { sha256: hex, storage_ref: ref }); custody(s.hiworksDir, s.records);
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /custody_eml_body_separator_missing/);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
+test('zero-byte bodies never prove a header-only variant', async () => {
+  const s = headerVariantScenario(['', '']);
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /custody_eml_body_empty/);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
+test('prepare CLI actually forwards --source-custody-root for header variants', () => {
+  const s = headerVariantScenario(['동일 본문입니다.', '동일 본문입니다.']);
+  const harness = join(REPO_ROOT, 'guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs');
+  const run = spawnSync(process.execPath, [harness, 'prepare', '--project', MINE, '--attribution-index', s.indexPath,
+    '--hiworks-events', s.hiworksDir, '--source-custody-root', s.root, '--out', s.outDir, '--now', NOW,
+    '--model-roles', s.modelRolesPath, '--offhost-approval', s.approvalPath], { encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  const manifest = JSON.parse(readFileSync(join(s.workDir, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.coverage.header_only_variants.length, 1);
+  assert.equal(manifest.counts.selected_units, 1);
+});
+
 test('a body past the unit bound is truncated and the truncation is recorded, without text in the manifest', async () => {
   const longBody = '문단'.repeat(5000);
   const s = scenario({ events: [event({ id: 'e0000000000004', subject: '긴 메일', body: longBody })],

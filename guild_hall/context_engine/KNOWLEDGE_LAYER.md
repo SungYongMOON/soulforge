@@ -119,6 +119,11 @@ GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 �
 - 같은 mail id의 원본 해시가 다를 때는 `--source-custody-root <approved_root>`를 추가한다. 자동 경로 추측은 없다.
   collector의 `hiworks/sha256/<prefix>/<sha>.eml` 경로만 읽고 전체 해시를 확인한 뒤 첫 CRLF/LF 빈 줄 아래 바이트를 대조한다.
   같은 본문이면 가장 이른 유효 ingested_at 저장본을 source_revision_ref 근거로 삼는다. 동률은 sha·메일함 소유자·레코드 지문 순서다.
+  최초 부 선택은 sha가 같은 재수집에도 적용한다. 이 규칙은 본문 바이트가 동일한 부들 사이에서만 작동한다 — 고를 대상이 같은 것들이라 잃는 게 없고, 나중에 새 부가 더 들어와도 이미 쓴 위키의 근거 포인터가 흔들리지 않는다.
+  내용이 바뀐 것은 이 규칙의 대상이 아니다(본문이 다르면 거부; 사람 정정은 정정 단위·철회 경로로).
+  ingested_at 없음/파싱 불가는 그 기록만 제외하고 counts.excluded_invalid_ingested_at에 센다. 해당 id에 유효한 기록이 하나도 남지 않으면 mail_no_valid_ingested_at으로 거부한다.
+  원본 비교에서 빈 본문은 custody_eml_body_empty로 거부한다. 동일 sha여도 파싱된 body_text·제목·참여자·분류 metadata의 동일성은 별도 보장되지 않는다.
+  K3는 선택한 최초 기록의 body_text·subject·발신 도메인·시각을 사용하고 to/cc·classification은 위키 문장 구성에 쓰지 않는다. 나중 파싱/분류값을 조용히 섞지 않는다.
   나머지 저장본의 메일함 소유자·sha256·수집 시각은 manifest.unit_materials의 unit별 재료 목록과 coverage.header_only_variants에 보존한다.
   이 목록은 manifest 지문에 묶이고 생성 영수증 coverage로 전달된다. K1 unit·위키 core·모델 입력 구조를 확장하지 않는다.
   모든 부를 검사하므로 3부 중 1부라도 본문이 다르면 전체 id를 거부한다. body_text 또는 디코딩/공백 정리 후 비교로 대신하지 않는다.

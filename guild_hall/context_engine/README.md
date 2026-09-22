@@ -29,6 +29,11 @@
   본문은 공백·줄바꿈·Unicode를 정규화하지 않는다. 한 부라도 다르면 기존 `mail_id_ambiguous_in_custody` 거부를 유지한다.
   `ingested_at`이 가장 이른 부의 원본 해시를 근거로 쓰고, 나머지 메일함 소유자·sha256을 manifest의
   `unit_materials`와 `coverage.header_only_variants`에 보존한다. K1 unit 구조는 바꾸지 않는다.
+  최초 저장본 선택은 **sha가 같은 재수집과 sha가 다른 배달본 모두**에 적용한다.
+  이 규칙은 본문 바이트가 동일한 부들 사이에서만 작동한다 — 고를 대상이 같은 것들이라 잃는 게 없고, 나중에 새 부가 더 들어와도 이미 쓴 위키의 근거 포인터가 흔들리지 않는다.
+  내용이 바뀐 것은 이 규칙의 대상이 아니다(본문이 다르면 거부; 사람 정정은 정정 단위·철회 경로로).
+  ingested_at이 없거나 파싱 불가인 부는 제외하고 개수를 남기며, 해당 id의 남은 부가 없으면 mail_no_valid_ingested_at으로 거부한다.
+  원본 비교에서 0바이트 본문은 동등성 근거로 쓰지 않고 custody_eml_body_empty로 거부한다.
   `custody_sha_differed_across_records`는 해시가 달랐던 id 수이며 허용된 머리글 차이도 포함한다.
   `raw.source_custody`가 아예 없는 레코드는 기본 거부이며 `--allow-record-fallback`을
   줘야 canonical hash로 대체한다.
