@@ -35,9 +35,14 @@
 // an argument. It calls no model beyond the extraction and embedding the index
 // generation already does, and it never deletes a store file.
 //
+// Who decides which mail is a project's: the workspace ledgers, when
+// `--mail-attribution` names their published index, and the inventory's older
+// narrow text rule otherwise. See `mail_routes.mjs` for why that is read as data.
+//
 // usage:
 //   node estate_graph_sync.mjs --root-table <file> --projects P26-014,P23-043
 //        --receipts <dir> [--binding graph_index_binding.unified.json] [--dry]
+//        [--mail-attribution [<alias address>]] [--mail-attribution-sha256 sha256:...]
 //        [--root-table-sha256 sha256:...] [--json]
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -52,6 +57,7 @@ import { prepareSourceDocuments } from '../src/runtime/source_preparation.mjs';
 import { validateSourceGrant, SOURCE_GRANT_SCHEMA } from '../src/runtime/source_documents.mjs';
 import { validateDocumentTools } from '../src/runtime/document_tools.mjs';
 import { grantCandidates } from './estate_inventory.mjs';
+import { MAIL_ATTRIBUTION_INDEX_ADDRESS, mailAttributionCounts, readMailAttributionIndex } from './mail_routes.mjs';
 
 export const GRAPH_SYNC_SCHEMA = 'soulforge.context_graph_sync_receipt.v1';
 export const GRAPH_SYNC_PENDING_SCHEMA = 'soulforge.context_graph_sync_pending.v1';
@@ -216,8 +222,32 @@ async function applyLink({ io, bindingAddress, bindingSha256, projectRef, graphB
     counts: applied.counts ?? null };
 }
 
+/** Per-source-kind add/retire/unchanged, from one grant difference. Counts only. */
+export function scopeChangeByKind(previous, next) {
+  const kindOf = new Map([...(previous.sources ?? []), ...(next.sources ?? [])]
+    .map(source => [source.root_ref, source.kind ?? 'unknown']));
+  const before = itemsOf(previous), after = itemsOf(next);
+  const rows = {};
+  for (const root of new Set([...before.keys(), ...after.keys()])) {
+    const kind = kindOf.get(root) ?? 'unknown';
+    const row = rows[kind] ?? (rows[kind] = { add: 0, retire: 0, unchanged: 0 });
+    const had = before.get(root) ?? new Set(), has = after.get(root) ?? new Set();
+    for (const id of has) { if (had.has(id)) row.unchanged += 1; else row.add += 1; }
+    for (const id of had) if (!has.has(id)) row.retire += 1;
+  }
+  return Object.fromEntries(Object.entries(rows).sort((a, b) => a[0].localeCompare(b[0])));
+}
+
 export async function syncProject({ io, rootTable, project, bindingFile = 'graph_index_binding.unified.json',
-  receiptsDir, dry = false, now = new Date().toISOString(), runWorker = undefined } = {}) {
+  receiptsDir, dry = false, now = new Date().toISOString(), runWorker = undefined,
+  // Who decides which mail is this project's. Supplied (by `main()` from the
+  // workspace ledgers' published index), the ledgers decide; omitted, the
+  // inventory's own narrow text rule still does. There is deliberately no third
+  // state: a pass that was told to use the ledgers and could not read them fails in
+  // `main()` before it reaches any project, because falling back to the narrow rule
+  // would silently retire every mail the ledgers place by a rule the mail body does
+  // not repeat -- a correction nobody made, applied to every project at once.
+  mailAttribution = null } = {}) {
   if (!PROJECT_CODE.test(project ?? '')) fail('graph_sync_project_invalid');
   if (!BINDING_FILE.test(bindingFile)) fail('graph_sync_binding_invalid');
   const bindingAddress = `control_root/project-bindings/${project}/${bindingFile}`;
@@ -250,7 +280,7 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
   try {
     everyCode = readdirSync(io.path('data_root/20_PROJECTS', true)).filter(name => PROJECT_CODE.test(name));
   } catch { everyCode = null; }
-  const candidates = grantCandidates({ io, code: project, roots, dataClass, everyCode });
+  const candidates = grantCandidates({ io, code: project, roots, dataClass, everyCode, mailAttribution });
   const stopped = stoppedSet(ledger);
   const scope = { items: candidates.reduce((total, source) => total + source.items.length, 0),
     by_root: Object.fromEntries(candidates.map(source => [source.root_ref, source.items.length])),
@@ -259,6 +289,11 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     // project's to load, and they are not lost either: the next pass re-applies
     // the rules to the same custody.
     unattributed: candidates.unattributed ?? null,
+    // What the workspace ledgers' attribution index said for this project, when one
+    // was supplied: which index (built when, which bytes), how many mails it gives
+    // this project, and how many of those nobody has confirmed yet. Null when the
+    // narrow text rule decided instead, so a receipt always says which rule ran.
+    mail_attribution: candidates.mail ?? null,
     // What the voice route ledger said, when a voice root is bound: how many
     // confirmations were read, which ledgers could not be read, and which
     // sessions this pass refused to place. Null when no voice root is bound.
@@ -272,7 +307,8 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     scope, steps: {}, isolated: [] };
 
   if (dry) {
-    const difference = grantDifference(grant, { ...grant, sources: without(candidates, stopped) });
+    const proposed = { ...grant, sources: without(candidates, stopped) };
+    const difference = grantDifference(grant, proposed);
     // A grant that already matches custody is not the same as a project already
     // in the database: a project with no generation yet has work to do either way.
     let selected = null;
@@ -280,7 +316,14 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     catch { selected = null; }
     return Object.freeze({ ...receipt, selected_generation: selected,
       grant: { in_force: grant.grant_id, proposed: null, ...difference,
-        added_count: difference.added.length, removed_count: difference.removed.length },
+        added_count: difference.added.length, removed_count: difference.removed.length,
+        // The same difference said per source kind, which is what a person reads
+        // when they want to know what re-attributing the mail would actually do:
+        // how many mails would join this project, how many would leave it, and how
+        // many would stay exactly where they are. A retire here is not a deletion --
+        // it is the item leaving the next generation, which is how this store has
+        // always corrected itself.
+        by_kind: scopeChangeByKind(grant, proposed) },
       status: difference.changed ? 'WOULD_UPDATE' : selected === null ? 'WOULD_CREATE' : 'UNCHANGED' });
   }
 
@@ -383,7 +426,10 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     elapsed_ms: Date.now() - started };
   receipt.grant = { in_force: grant.grant_id, proposed: placed,
     ...(difference ?? { added: [], removed: [], changed: false }),
-    added_count: difference?.added.length ?? 0, removed_count: difference?.removed.length ?? 0 };
+    added_count: difference?.added.length ?? 0, removed_count: difference?.removed.length ?? 0,
+    // The same per-kind add/retire/unchanged the dry pass reports, against the grant
+    // this pass actually offered, so a real run and its preview read alike.
+    by_kind: scopeChangeByKind(grant, { ...grant, sources: offered }) };
 
   const withLedger = body => {
     writeLedger(receiptsDir, ledger, now);
@@ -475,13 +521,30 @@ async function main() {
   const dry = flags.get('dry') === true;
   const bindingFile = String(flags.get('binding') ?? 'graph_index_binding.unified.json');
 
+  // Who decides a mail's project, read once for the whole pass. `--mail-attribution`
+  // with no value takes the default address; a value names another. Read here and
+  // not per project, both because the index is one file and because a failure has to
+  // stop every project at once: one project syncing under the ledgers while the next
+  // falls back to the narrow text rule would split the same mail two ways.
+  const attributionFlag = flags.get('mail-attribution');
+  let mailAttribution = null;
+  if (attributionFlag !== undefined) {
+    const address = attributionFlag === true ? MAIL_ATTRIBUTION_INDEX_ADDRESS : String(attributionFlag);
+    const expected = flags.get('mail-attribution-sha256');
+    mailAttribution = readMailAttributionIndex({ io, address,
+      expectedSha256: typeof expected === 'string' ? expected : null });
+    process.stdout.write(`mail-attribution built_at=${mailAttribution.built_at} `
+      + `attributed=${mailAttribution.counts.attributed} confirmed=${mailAttribution.counts.confirmed} `
+      + `unconfirmed=${mailAttribution.counts.unconfirmed}\n`);
+  }
+
   let failures = 0;
   for (const project of projects) {
     const now = new Date().toISOString();
     const where = path.join(receiptsDir, project);
     let result;
     try {
-      result = await syncProject({ io, rootTable, project, bindingFile, receiptsDir: where, dry, now });
+      result = await syncProject({ io, rootTable, project, bindingFile, receiptsDir: where, dry, now, mailAttribution });
     } catch (error) {
       // One project that cannot be synced does not stop the others: the reason is
       // written down and the pass moves on, which is what a scheduled run must do.
@@ -497,6 +560,11 @@ async function main() {
     process.stdout.write(flags.get('json') === true ? `${JSON.stringify(result)}\n`
       : `${project} ${result.status}${result.code ? ` ${result.code}` : ''} `
         + `grant=+${result.grant?.added_count ?? '-'}/-${result.grant?.removed_count ?? '-'} `
+        + (result.grant?.by_kind?.mail
+          ? `mail=+${result.grant.by_kind.mail.add}/-${result.grant.by_kind.mail.retire}`
+            + `/=${result.grant.by_kind.mail.unchanged}`
+            + `${result.scope?.mail_attribution ? ` (미확인 ${result.scope.mail_attribution.unconfirmed})` : ''} `
+          : '')
         + `index=${result.steps?.index?.status ?? '-'} `
         + `isolated=${result.isolated?.length ?? 0} `
         + `load=${result.steps?.load?.loaded === true ? 'loaded' : (result.steps?.load?.code ?? '-')} `

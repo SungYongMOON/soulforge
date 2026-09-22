@@ -33,6 +33,12 @@ param(
   [Parameter(Mandatory = $true)][string]$RootTableSha256,
   [Parameter(Mandatory = $true)][string]$ReceiptsRoot,
   [Parameter(Mandatory = $true)][string]$Projects,
+  # The alias address of the workspace ledgers' published mail attribution index
+  # (lane graph-sync-v3). Given, the ledgers decide which mail is which project's
+  # and the task carries that address in its own action line; omitted, the sync
+  # keeps deciding by the older rule -- the project code standing alone in the
+  # mail text -- and nothing about the registered task changes.
+  [string]$MailAttribution,
   [string]$TaskName = "SoulforgeGraphSync",
   [string]$ExpectedDryRunDigest,
   [string]$ExpectedExistingTaskSha256,
@@ -173,6 +179,7 @@ $SyncArguments = @(
   "--projects", $Projects,
   "--receipts", $ReceiptsRoot
 )
+if ($MailAttribution) { $SyncArguments += @("--mail-attribution", $MailAttribution) }
 
 # Preflight: the same entry point, in the mode that writes nothing.
 $PreflightOutput = @(& $NodePath $Entry @SyncArguments "--dry" 2>&1)

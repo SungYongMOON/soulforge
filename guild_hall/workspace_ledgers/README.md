@@ -1937,12 +1937,61 @@ node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --
    그대로다 -- `install_skill.mjs --check`가 비교하는 대상(렌더된 바이트 전체)은 바뀌지
    않는다. `SKILL.md`의 앞머리 `version`을 0.1.0 -> 0.1.1로 올렸다.
 
+## 메일 귀속 색인 (`ops/mail_attribution_index.mjs`, 2026-09-22)
+
+이 모듈이 정한 메일-과제 귀속을 **데이터로 한 번 내보내는** 자리다. 과제별 원장은 이
+경로에서 읽지 않으며 Owner 표도 손대지 않는다. 쓰는 파일은 색인 하나뿐이고 `--dry`는
+아무것도 쓰지 않는다.
+
+왜 필요한가: 맥락 엔진의 그래프 색인 lane은 "이 메일이 어느 과제 것인가"를 스스로,
+훨씬 좁은 규칙(메일 본문·제목에 과제코드가 단독 토큰으로 나오는가)으로 정하고 있었다.
+한 질문에 규칙이 둘이면 갈라진다. 이 파일은 네 번째 분류기가 아니라
+`classifyAllCommonMail`(같은 읽기 전용 pass, `triage.mjs`가 읽는 바로 그것)이 이미
+내린 판단을 적어 둘 뿐이다.
+
+- 나가는 값: 메일 id, 귀속 과제코드, 귀속 강도, 분류기 자신의 고정 `basis` 토큰.
+- 절대 나가지 않는 값: 제목·본문·주소·이름·거래처명·Owner의 `이유`/`근거` 자유 문구,
+  그리고 그것들로 만든 라벨. 나가는 값은 전부 id·과제코드·이 파일이 선언한 닫힌 어휘다.
+
+귀속 강도의 경계는 새로 만든 것이 아니라 이 모듈이 이미 쓰는 것과 같다
+(`refresh()`의 `project_search_eligible_attributions`, 위 A2 item 5).
+
+| 강도 | 무엇 | 하류 표시 |
+| --- | --- | --- |
+| `confirmed` | 과제 제목규칙 적중(`제목`), 묶음_확정표 적중(`묶음 확정`), 또는 `Owner확인` 칸이 채워진 판독 결정 | 확정된 근거로 보여도 된다 |
+| `unconfirmed` | `Owner확인`이 빈 판독 결정(`include_with_review` 전부 포함), 4단계 공급사 본문 tie-break(`본문`) | 미확인으로 구분해 보여야 한다 |
+
+귀속하지 않는 것과 그 이유: 제목 두 과제 겹침(`held`), `hold_owner_review`,
+`vendor_only`, `exclude`, 그리고 미정. 색인에 줄 자체가 없으며, 줄이 없다는 것이
+하류에서 그 메일이 과제를 떠나게 만드는 신호다. 거래처 주소만으로는 절대 귀속되지
+않는다 — 4단계는 본문에 그 과제의 정확한 용어가 하나만 있을 때에만 성립한다.
+
+fail-closed: Owner 표가 깨졌거나, 어느 과제의 저장된 규칙이 컴파일되지 않거나, custody
+디렉터리를 읽지 못하면 한 바이트도 쓰지 않고 전체가 멈춘다. 부분 색인은 없는 것보다
+나쁘다 — 규칙이 깨진 과제는 자기 메일을 전부 잃고, 하류는 그것을 "이 메일들은 이제 우리
+것이 아니다"로 읽어 회수해 버린다.
+
+```
+node guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs \
+  --workspaces-root <dir> --org-config <file> \
+  --hiworks-events <dir> --gmail-sent-events <dir> \
+  --out <control_root>/mail-routes/mail_attribution_index.json \
+  [--org-config-sha256 sha256:...] [--dry] [--json]
+```
+
+읽는 쪽은 맥락 엔진의 `guild_hall/context_engine/harness/mail_routes.mjs`이며,
+`estate_graph_sync.mjs --mail-attribution <주소>`가 그 주소를 받는다(lane
+`graph-sync-v3`). 이 모듈은 그쪽을 import 하지 않고 그쪽도 이 모듈을 import 하지
+않는다 — 오가는 것은 파일 하나다. 색인은 이 lane과 별개로 만들어져야 하므로, 그래프
+동기화보다 먼저 도는 자리(하루 갱신 lane 직후)에 붙이는 것이 Owner 결정 사항이다.
+
 ## Not yet wired (계획)
 
-- Attribution into the project document/index store is **planned**, not implemented
-  here. `ops/daily_refresh.mjs` above is the nightly automation chain for the ledger
-  writers themselves; a project document/index adapter consuming those ledgers is a
-  separate, still-future piece.
+- Attribution into the project document/index store is now **published as data**
+  (`ops/mail_attribution_index.mjs` above); what still has no writer is the
+  `10_입력자료/<KIND>/references` correction path on the context-engine side -- see
+  that module's own README. `ops/daily_refresh.mjs` above is the nightly automation
+  chain for the ledger writers themselves, and the index build is not yet part of it.
 - Initial rule *authoring* for a brand-new project (before any `v1` exists) is out of
   scope -- `saveRuleVersion` versions an existing rule.
 

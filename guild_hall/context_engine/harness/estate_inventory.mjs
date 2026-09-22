@@ -36,6 +36,7 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { validateGraphBinding } from '../src/runtime/graph_extraction.mjs';
 import { inspectGraphDatabase } from '../src/runtime/graph_database.mjs';
 import { VOICE_LIBRARY_INDEX_ADDRESS, VOICE_ROUTES_ADDRESS, voiceGrantItems } from './voice_routes.mjs';
+import { mailAttributionCounts, mailAttributionFor } from './mail_routes.mjs';
 
 export const ESTATE_INVENTORY_SCHEMA = 'soulforge.context_estate_inventory.v1';
 // A project folder is a code: upper-case letters and digits in hyphen-joined
@@ -182,14 +183,30 @@ async function mailCandidates(io, roots, codes) {
 // not name a voice root gets no voice items at all, however many confirmations
 // exist -- the binding is still what decides which roots are looked at.
 export function grantCandidates({ io, code, roots, dataClass = 'company_internal', everyCode = null,
+  mailAttribution = null,
   voiceRoutesAddress = VOICE_ROUTES_ADDRESS, voiceLibraryIndexAddress = VOICE_LIBRARY_INDEX_ADDRESS } = {}) {
   const item = extra => ({ revision_policy: 'latest_in_custody', revision_sha256: null, data_class: dataClass, ...extra });
   // `everyCode`: the codes the estate knows. Given it, the same pass over the mail
   // files also counts the events that name none of them -- items no rule attributes
   // anywhere, which a caller keeps as pending rather than as absent.
   const known = Array.isArray(everyCode) && everyCode.length ? everyCode : null;
+  // `mailAttribution` (from `mail_routes.mjs`): who decides a mail's project.
+  //
+  // Given one, the workspace ledgers decide it -- the Owner's saved subject rules,
+  // the bundle table, the reading table and the vendor table, read back here as the
+  // index they publish. The mail's own text decides nothing, exactly as a voice
+  // recording's position in the inbox decides nothing. Omitted (the inventory's own
+  // reporting pass, and every caller that has no index to hand), the older, much
+  // narrower rule still applies: the project code standing alone in the subject or
+  // the body. The two are kept apart on purpose and never blended -- a run must be
+  // able to say WHICH rule placed its mail, and a missing index must never quietly
+  // degrade a ledger-attributed lane back to the narrow rule. The caller that wants
+  // the ledgers is the one that must fail closed when it cannot read them.
+  const attributed = mailAttribution === null ? null : mailAttributionFor(mailAttribution, code);
   const unattributed = { mail_events: 0, mail_events_scanned: 0,
-    reason: 'no project code appears as a standalone token in the subject or the body' };
+    reason: attributed === null
+      ? 'no project code appears as a standalone token in the subject or the body'
+      : 'the workspace ledgers attribute this mail to no project' };
   const sources = [];
   let voice = null;
   const add = (kind, rootRef, items) => {
@@ -221,11 +238,21 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
             let event;
             try { event = JSON.parse(raw); } catch { continue; }
             const text = [event.subject ?? '', event.body_text ?? ''].join(String.fromCharCode(10));
+            const eventId = String(event.event_id ?? '');
             if (known !== null) {
               unattributed.mail_events_scanned += 1;
-              if (mailCodesIn(text, known).length === 0) unattributed.mail_events += 1;
+              // Under the ledgers, "no project" is the index not holding this mail at
+              // all; under the narrow rule it is no code standing alone in the text.
+              const placed = attributed === null
+                ? mailCodesIn(text, known).length > 0
+                : mailAttribution.byMail.has(eventId);
+              if (!placed) unattributed.mail_events += 1;
             }
-            if (mailCodesIn(text, [code]).length === 0) continue;
+            // The file still has to be walked whatever decides: the grant item needs
+            // the year and month file this event is actually in, and only custody
+            // knows that. What changed is who decides, not where the event is found.
+            const mine = attributed === null ? mailCodesIn(text, [code]).length > 0 : attributed.has(eventId);
+            if (!mine) continue;
             rows.push(item({ item_id: event.event_id, path: [year, file] }));
           }
         }
@@ -244,6 +271,19 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
   // The array is what every caller already uses; the count rides along for the
   // one caller that asked for it, so neither has to scan the mail twice.
   if (known !== null) Object.defineProperty(ordered, 'unattributed', { value: Object.freeze(unattributed), enumerable: false });
+  // Which rule placed this project's mail, and -- under the ledgers -- how much of
+  // it nobody has confirmed yet. `attributed` counts what the INDEX gives this
+  // project; `in_custody` counts how much of that custody actually still holds, and
+  // the two differing is the honest way to see a mail the ledgers place here that
+  // the collector no longer has. Counts only: no ids leave here.
+  if (attributed !== null) {
+    const held = sources.filter(source => source.kind === 'mail')
+      .reduce((total, source) => total + source.items.length, 0);
+    Object.defineProperty(ordered, 'mail', { enumerable: false,
+      value: Object.freeze({ decided_by: 'workspace_ledgers_attribution_index',
+        built_at: mailAttribution.built_at, index_sha256: mailAttribution.index_sha256,
+        ...mailAttributionCounts(mailAttribution, code), in_custody: held }) });
+  }
   // Which confirmations were read, which the pass could not read, and which
   // sessions it refused to place. A voice root that is bound but holds nothing
   // for this project still reports zero rather than nothing at all.

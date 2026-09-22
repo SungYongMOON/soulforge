@@ -807,6 +807,60 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 - 시험: `tests/voice_conversation_list_nightly.test.mjs`. 모든 "run" 경로는 `runSession`을 주입해 실제 모델을
   부르지 않는다.
 
+## 메일의 과제를 누가 정하는가 (`harness/mail_routes.mjs`, lane graph-sync-v3, 2026-09-22)
+
+메일은 사서함으로 오지 과제로 오지 않는다. 제목에 과제코드가 있는 메일은 여러 신호 중
+하나일 뿐이고, 이 estate에는 코드를 전혀 달지 않은 채 분명히 어딘가에 속하는 메일이
+수천 통 있다 — 2026-09-21 회차 기준 4,145통을 훑어 4,102통이 "어느 과제도 아님"으로
+남았다. 정하는 쪽은 `guild_hall/workspace_ledgers`다: Owner가 저장한 과제별 제목규칙,
+묶음_확정표, 판독_결정표, 거래처_대응표. 그 모듈이 판단을 **색인 파일 하나**로 내보내고
+이쪽은 그것을 주소로 읽는다.
+
+음성이 이미 같은 모양이다. 녹음이 받은함에 있다는 사실은 아무것도 귀속하지 않고, 사람이
+확정한 구간만 귀속하며, `voice_routes.mjs`는 그것을 세션 폴더가 아니라 경로 원장에서
+읽는다. 메일도 이제 메일 본문이 아니라 이 색인에서 자기 과제를 읽는다. 한 질문, 한
+주인, 한 답 — 그리고 답이 데이터로 오기 때문에 이쪽은 그것을 만든 분류기를 import 하지도,
+다시 구현하지도 않는다(모듈 간 import 없음, 순환 없음).
+
+- 주소: `control_root/mail-routes/mail_attribution_index.json`
+  (`MAIL_ATTRIBUTION_INDEX_ADDRESS`), 스키마 `soulforge.mail_attribution_index.v0`.
+- 결정점은 하나다: `estate_inventory.mjs`의 `grantCandidates` mail 갈래.
+  `mailAttribution`이 주어지면 원장이 정하고, 없으면 예전의 좁은 규칙(과제코드가 본문·
+  제목에 단독 토큰으로 나오는가)이 그대로 남는다. 둘은 절대 섞이지 않으며, 영수증은 항상
+  어느 규칙이 돌았는지 말한다(`scope.mail_attribution`이 `null`이면 좁은 규칙).
+- 읽지 못하면 멈춘다. `main()`이 색인을 **회차 시작 전에 한 번** 읽고, 없거나 깨졌거나
+  digest가 다르면 어느 과제도 시작하지 않는다. 좁은 규칙으로 되돌아가는 조용한 fallback은
+  없다 — 그랬다면 원장이 붙인 메일이 전부, 아무도 내리지 않은 결정으로 색인을 떠난다.
+- 귀속 강도는 그대로 실려 온다. `confirmed`(제목규칙·묶음표·Owner확인된 판독)와
+  `unconfirmed`(Owner확인 없는 판독, `include_with_review`, 공급사 본문 tie-break) 둘 다
+  grant에 들어가되, 하류가 구분해 보여줄 수 있도록 강도가 따라간다.
+- 귀속하지 않는 것: 제목 두 과제 겹침, `hold_owner_review`, `vendor_only`, Owner가 확정한
+  제외. 색인에 줄이 없고, 줄이 없는 것이 다음 회차에서 그 메일을 과제에서 **회수**한다.
+
+회수가 어떻게 일어나는가(이 저장소의 원래 교정 규칙 그대로, 새 writer 없음): 색인이 더
+이상 그 메일을 말하지 않으면 다음 grant에서 빠지고 → `grantDifference`가 `removed`로 세고
+→ 다음 세대의 documents에 없고 → `materializeGraphIndex`가 이전 세대를 supersede 하면서
+그 노드를 내린다. `--dry`와 실제 회차 둘 다 `grant.by_kind.mail`로 `add`/`retire`/
+`unchanged`를 과제별 수로 보고하므로 조용히 남는 것은 없다.
+
+**아직 writer가 없는 곳(Owner 판단 필요).** `10_입력자료/<KIND>/references/*.json`은
+`preparation_store.mjs`가 create-only로만 쓰고 이 저장소는 파일을 지우지 않는다. 그
+디렉터리는 graph-sync lane이 쓰는 곳이 아니라 `preparation_flow.mjs`가 쓰는 곳이며,
+스키마 `soulforge.context_source_reference.v1`에는 candidate/observed 표식이 **없다**
+(`scope`는 음성 구간이고 doc_key identity의 일부라 쓸 수 없다). 그래서 (a) 재귀속된 메일의
+옛 reference 파일은 남고, (b) `unconfirmed` 표식은 reference 본문이 아니라 색인과
+graph-sync 영수증으로만 흐른다. 고정된 스키마에 필드를 더하는 것은 이 조각의 범위 밖이며,
+회수 수는 영수증에 세어 남긴다.
+
+```
+node guild_hall/context_engine/harness/estate_graph_sync.mjs \
+  --root-table <file> --projects P26-014,... --receipts <dir> \
+  --mail-attribution [<alias address>] [--mail-attribution-sha256 sha256:...] [--dry]
+```
+
+색인을 만드는 쪽은 `guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs`다.
+시험은 `tests/mail_attribution_routes.test.mjs`.
+
 ## 과제를 넘나드는 공통 용어 등록부
 
 여러 과제가 같은 일을 하니 같은 말을 쓴다. CDR·수신부·앰프·해상시험이 그렇고, 그런 말 하나로는 어떤 기록이

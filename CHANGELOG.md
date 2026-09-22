@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-09-22 - 메일의 과제를 원장이 정한다: 귀속 색인 한 벌과 그래프 색인 lane의 결정점 교체(lane graph-sync-v3)
+
+- Revision: 같은 질문("이 메일은 어느 과제 것인가")에 규칙이 둘이었다. `guild_hall/workspace_ledgers`는
+  Owner가 저장한 과제별 제목규칙·묶음_확정표·판독_결정표·거래처_대응표로 정하고(하루 갱신 회차
+  기준 1,018건이 검색 근거로 쓸 수 있는 귀속), 맥락 엔진의 그래프 색인 lane은 그것을 모르는 채
+  훨씬 좁은 자기 규칙 — 메일 제목·본문에 과제코드가 단독 토큰으로 나오는가 — 으로 따로 정하고
+  있었다. 그래서 같은 회차에 메일 4,145통을 훑고 4,102통이 "어느 과제도 아님"으로 남았다.
+- 무엇이 바뀌었는가: **(1)** `guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs`(신규).
+  이 모듈이 이미 쓰는 읽기 전용 pass `classifyAllCommonMail`(=`classifyProjectHits` 하나)을 돌려
+  그 판단을 색인 파일 하나로 내보낸다. 네 번째 분류기가 아니며 분류를 다시 구현하지 않는다.
+  원장 CSV와 Owner 표는 이 경로에서 읽기 전용이고, 쓰는 파일은 색인 하나뿐이며 `--dry`는 아무것도
+  쓰지 않는다. 나가는 값은 메일 id·과제코드·귀속 강도·분류기 자신의 고정 `basis` 토큰뿐이고
+  제목·본문·주소·이름·거래처명·Owner의 자유 문구는 나가지 않는다(시험으로 고정).
+  강도의 경계는 새로 만들지 않고 이 모듈이 이미 쓰는 것과 같다(`project_search_eligible_attributions`,
+  README A2 item 5): `confirmed`는 제목규칙·묶음표·`Owner확인`이 채워진 판독, `unconfirmed`는
+  `Owner확인`이 빈 판독(`include_with_review` 전부)과 4단계 공급사 본문 tie-break. 제목 두 과제
+  겹침·`hold_owner_review`·`vendor_only`·`exclude`·미정은 줄 자체가 없다. 거래처 주소만으로는
+  귀속되지 않는다(4단계는 본문에 그 과제의 정확한 용어가 하나만 있을 때만 성립).
+  Owner 표가 깨졌거나 어느 과제의 규칙이 컴파일되지 않거나 custody를 읽지 못하면 한 바이트도 쓰지
+  않고 전체가 멈춘다 — 부분 색인은 하류에서 "이 메일들은 이제 우리 것이 아니다"로 읽혀 회수를
+  일으키기 때문이다. **(2)** `guild_hall/context_engine/harness/mail_routes.mjs`(신규)가 그 색인을
+  alias 주소로 읽고, `estate_inventory.mjs`의 `grantCandidates` mail 갈래 — 이 질문의 **단 하나의
+  결정점** — 이 그것으로 과제를 정한다. 음성이 이미 같은 모양이다(녹음의 위치가 아니라 경로 원장이
+  귀속을 정한다). 모듈 간 import는 없고 오가는 것은 파일 하나이므로 `context_engine`의
+  `required_dependencies`도 runtime closure도 바뀌지 않는다. **(3)** `estate_graph_sync.mjs`가
+  `--mail-attribution [<주소>]`(+`--mail-attribution-sha256`)를 받아 색인을 **회차 시작 전에 한 번**
+  읽는다. 없거나 깨졌거나 digest가 다르면 어느 과제도 시작하지 않으며, 좁은 규칙으로 되돌아가는
+  조용한 fallback은 없다. 플래그가 없으면 예전 규칙 그대로다. **(4)** 영수증: `--dry`와 실제 회차
+  둘 다 `grant.by_kind`로 종류별 `add`/`retire`/`unchanged`를 과제별 수로 적고,
+  `scope.mail_attribution`이 어느 색인이 돌았는지(built_at·digest·귀속수·미확인수)를 적는다. 수만
+  적으며 id는 적지 않는다. 회수는 이 저장소의 원래 교정 규칙 그대로다 — 색인이 말하지 않으면 다음
+  grant에서 빠지고, 다음 세대의 documents에 없고, `materializeGraphIndex`가 이전 세대를 supersede
+  한다. 새 writer를 만들지 않았다.
+- 남은 빈자리(Owner 판단 필요, 범위 밖): `10_입력자료/<KIND>/references/*.json`은
+  `preparation_store.mjs`가 create-only로만 쓰고(이 저장소는 파일을 지우지 않는다) 그 디렉터리를
+  쓰는 것은 graph-sync lane이 아니라 `preparation_flow.mjs`다. 고정된 스키마
+  `soulforge.context_source_reference.v1`에는 candidate/observed 표식이 없어(`scope`는 음성 구간이고
+  doc_key identity의 일부다) `unconfirmed` 표식은 색인과 영수증으로만 흐르며, 재귀속된 메일의 옛
+  reference 파일은 남는다. 고정 스키마에 필드를 더하지 않았다.
+- lane: `graph-sync-v2` -> `graph-sync-v3`(제자리 재빌드 금지 원칙에 따라 새 id). tracked_paths는
+  `guild_hall/context_engine/` 접두사가 이미 덮어 바뀌지 않았고 entry_points도 그대로다.
+  `ops/register-graph-sync-task.ps1`에 선택 인자 `-MailAttribution`을 더했다(주면 예약작업 실행줄에
+  실리고, 안 주면 등록되는 작업은 지금과 똑같다).
+- 검증: `validate:context-engine`·`validate:workspace-ledgers`·`validate:module-operability`·
+  `validate:path-policy:all`·`validate:canon`·`validate:display-terms`·`validate:source-lane`·
+  `node guild_hall/validate/boot_digest_guard.mjs` 모두 끝값 0. 새 시험 16건(합성 메일·합성 원장·
+  합성 Owner 표만, 전부 `os.tmpdir()` 아래): 귀속 등급별 착지, 추가·무변화(같은 입력 두 번 = 같은
+  제안), 재귀속 시 회수+추가, 겹침/보류/거래처만/제외 비귀속, 미확인 표식, `--dry` 무기록, 깨진
+  표·규칙 fail-closed, 과제 격리(한 메일이 두 과제 저장소에 동시에 들어가지 않는다 — Owner가 표에
+  명시적으로 공유한 경우만 예외).
+- 운영 영향: 없음 — 코드·lane 명세·문서·시험만 바뀌었다. 색인을 실제로 만드는 것, lane을 다시
+  빌드하는 것, `-MailAttribution`으로 예약작업을 다시 등록하는 것은 모두 Owner의 행위이며 이 변경
+  밖이다. 플래그를 주기 전까지 운영 회차의 동작은 지금과 같다.
+- 관련 경로: `guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs`,
+  `guild_hall/workspace_ledgers/tests/mail_attribution_index.test.mjs`,
+  `guild_hall/workspace_ledgers/README.md`,
+  `guild_hall/context_engine/harness/{mail_routes.mjs,estate_inventory.mjs,estate_graph_sync.mjs}`,
+  `guild_hall/context_engine/tests/mail_attribution_routes.test.mjs`,
+  `guild_hall/context_engine/ops/register-graph-sync-task.ps1`,
+  `guild_hall/context_engine/README.md`,
+  `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`, `package.json`
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 봇 판독 도구 첫 실사용 후속 수정: 수신일/판독일 서울 날짜(lane v3)·꼬리말 정정(SKILL 0.1.1)
 
 - Revision: 봇 판독 도구의 첫 실사용(라이브 시험) 뒤에 드러난 겉보기 결함 3건. 모두 분류
