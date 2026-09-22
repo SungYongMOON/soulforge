@@ -444,7 +444,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
         ? checkBoundaryProposal(answer.value, { windowSegmentIds: window.segment_ids })
         : { ok: false, code: answer.status === 'budget_exhausted' ? 'llm_budget_exhausted' : 'boundary_llm_failed' };
       if (answer.cached !== true) {
-        reaskTrace.push({ step: 'boundary', item: `window_${window.index + 1}`, reason, attempt, accepted: checked.ok });
+        // `outcome` is what the fresh call actually came back as -- `null`
+        // when accepted, otherwise its own code, which is not always
+        // `reason` (a call that fails outright reports
+        // `boundary_llm_failed`/`llm_budget_exhausted`, not a repeat of the
+        // semantic reason that triggered this attempt).
+        reaskTrace.push({ step: 'boundary', item: `window_${window.index + 1}`, reason, attempt,
+          accepted: checked.ok, outcome: checked.code });
         if (!checked.ok && checked.code === reason) break;
       }
     }
@@ -520,9 +526,23 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   // about, not just against the JSON Schema: a plain `new Map(rows.map(...))`
   // would silently drop an id the batch never had and resolve a repeated id
   // to whichever occurrence came last, and now that "absent from this map"
-  // is load-bearing (`nature_missing_from_batch_answer`, below) those two
-  // shapes need their own name and their own re-ask rather than quietly
-  // becoming a different segment's wrong answer.
+  // is load-bearing (`nature_missing_from_batch_answer`, below) those shapes
+  // need their own name and their own re-ask rather than quietly becoming a
+  // different segment's wrong answer or a whole batch's needless rejection.
+  //
+  // A stray extra row (an id the batch never asked about, alongside every
+  // wanted id answered exactly once) is common enough on its own -- a model
+  // padding its answer, or restating an id from an earlier turn -- that
+  // hard-rejecting the *whole batch* over it would cost one re-ask call per
+  // wanted segment for something that was never actually missing: at
+  // `nature_segments_per_call` segments per call, one habitual extra row
+  // could turn one call into `nature_segments_per_call + 1`. That shape is
+  // accepted (the extra row is simply not in the map any wanted id is read
+  // from) and recorded as a mark, counts only, on the segments it produced.
+  // Only a genuinely ambiguous batch -- a duplicated id (which id is the
+  // wanted one is no longer knowable), or an extra id *alongside* a still-
+  // missing wanted id (the batch's shape does not match the request at all)
+  // -- is rejected outright.
   const askNature = async (batch, extra = '') => {
     const body = batch.map(entry => `[${entry.segment_id}] 발화 ${entry.ids[0]}–${entry.ids.at(-1)}`
       + ` · 화행 ${entry.acts.join(',') || '-'} · 품질 ${entry.marks.join(',') || '-'}`
@@ -531,17 +551,22 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     const answer = await ask({ step: 'nature', system: prompts.nature,
       user: `구간 ${batch.length}개\n\n${body}${extra ? `\n\n${extra}` : ''}`, schema: NATURE_ANSWER });
     const cached = answer.cached === true;
-    if (answer.status !== 'ok') return { map: null, idsValid: null, cached };
+    if (answer.status !== 'ok') return { map: null, idsValid: null, extraIds: [], cached };
     const wanted = new Set(batch.map(entry => entry.segment_id));
     const rows = answer.value.segments ?? [];
-    const seen = new Set();
-    let idsValid = true;
+    const seen = new Set(), extraIds = [];
+    let duplicated = false;
     for (const row of rows) {
       const id = String(row.segment_id);
-      if (!wanted.has(id) || seen.has(id)) { idsValid = false; break; }
+      if (seen.has(id)) { duplicated = true; break; }
       seen.add(id);
+      if (!wanted.has(id)) extraIds.push(id);
     }
-    return { map: new Map(rows.map(row => [String(row.segment_id), row])), idsValid, cached };
+    const missing = [...wanted].some(id => !seen.has(id));
+    const idsValid = !duplicated && !(extraIds.length > 0 && missing);
+    const kept = idsValid ? rows.filter(row => wanted.has(String(row.segment_id))) : rows;
+    return { map: new Map(kept.map(row => [String(row.segment_id), row])),
+      idsValid, extraIds: idsValid ? extraIds : [], cached };
   };
   const entryFor = (segment, ids) => ({ segment_id: segment.segment_id, ids,
     acts: [...new Set(ids.map(id => unitFor.get(id)).filter(Boolean).flatMap(unit => unit.speech_acts ?? []))],
@@ -560,7 +585,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     if (found.map === null) return { ok: false, code: 'nature_llm_failed' };
     if (found.idsValid === false) return { ok: false, code: 'nature_batch_answer_ids_invalid' };
     const row = found.map.get(entry.segment_id) ?? null;
-    return row === null ? { ok: false, code: 'nature_missing_from_batch_answer' } : natureCheckFor(entry, row);
+    if (row === null) return { ok: false, code: 'nature_missing_from_batch_answer' };
+    const checked = natureCheckFor(entry, row);
+    return checked.ok && found.extraIds.length > 0
+      ? { ...checked, marks: [...(checked.marks ?? []), 'nature_batch_answer_extra_ids'] } : checked;
   };
 
   /**
@@ -596,7 +624,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       const reasked = await askNature([entry], sentence);
       checked = checkedFrom(entry, reasked);
       if (reasked.cached !== true) {
-        reaskTrace.push({ step: 'nature', item: windowItem(entry), reason, attempt, accepted: checked.ok });
+        // `outcome`: see the boundary loop's matching comment -- a fresh
+        // call's own code, not always a repeat of `reason`.
+        reaskTrace.push({ step: 'nature', item: windowItem(entry), reason, attempt,
+          accepted: checked.ok, outcome: checked.code });
         if (!checked.ok && checked.code === reason) break;
       }
     }
@@ -918,6 +949,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     calls: counters.calls, retries: counters.retries, cache_hits: counters.cache_hits,
     budget_exhausted: counters.budget_exhausted, remaining_work: remainingWork.length,
     verified: list.verified,
+    // `run_manifest.json` (below) is overwritten every pass, so its own
+    // `reasks`/`splits` only ever show the *last* pass; `run_passes.jsonl`
+    // is append-only, so a count here is the only place a later reader can
+    // see whether an already-terminal (unverified, no more calls) run ever
+    // actually tried a re-ask or a split at all.
+    reasks: reaskTrace.length, reasks_accepted: reaskTrace.filter(row => row.accepted).length,
+    splits: splitTrace.length,
     latency_ms: latencies.length === 0 ? null : { min: latencies[0], median: latencies[Math.floor(latencies.length / 2)],
       max: latencies.at(-1), mean: Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) } };
   const passes = [...before, thisPass];

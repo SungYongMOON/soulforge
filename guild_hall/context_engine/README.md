@@ -63,11 +63,12 @@ conversation_list.mjs`, 다섯 프롬프트 파일, 기존 CLI·야간 lane의 �
   시험으로 확인(정확히 신선한 호출 1회로 낫는다). **양쪽 재질문이 모두 신선한 호출로 실패하면
   그 항목은 모델·설정·프롬프트 중 하나가 바뀌어 새 run id를 열기 전까지 `remaining_work`에
   그대로 남는다** — 시간이 지난다고 저절로 없어지지 않는다.
-- (필수, C2-2) 옛 `askNature`의 `new Map(rows.map(r => [String(r.segment_id), r]))`는 배치 밖 id를
-  조용히 버리고 중복 id는 마지막 것으로 덮어썼다. "이 Map에 없음"이 이제
-  `nature_missing_from_batch_answer`로 의미를 갖게 됐으므로, 배치가 답한 적 없는 id나 중복 id가
-  섞인 답은 그 자체로 새 코드 `nature_batch_answer_ids_invalid`로 거부하고(의미 거부와 같은
-  자격으로 재질문 대상), 그 구간 하나만 다시 묻는다.
+- (필수, C2-2 -- 2차 검토로 R2-1이 세부 규칙을 다시 좁혔다, 아래 참고) 옛 `askNature`의
+  `new Map(rows.map(r => [String(r.segment_id), r]))`는 배치 밖 id를 조용히 버리고 중복 id는
+  마지막 것으로 덮어썼다. "이 Map에 없음"이 이제 `nature_missing_from_batch_answer`로 의미를
+  갖게 됐으므로, 배치 답의 id가 요청과 어긋나면(중복이거나, 배치 밖 id가 있으면서 원래 물은
+  id 중 하나가 빠졌으면) 그 자체로 새 코드 `nature_batch_answer_ids_invalid`로 거부하고(의미
+  거부와 같은 자격으로 재질문 대상), 그 구간 하나만 다시 묻는다.
 - (should, C2-3) `reasks`/`splits`의 `item`은 구간 id뿐 아니라 창 범위까지 담는다
   (`<segment_id>:<첫 발화>-<끝 발화>`) — **재질문 상한(`MAX_SEMANTIC_REASKS`)은 (step, 구간)이 아니라
   (step, 창) 단위**다: 긴 구간 하나가 여러 창으로 나뉘면 창마다 독립된 재질문 예산을 갖는다.
@@ -82,20 +83,45 @@ conversation_list.mjs`, 다섯 프롬프트 파일, 기존 CLI·야간 lane의 �
   (`src/runtime/voice_conversation_list.mjs`가 이제 내보내는 `BOUNDARY_PROPOSAL_REJECTION_CODES`/
   `NATURE_REJECTION_CODES`와 대조).
 
-시험: `tests/voice_conversation_list_reask.test.mjs`(신규 15건) — 거부 없는 세션의 요청 바이트가
-그대로임, `boundary_not_monotonic` 재질문 성공(1회)·같은 실수 반복 시 신선한 호출 뒤 조기 정지·
-**그 중단된 run이 다음 회차에 신선한 호출 정확히 1회로 낫는 시험**, `nature_title_names_a_project`가
-다음 회차에 낫는 시험, 배치 누락 재질문 시험과 영원히 안 낫는 경우 실제 원인 기록 시험, 배치 답의
-id가 배치 밖·중복·"누락+미지 id 동시"인 세 시험(전부 `nature_batch_answer_ids_invalid`로 거부·
-재질문), 진짜 호출 실패가 다음 회차에 새로 재시도됨(호출 0회 재생 아님) 시험, 긴 구간 창 분할
-시험(`splits` 필드로 확인)과 예산 소진 시 분할이 실제로 막히는 시험, `classifySession`이 미검증
-run을 계속 `run`으로 다시 계획함을 보이는 시험, `SEMANTIC_REASK_SENTENCES` 전수 대조 시험.
-`tests/voice_conversation_list_agent_step.test.mjs`에 4건 추가(거부된 agent 답의 새 pending,
-`number` 타입, 짝 없는 surrogate 거부, 깊이 중첩된(그러나 200KB 미만) 답이 스키마 검사에서 먼저
-막혀 스택 오버플로 대신 exit 5로 깨끗이 거부됨 — 순서를 스키마 검사 먼저로 바꾼 결과, 실측: `answer`가
-`findControlCharacter`를 스키마 검사보다 먼저 부르던 옛 순서로 깊이 4000단계 구조체를 넣으면
-그 함수 혼자서 "Maximum call stack size exceeded"로 죽지만 `JSON.parse`는 그 깊이에서 멀쩡함을
-직접 확인). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`tests/voice_conversation_list_
+2차 신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 없음(merge-ready)·should 2건·nit 3건:
+- (should, R2-1) `checkedFrom`이 배치 답에 **배치 밖 id가 하나라도 있으면** 통째로 거부했다 --
+  물은 구간 전부가 정확히 한 번씩 답해졌어도, 모델이 여분의 행 하나만 더 냈다는 이유로 구간마다
+  자기 재질문을 태웠다(`nature_segments_per_call`개 구간 배치라면 1회 호출이 최대 `+1`회로
+  불어나 `llm_calls` 예산을 갉아먹을 수 있었다). 이제 **거부는 중복 id, 또는 "배치 밖 id가 있으면서
+  물은 id 중 하나가 빠짐" 두 경우로만** 좁혔다 -- 물은 id가 전부 정확히 한 번씩 나왔으면(여분의
+  행이 섞여 있어도) 그 행들은 그대로 받아들이고, 여분의 id는 재질문 없이 표시(`nature_marks`에
+  `nature_batch_answer_extra_ids`, 건수만)로만 남긴다.
+- (should, R2-2) `run_manifest.json`은 매 회차 덮어써서 `reasks`/`splits`가 그 회차만 보여준다 --
+  이미 끝난(더 부를 호출이 없는) 미검증 run은 재질문이 시도되긴 했는지조차 나중에 알 수 없었다.
+  append-only인 `run_passes.jsonl`의 `thisPass`에 `reasks`/`reasks_accepted`/`splits`(건수만)를
+  더했다.
+- (nit, R2-3) `reaskTrace` 항목에 `outcome: checked.code`를 더했다 -- 재질문의 실제 호출이 실패로
+  끝나면(`boundary_llm_failed`/`llm_budget_exhausted` 등) 그 결과가 `reason`(이 시도를 촉발한
+  의미 거부 이유)과 다를 수 있는데, 예전엔 그 구분이 안 보였다.
+- (nit, R2-5) 이 문단과 lane spec의 해당 문단 모두 런타임 파일(`src/runtime/voice_conversation_
+  list.mjs`, 새 export 2개)을 명시하고 "런타임 불변" 서술을 걷어냈다 -- 그 export들은 동작을
+  바꾸지 않지만 그 파일 자체가 바뀐 것은 사실이다.
+- (nit, R2-6) 이 절의 시험 건수·`tests/voice_conversation_list_agent_step.test.mjs` 추가 건수
+  서술이 실제 시험 파일과 어긋나 있었다 -- 아래 문단에서 바로잡았다.
+
+시험: `tests/voice_conversation_list_reask.test.mjs`(신규 17건, 2차 검토분 2건 포함) — 거부 없는
+세션의 요청 바이트가 그대로임, `boundary_not_monotonic` 재질문 성공(1회)·같은 실수 반복 시 신선한
+호출 뒤 조기 정지·**그 중단된 run이 다음 회차에 신선한 호출 정확히 1회로 낫는 시험**,
+`nature_title_names_a_project`가 다음 회차에 낫는 시험, 배치 누락 재질문 시험과 영원히 안 낫는
+경우 실제 원인 기록 시험, 배치 답의 id가 물은 것과 정확히 하나씩 맞으면서 여분이 있는 경우는
+**호출 1회로 그대로 받아들이고 마크만 남기는** 시험, 중복 id·"누락+미지 id 동시"인 두 시험은
+그대로 `nature_batch_answer_ids_invalid`로 거부·재질문, 진짜 호출 실패가 다음 회차에 새로
+재시도됨(호출 0회 재생 아님) 시험, 긴 구간 창 분할 시험(`splits` 필드로 확인)과 예산 소진 시
+분할이 실제로 막히는 시험, `classifySession`이 미검증 run을 계속 `run`으로 다시 계획함을 보이는
+시험, `SEMANTIC_REASK_SENTENCES` 전수 대조 시험, `run_passes.jsonl`의 `reasks`/`reasks_accepted`/
+`splits` 시험, 재질문 `outcome`이 `reason`과 다를 수 있음을 보이는 시험.
+`tests/voice_conversation_list_agent_step.test.mjs`에 3건 추가(거부된 agent 답의 새 pending 1건,
+짝 없는 surrogate 거부 1건, 깊이 중첩된(그러나 200KB 미만) 답이 스키마 검사에서 먼저 막혀 스택
+오버플로 대신 exit 5로 깨끗이 거부됨을 보이는 1건 — 순서를 스키마 검사 먼저로 바꾼 결과, 실측:
+`answer`가 `findControlCharacter`를 스키마 검사보다 먼저 부르던 옛 순서로 깊이 4000단계 구조체를
+넣으면 그 함수 혼자서 "Maximum call stack size exceeded"로 죽지만 `JSON.parse`는 그 깊이에서
+멀쩡함을 직접 확인; `number` 타입 사례는 새 시험이 아니라 기존 스키마 검사기 시험에 추가한
+대조문이다). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`tests/voice_conversation_list_
 nightly.test.mjs`(97건)는 무수정으로 전부 그대로 통과(바이트 동일성의 또 다른 증거).
 `npm run validate:context-engine`에 새/갱신 시험 파일이 들어갔다.
 

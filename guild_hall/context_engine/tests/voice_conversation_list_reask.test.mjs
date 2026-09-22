@@ -366,25 +366,33 @@ test('a nature answer omitted forever (never healed) is reported by its real cau
 // A plain `new Map(rows.map(r => [String(r.segment_id), r]))` would silently
 // drop an id the batch never had and resolve a repeated id to whichever
 // occurrence came last -- now that "absent from this map" is load-bearing
-// (`nature_missing_from_batch_answer`, above), an id that should never have
-// been in the map at all needs its own name and its own re-ask too.
-test('a nature batch answer naming an id outside the batch is rejected and re-asked, not silently accepted', async () => {
+// (`nature_missing_from_batch_answer`, above), a duplicated id or an extra
+// id alongside a still-missing one needs its own name and its own re-ask.
+// A *bare* extra id -- every wanted id answered exactly once, plus one the
+// batch was never asked about -- is accepted instead (R2-1, fresh-eyes
+// review round 2): hard-rejecting the whole batch over a single stray row
+// would cost one re-ask call per wanted segment for something that was
+// never actually missing.
+test('a nature batch answer with one extra id but every wanted id present exactly once is accepted, marked, in a single call', async () => {
   const dirs = await estate();
   let natureCalls = 0;
   const answer = await run(dirs, twoSegmentScript(user => {
     natureCalls += 1;
     const ids = segmentIdsInUser(user);
     if (ids.length > 1) {
-      // A structurally valid batch answer (schema-passing, so cached) that
-      // names a segment id ('c999') this batch never asked about.
+      // A structurally valid batch answer that names a segment id ('c999')
+      // this batch never asked about, alongside both wanted ids intact.
       return natureFor([...ids, 'c999']);
     }
     return natureFor(ids);
   }));
-  assert.equal(answer.verified, true, 'the single-segment re-ask supplied a clean answer for each segment');
-  assert.ok(natureCalls >= 3, 'both segments needed their own re-ask after the invalid batch answer');
+  assert.equal(answer.verified, true);
+  assert.equal(natureCalls, 1, 'accepted from the one batch call -- no re-ask needed for a bare extra row');
   const reasks = await reasksOf(answer);
-  assert.ok(reasks.entries.filter(row => row.reason === 'nature_batch_answer_ids_invalid' && row.accepted).length >= 2);
+  assert.equal(reasks.total, 0, 'a bare extra id is a mark, not a rejection');
+  const list = JSON.parse(await readFile(path.join(answer.directory, 'conversation_list.v0.json'), 'utf8'));
+  const marked = list.segments.filter(row => row.nature_marks.includes('nature_batch_answer_extra_ids'));
+  assert.equal(marked.length, 2, 'both segments came from the same batch call, so both carry the mark');
 });
 
 test('a nature batch answer repeating the same id twice is rejected and re-asked, not silently resolved to the last one', async () => {
@@ -540,4 +548,56 @@ test('a nature window split never fires once this run has already spent its budg
   const splits = await splitsOf(answer);
   assert.equal(splits.total, 0, 'the split guard held: budget_exhausted stopped it before it could try');
   assert.ok(answer.remaining_work.some(row => row.step === 'nature'));
+});
+
+// ============================================================ run_passes.jsonl
+test('run_passes.jsonl records reasks/reasks_accepted/splits for this pass, since run_manifest.json is overwritten every pass', async () => {
+  const dirs = await estate();
+  let boundaryCalls = 0;
+  const answer = await run(dirs, ({ step, user }) => {
+    if (step === 'boundary') {
+      boundaryCalls += 1;
+      if (boundaryCalls === 1) {
+        const ids = idsInUser(user);
+        const mid = Math.ceil(ids.length / 2);
+        return { segments: [{ draft_id: 'd2', source_segment_ids: ids.slice(mid), boundary_reason: 'topic_shift',
+          related_draft_ids: [] }, { draft_id: 'd1', source_segment_ids: ids.slice(0, mid),
+          boundary_reason: 'topic_shift', related_draft_ids: [] }] };
+      }
+      return plainScript({ step, user });
+    }
+    return plainScript({ step, user });
+  });
+  assert.equal(answer.verified, true);
+  const passes = (await readFile(path.join(answer.directory, 'run_passes.jsonl'), 'utf8'))
+    .split('\n').filter(Boolean).map(line => JSON.parse(line));
+  assert.equal(passes.length, 1);
+  assert.deepEqual([passes[0].reasks, passes[0].reasks_accepted, passes[0].splits], [1, 1, 0],
+    'the one accepted re-ask is visible in the append-only pass log, not only in the overwritten manifest');
+});
+
+// ============================================================ outcome vs reason
+test('a re-ask whose fresh call fails outright records its own outcome, not the semantic reason that triggered it', async () => {
+  const dirs = await estate();
+  const answer = await run(dirs, ({ step, user }) => {
+    if (step === 'boundary') {
+      const ids = idsInUser(user);
+      // The original answer is missing a segment (a semantic rejection);
+      // the one re-ask attempt then fails outright (invalid_json, every
+      // attempt within ask()'s own retry budget) rather than repeating that
+      // same rejection.
+      if (!user.includes('재요청')) {
+        return { segments: [{ draft_id: 'd1', source_segment_ids: ids.slice(1), boundary_reason: 'topic_shift',
+          related_draft_ids: [] }] };
+      }
+      return null;
+    }
+    return plainScript({ step, user });
+  });
+  assert.equal(answer.verified, false);
+  const reasks = await reasksOf(answer);
+  assert.equal(reasks.total, 1);
+  assert.deepEqual([reasks.entries[0].reason, reasks.entries[0].outcome, reasks.entries[0].accepted],
+    ['boundary_segment_missing', 'boundary_llm_failed', false],
+    'outcome is the fresh call’s own result, not a repeat of the reason that triggered the attempt');
 });

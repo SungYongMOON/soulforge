@@ -157,6 +157,43 @@
   `guild_hall/context_engine/ops/register-graph-sync-task.ps1`,
   `guild_hall/context_engine/README.md`,
   `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`, `package.json`
+## 2026-09-22 - 대화 목록 파이프라인 재질문 수리 3차(round-2) 검토 반영: 여분 id 허용·회차 로그 보강·문서 정정(lane v6 그대로, merge-ready)
+
+- Revision: 직전 재질문 수리 커밋(round-1 검토 반영)에 대한 두 번째 신선한 눈 검토 -- "tip
+  merge-ready, 필수 0건, 실제 backlog 실행 전 마지막 should/nit". 지적마다 회귀 시험을 붙여 반영.
+- 무엇이 바뀌었는가: **(should, R2-1)** `checkedFrom`이 배치 답에 배치 밖 id가 하나라도 있으면
+  통째로 거부했다 -- 물은 구간 전부가 정확히 한 번씩 답해졌어도 모델이 여분의 행 하나만 더 내면
+  구간마다 자기 재질문을 태워, `nature_segments_per_call`개 배치라면 호출 1회가 최대 `+1`회로
+  불어나 `llm_calls` 예산을 갉아먹을 수 있었다. 거부는 이제 **중복 id**, 또는 **배치 밖 id가
+  있으면서 물은 id 중 하나가 빠진 경우** 두 가지로만 좁혔다 -- 물은 id가 전부 정확히 한 번씩
+  나왔으면 여분의 행이 섞여 있어도 그대로 받아들이고, 여분은 재질문 없이 `nature_marks`에
+  `nature_batch_answer_extra_ids`(건수만)로 표시한다. **(should, R2-2)** `run_manifest.json`은
+  매 회차 덮어써서 `reasks`/`splits`가 그 회차만 보여준다 -- 이미 끝난(더 부를 호출이 없는)
+  미검증 run은 재질문이 시도되긴 했는지조차 나중에 알 수 없었다. append-only `run_passes.jsonl`의
+  `thisPass`에 `reasks`/`reasks_accepted`/`splits`(건수만)를 더했다. **(nit, R2-3)** `reaskTrace`
+  항목에 `outcome: checked.code`를 더해, 재질문의 실제 호출이 실패로 끝났을 때(예:
+  `boundary_llm_failed`) 그 결과가 이 시도를 촉발한 의미 거부 이유(`reason`)와 다를 수 있음을
+  구분해 보이게 했다. **(nit, R2-5)** 이 문서와 lane spec 문단이 "런타임 불변"이라 썼지만
+  round-1 검토에서 `src/runtime/voice_conversation_list.mjs`에 대조용 export 2개를 이미 더했던
+  것을 바로잡았다(동작은 그대로, export만 추가 -- `verify_module.mjs`의 runtime-closure sha256은
+  round-1부터 round-2까지 계속 불변).
+- 검증: `tests/voice_conversation_list_reask.test.mjs` 17건(2건 추가: `run_passes.jsonl`의
+  `reasks`/`reasks_accepted`/`splits`, 재질문 `outcome`이 `reason`과 다를 수 있음, 기존 "배치 밖
+  id" 시험은 새 규칙에 맞춰 "호출 1회로 받아들이고 마크만 남긴다"로 다시 씀). 기존
+  `tests/voice_conversation_list.test.mjs`(51건)·`voice_conversation_list_nightly.test.mjs`(97건)는
+  무수정으로 전부 그대로 통과. `npm run validate:context-engine`: 779건 중 771 통과·8 skip·0
+  실패(끝값 0). `verify_module.mjs`의 runtime-closure sha256은 여전히 불변 -- `module_version`
+  미변경. `validate:context-original-read`·`validate:source-lane`·`validate:module-operability`·
+  `validate:path-policy:all`·`validate:canon`·`validate:display-terms`·`node guild_hall/validate/
+  boot_digest_guard.mjs` 모두 끝값 0. lane spec은 `context-read-v6` 그대로 -- lane을 임시
+  디렉터리에 새로 빌드하고 `--verify`까지 통과(커밋 뒤 갱신).
+- 운영 영향: 없음 -- 코드·시험·문서만 바뀌었다. 이 수리가 실제 backlog 실행에 반영되는 것은 이
+  변경 밖이다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_cli.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_reask.test.mjs`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`,
+  `guild_hall/context_engine/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - 대화 목록 파이프라인 재질문 수리 2차 검토 반영: 시도별 바이트 분리·배치 id 검증·분할 예산 가드(lane v6 그대로)
 
 - Revision: 직전 재질문(re-ask) 수리 커밋에 대한 신선한 눈 검토 -- "병합 불가, 필수 2건". 지적마다
@@ -192,8 +229,9 @@
 - 검증: `tests/voice_conversation_list_reask.test.mjs` 15건(6건 추가: 같은 실수 반복 뒤 조기
   정지·다음 회차 신선한 호출 1회로 치유, 배치 답의 id가 배치 밖·중복·"누락+미지 동시"인 세 경우,
   `SEMANTIC_REASK_SENTENCES` 전수 대조, 예산 소진 시 분할 가드). `tests/voice_conversation_list_
-  agent_step.test.mjs` 19건(3건 추가: `number` 타입, 짝 없는 surrogate, 깊이 중첩 답의 안전한
-  거부). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`voice_conversation_list_nightly.
+  agent_step.test.mjs` 19건(신규 시험 2건 추가: 짝 없는 surrogate 거부, 깊이 중첩 답의 안전한
+  거부 -- `number` 타입 사례는 새 시험이 아니라 기존 스키마 검사기 시험에 추가한 대조문). 기존
+  `tests/voice_conversation_list.test.mjs`(51건)·`voice_conversation_list_nightly.
   test.mjs`(97건)는 무수정으로 전부 그대로 통과. `npm run validate:context-engine`: 777건 중 769
   통과·8 skip·0 실패(끝값 0). `verify_module.mjs`의 runtime-closure sha256은 불변 --
   `module_version` 미변경. `validate:context-original-read`·`validate:source-lane`·
