@@ -1,4 +1,4 @@
-﻿[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
 <#
   Registers the one scheduled task that keeps the unified graph database level
   with what the collectors hold: `SoulforgeGraphSync`, every 30 minutes, hidden,
@@ -47,6 +47,13 @@ param(
   # -- which is what catches "the Owner changed the routing rules and nobody rebuilt
   # the index". Strongly recommended whenever -MailAttribution is used.
   [string]$MailAttributionOrgConfig,
+  # The alias address of the folder holding the Owner tables (묶음_확정표.csv,
+  # 판독_결정표.csv, 거래처_대응표.csv). Given, the sync re-hashes every table the
+  # index names and refuses one that has been edited since the index was built. The
+  # org config only says WHERE the tables are; the tables hold the decisions, and an
+  # Owner edits the two independently -- so this is the check that actually binds a
+  # routing decision, and -MailAttributionOrgConfig does not replace it.
+  [string]$MailAttributionOwnerTables,
   # Pins the index to ONE exact set of bytes. Deliberately NOT defaulted: the index
   # is rebuilt as mail arrives, so a digest captured at registration stops matching
   # on the next build and the task would fail closed every day from then on.
@@ -199,6 +206,7 @@ if ($MailAttribution) {
   $SyncArguments += @("--mail-attribution", $MailAttribution,
     "--mail-attribution-max-age", [string]$MailAttributionMaxAge)
   if ($MailAttributionOrgConfig) { $SyncArguments += @("--mail-attribution-org-config", $MailAttributionOrgConfig) }
+  if ($MailAttributionOwnerTables) { $SyncArguments += @("--mail-attribution-owner-tables", $MailAttributionOwnerTables) }
   if ($MailAttributionSha256) { $SyncArguments += @("--mail-attribution-sha256", $MailAttributionSha256) }
 }
 
@@ -263,6 +271,7 @@ $Plan = [ordered]@{
   mail_attribution = $MailAttribution
   mail_attribution_max_age = $MailAttributionMaxAge
   mail_attribution_org_config = $MailAttributionOrgConfig
+  mail_attribution_owner_tables = $MailAttributionOwnerTables
   mail_attribution_sha256 = $MailAttributionSha256
   action_sha256 = Get-Sha256Text -Value ($WScriptExe + "`n" + $HiddenActionArgumentLine)
   existing_task_sha256 = $ActualExistingTaskSha256
@@ -273,6 +282,7 @@ $PlanDigest = Get-Sha256Text -Value ($Plan | ConvertTo-Json -Depth 4 -Compress)
 $AttributionLine = if ($MailAttribution) {
   "mail_attribution=$MailAttribution max_age_h=$MailAttributionMaxAge" `
     + $(if ($MailAttributionOrgConfig) { " org_config=$MailAttributionOrgConfig" } else { " org_config=(none)" }) `
+    + $(if ($MailAttributionOwnerTables) { " owner_tables=$MailAttributionOwnerTables" } else { " owner_tables=(none)" }) `
     + $(if ($MailAttributionSha256) { " pinned=yes" } else { " pinned=no" })
 } else { "mail_attribution=(none: narrow text rule still decides)" }
 if (-not $Register) {

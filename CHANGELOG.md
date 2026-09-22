@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## 2026-09-22 - 메일 귀속 색인 2차 검토 반영: Owner 표 내용까지 묶기, 양끝 연결 시험, 스키마 v1
+
+- Revision: 2차 비작성자 검토(merge-ready, REQUIRED 0)에서 나온 S4·S5와 nit 4건.
+- **S4 (표 내용이 묶이지 않음)**: org config 재해시는 **그 파일 하나**만 묶는다. 검토자 probe —
+  어디에도 없는 판독표 digest를 적은 색인이 그대로 수락됨 — 대로, Owner의 실제 라우팅 판단이
+  들어 있는 **표 내용**은 max-age 말고 아무것도 묶지 않고 있었다. 그런데 README와 머리말은
+  이 검사가 낡은 라우팅 판단 일반을 잡는 것처럼 적혀 있었다. 둘 다 고쳤다: 소비 쪽에
+  `--mail-attribution-owner-tables <폴더 주소>`를 더해 색인의 `inputs.owner_tables[]`를
+  basename으로 그 폴더에서 찾아 sha를 다시 대조하고
+  (`mail_attribution_index_owner_tables_changed` / `..._owner_tables_unavailable`),
+  `file`이 평범한 이름이 아니면 폴더 밖을 읽지 못하도록 거부한다. 등록기에도 선택 인자
+  `-MailAttributionOwnerTables`를 더했다. **인자가 없을 때의 동작은 그대로 두고**, 대신
+  README·머리말 문장을 검사하는 것만 정확히 적도록 좁혔다(org config는 그 파일만, 표는
+  max-age로만 제한됨, 둘은 서로를 대신하지 못함).
+- **S5 (양끝 연결)**: 한 estate 위에서 원장이 실제로 색인을 **만들고**, 이쪽이 그것을 **읽고**,
+  나온 grant를 색인 자신의 답과 대조하는 시험 1건. 다른 모든 시험은 이쪽 계약을 빌더와 무관하게
+  고정하려고 색인을 손으로 쓰므로, 두 반쪽이 실제로 맞물리는지 — 특히 **메일 id가 양쪽에서 같은
+  것을 뜻하는지** — 는 이 시험만이 확인한다. 제목규칙·묶음표·`include_with_review` 세 경로가
+  각각 제 강도로 도착하고 `hold_owner_review`·미분류는 도착하지 않음을 함께 확인한다.
+  `src/` 간 교차 import는 없다(시험 파일 한 곳뿐이고 lane 명세는 tests 폴더를 제외한다).
+- **N4**: 스키마 토큰 `soulforge.mail_attribution_index.v0` -> `.v1`. 읽는 쪽이
+  `content_sha256`과 `inputs.org_config_sha256`을 요구하게 됐으므로 v0과 같은 이름을 쓸 수 없다.
+  v0 산출물은 어디에도 없다 — 실평면 실행은 `--dry`뿐이었고 아무것도 쓰지 않았다.
+- **N5**: CLI가 `MailAttributionIndexError`의 `message`를 찍는다(어느 표가 안 읽혔는지 같은,
+  조치에 필요한 detail이 `code`만 찍을 때 버려지고 있었다). 다른 오류는 경로가 섞일 수 있으므로
+  그대로 `code`만 찍는다.
+- **N6**: `ops/register-graph-sync-task.ps1`의 BOM 제거. 원본에는 없었고 지난 회차의 내 편집이
+  넣은 것이며, 이 파일은 BOM 말고는 순수 ASCII다(한글 경로 .ps1에 BOM이 필요하다는 규칙은 본문에
+  한글이 있는 파일에 대한 것이라 여기 해당하지 않는다).
+- **N7**: 인자 네 개가 늘어 등록기 **plan digest가 바뀐다**. 등록기는 dry-run이 찍은 digest를
+  `-ExpectedDryRunDigest`로 돌려받아야 진행하므로 예전 값은 맞지 않는다 — `-Register` 전에
+  dry-run을 다시 돌려 새 digest를 받으라는 한 줄을 context_engine README에 넣었다.
+- 검증: 8종 모두 끝값 0. 새 시험 2건(총 28건), 전부 `os.tmpdir()` 아래 합성 자료.
+- 관련 경로: `guild_hall/context_engine/{harness/mail_routes.mjs,harness/estate_graph_sync.mjs,ops/register-graph-sync-task.ps1,README.md}`,
+  `guild_hall/context_engine/tests/mail_attribution_routes.test.mjs`,
+  `guild_hall/workspace_ledgers/{ops/mail_attribution_index.mjs,README.md}`
+
 ## 2026-09-22 - 메일 귀속 색인 외부 검토 반영: 찢어진 쓰기·표 없이 통과·낡은 색인 세 구멍 막기
 
 - Revision: 바로 아래 변경(`d7453fff`)에 대한 비작성자 검토에서 REQUIRED 3건 + SHOULD 3건 +

@@ -40,6 +40,19 @@
 // beyond a small clock-skew allowance is refused the same way: it would otherwise
 // make an index immortal.
 //
+// What the input checks actually bind, said exactly (S4, fresh review round 2):
+//   orgConfigAddress   given, the org config on disk must hash to the one the index
+//                      says it was built from. This binds THAT FILE only.
+//   ownerTablesDir     given, every table the index lists in `inputs.owner_tables`
+//                      must still hash to the sha recorded there, matched by
+//                      basename inside this directory. Without it, an index citing
+//                      a reading-table digest that matches nothing on disk is
+//                      accepted -- the Owner's own routing decisions are then bound
+//                      by nothing but `maxAgeHours`.
+// Neither flag makes the other unnecessary: the org config names where the tables
+// are, the tables hold the decisions, and an Owner edits the two independently.
+// With neither, staleness of both is bounded only by age.
+//
 // Pinning: `expectedSha256` matches EITHER the file's own digest OR the index's
 // `content_sha256` -- the digest of everything except `built_at`. The file digest
 // changes on every rebuild even when no decision changed, so it can only pin one
@@ -48,7 +61,7 @@
 // digest; one freezing one exact file passes the file digest.
 import { createHash } from 'node:crypto';
 
-export const MAIL_ATTRIBUTION_INDEX_SCHEMA = 'soulforge.mail_attribution_index.v0';
+export const MAIL_ATTRIBUTION_INDEX_SCHEMA = 'soulforge.mail_attribution_index.v1';
 export const MAIL_ATTRIBUTION_INDEX_ADDRESS = 'control_root/mail-routes/mail_attribution_index.json';
 export const MAIL_ATTRIBUTION_STRENGTHS = Object.freeze(['confirmed', 'unconfirmed']);
 export const MAIL_ATTRIBUTION_LIMITS = Object.freeze({ index_bytes: 64 * 1024 * 1024,
@@ -62,6 +75,10 @@ export const MAIL_ATTRIBUTION_LIMITS = Object.freeze({ index_bytes: 64 * 1024 * 
 
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const SHA = /^sha256:[0-9a-f]{64}$/u;
+// A table's `file` is joined onto a directory the caller named, so it must be one
+// plain name: no separator, no traversal, nothing that could reach a second folder.
+// `.` and `..` carry no separator of their own and are excluded by name.
+const SAFE_BASENAME = /^(?!\.{1,2}$)[^/\\:*?"<>|]{1,255}$/u;
 const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/u;
 const ROW_FIELDS = ['mail_id', 'projects', 'strength', 'basis'];
 
@@ -103,7 +120,7 @@ function validRow(row) {
  */
 export function readMailAttributionIndex({ io, address = MAIL_ATTRIBUTION_INDEX_ADDRESS, expectedSha256 = null,
   maxAgeHours = MAIL_ATTRIBUTION_LIMITS.default_max_age_hours, now = new Date().toISOString(),
-  orgConfigAddress = null } = {}) {
+  orgConfigAddress = null, ownerTablesDir = null } = {}) {
   let bytes;
   try { bytes = io.read(address, MAIL_ATTRIBUTION_LIMITS.index_bytes); }
   catch { fail('mail_attribution_index_unavailable'); }
@@ -137,12 +154,31 @@ export function readMailAttributionIndex({ io, address = MAIL_ATTRIBUTION_INDEX_
   // When the caller knows where the org config is, the index has to have been built
   // from the one that is there now. An Owner who changed the routing configuration
   // and has not rebuilt the index yet is exactly the case that would otherwise apply
-  // yesterday's rules to today's mail without saying so.
+  // yesterday's rules to today's mail without saying so. This binds that ONE file --
+  // it says nothing about the tables it names; see `ownerTablesDir` below.
   if (orgConfigAddress !== null) {
     let configBytes;
     try { configBytes = io.read(orgConfigAddress, MAIL_ATTRIBUTION_LIMITS.index_bytes); }
     catch { fail('mail_attribution_index_org_config_unavailable'); }
     if (digest(configBytes) !== body.inputs.org_config_sha256) fail('mail_attribution_index_org_config_changed');
+  }
+  // S4: the Owner tables hold the decisions; the org config only says where they
+  // are. Without this, an index could cite a reading-table digest matching nothing
+  // on disk and still be accepted -- every bundle and reading decision in it bound
+  // by nothing but age. Each table the index lists is re-hashed by basename inside
+  // this directory, which is how the builder already records them (`file` is a
+  // basename, never a host path).
+  if (ownerTablesDir !== null) {
+    const listed = body.inputs.owner_tables;
+    if (!Array.isArray(listed)) fail('mail_attribution_index_invalid');
+    for (const row of listed) {
+      if (!plain(row) || typeof row.file !== 'string' || !SAFE_BASENAME.test(row.file)
+        || !SHA.test(row.sha256 ?? '')) fail('mail_attribution_index_invalid');
+      let tableBytes;
+      try { tableBytes = io.read(`${ownerTablesDir}/${row.file}`, MAIL_ATTRIBUTION_LIMITS.index_bytes); }
+      catch { fail('mail_attribution_index_owner_tables_unavailable'); }
+      if (digest(tableBytes) !== row.sha256) fail('mail_attribution_index_owner_tables_changed');
+    }
   }
 
   const byMail = new Map();

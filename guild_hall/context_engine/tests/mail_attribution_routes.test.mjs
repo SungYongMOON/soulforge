@@ -14,10 +14,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, writeFile, readdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
+// S5 only: the other half of this seam, so one test can prove the two ends fit.
+// Nothing under `src/` reaches across modules -- the runtime contract between them
+// is the index file alone, and the lane spec excludes this tests folder.
+import { buildMailAttributionIndex } from '../../workspace_ledgers/ops/mail_attribution_index.mjs';
+import { RULE_SCHEMA_VERSION } from '../../workspace_ledgers/src/classifier.mjs';
+import { encodeCsv } from '../../workspace_ledgers/src/ledgers.mjs';
+import { BUNDLE_HEADERS, READING_HEADERS, VENDOR_HEADERS } from '../../workspace_ledgers/src/owner_tables.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { grantCandidates } from '../harness/estate_inventory.mjs';
 import { scopeChangeByKind } from '../harness/estate_graph_sync.mjs';
@@ -75,7 +82,7 @@ const ORG_CONFIG_BYTES = Buffer.from('{"synthetic":"org config"}\n');
 const NOW = '2026-09-22T12:00:00Z';
 
 function indexBody(rows, { builtAt = '2026-09-22T06:00:00Z', orgConfigSha = sha(ORG_CONFIG_BYTES),
-  ownerTablesMissing = [] } = {}) {
+  ownerTablesMissing = [], ownerTables = [] } = {}) {
   const attributions = rows.map(([mail_id, projects, strength, basis]) => ({ mail_id, projects, strength, basis }))
     .sort((a, b) => (a.mail_id < b.mail_id ? -1 : 1));
   const byProject = {};
@@ -87,7 +94,7 @@ function indexBody(rows, { builtAt = '2026-09-22T06:00:00Z', orgConfigSha = sha(
   }
   const body = { schema_version: MAIL_ATTRIBUTION_INDEX_SCHEMA, built_at: builtAt,
     builder: { id: 'workspace-ledgers-mail-attribution', version: '0.1.0' },
-    inputs: { org_config_sha256: orgConfigSha, owner_tables: [], owner_tables_missing: ownerTablesMissing },
+    inputs: { org_config_sha256: orgConfigSha, owner_tables: ownerTables, owner_tables_missing: ownerTablesMissing },
     counts: { records: EVENTS.length, attributed: attributions.length,
       confirmed: attributions.filter(row => row.strength === 'confirmed').length,
       unconfirmed: attributions.filter(row => row.strength === 'unconfirmed').length,
@@ -364,6 +371,54 @@ test('R3/S1: a pin may name the file’s bytes or the decisions, and the decisio
   assert.equal(readIndex(dirs, { expectedSha256: second.index_sha256 }).counts.attributed, 4);
 });
 
+// ------------------------------------------------------- S4 (fresh review round 2)
+test('S4: an Owner table edited after the index was built is refused -- but only when the sync is told where the tables are', async () => {
+  const dirs = await estate();
+  await custody(dirs);
+  const tablesDir = path.join(dirs.controlRoot, 'owner-tables');
+  await mkdir(tablesDir, { recursive: true });
+  const readingFile = path.join(tablesDir, '판독_결정표.csv');
+  const bundleBytes = Buffer.from('제목구절,과제,근거,확정일\n');
+  const readingBytes = Buffer.from('메일소스ID,결정\ne-review,include_with_review\n');
+  await writeFile(path.join(tablesDir, '묶음_확정표.csv'), bundleBytes);
+  await writeFile(readingFile, readingBytes);
+  const tablesAddress = 'control_root/owner-tables';
+  const ownerTables = [
+    { table: 'bundle', file: '묶음_확정표.csv', sha256: sha(bundleBytes) },
+    { table: 'reading', file: '판독_결정표.csv', sha256: sha(readingBytes) },
+  ];
+
+  await writeIndex(dirs, DEFAULT_ROWS, { ownerTables });
+  assert.equal(readIndex(dirs, { ownerTablesDir: tablesAddress }).counts.attributed, 4);
+
+  // The Owner corrects a reading decision by hand and nobody rebuilds the index.
+  // The index is fresh, the org config is untouched, every row parses -- and every
+  // bundle and reading decision in it is now out of date.
+  await writeFile(readingFile, Buffer.from('메일소스ID,결정\ne-review,exclude\n'));
+  assert.throws(() => readIndex(dirs, { ownerTablesDir: tablesAddress }),
+    error => error instanceof MailRouteError && error.code === 'mail_attribution_index_owner_tables_changed');
+  // Without the flag this is exactly what goes unnoticed -- today's behaviour, kept
+  // deliberately, and the reason the registrar is documented to pass the folder.
+  assert.equal(readIndex(dirs).counts.attributed, 4);
+
+  // A folder that is not there is refused, never skipped.
+  assert.throws(() => readIndex(dirs, { ownerTablesDir: 'control_root/absent-tables' }),
+    error => error.code === 'mail_attribution_index_owner_tables_unavailable');
+
+  // The reviewer's own probe: an index citing a table digest that matches nothing on
+  // disk used to be accepted outright.
+  await writeIndex(dirs, DEFAULT_ROWS, { ownerTables: [
+    { table: 'reading', file: '판독_결정표.csv', sha256: sha(Buffer.from('never written anywhere')) }] });
+  assert.throws(() => readIndex(dirs, { ownerTablesDir: tablesAddress }),
+    error => error.code === 'mail_attribution_index_owner_tables_changed');
+
+  // A `file` that is not a plain name cannot be used to read outside the folder.
+  await writeIndex(dirs, DEFAULT_ROWS, { ownerTables: [
+    { table: 'reading', file: '../mail-routes/mail_attribution_index.json', sha256: sha(readingBytes) }] });
+  assert.throws(() => readIndex(dirs, { ownerTablesDir: tablesAddress }),
+    error => error.code === 'mail_attribution_index_invalid');
+});
+
 test('R3: an index built without an Owner table carries that fact to the receipt', async () => {
   const dirs = await estate();
   await custody(dirs);
@@ -373,6 +428,86 @@ test('R3: an index built without an Owner table carries that fact to the receipt
   // It reaches the per-project scope block, so a pass run against a partial index is
   // visible in its own receipt rather than only in the build log.
   assert.deepEqual(candidatesFor(dirs, index).mail.owner_tables_missing, ['reading', 'vendor']);
+});
+
+// ------------------------------------------------------- S5 (fresh review round 2)
+//
+// Both ends, once, over one estate: the workspace ledgers BUILD an index from their
+// own rules and tables, this side READS it, and the grant that comes out is compared
+// against what the index says. Every other test in this file writes the index by
+// hand on purpose -- so that this side's contract is pinned independently of the
+// builder -- which leaves exactly one thing unproven: that the two halves actually
+// fit. In particular that a mail id means the same thing on both sides, which is the
+// one assumption no single-sided test can check.
+test('S5 end to end: what the ledgers build is what the grant gets', async () => {
+  const dirs = await estate();
+  // Custody the context engine walks as <root>/<year>/<month>.jsonl, and which the
+  // ledgers' own loader reads as the *.jsonl directly inside the year folder. One
+  // set of bytes, read by both, so the ids cannot drift.
+  await custody(dirs);
+
+  // A small estate for the ledgers: two projects with subject rules, and the three
+  // Owner tables their org config names.
+  const ledgerRoot = await mkdtemp(path.join(os.tmpdir(), 'ctx-mail-ledgers-'));
+  const ruleRel = '020_MGMT/021_자동화설정_운영규칙';
+  const vendorRel = '020_MGMT/023_연락처_이해관계자';
+  const common = 'P00-000_공통';
+  const rule = (code, folder, term) => ({ schema_version: RULE_SCHEMA_VERSION, project_code: code,
+    folder_name: folder, rule_version: 'v1', status: 'draft',
+    match_fields: ['subject', 'body_text', 'attachment_names'], case_insensitive_literals: true,
+    exact: [{ label: term, kind: 'literal', value: term }], hint: [], yields_to: null,
+    conflict_policy: 'two_projects_exact_on_one_mail_means_hold_no_attribution', sender_policy: 'hint_only' });
+  for (const [code, folder, term] of [[MINE, `${MINE}_하나`, '착수 회의'], [OTHER, `${OTHER}_둘`, '다른 과제']]) {
+    await mkdir(path.join(ledgerRoot, folder, ruleRel), { recursive: true });
+    await writeFile(path.join(ledgerRoot, folder, ruleRel, 'mail_routing_rule.json'),
+      `${JSON.stringify(rule(code, folder, term), null, 2)}\n`);
+  }
+  await mkdir(path.join(ledgerRoot, common, ruleRel), { recursive: true });
+  await mkdir(path.join(ledgerRoot, common, vendorRel), { recursive: true });
+  const bundleTablePath = path.join(ledgerRoot, common, ruleRel, '묶음_확정표.csv');
+  const readingTablePath = path.join(ledgerRoot, common, ruleRel, '판독_결정표.csv');
+  const vendorTablePath = path.join(ledgerRoot, common, vendorRel, '거래처_대응표.csv');
+  await writeFile(bundleTablePath, encodeCsv(BUNDLE_HEADERS, [['워크숍 자료', MINE, '워크숍 확정', '2026-09-02']]));
+  await writeFile(readingTablePath, encodeCsv(READING_HEADERS, [
+    ['e-review', '2026-09-01', '봇이 제안한 건', 'include_with_review', MINE, '봇 제안', 'bot', '2026-09-02', ''],
+    ['e-hold', '2026-09-01', '아직 모르는 건', 'hold_owner_review', '?', '모르겠음', 'bot', '2026-09-02', ''],
+  ]));
+  await writeFile(vendorTablePath, encodeCsv(VENDOR_HEADERS, [['supplier.example', '공급사A', '부품', '']]));
+  const orgConfigPath = path.join(ledgerRoot, 'org_config.json');
+  await writeFile(orgConfigPath, JSON.stringify({ our_domain: 'example.com', organisations: {}, family: {},
+    common_ledgers: { common_folder_name: common, general_work_folder_name: 'general_work_일반업무',
+      owner_tables: { bundle: `${common}/${ruleRel}/묶음_확정표.csv`,
+        reading: `${common}/${ruleRel}/판독_결정표.csv`, vendor: `${common}/${vendorRel}/거래처_대응표.csv` } } }));
+
+  // Build, exactly as the ops CLI would.
+  const built = buildMailAttributionIndex({ workspacesRoot: ledgerRoot, orgConfigPath,
+    hiworksDirs: [path.join(dirs.mailRoot, '2026')], gmailSentDirs: [],
+    now: '2026-09-22T06:00:00Z' });
+  await writeFile(dirs.indexFile, `${JSON.stringify(built, null, 2)}\n`);
+
+  // Read it back through this side, with every input check the registrar turns on.
+  const index = readIndex(dirs, { ownerTablesDir: null });
+  assert.equal(index.content_sha256, built.content_sha256);
+  assert.deepEqual([...index.owner_tables_missing], []);
+
+  // The ledgers decided these, by three different routes; nothing was invented here.
+  assert.deepEqual([...index.byMail.keys()].sort(), ['e-bundle', 'e-other', 'e-review', 'e-rule']);
+  assert.equal(index.byMail.get('e-rule').strength, 'confirmed');        // subject rule
+  assert.equal(index.byMail.get('e-bundle').strength, 'confirmed');      // bundle table
+  assert.equal(index.byMail.get('e-review').strength, 'unconfirmed');    // include_with_review
+  // `e-hold` is a hold_owner_review and `e-none` matched nothing: neither is listed.
+  assert.equal(index.byMail.has('e-hold'), false);
+  assert.equal(index.byMail.has('e-none'), false);
+
+  // And the grant this side builds is exactly the index's own answer for each
+  // project -- the ids line up across the two halves without any translation.
+  for (const code of [MINE, OTHER]) {
+    const expected = [...index.byProject.get(code).keys()].sort();
+    assert.deepEqual(mailItemIds(candidatesFor(dirs, index, code)), expected, `project ${code}`);
+  }
+  assert.deepEqual(mailItemIds(candidatesFor(dirs, index, MINE)), ['e-bundle', 'e-review', 'e-rule']);
+  assert.deepEqual(mailItemIds(candidatesFor(dirs, index, OTHER)), ['e-other']);
+  await rm(ledgerRoot, { recursive: true, force: true });
 });
 
 test('without an index the older narrow rule still applies, and says so', async () => {

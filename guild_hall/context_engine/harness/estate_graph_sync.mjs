@@ -44,6 +44,7 @@
 //        --receipts <dir> [--binding graph_index_binding.unified.json] [--dry]
 //        [--mail-attribution [<alias address>]] [--mail-attribution-sha256 sha256:...]
 //        [--mail-attribution-max-age <hours>] [--mail-attribution-org-config <alias address>]
+//        [--mail-attribution-owner-tables <alias address of the folder holding them>]
 //        [--root-table-sha256 sha256:...] [--json]
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -534,6 +535,7 @@ async function main() {
     const expected = flags.get('mail-attribution-sha256');
     const maxAge = flags.get('mail-attribution-max-age');
     const orgConfig = flags.get('mail-attribution-org-config');
+    const ownerTables = flags.get('mail-attribution-owner-tables');
     mailAttribution = readMailAttributionIndex({ io, address,
       expectedSha256: typeof expected === 'string' ? expected : null,
       // An index older than this is refused outright: a file that still parses is not
@@ -541,7 +543,10 @@ async function main() {
       // than not running.
       ...(typeof maxAge === 'string' ? { maxAgeHours: Number(maxAge) } : {}),
       // Given, the index must have been built from the org config that is there now.
-      orgConfigAddress: typeof orgConfig === 'string' ? orgConfig : null });
+      orgConfigAddress: typeof orgConfig === 'string' ? orgConfig : null,
+      // Given, every Owner table the index names must still hash to what it recorded.
+      // The org config only says where the tables are; the tables hold the decisions.
+      ownerTablesDir: typeof ownerTables === 'string' ? ownerTables : null });
     process.stdout.write(`mail-attribution built_at=${mailAttribution.built_at} `
       + `age_h=${mailAttribution.age_hours} `
       + `attributed=${mailAttribution.counts.attributed} confirmed=${mailAttribution.counts.confirmed} `

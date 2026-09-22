@@ -823,7 +823,9 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 다시 구현하지도 않는다(모듈 간 import 없음, 순환 없음).
 
 - 주소: `control_root/mail-routes/mail_attribution_index.json`
-  (`MAIL_ATTRIBUTION_INDEX_ADDRESS`), 스키마 `soulforge.mail_attribution_index.v0`.
+  (`MAIL_ATTRIBUTION_INDEX_ADDRESS`), 스키마 `soulforge.mail_attribution_index.v1`
+  (N4: 읽는 쪽이 `content_sha256`과 `inputs.org_config_sha256`을 **요구**하므로 v0에서
+  올렸다. v0 산출물은 아직 어디에도 없다 — 실평면 실행은 `--dry`뿐이었다).
 - 결정점은 하나다: `estate_inventory.mjs`의 `grantCandidates` mail 갈래.
   `mailAttribution`이 주어지면 원장이 정하고, 없으면 예전의 좁은 규칙(과제코드가 본문·
   제목에 단독 토큰으로 나오는가)이 그대로 남는다. 둘은 절대 섞이지 않으며, 영수증은 항상
@@ -837,10 +839,18 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
   `SYNCED`라고 적는다. `--mail-attribution-max-age <시간>`(기본 36 = 하루치 빌드 + 한 번
   놓친 분)을 넘으면 `mail_attribution_index_stale`로 닫는다. 시계 오차를 넘어 미래로 찍힌
   파일은 영원히 만료되지 않으므로 `..._built_in_future`로 따로 거부한다.
-- `--mail-attribution-org-config <주소>`를 주면 매 회차 그 org config를 다시 해시해
-  색인의 `inputs.org_config_sha256`과 대조한다. **Owner가 라우팅 설정을 바꾸고 색인을 다시
-  만들지 않은 경우**가 이 검사가 잡는 것이다(`..._org_config_changed`). 등록기에서 함께
-  주는 것을 권장한다.
+- 입력 검사 두 가지는 **각각 다른 것을 묶는다**(S4). 정확히 적으면:
+  - `--mail-attribution-org-config <주소>`: 그 org config **파일 하나**를 매 회차 다시
+    해시해 색인의 `inputs.org_config_sha256`과 대조한다(`..._org_config_changed`).
+    org config는 표가 **어디 있는지**만 말하므로, 이것만으로는 표 내용이 묶이지 않는다.
+  - `--mail-attribution-owner-tables <폴더 주소>`: 색인이 `inputs.owner_tables`에 적은
+    표 하나하나를 그 폴더 안에서 **basename으로 찾아 다시 해시**해 대조한다
+    (`..._owner_tables_changed` / 폴더·파일이 없으면 `..._owner_tables_unavailable`).
+    **판단이 들어 있는 곳은 표다.** 이 인자가 없으면 색인이 어디에도 없는 판독표 digest를
+    적고 있어도 그대로 수락되며, Owner의 라우팅 판단은 max-age 말고는 아무것도 묶지 않는다.
+  - 둘 중 하나가 다른 하나를 대신하지 못한다(Owner는 둘을 따로 고친다). 둘 다 없으면 양쪽의
+    신선도는 오직 max-age로만 제한된다.
+  등록기에서 두 인자를 함께 주는 것을 권장한다.
 - 고정(`--mail-attribution-sha256`)은 파일 digest와 색인의 `content_sha256`(= `built_at`을
   뺀 본문 digest) 둘 다 받는다. 색인은 메일이 들어올 때마다 다시 만들어지므로 **등록 시점의
   파일 digest를 기본으로 박으면 다음 빌드부터 매일 fail-closed가 된다** — 그래서 등록기는
@@ -875,8 +885,16 @@ node guild_hall/context_engine/harness/estate_graph_sync.mjs \
   --mail-attribution [<alias address>] \
   [--mail-attribution-max-age <시간, 기본 36>] \
   [--mail-attribution-org-config <alias address>] \
+  [--mail-attribution-owner-tables <표 폴더의 alias address>] \
   [--mail-attribution-sha256 sha256:...] [--dry]
 ```
+
+**재등록 시 주의(N7).** `ops/register-graph-sync-task.ps1`에 인자 네 개
+(`-MailAttribution`, `-MailAttributionMaxAge`, `-MailAttributionOrgConfig`,
+`-MailAttributionOwnerTables`)가 늘면서 **plan digest가 바뀐다**. 등록기는 dry-run이
+찍은 plan digest를 `-ExpectedDryRunDigest`로 그대로 돌려받아야 진행하므로, 예전에 받아
+둔 digest는 더 이상 맞지 않는다. `-Register` 전에 **dry-run을 다시 돌려** 새 plan
+digest를 받고, 그 값으로 등록한다. 등록은 Owner의 비패키지 창에서 한다.
 
 색인을 만드는 쪽은 `guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs`다.
 시험은 `tests/mail_attribution_routes.test.mjs`.

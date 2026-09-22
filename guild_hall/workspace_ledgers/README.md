@@ -2003,6 +2003,12 @@ node guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs \
 `--out`은 `--dry`에서도 똑같이 요구·검사하고(N1) 쓰기만 건너뛴다 — 잘못된 `--out`은
 preflight가 드러내야 할 사용 오류이지 dry가 눈감아 줄 것이 아니다.
 
+스키마는 `soulforge.mail_attribution_index.v1`이다(읽는 쪽이 `content_sha256`과
+`inputs.org_config_sha256`을 요구하므로 v0에서 올렸다. v0 산출물은 어디에도 없다).
+`inputs.owner_tables`의 `{table, file, sha256}`은 읽는 쪽이
+`--mail-attribution-owner-tables`로 **표 내용까지 다시 대조**하는 근거가 된다 — org
+config는 표가 어디 있는지만 말하고 판단은 표에 들어 있기 때문이다.
+
 읽는 쪽은 맥락 엔진의 `guild_hall/context_engine/harness/mail_routes.mjs`이며,
 `estate_graph_sync.mjs --mail-attribution <주소>`가 그 주소를 받는다(lane
 `graph-sync-v3`). 이 모듈은 그쪽을 import 하지 않고 그쪽도 이 모듈을 import 하지

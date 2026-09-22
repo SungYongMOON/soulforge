@@ -71,7 +71,7 @@ import { pathToFileURL } from 'node:url';
 import { classifyAllCommonMail } from '../src/common_refresh.mjs';
 import { baseBasisOf, STEP1_TITLE_BASIS } from '../src/common_classifier.mjs';
 
-export const MAIL_ATTRIBUTION_INDEX_SCHEMA = 'soulforge.mail_attribution_index.v0';
+export const MAIL_ATTRIBUTION_INDEX_SCHEMA = 'soulforge.mail_attribution_index.v1';
 export const MAIL_ATTRIBUTION_BUILDER = Object.freeze({ id: 'workspace-ledgers-mail-attribution', version: '0.1.0' });
 // The two strengths, named once. A reader compares against these, never against a
 // spelled-out literal of its own.
@@ -296,7 +296,12 @@ export function main(argv = process.argv.slice(2)) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try { process.exitCode = main(); }
   catch (error) {
-    process.stderr.write(`[mail-attribution-index] ${error?.code ?? 'workspace_ledgers_attribution_failed'}\n`);
+    // N5: this module's own errors carry the detail that makes them actionable --
+    // WHICH table was never read, WHICH flag is missing -- in `message`, and printing
+    // only `code` threw that away at exactly the moment an operator needs it. Any
+    // other error still prints its code, since a foreign message may carry a path.
+    process.stderr.write(`[mail-attribution-index] ${error instanceof MailAttributionIndexError
+      ? error.message : (error?.code ?? 'workspace_ledgers_attribution_failed')}\n`);
     process.exitCode = 2;
   }
 }
