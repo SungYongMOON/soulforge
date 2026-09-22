@@ -48,6 +48,32 @@
   자동 수정·근사 일치·의미적 사실 검증·지식 수락은 하지 않는다. 배포와 병합은 Owner 검토 전 미수행이다.
 - 관련 경로: `guild_hall/context_engine/src/guards/citation_verifier.mjs`,
   `guild_hall/context_engine/tests/citation_verifier.test.mjs`, 모듈 manifest와 생성된 release 목록.
+## 2026-09-22 - 시작조차 못 한 그래프 동기화 회차도 이유를 영수증에 남긴다 (lane graph-sync-v4)
+
+- Why: 밤 사슬도 감시자도 **영수증을 읽는다**. 그런데 `harness/estate_graph_sync.mjs`는 과제 루프에 들어가기
+  전에 멈추면 — 메일 귀속 색인이 낡았을 때(`mail_attribution_index_stale`), 색인을 못 읽을 때, root table이
+  자기 pin과 안 맞을 때 — stderr 한 줄과 exit 2뿐이었고 영수증을 한 장도 쓰지 않았다. 예약작업의 콘솔은
+  남지 않으므로 그 이유는 그 자리에서 사라졌고, 사슬이 보기에 "정당하게 거절한 회차"와 "아예 안 돈 회차"가
+  구분되지 않았다. 밤 사슬 검토에서 잡힌 갭.
+- 고침: 과제 루프 이전의 모든 중단 경로가 `<receipts>/_preflight/<instant>.json` 한 장을 쓴다
+  (`soulforge.context_graph_sync_preflight_receipt.v1`: `status: "FAILED"`, `stage: "preflight"`,
+  `reason: <코드>`, `projects: []`, `started_at`/`ended_at`). 대화 목록 야간 lane이 실패한 chain을 적는
+  모양을 따랐다. `_preflight`를 한 단 아래 둔 이유: 이 파일의 `PROJECT_CODE`가 밑줄로 시작하는 이름을
+  받지 않아 과제 폴더와 겹칠 수 없고, 한 단 깊이라 밤 사슬 예시의 `*/*.json` 글롭이 이 영수증을 **찾아낸다**
+  (사슬 영수증에 `receipt_found: true` + `receipt_path: "_preflight/..."`로 남는다).
+- 바꾸지 않은 것: 성공한 회차의 과제별 영수증은 모양도 내용도 그대로(합성 회차 전후 바이트 동일), 종료코드는
+  그대로 2, `--dry`는 여전히 아무것도 안 쓴다(등록기 프리플라이트가 실제 receipts 폴더를 향해 `--dry`로 돌기
+  때문). 영수증 폴더를 못 쓰면 기록자가 `graph_sync_preflight_receipt_unwritable` 한 줄만 더 찍고 원래 이유와
+  exit 2는 유지한다.
+- lane: `graph-sync-v3` → `graph-sync-v4`(제자리 재빌드 금지 원칙에 따라 새 id). tracked_paths·entry_points는
+  그대로. 이 조각은 lane을 빌드하지도 예약작업을 건드리지도 않았다.
+- 검증: `tests/estate_graph_sync.test.mjs` 11건(신규 6건: 낡은 색인·못 읽는 색인·root table pin 불일치 →
+  영수증과 reason, `--dry` 무작성, 못 쓰는 영수증 폴더 → 종료코드 유지, `_preflight` 비충돌) 통과. 나머지
+  검증기 결과는 커밋 메시지·보고에 그대로 적는다.
+- 관련 경로: `guild_hall/context_engine/{harness/estate_graph_sync.mjs,tests/estate_graph_sync.test.mjs,ops/register-graph-sync-task.ps1,README.md}`,
+  `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`,
+  `docs/architecture/workspace/examples/night_chain/night_chain.example.json`
+
 ## 2026-09-22 - 밤 사슬(night chain) 러너: 고정 시계 셋을 영수증으로 이어지는 한 사슬로 (night-chain-v1)
 
 - Why: 야간 예약작업 셋(대화 목록 00:00·작업 장부 05:30·그래프 동기화 30분)은 서로 모르는 고정 시계였고,

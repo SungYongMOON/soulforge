@@ -64,6 +64,22 @@ import { MAIL_ATTRIBUTION_INDEX_ADDRESS, mailAttributionCounts, readMailAttribut
 export const GRAPH_SYNC_SCHEMA = 'soulforge.context_graph_sync_receipt.v1';
 export const GRAPH_SYNC_PENDING_SCHEMA = 'soulforge.context_graph_sync_pending.v1';
 export const GRAPH_SYNC_CANDIDATE_SCHEMA = 'soulforge.context_graph_related_candidates.v1';
+// A pass that never reached the project loop has no project to write a receipt
+// for, and until now left nothing behind but one stderr line -- which a
+// scheduled run throws away. Everything downstream of this harness (the night
+// chain's own `success_rule`, any watcher) reads RECEIPTS, so a run that
+// refused to start for a good reason -- a stale mail attribution index, an
+// unreadable binding, a root table that no longer hashes to its pin -- looked
+// exactly like a run that never happened. This is that missing receipt: a
+// distinct schema, because it is not a project's receipt and must never be
+// mistaken for one.
+export const GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA = 'soulforge.context_graph_sync_preflight_receipt.v1';
+// It goes in its own subdirectory of `--receipts`. `PROJECT_CODE` below forbids
+// a leading underscore, so this name can never collide with a project's own
+// directory; and being one segment deep means a two-segment receipt glob (the
+// night chain example's `*/*.json` for this lane) FINDS it, so the failure
+// reads as `status: "FAILED"` in a receipt rather than as "no receipt at all".
+export const GRAPH_SYNC_PREFLIGHT_DIR = '_preflight';
 // How many passes an item may fail before a pass stops offering it, and how many
 // times one pass may narrow its own grant and try again. Both are small on
 // purpose: a pass that keeps narrowing is one that should be read, not one that
@@ -507,51 +523,99 @@ function options(argv) {
   return flags;
 }
 
+/**
+ * The one receipt a pass that never reached the project loop can still leave
+ * behind, mirroring how `voice_conversation_list_nightly.mjs` records a failed
+ * chain: `status: 'FAILED'` with the `stage` it died at and the `reason` code
+ * that stopped it. `projects: []` because none were attempted -- a reader must
+ * not have to infer "nothing ran" from an absence.
+ *
+ * It NEVER throws. A `--receipts` this process cannot write is reported on its
+ * own stderr line and nothing else changes: losing the receipt must not also
+ * lose the exit code the caller was going to get anyway. Returns whether it
+ * was written, for the caller's own tests.
+ */
+export function writeGraphSyncPreflightReceipt({ receiptsDir, stage = 'preflight', reason,
+  now = new Date().toISOString(), startedAt = null } = {}) {
+  const receipt = { schema_version: GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA, ran_at: now,
+    started_at: startedAt ?? now, ended_at: now, dry: false,
+    status: 'FAILED', stage, reason, projects: [] };
+  try {
+    const where = path.join(receiptsDir, GRAPH_SYNC_PREFLIGHT_DIR);
+    mkdirSync(where, { recursive: true });
+    writeFileSync(path.join(where, `${now.replace(/[-:.]/gu, '').slice(0, 15)}.json`), encode(receipt));
+    return true;
+  } catch (error) {
+    // Deliberately not `fail()`: this is the last-resort recorder, and a
+    // recorder that throws would replace a precise reason with its own.
+    process.stderr.write('[estate-graph-sync] graph_sync_preflight_receipt_unwritable '
+      + `${typeof error?.code === 'string' ? error.code : 'unknown'}\n`);
+    return false;
+  }
+}
+
 async function main() {
+  const startedAt = new Date().toISOString();
   const flags = options(process.argv.slice(2));
-  const tablePath = String(flags.get('root-table') ?? process.env.SOULFORGE_CONTEXT_ROOT_TABLE ?? '');
-  if (!tablePath) fail('graph_sync_root_table_required');
-  const expected = flags.get('root-table-sha256');
-  const rootTable = readRootTable({ tablePath,
-    expectedSha256: typeof expected === 'string' ? expected : sha256(readFileSync(tablePath)) });
-  const io = createAliasedStoreIo(rootTable);
+  // Read FIRST, before anything that can throw. Every abort below this line has
+  // somewhere to write its reason down; `--receipts` missing is the one that
+  // does not, and stays exactly what it always was (stderr line, exit 2).
   const receiptsDir = String(flags.get('receipts') ?? process.env.SOULFORGE_GRAPH_SYNC_RECEIPTS ?? '');
   if (!receiptsDir) fail('graph_sync_receipts_required');
-  const projects = String(flags.get('projects') ?? process.env.SOULFORGE_GRAPH_SYNC_PROJECTS ?? '')
-    .split(',').map(value => value.trim()).filter(Boolean);
-  if (projects.length === 0) fail('graph_sync_projects_required');
   const dry = flags.get('dry') === true;
-  const bindingFile = String(flags.get('binding') ?? 'graph_index_binding.unified.json');
 
-  // Who decides a mail's project, read once for the whole pass. `--mail-attribution`
-  // with no value takes the default address; a value names another. Read here and
-  // not per project, both because the index is one file and because a failure has to
-  // stop every project at once: one project syncing under the ledgers while the next
-  // falls back to the narrow text rule would split the same mail two ways.
-  const attributionFlag = flags.get('mail-attribution');
-  let mailAttribution = null;
-  if (attributionFlag !== undefined) {
-    const address = attributionFlag === true ? MAIL_ATTRIBUTION_INDEX_ADDRESS : String(attributionFlag);
-    const expected = flags.get('mail-attribution-sha256');
-    const maxAge = flags.get('mail-attribution-max-age');
-    const orgConfig = flags.get('mail-attribution-org-config');
-    const ownerTables = flags.get('mail-attribution-owner-tables');
-    mailAttribution = readMailAttributionIndex({ io, address,
-      expectedSha256: typeof expected === 'string' ? expected : null,
-      // An index older than this is refused outright: a file that still parses is not
-      // a current set of decisions, and re-applying yesterday's silently is worse
-      // than not running.
-      ...(typeof maxAge === 'string' ? { maxAgeHours: Number(maxAge) } : {}),
-      // Given, the index must have been built from the org config that is there now.
-      orgConfigAddress: typeof orgConfig === 'string' ? orgConfig : null,
-      // Given, every Owner table the index names must still hash to what it recorded.
-      // The org config only says where the tables are; the tables hold the decisions.
-      ownerTablesDir: typeof ownerTables === 'string' ? ownerTables : null });
-    process.stdout.write(`mail-attribution built_at=${mailAttribution.built_at} `
-      + `age_h=${mailAttribution.age_hours} `
-      + `attributed=${mailAttribution.counts.attributed} confirmed=${mailAttribution.counts.confirmed} `
-      + `unconfirmed=${mailAttribution.counts.unconfirmed}`
-      + `${mailAttribution.owner_tables_missing.length ? ` owner_tables_missing=${mailAttribution.owner_tables_missing.join(',')}` : ''}\n`);
+  let rootTable; let io; let projects; let bindingFile; let mailAttribution = null;
+  try {
+    const tablePath = String(flags.get('root-table') ?? process.env.SOULFORGE_CONTEXT_ROOT_TABLE ?? '');
+    if (!tablePath) fail('graph_sync_root_table_required');
+    const expected = flags.get('root-table-sha256');
+    rootTable = readRootTable({ tablePath,
+      expectedSha256: typeof expected === 'string' ? expected : sha256(readFileSync(tablePath)) });
+    io = createAliasedStoreIo(rootTable);
+    projects = String(flags.get('projects') ?? process.env.SOULFORGE_GRAPH_SYNC_PROJECTS ?? '')
+      .split(',').map(value => value.trim()).filter(Boolean);
+    if (projects.length === 0) fail('graph_sync_projects_required');
+    bindingFile = String(flags.get('binding') ?? 'graph_index_binding.unified.json');
+
+    // Who decides a mail's project, read once for the whole pass. `--mail-attribution`
+    // with no value takes the default address; a value names another. Read here and
+    // not per project, both because the index is one file and because a failure has to
+    // stop every project at once: one project syncing under the ledgers while the next
+    // falls back to the narrow text rule would split the same mail two ways.
+    const attributionFlag = flags.get('mail-attribution');
+    if (attributionFlag !== undefined) {
+      const address = attributionFlag === true ? MAIL_ATTRIBUTION_INDEX_ADDRESS : String(attributionFlag);
+      const expected = flags.get('mail-attribution-sha256');
+      const maxAge = flags.get('mail-attribution-max-age');
+      const orgConfig = flags.get('mail-attribution-org-config');
+      const ownerTables = flags.get('mail-attribution-owner-tables');
+      mailAttribution = readMailAttributionIndex({ io, address,
+        expectedSha256: typeof expected === 'string' ? expected : null,
+        // An index older than this is refused outright: a file that still parses is not
+        // a current set of decisions, and re-applying yesterday's silently is worse
+        // than not running.
+        ...(typeof maxAge === 'string' ? { maxAgeHours: Number(maxAge) } : {}),
+        // Given, the index must have been built from the org config that is there now.
+        orgConfigAddress: typeof orgConfig === 'string' ? orgConfig : null,
+        // Given, every Owner table the index names must still hash to what it recorded.
+        // The org config only says where the tables are; the tables hold the decisions.
+        ownerTablesDir: typeof ownerTables === 'string' ? ownerTables : null });
+      process.stdout.write(`mail-attribution built_at=${mailAttribution.built_at} `
+        + `age_h=${mailAttribution.age_hours} `
+        + `attributed=${mailAttribution.counts.attributed} confirmed=${mailAttribution.counts.confirmed} `
+        + `unconfirmed=${mailAttribution.counts.unconfirmed}`
+        + `${mailAttribution.owner_tables_missing.length ? ` owner_tables_missing=${mailAttribution.owner_tables_missing.join(',')}` : ''}\n`);
+    }
+  } catch (error) {
+    const reason = typeof error?.code === 'string' ? error.code : 'graph_sync_failed';
+    // `--dry` still writes nothing at all (the registrar's own preflight runs in
+    // that mode against the REAL receipts directory; a dry refusal must not put
+    // a FAILED receipt there for a run that was never scheduled).
+    if (!dry) writeGraphSyncPreflightReceipt({ receiptsDir, stage: 'preflight', reason, startedAt });
+    // The same one line the top-level handler below would have written, so the
+    // console output of an abort is byte-identical to what it was before.
+    process.stderr.write(`[estate-graph-sync] ${reason}\n`);
+    return 2;
   }
 
   let failures = 0;

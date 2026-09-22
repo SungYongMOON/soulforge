@@ -74,8 +74,8 @@
     },
     {
       "id": "graph_sync_once",
-      "note": "One estate_graph_sync.mjs pass reading the index the previous step just built (--mail-attribution with no value takes its default alias address). It writes one receipt PER PROJECT under <receipts>/<project>/, hence the two-segment glob; SYNCED and UNCHANGED are both a clean pass.",
-      "lane_root": "<LANE_ROOT>/graph-sync-v3",
+      "note": "One estate_graph_sync.mjs pass reading the index the previous step just built (--mail-attribution with no value takes its default alias address). It writes one receipt PER PROJECT under <receipts>/<project>/, hence the two-segment glob; SYNCED and UNCHANGED are both a clean pass. A pass that refuses to start before any project (a stale index, a root table pin mismatch) writes <receipts>/_preflight/<instant>.json with status FAILED and its reason -- the same two-segment glob finds it, so the chain records receipt_found with that path instead of 'no receipt at all'.",
+      "lane_root": "<LANE_ROOT>/graph-sync-v4",
       "entry": "guild_hall/context_engine/harness/estate_graph_sync.mjs",
       "args": [
         "--root-table", "<CONTROL_ROOT>/context-engine/root_table.json",

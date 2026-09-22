@@ -90,6 +90,31 @@ K5 전까지 존재하지 않음)`. 경로는 전부 `<LANE_ROOT>`·`<STATE_ROOT
 **실제 자식 프로세스**로 돌림)는 `npm run validate:night-chain`이고 `run_root_acceptance.mjs` 두 모드에
 `context-engine` 바로 뒤로 배선됐다. 이 조각은 예약작업을 등록하지도 lane을 빌드하지도 않는다.
 
+### 시작조차 못 한 회차도 영수증을 남긴다 (`harness/estate_graph_sync.mjs`, lane graph-sync-v4)
+
+밤 사슬도, 감시자도 **영수증을 읽는다**. 그런데 `estate_graph_sync.mjs`는 과제 루프에
+들어가기 전에 멈추면 — 메일 귀속 색인이 36시간을 넘겨 낡았을 때(`mail_attribution_index_stale`),
+색인을 아예 못 읽을 때, root table이 자기 pin과 안 맞을 때 — `[estate-graph-sync] <코드>`
+한 줄을 stderr에 찍고 exit 2로 끝났고 **영수증은 한 장도 쓰지 않았다**. 예약작업의 콘솔은
+남지 않으므로 그 이유는 그 자리에서 사라졌고, 밤 사슬이 보기에 "거절한 회차"와 "아예 안 돈
+회차"가 같은 모양이었다.
+
+이제 그 경로들은 `<receipts>/_preflight/<instant>.json`
+(`soulforge.context_graph_sync_preflight_receipt.v1`: `status: "FAILED"`, `stage: "preflight"`,
+`reason: <코드>`, `projects: []`, `started_at`/`ended_at`) 한 장을 쓴다. `_preflight`를 한 단
+아래 둔 이유는 두 가지다 — 이 파일의 `PROJECT_CODE`는 밑줄로 시작하는 이름을 과제코드로
+받지 않으므로 과제 폴더와 절대 겹치지 않고, 한 단 깊이라 밤 사슬 예시의 `*/*.json` 글롭이
+**이 영수증을 찾아낸다**(그래서 사슬 영수증에 "영수증 없음"이 아니라 `receipt_found: true` +
+`receipt_path: "_preflight/..."`로 남는다).
+
+경계: 성공한 회차의 **과제별 영수증은 모양도 내용도 그대로**고(합성 회차 전후 바이트 동일),
+종료코드도 그대로 2이며, `--dry`는 여전히 아무것도 쓰지 않는다(등록기의 프리플라이트가 실제
+receipts 폴더를 향해 `--dry`로 돌기 때문에, 예약되지도 않은 회차의 FAILED 영수증을 거기
+떨어뜨리면 안 된다). 영수증 폴더를 못 쓰는 경우에는 기록자 자신이 `graph_sync_preflight_
+receipt_unwritable` 한 줄을 더 찍고 원래 이유와 exit 2는 그대로 둔다 — 기록을 잃는 것이
+종료코드까지 잃는 일이 되어서는 안 된다. 시험 6건은 `tests/estate_graph_sync.test.mjs`
+(`npm run validate:context-engine`)에 있고 전부 합성 root를 실제 자식 프로세스로 돌린다.
+
 ## 대화 목록 파이프라인 — 거부된 캐시 답 영구 정지 수리: 유계 재질문(re-ask) (0.22.9)
 
 실제 backlog 실행에서 관찰: `remaining_work`가 비지 않는 세션이 있었다. 구조 검사 6개는 전부

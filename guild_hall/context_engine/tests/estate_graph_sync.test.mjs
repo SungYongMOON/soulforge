@@ -5,10 +5,15 @@
 // exercised by the harness's own runs; these are the rules underneath them.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { GRAPH_SYNC_CANDIDATE_SCHEMA, GRAPH_SYNC_PENDING_SCHEMA, SYNC_LIMITS, aliasAddressFor, clearCompleted,
+import { fileURLToPath } from 'node:url';
+import { GRAPH_SYNC_CANDIDATE_SCHEMA, GRAPH_SYNC_PENDING_SCHEMA, GRAPH_SYNC_PREFLIGHT_DIR,
+  GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA, SYNC_LIMITS, aliasAddressFor, clearCompleted,
   grantDifference, holdBack, nextGenerationId, readLedger, refreshCandidates } from '../harness/estate_graph_sync.mjs';
 
 const NOW = '2026-09-14T00:00:00.000Z';
@@ -118,4 +123,141 @@ test('an absolute source root becomes the alias address of the root table that h
   assert.equal(aliasAddressFor(table, win(drive, 'Elsewhere', 'ingress')), null,
     'a root the table does not hold has no address, and is reported rather than guessed at');
   assert.equal(aliasAddressFor(table, win(`${data}-other`, 'x')), null, 'a prefix is not a parent');
+});
+
+// --------------------------------------------------------------------------
+// A pass that refuses to start still says why, in a receipt.
+//
+// Before this, every abort BEFORE the project loop -- a stale mail attribution
+// index, an index the lane cannot read, a root table that no longer hashes to
+// its pin -- printed one line to stderr and exited 2, writing nothing. The
+// night chain and every watcher read RECEIPTS, so the reason was lost the
+// moment the scheduled run's console went away. These tests run the real
+// harness as a real child process (the abort lives in `main()`, which only
+// exists there) over synthetic roots under `os.tmpdir()`; none of them reach a
+// store, a model or a database.
+const HARNESS = fileURLToPath(new URL('../harness/estate_graph_sync.mjs', import.meta.url));
+const digestOf = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+
+/** A synthetic root table over empty tmp roots, plus its own pin. */
+async function syntheticRoots(label) {
+  const base = await mkdtemp(path.join(os.tmpdir(), `ctx-sync-preflight-${label}-`));
+  const roots = {};
+  for (const alias of ['source_checkout', 'runtime_root', 'data_root', 'control_root', 'project_work_root']) {
+    roots[alias] = path.join(base, alias);
+    await mkdir(roots[alias], { recursive: true });
+  }
+  const tablePath = path.join(base, 'root_table.json');
+  const bytes = Buffer.from(`${JSON.stringify({ schema_version: 'soulforge.physical_root_table.v0', roots }, null, 2)}\n`);
+  await writeFile(tablePath, bytes);
+  return { base, roots, tablePath, tableSha256: digestOf(bytes) };
+}
+
+/** A well-formed mail attribution index whose only fault is its age. */
+async function writeStaleAttributionIndex(controlRoot, builtAt) {
+  const withoutTime = {
+    schema_version: 'soulforge.mail_attribution_index.v1',
+    inputs: { org_config_sha256: `sha256:${'0'.repeat(64)}`, owner_tables: [], owner_tables_missing: [] },
+    counts: { records: 0, attributed: 0, confirmed: 0, unconfirmed: 0, held_two_projects: 0,
+      not_attributed: 0, by_project: {} },
+    attributions: [],
+  };
+  const body = { ...withoutTime, built_at: builtAt,
+    content_sha256: digestOf(Buffer.from(JSON.stringify(withoutTime), 'utf8')) };
+  const dir = path.join(controlRoot, 'mail-routes');
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'mail_attribution_index.json'), `${JSON.stringify(body, null, 2)}\n`);
+}
+
+function runHarness(args) {
+  const result = spawnSync(process.execPath, [HARNESS, ...args], { encoding: 'utf8' });
+  return { code: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+}
+
+/** The one preflight receipt, read back from `<receipts>/_preflight/`. */
+async function readPreflightReceipt(receiptsDir) {
+  const names = (await readdir(path.join(receiptsDir, GRAPH_SYNC_PREFLIGHT_DIR)))
+    .filter(name => name.endsWith('.json'));
+  assert.equal(names.length, 1, 'a refused pass writes exactly one preflight receipt');
+  return JSON.parse(await readFile(path.join(receiptsDir, GRAPH_SYNC_PREFLIGHT_DIR, names[0]), 'utf8'));
+}
+
+test('a mail attribution index too old to use leaves a receipt saying so, not just a dead exit code', async () => {
+  const { base, roots, tablePath, tableSha256 } = await syntheticRoots('stale');
+  await writeStaleAttributionIndex(roots.control_root, '2020-01-01T00:00:00.000Z');
+  const receipts = path.join(base, 'receipts');
+  const run = runHarness(['--root-table', tablePath, '--root-table-sha256', tableSha256,
+    '--receipts', receipts, '--projects', 'P00-001', '--mail-attribution', '--mail-attribution-max-age', '36']);
+  assert.equal(run.code, 2, 'the exit code the caller already relied on is unchanged');
+  assert.match(run.stderr, /mail_attribution_index_stale/);
+  const receipt = await readPreflightReceipt(receipts);
+  assert.equal(receipt.schema_version, GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA);
+  assert.equal(receipt.status, 'FAILED');
+  assert.equal(receipt.stage, 'preflight');
+  assert.equal(receipt.reason, 'mail_attribution_index_stale',
+    'what a watcher needs is the code, not a prose line nobody kept');
+  assert.deepEqual(receipt.projects, [], 'no project was attempted, and the receipt says so rather than omitting it');
+  assert.ok(Date.parse(receipt.started_at) <= Date.parse(receipt.ended_at));
+});
+
+test('an index the lane cannot read at all leaves the same receipt', async () => {
+  const { base, tablePath, tableSha256 } = await syntheticRoots('unavailable');
+  // No index file was ever written under control_root/mail-routes/.
+  const receipts = path.join(base, 'receipts');
+  const run = runHarness(['--root-table', tablePath, '--root-table-sha256', tableSha256,
+    '--receipts', receipts, '--projects', 'P00-001', '--mail-attribution']);
+  assert.equal(run.code, 2);
+  const receipt = await readPreflightReceipt(receipts);
+  assert.equal(receipt.status, 'FAILED');
+  assert.equal(receipt.reason, 'mail_attribution_index_unavailable');
+  assert.deepEqual(receipt.projects, []);
+});
+
+test('a root table that no longer hashes to its pin leaves a receipt before anything else is read', async () => {
+  const { base, tablePath } = await syntheticRoots('pin');
+  const receipts = path.join(base, 'receipts');
+  const run = runHarness(['--root-table', tablePath, '--root-table-sha256', `sha256:${'0'.repeat(64)}`,
+    '--receipts', receipts, '--projects', 'P00-001']);
+  assert.equal(run.code, 2);
+  assert.match(run.stderr, /root_table_pin_mismatch/);
+  assert.equal((await readPreflightReceipt(receipts)).reason, 'root_table_pin_mismatch');
+});
+
+test('--dry still writes nothing: a dry refusal must not drop a FAILED receipt on a real receipts directory', async () => {
+  const { base, roots, tablePath, tableSha256 } = await syntheticRoots('dry');
+  await writeStaleAttributionIndex(roots.control_root, '2020-01-01T00:00:00.000Z');
+  const receipts = path.join(base, 'receipts');
+  const run = runHarness(['--root-table', tablePath, '--root-table-sha256', tableSha256,
+    '--receipts', receipts, '--projects', 'P00-001', '--mail-attribution',
+    '--mail-attribution-max-age', '36', '--dry']);
+  assert.equal(run.code, 2);
+  assert.equal(existsSync(receipts), false,
+    'the registrar preflights with --dry against the REAL receipts directory; it must stay untouched');
+});
+
+test('a receipts directory that cannot be written loses the receipt, never the exit code', async () => {
+  const { base, roots, tablePath, tableSha256 } = await syntheticRoots('unwritable');
+  await writeStaleAttributionIndex(roots.control_root, '2020-01-01T00:00:00.000Z');
+  // `--receipts` pointing at a FILE: `mkdir <file>/_preflight` fails the same
+  // way on every platform this runs on, with no ACL games.
+  const receipts = path.join(base, 'receipts-is-a-file');
+  await writeFile(receipts, 'not a directory\n');
+  const run = runHarness(['--root-table', tablePath, '--root-table-sha256', tableSha256,
+    '--receipts', receipts, '--projects', 'P00-001', '--mail-attribution', '--mail-attribution-max-age', '36']);
+  assert.equal(run.code, 2, 'the real reason still reaches the caller as exit 2');
+  assert.match(run.stderr, /graph_sync_preflight_receipt_unwritable/,
+    'the recorder says it could not record, on its own line');
+  assert.match(run.stderr, /mail_attribution_index_stale/,
+    'and the original reason is still printed, never replaced by the recorder’s own failure');
+  assert.equal(readFileSync(receipts, 'utf8'), 'not a directory\n', 'and nothing clobbered the path it was given');
+});
+
+test('a preflight receipt can never be mistaken for, or collide with, a project’s own', () => {
+  // `_preflight` is one segment deep, so a two-segment receipt glob (the night
+  // chain example's `*/*.json` for this lane) FINDS it and reads `FAILED`
+  // rather than finding nothing at all -- and this harness's own PROJECT_CODE
+  // forbids a leading underscore, so no project directory can be named this.
+  assert.equal(GRAPH_SYNC_PREFLIGHT_DIR, '_preflight');
+  assert.equal(/^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u.test(GRAPH_SYNC_PREFLIGHT_DIR), false);
+  assert.notEqual(GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA, GRAPH_SYNC_PENDING_SCHEMA);
 });
