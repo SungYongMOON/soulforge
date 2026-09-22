@@ -51,11 +51,12 @@
 //                         globs receipts_dir (recursively, so
 //                         "*/*.json" reaches a per-project subdirectory the
 //                         way estate_graph_sync.mjs's own receipts do), keeps
-//                         only files whose mtime is AT OR AFTER this step's
-//                         own start instant (a PRE-EXISTING receipt from a
-//                         run before this chain ever started this step must
-//                         never count as this step's success signal -- see
-//                         `evaluateSuccessRule`), takes the newest of what is
+//                         only files whose mtime is STRICTLY AFTER this
+//                         step's own start (mtime >= start + 1 ms; a
+//                         PRE-EXISTING receipt from a run before this chain
+//                         ever started this step must never count as this
+//                         step's success signal -- see `evaluateSuccessRule`
+//                         and its S1 note), takes the newest of what is
 //                         left, and checks `json_path` (dot-separated) against
 //                         `allowed_values`. mtime, not an embedded timestamp
 //                         field, is the freshness signal: every step's own
@@ -172,6 +173,7 @@ export class NightChainError extends Error {
     super(detail ? `${code}: ${detail}` : code);
     this.name = 'NightChainError';
     this.code = code;
+    this.detail = detail ?? null;
   }
 }
 const fail = (code, detail) => { throw new NightChainError(code, detail); };
@@ -816,7 +818,13 @@ async function main() {
     if (result.status === 'DRY') return 0;
     return exitCodeFor(result.status);
   } catch (error) {
-    process.stderr.write(`[night-chain] ${redactHostPathsLocal(error?.code ?? error?.message ?? 'failed')}\n`);
+    // An unknown flag names the offending token so the typo is visible in the
+    // scheduler's captured stderr -- but only when it is shaped like a plain
+    // flag; anything else (a path, a value that landed in the wrong slot) is
+    // omitted rather than echoed.
+    const flagToken = error?.code === 'night_chain_flag_unknown' && /^--[a-z0-9-]+$/u.test(error?.detail ?? '')
+      ? ` ${error.detail}` : '';
+    process.stderr.write(`[night-chain] ${redactHostPathsLocal(error?.code ?? error?.message ?? 'failed')}${flagToken}\n`);
     return 5;
   }
 }

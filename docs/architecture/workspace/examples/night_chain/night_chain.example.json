@@ -5,7 +5,7 @@
     "Every lane_manifest_sha256 below is a deliberately fake all-zero digest. A real deployment pins the actual sha256 of <lane_root>/LANE_MANIFEST.sha256 (the FILE's own bytes, the same value every register-*-task.ps1 pins); the runner refuses the whole chain, exit 5, nothing run, if any step's digest does not match.",
     "The runner (guild_hall/context_engine/ops/night_chain.mjs) is handed this file with --chain-config and its sha256 with --chain-config-sha256; edit the file, re-hash it, and re-run the registrar's dry-run to get a new plan digest.",
     "Order is the point: each step starts only after the previous step's exit code (and, when given, success_rule) said success. on_failure: stop halts the chain there; continue records the failure and moves on.",
-    "success_rule reads the NEWEST receipt matching receipt_glob under that step's own receipts_dir whose mtime is at or after the step's own start -- a receipt left over from an earlier run never counts. Steps without a success_rule are judged by exit code alone.",
+    "success_rule reads the NEWEST receipt matching receipt_glob under that step's own receipts_dir whose mtime is strictly after the step's own start (mtime >= start + 1 ms) -- a receipt left over from an earlier run never counts. Steps without a success_rule are judged by exit code alone.",
     "Per-step args are exactly what that lane's own entry point already documents in its usage header; nothing here is interpreted by a shell."
   ],
   "steps": [
@@ -54,7 +54,7 @@
     },
     {
       "id": "mail_attribution_index",
-      "note": "The mail attribution index builder -- the step that was in no automation chain before this one; its consumer (graph_sync_once below, --mail-attribution) fails closed once the index is older than 36h. It writes exactly one file (--out) and no dated receipt, so it is judged by exit code alone (success_rule null); receipts_dir is required by the schema and points at the directory the --out file actually lands in -- the only place this step writes -- not at a phantom receipts folder.",
+      "note": "The mail attribution index builder -- the step that was in no automation chain before this one; its consumer (graph_sync_once below, --mail-attribution) fails closed once the index is older than 36h. This step writes NO receipt of its own -- only the single index file named by --out -- so it is judged by exit code alone (success_rule null). receipts_dir is still required by the schema; it names a state-root folder this step never writes to, reserved so a future version of the builder that does emit a dated receipt has a home without a config change. The chain runner never writes there either.",
       "lane_root": "<LANE_ROOT>/workspace-ledgers-v3",
       "entry": "guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs",
       "args": [
@@ -65,7 +65,7 @@
         "--gmail-sent-events", "<DATA_ROOT>/ingress/gmail-sent/events",
         "--out", "<CONTROL_ROOT>/mail-routes/mail_attribution_index.json"
       ],
-      "receipts_dir": "<CONTROL_ROOT>/mail-routes",
+      "receipts_dir": "<STATE_ROOT>/receipts/mail-attribution-index",
       "success_rule": null,
       "on_failure": "stop",
       "timeout_minutes": 30,

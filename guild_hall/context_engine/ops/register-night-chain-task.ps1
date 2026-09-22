@@ -248,7 +248,7 @@ $WScriptExe = Join-Path $env:WINDIR "System32\wscript.exe"
 # and when node cannot even be launched `&` never sets `$LASTEXITCODE` (so a
 # bare `exit $LASTEXITCODE` is `exit $null` = 0). The trailing single-quoted
 # literal below guards the null case first, then propagates the real code --
-# every value this runner returns (0/2/3/4/5/6) reaches Task Scheduler as-is.
+# every value this runner returns (0/2/3/4/5/6/7) reaches Task Scheduler as-is.
 $CommandScript = "& " + (ConvertTo-SingleQuotedLiteral -Value $NodePath) + " " `
   + (ConvertTo-SingleQuotedLiteral -Value $Entry) + " " `
   + (($RunnerArguments | ForEach-Object { ConvertTo-SingleQuotedLiteral -Value ([string]$_) }) -join " ") `

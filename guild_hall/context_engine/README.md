@@ -43,7 +43,8 @@
   자리를 잡아 두는 placeholder(예시의 `voice_cards_to_index`)가 사슬을 막으면 안 되기 때문이다.
 - **`success_rule`**(선택) — 없으면 종료코드 0이 성공. 있으면 그 단계 **자기** `receipts_dir`를 (하위
   폴더까지 — `estate_graph_sync.mjs`는 과제별 폴더에 쓰므로 `*/*.json`) glob 해서, **mtime이 이 단계의
-  시작 시각 이후인 파일만** 남기고, 그중 최신 하나의 `json_path` 값이 `allowed_values`에 있는지 본다.
+  시작 시각보다 엄격히 뒤인(mtime ≥ 시작 + 1 ms) 파일만** 남기고, 그중 최신 하나의 `json_path` 값이
+  `allowed_values`에 있는지 본다.
   **지난 회차가 남긴 옛 영수증은 절대 이번 단계의 성공 신호가 아니다** — 시험이 옛 영수증을 미리 심어 두고
   실패로 판정됨을 확인한다. mtime을 쓰는 이유: 영수증마다 시각 필드 이름이 다르다(`ran_at`, `built_at`…).
 - **`on_failure`** — `stop`은 그 단계에서 멈추고 뒤의 단계를 `not_started`에 적는다; `continue`는 실패를
@@ -102,7 +103,8 @@ K5 전까지 존재하지 않음)`. 경로는 전부 `<LANE_ROOT>`·`<STATE_ROOT
 **실제 자식 프로세스**로 돌림)와 `tests/register_night_chain_task.test.mjs`(9건, 등록기·런처 원문 구조 검사 +
 Windows 실측)가 `npm run validate:night-chain`이고 `run_root_acceptance.mjs` 두 모드에 `context-engine` 바로
 뒤로 배선됐다. 이 조각은 예약작업을 등록하지도 lane을 빌드하지도 않는다. 예시 설정의 `mail_attribution_index`
-단계는 `success_rule: null`이라 `receipts_dir`가 유령 폴더가 아니라 `--out` 파일이 실제로 놓이는 폴더를 가리킨다.
+단계는 **자기 영수증을 쓰지 않는다**(`--out` 색인 파일 하나뿐) — 그래서 `success_rule: null`이고, 스키마상
+필수인 `receipts_dir`는 state root 아래 예약된(아직 아무도 쓰지 않는) 폴더를 가리키며 `note`에 그렇게 적혀 있다.
 
 ### 시작조차 못 한 회차도 영수증을 남긴다 (`harness/estate_graph_sync.mjs`, lane graph-sync-v4)
 

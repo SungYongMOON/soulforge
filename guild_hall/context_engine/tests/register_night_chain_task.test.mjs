@@ -63,7 +63,8 @@ test('register-night-chain-task.ps1: the runner argument line carries the chain 
   // Every flag the registrar emits is one the runner actually accepts (S3:
   // the runner refuses unknown flags, so a drift here would fail every
   // preflight rather than silently pass a flag through).
-  const emitted = [...registrar.matchAll(/"(--[a-z-]+)"/g)].map(m => m[1]);
+  const emitted = [...registrar.matchAll(/"(--[a-z0-9-]+)"/g)].map(m => m[1]);
+  assert.ok(emitted.includes('--chain-config-sha256'), 'the digit-bearing flag must be captured by the scan');
   const accepted = new Set(['--chain-config', '--chain-config-sha256', '--receipts', '--node-path', '--deadline', '--scheduled-start', '--dry']);
   for (const flag of emitted) assert.ok(accepted.has(flag), `registrar emits a flag the runner does not accept: ${flag}`);
 });
