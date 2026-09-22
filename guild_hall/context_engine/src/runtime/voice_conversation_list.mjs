@@ -422,6 +422,16 @@ export function boundaryWindows(units, { maxUnits = DEFAULT_LIMITS.boundary_unit
 }
 
 /**
+ * Every `code` `checkBoundaryProposal` can return for `ok: false`, kept here
+ * so a caller that needs to know the whole rejection vocabulary (a re-ask
+ * sentence table, a coverage test) does not have to keep its own copy in
+ * step with this function's own `return { ok: false, code: '...' }` sites.
+ */
+export const BOUNDARY_PROPOSAL_REJECTION_CODES = Object.freeze(['boundary_shape_invalid',
+  'boundary_segment_outside_window', 'boundary_segment_repeated', 'boundary_not_monotonic',
+  'boundary_reason_unknown', 'boundary_segment_missing']);
+
+/**
  * Whether a boundary proposal is about the window it was asked about. An
  * utterance the model dropped would fall out of every conversation; one it
  * repeated would be in two; one it invented is not in this recording; and a
@@ -656,6 +666,14 @@ export function batchSegments(segments, { charactersOf, maxCharacters, maxSegmen
   if (held.length > 0) batches.push(held);
   return batches;
 }
+
+/**
+ * Every `code` `checkNature` can return for `ok: false` -- see
+ * `BOUNDARY_PROPOSAL_REJECTION_CODES`'s own doc for why this is kept next to
+ * the function rather than duplicated by each caller.
+ */
+export const NATURE_REJECTION_CODES = Object.freeze(['nature_shape_invalid', 'nature_unknown',
+  'nature_title_too_long', 'nature_description_too_long', 'nature_title_names_a_project']);
 
 /**
  * What a nature answer has to be before it is one. The title may not carry a

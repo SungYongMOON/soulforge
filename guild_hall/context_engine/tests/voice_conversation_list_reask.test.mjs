@@ -23,6 +23,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
+import { BOUNDARY_PROPOSAL_REJECTION_CODES, NATURE_REJECTION_CODES }
+  from '../src/runtime/voice_conversation_list.mjs';
 import {
   MAX_SEMANTIC_REASKS, SEMANTIC_REASK_SENTENCES, readRun, runVoiceConversationCli,
 } from '../harness/voice_conversation_list_cli.mjs';
@@ -153,7 +155,9 @@ const run = (dirs, script, options = {}) => runVoiceConversationCli(
 // (the two `run_manifest.json` fields the CLI test suite already reads) but
 // not `reasks`, which this file needs directly -- read the manifest file
 // itself for that rather than widening the CLI's return shape for one field.
-const reasksOf = async answer => JSON.parse(await readFile(path.join(answer.directory, 'run_manifest.json'), 'utf8')).reasks;
+const manifestOf = async answer => JSON.parse(await readFile(path.join(answer.directory, 'run_manifest.json'), 'utf8'));
+const reasksOf = async answer => (await manifestOf(answer)).reasks;
+const splitsOf = async answer => (await manifestOf(answer)).splits;
 
 // ============================================================= byte-identical
 test('a session that never hits a rejection asks exactly what it always asked, byte for byte', async () => {
@@ -214,11 +218,11 @@ test('a structurally valid but non-monotonic boundary answer is re-asked, and th
   assert.equal(answer.remaining_work.length, 0, 'nothing left over once the re-ask was accepted');
 });
 
-test('a boundary answer still rejected after the maximum re-asks keeps the old behaviour: remaining_work, unverified', async () => {
+test('a boundary answer whose fresh re-ask repeats the exact same rejection stops early -- old behaviour otherwise: remaining_work, unverified', async () => {
   const dirs = await estate();
   const answer = await run(dirs, ({ step, user }) => {
     if (step === 'boundary') {
-      // Always missing a segment -- a rejection that never heals.
+      // Always missing a segment -- a deterministic rejection that never heals.
       const ids = idsInUser(user);
       return { segments: [{ draft_id: 'd1', source_segment_ids: ids.slice(1), boundary_reason: 'topic_shift',
         related_draft_ids: [] }] };
@@ -227,10 +231,50 @@ test('a boundary answer still rejected after the maximum re-asks keeps the old b
   });
   assert.equal(answer.verified, false);
   const reasks = await reasksOf(answer);
-  assert.equal(reasks.total, MAX_SEMANTIC_REASKS, `bounded at ${MAX_SEMANTIC_REASKS}, not open-ended`);
+  // Only 1, not MAX_SEMANTIC_REASKS: the first re-ask was a genuinely fresh
+  // call (distinct bytes, per-attempt line) that came back with the exact
+  // same rejection reason, so the loop gives up on the second attempt this
+  // pass rather than spending it on a model that has just shown it will
+  // repeat the mistake -- see SEMANTIC_REASK_SENTENCES's own doc.
+  assert.equal(reasks.total, 1, 'the fresh re-ask repeated the same mistake, so the loop broke early');
+  assert.equal(reasks.entries[0].accepted, false);
   assert.ok(reasks.entries.every(row => row.reason === 'boundary_segment_missing'));
   assert.ok(answer.remaining_work.some(row => row.step === 'boundary'
     && row.reason === 'boundary_segment_missing'), 'the final rejection reason is unchanged from before this fix');
+});
+
+test('a boundary answer that repeats its mistake once heals on the very next pass, with exactly one fresh call', async () => {
+  // Pass 1: the original call and its one fresh re-ask both get the same
+  // deterministic mistake (a reversed pair of segments) -- the loop breaks
+  // early after the first re-ask, per the test just above.
+  const dirs = await estate();
+  const wrong = ids => { const mid = Math.ceil(ids.length / 2);
+    return { segments: [{ draft_id: 'd2', source_segment_ids: ids.slice(mid), boundary_reason: 'topic_shift',
+      related_draft_ids: [] }, { draft_id: 'd1', source_segment_ids: ids.slice(0, mid),
+      boundary_reason: 'topic_shift', related_draft_ids: [] }] };
+  };
+  const stuck = await run(dirs, ({ step, user }) => {
+    if (step === 'boundary') return wrong(idsInUser(user));
+    return plainScript({ step, user });
+  });
+  assert.equal(stuck.verified, false);
+  assert.equal((await reasksOf(stuck)).total, 1, 'broke early after the fresh re-ask repeated the mistake');
+
+  // Pass 2: the original call and the first re-ask both replay from cache
+  // (0 fresh calls, same wrong answer both times); the loop reaches the
+  // still-untried second attempt for the first time, asks it fresh, and this
+  // model answers correctly.
+  let boundaryCalls = 0;
+  const healed = await run(dirs, ({ step, user }) => {
+    if (step === 'boundary') { boundaryCalls += 1; return plainScript({ step, user }); }
+    return plainScript({ step, user });
+  });
+  assert.equal(healed.run_id, stuck.run_id);
+  assert.equal(healed.verified, true);
+  assert.equal(boundaryCalls, 1, 'exactly one fresh boundary call this pass -- the second attempt');
+  const healedReasks = await reasksOf(healed);
+  assert.equal(healedReasks.total, 1, 'only the second attempt was fresh; the first attempt replayed from cache');
+  assert.deepEqual([healedReasks.entries[0].attempt, healedReasks.entries[0].accepted], [2, true]);
 });
 
 // ==================================================================== nature
@@ -319,6 +363,63 @@ test('a nature answer omitted forever (never healed) is reported by its real cau
   assert.equal((await reasksOf(answer)).total, 1);
 });
 
+// A plain `new Map(rows.map(r => [String(r.segment_id), r]))` would silently
+// drop an id the batch never had and resolve a repeated id to whichever
+// occurrence came last -- now that "absent from this map" is load-bearing
+// (`nature_missing_from_batch_answer`, above), an id that should never have
+// been in the map at all needs its own name and its own re-ask too.
+test('a nature batch answer naming an id outside the batch is rejected and re-asked, not silently accepted', async () => {
+  const dirs = await estate();
+  let natureCalls = 0;
+  const answer = await run(dirs, twoSegmentScript(user => {
+    natureCalls += 1;
+    const ids = segmentIdsInUser(user);
+    if (ids.length > 1) {
+      // A structurally valid batch answer (schema-passing, so cached) that
+      // names a segment id ('c999') this batch never asked about.
+      return natureFor([...ids, 'c999']);
+    }
+    return natureFor(ids);
+  }));
+  assert.equal(answer.verified, true, 'the single-segment re-ask supplied a clean answer for each segment');
+  assert.ok(natureCalls >= 3, 'both segments needed their own re-ask after the invalid batch answer');
+  const reasks = await reasksOf(answer);
+  assert.ok(reasks.entries.filter(row => row.reason === 'nature_batch_answer_ids_invalid' && row.accepted).length >= 2);
+});
+
+test('a nature batch answer repeating the same id twice is rejected and re-asked, not silently resolved to the last one', async () => {
+  const dirs = await estate();
+  const answer = await run(dirs, twoSegmentScript(user => {
+    const ids = segmentIdsInUser(user);
+    if (ids.length > 1) {
+      // Answers for the first segment twice, never mentions the second --
+      // duplicated id, not merely a missing one.
+      return natureFor([ids[0], ids[0]]);
+    }
+    return natureFor(ids);
+  }));
+  assert.equal(answer.verified, true);
+  const reasks = await reasksOf(answer);
+  assert.ok(reasks.entries.some(row => row.reason === 'nature_batch_answer_ids_invalid' && row.accepted));
+});
+
+test('a nature batch answer that is both missing a segment and naming an unknown one is rejected by the id-invalid rule, not the missing rule', async () => {
+  const dirs = await estate();
+  const answer = await run(dirs, twoSegmentScript(user => {
+    const ids = segmentIdsInUser(user);
+    // Neither requested id is answered; an unrelated one is, instead --
+    // simultaneously "missing" and "extra". The id check runs first and
+    // catches it before the per-entry "missing" check would ever fire.
+    if (ids.length > 1) return natureFor(['c999']);
+    return natureFor(ids);
+  }));
+  assert.equal(answer.verified, true, 'both segments still got a clean answer via their own re-ask');
+  const reasks = await reasksOf(answer);
+  assert.ok(reasks.entries.every(row => row.reason !== 'nature_missing_from_batch_answer'),
+    'the id-invalid rule caught it first, so the missing-segment code never appears for this batch');
+  assert.ok(reasks.entries.filter(row => row.reason === 'nature_batch_answer_ids_invalid').length >= 2);
+});
+
 test('a genuine nature call failure is retried fresh on the next pass, never replayed at 0 calls', async () => {
   const dirs = await estate();
   const failedAnswer = await run(dirs, ({ step, user }) => {
@@ -364,9 +465,14 @@ test('an oversized long-segment window that fails outright is halved and retried
   // it, so three windows costs 3 x 3 = 9 attempts, not 3.
   assert.equal(multiIdCalls, 9, 'three windows, each retried to the ask() budget before this file splits it');
   assert.equal(singleIdCalls, 6, 'each failed window was halved into two one-utterance windows, all answered');
-  const splits = (await reasksOf(answer)).entries.filter(row => row.reason === 'nature_llm_failed_window_split');
-  assert.equal(splits.length, 3);
-  assert.ok(splits.every(row => row.accepted === true && row.attempt === 1));
+  // Splits are their own manifest field, not folded into `reasks` (a split
+  // is a retry of a call that never produced an answer, not a semantic
+  // rejection of one the model gave).
+  const splits = await splitsOf(answer);
+  assert.equal(splits.total, 3);
+  assert.equal(splits.entries.length, 3);
+  assert.ok(splits.entries.every(row => row.accepted === true && row.depth === 1));
+  assert.equal((await reasksOf(answer)).entries.some(row => row.reason.includes('window_split')), false);
 });
 
 // ================================================== nightly re-offering note
@@ -394,4 +500,44 @@ test('an unverified run is planned `run` again by classifySession -- not silentl
   // case, the same silent no-op) forever.
   assert.equal(described.classification, 'run');
   assert.equal(described.existing_run_id, (await readRun({ derivedRoot: dirs.derivedRoot, sessionId: SESSION })).run_id);
+});
+
+// ============================================================ coverage
+test('SEMANTIC_REASK_SENTENCES has a fixed sentence for every rejection code checkBoundaryProposal or checkNature can return', () => {
+  for (const code of BOUNDARY_PROPOSAL_REJECTION_CODES) {
+    assert.ok(typeof SEMANTIC_REASK_SENTENCES[code] === 'string' && SEMANTIC_REASK_SENTENCES[code].length > 0,
+      `no re-ask sentence for boundary rejection code ${code}`);
+  }
+  for (const code of NATURE_REJECTION_CODES) {
+    assert.ok(typeof SEMANTIC_REASK_SENTENCES[code] === 'string' && SEMANTIC_REASK_SENTENCES[code].length > 0,
+      `no re-ask sentence for nature rejection code ${code}`);
+  }
+  // The two CLI-level codes this file also re-asks (raised here, not by
+  // checkNature itself -- see SEMANTIC_REASK_SENTENCES's own doc) are not in
+  // either runtime list, so they are asserted by name directly.
+  for (const code of ['nature_missing_from_batch_answer', 'nature_batch_answer_ids_invalid']) {
+    assert.ok(typeof SEMANTIC_REASK_SENTENCES[code] === 'string' && SEMANTIC_REASK_SENTENCES[code].length > 0, code);
+  }
+});
+
+// ============================================================ budget guard
+test('a nature window split never fires once this run has already spent its budget', async () => {
+  // `nature_characters` low enough to force three two-utterance windows (see
+  // the window-split test above), and a scripted budget of exactly 2 -- the
+  // boundary call and the first (whole, two-utterance, failing) nature
+  // window call, with nothing left for a split.
+  const dirs = await estate({ limits: { llm_calls: 60, nature_characters: 60 } });
+  let natureCalls = 0;
+  const answer = await run(dirs, ({ step, user }) => {
+    if (step === 'nature') { natureCalls += 1; return null; } // always fails: never produces an answer
+    return plainScript({ step, user });
+  }, { maxCalls: 2 });
+  assert.equal(answer.verified, false);
+  // Only the one nature call the budget actually allowed -- `ask()`'s own
+  // retry loop never got a chance either, since the mock's budget check runs
+  // before it, and no split call was ever attempted after that.
+  assert.equal(natureCalls, 1, 'no further calls once budget_exhausted, in ask() retries or in a split');
+  const splits = await splitsOf(answer);
+  assert.equal(splits.total, 0, 'the split guard held: budget_exhausted stopped it before it could try');
+  assert.ok(answer.remaining_work.some(row => row.step === 'nature'));
 });

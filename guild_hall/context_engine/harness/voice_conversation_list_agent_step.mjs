@@ -270,6 +270,7 @@ function typeMatches(value, type) {
     case 'array': return Array.isArray(value);
     case 'string': return typeof value === 'string';
     case 'integer': return Number.isInteger(value);
+    case 'number': return typeof value === 'number' && Number.isFinite(value);
     case 'boolean': return typeof value === 'boolean';
     case 'null': return value === null;
     default: return false;
@@ -307,13 +308,48 @@ export function validateAgainstSchema(value, schema, at = '$') {
   return { ok: true, code: null };
 }
 
-/** The first control character (other than `\n`/`\t`) found in any string leaf, or `null`. */
+// Written with numeric code points rather than `\u` escapes on purpose: this
+// source file has to survive being authored through tool layers that decode
+// a literal `\uXXXX` escape into the actual (here, structurally invalid on
+// its own) UTF-16 code unit before it ever reaches disk -- a lone surrogate
+// embedded directly in a UTF-8 source file is not well-formed UTF-8 at all.
+// Plain hex number literals carry no such risk.
+const HIGH_SURROGATE_START = 0xd800, HIGH_SURROGATE_END = 0xdbff;
+const LOW_SURROGATE_START = 0xdc00, LOW_SURROGATE_END = 0xdfff;
+
+/** Whether `text` contains a UTF-16 surrogate half with no matching partner -- not valid Unicode text. */
+function hasUnpairedSurrogate(text) {
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if (code >= HIGH_SURROGATE_START && code <= HIGH_SURROGATE_END) {
+      const next = text.charCodeAt(index + 1);
+      // `charCodeAt` past the end of the string returns `NaN`, which fails
+      // every ordered comparison -- explicit here so "nothing follows the
+      // high surrogate at all" is treated as unpaired, not silently as paired.
+      if (Number.isNaN(next) || next < LOW_SURROGATE_START || next > LOW_SURROGATE_END) return true;
+      index += 1; // the well-formed pair just consumed
+    } else if (code >= LOW_SURROGATE_START && code <= LOW_SURROGATE_END) {
+      return true; // a low surrogate with nothing before it
+    }
+  }
+  return false;
+}
+
+/**
+ * The first problem found in any string leaf: a control character (other
+ * than `\n`/`\t`), or a lone UTF-16 surrogate half (never valid Unicode text
+ * on its own, and not something JSON.stringify/JSON.parse round-trips
+ * safely). Returns `null` when the value has neither.
+ */
 export function findControlCharacter(value) {
-  if (typeof value === 'string') return CONTROL_CHARACTER.test(value) ? 'string_value' : null;
+  if (typeof value === 'string') {
+    if (CONTROL_CHARACTER.test(value)) return 'string_value';
+    return hasUnpairedSurrogate(value) ? 'unpaired_surrogate' : null;
+  }
   if (Array.isArray(value)) { for (const item of value) { const found = findControlCharacter(item); if (found) return found; } return null; }
   if (plain(value)) {
     for (const [key, item] of Object.entries(value)) {
-      if (CONTROL_CHARACTER.test(key)) return 'object_key';
+      if (CONTROL_CHARACTER.test(key) || hasUnpairedSurrogate(key)) return 'object_key';
       const found = findControlCharacter(item);
       if (found) return found;
     }
@@ -418,11 +454,14 @@ async function commandAnswer(argv) {
   const filePath = str(flags, 'file');
   const useStdin = flags.get('stdin') === true;
   if ((filePath !== null) === useStdin) fail('voice_agent_step_answer_source_invalid');
+  // A malformed key is rejected before any config is loaded or any run
+  // resolved -- there is no pending request to find for it whatever the
+  // config says, so the expensive IO below would only be discarded.
+  if (!KEY.test(key)) return { exitCode: 5, text: 'STATUS=rejected REASON=key_unknown\n' };
   const ctx = await loadContext(flags);
   const now = new Date().toISOString();
   const { outDir, pendingDir } = await resolveRun(ctx, sessionId, now);
 
-  if (!KEY.test(key ?? '')) return { exitCode: 5, text: 'STATUS=rejected REASON=key_unknown\n' };
   const requestFile = path.join(pendingDir, `${key}.request.json`);
   if (!existsSync(requestFile)) return { exitCode: 5, text: 'STATUS=rejected REASON=key_not_pending\n' };
   let request;
@@ -436,10 +475,19 @@ async function commandAnswer(argv) {
   let value;
   try { value = JSON.parse(raw.toString('utf8')); }
   catch { return { exitCode: 5, text: 'STATUS=rejected REASON=answer_json_invalid\n' }; }
-  const control = findControlCharacter(value);
-  if (control !== null) return { exitCode: 5, text: `STATUS=rejected REASON=control_character:${control}\n` };
+  // Schema first, control-character/surrogate scan second: `validateAgainstSchema`
+  // only ever recurses as deep as the SCHEMA goes (every one of the five answer
+  // schemas is a handful of levels deep, never self-referential), so a value
+  // nested far deeper than the schema expects is rejected the moment a branch's
+  // `type` stops matching -- long before this file's own recursive scan would
+  // ever walk that deep. Scanning strings for control characters first, on an
+  // answer whose *shape* was never checked, let a pathologically nested (but
+  // still under 200 KB) value reach unbounded recursion instead of a clean
+  // rejection.
   const checked = validateAgainstSchema(value, request.schema);
   if (!checked.ok) return { exitCode: 5, text: `STATUS=rejected REASON=${checked.code}\n` };
+  const control = findControlCharacter(value);
+  if (control !== null) return { exitCode: 5, text: `STATUS=rejected REASON=control_character:${control}\n` };
 
   const cacheDir = path.join(outDir, 'cache', request.step);
   mkdirSync(cacheDir, { recursive: true });

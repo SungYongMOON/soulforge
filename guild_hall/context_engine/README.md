@@ -51,18 +51,53 @@ conversation_list.mjs`, 다섯 프롬프트 파일, 기존 CLI·야간 lane의 �
   다음 `step`이 재질문용 새 `pending` 요청(다른 key, `user`에 같은 고정 문장)을 낸다 — 이 harness
   자체는 한 줄도 고치지 않았다.
 
-시험: `tests/voice_conversation_list_reask.test.mjs`(신규 9건) — 거부 없는 세션의 요청 바이트가
-그대로임(재질문 문장이 섞이지 않음, 캐시 파일 1개씩), `boundary_not_monotonic` 재질문 성공·최대
-재질문 소진 뒤 기존 동작 유지, `nature_title_names_a_project`가 **다음 회차에** 낫는(예전 방식으로
-막힌 캐시를 흉내: 회차 1은 시험용 모의 모델의 자체 호출 상한만으로 재질문 없이 멈춤) 시험,
-배치 누락이 재질문되는 시험과 영원히 안 낫는 경우 실제 원인이 기록되는 시험, 진짜 호출 실패가
-다음 회차에 새로 재시도됨(호출 0회 재생 아님) 시험, 긴 구간 창 분할 시험(절반씩 2번 재시도),
-`classifySession`이 미검증 run을 계속 `run`으로 다시 계획함을 보이는 시험. `tests/voice_
-conversation_list_agent_step.test.mjs`에 1건 추가(거부된 agent 답이 다른 key의 새 pending을
-냄). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`tests/voice_conversation_list_nightly.
-test.mjs`(97건)·`tests/voice_conversation_list_agent_step.test.mjs`(기존 16건)는 무수정으로 전부
-그대로 통과(바이트 동일성의 또 다른 증거). `npm run validate:context-engine`에 새 시험 파일이
-들어갔다.
+신선한 눈 검토 후 정정(같은 슬라이스, 병합 전), 필수 2건·should 4건:
+- (필수, C2-1) 재질문 문장을 `${user}\n\n${문장}`으로만 붙이면, 모델이 **같은 실수를 반복**할 때
+  2번째 재질문(attempt 2)이 1번째와 바이트까지 똑같아져 캐시를 그대로 맞고(새 호출이 아님) —
+  한 단계 더 깊은 같은 버그였다(측정: 계속 거부하는 모델 = 실호출 2회인데
+  `reasks.total: 2`(영수증이 거짓말), 2회차 = 호출 0회, 3회차(이제 맞게 답할 모델) = 여전히
+  호출 0회·미검증). 고정 줄 `재요청 N/2`(`reaskAttemptLine`)를 붙여 시도마다 바이트를 다르게
+  만들고, **신선한(캐시 아닌) 호출이 직전과 같은 이유로 또 거부되면 이번 회차는 거기서 멈춘다**
+  (`answer.cached !== true`로 판별). 다음 밤(다음 회차)엔 이미 캐시된 시도는 그대로 재생되고
+  아직 한 번도 못 물은 다음 시도가 새로 나간다 — "모델이 실수를 두 번 반복한 뒤 2회차에 낫는다"
+  시험으로 확인(정확히 신선한 호출 1회로 낫는다). **양쪽 재질문이 모두 신선한 호출로 실패하면
+  그 항목은 모델·설정·프롬프트 중 하나가 바뀌어 새 run id를 열기 전까지 `remaining_work`에
+  그대로 남는다** — 시간이 지난다고 저절로 없어지지 않는다.
+- (필수, C2-2) 옛 `askNature`의 `new Map(rows.map(r => [String(r.segment_id), r]))`는 배치 밖 id를
+  조용히 버리고 중복 id는 마지막 것으로 덮어썼다. "이 Map에 없음"이 이제
+  `nature_missing_from_batch_answer`로 의미를 갖게 됐으므로, 배치가 답한 적 없는 id나 중복 id가
+  섞인 답은 그 자체로 새 코드 `nature_batch_answer_ids_invalid`로 거부하고(의미 거부와 같은
+  자격으로 재질문 대상), 그 구간 하나만 다시 묻는다.
+- (should, C2-3) `reasks`/`splits`의 `item`은 구간 id뿐 아니라 창 범위까지 담는다
+  (`<segment_id>:<첫 발화>-<끝 발화>`) — **재질문 상한(`MAX_SEMANTIC_REASKS`)은 (step, 구간)이 아니라
+  (step, 창) 단위**다: 긴 구간 하나가 여러 창으로 나뉘면 창마다 독립된 재질문 예산을 갖는다.
+- (should, C2-4) 긴 구간 창 분할은 `!counters.budget_exhausted`로도 막는다 — 이미 예산을 다 쓴
+  run이 못 쓸 호출 두 번을 더 시도하거나 실패를 두 번 더 기록하지 않는다.
+- (should, C2-6) `run_manifest.json`에 `splits: {total, accepted, entries}`를 `reasks`와 별도로
+  냈다 — 분할은 답을 아예 못 받은 호출의 재시도지, 모델이 준 답의 의미 거부가 아니므로 합성
+  이유(`nature_llm_failed_window_split`)로 `reasks`에 섞지 않는다.
+- (should, C2-7) `reasks`/`splits`는 `soulforge.voice_conversation_run.v0`(`RUN_MANIFEST_SCHEMA`)의
+  **추가(additive) 필드**일 뿐이다 — 스키마 id는 이 변경으로 올리지 않았다. `SEMANTIC_REASK_SENTENCES`가
+  `checkBoundaryProposal`/`checkNature`의 모든 거부 코드를 실제로 덮는지는 시험이 직접 대조한다
+  (`src/runtime/voice_conversation_list.mjs`가 이제 내보내는 `BOUNDARY_PROPOSAL_REJECTION_CODES`/
+  `NATURE_REJECTION_CODES`와 대조).
+
+시험: `tests/voice_conversation_list_reask.test.mjs`(신규 15건) — 거부 없는 세션의 요청 바이트가
+그대로임, `boundary_not_monotonic` 재질문 성공(1회)·같은 실수 반복 시 신선한 호출 뒤 조기 정지·
+**그 중단된 run이 다음 회차에 신선한 호출 정확히 1회로 낫는 시험**, `nature_title_names_a_project`가
+다음 회차에 낫는 시험, 배치 누락 재질문 시험과 영원히 안 낫는 경우 실제 원인 기록 시험, 배치 답의
+id가 배치 밖·중복·"누락+미지 id 동시"인 세 시험(전부 `nature_batch_answer_ids_invalid`로 거부·
+재질문), 진짜 호출 실패가 다음 회차에 새로 재시도됨(호출 0회 재생 아님) 시험, 긴 구간 창 분할
+시험(`splits` 필드로 확인)과 예산 소진 시 분할이 실제로 막히는 시험, `classifySession`이 미검증
+run을 계속 `run`으로 다시 계획함을 보이는 시험, `SEMANTIC_REASK_SENTENCES` 전수 대조 시험.
+`tests/voice_conversation_list_agent_step.test.mjs`에 4건 추가(거부된 agent 답의 새 pending,
+`number` 타입, 짝 없는 surrogate 거부, 깊이 중첩된(그러나 200KB 미만) 답이 스키마 검사에서 먼저
+막혀 스택 오버플로 대신 exit 5로 깨끗이 거부됨 — 순서를 스키마 검사 먼저로 바꾼 결과, 실측: `answer`가
+`findControlCharacter`를 스키마 검사보다 먼저 부르던 옛 순서로 깊이 4000단계 구조체를 넣으면
+그 함수 혼자서 "Maximum call stack size exceeded"로 죽지만 `JSON.parse`는 그 깊이에서 멀쩡함을
+직접 확인). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`tests/voice_conversation_list_
+nightly.test.mjs`(97건)는 무수정으로 전부 그대로 통과(바이트 동일성의 또 다른 증거).
+`npm run validate:context-engine`에 새/갱신 시험 파일이 들어갔다.
 
 ## 대화 목록 외부 agent-step 하네스 — backlog 전용 (0.22.8)
 

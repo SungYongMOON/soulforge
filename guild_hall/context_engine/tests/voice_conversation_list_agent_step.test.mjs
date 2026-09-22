@@ -271,6 +271,12 @@ test('the schema validator enforces exactly the JSON Schema subset the five answ
   const boolSchema = { type: 'boolean' };
   assert.equal(validateAgainstSchema(true, boolSchema).ok, true);
   assert.equal(validateAgainstSchema('true', boolSchema).code, '$: type_mismatch');
+
+  const numberSchema = { type: 'number' };
+  assert.equal(validateAgainstSchema(1.5, numberSchema).ok, true);
+  assert.equal(validateAgainstSchema(3, numberSchema).ok, true, 'an integer is also a number');
+  assert.equal(validateAgainstSchema(Number.POSITIVE_INFINITY, numberSchema).code, '$: type_mismatch');
+  assert.equal(validateAgainstSchema('1.5', numberSchema).code, '$: type_mismatch');
 });
 
 test('control characters other than newline and tab are refused, at any depth', () => {
@@ -280,6 +286,19 @@ test('control characters other than newline and tab are refused, at any depth', 
   assert.equal(findControlCharacter({ nested: ['ok', { deep: String.fromCharCode(7) }] }), 'string_value');
   const badKey = {};
   badKey[String.fromCharCode(2)] = 'x';
+  assert.equal(findControlCharacter(badKey), 'object_key');
+});
+
+test('a lone UTF-16 surrogate half in a string value is refused, in a key or in either half of a well-formed pair is not', () => {
+  const highOnly = String.fromCharCode(0xd83d); // the leading half of an emoji, alone
+  const lowOnly = String.fromCharCode(0xdc00);
+  const wellFormedPair = String.fromCharCode(0xd83d, 0xde00); // a real surrogate pair (an emoji)
+  assert.equal(findControlCharacter(highOnly), 'unpaired_surrogate');
+  assert.equal(findControlCharacter(lowOnly), 'unpaired_surrogate');
+  assert.equal(findControlCharacter(`prefix${highOnly}suffix`), 'unpaired_surrogate');
+  assert.equal(findControlCharacter(wellFormedPair), null, 'a real surrogate pair is ordinary text');
+  assert.equal(findControlCharacter({ nested: ['ok', { deep: highOnly }] }), 'unpaired_surrogate');
+  const badKey = {}; badKey[lowOnly] = 'x';
   assert.equal(findControlCharacter(badKey), 'object_key');
 });
 
@@ -293,6 +312,29 @@ test('an answer over 200 KB is refused', async () => {
   const rejected = await runVoiceConversationAgentStepCli(
     ['answer', ...baseArgs(dirs), '--session', SESSION, '--key', header.KEY, '--file', hugePath], {});
   assert.equal(rejected.text, 'STATUS=rejected REASON=answer_too_large\n');
+});
+
+test('a deeply nested (but under 200 KB) answer is rejected cleanly by schema shape, not a stack overflow', async () => {
+  const dirs = await estate();
+  const first = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });
+  const header = parseHeader(first.text);
+  // BOUNDARY_ANSWER expects `boundary_reason` to be a short enum string --
+  // nesting an object where a string is expected is rejected the moment
+  // `typeMatches` sees it, before this file's own (separate) recursive scans
+  // would ever have to walk into the nesting at all. 4000 levels is chosen
+  // deliberately: JSON.parse itself handles it fine (confirmed directly), but
+  // `findControlCharacter` alone, called on a structure this deep, throws
+  // "Maximum call stack size exceeded" (confirmed directly too) -- which is
+  // exactly the crash this ordering fix exists to avoid reaching.
+  let nested = 'x';
+  for (let depth = 0; depth < 4000; depth++) nested = { wrapped: nested };
+  const deepPath = path.join(path.dirname(header.REQUEST_FILE), 'deep.json');
+  writeFileSync(deepPath, JSON.stringify({ segments: [{ draft_id: 'd1', source_segment_ids: [1],
+    boundary_reason: nested }] }));
+  const rejected = await runVoiceConversationAgentStepCli(
+    ['answer', ...baseArgs(dirs), '--session', SESSION, '--key', header.KEY, '--file', deepPath], {});
+  assert.equal(rejected.exitCode, 5, rejected.text);
+  assert.match(rejected.text, /^STATUS=rejected REASON=\$\.segments\[0\]\.boundary_reason: type_mismatch$/mu);
 });
 
 // ============================================================== locking

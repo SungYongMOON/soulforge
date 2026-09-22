@@ -157,6 +157,59 @@
   `guild_hall/context_engine/ops/register-graph-sync-task.ps1`,
   `guild_hall/context_engine/README.md`,
   `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`, `package.json`
+## 2026-09-22 - 대화 목록 파이프라인 재질문 수리 2차 검토 반영: 시도별 바이트 분리·배치 id 검증·분할 예산 가드(lane v6 그대로)
+
+- Revision: 직전 재질문(re-ask) 수리 커밋에 대한 신선한 눈 검토 -- "병합 불가, 필수 2건". 지적마다
+  회귀 시험을 붙여 반영.
+- 무엇이 바뀌었는가: **(필수 C2-1)** 재질문 문장을 `${user}\n\n${문장}`으로만 붙이면, 모델이 같은
+  실수를 반복할 때 2번째 재질문이 1번째와 바이트까지 같아져 캐시를 그대로 맞았다 -- 실측: 계속
+  거부하는 모델에서 실호출 2회인데 `reasks.total: 2`(영수증이 거짓말), 2회차 재실행은 호출 0회,
+  3회차(이제 맞게 답할 모델이어도)도 호출 0회·미검증 -- 수리한 버그의 한 단계 더 깊은 재발이었다.
+  고정 줄 `재요청 N/2`(`reaskAttemptLine`)를 붙여 시도마다 바이트를 다르게 만들고, 신선한(캐시
+  아닌) 호출이 직전과 같은 이유로 또 거부되면 이번 회차는 거기서 멈춘다(`answer.cached !== true`로
+  판별). `reaskTrace` 기록도 신선한 호출일 때만 남긴다. 다음 회차엔 캐시된 시도는 그대로 재생되고
+  아직 안 물은 다음 시도가 새로 나간다 -- README에 "양쪽 재질문이 모두 신선한 호출로 실패하면
+  모델·설정·프롬프트가 바뀌기 전까진 `remaining_work`에 그대로 남는다"를 명시했다.
+  **(필수 C2-2)** 옛 `askNature`의 `new Map(rows.map(r => [String(r.segment_id), r]))`가 배치 밖
+  id를 조용히 버리고 중복 id는 마지막 것으로 덮어썼다 -- "이 Map에 없음"이 이제
+  `nature_missing_from_batch_answer`로 의미를 갖게 된 이상, 배치가 답한 적 없는 id·중복 id도 그
+  자체로 거부해야 했다. 새 코드 `nature_batch_answer_ids_invalid`로 잡고 같은 재질문 자격을 준다.
+  **(should)** `reasks`/`splits`의 `item`이 이제 창 범위(`<segment_id>:<첫 발화>-<끝 발화>`)까지
+  담아, 재질문 상한이 (step, 구간)이 아니라 (step, 창) 단위임을 분명히 한다. 긴 구간 창 분할은
+  `!counters.budget_exhausted`로도 막아 예산 소진 뒤 헛호출·헛기록을 안 남긴다. 분할은 `run_
+  manifest.json`의 별도 `splits: {total, accepted, entries}` 필드로 냈다(합성 이유로 `reasks`에
+  섞지 않음). `SEMANTIC_REASK_SENTENCES`가 `checkBoundaryProposal`/`checkNature`의 모든 거부
+  코드를 실제로 덮는지 시험이 직접 대조하도록, 그 두 함수 옆에 `BOUNDARY_PROPOSAL_REJECTION_CODES`/
+  `NATURE_REJECTION_CODES`를 추가로 내보냈다(런타임 동작 불변, export만 추가). 커밋 1의 should도
+  같이 반영: `harness/voice_conversation_list_agent_step.mjs`의 `answer`가 이제
+  `validateAgainstSchema`를 `findControlCharacter`보다 먼저 불러(다섯 답 스키마는 모두 스키마
+  깊이만큼만 재귀하므로 깊이 중첩된 200KB 미만 답이 스택 오버플로 대신 깨끗한 exit 5로 거부됨 --
+  실측: 깊이 4000단계에서 `findControlCharacter`만 단독으로 부르면 "Maximum call stack size
+  exceeded"로 죽지만 그 깊이의 JSON은 `JSON.parse`가 멀쩡히 읽음), 짝 없는 UTF-16 surrogate 반쪽도
+  거부한다(제어문자 검사와 같은 함수, 새 이유 `unpaired_surrogate`). 작은 것들도: `typeMatches`에
+  `'number'`를 더했고, `answer`의 키 형식 검사를 `resolveRun`(비싼 IO) 앞으로 옮겼고, 긴 구간의
+  `processed_in_windows`가 분할로 늘어난 조각 수가 아니라 원래 계획한 창 수를 보고하도록 고쳤다.
+- 검증: `tests/voice_conversation_list_reask.test.mjs` 15건(6건 추가: 같은 실수 반복 뒤 조기
+  정지·다음 회차 신선한 호출 1회로 치유, 배치 답의 id가 배치 밖·중복·"누락+미지 동시"인 세 경우,
+  `SEMANTIC_REASK_SENTENCES` 전수 대조, 예산 소진 시 분할 가드). `tests/voice_conversation_list_
+  agent_step.test.mjs` 19건(3건 추가: `number` 타입, 짝 없는 surrogate, 깊이 중첩 답의 안전한
+  거부). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`voice_conversation_list_nightly.
+  test.mjs`(97건)는 무수정으로 전부 그대로 통과. `npm run validate:context-engine`: 777건 중 769
+  통과·8 skip·0 실패(끝값 0). `verify_module.mjs`의 runtime-closure sha256은 불변 --
+  `module_version` 미변경. `validate:context-original-read`·`validate:source-lane`·
+  `validate:module-operability`·`validate:path-policy:all`·`validate:canon`·`validate:display-
+  terms`·`node guild_hall/validate/boot_digest_guard.mjs` 모두 끝값 0. lane spec은 `context-read-
+  v6` 그대로(새 tracked_paths·entry_points 없음, 이미 등재된 두 harness 파일의 제자리 수정뿐) --
+  lane을 임시 디렉터리에 새로 빌드하고 `--verify`까지 통과(커밋 뒤 갱신).
+- 운영 영향: 없음 -- 코드·시험·문서·lane 명세 설명문만 바뀌었다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_cli.mjs`,
+  `guild_hall/context_engine/harness/voice_conversation_list_agent_step.mjs`,
+  `guild_hall/context_engine/src/runtime/voice_conversation_list.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_reask.test.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_agent_step.test.mjs`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`,
+  `guild_hall/context_engine/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - 대화 목록 파이프라인: 거부된 캐시 답 영구 정지 수리 -- 유계 재질문(re-ask) (lane v6 그대로)
 
 - Revision: 실제 backlog 야간 실행에서 세션 여럿이 `remaining_work`가 비지 않아 영원히

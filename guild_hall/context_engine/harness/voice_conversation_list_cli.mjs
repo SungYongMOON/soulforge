@@ -235,22 +235,41 @@ const CORRECTION_ANSWER = { type: 'object', additionalProperties: false, require
  * is the exact request bytes, and a cached-but-rejected answer replays
  * identically forever, so a session stuck this way never becomes verified on
  * its own. Each of these strings is appended to the *next* attempt's `user`
- * text (never the cached one) so the request bytes -- and so the cache key --
- * differ and a fresh call actually happens; each is fixed, short, and does
- * not depend on anything about this particular transcript. None of the five
- * prompt files are edited for this: their digests are bound into every
- * existing card, and editing them would make every one of those stale.
+ * text (never the cached one) together with `reaskAttemptLine`'s own fixed
+ * "재요청 N/M" line, so the request bytes -- and so the cache key -- differ
+ * between attempt 1 and attempt 2 too, not only between the original call and
+ * the first re-ask (a fresh-eyes review measured that without the attempt
+ * number, a model that repeats the same mistake makes attempt 2 build byte-
+ * identical text to attempt 1, so attempt 2 silently replayed attempt 1's own
+ * cached rejection instead of asking anything new -- the same "stuck
+ * forever" bug this file exists to fix, one level deeper). Each sentence is
+ * fixed and short and does not depend on anything about this particular
+ * transcript. None of the five prompt files are edited for this: their
+ * digests are bound into every existing card, and editing them would make
+ * every one of those stale.
  *
- * `nature_missing_from_batch_answer` is not a `checkNature` rejection code --
- * it is raised here when a `nature` batch call returned a structurally valid
- * answer (schema-passing, cached) that simply omitted this segment's own
- * entry. Tagging that the generic `nature_llm_failed` (as earlier code did)
- * hid a second reason a session got stuck at 0 calls on replay: the omission
- * was cached as a *successful* call, so nothing ever asked again. Re-asking
- * with only this one segment (see `checkedNatureAnswer`) both names the real
- * cause and is the fix: a request this small is far less likely to be
- * dropped from the model's own answer than one sharing a call with several
- * other segments.
+ * `nature_missing_from_batch_answer` and `nature_batch_answer_ids_invalid`
+ * are not `checkNature` rejection codes -- both are raised in this file when
+ * a `nature` batch call returned a structurally valid answer (schema-
+ * passing, cached) whose per-segment rows do not actually match the batch it
+ * was asked about: an id this segment never had, an id repeated (in which
+ * case `Map` construction would otherwise silently resolve to whichever
+ * occurrence came last), or this segment's own id simply absent from the
+ * response. Tagging any of those the generic `nature_llm_failed` (as earlier
+ * code did, for the omitted case) hid a second reason a session got stuck at
+ * 0 calls on replay: the batch call was cached as a *successful* call, so
+ * nothing ever asked again. Re-asking with only this one segment (see
+ * `checkedNature`) both names the real cause and is the fix: a request this
+ * small is far less likely to be dropped, duplicated or misattributed than
+ * one sharing a call with several other segments.
+ *
+ * A re-ask that fails twice, in both cases with a *fresh* (non-cached) call
+ * that came back with the same rejection reason, is given up on for this
+ * pass and every pass after it: the item stays in `remaining_work` and the
+ * run stays unverified until the model, the pipeline config or the prompts
+ * themselves change (any of which changes `runIdFor`'s inputs and so starts
+ * a new run with an empty cache). Nothing here retries beyond that on its
+ * own -- see `checkedNature`'s and the boundary loop's own "break early" doc.
  */
 export const SEMANTIC_REASK_SENTENCES = Object.freeze({
   boundary_shape_invalid: '방금 답의 형식이 올바르지 않았습니다(구간이 비어 있거나 값이 없음). 이번 창의'
@@ -276,9 +295,18 @@ export const SEMANTIC_REASK_SENTENCES = Object.freeze({
   nature_title_names_a_project: '방금 답의 제목이 과제 코드나 과제 전용 산출물 이름을 담고 있어 거부되었'
     + '습니다. 제목은 어느 과제인지 밝히지 말고 이 대화 내용만으로 다시 쓰세요.',
   nature_missing_from_batch_answer: '방금 답에 이 구간의 항목이 빠졌습니다. 이 구간 하나만 다시 답하세요.',
+  nature_batch_answer_ids_invalid: '방금 답의 구간 id가 이번에 물은 것과 맞지 않습니다(모르는 id이거나 같은'
+    + ' id가 중복됨). 이 구간 하나에 대해서만, 정확히 이 구간의 id로 다시 답하세요.',
 });
-/** How many re-asks one (step, segment/window) item may cost before this pass gives up on it. */
+/** How many re-asks one (step, window) item may cost before this pass gives up on it. */
 export const MAX_SEMANTIC_REASKS = 2;
+/**
+ * The fixed line appended after a re-ask's rejection sentence, naming the
+ * attempt so attempt 1 and attempt 2 never build identical request bytes
+ * even when the model repeats the exact same mistake both times -- see this
+ * file's own `SEMANTIC_REASK_SENTENCES` doc for why that distinction matters.
+ */
+const reaskAttemptLine = (attempt, max) => `재요청 ${attempt}/${max}`;
 
 // ---------------------------------------------------------------- the caller
 /**
@@ -396,17 +424,29 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     // request's bytes (and cache key) differ and a fresh call actually
     // happens. `answer.status === 'ok'` gates this: a genuine call failure
     // was never cached, so it already retries fresh on the next pass without
-    // help from this loop.
-    for (let attempt = 0; answer.status === 'ok' && !checked.ok
-      && SEMANTIC_REASK_SENTENCES[checked.code] && attempt < MAX_SEMANTIC_REASKS; attempt++) {
+    // help from this loop. Two things keep the loop honest about what it
+    // actually did: a reask is logged only when `ask()` says this attempt's
+    // call was not a cache hit (`cached !== true`) -- a replayed rejection is
+    // not a new re-ask, whatever the loop counter says -- and a *fresh* call
+    // that comes back with the exact same rejection reason as the attempt
+    // before it ends the loop early this pass rather than spending the
+    // second attempt on a model that has just shown, for real, that it will
+    // make the same mistake again; a later pass still gets the untried
+    // attempt (see this constant's own doc for why the two attempts never
+    // share request bytes).
+    for (let attempt = 1; answer.status === 'ok' && !checked.ok
+      && SEMANTIC_REASK_SENTENCES[checked.code] && attempt <= MAX_SEMANTIC_REASKS; attempt++) {
       const reason = checked.code;
       answer = await ask({ step: 'boundary', system: prompts.boundary,
-        user: `${user}\n\n${SEMANTIC_REASK_SENTENCES[reason]}`, schema: BOUNDARY_ANSWER });
+        user: `${user}\n\n${SEMANTIC_REASK_SENTENCES[reason]}\n\n${reaskAttemptLine(attempt, MAX_SEMANTIC_REASKS)}`,
+        schema: BOUNDARY_ANSWER });
       checked = answer.status === 'ok'
         ? checkBoundaryProposal(answer.value, { windowSegmentIds: window.segment_ids })
         : { ok: false, code: answer.status === 'budget_exhausted' ? 'llm_budget_exhausted' : 'boundary_llm_failed' };
-      reaskTrace.push({ step: 'boundary', item: `window_${window.index + 1}`, reason,
-        attempt: attempt + 1, accepted: checked.ok });
+      if (answer.cached !== true) {
+        reaskTrace.push({ step: 'boundary', item: `window_${window.index + 1}`, reason, attempt, accepted: checked.ok });
+        if (!checked.ok && checked.code === reason) break;
+      }
     }
     if (checked.ok) {
       let segments = answer.value.segments, extra = [];
@@ -474,9 +514,15 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     || durationOf(segment) > limits.window_seconds;
   const natureOf = new Map();
   // `extra`, appended to the user text, is only ever non-empty on a re-ask
-  // (see `checkedNatureAnswer` below) -- the ordinary call this function
-  // makes on a first attempt is byte-identical to before this file grew a
-  // re-ask path.
+  // (see `checkedNature` below) -- the ordinary call this function makes on
+  // a first attempt is byte-identical to before this file grew a re-ask
+  // path. The answer is validated against the batch it was actually asked
+  // about, not just against the JSON Schema: a plain `new Map(rows.map(...))`
+  // would silently drop an id the batch never had and resolve a repeated id
+  // to whichever occurrence came last, and now that "absent from this map"
+  // is load-bearing (`nature_missing_from_batch_answer`, below) those two
+  // shapes need their own name and their own re-ask rather than quietly
+  // becoming a different segment's wrong answer.
   const askNature = async (batch, extra = '') => {
     const body = batch.map(entry => `[${entry.segment_id}] 발화 ${entry.ids[0]}–${entry.ids.at(-1)}`
       + ` · 화행 ${entry.acts.join(',') || '-'} · 품질 ${entry.marks.join(',') || '-'}`
@@ -484,8 +530,18 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       + `\n${entry.text}`).join('\n\n');
     const answer = await ask({ step: 'nature', system: prompts.nature,
       user: `구간 ${batch.length}개\n\n${body}${extra ? `\n\n${extra}` : ''}`, schema: NATURE_ANSWER });
-    if (answer.status !== 'ok') return null;
-    return new Map((answer.value.segments ?? []).map(row => [String(row.segment_id), row]));
+    const cached = answer.cached === true;
+    if (answer.status !== 'ok') return { map: null, idsValid: null, cached };
+    const wanted = new Set(batch.map(entry => entry.segment_id));
+    const rows = answer.value.segments ?? [];
+    const seen = new Set();
+    let idsValid = true;
+    for (const row of rows) {
+      const id = String(row.segment_id);
+      if (!wanted.has(id) || seen.has(id)) { idsValid = false; break; }
+      seen.add(id);
+    }
+    return { map: new Map(rows.map(row => [String(row.segment_id), row])), idsValid, cached };
   };
   const entryFor = (segment, ids) => ({ segment_id: segment.segment_id, ids,
     acts: [...new Set(ids.map(id => unitFor.get(id)).filter(Boolean).flatMap(unit => unit.speech_acts ?? []))],
@@ -495,33 +551,54 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     : ids.filter(id => (marksFor.get(id) ?? []).some(mark => UNREADABLE_MARKS.includes(mark))).length / ids.length;
   const natureCheckFor = (entry, row) => checkNature(row, { text: entry.text,
     unreadableRatio: unreadableRatioOf(entry.ids), speechActs: entry.acts, segmentIds: entry.ids });
+  // A window identifier for `reaskTrace`/`splitTrace`, not just the segment
+  // id: a long segment's several windows share one segment id, and the
+  // bound (`MAX_SEMANTIC_REASKS`/`MAX_WINDOW_SPLITS`) is per (step, window),
+  // not per (step, segment) -- see this file's README note.
+  const windowItem = entry => `${entry.segment_id}:${entry.ids[0]}-${entry.ids.at(-1)}`;
+  const checkedFrom = (entry, found) => {
+    if (found.map === null) return { ok: false, code: 'nature_llm_failed' };
+    if (found.idsValid === false) return { ok: false, code: 'nature_batch_answer_ids_invalid' };
+    const row = found.map.get(entry.segment_id) ?? null;
+    return row === null ? { ok: false, code: 'nature_missing_from_batch_answer' } : natureCheckFor(entry, row);
+  };
 
   /**
-   * One segment's nature answer, from an already-made call (`found`, the Map
-   * `askNature` returned, or `null` on a call failure), re-asked up to
-   * `MAX_SEMANTIC_REASKS` times when what came back was either rejected by
-   * `checkNature`'s own rules or -- `nature_missing_from_batch_answer` --
-   * simply absent from an otherwise valid batch answer. That second case is
-   * not a `checkNature` rejection: the batch call *succeeded* (schema-valid,
-   * cached), it just never mentioned this particular segment. Tagging it
-   * `nature_llm_failed` (as before) hid the reason a session could replay at
-   * 0 calls forever -- the omission was cached as success, so nothing ever
-   * asked again. A re-ask here is scoped to this one segment alone, never the
-   * rest of its original batch, which both names the cause and is smaller
-   * than the batch that dropped it.
+   * One segment's nature answer, from an already-made call (`found`, the
+   * `{map, idsValid, cached}` `askNature` returned for the batch this entry
+   * was asked in), re-asked up to `MAX_SEMANTIC_REASKS` times for any of
+   * three reasons: rejected by `checkNature`'s own rules, absent from an
+   * otherwise valid batch answer (`nature_missing_from_batch_answer`), or
+   * the batch answer's own ids do not match what was asked
+   * (`nature_batch_answer_ids_invalid`). None of the three is a
+   * `checkNature` rejection code proper -- all three are raised here because
+   * the batch call itself *succeeded* (schema-valid, cached) while still not
+   * being a usable answer for this one segment. Tagging any of them the
+   * generic `nature_llm_failed` (as earlier code did) hid the reason a
+   * session could replay at 0 calls forever: the omission or mismatch was
+   * cached as success, so nothing ever asked again. A re-ask here is scoped
+   * to this one segment alone, never the rest of its original batch, which
+   * both names the cause and is smaller than the batch that produced it.
+   *
+   * A re-ask is only logged, and only counted toward "the model repeated the
+   * same mistake" (which ends the loop early this pass), when `askNature`
+   * itself reports the attempt was not a cache hit -- see
+   * `SEMANTIC_REASK_SENTENCES`'s own doc for why attempt 2 never shares
+   * request bytes with attempt 1, and the boundary loop's matching comment
+   * for what "break early" buys and does not buy.
    */
   const checkedNature = async (entry, found) => {
-    if (found === null) return { ok: false, code: 'nature_llm_failed' };
-    let row = found.get(entry.segment_id) ?? null;
-    let checked = row === null ? { ok: false, code: 'nature_missing_from_batch_answer' } : natureCheckFor(entry, row);
-    for (let attempt = 0; !checked.ok && SEMANTIC_REASK_SENTENCES[checked.code]
-      && attempt < MAX_SEMANTIC_REASKS; attempt++) {
+    let checked = checkedFrom(entry, found);
+    for (let attempt = 1; !checked.ok && SEMANTIC_REASK_SENTENCES[checked.code]
+      && attempt <= MAX_SEMANTIC_REASKS; attempt++) {
       const reason = checked.code;
-      const reasked = await askNature([entry], SEMANTIC_REASK_SENTENCES[reason]);
-      row = reasked?.get(entry.segment_id) ?? null;
-      checked = reasked === null ? { ok: false, code: 'nature_llm_failed' }
-        : row === null ? { ok: false, code: 'nature_missing_from_batch_answer' } : natureCheckFor(entry, row);
-      reaskTrace.push({ step: 'nature', item: entry.segment_id, reason, attempt: attempt + 1, accepted: checked.ok });
+      const sentence = `${SEMANTIC_REASK_SENTENCES[reason]}\n\n${reaskAttemptLine(attempt, MAX_SEMANTIC_REASKS)}`;
+      const reasked = await askNature([entry], sentence);
+      checked = checkedFrom(entry, reasked);
+      if (reasked.cached !== true) {
+        reaskTrace.push({ step: 'nature', item: windowItem(entry), reason, attempt, accepted: checked.ok });
+        if (!checked.ok && checked.code === reason) break;
+      }
     }
     return checked;
   };
@@ -532,20 +609,23 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
    * answer -- most often output truncation on an oversized window) before
    * this pass gives up on that piece of it. Bounded to one split: a window
    * still broken after being halved is broken for a reason splitting further
-   * is unlikely to fix.
+   * is unlikely to fix. Guarded on `!counters.budget_exhausted` so a run that
+   * has already spent its budget does not spend two more calls (and note()
+   * two more failures) it was never going to be able to use.
    */
   const MAX_WINDOW_SPLITS = 1;
+  const splitTrace = [];
   const natureWindowAnswers = async (segment, ids, depth = 0) => {
     const entry = entryFor(segment, ids);
     const found = await askNature([entry]);
     const checked = await checkedNature(entry, found);
     if (checked.ok) return [checked];
-    if (found === null && ids.length > 1 && depth < MAX_WINDOW_SPLITS) {
+    if (found.map === null && ids.length > 1 && depth < MAX_WINDOW_SPLITS && !counters.budget_exhausted) {
       const mid = Math.ceil(ids.length / 2);
       const left = await natureWindowAnswers(segment, ids.slice(0, mid), depth + 1);
       const right = await natureWindowAnswers(segment, ids.slice(mid), depth + 1);
-      reaskTrace.push({ step: 'nature', item: segment.segment_id, reason: 'nature_llm_failed_window_split',
-        attempt: depth + 1, accepted: left.length > 0 || right.length > 0 });
+      splitTrace.push({ step: 'nature', item: windowItem(entry), depth: depth + 1,
+        accepted: left.length > 0 || right.length > 0 });
       return [...left, ...right];
     }
     note('nature', segment.segment_id, checked.code);
@@ -563,7 +643,11 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       ? { nature: 'mixed', title: `구간 ${segment.segment_id} (미정)`, description: '', key_terms: [],
         key_terms_typed: [], agenda: [], unclear: true, marks: ['nature_llm_failed'],
         processed_in_windows: windowsOf.length }
-      : mergeNatureWindows(answers));
+      // `processed_in_windows` is the number of windows this segment was
+      // *planned* into, not how many pieces a failed window's own split
+      // happened to produce -- a split is a retry of one planned window, not
+      // a second one.
+      : { ...mergeNatureWindows(answers), processed_in_windows: windowsOf.length });
   }
   const short = segments.filter(segment => !long(segment));
   for (const batch of batchSegments(short, { charactersOf: segment => glyphs(textOfSegment(segment)).length,
@@ -847,11 +931,22 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       cache_hits: counters.cache_hits, budget: limits.llm_calls, budget_exhausted: counters.budget_exhausted },
     // Every re-ask this pass made because a structurally valid answer was
     // rejected by a semantic rule (or, for `nature`, was silently absent from
-    // an otherwise valid batch answer) -- reason, item id, attempt number and
-    // whether it was accepted, and nothing about what was actually said.
+    // or mismatched against an otherwise valid batch answer) -- reason, item
+    // id (a window, `<segment_id>:<first utterance>-<last utterance>`, not
+    // just a segment: the bound is per window), attempt number and whether
+    // it was accepted, and nothing about what was actually said. Only a
+    // genuinely fresh (non-cached) attempt is counted here -- a re-ask that
+    // merely replayed an already-cached rejection is not a re-ask.
     reasks: { total: reaskTrace.length,
       by_reason: reaskTrace.reduce((held, row) => ({ ...held, [row.reason]: (held[row.reason] ?? 0) + 1 }), {}),
       accepted: reaskTrace.filter(row => row.accepted).length, entries: reaskTrace },
+    // Every time a `nature` window was halved and retried after a genuine
+    // call failure (distinct from `reasks`, which is about semantic
+    // rejections of an answer the model actually gave -- a split is about a
+    // call that never produced one). `additive`: both `reasks` and `splits`
+    // are new fields on the unchanged `soulforge.voice_conversation_run.v0`
+    // schema (`RUN_MANIFEST_SCHEMA`, deliberately not bumped for either).
+    splits: { total: splitTrace.length, accepted: splitTrace.filter(row => row.accepted).length, entries: splitTrace },
     // What this pass did, and what every pass before it did. A pass that finds a
     // full cache asks nothing, which is the point -- but it would also overwrite
     // the only record of what the first pass cost, and "the run took no calls"
