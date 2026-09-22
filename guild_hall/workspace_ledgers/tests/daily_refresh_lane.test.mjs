@@ -46,7 +46,7 @@ function buildLaneTree(specRef, destRoot) {
 test('workspace_ledgers_lane.spec.json: tracked_paths carries the whole module wholesale, tests excluded', () => {
   const spec = JSON.parse(readFileSync(path.join(REPO_ROOT, SPEC_PATH), 'utf8'));
   assert.equal(spec.schema, 'soulforge.source_lane_spec.v0');
-  assert.equal(spec.lane_id, 'workspace-ledgers-v3');
+  assert.equal(spec.lane_id, 'workspace-ledgers-v4');
   assert.deepEqual(spec.tracked_paths, ['guild_hall/workspace_ledgers/']);
   assert.deepEqual(spec.tracked_excludes, ['guild_hall/workspace_ledgers/tests/']);
   assert.deepEqual(spec.carried_forward_prefixes, []);

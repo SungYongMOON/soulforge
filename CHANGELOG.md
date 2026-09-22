@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026-09-22 - `guild_hall/workspace_ledgers` 메일함: 실제 팀원 메일함 귀속(lane `workspace-ledgers-v4`)
+
+- Revision: 이 항목을 포함한 커밋.
+- 무엇이 바뀌었는가: 과제별 메일 장부(`027_수신이력_이동이력/메일_수신이력.csv`,
+  `메일_발송이력.csv`)의 `메일함` 칸이 지금까지 항상 고정 상수(`하이웍스_수집`/
+  `Gmail_보낸메일_수집`)였던 것을, 그 메일이 실제로 발견된 팀원 메일함으로 바꿨다. 모든
+  하이웍스·gmail-sent custody 이벤트가 이미 `metadata.mailbox`에 `{ id, account_id, email,
+  display_name, provider, workspace }`(빈 값 제외, `team_mailboxes.py`의
+  `TeamMailbox.metadata()`가 쓰는 모양 그대로, 실제 하이웍스 custody 한 줄로 모양 확인함)를
+  들고 있었는데도 장부에는 전혀 드러나지 않던 것을 고쳤다. `mail_events.mjs`의
+  `formatMailboxOwner`/`ownersOf`가 `<display_name> <email>` 라벨을 만들고, 여러 팀원의
+  메일함에 각각 들어온 같은 물리 메일(같은 event_id·같은 지문)이 한 줄로 합쳐질 때도 발견된
+  모든 소유자를 `" ; "`로 이어 안정된 순서로 남긴다(`dedupeAndAssignIds`가 병합 그룹 전체에서
+  라벨을 모음, 합쳐지며 사라지는 사본의 메일함도 잃지 않음). `common_events.mjs`의
+  `loadRawMailRecords`가 이 값을 그대로 실어 나르고, `ledgers.mjs`의 `mailboxCellOf`가 실제
+  칸 값을 정하며(`buildHistoryRow`가 예전 `mail.source` 자리에 이걸 쓴다),
+  `metadata.mailbox`가 없는 메일은 기존 고정 라벨로 그대로 떨어진다(`refresh()`의 새 영수증
+  칸 `mailbox_owner_fallback`이 몇 건이 떨어졌는지 센다 -- 프로젝트별 행 분화가 아니라 귀속된
+  메일 한 건당 한 번). CSV 헤더는 그대로다(칸 추가·개명·삭제 없음), 행 키(이력키)도 이
+  값에 의존하지 않으며, Owner기입 보존 칸(단계/작업상태 등) 계약도 바뀌지 않았다 -- 합성
+  fixture로 메일함 칸 하나만 다르고 나머지는 바이트 단위로 같다는 것을 시험으로 증명했다.
+  `ops/mail_attribution_index.mjs`(과제 귀속 색인)는 건드리지 않았다 -- 그 모듈의 per-mail
+  레코드에는 메일함 소유자를 실을 칸이 원래 없고, 그 모듈 자신의 머리말이 이름을 절대
+  내보내지 않는다고 못박고 있어 새로 칸을 만드는 것 자체가 그 경계를 깨는 일이기 때문이다.
+  lane 명세를 `workspace-ledgers-v3` -> `workspace-ledgers-v4`로 올렸다(import closure는
+  그대로 -- 바뀐 네 파일 모두 이 모듈 안과 `node:` 기본 모듈만 읽는다).
+- 운영 영향: 라이브러리 동작만 바뀐다 -- 이 커밋은 어떤 예약작업도 새로 등록하지 않고, 실제
+  운영 lane(`install/source-lanes/workspace-ledgers-v3`)도 건드리지 않는다. 다음 실제 운영
+  lane 전환(v4 빌드+등록)은 별도 Owner 행위다. `metadata.mailbox`가 없는 옛 custody 줄은
+  여전히 기존 고정 라벨로 렌더된다 -- 데이터 손실이나 조용한 빈 칸이 아니다.
+- 관련 경로: `guild_hall/workspace_ledgers/src/mail_events.mjs`,
+  `guild_hall/workspace_ledgers/src/common_events.mjs`,
+  `guild_hall/workspace_ledgers/src/ledgers.mjs`,
+  `guild_hall/workspace_ledgers/src/refresh.mjs`,
+  `guild_hall/workspace_ledgers/tests/mail_events.test.mjs`,
+  `guild_hall/workspace_ledgers/tests/ledgers.test.mjs`,
+  `guild_hall/workspace_ledgers/tests/refresh.test.mjs`,
+  `guild_hall/workspace_ledgers/tests/daily_refresh_lane.test.mjs`,
+  `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`,
+  `guild_hall/workspace_ledgers/README.md`, `CHANGELOG.md`.
+
 ## 2026-09-22 - K3 예외 바닥과 페이지 확인 항목
 
 - Revision: 이 항목을 포함한 커밋. K0~K2는 유지하고 K3 예외에 고정 KO/EN 표지 바닥을 합친다.

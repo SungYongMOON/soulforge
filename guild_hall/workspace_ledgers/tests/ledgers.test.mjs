@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildContacts, decodeCsv, encodeCsv, normalizeSubject, seoulDateOf, splitTitle, threadKey } from '../src/ledgers.mjs';
+import {
+  buildContacts, buildHistory, decodeCsv, encodeCsv, HISTORY_HEADERS, mailboxCellOf, normalizeSubject, seoulDateOf, splitTitle,
+  threadKey,
+} from '../src/ledgers.mjs';
 
 const ORG_CONFIG = {
   our_domain: 'example.com',
@@ -176,4 +179,63 @@ test('buildContacts: varying display names on one address settle on the most-use
   const { records } = buildContacts({ code: 'P00-001', mails, orgConfig: ORG_CONFIG });
   assert.equal(records.length, 1);
   assert.equal(records[0].name, '정수민');
+});
+
+// ----------------------------------------------------- 메일함 owner attribution (2026-09-22)
+const MAILBOX_INDEX = HISTORY_HEADERS.indexOf('메일함');
+
+function historyMail({ source, mailbox_owners, direction = 'received', event_id = 'e1', label = 'l' }) {
+  return {
+    source, mailbox_owners, direction, event_id, at: '2026-09-01T00:00:00Z', subject: 's',
+    from: person('김철수', 'staff@client.example'), to: [], cc: [], attachment_count: 0, label,
+  };
+}
+
+test('mailboxCellOf: joins mailbox_owners with " ; ", never re-sorting the order given', () => {
+  assert.equal(mailboxCellOf(historyMail({ source: '하이웍스_수집', mailbox_owners: ['김철수 kim@company.example'] })), '김철수 kim@company.example');
+  assert.equal(
+    mailboxCellOf(historyMail({ source: '하이웍스_수집', mailbox_owners: ['김철수 kim@company.example', '이영희 lee@company.example'] })),
+    '김철수 kim@company.example ; 이영희 lee@company.example',
+  );
+});
+
+test('mailboxCellOf: falls back to the fixed source label when mailbox_owners is empty, missing, or not an array', () => {
+  assert.equal(mailboxCellOf(historyMail({ source: '하이웍스_수집', mailbox_owners: [] })), '하이웍스_수집');
+  assert.equal(mailboxCellOf(historyMail({ source: 'Gmail_보낸메일_수집', mailbox_owners: undefined })), 'Gmail_보낸메일_수집');
+  assert.equal(mailboxCellOf({ source: '하이웍스_수집' }), '하이웍스_수집'); // no mailbox_owners key at all
+});
+
+test('buildHistory: 메일함 cell carries the real mailbox owner for hiworks mail, the fixed label as fallback', () => {
+  const mails = [
+    { ...historyMail({ source: '하이웍스_수집', mailbox_owners: ['김철수 kim@company.example'], event_id: 'h1' }) },
+    { ...historyMail({ source: '하이웍스_수집', mailbox_owners: [], event_id: 'h2' }) },
+  ];
+  const { received } = buildHistory({ code: 'P00-001', mails, orgConfig: ORG_CONFIG, ruleVersion: 'v1' });
+  assert.equal(received.rows.length, 2);
+  const rowWithOwner = received.rows.find(row => row[6] === 'h1'); // 메일소스ID
+  const rowFallback = received.rows.find(row => row[6] === 'h2');
+  assert.equal(rowWithOwner[MAILBOX_INDEX], '김철수 kim@company.example');
+  assert.equal(rowFallback[MAILBOX_INDEX], '하이웍스_수집');
+});
+
+test('buildHistory: 메일함 cell carries the real mailbox owner for gmail-sent mail too', () => {
+  const mails = [historyMail({ source: 'Gmail_보낸메일_수집', mailbox_owners: ['오너 me@company.example'], direction: 'sent', event_id: 'g1' })];
+  const { sent } = buildHistory({ code: 'P00-001', mails, orgConfig: ORG_CONFIG, ruleVersion: 'v1' });
+  assert.equal(sent.rows.length, 1);
+  assert.equal(sent.rows[0][MAILBOX_INDEX], '오너 me@company.example');
+});
+
+test('buildHistory: a mail deduplicated across two mailboxes lists both owners, joined by " ; ", in the given order', () => {
+  const mails = [historyMail({
+    source: '하이웍스_수집', mailbox_owners: ['김철수 kim@company.example', '이영희 lee@company.example'], event_id: 'h1',
+  })];
+  const { received } = buildHistory({ code: 'P00-001', mails, orgConfig: ORG_CONFIG, ruleVersion: 'v1' });
+  assert.equal(received.rows[0][MAILBOX_INDEX], '김철수 kim@company.example ; 이영희 lee@company.example');
+});
+
+test('buildHistory: HISTORY_HEADERS is unchanged -- 메일함 owner attribution never adds/renames/removes a column', () => {
+  assert.deepEqual([...HISTORY_HEADERS], [
+    '이력키', '스키마버전', '발생시각', '프로젝트코드', '단계', '이벤트유형', '메일소스ID',
+    '메일수신시각', '메일함', '스레드', '제목', '발신자', '발신자메일', '발신자소속', '수신자', '참조', '첨부수', '작업상태', '적용규칙', '규칙판', '원문복사여부',
+  ]);
 });

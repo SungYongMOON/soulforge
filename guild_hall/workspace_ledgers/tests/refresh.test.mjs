@@ -1886,3 +1886,184 @@ test('previewRule (NIT, coordinator fresh review round 5): owner_tables_used rep
     assert.equal(JSON.stringify(withTable.owner_tables_used).includes(fixture.root), false);
   } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
+
+// ------------------------------------------------------- 메일함 owner attribution (2026-09-22)
+// `메일함` used to always render the fixed per-source collector label
+// (하이웍스_수집/Gmail_보낸메일_수집). It now renders the mail's real mailbox
+// owner(s) (`metadata.mailbox` on the custody line, confirmed against a real
+// hiworks event, 2026-09-22: `{ id, account_id, email, display_name, provider,
+// workspace }`), falling back to the same fixed label when a mail carries none.
+const MAILBOX_HEADER_INDEX = 8; // 메일함, see ledgers.mjs's HISTORY_HEADERS
+
+function mailboxOf(id, email, provider = 'hiworks', workspace = 'company') {
+  return { id, account_id: id, email, display_name: id === 'kim01' ? '김철수' : id === 'lee01' ? '이영희' : '오너', provider, workspace };
+}
+
+test('refresh: 메일함 carries the real mailbox owner for a hiworks-received mail, and for a gmail-sent mail', () => {
+  const fixture = makeFixture();
+  try {
+    const hiworksLines = readFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), 'utf8').split('\n').map(line => JSON.parse(line));
+    hiworksLines.find(line => line.event_id === 'h1').metadata = { mailbox: mailboxOf('kim01', 'kim@company.example') };
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl(hiworksLines));
+
+    const gmailLines = readFileSync(path.join(fixture.gmailDir, 'events.jsonl'), 'utf8').split('\n').map(line => JSON.parse(line));
+    gmailLines.find(line => line.event_id === 'g1').metadata = { mailbox: mailboxOf('owner01', 'me@company.example', 'gmail', 'personal') };
+    writeFileSync(path.join(fixture.gmailDir, 'events.jsonl'), jsonl(gmailLines));
+
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const h1Row = recvCsv.rows.find(row => row[6] === 'h1');
+    assert.equal(h1Row[MAILBOX_HEADER_INDEX], '김철수 kim@company.example');
+
+    const sentCsv = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const g1Row = sentCsv.rows.find(row => row[6] === 'g1');
+    assert.equal(g1Row[MAILBOX_HEADER_INDEX], '오너 me@company.example');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh: a mail with no metadata.mailbox falls back to the fixed source label, counted in receipt.mailbox_owner_fallback', () => {
+  const fixture = makeFixture();
+  try {
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    // Attributed mails this fixture produces: h1, h4, g1 (h2 is held, h3 is system-skipped
+    // -- neither ever reaches a ledger row, so neither counts toward this fallback either).
+    assert.equal(receipt.mailbox_owner_fallback, 3);
+
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const h1Row = recvCsv.rows.find(row => row[6] === 'h1');
+    assert.equal(h1Row[MAILBOX_HEADER_INDEX], '하이웍스_수집'); // unchanged fixed label
+    const sentCsv = decodeCsv(readFileSync(sentPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const g1Row = sentCsv.rows.find(row => row[6] === 'g1');
+    assert.equal(g1Row[MAILBOX_HEADER_INDEX], 'Gmail_보낸메일_수집'); // unchanged fixed label
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh: a mail deduplicated across two team mailboxes lists ALL owners in 메일함, joined by " ; " in stable order', () => {
+  const fixture = makeFixture();
+  try {
+    // Same event_id + same fingerprint (subject/at/from) as the existing h1 line --
+    // this is the genuine-duplicate collapse path, not an id collision -- but fetched
+    // through a SECOND team member's own hiworks mailbox, so it carries its own
+    // metadata.mailbox distinct from the first copy.
+    const original = readFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), 'utf8');
+    const lines = original.split('\n').map(line => JSON.parse(line));
+    lines.find(line => line.event_id === 'h1').metadata = { mailbox: mailboxOf('kim01', 'kim@company.example') };
+    const secondCopy = {
+      event_id: 'h1', subject: '[P00-001] 예시장비 납품 안내', from: 'staff@client.example', to: ['me@example.com'], cc: [],
+      received_at: '2026-09-01T01:00:00Z', body_text: '', attachments: [],
+      metadata: { mailbox: mailboxOf('lee01', 'lee@company.example') },
+    };
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), `${jsonl(lines)}\n${JSON.stringify(secondCopy)}`);
+
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    assert.equal(receipt.duplicates_dropped, 1); // still one physical mail
+
+    const recvCsv = decodeCsv(readFileSync(recvPath(fixture.workspacesRoot, FOLDER_A), 'utf8'));
+    const h1Rows = recvCsv.rows.filter(row => row[6] === 'h1');
+    assert.equal(h1Rows.length, 1); // one ledger row, not two
+    assert.equal(h1Rows[0][MAILBOX_HEADER_INDEX], '김철수 kim@company.example ; 이영희 lee@company.example');
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh: Owner-entered cells survive a later refresh even when that refresh changes only the 메일함 cell (metadata.mailbox newly present for an already-existing mail)', () => {
+  const fixture = makeFixture();
+  try {
+    refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+
+    // Owner hand-edits 단계 (a preserved column) on h1's row, and 과제내역할(Owner기입)
+    // on the contacts row, the same way a person would in Excel.
+    const rPath = recvPath(fixture.workspacesRoot, FOLDER_A);
+    const recv = decodeCsv(readFileSync(rPath, 'utf8'));
+    const h1Row = recv.rows.find(row => row[6] === 'h1');
+    h1Row[4] = '1차'; // 단계
+    h1Row[17] = '검토완료'; // 작업상태
+    writeFileSync(rPath, encodeCsv(recv.headers, recv.rows));
+
+    const cPath = contactsPath(fixture.workspacesRoot, FOLDER_A);
+    const contacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const staffRow = contacts.rows.find(row => row[5] === 'staff@client.example');
+    staffRow[12] = '담당자'; // 과제내역할(Owner기입)
+    writeFileSync(cPath, encodeCsv(contacts.headers, contacts.rows));
+
+    // A later day, the mailbox pipeline starts annotating custody with
+    // metadata.mailbox -- the SAME physical mail (same event_id, same key), so its
+    // row is not "leaving custody"; only its (non-preserved) 메일함 cell changes.
+    const original = readFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), 'utf8');
+    const lines = original.split('\n').map(line => JSON.parse(line));
+    lines.find(line => line.event_id === 'h1').metadata = { mailbox: mailboxOf('kim01', 'kim@company.example') };
+    writeFileSync(path.join(fixture.hiworksDir, 'events.jsonl'), jsonl(lines));
+
+    const receipt = refresh({ workspacesRoot: fixture.workspacesRoot, workmetaRoot: fixture.workmetaRoot,
+      hiworksDirs: [fixture.hiworksDir], gmailSentDirs: [fixture.gmailDir], orgConfigPath: fixture.orgConfigPath,
+      receiptsDir: fixture.receiptsDir, now: '2026-09-02T01:00:00.000Z' });
+    const reportA = receipt.projects.find(row => row.project_code === CODE_A);
+    assert.equal(reportA.received_history.changed, true); // 메일함 cell did change
+    assert.equal(reportA.received_history.preserved_owner_cells, 2); // 단계 and 작업상태 both still preserved
+    assert.equal(reportA.contacts.changed, false); // contacts custody is untouched by this edit
+    assert.equal(reportA.contacts.preserved_owner_cells, 1);
+
+    const finalRecv = decodeCsv(readFileSync(rPath, 'utf8'));
+    const finalH1 = finalRecv.rows.find(row => row[6] === 'h1');
+    assert.equal(finalH1[4], '1차'); // 단계 preserved
+    assert.equal(finalH1[17], '검토완료'); // 작업상태 preserved
+    assert.equal(finalH1[MAILBOX_HEADER_INDEX], '김철수 kim@company.example'); // 메일함 is the one cell that changed
+
+    const finalContacts = decodeCsv(readFileSync(cPath, 'utf8'));
+    const finalStaffRow = finalContacts.rows.find(row => row[5] === 'staff@client.example');
+    assert.equal(finalStaffRow[12], '담당자'); // 과제내역할(Owner기입) preserved
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+test('refresh: 메일함 owner attribution changes exactly one column -- every other cell, the header row, and row identity are byte-identical with vs without metadata.mailbox', () => {
+  const withoutMailbox = makeFixture();
+  const withMailbox = makeFixture();
+  try {
+    const lines = readFileSync(path.join(withMailbox.hiworksDir, 'events.jsonl'), 'utf8').split('\n').map(line => JSON.parse(line));
+    lines.find(line => line.event_id === 'h1').metadata = { mailbox: mailboxOf('kim01', 'kim@company.example') };
+    writeFileSync(path.join(withMailbox.hiworksDir, 'events.jsonl'), jsonl(lines));
+    const gmailLines = readFileSync(path.join(withMailbox.gmailDir, 'events.jsonl'), 'utf8').split('\n').map(line => JSON.parse(line));
+    gmailLines.find(line => line.event_id === 'g1').metadata = { mailbox: mailboxOf('owner01', 'me@company.example', 'gmail', 'personal') };
+    writeFileSync(path.join(withMailbox.gmailDir, 'events.jsonl'), jsonl(gmailLines));
+
+    refresh({ workspacesRoot: withoutMailbox.workspacesRoot, workmetaRoot: withoutMailbox.workmetaRoot,
+      hiworksDirs: [withoutMailbox.hiworksDir], gmailSentDirs: [withoutMailbox.gmailDir], orgConfigPath: withoutMailbox.orgConfigPath,
+      receiptsDir: withoutMailbox.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+    refresh({ workspacesRoot: withMailbox.workspacesRoot, workmetaRoot: withMailbox.workmetaRoot,
+      hiworksDirs: [withMailbox.hiworksDir], gmailSentDirs: [withMailbox.gmailDir], orgConfigPath: withMailbox.orgConfigPath,
+      receiptsDir: withMailbox.receiptsDir, now: '2026-09-02T00:00:00.000Z' });
+
+    for (const [readCsv, label] of [[recvPath, 'recv'], [sentPath, 'sent'], [replyPath, 'reply']]) {
+      const before = decodeCsv(readFileSync(readCsv(withoutMailbox.workspacesRoot, FOLDER_A), 'utf8'));
+      const after = decodeCsv(readFileSync(readCsv(withMailbox.workspacesRoot, FOLDER_A), 'utf8'));
+      assert.deepEqual(after.headers, before.headers, `${label}: header row must be byte-identical`);
+      assert.equal(after.rows.length, before.rows.length, `${label}: row count must be unchanged`);
+      for (let index = 0; index < before.rows.length; index += 1) {
+        const beforeRow = [...before.rows[index]];
+        const afterRow = [...after.rows[index]];
+        if (label === 'recv' || label === 'sent') {
+          // the one column allowed to differ; every other cell (including 이력키, the
+          // row's own key) must match exactly.
+          beforeRow[MAILBOX_HEADER_INDEX] = null;
+          afterRow[MAILBOX_HEADER_INDEX] = null;
+        }
+        assert.deepEqual(afterRow, beforeRow, `${label} row ${index}: only 메일함 may differ`);
+      }
+    }
+    // contacts.csv never renders 메일함 at all -- must be fully byte-identical.
+    const beforeContacts = readFileSync(contactsPath(withoutMailbox.workspacesRoot, FOLDER_A));
+    const afterContacts = readFileSync(contactsPath(withMailbox.workspacesRoot, FOLDER_A));
+    assert.deepEqual(afterContacts, beforeContacts);
+  } finally {
+    rmSync(withoutMailbox.root, { recursive: true, force: true });
+    rmSync(withMailbox.root, { recursive: true, force: true });
+  }
+});

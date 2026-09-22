@@ -978,6 +978,14 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
   const shrinkAllowedAppliedTo = new Set(); // S1
   let eventsScannedHiworks = 0, eventsScannedGmail = 0, skippedSystemTotal = 0;
   let duplicatesDroppedTotal = 0, idCollisionsKeptTotal = 0, heldCount = 0, unattributed = 0;
+  // Owner decision 2026-09-22: 메일함 now carries the real mailbox owner(s)
+  // (`ledgers.mjs`'s `mailboxCellOf`) instead of the fixed per-source collector
+  // label. This counts how many attributed mails (mails that actually produced a
+  // history row -- `result.hits.length > 0` below) had no `metadata.mailbox` on any
+  // custody line and so fell back to that fixed label -- an older custody line
+  // written before this field existed, or any other caller of this pipeline that
+  // never attached one.
+  let mailboxOwnerFallbackTotal = 0;
   let unreadableDirsRedacted = [];
   let ruleFailures = [];
   // R3: the boolean the shrink guard must actually gate on -- an unreadable custody
@@ -1073,7 +1081,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         shrink_allowed_applied_to: [],
         rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
         owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: 0,
-        project_search_eligible_attributions: 0,
+        project_search_eligible_attributions: 0, mailbox_owner_fallback: 0,
       };
       writeReceiptFile(receipt);
       return receipt;
@@ -1096,7 +1104,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
         shrink_allowed_applied_to: [],
         rule_failures: ruleFailures, held_two_projects: 0, unattributed: 0, ledger_failures: [], projects: [],
         owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: 0,
-        project_search_eligible_attributions: 0,
+        project_search_eligible_attributions: 0, mailbox_owner_fallback: 0,
         degraded_owner_tables_allowed: false,
       };
       writeReceiptFile(receipt);
@@ -1137,6 +1145,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       // reading decision, and a step-4 body tie-break, do not.
       const readingOwnerConfirmed = result.reading && String(result.reading.ownerConfirmed ?? '').trim() !== '';
       if (result.basis === STEP1_TITLE_BASIS || result.basis === '묶음 확정' || readingOwnerConfirmed) projectSearchEligibleAttributions += 1;
+      if (!Array.isArray(record.mailbox_owners) || record.mailbox_owners.length === 0) mailboxOwnerFallbackTotal += 1;
       const direction = record.source === 'Gmail_보낸메일_수집' || (record.from && domainOf(record.from.email) === ourDomain) ? 'sent' : 'received';
       // A1: a hit can name more than one project (공유 A;B, or -- new, D-a -- a
       // shared subject-rule outcome is impossible, but a shared bundle/reading hit
@@ -1227,7 +1236,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       // A1/A2 (2026-09-21 night addition): both `0` when `bundleTablePath`/
       // `readingTablePath` were never supplied (no table read at all this run).
       owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: tableAttributedTotal,
-      project_search_eligible_attributions: projectSearchEligibleAttributions,
+      project_search_eligible_attributions: projectSearchEligibleAttributions, mailbox_owner_fallback: mailboxOwnerFallbackTotal,
     };
     writeReceiptFile(receipt);
     return receipt;
@@ -1244,7 +1253,7 @@ export function refresh({ workspacesRoot, workmetaRoot, hiworksDirs, gmailSentDi
       shrink_allowed_applied_to: [...shrinkAllowedAppliedTo],
       rule_failures: ruleFailures, held_two_projects: heldCount, unattributed, ledger_failures: ledgerFailures, projects: projectReports,
       owner_table_failures: ownerTableFailures, owner_tables_used: ownerTablesUsed, table_attributed_mails: tableAttributedTotal,
-      project_search_eligible_attributions: projectSearchEligibleAttributions,
+      project_search_eligible_attributions: projectSearchEligibleAttributions, mailbox_owner_fallback: mailboxOwnerFallbackTotal,
     });
     throw error;
   } finally {

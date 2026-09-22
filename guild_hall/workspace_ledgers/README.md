@@ -19,6 +19,9 @@ Per project, under `_workspaces/<project_code>_<짧은한글명>/020_MGMT/`:
   Owner-editable `과제내역할(Owner기입)` column.
 - `027_수신이력_이동이력/메일_수신이력.csv`, `메일_발송이력.csv` -- one row per
   attributed mail (received / sent), with Owner-editable `단계`/`작업상태` columns.
+  `메일함` (Owner decision 2026-09-22, see "메일함: real mailbox owner attribution"
+  below) is the real team-member mailbox(es) this mail was found in, not a fixed
+  collector label.
 - `027_수신이력_이동이력/회신_현황.csv` -- one row per external thread needing 답필요
   (we owe a reply) or 회신대기 (waiting on their reply), with Owner-editable
   `처리상태(Owner기입)`/`메모` columns. Threads group by normalised subject
@@ -245,6 +248,56 @@ an audit trail should record, not a silent early exit.
 | 연락처_장부.csv | 메일 | 과제내역할(Owner기입) |
 | 메일_수신/발송이력.csv | 이력키 | 단계, 작업상태 |
 | 회신_현황.csv | 스레드 | 처리상태(Owner기입), 메모 |
+
+Note that `메일함` is deliberately NOT a preserved column -- it is machine-derived
+(below), so every refresh recomputes it fresh from custody the same as every other
+non-Owner column, even on a row whose key (이력키) has not changed.
+
+### 메일함: real mailbox owner attribution (Owner decision 2026-09-22)
+
+`메일함` used to always render one of two fixed collector labels
+(`하이웍스_수집`/`Gmail_보낸메일_수집`, `refresh.mjs`'s own `source` argument to
+`loadRawMailRecords`), which meant "which team member's mailbox this mail actually
+came from" was not visible anywhere in the ledger even though every hiworks/gmail-sent
+custody event already carries it, at `metadata.mailbox` on the raw custody line
+(`team_mailboxes.py`'s `TeamMailbox.metadata()` shape: `{ id, account_id, email,
+display_name, provider, workspace }`, non-empty fields only -- confirmed against a
+real hiworks custody event, 2026-09-22). `메일함` now renders the real owner(s)
+instead, and only falls back to the old fixed label when a mail carries no mailbox
+block at all.
+
+- **Where it is built.** `mail_events.mjs`'s `formatMailboxOwner` renders one owner as
+  `<display_name> <email>`; `ownersOf` collects the ordered-unique set of those across
+  a dedup group (below); `dedupeAndAssignIds` attaches the result as `mailbox_owners`
+  on every surviving record; `common_events.mjs`'s `loadRawMailRecords` carries it
+  through to `refresh()`/`previewRule`; `ledgers.mjs`'s `mailboxCellOf` is the one
+  place that actually decides the cell text (owners joined by `" ; "` when non-empty,
+  else the mail's fixed `source` label) -- called from `buildHistoryRow`.
+- **Multiple owners, one mail.** A physical mail independently fetched into more than
+  one team member's own mailbox custody (the same `event_id`, same fingerprint --
+  `mail_events.mjs`'s own dedupe path, see "Mail matching" below) still collapses to
+  ONE ledger row, same as always, but that row's `메일함` lists every owner it was
+  found in, joined by `" ; "`, in the stable order `ownersOf` produced (first
+  appearance across the dedup group's own file-then-line read order; the same owner
+  seen twice is listed once, never re-sorted alphabetically or by any other key).
+- **Fallback.** No `metadata.mailbox` block on any custody line that collapsed into a
+  row (an older custody line written before this field existed, or any other caller of
+  this pipeline that never attached one) leaves `mailbox_owners` empty for that row,
+  and `mailboxCellOf` falls back to the unchanged fixed label. `refresh()`'s receipt
+  counts this in `mailbox_owner_fallback` -- one per attributed mail (a mail that
+  actually produced at least one ledger row), not per project-fanout row, so a mail
+  shared into two projects' ledgers by a single hit still counts once.
+- **Never a key, never a preserved column.** `메일함` plays no part in any row's
+  identity (이력키 is unaffected -- it hashes `code, direction, event_id`, never
+  `mailbox_owners`) and is not one of `메일_수신/발송이력.csv`'s preserved columns
+  (above) -- it is recomputed fresh from custody on every refresh, the same as every
+  other machine-derived column, even for a row whose key did not change.
+- **Not in the mail attribution index.** `ops/mail_attribution_index.mjs`'s per-mail
+  record (`{ mail_id, projects, strength, basis }`) has no field for a mailbox owner,
+  and that module's own header note is explicit that it never publishes a name --
+  adding one here would leak a real person's email/display name into an index
+  designed specifically to carry ids, project codes and a closed vocabulary only. This
+  change does not touch that module.
 
 A file is archived to `<folder>/history/<name>.<timestamp>.csv` only when its content
 actually changed after the merge -- an unchanged refresh (same custody, same Owner
@@ -1863,15 +1916,15 @@ triage list|decide`가 이미 있는데 따로 만든 이유는 하나다 -- 그
 - `reader_label`은 판독표의 `판독자` 칸에 그대로 들어가는 표시 이름이다.
 - `list_limit_cap`은 `--limit`의 상한이다(요청이 더 커도 상한이 이긴다).
 
-### lane v3 빌드
+### lane v4 빌드
 
 lane 명세는 `guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json`이고,
-현재 `workspace-ledgers-v3`다(v2에서 `ops/bot_triage.mjs`·`ops/bot-skill/SKILL.md`가
-아래 "2026-09-22 봇 판독 도구 날짜 서식 수정" 절의 세 결함을 고치며 바뀌었을 뿐, v1의 네
-진입점과 v2가 더한 세 진입점 모두 그대로다). lane은 제자리에서 다시 빌드하지 않으므로 --
-바이트가 바뀐 소스를 담는 lane은 항상 새 id·새 디렉터리다. import closure는 그대로다 --
-바뀐 두 파일 모두 이 모듈 안(`src/*.mjs`)과 `node:` 기본 모듈만 읽으므로 `tracked_paths`는
-그대로 모듈 통째다.
+현재 `workspace-ledgers-v4`다(v3에서 위 "메일함: real mailbox owner attribution"
+절의 변경 -- `src/mail_events.mjs`·`src/common_events.mjs`·`src/ledgers.mjs`·
+`src/refresh.mjs` 네 파일이 바뀌었을 뿐, v1의 네 진입점과 v2가 더한 세 진입점 모두
+그대로다). lane은 제자리에서 다시 빌드하지 않으므로 -- 바이트가 바뀐 소스를 담는 lane은
+항상 새 id·새 디렉터리다. import closure는 그대로다 -- 바뀐 네 파일 모두 이 모듈 안
+(`src/*.mjs`)과 `node:` 기본 모듈만 읽으므로 `tracked_paths`는 그대로 모듈 통째다.
 
 ```
 node guild_hall/deployment_pack/tools/build_source_lane.mjs --spec guild_hall/deployment_pack/lanes/workspace_ledgers_lane.spec.json --out <lane_root> --repo <repo_root>

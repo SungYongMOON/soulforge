@@ -39,7 +39,11 @@ import { collectCandidatesFromDirs, dedupeAndAssignIds } from './mail_events.mjs
  * Returns `{ records, scanned, duplicatesDropped, idCollisionsKept, unreadableDirs }`.
  * Every record keeps `body_text` (bounded to `MAX_BODY_TEXT_CHARS`) and every parsed
  * address -- this loader's whole purpose is to support classification and read-only
- * triage preview, unlike `mail_events.mjs`'s own `loadMailEvents`.
+ * triage preview, unlike `mail_events.mjs`'s own `loadMailEvents`. Also carries
+ * `mailbox_owners` (`mail_events.mjs`'s `ownersOf` -- ordered-unique `<display_name>
+ * <email>` labels for the real mailbox(es) this physical mail was found in, off
+ * each custody line's own `metadata.mailbox`; empty when none of them had one) --
+ * `ledgers.mjs`'s `mailboxCellOf` is what actually renders it into a ledger cell.
  */
 export function loadRawMailRecords({ dirs, source }) {
   const { candidates, scanned, unreadableDirs } = collectCandidatesFromDirs(dirs);
@@ -54,6 +58,7 @@ export function loadRawMailRecords({ dirs, source }) {
     attachment_names: record.attachmentNames,
     body_text: record.bodyText,
     at: record.at,
+    mailbox_owners: record.mailbox_owners,
   }));
   return { records: mapped, scanned, duplicatesDropped, idCollisionsKept, unreadableDirs };
 }

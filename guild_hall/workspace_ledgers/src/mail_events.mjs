@@ -169,6 +169,48 @@ export function normalizeTimestamp(raw) {
 const sha256Hex = text => createHash('sha256').update(text).digest('hex');
 
 /**
+ * `<display_name> <email>` for one custody event's own mailbox owner -- the
+ * hiworks/gmail-sent team-member account this physical mail was actually fetched
+ * through, carried on the raw custody line at `metadata.mailbox`
+ * (`team_mailboxes.py`'s `TeamMailbox.metadata()` shape: `{ id, account_id, email,
+ * display_name, provider, workspace }`, non-empty fields only -- confirmed against
+ * a real hiworks custody line, 2026-09-22). Returns `null` for a missing/malformed
+ * block (an older custody line written before this field existed, a record this
+ * loader was never given one for, or a mailbox object with neither name nor email)
+ * so the caller can fall back to the existing fixed 메일함 label instead of writing
+ * an empty cell.
+ */
+function formatMailboxOwner(mailbox) {
+  if (!mailbox || typeof mailbox !== 'object') return null;
+  const displayName = typeof mailbox.display_name === 'string' ? mailbox.display_name.trim() : '';
+  const email = typeof mailbox.email === 'string' ? mailbox.email.trim() : '';
+  const label = [displayName, email].filter(Boolean).join(' ');
+  return label === '' ? null : label;
+}
+
+/**
+ * Ordered-unique mailbox-owner labels across every candidate in a dedup group,
+ * formatted by `formatMailboxOwner`. `dedupeAndAssignIds` collapses a group of
+ * custody lines that are the same physical mail (same event_id + fingerprint, or
+ * same canonical content) down to one surviving row -- but when that mail was
+ * independently fetched into more than one team member's own mailbox, each
+ * collapsed-away candidate still carries ITS OWN `metadata.mailbox`, which would
+ * otherwise be silently dropped with it. This is the one place that union survives
+ * the collapse. Stable order = first appearance in `group` (candidates arrive in
+ * deterministic file-then-line read order); a label seen twice (the same mail
+ * fetched more than once into the same mailbox) is not repeated.
+ */
+function ownersOf(group) {
+  const seen = new Set();
+  const owners = [];
+  for (const candidate of group) {
+    const label = formatMailboxOwner(candidate.mailbox);
+    if (label !== null && !seen.has(label)) { seen.add(label); owners.push(label); }
+  }
+  return owners;
+}
+
+/**
  * N-1 (fresh-review-4): a stable, key-order-independent serialisation of a parsed JSON
  * value -- object keys sorted recursively, arrays kept in their own order (array order
  * is meaningful; object key order is not). Used (below) to hash a custody record's
@@ -338,7 +380,9 @@ export function loadMailEvents({ dirs, source, compiledRules, fields = DEFAULT_M
 /**
  * D-c: reads every `*.jsonl` record directly under each of `dirs` (sorted by name,
  * per directory) into raw candidates -- `{ rawEventId, subject, from, to, cc,
- * attachmentNames, bodyText, at, canonicalHash }`, always carrying `bodyText`
+ * attachmentNames, bodyText, at, canonicalHash, mailbox }` (`mailbox` is the raw
+ * `metadata.mailbox` block off that one custody line, or `null` -- see
+ * `formatMailboxOwner`/`ownersOf` above), always carrying `bodyText`
  * (bounded to `MAX_BODY_TEXT_CHARS` at read time -- N-4) and every parsed address,
  * regardless of caller. `skip(candidate)` (optional) is a caller-supplied predicate --
  * `loadMailEvents` uses it for its own system-sender/skip-subject pre-filter;
@@ -368,7 +412,8 @@ export function collectCandidatesFromDirs(dirs, { skip = null } = {}) {
     const bodyText = String(raw.body_text ?? '').slice(0, MAX_BODY_TEXT_CHARS);
     const at = normalizeTimestamp(raw.received_at ?? raw.ingested_at);
     const rawEventId = String(raw.event_id ?? '').trim();
-    const candidate = { rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash };
+    const mailbox = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata.mailbox : null;
+    const candidate = { rawEventId, subject, from, to, cc, attachmentNames, bodyText, at, canonicalHash, mailbox };
     if (skip && skip(candidate)) { into.skipped += 1; return; }
     into.candidates.push(candidate);
   };
@@ -414,7 +459,10 @@ export function collectCandidatesFromDirs(dirs, { skip = null } = {}) {
  * reused by `common_refresh.mjs` for the same reason -- D-c).
  *
  * Returns `{ records, duplicatesDropped, idCollisionsKept }` -- `records` are the
- * input candidates (every original field preserved) plus a resolved `event_id`.
+ * input candidates (every original field preserved) plus a resolved `event_id` and
+ * a `mailbox_owners` array (`ownersOf`'s ordered-unique `<display_name> <email>`
+ * labels across every candidate a dedup collapse folded into this one surviving
+ * row -- empty when none of them carried a `metadata.mailbox` block).
  */
 export function dedupeAndAssignIds({ candidates, source }) {
   const byRawId = new Map();
@@ -433,10 +481,10 @@ export function dedupeAndAssignIds({ candidates, source }) {
 
   let duplicatesDropped = 0;
   let idCollisionsKept = 0;
-  const survivors = []; // { candidate, effectiveEventId: string | null }
+  const survivors = []; // { candidate, effectiveEventId: string | null, owners: string[] }
 
   for (const [rawId, group] of byRawId) {
-    if (group.length === 1) { survivors.push({ candidate: group[0], effectiveEventId: rawId }); continue; }
+    if (group.length === 1) { survivors.push({ candidate: group[0], effectiveEventId: rawId, owners: ownersOf(group) }); continue; }
     const byFingerprint = new Map();
     for (const candidate of group) {
       const fp = fingerprintOf(candidate);
@@ -453,18 +501,19 @@ export function dedupeAndAssignIds({ candidates, source }) {
       // for this rawId -- every subgroup's id depends only on rawId + its OWN
       // fingerprint, never on how many sibling subgroups exist or their sort order.
       const effectiveEventId = fingerprints.length === 1 ? rawId : `${rawId}~fp:${collisionSuffix(fp)}`;
-      survivors.push({ candidate: kept, effectiveEventId });
+      survivors.push({ candidate: kept, effectiveEventId, owners: ownersOf(byFingerprint.get(fp)) });
     }
   }
   for (const group of byCanonicalHash.values()) {
     const { kept, droppedCount } = collapseDuplicateGroup(group);
     duplicatesDropped += droppedCount;
-    survivors.push({ candidate: kept, effectiveEventId: null });
+    survivors.push({ candidate: kept, effectiveEventId: null, owners: ownersOf(group) });
   }
 
-  const records = survivors.map(({ candidate, effectiveEventId }) => ({
+  const records = survivors.map(({ candidate, effectiveEventId, owners }) => ({
     ...candidate,
     event_id: effectiveEventId ?? syntheticEventId({ source, canonicalHash: candidate.canonicalHash }),
+    mailbox_owners: owners,
   }));
   return { records, duplicatesDropped, idCollisionsKept };
 }

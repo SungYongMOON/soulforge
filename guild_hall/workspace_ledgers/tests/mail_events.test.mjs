@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { compileRules, MAX_BODY_TEXT_CHARS, RULE_SCHEMA_VERSION } from '../src/classifier.mjs';
-import { DEFAULT_SYSTEM_SENDER_DOMAINS, loadMailEvents, parseAddressField, systemSenderPatternsFromConfig } from '../src/mail_events.mjs';
+import {
+  collectCandidatesFromDirs, dedupeAndAssignIds, DEFAULT_SYSTEM_SENDER_DOMAINS, loadMailEvents, parseAddressField,
+  systemSenderPatternsFromConfig,
+} from '../src/mail_events.mjs';
 
 function tempDir() {
   return mkdtempSync(path.join(tmpdir(), 'workspace-ledgers-mail-events-'));
@@ -402,3 +405,116 @@ test('loadMailEvents (N-4, fresh-review-4): a body far past MAX_BODY_TEXT_CHARS 
 // boundedClassifier) was removed by coordinator decision -- see classifier.mjs's
 // classifyMail doc. Matching is a direct classifyMail call now; there is nothing left
 // to test a timeout or a shared bounded-classifier instance against.
+
+// -------------------------------------------------- 메일함 owner attribution (2026-09-22)
+// `collectCandidatesFromDirs` + `dedupeAndAssignIds` are the lower-level pair
+// `common_events.mjs`'s `loadRawMailRecords` (the loader refresh()/previewRule
+// actually read through) is built from -- `loadMailEvents` above never surfaces
+// `mailbox_owners`, so these three tests exercise that pair directly, the same shape
+// a real hiworks/gmail-sent custody line carries at `metadata.mailbox` (confirmed
+// against a real hiworks custody line, 2026-09-22: `{ id, account_id, email,
+// display_name, provider, workspace }`, non-empty fields only).
+
+function loadRecords(dir, source = 'test') {
+  const { candidates, scanned, unreadableDirs } = collectCandidatesFromDirs([dir]);
+  const { records, duplicatesDropped, idCollisionsKept } = dedupeAndAssignIds({ candidates, source });
+  return { records, scanned, duplicatesDropped, idCollisionsKept, unreadableDirs };
+}
+
+test('mailbox owner attribution: a hiworks-shaped metadata.mailbox block becomes "<display_name> <email>" in mailbox_owners', () => {
+  const dir = tempDir();
+  try {
+    const line = {
+      event_id: 'h1', subject: '[P00-001] 예시', from: 'staff@client.example', to: [], cc: [],
+      received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [],
+      metadata: { mailbox: { id: 'kim01', account_id: 'kim01', email: 'kim@company.example', display_name: '김철수', provider: 'hiworks', workspace: 'company' } },
+    };
+    writeFileSync(path.join(dir, 'events.jsonl'), JSON.stringify(line));
+    const { records } = loadRecords(dir, '하이웍스_수집');
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].mailbox_owners, ['김철수 kim@company.example']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('mailbox owner attribution: a gmail-sent-shaped metadata.mailbox block becomes "<display_name> <email>" too', () => {
+  const dir = tempDir();
+  try {
+    const line = {
+      event_id: 'g1', subject: '회신: [P00-001] 예시', from: 'me@company.example', to: ['staff@client.example'], cc: [],
+      received_at: '2026-09-01T05:00:00Z', body_text: '', attachments: [],
+      metadata: { mailbox: { id: 'me', account_id: 'me', email: 'me@company.example', display_name: '오너', provider: 'gmail', workspace: 'personal' } },
+    };
+    writeFileSync(path.join(dir, 'events.jsonl'), JSON.stringify(line));
+    const { records } = loadRecords(dir, 'Gmail_보낸메일_수집');
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].mailbox_owners, ['오너 me@company.example']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('mailbox owner attribution: no metadata.mailbox at all yields an empty mailbox_owners array (fallback is the caller\'s job)', () => {
+  const dir = tempDir();
+  try {
+    const line = { event_id: 'h2', subject: '[P00-001] 메타데이터 없음', from: 'staff@client.example', to: [], cc: [],
+      received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [] };
+    writeFileSync(path.join(dir, 'events.jsonl'), JSON.stringify(line));
+    const { records } = loadRecords(dir);
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].mailbox_owners, []);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('mailbox owner attribution (multi-mailbox dedupe): two custody lines for the same physical mail, fetched into two different team mailboxes, collapse to one row listing BOTH owners in file/line order', () => {
+  const dir = tempDir();
+  try {
+    // Same event_id + same fingerprint (subject/at/from) -- this is the genuine-
+    // duplicate collapse path (collapseDuplicateGroup), not an id collision. Each
+    // line carries its OWN metadata.mailbox, as real custody does when two team
+    // members' own hiworks accounts both independently fetched the same mail.
+    const lineKim = {
+      event_id: 'shared-mail', subject: '[P00-001] 공용 수신함 메일', from: 'staff@client.example', to: [], cc: [],
+      received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [],
+      metadata: { mailbox: { id: 'kim01', account_id: 'kim01', email: 'kim@company.example', display_name: '김철수', provider: 'hiworks', workspace: 'company' } },
+    };
+    const lineLee = {
+      event_id: 'shared-mail', subject: '[P00-001] 공용 수신함 메일', from: 'staff@client.example', to: [], cc: [],
+      received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [{ name: 'x.pdf' }],
+      metadata: { mailbox: { id: 'lee01', account_id: 'lee01', email: 'lee@company.example', display_name: '이영희', provider: 'hiworks', workspace: 'company' } },
+    };
+    // File names sort a-kim before b-lee, so kim's line is read first.
+    writeFileSync(path.join(dir, 'a-kim.jsonl'), JSON.stringify(lineKim));
+    writeFileSync(path.join(dir, 'b-lee.jsonl'), JSON.stringify(lineLee));
+    const { records, duplicatesDropped } = loadRecords(dir, '하이웍스_수집');
+    assert.equal(records.length, 1); // one physical mail, one surviving row
+    assert.equal(duplicatesDropped, 1);
+    assert.deepEqual(records[0].mailbox_owners, ['김철수 kim@company.example', '이영희 lee@company.example']);
+    // the richer (more-attachments) candidate is still the one whose OTHER fields survive
+    assert.equal(records[0].attachmentNames.length, 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('mailbox owner attribution (multi-mailbox dedupe): a repeated owner across duplicate lines is listed once, not twice', () => {
+  const dir = tempDir();
+  try {
+    const mailbox = { id: 'kim01', account_id: 'kim01', email: 'kim@company.example', display_name: '김철수', provider: 'hiworks', workspace: 'company' };
+    const line = { event_id: 'dup-same-owner', subject: '[P00-001] 같은 메일함 반복', from: 'staff@client.example', to: [], cc: [],
+      received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [], metadata: { mailbox } };
+    writeFileSync(path.join(dir, 'events.jsonl'), `${JSON.stringify(line)}\n${JSON.stringify(line)}`);
+    const { records, duplicatesDropped } = loadRecords(dir);
+    assert.equal(records.length, 1);
+    assert.equal(duplicatesDropped, 1);
+    assert.deepEqual(records[0].mailbox_owners, ['김철수 kim@company.example']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('mailbox owner attribution: a mailbox block with neither email nor display_name is treated as absent, not an empty-string owner', () => {
+  const dir = tempDir();
+  try {
+    const line = { event_id: 'h3', subject: '[P00-001] 빈 메일함 블록', from: 'staff@client.example', to: [], cc: [],
+      received_at: '2026-09-01T00:00:00Z', body_text: '', attachments: [],
+      metadata: { mailbox: { id: 'x', provider: 'hiworks' } } }; // no email, no display_name
+    writeFileSync(path.join(dir, 'events.jsonl'), JSON.stringify(line));
+    const { records } = loadRecords(dir);
+    assert.equal(records.length, 1);
+    assert.deepEqual(records[0].mailbox_owners, []);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

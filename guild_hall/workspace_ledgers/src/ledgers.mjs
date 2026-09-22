@@ -247,6 +247,25 @@ export function historyKey(code, direction, id) {
   return createHash('sha256').update([code, direction, id].join('|')).digest('hex').slice(0, 16);
 }
 
+/**
+ * 메일함 cell value (Owner decision 2026-09-22): the real mailbox owner(s) this mail
+ * was found in, not the fixed per-source collector label it used to always be.
+ * `mail.mailbox_owners` (`common_events.mjs`'s `loadRawMailRecords`, sourced from
+ * `mail_events.mjs`'s `ownersOf` -- ordered-unique `<display_name> <email>` off each
+ * custody line's own `metadata.mailbox`) is joined with ` ; ` when non-empty, so a
+ * mail this refresh's dedupe collapsed across more than one team member's own
+ * mailbox still lists every one of them, in the same stable order `ownersOf`
+ * produced -- never re-sorted or de-duplicated again here. Falls back to the
+ * existing fixed label (`mail.source`, e.g. `하이웍스_수집`/`Gmail_보낸메일_수집`)
+ * when the mail carries no mailbox owner at all (an older custody line written
+ * before this field existed, or a caller of `buildHistory` that never attached
+ * one) -- `refresh.mjs`'s receipt counts how often that fallback fires.
+ */
+export function mailboxCellOf(mail) {
+  const owners = Array.isArray(mail?.mailbox_owners) ? mail.mailbox_owners.filter(Boolean) : [];
+  return owners.length > 0 ? owners.join(' ; ') : mail.source;
+}
+
 // `발생시각` intentionally mirrors `mail.at` (메일수신시각), not a per-refresh-run
 // "now": a refresh is called repeatedly against the same custody, and a row whose own
 // content has not changed must encode to the same bytes on every run (refresh.mjs's
@@ -255,7 +274,7 @@ export function historyKey(code, direction, id) {
 // "changed" on every refresh regardless of custody, which defeats that contract.
 function buildHistoryRow({ code, mail, direction, ruleVersion, label, orgOf }) {
   return [historyKey(code, direction, mail.event_id), LEDGER_SCHEMA, mail.at, code, '',
-    direction === 'sent' ? '메일발송' : '메일수신', mail.event_id, mail.at, mail.source, threadKey(mail.subject), mail.subject,
+    direction === 'sent' ? '메일발송' : '메일수신', mail.event_id, mail.at, mailboxCellOf(mail), threadKey(mail.subject), mail.subject,
     mail.from?.name ?? '', mail.from?.email ?? '', mail.from ? orgOf(mail.from.email) : '',
     mail.to.map(person => person.email).join(' '), mail.cc.map(person => person.email).join(' '),
     mail.attachment_count, '', label, ruleVersion, 'false'];
