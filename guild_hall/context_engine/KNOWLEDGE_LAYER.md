@@ -35,10 +35,11 @@ source 부족·짧은 인용·부정/수치 변경은 원문과 함께 그대로
 `generate({request,withdrawals,expected_previous})`의 request는 K1 입력 그대로이며 withdrawals는
 `withdrawalFingerprint(text)`의 과제별 철회 지문, expected_previous는 직전 generation hash 또는 null이다.
 source 단위가 없는 입력·문장이 없는 모델 응답은 HOLD이며 기존 페이지를 덮지 않는다.
-과제 전체 1페이지+원천 entity별 페이지, 색인, append 기록, possible_conflict/gap/exception을 생성한다.
+topic이 없는 기존 응답은 과제 전체 1페이지+원천 entity별 페이지를 유지한다. topic이 하나라도 있으면 과제 전체+topic별 페이지를 만들고 원천은 재료 목록으로 보존한다.
 위 칸은 현재 정리본, 아래 칸은 추가 전용 기록이며 매번 불변 새 판이다. 실패 문장은 현재 페이지에서 제외한다.
 모순·빈틈은 모델의 review 출력이다. 예외는 모델 보고와 K2와 동일한 고정 KO/EN 표지 바닥의 합집합이다.
-인용 대조 성공·NFC/공백 후 text=quote·claim 없음이면 source_attributed, 나머지는 weak다.
+인용 대조 성공·claim 없음이면 text와 quote가 달라도 source_attributed다. 인용 실패 또는 구조화 claim이 있으면 weak다.
+source_attributed는 quote의 출처 귀속만 뜻한다. text의 의미 지지·사실성은 model_responsibility_unverified이며 자동 수락하지 않는다.
 weak이고 결정/마감/금액/대외 약속 표지가 있으면 예외를 더한다. 재서술을 거부하거나 사실로 판정하지 않는다.
 각 페이지는 해당 원천의 예외 사유·문장 참조와 모순을 `확인 필요`, 빈틈을 `빈틈` 절에 표시하고 없으면 `없음`을 적는다.
 K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
@@ -160,7 +161,7 @@ chat_completions 기본 adapter 외 다른 호출 방식은 factory를 등록한
 표만 바꾸면 교체되고 binding digest가 바뀌어 재생성한다. 미등록 프로토콜은 거부한다.
 나머지 역할은 설정 해석만 제공하며 K4 이후의 업무를 실행하지 않는다.
 
-K0~K2 구현은 그대로다. K3는 K2의 엄격한 재서술/영향도 판정으로 페이지를 막지 않는다.
+K0~K2 구현은 그대로다. K3는 K2의 엄격한 text=quote 조건을 쓰지 않는다. 모델이 자기 말로 정리하고 원문 quote를 별도로 붙인다.
 기계 콘텐츠 검사는 **quote의 글자 대조 + 페이지별 재료 목록·작업 기록 + Owner가 허용한 예외 표지 바닥**이다. 재서술은 모델 책임이며
 semantic_fact_verified=false를 유지한다. 과제·hash·CAS·전송/자원 상한은 콘텐츠 판단이 아닌 기본 안전 계약이다.
 `WIKI_SCHEMA.md` 한 장을 모델 system 규칙으로 전달해 문서 우선, 모순 처리, 사람 정정 보존,
@@ -169,3 +170,4 @@ human_correction_unit_ids는 현재 승인된 unit ID 목록만 받는다. 실�
 문서·원천 시각·판본을 모델에 그대로 제공한다. 규칙을 모델이 잘 수행하는지는 실제 평가 대상이며 기계 검증이라고 주장하지 않는다.
 snapshot v2는 규칙 hash·재료 목록을 더한다. v1은 이전 판 이력으로 읽을 수 있으나 현재 정책에 맞는 새 v2 생성 전 current로 쓰지 않는다.
 같은 snapshot v2 안의 규칙·표시 판은 wiki_rules_sha256으로 식별한다. 규칙 hash가 바뀌면 view_digest도 바뀌어 이전 판을 current로 반환하지 않는다.
+운영 규칙 v4는 답장 인용 머리줄·서명·면책·인사말을 정리문에서 제외하고, 같은 스레드 반복은 가장 이른 근거 한 번만 쓰며, 시각 차이는 모순 또는 최신 상태로 표시하도록 모델에 요구한다.

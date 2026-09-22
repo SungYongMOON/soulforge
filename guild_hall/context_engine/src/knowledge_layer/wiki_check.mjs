@@ -10,11 +10,10 @@ const impacts = ['decision', 'deadline', 'amount', 'external_commitment'];
 // kinds only, +claim only, +both) are accepted. Additive: no previously-accepted
 // shape is rejected.
 const CANDIDATE_BASE_FIELDS = ['statement_id', 'unit_id', 'text', 'quote'];
-const CANDIDATE_OPTIONAL_FIELDS = ['impact_kinds', 'claim'];
+const CANDIDATE_OPTIONAL_FIELDS = ['impact_kinds', 'claim', 'topic'];
 const candidateShapeOk = row => row !== null && typeof row === 'object' && !Array.isArray(row)
   && CANDIDATE_BASE_FIELDS.every(k => Object.hasOwn(row, k))
   && Object.keys(row).every(k => CANDIDATE_BASE_FIELDS.includes(k) || CANDIDATE_OPTIONAL_FIELDS.includes(k));
-const normalize = s => s.normalize('NFC').replace(/\p{White_Space}+/gu, ' ').trim();
 // Kept identical to K2's fixed KO/EN markers; parity is regression-tested.
 const rules = {
   decision: /결정|승인|확정|approve|decid/iu,
@@ -35,10 +34,13 @@ export function checkWikiOutput(bundle, proposed) {
     const citation = unit ? createCitationVerifier({ approvedSpans: [{ binding: span.binding, text: unit.text, span_sha256: span.span_sha256 }] })
       .verify({ binding: span.binding, quote: row.quote }) : { status: 'source_missing', reason: 'source_not_supplied_or_not_allowed' };
     const eligible = ['exact_match', 'normalized_match'].includes(citation.status);
+    const topic = row.topic ?? null;
+    if (topic !== null && (!text(topic, 100) || topic !== topic.trim() || topic !== topic.normalize('NFC') || /[\r\n\p{Cc}\p{Cf}]/u.test(topic))) fail('wiki_topic_invalid');
     const impactKinds = impacts.filter(k => rules[k].test(row.text + '\n' + row.quote)
       || (Array.isArray(row.impact_kinds) && row.impact_kinds.includes(k))).sort();
-    const weak = !eligible || normalize(row.text) !== normalize(row.quote) || row.claim != null;
+    const weak = !eligible || row.claim != null;
     return { statement_id: row.statement_id, unit_id: row.unit_id, text: row.text, quote: row.quote,
+      topic,
       project_ref: bundle.project_ref, source_digest: bundle.source_digest, evidence_ref: span?.binding ?? null,
       quote_sha256: hashText(row.quote), string_check: citation, meaning_check: 'model_responsibility_unverified',
       acceptance_check: 'not_requested', eligible_for_wiki: eligible, reasons: eligible ? [] : [citation.reason],

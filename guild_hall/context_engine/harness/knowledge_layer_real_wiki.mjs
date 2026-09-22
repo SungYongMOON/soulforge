@@ -493,6 +493,7 @@ function buildModelPromptMarkdown({ modelInput, rulesText, coverageNote }) {
   lines.push('```json');
   lines.push(JSON.stringify({
     candidates: [{ statement_id: 'string, unique', unit_id: 'string, one of the unit_id values in the payload above',
+      topic: 'short topic title shared by statements about the same issue',
       text: 'string <= 2000 chars', quote: 'string <= 20000 chars, must literally occur in that unit\'s text',
       impact_kinds: '(optional) subset of ["decision","deadline","amount","external_commitment"]',
       claim: '(optional) null or {subject,key,value}' }],

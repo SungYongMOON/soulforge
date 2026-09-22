@@ -46,6 +46,9 @@
   `buildWikiModelInput`(wiki.mjs에서 이번에 추가로 export, K3 내부가 전에는
   인라인으로만 만들던 것)으로 model_input.json을 다시 만들어 prepare가 쓴 파일과
   같은지 보고한다. `--write` 없이는 읽기 전용이다(S8).
+- 모델 답의 `text`는 원문 복사가 아니라 자기 말로 정리한 문장이고 `quote`는 이를 뒷받침하는 원문 구절이다.
+  기계는 quote의 원문 포함만 확인하며 text의 의미 지지는 모델 책임으로 남긴다. candidate에 topic을 붙이면
+  과제 전체+주제별 페이지를 만들고 원천별 정보는 재료 목록으로 보존한다. topic 없는 기존 응답은 원천별 페이지 호환을 유지한다.
 - `generate --work <dir> --answer <file> --archive-root <dir> --model-id <alias>
   --now <ISO> --offhost-approval <file> --model-roles <config> [--expected-previous
   <hash|null>] [--neo4j-config <file>]` — 실제 `createWikiKnowledgeLayer`를

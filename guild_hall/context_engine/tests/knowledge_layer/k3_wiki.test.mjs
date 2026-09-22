@@ -23,6 +23,23 @@ test('K3 emits project/source two-section pages, index, append log and closed ev
   assert.deepEqual(input, before);
   assert.deepEqual(await f.archive.get(result.record.generation_id), c);
 });
+test('model topics replace source pages while preserving the project page, evidence and materials', async () => {
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input);
+    out.candidates.find(s => s.unit_id === 'a-doc').topic = '제작과 검사';
+    out.candidates.find(s => s.unit_id === 'a-mail').topic = '일정과 승인';
+    out.candidates.find(s => s.unit_id === 'a-voice').topic = '제작과 검사';
+    return out; } });
+  const c = (await f.layer.generate(wikiInput())).record.content;
+  assert.equal(c.pages.length, 3, 'project + two topic pages');
+  assert.equal(c.pages.filter(p => p.page_id.startsWith('topic:')).length, 2);
+  assert.equal(c.pages.some(p => p.page_id.startsWith('source:')), false);
+  const build = c.pages.find(p => p.topic === '제작과 검사');
+  assert.deepEqual(build.source_unit_ids, ['a-doc', 'a-voice']);
+  assert.deepEqual([...build.statement_ids].sort(), ['statement:a-doc', 'statement:a-voice']);
+  assert.equal(build.materials.length, 2);
+  assert.match(build.markdown, /^# 제작과 검사/mu);
+  assert.ok(c.edges.filter(e => e.kind === 'SUPPORTED_BY').length === 3);
+});
 test('same request is a no-op, no extra model calls or rewritten history', async () => {
   const f = wikiFixture(), input = wikiInput(), one = await f.layer.generate(input);
   input.expected_previous = one.record.generation_id; const two = await f.layer.generate(input);
@@ -37,21 +54,19 @@ test('unchanged request still checks expected_previous before archive effects', 
   assert.equal(f.calls(), 1); assert.deepEqual(await f.graph.read('SYN-A'), first.record);
   assert.deepEqual(await f.archive.getWithdrawals('SYN-A'), []);
 });
-test('reviewer sentence has an exception floor when model omits exceptions, visible on its pages', async () => {
+test('verified quote attribution does not turn paraphrasing into a mechanical exception', async () => {
   const sentence = '대금 5,000,000원 지급을 2026-10-31 마감으로 고객과 계약 확정하기로 결정했다';
   const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates.find(s => s.unit_id === 'a-mail').text = sentence; return out; } });
-  const c = (await f.layer.generate(wikiInput())).record.content, ex = c.exceptions[0];
-  assert.equal(c.exceptions.length, 1); assert.equal(ex.exception_required, true); assert.equal(ex.evidence_strength, 'weak');
-  assert.deepEqual(ex.impact_kinds, ['amount', 'deadline', 'decision', 'external_commitment']);
-  assert.deepEqual(ex.origins, ['deterministic_projection']);
-  assert.equal(c.statements.find(s => s.unit_id === 'a-mail').text, sentence, 'floor must not reject a cited paraphrase');
+  const c = (await f.layer.generate(wikiInput())).record.content, row = c.statements.find(s => s.unit_id === 'a-mail');
+  assert.equal(c.exceptions.length, 0); assert.equal(row.exception_required, false); assert.equal(row.evidence_strength, 'source_attributed');
+  assert.deepEqual(row.impact_kinds, ['amount', 'deadline', 'decision', 'external_commitment']);
+  assert.equal(row.text, sentence, 'floor must not reject a cited paraphrase');
   for (const page of c.pages.filter(p => p.source_unit_ids.includes('a-mail'))) {
-    assert.match(page.markdown, /## 확인 필요/); assert.ok(page.markdown.includes('statement:a-mail'));
-    assert.ok(page.markdown.includes('weak\\_evidence:amount'));
+    assert.match(page.markdown, /## 확인 필요/); assert.match(page.markdown, /### 예외\n\n없음/);
   }
   const other = c.pages.find(p => p.page_id === 'source:source:a-doc');
   assert.match(other.markdown, /### 예외\n\n없음/); assert.match(other.markdown, /### 모순\n\n없음/); assert.match(other.markdown, /## 빈틈\n\n없음/);
-  assert.equal(c.nodes.find(n => n.kind === 'Exception').origin, 'deterministic_projection');
+  assert.equal(c.nodes.some(n => n.kind === 'Exception'), false);
 });
 test('model and floor union preserves reasons and renders exception, conflict and gap', async () => {
   const f = wikiFixture({ generate: input => { const out = extractiveFake(input);
@@ -61,14 +76,15 @@ test('model and floor union preserves reasons and renders exception, conflict an
     out.review.gaps = [{ unit_ids: [out.candidates[0].unit_id], note: '서명 자료 누락' }]; return out; } });
   const c = (await f.layer.generate(wikiInput())).record.content, page = c.pages[0].markdown;
   assert.equal(c.exceptions.length, 1); assert.equal(c.conflicts.length, 1); assert.equal(c.gaps.length, 1);
-  assert.deepEqual(c.exceptions[0].origins, ['model_proposal', 'deterministic_projection']);
-  assert.ok(c.exceptions[0].exception_reasons.includes('weak_evidence:amount'));
+  assert.deepEqual(c.exceptions[0].origins, ['model_proposal']);
+  assert.equal(c.exceptions[0].evidence_strength, 'source_attributed');
+  assert.ok(c.exceptions[0].exception_reasons.includes('모델이 보고한 추가 사유'));
   assert.match(page, /### 예외[\s\S]*모델이 보고한 추가 사유/);
   assert.match(page, /### 모순[\s\S]*자료 간 모순 후보/);
   assert.ok(page.includes(c.conflicts[0].left + ' ↔ ' + c.conflicts[0].right));
   assert.match(page, /## 빈틈[\s\S]*서명 자료 누락/);
 });
-test('K3 floor matches K2 KO/EN markers and derived strength without K2 eligibility rejection', () => {
+test('K3 retains K2 impact markers but keeps quote attribution separate from paraphrase identity', () => {
   const request = wikiInput().request, bundle = linkApprovedUnits(request), base = extractiveFake({ units: request.units });
   const variants = ['결정 승인 확정', '마감 납기 기한 일정 2026-10-31', '금액 대금 예산 비용 500원 USD KRW €',
     '대외 고객 계약 약속 납품 출하', 'approve decided', 'deadline due', 'amount $200', 'commitment promise contract', '일반 설명'];
@@ -77,10 +93,18 @@ test('K3 floor matches K2 KO/EN markers and derived strength without K2 eligibil
     { ...copied, text: copied.text.normalize('NFD').replaceAll(' ', '　') },
     { ...copied, claim: { subject: '대상', key: '상태', value: '후보' } },
     { ...copied, quote: '허용 원문에 존재하지 않는 인용문이다.' }];
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     const k2 = checkKnowledgeCandidates({ bundle, candidates: [row], now: request.now }).results[0];
     const k3 = checkWikiOutput(bundle, { candidates: [row], review: { conflicts: [], gaps: [], exceptions: [] } }).results[0];
-    for (const field of ['impact_kinds', 'evidence_strength', 'exception_required', 'exception_reasons']) assert.deepEqual(k3[field], k2[field]);
+    assert.deepEqual(k3.impact_kinds, k2.impact_kinds);
+    if (index < variants.length) {
+      assert.equal(k2.evidence_strength, 'weak'); assert.equal(k3.evidence_strength, 'source_attributed');
+      assert.equal(k3.exception_required, false);
+    } else if (index === variants.length || index === variants.length + 1) {
+      assert.equal(k2.evidence_strength, 'source_attributed'); assert.equal(k3.evidence_strength, 'source_attributed');
+    } else {
+      assert.equal(k3.evidence_strength, 'weak');
+    }
   }
   const modelReported = checkWikiOutput(bundle, { candidates: [copied], review: { conflicts: [], gaps: [], exceptions: [
     { statement_id: copied.statement_id, impact_kinds: ['amount'], reason: '모델 추가 확인 요청' }] } }).results[0];
@@ -102,6 +126,10 @@ test('a candidate row may supply impact_kinds or claim independently, not only b
   // Still refuses an unrecognised extra field or a fifth key outside the two optional names.
   assert.throws(() => checkWikiOutput(bundle, { candidates: [{ ...fourKey, bogus: 1 }], review: { conflicts: [], gaps: [], exceptions: [] } }),
     /wiki_sentence_invalid/);
+  for (const topic of ['', ' 앞 공백', '줄\n바꿈', 'topic\u0000']) {
+    assert.throws(() => checkWikiOutput(bundle, { candidates: [{ ...fourKey, topic }], review: { conflicts: [], gaps: [], exceptions: [] } }),
+      /wiki_topic_invalid/);
+  }
 });
 test('two projects are isolated in pages, graph snapshots and source grants', async () => {
   const f = wikiFixture(), a = await f.layer.generate(wikiInput()), b = await f.layer.generate(wikiInput('SYN-B'));

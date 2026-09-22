@@ -41,13 +41,25 @@ function buildContent({ bundle, checked, withdrawals, previous, generator, now, 
     previous_generation: previous?.generation_id ?? null };
   const workLog = [...(previous?.content.work_log ?? []), log];
   if (workLog.length > 200) fail('wiki_history_budget');
-  const groups = [{ page_id: 'project:' + bundle.project_ref, title: bundle.project_ref, units: bundle.units }];
-  const sources = unique(bundle.units.map(u => u.source_revision_ref.entity_id));
-  for (const source of sources) groups.push({ page_id: 'source:' + source, title: source,
-    units: bundle.units.filter(u => u.source_revision_ref.entity_id === source) });
+  const groups = [{ page_id: 'project:' + bundle.project_ref, title: bundle.project_ref, topic: null,
+    units: bundle.units, statement_ids: null }];
+  const topicMode = statements.some(s => s.topic !== null);
+  if (topicMode) {
+    const topics = unique(statements.map(s => s.topic ?? '기타'));
+    for (const topic of topics) {
+      const selected = statements.filter(s => (s.topic ?? '기타') === topic), unitIds = new Set(selected.map(s => s.unit_id));
+      groups.push({ page_id: 'topic:' + hashText(topic).slice(7), title: topic, topic,
+        units: bundle.units.filter(u => unitIds.has(u.unit_id)), statement_ids: selected.map(s => s.statement_id) });
+    }
+  } else {
+    const sources = unique(bundle.units.map(u => u.source_revision_ref.entity_id));
+    for (const source of sources) groups.push({ page_id: 'source:' + source, title: source, topic: null,
+      units: bundle.units.filter(u => u.source_revision_ref.entity_id === source), statement_ids: null });
+  }
   const pages = groups.map(group => {
-    const held = statements.filter(s => group.units.some(u => u.unit_id === s.unit_id));
-    const scopedIds = new Set(checked.results.filter(s => group.units.some(u => u.unit_id === s.unit_id)).map(s => s.statement_id));
+    const held = group.statement_ids === null ? statements.filter(s => group.units.some(u => u.unit_id === s.unit_id))
+      : statements.filter(s => group.statement_ids.includes(s.statement_id));
+    const scopedIds = new Set(held.map(s => s.statement_id));
     const pageExceptions = exceptions.filter(e => scopedIds.has(e.statement_id));
     const pageConflicts = conflicts.filter(c => scopedIds.has(c.left) || scopedIds.has(c.right));
     const pageGaps = gaps.filter(g => group.units.some(u => g.unit_ids.includes(u.unit_id)));
@@ -66,7 +78,7 @@ function buildContent({ bundle, checked, withdrawals, previous, generator, now, 
       + '\n\n## 재료 목록\n\n' + group.units.map(u => '- [' + u.unit_id + '] ' + markdown(u.locator)
         + ' · ' + u.text_sha256 + ' · 사용 문장 ' + held.filter(s => s.unit_id === u.unit_id).length).join('\n')
       + '\n\n## 기록 (추가 전용)\n\n' + workLog.map(l => '- ' + l.at + ' · 입력 ' + l.source_digest + ' · 포함 ' + l.included + ' · 제외 ' + l.excluded).join('\n') + '\n';
-    return { page_id: group.page_id, revision_id: revision, previous_revision: prior?.revision_id ?? null,
+    return { page_id: group.page_id, topic: group.topic, revision_id: revision, previous_revision: prior?.revision_id ?? null,
       source_unit_ids: group.units.map(u => u.unit_id), statement_ids: held.map(s => s.statement_id),
       materials: inventory.filter(u => group.units.some(g => g.unit_id === u.unit_id)),
       display_label: '자동 정리본', claim_ceiling: 'observed', markdown: body };

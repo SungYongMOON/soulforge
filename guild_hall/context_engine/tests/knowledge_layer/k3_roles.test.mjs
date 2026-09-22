@@ -67,6 +67,8 @@ test('K3 accepts a cited paraphrase while K2 remains stricter and unchanged', as
     row.text = '2026-10-09는 아직 승인되지 않은 납기다.'; return output; } });
   const input = wikiInput(), result = await f.layer.generate(input), sentence = result.record.content.statements.find(s => s.unit_id === 'a-mail');
   assert.equal(sentence.eligible_for_wiki, true); assert.equal(sentence.meaning_check, 'model_responsibility_unverified');
+  assert.equal(sentence.evidence_strength, 'source_attributed', 'a verified quote attributes the source even when the draft sentence is a paraphrase');
+  assert.equal(sentence.exception_required, false, 'paraphrasing alone is not weak evidence; meaning remains separately unverified');
   const bundle = linkApprovedUnits(input.request);
   const checked = checkKnowledgeCandidates({ bundle, now: input.request.now, candidates: [{ statement_id: sentence.statement_id,
     unit_id: sentence.unit_id, text: sentence.text, quote: sentence.quote, impact_kinds: [], claim: null }] });
