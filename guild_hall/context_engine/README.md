@@ -2,6 +2,39 @@
 
 자동 정리본 지식 층의 명시 호출·개발 평가는 [KNOWLEDGE_LAYER.md](KNOWLEDGE_LAYER.md)를 따른다.
 
+## K3 첫 실자료 위키 하네스 — 모델 응답은 out-of-band (`harness/knowledge_layer_real_wiki.mjs`, 2026-09-22)
+
+지금까지 K3는 합성 자료(`knowledge_layer_demo.mjs`)와 결정적 가짜 모델로만 배선을 확인했다.
+이 하네스는 coordinator가 **실제 회사 메일 한 과제분**으로 K3를 한 번 돌리게 하되, 모델
+자체는 이 파일이 절대 부르지 않는다 — 사람이 프롬프트를 채팅 모델에 붙여넣거나 agent가
+답하는 out-of-band 응답을 `generate`가 재생(REPLAY)할 뿐이다. 소켓을 열지 않는다.
+
+- `prepare --project <code> --attribution-index <file> --hiworks-events <dir>
+  [--gmail-sent-events <dir>] --strength confirmed|all --max-units N --out <dir>
+  --now <ISO> --offhost-approval <file>` — `mail_routes.mjs`의 귀속 색인으로 그
+  과제의 메일만 고르고, custody에서 직접 읽어 `linkApprovedUnits`(K1) 계약 그대로
+  `request.json`(단위·grant), `manifest.json`(개수·해시만, 원문 없음),
+  `model_prompt.md`(WIKI_SCHEMA.md 원문 + 단위 + 정확한 답 JSON 스키마)를 쓴다.
+  귀속된 메일이 custody에 없거나 서로 다른 두 판본으로 모호하면 **아무것도 쓰지 않고**
+  전체를 거부한다(둘 다 실측: P26-014는 하이웍스 custody만으로 92/359건 부재 —
+  발신 메일함 자료가 아직 없다는 뜻이고 이 하네스는 이를 감추지 않는다). off-host
+  승인 파일은 내용을 읽지 않고 존재·sha256만 확인해 manifest에 고정한다.
+- `dump-model-input --work <dir>` — 같은 request.json에서 실제 K1 + `buildWikiModelInput`
+  (wiki.mjs에서 이번에 추가로 export, K3 내부가 전에는 인라인으로만 만들던 것)으로
+  model_input.json을 다시 만들어 prepare가 직접 쓴 파일과 같은지 보고한다.
+- `generate --work <dir> --answer <file> --archive-root <dir> --model-id <alias>
+  [--neo4j-config <file>] --now <ISO>` — 실제 `createWikiKnowledgeLayer`를
+  `createBoundedGenerator` REPLAY generator(파싱된 답 파일을 그대로 반환, 거친 모양
+  검사 후 `checkWikiOutput`이 권위 있게 재검사)로 돌린다. graph는 기본 memory
+  가짜, archive는 `createFileArchive`. 잘못된 답은 아무것도 archive되지 않고
+  거부된다(K3 자체의 checkWikiOutput/graph.commit 순서가 이미 보장).
+- 실측 2026-09-22: P25-054(실제 하이웍스 5통, hiworks custody 완전 커버) 한 과제로
+  세 단계를 실제로 돌려 pages 6(과제 1 + 원천 5), statements_included 5, excluded/
+  exceptions/conflicts/gaps 0을 확인했다. 검증에 쓴 실자료 산출물은 repo 밖
+  scratchpad에서만 만들고 끝난 뒤 지웠다 — repo에는 절대 복사하지 않는다.
+- 시험은 합성 custody/색인(`tests/knowledge_layer/knowledge_layer_real_wiki.test.mjs`,
+  `os.tmpdir()`뿐)만 쓴다. `npm run validate:knowledge-layer`에 자동 편입(glob).
+
 ## 밤 사슬(night chain) — 시계 대신 영수증으로 이어지는 야간 작업 (night-chain-v1)
 
 밤에 도는 예약작업 셋(`SoulforgeVoiceConversationList` 00:00, `SoulforgeWorkspaceLedgers` 05:30,

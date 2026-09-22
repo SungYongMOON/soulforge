@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2026-09-22 - K3 첫 실자료 위키 하네스 (모델 응답은 out-of-band)
+
+- Revision: 이 항목을 포함한 커밋. `harness/knowledge_layer_real_wiki.mjs` 세 명령
+  (prepare/dump-model-input/generate)으로 coordinator가 실제 회사 메일 한 과제분에
+  K3를 돌릴 수 있게 한다. 이 파일은 모델을 직접 부르지 않는다 -- 답은 사람/agent가
+  out-of-band로 채운 파일을 replay한다.
+- `mail_routes.mjs`의 귀속 색인 + hiworks custody(`raw.source_custody.sha256`)로
+  K1 `linkApprovedUnits` 계약 그대로 unit을 만들고, 귀속된 메일이 custody에 없거나
+  모호하면 아무것도 쓰지 않고 전체를 거부한다. off-host 승인 파일은 존재·sha256만
+  확인한다(내용은 읽지 않음).
+- 실측(2026-09-22): P25-054 실제 하이웍스 메일 5통으로 prepare→generate까지 실행해
+  pages 6·statements_included 5·excluded/exceptions/conflicts/gaps 0을 확인했다.
+  검증 산출물은 repo 밖 scratchpad에서만 만들고 끝난 뒤 삭제했다.
+- `wiki.mjs`에 `buildWikiModelInput`을 추가로 export(기존 K3 내부 동작은 그대로,
+  같은 modelInput을 하네스도 재사용하기 위함).
+- 관련 경로: `guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs`,
+  `guild_hall/context_engine/tests/knowledge_layer/knowledge_layer_real_wiki.test.mjs`
+  (합성 custody/색인, `os.tmpdir()`만), `src/knowledge_layer/wiki.mjs`/`index.mjs`.
+
 ## 2026-09-22 - `guild_hall/workspace_ledgers` 메일함: 실제 팀원 메일함 귀속(lane `workspace-ledgers-v4`)
 
 - Revision: 이 항목을 포함한 커밋.

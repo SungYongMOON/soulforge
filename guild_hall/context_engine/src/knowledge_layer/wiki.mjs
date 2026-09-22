@@ -5,6 +5,13 @@ import { digest, fail, freeze, hashText, keys, sha, snapshot, token } from './da
 import { boundedCall, validateBudget } from './model.mjs';
 import { validateGraphRecord } from './graph.mjs';
 export const withdrawalFingerprint = text => hashText(text.normalize('NFC').replace(/\p{White_Space}+/gu, ' ').trim());
+/** The exact object `generate()` hands to `session.generate(modelInput)`. Exported
+ * additively (K3 built it inline before) so a caller that must show the identical
+ * prompt out-of-band -- a human pasting into a chat model, an agent -- builds it
+ * from this one function instead of a second, possibly-drifting copy.
+ */
+export const buildWikiModelInput = ({ project_ref, units, human_correction_unit_ids, operating_rules }) =>
+  ({ project_ref, role: 'wiki_draft', units, human_correction_unit_ids, operating_rules });
 const unique = values => [...new Set(values)].sort();
 const markdown = value => String(value).replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;')
   .replace(/[\\\x60*_{}\[\]#!|]/gu, c => '\\' + c).replace(/[\r\n\t]/gu, ' ')
@@ -130,8 +137,8 @@ export function createWikiKnowledgeLayer({ graph, archive, generator } = {}) {
       await archive.addWithdrawals(project, prior.content.withdrawals);
       return freeze({ ...await readCurrent(input), unchanged: true, model_calls: 0 });
     }
-    const modelInput = { project_ref: project, role: 'wiki_draft', units: bundle.units,
-      human_correction_unit_ids: args.human_correction_unit_ids, operating_rules: rules.text };
+    const modelInput = buildWikiModelInput({ project_ref: project, units: bundle.units,
+      human_correction_unit_ids: args.human_correction_unit_ids, operating_rules: rules.text });
     if (JSON.stringify(modelInput).length > budget.max_input_characters) return freeze({ status: 'HOLD', reason: 'generation_input_budget', model_calls: 0 });
     let proposed;
     try { const session = generator.createSession(); proposed = snapshot(await boundedCall(signal => session.generate(modelInput, { signal }), budget.timeout_ms)); }

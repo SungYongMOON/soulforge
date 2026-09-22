@@ -143,7 +143,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
-      "sha256": "b42c67c8846da3169db31c072017730e3c1d2d8ecfc9dbcf82496082aabaf5cb"
+      "sha256": "bb3952019ffe421320a2c0ba623082eba1205f3a71f3190d79f101247bd86e54"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/model.mjs",
@@ -159,7 +159,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
-      "sha256": "090aa5b453f4c9573d591f56ca8217df35b076976e9f43e5a45a6eacc0fe4e9b"
+      "sha256": "d8a471487e402038d3aca57868d9272652ec7c782b1c46d58b415a9176fb204a"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
@@ -374,7 +374,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "d69f30b8dc9c6d61f571f0e811288e51db88d794c1273003dd110598a714fe1e",
+  "closure_sha256": "30f44a0e425f8b1cb22fa3681f43b97de6fa2386d181f58cafdd4e33eca6d640",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
