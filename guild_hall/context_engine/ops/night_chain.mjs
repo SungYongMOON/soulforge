@@ -92,13 +92,17 @@
 //                         lane that does not exist yet -- demanding its
 //                         manifest would make every placeholder a chain-
 //                         blocking CONFIG_INVALID.
-//   deadline              accepted and carried into the receipt verbatim for
-//                         forward compatibility, but NOT interpreted by this
-//                         version -- only the chain-level `--deadline` below
-//                         governs when this runner stops starting new steps.
-//                         A per-step override was in the original ask but
-//                         nothing about this build needs one yet; documented
-//                         here rather than silently implemented.
+//   deadline, note        both optional. Copied verbatim into that step's own
+//                         row of the chain receipt (`deadline`/`note` fields,
+//                         `null` when absent) -- R2, 2026-09-22 review: the
+//                         first version parsed them and then dropped them.
+//                         `deadline` is NOT interpreted by this version --
+//                         only the chain-level `--deadline` below governs
+//                         when this runner stops starting new steps. A
+//                         per-step override was in the original ask but
+//                         nothing about this build needs one yet; carried so
+//                         a future version can honour it without a schema
+//                         change, documented rather than silently implemented.
 //
 // Chain-level flags:
 //   --chain-config <file> --chain-config-sha256 sha256:<hex>   required,
@@ -119,22 +123,33 @@
 //                         is skipped disabled/out-of-scope) and writes
 //                         NOTHING -- no lock, no receipt, not even a log file.
 //   --only <id> | --from <id>   mutually exclusive; still validate every
-//                         step's config/lane digest first, and still respect
-//                         on_failure/deadline/lock for the step(s) they touch.
+//                         enabled step's config/lane digest first, and still
+//                         respect on_failure/deadline/lock for the step(s)
+//                         they touch. Naming a disabled step with either is
+//                         refused (S5, 2026-09-22 review -- `--from` the same
+//                         as `--only`: an explicitly named start point that
+//                         can never run is a mistake, not a request).
 //   --node-path <path>    the `node` executable used to run every step
 //                         (default `process.execPath`) -- the registrar pins
 //                         this to its own verified `-NodePath`.
+//   Any other `--flag`, or any bare positional token, is refused outright
+//   (S3, 2026-09-22 review): a typo like `--dry-run` must never be silently
+//   ignored and then run the chain for real.
 //
 // Exit codes: 0 OK (matches voice_conversation_list_nightly.mjs's own 0),
 // 2 FAILED (2, same file), 3 LOCK_HELD (3, same file), 4 SKIPPED_PAST_DEADLINE
 // (4, same file) -- these four are read from that file's own `main()`, not
-// assumed. This file adds two more that file has no equivalent for (0-4 were
-// already spoken for by the reused mapping): 5 CONFIG_INVALID (the chain
-// config's digest, shape, or any step's lane-manifest digest failed
+// assumed. This file adds three more that file has no equivalent for (0-4
+// were already spoken for by the reused mapping): 5 CONFIG_INVALID (the chain
+// config's digest, shape, or any enabled step's lane-manifest digest failed
 // validation before anything ran -- also every other pre-run usage refusal,
-// such as `--only`/`--from` both given or naming an unknown/disabled step),
-// 6 PARTIAL (the deadline was reached BETWEEN steps -- some ran, some did
-// not, and none of the ones that did run failed).
+// such as an unknown flag, `--only`/`--from` both given, or either naming an
+// unknown/disabled step), 6 PARTIAL (the deadline was reached BETWEEN steps
+// -- some ran, some did not, and none of the ones that did run failed),
+// 7 NOTHING_TO_RUN (S4, 2026-09-22 review: every in-scope step was disabled,
+// so the run attempted nothing -- not `OK`/0, which a watcher reads as "the
+// chain did its work tonight"; its own code rather than 4 so it is never
+// mistaken for a deadline stop). A receipt is still written for it.
 import { randomUUID, createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -434,6 +449,7 @@ function resolveTargetIds(steps, only, from) {
   if (from !== null) {
     const index = ids.indexOf(from);
     if (index === -1) fail('night_chain_from_step_unknown', from);
+    if (steps[index].enabled === false) fail('night_chain_from_step_disabled', from);
     return ids.slice(index);
   }
   return ids;
@@ -486,8 +502,14 @@ function globToRegExp(glob) {
  * was spawned) -- a receipt file whose mtime is EARLIER than that is a
  * leftover from a previous run (or from a step run outside this chain
  * entirely) and must never be read as this step's own success signal, however
- * well it matches the glob. `null` `successRule` means "the exit code alone
- * is the answer" (`checked: false`). */
+ * well it matches the glob. S1 (2026-09-22 review): `sinceMs` is a whole
+ * millisecond (`Date.now()` truncates) while `mtimeMs` may carry a fraction,
+ * so a receipt written a few hundred microseconds BEFORE the captured start,
+ * inside that same millisecond, would still read as `>= sinceMs`. Requiring
+ * `mtimeMs >= sinceMs + 1` -- the file's own millisecond strictly after the
+ * one the start was captured in -- closes that; no real child can spawn and
+ * write a receipt inside the millisecond it was started in. `null`
+ * `successRule` means "the exit code alone is the answer" (`checked: false`). */
 export function evaluateSuccessRule({ receiptsDir, successRule, sinceMs }) {
   if (successRule === null || successRule === undefined) {
     return { checked: false, success: true, receipt_found: false, receipt_path: null, value: undefined };
@@ -501,7 +523,7 @@ export function evaluateSuccessRule({ receiptsDir, successRule, sinceMs }) {
       try { mtimeMs = statSync(filePath).mtimeMs; } catch { /* vanished between list and stat */ }
       return { filePath, rel, mtimeMs };
     })
-    .filter(({ mtimeMs }) => mtimeMs >= sinceMs);
+    .filter(({ mtimeMs }) => mtimeMs >= sinceMs + 1);
   if (candidates.length === 0) return { checked: true, success: false, receipt_found: false, receipt_path: null, value: undefined };
   candidates.sort((a, b) => (b.mtimeMs - a.mtimeMs) || (a.rel < b.rel ? 1 : -1));
   const newest = candidates[0];
@@ -636,13 +658,17 @@ export async function runChain({ configPath, expectedConfigSha256, receiptsDir, 
   let attemptedCount = 0;
   const notStarted = [];
   let stoppedAtId = null;
+  // R2 (2026-09-22 review): every row carries the step's own `deadline`/
+  // `note` verbatim (the first version parsed and dropped them).
+  const disabledRow = step => ({ id: step.id, status: 'SKIPPED_DISABLED', started_at: null, ended_at: null,
+    exit_code: null, signal: null, timed_out: false, receipt_found: false, receipt_path: null, reason: null,
+    deadline: step.deadline, note: step.note });
   try {
     for (let index = 0; index < steps.length; index++) {
       const step = steps[index];
       if (!targetSet.has(step.id)) continue;
       if (step.enabled === false) {
-        stepReceipts.push({ id: step.id, status: 'SKIPPED_DISABLED', started_at: null, ended_at: null,
-          exit_code: null, signal: null, timed_out: false, receipt_found: false, receipt_path: null, reason: null });
+        stepReceipts.push(disabledRow(step));
         log(`${step.id} skipped (disabled)`);
         continue;
       }
@@ -668,13 +694,19 @@ export async function runChain({ configPath, expectedConfigSha256, receiptsDir, 
             : (child.exit_code !== 0 ? 'night_chain_step_nonzero_exit' : 'night_chain_step_receipt_not_matched')));
       const row = { id: step.id, status: success ? 'OK' : 'FAILED', started_at: child.started_at, ended_at: child.ended_at,
         exit_code: child.exit_code, signal: child.signal ?? null, timed_out: child.timed_out === true,
-        receipt_found: successRuleResult.receipt_found, receipt_path: successRuleResult.receipt_path, reason };
+        receipt_found: successRuleResult.receipt_found, receipt_path: successRuleResult.receipt_path, reason,
+        deadline: step.deadline, note: step.note };
       stepReceipts.push(row);
       log(`${step.id} ${row.status} exit=${row.exit_code ?? '-'} receipt=${row.receipt_found ? 'found' : 'absent'}`);
       if (!success && step.on_failure === 'stop') {
         stoppedAtId = step.id;
+        // N2 (2026-09-22 review): a disabled step after the stop point is
+        // still listed as `SKIPPED_DISABLED` (it was never going to run, stop
+        // or no stop); only the enabled ones become `not_started`.
         for (let rest = index + 1; rest < steps.length; rest++) {
-          if (targetSet.has(steps[rest].id) && steps[rest].enabled !== false) notStarted.push(steps[rest].id);
+          if (!targetSet.has(steps[rest].id)) continue;
+          if (steps[rest].enabled === false) stepReceipts.push(disabledRow(steps[rest]));
+          else notStarted.push(steps[rest].id);
         }
         break;
       }
@@ -687,11 +719,17 @@ export async function runChain({ configPath, expectedConfigSha256, receiptsDir, 
   let status;
   if (anyFailed) status = 'FAILED';
   else if (deadlineStopped && attemptedCount === 0) status = 'SKIPPED_PAST_DEADLINE';
+  // S4 (2026-09-22 review): nothing was attempted and no deadline stopped it
+  // -- every in-scope step was disabled. Not `OK`.
+  else if (attemptedCount === 0) status = 'NOTHING_TO_RUN';
   else if (notStarted.length > 0) status = 'PARTIAL';
   else status = 'OK';
 
   const receipt = {
-    schema_version: NIGHT_CHAIN_RECEIPT_SCHEMA, ran_at: now, config_path: path.resolve(configPath),
+    // S2 (2026-09-22 review): the config's basename only -- its sha256 (next
+    // field) already binds exactly which file this was, and a full path here
+    // would be the one host-local path the config itself never named.
+    schema_version: NIGHT_CHAIN_RECEIPT_SCHEMA, ran_at: now, config_file: path.basename(configPath),
     config_sha256, dry: false, scope: { only, from },
     lock: { reclaimed_stale: lock.reclaimed === true, previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
     deadline: deadlineAt !== null ? { configured: deadline, scheduled_start: scheduledStart, at: deadlineAt, stopped: deadlineStopped } : null,
@@ -703,13 +741,21 @@ export async function runChain({ configPath, expectedConfigSha256, receiptsDir, 
 }
 
 // -------------------------------------------------------------------- CLI
+// The complete flag vocabulary. S3 (2026-09-22 review): anything not in this
+// set -- `--dry-run`, `--receipt`, a bare positional word -- is refused before
+// anything is read, hashed, locked or spawned, rather than silently ignored.
+const KNOWN_FLAGS = new Set(['chain-config', 'chain-config-sha256', 'receipts', 'deadline', 'scheduled-start',
+  'dry', 'only', 'from', 'node-path']);
+
 function options(argv) {
   const flags = new Map();
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i];
-    if (!token.startsWith('--')) continue;
+    if (!token.startsWith('--')) fail('night_chain_argument_unexpected', token);
+    const name = token.slice(2);
+    if (!KNOWN_FLAGS.has(name)) fail('night_chain_flag_unknown', token);
     const next = argv[i + 1];
-    flags.set(token.slice(2), next === undefined || next.startsWith('--') ? true : (i++, next));
+    flags.set(name, next === undefined || next.startsWith('--') ? true : (i++, next));
   }
   return flags;
 }
@@ -752,13 +798,14 @@ export async function runNightChainCli(argv, { log: onLine, now, clock, spawnSte
   return { result, lines };
 }
 
-function exitCodeFor(status) {
+export function exitCodeFor(status) {
   switch (status) {
     case 'OK': return 0;
     case 'FAILED': return 2;
     case 'LOCK_HELD': return 3;
     case 'SKIPPED_PAST_DEADLINE': return 4;
     case 'PARTIAL': return 6;
+    case 'NOTHING_TO_RUN': return 7;
     default: return 2;
   }
 }

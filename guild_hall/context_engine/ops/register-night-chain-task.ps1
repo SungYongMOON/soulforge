@@ -223,9 +223,20 @@ if ($Deadline) {
 
 # Preflight: the same entry point, in the mode that spawns nothing and writes
 # nothing -- not even the lock. `$LASTEXITCODE` is captured into its own
-# variable before anything else can touch it.
-$PreflightOutput = @(& $NodePath $Entry @RunnerArguments "--dry" 2>&1)
-$PreflightExitCode = $LASTEXITCODE
+# variable before anything else can touch it. $ErrorActionPreference is
+# lowered around this one `2>&1` native call (the same fix the workspace
+# ledgers registrar carries): under "Stop", PowerShell 5.1 turns any stderr
+# line from node -- exactly what the runner prints on a refusal, e.g.
+# `[night-chain] night_chain_config_sha256_mismatch` -- into a terminating
+# NativeCommandError that pre-empts the specific throw below.
+$PriorErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+  $PreflightOutput = @(& $NodePath $Entry @RunnerArguments "--dry" 2>&1)
+  $PreflightExitCode = $LASTEXITCODE
+} finally {
+  $ErrorActionPreference = $PriorErrorActionPreference
+}
 if ($PreflightExitCode -ne 0) {
   throw "night chain dry preflight failed (exit $PreflightExitCode): $($PreflightOutput -join ' ')"
 }

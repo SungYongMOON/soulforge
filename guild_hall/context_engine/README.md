@@ -49,32 +49,44 @@
 - **`on_failure`** — `stop`은 그 단계에서 멈추고 뒤의 단계를 `not_started`에 적는다; `continue`는 실패를
   적고 다음으로 간다.
 - **`timeout_minutes`** — 넘기면 SIGTERM, 5초 뒤 SIGKILL, `timed_out: true`(항상 실패). 소수 허용.
-- **`enabled: false`** — `--dry` 계획과 실제 영수증에 `SKIPPED_DISABLED`로 남고 절대 돌지 않는다.
-  `--only`로 꺼진 단계를 **직접 지명하면 거부**한다(몰래 돌리지도, 몰래 아무것도 안 하지도 않는다).
-- **`deadline`(단계 필드)** — 받아서 영수증에 그대로 적기만 하고 **이 판본은 해석하지 않는다**. 마감은
-  아래 사슬 수준 `--deadline`만 본다.
+- **`enabled: false`** — `--dry` 계획과 실제 영수증에 `SKIPPED_DISABLED`로 남고 절대 돌지 않는다
+  (`stop`으로 멈춘 뒤의 꺼진 단계도 `not_started`가 아니라 `SKIPPED_DISABLED`로 남는다 — 어차피 돌 일이
+  없던 단계다). `--only`든 `--from`이든 꺼진 단계를 **직접 지명하면 거부**한다(몰래 돌리지도, 몰래 아무것도
+  안 하지도 않는다). 범위 안의 단계가 **전부** 꺼져 있어 아무것도 시도하지 않은 회차는 `OK`가 아니라
+  `NOTHING_TO_RUN`(exit 7)이다 — 감시자가 "오늘 밤 사슬이 일을 했다"로 읽으면 안 되므로.
+- **`deadline`·`note`(단계 필드, 선택)** — 그 단계의 영수증 행에 **그대로 복사**된다(없으면 `null`).
+  `deadline`은 **이 판본이 해석하지 않는다** — 마감은 아래 사슬 수준 `--deadline`만 본다(장래 단계별
+  override 자리를 스키마 변경 없이 잡아 두는 것).
 
 **사슬 수준.** `--receipts <dir>`은 **사슬 자신의** 영수증 폴더다(어느 단계의 `receipts_dir`도 아니다 —
 겹치면 거부). 거기에 lock(`night_chain.lock`, 모든 단계 `timeout_minutes` 합 + 30분이 지나면 버려진
 것으로 보고 `wx`로 회수, 영수증에 `lock.reclaimed_stale`)과 밤마다 영수증 하나
 (`soulforge.night_chain_receipt.v1`: 단계별 `{id, started_at, ended_at, exit_code, timed_out, receipt_found,
-receipt_path, status, reason}` + `not_started` + `stopped_at_step` + 전체 `status`)만 쓴다. 단계의 stdout/
-stderr는 영수증에 넣지 않고 줄 단위로 호스트 경로를 가려 relay 만 한다(영수증에는 원문 출력이 없다).
+receipt_path, status, reason, deadline, note}` + `not_started` + `stopped_at_step` + 전체 `status`; 설정 파일은
+`config_file`에 **basename만** — 어느 파일이었는지는 옆의 `config_sha256`이 이미 묶는다)만 쓴다. 단계의
+stdout/stderr는 영수증에 넣지 않고 줄 단위로 호스트 경로를 가려 relay 만 한다(영수증에는 원문 출력이 없다).
+영수증 신선도 비교는 `mtime >= 시작 ms + 1` — `Date.now()`는 정수 ms이고 mtime은 소수가 붙을 수 있어, 같은
+ms 안에서 시작 직전에 쓰인 파일이 통과하는 반올림 구멍을 막는다.
 `--deadline HH:MM [--scheduled-start HH:MM]`은 대화 목록 야간 lane과 **같은 계산**(Asia/Seoul, 시작 이후
 다음 그 시각, `--scheduled-start`는 트리거 시각에 고정)이며 **새 단계를 시작하기 직전에만** 본다.
 첫 검사에서 이미 지났으면 `SKIPPED_PAST_DEADLINE`, 단계 사이에서 지났으면 `PARTIAL`(남은 단계는
 `not_started`에 id로). `--dry`는 계획만 찍고 **아무것도**(lock도) 안 쓴다. `--only <id>` / `--from <id>`는
-서로 배타적이다.
+서로 배타적이다. **모르는 플래그·맨 인자는 거부**한다(`--dry-run` 오타가 실제 실행이 되면 안 되므로).
 
 **종료코드** — `0 OK · 2 FAILED · 3 LOCK_HELD · 4 SKIPPED_PAST_DEADLINE`은 `voice_conversation_list_
-nightly.mjs`의 `main()`에서 읽은 값 그대로(짐작 아님). 그 파일에 없는 둘은 새로 붙였다:
-`5 CONFIG_INVALID`(설정 digest·모양·켜진 단계의 lane digest 어긋남, `--only`/`--from` 동시 지정이나 모르는/
-꺼진 단계 지명 같은 시작 전 거부 전부 — 아무것도 안 돌았다), `6 PARTIAL`(0~4는 이미 재사용한 매핑이 차지).
+nightly.mjs`의 `main()`에서 읽은 값 그대로(짐작 아님). 그 파일에 없는 셋은 새로 붙였다:
+`5 CONFIG_INVALID`(설정 digest·모양·켜진 단계의 lane digest 어긋남, 모르는 플래그, `--only`/`--from` 동시
+지정이나 모르는/꺼진 단계 지명 같은 시작 전 거부 전부 — 아무것도 안 돌았다), `6 PARTIAL`, `7 NOTHING_TO_RUN`
+(0~4는 이미 재사용한 매핑이 차지; 7을 4와 나눈 것은 마감 정지와 헷갈리지 않게 하려는 것이다).
+`tests/register_night_chain_task.test.mjs`가 Windows에서 실제 숨김 런처(wscript → powershell → node)를 통해
+일곱 값 모두 그대로 도착함을 실측한다(다른 OS에서는 skip).
 
 **등록기** `ops/register-night-chain-task.ps1`(`SoulforgeNightChain`, 기본 `-DailyAt 00:30` — 00:00/
 03:00/05:30 세 독립 예약과 다른 분으로 골라 전환 기간에 겹치지 않게; Owner가 `-DailyAt`으로 바꾼다)은 대화
 목록 등록기와 같은 뼈대다: 경로 정규화·reparse 거부, lane 매니페스트·Node·**사슬 설정**(`-ChainConfigPath`/
-`-ChainConfigSha256`) sha 대조, `--dry` 프리플라이트(exit code를 먼저 변수에 받은 뒤 판정), plan digest 게이트
+`-ChainConfigSha256`) sha 대조, `--dry` 프리플라이트(exit code를 먼저 변수에 받은 뒤 판정; 그 한 호출 동안만
+`$ErrorActionPreference`를 `Continue`로 내려 runner의 stderr 한 줄이 NativeCommandError로 진짜 이유를 가리지
+않게 — 작업 장부 등록기와 같은 수리), plan digest 게이트
 (`-Register -ExpectedDryRunDigest`), 등록 뒤 XML 대조와 실패 시 이전 정의 복구/제거, wscript 꼬리
 `if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE`. `--node-path`로 자기 검증한 Node를 사슬에
 넘겨 모든 단계가 같은 바이너리로 돈다. 실행 시간 한도는 PT8H. 숨김 런처 `ops/run-night-chain-hidden.vbs`는
@@ -86,9 +98,11 @@ K5 전까지 존재하지 않음)`. 경로는 전부 `<LANE_ROOT>`·`<STATE_ROOT
 전부 가짜 0이다 — 실제 배포는 실제 digest를 pin 하며 안 맞으면 exit 5다.
 
 **lane** `guild_hall/deployment_pack/lanes/night_chain_lane.spec.json`(`night-chain-v1`): tracked_paths는
-파일 셋(runner·등록기·런처)뿐. 시험 `tests/night_chain.test.mjs`(32건, 전부 `os.tmpdir()` 아래 합성 lane을
-**실제 자식 프로세스**로 돌림)는 `npm run validate:night-chain`이고 `run_root_acceptance.mjs` 두 모드에
-`context-engine` 바로 뒤로 배선됐다. 이 조각은 예약작업을 등록하지도 lane을 빌드하지도 않는다.
+파일 셋(runner·등록기·런처)뿐. 시험 `tests/night_chain.test.mjs`(39건, 전부 `os.tmpdir()` 아래 합성 lane을
+**실제 자식 프로세스**로 돌림)와 `tests/register_night_chain_task.test.mjs`(9건, 등록기·런처 원문 구조 검사 +
+Windows 실측)가 `npm run validate:night-chain`이고 `run_root_acceptance.mjs` 두 모드에 `context-engine` 바로
+뒤로 배선됐다. 이 조각은 예약작업을 등록하지도 lane을 빌드하지도 않는다. 예시 설정의 `mail_attribution_index`
+단계는 `success_rule: null`이라 `receipts_dir`가 유령 폴더가 아니라 `--out` 파일이 실제로 놓이는 폴더를 가리킨다.
 
 ### 시작조차 못 한 회차도 영수증을 남긴다 (`harness/estate_graph_sync.mjs`, lane graph-sync-v4)
 

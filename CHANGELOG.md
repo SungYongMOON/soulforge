@@ -48,6 +48,37 @@
   자동 수정·근사 일치·의미적 사실 검증·지식 수락은 하지 않는다. 배포와 병합은 Owner 검토 전 미수행이다.
 - 관련 경로: `guild_hall/context_engine/src/guards/citation_verifier.mjs`,
   `guild_hall/context_engine/tests/citation_verifier.test.mjs`, 모듈 manifest와 생성된 release 목록.
+## 2026-09-22 - 밤 사슬 신선한 눈 검토 반영: 경로 정책 적색, 버려지던 단계 필드, 아무것도 안 돈 회차
+
+- Revision: `26236118`의 비작성자 검토(REQUIRED 2·should 6·nit 2). 사슬 러너·등록기·시험·예시·README만
+  바뀌고 lane 폐포(`node:` 내장만)는 그대로다.
+- **R1 (필수, CI 적색)**: `tests/night_chain.test.mjs`의 redaction 단위 시험에 드라이브·UNC 경로 **리터럴**
+  두 줄이 있어 `validate:path-policy:all`이 1이었다(두 `run_root_acceptance` 모드 모두 포함). 이제
+  `estate_graph_sync.test.mjs`와 같이 `String.fromCharCode(92)`·드라이브 글자 join으로 **만든다**.
+- **R2 (필수)**: 단계 `deadline`·`note`를 "영수증에 그대로 적는다"고 적어 놓고 파싱 뒤 버리고 있었다. 이제
+  단계 행(`SKIPPED_DISABLED` 행 포함)에 그대로 실린다(없으면 `null`); `deadline`은 여전히 해석하지 않는다.
+- **S1**: 영수증 신선도 `mtime >= 시작 ms + 1` — `Date.now()` 정수 ms vs 소수 mtime의 같은-ms 반올림 구멍.
+- **S2**: 사슬 영수증의 `config_path`(절대경로) → `config_file`(basename). sha가 이미 파일을 묶는다.
+- **S3**: 모르는 `--플래그`·맨 인자 거부(`night_chain_flag_unknown` / `night_chain_argument_unexpected`, exit 5)
+  — `--dry-run` 오타가 실제 실행이 되지 않는다.
+- **S4**: 범위 안 단계가 전부 꺼져 아무것도 시도하지 않은 회차는 `OK`가 아니라 새 상태 `NOTHING_TO_RUN`,
+  **exit 7**(마감 정지 4와 섞이지 않게 별도 코드). 영수증은 쓴다.
+- **S5**: `--from`이 꺼진 단계를 지명하면 `--only`처럼 거부(`night_chain_from_step_disabled`).
+- **S6**: 새 시험 `tests/register_night_chain_task.test.mjs`(9건): 등록기 원문 구조(필수 파라미터·고정 작업
+  이름·`-DailyAt 00:30` 기본값·digest pin·프리플라이트 exit 선캡처·plan digest 게이트·XML 대조·롤백·exit 꼬리·
+  PS 5.1/ASCII/BOM)와 런처, 그리고 Windows에서 실제 숨김 런처를 통해 **0/2/3/4/5/6/7 일곱 값** 전부 그대로
+  도착함을 실측(다른 OS는 skip). 등록기에는 작업 장부 등록기의 `$ErrorActionPreference` 수리를 옮겨 넣었다
+  (runner가 거부 이유를 stderr에 찍으므로 여기서는 실제로 가려지는 경우다).
+- **N2**: `on_failure: stop` 뒤의 꺼진 단계는 사라지지 않고 `SKIPPED_DISABLED`로 남는다.
+- **N5**: 예시 설정 `mail_attribution_index`의 `receipts_dir`가 유령 폴더가 아니라 `--out` 파일이 놓이는
+  폴더를 가리킨다(`success_rule: null`이라 읽지는 않는다; 스키마상 필수 필드).
+- 검증: `validate:night-chain` 48건(39+9) 전부 통과, `validate:path-policy:all` 0으로 복귀. 나머지 검증기와
+  두 lane(night-chain-v1·graph-sync-v4) 임시 빌드+`--verify` 결과는 커밋 메시지에 그대로 적는다.
+  night-chain-v1은 이 커밋 전에 어디에도 빌드된 적이 없어(임시 폴더 검증뿐) lane id를 올리지 않았다.
+- 관련 경로: `guild_hall/context_engine/{ops/night_chain.mjs,ops/register-night-chain-task.ps1,tests/night_chain.test.mjs,tests/register_night_chain_task.test.mjs,README.md}`,
+  `guild_hall/deployment_pack/lanes/night_chain_lane.spec.json`,
+  `docs/architecture/workspace/examples/night_chain/night_chain.example.json`, `package.json`
+
 ## 2026-09-22 - 시작조차 못 한 그래프 동기화 회차도 이유를 영수증에 남긴다 (lane graph-sync-v4)
 
 - Why: 밤 사슬도 감시자도 **영수증을 읽는다**. 그런데 `harness/estate_graph_sync.mjs`는 과제 루프에 들어가기

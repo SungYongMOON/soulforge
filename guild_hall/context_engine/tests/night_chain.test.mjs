@@ -8,11 +8,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  NIGHT_CHAIN_CONFIG_SCHEMA, computeStaleLockMs, evaluateSuccessRule, loadChainConfig,
+  NIGHT_CHAIN_CONFIG_SCHEMA, computeStaleLockMs, evaluateSuccessRule, exitCodeFor, loadChainConfig,
   nextDeadlineInstant, redactHostPathsLocal, runChain, runNightChainCli, verifyStepLanes,
 } from '../ops/night_chain.mjs';
 
@@ -303,11 +303,92 @@ test('--only and --from together are refused', async () => {
 
 test('a step with enabled: false is skipped and never executed, in a plain run', async () => {
   const laneOff = makeLane('disabled-plain', FAIL_SCRIPT); // would fail the chain if it were ever run
+  const laneOn = makeLane('disabled-plain-on', SUCCEED_SCRIPT);
   const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-disabledplain-'));
-  const { configPath, configSha256 } = writeConfig(chainReceipts, [stepOf(laneOff, 'off', { enabled: false })]);
+  const { configPath, configSha256 } = writeConfig(chainReceipts, [stepOf(laneOff, 'off', { enabled: false }), stepOf(laneOn, 'on')]);
   const result = await runChain({ configPath, expectedConfigSha256: configSha256, receiptsDir: chainReceipts, now: new Date().toISOString() });
   assert.equal(result.status, 'OK');
+  assert.deepEqual(result.receipt.steps.map(s => s.status), ['SKIPPED_DISABLED', 'OK']);
+});
+
+test('S4: a run where every in-scope step is disabled is NOTHING_TO_RUN (exit 7), not OK', async () => {
+  const laneOff = makeLane('nothing', FAIL_SCRIPT);
+  const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-nothing-'));
+  const { configPath, configSha256 } = writeConfig(chainReceipts, [stepOf(laneOff, 'off', { enabled: false })]);
+  const result = await runChain({ configPath, expectedConfigSha256: configSha256, receiptsDir: chainReceipts, now: new Date().toISOString() });
+  assert.equal(result.status, 'NOTHING_TO_RUN');
+  assert.equal(exitCodeFor(result.status), 7);
+  assert.equal(result.receipt.status, 'NOTHING_TO_RUN', 'a receipt is still written for it');
   assert.equal(result.receipt.steps[0].status, 'SKIPPED_DISABLED');
+});
+
+test('S5: --from naming a disabled step is refused, the same as --only', async () => {
+  const laneOff = makeLane('from-disabled-off', SUCCEED_SCRIPT);
+  const laneOn = makeLane('from-disabled-on', SUCCEED_SCRIPT);
+  const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-fromdisabled-'));
+  const { configPath, configSha256 } = writeConfig(chainReceipts, [stepOf(laneOff, 'off', { enabled: false }), stepOf(laneOn, 'on')]);
+  await assert.rejects(
+    runChain({ configPath, expectedConfigSha256: configSha256, receiptsDir: chainReceipts, from: 'off', now: new Date().toISOString() }),
+    error => error.code === 'night_chain_from_step_disabled');
+});
+
+test('N2: after on_failure stop, a later disabled step is still listed SKIPPED_DISABLED, only enabled ones are not_started', async () => {
+  const laneA = makeLane('n2-a', FAIL_SCRIPT);
+  const laneB = makeLane('n2-b', SUCCEED_SCRIPT);
+  const laneC = makeLane('n2-c', SUCCEED_SCRIPT);
+  const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-n2-'));
+  const { configPath, configSha256 } = writeConfig(chainReceipts,
+    [stepOf(laneA, 'a'), stepOf(laneB, 'b', { enabled: false }), stepOf(laneC, 'c')]);
+  const result = await runChain({ configPath, expectedConfigSha256: configSha256, receiptsDir: chainReceipts, now: new Date().toISOString() });
+  assert.equal(result.status, 'FAILED');
+  assert.deepEqual(result.receipt.steps.map(s => [s.id, s.status]), [['a', 'FAILED'], ['b', 'SKIPPED_DISABLED']]);
+  assert.deepEqual(result.receipt.not_started, ['c']);
+});
+
+test('R2: a step\'s own deadline and note fields are carried verbatim into its receipt row', async () => {
+  const laneOn = makeLane('r2-on', SUCCEED_SCRIPT);
+  const laneOff = makeLane('r2-off', SUCCEED_SCRIPT);
+  const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-r2-'));
+  const { configPath, configSha256 } = writeConfig(chainReceipts, [
+    stepOf(laneOn, 'on', { deadline: '04:00', note: 'first' }),
+    stepOf(laneOff, 'off', { enabled: false, note: 'placeholder' }),
+  ]);
+  const result = await runChain({ configPath, expectedConfigSha256: configSha256, receiptsDir: chainReceipts, now: new Date().toISOString() });
+  assert.equal(result.receipt.steps[0].deadline, '04:00');
+  assert.equal(result.receipt.steps[0].note, 'first');
+  assert.equal(result.receipt.steps[1].deadline, null);
+  assert.equal(result.receipt.steps[1].note, 'placeholder');
+});
+
+test('S2: the chain receipt names the config file by basename only, bound by its sha256', async () => {
+  const lane = makeLane('s2', SUCCEED_SCRIPT);
+  const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-s2-'));
+  const { configPath, configSha256 } = writeConfig(chainReceipts, [stepOf(lane, 's1')]);
+  const result = await runChain({ configPath, expectedConfigSha256: configSha256, receiptsDir: chainReceipts, now: new Date().toISOString() });
+  assert.equal(result.receipt.config_file, 'config.json');
+  assert.equal('config_path' in result.receipt, false);
+  assert.equal(result.receipt.config_sha256, configSha256);
+});
+
+test('S1: a receipt whose mtime falls inside the very millisecond the step start was captured in does not count', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'night-chain-s1-'));
+  const file = path.join(dir, 'daily-1.json');
+  writeFileSync(file, JSON.stringify({ status: 'ok' }));
+  const mtimeMs = statSync(file).mtimeMs;
+  const sameMs = Math.floor(mtimeMs);
+  const rule = { receipt_glob: 'daily-*.json', json_path: 'status', allowed_values: ['ok'] };
+  assert.equal(evaluateSuccessRule({ receiptsDir: dir, successRule: rule, sinceMs: sameMs }).success, false);
+  assert.equal(evaluateSuccessRule({ receiptsDir: dir, successRule: rule, sinceMs: sameMs - 1 }).success, true);
+});
+
+test('S3: an unknown flag (the --dry-run typo) or a bare positional token is refused before anything runs', async () => {
+  const lane = makeLane('s3', FAIL_SCRIPT); // would fail the chain if it ever ran for real
+  const chainReceipts = mkdtempSync(path.join(os.tmpdir(), 'night-chain-receipts-s3-'));
+  const { configPath, configSha256 } = writeConfig(chainReceipts, [stepOf(lane, 's1')]);
+  const base = ['--chain-config', configPath, '--chain-config-sha256', configSha256, '--receipts', chainReceipts];
+  await assert.rejects(runNightChainCli([...base, '--dry-run']), error => error.code === 'night_chain_flag_unknown');
+  await assert.rejects(runNightChainCli([...base, 'dry']), error => error.code === 'night_chain_argument_unexpected');
+  assert.deepEqual(readdirSync(chainReceipts).filter(f => f !== 'config.json'), [], 'nothing ran, nothing written');
 });
 
 test('a step whose child exceeds timeout_minutes is killed and recorded timed_out', async () => {
@@ -340,9 +421,19 @@ test('redaction: a synthetic lane writing a host-local path to stderr has it red
 });
 
 test('redactHostPathsLocal: unit coverage for all three path shapes', () => {
-  assert.equal(redactHostPathsLocal('open "C:\\Users\\owner\\secret\\file.txt" failed'), 'open "file.txt" failed');
-  assert.equal(redactHostPathsLocal('at \\\\host\\share\\owner\\secret.txt'), 'at secret.txt');
-  assert.equal(redactHostPathsLocal('read /home/owner/private/notes.md now'), 'read notes.md now');
+  // Built, not written (R1, 2026-09-22 review): a drive-letter or UNC path
+  // literal in a tracked file is a host address to the path policy, and this
+  // test is about the rule, not a host -- same construction as
+  // `estate_graph_sync.test.mjs`'s own alias-address test.
+  const sep = String.fromCharCode(92);
+  const drive = `${String.fromCharCode(67)}:`;
+  const win = (...parts) => parts.join(sep);
+  const windowsPath = win(drive, 'Users', 'owner', 'secret', 'file.txt');
+  const uncPath = `${sep}${sep}${win('host', 'share', 'owner', 'secret.txt')}`;
+  const posixPath = ['', 'home', 'owner', 'private', 'notes.md'].join('/');
+  assert.equal(redactHostPathsLocal(`open "${windowsPath}" failed`), 'open "file.txt" failed');
+  assert.equal(redactHostPathsLocal(`at ${uncPath}`), 'at secret.txt');
+  assert.equal(redactHostPathsLocal(`read ${posixPath} now`), 'read notes.md now');
   assert.equal(redactHostPathsLocal(42), 42);
 });
 

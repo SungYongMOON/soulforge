@@ -54,7 +54,7 @@
     },
     {
       "id": "mail_attribution_index",
-      "note": "The mail attribution index builder -- the step that was in no automation chain before this one; its consumer (graph_sync_once below, --mail-attribution) fails closed once the index is older than 36h. It writes exactly one file (--out) and no dated receipt, so it is judged by exit code alone.",
+      "note": "The mail attribution index builder -- the step that was in no automation chain before this one; its consumer (graph_sync_once below, --mail-attribution) fails closed once the index is older than 36h. It writes exactly one file (--out) and no dated receipt, so it is judged by exit code alone (success_rule null); receipts_dir is required by the schema and points at the directory the --out file actually lands in -- the only place this step writes -- not at a phantom receipts folder.",
       "lane_root": "<LANE_ROOT>/workspace-ledgers-v3",
       "entry": "guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs",
       "args": [
@@ -65,7 +65,7 @@
         "--gmail-sent-events", "<DATA_ROOT>/ingress/gmail-sent/events",
         "--out", "<CONTROL_ROOT>/mail-routes/mail_attribution_index.json"
       ],
-      "receipts_dir": "<STATE_ROOT>/receipts/mail-attribution-index",
+      "receipts_dir": "<CONTROL_ROOT>/mail-routes",
       "success_rule": null,
       "on_failure": "stop",
       "timeout_minutes": 30,
