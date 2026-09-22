@@ -48,6 +48,42 @@
   자동 수정·근사 일치·의미적 사실 검증·지식 수락은 하지 않는다. 배포와 병합은 Owner 검토 전 미수행이다.
 - 관련 경로: `guild_hall/context_engine/src/guards/citation_verifier.mjs`,
   `guild_hall/context_engine/tests/citation_verifier.test.mjs`, 모듈 manifest와 생성된 release 목록.
+## 2026-09-22 - 밤 사슬(night chain) 러너: 고정 시계 셋을 영수증으로 이어지는 한 사슬로 (night-chain-v1)
+
+- Why: 야간 예약작업 셋(대화 목록 00:00·작업 장부 05:30·그래프 동기화 30분)은 서로 모르는 고정 시계였고,
+  메일 귀속 색인 빌더(`workspace_ledgers/ops/mail_attribution_index.mjs`)는 어느 사슬에도 없어 소비 쪽이
+  36시간 뒤 닫혔다. Owner 지시: 순서 있는 부분집합을 **앞 단계 영수증이 성공이라 말한 뒤에만** 다음이
+  시작하는 한 사슬로.
+- 새 러너 `guild_hall/context_engine/ops/night_chain.mjs`: 각 단계를 **자식 프로세스**(`node <lane_root>/
+  <entry> <args>`)로 순서대로 돈다. 사슬 정의는 외부 JSON(`--chain-config` + `--chain-config-sha256`,
+  digest 맞기 전 불신). 켜진 모든 단계의 `lane_manifest_sha256`(그 lane `LANE_MANIFEST.sha256` 파일 바이트의
+  digest, 등록기들과 같은 값)을 **1단계 전에** 대조, 어긋나면 exit 5·아무것도 안 돎. 성공 = 종료코드 0 AND
+  (`success_rule`이 있으면) 그 단계 `receipts_dir`에서 glob에 맞고 **mtime이 단계 시작 이후**인 최신 영수증의
+  `json_path`가 `allowed_values`에 있음 — 지난 회차의 옛 영수증은 절대 성공 신호가 아니다. `on_failure:
+  stop|continue`, 사슬 `--deadline/--scheduled-start`(대화 목록 야간 lane과 같은 Asia/Seoul 계산, 새 단계
+  시작 직전만 검사; 첫 검사에서 이미 지났으면 `SKIPPED_PAST_DEADLINE`, 사이에서 지났으면 `PARTIAL`+`not_started`),
+  사슬 자기 영수증 폴더의 lock(단계 timeout 합+30분, `wx` 회수), 밤당 영수증 1개(`soulforge.night_chain_
+  receipt.v1`), `--dry`(아무것도 안 씀), `--only`/`--from`(배타; 꺼진 단계 `--only` 지명은 거부),
+  `timeout_minutes` 초과 시 SIGTERM→SIGKILL·`timed_out`, relay 출력의 호스트 경로 가림. 이 파일은 `node:`
+  내장만 import 한다 — `nextDeadlineInstant`·lock·`redactHostPaths`·매니페스트 digest 검사는 폐포를 지키려
+  **다시 적었다**(`answer_eval`/`safe_pattern.mjs`와 같은 전례). 종료코드 0/2/3/4는 대화 목록 야간 lane의
+  `main()`에서 읽은 그대로, 5 CONFIG_INVALID·6 PARTIAL은 그 파일에 없어 새로 붙였다.
+- 등록기 `ops/register-night-chain-task.ps1`(`SoulforgeNightChain`, 기본 `-DailyAt 00:30`, PT8H) + 숨김 런처
+  `ops/run-night-chain-hidden.vbs`: 대화 목록 등록기와 같은 뼈대(정규화·reparse 거부, lane/Node/사슬설정 sha
+  pin, `--dry` 프리플라이트 exit code 선캡처, plan digest 게이트, XML 대조·롤백, wscript exit 꼬리). 이 조각은
+  예약작업을 등록하지 않았다(작성만).
+- 공개 예시 `docs/architecture/workspace/examples/night_chain/night_chain.example.json`: 순서 `voice_cards →
+  mail_ledgers → mail_attribution_index → graph_sync_once → voice_cards_to_index(꺼짐, K5 전 미존재)`,
+  경로는 자리표시자·digest는 가짜 0.
+- lane `deployment_pack/lanes/night_chain_lane.spec.json`(`night-chain-v1`, tracked 파일 3개, 폐포는
+  `spec_closure_lib.moduleClosure()`로 파일 1개 확인). `validate:night-chain` 신설(`run_root_acceptance.mjs`
+  두 모드, `context-engine` 뒤). README에 "밤 사슬" 절.
+- 검증: `validate:night-chain` 32건 전부 통과(합성 lane을 `os.tmpdir()`에 실제 자식 프로세스로). 나머지
+  검증기 결과는 커밋 메시지·보고에 그대로 적는다.
+- 관련 경로: `guild_hall/context_engine/{ops/night_chain.mjs,ops/register-night-chain-task.ps1,ops/run-night-chain-hidden.vbs,tests/night_chain.test.mjs,README.md}`,
+  `guild_hall/deployment_pack/lanes/night_chain_lane.spec.json`, `guild_hall/validate/run_root_acceptance.mjs`,
+  `docs/architecture/workspace/examples/night_chain/night_chain.example.json`, `package.json`
+
 ## 2026-09-22 - 메일 귀속 색인 2차 검토 반영: Owner 표 내용까지 묶기, 양끝 연결 시험, 스키마 v1
 
 - Revision: 2차 비작성자 검토(merge-ready, REQUIRED 0)에서 나온 S4·S5와 nit 4건.

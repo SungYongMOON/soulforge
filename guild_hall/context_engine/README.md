@@ -1,6 +1,95 @@
 # Context Engine
 
 자동 정리본 지식 층의 명시 호출·개발 평가는 [KNOWLEDGE_LAYER.md](KNOWLEDGE_LAYER.md)를 따른다.
+
+## 밤 사슬(night chain) — 시계 대신 영수증으로 이어지는 야간 작업 (night-chain-v1)
+
+밤에 도는 예약작업 셋(`SoulforgeVoiceConversationList` 00:00, `SoulforgeWorkspaceLedgers` 05:30,
+`SoulforgeGraphSync` 30분마다)은 서로를 모르는 고정 시계였다. 앞 작업이 끝났는지와 무관하게 다음 시각이
+오면 돈다. 그 틈에 아무 사슬에도 안 들어가 있던 것이 하나 있었다 — 메일 귀속 색인 빌더
+(`guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs`). 소비 쪽(`estate_graph_sync.mjs`의
+`--mail-attribution`)은 색인이 36시간 넘게 낡으면 닫히는데, 색인을 다시 만드는 사람이 없었다.
+`ops/night_chain.mjs`는 그 대신, Owner가 고른 **순서 있는 부분집합**을 **한 사슬**로 돈다: 각 단계는 앞
+단계의 **자기 종료코드와(설정했으면) 자기 영수증**이 성공이라 말한 뒤에만 시작한다.
+
+**무엇을 하는가.** 각 단계는 이미 만들어진 다른 lane의 진입점을 **자식 프로세스**로 돈다
+(`node <lane_root>/<entry> <args...>`). 이 파일은 그 lane들의 코드를 import 하지도 다시 구현하지도
+않으며 — 파일 하나가 `node:` 내장 모듈만 import 한다(`voice_conversation_list_nightly.mjs`의 마감 계산
+`nextDeadlineInstant`, 그 lane의 lock 모양, `workspace_ledgers`의 `redactHostPaths`와 같은 것은 **가져오지
+않고 이 파일 안에 다시 적었다**. 이유는 `answer_eval`이 `safe_pattern.mjs`를 따로 둔 것과 같다: 이 파일을
+싣는 lane(`night-chain-v1`)의 폐포에 다른 모듈이 들어오면 빌드된 lane 안에서만 `ERR_MODULE_NOT_FOUND`로
+죽는다. `spec_closure_lib.mjs`의 `moduleClosure()`로 확인한 폐포는 이 파일 하나다).
+
+**사슬 정의는 외부 JSON**이다 — 코드에 박지 않고, Owner가 쓰고, `--chain-config <파일>
+--chain-config-sha256 sha256:<hex>`로 넘기며, **digest가 맞기 전에는 내용을 한 바이트도 믿지 않는다**.
+모양은 `{ "schema_version": "soulforge.night_chain_config.v1", "steps": [...] }` **객체만**(맨 위 배열은
+받지 않는다 — 이 모듈의 다른 스키마와 같은 모양으로 골랐다). 단계 하나:
+
+```json
+{ "id": "mail_ledgers",
+  "lane_root": "<LANE_ROOT>/workspace-ledgers-v3",
+  "entry": "guild_hall/workspace_ledgers/ops/daily_refresh.mjs",
+  "args": ["--workspaces-root", "...", "--receipts", "<STATE_ROOT>/receipts/workspace-ledgers"],
+  "receipts_dir": "<STATE_ROOT>/receipts/workspace-ledgers",
+  "success_rule": { "receipt_glob": "daily-*.json", "json_path": "status", "allowed_values": ["ok"] },
+  "on_failure": "stop", "timeout_minutes": 60, "enabled": true,
+  "lane_manifest_sha256": "sha256:<그 lane의 LANE_MANIFEST.sha256 파일 자체의 digest>" }
+```
+
+- **`lane_manifest_sha256`** — 그 lane의 `LANE_MANIFEST.sha256` **파일 바이트**의 digest(등록기들이
+  `Get-Sha256File`로 pin 하는 바로 그 값; `build_source_lane.mjs`의 `verifyLane`처럼 항목별 재해시는 아니다).
+  **켜진(enabled) 모든 단계**를 **1단계를 돌기 전에** 대조하며(`--only`/`--from`이어도), 하나라도 어긋나면
+  사슬 전체를 거부한다 — exit 5, 아무것도(1단계도) 안 돈다. 꺼진 단계는 대조에서 뺀다: 아직 없는 lane의
+  자리를 잡아 두는 placeholder(예시의 `voice_cards_to_index`)가 사슬을 막으면 안 되기 때문이다.
+- **`success_rule`**(선택) — 없으면 종료코드 0이 성공. 있으면 그 단계 **자기** `receipts_dir`를 (하위
+  폴더까지 — `estate_graph_sync.mjs`는 과제별 폴더에 쓰므로 `*/*.json`) glob 해서, **mtime이 이 단계의
+  시작 시각 이후인 파일만** 남기고, 그중 최신 하나의 `json_path` 값이 `allowed_values`에 있는지 본다.
+  **지난 회차가 남긴 옛 영수증은 절대 이번 단계의 성공 신호가 아니다** — 시험이 옛 영수증을 미리 심어 두고
+  실패로 판정됨을 확인한다. mtime을 쓰는 이유: 영수증마다 시각 필드 이름이 다르다(`ran_at`, `built_at`…).
+- **`on_failure`** — `stop`은 그 단계에서 멈추고 뒤의 단계를 `not_started`에 적는다; `continue`는 실패를
+  적고 다음으로 간다.
+- **`timeout_minutes`** — 넘기면 SIGTERM, 5초 뒤 SIGKILL, `timed_out: true`(항상 실패). 소수 허용.
+- **`enabled: false`** — `--dry` 계획과 실제 영수증에 `SKIPPED_DISABLED`로 남고 절대 돌지 않는다.
+  `--only`로 꺼진 단계를 **직접 지명하면 거부**한다(몰래 돌리지도, 몰래 아무것도 안 하지도 않는다).
+- **`deadline`(단계 필드)** — 받아서 영수증에 그대로 적기만 하고 **이 판본은 해석하지 않는다**. 마감은
+  아래 사슬 수준 `--deadline`만 본다.
+
+**사슬 수준.** `--receipts <dir>`은 **사슬 자신의** 영수증 폴더다(어느 단계의 `receipts_dir`도 아니다 —
+겹치면 거부). 거기에 lock(`night_chain.lock`, 모든 단계 `timeout_minutes` 합 + 30분이 지나면 버려진
+것으로 보고 `wx`로 회수, 영수증에 `lock.reclaimed_stale`)과 밤마다 영수증 하나
+(`soulforge.night_chain_receipt.v1`: 단계별 `{id, started_at, ended_at, exit_code, timed_out, receipt_found,
+receipt_path, status, reason}` + `not_started` + `stopped_at_step` + 전체 `status`)만 쓴다. 단계의 stdout/
+stderr는 영수증에 넣지 않고 줄 단위로 호스트 경로를 가려 relay 만 한다(영수증에는 원문 출력이 없다).
+`--deadline HH:MM [--scheduled-start HH:MM]`은 대화 목록 야간 lane과 **같은 계산**(Asia/Seoul, 시작 이후
+다음 그 시각, `--scheduled-start`는 트리거 시각에 고정)이며 **새 단계를 시작하기 직전에만** 본다.
+첫 검사에서 이미 지났으면 `SKIPPED_PAST_DEADLINE`, 단계 사이에서 지났으면 `PARTIAL`(남은 단계는
+`not_started`에 id로). `--dry`는 계획만 찍고 **아무것도**(lock도) 안 쓴다. `--only <id>` / `--from <id>`는
+서로 배타적이다.
+
+**종료코드** — `0 OK · 2 FAILED · 3 LOCK_HELD · 4 SKIPPED_PAST_DEADLINE`은 `voice_conversation_list_
+nightly.mjs`의 `main()`에서 읽은 값 그대로(짐작 아님). 그 파일에 없는 둘은 새로 붙였다:
+`5 CONFIG_INVALID`(설정 digest·모양·켜진 단계의 lane digest 어긋남, `--only`/`--from` 동시 지정이나 모르는/
+꺼진 단계 지명 같은 시작 전 거부 전부 — 아무것도 안 돌았다), `6 PARTIAL`(0~4는 이미 재사용한 매핑이 차지).
+
+**등록기** `ops/register-night-chain-task.ps1`(`SoulforgeNightChain`, 기본 `-DailyAt 00:30` — 00:00/
+03:00/05:30 세 독립 예약과 다른 분으로 골라 전환 기간에 겹치지 않게; Owner가 `-DailyAt`으로 바꾼다)은 대화
+목록 등록기와 같은 뼈대다: 경로 정규화·reparse 거부, lane 매니페스트·Node·**사슬 설정**(`-ChainConfigPath`/
+`-ChainConfigSha256`) sha 대조, `--dry` 프리플라이트(exit code를 먼저 변수에 받은 뒤 판정), plan digest 게이트
+(`-Register -ExpectedDryRunDigest`), 등록 뒤 XML 대조와 실패 시 이전 정의 복구/제거, wscript 꼬리
+`if ($null -eq $LASTEXITCODE) { exit 1 }; exit $LASTEXITCODE`. `--node-path`로 자기 검증한 Node를 사슬에
+넘겨 모든 단계가 같은 바이너리로 돈다. 실행 시간 한도는 PT8H. 숨김 런처 `ops/run-night-chain-hidden.vbs`는
+다른 둘과 같은 파일이다(작업 이름을 따라 따로 둔다).
+
+**예시 설정** `docs/architecture/workspace/examples/night_chain/night_chain.example.json` — 의도한 순서
+`voice_cards → mail_ledgers → mail_attribution_index → graph_sync_once → voice_cards_to_index(꺼짐,
+K5 전까지 존재하지 않음)`. 경로는 전부 `<LANE_ROOT>`·`<STATE_ROOT>` 같은 자리표시자, `lane_manifest_sha256`은
+전부 가짜 0이다 — 실제 배포는 실제 digest를 pin 하며 안 맞으면 exit 5다.
+
+**lane** `guild_hall/deployment_pack/lanes/night_chain_lane.spec.json`(`night-chain-v1`): tracked_paths는
+파일 셋(runner·등록기·런처)뿐. 시험 `tests/night_chain.test.mjs`(32건, 전부 `os.tmpdir()` 아래 합성 lane을
+**실제 자식 프로세스**로 돌림)는 `npm run validate:night-chain`이고 `run_root_acceptance.mjs` 두 모드에
+`context-engine` 바로 뒤로 배선됐다. 이 조각은 예약작업을 등록하지도 lane을 빌드하지도 않는다.
+
 ## 대화 목록 파이프라인 — 거부된 캐시 답 영구 정지 수리: 유계 재질문(re-ask) (0.22.9)
 
 실제 backlog 실행에서 관찰: `remaining_work`가 비지 않는 세션이 있었다. 구조 검사 6개는 전부

@@ -1,0 +1,109 @@
+{
+  "schema_version": "soulforge.night_chain_config.v1",
+  "_readme": [
+    "PUBLIC-SAFE EXAMPLE ONLY. Every <LANE_ROOT>/<CONTROL_ROOT>/<DATA_ROOT>/<STATE_ROOT>/<ORG_CONFIG_SHA256>/<ROOT_TABLE_SHA256> token is a placeholder, never a real host path or digest.",
+    "Every lane_manifest_sha256 below is a deliberately fake all-zero digest. A real deployment pins the actual sha256 of <lane_root>/LANE_MANIFEST.sha256 (the FILE's own bytes, the same value every register-*-task.ps1 pins); the runner refuses the whole chain, exit 5, nothing run, if any step's digest does not match.",
+    "The runner (guild_hall/context_engine/ops/night_chain.mjs) is handed this file with --chain-config and its sha256 with --chain-config-sha256; edit the file, re-hash it, and re-run the registrar's dry-run to get a new plan digest.",
+    "Order is the point: each step starts only after the previous step's exit code (and, when given, success_rule) said success. on_failure: stop halts the chain there; continue records the failure and moves on.",
+    "success_rule reads the NEWEST receipt matching receipt_glob under that step's own receipts_dir whose mtime is at or after the step's own start -- a receipt left over from an earlier run never counts. Steps without a success_rule are judged by exit code alone.",
+    "Per-step args are exactly what that lane's own entry point already documents in its usage header; nothing here is interpreted by a shell."
+  ],
+  "steps": [
+    {
+      "id": "voice_cards",
+      "note": "One night of voice conversation-list cards, with the pass-2 reconcile + morning-question present step chained inside its own process (--chain-reconcile). Its own 04:00 deadline stays inside its own args, anchored to this chain's own start; the chain-level --deadline is a separate, later bound.",
+      "lane_root": "<LANE_ROOT>/context-read-v6",
+      "entry": "guild_hall/context_engine/harness/voice_conversation_list_nightly.mjs",
+      "args": [
+        "--root-table", "<CONTROL_ROOT>/context-engine/root_table.json",
+        "--root-table-sha256", "<ROOT_TABLE_SHA256>",
+        "--tools-config", "<CONTROL_ROOT>/context-engine/context-read/tools.v0.json",
+        "--pipeline-config", "<CONTROL_ROOT>/context-engine/voice_conversation_list.v0.json",
+        "--receipts", "<STATE_ROOT>/receipts/voice-conversation-list",
+        "--max-sessions", "40",
+        "--deadline", "04:00", "--scheduled-start", "00:30",
+        "--chain-reconcile", "--reconcile-receipts", "<STATE_ROOT>/receipts/voice-card-reconcile"
+      ],
+      "receipts_dir": "<STATE_ROOT>/receipts/voice-conversation-list",
+      "success_rule": { "receipt_glob": "*.json", "json_path": "status", "allowed_values": ["OK"] },
+      "on_failure": "continue",
+      "timeout_minutes": 240,
+      "enabled": true,
+      "lane_manifest_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "mail_ledgers",
+      "note": "workspace ledgers' daily refresh (per-project ledgers, then the common-folder ledgers, from one org config). Writes daily-<now>.json with status ok|failed into its --receipts.",
+      "lane_root": "<LANE_ROOT>/workspace-ledgers-v3",
+      "entry": "guild_hall/workspace_ledgers/ops/daily_refresh.mjs",
+      "args": [
+        "--workspaces-root", "<DATA_ROOT>/_workspaces",
+        "--workmeta-root", "<DATA_ROOT>/_workmeta",
+        "--org-config", "<CONTROL_ROOT>/workspace-ledgers/org.v0.json",
+        "--org-config-sha256", "<ORG_CONFIG_SHA256>",
+        "--hiworks-events", "<DATA_ROOT>/ingress/hiworks/events",
+        "--gmail-sent-events", "<DATA_ROOT>/ingress/gmail-sent/events",
+        "--receipts", "<STATE_ROOT>/receipts/workspace-ledgers"
+      ],
+      "receipts_dir": "<STATE_ROOT>/receipts/workspace-ledgers",
+      "success_rule": { "receipt_glob": "daily-*.json", "json_path": "status", "allowed_values": ["ok"] },
+      "on_failure": "stop",
+      "timeout_minutes": 60,
+      "enabled": true,
+      "lane_manifest_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "mail_attribution_index",
+      "note": "The mail attribution index builder -- the step that was in no automation chain before this one; its consumer (graph_sync_once below, --mail-attribution) fails closed once the index is older than 36h. It writes exactly one file (--out) and no dated receipt, so it is judged by exit code alone.",
+      "lane_root": "<LANE_ROOT>/workspace-ledgers-v3",
+      "entry": "guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs",
+      "args": [
+        "--workspaces-root", "<DATA_ROOT>/_workspaces",
+        "--org-config", "<CONTROL_ROOT>/workspace-ledgers/org.v0.json",
+        "--org-config-sha256", "<ORG_CONFIG_SHA256>",
+        "--hiworks-events", "<DATA_ROOT>/ingress/hiworks/events",
+        "--gmail-sent-events", "<DATA_ROOT>/ingress/gmail-sent/events",
+        "--out", "<CONTROL_ROOT>/mail-routes/mail_attribution_index.json"
+      ],
+      "receipts_dir": "<STATE_ROOT>/receipts/mail-attribution-index",
+      "success_rule": null,
+      "on_failure": "stop",
+      "timeout_minutes": 30,
+      "enabled": true,
+      "lane_manifest_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "graph_sync_once",
+      "note": "One estate_graph_sync.mjs pass reading the index the previous step just built (--mail-attribution with no value takes its default alias address). It writes one receipt PER PROJECT under <receipts>/<project>/, hence the two-segment glob; SYNCED and UNCHANGED are both a clean pass.",
+      "lane_root": "<LANE_ROOT>/graph-sync-v3",
+      "entry": "guild_hall/context_engine/harness/estate_graph_sync.mjs",
+      "args": [
+        "--root-table", "<CONTROL_ROOT>/context-engine/root_table.json",
+        "--root-table-sha256", "<ROOT_TABLE_SHA256>",
+        "--projects", "P00-001,P00-002",
+        "--receipts", "<STATE_ROOT>/receipts/graph-sync-night",
+        "--mail-attribution",
+        "--mail-attribution-max-age", "36"
+      ],
+      "receipts_dir": "<STATE_ROOT>/receipts/graph-sync-night",
+      "success_rule": { "receipt_glob": "*/*.json", "json_path": "status", "allowed_values": ["SYNCED", "UNCHANGED"] },
+      "on_failure": "stop",
+      "timeout_minutes": 90,
+      "enabled": true,
+      "lane_manifest_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "voice_cards_to_index",
+      "note": "PLACEHOLDER, DISABLED. This step does not exist yet: voice cards are not indexed until the knowledge layer's K5 lands. Listed here so the intended final order is visible and the id is reserved; the runner lists it as skipped and never executes it (naming it with --only is refused). entry/lane_root are placeholders that need not exist while enabled is false.",
+      "lane_root": "<LANE_ROOT>/knowledge-layer-k5-not-yet-built",
+      "entry": "guild_hall/context_engine/harness/voice_cards_to_index.mjs",
+      "args": [],
+      "receipts_dir": "<STATE_ROOT>/receipts/voice-cards-to-index",
+      "success_rule": null,
+      "on_failure": "continue",
+      "timeout_minutes": 30,
+      "enabled": false,
+      "lane_manifest_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}
