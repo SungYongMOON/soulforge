@@ -9,6 +9,10 @@ import { cpSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, rea
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+import { createFileArchive } from '../../src/knowledge_layer/archive.mjs';
+import { digest } from '../../src/knowledge_layer/data.mjs';
 import { MAIL_ATTRIBUTION_INDEX_SCHEMA } from '../../harness/mail_routes.mjs';
 import { dumpModelInput, generate, prepare } from '../../harness/knowledge_layer_real_wiki.mjs';
 import { buildWikiModelInput, createMemoryGraph, linkApprovedUnits } from '../../src/knowledge_layer/index.mjs';
@@ -23,6 +27,16 @@ const MINE = 'PROJECT-A';
 const OTHER = 'PROJECT-B';
 
 function tmp(prefix) { return mkdtempSync(join(tmpdir(), prefix)); }
+
+// File-local tests run serially. Restore builtins even when a probe rejects;
+// synthetic errno injection works on Windows and Linux without changing ACLs.
+async function withFsFaults(build, run) {
+  const original = { ...fs }, replacements = build(original);
+  Object.assign(fs, replacements); syncBuiltinESMExports();
+  try { return await run(); }
+  finally { for (const key of Object.keys(replacements)) fs[key] = original[key]; syncBuiltinESMExports(); }
+}
+const denied = () => Object.assign(new Error('synthetic_permission_denied'), { code: 'EACCES' });
 
 function contentSha(body) {
   const { built_at: _builtAt, content_sha256: _stated, ...rest } = body;
@@ -653,6 +667,88 @@ test('failure after archive writes retains reservation and blocks blind retry', 
   assert.ok(readdirSync(s.archiveDir).length > 0);
   assert.equal(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8'), '');
   await assert.rejects(() => generate(args), /generation_receipt_exists/);
+});
+
+test('unwritable archive probe refuses before reservation and leaves preparation reusable', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  await withFsFaults(original => ({ openSync(path, ...rest) {
+    if (String(path).includes('.wiki-write-probe-')) throw denied();
+    return original.openSync(path, ...rest);
+  } }), () => assert.rejects(() => generate(args), /archive_root_not_writable/));
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+  assert.equal((await generate(args)).status, 'READY');
+});
+
+test('archive put open denial after successful probe releases receipt because no file was created', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  await withFsFaults(original => ({ openSync(path, ...rest) {
+    if (dirname(String(path)) === s.archiveDir && String(path).endsWith('.json')) throw denied();
+    return original.openSync(path, ...rest);
+  } }), () => assert.rejects(() => generate(args), /archive_write_failed/));
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+  assert.equal((await generate(args)).status, 'READY');
+});
+
+test('archive observer stays unset for pre-write hash, root, entry and budget failures', async () => {
+  const root = tmp('kl-archive-validation-'); let notifications = 0;
+  const archive = createFileArchive({ root, onWriteStart() { notifications++; } });
+  const value = { body: 'synthetic' }, key = digest(value);
+  await assert.rejects(() => archive.put(digest({ other: true }), value), /archive_hash_mismatch/);
+  await withFsFaults(original => ({ lstatSync(path, ...rest) {
+    const result = original.lstatSync(path, ...rest);
+    if (String(path) === root) result.ino += 1;
+    return result;
+  } }), () => assert.rejects(() => archive.put(key, value), /archive_root_changed/));
+  mkdirSync(join(root, key.slice(7) + '.json'));
+  await assert.rejects(() => archive.put(key, value), /archive_entry_invalid/);
+  const oversized = { body: '\u0000'.repeat(400000) };
+  await assert.rejects(() => archive.put(digest(oversized), oversized), /archive_budget/);
+  assert.equal(notifications, 0);
+});
+
+test('partial archive byte write preserves receipt; notification occurs before the first byte', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json'); let archiveFd;
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  await withFsFaults(original => ({
+    openSync(path, ...rest) { const fd = original.openSync(path, ...rest);
+      if (dirname(String(path)) === s.archiveDir && String(path).endsWith('.json')) archiveFd = fd; return fd; },
+    writeFileSync(fd, ...rest) { if (fd === archiveFd) { original.writeFileSync(fd, '{'); throw new Error('synthetic_disk_full'); }
+      return original.writeFileSync(fd, ...rest); },
+  }), () => assert.rejects(() => generate(args), /archive_write_failed/));
+  assert.equal(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8'), '');
+  assert.ok(readdirSync(s.archiveDir).some(name => name.endsWith('.json')));
+  await assert.rejects(() => generate(args), /generation_receipt_exists/);
+});
+
+test('unlink failure preserves the original rejection and reports cleanup separately', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const receiptPath = join(s.workDir, 'generation_receipt.json');
+  await withFsFaults(original => ({ unlinkSync(path) { if (path === receiptPath) throw denied(); return original.unlinkSync(path); } }),
+    () => assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath, expectedPrevious: 'sha256:' + 'f'.repeat(64) })),
+      error => error.message === 'wiki_prior_mismatch' && error.cleanup_code === 'generation_receipt_cleanup_failed'));
+  assert.equal(readFileSync(receiptPath, 'utf8'), '');
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+});
+
+test('cleanup keeps a replacement reservation belonging to another invocation', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const receiptPath = join(s.workDir, 'generation_receipt.json');
+  const graph = { async read() {
+    unlinkSync(receiptPath); writeFileSync(receiptPath, 'another-invocation', { flag: 'wx' });
+    throw new Error('synthetic_original_error');
+  }, async commit() { assert.fail('commit'); } };
+  await assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath, graph })),
+    error => error.message === 'synthetic_original_error' && error.cleanup_code === 'generation_receipt_cleanup_failed');
+  assert.equal(readFileSync(receiptPath, 'utf8'), 'another-invocation');
 });
 
 test('generate replays a scripted answer through the real K3, recording generator.id', async () => {

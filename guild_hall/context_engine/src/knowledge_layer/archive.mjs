@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { digest, fail, freeze, hashText, sha, snapshot, token } from './data.mjs';
 const checkProject = project => { if (!token(project)) fail('archive_project_invalid'); };
@@ -20,7 +20,8 @@ export function createMemoryArchive() {
  * Snapshots, rendered Markdown and withdrawal markers are create-only. The
  * snapshot is the reconstruction packet; rendered files are reproducible views.
  */
-export function createFileArchive({ root } = {}) {
+export function createFileArchive({ root, onWriteStart = () => {} } = {}) {
+  if (typeof onWriteStart !== 'function') fail('archive_write_observer_invalid');
   if (typeof root !== 'string' || !isAbsolute(root) || !existsSync(root) || !lstatSync(root).isDirectory() || lstatSync(root).isSymbolicLink()) fail('archive_root_invalid');
   const rootIdentity = lstatSync(root);
   function guardedPath(name) {
@@ -28,12 +29,22 @@ export function createFileArchive({ root } = {}) {
     const file = join(root, name); if (existsSync(file) && (!lstatSync(file).isFile() || lstatSync(file).isSymbolicLink())) fail('archive_entry_invalid'); return file;
   }
   const fileFor = key => { checkKey(key); return guardedPath(key.slice(7) + '.json'); };
+  // Failed validation/open and EEXIST do not notify: no new file was created.
+  // Successful exclusive open already creates an empty file. Notify before the
+  // first byte write, retaining partial-effect evidence if that write then fails.
+  function writeNew(file, bytes, code) {
+    let fd;
+    try { fd = openSync(file, 'wx'); }
+    catch (error) { if (error.code === 'EEXIST') return; fail(code); }
+    try { onWriteStart(); writeFileSync(fd, bytes); }
+    catch { fail(code); }
+    finally { closeSync(fd); }
+  }
   return Object.freeze({
     async put(key, value) {
       if (digest(value) !== key) fail('archive_hash_mismatch'); const file = fileFor(key), bytes = JSON.stringify(snapshot(value));
       if (Buffer.byteLength(bytes) > 2000000) fail('archive_budget');
-      try { writeFileSync(file, bytes, { flag: 'wx' }); }
-      catch (error) { if (error.code !== 'EEXIST') fail('archive_write_failed'); }
+      writeNew(file, bytes, 'archive_write_failed');
       if (digest(JSON.parse(readFileSync(fileFor(key), 'utf8'))) !== key) fail('archive_hash_mismatch');
       // Recovery intent is durable but NOT active withdrawal state. A failed
       // graph CAS leaves current reads unchanged; restoring an old snapshot must
@@ -42,7 +53,7 @@ export function createFileArchive({ root } = {}) {
         value.withdrawals.forEach(checkKey);
         const intent = guardedPath('intent-' + hashText(value.project_ref).slice(7) + '-' + key.slice(7) + '.json');
         const bytes = JSON.stringify({ project_ref: value.project_ref, generation_id: key, withdrawals: value.withdrawals });
-        try { writeFileSync(intent, bytes, { flag: 'wx' }); } catch (error) { if (error.code !== 'EEXIST') fail('archive_intent_write_failed'); }
+        writeNew(intent, bytes, 'archive_intent_write_failed');
         if (readFileSync(intent, 'utf8') !== bytes) fail('archive_intent_corrupt');
       }
       if (Array.isArray(value.pages) && typeof value.index_markdown === 'string') {
@@ -50,7 +61,7 @@ export function createFileArchive({ root } = {}) {
         for (const view of views) {
           if (typeof view.text !== 'string') fail('archive_view_invalid');
           const target = guardedPath(key.slice(7) + '-' + view.name + '.md');
-          try { writeFileSync(target, view.text, { flag: 'wx' }); } catch (error) { if (error.code !== 'EEXIST') fail('archive_write_failed'); }
+          writeNew(target, view.text, 'archive_write_failed');
           if (readFileSync(target, 'utf8') !== view.text) fail('archive_view_corrupt');
         }
       }
@@ -61,7 +72,7 @@ export function createFileArchive({ root } = {}) {
       checkProject(project); hashes.forEach(checkKey);
       for (const hash of hashes) { const file = guardedPath('withdraw-' + hashText(project).slice(7) + '-' + hash.slice(7) + '.json');
         const bytes = JSON.stringify({ project_ref: project, fingerprint: hash });
-        try { writeFileSync(file, bytes, { flag: 'wx' }); } catch (error) { if (error.code !== 'EEXIST') fail('withdrawal_write_failed'); }
+        writeNew(file, bytes, 'withdrawal_write_failed');
         if (readFileSync(file, 'utf8') !== bytes) fail('withdrawal_corrupt'); }
     },
     async getWithdrawals(project) {

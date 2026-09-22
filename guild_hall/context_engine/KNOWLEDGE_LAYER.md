@@ -54,6 +54,8 @@ K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
 - `createFileArchive({root})`: 이미 존재하는 승인된 절대 디렉터리를 주입. generation hash.json과 페이지별
   hash.md/색인.md, 과제별 withdrawal marker를 create-only로 보존한다. 원문 파일은 수정하지 않는다.
   snapshot은 재적재 꾸러미, Markdown은 재생 가능한 표시물이다. root는 신뢰된 전용 archive여야 한다.
+  선택 onWriteStart 콜백은 사전 검증·독점 파일 열기가 성공한 뒤 첫 바이트 쓰기 직전에 호출된다.
+  이 시점에는 빈 파일이 생성되었으므로 이후 실패도 부분 쓰기로 취급한다. 검증 실패·open 거부·기존 파일 재사용은 알리지 않는다.
 - `createNeo4jGraph`: enabled 기본 false, loopback Query API endpoint, namespace, 정확한 allowed_origins,
   timeout_ms(1~60000) 필요. 인증이 필요하면 승인된 fetchImpl이 헤더를 공급한다. 이 모듈은 secret/env를 읽지 않는다.
   시험은 test_only=true를 주며 생성 시 kl-test- 접두를 요구한다. 기본 false는 일반 adapter 계약이며 시험 실행은 반드시 true다.
@@ -119,8 +121,11 @@ GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 �
   --now <ISO> --model-roles <approved_table> --offhost-approval <approval>`: grant 현재 유효성·입력/규칙/전송 승인 지문을
   재대조한다. 기본 graph는 메모리이며 Neo4j 활성화·schema 설치·예약 등록은 하지 않는다.
 - generation_receipt.json은 archive/graph 작업 전에 wx로 독점 예약한다. 반복·동시 실행은 기존 영수증을 덮지 않는다.
-  저장 경로는 예약 전에 검증한다. 답 검사 오류·저장 전 HOLD는 자신이 만든 예약만 풀어 같은 준비물로 재시도할 수 있다.
-  archive/graph 쓰기를 시도한 뒤 실패하거나 프로세스가 중단되면 예약을 보존한다. 빈 예약은 완료 영수증이 아니며 부분 효과를 먼저 확인한다.
+  저장 경로는 예약 전에 임시 파일 생성·삭제로 쓰기 가능 여부까지 검사한다. 답 검사 오류·저장 전 HOLD는 자신이 만든 예약만 풀어 같은 준비물로 재시도할 수 있다.
+  열린 descriptor와 현재 경로의 dev/ino를 대조해 다른 예약이면 지우지 않는다. 해제 실패는 최초 오류를 덮지 않고 cleanup_code로 덧붙인다.
+  저장 전 HOLD는 CLI stdout 결과만 반환하고 영수증 파일은 남기지 않는다. 해제가 실패하면 오류로 끝난다.
+  archive 파일이 실제 생성되거나 graph commit을 시도한 뒤 실패하면 예약을 보존한다. 크래시의 빈 예약도 부분 저장의 빈 예약과 구별할 수 없으므로 조용히 재시도하지 않는다.
+  이 신원 확인은 신뢰된 전용 폴더의 동시 실행 보호이며 적대적인 외부 프로세스와의 모든 파일 교체 경쟁을 원자적으로 차단하는 보장은 아니다.
 
 지문은 신뢰된 caller 전용 폴더에서의 변경 감지다. manifest와 지문을 함께 다시 쓰는 악의적 writer를 인증하거나
 사람 수락을 대신하지 않는다. custody 중복의 원문 해시 불일치는 계속 거부하며 임의로 한 사본을 선택하지 않는다.

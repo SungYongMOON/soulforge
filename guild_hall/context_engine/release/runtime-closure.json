@@ -127,7 +127,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
-      "sha256": "4988b3253628e0dc359cbd81749a7e4195d6044c1d627f0651793b00a1b78c9b"
+      "sha256": "a4555fc55ecda742f909006ba9c21cd3f6565b7700190e54cf1e0a7b0d8a1ec8"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/candidate_check.mjs",
@@ -374,7 +374,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "73247da462f342a34c9c39f35bad1e14f0235a4383ff66f2012cb93dda37030a",
+  "closure_sha256": "7d761b7f0d36dd94ee95f1e757b121830599489856a3288fdb8492639b371f5f",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

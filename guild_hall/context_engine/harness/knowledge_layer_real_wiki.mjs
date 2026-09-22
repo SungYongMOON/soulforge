@@ -73,8 +73,8 @@
 // disambiguated by richness/ordinal. Known, narrower guarantee than the production
 // classifier's; fine for a small `--max-units`-bounded real-mail slice, not a
 // substitute for that loader at scale.
-import { createHash } from 'node:crypto';
-import { closeSync, createReadStream, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { closeSync, createReadStream, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -620,6 +620,31 @@ function assertCoarseAnswerShape(value) {
   for (const key of ['conflicts', 'gaps', 'exceptions']) if (!Array.isArray(review[key])) refuse('answer_shape_invalid');
 }
 
+function unlinkOwnedFile(fd, path) {
+  const owned = fstatSync(fd);
+  let current;
+  try { current = lstatSync(path); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  if (!current.isFile() || current.isSymbolicLink() || current.dev !== owned.dev || current.ino !== owned.ino) {
+    refuse('temporary_file_owner_changed');
+  }
+  // Keep the original descriptor open through the identity check and unlink.
+  unlinkSync(path);
+}
+
+function probeArchiveWritable(root) {
+  const path = join(root, '.wiki-write-probe-' + randomUUID() + '.tmp');
+  let fd, failed = false;
+  try { fd = openSync(path, 'wx'); writeFileSync(fd, 'probe'); }
+  catch { failed = true; }
+  finally {
+    if (fd !== undefined) {
+      try { unlinkOwnedFile(fd, path); } catch { failed = true; }
+      try { closeSync(fd); } catch { failed = true; }
+    }
+  }
+  if (failed) refuse('archive_root_not_writable');
+}
+
 /**
  * Runs the REAL K3 (`createWikiKnowledgeLayer`) with a REPLAY generator that returns
  * the parsed `--answer` file instead of calling a model. Default graph is the memory
@@ -668,20 +693,20 @@ export async function generate({
   // Invalid archive bindings must not consume this prepared work directory.
   if (typeof archiveRoot !== 'string' || !isAbsolute(archiveRoot)) refuse('archive_root_invalid');
   if (!existsSync(archiveRoot)) mkdirSync(archiveRoot, { recursive: true });
-  const archiveStore = createFileArchive({ root: resolve(archiveRoot) });
+  let durableWriteStarted = false, preserveReceipt = false, primaryError;
+  const archive = createFileArchive({ root: resolve(archiveRoot), onWriteStart: () => { durableWriteStarted = true; } });
+  probeArchiveWritable(archiveRoot);
 
   // Keep exclusive ownership during generation. Release only this invocation's
   // reservation if no durable write has started. Once a write is attempted its
   // outcome may be uncertain, so preserve the reservation for partial-effect review.
+  // A crash can leave an empty reservation at any point. Never silently retry over
+  // that file: zero bytes cannot distinguish a crash from a partial storage failure.
   const receiptPath = join(workDir, 'generation_receipt.json');
-  let durableWriteStarted = false, preserveReceipt = false;
   let receiptFd;
   try { receiptFd = openSync(receiptPath, 'wx'); }
   catch (error) { if (error.code === 'EEXIST') refuse('generation_receipt_exists'); throw error; }
   try {
-  const archive = { ...archiveStore,
-    put(...args) { durableWriteStarted = true; return archiveStore.put(...args); },
-    addWithdrawals(...args) { durableWriteStarted = true; return archiveStore.addWithdrawals(...args); } };
   // `injectedGraph` is a test-only seam (the CLI never passes it): it lets a test
   // share ONE memory graph across two `generate()` calls for the same project, which
   // is the only way to exercise the S4 default below against something other than a
@@ -738,12 +763,22 @@ export async function generate({
     graph_mode: neo4jConfig ? 'neo4j' : 'memory',
     archive_root: dirRef(archiveRoot),
   };
-  preserveReceipt = durableWriteStarted || result.status === 'READY';
+  preserveReceipt = durableWriteStarted;
   if (preserveReceipt) writeFileSync(receiptFd, JSON.stringify(receipt, null, 2) + '\n');
   return receipt;
-  } finally {
-    closeSync(receiptFd);
-    if (!durableWriteStarted && !preserveReceipt) unlinkSync(receiptPath);
+  } catch (error) { primaryError = error; throw error; }
+  finally {
+    let cleanupFailed = false;
+    if (!durableWriteStarted && !preserveReceipt) {
+      try { unlinkOwnedFile(receiptFd, receiptPath); } catch { cleanupFailed = true; }
+    }
+    try { closeSync(receiptFd); } catch { cleanupFailed = true; }
+    if (cleanupFailed) {
+      if (!primaryError) refuse('generation_receipt_cleanup_failed');
+      if (typeof primaryError === 'object' && primaryError !== null && Object.isExtensible(primaryError)) {
+        primaryError.cleanup_code = 'generation_receipt_cleanup_failed';
+      }
+    }
   }
 }
 
