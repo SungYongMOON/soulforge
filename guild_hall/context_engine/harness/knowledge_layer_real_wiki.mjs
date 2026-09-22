@@ -633,16 +633,22 @@ function unlinkOwnedFile(fd, path) {
 
 function probeArchiveWritable(root) {
   const path = join(root, '.wiki-write-probe-' + randomUUID() + '.tmp');
-  let fd, failed = false;
+  let fd, writeError, cleanupError;
   try { fd = openSync(path, 'wx'); writeFileSync(fd, 'probe'); }
-  catch { failed = true; }
+  catch (error) { writeError = error; }
   finally {
     if (fd !== undefined) {
-      try { unlinkOwnedFile(fd, path); } catch { failed = true; }
-      try { closeSync(fd); } catch { failed = true; }
+      try { unlinkOwnedFile(fd, path); } catch (error) { cleanupError = error; }
+      try { closeSync(fd); } catch (error) { cleanupError ??= error; }
     }
   }
-  if (failed) refuse('archive_root_not_writable');
+  if (writeError || cleanupError) {
+    const error = new HarnessError(cleanupError?.code === 'temporary_file_owner_changed'
+      ? 'temporary_file_owner_changed' : writeError ? 'archive_root_not_writable' : 'archive_probe_cleanup_failed');
+    if (cleanupError) error.probe_cleanup = { probe_file: basename(path), may_remain: true,
+      code: cleanupError.code === 'temporary_file_owner_changed' ? 'temporary_file_owner_changed' : 'probe_cleanup_failed' };
+    throw error;
+  }
 }
 
 /**
@@ -763,7 +769,9 @@ export async function generate({
     graph_mode: neo4jConfig ? 'neo4j' : 'memory',
     archive_root: dirRef(archiveRoot),
   };
-  preserveReceipt = durableWriteStarted;
+  // Outcome and side effects are independent: unchanged READY may write nothing,
+  // but every success must persist its receipt before returning to the caller.
+  preserveReceipt = result.status === 'READY' || durableWriteStarted;
   if (preserveReceipt) writeFileSync(receiptFd, JSON.stringify(receipt, null, 2) + '\n');
   return receipt;
   } catch (error) { primaryError = error; throw error; }
@@ -879,6 +887,8 @@ async function cliMain() {
     }
   } catch (error) {
     process.stderr.write(`VIOLATION ${error?.code ?? error?.message ?? String(error)}\n`);
+    if (error?.probe_cleanup) process.stderr.write(JSON.stringify({ failure_receipt: {
+      code: error.code, probe_cleanup: error.probe_cleanup } }) + '\n');
     process.exitCode = 1;
   }
 }

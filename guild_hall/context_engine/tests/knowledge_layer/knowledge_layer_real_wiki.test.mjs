@@ -8,14 +8,14 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { createFileArchive } from '../../src/knowledge_layer/archive.mjs';
 import { digest } from '../../src/knowledge_layer/data.mjs';
 import { MAIL_ATTRIBUTION_INDEX_SCHEMA } from '../../harness/mail_routes.mjs';
 import { dumpModelInput, generate, prepare } from '../../harness/knowledge_layer_real_wiki.mjs';
-import { buildWikiModelInput, createMemoryGraph, linkApprovedUnits } from '../../src/knowledge_layer/index.mjs';
+import { buildWikiModelInput, createBoundedGenerator, createMemoryGraph, createWikiKnowledgeLayer, linkApprovedUnits, withdrawalFingerprint } from '../../src/knowledge_layer/index.mjs';
 import { hashText } from '../../src/knowledge_layer/data.mjs';
 import { loadWikiRules } from '../../src/knowledge_layer/wiki_rules.mjs';
 
@@ -749,6 +749,104 @@ test('cleanup keeps a replacement reservation belonging to another invocation', 
   await assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath, graph })),
     error => error.message === 'synthetic_original_error' && error.cleanup_code === 'generation_receipt_cleanup_failed');
   assert.equal(readFileSync(receiptPath, 'utf8'), 'another-invocation');
+});
+
+for (const markers of ['empty', 'present', 'missing']) test(`unchanged READY always persists an exact receipt with ${markers} withdrawal markers`, async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json'), graph = createMemoryGraph();
+  const answer = answerFor(s.request); writeFileSync(answerPath, JSON.stringify(answer));
+  let first;
+  if (markers === 'empty') {
+    first = await generate(generateArgs(s, { workDir: s.workDir, answerPath, graph }));
+    // A new invocation uses a fresh work directory with the SAME pinned preparation.
+    const work = tmp('kl-unchanged-work-');
+    for (const name of ['request.json', 'manifest.json', 'manifest.sha256', 'model_input.json', 'model_prompt.md', 'answer.json']) {
+      writeFileSync(join(work, name), readFileSync(join(s.workDir, name)));
+    }
+    s.workDir = work;
+  } else {
+    const generator = createBoundedGenerator({ enabled: true, id: 'claude-opus-5',
+      budget: { max_calls: 1, max_input_characters: 200000, max_output_characters: 200000, timeout_ms: 20000 }, generate: () => answer });
+    const layer = createWikiKnowledgeLayer({ graph, archive: createFileArchive({ root: s.archiveDir }), generator });
+    const result = await layer.generate({ request: s.request, withdrawals: [withdrawalFingerprint('합성 철회 대상 문장입니다.')],
+      expected_previous: null, human_correction_unit_ids: [] });
+    first = { generation_id: result.record.generation_id };
+    const marker = readdirSync(s.archiveDir).find(name => name.startsWith('withdraw-')); assert.ok(marker);
+    if (markers === 'missing') unlinkSync(join(s.archiveDir, marker));
+  }
+  const args = generateArgs(s, { workDir: s.workDir, answerPath: join(s.workDir, 'answer.json'), graph });
+  const receipt = await generate(args);
+  assert.equal(receipt.status, 'READY'); assert.equal(receipt.unchanged, true); assert.equal(receipt.model_calls, 0);
+  assert.equal(receipt.generation_id, first.generation_id);
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), true, 'READY must always leave a receipt');
+  assert.deepEqual(JSON.parse(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8')), receipt);
+  await assert.rejects(() => generate(args), /generation_receipt_exists/);
+});
+
+test('probe identity change is reported distinctly and preserves the replaced probe', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json'); let probePath;
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  await withFsFaults(original => ({ openSync(path, ...rest) {
+    const fd = original.openSync(path, ...rest);
+    if (probePath === undefined && String(path).includes('.wiki-write-probe-')) {
+      probePath = path; original.unlinkSync(path); original.writeFileSync(path, 'replacement', { flag: 'wx' });
+    }
+    return fd;
+  } }), () => assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath })),
+    error => error.code === 'temporary_file_owner_changed' && error.probe_cleanup?.may_remain === true));
+  assert.equal(readFileSync(probePath, 'utf8'), 'replacement');
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+});
+
+test('probe cleanup failure carries a safe residue reference for the CLI failure receipt', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  await withFsFaults(original => ({ unlinkSync(path) {
+    if (String(path).includes('.wiki-write-probe-')) throw denied(); return original.unlinkSync(path);
+  } }), () => assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath })), error => {
+    assert.equal(error.code, 'archive_probe_cleanup_failed');
+    assert.match(error.probe_cleanup.probe_file, /^\.wiki-write-probe-[a-z0-9-]+\.tmp$/u);
+    assert.equal(error.probe_cleanup.may_remain, true);
+    assert.equal(JSON.stringify(error.probe_cleanup).includes(s.archiveDir), false);
+    assert.equal(existsSync(join(s.archiveDir, error.probe_cleanup.probe_file)), true);
+    return true;
+  }));
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+});
+
+test('unchanged success cannot return READY when its receipt write fails', async () => {
+  const s = await preparedWork(), graph = createMemoryGraph(), answerPath = join(s.workDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  await generate(generateArgs(s, { workDir: s.workDir, answerPath, graph }));
+  const work = tmp('kl-receipt-write-fault-');
+  for (const name of ['request.json', 'manifest.json', 'manifest.sha256', 'answer.json']) {
+    writeFileSync(join(work, name), readFileSync(join(s.workDir, name)));
+  }
+  let receiptFd;
+  await withFsFaults(original => ({
+    openSync(path, ...rest) { const fd = original.openSync(path, ...rest);
+      if (path === join(work, 'generation_receipt.json')) receiptFd = fd; return fd; },
+    writeFileSync(fd, ...rest) { if (fd === receiptFd) throw new Error('synthetic_receipt_write_failure'); return original.writeFileSync(fd, ...rest); },
+  }), () => assert.rejects(() => generate(generateArgs(s, { workDir: work, answerPath: join(work, 'answer.json'), graph })), /synthetic_receipt_write_failure/));
+  assert.equal(readFileSync(join(work, 'generation_receipt.json'), 'utf8'), '');
+});
+
+test('CLI emits a structured probe cleanup failure receipt without absolute paths', async () => {
+  const s = await preparedWork(), answerPath = join(s.workDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const hook = join(tmp('kl-probe-fault-hook-'), 'fault.mjs');
+  writeFileSync(hook, `import fs from 'node:fs'; import { syncBuiltinESMExports } from 'node:module';
+const unlink = fs.unlinkSync;
+fs.unlinkSync = path => { if (String(path).includes('.wiki-write-probe-')) throw Object.assign(new Error('synthetic_denial'), {code:'EACCES'}); return unlink(path); };
+syncBuiltinESMExports();`);
+  const harness = join(REPO_ROOT, 'guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs');
+  const run = spawnSync(process.execPath, ['--import', pathToFileURL(hook).href, harness, 'generate',
+    '--work', s.workDir, '--answer', answerPath, '--archive-root', s.archiveDir, '--model-id', 'synthetic-model', '--now', NOW,
+    '--model-roles', s.modelRolesPath, '--offhost-approval', s.approvalPath], { encoding: 'utf8' });
+  assert.equal(run.status, 1); assert.match(run.stderr, /VIOLATION archive_probe_cleanup_failed/);
+  const receipt = JSON.parse(run.stderr.split(/\r?\n/u).find(line => line.startsWith('{'))).failure_receipt;
+  assert.equal(receipt.code, 'archive_probe_cleanup_failed'); assert.equal(receipt.probe_cleanup.may_remain, true);
+  assert.equal(run.stderr.includes(s.archiveDir), false);
+  assert.ok(existsSync(join(s.archiveDir, receipt.probe_cleanup.probe_file)));
 });
 
 test('generate replays a scripted answer through the real K3, recording generator.id', async () => {
