@@ -116,6 +116,13 @@ GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 �
 - prepare는 request.json/model_input.json/model_prompt.md/manifest.json과 manifest.sha256을 생성한다.
   사람 정정 단위와 coverage를 포함한 manifest 전체 바이트를 지문으로 묶으며 generate와 dump-model-input에서 대조한다.
   manifest나 지문을 손으로 고치지 않는다. 이전 지문 없는 준비물은 새 빈 폴더에서 prepare를 다시 한다.
+- 같은 mail id의 원본 해시가 다를 때는 `--source-custody-root <approved_root>`를 추가한다. 자동 경로 추측은 없다.
+  collector의 `hiworks/sha256/<prefix>/<sha>.eml` 경로만 읽고 전체 해시를 확인한 뒤 첫 CRLF/LF 빈 줄 아래 바이트를 대조한다.
+  같은 본문이면 가장 이른 유효 ingested_at 저장본을 source_revision_ref 근거로 삼는다. 동률은 sha·메일함 소유자·레코드 지문 순서다.
+  나머지 저장본의 메일함 소유자·sha256·수집 시각은 manifest.unit_materials의 unit별 재료 목록과 coverage.header_only_variants에 보존한다.
+  이 목록은 manifest 지문에 묶이고 생성 영수증 coverage로 전달된다. K1 unit·위키 core·모델 입력 구조를 확장하지 않는다.
+  모든 부를 검사하므로 3부 중 1부라도 본문이 다르면 전체 id를 거부한다. body_text 또는 디코딩/공백 정리 후 비교로 대신하지 않는다.
+  root 미지정·원문 부족이면 예외 허용 없이 거부한다. 원문 읽기는 파일당 32 MiB·회차 합계 256 MiB, id당 기록 1000부로 제한한다.
 - `dump-model-input --work <private_work> [--write]`: 지문을 확인하고 실제 K1·K3 입력 생성기를 재사용한다.
 - `generate --work <private_work> --answer <answer.json> --archive-root <private_archive> --model-id <placeholder>
   --now <ISO> --model-roles <approved_table> --offhost-approval <approval>`: grant 현재 유효성·입력/규칙/전송 승인 지문을
@@ -130,7 +137,7 @@ GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 �
   이 신원 확인은 신뢰된 전용 폴더의 동시 실행 보호이며 적대적인 외부 프로세스와의 모든 파일 교체 경쟁을 원자적으로 차단하는 보장은 아니다.
 
 지문은 신뢰된 caller 전용 폴더에서의 변경 감지다. manifest와 지문을 함께 다시 쓰는 악의적 writer를 인증하거나
-사람 수락을 대신하지 않는다. custody 중복의 원문 해시 불일치는 계속 거부하며 임의로 한 사본을 선택하지 않는다.
+사람 수락을 대신하지 않는다. 머리글만 다른 것으로 바이트 대조된 저장본 외의 custody 불일치는 계속 거부한다.
 
 ### 역할 표
 

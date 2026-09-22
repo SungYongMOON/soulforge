@@ -66,15 +66,14 @@
 // `metadata.classification` differing between passes) from a true event_id collision
 // (two DIFFERENT mails sharing one id) -- the same fingerprint idea `mail_events.mjs`'s
 // own (unexported) `fingerprintOf` uses. It deliberately does NOT reimplement that
-// module's full id-collision/synthetic-id algorithm: an id whose fingerprint
-// disagrees across records (subject/time/sender, OR -- since a fresh review measured
-// real custody where these three agree but the record's own `raw.source_custody.
-// sha256` disagrees -- that immutable content hash) is refused (ambiguous), not
-// disambiguated by richness/ordinal. Known, narrower guarantee than the production
+// module's full id-collision/synthetic-id algorithm. Different source hashes may
+// be normal deliveries into different mailboxes: only verified RFC822 body bytes
+// below the first empty line can establish a header-only variant. Parsed body_text
+// is never that proof. Other collisions remain ambiguous. Known, narrower guarantee than the production
 // classifier's; fine for a small `--max-units`-bounded real-mail slice, not a
 // substitute for that loader at scale.
 import { createHash, randomUUID } from 'node:crypto';
-import { closeSync, createReadStream, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, createReadStream, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -211,6 +210,66 @@ function softFingerprintOf(raw) {
   return `${normalizeSubject(raw?.subject)}|${String(raw?.received_at ?? '')}|${fromAddress}`;
 }
 
+const mailboxOwnerOf = raw => {
+  const mailbox = raw?.metadata?.mailbox;
+  const fields = [mailbox?.display_name, mailbox?.email ?? mailbox?.address];
+  return fields.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()).join(' ') || null;
+};
+const copyRef = entry => ({ mailbox_owner: mailboxOwnerOf(entry.raw), sha256: 'sha256:' + entry.sha,
+  ingested_at: toInstant(entry.raw.ingested_at) });
+
+// The caller names the source-custody root; no environment, sibling-directory or
+// drive inference. Only the collector's content-addressed hiworks path is allowed.
+function custodyBodyReader(root) {
+  if (root === null) return null;
+  if (typeof root !== 'string' || !isAbsolute(root) || !existsSync(root)
+    || lstatSync(root).isSymbolicLink() || !lstatSync(root).isDirectory()) refuse('source_custody_root_invalid');
+  const rootIdentity = lstatSync(root);
+  const cache = new Map(); let totalBytes = 0;
+  return raw => {
+    const sha = custodyShaOf(raw), ref = raw?.raw?.source_custody?.storage_ref;
+    if (!sha || ref !== `hiworks/sha256/${sha.slice(0, 2)}/${sha}.eml`) refuse('custody_eml_ref_invalid');
+    if (cache.has(sha)) return cache.get(sha);
+    const currentRoot = lstatSync(root);
+    if (!currentRoot.isDirectory() || currentRoot.isSymbolicLink() || currentRoot.dev !== rootIdentity.dev || currentRoot.ino !== rootIdentity.ino) refuse('custody_eml_path_invalid');
+    let path = root;
+    for (const part of ref.split('/')) {
+      path = join(path, part);
+      if (!existsSync(path) || lstatSync(path).isSymbolicLink()) refuse('custody_eml_path_invalid');
+    }
+    const before = lstatSync(path);
+    if (!before.isFile() || before.size > 32 * 1024 * 1024 || totalBytes + before.size > 256 * 1024 * 1024) refuse('custody_eml_read_budget');
+    const fd = openSync(path, 'r'); let bytes;
+    try {
+      const held = fstatSync(fd);
+      if (!held.isFile() || held.dev !== before.dev || held.ino !== before.ino || held.size !== before.size) refuse('custody_eml_changed');
+      // Read at most the inspected size plus one byte: concurrent growth cannot
+      // turn this bounded source read into an unbounded readFileSync allocation.
+      const buffer = Buffer.alloc(before.size + 1); let offset = 0;
+      while (offset < buffer.length) {
+        const count = readSync(fd, buffer, offset, buffer.length - offset, null);
+        if (count === 0) break;
+        offset += count;
+      }
+      bytes = buffer.subarray(0, offset);
+    } finally { closeSync(fd); }
+    if (bytes.length !== before.size || sha256Hex(bytes) !== sha) refuse('custody_eml_sha256_mismatch');
+    totalBytes += bytes.length;
+    const crlf = bytes.indexOf(Buffer.from('\r\n\r\n')), lf = bytes.indexOf(Buffer.from('\n\n'));
+    const starts = [[crlf, 4], [lf, 2]].filter(([at]) => at >= 0).sort((a, b) => a[0] - b[0]);
+    if (!starts.length) refuse('custody_eml_body_separator_missing');
+    const [at, width] = starts[0], body = bytes.subarray(at + width);
+    cache.set(sha, body); return body;
+  };
+}
+
+function earlierCopy(left, right) {
+  const a = toInstant(left.raw.ingested_at), b = toInstant(right.raw.ingested_at);
+  if (!a || !b) refuse('mail_ingested_at_invalid');
+  const rank = e => [e.sha ?? '', mailboxOwnerOf(e.raw) ?? '', shaOf(canonicalStringify(e.raw))].join('|');
+  return a < b || (a === b && rank(left) <= rank(right)) ? left : right;
+}
+
 /** Reads every mail id in `wantedIds` out of `*.jsonl` files directly under each of
  * `dirs` (hiworks/gmail-sent custody's own on-disk shape), streaming line by line so
  * a multi-hundred-MB monthly file is never held whole in memory.
@@ -219,17 +278,15 @@ function softFingerprintOf(raw) {
  * been observed recording one `event_id` twice with only `ingested_at`/`metadata.
  * classification` differing) only when BOTH their soft fingerprint (subject/time/
  * sender) AND their `raw.source_custody.sha256` agree -- among those, the
- * latest-`ingested_at` record wins (custody is append-only, so a later ingestion is
- * the more current metadata for the same mail; compared as parsed instants, not
- * lexicographically, since custody has been observed mixing `+00:00`/`Z` suffixes).
- * An id whose soft fingerprint disagrees, OR whose fingerprint agrees but whose
- * custody sha disagrees, is reported ambiguous and dropped from `found` -- refused,
- * never silently tie-broken.
+ * earliest valid ingested_at wins. Different immutable hashes require exact body
+ * bytes from the caller's source-custody root. Every variant is checked; one
+ * disagreeing body makes the entire id ambiguous, regardless of read order.
  *
  * Returns `{ found: Map<id, {raw, file}>, ambiguous: Set<id>,
  * custodyShaDiffered: Set<id>, collapsedIds: Set<id>, filesScanned }`.
  */
-async function scanCustodyForIds({ dirs, wantedIds }) {
+async function scanCustodyForIds({ dirs, wantedIds, sourceCustodyRoot = null }) {
+  const readBody = custodyBodyReader(sourceCustodyRoot);
   const found = new Map();
   const ambiguous = new Set();
   const custodyShaDiffered = new Set();
@@ -260,13 +317,22 @@ async function scanCustodyForIds({ dirs, wantedIds }) {
         const prior = found.get(id);
         if (prior) {
           if (prior.soft !== soft) { ambiguous.add(id); found.delete(id); continue; }
-          if (prior.sha !== sha) { ambiguous.add(id); custodyShaDiffered.add(id); found.delete(id); continue; }
+          const entry = { raw, file, soft, sha };
+          let bodySha = prior.bodySha;
+          if (prior.sha !== sha) {
+            custodyShaDiffered.add(id);
+            if (!readBody || !prior.sha || !sha) { ambiguous.add(id); found.delete(id); continue; }
+            const priorBody = readBody(prior.raw), body = readBody(raw);
+            if (!priorBody.equals(body)) { ambiguous.add(id); found.delete(id); continue; }
+            bodySha = shaOf(body);
+          }
           collapsedIds.add(id);
-          const priorInstant = Date.parse(String(prior.raw?.ingested_at ?? '')) || -Infinity;
-          const thisInstant = Date.parse(String(raw?.ingested_at ?? '')) || -Infinity;
-          if (thisInstant >= priorInstant) found.set(id, { raw, file, soft, sha });
+          const copies = [...prior.copies, copyRef(entry)];
+          if (copies.length > 1000) refuse('custody_variant_budget');
+          const chosen = earlierCopy(prior, entry);
+          found.set(id, { ...chosen, copies, bodySha });
         } else {
-          found.set(id, { raw, file, soft, sha });
+          found.set(id, { raw, file, soft, sha, copies: [copyRef({ raw, sha })], bodySha: null });
         }
       }
     }
@@ -447,7 +513,7 @@ export async function prepare({
   strength = 'confirmed', maxUnits = DEFAULT_MAX_UNITS, unitTextChars = DEFAULT_UNIT_TEXT_CHARS,
   totalTextChars = DEFAULT_TOTAL_TEXT_CHARS, outDir, nowIso, offhostApprovalPath, modelRolesConfigPath,
   humanCorrectionUnitIds = [], attributionMaxAgeHours, orgConfigAddress = null, ownerTablesDir = null,
-  allowRecordFallback = false, allowUncovered = 0,
+  allowRecordFallback = false, allowUncovered = 0, sourceCustodyRoot = null,
 } = {}) {
   const approval = checkOffhostApproval(offhostApprovalPath);
   const egress = checkModelRolesEgress({ modelRolesConfigPath, project });
@@ -474,10 +540,10 @@ export async function prepare({
 
   const dirs = [...hiworksEventsDirs.map(dir => ({ kind: 'hiworks', dir })),
     ...gmailSentEventsDirs.map(dir => ({ kind: 'gmail_sent', dir }))];
-  const { found, ambiguous, custodyShaDiffered, collapsedIds, filesScanned } = await scanCustodyForIds({ dirs: dirs.map(d => d.dir), wantedIds });
+  const { found, ambiguous, custodyShaDiffered, collapsedIds, filesScanned } = await scanCustodyForIds({ dirs: dirs.map(d => d.dir), wantedIds, sourceCustodyRoot });
 
   // Ambiguity (a genuine collision, or agreeing subject/time/sender but disagreeing
-  // custody bytes) is never tolerated by a count -- it means custody itself disagrees
+  // body bytes) is never tolerated by a count -- it means custody itself disagrees
   // with itself about what one id refers to.
   if (ambiguous.size > 0) refuse('mail_id_ambiguous_in_custody');
   const missing = [...wantedIds].filter(id => !found.has(id));
@@ -520,8 +586,18 @@ export async function prepare({
     : null;
   const promptMarkdown = buildModelPromptMarkdown({ modelInput, rulesText: rules.text, coverageNote });
 
+  const unitMaterials = units.map(unit => {
+    const entry = found.get(unit.source_revision_ref.entity_id), chosen = copyRef(entry);
+    const refs = [...new Map(entry.copies.map(c => [canonicalStringify(c), c])).values()]
+      .sort((a, b) => canonicalStringify(a) < canonicalStringify(b) ? -1 : canonicalStringify(a) > canonicalStringify(b) ? 1 : 0);
+    return { unit_id: unit.unit_id, source_revision_ref: unit.source_revision_ref,
+      header_only_variants: entry.bodySha ? { body_sha256: entry.bodySha, selected: chosen,
+        alternatives: refs.filter(c => c.sha256 !== chosen.sha256 || c.mailbox_owner !== chosen.mailbox_owner) } : null };
+  });
+  const headerOnlyVariants = unitMaterials.filter(m => m.header_only_variants !== null);
   const coverage = { attributed_confirmed: counts.confirmed, wanted_at_strength: wanted.length,
     units_supplied: units.length, dropped_for_bounds: droppedForBudget, uncovered_by_custody: uncoveredByCustody };
+  if (headerOnlyVariants.length) coverage.header_only_variants = headerOnlyVariants;
 
   const manifest = {
     schema: REAL_WIKI_MANIFEST_SCHEMA,
@@ -552,6 +628,8 @@ export async function prepare({
       record_fallback_units: selected.filter(e => e.content_ref_source === 'canonical_record_fallback').length,
     },
     coverage,
+    unit_materials: unitMaterials,
+    source_custody: sourceCustodyRoot === null ? null : dirRef(sourceCustodyRoot),
     units_char_stats: { total_chars: totalChars, average_chars: Math.round(totalChars / units.length),
       max_unit_chars: Math.max(...units.map(u => u.text.length)) },
     content_ref_sources: [...new Set(selected.map(e => e.content_ref_source))],
@@ -857,6 +935,7 @@ async function cliMain() {
         attributionMaxAgeHours: maxAgeRaw !== undefined ? Number(maxAgeRaw) : undefined,
         orgConfigAddress: stringFlag(args, 'org-config'),
         ownerTablesDir: stringFlag(args, 'owner-tables'),
+        sourceCustodyRoot: stringFlag(args, 'source-custody-root'),
         allowRecordFallback: args['allow-record-fallback'] === true,
         allowUncovered: allowUncoveredRaw !== undefined ? Number(allowUncoveredRaw) : 0,
       });

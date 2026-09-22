@@ -297,6 +297,99 @@ test('R6: a repeated identical custody line (same fingerprint AND same custody s
   assert.equal(manifest.counts.custody_sha_differed_across_records, 0);
 });
 
+function headerVariantScenario(bodies, { eol = '\r\n' } = {}) {
+  const root = tmp('kl-rfc822-synthetic-'), id = 'synthetic-delivery-id';
+  const rawBodies = bodies.map(body => Buffer.isBuffer(body) ? body : Buffer.from(body));
+  const records = rawBodies.map((body, index) => {
+    const bytes = Buffer.concat([Buffer.from(`Received: by synthetic-${index}${eol}Subject: synthetic${eol}${eol}`), body]);
+    const hex = createHash('sha256').update(bytes).digest('hex'), ref = `hiworks/sha256/${hex.slice(0, 2)}/${hex}.eml`;
+    const path = join(root, ...ref.split('/')); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, bytes);
+    const record = event({ id, subject: '합성 다중 메일함 배달', body: '파싱된 본문만으로 동일성을 판단하지 않습니다.', custodySha: hex,
+      ingestedAt: `2026-09-01T0${4 - index}:00:00+00:00` });
+    record.raw.source_custody.storage_ref = ref;
+    record.metadata.mailbox = { display_name: `가상 소유자 ${index}`, email: `owner-${index}@example.invalid` };
+    return record;
+  });
+  const s = scenario({ events: records, rows: [[id, [MINE], 'confirmed', '제목']] });
+  return { ...s, root, records, rawBodies };
+}
+
+for (const eol of ['\r\n', '\n']) test(`header-only delivery variants collapse using verified body bytes and earliest copy (${JSON.stringify(eol)})`, async () => {
+  const s = headerVariantScenario(['원문 본문\r\n10 mA를 유지한다.', '원문 본문\r\n10 mA를 유지한다.'], { eol });
+  const manifest = await prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root }));
+  const request = JSON.parse(readFileSync(join(s.workDir, 'request.json'), 'utf8'));
+  assert.equal(request.units.length, 1);
+  assert.equal(request.units[0].source_revision_ref.content_id, 'sha256:' + s.records[1].raw.source_custody.sha256);
+  assert.equal(request.units[0].known_at, '2026-09-01T03:00:00.000Z');
+  const item = manifest.unit_materials[0].header_only_variants;
+  assert.equal(item.body_sha256, sha(s.rawBodies[0]));
+  assert.equal(item.selected.mailbox_owner, '가상 소유자 1 owner-1@example.invalid');
+  assert.deepEqual(item.alternatives.map(v => [v.mailbox_owner, v.sha256]), [
+    ['가상 소유자 0 owner-0@example.invalid', 'sha256:' + s.records[0].raw.source_custody.sha256] ]);
+  assert.deepEqual(manifest.coverage.header_only_variants, manifest.unit_materials);
+  assert.equal(manifest.counts.collapsed_from_multiple_records, 1);
+  const answerPath = join(s.workDir, 'answer.json'); writeFileSync(answerPath, JSON.stringify(answerFor(request)));
+  const receipt = await generate(generateArgs(s, { workDir: s.workDir, answerPath }));
+  assert.deepEqual(receipt.coverage.header_only_variants, manifest.coverage.header_only_variants);
+});
+
+test('same id and decoded body_text cannot hide different RFC822 body bytes', async () => {
+  const s = headerVariantScenario(['전류는 10 mA이다.', '전류는 20 mA이다.']);
+  assert.equal(s.records[0].body_text, s.records[1].body_text);
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /mail_id_ambiguous_in_custody/);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
+test('one differing body among three copies refuses the whole id in every read position', async () => {
+  const s = headerVariantScenario(['일치하는 원문 본문입니다.', '일치하는 원문 본문입니다.', '다른 원문 본문입니다.']);
+  for (const order of [[0, 1, 2], [2, 0, 1], [0, 2, 1]]) {
+    custody(s.hiworksDir, order.map(i => s.records[i]));
+    await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /mail_id_ambiguous_in_custody/);
+    assert.deepEqual(readdirSync(s.outDir), []);
+  }
+});
+
+test('earliest source selection and materials do not depend on record order', async () => {
+  const s = headerVariantScenario(['같은 본문입니다.', '같은 본문입니다.', '같은 본문입니다.']);
+  const first = await prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root }));
+  custody(s.hiworksDir, [...s.records].reverse());
+  const second = await prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root, outDir: tmp('kl-variant-reordered-') }));
+  assert.equal(first.request_source_digest, second.request_source_digest);
+  assert.deepEqual(first.unit_materials, second.unit_materials);
+});
+
+test('body whitespace and Unicode differences are not normalized for mail dedupe', async () => {
+  for (const body of ['본문 A　B', '본문 A B\n', '본문 A B'.normalize('NFD')]) {
+    const s = headerVariantScenario(['본문 A B', body]);
+    await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /mail_id_ambiguous_in_custody/);
+  }
+});
+
+test('header-only comparison requires canonical refs and matching complete source hashes', async () => {
+  const s = headerVariantScenario(['같은 본문입니다.', '같은 본문입니다.']);
+  const goodRef = s.records[1].raw.source_custody.storage_ref;
+  s.records[1].raw.source_custody.storage_ref = '../outside.eml'; custody(s.hiworksDir, s.records);
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /custody_eml_ref_invalid/);
+  s.records[1].raw.source_custody.storage_ref = goodRef; custody(s.hiworksDir, s.records);
+  writeFileSync(join(s.root, ...goodRef.split('/')), 'Received: tampered\r\n\r\n같은 본문입니다.');
+  await assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /custody_eml_sha256_mismatch/);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
+test('a growing original mail cannot exceed its bounded read or pass its source hash', async () => {
+  const s = headerVariantScenario(['같은 본문입니다.', '같은 본문입니다.']); let sourceFd, inspectedSize, largestRequest = 0;
+  await withFsFaults(original => ({
+    openSync(path, ...rest) { const fd = original.openSync(path, ...rest);
+      if (String(path).endsWith('.eml')) { sourceFd = fd; inspectedSize = original.fstatSync(fd).size; } return fd; },
+    readSync(fd, buffer, offset, length, position) {
+      if (fd === sourceFd) { largestRequest = Math.max(largestRequest, length); buffer.fill(65, offset, offset + length); return length; }
+      return original.readSync(fd, buffer, offset, length, position);
+    },
+  }), () => assert.rejects(() => prepare(prepareArgs(s, { project: MINE, sourceCustodyRoot: s.root })), /custody_eml_sha256_mismatch/));
+  assert.equal(largestRequest, inspectedSize + 1);
+  assert.deepEqual(readdirSync(s.outDir), []);
+});
+
 test('a body past the unit bound is truncated and the truncation is recorded, without text in the manifest', async () => {
   const longBody = '문단'.repeat(5000);
   const s = scenario({ events: [event({ id: 'e0000000000004', subject: '긴 메일', body: longBody })],

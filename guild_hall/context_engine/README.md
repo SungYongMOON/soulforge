@@ -23,11 +23,13 @@
   `request.json`(단위·grant), `manifest.json`(개수·해시만, 원문·host 경로 없음 —
   경로는 `{kind,basename,dir_sha256}`로만), `model_prompt.md`(WIKI_SCHEMA.md 원문 +
   실제 wire payload JSON 그대로 + 정확한 답 JSON 스키마)를 쓴다.
-- **custody 판본 일치 검사(R6)**: 한 mail id가 여러 줄로 나타날 때, 제목·수신시각·
-  발신자가 같아도 그 메일의 `raw.source_custody.sha256`(원본 .eml 해시)까지 같아야
-  "같은 메일의 재수집"으로 합친다(`collapsed_from_multiple_records`). 그 해시가
-  다르면 — 구분 신호(제목/시각/발신자)만 보던 초판 코드는 이걸 놓쳤다 — 모호로 보고
-  거부한다(`custody_sha_differed_across_records`, `mail_id_ambiguous_in_custody`).
+- **custody 판본 일치 검사(R6)**: 같은 mail id·기존 제목/수신시각/발신자 기준에서 원본 해시가 같으면 재수집으로 합친다.
+  해시가 다르면 caller가 `--source-custody-root <approved_root>`를 명시해야 한다. 해당 root의 content-addressed
+  `.eml` 전체 해시를 확인하고 첫 빈 줄 아래 본문 바이트가 모든 부에서 같을 때만 머리글 차이로 합친다.
+  본문은 공백·줄바꿈·Unicode를 정규화하지 않는다. 한 부라도 다르면 기존 `mail_id_ambiguous_in_custody` 거부를 유지한다.
+  `ingested_at`이 가장 이른 부의 원본 해시를 근거로 쓰고, 나머지 메일함 소유자·sha256을 manifest의
+  `unit_materials`와 `coverage.header_only_variants`에 보존한다. K1 unit 구조는 바꾸지 않는다.
+  `custody_sha_differed_across_records`는 해시가 달랐던 id 수이며 허용된 머리글 차이도 포함한다.
   `raw.source_custody`가 아예 없는 레코드는 기본 거부이며 `--allow-record-fallback`을
   줘야 canonical hash로 대체한다.
 - **커버리지(S7)**: 귀속됐지만 custody에 없는 메일은 기본(0건) 전체 거부다.

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-22 - 실제 위키 메일 배달 머리글 차이 처리
+
+- Revision: 이 항목을 포함한 커밋. 같은 mail id의 원본 본문 바이트가 같으면 여러 메일함 배달본을 하나로 합친다.
+- caller가 명시한 보관소의 .eml 전체 해시를 확인하고 첫 빈 줄 아래 바이트를 대조한다. 가장 이른 ingested_at 저장본을 근거로 사용한다.
+- 다른 저장본의 메일함 소유자·sha256을 unit별 재료 목록과 manifest coverage에 보존한다. 본문이 한 부라도 다르면 거부한다.
+- 관련 경로: `guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs`, 호출 문서와 합성 회귀 시험. 실제 원문 실행·전송은 포함하지 않는다.
+
 ## 2026-09-22 - 실제 위키 무변경 성공 영수증 보존
 
 - Revision: 이 항목을 포함한 커밋. READY 성공은 실제 새 쓰기가 없어도 영수증 파일을 남긴다. 저장 전 실패·HOLD의 예약 해제와 구별했다.
