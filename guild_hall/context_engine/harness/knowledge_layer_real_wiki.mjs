@@ -74,7 +74,7 @@
 // classifier's; fine for a small `--max-units`-bounded real-mail slice, not a
 // substitute for that loader at scale.
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, createReadStream, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -565,7 +565,19 @@ export async function prepare({
   writeFileSync(join(outDir, 'model_input.json'), JSON.stringify(modelInput, null, 2) + '\n', { flag: 'wx' });
   writeFileSync(join(outDir, 'model_prompt.md'), promptMarkdown, { flag: 'wx' });
   writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' });
+  writeFileSync(join(outDir, 'manifest.sha256'), shaOf(readFileSync(join(outDir, 'manifest.json'))) + '\n', { flag: 'wx' });
   return manifest;
+}
+
+// Preparation bytes are immutable in this caller-owned directory. This digest
+// catches drift (including corrections and coverage), not a malicious writer
+// replacing BOTH the manifest and its digest. It does not issue human approval.
+function readPinnedManifest(workDir) {
+  const pin = join(workDir, 'manifest.sha256');
+  if (!existsSync(pin)) refuse('manifest_pin_required');
+  const bytes = readFileSync(join(workDir, 'manifest.json'));
+  if (readFileSync(pin, 'utf8') !== shaOf(bytes) + '\n') refuse('manifest_sha256_mismatch');
+  try { return JSON.parse(bytes.toString('utf8')); } catch { refuse('work_file_invalid_json'); }
 }
 
 // ---------------------------------------------------------------- dump-model-input
@@ -577,7 +589,7 @@ export async function prepare({
  * whether the file would change. */
 export function dumpModelInput({ workDir, write = false } = {}) {
   const request = readJson(join(workDir, 'request.json'));
-  const manifest = readJson(join(workDir, 'manifest.json'));
+  const manifest = readPinnedManifest(workDir);
   const bundle = linkApprovedUnits(request);
   const rules = loadWikiRules();
   const modelInput = buildWikiModelInput({ project_ref: request.project_ref, units: bundle.units,
@@ -630,7 +642,7 @@ export async function generate({
   if (!token(modelId)) refuse('model_id_invalid');
   if (!instant(nowIso)) refuse('now_invalid');
   const request = readJson(join(workDir, 'request.json'));
-  const manifest = readJson(join(workDir, 'manifest.json'));
+  const manifest = readPinnedManifest(workDir);
   if (!existsSync(answerPath)) refuse('answer_file_missing');
   let answer;
   try { answer = JSON.parse(readFileSync(answerPath, 'utf8')); } catch { refuse('answer_not_json'); }
@@ -653,6 +665,14 @@ export async function generate({
   const rules = loadWikiRules();
   if (rules.sha256 !== manifest.wiki_rules_sha256) refuse('wiki_rules_sha256_mismatch');
 
+  // Reserve the receipt BEFORE archive/graph effects. The exclusive descriptor
+  // permits only this invocation to finish it; concurrent/repeated runs cannot
+  // replace it. A crash can leave an empty reservation: use a fresh prepared work
+  // directory after reviewing partial effects, never silently retry over it.
+  let receiptFd;
+  try { receiptFd = openSync(join(workDir, 'generation_receipt.json'), 'wx'); }
+  catch (error) { if (error.code === 'EEXIST') refuse('generation_receipt_exists'); throw error; }
+  try {
   if (typeof archiveRoot !== 'string' || !isAbsolute(archiveRoot)) refuse('archive_root_invalid');
   if (!existsSync(archiveRoot)) mkdirSync(archiveRoot, { recursive: true });
   if (lstatSync(archiveRoot).isSymbolicLink()) refuse('archive_root_invalid');
@@ -711,8 +731,9 @@ export async function generate({
     graph_mode: neo4jConfig ? 'neo4j' : 'memory',
     archive_root: dirRef(archiveRoot),
   };
-  writeFileSync(join(workDir, 'generation_receipt.json'), JSON.stringify(receipt, null, 2) + '\n');
+  writeFileSync(receiptFd, JSON.stringify(receipt, null, 2) + '\n');
   return receipt;
+  } finally { closeSync(receiptFd); }
 }
 
 // ---------------------------------------------------------------- CLI

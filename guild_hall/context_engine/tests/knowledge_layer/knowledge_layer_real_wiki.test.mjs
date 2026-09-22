@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,8 +19,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const NOW = '2026-09-22T12:00:00.000Z';
-const MINE = 'P26-014';
-const OTHER = 'P24-049';
+const MINE = 'PROJECT-A';
+const OTHER = 'PROJECT-B';
 
 function tmp(prefix) { return mkdtempSync(join(tmpdir(), prefix)); }
 
@@ -544,6 +544,65 @@ async function preparedWork({ project = MINE } = {}) {
   const request = JSON.parse(readFileSync(join(s.outDir, 'request.json'), 'utf8'));
   return { ...s, request };
 }
+
+for (const field of ['human_correction_unit_ids', 'coverage']) test(`manifest pin refuses changed ${field} before generation or model-input rewrite`, async () => {
+  const s = await preparedWork(), manifestPath = join(s.workDir, 'manifest.json');
+  const before = readFileSync(join(s.workDir, 'model_input.json'));
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (field === 'coverage') manifest.coverage.uncovered_by_custody += 1;
+  else manifest.human_correction_unit_ids = [s.request.units[0].unit_id];
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  const answerPath = join(s.outDir, 'answer.json'); writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  await assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath })), /manifest_sha256_mismatch/);
+  assert.throws(() => dumpModelInput({ workDir: s.workDir, write: true }), /manifest_sha256_mismatch/);
+  assert.deepEqual(readFileSync(join(s.workDir, 'model_input.json')), before);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+});
+
+test('prepare pins exact manifest bytes and unpinned old preparation is refused', async () => {
+  const s = await preparedWork();
+  const pinPath = join(s.workDir, 'manifest.sha256');
+  assert.equal(readFileSync(pinPath, 'utf8'), sha(readFileSync(join(s.workDir, 'manifest.json'))) + '\n');
+  const answerPath = join(s.outDir, 'answer.json'); writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  unlinkSync(pinPath);
+  await assert.rejects(() => generate(generateArgs(s, { workDir: s.workDir, answerPath })), /manifest_pin_required/);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+});
+
+test('repeated generation preserves receipt bytes and refuses before graph or archive work', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  await generate(args);
+  const before = readFileSync(join(s.workDir, 'generation_receipt.json'));
+  const archiveNames = readdirSync(s.archiveDir);
+  const mustNotRun = { read() { assert.fail('second generate read graph'); }, commit() { assert.fail('second generate wrote graph'); } };
+  await assert.rejects(() => generate({ ...args, graph: mustNotRun }), /generation_receipt_exists/);
+  assert.deepEqual(readFileSync(join(s.workDir, 'generation_receipt.json')), before);
+  assert.deepEqual(readdirSync(s.archiveDir), archiveNames);
+});
+
+test('exclusive receipt reservation allows one concurrent generate only', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  const outcomes = await Promise.allSettled([generate(args), generate(args)]);
+  assert.equal(outcomes.filter(o => o.status === 'fulfilled').length, 1);
+  assert.match(outcomes.find(o => o.status === 'rejected').reason.message, /generation_receipt_exists/);
+  assert.equal(JSON.parse(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8')).status, 'READY');
+});
+
+test('failure after receipt reservation retains evidence and requires a fresh prepared directory', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath,
+    graph: { read() { throw new Error('synthetic_graph_failure'); }, commit() { assert.fail('commit'); } } });
+  await assert.rejects(() => generate(args), /synthetic_graph_failure/);
+  assert.equal(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8'), '');
+  await assert.rejects(() => generate(args), /generation_receipt_exists/);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+});
 
 test('generate replays a scripted answer through the real K3, recording generator.id', async () => {
   const s = await preparedWork();

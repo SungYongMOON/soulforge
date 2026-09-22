@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-22 - 실제 입력 위키 하네스 준비 지문과 영수증 보존
+
+- Revision: 이 항목을 포함한 커밋. manifest 전체 바이트 지문으로 사람 정정 참조·자료 범위 변경을 생성 전에 거부한다.
+- generation receipt를 독점 예약해 반복·동시 호출이 기존 결과를 덮지 못하게 한다. 지문 없는 준비물은 새 폴더에서 재준비한다.
+- 지식 층 호출 문서에 prepare/dump-model-input/generate, 외부 전송 표 예시와 중단 복구 한계를 명시했다.
+- 관련 경로: `guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs`, `KNOWLEDGE_LAYER.md`, 합성 시험.
+
 ## 2026-09-22 - K3 실자료 위키 하네스 fresh review 수정 (R1~R7 필수 7건)
 
 - Revision: 이 항목을 포함한 커밋. 같은 날 오전 커밋(`knowledge_layer_real_wiki.mjs`

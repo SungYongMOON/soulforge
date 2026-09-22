@@ -101,6 +101,31 @@ GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 �
 
 ## 역할별 모델 설정과 위키 운영 규칙 (Owner 추가 방향 9~12)
 
+### 승인된 실제 입력의 수동 위키 하네스
+
+`harness/knowledge_layer_real_wiki.mjs`는 한 과제의 귀속된 메일을 K1 승인 단위로 준비하고,
+외부에서 받은 모델 답 파일을 K3로 재생한다. 모델에 전송하는 기능은 없으며 실제 전송은 별도 승인된 caller 책임이다.
+
+- `prepare`: `--project`, `--attribution-index`, `--hiworks-events`(반복 가능), 선택 `--gmail-sent-events`,
+  빈 `--out`, `--now`, `--model-roles`, `--offhost-approval`을 명시한다. 과제+wiki_draft의 외부 전송 허가와
+  별도 사람 승인 파일이 모두 필요하다. 원문·prompt는 승인된 비공개 작업 폴더에만 둔다.
+- `docs/architecture/workspace/examples/knowledge_layer/model_roles.offhost_example.json`은 자리표시자 전용 형식 예다.
+  예시의 enabled/egress=true를 실제 과제 승인으로 사용하지 않는다. 승인된 실제 표는 caller가 별도로 제공한다.
+- prepare는 request.json/model_input.json/model_prompt.md/manifest.json과 manifest.sha256을 생성한다.
+  사람 정정 단위와 coverage를 포함한 manifest 전체 바이트를 지문으로 묶으며 generate와 dump-model-input에서 대조한다.
+  manifest나 지문을 손으로 고치지 않는다. 이전 지문 없는 준비물은 새 빈 폴더에서 prepare를 다시 한다.
+- `dump-model-input --work <private_work> [--write]`: 지문을 확인하고 실제 K1·K3 입력 생성기를 재사용한다.
+- `generate --work <private_work> --answer <answer.json> --archive-root <private_archive> --model-id <placeholder>
+  --now <ISO> --model-roles <approved_table> --offhost-approval <approval>`: grant 현재 유효성·입력/규칙/전송 승인 지문을
+  재대조한다. 기본 graph는 메모리이며 Neo4j 활성화·schema 설치·예약 등록은 하지 않는다.
+- generation_receipt.json은 archive/graph 작업 전에 wx로 독점 예약한다. 반복·동시 실행은 기존 영수증을 덮지 않는다.
+  생성 중 오류나 중단은 빈 예약 파일을 남길 수 있다. 이는 완료 영수증이 아니다. 부분 효과를 확인하고 새 준비 폴더를 사용한다.
+
+지문은 신뢰된 caller 전용 폴더에서의 변경 감지다. manifest와 지문을 함께 다시 쓰는 악의적 writer를 인증하거나
+사람 수락을 대신하지 않는다. custody 중복의 원문 해시 불일치는 계속 거부하며 임의로 한 사본을 선택하지 않는다.
+
+### 역할 표
+
 현재 모델을 선택하지 않는다. secret 없는 단일 표 `soulforge.knowledge_layer.model_roles.v1`을
 `resolveModelRole/createRoleGenerator`에 주입한다. 예시는 `docs/architecture/workspace/examples/knowledge_layer/model_roles.json`.
 roles는 wiki_draft/night_organize/memory_extract/entity_candidates/embedding/bot_answer → model ID,
