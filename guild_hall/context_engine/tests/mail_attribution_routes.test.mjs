@@ -69,7 +69,13 @@ async function custody(dirs, events = EVENTS) {
  * built, so these tests hold THIS side's contract (what a reader does with an
  * index) independently of the builder's own tests on the other side.
  */
-function indexBody(rows) {
+const ORG_CONFIG_BYTES = Buffer.from('{"synthetic":"org config"}\n');
+// The clock every read in this file is judged against, so "fresh" and "stale" are
+// properties of the fixture rather than of when the suite happens to run.
+const NOW = '2026-09-22T12:00:00Z';
+
+function indexBody(rows, { builtAt = '2026-09-22T06:00:00Z', orgConfigSha = sha(ORG_CONFIG_BYTES),
+  ownerTablesMissing = [] } = {}) {
   const attributions = rows.map(([mail_id, projects, strength, basis]) => ({ mail_id, projects, strength, basis }))
     .sort((a, b) => (a.mail_id < b.mail_id ? -1 : 1));
   const byProject = {};
@@ -79,17 +85,28 @@ function indexBody(rows) {
       byProject[code][row.strength] += 1;
     }
   }
-  return { schema_version: MAIL_ATTRIBUTION_INDEX_SCHEMA, built_at: '2026-09-22T00:00:00Z',
+  const body = { schema_version: MAIL_ATTRIBUTION_INDEX_SCHEMA, built_at: builtAt,
     builder: { id: 'workspace-ledgers-mail-attribution', version: '0.1.0' },
-    inputs: { org_config_sha256: sha(Buffer.from('synthetic')), owner_tables: [] },
+    inputs: { org_config_sha256: orgConfigSha, owner_tables: [], owner_tables_missing: ownerTablesMissing },
     counts: { records: EVENTS.length, attributed: attributions.length,
       confirmed: attributions.filter(row => row.strength === 'confirmed').length,
       unconfirmed: attributions.filter(row => row.strength === 'unconfirmed').length,
       held_two_projects: 0, not_attributed: EVENTS.length - attributions.length, by_project: byProject },
     attributions };
+  return { ...body, content_sha256: contentSha(body) };
 }
 
-const writeIndex = (dirs, rows) => writeFile(dirs.indexFile, `${JSON.stringify(indexBody(rows), null, 2)}\n`);
+/** The builder's own content digest recipe, restated here so this side pins it too. */
+function contentSha(body) {
+  const { built_at: _builtAt, content_sha256: _stated, ...rest } = body;
+  return sha(Buffer.from(JSON.stringify(rest), 'utf8'));
+}
+
+const writeIndex = (dirs, rows, options) =>
+  writeFile(dirs.indexFile, `${JSON.stringify(indexBody(rows, options), null, 2)}\n`);
+
+const readIndex = (dirs, extra = {}) =>
+  readMailAttributionIndex({ io: dirs.io, now: NOW, ...extra });
 
 const DEFAULT_ROWS = [
   ['e-rule', [MINE], 'confirmed', '제목'],
@@ -110,7 +127,7 @@ test('the ledgers decide, and what they place is exactly what reaches the grant'
   const dirs = await estate();
   await custody(dirs);
   await writeIndex(dirs, DEFAULT_ROWS);
-  const index = readMailAttributionIndex({ io: dirs.io, address: MAIL_ATTRIBUTION_INDEX_ADDRESS });
+  const index = readIndex(dirs, { address: MAIL_ATTRIBUTION_INDEX_ADDRESS });
 
   const mine = candidatesFor(dirs, index);
   assert.deepEqual(mailItemIds(mine), ['e-bundle', 'e-review', 'e-rule']);
@@ -125,7 +142,8 @@ test('the ledgers decide, and what they place is exactly what reaches the grant'
 
   // The receipt-facing counts, and nothing beyond counts.
   assert.deepEqual(mine.mail, { decided_by: 'workspace_ledgers_attribution_index',
-    built_at: '2026-09-22T00:00:00Z', index_sha256: index.index_sha256,
+    built_at: '2026-09-22T06:00:00Z', age_hours: 6, index_sha256: index.index_sha256,
+    content_sha256: index.content_sha256, owner_tables_missing: [],
     attributed: 3, confirmed: 2, unconfirmed: 1, in_custody: 3 });
   assert.equal(mine.unattributed.mail_events_scanned, EVENTS.length);
   assert.equal(mine.unattributed.mail_events, 3);   // e-held, e-hold, e-none
@@ -135,7 +153,7 @@ test('a mail lands in exactly the project the ledgers name it for, and in no oth
   const dirs = await estate();
   await custody(dirs);
   await writeIndex(dirs, DEFAULT_ROWS);
-  const index = readMailAttributionIndex({ io: dirs.io });
+  const index = readIndex(dirs);
   const mine = mailItemIds(candidatesFor(dirs, index, MINE));
   const other = mailItemIds(candidatesFor(dirs, index, OTHER));
   assert.deepEqual(other, ['e-other']);
@@ -143,7 +161,7 @@ test('a mail lands in exactly the project the ledgers name it for, and in no oth
   // A mail the Owner deliberately shares between two projects is the one exception,
   // and it is an explicit decision in their own table, never an accident here.
   await writeIndex(dirs, [...DEFAULT_ROWS, ['e-none', [MINE, OTHER].sort(), 'confirmed', '묶음 확정']]);
-  const shared = readMailAttributionIndex({ io: dirs.io });
+  const shared = readIndex(dirs);
   assert.ok(mailItemIds(candidatesFor(dirs, shared, MINE)).includes('e-none'));
   assert.ok(mailItemIds(candidatesFor(dirs, shared, OTHER)).includes('e-none'));
 });
@@ -154,7 +172,7 @@ test('a two-project collision and an unresolved hold reach no grant at all', asy
   // The ledgers simply do not list them: `held`, `hold_owner_review`, `vendor_only`
   // and an Owner-confirmed exclusion all leave the index without a row.
   await writeIndex(dirs, DEFAULT_ROWS);
-  const index = readMailAttributionIndex({ io: dirs.io });
+  const index = readIndex(dirs);
   for (const code of [MINE, OTHER]) {
     const ids = mailItemIds(candidatesFor(dirs, index, code));
     for (const absent of ['e-held', 'e-hold', 'e-none']) assert.equal(ids.includes(absent), false);
@@ -165,8 +183,8 @@ test('the same index over the same custody proposes the same grant -- nothing to
   const dirs = await estate();
   await custody(dirs);
   await writeIndex(dirs, DEFAULT_ROWS);
-  const first = candidatesFor(dirs, readMailAttributionIndex({ io: dirs.io }));
-  const second = candidatesFor(dirs, readMailAttributionIndex({ io: dirs.io }));
+  const first = candidatesFor(dirs, readIndex(dirs));
+  const second = candidatesFor(dirs, readIndex(dirs));
   assert.deepEqual(JSON.parse(JSON.stringify(second)), JSON.parse(JSON.stringify(first)));
   assert.deepEqual(scopeChangeByKind(grantOf(first), grantOf(second)),
     { mail: { add: 0, retire: 0, unchanged: 3 } });
@@ -176,7 +194,7 @@ test('a re-attributed mail is retired from the project it left and added to the 
   const dirs = await estate();
   await custody(dirs);
   await writeIndex(dirs, DEFAULT_ROWS);
-  const before = readMailAttributionIndex({ io: dirs.io });
+  const before = readIndex(dirs);
   const mineBefore = candidatesFor(dirs, before, MINE), otherBefore = candidatesFor(dirs, before, OTHER);
 
   // The Owner corrects the reading table: `e-review` is the other project's, and
@@ -186,7 +204,7 @@ test('a re-attributed mail is retired from the project it left and added to the 
     ['e-review', [OTHER], 'confirmed', '판독'],
     ['e-other', [OTHER], 'confirmed', '제목'],
   ]);
-  const after = readMailAttributionIndex({ io: dirs.io });
+  const after = readIndex(dirs);
   const mineAfter = candidatesFor(dirs, after, MINE), otherAfter = candidatesFor(dirs, after, OTHER);
 
   assert.deepEqual(mailItemIds(mineAfter), ['e-rule']);
@@ -208,7 +226,7 @@ test('reading an index never writes anything, and a project with no attribution 
   await custody(dirs);
   await writeIndex(dirs, DEFAULT_ROWS);
   const before = (await readdir(dirs.controlRoot)).sort();
-  const index = readMailAttributionIndex({ io: dirs.io });
+  const index = readIndex(dirs);
   const empty = candidatesFor(dirs, index, 'P99-999');
   assert.deepEqual(mailItemIds(empty), []);
   assert.deepEqual(mailAttributionCounts(index, 'P99-999'), { attributed: 0, confirmed: 0, unconfirmed: 0 });
@@ -221,37 +239,140 @@ test('an index this side cannot vouch for whole is refused, not partly used', as
   await custody(dirs);
   const refuses = async (body, code) => {
     await writeFile(dirs.indexFile, typeof body === 'string' ? body : `${JSON.stringify(body)}\n`);
-    assert.throws(() => readMailAttributionIndex({ io: dirs.io }),
+    assert.throws(() => readIndex(dirs),
       error => error instanceof MailRouteError && error.code === code, code);
   };
   await refuses('{ not json', 'mail_attribution_index_invalid');
   await refuses({ ...indexBody(DEFAULT_ROWS), schema_version: 'soulforge.something_else.v0' }, 'mail_attribution_index_invalid');
   await refuses({ ...indexBody(DEFAULT_ROWS), built_at: 'yesterday' }, 'mail_attribution_index_invalid');
+  // A body edited after the builder signed it off is re-stamped here, so each case
+  // below is refused for its OWN reason rather than all of them collapsing into the
+  // content-digest check.
+  const restamp = body => ({ ...body, content_sha256: contentSha(body) });
   // One bad row refuses the whole file: filing the good rows and dropping this one
   // would read downstream as "that mail was taken away from its project".
   const withBadRow = indexBody(DEFAULT_ROWS);
   withBadRow.attributions[0] = { ...withBadRow.attributions[0], strength: 'probably' };
-  await refuses(withBadRow, 'mail_attribution_index_row_invalid');
+  await refuses(restamp(withBadRow), 'mail_attribution_index_row_invalid');
   const duplicated = indexBody(DEFAULT_ROWS);
   duplicated.attributions.push({ ...duplicated.attributions[0], projects: [OTHER] });
   duplicated.counts.attributed += 1;
-  await refuses(duplicated, 'mail_attribution_index_duplicate_mail_id');
+  await refuses(restamp(duplicated), 'mail_attribution_index_duplicate_mail_id');
   const drifted = indexBody(DEFAULT_ROWS);
   drifted.counts.attributed += 7;
-  await refuses(drifted, 'mail_attribution_index_counts_disagree');
+  await refuses(restamp(drifted), 'mail_attribution_index_counts_disagree');
+  // And a body whose stated content digest is NOT its own -- the case the re-stamp
+  // above exists to step around, pinned here in its own right so a file cannot claim
+  // decisions it does not carry.
+  await refuses({ ...indexBody(DEFAULT_ROWS), content_sha256: sha(Buffer.from('not this body')) },
+    'mail_attribution_index_content_digest_mismatch');
 
   // A pinned digest that no longer matches is a scope change, not a fault to absorb.
   await writeIndex(dirs, DEFAULT_ROWS);
-  const held = readMailAttributionIndex({ io: dirs.io });
+  const held = readIndex(dirs);
   await writeIndex(dirs, DEFAULT_ROWS.slice(0, 1));
-  assert.throws(() => readMailAttributionIndex({ io: dirs.io, expectedSha256: held.index_sha256 }),
+  assert.throws(() => readIndex(dirs, { expectedSha256: held.index_sha256 }),
     error => error.code === 'mail_attribution_index_digest_mismatch');
 
   // And an index that is not there at all refuses rather than reading as "empty".
   const bare = await estate();
   await custody(bare);
-  assert.throws(() => readMailAttributionIndex({ io: bare.io }),
+  assert.throws(() => readMailAttributionIndex({ io: bare.io, now: NOW }),
     error => error.code === 'mail_attribution_index_unavailable');
+});
+
+// ------------------------------------------------------- R3 (fresh review 2026-09-22)
+test('R3: an index too old to trust is refused, however cleanly it parses', async () => {
+  const dirs = await estate();
+  await custody(dirs);
+  // Built six hours ago: fine.
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-22T06:00:00Z' });
+  assert.equal(readIndex(dirs).age_hours, 6);
+
+  // Built three days ago. It still parses, every row is valid, and the lane would
+  // have gone on re-applying its decisions while every mail collected since read as
+  // unattributed -- the exact failure this bound exists to stop.
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-19T12:00:00Z' });
+  assert.throws(() => readIndex(dirs),
+    error => error instanceof MailRouteError && error.code === 'mail_attribution_index_stale');
+  // A caller that genuinely means to read an old one says so.
+  assert.equal(readIndex(dirs, { maxAgeHours: 24 * 7 }).age_hours, 72);
+
+  // Just inside and just outside the default bound.
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-21T01:00:00Z' });   // 35h
+  assert.equal(readIndex(dirs).counts.attributed, 4);
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-20T23:00:00Z' });   // 37h
+  assert.throws(() => readIndex(dirs), error => error.code === 'mail_attribution_index_stale');
+
+  // An index dated well into the future would never expire; refused on its own terms.
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-25T00:00:00Z' });
+  assert.throws(() => readIndex(dirs), error => error.code === 'mail_attribution_index_built_in_future');
+  // Ordinary clock skew between two machines is not that.
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-22T12:02:00Z' });
+  assert.equal(readIndex(dirs).counts.attributed, 4);
+
+  // A nonsense bound is refused rather than silently treated as "no bound".
+  await writeIndex(dirs, DEFAULT_ROWS);
+  for (const bad of [0, -1, Number.NaN]) {
+    assert.throws(() => readIndex(dirs, { maxAgeHours: bad }),
+      error => error.code === 'mail_attribution_index_max_age_invalid');
+  }
+});
+
+test('R3: an index built from a different org config than the one on disk is refused', async () => {
+  const dirs = await estate();
+  await custody(dirs);
+  const orgConfigFile = path.join(dirs.controlRoot, 'workspace-ledgers', 'org_config.json');
+  await mkdir(path.dirname(orgConfigFile), { recursive: true });
+  await writeFile(orgConfigFile, ORG_CONFIG_BYTES);
+  const orgConfigAddress = 'control_root/workspace-ledgers/org_config.json';
+
+  await writeIndex(dirs, DEFAULT_ROWS);
+  assert.equal(readIndex(dirs, { orgConfigAddress }).counts.attributed, 4);
+
+  // The Owner changes the routing configuration and nobody rebuilds the index. The
+  // file is fresh and valid; its decisions were simply made under different rules.
+  await writeFile(orgConfigFile, Buffer.from('{"synthetic":"org config, edited"}\n'));
+  assert.throws(() => readIndex(dirs, { orgConfigAddress }),
+    error => error instanceof MailRouteError && error.code === 'mail_attribution_index_org_config_changed');
+  // Without the address the sync cannot know -- which is exactly why the registrar
+  // is documented to pass it.
+  assert.equal(readIndex(dirs).counts.attributed, 4);
+
+  // A named org config that is not there is refused, never skipped.
+  assert.throws(() => readIndex(dirs, { orgConfigAddress: 'control_root/workspace-ledgers/absent.json' }),
+    error => error.code === 'mail_attribution_index_org_config_unavailable');
+});
+
+test('R3/S1: a pin may name the file’s bytes or the decisions, and the decisions survive a rebuild', async () => {
+  const dirs = await estate();
+  await custody(dirs);
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-22T06:00:00Z' });
+  const first = readIndex(dirs);
+
+  // Rebuilt an hour later over an unchanged estate: different file, same decisions.
+  await writeIndex(dirs, DEFAULT_ROWS, { builtAt: '2026-09-22T07:00:00Z' });
+  const second = readIndex(dirs);
+  assert.notEqual(second.index_sha256, first.index_sha256);
+  assert.equal(second.content_sha256, first.content_sha256);
+
+  // Pinning the decisions still passes; pinning the exact earlier file does not.
+  assert.equal(readIndex(dirs, { expectedSha256: first.content_sha256 }).counts.attributed, 4);
+  assert.throws(() => readIndex(dirs, { expectedSha256: first.index_sha256 }),
+    error => error.code === 'mail_attribution_index_digest_mismatch');
+  // The current file's own digest pins it too.
+  assert.equal(readIndex(dirs, { expectedSha256: second.index_sha256 }).counts.attributed, 4);
+});
+
+test('R3: an index built without an Owner table carries that fact to the receipt', async () => {
+  const dirs = await estate();
+  await custody(dirs);
+  await writeIndex(dirs, DEFAULT_ROWS, { ownerTablesMissing: ['reading', 'vendor'] });
+  const index = readIndex(dirs);
+  assert.deepEqual([...index.owner_tables_missing], ['reading', 'vendor']);
+  // It reaches the per-project scope block, so a pass run against a partial index is
+  // visible in its own receipt rather than only in the build log.
+  assert.deepEqual(candidatesFor(dirs, index).mail.owner_tables_missing, ['reading', 'vendor']);
 });
 
 test('without an index the older narrow rule still applies, and says so', async () => {

@@ -43,6 +43,7 @@
 //   node estate_graph_sync.mjs --root-table <file> --projects P26-014,P23-043
 //        --receipts <dir> [--binding graph_index_binding.unified.json] [--dry]
 //        [--mail-attribution [<alias address>]] [--mail-attribution-sha256 sha256:...]
+//        [--mail-attribution-max-age <hours>] [--mail-attribution-org-config <alias address>]
 //        [--root-table-sha256 sha256:...] [--json]
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -531,11 +532,21 @@ async function main() {
   if (attributionFlag !== undefined) {
     const address = attributionFlag === true ? MAIL_ATTRIBUTION_INDEX_ADDRESS : String(attributionFlag);
     const expected = flags.get('mail-attribution-sha256');
+    const maxAge = flags.get('mail-attribution-max-age');
+    const orgConfig = flags.get('mail-attribution-org-config');
     mailAttribution = readMailAttributionIndex({ io, address,
-      expectedSha256: typeof expected === 'string' ? expected : null });
+      expectedSha256: typeof expected === 'string' ? expected : null,
+      // An index older than this is refused outright: a file that still parses is not
+      // a current set of decisions, and re-applying yesterday's silently is worse
+      // than not running.
+      ...(typeof maxAge === 'string' ? { maxAgeHours: Number(maxAge) } : {}),
+      // Given, the index must have been built from the org config that is there now.
+      orgConfigAddress: typeof orgConfig === 'string' ? orgConfig : null });
     process.stdout.write(`mail-attribution built_at=${mailAttribution.built_at} `
+      + `age_h=${mailAttribution.age_hours} `
       + `attributed=${mailAttribution.counts.attributed} confirmed=${mailAttribution.counts.confirmed} `
-      + `unconfirmed=${mailAttribution.counts.unconfirmed}\n`);
+      + `unconfirmed=${mailAttribution.counts.unconfirmed}`
+      + `${mailAttribution.owner_tables_missing.length ? ` owner_tables_missing=${mailAttribution.owner_tables_missing.join(',')}` : ''}\n`);
   }
 
   let failures = 0;

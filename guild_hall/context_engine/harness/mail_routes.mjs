@@ -30,13 +30,35 @@
 // digest, and a file that is not exactly an index of this schema is refused
 // rather than partly used: a half-read index would look like every mail it failed
 // to parse had been taken away from its project.
+//
+// An index also has to be RECENT (R3, fresh review 2026-09-22). A file that parses
+// cleanly says nothing about when it was built, and the builder is not yet in any
+// automation chain -- so without an age bound a lane would re-apply one morning's
+// decisions indefinitely while every mail collected since read as unattributed, and
+// every receipt would say `SYNCED`. Past `maxAgeHours` (default 36 -- a day's build
+// plus a missed one) the read fails closed with its own code. A future `built_at`
+// beyond a small clock-skew allowance is refused the same way: it would otherwise
+// make an index immortal.
+//
+// Pinning: `expectedSha256` matches EITHER the file's own digest OR the index's
+// `content_sha256` -- the digest of everything except `built_at`. The file digest
+// changes on every rebuild even when no decision changed, so it can only pin one
+// exact file; `content_sha256` pins the DECISIONS and survives a rebuild that
+// changed nothing. A caller that wants "these exact decisions" passes the content
+// digest; one freezing one exact file passes the file digest.
 import { createHash } from 'node:crypto';
 
 export const MAIL_ATTRIBUTION_INDEX_SCHEMA = 'soulforge.mail_attribution_index.v0';
 export const MAIL_ATTRIBUTION_INDEX_ADDRESS = 'control_root/mail-routes/mail_attribution_index.json';
 export const MAIL_ATTRIBUTION_STRENGTHS = Object.freeze(['confirmed', 'unconfirmed']);
 export const MAIL_ATTRIBUTION_LIMITS = Object.freeze({ index_bytes: 64 * 1024 * 1024,
-  projects_per_mail: 8, mail_id_characters: 512, basis_characters: 64 });
+  projects_per_mail: 8, mail_id_characters: 512, basis_characters: 64,
+  // One day's build plus one missed one. A lane running every 30 minutes should
+  // never see an index older than this unless the build stopped.
+  default_max_age_hours: 36,
+  // A `built_at` slightly ahead of this host's clock is ordinary skew between two
+  // machines; far ahead is a file that would never expire.
+  future_skew_minutes: 10 });
 
 const PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const SHA = /^sha256:[0-9a-f]{64}$/u;
@@ -79,20 +101,49 @@ function validRow(row) {
  * mail id to `{ projects, strength, basis }`; `byProject` maps a project code to a
  * `Map(mail id -> strength)`, which is the direction a grant is built in.
  */
-export function readMailAttributionIndex({ io, address = MAIL_ATTRIBUTION_INDEX_ADDRESS, expectedSha256 = null } = {}) {
+export function readMailAttributionIndex({ io, address = MAIL_ATTRIBUTION_INDEX_ADDRESS, expectedSha256 = null,
+  maxAgeHours = MAIL_ATTRIBUTION_LIMITS.default_max_age_hours, now = new Date().toISOString(),
+  orgConfigAddress = null } = {}) {
   let bytes;
   try { bytes = io.read(address, MAIL_ATTRIBUTION_LIMITS.index_bytes); }
   catch { fail('mail_attribution_index_unavailable'); }
   const indexSha256 = digest(bytes);
-  if (expectedSha256 !== null && (!SHA.test(expectedSha256) || indexSha256 !== expectedSha256)) {
-    fail('mail_attribution_index_digest_mismatch');
-  }
   let body;
   try { body = JSON.parse(bytes); }
   catch { fail('mail_attribution_index_invalid'); }
   if (!plain(body) || body.schema_version !== MAIL_ATTRIBUTION_INDEX_SCHEMA
     || typeof body.built_at !== 'string' || !INSTANT.test(body.built_at)
+    || !SHA.test(body.content_sha256 ?? '')
+    || !plain(body.inputs) || !SHA.test(body.inputs.org_config_sha256 ?? '')
     || !Array.isArray(body.attributions) || !plain(body.counts)) fail('mail_attribution_index_invalid');
+  // Either digest satisfies a pin -- see the header note on which to use when.
+  if (expectedSha256 !== null && (!SHA.test(expectedSha256)
+    || (indexSha256 !== expectedSha256 && body.content_sha256 !== expectedSha256))) {
+    fail('mail_attribution_index_digest_mismatch');
+  }
+  // The stated `content_sha256` has to be the digest of this body. Otherwise a file
+  // could be pinned by a content digest it does not actually have.
+  const { built_at: _builtAt, content_sha256: _stated, ...withoutTime } = body;
+  if (digest(Buffer.from(JSON.stringify(withoutTime), 'utf8')) !== body.content_sha256) {
+    fail('mail_attribution_index_content_digest_mismatch');
+  }
+  // R3: how old the decisions in this file are. A parseable index is not a current
+  // one, and a lane cannot tell the difference without being told to look.
+  if (!INSTANT.test(now ?? '')) fail('mail_attribution_index_clock_invalid');
+  if (!Number.isFinite(maxAgeHours) || maxAgeHours <= 0) fail('mail_attribution_index_max_age_invalid');
+  const ageMs = Date.parse(now) - Date.parse(body.built_at);
+  if (ageMs > maxAgeHours * 3600 * 1000) fail('mail_attribution_index_stale');
+  if (-ageMs > MAIL_ATTRIBUTION_LIMITS.future_skew_minutes * 60 * 1000) fail('mail_attribution_index_built_in_future');
+  // When the caller knows where the org config is, the index has to have been built
+  // from the one that is there now. An Owner who changed the routing configuration
+  // and has not rebuilt the index yet is exactly the case that would otherwise apply
+  // yesterday's rules to today's mail without saying so.
+  if (orgConfigAddress !== null) {
+    let configBytes;
+    try { configBytes = io.read(orgConfigAddress, MAIL_ATTRIBUTION_LIMITS.index_bytes); }
+    catch { fail('mail_attribution_index_org_config_unavailable'); }
+    if (digest(configBytes) !== body.inputs.org_config_sha256) fail('mail_attribution_index_org_config_changed');
+  }
 
   const byMail = new Map();
   const byProject = new Map();
@@ -112,6 +163,8 @@ export function readMailAttributionIndex({ io, address = MAIL_ATTRIBUTION_INDEX_
   if (body.counts.attributed !== byMail.size) fail('mail_attribution_index_counts_disagree');
 
   return Object.freeze({ built_at: body.built_at, index_sha256: indexSha256,
+    content_sha256: body.content_sha256, age_hours: Math.round((ageMs / 3600000) * 100) / 100,
+    owner_tables_missing: Object.freeze([...(body.inputs.owner_tables_missing ?? [])]),
     byMail, byProject, counts: Object.freeze({ ...body.counts }) });
 }
 

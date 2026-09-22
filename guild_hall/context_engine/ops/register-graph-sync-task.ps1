@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
+﻿[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
 <#
   Registers the one scheduled task that keeps the unified graph database level
   with what the collectors hold: `SoulforgeGraphSync`, every 30 minutes, hidden,
@@ -39,6 +39,22 @@ param(
   # keeps deciding by the older rule -- the project code standing alone in the
   # mail text -- and nothing about the registered task changes.
   [string]$MailAttribution,
+  # How old that index may be before the sync refuses it outright (hours). The
+  # default matches the reader's own: one day's build plus one missed one.
+  [int]$MailAttributionMaxAge = 36,
+  # The alias address of the org config the index must have been built from. Given,
+  # the sync re-hashes it every pass and refuses an index built from a different one
+  # -- which is what catches "the Owner changed the routing rules and nobody rebuilt
+  # the index". Strongly recommended whenever -MailAttribution is used.
+  [string]$MailAttributionOrgConfig,
+  # Pins the index to ONE exact set of bytes. Deliberately NOT defaulted: the index
+  # is rebuilt as mail arrives, so a digest captured at registration stops matching
+  # on the next build and the task would fail closed every day from then on.
+  # Staleness is bounded by -MailAttributionMaxAge and correctness by
+  # -MailAttributionOrgConfig instead. Pass this only to freeze one specific index
+  # (an investigation, a replay), and expect to re-register when it is rebuilt. The
+  # value may be the file's own sha256 or the index's `content_sha256`.
+  [string]$MailAttributionSha256,
   [string]$TaskName = "SoulforgeGraphSync",
   [string]$ExpectedDryRunDigest,
   [string]$ExpectedExistingTaskSha256,
@@ -179,7 +195,12 @@ $SyncArguments = @(
   "--projects", $Projects,
   "--receipts", $ReceiptsRoot
 )
-if ($MailAttribution) { $SyncArguments += @("--mail-attribution", $MailAttribution) }
+if ($MailAttribution) {
+  $SyncArguments += @("--mail-attribution", $MailAttribution,
+    "--mail-attribution-max-age", [string]$MailAttributionMaxAge)
+  if ($MailAttributionOrgConfig) { $SyncArguments += @("--mail-attribution-org-config", $MailAttributionOrgConfig) }
+  if ($MailAttributionSha256) { $SyncArguments += @("--mail-attribution-sha256", $MailAttributionSha256) }
+}
 
 # Preflight: the same entry point, in the mode that writes nothing.
 $PreflightOutput = @(& $NodePath $Entry @SyncArguments "--dry" 2>&1)
@@ -235,14 +256,27 @@ $Plan = [ordered]@{
   node_sha256 = $NodeSha256
   root_table_sha256 = $RootTableSha256
   projects = $Projects
+  # S2: whether mail attribution is in effect at all, and under which bounds, is
+  # part of what this task DOES -- an Owner reading the plan must not have to infer
+  # it from the action digest. Empty string means "not in effect: the sync keeps
+  # deciding a mail's project by the older narrow text rule".
+  mail_attribution = $MailAttribution
+  mail_attribution_max_age = $MailAttributionMaxAge
+  mail_attribution_org_config = $MailAttributionOrgConfig
+  mail_attribution_sha256 = $MailAttributionSha256
   action_sha256 = Get-Sha256Text -Value ($WScriptExe + "`n" + $HiddenActionArgumentLine)
   existing_task_sha256 = $ActualExistingTaskSha256
   existing_task_xml_sha256 = $ExistingTaskXmlSha256
 }
 $PlanDigest = Get-Sha256Text -Value ($Plan | ConvertTo-Json -Depth 4 -Compress)
 
+$AttributionLine = if ($MailAttribution) {
+  "mail_attribution=$MailAttribution max_age_h=$MailAttributionMaxAge" `
+    + $(if ($MailAttributionOrgConfig) { " org_config=$MailAttributionOrgConfig" } else { " org_config=(none)" }) `
+    + $(if ($MailAttributionSha256) { " pinned=yes" } else { " pinned=no" })
+} else { "mail_attribution=(none: narrow text rule still decides)" }
 if (-not $Register) {
-  Write-Output "graph sync task dry-run attested: plan_digest=$PlanDigest interval=PT30M projects=$Projects mutation=false"
+  Write-Output "graph sync task dry-run attested: plan_digest=$PlanDigest interval=PT30M projects=$Projects $AttributionLine mutation=false"
   return
 }
 if (-not $ExpectedDryRunDigest -or $ExpectedDryRunDigest -ne $PlanDigest) {

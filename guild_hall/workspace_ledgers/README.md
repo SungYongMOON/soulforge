@@ -1953,8 +1953,13 @@ node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --
 - 절대 나가지 않는 값: 제목·본문·주소·이름·거래처명·Owner의 `이유`/`근거` 자유 문구,
   그리고 그것들로 만든 라벨. 나가는 값은 전부 id·과제코드·이 파일이 선언한 닫힌 어휘다.
 
-귀속 강도의 경계는 새로 만든 것이 아니라 이 모듈이 이미 쓰는 것과 같다
-(`refresh()`의 `project_search_eligible_attributions`, 위 A2 item 5).
+귀속 강도의 경계는 새로 만든 것이 아니라 이 모듈이 이미 쓰는 것과 같다. 정확히는
+`refresh()` 영수증(`soulforge.workspace_ledgers_refresh_receipt.v1`)의 최상위 필드
+**`project_search_eligible_attributions`** 이며(계산은 `src/refresh.mjs`의
+`basis === STEP1_TITLE_BASIS || basis === '묶음 확정' || Owner확인 비어있지 않음`),
+2026-09-21 회차 영수증에서 이 필드 값이 **1,018**이었다. 이 색인의 `counts.confirmed`는
+같은 술어이며, `tests/mail_attribution_index.test.mjs`의 parity 시험이 합성 자료에서
+둘이 같은 값임을 고정한다. 위 A2 item 5도 같은 정의를 설명한다.
 
 | 강도 | 무엇 | 하류 표시 |
 | --- | --- | --- |
@@ -1966,18 +1971,37 @@ node <lane_root>/guild_hall/workspace_ledgers/ops/bot-skill/install_skill.mjs --
 하류에서 그 메일이 과제를 떠나게 만드는 신호다. 거래처 주소만으로는 절대 귀속되지
 않는다 — 4단계는 본문에 그 과제의 정확한 용어가 하나만 있을 때에만 성립한다.
 
-fail-closed: Owner 표가 깨졌거나, 어느 과제의 저장된 규칙이 컴파일되지 않거나, custody
-디렉터리를 읽지 못하면 한 바이트도 쓰지 않고 전체가 멈춘다. 부분 색인은 없는 것보다
-나쁘다 — 규칙이 깨진 과제는 자기 메일을 전부 잃고, 하류는 그것을 "이 메일들은 이제 우리
-것이 아니다"로 읽어 회수해 버린다.
+fail-closed 네 가지. 앞의 셋(Owner 표가 깨짐 · 어느 과제의 저장된 규칙이 컴파일되지 않음 ·
+custody 디렉터리를 읽지 못함)에 더해, **Owner 표를 아예 한 번도 읽지 않은 경우**도 멈춘다
+(R2, 2026-09-22 검토). org config에 `common_ledgers.owner_tables`가 없으면
+`resolveOwnerTablePaths`가 null을 주고 `loadOwnerTables`는 실패 없이 빈 표를 돌려주므로,
+예전에는 제목규칙만으로 분류한 색인이 끝값 0으로 조용히 만들어졌다 — 그 색인은 다음 회차에
+묶음·판독·본문으로 귀속된 메일을 **전부 회수**시킨다. 그래서 bundle·reading·vendor 셋 다
+실제로 읽혔을 때만 쓴다. 정말 그럴 의도라면 `--allow-missing-owner-tables`로 말해야 하고,
+그 사실은 색인의 `inputs.owner_tables_missing`에 남아 소비 쪽 영수증까지 따라간다.
+부분 색인은 없는 것보다 나쁘다 — 하류는 "줄이 없음"을 "이 메일은 이제 그 과제 것이 아니다"로
+읽기 때문이다.
+
+쓰기는 임시 파일 + rename이다(R1). 소비 쪽이 30분마다 이 파일을 여는데, 제자리에 쓰면
+겹친 회차에 잘린 파일을 건네게 된다 — 그쪽은 올바르게 거부하지만 그 거부가 전 과제의
+회차를 함께 내린다.
+
+`content_sha256`(S1)은 `built_at`을 뺀 본문 전체의 digest다. 파일 digest는 아무 판단이
+바뀌지 않아도 재빌드마다 달라지므로 "판단이 바뀌었는가"를 답할 수 없고, 이 값은 답할 수
+있다. 소비 쪽 `--mail-attribution-sha256`은 **파일 digest와 이 content digest 둘 다**
+받아들인다: 판단을 고정하려면 content, 정확히 그 파일 하나를 고정하려면 파일 digest.
 
 ```
 node guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs \
   --workspaces-root <dir> --org-config <file> \
   --hiworks-events <dir> --gmail-sent-events <dir> \
   --out <control_root>/mail-routes/mail_attribution_index.json \
-  [--org-config-sha256 sha256:...] [--dry] [--json]
+  [--bundle-table <file>] [--reading-table <file>] [--vendor-table <file>] \
+  [--allow-missing-owner-tables] [--org-config-sha256 sha256:...] [--dry] [--json]
 ```
+
+`--out`은 `--dry`에서도 똑같이 요구·검사하고(N1) 쓰기만 건너뛴다 — 잘못된 `--out`은
+preflight가 드러내야 할 사용 오류이지 dry가 눈감아 줄 것이 아니다.
 
 읽는 쪽은 맥락 엔진의 `guild_hall/context_engine/harness/mail_routes.mjs`이며,
 `estate_graph_sync.mjs --mail-attribution <주소>`가 그 주소를 받는다(lane

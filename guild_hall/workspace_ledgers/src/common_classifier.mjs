@@ -20,6 +20,27 @@ import { systemSenderPatternsFromConfig } from './mail_events.mjs';
 // non-author review, 2026-09-21) without the two modules' text drifting apart.
 export const THREAD_VENDOR_INHERITANCE_MARKER = '(같은 대화의 거래처)';
 
+/**
+ * `basis` with that suffix taken off, so a caller comparing against a basis VALUE
+ * (`제목`, `묶음 확정`, ...) compares the classification itself rather than whether
+ * this mail happened to inherit its vendor from a thread-mate.
+ *
+ * N3 (fresh review, 2026-09-22): `common_refresh.mjs`'s own
+ * `common_search_eligible_attributions` compared `basis` literally and therefore
+ * MISSED an approved subject-rule or bundle-table hit on any mail whose vendors were
+ * inherited -- the marker made `'제목'` read as `'제목(같은 대화의 거래처)'`. Vendor
+ * inheritance says nothing about how the project was decided, so it must not change
+ * whether that decision counts as evidence. Exported rather than inlined because two
+ * readers now need it, and a second copy is the drift this file already exists to
+ * prevent.
+ */
+export function baseBasisOf(basis) {
+  const text = String(basis ?? '');
+  return text.endsWith(THREAD_VENDOR_INHERITANCE_MARKER)
+    ? text.slice(0, -THREAD_VENDOR_INHERITANCE_MARKER.length)
+    : text;
+}
+
 export const PRIMARY_BUCKETS = Object.freeze([
   'project', 'held', 'system', 'ads', 'internal_admin', 'external_notice', 'out_of_project',
   'code_pending', 'no_code_confirmed', 'general_work', 'vendor_only', 'organisation_undecided', 'unclassified',

@@ -159,8 +159,9 @@ export { loadMailEvents, parseAddressField } from './mail_events.mjs';
 // existing call site still compiles and runs -- but see `refresh()`'s and
 // `previewRule()`'s own notes above on `fields` (K1): it is now a hard constraint, not
 // merely a changed default, for a caller that reaches either function.
-export { buildCommonConfig, buildSystemSenderConfig, classifyByOwnerTables, classifyProjectHits, detectSystemSender, detectSystemSource,
-  PRIMARY_BUCKETS, resolvePrimaryBucket, STEP1_TITLE_BASIS, workTagsOf } from './common_classifier.mjs';
+export { baseBasisOf, buildCommonConfig, buildSystemSenderConfig, classifyByOwnerTables, classifyProjectHits, detectSystemSender,
+  detectSystemSource, PRIMARY_BUCKETS, resolvePrimaryBucket, STEP1_TITLE_BASIS, THREAD_VENDOR_INHERITANCE_MARKER,
+  workTagsOf } from './common_classifier.mjs';
 export {
   categoryOf, headersFor as commonLedgerHeadersFor, vendorFileName, whereLabelFor, workTagFileName,
 } from './common_ledgers.mjs';

@@ -831,6 +831,23 @@ root/path·data class와 매번 새로 검사하는 권한 판정을 제공해�
 - 읽지 못하면 멈춘다. `main()`이 색인을 **회차 시작 전에 한 번** 읽고, 없거나 깨졌거나
   digest가 다르면 어느 과제도 시작하지 않는다. 좁은 규칙으로 되돌아가는 조용한 fallback은
   없다 — 그랬다면 원장이 붙인 메일이 전부, 아무도 내리지 않은 결정으로 색인을 떠난다.
+- **낡은 색인도 거부한다**(R3, 2026-09-22 검토). 깨끗하게 parse 되는 파일이 최신 판단이라는
+  뜻은 아니다. 빌더가 아직 어떤 자동화 사슬에도 없으므로, 나이 상한이 없으면 어느 아침의
+  판단을 무한히 다시 적용하면서 그 뒤 수집된 메일은 전부 미귀속으로 읽히고 영수증은
+  `SYNCED`라고 적는다. `--mail-attribution-max-age <시간>`(기본 36 = 하루치 빌드 + 한 번
+  놓친 분)을 넘으면 `mail_attribution_index_stale`로 닫는다. 시계 오차를 넘어 미래로 찍힌
+  파일은 영원히 만료되지 않으므로 `..._built_in_future`로 따로 거부한다.
+- `--mail-attribution-org-config <주소>`를 주면 매 회차 그 org config를 다시 해시해
+  색인의 `inputs.org_config_sha256`과 대조한다. **Owner가 라우팅 설정을 바꾸고 색인을 다시
+  만들지 않은 경우**가 이 검사가 잡는 것이다(`..._org_config_changed`). 등록기에서 함께
+  주는 것을 권장한다.
+- 고정(`--mail-attribution-sha256`)은 파일 digest와 색인의 `content_sha256`(= `built_at`을
+  뺀 본문 digest) 둘 다 받는다. 색인은 메일이 들어올 때마다 다시 만들어지므로 **등록 시점의
+  파일 digest를 기본으로 박으면 다음 빌드부터 매일 fail-closed가 된다** — 그래서 등록기는
+  이 값을 기본으로 넣지 않는다. 신선도는 max-age가, 정합성은 org-config 대조가 맡고, 고정은
+  특정 색인 하나를 얼려 둘 때(조사·재현)만 쓴다.
+- 색인이 Owner 표를 하나라도 읽지 못한 채 만들어졌으면 그 사실(`owner_tables_missing`)이
+  회차 영수증의 `scope.mail_attribution`까지 따라온다.
 - 귀속 강도는 그대로 실려 온다. `confirmed`(제목규칙·묶음표·Owner확인된 판독)와
   `unconfirmed`(Owner확인 없는 판독, `include_with_review`, 공급사 본문 tie-break) 둘 다
   grant에 들어가되, 하류가 구분해 보여줄 수 있도록 강도가 따라간다.
@@ -855,7 +872,10 @@ graph-sync 영수증으로만 흐른다. 고정된 스키마에 필드를 더하
 ```
 node guild_hall/context_engine/harness/estate_graph_sync.mjs \
   --root-table <file> --projects P26-014,... --receipts <dir> \
-  --mail-attribution [<alias address>] [--mail-attribution-sha256 sha256:...] [--dry]
+  --mail-attribution [<alias address>] \
+  [--mail-attribution-max-age <시간, 기본 36>] \
+  [--mail-attribution-org-config <alias address>] \
+  [--mail-attribution-sha256 sha256:...] [--dry]
 ```
 
 색인을 만드는 쪽은 `guild_hall/workspace_ledgers/ops/mail_attribution_index.mjs`다.

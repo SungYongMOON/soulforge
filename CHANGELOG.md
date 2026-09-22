@@ -1,5 +1,64 @@
 # CHANGELOG
 
+## 2026-09-22 - 메일 귀속 색인 외부 검토 반영: 찢어진 쓰기·표 없이 통과·낡은 색인 세 구멍 막기
+
+- Revision: 바로 아래 변경(`d7453fff`)에 대한 비작성자 검토에서 REQUIRED 3건 + SHOULD 3건 +
+  nit 3건. 셋 다 "조용히 잘못된 답을 내고 끝값 0으로 끝나는" 모양이라 같은 조각에서 닫았다.
+- **R1 (찢어진 쓰기)**: `ops/mail_attribution_index.mjs`가 색인을 제자리에 `writeFileSync`
+  하고 있었다. 소비 쪽은 30분마다 이 파일을 여는데, 빌드가 회차와 겹치면 잘린 파일을 건네게
+  된다 — 그쪽은 올바르게 거부하지만 그 거부가 전 과제의 회차를 함께 내린다. 임시 파일
+  `.writing-<pid>-<ts>` + `renameSync`로 바꿨다(`common_refresh.mjs`의 영수증 writer와 같은
+  모양). 시험은 두 번 빌드 뒤 디렉터리에 `.writing-` 잔재가 없고 판단이 동일함을 확인한다.
+- **R2 (표 없이 통과)**: org config에 `common_ledgers.owner_tables`가 없으면
+  `resolveOwnerTablePaths`가 null → `loadOwnerTables`가 실패 없이 빈 표 → 빌더가 제목규칙만으로
+  분류한 색인을 끝값 0으로 써 버렸다(합성 probe: 11통 중 1통만 귀속). 그 색인은 다음 회차에
+  묶음·판독·본문으로 귀속된 메일을 전부 회수시킨다. 이제 bundle·reading·vendor **셋 다 실제로
+  읽혔을 때만** 쓰고, 아니면 `workspace_ledgers_attribution_owner_tables_missing`으로 한 바이트도
+  쓰지 않고 멈춘다. 의도적으로 넘기려면 `--allow-missing-owner-tables`를 명시해야 하며 그 사실은
+  `inputs.owner_tables_missing`으로 소비 쪽 영수증까지 따라간다. `buildMailAttributionIndex`가
+  이미 받던 세 경로를 CLI에도 열었다(`--bundle-table/--reading-table/--vendor-table`). 이 구멍을
+  그대로 통과하던 기존 CLI 시험 fixture(org config에 표를 선언하지 않던 것)도 실제 운영과 같은
+  모양으로 고쳤다.
+- **R3 (낡은 색인)**: 깨끗하게 parse 되는 파일이 최신 판단이라는 뜻은 아니었다(probe: `built_at`
+  2019년, `inputs.org_config_sha256` 불일치인 색인이 그대로 수락됨). 빌더가 아직 자동화 사슬에
+  없으므로 그대로 두면 어느 아침의 판단을 무한히 재적용하면서 그 뒤 수집된 메일은 전부 미귀속으로
+  읽히고 영수증은 `SYNCED`라고 적는다. 소비 쪽에 `--mail-attribution-max-age <시간>`(기본 36 =
+  하루치 빌드 + 한 번 놓친 분)을 더해 넘으면 `mail_attribution_index_stale`로 닫고, 시계 오차를
+  넘어 미래로 찍힌 파일은 영원히 만료되지 않으므로 `..._built_in_future`로 따로 거부한다.
+  `--mail-attribution-org-config <주소>`를 주면 매 회차 그 org config를 다시 해시해 색인의
+  `inputs.org_config_sha256`과 대조한다(`..._org_config_changed`) — Owner가 라우팅 설정을 바꾸고
+  색인을 다시 만들지 않은 경우가 이것으로 잡힌다. 등록기는 두 인자를 모두 실어 보낸다.
+  **검토 지시와 다르게 한 곳**: `--mail-attribution-sha256`을 등록기 기본값으로 박지 않았다.
+  색인은 메일이 들어올 때마다 다시 만들어지므로 등록 시점의 digest를 고정하면 다음 빌드부터 매일
+  fail-closed가 된다(자기 DoS). 신선도는 max-age가, 정합성은 org-config 대조가 맡고, 인자는
+  특정 색인을 얼려 둘 때(조사·재현)를 위한 선택 pass-through로 두고 그 이유를 등록기 주석과
+  README에 적었다.
+- **S1**: 같은 입력이 `built_at` 때문에 매번 다른 바이트가 되던 문제 — `built_at`을 뺀 본문
+  digest `content_sha256`을 싣는다. `--mail-attribution-sha256`은 **파일 digest와 content digest
+  둘 다** 받아들인다(판단을 고정하려면 content, 정확히 그 파일 하나를 고정하려면 파일 digest).
+  소비 쪽은 실린 `content_sha256`이 실제 본문의 것인지도 다시 계산해 확인한다.
+- **S2**: 등록기의 `$Plan`과 dry-run 증명 줄에 `mail_attribution`/max-age/org-config/pinned 여부를
+  실어, Owner가 귀속이 실제로 적용되는지를 action digest에서 추론하지 않아도 되게 했다.
+- **S3**: 이 변경이 없애려는 드리프트 자체를 고정하는 parity 시험 1건 — 같은 합성 fixture 위에서
+  `refresh({dry:false})`가 실제로 쓴 과제별 `메일_수신이력.csv`/`메일_발송이력.csv`의 메일소스ID
+  집합과 `buildMailAttributionIndex`의 과제별 집합이 **같은지**, 그리고 색인의 `counts.confirmed`가
+  영수증의 `project_search_eligible_attributions`와 **같은 값인지**를 확인한다.
+- **N1** `--out`은 `--dry`에서도 똑같이 요구·검사하고 쓰기만 건너뛴다. **N2**
+  `--org-config-sha256` 불일치를 이 모듈의 오류형·코드
+  (`workspace_ledgers_attribution_org_config_digest_mismatch`)로 감쌌다. **N3(기존 결함)**
+  `src/common_refresh.mjs`의 `common_search_eligible_attributions`가 `basis`를 문자 그대로 비교해,
+  같은 대화에서 거래처를 상속받은 메일의 제목규칙·묶음표 적중을 놓치고 있었다(상속 표식이
+  `'제목'`을 `'제목(같은 대화의 거래처)'`로 만든다). 표식을 떼는 `baseBasisOf`를 표식 상수가 있는
+  `src/common_classifier.mjs`로 옮겨 export하고 양쪽이 같은 것을 쓰게 했다(`src/index.mjs`에도
+  공개). 메일의 거래처가 어디서 왔는지는 그 메일의 과제를 무엇이 정했는지와 무관하므로 근거
+  여부를 바꿔서는 안 된다.
+- 검증: 8종 모두 끝값 0(아래 본 변경 항목과 같은 목록). 새 시험 10건 추가(총 26건), 전부
+  `os.tmpdir()` 아래 합성 자료.
+- 관련 경로: `guild_hall/workspace_ledgers/{ops/mail_attribution_index.mjs,src/common_classifier.mjs,src/common_refresh.mjs,src/index.mjs,README.md}`,
+  `guild_hall/workspace_ledgers/tests/mail_attribution_index.test.mjs`,
+  `guild_hall/context_engine/{harness/mail_routes.mjs,harness/estate_graph_sync.mjs,harness/estate_inventory.mjs,ops/register-graph-sync-task.ps1,README.md}`,
+  `guild_hall/context_engine/tests/mail_attribution_routes.test.mjs`
+
 ## 2026-09-22 - 메일의 과제를 원장이 정한다: 귀속 색인 한 벌과 그래프 색인 lane의 결정점 교체(lane graph-sync-v3)
 
 - Revision: 같은 질문("이 메일은 어느 과제 것인가")에 규칙이 둘이었다. `guild_hall/workspace_ledgers`는

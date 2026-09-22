@@ -281,7 +281,12 @@ export function grantCandidates({ io, code, roots, dataClass = 'company_internal
       .reduce((total, source) => total + source.items.length, 0);
     Object.defineProperty(ordered, 'mail', { enumerable: false,
       value: Object.freeze({ decided_by: 'workspace_ledgers_attribution_index',
-        built_at: mailAttribution.built_at, index_sha256: mailAttribution.index_sha256,
+        built_at: mailAttribution.built_at, age_hours: mailAttribution.age_hours ?? null,
+        index_sha256: mailAttribution.index_sha256, content_sha256: mailAttribution.content_sha256 ?? null,
+        // Normally empty. Non-empty means the index was built with an Owner table
+        // that was never read, so every decision that table would have made is
+        // absent from it -- a receipt has to carry that, not only the build.
+        owner_tables_missing: [...(mailAttribution.owner_tables_missing ?? [])],
         ...mailAttributionCounts(mailAttribution, code), in_custody: held }) });
   }
   // Which confirmations were read, which the pass could not read, and which

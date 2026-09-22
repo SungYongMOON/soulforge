@@ -18,8 +18,9 @@ import { domainOf, makeOrgLookup, normalizeSubject } from './ledgers.mjs';
 import { loadRawMailRecords } from './common_events.mjs';
 import { loadOwnerTables, ownerTableUsageEntry, resolveOwnerTablePaths } from './owner_tables.mjs';
 import {
-  addressesOfMail, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, OrgConfigValueError, participantEmailsOf,
-  PRIMARY_BUCKETS, resolvePrimaryBucket, STEP1_TITLE_BASIS, THREAD_VENDOR_INHERITANCE_MARKER, workTagsOf,
+  addressesOfMail, baseBasisOf, buildCommonConfig, classifyProjectHits, OrgConfigPatternError, OrgConfigValueError,
+  participantEmailsOf, PRIMARY_BUCKETS, resolvePrimaryBucket, STEP1_TITLE_BASIS, THREAD_VENDOR_INHERITANCE_MARKER,
+  workTagsOf,
 } from './common_classifier.mjs';
 import {
   buildCommonRow, categoryOf, fileNameHash, HELD_FILE_NAME, headersFor, isViewFile, memoIndexFor, resolveSafePath,
@@ -294,7 +295,14 @@ export function classifyAllCommonMail({ workspacesRoot, hiworksDirs, gmailSentDi
     // -- this increments at most once per MAIL (this loop iterates records, not hits),
     // regardless of how many projects a table hit named.
     const ownerConfirmedReading = projectResult.reading && String(projectResult.reading.ownerConfirmed ?? '').trim() !== '';
-    if ((outcome.bucket === 'project' && projectResult.basis === STEP1_TITLE_BASIS) || projectResult.basis === '묶음 확정' || ownerConfirmedReading) {
+    // N3 (fresh review, 2026-09-22): compared against the basis with the
+    // thread-vendor-inheritance marker stripped. `basis` may carry that suffix (it is
+    // appended above, S4), and comparing the raw string silently missed an approved
+    // subject-rule or bundle-table hit on every mail whose vendors were inherited
+    // from a thread-mate. Where a mail's vendors came from says nothing about how its
+    // project was decided, so it must not change whether that decision is evidence.
+    const basis = baseBasisOf(projectResult.basis);
+    if ((outcome.bucket === 'project' && basis === STEP1_TITLE_BASIS) || basis === '묶음 확정' || ownerConfirmedReading) {
       commonSearchEligibleAttributions += 1;
     }
     // S3: a mail with an EXPLICIT vendor_only reading decision but no matched
