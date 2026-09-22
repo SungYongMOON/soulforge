@@ -123,3 +123,4 @@ semantic_fact_verified=false를 유지한다. 과제·hash·CAS·전송/자원 �
 human_correction_unit_ids는 현재 승인된 unit ID 목록만 받는다. 실제 정정 파일은 연결 담당이 승인 단위로 제공한다.
 문서·원천 시각·판본을 모델에 그대로 제공한다. 규칙을 모델이 잘 수행하는지는 실제 평가 대상이며 기계 검증이라고 주장하지 않는다.
 snapshot v2는 규칙 hash·재료 목록을 더한다. v1은 이전 판 이력으로 읽을 수 있으나 현재 정책에 맞는 새 v2 생성 전 current로 쓰지 않는다.
+같은 snapshot v2 안의 규칙·표시 판은 wiki_rules_sha256으로 식별한다. 규칙 hash가 바뀌면 view_digest도 바뀌어 이전 판을 current로 반환하지 않는다.
