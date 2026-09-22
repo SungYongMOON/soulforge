@@ -37,7 +37,7 @@ source 부족·짧은 인용·부정/수치 변경은 원문과 함께 그대로
 source 단위가 없는 입력·문장이 없는 모델 응답은 HOLD이며 기존 페이지를 덮지 않는다.
 과제 전체 1페이지+원천 entity별 페이지, 색인, append 기록, possible_conflict/gap/exception을 생성한다.
 위 칸은 현재 정리본, 아래 칸은 추가 전용 기록이며 매번 불변 새 판이다. 실패 문장은 현재 페이지에서 제외한다.
-모순은 모델의 subject/key/value lint 후보끼리 감지하는 **가능성** 표시이며 의미적 모순 판정은 아니다.
+모순·빈틈·예외는 모델의 review 출력이다. K3가 subject/key/value 비교나 영향도 휴리스틱으로 추론하지 않는다.
 K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
 
 `readCurrent`도 같은 입력 계약을 요구한다. caller의 현재 source digest 또는 보존된 철회 집합이 다르면
@@ -61,7 +61,8 @@ K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
   모두 필수다. generate는 세션의 호출수를 실제로 세며 실패 시도도 소비한다. createSession으로 새 작업의
   한도 세션을 시작하며 K3는 새 세대당 새 세션에서 최대1회 호출하고 시간/입출력 상한을 다시 적용한다. id는 caller 표식이며
   실제 weight digest를 검증한 증거가 아니다. 공급 함수는 신뢰된 in-process adapter다.
-- `createHttpGenerator`: 이번 버전은 loopback endpoint와 exact origin allowlist의 OpenAI-compatible wire. redirect 거부,
+- `createHttpGenerator`: 기본은 loopback. 역할 설정에서 명시한 project/role/data_class/egress policy가 있고
+  exact origin allowlist도 맞을 때만 외부 호스트를 허용한다. redirect 거부,
   AbortSignal·응답 상한·JSON/K2 검사. 별도 환경/자격증명 자동 탐색 없음. 실제 호출은 기본 꺼짐이다.
 - 임베더는 K5 단계 대상이며 K0~K3에서는 호출하지 않는다. 사람이 넣는 파일은 연결 담당이 K1 단위로 전달한다.
 
@@ -91,3 +92,28 @@ opt-in 없이는 SKIP이며 실제 DB 실행으로 보고하지 않는다. secre
 
 공개 참고: [Neo4j Query API](https://neo4j.com/docs/query-api/current/query/)의 원자적 query/parameters/errors 계약.
 GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 참고했다. 옮긴 외부 코드 없음.
+
+## 역할별 모델 설정과 위키 운영 규칙 (Owner 추가 방향 9~12)
+
+현재 모델을 선택하지 않는다. secret 없는 단일 표 `soulforge.knowledge_layer.model_roles.v1`을
+`resolveModelRole/createRoleGenerator`에 주입한다. 예시는 `docs/architecture/workspace/examples/knowledge_layer/model_roles.json`.
+roles는 wiki_draft/night_organize/memory_extract/entity_candidates/embedding/bot_answer → model ID,
+models는 call_style/model/endpoint/allowed_origins/budget/allow_company_host_egress,
+projects는 과제별 roles·company_host_egress의 역할별 override다. 표의 enabled와 전송 허용은 기본 false다.
+회사 자료는 data_class 기본 company이며, 다른 과제·다른 역할의 전송 예외를 상속하지 않는다.
+모델 행의 공통 허용 표식만으로 권한을 주지 않는다. projects의 해당 과제/역할에 true가 명시되어야 한다.
+이번 작업은 밀린 음성 카드 1회의 예외를 사용하지 않았고 실제 외부 모델 호출도 하지 않았다.
+
+call_style은 신뢰된 코드 registry의 adapter factory로 해결하며 설정 경로를 dynamic import하지 않는다.
+chat_completions 기본 adapter 외 다른 호출 방식은 factory를 등록한다. 이미 등록한 호출 방식의 모델은
+표만 바꾸면 교체되고 binding digest가 바뀌어 재생성한다. 미등록 프로토콜은 거부한다.
+나머지 역할은 설정 해석만 제공하며 K4 이후의 업무를 실행하지 않는다.
+
+K0~K2 구현은 그대로다. K3는 K2의 엄격한 재서술/영향도 판정으로 페이지를 막지 않는다.
+기계 콘텐츠 검사는 **quote의 글자 대조 + 페이지별 재료 목록·작업 기록**이다. 재서술은 모델 책임이며
+semantic_fact_verified=false를 유지한다. 과제·hash·CAS·전송/자원 상한은 콘텐츠 판단이 아닌 기본 안전 계약이다.
+`WIKI_SCHEMA.md` 한 장을 모델 system 규칙으로 전달해 문서 우선, 모순 처리, 사람 정정 보존,
+늦게 온 문서 반영과 예외 판단을 맡긴다. 문서 hash는 생성 판본에 남기고 closure에 포함해 재생성한다.
+human_correction_unit_ids는 현재 승인된 unit ID 목록만 받는다. 실제 정정 파일은 연결 담당이 승인 단위로 제공한다.
+문서·원천 시각·판본을 모델에 그대로 제공한다. 규칙을 모델이 잘 수행하는지는 실제 평가 대상이며 기계 검증이라고 주장하지 않는다.
+snapshot v2는 규칙 hash·재료 목록을 더한다. v1은 이전 판 이력으로 읽을 수 있으나 현재 정책에 맞는 새 v2 생성 전 current로 쓰지 않는다.

@@ -68,14 +68,18 @@ test('empty input and empty model output cannot overwrite existing pages', async
   assert.equal((await f.layer.readCurrent(input)).status, 'HOLD');
 });
 test('invalid sentences omitted; gaps and weak high-impact exceptions retained', async () => {
-  const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates[0].text = '계약 금액은 900 USD로 확정한다.'; return out; } });
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates[0].text = '계약 금액은 900 USD로 확정한다.';
+    out.candidates[0].quote = out.candidates[0].text;
+    out.review.gaps = [{ unit_ids: [out.candidates[0].unit_id], note: '모델이 근거 부족으로 보고함' }];
+    out.review.exceptions = [{ statement_id: out.candidates[0].statement_id, impact_kinds: ['amount'], reason: '모델이 금액 근거 부족을 보고함' }]; return out; } });
   const result = await f.layer.generate(wikiInput()); const c = result.record.content;
   assert.equal(c.excluded.length, 1); assert.equal(c.gaps.length, 1); assert.equal(c.exceptions.length, 1);
   assert.doesNotMatch(c.pages[0].markdown, /900 USD/); assert.equal(c.exceptions[0].exception_required, true);
 });
-test('contradictory model-proposed claims create a possible-conflict lint, never a winner', async () => {
+test('model-reported contradictions are retained without a mechanical winner', async () => {
   const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates[0].claim = { subject: '가상대상', key: '상태', value: 'A' };
-    out.candidates[1].claim = { subject: '가상대상', key: '상태', value: 'B' }; return out; } });
+    out.candidates[1].claim = { subject: '가상대상', key: '상태', value: 'B' };
+    out.review.conflicts = [{ left: out.candidates[0].statement_id, right: out.candidates[1].statement_id, note: '모델의 모순 후보' }]; return out; } });
   const c = (await f.layer.generate(wikiInput())).record.content;
   assert.equal(c.conflicts.length, 1); assert.equal(c.conflicts[0].meaning_verified, false); assert.equal(c.statements.length, 3);
 });

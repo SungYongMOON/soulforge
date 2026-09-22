@@ -1,8 +1,9 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-engine-v0-22-8",
+  "lane_id": "context-engine-v0-22-9",
   "description": "Standalone synthetic Context Engine installed update and query. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer.",
   "tracked_paths": [
+    "guild_hall/context_engine/WIKI_SCHEMA.md",
     "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",
     "guild_hall/context_engine/algorithms/memory/ranked_decision_v1.mjs",
     "guild_hall/context_engine/algorithms/preparation/pinned_docx_v1.mjs",
@@ -37,8 +38,11 @@
     "guild_hall/context_engine/src/knowledge_layer/graph.mjs",
     "guild_hall/context_engine/src/knowledge_layer/index.mjs",
     "guild_hall/context_engine/src/knowledge_layer/model.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs",
     "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
     "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/wiki_rules.mjs",
     "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",
     "guild_hall/context_engine/src/runtime/accepted_context_reader.mjs",
     "guild_hall/context_engine/src/runtime/context_planner.mjs",

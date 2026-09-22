@@ -1,0 +1,30 @@
+{
+  "schema": "soulforge.knowledge_layer.model_roles.v1",
+  "enabled": false,
+  "roles": {
+    "wiki_draft": "placeholder",
+    "night_organize": null,
+    "memory_extract": null,
+    "entity_candidates": null,
+    "embedding": null,
+    "bot_answer": null
+  },
+  "models": {
+    "placeholder": {
+      "call_style": "chat_completions",
+      "model": "MODEL_PLACEHOLDER",
+      "endpoint": "http://127.0.0.1:9000/v1/chat/completions",
+      "allowed_origins": [
+        "http://127.0.0.1:9000"
+      ],
+      "budget": {
+        "max_calls": 1,
+        "max_input_characters": 12000,
+        "max_output_characters": 12000,
+        "timeout_ms": 30000
+      },
+      "allow_company_host_egress": false
+    }
+  },
+  "projects": {}
+}

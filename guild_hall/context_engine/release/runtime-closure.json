@@ -5,9 +5,14 @@
   "explicit_computed_assets": [
     "guild_hall/rag/project_document_extract.py",
     "guild_hall/context_engine/src/workers/graphrag_worker.py",
-    "guild_hall/context_engine/src/workers/document_docx_extract.py"
+    "guild_hall/context_engine/src/workers/document_docx_extract.py",
+    "guild_hall/context_engine/WIKI_SCHEMA.md"
   ],
   "files": [
+    {
+      "path": "guild_hall/context_engine/WIKI_SCHEMA.md",
+      "sha256": "892aaf5256c4873b776e532ba81db9bf1180d5e8bacfdedbfc17578a2873512d"
+    },
     {
       "path": "guild_hall/context_engine/algorithms/assembly/bounded_pack_v1.mjs",
       "sha256": "d834c18610092f656966dd69334130e2b5905a4502fba2b2f8dcf71b14d6bef3"
@@ -106,7 +111,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
-      "sha256": "b704a6425af81531e4ecedda80c9f098fff0a83712d59454eccce3ecd6463a24"
+      "sha256": "30e3161fb00ffe0df371be6600077f04a3bac4592f11ce6112c1a59249766dc4"
     },
     {
       "path": "guild_hall/context_engine/src/guards/accepted_context_query.mjs",
@@ -134,15 +139,19 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/graph.mjs",
-      "sha256": "3571b450f6d689c7268b51b3cbf604d7094d8321785d5a37dab4d415ce324508"
+      "sha256": "59f225c38a134e35a04f87776ae007a6c669e1d936e334aa49dc005d69d34c4c"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
-      "sha256": "2ed4bce98922323dbea043a573e2dfdfc732b19351b8bfc9d6d35664f6f9b8be"
+      "sha256": "b42c67c8846da3169db31c072017730e3c1d2d8ecfc9dbcf82496082aabaf5cb"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/model.mjs",
-      "sha256": "587fed0458bc695eed89d31a48f36d2773924fe36a277bbd9ac61336d312ed02"
+      "sha256": "7be3bb6b38bcefac3bfbcfdcf8b5986c3d000b9d89881e7293433aedf8804f4b"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs",
+      "sha256": "480b14753fb35d64d914ed787a6e837a04320b90956e2c3c3f2a634409436298"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
@@ -150,7 +159,15 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
-      "sha256": "40db53cda8ba6df867732b8a999ce8b5daf4b8becf60a2119b8395071d5b79d6"
+      "sha256": "358c0142f023d1b810fff0d87ad657e73f69316585dc0af60ec195093f129a1d"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
+      "sha256": "51d6839bc9b2c85856256e47117977a3e759d31101e139ad56a19afc404774f9"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/wiki_rules.mjs",
+      "sha256": "4becb1a5ee26de28a3194cc8fa292fdbb44c4aaf5156af6ea907207ed0b8c1ff"
     },
     {
       "path": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",
@@ -357,7 +374,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "21510e7987d41553d9876c94528cda14f97ee4384b41f6cf1e84f31c7f7e9abc",
+  "closure_sha256": "fe416798639c85becfec7d48a72a678cacffccd5227deb08bcf92e854e26a22a",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -748,6 +765,10 @@
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs"
     },
     {
@@ -759,16 +780,20 @@
       "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/model.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs",
       "to": "guild_hall/engineering_engine/kernel/identity.mjs"
-    },
-    {
-      "from": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
-      "to": "guild_hall/context_engine/src/knowledge_layer/candidate_check.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
@@ -785,6 +810,26 @@
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/span_link.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/wiki.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/wiki_rules.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
+      "to": "guild_hall/context_engine/src/guards/citation_verifier.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/wiki_rules.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/runtime/accepted_context_pack.mjs",

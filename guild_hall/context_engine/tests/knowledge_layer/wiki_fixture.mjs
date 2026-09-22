@@ -4,7 +4,7 @@ export const BUDGET = { max_calls: 1, max_input_characters: 12000, max_output_ch
 export const extractiveFake = input => ({ candidates: input.units.map(u => {
   const quote = u.text.split('\n').slice(1).join(' ') || u.text;
   return { statement_id: 'statement:' + u.unit_id, unit_id: u.unit_id, text: quote, quote, impact_kinds: [], claim: null };
-}) });
+}), review: { conflicts: [], gaps: [], exceptions: [] } });
 export const wikiInput = (project = 'SYN-A') => ({ request: syntheticRequest(project), withdrawals: [], expected_previous: null });
 export function wikiFixture({ graph = createMemoryGraph(), archive = createMemoryArchive(), generate = extractiveFake,
   budget = BUDGET, enabled = true } = {}) {

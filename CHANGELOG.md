@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-22 - K3 역할별 모델 표와 위키 운영 규칙
+
+- Revision: 이 항목을 포함한 커밋. 모델을 고정하지 않고 역할/과제 설정과 호출 adapter로 선택한다.
+- 회사 자료의 호스트 외 전송 기본 금지와 역할별 override, disabled 기본값을 유지한다.
+- K0~K2는 그대로 두고 K3 콘텐츠 검사는 인용·재료/기록으로 줄인다. 의미 판단은 WIKI_SCHEMA.md 한 장에 둔다.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer/model_roles.mjs`, `WIKI_SCHEMA.md`, 모듈 0.22.9와 생성 closure.
+
 ## 2026-09-22 - 자동 정리본 K3 위키 초안 저장
 
 - Revision: 이 항목을 포함한 커밋. 승인 단위로 원천/과제별 두 칸 위키·색인·기록·lint를 만든다.

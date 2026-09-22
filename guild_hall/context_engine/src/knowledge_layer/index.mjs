@@ -5,3 +5,4 @@ export { createWikiKnowledgeLayer, withdrawalFingerprint } from './wiki.mjs';
 export { createBoundedGenerator, createHttpGenerator } from './model.mjs';
 export { createMemoryArchive, createFileArchive } from './archive.mjs';
 export { createMemoryGraph, createNeo4jGraph, NODE_KINDS, EDGE_KINDS } from './graph.mjs';
+export { resolveModelRole, createRoleGenerator, MODEL_ROLES } from './model_roles.mjs';

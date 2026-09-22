@@ -15,7 +15,8 @@ function automaticOnly(value) {
 }
 export function validateGraphRecord(record, project) {
   const r = snapshot(record); if (!keys(r, ['generation_id', 'content']) || !sha(r.generation_id) || digest(r.content) !== r.generation_id
-    || !keys(r.content, CONTENT_FIELDS) || r.content.schema !== 'soulforge.knowledge_layer.wiki_snapshot.v1'
+    || !(r.content.schema === 'soulforge.knowledge_layer.wiki_snapshot.v1' ? keys(r.content, CONTENT_FIELDS)
+      : r.content.schema === 'soulforge.knowledge_layer.wiki_snapshot.v2' && keys(r.content, [...CONTENT_FIELDS, 'material_inventory', 'wiki_rules_sha256']))
     || r.content.project_ref !== project || !token(project) || !Array.isArray(r.content.nodes) || r.content.nodes.length > 2000
     || !Array.isArray(r.content.edges) || r.content.edges.length > 5000 || r.content.claim_ceiling !== 'observed') fail('graph_record_invalid');
   if (r.content.input_snapshot?.grant?.project_ref !== project || !Array.isArray(r.content.input_snapshot?.units)
