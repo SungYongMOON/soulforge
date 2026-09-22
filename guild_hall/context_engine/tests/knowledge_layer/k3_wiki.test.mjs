@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createMemoryGraph, createMemoryArchive, createWikiKnowledgeLayer, withdrawalFingerprint } from '../../src/knowledge_layer/index.mjs';
 import { hashText } from '../../src/knowledge_layer/data.mjs';
+import { checkKnowledgeCandidates } from '../../src/knowledge_layer/candidate_check.mjs';
+import { linkApprovedUnits } from '../../src/knowledge_layer/span_link.mjs';
+import { checkWikiOutput } from '../../src/knowledge_layer/wiki_check.mjs';
 import { evaluateKnowledgeAnswers, fixtureAnswers, readCorpus } from '../../harness/knowledge_layer_eval.mjs';
 import { BUDGET, extractiveFake, wikiFixture, wikiInput } from './wiki_fixture.mjs';
 function revise(input, unitId, text) {
@@ -21,9 +24,67 @@ test('K3 emits project/source two-section pages, index, append log and closed ev
   assert.deepEqual(await f.archive.get(result.record.generation_id), c);
 });
 test('same request is a no-op, no extra model calls or rewritten history', async () => {
-  const f = wikiFixture(), input = wikiInput(), one = await f.layer.generate(input), two = await f.layer.generate(input);
+  const f = wikiFixture(), input = wikiInput(), one = await f.layer.generate(input);
+  input.expected_previous = one.record.generation_id; const two = await f.layer.generate(input);
   assert.equal(f.calls(), 1); assert.equal(two.unchanged, true); assert.equal(two.record.generation_id, one.record.generation_id);
   assert.equal(two.record.content.work_log.length, 1);
+});
+test('unchanged request still checks expected_previous before archive effects', async () => {
+  const f = wikiFixture(), input = wikiInput(), first = await f.layer.generate(input);
+  await assert.rejects(() => f.layer.generate(input), /wiki_prior_mismatch/);
+  input.expected_previous = 'sha256:' + 'f'.repeat(64);
+  await assert.rejects(() => f.layer.generate(input), /wiki_prior_mismatch/);
+  assert.equal(f.calls(), 1); assert.deepEqual(await f.graph.read('SYN-A'), first.record);
+  assert.deepEqual(await f.archive.getWithdrawals('SYN-A'), []);
+});
+test('reviewer sentence has an exception floor when model omits exceptions, visible on its pages', async () => {
+  const sentence = '대금 5,000,000원 지급을 2026-10-31 마감으로 고객과 계약 확정하기로 결정했다';
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input); out.candidates.find(s => s.unit_id === 'a-mail').text = sentence; return out; } });
+  const c = (await f.layer.generate(wikiInput())).record.content, ex = c.exceptions[0];
+  assert.equal(c.exceptions.length, 1); assert.equal(ex.exception_required, true); assert.equal(ex.evidence_strength, 'weak');
+  assert.deepEqual(ex.impact_kinds, ['amount', 'deadline', 'decision', 'external_commitment']);
+  assert.deepEqual(ex.origins, ['deterministic_projection']);
+  assert.equal(c.statements.find(s => s.unit_id === 'a-mail').text, sentence, 'floor must not reject a cited paraphrase');
+  for (const page of c.pages.filter(p => p.source_unit_ids.includes('a-mail'))) {
+    assert.match(page.markdown, /## 확인 필요/); assert.ok(page.markdown.includes('statement:a-mail'));
+    assert.ok(page.markdown.includes('weak\\_evidence:amount'));
+  }
+  const other = c.pages.find(p => p.page_id === 'source:source:a-doc');
+  assert.match(other.markdown, /### 예외\n\n없음/); assert.match(other.markdown, /### 모순\n\n없음/); assert.match(other.markdown, /## 빈틈\n\n없음/);
+  assert.equal(c.nodes.find(n => n.kind === 'Exception').origin, 'deterministic_projection');
+});
+test('model and floor union preserves reasons and renders exception, conflict and gap', async () => {
+  const f = wikiFixture({ generate: input => { const out = extractiveFake(input);
+    out.candidates[0].text = '대금 지급 결정은 검토 대상이다.';
+    out.review.exceptions = [{ statement_id: out.candidates[0].statement_id, impact_kinds: ['external_commitment'], reason: '모델이 보고한 추가 사유' }];
+    out.review.conflicts = [{ left: out.candidates[0].statement_id, right: out.candidates[1].statement_id, note: '자료 간 모순 후보' }];
+    out.review.gaps = [{ unit_ids: [out.candidates[0].unit_id], note: '서명 자료 누락' }]; return out; } });
+  const c = (await f.layer.generate(wikiInput())).record.content, page = c.pages[0].markdown;
+  assert.equal(c.exceptions.length, 1); assert.equal(c.conflicts.length, 1); assert.equal(c.gaps.length, 1);
+  assert.deepEqual(c.exceptions[0].origins, ['model_proposal', 'deterministic_projection']);
+  assert.ok(c.exceptions[0].exception_reasons.includes('weak_evidence:amount'));
+  assert.match(page, /### 예외[\s\S]*모델이 보고한 추가 사유/);
+  assert.match(page, /### 모순[\s\S]*자료 간 모순 후보/);
+  assert.ok(page.includes(c.conflicts[0].left + ' ↔ ' + c.conflicts[0].right));
+  assert.match(page, /## 빈틈[\s\S]*서명 자료 누락/);
+});
+test('K3 floor matches K2 KO/EN markers and derived strength without K2 eligibility rejection', () => {
+  const request = wikiInput().request, bundle = linkApprovedUnits(request), base = extractiveFake({ units: request.units });
+  const variants = ['결정 승인 확정', '마감 납기 기한 일정 2026-10-31', '금액 대금 예산 비용 500원 USD KRW €',
+    '대외 고객 계약 약속 납품 출하', 'approve decided', 'deadline due', 'amount $200', 'commitment promise contract', '일반 설명'];
+  const copied = base.candidates[0];
+  const rows = [...variants.map(text => ({ ...copied, text })), copied,
+    { ...copied, text: copied.text.normalize('NFD').replaceAll(' ', '　') },
+    { ...copied, claim: { subject: '대상', key: '상태', value: '후보' } },
+    { ...copied, quote: '허용 원문에 존재하지 않는 인용문이다.' }];
+  for (const row of rows) {
+    const k2 = checkKnowledgeCandidates({ bundle, candidates: [row], now: request.now }).results[0];
+    const k3 = checkWikiOutput(bundle, { candidates: [row], review: { conflicts: [], gaps: [], exceptions: [] } }).results[0];
+    for (const field of ['impact_kinds', 'evidence_strength', 'exception_required', 'exception_reasons']) assert.deepEqual(k3[field], k2[field]);
+  }
+  const modelReported = checkWikiOutput(bundle, { candidates: [copied], review: { conflicts: [], gaps: [], exceptions: [
+    { statement_id: copied.statement_id, impact_kinds: ['amount'], reason: '모델 추가 확인 요청' }] } }).results[0];
+  assert.equal(modelReported.evidence_strength, 'source_attributed'); assert.equal(modelReported.exception_required, true);
 });
 test('two projects are isolated in pages, graph snapshots and source grants', async () => {
   const f = wikiFixture(), a = await f.layer.generate(wikiInput()), b = await f.layer.generate(wikiInput('SYN-B'));
@@ -132,6 +193,8 @@ test('K0 before/after scores use actual generated source pages with the same pin
     text: generated.get(q.project_ref).pages.find(p => p.page_id.startsWith('source:') && p.source_unit_ids.includes(q.unit_id)).markdown }));
   const before = evaluateKnowledgeAnswers({ corpus, answers: fixtureAnswers(corpus, 'headings') });
   const after = evaluateKnowledgeAnswers({ corpus, answers });
+  const reference = evaluateKnowledgeAnswers({ corpus, answers: fixtureAnswers(corpus, 'reference') });
+  assert.equal(reference.summary.mean_found, 1); assert.equal(reference.summary.mean_cited, 1); assert.equal(reference.summary.errors_total, 0);
   assert.equal(before.corpus_sha256, after.corpus_sha256); assert.equal(before.model_id, after.model_id); assert.equal(before.budget, after.budget);
   assert.equal(before.summary.mean_found, 0); assert.equal(after.summary.mean_found, 1); assert.equal(after.summary.mean_cited, 1); assert.equal(after.summary.errors_total, 0);
 });

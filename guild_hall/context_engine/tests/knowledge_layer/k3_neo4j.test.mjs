@@ -15,7 +15,7 @@ async function storageContract(graph) {
   const f = wikiFixture({ graph }), a = await f.layer.generate(wikiInput()), b = await f.layer.generate(wikiInput('SYN-B'));
   assert.equal(a.status, 'READY'); assert.equal(b.status, 'READY');
   assert.equal((await f.layer.readCurrent(wikiInput())).record.generation_id, a.record.generation_id);
-  assert.equal((await f.layer.generate(wikiInput())).unchanged, true);
+  assert.equal((await f.layer.generate({ ...wikiInput(), expected_previous: a.record.generation_id })).unchanged, true);
   await graph.clearTestNamespace();
   const restored = await f.layer.restore({ input: wikiInput(), generation_id: a.record.generation_id });
   assert.deepEqual(restored.record, a.record);
@@ -32,6 +32,14 @@ async function storageContract(graph) {
 test('shared storage contract against memory adapter', async () => { const graph = createMemoryGraph(); try { await storageContract(graph); } finally { await graph.clearTestNamespace(); } });
 test('shared storage contract against isolated loopback Neo4j', { skip: !enabled ? 'explicit disposable Neo4j opt-in absent' : false }, async () => {
   assert.ok(endpoint, 'test endpoint required'); const url = new URL(endpoint);
-  const graph = createNeo4jGraph({ enabled: true, endpoint, allowed_origins: [url.origin], namespace: 'kl-test-' + randomUUID(), timeout_ms: 10000 });
+  const graph = createNeo4jGraph({ enabled: true, test_only: true, endpoint, allowed_origins: [url.origin], namespace: 'kl-test-' + randomUUID(), timeout_ms: 10000 });
   try { await storageContract(graph); } finally { await graph.clearTestNamespace(); }
+});
+test('test-only Neo4j rejects non-test namespace before any transport', () => {
+  let calls = 0;
+  const config = { enabled: true, test_only: true, endpoint: 'http://localhost:7474/db/neo4j/query/v2',
+    allowed_origins: ['http://localhost:7474'], namespace: 'kl-nontest-synthetic', timeout_ms: 1000, fetchImpl: () => { calls++; } };
+  assert.throws(() => createNeo4jGraph(config), /graph_test_namespace_required/);
+  assert.throws(() => createNeo4jGraph({ ...config, test_only: 'true' }), /graph_test_namespace_required/);
+  assert.doesNotThrow(() => createNeo4jGraph({ ...config, namespace: 'kl-test-synthetic' })); assert.equal(calls, 0);
 });

@@ -16,6 +16,7 @@ export async function runKnowledgeDemo(out) {
   const answers = corpus.questions.map(q => ({ id: q.id, project_ref: q.project_ref,
     text: projects.get(q.project_ref).pages.find(p => p.page_id.startsWith('source:') && p.source_unit_ids.includes(q.unit_id)).markdown }));
   const result = { before: evaluateKnowledgeAnswers({ corpus, answers: fixtureAnswers(corpus, 'headings') }),
+    reference: evaluateKnowledgeAnswers({ corpus, answers: fixtureAnswers(corpus, 'reference') }),
     after: evaluateKnowledgeAnswers({ corpus, answers }), generator: 'deterministic-extractive-fake',
     graph: 'memory-fake', live_quality_measured: false, pages: [...projects.values()].reduce((n,c) => n + c.pages.length, 0) };
   writeFileSync(join(out, 'evaluation.json'), JSON.stringify(result, null, 2) + '\n', { flag: 'wx' });
@@ -23,5 +24,6 @@ export async function runKnowledgeDemo(out) {
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = await runKnowledgeDemo(process.argv[2]);
-  process.stdout.write(JSON.stringify({ before: result.before.summary, after: result.after.summary, pages: result.pages, live_quality_measured: false }) + '\n');
+  process.stdout.write(JSON.stringify({ before: result.before.summary, reference: result.reference.summary,
+    after: result.after.summary, pages: result.pages, live_quality_measured: false }) + '\n');
 }

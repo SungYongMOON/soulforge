@@ -54,7 +54,8 @@ const REQUIRED = [['KLProject', ['namespace', 'project']], ['KLGeneration', ['na
  * The operator provisions the three uniqueness constraints; this module never
  * changes schema. Tests opt into an isolated namespace on a disposable server.
  */
-export function createNeo4jGraph({ enabled = false, endpoint, namespace, allowed_origins, timeout_ms, fetchImpl = fetch } = {}) {
+export function createNeo4jGraph({ enabled = false, test_only = false, endpoint, namespace, allowed_origins, timeout_ms, fetchImpl = fetch } = {}) {
+  if (typeof test_only !== 'boolean' || (test_only && !/^kl-test-[a-z0-9-]+$/u.test(namespace ?? ''))) fail('graph_test_namespace_required');
   const url = allowedEndpoint(endpoint, snapshot(allowed_origins), true);
   if (!/^kl-[a-z0-9-]{8,80}$/u.test(namespace ?? '') || !Number.isSafeInteger(timeout_ms) || timeout_ms < 1 || timeout_ms > 60000
     || !/\/db\/[A-Za-z0-9_-]+\/query\/v2$/u.test(new URL(url).pathname) || new URL(url).search) fail('graph_binding_invalid');

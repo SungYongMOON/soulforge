@@ -80,8 +80,10 @@ test('operating rules, human correction refs and original clocks reach the model
   assert.equal(result.record.content.material_inventory.length, 3); assert.ok(result.record.content.wiki_rules_sha256.startsWith('sha256:'));
   assert.match(result.record.content.pages[0].markdown, /## 재료 목록/);
 });
-test('contradictions and exceptions are model reports, not inferred by K3 heuristics', async () => {
+test('contradictions remain model reports while weak structured claims raise the impact floor', async () => {
   const f = wikiFixture({ generate: input => { const out = extractiveFake(input);
     out.candidates[0].claim = { subject: '동일 대상', key: '값', value: 'A' }; out.candidates[1].claim = { subject: '동일 대상', key: '값', value: 'B' }; return out; } });
-  const result = await f.layer.generate(wikiInput()); assert.equal(result.record.content.conflicts.length, 0); assert.equal(result.record.content.exceptions.length, 0);
+  const result = await f.layer.generate(wikiInput()); assert.equal(result.record.content.conflicts.length, 0);
+  assert.ok(result.record.content.exceptions.length > 0);
+  assert.ok(result.record.content.exceptions.every(e => e.evidence_strength === 'weak'));
 });

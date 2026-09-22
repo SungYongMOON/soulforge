@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-22 - K3 예외 바닥과 페이지 확인 항목
+
+- Revision: 이 항목을 포함한 커밋. K0~K2는 유지하고 K3 예외에 고정 KO/EN 표지 바닥을 합친다.
+- 근거 강도를 도출하고 페이지에 예외·모순·빈틈을 표시한다. 재서술 거부나 정본 수락은 만들지 않는다.
+- 무변경 응답 전 expected-prior 검사, 시험용 graph namespace 강제, 평가의 원문 reference 병기를 추가한다.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer`, 합성 시험·문서, 모듈 0.22.10 및 생성 closure/spec.
+
 ## 2026-09-22 - K3 역할별 모델 표와 위키 운영 규칙
 
 - Revision: 이 항목을 포함한 커밋. 모델을 고정하지 않고 역할/과제 설정과 호출 adapter로 선택한다.

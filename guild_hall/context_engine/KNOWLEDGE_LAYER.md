@@ -37,7 +37,10 @@ source 부족·짧은 인용·부정/수치 변경은 원문과 함께 그대로
 source 단위가 없는 입력·문장이 없는 모델 응답은 HOLD이며 기존 페이지를 덮지 않는다.
 과제 전체 1페이지+원천 entity별 페이지, 색인, append 기록, possible_conflict/gap/exception을 생성한다.
 위 칸은 현재 정리본, 아래 칸은 추가 전용 기록이며 매번 불변 새 판이다. 실패 문장은 현재 페이지에서 제외한다.
-모순·빈틈·예외는 모델의 review 출력이다. K3가 subject/key/value 비교나 영향도 휴리스틱으로 추론하지 않는다.
+모순·빈틈은 모델의 review 출력이다. 예외는 모델 보고와 K2와 동일한 고정 KO/EN 표지 바닥의 합집합이다.
+인용 대조 성공·NFC/공백 후 text=quote·claim 없음이면 source_attributed, 나머지는 weak다.
+weak이고 결정/마감/금액/대외 약속 표지가 있으면 예외를 더한다. 재서술을 거부하거나 사실로 판정하지 않는다.
+각 페이지는 해당 원천의 예외 사유·문장 참조와 모순을 `확인 필요`, 빈틈을 `빈틈` 절에 표시하고 없으면 `없음`을 적는다.
 K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
 
 `readCurrent`도 같은 입력 계약을 요구한다. caller의 현재 source digest 또는 보존된 철회 집합이 다르면
@@ -53,6 +56,7 @@ K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
   snapshot은 재적재 꾸러미, Markdown은 재생 가능한 표시물이다. root는 신뢰된 전용 archive여야 한다.
 - `createNeo4jGraph`: enabled 기본 false, loopback Query API endpoint, namespace, 정확한 allowed_origins,
   timeout_ms(1~60000) 필요. 인증이 필요하면 승인된 fetchImpl이 헤더를 공급한다. 이 모듈은 secret/env를 읽지 않는다.
+  시험은 test_only=true를 주며 생성 시 kl-test- 접두를 요구한다. 기본 false는 일반 adapter 계약이며 시험 실행은 반드시 true다.
   세 가지 사전 unique constraint가 필요하다: KLProject(namespace,project),
   KLGeneration(namespace,project,generation), KLNode(namespace,project,generation,node_id).
   자동 schema 설치 없음. endpoint는 Neo4j Query API `/db/<database>/query/v2`다.
@@ -63,7 +67,8 @@ K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
   실제 weight digest를 검증한 증거가 아니다. 공급 함수는 신뢰된 in-process adapter다.
 - `createHttpGenerator`: 기본은 loopback. 역할 설정에서 명시한 project/role/data_class/egress policy가 있고
   exact origin allowlist도 맞을 때만 외부 호스트를 허용한다. redirect 거부,
-  AbortSignal·응답 상한·JSON/K2 검사. 별도 환경/자격증명 자동 탐색 없음. 실제 호출은 기본 꺼짐이다.
+  AbortSignal·응답 상한·JSON 검사. K3는 구간에 매달리고 인용은 검증기로 대조하며 K2는 별도의 더 엄격한 호출자다.
+  별도 환경/자격증명 자동 탐색 없음. 실제 호출은 기본 꺼짐이다.
 - 임베더는 K5 단계 대상이며 K0~K3에서는 호출하지 않는다. 사람이 넣는 파일은 연결 담당이 K1 단위로 전달한다.
 
 ### 그래프와 한계
@@ -88,7 +93,8 @@ graph current와 archive는 단일 DB transaction이 아니므로 reader가 매�
 인스턴스만 사용하고, 시험은 임의 kl-test namespace에서 돌며 finally에서 그 namespace만 제거한다.
 opt-in 없이는 SKIP이며 실제 DB 실행으로 보고하지 않는다. secret은 시험에서도 읽지 않는다.
 개발 시연은 빈 승인 출력 디렉터리를 주고 `node guild_hall/context_engine/harness/knowledge_layer_demo.mjs <owned-output>`.
-과제 2개 위키8페이지+색인2개와 평가 JSON을 만든다. 가짜 baseline found0→1은 배선 개선이며 실제 모델 성능이 아니다.
+과제 2개 위키8페이지+색인2개와 평가 JSON을 만든다. found는 제목 baseline 0→생성 위키 1, 원문 reference 1이다.
+셋 모두 cited=1/errors=0이다. 결정적 가짜의 배선 확인이며 모델 품질 향상이 아니다.
 
 공개 참고: [Neo4j Query API](https://neo4j.com/docs/query-api/current/query/)의 원자적 query/parameters/errors 계약.
 GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 참고했다. 옮긴 외부 코드 없음.
@@ -110,7 +116,7 @@ chat_completions 기본 adapter 외 다른 호출 방식은 factory를 등록한
 나머지 역할은 설정 해석만 제공하며 K4 이후의 업무를 실행하지 않는다.
 
 K0~K2 구현은 그대로다. K3는 K2의 엄격한 재서술/영향도 판정으로 페이지를 막지 않는다.
-기계 콘텐츠 검사는 **quote의 글자 대조 + 페이지별 재료 목록·작업 기록**이다. 재서술은 모델 책임이며
+기계 콘텐츠 검사는 **quote의 글자 대조 + 페이지별 재료 목록·작업 기록 + Owner가 허용한 예외 표지 바닥**이다. 재서술은 모델 책임이며
 semantic_fact_verified=false를 유지한다. 과제·hash·CAS·전송/자원 상한은 콘텐츠 판단이 아닌 기본 안전 계약이다.
 `WIKI_SCHEMA.md` 한 장을 모델 system 규칙으로 전달해 문서 우선, 모순 처리, 사람 정정 보존,
 늦게 온 문서 반영과 예외 판단을 맡긴다. 문서 hash는 생성 판본에 남기고 closure에 포함해 재생성한다.
