@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-09-22 - K3 실자료 위키 하네스 fresh review 수정 (R1~R7 필수 7건)
+
+- Revision: 이 항목을 포함한 커밋. 같은 날 오전 커밋(`knowledge_layer_real_wiki.mjs`
+  최초판)의 fresh review에서 나온 필수 지적 7건을 모두 고쳤다.
+- R1 cross-module import 제거: `workspace_ledgers/src/ledgers.mjs`의 `normalizeSubject`를
+  더 이상 import하지 않는다(배포 lane spec이 `workspace_ledgers`를 담지 않아 빌드된
+  lane에서 `ERR_MODULE_NOT_FOUND`). `safe_pattern.mjs` 선례대로 로컬 사본을 둔다.
+- R2 grant 만료 재검사: `generate`가 자신의 `--now`로 `linkApprovedUnits`를 다시 돌려
+  만료를 검사한다(고정된 request.now가 아니라). R3 값 재계산: request 원문·off-host
+  승인 파일·WIKI_SCHEMA.md·model-roles 바인딩을 각각 다시 해시/계산해 manifest
+  기록과 대조하고 다르면 거부한다(편집된 request.json이 그대로 통과하던 결함 수정).
+- R4 off-host 관문을 canon `model_roles.v1`(`resolveModelRole`)로: `prepare`/`generate`
+  모두 `--model-roles <config>`로 이 과제+wiki_draft의 명시적 전송 허가를 확인하고
+  `binding_digest`를 manifest·receipt에 고정한다. `--offhost-approval`은 그대로
+  추가 사람 증인으로 남긴다. 공개 placeholder 예시
+  `docs/architecture/workspace/examples/knowledge_layer/model_roles.offhost_example.json`
+  추가.
+- R5 프롬프트 경계: USER PAYLOAD 절을 실제 wire payload JSON 그대로로 바꾸고(전에는
+  사람이 고른 필드 요약이라 실제 전송 내용과 달랐다), 메일 본문의 백틱 펜스 주입을
+  막도록 본문 속 최장 백틱 연속보다 긴 펜스를 계산해 감싼다.
+- R6 custody 판본 일치 강화: 같은 mail id의 재수집 판정에 `raw.source_custody.sha256`도
+  비교한다(전에는 제목/시각/발신자만 봐서 실제로 바이트가 다른 두 레코드를 조용히
+  하나로 합칠 위험이 있었다 -- 실측: P26-014 267건 중 90건, 16개 과제 중 10개
+  과제에서 재현). 서로 다르면 모호로 거부하고 `custody_sha_differed_across_records`로
+  센다. custody sha가 아예 없는 레코드는 기본 거부, `--allow-record-fallback`으로만
+  허용.
+- R7 README 표현 정정: "부재·모호 둘 다 실측"은 R6 이전 코드 기준 모호 0건이라 틀린
+  말이었다. R6 수정 뒤 재측정한 진짜 수치로 다시 썼다(부재 8개 과제, 모호 10개 과제,
+  부재·모호 둘 다 0인 과제 6개).
+- S1~S9 다수 반영: `--org-config`/`--owner-tables` 전달, custody 스캔 0건 거부,
+  `--expected-previous` 기본값(graph 현재 세대), `wiki_check.mjs`가 candidate의
+  `impact_kinds`/`claim`을 각각 독립적으로 선택 허용(additive), manifest·receipt에
+  절대경로 대신 `{basename,sha256}`/`{basename,dir_sha256}`만, `coverage` 블록 +
+  `--allow-uncovered`, `dump-model-input`은 `--write` 있어야 씀, 회귀 시험 다수
+  추가(model_id·결정성·gmail-sent 등). NIT: 미사용 import 제거, 문자수/attribution
+  나이 CLI 플래그, 값 없는 `--max-units` 거부, symlink 검사 일관화, ingested_at
+  instant 비교, 코드포인트 단위 truncation.
+- 관련 경로: `guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs`,
+  `guild_hall/context_engine/tests/knowledge_layer/knowledge_layer_real_wiki.test.mjs`,
+  `src/knowledge_layer/wiki_check.mjs`,
+  `docs/architecture/workspace/examples/knowledge_layer/model_roles.offhost_example.json`.
+
 ## 2026-09-22 - K3 첫 실자료 위키 하네스 (모델 응답은 out-of-band)
 
 - Revision: 이 항목을 포함한 커밋. `harness/knowledge_layer_real_wiki.mjs` 세 명령
@@ -13,6 +55,9 @@
 - 실측(2026-09-22): P25-054 실제 하이웍스 메일 5통으로 prepare→generate까지 실행해
   pages 6·statements_included 5·excluded/exceptions/conflicts/gaps 0을 확인했다.
   검증 산출물은 repo 밖 scratchpad에서만 만들고 끝난 뒤 삭제했다.
+  (정정, 위 최신 항목 참조: 이 측정은 같은 날 오후 R6로 강화된 custody 판본 일치
+  검사 이전 코드 기준이다. R6 적용 뒤 P25-054 확정 60건 중 3건이 실제로 모호 판정을
+  받아 같은 조건으로는 재현되지 않는다 -- 재측정은 P20-056으로 성공했다.)
 - `wiki.mjs`에 `buildWikiModelInput`을 추가로 export(기존 K3 내부 동작은 그대로,
   같은 modelInput을 하네스도 재사용하기 위함).
 - 관련 경로: `guild_hall/context_engine/harness/knowledge_layer_real_wiki.mjs`,

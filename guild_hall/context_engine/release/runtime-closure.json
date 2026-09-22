@@ -163,7 +163,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki_check.mjs",
-      "sha256": "fede31afea3e6a110ff93852fbfbebe4b3755cf256bb8d7cb4384e60d988f14c"
+      "sha256": "867461f42c2ead3545eb5ea67155136419a3f51e25805a065b14b19d78c771d0"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/wiki_rules.mjs",
@@ -374,7 +374,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "30f44a0e425f8b1cb22fa3681f43b97de6fa2386d181f58cafdd4e33eca6d640",
+  "closure_sha256": "73247da462f342a34c9c39f35bad1e14f0235a4383ff66f2012cb93dda37030a",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

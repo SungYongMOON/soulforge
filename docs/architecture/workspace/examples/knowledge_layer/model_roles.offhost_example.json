@@ -1,0 +1,39 @@
+{
+  "schema": "soulforge.knowledge_layer.model_roles.v1",
+  "enabled": true,
+  "roles": {
+    "wiki_draft": "offhost_placeholder",
+    "night_organize": null,
+    "memory_extract": null,
+    "entity_candidates": null,
+    "embedding": null,
+    "bot_answer": null
+  },
+  "models": {
+    "offhost_placeholder": {
+      "call_style": "chat_completions",
+      "model": "MODEL_PLACEHOLDER",
+      "endpoint": "https://model-provider.invalid/v1/chat/completions",
+      "allowed_origins": [
+        "https://model-provider.invalid"
+      ],
+      "budget": {
+        "max_calls": 1,
+        "max_input_characters": 150000,
+        "max_output_characters": 150000,
+        "timeout_ms": 30000
+      },
+      "allow_company_host_egress": false
+    }
+  },
+  "projects": {
+    "PROJECT_PLACEHOLDER": {
+      "roles": {
+        "wiki_draft": "offhost_placeholder"
+      },
+      "company_host_egress": {
+        "wiki_draft": true
+      }
+    }
+  }
+}

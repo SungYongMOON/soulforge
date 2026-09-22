@@ -4,6 +4,16 @@ import { createCitationVerifier } from '../guards/citation_verifier.mjs';
 import { digest, fail, freeze, hashText, keys, snapshot, token } from './data.mjs';
 const text = (s, max) => typeof s === 'string' && s.trim() && s.length <= max;
 const impacts = ['decision', 'deadline', 'amount', 'external_commitment'];
+// A candidate row's REQUIRED fields are always statement_id/unit_id/text/quote.
+// impact_kinds and claim are each independently optional (a model naturally omits
+// whichever one it has nothing to say about) -- so all four shapes (base, +impact_
+// kinds only, +claim only, +both) are accepted. Additive: no previously-accepted
+// shape is rejected.
+const CANDIDATE_BASE_FIELDS = ['statement_id', 'unit_id', 'text', 'quote'];
+const CANDIDATE_OPTIONAL_FIELDS = ['impact_kinds', 'claim'];
+const candidateShapeOk = row => row !== null && typeof row === 'object' && !Array.isArray(row)
+  && CANDIDATE_BASE_FIELDS.every(k => Object.hasOwn(row, k))
+  && Object.keys(row).every(k => CANDIDATE_BASE_FIELDS.includes(k) || CANDIDATE_OPTIONAL_FIELDS.includes(k));
 const normalize = s => s.normalize('NFC').replace(/\p{White_Space}+/gu, ' ').trim();
 // Kept identical to K2's fixed KO/EN markers; parity is regression-tested.
 const rules = {
@@ -18,7 +28,7 @@ export function checkWikiOutput(bundle, proposed) {
     || !keys(p.review, ['conflicts', 'gaps', 'exceptions']) || Object.values(p.review).some(v => !Array.isArray(v) || v.length > 100)) fail('wiki_generation_shape');
   const ids = new Set();
   const results = p.candidates.map(row => {
-    if ((!keys(row, ['statement_id', 'unit_id', 'text', 'quote']) && !keys(row, ['statement_id', 'unit_id', 'text', 'quote', 'impact_kinds', 'claim']))
+    if (!candidateShapeOk(row)
       || !token(row.statement_id) || ids.has(row.statement_id) || !token(row.unit_id) || !text(row.text, 2000) || !text(row.quote, 20000)) fail('wiki_sentence_invalid');
     ids.add(row.statement_id);
     const unit = bundle.units.find(u => u.unit_id === row.unit_id), span = bundle.spans.find(s => s.unit_id === row.unit_id);

@@ -86,6 +86,23 @@ test('K3 floor matches K2 KO/EN markers and derived strength without K2 eligibil
     { statement_id: copied.statement_id, impact_kinds: ['amount'], reason: '모델 추가 확인 요청' }] } }).results[0];
   assert.equal(modelReported.evidence_strength, 'source_attributed'); assert.equal(modelReported.exception_required, true);
 });
+test('a candidate row may supply impact_kinds or claim independently, not only both together (additive shape)', () => {
+  const request = wikiInput().request, bundle = linkApprovedUnits(request), base = extractiveFake({ units: request.units });
+  const { statement_id, unit_id, text, quote } = base.candidates[0];
+  const fourKey = { statement_id, unit_id, text, quote };
+  const impactOnly = { ...fourKey, impact_kinds: ['amount'] };
+  const claimOnly = { ...fourKey, claim: { subject: 's', key: 'k', value: 'v' } };
+  const sixKey = { ...fourKey, impact_kinds: ['amount'], claim: null };
+  for (const row of [fourKey, impactOnly, claimOnly, sixKey]) {
+    const result = checkWikiOutput(bundle, { candidates: [row], review: { conflicts: [], gaps: [], exceptions: [] } }).results[0];
+    assert.equal(result.statement_id, statement_id);
+  }
+  const claimOnlyResult = checkWikiOutput(bundle, { candidates: [claimOnly], review: { conflicts: [], gaps: [], exceptions: [] } }).results[0];
+  assert.equal(claimOnlyResult.evidence_strength, 'weak', 'a non-null claim still marks evidence weak, whether or not impact_kinds was also supplied');
+  // Still refuses an unrecognised extra field or a fifth key outside the two optional names.
+  assert.throws(() => checkWikiOutput(bundle, { candidates: [{ ...fourKey, bogus: 1 }], review: { conflicts: [], gaps: [], exceptions: [] } }),
+    /wiki_sentence_invalid/);
+});
 test('two projects are isolated in pages, graph snapshots and source grants', async () => {
   const f = wikiFixture(), a = await f.layer.generate(wikiInput()), b = await f.layer.generate(wikiInput('SYN-B'));
   assert.notEqual(a.record.generation_id, b.record.generation_id);

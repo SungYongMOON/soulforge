@@ -2,38 +2,79 @@
 
 자동 정리본 지식 층의 명시 호출·개발 평가는 [KNOWLEDGE_LAYER.md](KNOWLEDGE_LAYER.md)를 따른다.
 
-## K3 첫 실자료 위키 하네스 — 모델 응답은 out-of-band (`harness/knowledge_layer_real_wiki.mjs`, 2026-09-22)
+## K3 첫 실자료 위키 하네스 — 모델 응답은 out-of-band (`harness/knowledge_layer_real_wiki.mjs`, 2026-09-22, fresh review 반영)
 
 지금까지 K3는 합성 자료(`knowledge_layer_demo.mjs`)와 결정적 가짜 모델로만 배선을 확인했다.
 이 하네스는 coordinator가 **실제 회사 메일 한 과제분**으로 K3를 한 번 돌리게 하되, 모델
 자체는 이 파일이 절대 부르지 않는다 — 사람이 프롬프트를 채팅 모델에 붙여넣거나 agent가
 답하는 out-of-band 응답을 `generate`가 재생(REPLAY)할 뿐이다. 소켓을 열지 않는다.
+초판(2026-09-22 오전) 커밋의 fresh review에서 7건 필수 지적을 받아 같은 날 오후 모두
+고쳤다 — 아래는 고친 뒤의 계약이다.
 
-- `prepare --project <code> --attribution-index <file> --hiworks-events <dir>
-  [--gmail-sent-events <dir>] --strength confirmed|all --max-units N --out <dir>
-  --now <ISO> --offhost-approval <file>` — `mail_routes.mjs`의 귀속 색인으로 그
+- `prepare --project <code> --attribution-index <file> --hiworks-events <dir>...
+  [--gmail-sent-events <dir>...] [--org-config <addr>] [--owner-tables <addr>]
+  --strength confirmed|all --max-units N [--allow-uncovered N] [--allow-record-fallback]
+  --out <dir> --now <ISO> --offhost-approval <file> --model-roles <config>` —
+  두 개의 **독립된** off-host 관문을 모두 통과해야 프롬프트를 쓴다: (1) canon의
+  `model_roles.v1` 표(`resolveModelRole`)가 이 과제+`wiki_draft`에 loopback이 아닌
+  명시적 전송 허가를 줘야 하고, (2) `--offhost-approval`(사람 서명, 내용은 안 읽고
+  존재·sha256만 확인)이 있어야 한다. 통과하면 `mail_routes.mjs`의 귀속 색인으로 그
   과제의 메일만 고르고, custody에서 직접 읽어 `linkApprovedUnits`(K1) 계약 그대로
-  `request.json`(단위·grant), `manifest.json`(개수·해시만, 원문 없음),
-  `model_prompt.md`(WIKI_SCHEMA.md 원문 + 단위 + 정확한 답 JSON 스키마)를 쓴다.
-  귀속된 메일이 custody에 없거나 서로 다른 두 판본으로 모호하면 **아무것도 쓰지 않고**
-  전체를 거부한다(둘 다 실측: P26-014는 하이웍스 custody만으로 92/359건 부재 —
-  발신 메일함 자료가 아직 없다는 뜻이고 이 하네스는 이를 감추지 않는다). off-host
-  승인 파일은 내용을 읽지 않고 존재·sha256만 확인해 manifest에 고정한다.
-- `dump-model-input --work <dir>` — 같은 request.json에서 실제 K1 + `buildWikiModelInput`
-  (wiki.mjs에서 이번에 추가로 export, K3 내부가 전에는 인라인으로만 만들던 것)으로
-  model_input.json을 다시 만들어 prepare가 직접 쓴 파일과 같은지 보고한다.
+  `request.json`(단위·grant), `manifest.json`(개수·해시만, 원문·host 경로 없음 —
+  경로는 `{kind,basename,dir_sha256}`로만), `model_prompt.md`(WIKI_SCHEMA.md 원문 +
+  실제 wire payload JSON 그대로 + 정확한 답 JSON 스키마)를 쓴다.
+- **custody 판본 일치 검사(R6)**: 한 mail id가 여러 줄로 나타날 때, 제목·수신시각·
+  발신자가 같아도 그 메일의 `raw.source_custody.sha256`(원본 .eml 해시)까지 같아야
+  "같은 메일의 재수집"으로 합친다(`collapsed_from_multiple_records`). 그 해시가
+  다르면 — 구분 신호(제목/시각/발신자)만 보던 초판 코드는 이걸 놓쳤다 — 모호로 보고
+  거부한다(`custody_sha_differed_across_records`, `mail_id_ambiguous_in_custody`).
+  `raw.source_custody`가 아예 없는 레코드는 기본 거부이며 `--allow-record-fallback`을
+  줘야 canonical hash로 대체한다.
+- **커버리지(S7)**: 귀속됐지만 custody에 없는 메일은 기본(0건) 전체 거부다.
+  `--allow-uncovered N`을 주면 N건까지는 진행하고, `manifest.coverage`/
+  `generation_receipt.coverage`에 `{attributed_confirmed, wanted_at_strength,
+  units_supplied, dropped_for_bounds, uncovered_by_custody}`로 남기며, 프롬프트에
+  그 사실을 `review.gaps`로 적으라는 안내를 덧붙인다(과제 위키의 빈틈 절까지 도달).
+- `dump-model-input --work <dir> [--write]` — 같은 request.json에서 실제 K1 +
+  `buildWikiModelInput`(wiki.mjs에서 이번에 추가로 export, K3 내부가 전에는
+  인라인으로만 만들던 것)으로 model_input.json을 다시 만들어 prepare가 쓴 파일과
+  같은지 보고한다. `--write` 없이는 읽기 전용이다(S8).
 - `generate --work <dir> --answer <file> --archive-root <dir> --model-id <alias>
-  [--neo4j-config <file>] --now <ISO>` — 실제 `createWikiKnowledgeLayer`를
+  --now <ISO> --offhost-approval <file> --model-roles <config> [--expected-previous
+  <hash|null>] [--neo4j-config <file>]` — 실제 `createWikiKnowledgeLayer`를
   `createBoundedGenerator` REPLAY generator(파싱된 답 파일을 그대로 반환, 거친 모양
-  검사 후 `checkWikiOutput`이 권위 있게 재검사)로 돌린다. graph는 기본 memory
-  가짜, archive는 `createFileArchive`. 잘못된 답은 아무것도 archive되지 않고
-  거부된다(K3 자체의 checkWikiOutput/graph.commit 순서가 이미 보장).
-- 실측 2026-09-22: P25-054(실제 하이웍스 5통, hiworks custody 완전 커버) 한 과제로
-  세 단계를 실제로 돌려 pages 6(과제 1 + 원천 5), statements_included 5, excluded/
-  exceptions/conflicts/gaps 0을 확인했다. 검증에 쓴 실자료 산출물은 repo 밖
-  scratchpad에서만 만들고 끝난 뒤 지웠다 — repo에는 절대 복사하지 않는다.
-- 시험은 합성 custody/색인(`tests/knowledge_layer/knowledge_layer_real_wiki.test.mjs`,
+  검사 후 `checkWikiOutput`이 권위 있게 재검사)로 돌린다. **manifest.json의 어떤
+  값도 그대로 믿지 않는다(R2/R3)**: grant는 이 호출 자신의 `--now`로
+  `linkApprovedUnits`를 다시 돌려 만료를 재검사하고(고정된 request.now가 아니라),
+  request 원문·off-host 승인 파일·`WIKI_SCHEMA.md`·model-roles 바인딩을 각각 다시
+  해시/재계산해 manifest 기록과 대조한 뒤 다르면 거부한다 — 편집된 request.json(짝이
+  맞는 grant 편집 포함)이나 바꿔치기한 승인 파일을 receipt가 그대로 베껴 적던 결함을
+  막는다. graph는 기본 memory 가짜(주지 않으면 `--expected-previous`는 그 과제의
+  graph 현재 세대로 기본 설정), archive는 `createFileArchive`. 잘못된 답은 아무것도
+  archive되지 않고 거부된다.
+
+**프롬프트 경계(R5)**: `model_prompt.md`의 USER PAYLOAD 절은 실제 wire payload인
+`JSON.stringify({project_ref,role,units,human_correction_unit_ids})` 그대로이며(더
+이상 사람이 손으로 고른 필드 요약이 아니다), 메일 본문이 백틱 펜스(```)를 담고 있어도
+빠져나갈 수 없도록 본문 속 최장 백틱 연속보다 긴 펜스를 계산해 감싼다.
+
+**실측(2026-09-22 오후, R6 수정 뒤)**: P26-014 확정 귀속 359건 중 hiworks custody로
+92건 부재, 나머지 267건 중 90건이 "제목/시각/발신자는 같지만 custody sha가 다른" 모호
+사례(R6 새 검사로만 드러남) — `prepare`는 이 과제 전체를 거부한다. 같은 검사를 16개
+과제 전부에 걸어 보니 부재·모호 둘 다 실측됐다: 부재는 P26-014(92)·P24-049(55) 등
+8개 과제에서, 모호(custody sha 불일치)는 P26-014(90)·P24-049(33) 등 10개 과제에서
+나왔다(부재·모호 0인 과제도 6개 있다, 예: P20-056 7건). 부재도 모호도 없는 실제
+과제(P20-056, 확정 7건)로 `prepare`→`dump-model-input`→`generate` 세 단계를 전부
+실행해 pages 8(과제 1 + 원천 7), statements_included 6, excluded/exceptions/
+conflicts/gaps 0, `collapsed_from_multiple_records` 3(재수집 중복이 실제로 합쳐짐)을
+확인했다 — `--max-units`로 7건 전부를 골랐을 뿐 그 과제 메일이 7통뿐이라는 뜻은
+아니다. 검증에 쓴 실자료 산출물(off-host 승인·model-roles 설정 포함)은 repo 밖
+scratchpad에서만 만들고 끝난 뒤 지웠다 — repo에는 절대 복사하지 않는다.
+- 시험은 합성 custody/색인/model-roles(`tests/knowledge_layer/knowledge_layer_real_wiki.test.mjs`,
   `os.tmpdir()`뿐)만 쓴다. `npm run validate:knowledge-layer`에 자동 편입(glob).
+  같은 파일이 `guild_hall/deployment_pack/lanes/{context_read,graph_sync}_lane.spec.json`이
+  실제로 담는 파일만으로 만든 임시 트리 안에서도 import되는지(워크스페이스 원장
+  cross-module import 없음, R1) 검사한다.
 
 ## 밤 사슬(night chain) — 시계 대신 영수증으로 이어지는 야간 작업 (night-chain-v1)
 
