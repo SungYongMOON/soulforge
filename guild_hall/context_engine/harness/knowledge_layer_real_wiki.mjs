@@ -74,7 +74,7 @@
 // classifier's; fine for a small `--max-units`-bounded real-mail slice, not a
 // substitute for that loader at scale.
 import { createHash } from 'node:crypto';
-import { closeSync, createReadStream, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, createReadStream, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -665,24 +665,31 @@ export async function generate({
   const rules = loadWikiRules();
   if (rules.sha256 !== manifest.wiki_rules_sha256) refuse('wiki_rules_sha256_mismatch');
 
-  // Reserve the receipt BEFORE archive/graph effects. The exclusive descriptor
-  // permits only this invocation to finish it; concurrent/repeated runs cannot
-  // replace it. A crash can leave an empty reservation: use a fresh prepared work
-  // directory after reviewing partial effects, never silently retry over it.
-  let receiptFd;
-  try { receiptFd = openSync(join(workDir, 'generation_receipt.json'), 'wx'); }
-  catch (error) { if (error.code === 'EEXIST') refuse('generation_receipt_exists'); throw error; }
-  try {
+  // Invalid archive bindings must not consume this prepared work directory.
   if (typeof archiveRoot !== 'string' || !isAbsolute(archiveRoot)) refuse('archive_root_invalid');
   if (!existsSync(archiveRoot)) mkdirSync(archiveRoot, { recursive: true });
-  if (lstatSync(archiveRoot).isSymbolicLink()) refuse('archive_root_invalid');
-  const archive = createFileArchive({ root: resolve(archiveRoot) });
+  const archiveStore = createFileArchive({ root: resolve(archiveRoot) });
+
+  // Keep exclusive ownership during generation. Release only this invocation's
+  // reservation if no durable write has started. Once a write is attempted its
+  // outcome may be uncertain, so preserve the reservation for partial-effect review.
+  const receiptPath = join(workDir, 'generation_receipt.json');
+  let durableWriteStarted = false, preserveReceipt = false;
+  let receiptFd;
+  try { receiptFd = openSync(receiptPath, 'wx'); }
+  catch (error) { if (error.code === 'EEXIST') refuse('generation_receipt_exists'); throw error; }
+  try {
+  const archive = { ...archiveStore,
+    put(...args) { durableWriteStarted = true; return archiveStore.put(...args); },
+    addWithdrawals(...args) { durableWriteStarted = true; return archiveStore.addWithdrawals(...args); } };
   // `injectedGraph` is a test-only seam (the CLI never passes it): it lets a test
   // share ONE memory graph across two `generate()` calls for the same project, which
   // is the only way to exercise the S4 default below against something other than a
   // real Neo4j instance -- a fresh `createMemoryGraph()` per call (the CLI's own
   // default) never has a "prior generation" to default to.
-  const graph = injectedGraph ?? (neo4jConfig ? createNeo4jGraph(neo4jConfig) : createMemoryGraph());
+  const graphStore = injectedGraph ?? (neo4jConfig ? createNeo4jGraph(neo4jConfig) : createMemoryGraph());
+  const graph = { read: (...args) => graphStore.read(...args),
+    commit(...args) { durableWriteStarted = true; return graphStore.commit(...args); } };
 
   const budget = { max_calls: 1, max_input_characters: 200000, max_output_characters: 200000, timeout_ms: 20000 };
   const bounded = createBoundedGenerator({ enabled: true, id: modelId, budget,
@@ -731,9 +738,13 @@ export async function generate({
     graph_mode: neo4jConfig ? 'neo4j' : 'memory',
     archive_root: dirRef(archiveRoot),
   };
-  writeFileSync(receiptFd, JSON.stringify(receipt, null, 2) + '\n');
+  preserveReceipt = durableWriteStarted || result.status === 'READY';
+  if (preserveReceipt) writeFileSync(receiptFd, JSON.stringify(receipt, null, 2) + '\n');
   return receipt;
-  } finally { closeSync(receiptFd); }
+  } finally {
+    closeSync(receiptFd);
+    if (!durableWriteStarted && !preserveReceipt) unlinkSync(receiptPath);
+  }
 }
 
 // ---------------------------------------------------------------- CLI

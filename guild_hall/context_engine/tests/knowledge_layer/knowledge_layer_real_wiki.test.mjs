@@ -593,15 +593,66 @@ test('exclusive receipt reservation allows one concurrent generate only', async 
   assert.equal(JSON.parse(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8')).status, 'READY');
 });
 
-test('failure after receipt reservation retains evidence and requires a fresh prepared directory', async () => {
+test('read-only failure releases this invocation receipt and can retry in the same prepared directory', async () => {
   const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
   writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
   const args = generateArgs(s, { workDir: s.workDir, answerPath,
     graph: { read() { throw new Error('synthetic_graph_failure'); }, commit() { assert.fail('commit'); } } });
   await assert.rejects(() => generate(args), /synthetic_graph_failure/);
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+  assert.equal((await generate({ ...args, graph: createMemoryGraph() })).status, 'READY');
+});
+
+test('invalid archive binding never reserves the receipt and corrected path retries with unchanged preparation', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  const manifestBytes = readFileSync(join(s.workDir, 'manifest.json'));
+  for (const archiveRoot of ['relative-archive', answerPath]) {
+    await assert.rejects(() => generate({ ...args, archiveRoot }), /archive_root_invalid/);
+    assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  }
+  assert.equal((await generate(args)).status, 'READY');
+  assert.deepEqual(readFileSync(join(s.workDir, 'manifest.json')), manifestBytes);
+});
+
+test('deep answer validation failure releases reservation and corrected answer reuses exact request and manifest', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  const preparedFiles = ['request.json', 'manifest.json', 'manifest.sha256', 'model_input.json', 'model_prompt.md'];
+  const before = preparedFiles.map(name => readFileSync(join(s.workDir, name)));
+  const invalid = answerFor(s.request);
+  invalid.review.conflicts = [{ left: invalid.candidates[0].statement_id, right: 'unknown-statement', note: '합성 오류' }];
+  writeFileSync(answerPath, JSON.stringify(invalid));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  await assert.rejects(() => generate(args), /wiki_review_invalid/);
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  assert.equal((await generate(args)).status, 'READY');
+  preparedFiles.forEach((name, i) => assert.deepEqual(readFileSync(join(s.workDir, name)), before[i]));
+});
+
+test('pre-write HOLD releases receipt so an empty answer can be replaced without preparing again', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify({ candidates: [], review: { conflicts: [], gaps: [], exceptions: [] } }));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath });
+  assert.equal((await generate(args)).reason, 'empty_generation');
+  assert.equal(existsSync(join(s.workDir, 'generation_receipt.json')), false);
+  assert.deepEqual(readdirSync(s.archiveDir), []);
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  assert.equal((await generate(args)).status, 'READY');
+});
+
+test('failure after archive writes retains reservation and blocks blind retry', async () => {
+  const s = await preparedWork(), answerPath = join(s.outDir, 'answer.json');
+  writeFileSync(answerPath, JSON.stringify(answerFor(s.request)));
+  const args = generateArgs(s, { workDir: s.workDir, answerPath,
+    graph: { async read() { return null; }, async commit() { throw new Error('synthetic_commit_failure'); } } });
+  await assert.rejects(() => generate(args), /synthetic_commit_failure/);
+  assert.ok(readdirSync(s.archiveDir).length > 0);
   assert.equal(readFileSync(join(s.workDir, 'generation_receipt.json'), 'utf8'), '');
   await assert.rejects(() => generate(args), /generation_receipt_exists/);
-  assert.deepEqual(readdirSync(s.archiveDir), []);
 });
 
 test('generate replays a scripted answer through the real K3, recording generator.id', async () => {

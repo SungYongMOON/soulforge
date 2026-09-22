@@ -119,7 +119,8 @@ GBrain은 고정 d13aa742의 synthesize/synthesize-verify/withdrawal 개념만 �
   --now <ISO> --model-roles <approved_table> --offhost-approval <approval>`: grant 현재 유효성·입력/규칙/전송 승인 지문을
   재대조한다. 기본 graph는 메모리이며 Neo4j 활성화·schema 설치·예약 등록은 하지 않는다.
 - generation_receipt.json은 archive/graph 작업 전에 wx로 독점 예약한다. 반복·동시 실행은 기존 영수증을 덮지 않는다.
-  생성 중 오류나 중단은 빈 예약 파일을 남길 수 있다. 이는 완료 영수증이 아니다. 부분 효과를 확인하고 새 준비 폴더를 사용한다.
+  저장 경로는 예약 전에 검증한다. 답 검사 오류·저장 전 HOLD는 자신이 만든 예약만 풀어 같은 준비물로 재시도할 수 있다.
+  archive/graph 쓰기를 시도한 뒤 실패하거나 프로세스가 중단되면 예약을 보존한다. 빈 예약은 완료 영수증이 아니며 부분 효과를 먼저 확인한다.
 
 지문은 신뢰된 caller 전용 폴더에서의 변경 감지다. manifest와 지문을 함께 다시 쓰는 악의적 writer를 인증하거나
 사람 수락을 대신하지 않는다. custody 중복의 원문 해시 불일치는 계속 거부하며 임의로 한 사본을 선택하지 않는다.
