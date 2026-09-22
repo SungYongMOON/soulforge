@@ -14,7 +14,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
-import { runConversationList, runVoiceConversationCli } from '../harness/voice_conversation_list_cli.mjs';
+import { SEMANTIC_REASK_SENTENCES, runConversationList, runVoiceConversationCli }
+  from '../harness/voice_conversation_list_cli.mjs';
 import {
   AGENT_STEP_REPO_ROOT, findControlCharacter, readAgentStepPipelineConfig,
   runVoiceConversationAgentStepCli, validateAgainstSchema,
@@ -451,4 +452,61 @@ test('the CLI can be driven as a real subprocess, and a Korean answer with quote
   const cached = JSON.parse(readFileSync(path.join(cacheDir, 'cache', 'boundary', `${header.KEY}.json`), 'utf8'));
   assert.deepEqual(cached.value, answerValue, 'the cached answer is byte-identical, Korean text, quote and newline intact');
   assert.equal(cached.value.segments[0].related_draft_ids[0], description);
+});
+
+// ============================================= same re-ask fix, for free
+test('a rejected agent answer produces a NEW pending request carrying the re-ask sentence, under a different key', async () => {
+  // This harness has no rejection logic of its own -- it goes through
+  // exactly the same `runConversationList` the ordinary CLI and the nightly
+  // lane do, so a structurally valid but semantically rejected agent answer
+  // gets the same bounded re-ask, with no code added here.
+  const dirs = await estate();
+  const answerPending = async (header, value) => {
+    const answerPath = path.join(path.dirname(header.REQUEST_FILE), `${header.KEY}.answer.json`);
+    writeFileSync(answerPath, JSON.stringify(value));
+    const accepted = await runVoiceConversationAgentStepCli(
+      ['answer', ...baseArgs(dirs), '--session', SESSION, '--key', header.KEY, '--file', answerPath], {});
+    assert.equal(accepted.exitCode, 0, accepted.text);
+  };
+
+  const boundaryStep = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });
+  assert.equal(boundaryStep.exitCode, 10);
+  const boundaryHeader = parseHeader(boundaryStep.text);
+  assert.equal(boundaryHeader.STEP, 'boundary');
+  await answerPending(boundaryHeader, scriptedAnswer('boundary',
+    JSON.parse(readFileSync(boundaryHeader.REQUEST_FILE, 'utf8')).user));
+
+  const natureStep = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });
+  assert.equal(natureStep.exitCode, 10);
+  const natureHeader = parseHeader(natureStep.text);
+  assert.equal(natureHeader.STEP, 'nature');
+  // A structurally valid answer (matches the schema) that names a project in
+  // the title -- accepted by `answer` (schema-only validation), then
+  // rejected by the runtime's own semantic rule on the very next `step`.
+  const natureRequest = JSON.parse(readFileSync(natureHeader.REQUEST_FILE, 'utf8'));
+  const badTitleValue = { segments: segmentIdsInUser(natureRequest.user).map(id => ({ segment_id: id,
+    nature: 'project_work', title: 'AB-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
+  await answerPending(natureHeader, badTitleValue);
+
+  const reaskStep = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });
+  assert.equal(reaskStep.exitCode, 10, 'the rejected, cached answer produced a new pending question, not a done/verified pass');
+  const reaskHeader = parseHeader(reaskStep.text);
+  assert.equal(reaskHeader.STEP, 'nature');
+  assert.notEqual(reaskHeader.KEY, natureHeader.KEY, 'different request bytes -- a different cache key');
+  const reaskRequest = JSON.parse(readFileSync(reaskHeader.REQUEST_FILE, 'utf8'));
+  assert.ok(reaskRequest.user.includes(SEMANTIC_REASK_SENTENCES.nature_title_names_a_project),
+    'the new pending question states the rejection, in the same fixed sentence the local-model path uses');
+
+  // And answering that re-ask with a clean title verifies the run, healing
+  // in place under the same run id.
+  const cleanValue = { segments: segmentIdsInUser(natureRequest.user).map(id => ({ segment_id: id,
+    nature: 'project_work', title: '가대 도면 확인', description: '설명', key_terms: [], unclear: false })) };
+  await answerPending(reaskHeader, cleanValue);
+  const correctionStep = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });
+  assert.equal(correctionStep.exitCode, 10);
+  const correctionHeader = parseHeader(correctionStep.text);
+  await answerPending(correctionHeader, { proposals: [] });
+  const done = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });
+  assert.match(done.text, /^STATUS=done .*VERIFIED=true/mu);
+  assert.equal(done.exitCode, 0);
 });

@@ -157,6 +157,58 @@
   `guild_hall/context_engine/ops/register-graph-sync-task.ps1`,
   `guild_hall/context_engine/README.md`,
   `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`, `package.json`
+## 2026-09-22 - 대화 목록 파이프라인: 거부된 캐시 답 영구 정지 수리 -- 유계 재질문(re-ask) (lane v6 그대로)
+
+- Revision: 실제 backlog 야간 실행에서 세션 여럿이 `remaining_work`가 비지 않아 영원히
+  `verified: false`로 남았고, 밤 receipt 전체가 FAILED로 찍혔다. 원인 조사와 수리.
+- 무엇이 바뀌었는가: 구조 검사 6개는 통과하는데 `nature`/`boundary`의 **의미 규칙**이 모델 답을
+  거부한 경우, 그 답은 JSON Schema를 통과했으므로 이미 캐시돼 있었고 모델이 온도 0이라 재실행마다
+  **호출 0회**로 같은 거부를 재생했다. 실측한 원인 셋: **(1)** `nature_title_names_a_project`
+  (`src/runtime/voice_conversation_list.mjs:677`), **(2)** `boundary_not_monotonic`
+  (`src/runtime/voice_conversation_list.mjs:450`) -- 둘 다 구조상 유효한 캐시된 답의 순수 재생.
+  **(3)** `nature_llm_failed`가 실제로는 두 갈래였다: 새 긴 녹음(28·66분)은 창이 커서 매 회차
+  실호출을 태우며 실패했고(`ask()`의 `limits.retries` 재시도는 같은 요청을 반복할 뿐이라
+  truncation류 결정적 실패에 무력), 오래된 세션 하나는 진짜로는 **`nature` 배치 답이 구간 하나를
+  빠뜨린 것**(나머지는 정상 응답이라 스키마 유효 답으로 캐시됨)이 `checked.code ?? 'nature_llm_
+  failed'`의 `??`로 뭉개져 진짜 실패처럼 보였을 뿐, 실제로는 아무것도 재시도된 적이 없었다
+  (`harness/voice_conversation_list_cli.mjs`의 옛 `askNature`/`row === null` 처리).
+  `harness/voice_conversation_list_cli.mjs` 하나만 고쳤다 -- 런타임(`src/runtime/voice_
+  conversation_list.mjs`), 다섯 프롬프트 파일(다이제스트가 기존 카드에 박혀 있어 고치면 전부
+  stale이 됨), 기존 CLI·야간 lane의 동작은 전부 그대로다. 새 고정 테이블
+  `SEMANTIC_REASK_SENTENCES`(이유별 한 문장)·`MAX_SEMANTIC_REASKS`(2)로, 스키마는 통과했지만
+  의미 규칙에 거부된 답을 그 이유를 명시해 최대 2회 다시 묻는다(요청 바이트가 달라져 캐시 키도
+  달라지므로 실제 새 호출이 나간다); 배치 누락은 새 코드 `nature_missing_from_batch_answer`로
+  구분해 그 구간 하나만 다시 묻고; 긴 구간 창이 `ask()` 재시도까지 다 쓰고도 실패하면(의미 거부가
+  아니라 진짜 호출 실패) 발화 2개 이상인 창을 절반으로 한 번 나눠 재시도한다(config는 안 건드림
+  -- sha256으로 모든 카드에 박혀 있어 한 줄만 바꿔도 전부 재생성돼야 하므로). `run_manifest.json`에
+  `reasks: {total, by_reason, accepted, entries:[{step,item,reason,attempt,accepted}]}`를
+  더했다(발화 원문·모델 답 텍스트 없음). 재질문 테이블은 코드에만 있고 `runIdFor`가 보는 어떤
+  입력도 건드리지 않아 기존 검증된 run은 stale이 되지 않는다. agent-step harness
+  (`harness/voice_conversation_list_agent_step.mjs`)는 같은 `runConversationList`를 부르므로 한
+  줄도 고치지 않고 같은 수리를 받는다 -- 거부된 agent 답에 다음 `step`이 재질문용 새 `pending`
+  요청(다른 key, 같은 고정 문장)을 낸다.
+- 검증: `tests/voice_conversation_list_reask.test.mjs` 신규 9건 전부 통과(거부 없는 세션의
+  요청 바이트 불변, boundary/nature 재질문 성공·소진 뒤 기존 동작, 프로덕션 관찰 3원인 각각의
+  "다음 회차에 낫는다" 시험, 배치 누락 재질문과 영구 미해결 시 실제 원인 기록, 진짜 호출 실패의
+  다음 회차 재시도(호출 0회 재생 아님) 증명, 긴 구간 창 분할, `classifySession`의 재계획 확인).
+  `tests/voice_conversation_list_agent_step.test.mjs`에 1건 추가(17건 전부 통과) -- 거부된 agent
+  답이 다른 key의 새 pending을 내고 재질문 문장을 담음을 확인. 기존 `tests/voice_conversation_
+  list.test.mjs`(51건)·`voice_conversation_list_nightly.test.mjs`(97건)는 무수정으로 전부 그대로
+  통과(바이트 동일성의 추가 증거). `npm run validate:context-engine`: 769건 중 761 통과·8 skip·0
+  실패(끝값 0, 신규 9+1건 포함). `verify_module.mjs`의 runtime-closure sha256은 불변(harness는
+  `src/app.mjs` closure 밖) -- `module_version` 미변경. `validate:context-original-read`·
+  `validate:source-lane`·`validate:module-operability`·`validate:path-policy:all`·
+  `validate:canon`·`validate:display-terms`·`node guild_hall/validate/boot_digest_guard.mjs` 모두
+  끝값 0. lane spec은 `context-read-v6` 그대로(새 tracked_paths·entry_points 없음, 이미 등재된
+  `voice_conversation_list_cli.mjs`의 제자리 수정뿐 -- v5가 세운 같은 전례) -- lane을 임시
+  디렉터리에 새로 빌드하고 `--verify`까지 통과(커밋 뒤 갱신).
+- 운영 영향: 없음 -- 코드·시험·문서·lane 명세 설명문만 바뀌었다. 실제로 막힌 세션이 이 수리로
+  낫는 것은 다음 밤 backlog 실행이 결정하며 이 변경 밖이다.
+- 관련 경로: `guild_hall/context_engine/harness/voice_conversation_list_cli.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_reask.test.mjs`,
+  `guild_hall/context_engine/tests/voice_conversation_list_agent_step.test.mjs`,
+  `guild_hall/deployment_pack/lanes/context_read_lane.spec.json`, `package.json`,
+  `guild_hall/context_engine/README.md`, `CHANGELOG.md`.
 
 ## 2026-09-22 - 대화 목록 파이프라인용 외부 agent-step 하네스 추가(backlog 전용, lane v6)
 

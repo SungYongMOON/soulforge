@@ -1,5 +1,69 @@
 # Context Engine
 
+## 대화 목록 파이프라인 — 거부된 캐시 답 영구 정지 수리: 유계 재질문(re-ask) (0.22.9)
+
+실제 backlog 실행에서 관찰: `remaining_work`가 비지 않는 세션이 있었다. 구조 검사 6개는 전부
+통과하는데(`checks`), `nature`/`boundary`의 **의미 규칙**이 모델 답을 거부한 경우다. 답은
+JSON Schema를 통과했으므로 `makeAsk`가 이미 캐시에 썼고, 모델은 온도 0이라 같은 요청 바이트는
+같은(틀린) 답을 낸다 — 그래서 재실행마다 **호출 0회로** 같은 거부를 그대로 재생하며 영원히
+`verified: false`로 남았고, 밤마다 그 세션 하나가 그날 receipt 전체를 FAILED로 만들었다.
+2026-09-22 야간 backlog에서 실측한 원인 셋:
+
+- **`nature_title_names_a_project`**(`src/runtime/voice_conversation_list.mjs:677`) — 제목이 과제
+  코드를 담아 거부. 구조상 완전히 유효한 답이 그대로 캐시돼 매번 재생됐다.
+- **`boundary_not_monotonic`**(`src/runtime/voice_conversation_list.mjs:450`) — 구간이 시간 순서를
+  벗어나 거부. 마찬가지로 캐시된 채 재생.
+- **`nature_llm_failed`** — 두 갈래였다. **(a)** 새 긴 녹음(28·66분)은 `nature` 창이 커서
+  실패마다 실호출을 태웠다(회차당 8·31회) — `ask()`의 재시도(`limits.retries`, 기본 2)는 같은
+  요청을 그대로 반복할 뿐이라 truncation처럼 결정적인 실패에는 무력했다. **(b)** 오래된 세션
+  하나는 호출 0회로 재생됐는데, 원인은 실패가 아니라 **`nature` 배치 답이 구간 하나를 그냥
+  빠뜨린 것**이었다(`harness/voice_conversation_list_cli.mjs`의 옛 `askNature`: `if (answer.status
+  !== 'ok') return null;` 뒤 `found?.get(entry.segment_id) ?? null` — 나머지 구간은 정상 답한
+  스키마 유효한 응답이라 `makeAsk`가 **성공으로 캐시**했고, 빠진 구간만 `checked.code ?? 'nature_
+  llm_failed'`의 `??`로 뭉뚱그려져 진짜 실패처럼 보였다. 실제로는 아무것도 재시도된 적이 없었다).
+
+셋 다 `harness/voice_conversation_list_cli.mjs` 하나만 고쳤다(런타임 `src/runtime/voice_
+conversation_list.mjs`, 다섯 프롬프트 파일, 기존 CLI·야간 lane의 동작은 전부 그대로). 다섯
+프롬프트 파일을 고치지 않은 이유: 그 다이제스트가 이미 만들어진 모든 카드의 `run_manifest.json`에
+박혀 있어, 고치면 기존 카드가 전부 stale이 된다.
+
+- **유계 재질문**: `SEMANTIC_REASK_SENTENCES`(고정 테이블, 이유별 한 문장, 코드에만 존재)와
+  `MAX_SEMANTIC_REASKS`(2)를 새로 냈다. `boundary`/`nature` 둘 다, 답이 스키마는 통과했는데
+  의미 규칙에 거부되면(`answer.status === 'ok'`인 경우만 — 실제 호출 실패는 애초에 캐시되지
+  않아 다음 회차가 그냥 다시 묻는다) 그 이유의 문장을 `user` 끝에 붙여 다시 묻는다. 요청 바이트가
+  달라지므로 캐시 키도 달라지고, 실제로 새 호출이 나간다. 최대 2회, 넘으면 기존 그대로
+  `remaining_work`에 남고 `verified: false`. `nature`의 배치-누락은 새 코드
+  `nature_missing_from_batch_answer`로 따로 잡고(더는 `nature_llm_failed`로 뭉개지 않음), 재질문은
+  그 구간 하나만 다시 묻는다(원래 배치보다 작아 누락될 가능성이 낮다).
+- **긴 구간 창 절반 분할**: `nature`의 긴 구간 창이 `ask()`의 재시도까지 다 쓰고도 실패하면
+  (`found === null`, 의미 거부가 아니라 진짜 호출 실패), 발화 2개 이상이면 창을 절반으로 나눠
+  각각 다시 묻는다(`MAX_WINDOW_SPLITS = 1`, 한 단계만 — 더 잘라도 안 되는 창은 크기가 문제가
+  아니다). config 파일은 건드리지 않는다(설정은 sha256으로 모든 카드에 박혀 있어, 한 줄만 바꿔도
+  전부 재생성돼야 한다).
+- **정직한 근거만 기록**: `run_manifest.json`에 `reasks: { total, by_reason, accepted, entries }`가
+  늘었다. `entries`는 `{step, item, reason, attempt, accepted}`뿐 — 발화 원문·모델 답 텍스트는
+  절대 없다.
+- **run id 입력 불변**: 재질문 테이블은 코드에 있고 `runIdFor`가 보는 값(전사·의미 run·프롬프트
+  다이제스트·모델 pin·설정 sha256) 중 어느 것도 건드리지 않는다 — 기존 검증된 run은 전혀 stale이
+  되지 않는다.
+- **agent-step harness는 공짜로 같은 수리를 받는다**: `harness/voice_conversation_list_agent_step.mjs`는
+  같은 `runConversationList`를 부르므로, 외부 agent가 스키마는 맞지만 의미상 거부되는 답을 내면
+  다음 `step`이 재질문용 새 `pending` 요청(다른 key, `user`에 같은 고정 문장)을 낸다 — 이 harness
+  자체는 한 줄도 고치지 않았다.
+
+시험: `tests/voice_conversation_list_reask.test.mjs`(신규 9건) — 거부 없는 세션의 요청 바이트가
+그대로임(재질문 문장이 섞이지 않음, 캐시 파일 1개씩), `boundary_not_monotonic` 재질문 성공·최대
+재질문 소진 뒤 기존 동작 유지, `nature_title_names_a_project`가 **다음 회차에** 낫는(예전 방식으로
+막힌 캐시를 흉내: 회차 1은 시험용 모의 모델의 자체 호출 상한만으로 재질문 없이 멈춤) 시험,
+배치 누락이 재질문되는 시험과 영원히 안 낫는 경우 실제 원인이 기록되는 시험, 진짜 호출 실패가
+다음 회차에 새로 재시도됨(호출 0회 재생 아님) 시험, 긴 구간 창 분할 시험(절반씩 2번 재시도),
+`classifySession`이 미검증 run을 계속 `run`으로 다시 계획함을 보이는 시험. `tests/voice_
+conversation_list_agent_step.test.mjs`에 1건 추가(거부된 agent 답이 다른 key의 새 pending을
+냄). 기존 `tests/voice_conversation_list.test.mjs`(51건)·`tests/voice_conversation_list_nightly.
+test.mjs`(97건)·`tests/voice_conversation_list_agent_step.test.mjs`(기존 16건)는 무수정으로 전부
+그대로 통과(바이트 동일성의 또 다른 증거). `npm run validate:context-engine`에 새 시험 파일이
+들어갔다.
+
 ## 대화 목록 외부 agent-step 하네스 — backlog 전용 (0.22.8)
 
 Owner가 기록한 일회성 예외: 오래된 backlog 세션은 로컬 모델 대신 **외부 agent**(코디네이터가 운영하는
