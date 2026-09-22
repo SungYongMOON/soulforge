@@ -37,7 +37,9 @@ knowledge or operating binding is moved or enabled by this document update.
 | 시작 | `start`, `claim`, `in progress` | worker 가 특정 task packet 을 잡고 allowed scope 안에서 실행을 시작한 상태 | 시작은 결과 보장이나 승인 변경이 아니다. |
 | 완료 | `done`, `completed` | 요청된 산출물, 문서 동기화, 검증 기록, closeout 보고가 끝난 상태 | merge, 배포, 정본 승격, owner acceptance 는 별도일 수 있다. |
 | 보류 | `hold`, `blocked` | source gap, owner decision, validator failure, private/public boundary, secret/raw 요구 때문에 안전하게 진행할 수 없는 상태 | 보류는 실패 낙인이 아니라 다음 필요한 결정을 드러내는 상태다. |
-| 지식 | `knowledge` | 반복해서 다시 쓸 수 있는 개념, source 사용 방식, 판단 기준, relation, retrieval 단서 | 단순 대화 요약이나 AI 주장만으로 정본 지식이 되지 않는다. |
+| 지식 | `knowledge` | 반복해서 다시 쓸 수 있는 개념, source 사용 방식, 판단 기준, relation, retrieval 단서 | 단순 대화 요약이나 AI 주장만으로 정본 지식이 되지 않는다. 위키 페이지·사실 장부·대상 후보는 지식이지 기억이 아니다(2026-09-22 Owner 정정). |
+| 기억 | `memory`, 봇 수첩 | 봇(에이전트)이 일하면서 스스로 적는 다음에 써먹을 것: 도구 요령, 시행착오, Owner 습관·서식 취향. 봇마다 자기 기억 파일(Hermes memory, Buzz 에이전트 memory)에 두고 그 봇이 다음 일을 시작할 때 읽는다. | 과제 사실은 기억이 아니라 지식이다. 기억에는 과제 식별자(과제 코드·문서명·발주처·사람·금액)를 적지 않는다. 대화에서 나온 과제 사실은 기억이 아니라 사람 입력으로 지식 장부에 제출한다. Neo4j Agent Memory가 "memory"라 부르는 것은 우리 말로 기록·지식·기억을 합친 것이며, 이 문서의 기억은 그중 봇 수첩만 가리킨다. |
+| 기록 | `record`, 대화 기록, 작업 일지, 영수증 | 무슨 말이 오갔고 무엇을 했는지를 그대로 남긴 것: 대화 기록(단기), 작업 일지·영수증·페이지 기록(추론 흔적). 날짜별로 쌓기만 하고 고치지 않는다. 기억(수첩)은 기록에서 다음에 써먹을 것만 걸러낸 것이고, 지식은 기록·원본에서 검증을 거쳐 만든 것이다. | 기록 자체는 기억도 지식도 아니다. 기록을 읽는다고 봇이 배운 것이 되지 않고, 기록에 적힌 주장이 지식이 되지 않는다. |
 | RAG | `Retrieval-Augmented Generation` | 질문이나 검토 전에 source/ref 를 찾아 답변에 연결하는 방식 | Soulforge 에서는 기본적으로 metadata-only 로 다루며, source text lane 은 owner-approved private 경계가 필요하다. |
 | Ledger Plane | 공통 장부 계층 | 세 제품과 아홉 portfolio의 사건을 안정된 ID·시간·관계로 연결하는 공통 기계 계약 | 네 번째 제품이나 하나의 전사 mega-database가 아니다. Domain 의미·수락·권한은 각 owner가 유지한다. |
 | Ledger Catalog | 장부 등록부 | 각 장부·receipt·cursor·state·projection·backup·dataset의 owner, SoR, writer, schema, scope, 저장·복구·분석 자격을 등록하는 중앙 metadata catalog | Event body를 한곳에 모으거나 source-local 정본을 대체하지 않는다. |
