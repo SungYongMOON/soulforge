@@ -15,6 +15,12 @@ The lane is intentionally narrower than a general autonomous developer. It selec
 - low-risk candidate auto-approval policy checks
 - tests for deterministic selection and sanitization behavior
 
+The separate [`buzz_media_plugin/`](buzz_media_plugin/) package contains the
+optional Hermes Buzz attachment extension. It is installed and enabled per
+Hermes profile; importing this source directory does not activate a live route.
+Its voice-note path authenticates the download, verifies the signed attachment
+hash, and requires an audio-only MP4 before entering the existing STT pipeline.
+
 ## What Does Not Belong Here
 
 - account tokens or credentials
