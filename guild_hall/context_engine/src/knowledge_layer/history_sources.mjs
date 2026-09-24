@@ -121,7 +121,10 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
   if (config.project_policy==='confirmed'&&!routes) fail('history_voice_routes_required');
   const read = bounded(config), records = [], excluded = [], receipts = [];
   const routeNames = routes ? new Set((await routes.list([])).filter(e=>e.file).map(e=>e.name)) : new Set();
-  const days = (await sessions.list([])).filter(e=>e.directory&&/^\d{4}-\d{2}-\d{2}$/u.test(e.name)&&e.name>=fromDate&&e.name<=throughDate);
+  const previousDate=new Date(Date.parse(fromDate+'T00:00:00Z')-86400000).toISOString().slice(0,10);
+  const windowStart=Date.parse(fromDate+'T00:00:00+09:00');
+  const windowEnd=Date.parse(throughDate+'T00:00:00+09:00')+86400000;
+  const days = (await sessions.list([])).filter(e=>e.directory&&/^\d{4}-\d{2}-\d{2}$/u.test(e.name)&&e.name>=previousDate&&e.name<=throughDate);
   for (const date of days) for (const session of await sessions.list([date.name])) {
     if (!session.directory || !safe(session.name)) continue;
     const manifestRead = await read(sessions,[date.name,session.name,'session_manifest.json']);
@@ -129,6 +132,8 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
     if (manifest.session_id!==session.name) fail('history_voice_session_mismatch');
     const started = Date.parse(manifest.recorded_at_local);
     if (!Number.isFinite(started)||!/(?:Z|[+-]\d{2}:\d{2})$/u.test(manifest.recorded_at_local??'')) fail('history_voice_clock_invalid');
+    if(started>=windowEnd || (Number.isFinite(manifest.duration_seconds)&&manifest.duration_seconds>=0
+      &&started+manifest.duration_seconds*1000<windowStart))continue;
     const candidates = [];
     for (const run of await cardsRoot.list([session.name])) {
       if (!run.directory || !safe(run.name)) continue;
@@ -161,7 +166,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
       if(!Number.isFinite(segment.start_seconds)||!Number.isFinite(segment.end_seconds)
         ||segment.start_seconds<0||segment.end_seconds<segment.start_seconds)fail('history_voice_range_invalid');
       const instant=new Date(started+segment.start_seconds*1000).toISOString();
-      if(!inWindow(instant,fromDate,throughDate))continue;
+      if(started+segment.end_seconds*1000<windowStart||started+segment.start_seconds*1000>=windowEnd)continue;
       selected.push({segment,instant,strength:confirmed?'confirmed':'candidate_only_not_accepted'});
     }
     if(!selected.length)continue;
@@ -184,15 +189,21 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
         ||row.end_seconds<row.start_seconds||row.start_seconds<segment.start_seconds-0.02||row.end_seconds>segment.end_seconds+0.02)
         ||ids.some((id,index)=>index>0&&id<=ids[index-1]))fail('history_voice_range_mismatch');
       if(ids.some(id=>latest.card.segments.filter(s=>s.source_segment_ids?.includes(id)).length!==1))fail('history_voice_source_overlap');
-      const text=native.map(row=>row.content).join('\n');
-      records.push(flatRecord(project,'voice_card_unverified_ASR',`${session.name}:${segment.segment_id}`,instant,text,
+      for (const utterance of native) {
+        const utteranceTime=new Date(started+utterance.start_seconds*1000).toISOString();
+        if(!inWindow(utteranceTime,fromDate,throughDate))continue;
+        const record=flatRecord(project,'voice_utterance',`${session.name}:${segment.segment_id}:${utterance.segment_id}`,utteranceTime,utterance.content,
         String(segment.title??'녹음'), '발화자 미확인', [{source_kind:'voice',source_root:config.sessions_root,card_source_root:config.cards_root,
           session_id:session.name,card_run_id:latest.run,
           card_segment_id:segment.segment_id,card_sha256:latest.sha256,manifest_sha256:manifestRead.sha256,
-          transcript_sha256:transcript.sha256,transcript_path:transcriptPath,source_segment_ids:ids,attribution:strength,
+          transcript_sha256:transcript.sha256,transcript_path:transcriptPath,source_segment_ids:[utterance.segment_id],attribution:strength,
           route_ledger_sha256:ledgerHash,
-          source_offsets:native.map(row=>[row.segment_id,row.start_seconds,row.end_seconds]),
-          derived_title_only:true,semantic_fact_verified:false}], {thread_ref:idFor('voice',session.name)}));
+          source_offsets:[[utterance.segment_id,utterance.start_seconds,utterance.end_seconds]],
+          derived_title_only:true,semantic_fact_verified:false}], {thread_ref:idFor('voice',`${session.name}:${segment.segment_id}`)});
+        record.id=`voice_utterance:${hashText(`${session.name}:${segment.segment_id}`).slice(7,23)}:${String(utterance.segment_id).padStart(8,'0')}`;
+        record.evidence_mode='source_id';
+        records.push(record);
+      }
     }
     receipts.push({source_kind:'voice',session_ref:hashText(session.name),card_sha256:latest.sha256,transcript_sha256:transcript.sha256});
   }

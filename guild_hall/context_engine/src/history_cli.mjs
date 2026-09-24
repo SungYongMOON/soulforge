@@ -55,6 +55,23 @@ function binding(raw) {
     || raw.model_id.endsWith('-cloud') || !sha(raw.model_pin) || raw.think !== false) fail('history_binding_invalid');
   return { ...raw, host: raw.host.replace(/\/+$/u, '') };
 }
+export function historyEventsSchema(format = 'history_events_json_schema_v1') {
+  const withChildren = format.includes('children'), voiceOnly = format.includes('voice_');
+  const mixed = format.includes('mixed');
+  const evidenceProperties = { source_id: { type: 'string' },
+    ...(!voiceOnly ? { quote: { type: 'string' } } : {}) };
+  const eventProperties = { text: { type: 'string' } };
+  if (!voiceOnly || !withChildren) eventProperties.evidence = { type: 'array',
+    items: { type: 'object', additionalProperties: false,
+      required: mixed || voiceOnly ? ['source_id'] : ['source_id', 'quote'],
+      properties: evidenceProperties } };
+  if (withChildren) eventProperties.child_card_ids = { type: 'array', items: { type: 'string' } };
+  return { type: 'object', additionalProperties: false, required: ['events'], properties: {
+    events: { type: 'array', items: { type: 'object', additionalProperties: false,
+      required: withChildren ? mixed || voiceOnly ? ['text', 'child_card_ids']
+        : ['text', 'evidence', 'child_card_ids'] : ['text', 'evidence'],
+      properties: eventProperties } } } };
+}
 function modelTransport(bound) {
   const fetchImpl = createModelFetch([]);
   async function read(url, options) {
@@ -91,15 +108,8 @@ function modelTransport(bound) {
     let body, url;
     if (bound.transport === 'openai_chat') {
       url = bound.host + '/v1/chat/completions';
-      const withChildren = response_format === 'history_events_with_children_json_schema_v1';
-      const eventProperties = { text: { type: 'string' }, evidence: { type: 'array',
-        items: { type: 'object', additionalProperties: false, required: ['source_id', 'quote'],
-          properties: { source_id: { type: 'string' }, quote: { type: 'string' } } } } };
-      if (withChildren) eventProperties.child_card_ids = { type: 'array', items: { type: 'string' } };
-      const schema = { type: 'object', additionalProperties: false, required: ['events'], properties: {
-        events: { type: 'array', items: { type: 'object', additionalProperties: false,
-          required: withChildren ? ['text', 'evidence', 'child_card_ids'] : ['text', 'evidence'],
-          properties: eventProperties } } } };
+      const withChildren = response_format?.includes('children');
+      const schema = historyEventsSchema(response_format);
       body = { model: config.model_id, stream: false, temperature: config.temperature, max_tokens: config.max_tokens,
         response_format: response_format?.startsWith('history_events_')
           ? { type: 'json_schema', json_schema: { name: withChildren ? 'history_events_with_children' : 'history_events', schema } }
@@ -108,7 +118,8 @@ function modelTransport(bound) {
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
     } else {
       url = bound.host + '/api/chat';
-      body = { model: config.model_id, stream: false, format: 'json', think: false,
+      body = { model: config.model_id, stream: false,
+        format: response_format?.startsWith('history_events_') ? historyEventsSchema(response_format) : 'json', think: false,
         options: { temperature: config.temperature, num_predict: config.max_tokens }, keep_alive: '0s',
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
     }

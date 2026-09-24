@@ -21,6 +21,30 @@ const PROMPTS = {
   monthly: 'Write 5-10 concise lines of past events in this month from the week cards. Use exact child_card_ids. Retain original source IDs and quote only source excerpts shown in child evidence. Return JSON {"events":[{"text":"...","child_card_ids":["..."],"evidence":[{"source_id":"...","quote":"..."}]}]}. Do not infer unfinished work.',
   status: 'Write a one-page Korean "최근 있었던 일" report containing only recently recorded past facts from the current month cards. Use exact child_card_ids. No remaining work, verification to-dos, current judgment, or recommendations. Return JSON {"events":[{"text":"...","child_card_ids":["..."],"evidence":[{"source_id":"...","quote":"..."}]}]}.',
 };
+const VOICE_ID_PROMPT = 'For a supplied voice_utterance record with evidence_mode source_id, cite only its exact source_id and do not provide a quote. The application attaches that utterance text and its original source reference. For every other record, provide an exact consecutive source quote. Never invent or borrow a source_id from another day or batch.';
+const dailyPrompt = rows => PROMPTS.daily + (rows.some(row => row.evidence_mode === 'source_id') ? '\n' + VOICE_ID_PROMPT : '');
+const upperPrompt = (children, sources) => {
+  const ids = children.flatMap(card => card.evidence.map(item => item.source_id)).filter(id => sources.get(id));
+  const voice = ids.some(id => sources.get(id).evidence_mode === 'source_id');
+  if (!voice) return '';
+  return ids.every(id => sources.get(id).evidence_mode === 'source_id')
+    ? '\nReturn text and exact child_card_ids only, with no evidence or quote field. The application carries checked utterance source IDs and text from those child cards.'
+    : '\nUse child_card_ids to carry checked voice utterance evidence. Do not quote voice utterances; any separately cited nonvoice source still needs an exact source quote.';
+};
+const dailyRequestFormat = rows => {
+  const voice = rows.filter(row => row.evidence_mode === 'source_id').length;
+  return voice === 0 ? 'history_events_json_schema_v1'
+    : voice === rows.length ? 'history_events_voice_id_json_schema_v1' : 'history_events_mixed_json_schema_v1';
+};
+const batchInputRows = rows => rows.map(row => row.evidence_mode === 'source_id'
+  ? { id: row.id, thread_ref: row.thread_ref, text: row.text, text_sha256: row.text_sha256,
+    originrefs: row.originrefs, evidence_mode: 'source_id' } : row);
+const upperRequestFormat = (children, sources) => {
+  const ids = children.flatMap(card => card.evidence.map(item => item.source_id)).filter(id => sources.get(id));
+  const voice = ids.filter(id => sources.get(id).evidence_mode === 'source_id').length;
+  return voice && voice === ids.length ? 'history_events_voice_children_json_schema_v1'
+    : voice ? 'history_events_mixed_children_json_schema_v1' : 'history_events_with_children_json_schema_v1';
+};
 const fail = code => { throw new Error(code); };
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 const dateOK = value => DAY.test(value) && !Number.isNaN(Date.parse(value + 'T00:00:00Z'))
@@ -90,13 +114,16 @@ function normalize(input) {
       || !['kind', 'title', 'sender', 'recipient'].every(k => typeof row[k] === 'string')
       || (row.thread_ref !== undefined && (typeof row.thread_ref !== 'string' || row.thread_ref.length > 500 || /[\u0000-\u001f]/u.test(row.thread_ref)))
       || (row.attachments !== undefined && (!Array.isArray(row.attachments) || row.attachments.some(v => typeof v !== 'string')))
+      || (row.evidence_mode !== undefined && (row.evidence_mode !== 'source_id'
+        || row.kind !== 'voice_utterance' || !row.text.trim()))
       || (row.text_sha256 !== undefined && (!sha(row.text_sha256) || row.text_sha256 !== hashText(row.text)))) fail('history_record_invalid');
     if (seen.has(row.id)) fail('history_duplicate_source_id'); seen.add(row.id);
     if (row.date > asOf) continue;
     const originrefs = row.originrefs === undefined ? [] : snapshot(row.originrefs);
     records.push({ id: row.id, date: row.date, kind: row.kind, title: row.title, sender: row.sender,
       recipient: row.recipient, attachments: sorted(row.attachments ?? []), thread_ref: row.thread_ref ?? null,
-      text: row.text, text_sha256: hashText(row.text), originrefs });
+      text: row.text, text_sha256: hashText(row.text), originrefs,
+      ...(row.evidence_mode ? { evidence_mode: row.evidence_mode } : {}) });
   }
   records.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   return { project: input.project, month: input.month, as_of: asOf, records };
@@ -120,19 +147,28 @@ function groupThreads(rows) {
   for (const row of rows) { const key = row.thread_ref ? 'thread:' + row.thread_ref : 'record:' + row.id;
     if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row); }
   return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([thread_ref, records]) => ({ thread_ref,
-    records: records.map(({ originrefs, ...modelRecord }) => modelRecord) }));
+    records: records.map(({ originrefs, ...modelRecord }) => modelRecord.evidence_mode === 'source_id'
+      ? { source_id: modelRecord.id, evidence_mode: 'source_id', text: modelRecord.text } : modelRecord) }));
 }
 function sourceLabel(source) {
+  if (source.evidence_mode === 'source_id') {
+    const card = Array.isArray(source.originrefs) ? source.originrefs.find(ref => plain(ref)
+      && typeof ref.card_sha256 === 'string' && typeof ref.card_segment_id === 'string') : null;
+    return { source_id: source.id, date: source.date, kind: source.kind, sender: '', recipient: '',
+      title: '', attachments: [], thread_ref: null,
+      ...(card ? { card_identity: `${card.card_sha256}:${card.card_segment_id}` } : {}) };
+  }
   return { source_id: source.id, date: source.date, kind: source.kind, title: source.title, sender: source.sender,
     recipient: source.recipient, attachments: source.attachments, thread_ref: source.thread_ref };
 }
-function childForPrompt(cell) {
+function childForPrompt(cell, sources) {
   return { key: cell.key, version: cell.fingerprint, format_flag: cell.format_flag,
     ...(cell.format_flag ? { raw: cell.raw } : {}),
     cards: (cell.cards ?? []).map(card => ({ card_id: card.card_id, text: card.text,
-      evidence: card.evidence.map(e => ({ source_id: e.source_id, quote: e.quote })), flags: card.flags })) };
+      evidence: card.evidence.map(e => sources.get(e.source_id)?.evidence_mode === 'source_id'
+        ? { source_id: e.source_id } : { source_id: e.source_id, quote: e.quote }), flags: card.flags })) };
 }
-function cardsFrom(raw, sources, layer, key, children) {
+function cardsFrom(raw, sources, layer, key, children, knownSources = sources) {
   let parsed, formatFlag = null, responseFormat = 'json';
   const fence = /^```json\r?\n([\s\S]*?)\r?\n```(?:\r?\n)?$/u.exec(raw);
   const content = fence ? fence[1] : raw;
@@ -143,19 +179,41 @@ function cardsFrom(raw, sources, layer, key, children) {
   const cards = parsed.events.map((event, index) => {
     const text = typeof event?.text === 'string' ? event.text : serial(event);
     const evidence = [], flags = [];
-    for (const e of Array.isArray(event?.evidence) ? event.evidence : []) {
+    const childById = new Map(children.map(c => [c.card_id, c]));
+    const childIds = Array.isArray(event?.child_card_ids) ? event.child_card_ids.filter(id => typeof id === 'string') : [];
+    const modeled = Array.isArray(event?.evidence) ? event.evidence : [];
+    const modeledIds = new Set(modeled.map(item => item?.source_id).filter(id => typeof id === 'string'));
+    const inherited = layer === 'daily' ? [] : childIds.filter(id => childById.has(id))
+      .flatMap(id => childById.get(id).evidence.map(item => ({ item, child_card_id: id })))
+      .filter(({ item }) => typeof item.source_id === 'string' && !modeledIds.has(item.source_id)
+        && sources.has(item.source_id) && sources.get(item.source_id).evidence_mode === 'source_id'
+        && typeof item.quote === 'string' && item.quote);
+    if (layer !== 'daily') for (const sourceId of uniq(childIds.filter(id => childById.has(id))
+      .flatMap(id => childById.get(id).evidence.map(item => item.source_id))
+      .filter(id => typeof id === 'string' && sources.has(id)
+        && sources.get(id).evidence_mode !== 'source_id' && !modeledIds.has(id))))
+      flags.push({ reason: 'quote_missing', source_id: sourceId });
+    for (const { e, inheritedFrom } of [
+      ...modeled.map(e => ({ e, inheritedFrom: null })),
+      ...inherited.map(({ item, child_card_id }) => ({ e: item, inheritedFrom: child_card_id }))]) {
       const id = e?.source_id, source = typeof id === 'string' ? sources.get(id) : null;
-      const quote = typeof e?.quote === 'string' ? e.quote : '';
-      if (!source) flags.push({ reason: 'source_missing', source_id: typeof id === 'string' ? id : null });
-      else if (!quote || !source.text.includes(quote)) flags.push({ reason: quote ? 'quote_mismatch' : 'quote_missing', source_id: id });
+      const proposedQuote = typeof e?.quote === 'string' ? e.quote : '';
+      let quote = source ? proposedQuote : '';
+      if (!source) flags.push({ reason: layer === 'daily' && typeof id === 'string' && knownSources.has(id)
+        ? 'source_not_in_cell' : 'source_missing', source_id: typeof id === 'string' ? id : null });
+      else if (source.evidence_mode === 'source_id') {
+        if (!inheritedFrom && Object.hasOwn(e, 'quote')) flags.push({ reason: 'voice_quote_not_allowed', source_id: id });
+        quote = inheritedFrom ? proposedQuote : source.text;
+        if (!quote || !source.text.includes(quote)) flags.push({ reason: 'quote_mismatch', source_id: id });
+      } else if (!quote || !source.text.includes(quote))
+        flags.push({ reason: quote ? 'quote_mismatch' : 'quote_missing', source_id: id });
       evidence.push({ source_id: typeof id === 'string' ? id : null, quote,
-        originrefs: source?.originrefs ?? [], ...(source?.part_locators ? { part_locators: source.part_locators } : {}) });
+        originrefs: source?.originrefs ?? [], ...(source?.part_locators ? { part_locators: source.part_locators } : {}),
+        ...(inheritedFrom ? { inherited_from_child_card_id: inheritedFrom } : {}) });
     }
     if (!evidence.length) flags.push({ reason: 'evidence_missing', source_id: null });
     const sourceIds = uniq(evidence.map(e => e.source_id).filter(Boolean));
-    const childById = new Map(children.map(c => [c.card_id, c]));
     const allowed = new Set(childById.keys());
-    const childIds = Array.isArray(event?.child_card_ids) ? event.child_card_ids.filter(id => typeof id === 'string') : [];
     for (const id of childIds) if (!allowed.has(id)) flags.push({ reason: 'child_ref_missing', child_card_id: id });
     if (layer !== 'daily' && !childIds.length) flags.push({ reason: 'child_ref_missing', child_card_id: null });
     if (layer !== 'daily') for (const item of evidence) {
@@ -174,7 +232,9 @@ const line = value => String(value ?? '').replace(/[\r\n\t]+/gu, ' ').trim()
   .replace(/&amp;/gu, '&').replace(/[<>`*_\[\]\\|]/gu, character => `&#${character.codePointAt(0)};`);
 const anchor = id => `card-${hashText(id).slice(7, 19)}`;
 const FLAG_LABELS = { source_missing: '출처 확인 필요', quote_mismatch: '인용 불일치', quote_missing: '인용 누락',
-  evidence_missing: '근거 누락', child_ref_missing: '하위 기록 연결 누락', child_evidence_mismatch: '하위 기록과 근거 불일치' };
+  evidence_missing: '근거 누락', child_ref_missing: '하위 기록 연결 누락',
+  child_evidence_mismatch: '하위 기록과 근거 불일치', source_not_in_cell: '해당 입력 묶음 밖 출처',
+  voice_quote_not_allowed: '음성 근거 인용 형식 확인' };
 function displayConfig(value) {
   const raw = value ?? {};
   if (!plain(raw)) fail('history_display_metadata_invalid');
@@ -245,8 +305,13 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
       for (const card of cell.cards ?? []) {
         lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- ${visible(card.text)}`);
         if (!stale && card.child_card_ids.length) lines.push(`  - 하위 기록: ${card.child_card_ids.map((id, index) => `[연결 ${index + 1}](#${anchor(id)})`).join(', ')}`);
-        const evidenceLines = [], mailByKey = new Map();
+        const evidenceLines = [], mailByKey = new Map(), voiceByCard = new Set();
         for (const source of card.source_display) {
+          if (/voice|ASR|녹음/iu.test(source.kind)) {
+            const key = source.card_identity ?? source.source_id;
+            if (!voiceByCard.has(key)) { voiceByCard.add(key); evidenceLines.push({ source }); }
+            continue;
+          }
           if (!/mail|메일/iu.test(source.kind)) { evidenceLines.push({ source }); continue; }
           const bodyHash = display.source_body_sha256[source.source_id] ?? source.text_sha256;
           const key = serial([source.date, visible(source.sender), visible(source.recipient), visible(source.title), bodyHash]);
@@ -312,17 +377,23 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
   if (!data.records.length) return { status: 'refused_empty_input', project: data.project, month: data.month, calls: 0, head: oldHead ?? null };
   const inputFingerprint = fingerprintInputData(data);
   const sourceMap = new Map(data.records.map(r => [r.id, r]));
+  const sourcesForIds = ids => new Map(ids.map(id => [id, sourceMap.get(id)]).filter(([, source]) => source));
   const days = new Map(); for (const row of data.records) { if (!days.has(row.date)) days.set(row.date, []); days.get(row.date).push(row); }
   const current = { daily: {}, weekly: {}, monthly: {}, status: {} };
   const changes = []; let calls = 0;
   const deadline = Date.now() + config.wall_timeout_ms;
   async function cell(layer, key, payload, sourceIds, children = [], extra = {}, sourceFingerprint = null,
     requestFormat = null) {
-    const system = PROMPTS[layer] + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+    const daySources = sourceIds.map(id => sourceMap.get(id));
+    const effectiveFormat = layer === 'daily' && dailyRequestFormat(daySources) !== 'history_events_json_schema_v1'
+      ? dailyRequestFormat(daySources) : layer !== 'daily' && requestFormat
+        ? upperRequestFormat(children, sourceMap) : requestFormat;
+    const system = (layer === 'daily' ? dailyPrompt(daySources) : PROMPTS[layer] + upperPrompt(children, sourceMap))
+      + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
     const user = serial(payload);
     if (user.length > config.max_input_characters) fail('history_model_input_too_large');
     const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month, layer, key, payload,
-      source_fingerprint: sourceFingerprint, system, model, ...(requestFormat ? { request_format: requestFormat } : {}) });
+      source_fingerprint: sourceFingerprint, system, model, ...(effectiveFormat ? { request_format: effectiveFormat } : {}) });
     const file = `history-cell-${fingerprint.slice(7)}.json`;
     let prior = store.read(file);
     if (layer === 'daily' && oldHead?.cells?.daily?.[key] && oldHead.cells.daily[key] !== fingerprint) {
@@ -342,14 +413,15 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       calls++;
       let raw;
       try { raw = await generate({ layer, key, system, user, config: model,
-        ...(requestFormat ? { response_format: requestFormat } : {}),
+        ...(effectiveFormat ? { response_format: effectiveFormat } : {}),
         timeout_ms: Math.max(1000, Math.min(config.per_call_timeout_ms, deadline - Date.now())) }); }
       catch (error) { fail('history_generation_failed:' + String(error?.code ?? error?.name ?? 'error').slice(0, 64)); }
       if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
       prior = { schema: SCHEMA, project: data.project, month: data.month, layer, key, fingerprint,
         source_ids: sourceIds, child_card_ids: children.map(c => c.card_id), ...extra,
-        ...(requestFormat ? { request_format: requestFormat } : {}),
-        ...cardsFrom(raw, sourceMap, layer, key, children) };
+        ...(effectiveFormat ? { request_format: effectiveFormat } : {}),
+        ...cardsFrom(raw, layer === 'daily' ? sourcesForIds(sourceIds) : sourceMap,
+          layer, key, children, sourceMap) };
       prior.content_sha256 = hashText(serial(prior));
       store.writeNew(file, prior);
     }
@@ -366,7 +438,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
   }
   function decodedCell(held, children = []) {
     return held.batch_refs || held.preview ? held : { ...held,
-      ...cardsFrom(held.raw, sourceMap, held.layer, held.key, children) };
+      ...cardsFrom(held.raw, held.layer === 'daily' ? sourcesForIds(held.source_ids) : sourceMap,
+        held.layer, held.key, children, sourceMap) };
   }
   function reusableUpper(layer, key, previousLayer, versions) {
     if (!oldHead || oldHead.stale_summary === true || oldHead.as_of !== data.as_of
@@ -382,17 +455,20 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     return held;
   }
   function batchFingerprint(day, batch) {
-    const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+    const supplied = batch.user.threads.flatMap(thread => thread.records);
+    const system = dailyPrompt(supplied)
+      + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
     return digest({ schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch',
       key: day, payload: batch.user,
       parts: batch.parts.map(({ source_text_sha256, ...part }) => part), system, model,
-      batch_policy: config.daily_batch_characters, request_format: 'history_events_json_schema_v1' });
+      batch_policy: config.daily_batch_characters, request_format: dailyRequestFormat(supplied) });
   }
   function failedBatchCell(day, batch, fingerprint, code, failedRunDigest = null) {
     const safeCode = /^[A-Za-z0-9_:-]{1,64}$/u.test(code) ? code : 'request_failed';
     const value = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch', key: day,
       fingerprint, source_ids: uniq(batch.parts.map(part => part.source_id)), parts: batch.parts,
-      request_format: 'history_events_json_schema_v1', raw: '', cards: [], format_flag: 'model_request_failed',
+      request_format: dailyRequestFormat(batch.user.threads.flatMap(thread => thread.records)),
+      raw: '', cards: [], format_flag: 'model_request_failed',
       response_format: null, response_received: false, error_code: safeCode,
       ...(failedRunDigest ? { failed_run_sha256: failedRunDigest } : {}) };
     value.content_sha256 = hashText(serial(value)); return value;
@@ -413,11 +489,12 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     if (!halves || halves.some(half => half.characters > config.daily_batch_characters
       || half.characters > config.max_input_characters)) return null;
     const planned = halves.map((half, index) => {
+      const format = dailyRequestFormat(half.user.threads.flatMap(thread => thread.records));
       const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month,
         layer: 'daily_batch_half', key: day, parent_ref: parent.fingerprint, half_index: index,
         policy: 'timeout_bisect_once_v1', payload: half.user,
         parts: half.parts.map(({ source_text_sha256, ...part }) => part), system, model,
-        request_format: 'history_events_json_schema_v1' });
+        request_format: format });
       const existing = store.read(`history-cell-${fingerprint.slice(7)}.json`);
       return { half, index, fingerprint,
         held: existing ? heldCell(fingerprint, 'daily_batch_half', day) : null };
@@ -431,9 +508,10 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       if (deadline - Date.now() < config.per_call_timeout_ms) return null;
       calls++;
       const user = serial(item.half.user);
+      const format = dailyRequestFormat(item.half.user.threads.flatMap(thread => thread.records));
       let raw, errorCode = null;
       try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
-        response_format: 'history_events_json_schema_v1',
+        response_format: format,
         timeout_ms: Math.min(config.per_call_timeout_ms, deadline - Date.now()) }); }
       catch (error) { errorCode = error?.name === 'TimeoutError' ? 'TimeoutError'
         : String(error?.code ?? error?.name ?? 'request_failed').slice(0, 64); }
@@ -442,11 +520,11 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       const held = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch_half', key: day,
         fingerprint: item.fingerprint, parent_ref: parent.fingerprint, half_index: item.index,
         source_ids: uniq(item.half.parts.map(part => part.source_id)), parts: item.half.parts,
-        request_format: 'history_events_json_schema_v1',
+        request_format: format,
         ...(errorCode ? { raw: '', cards: [], format_flag: 'model_request_failed', response_format: null,
           response_received: received, ...(received ? { raw_sha256: hashText(raw), raw_characters: raw.length } : {}),
           error_code: /^[A-Za-z0-9_:-]{1,64}$/u.test(errorCode) ? errorCode : 'request_failed' }
-          : cardsFrom(raw, batchSources(item.half), 'daily', day, [])) };
+          : cardsFrom(raw, batchSources(item.half), 'daily', day, [], sourceMap)) };
       held.content_sha256 = hashText(serial(held));
       store.writeNew(`history-cell-${item.fingerprint.slice(7)}.json`, held);
       item.held = held;
@@ -456,10 +534,13 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
   }
   async function batchedDay(day, rows) {
     const limit = config.daily_batch_characters;
-    const batches = partitionDay({ project: data.project, day, rows, limit });
-    const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+    const batches = partitionDay({ project: data.project, day, rows: batchInputRows(rows), limit });
     const batchCells = [], timeoutParentRefs = [], plan = [];
     for (const batch of batches) {
+      const supplied = batch.user.threads.flatMap(thread => thread.records);
+      const format = dailyRequestFormat(supplied);
+      const system = dailyPrompt(supplied)
+        + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
       const user = serial(batch.user);
       if (user.length > limit || user.length > config.max_input_characters) fail('history_model_input_too_large');
       const fingerprint = batchFingerprint(day, batch);
@@ -475,7 +556,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         calls++;
         let raw, requestError = null;
         try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
-          response_format: 'history_events_json_schema_v1',
+          response_format: format,
           timeout_ms: Math.max(1000, Math.min(config.per_call_timeout_ms, deadline - Date.now())) }); }
         catch (error) { requestError = error?.name === 'TimeoutError' ? 'TimeoutError'
           : String(error?.code ?? error?.name ?? 'request_failed').slice(0, 64); }
@@ -484,7 +565,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
           if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
           held = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch', key: day,
             fingerprint, source_ids: uniq(batch.parts.map(part => part.source_id)), parts: batch.parts,
-            request_format: 'history_events_json_schema_v1', ...cardsFrom(raw, batchSources(batch), 'daily', day, []) };
+            request_format: format,
+            ...cardsFrom(raw, batchSources(batch), 'daily', day, [], sourceMap) };
           held.content_sha256 = hashText(serial(held));
         }
         store.writeNew(file, held);
@@ -528,7 +610,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
   function finish(daily, weekly, monthCell, statusCell, weeks, staleSummary = false) {
     const projectedDaily = new Map();
     for (const [key, rawCell] of daily) projectedDaily.set(key, rawCell.batch_refs ? rawCell : { ...rawCell,
-      ...cardsFrom(rawCell.raw, sourceMap, 'daily', key, []) });
+      ...cardsFrom(rawCell.raw, sourcesForIds(rawCell.source_ids), 'daily', key, [], sourceMap) });
     const projectedWeekly = new Map();
     for (const [key, rawCell] of weekly) {
       const children = weeks.get(key).days.flatMap(day => projectedDaily.get(day).cards);
@@ -581,7 +663,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       if (!change || change.layer !== 'daily_batch' || !days.has(change.key) || !sha(change.fingerprint))
         fail('history_failed_batch_import_invalid');
       const batch = partitionDay({ project: data.project, day: change.key,
-        rows: days.get(change.key), limit: config.daily_batch_characters })
+        rows: batchInputRows(days.get(change.key)), limit: config.daily_batch_characters })
         .find(candidate => batchFingerprint(change.key, candidate) === change.fingerprint);
       if (!batch) fail('history_failed_batch_import_mismatch');
       const file = `history-cell-${change.fingerprint.slice(7)}.json`;
@@ -636,7 +718,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         const versions = Object.fromEntries(w.days.map(day => [day, current.daily[day]]));
         weekly.set(key, await cell('weekly', key, { project: data.project, week: w,
           parser_version: 'strict_json_fence_v1',
-          days: children.map(childForPrompt), source_labels: ids.map(id => sourceLabel(sourceMap.get(id))) },
+          days: children.map(child => childForPrompt(child, sourceMap)),
+          source_labels: ids.map(id => sourceLabel(sourceMap.get(id))) },
         ids, children.flatMap(child => child.cards ?? []),
         { partial: w.partial, start: w.start, end: w.end, child_versions: versions }, null,
         'history_events_with_children_json_schema_v1'));
@@ -648,12 +731,13 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         const weekVersions = Object.fromEntries(sorted(weeks.keys()).map(key => [key, current.weekly[key]]));
         monthCell = await cell('monthly', data.month, { project: data.project, month: data.month, as_of: data.as_of,
           parser_version: 'strict_json_fence_v1',
-          weeks: monthChildren.map(childForPrompt), source_labels: data.records.map(sourceLabel) },
+          weeks: monthChildren.map(child => childForPrompt(child, sourceMap)),
+          source_labels: data.records.map(sourceLabel) },
         data.records.map(row => row.id), monthChildren.flatMap(child => child.cards ?? []),
         { child_versions: weekVersions }, null, 'history_events_with_children_json_schema_v1');
         statusCell = await cell('status', data.month, { project: data.project, month: data.month, as_of: data.as_of,
           parser_version: 'strict_json_fence_v1',
-          monthly: childForPrompt(monthCell), source_labels: data.records.map(sourceLabel) },
+          monthly: childForPrompt(monthCell, sourceMap), source_labels: data.records.map(sourceLabel) },
         data.records.map(row => row.id), monthCell.cards ?? [],
         { child_versions: { [data.month]: current.monthly[data.month] } }, null,
         'history_events_with_children_json_schema_v1');
@@ -696,13 +780,14 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       const statusCell = heldCell(current.status[data.month], 'status', data.month);
       for (const day of sorted(retryDays)) {
         const rows = days.get(day), previous = daily.get(day);
-        const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+        const system = dailyPrompt(rows) + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+        const format = dailyRequestFormat(rows);
         const user = serial({ project: data.project, day, threads: groupThreads(rows) });
         if (user.length > config.max_input_characters) fail('history_model_input_too_large');
         const sourceFingerprint = digest(rows);
         const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month,
           layer: 'daily', key: day, previous_version: previous.fingerprint, source_fingerprint: sourceFingerprint,
-          system, model, request_format: 'history_events_json_schema_v1' });
+          system, model, request_format: format });
         let revision = store.read(`history-cell-${fingerprint.slice(7)}.json`);
         if (revision) revision = heldCell(fingerprint, 'daily', day);
         else {
@@ -710,15 +795,15 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
           calls++;
           let raw;
           try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
-            response_format: 'history_events_json_schema_v1',
+            response_format: format,
             timeout_ms: Math.max(1000, Math.min(config.per_call_timeout_ms, deadline - Date.now())) }); }
           catch (error) { fail('history_generation_failed:' + String(error?.code ?? error?.name ?? 'error').slice(0, 64)); }
           if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
           revision = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily', key: day, fingerprint,
             source_ids: rows.map(row => row.id), child_card_ids: [], retry_of: previous.fingerprint,
             retry_base_fingerprint: previous.retry_base_fingerprint ?? previous.fingerprint,
-            source_fingerprint: sourceFingerprint, request_format: 'history_events_json_schema_v1',
-            ...cardsFrom(raw, sourceMap, 'daily', day, []) };
+            source_fingerprint: sourceFingerprint, request_format: format,
+            ...cardsFrom(raw, sourcesForIds(rows.map(row => row.id)), 'daily', day, [], sourceMap) };
           revision.content_sha256 = hashText(serial(revision));
           store.writeNew(`history-cell-${fingerprint.slice(7)}.json`, revision);
         }
@@ -735,9 +820,11 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       const prior = priorFingerprint ? heldCell(priorFingerprint, 'daily', day) : null;
       let reusableLegacy = false;
       if (prior && !prior.batch_refs) {
-        const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+        const system = dailyPrompt(rows) + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+        const format = dailyRequestFormat(rows);
         const legacyFingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month,
-          layer: 'daily', key: day, payload, source_fingerprint: digest(rows), system, model });
+          layer: 'daily', key: day, payload, source_fingerprint: digest(rows), system, model,
+          ...(format !== 'history_events_json_schema_v1' ? { request_format: format } : {}) });
         reusableLegacy = prior.fingerprint === legacyFingerprint || prior.retry_base_fingerprint === legacyFingerprint;
       }
       if (config.daily_batch_characters && serial(payload).length > config.daily_batch_characters && !reusableLegacy)
@@ -756,7 +843,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         weekly.set(key, decodedCell(reusable, children.flatMap(c => c.cards))); }
       else weekly.set(key, await cell('weekly', key, { project: data.project, week: w,
         parser_version: 'strict_json_fence_v1',
-        days: children.map(childForPrompt), source_labels: ids.map(id => sourceLabel(sourceMap.get(id))) },
+        days: children.map(child => childForPrompt(child, sourceMap)),
+        source_labels: ids.map(id => sourceLabel(sourceMap.get(id))) },
       ids, children.flatMap(c => c.cards ?? []),
       { partial: w.partial, start: w.start, end: w.end, child_versions: versions }, null,
       'history_events_with_children_json_schema_v1'));
@@ -764,7 +852,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     const monthChildren = sorted(weeks.keys()).map(k => weekly.get(k));
     const monthPayload = { project: data.project, month: data.month, as_of: data.as_of,
       parser_version: 'strict_json_fence_v1',
-      weeks: monthChildren.map(childForPrompt),
+      weeks: monthChildren.map(child => childForPrompt(child, sourceMap)),
       source_labels: data.records.map(sourceLabel) };
     const weekVersions = Object.fromEntries(sorted(weeks.keys()).map(key => [key, current.weekly[key]]));
     const oldMonth = reusableUpper('monthly', data.month, 'weekly', weekVersions);
@@ -777,7 +865,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     const oldStatus = reusableUpper('status', data.month, 'monthly', monthVersion);
     const statusCell = oldStatus ? decodedCell(oldStatus, monthCell.cards ?? [])
       : await cell('status', data.month, { project: data.project, month: data.month, as_of: data.as_of,
-        parser_version: 'strict_json_fence_v1', monthly: childForPrompt(monthCell),
+        parser_version: 'strict_json_fence_v1', monthly: childForPrompt(monthCell, sourceMap),
         source_labels: data.records.map(sourceLabel) }, data.records.map(r => r.id), monthCell.cards ?? [],
         { child_versions: monthVersion }, null, 'history_events_with_children_json_schema_v1');
     if (oldStatus) current.status[data.month] = oldStatus.fingerprint;

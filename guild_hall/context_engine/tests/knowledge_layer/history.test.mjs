@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { recordFailedHistoryBatch, runHistory } from '../../src/knowledge_layer/history.mjs';
 import { bisectBatch, partitionDay } from '../../src/knowledge_layer/history_batches.mjs';
+import { historyEventsSchema } from '../../src/history_cli.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 
 const config = { model_id: 'synthetic-model', model_pin: hashText('pin'), prompt_version: 'v1', prompt_content: '',
@@ -607,4 +608,106 @@ test('direct history input refuses explicit AI work memo kinds and roles but adm
   const admitted = await runHistory({ input: input([record('V1', '2026-09-03', 'ASR text',
     { kind: 'voice_card', generated_by_ai: true })]), outputRoot: dir, config, generate: fake([]) });
   assert.equal(admitted.status, 'generated');
+});
+
+test('voice utterance IDs attach supplied text and provenance through child-only upper summaries', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const card = hashText('synthetic-card');
+  const rows = [record('voice_utterance:synthetic:00000001', '2026-09-23', '첫 번째 발화입니다.',
+    { kind: 'voice_utterance', evidence_mode: 'source_id', originrefs: [{ card_sha256: card,
+      card_segment_id: 'segment-1', utterance_id: '00000001' }] }),
+  record('voice_utterance:synthetic:00000002', '2026-09-23', '두 번째 발화입니다.',
+    { kind: 'voice_utterance', evidence_mode: 'source_id', originrefs: [{ card_sha256: card,
+      card_segment_id: 'segment-1', utterance_id: '00000002' }] })];
+  const calls = [];
+  const result = await runHistory({ input: { ...input(rows), as_of: '2026-09-23' }, outputRoot: dir,
+    config, generate: async request => {
+    calls.push(request);
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') return JSON.stringify({ events: [{ text: '두 발화가 기록되었다.',
+      evidence: payload.threads.flatMap(thread => thread.records).map(row => ({ source_id: row.source_id })) }] });
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: '발화가 있었다.', child_card_ids: [child.card_id] }] });
+  } });
+  assert.equal(result.status, 'generated');
+  const daily = cell(dir, result.head.cells.daily['2026-09-23']).cards[0];
+  assert.deepEqual(daily.evidence.map(item => item.quote), rows.map(row => row.text));
+  assert.deepEqual(daily.evidence.map(item => item.originrefs), rows.map(row => row.originrefs));
+  assert.deepEqual(daily.flags, []);
+  const dailyRequest = calls.find(call => call.layer === 'daily');
+  assert.match(dailyRequest.system, /cite only its exact source_id/);
+  assert.equal(dailyRequest.response_format, 'history_events_voice_id_json_schema_v1');
+  assert.ok(JSON.parse(dailyRequest.user).threads.every(thread => thread.records.every(row =>
+    Object.keys(row).sort().join(',') === 'evidence_mode,source_id,text')));
+  for (const layer of ['weekly', 'monthly', 'status']) {
+    const upper = cell(dir, Object.values(result.head.cells[layer])[0]).cards[0];
+    assert.deepEqual(upper.evidence.map(item => item.quote), rows.map(row => row.text));
+    assert.ok(upper.evidence.every(item => item.inherited_from_child_card_id));
+    assert.deepEqual(upper.flags, []);
+  }
+  const view = readFileSync(join(dir, result.head.view_file), 'utf8');
+  assert.equal(view.split('## 주별')[0].split('녹음·발화자 미확인').length - 1, 1);
+});
+
+test('foreign or missing voice IDs never acquire evidence; mixed mail quote checks remain', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const voice = record('voice_utterance:synthetic:00000001', '2026-09-23', '원문 발화',
+    { kind: 'voice_utterance', evidence_mode: 'source_id', originrefs: ['synthetic:utterance'] });
+  const foreign = record('voice_utterance:synthetic:00000002', '2026-09-24', '다른 날짜 발화',
+    { kind: 'voice_utterance', evidence_mode: 'source_id' });
+  const mail = record('MAIL-1', '2026-09-23', '메일 원문');
+  const result = await runHistory({ input: { ...input([voice, foreign, mail]), as_of: '2026-09-24' },
+    outputRoot: dir, config, generate: async request => {
+      const payload = JSON.parse(request.user);
+      if (request.layer === 'daily' && request.key === '2026-09-23') return JSON.stringify({ events: [{
+        text: '검토 대상 문장', evidence: [
+          { source_id: voice.id, quote: '모델이 지어낸 문구' },
+          { source_id: foreign.id }, { source_id: 'unknown-id' },
+          { source_id: mail.id, quote: '다른 메일 문구' }] }] });
+      if (request.layer === 'daily') return JSON.stringify({ events: [{ text: '다른 날짜',
+        evidence: [{ source_id: payload.threads[0].records[0].source_id }] }] });
+      return JSON.stringify({ events: [] });
+    } });
+  const daily = cell(dir, result.head.cells.daily['2026-09-23']).cards[0];
+  assert.deepEqual(daily.flags.map(flag => flag.reason),
+    ['voice_quote_not_allowed', 'source_not_in_cell', 'source_missing', 'quote_mismatch']);
+  assert.equal(daily.evidence[0].quote, voice.text);
+  assert.deepEqual(daily.evidence[0].originrefs, voice.originrefs);
+  assert.equal(daily.evidence[1].quote, ''); assert.deepEqual(daily.evidence[1].originrefs, []);
+  assert.equal(daily.evidence[2].quote, ''); assert.deepEqual(daily.evidence[2].originrefs, []);
+  assert.equal(daily.evidence[3].quote, '다른 메일 문구');
+  await assert.rejects(runHistory({ input: input([record('M', '2026-09-23', '메일',
+    { evidence_mode: 'source_id' })]), outputRoot: dir, config, generate: fake([]) }), /history_record_invalid/);
+});
+
+test('mixed upper child-only response inherits voice but flags omitted mail quote', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const voice = record('voice_utterance:synthetic:00000001', '2026-09-23', '원문 발화',
+    { kind: 'voice_utterance', evidence_mode: 'source_id', originrefs: ['synthetic:unit'] });
+  const mail = record('MAIL-1', '2026-09-23', '메일 원문');
+  const result = await runHistory({ input: { ...input([voice, mail]), as_of: '2026-09-23' },
+    outputRoot: dir, config, generate: async request => {
+      if (request.layer === 'daily') return JSON.stringify({ events: [{ text: '함께 기록됨', evidence: [
+        { source_id: voice.id }, { source_id: mail.id, quote: '메일 원문' }] }] });
+      const payload = JSON.parse(request.user);
+      const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+      return JSON.stringify({ events: [{ text: '발화가 기록됨', child_card_ids: [child.card_id] }] });
+    } });
+  const daily = cell(dir, result.head.cells.daily['2026-09-23']).cards[0];
+  assert.deepEqual(daily.flags, []); assert.equal(daily.evidence.length, 2);
+  const weekly = cell(dir, Object.values(result.head.cells.weekly)[0]).cards[0];
+  assert.deepEqual(weekly.evidence.map(item => item.source_id), [voice.id]);
+  assert.equal(weekly.evidence[0].quote, voice.text);
+  assert.ok(weekly.flags.some(flag => flag.reason === 'quote_missing' && flag.source_id === mail.id));
+  assert.ok(!weekly.evidence.some(item => item.source_id === mail.id));
+});
+
+test('voice-only structured grammar forbids quote while quoted mail grammar stays strict', () => {
+  const evidence = format => historyEventsSchema(format).properties.events.items.properties.evidence;
+  assert.deepEqual(evidence('history_events_json_schema_v1').items.required, ['source_id', 'quote']);
+  assert.deepEqual(evidence('history_events_voice_id_json_schema_v1').items.required, ['source_id']);
+  assert.equal(evidence('history_events_voice_id_json_schema_v1').items.properties.quote, undefined);
+  assert.deepEqual(evidence('history_events_mixed_json_schema_v1').items.required, ['source_id']);
+  const upper = historyEventsSchema('history_events_voice_children_json_schema_v1').properties.events.items;
+  assert.deepEqual(upper.required, ['text', 'child_card_ids']); assert.equal(upper.properties.evidence, undefined);
 });

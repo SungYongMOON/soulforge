@@ -1,6 +1,7 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
-> 2026-09-24 CURRENT (Context Engine 0.22.19 history preparation candidate):
+> 2026-09-24 CURRENT (Context Engine 0.22.20 history preparation candidate):
+> - 음성 카드는 발화별 입력과 번호 근거 연결을 사용하며 기존 자동 실행 경로는 바꾸지 않는다.
 > an explicit project/date CLI reads configured custody and attribution bindings,
 > excludes AI work notes, computes changed source days and invokes the existing
 > history CLI. Four source lanes must be readable before advancing the baseline.

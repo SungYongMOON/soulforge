@@ -6,6 +6,8 @@ const wire = value => JSON.stringify(snapshot(value));
 const modelRow = (row, start = 0, end = row.text.length) => {
   const { originrefs, text_sha256, ...safe } = row;
   const text = row.text.slice(start, end);
+  if (row.evidence_mode === 'source_id') return { source_id: row.id, evidence_mode: 'source_id', text,
+    text_sha256: hashText(text), part: { start, end } };
   return { ...safe, text, text_sha256: hashText(text), part: { start, end } };
 };
 const payload = (project, day, threads) => ({ project, day, threads });
@@ -51,10 +53,10 @@ export function partitionDay({ project, day, rows, limit }) {
   const batches = [], sourceById = new Map(rows.map(row => [row.id, row]));
   let held = [];
   const flush = () => { if (!held.length) return;
-    const parts = held.flatMap(thread => thread.records.map(row => ({ source_id: row.id,
+    const parts = held.flatMap(thread => thread.records.map(row => ({ source_id: row.source_id ?? row.id,
       start: row.part.start, end: row.part.end, part_sha256: row.text_sha256,
-      source_text_sha256: sourceById.get(row.id).text_sha256 ?? hashText(sourceById.get(row.id).text),
-      originrefs: sourceById.get(row.id).originrefs })));
+      source_text_sha256: sourceById.get(row.source_id ?? row.id).text_sha256 ?? hashText(sourceById.get(row.source_id ?? row.id).text),
+      originrefs: sourceById.get(row.source_id ?? row.id).originrefs })));
     const user = payload(project, day, held);
     batches.push({ user, characters: wire(user).length, parts }); held = [];
   };
@@ -74,7 +76,7 @@ export function bisectBatch(batch) {
   if (records.length !== batch.parts.length) throw new Error('history_batch_parts_mismatch');
   const sizes = records.map(({ record }, index) => {
     const part = batch.parts[index];
-    if (record.id !== part.source_id || record.part.start !== part.start || record.part.end !== part.end
+    if ((record.source_id ?? record.id) !== part.source_id || record.part.start !== part.start || record.part.end !== part.end
       || record.text.length !== part.end - part.start || hashText(record.text) !== part.part_sha256)
       throw new Error('history_batch_parts_mismatch');
     return record.text.length;

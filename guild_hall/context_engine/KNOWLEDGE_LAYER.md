@@ -25,7 +25,10 @@ Owner 방향에 따라 Neo4j와 주입식 보존 파일을 사용하는 자동 �
 - Linear: `root`, 정확한 `project_ids`를 지정한다. 이슈·댓글·변경 기록은 네이티브 판의 해시를 확인한다.
   최신 이슈 본문은 updated_at 시점의 스냅샷이며 과거 상태를 복원했다는 뜻이 아니다.
 - 음성: `sessions_root`, `cards_root`, `routes_root`, `project_policy`를 지정한다. `confirmed` 또는 명시된
-  `first_candidate` 정책으로 카드를 골라 해시가 맞는 원전사 구간만 읽는다. 카드의 파생 description은 원문으로 보내지 않는다.
+  `first_candidate` 정책으로 카드를 골라 연결된 발화 번호 각각을 입력 한 건으로 만든다. 카드의 파생 description이나 전체 전사 묶음은 모델 입력으로 보내지 않는다.
+  카드가 지정한 전사 판의 해시를 확인하고 해당 발화의 문장·시각·번호만 선택한다. `kind:voice_utterance`,
+  `evidence_mode:source_id`에서는 모델이 인용문 대신 발화의 source_id만 반환하고 코드가 원래 발화와 근거를 연결한다.
+  번호가 입력에 없거나 현재 묶음 밖이면 표시하며, 번호 일치는 요약문의 의미 검증이 아니다. 다른 원천의 인용 검사는 유지한다.
   후보 귀속은 사람 수락으로 올리지 않으며 철회된 귀속은 제외한다.
 
 AI 메모 표지는 `ai_note_senders`, `ai_note_subject_prefixes`, `ai_note_user_ids`, `ai_note_markers` 등

@@ -129,7 +129,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/history_cli.mjs",
-      "sha256": "cb5dd281b4a394779cae111dad42f82702f4811309624a75e9af45872a548c9e"
+      "sha256": "0b251ec813d9dc2d5e5447975a616e1b0e0a869a34f7295eb01d9fc17f8e0c13"
     },
     {
       "path": "guild_hall/context_engine/src/history_prepare_cli.mjs",
@@ -153,11 +153,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "4ee6250f5a5845ba2c0921a7d66291fd183531db256303def57d316bacd869f4"
+      "sha256": "85e78a76881d9461371a9c7892e196310e79fd283bfbd33a93a9db419f3929df"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
-      "sha256": "4d5afb52dc18a560e11dc3c13b8b950764e25d8fc18da46e1c4120fae16d78e5"
+      "sha256": "a3a96a05bfd6b8b6cd3afa10f16ff88174d6eeafaa4aea6514c2118a2e2d0484"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
@@ -169,7 +169,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
-      "sha256": "4a2437488c6f89fcabeb83d4f167cc5cf444c9ca137e72c7e0f1c99b15d8c9d8"
+      "sha256": "c58f071f3677ac16ae70da34f7b1e118183b0cf8dc218554a07ab3fddebed900"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
@@ -412,7 +412,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "4df1027c509a98bdbfe963783b5e2b74d89a8618cf63ba2bdd89629e9c34dc00",
+  "closure_sha256": "045690642f2ca1c911c95336dfd5e50b0f2fb5571c64e3c158f8c67771eaf7fa",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
