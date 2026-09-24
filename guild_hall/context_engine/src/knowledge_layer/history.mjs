@@ -4,7 +4,7 @@ import { existsSync, lstatSync, openSync, closeSync, readFileSync, writeFileSync
 import { isAbsolute, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { digest, hashText, snapshot, token, sha } from './data.mjs';
-import { partitionDay } from './history_batches.mjs';
+import { bisectBatch, partitionDay } from './history_batches.mjs';
 
 const SCHEMA = 'soulforge.history_draft.v1';
 const DAY = /^\d{4}-\d{2}-\d{2}$/u;
@@ -387,11 +387,68 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       ...(failedRunDigest ? { failed_run_sha256: failedRunDigest } : {}) };
     value.content_sha256 = hashText(serial(value)); return value;
   }
+  function batchSources(batch) {
+    const sources = new Map();
+    for (const part of batch.parts) {
+      const original = sourceMap.get(part.source_id), text = original.text.slice(part.start, part.end);
+      const prior = sources.get(part.source_id);
+      if (prior) { prior.text += text; prior.part_locators.push({ start: part.start, end: part.end }); }
+      else sources.set(part.source_id, { ...original, text, part_locators: [{ start: part.start, end: part.end }] });
+    }
+    return sources;
+  }
+  async function recoverTimeout(day, batch, parent, system) {
+    if (parent.format_flag !== 'model_request_failed' || !['ABORT_ERR', 'TimeoutError'].includes(parent.error_code)) return null;
+    const halves = bisectBatch(batch);
+    if (!halves || halves.some(half => half.characters > config.daily_batch_characters
+      || half.characters > config.max_input_characters)) return null;
+    const planned = halves.map((half, index) => {
+      const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month,
+        layer: 'daily_batch_half', key: day, parent_ref: parent.fingerprint, half_index: index,
+        policy: 'timeout_bisect_once_v1', payload: half.user,
+        parts: half.parts.map(({ source_text_sha256, ...part }) => part), system, model,
+        request_format: 'history_events_json_schema_v1' });
+      const existing = store.read(`history-cell-${fingerprint.slice(7)}.json`);
+      return { half, index, fingerprint,
+        held: existing ? heldCell(fingerprint, 'daily_batch_half', day) : null };
+    });
+    const missing = planned.filter(item => !item.held);
+    if (dryRun) return { cells: planned.map(item => item.held ?? { fingerprint: item.fingerprint,
+      cards: [], format_flag: null }), planned_calls: missing.length };
+    if (missing.length && (calls + missing.length > config.max_calls
+      || deadline - Date.now() < missing.length * config.per_call_timeout_ms)) return null;
+    for (const item of missing) {
+      if (deadline - Date.now() < config.per_call_timeout_ms) return null;
+      calls++;
+      const user = serial(item.half.user);
+      let raw, errorCode = null;
+      try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
+        response_format: 'history_events_json_schema_v1',
+        timeout_ms: Math.min(config.per_call_timeout_ms, deadline - Date.now()) }); }
+      catch (error) { errorCode = error?.name === 'TimeoutError' ? 'TimeoutError'
+        : String(error?.code ?? error?.name ?? 'request_failed').slice(0, 64); }
+      if (!errorCode && (typeof raw !== 'string' || raw.length > config.max_output_characters)) errorCode = 'model_output_invalid';
+      const received = errorCode === 'model_output_invalid' && typeof raw === 'string';
+      const held = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch_half', key: day,
+        fingerprint: item.fingerprint, parent_ref: parent.fingerprint, half_index: item.index,
+        source_ids: uniq(item.half.parts.map(part => part.source_id)), parts: item.half.parts,
+        request_format: 'history_events_json_schema_v1',
+        ...(errorCode ? { raw: '', cards: [], format_flag: 'model_request_failed', response_format: null,
+          response_received: received, ...(received ? { raw_sha256: hashText(raw), raw_characters: raw.length } : {}),
+          error_code: /^[A-Za-z0-9_:-]{1,64}$/u.test(errorCode) ? errorCode : 'request_failed' }
+          : cardsFrom(raw, batchSources(item.half), 'daily', day, [])) };
+      held.content_sha256 = hashText(serial(held));
+      store.writeNew(`history-cell-${item.fingerprint.slice(7)}.json`, held);
+      item.held = held;
+      changes.push({ layer: 'daily_batch_half', key: day, fingerprint: item.fingerprint });
+    }
+    return { cells: planned.map(item => item.held), planned_calls: 0 };
+  }
   async function batchedDay(day, rows) {
     const limit = config.daily_batch_characters;
     const batches = partitionDay({ project: data.project, day, rows, limit });
     const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
-    const batchCells = [], plan = [];
+    const batchCells = [], timeoutParentRefs = [], plan = [];
     for (const batch of batches) {
       const user = serial(batch.user);
       if (user.length > limit || user.length > config.max_input_characters) fail('history_model_input_too_large');
@@ -399,7 +456,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       const file = `history-cell-${fingerprint.slice(7)}.json`;
       let held = store.read(file);
       if (held) held = heldCell(fingerprint, 'daily_batch', day);
-      plan.push({ fingerprint, characters: batch.characters, parts: batch.parts.length, cached: Boolean(held) });
+      const planRow = { fingerprint, characters: batch.characters, parts: batch.parts.length, cached: Boolean(held) };
+      plan.push(planRow);
       if (!held) {
         changes.push({ layer: 'daily_batch', key: day, fingerprint });
         if (dryRun) { batchCells.push({ fingerprint, cards: [], format_flag: null }); continue; }
@@ -409,29 +467,33 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
           response_format: 'history_events_json_schema_v1',
           timeout_ms: Math.max(1000, Math.min(config.per_call_timeout_ms, deadline - Date.now())) }); }
-        catch (error) { requestError = String(error?.code ?? error?.name ?? 'request_failed').slice(0, 64); }
+        catch (error) { requestError = error?.name === 'TimeoutError' ? 'TimeoutError'
+          : String(error?.code ?? error?.name ?? 'request_failed').slice(0, 64); }
         if (requestError) held = failedBatchCell(day, batch, fingerprint, requestError);
         else {
           if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
-          const batchSources = new Map();
-          for (const part of batch.parts) {
-            const original = sourceMap.get(part.source_id), text = original.text.slice(part.start, part.end);
-            const prior = batchSources.get(part.source_id);
-            if (prior) { prior.text += text; prior.part_locators.push({ start: part.start, end: part.end }); }
-            else batchSources.set(part.source_id, { ...original, text,
-              part_locators: [{ start: part.start, end: part.end }] });
-          }
           held = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch', key: day,
             fingerprint, source_ids: uniq(batch.parts.map(part => part.source_id)), parts: batch.parts,
-            request_format: 'history_events_json_schema_v1', ...cardsFrom(raw, batchSources, 'daily', day, []) };
+            request_format: 'history_events_json_schema_v1', ...cardsFrom(raw, batchSources(batch), 'daily', day, []) };
           held.content_sha256 = hashText(serial(held));
         }
         store.writeNew(file, held);
       }
+      if (held.format_flag === 'model_request_failed' && ['ABORT_ERR', 'TimeoutError'].includes(held.error_code)) {
+        const recovery = await recoverTimeout(day, batch, held, system);
+        if (recovery) {
+          timeoutParentRefs.push(held.fingerprint);
+          planRow.recovery_calls = recovery.planned_calls;
+          batchCells.push(...recovery.cells);
+          continue;
+        }
+      }
       batchCells.push(held);
     }
     const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month, layer: 'daily', key: day,
-      batch_policy: limit, batch_refs: batchCells.map(cell => cell.fingerprint), source_fingerprint: digest(rows) });
+      batch_policy: limit, batch_refs: batchCells.map(cell => cell.fingerprint),
+      ...(timeoutParentRefs.length ? { timeout_parent_refs: timeoutParentRefs } : {}),
+      source_fingerprint: digest(rows) });
     const file = `history-cell-${fingerprint.slice(7)}.json`;
     let dayCell = store.read(file);
     if (dayCell) dayCell = heldCell(fingerprint, 'daily', day);
@@ -444,6 +506,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         batch_ref: cell.fingerprint, format_flag: cell.format_flag }));
       dayCell = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily', key: day,
         fingerprint, source_ids: rows.map(row => row.id), child_card_ids: [], batch_refs: batchCells.map(cell => cell.fingerprint),
+        ...(timeoutParentRefs.length ? { timeout_parent_refs: timeoutParentRefs } : {}),
         batch_flags: batchFlags, source_fingerprint: digest(rows),
         source_text_sha256: Object.fromEntries(rows.map(row => [row.id, row.text_sha256])), cards,
         format_flag: batchFlags.length ? 'batch_format_error' : null, response_format: 'batched', raw: '' };
@@ -554,7 +617,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       if (dryRun) return { status: 'dry_run', project: data.project, month: data.month, calls: 0,
         selected_days: sorted(rebuildDays), batch_plan: batchPlans, dirty_weeks: dirtyWeeks,
         unknown_weeks: unknownWeeks, dirty_ancestors: dirtyWeeks.length ? ['monthly', 'status'] : [],
-        estimated_model_calls: batchPlans.flatMap(item => item.batches).filter(batch => !batch.cached).length
+        estimated_model_calls: batchPlans.flatMap(item => item.batches)
+          .reduce((sum, batch) => sum + (batch.cached ? 0 : 1) + (batch.recovery_calls ?? 0), 0)
           + dirtyWeeks.length + (dirtyWeeks.length ? 2 : 0) };
       for (const key of dirtyWeeks) {
         const w = weeks.get(key), children = w.days.map(day => modelDaily.get(day));

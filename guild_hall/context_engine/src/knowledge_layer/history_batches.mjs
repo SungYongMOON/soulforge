@@ -66,3 +66,66 @@ export function partitionDay({ project, day, rows, limit }) {
   flush();
   return batches;
 }
+
+// One level only: split the text already supplied in one batch, never reopen a
+// source path or expand beyond the parent's source offsets.
+export function bisectBatch(batch) {
+  const records = batch.user.threads.flatMap(thread => thread.records.map(record => ({ thread_ref: thread.thread_ref, record })));
+  if (records.length !== batch.parts.length) throw new Error('history_batch_parts_mismatch');
+  const sizes = records.map(({ record }, index) => {
+    const part = batch.parts[index];
+    if (record.id !== part.source_id || record.part.start !== part.start || record.part.end !== part.end
+      || record.text.length !== part.end - part.start || hashText(record.text) !== part.part_sha256)
+      throw new Error('history_batch_parts_mismatch');
+    return record.text.length;
+  });
+  const total = sizes.reduce((sum, n) => sum + n, 0);
+  if (total < 2) return null;
+  let cut = -1, distance = Infinity, cumulative = 0;
+  for (let index = 1; index < records.length; index++) {
+    cumulative += sizes[index - 1];
+    if (cumulative > 0 && cumulative < total && Math.abs(cumulative - total / 2) < distance) {
+      cut = index; distance = Math.abs(cumulative - total / 2);
+    }
+  }
+  let groups;
+  if (cut > 0 && distance <= total / 4) groups = [[...records.slice(0, cut).map((item, index) => ({ ...item, part: batch.parts[index] }))],
+    [...records.slice(cut).map((item, index) => ({ ...item, part: batch.parts[cut + index] }))]];
+  else {
+    let beforeSize = 0;
+    const item = records.find(({ record }) => { const crossing = beforeSize <= total / 2 && beforeSize + record.text.length >= total / 2;
+      beforeSize += record.text.length; return crossing && record.text.length > 1; })
+      ?? records.find(({ record }) => record.text.length > 1);
+    if (!item) return null;
+    const index = records.indexOf(item), original = batch.parts[index], text = item.record.text;
+    const preceding = sizes.slice(0, index).reduce((sum, n) => sum + n, 0);
+    let at = Math.round(total / 2 - preceding);
+    if (at <= 0 || at >= text.length) at = Math.floor(text.length / 2);
+    const before = text.lastIndexOf('\n', at), after = text.indexOf('\n', at);
+    const newline = [before + 1, after + 1].filter(pos => pos > 0 && pos < text.length)
+      .sort((a, b) => Math.abs(a - text.length / 2) - Math.abs(b - text.length / 2))[0];
+    if (newline && Math.abs(newline - text.length / 2) <= text.length / 4) at = newline;
+    if (at > 0 && at < text.length && /[\uD800-\uDBFF]/u.test(text[at - 1])
+      && /[\uDC00-\uDFFF]/u.test(text[at])) at--;
+    if (at <= 0 || at >= text.length) return null;
+    const half = (start, end) => {
+      const excerpt = text.slice(start, end), absoluteStart = original.start + start, absoluteEnd = original.start + end;
+      return { thread_ref: item.thread_ref,
+        record: { ...item.record, text: excerpt, text_sha256: hashText(excerpt),
+          part: { start: absoluteStart, end: absoluteEnd } },
+        part: { ...original, start: absoluteStart, end: absoluteEnd, part_sha256: hashText(excerpt) } };
+    };
+    groups = [[...records.slice(0, index).map((entry, atIndex) => ({ ...entry, part: batch.parts[atIndex] })), half(0, at)],
+      [half(at, text.length), ...records.slice(index + 1).map((entry, atIndex) => ({ ...entry, part: batch.parts[index + 1 + atIndex] }))]];
+  }
+  return groups.map(items => {
+    const threads = [];
+    for (const item of items) {
+      const last = threads.at(-1);
+      if (last?.thread_ref === item.thread_ref) last.records.push(item.record);
+      else threads.push({ thread_ref: item.thread_ref, records: [item.record] });
+    }
+    const user = { project: batch.user.project, day: batch.user.day, threads };
+    return { user, characters: wire(user).length, parts: items.map(item => item.part) };
+  });
+}

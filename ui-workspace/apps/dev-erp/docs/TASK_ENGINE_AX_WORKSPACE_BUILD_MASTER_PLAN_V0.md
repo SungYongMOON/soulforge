@@ -1,5 +1,10 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-24 CURRENT (Context Engine 0.22.18 timeout halves):
+> a timed-out history batch may produce two deterministic half-input calls once.
+> Child failures remain unprocessed; no recursive retry or operating activation
+> is added. This follow-up is verified with synthetic tests only.
+
 > 2026-09-24 CURRENT (Context Engine 0.22.17 bounded daily batches):
 > explicit history CLI partitions oversized daily inputs deterministically and
 > combines batch results without another model call. Named day rebuilds preserve
