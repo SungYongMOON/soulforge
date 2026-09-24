@@ -153,7 +153,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "85e78a76881d9461371a9c7892e196310e79fd283bfbd33a93a9db419f3929df"
+      "sha256": "4c0da9417b733c533aa46d000aa14e096ca0851bc6ac8ec0a644735e4fa96aef"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
@@ -412,7 +412,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "045690642f2ca1c911c95336dfd5e50b0f2fb5571c64e3c158f8c67771eaf7fa",
+  "closure_sha256": "b9e71001636ce811936813f9e7e6d3188144c4c408c02b05c9775a8f1a851607",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

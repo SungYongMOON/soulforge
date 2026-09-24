@@ -41,6 +41,9 @@ AI 메모 표지는 `ai_note_senders`, `ai_note_subject_prefixes`, `ai_note_user
 이력이 있는 월을 빈 입력으로 지우지는 않는다. 새 이력 head가 준비한 입력 지문과 일치할 때만 준비 기준판을 전진시킨다.
 동일 원천·표시·모델 설정이면 추가 호출은 없으며, 모델 설정 변경은 기존 이력 CLI의 판정에 전달한다.
 
+표시용 projection은 반복되는 출처 위치를 `originrefs_by_hash`에 한 번 저장하고 각 근거의 `originrefs_ref`로 연결한다.
+불변 cell에는 전체 출처 위치가 그대로 남고 화면 근거도 유지된다. 입력·파일 크기 제한은 늘리지 않는다.
+
 이 단계는 원천·운영 설정·DB·예약 작업을 쓰지 않는다. 현재 자료 수집과 이름 표의 완전성은 호출자/수집 lane 책임이다.
 
 `node guild_hall/context_engine/src/history_cli.mjs --help`는 독립 실행면의 인자를 보여 준다.

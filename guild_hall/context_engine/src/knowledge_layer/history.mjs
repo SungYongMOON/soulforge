@@ -620,16 +620,26 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       [...projectedWeekly.values()].flatMap(c => c.cards)) };
     const projectedStatus = { ...statusCell, ...cardsFrom(statusCell.raw, sourceMap, 'status', data.month,
       projectedMonth.cards) };
+    // The immutable cells retain complete evidence. The projection keeps each
+    // repeated source locator once, including locators decoded from legacy raw.
+    const originrefsByHash = {};
+    const thinCards = cell => cell.cards.map(card => ({ ...card, evidence: card.evidence.map(item => {
+      const { originrefs, ...rest } = item, refs = originrefs ?? [];
+      const ref = digest(refs);
+      if (!Object.hasOwn(originrefsByHash, ref)) originrefsByHash[ref] = snapshot(refs);
+      return { ...rest, originrefs_ref: ref };
+    }) }));
     const projectedCells = { daily: Object.fromEntries([...projectedDaily].map(([key, c]) => [key,
-      { raw_cell_fingerprint: c.fingerprint, cards: c.cards, format_flag: c.format_flag, response_format: c.response_format }])),
+      { raw_cell_fingerprint: c.fingerprint, cards: thinCards(c), format_flag: c.format_flag, response_format: c.response_format }])),
     weekly: Object.fromEntries([...projectedWeekly].map(([key, c]) => [key,
-      { raw_cell_fingerprint: c.fingerprint, cards: c.cards, format_flag: c.format_flag, response_format: c.response_format }])),
-    monthly: { [data.month]: { raw_cell_fingerprint: projectedMonth.fingerprint, cards: projectedMonth.cards,
+      { raw_cell_fingerprint: c.fingerprint, cards: thinCards(c), format_flag: c.format_flag, response_format: c.response_format }])),
+    monthly: { [data.month]: { raw_cell_fingerprint: projectedMonth.fingerprint, cards: thinCards(projectedMonth),
       format_flag: projectedMonth.format_flag, response_format: projectedMonth.response_format } },
-    status: { [data.month]: { raw_cell_fingerprint: projectedStatus.fingerprint, cards: projectedStatus.cards,
+    status: { [data.month]: { raw_cell_fingerprint: projectedStatus.fingerprint, cards: thinCards(projectedStatus),
       format_flag: projectedStatus.format_flag, response_format: projectedStatus.response_format } } };
     const projection = { schema: SCHEMA, project: data.project, month: data.month, parser_version: 'strict_json_fence_v1',
-      derived_from_existing_raw: true, raw_cell_refs: current, cells: projectedCells };
+      derived_from_existing_raw: true, raw_cell_refs: current, originrefs_by_hash: originrefsByHash,
+      cells: projectedCells };
     const projectionFile = `history-projection-${digest(projection).slice(7)}.json`;
     const view = renderHistory(data, projectedDaily, projectedWeekly, projectedMonth, projectedStatus, display, staleSummary);
     const viewFile = `history-view-${hashText(view).slice(7)}.md`;

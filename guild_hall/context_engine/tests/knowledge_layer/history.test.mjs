@@ -187,6 +187,39 @@ test('strict fenced JSON decodes and legacy raw cell display upgrades with zero 
   assert.equal(again.status, 'unchanged'); assert.equal(again.calls, 0); assert.deepEqual(files(dir), before);
 });
 
+test('large repeated provenance is stored once in projection without changing cell bytes or model cache', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = Array.from({ length: 4 }, (_, index) => record(`SRC-${index + 1}`, '2026-09-03', `fact ${index + 1}`,
+    { originrefs: [{ pointer: `synthetic:${index + 1}:` + 'P'.repeat(60000) }] }));
+  const generate = async request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') return JSON.stringify({ events: [{ text: 'Recorded facts',
+      evidence: payload.threads.flatMap(thread => thread.records).map(row => ({ source_id: row.id, quote: row.text })) }] });
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: 'Recorded summary', child_card_ids: [child.card_id],
+      evidence: child.evidence }] });
+  };
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate });
+  assert.equal(first.status, 'generated'); assert.equal(first.calls, 4);
+  const projection = JSON.parse(readFileSync(join(dir, first.head.projection_file), 'utf8'));
+  assert.equal(Object.keys(projection.originrefs_by_hash).length, rows.length);
+  for (const layer of ['daily', 'weekly', 'monthly', 'status']) {
+    const card = Object.values(projection.cells[layer])[0].cards[0];
+    assert.equal(card.evidence.length, rows.length);
+    for (let index = 0; index < rows.length; index++) {
+      assert.equal(card.evidence[index].originrefs, undefined);
+      assert.deepEqual(projection.originrefs_by_hash[card.evidence[index].originrefs_ref], rows[index].originrefs);
+    }
+  }
+  const dayBytes = readFileSync(join(dir, `history-cell-${first.head.cells.daily['2026-09-03'].slice(7)}.json`));
+  const before = files(dir);
+  const same = await runHistory({ input: input(rows), outputRoot: dir, config,
+    generate: async () => { throw new Error('no model call expected'); } });
+  assert.equal(same.status, 'unchanged'); assert.equal(same.calls, 0);
+  assert.deepEqual(readFileSync(join(dir, `history-cell-${first.head.cells.daily['2026-09-03'].slice(7)}.json`)), dayBytes);
+  assert.deepEqual(files(dir), before);
+});
+
 test('explicit display metadata changes only the view and hides internal codes and addresses', async t => {
   const [dir, cleanup] = root(); t.after(cleanup);
   const rows = [
