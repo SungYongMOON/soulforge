@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 export const REPO_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 export const APP_REF='guild_hall/context_engine';
 export const ENTRY_REF=APP_REF+'/src/app.mjs';
-const ENTRY_REFS=[ENTRY_REF,APP_REF+'/src/history_cli.mjs'];
+const ENTRY_REFS=[ENTRY_REF,APP_REF+'/src/history_cli.mjs',APP_REF+'/src/history_prepare_cli.mjs'];
 const EXPLICIT_FILES=['guild_hall/rag/project_document_extract.py','guild_hall/context_engine/src/workers/graphrag_worker.py',
   'guild_hall/context_engine/src/workers/document_docx_extract.py', 'guild_hall/context_engine/WIKI_SCHEMA.md'];
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');

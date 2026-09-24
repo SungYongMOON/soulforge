@@ -1,5 +1,11 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-24 CURRENT (Context Engine 0.22.19 history preparation candidate):
+> an explicit project/date CLI reads configured custody and attribution bindings,
+> excludes AI work notes, computes changed source days and invokes the existing
+> history CLI. Four source lanes must be readable before advancing the baseline.
+> No scheduled task, operating writer, or context-bot connection is registered.
+
 > 2026-09-24 CURRENT (Context Engine 0.22.18 timeout halves):
 > a timed-out history batch may produce two deterministic half-input calls once.
 > Child failures remain unprocessed; no recursive retry or operating activation

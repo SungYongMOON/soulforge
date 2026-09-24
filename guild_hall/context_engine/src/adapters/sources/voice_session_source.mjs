@@ -57,7 +57,7 @@ async function sessionSegments(root, item, sessionId) {
   return found[0] ?? null;
 }
 
-function parseSegments(text) {
+export function parseSegments(text) {
   const rows = [];
   for (const line of text.split('\n')) {
     if (!line.trim()) continue;

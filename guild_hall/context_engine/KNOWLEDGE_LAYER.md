@@ -10,6 +10,36 @@ Owner 방향에 따라 Neo4j와 주입식 보존 파일을 사용하는 자동 �
 
 ## 이력 CLI
 
+### 밤 준비 단계
+
+`src/history_prepare_cli.mjs --prepare|--run --project <CODE> --date YYYY-MM-DD
+--sources <absolute JSON> --output-root <existing private directory> --binding <absolute JSON>`을 사용한다.
+날짜를 생략하면 KST 어제, `--from-date`를 생략하면 대상 월의 첫날부터 확인한다. 과거 월은 별도 실행·출력 폴더를 쓴다.
+하루 파일럿은 `--from-date`와 `--date`를 같은 날짜로 지정한다. 호출자가 정한 기간의 수집 보관본을 읽는 것이며,
+외부 서비스의 모든 자료가 수집됐다는 보증이나 새 수집 작업을 뜻하지 않는다.
+
+`sources`는 `project`와 `mail`, `slack`, `linear`, `voice` 네 설정을 명시한다.
+- 메일: `index_path`, `event_dirs`, 허용 `strengths`, 선택 `org_config_path`와 `owner_table_paths`(파일명→절대경로)를 지정한다.
+  귀속 색인의 지문·신선도·과제 연결을 검사하며 본문에서 과제를 추측하지 않는다. 인용된 과거 답장은 새 사건 입력에서 분리한다.
+- Slack: `channels:[{root,channel_id}]`, 선택 `names_path`를 지정한다. 메시지와 회신은 각각 원래 timestamp 날짜를 유지한다.
+- Linear: `root`, 정확한 `project_ids`를 지정한다. 이슈·댓글·변경 기록은 네이티브 판의 해시를 확인한다.
+  최신 이슈 본문은 updated_at 시점의 스냅샷이며 과거 상태를 복원했다는 뜻이 아니다.
+- 음성: `sessions_root`, `cards_root`, `routes_root`, `project_policy`를 지정한다. `confirmed` 또는 명시된
+  `first_candidate` 정책으로 카드를 골라 해시가 맞는 원전사 구간만 읽는다. 카드의 파생 description은 원문으로 보내지 않는다.
+  후보 귀속은 사람 수락으로 올리지 않으며 철회된 귀속은 제외한다.
+
+AI 메모 표지는 `ai_note_senders`, `ai_note_subject_prefixes`, `ai_note_user_ids`, `ai_note_markers` 등
+원천별 명시 설정으로 지정한다. 태그가 없는 글의 AI 작성 여부를 추론하지 않는다. `ai_work_note`, `ai_work_memo`,
+`ai_memo`, `ai_note` 종류와 명시 메모 역할은 이력 CLI에서도 거부한다. 기계전사라는 이유만으로 음성을 거부하지 않는다.
+
+준비기는 이전 원천 입력을 보관하고, 확인한 기간 밖의 기록은 유지한다. 어제와 입력이 달라진 날짜를 합치되,
+날짜가 바뀐 같은 원천은 이전 날짜와 새 날짜를 모두 변경으로 센다. 누락·실패한 원천은 빈 목록으로 간주하지 않는다.
+네 원천 모두 정상적으로 읽힌 최초 빈 날짜는 `no_sources`로 보고하고 모델을 호출하지 않는다.
+이력이 있는 월을 빈 입력으로 지우지는 않는다. 새 이력 head가 준비한 입력 지문과 일치할 때만 준비 기준판을 전진시킨다.
+동일 원천·표시·모델 설정이면 추가 호출은 없으며, 모델 설정 변경은 기존 이력 CLI의 판정에 전달한다.
+
+이 단계는 원천·운영 설정·DB·예약 작업을 쓰지 않는다. 현재 자료 수집과 이름 표의 완전성은 호출자/수집 lane 책임이다.
+
 `node guild_hall/context_engine/src/history_cli.mjs --help`는 독립 실행면의 인자를 보여 준다.
 `--dry-run`과 `--run`은 `--input <absolute JSON> --output-root <existing absolute private directory>
 --binding <absolute JSON>`를 받는다. `--run`만 명시적으로 로컬 모델을 호출한다.

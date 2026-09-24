@@ -1,6 +1,6 @@
 {
   "schema": "soulforge.source_lane_spec.v0",
-  "lane_id": "context-engine-v0-22-18",
+  "lane_id": "context-engine-v0-22-19",
   "description": "Standalone Context Engine explicit update, query and local history draft. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer activation.",
   "tracked_paths": [
     "guild_hall/context_engine/WIKI_SCHEMA.md",
@@ -33,12 +33,16 @@
     "guild_hall/context_engine/src/guards/accepted_context_typed_memory.mjs",
     "guild_hall/context_engine/src/guards/citation_verifier.mjs",
     "guild_hall/context_engine/src/history_cli.mjs",
+    "guild_hall/context_engine/src/history_prepare_cli.mjs",
     "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
     "guild_hall/context_engine/src/knowledge_layer/candidate_check.mjs",
     "guild_hall/context_engine/src/knowledge_layer/data.mjs",
     "guild_hall/context_engine/src/knowledge_layer/graph.mjs",
     "guild_hall/context_engine/src/knowledge_layer/history.mjs",
     "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
     "guild_hall/context_engine/src/knowledge_layer/index.mjs",
     "guild_hall/context_engine/src/knowledge_layer/model.mjs",
     "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs",
@@ -55,6 +59,7 @@
     "guild_hall/context_engine/src/runtime/graph_extraction.mjs",
     "guild_hall/context_engine/src/runtime/graph_index_generation.mjs",
     "guild_hall/context_engine/src/runtime/graph_index_retrieval.mjs",
+    "guild_hall/context_engine/src/runtime/mail_routes.mjs",
     "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
     "guild_hall/context_engine/src/runtime/pair_store.mjs",
     "guild_hall/context_engine/src/runtime/preparation_run.mjs",
@@ -65,6 +70,7 @@
     "guild_hall/context_engine/src/runtime/source_documents.mjs",
     "guild_hall/context_engine/src/runtime/source_original_check.mjs",
     "guild_hall/context_engine/src/runtime/source_preparation.mjs",
+    "guild_hall/context_engine/src/runtime/voice_routes.mjs",
     "guild_hall/context_engine/src/workers/document_docx_extract.py",
     "guild_hall/context_engine/src/workers/graphrag_worker.py",
     "guild_hall/engineering_engine/core/validators/canonical.mjs",
@@ -104,6 +110,7 @@
   "carried_forward_prefixes": [],
   "entry_points": [
     "guild_hall/context_engine/src/app.mjs",
-    "guild_hall/context_engine/src/history_cli.mjs"
+    "guild_hall/context_engine/src/history_cli.mjs",
+    "guild_hall/context_engine/src/history_prepare_cli.mjs"
   ]
 }

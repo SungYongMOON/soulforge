@@ -1,7 +1,8 @@
 {
   "entry_points": [
     "guild_hall/context_engine/src/app.mjs",
-    "guild_hall/context_engine/src/history_cli.mjs"
+    "guild_hall/context_engine/src/history_cli.mjs",
+    "guild_hall/context_engine/src/history_prepare_cli.mjs"
   ],
   "explicit_computed_assets": [
     "guild_hall/rag/project_document_extract.py",
@@ -108,7 +109,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
-      "sha256": "41b822c94a2ce668d751b082f776acbddc51802a3fa35459f04c595c5390ecee"
+      "sha256": "c586274359a0b147c893d4d9f025596b2c69f5d879fe556dfd160475c4d48c6e"
     },
     {
       "path": "guild_hall/context_engine/src/app.mjs",
@@ -131,6 +132,10 @@
       "sha256": "cb5dd281b4a394779cae111dad42f82702f4811309624a75e9af45872a548c9e"
     },
     {
+      "path": "guild_hall/context_engine/src/history_prepare_cli.mjs",
+      "sha256": "2d4104a94cd31d46c3ce7783ee5b11d8ddd98fb40204ece551fd57e83f04356b"
+    },
+    {
       "path": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
       "sha256": "a4555fc55ecda742f909006ba9c21cd3f6565b7700190e54cf1e0a7b0d8a1ec8"
     },
@@ -148,11 +153,23 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "48948ecb17896c1ecc54ef3dba9362057cc7b6d44832188774b27bb4118b1348"
+      "sha256": "4ee6250f5a5845ba2c0921a7d66291fd183531db256303def57d316bacd869f4"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
       "sha256": "4d5afb52dc18a560e11dc3c13b8b950764e25d8fc18da46e1c4120fae16d78e5"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "sha256": "532a9bd26400e96da959233632da7ea21162135ffa38d91c292bb4098a279d81"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
+      "sha256": "3e6b4261f85e787f34e2291c147e81362ee21f5ec8c2c23e1edbab09833503bc"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "sha256": "4a2437488c6f89fcabeb83d4f167cc5cf444c9ca137e72c7e0f1c99b15d8c9d8"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
@@ -219,6 +236,10 @@
       "sha256": "b040ccc81c5156956d1df9acafa996a0d12e607067a4efaa9b2603411c7a311c"
     },
     {
+      "path": "guild_hall/context_engine/src/runtime/mail_routes.mjs",
+      "sha256": "a000c7dba8a30f83e5dd7ede8ba680e9c658f7e92739f4781cabc21e3d312ec9"
+    },
+    {
       "path": "guild_hall/context_engine/src/runtime/observed_context_query.mjs",
       "sha256": "5469b7a1555c3a6b286d84ec6ec6be46facb743a3be8cbad534e7c178ed96ea9"
     },
@@ -257,6 +278,10 @@
     {
       "path": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
       "sha256": "7903d1b75f1329ddbf7dc5f3542f311b14a18c759bbbda902e0b738b4e5e2f6d"
+    },
+    {
+      "path": "guild_hall/context_engine/src/runtime/voice_routes.mjs",
+      "sha256": "6bcdc83b18cb9721103d6aa281094bb22bffe9d5fad31920d55af4a006dcdffe"
     },
     {
       "path": "guild_hall/context_engine/src/workers/document_docx_extract.py",
@@ -387,7 +412,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "8d9e9662cfb7298a943bd69f3ea93deb76c048f218c6b675932fad13053048cb",
+  "closure_sha256": "4df1027c509a98bdbfe963783b5e2b74d89a8618cf63ba2bdd89629e9c34dc00",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -749,6 +774,18 @@
       "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/history_prepare_cli.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/history_prepare_cli.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/history_prepare_cli.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
     },
@@ -783,6 +820,70 @@
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/mail_event_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/context_engine/src/runtime/mail_routes.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/gateway/mail_body_excerpt.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/context_engine/src/runtime/voice_routes.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+      "to": "guild_hall/shared/project_history_envelope.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
@@ -1227,6 +1328,14 @@
     {
       "from": "guild_hall/context_engine/src/runtime/source_preparation.mjs",
       "to": "guild_hall/context_engine/src/runtime/source_documents.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/voice_routes.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/runtime/voice_routes.mjs",
+      "to": "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs"
     },
     {
       "from": "guild_hall/engineering_engine/core/validators/canonical.mjs",

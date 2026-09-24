@@ -593,3 +593,18 @@ test('CLI help and dry-run never contact a model or write a head', t => {
   assert.equal(dry.status, 0, dry.stderr); assert.equal(JSON.parse(dry.stdout).status, 'dry_run');
   assert.equal(readdirSync(dir).length, 2);
 });
+
+test('direct history input refuses explicit AI work memo kinds and roles but admits voice ASR', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  for (const kind of ['ai_work_note', ' AI_WORK_MEMO ', 'Ai_Memo', 'ai_note']) {
+    await assert.rejects(runHistory({ input: input([record('A', '2026-09-03', 'Memo text', { kind })]),
+      outputRoot: dir, config, generate: fake([]) }), /history_ai_work_memo_excluded/);
+  }
+  for (const extra of [{ producer_class: 'AI_WORK_NOTE' }, { source_role: ' ai_memo ' }, { ai_work_note: true }]) {
+    await assert.rejects(runHistory({ input: input([record('A', '2026-09-03', 'Memo text', extra)]),
+      outputRoot: dir, config, generate: fake([]) }), /history_ai_work_memo_excluded/);
+  }
+  const admitted = await runHistory({ input: input([record('V1', '2026-09-03', 'ASR text',
+    { kind: 'voice_card', generated_by_ai: true })]), outputRoot: dir, config, generate: fake([]) });
+  assert.equal(admitted.status, 'generated');
+});
