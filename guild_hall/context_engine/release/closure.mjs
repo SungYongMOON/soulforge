@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 export const REPO_ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 export const APP_REF='guild_hall/context_engine';
 export const ENTRY_REF=APP_REF+'/src/app.mjs';
+const ENTRY_REFS=[ENTRY_REF,APP_REF+'/src/history_cli.mjs'];
 const EXPLICIT_FILES=['guild_hall/rag/project_document_extract.py','guild_hall/context_engine/src/workers/graphrag_worker.py',
   'guild_hall/context_engine/src/workers/document_docx_extract.py', 'guild_hall/context_engine/WIKI_SCHEMA.md'];
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -24,7 +25,7 @@ function imports(text){
 }
 
 export function inspectRuntimeClosure(repoRoot=REPO_ROOT){
-  const queue=[ENTRY_REF,...EXPLICIT_FILES],seen=new Set(),bare=new Set(),builtins=new Set(),edges=[];
+  const queue=[...ENTRY_REFS,...EXPLICIT_FILES],seen=new Set(),bare=new Set(),builtins=new Set(),edges=[];
   while(queue.length){
     const ref=queue.shift();if(seen.has(ref))continue;
     if(ref.startsWith('../')||isAbsolute(ref)||!existsSync(resolve(repoRoot,ref)))throw new Error('missing or escaping runtime member: '+ref);
@@ -51,7 +52,7 @@ export function inspectRuntimeClosure(repoRoot=REPO_ROOT){
       interface_version:manifest.interface_version,manifest_ref:manifestRef});seen.add(manifestRef);
   }
   const files=[...seen].sort(cmp).map(path=>({path,sha256:sha(readFileSync(resolve(repoRoot,path)))}));
-  return {entry_points:[ENTRY_REF],explicit_computed_assets:EXPLICIT_FILES,
+  return {entry_points:ENTRY_REFS,explicit_computed_assets:EXPLICIT_FILES,
     files,closure_sha256:sha(Buffer.from(JSON.stringify(files))),
     dependency_modules:[...modules.values()].sort((a,b)=>cmp(a.module_id,b.module_id)),
     builtin_imports:[...builtins].sort(cmp),bare_imports:[],edges:edges.sort((a,b)=>cmp(a.from+' '+a.to,b.from+' '+b.to)),
@@ -64,7 +65,7 @@ export function writeRuntimeClosure(repoRoot=REPO_ROOT){
   const version=JSON.parse(readFileSync(resolve(repoRoot,APP_REF+'/module.manifest.json'),'utf8')).module_version;
   writeFileSync(resolve(repoRoot,APP_REF+'/release/runtime-closure.json'),JSON.stringify(closure,null,2)+'\n');
   const spec={schema:'soulforge.source_lane_spec.v0',lane_id:'context-engine-v'+version.replaceAll('.','-'),
-    description:'Standalone synthetic Context Engine installed update and query. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer.',
+    description:'Standalone Context Engine explicit update, query and local history draft. Exact runtime and explicit shared byte closure only. No ERP caller, harness, gold, data, service registration or operating writer activation.',
     tracked_paths:[...closure.files.map(f=>f.path),APP_REF+'/module.manifest.json',APP_REF+'/release/runtime-closure.json'],
     tracked_excludes:[],carried_forward_prefixes:[],entry_points:closure.entry_points};
   writeFileSync(resolve(repoRoot,APP_REF+'/release/context-engine-v1.spec.json'),JSON.stringify(spec,null,2)+'\n');

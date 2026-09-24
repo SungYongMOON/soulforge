@@ -8,6 +8,40 @@ Owner 방향에 따라 Neo4j와 주입식 보존 파일을 사용하는 자동 �
 배선 점수를 출력한다. 실제 모델 품질·그래프 기여·운영 완료를 뜻하지 않는다.
 검사: `npm run validate:knowledge-layer`. 새 시험은 done:check 양쪽 목록에 포함된다.
 
+## 이력 CLI
+
+`node guild_hall/context_engine/src/history_cli.mjs --help`는 독립 실행면의 인자를 보여 준다.
+`--dry-run`과 `--run`은 `--input <absolute JSON> --output-root <existing absolute private directory>
+--binding <absolute JSON>`를 받는다. `--run`만 명시적으로 로컬 모델을 호출한다.
+기존 위키·맥락이·장부·밤 사슬에는 연결하지 않는다.
+
+입력은 `{project,month,as_of?,records}`다. 각 record는 `id,date,kind,title,sender,recipient,text`와
+선택 `project,thread_ref,attachments,text_sha256,originrefs`를 가진다. 날짜는 호출자가 확정한 KST 날짜다.
+호출자는 과제 귀속·원천 접근 권한·AI 업무메모 제외를 먼저 처리한다. 이 CLI는 원천을 탐색하거나
+originrefs의 경로를 열지 않으며, 입력 목록이 현실의 모든 원천인지 판정하지 않는다.
+한 출력 디렉터리는 한 과제·한 달 전용이다. 저장 위치는 주입받으며 프로젝트 정본 저장소를 기본값으로 삼지 않는다.
+
+일별 원천을 스레드로 묶어 한 번 작성하고, 주별은 그 일별 문장, 월별은 주별 문장,
+현황은 월별 문장에서 최근 있었던 일만 쓴다. 주는 월요일~일요일이며 월·기준일 경계는 부분 주다.
+상위 입력에는 하위 문장·인용·출처 표시와 판 참조만 전달한다. 원문 전체를 다시 보내지 않는다.
+현황도 남은 일·중요도·확인할 결과를 판단하는 기능이 아니다. 인용이 틀린 문장과 형식이 틀린 응답은
+원 출력과 플래그를 남기고 진행한다. 자동 보정·재시도·의미적 사실 수락은 하지 않는다.
+
+정렬한 입력·출처 정보·하위 판·모델 pin·작성 규칙을 지문으로 묶는다. 같은 지문은 보존한 칸을 재사용하고,
+새 자료·수정·삭제가 있는 날과 그 상위 칸만 다시 쓴다. 호출 한도나 실행 시각은 내용 판 식별자가 아니다.
+완성된 새 판과 이전 판은 함께 보존하며 빈 입력으로 이전 판을 지우지 않는다. 실패한 실행은 이전 현행 판을 유지한다.
+모델 출력에 달린 근거는 문자열 연결 확인이며 서술 의미의 정확성을 보장하지 않는다.
+완전한 JSON 코드 블록의 포장 기호만 읽기 단계에서 벗길 수 있으며 응답 원 바이트는 보존한다.
+표시용 카드 JSON과 Markdown도 지문으로 새 판을 보관한다. 읽기 형식이 개선되면 보존 응답만으로
+표시 판을 갱신할 수 있고(`display_updated`), 모델 재호출이나 문장 보정은 하지 않는다.
+
+binding은 `host,transport,model_id,model_pin,think:false,prompt_version,prompt_content,max_tokens,temperature,
+max_calls,max_input_characters,max_output_characters,per_call_timeout_ms,wall_timeout_ms`를 명시한다.
+호스트는 loopback만 허용하고 서버가 보고한 모델 신원을 pin과 대조한다. OpenAI 호환 서버 pin은
+서버 신원 지문이며 가중치 파일 전체 해시라는 뜻이 아니다. 비밀값·환경설정 자동 탐색은 없다.
+합성 회귀 시험은 같은 입력의 0회 호출, 하루 변경의 상위 전파, 과제 경계, 이전 판 보존과 실패 동작을 확인한다.
+실제 내용 품질·운영 배치·백업 복구의 합격을 이 시험만으로 주장하지 않는다.
+
 ## K1 승인 근거 연결
 
 `linkApprovedUnits({project_ref,units,grant,now})`는 caller가 이미 승인한 목록만 처리한다.

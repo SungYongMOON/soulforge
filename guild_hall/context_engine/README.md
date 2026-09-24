@@ -2,6 +2,9 @@
 
 자동 정리본 지식 층의 명시 호출·개발 평가는 [KNOWLEDGE_LAYER.md](KNOWLEDGE_LAYER.md)를 따른다.
 
+이력 작성기의 일·주·월·최근 있었던 일 증분 실행은 같은 문서의 `이력 CLI` 절을 따른다.
+호출자가 제공한 원천만 읽는 별도 명시 실행면이며 기존 맥락이·밤 사슬에는 자동 연결하지 않는다.
+
 ## K3 첫 실자료 위키 하네스 — 모델 응답은 out-of-band (`harness/knowledge_layer_real_wiki.mjs`, 2026-09-22, fresh review 반영)
 
 지금까지 K3는 합성 자료(`knowledge_layer_demo.mjs`)와 결정적 가짜 모델로만 배선을 확인했다.

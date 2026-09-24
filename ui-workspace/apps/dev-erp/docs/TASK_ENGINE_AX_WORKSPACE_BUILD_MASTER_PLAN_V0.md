@@ -1,5 +1,12 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-24 CURRENT (Context Engine 0.22.15 history CLI candidate):
+> an explicit standalone CLI derives daily, weekly, monthly and recent-event cells
+> from caller-supplied records. Input fingerprints limit rewriting to changed cells
+> and their ancestors; immutable revisions retain previous output. This candidate
+> does not connect Hermes, schedules, operational stores or existing query routes.
+> Structural tests and a bounded local pilot are separate from rollout acceptance.
+
 > 2026-09-17 CURRENT (Context Engine 0.22.2 Slack coverage reporting):
 > the working-context pack reports one Slack row from actual source preparation,
 > search and body-use evidence. Failed preparation and none-in-scope remain

@@ -1,6 +1,7 @@
 {
   "entry_points": [
-    "guild_hall/context_engine/src/app.mjs"
+    "guild_hall/context_engine/src/app.mjs",
+    "guild_hall/context_engine/src/history_cli.mjs"
   ],
   "explicit_computed_assets": [
     "guild_hall/rag/project_document_extract.py",
@@ -126,6 +127,10 @@
       "sha256": "0436f9a1083de18f6e9e045221c32ed3582370b0d51779000940afdcde9a1329"
     },
     {
+      "path": "guild_hall/context_engine/src/history_cli.mjs",
+      "sha256": "9c77e074f8a5e064bdd712aedb8d052b753178b9b74cad8bc2e9bab73c1a8142"
+    },
+    {
       "path": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
       "sha256": "a4555fc55ecda742f909006ba9c21cd3f6565b7700190e54cf1e0a7b0d8a1ec8"
     },
@@ -140,6 +145,10 @@
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/graph.mjs",
       "sha256": "b00b9d830ab68ad78e179395fa6fbffb9c2112239f0f4e6e884e634291cbf918"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
+      "sha256": "4c36dd1aa08996f495a58de85fb27f868377480105a83ba61c09fbd437d90027"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
@@ -374,7 +383,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "db42d67a92a51634024dcf55309e445a467fd85709e816a44253626220bcf22b",
+  "closure_sha256": "d140f01c1feebaf0cdf371c596247e88173fd3f43cbacee3042c338a7a4579d5",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -724,6 +733,18 @@
       "to": "guild_hall/engineering_engine/kernel/identity.mjs"
     },
     {
+      "from": "guild_hall/context_engine/src/history_cli.mjs",
+      "to": "guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/history_cli.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/history_cli.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
+    },
+    {
       "from": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
     },
@@ -746,6 +767,10 @@
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/graph.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/model.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/index.mjs",

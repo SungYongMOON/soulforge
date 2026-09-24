@@ -1,0 +1,196 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { runHistory } from '../../src/knowledge_layer/history.mjs';
+import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
+
+const config = { model_id: 'synthetic-model', model_pin: hashText('pin'), prompt_version: 'v1', prompt_content: '',
+  max_tokens: 8192, temperature: 0, max_calls: 30, per_call_timeout_ms: 480000, wall_timeout_ms: 10800000,
+  max_input_characters: 150000, max_output_characters: 100000 };
+const record = (id, date, text, extra = {}) => ({ id, date, kind: 'mail', title: 'Synthetic title', sender: 'Sender',
+  recipient: 'Recipient', text, originrefs: { source: `synthetic:${id}` }, ...extra });
+const input = records => ({ project: 'DEMO-1', month: '2026-09', as_of: '2026-09-19', records });
+function root() { const dir = mkdtempSync(join(tmpdir(), 'history-synthetic-')); return [dir, () => rmSync(dir, { recursive: true, force: true })]; }
+function fake(calls, output = null) {
+  return async request => {
+    calls.push(request);
+    if (output) return output(request);
+    const payload = JSON.parse(request.user), child = payload.days?.[0]?.cards?.[0]
+      ?? payload.weeks?.[0]?.cards?.[0] ?? payload.monthly?.cards?.[0];
+    const source = payload.threads?.[0]?.records?.[0];
+    const evidence = child?.evidence?.[0] ?? { source_id: source.id, quote: source.text.slice(0, 4) };
+    return JSON.stringify({ events: [{ text: `${request.layer} past fact`,
+      child_card_ids: child ? [child.card_id] : [], evidence: [evidence] }] });
+  };
+}
+function cell(dir, fingerprint) { return JSON.parse(readFileSync(join(dir, `history-cell-${fingerprint.slice(7)}.json`), 'utf8')); }
+function files(dir) { return new Map(readdirSync(dir).map(name => [name, readFileSync(join(dir, name))])); }
+
+test('four layers, unchanged no-op, changed ancestor chain and immutable unrelated week', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-03', 'A source fact'), record('B', '2026-09-08', 'B source fact')];
+  const calls = [], generate = fake(calls);
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate });
+  assert.equal(first.status, 'generated'); assert.deepEqual(first.changed.map(c => c.layer),
+    ['daily', 'daily', 'weekly', 'weekly', 'monthly', 'status']);
+  assert.equal(first.calls, 6);
+  const before = files(dir);
+  const noOp = await runHistory({ input: input([...rows].reverse()), outputRoot: dir, config, generate });
+  assert.equal(noOp.status, 'unchanged'); assert.equal(noOp.calls, 0);
+  assert.deepEqual(files(dir), before);
+  const changed = await runHistory({ input: input([record('A', '2026-09-03', 'A corrected source fact'), rows[1]]), outputRoot: dir, config, generate });
+  assert.deepEqual(changed.changed.map(c => c.layer), ['daily', 'weekly', 'monthly', 'status']);
+  const untouched = Object.keys(first.head.cells.weekly).find(k => k.startsWith('2026-09-07'));
+  assert.equal(changed.head.cells.weekly[untouched], first.head.cells.weekly[untouched]);
+  const oldWeek = `history-cell-${first.head.cells.weekly[untouched].slice(7)}.json`;
+  assert.deepEqual(readFileSync(join(dir, oldWeek)), before.get(oldWeek));
+  assert.equal(cell(dir, first.head.cells.daily['2026-09-03']).cards[0].text, 'daily past fact');
+  assert.ok(cell(dir, changed.head.cells.status['2026-09']).cards[0].child_card_ids[0].startsWith('monthly:'));
+});
+
+test('deletion, late arrival, month edge, config invalidation and empty refusal', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const a = record('A', '2026-09-01', 'A fact'), b = record('B', '2026-09-08', 'B fact');
+  const generate = fake([]);
+  const first = await runHistory({ input: input([a, b]), outputRoot: dir, config, generate });
+  const late = await runHistory({ input: input([a, b, record('C', '2026-09-06', 'Late fact')]), outputRoot: dir, config, generate });
+  assert.deepEqual(late.changed.map(c => c.layer), ['daily', 'weekly', 'monthly', 'status']);
+  const deleted = await runHistory({ input: input([a, b]), outputRoot: dir, config, generate });
+  assert.equal(deleted.status, 'display_updated'); // old immutable cells are reusable without calls
+  assert.equal(deleted.calls, 0);
+  assert.deepEqual(deleted.head, first.head);
+  const removed = await runHistory({ input: input([a]), outputRoot: dir, config, generate });
+  assert.equal(removed.head.cells.daily['2026-09-08'], undefined);
+  assert.deepEqual(removed.changed.map(c => c.layer), ['monthly', 'status']);
+  const refusal = await runHistory({ input: input([]), outputRoot: dir, config, generate });
+  assert.equal(refusal.status, 'refused_empty_input');
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'history-head.json'), 'utf8')), removed.head);
+  await assert.rejects(runHistory({ input: input([record('X', '2026-10-01', 'Other month')]), outputRoot: dir, config, generate }), /history_record_invalid/);
+  await assert.rejects(runHistory({ input: { ...input([a]), project: 'DEMO-2' }, outputRoot: dir, config, generate }), /history_scope_mismatch/);
+  const modelChanged = await runHistory({ input: input([a]), outputRoot: dir,
+    config: { ...config, prompt_version: 'v2' }, generate });
+  assert.deepEqual(modelChanged.changed.map(c => c.layer), ['daily', 'weekly', 'monthly', 'status']);
+  const week = cell(dir, modelChanged.head.cells.weekly[Object.keys(modelChanged.head.cells.weekly)[0]]);
+  assert.equal(week.partial, true); assert.equal(week.start, '2026-09-01');
+});
+
+test('bad evidence and malformed JSON are retained; transport failure preserves prior head', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-03', 'Original source')];
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate: fake([]) });
+  const bad = await runHistory({ input: input([record('A', '2026-09-03', 'Changed source')]), outputRoot: dir, config,
+    generate: fake([], r => r.layer === 'daily' ? JSON.stringify({ events: [{ text: 'Keep this sentence',
+      evidence: [{ source_id: 'A', quote: 'no such quote' }, { source_id: 'MISSING', quote: 'x' }] }] }) : '{bad') });
+  assert.equal(bad.status, 'generated');
+  const day = cell(dir, bad.head.cells.daily['2026-09-03']);
+  assert.equal(day.cards[0].text, 'Keep this sentence');
+  assert.deepEqual(day.cards[0].flags.map(f => f.reason), ['quote_mismatch', 'source_missing']);
+  const month = cell(dir, bad.head.cells.monthly['2026-09']);
+  assert.equal(month.raw, '{bad'); assert.equal(month.format_flag, 'invalid_json');
+  const failed = await runHistory({ input: input([record('A', '2026-09-03', 'Another change')]), outputRoot: dir, config,
+    generate: async () => { throw new Error('transport down'); } });
+  assert.equal(failed.status, 'failed'); assert.deepEqual(failed.head, bad.head);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'history-head.json'), 'utf8')), bad.head);
+  assert.ok(readdirSync(dir).some(name => name.startsWith('history-attempt-')));
+  assert.ok(first.head.cells.daily['2026-09-03'] !== bad.head.cells.daily['2026-09-03']);
+});
+
+test('provenance-only source change refreshes the day and ancestors without sending provenance to the model', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const calls = [], generate = fake(calls);
+  const original = record('A', '2026-09-03', 'Same source text');
+  const first = await runHistory({ input: input([original]), outputRoot: dir, config, generate });
+  assert.equal(first.status, 'generated');
+  const revised = { ...original, originrefs: [{ source: 'synthetic:new-revision' }] };
+  calls.length = 0;
+  const second = await runHistory({ input: input([revised]), outputRoot: dir, config, generate });
+  assert.deepEqual(second.changed.map(c => c.layer), ['daily', 'weekly', 'monthly', 'status']);
+  assert.equal(second.calls, 4);
+  assert.ok(calls.every(call => !call.user.includes('synthetic:new-revision')));
+  assert.deepEqual(cell(dir, second.head.cells.daily['2026-09-03']).cards[0].evidence[0].originrefs,
+    [{ source: 'synthetic:new-revision' }]);
+  assert.deepEqual(cell(dir, first.head.cells.daily['2026-09-03']).cards[0].evidence[0].originrefs,
+    { source: 'synthetic:A' });
+});
+
+test('upper evidence must come from its cited child, while shorter exact child excerpts remain valid', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-03', 'Alpha text'), record('B', '2026-09-04', 'Beta text')];
+  const mismatch = async request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') {
+      const source = payload.threads[0].records[0];
+      return JSON.stringify({ events: [{ text: 'Past fact kept', evidence: [{ source_id: source.id, quote: source.text }] }] });
+    }
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    const switched = request.layer === 'monthly' ? { source_id: 'A', quote: 'Alpha' } : { source_id: 'B', quote: 'Beta' };
+    return JSON.stringify({ events: [{ text: 'Mismatched but retained', child_card_ids: [child.card_id], evidence: [switched] }] });
+  };
+  const result = await runHistory({ input: input(rows), outputRoot: dir, config, generate: mismatch });
+  assert.equal(result.status, 'generated');
+  for (const layer of ['weekly', 'monthly', 'status']) {
+    const fingerprint = Object.values(result.head.cells[layer])[0], card = cell(dir, fingerprint).cards[0];
+    assert.equal(card.text, 'Mismatched but retained');
+    assert.ok(card.flags.some(flag => flag.reason === 'child_evidence_mismatch'), layer);
+  }
+  const [validDir, validCleanup] = root(); t.after(validCleanup);
+  const excerpt = async request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') return JSON.stringify({ events: [{ text: 'Past fact', evidence: [{ source_id: 'A', quote: 'Alpha text' }] }] });
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    const quote = request.layer === 'weekly' ? 'Alpha' : request.layer === 'monthly' ? 'Alph' : 'Alp';
+    return JSON.stringify({ events: [{ text: 'Past fact', child_card_ids: [child.card_id], evidence: [{ source_id: 'A', quote }] }] });
+  };
+  const valid = await runHistory({ input: input([rows[0]]), outputRoot: validDir, config, generate: excerpt });
+  for (const layer of ['weekly', 'monthly', 'status'])
+    assert.ok(!cell(validDir, Object.values(valid.head.cells[layer])[0]).cards[0].flags.some(flag => flag.reason === 'child_evidence_mismatch'));
+});
+
+test('strict fenced JSON decodes and legacy raw cell display upgrades with zero model calls', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-03', 'Alpha fact')], calls = [];
+  const fenced = async request => '```json\n' + await fake(calls)(request) + '\n```';
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate: fenced });
+  assert.equal(first.status, 'generated'); assert.equal(first.calls, 4);
+  const firstStatus = cell(dir, first.head.cells.status['2026-09']);
+  assert.equal(firstStatus.response_format, 'json_fence'); assert.equal(firstStatus.cards[0].text, 'status past fact');
+  // Synthetic legacy fixture: same raw answer was cached before fence decode.
+  const statusName = `history-cell-${first.head.cells.status['2026-09'].slice(7)}.json`;
+  const legacyCell = { ...firstStatus, cards: [], format_flag: 'invalid_json' };
+  delete legacyCell.response_format; delete legacyCell.content_sha256;
+  legacyCell.content_sha256 = digest(legacyCell);
+  writeFileSync(join(dir, statusName), JSON.stringify(legacyCell));
+  const legacyBytes = readFileSync(join(dir, statusName));
+  const legacyHead = { ...first.head }; delete legacyHead.projection_file;
+  writeFileSync(join(dir, 'history-head.json'), JSON.stringify(legacyHead));
+  writeFileSync(join(dir, `history-head-${digest(legacyHead).slice(7)}.json`), JSON.stringify(legacyHead));
+  rmSync(join(dir, first.head.projection_file));
+  calls.length = 0;
+  const upgraded = await runHistory({ input: input(rows), outputRoot: dir, config, generate: fenced });
+  assert.equal(upgraded.status, 'display_updated'); assert.equal(upgraded.calls, 0); assert.equal(calls.length, 0);
+  assert.deepEqual(readFileSync(join(dir, statusName)), legacyBytes);
+  assert.deepEqual(upgraded.head.cells, legacyHead.cells);
+  const projection = JSON.parse(readFileSync(join(dir, upgraded.head.projection_file), 'utf8'));
+  assert.equal(projection.parser_version, 'strict_json_fence_v1');
+  assert.equal(projection.cells.status['2026-09'].cards[0].text, 'status past fact');
+  const before = files(dir);
+  const again = await runHistory({ input: input(rows), outputRoot: dir, config, generate: fenced });
+  assert.equal(again.status, 'unchanged'); assert.equal(again.calls, 0); assert.deepEqual(files(dir), before);
+});
+
+test('CLI help and dry-run never contact a model or write a head', t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const cli = fileURLToPath(new URL('../../src/history_cli.mjs', import.meta.url));
+  const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' });
+  assert.equal(help.status, 0); assert.match(help.stdout, /--dry-run/);
+  const inputFile = join(dir, 'input.json'), bindingFile = join(dir, 'binding.json');
+  writeFileSync(inputFile, JSON.stringify(input([record('A', '2026-09-03', 'A fact')])));
+  writeFileSync(bindingFile, JSON.stringify({ ...config, host: 'http://127.0.0.1:1', transport: 'openai_chat', think: false }));
+  const dry = spawnSync(process.execPath, [cli, '--dry-run', '--input', inputFile, '--output-root', dir, '--binding', bindingFile], { encoding: 'utf8' });
+  assert.equal(dry.status, 0, dry.stderr); assert.equal(JSON.parse(dry.stdout).status, 'dry_run');
+  assert.equal(readdirSync(dir).length, 2);
+});
