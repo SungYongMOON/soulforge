@@ -229,7 +229,7 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
       const heading = cell.layer === 'weekly' ? `${cell.start}–${cell.end}` : cell.key;
       lines.push(`### ${line(heading)}${cell.partial ? ' (월 경계의 부분 주)' : ''}`, '');
       if (cell.format_flag) lines.push(cell.format_flag === 'batch_format_error'
-        ? '일부 묶음의 형식 오류가 있습니다. 나머지 이력은 표시했고 원 응답은 보존했습니다.'
+        ? '일부 묶음의 응답을 받거나 읽지 못했습니다. 나머지 이력은 표시했고 받은 응답은 보존했습니다.'
         : '형식 오류로 표시하지 못한 응답이 있습니다. 원 응답은 보존했습니다.', '');
       for (const card of cell.cards ?? []) {
         lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- ${visible(card.text)}`);
@@ -276,14 +276,14 @@ function configFor(config) {
 }
 /** generate({layer,key,system,user,config}) -> raw model content string. Exactly one invocation per missing changed cell. */
 async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = false, displayMetadata,
-  retryDays = [], rebuildDays = [], displayOnly = false } = {}) {
+  retryDays = [], rebuildDays = [], displayOnly = false, seedFailedRun = null } = {}) {
   const data = normalize(input), model = configFor(config);
   const display = displayConfig(displayMetadata);
   if (!Array.isArray(retryDays) || retryDays.some(day => !dateOK(day) || !day.startsWith(data.month))
     || new Set(retryDays).size !== retryDays.length || (retryDays.length && (dryRun || displayOnly))) fail('history_retry_days_invalid');
   if (!Array.isArray(rebuildDays) || rebuildDays.some(day => !dateOK(day) || !day.startsWith(data.month))
     || new Set(rebuildDays).size !== rebuildDays.length || (rebuildDays.length && (displayOnly || retryDays.length || !config.daily_batch_characters))) fail('history_rebuild_days_invalid');
-  if (typeof generate !== 'function' && !dryRun && !displayOnly) fail('history_generator_required');
+  if (typeof generate !== 'function' && !dryRun && !displayOnly && !seedFailedRun) fail('history_generator_required');
   const store = storage(outputRoot, data.project, data.month, dryRun || data.records.length === 0);
   const oldHead = store.read('history-head.json');
   if (oldHead && (oldHead.project !== data.project || oldHead.month !== data.month || oldHead.schema !== SCHEMA)) fail('history_head_scope_mismatch');
@@ -371,6 +371,22 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     if (serial(priorVersions) !== serial(versions)) return null;
     return held;
   }
+  function batchFingerprint(day, batch) {
+    const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+    return digest({ schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch',
+      key: day, payload: batch.user,
+      parts: batch.parts.map(({ source_text_sha256, ...part }) => part), system, model,
+      batch_policy: config.daily_batch_characters, request_format: 'history_events_json_schema_v1' });
+  }
+  function failedBatchCell(day, batch, fingerprint, code, failedRunDigest = null) {
+    const safeCode = /^[A-Za-z0-9_:-]{1,64}$/u.test(code) ? code : 'request_failed';
+    const value = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch', key: day,
+      fingerprint, source_ids: uniq(batch.parts.map(part => part.source_id)), parts: batch.parts,
+      request_format: 'history_events_json_schema_v1', raw: '', cards: [], format_flag: 'model_request_failed',
+      response_format: null, response_received: false, error_code: safeCode,
+      ...(failedRunDigest ? { failed_run_sha256: failedRunDigest } : {}) };
+    value.content_sha256 = hashText(serial(value)); return value;
+  }
   async function batchedDay(day, rows) {
     const limit = config.daily_batch_characters;
     const batches = partitionDay({ project: data.project, day, rows, limit });
@@ -379,12 +395,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     for (const batch of batches) {
       const user = serial(batch.user);
       if (user.length > limit || user.length > config.max_input_characters) fail('history_model_input_too_large');
-      const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch',
-        key: day, payload: batch.user,
-        // The whole-source hash is preserved in the immutable packet but does
-        // not invalidate an unchanged excerpt when a different part changes.
-        parts: batch.parts.map(({ source_text_sha256, ...part }) => part), system, model,
-        batch_policy: limit, request_format: 'history_events_json_schema_v1' });
+      const fingerprint = batchFingerprint(day, batch);
       const file = `history-cell-${fingerprint.slice(7)}.json`;
       let held = store.read(file);
       if (held) held = heldCell(fingerprint, 'daily_batch', day);
@@ -394,24 +405,28 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
         if (dryRun) { batchCells.push({ fingerprint, cards: [], format_flag: null }); continue; }
         if (calls >= config.max_calls || Date.now() >= deadline) fail('history_budget_exhausted');
         calls++;
-        let raw;
+        let raw, requestError = null;
         try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
           response_format: 'history_events_json_schema_v1',
           timeout_ms: Math.max(1000, Math.min(config.per_call_timeout_ms, deadline - Date.now())) }); }
-        catch (error) { fail('history_generation_failed:' + String(error?.code ?? error?.name ?? 'error').slice(0, 64)); }
-        if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
-        const batchSources = new Map();
-        for (const part of batch.parts) {
-          const original = sourceMap.get(part.source_id), text = original.text.slice(part.start, part.end);
-          const prior = batchSources.get(part.source_id);
-          if (prior) { prior.text += text; prior.part_locators.push({ start: part.start, end: part.end }); }
-          else batchSources.set(part.source_id, { ...original, text,
-            part_locators: [{ start: part.start, end: part.end }] });
+        catch (error) { requestError = String(error?.code ?? error?.name ?? 'request_failed').slice(0, 64); }
+        if (requestError) held = failedBatchCell(day, batch, fingerprint, requestError);
+        else {
+          if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
+          const batchSources = new Map();
+          for (const part of batch.parts) {
+            const original = sourceMap.get(part.source_id), text = original.text.slice(part.start, part.end);
+            const prior = batchSources.get(part.source_id);
+            if (prior) { prior.text += text; prior.part_locators.push({ start: part.start, end: part.end }); }
+            else batchSources.set(part.source_id, { ...original, text,
+              part_locators: [{ start: part.start, end: part.end }] });
+          }
+          held = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch', key: day,
+            fingerprint, source_ids: uniq(batch.parts.map(part => part.source_id)), parts: batch.parts,
+            request_format: 'history_events_json_schema_v1', ...cardsFrom(raw, batchSources, 'daily', day, []) };
+          held.content_sha256 = hashText(serial(held));
         }
-        held = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily_batch', key: day,
-          fingerprint, source_ids: uniq(batch.parts.map(part => part.source_id)), parts: batch.parts,
-          request_format: 'history_events_json_schema_v1', ...cardsFrom(raw, batchSources, 'daily', day, []) };
-        held.content_sha256 = hashText(serial(held)); store.writeNew(file, held);
+        store.writeNew(file, held);
       }
       batchCells.push(held);
     }
@@ -474,11 +489,34 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       store.writeNew(`history-head-${digest(head).slice(7)}.json`, head);
       store.replaceHead(head);
     }
-    return { status: retryDays.length ? 'daily_retried' : changes.length ? 'generated'
+    const partialBatch = [...projectedDaily.values()].some(day => day.batch_flags?.length);
+    return { status: partialBatch ? changes.length ? 'generated_partial' : 'partial_unchanged'
+      : retryDays.length ? 'daily_retried' : changes.length ? 'generated'
       : serial(oldHead) !== serial(head) ? 'display_updated' : 'unchanged',
     project: data.project, month: data.month, calls, changed: changes, head };
   }
   try {
+    if (seedFailedRun) {
+      if (!config.daily_batch_characters || !plain(seedFailedRun) || seedFailedRun.status !== 'failed'
+        || seedFailedRun.code !== 'history_generation_failed:ABORT_ERR'
+        || !Number.isSafeInteger(seedFailedRun.calls) || seedFailedRun.calls < 1
+        || seedFailedRun.project !== data.project || seedFailedRun.month !== data.month
+        || !oldHead || oldHead.input_fingerprint !== inputFingerprint
+        || !plain(seedFailedRun.head) || !Array.isArray(seedFailedRun.changed)
+        || serial(seedFailedRun.head) !== serial(oldHead)) fail('history_failed_batch_import_invalid');
+      const change = seedFailedRun.changed?.at(-1);
+      if (!change || change.layer !== 'daily_batch' || !days.has(change.key) || !sha(change.fingerprint))
+        fail('history_failed_batch_import_invalid');
+      const batch = partitionDay({ project: data.project, day: change.key,
+        rows: days.get(change.key), limit: config.daily_batch_characters })
+        .find(candidate => batchFingerprint(change.key, candidate) === change.fingerprint);
+      if (!batch) fail('history_failed_batch_import_mismatch');
+      const file = `history-cell-${change.fingerprint.slice(7)}.json`;
+      if (store.read(file)) fail('history_failed_batch_already_exists');
+      store.writeNew(file, failedBatchCell(change.key, batch, change.fingerprint, 'ABORT_ERR', digest(seedFailedRun)));
+      return { status: 'failed_batch_recorded', project: data.project, month: data.month,
+        day: change.key, batch_fingerprint: change.fingerprint, calls: 0, head: oldHead };
+    }
     if (rebuildDays.length) {
       if (!oldHead || oldHead.input_fingerprint !== inputFingerprint) fail('history_rebuild_input_changed');
       const allDays = sorted(days.keys());
@@ -695,6 +733,10 @@ export async function runHistory(options = {}) {
     if (current.dev !== held.dev || current.ino !== held.ino || current.isSymbolicLink()) fail('history_run_lock_changed');
     unlinkSync(lockPath);
   }
+}
+
+export async function recordFailedHistoryBatch({ input, outputRoot, config, failedRun } = {}) {
+  return runHistory({ input, outputRoot, config, seedFailedRun: failedRun });
 }
 
 export const historyPrompts = Object.freeze({ ...PROMPTS });

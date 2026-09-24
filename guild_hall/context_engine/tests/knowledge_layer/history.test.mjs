@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { runHistory } from '../../src/knowledge_layer/history.mjs';
+import { recordFailedHistoryBatch, runHistory } from '../../src/knowledge_layer/history.mjs';
 import { partitionDay } from '../../src/knowledge_layer/history_batches.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 
@@ -320,18 +320,18 @@ test('batched day keeps good cards and raw failures; changing one part reuses ot
       evidence: child?.evidence ?? [] }] });
   };
   const first = await runHistory({ input: input(rows), outputRoot: dir, config: bound, generate });
-  assert.equal(first.status, 'generated');
+  assert.equal(first.status, 'generated_partial');
   const firstDay = cell(dir, first.head.cells.daily['2026-09-17']);
   assert.ok(firstDay.batch_refs.length > 2); assert.equal(firstDay.batch_flags.length, 1);
   assert.ok(firstDay.cards.length > 0); assert.equal(new Set(firstDay.cards.map(card => card.card_id)).size, firstDay.cards.length);
   assert.ok(firstDay.cards.every(card => card.batch_ref && card.evidence[0].part_locators?.length));
   assert.equal(firstDay.source_text_sha256.A, hashText(long));
   const view = readFileSync(join(dir, first.head.view_file), 'utf8');
-  assert.match(view, /일부 묶음의 형식 오류/); assert.match(view, /R&D & owner/); assert.doesNotMatch(view, /&amp;/);
+  assert.match(view, /일부 묶음의 응답을 받거나 읽지 못했습니다/); assert.match(view, /R&D & owner/); assert.doesNotMatch(view, /&amp;/);
   const oldBatchBytes = new Map(firstDay.batch_refs.map(ref => [ref, readFileSync(join(dir, `history-cell-${ref.slice(7)}.json`))]));
   calls.length = 0;
   const same = await runHistory({ input: input(rows), outputRoot: dir, config: bound, generate });
-  assert.equal(same.status, 'unchanged'); assert.equal(same.calls, 0);
+  assert.equal(same.status, 'partial_unchanged'); assert.equal(same.calls, 0);
   const changed = await runHistory({ input: input([record('A', '2026-09-17', long.replace('X', 'Y')), rows[1]]),
     outputRoot: dir, config: bound, generate });
   const nextDay = cell(dir, changed.head.cells.daily['2026-09-17']);
@@ -396,6 +396,89 @@ test('selected rebuild refreshes dependency-dirty weeks and decodes held fenced 
   const noOp = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
     generate: async request => { calls.push(request); return good(request); } });
   assert.equal(noOp.status, 'unchanged'); assert.equal(noOp.calls, 0); assert.equal(calls.length, 0);
+});
+
+test('a daily batch request failure is stored once while later batches continue', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-17', 'A'.repeat(5200))];
+  const bound = { ...config, daily_batch_characters: 1200, max_calls: 30 };
+  let dailyCalls = 0;
+  const generate = async request => {
+    if (request.layer === 'daily') {
+      dailyCalls++;
+      if (dailyCalls === 3) throw Object.assign(new Error('synthetic timeout'), { code: 'ABORT_ERR' });
+      const part = JSON.parse(request.user).threads[0].records[0];
+      return JSON.stringify({ events: [{ text: 'Past fact', evidence: [{ source_id: part.id, quote: part.text.slice(0, 3) }] }] });
+    }
+    const payload = JSON.parse(request.user), child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: 'Past summary', child_card_ids: child ? [child.card_id] : [],
+      evidence: child?.evidence ?? [] }] });
+  };
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config: bound, generate });
+  assert.equal(first.status, 'generated_partial');
+  const day = cell(dir, first.head.cells.daily['2026-09-17']);
+  assert.equal(day.batch_flags.length, 1); assert.ok(day.cards.length > 0);
+  const failed = cell(dir, day.batch_flags[0].batch_ref);
+  assert.equal(failed.format_flag, 'model_request_failed'); assert.equal(failed.response_received, false);
+  assert.equal(failed.error_code, 'ABORT_ERR'); assert.equal(failed.raw, '');
+  assert.ok(day.batch_refs.indexOf(failed.fingerprint) < day.batch_refs.length - 1);
+  const before = files(dir);
+  const noOp = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
+    generate: async () => { throw new Error('must not retry'); } });
+  assert.equal(noOp.status, 'partial_unchanged'); assert.equal(noOp.calls, 0);
+  assert.deepEqual(files(dir), before);
+});
+
+test('explicit prior ABORT_ERR import matches one missing batch and preserves successful immutable batches', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-17', 'B'.repeat(5100))];
+  const generate = async request => {
+    if (request.layer === 'daily') {
+      const part = JSON.parse(request.user).threads[0].records[0];
+      return JSON.stringify({ events: [{ text: 'Past fact', evidence: [{ source_id: part.id, quote: part.text.slice(0, 3) }] }] });
+    }
+    const payload = JSON.parse(request.user), child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: 'Past summary', child_card_ids: child ? [child.card_id] : [],
+      evidence: child?.evidence ?? [] }] });
+  };
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate });
+  const bound = { ...config, daily_batch_characters: 1200, max_calls: 30 };
+  const dry = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
+    rebuildDays: ['2026-09-17'], dryRun: true });
+  assert.ok(dry.batch_plan[0].batches.length > 3);
+  const partialAttempt = await runHistory({ input: input(rows), outputRoot: dir,
+    config: { ...bound, max_calls: 2 }, rebuildDays: ['2026-09-17'], generate });
+  assert.equal(partialAttempt.status, 'failed'); assert.equal(partialAttempt.code, 'history_budget_exhausted');
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'history-head.json'), 'utf8')), first.head);
+  const third = partialAttempt.changed.at(-1).fingerprint;
+  const syntheticFailedRun = { ...partialAttempt, code: 'history_generation_failed:ABORT_ERR', calls: 3 };
+  const altered = { ...syntheticFailedRun, changed: [...syntheticFailedRun.changed.slice(0, -1),
+    { ...syntheticFailedRun.changed.at(-1), fingerprint: hashText('wrong') }] };
+  const bad = await recordFailedHistoryBatch({ input: input(rows), outputRoot: dir, config: bound, failedRun: altered });
+  assert.equal(bad.status, 'failed'); assert.equal(bad.calls, 0);
+  assert.equal(readdirSync(dir).includes(`history-cell-${third.slice(7)}.json`), false);
+  const changedInput = await recordFailedHistoryBatch({ input: input([record('A', '2026-09-17', 'changed')]),
+    outputRoot: dir, config: bound, failedRun: syntheticFailedRun });
+  assert.equal(changedInput.status, 'failed'); assert.equal(changedInput.calls, 0);
+  const successful = dry.batch_plan[0].batches.slice(0, 2).map(batch => batch.fingerprint);
+  const originalBytes = successful.map(ref => readFileSync(join(dir, `history-cell-${ref.slice(7)}.json`)));
+  const seeded = await recordFailedHistoryBatch({ input: input(rows), outputRoot: dir, config: bound,
+    failedRun: syntheticFailedRun });
+  assert.equal(seeded.status, 'failed_batch_recorded'); assert.equal(seeded.calls, 0);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'history-head.json'), 'utf8')), first.head);
+  const failed = cell(dir, third);
+  assert.equal(failed.format_flag, 'model_request_failed'); assert.equal(failed.response_received, false);
+  assert.equal(failed.error_code, 'ABORT_ERR'); assert.equal(failed.failed_run_sha256, digest(syntheticFailedRun));
+  const failedBytes = readFileSync(join(dir, `history-cell-${third.slice(7)}.json`));
+  const calls = [];
+  const resumed = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
+    rebuildDays: ['2026-09-17'], generate: async request => { calls.push(request); return generate(request); } });
+  assert.equal(resumed.status, 'generated_partial');
+  assert.equal(resumed.calls, dry.batch_plan[0].batches.length - 3 + 3); // remaining batches + ancestors
+  assert.equal(calls.filter(request => request.layer === 'daily').length, dry.batch_plan[0].batches.length - 3);
+  for (let i = 0; i < successful.length; i++)
+    assert.deepEqual(readFileSync(join(dir, `history-cell-${successful[i].slice(7)}.json`)), originalBytes[i]);
+  assert.deepEqual(readFileSync(join(dir, `history-cell-${third.slice(7)}.json`)), failedBytes);
 });
 
 test('CLI help and dry-run never contact a model or write a head', t => {

@@ -63,6 +63,12 @@ originrefs의 경로를 열지 않으며, 입력 목록이 현실의 모든 원�
 하위 판 참조가 바뀐 주·월·현황만 갱신한다. 이전 판의 참조 관계를 증명할 수 없으면 오래된 요약임을 표시한다.
 이전 형식의 주간 판은 검증된 불변 현행 판 기록에서 유일한 하위 판 조합을 확인할 수 있을 때만 비교한다.
 `--dry-run`은 모델 호출 없이 묶음 크기와 갱신 대상을 보여 준다. 원 응답·이전 판·실패한 묶음도 보관한다.
+묶음 요청이 시간 초과 등으로 실패하면 받은 응답이 없다는 기록을 남기고 다른 묶음은 계속한다.
+실패한 묶음도 캐시하므로 같은 입력의 재실행이 자동 재호출을 만들지 않는다. 일부가 실패한 새 판은
+완료된 문장과 실패 표시를 함께 보관하고 `generated_partial`(종료 코드 2)로 보고한다.
+이전 실행이 중단돼 실패 캐시가 없는 경우 `--record-failed-batch --failed-run <absolute JSON>`은
+실제 실패 영수증의 현행 판·입력 지문·묶음 지문이 모두 일치할 때만 실패 기록을 복원한다.
+이 명령은 모델을 호출하거나 현행 판을 바꾸지 않으며 성공 응답을 만들어 넣지 않는다.
 
 binding은 `host,transport,model_id,model_pin,think:false,prompt_version,prompt_content,max_tokens,temperature,
 max_calls,max_input_characters,max_output_characters,per_call_timeout_ms,wall_timeout_ms`를 명시한다.
