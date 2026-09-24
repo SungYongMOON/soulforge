@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runHistory } from '../../src/knowledge_layer/history.mjs';
+import { partitionDay } from '../../src/knowledge_layer/history_batches.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 
 const config = { model_id: 'synthetic-model', model_pin: hashText('pin'), prompt_version: 'v1', prompt_content: '',
@@ -276,6 +277,125 @@ test('manual retry calls only selected flagged days and retains upper revisions 
   const changedInput = await runHistory({ input: input([rows[0], rows[1], record('C', '2026-09-08', 'Changed')]),
     outputRoot: dir, config: retryConfig, retryDays: ['2026-09-03'], generate: async () => { throw new Error('must not call'); } });
   assert.equal(changedInput.status, 'failed'); assert.equal(changedInput.calls, 0);
+});
+
+test('bounded day partition preserves whole threads or exact surrogate-safe record parts', () => {
+  const rows = [record('A', '2026-09-17', '첫 줄🙂\n'.repeat(420), { thread_ref: 'thread:one' }),
+    record('B', '2026-09-17', '둘째 줄\n'.repeat(180), { thread_ref: 'thread:one' }),
+    record('C', '2026-09-17', '짧은 기록', { thread_ref: 'thread:two' })];
+  const batches = partitionDay({ project: 'DEMO-1', day: '2026-09-17', rows, limit: 1200 });
+  assert.ok(batches.length > 2);
+  assert.deepEqual(partitionDay({ project: 'DEMO-1', day: '2026-09-17', rows, limit: 1200 }), batches);
+  assert.ok(batches.every(batch => batch.characters <= 1200));
+  for (const row of rows) {
+    const pieces = batches.flatMap(batch => batch.user.threads.flatMap(thread => thread.records))
+      .filter(part => part.id === row.id).sort((a, b) => a.part.start - b.part.start);
+    assert.equal(pieces.map(part => part.text).join(''), row.text);
+    assert.equal(pieces[0].part.start, 0); assert.equal(pieces.at(-1).part.end, row.text.length);
+    for (const part of pieces) {
+      assert.equal(part.text, row.text.slice(part.part.start, part.part.end));
+      assert.ok(!(part.part.end < row.text.length && /[\uD800-\uDBFF]/u.test(row.text[part.part.end - 1])));
+    }
+    const provenance = batches.flatMap(batch => batch.parts).filter(part => part.source_id === row.id);
+    assert.ok(provenance.every(part => part.part_sha256 === hashText(row.text.slice(part.start, part.end))));
+    assert.ok(provenance.every(part => part.source_text_sha256 === hashText(row.text)));
+  }
+});
+
+test('batched day keeps good cards and raw failures; changing one part reuses other batches', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const long = '가'.repeat(1500) + 'X' + '나'.repeat(1500);
+  const rows = [record('A', '2026-09-17', long), record('B', '2026-09-17', 'B'.repeat(800))];
+  const bound = { ...config, daily_batch_characters: 1200, max_calls: 50 };
+  const calls = [];
+  const generate = async request => {
+    calls.push(request);
+    if (request.layer === 'daily') {
+      if (request.user.includes('X')) return 'malformed batch response';
+      const part = JSON.parse(request.user).threads[0].records[0];
+      return JSON.stringify({ events: [{ text: 'R&D &amp; owner', evidence: [{ source_id: part.id, quote: part.text.slice(0, 4) }] }] });
+    }
+    const payload = JSON.parse(request.user), child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: 'R&D &amp; owner', child_card_ids: child ? [child.card_id] : [],
+      evidence: child?.evidence ?? [] }] });
+  };
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config: bound, generate });
+  assert.equal(first.status, 'generated');
+  const firstDay = cell(dir, first.head.cells.daily['2026-09-17']);
+  assert.ok(firstDay.batch_refs.length > 2); assert.equal(firstDay.batch_flags.length, 1);
+  assert.ok(firstDay.cards.length > 0); assert.equal(new Set(firstDay.cards.map(card => card.card_id)).size, firstDay.cards.length);
+  assert.ok(firstDay.cards.every(card => card.batch_ref && card.evidence[0].part_locators?.length));
+  assert.equal(firstDay.source_text_sha256.A, hashText(long));
+  const view = readFileSync(join(dir, first.head.view_file), 'utf8');
+  assert.match(view, /일부 묶음의 형식 오류/); assert.match(view, /R&D & owner/); assert.doesNotMatch(view, /&amp;/);
+  const oldBatchBytes = new Map(firstDay.batch_refs.map(ref => [ref, readFileSync(join(dir, `history-cell-${ref.slice(7)}.json`))]));
+  calls.length = 0;
+  const same = await runHistory({ input: input(rows), outputRoot: dir, config: bound, generate });
+  assert.equal(same.status, 'unchanged'); assert.equal(same.calls, 0);
+  const changed = await runHistory({ input: input([record('A', '2026-09-17', long.replace('X', 'Y')), rows[1]]),
+    outputRoot: dir, config: bound, generate });
+  const nextDay = cell(dir, changed.head.cells.daily['2026-09-17']);
+  assert.equal(changed.changed.filter(change => change.layer === 'daily_batch').length, 1);
+  assert.equal(changed.calls, 4); // one batch and its week, month, status
+  const shared = firstDay.batch_refs.filter(ref => nextDay.batch_refs.includes(ref));
+  assert.equal(shared.length, firstDay.batch_refs.length - 1);
+  for (const ref of shared) assert.deepEqual(readFileSync(join(dir, `history-cell-${ref.slice(7)}.json`)), oldBatchBytes.get(ref));
+});
+
+test('selected rebuild refreshes dependency-dirty weeks and decodes held fenced cards without touching other cells', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-04', 'Week one'), record('B', '2026-09-10', 'Week two'),
+    record('C', '2026-09-14', 'Week three earlier'),
+    record('D', '2026-09-17', '한🙂'.repeat(900)), record('E', '2026-09-18', '나🙂'.repeat(900))];
+  const good = request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') {
+      const part = payload.threads[0].records[0];
+      return JSON.stringify({ events: [{ text: 'Past fact', evidence: [{ source_id: part.id, quote: part.text.slice(0, 3) }] }] });
+    }
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: 'Past summary', child_card_ids: child ? [child.card_id] : [],
+      evidence: child?.evidence ?? [] }] });
+  };
+  const initial = await runHistory({ input: input(rows), outputRoot: dir, config, generate: async request => {
+    if (request.layer === 'daily' && ['2026-09-04', '2026-09-14'].includes(request.key)) return 'invalid reply';
+    return '```json\n' + good(request) + '\n```';
+  } });
+  assert.equal(initial.status, 'generated');
+  const oldWeekTwoRef = initial.head.cells.weekly['2026-09-07_2026-09-13'];
+  // Simulate a legacy cached fence that was stored before display decoding.
+  for (const [layer, key] of [['daily', '2026-09-10'], ['weekly', '2026-09-07_2026-09-13']]) {
+    const ref = initial.head.cells[layer][key], file = join(dir, `history-cell-${ref.slice(7)}.json`);
+    const held = JSON.parse(readFileSync(file, 'utf8'));
+    held.cards = []; held.format_flag = 'invalid_json'; delete held.content_sha256;
+    held.content_sha256 = digest(held); writeFileSync(file, JSON.stringify(held));
+  }
+  const retried = await runHistory({ input: input(rows), outputRoot: dir, config,
+    retryDays: ['2026-09-04', '2026-09-14'], generate: async request => good(request) });
+  assert.equal(retried.status, 'daily_retried'); assert.equal(retried.head.stale_summary, true);
+  const bound = { ...config, daily_batch_characters: 1200, max_calls: 50 };
+  const dry = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
+    rebuildDays: ['2026-09-17', '2026-09-18'], dryRun: true });
+  assert.equal(dry.status, 'dry_run'); assert.deepEqual(dry.dirty_weeks,
+    ['2026-09-01_2026-09-06', '2026-09-14_2026-09-19']);
+  assert.deepEqual(dry.unknown_weeks, []); assert.ok(dry.batch_plan.every(item => item.batches.length > 1));
+  const oldBytes = readFileSync(join(dir, `history-cell-${oldWeekTwoRef.slice(7)}.json`));
+  const calls = [];
+  const rebuilt = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
+    rebuildDays: ['2026-09-17', '2026-09-18'], generate: async request => { calls.push(request); return good(request); } });
+  assert.equal(rebuilt.status, 'generated'); assert.equal(rebuilt.calls, dry.estimated_model_calls);
+  assert.deepEqual(rebuilt.head.cells.weekly['2026-09-07_2026-09-13'], oldWeekTwoRef);
+  assert.deepEqual(readFileSync(join(dir, `history-cell-${oldWeekTwoRef.slice(7)}.json`)), oldBytes);
+  assert.notEqual(rebuilt.head.cells.weekly['2026-09-01_2026-09-06'], retried.head.cells.weekly['2026-09-01_2026-09-06']);
+  assert.notEqual(rebuilt.head.cells.weekly['2026-09-14_2026-09-19'], retried.head.cells.weekly['2026-09-14_2026-09-19']);
+  assert.equal(rebuilt.head.stale_summary, undefined);
+  assert.ok(calls.filter(call => call.layer === 'weekly').length === 2);
+  const monthRequest = JSON.parse(calls.find(call => call.layer === 'monthly').user);
+  assert.ok(monthRequest.weeks.some(week => week.key === '2026-09-07_2026-09-13' && week.cards.length > 0));
+  calls.length = 0;
+  const noOp = await runHistory({ input: input(rows), outputRoot: dir, config: bound,
+    generate: async request => { calls.push(request); return good(request); } });
+  assert.equal(noOp.status, 'unchanged'); assert.equal(noOp.calls, 0); assert.equal(calls.length, 0);
 });
 
 test('CLI help and dry-run never contact a model or write a head', t => {

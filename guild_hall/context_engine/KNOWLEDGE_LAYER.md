@@ -51,6 +51,19 @@ originrefs의 경로를 열지 않으며, 입력 목록이 현실의 모든 원�
 이 모드에서는 다른 날·주·월·현황을 다시 호출하지 않고 이전 판을 보관한다. 상위 요약이
 재작성 전의 일별 판에 기반하면 보는 판에 알린다. 다음 일반 증분 실행의 상위 갱신과는 구분한다.
 
+### 큰 하루 입력 나누기
+
+`daily_batch_characters`는 모델에 보낼 사용자 입력 JSON의 문자 수 기준이다. 토큰 수와는 다르며,
+모델 전체 입력·출력·호출 수·시간 제한은 기존 binding의 상한을 함께 적용한다.
+스레드가 기준 안에 들어오면 그대로 묶고, 큰 스레드는 기록으로, 기록 하나도 크면 원문 구간으로 나눈다.
+원문을 줄이거나 요약해 입력 크기를 맞추지 않는다. 구간 위치와 묶음별 지문을 보존하며
+각 묶음을 한 번씩 호출한 결과를 코드가 순서대로 합친다. 별도 병합 모델이나 자동 재시도는 없다.
+
+`--rebuild-days YYYY-MM-DD,...`는 지정 날짜만 이 규칙으로 다시 구성하고 다른 날짜의 판은 유지한다.
+하위 판 참조가 바뀐 주·월·현황만 갱신한다. 이전 판의 참조 관계를 증명할 수 없으면 오래된 요약임을 표시한다.
+이전 형식의 주간 판은 검증된 불변 현행 판 기록에서 유일한 하위 판 조합을 확인할 수 있을 때만 비교한다.
+`--dry-run`은 모델 호출 없이 묶음 크기와 갱신 대상을 보여 준다. 원 응답·이전 판·실패한 묶음도 보관한다.
+
 binding은 `host,transport,model_id,model_pin,think:false,prompt_version,prompt_content,max_tokens,temperature,
 max_calls,max_input_characters,max_output_characters,per_call_timeout_ms,wall_timeout_ms`를 명시한다.
 호스트는 loopback만 허용하고 서버가 보고한 모델 신원을 pin과 대조한다. OpenAI 호환 서버 pin은

@@ -1,5 +1,11 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-24 CURRENT (Context Engine 0.22.17 bounded daily batches):
+> explicit history CLI partitions oversized daily inputs deterministically and
+> combines batch results without another model call. Named day rebuilds preserve
+> other daily revisions and refresh only changed summary dependencies. Previous
+> revisions remain available; no operating route or scheduler is connected.
+
 > 2026-09-24 CURRENT (Context Engine 0.22.16 history display follow-up):
 > explicit display metadata supplies names and attachment labels without changing
 > model inputs. A caller may retry only named malformed daily responses; existing

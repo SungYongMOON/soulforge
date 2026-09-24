@@ -11,10 +11,11 @@ Usage:
   node guild_hall/context_engine/src/history_cli.mjs --help
   node guild_hall/context_engine/src/history_cli.mjs --dry-run --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON>
   node guild_hall/context_engine/src/history_cli.mjs --run --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON> [--display-metadata <absolute JSON>] [--retry-days YYYY-MM-DD,...]
+  node guild_hall/context_engine/src/history_cli.mjs --dry-run|--run --rebuild-days YYYY-MM-DD,... --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON>
   node guild_hall/context_engine/src/history_cli.mjs --display-only --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON> --display-metadata <absolute JSON>
 
 Input: {project,month:"YYYY-MM",as_of?:"YYYY-MM-DD",records:[{id,project?,date,kind,title,sender,recipient,attachments?,thread_ref?,text,text_sha256?,originrefs?}]}
-Binding: {host:"http://127.0.0.1:<port>",transport:"openai_chat"|"ollama",model_id,model_pin:"sha256:<hex>",think:false,prompt_version,prompt_content,max_tokens,temperature,max_calls,per_call_timeout_ms,wall_timeout_ms,max_input_characters,max_output_characters}
+Binding: {host:"http://127.0.0.1:<port>",transport:"openai_chat"|"ollama",model_id,model_pin:"sha256:<hex>",think:false,prompt_version,prompt_content,max_tokens,temperature,max_calls,per_call_timeout_ms,wall_timeout_ms,max_input_characters,max_output_characters,daily_batch_characters?:8000}
 Display metadata: {source_attachments:{source_id:[filename,...]},slack_names:{id:name},person_names:{email:name},source_body_sha256?:{source_id:"sha256:<hex>"}}. It changes only the private view.
 --retry-days is an explicit daily-only recall of currently format-flagged dates; it does not regenerate weekly, monthly, or status cells.
 --display-only requires the current head and exact same input; it makes no model calls and preserves stale-summary state.
@@ -33,11 +34,12 @@ function args(argv) {
   const out = { mode };
   for (let i = 1; i < argv.length; i += 2) {
     const flag = argv[i], val = argv[i + 1];
-    if (!['--input', '--output-root', '--binding', '--display-metadata', '--retry-days'].includes(flag) || !val || out[flag]) fail('history_arguments_invalid');
+    if (!['--input', '--output-root', '--binding', '--display-metadata', '--retry-days', '--rebuild-days'].includes(flag) || !val || out[flag]) fail('history_arguments_invalid');
     out[flag] = val;
   }
   if (!out['--input'] || !out['--output-root'] || !out['--binding'] || (out['--retry-days'] && mode !== '--run')
-    || (mode === '--display-only' && !out['--display-metadata'])) fail('history_arguments_invalid');
+    || (mode === '--display-only' && !out['--display-metadata'])
+    || (out['--rebuild-days'] && !['--run', '--dry-run'].includes(mode))) fail('history_arguments_invalid');
   return out;
 }
 function binding(raw) {
@@ -85,14 +87,19 @@ function modelTransport(bound) {
     let body, url;
     if (bound.transport === 'openai_chat') {
       url = bound.host + '/v1/chat/completions';
+      const withChildren = response_format === 'history_events_with_children_json_schema_v1';
+      const eventProperties = { text: { type: 'string' }, evidence: { type: 'array',
+        items: { type: 'object', additionalProperties: false, required: ['source_id', 'quote'],
+          properties: { source_id: { type: 'string' }, quote: { type: 'string' } } } } };
+      if (withChildren) eventProperties.child_card_ids = { type: 'array', items: { type: 'string' } };
       const schema = { type: 'object', additionalProperties: false, required: ['events'], properties: {
         events: { type: 'array', items: { type: 'object', additionalProperties: false,
-          required: ['text', 'evidence'], properties: { text: { type: 'string' }, evidence: { type: 'array',
-            items: { type: 'object', additionalProperties: false, required: ['source_id', 'quote'],
-              properties: { source_id: { type: 'string' }, quote: { type: 'string' } } } } } } } } };
+          required: withChildren ? ['text', 'evidence', 'child_card_ids'] : ['text', 'evidence'],
+          properties: eventProperties } } } };
       body = { model: config.model_id, stream: false, temperature: config.temperature, max_tokens: config.max_tokens,
-        response_format: response_format === 'history_events_json_schema_v1'
-          ? { type: 'json_schema', json_schema: { name: 'history_events', schema } } : { type: 'json_object' },
+        response_format: response_format?.startsWith('history_events_')
+          ? { type: 'json_schema', json_schema: { name: withChildren ? 'history_events_with_children' : 'history_events', schema } }
+          : { type: 'json_object' },
         chat_template_kwargs: { enable_thinking: false },
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
     } else {
@@ -116,9 +123,10 @@ export async function historyCli(argv = process.argv.slice(2), { stdout = proces
     const config = binding(readJsonFile(parsed['--binding'], 100_000));
     const displayMetadata = parsed['--display-metadata'] ? readJsonFile(parsed['--display-metadata'], 2_000_000) : undefined;
     const retryDays = parsed['--retry-days']?.split(',') ?? [];
+    const rebuildDays = parsed['--rebuild-days']?.split(',') ?? [];
     const result = await runHistory({ input, outputRoot: parsed['--output-root'], config,
       generate: parsed.mode === '--run' ? modelTransport(config) : undefined, dryRun: parsed.mode === '--dry-run',
-      displayMetadata, retryDays, displayOnly: parsed.mode === '--display-only' });
+      displayMetadata, retryDays, rebuildDays, displayOnly: parsed.mode === '--display-only' });
     stdout.write(JSON.stringify(result) + '\n');
     return ['failed', 'refused_empty_input'].includes(result.status) ? 2 : 0;
   } catch (error) {
