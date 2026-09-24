@@ -128,7 +128,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/history_cli.mjs",
-      "sha256": "815b34b83da7c44fb45ef75f6c3befac9e4613402ae5cc208528dc06fa0e3347"
+      "sha256": "df72a9dcd63776b9f76f3ef098c74f0b91b9e4380552e8de02db4ef90fe9604a"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
@@ -148,7 +148,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "13d8560b79dd1487c2dab371b880507dfe283dee012ba5b31030b1409a78c48d"
+      "sha256": "e60ce1104bba50cadf3d2fdd313bce1996c5ebd6ab3df5cea76cddab8bd406d4"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
@@ -383,7 +383,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "00962231b9fabace4f3b9d9b12f2b2ad256efd881e716950174e87d6adac2ece",
+  "closure_sha256": "a0c956c3d3311663e707fad38dc1c76426877dbbd8206e5b47eeb6c87a1581aa",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

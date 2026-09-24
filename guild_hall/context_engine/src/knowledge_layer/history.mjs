@@ -193,13 +193,21 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
     return { known: fromDisplay || source.attachments.length > 0,
       names: fromDisplay ? display.source_attachments[source.source_id] : source.attachments };
   };
+  const partyName = value => visible(value).split(',').map(part => part.trim()
+    .replace(/^["'“”]+|["'“”]+$/gu, '').replace(/\s*\([^()]*\)\s*$/u, '').trim()).join(', ');
   const sourceLine = (source, attachment = attachmentFor(source)) => {
     if (/voice|ASR|녹음/iu.test(source.kind)) return `${visible(source.date)} · 녹음·발화자 미확인`;
+    if (/slack/iu.test(source.kind)) {
+      const names = attachment.names;
+      const files = attachment.known && names.length
+        ? ` · 첨부: ${names.slice(0, 3).map(visible).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}개` : ''}` : '';
+      return `${visible(source.date)} · Slack · ${partyName(source.sender)} · ${visible(source.title)}${files}`;
+    }
     const { known, names } = attachment;
     const attachments = names.length ? `첨부: ${names.slice(0, 3).map(visible).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}개` : ''}`
       : known ? '첨부: 없음' : '첨부명 미기록';
     const kind = /mail|메일/iu.test(source.kind) ? '메일' : /slack/iu.test(source.kind) ? 'Slack' : source.kind;
-    return `${visible(source.date)} · ${visible(kind)} · ${visible(source.sender)} → ${visible(source.recipient)} · ${visible(source.title)} · ${attachments}`;
+    return `${visible(source.date)} · ${visible(kind)} · ${partyName(source.sender)} → ${partyName(source.recipient)} · ${visible(source.title)} · ${attachments}`;
   };
   const lines = [`# ${line(data.project)} · ${data.month} 이력 초안`, '',
     `기록 기준일: ${data.as_of} (KST 날짜) · 모델 생성 초안 · 의미 검증/사람 수락 전`, ''];
@@ -253,12 +261,12 @@ function configFor(config) {
 }
 /** generate({layer,key,system,user,config}) -> raw model content string. Exactly one invocation per missing changed cell. */
 async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = false, displayMetadata,
-  retryDays = [] } = {}) {
+  retryDays = [], displayOnly = false } = {}) {
   const data = normalize(input), model = configFor(config);
   const display = displayConfig(displayMetadata);
   if (!Array.isArray(retryDays) || retryDays.some(day => !dateOK(day) || !day.startsWith(data.month))
-    || new Set(retryDays).size !== retryDays.length || (retryDays.length && dryRun)) fail('history_retry_days_invalid');
-  if (typeof generate !== 'function' && !dryRun) fail('history_generator_required');
+    || new Set(retryDays).size !== retryDays.length || (retryDays.length && (dryRun || displayOnly))) fail('history_retry_days_invalid');
+  if (typeof generate !== 'function' && !dryRun && !displayOnly) fail('history_generator_required');
   const store = storage(outputRoot, data.project, data.month, dryRun || data.records.length === 0);
   const oldHead = store.read('history-head.json');
   if (oldHead && (oldHead.project !== data.project || oldHead.month !== data.month || oldHead.schema !== SCHEMA)) fail('history_head_scope_mismatch');
@@ -366,6 +374,19 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     project: data.project, month: data.month, calls, changed: changes, head };
   }
   try {
+    if (displayOnly) {
+      if (!oldHead || oldHead.input_fingerprint !== inputFingerprint) fail('history_display_input_changed');
+      for (const layer of LAYERS) current[layer] = { ...oldHead.cells[layer] };
+      const daily = new Map(sorted(days.keys()).map(day => [day, heldCell(current.daily[day], 'daily', day)]));
+      const weeks = new Map();
+      for (const day of sorted(days.keys())) { const w = weekFor(day, data.month, data.as_of);
+        if (!weeks.has(w.key)) weeks.set(w.key, { ...w, days: [] }); weeks.get(w.key).days.push(day); }
+      if (serial(sorted(Object.keys(current.daily))) !== serial(sorted(days.keys()))
+        || serial(sorted(Object.keys(current.weekly))) !== serial(sorted(weeks.keys()))) fail('history_display_input_changed');
+      const weekly = new Map(sorted(weeks.keys()).map(key => [key, heldCell(current.weekly[key], 'weekly', key)]));
+      return finish(daily, weekly, heldCell(current.monthly[data.month], 'monthly', data.month),
+        heldCell(current.status[data.month], 'status', data.month), weeks, oldHead.stale_summary === true);
+    }
     if (retryDays.length) {
       if (!oldHead?.projection_file || oldHead.input_fingerprint !== inputFingerprint
         || retryDays.length > config.max_calls) fail('history_retry_unavailable');

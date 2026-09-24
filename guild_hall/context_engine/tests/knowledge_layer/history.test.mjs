@@ -188,8 +188,8 @@ test('strict fenced JSON decodes and legacy raw cell display upgrades with zero 
 test('explicit display metadata changes only the view and hides internal codes and addresses', async t => {
   const [dir, cleanup] = root(); t.after(cleanup);
   const rows = [
-    record('S001', '2026-09-03', 'Same email', { sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
-    record('S002', '2026-09-03', 'Same email with another header', { sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
+    record('S001', '2026-09-03', 'Same email', { sender: '"Alice (Org)"', recipient: 'bob@example.test' }),
+    record('S002', '2026-09-03', 'Same email with another header', { sender: '"Alice" <alice@example.test>', recipient: 'bob@example.test' }),
     record('S003', '2026-09-03', 'Slack fact', { kind: 'slack', sender: 'slack-user:U1', recipient: '' }),
     record('EARLYV1', '2026-09-03', 'Voice fact', { kind: 'voice_card', title: 'derived candidate title', sender: 'unknown', recipient: '' }),
     record('S004', '2026-09-03', 'No attachment', { title: 'No attachment', sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
@@ -221,6 +221,10 @@ test('explicit display metadata changes only the view and hides internal codes a
   assert.equal(dailyView.split('No attachment').length - 1, 2);
   assert.match(dailyView, /No attachment · 첨부: 없음/);
   assert.match(dailyView, /Slack Person/); assert.match(dailyView, /Alice → Bob/);
+  assert.doesNotMatch(dailyView, /"Alice"|Alice \(Org\)/u);
+  const slackLine = dailyView.split('\n').find(row => row.includes('Slack Person'));
+  assert.match(slackLine, /2026-09-03 · Slack · Slack Person · Synthetic title/);
+  assert.doesNotMatch(slackLine, /→|첨부명 미기록/);
   assert.match(dailyView, /담당자는 Alice\s*에게 요청했다/);
   assert.match(dailyView, /녹음·발화자 미확인/);
   assert.match(dailyView, /S999 표기/); // unrelated code is not broadly rewritten
@@ -257,6 +261,15 @@ test('manual retry calls only selected flagged days and retains upper revisions 
   for (const [name, bytes] of original) assert.deepEqual(readFileSync(join(dir, name)), bytes);
   const view = readFileSync(join(dir, retried.head.view_file), 'utf8');
   assert.match(view, /일별 재작성 전 요약/); assert.doesNotMatch(view.split('## 주별')[1], /하위 기록:/);
+  const displayOnly = await runHistory({ input: input(rows), outputRoot: dir,
+    config: { ...retryConfig, max_calls: 0 }, displayOnly: true,
+    displayMetadata: { source_attachments: { A: ['fresh.txt'] } } });
+  assert.equal(displayOnly.status, 'display_updated'); assert.equal(displayOnly.calls, 0);
+  assert.equal(displayOnly.head.stale_summary, true);
+  assert.deepEqual(displayOnly.head.cells, retried.head.cells);
+  const changedDisplayInput = await runHistory({ input: input([rows[0], rows[1], record('C', '2026-09-08', 'Changed')]),
+    outputRoot: dir, config: { ...retryConfig, max_calls: 0 }, displayOnly: true });
+  assert.equal(changedDisplayInput.status, 'failed'); assert.equal(changedDisplayInput.calls, 0);
   const second = await runHistory({ input: input(rows), outputRoot: dir, config: retryConfig,
     retryDays: ['2026-09-03'], generate: async () => { throw new Error('must not call'); } });
   assert.equal(second.status, 'failed'); assert.equal(second.calls, 0);

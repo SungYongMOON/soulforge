@@ -11,11 +11,13 @@ Usage:
   node guild_hall/context_engine/src/history_cli.mjs --help
   node guild_hall/context_engine/src/history_cli.mjs --dry-run --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON>
   node guild_hall/context_engine/src/history_cli.mjs --run --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON> [--display-metadata <absolute JSON>] [--retry-days YYYY-MM-DD,...]
+  node guild_hall/context_engine/src/history_cli.mjs --display-only --input <absolute JSON> --output-root <existing absolute private dir> --binding <absolute JSON> --display-metadata <absolute JSON>
 
 Input: {project,month:"YYYY-MM",as_of?:"YYYY-MM-DD",records:[{id,project?,date,kind,title,sender,recipient,attachments?,thread_ref?,text,text_sha256?,originrefs?}]}
 Binding: {host:"http://127.0.0.1:<port>",transport:"openai_chat"|"ollama",model_id,model_pin:"sha256:<hex>",think:false,prompt_version,prompt_content,max_tokens,temperature,max_calls,per_call_timeout_ms,wall_timeout_ms,max_input_characters,max_output_characters}
 Display metadata: {source_attachments:{source_id:[filename,...]},slack_names:{id:name},person_names:{email:name},source_body_sha256?:{source_id:"sha256:<hex>"}}. It changes only the private view.
 --retry-days is an explicit daily-only recall of currently format-flagged dates; it does not regenerate weekly, monthly, or status cells.
+--display-only requires the current head and exact same input; it makes no model calls and preserves stale-summary state.
 The model pin is the digest of the local model server's reported identity; no model calls occur for help, dry-run, or an unchanged month.
 `;
 const fail = code => { throw new Error(code); };
@@ -27,14 +29,15 @@ function readJsonFile(file, maxBytes) {
 }
 function args(argv) {
   if (argv.length === 1 && argv[0] === '--help') return { mode: 'help' };
-  const mode = argv[0]; if (!['--dry-run', '--run'].includes(mode)) fail('history_mode_required');
+  const mode = argv[0]; if (!['--dry-run', '--run', '--display-only'].includes(mode)) fail('history_mode_required');
   const out = { mode };
   for (let i = 1; i < argv.length; i += 2) {
     const flag = argv[i], val = argv[i + 1];
     if (!['--input', '--output-root', '--binding', '--display-metadata', '--retry-days'].includes(flag) || !val || out[flag]) fail('history_arguments_invalid');
     out[flag] = val;
   }
-  if (!out['--input'] || !out['--output-root'] || !out['--binding'] || (out['--retry-days'] && mode !== '--run')) fail('history_arguments_invalid');
+  if (!out['--input'] || !out['--output-root'] || !out['--binding'] || (out['--retry-days'] && mode !== '--run')
+    || (mode === '--display-only' && !out['--display-metadata'])) fail('history_arguments_invalid');
   return out;
 }
 function binding(raw) {
@@ -115,7 +118,7 @@ export async function historyCli(argv = process.argv.slice(2), { stdout = proces
     const retryDays = parsed['--retry-days']?.split(',') ?? [];
     const result = await runHistory({ input, outputRoot: parsed['--output-root'], config,
       generate: parsed.mode === '--run' ? modelTransport(config) : undefined, dryRun: parsed.mode === '--dry-run',
-      displayMetadata, retryDays });
+      displayMetadata, retryDays, displayOnly: parsed.mode === '--display-only' });
     stdout.write(JSON.stringify(result) + '\n');
     return ['failed', 'refused_empty_input'].includes(result.status) ? 2 : 0;
   } catch (error) {
