@@ -91,6 +91,9 @@ test('bad evidence and malformed JSON are retained; transport failure preserves 
   assert.deepEqual(day.cards[0].flags.map(f => f.reason), ['quote_mismatch', 'source_missing']);
   const month = cell(dir, bad.head.cells.monthly['2026-09']);
   assert.equal(month.raw, '{bad'); assert.equal(month.format_flag, 'invalid_json');
+  const view = readFileSync(join(dir, bad.head.view_file), 'utf8');
+  assert.match(view, /형식 오류로 표시하지 못한 응답/);
+  assert.doesNotMatch(view, /\{bad/);
   const failed = await runHistory({ input: input([record('A', '2026-09-03', 'Another change')]), outputRoot: dir, config,
     generate: async () => { throw new Error('transport down'); } });
   assert.equal(failed.status, 'failed'); assert.deepEqual(failed.head, bad.head);
@@ -180,6 +183,86 @@ test('strict fenced JSON decodes and legacy raw cell display upgrades with zero 
   const before = files(dir);
   const again = await runHistory({ input: input(rows), outputRoot: dir, config, generate: fenced });
   assert.equal(again.status, 'unchanged'); assert.equal(again.calls, 0); assert.deepEqual(files(dir), before);
+});
+
+test('explicit display metadata changes only the view and hides internal codes and addresses', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [
+    record('S001', '2026-09-03', 'Same email', { sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
+    record('S002', '2026-09-03', 'Same email with another header', { sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
+    record('S003', '2026-09-03', 'Slack fact', { kind: 'slack', sender: 'slack-user:U1', recipient: '' }),
+    record('EARLYV1', '2026-09-03', 'Voice fact', { kind: 'voice_card', title: 'derived candidate title', sender: 'unknown', recipient: '' }),
+    record('S004', '2026-09-03', 'No attachment', { title: 'No attachment', sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
+    record('S005', '2026-09-03', 'No attachment', { title: 'No attachment', sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
+    record('S006', '2026-09-03', 'Different body', { title: 'No attachment', sender: 'Alice <alice@example.test>', recipient: 'bob@example.test' }),
+  ];
+  const generate = async request => {
+    if (request.layer === 'daily') return JSON.stringify({ events: [{ text: '담당자는 Alice <alice@example.test>에게 요청했다. S001 및 daily:2026-09-03:001 근거, S999 표기',
+      evidence: rows.map(row => ({ source_id: row.id, quote: row.text })) }] });
+    const payload = JSON.parse(request.user), child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: 'Recorded event', child_card_ids: [child.card_id], evidence: child.evidence }] });
+  };
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate });
+  const cellBytes = new Map(readdirSync(dir).filter(name => name.startsWith('history-cell-'))
+    .map(name => [name, readFileSync(join(dir, name))]));
+  const metadata = { source_attachments: { S001: ['first.pdf', 'second.pdf', 'third.pdf', 'fourth.pdf'], S004: [] },
+  source_body_sha256: { S001: hashText('shared body A'), S002: hashText('shared body A'),
+    S004: hashText('shared body B'), S005: hashText('shared body B'), S006: hashText('distinct body C') },
+  slack_names: { U1: 'Slack Person' }, person_names: { 'alice@example.test': 'Alice', 'bob@example.test': 'Bob' } };
+  const second = await runHistory({ input: input(rows), outputRoot: dir, config, generate: async () => { throw new Error('no call'); },
+    displayMetadata: metadata });
+  assert.equal(second.status, 'display_updated'); assert.equal(second.calls, 0);
+  assert.deepEqual(second.head.cells, first.head.cells);
+  for (const [name, bytes] of cellBytes) assert.deepEqual(readFileSync(join(dir, name)), bytes);
+  const view = readFileSync(join(dir, second.head.view_file), 'utf8');
+  const dailyView = view.split('## 주별')[0];
+  assert.equal(dailyView.split('first.pdf').length - 1, 1); // duplicate email copy shown once
+  assert.match(dailyView, /first.pdf, second.pdf, third.pdf 외 1개/);
+  assert.equal(dailyView.split('No attachment').length - 1, 2);
+  assert.match(dailyView, /No attachment · 첨부: 없음/);
+  assert.match(dailyView, /Slack Person/); assert.match(dailyView, /Alice → Bob/);
+  assert.match(dailyView, /담당자는 Alice\s*에게 요청했다/);
+  assert.match(dailyView, /녹음·발화자 미확인/);
+  assert.match(dailyView, /S999 표기/); // unrelated code is not broadly rewritten
+  assert.doesNotMatch(view, /alice@example\.test|bob@example\.test|slack-user:U1|S001|S002|EARLYV1|daily:2026-09-03:001|voice_card|derived candidate title|\\\[/);
+});
+
+test('manual retry calls only selected flagged days and retains upper revisions as stale', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-03', 'Alpha text'), record('B', '2026-09-04', 'Beta text'),
+    record('C', '2026-09-08', 'Gamma text')];
+  const initial = async request => {
+    if (request.layer === 'daily' && ['2026-09-03', '2026-09-04'].includes(request.key)) return 'unclosed prose';
+    if (request.layer === 'daily') return fake([])(request);
+    return JSON.stringify({ events: [{ text: 'Prior summary', evidence: [] }] });
+  };
+  const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate: initial });
+  const original = new Map(readdirSync(dir).filter(name => name.startsWith('history-cell-'))
+    .map(name => [name, readFileSync(join(dir, name))]));
+  const retryConfig = { ...config, max_tokens: 16384, max_calls: 2 };
+  const calls = [];
+  const retried = await runHistory({ input: input(rows), outputRoot: dir, config: retryConfig,
+    retryDays: ['2026-09-04', '2026-09-03'], generate: async request => {
+      calls.push(request);
+      const source = JSON.parse(request.user).threads[0].records[0];
+      return JSON.stringify({ events: [{ text: 'Rewritten past fact', evidence: [{ source_id: source.id, quote: source.text }] }] });
+    } });
+  assert.equal(retried.status, 'daily_retried'); assert.equal(retried.calls, 2);
+  assert.deepEqual(calls.map(call => call.key), ['2026-09-03', '2026-09-04']);
+  assert.ok(calls.every(call => call.response_format === 'history_events_json_schema_v1'));
+  assert.deepEqual(retried.head.cells.weekly, first.head.cells.weekly);
+  assert.deepEqual(retried.head.cells.monthly, first.head.cells.monthly);
+  assert.deepEqual(retried.head.cells.status, first.head.cells.status);
+  assert.equal(retried.head.cells.daily['2026-09-08'], first.head.cells.daily['2026-09-08']);
+  for (const [name, bytes] of original) assert.deepEqual(readFileSync(join(dir, name)), bytes);
+  const view = readFileSync(join(dir, retried.head.view_file), 'utf8');
+  assert.match(view, /일별 재작성 전 요약/); assert.doesNotMatch(view.split('## 주별')[1], /하위 기록:/);
+  const second = await runHistory({ input: input(rows), outputRoot: dir, config: retryConfig,
+    retryDays: ['2026-09-03'], generate: async () => { throw new Error('must not call'); } });
+  assert.equal(second.status, 'failed'); assert.equal(second.calls, 0);
+  const changedInput = await runHistory({ input: input([rows[0], rows[1], record('C', '2026-09-08', 'Changed')]),
+    outputRoot: dir, config: retryConfig, retryDays: ['2026-09-03'], generate: async () => { throw new Error('must not call'); } });
+  assert.equal(changedInput.status, 'failed'); assert.equal(changedInput.calls, 0);
 });
 
 test('CLI help and dry-run never contact a model or write a head', t => {

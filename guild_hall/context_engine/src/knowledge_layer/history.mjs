@@ -142,38 +142,100 @@ function cardsFrom(raw, sources, layer, key, children) {
       if (!backedByChild) flags.push({ reason: 'child_evidence_mismatch', source_id: item.source_id });
     }
     return { card_id: `${layer}:${key}:${String(index + 1).padStart(3, '0')}`, text, evidence,
-      source_ids: sourceIds, source_display: sourceIds.filter(id => sources.has(id)).map(id => sourceLabel(sources.get(id))),
+      source_ids: sourceIds, source_display: sourceIds.filter(id => sources.has(id)).map(id => ({
+        ...sourceLabel(sources.get(id)), text_sha256: sources.get(id).text_sha256 })),
       child_card_ids: uniq(childIds.filter(id => allowed.has(id))), flags };
   });
   return { raw, cards, format_flag: null, response_format: responseFormat };
 }
 const line = value => String(value ?? '').replace(/[\r\n\t]+/gu, ' ').trim()
-  .replace(/\\/gu, '\\\\').replace(/([`*_{}\[\]()#+.!|<>])/gu, '\\$1');
+  .replace(/&/gu, '&amp;').replace(/[<>`*_\[\]\\|]/gu, character => `&#${character.codePointAt(0)};`);
 const anchor = id => `card-${hashText(id).slice(7, 19)}`;
-function renderHistory(data, daily, weekly, monthly, status) {
+const FLAG_LABELS = { source_missing: '출처 확인 필요', quote_mismatch: '인용 불일치', quote_missing: '인용 누락',
+  evidence_missing: '근거 누락', child_ref_missing: '하위 기록 연결 누락', child_evidence_mismatch: '하위 기록과 근거 불일치' };
+function displayConfig(value) {
+  const raw = value ?? {};
+  if (!plain(raw)) fail('history_display_metadata_invalid');
+  const result = {};
+  for (const field of ['source_attachments', 'slack_names', 'person_names', 'source_body_sha256']) {
+    const map = raw[field] ?? {};
+    if (!plain(map) || Object.keys(map).length > 10000) fail('history_display_metadata_invalid');
+    result[field] = {};
+    for (const [key, val] of Object.entries(map)) {
+      if (!key || key.length > 500 || (field === 'source_attachments' ? !Array.isArray(val)
+        || val.some(name => typeof name !== 'string' || name.length > 500)
+        : field === 'source_body_sha256' ? !sha(val) : typeof val !== 'string' || val.length > 500)) fail('history_display_metadata_invalid');
+      result[field][key] = field === 'source_attachments' ? [...new Set(val)] : val;
+    }
+  }
+  return snapshot(result);
+}
+function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {}, staleSummary = false) {
+  const display = displayConfig(displayMetadata);
+  const knownIds = [...data.records.map(row => row.id), ...[...daily.values(), ...weekly.values(), monthly, status]
+    .flatMap(cell => (cell.cards ?? []).map(card => card.card_id))].sort((a, b) => b.length - a.length);
+  const escapedIds = knownIds.map(id => ({ id, pattern: new RegExp(`(?<![\\p{L}\\p{N}_])${id.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?![\\p{L}\\p{N}_])`, 'gu') }));
+  const address = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu;
+  const visible = value => {
+    let text = String(value ?? '');
+    text = text.replace(/^\s*<([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>\s*$/iu,
+      (_match, email) => display.person_names[email.toLowerCase()] ?? '이름 미확인');
+    text = text.replace(/<([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})>/giu, '');
+    text = text.replace(address, email => display.person_names[email.toLowerCase()] ?? '이름 미확인');
+    text = text.replace(/slack-user:([A-Z0-9]+)/giu, (_match, id) => display.slack_names[id] ?? '작성자 미확인');
+    text = text.replace(/<@([A-Z0-9]+)>/giu, (_match, id) => display.slack_names[id] ?? '작성자 미확인');
+    for (const [id, name] of Object.entries(display.slack_names)) text = text.replaceAll(id, name);
+    for (const { id, pattern } of escapedIds) text = text.replace(pattern, id.includes(':') ? '기록' : '자료');
+    return line(text);
+  };
+  const attachmentFor = source => {
+    const fromDisplay = Object.hasOwn(display.source_attachments, source.source_id);
+    return { known: fromDisplay || source.attachments.length > 0,
+      names: fromDisplay ? display.source_attachments[source.source_id] : source.attachments };
+  };
+  const sourceLine = (source, attachment = attachmentFor(source)) => {
+    if (/voice|ASR|녹음/iu.test(source.kind)) return `${visible(source.date)} · 녹음·발화자 미확인`;
+    const { known, names } = attachment;
+    const attachments = names.length ? `첨부: ${names.slice(0, 3).map(visible).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}개` : ''}`
+      : known ? '첨부: 없음' : '첨부명 미기록';
+    const kind = /mail|메일/iu.test(source.kind) ? '메일' : /slack/iu.test(source.kind) ? 'Slack' : source.kind;
+    return `${visible(source.date)} · ${visible(kind)} · ${visible(source.sender)} → ${visible(source.recipient)} · ${visible(source.title)} · ${attachments}`;
+  };
   const lines = [`# ${line(data.project)} · ${data.month} 이력 초안`, '',
     `기록 기준일: ${data.as_of} (KST 날짜) · 모델 생성 초안 · 의미 검증/사람 수락 전`, ''];
-  function section(title, cells) {
+  function section(title, cells, stale = false) {
     lines.push(`## ${title}`, '');
+    if (stale) lines.push('> 일별 재작성 전 요약 · 최신 일별 내용은 아래 일별 기록을 확인', '');
     for (const cell of cells) {
-      lines.push(`### ${line(cell.key)}${cell.partial ? ' (월 경계의 부분 주)' : ''}`, '');
-      if (cell.format_flag) lines.push(`형식 플래그: ${cell.format_flag}`, `원문 출력: ${line(cell.raw)}`, '');
+      const heading = cell.layer === 'weekly' ? `${cell.start}–${cell.end}` : cell.key;
+      lines.push(`### ${line(heading)}${cell.partial ? ' (월 경계의 부분 주)' : ''}`, '');
+      if (cell.format_flag) lines.push('형식 오류로 표시하지 못한 응답이 있습니다. 원 응답은 보존했습니다.', '');
       for (const card of cell.cards ?? []) {
-        lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- [${line(card.card_id)}] ${line(card.text)}`);
-        if (card.child_card_ids.length) lines.push(`  - 하위 카드: ${card.child_card_ids.map(id => `[${line(id)}](#${anchor(id)})`).join(', ')}`);
+        lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- ${visible(card.text)}`);
+        if (!stale && card.child_card_ids.length) lines.push(`  - 하위 기록: ${card.child_card_ids.map((id, index) => `[연결 ${index + 1}](#${anchor(id)})`).join(', ')}`);
+        const evidenceLines = [], mailByKey = new Map();
         for (const source of card.source_display) {
-          lines.push(`  - 근거 ${line(source.source_id)} · ${line(source.date)}: ${line(source.kind)} · ${line(source.sender)} → ${line(source.recipient)} · ${line(source.title)}${source.attachments.length ? ` · 첨부: ${source.attachments.map(line).join(', ')}` : ''}`);
+          if (!/mail|메일/iu.test(source.kind)) { evidenceLines.push({ source }); continue; }
+          const bodyHash = display.source_body_sha256[source.source_id] ?? source.text_sha256;
+          const key = serial([source.date, visible(source.sender), visible(source.recipient), visible(source.title), bodyHash]);
+          const attachment = attachmentFor(source);
+          const prior = mailByKey.get(key);
+          if (!prior) { const group = { source, attachment }; mailByKey.set(key, group); evidenceLines.push(group); }
+          else if (attachment.known) {
+            if (!prior.attachment.known) prior.attachment = { known: true, names: [...attachment.names] };
+            else prior.attachment.names = [...new Set([...prior.attachment.names, ...attachment.names])];
+          }
         }
-        if (card.flags.length) lines.push(`  - 검토 플래그: ${card.flags.map(f =>
-          `${line(f.reason)}${f.source_id ? `(${line(f.source_id)})` : f.child_card_id ? `(${line(f.child_card_id)})` : ''}`).join(', ')}`);
+        for (const entry of evidenceLines) lines.push(`  - 근거: ${sourceLine(entry.source, entry.attachment)}`);
+        if (card.flags.length) lines.push(`  - 검토: ${uniq(card.flags.map(f => FLAG_LABELS[f.reason] ?? '확인 필요')).join(', ')}`);
       }
       lines.push('');
     }
   }
   section('일별', [...daily.values()]);
-  section('주별', [...weekly.values()]);
-  section('월별', [monthly]);
-  section('최근 있었던 일', [status]);
+  section('주별', [...weekly.values()], staleSummary);
+  section('월별', [monthly], staleSummary);
+  section('최근 있었던 일', [status], staleSummary);
   return lines.join('\n') + '\n';
 }
 function configFor(config) {
@@ -190,8 +252,12 @@ function configFor(config) {
     prompt_content: config.prompt_content, max_tokens: config.max_tokens, temperature: config.temperature };
 }
 /** generate({layer,key,system,user,config}) -> raw model content string. Exactly one invocation per missing changed cell. */
-async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = false } = {}) {
+async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = false, displayMetadata,
+  retryDays = [] } = {}) {
   const data = normalize(input), model = configFor(config);
+  const display = displayConfig(displayMetadata);
+  if (!Array.isArray(retryDays) || retryDays.some(day => !dateOK(day) || !day.startsWith(data.month))
+    || new Set(retryDays).size !== retryDays.length || (retryDays.length && dryRun)) fail('history_retry_days_invalid');
   if (typeof generate !== 'function' && !dryRun) fail('history_generator_required');
   const store = storage(outputRoot, data.project, data.month, dryRun || data.records.length === 0);
   const oldHead = store.read('history-head.json');
@@ -208,6 +274,8 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
     }
   }
   if (!data.records.length) return { status: 'refused_empty_input', project: data.project, month: data.month, calls: 0, head: oldHead ?? null };
+  const inputFingerprint = digest({ project: data.project, month: data.month, as_of: data.as_of,
+    record_fingerprints: data.records.map(row => digest(row)) });
   const sourceMap = new Map(data.records.map(r => [r.id, r]));
   const days = new Map(); for (const row of data.records) { if (!days.has(row.date)) days.set(row.date, []); days.get(row.date).push(row); }
   const current = { daily: {}, weekly: {}, monthly: {}, status: {} };
@@ -221,9 +289,14 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       source_fingerprint: sourceFingerprint, system, model });
     const file = `history-cell-${fingerprint.slice(7)}.json`;
     let prior = store.read(file);
+    if (layer === 'daily' && oldHead?.cells?.daily?.[key] && oldHead.cells.daily[key] !== fingerprint) {
+      const chosen = heldCell(oldHead.cells.daily[key], 'daily', key);
+      if (chosen.retry_base_fingerprint === fingerprint && chosen.source_fingerprint === sourceFingerprint) prior = chosen;
+    }
     if (prior) {
       const { content_sha256, ...body } = prior;
-      if (content_sha256 !== hashText(serial(body)) || prior.fingerprint !== fingerprint || prior.project !== data.project
+      if (content_sha256 !== hashText(serial(body))
+        || (prior.fingerprint !== fingerprint && prior.retry_base_fingerprint !== fingerprint) || prior.project !== data.project
         || prior.month !== data.month || prior.layer !== layer || prior.key !== key) fail('history_cell_corrupt');
     }
     if (!prior) {
@@ -242,10 +315,111 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       prior.content_sha256 = hashText(serial(prior));
       store.writeNew(file, prior);
     }
-    current[layer][key] = fingerprint;
+    current[layer][key] = prior.fingerprint;
     return prior;
   }
+  function heldCell(fingerprint, layer, key) {
+    const held = store.read(`history-cell-${fingerprint.slice(7)}.json`);
+    if (!held || held.fingerprint !== fingerprint || held.layer !== layer || held.key !== key
+      || held.project !== data.project || held.month !== data.month) fail('history_cell_corrupt');
+    const { content_sha256, ...body } = held;
+    if (content_sha256 !== hashText(serial(body))) fail('history_cell_corrupt');
+    return held;
+  }
+  function finish(daily, weekly, monthCell, statusCell, weeks, staleSummary = false) {
+    const projectedDaily = new Map();
+    for (const [key, rawCell] of daily) projectedDaily.set(key, { ...rawCell,
+      ...cardsFrom(rawCell.raw, sourceMap, 'daily', key, []) });
+    const projectedWeekly = new Map();
+    for (const [key, rawCell] of weekly) {
+      const children = weeks.get(key).days.flatMap(day => projectedDaily.get(day).cards);
+      projectedWeekly.set(key, { ...rawCell, ...cardsFrom(rawCell.raw, sourceMap, 'weekly', key, children) });
+    }
+    const projectedMonth = { ...monthCell, ...cardsFrom(monthCell.raw, sourceMap, 'monthly', data.month,
+      [...projectedWeekly.values()].flatMap(c => c.cards)) };
+    const projectedStatus = { ...statusCell, ...cardsFrom(statusCell.raw, sourceMap, 'status', data.month,
+      projectedMonth.cards) };
+    const projectedCells = { daily: Object.fromEntries([...projectedDaily].map(([key, c]) => [key,
+      { raw_cell_fingerprint: c.fingerprint, cards: c.cards, format_flag: c.format_flag, response_format: c.response_format }])),
+    weekly: Object.fromEntries([...projectedWeekly].map(([key, c]) => [key,
+      { raw_cell_fingerprint: c.fingerprint, cards: c.cards, format_flag: c.format_flag, response_format: c.response_format }])),
+    monthly: { [data.month]: { raw_cell_fingerprint: projectedMonth.fingerprint, cards: projectedMonth.cards,
+      format_flag: projectedMonth.format_flag, response_format: projectedMonth.response_format } },
+    status: { [data.month]: { raw_cell_fingerprint: projectedStatus.fingerprint, cards: projectedStatus.cards,
+      format_flag: projectedStatus.format_flag, response_format: projectedStatus.response_format } } };
+    const projection = { schema: SCHEMA, project: data.project, month: data.month, parser_version: 'strict_json_fence_v1',
+      derived_from_existing_raw: true, raw_cell_refs: current, cells: projectedCells };
+    const projectionFile = `history-projection-${digest(projection).slice(7)}.json`;
+    const view = renderHistory(data, projectedDaily, projectedWeekly, projectedMonth, projectedStatus, display, staleSummary);
+    const viewFile = `history-view-${hashText(view).slice(7)}.md`;
+    const head = { schema: SCHEMA, project: data.project, month: data.month, as_of: data.as_of,
+      input_fingerprint: inputFingerprint, cells: current,
+      ...(staleSummary ? { stale_summary: true } : {}), projection_file: projectionFile, view_file: viewFile };
+    if (serial(oldHead) !== serial(head)) {
+      store.writeNew(projectionFile, projection);
+      store.writeTextNew(viewFile, view);
+      store.writeNew(`history-head-${digest(head).slice(7)}.json`, head);
+      store.replaceHead(head);
+    }
+    return { status: retryDays.length ? 'daily_retried' : changes.length ? 'generated'
+      : serial(oldHead) !== serial(head) ? 'display_updated' : 'unchanged',
+    project: data.project, month: data.month, calls, changed: changes, head };
+  }
   try {
+    if (retryDays.length) {
+      if (!oldHead?.projection_file || oldHead.input_fingerprint !== inputFingerprint
+        || retryDays.length > config.max_calls) fail('history_retry_unavailable');
+      const projection = store.read(oldHead.projection_file);
+      const dayKeys = sorted(days.keys());
+      if (serial(sorted(Object.keys(oldHead.cells.daily))) !== serial(dayKeys)) fail('history_retry_input_changed');
+      for (const day of retryDays) {
+        if (!days.has(day) || !oldHead.cells.daily[day] || !projection?.cells?.daily?.[day]?.format_flag)
+          fail('history_retry_day_not_flagged');
+        const held = heldCell(oldHead.cells.daily[day], 'daily', day);
+        if (serial(held.source_ids) !== serial(days.get(day).map(row => row.id))) fail('history_retry_input_changed');
+      }
+      for (const layer of LAYERS) current[layer] = { ...oldHead.cells[layer] };
+      const daily = new Map(dayKeys.map(day => [day, heldCell(current.daily[day], 'daily', day)]));
+      const weeks = new Map();
+      for (const day of dayKeys) { const w = weekFor(day, data.month, data.as_of);
+        if (!weeks.has(w.key)) weeks.set(w.key, { ...w, days: [] }); weeks.get(w.key).days.push(day); }
+      if (serial(sorted(Object.keys(current.weekly))) !== serial(sorted(weeks.keys()))) fail('history_retry_input_changed');
+      const weekly = new Map(sorted(weeks.keys()).map(key => [key, heldCell(current.weekly[key], 'weekly', key)]));
+      const monthCell = heldCell(current.monthly[data.month], 'monthly', data.month);
+      const statusCell = heldCell(current.status[data.month], 'status', data.month);
+      for (const day of sorted(retryDays)) {
+        const rows = days.get(day), previous = daily.get(day);
+        const system = PROMPTS.daily + '\nPrompt version: ' + model.prompt_version + '\n' + model.prompt_content;
+        const user = serial({ project: data.project, day, threads: groupThreads(rows) });
+        if (user.length > config.max_input_characters) fail('history_model_input_too_large');
+        const sourceFingerprint = digest(rows);
+        const fingerprint = digest({ schema: SCHEMA, project: data.project, month: data.month,
+          layer: 'daily', key: day, previous_version: previous.fingerprint, source_fingerprint: sourceFingerprint,
+          system, model, request_format: 'history_events_json_schema_v1' });
+        let revision = store.read(`history-cell-${fingerprint.slice(7)}.json`);
+        if (revision) revision = heldCell(fingerprint, 'daily', day);
+        else {
+          if (calls >= config.max_calls || Date.now() >= deadline) fail('history_budget_exhausted');
+          calls++;
+          let raw;
+          try { raw = await generate({ layer: 'daily', key: day, system, user, config: model,
+            response_format: 'history_events_json_schema_v1',
+            timeout_ms: Math.max(1000, Math.min(config.per_call_timeout_ms, deadline - Date.now())) }); }
+          catch (error) { fail('history_generation_failed:' + String(error?.code ?? error?.name ?? 'error').slice(0, 64)); }
+          if (typeof raw !== 'string' || raw.length > config.max_output_characters) fail('history_model_output_invalid');
+          revision = { schema: SCHEMA, project: data.project, month: data.month, layer: 'daily', key: day, fingerprint,
+            source_ids: rows.map(row => row.id), child_card_ids: [], retry_of: previous.fingerprint,
+            retry_base_fingerprint: previous.retry_base_fingerprint ?? previous.fingerprint,
+            source_fingerprint: sourceFingerprint, request_format: 'history_events_json_schema_v1',
+            ...cardsFrom(raw, sourceMap, 'daily', day, []) };
+          revision.content_sha256 = hashText(serial(revision));
+          store.writeNew(`history-cell-${fingerprint.slice(7)}.json`, revision);
+        }
+        daily.set(day, revision); current.daily[day] = revision.fingerprint;
+        changes.push({ layer: 'daily', key: day, fingerprint: revision.fingerprint });
+      }
+      return finish(daily, weekly, monthCell, statusCell, weeks, true);
+    }
     const daily = new Map();
     for (const day of sorted(days.keys())) {
       const rows = days.get(day), sources = rows.map(r => r.id);
@@ -273,45 +447,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       monthly: childForPrompt(monthCell), source_labels: data.records.map(sourceLabel) },
     data.records.map(r => r.id), monthCell.cards ?? []);
     if (dryRun) return { status: 'dry_run', project: data.project, month: data.month, planned: changes, calls: 0 };
-    // Projection is a deterministic display decode of existing immutable raw
-    // responses. Cached cell cards stay untouched and continue to determine
-    // upper model inputs and fingerprints, including legacy raw-child runs.
-    const projectedDaily = new Map();
-    for (const [key, rawCell] of daily) projectedDaily.set(key, { ...rawCell,
-      ...cardsFrom(rawCell.raw, sourceMap, 'daily', key, []) });
-    const projectedWeekly = new Map();
-    for (const [key, rawCell] of weekly) {
-      const children = weeks.get(key).days.flatMap(day => projectedDaily.get(day).cards);
-      projectedWeekly.set(key, { ...rawCell, ...cardsFrom(rawCell.raw, sourceMap, 'weekly', key, children) });
-    }
-    const projectedMonth = { ...monthCell, ...cardsFrom(monthCell.raw, sourceMap, 'monthly', data.month,
-      [...projectedWeekly.values()].flatMap(c => c.cards)) };
-    const projectedStatus = { ...statusCell, ...cardsFrom(statusCell.raw, sourceMap, 'status', data.month,
-      projectedMonth.cards) };
-    const projectedCells = { daily: Object.fromEntries([...projectedDaily].map(([key, c]) => [key,
-      { raw_cell_fingerprint: c.fingerprint, cards: c.cards, format_flag: c.format_flag, response_format: c.response_format }])),
-    weekly: Object.fromEntries([...projectedWeekly].map(([key, c]) => [key,
-      { raw_cell_fingerprint: c.fingerprint, cards: c.cards, format_flag: c.format_flag, response_format: c.response_format }])),
-    monthly: { [data.month]: { raw_cell_fingerprint: projectedMonth.fingerprint, cards: projectedMonth.cards,
-      format_flag: projectedMonth.format_flag, response_format: projectedMonth.response_format } },
-    status: { [data.month]: { raw_cell_fingerprint: projectedStatus.fingerprint, cards: projectedStatus.cards,
-      format_flag: projectedStatus.format_flag, response_format: projectedStatus.response_format } } };
-    const projection = { schema: SCHEMA, project: data.project, month: data.month, parser_version: 'strict_json_fence_v1',
-      derived_from_existing_raw: true, raw_cell_refs: current, cells: projectedCells };
-    const projectionFile = `history-projection-${digest(projection).slice(7)}.json`;
-    const view = renderHistory(data, projectedDaily, projectedWeekly, projectedMonth, projectedStatus);
-    const viewFile = `history-view-${hashText(view).slice(7)}.md`;
-    const head = { schema: SCHEMA, project: data.project, month: data.month, as_of: data.as_of, cells: current,
-      projection_file: projectionFile, view_file: viewFile };
-    if (serial(oldHead) !== serial(head)) {
-      store.writeNew(projectionFile, projection);
-      store.writeTextNew(viewFile, view);
-      store.writeNew(`history-head-${digest(head).slice(7)}.json`, head);
-      store.replaceHead(head);
-    }
-    return { status: changes.length ? 'generated' : serial(oldHead) !== serial(head) ? 'display_updated' : 'unchanged',
-      project: data.project, month: data.month,
-      calls, changed: changes, head };
+    return finish(daily, weekly, monthCell, statusCell, weeks);
   } catch (error) {
     if (dryRun) throw error;
     const code = String(error?.message ?? 'history_failed').slice(0, 120);

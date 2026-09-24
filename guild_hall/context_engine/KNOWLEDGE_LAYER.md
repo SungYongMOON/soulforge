@@ -35,6 +35,20 @@ originrefs의 경로를 열지 않으며, 입력 목록이 현실의 모든 원�
 표시용 카드 JSON과 Markdown도 지문으로 새 판을 보관한다. 읽기 형식이 개선되면 보존 응답만으로
 표시 판을 갱신할 수 있고(`display_updated`), 모델 재호출이나 문장 보정은 하지 않는다.
 
+`--display-metadata <absolute JSON>`은 확인된 `source_attachments`, `slack_names`, `person_names`
+표를 주입하는 선택 입력이다. 첨부는 실제 보관본의 binary_attachment 이름을 호출자가 가져온다.
+선택 `source_body_sha256`은 호출자가 확인한 표시용 메일 사본 묶음의 본문 지문이다. 같은 날짜·송수신자·제목·본문 지문인
+사본의 근거 줄만 합치며, 이 값이 없으면 제공된 원천 전체 지문으로 보수적으로 구분한다.
+수집기별 강조·공백·목록 표시 차이를 확인해 표시 사본 키를 공유해도 원천 해시·인용 대조·개별 근거 참조는 그대로 보존한다.
+이 표는 원본 바이트의 동일성 판정이나 원천 병합 권한으로 사용하지 않는다.
+모델 입력·원 응답·원천 참조를 고치지 않고 표시 이름과 첨부 표시만 바꾼다. 첨부가 4개 이상이면
+처음 3개와 나머지 개수를 표시한다. 내부 카드·출처 식별자는 숨긴 연결로 남기고 사람에게는 날짜와 제목을 보인다.
+
+`--run --retry-days YYYY-MM-DD,...`는 현행 판에서 형식 오류가 확인된 지정 날짜에만
+모델을 한 번씩 다시 호출하는 명시 재작성이다. 모든 날짜를 먼저 검사하며 자동 재시도는 없다.
+이 모드에서는 다른 날·주·월·현황을 다시 호출하지 않고 이전 판을 보관한다. 상위 요약이
+재작성 전의 일별 판에 기반하면 보는 판에 알린다. 다음 일반 증분 실행의 상위 갱신과는 구분한다.
+
 binding은 `host,transport,model_id,model_pin,think:false,prompt_version,prompt_content,max_tokens,temperature,
 max_calls,max_input_characters,max_output_characters,per_call_timeout_ms,wall_timeout_ms`를 명시한다.
 호스트는 loopback만 허용하고 서버가 보고한 모델 신원을 pin과 대조한다. OpenAI 호환 서버 pin은

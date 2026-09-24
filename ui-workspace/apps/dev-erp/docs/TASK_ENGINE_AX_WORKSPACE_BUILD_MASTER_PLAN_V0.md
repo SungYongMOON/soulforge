@@ -1,5 +1,11 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-09-24 CURRENT (Context Engine 0.22.16 history display follow-up):
+> explicit display metadata supplies names and attachment labels without changing
+> model inputs. A caller may retry only named malformed daily responses; existing
+> upper summaries remain preserved and are labelled when based on older daily cells.
+> This remains an explicit CLI pilot, with no operating route or scheduler change.
+
 > 2026-09-24 CURRENT (Context Engine 0.22.15 history CLI candidate):
 > an explicit standalone CLI derives daily, weekly, monthly and recent-event cells
 > from caller-supplied records. Input fingerprints limit rewriting to changed cells
