@@ -4,7 +4,7 @@ import { isAbsolute, join } from 'node:path';
 import { digest, hashText, sha, snapshot, token } from './data.mjs';
 import { partitionDay } from './history_batches.mjs';
 import { createHistoryStorage, historyInputFingerprint, historySourceLabel,
-  historyWeekFor, normalizeHistoryInput, renderHistory } from './history.mjs';
+  historySourceCoverage, historyWeekFor, normalizeHistoryInput, renderHistory } from './history.mjs';
 
 const SCHEMA = 'soulforge.history_draft.v1';
 const PACKET_SCHEMA = 'soulforge.history_external_packet.v1';
@@ -212,9 +212,22 @@ function validatePrepared(ctx, prepared) {
   return packets;
 }
 function cardsForPacket(packet, draftEntry) {
-  if (!plain(draftEntry) || Object.keys(draftEntry).sort().join(',') !== 'packet_id,sentences'
+  const keys = plain(draftEntry) ? Object.keys(draftEntry).sort().join(',') : '';
+  if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches'].includes(keys)
     || draftEntry.packet_id !== packet.packet_id || !Array.isArray(draftEntry.sentences)
     || draftEntry.sentences.length > 1000) fail('history_exchange_draft_invalid');
+  const unprocessed = draftEntry.unprocessed_batches ?? [];
+  if (!Array.isArray(unprocessed) || (packet.layer !== 'daily' && unprocessed.length))
+    fail('history_exchange_draft_invalid');
+  if (packet.layer === 'daily') {
+    const count = partitionDay({ project: packet.project, day: packet.key,
+      rows: packet.dependencies.records, limit: 7200 }).length;
+    if (unprocessed.length > count || new Set(unprocessed.map(item => item?.batch_index)).size !== unprocessed.length
+      || unprocessed.some(item => !plain(item) || Object.keys(item).sort().join(',') !== 'batch_index,reason'
+        || !Number.isSafeInteger(item.batch_index) || item.batch_index < 1 || item.batch_index > count
+        || !['format_invalid_after_retry', 'source_link_invalid_after_retry'].includes(item.reason)))
+      fail('history_exchange_unprocessed_invalid');
+  }
   const allowed = new Set(packet.allowed_evidence_ids), dependencies = packet.dependencies;
   const sourceById = packet.layer === 'daily' ? new Map(dependencies.records.map(row => [row.id, row])) : null;
   const childById = packet.layer === 'daily' ? null : new Map((dependencies.days ?? dependencies.weeks
@@ -246,7 +259,8 @@ function cardsForPacket(packet, draftEntry) {
       semantic_fact_verified: false });
   }
   const used = new Set(draftEntry.sentences.flatMap(sentence => sentence.evidence_ids));
-  return { cards, unused_evidence_ids: packet.allowed_evidence_ids.filter(id => !used.has(id)) };
+  return { cards, unused_evidence_ids: packet.allowed_evidence_ids.filter(id => !used.has(id)),
+    unprocessed_batches: unprocessed };
 }
 function withLock(root, action) {
   const path = join(root, 'history-run.lock');
@@ -283,6 +297,7 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
         draft_sha256: digest(entry), source_ids: sorted(new Set(mapped.cards.flatMap(card => card.source_ids))),
         child_card_ids: sorted(new Set(mapped.cards.flatMap(card => card.child_card_ids))),
         cards: mapped.cards, unused_evidence_ids: mapped.unused_evidence_ids,
+        ...(packet.layer === 'daily' ? { unprocessed_batches: mapped.unprocessed_batches } : {}),
         format_flag: null, response_format: 'external_draft', raw: '' };
       if (packet.layer === 'weekly') Object.assign(cell, packet.dependencies.week);
       cell.content_sha256 = hashText(serial(cell));
@@ -297,7 +312,9 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
     });
     if (replay && !(prepared.retire_cells?.daily?.length || prepared.retire_cells?.weekly?.length))
       return { status: 'unchanged', project: ctx.data.project, month: ctx.data.month,
-        accepted_cells: [], upper_update_targets: nextTargets(ctx.data, existing, grouped(ctx.data).weeks), head: ctx.head };
+        accepted_cells: [], upper_update_targets: nextTargets(ctx.data, existing, grouped(ctx.data).weeks),
+        source_coverage: historySourceCoverage(ctx.data, new Map(sorted(Object.keys(existing.daily))
+          .map(day => [day, readCell(ctx, existing.daily[day], 'daily', day)]))), head: ctx.head };
     if ((ctx.head ? digest(ctx.head) : null) !== prepared.expected_head_sha256)
       fail('history_exchange_stale_head');
     const cells = Object.fromEntries(LAYERS.map(layer => [layer, { ...(existing[layer] ?? {}) }]));
@@ -336,7 +353,9 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
     ctx.store.replaceHead(head);
     return { status: 'finalized', project: ctx.data.project, month: ctx.data.month,
       accepted_cells: candidates.map(({ packet, cell }) => ({ layer: packet.layer, key: packet.key,
-        fingerprint: cell.fingerprint, unused_evidence_ids: cell.unused_evidence_ids })),
+        fingerprint: cell.fingerprint, unused_evidence_ids: cell.unused_evidence_ids,
+        unprocessed_batches: cell.unprocessed_batches ?? [] })),
+      source_coverage: historySourceCoverage(ctx.data, daily),
       upper_update_targets: pending, draft_file: draftName, head };
   });
 }

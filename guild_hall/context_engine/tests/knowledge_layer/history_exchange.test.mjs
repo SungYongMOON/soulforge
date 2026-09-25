@@ -176,3 +176,21 @@ test('authored empty sentences remain empty and can advance every layer', t => {
   }
   assert.equal(prepareHistoryExchange({ input: data, outputRoot: dir, rulesText }).status, 'unchanged');
 });
+
+test('finalize counts unquoted daily sources and retains one unprocessed batch', t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const data = input([record('A', '2026-09-14', 'First fact'),
+    record('B', '2026-09-14', 'Second fact')]);
+  const prepared = prepareHistoryExchange({ input: data, outputRoot: dir, rulesText });
+  const draft = { schema: 'soulforge.history_external_draft.v1',
+    prepare_id: prepared.prepare_id, drafts: [{ packet_id: prepared.packets[0].packet_id,
+      sentences: [], unprocessed_batches: [{ batch_index: 1, reason: 'format_invalid_after_retry' }] }] };
+  const accepted = finalizeHistoryExchange({ input: data, outputRoot: dir, rulesText,
+    prepared: manifest(prepared), draft });
+  assert.deepEqual(accepted.source_coverage, [{ date: '2026-09-14',
+    total_sources: 2, unquoted_sources: 2 }]);
+  assert.deepEqual(accepted.accepted_cells[0].unprocessed_batches, draft.drafts[0].unprocessed_batches);
+  const view = readFileSync(join(dir, accepted.head.view_file), 'utf8');
+  assert.match(view, /미처리 묶음: 1번\(JSON 형식 오류\)/);
+  assert.match(view, /2026-09-14: 인용 안 된 자료 2 \/ 전체 자료 2/);
+});

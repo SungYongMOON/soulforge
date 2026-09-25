@@ -353,6 +353,8 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     for (const cell of cells) {
       const heading = cell.layer === 'weekly' ? `${cell.start}–${cell.end}` : cell.key;
       lines.push(`### ${line(heading)}${cell.partial ? ' (월 경계의 부분 주)' : ''}`, '');
+      if (cell.unprocessed_batches?.length) lines.push(
+        `> 미처리 묶음: ${cell.unprocessed_batches.map(item => `${item.batch_index}번(${item.reason === 'format_invalid_after_retry' ? 'JSON 형식 오류' : '출처 연결 오류'})`).join(', ')}`, '');
       if (cell.format_flag) lines.push(cell.format_flag === 'batch_format_error'
         ? '일부 묶음의 응답을 받거나 읽지 못했습니다. 나머지 이력은 표시했고 받은 응답은 보존했습니다.'
         : '형식 오류로 표시하지 못한 응답이 있습니다. 원 응답은 보존했습니다.', '');
@@ -396,7 +398,22 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   section('주별', [...weekly.values()], staleSummary, pending.weekly ?? []);
   section('월별', monthly ? [monthly] : [], staleSummary, pending.monthly ?? []);
   section('최근 있었던 일', status ? [status] : [], staleSummary, pending.status ?? []);
+  lines.push('## 자료 인용 현황', '');
+  for (const item of historySourceCoverage(data, daily))
+    lines.push(`- ${item.date}: 인용 안 된 자료 ${item.unquoted_sources} / 전체 자료 ${item.total_sources}`);
+  lines.push('');
   return lines.join('\n') + '\n';
+}
+export function historySourceCoverage(data, daily) {
+  const byDay = new Map();
+  for (const row of data.records) {
+    if (!byDay.has(row.date)) byDay.set(row.date, []);
+    byDay.get(row.date).push(row.id);
+  }
+  return [...byDay].sort(([a], [b]) => a.localeCompare(b)).map(([date, ids]) => {
+    const cited = new Set((daily.get(date)?.cards ?? []).flatMap(card => card.source_ids));
+    return { date, total_sources: ids.length, unquoted_sources: ids.filter(id => !cited.has(id)).length };
+  });
 }
 export const normalizeHistoryInput = normalize;
 export const historyWeekFor = weekFor;
