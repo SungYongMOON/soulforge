@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-25 - 이력 첨부 표시와 묶음 재입력 검증
+
+- Revision `8acd030a`: 메일 수집기의 MIME inline 표시를 `body_inline_image`로 보존하고 이력 첨부에서는 표시된 본문 삽입 이미지만 제외한다. 파일명 패턴으로 제외하지 않는다.
+- 큰 일별 결과의 같은 초안 재입력이 무변경인지 검사하고, 외부 JSON 추출 시도는 최대 32회로 제한한다. Context Engine runtime closure를 실제 파일 지문에 맞춰 갱신했다.
+- 운영 영향: 표시가 없는 과거 자료는 추정으로 제외하지 않는다. 예약·기본 route·운영 writer는 변경하지 않는다.
+- 관련 경로: `guild_hall/gateway/mail_fetch/collector/connectors/`, `guild_hall/context_engine/src/knowledge_layer/`, `guild_hall/context_engine/release/runtime-closure.json`.
+
 ## 2026-09-25 - 이력 파일 교환의 일별 분할과 결과 표시
 
 - Revision `d8be687d`: prepare가 일별 입력을 8,000자 이하 묶음으로 제공하고, 외부 작성자의 JSON에서 형식 오류·출처 연결 오류가 남은 묶음은 미처리로 보존한다.
