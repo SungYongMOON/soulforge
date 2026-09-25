@@ -51,7 +51,61 @@ function readCell(ctx, fingerprint, layer, key) {
     || cell.project !== ctx.data.project || cell.month !== ctx.data.month) fail('history_exchange_cell_corrupt');
   const { content_sha256, ...body } = cell;
   if (content_sha256 !== hashText(serial(body))) fail('history_exchange_cell_corrupt');
+  if (cell.card_batches !== undefined) {
+    if (layer !== 'daily' || !Array.isArray(cell.cards) || cell.cards.length
+      || !Array.isArray(cell.card_batches) || !cell.card_batches.length)
+      fail('history_exchange_cell_corrupt');
+    const cards = [];
+    for (const [index, ref] of cell.card_batches.entries()) {
+      if (!plain(ref) || !/^history-cell-batch-[0-9a-f]{64}\.json$/u.test(ref.file ?? '')
+        || !sha(ref.sha256) || ref.file !== `history-cell-batch-${ref.sha256.slice(7)}.json`)
+        fail('history_exchange_cell_corrupt');
+      const part = ctx.store.read(ref.file);
+      if (!part || part.schema !== 'soulforge.history_cell_batch.v1'
+        || part.fingerprint !== fingerprint || part.index !== index + 1
+        || !Array.isArray(part.cards) || part.cards.length !== ref.count
+        || digest(part) !== ref.sha256) fail('history_exchange_cell_corrupt');
+      cards.push(...part.cards);
+    }
+    return { ...cell, cards };
+  }
   return cell;
+}
+function storedCell(cell) {
+  try {
+    const complete = { ...cell, content_sha256: hashText(serial(cell)) };
+    serial(complete);
+    return { cell: complete, batches: [] };
+  } catch (error) {
+    if (error?.message !== 'knowledge_input_budget' || cell.layer !== 'daily') throw error;
+  }
+  const groups = [], batches = [];
+  let held = [];
+  const flush = () => { if (held.length) { groups.push(held); held = []; } };
+  for (const card of cell.cards) {
+    const next = { schema: 'soulforge.history_cell_batch.v1', fingerprint: cell.fingerprint,
+      index: groups.length + 1, cards: [...held, card] };
+    let size;
+    try { size = serial(next).length; }
+    catch (error) {
+      if (error?.message !== 'knowledge_input_budget' || !held.length) throw error;
+      flush();
+      held.push(card);
+      continue;
+    }
+    if (size > 200_000 && held.length) flush();
+    held.push(card);
+  }
+  flush();
+  const refs = groups.map((cards, index) => {
+    const value = { schema: 'soulforge.history_cell_batch.v1', fingerprint: cell.fingerprint,
+      index: index + 1, cards };
+    const sha256 = digest(value), file = `history-cell-batch-${sha256.slice(7)}.json`;
+    batches.push({ file, value });
+    return { file, sha256, count: cards.length };
+  });
+  const compact = { ...cell, cards: [], card_batches: refs };
+  return { cell: { ...compact, content_sha256: hashText(serial(compact)) }, batches };
 }
 function grouped(data) {
   const days = new Map(), weeks = new Map();
@@ -300,8 +354,7 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
         ...(packet.layer === 'daily' ? { unprocessed_batches: mapped.unprocessed_batches } : {}),
         format_flag: null, response_format: 'external_draft', raw: '' };
       if (packet.layer === 'weekly') Object.assign(cell, packet.dependencies.week);
-      cell.content_sha256 = hashText(serial(cell));
-      return { packet, cell };
+      return { packet, ...storedCell(cell) };
     });
     const existing = ctx.head?.cells ?? emptyCells();
     const replay = candidates.every(({ packet, cell }) => {
@@ -328,7 +381,8 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
     for (const week of changedWeekly) delete cells.weekly[week];
     if (changedDaily.size || changedWeekly.size) { delete cells.monthly[ctx.data.month]; delete cells.status[ctx.data.month]; }
     if (candidates.some(item => item.packet.layer === 'monthly')) delete cells.status[ctx.data.month];
-    for (const { packet, cell } of candidates) {
+    for (const { packet, cell, batches } of candidates) {
+      for (const part of batches) ctx.store.writeNew(part.file, part.value);
       const name = `history-cell-${cell.fingerprint.slice(7)}.json`;
       ctx.store.writeNew(name, cell);
       cells[packet.layer][packet.key] = cell.fingerprint;

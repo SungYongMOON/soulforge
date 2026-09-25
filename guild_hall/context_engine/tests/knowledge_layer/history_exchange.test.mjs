@@ -194,3 +194,26 @@ test('finalize counts unquoted daily sources and retains one unprocessed batch',
   assert.match(view, /미처리 묶음: 1번\(JSON 형식 오류\)/);
   assert.match(view, /2026-09-14: 인용 안 된 자료 2 \/ 전체 자료 2/);
 });
+
+test('large daily cell saves bounded card batches and restores the full view', t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const data = input([record('A', '2026-09-14', 'X'.repeat(4000))]);
+  const prepared = prepareHistoryExchange({ input: data, outputRoot: dir, rulesText });
+  const sentences = Array.from({ length: 150 }, (_, index) => ({
+    text: `기록 ${index + 1}`, evidence_ids: ['A'] }));
+  const draft = { schema: 'soulforge.history_external_draft.v1',
+    prepare_id: prepared.prepare_id,
+    drafts: [{ packet_id: prepared.packets[0].packet_id, sentences }] };
+  const accepted = finalizeHistoryExchange({ input: data, outputRoot: dir, rulesText,
+    prepared: manifest(prepared), draft });
+  const stored = JSON.parse(readFileSync(join(dir,
+    `history-cell-${prepared.packets[0].packet_id.slice(7)}.json`), 'utf8'));
+  assert.deepEqual(stored.cards, []);
+  assert.ok(stored.card_batches.length > 1);
+  assert.equal(stored.card_batches.reduce((total, part) => total + part.count, 0), 150);
+  assert.deepEqual(accepted.source_coverage, [{ date: '2026-09-14',
+    total_sources: 1, unquoted_sources: 0 }]);
+  const view = readFileSync(join(dir, accepted.head.view_file), 'utf8');
+  assert.match(view, /기록 1\n/);
+  assert.match(view, /기록 150\n/);
+});
