@@ -8,9 +8,14 @@
     "guild_hall/rag/project_document_extract.py",
     "guild_hall/context_engine/src/workers/graphrag_worker.py",
     "guild_hall/context_engine/src/workers/document_docx_extract.py",
-    "guild_hall/context_engine/WIKI_SCHEMA.md"
+    "guild_hall/context_engine/WIKI_SCHEMA.md",
+    "guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md"
   ],
   "files": [
+    {
+      "path": "guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md",
+      "sha256": "5d2f23b1fbcabdef5b33b4ae103fa1dc0e367d53e6588a5bd2d547189d9e0ba7"
+    },
     {
       "path": "guild_hall/context_engine/WIKI_SCHEMA.md",
       "sha256": "486c270c18cd26c007a8eea28deca6d90c8053f1c3656235eb61a64e76cdd03d"
@@ -129,11 +134,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/history_cli.mjs",
-      "sha256": "0b251ec813d9dc2d5e5447975a616e1b0e0a869a34f7295eb01d9fc17f8e0c13"
+      "sha256": "4325c1794dba569f638a5edbb2e5d2eb3ee0647ce4dcbf157691b4b39fc4c863"
     },
     {
       "path": "guild_hall/context_engine/src/history_prepare_cli.mjs",
-      "sha256": "2d4104a94cd31d46c3ce7783ee5b11d8ddd98fb40204ece551fd57e83f04356b"
+      "sha256": "a60a941b9f5b50fde9fa3f01ea925497de02acf84339732550bb0c00e9ecaafa"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/archive.mjs",
@@ -153,11 +158,15 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "544eaae7b1a413ca209d8d70df7b2b64f02370ae735e633b4c6ddc66f8056bc0"
+      "sha256": "4e0e9986d1663337c50b62c9f1ecea6bb254c7c436a6fb4c6a1bbb524a8f38e1"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
       "sha256": "a3a96a05bfd6b8b6cd3afa10f16ff88174d6eeafaa4aea6514c2118a2e2d0484"
+    },
+    {
+      "path": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
+      "sha256": "e2490650e4399814e890df915541ca1cf0477f2ba59ccaa6d1ebd2f9cf13a2f2"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
@@ -165,7 +174,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
-      "sha256": "1dfc16b035b06bc296df55ddd8c92d4bf708aa4956b028bfa86791fe74d35049"
+      "sha256": "bc28f8feaeb7f21c5dd07b75b5b8a017b3d4377652e7fdb7301b7e2f149f245f"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
@@ -412,7 +421,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "f5388e88935851f335b95dfd19f1c35e0793c2184b7bc8fae0560b72eda9f82f",
+  "closure_sha256": "a41c87d5ce3865951dfc2431182651b9a5b19b21a86158a7c9fb35b935fb45b3",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -763,19 +772,7 @@
     },
     {
       "from": "guild_hall/context_engine/src/history_cli.mjs",
-      "to": "guild_hall/context_engine/src/adapters/local_model/ollama_chat.mjs"
-    },
-    {
-      "from": "guild_hall/context_engine/src/history_cli.mjs",
-      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
-    },
-    {
-      "from": "guild_hall/context_engine/src/history_cli.mjs",
-      "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
-    },
-    {
-      "from": "guild_hall/context_engine/src/history_prepare_cli.mjs",
-      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+      "to": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/history_prepare_cli.mjs",
@@ -820,6 +817,14 @@
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/data.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",

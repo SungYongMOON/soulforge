@@ -1,6 +1,7 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
-> 2026-09-25 CURRENT (Context Engine 0.22.21 history preparation candidate):
+> 2026-09-25 CURRENT (Context Engine 0.22.22 history file handoff candidate):
+> - 이력 CLI는 prepare/finalize 파일 인계만 수행하며 모델 호출과 봇 프로필 설정은 외부 담당 범위다.
 > - 음성 원자료 제목·발화 구간·로컬 링크 표시를 복원하며 표시 전용 갱신은 모델 호출이 없다.
 > - 음성 카드는 발화별 입력과 번호 근거 연결을 사용하며 기존 자동 실행 경로는 바꾸지 않는다.
 > an explicit project/date CLI reads configured custody and attribution bindings,

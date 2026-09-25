@@ -7,7 +7,6 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { recordFailedHistoryBatch, runHistory } from '../../src/knowledge_layer/history.mjs';
 import { bisectBatch, partitionDay } from '../../src/knowledge_layer/history_batches.mjs';
-import { historyEventsSchema } from '../../src/history_cli.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 
 const config = { model_id: 'synthetic-model', model_pin: hashText('pin'), prompt_version: 'v1', prompt_content: '',
@@ -615,17 +614,11 @@ test('explicit prior ABORT_ERR import matches one missing batch and preserves su
   assert.deepEqual(readFileSync(join(dir, `history-cell-${third.slice(7)}.json`)), failedBytes);
 });
 
-test('CLI help and dry-run never contact a model or write a head', t => {
-  const [dir, cleanup] = root(); t.after(cleanup);
+test('file handoff CLI help exposes prepare and finalize only', () => {
   const cli = fileURLToPath(new URL('../../src/history_cli.mjs', import.meta.url));
   const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' });
-  assert.equal(help.status, 0); assert.match(help.stdout, /--dry-run/);
-  const inputFile = join(dir, 'input.json'), bindingFile = join(dir, 'binding.json');
-  writeFileSync(inputFile, JSON.stringify(input([record('A', '2026-09-03', 'A fact')])));
-  writeFileSync(bindingFile, JSON.stringify({ ...config, host: 'http://127.0.0.1:1', transport: 'openai_chat', think: false }));
-  const dry = spawnSync(process.execPath, [cli, '--dry-run', '--input', inputFile, '--output-root', dir, '--binding', bindingFile], { encoding: 'utf8' });
-  assert.equal(dry.status, 0, dry.stderr); assert.equal(JSON.parse(dry.stdout).status, 'dry_run');
-  assert.equal(readdirSync(dir).length, 2);
+  assert.equal(help.status, 0); assert.match(help.stdout, /--prepare/); assert.match(help.stdout, /--finalize/);
+  assert.doesNotMatch(help.stdout, /--dry-run|--binding/);
 });
 
 test('direct history input refuses explicit AI work memo kinds and roles but admits voice ASR', async t => {
@@ -774,14 +767,4 @@ test('mixed upper child-only response inherits voice but flags omitted mail quot
   assert.equal(weekly.evidence[0].quote, voice.text);
   assert.ok(weekly.flags.some(flag => flag.reason === 'quote_missing' && flag.source_id === mail.id));
   assert.ok(!weekly.evidence.some(item => item.source_id === mail.id));
-});
-
-test('voice-only structured grammar forbids quote while quoted mail grammar stays strict', () => {
-  const evidence = format => historyEventsSchema(format).properties.events.items.properties.evidence;
-  assert.deepEqual(evidence('history_events_json_schema_v1').items.required, ['source_id', 'quote']);
-  assert.deepEqual(evidence('history_events_voice_id_json_schema_v1').items.required, ['source_id']);
-  assert.equal(evidence('history_events_voice_id_json_schema_v1').items.properties.quote, undefined);
-  assert.deepEqual(evidence('history_events_mixed_json_schema_v1').items.required, ['source_id']);
-  const upper = historyEventsSchema('history_events_voice_children_json_schema_v1').properties.events.items;
-  assert.deepEqual(upper.required, ['text', 'child_card_ids']); assert.equal(upper.properties.evidence, undefined);
 });

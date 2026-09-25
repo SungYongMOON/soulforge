@@ -3,7 +3,7 @@
 import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { digest, sha, snapshot, token } from './data.mjs';
+import { digest, snapshot, token } from './data.mjs';
 import { historyInputFingerprint } from './history.mjs';
 
 const SCHEMA = 'soulforge.history_prepare.v1';
@@ -97,10 +97,9 @@ function sourceCounts(records) {
 }
 /** `collector` is the only source reader; `invokeHistory` runs the explicit existing history CLI. */
 export async function prepareHistory({ project, date, fromDate, sourceConfig, outputRoot, mode = 'prepare',
-  collector, invokeHistory, bindingFingerprint = null, now = new Date() } = {}) {
-  if (!token(project) || !['prepare', 'run'].includes(mode) || typeof collector !== 'function'
-    || (mode === 'run' && typeof invokeHistory !== 'function') || !plain(sourceConfig)
-    || (bindingFingerprint !== null && !sha(bindingFingerprint))) fail('history_prepare_request_invalid');
+  collector, now = new Date() } = {}) {
+  if (!token(project) || mode !== 'prepare' || typeof collector !== 'function'
+    || !plain(sourceConfig)) fail('history_prepare_request_invalid');
   const target = date ?? yesterdayKst(now), month = target?.slice(0, 7);
   if (!validDate(target) || !/^\d{4}-(0[1-9]|1[0-2])$/u.test(month)) fail('history_prepare_date_invalid');
   const from = fromDate ?? `${month}-01`;
@@ -174,7 +173,7 @@ export async function prepareHistory({ project, date, fromDate, sourceConfig, ou
       display_sha256: digest(displayMetadata) });
     store.ensureScope();
     const inputFile = store.contentFile('input', input), displayFile = store.contentFile('display', displayMetadata);
-    const receipt = { schema: SCHEMA, project, month, from_date: from, through_date: target,
+    const receipt = { schema: SCHEMA, status: 'source_frozen', project, month, from_date: from, through_date: target,
       requested_days: [target], changed_days: distinctChangedDays, processing_dates: processingDates,
       source_counts: sourceCounts(fresh), coverage, source_receipts: sourceReceipts,
       source_snapshot_sha256: sourceSnapshot, input_sha256: digest(input),
@@ -183,33 +182,11 @@ export async function prepareHistory({ project, date, fromDate, sourceConfig, ou
     const base = { project, month, requested_days: [target], changed_days: distinctChangedDays,
       processing_dates: processingDates, source_counts: receipt.source_counts,
       input_file: inputFile, display_file: displayFile, receipt_file: receiptFile, history_calls: 0,
-      stages: ['source_collect', 'coverage_gate', 'prepare_snapshot'] };
-    if (mode === 'prepare') return { status: 'prepared', ...base };
-    const existingHistory = store.read('history-head.json', 100_000);
-    if (previous && previous.input_file === inputFile && previous.display_file === displayFile
-      && previous.binding_fingerprint === bindingFingerprint
-      && existingHistory && digest(existingHistory) === previous.history_head_sha256
-      && existingHistory.input_fingerprint === historyFingerprint) {
-      if (previous.receipt_file !== receiptFile) store.replaceHead({ ...previous, receipt_file: receiptFile });
-      return { status: 'unchanged', ...base, history_status: 'unchanged', head: existingHistory };
-    }
-    const invoked = await invokeHistory({ inputFile: store.path(inputFile), displayFile: store.path(displayFile),
-      outputRoot, project, month, date: target });
-    const result = invoked?.result, accepted = ['generated', 'generated_partial', 'unchanged', 'partial_unchanged',
-      'display_updated', 'daily_retried'].includes(result?.status);
-    const currentHistory = store.read('history-head.json', 100_000);
-    if (!accepted || !plain(result.head) || !currentHistory || serial(result.head) !== serial(currentHistory)
-      || currentHistory.project !== project || currentHistory.month !== month || currentHistory.as_of !== target
-      || currentHistory.input_fingerprint !== historyFingerprint) return { status: 'history_failed', ...base,
-        history_calls: Number.isSafeInteger(result?.calls) ? result.calls : null,
-        history_status: result?.status ?? 'unknown', stages: [...base.stages, 'history_failed'] };
+      stages: ['source_collect', 'coverage_gate', 'source_frozen'] };
     const head = { schema: SCHEMA, project, month, as_of: target, input_file: inputFile,
-      display_file: displayFile, receipt_file: receiptFile, binding_fingerprint: bindingFingerprint,
-      history_head_sha256: digest(currentHistory) };
+      display_file: displayFile, receipt_file: receiptFile };
     if (serial(previous) !== serial(head)) store.replaceHead(head);
-    return { status: result.status === 'generated_partial' || result.status === 'partial_unchanged' ? 'prepared_partial' : 'completed',
-      ...base, history_calls: result.calls, history_status: result.status,
-      stages: [...base.stages, 'history_cli', 'baseline_advanced'], head: currentHistory };
+    return { status: 'source_frozen', ...base, stages: [...base.stages, 'source_head_advanced'] };
   } finally {
     closeSync(fd);
     const current = lstatSync(lockFile);

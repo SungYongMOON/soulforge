@@ -267,9 +267,10 @@ function displayConfig(value) {
   }
   return snapshot(result);
 }
-function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {}, staleSummary = false) {
+export function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {}, staleSummary = false,
+  { external = false, pending = {} } = {}) {
   const display = displayConfig(displayMetadata);
-  const knownIds = [...data.records.map(row => row.id), ...[...daily.values(), ...weekly.values(), monthly, status]
+  const knownIds = [...data.records.map(row => row.id), ...[...daily.values(), ...weekly.values(), monthly, status].filter(Boolean)
     .flatMap(cell => (cell.cards ?? []).map(card => card.card_id))].sort((a, b) => b.length - a.length);
   const escapedIds = knownIds.map(id => ({ id, pattern: new RegExp(`(?<![\\p{L}\\p{N}_])${id.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?![\\p{L}\\p{N}_])`, 'gu') }));
   const address = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu;
@@ -330,8 +331,8 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
     return parts.join(' · ');
   };
   const lines = [`# ${line(data.project)} · ${data.month} 이력 초안`, '',
-    `기록 기준일: ${data.as_of} (KST 날짜) · 모델 생성 초안 · 의미 검증/사람 수락 전`, ''];
-  function section(title, cells, stale = false) {
+    `기록 기준일: ${data.as_of} (KST 날짜) · ${external ? '외부 초안' : '모델 생성 초안'} · 의미 검증/사람 수락 전`, ''];
+  function section(title, cells, stale = false, pendingKeys = []) {
     lines.push(`## ${title}`, '');
     if (stale) lines.push('> 일별 재작성 전 요약 · 최신 일별 내용은 아래 일별 기록을 확인', '');
     for (const cell of cells) {
@@ -340,6 +341,7 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
       if (cell.format_flag) lines.push(cell.format_flag === 'batch_format_error'
         ? '일부 묶음의 응답을 받거나 읽지 못했습니다. 나머지 이력은 표시했고 받은 응답은 보존했습니다.'
         : '형식 오류로 표시하지 못한 응답이 있습니다. 원 응답은 보존했습니다.', '');
+      if (external && !cell.cards?.length) lines.push('> 외부 초안에 문장 없음', '');
       for (const card of cell.cards ?? []) {
         lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- ${visible(card.text)}`);
         if (!stale && card.child_card_ids.length) lines.push(`  - 하위 기록: ${card.child_card_ids.map((id, index) => `[연결 ${index + 1}](#${anchor(id)})`).join(', ')}`);
@@ -372,13 +374,19 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
       }
       lines.push('');
     }
+    for (const key of pendingKeys.filter(key => !cells.some(cell => cell.key === key)))
+      lines.push(`### ${line(key)}`, '', '> 작성 대기', '');
   }
-  section('일별', [...daily.values()]);
-  section('주별', [...weekly.values()], staleSummary);
-  section('월별', [monthly], staleSummary);
-  section('최근 있었던 일', [status], staleSummary);
+  section('일별', [...daily.values()], false, pending.daily ?? []);
+  section('주별', [...weekly.values()], staleSummary, pending.weekly ?? []);
+  section('월별', monthly ? [monthly] : [], staleSummary, pending.monthly ?? []);
+  section('최근 있었던 일', status ? [status] : [], staleSummary, pending.status ?? []);
   return lines.join('\n') + '\n';
 }
+export const normalizeHistoryInput = normalize;
+export const historyWeekFor = weekFor;
+export const historySourceLabel = sourceLabel;
+export const createHistoryStorage = storage;
 function configFor(config) {
   if (!plain(config) || typeof config.model_id !== 'string' || !config.model_id || !sha(config.model_pin)
     || typeof config.prompt_version !== 'string' || !config.prompt_version || typeof config.prompt_content !== 'string'
