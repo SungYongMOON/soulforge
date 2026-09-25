@@ -228,8 +228,16 @@ function cardsFrom(raw, sources, layer, key, children, knownSources = sources) {
   });
   return { raw, cards, format_flag: null, response_format: responseFormat };
 }
+const entityNames = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const line = value => String(value ?? '').replace(/[\r\n\t]+/gu, ' ').trim()
-  .replace(/&amp;/gu, '&').replace(/[<>`*_\[\]\\|]/gu, character => `&#${character.codePointAt(0)};`);
+  .replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos|nbsp);/giu, (match, entity) => {
+    const code = entity.toLowerCase();
+    if (Object.hasOwn(entityNames, code)) return entityNames[code];
+    const point = code.startsWith('#x') ? Number.parseInt(code.slice(2), 16) : Number(code.slice(1));
+    return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff)
+      ? String.fromCodePoint(point) : match;
+  })
+  .replace(/[<>`*_\[\]\\|]/gu, character => `\\${character}`);
 const anchor = id => `card-${hashText(id).slice(7, 19)}`;
 const FLAG_LABELS = { source_missing: '출처 확인 필요', quote_mismatch: '인용 불일치', quote_missing: '인용 누락',
   evidence_missing: '근거 누락', child_ref_missing: '하위 기록 연결 누락',
@@ -288,8 +296,9 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   };
   const attachmentFor = source => {
     const fromDisplay = Object.hasOwn(display.source_attachments, source.source_id);
+    const names = fromDisplay ? display.source_attachments[source.source_id] : source.attachments;
     return { known: fromDisplay || source.attachments.length > 0,
-      names: fromDisplay ? display.source_attachments[source.source_id] : source.attachments };
+      names: names.filter(name => !/^image00\d\.png$/iu.test(name)) };
   };
   const partyName = value => visible(value).split(',').map(part => part.trim()
     .replace(/^["'“”]+|["'“”]+$/gu, '').replace(/\s*\([^()]*\)\s*$/u, '').trim()).join(', ');
@@ -313,17 +322,23 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     const meta = entry.sources.map(source => display.voice_sources[source.source_id]).find(Boolean) ?? {};
     const refs = entry.evidence.flatMap(item => Array.isArray(item.originrefs) ? item.originrefs : []);
     const locators = [], seen = new Set();
+    const clock = (value, ceiling = false) => {
+      const seconds = Number(value);
+      if (!Number.isFinite(seconds) || seconds < 0) return '시간 미확인';
+      const whole = ceiling ? Math.ceil(seconds) : Math.floor(seconds);
+      return `${String(Math.floor(whole / 60)).padStart(2, '0')}:${String(whole % 60).padStart(2, '0')}`;
+    };
     for (const ref of refs) {
       if (!plain(ref)) continue;
       const offsets = Array.isArray(ref.source_offsets) ? ref.source_offsets : [];
       const rows = offsets.length ? offsets.map(offset => Array.isArray(offset) && offset.length >= 3
-        ? `발화 ${visible(offset[0])} ${visible(offset[1])}–${visible(offset[2])}초` : null).filter(Boolean)
+        ? `발화 ${visible(offset[0])} ${clock(offset[1])}–${clock(offset[2], true)}` : null).filter(Boolean)
         : (Array.isArray(ref.source_segment_ids) ? ref.source_segment_ids.map(id => `발화 ${visible(id)}`) : []);
       for (const row of rows) if (!seen.has(row)) { seen.add(row); locators.push(row); }
     }
     const candidate = refs.some(ref => plain(ref) && ref.attribution === 'candidate_only_not_accepted');
     const parts = ['PLAUD', visible(meta.recorded_at ?? entry.source.date),
-      visible(meta.title ?? '원제목 미확인'), ...((meta.session_id ? [`세션 ${visible(meta.session_id)}`] : [])),
+      visible(meta.title ?? '원제목 미확인'),
       ...(locators.length ? [locators.join('; ')] : ['발화 번호·구간 미기록']),
       ...(meta.audio_path ? [localLink('녹음', meta.audio_path)] : []),
       ...(meta.transcript_path ? [localLink('전사', meta.transcript_path)] : []),
