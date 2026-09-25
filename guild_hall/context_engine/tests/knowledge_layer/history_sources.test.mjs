@@ -40,7 +40,9 @@ test('Linear uses exact project membership and native dates; AI work notes do no
 function voiceFixture(root){
   const sessions=join(root,'sessions'),cards=join(root,'cards');mkdirSync(sessions);mkdirSync(cards);
   const session='20260923_090000_demo',run='card-run',transcriptRun='asr-run';
-  put(join(sessions,'2026-09-23',session,'session_manifest.json'),{session_id:session,recorded_at_local:'2026-09-23T09:00:00+09:00'});
+  put(join(sessions,'2026-09-23',session,'session_manifest.json'),{session_id:session,recorded_at_local:'2026-09-23T09:00:00+09:00',
+    source_page_title:'합성 녹음 원제목',audio:{status:'source_present',ref:`ingress/plaud/sessions/2026-09-23/${session}/audio/source.ogg`}});
+  mkdirSync(join(sessions,'2026-09-23',session,'audio'));writeFileSync(join(sessions,'2026-09-23',session,'audio','source.ogg'),'synthetic audio placeholder');
   const rows=[{schema_version:'soulforge.voice_transcript_segment.v0',speaker:'unknown',segment_id:0,analysis_run_id:transcriptRun,start_seconds:0,end_seconds:2,content:'원문 요청 문장'},
     {schema_version:'soulforge.voice_transcript_segment.v0',speaker:'unknown',segment_id:1,analysis_run_id:transcriptRun,start_seconds:2,end_seconds:4,content:'다른 과제의 발언'}];
   const text=rows.map(x=>JSON.stringify(x)).join('\n')+'\n';
@@ -62,6 +64,12 @@ test('voice cards select attributed native ASR spans, never their AI description
   assert.deepEqual(result.records[0].originrefs[0].source_segment_ids,[0]);
   assert.equal(result.records[0].originrefs[0].attribution,'candidate_only_not_accepted');
   assert.equal(result.records[0].date,'2026-09-23');
+  const display=result.displayMetadata.voice_sources[result.records[0].id];
+  assert.equal(display.title,'합성 녹음 원제목');
+  assert.equal(display.recorded_at,'2026-09-23T09:00:00+09:00');
+  assert.equal(display.transcript_path,v.trPath);
+  assert.equal(display.audio_path,join(v.sessions,'2026-09-23',v.card.session_id,'audio','source.ogg'));
+  assert.equal(result.records[0].originrefs[0].source_offsets[0][0],0);
   writeFileSync(v.trPath,'changed');await assert.rejects(readVoiceHistory({...args,config}),/digest_mismatch/);
 });
 test('one card produces separate numbered utterances, with each own time and evidence locator',async t=>{

@@ -261,7 +261,7 @@ test('explicit display metadata changes only the view and hides internal codes a
   assert.match(slackLine, /2026-09-03 · Slack · Slack Person · Synthetic title/);
   assert.doesNotMatch(slackLine, /→|첨부명 미기록/);
   assert.match(dailyView, /담당자는 Alice\s*에게 요청했다/);
-  assert.match(dailyView, /녹음·발화자 미확인/);
+  assert.match(dailyView, /PLAUD · 2026-09-03 · 원제목 미확인/);
   assert.match(dailyView, /S999 표기/); // unrelated code is not broadly rewritten
   assert.doesNotMatch(view, /alice@example\.test|bob@example\.test|slack-user:U1|S001|S002|EARLYV1|daily:2026-09-03:001|voice_card|derived candidate title|\\\[/);
 });
@@ -679,7 +679,48 @@ test('voice utterance IDs attach supplied text and provenance through child-only
     assert.deepEqual(upper.flags, []);
   }
   const view = readFileSync(join(dir, result.head.view_file), 'utf8');
-  assert.equal(view.split('## 주별')[0].split('녹음·발화자 미확인').length - 1, 1);
+  assert.equal(view.split('## 주별')[0].split('PLAUD · 2026-09-23').length - 1, 1);
+});
+
+test('display-only PLAUD trace shows exact card title, local links, and every utterance range without model calls', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const card = hashText('synthetic-card');
+  const utterance = (number, start, end) => record(`voice_utterance:synthetic:${number}`, '2026-09-23',
+    `합성 발화 ${number}`, { kind: 'voice_utterance', evidence_mode: 'source_id', originrefs: [{
+      card_sha256: card, card_segment_id: 'segment-1', source_segment_ids: [number],
+      source_offsets: [[number, start, end]], attribution: 'candidate_only_not_accepted' }] });
+  const rows = [utterance(1, 12.5, 14.25), utterance(2, 14.25, 16.75)];
+  const generate = async request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') return JSON.stringify({ events: [{ text: '합성 기록', evidence:
+      payload.threads.flatMap(thread => thread.records).map(row => ({ source_id: row.source_id })) }] });
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: '합성 요약', child_card_ids: [child.card_id] }] });
+  };
+  const inputData = { ...input(rows), as_of: '2026-09-23' };
+  const first = await runHistory({ input: inputData, outputRoot: dir, config, generate });
+  const beforeCell = readFileSync(join(dir, `history-cell-${first.head.cells.daily['2026-09-23'].slice(7)}.json`));
+  const fallback = readFileSync(join(dir, first.head.view_file), 'utf8').split('## 주별')[0];
+  assert.match(fallback, /PLAUD · 2026-09-23 · 원제목 미확인/);
+  assert.match(fallback, /발화 1 12\.5–14\.25초; 발화 2 14\.25–16\.75초/);
+  const audioPath = join(dir, 'audio (draft) #1.mp3'), transcriptPath = join(dir, 'notes #1.txt');
+  const updated = await runHistory({ input: inputData, outputRoot: dir, config, displayOnly: true,
+    displayMetadata: { voice_sources: { [rows[0].id]: { title: 'Meeting [Test] <script>',
+      recorded_at: '2026-09-23T09:10:11+09:00', session_id: 'synthetic-session',
+      audio_path: audioPath, transcript_path: transcriptPath } } } });
+  assert.equal(updated.status, 'display_updated'); assert.equal(updated.calls, 0);
+  assert.deepEqual(updated.head.cells, first.head.cells);
+  assert.deepEqual(readFileSync(join(dir, `history-cell-${first.head.cells.daily['2026-09-23'].slice(7)}.json`)), beforeCell);
+  const view = readFileSync(join(dir, updated.head.view_file), 'utf8').split('## 주별')[0];
+  assert.equal(view.split('PLAUD · 2026-09-23T09:10:11+09:00').length - 1, 1);
+  assert.match(view, /Meeting &#91;Test&#93; &#60;script&#62;/);
+  assert.match(view, /발화 1 12\.5–14\.25초; 발화 2 14\.25–16\.75초/);
+  assert.match(view, /과제 귀속 후보\(미수락\)/);
+  assert.match(view, /\[녹음\]\(<[^>]*audio%20\(draft\)%20%231\.mp3>\)/);
+  assert.match(view, /\[전사\]\(<[^>]*notes%20%231\.txt>\)/);
+  await assert.rejects(runHistory({ input: inputData, outputRoot: dir, config, displayOnly: true,
+    displayMetadata: { voice_sources: { [rows[0].id]: { title: 'Synthetic',
+      audio_path: 'https://example.test/audio.mp3' } } } }), /history_display_metadata_invalid/);
 });
 
 test('foreign or missing voice IDs never acquire evidence; mixed mail quote checks remain', async t => {

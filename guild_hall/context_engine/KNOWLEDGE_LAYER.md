@@ -44,6 +44,11 @@ AI 메모 표지는 `ai_note_senders`, `ai_note_subject_prefixes`, `ai_note_user
 표시용 projection은 반복되는 출처 위치를 `originrefs_by_hash`에 한 번 저장하고 각 근거의 `originrefs_ref`로 연결한다.
 불변 cell에는 전체 출처 위치가 그대로 남고 화면 근거도 유지된다. 입력·파일 크기 제한은 늘리지 않는다.
 
+음성 근거 표시는 `displayMetadata.voice_sources[source_id]`의 원제목·녹음 시각·세션 ID·로컬 녹음/전사 경로와
+보존된 근거의 발화 번호·초 단위 구간을 연결한다. 준비기는 session manifest에서 표시 정보를 자동 취득한다.
+모델은 이 표시 정보를 만들지 않는다. 기존 결과는 `--display-only`로 문장·생성 cell·모델 호출 없이 다시 출력한다.
+없는 원제목·구간과 미확인 발화자·후보 귀속은 명시한다. 표시 링크를 만들면서 원자료를 실행하거나 열지는 않는다.
+
 이 단계는 원천·운영 설정·DB·예약 작업을 쓰지 않는다. 현재 자료 수집과 이름 표의 완전성은 호출자/수집 lane 책임이다.
 
 `node guild_hall/context_engine/src/history_cli.mjs --help`는 독립 실행면의 인자를 보여 준다.

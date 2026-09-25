@@ -250,6 +250,21 @@ function displayConfig(value) {
       result[field][key] = field === 'source_attachments' ? [...new Set(val)] : val;
     }
   }
+  const voiceSources = raw.voice_sources ?? {};
+  if (!plain(voiceSources) || Object.keys(voiceSources).length > 10000) fail('history_display_metadata_invalid');
+  result.voice_sources = {};
+  for (const [sourceId, entry] of Object.entries(voiceSources)) {
+    if (!token(sourceId) || !plain(entry) || Object.keys(entry).some(key =>
+      !['title', 'recorded_at', 'audio_path', 'transcript_path', 'session_id'].includes(key)))
+      fail('history_display_metadata_invalid');
+    for (const [key, field] of Object.entries(entry)) {
+      if (typeof field !== 'string' || !field || field.length > (key.endsWith('_path') ? 1000 : 500)
+        || /[\u0000-\u001f]/u.test(field)
+        || (key.endsWith('_path') && (!isAbsolute(field) || field.startsWith('\\\\') || field.startsWith('//') || /[<>]/u.test(field))))
+        fail('history_display_metadata_invalid');
+    }
+    result.voice_sources[sourceId] = entry;
+  }
   return snapshot(result);
 }
 function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {}, staleSummary = false) {
@@ -291,6 +306,29 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
     const kind = /mail|메일/iu.test(source.kind) ? '메일' : /slack/iu.test(source.kind) ? 'Slack' : source.kind;
     return `${visible(source.date)} · ${visible(kind)} · ${partyName(source.sender)} → ${partyName(source.recipient)} · ${visible(source.title)} · ${attachments}`;
   };
+  const localLink = (label, path) => `[${label}](<${encodeURI(path.replace(/\\/gu, '/'))
+    .replace(/[?#&]/gu, character => `%${character.codePointAt(0).toString(16).toUpperCase()}`)}>)`;
+  const voiceLine = entry => {
+    const meta = entry.sources.map(source => display.voice_sources[source.source_id]).find(Boolean) ?? {};
+    const refs = entry.evidence.flatMap(item => Array.isArray(item.originrefs) ? item.originrefs : []);
+    const locators = [], seen = new Set();
+    for (const ref of refs) {
+      if (!plain(ref)) continue;
+      const offsets = Array.isArray(ref.source_offsets) ? ref.source_offsets : [];
+      const rows = offsets.length ? offsets.map(offset => Array.isArray(offset) && offset.length >= 3
+        ? `발화 ${visible(offset[0])} ${visible(offset[1])}–${visible(offset[2])}초` : null).filter(Boolean)
+        : (Array.isArray(ref.source_segment_ids) ? ref.source_segment_ids.map(id => `발화 ${visible(id)}`) : []);
+      for (const row of rows) if (!seen.has(row)) { seen.add(row); locators.push(row); }
+    }
+    const candidate = refs.some(ref => plain(ref) && ref.attribution === 'candidate_only_not_accepted');
+    const parts = ['PLAUD', visible(meta.recorded_at ?? entry.source.date),
+      visible(meta.title ?? '원제목 미확인'), ...((meta.session_id ? [`세션 ${visible(meta.session_id)}`] : [])),
+      ...(locators.length ? [locators.join('; ')] : ['발화 번호·구간 미기록']),
+      ...(meta.audio_path ? [localLink('녹음', meta.audio_path)] : []),
+      ...(meta.transcript_path ? [localLink('전사', meta.transcript_path)] : []),
+      ...(candidate ? ['과제 귀속 후보(미수락)'] : []), '발화자 미확인'];
+    return parts.join(' · ');
+  };
   const lines = [`# ${line(data.project)} · ${data.month} 이력 초안`, '',
     `기록 기준일: ${data.as_of} (KST 날짜) · 모델 생성 초안 · 의미 검증/사람 수락 전`, ''];
   function section(title, cells, stale = false) {
@@ -305,11 +343,17 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
       for (const card of cell.cards ?? []) {
         lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- ${visible(card.text)}`);
         if (!stale && card.child_card_ids.length) lines.push(`  - 하위 기록: ${card.child_card_ids.map((id, index) => `[연결 ${index + 1}](#${anchor(id)})`).join(', ')}`);
-        const evidenceLines = [], mailByKey = new Map(), voiceByCard = new Set();
+        const evidenceLines = [], mailByKey = new Map(), voiceByCard = new Map();
         for (const source of card.source_display) {
           if (/voice|ASR|녹음/iu.test(source.kind)) {
-            const key = source.card_identity ?? source.source_id;
-            if (!voiceByCard.has(key)) { voiceByCard.add(key); evidenceLines.push({ source }); }
+            const sourceEvidence = card.evidence.filter(item => item.source_id === source.source_id);
+            const ref = sourceEvidence.flatMap(item => Array.isArray(item.originrefs) ? item.originrefs : [])
+              .find(item => plain(item) && item.card_sha256 !== undefined && item.card_segment_id !== undefined);
+            const key = ref ? `${ref.card_sha256}:${ref.card_segment_id}` : source.card_identity ?? source.source_id;
+            let group = voiceByCard.get(key);
+            if (!group) { group = { source, sources: [], evidence: [], voice: true };
+              voiceByCard.set(key, group); evidenceLines.push(group); }
+            group.sources.push(source); group.evidence.push(...sourceEvidence);
             continue;
           }
           if (!/mail|메일/iu.test(source.kind)) { evidenceLines.push({ source }); continue; }
@@ -323,7 +367,7 @@ function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {
             else prior.attachment.names = [...new Set([...prior.attachment.names, ...attachment.names])];
           }
         }
-        for (const entry of evidenceLines) lines.push(`  - 근거: ${sourceLine(entry.source, entry.attachment)}`);
+        for (const entry of evidenceLines) lines.push(`  - 근거: ${entry.voice ? voiceLine(entry) : sourceLine(entry.source, entry.attachment)}`);
         if (card.flags.length) lines.push(`  - 검토: ${uniq(card.flags.map(f => FLAG_LABELS[f.reason] ?? '확인 필요')).join(', ')}`);
       }
       lines.push('');

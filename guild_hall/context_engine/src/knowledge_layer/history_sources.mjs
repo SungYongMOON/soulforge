@@ -1,4 +1,5 @@
 // Explicit local source bindings; no network, source mutation, or authority grant.
+import { join } from 'node:path';
 import { openSourceRoot } from '../adapters/sources/guarded_files.mjs';
 import { parseSegments as parseVoiceSegments } from '../adapters/sources/voice_session_source.mjs';
 import { validateVoiceRouteLedger } from '../runtime/voice_routes.mjs';
@@ -119,7 +120,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
   const sessions = openSourceRoot(config.sessions_root), cardsRoot = openSourceRoot(config.cards_root);
   const routes = config.routes_root ? openSourceRoot(config.routes_root) : null;
   if (config.project_policy==='confirmed'&&!routes) fail('history_voice_routes_required');
-  const read = bounded(config), records = [], excluded = [], receipts = [];
+  const read = bounded(config), records = [], excluded = [], receipts = [], voiceSources = {};
   const routeNames = routes ? new Set((await routes.list([])).filter(e=>e.file).map(e=>e.name)) : new Set();
   const previousDate=new Date(Date.parse(fromDate+'T00:00:00Z')-86400000).toISOString().slice(0,10);
   const windowStart=Date.parse(fromDate+'T00:00:00+09:00');
@@ -175,6 +176,16 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
     const transcriptPath=[date.name,session.name,'analysis','local_asr',tr.run_id,'transcript.jsonl'];
     const transcript=await read(sessions,transcriptPath,32*1024*1024);
     if(transcript.sha256!==tr.sha256)fail('history_voice_transcript_digest_mismatch');
+    const voiceDisplay={...(typeof manifest.source_page_title==='string'&&manifest.source_page_title
+      ? {title:manifest.source_page_title}:{}),recorded_at:manifest.recorded_at_local,session_id:session.name,
+      transcript_path:join(config.sessions_root,...transcriptPath)};
+    const audioPrefix=`ingress/plaud/sessions/${date.name}/${session.name}/audio/`;
+    if(manifest.audio?.status==='source_present'&&typeof manifest.audio.ref==='string'&&manifest.audio.ref.startsWith(audioPrefix)) {
+      const audioName=manifest.audio.ref.slice(audioPrefix.length);
+      if(!safe(audioName)||audioName==='.'||audioName==='..')fail('history_voice_audio_ref_invalid');
+      if((await sessions.list([date.name,session.name,'audio'])).some(entry=>entry.file&&entry.name===audioName))
+        voiceDisplay.audio_path=join(config.sessions_root,date.name,session.name,'audio',audioName);
+    }
     const byId=new Map();
     for(const row of parseVoiceSegments(transcript.text)){
       if(byId.has(row.segment_id))fail('history_voice_duplicate_asr_segment');
@@ -202,18 +213,19 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
           derived_title_only:true,semantic_fact_verified:false}], {thread_ref:idFor('voice',`${session.name}:${segment.segment_id}`)});
         record.id=`voice_utterance:${hashText(`${session.name}:${segment.segment_id}`).slice(7,23)}:${String(utterance.segment_id).padStart(8,'0')}`;
         record.evidence_mode='source_id';
+        voiceSources[record.id]=voiceDisplay;
         records.push(record);
       }
     }
     receipts.push({source_kind:'voice',session_ref:hashText(session.name),card_sha256:latest.sha256,transcript_sha256:transcript.sha256});
   }
-  return {records,displayMetadata:{},receipt:{status:'ok',records:records.length,excluded:excluded.length},excluded,sourceReceipts:receipts};
+  return {records,displayMetadata:{voice_sources:voiceSources},receipt:{status:'ok',records:records.length,excluded:excluded.length},excluded,sourceReceipts:receipts};
 }
 
 export async function collectHistorySources({project,fromDate,throughDate,sourceConfig}) {
   if(!safe(project)||sourceConfig?.project!==project)fail('history_source_project_mismatch');
   if(!/^\d{4}-\d{2}-\d{2}$/u.test(fromDate??'')||!/^\d{4}-\d{2}-\d{2}$/u.test(throughDate??'')||fromDate>throughDate)fail('history_source_window_invalid');
-  const records=[],displayMetadata={source_attachments:{},slack_names:{},person_names:{},source_body_sha256:{}},lanes={},excluded=[],sourceReceipts=[];
+  const records=[],displayMetadata={source_attachments:{},slack_names:{},person_names:{},source_body_sha256:{},voice_sources:{}},lanes={},excluded=[],sourceReceipts=[];
   const readers={mail:readMailHistory,slack:readSlackHistory,linear:readLinearHistory,voice:readVoiceHistory};
   for(const [kind,reader] of Object.entries(readers)){
     if(!sourceConfig[kind]){lanes[kind]={status:'missing',records:0};continue;}

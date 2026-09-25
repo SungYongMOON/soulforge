@@ -83,10 +83,10 @@ function dayFingerprints(records) {
 function mergeDisplay(previous, incoming, scannedIds) {
   const prior = plain(previous) ? snapshot(previous) : {}, next = plain(incoming) ? snapshot(incoming) : {};
   const merged = {};
-  for (const field of ['source_attachments', 'source_body_sha256', 'slack_names', 'person_names']) {
+  for (const field of ['source_attachments', 'source_body_sha256', 'slack_names', 'person_names', 'voice_sources']) {
     const oldMap = plain(prior[field]) ? prior[field] : {}, newMap = plain(next[field]) ? next[field] : {};
     const keep = Object.fromEntries(Object.entries(oldMap).filter(([key]) =>
-      !['source_attachments', 'source_body_sha256'].includes(field) || !scannedIds.has(key)));
+      !['source_attachments', 'source_body_sha256', 'voice_sources'].includes(field) || !scannedIds.has(key)));
     merged[field] = { ...keep, ...newMap };
   }
   return snapshot(merged);
