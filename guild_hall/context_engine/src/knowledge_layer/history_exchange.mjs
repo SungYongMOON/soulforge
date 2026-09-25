@@ -2,6 +2,7 @@
 import { closeSync, existsSync, lstatSync, openSync, unlinkSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { digest, hashText, sha, snapshot, token } from './data.mjs';
+import { partitionDay } from './history_batches.mjs';
 import { createHistoryStorage, historyInputFingerprint, historySourceLabel,
   historyWeekFor, normalizeHistoryInput, renderHistory } from './history.mjs';
 
@@ -159,6 +160,19 @@ export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMe
     const name = `history-packet-${packet.packet_id.slice(7)}.json`;
     ctx.store.writeNew(name, packet); return join(outputRoot, name);
   });
+  const batchPaths = plan.packets.map(packet => {
+    if (packet.layer !== 'daily') return [];
+    const batches = partitionDay({ project: ctx.data.project, day: packet.key,
+      rows: packet.dependencies.records, limit: 7200 });
+    return batches.map((batch, index) => {
+      const body = { packet_id: packet.packet_id, batch_index: index + 1,
+        batch_total: batches.length, user: batch.user };
+      if (serial(body).length > 8000) fail('history_exchange_batch_too_large');
+      const name = `history-batch-${digest(body).slice(7)}.json`;
+      ctx.store.writeNew(name, body);
+      return join(outputRoot, name);
+    });
+  });
   const base = { schema: PREPARE_SCHEMA, project: ctx.data.project, month: ctx.data.month,
     as_of: ctx.data.as_of, input_fingerprint: ctx.inputFingerprint, rules_sha256: ctx.rulesHash,
     expected_head_sha256: plan.expectedHead, packet_ids: plan.packets.map(packet => packet.packet_id),
@@ -169,7 +183,8 @@ export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMe
   return { status: 'prepared', project: ctx.data.project, month: ctx.data.month,
     head_sha256: plan.expectedHead, prepare_id: prepareId, manifest_path: join(outputRoot, manifestName),
     packet_paths: packetPaths, packets: plan.packets.map((packet, index) => ({
-      layer: packet.layer, key: packet.key, packet_id: packet.packet_id, path: packetPaths[index] })),
+      layer: packet.layer, key: packet.key, packet_id: packet.packet_id, path: packetPaths[index],
+      batch_paths: batchPaths[index] })),
     upper_update_targets: plannedTargets(ctx, plan) };
 }
 function validatePrepared(ctx, prepared) {
