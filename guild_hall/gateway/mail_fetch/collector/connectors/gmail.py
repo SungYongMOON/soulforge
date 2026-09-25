@@ -533,6 +533,11 @@ class GmailConnector(BaseConnector):
                     html_chunks.append(decoded)
 
             attachment_id = str(body.get("attachmentId", "") or "").strip() or None
+            headers = {str(item.get("name", "")).lower(): str(item.get("value", ""))
+                       for item in (node.get("headers") if isinstance(node.get("headers"), list) else [])
+                       if isinstance(item, dict)}
+            disposition = headers.get("content-disposition", "").split(";", 1)[0].strip().lower()
+            content_id = headers.get("content-id", "").strip()
             size = int(body.get("size") or 0)
             has_binary = bool(filename) and (attachment_id or raw_data)
             if has_binary:
@@ -549,6 +554,8 @@ class GmailConnector(BaseConnector):
                     metadata={
                         "gmail_message_id": message_id,
                         "blocked_extension": ext if is_blocked_ext else None,
+                        "body_inline_image": mime.startswith("image/")
+                        and (disposition == "inline" or bool(content_id)),
                     },
                 )
                 if is_blocked_ext:

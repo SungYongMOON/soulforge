@@ -122,6 +122,25 @@ test('mail uses routed IDs and received KST day; duplicate custody keeps earlies
     assert.equal(out.excluded[0].reason, 'configured_ai_subject');
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
+
+test('mail display excludes only collector-marked body inline images', async () => {
+  const f = await mailFixture();
+  try {
+    const row = mail('m1', '2026-09-23T14:59:59Z', '본문', { attachments: [
+      { type: 'binary_attachment', name: 'signature.png', metadata: { body_inline_image: true } },
+      { type: 'binary_attachment', name: 'image001.png', metadata: { body_inline_image: false } },
+      { type: 'binary_attachment', name: 'drawing.pdf' },
+    ] });
+    await writeFile(path.join(f.year, '09.jsonl'), JSON.stringify(row) + '\n');
+    const out = await readMailHistory(mailArgs(f));
+    assert.equal(out.records.length, 1);
+    assert.deepEqual(out.records[0].attachments, ['image001.png', 'drawing.pdf']);
+    assert.deepEqual(out.displayMetadata.source_attachments[out.records[0].id],
+      ['image001.png', 'drawing.pdf']);
+    assert.deepEqual(out.records[0].originrefs[0].attachment_metadata
+      .map(item => item.body_inline_image), [true, false, false]);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
 test('mail record fingerprint follows its own attribution, not index build time or other mail routes', async () => {
   const f = await mailFixture();
   try {

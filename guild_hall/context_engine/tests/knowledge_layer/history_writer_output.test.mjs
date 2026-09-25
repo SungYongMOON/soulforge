@@ -14,6 +14,8 @@ test('extracts the history JSON portion from prose and a code fence', () => {
   assert.deepEqual(extractHistoryDraft(`먼저 살폈다.\n` + JSON.stringify(draft) + '\n완료.'), draft);
   assert.deepEqual(extractHistoryDraft('```json\n' + JSON.stringify(draft) + '\n```'), draft);
   assert.equal(extractHistoryDraft('JSON이 없는 일반 문장'), null);
+  assert.deepEqual(extractHistoryDraft('{} '.repeat(30) + JSON.stringify(draft)), draft);
+  assert.equal(extractHistoryDraft('{} '.repeat(31) + JSON.stringify(draft)), null);
 });
 
 test('keeps source-link errors distinct from format errors', () => {

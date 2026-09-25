@@ -14,7 +14,7 @@
   "files": [
     {
       "path": "guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md",
-      "sha256": "5d2f23b1fbcabdef5b33b4ae103fa1dc0e367d53e6588a5bd2d547189d9e0ba7"
+      "sha256": "602facb9db5a6cd9e2454a39c8a92ae69ca9ae3ae9d382dd068115951cc54260"
     },
     {
       "path": "guild_hall/context_engine/WIKI_SCHEMA.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "4e0e9986d1663337c50b62c9f1ecea6bb254c7c436a6fb4c6a1bbb524a8f38e1"
+      "sha256": "7924df9449b3b5c6ef3b04ef3e52ec41c6047f621ce88bd2f429175a0957e6a6"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
@@ -166,11 +166,11 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
-      "sha256": "e2490650e4399814e890df915541ca1cf0477f2ba59ccaa6d1ebd2f9cf13a2f2"
+      "sha256": "705030c2cbf38d8539f1ec2e009cb6fe794055de4abb6da227ac6ae521583bf0"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
-      "sha256": "532a9bd26400e96da959233632da7ea21162135ffa38d91c292bb4098a279d81"
+      "sha256": "50d34e6978c379dd3a1244a2839915c110fe9bcfac627ebc0716f293eed0b634"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
@@ -421,7 +421,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "a41c87d5ce3865951dfc2431182651b9a5b19b21a86158a7c9fb35b935fb45b3",
+  "closure_sha256": "095efce4bd89d95fe239416421ac4d0cb1b58ba3ed6db92a5bbdccf67ef35ad8",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",
@@ -825,6 +825,10 @@
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
       "to": "guild_hall/context_engine/src/knowledge_layer/history.mjs"
+    },
+    {
+      "from": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
+      "to": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs"
     },
     {
       "from": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",

@@ -1,7 +1,10 @@
 // Parse a bounded Hermes final answer without editing any authored sentence.
 export function extractHistoryDraft(raw) {
   if (typeof raw !== 'string' || raw.length > 500_000) return null;
+  const MAX_PARSE_ATTEMPTS = 32;
+  let attempts = 0;
   const parse = candidate => {
+    if (++attempts > MAX_PARSE_ATTEMPTS) return null;
     try {
       const value = JSON.parse(candidate);
       return value?.schema === 'soulforge.history_external_draft.v1' ? value : null;
@@ -10,6 +13,7 @@ export function extractHistoryDraft(raw) {
   const direct = parse(raw.trim());
   if (direct) return direct;
   for (let start = 0; start < raw.length; start++) {
+    if (attempts >= MAX_PARSE_ATTEMPTS) return null;
     if (raw[start] !== '{') continue;
     let depth = 0, quoted = false, escaped = false;
     for (let end = start; end < raw.length; end++) {

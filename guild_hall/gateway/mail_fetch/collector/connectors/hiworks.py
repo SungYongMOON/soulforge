@@ -486,6 +486,7 @@ class HiworksPop3Connector(BaseConnector):
 
             content_type = str(part.get_content_type() or "").strip().lower()
             disposition = str(part.get_content_disposition() or "").strip().lower()
+            content_id = str(part.get("Content-ID") or "").strip()
             filename_raw = part.get_filename()
             filename = _decode_header_text(filename_raw) if filename_raw else ""
             payload = part.get_payload(decode=True) or b""
@@ -501,7 +502,9 @@ class HiworksPop3Connector(BaseConnector):
                     mime=content_type or None,
                     size=attachment_size,
                     provider_attachment_id=uidl,
-                    metadata={"uidl": uidl, "blocked_extension": ext if is_blocked_ext else None},
+                    metadata={"uidl": uidl, "blocked_extension": ext if is_blocked_ext else None,
+                              "body_inline_image": content_type.startswith("image/")
+                              and (disposition == "inline" or bool(content_id))},
                 )
                 if is_blocked_ext:
                     item.type = "reference_attachment"

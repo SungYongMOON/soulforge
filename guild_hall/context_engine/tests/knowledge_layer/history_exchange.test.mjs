@@ -216,4 +216,9 @@ test('large daily cell saves bounded card batches and restores the full view', t
   const view = readFileSync(join(dir, accepted.head.view_file), 'utf8');
   assert.match(view, /기록 1\n/);
   assert.match(view, /기록 150\n/);
+  const before = readdirSync(dir).sort();
+  const replay = finalizeHistoryExchange({ input: data, outputRoot: dir, rulesText,
+    prepared: manifest(prepared), draft });
+  assert.equal(replay.status, 'unchanged');
+  assert.deepEqual(readdirSync(dir).sort(), before);
 });

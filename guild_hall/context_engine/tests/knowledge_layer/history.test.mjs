@@ -239,7 +239,8 @@ test('explicit display metadata changes only the view and hides internal codes a
   const first = await runHistory({ input: input(rows), outputRoot: dir, config, generate });
   const cellBytes = new Map(readdirSync(dir).filter(name => name.startsWith('history-cell-'))
     .map(name => [name, readFileSync(join(dir, name))]));
-  const metadata = { source_attachments: { S001: ['image001.png', 'first.pdf', 'second.pdf', 'third.pdf', 'fourth.pdf'], S004: [] },
+  const metadata = { source_attachments: { S001: ['first.pdf', 'second.pdf', 'third.pdf', 'fourth.pdf'],
+    S004: [], S006: ['image001.png'] },
   source_body_sha256: { S001: hashText('shared body A'), S002: hashText('shared body A'),
     S004: hashText('shared body B'), S005: hashText('shared body B'), S006: hashText('distinct body C') },
   slack_names: { U1: 'Slack Person' }, person_names: { 'alice@example.test': 'Alice', 'bob@example.test': 'Bob' } };
@@ -252,7 +253,7 @@ test('explicit display metadata changes only the view and hides internal codes a
   const dailyView = view.split('## 주별')[0];
   assert.equal(dailyView.split('first.pdf').length - 1, 1); // duplicate email copy shown once
   assert.match(dailyView, /first.pdf, second.pdf, third.pdf 외 1개/);
-  assert.doesNotMatch(dailyView, /image001\.png/);
+  assert.match(dailyView, /image001\.png/); // an unmarked attachment keeps its name
   assert.equal(dailyView.split('No attachment').length - 1, 2);
   assert.match(dailyView, /No attachment · 첨부: 없음/);
   assert.match(dailyView, /Slack Person/); assert.match(dailyView, /Alice → Bob/);

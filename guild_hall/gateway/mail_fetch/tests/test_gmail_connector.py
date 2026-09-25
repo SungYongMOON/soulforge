@@ -58,6 +58,22 @@ def test_gmail_connector_fetch_since_parses_message(tmp_path: Path) -> None:
     assert event.attachments[0].local_path is not None
 
 
+def test_gmail_marks_body_inline_image_from_part_headers() -> None:
+    connector = GmailConnector(access_token="synthetic")
+    payload = {"mimeType": "multipart/mixed", "parts": [
+        {"mimeType": "image/png", "filename": "signature.png",
+         "headers": [{"name": "Content-Disposition", "value": "inline; filename=signature.png"}],
+         "body": {"data": "aW5saW5l", "size": 6}},
+        {"mimeType": "image/png", "filename": "image001.png",
+         "headers": [{"name": "Content-Disposition", "value": "attachment; filename=image001.png"}],
+         "body": {"data": "ZmlsZQ==", "size": 4}},
+    ]}
+    _, _, attachments = connector._extract_payload_data(payload, "synthetic-message")
+    assert [(item.name, item.metadata["body_inline_image"]) for item in attachments] == [
+        ("signature.png", True), ("image001.png", False),
+    ]
+
+
 def test_gmail_connector_refreshes_access_token_on_expiry(tmp_path: Path) -> None:
     message_payload = {
         "id": "msg_2",

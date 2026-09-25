@@ -121,6 +121,8 @@ function addPersonNames(displayMetadata, list) {
     displayMetadata.person_names[item.address.toLowerCase()] = item.name;
 }
 const metadata = () => ({ source_attachments: {}, source_body_sha256: {}, slack_names: {}, person_names: {} });
+const bodyInlineImage = item => item.type === 'inline_attachment'
+  || item.metadata?.body_inline_image === true;
 const result = (records, displayMetadata, excluded, counts, extra = {}) => ({
   records: records.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
   displayMetadata, excluded,
@@ -230,7 +232,8 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
   const records = [];
   for (const [eventId, picked] of selected) {
     const { row, body, bodySha, lineSha, path } = picked, id = nativeId('mail', eventId);
-    const attachments = row.attachments.filter(item => plain(item) && ['binary_attachment','file'].includes(item.type) && typeof item.name === 'string')
+    const attachments = row.attachments.filter(item => plain(item) && ['binary_attachment','file'].includes(item.type)
+      && !bodyInlineImage(item) && typeof item.name === 'string')
       .map(item => item.name);
     if (attachments.some(name => !displayString(name))) fail('mail_attachment_name_invalid');
     displayMetadata.source_attachments[id] = attachments;
@@ -246,7 +249,8 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
           strength: index.byMail.get(eventId).strength, basis: index.byMail.get(eventId).basis },
         attachment_metadata: row.attachments.filter(plain).map(item => ({
           type: 'binary_attachment', name: String(item.name ?? ''),
-          content_sha256: item.content_sha256 ?? null })) }] });
+          content_sha256: item.content_sha256 ?? null,
+          body_inline_image: bodyInlineImage(item) })) }] });
   }
   return result(records, displayMetadata, [...excludedById.values()], { files: wanted.size ? windowFiles.length : 0, rows: scannedRows,
     matched_rows: matchedRows, attributed: wanted.size, bytes: scannedBytes },

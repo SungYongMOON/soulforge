@@ -298,7 +298,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     const fromDisplay = Object.hasOwn(display.source_attachments, source.source_id);
     const names = fromDisplay ? display.source_attachments[source.source_id] : source.attachments;
     return { known: fromDisplay || source.attachments.length > 0,
-      names: names.filter(name => !/^image00\d\.png$/iu.test(name)) };
+      names };
   };
   const partyName = value => visible(value).split(',').map(part => part.trim()
     .replace(/^["'“”]+|["'“”]+$/gu, '').replace(/\s*\([^()]*\)\s*$/u, '').trim()).join(', ');

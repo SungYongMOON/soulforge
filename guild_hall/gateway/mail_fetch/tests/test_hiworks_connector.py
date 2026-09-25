@@ -275,6 +275,23 @@ def test_hiworks_connector_does_not_download_blocked_extension(tmp_path: Path) -
     assert attachment.metadata["blocked_extension"] == ".dmg"
 
 
+def test_hiworks_marks_body_inline_image_from_mime_headers() -> None:
+    message = EmailMessage()
+    message["Message-ID"] = "<inline@example.invalid>"
+    message.set_content("body")
+    message.add_related(b"inline", maintype="image", subtype="png",
+                        filename="signature.png", cid="<logo>")
+    message.add_attachment(b"file", maintype="image", subtype="png",
+                           filename="image001.png")
+    connector = HiworksPop3Connector(
+        host="pop3.example.invalid", username="user@example.invalid", password="synthetic",
+    )
+    _, _, attachments = connector._extract_payload(message=message, uidl="SYNTHETIC")
+    assert [(item.name, item.metadata["body_inline_image"]) for item in attachments] == [
+        ("signature.png", True), ("image001.png", False),
+    ]
+
+
 def test_hiworks_connector_preserves_exact_rfc822_and_attachment_in_source_custody(tmp_path: Path) -> None:
     attachment_bytes = b"\x00synthetic-attachment\xff\r\nexact"
     message = EmailMessage()
