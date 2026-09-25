@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-25 - 이력 파일 교환의 일별 분할과 결과 표시
+
+- Revision `d8be687d`: prepare가 일별 입력을 8,000자 이하 묶음으로 제공하고, 외부 작성자의 JSON에서 형식 오류·출처 연결 오류가 남은 묶음은 미처리로 보존한다.
+- finalize가 인용 안 된 자료 수를 계산한다. 큰 일별 근거 카드는 불변 묶음 파일에 나눠 저장하고 보는 판에서 지문 확인 후 합친다. 공용 입력 한도는 유지한다.
+- 운영 영향: 일별 파일 인계 결과와 미처리 사유를 확인할 수 있다. 예약·기본 route·운영 writer는 변경하지 않는다.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs`, `guild_hall/context_engine/src/knowledge_layer/history.mjs`, `guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md`.
+
 ## 2026-09-25 - 이력 작성의 준비·외부 초안·마감 파일 인계
 
 - 이력 CLI의 모델 호출을 제거하고 prepare와 finalize 두 명령으로 분리한다. 자료·맥락 묶음과 문장/근거 번호 JSON 계약을 고정한다.
