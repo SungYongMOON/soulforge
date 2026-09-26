@@ -9,14 +9,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { writeFile, readFile, readdir, rm, utimes } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
 import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REJECTED_SHAPE, CANNED_REEMBEDDING, CANNED_REEMBED_DIGEST, CANNED_RULES_SHA256, CANNED_WORKER_SHA256,
   INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
-import { GRAPH_EXTRACTION_BATCH, GRAPH_EXTRACTION_CHECKPOINT_AREA, GRAPH_INDEX_AREAS, admitCheckpoint, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
+import { GRAPH_CHECKPOINT_MAX_AGE_MS, GRAPH_EXTRACTION_BATCH, GRAPH_EXTRACTION_CHECKPOINT_AREA, GRAPH_INDEX_AREAS, admitCheckpoint,
+  extractionCheckpointKey, extractionRevisionSha256, graphProfilePin, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
   KNOWN_RULE_EQUIVALENT_WORKERS, reembedGraphIndex, sameModelRevision, selectGraphIndexGeneration,
   updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
@@ -581,7 +582,11 @@ test('accepted batches are checkpointed: a run held by a failed call is resumed 
   assert.deepEqual({ status: held.status, code: held.code, written: held.checkpoints.written },
     { status: 'HOLD', code: 'graph_worker_timeout', written: 1 });
   assert.equal(existsSync(path.join(store.storeRoot, PROJECT, GRAPH_INDEX_AREAS.index, 'generations')), false, 'a held run writes no generation');
-  assert.equal((await checkpointFiles(store)).length, 1, 'the accepted document was kept');
+  const kept = await checkpointFiles(store);
+  assert.equal(kept.length, 1, 'the accepted document was kept');
+  assert.deepEqual({ files: held.checkpoints.files, bytes: held.checkpoints.bytes > 0 }, { files: 1, bytes: true },
+    'a held run reports the checkpoint area it leaves');
+  const body = JSON.parse(await readFile(path.join(store.storeRoot, PROJECT, GRAPH_EXTRACTION_CHECKPOINT_AREA, kept[0]), 'utf8'));
 
   const resumed = cannedWorker();
   const done = await update(store, indexer({ generation_id: 'g2', expected_prior: null }), resumed);
@@ -593,10 +598,11 @@ test('accepted batches are checkpointed: a run held by a failed call is resumed 
     [['memo-a', true], ['memo-b', false]]);
   for (const row of view.manifest.documents) assert.equal(view.readFragment(row.doc_key).stats.chunks, 2);
 
+  // The committed generation holds both fragments now: both checkpoints are pruned.
+  assert.deepEqual({ pruned: done.checkpoints.pruned, files: done.checkpoints.files, left: (await checkpointFiles(store)).length },
+    { pruned: 2, files: 0, left: 0 });
+
   // A checkpoint is re-verified, never trusted: an altered one is a miss.
-  const files = await checkpointFiles(store);
-  assert.equal(files.length, 2, 'the resumed document was checkpointed too');
-  const body = JSON.parse(await readFile(path.join(store.storeRoot, PROJECT, GRAPH_EXTRACTION_CHECKPOINT_AREA, files[0]), 'utf8'));
   const admit = value => admitCheckpoint({ bytes: Buffer.from(JSON.stringify(value)), key: body.key,
     document: view.readDocument(body.fragment.doc_key), projectKey: view.manifest.project_key, models: view.manifest.model });
   assert.ok(admit(body), 'the stored checkpoint verifies as it is');
@@ -617,4 +623,78 @@ test('a refused answer’s outline is kept only when it carries no text', async 
   assert.equal(Object.hasOwn(shape, 'skeleton'), false, 'an outline with text in it is dropped whole');
   assert.deepEqual(shape.unknown_top_level_key_names, ['entities']);
   assert.equal(JSON.stringify(result.excluded).includes('전원'), false);
+});
+
+test('when a refusal cannot be placed on a record, the whole batch is left out rather than guessed', async () => {
+  const store = await makeStore();
+  // One batch of both documents; the refused one's call trace comes back one row short.
+  const unplaceable = cannedWorker({ refuseTitles: ['전원'], dropTraceRows: 1 });
+  const held = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), unplaceable);
+  assert.deepEqual({ status: held.status, code: held.code, excluded: held.excluded.map(row => row.reason) },
+    { status: 'HOLD', code: 'graph_extraction_degraded', excluded: ['extraction_unattributed', 'extraction_unattributed'] });
+  // The same refusal with a whole trace is placed on its own document.
+  const placeable = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker({ refuseTitles: ['전원'] }));
+  assert.deepEqual({ status: placeable.status, excluded: placeable.excluded.map(row => [row.item_id, row.reason]) },
+    { status: 'COMMITTED', excluded: [['memo-b', 'extraction_refused']] });
+});
+
+test('a checkpoint key moves with the profile schema, the rules, the worker build and the unit boundaries', async () => {
+  const store = await makeStore();
+  await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker());
+  const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
+  const document = view.readDocument(view.manifest.documents[0].doc_key), models = view.manifest.model;
+  const key = changes => extractionCheckpointKey({ document, projectKey: view.manifest.project_key, models, ...changes });
+  const base = key({});
+  assert.equal(key({ profile: graphProfilePin() }), base, 'the default profile is the pinned one');
+  assert.notEqual(key({ profile: { ...graphProfilePin(), schema_sha256: 'sha256:' + '1'.repeat(64) } }), base, 'profile schema');
+  assert.notEqual(key({ models: { ...models, tool: { ...models.tool, rules_sha256: 'sha256:' + '2'.repeat(64) } } }), base, 'rules');
+  assert.notEqual(key({ models: { ...models, tool: { ...models.tool, worker_sha256: 'sha256:' + '3'.repeat(64) } } }), base, 'worker build');
+  assert.notEqual(key({ models: { ...models, options: { ...models.options, seed: 8 } } }), base, 'model options');
+  const joined = { ...document, units: [{ ...document.units[0], text: document.units.map(unit => unit.text).join('') }] };
+  assert.notEqual(extractionCheckpointKey({ document: joined, projectKey: view.manifest.project_key, models }), base,
+    'the same text cut at other unit boundaries');
+  // What a ledger compares to decide whether to offer a given-up document again:
+  // the rules and the model, not the worker file.
+  const revision = extractionRevisionSha256(models);
+  assert.equal(extractionRevisionSha256({ ...models, tool: { ...models.tool, worker_sha256: 'sha256:' + '3'.repeat(64) } }), revision);
+  assert.notEqual(extractionRevisionSha256({ ...models, tool: { ...models.tool, rules_sha256: 'sha256:' + '2'.repeat(64) } }), revision);
+});
+
+test('after a commit, embodied and aged-out checkpoints are pruned; nothing else in the area is touched', async () => {
+  const store = await oneDocumentBatches();
+  await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker({ failTitles: ['전원'] }));
+  const area = path.join(store.storeRoot, PROJECT, GRAPH_EXTRACTION_CHECKPOINT_AREA);
+  const orphan = path.join(area, `${'9'.repeat(64)}.json`), recent = path.join(area, `${'8'.repeat(64)}.json`);
+  const other = path.join(area, 'README.txt');
+  for (const file of [orphan, recent, other]) await writeFile(file, '{}');
+  const old = new Date(Date.now() - GRAPH_CHECKPOINT_MAX_AGE_MS - 60_000);
+  await utimes(orphan, old, old);
+  const done = await update(store, indexer({ generation_id: 'g2', expected_prior: null }), cannedWorker());
+  assert.deepEqual({ status: done.status, pruned: done.checkpoints.pruned, files: done.checkpoints.files },
+    { status: 'COMMITTED', pruned: 3, files: 1 }, 'two embodied + one orphan pruned; the recent unknown one is kept');
+  assert.deepEqual((await readdir(area)).sort(), ['8'.repeat(64) + '.json', 'README.txt']);
+});
+
+test('a generation that leaves documents out must account for every prepared item', async () => {
+  const store = await oneDocumentBatches();
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker({ refuseTitles: ['전원'] }));
+  assert.equal(first.status, 'COMMITTED');
+  const manifest = JSON.parse(await readFile(path.join(store.storeRoot, first.manifest_ref.path), 'utf8'));
+  const forged = async (id, change) => {
+    const body = { ...manifest, generation_id: id, ...change };
+    return store.put(`${PROJECT}/${GRAPH_INDEX_AREAS.index}/generations/${id}/generation.json`, body);
+  };
+  const open = generationRef => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader,
+    generationRef });
+  assert.equal(open(first.manifest_ref).manifest.excluded.length, 1, 'the committed generation accounts for all of it');
+  const gx1 = await forged('gx1', { excluded: [] });
+  assert.throws(() => open(gx1), { code: 'graph_index_manifest_incomplete' }, 'a silently dropped document');
+  const gx2 = await forged('gx2', { excluded: [...manifest.excluded, { ...manifest.excluded[0] }] });
+  assert.throws(() => open(gx2), { code: 'graph_index_manifest_invalid' }, 'a document named twice');
+  const gx3 = await forged('gx3', { excluded: [{ ...manifest.excluded[0], doc_key: manifest.documents[0].doc_key }] });
+  assert.throws(() => open(gx3), { code: 'graph_index_manifest_invalid' }, 'a document both held and left out');
+  const { excluded, ...legacy } = manifest;
+  const legacyRef = await store.put(`${PROJECT}/${GRAPH_INDEX_AREAS.index}/generations/gx4/generation.json`,
+    { ...legacy, generation_id: 'gx4' });
+  assert.equal(open(legacyRef).manifest.generation_id, 'gx4', 'a generation from before `excluded` is read as before');
 });

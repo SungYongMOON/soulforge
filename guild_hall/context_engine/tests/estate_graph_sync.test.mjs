@@ -14,8 +14,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAPH_SYNC_CANDIDATE_SCHEMA, GRAPH_SYNC_PENDING_SCHEMA, GRAPH_SYNC_PREFLIGHT_DIR,
   GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA, SYNC_LIMITS, aliasAddressFor, clearCompleted,
-  acquireSyncPassLock, grantDifference, holdBack, nextGenerationId, readLedger, refreshCandidates, rejectionDiagnostic,
-  syncProject } from '../harness/estate_graph_sync.mjs';
+  SYNC_LOCK_MAX_AGE_HOURS, acquireSyncPassLock, grantDifference, holdBack, nextGenerationId, readLedger, recordIndexOutcome,
+  refreshCandidates, reofferFailed, reofferFailedItems, rejectionDiagnostic, syncProject } from '../harness/estate_graph_sync.mjs';
 import { INDEX_FS_KEY, INDEX_PROJECT, makeGraphIndexStore } from '../harness/fixtures/graph_index_fixture.mjs';
 import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
@@ -293,10 +293,10 @@ test('a pass that finds either lock held writes no grant, no binding and no ledg
   const passLock = path.join(store.storeRoot, INDEX_PROJECT, '00_프로젝트_안내', 'graph_sync.lock');
 
   for (const [file, heldBy] of [[indexLock, 'graph_index'], [passLock, 'graph_sync']]) {
-    await writeFile(file, JSON.stringify({ lock_id: 'another', pid: 4242, started_at: NOW }));
+    await writeFile(file, JSON.stringify({ lock_id: 'another', pid: process.pid, started_at: NOW }));
     const result = await syncProject({ io, rootTable, project, receiptsDir, now: NOW });
     assert.deepEqual({ status: result.status, code: result.code, lock: result.lock },
-      { status: 'HOLD', code: 'graph_index_locked', lock: { held_by: heldBy, holder: { pid: 4242, started_at: NOW } } });
+      { status: 'HOLD', code: 'graph_index_locked', lock: { held_by: heldBy, holder: { pid: process.pid, started_at: NOW }, reclaimed: [] } });
     assert.ok((await readFile(bindingFile)).equals(before), 'the binding the running pass pinned is untouched');
     assert.deepEqual((await readdir(grantsDir)).sort(), grantsBefore, 'no grant was placed');
     assert.equal(existsSync(receiptsDir), false, 'no ledger, candidate file or binding copy was written');
@@ -331,4 +331,116 @@ test('a receipt says why documents were left out, counted by the shape of the re
     top_level_type: null, unknown_top_level_key_names: [], count: 20, example_skeleton: shape.skeleton }]);
   assert.equal(rejectionDiagnostic({ status: 'COMMITTED', excluded: [] }), null, 'nothing left out, nothing to say');
   assert.equal(rejectionDiagnostic(null), null);
+});
+
+// The same synthetic estate as above, for the tests below.
+async function syncEstate() {
+  const store = await makeGraphIndexStore();
+  const dataRoot = realpathSync(path.join(store.storeRoot, 'data_root'));
+  const controlRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-sync-estate-control-')));
+  const tablePath = path.join(controlRoot, 'root_table.json');
+  await writeFile(tablePath, `${JSON.stringify({ schema_version: ROOT_TABLE_SCHEMA,
+    roots: { data_root: dataRoot, control_root: controlRoot } })}\n`);
+  const rootTable = readRootTable({ tablePath, expectedSha256: sha256Of(await readFile(tablePath)) });
+  const io = createAliasedStoreIo(rootTable);
+  const admission = await store.put(`${INDEX_PROJECT}/00_프로젝트_안내/admission.synthetic.json`,
+    { admission_id: 'admission.synthetic', source_refs: [] });
+  const bindingFile = path.join(controlRoot, 'project-bindings', INDEX_FS_KEY, 'graph_index_binding.unified.json');
+  await mkdir(path.dirname(bindingFile), { recursive: true });
+  await writeFile(bindingFile, JSON.stringify({ ...store.binding, admission }));
+  const guide = path.join(store.storeRoot, INDEX_PROJECT, '00_프로젝트_안내');
+  return { store, io, rootTable, bindingFile, controlRoot, guide, receiptsDir: path.join(controlRoot, 'receipts', INDEX_FS_KEY),
+    passLock: path.join(guide, 'graph_sync.lock'), indexLock: path.join(guide, 'graph_index.lock') };
+}
+const deadPid = () => spawnSync(process.execPath, ['-e', '']).pid;
+
+test('a stale lock -- its process gone, or older than the age bound -- is renamed aside and taken; a live one is not', async () => {
+  const estate = await syncEstate();
+  const take = now => acquireSyncPassLock({ io: estate.io, storePath: INDEX_PROJECT, now });
+  const later = new Date(Date.parse(NOW) + (SYNC_LOCK_MAX_AGE_HOURS + 1) * 3600 * 1000).toISOString();
+
+  await writeFile(estate.passLock, JSON.stringify({ lock_id: 'crashed', pid: deadPid(), started_at: NOW }));
+  const afterCrash = take(NOW);
+  assert.equal(afterCrash.held, false);
+  assert.deepEqual(afterCrash.reclaimed.map(row => [row.lock, row.reason]), [['graph_sync.lock', 'owner_process_gone']]);
+  const aside = path.join(estate.guide, afterCrash.reclaimed[0].kept_as);
+  assert.equal(JSON.parse(await readFile(aside, 'utf8')).lock_id, 'crashed', 'the stale lock is kept aside, not deleted');
+  assert.notEqual(JSON.parse(await readFile(estate.passLock, 'utf8')).lock_id, 'crashed', 'the new lock is this pass’s');
+  afterCrash.release();
+
+  // A live process younger than the bound keeps its lock; past the bound it is stuck.
+  await writeFile(estate.passLock, JSON.stringify({ lock_id: 'live', pid: process.pid, started_at: NOW }));
+  assert.deepEqual({ held: take(NOW).held, by: take(NOW).held_by }, { held: true, by: 'graph_sync' });
+  const stuck = take(later);
+  assert.deepEqual(stuck.reclaimed.map(row => row.reason), ['older_than_max_age']);
+  stuck.release();
+
+  // The index writer's lock is reclaimed by the same rule, only under the pass lock.
+  await writeFile(estate.indexLock, JSON.stringify({ lock_id: 'index-crashed', pid: deadPid(), started_at: NOW }));
+  const index = take(NOW);
+  assert.deepEqual({ held: index.held, reclaimed: index.reclaimed.map(row => row.lock) }, { held: false, reclaimed: ['graph_index.lock'] });
+  assert.equal(existsSync(estate.indexLock), false);
+  index.release();
+  await writeFile(estate.indexLock, JSON.stringify({ lock_id: 'index-live', pid: process.pid, started_at: NOW }));
+  const blocked = take(NOW);
+  assert.deepEqual({ held: blocked.held, by: blocked.held_by }, { held: true, by: 'graph_index' });
+  assert.equal(existsSync(estate.passLock), false, 'a refused pass leaves no lock of its own');
+  await rm(estate.indexLock);
+});
+
+test('a binding that moved while the pass read its scope is not overwritten by the stale copy', async () => {
+  const estate = await syncEstate();
+  const newer = Buffer.from(JSON.stringify({ ...JSON.parse(await readFile(estate.bindingFile, 'utf8')), note: 'newer' }));
+  const result = await syncProject({ io: estate.io, rootTable: estate.rootTable, project: INDEX_FS_KEY, receiptsDir: estate.receiptsDir,
+    now: NOW, hooks: { beforeLock: () => writeFile(estate.bindingFile, newer) } });
+  assert.deepEqual({ status: result.status, code: result.code }, { status: 'HOLD', code: 'graph_sync_binding_changed' });
+  assert.ok((await readFile(estate.bindingFile)).equals(newer), 'the newer binding stands');
+  assert.equal(existsSync(estate.receiptsDir), false, 'nothing else was written');
+  assert.equal(existsSync(estate.passLock), false, 'the pass lock was released');
+});
+
+test('a document left out three passes running stops being offered, and is offered again on request or on a new model revision', async () => {
+  const ledger = readLedger(await mkdtemp(path.join(os.tmpdir(), 'ctx-sync-exclude-')), 'P26-014');
+  const excluded = [{ root_ref: 'mail.synthetic', item_id: 'm1', reason: 'extraction_refused' }];
+  const pass = revision => recordIndexOutcome(ledger, { now: NOW,
+    updated: { status: 'COMMITTED', excluded, model_revision_sha256: revision } });
+  const states = [];
+  for (let run = 0; run < SYNC_LIMITS.item_attempts; run++) states.push(pass('sha256:' + 'a'.repeat(64)).rows[0].state);
+  assert.deepEqual(states, ['pending', 'pending', 'failed']);
+  assert.equal(ledger.items['mail.synthetic|m1'].code, 'extraction_refused');
+  // A HOLD pass does not count an attempt; an unchanged revision re-offers nothing.
+  assert.deepEqual(recordIndexOutcome(ledger, { now: NOW, updated: { status: 'HOLD', excluded, model_revision_sha256: 'sha256:' + 'a'.repeat(64) } }),
+    { rows: [], reoffered: 0 });
+  assert.equal(ledger.items['mail.synthetic|m1'].attempts, SYNC_LIMITS.item_attempts);
+  // An unreadable source is not something a new model can cure.
+  holdBack(ledger, { root_ref: 'mail.synthetic', item_id: 'm2', code: 'unreadable', now: NOW });
+  ledger.items['mail.synthetic|m2'].state = 'failed';
+  const moved = recordIndexOutcome(ledger, { now: NOW, updated: { status: 'HOLD', model_revision_sha256: 'sha256:' + 'b'.repeat(64) } });
+  assert.equal(moved.reoffered, 1);
+  assert.deepEqual([ledger.items['mail.synthetic|m1'].state, ledger.items['mail.synthetic|m1'].attempts,
+    ledger.items['mail.synthetic|m1'].reoffer_reason, ledger.items['mail.synthetic|m2'].state],
+  ['pending', 0, 'extraction_revision_changed', 'failed']);
+  assert.equal(reofferFailed(ledger, { selector: ['m2'], now: NOW, reason: 'owner_retry_failed' }), 1);
+  assert.equal(reofferFailed(ledger, { selector: 'all', now: NOW, reason: 'owner_retry_failed' }), 0, 'nothing is failed any more');
+});
+
+test('--retry-failed re-offers in the ledger only, under the pass lock', async () => {
+  const estate = await syncEstate();
+  const ledger = readLedger(estate.receiptsDir, INDEX_FS_KEY);
+  for (let run = 0; run < SYNC_LIMITS.item_attempts; run++) {
+    holdBack(ledger, { root_ref: 'mail.synthetic', item_id: 'm1', code: 'extraction_refused', now: NOW });
+  }
+  await mkdir(estate.receiptsDir, { recursive: true });
+  await writeFile(path.join(estate.receiptsDir, 'pending.json'), JSON.stringify({ ...ledger, updated_at: NOW }));
+  const before = await readFile(path.join(estate.receiptsDir, 'pending.json'));
+  await writeFile(estate.passLock, JSON.stringify({ lock_id: 'live', pid: process.pid, started_at: NOW }));
+  const held = reofferFailedItems({ io: estate.io, project: INDEX_FS_KEY, receiptsDir: estate.receiptsDir, selector: 'all', now: NOW });
+  assert.deepEqual({ status: held.status, code: held.code }, { status: 'HOLD', code: 'graph_index_locked' });
+  assert.ok((await readFile(path.join(estate.receiptsDir, 'pending.json'))).equals(before), 'a running pass’s ledger is not raced');
+  await rm(estate.passLock);
+  const done = reofferFailedItems({ io: estate.io, project: INDEX_FS_KEY, receiptsDir: estate.receiptsDir,
+    selector: ['mail.synthetic|m1'], now: NOW });
+  assert.deepEqual(done, { project_code: INDEX_FS_KEY, status: 'REOFFERED', count: 1 });
+  assert.equal(readLedger(estate.receiptsDir, INDEX_FS_KEY).items['mail.synthetic|m1'].state, 'pending');
+  assert.equal(existsSync(estate.passLock), false);
 });

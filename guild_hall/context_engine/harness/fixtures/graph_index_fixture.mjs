@@ -111,7 +111,10 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
   refuseTitles = [], rejectedShape = CANNED_REJECTED_SHAPE,
   // Documents (by title substring) whose worker call fails outright, the way a
   // call that overran its timeout does: nothing comes back for that batch.
-  failTitles = [] } = {}) {
+  failTitles = [],
+  // A trace that comes back this many rows short for a request holding a refused
+  // document: the refusals can then no longer be placed on a record by position.
+  dropTraceRows = 0 } = {}) {
   const calls = { probe: 0, extract: 0, embed: 0, extracted: [], embedded: [], batches: [], refused: 0 };
   const reported = spec => (spec ? { embedder: { model: spec.model, digest: embedderDigest } } : {});
   async function runWorker({ request }) {
@@ -163,7 +166,7 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
     return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', packages, rules_sha256: rulesSha256,
       models: { llm: { model: request.profile.llm.model, digest }, ...reported(request.profile.embedder) },
       embedder_calls: request.profile.embedder ? units.length : 0, fragments, budget_exhausted: budgetExhausted,
-      llm_calls: units.map((unit, index) => {
+      llm_calls: units.slice(0, units.some(unit => unit.refused) ? units.length - dropTraceRows : units.length).map((unit, index) => {
         const refused = unit.refused || index < invalidOutputs;
         return { call: index + 1,
           status: budgetExhausted && index > 0 ? 'budget_exhausted' : refused ? 'invalid_output' : 'ok',

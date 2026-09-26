@@ -258,6 +258,38 @@ P26-014가 09-22부터 한 번도 그래프 동기화를 끝내지 못했다. �
   하나), 앞 20건 문서의 호출 상태·모양이 들어가고, HOLD 회차에도 `llm` 수치가 남는다. 문서 원문·제목은
   들어가지 않는다. 추출 규칙 해시(`rules_sha256`)는 바뀌지 않았으므로 기존 fragment는 그대로 carry된다.
 
+**보강 (같은 lane graph-sync-v5, 배포 전 2026-09-26)**
+
+- **죽은 잠금 회수**: `graph_sync.lock`(그리고 패스 잠금을 잡은 뒤의 `graph_index.lock`)은 보유 프로세스가
+  없거나(`process.kill(pid, 0)`이 ESRCH) 시작 시각이 `SYNC_LOCK_MAX_AGE_HOURS`(30시간)를 넘으면 회수한다.
+  잠금 파일을 `<잠금>.stale-<시각>-<id>`로 옆에 **옮겨 보존**하고(지우지 않음), 옮긴 사본을 다시 읽어 판정한
+  그 잠금인지 확인한 뒤에만 새 잠금을 배타 생성한다. 그 사이 잠금이 바뀌었으면 되돌려 놓고 보유 중으로 본다.
+  회수 내역은 영수증 `lock_reclaimed`(잠금·pid·시작 시각·사유·보존 이름)에 남는다. 30시간 넘게 살아 있는
+  회차는 멈춘 것으로 본다(지금까지 최장 23.8시간).
+- **잠금 뒤 binding 재확인**: 범위는 잠금 전에 읽으므로, 잠금을 잡은 직후 binding을 다시 해시해 처음 읽은
+  것과 다르면 아무것도 쓰지 않고 `HOLD graph_sync_binding_changed`로 끝난다. grant를 새로 놓기 직전마다
+  binding이 이 회차가 마지막으로 읽거나 쓴 바이트인지 다시 확인한다(아니면 같은 코드로 실패).
+- **체크포인트 정리**: 커밋 직후, 이번 세대가 fragment로 품은 문서의 체크포인트와 14일
+  (`GRAPH_CHECKPOINT_MAX_AGE_MS`)이 지난 고아(모델·규칙이 바뀌었거나 grant에서 빠진 문서)를 지운다. 이 영역의
+  64자 키 이름 `.json` 일반 파일만, 잠금 보유자만 지운다. 결과·영수증 `steps.index.checkpoints`에
+  `reused/written/invalid/pruned`와 남은 `files/bytes`가 들어간다. 백업 분류는 **재생성 가능 → 백업 제외**
+  (Plan 17 저장소 지도에 기록).
+- **manifest 계정 검사**: `excluded` 목록을 가진 세대는 `documents`와 `excluded`가 겹치지 않고, 합치면
+  coverage의 `prepared` 항목 doc_key 집합과 정확히 같아야 읽힌다(아니면 `graph_index_manifest_incomplete`).
+  `excluded` 이전 세대는 예전대로 읽는다. 재임베딩 세대는 원본의 `excluded`를 그대로 옮긴다.
+- **`failed` 문서 다시 올리기**: 원장만 고치고 끝나는 명령이다(색인·DB·모델 호출 없음). 패스 잠금을 잡으므로
+  돌고 있는 회차가 있으면 `HOLD graph_index_locked`로 거절되고, 다음 정기 회차가 그 문서를 다시 제시한다.
+
+  ```text
+  node <lane>/guild_hall/context_engine/harness/estate_graph_sync.mjs --root-table <root table> \
+       --root-table-sha256 sha256:... --projects P26-014 --receipts <정기 작업과 같은 receipts 폴더> \
+       --retry-failed all            # 또는 --retry-failed "<root_ref>|<item_id>,<item_id>"
+  ```
+
+  자동으로도 다시 올린다: 원장이 기억하는 추출 리비전(`model_revision_sha256` — 모델·digest·옵션·추출 규칙
+  해시, 워커 파일 전체 해시는 제외)이 바뀐 회차 뒤에는 추출 사유(`extraction_*`, `chunk_mismatch`)로 `failed`가
+  된 항목을 `pending`(시도 0)으로 되돌린다. 읽을 수 없는 원본 같은 다른 사유는 그대로 둔다.
+
 ### 시작조차 못 한 회차도 영수증을 남긴다 (`harness/estate_graph_sync.mjs`, lane graph-sync-v4)
 
 밤 사슬도, 감시자도 **영수증을 읽는다**. 그런데 `estate_graph_sync.mjs`는 과제 루프에

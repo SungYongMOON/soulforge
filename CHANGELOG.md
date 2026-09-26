@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-09-26 - 그래프 동기화 보강: 죽은 잠금 회수·잠금 뒤 binding 재확인·체크포인트 정리·failed 재제시 (lane graph-sync-v5, 배포 전)
+
+- Why: 부분 커밋 조각(b543c3e2) 검토 후속. 강제 종료된 회차의 잠금이 과제를 영구히 막을 수 있었고, 잠금 전에 읽은
+  binding 사본이 더 새 binding을 덮을 수 있었으며, 체크포인트는 쌓이기만 했고, `failed`가 된 문서를 다시 올릴
+  길이 없었다. `excluded`를 가진 세대가 준비된 항목을 빠짐없이 설명하는지도 검사하지 않았다.
+- 고침: `estate_graph_sync.mjs` — 보유 프로세스가 없거나 30시간을 넘긴 `graph_sync.lock`·`graph_index.lock`을
+  옆으로 옮겨 보존한 뒤 재확인·배타 생성으로 회수(영수증 `lock_reclaimed`); 잠금 직후 binding 재해시, 다르면
+  무작성 `HOLD graph_sync_binding_changed`, grant를 놓을 때마다 재확인; 원장 전용 `--retry-failed all|<root|item>`과
+  추출 리비전이 바뀌면 추출 사유 `failed`를 자동 재제시(`recordIndexOutcome`). `graph_index_generation.mjs` —
+  커밋 뒤 품은 체크포인트와 14일 넘은 고아 정리, 결과에 `pruned/files/bytes`, `model_revision_sha256`;
+  `verifyManifest`가 `documents ∪ excluded == coverage prepared`(서로소)를 검사(옛 세대는 예전대로), 재임베딩이
+  `excluded`를 옮김.
+- 문서: context_engine README(회수·재확인·정리·재제시 명령), Plan 17 저장소 지도에 `extraction_checkpoints/`와
+  백업 분류(재생성 가능 → 백업 제외).
+- lane: `graph-sync-v5` 그대로(아직 빌드·배포 전). 운영 lane·예약작업·저장소는 건드리지 않았다.
+- 검증: 합성 시험 — 배치 전체 제외 fallback, 제외 3회 → failed, 리비전 변경 재제시, `--retry-failed` 잠금 하 원장만,
+  체크포인트 키(profile schema·규칙·워커·단위 경계), 정리, manifest 계정, 죽은 pid·나이 초과 잠금 회수, binding 재확인.
+
 ## 2026-09-26 - 그래프 동기화: 거부된 문서만 빼고 커밋·추출 체크포인트·잠금 뒤 설정 쓰기 (lane graph-sync-v5)
 
 - Why: P26-014가 09-22부터 그래프 동기화를 끝내지 못했다. 추출 대기가 약 420건으로 는 뒤 한 배치라도 모델 답이

@@ -33,7 +33,8 @@
 // The harness holds no address of its own: the root table is the one absolute
 // path, the binding names the database and the sources, and where receipts go is
 // an argument. It calls no model beyond the extraction and embedding the index
-// generation already does, and it never deletes a store file.
+// generation already does, and it never deletes a store file (the index writer
+// prunes only its own extraction checkpoint cache; stale locks are renamed aside).
 //
 // Who decides which mail is a project's: the workspace ledgers, when
 // `--mail-attribution` names their published index, and the inventory's older
@@ -46,9 +47,11 @@
 //        [--mail-attribution-max-age <hours>] [--mail-attribution-org-config <alias address>]
 //        [--mail-attribution-owner-tables <alias address of the folder holding them>]
 //        [--root-table-sha256 sha256:...] [--json]
+//   node estate_graph_sync.mjs --root-table <file> --projects P26-014 --receipts <dir>
+//        --retry-failed all|<root_ref|item_id>[,...]      (ledger only; the next pass offers them)
 import { createHash, randomUUID } from 'node:crypto';
-import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readdirSync, unlinkSync, writeFileSync,
-  writeSync } from 'node:fs';
+import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync,
+  writeFileSync, writeSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
@@ -147,8 +150,58 @@ export function readLedger(receiptsDir, project) {
   return held?.schema_version === GRAPH_SYNC_PENDING_SCHEMA && held.project_code === project
     && held.items !== null && typeof held.items === 'object'
     ? { schema_version: GRAPH_SYNC_PENDING_SCHEMA, project_code: project, updated_at: held.updated_at ?? null,
+      extraction_revision: typeof held.extraction_revision === 'string' ? held.extraction_revision : null,
       items: { ...held.items } }
-    : { schema_version: GRAPH_SYNC_PENDING_SCHEMA, project_code: project, updated_at: null, items: {} };
+    : { schema_version: GRAPH_SYNC_PENDING_SCHEMA, project_code: project, updated_at: null, extraction_revision: null, items: {} };
+}
+
+// Codes a model or rules change can cure: a refusal of the model's answer, not
+// an unreadable source.
+const EXTRACTION_CODES = /^(?:extraction_|chunk_mismatch)/u;
+
+/**
+ * Offers given-up items again: `failed` goes back to `pending` with its attempts
+ * reset, and the row says when and why. `selector` is 'all', or a list of
+ * `root_ref|item_id` or bare item ids. `only` narrows by code. Returns the count.
+ */
+export function reofferFailed(ledger, { selector, now, reason, only = null }) {
+  const wanted = selector === 'all' ? null : new Set(selector);
+  let count = 0;
+  for (const [key, row] of Object.entries(ledger.items)) {
+    if (row.state !== 'failed') continue;
+    if (wanted !== null && !wanted.has(key) && !wanted.has(row.item_id)) continue;
+    if (only !== null && !only.test(String(row.code ?? ''))) continue;
+    ledger.items[key] = { ...row, state: 'pending', attempts: 0, reoffered_at: now, reoffer_reason: reason };
+    count++;
+  }
+  return count;
+}
+
+/**
+ * The documents a committed (or unchanged) index left out, held back like any
+ * refused record: offered again next pass, `failed` after SYNC_LIMITS.item_attempts.
+ * When the extraction revision (model, options, rules) moved since the ledger last
+ * saw one, the items it gave up on for extraction reasons are offered again first --
+ * a different model may read them. Returns the rows for the receipt.
+ */
+export function recordIndexOutcome(ledger, { updated, now }) {
+  const rows = [];
+  let reoffered = 0;
+  const revision = typeof updated?.model_revision_sha256 === 'string' ? updated.model_revision_sha256 : null;
+  if (revision !== null) {
+    if (ledger.extraction_revision !== null && ledger.extraction_revision !== undefined && ledger.extraction_revision !== revision) {
+      reoffered = reofferFailed(ledger, { selector: 'all', now, reason: 'extraction_revision_changed', only: EXTRACTION_CODES });
+    }
+    ledger.extraction_revision = revision;
+  }
+  if (updated && updated.status !== 'HOLD') {
+    for (const row of updated.excluded ?? []) {
+      const state = holdBack(ledger, { root_ref: row.root_ref, item_id: row.item_id, code: row.reason, by: 'extraction', now });
+      rows.push({ root_ref: row.root_ref, item_id: row.item_id, code: row.reason, by: 'extraction',
+        attempts: state.attempts, state: state.state });
+    }
+  }
+  return { rows, reoffered };
 }
 
 /** Records one item as held back, with the code that held it and the count so far. */
@@ -214,40 +267,94 @@ export function refreshCandidates({ held, project, manifest, now }) {
 const SYNC_LOCK = '00_프로젝트_안내/graph_sync.lock';
 const INDEX_LOCK = '00_프로젝트_안내/graph_index.lock';
 
+// A lock older than this is taken to be stuck even when a process with its pid
+// still exists (a pid can be reused). The longest pass seen took 23.8 hours.
+export const SYNC_LOCK_MAX_AGE_HOURS = 30;
+
+// Whether the process a lock names is still running on this host: true, false,
+// or null when that cannot be told (no pid in the lock).
+function pidAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return null;
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return error?.code === 'ESRCH' ? false : error?.code === 'EPERM' ? true : null; }
+}
+
 /**
  * Takes this project's pass lock, create-only, before a pass writes anything. It
  * is refused when another pass holds it, and also when the index writer's own lock
  * is held by anyone (a manual update, a re-embedding). The holder is read back and
- * reported -- process and start time -- so a stale lock can be told from a live
- * one; nothing here ever removes a lock it did not take.
+ * reported -- process and start time.
+ *
+ * A lock whose process is gone, or which is older than SYNC_LOCK_MAX_AGE_HOURS, is
+ * reclaimed: renamed aside (kept, never deleted, as `<lock>.stale-<instant>-<id>`),
+ * the aside copy re-read to prove it is the lock that was judged stale, and only
+ * then is a new lock created exclusively. A lock that changed between the reading
+ * and the rename is put back and counts as held. The index lock is only reclaimed
+ * while this pass already holds its own.
  */
 export function acquireSyncPassLock({ io, storePath, now = new Date().toISOString() }) {
-  const holderOf = address => {
-    let text;
-    try { text = readFileSync(io.path(`${storePath}/${address}`), 'utf8'); } catch { return null; }
+  const reclaimed = [];
+  const addressOf = name => `${storePath}/${name}`;
+  const readLockFile = name => { try { return readFileSync(io.path(addressOf(name)), 'utf8'); } catch { return null; } };
+  const holderOf = text => {
     try {
       const value = JSON.parse(text);
       return { pid: Number.isSafeInteger(value?.pid) ? value.pid : null,
         started_at: typeof value?.started_at === 'string' ? value.started_at.slice(0, 40) : null };
     } catch { return { pid: null, started_at: null }; }
   };
-  const target = io.path(`${storePath}/${SYNC_LOCK}`, true);
+  const staleness = (name, holder) => {
+    if (pidAlive(holder.pid) === false) return 'owner_process_gone';
+    let startedMs = Date.parse(holder.started_at ?? '');
+    if (!Number.isFinite(startedMs)) { try { startedMs = statSync(io.path(addressOf(name))).mtimeMs; } catch { return null; } }
+    const age = Date.parse(now) - startedMs;
+    return age > SYNC_LOCK_MAX_AGE_HOURS * 3600 * 1000 ? 'older_than_max_age' : null;
+  };
+  // Returns true when the named lock is absent afterwards, false when it is held.
+  const clearIfStale = name => {
+    const text = readLockFile(name);
+    if (text === null) return true;
+    const holder = holderOf(text), reason = staleness(name, holder);
+    if (reason === null) return false;
+    const aside = `${name}.stale-${now.replace(/[-:.]/gu, '').slice(0, 15)}-${randomUUID().slice(0, 8)}`;
+    try { renameSync(io.path(addressOf(name)), io.path(addressOf(aside), true)); }
+    catch (error) { return error?.code === 'ENOENT'; }
+    if (readLockFile(aside) !== text) {
+      // Someone replaced the lock between the read and the rename: that one is live.
+      try { renameSync(io.path(addressOf(aside)), io.path(addressOf(name), true)); } catch { /* left aside, reported */ }
+      return false;
+    }
+    reclaimed.push({ lock: name.split('/').pop(), ...holder, reason, kept_as: aside.split('/').pop() });
+    return true;
+  };
+  const target = io.path(addressOf(SYNC_LOCK), true);
   const content = JSON.stringify({ lock_id: randomUUID(), pid: process.pid, started_at: now, operation: 'graph_sync' });
-  try {
+  const create = () => {
     const fd = openSync(target, 'wx');
     try { writeSync(fd, content); } finally { closeSync(fd); }
-  } catch (error) {
-    if (error?.code === 'EEXIST') return { held: true, held_by: 'graph_sync', holder: holderOf(SYNC_LOCK) };
-    throw error;
+  };
+  try { create(); }
+  catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+    const text = readLockFile(SYNC_LOCK);
+    if (!clearIfStale(SYNC_LOCK)) return { held: true, held_by: 'graph_sync', holder: holderOf(text ?? ''), reclaimed };
+    try { create(); }
+    catch (again) {
+      if (again?.code !== 'EEXIST') throw again;
+      return { held: true, held_by: 'graph_sync', holder: holderOf(readLockFile(SYNC_LOCK) ?? ''), reclaimed };
+    }
   }
   const release = () => {
     let current = null;
     try { current = readFileSync(target, 'utf8'); } catch { current = null; }
     if (current === content) unlinkSync(target);
   };
-  const index = holderOf(INDEX_LOCK);
-  if (index !== null) { release(); return { held: true, held_by: 'graph_index', holder: index }; }
-  return { held: false, release };
+  const indexText = readLockFile(INDEX_LOCK);
+  if (indexText !== null && !clearIfStale(INDEX_LOCK)) {
+    release();
+    return { held: true, held_by: 'graph_index', holder: holderOf(indexText), reclaimed };
+  }
+  return { held: false, release, reclaimed };
 }
 
 // How much of a refusal a receipt carries: the reason and text-free shape of the
@@ -277,6 +384,28 @@ export function rejectionDiagnostic(updated) {
     documents: excluded.slice(0, RECEIPT_EXCLUSIONS).map(({ root_ref, item_id, source_kind, reason, calls, rejected_shapes }) =>
       ({ root_ref, item_id, source_kind, reason, calls: calls ?? [], rejected_shapes: rejected_shapes ?? [] })),
     documents_listed: Math.min(excluded.length, RECEIPT_EXCLUSIONS) };
+}
+
+/**
+ * `--retry-failed`: re-offers given-up items in one project's ledger and exits;
+ * the next pass offers them. It takes the pass lock so a running pass cannot
+ * write its older ledger over this one, and touches nothing but `pending.json`.
+ */
+export function reofferFailedItems({ io, project, bindingFile = 'graph_index_binding.unified.json', receiptsDir, selector,
+  now = new Date().toISOString() }) {
+  if (!PROJECT_CODE.test(project ?? '')) fail('graph_sync_project_invalid');
+  if (!BINDING_FILE.test(bindingFile)) fail('graph_sync_binding_invalid');
+  let binding;
+  try { binding = JSON.parse(io.read(`control_root/project-bindings/${project}/${bindingFile}`, 1024 * 1024)); }
+  catch { fail('graph_sync_binding_unavailable'); }
+  const lock = acquireSyncPassLock({ io, storePath: `data_root/20_PROJECTS/${binding.approved_fs_key}`, now });
+  if (lock.held) return { project_code: project, status: 'HOLD', code: 'graph_index_locked', held_by: lock.held_by, holder: lock.holder };
+  try {
+    const ledger = readLedger(receiptsDir, project);
+    const count = reofferFailed(ledger, { selector, now, reason: 'owner_retry_failed' });
+    if (count > 0) writeLedger(receiptsDir, ledger, now);
+    return { project_code: project, status: 'REOFFERED', count };
+  } finally { lock.release(); }
 }
 
 /** The sync preflight uses the exact host-only parser binding the update path uses. */
@@ -334,7 +463,9 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
   // `main()` before it reaches any project, because falling back to the narrow rule
   // would silently retire every mail the ledgers place by a rule the mail body does
   // not repeat -- a correction nobody made, applied to every project at once.
-  mailAttribution = null } = {}) {
+  mailAttribution = null,
+  // Tests: beforeLock runs after the scope is read and before the pass lock.
+  hooks = {} } = {}) {
   if (!PROJECT_CODE.test(project ?? '')) fail('graph_sync_project_invalid');
   if (!BINDING_FILE.test(bindingFile)) fail('graph_sync_binding_invalid');
   const bindingAddress = `control_root/project-bindings/${project}/${bindingFile}`;
@@ -420,10 +551,20 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
   // rewrote them while the first held the index would cost the first its whole
   // extraction. A pass that finds either lock held writes nothing at all -- not
   // the grant, not the binding, not the ledger -- and says who holds it.
+  await hooks.beforeLock?.();
   const lock = acquireSyncPassLock({ io, storePath, now });
   if (lock.held) {
     return Object.freeze({ ...receipt, status: 'HOLD', code: 'graph_index_locked',
-      lock: { held_by: lock.held_by, holder: lock.holder } });
+      lock: { held_by: lock.held_by, holder: lock.holder, reclaimed: lock.reclaimed } });
+  }
+  if (lock.reclaimed.length) receipt.lock_reclaimed = lock.reclaimed;
+  // Everything above was read before the lock. If the binding moved in between
+  // (a pass that finished, an Owner edit), this pass's scope was computed from a
+  // stale copy and writing it back would undo the newer one: stop, write nothing.
+  const bindingNow = () => { try { return sha256(io.read(bindingAddress, 1024 * 1024)); } catch { return null; } };
+  if (bindingNow() !== sha256(bindingBytes)) {
+    lock.release();
+    return Object.freeze({ ...receipt, status: 'HOLD', code: 'graph_sync_binding_changed' });
   }
   try {
     mkdirSync(receiptsDir, { recursive: true });
@@ -467,6 +608,8 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
         // Custody holds exactly what the grant in force names: keep that grant.
         placed = null;
       } else {
+        // The binding this pass last read or wrote is still the one there.
+        if (bindingNow() !== inForceSha) fail('graph_sync_binding_changed');
         const grantAddress = `${storePath}/00_프로젝트_안내/grants/${proposed.grant_id}.json`;
         const grantFile = io.path(grantAddress, true);
         mkdirSync(path.dirname(grantFile), { recursive: true });
@@ -522,14 +665,9 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
     // Documents the index committed around: each is held back like any refused
     // record, so it is offered again next pass and stops being offered after
     // SYNC_LIMITS.item_attempts -- in the ledger, with its reason, not silently.
-    if (updated && updated.status !== 'HOLD') {
-      for (const row of updated.excluded ?? []) {
-        const state = holdBack(ledger, { root_ref: row.root_ref, item_id: row.item_id, code: row.reason,
-          by: 'extraction', now });
-        receipt.isolated.push({ root_ref: row.root_ref, item_id: row.item_id, code: row.reason, by: 'extraction',
-          attempts: state.attempts, state: state.state });
-      }
-    }
+    const outcome = recordIndexOutcome(ledger, { updated, now });
+    receipt.isolated.push(...outcome.rows);
+    if (outcome.reoffered > 0) receipt.reoffered = { count: outcome.reoffered, reason: 'extraction_revision_changed' };
     receipt.steps.index = { status: updated?.status ?? 'not_run', code: updated?.code ?? null,
       generation_id: updated?.generation_id ?? null, attempts: attempt,
       counts: updated?.counts ?? null, changes: updated?.changes ?? null,
@@ -716,6 +854,20 @@ async function main() {
     // console output of an abort is byte-identical to what it was before.
     process.stderr.write(`[estate-graph-sync] ${reason}\n`);
     return 2;
+  }
+
+  // Ledger-only: re-offer given-up items and stop. No scope, no index, no database.
+  const retry = flags.get('retry-failed');
+  if (retry !== undefined) {
+    if (retry === true || dry) { process.stderr.write('[estate-graph-sync] graph_sync_retry_failed_selector_required\n'); return 2; }
+    const selector = String(retry) === 'all' ? 'all' : String(retry).split(',').map(value => value.trim()).filter(Boolean);
+    let held = 0;
+    for (const project of projects) {
+      const result = reofferFailedItems({ io, project, bindingFile, receiptsDir: path.join(receiptsDir, project), selector });
+      if (result.status !== 'REOFFERED') held++;
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+    }
+    return held > 0 ? 1 : 0;
   }
 
   let failures = 0;
