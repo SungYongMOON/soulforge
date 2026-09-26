@@ -1295,6 +1295,8 @@ GBrain 패키지 실행이나 호환성 검증을 했다는 의미는 아니다.
 - lane: `plaud` 모드는 `voice_capture` 모듈과 `ajv`를 동적으로 불러온다. context-read-v6 이하 설치본에는
   없어서 `voice_plaud_semantic_labeler_unavailable`로 멈추고, context-read-v7 spec이 이 폐포를 싣는다
   (설치·등록은 별도 Owner 작업).
+- 이력: 원천 준비는 PLAUD 카드의 세션 루트 전사를 읽고, 이력 근거 줄에 `PLAUD 전사`·`자체 전사`·
+  `자체 전사(PLAUD 없음)`를 표시 전용으로 적는다([KNOWLEDGE_LAYER.md](KNOWLEDGE_LAYER.md) `이력 CLI`).
 - 시험: `tests/voice_conversation_list_plaud_source.test.mjs`(고정 whisper run id·plaud run id·대체·
   sessions-file·다른 전사 카드 보호).
 

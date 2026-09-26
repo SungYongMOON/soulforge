@@ -214,8 +214,10 @@ test('large daily cell saves bounded card batches and restores the full view', t
   assert.deepEqual(accepted.source_coverage, [{ date: '2026-09-14',
     total_sources: 1, unquoted_sources: 0 }]);
   const view = readFileSync(join(dir, accepted.head.view_file), 'utf8');
-  assert.match(view, /기록 1\n/);
+  // All 150 sentences cite the same source, so the view shows them as one paragraph.
+  assert.match(view, /\n- 기록 1 기록 2 /);
   assert.match(view, /기록 150\n/);
+  assert.equal(view.split('<a id=').length - 1, 150);
   const before = readdirSync(dir).sort();
   const replay = finalizeHistoryExchange({ input: data, outputRoot: dir, rulesText,
     prepared: manifest(prepared), draft });

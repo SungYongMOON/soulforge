@@ -14,7 +14,7 @@
   "files": [
     {
       "path": "guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md",
-      "sha256": "76893628a886b94236f4fbfd293bcea2cc621862b1a650f028b71bf5c178183e"
+      "sha256": "01444b66f2e29eca4354ceb977b14003e7cdb148b5f6a56fdf0369b67526d946"
     },
     {
       "path": "guild_hall/context_engine/WIKI_SCHEMA.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "7924df9449b3b5c6ef3b04ef3e52ec41c6047f621ce88bd2f429175a0957e6a6"
+      "sha256": "6d640ac40e86840af5374b0cd9a0ea937824644cfcc84153673d97d1bea8bbf3"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
@@ -178,7 +178,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
-      "sha256": "9088cd5c9706a097fed04546fa0ea0f2cbdf08d6ad91c7e264a36ed0c3a19d49"
+      "sha256": "c0529375cd934df411788059ae89e5cdd5d0b839845b358916e8141c142d855d"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/index.mjs",
@@ -421,7 +421,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "5b24d271a4e7409a8cfb3a4fccd86819cf5528c8d4301da25fb4e0c99ccf6386",
+  "closure_sha256": "9d1f8471f45c1ea3ff7fcba1530406bcab8c094cccd616bd7aefc4347e584b58",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

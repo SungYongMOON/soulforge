@@ -771,3 +771,67 @@ test('mixed upper child-only response inherits voice but flags omitted mail quot
   assert.ok(weekly.flags.some(flag => flag.reason === 'quote_missing' && flag.source_id === mail.id));
   assert.ok(!weekly.evidence.some(item => item.source_id === mail.id));
 });
+
+test('view groups same-cell sentences with identical evidence sets into one paragraph; cells unchanged', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const rows = [record('A', '2026-09-23', 'Alpha source text'), record('B', '2026-09-23', 'Bravo source text')];
+  const cite = (payload, id) => {
+    const row = payload.threads.flatMap(thread => thread.records).find(item => (item.source_id ?? item.id) === id);
+    return { source_id: id, quote: row.text.slice(0, 5) };
+  };
+  const generate = async request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') return JSON.stringify({ events: [
+      { text: '첫 문장.', evidence: [cite(payload, 'A')] },
+      { text: '둘째 문장.', evidence: [cite(payload, 'B')] },
+      { text: '셋째 문장.', evidence: [cite(payload, 'A')] },
+      { text: '넷째 문장.', evidence: [cite(payload, 'A'), cite(payload, 'B')] }] });
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: '요약.', child_card_ids: [child.card_id], evidence: [child.evidence[0]] }] });
+  };
+  const inputData = { ...input(rows), as_of: '2026-09-23' };
+  const first = await runHistory({ input: inputData, outputRoot: dir, config, generate });
+  const stored = cell(dir, first.head.cells.daily['2026-09-23']);
+  assert.deepEqual(stored.cards.map(card => card.text), ['첫 문장.', '둘째 문장.', '셋째 문장.', '넷째 문장.']);
+  const daily = readFileSync(join(dir, first.head.view_file), 'utf8').split('## 주별')[0];
+  const bullets = daily.split('\n').filter(text => text.startsWith('- '));
+  assert.deepEqual(bullets, ['- 첫 문장. 셋째 문장.', '- 둘째 문장.', '- 넷째 문장.']);
+  assert.equal(daily.split('<a id=').length - 1, 4);
+  const evidence = daily.split('\n').filter(text => text.startsWith('  - 근거: '));
+  assert.equal(evidence.length, 4);
+  assert.equal(evidence.filter(text => text.includes('Synthetic title')).length, 4);
+  const second = mkdtempSync(join(tmpdir(), 'history-synthetic-')); t.after(() => rmSync(second, { recursive: true, force: true }));
+  const again = await runHistory({ input: inputData, outputRoot: second, config, generate });
+  assert.equal(again.head.view_file, first.head.view_file);
+  assert.deepEqual(again.head.cells, first.head.cells);
+  assert.deepEqual(readFileSync(join(second, again.head.view_file)), readFileSync(join(dir, first.head.view_file)));
+});
+
+test('voice evidence line names the transcript the card read, display-only', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const card = hashText('synthetic-card');
+  const rows = [record('voice_utterance:synthetic:00000001', '2026-09-23', '합성 발화', { kind: 'voice_utterance',
+    evidence_mode: 'source_id', originrefs: [{ card_sha256: card, card_segment_id: 'segment-1',
+      source_segment_ids: [1], source_offsets: [[1, 0, 2]] }] })];
+  const generate = async request => {
+    const payload = JSON.parse(request.user);
+    if (request.layer === 'daily') return JSON.stringify({ events: [{ text: '합성 기록', evidence:
+      payload.threads.flatMap(thread => thread.records).map(row => ({ source_id: row.source_id })) }] });
+    const child = (payload.days?.[0] ?? payload.weeks?.[0] ?? payload.monthly).cards[0];
+    return JSON.stringify({ events: [{ text: '합성 요약', child_card_ids: [child.card_id] }] });
+  };
+  const inputData = { ...input(rows), as_of: '2026-09-23' };
+  const first = await runHistory({ input: inputData, outputRoot: dir, config, generate });
+  const dailyOf = head => readFileSync(join(dir, head.view_file), 'utf8').split('## 주별')[0];
+  assert.match(dailyOf(first.head), /PLAUD · 2026-09-23 · 원제목 미확인 · 자체 전사 · 발화 1/);
+  const label = async (entry, expected) => {
+    const result = await runHistory({ input: inputData, outputRoot: dir, config, displayOnly: true,
+      displayMetadata: { voice_sources: { [rows[0].id]: { title: 'Synthetic recording', ...entry } } } });
+    assert.equal(result.calls, 0); assert.deepEqual(result.head.cells, first.head.cells);
+    assert.ok(dailyOf(result.head).includes(`PLAUD · 2026-09-23 · Synthetic recording · ${expected} · 발화 1`));
+  };
+  await label({ transcript_source: 'plaud' }, 'PLAUD 전사');
+  await label({ transcript_source: 'whisper', transcript_fallback: 'plaud_transcript_absent' }, '자체 전사(PLAUD 없음)');
+  await label({ transcript_source: 'whisper' }, '자체 전사');
+  await label({}, '자체 전사');
+});

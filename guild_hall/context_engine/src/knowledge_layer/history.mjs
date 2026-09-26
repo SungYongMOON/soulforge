@@ -263,7 +263,8 @@ function displayConfig(value) {
   result.voice_sources = {};
   for (const [sourceId, entry] of Object.entries(voiceSources)) {
     if (!token(sourceId) || !plain(entry) || Object.keys(entry).some(key =>
-      !['title', 'recorded_at', 'audio_path', 'transcript_path', 'session_id'].includes(key)))
+      !['title', 'recorded_at', 'audio_path', 'transcript_path', 'session_id',
+        'transcript_source', 'transcript_fallback'].includes(key)))
       fail('history_display_metadata_invalid');
     for (const [key, field] of Object.entries(entry)) {
       if (typeof field !== 'string' || !field || field.length > (key.endsWith('_path') ? 1000 : 500)
@@ -337,8 +338,11 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
       for (const row of rows) if (!seen.has(row)) { seen.add(row); locators.push(row); }
     }
     const candidate = refs.some(ref => plain(ref) && ref.attribution === 'candidate_only_not_accepted');
+    // Which transcript the card read; absent (older cards) is the local whisper run.
+    const transcriptLabel = meta.transcript_source === 'plaud' ? 'PLAUD 전사'
+      : meta.transcript_fallback ? '자체 전사(PLAUD 없음)' : '자체 전사';
     const parts = ['PLAUD', visible(meta.recorded_at ?? entry.source.date),
-      visible(meta.title ?? '원제목 미확인'),
+      visible(meta.title ?? '원제목 미확인'), transcriptLabel,
       ...(locators.length ? [locators.join('; ')] : ['발화 번호·구간 미기록']),
       ...(meta.audio_path ? [localLink('녹음', meta.audio_path)] : []),
       ...(meta.transcript_path ? [localLink('전사', meta.transcript_path)] : []),
@@ -359,8 +363,10 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
         ? '일부 묶음의 응답을 받거나 읽지 못했습니다. 나머지 이력은 표시했고 받은 응답은 보존했습니다.'
         : '형식 오류로 표시하지 못한 응답이 있습니다. 원 응답은 보존했습니다.', '');
       if (external && !cell.cards?.length) lines.push('> 외부 초안에 문장 없음', '');
-      for (const card of cell.cards ?? []) {
-        lines.push(`<a id="${anchor(card.card_id)}"></a>`, `- ${visible(card.text)}`);
+      for (const group of paragraphs(cell.cards ?? [])) {
+        const card = group.length === 1 ? group[0] : mergedParagraph(group);
+        for (const member of group) lines.push(`<a id="${anchor(member.card_id)}"></a>`);
+        lines.push(`- ${group.map(member => visible(member.text)).join(' ')}`);
         if (!stale && card.child_card_ids.length) lines.push(`  - 하위 기록: ${card.child_card_ids.map((id, index) => `[연결 ${index + 1}](#${anchor(id)})`).join(', ')}`);
         const evidenceLines = [], mailByKey = new Map(), voiceByCard = new Map();
         for (const source of card.source_display) {
@@ -403,6 +409,29 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     lines.push(`- ${item.date}: 인용 안 된 자료 ${item.unquoted_sources} / 전체 자료 ${item.total_sources}`);
   lines.push('');
   return lines.join('\n') + '\n';
+}
+// View-only paragraphs: within one cell (one day, week, month), sentences that cite
+// exactly the same evidence set -- the same source ids and the same child records --
+// share one paragraph and one set of evidence lines, at the first sentence's place.
+// Sentences with a different set, no evidence at all, or a review flag stay alone.
+// Stored cells, drafts and fingerprints are untouched; only the rendered view changes.
+function paragraphs(cards) {
+  const groups = [], byKey = new Map();
+  for (const card of cards) {
+    const ids = [...new Set(card.source_ids ?? [])].sort(), children = [...new Set(card.child_card_ids ?? [])].sort();
+    if ((!ids.length && !children.length) || card.flags?.length) { groups.push([card]); continue; }
+    const key = serial({ ids, children });
+    const held = byKey.get(key);
+    if (held) held.push(card); else { const group = [card]; byKey.set(key, group); groups.push(group); }
+  }
+  return groups;
+}
+function mergedParagraph(group) {
+  const seen = new Set(), sourceDisplay = [];
+  for (const source of group.flatMap(card => card.source_display))
+    if (!seen.has(source.source_id)) { seen.add(source.source_id); sourceDisplay.push(source); }
+  return { child_card_ids: [...group[0].child_card_ids], source_display: sourceDisplay,
+    evidence: group.flatMap(card => card.evidence), flags: [] };
 }
 export function historySourceCoverage(data, daily) {
   const byDay = new Map();

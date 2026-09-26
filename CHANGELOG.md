@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-26 - 이력 음성 근거의 전사 표시와 같은 근거 문단 묶기
+
+- 이력 음성 근거 줄에 카드가 읽은 전사를 `PLAUD 전사`·`자체 전사`·`자체 전사(PLAUD 없음)`로 표시한다. 값은 표시 metadata에만 두며 whisper 입력 record와 일별 지문은 바뀌지 않는다. PLAUD 카드는 세션 루트 전사를 읽는다.
+- 보는 판에서 같은 칸의 근거 번호 집합이 똑같은 문장을 한 문단으로 묶고 근거 줄을 한 번 보인다(코드만, 모델 호출 없음). 저장 cell·초안·지문은 그대로다.
+- 운영 영향: 예약·기본 route·운영 writer는 변경하지 않는다.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer/history.mjs`, `guild_hall/context_engine/src/knowledge_layer/history_sources.mjs`, `guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md`.
+
 ## 2026-09-26 - 음성 대화 카드의 PLAUD 전사 우선 입력
 
 - 대화 목록 pipeline config에 선택 필드 `transcript_source`(`whisper`|`plaud`)를 둔다. 없으면 기존과 같은 whisper 입력이며 run id와 카드 바이트는 바뀌지 않는다.

@@ -173,12 +173,20 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
     if(!selected.length)continue;
     const tr=latest.card.transcript;
     if(!safe(tr?.run_id)||!/^sha256:[0-9a-f]{64}$/u.test(tr?.sha256??''))fail('history_voice_transcript_ref_invalid');
-    const transcriptPath=[date.name,session.name,'analysis','local_asr',tr.run_id,'transcript.jsonl'];
+    // A PLAUD-primary card reads the provider transcript at the session root; every
+    // other card (declared whisper, a PLAUD-mode fallback, or no declaration) reads
+    // its whisper run exactly as before, so those records stay byte-identical.
+    const plaud=tr.source==='plaud';
+    const transcriptPath=plaud?[date.name,session.name,'transcript.jsonl']
+      :[date.name,session.name,'analysis','local_asr',tr.run_id,'transcript.jsonl'];
     const transcript=await read(sessions,transcriptPath,32*1024*1024);
     if(transcript.sha256!==tr.sha256)fail('history_voice_transcript_digest_mismatch');
     const voiceDisplay={...(typeof manifest.source_page_title==='string'&&manifest.source_page_title
       ? {title:manifest.source_page_title}:{}),recorded_at:manifest.recorded_at_local,session_id:session.name,
-      transcript_path:join(config.sessions_root,...transcriptPath)};
+      transcript_path:join(config.sessions_root,...transcriptPath),
+      // Display-only: which transcript the card read. Absent on undeclared cards.
+      ...(typeof tr.source==='string'&&tr.source?{transcript_source:tr.source}:{}),
+      ...(typeof tr.fallback==='string'&&tr.fallback?{transcript_fallback:tr.fallback}:{})};
     const audioPrefix=`ingress/plaud/sessions/${date.name}/${session.name}/audio/`;
     if(manifest.audio?.status==='source_present'&&typeof manifest.audio.ref==='string'&&manifest.audio.ref.startsWith(audioPrefix)) {
       const audioName=manifest.audio.ref.slice(audioPrefix.length);
@@ -195,7 +203,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
       const ids=segment.source_segment_ids;
       if(!Array.isArray(ids)||!ids.length||new Set(ids).size!==ids.length||ids.some(id=>!Number.isSafeInteger(id)))fail('history_voice_source_ids_invalid');
       const native=ids.map(id=>byId.get(id));
-      if(native.some(row=>!row||row.analysis_run_id!==tr.run_id))fail('history_voice_source_missing');
+      if(native.some(row=>!row||(!plaud&&row.analysis_run_id!==tr.run_id)))fail('history_voice_source_missing');
       if(native.some(row=>!Number.isFinite(row.start_seconds)||!Number.isFinite(row.end_seconds)
         ||row.end_seconds<row.start_seconds||row.start_seconds<segment.start_seconds-0.02||row.end_seconds>segment.end_seconds+0.02)
         ||ids.some((id,index)=>index>0&&id<=ids[index-1]))fail('history_voice_range_mismatch');

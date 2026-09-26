@@ -99,6 +99,32 @@ test('one card produces separate numbered utterances, with each own time and evi
   assert.equal(overnight.records[0].id,result.records[1].id);
   assert.equal(overnight.records[0].date,'2026-09-23');
 });
+test('voice cards carry the transcript they read as display-only metadata; PLAUD cards read the session-root transcript',async t=>{
+  const v=voiceFixture(temp(t));
+  const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
+  const legacy=await readVoiceHistory({...args,config});
+  const legacyDisplay=legacy.displayMetadata.voice_sources[legacy.records[0].id];
+  assert.ok(!('transcript_source' in legacyDisplay)&&!('transcript_fallback' in legacyDisplay));
+  // A PLAUD-mode card that fell back to whisper reads the same whisper run: same records, label in display only.
+  put(v.cardPath,{...v.card,transcript:{...v.card.transcript,source:'whisper',fallback:'plaud_transcript_absent'}});
+  const fallback=await readVoiceHistory({...args,config});
+  assert.deepEqual(fallback.records.map(row=>({...row,originrefs:row.originrefs.map(({card_sha256,...rest})=>rest)})),
+    legacy.records.map(row=>({...row,originrefs:row.originrefs.map(({card_sha256,...rest})=>rest)})));
+  assert.equal(fallback.displayMetadata.voice_sources[fallback.records[0].id].transcript_source,'whisper');
+  assert.equal(fallback.displayMetadata.voice_sources[fallback.records[0].id].transcript_fallback,'plaud_transcript_absent');
+  // PLAUD primary: provider rows at the session root, no analysis run id.
+  const plaudRows=[{schema_version:'soulforge.voice_transcript_segment.v0',speaker:'Speaker 1',segment_id:0,start_seconds:0,end_seconds:2,content:'합성 제공자 문장',source:'plaud_provider'},
+    {schema_version:'soulforge.voice_transcript_segment.v0',speaker:'Speaker 2',segment_id:1,start_seconds:2,end_seconds:4,content:'다른 과제 문장',source:'plaud_provider'}];
+  const text=plaudRows.map(x=>JSON.stringify(x)).join('\n')+'\n';
+  const plaudPath=join(v.sessions,'2026-09-23',v.card.session_id,'transcript.jsonl');writeFileSync(plaudPath,text);
+  put(v.cardPath,{...v.card,transcript:{run_id:'plaud_provider_transcript',sha256:hashText(text),kind:'plaud_provider',source:'plaud',fallback:null}});
+  const plaud=await readVoiceHistory({...args,config});
+  assert.equal(plaud.records.length,1);assert.equal(plaud.records[0].text,'합성 제공자 문장');
+  const display=plaud.displayMetadata.voice_sources[plaud.records[0].id];
+  assert.equal(display.transcript_source,'plaud');assert.ok(!('transcript_fallback' in display));
+  assert.equal(display.transcript_path,plaudPath);
+  writeFileSync(plaudPath,'changed');await assert.rejects(readVoiceHistory({...args,config}),/digest_mismatch/);
+});
 test('missing cards and overlapping or cross-range ASR IDs fail closed',async t=>{
   const v=voiceFixture(temp(t));const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
   v.card.segments[1].source_segment_ids=[0];put(v.cardPath,v.card);
