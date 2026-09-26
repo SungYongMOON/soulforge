@@ -11,6 +11,11 @@ const PACKET_SCHEMA = 'soulforge.history_external_packet.v1';
 const PREPARE_SCHEMA = 'soulforge.history_external_prepare.v1';
 const DRAFT_SCHEMA = 'soulforge.history_external_draft.v1';
 const LAYERS = ['daily', 'weekly', 'monthly', 'status'];
+// Default daily batch budget (serialized user payload). A caller whose prompt
+// wraps the batch may ask for a smaller one; a non-default value is recorded
+// in the daily packet so finalize recounts the same batches.
+const DEFAULT_BATCH_CHARACTERS = 7200;
+const batchCharactersOf = packet => packet.batch_characters ?? DEFAULT_BATCH_CHARACTERS;
 const fail = code => { throw new Error(code); };
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const serial = value => JSON.stringify(snapshot(value));
@@ -133,7 +138,9 @@ function packetFor(ctx, layer, key, dependencies, allowedIds, expectedHead) {
     as_of: ctx.data.as_of, layer, key, input_fingerprint: ctx.inputFingerprint,
     cell_input_fingerprint: cellInput(layer, key, dependencies, ctx.rulesHash, ctx.data),
     rules_sha256: ctx.rulesHash, expected_head_sha256: expectedHead,
-    dependencies, allowed_evidence_ids: sorted(new Set(allowedIds)) };
+    dependencies, allowed_evidence_ids: sorted(new Set(allowedIds)),
+    ...(layer === 'daily' && ctx.batchCharacters !== DEFAULT_BATCH_CHARACTERS
+      ? { batch_characters: ctx.batchCharacters } : {}) };
   const packetId = digest(base);
   return { ...base, packet_id: packetId };
 }
@@ -200,16 +207,25 @@ function readyPlan(ctx) {
   }
   return { packets, retired, weeks, expectedHead };
 }
-export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMetadata = {} } = {}) {
-  const ctx = scoped(input, outputRoot, rulesText);
+/** `layers` (default all four) limits this manifest to those layers so a caller can
+ * finalize daily cells without waiting on an upper packet; retirements travel only
+ * with a manifest that includes `daily`. */
+export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMetadata = {},
+  layers = LAYERS, batchCharacters = DEFAULT_BATCH_CHARACTERS } = {}) {
+  if (!Array.isArray(layers) || !layers.length || layers.some(layer => !LAYERS.includes(layer))
+    || new Set(layers).size !== layers.length || !Number.isSafeInteger(batchCharacters)
+    || batchCharacters < 1000 || batchCharacters > DEFAULT_BATCH_CHARACTERS) fail('history_exchange_request_invalid');
+  const ctx = { ...scoped(input, outputRoot, rulesText), batchCharacters };
   if (!ctx.data.records.length) return { status: ctx.head ? 'refused_empty_input' : 'unchanged',
     project: ctx.data.project, month: ctx.data.month, head_sha256: ctx.head ? digest(ctx.head) : null,
     prepare_id: null, manifest_path: null, packet_paths: [], packets: [], upper_update_targets: null };
-  const plan = readyPlan(ctx);
+  const full = readyPlan(ctx);
+  const plan = { ...full, packets: full.packets.filter(packet => layers.includes(packet.layer)),
+    retired: layers.includes('daily') ? full.retired : { daily: [], weekly: [] } };
   if (!plan.packets.length && !plan.retired.daily.length && !plan.retired.weekly.length)
     return { status: 'unchanged', project: ctx.data.project, month: ctx.data.month,
       head_sha256: plan.expectedHead, prepare_id: null, manifest_path: null,
-      packet_paths: [], packets: [], upper_update_targets: nextTargets(ctx.data, ctx.head.cells, plan.weeks) };
+      packet_paths: [], packets: [], upper_update_targets: nextTargets(ctx.data, ctx.head?.cells ?? emptyCells(), plan.weeks) };
   const packetPaths = plan.packets.map(packet => {
     const name = `history-packet-${packet.packet_id.slice(7)}.json`;
     ctx.store.writeNew(name, packet); return join(outputRoot, name);
@@ -217,7 +233,7 @@ export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMe
   const batchPaths = plan.packets.map(packet => {
     if (packet.layer !== 'daily') return [];
     const batches = partitionDay({ project: ctx.data.project, day: packet.key,
-      rows: packet.dependencies.records, limit: 7200 });
+      rows: packet.dependencies.records, limit: batchCharactersOf(packet) });
     return batches.map((batch, index) => {
       const body = { packet_id: packet.packet_id, batch_index: index + 1,
         batch_total: batches.length, user: batch.user };
@@ -274,8 +290,11 @@ function cardsForPacket(packet, draftEntry) {
   if (!Array.isArray(unprocessed) || (packet.layer !== 'daily' && unprocessed.length))
     fail('history_exchange_draft_invalid');
   if (packet.layer === 'daily') {
+    const limit = batchCharactersOf(packet);
+    if (!Number.isSafeInteger(limit) || limit < 1000 || limit > DEFAULT_BATCH_CHARACTERS)
+      fail('history_exchange_packet_mismatch');
     const count = partitionDay({ project: packet.project, day: packet.key,
-      rows: packet.dependencies.records, limit: 7200 }).length;
+      rows: packet.dependencies.records, limit }).length;
     if (unprocessed.length > count || new Set(unprocessed.map(item => item?.batch_index)).size !== unprocessed.length
       || unprocessed.some(item => !plain(item) || Object.keys(item).sort().join(',') !== 'batch_index,reason'
         || !Number.isSafeInteger(item.batch_index) || item.batch_index < 1 || item.batch_index > count

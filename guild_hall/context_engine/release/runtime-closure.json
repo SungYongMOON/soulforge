@@ -166,7 +166,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
-      "sha256": "705030c2cbf38d8539f1ec2e009cb6fe794055de4abb6da227ac6ae521583bf0"
+      "sha256": "1951128cd59b3e2e0b0ec05bcd82addd2b520b2085ca607ba49332779b675798"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
@@ -421,7 +421,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "9d1f8471f45c1ea3ff7fcba1530406bcab8c094cccd616bd7aefc4347e584b58",
+  "closure_sha256": "9e355088085d5c453d721ba882a55391eefc36094e09b5de7a9d0a0fe633b9ae",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

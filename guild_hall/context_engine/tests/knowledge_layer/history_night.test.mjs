@@ -1,17 +1,18 @@
 // Nightly history step with synthetic sources and a fake writer: no model, no Hermes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EXIT, LOCK_FILE_NAME, historyNightCli } from '../../harness/history_night.mjs';
+import { prepareHistoryExchange } from '../../src/knowledge_layer/history_exchange.mjs';
 
 const lanes = () => Object.fromEntries(['mail', 'slack', 'linear', 'voice']
   .map(name => [name, { status: 'ok', read: 0 }]));
 const record = (id, date, text) => ({ id, date, kind: 'mail', title: 'Synthetic title',
   sender: 'Person A', recipient: 'Person B', text, originrefs: [`synthetic:${id}`] });
 
-function setup(t, rows) {
+function setup(t, rows, writerExtra = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'history-night-synthetic-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   for (const name of ['out', 'work', 'receipts']) mkdirSync(join(dir, name));
@@ -19,18 +20,24 @@ function setup(t, rows) {
   writeFileSync(join(dir, 'sources.json'), JSON.stringify({ project: 'DEMO-1', type: 'synthetic' }));
   const config = { schema: 'soulforge.history_night_config.v1', rules_file: join(dir, 'rules.md'),
     rules_version: 'synthetic rules v1', work_root: join(dir, 'work'),
-    writer: { command: join(dir, 'never-run.exe'), profile: 'history-writer', run_budget: 1200 },
+    writer: { command: join(dir, 'never-run.exe'), profile: 'history-writer', writer_id: 'synthetic-writer',
+      run_budget: 1200, ...writerExtra },
     projects: [{ project: 'DEMO-1', sources: join(dir, 'sources.json'), output_root: join(dir, 'out') }] };
   writeFileSync(join(dir, 'config.json'), JSON.stringify(config));
   const state = { rows };
   const collector = async () => ({ records: state.rows, displayMetadata: {},
     coverage: { lanes: lanes(), excluded: [] }, sourceReceipts: [] });
-  return { dir, state, collector };
+  return { dir, state, collector, config };
 }
+const cacheFiles = env => {
+  const dir = join(env.dir, 'work', 'DEMO-1', 'unit-cache');
+  return existsSync(dir) ? readdirSync(dir) : [];
+};
+const headExists = env => existsSync(join(env.dir, 'out', '2026-09', 'history-head.json'));
 
 // Answers from the query alone, like the real profile would: it copies the ids
 // the skeleton line names and cites the first evidence id it was given.
-function answer(query) {
+function answer(query, text) {
   const lines = query.split('\n');
   const skeleton = JSON.parse(lines.find(line => line.startsWith('{"schema"')));
   const marker = lines.findIndex(line => line === '자료 배치:' || line === '하위 카드:');
@@ -39,17 +46,20 @@ function answer(query) {
     ? payload.user.threads.flatMap(thread => thread.records).map(row => row.source_id ?? row.id)
     : payload.map(card => card.card_id);
   return JSON.stringify({ ...skeleton, drafts: [{ packet_id: skeleton.drafts[0].packet_id,
-    sentences: ids.length ? [{ text: 'A synthetic fact happened.', evidence_ids: [ids[0]] }] : [] }] });
+    sentences: ids.length ? [{ text, evidence_ids: [ids[0]] }] : [] }] });
 }
-function fakeWriter(script = () => 'ok') {
+function fakeWriter(script = () => 'ok', { text = 'A synthetic fact happened.' } = {}) {
   const calls = [];
   const writer = async request => {
     const query = readFileSync(request.queryFile, 'utf8');
-    calls.push({ layer: request.layer, key: request.key, attempt: request.attempt, retryHint: query.endsWith('JSON으로만 답하라.\n') });
+    calls.push({ layer: request.layer, key: request.key, attempt: request.attempt, length: query.length,
+      timeoutMs: request.timeoutMs, retryHint: query.endsWith('JSON으로만 답하라.\n') });
     const mode = script(request, calls.length);
     if (mode === 'garbage') return { exit_code: 0, stdout: 'not json at all', error_code: null };
     if (mode === 'crash') return { exit_code: 1, stdout: '', error_code: null };
-    return { exit_code: 0, stdout: `thinking...\n${answer(query)}\n`, error_code: null };
+    if (mode === 'timeout') return { exit_code: null, stdout: '', error_code: 'ETIMEDOUT', timed_out: true };
+    if (mode === 'throw') throw Object.assign(new Error('spawn failed'), { code: 'ENOENT' });
+    return { exit_code: 0, stdout: `thinking...\n${answer(query, text)}\n`, error_code: null };
   };
   return { writer, calls };
 }
@@ -73,15 +83,15 @@ test('first night writes every layer; unchanged input makes zero writer calls', 
   assert.equal(one.code, EXIT.OK);
   assert.equal(one.receipt.status, 'OK');
   assert.deepEqual(first.calls.map(call => call.layer), ['daily', 'weekly', 'monthly', 'status']);
-  assert.equal(one.receipt.projects[0].status, 'finalized');
-  assert.equal(one.receipt.projects[0].accepted_cells, 4);
+  assert.deepEqual(one.receipt.projects[0].finalized_layers, ['daily', 'weekly', 'monthly', 'status']);
+  assert.equal(one.receipt.writer.writer_id, 'synthetic-writer');
   assert.equal(JSON.stringify(one.receipt).includes('synthetic source line'), false);
   assert.equal(JSON.stringify(one.receipt).includes('A synthetic fact'), false);
+  assert.deepEqual(readdirSync(join(env.dir, 'work', 'DEMO-1', 'calls')), []);
   const again = fakeWriter();
   const two = await run(env, again.writer);
   assert.equal(two.code, EXIT.OK);
   assert.equal(again.calls.length, 0);
-  assert.equal(two.receipt.totals.calls, 0);
   assert.equal(two.receipt.projects[0].status, 'unchanged');
 });
 
@@ -92,14 +102,13 @@ test('a bad first answer is retried once with the JSON-only hint and then accept
   assert.equal(code, EXIT.OK);
   assert.deepEqual(fake.calls.slice(0, 2).map(call => [call.layer, call.attempt, call.retryHint]),
     [['daily', 1, false], ['daily', 2, true]]);
-  const daily = receipt.projects[0].units[0];
-  assert.equal(daily.status, 'accepted');
-  assert.deepEqual(daily.attempts.map(item => item.result), ['format_invalid_after_retry', 'accepted']);
+  assert.deepEqual(receipt.projects[0].units[0].attempts.map(item => item.result),
+    ['format_invalid_after_retry', 'accepted']);
 });
 
-test('two failed answers mark the batch unprocessed and the day is still finalized', async t => {
+test('two parsed-but-rejected answers mark the batch unprocessed and the day is still finalized', async t => {
   const env = setup(t, [record('A', '2026-09-23', 'Unprocessed source.')]);
-  const fake = fakeWriter(request => (request.layer === 'daily' ? 'crash' : 'ok'));
+  const fake = fakeWriter(request => (request.layer === 'daily' ? 'garbage' : 'ok'));
   const { code, receipt } = await run(env, fake.writer);
   assert.equal(code, EXIT.OK);
   const project = receipt.projects[0];
@@ -107,7 +116,88 @@ test('two failed answers mark the batch unprocessed and the day is still finaliz
   assert.equal(project.units[0].attempts.length, 2);
   assert.equal(project.unprocessed_batches, 1);
   assert.equal(receipt.totals.unprocessed, 1);
-  assert.equal(fake.calls.filter(call => call.layer === 'daily').length, 2);
+  assert.ok(project.finalized_layers.includes('daily'));
+});
+
+for (const mode of ['crash', 'timeout', 'throw']) {
+  test(`a transport failure (${mode}) is deferred, never cached or finalized, and the day is prepared again`, async t => {
+    const env = setup(t, [record('A', '2026-09-23', 'Transport source.')]);
+    const broken = fakeWriter(() => mode);
+    const failed = await run(env, broken.writer);
+    assert.equal(failed.code, EXIT.FAILED);
+    assert.equal(failed.receipt.status, 'FAILED');
+    assert.equal(broken.calls.length, 1);
+    const project = failed.receipt.projects[0];
+    assert.equal(project.status, 'transport_failed');
+    assert.equal(project.units[0].status, 'transport_failed');
+    assert.equal(project.unprocessed_batches, 0);
+    assert.deepEqual(cacheFiles(env), []);
+    assert.equal(headExists(env), false);
+    const good = fakeWriter();
+    const next = await run(env, good.writer);
+    assert.equal(next.code, EXIT.OK);
+    assert.equal(good.calls[0].layer, 'daily');
+    assert.equal(next.receipt.projects[0].units[0].status, 'accepted');
+    assert.equal(headExists(env), true);
+  });
+}
+
+test('a transport failure after earlier progress is PARTIAL, not FAILED', async t => {
+  const env = setup(t, [record('A', '2026-09-23', 'Progress source.')]);
+  const fake = fakeWriter(request => (request.layer === 'weekly' ? 'crash' : 'ok'));
+  const { code, receipt } = await run(env, fake.writer);
+  assert.equal(code, EXIT.PARTIAL);
+  assert.deepEqual(receipt.projects[0].finalized_layers, ['daily']);
+  assert.equal(receipt.projects[0].status, 'transport_failed');
+});
+
+test('a rejected upper packet does not hold back the day and is retried next night', async t => {
+  const env = setup(t, [record('A', '2026-09-23', 'Upper source.')]);
+  const fake = fakeWriter(request => (request.layer === 'weekly' ? 'garbage' : 'ok'));
+  const first = await run(env, fake.writer);
+  assert.equal(first.code, EXIT.PARTIAL);
+  const project = first.receipt.projects[0];
+  assert.deepEqual(project.finalized_layers, ['daily']);
+  assert.deepEqual(project.pending, [{ layer: 'weekly', reason: 'format_invalid_after_retry' }]);
+  assert.equal(headExists(env), true);
+  const good = fakeWriter();
+  const second = await run(env, good.writer);
+  assert.equal(second.code, EXIT.OK);
+  assert.deepEqual(good.calls.map(call => call.layer), ['weekly', 'monthly', 'status']);
+});
+
+test('an oversize upper query is a recorded deferral, not a thrown failure', async t => {
+  const env = setup(t, [record('A', '2026-09-23', 'Short.')], { max_query_characters: 3000 });
+  const fake = fakeWriter(() => 'ok', { text: '긴 문장 '.repeat(500) });
+  const { code, receipt } = await run(env, fake.writer);
+  assert.equal(code, EXIT.PARTIAL);
+  const project = receipt.projects[0];
+  assert.deepEqual(project.finalized_layers, ['daily']);
+  assert.deepEqual(project.pending, [{ layer: 'weekly', reason: 'upper_oversize' }]);
+  assert.equal(project.units.find(unit => unit.layer === 'weekly').status, 'oversize');
+  assert.deepEqual(fake.calls.map(call => call.layer), ['daily']);
+});
+
+test('the daily batch budget leaves room for the prompt so no query exceeds the limit', async t => {
+  const env = setup(t, [record('A', '2026-09-23', 'x'.repeat(9000))], { max_query_characters: 2600 });
+  const fake = fakeWriter();
+  const { code, receipt } = await run(env, fake.writer);
+  assert.equal(code, EXIT.OK);
+  const daily = fake.calls.filter(call => call.layer === 'daily');
+  assert.ok(daily.length >= 4);
+  assert.ok(fake.calls.every(call => call.length <= 2600), JSON.stringify(fake.calls.map(call => call.length)));
+  assert.ok(receipt.projects[0].finalized_layers.includes('daily'));
+});
+
+test('a direct prepare of an upper layer with no head yet is unchanged, not a crash', async t => {
+  const env = setup(t, []);
+  const result = prepareHistoryExchange({ input: { project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23',
+    records: [record('A', '2026-09-23', 'Only a day.')] }, outputRoot: join(env.dir, 'out'),
+  rulesText: 'rules', layers: ['weekly'] });
+  assert.equal(result.status, 'unchanged');
+  assert.throws(() => prepareHistoryExchange({ input: { project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23',
+    records: [record('A', '2026-09-23', 'x')] }, outputRoot: join(env.dir, 'out'), rulesText: 'rules',
+  layers: ['yearly'] }), /history_exchange_request_invalid/u);
 });
 
 test('the no-start cutoff leaves unstarted batches for the next night without repeating finished ones', async t => {
@@ -115,13 +205,16 @@ test('the no-start cutoff leaves unstarted batches for the next night without re
   let now = Date.parse('2026-09-24T18:00:00Z');
   const clock = () => new Date(now).toISOString();
   const fake = fakeWriter(() => { now += 2 * 60 * 60 * 1000; return 'ok'; });
-  const stopped = await run(env, fake.writer, ['--deadline', '05:00', '--no-start-within', '20'], { clock });
+  const stopped = await run(env, fake.writer, ['--deadline', '05:00', '--no-start-within', '5'], { clock });
   assert.equal(stopped.code, EXIT.PARTIAL);
-  assert.equal(stopped.receipt.status, 'PARTIAL');
   assert.equal(stopped.receipt.deadline.stopped, true);
+  // a call must be able to finish before the deadline: 1200 s budget + 120 s margin = 22 minutes
+  assert.equal(stopped.receipt.deadline.no_start_within_minutes, 22);
+  assert.ok(fake.calls[0].timeoutMs <= Date.parse(stopped.receipt.deadline.at) - Date.parse('2026-09-24T18:00:00Z'));
   assert.equal(fake.calls.length, 1);
   assert.equal(stopped.receipt.projects[0].status, 'deferred_deadline');
   assert.deepEqual(stopped.receipt.projects[0].units.map(unit => unit.status), ['accepted', 'not_started']);
+  assert.equal(headExists(env), false);
   const next = fakeWriter();
   const resumed = await run(env, next.writer);
   assert.equal(resumed.code, EXIT.OK);
@@ -138,31 +231,64 @@ test('past the cutoff before any project starts is SKIPPED_PAST_DEADLINE', async
   assert.equal(fake.calls.length, 0);
 });
 
-test('a held lock refuses the run; a lock whose owner pid is dead is healed', async t => {
+test('lock: held refuses, unreadable refuses, dead owner or aged lock is healed by rename-aside', async t => {
   const env = setup(t, [record('A', '2026-09-23', 'Locked.')]);
-  const lockFile = join(env.dir, 'receipts', LOCK_FILE_NAME);
-  writeFileSync(lockFile, JSON.stringify({ pid: 424242, started_at: 'x', token: 'other' }));
+  const lockFile = () => join(env.dir, 'receipts', LOCK_FILE_NAME);
+  const fresh = JSON.stringify({ pid: 424242, started_at: '2026-09-24T17:30:00Z', token: 'other' });
+  writeFileSync(lockFile(), fresh);
   const fake = fakeWriter();
   const held = await run(env, fake.writer, [], { isPidAlive: () => true });
   assert.equal(held.code, EXIT.LOCK_HELD);
-  assert.equal(held.receipt.status, 'LOCK_HELD');
   assert.equal(fake.calls.length, 0);
-  writeFileSync(join(env.dir, 'receipts', LOCK_FILE_NAME), 'not json');
-  const unreadable = await run(env, fake.writer, [], { isPidAlive: () => false });
-  assert.equal(unreadable.code, EXIT.LOCK_HELD);
-  writeFileSync(join(env.dir, 'receipts', LOCK_FILE_NAME), JSON.stringify({ pid: 424242, started_at: 'x', token: 'other' }));
-  const healed = await run(env, fake.writer, [], { isPidAlive: () => false });
-  assert.equal(healed.code, EXIT.OK);
-  assert.equal(healed.receipt.lock.healed_stale, true);
+  writeFileSync(lockFile(), 'not json');
+  assert.equal((await run(env, fake.writer, [], { isPidAlive: () => false })).code, EXIT.LOCK_HELD);
+  writeFileSync(lockFile(), fresh);
+  const dead = await run(env, fake.writer, [], { isPidAlive: () => false });
+  assert.equal(dead.code, EXIT.OK);
+  assert.equal(dead.receipt.lock.healed_stale, 'owner_dead');
+  env.state.rows = [record('A', '2026-09-23', 'Locked, changed.')];
+  writeFileSync(lockFile(), JSON.stringify({ pid: 424242, started_at: '2026-09-24T10:00:00Z', token: 'old' }));
+  const aged = await run(env, fake.writer, [], { isPidAlive: () => true });
+  assert.equal(aged.code, EXIT.OK);
+  assert.equal(aged.receipt.lock.healed_stale, 'aged_out');
 });
 
-test('usage and config problems exit CONFIG_INVALID before anything runs', async t => {
+test('stale query files from a killed run are removed before the next call', async t => {
+  const env = setup(t, [record('A', '2026-09-23', 'Stale query.')]);
+  mkdirSync(join(env.dir, 'work', 'DEMO-1', 'calls'), { recursive: true });
+  writeFileSync(join(env.dir, 'work', 'DEMO-1', 'calls', 'query-left-behind.txt'), 'old source text');
+  const { code } = await run(env, fakeWriter().writer);
+  assert.equal(code, EXIT.OK);
+  assert.deepEqual(readdirSync(join(env.dir, 'work', 'DEMO-1', 'calls')), []);
+});
+
+test('usage, config and missing writer identity exit CONFIG_INVALID before anything runs', async t => {
   const env = setup(t, []);
   const quiet = { stdout: silent(), stderr: silent() };
+  const base = ['--config', join(env.dir, 'config.json'), '--receipts', join(env.dir, 'receipts')];
   assert.equal(await historyNightCli(['--config', join(env.dir, 'config.json')], quiet), EXIT.CONFIG_INVALID);
-  assert.equal(await historyNightCli(['--config', join(env.dir, 'config.json'), '--receipts', join(env.dir, 'receipts'),
-    '--config-sha256', `sha256:${'0'.repeat(64)}`], quiet), EXIT.CONFIG_INVALID);
-  assert.equal(await historyNightCli(['--config', join(env.dir, 'config.json'), '--receipts', join(env.dir, 'receipts'),
-    '--projects', 'OTHER-1'], quiet), EXIT.CONFIG_INVALID);
+  assert.equal(await historyNightCli([...base, '--config-sha256', `sha256:${'0'.repeat(64)}`], quiet), EXIT.CONFIG_INVALID);
+  assert.equal(await historyNightCli([...base, '--projects', 'OTHER-1'], quiet), EXIT.CONFIG_INVALID);
+  const { writer_id, ...anonymous } = env.config.writer;
+  writeFileSync(join(env.dir, 'config.json'), JSON.stringify({ ...env.config, writer: anonymous }));
+  assert.equal(await historyNightCli(base, quiet), EXIT.CONFIG_INVALID);
   assert.deepEqual(readdirSync(join(env.dir, 'receipts')), []);
+});
+
+test('the default writer kills the whole process tree on timeout and reports ETIMEDOUT', async () => {
+  const { EventEmitter } = await import('node:events');
+  const { hermesWriter } = await import('../../harness/history_night.mjs');
+  const killed = [], spawned = [];
+  const spawner = (command, args) => {
+    spawned.push(args);
+    const child = new EventEmitter();
+    child.pid = 4242; child.stdout = new EventEmitter(); child.stdout.setEncoding = () => {};
+    return child;
+  };
+  const writer = hermesWriter({ command: 'hermes', profile: 'history-writer', runBudget: 1200, spawner,
+    killTree: child => { killed.push(child.pid); return 'taskkill'; }, killGraceMs: 10 });
+  const result = await writer({ queryFile: 'q.txt', workDir: '.', timeoutMs: 10 });
+  assert.deepEqual(killed, [4242]);
+  assert.deepEqual(result, { exit_code: null, stdout: '', error_code: 'ETIMEDOUT', timed_out: true });
+  assert.deepEqual(spawned[0].slice(0, 5), ['-p', 'history-writer', 'chat', '-Q', '--query-file']);
 });

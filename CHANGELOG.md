@@ -4,6 +4,7 @@
 
 - `guild_hall/context_engine/harness/history_night.mjs`: 과제별 원천 준비 → 바뀐 칸 prepare → 묶음당 외부 작성자 호출(최대 2회) → finalize를 한 명령으로 묶는다. 위층(주·월·최근 현황)은 같은 밤에 이어서 준비한다. 같은 입력은 호출 0회다.
 - lock(소유 pid가 죽었을 때만 회복), `--deadline` 전 시작 금지 구간(기본 20분, 시작 안 한 묶음은 다음 밤으로), 수·상태만 담은 영수증 `soulforge.history_night_receipt.v1`, 종료 코드 0/2/3/4/5/6(다른 야간 단계와 같은 뜻).
+- 층별 prepare(`prepareHistoryExchange`의 `layers`·`batchCharacters` 선택 인자, 기본값은 기존과 같음): 위층 실패가 일별 마감을 막지 않고, 일별 묶음 예산은 prompt 머리말을 빼 질의 한도를 넘지 않는다. 전송 실패는 캐시·미처리 마감 없이 다음 밤에 다시 준비하고, 초과 질의는 기록된 보류로 남긴다. 시간 초과 시 프로세스 나무를 종료하고 호출 한도는 마감까지 남은 시간을 넘지 않는다.
 - 작성자는 주입 함수이고 시험은 가짜 작성자와 합성 자료만 쓴다. lane spec `history_night_lane.spec.json`(`history-night-v1`)을 추가했다.
 - 운영 영향 없음: 예약작업·밤 사슬 설정·Hermes 설정·lane 설치본은 변경하지 않는다.
 
