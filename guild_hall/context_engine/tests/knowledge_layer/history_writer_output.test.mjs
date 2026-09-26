@@ -30,7 +30,28 @@ test('keeps source-link errors distinct from format errors', () => {
   const wrong = structuredClone(draft);
   wrong.drafts[0].sentences[0].evidence_ids = ['OTHER'];
   assert.deepEqual(checkHistoryBatchDraft(wrong, prepared, packet, batch),
-    { ok: false, reason: 'source_link_invalid_after_retry', source_link_errors: 1 });
+    { ok: false, reason: 'source_link_invalid_after_retry', source_link_errors: 1,
+      detail: 'unknown_evidence_ids', bad_ids: ['OTHER'] });
   assert.equal(checkHistoryBatchDraft(null, prepared, packet, batch).reason,
     'format_invalid_after_retry');
+});
+
+test('a format rejection names a fixed detail code and the sentence it stopped at', () => {
+  const detail = mutate => { const value = structuredClone(draft); mutate(value);
+    const checked = checkHistoryBatchDraft(value, prepared, packet, batch);
+    return [checked.reason, checked.detail, checked.sentence_index ?? null]; };
+  assert.deepEqual(checkHistoryBatchDraft(null, prepared, packet, batch).detail, 'json_not_found');
+  assert.deepEqual(detail(value => { value.extra = 1; }), ['format_invalid_after_retry', 'top_keys_invalid', null]);
+  assert.deepEqual(detail(value => { value.prepare_id = 'sha256:other'; }), ['format_invalid_after_retry', 'prepare_id_mismatch', null]);
+  assert.deepEqual(detail(value => { value.drafts.push(value.drafts[0]); }), ['format_invalid_after_retry', 'drafts_count_invalid', null]);
+  assert.deepEqual(detail(value => { value.drafts[0].packet_id = 'x'; }), ['format_invalid_after_retry', 'packet_id_mismatch', null]);
+  assert.deepEqual(detail(value => { value.drafts[0].note = 'x'; }), ['format_invalid_after_retry', 'draft_keys_invalid', null]);
+  assert.deepEqual(detail(value => { value.drafts[0].sentences.push({ text: '제목', evidence_ids: [] }); }),
+    ['format_invalid_after_retry', 'evidence_ids_missing', 2]);
+  assert.deepEqual(detail(value => { value.drafts[0].sentences[0].line = 1; }),
+    ['format_invalid_after_retry', 'sentence_keys_invalid', 1]);
+  assert.deepEqual(detail(value => { value.drafts[0].sentences[0].evidence_ids = ['A', 'A']; }),
+    ['format_invalid_after_retry', 'evidence_ids_duplicate', 1]);
+  assert.deepEqual(detail(value => { value.drafts[0].sentences[0].text = ' '; }),
+    ['format_invalid_after_retry', 'sentence_text_invalid', 1]);
 });

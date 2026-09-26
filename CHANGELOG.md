@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-26 - 야간 이력: 주간 거부 원인 보이기·재질문 구체화·두 밤 거부 시 하위 문장 대체 (질의 `history-night-query v3`)
+
+- Why: 9월 되채우기에서 주간 packet이 `format_invalid_after_retry`로 두 번 거부돼(P25-054 4주 중 2주, P26-005 4주 중 1주) 월·현황이 막혔고, 거부된 답은 남지 않아 이유가 보이지 않았다. 작성자 로그 대조 결과 거부 8회 중 5회는 빈 답이었다: 로컬 작성 모델이 추론 한도(6,144 토큰)를 다 쓰고 본문 없이 끝났고, 카드 18개 이상인 주에서만 났다(7개 이하는 모두 첫 시도 수락). 나머지 3회(카드 12·18개 주)는 본문이 있었으나 사유를 알 수 없다.
+- 고침: `history_writer_output.mjs` 거부에 고정 `detail` 코드(빈 답·JSON 없음·키·id 불일치·근거 없음·없는 근거 ID 등)와 `sentence_index`·`bad_ids`; `history_night.mjs` 거부 답 앞 20 KB를 private `work_root/<과제>/rejected/`에 보관하고 수락되면 삭제, 영수증 시도별 `error_detail`(코드만); 두 번째 질의에 사유 문장(쓸 수 있는 ID 목록 포함, 400자 안); 위층 질의 v3(쓸 수 있는 card_id 목록·카드 수로 묶은 줄 수·짧게 검토·한 부분 카드 최대 12개); 주·월 packet이 같은 카드로 두 밤 거부되면 하위 카드 문장으로 마감(`upper_fallback`, 보는 판 한 줄, 영수증 `upper_fallback`). `history_exchange.mjs`·`history.mjs`가 `upper_fallback`을 받고 보인다.
+- 운영 영향: 작성자 프로필·규칙 파일·예약·설치된 lane은 바꾸지 않았다. 규칙 v3.1 문구 제안과 추론 한도 조정은 Owner 결정이다. 일별 묶음 예산은 재질문 여유 400자만큼 줄어 큰 날은 묶음이 늘 수 있다(이미 마감된 날은 다시 준비하지 않는다).
+- 관련 경로: `guild_hall/context_engine/harness/history_night.mjs`, `src/history_writer_output.mjs`, `src/knowledge_layer/history_exchange.mjs`, `src/knowledge_layer/history.mjs`, `HISTORY_DRAFT_FORMAT.md`, `README.md`.
+
 ## 2026-09-26 - 그래프 동기화 보강: 죽은 잠금 회수·잠금 뒤 binding 재확인·체크포인트 정리·failed 재제시 (lane graph-sync-v5, 배포 전)
 
 - Why: 부분 커밋 조각(b543c3e2) 검토 후속. 강제 종료된 회차의 잠금이 과제를 영구히 막을 수 있었고, 잠금 전에 읽은

@@ -292,12 +292,15 @@ function validatePrepared(ctx, prepared) {
 }
 function cardsForPacket(packet, draftEntry, rows, voiceGroups = null) {
   const keys = plain(draftEntry) ? Object.keys(draftEntry).sort().join(',') : '';
-  if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches', 'merge_fallback,packet_id,sentences'].includes(keys)
+  if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches', 'merge_fallback,packet_id,sentences',
+    'packet_id,sentences,upper_fallback'].includes(keys)
     || draftEntry.packet_id !== packet.packet_id || !Array.isArray(draftEntry.sentences)
     || draftEntry.sentences.length > 1000) fail('history_exchange_draft_invalid');
   const unprocessed = draftEntry.unprocessed_batches ?? [];
   if (!Array.isArray(unprocessed) || (packet.layer !== 'daily' && unprocessed.length)
-    || (draftEntry.merge_fallback !== undefined && (draftEntry.merge_fallback !== true || packet.layer === 'daily')))
+    || (draftEntry.merge_fallback !== undefined && (draftEntry.merge_fallback !== true || packet.layer === 'daily'))
+    || (draftEntry.upper_fallback !== undefined && (draftEntry.upper_fallback !== true
+      || !['weekly', 'monthly'].includes(packet.layer))))
     fail('history_exchange_draft_invalid');
   if (packet.layer === 'daily') {
     const limit = batchCharactersOf(packet);
@@ -384,6 +387,8 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
         ...(packet.layer === 'daily' ? { unprocessed_batches: mapped.unprocessed_batches } : {}),
         // A split upper packet whose merge call failed keeps the parts' sentences; the view says so.
         ...(entry.merge_fallback === true ? { merge_fallback: true } : {}),
+        // An upper packet the writer kept rejecting: its child cards' sentences as they are; the view says so.
+        ...(entry.upper_fallback === true ? { upper_fallback: true } : {}),
         format_flag: null, response_format: 'external_draft', raw: '' };
       if (packet.layer === 'weekly') Object.assign(cell, packet.dependencies.week);
       return { packet, ...storedCell(cell) };

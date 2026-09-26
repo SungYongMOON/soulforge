@@ -85,7 +85,12 @@ export const HISTORY_NIGHT_RECEIPT_SCHEMA = 'soulforge.history_night_receipt.v1'
 // v2: voice input is one conversation segment per record (history input v3);
 // the daily query asks for one paragraph per segment, and an upper packet over
 // the query budget is split into parts plus one merge call.
-export const HISTORY_NIGHT_TEMPLATE_VERSION = 'history-night-query v2';
+// v3: upper queries list the allowed card ids, bound the line count by the card
+// count, ask for a short look before answering, and carry at most
+// MAX_UPPER_CARDS_PER_PART cards per call; the retry names the rejection. The
+// daily first-attempt query is unchanged, so daily cache keys keep v2.
+export const HISTORY_NIGHT_TEMPLATE_VERSION = 'history-night-query v3';
+const DAILY_CACHE_TEMPLATE_VERSION = 'history-night-query v2';
 // The writer rules this template was written for (first line of the rules file).
 // A mismatch is recorded in the receipt, not refused: the Owner installs rules.
 export const HISTORY_WRITER_RULES_VERSION = 'history-writer-rules v3';
@@ -102,6 +107,20 @@ export const STALE_LOCK_MS = 3 * 60 * 60 * 1000;
 export const MIN_DEADLINE_STALE_LOCK_MS = 8 * 60 * 60 * 1000;
 export const KILL_GRACE_MS = 10_000;
 export const RETRY_SUFFIX = '\nJSON으로만 답하라.\n';
+// Room every query keeps for the retry note (the validator's detail, in words).
+export const MAX_RETRY_NOTE_CHARACTERS = 400;
+// A weekly packet of 18+ cards ran the local writer out of its reasoning budget
+// and came back empty (2026-09-26); upper parts are capped by card count too.
+export const MAX_UPPER_CARDS_PER_PART = 12;
+// A rejected answer is kept (first bytes only) in the private work root until the
+// same unit is accepted, so the reason can be read. Never in a receipt.
+export const REJECTED_ANSWER_MAX_BYTES = 20 * 1024;
+// An upper packet rejected on this many distinct nights falls back to its child
+// cards' sentences (flagged `upper_fallback`) instead of holding the month back.
+export const UPPER_FALLBACK_NIGHTS = 2;
+const UPPER_FALLBACK_LAYERS = new Set(['weekly', 'monthly']);
+const REJECTED_SCHEMA = 'soulforge.history_night_rejected_answer.v1';
+const NIGHTS_SCHEMA = 'soulforge.history_night_upper_rejections.v1';
 export const EXIT = Object.freeze({ OK: 0, FAILED: 2, LOCK_HELD: 3, SKIPPED_PAST_DEADLINE: 4,
   CONFIG_INVALID: 5, PARTIAL: 6 });
 const DRAFT_SCHEMA = 'soulforge.history_external_draft.v1';
@@ -250,7 +269,7 @@ export function dailyPrompt({ project, day, rulesVersion, prepareId, packetId, b
 export function dailyPromptOverhead({ project, rulesVersion }) {
   const sample = dailyPrompt({ project, day: '0000-00-00', rulesVersion, prepareId: PLACEHOLDER_ID,
     packetId: PLACEHOLDER_ID, batch: { packet_id: PLACEHOLDER_ID, batch_index: 9999, batch_total: 9999, user: {} } });
-  return sample.length - JSON.stringify({}).length + RETRY_SUFFIX.length;
+  return sample.length - JSON.stringify({}).length + RETRY_SUFFIX.length + MAX_RETRY_NOTE_CHARACTERS;
 }
 const UPPER_LABEL = { weekly: '주간', monthly: '월간', status: '최근 현황' };
 export function upperCards(packet) {
@@ -260,12 +279,19 @@ export function upperCards(packet) {
   if (!Array.isArray(groups)) fail('history_night_upper_packet_invalid');
   return groups.flatMap(group => group.cards ?? []).map(card => ({ card_id: card.card_id, text: card.text }));
 }
+/** "n~m줄" bounded by what there is to compress: never more lines than cards. */
+export function lineRange(count, [low, high]) {
+  const top = Math.max(1, Math.min(high, count));
+  return `${Math.min(low, top)}~${top}줄`;
+}
 export function upperPrompt({ project, packet, rulesVersion, prepareId, cards = upperCards(packet), part = null }) {
   return [
     `${project} ${packet.key} ${UPPER_LABEL[packet.layer]} 이력을 아래 하위 이력 카드만 읽고 써라.${rulesVersion ? ` 지침 판본: ${rulesVersion}.` : ''}`,
     ...(part ? [`이 요청은 ${part.index}/${part.total}번째 부분이다. 이 부분의 카드만 요약하라.`] : []),
-    packet.layer === 'status' ? '최근 있었던 일만 정리하라.' : part ? '같은 사건을 묶어 3~6줄로 압축하라.' : '같은 사건을 묶어 5~10줄로 압축하라.',
-    '각 문장의 evidence_ids에는 아래 카드의 card_id만 넣어라. 카드에 없는 사실을 더하지 말라.',
+    packet.layer === 'status' ? '최근 있었던 일만 정리하라.'
+      : `같은 사건을 묶어 ${lineRange(cards.length, part ? [3, 6] : [5, 10])}로 압축하라. 한 줄은 sentences 항목 하나다.`,
+    '길게 검토하지 말라. 카드를 순서대로 한 번 훑어 같은 사건끼리 묶고 곧바로 JSON을 출력하라.',
+    `각 문장의 evidence_ids에는 그 문장이 묶은 카드의 card_id를 하나 이상 글자 그대로 넣어라. 쓸 수 있는 card_id: ${cards.map(card => card.card_id).join(', ')}. 카드에 없는 사실을 더하지 말라.`,
     'JSON 객체 하나만 출력하라. 설명과 코드펜스는 금지한다.',
     `{"schema":"${DRAFT_SCHEMA}","prepare_id":"${prepareId}","drafts":[{"packet_id":"${packet.packet_id}","sentences":[{"text":"사실 문장","evidence_ids":["카드 ID"]}]}]}`,
     '하위 카드:', JSON.stringify(cards),
@@ -277,7 +303,8 @@ export function upperPrompt({ project, packet, rulesVersion, prepareId, cards = 
 export function upperMergePrompt({ project, packet, rulesVersion, prepareId, sentences }) {
   return [
     `${project} ${packet.key} ${UPPER_LABEL[packet.layer]} 이력의 부분 요약 문장들을 합쳐라.${rulesVersion ? ` 지침 판본: ${rulesVersion}.` : ''}`,
-    packet.layer === 'status' ? '최근 있었던 일만 정리하라.' : '같은 사건을 묶어 5~10줄로 압축하라.',
+    packet.layer === 'status' ? '최근 있었던 일만 정리하라.'
+      : `같은 사건을 묶어 ${lineRange(sentences.length, [5, 10])}로 압축하라. 한 줄은 sentences 항목 하나다. 길게 검토하지 말고 곧바로 JSON을 출력하라.`,
     '각 문장의 evidence_ids에는 아래 문장들이 가진 카드 ID만 넣어라. 아래 문장에 없는 사실을 더하지 말라.',
     'JSON 객체 하나만 출력하라. 설명과 코드펜스는 금지한다.',
     `{"schema":"${DRAFT_SCHEMA}","prepare_id":"${prepareId}","drafts":[{"packet_id":"${packet.packet_id}","sentences":[{"text":"사실 문장","evidence_ids":["카드 ID"]}]}]}`,
@@ -292,7 +319,8 @@ export function splitUpperCards({ project, packet, rulesVersion, prepareId, budg
   const cards = upperCards(packet);
   const size = (list, part) => upperPrompt({ project, packet, rulesVersion, prepareId, cards: list,
     part: part ?? { index: 9999, total: 9999 } }).length;
-  if (upperPrompt({ project, packet, rulesVersion, prepareId, cards }).length <= budget)
+  if (cards.length <= MAX_UPPER_CARDS_PER_PART
+    && upperPrompt({ project, packet, rulesVersion, prepareId, cards }).length <= budget)
     return { parts: [cards], truncated: 0 };
   const parts = []; let held = [], truncated = 0;
   for (const card of cards) {
@@ -304,11 +332,52 @@ export function splitUpperCards({ project, packet, rulesVersion, prepareId, budg
       while (size([item]) > budget) item = { ...item, text: `${[...item.text].slice(0, -2).join('')}…` };
       truncated++;
     }
-    if (held.length && size([...held, item]) > budget) { parts.push(held); held = []; }
+    if (held.length && (held.length >= MAX_UPPER_CARDS_PER_PART || size([...held, item]) > budget)) {
+      parts.push(held); held = [];
+    }
     held.push(item);
   }
   if (held.length) parts.push(held);
   return { parts, truncated };
+}
+
+/** The second attempt's note: what the first answer got wrong, from the validator's
+ * fixed detail code. Ids echoed back are only ids the answer cited that pass a
+ * plain-id shape; the allowed list is cut to fit `room`. Never longer than `room`. */
+const PLAIN_ID = /^[A-Za-z0-9가-힣:_.\-/#@]{1,80}$/u;
+export function retryNote(checked, allowedIds, room = MAX_RETRY_NOTE_CHARACTERS) {
+  const at = checked.sentence_index ? `${checked.sentence_index}번째 문장` : '';
+  const listed = prefix => {
+    let text = prefix;
+    for (const [index, id] of allowedIds.entries()) {
+      const next = `${text}${index ? ', ' : ''}${id}`;
+      if (next.length + 2 > room) return `${text}${index ? ', …' : '…'}.`;
+      text = next;
+    }
+    return `${text}.`;
+  };
+  const notes = {
+    empty_answer: '앞 답이 비어 있었다(검토가 길어 답을 내지 못했다). 길게 검토하지 말고 곧바로 JSON 한 개를 출력하라.',
+    json_not_found: '앞 답에서 위 틀의 JSON을 찾지 못했다. schema 값을 그대로 쓴 JSON 객체 하나만 출력하라.',
+    top_keys_invalid: '앞 답의 최상위 키가 틀렸다. 최상위에는 schema·prepare_id·drafts만 둔다.',
+    prepare_id_mismatch: '앞 답의 prepare_id가 달랐다. 위 틀의 prepare_id를 글자 그대로 복사하라.',
+    drafts_count_invalid: '앞 답의 drafts가 항목 하나가 아니었다. drafts에는 위 틀의 packet_id 항목 하나만 둔다.',
+    packet_id_mismatch: '앞 답의 packet_id가 달랐다. 위 틀의 packet_id를 글자 그대로 복사하라.',
+    draft_keys_invalid: '앞 답의 drafts 항목에 규격 밖 키가 있었다. packet_id와 sentences만 둔다.',
+    sentences_invalid: '앞 답의 sentences가 배열이 아니었다.',
+    sentence_keys_invalid: `앞 답의 ${at}에 규격 밖 키가 있었다. 문장에는 text와 evidence_ids만 둔다.`,
+    sentence_text_invalid: `앞 답의 ${at} text가 비었거나 너무 길었다.`,
+    evidence_ids_missing: `앞 답의 ${at}에 근거 ID가 없었다. 제목·머리말 줄을 만들지 말고 모든 문장에 근거 ID를 하나 이상 넣어라.`,
+    evidence_ids_not_string: `앞 답의 ${at} 근거 ID가 문자열이 아니었다.`,
+    evidence_ids_duplicate: `앞 답의 ${at}에 같은 근거 ID가 두 번 있었다.`,
+  };
+  let note = notes[checked.detail] ?? '앞 답이 규격에 맞지 않았다.';
+  if (checked.detail === 'unknown_evidence_ids') {
+    const bad = (checked.bad_ids ?? []).filter(id => typeof id === 'string' && PLAIN_ID.test(id)).slice(0, 3);
+    note = `앞 답의 근거 ID ${bad.length ? bad.join(', ') : ''}는 이 요청에 없다. `;
+    note = listed(`${note}이 ID만 글자 그대로 쓴다: `);
+  }
+  return [...note].slice(0, Math.max(0, room)).join('');
 }
 
 // ------------------------------------------------------------------ writer
@@ -385,6 +454,61 @@ function callDirFor(workRoot, project) {
   return dir;
 }
 
+/** Private rejected-answer store: `<work_root>/<project>/rejected/<unit>-attempt<n>.json`.
+ * Names come from layer/key/batch only (no packet ids, which move nightly). */
+const rejectedDir = (workRoot, project) => path.join(workRoot, project, 'rejected');
+export function unitName(unit) {
+  const range = unit.batchIndex ? `-${unit.upperPart ? 'p' : 'b'}${unit.batchIndex}of${unit.batchTotal}` : '';
+  return `${unit.layer}-${unit.key}${range}${unit.merge ? '-merge' : ''}`;
+}
+function headBytes(text, limit) {
+  const bytes = Buffer.from(text, 'utf8');
+  if (bytes.length <= limit) return { text, truncated: false };
+  return { text: bytes.subarray(0, limit).toString('utf8').replace(/\uFFFD+$/u, ''), truncated: true };
+}
+function saveRejected(ctx, unit, attempt, stdout, checked) {
+  const dir = rejectedDir(ctx.workRoot, ctx.project);
+  mkdirSync(dir, { recursive: true });
+  const raw = String(stdout ?? '');
+  const head = headBytes(raw, REJECTED_ANSWER_MAX_BYTES);
+  const file = path.join(dir, `${unitName(unit)}-attempt${attempt}.json`);
+  const temp = `${file}.${randomUUID()}.tmp`;
+  writeFileSync(temp, `${JSON.stringify({ schema: REJECTED_SCHEMA, project: ctx.project, layer: unit.layer,
+    key: unit.key, batch_index: unit.batchIndex ?? null, batch_total: unit.batchTotal ?? null,
+    merge: Boolean(unit.merge), attempt, saved_at: ctx.clock(), reason: checked.reason, detail: checked.detail,
+    sentence_index: checked.sentence_index ?? null, bad_ids: checked.bad_ids ?? [],
+    response_sha256: sha256(raw), response_bytes: Buffer.byteLength(raw, 'utf8'), response_truncated: head.truncated,
+    response_head: head.text }, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+  try { renameSync(temp, file); } catch (error) { rmSync(temp, { force: true }); throw error; }
+}
+function clearRejected(ctx, unit) {
+  const dir = rejectedDir(ctx.workRoot, ctx.project);
+  if (!existsSync(dir)) return;
+  const prefix = `${unitName(unit)}-attempt`;
+  for (const name of readdirSync(dir))
+    if (name.startsWith(prefix) && /^\d+\.json$/u.test(name.slice(prefix.length))) rmSync(path.join(dir, name), { force: true });
+}
+/** Nights (KST dates) on which an upper packet with these exact cards was rejected.
+ * A different card set starts over. Returns the updated night count. */
+const kstDay = iso => new Date(Date.parse(iso) + 9 * 3600_000).toISOString().slice(0, 10);
+const nightsFile = (ctx, layer, key) => path.join(rejectedDir(ctx.workRoot, ctx.project), `${layer}-${key}.nights.json`);
+function recordUpperRejection(ctx, layer, key, cardsSha) {
+  const file = nightsFile(ctx, layer, key);
+  let held = null;
+  try { held = existsSync(file) ? readJson(file, 100_000) : null; } catch { held = null; }
+  const nights = held?.schema === NIGHTS_SCHEMA && held.cards_sha256 === cardsSha && Array.isArray(held.nights)
+    ? held.nights.filter(day => DAY.test(day)) : [];
+  const night = kstDay(ctx.now);
+  if (!nights.includes(night)) nights.push(night);
+  mkdirSync(path.dirname(file), { recursive: true });
+  const temp = `${file}.${randomUUID()}.tmp`;
+  writeFileSync(temp, `${JSON.stringify({ schema: NIGHTS_SCHEMA, layer, key, cards_sha256: cardsSha, nights })}\n`,
+    { encoding: 'utf8', flag: 'wx' });
+  try { renameSync(temp, file); } catch (error) { rmSync(temp, { force: true }); throw error; }
+  return nights.length;
+}
+const clearUpperRejection = (ctx, layer, key) => rmSync(nightsFile(ctx, layer, key), { force: true });
+
 const unitRow = unit => ({ layer: unit.layer, key: unit.key, batch_index: unit.batchIndex ?? null,
   batch_total: unit.batchTotal ?? null, ...(unit.merge ? { merge: true } : {}),
   ...(unit.truncatedCards ? { truncated_cards: unit.truncatedCards } : {}),
@@ -406,6 +530,8 @@ async function runUnit(unit, ctx) {
     return { row, kind: 'deferred' };
   }
   let lastReason = 'format_invalid_after_retry';
+  let lastChecked = null;
+  const allowedIds = unit.checkBatch.user.threads.flatMap(thread => thread.records).map(item => item.source_id ?? item.id);
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const nowMs = Date.parse(ctx.clock());
     if (ctx.cutoffAt !== null && nowMs >= ctx.cutoffAt) {
@@ -417,7 +543,11 @@ async function runUnit(unit, ctx) {
     const queryFile = path.join(ctx.callDir, `query-${randomUUID()}.txt`);
     let run, thrown = null;
     try {
-      writeFileSync(queryFile, unit.prompt + (attempt === 2 ? RETRY_SUFFIX : '\n'), { encoding: 'utf8', flag: 'wx' });
+      // The retry names what the validator rejected, inside the room every query keeps for it.
+      const note = attempt > 1 && lastChecked
+        ? `\n${retryNote(lastChecked, allowedIds, Math.min(MAX_RETRY_NOTE_CHARACTERS,
+          ctx.maxQuery - unit.prompt.length - RETRY_SUFFIX.length - 1))}` : '';
+      writeFileSync(queryFile, unit.prompt + (attempt > 1 ? `${note}${RETRY_SUFFIX}` : '\n'), { encoding: 'utf8', flag: 'wx' });
       run = await ctx.writer({ queryFile, workDir: ctx.callDir, timeoutMs, project: ctx.project,
         layer: unit.layer, key: unit.key, batchIndex: unit.batchIndex ?? null, attempt });
     } catch (error) { thrown = safeCode(error); }
@@ -431,17 +561,25 @@ async function runUnit(unit, ctx) {
       row.status = 'transport_failed'; row.reason = transport;
       return { row, kind: 'deferred', transport: true };
     }
-    const checked = checkHistoryBatchDraft(extractHistoryDraft(run.stdout), { prepare_id: unit.prepareId },
-      { packet_id: unit.packetId }, unit.checkBatch);
+    // An answer with no text at all (the writer ran out of its reasoning budget)
+    // is told apart from one that was not JSON.
+    const checked = !String(run.stdout ?? '').trim()
+      ? { ok: false, reason: 'format_invalid_after_retry', detail: 'empty_answer', source_link_errors: 0 }
+      : checkHistoryBatchDraft(extractHistoryDraft(run.stdout), { prepare_id: unit.prepareId },
+        { packet_id: unit.packetId }, unit.checkBatch);
     row.attempts.push({ attempt, seconds, exit_code: 0, error_code: null,
       response_sha256: sha256(String(run.stdout ?? '')), result: checked.ok ? 'accepted' : checked.reason,
+      ...(checked.ok ? {} : { error_detail: checked.detail ?? null }),
       source_link_errors: checked.source_link_errors });
     if (checked.ok) {
       row.status = 'accepted'; row.sentences = checked.sentences.length;
       writeCache(cachePath, { schema: CACHE_SCHEMA, key: unit.cacheKey, outcome: 'accepted', sentences: checked.sentences });
+      try { clearRejected(ctx, unit); } catch { /* diagnosis only; never fails the night */ }
       return { row, kind: 'accepted', sentences: checked.sentences };
     }
+    try { saveRejected(ctx, unit, attempt, run.stdout, checked); } catch { /* diagnosis only; never fails the night */ }
     lastReason = checked.reason;
+    lastChecked = checked;
   }
   if (unit.layer !== 'daily') {
     row.status = 'rejected'; row.reason = lastReason;
@@ -454,7 +592,7 @@ async function runUnit(unit, ctx) {
 
 function unitsFor({ prepared, manifest, project, ctx }) {
   const units = [];
-  const keyOf = content => sha256(JSON.stringify({ v: HISTORY_NIGHT_TEMPLATE_VERSION, rules: ctx.rulesSha,
+  const keyOf = (content, v = HISTORY_NIGHT_TEMPLATE_VERSION) => sha256(JSON.stringify({ v, rules: ctx.rulesSha,
     writer: ctx.identity, project, ...content }));
   for (const packet of prepared.packets) {
     const full = readJson(packet.path, 20_000_000);
@@ -470,14 +608,14 @@ function unitsFor({ prepared, manifest, project, ctx }) {
           batchIndex: index + 1, batchTotal: packet.batch_paths.length, checkBatch: batch,
           prompt: dailyPrompt({ project, day: packet.key, rulesVersion: ctx.rulesVersion,
             prepareId: prepared.prepare_id, packetId: packet.packet_id, batch }),
-          cacheKey: keyOf({ day: packet.key, user: batch.user }) });
+          cacheKey: keyOf({ day: packet.key, user: batch.user }, DAILY_CACHE_TEMPLATE_VERSION) });
       });
     } else {
       // Upper packets reuse the batch checker with the packet's own allowed card ids.
       // A packet whose query would pass the budget is split into parts (each part
       // may cite only its own cards) and merged afterwards; it is never left oversize.
       const { parts, truncated } = splitUpperCards({ project, packet: full, rulesVersion: ctx.rulesVersion,
-        prepareId: prepared.prepare_id, budget: ctx.maxQuery - RETRY_SUFFIX.length });
+        prepareId: prepared.prepare_id, budget: ctx.maxQuery - RETRY_SUFFIX.length - MAX_RETRY_NOTE_CHARACTERS });
       parts.forEach((cards, index) => {
         const part = parts.length > 1 ? { index: index + 1, total: parts.length } : null;
         const ids = part ? cards.map(card => card.card_id) : full.allowed_evidence_ids;
@@ -499,7 +637,7 @@ async function runProject({ entry, ctx: base }) {
   const ctx = { ...base, project };
   const result = { project, status: 'not_started', reason: null, source_status: null,
     changed_days: [], packets: 0, units: [], calls: 0, finalized_layers: [], pending: [],
-    accepted_cells: 0, unprocessed_batches: 0, total_sources: null, unquoted_sources: null,
+    accepted_cells: 0, unprocessed_batches: 0, upper_fallback: [], total_sources: null, unquoted_sources: null,
     unquoted_non_work_voice: null };
   const monthRoot = path.join(entry.output_root, ctx.targetDate.slice(0, 7));
   mkdirSync(monthRoot, { recursive: true });
@@ -539,9 +677,29 @@ async function runProject({ entry, ctx: base }) {
       result.calls += outcome.row.attempts.length;
       ctx.totals.calls += outcome.row.attempts.length;
       result.units.push(outcome.row);
-      if (outcome.kind === 'deferred' || outcome.kind === 'rejected') deferral ??= outcome;
+      if (outcome.kind === 'deferred') deferral ??= outcome;
       if (outcome.transport || outcome.row.reason === 'history_night_past_cutoff') deferral = outcome;
       outcomes.push({ unit, ...outcome });
+    }
+    // An upper packet rejected (any part, after retry) waits for the next night --
+    // until it has been rejected on UPPER_FALLBACK_NIGHTS distinct nights with the
+    // same cards. Then (weekly/monthly) its child cards' sentences are used as they
+    // are, flagged `upper_fallback`, so one stubborn week does not hold the month.
+    const upperFallback = new Set();
+    for (const packet of prepared.packets.filter(item => item.layer !== 'daily')) {
+      const mine = outcomes.filter(item => item.unit.packetId === packet.packet_id && !item.unit.merge);
+      const rejected = mine.filter(item => item.kind === 'rejected');
+      if (!rejected.length) {
+        if (mine.length && mine.every(item => item.kind === 'accepted')) clearUpperRejection(ctx, packet.layer, packet.key);
+        continue;
+      }
+      const full = mine[0].unit.packet;
+      const nights = recordUpperRejection(ctx, packet.layer, packet.key, sha256(JSON.stringify(upperCards(full))));
+      if (UPPER_FALLBACK_LAYERS.has(packet.layer) && nights >= UPPER_FALLBACK_NIGHTS) {
+        upperFallback.add(packet.packet_id);
+        for (const item of rejected) item.row.upper_fallback = true;
+        result.upper_fallback.push({ layer: packet.layer, key: packet.key, nights });
+      } else deferral ??= rejected[0];
     }
     // Split upper packets: once every part is accepted, one merge call compresses
     // the parts' sentences. A merge that is rejected or still over the budget
@@ -573,6 +731,12 @@ async function runProject({ entry, ctx: base }) {
     }
     const drafts = prepared.packets.map(packet => {
       const all = outcomes.filter(item => item.unit.packetId === packet.packet_id);
+      if (upperFallback.has(packet.packet_id)) {
+        const full = all[0].unit.packet;
+        return { packet_id: packet.packet_id, upper_fallback: true, sentences: upperCards(full)
+          .filter(card => typeof card.text === 'string' && card.text.trim() && card.text.length <= 10000)
+          .map(card => ({ text: card.text, evidence_ids: [card.card_id] })) };
+      }
       const merged = all.find(item => item.mergeOf === packet.packet_id);
       const mine = merged ? [merged] : all;
       // Parts all accepted but no merged answer: the parts' sentences are used as they are, marked.
@@ -623,7 +787,8 @@ export async function runHistoryNight({ config, configSha256 = null, receiptsDir
     writer: { ...identity, run_budget: budget, call_timeout_seconds: callTimeoutSeconds,
       template: HISTORY_NIGHT_TEMPLATE_VERSION },
     rules_sha256: null, lock: null, projects: [],
-    totals: { calls: 0, units: 0, accepted: 0, cached: 0, unprocessed: 0, rejected: 0, deferred: 0, transport_failed: 0 } };
+    totals: { calls: 0, units: 0, accepted: 0, cached: 0, unprocessed: 0, rejected: 0, deferred: 0, transport_failed: 0,
+      upper_fallback: 0 } };
   const staleLockMs = deadlineAtMs !== null
     ? Math.max(MIN_DEADLINE_STALE_LOCK_MS, deadlineAtMs - Date.parse(now) + callTimeoutSeconds * 1000)
     : STALE_LOCK_MS;
@@ -658,6 +823,7 @@ export async function runHistoryNight({ config, configSha256 = null, receiptsDir
   } finally {
     releaseNightLock(lock);
   }
+  for (const project of receipt.projects) receipt.totals.upper_fallback += project.upper_fallback?.length ?? 0;
   for (const project of receipt.projects) for (const unit of project.units ?? []) {
     receipt.totals.units++;
     if (unit.status === 'accepted') receipt.totals.accepted++;

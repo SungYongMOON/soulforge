@@ -466,6 +466,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     for (const cell of cells) {
       const heading = cell.layer === 'weekly' ? `${cell.start}–${cell.end}` : cell.key;
       lines.push(`### ${line(heading)}${cell.partial ? ' (월 경계의 부분 주)' : ''}`, '');
+      if (cell.upper_fallback) lines.push(`> ${{ weekly: '주간', monthly: '월간' }[cell.layer] ?? ''} 요약 작성이 거듭 거부됨 — 하위 기록 문장을 그대로 사용`, '');
       if (cell.merge_fallback) lines.push(`> ${{ weekly: '주간', monthly: '월간', status: '최근 현황' }[cell.layer] ?? ''} 요약 합치기 실패 — 부분 요약을 그대로 사용`, '');
       if (cell.unprocessed_batches?.length) lines.push(
         `> 미처리 묶음: ${cell.unprocessed_batches.map(item => `${item.batch_index}번(${item.reason === 'format_invalid_after_retry' ? 'JSON 형식 오류' : '출처 연결 오류'})`).join(', ')}`, '');
