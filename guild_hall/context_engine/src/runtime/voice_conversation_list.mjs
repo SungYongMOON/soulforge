@@ -30,6 +30,14 @@ export const CORRECTIONS_SCHEMA = 'soulforge.voice_corrections.v0';
 export const PIPELINE_CONFIG_SCHEMA = 'soulforge.voice_conversation_pipeline.v0';
 export const RUN_MANIFEST_SCHEMA = 'soulforge.voice_conversation_run.v0';
 export const QUALITY_SCHEMA = 'soulforge.voice_conversation_quality.v0';
+/**
+ * Which transcript a run reads as its primary input. `whisper` is the local
+ * ASR transcript (`analysis/local_asr/<run>/transcript.jsonl`) and is what a
+ * config that says nothing means; `plaud` is the provider transcript at the
+ * session root (`transcript.jsonl`, speaker- and time-segmented), with the
+ * local transcript kept as the secondary/fallback (Owner decision 2026-09-26).
+ */
+export const VOICE_TRANSCRIPT_SOURCES = Object.freeze(['whisper', 'plaud']);
 
 /** What kind of conversation it is. Not how well it was heard, and not who it is for. */
 export const NATURES = Object.freeze(['project_work', 'team_operations', 'idea', 'personal', 'unreadable', 'mixed']);
@@ -221,8 +229,16 @@ export function readPipelineConfig(bytes) {
     limits[key] = given;
   }
   if (limits.llm_calls > 100) fail('voice_pipeline_config_budget_too_large');
+  // Absent stays `null` (read as `whisper`), so a config that never named a
+  // source keeps producing exactly what it produced before -- its bytes, and so
+  // every run id derived from them, are untouched.
+  const transcriptSource = value.transcript_source ?? null;
+  if (transcriptSource !== null && !VOICE_TRANSCRIPT_SOURCES.includes(transcriptSource)) {
+    fail('voice_pipeline_config_transcript_source_unknown');
+  }
   return Object.freeze({ schema: value.schema, model: Object.freeze({ ...model }), prompts_dir: value.prompts_dir,
-    limits: Object.freeze(limits), note: typeof value.note === 'string' ? value.note : null });
+    limits: Object.freeze(limits), note: typeof value.note === 'string' ? value.note : null,
+    transcript_source: transcriptSource });
 }
 
 // ------------------------------------------------------------------ step 1

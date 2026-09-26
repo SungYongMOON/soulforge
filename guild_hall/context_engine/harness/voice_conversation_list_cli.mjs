@@ -127,7 +127,7 @@ const maybeRead = (io, address, max) => { try { return io.read(address, max); } 
  * utterance ids that mean something else, and using it would move every boundary
  * by however much the two transcripts differ.
  */
-export function readSessionInputs({ io, sessionId }) {
+export function readSessionInputs({ io, sessionId, transcriptSource = 'whisper' }) {
   const session = sessionAddress({ io, sessionId });
   if (session === null) fail('voice_session_absent');
   const manifestBytes = io.read(`${session}/session_manifest.json`, MAX_MANIFEST_BYTES);
@@ -135,6 +135,12 @@ export function readSessionInputs({ io, sessionId }) {
   if (manifest?.session_id !== sessionId || typeof manifest.recorded_at_local !== 'string') {
     fail('voice_session_manifest_invalid');
   }
+  if (transcriptSource === 'plaud') return readPlaudInputs({ io, session, sessionId, manifest });
+  return readWhisperInputs({ io, session, manifest });
+}
+
+/** The local ASR transcript, its rows and suppressed rows -- no semantic run yet. */
+function readWhisperTranscript({ io, session, manifest }) {
   const declared = manifest.independent_transcription ?? {};
   if (declared.status !== 'completed' || typeof declared.run_id !== 'string') fail('voice_local_asr_run_absent');
   const runDir = `${session}/analysis/local_asr/${declared.run_id}`;
@@ -145,6 +151,15 @@ export function readSessionInputs({ io, sessionId }) {
   const rows = readJsonl(transcriptBytes, { schema: SEGMENT_SCHEMA });
   const suppressedBytes = maybeRead(io, `${runDir}/suppressed_segments.jsonl`, MAX_TRANSCRIPT_BYTES);
   const suppressed = suppressedBytes === null ? [] : readJsonl(suppressedBytes, { schema: SEGMENT_SCHEMA });
+  return { rows, suppressed,
+    transcript: { run_id: declared.run_id, sha256: transcriptSha256,
+      kind: 'independent_fast', evidence_role: analysis.evidence_role ?? null,
+      claim_ceiling: analysis.claim_ceiling ?? null } };
+}
+
+function readWhisperInputs({ io, session, manifest }) {
+  const whisper = readWhisperTranscript({ io, session, manifest });
+  const transcriptSha256 = whisper.transcript.sha256;
   const providerBytes = maybeRead(io, `${session}/transcript.jsonl`, MAX_TRANSCRIPT_BYTES);
   const providerRows = providerBytes === null ? [] : readJsonl(providerBytes, { schema: SEGMENT_SCHEMA });
 
@@ -163,11 +178,63 @@ export function readSessionInputs({ io, sessionId }) {
   }
   if (matching.length === 0) fail('voice_semantic_label_run_absent');
   if (matching.length > 1) fail('voice_semantic_label_run_ambiguous');
-  return { session, manifest, rows, suppressed, providerRows,
-    transcript: { run_id: declared.run_id, sha256: transcriptSha256,
-      kind: 'independent_fast', evidence_role: analysis.evidence_role ?? null,
-      claim_ceiling: analysis.claim_ceiling ?? null },
-    semantic: matching[0] };
+  return { session, manifest, rows: whisper.rows, suppressed: whisper.suppressed, providerRows,
+    transcript: whisper.transcript, semantic: matching[0] };
+}
+
+/** The run id a PLAUD-primary card names as its transcript (the provider transcript has no run of its own). */
+export const PLAUD_TRANSCRIPT_RUN_ID = 'plaud_provider_transcript';
+// The provider evidence role `semantic_labeling.mjs` knows; it keeps the
+// in-memory label run honest about what it was built from.
+const PLAUD_EVIDENCE_ROLE = 'provider_transcript_auxiliary_unverified';
+
+async function loadPlaudLabeler() {
+  try { return (await import('../../voice_capture/semantic_labeling.mjs')).buildVoiceSemanticLabelRun; }
+  catch { fail('voice_plaud_semantic_labeler_unavailable'); }
+}
+let plaudLabeler = null;
+export async function preparePlaudLabeler() { plaudLabeler ??= await loadPlaudLabeler(); return plaudLabeler; }
+
+/**
+ * PLAUD-primary inputs (Owner decision 2026-09-26): the provider transcript at
+ * the session root is what the pipeline reads, cut into the same rule units
+ * the semantic labeller makes -- built here in memory from those rows, never
+ * written back into custody -- and the local whisper transcript is kept as the
+ * secondary, named in the result but not read by any step. No provider
+ * transcript (absent, empty or not the segment shape) falls back to the
+ * whisper inputs exactly as a `whisper` config reads them, and says so.
+ */
+function readPlaudInputs({ io, session, sessionId, manifest }) {
+  const providerBytes = maybeRead(io, `${session}/transcript.jsonl`, MAX_TRANSCRIPT_BYTES);
+  let rows = null;
+  if (providerBytes !== null) { try { rows = readJsonl(providerBytes, { schema: SEGMENT_SCHEMA }); } catch { rows = null; } }
+  let secondary = null;
+  try {
+    const whisper = readWhisperTranscript({ io, session, manifest });
+    secondary = { source: 'whisper', run_id: whisper.transcript.run_id,
+      sha256: `sha256:${whisper.transcript.sha256}`, rows: whisper.rows.length };
+  } catch { secondary = null; }
+  if (rows === null || rows.length === 0) {
+    const fallback = readWhisperInputs({ io, session, manifest });
+    return { ...fallback, transcript: { ...fallback.transcript, source: 'whisper',
+      fallback: providerBytes === null ? 'plaud_transcript_absent' : 'plaud_transcript_unusable', secondary: null } };
+  }
+  if (plaudLabeler === null) fail('voice_plaud_semantic_labeler_unavailable');
+  const transcriptSha256 = hex(providerBytes);
+  let body;
+  try {
+    body = plaudLabeler({ recordingId: sessionId, transcriptRef: `${sessionId}/transcript.jsonl`,
+      transcriptSha256, sourceSegments: rows,
+      recordingTitle: typeof manifest.source_page_title === 'string' ? manifest.source_page_title : null,
+      durationSeconds: Number.isFinite(manifest.duration_seconds) ? manifest.duration_seconds : null,
+      evidenceRole: PLAUD_EVIDENCE_ROLE,
+      transcriptQuality: typeof manifest.transcript?.quality === 'string' ? manifest.transcript.quality : 'unknown' });
+  } catch { fail('voice_plaud_semantic_label_failed'); }
+  return { session, manifest, rows, suppressed: [], providerRows: [],
+    transcript: { run_id: PLAUD_TRANSCRIPT_RUN_ID, sha256: transcriptSha256, kind: 'plaud_provider',
+      evidence_role: typeof manifest.transcript?.evidence_role === 'string' ? manifest.transcript.evidence_role : null,
+      claim_ceiling: body.engine?.claim_ceiling ?? null, source: 'plaud', fallback: null, secondary },
+    semantic: { run_id: body.run_id, sha256: hex(JSON.stringify(body)), body } };
 }
 
 // ------------------------------------------------------------------ prompts
@@ -351,7 +418,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   bindingsArea = BINDINGS_AREA } = {}) {
   const started = Date.now();
   const limits = config.limits;
-  const input = readSessionInputs({ io, sessionId });
+  // `null` (a config that never named a source) reads as `whisper` and writes
+  // nothing new into the card, so its output stays what it always was.
+  const declaredSource = config.transcript_source ?? null;
+  if (declaredSource === 'plaud') await preparePlaudLabeler();
+  const input = readSessionInputs({ io, sessionId, transcriptSource: declaredSource ?? 'whisper' });
+  const sourceFields = declaredSource === null ? {}
+    : { source: input.transcript.source ?? 'whisper', fallback: input.transcript.fallback ?? null };
   const rowFor = new Map(input.rows.map(row => [row.segment_id, row]));
   const textOfId = id => rowFor.get(id)?.content ?? '';
   const quality = qualityReport({ rows: input.rows, suppressed: input.suppressed,
@@ -408,7 +481,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   for (const window of windows) {
     const body = window.units.map(unit => {
       const marks = [...new Set(unit.source_segment_ids.flatMap(id => marksFor.get(id) ?? []))];
-      const lines = unit.source_segment_ids.map(id => `${id}: ${textOfId(id)}`).join('\n');
+      // A PLAUD transcript names who spoke; a whisper one does not, and its
+      // request text (and so every cached answer) stays exactly as it was.
+      const lines = unit.source_segment_ids.map(id => input.transcript.source === 'plaud'
+        ? `${id} ${rowFor.get(id)?.speaker ?? '-'}: ${textOfId(id)}` : `${id}: ${textOfId(id)}`).join('\n');
       return `[${unit.unit_id}] segment_ids ${unit.source_segment_ids.join(',')}`
         + ` · acts ${(unit.speech_acts ?? []).join(',') || '-'} · marks ${marks.join(',') || '-'}\n`
         + trim(lines, UNIT_TEXT_CHARACTERS);
@@ -899,6 +975,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
         mean_token_probability: probabilities.length === 0 ? null
           : Number((probabilities.reduce((sum, value) => sum + value, 0) / probabilities.length).toFixed(4)) },
       refs: { session_id: sessionId, transcript_run_id: input.transcript.run_id,
+        ...(declaredSource === null ? {} : { transcript_source: sourceFields.source }),
         semantic_run_id: input.semantic.run_id, source_segment_ids: [...ids], audio_ref: 'audio/source.mp3' },
       related_segment_ids: [...new Set([...(segment.related_draft_keys ?? []).map(key => keyToId.get(key))
         .filter(id => id !== undefined && id !== segment.segment_id),
@@ -916,7 +993,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const list = { schema: CONVERSATION_LIST_SCHEMA, session_id: sessionId, run_id: runId, generated_at: generatedAt,
     verified: checks.every(check => check.status === 'ok') && remainingWork.length === 0,
     checks, transcript: { run_id: input.transcript.run_id, sha256: `sha256:${input.transcript.sha256}`,
-      kind: input.transcript.kind },
+      kind: input.transcript.kind, ...sourceFields },
     semantic_run: { run_id: input.semantic.run_id, sha256: `sha256:${input.semantic.sha256}` },
     model: { pin_kind: model.pin_kind, digest: model.digest, alias: config.model.model },
     prompts: promptDigests, suppressed_segment_ids: [...coverage.suppressed_segment_ids],
@@ -995,7 +1072,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       prompt_tokens: row.prompt_tokens ?? null, output_tokens: row.output_tokens ?? null })),
     transcript: { run_id: input.transcript.run_id, sha256: `sha256:${input.transcript.sha256}`,
       rows: input.rows.length, suppressed: input.suppressed.length, provider_rows: input.providerRows.length,
-      evidence_role: input.transcript.evidence_role, claim_ceiling: input.transcript.claim_ceiling },
+      evidence_role: input.transcript.evidence_role, claim_ceiling: input.transcript.claim_ceiling,
+      ...sourceFields, ...(declaredSource === null ? {} : { secondary: input.transcript.secondary ?? null }) },
     semantic_run: { run_id: input.semantic.run_id, sha256: `sha256:${input.semantic.sha256}`,
       units: units.length, evidence_gate: input.semantic.body.evidence_gate ?? null },
     quality: { transcript_kind: quality.transcript_kind, counts: quality.counts,

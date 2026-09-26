@@ -60,7 +60,7 @@ import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { ConversationListError, DEFAULT_LIMITS, PIPELINE_CONFIG_SCHEMA, cacheKeyFor, runIdFor }
   from '../src/runtime/voice_conversation_list.mjs';
-import { readPrompts, readSessionInputs, runConversationList } from './voice_conversation_list_cli.mjs';
+import { preparePlaudLabeler, readPrompts, readSessionInputs, runConversationList } from './voice_conversation_list_cli.mjs';
 import { classifySession } from './voice_conversation_list_nightly.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
 
@@ -192,7 +192,9 @@ export async function agentStepPinFor(binding) {
  * twice from the same unchanged inputs always lands on the same id.
  */
 async function resolveRun(ctx, sessionId, now) {
-  const input = readSessionInputs({ io: ctx.io, sessionId });
+  const source = ctx.config.transcript_source ?? 'whisper';
+  if (source === 'plaud') await preparePlaudLabeler();
+  const input = readSessionInputs({ io: ctx.io, sessionId, transcriptSource: source });
   const model = await agentStepPinFor(ctx.config.model);
   const runId = runIdFor({ sessionId, transcript: input.transcript,
     semanticRun: { run_id: input.semantic.run_id, sha256: input.semantic.sha256 },

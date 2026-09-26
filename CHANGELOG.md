@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-26 - 음성 대화 카드의 PLAUD 전사 우선 입력
+
+- 대화 목록 pipeline config에 선택 필드 `transcript_source`(`whisper`|`plaud`)를 둔다. 없으면 기존과 같은 whisper 입력이며 run id와 카드 바이트는 바뀌지 않는다.
+- `plaud`는 PLAUD 전사를 1차 입력으로 읽고 규칙 단위를 메모리에서 만들며, whisper 전사는 보조로 기록하고 PLAUD 전사가 없으면 대체 입력으로 쓴다. 카드와 run manifest에 사용한 전사를 적는다.
+- 야간 harness에 `--sessions-file`을 추가하고, 전사 출처를 선언한 밤은 다른 전사로 만든 검증된 카드를 다시 만들지 않는다.
+- 운영 config·예약작업·lane 설치본은 변경하지 않는다. `plaud` 모드의 lane 탑재는 별도 spec 갱신이다.
+
 ## 2026-09-25 - 이력 첨부 표시와 묶음 재입력 검증
 
 - Revision `8acd030a`: 메일 수집기의 MIME inline 표시를 `body_inline_image`로 보존하고 이력 첨부에서는 표시된 본문 삽입 이미지만 제외한다. 파일명 패턴으로 제외하지 않는다.

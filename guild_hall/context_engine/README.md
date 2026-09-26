@@ -1274,6 +1274,26 @@ GBrain 패키지 실행이나 호환성 검증을 했다는 의미는 아니다.
 - 시험: `tests/voice_conversation_list_nightly.test.mjs`. 모든 "run" 경로는 `runSession`을 주입해 실제 모델을
   부르지 않는다.
 
+### PLAUD 전사 우선 (2026-09-26 Owner 결정)
+
+- pipeline config의 선택 필드 `transcript_source`(`"whisper"` | `"plaud"`). 필드가 없으면 `whisper`로 읽고
+  카드에 새 필드를 쓰지 않으므로, 기존 config로 만든 run id와 카드 바이트는 그대로다(실측: 라이브 config로 검증된
+  run 557개 전부 이 판 코드로 같은 run id 재계산).
+- `plaud`: 세션 루트의 PLAUD 전사(`transcript.jsonl`, 화자·시각 구간)를 1차 입력으로 읽고, 규칙 단위는
+  `guild_hall/voice_capture/semantic_labeling.mjs`의 `buildVoiceSemanticLabelRun`으로 메모리에서 만든다
+  (custody에 쓰지 않음, provider evidence role로 표시). 로컬 whisper 전사는 `run_manifest.json`의
+  `transcript.secondary`로 남는다. PLAUD 전사가 없거나 형식이 맞지 않으면 whisper 입력으로 되돌아가고
+  `transcript.fallback`에 이유를 적는다. 경계 단계 요청에만 화자 표시가 붙는다.
+- 기존 카드 보호: `transcript_source`를 선언한 밤은 **다른 전사로 만든 검증된 카드**를 `skipped_existing`
+  (`verified_other_source`)로 두고 다시 만들지 않는다. 선언이 없는 밤의 판별은 예전과 같다.
+- `--sessions-file <csv|txt>`: 날짜 창 대신 파일에 적힌 세션만(첫 열, 따옴표·머리행 허용) 순서대로 처리한다.
+  노화(backlog) 보고는 계산하지 않는다.
+- 제한: `plaud` 모드는 `voice_capture` 모듈과 `ajv`를 동적으로 불러오므로 현재 context-read lane 설치본
+  (tracked_paths에 `voice_capture` 없음)에서는 `voice_plaud_semantic_labeler_unavailable`로 멈춘다. lane에
+  싣는 일은 별도 spec 갱신이다.
+- 시험: `tests/voice_conversation_list_plaud_source.test.mjs`(고정 whisper run id·plaud run id·대체·
+  sessions-file·다른 전사 카드 보호).
+
 ## 메일의 과제를 누가 정하는가 (`harness/mail_routes.mjs`, lane graph-sync-v3, 2026-09-22)
 
 메일은 사서함으로 오지 과제로 오지 않는다. 제목에 과제코드가 있는 메일은 여러 신호 중

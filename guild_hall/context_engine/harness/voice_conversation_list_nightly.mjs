@@ -33,6 +33,20 @@
 // anything -- not even the lock -- which is what a scheduled task's preflight
 // runs before it registers.
 //
+// `--sessions-file <csv|txt>` replaces the date-window plan with exactly the
+// sessions that file names (one per line; a CSV's first column, quotes and a
+// header line allowed), in file order, each found under whichever day folder
+// holds it. Classification is unchanged -- a session already verified is still
+// `skipped_existing` -- and the backlog/aging report is not computed, since
+// there is no window to age out of. `--date` is then only the receipt's label.
+//
+// A pipeline config that declares `transcript_source` (see
+// `readPipelineConfig`) binds an existing verified run only when that run was
+// made from the same source: a verified card made from the *other* transcript
+// is `skipped_existing` (`verified_other_source`), never regenerated -- so a
+// `plaud` pass never redoes a verified whisper card and a whisper pass never
+// redoes a verified PLAUD one (Owner decision 2026-09-26).
+//
 // This harness writes only inside `--receipts` and the pipeline's own
 // `derived_root`; it never touches the transcript, the semantic label run, or
 // any project store.
@@ -116,6 +130,7 @@
 //        --pipeline-config <file> --receipts <dir> [--date YYYY-MM-DD]
 //        [--root-table-sha256 sha256:...] [--max-sessions N]
 //        [--deadline HH:MM [--scheduled-start HH:MM] [--no-start-within MINUTES]] [--dry]
+//        [--sessions-file <csv|txt>]
 //        [--chain-reconcile --reconcile-receipts <dir>
 //         [--linear-root <alias address>] [--mail-root <alias address>]...
 //         [--questions-cap N]]
@@ -129,7 +144,7 @@ import { DEFAULT_CHAT_TIMEOUT_MS } from '../src/adapters/local_model/ollama_chat
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { ConversationListError, readPipelineConfig } from '../src/runtime/voice_conversation_list.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
-import { readPrompts, readRun, runConversationList } from './voice_conversation_list_cli.mjs';
+import { PLAUD_TRANSCRIPT_RUN_ID, readPrompts, readRun, runConversationList } from './voice_conversation_list_cli.mjs';
 import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, defaultTargetDate, seoulDateFor, shiftDate }
   from './voice_nightly_shared.mjs';
 
@@ -489,6 +504,43 @@ export function buildSessionPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS,
 }
 
 /**
+ * The plan for an explicit session list (`--sessions-file`): each id in the
+ * order given, once, under the day folder that actually holds it. An id no day
+ * folder holds keeps its own `YYYYMMDD_` prefix as its date, so it still
+ * reaches `classifySession` and is reported `failed`
+ * (`session_manifest_unreadable`) rather than silently dropped.
+ */
+export function buildListedPlan({ io, sessionsAddress = VOICE_SESSIONS_ADDRESS, sessionIds }) {
+  const dateOf = new Map();
+  for (const date of listDirNames(io, sessionsAddress).filter(name => DATE_DIR.test(name)).sort()) {
+    for (const sessionId of listDirNames(io, `${sessionsAddress}/${date}`)) {
+      if (!dateOf.has(sessionId)) dateOf.set(sessionId, date);
+    }
+  }
+  const seen = new Set();
+  const plan = [];
+  for (const sessionId of sessionIds) {
+    if (seen.has(sessionId)) continue;
+    seen.add(sessionId);
+    const prefix = /^(\d{4})(\d{2})(\d{2})_/u.exec(sessionId);
+    plan.push({ date: dateOf.get(sessionId) ?? (prefix ? `${prefix[1]}-${prefix[2]}-${prefix[3]}` : 'unknown'),
+      session_id: sessionId });
+  }
+  return plan;
+}
+
+const LISTED_SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u;
+/** Session ids from a `--sessions-file`: first field of each line, quotes stripped, anything not an id skipped. */
+export function parseSessionsFile(text) {
+  const ids = [];
+  for (const line of String(text).split(/\r?\n/u)) {
+    const first = (line.split(/[,\t]/u)[0] ?? '').trim().replace(/^"(.*)"$/u, '$1').trim();
+    if (first && first !== 'session_id' && LISTED_SESSION_ID.test(first)) ids.push(first);
+  }
+  return ids;
+}
+
+/**
  * How many nights `aged_out_unprocessed` (R1b-1, 2026-09-21 review) looks
  * back: the gap, in whole days, since the newest prior nightly receipt's own
  * `ran_at` found in `receiptsDir` (either schema version -- see
@@ -591,12 +643,12 @@ function agedOutLookback(receiptsDir, now) {
  * looking like a complete one.
  */
 function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, receiptsDir, now,
-  backlogWindowDays = BACKLOG_WINDOW_DAYS, configSha256 = null, promptDigests = null }) {
+  backlogWindowDays = BACKLOG_WINDOW_DAYS, configSha256 = null, promptDigests = null, transcriptSource = null }) {
   const agingThreshold = agingOutSoonThreshold(targetDate, backlogWindowDays);
   const agingOutSoon = plan
     .filter(item => item.date !== targetDate && item.date <= agingThreshold)
     .filter(item => classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id,
-      configSha256, promptDigests }).classification === 'run')
+      configSha256, promptDigests, transcriptSource }).classification === 'run')
     .length;
 
   const lookback = agedOutLookback(receiptsDir, now);
@@ -607,7 +659,7 @@ function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, rece
     try {
       const sessionIds = listDirNames(io, `${sessionsAddress}/${agedOutDate}`)
         .filter(sessionId => classifySession({ io, tools, sessionsAddress, date: agedOutDate, sessionId,
-          configSha256, promptDigests }).classification === 'run');
+          configSha256, promptDigests, transcriptSource }).classification === 'run');
       if (sessionIds.length > 0) byDate.push({ date: agedOutDate, count: sessionIds.length, session_ids: sessionIds });
     } catch (error) {
       agedOutErrorCode = typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_aging_check_failed';
@@ -666,7 +718,7 @@ export function staleReasonFor({ manifest, transcriptRunId, configSha256 = null,
  * old run directory is never touched, let alone deleted.
  */
 export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_ADDRESS, date, sessionId,
-  configSha256 = null, promptDigests = null }) {
+  configSha256 = null, promptDigests = null, transcriptSource = null }) {
   const address = `${sessionsAddress}/${date}/${sessionId}`;
   const unreadable = () => ({ session_id: sessionId, date, title: sessionId, duration_seconds: null,
     existing_run_id: null, classification: 'failed', reason: 'session_manifest_unreadable' });
@@ -697,8 +749,17 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
     }
   }
   if (existing !== null && existing.list?.verified === true) {
+    // A verified card made from the other transcript is never redone by this
+    // pass (see the file doc); `null` (a config that names no source) keeps
+    // the original comparison exactly.
+    const existingSource = existing.manifest?.transcript?.source ?? 'whisper';
+    if (transcriptSource !== null && existingSource !== transcriptSource) {
+      return { ...base, classification: 'skipped_existing', reason: 'verified_other_source',
+        existing_run_id: existing.run_id };
+    }
     const staleField = staleReasonFor({ manifest: existing.manifest,
-      transcriptRunId: manifest.independent_transcription?.run_id ?? null, configSha256, promptDigests });
+      transcriptRunId: existingSource === 'plaud' ? PLAUD_TRANSCRIPT_RUN_ID
+        : manifest.independent_transcription?.run_id ?? null, configSha256, promptDigests });
     if (staleField === null) {
       return { ...base, classification: 'skipped_existing', reason: null, existing_run_id: existing.run_id };
     }
@@ -714,13 +775,14 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
  * reaching the sessions that do need a run -- the cap bounds how much work
  * reaches the model, not how much of the plan this pass is allowed to look at.
  */
-function classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256 = null, promptDigests = null }) {
+function classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256 = null, promptDigests = null,
+  transcriptSource = null }) {
   const rows = [];
   let runCount = 0;
   for (const item of plan) {
     if (maxSessions !== null && runCount >= maxSessions) break;
     const described = classifySession({ io, tools, sessionsAddress, date: item.date, sessionId: item.session_id,
-      configSha256, promptDigests });
+      configSha256, promptDigests, transcriptSource });
     rows.push({ item, described });
     if (described.classification === 'run') runCount += 1;
   }
@@ -946,7 +1008,11 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
   deadline = null, scheduledStart = null, noStartWithinMinutes = null, clock = () => new Date().toISOString(),
   chainReconcile = false, runReconcileChain = defaultRunReconcileChain,
   tablePath = null, rootTableSha256 = null, toolsConfigPath = null, reconcileReceiptsDir = null,
-  linearRoot = null, mailRoots = [], questionsCap = null } = {}) {
+  linearRoot = null, mailRoots = [], questionsCap = null, sessionList = null } = {}) {
+  const transcriptSource = config?.transcript_source ?? null;
+  const planFor = () => (sessionList !== null
+    ? buildListedPlan({ io, sessionsAddress, sessionIds: sessionList })
+    : buildSessionPlan({ io, sessionsAddress, targetDate }));
   if (chainReconcile && (!tablePath || !toolsConfigPath || !reconcileReceiptsDir)) {
     fail('voice_conversation_list_nightly_chain_config_required');
   }
@@ -1027,7 +1093,7 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
 
   if (dry) {
     let plan = [], planError = null;
-    try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
+    try { plan = planFor(); }
     catch (error) {
       planError = typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_plan_failed';
       plan = [];
@@ -1035,10 +1101,11 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
     const rows = [];
     let backlog = null;
     if (planError === null) {
-      try { backlog = backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, receiptsDir, now,
-        configSha256, promptDigests }); }
+      try { backlog = sessionList !== null ? null : backlogAgingReport({ io, tools, sessionsAddress, targetDate,
+        plan, receiptsDir, now, configSha256, promptDigests, transcriptSource }); }
       catch (error) { backlog = agingCheckFailed(error); }
-      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests })) {
+      for (const { item, described } of classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests,
+        transcriptSource })) {
         rows.push(described);
         const label = described.classification === 'run' ? 'would_run' : described.classification;
         log(`${item.date} ${item.session_id} ${label}${described.reason ? ` ${described.reason}` : ''}`);
@@ -1083,15 +1150,15 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
   // reading/writing, which is exactly the race that made a concurrent
   // reconcile's own `LOCK_HELD` look like a spurious failure of this run.
   try {
-    try { plan = buildSessionPlan({ io, sessionsAddress, targetDate }); }
+    try { plan = planFor(); }
     catch (error) {
       planError = typeof error?.code === 'string' ? error.code : 'voice_conversation_list_nightly_plan_failed';
       plan = [];
       log(`sessions plan unreadable: ${planError}`);
     }
     if (planError === null) {
-      try { backlog = backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, receiptsDir, now,
-        configSha256, promptDigests }); }
+      try { backlog = sessionList !== null ? null : backlogAgingReport({ io, tools, sessionsAddress, targetDate,
+        plan, receiptsDir, now, configSha256, promptDigests, transcriptSource }); }
       catch (error) { backlog = agingCheckFailed(error); }
       // nit 4 (2026-09-21 review): a static fact of this pipeline's own
       // config, checked once regardless of what tonight's plan turns out to
@@ -1105,7 +1172,8 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
             + `(${HARD_STOP_GRACE_MINUTES}m) -- a session starting right at the margin could still run well `
             + 'past the hard stop' });
       }
-      const describedRows = classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests });
+      const describedRows = classifyPlan({ io, tools, sessionsAddress, plan, maxSessions, configSha256, promptDigests,
+        transcriptSource });
       for (let index = 0; index < describedRows.length; index++) {
         const { item, described } = describedRows[index];
         if (described.classification !== 'run') {
@@ -1186,7 +1254,9 @@ export async function runNightly({ io, tools, config, prompts, promptDigests, co
       lock: { reclaimed_stale: lock.reclaimed === true,
         previous_lock: lock.reclaimed === true ? (lock.previous ?? null) : null,
         previous_lock_age_ms: lock.reclaimed === true ? (lock.age_ms ?? null) : null },
-      plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError },
+      plan: { candidates: plan.length, processed: rows.length, max_sessions: maxSessions, error: planError,
+        ...(sessionList !== null ? { source: 'sessions_file', listed: sessionList.length } : {}) },
+      ...(transcriptSource !== null ? { transcript_source: transcriptSource } : {}),
       deadline: deadlineReceiptBlock({ stopped: deadlineStopped, sessions_done: rows.length, sessions_left: sessionsLeft }),
       backlog, sessions: rows, warnings,
       totals: { ran: rows.filter(row => row.outcome === 'ran').length, ran_unverified: ranUnverified,
@@ -1354,13 +1424,24 @@ export async function runNightlyCli(argv, { runSession, runReconcileChain, clock
   // produced -- `main` below passes one that writes straight to stdout, so a
   // long night's progress is visible as it happens rather than only after the
   // whole run (or a 56-minute silence) ends.
+  const sessionsFileFlag = flags.get('sessions-file');
+  let sessionList = null;
+  if (sessionsFileFlag !== undefined) {
+    if (typeof sessionsFileFlag !== 'string') fail('voice_conversation_list_nightly_sessions_file_usage_invalid');
+    let text;
+    try { text = readFileSync(sessionsFileFlag, 'utf8'); }
+    catch { fail('voice_conversation_list_nightly_sessions_file_unreadable'); }
+    sessionList = parseSessionsFile(text);
+    if (sessionList.length === 0) fail('voice_conversation_list_nightly_sessions_file_empty');
+  }
+
   const lines = [];
   const log = line => { lines.push(line); if (onLine) onLine(line); };
   const result = await runNightly({ io, tools, config, prompts, promptDigests: digests,
     configSha256: hex(configBytes), receiptsDir, targetDate, maxSessions, dry, now: nowIso,
     deadline, scheduledStart, noStartWithinMinutes, chainReconcile, tablePath,
     rootTableSha256: resolvedRootTableSha256, toolsConfigPath: toolsPath,
-    reconcileReceiptsDir, linearRoot, mailRoots, questionsCap,
+    reconcileReceiptsDir, linearRoot, mailRoots, questionsCap, sessionList,
     ...(runSession ? { runSession } : {}), ...(runReconcileChain ? { runReconcileChain } : {}),
     ...(clock ? { clock } : {}), log });
   return { result, lines, targetDate };
