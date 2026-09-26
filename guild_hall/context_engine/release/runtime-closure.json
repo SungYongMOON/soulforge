@@ -14,7 +14,7 @@
   "files": [
     {
       "path": "guild_hall/context_engine/HISTORY_DRAFT_FORMAT.md",
-      "sha256": "602facb9db5a6cd9e2454a39c8a92ae69ca9ae3ae9d382dd068115951cc54260"
+      "sha256": "76893628a886b94236f4fbfd293bcea2cc621862b1a650f028b71bf5c178183e"
     },
     {
       "path": "guild_hall/context_engine/WIKI_SCHEMA.md",
@@ -421,7 +421,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "095efce4bd89d95fe239416421ac4d0cb1b58ba3ed6db92a5bbdccf67ef35ad8",
+  "closure_sha256": "5b24d271a4e7409a8cfb3a4fccd86819cf5528c8d4301da25fb4e0c99ccf6386",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

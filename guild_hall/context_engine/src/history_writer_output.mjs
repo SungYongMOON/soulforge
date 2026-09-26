@@ -2,7 +2,9 @@
 export function extractHistoryDraft(raw) {
   if (typeof raw !== 'string' || raw.length > 500_000) return null;
   const MAX_PARSE_ATTEMPTS = 32;
+  const MAX_SCAN_STEPS = raw.length * 8;
   let attempts = 0;
+  let scanSteps = 0;
   const parse = candidate => {
     if (++attempts > MAX_PARSE_ATTEMPTS) return null;
     try {
@@ -14,9 +16,12 @@ export function extractHistoryDraft(raw) {
   if (direct) return direct;
   for (let start = 0; start < raw.length; start++) {
     if (attempts >= MAX_PARSE_ATTEMPTS) return null;
+    if (scanSteps >= MAX_SCAN_STEPS) return null;
     if (raw[start] !== '{') continue;
     let depth = 0, quoted = false, escaped = false;
     for (let end = start; end < raw.length; end++) {
+      scanSteps++;
+      if (scanSteps >= MAX_SCAN_STEPS) return null;
       const char = raw[end];
       if (quoted) {
         if (escaped) escaped = false;

@@ -18,6 +18,12 @@ test('extracts the history JSON portion from prose and a code fence', () => {
   assert.equal(extractHistoryDraft('{} '.repeat(31) + JSON.stringify(draft)), null);
 });
 
+test('bounds the brace scan for a long run of unclosed braces', () => {
+  const start = Date.now();
+  assert.equal(extractHistoryDraft('{'.repeat(200_000)), null);
+  assert.ok(Date.now() - start < 2000);
+});
+
 test('keeps source-link errors distinct from format errors', () => {
   assert.deepEqual(checkHistoryBatchDraft(draft, prepared, packet, batch),
     { ok: true, sentences: draft.drafts[0].sentences, source_link_errors: 0 });
