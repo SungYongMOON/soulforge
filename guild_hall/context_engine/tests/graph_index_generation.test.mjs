@@ -280,7 +280,7 @@ test('a store formed under the older layout still indexes, and says which layout
   const current = await makeStore(), worker2 = cannedWorker();
   await update(current, indexer({ generation_id: 'g1', expected_prior: null }), worker2);
   const currentView = openGraphIndex({ storeRoot: current.storeRoot, bindingSha256: current.bindingSha256, request: reader });
-  assert.equal(currentView.manifest.template_version, 'project-context-template-v1');
+  assert.equal(currentView.manifest.template_version, 'project-context-template-v2');
 
   // Not a blanket skip: an area every declared layout requires is still demanded.
   const broken = await makeStore(), worker3 = cannedWorker();

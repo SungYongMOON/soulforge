@@ -88,7 +88,7 @@ test('a preparation lands as references, documents and a record, and reads back 
   assert.equal(preparation.coverage.counts.prepared, 2, 'both granted kinds prepared');
   const receipt = await land(store, preparation);
   assert.equal(receipt.status, 'WRITTEN');
-  assert.equal(receipt.template_version, 'project-context-template-v1');
+  assert.equal(receipt.template_version, 'project-context-template-v2');
   assert.equal(receipt.documents, 2);
   assert.equal(receipt.references, 2);
   // The test root is recorded, not a chosen operating root.
@@ -103,7 +103,7 @@ test('a preparation lands as references, documents and a record, and reads back 
   assert.equal(back.manifest.preparer.version, preparation.run.preparer_version);
   assert.equal(back.manifest.preparer.code_digest, preparation.run.preparer_code_digest);
   assert.equal(back.manifest.preparer.rules_digest, preparation.run.preparation_rules_digest);
-  assert.equal(back.manifest.template_version, 'project-context-template-v1');
+  assert.equal(back.manifest.template_version, 'project-context-template-v2');
   // The writer is named: this is what a record in the store adds to a record.
   assert.deepEqual({ actor: back.manifest.writer.actor_ref, operation: back.manifest.writer.operation },
     { actor: 'actor:indexer', operation: 'prepare' });
@@ -327,7 +327,7 @@ test('a kind the store layout has no place for is refused, not filed by making t
   const all = { ...roots, ...linear.roots };
   // On today's layout it lands, Linear reference and all.
   const current = await land(store, await prepare(withLinear, all));
-  assert.equal(current.template_version, 'project-context-template-v1');
+  assert.equal(current.template_version, 'project-context-template-v2');
   assert.equal(current.references, 3);
   const back = await readBack(store, 'prep-0001');
   assert.ok(back.manifest.references.some(row => row.path.includes('/LINEAR/')));

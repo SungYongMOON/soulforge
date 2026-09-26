@@ -33,7 +33,9 @@ so adding a kind does not make older stores unreadable in the same commit; a
 store matching no declared version is still refused, because that is a broken
 store and not an older one. `project-context-template-v1` added
 `10_입력자료/LINEAR` on 2026-09-12 for the references of Linear, one of the
-Tributary source kinds.
+Tributary source kinds. `project-context-template-v2` added
+`30_프로젝트맥락/이력` on 2026-09-26 (Owner decision) for project history; its
+sole writer is the history runner, which creates it on first write.
 Declaring a version changes no bytes on disk: physical apply stays behind R2.
 `20_PROJECT_ASSET_INDEX` and `45_EVENT_STORES/projects` remain legacy paths.
 Global indexes remain metadata-only; the protected per-project store is the

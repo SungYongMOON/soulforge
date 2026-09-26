@@ -596,9 +596,13 @@ template, not a new graph, metadata or workflow schema.
 
 The layout is versioned, because it gains source kinds over time and a project
 store keeps the layout it was formed under. The tree below is
-`project-context-template-v1`; `project-context-template-v0` is the same tree
-without `10_입력자료/LINEAR`, which was added on 2026-09-12 so that Linear, one
-of the Tributary source kinds, has a place for its references. A reader admits a store matching
+`project-context-template-v2`. `project-context-template-v1` is the same tree
+without `30_프로젝트맥락/이력`, which the Owner opened on 2026-09-26 for the
+project history written by the history runner; `project-context-template-v0`
+additionally lacks `10_입력자료/LINEAR`, which was added on 2026-09-12 so that
+Linear, one of the Tributary source kinds, has a place for its references.
+`이력` is not pre-created: the history runner creates it on its first write, so
+a store resolves as v1 until then. A reader admits a store matching
 any declared version and records which one it matched, so adding a kind does not
 make stores built before it unreadable. A store matching no declared version is
 refused - that is a broken store, not an older one. Adding a version is a
@@ -626,7 +630,8 @@ forming an authorized project store. It cannot use an arbitrary project label.
 ├─ 30_프로젝트맥락/
 │  ├─ 사건·관계/
 │  ├─ 결정·약속·제약/
-│  └─ 업무가지·프로젝트요약/
+│  ├─ 업무가지·프로젝트요약/
+│  └─ 이력/
 ├─ 40_기억관리/
 │  ├─ 회수용_기억/
 │  ├─ 선택정책/
@@ -643,6 +648,7 @@ forming an authorized project store. It cannot use an arbitrary project label.
 | 10_입력자료 | Exact source/revision/locator references by source kind. A policy-authorized project-only input snapshot may be materialized with copy lineage; collection alone does not authorize it. Mixed voice uses exact relevant spans, not a forced whole-recording project assignment. Collected originals stay with their collection owner and are never moved, copied or deleted into this area. |
 | 20_문서검색 | Project-owned extracted text/tables, rebuildable lexical/vector/graph retrieval assets, source-location maps, extraction warnings and quality records. Accepted source artifacts remain in their original owner. |
 | 30_프로젝트맥락 | Project semantic events and reviewed relations, decisions/commitments/constraints, branch/project summaries and their correction/revision lineage. Existing raw event owners are referenced, never silently duplicated. |
+| 30_프로젝트맥락/이력 | Project history: dated factual daily history whose sentences carry evidence lines, weekly/monthly summaries and a current-status view, one `<YYYY-MM>` folder per month. Derived and rebuildable from the source custody it cites; it is not a decision authority. Sole writer: the history runner (`guild_hall/context_engine/harness/history_night.mjs`); its private work root (query cache holding source text) stays outside the project store. |
 | 40_기억관리 | Typed recall projections, policy revisions and retrieval/utilization evaluation. Recall memory references the decision/context record; it is not a second decision authority. |
 | 50_업무맥락 | Bounded task-context selection and evidence receipts; project-only pack payloads follow their retention/data-class policy. Common chunks remain transient and are not copied into a new project truth. |
 | 60_업무경험 | Work Episode projections linking exact result, review, failure and rework receipts. Raw transcripts, hidden reasoning and unrelated work are excluded. |

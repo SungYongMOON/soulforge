@@ -48,10 +48,16 @@ const SOURCE_LANE_DIRS = Object.freeze([
 // so `resolveProjectTemplateVersion` accepts a store matching any declared
 // version and says which one. That is not a relaxation: a store that matches no
 // declared version - missing a directory every version requires - still fails.
-export const PROJECT_CONTEXT_TEMPLATE_VERSION = 'project-context-template-v1';
+export const PROJECT_CONTEXT_TEMPLATE_VERSION = 'project-context-template-v2';
 // What each earlier version did not yet have. A store formed under that version
 // is complete without these and must not be read as broken for lacking them.
-const TEMPLATE_ADDED_SINCE = Object.freeze({ 'project-context-template-v0': Object.freeze(['10_입력자료/LINEAR']) });
+// v2 (2026-09-26, Owner decision) adds `30_프로젝트맥락/이력`, whose only writer is
+// the history runner (context_engine/harness/history_night.mjs). The runner creates
+// it on its first write, so a store resolves as v1 until then.
+const TEMPLATE_ADDED_SINCE = Object.freeze({
+  'project-context-template-v1': Object.freeze(['30_프로젝트맥락/이력']),
+  'project-context-template-v0': Object.freeze(['10_입력자료/LINEAR', '30_프로젝트맥락/이력']),
+});
 
 export const PROJECT_CONTEXT_DIRECTORY_TEMPLATE = Object.freeze([
   "00_프로젝트_안내",
@@ -70,6 +76,7 @@ export const PROJECT_CONTEXT_DIRECTORY_TEMPLATE = Object.freeze([
   "30_프로젝트맥락/사건·관계",
   "30_프로젝트맥락/결정·약속·제약",
   "30_프로젝트맥락/업무가지·프로젝트요약",
+  "30_프로젝트맥락/이력",
   "40_기억관리",
   "40_기억관리/회수용_기억",
   "40_기억관리/선택정책",

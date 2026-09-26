@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-09-26 - 과제 저장소에 이력 폴더(`30_프로젝트맥락/이력`) 추가
+
+- Owner 결정(2026-09-26): 과제 이력(일별 사실 이력·주/월 요약·최근 현황)은 과제 저장소 `20_PROJECTS/<project-ref>/30_프로젝트맥락/이력/<YYYY-MM>/`에 둔다. 이번 결정으로 연 폴더는 `이력` 하나뿐이다.
+- 레이아웃 판본 `project-context-template-v2`를 선언했다(`guild_hall/path_registry/src/target_materializer.mjs`, Plan 17 트리·표). v1은 `이력`이 없는 같은 트리, v0은 거기에 `10_입력자료/LINEAR`도 없는 트리로 계속 선언되어, `이력`이 없는 기존 저장소는 v1로 그대로 읽힌다. `이력`은 미리 만들지 않고 이력 야간 단계가 첫 쓰기에서 만든다.
+- 쓰는 쪽은 이력 야간 단계(`guild_hall/context_engine/harness/history_night.mjs`)뿐이다. 맥락 세대 writer의 쓰기 영역 목록(`pair_store`·`generation_update`·accepted context runtime)에는 넣지 않았다. 이력은 원천에서 다시 만들 수 있는 파생물이며 결정 권한이 아니다.
+- 운영 영향: 코드·문서 선언만 바꾼다. 물리 폴더 생성·예약작업·lane 설치본은 이 변경에 포함되지 않는다.
+
 ## 2026-09-26 - 야간 이력 단계(history night step)
 
 - `guild_hall/context_engine/harness/history_night.mjs`: 과제별 원천 준비 → 바뀐 칸 prepare → 묶음당 외부 작성자 호출(최대 2회) → finalize를 한 명령으로 묶는다. 위층(주·월·최근 현황)은 같은 밤에 이어서 준비한다. 같은 입력은 호출 0회다.

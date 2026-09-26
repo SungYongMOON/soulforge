@@ -416,6 +416,17 @@ test("a project store is read at the layout version it was formed under", () => 
   assert.equal(older.has("10_입력자료/LINEAR"), false);
   assert.equal(held(PROJECT_CONTEXT_TEMPLATE_VERSION).has("10_입력자료/LINEAR"), true);
   assert.equal(resolveProjectTemplateVersion((dir) => older.has(dir)), "project-context-template-v0");
+  // 2026-09-26: a live store formed before 이력 existed stays readable as v1; the
+  // history runner creates 이력 on its first write and the store then reads as v2.
+  const beforeHistory = held("project-context-template-v1");
+  assert.equal(beforeHistory.has("30_프로젝트맥락/이력"), false);
+  assert.equal(beforeHistory.has("10_입력자료/LINEAR"), true);
+  assert.equal(held(PROJECT_CONTEXT_TEMPLATE_VERSION).has("30_프로젝트맥락/이력"), true);
+  assert.equal(resolveProjectTemplateVersion((dir) => beforeHistory.has(dir)), "project-context-template-v1");
+  assert.equal(older.has("30_프로젝트맥락/이력"), false);
+  // An extra, undeclared child does not make a store unreadable.
+  assert.equal(resolveProjectTemplateVersion((dir) => beforeHistory.has(dir) || dir === "30_프로젝트맥락/기타"),
+    "project-context-template-v1");
 
   // Every declared version keeps every area a project store needs; a version is
   // a source kind added, never an area dropped.

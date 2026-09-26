@@ -374,7 +374,7 @@
     },
     {
       "path": "guild_hall/path_registry/src/target_materializer.mjs",
-      "sha256": "bb63f27dc2fd48bbd9cd0a1c83c261106d2f3ebf9e71c4d23c3692a02d60e021"
+      "sha256": "7fd71cabe76ab9ce32084441156d636638ddb01f76da140b20271dcc621b93be"
     },
     {
       "path": "guild_hall/rag/knowledge_access_capture.mjs",
@@ -421,7 +421,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "9e355088085d5c453d721ba882a55391eefc36094e09b5de7a9d0a0fe633b9ae",
+  "closure_sha256": "61f2bbcf1a4c290ffd1fc612a49c13f47a8839731432bfb9cc15b10d98764d42",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

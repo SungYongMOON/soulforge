@@ -40,6 +40,7 @@
 | RAG index | 위 root의 `<source_revision>/<index_generation>/` |
 | RAG trace/answer/review/work card | `20_문서검색/원문위치·추출품질/`의 source trace/quality와 `50_업무맥락/`의 refs-only selection/result receipts |
 | thin Wiki body (target) | `<data_root>/20_PROJECTS/<project_code>/30_프로젝트맥락/업무가지·프로젝트요약/wiki/<batch_id>/` |
+| 이력(일·주·월·최근 현황, writer=이력 야간 단계만) | `<data_root>/20_PROJECTS/<project_code>/30_프로젝트맥락/이력/<YYYY-MM>/` |
 
 현재 runtime/docs 일부가 project RAG asset을
 `_workspaces/knowledge/rag/indexes_local/source_text_indexes/**`에 두고 project_code 접두로
