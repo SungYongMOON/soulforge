@@ -45,6 +45,7 @@
     "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
     "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
     "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_voice_attribution.mjs",
     "guild_hall/context_engine/src/knowledge_layer/index.mjs",
     "guild_hall/context_engine/src/knowledge_layer/model.mjs",
     "guild_hall/context_engine/src/knowledge_layer/model_roles.mjs",

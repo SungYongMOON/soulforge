@@ -276,8 +276,31 @@ function displayConfig(value) {
   }
   return snapshot(result);
 }
+// Which transcript the card read. Only whisper/plaud are known sources; an
+// undeclared source (older cards) is the local whisper run.
+function transcriptLabelFor(meta) {
+  const source = meta.transcript_source;
+  if (source !== undefined && !['whisper', 'plaud'].includes(source)) return '전사 출처 미상';
+  if (source === 'plaud') return 'PLAUD 전사';
+  if (meta.transcript_fallback === undefined) return '자체 전사';
+  return meta.transcript_fallback === 'plaud_transcript_absent' ? '자체 전사(PLAUD 없음)'
+    : meta.transcript_fallback === 'plaud_transcript_unusable' ? '자체 전사(PLAUD 사용 불가)'
+      : '자체 전사(대체 사유 미상)';
+}
+// Same-day voice attribution (history_sources): which deterministic match placed it here.
+export const SAME_DAY_ATTRIBUTION = 'weak_same_day_context';
+function weakReasonLabel(ref) {
+  const kinds = new Set((plain(ref.attribution_reason) && Array.isArray(ref.attribution_reason.matches)
+    ? ref.attribution_reason.matches : []).map(match => match?.kind));
+  return kinds.has('project_term') ? '같은 날 기록·과제 용어 일치'
+    : kinds.has('participant') ? '같은 날 기록·참여자 이름 일치' : '같은 날 기록 기준';
+}
+// View-only paragraph bounds: one paragraph never holds more than this many
+// sentences or characters; the next same-evidence sentence starts a new paragraph.
+export const PARAGRAPH_MAX_SENTENCES = 6;
+export const PARAGRAPH_MAX_CHARS = 600;
 export function renderHistory(data, daily, weekly, monthly, status, displayMetadata = {}, staleSummary = false,
-  { external = false, pending = {} } = {}) {
+  { external = false, pending = {}, groupParagraphs = true } = {}) {
   const display = displayConfig(displayMetadata);
   const knownIds = [...data.records.map(row => row.id), ...[...daily.values(), ...weekly.values(), monthly, status].filter(Boolean)
     .flatMap(cell => (cell.cards ?? []).map(card => card.card_id))].sort((a, b) => b.length - a.length);
@@ -338,15 +361,15 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
       for (const row of rows) if (!seen.has(row)) { seen.add(row); locators.push(row); }
     }
     const candidate = refs.some(ref => plain(ref) && ref.attribution === 'candidate_only_not_accepted');
-    // Which transcript the card read; absent (older cards) is the local whisper run.
-    const transcriptLabel = meta.transcript_source === 'plaud' ? 'PLAUD 전사'
-      : meta.transcript_fallback ? '자체 전사(PLAUD 없음)' : '자체 전사';
+    const weak = refs.find(ref => plain(ref) && ref.attribution === SAME_DAY_ATTRIBUTION);
+    const transcriptLabel = transcriptLabelFor(meta);
     const parts = ['PLAUD', visible(meta.recorded_at ?? entry.source.date),
       visible(meta.title ?? '원제목 미확인'), transcriptLabel,
       ...(locators.length ? [locators.join('; ')] : ['발화 번호·구간 미기록']),
       ...(meta.audio_path ? [localLink('녹음', meta.audio_path)] : []),
       ...(meta.transcript_path ? [localLink('전사', meta.transcript_path)] : []),
-      ...(candidate ? ['과제 귀속 후보(미수락)'] : []), '발화자 미확인'];
+      ...(candidate ? ['과제 귀속 후보(미수락)'] : []),
+      ...(weak ? [`${weakReasonLabel(weak)}(귀속 약함)`] : []), '발화자 미확인'];
     return parts.join(' · ');
   };
   const lines = [`# ${line(data.project)} · ${data.month} 이력 초안`, '',
@@ -363,7 +386,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
         ? '일부 묶음의 응답을 받거나 읽지 못했습니다. 나머지 이력은 표시했고 받은 응답은 보존했습니다.'
         : '형식 오류로 표시하지 못한 응답이 있습니다. 원 응답은 보존했습니다.', '');
       if (external && !cell.cards?.length) lines.push('> 외부 초안에 문장 없음', '');
-      for (const group of paragraphs(cell.cards ?? [])) {
+      for (const group of groupParagraphs ? paragraphs(cell.cards ?? []) : (cell.cards ?? []).map(card => [card])) {
         const card = group.length === 1 ? group[0] : mergedParagraph(group);
         for (const member of group) lines.push(`<a id="${anchor(member.card_id)}"></a>`);
         lines.push(`- ${group.map(member => visible(member.text)).join(' ')}`);
@@ -414,15 +437,21 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
 // exactly the same evidence set -- the same source ids and the same child records --
 // share one paragraph and one set of evidence lines, at the first sentence's place.
 // Sentences with a different set, no evidence at all, or a review flag stay alone.
+// A paragraph is closed at PARAGRAPH_MAX_SENTENCES sentences or when the next
+// sentence would pass PARAGRAPH_MAX_CHARS; the next same-set sentence opens a new
+// paragraph at its own place. Deterministic: order and bounds only.
 // Stored cells, drafts and fingerprints are untouched; only the rendered view changes.
 function paragraphs(cards) {
   const groups = [], byKey = new Map();
+  const size = group => group.reduce((total, card) => total + String(card.text ?? '').length, 0);
   for (const card of cards) {
     const ids = [...new Set(card.source_ids ?? [])].sort(), children = [...new Set(card.child_card_ids ?? [])].sort();
     if ((!ids.length && !children.length) || card.flags?.length) { groups.push([card]); continue; }
     const key = serial({ ids, children });
     const held = byKey.get(key);
-    if (held) held.push(card); else { const group = [card]; byKey.set(key, group); groups.push(group); }
+    if (held && held.length < PARAGRAPH_MAX_SENTENCES
+      && size(held) + String(card.text ?? '').length <= PARAGRAPH_MAX_CHARS) held.push(card);
+    else { const group = [card]; byKey.set(key, group); groups.push(group); }
   }
   return groups;
 }

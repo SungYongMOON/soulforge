@@ -4,7 +4,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, renameSync, rmSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
-import { hashText } from '../../src/knowledge_layer/data.mjs';
+import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
+import { sameDayContext } from '../../src/knowledge_layer/history_voice_attribution.mjs';
 import { readLinearHistory, readVoiceHistory, collectHistorySources } from '../../src/knowledge_layer/history_sources.mjs';
 
 function temp(t) { const root=mkdtempSync(join(tmpdir(),'history-sources-'));t.after(()=>rmSync(root,{recursive:true,force:true}));return root; }
@@ -151,4 +152,100 @@ test('a human route withdrawal vetoes a later candidate without reactivating its
 test('collector reports missing lanes explicitly, never as trusted empty',async()=>{
   const r=await collectHistorySources({...args,sourceConfig:{project:'P-DEMO'}});
   assert.equal(r.records.length,0);assert.ok(Object.values(r.coverage.lanes).every(x=>x.status==='missing'));
+});
+
+// Same-day weak attribution: synthetic names and terms only.
+function sameDaySession(sessions,cards,{day,session,title,rows,segments,verified=true}){
+  put(join(sessions,day,session,'session_manifest.json'),{session_id:session,recorded_at_local:`${day}T09:00:00+09:00`,
+    ...(title?{source_page_title:title}:{})});
+  const text=rows.map((content,index)=>JSON.stringify({schema_version:'soulforge.voice_transcript_segment.v0',speaker:'unknown',
+    segment_id:index,analysis_run_id:'asr-run',start_seconds:index*2,end_seconds:index*2+2,content})).join('\n')+'\n';
+  const trPath=join(sessions,day,session,'analysis','local_asr','asr-run','transcript.jsonl');
+  mkdirSync(join(trPath,'..'),{recursive:true});writeFileSync(trPath,text);
+  put(join(cards,session,'card-run','conversation_list.v0.json'),{schema:'soulforge.voice_conversation_list.v0',session_id:session,
+    run_id:'card-run',generated_at:'2026-09-24T00:00:00Z',verified,transcript:{run_id:'asr-run',sha256:hashText(text),kind:'independent_fast'},
+    segments:segments.map((segment,index)=>({segment_id:`seg-${index}`,source_segment_ids:[index],start_seconds:index*2,end_seconds:index*2+2,
+      title:'Derived navigation',description:'derived',project_candidates:[],other_project_mentions:[],status:'unclassified',...segment}))});
+  return trPath;
+}
+function sameDayFixture(t){
+  const root=temp(t),sessions=join(root,'sessions'),cards=join(root,'cards'),linear=join(root,'linear');
+  mkdirSync(sessions);mkdirSync(cards);for(const kind of ['issues','comments','issue_history'])mkdirSync(join(linear,kind),{recursive:true});
+  // Written Linear sources on both days.
+  const issue={id:'issue-one',project_id:'project-one',title:'Synthetic task',description:'Body',created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-23T01:00:00Z',creator_id:'human-one'};
+  custody(linear,'issues',issue);
+  custody(linear,'comments',{id:'comment-one',issue_id:issue.id,user_id:'human-one',body:'Written note',created_at:'2026-09-22T01:00:00Z'});
+  // 09-22: a first-candidate segment and an other-project mention (the day whose fingerprint must not move).
+  sameDaySession(sessions,cards,{day:'2026-09-22',session:'20260922_090000_demo',rows:['후보 발화','용어 합성체계 언급'],
+    segments:[{project_candidates:[{project_code:'P-DEMO',strength:'weak'}],status:'candidate'},{other_project_mentions:[{project_code:'P-OTHER'}]}]});
+  // 09-23: segment 0 names the project term, 1 matches nothing, 2 has a candidate for another project.
+  sameDaySession(sessions,cards,{day:'2026-09-23',session:'20260923_090000_demo',rows:['합성체계 시험 일정 이야기','날씨 이야기','다른 과제 이야기'],
+    segments:[{},{},{project_candidates:[{project_code:'P-OTHER',strength:'weak'}],status:'candidate'}]});
+  const sourceConfig=same=>({project:'P-DEMO',linear:{project:'P-DEMO',root:linear,project_ids:['project-one']},
+    voice:{project:'P-DEMO',sessions_root:sessions,cards_root:cards,project_policy:'first_candidate',
+      same_day_context:same===false?false:{project_terms:['합성체계']}}});
+  return {root,sessions,cards,sourceConfig};
+}
+const window2={project:'P-DEMO',fromDate:'2026-09-22',throughDate:'2026-09-23'};
+const dayDigests=records=>{const days={};for(const row of records)(days[row.date]??=[]).push(digest(row));
+  return Object.fromEntries(Object.entries(days).map(([day,rows])=>[day,digest(rows)]));};
+test('same-day rule attributes a no-candidate segment weakly, with its reason, only on a day with written sources',async t=>{
+  const f=sameDayFixture(t);
+  const on=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(true)});
+  const weak=on.records.filter(row=>row.originrefs[0]?.attribution==='weak_same_day_context');
+  assert.deepEqual(weak.map(row=>[row.date,row.text]),[['2026-09-23','합성체계 시험 일정 이야기']]);
+  assert.deepEqual(weak[0].originrefs[0].attribution_reason,{rule:'same_day_context.v1',written_sources_that_day:1,
+    matches:[{kind:'project_term',term:'합성체계',field:'transcript'}]});
+  // Unmatched, other-project and other-mention segments stay out and are counted.
+  assert.ok(!on.records.some(row=>['날씨 이야기','다른 과제 이야기','용어 합성체계 언급'].includes(row.text)));
+  assert.deepEqual(on.coverage.lanes.voice.same_day,{attributed_segments:1,attributed_utterances:1,unattributed_segments:1,
+    no_written_source_day:0,no_match:1,transcript_unverified:0});
+  // A day with no newly attributed voice keeps its exact record fingerprint.
+  const off=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(false)});
+  assert.equal(off.coverage.lanes.voice.same_day,undefined);
+  const a=dayDigests(on.records),b=dayDigests(off.records);
+  assert.equal(a['2026-09-22'],b['2026-09-22']);assert.notEqual(a['2026-09-23'],b['2026-09-23']);
+  assert.deepEqual(on.records.filter(row=>!weak.includes(row)),off.records);
+});
+test('same-day rule is conservative: no written day, participant names, unverified cards, rule off without context',async t=>{
+  const f=sameDayFixture(t);
+  const written=[{kind:'mail',date:'2026-09-23',sender:'a@example.invalid',recipient:'b@example.invalid, c@example.invalid'},
+    {kind:'slack',date:'2026-09-23',sender:'U1'}];
+  const displayMetadata={person_names:{'a@example.invalid':'가나다 책임','b@example.invalid':'라마 (합성)','c@example.invalid':'Synthetic Self'},
+    slack_names:{U1:'사아자/합성팀'}};
+  const context=sameDayContext({project:'P-DEMO',records:written,displayMetadata,config:{exclude_participants:['사아자']}});
+  assert.deepEqual(context.get('2026-09-23').participants,['가나다']);
+  assert.equal(sameDayContext({project:'P-DEMO',records:written,config:false}),null);
+  sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:'20260923_100000_demo',title:'합성 원제목',rows:['가나다 님이 말함','사아자 님이 말함'],segments:[{},{}]});
+  const config={project:'P-DEMO',sessions_root:f.sessions,cards_root:f.cards,project_policy:'first_candidate'};
+  const result=await readVoiceHistory({...args,config,sameDay:context});
+  const weak=result.records.filter(row=>row.originrefs[0].attribution==='weak_same_day_context');
+  assert.deepEqual(weak.map(row=>row.text),['가나다 님이 말함']);
+  assert.deepEqual(weak[0].originrefs[0].attribution_reason.matches,[{kind:'participant',term:'가나다',field:'transcript'}]);
+  // Without written sources that day nothing is attributed.
+  const empty=await readVoiceHistory({...args,config,sameDay:new Map()});
+  assert.equal(empty.records.filter(row=>row.originrefs[0].attribution==='weak_same_day_context').length,0);
+  assert.ok(empty.receipt.same_day.no_written_source_day>0);
+  assert.equal(empty.receipt.same_day.no_written_source_day,empty.receipt.same_day.unattributed_segments);
+  // Called without context the rule is off.
+  assert.equal((await readVoiceHistory({...args,config})).receipt.same_day,undefined);
+  // Unverified cards are never eligible.
+  sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:'20260923_100000_demo',rows:['가나다 님이 말함','사아자 님이 말함'],segments:[{},{}],verified:false});
+  assert.equal((await readVoiceHistory({...args,config,sameDay:context})).records.filter(row=>row.text==='가나다 님이 말함').length,0);
+});
+test('a transcript read only for the same-day rule never fails the lane',async t=>{
+  const f=sameDayFixture(t);
+  const trPath=sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:'20260923_110000_demo',rows:['합성체계 이야기'],segments:[{}]});
+  writeFileSync(trPath,'changed');
+  const r=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(true)});
+  assert.equal(r.coverage.lanes.voice.status,'ok');
+  assert.equal(r.coverage.lanes.voice.same_day.transcript_unverified,1);
+});
+test('a PLAUD card whose session-root transcript is missing fails closed, never falling back to whisper',async t=>{
+  const v=voiceFixture(temp(t));
+  put(v.cardPath,{...v.card,transcript:{run_id:'plaud_provider_transcript',sha256:v.card.transcript.sha256,kind:'plaud_provider',source:'plaud',fallback:null}});
+  const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
+  await assert.rejects(readVoiceHistory({...args,config}));
+  const r=await collectHistorySources({...args,sourceConfig:{project:'P-DEMO',voice:config}});
+  assert.equal(r.coverage.lanes.voice.status,'error');assert.equal(r.records.length,0);
 });

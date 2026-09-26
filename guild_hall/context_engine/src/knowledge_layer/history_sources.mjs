@@ -7,6 +7,7 @@ import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { hashText } from './data.mjs';
 import { isAiWorkMemoRecord as isMemo } from './history.mjs';
 import { readMailHistory, readSlackHistory } from './history_mail_slack.mjs';
+import { SAME_DAY_ATTRIBUTION, matchSameDay, sameDayContext, sameDayEligible } from './history_voice_attribution.mjs';
 
 const fail = code => { throw new Error(code); };
 const safe = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/u.test(value);
@@ -114,13 +115,19 @@ export async function readLinearHistory({project,fromDate,throughDate,config}) {
   return {records,displayMetadata:{},receipt:{status:'ok',records:records.length,excluded:excluded.length},excluded,sourceReceipts:receipts};
 }
 
-export async function readVoiceHistory({project,fromDate,throughDate,config}) {
+/** `sameDay` (Map from sameDayContext) enables weak same-day attribution; absent = off. */
+export async function readVoiceHistory({project,fromDate,throughDate,config,sameDay=null}) {
   requireProject(project,config);
   if (!['confirmed','first_candidate'].includes(config.project_policy)) fail('history_voice_policy_required');
   const sessions = openSourceRoot(config.sessions_root), cardsRoot = openSourceRoot(config.cards_root);
   const routes = config.routes_root ? openSourceRoot(config.routes_root) : null;
   if (config.project_policy==='confirmed'&&!routes) fail('history_voice_routes_required');
   const read = bounded(config), records = [], excluded = [], receipts = [], voiceSources = {};
+  // Same-day rule counts: every eligible (no-candidate) segment in the window ends
+  // in exactly one bucket, so the unattributed remainder is visible in the receipt.
+  const sameDayOn = config.project_policy==='first_candidate' && sameDay instanceof Map;
+  const sameDayCounts = {attributed_segments:0,attributed_utterances:0,unattributed_segments:0,
+    no_written_source_day:0,no_match:0,transcript_unverified:0};
   const routeNames = routes ? new Set((await routes.list([])).filter(e=>e.file).map(e=>e.name)) : new Set();
   const previousDate=new Date(Date.parse(fromDate+'T00:00:00Z')-86400000).toISOString().slice(0,10);
   const windowStart=Date.parse(fromDate+'T00:00:00+09:00');
@@ -153,7 +160,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
       const rawLedger=await read(routes,[session.name+'.json']); ledgerHash=rawLedger.sha256;
       ledger=validateVoiceRouteLedger(JSON.parse(rawLedger.text),{sessionId:session.name});
     }
-    const selected=[];
+    const selected=[], pending=[];
     for(const segment of latest.card.segments){
       if(!safe(segment.segment_id))fail('history_voice_segment_invalid');
       const human=ledger?.segments.find(s=>s.segment_id===segment.segment_id);
@@ -163,14 +170,21 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
         && JSON.stringify(human.source_segment_ids)===JSON.stringify(segment.source_segment_ids)
         && Array.isArray(human.transcript_ref)&&human.transcript_ref.includes(latest.card.transcript?.run_id);
       const candidate=config.project_policy==='first_candidate'&&segment.project_candidates?.[0]?.project_code===project;
-      if(!confirmed&&!candidate)continue;
+      const weak=!confirmed&&!candidate&&sameDayOn
+        &&(!human||(human.status!=='confirmed'&&!human.project_candidates?.length))&&sameDayEligible(latest.card,segment);
+      if(!confirmed&&!candidate&&!weak)continue;
       if(!Number.isFinite(segment.start_seconds)||!Number.isFinite(segment.end_seconds)
         ||segment.start_seconds<0||segment.end_seconds<segment.start_seconds)fail('history_voice_range_invalid');
       const instant=new Date(started+segment.start_seconds*1000).toISOString();
       if(started+segment.end_seconds*1000<windowStart||started+segment.start_seconds*1000>=windowEnd)continue;
+      if(weak){
+        const day=kstDay(instant);
+        if(!inWindow(instant,fromDate,throughDate)||!sameDay.has(day)){sameDayCounts.unattributed_segments++;sameDayCounts.no_written_source_day++;continue;}
+        pending.push({segment,instant,day});continue;
+      }
       selected.push({segment,instant,strength:confirmed?'confirmed':'candidate_only_not_accepted'});
     }
-    if(!selected.length)continue;
+    if(!selected.length&&!pending.length)continue;
     const tr=latest.card.transcript;
     if(!safe(tr?.run_id)||!/^sha256:[0-9a-f]{64}$/u.test(tr?.sha256??''))fail('history_voice_transcript_ref_invalid');
     // A PLAUD-primary card reads the provider transcript at the session root; every
@@ -179,8 +193,16 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
     const plaud=tr.source==='plaud';
     const transcriptPath=plaud?[date.name,session.name,'transcript.jsonl']
       :[date.name,session.name,'analysis','local_asr',tr.run_id,'transcript.jsonl'];
-    const transcript=await read(sessions,transcriptPath,32*1024*1024);
-    if(transcript.sha256!==tr.sha256)fail('history_voice_transcript_digest_mismatch');
+    // A session read only for the same-day rule never fails the lane: an unreadable
+    // or changed transcript leaves its segments unattributed (counted).
+    let transcript;
+    try{
+      transcript=await read(sessions,transcriptPath,32*1024*1024);
+      if(transcript.sha256!==tr.sha256)fail('history_voice_transcript_digest_mismatch');
+    }catch(error){
+      if(selected.length)throw error;
+      sameDayCounts.unattributed_segments+=pending.length;sameDayCounts.transcript_unverified+=pending.length;continue;
+    }
     const voiceDisplay={...(typeof manifest.source_page_title==='string'&&manifest.source_page_title
       ? {title:manifest.source_page_title}:{}),recorded_at:manifest.recorded_at_local,session_id:session.name,
       transcript_path:join(config.sessions_root,...transcriptPath),
@@ -199,7 +221,17 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
       if(byId.has(row.segment_id))fail('history_voice_duplicate_asr_segment');
       byId.set(row.segment_id,row);
     }
-    for(const {segment,instant,strength} of selected){
+    for(const {segment,instant,day} of pending){
+      const ids=Array.isArray(segment.source_segment_ids)?segment.source_segment_ids:[];
+      const spoken=ids.map(id=>byId.get(id)).filter(Boolean).map(row=>String(row.content??'')).join(' ');
+      const reason=matchSameDay(sameDay.get(day),[{field:'transcript',text:spoken},
+        {field:'recording_title',text:typeof manifest.source_page_title==='string'?manifest.source_page_title:''}]);
+      if(!reason){sameDayCounts.unattributed_segments++;sameDayCounts.no_match++;continue;}
+      sameDayCounts.attributed_segments++;
+      selected.push({segment,instant,strength:SAME_DAY_ATTRIBUTION,reason,day});
+    }
+    if(!selected.length)continue;
+    for(const {segment,instant,strength,reason,day} of selected){
       const ids=segment.source_segment_ids;
       if(!Array.isArray(ids)||!ids.length||new Set(ids).size!==ids.length||ids.some(id=>!Number.isSafeInteger(id)))fail('history_voice_source_ids_invalid');
       const native=ids.map(id=>byId.get(id));
@@ -211,23 +243,27 @@ export async function readVoiceHistory({project,fromDate,throughDate,config}) {
       for (const utterance of native) {
         const utteranceTime=new Date(started+utterance.start_seconds*1000).toISOString();
         if(!inWindow(utteranceTime,fromDate,throughDate))continue;
+        // A same-day attribution holds only for its own day.
+        if(reason&&kstDay(utteranceTime)!==day)continue;
         const record=flatRecord(project,'voice_utterance',`${session.name}:${segment.segment_id}:${utterance.segment_id}`,utteranceTime,utterance.content,
         String(segment.title??'녹음'), '발화자 미확인', [{source_kind:'voice',source_root:config.sessions_root,card_source_root:config.cards_root,
           session_id:session.name,card_run_id:latest.run,
           card_segment_id:segment.segment_id,card_sha256:latest.sha256,manifest_sha256:manifestRead.sha256,
           transcript_sha256:transcript.sha256,transcript_path:transcriptPath,source_segment_ids:[utterance.segment_id],attribution:strength,
-          route_ledger_sha256:ledgerHash,
+          route_ledger_sha256:ledgerHash,...(reason?{attribution_reason:reason}:{}),
           source_offsets:[[utterance.segment_id,utterance.start_seconds,utterance.end_seconds]],
           derived_title_only:true,semantic_fact_verified:false}], {thread_ref:idFor('voice',`${session.name}:${segment.segment_id}`)});
         record.id=`voice_utterance:${hashText(`${session.name}:${segment.segment_id}`).slice(7,23)}:${String(utterance.segment_id).padStart(8,'0')}`;
         record.evidence_mode='source_id';
         voiceSources[record.id]=voiceDisplay;
         records.push(record);
+        if(reason)sameDayCounts.attributed_utterances++;
       }
     }
     receipts.push({source_kind:'voice',session_ref:hashText(session.name),card_sha256:latest.sha256,transcript_sha256:transcript.sha256});
   }
-  return {records,displayMetadata:{voice_sources:voiceSources},receipt:{status:'ok',records:records.length,excluded:excluded.length},excluded,sourceReceipts:receipts};
+  return {records,displayMetadata:{voice_sources:voiceSources},receipt:{status:'ok',records:records.length,excluded:excluded.length,
+    ...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
 }
 
 export async function collectHistorySources({project,fromDate,throughDate,sourceConfig}) {
@@ -238,7 +274,9 @@ export async function collectHistorySources({project,fromDate,throughDate,source
   for(const [kind,reader] of Object.entries(readers)){
     if(!sourceConfig[kind]){lanes[kind]={status:'missing',records:0};continue;}
     try{
-      const result=await reader({project,fromDate,throughDate,config:sourceConfig[kind],now:new Date().toISOString()});
+      // Voice runs last: its same-day rule reads the written records collected above.
+      const sameDay=kind==='voice'?sameDayContext({project,records,displayMetadata,config:sourceConfig.voice.same_day_context}):null;
+      const result=await reader({project,fromDate,throughDate,config:sourceConfig[kind],now:new Date().toISOString(),sameDay});
       records.push(...result.records);lanes[kind]=result.receipt;excluded.push(...(result.excluded??[]));
       sourceReceipts.push(...(result.sourceReceipts??[]));
       for(const key of Object.keys(displayMetadata))Object.assign(displayMetadata[key],result.displayMetadata?.[key]??{});

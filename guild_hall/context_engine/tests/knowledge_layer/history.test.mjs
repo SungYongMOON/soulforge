@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { recordFailedHistoryBatch, runHistory } from '../../src/knowledge_layer/history.mjs';
+import { recordFailedHistoryBatch, runHistory, renderHistory, historySourceLabel, normalizeHistoryInput,
+  PARAGRAPH_MAX_SENTENCES, PARAGRAPH_MAX_CHARS } from '../../src/knowledge_layer/history.mjs';
 import { bisectBatch, partitionDay } from '../../src/knowledge_layer/history_batches.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 
@@ -834,4 +835,86 @@ test('voice evidence line names the transcript the card read, display-only', asy
   await label({ transcript_source: 'whisper', transcript_fallback: 'plaud_transcript_absent' }, '자체 전사(PLAUD 없음)');
   await label({ transcript_source: 'whisper' }, '자체 전사');
   await label({}, '자체 전사');
+  await label({ transcript_source: 'whisper', transcript_fallback: 'plaud_transcript_unusable' }, '자체 전사(PLAUD 사용 불가)');
+  await label({ transcript_source: 'whisper', transcript_fallback: 'synthetic_other' }, '자체 전사(대체 사유 미상)');
+  await label({ transcript_source: 'synthetic_engine' }, '전사 출처 미상');
+});
+
+// Direct view rendering over synthetic cells (no model, no storage).
+function viewOf(rows, { daily = [], weekly = [], monthly = null } = {}, options = {}) {
+  const data = normalizeHistoryInput({ project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23', records: rows });
+  const byId = new Map(data.records.map(row => [row.id, row]));
+  const card = (layer, key, index, text, ids, { children = [], flags = [] } = {}) => ({
+    card_id: `${layer}:${key}:${String(index).padStart(3, '0')}`, text,
+    evidence: ids.map(id => ({ source_id: id, quote: byId.get(id).text, originrefs: byId.get(id).originrefs })),
+    source_ids: [...new Set(ids)].sort(), source_display: [...new Set(ids)].sort().map(id => ({
+      ...historySourceLabel(byId.get(id)), text_sha256: byId.get(id).text_sha256 })),
+    child_card_ids: children, flags });
+  const cellOf = (layer, key, specs, extra = {}) => ({ layer, key, ...extra,
+    cards: specs.map((spec, index) => card(layer, key, index + 1, ...spec)) });
+  const dailyMap = new Map(daily.map(([key, specs]) => [key, cellOf('daily', key, specs)]));
+  const weeklyMap = new Map(weekly.map(([key, specs]) => [key, cellOf('weekly', key, specs,
+    { start: key.slice(0, 10), end: key.slice(11) })]));
+  const month = monthly ? cellOf('monthly', '2026-09', monthly) : null;
+  return renderHistory(data, dailyMap, weeklyMap, month, null, {}, false, { external: true, ...options });
+}
+const bulletsOf = view => view.split('## 자료 인용 현황')[0].split('\n').filter(text => text.startsWith('- '));
+const evidenceOf = view => view.split('\n').filter(text => text.startsWith('  - 근거: ') || text.startsWith('  - 하위 기록: '));
+
+test('paragraph grouping is bounded by sentence count and characters, deterministically', () => {
+  const rows = [record('A', '2026-09-23', 'Alpha source text')];
+  const many = Array.from({ length: PARAGRAPH_MAX_SENTENCES + 2 }, (_, index) => [`문장${index + 1}.`, ['A']]);
+  const bullets = bulletsOf(viewOf(rows, { daily: [['2026-09-23', many]] }));
+  assert.equal(bullets.length, 2);
+  assert.equal(bullets[0], '- ' + many.slice(0, PARAGRAPH_MAX_SENTENCES).map(([text]) => text).join(' '));
+  assert.equal(bullets[1], '- ' + many.slice(PARAGRAPH_MAX_SENTENCES).map(([text]) => text).join(' '));
+  const long = '가'.repeat(Math.floor(PARAGRAPH_MAX_CHARS / 2));
+  const wide = bulletsOf(viewOf(rows, { daily: [['2026-09-23', [[long, ['A']], [long, ['A']], [long, ['A']]]]] }));
+  assert.equal(wide.length, 2);
+  assert.deepEqual(bulletsOf(viewOf(rows, { daily: [['2026-09-23', many]] })), bullets);
+});
+
+test('a flagged sentence sharing an evidence set stays its own paragraph', () => {
+  const rows = [record('A', '2026-09-23', 'Alpha source text')];
+  const view = viewOf(rows, { daily: [['2026-09-23', [['첫 문장.', ['A']],
+    ['검토 문장.', ['A'], { flags: [{ reason: 'quote_mismatch', source_id: 'A' }] }], ['셋째 문장.', ['A']]]]] });
+  assert.deepEqual(bulletsOf(view), ['- 첫 문장. 셋째 문장.', '- 검토 문장.']);
+  assert.equal(view.split('  - 검토: ').length - 1, 1);
+});
+
+test('week and month cards citing the same lower records group; different children stay apart', () => {
+  const rows = [record('A', '2026-09-22', 'Alpha source text'), record('B', '2026-09-23', 'Bravo source text')];
+  const day = [['2026-09-22', [['일별 A.', ['A']]]], ['2026-09-23', [['일별 B.', ['B']]]]];
+  const d1 = 'daily:2026-09-22:001', d2 = 'daily:2026-09-23:001', w = 'weekly:2026-09-21_2026-09-23:001';
+  const view = viewOf(rows, { daily: day,
+    weekly: [['2026-09-21_2026-09-23', [['주 첫째.', ['A'], { children: [d1] }], ['주 둘째.', ['B'], { children: [d2] }],
+      ['주 셋째.', ['A'], { children: [d1] }]]]],
+    monthly: [['월 첫째.', ['A'], { children: [w] }], ['월 둘째.', ['A'], { children: [w] }]] });
+  const weekly = bulletsOf(view.split('## 주별')[1].split('## 월별')[0]);
+  assert.deepEqual(weekly, ['- 주 첫째. 주 셋째.', '- 주 둘째.']);
+  assert.deepEqual(bulletsOf(view.split('## 월별')[1].split('## 최근')[0]), ['- 월 첫째. 월 둘째.']);
+});
+
+test('the same cell shows the same set of evidence lines with and without grouping', () => {
+  const rows = [record('A', '2026-09-23', 'Alpha source text'), record('B', '2026-09-23', 'Bravo source text')];
+  const cells = { daily: [['2026-09-23', [['하나.', ['A']], ['둘.', ['B']], ['셋.', ['A']], ['넷.', ['A', 'B']],
+    ['다섯.', ['A'], { flags: [{ reason: 'quote_missing', source_id: 'A' }] }]]]] };
+  const grouped = viewOf(rows, cells), flat = viewOf(rows, cells, { groupParagraphs: false });
+  assert.ok(bulletsOf(grouped).length < bulletsOf(flat).length);
+  assert.deepEqual(new Set(evidenceOf(grouped)), new Set(evidenceOf(flat)));
+  assert.equal(grouped.split('<a id=').length, flat.split('<a id=').length);
+});
+
+test('a same-day weak voice attribution is shown on its evidence line', () => {
+  const card = hashText('synthetic-card');
+  const voice = (attribution, n, extra = {}) => record(`voice_utterance:synthetic:0000000${n}`, '2026-09-23', '합성 발화',
+    { kind: 'voice_utterance', evidence_mode: 'source_id', originrefs: [{ card_sha256: card, card_segment_id: `seg-${n}`,
+      source_offsets: [[n, 0, 2]], attribution, ...extra }] });
+  const rows = [voice('weak_same_day_context', 1, { attribution_reason: { rule: 'same_day_context.v1', written_sources_that_day: 1,
+    matches: [{ kind: 'participant', term: '가나다', field: 'transcript' }] } }), voice('candidate_only_not_accepted', 2)];
+  const view = viewOf(rows, { daily: [['2026-09-23', [['약한 귀속 문장.', [rows[0].id]], ['후보 문장.', [rows[1].id]]]]] });
+  const lines = evidenceOf(view);
+  assert.ok(lines[0].includes('같은 날 기록·참여자 이름 일치(귀속 약함)'));
+  assert.ok(!lines[0].includes('과제 귀속 후보(미수락)'));
+  assert.ok(lines[1].includes('과제 귀속 후보(미수락)') && !lines[1].includes('귀속 약함'));
 });

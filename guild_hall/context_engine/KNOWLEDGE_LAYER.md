@@ -29,11 +29,11 @@ AI 업무메모 종류/역할은 기존 정규화 경계에서 거부한다. 외
 
 PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 표시 metadata와 보존된 source refs에서 붙인다.
 작성자는 이 값을 새로 만들지 않는다. 후보 귀속·미확인 발화자·없는 정보는 표시한다.
-음성 근거 줄은 카드가 읽은 전사를 `PLAUD 전사`·`자체 전사`·`자체 전사(PLAUD 없음)`(PLAUD 모드에서 whisper로 대체)로
-적는다. 값은 표시 metadata(`voice_sources.transcript_source`·`transcript_fallback`)에만 있고 입력 record·지문에는 넣지 않는다.
+음성 근거 줄은 카드가 읽은 전사를 `PLAUD 전사`·`자체 전사`·`자체 전사(PLAUD 없음)`·`자체 전사(PLAUD 사용 불가)`(PLAUD 모드에서 whisper로 대체)로
+적는다. whisper·plaud 밖의 출처 값은 `전사 출처 미상`이다. 값은 표시 metadata(`voice_sources.transcript_source`·`transcript_fallback`)에만 있고 입력 record·지문에는 넣지 않는다.
 선언이 없는 옛 카드는 `자체 전사`다. PLAUD 카드(`transcript.source: "plaud"`)는 세션 루트 `transcript.jsonl`을 읽는다.
 보는 판은 같은 칸 안에서 근거 번호 집합(원천·하위 기록)이 똑같은 문장을 첫 문장 자리의 한 문단으로 묶고
-근거 줄을 한 번만 보인다. 근거가 다르거나 없거나 검토 표시가 있는 문장은 따로 둔다. 저장 cell·초안·지문은 그대로다.
+근거 줄을 한 번만 보인다. 한 문단은 6문장·600자를 넘지 않으며 넘치면 다음 같은 근거 문장부터 새 문단이다. 근거가 다르거나 없거나 검토 표시가 있는 문장은 따로 둔다. 저장 cell·초안·지문은 그대로다.
 메일 사본의 표시상 근거 합치기와 첨부/Slack 이름 표도 기존 렌더 규칙을 사용한다.
 
 ### 원천 준비
@@ -42,6 +42,14 @@ PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 �
 --sources <absolute JSON> --output-root <existing private directory>`로 수집 보관본을 고정한다.
 날짜 기본값은 KST 어제, `--from-date` 기본값은 대상 월 첫날이다. 과거 월은 별도 출력 폴더를 쓴다.
 메일은 귀속 색인, Slack은 지정 채널, Linear는 정확한 과제 ID, 음성은 지정 카드의 발화 연결과 철회 규칙을 따른다.
+음성 `first_candidate` 정책은 카드 구간의 첫 과제 후보가 이 과제인 것(약·강 모두)과 사람 확정분을 넣는다.
+후보가 없는 구간은 같은 날 규칙(`history_voice_attribution.mjs`, `same_day_context.v1`)으로만 들어온다:
+검증된 카드·다른 과제 언급 없음·사람 확정/후보 없음이고, 그날 이 과제의 서면 자료가 1건 이상이며,
+발화 원문이나 녹음 원제목이 과제 코드·`same_day_context.project_terms` 또는 그날 서면 자료 참여자 이름
+(메일 표시 이름·Slack 이름의 앞 한글 3~4자, `exclude_participants` 제외)과 글자로 일치할 때다.
+귀속은 `weak_same_day_context`이고 이유는 source ref `attribution_reason`에 남는다. 그 구간의 같은 날 발화만 넣는다.
+나머지는 voice 영수증 `same_day`(귀속·미귀속·서면 자료 없는 날·불일치·전사 확인 불가)에 센다. `confirmed` 정책과
+`same_day_context: false`에서는 쓰지 않는다. 새로 귀속된 음성이 없는 날의 record와 지문은 그대로다.
 AI 메모 제외, 원천 해시, 읽기 한도, 네 원천의 누락/오류 차단은 유지한다. 현재 수집의 완전성을 보증하지 않는다.
 
 준비 기준판은 **고정한 원천 입력**만 가리키며 초안 작성 완료를 뜻하지 않는다. `source_frozen`은 항상
