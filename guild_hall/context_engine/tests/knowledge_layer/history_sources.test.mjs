@@ -126,13 +126,21 @@ test('voice cards carry the transcript they read as display-only metadata; PLAUD
   assert.equal(display.transcript_path,plaudPath);
   writeFileSync(plaudPath,'changed');await assert.rejects(readVoiceHistory({...args,config}),/digest_mismatch/);
 });
-test('missing cards and overlapping or cross-range ASR IDs fail closed',async t=>{
+test('overlapping or cross-range ASR IDs fail closed; a session without a card is skipped and counted',async t=>{
   const v=voiceFixture(temp(t));const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
   v.card.segments[1].source_segment_ids=[0];put(v.cardPath,v.card);
   await assert.rejects(readVoiceHistory({...args,config}),/overlap/);
   v.card.segments[1].source_segment_ids=[1];v.card.segments[0].end_seconds=1;put(v.cardPath,v.card);
   await assert.rejects(readVoiceHistory({...args,config}),/range_mismatch/);
-  rmSync(v.cardPath);await assert.rejects(readVoiceHistory({...args,config}),/card_missing/);
+  rmSync(v.cardPath);
+  const uncarded=await readVoiceHistory({...args,config});
+  assert.equal(uncarded.records.length,0);assert.equal(uncarded.receipt.sessions_without_card,1);
+  // With no card folder naming any real session, the cards root itself is wrong: refuse.
+  rmSync(join(v.cards,v.card.session_id),{recursive:true});
+  await assert.rejects(readVoiceHistory({...args,config}),/history_voice_cards_root_unmatched/);
+  // Another (out-of-window) carded session proves the root; the uncarded one is skipped and counted.
+  sameDaySession(v.sessions,v.cards,{day:'2026-09-20',session:'20260920_090000_demo',rows:['다른 날'],segments:[{}]});
+  assert.equal((await readVoiceHistory({...args,config})).receipt.sessions_without_card,1);
 });
 test('a human route withdrawal vetoes a later candidate without reactivating its source',async t=>{
   const root=temp(t),v=voiceFixture(root),routes=join(root,'routes');mkdirSync(routes);
@@ -181,9 +189,12 @@ function sameDayFixture(t){
   // 09-23: segment 0 names the project term, 1 matches nothing, 2 has a candidate for another project.
   sameDaySession(sessions,cards,{day:'2026-09-23',session:'20260923_090000_demo',rows:['합성체계 시험 일정 이야기','날씨 이야기','다른 과제 이야기'],
     segments:[{},{},{project_candidates:[{project_code:'P-OTHER',strength:'weak'}],status:'candidate'}]});
-  const sourceConfig=same=>({project:'P-DEMO',linear:{project:'P-DEMO',root:linear,project_ids:['project-one']},
+  const peerLinear=join(root,'peer-linear');for(const kind of ['issues','comments','issue_history'])mkdirSync(join(peerLinear,kind),{recursive:true});
+  custody(peerLinear,'issues',{...issue,id:'peer-issue',project_id:'project-peer'});
+  const peer={project:'P-PEER',linear:{project:'P-PEER',root:peerLinear,project_ids:['project-peer']}};
+  const sourceConfig=(same,peerTerms=[])=>({project:'P-DEMO',linear:{project:'P-DEMO',root:linear,project_ids:['project-one']},
     voice:{project:'P-DEMO',sessions_root:sessions,cards_root:cards,project_policy:'first_candidate',
-      same_day_context:same===false?false:{project_terms:['합성체계']}}});
+      same_day_context:same===false?false:{project_terms:['합성체계'],peers:[{...peer,same_day_context:{project_terms:peerTerms}}]}}});
   return {root,sessions,cards,sourceConfig};
 }
 const window2={project:'P-DEMO',fromDate:'2026-09-22',throughDate:'2026-09-23'};
@@ -199,7 +210,7 @@ test('same-day rule attributes a no-candidate segment weakly, with its reason, o
   // Unmatched, other-project and other-mention segments stay out and are counted.
   assert.ok(!on.records.some(row=>['날씨 이야기','다른 과제 이야기','용어 합성체계 언급'].includes(row.text)));
   assert.deepEqual(on.coverage.lanes.voice.same_day,{attributed_segments:1,attributed_utterances:1,unattributed_segments:1,
-    no_written_source_day:0,no_match:1,transcript_unverified:0});
+    no_written_source_day:0,no_match:1,ambiguous:0,peer_unverified:0,transcript_unverified:0});
   // A day with no newly attributed voice keeps its exact record fingerprint.
   const off=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(false)});
   assert.equal(off.coverage.lanes.voice.same_day,undefined);
@@ -218,12 +229,13 @@ test('same-day rule is conservative: no written day, participant names, unverifi
   assert.equal(sameDayContext({project:'P-DEMO',records:written,config:false}),null);
   sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:'20260923_100000_demo',title:'합성 원제목',rows:['가나다 님이 말함','사아자 님이 말함'],segments:[{},{}]});
   const config={project:'P-DEMO',sessions_root:f.sessions,cards_root:f.cards,project_policy:'first_candidate'};
-  const result=await readVoiceHistory({...args,config,sameDay:context});
+  const only=own=>({own,peers:new Map(),peersComplete:true});
+  const result=await readVoiceHistory({...args,config,sameDay:only(context)});
   const weak=result.records.filter(row=>row.originrefs[0].attribution==='weak_same_day_context');
   assert.deepEqual(weak.map(row=>row.text),['가나다 님이 말함']);
   assert.deepEqual(weak[0].originrefs[0].attribution_reason.matches,[{kind:'participant',term:'가나다',field:'transcript'}]);
   // Without written sources that day nothing is attributed.
-  const empty=await readVoiceHistory({...args,config,sameDay:new Map()});
+  const empty=await readVoiceHistory({...args,config,sameDay:only(new Map())});
   assert.equal(empty.records.filter(row=>row.originrefs[0].attribution==='weak_same_day_context').length,0);
   assert.ok(empty.receipt.same_day.no_written_source_day>0);
   assert.equal(empty.receipt.same_day.no_written_source_day,empty.receipt.same_day.unattributed_segments);
@@ -231,7 +243,7 @@ test('same-day rule is conservative: no written day, participant names, unverifi
   assert.equal((await readVoiceHistory({...args,config})).receipt.same_day,undefined);
   // Unverified cards are never eligible.
   sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:'20260923_100000_demo',rows:['가나다 님이 말함','사아자 님이 말함'],segments:[{},{}],verified:false});
-  assert.equal((await readVoiceHistory({...args,config,sameDay:context})).records.filter(row=>row.text==='가나다 님이 말함').length,0);
+  assert.equal((await readVoiceHistory({...args,config,sameDay:only(context)})).records.filter(row=>row.text==='가나다 님이 말함').length,0);
 });
 test('a transcript read only for the same-day rule never fails the lane',async t=>{
   const f=sameDayFixture(t);
@@ -248,4 +260,18 @@ test('a PLAUD card whose session-root transcript is missing fails closed, never 
   await assert.rejects(readVoiceHistory({...args,config}));
   const r=await collectHistorySources({...args,sourceConfig:{project:'P-DEMO',voice:config}});
   assert.equal(r.coverage.lanes.voice.status,'error');assert.equal(r.records.length,0);
+});
+test('a same-day match that a peer project also has is ambiguous and not attributed',async t=>{
+  const f=sameDayFixture(t);
+  const r=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(true,['합성체계'])});
+  assert.equal(r.records.filter(row=>row.originrefs[0]?.attribution==='weak_same_day_context').length,0);
+  assert.equal(r.coverage.lanes.voice.same_day.ambiguous,1);assert.equal(r.coverage.lanes.voice.same_day.attributed_segments,0);
+  // A peer lane that cannot be read makes the match unverifiable, never attributed.
+  const broken=f.sourceConfig(true);broken.voice.same_day_context.peers[0].linear.root=join(f.root,'absent');
+  const held=await collectHistorySources({...window2,sourceConfig:broken});
+  assert.equal(held.coverage.lanes.voice.status,'ok');
+  assert.equal(held.coverage.lanes.voice.same_day.peer_unverified,1);
+  // A same_day_context without a peers list is refused, never run unchecked.
+  const off=f.sourceConfig(true);delete off.voice.same_day_context.peers;
+  assert.equal((await collectHistorySources({...window2,sourceConfig:off})).coverage.lanes.voice.status,'error');
 });

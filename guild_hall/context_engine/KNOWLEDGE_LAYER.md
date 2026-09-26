@@ -48,8 +48,16 @@ PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 �
 발화 원문이나 녹음 원제목이 과제 코드·`same_day_context.project_terms` 또는 그날 서면 자료 참여자 이름
 (메일 표시 이름·Slack 이름의 앞 한글 3~4자, `exclude_participants` 제외)과 글자로 일치할 때다.
 귀속은 `weak_same_day_context`이고 이유는 source ref `attribution_reason`에 남는다. 그 구간의 같은 날 발화만 넣는다.
-나머지는 voice 영수증 `same_day`(귀속·미귀속·서면 자료 없는 날·불일치·전사 확인 불가)에 센다. `confirmed` 정책과
-`same_day_context: false`에서는 쓰지 않는다. 새로 귀속된 음성이 없는 날의 record와 지문은 그대로다.
+규칙은 `same_day_context.peers`(다른 과제의 mail/slack/linear 설정 목록, 비어 있어도 됨)가 있을 때만 켜진다.
+같은 창의 peer 서면 자료로 같은 판정을 해 한 과제라도 더 일치하면 모호(`ambiguous`)로 넣지 않고, peer lane을
+읽지 못하면 `peer_unverified`로 넣지 않는다. 정확히 한 과제만 일치할 때만 약하게 귀속한다.
+나머지는 voice 영수증 `same_day`(귀속·미귀속·서면 자료 없는 날·불일치·모호·peer 확인 불가·전사 확인 불가)에 센다.
+`confirmed` 정책과 설정이 없거나 `false`일 때는 쓰지 않는다. 새로 귀속된 음성이 없는 날의 record와 지문은 그대로다.
+카드가 아직 없는 녹음은 건너뛰고 `sessions_without_card`로 센다. 창 안에 카드 있는 녹음이 하나도 없고 카드 폴더
+어느 것도 실제 녹음을 가리키지 않으면 `history_voice_cards_root_unmatched`로 멈춘다(잘못된 cards_root 방지).
+메일 월 파일은 한 줄씩 읽고 전체 파일 한도를 두지 않는다. 한도는 선택된 사건에만 건다: 사건 한 줄 `max_line_bytes`
+(기본 4 MiB, 최대 64 MiB), 선택 합계 `max_bytes`(기본 256 MiB). 스레드 id 없는 메일은 `thread_ref`를 두지 않는다.
+Slack custody HOLD는 되돌릴 수 없는 사건별 제외이므로 그 사건만 빼고 센다(`held`·`held_time_unknown`), 창 전체를 막지 않는다.
 AI 메모 제외, 원천 해시, 읽기 한도, 네 원천의 누락/오류 차단은 유지한다. 현재 수집의 완전성을 보증하지 않는다.
 
 준비 기준판은 **고정한 원천 입력**만 가리키며 초안 작성 완료를 뜻하지 않는다. `source_frozen`은 항상

@@ -272,7 +272,7 @@ test('Slack selects latest edit, then excludes a deleted latest revision without
     assert.equal(deleted.excluded.some(row => row.reason === 'deleted_or_held_revision'), true);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
-test('Slack reports historical held receipts separately from holds in the requested KST window', async () => {
+test('Slack counts held receipts (historical, in window, time unknown) without dropping the window', async () => {
   const f = await slackFixture();
   try {
     const statePath = path.join(f.root, 'state', 'slack-continuous.json');
@@ -289,7 +289,9 @@ test('Slack reports historical held receipts separately from holds in the reques
     assert.equal(out.receipt.counts.held_total, 3);
     assert.equal(out.receipt.counts.held, 1);
     assert.equal(out.receipt.counts.held_time_unknown, 1);
-    assert.equal(out.receipt.status, 'hold');
+    // Held events are excluded and counted; the rest of the window is still read.
+    assert.equal(out.receipt.status, 'ok');
+    assert.ok(out.records.length > 0);
     assert.equal(out.excluded.filter(item => item.reason === 'custody_hold').length, 1);
     state.hold_receipts = state.hold_receipts.slice(0, 1);
     await writeFile(statePath, JSON.stringify(state));
@@ -297,5 +299,40 @@ test('Slack reports historical held receipts separately from holds in the reques
       throughDate: '2026-09-24', config: { project: PROJECT,
         channels: [{ root: f.root, channel_id: f.channel_id }] } });
     assert.equal(historicalOnly.receipt.status, 'ok');
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test('mail without a thread id omits thread_ref (history input stays valid); per-record bound is configurable to the adapter ceiling', async () => {
+  const f = await mailFixture();
+  try {
+    const rows = [mail('m1', '2026-09-23T10:00:00Z', '스레드 없는 본문', { thread_id: null })];
+    await writeFile(path.join(f.year, '09.jsonl'), rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+    const out = await readMailHistory(mailArgs(f));
+    assert.equal(out.records.length, 1);
+    assert.equal(Object.hasOwn(out.records[0], 'thread_ref'), false);
+    const { normalizeHistoryInput } = await import('../../src/knowledge_layer/history.mjs');
+    assert.equal(normalizeHistoryInput({ project: PROJECT, month: '2026-09', records: out.records }).records[0].thread_ref, null);
+    const lines = mailArgs(f); lines.config.max_line_bytes = 64 * 1024 * 1024;
+    assert.equal((await readMailHistory(lines)).records.length, 1);
+    lines.config.max_line_bytes = 64 * 1024 * 1024 + 1;
+    await assert.rejects(readMailHistory(lines), /history_source_bounds_invalid/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test('mail streams a month file larger than the byte budget; budgets bound only selected events', async () => {
+  const f = await mailFixture();
+  try {
+    const filler = mail('unrouted', '2026-09-23T01:00:00Z', 'x'.repeat(60_000));
+    const rows = [filler, filler, mail('m1', '2026-09-23T10:00:00Z', '선택된 본문')];
+    await writeFile(path.join(f.year, '09.jsonl'), rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+    const small = mailArgs(f); small.config.max_bytes = 20_000; small.config.max_line_bytes = 10_000;
+    const out = await readMailHistory(small);
+    assert.equal(out.records.length, 1); assert.ok(out.receipt.counts.bytes > 100_000);
+    small.config.max_bytes = 100;
+    await assert.rejects(readMailHistory(small), /mail_byte_budget_exceeded/);
+    const big = [mail('m1', '2026-09-23T10:00:00Z', 'y'.repeat(20_000))];
+    await writeFile(path.join(f.year, '09.jsonl'), big.map(row => JSON.stringify(row)).join('\n') + '\n');
+    small.config.max_bytes = 20_000_000;
+    await assert.rejects(readMailHistory(small), /mail_event_too_large/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });

@@ -5,7 +5,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { mailBodyTextFromRecord } from '../../../gateway/mail_body_excerpt.mjs';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { splitQuotedHistory } from '../adapters/sources/mail_event_source.mjs';
-import { openSourceRoot } from '../adapters/sources/guarded_files.mjs';
+import { SOURCE_READ_MAX_BYTES, SOURCE_STREAM_MAX_BYTES, openSourceRoot } from '../adapters/sources/guarded_files.mjs';
 import { readChannelState } from '../adapters/sources/slack_custody_source.mjs';
 import { mailAttributionFor, readMailAttributionIndex } from '../runtime/mail_routes.mjs';
 import { isAiWorkMemoRecord } from './history.mjs';
@@ -192,20 +192,28 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
     }
   }
   const selected = new Map(), displayMetadata = metadata(), excludedById = new Map();
-  let scannedBytes = 0, scannedRows = 0, matchedRows = 0;
+  let scannedBytes = 0, scannedRows = 0, matchedRows = 0, selectedBytes = 0;
+  // A month of events is streamed line by line with no whole-file budget (one
+  // month can pass 256 MiB). Budgets apply to what is selected: each routed event
+  // line is bounded by max_line_bytes (default 4 MiB) and all selected lines
+  // together by max_bytes. Unrouted lines are only bounded by the adapter's own
+  // per-line ceiling and are never kept.
+  const lineBytes = config.max_line_bytes ?? 4 * 1024 * 1024;
+  if (!Number.isSafeInteger(lineBytes) || lineBytes < 1 || lineBytes > SOURCE_READ_MAX_BYTES) fail('history_source_bounds_invalid');
   for (const file of wanted.size ? windowFiles : []) {
-    const remaining = bound.max_bytes - scannedBytes;
-    if (remaining < 1) fail('mail_byte_budget_exceeded');
-    const scan = await file.root.readLines([file.name], { maxBytes: remaining, maxLineBytes: 4 * 1024 * 1024,
+    const scan = await file.root.readLines([file.name], { maxBytes: SOURCE_STREAM_MAX_BYTES, maxLineBytes: SOURCE_READ_MAX_BYTES,
       filter: line => [...wanted].some(id => line.includes(id)) });
     scannedBytes += scan.bytes; scannedRows += scan.scanned;
-    if (scannedRows > bound.max_rows) fail('mail_row_budget_exceeded');
     for (const line of scan.lines) {
       let row;
       try { row = JSON.parse(line); } catch { fail('mail_event_invalid'); }
       if (!plain(row) || !wanted.has(row.event_id)) continue;
       matchedRows += 1;
       if (matchedRows > bound.max_rows) fail('mail_row_budget_exceeded');
+      const size = Buffer.byteLength(line);
+      if (size > lineBytes) fail('mail_event_too_large');
+      selectedBytes += size;
+      if (selectedBytes > bound.max_bytes) fail('mail_byte_budget_exceeded');
       if (!inWindow(row.received_at, fromDate, throughDate)) continue;
       if (typeof row.subject !== 'string' || !Array.isArray(row.attachments)
         || !Array.isArray(row.from) || !Array.isArray(row.to) || !Array.isArray(row.cc)
@@ -241,7 +249,7 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
     addPersonNames(displayMetadata, [...row.from, ...row.to, ...row.cc]);
     records.push({ id, project, date: kstDay(row.received_at), kind: 'mail', title: row.subject,
       sender: addresses(row.from).join(', '), recipient: addresses(row.to).join(', '),
-      attachments, thread_ref: typeof row.thread_id === 'string' ? 'mail:' + row.thread_id : null,
+      attachments, ...(typeof row.thread_id === 'string' ? { thread_ref: 'mail:' + row.thread_id } : {}),
       text: body, text_sha256: bodySha,
       originrefs: [{ source_kind: 'mail', event_id: eventId, event_path: path,
         event_sha256: lineSha,
@@ -388,9 +396,9 @@ export async function readSlackHistory({ project, fromDate, throughDate, config 
   }
   const output = result(records, displayMetadata, excluded, { channels: config.channels.length,
     revisions, files, bytes, held, held_total: heldTotal, held_time_unknown: heldTimeUnknown });
-  if (held || heldTimeUnknown) {
-    output.receipt.status = 'hold';
-    output.receipt.code = 'slack_custody_hold_in_window';
-  }
+  // A custody HOLD is an irreversible per-event exclusion (slack_history README:
+  // the held raw event is never written or recoverable), so it cannot be waited
+  // out. Held events are excluded and counted (held, held_time_unknown, excluded
+  // custody_hold); the fully custodied messages of the window are still returned.
   return output;
 }

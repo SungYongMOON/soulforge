@@ -8,6 +8,7 @@ import { hashText } from './data.mjs';
 import { isAiWorkMemoRecord as isMemo } from './history.mjs';
 import { readMailHistory, readSlackHistory } from './history_mail_slack.mjs';
 import { SAME_DAY_ATTRIBUTION, matchSameDay, sameDayContext, sameDayEligible } from './history_voice_attribution.mjs';
+const WRITTEN_READERS = { mail: readMailHistory, slack: readSlackHistory, linear: readLinearHistory };
 
 const fail = code => { throw new Error(code); };
 const safe = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/u.test(value);
@@ -115,7 +116,8 @@ export async function readLinearHistory({project,fromDate,throughDate,config}) {
   return {records,displayMetadata:{},receipt:{status:'ok',records:records.length,excluded:excluded.length},excluded,sourceReceipts:receipts};
 }
 
-/** `sameDay` (Map from sameDayContext) enables weak same-day attribution; absent = off. */
+/** `sameDay` = {own, peers, peersComplete} (Maps from sameDayContext) enables weak same-day
+ * attribution; absent = off. A match that any peer project also has is ambiguous and not attributed. */
 export async function readVoiceHistory({project,fromDate,throughDate,config,sameDay=null}) {
   requireProject(project,config);
   if (!['confirmed','first_candidate'].includes(config.project_policy)) fail('history_voice_policy_required');
@@ -125,16 +127,25 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
   const read = bounded(config), records = [], excluded = [], receipts = [], voiceSources = {};
   // Same-day rule counts: every eligible (no-candidate) segment in the window ends
   // in exactly one bucket, so the unattributed remainder is visible in the receipt.
-  const sameDayOn = config.project_policy==='first_candidate' && sameDay instanceof Map;
+  const sameDayOn = config.project_policy==='first_candidate' && sameDay?.own instanceof Map && sameDay?.peers instanceof Map;
   const sameDayCounts = {attributed_segments:0,attributed_utterances:0,unattributed_segments:0,
-    no_written_source_day:0,no_match:0,transcript_unverified:0};
+    no_written_source_day:0,no_match:0,ambiguous:0,peer_unverified:0,transcript_unverified:0};
+  let sessionsWithoutCard = 0, sessionsCarded = 0;
   const routeNames = routes ? new Set((await routes.list([])).filter(e=>e.file).map(e=>e.name)) : new Set();
   const previousDate=new Date(Date.parse(fromDate+'T00:00:00Z')-86400000).toISOString().slice(0,10);
   const windowStart=Date.parse(fromDate+'T00:00:00+09:00');
   const windowEnd=Date.parse(throughDate+'T00:00:00+09:00')+86400000;
+  const cardSessions = new Set((await cardsRoot.list([])).filter(e=>e.directory).map(e=>e.name));
   const days = (await sessions.list([])).filter(e=>e.directory&&/^\d{4}-\d{2}-\d{2}$/u.test(e.name)&&e.name>=previousDate&&e.name<=throughDate);
   for (const date of days) for (const session of await sessions.list([date.name])) {
     if (!session.directory || !safe(session.name)) continue;
+    // A session whose card has not been made yet contributes nothing; it is skipped
+    // and counted (sessions_without_card) instead of stopping the whole lane.
+    const runs=cardSessions.has(session.name)?await cardsRoot.list([session.name]):[];
+    const carded=[];
+    for(const run of runs)if(run.directory&&safe(run.name)&&(await cardsRoot.list([session.name,run.name])).some(e=>e.name==='conversation_list.v0.json'&&e.file))carded.push(run);
+    if(!carded.length){sessionsWithoutCard++;continue;}
+    sessionsCarded++;
     const manifestRead = await read(sessions,[date.name,session.name,'session_manifest.json']);
     const manifest = JSON.parse(manifestRead.text);
     if (manifest.session_id!==session.name) fail('history_voice_session_mismatch');
@@ -179,7 +190,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       if(started+segment.end_seconds*1000<windowStart||started+segment.start_seconds*1000>=windowEnd)continue;
       if(weak){
         const day=kstDay(instant);
-        if(!inWindow(instant,fromDate,throughDate)||!sameDay.has(day)){sameDayCounts.unattributed_segments++;sameDayCounts.no_written_source_day++;continue;}
+        if(!inWindow(instant,fromDate,throughDate)||!sameDay.own.has(day)){sameDayCounts.unattributed_segments++;sameDayCounts.no_written_source_day++;continue;}
         pending.push({segment,instant,day});continue;
       }
       selected.push({segment,instant,strength:confirmed?'confirmed':'candidate_only_not_accepted'});
@@ -224,9 +235,14 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
     for(const {segment,instant,day} of pending){
       const ids=Array.isArray(segment.source_segment_ids)?segment.source_segment_ids:[];
       const spoken=ids.map(id=>byId.get(id)).filter(Boolean).map(row=>String(row.content??'')).join(' ');
-      const reason=matchSameDay(sameDay.get(day),[{field:'transcript',text:spoken},
+      const reason=matchSameDay(sameDay.own.get(day),[{field:'transcript',text:spoken},
         {field:'recording_title',text:typeof manifest.source_page_title==='string'?manifest.source_page_title:''}]);
       if(!reason){sameDayCounts.unattributed_segments++;sameDayCounts.no_match++;continue;}
+      // Only an exact single-project match is attributed: unverifiable peers or a peer match hold it back.
+      if(!sameDay.peersComplete){sameDayCounts.unattributed_segments++;sameDayCounts.peer_unverified++;continue;}
+      if([...sameDay.peers.values()].some(peer=>matchSameDay(peer.get(day),[{field:'transcript',text:spoken},
+        {field:'recording_title',text:typeof manifest.source_page_title==='string'?manifest.source_page_title:''}]))){
+        sameDayCounts.unattributed_segments++;sameDayCounts.ambiguous++;continue;}
       sameDayCounts.attributed_segments++;
       selected.push({segment,instant,strength:SAME_DAY_ATTRIBUTION,reason,day});
     }
@@ -262,8 +278,46 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
     }
     receipts.push({source_kind:'voice',session_ref:hashText(session.name),card_sha256:latest.sha256,transcript_sha256:transcript.sha256});
   }
+  // Skipping uncarded sessions must not hide a wrong cards_root: when nothing in
+  // the window had a card, at least one card folder must name a real session.
+  if(sessionsWithoutCard>0&&!sessionsCarded){
+    let matched=false;
+    for(const name of cardSessions){
+      const m=/^(\d{4})(\d{2})(\d{2})_/u.exec(name);
+      if(!m)continue;
+      const day=`${m[1]}-${m[2]}-${m[3]}`;
+      if((await sessions.list([])).some(e=>e.directory&&e.name===day)&&(await sessions.list([day])).some(e=>e.directory&&e.name===name)){matched=true;break;}
+    }
+    if(!matched)fail('history_voice_cards_root_unmatched');
+  }
   return {records,displayMetadata:{voice_sources:voiceSources},receipt:{status:'ok',records:records.length,excluded:excluded.length,
-    ...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
+    sessions_without_card:sessionsWithoutCard,...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
+}
+
+// The same-day rule is on only when the voice config names its peers (possibly
+// none): each peer project's written lanes are read for the same window so a
+// match that a peer also has is recognised as ambiguous. A peer lane that does
+// not read cleanly makes every would-be attribution unverifiable (not attributed).
+async function sameDayContexts({project,fromDate,throughDate,records,displayMetadata,config}){
+  if(config===false||config===undefined||config===null)return null;
+  if(typeof config!=='object'||!Array.isArray(config.peers)||config.peers.length>50)fail('history_voice_same_day_config_invalid');
+  const own=sameDayContext({project,records,displayMetadata,config});
+  const peers=new Map();let peersComplete=true;
+  for(const peer of config.peers){
+    if(!peer||typeof peer!=='object'||!safe(peer.project)||peer.project===project||peers.has(peer.project))fail('history_voice_same_day_peer_invalid');
+    const peerRecords=[],peerDisplay={person_names:{},slack_names:{}};
+    for(const [kind,reader] of Object.entries(WRITTEN_READERS)){
+      if(!peer[kind])continue;
+      try{
+        const result=await reader({project:peer.project,fromDate,throughDate,config:peer[kind],now:new Date().toISOString()});
+        if(result.receipt?.status!=='ok')peersComplete=false;
+        peerRecords.push(...result.records);
+        for(const key of Object.keys(peerDisplay))Object.assign(peerDisplay[key],result.displayMetadata?.[key]??{});
+      }catch{peersComplete=false;}
+    }
+    peers.set(peer.project,sameDayContext({project:peer.project,records:peerRecords,displayMetadata:peerDisplay,config:peer.same_day_context??{}}));
+  }
+  return {own,peers,peersComplete};
 }
 
 export async function collectHistorySources({project,fromDate,throughDate,sourceConfig}) {
@@ -275,7 +329,8 @@ export async function collectHistorySources({project,fromDate,throughDate,source
     if(!sourceConfig[kind]){lanes[kind]={status:'missing',records:0};continue;}
     try{
       // Voice runs last: its same-day rule reads the written records collected above.
-      const sameDay=kind==='voice'?sameDayContext({project,records,displayMetadata,config:sourceConfig.voice.same_day_context}):null;
+      const sameDay=kind==='voice'?await sameDayContexts({project,fromDate,throughDate,records,displayMetadata,
+        config:sourceConfig.voice.same_day_context}):null;
       const result=await reader({project,fromDate,throughDate,config:sourceConfig[kind],now:new Date().toISOString(),sameDay});
       records.push(...result.records);lanes[kind]=result.receipt;excluded.push(...(result.excluded??[]));
       sourceReceipts.push(...(result.sourceReceipts??[]));
