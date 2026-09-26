@@ -16,6 +16,7 @@ knowledge or operating binding is moved or enabled by this document update.
 - 관계: `PROJECT_CONTEXT_GRAPH_MODEL_V0.md`의 SE 확장이다. 기존 계층·owner·경계를 바꾸지 않고 그 위에 요구사항 추적 축만 추가한다. 모순이 생기면 기존 정본이 이긴다.
 - 비고: 이 초안의 규모 수치는 한 과제의 private inventory 요약(카운트만)을 인용한다. public 승격 시 그 블록은 자릿수 범위 표기로 치환한다.
 - Owner 질문(2026-08-17): "과제별 맥락을 어떻게 관리할까 — 메모리 구조를 둘지, 메모리 없이 그래프로 할지, 그래프 엔지니어링 기법을 넣을지, 체계공학(요구사항 추적)에 어울리게. 목적은 요구사항을 놓치지 않고 품질 좋게 만드는 것." 이 문서는 그 질문에 대한 책임 있는 설계 답변이다.
+- 용어(2026-09-26 정렬, [용어집](../foundation/SHARED_GLOSSARY_V0.md) 기록·이력·지식·기억 행): 이 문서의 "메모리"는 Owner 질문의 말을 따른 옛 표현으로 과제 사실 원장·자유서술 요약을 뜻한다. 지금 말로는 이력(날짜별 과제 이력)과 지식(사실 장부 K4)이며 봇 기억(봇 수첩)이 아니다. `memory_candidate`는 사람 수락 전 사실 후보다.
 
 ---
 
@@ -129,11 +130,11 @@ NASA 방식대로 게이트는 두 집합을 따로 가진다.
 
 ---
 
-## 3. "메모리"의 정의
+## 3. 과제 맥락에 남기는 것 (옛 제목: "메모리"의 정의)
 
-### 3.1 기억할 것 / 기억하지 않을 것
+### 3.1 남길 것 / 남기지 않을 것
 
-| 기억한다 | 기억하지 않는다 |
+| 남긴다 | 남기지 않는다 |
 | --- | --- |
 | 사실: 관측(있음/없음/불명) + exact ref + hash + locator | 원문 본문, 추출 본문, chunk, 답변 본문 |
 | 판단: 누가·어떤 모델·어떤 정책 개정으로 제안했는가 + confidence band | LLM reasoning 원문, 프롬프트, 대화 transcript |
@@ -145,7 +146,14 @@ NASA 방식대로 게이트는 두 집합을 따로 가진다.
 
 ### 3.2 3계층 (핫 / 웜 / 콜드)
 
-| 계층 | 내용 | 물리 위치 | 재생 방식 |
+새 자리(2026-09-10 Plan 17 채택, 2026-09-26 이력 추가): 과제 맥락 파생물은
+[Plan 17 과제 저장소](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+`<data_root>/20_PROJECTS/<project-ref>/30_프로젝트맥락/`에 둔다. 핫 카드에 해당하는 현재 상태는
+`30_프로젝트맥락/이력/<YYYY-MM>`의 현황, 요약은 `30_프로젝트맥락/업무가지·프로젝트요약/`, 검색 색인은
+`20_문서검색/`과 Neo4j 과제별 색인이다. 아래 표의 `_workspaces`·`_workmeta` 위치는 2026-08-17 초안
+당시의 legacy 배치 기록이며 새로 쓰지 않는다.
+
+| 계층 | 내용 | 물리 위치 (2026-08-17 legacy 배치) | 재생 방식 |
 | --- | --- | --- | --- |
 | **핫** — 현재 단계 요약 카드 | 현재 `stage_code`, `requirement_counts{satisfied,missing,unknown,conflict,not_applicable}`, open risk, 상위 gap 3~5건, 열린 owner question, 다음 mission candidate ≤3 | 수락된 generation의 얇은 카드 (body는 `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/wiki/`, ref·hash는 `_workmeta`) | generation마다 **새 `wiki_revision_id`**. 제자리 수정 없음 |
 | **웜** — 타입 그래프 | 노드·엣지·커버리지 셀, 요약 revision, branch/unit membership | `project_context/projections/**` JSONL + dev-ERP SQLite read model | 원장 재생으로 전량 재구축 가능. 손실 시 폐기 후 재생 |

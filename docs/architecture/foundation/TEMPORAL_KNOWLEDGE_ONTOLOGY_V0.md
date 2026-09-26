@@ -560,7 +560,7 @@ source_revision_id
 - `.registry/knowledge/<knowledge_id>` 승격은 별도 review 결과이며 승인된
   Drive `ontology_release_id`, manifest/content hash, Git commit lineage를 함께 고정한다.
 
-### 10.0 프로젝트 맥락과 기억의 시간 계층
+### 10.0 프로젝트 맥락의 시간 계층
 
 프로젝트 맥락은 한 번 생성되는 장문 요약이 아니라 exact source revision에서 시작하는
 append-only 관계 계층이다.
@@ -581,18 +581,25 @@ source_revision
 | `context_event` | 한 요청·약속·결정·변경·완료 주장 | exact span·producer/model/policy revision과 의미 후보 상태 |
 | `context_unit` | 짧은 사건 묶음 | 관련 event refs, 상태, 검토, correction lineage |
 | `context_branch` | 중간 업무 흐름 | unit membership, SE concern/gate relation, branch summary revisions |
-| `project_context` | 장기 과제 이력 | accepted branch/unit와 gap을 이용한 project summary revisions |
-| `memory_candidate` | 재사용 후보 | evidence·scope·review·revocation refs; 지식 정본 아님 |
+| `project_context` | 과제 전체 이력 | accepted branch/unit와 gap을 이용한 project summary revisions |
+| `memory_candidate` | 사람 수락 전 사실 후보(기억 후보; 봇 기억 아님) | evidence·scope·review·revocation refs; 지식 정본 아님 |
 
-이 계층의 project-local live owner는
-`_workmeta/<project_code>/project_context/**`다. ERP의 context table/index,
+이 계층의 새 owner 자리는
+[Plan 17 과제 저장소](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)의
+`<data_root>/20_PROJECTS/<project-ref>/30_프로젝트맥락/`이다. 날짜별 이력(일→주→월→현황)은
+`30_프로젝트맥락/이력/<YYYY-MM>`에, 회수용 투영·선택 정책·평가는 `40_기억관리/`(회수용 투영 자리 —
+봇 기억 아님)에 둔다. 옛 `_workmeta/<project_code>/project_context/**`는 legacy 기록으로만 읽고
+새로 쓰지 않는다. 날짜별 이력은 이 계층을 사람이 읽는 글로 쓴 파생물이며 지식이 아니다.
+조회 층 L0~L4와의 대응은
+[과제 맥락 그래프 모델](../workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md#l0l4-조회-층과-현재-층-대응-2026-09-26)이 소유한다. ERP의 context table/index,
 Neo4j, CSV/XLSX, UI graph, MCP 응답은 accepted generation을 읽는 projection이며
 두 번째 정본이 아니다.
 
-`memory_candidate`는 검토된 프로젝트 맥락에서 추출한 재사용 제안이다. 승인된
+`memory_candidate`(기억 후보)는 검토된 프로젝트 맥락에서 뽑은, 사람 수락 전 사실 후보다. 이름에
+memory가 있지만 봇 기억이 아니다. 승인된
 Wiki/RAG/ontology 지식은 기존 knowledge owner와 promotion 절차를 따르며,
 Hermes형 gateway나 다른 client agent의 preference/transcript memory는 client-local로
-남는다. client memory를 프로젝트 기억으로 자동 승격하거나 반대로 프로젝트 맥락을
+남는다(봇 기억). 봇 기억(client memory)을 과제 맥락·지식으로 자동 승격하거나 반대로 프로젝트 맥락을
 client transcript에 통째로 복사하지 않는다.
 
 질의 시에는 project/gate/branch의 작은 중심 맥락, 관련 unit/event, top-k exact

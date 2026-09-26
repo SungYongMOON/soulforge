@@ -8,6 +8,8 @@ Owner 방향에 따라 Neo4j와 주입식 보존 파일을 사용하는 자동 �
 배선 점수를 출력한다. 실제 모델 품질·그래프 기여·운영 완료를 뜻하지 않는다.
 검사: `npm run validate:knowledge-layer`. 새 시험은 done:check 양쪽 목록에 포함된다.
 
+층 구분([용어집](../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md) 기록·이력·지식·기억 행): 이 문서의 **지식**은 완결 문서로 만든 위키(K3)와 사실 장부(K4)·열린 일(K7)·대상 후보(K6)다. 아래 **이력**은 지식이 아니다 — 기록(수집 원문 조각)을 근거 줄과 함께 날짜별로 쓴 과제 이력이며, K4·K7 사실은 이력 문단과 완결 문서에서 뽑아 지식이 된다. 봇 **기억**(봇 수첩)은 이 층 밖이다. 조회 층 L0~L4와의 대응은 [과제 맥락 그래프 모델](../../docs/architecture/workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md#l0l4-조회-층과-현재-층-대응-2026-09-26)이 소유한다.
+
 ## 이력 CLI
 
 이력 작성은 파일 인계로만 실행한다. 고정 초안 형식과 사용법은 [HISTORY_DRAFT_FORMAT.md](HISTORY_DRAFT_FORMAT.md)가 소유한다.
@@ -141,7 +143,7 @@ topic 페이지의 materials.statement_ids는 그 페이지에 실제 포함된 
 source_attributed는 quote의 출처 귀속만 뜻한다. text의 의미 지지·사실성은 model_responsibility_unverified이며 자동 수락하지 않는다.
 weak이고 결정/마감/금액/대외 약속 표지가 있으면 예외를 더한다. 재서술을 거부하거나 사실로 판정하지 않는다.
 각 페이지는 해당 원천의 예외 사유·문장 참조와 모순을 `확인 필요`, 빈틈을 `빈틈` 절에 표시하고 없으면 `없음`을 적는다.
-K4 이후의 기억/검색/별칭/열린 일은 아직 구현하지 않았다.
+K4 이후의 사실 장부·검색·별칭·열린 일은 아직 main에 구현하지 않았다.
 
 `readCurrent`도 같은 입력 계약을 요구한다. caller의 현재 source digest 또는 보존된 철회 집합이 다르면
 옛 페이지를 현행으로 반환하지 않는다. `restore({input,generation_id})`는 archive hash·과제·현재 source/철회를

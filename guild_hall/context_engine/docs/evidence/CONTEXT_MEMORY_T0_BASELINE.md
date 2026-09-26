@@ -81,8 +81,8 @@ P-B 미끼는 합성 corpus에 포함한다. nominal P-A snapshot의 partition �
 | Rune 소비자 | `src/work_intake_context.mjs` → `createWorkIntakeContextConsumer` | 기존 소비자 seam 확인; T0에서 file-backed 설정·typed packet 호출 NOT_RUN |
 | 기존 맥락 꾸러미 | `tools/haengbogwan_context_packet.mjs` → `buildContextPacketForProject` | 다른 기존 경로. T0 reader baseline 성공과 합쳐 제품 성공으로 계산하지 않음 |
 | 프로젝트 맥락 생성/재생 | `tools/haengbogwan_project_context.mjs` → `buildProjectContextPlan`, `runProjectContextRebuild` | owner 확인만. write/apply 호출 없음 |
-| 담당자 기억 주입 | `src/store.mjs` → `memoryForInjection`, `retrieveMemoryItems` | 기존 project isolation 시험 실행. NULL 일반항목 호환은 프로젝트 사실 공유 허가가 아님 |
-| 기억 장부 | `tools/memory_ledger.mjs` | import/export 실행 안 함; 운영 장부 변경 없음 |
+| 담당자 메모리(`assignee_memory`) 주입 | `src/store.mjs` → `memoryForInjection`, `retrieveMemoryItems` | 기존 project isolation 시험 실행. NULL 일반항목 호환은 프로젝트 사실 공유 허가가 아님 |
+| 담당자 메모 장부 | `tools/memory_ledger.mjs` | import/export 실행 안 함; 운영 장부 변경 없음 |
 
 `kernel/`의 해당 identity/generation export는 기존 core validator 호환 진입점이다.
 위 도구의 존재만으로 live caller 지원을 주장하지 않는다.

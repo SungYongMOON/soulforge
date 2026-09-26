@@ -3,6 +3,9 @@
 ## 2026-09-10 target recall storage
 
 This document describes the existing assignee-memory compatibility layer.
+Assignee memory (담당자 메모리) is the workbench's per-assignee note store; it is
+neither bot memory (Hermes/Buzz 봇 수첩) nor project knowledge (see the
+[glossary](../../../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md) 기억·지식 rows).
 The new per-project recall projection/policy/evaluation lives under
 `<data_root>/20_PROJECTS/<project-ref>/40_기억관리/`, as owned by
 [Plan 17](../../../../docs/architecture/foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10).

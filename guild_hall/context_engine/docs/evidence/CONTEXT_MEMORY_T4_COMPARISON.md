@@ -11,10 +11,10 @@ ASSUMPTIONS: 기존 T0의 24개 질문 의미와 T3의 실제 accepted Context P
 새 T4 평가 판본에서 연결한다. T0/T3 source·gold는 변경하지 않는다.
 도메인 수치가 달라지는 질문은 T4 입력에 명시하고 source에 직접 결속한다.
 기대답은 runtime 출력에서 만들지 않는다. source·gold·rubric·질문·입력 digest를
-소비 전에 고정하고 일반 소비자에는 선택 기억과 요청만 제공한다.
+소비 전에 고정하고 일반 소비자에는 선택된 회수 항목과 요청만 제공한다.
 
 A는 현재 요청만, B는 lexical 관련도, C는 유효 결정·제약·정정 중심,
-D는 evaluator가 명시한 oracle 기억이다. oracle도 프로젝트·권한을 넘지 않는다.
+D는 evaluator가 명시한 oracle 회수 항목이다. oracle도 프로젝트·권한을 넘지 않는다.
 그 뒤 lexical/BM25, vector, typed graph, hybrid+exact-source와
 off/recent/ranked-decision/oracle의 행렬을 표시한다.
 미구현은 NOT_RUN이며 같은 model-input digest는 재사용한다.

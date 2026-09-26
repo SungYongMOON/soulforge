@@ -564,7 +564,7 @@ Vigil은 실제 evidence가 연결될 때 `NAS backup target`과 `NAS source ass
 capture/project-binding/custody readiness다. 둘 중 하나의 green으로 다른 하나를
 green 처리하지 않는다.
 
-`25_EVENT_TIMELINE_INDEX` indexes durable event memory owned by its exact
+`25_EVENT_TIMELINE_INDEX` indexes durable event records owned by its exact
 source/project/accepted-context surface; `90_PROJECTIONS` is rebuildable
 presentation. They must not be merged, and the index cannot widen project scope.
 The `secret_owner_root` has no directory in this target tree: plaintext secret
@@ -578,7 +578,7 @@ bytes and staging targets belong under an exact `recovery_root` binding.
 ## Project context data store — Owner adoption 2026-09-10
 
 Owner adopted a project-first physical home for context production, document
-retrieval, memory recall and utilization evaluation. This changes the target
+retrieval, recall projection and utilization evaluation. This changes the target
 storage contract; it does not move live source bytes or activate a writer.
 The existing suite roots, source-native custody, SE-numbered accepted artifacts
 and canonical byte-lineage remain separate.
@@ -648,8 +648,8 @@ forming an authorized project store. It cannot use an arbitrary project label.
 | 10_입력자료 | Exact source/revision/locator references by source kind. A policy-authorized project-only input snapshot may be materialized with copy lineage; collection alone does not authorize it. Mixed voice uses exact relevant spans, not a forced whole-recording project assignment. Collected originals stay with their collection owner and are never moved, copied or deleted into this area. |
 | 20_문서검색 | Project-owned extracted text/tables, rebuildable lexical/vector/graph retrieval assets, source-location maps, extraction warnings and quality records. Accepted source artifacts remain in their original owner. |
 | 30_프로젝트맥락 | Project semantic events and reviewed relations, decisions/commitments/constraints, branch/project summaries and their correction/revision lineage. Existing raw event owners are referenced, never silently duplicated. |
-| 30_프로젝트맥락/이력 | Project history: dated factual daily history whose sentences carry evidence lines, weekly/monthly summaries and a current-status view, one `<YYYY-MM>` folder per month. Derived and rebuildable from the source custody it cites; it is not a decision authority. Sole writer: the history runner (`guild_hall/context_engine/harness/history_night.mjs`); its private work root (query cache holding source text) stays outside the project store. |
-| 40_기억관리 | Typed recall projections, policy revisions and retrieval/utilization evaluation. Recall memory references the decision/context record; it is not a second decision authority. |
+| 30_프로젝트맥락/이력 | Project history (이력): dated factual daily history whose sentences carry evidence lines, weekly/monthly summaries and a current-status view (day → week → month → status), one `<YYYY-MM>` folder per month. Derived and rebuildable from the source custody it cites; it is not a decision authority and not knowledge (지식): wiki pages come from finished documents, and K4 facts/K7 open items are extracted from history paragraphs. Sole writer: the history runner (`guild_hall/context_engine/harness/history_night.mjs`); its private work root (query cache holding source text) stays outside the project store. |
+| 40_기억관리 | 회수용 투영·선택 정책·평가 자리 — 봇 기억(Hermes/Buzz 봇 수첩) 아님, 지식 정본도 아님. Typed recall projections (`회수용_기억/`), selection-policy revisions (`선택정책/`) and retrieval/utilization evaluation (`회수·활용_평가/`). The folder names are identifiers and are not renamed. A recall projection references the decision/context record; it is not a second decision authority. |
 | 50_업무맥락 | Bounded task-context selection and evidence receipts; project-only pack payloads follow their retention/data-class policy. Common chunks remain transient and are not copied into a new project truth. |
 | 60_업무경험 | Work Episode projections linking exact result, review, failure and rework receipts. Raw transcripts, hidden reasoning and unrelated work are excluded. |
 
@@ -658,7 +658,7 @@ current `ingress/<source-kind>` lanes). Target `_workspaces/<project_code>`
 keeps only accepted bytes in its approved SE variant stage/artifact/revision
 shape. Target `_workmeta/<project_code>/lineage` keeps canonical byte-lineage,
 including evidence/correction/acceptance/backup references, not RAG bodies,
-context histories or memory evaluation logs.
+context histories or recall evaluation logs.
 
 The global numbered indexes remain safe metadata projections into project
 stores and existing approved common/organization owners. `20_PROJECT_ASSET_INDEX`
@@ -667,7 +667,7 @@ Old `45_EVENT_STORES/projects` and project `reference_payloads` paths are
 legacy/migration inputs; organization event stores retain their separate scope.
 Do not rewrite old receipts or delete old stores to make names look current.
 
-A per-project source/index/context/memory generation must bind exact input
+A per-project source/index/context/recall generation must bind exact input
 revisions, scope/ACL, writer epoch, policy, supersession and coverage. Only a
 fully validated generation advances its current pointer. Changed content
 invalidates dependent retrieval and summaries; a locator-only move with

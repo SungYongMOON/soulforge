@@ -1,5 +1,22 @@
 # Development Roadmap v0
 
+## 2026-09-26 이력 위 층 순서 (Owner)
+
+기록 → 이력 → 지식 층을 올리는 현재 Owner 순서다. 뜻은 [용어집](SHARED_GLOSSARY_V0.md)의
+기록·이력·지식·기억 행, 이력 자리는 [Plan 17](team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+`30_프로젝트맥락/이력`, 조회 층 대응은 [과제 맥락 그래프 모델](../workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md#l0l4-조회-층과-현재-층-대응-2026-09-26),
+지식 층 구현은 `guild_hall/context_engine/KNOWLEDGE_LAYER.md`가 소유한다.
+
+1. 이력 backfill: 과제 저장소 이력 폴더를 일→주→월→현황으로 채운다.
+2. 이력 비교 재시험(H1): 이력만 읽은 답을 기존 맥락이(봇) 답과 같은 질문·채점 키로 다시 잰다.
+3. 맥락이 이력 연결(H2): H1을 이기면 맥락이가 이력을 먼저 읽게 한다. Owner 승인 사항이다.
+4. D36(과제 맥락 단일 writer) 결정과 정정 ID 규칙 수정: K4 착수 전 선행 조건이다.
+5. K4(사실 장부)·K7(열린 일)을 이력에서 뽑는다.
+6. K9(맥락이 답 조립).
+
+음성은 2026-09-26부터 이력 입력에 들어간다. 이전 인계의 "음성은 K5 뒤" 순서는 이것으로 대체한다.
+이 절은 순서만 기록한다. 착수, 운영 연결, 봇 지침 변경, writer 활성화 승인이 아니다.
+
 ## 2026-09-12 Context APP build track — whole app, D41 tooling, staged gates
 
 Scope (Owner, private plan v0.9 §14–15): build the whole context app, not a
@@ -705,9 +722,9 @@ actual P4 evidence ──> P5 accepted context [builder만 완료 / acceptance H
 | `C5` Reactive+SE proposal shadow | C3 live-only evaluator와 generation-pinned mandatory-ACL/no-fallback/no-existence-leak Accepted Context Query public-synthetic foundation 구현. hostile wrong-generation manifest/receipt는 uniform `NOT_AVAILABLE`로 고정했다. 실제 accepted generation·adjudicated corpus·live query binding은 없음 | actual accepted generation을 current pointer/manifest/receipt로 bind한 read-only query와 실제 사람 결정/후속결과 corpus | query는 unauthorized/foreign/absent/stale/wrong-generation을 동일 `NOT_AVAILABLE`로 수렴; current foundation 31/31, live precision/recall·Official Task mutation 주장 0 | actual `C3+C4`와 `HB-D5`에 의존 |
 | `C6` 첫 bounded mutation canary | `CANARY_GATE_FOUNDATION_DONE_FOR_SYNTHETIC_SCOPE`: exact tuple/approval/C5 pins, single tuple claim, sole writer/CAS/fencing, create/readback, non-destructive voided compensation과 terminal replay를 검증하는 synthetic gate 구현. actual canary readiness=false | actual C5 adjudicated evidence, exact first tuple/action/Owner approval, real sole coordinator/writer/rollback/readback packet으로 one bounded canary. 선택 tuple이 v0.4.0 hourly Bot write surface 밖이거나 같은 writer/fence 아래임을 증명해야 하며 다른 업무는 계속 gated | synthetic canary 17/17, Core 28/28, fresh Opus 5 `ACCEPT`; synthetic trusted-pin consistency only, live effect/authority 0 | actual `C0~C5`와 별도 Owner 승인 뒤 |
 
-지식·Wiki·맥락·메모리는 같은 저장소나 같은 승인 상태가 아니다. P4의 RAG와 Thin Wiki는
+지식·Wiki·이력(맥락)·봇 기억은 같은 저장소나 같은 승인 상태가 아니다. P4의 RAG와 Thin Wiki는
 exact source revision을 찾고 안내하는 지식 투영이며, P5 human acceptance를 통과해야 비로소
-accepted Project Context가 된다. 개인 memory와 reviewed `memory_candidate`는 이 흐름과
+accepted Project Context가 된다. 봇 기억(개인 memory)과 reviewed `memory_candidate`(사람 수락 전 사실 후보)는 이 흐름과
 분리하고 Wiki/RAG/canon으로 자동 승격하지 않는다.
 
 Chat 1시간 Bot은 Worker가 다시 구현할 제품 기능이 아니라 C3/C5가 필요한 실제 오류·누락·
@@ -743,7 +760,7 @@ Portfolio Projection, Meaningful/Skillable Work Unit과 Capability Learning Loop
 종료 시점은 A/B writer 선택, 운영 품질 근거와 보안정책이 아직 미정이므로 `UNKNOWN`이다.
 
 - World Tree position: World Tree는 mail, voice, schedule, artifact, skill, 발주 이력, task,
-  project memory를 연결할 장기 통합 자산·운영 표면이다. 전면 개편은 위 Rune과
+  과제 이력·지식을 연결할 장기 통합 자산·운영 표면이다. 전면 개편은 위 Rune과
   source-bound context gate 이후로 유예한다. 아래 World Tree 중심 기록과
   `ENGINE_EXPANSION_MASTER_PLAN_20260702.md`는 당시 설계 history이며 현재 실행 큐가 아니다.
 
@@ -1712,6 +1729,7 @@ raw 산출물·private 수치는 `_workmeta` 영수증을 가리키고 여기엔
 | 2026-09-07 | 대장간 세계·세 창 lane 등록 | 2026-09-06의 로드맵·브리프·명세·계약이 사설 인수인계 폴더에만 있어 이 문서를 읽는 빌더가 다른 active slice를 보게 돼 있었음(FRESH_REVIEW 2026-09-06 Q3-6) | Owner-directed adjacent lane 절 1개 + 다음 후보 22·23 등록, 정본 승격 아님. 첫 조각은 이미 main(계약 v1 candidate·디자인 시스템 S1·집게 심박·소나 인텔 #1). 착수 순서는 외부 검토 2회(GPT 재자문 06, 신선한 눈)로 정정된 순서를 따른다 |
 | 2026-09-12 | Graph DB(Neo4j)·GraphRAG 채택(D41) | 요구추적 모델 §4.2·§4.4: Graph DB는 규모·질의 트리거 전 보류, GraphRAG·벡터 검색은 고정 평가셋 뒤 | Owner가 트리거 대기 없이 채택을 결정했다. 맥락엔진 일부를 GraphRAG로 대신하는 방향이며 Neo4j Community는 조회 전용 projection·제안층 검색 색인으로만 쓴다 | 규모 판정(SQLite로 충분)은 기록으로 두고 결정만 바꿨다. 원장 truth, project binding, HPP data surface 편입 조각의 backup/restore 분류, 정본 ID 자동 병합 금지는 유지(색인 안 병합은 허용) | `PROJECT_REQUIREMENT_TRACE_MODEL_V0.md` §4·§8.2, CHANGELOG 09-12 |
 | 2026-09-12 | 맥락 APP 후보 main 통합 | 비공개 검토문(FABLE_REVIEW §2.1): 후보 APP을 들이며 World Tree(코드 dev-erp)의 `accepted_context_*`를 shim으로 바꾸고 `server.mjs`·`work_intake_context.mjs`·행보관 CLI를 APP에 연결 | APP을 자체 CLI를 가진 독립 모듈로 통합했다. dev-erp 파일은 그대로 두고, 그 연결에 기대던 APP 시험은 같은 요청을 APP CLI로 실행하게 옮겼다 | dev-erp 파일은 HPP 팩 명세의 정적·동적 import 폐포에 들어가 연결 시 APP runtime 전체가 운영 팩에 실린다. 같은 검토문 §6이 release gate 전 탑재를 금지해 연결을 CTX-S0-G2(Owner 결정 대기)로 분리했다. 기존 dev-erp 사본의 공개 이름·상수·거부 응답이 APP과 같은지는 시험으로 고정 | CHANGELOG 09-12, `guild_hall/context_engine/README.md` §main 통합 상태 |
+| 2026-09-26 | 이력 위 층 순서 | 사설 인계 문서마다 순서가 달랐다(이력→K4·K7·K6→K9 / K6→K7→K5→K9→K8), 음성은 K5 뒤 | Owner 순서(이력 backfill→H1→H2→D36·정정 ID→K4·K7→K9)를 머리 절 `2026-09-26 이력 위 층 순서`에 기록 | 음성이 2026-09-26 이력 입력에 들어가 "음성은 K5 뒤"가 무효가 됨. 순서 기록일 뿐 착수 승인 아님 | 이 문서 머리 절, `SHARED_GLOSSARY_V0.md` 기록·이력·지식·기억 행 |
 
 ## 갱신 규칙
 

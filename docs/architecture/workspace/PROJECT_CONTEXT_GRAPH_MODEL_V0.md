@@ -66,12 +66,13 @@ source revision
 - `context branch`: a medium-lived project workstream or SE concern.
 - `project context`: the long-lived project history assembled from accepted
   units, branches, exact source refs, current gaps, and revision lineage.
-- `memory candidate`: a reviewed-reuse candidate derived from project context.
-  It is not accepted Wiki/RAG knowledge and is not an external agent's private
-  preference memory.
+- `memory candidate` (기억 후보 = 사람 수락 전 사실 후보): a reviewed-reuse
+  candidate derived from project context. It is not accepted Wiki/RAG knowledge
+  and is not an external agent's private preference memory (봇 기억).
 
-Short, medium, and long context therefore mean `context unit`, `context
-branch`, and `project context`. They are durable metadata layers; a bounded
+`context unit`, `context branch` and `project context` differ by scope (one
+episode, one workstream, the whole project), not by a short/medium/long-term
+memory metaphor. They are durable metadata layers; a bounded
 query-time context pack selects from them but does not recreate the whole
 history from scratch.
 
@@ -104,6 +105,29 @@ These defaults were captured from the 2026-06-28 owner grill-me decisions.
 - MVP consumers should expose four views over the same graph state: mail
   reading queue, per-project work tree, today task board, and graph
   visualization.
+
+## L0–L4 조회 층과 현재 층 대응 (2026-09-26)
+
+The L0–L4 loading order above is kept. This table maps each layer to the
+current layers of the [Plan 17 project store](../foundation/team_member_engineering_program/17_PHYSICAL_ARCHITECTURE_PATH_REGISTRY_AND_STORAGE_MAP.md#project-context-data-store--owner-adoption-2026-09-10)
+(`<data_root>/20_PROJECTS/<project-ref>/`). Terms follow the
+[glossary](../foundation/SHARED_GLOSSARY_V0.md) rows 기록·이력·지식·기억.
+
+| Load layer | Current layer (한국어) | Where | State (2026-09-26) |
+| --- | --- | --- | --- |
+| L0 index | 목차 = 과제 안내·색인 | `00_프로젝트_안내/` and the global index projections | declared; per-project catalogs only where formed |
+| L1 project summary | 과제 요약 = 이력 현황(status) | `30_프로젝트맥락/이력/<YYYY-MM>` current-status view | history runner writes it; being backfilled |
+| L2 branch summary | 업무 가지 요약 | `30_프로젝트맥락/업무가지·프로젝트요약/` | empty; no writer yet |
+| L3 related event detail | 사건 상세 = 이력 일별(+주·월) | `30_프로젝트맥락/이력/<YYYY-MM>` daily cells, weekly and monthly summaries | history runner writes it; being backfilled |
+| L4 source layer | 원문 = 기록 원문 | Tributary source custody, reached through each history sentence's evidence lines | collected |
+
+The RAG index (`20_문서검색/` plus the per-project Neo4j index) is a retrieval aid
+that finds L3/L4 candidates; it is not a layer of its own and not accepted
+knowledge. Knowledge (지식: K3 wiki from finished documents, K4 facts and K7 open
+items extracted from history) is added only when a question needs it
+(`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md` §10.1–§10.2). `40_기억관리/` holds recall
+projections and their evaluation, not bot memory; bot memory (봇 기억) is outside
+this stack and is never used as evidence.
 
 ## Workspace Boundary
 

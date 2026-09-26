@@ -37,10 +37,10 @@ knowledge or operating binding is moved or enabled by this document update.
 | 시작 | `start`, `claim`, `in progress` | worker 가 특정 task packet 을 잡고 allowed scope 안에서 실행을 시작한 상태 | 시작은 결과 보장이나 승인 변경이 아니다. |
 | 완료 | `done`, `completed` | 요청된 산출물, 문서 동기화, 검증 기록, closeout 보고가 끝난 상태 | merge, 배포, 정본 승격, owner acceptance 는 별도일 수 있다. |
 | 보류 | `hold`, `blocked` | source gap, owner decision, validator failure, private/public boundary, secret/raw 요구 때문에 안전하게 진행할 수 없는 상태 | 보류는 실패 낙인이 아니라 다음 필요한 결정을 드러내는 상태다. |
-| 지식 | `knowledge` | 반복해서 다시 쓸 수 있는 개념, source 사용 방식, 판단 기준, relation, retrieval 단서 | 단순 대화 요약이나 AI 주장만으로 정본 지식이 되지 않는다. 위키 페이지·사실 장부·대상 후보는 지식이지 기억이 아니다(2026-09-22 Owner 정정). |
-| 기억 | `memory`, 봇 수첩 | 봇(에이전트)이 일하면서 스스로 적는 다음에 써먹을 것: 도구 요령, 시행착오, Owner 습관·서식 취향. 봇마다 자기 기억 파일(Hermes memory, Buzz 에이전트 memory)에 두고 그 봇이 다음 일을 시작할 때 읽는다. | 과제 사실은 기억이 아니라 지식이다. 기억에는 과제 식별자(과제 코드·문서명·발주처·사람·금액)를 적지 않는다. 대화에서 나온 과제 사실은 기억이 아니라 사람 입력으로 지식 장부에 제출한다. Neo4j Agent Memory가 "memory"라 부르는 것은 우리 말로 기록·지식·기억을 합친 것이며, 이 문서의 기억은 그중 봇 수첩만 가리킨다. |
-| 기록 | `record`, 대화 기록, 작업 일지, 영수증 | 무슨 말이 오갔고 무엇을 했는지를 그대로 남긴 것: 대화 기록(단기), 작업 일지·영수증·페이지 기록(추론 흔적). 날짜별로 쌓기만 하고 고치지 않는다. 기억(수첩)은 기록에서 다음에 써먹을 것만 걸러낸 것이고, 지식은 기록·원본에서 검증을 거쳐 만든 것이다. | 기록 자체는 기억도 지식도 아니다. 기록을 읽는다고 봇이 배운 것이 되지 않고, 기록에 적힌 주장이 지식이 되지 않는다. |
-| 이력 | `history`, 과제 이력, 맥락(정본 이름, sf-p05 맥락 엔진·맥락이의 "맥락") | 기록(메일·Slack·음성·Linear 같은 조각)을 엮어 "언제 무엇을 발주·시험·변경·결정했나"를 시간 순 문단으로 써 둔 과제 일기. 문단마다 근거 조각 목록이 붙고, 매일 밤 새 조각이 들어오면 새 판으로 자란다. 사실 장부·열린 일은 이력에서 뽑는다. 사람으로 치면 그 과제를 겪은 사람의 기억을 글로 적어 둔 것. | 지식이 아니다: 지식은 완결된 문서(사양서·보고서·회의록)에서 위키로 녹인 것이고, 이력은 조각에서 쓴 것이다. 기억(봇 수첩)도 아니다. 기록을 그대로 나열한 것도 아니다 — 근거가 붙은 글이다(2026-09-22 Owner 정정: 조각으로 위키를 만들려 한 첫 시도가 어색했던 이유). |
+| 지식 | `knowledge`, 위키, 사실 장부, 대상 후보 | 완결된 문서(사양서·보고서·회의록)와 이력에서 뽑아 근거를 확인한 사실로 만든, 반복해서 다시 쓸 수 있는 것: 위키 페이지(K3), 사실 장부(K4), 열린 일(K7), 대상 후보(K6), 개념·판단 기준·relation·retrieval 단서 | 단순 대화 요약이나 AI 주장만으로 정본 지식이 되지 않는다. 위키·사실 장부·대상 후보는 지식이지 기억이 아니다(2026-09-22 Owner 정정). 이력 자체는 지식이 아니다 — K4·K7 사실을 이력 문단에서 뽑아야 지식이 된다. |
+| 기억 | `memory`, 봇 수첩 | 봇 하나가 자기 다음 일을 위해 스스로 적는 수첩만 뜻한다: 도구 요령, 시행착오, Owner 습관·서식 취향. 봇마다 자기 기억 파일(Hermes memory, Buzz 에이전트 memory)에 두고 그 봇이 다음 일을 시작할 때 읽는다. | 과제 사실은 기억이 아니라 지식이다. 기억에는 과제 식별자(과제 코드·문서명·발주처·사람·금액)를 적지 않고, 기억을 답의 근거로 쓰지 않는다. 대화에서 나온 과제 사실은 기억이 아니라 사람 입력으로 지식 장부에 제출한다. 단기·중기·장기 기억 같은 비유를 쓰지 않는다. Neo4j Agent Memory가 "memory"라 부르는 것은 우리 말로 기록·지식·기억을 합친 것이며, 이 문서의 기억은 그중 봇 수첩만 가리킨다. 이름에 기억·memory가 들었지만 봇 기억이 아닌 식별자는 아래 `헷갈리기 쉬운 식별자`를 본다. |
+| 기록 | `record`, 원문 조각, 대화 기록, 작업 일지, 영수증 | 수집된 원문 조각과 자동 흔적을 그대로 남긴 것: 메일·Slack·Linear·음성 원문(수집 lane 보관본), 대화 기록, 작업 일지·영수증·페이지 기록. 날짜별로 쌓기만 하고 고치지 않는다. 이력은 기록을 근거로 쓴 글이고, 기억(수첩)은 봇이 자기 일에서 다음에 써먹을 것만 적은 것이다. | 기록 자체는 이력도 지식도 기억도 아니다. 기록을 읽는다고 봇이 배운 것이 되지 않고, 기록에 적힌 주장이 지식이 되지 않는다. |
+| 이력 | `history`, 과제 이력, 맥락(정본 이름, sf-p05 맥락 엔진·맥락이의 "맥락") | 기록(메일·Slack·음성·Linear 같은 조각)을 엮어 "언제 무엇을 발주·시험·변경·결정했나"를 날짜별 문단으로 써 둔 과제 이력. 문장마다 근거 줄이 붙고, 일별 → 주 → 월 → 최근 현황 순으로 위층을 만든다. 자리는 과제 저장소 `<data_root>/20_PROJECTS/<project-ref>/30_프로젝트맥락/이력/<YYYY-MM>`이고 작성자는 이력 야간 단계 하나뿐이다. 사실 장부(K4)·열린 일(K7)은 이력에서 뽑는다. | 지식이 아니다: 지식은 완결된 문서로 만든 위키와 이력·문서에서 뽑아 확인한 사실이다. 이력은 인용한 기록에서 다시 만들 수 있는 파생물이고 결정 권한이 없다. 기억(봇 수첩)도 아니다. 기록을 그대로 나열한 것도 아니다 — 근거가 붙은 글이다(2026-09-22 Owner 정정: 조각으로 위키를 만들려 한 첫 시도가 어색했던 이유). |
 | RAG | `Retrieval-Augmented Generation` | 질문이나 검토 전에 source/ref 를 찾아 답변에 연결하는 방식 | Soulforge 에서는 기본적으로 metadata-only 로 다루며, source text lane 은 owner-approved private 경계가 필요하다. |
 | Ledger Plane | 공통 장부 계층 | 세 제품과 아홉 portfolio의 사건을 안정된 ID·시간·관계로 연결하는 공통 기계 계약 | 네 번째 제품이나 하나의 전사 mega-database가 아니다. Domain 의미·수락·권한은 각 owner가 유지한다. |
 | Ledger Catalog | 장부 등록부 | 각 장부·receipt·cursor·state·projection·backup·dataset의 owner, SoR, writer, schema, scope, 저장·복구·분석 자격을 등록하는 중앙 metadata catalog | Event body를 한곳에 모으거나 source-local 정본을 대체하지 않는다. |
@@ -84,6 +84,21 @@ knowledge or operating binding is moved or enabled by this document update.
 | Project Binding | 과제 결속 | exact 문서·메일·RAG·ERP·요구사항 revision을 engine 어휘와 Typed Project Facts로 연결하는 seam | Profile처럼 규칙을 만들거나 완화하지 않는다. |
 | Effective Rule Set | 실효 규칙 집합 | Core Rule Assembly Interface를 통해 Domain Adapter가 Domain Engine과 선택된 Organization/Project Profile을 결정론적으로 조립한 재생성 가능 결과 | 사람이 수정하는 정본이나 observation이 아니다. |
 | Typed Project Facts | 형식화된 과제 사실 | Project Adapter가 exact binding과 관측에서 만든 Evaluator 입력 | RAG/LLM 답변만으로 source truth나 verdict가 되지 않는다. |
+
+## 헷갈리기 쉬운 식별자 (이름에 기억·memory가 있지만 봇 기억이 아닌 것)
+
+식별자는 바꾸지 않는다. 문장에서는 오른쪽 뜻으로 읽고, 처음 나올 때 괄호로 한 번 밝힌다.
+
+| 식별자 | 실제 뜻 |
+| --- | --- |
+| `40_기억관리/`, `회수용_기억/` (과제 저장소 폴더) | 회수용 투영·선택 정책·회수/활용 평가 자리. 봇 기억도 지식 정본도 아니고 결정 권한이 없다. |
+| `memory_candidate`, `memory_candidates/`, 기억 후보 | 과제 맥락에서 뽑은 재사용 후보, 곧 사람 수락 전 사실 후보. 수락되면 지식(사실 장부)으로 간다. |
+| `assignee_memory`, `assignee_memory_item`, 작업대 `내 메모리` | World Tree 작업대의 담당자별 메모(과제 태그로 격리). Hermes/Buzz 봇 기억과 다른 장부다. |
+| `CONTEXT_MEMORY_T0`~`T5`, `context_memory_*`, `examples/context-memory/`, `algorithms/memory/` | 맥락 APP의 회수·꾸러미 조립 시험과 알고리즘. 봇 기억이 아니다. |
+| 요구추적 모델 §3의 "메모리" | 과제 사실 원장을 가리킨 2026-08-17 초안의 옛 표현. 지금 말로는 이력·사실 장부다. |
+| `in-memory`, 프로세스 메모리 | 컴퓨터 메모리(RAM) 안의 값. 저장·기억과 무관하다. |
+
+반대로 Agent Mark 계보의 `Memory generation`, `.unit/*/memory/`, Hermes `memory`는 실제 봇 기억 쪽이다.
 
 ## Task Engine / AX 업무·증거 용어
 

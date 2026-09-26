@@ -2,7 +2,7 @@
 
 ## 2026-09-10 프로젝트 맥락 저장 구조 채택
 
-맥락 제작·문서 RAG·기억 회수/평가의 새 물리 owner는
+맥락 제작·문서 RAG·회수용 투영/평가(봇 기억 아님)의 새 물리 owner는
 `<data_root>/20_PROJECTS/<project-ref>/`다. 수집 원본, SE 번호별 accepted
 `_workspaces`, canonical byte-lineage `_workmeta`는 유지한다.
 전역 번호 INDEX는 프로젝트 store의 metadata/ref 투영이며 body의 두 번째 owner가 아니다.

@@ -59,7 +59,7 @@ Soulforge/
 | `guild_hall` | 길드홀 / 관문 | gateway, town_crier, doctor, night_watch, assignment | project-local source data |
 | `_workspaces` | 던전 현장 | 실제 프로젝트 파일과 산출물 | public tracked data |
 | `_workmeta` | 던전 노트 | private project rules, reports, bindings, runs | public-safe canon |
-| `private-state` | 운반용 기억 | selected continuity mirror | secret 값 |
+| `private-state` | 운반용 상태 | selected continuity mirror | secret 값 |
 | `ui-workspace` | 작전판 후보 | fixture-first UI, control center, renderer contract | canonical owner 대체 |
 
 ## 게임 루프 관점

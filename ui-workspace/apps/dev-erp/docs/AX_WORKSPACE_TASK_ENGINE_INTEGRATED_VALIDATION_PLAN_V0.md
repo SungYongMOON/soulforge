@@ -673,7 +673,7 @@ flowchart LR
 | ERP | 승인된 current state와 task mutation | 모든 지식·모델 학습 저장소가 되기 |
 | Agent Control Plane candidate | owner 승인 뒤 모델·도구·권한·budget·execution receipt | task의 왜와 task truth 소유 |
 
-RAG만으로 “체계공학을 학습했다”고 말할 수 없다. RAG는 검색 가능한 기억이다. Engineering IQ에 가까워지려면 의미 관계, authority, 적용 조건, 대안과 기각 사유, expected→actual→correction loop가 함께 있어야 한다.
+RAG만으로 “체계공학을 학습했다”고 말할 수 없다. RAG는 검색 가능한 색인이다. Engineering IQ에 가까워지려면 의미 관계, authority, 적용 조건, 대안과 기각 사유, expected→actual→correction loop가 함께 있어야 한다.
 
 ### 6.2 머신러닝은 첫 관문이 아니다
 
