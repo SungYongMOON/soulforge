@@ -9,8 +9,11 @@
 // tool revision and the document text are unchanged, writes everything
 // create-only under 20_문서검색/{본문·표_추출,검색_색인,원문위치·추출품질}/
 // generations/<id>/, and advances 00_프로젝트_안내/graph_index_current.json under
-// a lock and an expected prior. A run with an unprepared source or a degraded or
-// partial extraction advances nothing. Reads are verified by hash and served only
+// a lock and an expected prior. A run with an unprepared source, a failed worker
+// call or an exhausted budget advances nothing; a document whose extraction the
+// model's answers left incomplete is left out of the generation, listed with its
+// reason, and the rest is committed. Accepted per-document extractions are
+// checkpointed so a stopped run does not repeat them. Reads are verified by hash and served only
 // under the grant the generation was built from.
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
@@ -42,6 +45,17 @@ export const GRAPH_EXTRACTION_BATCH = Object.freeze({ documents: 50, units: 2000
 // One embed call takes at most this much. The vectors come back in the answer, so
 // the bound is the size of that answer rather than a model call budget.
 export const GRAPH_EMBED_BATCH = Object.freeze({ chunks: 50, characters: 400_000 });
+// Accepted per-document extraction results, kept beside the generations so a run
+// that stops (a held batch, a lost lock, a timeout) does not cost the next run the
+// documents it had already extracted. Content-addressed by the document's text and
+// units, the extraction profile and the exact model revision; create-only; never
+// selected or served — a checkpoint is only ever read back into a new generation
+// after it re-verifies against the document it stands for.
+export const GRAPH_EXTRACTION_CHECKPOINT_AREA = '20_문서검색/검색_색인/extraction_checkpoints';
+export const GRAPH_EXTRACTION_CHECKPOINT_SCHEMA = 'soulforge.context_graph_extraction_checkpoint.v1';
+// How much of a refusal travels with a document left out of a generation: enough
+// to say why, bounded so a pathological batch cannot swell the quality record.
+export const GRAPH_EXCLUSION_DIAGNOSTIC = Object.freeze({ calls: 8, shapes: 4 });
 const POINTER = '00_프로젝트_안내/graph_index_current.json';
 const LOCK = '00_프로젝트_안내/graph_index.lock';
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
@@ -295,6 +309,24 @@ function openIndexStore({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BIN
     assertUnchanged();
     return { path: name, sha256: digest(bytes) };
   }
+  // Checkpoints: written only by the lock holder, create-only (an existing file
+  // with the same address is the same content by construction and is left alone),
+  // and read back as untrusted bytes the caller re-verifies.
+  const checkpointName = key => `${projectPath}/${GRAPH_EXTRACTION_CHECKPOINT_AREA}/${key.slice('sha256:'.length)}.json`;
+  function readCheckpoint(key) {
+    if (!SHA.test(key ?? '')) return null;
+    try { return io.read(checkpointName(key), MAX_FILE_BYTES); } catch { return null; }
+  }
+  async function writeCheckpoint(key, bytes) {
+    if (!SHA.test(key ?? '') || lockContent === null || readLock() !== lockContent) fail('graph_index_lock_lost');
+    const target = io.path(checkpointName(key), true);
+    await mkdir(dirname(target), { recursive: true });
+    io.path(checkpointName(key), true);
+    let handle;
+    try { handle = await open(target, 'wx'); } catch (error) { if (error?.code === 'EEXIST') return false; throw error; }
+    try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+    return true;
+  }
   // The new pointer is written and synced beside the old one, then renamed over it.
   async function commitPointer(value) {
     assertUnchanged();
@@ -307,7 +339,8 @@ function openIndexStore({ io = null, storeRoot, bindingAddress = GRAPH_INDEX_BIN
     return digest(Buffer.from(text, 'utf8'));
   }
   return { io, binding, graphBinding, projectKey, projectPath, templateVersion, aclGrant, aclSha256: digest(aclBytes),
-    opened, readRaw, readArea, readPointer, assertUnchanged, lock, unlock, writeCreateOnly, commitPointer };
+    opened, readRaw, readArea, readPointer, assertUnchanged, lock, unlock, writeCreateOnly, commitPointer,
+    readCheckpoint, writeCheckpoint };
 }
 
 // A complete manifest whose every file still has its recorded bytes.
@@ -350,7 +383,84 @@ function priorState(store) {
   if (quality.schema_version !== GRAPH_INDEX_QUALITY_SCHEMA || quality.coverage?.coverage_sha256 !== manifest.coverage_sha256) {
     fail('graph_index_manifest_invalid');
   }
-  return { pointer, manifest, coverage: quality.coverage };
+  return { pointer, manifest, coverage: quality.coverage,
+    excluded: new Set((Array.isArray(quality.excluded) ? quality.excluded : []).map(row => row?.doc_key)) };
+}
+
+// The key a document's extraction is checkpointed under: everything that decides
+// what the model is asked (the unit texts and boundaries, the profile's schema)
+// and who answers (the exact model revision, options and extraction rules).
+export function extractionCheckpointKey({ document, projectKey, models }) {
+  return sha256Canonical({ schema_version: GRAPH_EXTRACTION_CHECKPOINT_SCHEMA, project_key: projectKey,
+    doc_key: document.doc_key, text_sha256: document.text_sha256,
+    units: document.units.map(unit => ({ unit_id: unit.unit_id, text_sha256: digest(Buffer.from(unit.text, 'utf8')) })),
+    profile: graphProfilePin(), models });
+}
+
+// A checkpoint is untrusted until it proves it is this document's complete
+// extraction by this model revision: its key, its identity, its text, a whole
+// chunk count, its own fragment hash and every vector's reference are re-derived.
+// Anything short of that is a miss, and the document is extracted again.
+export function admitCheckpoint({ bytes, key, document, projectKey, models }) {
+  let value;
+  try { value = JSON.parse(bytes); } catch { return null; }
+  const fragment = value?.fragment;
+  if (value?.schema_version !== GRAPH_EXTRACTION_CHECKPOINT_SCHEMA || value.key !== key || !plain(fragment)
+    || fragment.doc_key !== document.doc_key || fragment.project_key !== projectKey
+    || fragment.source_text_sha256 !== document.text_sha256 || fragment.stats?.chunks !== document.units.length
+    || fragment.stats?.chunks_mismatched !== 0 || !equal(fragment.model, models)
+    || !Array.isArray(fragment.nodes) || !Array.isArray(fragment.relationships)) return null;
+  try {
+    for (const node of fragment.nodes) {
+      if (node.embedding === null || node.embedding === undefined) { if (node.embedding_ref !== null) return null; continue; }
+      if (!Array.isArray(node.embedding) || !equal(embeddingRef(node.embedding), node.embedding_ref)) return null;
+    }
+    const { fragment_sha256: claimed, ...body } = fragment;
+    if (sha256Canonical({ ...body, nodes: body.nodes.map(({ embedding, ...node }) => node) }) !== claimed) return null;
+  } catch { return null; }
+  return fragment;
+}
+
+// Which documents of a held-back batch the refusals belong to. The extraction
+// attributes each refused call to a record by its position, which is sound only
+// when the trace has exactly one call per unit in request order; when it does not,
+// or a refusal names no record, every document in the batch is treated as refused
+// rather than guessing which ones were whole.
+function refusedDocuments(batch, result) {
+  const units = batch.reduce((total, document) => total + document.units.length, 0);
+  const trace = Array.isArray(result.llm?.trace) ? result.llm.trace : [];
+  const positional = trace.length === units && trace.every((row, index) => row.call === index + 1);
+  const degraded = result.degraded ?? {};
+  const refusals = Array.isArray(degraded.refused_units) ? degraded.refused_units : [];
+  const reasons = new Map();
+  const mark = (docKey, reason, call) => {
+    const row = reasons.get(docKey) ?? { reasons: new Set(), calls: [] };
+    row.reasons.add(reason);
+    if (call !== null) row.calls.push(call);
+    reasons.set(docKey, row);
+  };
+  if (!positional || refusals.some(row => !SHA.test(row?.doc_key ?? ''))) {
+    for (const document of batch) mark(document.doc_key, 'extraction_unattributed', null);
+  } else {
+    for (const row of refusals) {
+      mark(row.doc_key, row.status === 'error' ? 'extraction_error' : row.done_reason === 'length' ? 'extraction_truncated'
+        : 'extraction_refused', row.call);
+    }
+  }
+  for (const row of Array.isArray(degraded.documents) ? degraded.documents : []) {
+    if (SHA.test(row?.doc_key ?? '')) mark(row.doc_key, 'chunk_mismatch', null);
+  }
+  const traceOf = new Map(trace.map(row => [row.call, row]));
+  return new Map([...reasons].map(([docKey, { reasons: why, calls }]) => [docKey, {
+    reason: [...why].sort().join('+'),
+    calls: calls.slice(0, GRAPH_EXCLUSION_DIAGNOSTIC.calls).map(call => {
+      const row = traceOf.get(call) ?? {};
+      return { call, status: row.status ?? null, done_reason: row.done_reason ?? null, error_type: row.error_type ?? null,
+        http_status: row.http_status ?? null, output_characters: row.output_characters ?? null };
+    }),
+    // The shapes are what the extraction admitted field by field (no text).
+    rejected_shapes: calls.map(call => traceOf.get(call)?.rejected_shape).filter(plain)
+      .slice(0, GRAPH_EXCLUSION_DIAGNOSTIC.shapes) }]));
 }
 
 const changeCounts = changes => Object.fromEntries(['added', 'changed', 'removed', 'unchanged', 'unavailable']
@@ -436,27 +546,80 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     return { status: 'UNCHANGED', generation_id: prior.manifest.generation_id, pointer_sha256: prior.pointer.sha256,
       selection_epoch: prior.pointer.value.selection_epoch, changes };
   }
-  // Bounded batches under one call budget for the whole update; any batch that is
-  // partial or degraded holds the update, so a hole never becomes a complete generation.
-  const fresh = new Map(), batches = [];
+  // A document whose accepted extraction by this exact model revision is already
+  // checkpointed is not sent to the model again.
+  const fresh = new Map(), batches = [], fromCheckpoint = new Set(), checkpointKeys = new Map();
+  const checkpoints = { reused: 0, written: 0, invalid: 0 };
+  const pending = [];
+  for (const document of toExtract) {
+    const key = extractionCheckpointKey({ document, projectKey: store.projectKey, models });
+    checkpointKeys.set(document.doc_key, key);
+    const bytes = store.readCheckpoint(key);
+    const fragment = bytes === null ? null : admitCheckpoint({ bytes, key, document, projectKey: store.projectKey, models });
+    if (fragment) { fresh.set(document.doc_key, fragment); fromCheckpoint.add(document.doc_key); checkpoints.reused++; }
+    else { if (bytes !== null) checkpoints.invalid++; pending.push(document); }
+  }
+  const keep = async fragment => {
+    fresh.set(fragment.doc_key, fragment);
+    const key = checkpointKeys.get(fragment.doc_key);
+    if (await store.writeCheckpoint(key, encode({ schema_version: GRAPH_EXTRACTION_CHECKPOINT_SCHEMA, key, fragment }))) {
+      checkpoints.written++;
+    }
+  };
+  // Bounded batches under one call budget for the whole update. A batch the model
+  // refused part of no longer holds the whole update: the documents the refusals
+  // belong to are left out of this generation and listed with the reason, the rest
+  // are kept (and checkpointed). A document with a hole is still never written as
+  // complete. A worker failure or an exhausted budget still holds the update — the
+  // batches already accepted stay checkpointed for the next run.
+  const excluded = new Map();
   const llm = { calls: 0, errors: 0, invalid_outputs: 0, truncated: 0, prompt_tokens: 0, output_tokens: 0, elapsed_ms: 0, embedder_calls: 0 };
-  for (const batch of planExtractionBatches(toExtract, extractionBatchLimits(store.binding.graph.extraction_batch))) {
+  const excludedRows = () => [...excluded.values()];
+  const held = (code, extra = {}) => ({ status: 'HOLD', code, changes, llm, checkpoints, excluded: excludedRows(), ...extra });
+  for (const batch of planExtractionBatches(pending, extractionBatchLimits(store.binding.graph.extraction_batch))) {
     const remaining = store.binding.graph.llm.max_calls - llm.calls;
-    if (remaining < 1) return { status: 'HOLD', code: 'graph_budget_exhausted', changes };
+    if (remaining < 1) return held('graph_budget_exhausted');
     const result = await extractGraphFragments({ documents: batch, projectKey: store.projectKey, profile: GRAPH_EXTRACTION_PROFILE,
       binding: { ...store.binding.graph, llm: { ...store.binding.graph.llm, max_calls: remaining } }, runWorker, expectedModels: models });
-    if (result.status !== 'ok') {
-      return { status: 'HOLD', code: result.status === 'partial' ? 'graph_budget_exhausted'
-        : result.status === 'degraded' ? 'graph_extraction_degraded' : result.code, changes, degraded: result.degraded ?? null };
+    if (result.status === 'partial' || result.status === 'failed') {
+      return held(result.status === 'partial' ? 'graph_budget_exhausted' : result.code, { degraded: result.degraded ?? null });
     }
     for (const key of Object.keys(llm)) llm[key] += Number.isSafeInteger(result.llm[key]) ? result.llm[key] : 0;
-    for (const fragment of result.fragments) fresh.set(fragment.doc_key, fragment);
-    batches.push({ documents: batch.length, llm: result.llm,
-      fragments: result.fragments.map(f => ({ doc_key: f.doc_key, stats: f.stats, tool_pruning: f.tool_pruning })) });
+    let refused = new Map();
+    if (result.status === 'degraded') {
+      refused = refusedDocuments(batch, result);
+      // Degraded with nothing to attribute it to: the whole batch is left out.
+      if (refused.size === 0) refused = refusedDocuments(batch, { ...result, llm: { trace: [] } });
+    }
+    for (const fragment of result.fragments) if (!refused.has(fragment.doc_key)) await keep(fragment);
+    const ownerOf = new Map(batch.map(document => [document.doc_key, document]));
+    for (const [docKey, why] of refused) {
+      const document = ownerOf.get(docKey);
+      if (!document) continue;
+      excluded.set(docKey, { doc_key: docKey, source_kind: document.source_kind, root_ref: document.root_ref,
+        item_id: document.item_id, text_sha256: document.text_sha256, batch: batches.length + 1,
+        previously_excluded: prior?.excluded.has(docKey) === true, ...why });
+    }
+    batches.push({ documents: batch.length, status: result.status, excluded: refused.size, llm: result.llm,
+      fragments: result.fragments.filter(f => !refused.has(f.doc_key))
+        .map(f => ({ doc_key: f.doc_key, stats: f.stats, tool_pruning: f.tool_pruning })) });
+  }
+  const included = prepared.documents.filter(document => !excluded.has(document.doc_key));
+  // Nothing could be kept at all: there is no generation to write, and the reason
+  // for every document is in the answer rather than in a generation.
+  if (included.length === 0) return held('graph_extraction_degraded');
+  // Every document the model could read is carried, and the ones it could not are
+  // the same ones the selected generation already left out: writing another
+  // generation would only repeat the selected one.
+  if (reusable && fresh.size === 0 && carried.size === priorRows.size && included.length === carried.size
+    && prepared.coverage.coverage_sha256 === prior.manifest.coverage_sha256
+    && excluded.size === prior.excluded.size && [...excluded.keys()].every(key => prior.excluded.has(key))) {
+    return { status: 'UNCHANGED', generation_id: prior.manifest.generation_id, pointer_sha256: prior.pointer.sha256,
+      selection_epoch: prior.pointer.value.selection_epoch, changes, llm, checkpoints, excluded: excludedRows() };
   }
   const generationId = request.generation_id;
   const rows = [];
-  for (const document of prepared.documents) {
+  for (const document of included) {
     const hex = document.doc_key.slice('sha256:'.length), documentBytes = encode(document), previous = priorRows.get(document.doc_key);
     const documentRef = previous && previous.document.sha256 === digest(documentBytes) ? previous.document
       : await store.writeCreateOnly(generationId, `${GRAPH_INDEX_AREAS.documents}/generations/${generationId}/${hex}.json`, documentBytes);
@@ -472,10 +635,16 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     }
     rows.push({ doc_key: document.doc_key, source_kind: document.source_kind, root_ref: document.root_ref, item_id: document.item_id,
       composite_revision_sha256: document.composite_revision_sha256, text_sha256: document.text_sha256, data_class: document.data_class,
-      units: document.units.length, document: documentRef, fragment: fragmentRef, origin, stats });
+      units: document.units.length, document: documentRef, fragment: fragmentRef, origin,
+      ...(fromCheckpoint.has(document.doc_key) ? { from_checkpoint: true } : {}), stats });
   }
+  // `excluded` is every prepared document this generation leaves out because the
+  // model's answer for it was refused, with the reason and the (text-free) shape of
+  // the refusal. The coverage above still lists it as prepared: it was, and the
+  // exclusion is the index's own statement about it, counted in the manifest.
   const quality = { schema_version: GRAPH_INDEX_QUALITY_SCHEMA, generation_id: generationId, coverage: prepared.coverage,
-    changes: prepared.changes, extraction: batches.length === 0 ? null : { llm, batches } };
+    changes: prepared.changes, extraction: batches.length === 0 && checkpoints.reused === 0 ? null : { llm, batches, checkpoints },
+    excluded: excludedRows() };
   const coverageRef = await store.writeCreateOnly(generationId, `${GRAPH_INDEX_AREAS.quality}/generations/${generationId}/coverage.json`,
     encode(quality));
   const sum = key => rows.reduce((total, row) => total + (Number.isSafeInteger(row.stats?.[key]) ? row.stats[key] : 0), 0);
@@ -491,9 +660,11 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
     admission: prepared.admission === null ? null : { ...prepared.admission, ref: { ...store.binding.admission } },
     profile, model: models, template_version: store.templateVersion,
     coverage: coverageRef, coverage_sha256: prepared.coverage.coverage_sha256, changes, documents: rows,
+    excluded: excludedRows().map(({ doc_key, source_kind, root_ref, item_id, reason }) => ({ doc_key, source_kind, root_ref, item_id, reason })),
     counts: { documents: rows.length, extracted: rows.filter(r => r.origin === 'extracted').length,
       carried: rows.filter(r => r.origin === 'carried').length, units: rows.reduce((total, row) => total + row.units, 0),
-      chunks: sum('chunks'), entities: sum('entities'), entity_relationships: sum('entity_relationships') },
+      chunks: sum('chunks'), entities: sum('entities'), entity_relationships: sum('entity_relationships'),
+      excluded: excluded.size, from_checkpoint: rows.filter(r => r.from_checkpoint === true).length },
     llm };
   const manifestRef = await store.writeCreateOnly(generationId, `${GRAPH_INDEX_AREAS.index}/generations/${generationId}/generation.json`,
     encode(manifest));
@@ -505,7 +676,7 @@ async function runUpdate({ store, bindingSha256, request, now, runWorker, hooks,
   markCommitted();
   await hooks.afterCommit?.();
   return { status: 'COMMITTED', generation_id: generationId, manifest_ref: manifestRef, pointer_sha256: pointerSha256,
-    selection_epoch: epoch, changes, counts: manifest.counts, llm };
+    selection_epoch: epoch, changes, counts: manifest.counts, llm, checkpoints, excluded: excludedRows() };
 }
 
 // Chunks in order, grouped so no worker call exceeds the embed bounds.

@@ -7,16 +7,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAPH_SYNC_CANDIDATE_SCHEMA, GRAPH_SYNC_PENDING_SCHEMA, GRAPH_SYNC_PREFLIGHT_DIR,
   GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA, SYNC_LIMITS, aliasAddressFor, clearCompleted,
-  grantDifference, holdBack, nextGenerationId, readLedger, refreshCandidates } from '../harness/estate_graph_sync.mjs';
+  acquireSyncPassLock, grantDifference, holdBack, nextGenerationId, readLedger, refreshCandidates, rejectionDiagnostic,
+  syncProject } from '../harness/estate_graph_sync.mjs';
+import { INDEX_FS_KEY, INDEX_PROJECT, makeGraphIndexStore } from '../harness/fixtures/graph_index_fixture.mjs';
+import { createAliasedStoreIo } from '../src/adapters/aliased_store_io.mjs';
+import { readRootTable, ROOT_TABLE_SCHEMA } from '../../path_registry/src/root_table.mjs';
 
 const NOW = '2026-09-14T00:00:00.000Z';
+const sha256Of = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const grant = sources => ({ sources });
 const items = (root, ids) => ({ root_ref: root, items: ids.map(id => ({ item_id: id })) });
 
@@ -260,4 +265,70 @@ test('a preflight receipt can never be mistaken for, or collide with, a project�
   assert.equal(GRAPH_SYNC_PREFLIGHT_DIR, '_preflight');
   assert.equal(/^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u.test(GRAPH_SYNC_PREFLIGHT_DIR), false);
   assert.notEqual(GRAPH_SYNC_PREFLIGHT_RECEIPT_SCHEMA, GRAPH_SYNC_PENDING_SCHEMA);
+});
+
+// A pass that finds the project locked must leave the run configuration exactly as
+// it found it: the grant files, the binding the running pass pinned by digest, and
+// the ledger. Synthetic estate: the graph index fixture's store under a root table.
+test('a pass that finds either lock held writes no grant, no binding and no ledger, and names the holder', async () => {
+  const store = await makeGraphIndexStore();
+  const dataRoot = realpathSync(path.join(store.storeRoot, 'data_root'));
+  const controlRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'ctx-sync-lock-control-')));
+  const tablePath = path.join(controlRoot, 'root_table.json');
+  await writeFile(tablePath, `${JSON.stringify({ schema_version: ROOT_TABLE_SCHEMA,
+    roots: { data_root: dataRoot, control_root: controlRoot } })}\n`);
+  const rootTable = readRootTable({ tablePath, expectedSha256: sha256Of(await readFile(tablePath)) });
+  const io = createAliasedStoreIo(rootTable);
+  const project = INDEX_FS_KEY;
+  const admission = await store.put(`${INDEX_PROJECT}/00_프로젝트_안내/admission.synthetic.json`,
+    { admission_id: 'admission.synthetic', source_refs: [] });
+  const bindingFile = path.join(controlRoot, 'project-bindings', project, 'graph_index_binding.unified.json');
+  await mkdir(path.dirname(bindingFile), { recursive: true });
+  await writeFile(bindingFile, JSON.stringify({ ...store.binding, admission }));
+  const before = await readFile(bindingFile);
+  const grantsDir = path.join(store.storeRoot, INDEX_PROJECT, '00_프로젝트_안내', 'grants');
+  const grantsBefore = (await readdir(grantsDir)).sort();
+  const receiptsDir = path.join(controlRoot, 'receipts', project);
+  const indexLock = path.join(store.storeRoot, INDEX_PROJECT, '00_프로젝트_안내', 'graph_index.lock');
+  const passLock = path.join(store.storeRoot, INDEX_PROJECT, '00_프로젝트_안내', 'graph_sync.lock');
+
+  for (const [file, heldBy] of [[indexLock, 'graph_index'], [passLock, 'graph_sync']]) {
+    await writeFile(file, JSON.stringify({ lock_id: 'another', pid: 4242, started_at: NOW }));
+    const result = await syncProject({ io, rootTable, project, receiptsDir, now: NOW });
+    assert.deepEqual({ status: result.status, code: result.code, lock: result.lock },
+      { status: 'HOLD', code: 'graph_index_locked', lock: { held_by: heldBy, holder: { pid: 4242, started_at: NOW } } });
+    assert.ok((await readFile(bindingFile)).equals(before), 'the binding the running pass pinned is untouched');
+    assert.deepEqual((await readdir(grantsDir)).sort(), grantsBefore, 'no grant was placed');
+    assert.equal(existsSync(receiptsDir), false, 'no ledger, candidate file or binding copy was written');
+    assert.equal(JSON.parse(await readFile(file, 'utf8')).lock_id, 'another', 'a foreign lock is never removed');
+    assert.equal(existsSync(passLock) && file !== passLock, false, 'a refused pass leaves no lock of its own');
+    await rm(file);
+  }
+
+  // Free: the pass lock is taken create-only and released only by its own holder.
+  const taken = acquireSyncPassLock({ io, storePath: INDEX_PROJECT, now: NOW });
+  assert.equal(taken.held, false);
+  assert.equal(acquireSyncPassLock({ io, storePath: INDEX_PROJECT, now: NOW }).held_by, 'graph_sync');
+  taken.release();
+  assert.equal(existsSync(passLock), false);
+  const again = acquireSyncPassLock({ io, storePath: INDEX_PROJECT, now: NOW });
+  await writeFile(passLock, 'replaced by hand');
+  again.release();
+  assert.equal(await readFile(passLock, 'utf8'), 'replaced by hand', 'a lock that is no longer ours is left alone');
+});
+
+test('a receipt says why documents were left out, counted by the shape of the refusal, bounded and without text', () => {
+  const shape = { parsed: false, error_type: 'ValidationError', parse_error_type: 'JSONDecodeError', skeleton: '_ ```_ {"nodes": [' };
+  const excluded = Array.from({ length: 30 }, (_, index) => ({ doc_key: 'sha256:' + String(index % 10).repeat(64),
+    source_kind: 'mail', root_ref: 'mail.synthetic', item_id: `m${index}`, reason: index % 3 ? 'extraction_refused' : 'extraction_truncated',
+    calls: [{ call: 1, status: 'invalid_output', done_reason: 'stop', error_type: null, http_status: null, output_characters: 42 }],
+    rejected_shapes: index % 3 ? [shape] : [] }));
+  const diagnostic = rejectionDiagnostic({ status: 'COMMITTED', excluded });
+  assert.deepEqual({ excluded: diagnostic.excluded, reasons: diagnostic.reasons, listed: diagnostic.documents.length,
+    documents_listed: diagnostic.documents_listed },
+  { excluded: 30, reasons: { extraction_truncated: 10, extraction_refused: 20 }, listed: 20, documents_listed: 20 });
+  assert.deepEqual(diagnostic.shape_kinds, [{ parsed: false, error_type: 'ValidationError', parse_error_type: 'JSONDecodeError',
+    top_level_type: null, unknown_top_level_key_names: [], count: 20, example_skeleton: shape.skeleton }]);
+  assert.equal(rejectionDiagnostic({ status: 'COMMITTED', excluded: [] }), null, 'nothing left out, nothing to say');
+  assert.equal(rejectionDiagnostic(null), null);
 });

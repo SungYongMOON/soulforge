@@ -301,6 +301,51 @@ MAX_SHAPE_PROBLEMS = 8
 SCHEMA_LABEL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,31}$")
 
 
+# How much of a refused answer's outline travels, and what survives the masking.
+ANSWER_SKELETON_CHARACTERS = 160
+SKELETON_PUNCTUATION = frozenset('{}[]:,"`')
+
+
+def answer_skeleton(content):
+    """The start of an answer with its text masked, so its outline can be read.
+
+    JSON punctuation and code-fence backticks are kept, whitespace becomes one
+    space, and every other run of characters becomes "_" -- unless the run is
+    exactly one of the graph model's own field names. What remains says whether
+    the model wrapped its JSON in prose or a fence, used the wrong top-level
+    shape, or stopped mid-array, and carries no word of the document. It is cut
+    at a whole piece, never inside a field name.
+    """
+    out, run, size = [], [], 0
+
+    def add(piece):
+        nonlocal size
+        if piece == " " and out and out[-1] == " ":
+            return True
+        if size + len(piece) > ANSWER_SKELETON_CHARACTERS:
+            return False
+        out.append(piece)
+        size += len(piece)
+        return True
+
+    for char in content:
+        if char in SKELETON_PUNCTUATION or char.isspace():
+            if run:
+                word = "".join(run)
+                run.clear()
+                if not add(word if word in GRAPH_MODEL_FIELDS else "_"):
+                    break
+            if not add(" " if char.isspace() else char):
+                break
+        else:
+            run.append(char)
+    else:
+        if run:
+            word = "".join(run)
+            add(word if word in GRAPH_MODEL_FIELDS else "_")
+    return "".join(out)
+
+
 def rejected_shape(content, error):
     """What an answer the extractor refuses looks like -- never what it says.
 
@@ -314,7 +359,8 @@ def rejected_shape(content, error):
     document text.
     """
     from neo4j_graphrag.components.entity_relation_extractor import fix_invalid_json
-    shape = {"parsed": False, "error_type": type(error).__name__, "characters": len(content)}
+    shape = {"parsed": False, "error_type": type(error).__name__, "characters": len(content),
+             "skeleton": answer_skeleton(content)}
     try:
         parsed = json.loads(fix_invalid_json(content))
     except Exception as parse_error:

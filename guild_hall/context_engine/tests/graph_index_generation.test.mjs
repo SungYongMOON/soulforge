@@ -13,10 +13,10 @@ import { writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ref } from '../harness/fixtures/accepted_context_fixture.mjs';
-import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REEMBEDDING, CANNED_REEMBED_DIGEST, CANNED_RULES_SHA256, CANNED_WORKER_SHA256,
+import { CANNED_LLM_DIGEST as LLM_DIGEST, CANNED_PACKAGES, CANNED_REJECTED_SHAPE, CANNED_REEMBEDDING, CANNED_REEMBED_DIGEST, CANNED_RULES_SHA256, CANNED_WORKER_SHA256,
   INDEX_MEMOS as MEMOS, INDEX_NOW as NOW, INDEX_PROJECT as PROJECT, READER_REQUEST as reader,
   cannedGraphWorker as cannedWorker, indexerRequest as indexer, makeGraphIndexStore as makeStore } from '../harness/fixtures/graph_index_fixture.mjs';
-import { GRAPH_EXTRACTION_BATCH, GRAPH_INDEX_AREAS, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
+import { GRAPH_EXTRACTION_BATCH, GRAPH_EXTRACTION_CHECKPOINT_AREA, GRAPH_INDEX_AREAS, admitCheckpoint, GRAPH_INDEX_BINDING_FILE, carryDecision, extractionBatchLimits, openGraphIndex, planExtractionBatches,
   KNOWN_RULE_EQUIVALENT_WORKERS, reembedGraphIndex, sameModelRevision, selectGraphIndexGeneration,
   updateGraphIndex } from '../src/runtime/graph_index_generation.mjs';
 
@@ -28,7 +28,8 @@ test('first update writes a complete generation; replay is a no-op without extra
   const store = await makeStore(), worker = cannedWorker();
   const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), worker);
   assert.deepEqual({ status: first.status, epoch: first.selection_epoch, counts: first.counts, changes: first.changes },
-    { status: 'COMMITTED', epoch: 1, counts: { documents: 2, extracted: 2, carried: 0, units: 4, chunks: 4, entities: 4, entity_relationships: 0 },
+    { status: 'COMMITTED', epoch: 1, counts: { documents: 2, extracted: 2, carried: 0, units: 4, chunks: 4, entities: 4, entity_relationships: 0,
+      excluded: 0, from_checkpoint: 0 },
       changes: { added: 2, changed: 0, removed: 0, unchanged: 0, unavailable: 0 } });
   assert.deepEqual({ probe: worker.calls.probe, extract: worker.calls.extract, docs: worker.calls.extracted.length }, { probe: 1, extract: 1, docs: 2 });
   const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
@@ -141,12 +142,20 @@ test('access, binding and integrity refusals', async () => {
   assert.deepEqual({ status: realResult.status, code: realResult.code }, { status: 'HOLD', code: 'real_source_preparation_not_admitted' });
 });
 
-test('a degraded extraction holds the index; carry decisions and batch plans refuse what they cannot vouch for', async () => {
-  const store = await makeStore();
-  const degraded = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker({ invalidOutputs: 1 }));
-  assert.deepEqual({ status: degraded.status, code: degraded.code, invalid: degraded.degraded.invalid_outputs },
-    { status: 'HOLD', code: 'graph_extraction_degraded', invalid: 1 });
-  assert.equal(existsSync(path.join(store.storeRoot, PROJECT, GRAPH_INDEX_AREAS.index, 'generations')), false, 'nothing was written');
+test('a degraded extraction leaves out only the refused document; carry decisions and batch plans refuse what they cannot vouch for', async () => {
+  const refusing = await makeStore(), store = await makeStore();
+  // One refused call inside a one-batch extraction: the document it belongs to is
+  // left out and named, the other is committed. Refusing everything holds, and
+  // writes no generation at all.
+  const allRefused = await update(refusing, indexer({ generation_id: 'g0', expected_prior: null }),
+    cannedWorker({ refuseTitles: ['시험 장비', '전원'] }));
+  assert.deepEqual({ status: allRefused.status, code: allRefused.code, excluded: allRefused.excluded.length },
+    { status: 'HOLD', code: 'graph_extraction_degraded', excluded: 2 });
+  assert.equal(existsSync(path.join(refusing.storeRoot, PROJECT, GRAPH_INDEX_AREAS.index, 'generations')), false, 'nothing was written');
+  const degraded = await update(refusing, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker({ invalidOutputs: 1 }));
+  assert.deepEqual({ status: degraded.status, documents: degraded.counts.documents, excluded: degraded.counts.excluded,
+    reason: degraded.excluded[0].reason, invalid: degraded.llm.invalid_outputs },
+  { status: 'COMMITTED', documents: 1, excluded: 1, reason: 'extraction_refused', invalid: 1 });
   const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), cannedWorker());
   assert.equal(first.status, 'COMMITTED');
   const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
@@ -517,4 +526,95 @@ test('a generation opened by name is held to the grant, the access and the store
     grant: { ...store.binding.grant, sha256: `sha256:${'1'.repeat(64)}` } });
   assert.equal(codeOf(() => openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: moved.sha256, request: reader,
     generationRef: derived.manifest_ref })), 'graph_index_grant_changed');
+});
+
+// Partial commit, checkpoints and refusal diagnostics. One document per worker
+// call, so "a batch" and "a document" are the same thing and a refusal is exact.
+async function oneDocumentBatches() {
+  const store = await makeStore();
+  const { sha256 } = await store.put(GRAPH_INDEX_BINDING_FILE,
+    { ...store.binding, graph: { ...store.binding.graph, extraction_batch: { documents: 1 } } });
+  return { ...store, bindingSha256: sha256 };
+}
+const checkpointFiles = async store => {
+  try { return await readdir(path.join(store.storeRoot, PROJECT, GRAPH_EXTRACTION_CHECKPOINT_AREA)); } catch { return []; }
+};
+
+test('one refused batch leaves the others committed; the refused document is listed with its reason and text-free shape', async () => {
+  const store = await oneDocumentBatches(), refusing = cannedWorker({ refuseTitles: ['전원'] });
+  const first = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), refusing);
+  assert.deepEqual(refusing.calls.batches, [1, 1], 'both batches ran; the refusal in one did not stop the other');
+  assert.deepEqual({ status: first.status, documents: first.counts.documents, excluded: first.counts.excluded },
+    { status: 'COMMITTED', documents: 1, excluded: 1 });
+  const [left] = first.excluded;
+  assert.deepEqual({ item_id: left.item_id, root_ref: left.root_ref, reason: left.reason, calls: left.calls.map(row => row.status),
+    shape: left.rejected_shapes[0] },
+  { item_id: 'memo-b', root_ref: 'doc.synthetic', reason: 'extraction_refused', calls: ['invalid_output', 'invalid_output'],
+    shape: { ...CANNED_REJECTED_SHAPE } });
+  const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
+  assert.deepEqual(view.manifest.documents.map(row => row.item_id), ['memo-a']);
+  assert.deepEqual(view.manifest.excluded, [{ doc_key: left.doc_key, source_kind: 'document', root_ref: 'doc.synthetic',
+    item_id: 'memo-b', reason: 'extraction_refused' }]);
+  const quality = view.readQuality();
+  assert.deepEqual(quality.excluded.map(row => [row.item_id, row.reason]), [['memo-b', 'extraction_refused']]);
+  const said = JSON.stringify({ excluded: first.excluded, quality: quality.excluded, manifest: view.manifest.excluded });
+  for (const text of ['전원', '28V', '24V', '시험 장비']) assert.equal(said.includes(text), false, `no source text: ${text}`);
+
+  // The same refusal again: nothing new to write, so the selected generation stands.
+  const again = await update(store, indexer({ generation_id: 'g2', expected_prior: first.pointer_sha256 }), refusing);
+  assert.deepEqual({ status: again.status, generation: again.generation_id, excluded: again.excluded.map(row => row.item_id),
+    previously: again.excluded[0].previously_excluded }, { status: 'UNCHANGED', generation: 'g1', excluded: ['memo-b'], previously: true });
+  assert.deepEqual(refusing.calls.batches, [1, 1, 1], 'only the left-out document was asked about again');
+  assert.deepEqual(await generations(store), ['g1']);
+
+  // The model stops refusing: only that document is extracted, the rest carried.
+  const cooperative = cannedWorker();
+  const healed = await update(store, indexer({ generation_id: 'g3', expected_prior: first.pointer_sha256 }), cooperative);
+  assert.deepEqual({ status: healed.status, extracted: healed.counts.extracted, carried: healed.counts.carried, excluded: healed.counts.excluded,
+    calls: cooperative.calls.batches }, { status: 'COMMITTED', extracted: 1, carried: 1, excluded: 0, calls: [1] });
+});
+
+test('accepted batches are checkpointed: a run held by a failed call is resumed without asking the model about them again', async () => {
+  const store = await oneDocumentBatches();
+  const failing = cannedWorker({ failTitles: ['전원'] });
+  const held = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), failing);
+  assert.deepEqual({ status: held.status, code: held.code, written: held.checkpoints.written },
+    { status: 'HOLD', code: 'graph_worker_timeout', written: 1 });
+  assert.equal(existsSync(path.join(store.storeRoot, PROJECT, GRAPH_INDEX_AREAS.index, 'generations')), false, 'a held run writes no generation');
+  assert.equal((await checkpointFiles(store)).length, 1, 'the accepted document was kept');
+
+  const resumed = cannedWorker();
+  const done = await update(store, indexer({ generation_id: 'g2', expected_prior: null }), resumed);
+  assert.deepEqual({ status: done.status, from_checkpoint: done.counts.from_checkpoint, reused: done.checkpoints.reused,
+    extracted: done.counts.extracted, calls: resumed.calls.extracted.length },
+  { status: 'COMMITTED', from_checkpoint: 1, reused: 1, extracted: 2, calls: 1 });
+  const view = openGraphIndex({ storeRoot: store.storeRoot, bindingSha256: store.bindingSha256, request: reader });
+  assert.deepEqual(view.manifest.documents.map(row => [row.item_id, row.from_checkpoint === true]),
+    [['memo-a', true], ['memo-b', false]]);
+  for (const row of view.manifest.documents) assert.equal(view.readFragment(row.doc_key).stats.chunks, 2);
+
+  // A checkpoint is re-verified, never trusted: an altered one is a miss.
+  const files = await checkpointFiles(store);
+  assert.equal(files.length, 2, 'the resumed document was checkpointed too');
+  const body = JSON.parse(await readFile(path.join(store.storeRoot, PROJECT, GRAPH_EXTRACTION_CHECKPOINT_AREA, files[0]), 'utf8'));
+  const admit = value => admitCheckpoint({ bytes: Buffer.from(JSON.stringify(value)), key: body.key,
+    document: view.readDocument(body.fragment.doc_key), projectKey: view.manifest.project_key, models: view.manifest.model });
+  assert.ok(admit(body), 'the stored checkpoint verifies as it is');
+  const altered = structuredClone(body);
+  altered.fragment.nodes[0].properties.title = 'altered';
+  assert.equal(admit(altered), null, 'a changed node breaks its own fragment hash');
+  assert.equal(admit({ ...body, key: 'sha256:' + '0'.repeat(64) }), null, 'a checkpoint under another key is not this one');
+  assert.equal(admit({ ...body, fragment: { ...body.fragment, model: { ...body.fragment.model, llm_digest: 'sha256:' + '0'.repeat(64) } } }),
+    null, 'another model revision is never reused');
+});
+
+test('a refused answer’s outline is kept only when it carries no text', async () => {
+  const store = await oneDocumentBatches();
+  const leaky = cannedWorker({ refuseTitles: ['전원'], rejectedShape: { ...CANNED_REJECTED_SHAPE,
+    skeleton: '{"nodes": [{"id": "전원 28V"', unknown_top_level_key_names: ['entities', '전원조건', 'x y'] } });
+  const result = await update(store, indexer({ generation_id: 'g1', expected_prior: null }), leaky);
+  const [shape] = result.excluded[0].rejected_shapes;
+  assert.equal(Object.hasOwn(shape, 'skeleton'), false, 'an outline with text in it is dropped whole');
+  assert.deepEqual(shape.unknown_top_level_key_names, ['entities']);
+  assert.equal(JSON.stringify(result.excluded).includes('전원'), false);
 });

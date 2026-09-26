@@ -34,6 +34,11 @@ export const CANNED_WORKER_SHA256 = 'sha256:' + 'f'.repeat(64);
 // rules changes this; a test that changes anything else does not, which is the
 // whole point of the field being separate from the worker's own hash.
 export const CANNED_RULES_SHA256 = 'sha256:' + 'a'.repeat(64);
+// What the canned worker says a refused answer looked like: parsed, the wrong
+// top-level key, and a masked outline -- the text-free shape the real worker builds.
+export const CANNED_REJECTED_SHAPE = Object.freeze({ parsed: true, error_type: 'ValidationError', characters: 64,
+  top_level_keys: [], unknown_top_level_keys: 1, unknown_top_level_key_names: ['entities'], nodes: null, relationships: null,
+  skeleton: '```_ {"_": [{"id": "_", "label": "_"}]}', problems: [{ at: 'nodes', kind: 'missing' }] });
 export const CANNED_PACKAGES = Object.freeze({ neo4j: '6.0.0', 'neo4j-graphrag': '1.19.0', ollama: '0.4.9', pydantic: '2.11.0' });
 const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
 export const indexerRequest = extra => ({ actor_ref: 'actor:indexer', project_ref: ref(1), purpose: 'context_preparation', ...extra });
@@ -98,8 +103,16 @@ export async function makeGraphIndexStore({ dataClass = 'public_synthetic', aclD
 // fixed values: the real worker reports both, and a revision missing one is refused.
 export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest = CANNED_EMBEDDER_DIGEST,
   reembedDigest = CANNED_REEMBED_DIGEST, embedRefuses = [], budgetExhausted = false, invalidOutputs = 0,
-  packages = CANNED_PACKAGES, rulesSha256 = CANNED_RULES_SHA256 } = {}) {
-  const calls = { probe: 0, extract: 0, embed: 0, extracted: [], embedded: [], batches: [] };
+  packages = CANNED_PACKAGES, rulesSha256 = CANNED_RULES_SHA256,
+  // Documents (by a substring of their title) every unit of which this model
+  // answers in a shape the extractor refuses, the same way on every run -- a
+  // seeded, temperature-0 model does. `rejectedShape` is what the canned worker
+  // says that answer looked like.
+  refuseTitles = [], rejectedShape = CANNED_REJECTED_SHAPE,
+  // Documents (by title substring) whose worker call fails outright, the way a
+  // call that overran its timeout does: nothing comes back for that batch.
+  failTitles = [] } = {}) {
+  const calls = { probe: 0, extract: 0, embed: 0, extracted: [], embedded: [], batches: [], refused: 0 };
   const reported = spec => (spec ? { embedder: { model: spec.model, digest: embedderDigest } } : {});
   async function runWorker({ request }) {
     // A re-embedding: the same chunks, a second embedder, no model and no graph.
@@ -128,6 +141,9 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
     }
     calls.batches.push(request.documents.length);
     calls.extract++;
+    if (request.documents.some(document => failTitles.some(title => document.title.includes(title)))) {
+      return { exit_code: 1, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'failed', code: 'graph_worker_timeout' } };
+    }
     const fragments = request.documents.map(document => {
       calls.extracted.push(document.doc_key);
       const nodes = [{ id: document.doc_key, label: 'Document', properties: {}, embedding_properties: {} }], relationships = [];
@@ -141,13 +157,19 @@ export function cannedGraphWorker({ digest = CANNED_LLM_DIGEST, embedderDigest =
       });
       return { doc_key: document.doc_key, nodes, relationships, tool_pruning: { nodes: {}, relationships: {}, properties: {} } };
     });
-    const units = request.documents.flatMap(document => document.units);
+    const units = request.documents.flatMap(document => document.units
+      .map(unit => ({ ...unit, refused: refuseTitles.some(title => document.title.includes(title)) })));
+    calls.refused += units.filter(unit => unit.refused).length;
     return { exit_code: 0, worker_sha256: CANNED_WORKER_SHA256, output: { status: 'ok', packages, rules_sha256: rulesSha256,
       models: { llm: { model: request.profile.llm.model, digest }, ...reported(request.profile.embedder) },
       embedder_calls: request.profile.embedder ? units.length : 0, fragments, budget_exhausted: budgetExhausted,
-      llm_calls: units.map((unit, index) => ({ call: index + 1,
-        status: budgetExhausted && index > 0 ? 'budget_exhausted' : index < invalidOutputs ? 'invalid_output' : 'ok',
-        input_sha256: 'sha256:' + 'd'.repeat(64), prompt_tokens: 10, output_tokens: 5, elapsed_ms: 3 })) } };
+      llm_calls: units.map((unit, index) => {
+        const refused = unit.refused || index < invalidOutputs;
+        return { call: index + 1,
+          status: budgetExhausted && index > 0 ? 'budget_exhausted' : refused ? 'invalid_output' : 'ok',
+          input_sha256: 'sha256:' + 'd'.repeat(64), prompt_tokens: 10, output_tokens: 5, elapsed_ms: 3,
+          ...(unit.refused ? { rejected_shape: rejectedShape } : {}) };
+      }) } };
   }
   return { runWorker, calls };
 }

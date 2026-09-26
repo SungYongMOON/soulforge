@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026-09-26 - 그래프 동기화: 거부된 문서만 빼고 커밋·추출 체크포인트·잠금 뒤 설정 쓰기 (lane graph-sync-v5)
+
+- Why: P26-014가 09-22부터 그래프 동기화를 끝내지 못했다. 추출 대기가 약 420건으로 는 뒤 한 배치라도 모델 답이
+  거부되면 회차 전체가 HOLD로 끝나 메모리의 추출 결과를 모두 버렸고(같은 청크가 결정적으로 매번 거부), 30분 정기
+  회차가 잠금 확인 전에 binding을 다시 써서 23.8시간 회차를 무효로 만들었으며, 거부된 답의 모양은 영수증에 없었다.
+- 고침: (1) `graph_index_generation.mjs` — 거부·오류·잘림·청크 불일치 문서만 세대에서 빼고 나머지를 커밋한다.
+  뺀 문서는 coverage `excluded`·manifest `excluded`·`counts.excluded`에 사유와 함께 전부 남는다. 호출 위치로
+  귀속할 수 없으면 배치 전체를 뺀다. 워커 실패·예산 소진은 그대로 HOLD. 같은 제외에 나머지 전부 carry면 `UNCHANGED`.
+  (2) 받아들인 문서별 추출을 `20_문서검색/검색_색인/extraction_checkpoints/`에 create-only·내용 주소(텍스트·단위·
+  profile·모델 리비전)로 두고, 다음 회차가 재검증 뒤 재사용한다. (3) `estate_graph_sync.mjs` — grant·binding·원장을
+  쓰기 전에 `graph_sync.lock`을 잡고, 이 잠금이나 `graph_index.lock`이 잡혀 있으면 아무것도 쓰지 않고
+  `HOLD graph_index_locked`(보유자 기록). 커밋 회차의 제외 문서는 원장에 `holdBack`되어 3회째 `failed`.
+  (4) 워커 `rejected_shape.skeleton`(텍스트를 가린 답 윤곽 160자, APP 재검사)과 영수증 `steps.index.rejections`
+  (사유별·모양 종류별 개수, 앞 20건), HOLD 회차 `llm` 수치.
+- 바꾸지 않은 것: 추출 규칙 해시(`rules_sha256`) 불변 — 기존 세대 fragment는 carry된다. 포인터·잠금·create-only·
+  grant/ACL 재검사 규칙, 워커 실패·예산 소진 HOLD, `--dry` 무작성.
+- lane: `graph-sync-v4` → `graph-sync-v5`(새 id). tracked_paths·entry_points 그대로. 이 조각은 운영 lane·예약작업·
+  저장소를 건드리지 않았다. 밤 사슬 설정의 graph-sync `lane_root`도 새 lane으로 바꿔야 같은 코드가 돈다.
+- 검증: `tests/graph_index_generation.test.mjs`(부분 커밋·재실행 UNCHANGED·체크포인트 재사용 0회 호출·변조 체크포인트
+  miss·텍스트 든 윤곽 폐기), `tests/estate_graph_sync.test.mjs`(잠금 보유 시 binding·grant·원장 무변경, 영수증
+  진단 한도), `tests/graphrag_worker_shape_test.py`(unittest). 검증기 결과는 커밋 메시지에 적는다.
+- 관련 경로: `guild_hall/context_engine/{src/runtime/graph_index_generation.mjs,src/runtime/graph_extraction.mjs,src/workers/graphrag_worker.py,harness/estate_graph_sync.mjs,harness/fixtures/graph_index_fixture.mjs,README.md,release/*}`,
+  `guild_hall/deployment_pack/lanes/graph_sync_lane.spec.json`.
+
 ## 2026-09-26 - 기록·이력·지식·기억 용어 정렬
 
 - 용어집: 기록(수집 원문 조각·자동 흔적)·이력(근거 줄이 붙은 날짜별 과제 이력, 일→주→월→현황, `30_프로젝트맥락/이력`)·지식(위키 K3·사실 장부 K4·열린 일 K7·대상 후보 K6)·기억(봇 수첩만) 행을 다시 썼고 단기·장기 비유를 뺐다. `헷갈리기 쉬운 식별자` 절(`40_기억관리`, `memory_candidate`, `assignee_memory`, `CONTEXT_MEMORY_*` 등)을 더했다. 식별자는 바꾸지 않았다.

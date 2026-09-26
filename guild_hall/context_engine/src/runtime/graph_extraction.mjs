@@ -47,7 +47,9 @@ const TRACE_FIELDS = ['call', 'status', 'input_sha256', 'output_sha256', 'output
 // only the named fields with the types it expects, so nothing else can ride in.
 const SHAPE_FIELDS = ['parsed', 'error_type', 'parse_error_type', 'top_level_type', 'characters',
   'unknown_top_level_keys', 'nodes', 'relationships'];
-const plainShape = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+export const ANSWER_SKELETON_CHARACTERS = 160;
+const ANSWER_SKELETON = /^(?:[{}[\]:,"`_ ]|nodes|relationships|properties|embedding_properties|id|label|type|start_node_id|end_node_id)*$/u;
+const plainShape = value =>value !== null && typeof value === 'object' && !Array.isArray(value);
 function rejectedShape(shape) {
   const row = Object.fromEntries(SHAPE_FIELDS
     .filter(key => ['string', 'number', 'boolean'].includes(typeof shape[key]) || shape[key] === null)
@@ -58,6 +60,12 @@ function rejectedShape(shape) {
     // applies the same rule, and this side does not take its word for it.
     row[field] = shape[field].filter(key => typeof key === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,31}$/u.test(key)).slice(0, 12);
   }
+  // The first characters of the answer with every run of text masked: only JSON
+  // punctuation, code-fence backticks and the graph model's own field names
+  // survive, so "prose before the JSON", "a fenced block" or "cut off inside an
+  // array" is readable without a word of the document. Re-checked here.
+  if (typeof shape.skeleton === 'string' && shape.skeleton.length <= ANSWER_SKELETON_CHARACTERS
+    && ANSWER_SKELETON.test(shape.skeleton)) row.skeleton = shape.skeleton;
   if (Array.isArray(shape.problems)) {
     row.problems = shape.problems.filter(plainShape).slice(0, 8)
       .map(problem => ({ at: String(problem.at ?? '').slice(0, 120), kind: String(problem.kind ?? '').slice(0, 60) }));

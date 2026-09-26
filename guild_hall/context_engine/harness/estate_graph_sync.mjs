@@ -46,8 +46,9 @@
 //        [--mail-attribution-max-age <hours>] [--mail-attribution-org-config <alias address>]
 //        [--mail-attribution-owner-tables <alias address of the folder holding them>]
 //        [--root-table-sha256 sha256:...] [--json]
-import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readdirSync, unlinkSync, writeFileSync,
+  writeSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readRootTable } from '../../path_registry/src/root_table.mjs';
@@ -210,6 +211,74 @@ export function refreshCandidates({ held, project, manifest, now }) {
     approved: body.approved.length, applied_by_this_pass: 0 } };
 }
 
+const SYNC_LOCK = '00_프로젝트_안내/graph_sync.lock';
+const INDEX_LOCK = '00_프로젝트_안내/graph_index.lock';
+
+/**
+ * Takes this project's pass lock, create-only, before a pass writes anything. It
+ * is refused when another pass holds it, and also when the index writer's own lock
+ * is held by anyone (a manual update, a re-embedding). The holder is read back and
+ * reported -- process and start time -- so a stale lock can be told from a live
+ * one; nothing here ever removes a lock it did not take.
+ */
+export function acquireSyncPassLock({ io, storePath, now = new Date().toISOString() }) {
+  const holderOf = address => {
+    let text;
+    try { text = readFileSync(io.path(`${storePath}/${address}`), 'utf8'); } catch { return null; }
+    try {
+      const value = JSON.parse(text);
+      return { pid: Number.isSafeInteger(value?.pid) ? value.pid : null,
+        started_at: typeof value?.started_at === 'string' ? value.started_at.slice(0, 40) : null };
+    } catch { return { pid: null, started_at: null }; }
+  };
+  const target = io.path(`${storePath}/${SYNC_LOCK}`, true);
+  const content = JSON.stringify({ lock_id: randomUUID(), pid: process.pid, started_at: now, operation: 'graph_sync' });
+  try {
+    const fd = openSync(target, 'wx');
+    try { writeSync(fd, content); } finally { closeSync(fd); }
+  } catch (error) {
+    if (error?.code === 'EEXIST') return { held: true, held_by: 'graph_sync', holder: holderOf(SYNC_LOCK) };
+    throw error;
+  }
+  const release = () => {
+    let current = null;
+    try { current = readFileSync(target, 'utf8'); } catch { current = null; }
+    if (current === content) unlinkSync(target);
+  };
+  const index = holderOf(INDEX_LOCK);
+  if (index !== null) { release(); return { held: true, held_by: 'graph_index', holder: index }; }
+  return { held: false, release };
+}
+
+// How much of a refusal a receipt carries: the reason and text-free shape of the
+// first few documents left out, and every refusal counted by the kind of shape --
+// so "four hundred answers in the same wrong shape" reads as one line.
+const RECEIPT_EXCLUSIONS = 20;
+const RECEIPT_SHAPE_KINDS = 10;
+export function rejectionDiagnostic(updated) {
+  const excluded = Array.isArray(updated?.excluded) ? updated.excluded : [];
+  const shapes = [...excluded.flatMap(row => row.rejected_shapes ?? []),
+    ...(Array.isArray(updated?.degraded?.rejected_shapes) ? updated.degraded.rejected_shapes : [])];
+  if (excluded.length === 0 && shapes.length === 0) return null;
+  const kinds = new Map();
+  for (const shape of shapes) {
+    const kind = { parsed: shape.parsed ?? null, error_type: shape.error_type ?? null,
+      parse_error_type: shape.parse_error_type ?? null, top_level_type: shape.top_level_type ?? null,
+      unknown_top_level_key_names: shape.unknown_top_level_key_names ?? [] };
+    const key = JSON.stringify(kind);
+    const row = kinds.get(key) ?? { ...kind, count: 0, example_skeleton: shape.skeleton ?? null };
+    row.count += 1;
+    kinds.set(key, row);
+  }
+  const reasons = {};
+  for (const row of excluded) reasons[row.reason] = (reasons[row.reason] ?? 0) + 1;
+  return { excluded: excluded.length, reasons,
+    shape_kinds: [...kinds.values()].sort((a, b) => b.count - a.count).slice(0, RECEIPT_SHAPE_KINDS),
+    documents: excluded.slice(0, RECEIPT_EXCLUSIONS).map(({ root_ref, item_id, source_kind, reason, calls, rejected_shapes }) =>
+      ({ root_ref, item_id, source_kind, reason, calls: calls ?? [], rejected_shapes: rejected_shapes ?? [] })),
+    documents_listed: Math.min(excluded.length, RECEIPT_EXCLUSIONS) };
+}
+
 /** The sync preflight uses the exact host-only parser binding the update path uses. */
 export async function prepareSyncSources({ binding, grant, roots, now, admission }) {
   let documentTools;
@@ -345,171 +414,202 @@ export async function syncProject({ io, rootTable, project, bindingFile = 'graph
       status: difference.changed ? 'WOULD_UPDATE' : selected === null ? 'WOULD_CREATE' : 'UNCHANGED' });
   }
 
-  mkdirSync(receiptsDir, { recursive: true });
-  const pointerAddress = `${storePath}/00_프로젝트_안내/graph_index_current.json`;
-  const prefix = `${binding.approved_fs_key.toLowerCase().replace(/[^a-z0-9]/gu, '')}-graph`;
-  let inForceSha = sha256(bindingBytes);
-  let attempt = 0, offered = without(candidates, stopped), updated = null, placed = null, difference = null;
-  const started = Date.now();
+  // The pass lock comes before anything this pass writes. The grant file and the
+  // binding it repoints are this pass's run configuration, and the index writer
+  // re-checks the binding by digest for as long as it runs: a second pass that
+  // rewrote them while the first held the index would cost the first its whole
+  // extraction. A pass that finds either lock held writes nothing at all -- not
+  // the grant, not the binding, not the ledger -- and says who holds it.
+  const lock = acquireSyncPassLock({ io, storePath, now });
+  if (lock.held) {
+    return Object.freeze({ ...receipt, status: 'HOLD', code: 'graph_index_locked',
+      lock: { held_by: lock.held_by, holder: lock.holder } });
+  }
+  try {
+    mkdirSync(receiptsDir, { recursive: true });
+    const pointerAddress = `${storePath}/00_프로젝트_안내/graph_index_current.json`;
+    const prefix = `${binding.approved_fs_key.toLowerCase().replace(/[^a-z0-9]/gu, '')}-graph`;
+    let inForceSha = sha256(bindingBytes);
+    let attempt = 0, offered = without(candidates, stopped), updated = null, placed = null, difference = null;
+    const started = Date.now();
 
-  // 2-4. Offer what this pass can support, prepare it, index it, and -- when
-  // either step is held by particular records -- take exactly those records out
-  // of THIS pass and try again. Every removal is written down with the code that
-  // caused it, and the item stays in the ledger so the next pass offers it again.
-  while (attempt < SYNC_LIMITS.isolations_per_pass) {
-    attempt += 1;
-    const proposed = { schema_version: SOURCE_GRANT_SCHEMA,
-      grant_id: `grant.${project}.sync.${now.replace(/[-:.]/gu, '').slice(0, 15)}${attempt > 1 ? `-${attempt}` : ''}`,
-      project_ref: grant.project_ref, purposes: [...grant.purposes], allowed_data_classes: [...grant.allowed_data_classes],
-      valid_from: grant.valid_from, valid_to: grant.valid_to, sources: offered };
-    validateSourceGrant(proposed, { now });
-    difference = grantDifference(grant, proposed);
+    // 2-4. Offer what this pass can support, prepare it, index it, and -- when
+    // either step is held by particular records -- take exactly those records out
+    // of THIS pass and try again. Every removal is written down with the code that
+    // caused it, and the item stays in the ledger so the next pass offers it again.
+    while (attempt < SYNC_LIMITS.isolations_per_pass) {
+      attempt += 1;
+      const proposed = { schema_version: SOURCE_GRANT_SCHEMA,
+        grant_id: `grant.${project}.sync.${now.replace(/[-:.]/gu, '').slice(0, 15)}${attempt > 1 ? `-${attempt}` : ''}`,
+        project_ref: grant.project_ref, purposes: [...grant.purposes], allowed_data_classes: [...grant.allowed_data_classes],
+        valid_from: grant.valid_from, valid_to: grant.valid_to, sources: offered };
+      validateSourceGrant(proposed, { now });
+      difference = grantDifference(grant, proposed);
 
-    // The preparer first, with nothing written: a record it cannot read is taken
-    // out before any model is asked about anything.
-    const prepared = await prepareSyncSources({ binding, grant: proposed, roots: binding.source_roots, now, admission });
-    const owners = new Map(prepared.documents.map(document =>
-      [document.doc_key, { root_ref: document.root_ref, item_id: document.item_id }]));
-    const unreadable = prepared.coverage.items.filter(row => row.status !== 'prepared')
-      .map(row => ({ root_ref: row.root_ref, item_id: row.item_id, code: row.code ?? row.status, by: 'preparer' }));
-    if (unreadable.length > 0) {
-      for (const row of unreadable) {
+      // The preparer first, with nothing written: a record it cannot read is taken
+      // out before any model is asked about anything.
+      const prepared = await prepareSyncSources({ binding, grant: proposed, roots: binding.source_roots, now, admission });
+      const owners = new Map(prepared.documents.map(document =>
+        [document.doc_key, { root_ref: document.root_ref, item_id: document.item_id }]));
+      const unreadable = prepared.coverage.items.filter(row => row.status !== 'prepared')
+        .map(row => ({ root_ref: row.root_ref, item_id: row.item_id, code: row.code ?? row.status, by: 'preparer' }));
+      if (unreadable.length > 0) {
+        for (const row of unreadable) {
+          const state = holdBack(ledger, { ...row, now });
+          receipt.isolated.push({ ...row, attempts: state.attempts, state: state.state });
+        }
+        offered = without(offered, new Set(unreadable.map(row => at(row.root_ref, row.item_id))));
+        if (offered.length === 0) break;
+        continue;
+      }
+
+      if (!difference.changed && attempt === 1 && placed === null) {
+        // Custody holds exactly what the grant in force names: keep that grant.
+        placed = null;
+      } else {
+        const grantAddress = `${storePath}/00_프로젝트_안내/grants/${proposed.grant_id}.json`;
+        const grantFile = io.path(grantAddress, true);
+        mkdirSync(path.dirname(grantFile), { recursive: true });
+        const grantBytes = encode(proposed);
+        writeFileSync(grantFile, grantBytes, { flag: 'wx' });
+        if (placed === null) {
+          copyFileSync(io.path(bindingAddress), path.join(receiptsDir, `binding-before-${proposed.grant_id}.json`));
+        }
+        const repointed = { ...binding, grant: { path: grantAddress, sha256: sha256(grantBytes) } };
+        const bytes = encode(repointed);
+        writeFileSync(io.path(bindingAddress), bytes);
+        inForceSha = sha256(bytes);
+        placed = proposed.grant_id;
+      }
+      receipt.steps.grant = { placed, attempt, binding_sha256: inForceSha,
+        ...(placed === null ? { note: 'custody holds exactly what the grant in force names' } : {}) };
+
+      let expectedPrior = null;
+      try { expectedPrior = sha256(io.read(pointerAddress, 65536)); } catch { expectedPrior = null; }
+      let existing = [];
+      try { existing = readdirSync(io.path(`${storePath}/20_문서검색/검색_색인/generations`, true)); } catch { existing = []; }
+      updated = await updateGraphIndex({ io, bindingAddress, bindingSha256: inForceSha, now,
+        ...(runWorker ? { runWorker } : {}),
+        request: { actor_ref: PREPARER, project_ref: binding.project_ref, purpose: 'context_preparation',
+          generation_id: nextGenerationId(prefix, existing), expected_prior: expectedPrior } });
+      if (updated.status !== 'HOLD') break;
+
+      // Which records held it. The preparer names its own; an extraction the model
+      // held names the calls, and each call's position gives the record it was about.
+      const holding = [...(updated.unavailable ?? []).map(row =>
+        ({ root_ref: row.root_ref, item_id: row.item_id, code: row.code ?? row.status, by: 'preparer' }))];
+      // A run that could keep nothing names every document it left out.
+      for (const row of updated.excluded ?? []) {
+        holding.push({ root_ref: row.root_ref, item_id: row.item_id, code: row.reason, by: 'extraction' });
+      }
+      for (const row of updated.degraded?.refused_units ?? []) {
+        const owner = owners.get(row.doc_key);
+        if (!owner) continue;
+        holding.push({ ...owner, by: `${row.by}:${row.call}`,
+          code: row.status === 'error' ? 'extraction_error'
+            : row.done_reason === 'length' ? 'extraction_truncated' : 'extraction_refused' });
+      }
+      const unique = [...new Map(holding.map(row => [at(row.root_ref, row.item_id), row])).values()];
+      if (unique.length === 0) break;   // held by something no record explains: reported as it is
+      for (const row of unique) {
         const state = holdBack(ledger, { ...row, now });
         receipt.isolated.push({ ...row, attempts: state.attempts, state: state.state });
       }
-      offered = without(offered, new Set(unreadable.map(row => at(row.root_ref, row.item_id))));
+      offered = without(offered, new Set(unique.map(row => at(row.root_ref, row.item_id))));
       if (offered.length === 0) break;
-      continue;
     }
 
-    if (!difference.changed && attempt === 1 && placed === null) {
-      // Custody holds exactly what the grant in force names: keep that grant.
-      placed = null;
-    } else {
-      const grantAddress = `${storePath}/00_프로젝트_안내/grants/${proposed.grant_id}.json`;
-      const grantFile = io.path(grantAddress, true);
-      mkdirSync(path.dirname(grantFile), { recursive: true });
-      const grantBytes = encode(proposed);
-      writeFileSync(grantFile, grantBytes, { flag: 'wx' });
-      if (placed === null) {
-        copyFileSync(io.path(bindingAddress), path.join(receiptsDir, `binding-before-${proposed.grant_id}.json`));
+    // Documents the index committed around: each is held back like any refused
+    // record, so it is offered again next pass and stops being offered after
+    // SYNC_LIMITS.item_attempts -- in the ledger, with its reason, not silently.
+    if (updated && updated.status !== 'HOLD') {
+      for (const row of updated.excluded ?? []) {
+        const state = holdBack(ledger, { root_ref: row.root_ref, item_id: row.item_id, code: row.reason,
+          by: 'extraction', now });
+        receipt.isolated.push({ root_ref: row.root_ref, item_id: row.item_id, code: row.reason, by: 'extraction',
+          attempts: state.attempts, state: state.state });
       }
-      const repointed = { ...binding, grant: { path: grantAddress, sha256: sha256(grantBytes) } };
-      const bytes = encode(repointed);
-      writeFileSync(io.path(bindingAddress), bytes);
-      inForceSha = sha256(bytes);
-      placed = proposed.grant_id;
     }
-    receipt.steps.grant = { placed, attempt, binding_sha256: inForceSha,
-      ...(placed === null ? { note: 'custody holds exactly what the grant in force names' } : {}) };
+    receipt.steps.index = { status: updated?.status ?? 'not_run', code: updated?.code ?? null,
+      generation_id: updated?.generation_id ?? null, attempts: attempt,
+      counts: updated?.counts ?? null, changes: updated?.changes ?? null,
+      checkpoints: updated?.checkpoints ?? null, rejections: rejectionDiagnostic(updated),
+      llm: updated?.llm ? { calls: updated.llm.calls, errors: updated.llm.errors,
+        invalid_outputs: updated.llm.invalid_outputs, truncated: updated.llm.truncated } : null,
+      unavailable: (updated?.unavailable ?? []).map(({ source_kind, root_ref, item_id, status, code }) =>
+        ({ source_kind, root_ref, item_id, status, code })),
+      elapsed_ms: Date.now() - started };
+    receipt.grant = { in_force: grant.grant_id, proposed: placed,
+      ...(difference ?? { added: [], removed: [], changed: false }),
+      added_count: difference?.added.length ?? 0, removed_count: difference?.removed.length ?? 0,
+      // The same per-kind add/retire/unchanged the dry pass reports, against the grant
+      // this pass actually offered, so a real run and its preview read alike.
+      by_kind: scopeChangeByKind(grant, { ...grant, sources: offered }) };
 
-    let expectedPrior = null;
-    try { expectedPrior = sha256(io.read(pointerAddress, 65536)); } catch { expectedPrior = null; }
-    let existing = [];
-    try { existing = readdirSync(io.path(`${storePath}/20_문서검색/검색_색인/generations`, true)); } catch { existing = []; }
-    updated = await updateGraphIndex({ io, bindingAddress, bindingSha256: inForceSha, now,
-      ...(runWorker ? { runWorker } : {}),
-      request: { actor_ref: PREPARER, project_ref: binding.project_ref, purpose: 'context_preparation',
-        generation_id: nextGenerationId(prefix, existing), expected_prior: expectedPrior } });
-    if (updated.status !== 'HOLD') break;
-
-    // Which records held it. The preparer names its own; an extraction the model
-    // held names the calls, and each call's position gives the record it was about.
-    const holding = [...(updated.unavailable ?? []).map(row =>
-      ({ root_ref: row.root_ref, item_id: row.item_id, code: row.code ?? row.status, by: 'preparer' }))];
-    for (const row of updated.degraded?.refused_units ?? []) {
-      const owner = owners.get(row.doc_key);
-      if (!owner) continue;
-      holding.push({ ...owner, by: `${row.by}:${row.call}`,
-        code: row.status === 'error' ? 'extraction_error'
-          : row.done_reason === 'length' ? 'extraction_truncated' : 'extraction_refused' });
+    const withLedger = body => {
+      writeLedger(receiptsDir, ledger, now);
+      return Object.freeze({ ...receipt, ...body,
+        pending: ledgerRows(ledger).filter(row => row.state === 'pending'),
+        failed: ledgerRows(ledger).filter(row => row.state === 'failed') });
+    };
+    if (updated === null || updated.status === 'HOLD') {
+      return withLedger({ status: 'HOLD', code: updated?.code ?? 'graph_sync_no_progress' });
     }
-    const unique = [...new Map(holding.map(row => [at(row.root_ref, row.item_id), row])).values()];
-    if (unique.length === 0) break;   // held by something no record explains: reported as it is
-    for (const row of unique) {
-      const state = holdBack(ledger, { ...row, now });
-      receipt.isolated.push({ ...row, attempts: state.attempts, state: state.state });
+
+    // 5. The database: load the selected generation and re-apply the rule edges. A
+    // grant or an ACL that changed under this pass makes the view refuse; that is a
+    // scope change, and the pass says so rather than treating it as a fault.
+    let view;
+    try {
+      view = openGraphIndex({ io, bindingAddress, bindingSha256: inForceSha,
+        request: { actor_ref: READER, project_ref: binding.project_ref, purpose: 'context_query' } });
+    } catch (error) {
+      return withLedger({ status: 'HOLD', code: 'scope_changed_under_pass',
+        detail: typeof error?.code === 'string' ? error.code : 'unknown' });
     }
-    offered = without(offered, new Set(unique.map(row => at(row.root_ref, row.item_id))));
-    if (offered.length === 0) break;
+    const loaded = await materializeGraphIndex({ view, binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) });
+    receipt.steps.load = { status: loaded.status, loaded: loaded.loaded, code: loaded.code ?? null,
+      generation_id: loaded.generation_id, loaded_at: loaded.loaded_at ?? null, counts: loaded.counts ?? null,
+      superseded: loaded.superseded ?? [], removed_nodes: loaded.removed_nodes ?? 0,
+      other_projects: (loaded.other_projects ?? []).length, other_project_nodes: loaded.other_project_nodes ?? null };
+    receipt.steps.link = loaded.loaded
+      ? await applyLink({ io, bindingAddress, bindingSha256: inForceSha, projectRef: binding.project_ref,
+        graphBinding: view.graph_binding, runWorker })
+      : { status: 'skipped', note: 'the database already held this generation' };
+
+    // 6. Related evidence stays a candidate. A pass never applies one; it marks the
+    // ones whose quoted unit is no longer the document they were judged on.
+    const candidateFile = path.join(receiptsDir, 'related_candidates.json');
+    const related = refreshCandidates({ held: readJsonFile(candidateFile, null), project, manifest: view.manifest, now });
+    writeFileSync(candidateFile, encode(related.body));
+    receipt.steps.related_evidence = { ...related.counts,
+      note: 'a judged relation is applied by a person, never by a pass' };
+
+    // 7. Completed means the database was read back and agreed. Anything else stays
+    // in the ledger for the next pass.
+    const seen = await inspectGraphDatabase({ binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) });
+    const mine = seen.projects.find(row => row.generation_id === view.manifest.generation_id) ?? null;
+    const agreed = mine !== null && mine.chunks === view.manifest.counts.chunks && mine.nodes > 0;
+    const completed = agreed ? view.manifest.documents.map(row => ({ root_ref: row.root_ref, item_id: row.item_id })) : [];
+    if (agreed) clearCompleted(ledger, completed);
+
+    receipt.database = { generation_id: mine?.generation_id ?? null, loaded_at: mine?.loaded_at ?? null,
+      nodes: mine?.nodes ?? 0, chunks: mine?.chunks ?? 0, embedded_chunks: mine?.embedded_chunks ?? 0,
+      rule_edges: mine?.rule_edges ?? {}, projects_in_database: seen.projects.length,
+      agrees_with_generation: agreed };
+    receipt.completed = { items: completed.length, verified_by: 'database read-back of chunk and node counts' };
+    receipt.totals = { in_scope: scope.items, documents_in_generation: view.manifest.counts.documents,
+      chunks_in_database: mine?.chunks ?? 0, completed: completed.length,
+      pending: ledgerRows(ledger).filter(row => row.state === 'pending').length,
+      failed: ledgerRows(ledger).filter(row => row.state === 'failed').length,
+      removed_from_scope: receipt.grant.removed_count, added_to_scope: receipt.grant.added_count,
+      last_reflected_at: mine?.loaded_at ?? null };
+    return withLedger({ status: !agreed ? 'HOLD'
+      : updated.status === 'UNCHANGED' && !loaded.loaded ? 'UNCHANGED' : 'SYNCED',
+    ...(agreed ? {} : { code: 'database_does_not_agree_with_generation' }) });
+  } finally {
+    lock.release();
   }
-
-  receipt.steps.index = { status: updated?.status ?? 'not_run', code: updated?.code ?? null,
-    generation_id: updated?.generation_id ?? null, attempts: attempt,
-    counts: updated?.counts ?? null, changes: updated?.changes ?? null,
-    llm: updated?.llm ? { calls: updated.llm.calls, errors: updated.llm.errors,
-      invalid_outputs: updated.llm.invalid_outputs, truncated: updated.llm.truncated } : null,
-    unavailable: (updated?.unavailable ?? []).map(({ source_kind, root_ref, item_id, status, code }) =>
-      ({ source_kind, root_ref, item_id, status, code })),
-    elapsed_ms: Date.now() - started };
-  receipt.grant = { in_force: grant.grant_id, proposed: placed,
-    ...(difference ?? { added: [], removed: [], changed: false }),
-    added_count: difference?.added.length ?? 0, removed_count: difference?.removed.length ?? 0,
-    // The same per-kind add/retire/unchanged the dry pass reports, against the grant
-    // this pass actually offered, so a real run and its preview read alike.
-    by_kind: scopeChangeByKind(grant, { ...grant, sources: offered }) };
-
-  const withLedger = body => {
-    writeLedger(receiptsDir, ledger, now);
-    return Object.freeze({ ...receipt, ...body,
-      pending: ledgerRows(ledger).filter(row => row.state === 'pending'),
-      failed: ledgerRows(ledger).filter(row => row.state === 'failed') });
-  };
-  if (updated === null || updated.status === 'HOLD') {
-    return withLedger({ status: 'HOLD', code: updated?.code ?? 'graph_sync_no_progress' });
-  }
-
-  // 5. The database: load the selected generation and re-apply the rule edges. A
-  // grant or an ACL that changed under this pass makes the view refuse; that is a
-  // scope change, and the pass says so rather than treating it as a fault.
-  let view;
-  try {
-    view = openGraphIndex({ io, bindingAddress, bindingSha256: inForceSha,
-      request: { actor_ref: READER, project_ref: binding.project_ref, purpose: 'context_query' } });
-  } catch (error) {
-    return withLedger({ status: 'HOLD', code: 'scope_changed_under_pass',
-      detail: typeof error?.code === 'string' ? error.code : 'unknown' });
-  }
-  const loaded = await materializeGraphIndex({ view, binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) });
-  receipt.steps.load = { status: loaded.status, loaded: loaded.loaded, code: loaded.code ?? null,
-    generation_id: loaded.generation_id, loaded_at: loaded.loaded_at ?? null, counts: loaded.counts ?? null,
-    superseded: loaded.superseded ?? [], removed_nodes: loaded.removed_nodes ?? 0,
-    other_projects: (loaded.other_projects ?? []).length, other_project_nodes: loaded.other_project_nodes ?? null };
-  receipt.steps.link = loaded.loaded
-    ? await applyLink({ io, bindingAddress, bindingSha256: inForceSha, projectRef: binding.project_ref,
-      graphBinding: view.graph_binding, runWorker })
-    : { status: 'skipped', note: 'the database already held this generation' };
-
-  // 6. Related evidence stays a candidate. A pass never applies one; it marks the
-  // ones whose quoted unit is no longer the document they were judged on.
-  const candidateFile = path.join(receiptsDir, 'related_candidates.json');
-  const related = refreshCandidates({ held: readJsonFile(candidateFile, null), project, manifest: view.manifest, now });
-  writeFileSync(candidateFile, encode(related.body));
-  receipt.steps.related_evidence = { ...related.counts,
-    note: 'a judged relation is applied by a person, never by a pass' };
-
-  // 7. Completed means the database was read back and agreed. Anything else stays
-  // in the ledger for the next pass.
-  const seen = await inspectGraphDatabase({ binding: view.graph_binding, ...(runWorker ? { runWorker } : {}) });
-  const mine = seen.projects.find(row => row.generation_id === view.manifest.generation_id) ?? null;
-  const agreed = mine !== null && mine.chunks === view.manifest.counts.chunks && mine.nodes > 0;
-  const completed = agreed ? view.manifest.documents.map(row => ({ root_ref: row.root_ref, item_id: row.item_id })) : [];
-  if (agreed) clearCompleted(ledger, completed);
-
-  receipt.database = { generation_id: mine?.generation_id ?? null, loaded_at: mine?.loaded_at ?? null,
-    nodes: mine?.nodes ?? 0, chunks: mine?.chunks ?? 0, embedded_chunks: mine?.embedded_chunks ?? 0,
-    rule_edges: mine?.rule_edges ?? {}, projects_in_database: seen.projects.length,
-    agrees_with_generation: agreed };
-  receipt.completed = { items: completed.length, verified_by: 'database read-back of chunk and node counts' };
-  receipt.totals = { in_scope: scope.items, documents_in_generation: view.manifest.counts.documents,
-    chunks_in_database: mine?.chunks ?? 0, completed: completed.length,
-    pending: ledgerRows(ledger).filter(row => row.state === 'pending').length,
-    failed: ledgerRows(ledger).filter(row => row.state === 'failed').length,
-    removed_from_scope: receipt.grant.removed_count, added_to_scope: receipt.grant.added_count,
-    last_reflected_at: mine?.loaded_at ?? null };
-  return withLedger({ status: !agreed ? 'HOLD'
-    : updated.status === 'UNCHANGED' && !loaded.loaded ? 'UNCHANGED' : 'SYNCED',
-  ...(agreed ? {} : { code: 'database_does_not_agree_with_generation' }) });
 }
 
 function options(argv) {

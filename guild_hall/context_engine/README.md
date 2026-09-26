@@ -222,6 +222,42 @@ Windows 실측)가 `npm run validate:night-chain`이고 `run_root_acceptance.mjs
 단계는 **자기 영수증을 쓰지 않는다**(`--out` 색인 파일 하나뿐) — 그래서 `success_rule: null`이고, 스키마상
 필수인 `receipts_dir`는 state root 아래 예약된(아직 아무도 쓰지 않는) 폴더를 가리키며 `note`에 그렇게 적혀 있다.
 
+### 거부된 문서만 빼고 세대를 올린다 — 부분 커밋·추출 체크포인트·패스 잠금 (lane graph-sync-v5, 2026-09-26)
+
+P26-014가 09-22부터 한 번도 그래프 동기화를 끝내지 못했다. 메일 귀속 색인이 이 과제의 추출 대기를
+약 67건에서 약 420건으로 늘린 뒤, 한 회차가 3~13시간 걸리는데 **한 배치(40청크)라도 모델 답이 거부되면
+회차 전체가 HOLD로 끝나고 메모리에만 있던 추출 결과를 모두 버렸다.** 같은 청크가 temperature 0·seed 7로
+매번 똑같이 거부되므로, 하네스가 그 문서를 세 번 걸러 `failed`로 만들 때까지 매번 수백 건을 처음부터 다시
+추출했다. 게다가 30분 정기 회차가 잠금을 보기 **전에** grant와 binding을 다시 써서, 23.8시간 돌던 회차가
+`graph_index_binding_changed`로 무효가 됐다. 거부된 답의 모양은 영수증에 남지 않았다.
+
+- **부분 커밋** (`src/runtime/graph_index_generation.mjs`): `degraded` 배치는 더 이상 회차를 멈추지 않는다.
+  거부·오류·잘림·청크 불일치가 걸린 문서만 이번 세대에서 빼고, 나머지는 커밋한다. 뺀 문서는 세대의
+  `원문위치·추출품질/.../coverage.json`의 `excluded`(사유·호출 상태·텍스트 없는 거부 모양)와 manifest의
+  `excluded`·`counts.excluded`에 **전부** 남는다. 문서 귀속은 호출 위치로 하며, trace가 단위 수와 정확히
+  맞지 않거나 어느 기록인지 모르는 거부가 있으면 **그 배치 전체**를 뺀다(구멍 난 문서를 완전하다고 쓰지
+  않는다). 워커 실패·예산 소진은 예전처럼 HOLD다. 남길 문서가 하나도 없으면 세대를 쓰지 않고 HOLD다.
+  같은 문서들이 같은 이유로 또 빠지고 나머지가 모두 carry면 새 세대 없이 `UNCHANGED`다.
+- **재시도 한도**: 하네스(`harness/estate_graph_sync.mjs`)는 커밋·UNCHANGED 회차의 `excluded`를 원장
+  `pending.json`에 `holdBack`한다. 다음 회차는 그 문서만 다시 추출하고(나머지는 carry),
+  `SYNC_LIMITS.item_attempts`(3)번째에 `failed`로 바뀌어 더는 제시되지 않는다 — 영수증 `failed`에 사유와 함께
+  보인다.
+- **추출 체크포인트**: 받아들인 문서별 추출 결과를 과제 저장소
+  `20_문서검색/검색_색인/extraction_checkpoints/<key>.json`에 create-only로 둔다. key는 문서 단위 텍스트·경계,
+  추출 profile schema, 모델 리비전(모델·digest·옵션·추출 규칙 해시) 전부의 canonical 해시다. 읽을 때는
+  key·문서 정체·텍스트 해시·청크 수·fragment 자체 해시·벡터 ref를 다시 계산해 하나라도 어긋나면 miss로 보고
+  다시 추출한다. 워커 실패로 HOLD된 회차의 앞 배치도 다음 회차에 모델을 다시 부르지 않는다. 체크포인트는
+  선택·서빙되지 않으며 지우지 않는다(용량은 fragment와 같은 크기).
+- **패스 잠금**: 하네스가 grant·binding·원장을 쓰기 **전에** `00_프로젝트_안내/graph_sync.lock`을 create-only로
+  잡는다. 이 잠금이나 색인 writer의 `graph_index.lock`이 잡혀 있으면 아무것도 쓰지 않고
+  `HOLD graph_index_locked`로 끝나며 영수증 `lock`에 보유자(pid·시작 시각)를 적는다. 남의 잠금은 지우지 않는다.
+  죽은 프로세스가 남긴 잠금은 예전 색인 잠금과 같이 사람이 보유자를 확인하고 지운다.
+- **거부 모양 기록**: 워커의 `rejected_shape`에 `skeleton`(답 앞 160자의 윤곽 — JSON 구두점·백틱·그래프
+  모델 필드명만 남기고 나머지 글자 덩어리는 `_`)을 더했다. APP 쪽이 같은 규칙으로 다시 검사해 어긋나면
+  통째로 버린다. 영수증 `steps.index.rejections`에 사유별 개수, 거부 모양 종류별 개수(최대 10종, 예시 윤곽
+  하나), 앞 20건 문서의 호출 상태·모양이 들어가고, HOLD 회차에도 `llm` 수치가 남는다. 문서 원문·제목은
+  들어가지 않는다. 추출 규칙 해시(`rules_sha256`)는 바뀌지 않았으므로 기존 fragment는 그대로 carry된다.
+
 ### 시작조차 못 한 회차도 영수증을 남긴다 (`harness/estate_graph_sync.mjs`, lane graph-sync-v4)
 
 밤 사슬도, 감시자도 **영수증을 읽는다**. 그런데 `estate_graph_sync.mjs`는 과제 루프에
