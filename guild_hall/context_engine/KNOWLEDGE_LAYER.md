@@ -58,6 +58,10 @@ PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 �
 메일 월 파일은 한 줄씩 읽고 전체 파일 한도를 두지 않는다. 한도는 선택된 사건에만 건다: 사건 한 줄 `max_line_bytes`
 (기본 4 MiB, 최대 64 MiB), 선택 합계 `max_bytes`(기본 256 MiB). 스레드 id 없는 메일은 `thread_ref`를 두지 않는다.
 Slack custody HOLD는 되돌릴 수 없는 사건별 제외이므로 그 사건만 빼고 센다(`held`·`held_time_unknown`), 창 전체를 막지 않는다.
+메일 폴더의 첫 월 파일보다 이른 달은 `mail_not_collected_before:<YYYY-MM>`(메일 영수증 `not_collected`)로 남기고 막지 않는다.
+첫 월 파일 뒤의 빠진 달은 계속 `mail_event_files_missing` 보류다. 같은 메일 사본의 빈 본문은 비지 않은 사본을 쓰고,
+모두 비면 하나를 `empty_body_all_copies`로 표시해 남기며 `duplicate_empty_copies`로 센다.
+Slack이 없는 과제는 sources 파일에 `"slack": {"project": ..., "none": true}`(또는 `channels: []`)로 적고 `slack_not_configured`로 남는다.
 AI 메모 제외, 원천 해시, 읽기 한도, 네 원천의 누락/오류 차단은 유지한다. 현재 수집의 완전성을 보증하지 않는다.
 
 준비 기준판은 **고정한 원천 입력**만 가리키며 초안 작성 완료를 뜻하지 않는다. `source_frozen`은 항상

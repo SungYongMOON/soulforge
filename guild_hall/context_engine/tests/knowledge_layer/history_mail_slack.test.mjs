@@ -179,13 +179,21 @@ test('mail fails closed on project mismatch, body conflict, and missing event di
       event_dirs: [path.join(f.root, 'missing')] } }), { code: 'source_root_unavailable' });
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
-test('two copies with no new body cannot be collapsed as one mail event', async () => {
+test('duplicate copies with an empty body: a non-empty copy wins, all-empty keeps one flagged, counted', async () => {
   const f = await mailFixture();
   try {
     f.rows[0].body_text = '';
+    await writeFile(path.join(f.year, '09.jsonl'), f.rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+    const mixed = await readMailHistory(mailArgs(f));
+    assert.equal(mixed.records.length, 1); assert.equal(mixed.records[0].text, '본문');
+    assert.equal(mixed.receipt.counts.duplicate_empty_copies, 1);
+    assert.equal(mixed.records[0].originrefs[0].empty_body_all_copies, undefined);
     f.rows[1].body_text = '';
     await writeFile(path.join(f.year, '09.jsonl'), f.rows.map(row => JSON.stringify(row)).join('\n') + '\n');
-    await assert.rejects(readMailHistory(mailArgs(f)), { code: 'mail_duplicate_empty_body' });
+    const allEmpty = await readMailHistory(mailArgs(f));
+    assert.equal(allEmpty.receipt.status, 'ok'); assert.equal(allEmpty.records.length, 1);
+    assert.equal(allEmpty.records[0].text, ''); assert.equal(allEmpty.records[0].originrefs[0].empty_body_all_copies, true);
+    assert.equal(allEmpty.receipt.counts.duplicate_empty_copies, 1);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 async function slackFixture() {
@@ -335,4 +343,24 @@ test('mail streams a month file larger than the byte budget; budgets bound only 
     small.config.max_bytes = 20_000_000;
     await assert.rejects(readMailHistory(small), /mail_event_too_large/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+test('a month before a folder first collected month is recorded as not collected; a later gap still holds', async () => {
+  const f = await mailFixture();
+  try {
+    await writeFile(path.join(f.year, '05.jsonl'), JSON.stringify(mail('m9', '2026-05-02T00:00:00Z', '오월')) + '\n');
+    const early = await readMailHistory({ ...mailArgs(f), fromDate: '2026-03-01', throughDate: '2026-03-31' });
+    assert.equal(early.receipt.status, 'ok'); assert.equal(early.records.length, 0);
+    assert.deepEqual(early.receipt.not_collected, ['mail_not_collected_before:2026-05']);
+    await assert.rejects(readMailHistory({ ...mailArgs(f), fromDate: '2026-07-01', throughDate: '2026-07-31' }),
+      { code: 'mail_event_files_missing' });
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+test('a sources file may declare no Slack for a project', async () => {
+  for (const config of [{ project: PROJECT, channels: [] }, { project: PROJECT, none: true }]) {
+    const out = await readSlackHistory({ project: PROJECT, fromDate: '2026-09-23', throughDate: '2026-09-23', config });
+    assert.equal(out.receipt.status, 'ok'); assert.equal(out.receipt.note, 'slack_not_configured'); assert.equal(out.records.length, 0);
+  }
+  await assert.rejects(readSlackHistory({ project: PROJECT, fromDate: '2026-09-23', throughDate: '2026-09-23',
+    config: { project: PROJECT } }), { code: 'slack_config_invalid' });
 });

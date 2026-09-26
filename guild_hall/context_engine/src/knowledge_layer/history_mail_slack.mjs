@@ -181,18 +181,31 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
   const lastPossible = new Date(Date.parse(throughDate + 'T00:00:00Z') + 86400000).toISOString().slice(0, 7);
   const windowFiles = files.filter(file => file.month >= firstPossible && file.month <= lastPossible);
   if (windowFiles.length > bound.max_files) fail('mail_file_budget_exceeded');
+  // A month before a folder's earliest month file was never collected there: it is
+  // recorded (mail_not_collected_before:<first month>) and does not hold the window.
+  // A month missing from every folder of its year although a folder of that year
+  // was already collecting (its earliest file is earlier) stays a hold.
+  const notCollected = new Set();
   if (wanted.size) {
     const present = new Set(windowFiles.map(file => file.month));
+    const earliest = new Map();
+    for (const file of files) if (!earliest.has(file.directory) || file.month < earliest.get(file.directory))
+      earliest.set(file.directory, file.month);
     const month = new Date(fromDate.slice(0, 7) + '-01T00:00:00Z');
     const end = throughDate.slice(0, 7);
     while (month.toISOString().slice(0, 7) <= end) {
       const name = month.toISOString().slice(0, 7);
-      if (!present.has(name)) fail('mail_event_files_missing');
+      const sameYear = config.event_dirs.filter(dir => basename(dir) === name.slice(0, 4));
+      for (const dir of sameYear) if (earliest.has(dir) && name < earliest.get(dir))
+        notCollected.add('mail_not_collected_before:' + earliest.get(dir));
+      if (!present.has(name) && (!sameYear.length || sameYear.some(dir => !earliest.has(dir) || earliest.get(dir) < name)))
+        fail('mail_event_files_missing');
       month.setUTCMonth(month.getUTCMonth() + 1);
     }
   }
   const selected = new Map(), displayMetadata = metadata(), excludedById = new Map();
-  let scannedBytes = 0, scannedRows = 0, matchedRows = 0, selectedBytes = 0;
+  let scannedBytes = 0, scannedRows = 0, matchedRows = 0, selectedBytes = 0, emptyCopies = 0;
+  const duplicateEmpty = new Set();
   // A month of events is streamed line by line with no whole-file budget (one
   // month can pass 256 MiB). Budgets apply to what is selected: each routed event
   // line is bounded by max_line_bytes (default 4 MiB) and all selected lines
@@ -227,11 +240,16 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
       if (excludedById.has(id)) fail('mail_duplicate_classification_conflict');
       const { body, normalizedSha } = textForMail(row), bodySha = sha(body);
       const prior = selected.get(row.event_id);
-      if (prior && (!normalizedSha || !body || !prior.body))
-        fail('mail_duplicate_empty_body');
-      if (prior && prior.normalizedSha !== normalizedSha) fail('mail_duplicate_body_conflict');
       const lineSha = sha(line);
       const candidate = { row, body, bodySha, normalizedSha, lineSha, path: join(file.directory, file.name) };
+      // Copies of one message with an empty body: a non-empty copy wins; if every
+      // copy is empty one is kept and flagged. Counted, never a hold.
+      const empty = !normalizedSha || !body, priorEmpty = prior && (!prior.normalizedSha || !prior.body);
+      if (prior && (empty || priorEmpty)) {
+        duplicateEmpty.add(row.event_id); emptyCopies += 1;
+        if (empty && !priorEmpty) continue;
+        if (!empty && priorEmpty) { selected.set(row.event_id, candidate); continue; }
+      } else if (prior && prior.normalizedSha !== normalizedSha) fail('mail_duplicate_body_conflict');
       if (!prior || row.ingested_at < prior.row.ingested_at
         || row.ingested_at === prior.row.ingested_at && lineSha < prior.lineSha)
         selected.set(row.event_id, candidate);
@@ -258,11 +276,14 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
         attachment_metadata: row.attachments.filter(plain).map(item => ({
           type: 'binary_attachment', name: String(item.name ?? ''),
           content_sha256: item.content_sha256 ?? null,
-          body_inline_image: bodyInlineImage(item) })) }] });
+          body_inline_image: bodyInlineImage(item) })),
+        ...(duplicateEmpty.has(eventId) && !body ? { empty_body_all_copies: true } : {}) }] });
   }
   return result(records, displayMetadata, [...excludedById.values()], { files: wanted.size ? windowFiles.length : 0, rows: scannedRows,
-    matched_rows: matchedRows, attributed: wanted.size, bytes: scannedBytes },
-  { index_sha256: index.index_sha256, index_content_sha256: index.content_sha256 });
+    matched_rows: matchedRows, attributed: wanted.size, bytes: scannedBytes,
+    ...(emptyCopies ? { duplicate_empty_copies: emptyCopies } : {}) },
+  { index_sha256: index.index_sha256, index_content_sha256: index.content_sha256,
+    ...(notCollected.size ? { not_collected: [...notCollected].sort() } : {}) });
 }
 
 function slackExcluded(raw, config) {
@@ -295,6 +316,9 @@ function identityView(value) {
 const messageOf = raw => raw.subtype === 'message_changed' && plain(raw.message) ? raw.message : raw;
 export async function readSlackHistory({ project, fromDate, throughDate, config } = {}) {
   const bound = scope({ project, fromDate, throughDate, config });
+  // A sources file may state that the project has no Slack channel.
+  if (config.none === true || (Array.isArray(config.channels) && config.channels.length === 0 && config.none === undefined))
+    return result([], metadata(), [], { channels: 0 }, { note: 'slack_not_configured' });
   if (!Array.isArray(config.channels) || !config.channels.length
     || !config.channels.every(item => plain(item) && typeof item.root === 'string'
       && isAbsolute(item.root) && typeof item.channel_id === 'string' && item.channel_id))
