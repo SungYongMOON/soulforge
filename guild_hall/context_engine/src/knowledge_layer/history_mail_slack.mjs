@@ -17,6 +17,8 @@ const SHA = /^sha256:([0-9a-f]{64})$/u;
 const TS = /^\d{10,16}\.\d{6}$/u;
 const PROJECT = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const DEFAULTS = Object.freeze({ max_files: 128, max_bytes: 256 * 1024 * 1024, max_rows: 100000 });
+// One record (text and all) must fit the shared plain-data budget of 500k characters.
+const MAIL_RECORD_BODY_CHARACTERS = 400_000;
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
 const validDay = day => typeof day === 'string' && DAY.test(day)
   && Number.isFinite(Date.parse(day + 'T00:00:00Z'))
@@ -223,9 +225,8 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
       if (!plain(row) || !wanted.has(row.event_id)) continue;
       matchedRows += 1;
       if (matchedRows > bound.max_rows) fail('mail_row_budget_exceeded');
-      const size = Buffer.byteLength(line);
-      if (size > lineBytes) fail('mail_event_too_large');
-      selectedBytes += size;
+      const size = Buffer.byteLength(line), oversizeLine = size > lineBytes;
+      if (!oversizeLine) selectedBytes += size;
       if (selectedBytes > bound.max_bytes) fail('mail_byte_budget_exceeded');
       if (!inWindow(row.received_at, fromDate, throughDate)) continue;
       if (typeof row.subject !== 'string' || !Array.isArray(row.attachments)
@@ -238,13 +239,22 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
         excludedById.set(id, { id, kind: 'mail', reason }); continue;
       }
       if (excludedById.has(id)) fail('mail_duplicate_classification_conflict');
-      const { body, normalizedSha } = textForMail(row), bodySha = sha(body);
+      // A mail too large for one record keeps its record and evidence line with an
+      // empty text and an explicit oversize mark (counted); it is never dropped or cut.
+      let oversize = oversizeLine ? { reason: 'event_line_bytes', line_bytes: size } : null, text = null;
+      if (!oversize) {
+        try { text = textForMail(row); } catch (error) { if (error?.code !== 'mail_body_too_large') throw error; }
+        if (!text || text.body.length > MAIL_RECORD_BODY_CHARACTERS)
+          oversize = { reason: 'body_characters', line_bytes: size, ...(text ? { body_characters: text.body.length } : {}) };
+      }
+      const body = oversize ? '' : text.body, bodySha = sha(body);
+      const normalizedSha = oversize ? sha(String(row.body_text ?? '') + '\u0000' + String(row.body_html ?? '')) : text.normalizedSha;
       const prior = selected.get(row.event_id);
       const lineSha = sha(line);
-      const candidate = { row, body, bodySha, normalizedSha, lineSha, path: join(file.directory, file.name) };
+      const candidate = { row, body, bodySha, normalizedSha, lineSha, oversize, path: join(file.directory, file.name) };
       // Copies of one message with an empty body: a non-empty copy wins; if every
       // copy is empty one is kept and flagged. Counted, never a hold.
-      const empty = !normalizedSha || !body, priorEmpty = prior && (!prior.normalizedSha || !prior.body);
+      const empty = !oversize && (!normalizedSha || !body), priorEmpty = prior && !prior.oversize && (!prior.normalizedSha || !prior.body);
       if (prior && (empty || priorEmpty)) {
         duplicateEmpty.add(row.event_id); emptyCopies += 1;
         if (empty && !priorEmpty) continue;
@@ -256,8 +266,10 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
     }
   }
   const records = [];
+  let oversizeCount = 0;
   for (const [eventId, picked] of selected) {
-    const { row, body, bodySha, lineSha, path } = picked, id = nativeId('mail', eventId);
+    const { row, body, bodySha, lineSha, path, oversize } = picked, id = nativeId('mail', eventId);
+    if (oversize) oversizeCount += 1;
     const attachments = row.attachments.filter(item => plain(item) && ['binary_attachment','file'].includes(item.type)
       && !bodyInlineImage(item) && typeof item.name === 'string')
       .map(item => item.name);
@@ -277,11 +289,12 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
           type: 'binary_attachment', name: String(item.name ?? ''),
           content_sha256: item.content_sha256 ?? null,
           body_inline_image: bodyInlineImage(item) })),
-        ...(duplicateEmpty.has(eventId) && !body ? { empty_body_all_copies: true } : {}) }] });
+        ...(duplicateEmpty.has(eventId) && !body && !oversize ? { empty_body_all_copies: true } : {}),
+        ...(oversize ? { oversize } : {}) }] });
   }
   return result(records, displayMetadata, [...excludedById.values()], { files: wanted.size ? windowFiles.length : 0, rows: scannedRows,
     matched_rows: matchedRows, attributed: wanted.size, bytes: scannedBytes,
-    ...(emptyCopies ? { duplicate_empty_copies: emptyCopies } : {}) },
+    ...(emptyCopies ? { duplicate_empty_copies: emptyCopies } : {}), ...(oversizeCount ? { oversize: oversizeCount } : {}) },
   { index_sha256: index.index_sha256, index_content_sha256: index.content_sha256,
     ...(notCollected.size ? { not_collected: [...notCollected].sort() } : {}) });
 }

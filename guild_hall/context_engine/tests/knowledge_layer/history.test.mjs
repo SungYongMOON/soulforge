@@ -918,3 +918,62 @@ test('a same-day weak voice attribution is shown on its evidence line', () => {
   assert.ok(!lines[0].includes('과제 귀속 후보(미수락)'));
   assert.ok(lines[1].includes('과제 귀속 후보(미수락)') && !lines[1].includes('귀속 약함'));
 });
+
+test('input format v2 compaction renders the same voice evidence lines as per-line bookkeeping', async () => {
+  const { digest: dg } = await import('../../src/knowledge_layer/data.mjs');
+  const { HISTORY_INPUT_SCHEMA } = await import('../../src/knowledge_layer/history.mjs');
+  const session = '20260923_090000_demo';
+  const groupFor = (segment, attribution, extra = {}) => ({ source_kind: 'voice', source_root: '/synthetic/sessions',
+    card_source_root: '/synthetic/cards', session_id: session, card_run_id: 'card-run', card_segment_id: segment,
+    card_sha256: hashText('card'), manifest_sha256: hashText('manifest'), transcript_sha256: hashText('transcript'),
+    transcript_path: ['2026-09-23', session, 'transcript.jsonl'], attribution, route_ledger_sha256: null, ...extra,
+    segment_title: '합성 구간', derived_title_only: true, semantic_fact_verified: false });
+  const groups = [groupFor('seg-1', 'candidate_only_not_accepted'), groupFor('seg-2', 'weak_same_day_context',
+    { attribution_reason: { rule: 'same_day_context.v1', written_sources_that_day: 1, matches: [{ kind: 'project_term', term: '합성체계', field: 'transcript' }] } })];
+  const lines = [[0, 1, 0, 2, '첫 발화'], [0, 2, 2, 4, '둘째 발화'], [1, 3, 4, 6, '셋째 발화']];
+  const base = ([g, uid, , , text]) => ({ id: `voice_utterance:${String(g).repeat(16)}:${String(uid).padStart(8, '0')}`,
+    date: '2026-09-23', kind: 'voice_utterance', title: '', sender: '발화자 미확인', recipient: '미기록', attachments: [],
+    thread_ref: `voice:${String(g).repeat(16)}`, text, evidence_mode: 'source_id' });
+  const old = lines.map(line => ({ ...base(line), originrefs: [{ ...groups[line[0]], source_segment_ids: [line[1]],
+    source_offsets: [[line[1], line[2], line[3]]] }] }));
+  const keys = groups.map(group => dg(group).slice(7, 23));
+  const compact = lines.map(line => ({ ...base(line), originrefs: [{ voice_group: keys[line[0]], source_offsets: [[line[1], line[2], line[3]]] }] }));
+  const entry = { title: '합성 녹음', recorded_at: '2026-09-23T09:00:00+09:00', transcript_source: 'plaud',
+    transcript_path: join(tmpdir(), 'synthetic', 'transcript.jsonl'), audio_path: join(tmpdir(), 'synthetic', 'a.ogg') };
+  const view = (records, extra, display) => {
+    const data = normalizeHistoryInput({ project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23', records, ...extra });
+    const byId = new Map(data.records.map(row => [row.id, row]));
+    const card = (index, text, ids) => ({ card_id: `daily:2026-09-23:00${index}`, text, child_card_ids: [], flags: [],
+      evidence: ids.map(id => ({ source_id: id, quote: byId.get(id).text, originrefs: byId.get(id).originrefs })),
+      source_ids: [...ids].sort(), source_display: [...ids].sort().map(id => ({ ...historySourceLabel(byId.get(id)), text_sha256: byId.get(id).text_sha256 })) });
+    const ids = data.records.map(row => row.id);
+    const daily = new Map([['2026-09-23', { layer: 'daily', key: '2026-09-23',
+      cards: [card(1, '두 발화.', [ids[0], ids[1]]), card(2, '약한 귀속.', [ids[2]])] }]]);
+    return renderHistory(data, daily, new Map(), null, null, display, false, { external: true })
+      .split('\n').filter(text => text.startsWith('  - 근거: '));
+  };
+  const before = view(old, {}, { voice_sources: Object.fromEntries(old.map(row => [row.id, entry])) });
+  const after = view(compact, { schema: HISTORY_INPUT_SCHEMA, voice_groups: Object.fromEntries(keys.map((key, i) => [key, groups[i]])) },
+    { voice_recordings: { [session]: entry } });
+  assert.equal(before.length, 2); assert.deepEqual(after, before);
+  assert.ok(after[0].includes('발화 1 00:00–00:02; 발화 2 00:02–00:04') && after[0].includes('PLAUD 전사') && after[0].includes('합성 녹음'));
+  assert.ok(after[1].includes('(귀속 약함)'));
+});
+
+test('input format v2: explicit version in the fingerprint; a tampered or missing voice group is refused', async () => {
+  const { digest: dg, hashText: ht } = await import('../../src/knowledge_layer/data.mjs');
+  const { HISTORY_INPUT_SCHEMA, historyInputFingerprint } = await import('../../src/knowledge_layer/history.mjs');
+  const rows = [record('A', '2026-09-23', 'Alpha source text')];
+  const data = normalizeHistoryInput({ ...input(rows), as_of: '2026-09-23' });
+  assert.equal(HISTORY_INPUT_SCHEMA, 'soulforge.history_input.v2');
+  assert.equal(historyInputFingerprint({ ...input(rows), as_of: '2026-09-23' }), dg({ input_format: HISTORY_INPUT_SCHEMA,
+    project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23', records_sha256: ht(data.records.map(row => dg(row)).join('\n')) }));
+  assert.throws(() => normalizeHistoryInput({ ...input(rows), schema: 'soulforge.history_input.v1' }), /history_input_invalid/);
+  const group = { source_kind: 'voice', session_id: 'demo', card_segment_id: 'seg-1' };
+  const voice = key => record('voice_utterance:synthetic:00000001', '2026-09-19', '발화', { kind: 'voice_utterance',
+    evidence_mode: 'source_id', originrefs: [{ voice_group: key, source_offsets: [[1, 0, 2]] }] });
+  const key = dg(group).slice(7, 23);
+  assert.equal(normalizeHistoryInput({ ...input([voice(key)]), voice_groups: { [key]: group } }).voice_groups[key].session_id, 'demo');
+  assert.throws(() => normalizeHistoryInput({ ...input([voice(key)]), voice_groups: { [key]: { ...group, session_id: 'other' } } }), /history_voice_group_invalid/);
+  assert.throws(() => normalizeHistoryInput(input([voice(key)])), /history_voice_group_invalid/);
+});

@@ -122,6 +122,14 @@ function grouped(data) {
   }
   return { days, weeks };
 }
+// A daily packet names its day's records by a composed digest (input format v2):
+// the records themselves come from the same input, which the packet's
+// input_fingerprint pins, so a day of thousands of voice lines never has to fit
+// one snapshot together with the packet.
+function dayDependencies(records) {
+  return { records_sha256: hashText(records.map(row => digest(row)).join('\n')), record_count: records.length };
+}
+function dayRows(ctx, day) { return ctx.data.records.filter(row => row.date === day); }
 function cellInput(layer, key, dependencies, rulesHash, data) {
   return digest({ schema: PACKET_SCHEMA, project: data.project, month: data.month,
     ...(['monthly', 'status'].includes(layer) ? { as_of: data.as_of } : {}),
@@ -171,10 +179,11 @@ function readyPlan(ctx) {
   const retired = { daily: sorted(Object.keys(current.daily ?? {}).filter(day => !days.has(day))),
     weekly: sorted(Object.keys(current.weekly ?? {}).filter(key => !weeks.has(key))) };
   for (const day of sorted(days.keys())) {
-    const records = days.get(day), fp = cellInput('daily', day, { records }, ctx.rulesHash, ctx.data);
+    const records = days.get(day), dependencies = dayDependencies(records);
+    const fp = cellInput('daily', day, dependencies, ctx.rulesHash, ctx.data);
     const held = currentCell(ctx, current, 'daily', day, fp);
     if (held) readyDaily.set(day, held);
-    else packets.push(packetFor(ctx, 'daily', day, { records }, records.map(row => row.id), expectedHead));
+    else packets.push(packetFor(ctx, 'daily', day, dependencies, records.map(row => row.id), expectedHead));
   }
   for (const key of sorted(weeks.keys())) {
     const week = weeks.get(key);
@@ -233,7 +242,7 @@ export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMe
   const batchPaths = plan.packets.map(packet => {
     if (packet.layer !== 'daily') return [];
     const batches = partitionDay({ project: ctx.data.project, day: packet.key,
-      rows: packet.dependencies.records, limit: batchCharactersOf(packet) });
+      rows: dayRows(ctx, packet.key), limit: batchCharactersOf(packet) });
     return batches.map((batch, index) => {
       const body = { packet_id: packet.packet_id, batch_index: index + 1,
         batch_total: batches.length, user: batch.user };
@@ -281,7 +290,7 @@ function validatePrepared(ctx, prepared) {
   });
   return packets;
 }
-function cardsForPacket(packet, draftEntry) {
+function cardsForPacket(packet, draftEntry, rows) {
   const keys = plain(draftEntry) ? Object.keys(draftEntry).sort().join(',') : '';
   if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches'].includes(keys)
     || draftEntry.packet_id !== packet.packet_id || !Array.isArray(draftEntry.sentences)
@@ -294,7 +303,7 @@ function cardsForPacket(packet, draftEntry) {
     if (!Number.isSafeInteger(limit) || limit < 1000 || limit > DEFAULT_BATCH_CHARACTERS)
       fail('history_exchange_packet_mismatch');
     const count = partitionDay({ project: packet.project, day: packet.key,
-      rows: packet.dependencies.records, limit }).length;
+      rows, limit }).length;
     if (unprocessed.length > count || new Set(unprocessed.map(item => item?.batch_index)).size !== unprocessed.length
       || unprocessed.some(item => !plain(item) || Object.keys(item).sort().join(',') !== 'batch_index,reason'
         || !Number.isSafeInteger(item.batch_index) || item.batch_index < 1 || item.batch_index > count
@@ -302,7 +311,7 @@ function cardsForPacket(packet, draftEntry) {
       fail('history_exchange_unprocessed_invalid');
   }
   const allowed = new Set(packet.allowed_evidence_ids), dependencies = packet.dependencies;
-  const sourceById = packet.layer === 'daily' ? new Map(dependencies.records.map(row => [row.id, row])) : null;
+  const sourceById = packet.layer === 'daily' ? new Map(rows.map(row => [row.id, row])) : null;
   const childById = packet.layer === 'daily' ? null : new Map((dependencies.days ?? dependencies.weeks
     ?? (dependencies.monthly ? [dependencies.monthly] : [])).flatMap(child => child.cards)
     .map(card => [card.card_id, card]));
@@ -363,7 +372,7 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
     const draftById = new Map(draft.drafts.map(entry => [entry.packet_id, entry]));
     if (packets.some(packet => !draftById.has(packet.packet_id))) fail('history_exchange_draft_missing');
     const candidates = packets.map(packet => {
-      const entry = draftById.get(packet.packet_id), mapped = cardsForPacket(packet, entry);
+      const entry = draftById.get(packet.packet_id), mapped = cardsForPacket(packet, entry, packet.layer === 'daily' ? dayRows(ctx, packet.key) : null);
       const cell = { schema: SCHEMA, project: ctx.data.project, month: ctx.data.month,
         layer: packet.layer, key: packet.key, fingerprint: packet.packet_id,
         packet_id: packet.packet_id, cell_input_fingerprint: packet.cell_input_fingerprint,

@@ -126,11 +126,34 @@ function normalize(input) {
       ...(row.evidence_mode ? { evidence_mode: row.evidence_mode } : {}) });
   }
   records.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-  return { project: input.project, month: input.month, as_of: asOf, records };
+  // Input format v2 keeps voice recording/segment bookkeeping once per segment in
+  // voice_groups, keyed by the first 16 hex of the entry's own digest; a line's
+  // originref names the key, so a record's digest covers its group's content.
+  if (input.schema !== undefined && input.schema !== HISTORY_INPUT_SCHEMA) fail('history_input_invalid');
+  const groups = input.voice_groups ?? {};
+  if (!plain(groups) || Object.keys(groups).length > 20000) fail('history_input_invalid');
+  const voiceGroups = {};
+  for (const row of records) for (const ref of Array.isArray(row.originrefs) ? row.originrefs : []) {
+    if (!plain(ref) || ref.voice_group === undefined) continue;
+    const entry = groups[ref.voice_group];
+    if (typeof ref.voice_group !== 'string' || !/^[0-9a-f]{16}$/u.test(ref.voice_group) || !plain(entry)
+      || digest(entry).slice(7, 23) !== ref.voice_group) fail('history_voice_group_invalid');
+    voiceGroups[ref.voice_group] = snapshot(entry);
+  }
+  return { project: input.project, month: input.month, as_of: asOf, records,
+    ...(Object.keys(voiceGroups).length ? { voice_groups: Object.fromEntries(Object.keys(voiceGroups).sort().map(key => [key, voiceGroups[key]])) } : {}) };
 }
+export const HISTORY_INPUT_SCHEMA = 'soulforge.history_input.v2';
+/** Voice originref with its group's bookkeeping filled in (display and grouping only). */
+export function expandVoiceRef(data, ref) {
+  return plain(ref) && typeof ref.voice_group === 'string' && plain(data?.voice_groups?.[ref.voice_group])
+    ? { ...data.voice_groups[ref.voice_group], ...ref } : ref;
+}
+// Composed from per-record digests (each bounded) so a month of many short voice
+// lines never needs one oversized snapshot. The format version is part of it.
 function fingerprintInputData(data) {
-  return digest({ project: data.project, month: data.month, as_of: data.as_of,
-    record_fingerprints: data.records.map(row => digest(row)) });
+  return digest({ input_format: HISTORY_INPUT_SCHEMA, project: data.project, month: data.month, as_of: data.as_of,
+    records_sha256: hashText(data.records.map(row => digest(row)).join('\n')) });
 }
 export const historyInputFingerprint = input => fingerprintInputData(normalize(input));
 function weekFor(day, month, asOf) {
@@ -152,6 +175,10 @@ function groupThreads(rows) {
 }
 function sourceLabel(source) {
   if (source.evidence_mode === 'source_id') {
+    const group = Array.isArray(source.originrefs) ? source.originrefs.find(ref => plain(ref)
+      && typeof ref.voice_group === 'string') : null;
+    if (group) return { source_id: source.id, date: source.date, kind: source.kind, sender: '', recipient: '',
+      title: '', attachments: [], thread_ref: null, card_identity: `group:${group.voice_group}` };
     const card = Array.isArray(source.originrefs) ? source.originrefs.find(ref => plain(ref)
       && typeof ref.card_sha256 === 'string' && typeof ref.card_segment_id === 'string') : null;
     return { source_id: source.id, date: source.date, kind: source.kind, sender: '', recipient: '',
@@ -258,9 +285,10 @@ function displayConfig(value) {
       result[field][key] = field === 'source_attachments' ? [...new Set(val)] : val;
     }
   }
-  const voiceSources = raw.voice_sources ?? {};
+  for (const field of ['voice_sources', 'voice_recordings']) {
+  const voiceSources = raw[field] ?? {};
   if (!plain(voiceSources) || Object.keys(voiceSources).length > 10000) fail('history_display_metadata_invalid');
-  result.voice_sources = {};
+  result[field] = {};
   for (const [sourceId, entry] of Object.entries(voiceSources)) {
     if (!token(sourceId) || !plain(entry) || Object.keys(entry).some(key =>
       !['title', 'recorded_at', 'audio_path', 'transcript_path', 'session_id',
@@ -272,7 +300,8 @@ function displayConfig(value) {
         || (key.endsWith('_path') && (!isAbsolute(field) || field.startsWith('\\\\') || field.startsWith('//') || /[<>]/u.test(field))))
         fail('history_display_metadata_invalid');
     }
-    result.voice_sources[sourceId] = entry;
+    result[field][sourceId] = entry;
+  }
   }
   return snapshot(result);
 }
@@ -343,8 +372,10 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   const localLink = (label, path) => `[${label}](<${encodeURI(path.replace(/\\/gu, '/'))
     .replace(/[?#&]/gu, character => `%${character.codePointAt(0).toString(16).toUpperCase()}`)}>)`;
   const voiceLine = entry => {
-    const meta = entry.sources.map(source => display.voice_sources[source.source_id]).find(Boolean) ?? {};
-    const refs = entry.evidence.flatMap(item => Array.isArray(item.originrefs) ? item.originrefs : []);
+    const refs = entry.evidence.flatMap(item => Array.isArray(item.originrefs) ? item.originrefs : [])
+      .map(ref => expandVoiceRef(data, ref));
+    const meta = entry.sources.map(source => display.voice_sources[source.source_id]).find(Boolean)
+      ?? refs.map(ref => plain(ref) && typeof ref.session_id === 'string' ? display.voice_recordings[ref.session_id] : null).find(Boolean) ?? {};
     const locators = [], seen = new Set();
     const clock = (value, ceiling = false) => {
       const seconds = Number(value);
@@ -396,6 +427,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
           if (/voice|ASR|녹음/iu.test(source.kind)) {
             const sourceEvidence = card.evidence.filter(item => item.source_id === source.source_id);
             const ref = sourceEvidence.flatMap(item => Array.isArray(item.originrefs) ? item.originrefs : [])
+              .map(item => expandVoiceRef(data, item))
               .find(item => plain(item) && item.card_sha256 !== undefined && item.card_segment_id !== undefined);
             const key = ref ? `${ref.card_sha256}:${ref.card_segment_id}` : source.card_identity ?? source.source_id;
             let group = voiceByCard.get(key);

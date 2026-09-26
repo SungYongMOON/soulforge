@@ -16,6 +16,9 @@ function custody(root,kind,object){
   return path;
 }
 const args={project:'P-DEMO',fromDate:'2026-09-23',throughDate:'2026-09-23'};
+// Input format v2: a voice line names its segment group; tests read the two together.
+const refOf=(result,row)=>({...(result.voiceGroups?.[row.originrefs[0].voice_group]??{}),...row.originrefs[0]});
+const displayOf=(result,row)=>result.displayMetadata.voice_recordings[refOf(result,row).session_id];
 test('Linear uses exact project membership and native dates; AI work notes do not become source records',async t=>{
   const root=temp(t); for(const kind of ['issues','comments','issue_history'])mkdirSync(join(root,kind));
   const issue={id:'issue-one',project_id:'project-one',title:'Synthetic task',description:'Source paragraph',
@@ -62,10 +65,10 @@ test('voice cards select attributed native ASR spans, never their AI description
   assert.equal(result.records[0].text,'원문 요청 문장');assert.equal(result.records[0].kind,'voice_utterance');
   assert.equal(result.records[0].evidence_mode,'source_id');
   assert.match(result.records[0].id,/^voice_utterance:[0-9a-f]{16}:00000000$/);
-  assert.deepEqual(result.records[0].originrefs[0].source_segment_ids,[0]);
-  assert.equal(result.records[0].originrefs[0].attribution,'candidate_only_not_accepted');
+  assert.deepEqual(Object.keys(result.records[0].originrefs[0]).sort(),['source_offsets','voice_group']);
+  assert.equal(refOf(result,result.records[0]).attribution,'candidate_only_not_accepted');
   assert.equal(result.records[0].date,'2026-09-23');
-  const display=result.displayMetadata.voice_sources[result.records[0].id];
+  const display=displayOf(result,result.records[0]);
   assert.equal(display.title,'합성 녹음 원제목');
   assert.equal(display.recorded_at,'2026-09-23T09:00:00+09:00');
   assert.equal(display.transcript_path,v.trPath);
@@ -81,7 +84,6 @@ test('one card produces separate numbered utterances, with each own time and evi
   const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
   const result=await readVoiceHistory({...args,config});
   assert.equal(result.records.length,2);
-  assert.deepEqual(result.records.map(row=>row.originrefs[0].source_segment_ids),[[0],[1]]);
   assert.deepEqual(result.records.map(row=>row.originrefs[0].source_offsets),[[[0,0,2]],[[1,2,4]]]);
   assert.ok(result.records.every(row=>row.evidence_mode==='source_id'&&!row.text.includes('AI inferred')));
   assert.equal(new Set(result.records.map(row=>row.id)).size,2);
@@ -104,15 +106,17 @@ test('voice cards carry the transcript they read as display-only metadata; PLAUD
   const v=voiceFixture(temp(t));
   const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
   const legacy=await readVoiceHistory({...args,config});
-  const legacyDisplay=legacy.displayMetadata.voice_sources[legacy.records[0].id];
+  const legacyDisplay=displayOf(legacy,legacy.records[0]);
   assert.ok(!('transcript_source' in legacyDisplay)&&!('transcript_fallback' in legacyDisplay));
   // A PLAUD-mode card that fell back to whisper reads the same whisper run: same records, label in display only.
   put(v.cardPath,{...v.card,transcript:{...v.card.transcript,source:'whisper',fallback:'plaud_transcript_absent'}});
   const fallback=await readVoiceHistory({...args,config});
-  assert.deepEqual(fallback.records.map(row=>({...row,originrefs:row.originrefs.map(({card_sha256,...rest})=>rest)})),
-    legacy.records.map(row=>({...row,originrefs:row.originrefs.map(({card_sha256,...rest})=>rest)})));
-  assert.equal(fallback.displayMetadata.voice_sources[fallback.records[0].id].transcript_source,'whisper');
-  assert.equal(fallback.displayMetadata.voice_sources[fallback.records[0].id].transcript_fallback,'plaud_transcript_absent');
+  const bare=(result)=>result.records.map(row=>({...row,originrefs:row.originrefs.map(({voice_group,...rest})=>rest)}));
+  assert.deepEqual(bare(fallback),bare(legacy));
+  assert.deepEqual(fallback.records.map(row=>{const {card_sha256,...rest}=refOf(fallback,row);delete rest.voice_group;return rest;}),
+    legacy.records.map(row=>{const {card_sha256,...rest}=refOf(legacy,row);delete rest.voice_group;return rest;}));
+  assert.equal(displayOf(fallback,fallback.records[0]).transcript_source,'whisper');
+  assert.equal(displayOf(fallback,fallback.records[0]).transcript_fallback,'plaud_transcript_absent');
   // PLAUD primary: provider rows at the session root, no analysis run id.
   const plaudRows=[{schema_version:'soulforge.voice_transcript_segment.v0',speaker:'Speaker 1',segment_id:0,start_seconds:0,end_seconds:2,content:'합성 제공자 문장',source:'plaud_provider'},
     {schema_version:'soulforge.voice_transcript_segment.v0',speaker:'Speaker 2',segment_id:1,start_seconds:2,end_seconds:4,content:'다른 과제 문장',source:'plaud_provider'}];
@@ -121,7 +125,7 @@ test('voice cards carry the transcript they read as display-only metadata; PLAUD
   put(v.cardPath,{...v.card,transcript:{run_id:'plaud_provider_transcript',sha256:hashText(text),kind:'plaud_provider',source:'plaud',fallback:null}});
   const plaud=await readVoiceHistory({...args,config});
   assert.equal(plaud.records.length,1);assert.equal(plaud.records[0].text,'합성 제공자 문장');
-  const display=plaud.displayMetadata.voice_sources[plaud.records[0].id];
+  const display=displayOf(plaud,plaud.records[0]);
   assert.equal(display.transcript_source,'plaud');assert.ok(!('transcript_fallback' in display));
   assert.equal(display.transcript_path,plaudPath);
   writeFileSync(plaudPath,'changed');await assert.rejects(readVoiceHistory({...args,config}),/digest_mismatch/);
@@ -203,9 +207,9 @@ const dayDigests=records=>{const days={};for(const row of records)(days[row.date
 test('same-day rule attributes a no-candidate segment weakly, with its reason, only on a day with written sources',async t=>{
   const f=sameDayFixture(t);
   const on=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(true)});
-  const weak=on.records.filter(row=>row.originrefs[0]?.attribution==='weak_same_day_context');
+  const weak=on.records.filter(row=>refOf(on,row).attribution==='weak_same_day_context');
   assert.deepEqual(weak.map(row=>[row.date,row.text]),[['2026-09-23','합성체계 시험 일정 이야기']]);
-  assert.deepEqual(weak[0].originrefs[0].attribution_reason,{rule:'same_day_context.v1',written_sources_that_day:1,
+  assert.deepEqual(refOf(on,weak[0]).attribution_reason,{rule:'same_day_context.v1',written_sources_that_day:1,
     matches:[{kind:'project_term',term:'합성체계',field:'transcript'}]});
   // Unmatched, other-project and other-mention segments stay out and are counted.
   assert.ok(!on.records.some(row=>['날씨 이야기','다른 과제 이야기','용어 합성체계 언급'].includes(row.text)));
@@ -231,12 +235,12 @@ test('same-day rule is conservative: no written day, participant names, unverifi
   const config={project:'P-DEMO',sessions_root:f.sessions,cards_root:f.cards,project_policy:'first_candidate'};
   const only=own=>({own,peers:new Map(),peersComplete:true});
   const result=await readVoiceHistory({...args,config,sameDay:only(context)});
-  const weak=result.records.filter(row=>row.originrefs[0].attribution==='weak_same_day_context');
+  const weak=result.records.filter(row=>refOf(result,row).attribution==='weak_same_day_context');
   assert.deepEqual(weak.map(row=>row.text),['가나다 님이 말함']);
-  assert.deepEqual(weak[0].originrefs[0].attribution_reason.matches,[{kind:'participant',term:'가나다',field:'transcript'}]);
+  assert.deepEqual(refOf(result,weak[0]).attribution_reason.matches,[{kind:'participant',term:'가나다',field:'transcript'}]);
   // Without written sources that day nothing is attributed.
   const empty=await readVoiceHistory({...args,config,sameDay:only(new Map())});
-  assert.equal(empty.records.filter(row=>row.originrefs[0].attribution==='weak_same_day_context').length,0);
+  assert.equal(empty.records.filter(row=>refOf(empty,row).attribution==='weak_same_day_context').length,0);
   assert.ok(empty.receipt.same_day.no_written_source_day>0);
   assert.equal(empty.receipt.same_day.no_written_source_day,empty.receipt.same_day.unattributed_segments);
   // Called without context the rule is off.
@@ -264,7 +268,7 @@ test('a PLAUD card whose session-root transcript is missing fails closed, never 
 test('a same-day match that a peer project also has is ambiguous and not attributed',async t=>{
   const f=sameDayFixture(t);
   const r=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(true,['합성체계'])});
-  assert.equal(r.records.filter(row=>row.originrefs[0]?.attribution==='weak_same_day_context').length,0);
+  assert.equal(r.records.filter(row=>refOf(r,row).attribution==='weak_same_day_context').length,0);
   assert.equal(r.coverage.lanes.voice.same_day.ambiguous,1);assert.equal(r.coverage.lanes.voice.same_day.attributed_segments,0);
   // A peer lane that cannot be read makes the match unverifiable, never attributed.
   const broken=f.sourceConfig(true);broken.voice.same_day_context.peers[0].linear.root=join(f.root,'absent');

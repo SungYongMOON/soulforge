@@ -132,3 +132,40 @@ test('source CLI exposes only prepare and requires no model binding or subproces
     stderr: { write: value => { err += value; } } }), 2);
   assert.match(err, /history_prepare_arguments_invalid/u);
 });
+
+// Input format v2: a large synthetic recording stays within the shared plain-data budget.
+test('a 2,000-line synthetic recording prepares a whole month and its day packet, all within the plain-data budget', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const { digest, hashText } = await import('../../src/knowledge_layer/data.mjs');
+  const { prepareHistoryExchange } = await import('../../src/knowledge_layer/history_exchange.mjs');
+  const group = { source_kind: 'voice', session_id: '20260923_090000_demo', card_run_id: 'card-run',
+    card_segment_id: 'seg-1', card_sha256: hashText('card'), manifest_sha256: hashText('manifest'),
+    transcript_sha256: hashText('transcript'), transcript_path: ['2026-09-23', '20260923_090000_demo', 'transcript.jsonl'],
+    source_root: '/synthetic/sessions', card_source_root: '/synthetic/cards', attribution: 'candidate_only_not_accepted',
+    route_ledger_sha256: null, segment_title: '합성 구간', derived_title_only: true, semantic_fact_verified: false };
+  const key = digest(group).slice(7, 23);
+  const rows = Array.from({ length: 2000 }, (_, i) => ({ id: `voice_utterance:${'a'.repeat(16)}:${String(i).padStart(8, '0')}`,
+    project: 'DEMO-1', date: '2026-09-23', kind: 'voice_utterance', title: '', sender: '발화자 미확인', recipient: '미기록',
+    attachments: [], thread_ref: 'voice:' + 'a'.repeat(16), text: `합성 발화 ${i} 번째 문장입니다`, evidence_mode: 'source_id',
+    originrefs: [{ voice_group: key, source_offsets: [[i, i * 2, i * 2 + 2]] }] }));
+  const display = { voice_recordings: { [group.session_id]: { title: '합성 녹음', recorded_at: '2026-09-23T09:00:00+09:00' } } };
+  const result = await prepareHistory({ ...options(dir, rows), collector: async () =>
+    collected(rows, { voiceGroups: { [key]: group }, displayMetadata: display }) });
+  assert.equal(result.status, 'source_frozen');
+  const input = JSON.parse(readFileSync(join(dir, result.input_file), 'utf8'));
+  assert.equal(input.schema, 'soulforge.history_input.v2');
+  assert.deepEqual(Object.keys(input.voice_groups), [key]); assert.equal(input.records.length, 2000);
+  // The whole compact day fits one bounded snapshot (the day packet digests it); the
+  // old per-line bookkeeping (~800 characters a line) would not.
+  assert.doesNotThrow(() => digest(input));
+  assert.throws(() => digest({ ...input, records: input.records.map(row => ({ ...row,
+    originrefs: [{ ...group, source_offsets: row.originrefs[0].source_offsets }] })) }), /knowledge_input_budget/);
+  const out = mkdtempSync(join(tmpdir(), 'history-prep-exchange-')); t.after(() => rmSync(out, { recursive: true, force: true }));
+  const displayMetadata = JSON.parse(readFileSync(join(dir, result.display_file), 'utf8'));
+  const prepared = prepareHistoryExchange({ input, outputRoot: out, rulesText: 'Synthetic rules v1', displayMetadata });
+  assert.equal(prepared.status, 'prepared'); assert.equal(prepared.packets[0].layer, 'daily');
+  // Re-reading the stored input verifies its piecewise digest; an unchanged rerun is a no-op.
+  const again = await prepareHistory({ ...options(dir, rows), collector: async () =>
+    collected(rows, { voiceGroups: { [key]: group }, displayMetadata: display }) });
+  assert.equal(again.input_file, result.input_file); assert.deepEqual(again.changed_days, []);
+});

@@ -327,7 +327,7 @@ test('mail without a thread id omits thread_ref (history input stays valid); per
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
-test('mail streams a month file larger than the byte budget; budgets bound only selected events', async () => {
+test('mail streams a month file larger than the byte budget; budgets bound only selected events; oversize is kept and marked', async () => {
   const f = await mailFixture();
   try {
     const filler = mail('unrouted', '2026-09-23T01:00:00Z', 'x'.repeat(60_000));
@@ -341,7 +341,11 @@ test('mail streams a month file larger than the byte budget; budgets bound only 
     const big = [mail('m1', '2026-09-23T10:00:00Z', 'y'.repeat(20_000))];
     await writeFile(path.join(f.year, '09.jsonl'), big.map(row => JSON.stringify(row)).join('\n') + '\n');
     small.config.max_bytes = 20_000_000;
-    await assert.rejects(readMailHistory(small), /mail_event_too_large/);
+    // A routed event over the per-record bound keeps its record, empty and marked oversize.
+    const over = await readMailHistory(small);
+    assert.equal(over.records.length, 1); assert.equal(over.records[0].text, '');
+    assert.equal(over.records[0].originrefs[0].oversize.reason, 'event_line_bytes');
+    assert.equal(over.receipt.counts.oversize, 1); assert.equal(over.records[0].title, '요청');
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

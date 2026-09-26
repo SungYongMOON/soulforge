@@ -4,7 +4,7 @@ import { openSourceRoot } from '../adapters/sources/guarded_files.mjs';
 import { parseSegments as parseVoiceSegments } from '../adapters/sources/voice_session_source.mjs';
 import { validateVoiceRouteLedger } from '../runtime/voice_routes.mjs';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
-import { hashText } from './data.mjs';
+import { digest, hashText } from './data.mjs';
 import { isAiWorkMemoRecord as isMemo } from './history.mjs';
 import { readMailHistory, readSlackHistory } from './history_mail_slack.mjs';
 import { SAME_DAY_ATTRIBUTION, matchSameDay, sameDayContext, sameDayEligible } from './history_voice_attribution.mjs';
@@ -124,7 +124,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
   const sessions = openSourceRoot(config.sessions_root), cardsRoot = openSourceRoot(config.cards_root);
   const routes = config.routes_root ? openSourceRoot(config.routes_root) : null;
   if (config.project_policy==='confirmed'&&!routes) fail('history_voice_routes_required');
-  const read = bounded(config), records = [], excluded = [], receipts = [], voiceSources = {};
+  const read = bounded(config), records = [], excluded = [], receipts = [], voiceRecordings = {}, voiceGroups = {};
   // Same-day rule counts: every eligible (no-candidate) segment in the window ends
   // in exactly one bucket, so the unattributed remainder is visible in the receipt.
   const sameDayOn = config.project_policy==='first_candidate' && sameDay?.own instanceof Map && sameDay?.peers instanceof Map;
@@ -261,18 +261,22 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
         if(!inWindow(utteranceTime,fromDate,throughDate))continue;
         // A same-day attribution holds only for its own day.
         if(reason&&kstDay(utteranceTime)!==day)continue;
-        const record=flatRecord(project,'voice_utterance',`${session.name}:${segment.segment_id}:${utterance.segment_id}`,utteranceTime,utterance.content,
-        String(segment.title??'녹음'), '발화자 미확인', [{source_kind:'voice',source_root:config.sessions_root,card_source_root:config.cards_root,
-          session_id:session.name,card_run_id:latest.run,
-          card_segment_id:segment.segment_id,card_sha256:latest.sha256,manifest_sha256:manifestRead.sha256,
-          transcript_sha256:transcript.sha256,transcript_path:transcriptPath,source_segment_ids:[utterance.segment_id],attribution:strength,
-          route_ledger_sha256:ledgerHash,...(reason?{attribution_reason:reason}:{}),
-          source_offsets:[[utterance.segment_id,utterance.start_seconds,utterance.end_seconds]],
-          derived_title_only:true,semantic_fact_verified:false}], {thread_ref:idFor('voice',`${session.name}:${segment.segment_id}`)});
-        record.id=`voice_utterance:${hashText(`${session.name}:${segment.segment_id}`).slice(7,23)}:${String(utterance.segment_id).padStart(8,'0')}`;
-        record.evidence_mode='source_id';
-        voiceSources[record.id]=voiceDisplay;
-        records.push(record);
+        // Input format v2: the recording/segment bookkeeping is stored once per
+        // segment in voice_groups under a content key; each line keeps only its
+        // text, its time range and that key.
+        const segmentKey=hashText(`${session.name}:${segment.segment_id}`).slice(7,23);
+        const group={source_kind:'voice',source_root:config.sessions_root,card_source_root:config.cards_root,
+          session_id:session.name,card_run_id:latest.run,card_segment_id:segment.segment_id,card_sha256:latest.sha256,
+          manifest_sha256:manifestRead.sha256,transcript_sha256:transcript.sha256,transcript_path:transcriptPath,
+          attribution:strength,route_ledger_sha256:ledgerHash,...(reason?{attribution_reason:reason}:{}),
+          segment_title:String(segment.title??'녹음'),derived_title_only:true,semantic_fact_verified:false};
+        const groupKey=digest(group).slice(7,23);
+        voiceGroups[groupKey]=group;
+        records.push({id:`voice_utterance:${segmentKey}:${String(utterance.segment_id).padStart(8,'0')}`,project,
+          date:kstDay(utteranceTime),kind:'voice_utterance',title:'',sender:'발화자 미확인',recipient:'미기록',attachments:[],
+          thread_ref:'voice:'+segmentKey,text:utterance.content,evidence_mode:'source_id',
+          originrefs:[{voice_group:groupKey,source_offsets:[[utterance.segment_id,utterance.start_seconds,utterance.end_seconds]]}]});
+        voiceRecordings[session.name]=voiceDisplay;
         if(reason)sameDayCounts.attributed_utterances++;
       }
     }
@@ -290,7 +294,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
     }
     if(!matched)fail('history_voice_cards_root_unmatched');
   }
-  return {records,displayMetadata:{voice_sources:voiceSources},receipt:{status:'ok',records:records.length,excluded:excluded.length,
+  return {records,voiceGroups,displayMetadata:{voice_recordings:voiceRecordings},receipt:{status:'ok',records:records.length,excluded:excluded.length,
     sessions_without_card:sessionsWithoutCard,...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
 }
 
@@ -323,7 +327,8 @@ async function sameDayContexts({project,fromDate,throughDate,records,displayMeta
 export async function collectHistorySources({project,fromDate,throughDate,sourceConfig}) {
   if(!safe(project)||sourceConfig?.project!==project)fail('history_source_project_mismatch');
   if(!/^\d{4}-\d{2}-\d{2}$/u.test(fromDate??'')||!/^\d{4}-\d{2}-\d{2}$/u.test(throughDate??'')||fromDate>throughDate)fail('history_source_window_invalid');
-  const records=[],displayMetadata={source_attachments:{},slack_names:{},person_names:{},source_body_sha256:{},voice_sources:{}},lanes={},excluded=[],sourceReceipts=[];
+  const records=[],displayMetadata={source_attachments:{},slack_names:{},person_names:{},source_body_sha256:{},voice_sources:{},voice_recordings:{}},lanes={},excluded=[],sourceReceipts=[];
+  const voiceGroups={};
   const readers={mail:readMailHistory,slack:readSlackHistory,linear:readLinearHistory,voice:readVoiceHistory};
   for(const [kind,reader] of Object.entries(readers)){
     if(!sourceConfig[kind]){lanes[kind]={status:'missing',records:0};continue;}
@@ -333,11 +338,11 @@ export async function collectHistorySources({project,fromDate,throughDate,source
         config:sourceConfig.voice.same_day_context}):null;
       const result=await reader({project,fromDate,throughDate,config:sourceConfig[kind],now:new Date().toISOString(),sameDay});
       records.push(...result.records);lanes[kind]=result.receipt;excluded.push(...(result.excluded??[]));
-      sourceReceipts.push(...(result.sourceReceipts??[]));
+      sourceReceipts.push(...(result.sourceReceipts??[]));Object.assign(voiceGroups,result.voiceGroups??{});
       for(const key of Object.keys(displayMetadata))Object.assign(displayMetadata[key],result.displayMetadata?.[key]??{});
     }catch(error){lanes[kind]={status:'error',code:/^[A-Za-z0-9_:-]{1,120}$/u.test(error?.code??error?.message??'')?(error.code??error.message):'history_source_read_failed',records:0};}
   }
   records.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
   if(new Set(records.map(r=>r.id)).size!==records.length)fail('history_source_duplicate_id');
-  return {records,displayMetadata,coverage:{lanes,excluded},sourceReceipts};
+  return {records,voiceGroups,displayMetadata,coverage:{lanes,excluded},sourceReceipts};
 }

@@ -30,7 +30,7 @@ AI 업무메모 종류/역할은 기존 정규화 경계에서 거부한다. 외
 PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 표시 metadata와 보존된 source refs에서 붙인다.
 작성자는 이 값을 새로 만들지 않는다. 후보 귀속·미확인 발화자·없는 정보는 표시한다.
 음성 근거 줄은 카드가 읽은 전사를 `PLAUD 전사`·`자체 전사`·`자체 전사(PLAUD 없음)`·`자체 전사(PLAUD 사용 불가)`(PLAUD 모드에서 whisper로 대체)로
-적는다. whisper·plaud 밖의 출처 값은 `전사 출처 미상`이다. 값은 표시 metadata(`voice_sources.transcript_source`·`transcript_fallback`)에만 있고 입력 record·지문에는 넣지 않는다.
+적는다. whisper·plaud 밖의 출처 값은 `전사 출처 미상`이다. 값은 표시 metadata(녹음별 `voice_recordings.<session>`, 옛 입력은 `voice_sources.<id>`의 `transcript_source`·`transcript_fallback`)에만 있고 입력 record·지문에는 넣지 않는다.
 선언이 없는 옛 카드는 `자체 전사`다. PLAUD 카드(`transcript.source: "plaud"`)는 세션 루트 `transcript.jsonl`을 읽는다.
 보는 판은 같은 칸 안에서 근거 번호 집합(원천·하위 기록)이 똑같은 문장을 첫 문장 자리의 한 문단으로 묶고
 근거 줄을 한 번만 보인다. 한 문단은 6문장·600자를 넘지 않으며 넘치면 다음 같은 근거 문장부터 새 문단이다. 근거가 다르거나 없거나 검토 표시가 있는 문장은 따로 둔다. 저장 cell·초안·지문은 그대로다.
@@ -66,6 +66,14 @@ AI 메모 제외, 원천 해시, 읽기 한도, 네 원천의 누락/오류 차�
 
 준비 기준판은 **고정한 원천 입력**만 가리키며 초안 작성 완료를 뜻하지 않는다. `source_frozen`은 항상
 input_file을 돌려준다. 원천 변경일이 비어 있어도 이력 `--prepare`는 최종 작성된 cell 지문으로 미작성 칸을 판단한다.
+
+입력 형식 v2(`schema: soulforge.history_input.v2`): 음성 녹음·구간의 장부(세션·카드·전사 해시와 경로, 귀속과 이유,
+구간 제목)는 구간마다 한 번 `voice_groups`에 두고, 키는 그 항목 digest의 앞 16자다. 발화 한 줄에는 id·날짜·본문·
+`{voice_group, source_offsets}`만 남아 줄의 digest가 구간 장부 내용을 덮는다. 월 입력은 record와 group을 하나씩 bounded
+snapshot으로 만든 뒤 같은 정렬 JSON으로 이어 저장하고(파일 20MB 한도 유지), 입력 지문과 원천 스냅숏은 record digest 목록의
+해시로 만든다. 일별 packet은 그날 record를 싣지 않고 `{records_sha256, record_count}`로 가리키며 record는 packet이 고정한
+같은 입력에서 읽는다. 공용 한도(`data.mjs` 500k 글자·60k 노드)는 바꾸지 않았다. 한 메일이 한 record 한도(본문 40만 자·
+사건 줄 `max_line_bytes`)를 넘으면 빈 본문과 `oversize` 표시로 record·근거 줄을 남기고 센다.
 새 빈 날짜는 `no_sources`로 보고하고, 기존 자료를 빈 입력으로 조용히 지우지 않는다.
 이 단계도 모델·봇·운영 설정·DB·예약 작업을 실행하거나 바꾸지 않는다. 프로필은 외부 실행 담당자가 구성한다.
 

@@ -3,14 +3,32 @@
 import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { digest, snapshot, token } from './data.mjs';
-import { historyInputFingerprint } from './history.mjs';
+import { digest, hashText, snapshot, token } from './data.mjs';
+import { HISTORY_INPUT_SCHEMA, historyInputFingerprint } from './history.mjs';
 
 const SCHEMA = 'soulforge.history_prepare.v1';
 const LANES = ['mail', 'slack', 'linear', 'voice'];
 const fail = code => { throw new Error(code); };
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const serial = value => JSON.stringify(snapshot(value));
+// The month input is serialized piecewise: every record and every voice group is
+// snapshotted on its own (each within the shared plain-data budget) and the
+// canonical pieces are joined in the same sorted-key JSON a whole snapshot would
+// give. No single snapshot spans the month; the file size bound still applies.
+const INPUT_KEYS = ['as_of', 'month', 'project', 'records', 'schema', 'voice_groups'];
+function serialInput(value) {
+  if (!plain(value) || Object.keys(value).some(key => !INPUT_KEYS.includes(key)) || !Array.isArray(value.records)
+    || (value.voice_groups !== undefined && !plain(value.voice_groups))) fail('history_prepare_input_invalid');
+  const parts = [];
+  for (const key of Object.keys(value).sort()) {
+    if (key === 'records') parts.push('"records":[' + value.records.map(serial).join(',') + ']');
+    else if (key === 'voice_groups') parts.push('"voice_groups":{' + Object.keys(value.voice_groups).sort()
+      .map(group => JSON.stringify(group) + ':' + serial(value.voice_groups[group])).join(',') + '}');
+    else parts.push(JSON.stringify(key) + ':' + serial(value[key]));
+  }
+  return '{' + parts.join(',') + '}';
+}
+const serialFor = kind => kind === 'input' ? serialInput : serial;
 function validDate(day) {
   return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(day)
     && !Number.isNaN(Date.parse(day + 'T00:00:00Z'))
@@ -40,22 +58,22 @@ function storeFor(root, project, month) {
     if (!existsSync(file)) return null; if (lstatSync(file).size > max) fail('history_prepare_entry_large');
     return JSON.parse(readFileSync(file, 'utf8'));
   }
-  function writeNew(name, value) {
-    const file = path(name), bytes = serial(value) + '\n';
+  function writeNew(name, value, serialize = serial) {
+    const file = path(name), bytes = serialize(value) + '\n';
     if (Buffer.byteLength(bytes) > 20_000_000) fail('history_prepare_entry_large');
     let fd;
     try { fd = openSync(file, 'wx'); writeFileSync(fd, bytes); }
-    catch (error) { if (error.code !== 'EEXIST' || serial(read(name)) !== serial(value)) throw error; }
+    catch (error) { if (error.code !== 'EEXIST' || serialize(read(name)) !== serialize(value)) throw error; }
     finally { if (fd !== undefined) closeSync(fd); }
   }
   function contentFile(kind, value) {
-    const name = `history-prepare-${kind}-${digest(value).slice(7)}.json`;
-    writeNew(name, value); return name;
+    const name = `history-prepare-${kind}-${hashText(serialFor(kind)(value)).slice(7)}.json`;
+    writeNew(name, value, serialFor(kind)); return name;
   }
   function readContent(kind, name) {
     if (typeof name !== 'string' || !new RegExp(`^history-prepare-${kind}-[0-9a-f]{64}\\.json$`, 'u').test(name))
       fail('history_prepare_ref_invalid');
-    const value = read(name); if (!value || digest(value).slice(7) !== name.slice(`history-prepare-${kind}-`.length, -5))
+    const value = read(name); if (!value || hashText(serialFor(kind)(value)).slice(7) !== name.slice(`history-prepare-${kind}-`.length, -5))
       fail('history_prepare_ref_corrupt');
     return value;
   }
@@ -83,7 +101,7 @@ function dayFingerprints(records) {
 function mergeDisplay(previous, incoming, scannedIds) {
   const prior = plain(previous) ? snapshot(previous) : {}, next = plain(incoming) ? snapshot(incoming) : {};
   const merged = {};
-  for (const field of ['source_attachments', 'source_body_sha256', 'slack_names', 'person_names', 'voice_sources']) {
+  for (const field of ['source_attachments', 'source_body_sha256', 'slack_names', 'person_names', 'voice_sources', 'voice_recordings']) {
     const oldMap = plain(prior[field]) ? prior[field] : {}, newMap = plain(next[field]) ? next[field] : {};
     const keep = Object.fromEntries(Object.entries(oldMap).filter(([key]) =>
       !['source_attachments', 'source_body_sha256', 'voice_sources'].includes(field) || !scannedIds.has(key)));
@@ -158,7 +176,14 @@ export async function prepareHistory({ project, date, fromDate, sourceConfig, ou
         history_calls: 0, stages: ['source_collect', 'coverage_gate', 'no_sources'] };
     }
     if (!records.length || new Set(records.map(row => row.id)).size !== records.length) fail('history_prepare_empty_or_duplicate');
-    const input = { project, month, as_of: target, records };
+    // Voice groups: those the kept (prior) records name, then the fresh ones.
+    const groups = { ...(plain(priorInput?.voice_groups) ? priorInput.voice_groups : {}),
+      ...(plain(collected.voiceGroups) ? collected.voiceGroups : {}) };
+    const named = new Set(records.flatMap(row => (row.originrefs ?? []).map(ref => ref?.voice_group).filter(Boolean)));
+    const voiceGroups = Object.fromEntries([...named].sort().map(key => [key, groups[key]]));
+    if ([...named].some(key => !plain(groups[key]))) fail('history_prepare_voice_group_missing');
+    const input = { schema: HISTORY_INPUT_SCHEMA, project, month, as_of: target, records,
+      ...(named.size ? { voice_groups: voiceGroups } : {}) };
     const historyFingerprint = historyInputFingerprint(input); // includes direct S1 memo guard
     const displayMetadata = mergeDisplay(priorDisplay, collected.displayMetadata, scannedIds);
     const oldDays = dayFingerprints(priorInput?.records ?? []), newDays = dayFingerprints(records);
@@ -169,14 +194,14 @@ export async function prepareHistory({ project, date, fromDate, sourceConfig, ou
     const targetHasSource = records.some(row => row.date === target);
     const processingDates = [...new Set([...distinctChangedDays, ...(targetHasSource ? [target] : [])])].sort();
     const coverage = snapshot(collected.coverage), sourceReceipts = snapshot(collected.sourceReceipts ?? []);
-    const sourceSnapshot = digest({ record_hashes: fresh.map(row => digest(row)), coverage, sourceReceipts,
+    const sourceSnapshot = digest({ records_sha256: hashText(fresh.map(row => digest(row)).join('\n')), coverage, sourceReceipts,
       display_sha256: digest(displayMetadata) });
     store.ensureScope();
     const inputFile = store.contentFile('input', input), displayFile = store.contentFile('display', displayMetadata);
     const receipt = { schema: SCHEMA, status: 'source_frozen', project, month, from_date: from, through_date: target,
       requested_days: [target], changed_days: distinctChangedDays, processing_dates: processingDates,
       source_counts: sourceCounts(fresh), coverage, source_receipts: sourceReceipts,
-      source_snapshot_sha256: sourceSnapshot, input_sha256: digest(input),
+      source_snapshot_sha256: sourceSnapshot, input_sha256: hashText(serialInput(input)),
       display_sha256: digest(displayMetadata), history_input_fingerprint: historyFingerprint };
     const receiptFile = store.contentFile('receipt', receipt);
     const base = { project, month, requested_days: [target], changed_days: distinctChangedDays,
