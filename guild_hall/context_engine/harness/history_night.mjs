@@ -198,6 +198,14 @@ export function acquireNightLock(receiptsDir, { now, isPidAlive = defaultIsPidAl
   if (!aged && !dead) return { acquired: false, reason: 'history_night_lock_held', file };
   const aside = `${file}.stale-${randomUUID()}`;
   try { renameSync(file, aside); } catch { return { acquired: false, reason: 'history_night_lock_held', file }; }
+  // The lock may have been replaced between the read and the rename; only the
+  // exact lock that was judged stale may be healed. Otherwise put it back.
+  let moved = null;
+  try { moved = JSON.parse(readFileSync(aside, 'utf8')); } catch { moved = null; }
+  if (!plain(moved) || moved.pid !== held.pid || moved.started_at !== held.started_at || moved.token !== held.token) {
+    try { if (!existsSync(file)) renameSync(aside, file); } catch { /* left aside; still treated as held */ }
+    return { acquired: false, reason: 'history_night_lock_held', file };
+  }
   try { take(); } catch (error) {
     if (error?.code === 'EEXIST') return { acquired: false, reason: 'history_night_lock_held', file };
     throw error;

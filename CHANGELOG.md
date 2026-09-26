@@ -5,6 +5,7 @@
 - 이력 원천 준비에서 과제 후보가 없는 검증된 음성 카드 구간을, 그날 그 과제의 서면 자료(메일·Slack·Linear)가 있고 발화 원문이나 녹음 원제목이 과제 용어(과제 코드+설정 `project_terms`) 또는 그날 서면 자료 참여자 이름과 글자로 일치할 때만 그 과제 이력에 넣는다. 귀속은 `weak_same_day_context`, 이유(규칙·일치 종류·용어·위치)는 source ref에 남고 근거 줄에 `(귀속 약함)`으로 보인다. 모델 호출은 없다.
 - 일치하지 않거나 서면 자료가 없는 날의 구간은 넣지 않고 voice 영수증 `same_day`에 개수로 남긴다. 새로 귀속된 음성이 없는 날의 record·지문은 바뀌지 않는다. `same_day_context: false`로 끈다.
 - 보는 판 문단은 6문장·600자를 넘지 않게 순서대로 나눈다. 전사 표시에 `자체 전사(PLAUD 사용 불가)`를 더하고, whisper·plaud 밖의 전사 출처는 `전사 출처 미상`으로 보인다.
+- 야간 이력 단계 lock 회복은 옆으로 옮긴 lock을 다시 읽어, 판단한 lock(pid·시작 시각·token)과 다르면 되돌리고 잡힌 것으로 본다.
 - 운영 영향: 예약·기본 route·운영 writer는 변경하지 않는다.
 - 관련 경로: `guild_hall/context_engine/src/knowledge_layer/history_voice_attribution.mjs`, `guild_hall/context_engine/src/knowledge_layer/history_sources.mjs`, `guild_hall/context_engine/src/knowledge_layer/history.mjs`.
 

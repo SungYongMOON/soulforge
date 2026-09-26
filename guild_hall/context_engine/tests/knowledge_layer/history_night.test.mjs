@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EXIT, LOCK_FILE_NAME, historyNightCli } from '../../harness/history_night.mjs';
+import { EXIT, LOCK_FILE_NAME, acquireNightLock, historyNightCli } from '../../harness/history_night.mjs';
 import { prepareHistoryExchange } from '../../src/knowledge_layer/history_exchange.mjs';
 
 const lanes = () => Object.fromEntries(['mail', 'slack', 'linear', 'voice']
@@ -291,4 +291,22 @@ test('the default writer kills the whole process tree on timeout and reports ETI
   assert.deepEqual(killed, [4242]);
   assert.deepEqual(result, { exit_code: null, stdout: '', error_code: 'ETIMEDOUT', timed_out: true });
   assert.deepEqual(spawned[0].slice(0, 5), ['-p', 'history-writer', 'chat', '-Q', '--query-file']);
+});
+
+test('lock heal re-checks the moved lock and puts back a lock replaced after it was read', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'history-night-lock-synthetic-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, LOCK_FILE_NAME);
+  writeFileSync(file, JSON.stringify({ pid: 424242, started_at: '2026-09-24T17:30:00Z', token: 'stale' }));
+  const live = JSON.stringify({ pid: 434343, started_at: '2026-09-24T17:31:00Z', token: 'live' });
+  // The stale owner is judged dead, but a live run replaces the lock before the rename.
+  const result = acquireNightLock(dir, { now: '2026-09-24T17:32:00Z',
+    isPidAlive: () => { writeFileSync(file, live); return false; } });
+  assert.equal(result.acquired, false); assert.equal(result.reason, 'history_night_lock_held');
+  assert.equal(readFileSync(file, 'utf8'), live);
+  assert.deepEqual(readdirSync(dir), [LOCK_FILE_NAME]);
+  // The unchanged stale lock is still healed.
+  const healed = acquireNightLock(dir, { now: '2026-09-24T17:32:00Z', isPidAlive: () => false });
+  assert.equal(healed.acquired, true); assert.equal(healed.healed, 'owner_dead');
+  assert.deepEqual(readdirSync(dir), [LOCK_FILE_NAME]);
 });

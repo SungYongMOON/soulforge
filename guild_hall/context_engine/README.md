@@ -24,7 +24,7 @@
 lock `history-night.lock`은 소유 pid가 죽었거나 3시간(마감이 있으면 8시간 이상) 지났을 때만 옆으로 옮긴 뒤 새로 잡는다.
 영수증 `history-night-*.json`(`soulforge.history_night_receipt.v1`, 수·상태·시도 시간·응답 지문만, 본문 없음).
 종료 코드 0 OK · 2 FAILED · 3 LOCK_HELD · 4 SKIPPED_PAST_DEADLINE · 5 CONFIG_INVALID · 6 PARTIAL(다음 밤으로 남긴 일 있음).
-lane spec `guild_hall/deployment_pack/lanes/history_night_lane.spec.json`(`history-night-v1`, 폐포 23파일, node 내장만).
+lane spec `guild_hall/deployment_pack/lanes/history_night_lane.spec.json`(`history-night-v1`, 폐포 24파일, node 내장만).
 시험 `tests/knowledge_layer/history_night.test.mjs`(합성 자료·가짜 작성자 17건). 예약·lane 설치·밤 사슬 설정 변경은 하지 않는다.
 과제별 `output_root`는 과제 저장소의 `<data_root>/20_PROJECTS/<project-ref>/30_프로젝트맥락/이력`이다(Owner 결정 2026-09-26, 레이아웃 `project-context-template-v2`). 이 단계가 그 폴더의 유일한 writer이며 첫 쓰기에서 `<YYYY-MM>/`을 만든다. `work_root`(원문이 든 질의 캐시)는 과제 저장소 밖 private 자리에 둔다.
 
