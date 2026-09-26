@@ -25,7 +25,7 @@ import {
   checkCorrection, checkNature, classifyClues, finalChecks, mergeDrafts, mergeNatureWindows, partialWindows,
   clueQuery, isStoplisted, looksLikeAnswer, looksLikeQuestion, loopUnitRatio, qaBoundarySuspects,
   occurrenceCounter, qualityReport, readPipelineConfig, recurringTokens, relatedByKeyTerms,
-  selectEvidenceHits, singleSegmentSuspect,
+  namesAProject, selectEvidenceHits, singleSegmentSuspect,
   renderConversationTable, repeatRuns, repetitionRatio,
   rulesCoverage, runIdFor, searchableClues, secondsFromMilliseconds, segmentsNeedingRejudgement,
   stitchBoundaries, wholeMilliseconds,
@@ -407,7 +407,7 @@ test('a nature answer is checked against the text it claims to summarise', () =>
     key_terms: ['가대', { term: '도면', kind: 'nonsense' }] }, { text: '가대 도면' });
   assert.deepEqual(untyped.key_terms_typed, [{ term: '가대', kind: 'other' }, { term: '도면', kind: 'other' }],
     'an untyped or unknown kind is `other`, not a refusal: the word was still said');
-  assert.equal(checkNature({ nature: 'project_work', title: 'AB-123 도면 확인', description: '', key_terms: [] },
+  assert.equal(checkNature({ nature: 'project_work', title: 'P99-123 도면 확인', description: '', key_terms: [] },
     { text }).code, 'nature_title_names_a_project',
   'naming a project is step 4, which has evidence rules this step does not');
   assert.equal(checkNature({ nature: 'meeting', title: 't', description: '', key_terms: [] }, { text }).code,
@@ -424,6 +424,29 @@ test('a nature answer is checked against the text it claims to summarise', () =>
     { text, speechActs: ['deadline_mention'] });
   assert.deepEqual([chatty.nature, chatty.marks], ['mixed', ['personal_with_material_acts']],
     'a deadline in it means it is not only small talk');
+});
+
+test('a hardware word with a hyphen is not a project code, and a real project code still is', () => {
+  const text = '전원 보드 점검';
+  for (const title of ['DC-DC 컨버터 점검', 'RS-422 배선 확인', 'J-FET 소자 교체', 'J-TAG 디버깅 순서']) {
+    const answer = checkNature({ nature: 'project_work', title, description: '', key_terms: [] }, { text });
+    assert.equal(answer.ok, true, `${title} is an ordinary hardware title`);
+    assert.equal(namesAProject(title), false);
+  }
+  for (const title of ['P99-123 보드 점검', 'D1-99-001 회의', '보드(P99-123)']) {
+    assert.equal(checkNature({ nature: 'project_work', title, description: '', key_terms: [] }, { text }).code,
+      'nature_title_names_a_project', `${title} carries a project code`);
+  }
+  assert.equal(namesAProject('P99-1234 보드'), false, 'a longer number is not the code shape');
+  // A code the run opened is refused even when its shape is not one of the two.
+  assert.equal(namesAProject('S00-001 도면'), false);
+  assert.equal(namesAProject('S00-001 도면', ['S00-001']), true);
+  assert.equal(namesAProject('XS00-001 도면', ['S00-001']), false, 'only as a whole token');
+  assert.equal(checkNature({ nature: 'project_work', title: 'S00-001 도면', description: '', key_terms: [] },
+    { text, projectCodes: ['S00-001'] }).code, 'nature_title_names_a_project');
+  const agenda = checkAgenda([{ label: 'DC-DC 점검', source_segment_ids: [1] },
+    { label: 'S00-001 건', source_segment_ids: [2] }], { segmentIds: [1, 2], projectCodes: ['S00-001'] });
+  assert.deepEqual(agenda.items.map(item => item.label), ['DC-DC 점검']);
 });
 
 test('a long conversation is answered in windows and the windows are put back together', () => {
@@ -844,7 +867,7 @@ test('the agenda of a long conversation is checked against the conversation it c
     { label: '도면 확인', source_segment_ids: [1, 2] },
     { label: '일정 조율', source_segment_ids: [3, 4] },
     { label: '이 구간 밖', source_segment_ids: [99] },
-    { label: 'AB-123 건', source_segment_ids: [5] },
+    { label: 'P99-123 건', source_segment_ids: [5] },
     { label: '거꾸로', source_segment_ids: [6, 5] },
     { label: '겹침', source_segment_ids: [2, 3] }], { segmentIds: ids });
   assert.deepEqual(answer.items.map(item => item.label), ['도면 확인', '일정 조율']);
@@ -909,8 +932,13 @@ test('the checks say what is wrong instead of hiding it', () => {
 
   const lost = finalChecks({ segments: [good[0]], rows });
   assert.equal(lost.find(check => check.check === 'every_utterance_in_one_conversation').status, 'failed');
-  const named = finalChecks({ segments: [good[0], { ...good[1], title: 'AB-123 케이블' }], rows });
+  const named = finalChecks({ segments: [good[0], { ...good[1], title: 'P99-123 케이블' }], rows });
   assert.equal(named.find(check => check.check === 'no_project_code_in_a_title').status, 'failed');
+  const hardware = finalChecks({ segments: [good[0], { ...good[1], title: 'RS-422 케이블' }], rows });
+  assert.equal(hardware.find(check => check.check === 'no_project_code_in_a_title').status, 'ok');
+  const listed = finalChecks({ segments: [good[0], { ...good[1], title: 'S00-001 케이블' }], rows,
+    projectCodes: ['S00-001'] });
+  assert.equal(listed.find(check => check.check === 'no_project_code_in_a_title').status, 'failed');
   const decided = finalChecks({ segments: [good[0], { ...good[1], status: 'confirmed' }], rows });
   assert.equal(decided.find(check => check.check === 'nothing_confirmed_by_a_pipeline').status, 'failed');
   assert.equal(decided.find(check => check.check === 'every_conversation_has_a_nature_and_a_status').status, 'failed');
@@ -1037,6 +1065,36 @@ test('a suspect Q/A boundary is merged, kept or left suspect by what the recheck
     assert.equal(list.segments[0].boundary.qa_boundary, verdict === 'same_conversation' ? 'merged' : 'suspect',
       'an unresolved suspicion stays on the record rather than being resolved by merging');
   }
+});
+
+test('suspect Q/A boundaries past the recheck limit are a counted mark, not leftover work', async () => {
+  // Two suspect boundaries (1-3 | 4 and 4 | 5-6) and a limit of one recheck.
+  const units = [unitOf('unit_1_3', [1, 2, 3], ['open_question']),
+    unitOf('unit_4_4', [4], ['commitment', 'open_question']),
+    unitOf('unit_5_6', [5, 6], ['acknowledgement'], 'context_only')];
+  const dirs = await estate({ units });
+  const config = JSON.parse(await readFile(dirs.configPath, 'utf8'));
+  await writeFile(dirs.configPath, JSON.stringify({ ...config, limits: { ...config.limits, qa_rechecks: 1 } }));
+  const split = user => ({ segments: [[1, 2, 3], [4], [5, 6]].map((ids, index) => ({ draft_id: `d${index + 1}`,
+    source_segment_ids: ids.filter(id => idsInUser(user).includes(id)), boundary_reason: 'topic_shift' })) });
+  let rechecks = 0;
+  const answer = await run(dirs, ({ step, user }) => {
+    if (step === 'boundary') return split(user);
+    if (step === 'boundary_recheck') { rechecks += 1; return { verdict: 'separate', reason: 'r' }; }
+    return plainScript({ step, user });
+  });
+  const manifest = JSON.parse(await readFile(path.join(answer.directory, 'run_manifest.json'), 'utf8'));
+  assert.equal(manifest.boundary.qa_suspects, 2);
+  assert.equal(rechecks, 1, 'the limit held');
+  assert.equal(manifest.boundary.qa_still_suspect, 2);
+  assert.deepEqual(manifest.remaining_work, [], 'a limit met every pass is not work a later pass would do');
+  assert.deepEqual(manifest.marks, [{ step: 'boundary_recheck', item: 'qa_suspects', reason: 'qa_recheck_budget',
+    count: 1, limit: 1 }]);
+  assert.equal(answer.verified, true);
+  const list = JSON.parse(await readFile(path.join(answer.directory, 'conversation_list.v0.json'), 'utf8'));
+  assert.deepEqual(list.marks, manifest.marks, 'the mark travels with the card');
+  assert.deepEqual(list.segments.map(row => row.boundary.qa_boundary), ['suspect', 'suspect', 'none'],
+    'and each unrechecked boundary still says it is suspect');
 });
 
 test('a big window answered as one conversation is re-asked, and the split answer is taken', async () => {
@@ -1184,6 +1242,14 @@ test('a run that spends its budget writes what it has, says what is left, and is
     'a run that ran out of calls still accounts for every utterance');
   const manifest = JSON.parse(await readFile(path.join(answer.directory, 'run_manifest.json'), 'utf8'));
   assert.equal(manifest.calls.budget_exhausted, true);
+  // A call the session refused never reached the model, so it is not a call.
+  assert.equal(manifest.calls.total, 1, 'the one call the budget allowed');
+  assert.equal(manifest.calls.total, manifest.trace.filter(row => row.status !== 'budget_exhausted').length);
+  assert.equal(manifest.calls.calls_refused_over_budget,
+    manifest.trace.filter(row => row.status === 'budget_exhausted').length);
+  assert.ok(manifest.calls.calls_refused_over_budget > 0);
+  assert.equal(manifest.passes.at(-1).calls, 1);
+  assert.equal(manifest.passes.at(-1).calls_refused_over_budget, manifest.calls.calls_refused_over_budget);
 });
 
 test('the same recording run twice asks the model nothing the second time', async () => {

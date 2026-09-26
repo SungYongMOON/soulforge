@@ -527,7 +527,7 @@ test('a rejected agent answer produces a NEW pending request carrying the re-ask
   // rejected by the runtime's own semantic rule on the very next `step`.
   const natureRequest = JSON.parse(readFileSync(natureHeader.REQUEST_FILE, 'utf8'));
   const badTitleValue = { segments: segmentIdsInUser(natureRequest.user).map(id => ({ segment_id: id,
-    nature: 'project_work', title: 'AB-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
+    nature: 'project_work', title: 'P99-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
   await answerPending(natureHeader, badTitleValue);
 
   const reaskStep = await runVoiceConversationAgentStepCli(['step', ...baseArgs(dirs), '--session', SESSION], { now: NOW });

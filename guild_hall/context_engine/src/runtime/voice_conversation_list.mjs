@@ -52,7 +52,7 @@ export const BOUNDARY_REASONS = Object.freeze(['topic_shift', 'speaker_turn_clus
   'return_to_topic', 'unreadable_block', 'rules_uncovered']);
 /** Reasons a code, rather than the model, put on a boundary. */
 export const CODE_BOUNDARY_REASONS = Object.freeze(['overlap_conflict', 'attached_by_code',
-  'single_segment_window', 'related_by_key_terms']);
+  'single_segment_window', 'related_by_key_terms', 'rules_fallback']);
 export const BASIS_KINDS = Object.freeze(['equipment', 'board', 'purpose', 'test_condition', 'deliverable',
   'follow_up_record']);
 /**
@@ -161,7 +161,29 @@ export const SINGLE_SEGMENT_UTTERANCES = 40;
 export const singleSegmentSuspect = (window, segments) => segments.length === 1
   && window.units.length >= SINGLE_SEGMENT_UNITS && window.segment_ids.length >= SINGLE_SEGMENT_UTTERANCES;
 
-const PROJECT_CODE_ANYWHERE = /\b[A-Z][0-9A-Z]*-[0-9A-Z]+\b/u;
+/**
+ * A project code written into a title or an agenda label.
+ *
+ * Only the two shapes projects are actually given are matched -- the formal
+ * `P26-014` and the internal `D1-26-001` (`FORMAL_CODE`/`INTERNAL_CODE` in
+ * `.workflow/development_team1_project_bootstrap_v0/tools/project_bootstrap_preflight.mjs`)
+ * -- plus any code the caller passes as one it actually opened. Earlier this
+ * was any capitalised hyphenated token, which also refused ordinary hardware
+ * words (`DC-DC`, `RS-422`, `J-FET`, `J-TAG`), and a cached answer carrying one
+ * was replayed and refused on every pass. Every string refused here the earlier
+ * pattern refused too, so nothing it accepted is refused now.
+ */
+const PROJECT_CODE_ANYWHERE = /(?<![0-9A-Za-z_])(?:P[0-9]{2}-[0-9]{3}|D1-[0-9]{2}-[0-9]{3})(?![0-9A-Za-z_])/u;
+const LISTED_PROJECT_CODE = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
+/** Whether `text` names a project: a real code shape, or one of `projectCodes` as a whole token. */
+export function namesAProject(text, projectCodes = []) {
+  const value = String(text ?? '');
+  if (PROJECT_CODE_ANYWHERE.test(value)) return true;
+  // A listed code is letters, digits and hyphens only (checked), so it needs no escaping.
+  return (Array.isArray(projectCodes) ? projectCodes : [])
+    .filter(code => typeof code === 'string' && LISTED_PROJECT_CODE.test(code))
+    .some(code => new RegExp(`(?<![0-9A-Za-z_])${code}(?![0-9A-Za-z_])`, 'u').test(value));
+}
 const TITLE_CHARACTERS = 40, DESCRIPTION_CHARACTERS = 200;
 /** How many agenda items one conversation may be said to hold, and how long a label may be. */
 export const AGENDA_ITEMS = 6, AGENDA_LABEL_CHARACTERS = 40;
@@ -699,7 +721,8 @@ export const NATURE_REJECTION_CODES = Object.freeze(['nature_shape_invalid', 'na
  * make out is `unreadable` whatever it looked like, and one that assigns work or
  * names a deadline is not `personal` however chatty it sounded.
  */
-export function checkNature(answer, { text, unreadableRatio = 0, speechActs = [], segmentIds = [] } = {}) {
+export function checkNature(answer, { text, unreadableRatio = 0, speechActs = [], segmentIds = [],
+  projectCodes = [] } = {}) {
   if (!plain(answer)) return { ok: false, code: 'nature_shape_invalid' };
   const marks = [];
   let nature = answer.nature;
@@ -708,7 +731,7 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
   const description = String(answer.description ?? '').trim();
   if (codePoints(title).length > TITLE_CHARACTERS) return { ok: false, code: 'nature_title_too_long' };
   if (codePoints(description).length > DESCRIPTION_CHARACTERS) return { ok: false, code: 'nature_description_too_long' };
-  if (PROJECT_CODE_ANYWHERE.test(title)) return { ok: false, code: 'nature_title_names_a_project' };
+  if (namesAProject(title, projectCodes)) return { ok: false, code: 'nature_title_names_a_project' };
   // A key term arrives typed: what it names is what decides whether a search may
   // use it. An untyped or unknown kind is `other`, which is searched last rather
   // than refused -- the model not knowing what a word names is not a reason to
@@ -726,7 +749,7 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
     nature = 'mixed';
     marks.push('personal_with_material_acts');
   }
-  const agenda = checkAgenda(answer.agenda, { segmentIds });
+  const agenda = checkAgenda(answer.agenda, { segmentIds, projectCodes });
   if (agenda.dropped.length > 0) marks.push('agenda_items_dropped');
   // One item covering the whole conversation is the title written twice. It is
   // not refused -- a conversation really can hold one subject -- but a reader
@@ -755,13 +778,13 @@ export function checkNature(answer, { text, unreadableRatio = 0, speechActs = []
  * another item or carries a project code is dropped rather than repaired: a
  * repaired agenda is this module deciding what the conversation was about.
  */
-export function checkAgenda(items, { segmentIds = [], limit = AGENDA_ITEMS } = {}) {
+export function checkAgenda(items, { segmentIds = [], limit = AGENDA_ITEMS, projectCodes = [] } = {}) {
   const allowed = new Set(segmentIds);
   const kept = [], dropped = [];
   for (const item of Array.isArray(items) ? items : []) {
     const label = String(item?.label ?? '').trim();
     const ids = Array.isArray(item?.source_segment_ids) ? [...item.source_segment_ids] : [];
-    const bad = !label || codePoints(label).length > AGENDA_LABEL_CHARACTERS || PROJECT_CODE_ANYWHERE.test(label)
+    const bad = !label || codePoints(label).length > AGENDA_LABEL_CHARACTERS || namesAProject(label, projectCodes)
       || ids.length === 0 || !ids.every(id => Number.isSafeInteger(id) && allowed.has(id))
       || !ids.every((id, index) => index === 0 || id > ids[index - 1]);
     if (bad) { dropped.push({ label, code: 'agenda_item_invalid' }); continue; }
@@ -1326,7 +1349,7 @@ export function segmentsNeedingRejudgement(segments, { correctedTextOf }) {
  * sets `verified: false` and says which check failed, because a list nobody can
  * see is not safer than one that says what is wrong with it.
  */
-export function finalChecks({ segments, rows, suppressedSegmentIds = [], coverage = null } = {}) {
+export function finalChecks({ segments, rows, suppressedSegmentIds = [], coverage = null, projectCodes = [] } = {}) {
   const checks = [];
   const record = (check, ok, detail) => checks.push({ check, status: ok ? 'ok' : 'failed', detail });
   const present = new Set(rows.map(row => row.segment_id));
@@ -1342,7 +1365,7 @@ export function finalChecks({ segments, rows, suppressedSegmentIds = [], coverag
   const judged = segments.every(segment => NATURES.includes(segment.nature)
     && ['candidate', 'unclassified'].includes(segment.status));
   record('every_conversation_has_a_nature_and_a_status', judged, `구간 ${segments.length}`);
-  const naming = segments.filter(segment => PROJECT_CODE_ANYWHERE.test(String(segment.title ?? '')));
+  const naming = segments.filter(segment => namesAProject(segment.title, projectCodes));
   record('no_project_code_in_a_title', naming.length === 0, `제목에 과제 코드 ${naming.length}건`);
   const confirmed = segments.filter(segment => segment.status === 'confirmed');
   record('nothing_confirmed_by_a_pipeline', confirmed.length === 0, `confirmed ${confirmed.length}건`);

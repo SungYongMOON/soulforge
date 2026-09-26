@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-09-26 - 대화 목록 미검증 고착 세 이유 정리
+
+- 제목·안건 이름의 과제 코드 판정은 실제 형식(`P00-000`, `D1-00-000`)과 그 run이 연 과제 코드만 본다. `DC-DC`·`RS-422` 같은 부품 용어는 더 이상 거부되지 않는다.
+- 재질문 2회 뒤에도 거부된 경계를 규칙 경계로 대신하거나 Q/A 재확인 한도를 넘으면, `remaining_work` 대신 `marks`에 이유를 남긴다. 규칙 경계는 그 창의 발화를 빠짐없이 덮는 경우에만 쓴다. 호출 실패는 전처럼 남은 일로 둔다.
+- 예산 초과로 거절된 호출은 `calls.total`에서 빼고 `calls_refused_over_budget`로 센다.
+- 운영 영향: run id·캐시 키·프롬프트·설정은 바뀌지 않는다. 예약작업과 운영 lane은 바꾸지 않았다.
+- 관련 경로: `guild_hall/context_engine/src/runtime/voice_conversation_list.mjs`, `guild_hall/context_engine/harness/voice_conversation_list_cli.mjs`.
+
 ## 2026-09-26 - 이력에서 빠진 것 보이기
 
 - 크기 초과 메일은 본문 대신 `[본문 크기 초과·미포함]` 표시를 작성자 입력에 싣고 근거 줄에 `본문 크기 초과·미포함`을 붙인다. 보는 판 머리에 코드가 만든 `수집 현황` 한 줄(녹음 카드 없음·보류 Slack·수집 전 기간·크기 초과 메일)을 보인다.

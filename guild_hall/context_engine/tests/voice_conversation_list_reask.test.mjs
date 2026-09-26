@@ -243,6 +243,41 @@ test('a boundary answer whose fresh re-ask repeats the exact same rejection stop
     && row.reason === 'boundary_segment_missing'), 'the final rejection reason is unchanged from before this fix');
 });
 
+test('a boundary answer still refused after both re-asks falls back to the rules as a visible mark, not leftover work', async () => {
+  const dirs = await estate();
+  const wrong = ids => { const mid = Math.ceil(ids.length / 2);
+    return { segments: [{ draft_id: 'd2', source_segment_ids: ids.slice(mid), boundary_reason: 'topic_shift',
+      related_draft_ids: [] }, { draft_id: 'd1', source_segment_ids: ids.slice(0, mid),
+      boundary_reason: 'topic_shift', related_draft_ids: [] }] };
+  };
+  const script = ({ step, user }) => (step === 'boundary' ? wrong(idsInUser(user)) : plainScript({ step, user }));
+  // Pass 1: the first re-ask repeats the mistake and the loop stops early, so
+  // the second re-ask is still untried -- that is still leftover work.
+  const first = await run(dirs, script);
+  assert.equal(first.verified, false);
+  assert.ok(first.remaining_work.some(row => row.step === 'boundary' && row.reason === 'boundary_not_monotonic'));
+  assert.deepEqual((await manifestOf(first)).marks, []);
+  // Pass 2: the second re-ask is asked, and refused too. Every answer is now
+  // cached and would replay; the rules' cut holds every utterance once.
+  const second = await run(dirs, script);
+  assert.equal(second.run_id, first.run_id);
+  const manifest = await manifestOf(second);
+  assert.equal(manifest.reasks.total, 1, 'only the second attempt was fresh');
+  assert.equal(manifest.reasks.entries[0].attempt, 2);
+  assert.deepEqual(second.remaining_work, []);
+  assert.deepEqual(manifest.marks, [{ step: 'boundary', item: 'window_1', reason: 'boundary_rules_fallback',
+    rejected: 'boundary_not_monotonic' }]);
+  assert.equal(second.verified, true);
+  const list = JSON.parse(await readFile(path.join(second.directory, 'conversation_list.v0.json'), 'utf8'));
+  assert.deepEqual(list.segments.flatMap(row => row.source_segment_ids).sort((a, b) => a - b), [1, 2, 3, 4, 5, 6]);
+  assert.ok(list.segments.every(row => row.boundary.reasons.includes('rules_fallback')),
+    'each card says its boundary is the rules cut');
+  // A third pass replays everything, asks nothing and says the same.
+  const third = await run(dirs, () => { throw new Error('nothing is asked again'); });
+  assert.equal(third.verified, true);
+  assert.equal(third.calls.total, 0);
+});
+
 test('a boundary answer that repeats its mistake once heals on the very next pass, with exactly one fresh call', async () => {
   // Pass 1: the original call and its one fresh re-ask both get the same
   // deterministic mistake (a reversed pair of segments) -- the loop breaks
@@ -290,7 +325,7 @@ test('a title naming a project is re-asked, and a run stuck by production’s ol
   const dirs = await estate();
   const stuckAnswer = await run(dirs, ({ step, user }) => {
     if (step === 'nature') return { segments: segmentIdsInUser(user).map(id => ({ segment_id: id,
-      nature: 'project_work', title: 'AB-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
+      nature: 'project_work', title: 'P99-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
     return plainScript({ step, user });
   }, { maxCalls: 2 });
   assert.equal(stuckAnswer.verified, false);
@@ -493,7 +528,7 @@ test('an unverified run is planned `run` again by classifySession -- not silentl
   const dirs = await estate();
   await run(dirs, ({ step, user }) => {
     if (step === 'nature') return { segments: segmentIdsInUser(user).map(id => ({ segment_id: id,
-      nature: 'project_work', title: 'AB-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
+      nature: 'project_work', title: 'P99-123 가대 확인', description: '설명', key_terms: [], unclear: false })) };
     return plainScript({ step, user });
   });
   const tableBytes = await readFile(dirs.tablePath);

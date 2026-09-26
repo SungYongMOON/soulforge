@@ -243,6 +243,17 @@ receipt_unwritable` 한 줄을 더 찍고 원래 이유와 exit 2는 그대로 �
 종료코드까지 잃는 일이 되어서는 안 된다. 시험 6건은 `tests/estate_graph_sync.test.mjs`
 (`npm run validate:context-engine`)에 있고 전부 합성 root를 실제 자식 프로세스로 돌린다.
 
+## 대화 목록 파이프라인 — 미검증으로 굳은 세 이유 정리 (2026-09-26)
+
+미검증으로 남은 PLAUD 세션 11건을 읽기 전용으로 진단한 결과, 다시 물어도 달라지지 않는 세 이유가 `remaining_work`로 남아 run을 영구 미검증으로 묶고 있었다.
+
+- **과제 코드 판정**: 제목·안건 이름·최종 검사의 과제 코드 판정이 대문자+하이픈 토큰 전부였다. `DC-DC`·`RS-422`·`J-FET`·`J-TAG` 같은 부품 용어가 거부됐고 캐시된 답이 매번 다시 거부됐다. 이제 실제 과제 코드 형식 두 가지(`P00-000`, `D1-00-000`)와 그 run이 연 과제 코드만 본다(`namesAProject`). 거부되는 문자열은 전부 옛 규칙에서도 거부되던 것이다.
+- **경계 규칙 대체**: 경계 답이 재질문 2회까지 모두 의미 규칙에 거부되고 규칙 경계가 그 창의 발화를 정확히 한 번씩 덮으면, 남은 일 대신 `marks`(`boundary_rules_fallback`, 거부 이유 포함)로 남긴다. 해당 구간 경계 이유에는 `rules_fallback`이 붙는다. 호출 실패와 아직 해 보지 않은 재질문은 전처럼 남은 일로 둔다.
+- **Q/A 재확인 한도**: `limits.qa_rechecks`를 넘은 의심 경계는 건수와 한도를 `marks`(`qa_recheck_budget`)에 남긴다. 해당 경계는 카드에 `suspect`로 남는다.
+- **호출 수 분리**: 예산이 다 된 뒤 거절된 호출은 `calls.total`에 넣지 않고 `calls.calls_refused_over_budget`로 따로 센다.
+
+`marks`는 `conversation_list.v0.json`과 `run_manifest.json`에 새로 생긴 필드다. 프롬프트·설정·`runIdFor` 입력은 바꾸지 않았다. 운영 카드 592건(검증됨)의 run id를 이 브랜치와 origin/main으로 다시 계산해 모두 같게 나왔다.
+
 ## 대화 목록 파이프라인 — 거부된 캐시 답 영구 정지 수리: 유계 재질문(re-ask) (0.22.9)
 
 실제 backlog 실행에서 관찰: `remaining_work`가 비지 않는 세션이 있었다. 구조 검사 6개는 전부

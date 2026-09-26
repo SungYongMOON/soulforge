@@ -409,6 +409,13 @@ function makeAsk({ chat, model, cacheDir, retries, counters }) {
     }
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
       const answer = await chat({ step, system, user, schema });
+      // A call the session refused because the budget was already spent never
+      // reached the model: it is counted apart, not as a call this run made.
+      if (answer.status === 'budget_exhausted') {
+        counters.refused_over_budget = (counters.refused_over_budget ?? 0) + 1;
+        counters.budget_exhausted = true;
+        return answer;
+      }
       counters.calls += 1;
       counters.by_step[step] = (counters.by_step[step] ?? 0) + 1;
       if (answer.status === 'ok') {
@@ -417,7 +424,6 @@ function makeAsk({ chat, model, cacheDir, retries, counters }) {
         writeFileSync(file, `${JSON.stringify({ step, value: answer.value }, null, 2)}\n`);
         return { status: 'ok', value: answer.value, cached: false };
       }
-      if (answer.status === 'budget_exhausted') { counters.budget_exhausted = true; return answer; }
     }
     counters.retries += retries;
     return { status: 'failed' };
@@ -466,12 +472,18 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     } catch { return now; }
   })();
 
-  const counters = { calls: 0, retries: 0, cache_hits: 0, by_step: {}, budget_exhausted: false };
+  const counters = { calls: 0, retries: 0, cache_hits: 0, by_step: {}, budget_exhausted: false, refused_over_budget: 0 };
   const session = chatFor({ binding: config.model, maxCalls: limits.llm_calls });
   const ask = makeAsk({ chat: session.chat, model: config.model.model, cacheDir: path.join(outDir, 'cache'),
     retries: limits.retries, counters });
   const remainingWork = [];
   const note = (step, segmentId, reason) => remainingWork.push({ step, segment_id: segmentId, reason });
+  // What this pass settled for rather than left undone: shown with the card and
+  // counted in the manifest, but not work a later pass could do differently --
+  // a cached rejection replays, and a budget spent is spent -- so it does not
+  // hold the run unverified the way `remaining_work` does.
+  const runMarks = [];
+  const mark = (step, item, reason, extra = {}) => runMarks.push({ step, item, reason, ...extra });
   // Every re-ask this pass made because a *structurally valid, schema-passing*
   // answer was rejected by a semantic rule -- reason, ids and whether the
   // re-ask was accepted, never the transcript text or the model's own words.
@@ -522,9 +534,11 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     // make the same mistake again; a later pass still gets the untried
     // attempt (see this constant's own doc for why the two attempts never
     // share request bytes).
+    let reasksTried = 0;
     for (let attempt = 1; answer.status === 'ok' && !checked.ok
       && SEMANTIC_REASK_SENTENCES[checked.code] && attempt <= MAX_SEMANTIC_REASKS; attempt++) {
       const reason = checked.code;
+      reasksTried = attempt;
       answer = await ask({ step: 'boundary', system: prompts.boundary,
         user: `${user}\n\n${SEMANTIC_REASK_SENTENCES[reason]}\n\n${reaskAttemptLine(attempt, MAX_SEMANTIC_REASKS)}`,
         schema: BOUNDARY_ANSWER });
@@ -561,24 +575,39 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     }
     // The rules already drew a boundary at every unit. Falling back to those is
     // the one answer here that adds nothing of its own.
-    note('boundary', `window_${window.index + 1}`, checked.code);
-    windowResults.push({ window_index: window.index,
-      segments: window.units.map(unit => ({ draft_id: unit.unit_id,
-        source_segment_ids: [...unit.source_segment_ids], boundary_reason: 'topic_shift' })) });
+    const fallback = window.units.map(unit => ({ draft_id: unit.unit_id,
+      source_segment_ids: [...unit.source_segment_ids], boundary_reason: 'topic_shift' }));
+    // A model that answered, was told what was wrong and still answered wrong
+    // after every re-ask is not going to answer differently next pass -- its
+    // answers are cached and replay. When the rules' own cut holds every
+    // utterance of the window exactly once, that cut is the answer and the card
+    // says so; a call that failed outright, or a re-ask not yet tried, stays
+    // leftover work because a later pass can still do it.
+    const settled = answer.status === 'ok' && SEMANTIC_REASK_SENTENCES[checked.code] !== undefined
+      && reasksTried === MAX_SEMANTIC_REASKS
+      && checkBoundaryProposal({ segments: fallback }, { windowSegmentIds: window.segment_ids }).ok;
+    if (settled) mark('boundary', `window_${window.index + 1}`, 'boundary_rules_fallback', { rejected: checked.code });
+    else note('boundary', `window_${window.index + 1}`, checked.code);
+    windowResults.push({ window_index: window.index, segments: fallback,
+      ...(settled ? { extra_reasons: ['rules_fallback'] } : {}) });
   }
   let drafts = stitchBoundaries(windowResults);
 
   // Q/A boundaries, looked at again rather than merged on sight.
   const suspects = qaBoundarySuspects(drafts, { unitFor: id => unitFor.get(id),
     rowFor: id => rowFor.get(id), gapSeconds: limits.qa_gap_seconds });
-  let rechecks = 0, merged = 0, stillSuspect = 0;
+  let rechecks = 0, merged = 0, stillSuspect = 0, overRecheckBudget = 0;
   const byTrigger = {};
   for (const suspect of suspects) for (const trigger of suspect.triggers) byTrigger[trigger] = (byTrigger[trigger] ?? 0) + 1;
   for (const suspect of [...suspects].sort((a, b) => b.index - a.index)) {
     const before = drafts[suspect.index], after = drafts[suspect.index + 1];
     if (before === undefined || after === undefined) continue;
     drafts = drafts.map((draft, index) => index === suspect.index ? { ...draft, qa_boundary: 'suspect' } : draft);
-    if (rechecks >= limits.qa_rechecks) { note('boundary_recheck', `pair_${suspect.index}`, 'qa_recheck_budget'); stillSuspect += 1; continue; }
+    // Past the limit the boundary stays where it was drawn and stays marked
+    // `suspect` on its card. That is a limit this run chose, not work a later
+    // pass would do -- the same drafts meet the same limit every pass -- so it is
+    // counted as a mark rather than left as leftover work.
+    if (rechecks >= limits.qa_rechecks) { overRecheckBudget += 1; stillSuspect += 1; continue; }
     const tail = before.source_segment_ids.slice(-12).map(id => `${id}: ${textOfId(id)}`).join('\n');
     const head = after.source_segment_ids.slice(0, 12).map(id => `${id}: ${textOfId(id)}`).join('\n');
     const user = `앞 구간 끝 (발화 ${before.source_segment_ids.at(-1)}까지)\n${trim(tail, UNIT_TEXT_CHARACTERS)}\n\n`
@@ -589,6 +618,10 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     if (answer.status !== 'ok') { note('boundary_recheck', `pair_${suspect.index}`, 'recheck_llm_failed'); stillSuspect += 1; continue; }
     if (answer.value.verdict === 'same_conversation') { drafts = mergeDrafts(drafts, suspect.index); merged += 1; }
     else stillSuspect += 1;
+  }
+
+  if (overRecheckBudget > 0) {
+    mark('boundary_recheck', 'qa_suspects', 'qa_recheck_budget', { count: overRecheckBudget, limit: limits.qa_rechecks });
   }
 
   const attached = attachUncovered(drafts, [...coverage.not_covered]);
@@ -662,8 +695,13 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     text: ids.map(textOfId).join(' ') });
   const unreadableRatioOf = ids => ids.length === 0 ? 0
     : ids.filter(id => (marksFor.get(id) ?? []).some(mark => UNREADABLE_MARKS.includes(mark))).length / ids.length;
+  // Opened before step 3 (it is only read, and step 4 uses the same handles) so
+  // that the codes a title may not carry are the ones this run can actually see.
+  const retrievers = openProjectRetrievers({ io, bindingsArea });
+  const projectCodes = [...retrievers.opened.keys(),
+    ...retrievers.refused.map(row => row.code).filter(code => code !== '*')];
   const natureCheckFor = (entry, row) => checkNature(row, { text: entry.text,
-    unreadableRatio: unreadableRatioOf(entry.ids), speechActs: entry.acts, segmentIds: entry.ids });
+    unreadableRatio: unreadableRatioOf(entry.ids), speechActs: entry.acts, segmentIds: entry.ids, projectCodes });
   // A window identifier for `reaskTrace`/`splitTrace`, not just the segment
   // id: a long segment's several windows share one segment id, and the
   // bound (`MAX_SEMANTIC_REASKS`/`MAX_WINDOW_SPLITS`) is per (step, window),
@@ -787,7 +825,6 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
 
   // --------------------------------------------------------------- step 4
   const registry = tools.shared_terms_path ? loadSharedTerms(tools.shared_terms_path) : null;
-  const retrievers = openProjectRetrievers({ io, bindingsArea });
   const evidenceRows = [];
   const judgements = new Map();
   const judge = async (segment, text, { revised = false } = {}) => {
@@ -1001,7 +1038,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const continuity = applyContextContinuity(unplaced);
   const rows = continuity.segments;
   const checks = finalChecks({ segments: rows, rows: input.rows,
-    suppressedSegmentIds: [...coverage.suppressed_segment_ids], coverage });
+    suppressedSegmentIds: [...coverage.suppressed_segment_ids], coverage, projectCodes });
   const list = { schema: CONVERSATION_LIST_SCHEMA, session_id: sessionId, run_id: runId, generated_at: generatedAt,
     verified: checks.every(check => check.status === 'ok') && remainingWork.length === 0,
     checks, transcript: { run_id: input.transcript.run_id, sha256: `sha256:${input.transcript.sha256}`,
@@ -1009,7 +1046,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
     semantic_run: { run_id: input.semantic.run_id, sha256: `sha256:${input.semantic.sha256}` },
     model: { pin_kind: model.pin_kind, digest: model.digest, alias: config.model.model },
     prompts: promptDigests, suppressed_segment_ids: [...coverage.suppressed_segment_ids],
-    remaining_work: remainingWork, segments: rows,
+    remaining_work: remainingWork, marks: runMarks, segments: rows,
     evidence_rows: evidenceRows.map(row => ({ row_id: row.row_id, project_code: row.project_code,
       item_id: row.item_id, title: row.title ?? '', unit_id: row.unit_id, source_kind: row.source_kind,
       quote: row.quote, score: row.score, matched_terms: [...row.matched_terms] })) };
@@ -1036,7 +1073,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
   const latencies = session.trace().map(row => row.elapsed_ms).filter(Number.isFinite).sort((a, b) => a - b);
   const thisPass = { pass: before.length + 1, at: now, elapsed_ms: Date.now() - started,
     calls: counters.calls, retries: counters.retries, cache_hits: counters.cache_hits,
-    budget_exhausted: counters.budget_exhausted, remaining_work: remainingWork.length,
+    budget_exhausted: counters.budget_exhausted, calls_refused_over_budget: counters.refused_over_budget,
+    remaining_work: remainingWork.length, marks: runMarks.length,
     verified: list.verified,
     // `run_manifest.json` (below) is overwritten every pass, so its own
     // `reasks`/`splits` only ever show the *last* pass; `run_passes.jsonl`
@@ -1055,7 +1093,8 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       options: { ...(config.model.options ?? {}) } },
     prompts: promptDigests, limits, config_sha256: `sha256:${configSha256}`,
     calls: { total: counters.calls, by_step: counters.by_step, retries: counters.retries,
-      cache_hits: counters.cache_hits, budget: limits.llm_calls, budget_exhausted: counters.budget_exhausted },
+      cache_hits: counters.cache_hits, budget: limits.llm_calls, budget_exhausted: counters.budget_exhausted,
+      calls_refused_over_budget: counters.refused_over_budget },
     // Every re-ask this pass made because a structurally valid answer was
     // rejected by a semantic rule (or, for `nature`, was silently absent from
     // or mismatched against an otherwise valid batch answer) -- reason, item
@@ -1122,7 +1161,7 @@ export async function runConversationList({ io, tools, config, prompts, promptDi
       agenda_covers_whole_segment: rows.filter(row => row.nature_marks.includes('agenda_covers_whole_segment')).length,
       agenda_items_dropped: rows.filter(row => row.nature_marks.includes('agenda_items_dropped')).length,
       corrections: corrections.counts },
-    checks, remaining_work: remainingWork, verified: list.verified };
+    checks, remaining_work: remainingWork, marks: runMarks, verified: list.verified };
 
   writeFileSync(path.join(outDir, 'conversation_list.v0.json'), `${JSON.stringify(list, null, 2)}\n`);
   appendFileSync(path.join(outDir, 'run_passes.jsonl'), `${JSON.stringify(thisPass)}\n`);
@@ -1211,7 +1250,7 @@ function renderRun(found) {
   if (manifest !== null) {
     lines.push(`호출 ${manifest.calls.total}/${manifest.calls.budget} · 재시도 ${manifest.calls.retries}`
       + ` · 캐시 적중 ${manifest.calls.cache_hits} · ${Math.round(manifest.elapsed_ms / 1000)}초`
-      + ` · 남은 일 ${manifest.remaining_work.length}건`);
+      + ` · 남은 일 ${manifest.remaining_work.length}건 · 표시 ${(manifest.marks ?? []).length}건`);
   }
   for (const check of list.checks) lines.push(`  [${check.status}] ${check.check} — ${check.detail}`);
   for (const segment of list.segments) {
