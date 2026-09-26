@@ -196,6 +196,20 @@ let plaudLabeler = null;
 export async function preparePlaudLabeler() { plaudLabeler ??= await loadPlaudLabeler(); return plaudLabeler; }
 
 /**
+ * The session-root PLAUD transcript as the pipeline would read it: `rows` is
+ * `null` when the file is absent or not the segment shape, and may be empty.
+ * `sha256` (bare hex) is set only when there is at least one row -- i.e. only
+ * when a `plaud` run would actually read it rather than fall back to whisper.
+ * Shared with the nightly classifier so both decide "PLAUD is usable" the same way.
+ */
+export function readPlaudTranscript({ io, session }) {
+  const bytes = maybeRead(io, `${session}/transcript.jsonl`, MAX_TRANSCRIPT_BYTES);
+  let rows = null;
+  if (bytes !== null) { try { rows = readJsonl(bytes, { schema: SEGMENT_SCHEMA }); } catch { rows = null; } }
+  return { bytes, rows, sha256: rows !== null && rows.length > 0 ? hex(bytes) : null };
+}
+
+/**
  * PLAUD-primary inputs (Owner decision 2026-09-26): the provider transcript at
  * the session root is what the pipeline reads, cut into the same rule units
  * the semantic labeller makes -- built here in memory from those rows, never
@@ -205,9 +219,7 @@ export async function preparePlaudLabeler() { plaudLabeler ??= await loadPlaudLa
  * whisper inputs exactly as a `whisper` config reads them, and says so.
  */
 function readPlaudInputs({ io, session, sessionId, manifest }) {
-  const providerBytes = maybeRead(io, `${session}/transcript.jsonl`, MAX_TRANSCRIPT_BYTES);
-  let rows = null;
-  if (providerBytes !== null) { try { rows = readJsonl(providerBytes, { schema: SEGMENT_SCHEMA }); } catch { rows = null; } }
+  const { bytes: providerBytes, rows } = readPlaudTranscript({ io, session });
   let secondary = null;
   try {
     const whisper = readWhisperTranscript({ io, session, manifest });

@@ -1284,13 +1284,17 @@ GBrain 패키지 실행이나 호환성 검증을 했다는 의미는 아니다.
   (custody에 쓰지 않음, provider evidence role로 표시). 로컬 whisper 전사는 `run_manifest.json`의
   `transcript.secondary`로 남는다. PLAUD 전사가 없거나 형식이 맞지 않으면 whisper 입력으로 되돌아가고
   `transcript.fallback`에 이유를 적는다. 경계 단계 요청에만 화자 표시가 붙는다.
-- 기존 카드 보호: `transcript_source`를 선언한 밤은 **다른 전사로 만든 검증된 카드**를 `skipped_existing`
-  (`verified_other_source`)로 두고 다시 만들지 않는다. 선언이 없는 밤의 판별은 예전과 같다.
+- 기존 카드 보호: 밤은 **다른 전사로 만든 검증된 카드**를 `skipped_existing`(`verified_other_source`)로 두고
+  다시 만들지 않는다. 선언이 없는 밤은 `whisper`로 보므로 검증된 PLAUD 카드도 건드리지 않으며, whisper 카드의
+  판별은 예전과 같다. 예외: `plaud` 밤에 whisper로 대체되었던 카드는 PLAUD 전사가 생기면 다시 만든다
+  (`existing_run_stale:plaud_available`).
+- PLAUD 카드의 낡음은 PLAUD 전사 바이트 지문으로 본다(`existing_run_stale:transcript_sha256`). `plaud` 밤은
+  완료된 whisper run이 없어도 쓸 수 있는 PLAUD 전사가 있으면 후보로 삼고 행에 `whisper_secondary: "absent"`를 적는다.
 - `--sessions-file <csv|txt>`: 날짜 창 대신 파일에 적힌 세션만(첫 열, 따옴표·머리행 허용) 순서대로 처리한다.
   노화(backlog) 보고는 계산하지 않는다.
-- 제한: `plaud` 모드는 `voice_capture` 모듈과 `ajv`를 동적으로 불러오므로 현재 context-read lane 설치본
-  (tracked_paths에 `voice_capture` 없음)에서는 `voice_plaud_semantic_labeler_unavailable`로 멈춘다. lane에
-  싣는 일은 별도 spec 갱신이다.
+- lane: `plaud` 모드는 `voice_capture` 모듈과 `ajv`를 동적으로 불러온다. context-read-v6 이하 설치본에는
+  없어서 `voice_plaud_semantic_labeler_unavailable`로 멈추고, context-read-v7 spec이 이 폐포를 싣는다
+  (설치·등록은 별도 Owner 작업).
 - 시험: `tests/voice_conversation_list_plaud_source.test.mjs`(고정 whisper run id·plaud run id·대체·
   sessions-file·다른 전사 카드 보호).
 

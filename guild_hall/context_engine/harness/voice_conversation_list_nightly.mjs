@@ -40,12 +40,17 @@
 // `skipped_existing` -- and the backlog/aging report is not computed, since
 // there is no window to age out of. `--date` is then only the receipt's label.
 //
-// A pipeline config that declares `transcript_source` (see
-// `readPipelineConfig`) binds an existing verified run only when that run was
-// made from the same source: a verified card made from the *other* transcript
-// is `skipped_existing` (`verified_other_source`), never regenerated -- so a
-// `plaud` pass never redoes a verified whisper card and a whisper pass never
-// redoes a verified PLAUD one (Owner decision 2026-09-26).
+// The pipeline config's `transcript_source` (see `readPipelineConfig`;
+// absent reads as `whisper`) binds an existing verified run only when that run
+// was made from the same source: a verified card made from the *other*
+// transcript is `skipped_existing` (`verified_other_source`), never
+// regenerated -- so a `plaud` pass never redoes a verified whisper card and a
+// whisper pass never redoes a verified PLAUD one (Owner decision 2026-09-26).
+// The one exception is a `plaud` card that had to fall back to whisper: once a
+// PLAUD transcript exists it is re-run (`existing_run_stale:plaud_available`).
+// A PLAUD card is stale when the PLAUD transcript bytes' digest moved
+// (`transcript_sha256`), and a `plaud` pass takes a session that has a usable
+// PLAUD transcript even with no completed whisper run (`whisper_secondary`).
 //
 // This harness writes only inside `--receipts` and the pipeline's own
 // `derived_root`; it never touches the transcript, the semantic label run, or
@@ -144,7 +149,8 @@ import { DEFAULT_CHAT_TIMEOUT_MS } from '../src/adapters/local_model/ollama_chat
 import { readToolsConfig } from '../src/runtime/attachment_derivation.mjs';
 import { ConversationListError, readPipelineConfig } from '../src/runtime/voice_conversation_list.mjs';
 import { VOICE_SESSIONS_ADDRESS } from './voice_segment_drafts.mjs';
-import { PLAUD_TRANSCRIPT_RUN_ID, readPrompts, readRun, runConversationList } from './voice_conversation_list_cli.mjs';
+import { PLAUD_TRANSCRIPT_RUN_ID, readPlaudTranscript, readPrompts, readRun, runConversationList }
+  from './voice_conversation_list_cli.mjs';
 import { NIGHTLY_RECEIPT_SCHEMA, NIGHTLY_RECEIPT_SCHEMA_V1, defaultTargetDate, seoulDateFor, shiftDate }
   from './voice_nightly_shared.mjs';
 
@@ -693,10 +699,15 @@ function backlogAgingReport({ io, tools, sessionsAddress, targetDate, plan, rece
  * compared either (pinning would call the model service); only the prompt
  * *file* digests are, since the caller already has them for the real run.
  */
-export function staleReasonFor({ manifest, transcriptRunId, configSha256 = null, promptDigests = null }) {
+export function staleReasonFor({ manifest, transcriptRunId, configSha256 = null, promptDigests = null,
+  transcriptSha256 = null }) {
   if (manifest === null) return 'manifest_unreadable';
   if (typeof transcriptRunId === 'string' && transcriptRunId
     && manifest.transcript?.run_id !== transcriptRunId) return 'transcript_run_id';
+  // A PLAUD card's transcript run id is a constant, so its identity is the
+  // bytes' digest (bare hex here, `sha256:`-prefixed in the manifest).
+  if (typeof transcriptSha256 === 'string' && transcriptSha256
+    && manifest.transcript?.sha256 !== `sha256:${transcriptSha256}`) return 'transcript_sha256';
   if (configSha256 !== null && manifest.config_sha256 !== `sha256:${configSha256}`) return 'config';
   if (promptDigests !== null) {
     for (const [name, digest] of Object.entries(promptDigests)) {
@@ -731,9 +742,15 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
   const durationSeconds = Number.isFinite(manifest.duration_seconds) ? manifest.duration_seconds : null;
   const base = { session_id: sessionId, date, title, duration_seconds: durationSeconds, existing_run_id: null };
 
-  if (manifest.independent_transcription?.status !== 'completed') {
+  // `plaud`: a usable PLAUD transcript alone makes a candidate; the local
+  // whisper transcript is then only the secondary, and its absence is noted on
+  // the row rather than skipping the session.
+  const whisperCompleted = manifest.independent_transcription?.status === 'completed';
+  const plaudSha256 = transcriptSource === 'plaud' ? readPlaudTranscript({ io, session: address }).sha256 : null;
+  if (!whisperCompleted && plaudSha256 === null) {
     return { ...base, classification: 'skipped_short', reason: 'transcript_absent' };
   }
+  if (!whisperCompleted) base.whisper_secondary = 'absent';
   if (durationSeconds === null || durationSeconds < MIN_TRANSCRIPT_SECONDS) {
     return { ...base, classification: 'skipped_short', reason: 'duration_below_30s' };
   }
@@ -753,13 +770,25 @@ export function classifySession({ io, tools, sessionsAddress = VOICE_SESSIONS_AD
     // pass (see the file doc); `null` (a config that names no source) keeps
     // the original comparison exactly.
     const existingSource = existing.manifest?.transcript?.source ?? 'whisper';
-    if (transcriptSource !== null && existingSource !== transcriptSource) {
+    const existingFallback = existing.manifest?.transcript?.fallback ?? null;
+    // A `plaud` pass whose earlier card had to fall back to whisper redoes it
+    // once a PLAUD transcript is there; that card was never a whisper-night one.
+    if (transcriptSource === 'plaud' && existingSource === 'whisper' && existingFallback !== null) {
+      if (plaudSha256 !== null) {
+        return { ...base, classification: 'run', reason: 'existing_run_stale:plaud_available',
+          existing_run_id: existing.run_id };
+      }
+    } else if ((transcriptSource ?? 'whisper') !== existingSource) {
+      // `null` (no declared source, i.e. the live whisper config) reads as
+      // `whisper`: it never regenerates over a verified PLAUD card either.
       return { ...base, classification: 'skipped_existing', reason: 'verified_other_source',
         existing_run_id: existing.run_id };
     }
-    const staleField = staleReasonFor({ manifest: existing.manifest,
-      transcriptRunId: existingSource === 'plaud' ? PLAUD_TRANSCRIPT_RUN_ID
-        : manifest.independent_transcription?.run_id ?? null, configSha256, promptDigests });
+    const staleField = existingSource === 'plaud'
+      ? staleReasonFor({ manifest: existing.manifest, transcriptRunId: PLAUD_TRANSCRIPT_RUN_ID,
+        transcriptSha256: plaudSha256, configSha256, promptDigests })
+      : staleReasonFor({ manifest: existing.manifest,
+        transcriptRunId: manifest.independent_transcription?.run_id ?? null, configSha256, promptDigests });
     if (staleField === null) {
       return { ...base, classification: 'skipped_existing', reason: null, existing_run_id: existing.run_id };
     }

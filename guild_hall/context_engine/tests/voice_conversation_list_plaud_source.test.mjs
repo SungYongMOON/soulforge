@@ -25,16 +25,22 @@ const NOW = '2026-09-26T02:00:00.000Z';
 const RUN = 'whispercpp_test_v1';
 const SESSION = '20260101_090000_plaud_cli_testfixture';
 const OTHER = '20260102_090000_plaud_cli_otherfixture';
-const PROMPTS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts', 'voice_conversation_list');
+// The config names its prompts relative to the repo root, and this file runs
+// from there, so the config bytes -- and every run id hashed from them -- do
+// not depend on where the checkout lives.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+process.chdir(REPO_ROOT);
+const PROMPTS = 'guild_hall/context_engine/prompts/voice_conversation_list';
 const SESSIONS_ADDRESS = 'data_root/ingress/plaud/sessions';
 const hex = bytes => createHash('sha256').update(bytes).digest('hex');
 const jsonl = rows => `${rows.map(row => JSON.stringify(row)).join('\n')}\n`;
 const codeOf = async fn => { try { await fn(); return null; } catch (error) { return error.code; } };
 
 // The run id the whisper fixture below produced *before* `transcript_source`
-// existed (computed against origin/main bb0e2943 with this same fixture). A
-// config that names no source must keep landing on exactly this id.
-const PINNED_WHISPER_RUN_ID = 'vcl_a775e9522f70f5cd';
+// existed (computed against origin/main f107fa5a with this same fixture and
+// its checkout-independent config). A config that names no source must keep
+// landing on exactly this id.
+const PINNED_WHISPER_RUN_ID = 'vcl_d7a70fb56194f132';
 
 const SPEECH = [
   [1, 0, 7.4, '오늘은 가대 도면 수정본부터 보겠습니다.'],
@@ -63,7 +69,7 @@ const unitOf = (id, ids) => ({ unit_id: id, source_segment_ids: [...ids],
   polarity: 'affirmed', modality: 'actual', action_codes: [], entities: [],
   project_match: { state: 'unresolved_needs_context', candidates: [] }, disposition: 'context_only' });
 
-async function writeSession(dataRoot, date, sessionId, { plaud = true } = {}) {
+async function writeSession(dataRoot, date, sessionId, { plaud = true, whisper = true } = {}) {
   const sessionDir = path.join(dataRoot, 'ingress', 'plaud', 'sessions', date, sessionId);
   const runDir = path.join(sessionDir, 'analysis', 'local_asr', RUN);
   await mkdir(runDir, { recursive: true });
@@ -79,7 +85,7 @@ async function writeSession(dataRoot, date, sessionId, { plaud = true } = {}) {
     schema_version: 'soulforge.voice_capture_session.v0', session_id: sessionId, source: 'plaud_cli_import',
     source_page_title: '합성 녹음', recorded_at_local: '2026-01-01T09:00:00+09:00', duration_seconds: 60,
     transcript: { evidence_role: 'auxiliary_unverified', quality: 'provider_machine_transcript_unverified' },
-    independent_transcription: { status: 'completed', run_id: RUN } }));
+    independent_transcription: whisper ? { status: 'completed', run_id: RUN } : { status: 'pending' } }));
   const labelDir = path.join(sessionDir, 'analysis', 'semantic_labels', 'vsl_testfixture0001');
   await mkdir(labelDir, { recursive: true });
   await writeFile(path.join(labelDir, 'semantic_label_run.json'), JSON.stringify({
@@ -91,11 +97,11 @@ async function writeSession(dataRoot, date, sessionId, { plaud = true } = {}) {
   return sessionDir;
 }
 
-async function estate({ plaud = true } = {}) {
+async function estate({ plaud = true, whisper = true } = {}) {
   const dataRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'vclp-data-')));
   const controlRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'vclp-control-')));
   const derivedRoot = realpathSync(await mkdtemp(path.join(os.tmpdir(), 'vclp-derived-')));
-  const sessionDir = await writeSession(dataRoot, '2026-01-01', SESSION, { plaud });
+  const sessionDir = await writeSession(dataRoot, '2026-01-01', SESSION, { plaud, whisper });
   const tablePath = path.join(controlRoot, 'root_table.json');
   await writeFile(tablePath, `${JSON.stringify({ schema_version: ROOT_TABLE_SCHEMA,
     roots: { data_root: dataRoot, control_root: controlRoot } })}\n`);
@@ -284,3 +290,68 @@ test('a verified card made from the other transcript is skipped, never regenerat
   assert.equal(same.classification, 'skipped_existing');
   assert.equal(same.reason, null);
 });
+
+const classify = (ctx, transcriptSource, configSha256 = ctx.configSha256) => classifySession({ io: ctx.io,
+  tools: ctx.tools, sessionsAddress: SESSIONS_ADDRESS, date: '2026-01-01', sessionId: SESSION, configSha256,
+  promptDigests: ctx.promptDigests, ...(transcriptSource === undefined ? {} : { transcriptSource }) });
+
+test('a plaud card that fell back to whisper is redone once a PLAUD transcript exists', async () => {
+  const dirs = await estate({ plaud: false });
+  const fellBack = await run(dirs, dirs.plaudConfigPath);
+  assert.equal(fellBack.verified, true);
+  const ctx = await nightlyContext(dirs);
+  const before = classify(ctx, 'plaud');
+  assert.equal(before.classification, 'skipped_existing', 'no PLAUD transcript yet: the fallback card stands');
+  assert.equal(before.reason, null);
+  await writeFile(path.join(dirs.sessionDir, 'transcript.jsonl'), jsonl(PLAUD.map(plaudRow)));
+  const after = classify(ctx, 'plaud');
+  assert.equal(after.classification, 'run');
+  assert.equal(after.reason, 'existing_run_stale:plaud_available');
+  assert.equal(after.existing_run_id, fellBack.run_id);
+});
+
+test('an undeclared (live whisper) night never regenerates over a verified PLAUD card', async () => {
+  const dirs = await estate();
+  const plaud = await run(dirs, dirs.plaudConfigPath);
+  assert.equal(plaud.verified, true);
+  const ctx = await nightlyContext(dirs);
+  const whisperConfigSha256 = hex(await readFile(dirs.configPath));
+  for (const source of [undefined, 'whisper']) {
+    const described = classify(ctx, source, whisperConfigSha256);
+    assert.equal(described.classification, 'skipped_existing');
+    assert.equal(described.reason, 'verified_other_source');
+    assert.equal(described.existing_run_id, plaud.run_id);
+  }
+});
+
+test('a verified PLAUD card goes stale when the PLAUD transcript bytes change', async () => {
+  const dirs = await estate();
+  const plaud = await run(dirs, dirs.plaudConfigPath);
+  const ctx = await nightlyContext(dirs);
+  assert.equal(classify(ctx, 'plaud').reason, null);
+  const edited = PLAUD.map(row => (row[0] === 3 ? [...row.slice(0, 4), '모레 오전까지 확인하겠습니다.'] : row));
+  await writeFile(path.join(dirs.sessionDir, 'transcript.jsonl'), jsonl(edited.map(plaudRow)));
+  const stale = classify(ctx, 'plaud');
+  assert.equal(stale.classification, 'run');
+  assert.equal(stale.reason, 'existing_run_stale:transcript_sha256');
+  assert.equal(stale.existing_run_id, plaud.run_id);
+});
+
+test('a plaud night takes a session with a PLAUD transcript but no whisper run, noting the absent secondary',
+  async () => {
+    const dirs = await estate({ whisper: false });
+    const ctx = await nightlyContext(dirs);
+    const described = classify(ctx, 'plaud');
+    assert.equal(described.classification, 'run');
+    assert.equal(described.whisper_secondary, 'absent');
+    // Without a declared source nothing changes: no whisper run, no candidate.
+    const undeclared = classify(ctx, undefined);
+    assert.equal(undeclared.classification, 'skipped_short');
+    assert.equal(undeclared.reason, 'transcript_absent');
+    assert.equal('whisper_secondary' in undeclared, false);
+    const answer = await run(dirs, dirs.plaudConfigPath);
+    assert.equal(answer.verified, true);
+    const manifest = await readCard(dirs, answer.run_id, 'run_manifest.json');
+    assert.equal(manifest.transcript.source, 'plaud');
+    assert.equal(manifest.transcript.secondary, null, 'the missing whisper secondary is recorded as absent');
+  });

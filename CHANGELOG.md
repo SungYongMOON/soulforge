@@ -5,7 +5,9 @@
 - 대화 목록 pipeline config에 선택 필드 `transcript_source`(`whisper`|`plaud`)를 둔다. 없으면 기존과 같은 whisper 입력이며 run id와 카드 바이트는 바뀌지 않는다.
 - `plaud`는 PLAUD 전사를 1차 입력으로 읽고 규칙 단위를 메모리에서 만들며, whisper 전사는 보조로 기록하고 PLAUD 전사가 없으면 대체 입력으로 쓴다. 카드와 run manifest에 사용한 전사를 적는다.
 - 야간 harness에 `--sessions-file`을 추가하고, 전사 출처를 선언한 밤은 다른 전사로 만든 검증된 카드를 다시 만들지 않는다.
-- 운영 config·예약작업·lane 설치본은 변경하지 않는다. `plaud` 모드의 lane 탑재는 별도 spec 갱신이다.
+- 검토 보정: `plaud` 밤은 whisper로 대체되었던 카드를 PLAUD 전사가 생기면 다시 만들고(`existing_run_stale:plaud_available`), PLAUD 카드의 낡음은 PLAUD 전사 지문으로 보며(`transcript_sha256`), 완료된 whisper run이 없어도 PLAUD 전사가 있으면 후보로 삼는다(`whisper_secondary: "absent"`). 선언이 없는 밤은 검증된 PLAUD 카드를 다시 만들지 않는다. agent-step `plan`도 같은 전사 출처로 판별한다. 고정 whisper run id 시험은 checkout 경로와 무관한 config로 바꾸고 origin/main f107fa5a 기준 값으로 다시 고정했다.
+- lane spec `guild_hall/deployment_pack/lanes/context_read_v7_lane.spec.json`(context-read-v7)을 새로 두어 `plaud` 모드 폐포(voice_capture 7개 모듈·스키마, shared 2개, town_crier/runtime.mjs)와 carried-forward `ajv`·`yaml`을 싣는다. v6 spec은 그대로다.
+- 운영 config·예약작업·lane 설치본은 변경하지 않는다.
 
 ## 2026-09-25 - 이력 첨부 표시와 묶음 재입력 검증
 

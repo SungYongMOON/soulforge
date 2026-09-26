@@ -405,7 +405,8 @@ async function commandPlan(argv) {
   for (const date of dates) {
     for (const sessionId of listDirNames(ctx.io, `${VOICE_SESSIONS_ADDRESS}/${date}`)) {
       const described = classifySession({ io: ctx.io, tools: ctx.tools, sessionsAddress: VOICE_SESSIONS_ADDRESS,
-        date, sessionId, configSha256: null, promptDigests: null });
+        date, sessionId, configSha256: null, promptDigests: null,
+        transcriptSource: ctx.config.transcript_source ?? null });
       rows.push({ date, session_id: sessionId, title: described.title, duration_seconds: described.duration_seconds,
         classification: bucketFor(described) });
     }
