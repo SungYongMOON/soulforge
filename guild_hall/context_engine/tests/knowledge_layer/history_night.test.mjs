@@ -202,7 +202,8 @@ test('an upper packet over the query budget is split into parts and one merge; t
   const out = join(env.dir, 'out', '2026-09');
   const head = JSON.parse(readFileSync(join(out, 'history-head.json'), 'utf8'));
   const weekCell = JSON.parse(readFileSync(join(out, `history-cell-${Object.values(head.cells.weekly)[0].slice(7)}.json`), 'utf8'));
-  assert.deepEqual(weekCell.cards.map(card => card.text), ['Merged week fact.']);
+  assert.deepEqual(weekCell.cards.map(card => card.text), ['Merged week fact.']); assert.ok(!('merge_fallback' in weekCell));
+  assert.doesNotMatch(readFileSync(join(out, head.view_file), 'utf8'), /합치기 실패/);
   // Same input the next night: parts and merge are cached, zero calls.
   const again = fakeWriter(() => 'ok', { text: longDaily });
   const second = await run(env, again.writer);
@@ -220,7 +221,9 @@ test('a rejected merge falls back to the parts\' sentences and the layer still f
   const out = join(env.dir, 'out', '2026-09');
   const head = JSON.parse(readFileSync(join(out, 'history-head.json'), 'utf8'));
   const weekCell = JSON.parse(readFileSync(join(out, `history-cell-${Object.values(head.cells.weekly)[0].slice(7)}.json`), 'utf8'));
-  assert.equal(weekCell.cards.length, parts.length);
+  assert.equal(weekCell.cards.length, parts.length); assert.equal(weekCell.merge_fallback, true);
+  const view = readFileSync(join(out, head.view_file), 'utf8');
+  assert.equal(view.split('> 주간 요약 합치기 실패 — 부분 요약을 그대로 사용').length - 1, 1);
   assert.ok([EXIT.OK, EXIT.PARTIAL].includes(code));
 });
 

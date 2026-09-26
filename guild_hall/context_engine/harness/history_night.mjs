@@ -575,10 +575,12 @@ async function runProject({ entry, ctx: base }) {
       const all = outcomes.filter(item => item.unit.packetId === packet.packet_id);
       const merged = all.find(item => item.mergeOf === packet.packet_id);
       const mine = merged ? [merged] : all;
+      // Parts all accepted but no merged answer: the parts' sentences are used as they are, marked.
+      const fallback = !merged && all.filter(item => item.unit.upperPart).length >= 2;
       const unprocessed = mine.filter(item => item.kind === 'unprocessed')
         .map(item => ({ batch_index: item.unit.batchIndex, reason: item.reason }));
       return { packet_id: packet.packet_id, sentences: mine.flatMap(item => item.kind === 'accepted' ? item.sentences : []),
-        ...(unprocessed.length ? { unprocessed_batches: unprocessed } : {}) };
+        ...(unprocessed.length ? { unprocessed_batches: unprocessed } : {}), ...(fallback ? { merge_fallback: true } : {}) };
     });
     const finalized = finalizeHistoryExchange({ ...common, prepared: manifest,
       draft: { schema: DRAFT_SCHEMA, prepare_id: prepared.prepare_id, drafts } });

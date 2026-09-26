@@ -16,7 +16,8 @@
 전송 실패(0 아닌 종료·시간 초과·실행 실패)는 캐시도 미처리 마감도 하지 않고 그 층을 다음 밤에 다시 준비한다.
 질의 한도(`max_query_characters`, 기본 8000)는 일별 묶음 예산에서 prompt 머리말을 먼저 빼서 지킨다. 한도를 넘는 위층
 packet은 카드 순서대로 한도 안의 부분으로 나눠(각 부분은 자기 카드 번호만 인용) 부르고, 부분이 모두 받아지면 합치기 호출
-1회로 압축한다. 합치기가 거부되거나 여전히 한도를 넘으면 부분 문장을 그대로 써서 층을 마감한다. 한 카드가 혼자 한도를
+1회로 압축한다. 합치기가 거부되거나 여전히 한도를 넘으면 부분 문장을 그대로 써서 층을 마감하고, 그 칸에 `merge_fallback: true`를 남겨
+보는 판에 `주간 요약 합치기 실패 — 부분 요약을 그대로 사용` 한 줄을 보인다. 한 카드가 혼자 한도를
 넘으면 질의에서만 잘라 싣고 `truncated_cards`로 센다(카드 번호·근거는 그대로). 질의 판본 `history-night-query v2`,
 기대 규칙 판본 `history-writer-rules v3`(영수증 `rules_version_matches`에 기록만 하고 막지 않는다). 작성자는 주입 함수이며 기본값은 `<command> -p <profile> chat -Q --query-file …`
 외부 프로세스(시간 초과 시 프로세스 나무 전체 종료)다. 같은 입력은 호출 0회이고, 끝난 결과는 private `work_root`에
@@ -28,7 +29,7 @@ lock `history-night.lock`은 소유 pid가 죽었거나 3시간(마감이 있으
 영수증 `history-night-*.json`(`soulforge.history_night_receipt.v1`, 수·상태·시도 시간·응답 지문만, 본문 없음).
 종료 코드 0 OK · 2 FAILED · 3 LOCK_HELD · 4 SKIPPED_PAST_DEADLINE · 5 CONFIG_INVALID · 6 PARTIAL(다음 밤으로 남긴 일 있음).
 lane spec `guild_hall/deployment_pack/lanes/history_night_lane.spec.json`(`history-night-v1`, 폐포 24파일, node 내장만).
-시험 `tests/knowledge_layer/history_night.test.mjs`(합성 자료·가짜 작성자 20건). 예약·lane 설치·밤 사슬 설정 변경은 하지 않는다.
+시험 `tests/knowledge_layer/history_night.test.mjs`(합성 자료·가짜 작성자 20건, 큰 주 분할·합치기 실패 포함). 예약·lane 설치·밤 사슬 설정 변경은 하지 않는다.
 과제별 `output_root`는 과제 저장소의 `<data_root>/20_PROJECTS/<project-ref>/30_프로젝트맥락/이력`이다(Owner 결정 2026-09-26, 레이아웃 `project-context-template-v2`). 이 단계가 그 폴더의 유일한 writer이며 첫 쓰기에서 `<YYYY-MM>/`을 만든다. `work_root`(원문이 든 질의 캐시)는 과제 저장소 밖 private 자리에 둔다.
 
 ## K3 첫 실자료 위키 하네스 — 모델 응답은 out-of-band (`harness/knowledge_layer_real_wiki.mjs`, 2026-09-22, fresh review 반영)

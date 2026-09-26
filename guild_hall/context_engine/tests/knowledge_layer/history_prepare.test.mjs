@@ -175,7 +175,7 @@ test('prepare records a collection note from the lane receipts in the display me
   const coverage = { lanes: { mail: { status: 'ok', counts: { oversize: 1 }, not_collected: ['mail_not_collected_before:2026-05'] },
     slack: { status: 'ok', counts: { held: 2, held_time_unknown: 1 } }, linear: { status: 'ok' },
     voice: { status: 'ok', sessions_without_card: 4, candidate_rule: { rule: 'first_candidate_strict.v1', included_strong: 2,
-      excluded_weak_no_term: 5, excluded_weak_nature: 1, excluded_strong_nature: 0 } } },
+      excluded_weak_no_term: 5, excluded_weak_nature: 1, excluded_strong_nature: 2, excluded_weak_personal_unreadable: 3 } } },
     excluded: [{ kind: 'linear', reason: 'ai_work_note' }, { kind: 'linear', reason: 'ai_work_note_body' },
       { kind: 'slack', reason: 'configured_ai_marker' }, { kind: 'linear', reason: 'empty_body' }] };
   const result = await prepareHistory({ ...options(dir, []), collector: async () =>
@@ -184,5 +184,5 @@ test('prepare records a collection note from the lane receipts in the display me
   // AI memo exclusions of every lane and voice segments the candidate rule left out are counted, not silent.
   assert.deepEqual(display.coverage_note, { voice_without_card: 4, slack_held: 3,
     mail_not_collected: ['mail_not_collected_before:2026-05'], mail_oversize: 1,
-    ai_memo_excluded: 3, voice_candidate_excluded: 6 });
+    ai_memo_excluded: 3, voice_candidate_excluded: 6, voice_nature_excluded: 5 });
 });

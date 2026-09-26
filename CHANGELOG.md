@@ -6,8 +6,9 @@
 - AI 업무메모: Linear에 사람 계정으로 쓰인 AI 메모를 고정 표지(`LINEAR_AI_MEMO_PATTERNS`)와 설정으로 원천 준비에서 뺀다. AI 댓글은 통째로, AI가 쓴 이슈 설명은 본문만 빼고 제목·사람·상태는 남긴다. 제외 수는 영수증 `excluded_reasons`와 보는 판 `수집 현황`의 `AI 업무메모 제외 n건`으로 보인다.
 - 음성 입력 단위를 발화에서 대화 구간으로 바꿨다(입력 형식 `history_input.v3`, 모든 칸 한 번 재작성). 구간 발화 전부와 발화별 번호·시각은 보존하고, 작성자 배치에 구간 제목·성격·시각을 싣는다. 실측(실제 한 과제의 한 달, 모델 없음): 음성 record 424→55, 일별 배치 22→10(09-10: 18→6).
 - `first_candidate` 음성은 규칙 `first_candidate_strict.v1`로만 넣는다: 강한 첫 후보(개인·판독 불가 제외) 또는 약한 첫 후보이면서 업무 구간·다른 과제 언급 없음·발화에 과제 코드나 설정 `project_terms`가 있을 때. 나머지는 `candidate_rule`에 세고 `다른 과제·약한 후보 녹음 n건 제외`로 보인다.
-- 인용 현황은 업무 외 녹음 구간을 따로 센다(`unquoted_non_work_voice`).
-- 야간 이력 단계: 질의 판본 `history-night-query v2`(구간당 한 문단·채움말 금지). 한도를 넘는 주·월 packet은 부분으로 나눠 부르고 합치기 1회로 압축하며, 합치기가 안 되면 부분 문장으로 마감해 층이 한도 초과로 멈추지 않는다. 기대 규칙 판본 `history-writer-rules v3`는 영수증에 일치 여부만 남긴다.
+- 인용 현황은 업무 외 녹음 구간을 따로 센다(`unquoted_non_work_voice`). 수집 현황에서 `개인·판독불가 녹음`을 `다른 과제·약한 후보 녹음`과 나눠 보인다.
+- Linear AI 메모 표지는 자동화가 실제로 내는 서식 서명(하나로 충분)과 서식 문구(둘 이상 필요)로 좁혔다. 사람이 쓴 한 줄 머리글은 빠지지 않는다.
+- 야간 이력 단계: 질의 판본 `history-night-query v2`(구간당 한 문단·채움말 금지). 한도를 넘는 주·월 packet은 부분으로 나눠 부르고 합치기 1회로 압축하며, 합치기가 안 되면 부분 문장으로 마감하고(`merge_fallback`, 보는 판에 한 줄 표시) 층이 한도 초과로 멈추지 않는다. 기대 규칙 판본 `history-writer-rules v3`는 영수증에 일치 여부만 남긴다.
 - 운영 영향: 예약·lane 설치·작성자 프로필·sources 설정은 바꾸지 않았다. 규칙 v3 설치와 `project_terms` 지정은 Owner 몫이다.
 - 관련 경로: `guild_hall/context_engine/src/knowledge_layer/history_sources.mjs`, `history.mjs`, `history_batches.mjs`, `history_prepare.mjs`, `history_exchange.mjs`, `guild_hall/context_engine/harness/history_night.mjs`.
 

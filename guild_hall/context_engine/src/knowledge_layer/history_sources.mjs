@@ -37,25 +37,51 @@ function requireProject(project, config) {
 function noteText(text, config) {
   return (config.ai_note_markers ?? []).some(marker => typeof marker === 'string' && marker.length >= 4 && text.includes(marker));
 }
-// Built-in signatures of AI work memos written into Linear (work briefs, intake
-// follow-ups, evidence notes, process notes). Linear custody records every
-// author as a person account (agents write through a person's key), so the
-// actor alone cannot tell a memo apart; these fixed structural markers are
-// always applied, and `ai_note_markers` / `ai_note_user_ids` add to them.
-// Matched text never becomes a history source; each exclusion is counted.
-export const LINEAR_AI_MEMO_PATTERNS = Object.freeze([
-  /^\s*#{1,4}\s*(?:합성\s*)?Work Brief/mu,
-  /^\s*\[(?:업무인입|FOLLOW[-_ ]?UP|HANDOFF)/imu,
-  /작성주체\s*[:：]\s*@?(?:Codex|ChatGPT|Claude|Hermes|Gemini|AI)/iu,
-  /^\s*#{1,4}\s.*(?:Evidence|Follow-?up|FOLLOW_UP|Lifecycle|Handoff|Intake|Gate|자동 수집|대조)/imu,
-  /^\s*#{1,4}\s*(?:Owner|AI)\s/mu,
-  /^\s*(?:Source|Sources)\s*[:：]/mu,
-  /^\s*(?:Evidence update|AUTO_APPLIED_EVIDENCE|FOLLOW[-_]UP)/mu,
-  /Linear에\s*(?:기록|복제)하지\s*않/u,
-  /상태·담당·Due(?:는|를)?\s*변경하지\s*않/u,
+// Built-in signatures of AI work memos written into Linear. Linear custody
+// records every author as a person account (agents write through a person's
+// key), so the actor alone cannot tell a memo apart. The markers below are the
+// fixed template lines the work-intake / evidence automation actually emits
+// (surveyed read-only over the collected comments and descriptions, 2026-09).
+// A template signature alone marks a memo; the looser template phrases count
+// only when two different ones occur in the same text, so one human heading
+// such as "## Follow-up" or "Source: 발주처 회신" never drops a comment.
+// Owner-configured `ai_note_markers` / `ai_note_user_ids` still drop on their own.
+export const LINEAR_AI_MEMO_SIGNATURES = Object.freeze([
+  /^[ \t]*#{1,4}[ \t]*(?:합성[ \t]*)?Work Brief[ \t]*$/mu,          // issue description template
+  /^[ \t]*\[업무인입(?:[ \t\]]|$)/mu,                               // "[업무인입 v0.5.3 / FOLLOW_UP …]"
+  /작성주체[ \t]*[:：][ \t]*@(?:Codex|ChatGPT|Claude|Hermes|Gemini)(?![A-Za-z])/iu,
+  /^[ \t]*AUTO_APPLIED_EVIDENCE(?![A-Za-z_])/mu,
+  // Dated evidence / follow-up headings: "### 2026-08-25 <topic> Evidence",
+  // "### Follow-up Evidence — 2026-09-01 20:22 KST", "## 추가 Evidence — 8/19 …".
+  /^[ \t]*#{1,4}[^\n]*(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2})[^\n]*(?<![A-Za-z])(?:Evidence|EVIDENCE|Follow-up|FOLLOW[-_]UP)(?![A-Za-z])/mu,
+  /^[ \t]*#{1,4}[^\n]*(?<![A-Za-z])(?:Evidence|EVIDENCE|Follow-up|FOLLOW[-_]UP)(?![A-Za-z])[^\n]*(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2})/mu,
+  /^[^\n]*\d{1,2}:\d{2}[ \t]*KST[^\n]*(?<![A-Za-z])(?:Evidence|EVIDENCE|Follow-up|FOLLOW[-_]UP)(?![A-Za-z])/mu,
+  /^[ \t]*#{1,4}[ \t]*(?:FOLLOW[-_]UP|EVIDENCE)[ \t]*\/[ \t]*(?:EVIDENCE|FOLLOW[-_]UP|MANAGER_DECISION)(?![A-Za-z_])/mu,
+  /^[ \t]*#{1,4}[ \t]*자동 수집[ \t]*—/mu,
+  /^[ \t]*#{1,4}[ \t]*업무인입[ \t]+(?:Evidence|Follow-up)(?![A-Za-z])/mu,
+  /^[ \t]*#{1,4}[ \t]*\d차[ \t]*(?:Intake|Gmail|메일 털기)(?![A-Za-z])/mu,
+  /^[ \t]*\[?(?:FOLLOW[-_]UP|HANDOFF)\]?[ \t]*(?:—[ \t]*)?\d{4}-\d{2}-\d{2}/mu,
 ]);
-export const isLinearAiMemoText = text => typeof text === 'string'
-  && LINEAR_AI_MEMO_PATTERNS.some(pattern => pattern.test(text));
+export const LINEAR_AI_MEMO_PHRASES = Object.freeze([
+  /^[ \t]*#{1,4}[ \t]*(?:Follow-up[ \t]+)?Evidence(?:[ \t]+update)?[ \t]*(?:—|-|:|$)/mu,
+  /^[ \t]*(?:Evidence update)[ \t]*(?:—|-|:)/mu,
+  /^[ \t]*\[?FOLLOW[-_]UP\]?[ \t]*(?:—|\/|:|·|\||$)/mu,
+  /^[ \t]*\[HANDOFF\]/mu,
+  /^[ \t]*Source[ \t]*:[ \t]*\[?(?:Gmail|Plaud|PLAUD|Slack)(?![A-Za-z])/mu,
+  /^[ \t]*-[ \t]*Evidence[ \t]*:[ \t]*(?:PLAUD|Plaud|Gmail|Slack)(?![A-Za-z])/mu,
+  /Gmail[ \t]+(?:thread|message)[ \t]+`[0-9a-f]{12,}`/u,
+  /^[ \t]*#{1,4}[ \t]*\d차[ \t]*(?:Intake|Gmail|메일)/mu,
+  /^[ \t]*#{1,4}[ \t]*(?:Owner[ \t]+(?:방향 반영|최종 종결|완료 확인|선정 결정|다음 확인)|AI[ \t]+(?:실행 후보 등록|수행 가능 부분))/mu,
+  /^[ \t]*[-*][ \t]*(?:Execution Owner|Next Action Owner|Official Linear Assignee)[ \t]*:/mu,
+  /Linear에[ \t]*(?:기록|복제)하지[ \t]*않/u,
+  /상태·담당·Due(?:는|를)?[ \t]*변경하지[ \t]*않/u,
+]);
+export function linearAiMemoMatch(text) {
+  if (typeof text !== 'string') return null;
+  if (LINEAR_AI_MEMO_SIGNATURES.some(pattern => pattern.test(text))) return 'signature';
+  return LINEAR_AI_MEMO_PHRASES.filter(pattern => pattern.test(text)).length >= 2 ? 'phrases' : null;
+}
+export const isLinearAiMemoText = text => linearAiMemoMatch(text) !== null;
 const linearMemo = (text, config) => isLinearAiMemoText(text) || noteText(text, config);
 function flatRecord(project, kind, native, instant, text, title, sender, refs, extra = {}) {
   return { id: idFor(kind,native), project, date: kstDay(instant), kind, title: String(title ?? ''),
@@ -172,6 +198,7 @@ const STRONG_EXCLUDED_NATURES = new Set(['personal', 'unreadable']);
 function candidateVerdict(segment, project) {
   const first = segment.project_candidates?.[0];
   if (first?.strength === 'strong') return STRONG_EXCLUDED_NATURES.has(segment.nature) ? 'excluded_strong_nature' : 'strong';
+  if (STRONG_EXCLUDED_NATURES.has(segment.nature)) return 'excluded_weak_personal_unreadable';
   if (segment.nature !== 'project_work') return 'excluded_weak_nature';
   if ((segment.other_project_mentions ?? []).some(item => item?.project_code && item.project_code !== project)
     || (segment.project_candidates ?? []).slice(1).some(item => item?.project_code && item.project_code !== project && item.strength === 'strong'))
@@ -210,7 +237,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
     no_written_source_day:0,no_match:0,ambiguous:0,peer_unverified:0,transcript_unverified:0};
   // Candidate rule counts: segments starting in this window whose first candidate is this project.
   const candidateCounts = {rule:VOICE_CANDIDATE_RULE,included_confirmed:0,included_strong:0,included_weak_term:0,
-    excluded_strong_nature:0,excluded_weak_nature:0,excluded_weak_other_project:0,excluded_weak_no_term:0,
+    excluded_strong_nature:0,excluded_weak_personal_unreadable:0,excluded_weak_nature:0,excluded_weak_other_project:0,excluded_weak_no_term:0,
     excluded_transcript_unverified:0};
   let segmentRecords = 0, segmentUtterances = 0, emptySegmentParts = 0;
   let sessionsWithoutCard = 0, sessionsCarded = 0;

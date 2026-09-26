@@ -115,6 +115,7 @@ function mergeDisplay(previous, incoming, scannedIds) {
 // candidate rule left out are shown too: nothing is dropped silently.
 const AI_MEMO_REASONS = new Set(['ai_work_note', 'ai_work_note_body', 'explicit_ai_work_note', 'configured_ai_sender',
   'configured_ai_subject', 'configured_ai_user', 'configured_ai_marker']);
+const NATURE_EXCLUSIONS = new Set(['excluded_strong_nature', 'excluded_weak_personal_unreadable']);
 function coverageNote(lanes, excluded = []) {
   const count = value => Number.isSafeInteger(value) && value > 0 ? value : 0;
   const notCollected = Array.isArray(lanes.mail?.not_collected) ? lanes.mail.not_collected.filter(item => typeof item === 'string') : [];
@@ -123,8 +124,10 @@ function coverageNote(lanes, excluded = []) {
     slack_held: count(lanes.slack?.counts?.held) + count(lanes.slack?.counts?.held_time_unknown),
     mail_not_collected: [...new Set(notCollected)].sort(), mail_oversize: count(lanes.mail?.counts?.oversize),
     ai_memo_excluded: (Array.isArray(excluded) ? excluded : []).filter(item => AI_MEMO_REASONS.has(item?.reason)).length,
-    voice_candidate_excluded: Object.entries(rule).filter(([key]) => key.startsWith('excluded_'))
-      .reduce((sum, [, value]) => sum + count(value), 0) };
+    // Personal / unreadable talk is shown apart from other-project and weak candidates.
+    voice_candidate_excluded: Object.entries(rule).filter(([key]) => key.startsWith('excluded_') && !NATURE_EXCLUSIONS.has(key))
+      .reduce((sum, [, value]) => sum + count(value), 0),
+    voice_nature_excluded: [...NATURE_EXCLUSIONS].reduce((sum, key) => sum + count(rule[key]), 0) };
 }
 function sourceCounts(records) {
   const counts = {}; for (const row of records) counts[row.kind] = (counts[row.kind] ?? 0) + 1;

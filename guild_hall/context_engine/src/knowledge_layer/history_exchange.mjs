@@ -292,11 +292,12 @@ function validatePrepared(ctx, prepared) {
 }
 function cardsForPacket(packet, draftEntry, rows, voiceGroups = null) {
   const keys = plain(draftEntry) ? Object.keys(draftEntry).sort().join(',') : '';
-  if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches'].includes(keys)
+  if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches', 'merge_fallback,packet_id,sentences'].includes(keys)
     || draftEntry.packet_id !== packet.packet_id || !Array.isArray(draftEntry.sentences)
     || draftEntry.sentences.length > 1000) fail('history_exchange_draft_invalid');
   const unprocessed = draftEntry.unprocessed_batches ?? [];
-  if (!Array.isArray(unprocessed) || (packet.layer !== 'daily' && unprocessed.length))
+  if (!Array.isArray(unprocessed) || (packet.layer !== 'daily' && unprocessed.length)
+    || (draftEntry.merge_fallback !== undefined && (draftEntry.merge_fallback !== true || packet.layer === 'daily')))
     fail('history_exchange_draft_invalid');
   if (packet.layer === 'daily') {
     const limit = batchCharactersOf(packet);
@@ -381,6 +382,8 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
         child_card_ids: sorted(new Set(mapped.cards.flatMap(card => card.child_card_ids))),
         cards: mapped.cards, unused_evidence_ids: mapped.unused_evidence_ids,
         ...(packet.layer === 'daily' ? { unprocessed_batches: mapped.unprocessed_batches } : {}),
+        // A split upper packet whose merge call failed keeps the parts' sentences; the view says so.
+        ...(entry.merge_fallback === true ? { merge_fallback: true } : {}),
         format_flag: null, response_format: 'external_draft', raw: '' };
       if (packet.layer === 'weekly') Object.assign(cell, packet.dependencies.week);
       return { packet, ...storedCell(cell) };

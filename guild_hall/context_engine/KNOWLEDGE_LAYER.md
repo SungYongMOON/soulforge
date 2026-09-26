@@ -48,7 +48,8 @@ PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 �
 `project_terms`(Owner 지정)가 글자로 있을 때만 넣는다. 카드가 서면 자료와 맞춘 용어는 실측에서 대부분 일반어라 쓰지 않는다.
 나머지는 voice 영수증 `candidate_rule`(`included_*`·`excluded_strong_nature`·`excluded_weak_nature`·
 `excluded_weak_other_project`·`excluded_weak_no_term`·`excluded_transcript_unverified`)에 세고 보는 판 `수집 현황`에
-`다른 과제·약한 후보 녹음 n건 제외`로 보인다.
+`다른 과제·약한 후보 녹음 n건 제외`와, 구간 성격이 개인·판독 불가인 것(`excluded_strong_nature`·`excluded_weak_personal_unreadable`)은
+따로 `개인·판독불가 녹음 n건 제외`로 보인다.
 후보가 없는 구간은 같은 날 규칙(`history_voice_attribution.mjs`, `same_day_context.v1`)으로만 들어온다:
 검증된 카드·다른 과제 언급 없음·사람 확정/후보 없음이고, 그날 이 과제의 서면 자료가 1건 이상이며,
 발화 원문이나 녹음 원제목이 과제 코드·`same_day_context.project_terms` 또는 그날 서면 자료 참여자 이름
@@ -74,9 +75,12 @@ Slack custody HOLD는 되돌릴 수 없는 사건별 제외이므로 그 사건�
 모두 비면 하나를 `empty_body_all_copies`로 표시해 남기며 `duplicate_empty_copies`로 센다.
 Slack이 없는 과제는 sources 파일에 `"slack": {"project": ..., "none": true}`(또는 `channels: []`)로 적고 `slack_not_configured`로 남는다.
 AI 메모 제외, 원천 해시, 읽기 한도, 네 원천의 누락/오류 차단은 유지한다. 현재 수집의 완전성을 보증하지 않는다.
-Linear는 사람 계정으로 봇이 쓰므로 작성자만으로 AI 메모를 가릴 수 없다. 코드에 고정된 AI 업무메모 표지
-(`LINEAR_AI_MEMO_PATTERNS`: Work Brief·업무인입·작성주체 @AI·Evidence/Follow-up/Intake/대조 머리글·`Source:` 줄·
-"Linear에 복제하지 않"·"상태·담당·Due 변경하지 않" 등)와 설정 `ai_note_markers`·`ai_note_user_ids`로 가린다. AI가 쓴 댓글은
+Linear는 사람 계정으로 봇이 쓰므로 작성자만으로 AI 메모를 가릴 수 없다. 자동화가 실제로 내는 서식 줄을 수집본에서 조사해
+고정했다: 서식 서명(`LINEAR_AI_MEMO_SIGNATURES`: `## Work Brief`·`[업무인입`·`작성주체: @Codex` 등·날짜가 붙은 Evidence/Follow-up 머리글·
+`## 자동 수집 —`·`### 업무인입 Evidence`·`## 3차 Intake`·`[HANDOFF] 날짜`)은 하나로 충분하고, 느슨한 서식 문구
+(`LINEAR_AI_MEMO_PHRASES`: `Source: Gmail|Plaud|Slack`·`Evidence update —`·"Linear에 복제하지 않"·"상태·담당·Due 변경하지 않" 등)는
+서로 다른 두 개가 있어야 한다. 사람이 쓴 한 줄 머리글(`## Follow-up`·`Source: 발주처 회신`·`## AI 모델 선정`)은 빠지지 않는다.
+설정 `ai_note_markers`·`ai_note_user_ids`는 단독으로 뺀다. AI가 쓴 댓글은
 통째로(`ai_work_note`), AI가 쓴 이슈 설명은 본문만(`ai_work_note_body`) 빼고 이슈 제목·작성자·담당·상태는 Linear 사실로 남긴다.
 Linear 작성자·담당은 custody `users`의 이름으로 바꾸고 없으면 `작성자 미기록`이다. 제외 수는 linear 영수증
 `excluded_reasons`와 `수집 현황`의 `AI 업무메모 제외 n건`(메일·Slack의 AI 메모 제외 포함)으로 보인다.

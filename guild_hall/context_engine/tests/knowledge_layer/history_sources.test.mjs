@@ -128,7 +128,7 @@ test('candidate rule: a weak first candidate needs project work, no other projec
   assert.deepEqual(plain.records.map(row=>row.text),['합성 과제 P-DEMO 일정 확인']);
   const counts=plain.receipt.candidate_rule;
   assert.equal(counts.rule,'first_candidate_strict.v1');
-  assert.deepEqual([counts.included_weak_term,counts.excluded_weak_no_term,counts.excluded_weak_other_project,counts.excluded_weak_nature],[1,2,1,1]);
+  assert.deepEqual([counts.included_weak_term,counts.excluded_weak_no_term,counts.excluded_weak_other_project,counts.excluded_weak_nature,counts.excluded_weak_personal_unreadable],[1,2,1,0,1]);
   assert.deepEqual(refOf(plain,plain.records[0]).attribution_reason,{rule:'first_candidate_strict.v1',matched_term:'p-demo'});
   // An Owner-configured project term admits the segment that names it; nothing else changes.
   const terms=await readVoiceHistory({...args,config:{...config,project_terms:['합성체계']}});
@@ -138,10 +138,12 @@ test('candidate rule: a weak first candidate needs project work, no other projec
   // A strong first candidate enters unless the talk is personal or unreadable (counted).
   put(v.cardPath,{...v.card,transcript:{...v.card.transcript,sha256:hashText(text)},segments:[
     seg('strong',2,{project_candidates:[{project_code:'P-DEMO',strength:'strong'}]}),
-    seg('strong-personal',4,{project_candidates:[{project_code:'P-DEMO',strength:'strong'}],nature:'personal'})]});
+    seg('strong-personal',4,{project_candidates:[{project_code:'P-DEMO',strength:'strong'}],nature:'personal'}),
+    seg('weak-unreadable',3,{nature:'unreadable'})]});
   const strong=await readVoiceHistory({...args,config});
   assert.deepEqual(strong.records.map(row=>row.text),['날씨 이야기']);
   assert.equal(strong.receipt.candidate_rule.included_strong,1);assert.equal(strong.receipt.candidate_rule.excluded_strong_nature,1);
+  assert.equal(strong.receipt.candidate_rule.excluded_weak_personal_unreadable,1);assert.equal(strong.receipt.candidate_rule.excluded_weak_nature,0);
 });
 test('Linear built-in AI memo signatures and display names: no account ids, memo bodies counted out',async t=>{
   const root=temp(t); for(const kind of ['issues','comments','issue_history','users'])mkdirSync(join(root,kind));
@@ -150,7 +152,7 @@ test('Linear built-in AI memo signatures and display names: no account ids, memo
   const issue={id:'issue-brief',project_id:'project-one',title:'합성 과제 작업',description:'## Work Brief\n\n### 목적\n합성 판단 문장',
     created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-23T00:00:00Z',creator_id:'person-a',assignee_id:'person-b',state_name:'진행 중'};
   custody(root,'issues',issue);
-  custody(root,'comments',{id:'c-memo',issue_id:issue.id,user_id:'person-a',body:'### Evidence — 합성\n\n- 민감한 값은 Linear에 복제하지 않음',created_at:'2026-09-23T01:00:00Z'});
+  custody(root,'comments',{id:'c-memo',issue_id:issue.id,user_id:'person-a',body:'### Evidence — 합성\n\n- 민감한 값은 Linear에 복제하지 않음\n- 상태·담당·Due는 변경하지 않음',created_at:'2026-09-23T01:00:00Z'});
   custody(root,'comments',{id:'c-intake',issue_id:issue.id,user_id:'person-a',body:'[업무인입 v0.5.3] FOLLOW_UP — 합성',created_at:'2026-09-23T02:00:00Z'});
   custody(root,'comments',{id:'c-human',issue_id:issue.id,user_id:'person-b',body:'합성 도면을 보냈습니다.',created_at:'2026-09-23T03:00:00Z'});
   custody(root,'comments',{id:'c-unknown',issue_id:issue.id,user_id:'ghost',body:'합성 확인 부탁드립니다.',created_at:'2026-09-23T04:00:00Z'});
@@ -162,9 +164,16 @@ test('Linear built-in AI memo signatures and display names: no account ids, memo
     [['작성자 미기록','합성 확인 부탁드립니다.'],['합성 담당자','합성 도면을 보냈습니다.']]);
   assert.deepEqual(result.receipt.excluded_reasons,{ai_work_note:2,ai_work_note_body:1});
   assert.ok(result.records.every(row=>!/person-|Work Brief|Evidence|업무인입/u.test(row.sender+row.text)));
-  for (const memo of ['## Work Brief','작성주체: @Codex · Owner 지시 반영','Source: Gmail thread','상태·담당·Due는 변경하지 않음'])
+  // Template signatures drop alone; looser template phrases need two different ones.
+  for (const memo of ['## Work Brief\n\n### 목적','[업무인입 v0.5.3] FOLLOW_UP — 합성','합성 본문\n작성주체: @Codex · Owner 지시 반영',
+    '### 2026-08-25 합성 회신 Evidence','## 자동 수집 — 합성 Evidence','### Follow-up Evidence — 2026-09-01 20:22 KST',
+    '### 업무인입 Evidence — 합성','[HANDOFF] 2026-08-25 · 합성','Source: Gmail thread `abc`\n- 상태·담당·Due는 변경하지 않음'])
     assert.equal(isLinearAiMemoText(memo),true,memo);
-  for (const human of ['## 진행 상황 — 2026-08-21','@팀장님, 확인 부탁드립니다.','전송 완료'])
+  // Plausible human writing: none of these may be dropped as an AI memo (each alone, and a few together).
+  for (const human of ['## AI 모델 선정','### 규격 대조표 검토','Source: 발주처 회신','## Follow-up','## Investigate 결과',
+    '### Aggregate 데이터 정리','## Gateway 설정 변경','## Owner 요청 사항','### Evidence 사진 첨부','Navigate 화면 수정 요청',
+    '## Handoff 일정','## 자동 수집 장비 점검','## 진행 상황 — 2026-08-21','@팀장님, 확인 부탁드립니다.','전송 완료',
+    '## Follow-up\nSource: 발주처 회신','### 규격 대조표 검토\n## AI 모델 선정\n## Owner 요청 사항\n## Gateway 설정 변경'])
     assert.equal(isLinearAiMemoText(human),false,human);
 });
 test('voice cards carry the transcript they read as display-only metadata; PLAUD cards read the session-root transcript',async t=>{

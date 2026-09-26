@@ -287,8 +287,8 @@ function displayConfig(value) {
   if (raw.coverage_note !== undefined) {
     const note = raw.coverage_note;
     if (!plain(note) || Object.keys(note).some(key => !['voice_without_card', 'slack_held', 'mail_not_collected', 'mail_oversize',
-      'ai_memo_excluded', 'voice_candidate_excluded'].includes(key))
-      || ['voice_without_card', 'slack_held', 'mail_oversize', 'ai_memo_excluded', 'voice_candidate_excluded']
+      'ai_memo_excluded', 'voice_candidate_excluded', 'voice_nature_excluded'].includes(key))
+      || ['voice_without_card', 'slack_held', 'mail_oversize', 'ai_memo_excluded', 'voice_candidate_excluded', 'voice_nature_excluded']
         .some(key => note[key] !== undefined && (!Number.isSafeInteger(note[key]) || note[key] < 0))
       || (note.mail_not_collected !== undefined && (!Array.isArray(note.mail_not_collected) || note.mail_not_collected.length > 50
         || note.mail_not_collected.some(item => typeof item !== 'string' || !/^mail_not_collected_before:\d{4}-\d{2}$/u.test(item)))))
@@ -457,7 +457,8 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     ...((note.mail_not_collected ?? []).length ? [`수집 전 기간(메일 ${note.mail_not_collected.map(item => item.slice(-7)).join('·')} 이전)`] : []),
     ...(note.mail_oversize ? [`크기 초과 메일 ${note.mail_oversize}건`] : []),
     ...(note.ai_memo_excluded ? [`AI 업무메모 제외 ${note.ai_memo_excluded}건`] : []),
-    ...(note.voice_candidate_excluded ? [`다른 과제·약한 후보 녹음 ${note.voice_candidate_excluded}건 제외`] : [])];
+    ...(note.voice_candidate_excluded ? [`다른 과제·약한 후보 녹음 ${note.voice_candidate_excluded}건 제외`] : []),
+    ...(note.voice_nature_excluded ? [`개인·판독불가 녹음 ${note.voice_nature_excluded}건 제외`] : [])];
   if (noteParts.length) lines.push(`> 수집 현황: ${noteParts.join(' · ')}`, '');
   function section(title, cells, stale = false, pendingKeys = []) {
     lines.push(`## ${title}`, '');
@@ -465,6 +466,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     for (const cell of cells) {
       const heading = cell.layer === 'weekly' ? `${cell.start}–${cell.end}` : cell.key;
       lines.push(`### ${line(heading)}${cell.partial ? ' (월 경계의 부분 주)' : ''}`, '');
+      if (cell.merge_fallback) lines.push(`> ${{ weekly: '주간', monthly: '월간', status: '최근 현황' }[cell.layer] ?? ''} 요약 합치기 실패 — 부분 요약을 그대로 사용`, '');
       if (cell.unprocessed_batches?.length) lines.push(
         `> 미처리 묶음: ${cell.unprocessed_batches.map(item => `${item.batch_index}번(${item.reason === 'format_invalid_after_retry' ? 'JSON 형식 오류' : '출처 연결 오류'})`).join(', ')}`, '');
       if (cell.format_flag) lines.push(cell.format_flag === 'batch_format_error'
