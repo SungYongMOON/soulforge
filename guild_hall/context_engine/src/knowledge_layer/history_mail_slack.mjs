@@ -19,6 +19,7 @@ const PROJECT = /^[A-Z][0-9A-Z]*(?:-[0-9A-Z]+)+$/u;
 const DEFAULTS = Object.freeze({ max_files: 128, max_bytes: 256 * 1024 * 1024, max_rows: 100000 });
 // One record (text and all) must fit the shared plain-data budget of 500k characters.
 const MAIL_RECORD_BODY_CHARACTERS = 400_000;
+export const MAIL_OVERSIZE_TEXT = '[본문 크기 초과·미포함]';
 const fail = code => { const error = new Error(code); error.code = code; throw error; };
 const validDay = day => typeof day === 'string' && DAY.test(day)
   && Number.isFinite(Date.parse(day + 'T00:00:00Z'))
@@ -209,25 +210,41 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
   let scannedBytes = 0, scannedRows = 0, matchedRows = 0, selectedBytes = 0, emptyCopies = 0;
   const duplicateEmpty = new Set();
   // A month of events is streamed line by line with no whole-file budget (one
-  // month can pass 256 MiB). Budgets apply to what is selected: each routed event
-  // line is bounded by max_line_bytes (default 4 MiB) and all selected lines
-  // together by max_bytes. Unrouted lines are only bounded by the adapter's own
-  // per-line ceiling and are never kept.
+  // month can pass 256 MiB). The budgets are enforced inside the stream filter, so
+  // a run fails as soon as it passes them instead of after holding the lines: every
+  // kept line (it names a routed id) counts toward max_bytes, a line over
+  // max_line_bytes (default 4 MiB) is never kept -- only its metadata without the
+  // body is, as an oversize stub bounded by max_rows. Unrouted lines are bounded
+  // only by the adapter's own per-line ceiling and are never kept.
   const lineBytes = config.max_line_bytes ?? 4 * 1024 * 1024;
   if (!Number.isSafeInteger(lineBytes) || lineBytes < 1 || lineBytes > SOURCE_READ_MAX_BYTES) fail('history_source_bounds_invalid');
   for (const file of wanted.size ? windowFiles : []) {
+    const stubs = [];
     const scan = await file.root.readLines([file.name], { maxBytes: SOURCE_STREAM_MAX_BYTES, maxLineBytes: SOURCE_READ_MAX_BYTES,
-      filter: line => [...wanted].some(id => line.includes(id)) });
+      filter: line => {
+        if (![...wanted].some(id => line.includes(id))) return false;
+        const size = Buffer.byteLength(line);
+        if (size > lineBytes) {
+          let row;
+          try { row = JSON.parse(line); } catch { fail('mail_event_invalid'); }
+          if (!plain(row) || !wanted.has(row.event_id)) return false;
+          const { body_text: bodyText, body_html: bodyHtml, ...meta } = row;
+          stubs.push({ row: meta, size, lineSha: sha(line), bodySha: sha(String(bodyText ?? '') + '\u0000' + String(bodyHtml ?? '')) });
+          if (stubs.length > bound.max_rows) fail('mail_row_budget_exceeded');
+          return false;
+        }
+        selectedBytes += size;
+        if (selectedBytes > bound.max_bytes) fail('mail_byte_budget_exceeded');
+        return true;
+      } });
     scannedBytes += scan.bytes; scannedRows += scan.scanned;
-    for (const line of scan.lines) {
-      let row;
-      try { row = JSON.parse(line); } catch { fail('mail_event_invalid'); }
+    for (const item of [...scan.lines.map(line => ({ line })), ...stubs]) {
+      let row = item.row;
+      if (!row) try { row = JSON.parse(item.line); } catch { fail('mail_event_invalid'); }
       if (!plain(row) || !wanted.has(row.event_id)) continue;
       matchedRows += 1;
       if (matchedRows > bound.max_rows) fail('mail_row_budget_exceeded');
-      const size = Buffer.byteLength(line), oversizeLine = size > lineBytes;
-      if (!oversizeLine) selectedBytes += size;
-      if (selectedBytes > bound.max_bytes) fail('mail_byte_budget_exceeded');
+      const size = item.size ?? Buffer.byteLength(item.line), oversizeLine = item.row !== undefined;
       if (!inWindow(row.received_at, fromDate, throughDate)) continue;
       if (typeof row.subject !== 'string' || !Array.isArray(row.attachments)
         || !Array.isArray(row.from) || !Array.isArray(row.to) || !Array.isArray(row.cc)
@@ -247,10 +264,11 @@ export async function readMailHistory({ project, fromDate, throughDate, config, 
         if (!text || text.body.length > MAIL_RECORD_BODY_CHARACTERS)
           oversize = { reason: 'body_characters', line_bytes: size, ...(text ? { body_characters: text.body.length } : {}) };
       }
-      const body = oversize ? '' : text.body, bodySha = sha(body);
-      const normalizedSha = oversize ? sha(String(row.body_text ?? '') + '\u0000' + String(row.body_html ?? '')) : text.normalizedSha;
+      // The writer sees an explicit marker, never an empty text, for an oversize mail.
+      const body = oversize ? MAIL_OVERSIZE_TEXT : text.body, bodySha = sha(body);
+      const normalizedSha = oversize ? (item.bodySha ?? sha(String(row.body_text ?? '') + '\u0000' + String(row.body_html ?? ''))) : text.normalizedSha;
       const prior = selected.get(row.event_id);
-      const lineSha = sha(line);
+      const lineSha = item.lineSha ?? sha(item.line);
       const candidate = { row, body, bodySha, normalizedSha, lineSha, oversize, path: join(file.directory, file.name) };
       // Copies of one message with an empty body: a non-empty copy wins; if every
       // copy is empty one is kept and flagged. Counted, never a hold.

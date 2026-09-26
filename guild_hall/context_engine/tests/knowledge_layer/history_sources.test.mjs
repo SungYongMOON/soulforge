@@ -177,7 +177,7 @@ function sameDaySession(sessions,cards,{day,session,title,rows,segments,verified
   put(join(cards,session,'card-run','conversation_list.v0.json'),{schema:'soulforge.voice_conversation_list.v0',session_id:session,
     run_id:'card-run',generated_at:'2026-09-24T00:00:00Z',verified,transcript:{run_id:'asr-run',sha256:hashText(text),kind:'independent_fast'},
     segments:segments.map((segment,index)=>({segment_id:`seg-${index}`,source_segment_ids:[index],start_seconds:index*2,end_seconds:index*2+2,
-      title:'Derived navigation',description:'derived',project_candidates:[],other_project_mentions:[],status:'unclassified',...segment}))});
+      title:'Derived navigation',description:'derived',nature:'project_work',project_candidates:[],other_project_mentions:[],status:'unclassified',...segment}))});
   return trPath;
 }
 function sameDayFixture(t){
@@ -214,7 +214,7 @@ test('same-day rule attributes a no-candidate segment weakly, with its reason, o
   // Unmatched, other-project and other-mention segments stay out and are counted.
   assert.ok(!on.records.some(row=>['날씨 이야기','다른 과제 이야기','용어 합성체계 언급'].includes(row.text)));
   assert.deepEqual(on.coverage.lanes.voice.same_day,{attributed_segments:1,attributed_utterances:1,unattributed_segments:1,
-    no_written_source_day:0,no_match:1,ambiguous:0,peer_unverified:0,transcript_unverified:0});
+    nature_excluded:0,started_before_window:0,spill_utterances_excluded:0,no_written_source_day:0,no_match:1,ambiguous:0,peer_unverified:0,transcript_unverified:0});
   // A day with no newly attributed voice keeps its exact record fingerprint.
   const off=await collectHistorySources({...window2,sourceConfig:f.sourceConfig(false)});
   assert.equal(off.coverage.lanes.voice.same_day,undefined);
@@ -278,4 +278,36 @@ test('a same-day match that a peer project also has is ambiguous and not attribu
   // A same_day_context without a peers list is refused, never run unchecked.
   const off=f.sourceConfig(true);delete off.voice.same_day_context.peers;
   assert.equal((await collectHistorySources({...window2,sourceConfig:off})).coverage.lanes.voice.status,'error');
+});
+test('same-day rule skips non-work natures and counts lines outside its day or window',async t=>{
+  const f=sameDayFixture(t);
+  // 09-23 11:00: a personal segment naming the term, and a work segment running past midnight is not possible here,
+  // so a second session starts 23:59:58 and its two lines straddle midnight.
+  sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:'20260923_110000_demo',rows:['합성체계 개인 이야기'],segments:[{nature:'personal'}]});
+  const late='20260923_235958_demo';
+  sameDaySession(f.sessions,f.cards,{day:'2026-09-23',session:late,rows:['합성체계 밤 이야기','합성체계 자정 넘은 이야기'],
+    segments:[{source_segment_ids:[0,1],start_seconds:0,end_seconds:4}]});
+  const manifest=join(f.sessions,'2026-09-23',late,'session_manifest.json');
+  put(manifest,{...JSON.parse(readFileSync(manifest,'utf8')),recorded_at_local:'2026-09-23T23:59:58+09:00'});
+  const cfg=f.sourceConfig(true);
+  const r=await collectHistorySources({project:'P-DEMO',fromDate:'2026-09-22',throughDate:'2026-09-24',sourceConfig:cfg});
+  const sd=r.coverage.lanes.voice.same_day;
+  assert.equal(sd.nature_excluded,1);assert.equal(sd.spill_utterances_excluded,1);
+  assert.ok(r.records.some(row=>row.text==='합성체계 밤 이야기'));assert.ok(!r.records.some(row=>row.text.includes('개인')));
+  // A window that starts after a segment's start counts it instead of judging it.
+  const next=await collectHistorySources({project:'P-DEMO',fromDate:'2026-09-24',throughDate:'2026-09-24',sourceConfig:cfg});
+  assert.equal(next.coverage.lanes.voice.same_day.started_before_window,1);
+  assert.equal(next.coverage.lanes.voice.window.segments_started_before_window,0);
+});
+test('a selected segment spanning the window edge counts the lines left to the adjacent window',async t=>{
+  const v=voiceFixture(temp(t));
+  const manifestPath=join(v.sessions,'2026-09-23',v.card.session_id,'session_manifest.json');
+  put(manifestPath,{...JSON.parse(readFileSync(manifestPath,'utf8')),recorded_at_local:'2026-09-23T23:59:59+09:00'});
+  v.card.segments=[{...v.card.segments[0],source_segment_ids:[0,1],end_seconds:4}];put(v.cardPath,v.card);
+  const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
+  const today=await readVoiceHistory({...args,config});
+  assert.equal(today.records.length,1);assert.equal(today.receipt.window.utterances_after_window,1);
+  const tomorrow=await readVoiceHistory({project:'P-DEMO',fromDate:'2026-09-24',throughDate:'2026-09-24',config});
+  assert.equal(tomorrow.records.length,1);assert.equal(tomorrow.receipt.window.segments_started_before_window,1);
+  assert.equal(tomorrow.receipt.window.utterances_before_window,1);
 });

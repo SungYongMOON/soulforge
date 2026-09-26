@@ -8,6 +8,7 @@ import { digest, hashText } from './data.mjs';
 import { isAiWorkMemoRecord as isMemo } from './history.mjs';
 import { readMailHistory, readSlackHistory } from './history_mail_slack.mjs';
 import { SAME_DAY_ATTRIBUTION, matchSameDay, sameDayContext, sameDayEligible } from './history_voice_attribution.mjs';
+const SAME_DAY_NATURES = new Set(['project_work', 'team_operations']);
 const WRITTEN_READERS = { mail: readMailHistory, slack: readSlackHistory, linear: readLinearHistory };
 
 const fail = code => { throw new Error(code); };
@@ -128,7 +129,11 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
   // Same-day rule counts: every eligible (no-candidate) segment in the window ends
   // in exactly one bucket, so the unattributed remainder is visible in the receipt.
   const sameDayOn = config.project_policy==='first_candidate' && sameDay?.own instanceof Map && sameDay?.peers instanceof Map;
+  // Nothing leaves silently: lines of a selected segment that fall outside the
+  // window are counted (they belong to the adjacent window's run).
+  const windowCounts = {segments_started_before_window:0,utterances_before_window:0,utterances_after_window:0};
   const sameDayCounts = {attributed_segments:0,attributed_utterances:0,unattributed_segments:0,
+    nature_excluded:0,started_before_window:0,spill_utterances_excluded:0,
     no_written_source_day:0,no_match:0,ambiguous:0,peer_unverified:0,transcript_unverified:0};
   let sessionsWithoutCard = 0, sessionsCarded = 0;
   const routeNames = routes ? new Set((await routes.list([])).filter(e=>e.file).map(e=>e.name)) : new Set();
@@ -181,8 +186,12 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
         && JSON.stringify(human.source_segment_ids)===JSON.stringify(segment.source_segment_ids)
         && Array.isArray(human.transcript_ref)&&human.transcript_ref.includes(latest.card.transcript?.run_id);
       const candidate=config.project_policy==='first_candidate'&&segment.project_candidates?.[0]?.project_code===project;
-      const weak=!confirmed&&!candidate&&sameDayOn
+      const weakShape=!confirmed&&!candidate&&sameDayOn
         &&(!human||(human.status!=='confirmed'&&!human.project_candidates?.length))&&sameDayEligible(latest.card,segment);
+      // The same-day rule considers only work talk; other natures are counted, not placed.
+      const weak=weakShape&&SAME_DAY_NATURES.has(segment.nature);
+      if(weakShape&&!weak&&(()=>{const s=started+Number(segment.start_seconds)*1000;return s>=windowStart&&s<windowEnd;})()){
+        sameDayCounts.unattributed_segments++;sameDayCounts.nature_excluded++;}
       if(!confirmed&&!candidate&&!weak)continue;
       if(!Number.isFinite(segment.start_seconds)||!Number.isFinite(segment.end_seconds)
         ||segment.start_seconds<0||segment.end_seconds<segment.start_seconds)fail('history_voice_range_invalid');
@@ -190,9 +199,12 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       if(started+segment.end_seconds*1000<windowStart||started+segment.start_seconds*1000>=windowEnd)continue;
       if(weak){
         const day=kstDay(instant);
-        if(!inWindow(instant,fromDate,throughDate)||!sameDay.own.has(day)){sameDayCounts.unattributed_segments++;sameDayCounts.no_written_source_day++;continue;}
+        // A weak segment is judged only by the window holding its start.
+        if(!inWindow(instant,fromDate,throughDate)){sameDayCounts.started_before_window++;continue;}
+        if(!sameDay.own.has(day)){sameDayCounts.unattributed_segments++;sameDayCounts.no_written_source_day++;continue;}
         pending.push({segment,instant,day});continue;
       }
+      if(started+segment.start_seconds*1000<windowStart)windowCounts.segments_started_before_window++;
       selected.push({segment,instant,strength:confirmed?'confirmed':'candidate_only_not_accepted'});
     }
     if(!selected.length&&!pending.length)continue;
@@ -258,9 +270,12 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       if(ids.some(id=>latest.card.segments.filter(s=>s.source_segment_ids?.includes(id)).length!==1))fail('history_voice_source_overlap');
       for (const utterance of native) {
         const utteranceTime=new Date(started+utterance.start_seconds*1000).toISOString();
-        if(!inWindow(utteranceTime,fromDate,throughDate))continue;
-        // A same-day attribution holds only for its own day.
-        if(reason&&kstDay(utteranceTime)!==day)continue;
+        if(!inWindow(utteranceTime,fromDate,throughDate)){
+          if(kstDay(utteranceTime)<fromDate)windowCounts.utterances_before_window++;else windowCounts.utterances_after_window++;
+          continue;
+        }
+        // A same-day attribution holds only for its own day; lines past midnight are counted.
+        if(reason&&kstDay(utteranceTime)!==day){sameDayCounts.spill_utterances_excluded++;continue;}
         // Input format v2: the recording/segment bookkeeping is stored once per
         // segment in voice_groups under a content key; each line keeps only its
         // text, its time range and that key.
@@ -295,7 +310,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
     if(!matched)fail('history_voice_cards_root_unmatched');
   }
   return {records,voiceGroups,displayMetadata:{voice_recordings:voiceRecordings},receipt:{status:'ok',records:records.length,excluded:excluded.length,
-    sessions_without_card:sessionsWithoutCard,...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
+    sessions_without_card:sessionsWithoutCard,window:windowCounts,...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
 }
 
 // The same-day rule is on only when the voice config names its peers (possibly

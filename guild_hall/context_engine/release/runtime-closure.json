@@ -158,7 +158,7 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history.mjs",
-      "sha256": "422cdcb4fe6793d267b364b136bb456a5d78ddb199a3d75ec996421e5ad3eba9"
+      "sha256": "f6871ae6d18900e4f00e07ee9bbd5df850aa5d22b2e4bf730a4b96842f237b6c"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
@@ -170,15 +170,15 @@
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
-      "sha256": "b1d9f040359882435e0576835cf8f1e3fc8784353de7edf312e682ed11d25388"
+      "sha256": "51e9a5f5623ce37fbfec242430831227b45e839b71b7c210714b99cc40844848"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
-      "sha256": "ec25a454fcfbafc77075813eb2032a0efb1d99f984863984e1702e7e569f5d40"
+      "sha256": "1f5c239c47380e40154830202cc986092c109784b633c345980cb9cc119c14ef"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
-      "sha256": "c5e544f5ab0ef7aaff5718e12c56e98039694b7f1fbf295a4202c7cd1a1e21bd"
+      "sha256": "95e5c1185d4d07dbe25045abb6d767690500f356c60a211687ca93c91082a5ba"
     },
     {
       "path": "guild_hall/context_engine/src/knowledge_layer/history_voice_attribution.mjs",
@@ -425,7 +425,7 @@
       "sha256": "e139aed17168e3bb27866074db3f4ebe57aa5ce49e9a2f56190ca009632edbe4"
     }
   ],
-  "closure_sha256": "8e9d13b72bca100f9894314a2d04ec6970f1eb14f45bc399ab385f48caba84e6",
+  "closure_sha256": "985c8d4e29b81b405731c1b4dba2456a9d7b246ae912f0159519c4c185ee890e",
   "dependency_modules": [
     {
       "module_id": "engineering_engine",

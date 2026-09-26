@@ -107,7 +107,16 @@ function mergeDisplay(previous, incoming, scannedIds) {
       !['source_attachments', 'source_body_sha256', 'voice_sources'].includes(field) || !scannedIds.has(key)));
     merged[field] = { ...keep, ...newMap };
   }
+  if (plain(next.coverage_note)) merged.coverage_note = next.coverage_note;
   return snapshot(merged);
+}
+// Code-generated collection note for the view: what this prepare could not include.
+function coverageNote(lanes) {
+  const count = value => Number.isSafeInteger(value) && value > 0 ? value : 0;
+  const notCollected = Array.isArray(lanes.mail?.not_collected) ? lanes.mail.not_collected.filter(item => typeof item === 'string') : [];
+  return { voice_without_card: count(lanes.voice?.sessions_without_card),
+    slack_held: count(lanes.slack?.counts?.held) + count(lanes.slack?.counts?.held_time_unknown),
+    mail_not_collected: [...new Set(notCollected)].sort(), mail_oversize: count(lanes.mail?.counts?.oversize) };
 }
 function sourceCounts(records) {
   const counts = {}; for (const row of records) counts[row.kind] = (counts[row.kind] ?? 0) + 1;
@@ -185,7 +194,8 @@ export async function prepareHistory({ project, date, fromDate, sourceConfig, ou
     const input = { schema: HISTORY_INPUT_SCHEMA, project, month, as_of: target, records,
       ...(named.size ? { voice_groups: voiceGroups } : {}) };
     const historyFingerprint = historyInputFingerprint(input); // includes direct S1 memo guard
-    const displayMetadata = mergeDisplay(priorDisplay, collected.displayMetadata, scannedIds);
+    const displayMetadata = mergeDisplay(priorDisplay, { ...(plain(collected.displayMetadata) ? collected.displayMetadata : {}),
+      coverage_note: coverageNote(collected.coverage.lanes) }, scannedIds);
     const oldDays = dayFingerprints(priorInput?.records ?? []), newDays = dayFingerprints(records);
     const changedDays = [...new Set([...Object.keys(oldDays), ...Object.keys(newDays)])]
       .filter(day => day >= from && day <= target && oldDays[day] !== newDays[day]);

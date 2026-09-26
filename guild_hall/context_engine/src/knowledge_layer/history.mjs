@@ -185,8 +185,10 @@ function sourceLabel(source) {
       title: '', attachments: [], thread_ref: null,
       ...(card ? { card_identity: `${card.card_sha256}:${card.card_segment_id}` } : {}) };
   }
+  const oversize = Array.isArray(source.originrefs) && source.originrefs.some(ref => plain(ref) && plain(ref.oversize));
   return { source_id: source.id, date: source.date, kind: source.kind, title: source.title, sender: source.sender,
-    recipient: source.recipient, attachments: source.attachments, thread_ref: source.thread_ref };
+    recipient: source.recipient, attachments: source.attachments, thread_ref: source.thread_ref,
+    ...(oversize ? { oversize: true } : {}) };
 }
 function childForPrompt(cell, sources) {
   return { key: cell.key, version: cell.fingerprint, format_flag: cell.format_flag,
@@ -274,6 +276,15 @@ function displayConfig(value) {
   const raw = value ?? {};
   if (!plain(raw)) fail('history_display_metadata_invalid');
   const result = {};
+  if (raw.coverage_note !== undefined) {
+    const note = raw.coverage_note;
+    if (!plain(note) || Object.keys(note).some(key => !['voice_without_card', 'slack_held', 'mail_not_collected', 'mail_oversize'].includes(key))
+      || ['voice_without_card', 'slack_held', 'mail_oversize'].some(key => note[key] !== undefined && (!Number.isSafeInteger(note[key]) || note[key] < 0))
+      || (note.mail_not_collected !== undefined && (!Array.isArray(note.mail_not_collected) || note.mail_not_collected.length > 50
+        || note.mail_not_collected.some(item => typeof item !== 'string' || !/^mail_not_collected_before:\d{4}-\d{2}$/u.test(item)))))
+      fail('history_display_metadata_invalid');
+    result.coverage_note = note;
+  }
   for (const field of ['source_attachments', 'slack_names', 'person_names', 'source_body_sha256']) {
     const map = raw[field] ?? {};
     if (!plain(map) || Object.keys(map).length > 10000) fail('history_display_metadata_invalid');
@@ -367,7 +378,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
     const attachments = names.length ? `첨부: ${names.slice(0, 3).map(visible).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}개` : ''}`
       : known ? '첨부: 없음' : '첨부명 미기록';
     const kind = /mail|메일/iu.test(source.kind) ? '메일' : /slack/iu.test(source.kind) ? 'Slack' : source.kind;
-    return `${visible(source.date)} · ${visible(kind)} · ${partyName(source.sender)} → ${partyName(source.recipient)} · ${visible(source.title)} · ${attachments}`;
+    return `${visible(source.date)} · ${visible(kind)} · ${partyName(source.sender)} → ${partyName(source.recipient)} · ${visible(source.title)} · ${attachments}${source.oversize ? ' · 본문 크기 초과·미포함' : ''}`;
   };
   const localLink = (label, path) => `[${label}](<${encodeURI(path.replace(/\\/gu, '/'))
     .replace(/[?#&]/gu, character => `%${character.codePointAt(0).toString(16).toUpperCase()}`)}>)`;
@@ -405,6 +416,13 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   };
   const lines = [`# ${line(data.project)} · ${data.month} 이력 초안`, '',
     `기록 기준일: ${data.as_of} (KST 날짜) · ${external ? '외부 초안' : '모델 생성 초안'} · 의미 검증/사람 수락 전`, ''];
+  // Collection note (code-generated from the prepare receipt): what this month could not include.
+  const note = display.coverage_note ?? {};
+  const noteParts = [...(note.voice_without_card ? [`녹음 카드 없음 ${note.voice_without_card}건`] : []),
+    ...(note.slack_held ? [`보류 Slack ${note.slack_held}건`] : []),
+    ...((note.mail_not_collected ?? []).length ? [`수집 전 기간(메일 ${note.mail_not_collected.map(item => item.slice(-7)).join('·')} 이전)`] : []),
+    ...(note.mail_oversize ? [`크기 초과 메일 ${note.mail_oversize}건`] : [])];
+  if (noteParts.length) lines.push(`> 수집 현황: ${noteParts.join(' · ')}`, '');
   function section(title, cells, stale = false, pendingKeys = []) {
     lines.push(`## ${title}`, '');
     if (stale) lines.push('> 일별 재작성 전 요약 · 최신 일별 내용은 아래 일별 기록을 확인', '');

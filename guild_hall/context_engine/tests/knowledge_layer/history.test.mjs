@@ -977,3 +977,22 @@ test('input format v2: explicit version in the fingerprint; a tampered or missin
   assert.throws(() => normalizeHistoryInput({ ...input([voice(key)]), voice_groups: { [key]: { ...group, session_id: 'other' } } }), /history_voice_group_invalid/);
   assert.throws(() => normalizeHistoryInput(input([voice(key)])), /history_voice_group_invalid/);
 });
+
+test('the view shows a code-generated collection note and marks an oversize mail on its evidence line', () => {
+  const rows = [record('A', '2026-09-23', '[본문 크기 초과·미포함]', { originrefs: [{ oversize: { reason: 'event_line_bytes', line_bytes: 9 } }] }),
+    record('B', '2026-09-23', 'Bravo source text')];
+  const data = normalizeHistoryInput({ project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23', records: rows });
+  const byId = new Map(data.records.map(row => [row.id, row]));
+  const card = (index, id) => ({ card_id: `daily:2026-09-23:00${index}`, text: `문장 ${index}.`, child_card_ids: [], flags: [],
+    evidence: [{ source_id: id, quote: byId.get(id).text, originrefs: byId.get(id).originrefs }], source_ids: [id],
+    source_display: [{ ...historySourceLabel(byId.get(id)), text_sha256: byId.get(id).text_sha256 }] });
+  const daily = new Map([['2026-09-23', { layer: 'daily', key: '2026-09-23', cards: [card(1, 'A'), card(2, 'B')] }]]);
+  const note = { voice_without_card: 3, slack_held: 2, mail_not_collected: ['mail_not_collected_before:2026-05'], mail_oversize: 1 };
+  const view = renderHistory(data, daily, new Map(), null, null, { coverage_note: note }, false, { external: true });
+  assert.ok(view.includes('> 수집 현황: 녹음 카드 없음 3건 · 보류 Slack 2건 · 수집 전 기간(메일 2026-05 이전) · 크기 초과 메일 1건'));
+  const evidence = view.split('\n').filter(text => text.startsWith('  - 근거: '));
+  assert.ok(evidence[0].endsWith(' · 본문 크기 초과·미포함')); assert.ok(!evidence[1].includes('본문 크기 초과'));
+  const quiet = renderHistory(data, daily, new Map(), null, null, { coverage_note: { voice_without_card: 0, slack_held: 0, mail_not_collected: [], mail_oversize: 0 } }, false, { external: true });
+  assert.ok(!quiet.includes('수집 현황'));
+  assert.throws(() => renderHistory(data, daily, new Map(), null, null, { coverage_note: { other: 1 } }), /history_display_metadata_invalid/);
+});

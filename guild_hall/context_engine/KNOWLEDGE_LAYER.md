@@ -47,16 +47,21 @@ PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 �
 검증된 카드·다른 과제 언급 없음·사람 확정/후보 없음이고, 그날 이 과제의 서면 자료가 1건 이상이며,
 발화 원문이나 녹음 원제목이 과제 코드·`same_day_context.project_terms` 또는 그날 서면 자료 참여자 이름
 (메일 표시 이름·Slack 이름의 앞 한글 3~4자, `exclude_participants` 제외)과 글자로 일치할 때다.
-귀속은 `weak_same_day_context`이고 이유는 source ref `attribution_reason`에 남는다. 그 구간의 같은 날 발화만 넣는다.
+구간 성격이 `project_work`·`team_operations`인 것만 보며 다른 성격은 `nature_excluded`로 센다.
+귀속은 `weak_same_day_context`이고 이유는 source ref `attribution_reason`에 남는다. 그 구간의 같은 날 발화만 넣고,
+자정을 넘은 발화는 `spill_utterances_excluded`, 창 시작 전에 시작한 구간은 `started_before_window`로 센다.
 규칙은 `same_day_context.peers`(다른 과제의 mail/slack/linear 설정 목록, 비어 있어도 됨)가 있을 때만 켜진다.
 같은 창의 peer 서면 자료로 같은 판정을 해 한 과제라도 더 일치하면 모호(`ambiguous`)로 넣지 않고, peer lane을
 읽지 못하면 `peer_unverified`로 넣지 않는다. 정확히 한 과제만 일치할 때만 약하게 귀속한다.
 나머지는 voice 영수증 `same_day`(귀속·미귀속·서면 자료 없는 날·불일치·모호·peer 확인 불가·전사 확인 불가)에 센다.
 `confirmed` 정책과 설정이 없거나 `false`일 때는 쓰지 않는다. 새로 귀속된 음성이 없는 날의 record와 지문은 그대로다.
+선택된 구간이 창 경계에 걸리면 창 밖 발화를 voice 영수증 `window`(`segments_started_before_window`·
+`utterances_before_window`·`utterances_after_window`)에 센다. 그 발화는 이웃 창의 실행이 넣는다.
 카드가 아직 없는 녹음은 건너뛰고 `sessions_without_card`로 센다. 창 안에 카드 있는 녹음이 하나도 없고 카드 폴더
 어느 것도 실제 녹음을 가리키지 않으면 `history_voice_cards_root_unmatched`로 멈춘다(잘못된 cards_root 방지).
-메일 월 파일은 한 줄씩 읽고 전체 파일 한도를 두지 않는다. 한도는 선택된 사건에만 건다: 사건 한 줄 `max_line_bytes`
-(기본 4 MiB, 최대 64 MiB), 선택 합계 `max_bytes`(기본 256 MiB). 스레드 id 없는 메일은 `thread_ref`를 두지 않는다.
+메일 월 파일은 한 줄씩 읽고 전체 파일 한도를 두지 않는다. 한도는 읽는 중 필터 안에서 건다: 경로 id를 담은 줄은
+선택 합계 `max_bytes`(기본 256 MiB)에 더해 넘는 즉시 멈추고, `max_line_bytes`(기본 4 MiB, 최대 64 MiB)를 넘는 줄은
+본문 없이 머리 정보만 크기 초과 조각으로 남긴다(개수는 `max_rows`). 스레드 id 없는 메일은 `thread_ref`를 두지 않는다.
 Slack custody HOLD는 되돌릴 수 없는 사건별 제외이므로 그 사건만 빼고 센다(`held`·`held_time_unknown`), 창 전체를 막지 않는다.
 메일 폴더의 첫 월 파일보다 이른 달은 `mail_not_collected_before:<YYYY-MM>`(메일 영수증 `not_collected`)로 남기고 막지 않는다.
 첫 월 파일 뒤의 빠진 달은 계속 `mail_event_files_missing` 보류다. 같은 메일 사본의 빈 본문은 비지 않은 사본을 쓰고,
@@ -73,7 +78,9 @@ input_file을 돌려준다. 원천 변경일이 비어 있어도 이력 `--prepa
 snapshot으로 만든 뒤 같은 정렬 JSON으로 이어 저장하고(파일 20MB 한도 유지), 입력 지문과 원천 스냅숏은 record digest 목록의
 해시로 만든다. 일별 packet은 그날 record를 싣지 않고 `{records_sha256, record_count}`로 가리키며 record는 packet이 고정한
 같은 입력에서 읽는다. 공용 한도(`data.mjs` 500k 글자·60k 노드)는 바꾸지 않았다. 한 메일이 한 record 한도(본문 40만 자·
-사건 줄 `max_line_bytes`)를 넘으면 빈 본문과 `oversize` 표시로 record·근거 줄을 남기고 센다.
+사건 줄 `max_line_bytes`)를 넘으면 본문 대신 `[본문 크기 초과·미포함]`과 `oversize` 표시로 record를 남기고 센다.
+근거 줄에는 `본문 크기 초과·미포함`이 붙는다. prepare는 영수증에서 `coverage_note`(녹음 카드 없음·보류 Slack·
+수집 전 기간·크기 초과 메일)를 표시 metadata에 넣고, 보는 판 머리에 `수집 현황:` 한 줄로 코드가 보인다.
 새 빈 날짜는 `no_sources`로 보고하고, 기존 자료를 빈 입력으로 조용히 지우지 않는다.
 이 단계도 모델·봇·운영 설정·DB·예약 작업을 실행하거나 바꾸지 않는다. 프로필은 외부 실행 담당자가 구성한다.
 

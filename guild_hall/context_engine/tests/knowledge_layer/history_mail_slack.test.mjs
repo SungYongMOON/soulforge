@@ -343,7 +343,7 @@ test('mail streams a month file larger than the byte budget; budgets bound only 
     small.config.max_bytes = 20_000_000;
     // A routed event over the per-record bound keeps its record, empty and marked oversize.
     const over = await readMailHistory(small);
-    assert.equal(over.records.length, 1); assert.equal(over.records[0].text, '');
+    assert.equal(over.records.length, 1); assert.equal(over.records[0].text, '[본문 크기 초과·미포함]');
     assert.equal(over.records[0].originrefs[0].oversize.reason, 'event_line_bytes');
     assert.equal(over.receipt.counts.oversize, 1); assert.equal(over.records[0].title, '요청');
   } finally { await rm(f.root, { recursive: true, force: true }); }

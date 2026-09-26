@@ -169,3 +169,15 @@ test('a 2,000-line synthetic recording prepares a whole month and its day packet
     collected(rows, { voiceGroups: { [key]: group }, displayMetadata: display }) });
   assert.equal(again.input_file, result.input_file); assert.deepEqual(again.changed_days, []);
 });
+
+test('prepare records a collection note from the lane receipts in the display metadata', async t => {
+  const [dir, cleanup] = root(); t.after(cleanup);
+  const coverage = { lanes: { mail: { status: 'ok', counts: { oversize: 1 }, not_collected: ['mail_not_collected_before:2026-05'] },
+    slack: { status: 'ok', counts: { held: 2, held_time_unknown: 1 } }, linear: { status: 'ok' },
+    voice: { status: 'ok', sessions_without_card: 4 } }, excluded: [] };
+  const result = await prepareHistory({ ...options(dir, []), collector: async () =>
+    collected([record('A', '2026-09-23', 'A fact')], { coverage }) });
+  const display = JSON.parse(readFileSync(join(dir, result.display_file), 'utf8'));
+  assert.deepEqual(display.coverage_note, { voice_without_card: 4, slack_held: 3,
+    mail_not_collected: ['mail_not_collected_before:2026-05'], mail_oversize: 1 });
+});
