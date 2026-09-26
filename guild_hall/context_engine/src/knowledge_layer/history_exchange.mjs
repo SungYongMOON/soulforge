@@ -242,7 +242,7 @@ export function prepareHistoryExchange({ input, outputRoot, rulesText, displayMe
   const batchPaths = plan.packets.map(packet => {
     if (packet.layer !== 'daily') return [];
     const batches = partitionDay({ project: ctx.data.project, day: packet.key,
-      rows: dayRows(ctx, packet.key), limit: batchCharactersOf(packet) });
+      rows: dayRows(ctx, packet.key), limit: batchCharactersOf(packet), voiceGroups: ctx.data.voice_groups ?? null });
     return batches.map((batch, index) => {
       const body = { packet_id: packet.packet_id, batch_index: index + 1,
         batch_total: batches.length, user: batch.user };
@@ -290,7 +290,7 @@ function validatePrepared(ctx, prepared) {
   });
   return packets;
 }
-function cardsForPacket(packet, draftEntry, rows) {
+function cardsForPacket(packet, draftEntry, rows, voiceGroups = null) {
   const keys = plain(draftEntry) ? Object.keys(draftEntry).sort().join(',') : '';
   if (!['packet_id,sentences', 'packet_id,sentences,unprocessed_batches'].includes(keys)
     || draftEntry.packet_id !== packet.packet_id || !Array.isArray(draftEntry.sentences)
@@ -303,7 +303,7 @@ function cardsForPacket(packet, draftEntry, rows) {
     if (!Number.isSafeInteger(limit) || limit < 1000 || limit > DEFAULT_BATCH_CHARACTERS)
       fail('history_exchange_packet_mismatch');
     const count = partitionDay({ project: packet.project, day: packet.key,
-      rows, limit }).length;
+      rows, limit, voiceGroups }).length;
     if (unprocessed.length > count || new Set(unprocessed.map(item => item?.batch_index)).size !== unprocessed.length
       || unprocessed.some(item => !plain(item) || Object.keys(item).sort().join(',') !== 'batch_index,reason'
         || !Number.isSafeInteger(item.batch_index) || item.batch_index < 1 || item.batch_index > count
@@ -372,7 +372,8 @@ export function finalizeHistoryExchange({ input, outputRoot, rulesText, prepared
     const draftById = new Map(draft.drafts.map(entry => [entry.packet_id, entry]));
     if (packets.some(packet => !draftById.has(packet.packet_id))) fail('history_exchange_draft_missing');
     const candidates = packets.map(packet => {
-      const entry = draftById.get(packet.packet_id), mapped = cardsForPacket(packet, entry, packet.layer === 'daily' ? dayRows(ctx, packet.key) : null);
+      const entry = draftById.get(packet.packet_id), mapped = cardsForPacket(packet, entry, packet.layer === 'daily' ? dayRows(ctx, packet.key) : null,
+        ctx.data.voice_groups ?? null);
       const cell = { schema: SCHEMA, project: ctx.data.project, month: ctx.data.month,
         layer: packet.layer, key: packet.key, fingerprint: packet.packet_id,
         packet_id: packet.packet_id, cell_input_fingerprint: packet.cell_input_fingerprint,

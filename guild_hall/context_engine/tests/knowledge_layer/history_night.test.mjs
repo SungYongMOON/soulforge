@@ -40,11 +40,12 @@ const headExists = env => existsSync(join(env.dir, 'out', '2026-09', 'history-he
 function answer(query, text) {
   const lines = query.split('\n');
   const skeleton = JSON.parse(lines.find(line => line.startsWith('{"schema"')));
-  const marker = lines.findIndex(line => line === '자료 배치:' || line === '하위 카드:');
+  const marker = lines.findIndex(line => line === '자료 배치:' || line === '하위 카드:' || line === '부분 요약 문장:');
   const payload = JSON.parse(lines[marker + 1]);
   const ids = lines[marker] === '자료 배치:'
     ? payload.user.threads.flatMap(thread => thread.records).map(row => row.source_id ?? row.id)
-    : payload.map(card => card.card_id);
+    : lines[marker] === '부분 요약 문장:' ? [...new Set(payload.flatMap(sentence => sentence.evidence_ids))]
+      : payload.map(card => card.card_id);
   return JSON.stringify({ ...skeleton, drafts: [{ packet_id: skeleton.drafts[0].packet_id,
     sentences: ids.length ? [{ text, evidence_ids: [ids[0]] }] : [] }] });
 }
@@ -54,12 +55,12 @@ function fakeWriter(script = () => 'ok', { text = 'A synthetic fact happened.' }
     const query = readFileSync(request.queryFile, 'utf8');
     calls.push({ layer: request.layer, key: request.key, attempt: request.attempt, length: query.length,
       timeoutMs: request.timeoutMs, retryHint: query.endsWith('JSON으로만 답하라.\n') });
-    const mode = script(request, calls.length);
+    const mode = script(request, calls.length, query);
     if (mode === 'garbage') return { exit_code: 0, stdout: 'not json at all', error_code: null };
     if (mode === 'crash') return { exit_code: 1, stdout: '', error_code: null };
     if (mode === 'timeout') return { exit_code: null, stdout: '', error_code: 'ETIMEDOUT', timed_out: true };
     if (mode === 'throw') throw Object.assign(new Error('spawn failed'), { code: 'ENOENT' });
-    return { exit_code: 0, stdout: `thinking...\n${answer(query, text)}\n`, error_code: null };
+    return { exit_code: 0, stdout: `thinking...\n${answer(query, typeof text === 'function' ? text(request, query) : text)}\n`, error_code: null };
   };
   return { writer, calls };
 }
@@ -166,16 +167,61 @@ test('a rejected upper packet does not hold back the day and is retried next nig
   assert.deepEqual(good.calls.map(call => call.layer), ['weekly', 'monthly', 'status']);
 });
 
-test('an oversize upper query is a recorded deferral, not a thrown failure', async t => {
+test('a single upper card longer than the query budget is shortened for the query only; every layer finishes', async t => {
   const env = setup(t, [record('A', '2026-09-23', 'Short.')], { max_query_characters: 3000 });
-  const fake = fakeWriter(() => 'ok', { text: '긴 문장 '.repeat(500) });
+  const fake = fakeWriter(() => 'ok', { text: request => request.layer === 'daily' ? '긴 문장 '.repeat(500) : 'Short summary.' });
   const { code, receipt } = await run(env, fake.writer);
-  assert.equal(code, EXIT.PARTIAL);
+  assert.equal(code, EXIT.OK);
   const project = receipt.projects[0];
-  assert.deepEqual(project.finalized_layers, ['daily']);
-  assert.deepEqual(project.pending, [{ layer: 'weekly', reason: 'upper_oversize' }]);
-  assert.equal(project.units.find(unit => unit.layer === 'weekly').status, 'oversize');
-  assert.deepEqual(fake.calls.map(call => call.layer), ['daily']);
+  assert.deepEqual(project.finalized_layers, ['daily', 'weekly', 'monthly', 'status']);
+  const weekly = project.units.find(unit => unit.layer === 'weekly');
+  assert.equal(weekly.status, 'accepted'); assert.equal(weekly.truncated_cards, 1);
+  assert.ok(fake.calls.every(call => call.length <= 3000));
+});
+
+// A synthetic large week: six days whose daily cards are long. The weekly packet
+// is over the query budget, so it is split into ordered parts and merged.
+const bigWeek = () => ['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19']
+  .map((day, i) => record(`W${i}`, day, `Week source ${i}.`));
+const longDaily = request => request.layer === 'daily' ? `긴 일별 사실 ${request.key} `.repeat(60) : 'Merged week fact.';
+test('an upper packet over the query budget is split into parts and one merge; the layer never stays oversize', async t => {
+  const env = setup(t, bigWeek(), { max_query_characters: 3000 });
+  const fake = fakeWriter(() => 'ok', { text: longDaily });
+  const { code, receipt } = await run(env, fake.writer);
+  assert.equal(code, EXIT.OK);
+  const project = receipt.projects[0];
+  assert.deepEqual(project.finalized_layers, ['daily', 'weekly', 'monthly', 'status']);
+  const weekly = project.units.filter(unit => unit.layer === 'weekly');
+  const parts = weekly.filter(unit => unit.batch_index !== null);
+  assert.ok(parts.length >= 2);
+  assert.deepEqual(parts.map(unit => unit.batch_index), parts.map((_, i) => i + 1));
+  assert.ok(parts.every(unit => unit.batch_total === parts.length && unit.status === 'accepted'));
+  assert.equal(weekly.filter(unit => unit.merge).length, 1);
+  assert.ok(fake.calls.every(call => call.length <= 3000));
+  // The merged sentence is the week cell; its evidence stays inside the week's cards.
+  const out = join(env.dir, 'out', '2026-09');
+  const head = JSON.parse(readFileSync(join(out, 'history-head.json'), 'utf8'));
+  const weekCell = JSON.parse(readFileSync(join(out, `history-cell-${Object.values(head.cells.weekly)[0].slice(7)}.json`), 'utf8'));
+  assert.deepEqual(weekCell.cards.map(card => card.text), ['Merged week fact.']);
+  // Same input the next night: parts and merge are cached, zero calls.
+  const again = fakeWriter(() => 'ok', { text: longDaily });
+  const second = await run(env, again.writer);
+  assert.equal(second.code, EXIT.OK); assert.equal(again.calls.length, 0);
+});
+test('a rejected merge falls back to the parts\' sentences and the layer still finishes', async t => {
+  const env = setup(t, bigWeek(), { max_query_characters: 3000 });
+  const fake = fakeWriter((request, n, query) => query.includes('부분 요약 문장:') ? 'garbage' : 'ok', { text: longDaily });
+  const { code, receipt } = await run(env, fake.writer);
+  const project = receipt.projects[0];
+  assert.deepEqual(project.finalized_layers, ['daily', 'weekly', 'monthly', 'status']);
+  const weekly = project.units.filter(unit => unit.layer === 'weekly');
+  const parts = weekly.filter(unit => unit.batch_index !== null);
+  assert.equal(weekly.find(unit => unit.merge).status, 'rejected');
+  const out = join(env.dir, 'out', '2026-09');
+  const head = JSON.parse(readFileSync(join(out, 'history-head.json'), 'utf8'));
+  const weekCell = JSON.parse(readFileSync(join(out, `history-cell-${Object.values(head.cells.weekly)[0].slice(7)}.json`), 'utf8'));
+  assert.equal(weekCell.cards.length, parts.length);
+  assert.ok([EXIT.OK, EXIT.PARTIAL].includes(code));
 });
 
 test('the daily batch budget leaves room for the prompt so no query exceeds the limit', async t => {

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { sha256Canonical } from '../../../shared/project_history_envelope.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 import { sameDayContext } from '../../src/knowledge_layer/history_voice_attribution.mjs';
-import { readLinearHistory, readVoiceHistory, collectHistorySources } from '../../src/knowledge_layer/history_sources.mjs';
+import { readLinearHistory, readVoiceHistory, collectHistorySources, isLinearAiMemoText } from '../../src/knowledge_layer/history_sources.mjs';
 
 function temp(t) { const root=mkdtempSync(join(tmpdir(),'history-sources-'));t.after(()=>rmSync(root,{recursive:true,force:true}));return root; }
 function put(path,value) { mkdirSync(join(path,'..'),{recursive:true});writeFileSync(path,JSON.stringify(value)); }
@@ -32,7 +32,11 @@ test('Linear uses exact project membership and native dates; AI work notes do no
   custody(root,'comments',{id:'comment-foreign',issue_id:'foreign',user_id:'human-one',body:'Out of project',created_at:'2026-09-23T01:00:00Z'});
   custody(root,'issue_history',{id:'change-one',issue_id:issue.id,actor_id:'human-one',created_at:'2026-09-23T02:00:00Z',from_state_id:'open',to_state_id:'done'});
   const result=await readLinearHistory({...args,config:{project:'P-DEMO',root,project_ids:['project-one'],ai_note_markers:['AI Business Notes'],ai_note_user_ids:['memo-bot']}});
-  assert.equal(result.records.length,3);assert.equal(result.excluded.filter(x=>x.reason==='ai_work_note').length,2);
+  // The AI-described issue stays as a title-only Linear fact; its memo body and the bot comment are counted out.
+  assert.equal(result.records.length,4);assert.equal(result.excluded.filter(x=>x.reason==='ai_work_note').length,1);
+  assert.equal(result.excluded.filter(x=>x.reason==='ai_work_note_body').length,1);
+  assert.deepEqual(result.receipt.excluded_reasons,{ai_work_note:1,ai_work_note_body:1});
+  assert.ok(result.records.every(x=>!x.text.includes('AI Business Notes')&&!x.text.includes('Unaccepted inference')));
   assert.ok(result.records.every(x=>x.date==='2026-09-23'));
   assert.ok(result.records.some(x=>x.text.includes('A human asked')));
   assert.ok(result.records.some(x=>x.text.includes('open → done')));
@@ -53,7 +57,7 @@ function voiceFixture(root){
   const trPath=join(sessions,'2026-09-23',session,'analysis','local_asr',transcriptRun,'transcript.jsonl');mkdirSync(join(trPath,'..'),{recursive:true});writeFileSync(trPath,text);
   const card={schema:'soulforge.voice_conversation_list.v0',session_id:session,run_id:run,generated_at:'2026-09-24T00:00:00Z',
     transcript:{run_id:transcriptRun,sha256:hashText(text),kind:'independent_fast'},segments:[
-      {segment_id:'seg-one',source_segment_ids:[0],start_seconds:0,end_seconds:2,title:'Derived navigation',description:'AI inferred remaining work, must not be sent',project_candidates:[{project_code:'P-DEMO'}],status:'candidate'},
+      {segment_id:'seg-one',source_segment_ids:[0],start_seconds:0,end_seconds:2,title:'Derived navigation',description:'AI inferred remaining work, must not be sent',nature:'project_work',project_candidates:[{project_code:'P-DEMO',strength:'strong'}],status:'candidate'},
       {segment_id:'seg-two',source_segment_ids:[1],start_seconds:2,end_seconds:4,title:'Other project',description:'Other summary',project_candidates:[{project_code:'P-OTHER'}],status:'candidate'}]};
   const cardPath=join(cards,session,run,'conversation_list.v0.json');put(cardPath,card);
   return{sessions,cards,cardPath,card,trPath};
@@ -62,9 +66,11 @@ test('voice cards select attributed native ASR spans, never their AI description
   const v=voiceFixture(temp(t));
   const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
   const result=await readVoiceHistory({...args,config});assert.equal(result.records.length,1);
-  assert.equal(result.records[0].text,'원문 요청 문장');assert.equal(result.records[0].kind,'voice_utterance');
-  assert.equal(result.records[0].evidence_mode,'source_id');
-  assert.match(result.records[0].id,/^voice_utterance:[0-9a-f]{16}:00000000$/);
+  assert.equal(result.records[0].text,'원문 요청 문장');assert.equal(result.records[0].kind,'voice_segment');
+  assert.equal(result.records[0].evidence_mode,'source_id');assert.equal(result.records[0].title,'Derived navigation');
+  assert.match(result.records[0].id,/^voice_segment:[0-9a-f]{16}:20260923$/);
+  assert.equal(refOf(result,result.records[0]).segment_nature,'project_work');
+  assert.equal(refOf(result,result.records[0]).recorded_at,'2026-09-23T09:00:00+09:00');
   assert.deepEqual(Object.keys(result.records[0].originrefs[0]).sort(),['source_offsets','voice_group']);
   assert.equal(refOf(result,result.records[0]).attribution,'candidate_only_not_accepted');
   assert.equal(result.records[0].date,'2026-09-23');
@@ -76,31 +82,90 @@ test('voice cards select attributed native ASR spans, never their AI description
   assert.equal(result.records[0].originrefs[0].source_offsets[0][0],0);
   writeFileSync(v.trPath,'changed');await assert.rejects(readVoiceHistory({...args,config}),/digest_mismatch/);
 });
-test('one card produces separate numbered utterances, with each own time and evidence locator',async t=>{
+test('one conversation segment becomes one record with every utterance line and locator, split only by KST day',async t=>{
   const root=temp(t),v=voiceFixture(root);
   v.card.segments=v.card.segments.slice(0,1);
   Object.assign(v.card.segments[0],{source_segment_ids:[0,1],end_seconds:4});
   put(v.cardPath,v.card);
   const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
   const result=await readVoiceHistory({...args,config});
-  assert.equal(result.records.length,2);
-  assert.deepEqual(result.records.map(row=>row.originrefs[0].source_offsets),[[[0,0,2]],[[1,2,4]]]);
-  assert.ok(result.records.every(row=>row.evidence_mode==='source_id'&&!row.text.includes('AI inferred')));
-  assert.equal(new Set(result.records.map(row=>row.id)).size,2);
-  assert.equal(result.records[0].thread_ref,result.records[1].thread_ref);
+  assert.equal(result.records.length,1);
+  assert.equal(result.records[0].text,'원문 요청 문장\n다른 과제의 발언');
+  assert.deepEqual(result.records[0].originrefs[0].source_offsets,[[0,0,2],[1,2,4]]);
+  assert.ok(!result.records[0].text.includes('AI inferred'));
+  assert.deepEqual(result.receipt.segments,{records:1,utterances:2,empty_parts:0});
   const manifestPath=join(v.sessions,'2026-09-23',v.card.session_id,'session_manifest.json');
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));
   manifest.recorded_at_local='2026-09-23T23:59:59+09:00';put(manifestPath,manifest);
   const bounded=await readVoiceHistory({...args,config});
-  assert.equal(bounded.records.length,1);
-  assert.equal(bounded.records[0].id,result.records[0].id);
+  assert.equal(bounded.records.length,1);assert.equal(bounded.records[0].text,'원문 요청 문장');
+  assert.equal(bounded.receipt.window.utterances_after_window,1);
   manifest.recorded_at_local='2026-09-22T23:59:59+09:00';put(manifestPath,manifest);
   mkdirSync(join(v.sessions,'2026-09-22'));
   renameSync(join(v.sessions,'2026-09-23',v.card.session_id),join(v.sessions,'2026-09-22',v.card.session_id));
   const overnight=await readVoiceHistory({...args,config});
   assert.equal(overnight.records.length,1);
-  assert.equal(overnight.records[0].id,result.records[1].id);
-  assert.equal(overnight.records[0].date,'2026-09-23');
+  assert.equal(overnight.records[0].text,'다른 과제의 발언');
+  assert.equal(overnight.records[0].date,'2026-09-23');assert.match(overnight.records[0].id,/:20260923$/);
+  // Both days of the same segment in one window: two records, one per day, same thread.
+  const both=await readVoiceHistory({project:'P-DEMO',fromDate:'2026-09-22',throughDate:'2026-09-23',config});
+  assert.deepEqual(both.records.map(row=>row.date),['2026-09-22','2026-09-23']);
+  assert.equal(both.records[0].thread_ref,both.records[1].thread_ref);
+});
+test('candidate rule: a weak first candidate needs project work, no other project and the project named in its own words',async t=>{
+  const v=voiceFixture(temp(t));
+  const rows=['합성 과제 P-DEMO 일정 확인','합성체계 도면 요청','날씨 이야기','합성체계 관련 다른 과제','P-DEMO 개인 이야기'];
+  const text=rows.map((content,i)=>JSON.stringify({schema_version:'soulforge.voice_transcript_segment.v0',speaker:'unknown',segment_id:i,
+    analysis_run_id:'asr-run',start_seconds:i*2,end_seconds:i*2+2,content})).join('\n')+'\n';
+  writeFileSync(v.trPath,text);
+  const seg=(id,i,extra)=>({segment_id:id,source_segment_ids:[i],start_seconds:i*2,end_seconds:i*2+2,title:'Derived '+id,
+    project_candidates:[{project_code:'P-DEMO',strength:'weak'}],nature:'project_work',status:'candidate',...extra});
+  put(v.cardPath,{...v.card,transcript:{...v.card.transcript,sha256:hashText(text)},segments:[
+    seg('code',0,{}),seg('term',1,{}),seg('plain',2,{}),
+    seg('other',3,{other_project_mentions:[{project_code:'P-OTHER'}]}),seg('personal',4,{nature:'personal'})]});
+  const config={project:'P-DEMO',sessions_root:v.sessions,cards_root:v.cards,project_policy:'first_candidate'};
+  const plain=await readVoiceHistory({...args,config});
+  assert.deepEqual(plain.records.map(row=>row.text),['합성 과제 P-DEMO 일정 확인']);
+  const counts=plain.receipt.candidate_rule;
+  assert.equal(counts.rule,'first_candidate_strict.v1');
+  assert.deepEqual([counts.included_weak_term,counts.excluded_weak_no_term,counts.excluded_weak_other_project,counts.excluded_weak_nature],[1,2,1,1]);
+  assert.deepEqual(refOf(plain,plain.records[0]).attribution_reason,{rule:'first_candidate_strict.v1',matched_term:'p-demo'});
+  // An Owner-configured project term admits the segment that names it; nothing else changes.
+  const terms=await readVoiceHistory({...args,config:{...config,project_terms:['합성체계']}});
+  assert.deepEqual(terms.records.map(row=>row.text),['합성 과제 P-DEMO 일정 확인','합성체계 도면 요청']);
+  assert.equal(terms.receipt.candidate_rule.excluded_weak_no_term,1);
+  await assert.rejects(readVoiceHistory({...args,config:{...config,project_terms:'합성체계'}}),/project_terms_invalid/);
+  // A strong first candidate enters unless the talk is personal or unreadable (counted).
+  put(v.cardPath,{...v.card,transcript:{...v.card.transcript,sha256:hashText(text)},segments:[
+    seg('strong',2,{project_candidates:[{project_code:'P-DEMO',strength:'strong'}]}),
+    seg('strong-personal',4,{project_candidates:[{project_code:'P-DEMO',strength:'strong'}],nature:'personal'})]});
+  const strong=await readVoiceHistory({...args,config});
+  assert.deepEqual(strong.records.map(row=>row.text),['날씨 이야기']);
+  assert.equal(strong.receipt.candidate_rule.included_strong,1);assert.equal(strong.receipt.candidate_rule.excluded_strong_nature,1);
+});
+test('Linear built-in AI memo signatures and display names: no account ids, memo bodies counted out',async t=>{
+  const root=temp(t); for(const kind of ['issues','comments','issue_history','users'])mkdirSync(join(root,kind));
+  custody(root,'users',{id:'person-a',name:'합성 작성자',display_name:'a',created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'});
+  custody(root,'users',{id:'person-b',name:'합성 담당자',display_name:'b',created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'});
+  const issue={id:'issue-brief',project_id:'project-one',title:'합성 과제 작업',description:'## Work Brief\n\n### 목적\n합성 판단 문장',
+    created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-23T00:00:00Z',creator_id:'person-a',assignee_id:'person-b',state_name:'진행 중'};
+  custody(root,'issues',issue);
+  custody(root,'comments',{id:'c-memo',issue_id:issue.id,user_id:'person-a',body:'### Evidence — 합성\n\n- 민감한 값은 Linear에 복제하지 않음',created_at:'2026-09-23T01:00:00Z'});
+  custody(root,'comments',{id:'c-intake',issue_id:issue.id,user_id:'person-a',body:'[업무인입 v0.5.3] FOLLOW_UP — 합성',created_at:'2026-09-23T02:00:00Z'});
+  custody(root,'comments',{id:'c-human',issue_id:issue.id,user_id:'person-b',body:'합성 도면을 보냈습니다.',created_at:'2026-09-23T03:00:00Z'});
+  custody(root,'comments',{id:'c-unknown',issue_id:issue.id,user_id:'ghost',body:'합성 확인 부탁드립니다.',created_at:'2026-09-23T04:00:00Z'});
+  const result=await readLinearHistory({...args,config:{project:'P-DEMO',root,project_ids:['project-one']}});
+  const issueRow=result.records.find(row=>row.text==='합성 과제 작업');
+  assert.ok(issueRow);assert.equal(issueRow.sender,'합성 작성자');assert.equal(issueRow.recipient,'합성 담당자');
+  assert.equal(issueRow.originrefs[0].issue_state,'진행 중');assert.equal(issueRow.originrefs[0].ai_memo_body_excluded,true);
+  assert.deepEqual(result.records.filter(row=>row!==issueRow).map(row=>[row.sender,row.text]).sort(),
+    [['작성자 미기록','합성 확인 부탁드립니다.'],['합성 담당자','합성 도면을 보냈습니다.']]);
+  assert.deepEqual(result.receipt.excluded_reasons,{ai_work_note:2,ai_work_note_body:1});
+  assert.ok(result.records.every(row=>!/person-|Work Brief|Evidence|업무인입/u.test(row.sender+row.text)));
+  for (const memo of ['## Work Brief','작성주체: @Codex · Owner 지시 반영','Source: Gmail thread','상태·담당·Due는 변경하지 않음'])
+    assert.equal(isLinearAiMemoText(memo),true,memo);
+  for (const human of ['## 진행 상황 — 2026-08-21','@팀장님, 확인 부탁드립니다.','전송 완료'])
+    assert.equal(isLinearAiMemoText(human),false,human);
 });
 test('voice cards carry the transcript they read as display-only metadata; PLAUD cards read the session-root transcript',async t=>{
   const v=voiceFixture(temp(t));

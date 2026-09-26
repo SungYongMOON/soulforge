@@ -3,11 +3,29 @@
 import { hashText, snapshot } from './data.mjs';
 
 const wire = value => JSON.stringify(snapshot(value));
-const modelRow = (row, start = 0, end = row.text.length) => {
+// Conversation-segment voice records (input format v3) show the writer what
+// the segment is: its derived title (navigation only), its nature and its KST
+// clock range, computed from the segment group and the utterance offsets.
+const clockKst = ms => new Date(ms + 9 * 3600000).toISOString().slice(11, 16);
+export function voiceSegmentMeta(row, voiceGroups) {
+  if (row.evidence_mode !== 'source_id' || !voiceGroups || !Array.isArray(row.originrefs)) return null;
+  const ref = row.originrefs.find(item => item && typeof item === 'object' && typeof item.voice_group === 'string');
+  const group = ref ? voiceGroups[ref.voice_group] : null;
+  if (!group || typeof group.segment_title !== 'string' || typeof group.recorded_at !== 'string') return null;
+  const offsets = Array.isArray(ref.source_offsets) ? ref.source_offsets.filter(item => Array.isArray(item) && item.length >= 3
+    && Number.isFinite(Number(item[1])) && Number.isFinite(Number(item[2]))) : [];
+  const started = Date.parse(group.recorded_at);
+  const time = offsets.length && Number.isFinite(started)
+    ? `${clockKst(started + Math.min(...offsets.map(item => Number(item[1]))) * 1000)}–${clockKst(started + Math.max(...offsets.map(item => Number(item[2]))) * 1000)}`
+    : null;
+  return { title: group.segment_title, ...(typeof group.segment_nature === 'string' ? { nature: group.segment_nature } : {}),
+    ...(time ? { time } : {}), utterances: offsets.length };
+}
+const modelRow = (row, start = 0, end = row.text.length, meta = null) => {
   const { originrefs, text_sha256, ...safe } = row;
   const text = row.text.slice(start, end);
-  if (row.evidence_mode === 'source_id') return { source_id: row.id, evidence_mode: 'source_id', text,
-    text_sha256: hashText(text), part: { start, end } };
+  if (row.evidence_mode === 'source_id') return { source_id: row.id, evidence_mode: 'source_id',
+    ...(meta ? { segment: meta } : {}), text, text_sha256: hashText(text), part: { start, end } };
   return { ...safe, text, text_sha256: hashText(text), part: { start, end } };
 };
 const payload = (project, day, threads) => ({ project, day, threads });
@@ -18,36 +36,37 @@ function endAt(text, start, end) {
   if (newline >= start + Math.floor((end - start) / 2)) end = newline + 1;
   return end;
 }
-function splitRecord(project, day, key, row, limit) {
+function splitRecord(project, day, key, row, limit, meta = null) {
   const parts = [];
   for (let start = 0; start < row.text.length;) {
     let low = start + 1, high = row.text.length, best = start;
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
-      if (fits(project, day, [{ thread_ref: key, records: [modelRow(row, start, mid)] }], limit)) { best = mid; low = mid + 1; }
+      if (fits(project, day, [{ thread_ref: key, records: [modelRow(row, start, mid, meta)] }], limit)) { best = mid; low = mid + 1; }
       else high = mid - 1;
     }
     const end = endAt(row.text, start, best);
     if (end <= start) throw new Error('history_batch_record_too_large');
-    parts.push({ thread_ref: key, records: [modelRow(row, start, end)] });
+    parts.push({ thread_ref: key, records: [modelRow(row, start, end, meta)] });
     start = end;
   }
   if (!parts.length) throw new Error('history_batch_record_too_large');
   return parts;
 }
-export function partitionDay({ project, day, rows, limit }) {
+export function partitionDay({ project, day, rows, limit, voiceGroups = null }) {
   if (!Number.isSafeInteger(limit) || limit < 1000 || limit > 500000) throw new Error('history_batch_limit_invalid');
+  const metaOf = new Map(rows.map(row => [row.id, voiceSegmentMeta(row, voiceGroups)]));
   const groups = new Map();
   for (const row of rows) { const key = row.thread_ref ? 'thread:' + row.thread_ref : 'record:' + row.id;
     if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row); }
   const units = [];
   for (const [key, records] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
-    const whole = { thread_ref: key, records: records.map(row => modelRow(row)) };
+    const whole = { thread_ref: key, records: records.map(row => modelRow(row, 0, row.text.length, metaOf.get(row.id))) };
     if (fits(project, day, [whole], limit)) { units.push(whole); continue; }
     for (const row of records) {
-      const single = { thread_ref: key, records: [modelRow(row)] };
+      const single = { thread_ref: key, records: [modelRow(row, 0, row.text.length, metaOf.get(row.id))] };
       if (fits(project, day, [single], limit)) units.push(single);
-      else units.push(...splitRecord(project, day, key, row, limit));
+      else units.push(...splitRecord(project, day, key, row, limit, metaOf.get(row.id)));
     }
   }
   const batches = [], sourceById = new Map(rows.map(row => [row.id, row]));

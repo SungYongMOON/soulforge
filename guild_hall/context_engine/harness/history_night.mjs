@@ -82,7 +82,13 @@ import { collectHistorySources } from '../src/knowledge_layer/history_sources.mj
 
 export const HISTORY_NIGHT_CONFIG_SCHEMA = 'soulforge.history_night_config.v1';
 export const HISTORY_NIGHT_RECEIPT_SCHEMA = 'soulforge.history_night_receipt.v1';
-export const HISTORY_NIGHT_TEMPLATE_VERSION = 'history-night-query v1';
+// v2: voice input is one conversation segment per record (history input v3);
+// the daily query asks for one paragraph per segment, and an upper packet over
+// the query budget is split into parts plus one merge call.
+export const HISTORY_NIGHT_TEMPLATE_VERSION = 'history-night-query v2';
+// The writer rules this template was written for (first line of the rules file).
+// A mismatch is recorded in the receipt, not refused: the Owner installs rules.
+export const HISTORY_WRITER_RULES_VERSION = 'history-writer-rules v3';
 export const LOCK_FILE_NAME = 'history-night.lock';
 export const DEFAULT_RUN_BUDGET_SECONDS = 1200;
 export const DEFAULT_CALL_MARGIN_SECONDS = 120;
@@ -230,8 +236,9 @@ export function dailyPrompt({ project, day, rulesVersion, prepareId, packetId, b
   return [
     `${project} ${day}의 준비 배치만 읽고 그날 실제 사건을 빠짐없이 이력 문장으로 써라.${rulesVersion ? ` 지침 판본: ${rulesVersion}.` : ''}`,
     '각 문장에 이 배치의 id 또는 source_id를 evidence_ids로 넣어라. 확인되지 않은 발화자는 쓰지 말라.',
-    '녹음에만 있는 사건에는 (녹음 기준)을 붙이고 같은 뜻을 반복하지 말라.',
-    '녹음 안건별로 쓰고 메일 본문의 요청·일정·수치·조건을 각각 쓰라. 결정·지시·담당자·장비명을 빠뜨리지 말라.',
+    '녹음 자료 하나는 대화 구간 하나다(segment는 구간 제목·성격·시각, 제목은 길잡이일 뿐 근거가 아니다). 구간마다 한 문단으로 그 구간의 결정·요청·지시·일정·수치·장비명만 사실로 쓰고 그 source_id를 근거로 넣어라.',
+    '녹음에만 있는 사건에는 (녹음 기준)을 붙여라. "~라는 언급이 있었다" 같은 채움말을 쓰지 말라. 인사·잡담만 있는 구간은 쓰지 않되 없는 내용을 만들지 말라.',
+    '메일 본문의 요청·일정·수치·조건을 각각 쓰라. 같은 사건은 한 문단으로 묶고 다른 사건은 합치지 말라.',
     'JSON 객체 하나만 출력하라. 설명과 코드펜스는 금지한다. 사건이 없으면 sentences는 빈 배열로 둔다.',
     `{"schema":"${DRAFT_SCHEMA}","prepare_id":"${prepareId}","drafts":[{"packet_id":"${packetId}","sentences":[{"text":"사실 문장","evidence_ids":["근거 ID"]}]}]}`,
     '자료 배치:', JSON.stringify(batch),
@@ -253,15 +260,55 @@ export function upperCards(packet) {
   if (!Array.isArray(groups)) fail('history_night_upper_packet_invalid');
   return groups.flatMap(group => group.cards ?? []).map(card => ({ card_id: card.card_id, text: card.text }));
 }
-export function upperPrompt({ project, packet, rulesVersion, prepareId }) {
+export function upperPrompt({ project, packet, rulesVersion, prepareId, cards = upperCards(packet), part = null }) {
   return [
     `${project} ${packet.key} ${UPPER_LABEL[packet.layer]} 이력을 아래 하위 이력 카드만 읽고 써라.${rulesVersion ? ` 지침 판본: ${rulesVersion}.` : ''}`,
-    packet.layer === 'status' ? '최근 있었던 일만 정리하라.' : '같은 사건을 묶어 5~10줄로 압축하라.',
+    ...(part ? [`이 요청은 ${part.index}/${part.total}번째 부분이다. 이 부분의 카드만 요약하라.`] : []),
+    packet.layer === 'status' ? '최근 있었던 일만 정리하라.' : part ? '같은 사건을 묶어 3~6줄로 압축하라.' : '같은 사건을 묶어 5~10줄로 압축하라.',
     '각 문장의 evidence_ids에는 아래 카드의 card_id만 넣어라. 카드에 없는 사실을 더하지 말라.',
     'JSON 객체 하나만 출력하라. 설명과 코드펜스는 금지한다.',
     `{"schema":"${DRAFT_SCHEMA}","prepare_id":"${prepareId}","drafts":[{"packet_id":"${packet.packet_id}","sentences":[{"text":"사실 문장","evidence_ids":["카드 ID"]}]}]}`,
-    '하위 카드:', JSON.stringify(upperCards(packet)),
+    '하위 카드:', JSON.stringify(cards),
   ].join('\n');
+}
+/** Merge call after a split upper packet: the parts' accepted sentences (with
+ * their card ids) are compressed into one set. Only card ids already cited by
+ * those sentences may be used. */
+export function upperMergePrompt({ project, packet, rulesVersion, prepareId, sentences }) {
+  return [
+    `${project} ${packet.key} ${UPPER_LABEL[packet.layer]} 이력의 부분 요약 문장들을 합쳐라.${rulesVersion ? ` 지침 판본: ${rulesVersion}.` : ''}`,
+    packet.layer === 'status' ? '최근 있었던 일만 정리하라.' : '같은 사건을 묶어 5~10줄로 압축하라.',
+    '각 문장의 evidence_ids에는 아래 문장들이 가진 카드 ID만 넣어라. 아래 문장에 없는 사실을 더하지 말라.',
+    'JSON 객체 하나만 출력하라. 설명과 코드펜스는 금지한다.',
+    `{"schema":"${DRAFT_SCHEMA}","prepare_id":"${prepareId}","drafts":[{"packet_id":"${packet.packet_id}","sentences":[{"text":"사실 문장","evidence_ids":["카드 ID"]}]}]}`,
+    '부분 요약 문장:', JSON.stringify(sentences),
+  ].join('\n');
+}
+/** Deterministic split of an upper packet's cards into parts whose query fits
+ * `budget`, in card order (days, then weeks, stay in sequence). A single card
+ * longer than the budget is shortened for the query only (counted); its card id
+ * and evidence link are unchanged. */
+export function splitUpperCards({ project, packet, rulesVersion, prepareId, budget }) {
+  const cards = upperCards(packet);
+  const size = (list, part) => upperPrompt({ project, packet, rulesVersion, prepareId, cards: list,
+    part: part ?? { index: 9999, total: 9999 } }).length;
+  if (upperPrompt({ project, packet, rulesVersion, prepareId, cards }).length <= budget)
+    return { parts: [cards], truncated: 0 };
+  const parts = []; let held = [], truncated = 0;
+  for (const card of cards) {
+    let item = card;
+    if (size([item]) > budget) {
+      const room = budget - size([{ ...card, text: '' }]) - 1;
+      if (room < 50) fail('history_night_query_budget_too_small');
+      item = { ...card, text: `${[...card.text].slice(0, room).join('')}…` };
+      while (size([item]) > budget) item = { ...item, text: `${[...item.text].slice(0, -2).join('')}…` };
+      truncated++;
+    }
+    if (held.length && size([...held, item]) > budget) { parts.push(held); held = []; }
+    held.push(item);
+  }
+  if (held.length) parts.push(held);
+  return { parts, truncated };
 }
 
 // ------------------------------------------------------------------ writer
@@ -339,7 +386,9 @@ function callDirFor(workRoot, project) {
 }
 
 const unitRow = unit => ({ layer: unit.layer, key: unit.key, batch_index: unit.batchIndex ?? null,
-  batch_total: unit.batchTotal ?? null, status: 'not_started', reason: null, sentences: 0, attempts: [] });
+  batch_total: unit.batchTotal ?? null, ...(unit.merge ? { merge: true } : {}),
+  ...(unit.truncatedCards ? { truncated_cards: unit.truncatedCards } : {}),
+  status: 'not_started', reason: null, sentences: 0, attempts: [] });
 
 /** One unit. Returns `{ row, kind }` with kind accepted | unprocessed | rejected
  * (upper) | deferred. Only accepted units and rejected-twice daily batches are cached. */
@@ -425,11 +474,21 @@ function unitsFor({ prepared, manifest, project, ctx }) {
       });
     } else {
       // Upper packets reuse the batch checker with the packet's own allowed card ids.
-      const checkBatch = { user: { threads: [{ records: full.allowed_evidence_ids.map(id => ({ id })) }] } };
-      units.push({ layer: packet.layer, key: packet.key, packetId: packet.packet_id,
-        prepareId: prepared.prepare_id, checkBatch,
-        prompt: upperPrompt({ project, packet: full, rulesVersion: ctx.rulesVersion, prepareId: prepared.prepare_id }),
-        cacheKey: keyOf({ layer: packet.layer, key: packet.key, cards: upperCards(full) }) });
+      // A packet whose query would pass the budget is split into parts (each part
+      // may cite only its own cards) and merged afterwards; it is never left oversize.
+      const { parts, truncated } = splitUpperCards({ project, packet: full, rulesVersion: ctx.rulesVersion,
+        prepareId: prepared.prepare_id, budget: ctx.maxQuery - RETRY_SUFFIX.length });
+      parts.forEach((cards, index) => {
+        const part = parts.length > 1 ? { index: index + 1, total: parts.length } : null;
+        const ids = part ? cards.map(card => card.card_id) : full.allowed_evidence_ids;
+        units.push({ layer: packet.layer, key: packet.key, packetId: packet.packet_id,
+          prepareId: prepared.prepare_id, checkBatch: { user: { threads: [{ records: ids.map(id => ({ id })) }] } },
+          ...(part ? { batchIndex: part.index, batchTotal: part.total, upperPart: true } : {}),
+          truncatedCards: index === 0 ? truncated : 0, packet: full,
+          prompt: upperPrompt({ project, packet: full, rulesVersion: ctx.rulesVersion, prepareId: prepared.prepare_id, cards, part }),
+          cacheKey: part ? keyOf({ layer: packet.layer, key: packet.key, part: part.index, parts: part.total, cards })
+            : keyOf({ layer: packet.layer, key: packet.key, cards: upperCards(full) }) });
+      });
     }
   }
   return units;
@@ -440,7 +499,8 @@ async function runProject({ entry, ctx: base }) {
   const ctx = { ...base, project };
   const result = { project, status: 'not_started', reason: null, source_status: null,
     changed_days: [], packets: 0, units: [], calls: 0, finalized_layers: [], pending: [],
-    accepted_cells: 0, unprocessed_batches: 0, total_sources: null, unquoted_sources: null };
+    accepted_cells: 0, unprocessed_batches: 0, total_sources: null, unquoted_sources: null,
+    unquoted_non_work_voice: null };
   const monthRoot = path.join(entry.output_root, ctx.targetDate.slice(0, 7));
   mkdirSync(monthRoot, { recursive: true });
   const sourceConfig = readJson(entry.sources, 2_000_000);
@@ -483,6 +543,28 @@ async function runProject({ entry, ctx: base }) {
       if (outcome.transport || outcome.row.reason === 'history_night_past_cutoff') deferral = outcome;
       outcomes.push({ unit, ...outcome });
     }
+    // Split upper packets: once every part is accepted, one merge call compresses
+    // the parts' sentences. A merge that is rejected or still over the budget
+    // falls back to the parts' sentences as they are (the layer still finishes);
+    // a transport failure or the cutoff defers the layer like any other unit.
+    if (!deferral) for (const packet of prepared.packets.filter(item => item.layer !== 'daily')) {
+      const parts = outcomes.filter(item => item.unit.packetId === packet.packet_id && item.unit.upperPart);
+      if (parts.length < 2 || parts.some(item => item.kind !== 'accepted')) continue;
+      const sentences = parts.flatMap(item => item.sentences);
+      const full = parts[0].unit.packet;
+      const cited = [...new Set(sentences.flatMap(sentence => sentence.evidence_ids))];
+      const unit = { layer: packet.layer, key: packet.key, packetId: packet.packet_id, prepareId: prepared.prepare_id,
+        merge: true, checkBatch: { user: { threads: [{ records: cited.map(id => ({ id })) }] } },
+        prompt: upperMergePrompt({ project, packet: full, rulesVersion: ctx.rulesVersion, prepareId: prepared.prepare_id, sentences }),
+        cacheKey: sha256(JSON.stringify({ v: HISTORY_NIGHT_TEMPLATE_VERSION, rules: ctx.rulesSha, writer: ctx.identity,
+          project, layer: packet.layer, key: packet.key, merge: sentences })) };
+      const outcome = await runUnit(unit, ctx);
+      result.calls += outcome.row.attempts.length;
+      ctx.totals.calls += outcome.row.attempts.length;
+      result.units.push(outcome.row);
+      if (outcome.transport || outcome.row.reason === 'history_night_past_cutoff') { deferral = outcome; break; }
+      if (outcome.kind === 'accepted') outcomes.push({ unit, ...outcome, mergeOf: packet.packet_id });
+    }
     if (deferral) {
       result.pending.push({ layer, reason: deferral.row.reason });
       if (deferral.transport) stopped = 'transport_failed';
@@ -490,7 +572,9 @@ async function runProject({ entry, ctx: base }) {
       continue; // nothing of this layer is finalized; lower finished layers stay finalized
     }
     const drafts = prepared.packets.map(packet => {
-      const mine = outcomes.filter(item => item.unit.packetId === packet.packet_id);
+      const all = outcomes.filter(item => item.unit.packetId === packet.packet_id);
+      const merged = all.find(item => item.mergeOf === packet.packet_id);
+      const mine = merged ? [merged] : all;
       const unprocessed = mine.filter(item => item.kind === 'unprocessed')
         .map(item => ({ batch_index: item.unit.batchIndex, reason: item.reason }));
       return { packet_id: packet.packet_id, sentences: mine.flatMap(item => item.kind === 'accepted' ? item.sentences : []),
@@ -504,6 +588,7 @@ async function runProject({ entry, ctx: base }) {
     const coverage = finalized.source_coverage ?? [];
     result.total_sources = coverage.reduce((sum, item) => sum + (item.total_sources ?? 0), 0);
     result.unquoted_sources = coverage.reduce((sum, item) => sum + (item.unquoted_sources ?? 0), 0);
+    result.unquoted_non_work_voice = coverage.reduce((sum, item) => sum + (item.unquoted_non_work_voice ?? 0), 0);
   }
   result.status = stopped ?? (result.finalized_layers.length ? 'finalized' : result.pending.length ? 'pending' : 'unchanged');
   return result;
@@ -548,6 +633,8 @@ export async function runHistoryNight({ config, configSha256 = null, receiptsDir
     if (config.rules_version && !rulesText.split('\n', 1)[0].includes(config.rules_version))
       fail('history_night_rules_version_mismatch');
     receipt.rules_sha256 = sha256(rulesText);
+    receipt.rules_version_expected = HISTORY_WRITER_RULES_VERSION;
+    receipt.rules_version_matches = rulesText.split('\n', 1)[0].includes(HISTORY_WRITER_RULES_VERSION);
     const ctx = { targetDate, fromDate, now, clock, cutoffAt, deadlineAtMs, rulesText, rulesSha: receipt.rules_sha256,
       rulesVersion: config.rules_version ?? null, identity, workRoot: config.work_root,
       maxQuery: config.writer.max_query_characters ?? DEFAULT_MAX_QUERY_CHARACTERS,

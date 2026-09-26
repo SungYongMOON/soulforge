@@ -10,6 +10,7 @@ const SCHEMA = 'soulforge.history_draft.v1';
 const DAY = /^\d{4}-\d{2}-\d{2}$/u;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/u;
 const LAYERS = ['daily', 'weekly', 'monthly', 'status'];
+const VOICE_SOURCE_ID_KINDS = new Set(['voice_segment', 'voice_utterance']);
 const AI_WORK_MEMO_KINDS = new Set(['ai_work_note', 'ai_work_memo', 'ai_memo', 'ai_note']);
 const memoKind = value => typeof value === 'string' && AI_WORK_MEMO_KINDS.has(value.trim().toLowerCase());
 export const isAiWorkMemoRecord = row => row !== null && typeof row === 'object' && !Array.isArray(row)
@@ -21,7 +22,7 @@ const PROMPTS = {
   monthly: 'Write 5-10 concise lines of past events in this month from the week cards. Use exact child_card_ids. Retain original source IDs and quote only source excerpts shown in child evidence. Return JSON {"events":[{"text":"...","child_card_ids":["..."],"evidence":[{"source_id":"...","quote":"..."}]}]}. Do not infer unfinished work.',
   status: 'Write a one-page Korean "최근 있었던 일" report containing only recently recorded past facts from the current month cards. Use exact child_card_ids. No remaining work, verification to-dos, current judgment, or recommendations. Return JSON {"events":[{"text":"...","child_card_ids":["..."],"evidence":[{"source_id":"...","quote":"..."}]}]}.',
 };
-const VOICE_ID_PROMPT = 'For a supplied voice_utterance record with evidence_mode source_id, cite only its exact source_id and do not provide a quote. The application attaches that utterance text and its original source reference. For every other record, provide an exact consecutive source quote. Never invent or borrow a source_id from another day or batch.';
+const VOICE_ID_PROMPT = 'For a supplied voice record with evidence_mode source_id (one conversation segment, or one utterance in older inputs), cite only its exact source_id and do not provide a quote. The application attaches that text and its original source reference. For every other record, provide an exact consecutive source quote. Never invent or borrow a source_id from another day or batch.';
 const dailyPrompt = rows => PROMPTS.daily + (rows.some(row => row.evidence_mode === 'source_id') ? '\n' + VOICE_ID_PROMPT : '');
 const upperPrompt = (children, sources) => {
   const ids = children.flatMap(card => card.evidence.map(item => item.source_id)).filter(id => sources.get(id));
@@ -115,7 +116,7 @@ function normalize(input) {
       || (row.thread_ref !== undefined && (typeof row.thread_ref !== 'string' || row.thread_ref.length > 500 || /[\u0000-\u001f]/u.test(row.thread_ref)))
       || (row.attachments !== undefined && (!Array.isArray(row.attachments) || row.attachments.some(v => typeof v !== 'string')))
       || (row.evidence_mode !== undefined && (row.evidence_mode !== 'source_id'
-        || row.kind !== 'voice_utterance' || !row.text.trim()))
+        || !VOICE_SOURCE_ID_KINDS.has(row.kind) || !row.text.trim()))
       || (row.text_sha256 !== undefined && (!sha(row.text_sha256) || row.text_sha256 !== hashText(row.text)))) fail('history_record_invalid');
     if (seen.has(row.id)) fail('history_duplicate_source_id'); seen.add(row.id);
     if (row.date > asOf) continue;
@@ -129,7 +130,7 @@ function normalize(input) {
   // Input format v2 keeps voice recording/segment bookkeeping once per segment in
   // voice_groups, keyed by the first 16 hex of the entry's own digest; a line's
   // originref names the key, so a record's digest covers its group's content.
-  if (input.schema !== undefined && input.schema !== HISTORY_INPUT_SCHEMA) fail('history_input_invalid');
+  if (input.schema !== undefined && !ACCEPTED_INPUT_SCHEMAS.has(input.schema)) fail('history_input_invalid');
   const groups = input.voice_groups ?? {};
   if (!plain(groups) || Object.keys(groups).length > 20000) fail('history_input_invalid');
   const voiceGroups = {};
@@ -143,7 +144,12 @@ function normalize(input) {
   return { project: input.project, month: input.month, as_of: asOf, records,
     ...(Object.keys(voiceGroups).length ? { voice_groups: Object.fromEntries(Object.keys(voiceGroups).sort().map(key => [key, voiceGroups[key]])) } : {}) };
 }
-export const HISTORY_INPUT_SCHEMA = 'soulforge.history_input.v2';
+// v3: a voice record is one conversation segment (per KST day) with all its
+// utterances, instead of one record per utterance; the segment group also
+// carries the recording start and segment nature. v2 input is still read, but
+// the fingerprint names v3, so every cell is written again once.
+export const HISTORY_INPUT_SCHEMA = 'soulforge.history_input.v3';
+const ACCEPTED_INPUT_SCHEMAS = new Set(['soulforge.history_input.v2', HISTORY_INPUT_SCHEMA]);
 /** Voice originref with its group's bookkeeping filled in (display and grouping only). */
 export function expandVoiceRef(data, ref) {
   return plain(ref) && typeof ref.voice_group === 'string' && plain(data?.voice_groups?.[ref.voice_group])
@@ -186,9 +192,11 @@ function sourceLabel(source) {
       ...(card ? { card_identity: `${card.card_sha256}:${card.card_segment_id}` } : {}) };
   }
   const oversize = Array.isArray(source.originrefs) && source.originrefs.some(ref => plain(ref) && plain(ref.oversize));
+  const state = Array.isArray(source.originrefs) ? source.originrefs.find(ref => plain(ref)
+    && typeof ref.issue_state === 'string' && ref.issue_state)?.issue_state : undefined;
   return { source_id: source.id, date: source.date, kind: source.kind, title: source.title, sender: source.sender,
     recipient: source.recipient, attachments: source.attachments, thread_ref: source.thread_ref,
-    ...(oversize ? { oversize: true } : {}) };
+    ...(oversize ? { oversize: true } : {}), ...(state ? { linear_state: state } : {}) };
 }
 function childForPrompt(cell, sources) {
   return { key: cell.key, version: cell.fingerprint, format_flag: cell.format_flag,
@@ -278,8 +286,10 @@ function displayConfig(value) {
   const result = {};
   if (raw.coverage_note !== undefined) {
     const note = raw.coverage_note;
-    if (!plain(note) || Object.keys(note).some(key => !['voice_without_card', 'slack_held', 'mail_not_collected', 'mail_oversize'].includes(key))
-      || ['voice_without_card', 'slack_held', 'mail_oversize'].some(key => note[key] !== undefined && (!Number.isSafeInteger(note[key]) || note[key] < 0))
+    if (!plain(note) || Object.keys(note).some(key => !['voice_without_card', 'slack_held', 'mail_not_collected', 'mail_oversize',
+      'ai_memo_excluded', 'voice_candidate_excluded'].includes(key))
+      || ['voice_without_card', 'slack_held', 'mail_oversize', 'ai_memo_excluded', 'voice_candidate_excluded']
+        .some(key => note[key] !== undefined && (!Number.isSafeInteger(note[key]) || note[key] < 0))
       || (note.mail_not_collected !== undefined && (!Array.isArray(note.mail_not_collected) || note.mail_not_collected.length > 50
         || note.mail_not_collected.some(item => typeof item !== 'string' || !/^mail_not_collected_before:\d{4}-\d{2}$/u.test(item)))))
       fail('history_display_metadata_invalid');
@@ -366,13 +376,24 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   };
   const partyName = value => visible(value).split(',').map(part => part.trim()
     .replace(/^["'“”]+|["'“”]+$/gu, '').replace(/\s*\([^()]*\)\s*$/u, '').trim()).join(', ');
+  // A raw account id (Linear UUID, Slack user id) is never shown as a person.
+  const RAW_ID = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[UWB][A-Z0-9]{6,})$/u;
+  const personOr = (value, missing) => {
+    const raw = String(value ?? '').trim();
+    if (!raw || raw === '미기록' || (RAW_ID.test(raw) && !display.slack_names[raw])) return missing;
+    return partyName(raw) || missing;
+  };
+  const fileList = (attachment) => attachment.known && attachment.names.length
+    ? ` · 첨부: ${attachment.names.slice(0, 3).map(visible).join(', ')}${attachment.names.length > 3 ? ` 외 ${attachment.names.length - 3}개` : ''}` : '';
   const sourceLine = (source, attachment = attachmentFor(source)) => {
     if (/voice|ASR|녹음/iu.test(source.kind)) return `${visible(source.date)} · 녹음·발화자 미확인`;
-    if (/slack/iu.test(source.kind)) {
-      const names = attachment.names;
-      const files = attachment.known && names.length
-        ? ` · 첨부: ${names.slice(0, 3).map(visible).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}개` : ''}` : '';
-      return `${visible(source.date)} · Slack · ${partyName(source.sender)} · ${visible(source.title)}${files}`;
+    if (/slack/iu.test(source.kind))
+      return `${visible(source.date)} · Slack · ${personOr(source.sender, '작성자 미확인')} · ${visible(source.title)}${fileList(attachment)}`;
+    // Linear: date · Linear · author · task title · holder · state. No account id,
+    // and no attachment part unless the task really carries attachments.
+    if (/linear/iu.test(source.kind)) {
+      const holder = personOr(source.recipient, '');
+      return `${visible(source.date)} · Linear · ${personOr(source.sender, '작성자 미기록')} · ${visible(source.title)}${holder ? ` · 담당 ${holder}` : ''}${source.linear_state ? ` · 상태 ${visible(source.linear_state)}` : ''}${fileList(attachment)}`;
     }
     const { known, names } = attachment;
     const attachments = names.length ? `첨부: ${names.slice(0, 3).map(visible).join(', ')}${names.length > 3 ? ` 외 ${names.length - 3}개` : ''}`
@@ -387,27 +408,40 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
       .map(ref => expandVoiceRef(data, ref));
     const meta = entry.sources.map(source => display.voice_sources[source.source_id]).find(Boolean)
       ?? refs.map(ref => plain(ref) && typeof ref.session_id === 'string' ? display.voice_recordings[ref.session_id] : null).find(Boolean) ?? {};
-    const locators = [], seen = new Set();
+    // One line per conversation segment: recording title · KST clock range
+    // (from the recording start and the utterance offsets) · utterance numbers ·
+    // transcript source. Without a known start the offsets are shown as mm:ss.
     const clock = (value, ceiling = false) => {
       const seconds = Number(value);
       if (!Number.isFinite(seconds) || seconds < 0) return '시간 미확인';
       const whole = ceiling ? Math.ceil(seconds) : Math.floor(seconds);
       return `${String(Math.floor(whole / 60)).padStart(2, '0')}:${String(whole % 60).padStart(2, '0')}`;
     };
+    const offsets = [], seen = new Set(), bareIds = [];
     for (const ref of refs) {
       if (!plain(ref)) continue;
-      const offsets = Array.isArray(ref.source_offsets) ? ref.source_offsets : [];
-      const rows = offsets.length ? offsets.map(offset => Array.isArray(offset) && offset.length >= 3
-        ? `발화 ${visible(offset[0])} ${clock(offset[1])}–${clock(offset[2], true)}` : null).filter(Boolean)
-        : (Array.isArray(ref.source_segment_ids) ? ref.source_segment_ids.map(id => `발화 ${visible(id)}`) : []);
-      for (const row of rows) if (!seen.has(row)) { seen.add(row); locators.push(row); }
+      const list = Array.isArray(ref.source_offsets) ? ref.source_offsets : [];
+      if (!list.length && Array.isArray(ref.source_segment_ids)) bareIds.push(...ref.source_segment_ids);
+      for (const offset of list) if (Array.isArray(offset) && offset.length >= 3 && !seen.has(String(offset[0]))) {
+        seen.add(String(offset[0])); offsets.push(offset); }
     }
+    const started = Date.parse(meta.recorded_at ?? '');
+    const wall = seconds => new Date(started + seconds * 1000 + 9 * 3600000).toISOString();
+    let range = null, numbers = null;
+    if (offsets.length) {
+      const low = Math.min(...offsets.map(item => Number(item[1]))), high = Math.max(...offsets.map(item => Number(item[2])));
+      range = Number.isFinite(started) && Number.isFinite(low) && Number.isFinite(high)
+        ? `${wall(low).slice(0, 10)} ${wall(low).slice(11, 16)}–${wall(high).slice(11, 16)}`
+        : `${clock(low)}–${clock(high, true)}`;
+      const ids = offsets.map(item => visible(item[0]));
+      numbers = ids.length === 1 ? `발화 ${ids[0]}` : `발화 ${ids[0]}–${ids.at(-1)}(${ids.length}개)`;
+    } else if (bareIds.length) numbers = bareIds.length === 1 ? `발화 ${visible(bareIds[0])}`
+      : `발화 ${visible(bareIds[0])}–${visible(bareIds.at(-1))}(${bareIds.length}개)`;
     const candidate = refs.some(ref => plain(ref) && ref.attribution === 'candidate_only_not_accepted');
     const weak = refs.find(ref => plain(ref) && ref.attribution === SAME_DAY_ATTRIBUTION);
     const transcriptLabel = transcriptLabelFor(meta);
-    const parts = ['PLAUD', visible(meta.recorded_at ?? entry.source.date),
-      visible(meta.title ?? '원제목 미확인'), transcriptLabel,
-      ...(locators.length ? [locators.join('; ')] : ['발화 번호·구간 미기록']),
+    const parts = ['PLAUD', visible(meta.title ?? '원제목 미확인'),
+      range ?? visible(meta.recorded_at ?? entry.source.date), numbers ?? '발화 번호·구간 미기록', transcriptLabel,
       ...(meta.audio_path ? [localLink('녹음', meta.audio_path)] : []),
       ...(meta.transcript_path ? [localLink('전사', meta.transcript_path)] : []),
       ...(candidate ? ['과제 귀속 후보(미수락)'] : []),
@@ -421,7 +455,9 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   const noteParts = [...(note.voice_without_card ? [`녹음 카드 없음 ${note.voice_without_card}건`] : []),
     ...(note.slack_held ? [`보류 Slack ${note.slack_held}건`] : []),
     ...((note.mail_not_collected ?? []).length ? [`수집 전 기간(메일 ${note.mail_not_collected.map(item => item.slice(-7)).join('·')} 이전)`] : []),
-    ...(note.mail_oversize ? [`크기 초과 메일 ${note.mail_oversize}건`] : [])];
+    ...(note.mail_oversize ? [`크기 초과 메일 ${note.mail_oversize}건`] : []),
+    ...(note.ai_memo_excluded ? [`AI 업무메모 제외 ${note.ai_memo_excluded}건`] : []),
+    ...(note.voice_candidate_excluded ? [`다른 과제·약한 후보 녹음 ${note.voice_candidate_excluded}건 제외`] : [])];
   if (noteParts.length) lines.push(`> 수집 현황: ${noteParts.join(' · ')}`, '');
   function section(title, cells, stale = false, pendingKeys = []) {
     lines.push(`## ${title}`, '');
@@ -479,7 +515,7 @@ export function renderHistory(data, daily, weekly, monthly, status, displayMetad
   section('최근 있었던 일', status ? [status] : [], staleSummary, pending.status ?? []);
   lines.push('## 자료 인용 현황', '');
   for (const item of historySourceCoverage(data, daily))
-    lines.push(`- ${item.date}: 인용 안 된 자료 ${item.unquoted_sources} / 전체 자료 ${item.total_sources}`);
+    lines.push(`- ${item.date}: 인용 안 된 자료 ${item.unquoted_sources} / 전체 자료 ${item.total_sources}${item.unquoted_non_work_voice ? ` (그중 업무 외 녹음 구간 ${item.unquoted_non_work_voice})` : ''}`);
   lines.push('');
   return lines.join('\n') + '\n';
 }
@@ -512,15 +548,25 @@ function mergedParagraph(group) {
   return { child_card_ids: [...group[0].child_card_ids], source_display: sourceDisplay,
     evidence: group.flatMap(card => card.evidence), flags: [] };
 }
+// Uncited sources are split so a skipped chit-chat segment is not read as a
+// missed fact: `unquoted_non_work_voice` counts uncited voice segments whose card
+// nature is not work talk (personal, idea, mixed, unreadable). Code-computed.
+const WORK_NATURES = new Set(['project_work', 'team_operations']);
 export function historySourceCoverage(data, daily) {
   const byDay = new Map();
   for (const row of data.records) {
     if (!byDay.has(row.date)) byDay.set(row.date, []);
-    byDay.get(row.date).push(row.id);
+    byDay.get(row.date).push(row);
   }
-  return [...byDay].sort(([a], [b]) => a.localeCompare(b)).map(([date, ids]) => {
+  const nonWork = row => row.evidence_mode === 'source_id' && Array.isArray(row.originrefs) && row.originrefs.some(ref => {
+    const group = plain(ref) && typeof ref.voice_group === 'string' ? data.voice_groups?.[ref.voice_group] : null;
+    return plain(group) && typeof group.segment_nature === 'string' && !WORK_NATURES.has(group.segment_nature);
+  });
+  return [...byDay].sort(([a], [b]) => a.localeCompare(b)).map(([date, rows]) => {
     const cited = new Set((daily.get(date)?.cards ?? []).flatMap(card => card.source_ids));
-    return { date, total_sources: ids.length, unquoted_sources: ids.filter(id => !cited.has(id)).length };
+    const uncited = rows.filter(row => !cited.has(row.id));
+    return { date, total_sources: rows.length, unquoted_sources: uncited.length,
+      unquoted_non_work_voice: uncited.filter(nonWork).length };
   });
 }
 export const normalizeHistoryInput = normalize;
@@ -726,7 +772,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
   }
   async function batchedDay(day, rows) {
     const limit = config.daily_batch_characters;
-    const batches = partitionDay({ project: data.project, day, rows: batchInputRows(rows), limit });
+    const batches = partitionDay({ project: data.project, day, rows: batchInputRows(rows), limit, voiceGroups: data.voice_groups ?? null });
     const batchCells = [], timeoutParentRefs = [], plan = [];
     for (const batch of batches) {
       const supplied = batch.user.threads.flatMap(thread => thread.records);
@@ -865,7 +911,7 @@ async function runHistoryLocked({ input, outputRoot, config, generate, dryRun = 
       if (!change || change.layer !== 'daily_batch' || !days.has(change.key) || !sha(change.fingerprint))
         fail('history_failed_batch_import_invalid');
       const batch = partitionDay({ project: data.project, day: change.key,
-        rows: batchInputRows(days.get(change.key)), limit: config.daily_batch_characters })
+        rows: batchInputRows(days.get(change.key)), limit: config.daily_batch_characters, voiceGroups: data.voice_groups ?? null })
         .find(candidate => batchFingerprint(change.key, candidate) === change.fingerprint);
       if (!batch) fail('history_failed_batch_import_mismatch');
       const file = `history-cell-${change.fingerprint.slice(7)}.json`;

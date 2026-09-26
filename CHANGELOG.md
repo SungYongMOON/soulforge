@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-09-26 - 이력 품질: 사람 말 근거 줄·AI 메모 제외·음성 대화 구간·보수적 후보 규칙
+
+- 근거 줄: Linear는 `날짜 · Linear · 작성자 이름 · 작업 제목 · 담당 · 상태`로 보이고 계정 ID·`→ 미기록`·빈 `첨부명 미기록`을 보이지 않는다(이름은 custody `users`, 없으면 `작성자 미기록`). Slack에서 이름 모르는 사용자 ID는 `작성자 미확인`이다. 음성은 대화 구간마다 `PLAUD · 원제목 · 날짜 시작–끝 · 발화 a–b(n개) · 전사 출처 · … · 발화자 미확인` 한 줄이다.
+- AI 업무메모: Linear에 사람 계정으로 쓰인 AI 메모를 고정 표지(`LINEAR_AI_MEMO_PATTERNS`)와 설정으로 원천 준비에서 뺀다. AI 댓글은 통째로, AI가 쓴 이슈 설명은 본문만 빼고 제목·사람·상태는 남긴다. 제외 수는 영수증 `excluded_reasons`와 보는 판 `수집 현황`의 `AI 업무메모 제외 n건`으로 보인다.
+- 음성 입력 단위를 발화에서 대화 구간으로 바꿨다(입력 형식 `history_input.v3`, 모든 칸 한 번 재작성). 구간 발화 전부와 발화별 번호·시각은 보존하고, 작성자 배치에 구간 제목·성격·시각을 싣는다. 실측(실제 한 과제의 한 달, 모델 없음): 음성 record 424→55, 일별 배치 22→10(09-10: 18→6).
+- `first_candidate` 음성은 규칙 `first_candidate_strict.v1`로만 넣는다: 강한 첫 후보(개인·판독 불가 제외) 또는 약한 첫 후보이면서 업무 구간·다른 과제 언급 없음·발화에 과제 코드나 설정 `project_terms`가 있을 때. 나머지는 `candidate_rule`에 세고 `다른 과제·약한 후보 녹음 n건 제외`로 보인다.
+- 인용 현황은 업무 외 녹음 구간을 따로 센다(`unquoted_non_work_voice`).
+- 야간 이력 단계: 질의 판본 `history-night-query v2`(구간당 한 문단·채움말 금지). 한도를 넘는 주·월 packet은 부분으로 나눠 부르고 합치기 1회로 압축하며, 합치기가 안 되면 부분 문장으로 마감해 층이 한도 초과로 멈추지 않는다. 기대 규칙 판본 `history-writer-rules v3`는 영수증에 일치 여부만 남긴다.
+- 운영 영향: 예약·lane 설치·작성자 프로필·sources 설정은 바꾸지 않았다. 규칙 v3 설치와 `project_terms` 지정은 Owner 몫이다.
+- 관련 경로: `guild_hall/context_engine/src/knowledge_layer/history_sources.mjs`, `history.mjs`, `history_batches.mjs`, `history_prepare.mjs`, `history_exchange.mjs`, `guild_hall/context_engine/harness/history_night.mjs`.
+
 ## 2026-09-26 - 대화 목록 미검증 고착 세 이유 정리
 
 - 제목·안건 이름의 과제 코드 판정은 실제 형식(`P00-000`, `D1-00-000`)과 그 run이 연 과제 코드만 본다. `DC-DC`·`RS-422` 같은 부품 용어는 더 이상 거부되지 않는다.

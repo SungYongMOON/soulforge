@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { recordFailedHistoryBatch, runHistory, renderHistory, historySourceLabel, normalizeHistoryInput,
-  PARAGRAPH_MAX_SENTENCES, PARAGRAPH_MAX_CHARS } from '../../src/knowledge_layer/history.mjs';
+  PARAGRAPH_MAX_SENTENCES, PARAGRAPH_MAX_CHARS, historySourceCoverage } from '../../src/knowledge_layer/history.mjs';
 import { bisectBatch, partitionDay } from '../../src/knowledge_layer/history_batches.mjs';
 import { digest, hashText } from '../../src/knowledge_layer/data.mjs';
 
@@ -263,7 +263,7 @@ test('explicit display metadata changes only the view and hides internal codes a
   assert.match(slackLine, /2026-09-03 · Slack · Slack Person · Synthetic title/);
   assert.doesNotMatch(slackLine, /→|첨부명 미기록/);
   assert.match(dailyView, /담당자는 Alice\s*에게 요청했다/);
-  assert.match(dailyView, /PLAUD · 2026-09-03 · 원제목 미확인/);
+  assert.match(dailyView, /PLAUD · 원제목 미확인 · 2026-09-03/);
   assert.match(dailyView, /S999 표기/); // unrelated code is not broadly rewritten
   assert.doesNotMatch(view, /alice@example\.test|bob@example\.test|slack-user:U1|S001|S002|EARLYV1|daily:2026-09-03:001|voice_card|derived candidate title|\\\[/);
 });
@@ -675,7 +675,7 @@ test('voice utterance IDs attach supplied text and provenance through child-only
     assert.deepEqual(upper.flags, []);
   }
   const view = readFileSync(join(dir, result.head.view_file), 'utf8');
-  assert.equal(view.split('## 주별')[0].split('PLAUD · 2026-09-23').length - 1, 1);
+  assert.equal(view.split('## 주별')[0].split('PLAUD · 원제목 미확인 · 2026-09-23').length - 1, 1);
 });
 
 test('display-only PLAUD trace shows exact card title, local links, and every utterance range without model calls', async t => {
@@ -697,8 +697,8 @@ test('display-only PLAUD trace shows exact card title, local links, and every ut
   const first = await runHistory({ input: inputData, outputRoot: dir, config, generate });
   const beforeCell = readFileSync(join(dir, `history-cell-${first.head.cells.daily['2026-09-23'].slice(7)}.json`));
   const fallback = readFileSync(join(dir, first.head.view_file), 'utf8').split('## 주별')[0];
-  assert.match(fallback, /PLAUD · 2026-09-23 · 원제목 미확인/);
-  assert.match(fallback, /발화 1 00:12–00:15; 발화 2 00:14–00:17/);
+  // Without a recording start the segment range is shown as offsets (mm:ss) plus utterance numbers.
+  assert.match(fallback, /PLAUD · 원제목 미확인 · 00:12–00:17 · 발화 1–2\(2개\)/);
   const audioPath = join(dir, 'audio (draft) #1.mp3'), transcriptPath = join(dir, 'notes #1.txt');
   const updated = await runHistory({ input: inputData, outputRoot: dir, config, displayOnly: true,
     displayMetadata: { voice_sources: { [rows[0].id]: { title: 'Meeting &#91;Test&#93; &lt;script&gt;',
@@ -708,9 +708,10 @@ test('display-only PLAUD trace shows exact card title, local links, and every ut
   assert.deepEqual(updated.head.cells, first.head.cells);
   assert.deepEqual(readFileSync(join(dir, `history-cell-${first.head.cells.daily['2026-09-23'].slice(7)}.json`)), beforeCell);
   const view = readFileSync(join(dir, updated.head.view_file), 'utf8').split('## 주별')[0];
-  assert.equal(view.split('PLAUD · 2026-09-23T09:10:11+09:00').length - 1, 1);
+  // With the recording start: one line with the KST clock range of the segment.
+  assert.equal(view.split(' · 2026-09-23 09:10–09:10 · 발화 1–2(2개) · ').length - 1, 1);
   assert.ok(view.includes(String.raw`Meeting \[Test\] \<script\>`));
-  assert.match(view, /발화 1 00:12–00:15; 발화 2 00:14–00:17/);
+  assert.doesNotMatch(view, /2026-09-23T09:10:11/);
   assert.doesNotMatch(view, /&#|synthetic-session|세션 /);
   assert.match(view, /과제 귀속 후보\(미수락\)/);
   assert.match(view, /\[녹음\]\(<[^>]*audio%20\(draft\)%20%231\.mp3>\)/);
@@ -824,12 +825,12 @@ test('voice evidence line names the transcript the card read, display-only', asy
   const inputData = { ...input(rows), as_of: '2026-09-23' };
   const first = await runHistory({ input: inputData, outputRoot: dir, config, generate });
   const dailyOf = head => readFileSync(join(dir, head.view_file), 'utf8').split('## 주별')[0];
-  assert.match(dailyOf(first.head), /PLAUD · 2026-09-23 · 원제목 미확인 · 자체 전사 · 발화 1/);
+  assert.match(dailyOf(first.head), /PLAUD · 원제목 미확인 · 00:00–00:02 · 발화 1 · 자체 전사/);
   const label = async (entry, expected) => {
     const result = await runHistory({ input: inputData, outputRoot: dir, config, displayOnly: true,
       displayMetadata: { voice_sources: { [rows[0].id]: { title: 'Synthetic recording', ...entry } } } });
     assert.equal(result.calls, 0); assert.deepEqual(result.head.cells, first.head.cells);
-    assert.ok(dailyOf(result.head).includes(`PLAUD · 2026-09-23 · Synthetic recording · ${expected} · 발화 1`));
+    assert.ok(dailyOf(result.head).includes(`PLAUD · Synthetic recording · 00:00–00:02 · 발화 1 · ${expected}`));
   };
   await label({ transcript_source: 'plaud' }, 'PLAUD 전사');
   await label({ transcript_source: 'whisper', transcript_fallback: 'plaud_transcript_absent' }, '자체 전사(PLAUD 없음)');
@@ -956,7 +957,7 @@ test('input format v2 compaction renders the same voice evidence lines as per-li
   const after = view(compact, { schema: HISTORY_INPUT_SCHEMA, voice_groups: Object.fromEntries(keys.map((key, i) => [key, groups[i]])) },
     { voice_recordings: { [session]: entry } });
   assert.equal(before.length, 2); assert.deepEqual(after, before);
-  assert.ok(after[0].includes('발화 1 00:00–00:02; 발화 2 00:02–00:04') && after[0].includes('PLAUD 전사') && after[0].includes('합성 녹음'));
+  assert.ok(after[0].includes('2026-09-23 09:00–09:00 · 발화 1–2(2개)') && after[0].includes('PLAUD 전사') && after[0].includes('합성 녹음'));
   assert.ok(after[1].includes('(귀속 약함)'));
 });
 
@@ -965,7 +966,10 @@ test('input format v2: explicit version in the fingerprint; a tampered or missin
   const { HISTORY_INPUT_SCHEMA, historyInputFingerprint } = await import('../../src/knowledge_layer/history.mjs');
   const rows = [record('A', '2026-09-23', 'Alpha source text')];
   const data = normalizeHistoryInput({ ...input(rows), as_of: '2026-09-23' });
-  assert.equal(HISTORY_INPUT_SCHEMA, 'soulforge.history_input.v2');
+  assert.equal(HISTORY_INPUT_SCHEMA, 'soulforge.history_input.v3');
+  // A v2 input is still read; its fingerprint names v3, so every cell is written again once.
+  assert.equal(historyInputFingerprint({ ...input(rows), as_of: '2026-09-23', schema: 'soulforge.history_input.v2' }),
+    historyInputFingerprint({ ...input(rows), as_of: '2026-09-23', schema: HISTORY_INPUT_SCHEMA }));
   assert.equal(historyInputFingerprint({ ...input(rows), as_of: '2026-09-23' }), dg({ input_format: HISTORY_INPUT_SCHEMA,
     project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23', records_sha256: ht(data.records.map(row => dg(row)).join('\n')) }));
   assert.throws(() => normalizeHistoryInput({ ...input(rows), schema: 'soulforge.history_input.v1' }), /history_input_invalid/);
@@ -995,4 +999,51 @@ test('the view shows a code-generated collection note and marks an oversize mail
   const quiet = renderHistory(data, daily, new Map(), null, null, { coverage_note: { voice_without_card: 0, slack_held: 0, mail_not_collected: [], mail_oversize: 0 } }, false, { external: true });
   assert.ok(!quiet.includes('수집 현황'));
   assert.throws(() => renderHistory(data, daily, new Map(), null, null, { coverage_note: { other: 1 } }), /history_display_metadata_invalid/);
+});
+
+test('Linear and Slack evidence lines show people and task state, never account ids or empty attachment notes', () => {
+  const uuid = '00000000-1111-2222-3333-444444444444';
+  const rows = [
+    record('L1', '2026-09-20', '합성 작업', { kind: 'linear', title: '합성 작업 제목', sender: '합성 작성자',
+      recipient: '합성 담당자', originrefs: [{ source_kind: 'linear', issue_state: '진행 중' }] }),
+    record('L2', '2026-09-20', '합성 댓글', { kind: 'linear', title: '합성 작업 제목', sender: uuid, recipient: '미기록' }),
+    record('L3', '2026-09-20', '합성 첨부 작업', { kind: 'linear', title: '합성 첨부 제목', sender: '합성 작성자', recipient: '',
+      attachments: ['합성 도면.pdf'] }),
+    record('S1', '2026-09-20', '합성 슬랙', { kind: 'slack', title: '합성 슬랙 제목', sender: 'U0SYNTH1', recipient: 'C0SYNTH' })];
+  const view = viewOf(rows, { daily: [['2026-09-20', [['작업.', ['L1']], ['댓글.', ['L2']], ['첨부.', ['L3']], ['슬랙.', ['S1']]]]] });
+  const lines = view.split('\n').filter(text => text.startsWith('  - 근거: '));
+  assert.deepEqual(lines, [
+    '  - 근거: 2026-09-20 · Linear · 합성 작성자 · 합성 작업 제목 · 담당 합성 담당자 · 상태 진행 중',
+    '  - 근거: 2026-09-20 · Linear · 작성자 미기록 · 합성 작업 제목',
+    '  - 근거: 2026-09-20 · Linear · 합성 작성자 · 합성 첨부 제목 · 첨부: 합성 도면.pdf',
+    '  - 근거: 2026-09-20 · Slack · 작성자 미확인 · 합성 슬랙 제목']);
+  assert.doesNotMatch(view, /00000000-1111|U0SYNTH1|첨부명 미기록|→ 미기록/u);
+});
+
+test('voice segment records: the writer sees segment title, nature and KST range; uncited non-work segments are counted apart', async () => {
+  const { partitionDay: split } = await import('../../src/knowledge_layer/history_batches.mjs');
+  const { digest: dg } = await import('../../src/knowledge_layer/data.mjs');
+  const group = nature => ({ source_kind: 'voice', session_id: 's1', card_segment_id: `seg-${nature}`, attribution: 'candidate_only_not_accepted',
+    recorded_at: '2026-09-20T09:00:00+09:00', segment_title: `합성 ${nature} 구간`, segment_nature: nature,
+    derived_title_only: true, semantic_fact_verified: false });
+  const groups = [group('project_work'), group('personal')];
+  const keys = groups.map(g => dg(g).slice(7, 23));
+  const rows = groups.map((g, i) => record(`voice_segment:${keys[i]}:20260920`, '2026-09-20', `합성 발화 ${i}\n합성 발화 ${i}b`, {
+    kind: 'voice_segment', title: g.segment_title, sender: '발화자 미확인', recipient: '미기록', evidence_mode: 'source_id',
+    thread_ref: `voice:${keys[i]}`, originrefs: [{ voice_group: keys[i], source_offsets: [[10 * i, 60, 90], [10 * i + 1, 90, 330]] }] }));
+  const data = normalizeHistoryInput({ project: 'DEMO-1', month: '2026-09', as_of: '2026-09-23', schema: 'soulforge.history_input.v3',
+    records: rows, voice_groups: Object.fromEntries(keys.map((key, i) => [key, groups[i]])) });
+  const batch = split({ project: 'DEMO-1', day: '2026-09-20', rows: data.records, limit: 7200, voiceGroups: data.voice_groups })[0];
+  const shown = batch.user.threads.flatMap(thread => thread.records);
+  assert.deepEqual(shown.map(row => row.segment), [
+    { title: '합성 project_work 구간', nature: 'project_work', time: '09:01–09:05', utterances: 2 },
+    { title: '합성 personal 구간', nature: 'personal', time: '09:01–09:05', utterances: 2 }].sort((a, b) =>
+      shown.findIndex(row => row.segment.title === a.title) - shown.findIndex(row => row.segment.title === b.title)));
+  assert.ok(shown.every(row => row.text.includes('\n')));
+  // Without groups (older callers) the rows are exactly as before.
+  assert.ok(split({ project: 'DEMO-1', day: '2026-09-20', rows: data.records, limit: 7200 })[0]
+    .user.threads.flatMap(thread => thread.records).every(row => !('segment' in row)));
+  const daily = new Map([['2026-09-20', { layer: 'daily', key: '2026-09-20', cards: [] }]]);
+  assert.deepEqual(historySourceCoverage(data, daily), [{ date: '2026-09-20', total_sources: 2, unquoted_sources: 2,
+    unquoted_non_work_voice: 1 }]);
 });

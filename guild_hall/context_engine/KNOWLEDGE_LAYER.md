@@ -42,7 +42,13 @@ PLAUD 원제목·녹음 시각·발화 번호/구간·녹음/전사 링크는 �
 --sources <absolute JSON> --output-root <existing private directory>`로 수집 보관본을 고정한다.
 날짜 기본값은 KST 어제, `--from-date` 기본값은 대상 월 첫날이다. 과거 월은 별도 출력 폴더를 쓴다.
 메일은 귀속 색인, Slack은 지정 채널, Linear는 정확한 과제 ID, 음성은 지정 카드의 발화 연결과 철회 규칙을 따른다.
-음성 `first_candidate` 정책은 카드 구간의 첫 과제 후보가 이 과제인 것(약·강 모두)과 사람 확정분을 넣는다.
+음성 `first_candidate` 정책(규칙 `first_candidate_strict.v1`)은 사람 확정분과, 카드 구간의 첫 과제 후보가 이 과제이면서
+(가) 후보가 강하고 구간 성격이 `personal`·`unreadable`이 아니거나, (나) 후보가 약하면 구간 성격이 `project_work`이고
+다른 과제 언급·다른 과제 강한 후보가 없으며 그 구간 발화 원문에 과제 코드(`P00-000`/`P00_000`/`P00000`) 또는 음성 설정
+`project_terms`(Owner 지정)가 글자로 있을 때만 넣는다. 카드가 서면 자료와 맞춘 용어는 실측에서 대부분 일반어라 쓰지 않는다.
+나머지는 voice 영수증 `candidate_rule`(`included_*`·`excluded_strong_nature`·`excluded_weak_nature`·
+`excluded_weak_other_project`·`excluded_weak_no_term`·`excluded_transcript_unverified`)에 세고 보는 판 `수집 현황`에
+`다른 과제·약한 후보 녹음 n건 제외`로 보인다.
 후보가 없는 구간은 같은 날 규칙(`history_voice_attribution.mjs`, `same_day_context.v1`)으로만 들어온다:
 검증된 카드·다른 과제 언급 없음·사람 확정/후보 없음이고, 그날 이 과제의 서면 자료가 1건 이상이며,
 발화 원문이나 녹음 원제목이 과제 코드·`same_day_context.project_terms` 또는 그날 서면 자료 참여자 이름
@@ -68,10 +74,21 @@ Slack custody HOLD는 되돌릴 수 없는 사건별 제외이므로 그 사건�
 모두 비면 하나를 `empty_body_all_copies`로 표시해 남기며 `duplicate_empty_copies`로 센다.
 Slack이 없는 과제는 sources 파일에 `"slack": {"project": ..., "none": true}`(또는 `channels: []`)로 적고 `slack_not_configured`로 남는다.
 AI 메모 제외, 원천 해시, 읽기 한도, 네 원천의 누락/오류 차단은 유지한다. 현재 수집의 완전성을 보증하지 않는다.
+Linear는 사람 계정으로 봇이 쓰므로 작성자만으로 AI 메모를 가릴 수 없다. 코드에 고정된 AI 업무메모 표지
+(`LINEAR_AI_MEMO_PATTERNS`: Work Brief·업무인입·작성주체 @AI·Evidence/Follow-up/Intake/대조 머리글·`Source:` 줄·
+"Linear에 복제하지 않"·"상태·담당·Due 변경하지 않" 등)와 설정 `ai_note_markers`·`ai_note_user_ids`로 가린다. AI가 쓴 댓글은
+통째로(`ai_work_note`), AI가 쓴 이슈 설명은 본문만(`ai_work_note_body`) 빼고 이슈 제목·작성자·담당·상태는 Linear 사실로 남긴다.
+Linear 작성자·담당은 custody `users`의 이름으로 바꾸고 없으면 `작성자 미기록`이다. 제외 수는 linear 영수증
+`excluded_reasons`와 `수집 현황`의 `AI 업무메모 제외 n건`(메일·Slack의 AI 메모 제외 포함)으로 보인다.
 
 준비 기준판은 **고정한 원천 입력**만 가리키며 초안 작성 완료를 뜻하지 않는다. `source_frozen`은 항상
 input_file을 돌려준다. 원천 변경일이 비어 있어도 이력 `--prepare`는 최종 작성된 cell 지문으로 미작성 칸을 판단한다.
 
+입력 형식 v3(`schema: soulforge.history_input.v3`, 2026-09-26): 음성 record 하나가 대화 구간 하나(KST 날짜별)다.
+id `voice_segment:<구간키>:<YYYYMMDD>`, kind `voice_segment`, 제목은 카드 구간 제목(길잡이), 본문은 구간 발화를 줄마다 이은 것,
+originref는 `{voice_group, source_offsets:[[발화번호,시작초,끝초],…]}`로 모든 발화의 번호·구간을 보존한다. 구간 장부에
+`recorded_at`·`segment_nature`가 더해져 작성자 배치에 `segment:{title,nature,time,utterances}`가 실린다. v2 입력도 읽지만
+지문이 v3을 이름하므로 모든 칸이 한 번 다시 쓰인다. 이하 v2 설명은 장부 구조로 그대로 유효하다.
 입력 형식 v2(`schema: soulforge.history_input.v2`): 음성 녹음·구간의 장부(세션·카드·전사 해시와 경로, 귀속과 이유,
 구간 제목)는 구간마다 한 번 `voice_groups`에 두고, 키는 그 항목 digest의 앞 16자다. 발화 한 줄에는 id·날짜·본문·
 `{voice_group, source_offsets}`만 남아 줄의 digest가 구간 장부 내용을 덮는다. 월 입력은 record와 group을 하나씩 bounded

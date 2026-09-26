@@ -188,7 +188,7 @@ test('finalize counts unquoted daily sources and retains one unprocessed batch',
   const accepted = finalizeHistoryExchange({ input: data, outputRoot: dir, rulesText,
     prepared: manifest(prepared), draft });
   assert.deepEqual(accepted.source_coverage, [{ date: '2026-09-14',
-    total_sources: 2, unquoted_sources: 2 }]);
+    total_sources: 2, unquoted_sources: 2, unquoted_non_work_voice: 0 }]);
   assert.deepEqual(accepted.accepted_cells[0].unprocessed_batches, draft.drafts[0].unprocessed_batches);
   const view = readFileSync(join(dir, accepted.head.view_file), 'utf8');
   assert.match(view, /미처리 묶음: 1번\(JSON 형식 오류\)/);
@@ -212,7 +212,7 @@ test('large daily cell saves bounded card batches and restores the full view', t
   assert.ok(stored.card_batches.length > 1);
   assert.equal(stored.card_batches.reduce((total, part) => total + part.count, 0), 150);
   assert.deepEqual(accepted.source_coverage, [{ date: '2026-09-14',
-    total_sources: 1, unquoted_sources: 0 }]);
+    total_sources: 1, unquoted_sources: 0, unquoted_non_work_voice: 0 }]);
   const view = readFileSync(join(dir, accepted.head.view_file), 'utf8');
   // All 150 sentences cite the same source; the view groups them into bounded
   // paragraphs of at most 6 sentences, in order.

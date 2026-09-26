@@ -37,6 +37,26 @@ function requireProject(project, config) {
 function noteText(text, config) {
   return (config.ai_note_markers ?? []).some(marker => typeof marker === 'string' && marker.length >= 4 && text.includes(marker));
 }
+// Built-in signatures of AI work memos written into Linear (work briefs, intake
+// follow-ups, evidence notes, process notes). Linear custody records every
+// author as a person account (agents write through a person's key), so the
+// actor alone cannot tell a memo apart; these fixed structural markers are
+// always applied, and `ai_note_markers` / `ai_note_user_ids` add to them.
+// Matched text never becomes a history source; each exclusion is counted.
+export const LINEAR_AI_MEMO_PATTERNS = Object.freeze([
+  /^\s*#{1,4}\s*(?:합성\s*)?Work Brief/mu,
+  /^\s*\[(?:업무인입|FOLLOW[-_ ]?UP|HANDOFF)/imu,
+  /작성주체\s*[:：]\s*@?(?:Codex|ChatGPT|Claude|Hermes|Gemini|AI)/iu,
+  /^\s*#{1,4}\s.*(?:Evidence|Follow-?up|FOLLOW_UP|Lifecycle|Handoff|Intake|Gate|자동 수집|대조)/imu,
+  /^\s*#{1,4}\s*(?:Owner|AI)\s/mu,
+  /^\s*(?:Source|Sources)\s*[:：]/mu,
+  /^\s*(?:Evidence update|AUTO_APPLIED_EVIDENCE|FOLLOW[-_]UP)/mu,
+  /Linear에\s*(?:기록|복제)하지\s*않/u,
+  /상태·담당·Due(?:는|를)?\s*변경하지\s*않/u,
+]);
+export const isLinearAiMemoText = text => typeof text === 'string'
+  && LINEAR_AI_MEMO_PATTERNS.some(pattern => pattern.test(text));
+const linearMemo = (text, config) => isLinearAiMemoText(text) || noteText(text, config);
 function flatRecord(project, kind, native, instant, text, title, sender, refs, extra = {}) {
   return { id: idFor(kind,native), project, date: kstDay(instant), kind, title: String(title ?? ''),
     sender: String(sender ?? '미기록'), recipient: '미기록', attachments: [], thread_ref: idFor(kind,native),
@@ -48,6 +68,19 @@ export async function readLinearHistory({project,fromDate,throughDate,config}) {
   if (!Array.isArray(config.project_ids) || !config.project_ids.every(safe)) fail('history_linear_project_ids_invalid');
   const root = openSourceRoot(config.root), read = bounded(config);
   const receipts = [], records = [], excluded = [], allIssues = new Map();
+  // Display names from the collected users (latest snapshot): the history shows
+  // who wrote or holds a task, never a raw account id.
+  const names = new Map();
+  if ((await root.list([])).some(e=>e.name==='users'&&e.directory)) {
+    for (const entry of await root.list(['users'])) {
+      if (!entry.directory || !safe(entry.name)) continue;
+      const user = (await snapshots('users',entry.name)).at(-1)?.value;
+      const name = [user?.name, user?.display_name].find(value => typeof value === 'string' && value.trim() && value.length <= 200);
+      if (name) names.set(entry.name, name.trim());
+    }
+  }
+  const personName = id => (typeof id === 'string' && names.get(id)) || '작성자 미기록';
+  const assigneeName = id => typeof id === 'string' && id ? names.get(id) ?? '담당자 이름 미기록' : '';
   async function snapshots(kind, objectId) {
     if (!safe(objectId)) fail('history_linear_object_id_invalid');
     const rows = [];
@@ -75,14 +108,20 @@ export async function readLinearHistory({project,fromDate,throughDate,config}) {
     const row = latest.value, instant = row.updated_at ?? row.created_at;
     if (!inWindow(instant,fromDate,throughDate)) continue;
     const body = String(row.description ?? '');
-    if (isMemo(row) || noteText(body,config) || (config.ai_note_label_ids ?? []).some(id => (row.label_ids ?? []).includes(id))) {
+    if (isMemo(row) || (config.ai_note_label_ids ?? []).some(id => (row.label_ids ?? []).includes(id))) {
       excluded.push({kind:'linear',id_hash:hashText(entry.name),reason:'ai_work_note'}); continue;
     }
-    const text = `${row.title ?? ''}${body ? '\n'+body : ''}`;
-    records.push(flatRecord(project,'linear',`issue:${entry.name}`,instant,text,row.title,row.creator_id,
+    // An AI-written description (work brief) is left out; the issue itself (its
+    // title, people and state) stays as a Linear fact. The body exclusion is counted.
+    const memoBody = !!body.trim() && (linearMemo(body,config) || (config.ai_note_user_ids ?? []).includes(row.creator_id));
+    if (memoBody) excluded.push({kind:'linear',id_hash:hashText(entry.name),reason:'ai_work_note_body'});
+    const text = `${row.title ?? ''}${body && !memoBody ? '\n'+body : ''}`;
+    const state = typeof row.state_name === 'string' && row.state_name.trim() ? row.state_name.trim().slice(0,100) : null;
+    records.push(flatRecord(project,'linear',`issue:${entry.name}`,instant,text,row.title,personName(row.creator_id),
       [{source_kind:'linear',source_root:config.root,object_id:entry.name,object_kind:'issues',path:latest.file,content_sha256:latest.sha256,
-        project_id:row.project_id,time_basis:'provider_updated_at',snapshot_not_event_history:true}],
-      {thread_ref:idFor('linear',entry.name)}));
+        project_id:row.project_id,time_basis:'provider_updated_at',snapshot_not_event_history:true,
+        ...(state?{issue_state:state}:{}),...(memoBody?{ai_memo_body_excluded:true}:{})}],
+      {thread_ref:idFor('linear',entry.name),recipient:assigneeName(row.assignee_id)}));
   }
   for (const kind of ['comments','issue_history']) {
     const entries = await root.list([kind]);
@@ -94,7 +133,7 @@ export async function readLinearHistory({project,fromDate,throughDate,config}) {
       const row = latest.value, instant = row.created_at;
       if (!inWindow(instant,fromDate,throughDate)) continue;
       if (isMemo(row) || (config.ai_note_user_ids ?? []).includes(row.user_id ?? row.actor_id)
-        || noteText(String(row.body ?? ''),config)) {
+        || linearMemo(String(row.body ?? ''),config)) {
         excluded.push({kind:'linear',id_hash:hashText(entry.name),reason:'ai_work_note'}); continue;
       }
       let text = String(row.body ?? '');
@@ -108,20 +147,54 @@ export async function readLinearHistory({project,fromDate,throughDate,config}) {
       if (!text.trim()) { excluded.push({kind:'linear',id_hash:hashText(entry.name),reason:'empty_body'}); continue; }
       const issue = allIssues.get(row.issue_id).value;
       records.push(flatRecord(project,'linear',`${kind}:${entry.name}`,instant,text,issue.title,
-        row.user_id ?? row.actor_id ?? '미기록',[{source_kind:'linear',source_root:config.root,object_kind:kind,object_id:entry.name,
+        personName(row.user_id ?? row.actor_id),[{source_kind:'linear',source_root:config.root,object_kind:kind,object_id:entry.name,
           issue_id:row.issue_id,project_id:issue.project_id,path:latest.file,content_sha256:latest.sha256,time_basis:'provider_created_at'}],
         {thread_ref:idFor('linear',row.issue_id)}));
     }
   }
   receipts.push({source_kind:'linear',root_ref:hashText(config.root),project_ids:config.project_ids,selected_records:records.length});
-  return {records,displayMetadata:{},receipt:{status:'ok',records:records.length,excluded:excluded.length},excluded,sourceReceipts:receipts};
+  const reasons = {}; for (const item of excluded) reasons[item.reason] = (reasons[item.reason] ?? 0) + 1;
+  return {records,displayMetadata:{},receipt:{status:'ok',records:records.length,excluded:excluded.length,excluded_reasons:reasons},excluded,sourceReceipts:receipts};
 }
+
+// Candidate rule (first_candidate policy): a card's first project candidate is
+// a model suggestion, so it alone does not place talk in a project's history.
+// A segment enters only when its first candidate is this project AND either the
+// candidate is strong (and the talk is readable work, not personal/unreadable),
+// or it is weak but the segment is project work, names no other project, and its
+// own utterances contain this project's code or one of the Owner-configured
+// `project_terms` of the voice sources config. Terms the card matched against
+// written sources are not used: measured on real cards they are mostly generic
+// words (receive, PC, software) and would let unrelated talk in.
+// Every excluded segment is counted in the voice receipt.
+export const VOICE_CANDIDATE_RULE = 'first_candidate_strict.v1';
+const STRONG_EXCLUDED_NATURES = new Set(['personal', 'unreadable']);
+function candidateVerdict(segment, project) {
+  const first = segment.project_candidates?.[0];
+  if (first?.strength === 'strong') return STRONG_EXCLUDED_NATURES.has(segment.nature) ? 'excluded_strong_nature' : 'strong';
+  if (segment.nature !== 'project_work') return 'excluded_weak_nature';
+  if ((segment.other_project_mentions ?? []).some(item => item?.project_code && item.project_code !== project)
+    || (segment.project_candidates ?? []).slice(1).some(item => item?.project_code && item.project_code !== project && item.strength === 'strong'))
+    return 'excluded_weak_other_project';
+  return 'weak';
+}
+function voiceProjectTerms(project, config) {
+  const raw = config.project_terms ?? [];
+  if (!Array.isArray(raw) || raw.length > 200 || raw.some(term => typeof term !== 'string' || term.length > 100))
+    fail('history_voice_project_terms_invalid');
+  const codes = [project, project.replace(/-/gu, '_'), project.replace(/-/gu, '')];
+  return [...new Set([...codes, ...raw].map(term => term.normalize('NFC').trim().toLowerCase())
+    .filter(term => term.length >= 2))].sort();
+}
+const termMatch = (text, terms) => { const hay = String(text ?? '').normalize('NFC').toLowerCase();
+  return terms.find(term => hay.includes(term)) ?? null; };
 
 /** `sameDay` = {own, peers, peersComplete} (Maps from sameDayContext) enables weak same-day
  * attribution; absent = off. A match that any peer project also has is ambiguous and not attributed. */
 export async function readVoiceHistory({project,fromDate,throughDate,config,sameDay=null}) {
   requireProject(project,config);
   if (!['confirmed','first_candidate'].includes(config.project_policy)) fail('history_voice_policy_required');
+  const projectTerms = voiceProjectTerms(project, config);
   const sessions = openSourceRoot(config.sessions_root), cardsRoot = openSourceRoot(config.cards_root);
   const routes = config.routes_root ? openSourceRoot(config.routes_root) : null;
   if (config.project_policy==='confirmed'&&!routes) fail('history_voice_routes_required');
@@ -135,6 +208,11 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
   const sameDayCounts = {attributed_segments:0,attributed_utterances:0,unattributed_segments:0,
     nature_excluded:0,started_before_window:0,spill_utterances_excluded:0,
     no_written_source_day:0,no_match:0,ambiguous:0,peer_unverified:0,transcript_unverified:0};
+  // Candidate rule counts: segments starting in this window whose first candidate is this project.
+  const candidateCounts = {rule:VOICE_CANDIDATE_RULE,included_confirmed:0,included_strong:0,included_weak_term:0,
+    excluded_strong_nature:0,excluded_weak_nature:0,excluded_weak_other_project:0,excluded_weak_no_term:0,
+    excluded_transcript_unverified:0};
+  let segmentRecords = 0, segmentUtterances = 0, emptySegmentParts = 0;
   let sessionsWithoutCard = 0, sessionsCarded = 0;
   const routeNames = routes ? new Set((await routes.list([])).filter(e=>e.file).map(e=>e.name)) : new Set();
   const previousDate=new Date(Date.parse(fromDate+'T00:00:00Z')-86400000).toISOString().slice(0,10);
@@ -176,7 +254,8 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       const rawLedger=await read(routes,[session.name+'.json']); ledgerHash=rawLedger.sha256;
       ledger=validateVoiceRouteLedger(JSON.parse(rawLedger.text),{sessionId:session.name});
     }
-    const selected=[], pending=[];
+    const selected=[], pending=[], termPending=[];
+    const startsInWindow=segment=>{const s=started+Number(segment.start_seconds)*1000;return s>=windowStart&&s<windowEnd;};
     for(const segment of latest.card.segments){
       if(!safe(segment.segment_id))fail('history_voice_segment_invalid');
       const human=ledger?.segments.find(s=>s.segment_id===segment.segment_id);
@@ -185,14 +264,17 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       const confirmed=human?.status==='confirmed'&&human.project_candidates?.[0]?.project_code===project
         && JSON.stringify(human.source_segment_ids)===JSON.stringify(segment.source_segment_ids)
         && Array.isArray(human.transcript_ref)&&human.transcript_ref.includes(latest.card.transcript?.run_id);
-      const candidate=config.project_policy==='first_candidate'&&segment.project_candidates?.[0]?.project_code===project;
-      const weakShape=!confirmed&&!candidate&&sameDayOn
+      const first=!confirmed&&config.project_policy==='first_candidate'&&segment.project_candidates?.[0]?.project_code===project;
+      const verdict=first?candidateVerdict(segment,project):null;
+      if(first&&verdict.startsWith('excluded_')){if(startsInWindow(segment))candidateCounts[verdict]++;continue;}
+      const candidate=verdict==='strong', termCheck=verdict==='weak';
+      const weakShape=!confirmed&&!first&&sameDayOn
         &&(!human||(human.status!=='confirmed'&&!human.project_candidates?.length))&&sameDayEligible(latest.card,segment);
       // The same-day rule considers only work talk; other natures are counted, not placed.
       const weak=weakShape&&SAME_DAY_NATURES.has(segment.nature);
       if(weakShape&&!weak&&(()=>{const s=started+Number(segment.start_seconds)*1000;return s>=windowStart&&s<windowEnd;})()){
         sameDayCounts.unattributed_segments++;sameDayCounts.nature_excluded++;}
-      if(!confirmed&&!candidate&&!weak)continue;
+      if(!confirmed&&!candidate&&!termCheck&&!weak)continue;
       if(!Number.isFinite(segment.start_seconds)||!Number.isFinite(segment.end_seconds)
         ||segment.start_seconds<0||segment.end_seconds<segment.start_seconds)fail('history_voice_range_invalid');
       const instant=new Date(started+segment.start_seconds*1000).toISOString();
@@ -204,10 +286,12 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
         if(!sameDay.own.has(day)){sameDayCounts.unattributed_segments++;sameDayCounts.no_written_source_day++;continue;}
         pending.push({segment,instant,day});continue;
       }
+      if(termCheck){termPending.push({segment,instant});continue;}
       if(started+segment.start_seconds*1000<windowStart)windowCounts.segments_started_before_window++;
+      if(startsInWindow(segment))candidateCounts[confirmed?'included_confirmed':'included_strong']++;
       selected.push({segment,instant,strength:confirmed?'confirmed':'candidate_only_not_accepted'});
     }
-    if(!selected.length&&!pending.length)continue;
+    if(!selected.length&&!pending.length&&!termPending.length)continue;
     const tr=latest.card.transcript;
     if(!safe(tr?.run_id)||!/^sha256:[0-9a-f]{64}$/u.test(tr?.sha256??''))fail('history_voice_transcript_ref_invalid');
     // A PLAUD-primary card reads the provider transcript at the session root; every
@@ -224,7 +308,8 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       if(transcript.sha256!==tr.sha256)fail('history_voice_transcript_digest_mismatch');
     }catch(error){
       if(selected.length)throw error;
-      sameDayCounts.unattributed_segments+=pending.length;sameDayCounts.transcript_unverified+=pending.length;continue;
+      sameDayCounts.unattributed_segments+=pending.length;sameDayCounts.transcript_unverified+=pending.length;
+      candidateCounts.excluded_transcript_unverified+=termPending.filter(({segment})=>startsInWindow(segment)).length;continue;
     }
     const voiceDisplay={...(typeof manifest.source_page_title==='string'&&manifest.source_page_title
       ? {title:manifest.source_page_title}:{}),recorded_at:manifest.recorded_at_local,session_id:session.name,
@@ -244,6 +329,17 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       if(byId.has(row.segment_id))fail('history_voice_duplicate_asr_segment');
       byId.set(row.segment_id,row);
     }
+    // Weak first candidates: kept only when the segment's own words name the project.
+    const terms=projectTerms;
+    for(const {segment,instant} of termPending){
+      const ids=Array.isArray(segment.source_segment_ids)?segment.source_segment_ids:[];
+      const spoken=ids.map(id=>byId.get(id)).filter(Boolean).map(row=>String(row.content??'')).join('\n');
+      const term=termMatch(spoken,terms);
+      if(!term){if(startsInWindow(segment))candidateCounts.excluded_weak_no_term++;continue;}
+      if(startsInWindow(segment))candidateCounts.included_weak_term++;
+      if(started+segment.start_seconds*1000<windowStart)windowCounts.segments_started_before_window++;
+      selected.push({segment,instant,strength:'candidate_only_not_accepted',termReason:{rule:VOICE_CANDIDATE_RULE,matched_term:term}});
+    }
     for(const {segment,instant,day} of pending){
       const ids=Array.isArray(segment.source_segment_ids)?segment.source_segment_ids:[];
       const spoken=ids.map(id=>byId.get(id)).filter(Boolean).map(row=>String(row.content??'')).join(' ');
@@ -259,7 +355,7 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
       selected.push({segment,instant,strength:SAME_DAY_ATTRIBUTION,reason,day});
     }
     if(!selected.length)continue;
-    for(const {segment,instant,strength,reason,day} of selected){
+    for(const {segment,instant,strength,reason,day,termReason} of selected){
       const ids=segment.source_segment_ids;
       if(!Array.isArray(ids)||!ids.length||new Set(ids).size!==ids.length||ids.some(id=>!Number.isSafeInteger(id)))fail('history_voice_source_ids_invalid');
       const native=ids.map(id=>byId.get(id));
@@ -268,6 +364,21 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
         ||row.end_seconds<row.start_seconds||row.start_seconds<segment.start_seconds-0.02||row.end_seconds>segment.end_seconds+0.02)
         ||ids.some((id,index)=>index>0&&id<=ids[index-1]))fail('history_voice_range_mismatch');
       if(ids.some(id=>latest.card.segments.filter(s=>s.source_segment_ids?.includes(id)).length!==1))fail('history_voice_source_overlap');
+      // Input format v3: one record per conversation segment and KST day. The
+      // recording/segment bookkeeping is stored once in voice_groups under a
+      // content key; the record holds the segment's utterances (one per line)
+      // and every utterance's number and time range, so no line is lost.
+      const segmentKey=hashText(`${session.name}:${segment.segment_id}`).slice(7,23);
+      const group={source_kind:'voice',source_root:config.sessions_root,card_source_root:config.cards_root,
+        session_id:session.name,card_run_id:latest.run,card_segment_id:segment.segment_id,card_sha256:latest.sha256,
+        manifest_sha256:manifestRead.sha256,transcript_sha256:transcript.sha256,transcript_path:transcriptPath,
+        attribution:strength,route_ledger_sha256:ledgerHash,...(reason?{attribution_reason:reason}:{}),
+        ...(termReason?{attribution_reason:termReason}:{}),
+        recorded_at:manifest.recorded_at_local,segment_title:String(segment.title??'녹음'),
+        segment_nature:typeof segment.nature==='string'?segment.nature:null,
+        derived_title_only:true,semantic_fact_verified:false};
+      const groupKey=digest(group).slice(7,23);
+      const byDay=new Map();
       for (const utterance of native) {
         const utteranceTime=new Date(started+utterance.start_seconds*1000).toISOString();
         if(!inWindow(utteranceTime,fromDate,throughDate)){
@@ -276,23 +387,21 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
         }
         // A same-day attribution holds only for its own day; lines past midnight are counted.
         if(reason&&kstDay(utteranceTime)!==day){sameDayCounts.spill_utterances_excluded++;continue;}
-        // Input format v2: the recording/segment bookkeeping is stored once per
-        // segment in voice_groups under a content key; each line keeps only its
-        // text, its time range and that key.
-        const segmentKey=hashText(`${session.name}:${segment.segment_id}`).slice(7,23);
-        const group={source_kind:'voice',source_root:config.sessions_root,card_source_root:config.cards_root,
-          session_id:session.name,card_run_id:latest.run,card_segment_id:segment.segment_id,card_sha256:latest.sha256,
-          manifest_sha256:manifestRead.sha256,transcript_sha256:transcript.sha256,transcript_path:transcriptPath,
-          attribution:strength,route_ledger_sha256:ledgerHash,...(reason?{attribution_reason:reason}:{}),
-          segment_title:String(segment.title??'녹음'),derived_title_only:true,semantic_fact_verified:false};
-        const groupKey=digest(group).slice(7,23);
+        const at=kstDay(utteranceTime);
+        if(!byDay.has(at))byDay.set(at,[]);
+        byDay.get(at).push(utterance);
+      }
+      for(const [at,lines] of byDay){
+        const text=lines.map(row=>String(row.content??'').trim()).filter(Boolean).join('\n');
+        if(!text){emptySegmentParts++;continue;}
         voiceGroups[groupKey]=group;
-        records.push({id:`voice_utterance:${segmentKey}:${String(utterance.segment_id).padStart(8,'0')}`,project,
-          date:kstDay(utteranceTime),kind:'voice_utterance',title:'',sender:'발화자 미확인',recipient:'미기록',attachments:[],
-          thread_ref:'voice:'+segmentKey,text:utterance.content,evidence_mode:'source_id',
-          originrefs:[{voice_group:groupKey,source_offsets:[[utterance.segment_id,utterance.start_seconds,utterance.end_seconds]]}]});
+        records.push({id:`voice_segment:${segmentKey}:${at.replace(/-/gu,'')}`,project,
+          date:at,kind:'voice_segment',title:String(segment.title??'녹음').slice(0,300),sender:'발화자 미확인',recipient:'미기록',attachments:[],
+          thread_ref:'voice:'+segmentKey,text,evidence_mode:'source_id',
+          originrefs:[{voice_group:groupKey,source_offsets:lines.map(row=>[row.segment_id,row.start_seconds,row.end_seconds])}]});
         voiceRecordings[session.name]=voiceDisplay;
-        if(reason)sameDayCounts.attributed_utterances++;
+        segmentRecords++;segmentUtterances+=lines.length;
+        if(reason)sameDayCounts.attributed_utterances+=lines.length;
       }
     }
     receipts.push({source_kind:'voice',session_ref:hashText(session.name),card_sha256:latest.sha256,transcript_sha256:transcript.sha256});
@@ -310,7 +419,10 @@ export async function readVoiceHistory({project,fromDate,throughDate,config,same
     if(!matched)fail('history_voice_cards_root_unmatched');
   }
   return {records,voiceGroups,displayMetadata:{voice_recordings:voiceRecordings},receipt:{status:'ok',records:records.length,excluded:excluded.length,
-    sessions_without_card:sessionsWithoutCard,window:windowCounts,...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
+    sessions_without_card:sessionsWithoutCard,window:windowCounts,
+    segments:{records:segmentRecords,utterances:segmentUtterances,empty_parts:emptySegmentParts},
+    ...(config.project_policy==='first_candidate'?{candidate_rule:candidateCounts}:{}),
+    ...(sameDayOn?{same_day:sameDayCounts}:{})},excluded,sourceReceipts:receipts};
 }
 
 // The same-day rule is on only when the voice config names its peers (possibly

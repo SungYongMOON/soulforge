@@ -153,7 +153,7 @@ test('a 2,000-line synthetic recording prepares a whole month and its day packet
     collected(rows, { voiceGroups: { [key]: group }, displayMetadata: display }) });
   assert.equal(result.status, 'source_frozen');
   const input = JSON.parse(readFileSync(join(dir, result.input_file), 'utf8'));
-  assert.equal(input.schema, 'soulforge.history_input.v2');
+  assert.equal(input.schema, 'soulforge.history_input.v3');
   assert.deepEqual(Object.keys(input.voice_groups), [key]); assert.equal(input.records.length, 2000);
   // The whole compact day fits one bounded snapshot (the day packet digests it); the
   // old per-line bookkeeping (~800 characters a line) would not.
@@ -174,10 +174,15 @@ test('prepare records a collection note from the lane receipts in the display me
   const [dir, cleanup] = root(); t.after(cleanup);
   const coverage = { lanes: { mail: { status: 'ok', counts: { oversize: 1 }, not_collected: ['mail_not_collected_before:2026-05'] },
     slack: { status: 'ok', counts: { held: 2, held_time_unknown: 1 } }, linear: { status: 'ok' },
-    voice: { status: 'ok', sessions_without_card: 4 } }, excluded: [] };
+    voice: { status: 'ok', sessions_without_card: 4, candidate_rule: { rule: 'first_candidate_strict.v1', included_strong: 2,
+      excluded_weak_no_term: 5, excluded_weak_nature: 1, excluded_strong_nature: 0 } } },
+    excluded: [{ kind: 'linear', reason: 'ai_work_note' }, { kind: 'linear', reason: 'ai_work_note_body' },
+      { kind: 'slack', reason: 'configured_ai_marker' }, { kind: 'linear', reason: 'empty_body' }] };
   const result = await prepareHistory({ ...options(dir, []), collector: async () =>
     collected([record('A', '2026-09-23', 'A fact')], { coverage }) });
   const display = JSON.parse(readFileSync(join(dir, result.display_file), 'utf8'));
+  // AI memo exclusions of every lane and voice segments the candidate rule left out are counted, not silent.
   assert.deepEqual(display.coverage_note, { voice_without_card: 4, slack_held: 3,
-    mail_not_collected: ['mail_not_collected_before:2026-05'], mail_oversize: 1 });
+    mail_not_collected: ['mail_not_collected_before:2026-05'], mail_oversize: 1,
+    ai_memo_excluded: 3, voice_candidate_excluded: 6 });
 });

@@ -111,12 +111,20 @@ function mergeDisplay(previous, incoming, scannedIds) {
   return snapshot(merged);
 }
 // Code-generated collection note for the view: what this prepare could not include.
-function coverageNote(lanes) {
+// AI work memo exclusions of every lane (reader reasons) and voice segments the
+// candidate rule left out are shown too: nothing is dropped silently.
+const AI_MEMO_REASONS = new Set(['ai_work_note', 'ai_work_note_body', 'explicit_ai_work_note', 'configured_ai_sender',
+  'configured_ai_subject', 'configured_ai_user', 'configured_ai_marker']);
+function coverageNote(lanes, excluded = []) {
   const count = value => Number.isSafeInteger(value) && value > 0 ? value : 0;
   const notCollected = Array.isArray(lanes.mail?.not_collected) ? lanes.mail.not_collected.filter(item => typeof item === 'string') : [];
+  const rule = plain(lanes.voice?.candidate_rule) ? lanes.voice.candidate_rule : {};
   return { voice_without_card: count(lanes.voice?.sessions_without_card),
     slack_held: count(lanes.slack?.counts?.held) + count(lanes.slack?.counts?.held_time_unknown),
-    mail_not_collected: [...new Set(notCollected)].sort(), mail_oversize: count(lanes.mail?.counts?.oversize) };
+    mail_not_collected: [...new Set(notCollected)].sort(), mail_oversize: count(lanes.mail?.counts?.oversize),
+    ai_memo_excluded: (Array.isArray(excluded) ? excluded : []).filter(item => AI_MEMO_REASONS.has(item?.reason)).length,
+    voice_candidate_excluded: Object.entries(rule).filter(([key]) => key.startsWith('excluded_'))
+      .reduce((sum, [, value]) => sum + count(value), 0) };
 }
 function sourceCounts(records) {
   const counts = {}; for (const row of records) counts[row.kind] = (counts[row.kind] ?? 0) + 1;
@@ -195,7 +203,7 @@ export async function prepareHistory({ project, date, fromDate, sourceConfig, ou
       ...(named.size ? { voice_groups: voiceGroups } : {}) };
     const historyFingerprint = historyInputFingerprint(input); // includes direct S1 memo guard
     const displayMetadata = mergeDisplay(priorDisplay, { ...(plain(collected.displayMetadata) ? collected.displayMetadata : {}),
-      coverage_note: coverageNote(collected.coverage.lanes) }, scannedIds);
+      coverage_note: coverageNote(collected.coverage.lanes, collected.coverage.excluded) }, scannedIds);
     const oldDays = dayFingerprints(priorInput?.records ?? []), newDays = dayFingerprints(records);
     const changedDays = [...new Set([...Object.keys(oldDays), ...Object.keys(newDays)])]
       .filter(day => day >= from && day <= target && oldDays[day] !== newDays[day]);
