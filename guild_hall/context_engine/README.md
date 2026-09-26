@@ -3,11 +3,25 @@
 자동 정리본 지식 층의 명시 호출·개발 평가는 [KNOWLEDGE_LAYER.md](KNOWLEDGE_LAYER.md)를 따른다.
 
 이력 작성기의 일·주·월·최근 있었던 일 증분 실행은 같은 문서의 `이력 CLI` 절을 따른다.
-호출자가 제공한 원천만 읽는 별도 명시 실행면이며 기존 맥락이·밤 사슬에는 자동 연결하지 않는다.
+호출자가 제공한 원천만 읽는 별도 명시 실행면이며 기존 맥락이에는 연결하지 않는다. 밤 사슬에는 아래 야간 이력 단계로만 붙인다.
 
 원천 준비는 `src/history_prepare_cli.mjs --prepare`로 고정한다. 이력은 `src/history_cli.mjs`의
 `--prepare` → 외부 초안 JSON → `--finalize`로 작성하며 모델을 호출하지 않는다.
 고정 초안 계약은 [HISTORY_DRAFT_FORMAT.md](HISTORY_DRAFT_FORMAT.md)를 따른다. 봇과 예약은 외부 담당 범위다.
+
+**야간 이력 단계** `harness/history_night.mjs`(2026-09-26)는 위 순서를 밤 사슬 한 단계로 묶는다: 과제마다
+원천 준비 → 바뀐 칸만 prepare → 일별 묶음·위층 packet 하나당 외부 작성자 호출(최대 2회, 두 번째는
+"JSON으로만 답하라." 추가; 일별 실패는 `unprocessed_batches`, 위층 실패는 그 과제 finalize 보류) → finalize를
+일·주·월·최근 현황 순으로 최대 4회 돈다. 작성자는 주입 함수이며 기본값은 `<command> -p <profile> chat -Q
+--query-file …` 외부 프로세스다(이 파일은 모델을 부르지 않는다). 같은 입력은 호출 0회이고, 끝난 일별 묶음 결과는
+private `work_root`에 내용 지문으로 캐시해 마감 중단 뒤 다음 밤에 다시 부르지 않는다. 플래그: `--config`(필수,
+`soulforge.history_night_config.v1`, 경로는 전부 config에) `[--config-sha256]` `--receipts`(필수) `[--projects]`
+`[--date]` `[--from-date]` `[--deadline HH:MM [--scheduled-start HH:MM]] [--no-start-within 분(기본 20)]`
+`[--profile] [--run-budget 초(기본 1200)]`. lock `history-night.lock`은 소유 pid가 죽었을 때만 치운다.
+영수증 `history-night-*.json`(`soulforge.history_night_receipt.v1`, 수·상태·시도 시간·응답 지문만, 본문 없음).
+종료 코드 0 OK · 2 FAILED · 3 LOCK_HELD · 4 SKIPPED_PAST_DEADLINE · 5 CONFIG_INVALID · 6 PARTIAL.
+lane spec `guild_hall/deployment_pack/lanes/history_night_lane.spec.json`(`history-night-v1`, 폐포 23파일, node 내장만).
+시험 `tests/knowledge_layer/history_night.test.mjs`(합성 자료·가짜 작성자). 예약·lane 설치·밤 사슬 설정 변경은 하지 않는다.
 
 ## K3 첫 실자료 위키 하네스 — 모델 응답은 out-of-band (`harness/knowledge_layer_real_wiki.mjs`, 2026-09-22, fresh review 반영)
 

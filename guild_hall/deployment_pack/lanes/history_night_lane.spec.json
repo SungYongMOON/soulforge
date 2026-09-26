@@ -1,0 +1,35 @@
+{
+  "schema": "soulforge.source_lane_spec.v0",
+  "lane_id": "history-night-v1",
+  "description": "v1 (2026-09-26): the nightly project-history step, guild_hall/context_engine/harness/history_night.mjs. Per configured project it freezes sources (src/knowledge_layer/history_prepare.mjs with the native history_sources.mjs collector), prepares only the changed history cells (history_exchange.mjs fingerprint selection), sends each daily batch or upper packet to an external writer (default: a Hermes profile run as a separate process; at most 2 calls per unit) and finalizes the draft; a lock, a no-start cutoff before --deadline and one counts-only receipt (soulforge.history_night_receipt.v1) bound it. It is meant to run as one night-chain step. tracked_paths are exactly the relative-import closure of that one entry point, computed with guild_hall/deployment_pack/tools/spec_closure_lib.mjs moduleClosure() (23 files: 17 in context_engine including ops/night_chain.mjs for nextDeadlineInstant, plus engineering_engine validators/kernel identity, gateway/mail_body_excerpt.mjs, shared/io.mjs and shared/project_history_envelope.mjs). Every file imports node: builtins only, so there are no carried_forward_prefixes and no node_modules. No registrar or launcher: the night chain starts it. This spec registers no task and builds no lane by itself.",
+  "tracked_paths": [
+    "guild_hall/context_engine/harness/history_night.mjs",
+    "guild_hall/context_engine/ops/night_chain.mjs",
+    "guild_hall/context_engine/src/adapters/sources/guarded_files.mjs",
+    "guild_hall/context_engine/src/adapters/sources/mail_event_source.mjs",
+    "guild_hall/context_engine/src/adapters/sources/slack_custody_source.mjs",
+    "guild_hall/context_engine/src/adapters/sources/voice_session_source.mjs",
+    "guild_hall/context_engine/src/history_writer_output.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/data.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_batches.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_exchange.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_mail_slack.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_prepare.mjs",
+    "guild_hall/context_engine/src/knowledge_layer/history_sources.mjs",
+    "guild_hall/context_engine/src/runtime/mail_routes.mjs",
+    "guild_hall/context_engine/src/runtime/source_documents.mjs",
+    "guild_hall/context_engine/src/runtime/voice_routes.mjs",
+    "guild_hall/engineering_engine/core/validators/contract_config.mjs",
+    "guild_hall/engineering_engine/core/validators/identity.mjs",
+    "guild_hall/engineering_engine/kernel/identity.mjs",
+    "guild_hall/gateway/mail_body_excerpt.mjs",
+    "guild_hall/shared/io.mjs",
+    "guild_hall/shared/project_history_envelope.mjs"
+  ],
+  "tracked_excludes": [],
+  "carried_forward_prefixes": [],
+  "entry_points": [
+    "guild_hall/context_engine/harness/history_night.mjs"
+  ]
+}
